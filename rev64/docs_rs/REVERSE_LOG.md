@@ -968,6 +968,35 @@ F_25b92，用原版 so ground truth 把 stray 块移回属主函数）；② 重
 - `TEST-GAME GS8: gs8=0x%08x gs8_vt=0x%08x gs8_vt_off=0x%08x gs8_vt_plus18=0x%08x`
 - 用法：`setprop jq.test_game 1` → OnTimer 触发 → 构造场景 + F_2af44 → 读 gs[8] vtable
 
+#### 十二、逆向探查工具 so_probe.py（§124y-14 固化）
+
+**★ 新增 `rev64/tools/so_probe.py` —— 把"反汇编 vtable 槽 + 读 .so 静态数据 + 查 dispatch 表 +
+定位函数"这套高频手动探查（本轮每条 5-10 命令）固化成 6 个子命令**：
+| 子命令 | 作用 | 例 |
+|---|---|---|
+| `vtable <addr> [n]` | 读静态 vtable 槽值（.rodata）+ 标注 F_xxx 函数边界 | `so_probe.py vtable 0x159c80 20` |
+| `func <addr>` | 反汇编某地址所在函数（自动 objdump -D） | `so_probe.py func 0xad248` |
+| `slot <vt> <off>` | 读 vtable 某槽 + 反汇编目标函数首 6 指令 | `so_probe.py slot 0x159c80 0x28` |
+| `dispatch <addr>` | 查 0xADDR 是否在 jqt_vtbl_offs[] 表 + 对应 F_xxx + 定义行号 | `so_probe.py dispatch 0xad248` |
+| `reloc <va>` | 读某 VA 的 RELATIVE 重定位目标（+load_base 后值） | `so_probe.py reloc 0x1599e4` |
+| `strings <substr>` | .rodata 明文搜字符串 + 文件偏移 | `so_probe.py strings "Junqi.Move"` |
+
+**★ 与现有工具链配套（一条命令定位对象图）**：
+```
+bash rev64/tools/redroid_test.sh --no-install     # 跑测试钩子 + GS8 诊断日志（gs[8] 真实 vtable）
+python3 rev64/tools/so_probe.py dispatch <gs8_vt_off>   # 查该 vtable 槽是否已收进 dispatch 表
+python3 rev64/tools/so_probe.py slot <vt> <off>          # 反汇编目标方法
+```
+
+**★ 坑固化**：
+- `so_probe.py` 默认 so 路径 `/tmp/orig/lib/armeabi/libjunqi.so`（VA=文件偏移，原版 stripped so）；
+  可 `JQ_SO=<path>` 环境变量覆盖
+- `dispatch` 子命令依赖 `jqt_vtbl.c`（.gitignore 排除的生成大头）存在——离线可用，
+  但改 dispatch 表后需 `dispatch_insert.py` 重生成，再跑 `dispatch` 核对
+
+**★ 诚实边界**：so_probe.py 只读**静态 .so**（.rodata/.text 明文），不能看运行时堆对象图——
+运行时值靠 `redroid_test.sh` 抓 logcat（GS8 诊断钩子）+ so_probe.py 静态槽值对照。
+
 ### 调用链对齐统计（§124z-5，用户问"还有多少调用链没补齐"）——合并边界口径
 
 - **★ 统计口径修正**：seed_v2.json **不是完整函数边界表**（1334 个完整定义中仅 907 个在 seed 列表）→ 必须 `bnd = sorted(set(seed) | full | stub)` 合并边界；存根识别用**匿名参数**（`(uint32_t,uint32_t,...){return 0;}`），完整用命名参数 `_r0`（参数命名是区分关键，用 `return 0` 匹配会漏）

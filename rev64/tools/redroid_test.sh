@@ -10,6 +10,10 @@
 #   bash rev64/tools/redroid_test.sh                # 全流程（装+测+统计）
 #   bash rev64/tools/redroid_test.sh --no-install   # 跳过装 APK（已装好）
 #   bash rev64/tools/redroid_test.sh --wait 10      # 等待 10s（默认 5）
+#   配 rev64/tools/so_probe.py 做对象图探查（vtable/dispatch/slot/reloc/strings）：
+#     python3 rev64/tools/so_probe.py vtable 0x159c80
+#     python3 rev64/tools/so_probe.py dispatch 0xad248
+#     python3 rev64/tools/so_probe.py slot 0x159c80 0x28
 #
 # 判定：
 #   - miss 计数（BLX miss off=0x...）
@@ -65,6 +69,8 @@ echo "─── 崩溃计数: $CRASH ───"
 echo "─── 进程: ${PID:-DEAD} ───"
 echo "─── F_2afa4 关键日志 ───"
 echo "$LOG" | grep -E "F_2afa4: this|gs8=" | head -3
+echo "─── GS8 诊断（gs[8] 真实 vtable，§124y-13）───"
+echo "$LOG" | grep "TEST-GAME GS8" | head -2
 echo "─── F_a4234 日志 ───"
 echo "$LOG" | grep "F_a4234:" | head -3
 

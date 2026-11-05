@@ -151,7 +151,7 @@ java -cp /tmp/opencode/apksigner/apksig.jar:/tmp/opencode/apksigner SignV2 \
 | 文档 | 内容 | 状态 |
 |---|---|---|
 | `rev64/phases/REVERSE_NOTES.md` | 主逆向笔记（§1-§121） | ✅ 已有 |
-| `rev64/docs_rs/REVERSE_LOG.md` | 32 位逆向经验库（红线/终局反思/量化/§124y-10 触摸+游戏状态构造/§124y-11 游戏更新 dispatch 全链+容器工厂真实执行+F_78890/§124y-12 固化批量工具/§124y-13 gs[8] vtable 定位） | ✅ 成文（本轮迁移） |
+| `rev64/docs_rs/REVERSE_LOG.md` | 32 位逆向经验库（红线/终局反思/量化/§124y-10 触摸+游戏状态构造/§124y-11 游戏更新 dispatch 全链+容器工厂真实执行+F_78890/§124y-12 固化批量工具/§124y-13 gs[8] vtable 定位/§124y-14 so_probe.py 探查工具） | ✅ 成文（本轮迁移） |
 
 ### 流水线 orchestrator（一条命令跑通"逆向→正向→验收→补差异"全链）
 
@@ -162,6 +162,9 @@ java -cp /tmp/opencode/apksigner/apksig.jar:/tmp/opencode/apksigner SignV2 \
 | `rev64/tools/build_phases.sh` | **四阶段交付物一键构建+校验**（apktool b→STORE→zipalign→双签→dist/phaseX.apk→verify，幂等，资产全复用） | `bash rev64/tools/build_phases.sh all` / `phase2` / `--verify-only` |
 | `rev64/tools/bt_smali.sh` | **蓝牙 BtSpp.java→dex→smali→合并构建树**（javac+android-32+stub App→d8→baksmali→dec_dual/dec_full，幂等，--verify；**含 App.smali/BtStart 双树同步**） | `bash rev64/tools/bt_smali.sh` / `--verify` |
 | `rev64/tools/mumu_regress.sh` | **事件回归一键跑**（flag/mine/restart/draw/resign/stalemate/close/pop/btconn，首跑失败自动重跑一次容错时序，汇总 PASS/FAIL，--only 子集） | `bash rev64/tools/mumu_regress.sh --dev emulator-5554` / `--only flag,btconn` |
+| `rev64/tools/redroid_test.sh` | **redroid 测试钩子批量验证**（装机→清 prop→启→触发 jq.test_game=1→抓 GS8 诊断日志→判 miss/崩溃/存活，MuMu 宕机期间的确定性验证入口） | `bash rev64/tools/redroid_test.sh --no-install --wait 4` |
+| `rev64/tools/so_probe.py` | **32 位 so 静态探查**（vtable 槽/函数反汇编/槽反汇编/dispatch 表查询/RELATIVE 重定位/字符串搜，把本轮高频手敲的 objdump+struct+grep 固化成 6 子命令） | `python3 rev64/tools/so_probe.py vtable 0x159c80` / `dispatch 0xad248` / `slot 0x159c80 0x28` |
+| `rev64/tools/dispatch_insert.py` | **dispatch 表批量插入**（offs/fns/jqt_vtbl_n 三处同步 + 可选 stub 生成，幂等，fns/offs 逐行对齐） | `python3 rev64/tools/dispatch_insert.py 0xad248 0x78890 --gen-stub` |
 | `rev64/docs_rs/PIPELINE.md` | 流水线设计文档（每段一条命令 + 一组判据 + 一个诚实边界 + 5 固化原则） | 读 |
 
 ### 顶层规范（保留在本文件）
