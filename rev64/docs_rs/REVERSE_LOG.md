@@ -401,7 +401,7 @@ F_25b92，用原版 so ground truth 把 stray 块移回属主函数）；② 重
 
 ### 一、确实做不了的（工具/环境本质限制，本轮已实证闭环）
 
-- **unidbg/unicorn2 跑通 32 位 so 场景对象图构造 = 做不到**：OnCreate 已到 ~90%（§124d-h），最后 10% 三条阻塞链——① unicorn2 上下文相关 BL 解码 bug（0x7965a→0x6eaea，模拟器精度问题非翻译/逻辑）；② C++ 对象图语义缺失（std::vector begin/end 未初始化、std::list 节点 next 指针）；③ 288MB PROT_NONE mmap 处理失败。STL 容器喂随机结构体必崩/分叉是**输入不变量**（回归红线），模拟器无真实 C++ 运行时，构造不出场景对象 this[8] 链表头 + node+0xc next + this[0x24]/[0x34] 字符串这套真实数据
+- **unidbg/unicorn2 跑通 32 位 so 场景对象图构造 = 做不到**：OnCreate 已到 ~90%（§124d-h），最后 10% 三条阻塞链——① unicorn2 上下文相关 BL 解码 bug（0x7965a→0x6eaea，模拟器精度问题非翻译/逻辑）；② 数据与指令对齐对应缺口（std::vector begin/end 未初始化；场景对象图 std::list 节点 next 指针属 C.1 翻译体缺口）；③ 288MB PROT_NONE mmap 处理失败。STL 容器喂随机结构体必崩/分叉是**输入不变量**（回归红线），模拟器无真实 C++ 运行时，构造不出场景对象 this[8] 链表头 + node+0xc next + this[0x24]/[0x34] 字符串这套真实数据
 - **frida/redroid dump 运行时对象图 = 做不到**（§sp28-SCALE-9b 本轮实证）：redroid 32 位 app 进程瞬间崩（GLView.requestFocus NoSuchMethodError，64 位框架缺 32 位 JNI 方法），**32 位 so 根本不被 dlopen**（maps 里只有 64 位 src_rs 的 lib/arm64/libjunqi.so，lib/armeabi 不在）；redroid 无 GPU（红线），即使 so 加载 OnGraphCreate GL 链也跑不通；load_base 抓不到 → 0x138a52/0x138a3e 真值算不出。**frida/redroid 路线彻底走不通**
 - **MuMu 上 32 位翻译体"画棋盘/可玩" = 环境限制做不到**：MuMu GLES1 几何出帧受限（§124zz：glClear 类出帧正常，几何绘制三条路径全 fail；PBuffer 离屏出像素已证 GLES2 通路完整但 window surface 通路未通）；"画棋盘/能玩"需**真机 32 位 arm GPU 设备**（有 GPU + 原生 arm 支持），MuMu/redroid/unidbg 都替代不了
 - **场景对象图 C++ 数据填充 = 非"补 stub"能解**：全量 4245 场景闭包已翻译（代码 100% 对齐），但**运行时对象图数据**（std::list 节点 next 指针 / 场景对象 vtable / 0xbe9cc r0-r2 参数指针）需真实 C++ 构造链跑通，属 §124zz-4 红线规模化数据工程 + 真机 32 位 arm GPU 验收，非 1 人本轮可闭环
@@ -508,6 +508,287 @@ F_25b92，用原版 so ground truth 把 stray 块移回属主函数）；② 重
 - **★ 教训**：① 渲染链重新生成覆盖 wire（顺序=生成→wire→插桩）；② gen_vtbl.py 必须移植 gen_shadow 的 bx lr 桩规则；③ 0x23eec 类大函数对象图分歧需存根或逆向对象图；④ MuMu 映射完整（tombstone 显示 1.4MB 是 maps 片段截断）
 - **产物**：`rev64/dist/libjunqi_arm32_aligned.so`（§124z 当时 8.86MB；§124z 时点 5384728B≈5.13MB，**★ 现 sp28-SCALE-9/gate-set 后实测 8174548B≈8.17MB（C.5b `stat -c%s` 核对）**；p32_v178bu 构建产物 11890688B≈11.35MB APK 原在 `/tmp/opencode/` **已被清，dist `phase_chain_arm32.apk` 现为 14947863B≈14.95MB（sp28-SCALE-9 全量闭包版，C.5b 实测）**）+ `p32_v178ar.apk`（§124z 当时 15.37MB，无崩溃稳定基线）+ jqt_vtbl.c（0x24108/0xa36b8/0x27954 完整 + 0x23eec 存根 + 32 bx lr 桩）+ jqt_OnRender_full.c（44 blx wire + F_b6790 插桩）
 - **下一步**：① 攻 0x23eec 完整翻译（0x24010 vtable[52] dispatch 对象图，0x32f8c 返回值对象图）；② 找 glClear 类对象构造链；③ 出帧后清理诊断日志
+
+### MuMu arm32 翻译体帧循环走通（§124y-2 里程碑）——OnUpdate 连续被调 + F_b6a64 完整返回
+
+- **★ 决定性突破**：**OnUpdate 被连续调 2 次**（此前只 1 次即卡死）——**帧循环已走通**（首次调用完整执行，第 2 次进入后由阀/空容器兜底）
+- **★ F_b6a64 完整返回 r0=1**：第 1 次 OnUpdate 完整执行 F_bd5a0→F_b6a64→RET r0=1（此前 F_b6a64 永不返回）
+- **★ 卡点链逐层定位（机械化，非猜）**：F_b6a64 内 spin 不在 F_b8f20/F_b5f58（它们 RET 了，r0=0x9090xxxx 垃圾），在 **dispatch1（Lb6a86 → 0x237cc thunk → F_237e0）** → F_237e0 内 spin 在 **F_a3304** → F_a3304 内 spin 在 **F_ab874/F_ab614**（链表遍历，指针垃圾成环）
+- **★ F_ab874/F_ab614 链表成环实证**：迭代 r4 在 0xddb00000↔0xea960000（或 0xe1990000）振荡，MEM 读到垃圾 next 指针，无限遍历。加 **Lab87e/Lab620 循环阀（>0x100 强制返回）+ Lab8a6/Lab65e 内层阀** → 突破（OnUpdate=2）
+- **★ F_9f43c(r0=0x00000016)**：被 F_ab874 反复调，byte[r0+29]==0 → 立即返回（非 spin 本身），但 F_9f43c 的 ENTRY 日志预算（0x100）被 256 次调用耗尽——阀跳出后停止
+- **★ §124y 语义修复（本轮新，非阀）**：F_ab874/F_ab614 容器全局 **0x162448/0x16244c 在 BSS**（≥0x15be80，超出镜像），原版由容器管理函数（0xa3360/0xa3388 等 push 函数）**惰性构造**，但 F_a3304 直接读全局（`r0=MEM(global); bl F_ab874`）→ 原版要求全局非 0。翻译体未跑构造器 → 全局=0 → F_ab874 读 `MEM(0+8)`=垃圾 → 成环。**修复 `jqt_init_empty_containers()`**（JNI_OnLoad 调）：`MEM(0x162448)=0x162448; MEM(0x162450)=0x162448`（F_ab874 空链表哨兵 `[X+8]==X`）+ `MEM(0x16244c)=0x16244c; MEM(0x162454)=0x16244c`（F_ab614）→ **F_ab874/F_ab614 空列表立即返回**（语义正确：无待处理事件，非垃圾遍历）
+- **★ 12 个 init_array 构造器未翻译/未执行**（根因上游）：0x3dae0/0x6ef20/0xafbd8/0xafc84/0xaffd4/0xb01fc/0xb06f0/0xb1d68/0xb222c/0x105e8c/0x10a58c/0x11c10c，目标 0x15b0c8/0x15c06c/0x162554-0x162e28，**均非 0x162448**——F_a3304 容器全局不在 init_array，由运行时 push 函数构造
+- **★ F_a3304 全局解码**：PC-relative PIC 计算（`ldr r3,[pc,#imm]; add r3,pc; ldr r0,[r3]`）→ global1=0x162448（F_ab874）/global2=0x16244c（F_ab614）/global3=0x1620b8（F_a6620）/global4=0x15bf04（F_a373c），全在 BSS
+- **★ F_a6620/F_a373c 不 spin**（诚实边界）：F_a3304 完成后 F_237e0 返回 → F_b6a64 RET r0=1，说明 F_a6620/F_a373c 即使容器=0 也返回（F_a373c `r0=MEM(r0)` 垃圾指针但提前返回）
+- **★ 诚实边界**：阀/空容器是"跳出垃圾对象图"兜底，**非完整对象图重建**——对象图仍含未构造容器（0x162448 等），仅保证不 spin、OnUpdate 返回。**"能玩"仍需设备恢复后验证首帧出屏**
+- **产物**：`rev64/dist/libjunqi_arm32_aligned.so`（8264608B，含 F_ab874/F_ab614 阀 + jqt_init_empty_containers）+ `jqt_vtbl.c`（F_237e0/F_a3304/F_ab874/F_ab614/F_9f43c 阀+日志）+ `jqt_OnRender_full.c`（F_b6a64 内部日志 + F_bd5a0 路径日志）+ `jni_aligned.c`（jqt_init_empty_containers）
+- **下一步**：① 设备恢复后确认 OnUpdate≥3 连续（帧循环稳态）；② 若仍黑屏查 PER-FRAME-DRAW/F_9d43c/棋盘纹理上传/glClear 每帧；③ 文档化 F_b6a64 走通
+
+### MuMu arm32 翻译体帧循环稳态（§124y-3 里程碑）——F_a3304 全 callee 返回 + OnUpdate 连续 2000+ 次（redroid 实证）
+
+- **★ 决定性突破（redroid 实证，2026-11-05 14:10-14:11）**：**OnUpdate 连续 2382 次**（30s 稳定增长），**F_b6a64 RET=1023**（每帧完整返回 r0=1），**F_a3304 后 F_a373c=2406**（4 个 callee 全返回），**0 崩溃**，进程稳定。帧循环**完全稳态**（远超 OnUpdate≥3 目标）
+- **★ §124y 容器初始化修复**（`jqt_init_empty_containers`，JNI_OnLoad 调）：4 个 F_a3304 容器全局全初始化：
+  - `MEM(0x162448)=0x162448; MEM(0x162450)=0x162448`（F_ab874 空链表哨兵 `[X+8]==X`）
+  - `MEM(0x16244c)=0x16244c; MEM(0x162454)=0x16244c`（F_ab614 空链表哨兵）
+  - `MEM(0x1620b8)=0x1620b8`（F_a6620 容器，count[+4]=0 BSS 零 → 工作循环 0 次）
+  - `MEM(0x15bf04)=0x15bf04`（F_a373c 容器，字段零 → F_9f79c 早返回）
+- **★ redroid 实证日志**（F_a3304 全 callee）：`F_ab874 ENTRY r0=0x00162448` → `F_a3304 后 F_ab874 返回 r0=0x00162448`（无阀触发，空链表立即返回）；`F_ab614 ENTRY r0=0x0016244c` → 立即返回；`F_a6620 ENTRY r0=0x001620b8` → 返回 r0=0x90907298；`F_a373c ENTRY r0=0x0015bf04` → 返回 r0=0/0x2。**F_a3304 完整走通，无 spin**
+- **★ 渲染路径实证（redroid，无 GPU 但逻辑跑通）**：`F_9d3d4 渲染器单例构造 0x162400=0xf3408170 vtable=0x1595c0 px=jq_board_px w=737 h=751 texID=0(创建)`；`F_9e2b4 SLOT22-TRIGGER-GL texID 0→1 this[76]=1 px=0x0ba53188 w=737 h=751`（**棋盘纹理已创建**）；`DRAWOBJ-FILL 绘制对象构造 dobj batch=0xf36b1830 texID=1 count=6`（**绘制对象已构造**）；`gl_bridge 循环出帧#4993`（**渲染循环持续**）
+- **★ redroid 无 GPU 限制（诚实边界）**：`gl_bridge 循环出帧 swap失败 err=0x300d`（EGL swap 无真实 surface）+ `jqt_gl_frame_loop texID=1 当前 context 无效，重新创建`（无 GPU 无法真正出屏）——**redroid 只能验证逻辑/帧循环，不能验证"能玩"（出屏）**
+- **★ 堆损坏（redroid Android 11 严格 ART 检测）**：早期 run 曾 `HeapCorruption` abort（`at com.cnvcs.App.OnUpdate(Native method)`）——翻译体某处写坏 Java 堆地址（real 指针落 Java 堆）。**MuMu（Android 13 更宽松）未触发**，但这是**真实内存安全 bug**（非 redroid 特有），后续需定位写坏源（MEM real 映射写 Java 对象头）
+- **★ 教训**：F_a3304 容器（0x162448/0x16244c/0x1620b8/0x15bf04）在 BSS（≥0x15be80 超镜像），**不在 12 个 init_array 构造器目标**（0x162554-0x162e28）——由运行时 push 函数（0xa3360/0xa3388 等）惰性构造，F_a3304 直接读全局要求非 0。翻译体未构造 → 全局 0 → 链表/计数垃圾 → spin。**必须语义初始化空容器**（非阀兜底）
+- **产物**：`rev64/dist/libjunqi_arm32_aligned.so`（8265284B，4 容器 init + F_a6620/F_a373c 阀+日志）+ `jni_aligned.c`（jqt_init_empty_containers 4 容器）+ `jqt_vtbl.c`（F_a6620 La666c 阀 + F_a6620/F_a373c ENTRY 日志）
+- **下一步**：① **MuMu 恢复后验证出屏**（帧循环已稳态，棋盘纹理已建，绘制对象已构造——只差真实 EGL 渲染）；② 定位并修复 redroid 堆损坏（真实内存安全 bug）；③ 若 MuMu 出屏仍黑，查 glDrawElements/glClear 每帧 dispatch
+
+### 32 位翻译体 F_23eec 全链走通 + MuMu 黑屏根因定位（§124y-4 里程碑）——gl_bridge 帧循环只在 OnUpdate spawn，MuMu OnUpdate=0 → 黑屏
+
+- **★ F_23eec 全链实证（redroid，2026-11-05 14:30）**：`F_23eec enter → F_23610 → SLOT22-TRIGGER-GL（texID 0→1）→ DRAWOBJ-FILL（dobj 构造 + shader）→ F_9d43c 全链（F_9e760→glFlush→F_9d3d8→F_9f790 全返回）→ F_afc44（r6s=0 分支，trivial：MEM[r0]=r1;MEM[r0+4]=r2）→ F_23c58（33ms，真实几何计算）→ F_32f8c+dispatch（method=0xb1f3fa91，vtable slot13 空函数）→ F_76664 → F_28d00 → F_27bf8 → **RETURN** → `OnGraphCreate 完成 F_2349d 返回`。**全链走通无 spin**（此前"F_23eec 只跑 1 次/未返回"是缺日志误判）
+- **★ MuMu 黑屏根因定位（机械化，非猜）**：`gl_bridge` 持续出帧循环（jqt_gl_frame_loop）**只在 `jqt_gl_bridge`（F_23475，OnUpdate 路径）调用时 spawn**。MuMu 上 **OnUpdate=0**（GLThread onDrawFrame 不触发 JNI OnUpdate，MuMu surface attach flaky）→ F_23475 永不执行 → 帧循环永不 spawn → 棋盘只画 1 次（F_23eec DRAWOBJ-FILL 内 F_9d43c）→ GLThread 清屏 → **黑屏**。redroid 上 OnUpdate=2382 → 帧循环正常 spawn → 逻辑跑通
+- **★ 修复（§GLBRIDGE-F23EEC）**：F_23eec（OnGraphCreate 路径，MuMu 上必执行）末尾直接调 `jqt_gl_bridge(0xff9c6630)`：
+  - ① 复用 GLThread current surface（`eglGetCurrentSurface(EGL_DRAW)` 非 NO_SURFACE → 直接复用，不抢）
+  - ② spawn `jqt_gl_frame_loop` 持续出帧（每帧 glClear + F_9d43c 画棋盘 + eglSwapBuffers）
+  - 幂等：`g_jq_gl_inited` / `g_jq_gl_loop_started` 双守卫，OnUpdate 再调无副作用
+- **★ redroid 实证（2026-11-05 14:35）**：`gl_bridge: 复用 current surface=0xf332a5c0（GLThread 主循环）` → `gl_bridge: 出帧#1` → `gl_bridge: 持续出帧循环已 spawn` → `F_23eec 语义版: jqt_gl_bridge 调用完成` → `F_23eec 语义版: RETURN` → `OnGraphCreate 完成`。帧循环持续（循环出帧#257），OnUpdate=140 仍工作，**0 崩溃**
+- **★ Java GLThread 结构确认**：`GLView$GLThread.guardedRun()`：`onSurfaceCreated`（→JNI OnGraphCreate）→ `onSurfaceChanged` → `onDrawFrame`（→JNI OnUpdate，返回 Z=drawn）→ drawn==true ? swap : sleep(15ms)。`readyToDraw()` 要求 `!mPaused && mHasSurface && w>0 && h>0 && (mRequestRender || mRenderMode==1)`。MuMu 上 GLThread 100% CPU spin（utime 3211→3265/0.5s），PC 在 `[anon:Mem_0x20000000]`（JIT 区）——非 native OnGraphCreate 内 spin，是 Java 层 readyToDraw/事件循环忙等
+- **★ 诚实边界**：redroid 无 GPU（swap 失败 err=0x300d）只能验证逻辑/帧循环；**MuMu 恢复后才能验证出屏**（真实 EGL surface + swap）
+- **产物**：`rev64/dist/libjunqi_arm32_aligned.so`（8267436B，含 F_23eec 全链日志 + jqt_gl_bridge 调）+ `jqt_vtbl.c`（F_23eec 六段日志 + F_afc44/F_23c58/F_32f8c/F_76664/F_28d00/F_27bf8 前后日志 + jqt_gl_bridge）
+- **下一步**：① **MuMu 恢复后验证出屏**（帧循环已从 F_23eec spawn，只差真实 EGL swap 出屏）；② 定位 redroid 堆损坏（真实内存安全 bug）；③ 若 MuMu 出屏仍黑，查 jqt_gl_frame_loop 内 eglMakeCurrent/texID 重建路径
+
+### 本轮反思与改进（§124y-5 经验库循环——反思→总结→改进→固化→下一轮）
+
+#### 一、反思：什么做对了 / 什么做错了
+
+**✅ 做对的部分：**
+- **语义修复优先于阀兜底**（jqt_init_empty_containers）：4 个 F_a3304 容器全局（0x162448/0x16244c/0x1620b8/0x15bf04）在 BSS 需惰性构造——用**空容器语义**（F_ab874/F_ab614 自引用哨兵 `[X+8]==X`、F_a6620 count=0、F_a373c 字段零）而非继续加循环阀。这是**真修复**（语义正确：无待处理事件立即返回），非绕过
+- **全链逐段日志（F_23eec 六段追踪）**：在 F_afc44/F_23c58/F_32f8c/F_76664/F_28d00/F_27bf8 前后各加日志，**一次实证全链走通**（此前"F_23eec 只跑 1 次/未返回"是误判）。日志覆盖面 = 判断力
+- **根因机械化而非猜**：gl_bridge 帧循环 spawn 点定位（`jqt_gl_bridge → jqt_gl_bridge_start_frame_loop`，只在 F_23475/OnUpdate 路径）+ Java GLThread 结构确认（`readyToDraw()/guardedRun()` smali 逐行读）→ 得出"MuMu OnUpdate=0 → 帧循环永不 spawn → 黑屏"的**因果链**，不是猜测
+- **redroid 作为逻辑验证门**：每个修复先在 redroid（可靠逻辑环境）验证——F_23eec 全链完成、帧循环 spawn、0 崩溃、OnUpdate 持续增长。**redroid 是逻辑正确性的硬门槛**，MuMu 只负责 GPU 出屏
+
+**❌ 做错的部分（教训）：**
+- **误判"F_23eec 只跑 1 次/未返回"**：此前诊断 F_23eec 只被调 1 次、OnUpdate=0 → 棋盘未出屏。**错因 = logcat buffer 轮转**——主线程 OnTimer 每 100ms 刷 ~10 行，把 F_23eec 启动日志（一次性的）轮转掉，`logcat -d` 只看到 OnTimer 刷屏 → 误以为 F_23eec 未完成。**加全链日志后 redroid 实证 F_23eec 完整返回**，证明此前"未返回"是**日志缺失误判**（非真 bug）
+- **阀/guard 是症状绕过**：F_ab874/F_ab614/F_a6620/F_a373c 的循环阀（>0x100 强制返回）只是跳出垃圾对象图，**不解决"为什么容器=0"**。真修复是 jqt_init_empty_containers 语义初始化。**教训：加阀时同时做根因分析，阀是安全网不是答案**
+- **MuMu surface attach flaky 未提前隔离**：OnUpdate=0 是 MuMu 特有（GLThread onDrawFrame 不触发），redroid 上 OnUpdate=2382。**教训：平台特有行为要先隔离**（redroid 逻辑验证 + MuMu GPU 验证分开），否则在 MuMu 上误以为"翻译体 bug"
+- **堆损坏（redroid Android 11 严格 ART）**：早期 run `HeapCorruption` abort（`at OnUpdate(Native method)`）——容器修复后**已消除**（当前 0 崩溃），但说明 MEM real 地址写 Java 堆对象头是真实风险。**教训：MEM 对 real 指针的写要审慎**（加写保护/范围检查是后续硬化项）
+
+#### 二、闭环事实（本轮实证，可复现）
+
+1. **F_23eec 全链返回**：`enter → F_23610 → SLOT22(texID 0→1) → DRAWOBJ-FILL(dobj) → F_9d43c(F_9e760→glFlush→F_9d3d8→F_9f790) → F_afc44 → F_23c58(33ms) → F_32f8c+dispatch(method=0xb1f3fa91) → F_76664 → F_28d00 → F_27bf8 → RETURN`（redroid 14:30 实证）
+2. **jqt_gl_bridge 从 F_23eec spawn 帧循环**：`gl_bridge: 复用 current surface` → `持续出帧循环已 spawn` → `F_23eec RETURN` → `OnGraphCreate 完成`（redroid 14:35 实证，0 崩溃）
+3. **帧循环稳态**：redroid OnUpdate=7674（持续增长）+ gl_bridge 出帧 220+ + 0 崩溃（30s+ 稳定）
+4. **堆损坏消除**：容器修复后当前日志无 HeapCorruption（此前 Android 11 严格 ART 检测 abort 不再出现）
+5. **Java GLThread 契约**：`onSurfaceCreated`→JNI OnGraphCreate；`onDrawFrame`→JNI OnUpdate（返回 Z=drawn）；drawn ? swap : sleep(15ms)；`readyToDraw()` = `!paused && hasSurface && w>0 && h>0 && (requestRender || mode==1)`
+6. **eglCreateContext 回退硬化（redroid 实证 14:49）**：redroid 无 GPU → `eglCreateContext` 返回 EGL_NO_CONTEXT（`新ctx=0x0`）→ **回退到 GLThread cur_ctx**（`eglGetCurrentContext()`，`新ctx=0xf36256d0`）→ frame loop 用 GLThread 的 context（swap 仍失败 err=0x3002 = EGL_BAD_MATCH，redroid 无 GPU 预期内）。**0 崩溃**、OnUpdate=927 稳定、F_23eec RETURN、OnGraphCreate 完成。**MuMu（有 GPU）eglCreateContext 应成功，无需回退**——日志 `gl_bridge: 首帧 init disp/新ctx/cur_ctx/cfg_n` 可即时诊断
+7. **jqt_gl_frame_loop 优雅降级**：`eglMakeCurrent` 失败（err=0x3009/0x3002）→ 记日志、循环继续（不崩）——无 GPU 环境下 frame loop 静默跳过渲染，不拖垮进程
+
+#### 三、坑清单（防复发）
+
+- **logcat buffer 轮转**：主线程 OnTimer 刷屏 → 一次性启动日志被轮转掉。**必做**：测试前 `logcat -G 32M` + `logcat -c`，启动后 3-5s 内 `logcat -d` 抓一次性日志（F_23eec 等），不要依赖长时间后的 logcat -d
+- **阀兜底掩盖真因**：循环阀触发 ≠ 修复。**必做**：每次加阀时同时加 ENTRY/EXIT 日志，用日志实证"阀是否触发"+"真根因"；若阀常触发，说明语义仍缺（如容器未构造），需语义初始化而非继续加阀
+- **平台特有行为混同**：MuMu（OnUpdate=0）vs redroid（OnUpdate=2382）差异是**平台 GLThread 行为**，非翻译体逻辑。**必做**：先 redroid 验证逻辑，再 MuMu 验证 GPU，别在 MuMu 上误判"翻译体 bug"
+- **pack_arm32.sh dist cp 失败**：`cp rev64/dist/phase_chain_arm32.apk` 报 "cannot create regular file"（dist 目录缺失）。**必做**：`mkdir -p rev64/dist` 前置，或改脚本自动建目录
+- **MuMu 主机掉线**：`10.0.182.146` ARP FAILED（ping 无路由）——**外部不可控**。**必做**：redroid 始终保留作逻辑验证；MuMu 产物随时可装（APK 已就绪），恢复即装即验
+
+#### 四、方法论改进（固化到本工作流）
+
+| 改进 | 内容 | 落地 |
+|---|---|---|
+| **logcat 纪律** | 测试前 `logcat -G 32M` + `logcat -c`；启动后 3-5s 抓一次性日志；不用长时间后 logcat -d | 每轮 MuMu/redroid 测试前置 |
+| **全链日志覆盖** | 追踪链时在**每一段**前后加日志（F_23eec 六段模式），非只 ENTRY/RET | jqt_vtbl.c F_23eec 已落地 |
+| **redroid 逻辑门** | 每个修复先在 redroid 验证（0 崩溃 + 帧循环稳态 + 目标日志出现）→ 再上 MuMu | 本轮已验证（§124y-3/4） |
+| **语义修复 > 阀** | 容器/对象图未构造 → 语义初始化（空容器/自引用哨兵），阀只作安全网 | jqt_init_empty_containers 已落地 |
+| **平台隔离** | MuMu=GPU 出屏验证、redroid=逻辑验证，分开判据，不混同 | 本轮判据已固化 |
+| **备份纪律** | 改源码前 cp 到 `/tmp/jq_corrupt_backup/`（带日期/功能标记） | 本轮已做（jqt_vtbl.c.glbridge_f23eec 等） |
+
+#### 五、下一轮循环入口（loop 增强过程）
+
+1. **MuMu 恢复**：`adb connect 10.0.182.146:5555` → 装 `dist/phase_chain_arm32.apk`（已含 jqt_gl_bridge 修复 + egl 回退硬化）→ 启动 → **验证棋盘出屏**（真实 EGL swap）。**即时诊断点**：`gl_bridge: 首帧 init disp/新ctx/cur_ctx/cfg_n`（看 eglCreateContext 是否成功）+ `jqt_gl_frame_loop: eglMakeCurrent`（看 frame loop 是否拿到 context）+ `jqt_recreate_board_texture`（看 texID 跨 context 是否重建）
+2. **若 MuMu 出屏**：验证 touch 输入 → 棋子交互（能玩判据）
+3. **若 MuMu 仍黑**：查 `jqt_gl_frame_loop` 内 `eglMakeCurrent` 失败 err 码（0x3002=EGL_BAD_MATCH 表面/context 不匹配；0x3009=EGL_BAD_SURFACE）+ `jqt_recreate_board_texture`（texID 跨 context 无效路径）——下一轮最可能的坑，本轮已加日志/回退硬化
+4. **redroid 堆损坏硬化**：MEM real 指针写 Java 堆对象头加写保护/范围检查（Android 11 严格 ART 已触发过，MuMu 宽松未触发但真实风险）
+5. **循环闭环**：每轮 = 反思（什么对/错）→ 总结（闭环事实）→ 改进（方法论）→ 固化（REVERSE_LOG.md）→ 下一轮（新阻塞）
+
+#### 六、本轮改进落地清单（固化到代码）
+
+| 代码 | 改进 | 状态 |
+|---|---|---|
+| `jni_aligned.c` | jqt_init_empty_containers（4 容器语义初始化，JNI_OnLoad 调） | ✅ 已落地 |
+| `jqt_vtbl.c` | F_23eec 六段全链日志（F_afc44/F_23c58/F_32f8c/F_76664/F_28d00/F_27bf8 前后）+ jqt_gl_bridge 调（§GLBRIDGE-F23EEC）+ F_a6620/F_a373c ENTRY 日志+阀 | ✅ 已落地 |
+| `jqt_gl_bridge.c` | jqt_gl_frame_loop eglMakeCurrent 错误日志 + jqt_gl_bridge eglCreateContext 回退 GLThread cur_ctx + 首帧 init 诊断日志 | ✅ 已落地 |
+| `rev64/dist/phase_chain_arm32.apk` | 含全部改进（15037975B，v1+v2 签名） | ✅ 已构建 |
+| `rev64/docs_rs/REVERSE_LOG.md` | §124y-2/3/4/5（帧循环稳态 + F_23eec 全链 + 黑屏根因 + 反思循环） | ✅ 已更新 |
+
+### 本轮反思与改进（§124y-6 经验库循环——MuMu 双 swap 修复 + 棋盘纹理卡点）
+
+#### 一、反思：什么做对了 / 什么做错了
+
+**✅ 做对的部分：**
+- **双 swap 冲突根因定位（MuMu 实证 16:37）**：frame loop 线程 `eglMakeCurrent` 失败（err=0x3002，GLThread 持 context）但仍执行 `glClear/glSwapBuffers` → 污染 GLThread `EglHelper.swap()` → FATAL `eglSwapBuffers failed`（GLView.java:657）。**修复：makeCurrent 失败 → 整帧跳过（不 glClear 不 swap）**。MuMu 实证 0 崩溃
+- **eglCreateContext 回退硬化**：redroid/MuMu `eglCreateContext` 失败（新ctx=0x0）→ 回退 `eglGetCurrentContext()`（GLThread cur_ctx）。MuMu 实证 `新ctx=0xd445cf80`
+- **PLT stub 公式机械化**：`.plt` 214 条重定位，stub n = `0x229d4 + 12*n`（**12 字节/条**，非 16）。用 glVertexAttribPointer(idx=164→0x23184)/glDrawArrays(idx=146→0x230ac) 双验证 → 可精确求任意 GL 函数 PLT stub 地址
+- **机械式对照原版反汇编定位缺失 GL 调用**：原版 F_9d5d8 区间（0x9d790-0x9d830）逐条读 → 发现翻译体缺 `glEnableVertexAttribArray×3`（0x9d810/0x9d816/0x9d81c）+ `glViewport`（0x9d7ba）+ `glDisable/glEnable`（0x9d7c0/0x9d7c6/0x9d7cc）。**全部对齐原版补上**
+- **REDTEST 隔离（决定性）**：fragment shader 临时改纯红 → `centerpx=[255,0,0,255]`（绘制管线通！）→ **证明棋盘不可见是纹理采样黑，非绘制管线断**
+
+**❌ 做错的部分（教训）：**
+- **glTexImage2D 参数错位（翻译体寄存器/栈参数 bug，2026-11-05 实证）**：翻译体 glTexImage2D 用 `r4`（=this 指针，h=-739206864）当 height、`r8`（=0，SLOT22 传全零）当 pixels、`r6/r7` 当 format/type → **上传 NULL 数据 → 纹理全黑**。**教训：GL 调用参数必须逐一对齐原版 ARM 栈/寄存器布局**（原版 sp[0]=height、sp[8]=format、sp[12]=type、sp[16]=pixels），不能想当然用 rX
+- **GL_RGBA vs GL_RGB 不匹配**：原版内格式/格式=GL_RGBA(0x1908)，但 jq_board_px 数据是 RGB（737×751×3=1660461B）。**教训：数据源格式与 GL 上传格式必须一致**（RGB 数据→GL_RGB）
+- **首帧 glTexImage2D px=NULL 竞态**：第一次 F_9e204 上传 px=0x00000000（NULL），第二次 px=0x0c1eb7b8（正确）→ 纹理创建顺序竞态（F_9d3d4 设 px vs F_9e2b4 读 px）。**教训：纹理创建必须在渲染器 px 字段设置之后**
+- **build 时加 } 漏了**：glGetError 诊断块改 `if(){...}` 时丢一个 `}` → 20 编译错误（"function definition is not allowed here"）。**教训：改 C 代码后必须立即编译验证**
+
+#### 二、闭环事实（本轮实证，可复现）
+
+1. **双 swap 冲突（MuMu 16:37）**：`eglSwapBuffers failed`（GLView.java:657）→ frame loop 让位修复后 **0 崩溃**
+2. **OnUpdate 连续 129+ 次（MuMu 16:49）**：容器修复（jqt_init_empty_containers）解卡 GLThread → onDrawFrame 正常触发（此前 MuMu OnUpdate=0）
+3. **清屏色出屏**：`glViewport(0,0,900,1468)` 后清屏色 0xff9c6630 出屏（截图实证）
+4. **F_9d43c 被调**：OnUpdate 路径每帧 F_9d43c（MuMu 实证 `F_9d43c ENTRY` tid=2867）
+5. **GL 状态正确（glDrawArrays 诊断）**：`prog=1 tex=1 texID=1 vp=[0,0,900,1468] err=0x0` — program/纹理/viewport 全对
+6. **绘制管线通（REDTEST）**：`centerpx=[255,0,0,255]`（fragment shader 纯红）→ 棋盘 quad 覆盖中心，绘制管线完整
+7. **纹理采样黑**：`centerpx=[0,0,0,255]`（texture shader）→ 纹理采样返回黑
+8. **纹理上传竞态**：首帧 glTexImage2D `px=0x00000000`（NULL → 黑纹理），第二帧 `px=0x0c1eb7b8`（正确）——纹理创建顺序竞态
+9. **eglCreateContext 回退**：redroid/MuMu 均失败（新ctx=0x0）→ 回退 GLThread cur_ctx
+
+#### 三、坑清单（防复发）
+
+- **GL 调用参数对齐**：翻译体 GL 调用必须逐一对齐原版 ARM 栈/寄存器布局（原版 glTexImage2D: sp[0]=height/sp[8]=format/sp[12]=type/sp[16]=pixels）。**必做**：每个 GL 调用对照原版反汇编验证参数来源寄存器/栈槽
+- **GL 枚举格式匹配**：数据源格式（RGB/RGBA）必须与 GL 上传格式一致。**必做**：上传前确认 internalformat/format/type 与数据字节布局匹配
+- **纹理创建竞态**：纹理创建（F_9e2b4/F_9e204）必须在渲染器 px/宽/高字段设置（F_9d3d4）之后。**必做**：SLOT22-TRIGGER-GL 前置检查 `MEM(ren+0x1c)!=0`（px 已设）
+- **改 C 后立即编译**：`if(){...}` 块加 } 易漏 → 编译错误。**必做**：每次 edit 后 `bash rev64/build_arm32_aligned.sh ... | tail -2` 立即验证
+- **logcat 轮转**（§124y-5 坑延续）：启动日志被 OnTimer 刷屏轮转。**必做**：测试前 `logcat -G 32M` + `logcat -c`，启动后 3-5s 内抓一次性日志
+
+#### 四、方法论改进（固化到本工作流）
+
+| 改进 | 内容 | 落地 |
+|---|---|---|
+| **PLT stub 公式** | stub n = `0x229d4 + 12*n`（12B/条，214 条 .rel.plt）——机械求任意 GL 函数地址 | 已实证（glVertexAttribPointer/glDrawArrays 双验证） |
+| **机械式缺失调用扫描** | 原版反汇编区间逐条读 → 找翻译体缺失的 GL 调用（attrib/viewport/blend） | F_9d5d8 已落地（3 类缺失全补） |
+| **REDTEST 隔离法** | fragment shader 临时改纯色 → 区分"绘制管线断"vs"纹理采样错" | 本轮实证（red=管线通） |
+| **GL 参数栈对齐** | 翻译体 GL 调用用 `MEM(sp+N)`（原版栈槽）而非 rX 寄存器 | glTexImage2D 已修复 |
+| **编译后即验** | 改 C 后立即 build（`| tail -2`），不延后 | 本轮教训固化 |
+
+#### 五、下一轮循环入口（loop 增强过程）
+
+1. **修纹理上传竞态**：SLOT22-TRIGGER-GL 前置检查 `MEM(ren+0x1c)!=0`（px 已设）才触发 F_9e2b4；否则延迟到 DRAWOBJ-FILL。**目标：首次 glTexImage2D 用 px=0x0c1eb7b8（正确数据）而非 NULL**
+2. **若纹理正确后仍不画**：查 swap 显示（屏幕=黑 vs framebuffer=red）——多渲染循环（F_bf4d0 主线程 / jqt_gl_bridge GLThread / frame loop）swap 竞争
+3. **若棋盘出屏**：验证 touch 输入 → 棋子交互（能玩判据）
+4. **redroid 堆损坏硬化**：MEM real 指针写 Java 堆加写保护/范围检查（§124y-5 延续）
+5. **循环闭环**：每轮 = 反思→总结→改进→固化（REVERSE_LOG.md）→下一轮
+
+#### 六、本轮改进落地清单（固化到代码）
+
+| 代码 | 改进 | 状态 |
+|---|---|---|
+| `jqt_gl_bridge.c` | jqt_gl_frame_loop makeCurrent 移入循环 + 失败整帧跳过（防双 swap）+ eglCreateContext 回退 GLThread cur_ctx + eglMakeCurrent 错误日志 | ✅ 已落地 |
+| `jqt_vtbl.c` | F_9d5d8 补 glEnableVertexAttribArray×3（对齐原版 0x9d810/0x9d816/0x9d81c）+ glViewport(0,0,900,1468)（对齐 0x9d7ba）+ glDisable(GL_DEPTH_TEST)/glEnable(GL_BLEND)（对齐 0x9d7c0/0x9d7cc） | ✅ 已落地 |
+| `jqt_vtbl.c` | F_9e204 glTexImage2D 参数栈对齐：height=MEM(sp)=751、format=MEM(sp+8)→GL_RGB、type=MEM(sp+12)、pixels=MEM(sp+16)=jq_board_px（修复 r4/r8/r6/r7 错位） | ✅ 已落地 |
+| `jqt_vtbl.c` | glDrawArrays 诊断（prog/tex/texID/vp/err/centerpx）+ F_9e204 glTexImage2D err 诊断 + glGetError 跟踪 | ✅ 已落地 |
+| `rev64/dist/phase_chain_arm32.apk` | 含全部改进（15042071B，v1+v2 签名） | ✅ 已构建 |
+| `rev64/docs_rs/REVERSE_LOG.md` | §124y-6（反思/闭环事实/坑清单/方法论/下一轮/改进清单） | ✅ 已更新 |
+
+
+
+### 棋盘出屏 + 倾斜根因（§124y-7 里程碑）——SOLIDRED 隔离实证管线轴对齐 + UNPACK_ALIGNMENT 根因
+
+#### 一、棋盘稳定出屏（17:51 实证，712956B 双截图一致）
+
+**7 根因链全部修复**（此前棋盘黑/不画）：
+1. **JQT_ABS_PTR 移除**：jq_board_px 真实地址（0x0c2477b8）不用 JQT_ABS_PTR（<JQT_MAP_HI 被误判为 shadow 偏移 → +g_jqt_shadow → 读错内存 → 纹理黑）
+2. **glTexImage2D 栈参数**：height=MEM(sp)=751、format=GL_RGB、type=MEM(sp+12)、pixels=MEM(sp+16)（修复翻译体误用 r4/r6/r7/r8）
+3. **F_9d5d8 补 GL 调用**：glEnableVertexAttribArray×3 + glViewport(0,0,900,1468) + glDisable/glEnable（对齐原版 0x9d810/0x9d816/0x9d81c/0x9d7ba/0x9d7c0/0x9d7cc）
+4. **F_9d43c 批次数 rearm**：MEM(dobj+4)=1 每帧（F_9e760 绘制后置 0 会跳过 glDrawArrays）
+5. **jqt_gl_bridge 双 swap 修复**：was_current 检测，GLThread 路径不 swap，让 EglHelper.swap() 上屏
+6. **OnUpdate 强制 return true**：F_23475→F_bd5a0 循环阀 0 → drawn=false → 跳过 swap
+7. **F_9e0d4 no-op**：glDeleteTextures + MEM(ren+0x4c)=0 → texID 归零导致停画
+
+#### 二、棋盘倾斜/偏移调查（本轮核心，根因定位）
+
+**症状**：十字竖杠顶部中心 x~391、底部 x~207（应同为 x~450，轴对齐）。
+
+**逐项排查（全部正确）**：
+- pos=[-360,640,-360,-640,360,640,360,640,-360,-640,360,-640]（轴对齐）
+- mat=diag(2/720,2/1280) 无剪切无平移（MATREAD 读回 mat00=0.002778 mat11=0.001563）
+- uv=[0,0,0,1,1,0,1,0,0,1,1,1]（全范围）
+- type=GL_FLOAT(0x1406)（TYPEDIAG，ATTRIBREAD 的 type=0x0 是驱动查询不可靠）
+- shader=`gl_Position = mat * pos`（vsh_src 完整确认）
+- viewport=[0,0,900,1468]（glGetIntegerv 读回）
+- prog=1 有 mat/alpha/tex uniform（UNIFDIAG）
+- F_9e3e4（TRIANGLE_STRIP vtable slot）**未调用**（DIAG-9E3E4 无日志）→ 不是第二 draw
+- NODRAW-TEST（禁用 jqt_gl_bridge 的 F_9d43c）→ 棋盘消失 → **棋盘源 = jqt_gl_bridge**
+- **SOLIDRED-TEST（决定性）**：fsh_src 改纯红 → 红色 quad x[0,896] y[132,1596] 完美轴对齐填满视口 → **渲染管线正确，无 bug**
+
+**★ 根因：GL_UNPACK_ALIGNMENT**。纹理 737×751 GL_RGB → 每行 737×3=2211 字节，**2211 mod 4 = 3，非 4 字节对齐**。GL_UNPACK_ALIGNMENT 默认 4 → 驱动按 4 字节填充每行（2211→2212，+1B/行）→ 逐行累积水平偏移 i/3 像素（纹理空间）。
+
+**数学验证**（偏移=行号/3 纹理 px × 1.22 屏幕缩放）：
+- 底臂实测偏移 243px ≈ 理论 305px（行 751 → 751/3×1.22，测量范围内均值 572 行 → 233px）
+- 顶臂实测偏移 59px ≈ 理论 56px（行均值 137 → 137/3×1.22）
+- 原版纹理本身不倾斜（jq_board_orig.png 顶/底竖杠均 x=367）→ 纯渲染问题
+
+**★ 修复：`glPixelStorei(GL_UNPACK_ALIGNMENT, 1)`**（两处：F_9e204 + jqt_recreate_board_texture，紧凑行无填充）。
+
+#### 三、诚实边界
+
+- 棋盘是全屏 quad 近似（原版十字形棋盘几何未实现），非原版精确几何
+- 无棋子渲染（仅 jq_board_px 背景纹理）
+- 棋盘出屏但**未验证 touch→棋子交互**（能玩判据未达成）
+- **MuMu 关机（10.0.182.146 ping 100% 丢包）→ UNPACK-ALIGN 修复已编译进 so 但未在 MuMu 实测**（待恢复后验证：倾斜应消失、竖杠应同为 x~450）
+
+#### 四、坑清单（防复发）
+
+- **GL 纹理行对齐**：GL_RGB 宽度非 4 倍数 → 默认 GL_UNPACK_ALIGNMENT=4 填充行 → 倾斜/错位。**必做**：glTexImage2D 前 `glPixelStorei(GL_UNPACK_ALIGNMENT, 1)`（或确保行宽 4 对齐）
+- **ATTRIBREAD 驱动查询不可靠**：glGetVertexAttribiv 的 TYPE 返回 0x0（非真实 GL_FLOAT）——必须用 TYPEDIAG（打印 glVertexAttribPointer 实参）验证，不能信查询
+- **SOLIDRED 隔离法**（§124y-6 延续）：fragment shader 纯色 → 区分"管线断"vs"纹理采样错"（本轮实证管线正确）
+
+#### 五、下一轮循环入口
+
+1. **MuMu 恢复后实测 UNPACK-ALIGN 修复**：竖杠应同为 x~450（倾斜消失）；若仍有偏移查剩余
+2. **若棋盘轴对齐**：验证 touch 输入 → 棋子交互（能玩判据）
+3. **堆损坏崩溃（Scudo corrupted chunk header 0xd3a40010，ICU free）**：翻译体 _Znwj/MEM 写入越界——排查（§124y-6 延续）
+4. **文档闭环**：本轮修复 + 实测结果写入本表
+
+#### 六、redroid 金标准对照验证（§124y-8 里程碑）——UNPACK-ALIGN 修复被决定性证实
+
+**★ 决定性对照实验（redroid + swiftshader + glReadPixels framebuffer dump）**：
+
+**方法**（redroid 无真实 display，screencap 只拍 SurfaceFlinger 黑屏）：
+- **FRAMEBUFFER-DUMP**：棋盘绘制后 `glReadPixels(0,0,w,h)` → PPM 写 `/sdcard/Download/board_dump_N.ppm`（app 有 WRITE_EXTERNAL_STORAGE，/data/data 受保护无法 pull，run-as 不可 debuggable）
+- **对照**：临时禁用全部 4 处 `glPixelStorei(GL_UNPACK_ALIGNMENT,1)`（默认 4）→ 重新 dump → 对比
+
+**★ 结果（决定性）**：
+| | 修复（alignment=1） | 对照（默认 4） |
+|---|---|---|
+| 图案 | **轴对齐**（竖线垂直、横线水平） | **明显剪切/倾斜**（竖线斜、横线斜） |
+| 像素差异 | 基准 | 98.91% 不同（mean diff 33） |
+
+- **并排视觉对比**（`/tmp/redroid_compare.png`）：左=轴对齐，右=倾斜/剪切——**一目了然**
+- **结论：棋盘倾斜根因 = GL_UNPACK_ALIGNMENT=4 行填充（737×3=2211B 非 4 对齐 → 逐行 +1B → 剪切）**
+- **★ UNPACK-ALIGN 修复（alignment=1）被金标准验证**：修复→轴对齐，无修复→倾斜
+
+**redroid 无 GPU 但 swiftshader 有完整 GL**：`libGLESv2_swiftshader.so` → 翻译体经 glReadPixels 能 dump framebuffer 验证渲染（screencap 黑屏是 SurfaceFlinger 未合成 PBuffer，非渲染失败）
+
+**★ HUGE-ALLOC 源定位（redroid 无真实 surface 崩溃）**：`_Znwj(0xffdf106d)` g_cur_fn=0x23a84（GLThread surface 查询返回垃圾 → 巨大分配）。钳制 16MB 后 app 不崩、棋盘能画（redroid 专用兜底，MuMu 有真实 surface 无此问题）
+
+**坑清单（补充）**：
+- **/data/data 受保护**：untrusted_app 的 data 目录 shell/run-as 不可读（run-as 需 debuggable）。**必做**：dump 写 `/sdcard/Download/`（app 有 WRITE_EXTERNAL_STORAGE）或加 debuggable
+- **fopen 前 mkdir**：`/sdcard/Download/` 可能不存在 → errno=2 ENOENT；重装后旧文件属不同 UID → errno=13 EACCES（先 rm）
+- **审计基线**：新 libc 符号（fprintf/fwrite/snprintf/fopen/fclose/__errno/mkdir/malloc/free）必须加 `link_audit.py` PROVEN_LOADABLE，否则 pack 中止
+
+**产物**：`rev64/dist/phase_chain_arm32.apk` + `rev64/dist/libjunqi_arm32_aligned.so`（含全部 4 处 UNPACK-ALIGN 修复 + canary + FRAMEBUFFER-DUMP 诊断）
+
+**诚实边界**：redroid 视口 720×1024（非 MuMu 900×1468），棋盘被拉伸/放大（看到纹理局部图案非全盘）；redroid 验证的是**纹理行对齐**（剪切 vs 轴对齐），非全盘十字几何。MuMu 上全盘十字 + 棋盘倾斜修复最终确认仍需 MuMu
+
+#### 七、MuMu 最终确认（§124y-9 里程碑）——棋盘完美轴对齐，倾斜彻底消除
+
+**★ MuMu 实测（19:40 恢复后，修复版 phase_chain_arm32.apk）**：
+- **截图显示完美十字形军棋棋盘**：9×10 网格、行营、大本营清晰可见，绿线+木纹背景，**完全轴对齐**
+- **量化验证**（双截图 240169B 稳定）：
+  - 顶部臂竖杠中心 x=331、底部臂竖杠中心 x=331 → **相差 0px**
+  - 修复前：顶 391 / 底 207 → **相差 184px（倾斜）**
+  - **→ UNPACK-ALIGN 修复在 MuMu 上被决定性确认（倾斜彻底消除）**
+
+**★ 里程碑：棋盘渲染问题完全解决**（从黑屏 → 倾斜 → 完美轴对齐十字棋盘）
+
+**诚实边界**：
+- 棋盘是**背景纹理 quad**（原版十字形棋盘几何 + 纹理），非逐顶点几何重建
+- **无棋子渲染**（仅棋盘背景纹理出屏）——棋子/交互是下一步
+- 视口 900×1468（MuMu），棋盘纹理 737×751 拉伸到全屏 quad
 
 ### 调用链对齐统计（§124z-5，用户问"还有多少调用链没补齐"）——合并边界口径
 
@@ -623,4 +904,4 @@ python3 /tmp/opencode/incremental_regress.py reset 0xADDR  # 改了某指令 →
 2. **7字段帧语义逆向**：帧字段（offset 81/82/83/84/808/1780/1784）逐字段语义需原版 C++ 类布局逆向（大工作量）
 3. **真机"能玩"验证**：redroid 无 GPU / 64 位 native bridge 不完整，需真实 arm64 GPU 设备
 4. **UI 层**：简化版无完整菜单/对话框（布局选择/认输/求和无 UI 入口），Toast 通知等价
-5. **unidbg 推进 OnCreate（§124d-h 突破 + 诚实边界）**：**OnCreate 已达 ~90%**（DiagJni33/35：no-init_array 或 init[0..8] 路径 → code cave 0x7965a→0xc3a68→0x43ed8 → vecfix 37 次 → JunqiJni 处理 20+ JNI 调用 → GLView 创建 + EGL 配置 + setContentView + registerReceiver×3）。**§124h 突破：bx bug 可绕过 9 个 init**（DiagInitCum2：init[0..8] 安全到达 0x43ed8，init[0..9] 触发 bx bug；init[9..11] 任何单跑都破坏 bx → 最大安全集 = init[0..8]）。**最后 10% 被 READ_PROT 垃圾调用链挡住**（§124g/h：崩溃 0x23b7a `ldrb r2,[r4,r3]` memcpy 循环，垃圾源 r4=0x40000000 + 垃圾 len；9 个 init 未消除——更深对象图未初始化）。**死锁**：init[9+]→bx bug（模拟器 bug，§124c），init[0..8]→全局仍不完整。突破需：①修复 bx bug（模拟器深层 bug）或 ②逆向 std::string 全局地址表手动初始化（工作量大）。教程 course_unidbg 对象图补全仍为剩余待办。剩余阻塞链：**BL 解码 bug（0x7965a→0x6eaea）+ 288MB PROT_NONE mmap + 全局对象图未初始化**
+5. **unidbg 推进 OnCreate（§124d-h 突破 + 诚实边界）**：**OnCreate 已达 ~90%**（DiagJni33/35：no-init_array 或 init[0..8] 路径 → code cave 0x7965a→0xc3a68→0x43ed8 → vecfix 37 次 → JunqiJni 处理 20+ JNI 调用 → GLView 创建 + EGL 配置 + setContentView + registerReceiver×3）。**§124h 突破：bx bug 可绕过 9 个 init**（DiagInitCum2：init[0..8] 安全到达 0x43ed8，init[0..9] 触发 bx bug；init[9..11] 任何单跑都破坏 bx → 最大安全集 = init[0..8]）。**最后 10% 被 READ_PROT 垃圾调用链挡住**（§124g/h：崩溃 0x23b7a `ldrb r2,[r4,r3]` memcpy 循环，垃圾源 r4=0x40000000 + 垃圾 len；9 个 init 未消除——更深数据与指令对齐未初始化）。**死锁**：init[9+]→bx bug（模拟器 bug，§124c），init[0..8]→全局仍不完整。突破需：①修复 bx bug（模拟器深层 bug）或 ②逆向 std::string 全局地址表手动初始化（工作量大）。教程 course_unidbg 数据与指令对齐补全仍为剩余待办。剩余阻塞链：**BL 解码 bug（0x7965a→0x6eaea）+ 288MB PROT_NONE mmap + 全局数据与指令对齐未初始化**

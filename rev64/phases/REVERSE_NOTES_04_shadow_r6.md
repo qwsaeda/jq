@@ -353,7 +353,7 @@ Thumb 反汇编把同一字节误解为跳表 case（`stm r0!,{r3}; b 0x23e24`�
 
 **根因（诚实结论）**：no-init_array 路径下，**全局 C++ 对象（std::string/函数指针表）未初始化**。OnCreate 推进到 registerReceiver 后，触及某个未初始化全局函数指针 → 进入垃圾调用链（LR=垃圾）→ READ_PROT。
 
-**这是 R6 已知剩余阻塞 #②（C++ 对象图语义缺失）的实证**：
+**这是 R6 已知剩余阻塞 #②（§124 ② 数据与指令对齐对应缺口，原"C++ 对象图语义缺失"措辞 N44 纠正；R6 翻译体语境 = 场景对象图 std::list/字符串全局未初始化，C.1 翻译体缺口）的实证**：
 - init_array 路径 → bx bug（模拟器全局分支损坏，§124c，不可修复）
 - no-init_array 路径 → 全局未初始化（垃圾调用链，本轮实证）
 - **两者互为死锁**：unidbg 无法完整模拟 OnCreate 的真实执行，除非修复 bx bug（模拟器 bug）或手动初始化全部相关全局（需逆向 std::string 全局地址表，工作量大）。
@@ -1078,7 +1078,7 @@ blx 寄存器（vtable 0xbe47c）  ✅ JNI 语义（jq_jni_make_glview 返回真
 **★ 诚实边界**：
 1. RenderThread 崩溃在 libhwui（`tryCapture`，`SkSurface*` null），是**系统渲染器**问题，非我们翻译体直接崩。日志 `Failed to initialize 101010-2 format`（EGL）提示 MuMu GPU 对 app 表面格式支持不完整。
 2. `hardwareAccelerated="false"`（v178bt 实验）避开 RenderThread 崩，但暴露**主线程 F_75ce8 _ZdlPv 崩溃**（off=0x2c13d0，frees 垃圾 r4）——同 F_23eec 完整副作用，两条崩溃路径是竞态（先到先崩）。
-3. **F_75ce8 _ZdlPv 崩溃**（jqt_vtbl.c L75d5a 附近 frees r4，r4 来自调用方 F_76832，对象图未构造→垃圾）——独立于 L2358a，属**对象图语义缺失**边界。
+3. **F_75ce8 _ZdlPv 崩溃**（jqt_vtbl.c L75d5a 附近 frees r4，r4 来自调用方 F_76832，对象图未构造→垃圾）——独立于 L2358a，属**数据与指令对齐对应缺口**边界（翻译体语境 = 场景对象图未构造，C.1）。
 
 **★ 教训**：
 1. **18 注入表值必须是静态位移**（PC 相对），非 redroid 绝对值（不同进程基址）。jni_runtime_values.json 已删（文件不存在），值固化在 jqt_mem.c g_jqt_got_tbl。

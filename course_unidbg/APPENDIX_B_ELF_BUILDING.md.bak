@@ -172,7 +172,7 @@ so_cpp.so 段（64 位 x86_64，readelf -l 实读）：
 **"C++ so 为什么比 C 复杂"（逆向视角）**：
 - C++ 有**静态对象**（`std::string`/`std::vector` 全局），要 `__cxa_guard_acquire` 保护 + `__cxa_atexit` 注册析构
 - C++ 有**类/虚函数**，生成 vtable（`.data.rel.ro` 段）+ name mangling（`_Z...` 符号名）
-- **军棋 32 位 so 含 C++**（依赖 `libstdc++.so`，走子规则用 `std::vector`）——这就是"§124 ② C++ 对象图语义缺失"的根因（C++ 静态对象构造复杂，unidbg 模拟不全）
+- **军棋 32 位 so 含 C++**（依赖 `libstdc++.so`，走子规则用 `std::vector`）——这就是"§124 ② 数据与指令对齐对应缺口"的根因（C++ 静态对象构造复杂，unidbg 模拟不全）
 
 ### B.2.3 Rust so（rustc 真编译 + `readelf` 实读，`/tmp/opencode/so_rust.so`）
 
