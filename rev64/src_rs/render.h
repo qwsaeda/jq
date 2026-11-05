@@ -55,6 +55,9 @@ typedef struct {
     rs_glid_t tex_btn_small[2]; /* ★ 主菜单小按钮图集 666×116（联网+联机+四国，orig_menu 裁剪） */
     rs_glid_t tex_popup[2];     /* ★ 选项 UI：popup.png 24×24 9-patch(8,8,16,16) 弹窗背景 */
     rs_glid_t tex_opt_text[2];  /* ★ 选项 UI：弹窗文字图集 109×258（6 标签竖排） */
+    rs_glid_t tex_waysel_text[2]; /* ★ 对抗审计（datah_072）：方式选择文字图集 220×184（4 标签竖排） */
+    rs_glid_t tex_btimen_text[2]; /* ★ 对抗审计（datah_067）：联机 ☰ 菜单文字图集 160×320（8 项竖排） */
+    rs_glid_t tex_settings_text[2]; /* ★ 对抗审计（datah_001）：声音设置文字图集 200×460（10 标签竖排） */
     void *board_px; size_t board_px_len;   /* 解码后 RGBA（跨 context 共享，只解码一次） */
     void *piece_px;  size_t piece_px_len;
     void *text_px;   size_t text_px_len;   /* 菜单文字图集 RGBA（5 label 竖排） */
@@ -67,6 +70,12 @@ typedef struct {
     int popup_w, popup_h;                  /* 弹窗背景尺寸 */
     void *opt_text_px; size_t opt_text_px_len;  /* ★ 弹窗文字图集 RGBA（6 label 竖排） */
     int opt_text_w, opt_text_h;                 /* 弹窗文字图集尺寸 */
+    void *waysel_text_px; size_t waysel_text_px_len; /* ★ 方式选择文字图集 RGBA（4 标签竖排 220×184） */
+    int waysel_text_w, waysel_text_h;           /* 方式选择文字图集尺寸 */
+    void *btimen_text_px; size_t btimen_text_px_len; /* ★ 联机 ☰ 菜单文字图集 RGBA（8 项竖排 160×320） */
+    int btimen_text_w, btimen_text_h;           /* 联机 ☰ 菜单文字图集尺寸 */
+    void *settings_text_px; size_t settings_text_px_len; /* ★ 声音设置文字图集 RGBA（10 标签竖排 200×460） */
+    int settings_text_w, settings_text_h;       /* 声音设置文字图集尺寸 */
     void *imen_text_px; size_t imen_text_px_len; /* ★ ☰ 菜单文字图集 RGBA（8 项竖排 160×320） */
     int imen_text_w, imen_text_h;               /* ☰ 菜单文字图集尺寸 */
     void *imen_icons_px; size_t imen_icons_px_len; /* ★ ☰ 菜单图标图集 RGBA（8 图标 110×100 4×2，原版裁剪） */

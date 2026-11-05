@@ -18,6 +18,8 @@ typedef enum {
     BT_T_SYNC_CELL,
     BT_T_RESTART,
     BT_T_RESIGN,
+    BT_T_DRAW,   /* ★ 对抗审计（datah_067）：提和 */
+    BT_T_CHAT,   /* ★ 对抗审计（datah_067）：聊天 */
 } jq_bt_type;
 
 int jq_bt_frame_encode(char *buf, int cap, int type, int f1, int f2,

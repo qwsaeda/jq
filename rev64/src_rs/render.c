@@ -277,9 +277,12 @@ int rs_render_init(rs_render *rr, const char *spak_dir, const jq_state *init_sta
         snprintf(p9, sizeof p9, "%s/imen_icons_atlas.png", spak_dir ? spak_dir : "");
         char p10[512];
         snprintf(p10, sizeof p10, "%s/imen_hamburger_atlas.png", spak_dir ? spak_dir : "");
-        char p11[512], p12[512];
+        char p11[512], p12[512], p13[512], p14[512], p15[512];
         snprintf(p11, sizeof p11, "%s/menu_btn_big.png", spak_dir ? spak_dir : "");
         snprintf(p12, sizeof p12, "%s/menu_btn_small.png", spak_dir ? spak_dir : "");
+        snprintf(p13, sizeof p13, "%s/waysel_text_atlas.png", spak_dir ? spak_dir : "");
+        snprintf(p14, sizeof p14, "%s/btimen_text_atlas.png", spak_dir ? spak_dir : "");
+        snprintf(p15, sizeof p15, "%s/settings_text_atlas.png", spak_dir ? spak_dir : "");
         unsigned char *braw = NULL; size_t braw_len = 0;
         unsigned char *praw = NULL; size_t praw_len = 0;
         unsigned char *traw = NULL; size_t traw_len = 0;
@@ -292,11 +295,15 @@ int rs_render_init(rs_render *rr, const char *spak_dir, const jq_state *init_sta
         unsigned char *hbraw = NULL; size_t hbraw_len = 0;  /* ★ ☰/↩ 图标图集 */
         unsigned char *bbraw = NULL; size_t bbraw_len = 0;  /* ★ 主菜单大按钮图集 */
         unsigned char *bsraw = NULL; size_t bsraw_len = 0;  /* ★ 主菜单小按钮图集 */
+        unsigned char *wsraw = NULL; size_t wsraw_len = 0;  /* ★ 方式选择文字图集 */
+        unsigned char *bira = NULL; size_t bira_len = 0;    /* ★ 联机 ☰ 菜单文字图集 */
+        unsigned char *straw = NULL; size_t straw_len = 0;  /* ★ 声音设置文字图集 */
         unsigned char *bpx = NULL, *ppx = NULL, *tpx = NULL, *gpx = NULL;
         unsigned char *opx = NULL, *ppx2 = NULL, *mpx = NULL, *ipx = NULL, *icpx = NULL, *hbpx = NULL, *bbpx = NULL, *bspx = NULL;
+        unsigned char *wspx = NULL, *bipx = NULL, *stpx = NULL;
         int bw = 0, bh = 0, pw = 0, ph = 0, tw = 0, th = 0, gw = 0, gh = 0;
         int ow = 0, oh = 0, pw2 = 0, ph2 = 0, mw = 0, mh = 0, iw = 0, ih = 0, icw = 0, ich = 0;
-        int hbw = 0, hbh = 0, bbw = 0, bbh = 0, bsw = 0, bsh = 0;
+        int hbw = 0, hbh = 0, bbw = 0, bbh = 0, bsw = 0, bsh = 0, wsw = 0, wsh = 0, biw = 0, bih = 0, stw = 0, sth = 0;
         rs_read_png(am, "spak_res/datah_188_21d95e03e7692e98.bin", p1, &braw, &braw_len);
         rs_read_png(am, "spak_res/datah_183_9e1b7fbc4dfc09c3.bin", p2, &praw, &praw_len);
         rs_read_png(am, "spak_res/menu_text_atlas.png", p3, &traw, &traw_len);
@@ -309,6 +316,9 @@ int rs_render_init(rs_render *rr, const char *spak_dir, const jq_state *init_sta
         rs_read_png(am, "spak_res/imen_hamburger_atlas.png", p10, &hbraw, &hbraw_len);
         rs_read_png(am, "spak_res/menu_btn_big.png", p11, &bbraw, &bbraw_len);
         rs_read_png(am, "spak_res/menu_btn_small.png", p12, &bsraw, &bsraw_len);
+        rs_read_png(am, "spak_res/waysel_text_atlas.png", p13, &wsraw, &wsraw_len);
+        rs_read_png(am, "spak_res/btimen_text_atlas.png", p14, &bira, &bira_len);
+        rs_read_png(am, "spak_res/settings_text_atlas.png", p15, &straw, &straw_len);
         if (braw && png_decode(braw, braw_len, &bpx, &bw, &bh) == 0) { rr->board_px = bpx; rr->board_px_len = (size_t)bw * bh * 4; }
         free(braw);
         if (praw && png_decode(praw, praw_len, &ppx, &pw, &ph) == 0) { rr->piece_px = ppx; rr->piece_px_len = (size_t)pw * ph * 4; }
@@ -372,14 +382,34 @@ int rs_render_init(rs_render *rr, const char *spak_dir, const jq_state *init_sta
             rr->popup_w = pw2; rr->popup_h = ph2;
         }
         free(praw2);
+        /* ★ 对抗审计（datah_072）：方式选择文字图集（4 标签竖排 220×184） */
+        if (wsraw && png_decode(wsraw, wsraw_len, &wspx, &wsw, &wsh) == 0) {
+            rr->waysel_text_px = wspx; rr->waysel_text_px_len = (size_t)wsw * wsh * 4;
+            rr->waysel_text_w = wsw; rr->waysel_text_h = wsh;
+        }
+        free(wsraw);
+        /* ★ 对抗审计（datah_067）：联机 ☰ 菜单文字图集（8 项竖排 160×320） */
+        if (bira && png_decode(bira, bira_len, &bipx, &biw, &bih) == 0) {
+            rr->btimen_text_px = bipx; rr->btimen_text_px_len = (size_t)biw * bih * 4;
+            rr->btimen_text_w = biw; rr->btimen_text_h = bih;
+        }
+        free(bira);
+        /* ★ 对抗审计（datah_001）：声音设置文字图集（10 标签竖排 200×460） */
+        if (straw && png_decode(straw, straw_len, &stpx, &stw, &sth) == 0) {
+            rr->settings_text_px = stpx; rr->settings_text_px_len = (size_t)stw * sth * 4;
+            rr->settings_text_w = stw; rr->settings_text_h = sth;
+        }
+        free(straw);
         rr->gl_px_loaded = 1;
-        LOGI("Init 像素解码：board=%s(%dx%d) piece=%s(%dx%d) text=%s(%dx%d) bg=%s(%dx%d) menu_bg=%s(%dx%d) popup=%s(%dx%d) opt_text=%s(%dx%d) imen_text=%s(%dx%d)",
+        LOGI("Init 像素解码：board=%s(%dx%d) piece=%s(%dx%d) text=%s(%dx%d) bg=%s(%dx%d) menu_bg=%s(%dx%d) popup=%s(%dx%d) opt_text=%s(%dx%d) imen_text=%s(%dx%d) waysel=%s(%dx%d) btimen=%s(%dx%d) settings=%s(%dx%d)",
              rr->board_px ? "OK" : "MISS", bw, bh, rr->piece_px ? "OK" : "MISS", pw, ph,
              rr->text_px ? "OK" : "MISS", tw, th, rr->bg_px ? "OK" : "MISS", gw, gh,
              rr->menu_bg_px ? "OK" : "MISS", mw, mh, rr->popup_px ? "OK" : "MISS", pw2, ph2,
              rr->opt_text_px ? "OK" : "MISS", ow, oh, rr->imen_text_px ? "OK" : "MISS", iw, ih,
              rr->imen_icons_px ? "OK" : "MISS", icw, ich, rr->hamburger_px ? "OK" : "MISS", hbw, hbh,
-             rr->btn_big_px ? "OK" : "MISS", bbw, bbh, rr->btn_small_px ? "OK" : "MISS", bsw, bsh);
+             rr->btn_big_px ? "OK" : "MISS", bbw, bbh, rr->btn_small_px ? "OK" : "MISS", bsw, bsh,
+             rr->waysel_text_px ? "OK" : "MISS", wsw, wsh, rr->btimen_text_px ? "OK" : "MISS", biw, bih,
+             rr->settings_text_px ? "OK" : "MISS", stw, sth);
     }
     if (rr->egl_ctx)
         LOGI("render 初始化：GL2 context 就绪，GL 对象延迟到 GLThread 首帧建");
@@ -752,7 +782,9 @@ static void rs_draw_imen(rs_render *rr, int slot)
         {0.3f, 0.7f, 1.0f, 0.95f},   /* 软件信息 蓝i */
         {0.95f, 0.25f, 0.25f, 0.95f},/* 退出程序 红X */
     };
-    const ui_imen_btn *im = ui_imen_buttons();
+    /* ★ 对抗审计（datah_067）：蓝牙联机 ☰ 菜单用联机版按钮表（提和/认输/聊天），
+       本地模式用 datah_006 版（电脑变着/软件信息/退出） */
+    const ui_imen_btn *im = ui_bt_active() ? ui_imen_bt_buttons() : ui_imen_buttons();
     /* ★ 原版 UI 对齐：③ 图标用真实位图（imen_icons_atlas.png 440×200，8 图标
        110×100 4×2，orig_ingame_menu 裁剪）替换纯色块近似。图标 88×80（720 基准）
        在按钮内 0.30 处，中心 = 按钮中心 x；UV = 第 i 图标子矩形。 */
@@ -808,8 +840,13 @@ static void rs_draw_imen(rs_render *rr, int slot)
     /* ④ 8 项文字（imen_text_atlas 竖排，每项 160×40 源；★ 原版 UI 对齐（用户指正
        "重新开始/悔棋按钮小问题"）：文字过大超按钮宽——原版实测文字 bbox 157×37
        （900 屏）= 126×30（720 基准），非 160×40。中心在按钮内 0.90 处（实测行1
-       文字中心 y=594、行2 y=780），中心 x = 按钮中心（与图标同列）。 */
-    if (rr->tex_imen_text[slot] && rr->prog_tex[slot] && rr->imen_text_w > 0 && rr->imen_text_h > 0) {
+       文字中心 y=594、行2 y=780），中心 x = 按钮中心（与图标同列）。
+       ★ 对抗审计（datah_067）：蓝牙联机 ☰ 菜单用 btimen_text_atlas（提和/认输/聊天）。 */
+    int imen_bt = ui_bt_active();
+    int text_w = imen_bt ? rr->btimen_text_w : rr->imen_text_w;
+    int text_h = imen_bt ? rr->btimen_text_h : rr->imen_text_h;
+    rs_glid_t text_tex = imen_bt ? rr->tex_btimen_text[slot] : rr->tex_imen_text[slot];
+    if (text_tex && rr->prog_tex[slot] && text_w > 0 && text_h > 0) {
         for (int i = 0; i < UI_IMENU_COUNT; i++) {
             float bx0 = im[i].x0 * sx, by0 = im[i].y0 * sy;
             float bx1 = im[i].x1 * sx, by1 = im[i].y1 * sy;
@@ -818,8 +855,8 @@ static void rs_draw_imen(rs_render *rr, int slot)
             float tw = 134.0f * sx, th = tw * (40.0f / 160.0f);   /* 原版实测：字形占图集 94% → tw=134 → 字形 126px（720 基准）=157px（900 屏），与原版 bbox 一致 */
             float tx0 = tcx - tw * 0.5f, ty0 = tcy - th * 0.5f;
             float u0 = 0.0f, u1 = 1.0f;   /* 整源宽（文字 160px 宽图集，全宽） */
-            float v0 = (float)(i * 40) / rr->imen_text_h;
-            float v1 = (float)(i * 40 + 40) / rr->imen_text_h;
+            float v0 = (float)(i * 40) / text_h;
+            float v1 = (float)(i * 40 + 40) / text_h;
             rs_v4f tq[6] = {
                 {tx0, ty0, u0, v0}, {tx0 + tw, ty0, u1, v0}, {tx0, ty0 + th, u0, v1},
                 {tx0, ty0 + th, u0, v1}, {tx0 + tw, ty0, u1, v0}, {tx0 + tw, ty0 + th, u1, v1},
@@ -828,7 +865,7 @@ static void rs_draw_imen(rs_render *rr, int slot)
             glUniform2f(rr->uViewWH_tex[slot], (GLfloat)rr->view_w, (GLfloat)rr->view_h);
             glUniform1i(glGetUniformLocation(rr->prog_tex[slot], "uTex"), 0);
             glActiveTexture(GL_TEXTURE0);
-            glBindTexture(GL_TEXTURE_2D, rr->tex_imen_text[slot]);
+            glBindTexture(GL_TEXTURE_2D, text_tex);
             glGenBuffers(1, &rr->vbo_sel[slot]);
             glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
             glBufferData(GL_ARRAY_BUFFER, sizeof(tq), tq, GL_DYNAMIC_DRAW);
@@ -841,6 +878,473 @@ static void rs_draw_imen(rs_render *rr, int slot)
     }
     static int udiag = 0;
     if (!udiag) { udiag = 1; LOGI("rs_draw_imen：☰ 菜单 8 项已画（原版实测图标中心 4 列/2 行，面板 %.0f×%.0f）", UI_IMENU_POPUP_W, UI_IMENU_POPUP_H); }
+}
+
+/* ★ 对抗审计（datah_041 证据）：人机难度选择弹窗渲染。
+   面板深色半透明（复用 imen 面板）+ 8 按钮（布局/翻棋 2 列 × 新手/中级/高级/好友 4 行）
+   + 左列 region 标签（新手区/中级区/高级区/好友区，opt_text row0-3）+ 按钮内 mode 标签
+   （布局/翻棋，opt_text row4-5）。按钮几何 ui_diff_buttons()（720×1280 基准）。 */
+static void rs_draw_difficulty(rs_render *rr, int slot)
+{
+    if (!rr->prog_solid[slot] || !rr->gl2_ok[slot]) return;
+    float sx = (float)rr->view_w / 720.0f, sy = (float)rr->view_h / 1280.0f;
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    /* ⓪ 背景：主菜单背景 datax_294（对抗审计：难度弹窗是主菜单上的模态框，
+       非棋盘——原版 datah_041 从主菜单弹，背景应为主菜单） */
+    if (rr->tex_menu_bg[slot] && rr->prog_tex[slot]) {
+        float w = (float)rr->view_w, h = (float)rr->view_h;
+        rs_v4f bg[6] = {
+            {0, 0, 0, 0}, {w, 0, 1, 0}, {0, h, 0, 1},
+            {0, h, 0, 1}, {w, 0, 1, 0}, {w, h, 1, 1},
+        };
+        glUseProgram(rr->prog_tex[slot]);
+        glUniform2f(rr->uViewWH_tex[slot], (GLfloat)rr->view_w, (GLfloat)rr->view_h);
+        glUniform1i(glGetUniformLocation(rr->prog_tex[slot], "uTex"), 0);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, rr->tex_menu_bg[slot]);
+        glGenBuffers(1, &rr->vbo_sel[slot]);
+        glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(bg), bg, GL_DYNAMIC_DRAW);
+        rs_bind_vbo(rr->vbo_sel[slot]);
+        glDrawArrays(GL_TRIANGLES, 0, 6);
+        rs_unbind_vbo();
+        glDeleteBuffers(1, &rr->vbo_sel[slot]);
+        rr->vbo_sel[slot] = 0;
+    }
+    /* ① 全屏模态遮罩（半透明黑，聚焦弹窗） */
+    rs_v4f mq[6] = {
+        {0, 0, 0, 0}, {(float)rr->view_w, 0, 0, 0}, {0, (float)rr->view_h, 0, 0},
+        {0, (float)rr->view_h, 0, 0}, {(float)rr->view_w, 0, 0, 0},
+        {(float)rr->view_w, (float)rr->view_h, 0, 0},
+    };
+    glUseProgram(rr->prog_solid[slot]);
+    glUniform2f(rr->uViewWH_solid[slot], (GLfloat)rr->view_w, (GLfloat)rr->view_h);
+    glUniform4f(uc, 0.0f, 0.0f, 0.0f, 0.35f);
+    glGenBuffers(1, &rr->vbo_sel[slot]);
+    glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(mq), mq, GL_DYNAMIC_DRAW);
+    rs_bind_vbo(rr->vbo_sel[slot]);
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+    rs_unbind_vbo();
+    glDeleteBuffers(1, &rr->vbo_sel[slot]);
+    rr->vbo_sel[slot] = 0;
+    /* ② 面板：深色半透明矩形（datah_041 450×335 缩放 720 基准） */
+    float px0 = UI_DIFF_POPUP_X0 * sx, py0 = UI_DIFF_POPUP_Y0 * sy;
+    float pw = UI_DIFF_POPUP_W * sx, ph = UI_DIFF_POPUP_H * sy;
+    rs_v4f pq[6] = {
+        {px0, py0, 0, 0}, {px0 + pw, py0, 0, 0}, {px0, py0 + ph, 0, 0},
+        {px0, py0 + ph, 0, 0}, {px0 + pw, py0, 0, 0}, {px0 + pw, py0 + ph, 0, 0},
+    };
+    glUseProgram(rr->prog_solid[slot]);
+    glUniform2f(rr->uViewWH_solid[slot], (GLfloat)rr->view_w, (GLfloat)rr->view_h);
+    glUniform4f(uc, 0.08f, 0.08f, 0.10f, 0.78f);
+    glGenBuffers(1, &rr->vbo_sel[slot]);
+    glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(pq), pq, GL_DYNAMIC_DRAW);
+    rs_bind_vbo(rr->vbo_sel[slot]);
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+    rs_unbind_vbo();
+    glDeleteBuffers(1, &rr->vbo_sel[slot]);
+    rr->vbo_sel[slot] = 0;
+    /* ③ 8 按钮：布局/翻棋 2 列 × 4 行，纯色圆角近似（选中高亮当前难度）+ mode 标签 */
+    static const float BTN_COL[2][4] = {
+        {0.25f, 0.45f, 0.85f, 0.9f},   /* 布局 蓝 */
+        {0.45f, 0.30f, 0.75f, 0.9f},   /* 翻棋 紫 */
+    };
+    const ui_diff_btn *db = ui_diff_buttons();
+    int cur_level = ui_opt_get_level(), cur_mode = ui_opt_get_mode();
+    for (int i = 0; i < UI_DIFF_COUNT; i++) {
+        int level = db[i].action / 2 + 1, mode = db[i].action % 2;
+        float bx0 = db[i].x0 * sx, by0 = db[i].y0 * sy;
+        float bx1 = db[i].x1 * sx, by1 = db[i].y1 * sy;
+        /* 当前选中项亮边（金色），未选中普通 */
+        int sel = (level == cur_level && mode == cur_mode);
+        float cr = sel ? 1.0f : BTN_COL[mode][0], cg = sel ? 0.85f : BTN_COL[mode][1],
+              cb = sel ? 0.2f : BTN_COL[mode][2];
+        rs_v4f bq[6] = {
+            {bx0, by0, 0, 0}, {bx1, by0, 0, 0}, {bx0, by1, 0, 0},
+            {bx0, by1, 0, 0}, {bx1, by0, 0, 0}, {bx1, by1, 0, 0},
+        };
+        glUseProgram(rr->prog_solid[slot]);
+        glUniform2f(rr->uViewWH_solid[slot], (GLfloat)rr->view_w, (GLfloat)rr->view_h);
+        glUniform4f(uc, cr, cg, cb, sel ? 0.95f : 0.85f);
+        glGenBuffers(1, &rr->vbo_sel[slot]);
+        glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(bq), bq, GL_DYNAMIC_DRAW);
+        rs_bind_vbo(rr->vbo_sel[slot]);
+        glDrawArrays(GL_TRIANGLES, 0, 6);
+        rs_unbind_vbo();
+        glDeleteBuffers(1, &rr->vbo_sel[slot]);
+        rr->vbo_sel[slot] = 0;
+    }
+    /* ④ region 标签（opt_text row0-3：新手区/中级区/高级区/好友区）+ mode 标签（row4-5：布局/翻棋） */
+    if (rr->tex_opt_text[slot] && rr->prog_tex[slot] && rr->opt_text_w > 0 && rr->opt_text_h > 0) {
+        float u0 = 0.0f, u1 = 1.0f;
+        int row_h = rr->opt_text_h / 6;   /* 每行 43px（6 标签竖排） */
+        /* region 标签：左列 x 200-300，y 对齐各行中心 */
+        for (int r = 0; r < 4; r++) {
+            int row_idx = r;   /* row0-3 = 新手/中级/高级/好友区 */
+            float tcy = (db[r * 2].y0 + db[r * 2].y1) * 0.5f * sy;
+            float tw = 100.0f * sx, th = tw * ((float)row_h / rr->opt_text_w);
+            float tx0 = 200.0f * sx, ty0 = tcy - th * 0.5f;
+            float v0 = (float)(row_idx * row_h) / rr->opt_text_h;
+            float v1 = (float)(row_idx * row_h + row_h) / rr->opt_text_h;
+            rs_v4f tq[6] = {
+                {tx0, ty0, u0, v0}, {tx0 + tw, ty0, u1, v0}, {tx0, ty0 + th, u0, v1},
+                {tx0, ty0 + th, u0, v1}, {tx0 + tw, ty0, u1, v0}, {tx0 + tw, ty0 + th, u1, v1},
+            };
+            glUseProgram(rr->prog_tex[slot]);
+            glUniform2f(rr->uViewWH_tex[slot], (GLfloat)rr->view_w, (GLfloat)rr->view_h);
+            glUniform1i(glGetUniformLocation(rr->prog_tex[slot], "uTex"), 0);
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, rr->tex_opt_text[slot]);
+            glGenBuffers(1, &rr->vbo_sel[slot]);
+            glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
+            glBufferData(GL_ARRAY_BUFFER, sizeof(tq), tq, GL_DYNAMIC_DRAW);
+            rs_bind_vbo(rr->vbo_sel[slot]);
+            glDrawArrays(GL_TRIANGLES, 0, 6);
+            rs_unbind_vbo();
+            glDeleteBuffers(1, &rr->vbo_sel[slot]);
+            rr->vbo_sel[slot] = 0;
+        }
+        /* mode 标签：每按钮内居中（布局=row4，翻棋=row5） */
+        for (int i = 0; i < UI_DIFF_COUNT; i++) {
+            int mode = db[i].action % 2;
+            int row_idx = 4 + mode;   /* row4=布局 row5=翻棋 */
+            float bx0 = db[i].x0 * sx, by0 = db[i].y0 * sy;
+            float bx1 = db[i].x1 * sx, by1 = db[i].y1 * sy;
+            float tw = 80.0f * sx, th = tw * ((float)row_h / rr->opt_text_w);
+            float tx0 = (bx0 + bx1) * 0.5f - tw * 0.5f, ty0 = (by0 + by1) * 0.5f - th * 0.5f;
+            float v0 = (float)(row_idx * row_h) / rr->opt_text_h;
+            float v1 = (float)(row_idx * row_h + row_h) / rr->opt_text_h;
+            rs_v4f tq[6] = {
+                {tx0, ty0, u0, v0}, {tx0 + tw, ty0, u1, v0}, {tx0, ty0 + th, u0, v1},
+                {tx0, ty0 + th, u0, v1}, {tx0 + tw, ty0, u1, v0}, {tx0 + tw, ty0 + th, u1, v1},
+            };
+            glUseProgram(rr->prog_tex[slot]);
+            glUniform2f(rr->uViewWH_tex[slot], (GLfloat)rr->view_w, (GLfloat)rr->view_h);
+            glUniform1i(glGetUniformLocation(rr->prog_tex[slot], "uTex"), 0);
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, rr->tex_opt_text[slot]);
+            glGenBuffers(1, &rr->vbo_sel[slot]);
+            glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
+            glBufferData(GL_ARRAY_BUFFER, sizeof(tq), tq, GL_DYNAMIC_DRAW);
+            rs_bind_vbo(rr->vbo_sel[slot]);
+            glDrawArrays(GL_TRIANGLES, 0, 6);
+            rs_unbind_vbo();
+            glDeleteBuffers(1, &rr->vbo_sel[slot]);
+            rr->vbo_sel[slot] = 0;
+        }
+    }
+    static int ddiag = 0;
+    if (!ddiag) { ddiag = 1; LOGI("rs_draw_difficulty：人机难度弹窗（datah_041 新手/中级/高级/好友区 × 布局/翻棋 8 按钮，面板 %.0f×%.0f）", UI_DIFF_POPUP_W, UI_DIFF_POPUP_H); }
+}
+
+/* ★ 对抗审计（datah_072 证据）：联网/联机方式选择弹窗渲染。
+   面板深色半透明 + 4 按钮（蓝牙联机/Wi-Fi 联机/个人资料/返回）+ 文字图集。
+   按钮几何 ui_way_buttons()（720×1280 基准）。 */
+static void rs_draw_waysel(rs_render *rr, int slot)
+{
+    if (!rr->prog_solid[slot] || !rr->gl2_ok[slot]) return;
+    float sx = (float)rr->view_w / 720.0f, sy = (float)rr->view_h / 1280.0f;
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    /* ⓪ 背景：主菜单背景（方式选择弹窗是主菜单上的模态框） */
+    if (rr->tex_menu_bg[slot] && rr->prog_tex[slot]) {
+        float w = (float)rr->view_w, h = (float)rr->view_h;
+        rs_v4f bg[6] = {
+            {0, 0, 0, 0}, {w, 0, 1, 0}, {0, h, 0, 1},
+            {0, h, 0, 1}, {w, 0, 1, 0}, {w, h, 1, 1},
+        };
+        glUseProgram(rr->prog_tex[slot]);
+        glUniform2f(rr->uViewWH_tex[slot], (GLfloat)rr->view_w, (GLfloat)rr->view_h);
+        glUniform1i(glGetUniformLocation(rr->prog_tex[slot], "uTex"), 0);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, rr->tex_menu_bg[slot]);
+        glGenBuffers(1, &rr->vbo_sel[slot]);
+        glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(bg), bg, GL_DYNAMIC_DRAW);
+        rs_bind_vbo(rr->vbo_sel[slot]);
+        glDrawArrays(GL_TRIANGLES, 0, 6);
+        rs_unbind_vbo();
+        glDeleteBuffers(1, &rr->vbo_sel[slot]);
+        rr->vbo_sel[slot] = 0;
+    }
+    /* ① 全屏模态遮罩 */
+    rs_v4f mq[6] = {
+        {0, 0, 0, 0}, {(float)rr->view_w, 0, 0, 0}, {0, (float)rr->view_h, 0, 0},
+        {0, (float)rr->view_h, 0, 0}, {(float)rr->view_w, 0, 0, 0},
+        {(float)rr->view_w, (float)rr->view_h, 0, 0},
+    };
+    glUseProgram(rr->prog_solid[slot]);
+    glUniform2f(rr->uViewWH_solid[slot], (GLfloat)rr->view_w, (GLfloat)rr->view_h);
+    glUniform4f(uc, 0.0f, 0.0f, 0.0f, 0.35f);
+    glGenBuffers(1, &rr->vbo_sel[slot]);
+    glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(mq), mq, GL_DYNAMIC_DRAW);
+    rs_bind_vbo(rr->vbo_sel[slot]);
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+    rs_unbind_vbo();
+    glDeleteBuffers(1, &rr->vbo_sel[slot]);
+    rr->vbo_sel[slot] = 0;
+    /* ② 面板：深色半透明矩形 */
+    float px0 = UI_WAYSEL_POPUP_X0 * sx, py0 = UI_WAYSEL_POPUP_Y0 * sy;
+    float pw = UI_WAYSEL_POPUP_W * sx, ph = UI_WAYSEL_POPUP_H * sy;
+    rs_v4f pq[6] = {
+        {px0, py0, 0, 0}, {px0 + pw, py0, 0, 0}, {px0, py0 + ph, 0, 0},
+        {px0, py0 + ph, 0, 0}, {px0 + pw, py0, 0, 0}, {px0 + pw, py0 + ph, 0, 0},
+    };
+    glUseProgram(rr->prog_solid[slot]);
+    glUniform2f(rr->uViewWH_solid[slot], (GLfloat)rr->view_w, (GLfloat)rr->view_h);
+    glUniform4f(uc, 0.08f, 0.08f, 0.10f, 0.78f);
+    glGenBuffers(1, &rr->vbo_sel[slot]);
+    glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(pq), pq, GL_DYNAMIC_DRAW);
+    rs_bind_vbo(rr->vbo_sel[slot]);
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+    rs_unbind_vbo();
+    glDeleteBuffers(1, &rr->vbo_sel[slot]);
+    rr->vbo_sel[slot] = 0;
+    /* ③ 4 按钮：纯色圆角近似 + 文字 */
+    static const float BTN_COL[4][4] = {
+        {0.20f, 0.45f, 0.90f, 0.9f},   /* 蓝牙联机 蓝 */
+        {0.30f, 0.70f, 0.50f, 0.9f},   /* Wi-Fi 联机 绿 */
+        {0.80f, 0.60f, 0.25f, 0.9f},   /* 个人资料 橙 */
+        {0.55f, 0.55f, 0.60f, 0.9f},   /* 返回 灰 */
+    };
+    const ui_way_btn *wb = ui_way_buttons();
+    for (int i = 0; i < UI_WAYSEL_COUNT; i++) {
+        float bx0 = wb[i].x0 * sx, by0 = wb[i].y0 * sy;
+        float bx1 = wb[i].x1 * sx, by1 = wb[i].y1 * sy;
+        rs_v4f bq[6] = {
+            {bx0, by0, 0, 0}, {bx1, by0, 0, 0}, {bx0, by1, 0, 0},
+            {bx0, by1, 0, 0}, {bx1, by0, 0, 0}, {bx1, by1, 0, 0},
+        };
+        glUseProgram(rr->prog_solid[slot]);
+        glUniform2f(rr->uViewWH_solid[slot], (GLfloat)rr->view_w, (GLfloat)rr->view_h);
+        glUniform4f(uc, BTN_COL[i][0], BTN_COL[i][1], BTN_COL[i][2], BTN_COL[i][3]);
+        glGenBuffers(1, &rr->vbo_sel[slot]);
+        glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(bq), bq, GL_DYNAMIC_DRAW);
+        rs_bind_vbo(rr->vbo_sel[slot]);
+        glDrawArrays(GL_TRIANGLES, 0, 6);
+        rs_unbind_vbo();
+        glDeleteBuffers(1, &rr->vbo_sel[slot]);
+        rr->vbo_sel[slot] = 0;
+    }
+    /* ④ 4 按钮文字（waysel_text_atlas，每按钮一 label，居中） */
+    if (rr->tex_waysel_text[slot] && rr->prog_tex[slot] && rr->waysel_text_w > 0 && rr->waysel_text_h > 0) {
+        int row_h = rr->waysel_text_h / UI_WAYSEL_COUNT;   /* 每行 46px */
+        for (int i = 0; i < UI_WAYSEL_COUNT; i++) {
+            float bx0 = wb[i].x0 * sx, by0 = wb[i].y0 * sy;
+            float bx1 = wb[i].x1 * sx, by1 = wb[i].y1 * sy;
+            float tw = 150.0f * sx, th = tw * ((float)row_h / rr->waysel_text_w);
+            float tx0 = (bx0 + bx1) * 0.5f - tw * 0.5f, ty0 = (by0 + by1) * 0.5f - th * 0.5f;
+            float u0 = 0.0f, u1 = 1.0f;
+            float v0 = (float)(i * row_h) / rr->waysel_text_h;
+            float v1 = (float)(i * row_h + row_h) / rr->waysel_text_h;
+            rs_v4f tq[6] = {
+                {tx0, ty0, u0, v0}, {tx0 + tw, ty0, u1, v0}, {tx0, ty0 + th, u0, v1},
+                {tx0, ty0 + th, u0, v1}, {tx0 + tw, ty0, u1, v0}, {tx0 + tw, ty0 + th, u1, v1},
+            };
+            glUseProgram(rr->prog_tex[slot]);
+            glUniform2f(rr->uViewWH_tex[slot], (GLfloat)rr->view_w, (GLfloat)rr->view_h);
+            glUniform1i(glGetUniformLocation(rr->prog_tex[slot], "uTex"), 0);
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, rr->tex_waysel_text[slot]);
+            glGenBuffers(1, &rr->vbo_sel[slot]);
+            glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
+            glBufferData(GL_ARRAY_BUFFER, sizeof(tq), tq, GL_DYNAMIC_DRAW);
+            rs_bind_vbo(rr->vbo_sel[slot]);
+            glDrawArrays(GL_TRIANGLES, 0, 6);
+            rs_unbind_vbo();
+            glDeleteBuffers(1, &rr->vbo_sel[slot]);
+            rr->vbo_sel[slot] = 0;
+        }
+    }
+    static int wdiag = 0;
+    if (!wdiag) { wdiag = 1; LOGI("rs_draw_waysel：联网/联机方式选择弹窗（datah_072 蓝牙联机/Wi-Fi 联机/个人资料/返回 4 按钮，面板 %.0f×%.0f）", UI_WAYSEL_POPUP_W, UI_WAYSEL_POPUP_H); }
+}
+
+/* ★ 对抗审计（datah_001 证据）：声音设置弹窗渲染。
+   面板深色半透明 + 5 按钮（静音模式/按键声音/音量/确定/取消）+ 文字图集。
+   按钮几何 ui_set_buttons()（720×1280 基准）。 */
+static void rs_draw_settings(rs_render *rr, int slot)
+{
+    if (!rr->prog_solid[slot] || !rr->gl2_ok[slot]) return;
+    float sx = (float)rr->view_w / 720.0f, sy = (float)rr->view_h / 1280.0f;
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    /* ⓪ 背景：对局棋盘背景（设置弹窗从 ☰ 菜单弹出，背景为对局） */
+    if (rr->tex_bg[slot] && rr->prog_tex[slot]) {
+        float w = (float)rr->view_w, h = (float)rr->view_h;
+        rs_v4f bg[6] = {
+            {0, 0, 0, 0}, {w, 0, 1, 0}, {0, h, 0, 1},
+            {0, h, 0, 1}, {w, 0, 1, 0}, {w, h, 1, 1},
+        };
+        glUseProgram(rr->prog_tex[slot]);
+        glUniform2f(rr->uViewWH_tex[slot], (GLfloat)rr->view_w, (GLfloat)rr->view_h);
+        glUniform1i(glGetUniformLocation(rr->prog_tex[slot], "uTex"), 0);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, rr->tex_bg[slot]);
+        glGenBuffers(1, &rr->vbo_sel[slot]);
+        glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(bg), bg, GL_DYNAMIC_DRAW);
+        rs_bind_vbo(rr->vbo_sel[slot]);
+        glDrawArrays(GL_TRIANGLES, 0, 6);
+        rs_unbind_vbo();
+        glDeleteBuffers(1, &rr->vbo_sel[slot]);
+        rr->vbo_sel[slot] = 0;
+    }
+    /* ① 全屏模态遮罩 */
+    rs_v4f mq[6] = {
+        {0, 0, 0, 0}, {(float)rr->view_w, 0, 0, 0}, {0, (float)rr->view_h, 0, 0},
+        {0, (float)rr->view_h, 0, 0}, {(float)rr->view_w, 0, 0, 0},
+        {(float)rr->view_w, (float)rr->view_h, 0, 0},
+    };
+    glUseProgram(rr->prog_solid[slot]);
+    glUniform2f(rr->uViewWH_solid[slot], (GLfloat)rr->view_w, (GLfloat)rr->view_h);
+    glUniform4f(uc, 0.0f, 0.0f, 0.0f, 0.35f);
+    glGenBuffers(1, &rr->vbo_sel[slot]);
+    glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(mq), mq, GL_DYNAMIC_DRAW);
+    rs_bind_vbo(rr->vbo_sel[slot]);
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+    rs_unbind_vbo();
+    glDeleteBuffers(1, &rr->vbo_sel[slot]);
+    rr->vbo_sel[slot] = 0;
+    /* ② 面板：深色半透明矩形 */
+    float px0 = UI_SETTINGS_POPUP_X0 * sx, py0 = UI_SETTINGS_POPUP_Y0 * sy;
+    float pw = UI_SETTINGS_POPUP_W * sx, ph = UI_SETTINGS_POPUP_H * sy;
+    rs_v4f pq[6] = {
+        {px0, py0, 0, 0}, {px0 + pw, py0, 0, 0}, {px0, py0 + ph, 0, 0},
+        {px0, py0 + ph, 0, 0}, {px0 + pw, py0, 0, 0}, {px0 + pw, py0 + ph, 0, 0},
+    };
+    glUseProgram(rr->prog_solid[slot]);
+    glUniform2f(rr->uViewWH_solid[slot], (GLfloat)rr->view_w, (GLfloat)rr->view_h);
+    glUniform4f(uc, 0.08f, 0.08f, 0.10f, 0.78f);
+    glGenBuffers(1, &rr->vbo_sel[slot]);
+    glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(pq), pq, GL_DYNAMIC_DRAW);
+    rs_bind_vbo(rr->vbo_sel[slot]);
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+    rs_unbind_vbo();
+    glDeleteBuffers(1, &rr->vbo_sel[slot]);
+    rr->vbo_sel[slot] = 0;
+    /* ③ 5 按钮：2 开关 + 音量 + 确定/取消 */
+    static const float BTN_COL[5][4] = {
+        {0.55f, 0.55f, 0.60f, 0.9f},   /* 静音模式 灰 */
+        {0.55f, 0.55f, 0.60f, 0.9f},   /* 按键声音 灰 */
+        {0.55f, 0.55f, 0.60f, 0.9f},   /* 音量 灰 */
+        {0.20f, 0.45f, 0.90f, 0.9f},   /* 确定 蓝 */
+        {0.55f, 0.55f, 0.60f, 0.9f},   /* 取消 灰 */
+    };
+    const ui_set_btn *sb = ui_set_buttons();
+    for (int i = 0; i < UI_SETTINGS_COUNT; i++) {
+        float bx0 = sb[i].x0 * sx, by0 = sb[i].y0 * sy;
+        float bx1 = sb[i].x1 * sx, by1 = sb[i].y1 * sy;
+        rs_v4f bq[6] = {
+            {bx0, by0, 0, 0}, {bx1, by0, 0, 0}, {bx0, by1, 0, 0},
+            {bx0, by1, 0, 0}, {bx1, by0, 0, 0}, {bx1, by1, 0, 0},
+        };
+        glUseProgram(rr->prog_solid[slot]);
+        glUniform2f(rr->uViewWH_solid[slot], (GLfloat)rr->view_w, (GLfloat)rr->view_h);
+        glUniform4f(uc, BTN_COL[i][0], BTN_COL[i][1], BTN_COL[i][2], BTN_COL[i][3]);
+        glGenBuffers(1, &rr->vbo_sel[slot]);
+        glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(bq), bq, GL_DYNAMIC_DRAW);
+        rs_bind_vbo(rr->vbo_sel[slot]);
+        glDrawArrays(GL_TRIANGLES, 0, 6);
+        rs_unbind_vbo();
+        glDeleteBuffers(1, &rr->vbo_sel[slot]);
+        rr->vbo_sel[slot] = 0;
+    }
+    /* ④ 文字：左列 label（静音模式/按键声音/音量，settings_text row0-2）+ 按钮内值
+       （开/关 row5-6，低/中/高 row7-9）+ 确定/取消（row3-4） */
+    if (rr->tex_settings_text[slot] && rr->prog_tex[slot] && rr->settings_text_w > 0 && rr->settings_text_h > 0) {
+        int row_h = rr->settings_text_h / 10;   /* 每行 46px */
+        float u0 = 0.0f, u1 = 1.0f;
+        /* label 左列：x 200-290 */
+        for (int r = 0; r < 3; r++) {
+            float tcy = (sb[r].y0 + sb[r].y1) * 0.5f * sy;
+            float tw = 90.0f * sx, th = tw * ((float)row_h / rr->settings_text_w);
+            float tx0 = 200.0f * sx, ty0 = tcy - th * 0.5f;
+            float v0 = (float)(r * row_h) / rr->settings_text_h;
+            float v1 = (float)(r * row_h + row_h) / rr->settings_text_h;
+            rs_v4f tq[6] = {
+                {tx0, ty0, u0, v0}, {tx0 + tw, ty0, u1, v0}, {tx0, ty0 + th, u0, v1},
+                {tx0, ty0 + th, u0, v1}, {tx0 + tw, ty0, u1, v0}, {tx0 + tw, ty0 + th, u1, v1},
+            };
+            glUseProgram(rr->prog_tex[slot]);
+            glUniform2f(rr->uViewWH_tex[slot], (GLfloat)rr->view_w, (GLfloat)rr->view_h);
+            glUniform1i(glGetUniformLocation(rr->prog_tex[slot], "uTex"), 0);
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, rr->tex_settings_text[slot]);
+            glGenBuffers(1, &rr->vbo_sel[slot]);
+            glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
+            glBufferData(GL_ARRAY_BUFFER, sizeof(tq), tq, GL_DYNAMIC_DRAW);
+            rs_bind_vbo(rr->vbo_sel[slot]);
+            glDrawArrays(GL_TRIANGLES, 0, 6);
+            rs_unbind_vbo();
+            glDeleteBuffers(1, &rr->vbo_sel[slot]);
+            rr->vbo_sel[slot] = 0;
+        }
+        /* 值标签（开关开/关，音量低/中/高） */
+        int val_rows[3] = {5 + 0, 5 + 1, 7 + (ui_volume_get() - 1)};  /* 静音row5开/6关, 按键row5/6, 音量row7-9 */
+        if (ui_snd_mute_get()) val_rows[0] = 6;   /* 静音=关显示 */
+        if (!ui_btn_sound_get()) val_rows[1] = 6; /* 按键声音=关 */
+        for (int r = 0; r < 3; r++) {
+            float bx0 = sb[r].x0 * sx, by0 = sb[r].y0 * sy;
+            float bx1 = sb[r].x1 * sx, by1 = sb[r].y1 * sy;
+            float tw = 60.0f * sx, th = tw * ((float)row_h / rr->settings_text_w);
+            float tx0 = (bx0 + bx1) * 0.5f - tw * 0.5f, ty0 = (by0 + by1) * 0.5f - th * 0.5f;
+            float v0 = (float)(val_rows[r] * row_h) / rr->settings_text_h;
+            float v1 = (float)(val_rows[r] * row_h + row_h) / rr->settings_text_h;
+            rs_v4f tq[6] = {
+                {tx0, ty0, u0, v0}, {tx0 + tw, ty0, u1, v0}, {tx0, ty0 + th, u0, v1},
+                {tx0, ty0 + th, u0, v1}, {tx0 + tw, ty0, u1, v0}, {tx0 + tw, ty0 + th, u1, v1},
+            };
+            glUseProgram(rr->prog_tex[slot]);
+            glUniform2f(rr->uViewWH_tex[slot], (GLfloat)rr->view_w, (GLfloat)rr->view_h);
+            glUniform1i(glGetUniformLocation(rr->prog_tex[slot], "uTex"), 0);
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, rr->tex_settings_text[slot]);
+            glGenBuffers(1, &rr->vbo_sel[slot]);
+            glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
+            glBufferData(GL_ARRAY_BUFFER, sizeof(tq), tq, GL_DYNAMIC_DRAW);
+            rs_bind_vbo(rr->vbo_sel[slot]);
+            glDrawArrays(GL_TRIANGLES, 0, 6);
+            rs_unbind_vbo();
+            glDeleteBuffers(1, &rr->vbo_sel[slot]);
+            rr->vbo_sel[slot] = 0;
+        }
+        /* 确定/取消（row3-4） */
+        for (int i = 3; i < 5; i++) {
+            float bx0 = sb[i].x0 * sx, by0 = sb[i].y0 * sy;
+            float bx1 = sb[i].x1 * sx, by1 = sb[i].y1 * sy;
+            float tw = 120.0f * sx, th = tw * ((float)row_h / rr->settings_text_w);
+            float tx0 = (bx0 + bx1) * 0.5f - tw * 0.5f, ty0 = (by0 + by1) * 0.5f - th * 0.5f;
+            float v0 = (float)(i * row_h) / rr->settings_text_h;
+            float v1 = (float)(i * row_h + row_h) / rr->settings_text_h;
+            rs_v4f tq[6] = {
+                {tx0, ty0, u0, v0}, {tx0 + tw, ty0, u1, v0}, {tx0, ty0 + th, u0, v1},
+                {tx0, ty0 + th, u0, v1}, {tx0 + tw, ty0, u1, v0}, {tx0 + tw, ty0 + th, u1, v1},
+            };
+            glUseProgram(rr->prog_tex[slot]);
+            glUniform2f(rr->uViewWH_tex[slot], (GLfloat)rr->view_w, (GLfloat)rr->view_h);
+            glUniform1i(glGetUniformLocation(rr->prog_tex[slot], "uTex"), 0);
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, rr->tex_settings_text[slot]);
+            glGenBuffers(1, &rr->vbo_sel[slot]);
+            glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
+            glBufferData(GL_ARRAY_BUFFER, sizeof(tq), tq, GL_DYNAMIC_DRAW);
+            rs_bind_vbo(rr->vbo_sel[slot]);
+            glDrawArrays(GL_TRIANGLES, 0, 6);
+            rs_unbind_vbo();
+            glDeleteBuffers(1, &rr->vbo_sel[slot]);
+            rr->vbo_sel[slot] = 0;
+        }
+    }
+    static int stdiag = 0;
+    if (!stdiag) { stdiag = 1; LOGI("rs_draw_settings：声音设置弹窗（datah_001 静音模式/按键声音/音量/确定/取消，面板 %.0f×%.0f）", UI_SETTINGS_POPUP_W, UI_SETTINGS_POPUP_H); }
 }
 
 /* 判当前是否在 GLThread/EglHelper 的 window context（≠ 我们 init 的 PBuffer context） */
@@ -971,6 +1475,33 @@ static void rs_gl_rebuild(rs_render *rr, int slot)
         glBindTexture(GL_TEXTURE_2D, rr->tex_opt_text[slot]);
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->opt_text_w, rr->opt_text_h, 0,
                      GL_RGBA, GL_UNSIGNED_BYTE, rr->opt_text_px);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    }
+    /* ★ 对抗审计（datah_072）：方式选择文字图集（4 标签竖排 220×184） */
+    if (rr->waysel_text_px && rr->gl2_ok[slot] && rr->waysel_text_w > 0 && rr->waysel_text_h > 0) {
+        glGenTextures(1, &rr->tex_waysel_text[slot]);
+        glBindTexture(GL_TEXTURE_2D, rr->tex_waysel_text[slot]);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->waysel_text_w, rr->waysel_text_h, 0,
+                     GL_RGBA, GL_UNSIGNED_BYTE, rr->waysel_text_px);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    }
+    /* ★ 对抗审计（datah_067）：联机 ☰ 菜单文字图集（8 项竖排 160×320） */
+    if (rr->btimen_text_px && rr->gl2_ok[slot] && rr->btimen_text_w > 0 && rr->btimen_text_h > 0) {
+        glGenTextures(1, &rr->tex_btimen_text[slot]);
+        glBindTexture(GL_TEXTURE_2D, rr->tex_btimen_text[slot]);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->btimen_text_w, rr->btimen_text_h, 0,
+                     GL_RGBA, GL_UNSIGNED_BYTE, rr->btimen_text_px);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    }
+    /* ★ 对抗审计（datah_001）：声音设置文字图集（10 标签竖排 200×460） */
+    if (rr->settings_text_px && rr->gl2_ok[slot] && rr->settings_text_w > 0 && rr->settings_text_h > 0) {
+        glGenTextures(1, &rr->tex_settings_text[slot]);
+        glBindTexture(GL_TEXTURE_2D, rr->tex_settings_text[slot]);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->settings_text_w, rr->settings_text_h, 0,
+                     GL_RGBA, GL_UNSIGNED_BYTE, rr->settings_text_px);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     }
@@ -1172,7 +1703,7 @@ void rs_render_frame(rs_render *rr)
             }
         }
         /* ★ 原版 UI 对齐：仅 UI_MENU 画主菜单（datax_294 背景 + 实测按钮）；
-           datah_041 难度弹窗已移除（原版人机/两人直开局无弹窗） */
+           对抗审计（datah_041）：UI_DIFFICULTY 画人机难度弹窗（新手/中级/高级/好友 × 布局/翻棋） */
         if (ui_screen_get() == UI_MENU) {
             rs_draw_menu(rr, slot);
             /* 诊断：rs_draw_menu 后 glGetError + 按钮区 readPixels */
@@ -1186,6 +1717,15 @@ void rs_render_frame(rs_render *rr)
                 LOGI("rs_draw_menu 后 GLERR=0x%x 按钮0区(205,560 基准)=RGBA(%d,%d,%d,%d)",
                      (unsigned)e, px[0], px[1], px[2], px[3]);
             }
+        } else if (ui_screen_get() == UI_DIFFICULTY) {
+            /* ★ 对抗审计（datah_041 证据）：人机难度选择弹窗 */
+            rs_draw_difficulty(rr, slot);
+        } else if (ui_screen_get() == UI_WAYSEL) {
+            /* ★ 对抗审计（datah_072 证据）：联网/联机方式选择弹窗 */
+            rs_draw_waysel(rr, slot);
+        } else if (ui_screen_get() == UI_SETTINGS) {
+            /* ★ 对抗审计（datah_001 证据）：声音设置弹窗 */
+            rs_draw_settings(rr, slot);
         } else if (rr->game && rr->game->stage == STG_OVER) {
             /* ★ 对局结束（GAME 态且 stage=OVER）→ 胜负横幅（winner 色可视化） */
             rs_draw_overlay(rr, slot, rr->game->winner);

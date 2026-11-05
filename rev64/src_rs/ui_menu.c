@@ -62,11 +62,46 @@ int ui_menu_hit(const ui_btn *btns, int n, float x, float y)
     return -1;
 }
 
+/* ★ 人机难度选择弹窗（对抗审计 datah_041 证据：新手/中级/高级/好友区 × 布局/翻棋 8 按钮）。
+   几何 720×1280 基准：面板 180,420-540,820（居中，datah_041 450×335 比例缩放 ×0.8）。
+   8 按钮 2 列 × 4 行（datah_041 布局/翻棋列 = 155-275/300-420 缩放 0.8 → 124-220/240-336，
+   偏移面板 x0=180 → 304-400/420-516；行 y 25-85/100-160/175-235/250-310 缩放 1.19 →
+   450-521/539-610/628-700/718-789）。region 标签列 x 200-300（新手/中级/高级/好友区）。
+   action = level/mode 编码（level=action/2+1，mode=action%2）。 */
+static const ui_diff_btn g_diff_btns[UI_DIFF_COUNT] = {
+    /* x0, y0, x1, y1, action（level/mode） */
+    { 310.0f, 450.0f, 420.0f, 510.0f, 0 },   /* 新手 布局（level1 mode0） */
+    { 435.0f, 450.0f, 520.0f, 510.0f, 1 },   /* 新手 翻棋（level1 mode1） */
+    { 310.0f, 539.0f, 420.0f, 599.0f, 2 },   /* 中级 布局（level2 mode0） */
+    { 435.0f, 539.0f, 520.0f, 599.0f, 3 },   /* 中级 翻棋（level2 mode1） */
+    { 310.0f, 628.0f, 420.0f, 688.0f, 4 },   /* 高级 布局（level3 mode0） */
+    { 435.0f, 628.0f, 520.0f, 688.0f, 5 },   /* 高级 翻棋（level3 mode1） */
+    { 310.0f, 718.0f, 420.0f, 778.0f, 6 },   /* 好友 布局（level4 mode0） */
+    { 435.0f, 718.0f, 520.0f, 778.0f, 7 },   /* 好友 翻棋（level4 mode1） */
+};
+
+const ui_diff_btn *ui_diff_buttons(void) { return g_diff_btns; }
+
+int ui_diff_hit(const ui_diff_btn *btns, int n, float x, float y)
+{
+    for (int i = 0; i < n; i++) {
+        if (x >= btns[i].x0 && x <= btns[i].x1 && y >= btns[i].y0 && y <= btns[i].y1)
+            return i;
+    }
+    return -1;
+}
+
+int ui_diff_popup_inside(float x, float y)
+{
+    return x >= UI_DIFF_POPUP_X0 && x <= UI_DIFF_POPUP_X0 + UI_DIFF_POPUP_W &&
+           y >= UI_DIFF_POPUP_Y0 && y <= UI_DIFF_POPUP_Y0 + UI_DIFF_POPUP_H;
+}
+
 void ui_menu_action_log(int action)
 {
     switch (action) {
-    case 0: LOGI("UI菜单：人机对战 → 直开局（★ 原版 UI 对齐：无难度弹窗）"); break;
-    case 1: LOGI("UI菜单：两人对战 → 直开局（★ 原版 UI 对齐：无难度弹窗）"); break;
+    case 0: LOGI("UI菜单：人机对战 → 难度选择弹窗（★ 对抗审计 datah_041 证据：新手/中级/高级/好友区 × 布局/翻棋）"); break;
+    case 1: LOGI("UI菜单：两人对战 → 直开局（★ 原版 UI 对齐：两人无难度弹窗，orig_two 截图自证）"); break;
     case 2: LOGI("UI菜单：联网对战（占位，SPP socket 由 Java 宿主承担）"); break;
     case 3: LOGI("UI菜单：四国军棋（占位，未实现四国规则）"); break;
     case 4: LOGI("UI菜单：悔棋重开 → restart（default.lay）"); break;
@@ -77,7 +112,8 @@ void ui_menu_action_log(int action)
 /* ★ 原版 UI 对齐：☰ 游戏内菜单（原版实测 orig_ingame_menu.png 900×1600，
    非 datah_006 定义——实测图标中心 4 列 x=123/284/445/606（列距 161）、
    2 行 y=514/702（行距 188）、图标 88×80、文字行中心 594/780）。
-   ★ datah_041 判误（非人机难度弹窗，原版人机直开局）——datah_006 才是游戏内"选项 UI"。
+   ★ 对抗审计（datah_041 证据修正）：人机主菜单点"人机对战"→ datah_041 难度选择弹窗
+     （新手/中级/高级/好友区 × 布局/翻棋 8 按钮），选完开局；datah_006 才是游戏内"选项 UI"。
    ★ datah_006 的 450×285 面板 + 8 按钮 105×135（列距 105）非实际渲染尺寸：
      实测面板更宽（图标 4 列分散列距 161），datah_006 定义仅窗口类声明。
    ☰/↩ 图标在棋盘中部（原版 orig_human.png ~(270,900)/(620,900) 屏幕 900×1600）：
@@ -118,4 +154,80 @@ void ui_imen_icon_rect(int which, float *x0, float *y0, float *x1, float *y1)
     float cx = (which == 0) ? 216.0f : 496.0f;
     float cy = 720.0f, r = 35.0f;
     *x0 = cx - r; *y0 = cy - r; *x1 = cx + r; *y1 = cy + r;
+}
+
+/* ★ 对抗审计（datah_067 证据）：蓝牙联机 ☰ 菜单（New/Regret/Draw/Resign/Chat/Config/Stat/Rule）。
+   与本地菜单（datah_006）同 4 列 × 2 行几何（实测图标中心 123/284/445/606 × 514/702），
+   但第 2/3/4 项不同：本地=电脑变着/游戏规则/软件信息；联机=提和/认输/聊天/游戏规则。 */
+static const ui_imen_btn g_bt_imen_btns[UI_IMENU_COUNT] = {
+    /* x0,    y0,    x1,    y1,    action；同 g_imen_btns 几何 */
+    {  48.0f, 474.0f, 198.0f, 607.0f, 0 },  /* 重新开始（中心 123,540） */
+    { 209.0f, 474.0f, 359.0f, 607.0f, 1 },  /* 悔棋（中心 284,540） */
+    { 370.0f, 474.0f, 520.0f, 607.0f, 2 },  /* 提和（中心 445,540） */
+    { 531.0f, 474.0f, 681.0f, 607.0f, 3 },  /* 认输（中心 606,540） */
+    {  48.0f, 662.0f, 198.0f, 795.0f, 4 },  /* 聊天（中心 123,728） */
+    { 209.0f, 662.0f, 359.0f, 795.0f, 5 },  /* 功能设置（中心 284,728） */
+    { 370.0f, 662.0f, 520.0f, 795.0f, 6 },  /* 战况统计（中心 445,728） */
+    { 531.0f, 662.0f, 681.0f, 795.0f, 7 },  /* 游戏规则（中心 606,728） */
+};
+
+const ui_imen_btn *ui_imen_bt_buttons(void) { return g_bt_imen_btns; }
+
+/* ★ 联网/联机方式选择弹窗（对抗审计 datah_072 证据：蓝牙联机/Wi-Fi 联机/个人资料/返回）。
+   几何 720×1280 基准：面板 210,440-510,830（居中，datah_072 250×325 ×1.2），
+   4 按钮纵排（datah_072 按钮 x 20-230/250 缩放 1.2 → 24-276，偏移面板 x0=210 → 234-486；
+   行 y 20-80/95-155/170-230/245-305 缩放 1.2 → 24-96/114-186/204-276/294-366，偏移 440 →
+   464-536/554-626/644-716/734-806）。 */
+static const ui_way_btn g_way_btns[UI_WAYSEL_COUNT] = {
+    /* x0, y0, x1, y1, action */
+    { 234.0f, 464.0f, 486.0f, 536.0f, 0 },  /* 蓝牙联机 */
+    { 234.0f, 554.0f, 486.0f, 626.0f, 1 },  /* Wi-Fi 联机 */
+    { 234.0f, 644.0f, 486.0f, 716.0f, 2 },  /* 个人资料 */
+    { 234.0f, 734.0f, 486.0f, 806.0f, 3 },  /* 返回 */
+};
+
+const ui_way_btn *ui_way_buttons(void) { return g_way_btns; }
+
+int ui_way_hit(const ui_way_btn *btns, int n, float x, float y)
+{
+    for (int i = 0; i < n; i++) {
+        if (x >= btns[i].x0 && x <= btns[i].x1 && y >= btns[i].y0 && y <= btns[i].y1)
+            return i;
+    }
+    return -1;
+}
+
+int ui_way_popup_inside(float x, float y)
+{
+    return x >= UI_WAYSEL_POPUP_X0 && x <= UI_WAYSEL_POPUP_X0 + UI_WAYSEL_POPUP_W &&
+           y >= UI_WAYSEL_POPUP_Y0 && y <= UI_WAYSEL_POPUP_Y0 + UI_WAYSEL_POPUP_H;
+}
+
+/* ★ 声音设置弹窗（对抗审计 datah_001 证据：静音模式/按键声音/音量/确定/取消）。
+   几何 720×1280 基准：面板 170,400-550,870（居中，datah_001 450×390 ×1.2）。
+   5 按钮：2 行开关 + 音量行 + 确定/取消。 */
+static const ui_set_btn g_set_btns[UI_SETTINGS_COUNT] = {
+    /* x0, y0, x1, y1, action */
+    { 300.0f, 440.0f, 520.0f, 510.0f, 0 },  /* 静音模式 开关 */
+    { 300.0f, 530.0f, 520.0f, 600.0f, 1 },  /* 按键声音 开关 */
+    { 300.0f, 620.0f, 520.0f, 690.0f, 2 },  /* 音量 循环 */
+    { 190.0f, 740.0f, 350.0f, 820.0f, 3 },  /* 确定 */
+    { 370.0f, 740.0f, 530.0f, 820.0f, 4 },  /* 取消 */
+};
+
+const ui_set_btn *ui_set_buttons(void) { return g_set_btns; }
+
+int ui_set_hit(const ui_set_btn *btns, int n, float x, float y)
+{
+    for (int i = 0; i < n; i++) {
+        if (x >= btns[i].x0 && x <= btns[i].x1 && y >= btns[i].y0 && y <= btns[i].y1)
+            return i;
+    }
+    return -1;
+}
+
+int ui_set_popup_inside(float x, float y)
+{
+    return x >= UI_SETTINGS_POPUP_X0 && x <= UI_SETTINGS_POPUP_X0 + UI_SETTINGS_POPUP_W &&
+           y >= UI_SETTINGS_POPUP_Y0 && y <= UI_SETTINGS_POPUP_Y0 + UI_SETTINGS_POPUP_H;
 }

@@ -46,13 +46,19 @@ jq_state g_state;                /* 对局全局状态（规则引擎） */
 jq_glview g_glview;             /* GLView 线程驱动 */
 jq_touch_state g_ts;            /* 触摸两步态机 */
 jq_bt_session g_bt_sess;        /* 蓝牙会话 */
+static void jq_bt_test_run(jq_state *st, const char *tag);  /* 蓝牙帧状态机测试（OnEvent bttest / setprop jq.bttest 复用） */
+
+/* ★ 对局模式（用户指正"各按钮点击业务功能要对齐"）：人机 vs 两人热座区分。
+   1=人机对战（红方回合由 AI 自动走子 ai_pick）；0=两人热座/蓝牙（红方由玩家/对端走）。
+   OnTouch/OnEvent 菜单进局时设置；重开（☰/restart）保持当前模式。 */
+static int g_vs_ai = 0;
 
 /* 悔棋栈（OnEvent undo 用） */
 #define UNDO_MAX 128
 static jq_state g_undo[UNDO_MAX];
 static int g_undo_top = 0;
-static void undo_push(void) { if (g_undo_top < UNDO_MAX) g_undo[g_undo_top++] = g_state; }
-static int undo_pop(void) { if (g_undo_top <= 0) return 0; g_state = g_undo[--g_undo_top]; return 1; }
+static void undo_push(void) { if (g_undo_top < UNDO_MAX) { g_undo[g_undo_top++] = g_state; LOGI("undo_push：top=%d turn=%d", g_undo_top, g_state.turn); } }
+static int undo_pop(void) { if (g_undo_top <= 0) return 0; g_state = g_undo[--g_undo_top]; LOGI("undo_pop：top=%d turn=%d", g_undo_top, g_state.turn); return 1; }
 
 /* ★ 游戏内重开新局统一入口（6 处调用收敛：restartgame property / 菜单按钮 action 0/4 /
    点棋盘开局 / 对局结束再来一局 / 左上角悔棋重开 / 对局态点棋盘自动开局）。
@@ -64,6 +70,11 @@ static void jq_restart_game(void)
 {
     jq_load_layout(&g_state, JQ_DEFAULT_LAY);
     int dark = ui_opt_get_mode() == 1;   /* ★ 选项 UI：翻棋模式 = 暗棋开局 */
+    /* ★ 测试钩子：jq.mode setprop 覆盖（0=明棋 1=暗棋），walktest/evtest 走明棋用；
+       __system_property_get 返回空 = 未设 → 用 ui_opt_get_mode()（默认暗棋） */
+    char mode_prop[8] = {0};
+    if (__system_property_get("jq.mode", mode_prop) > 0 && mode_prop[0])
+        dark = (mode_prop[0] == '1');
     for (int i = 0; i < N_CELLS; i++)
         if (g_state.cells[i].rank != RANK_EMPTY)
             g_state.cells[i].revealed = dark ? 0 : 1;
@@ -145,6 +156,7 @@ static void (*g_aasset_close)(AAsset *);
 #define SFX_DIR "/data/local/tmp/jq_sfx"
 static int g_sfx_wrote = 0;
 static char g_sfx_priv_dir[256];
+static char g_files_dir[256];   /* ★ 音效持久化：getFilesDir 路径（jq_sound_on.txt 存/取） */
 
 /* MediaPlayer global ref 缓存（跨线程安全） */
 static jobject g_mp = NULL;
@@ -156,6 +168,85 @@ static jmethodID g_mp_afd = 0;            /* setDataSource(AssetFileDescriptor) 
 static jmethodID g_mp_setfd = NULL;       /* setDataSource(FileDescriptor,long,long) */
 static jclass g_f_cls_sfx = NULL;
 static jmethodID g_f_ctor_sfx = NULL;     /* File(String) */
+
+/* ★ 功能设置（☰ 菜单 action=4）：音效开关。sfx_play 顶部门控。 */
+static int g_sound_on = 1;
+
+/* ★ 按键功能对齐：Java AlertDialog（游戏规则/战况统计/软件信息/联网/联机）。
+   调用 com.cnvcs.App.showInfo(String,String)（App.smali 静态方法，AlertDialog 显示）。 */
+static void jq_show_dialog(JNIEnv *env, const char *title, const char *text)
+{
+    if (!env || !title || !text) return;
+    jclass cls = (*env)->FindClass(env, "com/cnvcs/App");
+    if (!cls) { (*env)->ExceptionClear(env); return; }
+    jmethodID mid = (*env)->GetStaticMethodID(env, cls, "showInfo",
+                                              "(Ljava/lang/String;Ljava/lang/String;)V");
+    if (!mid) { (*env)->ExceptionClear(env); (*env)->DeleteLocalRef(env, cls); return; }
+    jstring jt = (*env)->NewStringUTF(env, title);
+    jstring jx = (*env)->NewStringUTF(env, text);
+    if (jt && jx) (*env)->CallStaticVoidMethod(env, cls, mid, jt, jx);
+    if ((*env)->ExceptionCheck(env)) (*env)->ExceptionClear(env);
+    if (jt) (*env)->DeleteLocalRef(env, jt);
+    if (jx) (*env)->DeleteLocalRef(env, jx);
+    (*env)->DeleteLocalRef(env, cls);
+}
+
+/* ★ 蓝牙联机接线：菜单 联网（host=1）/联机（host=0）→ App.btHost/btClient → BtSpp socket。
+   发送侧：App.btSend(String) → BtSpp.sendFrame。均走 App 静态方法（与 showInfo 同模式）。 */
+static void jq_bt_start(JNIEnv *env, int host)
+{
+    if (!env) return;
+    jclass cls = (*env)->FindClass(env, "com/cnvcs/App");
+    if (!cls) { (*env)->ExceptionClear(env); return; }
+    if (host) {
+        jmethodID mid = (*env)->GetStaticMethodID(env, cls, "btHost", "()V");
+        if (mid) (*env)->CallStaticVoidMethod(env, cls, mid);
+    } else {
+        jmethodID mid = (*env)->GetStaticMethodID(env, cls, "btClient",
+                                                  "(Ljava/lang/String;)V");
+        if (mid) {
+            jstring jz = (*env)->NewStringUTF(env, "");
+            if (jz) {
+                (*env)->CallStaticVoidMethod(env, cls, mid, jz);
+                (*env)->DeleteLocalRef(env, jz);
+            }
+        }
+    }
+    if ((*env)->ExceptionCheck(env)) (*env)->ExceptionClear(env);
+    (*env)->DeleteLocalRef(env, cls);
+}
+
+static void jq_bt_send(JNIEnv *env, const char *frame)
+{
+    if (!env || !frame) return;
+    jclass cls = (*env)->FindClass(env, "com/cnvcs/App");
+    if (!cls) { (*env)->ExceptionClear(env); return; }
+    jmethodID mid = (*env)->GetStaticMethodID(env, cls, "btSend",
+                                              "(Ljava/lang/String;)V");
+    if (mid) {
+        jstring js = (*env)->NewStringUTF(env, frame);
+        if (js) {
+            (*env)->CallStaticVoidMethod(env, cls, mid, js);
+            (*env)->DeleteLocalRef(env, js);
+        }
+    }
+    if ((*env)->ExceptionCheck(env)) (*env)->ExceptionClear(env);
+    (*env)->DeleteLocalRef(env, cls);
+}
+
+/* ★ 蓝牙控制帧（UNDO/RESTART）：BT 模式下 ☰ 悔棋/重开 → 编帧 → jq_bt_send。
+   帧 type 走 bt_protocol 枚举；控制帧不受回合闸口（OUR_TURN 发送守卫仅走子/翻棋）。 */
+static void jq_bt_ctrl_send(JNIEnv *env, int type)
+{
+    if (!env) return;
+    char tb[BT_BUF];
+    int n = jq_bt_frame_encode(tb, sizeof tb, type, 0, 0, 0, 0, 0, 0, 0);
+    if (n > 0) {
+        tb[n] = 0;
+        jq_bt_send(env, tb);
+        LOGI("蓝牙联机控制帧：type=%d len=%d frame=%s", type, n, tb);
+    }
+}
 
 /* 音效名 → WAV 文件（对齐 spak_res 解包产物名 data_junqi_*.wav） */
 static const char *sfx_wav(const char *event)
@@ -311,6 +402,17 @@ static void sfx_wav_ensure_private(JNIEnv *env, jobject activity)
     jmethodID getAbs = (*env)->GetMethodID(env, f_cls, "getAbsolutePath", "()Ljava/lang/String;");
     jobject abspath = (*env)->CallObjectMethod(env, subdir, getAbs);
     (*env)->ExceptionClear(env);
+    /* ★ 音效持久化：同时捕获 getFilesDir 根路径（jq_sound_on.txt 存取用） */
+    jobject fabs = (*env)->CallObjectMethod(env, fobj, getAbs);
+    (*env)->ExceptionClear(env);
+    if (fabs) {
+        const char *fd = (*env)->GetStringUTFChars(env, fabs, NULL);
+        if (fd) { snprintf(g_files_dir, sizeof g_files_dir, "%s", fd);
+                  ui_settings_set_dir(g_files_dir);   /* ★ 对抗审计（datah_001）：声音设置持久化目录 */
+                  (*env)->ReleaseStringUTFChars(env, fabs, fd); }
+        else (*env)->ExceptionClear(env);
+        (*env)->DeleteLocalRef(env, fabs);
+    }
     if (!abspath) {
         (*env)->DeleteLocalRef(env, sub); (*env)->DeleteLocalRef(env, act_cls);
         (*env)->DeleteLocalRef(env, fobj); (*env)->DeleteLocalRef(env, subdir);
@@ -406,10 +508,39 @@ static void sfx_wav_ensure_private(JNIEnv *env, jobject activity)
     if (act_cls2) (*env)->DeleteLocalRef(env, act_cls2);
 }
 
+/* ★ 音效持久化（功能设置 ☰ action=4）：g_sound_on 存 getFilesDir/jq_sound_on.txt。
+   读（OnCreate 调）：文件存在 "0" → 关，"1"/缺 → 开。写（☰ 菜单 4 切后调）。 */
+static void sfx_sound_load(void)
+{
+    if (!g_files_dir[0]) return;
+    char pth[320]; snprintf(pth, sizeof pth, "%s/jq_sound_on.txt", g_files_dir);
+    FILE *f = fopen(pth, "rb");
+    if (!f) { LOGI("音效设置：无文件（%s）→ 默认开", pth); return; }
+    char c = 0;
+    if (fread(&c, 1, 1, f) == 1) g_sound_on = (c == '0') ? 0 : 1;
+    fclose(f);
+    LOGI("音效设置：读取 %s → %s", pth, g_sound_on ? "开" : "关");
+}
+static void sfx_sound_save(void)
+{
+    if (!g_files_dir[0]) return;
+    char pth[320]; snprintf(pth, sizeof pth, "%s/jq_sound_on.txt", g_files_dir);
+    FILE *f = fopen(pth, "wb");
+    if (!f) { LOGI("音效设置：写失败 %s", pth); return; }
+    fwrite(g_sound_on ? "1" : "0", 1, 1, f);
+    fclose(f);
+    LOGI("音效设置：保存 %s → %s", g_sound_on ? "开" : "关", pth);
+}
+
 
 static void sfx_play_file(JNIEnv *env, const char *event, const char *path_override);   /* 前向声明（文件回退/内部存储） */
 static void sfx_play(JNIEnv *env, const char *event)
 {
+    /* ★ 对抗审计（datah_001）：静音模式关时静默（ui_snd_mute_get()==1）；
+       按键声音开关只影响 UI 按钮音（pop/select/close） */
+    if (ui_snd_mute_get()) return;
+    if ((!strcmp(event, "pop") || !strcmp(event, "select") || !strcmp(event, "close")) &&
+        !ui_btn_sound_get()) return;
     /* ① 内部存储落地优先（sfx_wav_ensure_private OnCreate 已写 getFilesDir/jq_sfx/，
        MediaPlayer File 路径纯本地读，免 AAssetManager_open 多线程锁竞争 SIGSEGV） */
     if (g_sfx_priv_dir[0]) {
@@ -488,6 +619,7 @@ static int  g_bt_sess_init = 0;
 static int  g_bt_sess_init_done = 0;
 static int g_event_cnt[6];
 static int g_event_total = 0;
+static int  g_way_host = 1;   /* ★ 对抗审计（datah_072）：方式选择来源——2=联网(host) 3=联机(client) */
 
 static void on_event(const char *name, const char *value, JNIEnv *env)
 {
@@ -581,14 +713,18 @@ static void on_event(const char *name, const char *value, JNIEnv *env)
             mode = 0;
         if (mode == 0 || mode == 1 || mode == 4) {
             /* ★ 对抗审计 #4：本地/两人/四国开局统一走 jq_restart_game（随模式），
-               旧版内联 jq_load_layout（暗棋）→ 与 OnTouch 按钮路径不一致。 */
+               旧版内联 jq_load_layout（暗棋）→ 与 OnTouch 按钮路径不一致。
+               ★ 按钮业务对齐：mode 0=人机（AI 走红），mode 1=两人热座，mode 4=四国（AI 不介入）。 */
+            g_vs_ai = (mode == 0);
             jq_restart_game();
-            LOGI("OnEvent menu 开局 mode=%d（jq_restart_game：随模式 mode=%d stage=PLAY 蓝先手）",
-                 mode, ui_opt_get_mode());
+            LOGI("OnEvent menu 开局 mode=%d（%s，jq_restart_game：随模式 mode=%d stage=PLAY 蓝先手）",
+                 mode, g_vs_ai ? "人机AI走红" : "两人热座", ui_opt_get_mode());
             ui_screen_set(UI_GAME);   /* 对局态：AI 介入 + 触摸走子放行 */
         } else {
             /* 联机模式：等 OnBluetooth 帧（本方蓝先手，SPP 由 Java 宿主承担） */
+            g_vs_ai = 0;   /* ★ 蓝牙模式：AI 不介入（回合闸口接管红方走子） */
             g_bt_sess_init_done = 0;
+            ui_bt_set_active(0);   /* ★ 对抗审计（datah_067）：退出联机 ☰ 菜单分流 */
             st->stage = STG_PLAY;
             st->turn = SIDE_BLUE;
             st->winner = -1;
@@ -640,25 +776,7 @@ static void on_event(const char *name, const char *value, JNIEnv *env)
         for (int i = 0; i < 6; i++)
             LOGI("  %s = %d", JQ_EVENT_NAMES[i], g_event_cnt[i]);
     } else if (strcmp(name, "bttest") == 0) {
-        /* 触发蓝牙帧状态机测试路径（无真机蓝牙时验 JNI→bt_session 通路） */
-        int fidx = -1;
-        for (int i = 0; i < N_CELLS; i++)
-            if (st->cells[i].rank && !st->cells[i].revealed && jq_can_flip(st, i))
-                { fidx = i; break; }
-        char tb[128];
-        if (fidx >= 0) {
-            int n = jq_bt_frame_encode(tb, sizeof tb, BT_T_FLIP,
-                                       cell_col(fidx), cell_row(fidx), 0, 0, 0, 0, 0);
-            if (n > 0) tb[n] = 0;
-            int g[8];
-            if (jq_bt_frame_decode(tb, &g[0], &g[1], &g[2], &g[3], &g[4], &g[5], &g[6])) {
-                    if (!g_bt_sess_init_done) { jq_bt_session_init(&g_bt_sess, st, 1); g_bt_sess_init_done = 1; }
-                int rc = jq_bt_session_on_frame(&g_bt_sess, st,
-                                                 g[0], g[1], g[2], g[3], g[4], g[5], g[6]);
-                LOGI("OnEvent bttest：FLIP 帧 idx=%d rc=%d state=%d（JNI→bt_session 通路验证）",
-                     fidx, rc, (int)g_bt_sess.state);
-            }
-        } else LOGI("OnEvent bttest：无可翻子");
+        jq_bt_test_run(st, "OnEvent");
     } else if (strcmp(name, "close") == 0) {
         /* UI 关闭音效（14 音效全量验证：close 此前未触发；Java/桌面可触发） */
         sfx_play(env, "close");
@@ -675,6 +793,59 @@ static void on_event(const char *name, const char *value, JNIEnv *env)
 
 /* OnCreate(Activity)→GLView：原版返回 GLView jobject；Java 侧 null 则 new。
    渲染层为桩（对象图月级），返回 NULL 走 Java 兜底。 */
+/* ★ btconn 测试钩子 worker：spawn 线程模拟 BtSpp 后台回调 btState("host_connected")。
+   真实场景：BtSpp accept/读线程调 App.btState → runOnUiThread post 主线程 → App$BtStart → OnEvent。 */
+static void *btconn_worker(void *arg)
+{
+    /* arg = 主线程已 FindClass+NewGlobalRef 的 com/cnvcs/App（native 线程 FindClass 用系统
+       classloader 会 ClassNotFoundException，故用缓存全局引用——JNI 已知陷阱）。 */
+    jclass cls = (jclass)arg;
+    if (!cls) return NULL;
+    JavaVM *vm = jq_get_jvm();
+    if (!vm) return NULL;
+    JNIEnv *e = NULL;
+    if ((*vm)->AttachCurrentThread(vm, &e, NULL) != 0 || !e) return NULL;
+    LOGI("btconn worker：已附加线程，调 btState(host_connected)");
+    jmethodID mid = (*e)->GetStaticMethodID(e, cls, "btState",
+                                            "(Ljava/lang/String;)V");
+    if (mid) {
+        jstring js = (*e)->NewStringUTF(e, "host_connected");
+        if (js) {
+            (*e)->CallStaticVoidMethod(e, cls, mid, js);
+            LOGI("btconn worker：btState 已调用");
+            (*e)->DeleteLocalRef(e, js);
+        }
+    } else LOGI("btconn worker：GetStaticMethodID btState 失败");
+    if ((*e)->ExceptionCheck(e)) (*e)->ExceptionClear(e);
+    (*vm)->DetachCurrentThread(vm);
+    (*e)->DeleteGlobalRef(e, cls);
+    return NULL;
+}
+
+
+/* ★ 蓝牙帧状态机测试（无真机蓝牙时验 JNI→bt_session 通路）：构造 FLIP 帧走 decode+on_frame。
+   供 OnEvent("bttest") 与 setprop jq.bttest 钩子复用（提取自 OnEvent 分支）。 */
+static void jq_bt_test_run(jq_state *st, const char *tag)
+{
+    int fidx = -1;
+    for (int i = 0; i < N_CELLS; i++)
+        if (st->cells[i].rank && !st->cells[i].revealed && jq_can_flip(st, i))
+            { fidx = i; break; }
+    char tb[128];
+    if (fidx >= 0) {
+        int n = jq_bt_frame_encode(tb, sizeof tb, BT_T_FLIP,
+                                   cell_col(fidx), cell_row(fidx), 0, 0, 0, 0, 0);
+        if (n > 0) tb[n] = 0;
+        int g[8];
+        if (jq_bt_frame_decode(tb, &g[0], &g[1], &g[2], &g[3], &g[4], &g[5], &g[6])) {
+            if (!g_bt_sess_init_done) { jq_bt_session_init(&g_bt_sess, st, 1); g_bt_sess_init_done = 1; }
+            int rc = jq_bt_session_on_frame(&g_bt_sess, st,
+                                             g[0], g[1], g[2], g[3], g[4], g[5], g[6]);
+            LOGI("%s bttest：FLIP 帧 idx=%d rc=%d state=%d（JNI→bt_session 通路验证）",
+                 tag, fidx, rc, (int)g_bt_sess.state);
+        }
+    } else LOGI("%s bttest：无可翻子", tag);
+}
 JNIEXPORT jobject JNICALL
 Java_com_cnvcs_App_OnCreate(JNIEnv *env, jclass clazz, jobject activity)
 {
@@ -709,6 +880,8 @@ Java_com_cnvcs_App_OnCreate(JNIEnv *env, jclass clazz, jobject activity)
     sfx_mp_init(env);            /* MediaPlayer 引用缓存（OnTouch 事件播放用） */
     sfx_wav_ensure_private(env, activity);   /* WAV 落地内部存储 getFilesDir/jq_sfx（OnCreate 单线程一次性，
        事件播放纯 MediaPlayer File 路径，免 AAssetManager_open 多线程锁竞争 SIGSEGV） */
+    sfx_sound_load();            /* ★ 音效持久化：读 jq_sound_on.txt（☰ 功能设置 4 上次状态） */
+    ui_settings_load();          /* ★ 对抗审计（datah_001）：读 jq_settings.txt（静音/按键/音量） */
     LOGI("OnCreate：明棋开局（stage=PLAY 蓝先手 revealed=全翻开 50 子）+ UI 菜单就绪（OnEvent menu=0 进对局）");
     /* ★ flagtest 触发（adb setprop jq.flagtest 1 → 重启 → OnCreate 注入近旗状态 + 自动走一步 FLAG）。
        触摸注入 MuMu flaky 不达 native（环境限制）→ 走 OnCreate 自动触发路径；
@@ -736,6 +909,44 @@ Java_com_cnvcs_App_OnCreate(JNIEnv *env, jclass clazz, jobject activity)
                OnCreate 自动走不经 OnTouch 走子块，故此处补播） */
             sfx_game_over(env, g_state.stage, g_state.winner);
             __system_property_set("jq.flagtest", "0");
+        }
+    }
+    /* ★ btconn 测试钩子（adb setprop jq.btconn 1 → 重启 → 模拟 Java 蓝牙连接回调
+       btState("host_connected") → 主线程 OnEvent menu 1 → 两人对局自动开局。
+       验证 Java btState→runOnUiThread→App$BtStart→OnEvent 全链，无真机蓝牙时用）。 */
+    {
+        char bc_prop[16] = {0};
+        __system_property_get("jq.btconn", bc_prop);
+        LOGI("btconn 钩子：属性=%s（%s）", bc_prop, strcmp(bc_prop, "1") == 0 ? "触发" : "未触发");
+        if (strcmp(bc_prop, "1") == 0) {
+            /* ★ 真实场景：btState 由 BtSpp 后台线程调用 → runOnUiThread post 到主线程。
+               钩子从 OnCreate 主线程同步调会导致 runOnUiThread 立即执行 + 重入 OnEvent 死锁，
+               故 spawn 后台线程（AttachCurrentThread）模拟 BtSpp 读/accept 线程。
+               FindClass 须主线程做（native 线程 classloader 不同）→ NewGlobalRef 传 worker。 */
+            jclass acls = (*env)->FindClass(env, "com/cnvcs/App");
+            if (acls) {
+                jclass gref = (jclass)(*env)->NewGlobalRef(env, acls);
+                (*env)->DeleteLocalRef(env, acls);
+                if (gref) {
+                    pthread_t tid;
+                    int rc = pthread_create(&tid, NULL, btconn_worker, gref);
+                    LOGI("btconn 钩子：pthread_create rc=%d", rc);
+                    if (rc == 0) pthread_detach(tid);
+                    else (*env)->DeleteGlobalRef(env, gref);
+                } else LOGI("btconn 钩子：NewGlobalRef 失败");
+            } else LOGI("btconn 钩子：FindClass 失败");
+            if ((*env)->ExceptionCheck(env)) (*env)->ExceptionClear(env);
+            __system_property_set("jq.btconn", "0");
+        }
+    }
+    /* ★ bttest 测试钩子（adb setprop jq.bttest 1 → 重启 → OnCreate 走蓝牙帧状态机测试：
+       构造 FLIP 帧 → decode → jq_bt_session_on_frame，验证 JNI→bt_session 接收通路。 */
+    {
+        char bt_prop[16] = {0};
+        __system_property_get("jq.bttest", bt_prop);
+        if (strcmp(bt_prop, "1") == 0) {
+            jq_bt_test_run(&g_state, "setprop");
+            __system_property_set("jq.bttest", "0");
         }
     }
     /* ★ minetest 触发（adb setprop jq.minetest 1 → 重启 → OnCreate 注入挖雷状态 + 自动走一步）。
@@ -935,7 +1146,7 @@ Java_com_cnvcs_App_OnTimer(JNIEnv *env, jclass clazz)
     (void)g_timer_cnt;
     if (env) {
         pthread_mutex_lock(&g_mutex);
-        if (ui_screen_get() == UI_GAME && g_state.stage == STG_PLAY && g_state.turn == SIDE_RED) {
+        if (ui_screen_get() == UI_GAME && g_vs_ai && g_state.stage == STG_PLAY && g_state.turn == SIDE_RED) {
         int from, to, flip;
         if (ai_pick(&from, &to, &flip) == 0) {
             undo_push();
@@ -945,6 +1156,7 @@ Java_com_cnvcs_App_OnTimer(JNIEnv *env, jclass clazz)
                 LOGI("红方 AI 应着：from=%d to=%d 结果=%s（turn 切回蓝方）",
                      from, to, JQ_EVENT_NAMES[e < 0 ? 0 : e]);
             }
+            LOGI("OnTimer 人机AI：%s cell=%d turn→%d", flip ? "翻棋" : "走子", from, g_state.turn);
         }
         }
         pthread_mutex_unlock(&g_mutex);
@@ -1098,7 +1310,7 @@ Java_com_cnvcs_App_OnUpdate(JNIEnv *env, jclass clazz)
     if (ui_screen_get() == UI_GAME) {
         int from, to, flip;
         pthread_mutex_lock(&g_mutex);
-        if (g_state.stage == STG_PLAY && g_state.turn == SIDE_RED) {
+        if (g_state.stage == STG_PLAY && g_vs_ai && g_state.turn == SIDE_RED) {
             if (ai_pick(&from, &to, &flip) == 0) {
                 undo_push();
                 if (flip) {
@@ -1150,6 +1362,37 @@ Java_com_cnvcs_App_OnKey(JNIEnv *env, jclass clazz, jobject keyEvent)
 {
     (void)env; (void)clazz; (void)keyEvent;
     return JNI_FALSE;
+}
+
+/* ★ 对抗审计（datah_072）：蓝牙联机启动（联网=host 蓝先手 / 联机=client 红后手）。
+   从方式选择弹窗"蓝牙联机"按钮进入。 */
+static void start_bt_session(JNIEnv *env, int host)
+{
+    g_vs_ai = 0;   /* ★ 蓝牙模式：红方由对端/本机玩家走，AI 不介入（回合闸口接管） */
+    jq_bt_start(env, host);
+    /* ★ 联机会话初始化：联网=蓝先手（host），联机=红后手（client）——双方 we_blue 不可同为 1。
+       发送走子帧经 jq_bt_send；BT 模式走子由本机状态机放行。 */
+    if (!g_bt_sess_init_done) {
+        pthread_mutex_lock(&g_mutex);
+        jq_bt_session_init(&g_bt_sess, &g_state, host ? 1 : 0);
+        /* host 蓝先手=OUR_TURN（可发首帧）；client 红后手=THEIR_TURN（等 host 首帧）。
+           ★ 回合闸口：send_move 须 OUR_TURN，on_frame MOVE/FLIP 须 THEIR_TURN。 */
+        g_bt_sess.state = host ? BT_ST_OUR_TURN : BT_ST_THEIR_TURN;
+        pthread_mutex_unlock(&g_mutex);
+        g_bt_sess_init_done = 1;
+        g_bt_sess_init = 1;
+        ui_bt_set_active(1);   /* ★ 对抗审计（datah_067）：联机 ☰ 菜单分流 */
+        LOGI("start_bt_session：蓝牙会话初始化（host=%d %s，%s）",
+             host, host ? "蓝先手" : "红后手",
+             host ? "OUR_TURN" : "THEIR_TURN");
+    }
+    jq_show_dialog(env, host ? "联网" : "联机",
+        host
+        ? "联网（主机）：\n蓝牙监听已启动，等待对方连接…\n"
+          "(设备需在系统蓝牙设置配对；状态见 logcat junqi_bt)"
+        : "联机（客户端）：\n蓝牙连接已启动（自动选已配对设备）…\n"
+          "(设备需在系统蓝牙设置配对；状态见 logcat junqi_bt)");
+    LOGI("start_bt_session：蓝牙联机启动（host=%d）", host);
 }
 
 /* OnTouch(MotionEvent)→jboolean：触摸 → 棋盘格命中（⑤ 逆源码，原版 0xbdd2c）。
@@ -1217,16 +1460,50 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
             LOGI("UI命中 按钮%d（action=%d）", hit, hit_action);
             ui_on_menu_action(hit_action);
             sfx_play(env, "pop");   /* ★ UI 按钮点击音效（14 音效全量验证：pop 此前未触发） */
+            /* ★ 按键功能对齐：联网/联机（action 2/3）为蓝牙联机——协议层就绪，
+               SPP socket 由 Java 宿主承担 + 无真机蓝牙验证（诚实边界），显示说明对话框 */
+            if (hit_action == 2 || hit_action == 3) {
+                /* ★ 对抗审计（datah_072 证据）：联网/联机 → 方式选择弹窗
+                   （蓝牙联机/Wi-Fi 联机/个人资料/返回），选"蓝牙联机"才启动蓝牙会话 */
+                g_way_host = (hit_action == 2);
+                ui_screen_set(UI_WAYSEL);
+                LOGI("OnTouch 菜单按钮%d（action=%d → UI_WAYSEL 联网/联机方式选择弹窗，来源=%s）",
+                     hit, hit_action, g_way_host ? "联网(host)" : "联机(client)");
+                (void)clazz;
+                return JNI_TRUE;
+            }
+            /* ★ 诚实边界：四国（action 4）——src_rs 为 10×9 两人军棋重写，非真四国。
+               点四国显示边界说明（勿静默开 2 人局误导为四国可玩） */
+            if (hit_action == 4) {
+                jq_show_dialog(env, "四国军棋",
+                    "四国军棋（诚实边界）：\n"
+                    "src_rs 为 10×9 两人军棋规则重写，四国（4 方混战）\n"
+                    "未实现。原版四国棋盘/规则需另项逆向移植。\n"
+                    "四国模式当前不可玩，请选择人机/两人对战。");
+                LOGI("OnTouch 菜单按钮%d（action=%d）：四国军棋边界说明（诚实边界）", hit, hit_action);
+                (void)clazz;
+                return JNI_TRUE;
+            }
             /* ★ 原版 UI 对齐（用户指正"没有高手新手"）：人机/两人/重开 → 直开局，
                无难度弹窗（datah_041 判误）。flagtest/minetest 测试夹具走 setprop 路径
-               （mumu_evtest.sh），不占菜单按钮。 */
-            if (hit_action == 0 || hit_action == 1 || hit_action == 4) {
+               （mumu_evtest.sh），不占菜单按钮。
+               ★ 对抗审计（datah_041 证据修正）：人机（action 0）弹难度选择弹窗
+               （新手/中级/高级/好友区 × 布局/翻棋，选完开局）；两人（action 1）直开局热座。 */
+            if (hit_action == 0) {
+                /* 人机：进难度弹窗（UI_DIFFICULTY），选难度/模式后开局（AI 走红） */
+                g_vs_ai = 1;
+                ui_screen_set(UI_DIFFICULTY);
+                LOGI("OnTouch 菜单按钮%d（action=%d → UI_DIFFICULTY 人机难度弹窗，AI 走红）",
+                     hit, hit_action);
+            } else if (hit_action == 1) {
+                /* 两人：直开局热座（原版两人无难度弹窗，orig_two 截图自证） */
+                g_vs_ai = 0;
                 pthread_mutex_lock(&g_mutex);
                 jq_restart_game();
                 pthread_mutex_unlock(&g_mutex);
                 sfx_play(env, "over");
-                LOGI("OnTouch 菜单进对局：按钮%d（action=%d → 直开局，stage=PLAY 蓝先手）",
-                     hit, hit_action);   /* ★ tap_until"进对局"判定词 */
+                LOGI("OnTouch 菜单进对局：按钮%d（action=%d → 直开局，stage=PLAY 蓝先手两人热座）",
+                     hit, hit_action);
             }
             (void)clazz;
             return JNI_TRUE;
@@ -1235,6 +1512,128 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
            点空白无反应——去掉旧"点棋盘区快速开局"测试路径，对齐原版交互） */
         (void)clazz;
         return JNI_FALSE;
+    }
+    /* ★ 对抗审计（datah_041 证据）：人机难度选择弹窗态。
+       点 8 按钮（布局/翻棋 × 新手/中级/高级/好友区）→ ui_opt_select(level,mode)
+       + g_vs_ai=1 + jq_restart_game → UI_GAME；点面板外 → 回主菜单。 */
+    if (ui_screen_get() == UI_DIFFICULTY) {
+        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
+        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        const ui_diff_btn *db = ui_diff_buttons();
+        int dh = ui_diff_hit(db, UI_DIFF_COUNT, bx, by);
+        if (dh >= 0) {
+            int level = db[dh].action / 2 + 1, mode = db[dh].action % 2;
+            ui_opt_select(level, mode);
+            g_vs_ai = 1;   /* ★ 人机：红方 AI 走子 */
+            pthread_mutex_lock(&g_mutex);
+            jq_restart_game();
+            pthread_mutex_unlock(&g_mutex);
+            ui_screen_set(UI_GAME);
+            sfx_play(env, "over");
+            LOGI("OnTouch 难度弹窗：选按钮%d（level=%d mode=%d %s）→ 开局 AI 走红",
+                 dh, level, mode, mode ? "翻棋暗棋" : "布局明棋");
+            (void)clazz;
+            return JNI_TRUE;
+        }
+        if (!ui_diff_popup_inside(bx, by)) {
+            ui_screen_set(UI_MENU);
+            LOGI("OnTouch 难度弹窗外（bx=%.0f by=%.0f）→ 回主菜单", bx, by);
+            sfx_play(env, "pop");
+        }
+        (void)clazz;
+        return JNI_TRUE;
+    }
+    /* ★ 对抗审计（datah_072 证据）：联网/联机方式选择弹窗态。
+       点"蓝牙联机"→ start_bt_session（联网=host/联机=client）；
+       点"Wi-Fi 联机"/"个人资料"→ 诚实边界对话框；点"返回"→ 主菜单；
+       点面板外 → 回主菜单。 */
+    if (ui_screen_get() == UI_WAYSEL) {
+        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
+        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        const ui_way_btn *wb = ui_way_buttons();
+        int wh = ui_way_hit(wb, UI_WAYSEL_COUNT, bx, by);
+        if (wh >= 0) {
+            int wact = wb[wh].action;
+            LOGI("OnTouch 方式选择：按钮%d（action=%d）", wh, wact);
+            if (wact == 0) {   /* 蓝牙联机 */
+                start_bt_session(env, g_way_host);
+                ui_screen_set(UI_GAME);
+            } else if (wact == 1) {   /* Wi-Fi 联机（诚实边界） */
+                jq_show_dialog(env, "Wi-Fi 联机",
+                    "Wi-Fi 联机（诚实边界）：\n"
+                    "src_rs 蓝牙联机已实现（SPP socket），Wi-Fi 联机\n"
+                    "协议未逆向（原版 Wi-Fi 需局域网发现/握手）。\n"
+                    "请选择蓝牙联机。");
+                LOGI("OnTouch 方式选择：Wi-Fi 联机边界说明（诚实边界）");
+                ui_screen_set(UI_MENU);
+            } else if (wact == 2) {   /* 个人资料（诚实边界） */
+                jq_show_dialog(env, "个人资料",
+                    "个人资料（诚实边界）：\n"
+                    "原版个人资料（昵称/头像/胜率）未逆向，\n"
+                    "登录注册协议（Junqi.* 20+ 事件）未实现。");
+                LOGI("OnTouch 方式选择：个人资料边界说明（诚实边界）");
+                ui_screen_set(UI_MENU);
+            } else if (wact == 3) {   /* 返回 */
+                ui_screen_set(UI_MENU);
+                LOGI("OnTouch 方式选择：返回 → 主菜单");
+            }
+            sfx_play(env, "pop");
+            (void)clazz;
+            return JNI_TRUE;
+        }
+        if (!ui_way_popup_inside(bx, by)) {
+            ui_screen_set(UI_MENU);
+            LOGI("OnTouch 方式选择外（bx=%.0f by=%.0f）→ 回主菜单", bx, by);
+            sfx_play(env, "pop");
+        }
+        (void)clazz;
+        return JNI_TRUE;
+    }
+    /* ★ 对抗审计（datah_001 证据）：声音设置弹窗态。
+       点 静音模式/按键声音/音量 → 切换当前值（本地副本，未确定不落盘）；
+       点 确定 → ui_settings_save + 回对局；点 取消 → 回对局（不保存）；
+       点面板外 → 回对局（不保存）。 */
+    if (ui_screen_get() == UI_SETTINGS) {
+        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
+        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        const ui_set_btn *sb = ui_set_buttons();
+        int sh = ui_set_hit(sb, UI_SETTINGS_COUNT, bx, by);
+        if (sh >= 0) {
+            int sact = sb[sh].action;
+            LOGI("OnTouch 声音设置：按钮%d（action=%d）", sh, sact);
+            if (sact == 0) {   /* 静音模式切换 */
+                ui_snd_mute_set(!ui_snd_mute_get());
+                sfx_play(env, "pop");
+                LOGI("声音设置：静音模式 → %s", ui_snd_mute_get() ? "开" : "关");
+            } else if (sact == 1) {   /* 按键声音切换 */
+                ui_btn_sound_set(!ui_btn_sound_get());
+                sfx_play(env, "pop");
+                LOGI("声音设置：按键声音 → %s", ui_btn_sound_get() ? "开" : "关");
+            } else if (sact == 2) {   /* 音量循环 低→中→高→低 */
+                int v = ui_volume_get(); ui_volume_set(v % 3 + 1);
+                sfx_play(env, "pop");
+                LOGI("声音设置：音量 → %d", ui_volume_get());
+            } else if (sact == 3) {   /* 确定：保存 */
+                ui_settings_save();
+                sfx_play(env, "pop");
+                LOGI("声音设置：确定 → 保存 + 回对局");
+                ui_screen_set(UI_GAME);
+            } else if (sact == 4) {   /* 取消：不保存回对局 */
+                ui_settings_load();   /* ★ 重读磁盘恢复原值（取消不落盘） */
+                sfx_play(env, "pop");
+                LOGI("声音设置：取消 → 恢复原值 + 回对局");
+                ui_screen_set(UI_GAME);
+            }
+            (void)clazz;
+            return JNI_TRUE;
+        }
+        if (!ui_set_popup_inside(bx, by)) {
+            ui_screen_set(UI_GAME);
+            LOGI("OnTouch 声音设置外（bx=%.0f by=%.0f）→ 回对局", bx, by);
+            sfx_play(env, "pop");
+        }
+        (void)clazz;
+        return JNI_TRUE;
     }
     /* ★ 原版 UI 对齐：☰ 游戏内菜单 / ↩ 悔棋 图标（棋盘中部）。
        对局态点 ☰ → UI_INGAME_MENU；点 ↩ → 悔棋（undo_pop）。
@@ -1276,42 +1675,162 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
         }
     }
     /* ★ 原版 UI 对齐：☰ 游戏内菜单态（datah_006 8 项）——点按钮 → 动作；
-       点面板外 → 回对局。 */
+       点面板外 → 回对局。
+       ★ 对抗审计（datah_067）：蓝牙联机 ☰ 菜单 = New/Regret/提和/认输/聊天/Config/Stat/Rule
+       （无电脑变着/软件信息/退出）；本地菜单 = datah_006（电脑变着/软件信息/退出）。 */
     if (ui_screen_get() == UI_INGAME_MENU) {
         float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
         float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
-        const ui_imen_btn *im = ui_imen_buttons();
+        int bt_mode = ui_bt_active();
+        const ui_imen_btn *im = bt_mode ? ui_imen_bt_buttons() : ui_imen_buttons();
         int ih = ui_imen_hit(im, UI_IMENU_COUNT, bx, by);
         if (ih >= 0) {
             int act = im[ih].action;
-            LOGI("OnTouch ☰菜单：按钮%d（action=%d）", ih, act);
+            LOGI("OnTouch ☰菜单：按钮%d（action=%d，%s）", ih, act, bt_mode ? "联机版" : "本地版");
             if (act == 0) {   /* 重新开始 */
                 pthread_mutex_lock(&g_mutex);
                 jq_restart_game();
                 pthread_mutex_unlock(&g_mutex);
                 sfx_play(env, "over");
                 LOGI("☰菜单 重新开始：default.lay 重开局（stage=PLAY 蓝先手）");
+                /* ★ BT 联机：重开 → 发 RESTART 帧（对端同步重开） */
+                if (g_bt_sess_init_done) jq_bt_ctrl_send(env, BT_T_RESTART);
             } else if (act == 1) {   /* 悔棋 */
                 pthread_mutex_lock(&g_mutex);
                 int popped = 0;
-                while (undo_pop()) {
-                    popped = 1;
-                    if (g_state.turn == SIDE_BLUE || g_state.stage != STG_PLAY) break;
+                if (g_vs_ai) {
+                    /* ★ 人机模式：悔到玩家蓝回合（AI 应着步 + 玩家步都悔，undo 栈含 AI 步） */
+                    while (undo_pop()) {
+                        popped++;   /* ★ 计数累加（旧版 `popped=1` 恒 1，pop 多次只报 1） */
+                        if (g_state.turn == SIDE_BLUE || g_state.stage != STG_PLAY) break;
+                    }
+                } else {
+                    /* ★ 两人热座/蓝牙：悔最近 1 步（对方走子后轮到对方，只悔本方可悔步） */
+                    popped = undo_pop();
                 }
                 pthread_mutex_unlock(&g_mutex);
                 sfx_play(env, "pop");
                 LOGI("☰菜单 悔棋：连续 undo_pop 到 BLUE（popped=%d）", popped);
-            } else if (act == 7) {   /* 退出程序 → 回主菜单 */
+                /* ★ BT 联机：悔棋 → 发 UNDO 帧（对端同步悔棋） */
+                if (g_bt_sess_init_done && popped) jq_bt_ctrl_send(env, BT_T_UNDO);
+            } else if (bt_mode && act == 2) {   /* 提和（联机版，datah_067） */
+                jq_bt_ctrl_send(env, BT_T_DRAW);
+                jq_show_dialog(env, "提和",
+                    "提和请求已发送，等待对方回应…\n"
+                    "（联机协议提和/认输为诚实边界：需对端应答）");
+                sfx_play(env, "pop");
+                LOGI("☰菜单 提和：发送 DRAW 帧");
+            } else if (bt_mode && act == 3) {   /* 认输（联机版，datah_067） */
+                pthread_mutex_lock(&g_mutex);
+                /* 认输 → 对方胜（本机当前 turn 方为认输方；双方可认输） */
+                g_state.winner = (g_state.turn == SIDE_BLUE) ? SIDE_RED : SIDE_BLUE;
+                g_state.stage = STG_OVER;
+                pthread_mutex_unlock(&g_mutex);
+                jq_bt_ctrl_send(env, BT_T_RESIGN);
+                sfx_play(env, "over");
+                LOGI("☰菜单 认输：本机认输 → 对方胜（winner=%d）", g_state.winner);
+            } else if (bt_mode && act == 4) {   /* 聊天（联机版，datah_067） */
+                jq_bt_ctrl_send(env, BT_T_CHAT);
+                jq_show_dialog(env, "聊天",
+                    "聊天（诚实边界）：\n"
+                    "原版联机聊天消息（Junqi.Chat*）未逆向，\n"
+                    "当前发送聊天占位帧（对端无文本渲染）。");
+                sfx_play(env, "pop");
+                LOGI("☰菜单 聊天：发送 CHAT 占位帧");
+            } else if (bt_mode && act == 7) {   /* 游戏规则（联机版，datah_067） */
+                jq_show_dialog(env, "游戏规则",
+                    "军棋规则：司令>军长>师长>旅长>团长>营长>连长>排长>工兵。\n"
+                    "工兵可沿铁路线任意格移动；炸弹遇任何子同归于尽；\n"
+                    "军旗被吃或被困则负；地雷不能移动，工兵可挖雷。\n"
+                    "翻明棋后按规则走子/吃子，吃光或夺旗方胜。");
+                sfx_play(env, "pop");
+                LOGI("☰菜单 游戏规则：显示规则对话框");
+            } else if (bt_mode && act == 5) {   /* 功能设置（联机版）→ 声音设置弹窗 */
+                ui_screen_set(UI_SETTINGS);
+                sfx_play(env, "pop");
+                LOGI("☰菜单 功能设置：→ UI_SETTINGS 声音设置弹窗（datah_001）");
+            } else if (bt_mode && act == 6) {   /* 战况统计（联机版） */
+                pthread_mutex_lock(&g_mutex);
+                int b = 0, r = 0, i;
+                for (i = 0; i < N_CELLS; i++) {
+                    if (g_state.cells[i].rank == RANK_EMPTY) continue;
+                    if (g_state.cells[i].side == SIDE_BLUE) b++;
+                    else if (g_state.cells[i].side == SIDE_RED) r++;
+                }
+                char msg[160];
+                snprintf(msg, sizeof msg,
+                    "蓝方余子：%d\n红方余子：%d\n总步数：%d\n当前回合：%s",
+                    b, r, g_state.total_moves,
+                    g_state.turn == SIDE_BLUE ? "蓝方" : "红方");
+                pthread_mutex_unlock(&g_mutex);
+                jq_show_dialog(env, "战况统计", msg);
+                sfx_play(env, "pop");
+                LOGI("☰菜单 战况统计：蓝%d 红%d 步%d", b, r, g_state.total_moves);
+            } else if (!bt_mode && act == 7) {   /* 退出程序 → 回主菜单（本地版） */
                 ui_screen_set(UI_MENU);
+                ui_bt_set_active(0);
                 sfx_play(env, "pop");
                 LOGI("☰菜单 退出程序 → 回主菜单");
                 (void)clazz;
                 return JNI_TRUE;
-            } else {
+            } else if (!bt_mode && act == 2) {   /* 电脑变着：AI 为当前回合方走子（本地版） */
+                pthread_mutex_lock(&g_mutex);
+                int done = 0;
+                if (g_state.stage == STG_PLAY) {
+                    int from, to, flip;
+                    if (ai_pick(&from, &to, &flip) == 0) {
+                        undo_push();
+                        if (flip) jq_flip(&g_state, from);
+                        else { int e = jq_try_move(&g_state, from, to); (void)e; }
+                        done = 1;
+                    }
+                }
+                pthread_mutex_unlock(&g_mutex);
+                sfx_play(env, done ? "move" : "pop");
+                LOGI("☰菜单 电脑变着：%s（turn=%d）", done ? "AI 走子" : "无可走", g_state.turn);
+            } else if (!bt_mode && act == 3) {   /* 游戏规则（本地版） */
+                jq_show_dialog(env, "游戏规则",
+                    "军棋规则：司令>军长>师长>旅长>团长>营长>连长>排长>工兵。\n"
+                    "工兵可沿铁路线任意格移动；炸弹遇任何子同归于尽；\n"
+                    "军旗被吃或被困则负；地雷不能移动，工兵可挖雷。\n"
+                    "翻明棋后按规则走子/吃子，吃光或夺旗方胜。");
                 sfx_play(env, "pop");
-                LOGI("☰菜单 action=%d（占位：电脑变着/游戏规则/功能设置/战况统计/软件信息）", act);
+                LOGI("☰菜单 游戏规则：显示规则对话框");
+            } else if (!bt_mode && act == 4) {   /* 功能设置（本地版）→ 声音设置弹窗 */
+                ui_screen_set(UI_SETTINGS);
+                sfx_play(env, "pop");
+                LOGI("☰菜单 功能设置：→ UI_SETTINGS 声音设置弹窗（datah_001）");
+            } else if (!bt_mode && act == 5) {   /* 战况统计（本地版） */
+                pthread_mutex_lock(&g_mutex);
+                int b = 0, r = 0, i;
+                for (i = 0; i < N_CELLS; i++) {
+                    if (g_state.cells[i].rank == RANK_EMPTY) continue;
+                    if (g_state.cells[i].side == SIDE_BLUE) b++;
+                    else if (g_state.cells[i].side == SIDE_RED) r++;
+                }
+                char msg[160];
+                snprintf(msg, sizeof msg,
+                    "蓝方余子：%d\n红方余子：%d\n总步数：%d\n当前回合：%s",
+                    b, r, g_state.total_moves,
+                    g_state.turn == SIDE_BLUE ? "蓝方" : "红方");
+                pthread_mutex_unlock(&g_mutex);
+                jq_show_dialog(env, "战况统计", msg);
+                sfx_play(env, "pop");
+                LOGI("☰菜单 战况统计：蓝%d 红%d 步%d", b, r, g_state.total_moves);
+            } else if (!bt_mode && act == 6) {   /* 软件信息（本地版） */
+                jq_show_dialog(env, "软件信息",
+                    "军棋（Junqi）src_rs 64 位重写版\n"
+                    "版本：1.6.8（com.cnvcs.junqirs）\n"
+                    "玩法等价重写：规则/UI 对齐原版 v152；\n"
+                    "暗棋默认（对齐原版人机/两人开局）；\n"
+                    "人机=AI 走红 / 两人=热座轮流；\n"
+                    "蓝牙联机/四国为诚实边界。");
+                sfx_play(env, "pop");
+                LOGI("☰菜单 软件信息：显示版本信息");
             }
-            ui_screen_set(UI_GAME);
+            /* ★ 对抗审计（datah_001）：功能设置切到 UI_SETTINGS（声音设置弹窗），
+               不覆写回对局；其余动作（弹窗类已 dialog）回对局。 */
+            if (ui_screen_get() == UI_INGAME_MENU) ui_screen_set(UI_GAME);
             (void)clazz;
             return JNI_TRUE;
         }
@@ -1388,6 +1907,8 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
             if (from >= 0 && jq_can_flip(st, from)) {
                 undo_push();
                 flip_done = jq_flip(st, from);
+                LOGI("走子判定 翻棋：cell=%d rc=%d turn→%d（人机AI走红=%d）",
+                     from, flip_done, st->turn, g_vs_ai);
             } else {
                 jq_touch_state_reset(&g_ts);
             }
@@ -1409,6 +1930,21 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
             }
         }
         pthread_mutex_unlock(&g_mutex);
+        /* ★ 蓝牙联机发送侧：走子/翻棋成功且联机会话已建立且**轮到本方**（OUR_TURN）→ 编码 v2 帧 → Java BtSpp 写出。
+           ★ 回合闸口：client（THEIR_TURN）不发送；host 首帧后 send_move 置 THEIR_TURN。 */
+        if ((flip_done || move_ok) && g_bt_sess_init_done &&
+            g_bt_sess.state == BT_ST_OUR_TURN) {
+            char tb[BT_BUF];
+            int bn = jq_bt_session_send_move(&g_bt_sess, &g_state, from,
+                                             flip_done ? from : to, flip_done,
+                                             tb, sizeof tb);
+            if (bn > 0) {
+                tb[bn] = 0;
+                jq_bt_send(env, tb);
+                LOGI("蓝牙联机发送：type=%d len=%d frame=%s",
+                     (int)g_bt_sess.last_type, bn, tb);
+            }
+        }
         if ((flip_done || move_ok) && jq_glview_is_ready()) {
             jq_glview_dirty(&g_glview);
             sfx_play(env, flip_done ? "flip" : sfx_for_move(jnev));
@@ -1425,7 +1961,7 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
         if (move_ok) {
             pthread_mutex_lock(&g_mutex);
             if (ui_screen_get() == UI_GAME && g_state.stage == STG_PLAY &&
-                g_state.turn == SIDE_RED) {
+                g_vs_ai && g_state.turn == SIDE_RED) {
                 int af, at, aflip, ae = -1;
                 if (ai_pick(&af, &at, &aflip) == 0) {
                     undo_push();

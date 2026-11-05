@@ -97,6 +97,10 @@ bool jq_can_move(const jq_state *st, int from, int to)
     if (src->rank == RANK_EMPTY) return false;
     int sr = rank_norm(src->rank);
     int dr_ = rank_norm(dst->rank);
+    /* ★ 回合校验（用户指正"各按钮点击业务功能要对齐"）：只能走当前 turn 方棋子。
+       缺失此校验 → 两人热座可连走一方/人机可走 AI 回合/蓝牙可抢走，破坏回合交替。
+       暗棋 side=0xFF 未定子翻棋后才定 side（ruleflip），此处 src->side 已定。 */
+    if (src->side != st->turn) return false;
     /* 军旗/地雷不能动 */
     if (sr == RANK_FLAG || sr == RANK_MINE) return false;
     /* 源格在大本营：进入大本营的棋子不能再动（rulelay 原文） */
@@ -224,7 +228,9 @@ bool jq_can_flip(const jq_state *st, int idx)
     if (c->rank == RANK_EMPTY || c->revealed) return false;
     if (r == RANK_FLAG) return false;   /* 军旗不可翻（§15：from==to 永假） */
     if (c->side == 0xFF) return true;   /* 暗棋未定子可翻（先手定色，ruleflip） */
-    return true;                         /* 己方暗子可翻 */
+    /* ★ 回合校验：己方暗子（side==turn）可翻；敌方暗子（side!=turn）不可翻。
+       缺失此校验 → 任意回合可翻任意方暗子，破坏暗棋回合交替。 */
+    return c->side == st->turn;         /* 己方暗子可翻 */
 }
 
 bool jq_flip(jq_state *st, int idx)

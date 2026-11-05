@@ -25,9 +25,11 @@ static void undo_push(const jq_state *st) { if (g_undo_top < UNDO_MAX) g_undo[g_
 static int undo_pop(jq_state *st) { if (g_undo_top <= 0) return 0; *st = g_undo[--g_undo_top]; return 1; }
 
 /* 内置基准序列（selftest 用）：触发 翻棋/走子/非法/悔棋/认输 全事件面。
-   与 test_move_seq.txt + test_expected.txt 同步。改动需两边一起改。 */
+   与 test_move_seq.txt + test_expected.txt 同步。改动需两边一起改。
+   ★ 回合校验（rules.c jq_can_move/jq_can_flip）：走子/翻棋限当前回合方（翻棋=走 1 步切回合）。
+     故序列为合法交替（蓝 f6 → 红 f33 → 蓝 m6,11 → 红 m33,38），非旧版连翻蓝方。 */
 static const char BENCH_SEQ[] =
-    "f 6\nf 8\nm 6 11\nm 8 13\nm 12 13\nu\nm 10 11\nq 0\n";
+    "f 6\nf 33\nm 6 11\nm 33 38\nm 12 13\nu\nm 10 11\nq 0\n";
 static const char BENCH_EXPECT[] =
     "OK Flip\nOK Flip\nOK Junqi.Move\nOK Junqi.Move\nILLEGAL\nOK Undo\nILLEGAL\nOK Resign\n"
     "FINAL winner=1 turn=1 total=3 since_eat=3 stage=2\n";

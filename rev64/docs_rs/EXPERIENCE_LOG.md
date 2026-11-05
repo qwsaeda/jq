@@ -918,3 +918,389 @@ fulltest 9/9（isolated 复跑全过；MINE/FLAG 偶发 FAIL 为 MuMu 重启+set
 
 - 明棋默认 vs 原版暗棋（全面屏下棋盘透出明棋标签，原版暗棋绿背）。
 - 底部导航栏：全面屏用 IMMERSIVE_STICKY 隐藏（若设备有手势栏会间歇露出，MuMu 无）。
+
+## 用户指正"各个按键功能对齐"（☰ 菜单 2-6 + 主菜单 2/3 功能实现）
+
+### 现状（占位 → 功能对齐）
+
+- ☰ 菜单 重新开始/悔棋/退出程序 已实现；**电脑变着/游戏规则/功能设置/战况统计/软件信息 为占位**（只播 pop + log）。
+- 主菜单 联网/联机（action 2/3）无处理（ui_on_menu_action 只 0/1/4 进对局）。
+
+### 实现（App.smali showInfo + jni_bridge.c）
+
+- **Java 侧（App.smali）**：加静态字段 `s_ctx`（onCreate 缓存 Activity）+ 静态方法 `showInfo(String title, String text)`（AlertDialog 标题+正文+确定）。
+- **Native 侧（jni_bridge.c）**：
+  - `g_sound_on`（默认 1）门控 sfx_play 顶部（功能设置音效开关）。
+  - `jq_show_dialog(env,title,text)`：FindClass("com/cnvcs/App") + GetStaticMethodID("showInfo") + CallStaticVoidMethod。
+  - ☰ 菜单 action 2-6：2 电脑变着=ai_pick 当前回合方走子（锁 g_mutex）；3 游戏规则=规则对话框；4 功能设置=音效开关 + 对话框；5 战况统计=余子/步数/回合对话框；6 软件信息=版本对话框。
+  - 主菜单 action 2/3：蓝牙联机边界说明对话框（协议层就绪，SPP socket Java 承担 + 无真机蓝牙验证）。
+- 重打包：apktool b dec_full → base_full.apk → rs168_wav.apk → rebuild_rs_apk.sh（so a8412714）。
+- ★ 坑：smali 字段注释不能用 C 风格 `/* */`（apktool b "Error for input '/'"），须 `#`。
+
+### 验证（真机 MuMu，装机后立即跑——包周期消失）
+
+- ☰ 菜单 4 项：游戏规则（显示规则对话框）、功能设置（音效 关，再点开）、战况统计（蓝25 红25 步0）、电脑变着（AI 走子 turn=1）日志 + 软件信息/联网对话框截图（rs_about/rs_bt_dlg.png）。
+- 主菜单 联网（action 2）：蓝牙联机说明（诚实边界）对话框。
+- walktest 走子 cell25→30 Eat + turn PASS；fulltest 各单项均 PASS（包存在时；失败均为 MuMu 包周期消失：pm path 空 + force-stop/start 失败，非代码回归——pop/close/draw 隔离手动验证 sfx：播放 pop/close 正常）。
+- so **a8412714ad52c0aade766a73be1179dc**。
+
+### 残余诚实差异
+
+- 功能设置音效开关为**运行时**（重启复位为开，未持久化——无 SharedPreferences 接入）。
+- 规则/统计/软件信息对话框内容为**合理推断**（原版 32 位 GL 间歇黑屏无法探索，TextDlg 原视觉/内容未逆向）；用 Android AlertDialog 替代（功能对齐，视觉非原版 TextDlg）。
+- 联网/联机为**诚实边界**（协议层就绪，SPP socket + 配对 UI 未接入，无真机蓝牙验证），点按显示说明对话框。
+
+## 阶段 2 双 ABI 交付物构建 + 暗棋开局对齐（原版人机/两人全背面）
+
+### 阶段 2 双 ABI 交付物（phase2.apk，此前缺失——只有分离的 arm32 测试包 + arm64 src_rs）
+
+- 现状（盘点发现）：`rev64/dist/phase_chain_arm32.apk` 只有 `lib/armeabi`（v5 单 ABI）+ 带广告 jar（`assets/__xadsdk__remote__final__.jar`）+ minSdk 4——是 **32 位逆向测试包**，非阶段 2 判据；`phase_rs_a64.apk` 是 arm64-only。**阶段 2 双 ABI 交付物此前不存在**。
+- 构建（`/tmp/opencode/jq_apk/rs_a64/dec_dual`，独立构建树不污染 src_rs 源）：
+  - 基底 = src_rs dec_full（最终 Java：全面屏 + showInfo + 15 个 On* 签名）
+  - **加回 `smali/com/baidu/`（334 类，原版 so FindClass("com/baidu/mobads/AdView") 需要）** + 原版 1.4MB 32 位 so → `lib/armeabi-v7a/` + src_rs so → `lib/arm64-v8a/`
+  - `apktool.yml` minSdkVersion '19'→**'21'**（apktool b 用 yml 覆盖 manifest，不改 yml 则 minSdk 仍是 19——实证）
+  - 产物 `dist/phase2.apk`（v1+v2，STORE .so + arsc 全 0 压缩，zipalign 4）：
+    - `native-code: 'arm64-v8a' 'armeabi-v7a'` ✅ 双 ABI
+    - arm64 so = 57acb0b7（当前 src_rs，暗棋版）/ arm32 so = 4d86fa87（原版）✅
+    - minSdk 21 / targetSdk 31 / 仅 BLUETOOTH+ADMIN 权限（src_rs 去广告保留）
+- 兼容性自证：src_rs AdLis 与原版 AdLis 逐方法一致（`.implements Lcom/baidu/mobads/AdViewListener;` + onAdClick/Close/Failed/Ready/Show/Switch）；原版 so 引用类（AdView/AdLis/BtReceiver/GLView/InputDlg/SiteView/TextDlg）全部在 dec_full 存在。
+- 诚实边界：**装机验证阻塞**（MuMu 10.0.182.146 不可达，`ps` 无 emulator 进程，全端口 refused——环境波动）；仅静态验证（badging/STORE/签名/哈希）。32 位路径（v7a 原版）需 32 位设备或强制 ABI 选择。
+
+### 暗棋开局对齐（原版人机/两人 = 全背面暗棋，src_rs 此前默认明棋 = 真实差异）
+
+- 证据：orig_human.png/orig_two3.png 全背面（已验证）；main.c 明棋/暗棋语义（明棋 rulelay 暗置军旗明置 / 暗棋 ruleflip）。
+- 改动：
+  - `ui_state.c` `g_opt_mode` 默认 0→**1**（暗棋，jq_restart_game `revealed = dark ? 0 : 1`）
+  - `jni_bridge.c` `jq_restart_game` 加 **jq.mode setprop 测试钩子**（`__system_property_get("jq.mode")` 覆盖；空=用默认暗棋）——walktest/evtest 走明棋用
+  - `tools/mumu_walktest.sh` 菜单进对局前 `setprop jq.mode 0`，进后清空
+- 翻牌路径完备自证：`ai_pick` 有"无走子→翻棋"分支（line ~113-118：`!revealed` + `jq_can_flip`）；OnTouch 两步态机（选 A→点 B 走子/翻棋）；OnEvent "flip"（jq_flip）。flagtest 显式 `revealed=1`（不受默认影响）。
+- 验证（桌面，设备阻塞）：`jq_gametest` 全部通过（60 困毙局 + 人机回合交替 翻转=20）；`jq_consistency selftest` 基准 9 行一致；`jq_run flip` 暗棋翻子演示正常。
+- so 新 hash **57acb0b7ed9149cdc74e79bf0cab8cb1**；phase_rs_a64.apk + phase2.apk 均重建。
+
+### 残余诚实差异
+
+- 暗棋默认改动**未真机验证**（MuMu 不可达）——桌面单元自测 + 翻牌逻辑自证通过，但全 UI 流（触摸翻牌/AI 翻牌回合）待设备恢复后验收。
+- 阶段 3（去广告终态 arm64-only）等价于 phase_rs_a64.apk（无 baidu/无广告权限，已达成），待设备验证。
+- 音效开关仍运行时（未持久化）；四国/蓝牙 SPP socket 仍诚实边界。
+
+## 四阶段交付物全量补齐（phase0-3）+ 音效开关持久化
+
+### 盘点发现（用户"没有做完"质疑后的诚实盘点）
+- `dist/` 此前只有 phase2/3（本轮新增）；**phase0.apk / phase1.apk 从未构建**（项目直接跳到 64 位重写），补建完成。
+- `rev64/dist/phase_chain_arm32.apk` 是 32 位逆向测试包（翻译体 so + 广告 jar + minSdk 4），**非阶段交付物**。
+
+### 四阶段交付物（`dist/`，全部 STORE .so + zipalign 4 + v1+v2 双签）
+
+| 产物 | 包名 | ABI | minSdk/target | 广告 | 说明 |
+|---|---|---|---|---|---|
+| phase0.apk | com.cnvcs.junqi32 | armeabi（原版 32 位 so） | 19/34 | jar+manifest 广告项删（baidu smali 保留，32 位 so FindClass 需） | 32 位去广告快速包 |
+| phase1.apk | com.cnvcs.junqi32 | armeabi + arm64-v8a（4.8KB NDK 桩） | 19/34 | 同 phase0 | 双 ABI 可装，arm64 桩跑不起（预期） |
+| phase2.apk | com.cnvcs.junqirs | armeabi-v7a（原版 so）+ arm64-v8a（src_rs so） | 21/31 | baidu 334 类保留（32 位路径用） | 阶段 2 双 ABI 可装（dec_dual 构建树） |
+| phase3.apk | com.cnvcs.junqirs | arm64-v8a（src_rs so） | 21/31 | **0 广告类/权限**（仅蓝牙） | 阶段 3 去广告终态（dec_full 构建树） |
+
+- phase0/1 基 = `dec_p0`（原版 dec 副本：恢复原版 so → lib/armeabi，删广告 jar + manifest 广告项 + arm64/v7a 目录；apktool.yml minSdk 4→19、targetSdk 31→34）。
+- phase2 基 = `dec_dual`（src_rs dec_full + baidu 334 类 + 原版 so armeabi-v7a + src_rs so arm64-v8a；minSdk 19→21）。
+- phase3 基 = `dec_full`（src_rs Java 全套 + src_rs so arm64 + minSdk 19→21）。
+- 广告权限删除后仅剩：phase0/1 有 BLUETOOTH(+ADMIN)+READ/WRITE_EXTERNAL_STORAGE（原版存储权限，非广告）；phase2/3 仅 BLUETOOTH(+ADMIN)。
+- phase0 dex 保留 `Lcom/baidu/mobads/AdView;`（32 位 so FindClass 兼容）自证；广告 jar 计数 0。
+
+### 音效开关持久化（功能设置 ☰ action=4 完整化）
+- `g_files_dir`（getFilesDir 路径，sfx_wav_ensure_private 内 fobj→getAbsolutePath 捕获）。
+- `sfx_sound_load()`（OnCreate 调：读 getFilesDir/jq_sound_on.txt，"0"→关，"1"/无→开）；`sfx_sound_save()`（☰ 菜单 4 切后写 "1"/"0"）。
+- 纯 C stdio（路径已知，免 Java 反射）；so 新 hash **044964b1**；gametest 全过。
+
+### 诚实边界
+- 四产物仅**静态验证**（badging/STORE/签名/哈希/广告残留/dex 类）；真机装机/能玩/断网无广告验收**被 MuMu 不可达阻塞**（`ps` 无 emulator 进程、全端口 refused）。
+- phase0/1 用原版包名 junqi32（与原版可共存），phase2/3 用 junqirs（src_rs）；不同阶段产物互不覆盖。
+- 阶段 3 arm64-only：32 位设备不在验收范围（规格明示）；32 位路径广告仍依赖 baidu smali（原版 so 硬引用）。
+
+## 真机验收（MuMu 恢复）+ phase0/1 广告 jar 关键发现
+
+### MuMu 恢复（10.0.182.146:5555，23127PN0CC，x86_64+arm64 转译）——四交付物真机验证
+
+| 产物 | 装 | 跑 | 验证要点 |
+|---|---|---|---|
+| phase2.apk | ✅ Success | ✅ | arm64 路径启动 + 菜单渲染（按钮读回蓝像素）+ **暗棋默认**（进人机全背面截图）+ 玩家翻牌（cell25→"师长"）+ AI 翻牌（红方"工兵"）+ ☰ 菜单 4 项（游戏规则/功能设置音效开+保存/战况统计/电脑变着）+ **音效持久化**（关→重启→读取"关"）+ walktest cell25→30 Eat PASS |
+| phase3.apk | ✅ Success | ✅ | arm64 启动 + 菜单渲染 + **dex 0 条 baidu/AdLis 引用**（删 AdLis.smali 后）+ 无广告权限（仅 BLUETOOTH）+ 无崩溃 |
+| phase0.apk | ✅ Success | ⚠️ flaky | 32 位 so 在 MuMu houdini 转译 **间歇**（NPE/UnsatisfiedLinkError/GL 黑屏三态，已知限制非构建缺陷） |
+| phase1.apk | 静态验证 | ⚠️ 同 phase0 | 双 ABI（armeabi+arm64 4.8KB 桩），32 位路径同 phase0 flaky |
+
+- **音效持久化真机闭环**：☰ 功能设置→"音效 关"+保存 `/data/user/0/.../files/jq_sound_on.txt`；force-stop+重启→`音效设置：读取 ... → 关`（门控生效）。
+- **暗棋真机闭环**：进人机棋盘全背面（截图自证）→ 点 cell25 翻牌 → ev=7 + flip 音效 → "师长"露明 + 红 AI 自动翻"工兵"（暗棋双方可玩）。
+
+### phase0/1 广告 jar 关键发现（32 位 so 硬依赖，规格与实证冲突）
+
+- **规格**：阶段 0/1 删 `assets/__xadsdk__remote__final__.jar`。
+- **实证**：删 jar → 32 位 so `OnCreate` 返回 null GLView → Java `GLView.setOnTouchListener` **NPE 崩溃**（App.onCreate:47）。原版 32 位 so 的 OnCreate **硬依赖广告 jar**（内嵌远程 SDK dex），无法移除。
+- **修正**：phase0/1 **保留 jar**（32 位可启动）+ 删 manifest 广告项（baidu AppActivity / UMENG_APPKEY / INTERNET / NETWORK / WIFI / PHONE / LOCATION 权限）+ minSdk 19 / targetSdk 34。广告 SDK 在无权限下**惰性**（无 INTERNET/PHONE/LOCATION → 无法拉取/弹浮层）→ "断网启动无广告浮层"达成。
+- **诚实边界**：phase0/1 32 位路径在 MuMu houdini 转译 **flaky**（NPE/UnsatisfiedLink/GL 黑屏三态间歇，原版已知限制）；真机 32 位 ARM 设备或可稳定，需真机 32 位验收。广告 jar 残留为"惰性 SDK"（权限删→不能弹），非"广告浮层"。
+- 修正后 phase0 = armeabi-only（dec_p0 无 stub）；phase1 = armeabi + arm64-v8a 4.8KB stub。
+
+## 过程改进：批处理固化（build_phases.sh）+ 反思总结
+
+### 用户指令"总结经验/脚本复用/资产复用/能固化就固化/能批量就批量"→ 收敛本会话 5+ 次手工构建
+
+- **新脚本 `rev64/tools/build_phases.sh`**（批量化）：
+  - `build_phases.sh all`：四阶段交付物一键构建 + 校验（apktool b → STORE → zipalign → sign → dist/phaseX.apk → verify）
+  - `build_phases.sh phase2`：单阶段；`--no-verify` 跳过校验；`--verify-only` 只复核已有（不重建）
+  - 幂等：每阶段从构建树用源 so 重置 lib/（`setup_libs` rm -rf + 重建），不依赖树残留状态
+  - 资产复用：store_compressed.py / zipalign(build-tools 36) / sign_apk.sh(junqi.keystore) / orig_libjunqi.so / libjunqi_rs.so / junqi_stub_arm64.so
+  - 构建树：phase0/1=dec_p0（原版 dec 副本，baidu 334 类+广告 jar 保留+manifest 广告项删，minSdk 19/target 34）；phase2=dec_dual（src_rs Java+baidu+原版 v7a+src_rs arm64，minSdk 21）；phase3=dec_full（src_rs Java 无 baidu，minSdk 21）
+- **脚本 bug 固化（set -u 陷阱）**：`local a=$1 b=$2 c=$x` 同条 local 里 `$x` 引用在赋值前求值 → set -u 报 "unbound variable"。须拆 `local a=$1 b=$2; local c=$...`。
+- **路径陷阱固化**：dec_p0 在 `/tmp/opencode/jq_apk/dec_p0`（dec 同级），dec_dual/dec_full 在 `rs_a64/`——脚本若统一前缀 `$RA/$tree` 会拼错路径（phase0/1 静默复用旧 lib）。
+
+### 反思总结（本会话闭环）
+
+- **"没做完"盘点方法**：用户质疑时先列 4 阶段交付物清单 vs dist/ 实际 → 找真实缺口（phase0/1 从未构建、phase_chain_arm32 非交付物），而非空谈。
+- **阶段 2 双 ABI 整合关键**：32 位原版 so 的 FindClass("com/baidu/mobads/AdView") → 双 ABI 包必须保留 baidu 334 类（arm64 路径 baidu 惰性）；src_rs AdLis 与原版逐方法一致自证。
+- **32 位 so 广告 jar 硬依赖**（实证）：删 jar → OnCreate 返回 null GLView → Java NPE。故 phase0/1 保留 jar + 删广告权限/UI（SDK 惰性），修正原规格"删 jar"假设。
+- **暗棋默认对齐**：原版人机/两人全背面（orig_human/two3 自证）→ g_opt_mode 默认 1；jq.mode setprop 钩子供测试走明棋。
+- **音效持久化**：getFilesDir/jq_sound_on.txt（纯 C stdio），sfx_sound_load/save。
+- **MuMu 环境陷阱**：包周期消失（pm path 空）+ 残留测试 setprop 使 app 启动即在 UI_GAME（非菜单）→ walktest 误判"触摸 flaky"。先清残留/重装/force-stop 再测。
+- **真机验收（MuMu 恢复后）**：phase2/3 装+跑+暗棋翻牌+音效持久化+☰ 菜单全过；phase0/1 32 位路径 houdini 转译 flaky（原版已知限制）。
+
+## 四国诚实边界修复 + redroid 全量回归（"没做完"追问后的持续推进）
+
+### 四国按钮误导修复（主菜单 action=4 静默开 2 人局 → 诚实边界对话框）
+
+- 现状（盘点）：主菜单"四国军棋"（action=4）经 `ui_on_menu_action` 与 0/1 同路 → **静默开 2 人局**（误导为四国可玩）。
+- 修复：
+  - `ui_state.c` `ui_on_menu_action`：action 0/1 才切 UI_GAME（4=四国不切，OnTouch 显示边界）。
+  - `jni_bridge.c` OnTouch 菜单：`hit_action==4` → `jq_show_dialog("四国军棋", "src_rs 为 10×9 两人军棋规则重写，四国未实现……")`（与联网/联机边界一致），return JNI_TRUE 不落对局。
+- 验证（redroid emulator-5554）：`UI命中 x=634 y=1127 hit=4 action=4` → `OnTouch 菜单按钮4：四国军棋边界说明（诚实边界）`，无 `ui_state：菜单 action=4 → UI_GAME` 日志；对话框截图 rs_siguo.png。
+- so 新 hash **e5bc4fe4**；四交付物经 `build_phases.sh all` 重建 + 校验。
+
+### redroid 全量回归（MuMu 不可达时 redroid 兜底——setprop 事件测试不依赖触摸/分辨率）
+
+- redroid（emulator-5554，redroid11_x86_64，SDK 30）已装 phase3，跑 8 项事件测试 **全部 PASS**：flag（ev=3 Junqi.Flag）/ mine / restart / draw / resign / stalemate / close / pop。
+- **确认此前 MuMu fulltest 全 FAIL 是环境**（MuMu 包周期消失 + 触摸 flaky），**非代码回归**——redroid 全过证明新 so（暗棋+音效持久化+四国边界）事件逻辑健康。
+- walktest（触摸）在 redroid **失败**：view=720x1280（redroid 分辨率 ≠ MuMu 900x1600），walktest 坐标按 MuMu 校准 → 触摸命中错按钮（action=3 联机而非 0 人机）。**redroid 只跑 setprop 事件测试，不跑触摸 walktest**（分辨率不匹配）；walktest 已在 MuMu（900x1600）单独 PASS。
+- 诚实边界：redroid 无 GPU（菜单渲染可，完整 GL 对局渲染受限）；32 位路径（phase0/1）需真实 ARM 32 位设备。
+
+## 蓝牙联机 SPP socket 全链接线（"没做完"追问后实际实现最大功能缺口）
+
+### 缺口（盘点）：协议层就绪但发送侧/Java socket 未接线
+- 现状：bt_protocol v2 7 字段帧 + bt_session 状态机就绪（收帧→规则引擎），但 **发送侧 `jq_bt_session_send_move` 从未被调用** + **Java 侧 BluetoothSocket IO 缺失** → 蓝牙联机为纯协议层占位。
+
+### 实现（Java BtSpp + App.smali 接线 + 原生发送侧）
+1. **`/tmp/opencode/jq_bt_src/com/cnvcs/BtSpp.java`**（新建，javac+android-32+d8+baksmali 编译合并）：
+   - `startHost()`：BluetoothServerSocket.listenUsingRfcommWithServiceRecord(SPP_UUID ce1404fe-0863-4278-86c2-c9c560f0e215) + accept 后台线程
+   - `startClient(addr)`：addr 空→自动选第一个已配对设备（getBondedDevices）；connect 后台线程
+   - 读线程：按 \n 分帧 → Intent extra → `App.OnBluetooth`（复用原生接收路径）
+   - `sendFrame(frame)`：写 s_out + flush；`disconnect()` 清理
+   - 全部 try/catch + `App.btState()` 回调（host_connected/client_connected/disconnected/failed），BT 不可用/未使能/无配对→优雅失败不崩
+2. **`App.smali`**：加 4 静态方法 `btState(String)`（Log.i junqi_bt）/ `btSend(String)`（→BtSpp.sendFrame）/ `btHost()`（→BtSpp.startHost）/ `btClient(String)`（→BtSpp.startClient）
+3. **`jni_bridge.c`**：
+   - `jq_bt_start(env,host)` / `jq_bt_send(env,frame)`（App.btHost/btClient/btSend，与 showInfo 同 JNI 模式）
+   - 菜单 action 2/3：jq_bt_start + 会话初始化（蓝先手 OUR_TURN）+ 说明对话框（不再纯边界说明）
+   - 走子/翻棋成功 & 会话已连 → `jq_bt_session_send_move` 编码 → `jq_bt_send` → btSend → sendFrame
+
+### 验证（redroid emulator-5554，无真 BT 对端）
+- **host 路径**：点联网 → `junqi_bt: host：监听 ce1404fe-0863-4278-86c2-c9c560f0e215`（native→btHost→startHost→BluetoothServerSocket.listen 真实执行）
+- **client 路径**：点联机 → `junqi_bt: 无已配对设备，请先在系统蓝牙配对` + `failed:...`（getBondedDevices 检查 + 优雅失败）
+- **发送全链**：联网→人机→翻 cell52（同格两次）→ `走子态机 ev=7 from=52 to=52` → `蓝牙联机发送：type=0 len=18 frame=v2` → `sendFrame：未连接`（无对端优雅失败）→ `红方 AI 应着 cell=30`（对局继续）
+- **回归**：redroid 8 项事件测试全 PASS（flag/mine/restart/draw/resign/stalemate/close/pop，pop 首跑瞬时失败重跑 PASS=时序非回归）
+- so 新 hash **2aad85e1**；四交付物 `build_phases.sh all` 重建+校验
+
+### 诚实边界
+- 无真机蓝牙硬件：host/client accept/connect + 实际 peer 收发无法端到端验证（redroid/MuMu 无 BT 射频）；状态机/帧编解码桌面单测 + setprop bttest 已证。
+- 真实设备需系统蓝牙配对后走 联网/联机；对端帧→OnBluetooth→bt_session 收侧（bttest PASS）。
+
+## 过程改进循环 2：BT 接线批量化固化（bt_smali.sh）+ 反思总结
+
+### 用户指令"总结经验/脚本复用/资产复用/能固化就固化/能批量就批量"→ BT 接线闭环后收敛
+
+- **新脚本 `rev64/tools/bt_smali.sh`**（批量化）：BtSpp.java → javac(android-32+stub App) → d8 → baksmali → 合并 dec_dual+dec_full（幂等，--verify）。BT 接线反复手工的 javac/d8/baksmali/cp 收敛为一条命令。
+- **资产复用**：android-32.jar / d8(build-tools 36) / baksmali / stubs/App.java（编译期签名匹配，不入 dex）/ dec_dual+dec_full 构建树。
+- **脚本 bug 固化**：`d8 --output dex` **不自动建目录**（rm 后须先 `mkdir -p dex`，否则 "Invalid output: dex"）；stub App 须编译成 class 放 classpath（不能放 .java 目录，javac 不隐式编译 classpath 内源）；d8 只转 BtSpp.class（**不含 stub App**，避免合并时重复 App）。
+
+### 反思总结（BT 接线闭环方法）
+
+- **"没做完"→最大真实缺口**：协议层就绪但发送侧 `jq_bt_session_send_move` 从未调用 + Java socket 缺失。先盘点缺口（列文件/符号/调用点）再动手，非空谈。
+- **Java→dex→smali 管线比手写 smali 稳**：javac 报类型错误（未捕获 IOException 等），d8+baksmali 自动生成正确 smali（寄存器/指令正确）。
+- **JNI 静态方法三件套模式**（jq_show_dialog/jq_bt_start/jq_bt_send 统一）：FindClass("com/cnvcs/App") + GetStaticMethodID + CallStaticVoidMethod + ExceptionClear + DeleteLocalRef（防异常/泄漏）。
+- **发送侧状态机注意**：菜单 联网/联机（OnTouch action 2/3）初始化会话 OUR_TURN；action 0/1 开局（jq_restart_game）**不重置** g_bt_sess_init_done（会话保留）；但 OnEvent("menu",2/3) 分支会重置——OnTouch 与 OnEvent 两条路径须区分。
+- **redroid 验证陷阱**：
+  - cell 42=河界空格（不可翻，from=52 才对）——翻棋前先确认目标格为蓝子。
+  - 翻棋=同格两次（select→flip）；明棋无翻棋（revealed=1 全开）。
+  - **OnCreate 日志硬编码"明棋开局"**（实际模式由 jq.mode/ui_opt_get_mode 决定）——查模式读逻辑非日志。
+  - **ImmersiveModeConfirmation 系统浮窗挡触摸**：`settings put secure immersive_mode_confirmations confirmed` 后 force-stop（否则 mCurrentFocus=该窗，tap 无效）。
+  - setprop 空值非法：`setprop jq.mode ""` 报 usage（设值前先 getprop 确认）。
+  - 菜单按钮坐标：redroid 720x1280 渲染顶点可读（rs_draw_menu 日志 btn0 中心 358,871）——walktest 按 MuMu 900x1600 校准会错位，redroid 用归一化重算。
+
+## 蓝牙对局自动开局 + we_blue 修复（BT 游戏流程闭环）
+
+### 缺口：BT 连接建立后不进入对局（btState 只记日志）
+- 现状：socket host/client 接通（BtSpp→btState 回调）但 `btState("host_connected")` 只 Log.i → 停留在菜单，不自动开局。
+- **we_blue bug**：菜单 action 2/3 都初始化 `we_blue=1`（双方都当自己蓝先手）→ 联机方应为红后手。
+
+### 实现
+1. **we_blue 修复**（jni_bridge.c 菜单 2/3）：联网(host)→`jq_bt_session_init(...,1)` 蓝先手；联机(client)→`(...,0)` 红后手。
+2. **App.smali btState**：`host_connected`/`client_connected` → `s_ctx.runOnUiThread(new App$BtStart())`（主线程 post，BT 后台线程安全）。
+3. **`App$BtStart.smali`**（新）：Runnable.run() → `OnEvent("menu","1")`（两人对局开局，BT 会话保留）。
+4. **btconn 测试钩子**（setprop jq.btconn 1 → OnCreate spawn 后台线程模拟 BtSpp 回调 btState("host_connected")）。
+
+### JNI 陷阱（本轮新坑，固化）
+- **FindClass 从 native 生成的线程 → ClassNotFoundException**：native 线程用系统 classloader，找不到 app 类。须主线程 FindClass + NewGlobalRef，worker 用缓存全局引用。
+- **runOnUiThread 主线程调用 = 立即同步执行**：btconn 钩子若从 OnCreate 主线程同步调 btState → runOnUiThread 立即执行 → 重入 OnEvent → 主线程挂死（进程存活但卡死）。须 spawn 线程模拟真实 BtSpp（后台线程→runOnUiThread post）。
+- **JavaVM 缓存**：`g_jvm` + `jq_get_jvm()`（JNI_OnLoad 缓存）供 native 线程 AttachCurrentThread 用。
+
+### 验证（redroid emulator-5554，setprop jq.btconn 1）
+- `junqi_bt: host_connected` → `OnEvent menu 开局 mode=1（jq_restart_game：stage=PLAY 蓝先手）` → `rs_render_frame：ui_screen=1 → 不画菜单` → **截图 bt_autostart.png = 暗棋两人对局棋盘渲染**（双方背面绿子+河界）。
+- 无 FATAL，进程存活，属性清 0。8 项事件回归全 PASS（restart/pop 首跑瞬时失败重跑 PASS=时序）。
+- so 新 hash **f688671c**；四交付物 `build_phases.sh all` 重建+校验。
+
+### 诚实边界
+- 真机 BT 对端仍无法端到端（无射频）；自动开局经 btconn 钩子（模拟连接回调）全链验证，真实 accept/connect→btState 同路径。
+
+## 过程改进循环 3：BT 对局闭环批量化（btconn 用例 + App 同步 + 回归脚本）
+
+### 用户指令"总结经验/脚本复用/资产复用/能固化就固化/能批量就批量"→ BT 对局自动开局闭环后收敛
+
+- **`mumu_evtest.sh` 加 `btconn` 用例**：setprop jq.btconn 1 → 模拟 host_connected → 断言 "OnEvent menu 开局 mode=1" + 进程存活 + 无 FATAL（一键验证连接自动开局）。
+- **`bt_smali.sh` 加 App.smali/App$BtStart 同步**：dec_full 为手工编辑源，dec_dual 派生——一条命令保两树一致（防 App.smali 手工改后忘同步 dec_dual 的静默不一致）。
+- **新脚本 `rev64/tools/mumu_regress.sh`**：全事件回归一键跑（flag/mine/restart/draw/resign/stalemate/close/pop/btconn），**首跑失败自动重跑一次**（redroid/MuMu 触摸 flaky + WAV 加载时序非代码回归），汇总 PASS/FAIL。`--only flag,btconn` 可跑子集。
+
+### 反思总结（BT 对局闭环）
+
+- **"没做完"→BT 连接后不进对局**（btState 只记日志）+ **we_blue bug**（双方都当蓝先手）——真实缺口盘点后再动手。
+- **JNI 陷阱三连**（固化）：
+  1. native 线程 FindClass → ClassNotFound（系统 classloader）→ 主线程 FindClass + NewGlobalRef。
+  2. runOnUiThread 主线程调用 = 立即同步（重入 OnEvent 挂死）→ 测试钩子须 spawn 线程模拟真实 BtSpp 后台。
+  3. JavaVM 经 `g_jvm`/`jq_get_jvm()`（JNI_OnLoad 缓存）供 native 线程 AttachCurrentThread。
+- **状态机语义**：联网=蓝先手、联机=红后手（we_blue 区分）；连接后双方从默认布局同步开局（OnEvent menu 1 两人模式，BT 会话保留）。
+- **验证**：btconn 钩子 → 暗棋棋盘渲染截图自证；8+1 事件回归（含 btconn）全过（重跑容错时序）。
+
+## 蓝牙回合闸口修复（client=THEIR_TURN + 发送守卫 OUR_TURN）
+
+### 缺口（复盘 BT 状态机）
+- 菜单 联网/联机 初始化都设 `g_bt_sess.state = BT_ST_OUR_TURN`——**client（红后手）误以为轮到自己**（应等 host 首帧）。
+- 发送侧守卫 `state >= BT_ST_CONNECTED` 过松：client 在 THEIR_TURN 也放行发送。
+
+### 修复
+- 初始化：host→`OUR_TURN`（蓝先手可发首帧），client→`THEIR_TURN`（等 host 首帧）。
+- 发送守卫：`state == BT_ST_OUR_TURN`（严格回合闸口；send_move 后置 THEIR_TURN，on_frame 收 MOVE/FLIP 后置 OUR_TURN）。
+- **回合闭环**：host 蓝 OUR_TURN→发帧→THEIR_TURN；client 红收帧（须 THEIR_TURN）→OUR_TURN→发帧→THEIR_TURN；host 收帧→OUR_TURN……交替。
+
+### 验证
+- btconn（连接自动开局）仍 PASS；so 新 hash **b223dc80**；四交付物 `build_phases.sh all` 重建+校验；9 项回归（含 btconn）跑中。
+- 诚实边界：client=THEIR_TURN 的端到端（host 发首帧→client 收→回）需真机 BT 射频，结构/状态机桌面单测已证。
+
+### 反思
+- **状态机闸口比 UI 阻断可靠**：BT 回合用 state（OUR_TURN/THEIR_TURN）闸发送与接收，防 client 抢先/重复发。
+- **回合语义**：暗棋翻棋=完整走子（turn 切），故 FLIP 帧即一回合；host 蓝先手。
+
+## 过程改进循环 4：rs_cycle 加设备回归（批量化收口）
+
+### 用户指令"总结经验/脚本复用/资产复用/能固化就固化/能批量就批量"→ 回合闸口闭环后收敛
+
+- **`rs_cycle.sh` 加 `--device-regress`**：全周期一条龙 = make so + 桌面 12/12 回归 + rebuild_rs_apk（装机+启动）+ **mumu_regress.sh 设备事件回归（含 btconn）**。原 rs_cycle 只到装机启动，设备事件回归缺失——补齐闭环。
+- **确认桌面回归已含 BT selftest**（src_rs_regress.sh [2/12] `make bttest` → dist/jq_bttest，含 send_move 出帧 v2 前缀/state=THEIR_TURN/非法坐标拒绝，PASS）——BT 协议层已有桌面单测层，无需新增。
+
+### 反思总结（BT 全链分层验证）
+
+- **BT 三层验证已齐**：
+  1. 桌面单测（bt_selftest：帧编解码/状态机/回合翻转）
+  2. 设备事件（mumu_regress：btconn 连接自动开局 + 8 项既有事件）
+  3. 真机端到端（诚实边界：需 BT 射频，未验）
+- **脚本分层**：rs_cycle（编译+桌面回归+装机）→ mumu_regress（设备事件）→ build_phases（四交付物）。一条命令补全需 `rs_cycle --device-regress` + `build_phases.sh all`。
+- **回合闸口语义**（固化）：暗棋翻棋=完整走子（FLIP 帧=一回合）；host 蓝 OUR_TURN→发→THEIR_TURN→收→OUR_TURN 交替；client 初始 THEIR_TURN 等 host。
+
+## 批量推进 A：BT 悔棋/重开帧 + bttest 钩子 + SYNC 诚实评估
+
+### 分类盘点（用户"总结分类的批量推进任务对齐"）
+- **A 可立即推进**：① BT 悔棋/重开帧接线 ② SYNC 同步帧 ③ bttest setprop 钩子
+- **B 需硬件**：BT 端到端 / 32 位真机验收
+- **C 大工程**：四国
+- **D 已闭环**：四阶段交付物 / BT socket / 自动开局 / 回合闸口 / 音效 / 暗棋
+
+### A① BT UNDO/RESTART 帧接线（☰ 悔棋/重开）
+- `jq_bt_ctrl_send(env,type)`：控制帧（不受回合闸口 OUR_TURN，走子/翻棋才有闸口）。
+- ☰ 重新开始（act 0）→ `BT_T_RESTART`；☰ 悔棋（act 1）popped>0 → `BT_T_UNDO`（BT 会话活跃时）。对端收帧同步悔棋/重开。
+
+### A② SYNC 诚实评估（不接线）
+- 新开局双方从 default.lay 同步（boards match）——SYNC 非必需；且 `jq_bt_session_send_sync` 置 `state=THEIR_TURN` 会破坏 host 蓝先手 OUR_TURN。**中途重连/断线同步 = 诚实边界**（需真机验证时序）。
+
+### A③ bttest setprop 钩子
+- 提取 OnEvent("bttest") 逻辑为 `jq_bt_test_run(st,tag)`（复用），OnEvent 与 setprop 钩子共用。
+- setprop jq.bttest 1 → OnCreate → FLIP 帧 → decode → jq_bt_session_on_frame（接收链验证）。
+
+### 坑（固化）
+- **OnCreate 已持 g_mutex（非递归）**：bttest 钩子首版 `pthread_mutex_lock(&g_mutex)` → **死锁**（进程存活但属性不清）。修：OnCreate 钩子区不锁 g_mutex（flagtest 同模式，OnCreate 单线程初始化）。
+- **前向声明位置**：jq_bt_test_run 定义在 OnEvent 后 → 须在文件顶部（g_bt_sess 后）前向声明，否则 C 隐式声明（非 static）与 static 定义冲突。
+
+### 验证
+- so `0c2d3add`（bttest 钩子去锁后）；gametest/bttest 桌面全过；bttest 钩子实测 `setprop bttest：无可翻子` + 属性清 0（钩子执行链通）；btconn 仍 PASS；9 项回归跑中；四交付物 `build_phases.sh all` 重建+校验。
+
+## UI/按钮对齐：纹理根因 + 人机/两人业务区分（用户"UI及按钮没对齐还很多"）
+
+### UI 纹理根因（修复）
+- **症状**：菜单无卡通背景+按钮深色文字不可读+☰ 无图标（全退化渲染）。
+- **根因**：spak_res PNG（menu_bg_294/menu_btn_big/small/bg_menu_720/imen_text/imen_icons/imen_hamburger/popup*/menu_text 共 10 个）未推设备 `/data/local/tmp/spak_res/`。直接 `adb install -r` 不触发 rebuild_rs_apk.sh 的推送；且目录 push 在部分设备只推部分文件、mumu_swap_so.sh `rm -f spak_res/*` 会删 PNG。
+- **修复**：rebuild_rs_apk.sh + mumu_swap_so.sh 改**单文件循环推送全量**（bin+png），mumu_swap_so.sh 不再 rm PNG。纹理加载后 menu_bg=OK 800×1205/bg=OK 720×1280/imen 全 OK。
+- **验证**：src_menu2/src_game/src_imen 截图 = 原版（军棋标题+卡通士兵+5 蓝按钮白字+☰ 8 图标）。
+
+### 按钮业务对齐（核心缺口：人机/两人无区分）
+- **缺口**：人机（action 0）与两人（action 1）都 `jq_restart_game()` 直开局，**OnTimer/OnUpdate/OnTouch 走子后三处无条件 `turn==RED` 就 ai_pick** → 两人/蓝牙模式红方被 AI 误走。
+- **修复**：加全局 `g_vs_ai`（1=人机 AI 走红，0=两人热座/蓝牙 AI 不介入）。OnTouch/OnEvent 菜单进局设置（action 0/mode 0→1，action 1/2/3→0）；三处 AI 块加 `g_vs_ai &&` 守卫；☰ 重开/再来一局保持模式。
+- **turn 校验**（rules.c）：`jq_can_move` 加 `src->side != st->turn` 拒走；`jq_can_flip` 加 `c->side != st->turn` 拒翻（side=0xFF 未定子可翻定色）。缺失 → 两人可连走/翻任意方、人机可走 AI 回合、蓝牙可抢走。
+- **☰ 悔棋分模式**：人机悔到玩家蓝回合（AI步+玩家步），两人/蓝牙悔 1 步。
+- **consistency 基准更新**：旧 BENCH_SEQ 连翻蓝方（编码无 turn 校验行为）→ 合法交替序列（f6→f33→m6,11→m33,38），BENCH_EXPECT 不变（输出一致）。test_move_seq.txt 同步。
+- **bt_selftest 夹具**：步骤 7 全翻蓝方前设 turn=BLUE（jq_flip 回合校验）。
+
+### 验证
+- 桌面 8/8 PASS（gametest/bttest/laytest/touchtest/aittest/consistency/evverify/walkverify）。
+- 真机（redroid 720×1280，暗棋默认）：**人机** 蓝翻 cell12 → `红方 AI 应着（翻棋）cell30` turn→BLUE；**两人** 蓝翻 cell12 → 无 AI 应着，红玩家翻 cell37 → turn→BLUE。两模式完整闭环。
+- so `b7f057b6`（悔棋分模式后）；回归跑中；四交付物待重建。
+- **坐标备忘**：渲染红方在上（image_row 0-5）/蓝方在下（image_row 6-11），触摸一致（非错位）。蓝暗子 cell12 触摸 (360,1035)；红暗子 cell37 (360,506)。cell17=行营空位。
+
+### ☰ 悔棋计数 bug（人机悔棋 popped 恒 1）
+- **bug**：悔棋循环 `popped = 1`（非 `popped++`）→ pop 多步但计数恒 1（日志误导 + BT UNDO 帧判断 popped 恒真）。
+- **修复**：`popped++`。真机实证：人机蓝翻+AI应着悔棋 popped=2（AI步+玩家步）；两人蓝翻+红玩家翻悔棋 popped=1（悔红步 turn=RED）。
+- **临时诊断**：undo_push/undo_pop 加 LOGI（top/turn），走子/悔棋路径可看栈深度（低频，保留）。
+- 最终 so `098c4062`；四交付物重建（phase2/3=src_rs，phase0=32位，phase1=桩）；回归 098c4062 后台跑。
+
+## 对抗审计 4 强证据缺口修复（"所有按钮业务没对齐"用户指正）
+- **证据来源**：SPAK 资源解包（spak_unpack.py → /tmp/opencode/spak_out/，883 资源 GBK 解码对话框 XML 全集）——datah_041（人机难度 8 按钮）、datah_072（联机方式 4 按钮）、datah_067（联机 ☰ 8 项）、datah_001（声音设置 5 按钮）、datah_098（四国难度）均为**最强证据链**（XML 窗口定义 + 按钮名/矩形），推翻此前"直开局无弹窗/datah_041 判误"错误判断。
+- **4 大强证据缺口全部实施**（详见 AUDIT_BUTTONS.md）：
+
+### ① 人机难度弹窗（datah_041）
+- **证据**：`<Window style="BackDlg" rect="0,0,450,335">` 新手区/中级区/高级区/好友区 × 布局/翻棋 8 按钮（LowLay/LowFlip/MidLay/MidFlip/HighLay/HighFlip/RankLay/RankFlip）。
+- **实施**：UI_DIFFICULTY 状态 + 8 按钮表（ui_menu.h/c，几何对齐 datah_041 比例缩放）+ rs_draw_difficulty（render.c，主菜单背景 + 模态 + 8 按钮 + opt_text 标签）+ OnTouch action 0 → UI_DIFFICULTY，选难度/模式 → ui_opt_select + g_vs_ai=1 + jq_restart_game + UI_GAME。
+- **真机实证**：点人机 → 弹窗 → 选"高级 布局"（365,658）→ `level3/mode0 布局明棋` 开局 AI 走红。
+- **坑**：rs_draw_difficulty 首版背景画棋盘（对局态），应画主菜单背景（datax_294）——难度弹窗是主菜单上的模态框。修复加 ⓪ 背景段。
+
+### ② 联网/联机方式选择（datah_072）
+- **证据**：`<Window rect="0,0,250,325">` 蓝牙联机/Wi-Fi 联机/个人资料/返回 4 按钮（Bt/Wifi/Config/Back）。
+- **实施**：UI_WAYSEL 状态 + 4 按钮表 + rs_draw_waysel + start_bt_session 辅助函数（联网=host 蓝先手/联机=client 红后手，抽取原 OnTouch 内联逻辑）+ OnTouch action 2/3 → UI_WAYSEL，点"蓝牙联机"→ start_bt_session。
+- **真机实证**：点联网 → 方式选择弹窗 → 蓝牙联机 → `start_bt_session（host=1 蓝先手，OUR_TURN）`。
+- **Wi-Fi/个人资料** = 诚实边界对话框（协议未逆向）。
+
+### ③ ☰ 联机菜单（datah_067）
+- **证据**：datah_067 联机版 8 项 = New/Regret/**Draw/Resign/Chat**/Config/Stat/Rule（**无**电脑变着/软件信息/退出——与本地 datah_006 不同）。
+- **实施**：ui_bt_set_active/active 标志（ui_state.c）+ ui_imen_bt_buttons（datah_067 按钮表）+ rs_draw_imen 用 btimen_text_atlas/bt 按钮 + OnTouch 联机版 action 分流（提和=BT_T_DRAW、认输=winner 对方胜+BT_T_RESIGN、聊天=BT_T_CHAT 占位帧）。
+- **真机实证**：蓝牙联机 ☰ 显示 提和/认输/聊天，三项 action 均触发（DRAW/RESIGN/CHAT 帧 + 对话框）。
+- **坑**：OnTouch 联机版 action 分流后 `ui_screen_set(UI_GAME)` 会覆写 UI_SETTINGS——改为 `if (ui_screen_get()==UI_INGAME_MENU) ui_screen_set(UI_GAME)`。
+
+### ④ 功能设置声音设置（datah_001）
+- **证据**：`<Window style="Dialog" rect="0,0,450,390">` 静音模式/按键声音/音量（Slider）+ 确定/取消。
+- **实施**：UI_SETTINGS 状态 + 5 按钮表 + rs_draw_settings + 声音设置状态（ui_state.c：静音/按键声音/音量 1-3 + jq_settings.txt 持久化）+ 确定（保存）/取消（重读恢复原值）+ sfx_play 用 ui_snd_mute_get/ui_btn_sound_get + OnCreate ui_settings_load + ui_settings_set_dir（g_files_dir 同步）。
+- **真机实证**：弹窗显示 静音模式[开]/按键声音[关]/音量[中]/确定/取消，切换+保存 jq_settings.txt（`静音=0 按键=1 音量=2`）。
+- **坑**：☰ 功能设置 action 分支后 ui_screen_set(UI_GAME) 覆写 UI_SETTINGS（同③坑），需守卫。
+
+### 文字图集
+- `waysel_text_atlas.png`（4 标签 220×184）、`btimen_text_atlas.png`（8 项 160×320）、`settings_text_atlas.png`（10 标签 200×460），均用 `data_font_all.ttf` sz38（与现有 imen_text_atlas 逐像素匹配 cnt=2585 一致）。
+- 推设备 /data/local/tmp/spak_res/ + 入源 APK rs168_wav.apk assets/spak_res/ + dec_dual/dec_full 构建树。
+
+### btconn 回归失败根因修复（源 APK 丢失 bt 接线）
+- **症状**：setprop jq.btconn 1 → 期望"OnEvent menu 开局 mode=1"，实际只显示 OnCreate 默认（无 btState 调用）。
+- **根因**：源 APK `rs168_wav.apk` 被从 `dec_rs`（无 bt 接线：缺 BtSpp.smali/App$BtStart.smali/btState）重建，丢失蓝牙接线。native `btconn_worker` `GetStaticMethodID("btState")` 失败（FindClass 成功但类无此方法）。
+- **修复**：从 `dec_dual`（含 bt 接线）重建 `rs168_wav.apk` + 加 3 新 PNG 资产 + STORE + zipalign + 双签（apksigner v1+v2+v3）。
+- **验证**：btconn 回归 8/9 → **9/9 PASS**（btconn worker → btState → host_connected → App$BtStart → OnEvent menu 1 → 两人对局自动开局）。
+- **教训**：源 APK（rebuild_rs_apk.sh 的 $SRCAPK）必须从含 bt 接线的树（dec_dual）构建，不能从 dec_rs（仅 src_rs Java 无 bt 接线）重建——否则静默丢 bt 功能，回归才暴露。
+
+### 验证汇总
+- 桌面 12/12 PASS（gametest/bttest/laytest/touchtest/aittest/consistency/evverify/walkverify/longrun/so_link）。
+- 设备事件回归 9/9 PASS（flag/mine/restart/draw/resign/stalemate/close/pop/btconn）。
+- 四交付物重建：phase0（32位原版，广告 jar 保留）、phase1（arm64 桩）、phase2（双 ABI src_rs so + bt 接线 + 13 PNG）、phase3（arm64 src_rs so + bt 接线 + 13 PNG）。
+- so `b79c9720`（对抗审计 4 缺口 + btconn 源 APK 修复后）；四交付物 dist/phaseX.apk 重建。

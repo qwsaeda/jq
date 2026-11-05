@@ -93,11 +93,15 @@ int main(void) {
     CHECK(ret == -2, "OUR_TURN 拒收 FLIP 帧（rc=-2）");
 
     /* 7. 翻完蓝方后找可走子（明棋阶段）测 MOVE 帧 */
-    /* 全翻蓝方 → 找可走子 */
+    /* 全翻蓝方 → 找可走子（每翻前设 turn=BLUE，jq_flip 校验当前回合方） */
+    st.turn = SIDE_BLUE;
     for (int i = 0; i < N_CELLS; i++)
-        if (st.cells[i].rank && st.cells[i].side == SIDE_BLUE && !st.cells[i].revealed)
+        if (st.cells[i].rank && st.cells[i].side == SIDE_BLUE && !st.cells[i].revealed) {
+            st.turn = SIDE_BLUE;   /* ★ 回合校验（rules.c）：翻己方暗子须当前回合方 */
             jq_flip(&st, i);
+        }
     mfrom = mto = -1;
+    st.turn = SIDE_BLUE;   /* ★ 找蓝方走子须 turn=BLUE（jq_can_move 回合校验） */
     for (int i = 0; i < N_CELLS; i++) {
         if (st.cells[i].rank && st.cells[i].side == SIDE_BLUE && st.cells[i].revealed) {
             for (int t = 0; t < N_CELLS; t++)
