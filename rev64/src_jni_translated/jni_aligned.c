@@ -498,6 +498,15 @@ Java_com_cnvcs_App_OnTimer(JNIEnv *env, jclass c){
                     *(uint32_t*)(g_jqt_shadow + 0x1599e4),
                     MEM((uint32_t)(uintptr_t)g_jqt_shadow + 0x1599e4),
                     (uint32_t)(uintptr_t)g_jqt_shadow + 0xa4235);
+                /* ★ §124y-13：读 gs[8] 子对象 vtable（容器工厂 F_a36c4 真实返回的对象） */
+                {
+                    uint32_t gs8 = MEM(MEM(obj+0x38)+8);   /* this38[8] */
+                    uint32_t gs8_vt = (gs8 >= 0x70000000u) ? MEM(gs8) : 0;
+                    __android_log_print(6,"junqi","TEST-GAME GS8: gs8=0x%08x gs8_vt=0x%08x gs8_vt_off=0x%08x gs8_vt_plus18=0x%08x",
+                        gs8, gs8_vt,
+                        (gs8_vt >= (uint32_t)(uintptr_t)g_jqt_shadow) ? gs8_vt - (uint32_t)(uintptr_t)g_jqt_shadow : 0,
+                        (gs8_vt >= 0x70000000u) ? MEM(gs8_vt+0x18) : 0);
+                }
             }
         }
     }
