@@ -10,7 +10,15 @@ OUT=${1:-/disk/workspaces/jq/rev64/dist/libjunqi_arm32_aligned.so}
 TMP=/tmp/jq32_aligned_build
 rm -rf $TMP; mkdir -p $TMP
 
-echo "[1/4] 编译 14 个 JNI 翻译体（armv7a）+ jqt_mem"
+echo "[1/4] 编译 JNI 翻译体 + 会话 B 规则引擎（jq_rs_*.c）+ jqt_mem"
+# 会话 B 规则引擎（rules.c/board.c/layout.c/touch.c，纯 C 无 GL/JNI 依赖，
+# 作为 32 位 so 内嵌走子验证基准——§124y-19 借鉴会话 B 正向开发）
+for f in $JTI/jq_rs_rules.c $JTI/jq_rs_board.c $JTI/jq_rs_layout.c $JTI/jq_rs_touch.c $JTI/jq_rs_walkbridge.c; do
+  [ -f "$f" ] || { echo "⚠ 缺会话 B 模块 $f"; continue; }
+  b=$(basename $f .c)
+  cp $f $TMP/$b.c
+  $CLANG -c -O0 -fPIC -fvisibility=hidden -w -I$SYSROOT_INC -I$JTI $TMP/$b.c -o $TMP/$b.o
+done
 for f in $JTI/jqt_*.c; do
   b=$(basename $f .c)
   [ "$b" = "jqt_mem" ] && continue
@@ -37,8 +45,11 @@ for o in $TMP/jqt_*.o; do
   bn=$(basename $o .o)
   case "$bn" in jqt_jnibr|jqt_jni_calls_tbl|jqt_render_jni) ;; *) JQT_OBJ="$JQT_OBJ $o";; esac
 done
+# ★ §124y-19：会话 B 规则引擎（jq_rs_*.o）也链进 so（纯 C 走子逻辑，无 GL 依赖）
+JQ_RS_OBJ=""
+for o in $TMP/jq_rs_*.o; do JQ_RS_OBJ="$JQ_RS_OBJ $o"; done
 $CLANG -shared -o $OUT \
-  $TMP/jni_aligned.o $JQT_OBJ $TMP/jqt_jnibr.o $TMP/jqt_jni_calls_tbl.o $TMP/jqt_render_jni.o $TMP/jq_img.o \
+  $TMP/jni_aligned.o $JQT_OBJ $JQ_RS_OBJ $TMP/jqt_jnibr.o $TMP/jqt_jni_calls_tbl.o $TMP/jqt_render_jni.o $TMP/jq_img.o \
   -Wl,-z,lazy -Wl,--hash-style=sysv \
   -llog -lm -lGLESv1_CM -lGLESv2
 echo "OK: $OUT ($(stat -c%s $OUT) bytes)"

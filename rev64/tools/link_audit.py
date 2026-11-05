@@ -61,6 +61,10 @@ PROVEN_LOADABLE = {
     '__errno', 'mkdir',
     # ★ §TOUCH-INTERACT-TEST：__system_property_get（bionic libc 必导出，test hook 用）
     '__system_property_get',
+    # ★ §124y-19：会话 B 规则引擎走子桥（jq_rs_walkbridge.c，visibility default，本地定义）
+    'jq_walk_bridge_tick',
+    # ★ §124y-19：会话 B touch.c 用 bionic 数学函数（-lm 提供）
+    'lroundf', 'lround',
 }
 
 

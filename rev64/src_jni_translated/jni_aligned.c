@@ -382,6 +382,9 @@ Java_com_cnvcs_App_OnResume(JNIEnv *env, jclass c){
         g_jqt_jni_selftest_done = 1;
     }
     jqt_OnResume(0,0,0,0,0,0,0,0,0,0,0,0,0x20f000);
+    /* ★ §124y-19：走子桥在 OnResume 也触发（redroid 无 GL 卡在 OnCreate/OnResume，OnTimer 到不了；
+       OnResume 是主线程生命周期入口，redroid 能触发；tick 幂等，OnTimer 再调无副作用） */
+    jq_walk_bridge_tick();
 }
 JNIEXPORT jboolean JNICALL
 Java_com_cnvcs_App_OnUpdate(JNIEnv *env, jclass c){
@@ -510,6 +513,9 @@ Java_com_cnvcs_App_OnTimer(JNIEnv *env, jclass c){
             }
         }
     }
+    /* ★ §124y-19：会话 B 规则引擎走子桥（setprop jq.walk_bridge 1 → 开局 + 走子 + 打 Junqi.* 事件）
+       直接调 jq_walk_bridge_tick（jq_rs_walkbridge.c，已 visibility default） */
+    jq_walk_bridge_tick();
     __android_log_print(6,"junqi","JNI OnTimer 被调 tid=%d", (int)gettid());
     F_23461(0,0,0,0,0,0,0,0,0,0,0,0,0x20f000);
 }

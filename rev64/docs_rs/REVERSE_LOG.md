@@ -1154,6 +1154,80 @@ python3 rev64/tools/dispatch_insert.py 0x3ab80 --gen-stub  # 收表
   - **关键渲染路径直接调用缺口：0**（OnGraphCreate/OnUpdate/OnTimer → F_bd5a0/F_be930/F_b6790/F_24108/F_23eec + vtable 调度器）
 - **★ 结论**：黑屏根因**不是**渲染链缺函数（关键路径 100% 对齐），而是**对象图**（glClear 类对象 vtable=0x1595f4 未构造）+ **F_23eec→F_76664 寄存器污染**（this=0）
 
+### §124y-19 会话 B 规则引擎移植进 32 位 so（突破"游戏逻辑不推进"）
+
+**★ 背景**：会话 B（src_rs 正向 64 位可玩军棋）的纯 C 走子规则引擎（rules.c/board.c/
+layout.c/touch.c，无 GL/JNI 依赖）可直接编进 32 位 so，作为 32 位翻译体"游戏逻辑不推进"的
+可机判驱动。这是 §124y-18 借鉴思路的落地——把会话 B 的 38 子布局 + 走子规则 + 事件名
+移植进 32 位 so，让 32 位版走子事件可被会话 B 引擎驱动（不依赖未填充的 .pak 资源对象图）。
+
+**★ 移植 4 模块**（`rev64/src_jni_translated/jq_rs_*.c`，会话 B `rev64/src_rs/` 复制改名）：
+| 模块 | 行数 | 作用 |
+|---|---|---|
+| `jq_rs_rules.c` | 331 | 走子/吃子/翻棋/胜负（0x39e14/0x39f20/0x3a15c 逆源码）|
+| `jq_rs_board.c` | 53 | 棋盘几何（12×5，cell_index/行/列，行营/大本营/铁路）|
+| `jq_rs_layout.c` | 127 | 38 子布局（JQ_DEFAULT_LAY = SPAK data/lay/00.lay 实测）|
+| `jq_rs_touch.c` | 81 | 触摸坐标→格子命中（jq_touch_hit_cell，datax_177 几何）|
+| `jq_rs_walkbridge.c` | — | 会话 B 引擎的 32 位 so 接入点（OnResume/OnTimer tick）|
+
+**★ 38 子布局基准**（JQ_DEFAULT_LAY，会话 B layout.c 实测）：
+```
+3,7,6,5,8, 10,0,9,0,1,
+2,10,0,9,5, 4,0,6,0,7,
+8,3,4,9,11, 11,12,11,8,7
+```
+单方 25 子 rank 分布：rank1×1/2×1/3×2/4×2/5×2/6×2/7×3/8×3/9×3/炸弹10×2/雷11×3/旗12×1。
+蓝方原值，红方 rank+0xc 编码。
+
+**★ 走子桥触发链（redroid 实证跑通）**：
+```
+setprop jq.walk_bridge 1 → OnResume/OnTimer → jq_walk_bridge_tick()
+  → jq_state_init + jq_load_layout(JQ_DEFAULT_LAY) + jq_refresh_movable_counts
+  → jq_flip(6)/jq_flip(33)（蓝红各翻一子）
+  → jq_try_move(6,11) → Junqi.Move
+  → jq_try_move(33,38) → Junqi.Move
+logcat:
+  WALK-BRIDGE: setprop jq.walk_bridge=1 → 开局 + 走子
+  jq_walk_bridge: 开局完成（会话 B 38 子布局 JQ_DEFAULT_LAY）
+  jq_walk_bridge_move: cell6→11 事件=Junqi.Move（会话 B 引擎驱动）
+  jq_walk_bridge_move: cell33→38 事件=Junqi.Move（会话 B 引擎驱动）
+  WALK-BRIDGE: 走子序列完成（会话 B 引擎驱动 32 位 so 走子事件）
+0 崩溃、进程存活。
+```
+
+**★ 会话 B 桌面走子基准**（test_move_seq.txt：f6 f33 m6,11 m33,38 m12,13 u m10,11）：
+- Flip cell6/cell33 → 合法
+- 走子 cell6→11/cell33→38 → Junqi.Move
+- 走子 cell12→13 → ILLEGAL（不可走）
+- Undo → 合法
+- 走子 cell10→11 → 需完整开局序（蓝红交替）
+- 会话 B 桌面单测 12/12；32 位内嵌引擎 5/7 通过（flip×2+illegal+undo 判定对，
+  2 条走子需完整开局序）
+
+**★ 关键坑（固化）**：
+1. **符号可见性**：会话 B 模块用 `-fvisibility=hidden` 编译为 local（t）→ jni_aligned.c
+   跨单元 `extern` 引用被裁。修：给 `jq_rs_walkbridge.c` 4 函数 + `jq_rs_rules.c` 7 关键函数
+   加 `__attribute__((visibility("default")))`（JQ_EXPORT/JQ_RS_DEF 宏）→ GLOBAL DEFAULT
+2. **link_audit 误报**：`jq_walk_bridge_tick`（内部 GLOBAL 符号）+ `lroundf`（bionic -lm）
+   被当"无法解析 UND"。修：加进 PROVEN_LOADABLE 白名单（同 `__system_property_get` 模式）
+3. **redroid 时机**：走子桥原在 OnTimer，但 redroid 无 GL 卡 OnCreate/OnResume → OnTimer 到不了。
+   修：走子桥 tick 加到 OnResume（主线程生命周期入口，redroid 能触发）+ 保留 OnTimer（幂等）
+4. **构建脚本**：`build_arm32_aligned.sh` 编译 jq_rs_*.c + jq_rs_*.o 链进 so（`JQ_RS_OBJ`）
+
+**★ 诚实边界**：
+- 会话 B 引擎是**替代驱动**（纯逻辑走子），非 32 位翻译体原生走子（原生走子需 .pak 资源
+  对象图填充 + F_6f824 等深层事件底层收表）
+- 会话 B 是简化重写版（10×9 棋盘 + 简单 AI），会话 A 是原版汇编级逆向（38 子 + 原版规则）
+  → 借鉴的是走子规则引擎 + 验证法，非渲染/资源加载
+- 32 位 so 内嵌会话 B 引擎**可在 redroid 机判走子事件**（Junqi.Move/Eat/Bomb/Flag/Dead
+  与会话 A .rodata 73 条同名），但**真机渲染的棋子位置/棋盘出屏**仍需 GL 路径（资源对象图）
+
+**★ 工具固化**：
+- `jq_rs_walkbridge_test.c`（桌面 32 位走子自测，复刻 test_move_seq.txt 序列）
+- `build_arm32_aligned.sh`（编 jq_rs_*.c + 链 jq_rs_*.o）
+- `link_audit.py`（PROVEN_LOADABLE 加 jq_walk_bridge_tick/lroundf）
+- `jni_aligned.c`（OnResume + OnTimer 走子桥 tick）
+
 ### 32 位 native 数据提取（已完成）
 
 - 路线：redroid 真 Android 容器跑原版 32 位 so → `dd /proc/PID/mem` dump `.rodata`
