@@ -1136,6 +1136,14 @@ python3 rev64/tools/dispatch_insert.py 0x3ab80 --gen-stub  # 收表
 - 真正"游戏可玩"（触摸→棋子交互）仍需 MuMu（有 GPU）+ 资源对象图重建，redroid 无 GPU 只验证对象图
 - 32 位翻译体的深层资源链（F_6f824 等）未收表 → 事件发送器完整翻译体暂缺
 
+**★ 突破（本轮实测，jq32_walktest.py）**：
+- 注入 `input tap 353 927`（cell25）→ **F_7bf80 CallIntMethod getAction ret=0/1 +
+  F_bd580 CallFloatMethod getX=353/getY=767 全跑通**
+- → **32 位翻译体 OnTouch 解析链在 redroid 真跑通**（之前"无 GPU 跑不了"是误判——
+  触摸解析走 InputManager 注入 + native JNI CallFloatMethod，不依赖 GL 渲染）
+- 诚实边界细化：**坐标解析（getX/getY）redroid 已证**；**坐标→格子选子/走子事件需
+  资源对象图填充**（gs[8] 子对象字段 + F_3432c 事件底层 + F_6f824 memcpy）→ 下一步补
+
 ### 调用链对齐统计（§124z-5，用户问"还有多少调用链没补齐"）——合并边界口径
 
 - **★ 统计口径修正**：seed_v2.json **不是完整函数边界表**（1334 个完整定义中仅 907 个在 seed 列表）→ 必须 `bnd = sorted(set(seed) | full | stub)` 合并边界；存根识别用**匿名参数**（`(uint32_t,uint32_t,...){return 0;}`），完整用命名参数 `_r0`（参数命名是区分关键，用 `return 0` 匹配会漏）
