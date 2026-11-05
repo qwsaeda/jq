@@ -36,14 +36,15 @@ FLAGS=$([ $NO_INSTALL -eq 1 ] && echo "--no-install" || echo "")
 echo "═══ [1/4] redroid 测试钩子（GS8 诊断）═══"
 LOG=$(bash $WS/rev64/tools/redroid_test.sh $FLAGS --wait 4 2>&1)
 echo "$LOG" | grep -E "GS8|PASS|FAIL" | head -4
-GS8_LINE=$(echo "$LOG" | grep "TEST-GAME GS8" | head -1)
-
-# 解析 gs8_vt_off（gs[8] 真实 vtable 偏移，如 0x159c80）
-VT_OFF=$(echo "$GS8_LINE" | grep -oE "gs8_vt_off=0x[0-9a-f]+" | grep -oE "0x[0-9a-f]+" | head -1)
+GS8_LINE=$(echo "$LOG" | grep "TEST-GAME GS8" | tail -1)
+# 解析 gs8_vt_off（gs[8] 真实 vtable 偏移，如 0x159c80）——匹配 6/8 位 hex
+VT_OFF=$(echo "$GS8_LINE" | grep -oE "gs8_vt_off=0x[0-9a-fA-F]+" | grep -oE "0x[0-9a-fA-F]+" | head -1)
 if [ -z "$VT_OFF" ]; then
   echo "⚠ 未抓到 gs8_vt_off（测试钩子未触发或日志轮转）——跳探查"
   exit 1
 fi
+# 规范化为 8 位（0x00159c80 → 0x159c80）
+VT_OFF=$(echo "$VT_OFF" | sed 's/^0x0*//; s/^/0x/')
 echo "═══ gs[8] 真实 vtable 偏移: $VT_OFF ═══"
 
 echo ""
