@@ -23,7 +23,7 @@
 | `0x2a340` 布局载入 | 读 lay | ❌ 崩 | 写 state `+0x78` 计数表（布局容器对象） |
 | `0x39e14` 目标判定 | rank 比较 | ❌ 崩 | 读 `.rodata` 高熵解密态（`0x3e5bc`→`0x11cafe` 索引表） |
 
-对象图由 `init_array` 构造，unidbg/unicorn2 下 `init_array` 跑不通
+数据与指令对齐由 `init_array` 构造，unidbg/unicorn2 下 `init_array` 跑不通
 （`UC_ERR_FETCH_PROT`，§124c 已知 bx bug 域）。这是 §124z 黑屏根因的完整版：
 **unidbg 替代不了真机**（无 GPU + `.bss` 段映射 + init_array 精度 bug 三重缺口）。
 
@@ -43,5 +43,5 @@ make consistency && ./dist/jq_consistency selftest
 ## 诚实边界（红线照旧）
 
 - ② 的"一致"是**构造输入下行为一致**，不是任意输入/功能等价
-- 原版侧走子序列对拍需**真机**（GPU + init_array + 对象图齐全），unidbg 做不了
+- 原版侧走子序列对拍需**真机**（GPU + init_array + 数据与指令对齐齐全），unidbg 做不了
 - 不包装成"已验证可玩"——渲染/音频/蓝牙的可玩性验收仍需真机
