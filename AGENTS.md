@@ -71,7 +71,7 @@ java -cp /tmp/opencode/apksigner/apksig.jar:/tmp/opencode/apksigner SignV2 \
    - 触发：`am start` 让 so dlopen → `dd /proc/PID/mem` dump `.rodata`（静态即明文，dump 仅为确认）
    - 产物：`frida-dump/rodata_dec.bin`（118KB）+ `rodata_strings.txt`（1715 条，含 `Junqi.Move/Flip/Flag/Bomb/Eat/Dead`、`data/config/*.xml`、`updateUrl/statHost/cfgHost`）
    - 限制：redroid 无 GPU（GL 渲染不可用，app 进不了主界面）、64 位 native bridge 不完整（arm64 库 dlopen 失败）。只用于**提取数据**，不能验证"能玩"
-2. **unidbg/unicorn2 纯 x86 模拟 32 位 so**（**已验证可突破 init_array + 重定位，非死路**——见 REVERSE_NOTES §84）：12 个 init_array 全通、RELATIVE 5312 槽全重定位、PLT→GOT→符号映射 214/214、GLOB_DAT 6 符号从 docker 真 ARM libc 解析；依赖 libc/libstdc++/libm/libdl/libGLESv1_CM/libGLESv2 可加载。**★ PC off-by-2 已实证修复：切换 Unicorn2 后端**（dynarmic 对 Thumb `add rX,pc` 用 `(addr+4)&~3` mask，unicorn2 用 `(addr+4)` 不 mask，与真实 ARM 一致；DiagTracePC 实证 0xa37fc 存 0x159880=不 mask 值）。**★ JNIEnv/VM 补环境实证可行**（DiagJni：createDalvikVM + resolveClass + callStaticJniMethodObject，OnCreate 从空 env 入口即崩推进到 std::vector 对象图 0x43ed8）。**★ 本轮（§124）纠正**：checkpoint 的"BL off-by-2 -0xa"是**误读**（`F000 F800` 正确目标是 0x10000004 非 0x10000020，隔离环境 BL 全对）；但**加载 .so 后 BL 0x7965a 上下文相关错位到 0x6eaea**（非 0x43ed8，memset 循环，非函数入口）——**模拟器精度 bug**（unicorn2 上下文相关），**非翻译/逻辑 bug**。剩余阻塞 = **① 上下文相关 BL 解码 bug**（新，需 workaround）+ **② C++ 对象图语义缺失**（std::vector begin/end 未初始化）+ **③ 288MB PROT_NONE mmap**（unidbg mmap2 处理失败）。unidbg 强项（补环境/反检测/花指令/加密壳处理）正可用于攻克这些——**别轻易下"死路"结论**
+2. **unidbg/unicorn2 纯 x86 模拟 32 位 so**（**已验证可突破 init_array + 重定位，非死路**——见 REVERSE_NOTES §84）：12 个 init_array 全通、RELATIVE 5312 槽全重定位、PLT→GOT→符号映射 214/214、GLOB_DAT 6 符号从 docker 真 ARM libc 解析；依赖 libc/libstdc++/libm/libdl/libGLESv1_CM/libGLESv2 可加载。**★ PC off-by-2 已实证修复：切换 Unicorn2 后端**（dynarmic 对 Thumb `add rX,pc` 用 `(addr+4)&~3` mask，unicorn2 用 `(addr+4)` 不 mask，与真实 ARM 一致；DiagTracePC 实证 0xa37fc 存 0x159880=不 mask 值）。**★ JNIEnv/VM 补环境实证可行**（DiagJni：createDalvikVM + resolveClass + callStaticJniMethodObject，OnCreate 从空 env 入口即崩推进到 std::vector 数据与指令对齐点 0x43ed8）。**★ 本轮（§124）纠正**：checkpoint 的"BL off-by-2 -0xa"是**误读**（`F000 F800` 正确目标是 0x10000004 非 0x10000020，隔离环境 BL 全对）；但**加载 .so 后 BL 0x7965a 上下文相关错位到 0x6eaea**（非 0x43ed8，memset 循环，非函数入口）——**模拟器精度 bug**（unicorn2 上下文相关），**非翻译/逻辑 bug**。剩余阻塞 = **① 上下文相关 BL 解码 bug**（新，需 workaround）+ **② 数据与指令对齐对应缺口**（std::vector begin/end 未初始化，N44：业务数据 apk 静态可推，缺运行时内存对齐；原"C++ 对象图语义缺失"措辞已纠正）+ **③ 288MB PROT_NONE mmap**（unidbg mmap2 处理失败）。unidbg 强项（补环境/反检测/花指令/加密壳处理）正可用于攻克这些——**别轻易下"死路"结论**
 3. **反汇编直接看**：`.text` 和 `.rodata` 都是明文，`objdump` 可直接反汇编 `.text`、直接读 `.rodata` 字符串
 
 ### 64 位 native 的诚实边界
@@ -151,7 +151,7 @@ java -cp /tmp/opencode/apksigner/apksig.jar:/tmp/opencode/apksigner SignV2 \
 | 文档 | 内容 | 状态 |
 |---|---|---|
 | `rev64/phases/REVERSE_NOTES.md` | 主逆向笔记（§1-§121） | ✅ 已有 |
-| `rev64/docs_rs/REVERSE_LOG.md` | 32 位逆向经验库（红线/终局反思/量化） | ✅ 成文（本轮迁移） |
+| `rev64/docs_rs/REVERSE_LOG.md` | 32 位逆向经验库（红线/终局反思/量化/§124y-10 触摸+游戏状态构造） | ✅ 成文（本轮迁移） |
 
 ### 流水线 orchestrator（一条命令跑通"逆向→正向→验收→补差异"全链）
 
