@@ -288,7 +288,7 @@ so 的全局变量、单例对象、C++ 运行时（`libstdc++` 初始化）要�
    - 6 GLOB_DAT 符号从 docker 真 ARM libc 解析 ✓
 3. JNIEnv/VM 补环境（DiagJni 实证）：
    - createDalvikVM + resolveClass + callStaticJniMethodObject ✓
-   - OnCreate 推进到 std::vector 对象图 0x43ed8 ✓
+   - OnCreate 推进到 std::vector 数据与指令对齐点 0x43ed8 ✓
 4. 剩余阻塞（§124 纠正后 3 项）：
    - ① 上下文相关 BL 解码 bug（加载 .so 后 BL 0x7965a 被 unicorn2 解码成 0x6eaea，
      真实目标 0x43ed8，模拟器精度问题，非翻译/逻辑 bug）

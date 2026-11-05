@@ -95,13 +95,13 @@ course_unidbg/
 | PLT 重定位 | 214 槽全通 | Ch6/8 |
 | GLOB_DAT | 6 符号(docker 真 ARM libc 解析) | Ch8 |
 | 后端 | unicorn2(修 PC off-by-2,DiagTracePC 0xa37fc=0x159880) | Ch5/7/30 |
-| JNIEnv/VM 补环境 | DiagJni 实证:OnCreate 推进到 std::vector 对象图 0x43ed8 | Ch11/12/13/22 |
+| JNIEnv/VM 补环境 | DiagJni 实证:OnCreate 推进到 std::vector 数据与指令对齐点 0x43ed8 | Ch11/12/13/22 |
 | .rodata | 明文 118KB(静态即明文,无自解密,0x138xxx 高熵索引表非加密代码) | Ch4/20 |
 | .text 常量池 | 18 个(需 redroid dump,unidbg 静态读不出) | Ch9/17/19 |
 | 广告层 | `FindClass("com/baidu/mobads/AdView")` 拆除目标 | Ch15/29 |
 | SPAK | 32B key 内嵌 .rodata + 4 组 883 条目 + 魔改 Base64 | Ch19/20 |
 | 对局存档 | one.sjg(60 格棋盘 + turn/stage/winner + flags/mines/pieces + moves) | Ch16/23/24 |
-| ★下一轮主攻 | C++ 对象图补全(给 std::vector 补 begin/end/capacity 初始值) | Ch25 §25.4.1 / Ch26 §26.4.1 |
+| ★下一轮主攻 | 数据与指令对齐补全(给 std::vector 补 begin/end/capacity 初始值) | Ch25 §25.4.1 / Ch26 §26.4.1 |
 
 ## 生成工具(都在 TreasureIsl 项目里)
 
@@ -123,4 +123,4 @@ course_unidbg/
 - 课程里的军棋数据**全部**对齐 AGENTS.md §R6 红线 + `rev64/` 实测产物
 - "指令语义 100% 对齐 ≠ 能跑 ≠ 能玩"(红线 §122 诚实降级)
 - 军棋"能玩"需真实 arm64 GPU 设备验收(redroid 无 GPU,MuMu 影子库稳定运行但游戏板黑屏)
-- ★ 下一轮 unidbg 主攻方向:C++ 对象图补全(std::vector begin/end/capacity)
+- ★ 下一轮 unidbg 主攻方向:数据与指令对齐补全(std::vector begin/end/capacity)

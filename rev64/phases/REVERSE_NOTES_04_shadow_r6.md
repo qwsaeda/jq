@@ -219,7 +219,7 @@ Thumb 反汇编把同一字节误解为跳表 case（`stm r0!,{r3}; b 0x23e24`�
 
 ### §124 unidbg Thumb-2 BL 解码实证 + 上下文相关 bug（本轮，用户挑战后深挖）
 
-**用户挑战"unidbg 死路"→ 读 course_unidbg 教程（31 章，另一会话写）→ 教程 ch22/25/26 明确"C++ 对象图补全（std::vector begin/end/capacity 补初始值）"为剩余待办**。本轮深挖该待办，发现新的模拟器精度问题。
+**用户挑战"unidbg 死路"→ 读 course_unidbg 教程（31 章，另一会话写）→ 教程 ch22/25/26 明确"数据与指令对齐补全（std::vector begin/end/capacity 补初始值，N44）"为剩余待办**。本轮深挖该待办，发现新的模拟器精度问题。
 
 **⚠️ 纠正 checkpoint 的"BL off-by-2 -0xa"误读**：
 - checkpoint 说 `F000 F800` 是 "BL → 0x10000020"，实际**错**。capstone 解码：`F000 F800` = `bl #0x10000004`（target=PC+4+0=0x10000004，**非 0x10000020**）。

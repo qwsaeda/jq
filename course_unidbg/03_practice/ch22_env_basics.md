@@ -59,7 +59,7 @@ OnBluetooth / OnPause / OnGraphCreate / OnTimer / OnInput / OnTouch），
 | 系统调用 mock | 拦住 `open`/`read`，返回 mock 值 | 读 `data/config/*.xml` | 低 |
 | Java 方法 mock | 拦住 `FindClass`，返回 mock 类 | 广告层 `AdView` 返 null | 中 |
 | 指令 patch | 改写某条指令直接返回 0 | `__cxa_atexit` 跳零 `.got` | 高 |
-| **C++ 对象图补全** | 给未初始化对象补 begin/end/capacity | std::vector 0x43ed8 | **最高（补不了）** |
+| **数据与指令对齐补全** | 给未初始化对象补 begin/end/capacity | std::vector 0x43ed8 | **最高（补不了）** |
 
 **预判追问："指令 patch 和 Hook 有什么区别？为什么军棋基本不 patch？"**
 Hook 是"函数入口/返回处插一脚"（so 原指令流不动，旁路记录/拦截），

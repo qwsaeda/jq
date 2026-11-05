@@ -117,7 +117,7 @@ Pointer jniEnv = vm.getJNIEnv();
 int objHash = vm.addGlobalObject(vm.resolveClass("com/cnvcs/GLView").newObject());
 // 3. 调 OnCreate(0x233e1,军棋 14 个 JNI 入口之一,Thumb 奇地址)
 long ret = vm.getMemory().call(emulator, 0x233e1L, 0, jniEnv, objHash).singleValue();
-// 军棋 DiagJni:OnCreate 推进到 std::vector 对象图 0x43ed8(§124 的 ② 卡在这)
+// 军棋 DiagJni:OnCreate 推进到 std::vector 数据与指令对齐点 0x43ed8(§124 的 ② 卡在这)
 ```
 **为什么 `0x233e1` 是奇地址？** 军棋 so 是 ARM/Thumb 混合编译，
 JNI 入口在 Thumb 模式下，函数地址 bit0=1（奇数）表示"跳 Thumb 模式"。

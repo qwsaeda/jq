@@ -29,7 +29,7 @@
 - Ch1 表里 `AndroidEmulator` 行已改"unicorn2(首选)/dynarmic"
 - Ch5/Ch7/Ch30 已对齐(`DiagTracePC` 0xa37fc 存 0x159880)
 
-## 修正 5:OnCreate 推进边界 = std::vector 对象图 0x43ed8(原课程 Ch11/12/13/22 已对齐)
+## 修正 5:OnCreate 推进边界 = std::vector 数据与指令对齐点 0x43ed8(原课程 Ch11/12/13/22 已对齐)
 
 - DiagJni 实证:`createDalvikVM + resolveClass + callStaticJniMethodObject`
 - 剩余阻塞:"数据与指令对齐对应缺口"(std::vector begin/end 来自未初始化对象)
@@ -95,14 +95,14 @@
 | Ch22 | 补环境 3 大类 | ✅ 正确 |
 | Ch23 | 标识记录 2 案例 + 14 个 On* | ✅ 已改 |
 | Ch24 | 设备风控 | ✅ 正确 |
-| Ch25 | 补环境加强 7 步 + §25.4.1 下一轮主攻(C++ 对象图补全) | ✅ 已加 |
-| Ch26 | 补环境总结 + §26.4.1 下一轮主攻(C++ 对象图补全) | ✅ 已加 |
+| Ch25 | 补环境加强 7 步 + §25.4.1 下一轮主攻(数据与指令对齐补全) | ✅ 已加 |
+| Ch26 | 补环境总结 + §26.4.1 下一轮主攻(数据与指令对齐补全) | ✅ 已加 |
 | Ch27 | 环境变量检测 | ✅ 正确 |
 | Ch28 | xHook 检测 + DT_NEEDED 7 个 | ✅ 已改 |
 | Ch29 | FindClass / methodID 反制 | ✅ 正确 |
 | Ch30 | 8 维度检测矩阵 + 14 入口 + 14 个 On* | ✅ 已改 |
 | Ch31 | Spring Boot 部署 | ✅ 正确 |
-| INDEX | 军棋对照表:14 个 On* + 7 个 DT_NEEDED + C++ 对象图补全 | ✅ 已改 |
+| INDEX | 军棋对照表:14 个 On* + 7 个 DT_NEEDED + 数据与指令对齐补全 | ✅ 已改 |
 
 ## 修正 9:14 个 JNI 入口的真实命名(readelf 实测,重要)
 

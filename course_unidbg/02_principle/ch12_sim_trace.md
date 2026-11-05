@@ -195,7 +195,7 @@ Pointer jniEnv = vm.getJNIEnv();            // env 参数（电话本首地址�
 int objHash = vm.addGlobalObject(new DvmObject<?>());  // 注册全局对象拿 hash
 // 3. 调 OnCreate（0x233e1，注意是 Thumb 奇地址，调用前已 &~1 对齐）
 long ret = vm.getMemory().call(emulator, 0x233e1L, 0, jniEnv, objHash).singleValue();
-// 4. 军棋 DiagJni 实测：OnCreate 推进到 std::vector 对象图 0x43ed8
+// 4. 军棋 DiagJni 实测：OnCreate 推进到 std::vector 数据与指令对齐点 0x43ed8
 //    （Java 侧全接通，卡在 native 数据与指令对齐未初始化）
 ```
 
@@ -242,7 +242,7 @@ long ret = vm.getMemory().call(emulator, 0x233e1L, 0, jniEnv, objHash).singleVal
 |---|---|---|
 | 找入口（0x233e1 对齐） | 全通 ✓ | 14 入口按地址调，奇地址对齐 |
 | 构造参数（env + obj） | 全通 ✓ | getJNIEnv + addGlobalObject |
-| 应答内部调用 | 卡 0x43ed8 | 推进到 std::vector 对象图后停 |
+| 应答内部调用 | 卡 0x43ed8 | 推进到 std::vector 数据与指令对齐点后停 |
 **第 3 步卡在哪？** §124 的 3 项阻塞：① 上下文相关 BL 解码 bug（unicorn2 精度，
 加载 .so 后 BL 0x7965a 解码成 0x6eaea 而非真实目标 0x43ed8）② 数据与指令对齐对应缺口
 （std::vector begin/end/capacity 未初始化，0x43ed8）③ 288MB PROT_NONE mmap
