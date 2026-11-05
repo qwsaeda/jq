@@ -56,6 +56,11 @@ PROVEN_LOADABLE = {
     'glTexImage2D', 'glTexSubImage2D', 'glTexParameterf',
     # §124zz-8：libc 基础符号（jqt_mem.c [stack] 过滤用），MuMu ARM libc 必导出
     'strncpy', 'strstr',
+    # §124y-7：FRAMEBUFFER-DUMP 用 libc stdio（Android bionic 必导出）
+    'fprintf', 'fwrite', 'snprintf', 'fopen', 'fclose', 'malloc', 'free',
+    '__errno', 'mkdir',
+    # ★ §TOUCH-INTERACT-TEST：__system_property_get（bionic libc 必导出，test hook 用）
+    '__system_property_get',
 }
 
 

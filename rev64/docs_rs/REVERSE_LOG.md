@@ -790,6 +790,148 @@ F_25b92，用原版 so ground truth 把 stray 块移回属主函数）；② 重
 - **无棋子渲染**（仅棋盘背景纹理出屏）——棋子/交互是下一步
 - 视口 900×1468（MuMu），棋盘纹理 737×751 拉伸到全屏 quad
 
+#### 八、触摸坐标解析突破 + 游戏状态构造（§124y-10 里程碑）
+
+**★ 触摸坐标解析完整突破**（MuMu 实测）：
+- `getAction` ret=0/1（DOWN/UP）、`getX`=450.00、`getY`=668.00、F_bdd2c 返回 1
+- F_bd580（CallFloatMethod）从空函数重写为真实 JNI 调用（functions[0xe0/4=56]）
+- F_7bf80（CallIntMethod）重写 + **mid 改用参数 _r2**（L7bf88 读栈覆盖 bug）
+- F_bdd2c 的 5 处 JNI dispatch 改显式 `jqt_jni_*` 调用
+- 防御：env<0x70000000 或 obj/mid=0 → 返回 0 不崩
+- 字符串验证：getAction@0x128b0c/"()I"@0x1265c8、getX@0x128b18/"()F"@0x1276bc、getY@0x128b20
+
+**★ 游戏状态对象未构造（卡点根因）——F_2af44 this[0x38] 垃圾**：
+- F_2af44 是 vtable 0x155ad0 slot+0x28 方法（场景更新），读 `this[0x38]` = game state
+- 诊断：`this[0]=shadow+0x155ad0`（vtable 正确）、`this[0x38]`=垃圾（"uTex"=0x75747865 或 0）
+- **根因**：F_2afa4（vtable 0x155ad0 slot+0x20 = "start/new game" 方法）从未被调用 → this[0x38] 未初始化
+
+**★ F_2afa4 定位 + 简化翻译（游戏状态构造器）**：
+- 原版：`_Znwj(12) + F_a4544 → this[0x38]`；F_a4544 设 game state vtable 0x159950（[0x94]=0xa4235 游戏更新）
+- F_a4544 深度依赖（F_a3ab0→_Znwj(56)+F_accc8 + F_a36c4）易崩 → **改为直接构造最小对象**：`_Znwj(0x40) + [0]=vtable 0x159950, [4]=0, [8]=0`，跳过 F_857b0（资源加载副作用）
+
+**★ F_2af44 自动初始化修复**：
+- 若 this[0x38] 无效（obj[0] != game state vtable 0x159950）→ 自动调 F_2afa4 一次（`_init_once` 守卫）
+- **精确判据**：`obj[0] == JQT_ABS_PTR(0x159950)`（非宽松指针检查，垃圾如 0x75747865/0xf4975110 不误判）
+- 仍无效则跳过游戏更新 dispatch（读垃圾 vtable 不崩）
+
+**★ MEM 映射区表过期修复（§124y-10 沉淀）**：
+- `_Znwj` 返回的堆地址（如 0xaacac6b0）不在 JNI_OnLoad 快照的真实映射区表 → MEM 落零页（写丢弃读 0）
+- 新增 `jqt_mem_rebuild()`（/proc/self/maps 重扫），F_2af44 自动初始化前后各调一次（scudo 增长/新 mmap 覆盖）
+- F_2afa4 对真实堆指针用**直接指针写**（`*(uint32_t*)gs`），不依赖 MEM 表
+
+**★ redroid 确定性验证（setprop jq.test_game 1 测试钩子）——全链 PASS**：
+- `F_2af44: this[0x38]=0 无效→自动调 F_2afa4 (once=0)`
+- `F_2afa4: game_state=0xf3552850 gs_vt=0xb2053950 (=shadow+0x159950)`
+- `F_2af44: F_2afa4 返回 1 新 this[0x38]=0xf3552850 obj[0]=0xb2053950 ok=1`
+- `F_2af44: obj=0xf3552850 fn=0xb1f9e235 (=shadow+0xa4235 = F_a4234 游戏更新)`
+- **0 崩溃**；诊断确认 `MEM(shadow+0x1599e4) == vt94_exp == shadow+0xa4235`
+
+**★ 里程碑：游戏状态对象构造成功 + 游戏更新 dispatch 正确**（this[0x38] 垃圾卡点解决）
+
+**诚实边界**：
+- 游戏 state[8]（F_a4234 读的子对象）= 0 → F_a4234 dispatch 是 miss（返回 0）→ **游戏逻辑未运行**
+- 测试钩子用 redroid（无 GPU）验证对象图，非游戏可玩验证；MuMu 宕机（10.0.182.146 ARP FAILED）未复测
+- 无棋子渲染（棋盘仅背景 quad）——游戏逻辑/棋子渲染是下一步
+
+#### 九、游戏更新 dispatch 全链修复 + 容器工厂真实执行 + F_78890 翻译（§124y-11 里程碑）
+
+**★ 本轮突破：游戏更新 F_a4234 dispatch 全链修复（miss 清零）+ F_a36c4 容器工厂实际返回真实子对象**：
+
+**修复 1：F_a4234 特判直调**（jqt_blx_dispatch 内 `off == 0xa4234`）：
+- F_a4234 不在 dispatch 表（函数边界漏网：0xa4124/0xa4544 之间未收）→ 特判直调
+- 原版语义：`r0 = game_state[8]` → 调 `gs[8]->vt[+0x18](gs[8])`
+- 翻译体：读 `MEM(gs8+8)` 取子对象 → `MEM(sub_vt+0x18)` 取更新方法 → 递归 dispatch
+- 特判移到 miss 日志前（命中时不再打 BLX miss 日志，避免刷屏 268 条/次）
+
+**修复 2：F_2afa4 升级为调 F_a4544（容器工厂真实执行）**：
+- 上一轮手动展开 obj4 占位 → 本轮改为直接调已翻译的 F_a4544
+- F_a4544 内部调 F_a36c4(container@0x15bf04) → **实际返回真实子对象（gs8=0xf354e050，非零）**
+- OBJ-FILL 空对象 self-ref 在 F_a36c4 里被正确解析（container[0]=0x15bf04, [r0+24]=MEM(0x15bf1c) 实际命中有效 vtable 槽）
+- 若 gs[8]=0（F_a36c4 miss）→ 兜底构造 obj4 占位（vt 0x159c80 + STL 自引用）
+- **诚实边界**：gs[0]=0x00159950（原始 offset 非绝对指针，F_a4544 常量池加载方式导致），
+  但 MEM 宏把它当 shadow offset 处理 → 功能正确；游戏更新 F_a4234 走递归 dispatch 到真实子对象
+
+**修复 3：F_2af44 多场景自动初始化**：
+- 判据升级：`obj_vt == JQT_ABS_PTR(0x159950) || obj_vt == JQT_ABS_PTR(0x159c80)`（gs8 真实对象 vt 也视为有效）
+- 加 `_init_this` 记录已初始化 this；`_init_once==0 || _init_this!=r4` 时重新初始化
+- "仍无效→跳过"日志限速 3 条
+
+**修复 4：F_ad248 特判**（`off == 0xad248` 直接返回 0，原版 = movs r0,#0; bx lr）
+
+**修复 5：F_78890 翻译体**（0x78890 不在 dispatch 表 → 插入 offs/fns 表 + 简化翻译体）：
+- 原版 F_78890（0x78890-0x78a70，~0x1e0 字节）：bl F_777e8 + bl F_ba8d8 + 条件分支
+- 简化翻译：调 F_7887c（slot22 触发链首 F_7887c→F_7880c→F_77840→slot22），避免 F_777e8/F_ba8d8 深层依赖
+- **0x78890 miss 清零**（从 1 → 0）
+
+**★ redroid 确定性验证（setprop jq.test_game 1 测试钩子）——全链 PASS**：
+- `F_2afa4: gs_vt=0x00159950 gs4=0xf354e4d0 gs8=0xf354e050`（gs8 非零，F_a36c4 实际返回真实对象）
+- **0 miss**（0x32a48/0x2af44 是正常 dispatch 命中日志，非 miss）；0 崩溃；进程存活
+
+**★ 里程碑：游戏更新 dispatch 全链修复 + 容器工厂真实执行（miss 清零，gs8 非零）**
+
+**诚实边界**：
+- gs[0]=0x00159950（offset 非绝对指针）→ MEM 宏按 shadow offset 处理，功能正确但严格来说
+  F_a4544 的 `MEM(r4)=r3` 设值路径与原版 dlopen RELATIVE 重定位（加 load_base）有差异
+- 真正游戏逻辑推进 = gs[8] 子对象 vtable[+0x18] 方法需有效 → 当前递归 dispatch 到
+  `sub_vt+0x18` 目标函数（真实子对象 vtable 槽值）→ 若 miss 则返回 0（不崩但不推进）
+- 测试钩子用 redroid（无 GPU）验证对象图；MuMu 宕机（10.0.182.146 ARP FAILED）未复测
+- 无棋子渲染（棋盘仅背景 quad）——游戏逻辑/棋子渲染是下一步
+
+
+#### 十、本轮固化资产（§124y-12）——脚本复用 + 批量工具
+
+**★ 新增 2 个可批量复用工具（消除手工重复劳动）**：
+
+1. **`rev64/tools/dispatch_insert.py`** — dispatch 表批量插入（offs/fns/jqt_vtbl_n 三处同步 + 可选 stub 生成）
+   - 背景：本轮 F_78890/F_ad248 修复时手动 python 改 3 处（offs 表/fns 表/jqt_vtbl_n），
+     易漏改或顺序错（fns 表插 `li+1` 导致同址错位 → link_audit 报"fns/offs 同址错位"）
+   - 用法：
+     ```
+     python3 rev64/tools/dispatch_insert.py 0x78890            # 只插表
+     python3 rev64/tools/dispatch_insert.py 0xad248 --gen-stub # 插表 + 生成简化 stub
+     python3 rev64/tools/dispatch_insert.py 0xad248 0x78890    # 批量
+     ```
+   - 幂等：已在表则跳过；fns/offs 逐行对齐（`0xoff` 第 li 行 ↔ `F_off` 第 li 行）
+   - 坑：`--gen-stub` 必须插到**顶层函数体**（用 brace 深度扫描找最后一个 depth=0 的 `}`），
+     插到 `jqt_vtbl.c` 末尾会落进 `F_2afa4` 函数体（编译报 "function definition is not allowed here"）
+   - 坑：f-string 里 `顶层 } 前` 的 `}` 会被 f-string 解析 → SyntaxError，需转义成"大括号"
+
+2. **`rev64/tools/redroid_test.sh`** — redroid 测试钩子批量验证（MuMu 宕机期间的确定性验证入口）
+   - 把"装机→清 prop→启→触发 jq.test_game=1→抓日志→判 miss→判崩溃"串成一条命令
+   - 用法：
+     ```
+     bash rev64/tools/redroid_test.sh                 # 全流程
+     bash rev64/tools/redroid_test.sh --no-install    # 跳过装 APK
+     bash rev64/tools/redroid_test.sh --wait 10       # 等待 10s
+     ```
+   - 判定：miss 计数 + 崩溃计数 + 进程存活 + F_2afa4/F_a4234 关键日志
+   - 诚实边界：redroid 无 GPU（GL 渲染不可用），只验证对象图/dispatch 链，非"能玩"
+
+**★ 现有工具盘点（可复用，本轮已用）**：
+| 工具 | 作用 | 用法 |
+|---|---|---|
+| `rev64/build_arm32_aligned.sh` | 14 个 JNI 翻译体 → libjunqi_arm32_aligned.so | `bash ... <so>` |
+| `rev64/tools/link_audit.py` | 打包前链接安全审计（UND/悬空/.hash/STORE） | `python3 ... audit <so>` |
+| `rev64/pack_arm32.sh` | so → phase_chain_arm32.apk（STORE+v1+v2） | `bash ... <so> <apk>` |
+| `rev64/tools/arm32_cycle.sh` | 编译+打包+装机+验证一条龙（**DEV 写死 MuMu，redroid 需 redroid_test.sh**） | `bash ... [--no-build/--no-verify]` |
+| `rev64/tools/regen_vtbl.py` | jqt_vtbl.c 机械化再生成（防手工重复劳动，幂等补丁注入） | `python3 ... [chain/sp27]` |
+
+**★ 本轮经验沉淀（机械化修复原则）**：
+- **先查表再动手**：改 dispatch 前先用 `python3 -c "import re; ..."` 查 0xADDR 是否在表 + 函数边界在哪，
+  避免误插（如 0xad248 是 no-op 短函数，插表 + 直接 return 比递归 dispatch 更稳）
+- **fns/offs 必须逐行对齐**：`jqt_blx_dispatch` 按 `jqt_vtbl_fns[mid]` 调、`jqt_vtbl_offs[mid]` 查，
+  两表同序；插一表必同步另一表同一行号（`link_audit.py` 有"fns/offs 同址错位"检查会拦截）
+- **stub 生成位置**：jqt_vtbl.c 是 C 文件，顶层函数定义区在文件前 3/4，末尾是 `jqt_blx_dispatch` 大函数体；
+  新函数应插到已有函数后（顶层 `}` 前），勿追加文件末尾
+- **幂等优先**：所有批量工具先查"是否已存在"再写，可重复跑
+
+**★ 诚实边界**：
+- 本轮 5 项修复（F_a4234 特判 + F_2afa4 调 F_a4544 + F_2af44 多场景 + F_ad248 特判 + F_78890 翻译）
+  已验证 0 miss / 0 崩溃（redroid），但**游戏逻辑未真正推进**（gs[8] 子对象 vt[+0x18] 目标需有效）
+- 棋子渲染 / 触摸→棋子交互仍需 MuMu（有 GPU）验证；MuMu（10.0.182.146）宕机未复测
+- `gs[0]=0x00159950` 是 offset 非绝对指针（F_a4544 常量池加载路径），MEM 宏按 shadow offset 处理功能正确，
+  但与原版 dlopen RELATIVE 重定位（加 load_base）有差异
+
 ### 调用链对齐统计（§124z-5，用户问"还有多少调用链没补齐"）——合并边界口径
 
 - **★ 统计口径修正**：seed_v2.json **不是完整函数边界表**（1334 个完整定义中仅 907 个在 seed 列表）→ 必须 `bnd = sorted(set(seed) | full | stub)` 合并边界；存根识别用**匿名参数**（`(uint32_t,uint32_t,...){return 0;}`），完整用命名参数 `_r0`（参数命名是区分关键，用 `return 0` 匹配会漏）

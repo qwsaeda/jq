@@ -1,5 +1,6 @@
 // 完整调用链版（gen_chain_full.py 生成）— bl/blx 立即数→F_xxx 真调，vtable blx 寄存器存根
 #include <stdint.h>
+#include <jni.h>
 extern uint32_t jqt_blx_dispatch(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 
 #include "jqt_mem.h"
@@ -26663,7 +26664,22 @@ L7bf8a: r4=0xc8;
 L7bf8c: MEM(sp+4)=r3;
 L7bf8e: r5=MEM(r0);
 L7bf90: r4=MEM(r5+r4);
-L7bf92: { r0=jqt_blx_dispatch(r4, r0,r1,r2,r3,r4,r5,r6,r7,r8,r9,r10,r11,sp); } /* blx r4 vtable dispatch */
+L7bf92: { /* ★ §TOUCH-JNI（2026-11-05）：functions[0xc8/4=50]=CallIntMethod 真实调用。
+         *   r0=env, r1=obj, r2=mid（★ 用参数 _r2——L7bf88 读栈会把 mid 覆盖为垃圾）。
+         *   原版 blx r4 → dispatch miss（JNI 指针非 shadow 偏移）→ 返回 0 → getAction 解析失败。
+         *   修复：直接 CallIntMethod。防御：env/obj/mid 任一无效 → 返回 0 不崩。 */
+        uint32_t _env = r0;
+        uint32_t _obj = r1;
+        uint32_t _mid = _r2;   /* 第3参（mid），原版从栈读回 push 的 r2 */
+        if (_env < 0x70000000u || _obj == 0 || _mid == 0) { r0 = 0; }
+        else {
+            JNIEnv *e = (JNIEnv*)(uintptr_t)_env;
+            jint _ret = (*e)->CallIntMethod(e, (jobject)(uintptr_t)_obj, (jmethodID)(uintptr_t)_mid);
+            if ((*e)->ExceptionCheck(e)) (*e)->ExceptionClear(e);
+            r0 = (uint32_t)_ret;
+            __android_log_print(6,"junqi","F_7bf80 CallIntMethod: env=0x%08x obj=0x%08x mid=0x%08x ret=%d", _env, _obj, _mid, (int)_ret);
+        }
+    }
 L7bf94: sp+=0xc;
 L7bf96_l0: r4=MEM(sp+0);
 L7bf96_l1: r5=MEM(sp+4);

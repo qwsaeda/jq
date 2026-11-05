@@ -8,6 +8,7 @@
 #include <jni.h>
 #include <pthread.h>
 #include <unistd.h>
+#include <sys/system_properties.h>  /* ★ §TOUCH-INTERACT-TEST：__system_property_get 测试钩子 */
 #include "jqt_jnibr.h"   /* JQJNI 桥：so→Java JNI 语义 */
 #include "jqt_jni_calls.h"
 #include "jqt_mem.h"     /* MEM 宏：OnUpdate 读 0x162400 单例槽（§sp28-SCALE-8b） */
@@ -59,6 +60,24 @@ static const struct { uint32_t off; uint32_t val; } g_jq_got_tbl[] = {
 extern void jqt_mem_init(void);
 /* ★ §124x 诊断：g_cur_fn（翻译体当前函数）+ 看门狗线程采样定位循环函数 */
 volatile uint32_t g_cur_fn = 0;
+/* ★ §124y 语义修复：F_a3304 的 F_ab874/F_ab614 容器全局（0x162448/0x16244c）在 BSS，
+ *   原版由容器管理函数（0xa3360 等 push 函数）惰性构造，F_a3304 直接读全局。
+ *   翻译体未跑构造器 → 全局=0 → F_ab874 读 MEM(0+8)=垃圾 → 链表成环 spin。
+ *   修复：将两容器初始化为"空链表"自引用哨兵（[X+8]==X → F_ab874/F_ab614 立即返回）。
+ *   ★ 诚实边界：这是空容器语义（无待处理事件），非完整对象图重建。 */
+void jqt_init_empty_containers(void){
+    /* F_ab874 容器：MEM(0x162448)=容器，容器[8]==容器 → 空列表立即返回 */
+    MEM(0x162448) = 0x162448;
+    MEM(0x162450) = 0x162448;
+    /* F_ab614 容器：MEM(0x16244c)=容器，容器[8]==容器 → 空列表立即返回 */
+    MEM(0x16244c) = 0x16244c;
+    MEM(0x162454) = 0x16244c;
+    /* F_a6620 容器：MEM(0x1620b8)=容器，count[+4]=0（BSS 零）→ F_a6620 工作循环 0 次立即返回 */
+    MEM(0x1620b8) = 0x1620b8;
+    /* F_a373c 容器：MEM(0x15bf04)=容器，字段零（BSS）→ F_9f79c 早返回 */
+    MEM(0x15bf04) = 0x15bf04;
+    __android_log_print(4, "junqi", "jqt_init_empty_containers: F_ab874(0x162448)=0x162448 F_ab614(0x16244c)=0x16244c F_a6620(0x1620b8)=0x1620b8 F_a373c(0x15bf04)=0x15bf04");
+}
 static void *jq_watchdog(void *arg) {
     while (1) {
         __android_log_print(4, "junqi", "WATCHDOG: g_cur_fn=0x%08x", g_cur_fn);
@@ -68,6 +87,7 @@ static void *jq_watchdog(void *arg) {
 }
 JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *vm, void *reserved){
     jqt_mem_init();
+    jqt_init_empty_containers();  /* ★ §124y：F_ab874/F_ab614 空容器语义初始化 */
     /* ★ 看门狗：定位 F_23560 调用链中永不返回的循环函数 */
     pthread_t wd;
     pthread_create(&wd, NULL, jq_watchdog, NULL);
@@ -395,7 +415,14 @@ Java_com_cnvcs_App_OnUpdate(JNIEnv *env, jclass c){
             __android_log_print(6,"junqi","SLOT22-TRIGGER: 渲染器未构造（0x162400=0），等待...");
         }
     }
-    return (jboolean)F_23475(0,0,0,0,0,0,0,0,0,0,0,0,0x20f000);
+    /* ★ §ONUPDATE-RETURN1（2026-11-05 实证，棋盘出屏最后一步）：GLThread run loop 在
+     *   onDrawFrame 后检查返回值（GLThread.smali:895 `if-eqz v6, :cond_18`）——onDrawFrame
+     *   返回 false → 跳过 EglHelper.swap() → 棋盘在 back buffer 但永不上屏（屏幕=清屏色）。
+     *   OnUpdate→F_23475→F_bd5a0 循环阀返回 0（实证）→ drawn=false → 不 swap。
+     *   ★ 修复：jqt_gl_bridge 已每帧绘制棋盘（F_9d43c→glDrawArrays，swap前 framebuffer
+     *   =棋盘色实证），强制返回 true 让 GLThread swap 上屏。 */
+    F_23475(0,0,0,0,0,0,0,0,0,0,0,0,0x20f000);
+    return (jboolean)1;
 }
 JNIEXPORT void JNICALL
 Java_com_cnvcs_App_OnEvent(JNIEnv *env, jclass c, jstring n, jstring v){ 
@@ -447,6 +474,32 @@ Java_com_cnvcs_App_OnTimer(JNIEnv *env, jclass c){
         jqt_jni_setenv(env, g_activity ? (void*)g_activity : NULL);
         jqt_jni_selftest();
         g_jqt_jni_selftest_done = 1;
+    }
+    /* ★ §TOUCH-INTERACT-TEST：确定性游戏状态测试钩子（MuMu 宕机期间用 redroid 验证 F_2afa4）。
+     *   setprop jq.test_game 1  → 构造 vtable 0x155ad0 对象 + 调 F_2af44（应自动调 F_2afa4 初始化）。 */
+    {
+        static int _tg_done = 0;
+        if (!_tg_done) {
+            char _tg[8] = {0};
+            if (__system_property_get("jq.test_game", _tg) > 0 && strcmp(_tg, "1") == 0) {
+                _tg_done = 1;
+                __android_log_print(6,"junqi","TEST-GAME: setprop jq.test_game=1 → 构造场景对象 + F_2af44");
+                extern void *_Znwj(unsigned int);
+                extern uint32_t F_2af44(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+                uint32_t obj = (uint32_t)_Znwj(0x100);
+                MEM(obj) = JQT_ABS_PTR(0x155ad0);   /* 场景 vtable（F_2af44 是 vtable[0x28]） */
+                MEM(obj+4) = 0; MEM(obj+8) = 0;
+                __android_log_print(6,"junqi","TEST-GAME: obj=0x%08x vt=0x%08x this38=0x%08x → 调 F_2af44", obj, MEM(obj), MEM(obj+0x38));
+                uint32_t r = F_2af44(obj, 0,0,0,0,0,0,0,0,0,0,0, 0x20f000);
+                __android_log_print(6,"junqi","TEST-GAME: F_2af44 返回 0x%08x this38=0x%08x obj0=0x%08x", r, MEM(obj+0x38), MEM(MEM(obj+0x38)));
+                /* ★ 诊断：vtable 0x159950 [0x94] 槽的原始值与 MEM 读值对比 */
+                __android_log_print(6,"junqi","TEST-GAME DIAG: g_jqt_shadow=0x%08x shadow[0x1599e4]=0x%08x MEM(shadow+0x1599e4)=0x%08x vt94_exp=0x%08x",
+                    (uint32_t)(uintptr_t)g_jqt_shadow,
+                    *(uint32_t*)(g_jqt_shadow + 0x1599e4),
+                    MEM((uint32_t)(uintptr_t)g_jqt_shadow + 0x1599e4),
+                    (uint32_t)(uintptr_t)g_jqt_shadow + 0xa4235);
+            }
+        }
     }
     __android_log_print(6,"junqi","JNI OnTimer 被调 tid=%d", (int)gettid());
     F_23461(0,0,0,0,0,0,0,0,0,0,0,0,0x20f000);

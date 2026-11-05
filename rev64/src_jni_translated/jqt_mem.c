@@ -138,6 +138,13 @@ uint32_t jqt_mem_addr(uint32_t a) {
     return (uint32_t)g_jqt_scratch;
 }
 
+/* ★ §TOUCH-INTERACT-TEST：重建真实映射区表（/proc/self/maps 重扫）。
+ *   JNI_OnLoad 快照后 scudo 堆可能增长/新区 mmap → 新分配的 _Znwj 地址不在旧表
+ *   → MEM(addr) 落零页（读 0 写丢弃）。F_2afa4 构造游戏状态前调用，让新堆地址命中。 */
+void jqt_mem_rebuild(void) {
+    jqt_build_real_ranges();
+}
+
 /* 18 地址运行时注入表：key=文件偏移（虚拟地址），value=注入值
  * ★ §124z-3 修复：16 个 .text 常量池是 PC 相对位移（原版 `ldr rX,[pc,#N]; add rX,pc`，
  *   翻译体把 add rX,pc 实现为 rX=file_off+rX，故注入值应为**静态位移**（如 0x00138918），

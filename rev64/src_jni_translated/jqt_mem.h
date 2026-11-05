@@ -60,6 +60,9 @@ int jqt_got_lookup(uint32_t addr, uint32_t *out);
 /* 初始化：mmap 影子 + memcpy 镜像 + 注入 18 常量 */
 void jqt_mem_init(void);
 
+/* ★ §TOUCH-INTERACT-TEST：重建真实映射区表（scudo 堆增长后调用，让新堆地址命中 MEM） */
+void jqt_mem_rebuild(void);
+
 /* 内存读/写：jqt_mem_addr 解析（真实映射优先），越界落 g_jqt_scratch 零页不崩 */
 #define MEM(addr)  (*(uint32_t *)(jqt_mem_addr((uint32_t)(addr))))
 #define MEMH(addr) (*(uint16_t *)(jqt_mem_addr((uint32_t)(addr))))

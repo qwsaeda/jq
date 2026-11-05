@@ -387,11 +387,12 @@ uint32_t F_b5f58(uint32_t _r0,uint32_t _r1,uint32_t _r2,uint32_t _r3,uint32_t _r
     uint32_t sp=_sp, lr=0;
     int Z=0, C=0, N=0, V=0;
     g_cur_fn = 0xb5f58;
+    { static int _sd=0; if(_sd++ < 0x400) __android_log_print(6,"junqi","F_b5f58 ENTRY r0=0x%08x r1=0x%08x tid=%d", r0, r1, (int)gettid()); }
 Lb5f58: {uint32_t a_=r0,b_=0; r3=(a_+b_); Z=(r3==0); C=(r3<a_); N=((r3)>>31)&1; V=(((a_^r3)&(b_^r3))>>31)&1;}
 Lb5f5a: r1=MEM(r3+76);
 Lb5f5c: r0=MEM(r0+72);
 Lb5f5e: goto RET;
-RET: return r0;
+RET: { static int _g=0; if (_g++ < 0x400) __android_log_print(6,"junqi","F_b5f58 RET r0=0x%08x tid=%d", r0, (int)gettid()); } return r0;
     return 0;
 }
 
@@ -1004,6 +1005,7 @@ uint32_t F_b6a64(uint32_t _r0,uint32_t _r1,uint32_t _r2,uint32_t _r3,uint32_t _r
     uint32_t sp=_sp, lr=0;
     int Z=0, C=0, N=0, V=0;
     g_cur_fn = 0xb6a64;
+    { __android_log_print(6,"junqi","F_b6a64 ENTRY r0=0x%08x r1=0x%08x tid=%d", r0, r1, (int)gettid()); }
 Lb6a64: sp-=(4*4); /* push r4, r5, r6, lr */
 Lb6a64_p0: MEM(sp+0)=r4;
 Lb6a64_p1: MEM(sp+4)=r5;
@@ -1017,13 +1019,15 @@ Lb6a70: r5=0xc0;
 Lb6a72: r3=MEM(r0+r5);
 Lb6a74: {int32_t A=(int32_t)r3,B=(int32_t)(0);int64_t S=(int64_t)A-(int64_t)B;uint32_t t=(uint32_t)S;Z=(t==0);C=(r3>=0);N=(t>>31)&1;V=(((A^B)&(A^(int32_t)S))<0);}
 Lb6a76: if(Z) goto Lb6aea;
-Lb6a78: r0=F_b69b4(r0,r1,r2,r3,r4,r5,r6,r7,r8,r9,r10,r11,sp); /* bl 0xb69b4 完整 */
+Lb6a78: r0=F_b69b4(r0,r1,r2,r3,r4,r5,r6,r7,r8,r9,r10,r11,sp);
+    { static int _g=0; if (++_g < 0x400) __android_log_print(6,"junqi","F_b6a64 Lb6a7c F_b69b4 返回 r0=0x%08x tid=%d", r0, (int)gettid()); } /* bl 0xb69b4 完整 */
 Lb6a7c: r0=MEM(r4+r5);
 Lb6a7e: {int32_t A=(int32_t)r0,B=(int32_t)(0);int64_t S=(int64_t)A-(int64_t)B;uint32_t t=(uint32_t)S;Z=(t==0);C=(r0>=0);N=(t>>31)&1;V=(((A^B)&(A^(int32_t)S))<0);}
 Lb6a80: if(Z) goto Lb6a88;
 Lb6a82: r3=MEM(r0);
 Lb6a84: r3=MEM(r3+28);
 Lb6a86: { r0=jqt_blx_dispatch(r3, r0,r1,r2,r3,r4,r5,r6,r7,r8,r9,r10,r11,sp); } /* blx r3 vtable dispatch */
+    { __android_log_print(6,"junqi","F_b6a64 Lb6a88 后 dispatch1 返回 r0=0x%08x r3=0x%08x tid=%d", r0, r3, (int)gettid()); }
 Lb6a88: r1=MEM(r4+88);
 Lb6a8a: r6=0;
 Lb6a8c: {uint32_t a_=r1,b_=1; r1=(a_-b_); Z=(r1==0); C=(a_>=b_); N=((r1)>>31)&1; V=(((a_^b_)&(a_^r1))>>31)&1;}
@@ -1034,8 +1038,10 @@ Lb6a94: r0=30;
 Lb6a96: r1=0;
 Lb6a98: {uint32_t a_=r0,b_=0; r5=(a_+b_); Z=(r5==0); C=(r5<a_); N=((r5)>>31)&1; V=(((a_^r5)&(b_^r5))>>31)&1;}
 Lb6a9a: r0=0;
+    { __android_log_print(6,"junqi","F_b6a64 Lb6a9a 前 F_b8f20 r4=0x%08x r5=0x%08x r6=0x%08x r2=0x%08x r1=0x%08x tid=%d", r4, r5, r6, r2, r1, (int)gettid()); }
 Lb6a9c: r5&=r2; Z=(r5==0); N=((r5)>>31)&1;
-Lb6a9e: r0=F_b8f20(r0,r1,r2,r3,r4,r5,r6,r7,r8,r9,r10,r11,sp); /* bl 0xb8f20 完整 */
+Lb6a9e: r0=F_b8f20(r0,r1,r2,r3,r4,r5,r6,r7,r8,r9,r10,r11,sp);
+    { __android_log_print(6,"junqi","F_b6a64 Lb6aa2 后 F_b8f20 返回 r0=0x%08x tid=%d", r0, (int)gettid()); } /* bl 0xb8f20 完整 */
 Lb6aa2: r2=MEM(r4+96);
 Lb6aa4: r3=MEM(r4+100);
 Lb6aa6: {uint32_t a_=r5,b_=r2; r5=(a_+b_); Z=(r5==0); C=(r5<a_); N=((r5)>>31)&1; V=(((a_^r5)&(b_^r5))>>31)&1;}
@@ -1045,6 +1051,7 @@ Lb6aac: if((!Z&&(N==V))) goto Lb6aea;
 Lb6aae: {int32_t A=(int32_t)r6,B=(int32_t)r1;int64_t S=(int64_t)A-(int64_t)B;uint32_t t=(uint32_t)S;Z=(t==0);C=(r6>=r1);N=(t>>31)&1;V=(((A^B)&(A^(int32_t)S))<0);}
 Lb6ab0: if(Z) goto Lb6ae6;
 Lb6ab2: r3=87;
+    { static int _g_loop=0; if (++_g_loop > 0x100) { _g_loop=0; __android_log_print(6,"junqi","F_b6a64 循环阀触发 Lb6ab2 r6=0x%08x r1=0x%08x 返回 0 tid=%d", r6, r1, (int)gettid()); return 0; } if (_g_loop < 8) __android_log_print(6,"junqi","F_b6a64 Lb6ab2 循环#%d r4=0x%08x r5=0x%08x r6=0x%08x r1=0x%08x tid=%d", _g_loop, r4, r5, r6, r1, (int)gettid()); }
 Lb6ab4: r3=MEMB(r4+r3);
 Lb6ab6: {int32_t A=(int32_t)r3,B=(int32_t)(0);int64_t S=(int64_t)A-(int64_t)B;uint32_t t=(uint32_t)S;Z=(t==0);C=(r3>=0);N=(t>>31)&1;V=(((A^B)&(A^(int32_t)S))<0);}
 Lb6ab8: if(Z) goto Lb6ac2;
@@ -1068,6 +1075,7 @@ Lb6ada: if(Z) goto Lb6aee;
 Lb6adc: r3=MEM(r0);
 Lb6ade: r3=MEM(r3+32);
 Lb6ae0: { r0=jqt_blx_dispatch(r3, r0,r1,r2,r3,r4,r5,r6,r7,r8,r9,r10,r11,sp); } /* blx r3 vtable dispatch */
+    { static int _g=0; if (++_g < 6) __android_log_print(6,"junqi","F_b6a64 Lb6ae2 后 dispatch2 返回 r0=0x%08x r3=0x%08x tid=%d", r0, r3, (int)gettid()); }
 Lb6ae2: r0=1;
 Lb6ae4: goto Lb6aec;
 Lb6ae6: {int32_t A=(int32_t)r5,B=(int32_t)r0;int64_t S=(int64_t)A-(int64_t)B;uint32_t t=(uint32_t)S;Z=(t==0);C=(r5>=r0);N=(t>>31)&1;V=(((A^B)&(A^(int32_t)S))<0);}
@@ -1080,7 +1088,7 @@ Lb6aec: sp+=(3*4); /* pop {r4, r5, r6, pc} */
 Lb6aec_r: goto RET;
 Lb6aee: r0=1;
 Lb6af0: goto Lb6aec;
-RET: return r0;
+RET: { static int _g=0; if (++_g < 0x400) __android_log_print(6,"junqi","F_b6a64 RET r0=0x%08x tid=%d", r0, (int)gettid()); } return r0;
     return 0;
 }
 
@@ -1233,6 +1241,7 @@ uint32_t F_b8f20(uint32_t _r0,uint32_t _r1,uint32_t _r2,uint32_t _r3,uint32_t _r
     uint32_t sp=_sp, lr=0;
     int Z=0, C=0, N=0, V=0;
     g_cur_fn = 0xb8f20;
+    { static int _sd=0; if(_sd++ < 0x400) __android_log_print(6,"junqi","F_b8f20 ENTRY r0=0x%08x r1=0x%08x tid=%d", r0, r1, (int)gettid()); }
 Lb8f20: sp-=(2*4); /* push r4, lr */
 Lb8f20_p0: MEM(sp+0)=r4;
 Lb8f22: {int32_t A=(int32_t)r0,B=(int32_t)(0);int64_t S=(int64_t)A-(int64_t)B;uint32_t t=(uint32_t)S;Z=(t==0);C=(r0>=0);N=(t>>31)&1;V=(((A^B)&(A^(int32_t)S))<0);}
@@ -1248,7 +1257,7 @@ Lb8f36: r0=F_b5f58(r0,r1,r2,r3,r4,r5,r6,r7,r8,r9,r10,r11,sp); /* bl 0xb5f58 完�
 Lb8f3a_l0: r4=MEM(sp+0);
 Lb8f3a: sp+=(1*4); /* pop {r4, pc} */
 Lb8f3a_r: goto RET;
-RET: return r0;
+RET: { static int _g=0; if (_g++ < 0x400) __android_log_print(6,"junqi","F_b8f20 RET r0=0x%08x tid=%d", r0, (int)gettid()); } return r0;
     return 0;
 }
 
@@ -1286,7 +1295,9 @@ Lbd5ac: sp-=36;
 Lbd5ae: r7=sp+24;
 Lbd5b0: {uint32_t a_=r0,b_=0; r6=(a_+b_); Z=(r6==0); C=(r6<a_); N=((r6)>>31)&1; V=(((a_^r6)&(b_^r6))>>31)&1;}
 Lbd5b2: {uint32_t a_=r7,b_=0; r0=(a_+b_); Z=(r0==0); C=(r0<a_); N=((r0)>>31)&1; V=(((a_^r0)&(b_^r0))>>31)&1;}
-Lbd5b4: r0=F_afb68(r0,r1,r2,r3,r4,r5,r6,r7,r8,r9,r10,r11,sp); /* bl 0xafb68 完整 */
+Lbd5b4: r0=F_afb68(r0,r1,r2,r3,r4,r5,r6,r7,r8,r9,r10,r11,sp);
+    { static int _g=0; if (++_g < 6) __android_log_print(6,"junqi","F_bd5a0 Lbd5b8 F_afb68 返回 r0=0x%08x tid=%d", r0, (int)gettid()); }
+ /* bl 0xafb68 完整 */
 Lbd5b8: r3=12;
 Lbd5ba: {uint32_t a_=r3,b_=r6; r3=(a_+b_); Z=(r3==0); C=(r3<a_); N=((r3)>>31)&1; V=(((a_^r3)&(b_^r3))>>31)&1;}
 Lbd5bc: r8=r3;
@@ -1306,10 +1317,14 @@ Lbd5d6: r11=(775642+r11);
 Lbd5d8: r0=MEM(r6+36);
 Lbd5da: {uint32_t a_=r4,b_=0; r1=(a_+b_); Z=(r1==0); C=(r1<a_); N=((r1)>>31)&1; V=(((a_^r1)&(b_^r1))>>31)&1;}
 Lbd5dc: r2=12;
-Lbd5de: r0=F_b7eb0(r0,r1,r2,r3,r4,r5,r6,r7,r8,r9,r10,r11,sp); /* bl 0xb7eb0 完整 */
+Lbd5de: r0=F_b7eb0(r0,r1,r2,r3,r4,r5,r6,r7,r8,r9,r10,r11,sp);
+    { static int _g=0; if (++_g < 6) __android_log_print(6,"junqi","F_bd5a0 Lbd5e2 F_b7eb0 返回 r0=0x%08x tid=%d", r0, (int)gettid()); }
+ /* bl 0xb7eb0 完整 */
 Lbd5e2: {uint32_t a_=r0,b_=0; r5=(a_-b_); Z=(r5==0); C=(a_>=b_); N=((r5)>>31)&1; V=(((a_^b_)&(a_^r5))>>31)&1;}
 Lbd5e4: if(Z) goto Lbd618;
+    { static int _g=0; if (++_g < 6) __android_log_print(6,"junqi","F_bd5a0 Lbd5e6 路径 r6=0x%08x r3=0x%08x r5=0x%08x tid=%d", r6, r3, r5, (int)gettid()); }
 Lbd5e6: r3=MEM(r4);
+    { static int _g_bd5e6=0; if (++_g_bd5e6 > 0x100) { _g_bd5e6=0; __android_log_print(6,"junqi","F_bd5a0 循环阀触发 Lbd5e6 r5=0x%08x，强制返回 tid=%d", r5, (int)gettid()); return 0; } } /* VALVE */
 Lbd5e8: {int32_t A=(int32_t)r3,B=(int32_t)(34);int64_t S=(int64_t)A-(int64_t)B;uint32_t t=(uint32_t)S;Z=(t==0);C=(r3>=34);N=(t>>31)&1;V=(((A^B)&(A^(int32_t)S))<0);}
 Lbd5ea: if((!Z&&(N==V))) goto Lbd664;
 Lbd5ec: {int32_t A=(int32_t)r3,B=(int32_t)(32);int64_t S=(int64_t)A-(int64_t)B;uint32_t t=(uint32_t)S;Z=(t==0);C=(r3>=32);N=(t>>31)&1;V=(((A^B)&(A^(int32_t)S))<0);}
@@ -1318,24 +1333,32 @@ Lbd5f0: r1=MEM(775668+292);
 Lbd5f2: r2=MEM(r4+4);
 Lbd5f4: r0=r8;
 Lbd5f6: r1=(775674+r1);
-Lbd5f8: r0=F_b38c0(r0,r1,r2,r3,r4,r5,r6,r7,r8,r9,r10,r11,sp); /* bl 0xb38c0 完整 */
+Lbd5f8: r0=F_b38c0(r0,r1,r2,r3,r4,r5,r6,r7,r8,r9,r10,r11,sp);
+    { static int _g=0; if (++_g < 6) __android_log_print(6,"junqi","F_bd5a0 Lbd5fc F_b38c0 返回 r0=0x%08x tid=%d", r0, (int)gettid()); }
+ /* bl 0xb38c0 完整 */
 Lbd5fc: r3=MEM(775680+284);
 Lbd5fe: r1=MEM(r4);
 Lbd600: r2=r8;
 Lbd602: r3=(775686+r3);
 Lbd604: r0=MEM(r3);
-Lbd606: r0=F_b6808(r0,r1,r2,r3,r4,r5,r6,r7,r8,r9,r10,r11,sp); /* bl 0xb6808 完整 */
+Lbd606: r0=F_b6808(r0,r1,r2,r3,r4,r5,r6,r7,r8,r9,r10,r11,sp);
+    { static int _g=0; if (++_g < 6) __android_log_print(6,"junqi","F_bd5a0 Lbd60a F_b6808 返回 r0=0x%08x tid=%d", r0, (int)gettid()); }
+ /* bl 0xb6808 完整 */
 Lbd60a: r0=MEM(r6+36);
 Lbd60c: {uint32_t a_=r4,b_=0; r1=(a_+b_); Z=(r1==0); C=(r1<a_); N=((r1)>>31)&1; V=(((a_^r1)&(b_^r1))>>31)&1;}
 Lbd60e: r2=12;
-Lbd610: r0=F_b7eb0(r0,r1,r2,r3,r4,r5,r6,r7,r8,r9,r10,r11,sp); /* bl 0xb7eb0 完整 */
+Lbd610: r0=F_b7eb0(r0,r1,r2,r3,r4,r5,r6,r7,r8,r9,r10,r11,sp);
+    { static int _g=0; if (++_g < 6) __android_log_print(6,"junqi","F_bd5a0 Lbd614 F_b7eb0#2 返回 r0=0x%08x tid=%d", r0, (int)gettid()); }
+ /* bl 0xb7eb0 完整 */
 Lbd614: {uint32_t a_=r0,b_=0; r5=(a_-b_); Z=(r5==0); C=(a_>=b_); N=((r5)>>31)&1; V=(((a_^b_)&(a_^r5))>>31)&1;}
 Lbd616: if(!Z) goto Lbd5e6;
 Lbd618: r4=40;
+    { static int _g=0; if (++_g < 6) __android_log_print(6,"junqi","F_bd5a0 Lbd618 路径 r6=0x%08x MEMB(r6+40)=0x%02x tid=%d", r6, (r6?MEMB(r6+40):0xff), (int)gettid()); }
 Lbd61a: r3=MEMB(r6+r4);
 Lbd61c: {int32_t A=(int32_t)r3,B=(int32_t)(0);int64_t S=(int64_t)A-(int64_t)B;uint32_t t=(uint32_t)S;Z=(t==0);C=(r3>=0);N=(t>>31)&1;V=(((A^B)&(A^(int32_t)S))<0);}
 Lbd61e: if(!Z) goto Lbd6e2;
 Lbd620: r4=49;
+    { static int _g=0; if (++_g < 6) __android_log_print(6,"junqi","F_bd5a0 Lbd620 路径 r6=0x%08x MEMB(r6+49)=0x%02x tid=%d", r6, (r6?MEMB(r6+49):0xff), (int)gettid()); }
 Lbd622: r3=MEMB(r6+r4);
 Lbd624: {int32_t A=(int32_t)r3,B=(int32_t)(0);int64_t S=(int64_t)A-(int64_t)B;uint32_t t=(uint32_t)S;Z=(t==0);C=(r3>=0);N=(t>>31)&1;V=(((A^B)&(A^(int32_t)S))<0);}
 Lbd626: if(Z) goto Lbd64c;
@@ -1343,21 +1366,29 @@ Lbd628: r1=MEM(775724+244);
 Lbd62a: r2=MEM(r6+56);
 Lbd62c: r0=r8;
 Lbd62e: r1=(775730+r1);
-Lbd630: r0=F_b38c0(r0,r1,r2,r3,r4,r5,r6,r7,r8,r9,r10,r11,sp); /* bl 0xb38c0 完整 */
+Lbd630: r0=F_b38c0(r0,r1,r2,r3,r4,r5,r6,r7,r8,r9,r10,r11,sp);
+    { static int _g=0; if (++_g < 6) __android_log_print(6,"junqi","F_bd5a0 Lbd634 F_b38c0#2 返回 r0=0x%08x tid=%d", r0, (int)gettid()); }
+ /* bl 0xb38c0 完整 */
 Lbd634: r3=MEM(775736+236);
 Lbd636: r1=MEM(775736+240);
 Lbd638: r2=r8;
 Lbd63a: r3=(775742+r3);
 Lbd63c: r0=MEM(r3);
-Lbd63e: r0=F_b6808(r0,r1,r2,r3,r4,r5,r6,r7,r8,r9,r10,r11,sp); /* bl 0xb6808 完整 */
+Lbd63e: r0=F_b6808(r0,r1,r2,r3,r4,r5,r6,r7,r8,r9,r10,r11,sp);
+    { static int _g=0; if (++_g < 6) __android_log_print(6,"junqi","F_bd5a0 Lbd642 F_b6808#2 返回 r0=0x%08x tid=%d", r0, (int)gettid()); }
+ /* bl 0xb6808 完整 */
 Lbd642: r0=MEM(r6+52);
-Lbd644: r0=F_becf4(r0,r1,r2,r3,r4,r5,r6,r7,r8,r9,r10,r11,sp); /* bl 0xbecf4 完整 */
+Lbd644: r0=F_becf4(r0,r1,r2,r3,r4,r5,r6,r7,r8,r9,r10,r11,sp);
+    { static int _g=0; if (++_g < 6) __android_log_print(6,"junqi","F_bd5a0 Lbd648 F_becf4 返回 r0=0x%08x tid=%d", r0, (int)gettid()); }
+ /* bl 0xbecf4 完整 */
 Lbd648: r3=0;
 Lbd64a: MEMB(r6+r4)=r3;
 Lbd64c: r3=MEM(775760+220);
 Lbd64e: r3=(775762+r3);
 Lbd650: r0=MEM(r3);
-Lbd652: r0=F_b6a64(r0,r1,r2,r3,r4,r5,r6,r7,r8,r9,r10,r11,sp); /* bl 0xb6a64 完整 */
+Lbd652: r0=F_b6a64(r0,r1,r2,r3,r4,r5,r6,r7,r8,r9,r10,r11,sp);
+    { static int _g=0; if (++_g < 6) __android_log_print(6,"junqi","F_bd5a0 Lbd656 F_b6a64 返回 r0=0x%08x tid=%d", r0, (int)gettid()); }
+ /* bl 0xb6a64 完整 */
 Lbd656: sp+=36;
 Lbd658_l2: r4=MEM(sp+8);
 Lbd658_l3: r5=MEM(sp+12);
@@ -1379,16 +1410,22 @@ Lbd66a: {int32_t A=(int32_t)r3,B=(int32_t)r2;int64_t S=(int64_t)A-(int64_t)B;uin
 Lbd66c: if(!Z) goto Lbd5d8;
 Lbd66e: r3=r10;
 Lbd670: r0=MEM(r3);
-Lbd672: r0=F_c5d50(r0,r1,r2,r3,r4,r5,r6,r7,r8,r9,r10,r11,sp); /* bl 0xc5d50 完整 */
+Lbd672: r0=F_c5d50(r0,r1,r2,r3,r4,r5,r6,r7,r8,r9,r10,r11,sp);
+    { static int _g=0; if (++_g < 6) __android_log_print(6,"junqi","F_bd5a0 Lbd676 F_c5d50 返回 r0=0x%08x tid=%d", r0, (int)gettid()); }
+ /* bl 0xc5d50 完整 */
 Lbd676: r1=MEM(sp+4);
 Lbd678: {uint32_t a_=r0,b_=0; r2=(a_+b_); Z=(r2==0); C=(r2<a_); N=((r2)>>31)&1; V=(((a_^r2)&(b_^r2))>>31)&1;}
 Lbd67a: r0=r8;
-Lbd67c: r0=F_b3694(r0,r1,r2,r3,r4,r5,r6,r7,r8,r9,r10,r11,sp); /* bl 0xb3694 完整 */
+Lbd67c: r0=F_b3694(r0,r1,r2,r3,r4,r5,r6,r7,r8,r9,r10,r11,sp);
+    { static int _g=0; if (++_g < 6) __android_log_print(6,"junqi","F_bd5a0 Lbd680 F_b3694 返回 r0=0x%08x tid=%d", r0, (int)gettid()); }
+ /* bl 0xb3694 完整 */
 Lbd680: r3=r11;
 Lbd682: r0=MEM(r3);
 Lbd684: r1=MEM(r4);
 Lbd686: r2=r8;
-Lbd688: r0=F_b6808(r0,r1,r2,r3,r4,r5,r6,r7,r8,r9,r10,r11,sp); /* bl 0xb6808 完整 */
+Lbd688: r0=F_b6808(r0,r1,r2,r3,r4,r5,r6,r7,r8,r9,r10,r11,sp);
+    { static int _g=0; if (++_g < 6) __android_log_print(6,"junqi","F_bd5a0 Lbd68c F_b6808#3 返回 r0=0x%08x tid=%d", r0, (int)gettid()); }
+ /* bl 0xb6808 完整 */
 Lbd68c: goto Lbd5d8;
 Lbd68e: {int32_t A=(int32_t)r3,B=(int32_t)(0);int64_t S=(int64_t)A-(int64_t)B;uint32_t t=(uint32_t)S;Z=(t==0);C=(r3>=0);N=(t>>31)&1;V=(((A^B)&(A^(int32_t)S))<0);}
 Lbd690: if((Z||(N!=V))) goto Lbd5d8;
@@ -1401,45 +1438,63 @@ Lbd69c: r2=MEM(r4+8);
 Lbd69e: r1=MEM(r4+4);
 Lbd6a0: {uint32_t a_=r7,b_=0; r0=(a_+b_); Z=(r0==0); C=(r0<a_); N=((r0)>>31)&1; V=(((a_^r0)&(b_^r0))>>31)&1;}
 Lbd6a2: r5=(775846+r5);
-Lbd6a4: r0=F_afbc0(r0,r1,r2,r3,r4,r5,r6,r7,r8,r9,r10,r11,sp); /* bl 0xafbc0 完整 */
+Lbd6a4: r0=F_afbc0(r0,r1,r2,r3,r4,r5,r6,r7,r8,r9,r10,r11,sp);
+    { static int _g=0; if (++_g < 6) __android_log_print(6,"junqi","F_bd5a0 Lbd6a8 F_afbc0 返回 r0=0x%08x tid=%d", r0, (int)gettid()); }
+ /* bl 0xafbc0 完整 */
 Lbd6a8: r0=MEM(r5);
 Lbd6aa: {uint32_t a_=r7,b_=0; r1=(a_+b_); Z=(r1==0); C=(r1<a_); N=((r1)>>31)&1; V=(((a_^r1)&(b_^r1))>>31)&1;}
-Lbd6ac: r0=F_b66b0(r0,r1,r2,r3,r4,r5,r6,r7,r8,r9,r10,r11,sp); /* bl 0xb66b0 完整 */
+Lbd6ac: r0=F_b66b0(r0,r1,r2,r3,r4,r5,r6,r7,r8,r9,r10,r11,sp);
+    { static int _g=0; if (++_g < 6) __android_log_print(6,"junqi","F_bd5a0 Lbd6b0 F_b66b0 返回 r0=0x%08x tid=%d", r0, (int)gettid()); }
+ /* bl 0xb66b0 完整 */
 Lbd6b0: r1=MEM(775860+132);
 Lbd6b2: r2=MEM(r7);
 Lbd6b4: r0=r8;
 Lbd6b6: r1=(775866+r1);
-Lbd6b8: r0=F_b38c0(r0,r1,r2,r3,r4,r5,r6,r7,r8,r9,r10,r11,sp); /* bl 0xb38c0 完整 */
+Lbd6b8: r0=F_b38c0(r0,r1,r2,r3,r4,r5,r6,r7,r8,r9,r10,r11,sp);
+    { static int _g=0; if (++_g < 6) __android_log_print(6,"junqi","F_bd5a0 Lbd6bc F_b38c0#3 返回 r0=0x%08x tid=%d", r0, (int)gettid()); }
+ /* bl 0xb38c0 完整 */
 Lbd6bc: r1=MEM(775872+124);
 Lbd6be: r2=MEM(r7+4);
 Lbd6c0: r0=r8;
 Lbd6c2: r1=(775878+r1);
-Lbd6c4: r0=F_b38c0(r0,r1,r2,r3,r4,r5,r6,r7,r8,r9,r10,r11,sp); /* bl 0xb38c0 完整 */
+Lbd6c4: r0=F_b38c0(r0,r1,r2,r3,r4,r5,r6,r7,r8,r9,r10,r11,sp);
+    { static int _g=0; if (++_g < 6) __android_log_print(6,"junqi","F_bd5a0 Lbd6c8 F_b38c0#4 返回 r0=0x%08x tid=%d", r0, (int)gettid()); }
+ /* bl 0xb38c0 完整 */
 Lbd6c8: r0=MEM(r5);
 Lbd6ca: r1=MEM(r4);
 Lbd6cc: r2=r8;
-Lbd6ce: r0=F_b6808(r0,r1,r2,r3,r4,r5,r6,r7,r8,r9,r10,r11,sp); /* bl 0xb6808 完整 */
+Lbd6ce: r0=F_b6808(r0,r1,r2,r3,r4,r5,r6,r7,r8,r9,r10,r11,sp);
+    { static int _g=0; if (++_g < 6) __android_log_print(6,"junqi","F_bd5a0 Lbd6d2 F_b6808#4 返回 r0=0x%08x tid=%d", r0, (int)gettid()); }
+ /* bl 0xb6808 完整 */
 Lbd6d2: goto Lbd5d8;
 Lbd6d4: r3=r9;
 Lbd6d6: r0=MEM(r3);
 Lbd6d8: r1=67;
 Lbd6da: r2=0;
-Lbd6dc: r0=F_b6808(r0,r1,r2,r3,r4,r5,r6,r7,r8,r9,r10,r11,sp); /* bl 0xb6808 完整 */
+Lbd6dc: r0=F_b6808(r0,r1,r2,r3,r4,r5,r6,r7,r8,r9,r10,r11,sp);
+    { static int _g=0; if (++_g < 6) __android_log_print(6,"junqi","F_bd5a0 Lbd6e0 F_b6808#5 返回 r0=0x%08x tid=%d", r0, (int)gettid()); }
+ /* bl 0xb6808 完整 */
 Lbd6e0: goto Lbd5d8;
 Lbd6e2: r1=MEM(775908+92);
 Lbd6e4: r3=48;
 Lbd6e6: r2=MEMB(r6+r3);
 Lbd6e8: r1=(775916+r1);
 Lbd6ea: r0=r8;
-Lbd6ec: r0=F_b391c(r0,r1,r2,r3,r4,r5,r6,r7,r8,r9,r10,r11,sp); /* bl 0xb391c 完整 */
+Lbd6ec: r0=F_b391c(r0,r1,r2,r3,r4,r5,r6,r7,r8,r9,r10,r11,sp);
+    { static int _g=0; if (++_g < 6) __android_log_print(6,"junqi","F_bd5a0 Lbd6f0 F_b391c 返回 r0=0x%08x tid=%d", r0, (int)gettid()); }
+ /* bl 0xb391c 完整 */
 Lbd6f0: r3=MEM(775924+80);
 Lbd6f2: r1=MEM(775924+84);
 Lbd6f4: r2=r8;
 Lbd6f6: r3=(775930+r3);
 Lbd6f8: r0=MEM(r3);
-Lbd6fa: r0=F_b6808(r0,r1,r2,r3,r4,r5,r6,r7,r8,r9,r10,r11,sp); /* bl 0xb6808 完整 */
+Lbd6fa: r0=F_b6808(r0,r1,r2,r3,r4,r5,r6,r7,r8,r9,r10,r11,sp);
+    { static int _g=0; if (++_g < 6) __android_log_print(6,"junqi","F_bd5a0 Lbd6fe F_b6808#6 返回 r0=0x%08x tid=%d", r0, (int)gettid()); }
+ /* bl 0xb6808 完整 */
 Lbd6fe: r0=MEM(r6+44);
-Lbd700: r0=F_becf4(r0,r1,r2,r3,r4,r5,r6,r7,r8,r9,r10,r11,sp); /* bl 0xbecf4 完整 */
+Lbd700: r0=F_becf4(r0,r1,r2,r3,r4,r5,r6,r7,r8,r9,r10,r11,sp);
+    { static int _g=0; if (++_g < 6) __android_log_print(6,"junqi","F_bd5a0 Lbd704 F_becf4#2 返回 r0=0x%08x tid=%d", r0, (int)gettid()); }
+ /* bl 0xbecf4 完整 */
 Lbd704: MEMB(r6+r4)=r5;
 Lbd706: goto Lbd620;
 RET: return r0;

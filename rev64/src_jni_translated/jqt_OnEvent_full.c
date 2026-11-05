@@ -6,6 +6,7 @@
 #include <stdint.h>
 #include <android/log.h>
 #include <stddef.h>
+#include <jni.h>
 #include "jqt_mem.h"
 uint32_t F_b26ac(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_b4238(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
@@ -15,6 +16,12 @@ uint32_t F_bd580(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,
 uint32_t F_bd778(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_bd914(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_bdd2c(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+/* ★ §TOUCH-JNI（2026-11-05）：F_bdd2c JNI 调用（GetObjectClass/GetMethodID/DeleteLocalRef）
+ *   定义在 jqt_jnibr.c。原版 blx 到 JNIEnv functions[]（真实指针非 shadow 偏移）→ dispatch miss
+ *   → 触摸坐标解析失败。修复：显式调用这些 JNI 桥。 */
+uint32_t jqt_jni_getobjectclass(uint32_t env, uint32_t obj);
+uint32_t jqt_jni_getmethodid(uint32_t env, uint32_t cls, uint32_t name_off, uint32_t sig_off);
+uint32_t jqt_jni_deletelocalref(uint32_t env, uint32_t obj);
 
 uint32_t F_b26ac(uint32_t _r0,uint32_t _r1,uint32_t _r2,uint32_t _r3,uint32_t _r4,uint32_t _r5,uint32_t _r6,uint32_t _r7,uint32_t _r8,uint32_t _r9,uint32_t _r10,uint32_t _r11,uint32_t _sp){
     uint32_t r0=_r0, r1=_r1, r2=_r2, r3=_r3, r4=_r4, r5=_r5, r6=_r6, r7=_r7, r8=_r8, r9=_r9, r10=_r10, r11=_r11, r12=0;
@@ -92,7 +99,21 @@ uint32_t F_bd580(uint32_t _r0,uint32_t _r1,uint32_t _r2,uint32_t _r3,uint32_t _r
     uint32_t sp=_sp, lr=0;
     int Z=0, C=0, N=0, V=0;
     /* §124ai：函数体 #define MEM 移除，用 jqt_mem.h MEM（jqt_mem_addr 加偏移） */
-Lbd580: sp-=(2*4); /* push r2, r3 */
+    /* ★ §TOUCH-JNI（2026-11-05）：原版 F_bd580 = CallFloatMethod 包装（functions[0xe0/4=56]）。
+     *   旧翻译体是空函数（直接返回 r0=env 当 float）→ getX/getY 返回垃圾 → 触摸坐标解析失败。
+     *   修复：直接 CallFloatMethod(env, obj, mid) 返回 float 位模式。 */
+    {
+        uint32_t _env = r0;
+        if (_env < 0x70000000u || r1 == 0 || r2 == 0) { r0 = 0; }
+        else {
+            JNIEnv *e = (JNIEnv*)(uintptr_t)_env;
+            jfloat _ret = (*e)->CallFloatMethod(e, (jobject)(uintptr_t)r1, (jmethodID)(uintptr_t)r2);
+            if ((*e)->ExceptionCheck(e)) (*e)->ExceptionClear(e);
+            uint32_t _bits; __builtin_memcpy(&_bits, &_ret, 4);
+            r0 = _bits;
+            __android_log_print(6,"junqi","F_bd580 CallFloatMethod: env=0x%08x obj=0x%08x mid=0x%08x ret=%.2f bits=0x%08x", _env, (uint32_t)r1, (uint32_t)r2, (double)_ret, _bits);
+        }
+    }
 RET: return r0;
     return 0;
 }
@@ -278,7 +299,7 @@ Lbdd40: r11=r0;
 Lbdd42: {uint32_t a_=r1,b_=0; r0=(a_+b_); Z=(r0==0); C=(r0<a_); N=((r0)>>31)&1; V=(((a_^r0)&(b_^r0))>>31)&1;}
 Lbdd44: {uint32_t a_=r2,b_=0; r1=(a_+b_); Z=(r1==0); C=(r1<a_); N=((r1)>>31)&1; V=(((a_^r1)&(b_^r1))>>31)&1;}
 Lbdd46: {uint32_t a_=r2,b_=0; r7=(a_+b_); Z=(r7==0); C=(r7<a_); N=((r7)>>31)&1; V=(((a_^r7)&(b_^r7))>>31)&1;}
-Lbdd48: r0=jqt_blx_dispatch(r3, r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11, sp); /* vtable dispatch */
+Lbdd48: r0=jqt_jni_getobjectclass(r0, r1); /* ★ §TOUCH-JNI：原版 blx r3=GetObjectClass（vtable[31]），显式调用 */
 Lbdd4a: r1=MEM(r4);
 Lbdd4c: r2=MEM(777552+204);
 Lbdd4e: r3=MEM(777552+208);
@@ -290,7 +311,7 @@ Lbdd58: r3=(777564+r3);
 Lbdd5a: r2=(777566+r2);
 Lbdd5c: {uint32_t a_=r5,b_=0; r1=(a_+b_); Z=(r1==0); C=(r1<a_); N=((r1)>>31)&1; V=(((a_^r1)&(b_^r1))>>31)&1;}
 Lbdd5e: {uint32_t a_=r4,b_=0; r0=(a_+b_); Z=(r0==0); C=(r0<a_); N=((r0)>>31)&1; V=(((a_^r0)&(b_^r0))>>31)&1;}
-Lbdd60: r0=jqt_blx_dispatch(r6, r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11, sp); /* vtable dispatch */
+Lbdd60: r0=jqt_jni_getmethodid(r0, r1, r2, r3); /* ★ §TOUCH-JNI：原版 blx r6=GetMethodID（"getAction","()I"），显式调用 */
 Lbdd62: {uint32_t a_=r7,b_=0; r1=(a_+b_); Z=(r1==0); C=(r1<a_); N=((r1)>>31)&1; V=(((a_^r1)&(b_^r1))>>31)&1;}
 Lbdd64: {uint32_t a_=r0,b_=0; r2=(a_+b_); Z=(r2==0); C=(r2<a_); N=((r2)>>31)&1; V=(((a_^r2)&(b_^r2))>>31)&1;}
 Lbdd66: {uint32_t a_=r4,b_=0; r0=(a_+b_); Z=(r0==0); C=(r0<a_); N=((r0)>>31)&1; V=(((a_^r0)&(b_^r0))>>31)&1;}
@@ -307,7 +328,7 @@ Lbdd7c: {uint32_t a_=r6,b_=0; r3=(a_+b_); Z=(r3==0); C=(r3<a_); N=((r3)>>31)&1; 
 Lbdd7e: {uint32_t a_=r5,b_=0; r1=(a_+b_); Z=(r1==0); C=(r1<a_); N=((r1)>>31)&1; V=(((a_^r1)&(b_^r1))>>31)&1;}
 Lbdd80: r9=r0;
 Lbdd82: {uint32_t a_=r4,b_=0; r0=(a_+b_); Z=(r0==0); C=(r0<a_); N=((r0)>>31)&1; V=(((a_^r0)&(b_^r0))>>31)&1;}
-Lbdd84: r0=jqt_blx_dispatch(r12, r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11, sp); /* vtable dispatch */
+Lbdd84: r0=jqt_jni_getmethodid(r0, r1, r2, r3); /* ★ §TOUCH-JNI：原版 blx ip=GetMethodID（"getX","()F"），显式调用 */
 Lbdd86: {uint32_t a_=r7,b_=0; r1=(a_+b_); Z=(r1==0); C=(r1<a_); N=((r1)>>31)&1; V=(((a_^r1)&(b_^r1))>>31)&1;}
 Lbdd88: {uint32_t a_=r0,b_=0; r2=(a_+b_); Z=(r2==0); C=(r2<a_); N=((r2)>>31)&1; V=(((a_^r2)&(b_^r2))>>31)&1;}
 Lbdd8a: {uint32_t a_=r4,b_=0; r0=(a_+b_); Z=(r0==0); C=(r0<a_); N=((r0)>>31)&1; V=(((a_^r0)&(b_^r0))>>31)&1;}
@@ -323,7 +344,7 @@ Lbdda0: r12=r3;
 Lbdda2: r2=(777638+r2);
 Lbdda4: {uint32_t a_=r6,b_=0; r3=(a_+b_); Z=(r3==0); C=(r3<a_); N=((r3)>>31)&1; V=(((a_^r3)&(b_^r3))>>31)&1;}
 Lbdda6: {uint32_t a_=r4,b_=0; r0=(a_+b_); Z=(r0==0); C=(r0<a_); N=((r0)>>31)&1; V=(((a_^r0)&(b_^r0))>>31)&1;}
-Lbdda8: r0=jqt_blx_dispatch(r12, r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11, sp); /* vtable dispatch */
+Lbdda8: r0=jqt_jni_getmethodid(r0, r1, r2, r3); /* ★ §TOUCH-JNI：原版 blx ip=GetMethodID（"getY","()F"），显式调用 */
 Lbddaa: {uint32_t a_=r7,b_=0; r1=(a_+b_); Z=(r1==0); C=(r1<a_); N=((r1)>>31)&1; V=(((a_^r1)&(b_^r1))>>31)&1;}
 Lbddac: {uint32_t a_=r0,b_=0; r2=(a_+b_); Z=(r2==0); C=(r2<a_); N=((r2)>>31)&1; V=(((a_^r2)&(b_^r2))>>31)&1;}
 Lbddae: {uint32_t a_=r4,b_=0; r0=(a_+b_); Z=(r0==0); C=(r0<a_); N=((r0)>>31)&1; V=(((a_^r0)&(b_^r0))>>31)&1;}
@@ -336,7 +357,7 @@ Lbddbe: r3=MEM(r4);
 Lbddc0: {uint32_t a_=r4,b_=0; r0=(a_+b_); Z=(r0==0); C=(r0<a_); N=((r0)>>31)&1; V=(((a_^r0)&(b_^r0))>>31)&1;}
 Lbddc2: {uint32_t a_=r5,b_=0; r1=(a_+b_); Z=(r1==0); C=(r1<a_); N=((r1)>>31)&1; V=(((a_^r1)&(b_^r1))>>31)&1;}
 Lbddc4: r3=MEM(r3+92);
-Lbddc6: r0=jqt_blx_dispatch(r3, r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11, sp); /* vtable dispatch */
+Lbddc6: r0=jqt_jni_deletelocalref(r0, r1); /* ★ §TOUCH-JNI：原版 blx r3=DeleteLocalRef（vtable[23]），显式调用 */
 Lbddc8: r3=MEM(777676+100);
 Lbddca: r3=(777678+r3);
 Lbddcc: r2=MEM(r3+4);
