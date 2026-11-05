@@ -202,7 +202,7 @@ VM vm = emulator.createDalvikVM(new File("junqi.apk"));
 - `StringObject(vm, "hello")` → 模拟 `new String("hello")`（一个字符串对象替身）
 - `DvmClass` → 模拟 `Class<?>`（一个类替身）
 - 军棋 32 位 so 的 `OnCreate` 推进到 `std::vector` 对象图 0x43ed8（DiagJni 实证）
-  ——Java 侧电话接通后，卡点转到 native C++ 对象图
+  ——Java 侧电话接通后，卡点转到 native 数据与指令对齐（N44）
 **为什么 DvmObject 重要？** so 调 `OnCreate(env, obj)` 时，`obj` 是个 Java 对象
 （`GLView` 实例）。unidbg 用 `addGlobalObject` 注册一个 `DvmObject` 替身给 `obj`，
 so 拿这个替身的 hash 才能操作。军棋 `GLView` 实例就是这个替身。
@@ -232,7 +232,7 @@ so 拿这个替身的 hash 才能操作。军棋 `GLView` 实例就是这个替�
 | **建 DalvikVM** | 解析 APK 包名（com.cnvcs.junqi）+ 建 7 个 DvmClass（App/GLView/SiteView/AdLis/BtReceiver/TextDlg/InputDlg） | 跑真 Dalvik 字节码（只模拟 JNI 交互面，不执行 Java 逻辑） |
 | **应答 FindClass** | `resolveClass` 返回 DvmClass 替身；AdView 返 null 去广告（拆除广告关键开关） | 让 AdView 返真类（要初始化广告 → 广告浮层，去广告目标相反） |
 | **应答 GetMethodID** | 14 个 `On*` 方法正常返方法号（核心入口能调通） | 查内部方法号（strip 后 .dynsym 只剩 14 个导出符号） |
-| **调静态 JNI 方法** | `callStaticJniMethodObject` 全通（DiagJni 推进到 0x43ed8） | 突破 0x43ed8（§124 ② C++ 对象图语义缺失，std::vector 未初始化） |
+| **调静态 JNI 方法** | `callStaticJniMethodObject` 全通（DiagJni 推进到 0x43ed8） | 突破 0x43ed8（§124 ② 数据与指令对齐对应缺口（N44），std::vector 未初始化） |
 | **构造 jobject** | `addGlobalObject` 注册 DvmObject 替身拿 hash（32 位是 int） | 传真 C++ 对象（DalvikVM 里是"哈希"不是对象指针，§124 ②） |
 
 **军棋实测对照**：
@@ -241,7 +241,7 @@ so 拿这个替身的 hash 才能操作。军棋 `GLView` 实例就是这个替�
 - 应答 GetMethodID ✓（14 个 `On*` 方法正常返方法号）
 - 调静态 JNI 方法 ✓（DiagJni 推进到 0x43ed8）
 - 构造 jobject ✓（addGlobalObject 拿 hash）
-- **✗ 突破 0x43ed8**：§124 ② C++ 对象图语义缺失（Java 侧电话全接通后卡点转 native）
+- **✗ 突破 0x43ed8**：§124 ② 数据与指令对齐对应缺口（N44）（Java 侧电话全接通后卡点转 native）
 
 ## 11.4 军棋实战验证：DalvikVM 接通后卡点转移
 
@@ -264,8 +264,8 @@ so 拿这个替身的 hash 才能操作。军棋 `GLView` 实例就是这个替�
 C++ 对象图没补全"（§124 的 ② std::vector 0x43ed8 + ① 上下文相关 BL 解码 bug +
 ③ 288MB PROT_NONE mmap）。**Java 电话全接 ≠ 能玩**，瓶颈在 native 对象图。
 **"接通 ≠ 能玩"（诚实边界）**：DalvikVM 接通是"电话全接"（Java 侧应答），但
-军棋"能玩"还差 native C++ 对象图（§124 的 ②）。`OnCreate` 推进到 0x43ed8 卡住
-（std::vector 未初始化），unidbg 补不了"对象图语义"——只能 redroid 真跑（有 GPU）
+军棋"能玩"还差 native 数据与指令对齐（N44）（§124 的 ②）。`OnCreate` 推进到 0x43ed8 卡住
+（std::vector 未初始化，N44 外层缺口），unidbg 补不了"数据与指令对齐"——只能 redroid 真跑（有 GPU）
 或 arm64 对齐版（红线 §R6）验证"能玩"。
 ## 11.5 本章小结（一句话版）
 
@@ -274,7 +274,7 @@ C++ 对象图没补全"（§124 的 ② std::vector 0x43ed8 + ① 上下文相�
 > 不跑真字节码。
 > 军棋 Java 侧电话全接通后，卡点转到 native 侧 C++ 对象图（`OnCreate` 到 0x43ed8）。
 > §124 纠正后剩余 3 项阻塞：① 上下文相关 BL 解码 bug（unicorn2 精度，BL 0x7965a 错位
-> 到 0x6eaea）② C++ 对象图语义缺失（std::vector 0x43ed8）③ 288MB PROT_NONE mmap。
+> 到 0x6eaea）② 数据与指令对齐对应缺口（N44）（std::vector 0x43ed8）③ 288MB PROT_NONE mmap。
 > `FindClass` 广告类是拆除前必处理的引用点。
 
 ---

@@ -32,7 +32,7 @@
 ## 修正 5:OnCreate 推进边界 = std::vector 对象图 0x43ed8(原课程 Ch11/12/13/22 已对齐)
 
 - DiagJni 实证:`createDalvikVM + resolveClass + callStaticJniMethodObject`
-- 剩余阻塞:"C++ 对象图语义缺失"(std::vector begin/end 来自未初始化对象)
+- 剩余阻塞:"数据与指令对齐对应缺口"(std::vector begin/end 来自未初始化对象)
 
 ## 修正 6:18 个 `.text` 常量 + 2 个 `.data` = 72B 运行时数据
 
@@ -43,7 +43,7 @@
 ## 修正 7:军棋"能玩"的真机边界
 
 - redroid 无 GPU(只能 dump 数据,不能验证"能玩")
-- MuMu Android 12 + Adreno 640 真 GPU:arm64 影子库稳定运行不崩(90s+),**但游戏板未渲染(黑屏)**——对象图分歧
+- MuMu Android 12 + Adreno 640 真 GPU:arm64 影子库稳定运行不崩(90s+),**但游戏板未渲染(黑屏)**——数据与指令对齐分歧
 - "运行不崩" ≠ "能玩"(军棋 AGENTS.md 红线)
 
 ## 修正 8:★ 卡点描述更新(§124 纠正,AGENTS.md 2026-11-01 第二次更新)
@@ -62,7 +62,7 @@
      加载 .so 后,unicorn2 对 0x7965a 的 `F000 F800` 解码结果随上下文变化
      (0x43ed8 → 0x6eaea),是**模拟器精度 bug**(非翻译/逻辑 bug)。
      待确认:换 dynarmic 后端 / code hook patch 目标 / unicorn2 版本修复。
-   - **② C++ 对象图语义缺失**(原有):std::vector 0x43ed8 的 begin/end/capacity 未初始化
+   - **② 数据与指令对齐对应缺口**(原有):std::vector 0x43ed8 的 begin/end/capacity 未初始化
    - **③ 288MB PROT_NONE mmap**(新发现):unidbg mmap2 对 288MB PROT_NONE 处理失败
 
 **课程对齐**:

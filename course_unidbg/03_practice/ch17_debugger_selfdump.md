@@ -31,7 +31,7 @@
 unidbg 是黑盒模拟，不像 IDA/Frida 那样能单步、下断点看寄存器。
 
 - **大白话卡点**：想看某条指令执行时 r0 是什么值，黑盒里没这个"显微镜"。
-- **为什么卡**：unidbg 默认不追踪内部状态（追踪每条指令开销极大，军棋 1MB
+- **为什么卡**：unidbg 默认不追踪内部状态（追踪每条指令开销极大，军棋 **1.43MB/1435156B**
   so 指令百万条）。
 - **不解决会怎样**：排错只能猜，看不到"哪条指令读了什么值"——军棋 §124 的
   ① 上下文相关 BL 解码 bug（BL 0x7965a 错位到 0x6eaea 而非 0x43ed8）就是这么
@@ -105,7 +105,7 @@ Debugger debugger = new Debugger(emulator);
 debugger.runTo(0x233e1);   // 跑到 OnCreate 入口（军棋 DiagJni 实证）
 debugger.step();           // 单步走一条指令（慢动作）
 debugger.showRegs();       // 看寄存器（拍"现场照片"）
-// 军棋 DiagJni:OnCreate 推进到 std::vector 对象图 0x43ed8
+// 军棋 DiagJni:OnCreate 推进到 std::vector 拷贝构造点 0x43ed8（§124 ② "数据与指令对齐对应"卡点，N44）
 // Debugger 能看到 r0 指向 0x43ed8(vector 首元素地址)
 ```
 
@@ -117,15 +117,15 @@ OnGraphChange / OnBluetooth / OnPause / OnGraphCreate / OnTimer / OnInput / OnTo
 
 **为什么军棋用 Debugger 自吐？** 军棋 `OnCreate` 卡在 §124 的 3 项阻塞
 （① 上下文相关 BL 解码 bug：BL 0x7965a 被 unicorn2 解码成 0x6eaea（memset
-循环）而非真实目标 0x43ed8（std::vector 构造）② C++ 对象图 std::vector 的
-begin/end/capacity 未初始化 ③ 288MB PROT_NONE mmap unidbg 处理失败），
+循环）而非真实目标 0x43ed8（std::vector 构造）② **数据与指令对齐对应缺口**（N44：std::vector 的
+begin/end/capacity 未初始化 = 运行时内存布局没对上，非"对象图缺失"）③ 288MB PROT_NONE mmap unidbg 处理失败），
 Debugger 能看到"它读到了 0x43ed8"，但读到的 begin/end 是未初始化值 → 写未映射
 地址崩。Debugger 自吐帮你定位"卡在哪条指令"，但定位≠解决。
 
-**0x43ed8 是什么（大白话）**：`std::vector`（C++ 动态数组）对象图的首元素地址。
+**0x43ed8 是什么（大白话）**：`std::vector`（C++ 动态数组）拷贝构造点（首元素地址）。
 军棋 `OnCreate` 推进到这，vector 的 begin/end/capacity 未初始化（§124 的 ②
-C++ 对象图语义缺失）→ 读未初始化值 → 写未映射地址崩。Debugger 自吐帮你
-确认"卡在这"，但"补全对象图"是 §124 的 ②，unidbg 路线补不了。
+数据与指令对齐对应缺口，N44）→ 读未初始化值 → 写未映射地址崩。Debugger 自吐帮你
+确认"卡在这"，但"补运行时内存布局"是 §124 的 ②，unidbg 路线补不了。
 
 ## 17.2 自吐的 3 条路径（书内 §17）
 
@@ -169,9 +169,9 @@ Debugger（追踪）+ Hook（入口打印），Patch 是最后手段（改 so �
 | 环节 | 能干什么（✓） | 不能干什么（✗） |
 |---|---|---|
 | **runTo** | 跑到 14 个 `On*` 入口（Thumb 奇地址先 `&~1`） | 单步穿越 §124 三项阻塞（0x43ed8 前后读未初始化值必崩，被安全阀兜成 0） |
-| **step / showRegs** | 看 r0-r12 + pc 定位"哪条指令读了 0x43ed8" | 靠单步"走通"对象图（崩在数据缺失，不在指令，单步再细也补不出 std::vector 语义） |
+| **step / showRegs** | 看 r0-r12 + pc 定位"哪条指令读了 0x43ed8" | 靠单步"走通"拷贝构造点（崩在数据缺失，不在指令，单步再细也补不出 std::vector 运行时内存布局） |
 | **Hook 打印** | 14 入口入口/返回参数可打印（DiagJni 实证） | 打印 18 个 `.text` 常量（跑不到解包点，静态读不出，只能 redroid dump 72B） |
-| **自吐定位** | 定位 §124 的 ②（0x43ed8 std::vector 对象图卡点） | 把定位当解决（定位 ≠ 修复，三项阻塞 unidbg 补不了） |
+| **自吐定位** | 定位 §124 的 ②（0x43ed8 std::vector 数据与指令对齐卡点） | 把定位当解决（定位 ≠ 修复，三项阻塞 unidbg 补不了） |
 
 ## 17.4 军棋实战验证：Debugger 定位 OnCreate 卡点
 
@@ -188,14 +188,14 @@ Debugger（追踪）+ Hook（入口打印），Patch 是最后手段（改 so �
 | 自吐动作 | 军棋结果 | 大白话 |
 |---|---|---|
 | runTo(0x233e1) | 跑到 `OnCreate` 入口 ✓ | 定位到入口 |
-| step + showRegs | 看到 r0 指向 0x43ed8 | 单步看到对象图 |
+| step + showRegs | 看到 r0 指向 0x43ed8 | 单步看到拷贝构造点 |
 | Hook 打印 18 常量 | 卡（`OnCreate` 没跑通） | 18 常量需 redroid |
-**Debugger 看到的 0x43ed8 是什么？** `std::vector`（C++ 动态数组）对象图的首元素
-地址。军棋 `OnCreate` 推进到这，vector 的 begin/end/capacity 未初始化（§124 的
-② C++ 对象图语义缺失）→ 读未初始化值 → 写未映射地址崩。Debugger 自吐帮你
-确认"卡在这"，但"补全对象图"是 §124 的 ②，unidbg 路线补不了。
+**Debugger 看到的 0x43ed8 是什么？** `std::vector`（C++ 动态数组）拷贝构造点（首元素
+地址）。军棋 `OnCreate` 推进到这，vector 的 begin/end/capacity 未初始化（§124 的
+② 数据与指令对齐对应缺口，N44）→ 读未初始化值 → 写未映射地址崩。Debugger 自吐帮你
+确认"卡在这"，但"补运行时内存布局"是 §124 的 ②，unidbg 路线补不了。
 **"能定位 ≠ 能解决"（诚实边界）**：Debugger 自吐帮军棋**定位**了卡点（0x43ed8
-向量对象图），但定位后"补全对象图"是 §124 的 ② C++ 对象图语义缺失，unidbg
+向量拷贝构造点），但定位后"补运行时内存布局"是 §124 的 ② 数据与指令对齐对应缺口，unidbg
 模拟不了真实 C++ 布局。能定位卡点 ≠ 能解决卡点。
 ## 17.5 本章小结（一句话版）
 
@@ -203,7 +203,7 @@ Debugger（追踪）+ Hook（入口打印），Patch 是最后手段（改 so �
 > 军棋用 Debugger（runTo 0x233e1 / step / showRegs）定位 `OnCreate` 卡在
 > std::vector 0x43ed8，再用 Hook 打印 18 个 `.text` 常量（这条路卡住，退用 redroid）。
 > §124 的 3 项阻塞：① 上下文相关 BL 解码 bug（BL 0x7965a→0x6eaea 错位）
-> ② C++ 对象图语义缺失（std::vector 0x43ed8）③ 288MB PROT_NONE mmap。
+> ② 数据与指令对齐对应缺口（std::vector 0x43ed8，N44：业务数据 apk 静态可推，缺运行时对齐）③ 288MB PROT_NONE mmap。
 > Patch 军棋少用（.text 100% 对齐，改 so 字节是最后手段）。
 
 ## 视频

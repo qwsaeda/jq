@@ -29,7 +29,7 @@ DiagJni 把 OnCreate 推进到 `std::vector` 对象图 0x43ed8。剩余 **3 项�
    `BL 0x7965a` 被 unicorn2 解码成目标 `0x6eaea`(memset 循环),而真实目标是
    `0x43ed8`(std::vector 构造)。这是**模拟器精度 bug**(unicorn2 上下文相关),
    非翻译/逻辑 bug。待确认:换 dynarmic 后端 / code hook patch 目标 / unicorn2 版本修复。
-2. **② C++ 对象图语义缺失**:`std::vector` 对象图的 `begin/end/capacity`
+2. **② 数据与指令对齐对应缺口**:`std::vector` 对象图的 `begin/end/capacity`
    来自未初始化对象,需真实运行时/GPU。
 3. **③ 288MB PROT_NONE mmap**:unidbg mmap2 对 288MB PROT_NONE 处理失败。
 

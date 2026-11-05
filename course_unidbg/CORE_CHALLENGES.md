@@ -43,7 +43,7 @@
 - 军棋去广告：`FindClass("com/baidu/mobads/AdView")` 返 null（补环境 + 去广告一石二鸟）
 
 **难点**
-- **军棋"能跑" ≠ "能玩"卡 §124 三项阻塞**：① 上下文相关 BL 解码 bug ② C++ 对象图语义缺失 ③ 288MB PROT_NONE mmap——**这三项补环境解决不了**（模拟器精度 + 对象图语义 + mmap mock）
+- **军棋"能跑" ≠ "能玩"卡 §124 三项阻塞**：① 上下文相关 BL 解码 bug ② 数据与指令对齐对应缺口 ③ 288MB PROT_NONE mmap——**这三项补环境解决不了**（模拟器精度 + 数据与指令对齐语义 + mmap mock）
 - Hook 系统调用（open/read/close）→ I/O 重定向（第 16 章），Hook libc（`__cxa_atexit` 返 0）→ 避免读零 `.got` 崩，Hook JNI（`FindClass(AdView)` 返 null）→ 去广告——**三类 Hook 对应三层补环境**
 
 ---
@@ -115,7 +115,7 @@
 - 填号后的 18 个运行时地址是"填完 3 类重定位仍缺"的最后一块
 
 **难点**
-- **军棋比书内样本大 1MB，复杂度全翻上来**：书内样本 7 依赖 3 类重定位"小样本"，军棋 1MB so + 18 常量 + C++ 对象图，全翻上来
+- **军棋比书内样本大 1MB，复杂度全翻上来**：书内样本 7 依赖 3 类重定位"小样本"，军棋 **1.43MB/1435156B** so + 18 常量 + C++ 对象图，全翻上来
 - unidbg Linker 是 Bionic 简化版，**漏的 4 类**（军棋用到）：TLS / 信号栈 / 异常处理 / vdso——军棋全没用到（否则还会崩）
 - "填号"后 18 个运行时地址静态读不出 → redroid dump 72B 注入（工具三件套：`frida-dump/redroid_jni_dump.py` + `redroid_dump_jni.sh` + `gen_runtime_table.py`）
 

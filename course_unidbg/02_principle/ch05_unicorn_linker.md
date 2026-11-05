@@ -71,7 +71,7 @@ redroid dump + arm64 对齐版验证。unicorn2 不是"万能钥匙"，它修了
 - **跑不动 ≠ 是壳（加壳保护）**。军棋 `.rodata` 静态文件与 redroid（32 位 Android 容器）
   运行时 dump 逐字节相同（0/118832 不同），没有自解密例程——卡点在 3 项阻塞（§124 纠正后）：
   ① 上下文相关 BL 解码 bug（加载 .so 后 BL 0x7965a 被 unicorn2 解码成 0x6eaea，真实目标 0x43ed8）
-  ② C++ 对象图语义缺失（std::vector begin/end 未初始化）
+  ② 数据与指令对齐对应缺口（std::vector begin/end 未初始化）
   ③ 288MB PROT_NONE mmap（unidbg mmap2 处理失败）
 
 ## 5.1 Unicorn 的初级使用（手动搭一个最小模拟环境）
@@ -279,7 +279,7 @@ OnBluetooth / OnPause / OnGraphCreate / OnTimer / OnInput / OnTouch。
 **为什么军棋"加载全通"是重要里程碑（大白话）**：
 军棋 12/5312/214/6 全通 = "加载阶段无 bug"（搬进/接电话/通水电都做了），
 但"能加载"≠"能跑通业务"。军棋"能跑通"还差 3 项阻塞（§124 纠正后）：
-① 上下文相关 BL 解码 bug（unicorn2 精度）② C++ 对象图语义缺失 ③ 288MB
+① 上下文相关 BL 解码 bug（unicorn2 精度）② 数据与指令对齐对应缺口 ③ 288MB
 PROT_NONE mmap。unicorn2 切换只解决"指令翻译精度"（① 的前置），
 没解决 ②③——②③ 是 unidbg 路线天花板，军棋退而用 redroid dump + arm64 对齐版。
 **unicorn2 切换前后对比（大白话）**：
@@ -290,7 +290,7 @@ PROT_NONE mmap。unicorn2 切换只解决"指令翻译精度"（① 的前置）
 | `OnCreate` 推进 | 卡 0x43ed8（vector 对象图） | 卡 0x43ed8（同） |
 | 结论 | 指令精度错 | 指令精度对，但卡 native 对象图 |
 unicorn2 把"指令精度"修了，但"native 对象图"（§124 的 ②）两个后端都卡——
-证明卡点不在指令翻译，在 C++ 对象图语义。
+证明卡点不在指令翻译，在数据与指令对齐。
 ## 5.4.1 调用链追踪：函数对齐的新判据（军棋 §124q 自创方法论，原书无）
 
 > **定位说明**：本节是**军棋项目自创的方法论**（R6 影子运行时对齐 32→64 时发明），**原书《unidbg 逆向工程》没有"调用链作为函数对齐判据"这一层**。原书只在第 9 章（R0dbg 指令追踪排错）+ 第 15 章（Debugger 模块）讲了 trace 工具，但定位是"排错/看执行流"，没升级到"对齐判据"。军棋因为做了 32→64 影子运行时（有"原版 A vs 翻译体 B 是否一致"问题），才发明了这套"调用链判据"。
@@ -429,7 +429,7 @@ gen_render_full.py → wire_blx_dispatch.py（44 处 blx wire）→ gen_vtbl.py�
 > unidbg 的 Linker 是简化版 Bionic：mmap → 重定位 → init_array 三阶段，军棋 12/5312/214/6 全通。
 > 军棋 so 不是壳；`OnCreate` 推进到 `std::vector` 对象图 0x43ed8（DiagJni 实证）。
 > §124 纠正后，剩余卡点是 3 项阻塞：① 上下文相关 BL 解码 bug（unicorn2 精度，
-> 加载 .so 后 BL 0x7965a 错位到 0x6eaea）② C++ 对象图语义缺失 ③ 288MB PROT_NONE mmap。
+> 加载 .so 后 BL 0x7965a 错位到 0x6eaea）② 数据与指令对齐对应缺口 ③ 288MB PROT_NONE mmap。
 > **调用链工程化（5.4.2，§124u-z）**：获取（动态 traceCode/静态 objdump/编译时 gen_render_full）
 > → 存根（PLT 真实化 JQT_ABS_PTR + blx wire vtable 调度器 + ARM thunk + bx lr 桩）
 > → 验证（L1 单函数回归 1174 PASS / L2 调用链逐点 / L3 边统计关键路径缺口=0 / L4 MuMu 渲染）

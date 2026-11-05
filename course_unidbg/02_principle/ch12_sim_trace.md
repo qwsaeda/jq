@@ -41,12 +41,12 @@
 
 调 `FindClass` 要 DalvikVM 应答（第 11 章），`std::vector` 操作要 C++ 运行时补全。
 军棋 `OnCreate` 一执行就推进到 `std::vector` 对象图 0x43ed8 卡住
-（C++ 对象图未初始化，红线 §R6）。
+（数据与指令对齐未初始化，红线 §R6）。
 
 - **大白话卡点**：`OnCreate` 内部要接"Java 电话" + 操作"C++ 对象图"，
   每样都得有人应答，缺一个就崩。
-- **为什么卡**：`std::vector`（C++ 动态数组）对象图语义没补全。
-- **不解决会怎样**：推进到 0x43ed8 卡住（§124 的 ② C++ 对象图语义缺失）。
+- **为什么卡**：`std::vector`（C++ 动态数组）数据与指令对齐没补全。
+- **不解决会怎样**：推进到 0x43ed8 卡住（§124 的 ② 数据与指令对齐对应缺口）。
 
 **"内部电话 + C++ 对象图"为什么难（大白话）**：`OnCreate` 不只是"调个函数"，
 内部要：① 接 Java 电话（`FindClass`/`callMethod`，DalvikVM 应答）② 操作
@@ -69,7 +69,7 @@ unidbg 路线的天花板（§124 的 ②）。
 内部调用应答（3）才不崩在函数里。军棋实测：第 1、2 步全通（DiagJni 实证
 `createDalvikVM + resolveClass + callStaticJniMethodObject`），第 3 步卡在
 §124 纠正后 3 项阻塞：① 上下文相关 BL 解码 bug（加载 .so 后 BL 0x7965a 被
-unicorn2 解码成 0x6eaea，真实目标 0x43ed8，模拟器精度问题）② C++ 对象图语义缺失
+unicorn2 解码成 0x6eaea，真实目标 0x43ed8，模拟器精度问题）② 数据与指令对齐对应缺口
 （`std::vector` begin/end/capacity 未初始化）③ 288MB PROT_NONE mmap
 （unidbg mmap2 处理失败，红线 §R6 + §124）。
 
@@ -196,7 +196,7 @@ int objHash = vm.addGlobalObject(new DvmObject<?>());  // 注册全局对象拿 
 // 3. 调 OnCreate（0x233e1，注意是 Thumb 奇地址，调用前已 &~1 对齐）
 long ret = vm.getMemory().call(emulator, 0x233e1L, 0, jniEnv, objHash).singleValue();
 // 4. 军棋 DiagJni 实测：OnCreate 推进到 std::vector 对象图 0x43ed8
-//    （Java 侧全接通，卡在 native C++ 对象图未初始化）
+//    （Java 侧全接通，卡在 native 数据与指令对齐未初始化）
 ```
 
 **为什么 `objHash` 不是真实 GLView？** 军棋 7 个 Java 类在 unidbg 里是"替身"，
@@ -216,8 +216,8 @@ long ret = vm.getMemory().call(emulator, 0x233e1L, 0, jniEnv, objHash).singleVal
 | **找入口** | 按符号查 14 个 `On*` 地址（`.dynsym` 保留）；内部函数用 IDA/objdump 量地址 | 按符号调内部函数（strip 后 `.symtab` 空，内部函数没符号） |
 | **对齐入口** | `&~1` 把 Thumb 奇地址对齐到偶指令（0x233e1 → 0x233e0，红线 §R6） | 不对齐直接调（可达指令集为空 → 跑出 0KB body） |
 | **构造参数** | `getJNIEnv` 拿模拟的 232 函数表；`addGlobalObject` 注册 DvmObject 替身拿 hash | 用真机 `JNIEnv*` / 传真 C++ 对象（模拟环境没有；DalvikVM 里是"哈希"不是对象指针） |
-| **调函数** | 地址调用 `call(0x233e1, ...)` 14 个入口全通（DiagJni 推进到 0x43ed8） | 突破 0x43ed8（§124 ② C++ 对象图语义缺失，std::vector begin/end 未初始化） |
-| **应答内部调用** | `setJni` 实现 `findClass`/`getMethodID`/`callXxxMethod`（AdView 返 null 去广告） | 补 C++ 对象图语义（std::vector 语义缺失，§124 ②；unidbg 补不了） |
+| **调函数** | 地址调用 `call(0x233e1, ...)` 14 个入口全通（DiagJni 推进到 0x43ed8） | 突破 0x43ed8（§124 ② 数据与指令对齐对应缺口，std::vector begin/end 未初始化） |
+| **应答内部调用** | `setJni` 实现 `findClass`/`getMethodID`/`callXxxMethod`（AdView 返 null 去广告） | 补数据与指令对齐（std::vector 语义缺失，§124 ②；unidbg 补不了） |
 
 **军棋实测对照**：
 - 找入口 ✓（14 个 `On*` 全按符号查到地址）
@@ -225,7 +225,7 @@ long ret = vm.getMemory().call(emulator, 0x233e1L, 0, jniEnv, objHash).singleVal
 - 构造参数 ✓（getJNIEnv + addGlobalObject 全通）
 - 调函数 ✓（14 个入口全通，DiagJni 推进到 0x43ed8）
 - 应答内部调用 ✓（AdView 返 null 去广告，核心类正常）
-- **✗ 突破 0x43ed8**：§124 ② C++ 对象图语义缺失（Java 侧全接通后卡点转 native）
+- **✗ 突破 0x43ed8**：§124 ② 数据与指令对齐对应缺口（Java 侧全接通后卡点转 native）
 
 ## 12.5 军棋实战验证：三步全通但卡在第 3 步
 
@@ -244,7 +244,7 @@ long ret = vm.getMemory().call(emulator, 0x233e1L, 0, jniEnv, objHash).singleVal
 | 构造参数（env + obj） | 全通 ✓ | getJNIEnv + addGlobalObject |
 | 应答内部调用 | 卡 0x43ed8 | 推进到 std::vector 对象图后停 |
 **第 3 步卡在哪？** §124 的 3 项阻塞：① 上下文相关 BL 解码 bug（unicorn2 精度，
-加载 .so 后 BL 0x7965a 解码成 0x6eaea 而非真实目标 0x43ed8）② C++ 对象图语义缺失
+加载 .so 后 BL 0x7965a 解码成 0x6eaea 而非真实目标 0x43ed8）② 数据与指令对齐对应缺口
 （std::vector begin/end/capacity 未初始化，0x43ed8）③ 288MB PROT_NONE mmap
 （unidbg mmap2 处理失败）。**Java 侧全接通后，瓶颈全在 native 对象图**，
 unidbg 路线走不通这 3 项 → 只能 redroid dump（第 8/9 章）。
@@ -261,7 +261,7 @@ unidbg 路线走不通这 3 项 → 只能 redroid dump（第 8/9 章）。
 > "找函数"路径：loadLibrary → findSymbol → 入口地址（Thumb 奇地址 0x233e1 需 `&~1` 对齐）。
 > 军棋 DiagJni 实证 Java 侧全接通，`OnCreate` 推进到 `std::vector` 对象图 0x43ed8。
 > §124 纠正后剩余卡点 = 3 项阻塞：① 上下文相关 BL 解码 bug（unicorn2 精度，
-> BL 0x7965a 错位到 0x6eaea）② C++ 对象图语义缺失（std::vector 0x43ed8）
+> BL 0x7965a 错位到 0x6eaea）② 数据与指令对齐对应缺口（std::vector 0x43ed8）
 > ③ 288MB PROT_NONE mmap。
 
 ---

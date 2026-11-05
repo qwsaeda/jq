@@ -82,7 +82,7 @@ SPAK 每个字节与 `key[j % 32]` 异或，再 zlib 解压。标准 `base64 -d`
 
 **预判追问："Hook 解包函数入口，不还得先把 OnCreate 跑通？"** 对。解包函数
 是 so 的一部分，要跑它得先把 so 加载 + `OnCreate` 推进到解包点。军棋
-`OnCreate` 卡 0x43ed8（§124 的 ② C++ 对象图语义缺失）→ 没到解包点，
+`OnCreate` 卡 0x43ed8（§124 的 ② 数据与指令对齐对应缺口）→ 没到解包点，
 unidbg 路线 Hook 不了 → 退而 redroid 跑原版 so（真 dlopen + 真重定位，
 解包能推进）dump 数据。
 
@@ -198,7 +198,7 @@ emulator.getBackend().hook(module.base + SPAK_DECRYPT_ADDR, (hook) -> {
 ```
 **军棋这条路为什么"key 静态 ✓、解包卡"？** key 在 `.rodata` 明文直接 dump ✓；
 但 Hook 解包函数入口要跑通 so（`OnCreate` 推进到 0x43ed8 卡住，§124 的 ②
-C++ 对象图语义缺失）→ 退而 redroid 跑原版 so 真解包。军棋资源（棋子图集/
+数据与指令对齐对应缺口）→ 退而 redroid 跑原版 so 真解包。军棋资源（棋子图集/
 棋盘）实际靠 redroid dump 出的 `.rodata` 明文 + 已逆向的解包结构还原，
 不是 unidbg Hook。
 **为什么 Hook 解包"跑通"要 `OnCreate` 先通？** 解包函数是 so 的一部分，
@@ -236,7 +236,7 @@ C++ 对象图语义缺失）→ 退而 redroid 跑原版 so 真解包。军棋�
 | 棋盘 737×751 十字形 | XOR 还原 ✓ | 棋盘解出 |
 | unidbg Hook 解包 | 卡 0x43ed8（§124 的 ②） | 退用 redroid dump |
 **诚实边界**：军棋资源还原靠"key 静态 dump + 解包结构逆向 + redroid 真跑"，
-不靠 unidbg Hook。unidbg 路线卡在 §124 的 ② C++ 对象图语义缺失，
+不靠 unidbg Hook。unidbg 路线卡在 §124 的 ② 数据与指令对齐对应缺口，
 Hook 解包入口这条路走不通。arm64 对齐版（红线 §R6 + R5）已把棋子图集/棋盘几何
 逐条对齐，但 32 位 `.rodata` 明文的 18 个 `.text` 常量池仍需 redroid dump
 72B 注入。

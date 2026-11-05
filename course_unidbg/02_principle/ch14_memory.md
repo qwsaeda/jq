@@ -21,12 +21,12 @@ base=0x40000000 起（运行时坐标）。搬错坐标，所有交叉引用（�
 军棋 32 位 so 默认 0x40000（256KB）栈。栈开小了递归一深就溢出；`malloc` 模拟得对，
 C++ 对象图（`std::vector`）才建得起来——军棋 `OnCreate` 推进到 0x43ed8 就卡在
 §124 的 3 项阻塞：① 上下文相关 BL 解码 bug（unicorn2 精度，加载 .so 后 BL 0x7965a
-被解码成 0x6eaea 而非 0x43ed8）② C++ 对象图语义缺失（`std::vector` begin/end/
+被解码成 0x6eaea 而非 0x43ed8）② 数据与指令对齐对应缺口（N44）（`std::vector` begin/end/
 capacity 未初始化，堆上对象图没补全）③ 288MB PROT_NONE mmap（unidbg mmap2 处理失败）。
 
 - **大白话卡点**：桌面（栈）开小了递归一深就溢出；仓库（堆）里 C++ 对象图没补好，
   一操作就崩。
-- **为什么卡**：`std::vector`（C++ 动态数组）对象图语义要补全。
+- **为什么卡**：`std::vector`（C++ 动态数组）数据与指令对齐要补全。
 - **不解决会怎样**：OnCreate 推进到 0x43ed8 卡住。
 
 ### 痛点 3：`.got` 是零值槽，读它就是段错误
@@ -141,7 +141,7 @@ memory.mmap(base + 0x155000, 0x1000, PROT_READ | PROT_WRITE);
 
 ```java
 // 每个线程独立栈（军棋 32 位 so 默认 0x40000 = 256KB 字节）
-// 栈开小了递归一深就溢出；C++ 对象图（std::vector）也靠这块内存
+// 栈开小了递归一深就溢出；std::vector 对象图也靠这块内存
 memory.allocStack(0x40000);
 ```
 **为什么军棋栈开 0x40000（256KB）？** 军棋 32 位 so 递归较深（C++ 调用链），
@@ -220,7 +220,7 @@ module.dynamic = ...;  // DT_NEEDED 7 个依赖库（libc/libstdc++/libm/liblog/
 不查就 SIGSEGV（`PLT` 跳板找不到目标）。
 
 **"虚拟模块"跟"真 so"的区别**（大白话）：
-- 真 so（`libjunqi.so`）= 你拿到的 1MB ELF 文件，有完整 ELF 头 + `.dynsym`
+- 真 so（`libjunqi.so`）= 你拿到的 **1.43MB/1435156B** ELF 文件，有完整 ELF 头 + `.dynsym`
 - 虚拟模块（libc 等）= 没有 ELF 头，只有一张"符号表 + 入口地址"的简表
 - unidbg 对两者一视同仁（都挂进 `SvcMemory`），但虚拟模块"查符号"更快
   （没有完整 ELF 段，只有符号表）
@@ -264,7 +264,7 @@ module.dynamic = ...;  // DT_NEEDED 7 个依赖库（libc/libstdc++/libm/liblog/
 | 环节 | 能干什么（✓） | 不能干什么（✗） |
 |---|---|---|
 | **mmap 段** | 2 个 PT_LOAD（r-x 0x001000-0x155000 / rw- 0x155000-0x15a000）全映射到 base=0x40000000 | 真 Linux mmap 语义（Java 堆 mock，PROT_NONE/PROT_EXEC 是"假的"，§124 ③） |
-| **栈/堆** | 栈 0x40000（256KB）够用；堆模拟 `malloc`（`std::vector` 在这里分配） | 补 C++ 对象图语义（std::vector begin/end/capacity 未初始化，§124 ②） |
+| **栈/堆** | 栈 0x40000（256KB）够用；堆模拟 `malloc`（`std::vector` 在这里分配） | 补数据与指令对齐（std::vector begin/end/capacity 未初始化，§124 ②） |
 | **填 .got** | 重定位时填 5312 RELATIVE + 214 PLT + 6 GLOB_DAT（内存里填，不是写回静态文件） | 从静态 `.got` 读运行时值（静态文件全 0，未重定位；需 redroid dump 18 地址 72B） |
 | **查门牌** | `findSymbol` 查 14 个 `On*` 导出符号（`.dynsym` 保留），`&~1` 对齐偶指令 | 查内部函数符号（strip 后 `.symtab` 空，内部函数没符号） |
 | **拦截/改电路** | Hook `__cxa_atexit`（喂 0 跳过读零 `.got`）、`FindClass`（喂 null 去广告） | 绕过 §124 ③ 288MB PROT_NONE mmap（unidbg mmap2 处理失败） |

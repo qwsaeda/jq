@@ -179,7 +179,7 @@ emulator.getFileSystem().link(
 |---|---|---|
 | **JNI_OnLoad 注册** | 14 个 `On*` 入口 `RegisterNatives` 全登记（DiagJni 实证 `createDalvikVM + resolveClass + callStaticJniMethodObject` 全通） | 让广告类"正常初始化"——军棋目标是 AdView 返 null 跳过，"正常初始化"与去广告目标相反 |
 | **AdView 应答** | `FindClass` 返 null，so 跳广告分支不崩（补环境 + 去广告一石二鸟） | 删 baidu smali 后再改应答策略（native 引用点固定在 `JNI_OnLoad`，删 smali 前必须先固定"返 null"） |
-| **文件标识** | `one.sjg` 读（续局）+ 写（`OnPause` 保存）经 I/O 重定向落宿主 | 让 `one.sjg` 承载"完整对局语义"（格式已逆向，但"存档读到后棋盘还原正确性"卡 C++ 对象图 §124 的 ②，读到了 ≠ 还原对） |
+| **文件标识** | `one.sjg` 读（续局）+ 写（`OnPause` 保存）经 I/O 重定向落宿主 | 让 `one.sjg` 承载"完整对局语义"（格式已逆向，但"存档读到后棋盘还原正确性"卡 §124 的 ② 数据与指令对齐对应缺口，读到了 ≠ 还原对） |
 
 ## 23.4 军棋实战验证：两层补全 so"接得住"
 
@@ -200,20 +200,20 @@ emulator.getFileSystem().link(
 | `one.sjg` 存档 | 重定向可读 ✓ | "打卡记录"拿到了 |
 | 7 config XML | 重定向可读 ✓ | 配置读到了 |
 **两层补全后 so"接得住"**：`OnCreate` 接通 Java 侧（14 入口注册）+ 读到
-`one.sjg` 续局 + 读到 7 个 config。但推进到 `std::vector` 对象图 0x43ed8
-仍卡（§124 的 ② C++ 对象图语义缺失）——标识记录补的是"我是谁/我干到哪"，
-不补"native 对象图语义"。
+`one.sjg` 续局 + 读到 7 个 config。但推进到 `std::vector` 拷贝构造点 0x43ed8
+仍卡（§124 的 ② 数据与指令对齐对应缺口，N44）——标识记录补的是"我是谁/我干到哪"，
+不补"运行时内存布局"。
 **"接得住 vs 跑得通"（诚实边界）**：标识记录补全是"接得住"（`OnCreate`
-接通 Java、读存档、读配置都通），但"跑得通"（游戏能玩）还差 native 对象图
-语义（§124 的 ② std::vector 0x43ed8）+ redroid dump 的 18 常量池。
-标识记录是"接电话"，对象图是"聊业务"，接得住 ≠ 聊得通。
+接通 Java、读存档、读配置都通），但"跑得通"（游戏能玩）还差 §124 的 ②
+数据与指令对齐对应缺口（std::vector 0x43ed8，N44：业务数据 apk 静态可推，缺运行时对齐）+ redroid dump 的 18 常量池。
+标识记录是"接电话"，数据与指令对齐是"聊业务"，接得住 ≠ 聊得通。
 ## 23.5 本章小结（一句话版）
 
 > 标识记录 = so 的"工牌"（JNI 注册 14 个 `On*` + AdView）+ "打卡记录"
 > （`one.sjg` 存档）。
 > 军棋两层补全：JNI_OnLoad 已实证（DiagJni），AdView 返回 null 去广告，
 > `one.sjg` 续局 + 7 config XML 重定向可读。
-> 标识记录补的是"身份 + 状态"，不补"native 对象图语义"——`OnCreate` 仍卡
-> 0x43ed8（§124 的 ②）。
+> 标识记录补的是"身份 + 状态"，不补"运行时内存布局"——`OnCreate` 仍卡
+> 0x43ed8（§124 的 ② 数据与指令对齐对应缺口）。
 
 ## 视频

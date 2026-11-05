@@ -76,9 +76,9 @@ unidbg 模拟时这仨是随机垃圾值 → 读 `begin` 指向的地址 = 写�
 （begin/end/capacity/size）写好，模拟环境里标签没写（垃圾值），你手动补上
 标签（全指向 scratch 空区 = 空 vector）→ 柜子走"空路径"，函数干净返回。
 
-**预判追问："给 vector 补 begin/end 不就转译/还原了？为什么不算'补全对象图'？"**
+**预判追问："给 vector 补 begin/end 不就转译/还原了？为什么不算'补运行时对齐'？"**
 vecfix 补的是"一次性快照"：0x43ed8 这次调用时把 r0/r1/r2 全指向 scratch，
-函数走空路径返回。但**对象图后续演化**（别的 vector 构造、拷贝、扩容）
+函数走空路径返回。但**运行时布局后续演化**（别的 vector 构造、拷贝、扩容）
 每个都要单独补，且"该补哪个 vector、size 是多少"来自真实运行时布局——
 unidbg 给不了"真实布局"，只能给"这次调用别崩"。所以 vecfix 是"安全阀"
 （37 次全补、崩不掉），不是"对象图补全"（语义正确）。§124g 的 std::string
@@ -224,7 +224,7 @@ vm.setJni(new Jni() {
 | 环节 | 能干什么（✓） | 不能干什么（✗） |
 |---|---|---|
 | **code cave（§124b）** | 0xc3a68 nop padding 写 trampoline，patch BL 0x7965a → cave → 0x43ed8（隔离环境 + no-init_array 全通） | 在"完整环境（init_array 后）"写 cave（.text 变只读，写入静默失败，§124c DiagCave7/8 实证） |
-| **vecfix（§124e）** | 0x43ed8 无条件 patch r0=r1=r2=scratch，37 次全补，vector 函数走空路径 | 补"对象图语义"（vecfix 是"逐调用安全阀"，不是"真实布局补全"；§124g 的 std::string 全局表连 vecfix 都够不着） |
+| **vecfix（§124e）** | 0x43ed8 无条件 patch r0=r1=r2=scratch，37 次全补，vector 函数走空路径 | 补"运行时内存布局"（vecfix 是"逐调用安全阀"，不是"真实布局补全"；§124g 的 std::string 全局表连 vecfix 都够不着） |
 | **JunqiJni handler（§124f）** | 37+ 个 JNI 调用全应答（getStatic*/callStatic*/newObjectV 全变体），GLView/EGL/setContentView/registerReceiver 全通 | 绕过 §124g 全局未初始化（JNI 应答再全，也救不了"native 全局函数指针表是垃圾"） |
 | **no-init_array 路径** | `OnCreate` 推进到 ~90%（比 init_array 路径的"bx bug 直接坏"深得多） | 补完最后 10%（全局 std::string 地址表未初始化 → 垃圾调用链 READ_PROT，需逆向全局表手动初始化，工作量大未做） |
 | **288MB mmap** | 定位到 `mem_map 0x3743f000, 302243840, perms=0`（DiagJni5 实证） | unidbg `mmap2` 直接处理（288MB PROT_NONE 映射失败，需 syscall hook 或配置） |

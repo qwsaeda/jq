@@ -152,7 +152,7 @@ libc.so / libstdc++.so / libm.so / libdl.so / liblog.so / libGLESv1_CM.so / libG
 的全局变量地址（非函数），unidbg AndroidResolver 不直接给真地址，得从真 ARM libc
 二进制里读出运行时值再填。军棋 6 个已实证解析成功（红线 §R6）。
 
-**4 个数为什么是"军棋指纹"？** 12/5312/214/6 是军棋 1MB so 的固定特征
+**4 个数为什么是"军棋指纹"？** 12/5312/214/6 是军棋 **1.43MB/1435156B** so 的固定特征
 （重定位表条目数），后续任何"加载对没对"的核对都用这 4 个数当基准。
 全通 = 加载阶段无 bug。
 
@@ -237,7 +237,7 @@ libc.so / libstdc++.so / libm.so / libdl.so / liblog.so / libGLESv1_CM.so / libG
 | **选后端** | unicorn2 修 PC off-by-2（dynarmic 的 `add rX,pc` 掩码 bug） | 绕过 §124 ① 上下文相关 BL 解码 bug（unicorn2 加载 so 后 BL 0x7965a 错位到 0x6eaea） |
 | **加载 so** | 12 init_array + 5312 RELATIVE + 214 PLT + 6 GLOB_DAT 全通 | 读 `.got` 真值到静态文件（unidbg 只在内存里填，静态文件全 0） |
 | **填依赖库** | 7 个 `DT_NEEDED` 全解析（5 自带 + 2 GL 挂桩） | GL 真渲染（无真 GPU，挂桩返回 0） |
-| **跑 init_array** | 12+1 全跑完（通水电） | 跑通 `OnCreate` 业务逻辑（卡在 §124 ② C++ 对象图 0x43ed8） |
+| **跑 init_array** | 12+1 全跑完（通水电） | 跑通 `OnCreate` 业务逻辑（卡在 §124 ② 数据与指令对齐 0x43ed8（N44，原"对象图"）） |
 | **内存布局** | base=0x40000000 全段映射，`.got` 零值槽预留 | 绕过 §124 ③ 288MB PROT_NONE mmap（unidbg mmap2 处理失败） |
 
 **军棋实测对照**：
@@ -246,7 +246,7 @@ libc.so / libstdc++.so / libm.so / libdl.so / liblog.so / libGLESv1_CM.so / libG
 - 填依赖库 ✓（7 个全解析，2 GL 挂桩；含 liblog，32 位 so 的调试日志依赖）
 - 跑 init_array ✓（12+1 全跑完）
 - 内存布局 ✓（base=0x40000000，`.got` 零值槽预留）
-- **✗ 绕过 §124 三项阻塞**：① BL 解码 bug（unicorn2 精度）② C++ 对象图（std::vector
+- **✗ 绕过 §124 三项阻塞**：① BL 解码 bug（unicorn2 精度）② 数据与指令对齐（std::vector
   未初始化，0x43ed8）③ 288MB PROT_NONE mmap（unidbg mmap2 处理失败）
 
 军棋 14 个 JNI 入口（readelf `--dyn-syms` 实测，加载全通后按地址调）：OnCreate /
@@ -269,11 +269,11 @@ OnBluetooth / OnPause / OnGraphCreate / OnTimer / OnInput / OnTouch。
 |---|---|---|
 | 能加载（12/5312/214/6） | 全通 ✓ | 搬进来、接电话线、通水电都做了 |
 | 能接通 Java（JNI_OnLoad） | DiagJni 全通 ✓ | 电话打给 Java 客服有人接了 |
-| 能跑通 OnCreate | **卡 3 项阻塞** | 卡在 native C++ 对象图 |
+| 能跑通 OnCreate | **卡 3 项阻塞** | 卡在 native 数据与指令对齐（N44） |
 **关键认知**：军棋"能加载"早已达成，真正的卡点在 `OnCreate` 调用阶段
-（§124 的 ① 上下文相关 BL 解码 bug ② C++ 对象图语义缺失 ③ 288MB PROT_NONE mmap）。
+（§124 的 ① 上下文相关 BL 解码 bug ② 数据与指令对齐对应缺口（N44）③ 288MB PROT_NONE mmap）。
 所以别把"加载全通"误读成"能玩了"——能加载只是"把 so 搬进内存"，离"游戏能跑"还差
-C++ 对象图语义（第 12/22 章展开）。
+数据与指令对齐语义（第 12/22 章展开）。
 **"能加载全通"的 4 个证据（红线 §R6）**：
 1. 12 个 init_array 全跑完（初始化函数无崩点）
 2. 5312 RELATIVE 全换算（内部引用指对位置）
@@ -291,7 +291,7 @@ OnBluetooth / OnPause / OnGraphCreate / OnTimer / OnInput / OnTouch。
 > 军棋 so 不是壳（`.rodata` 明文 118KB 已 dump）；unicorn2 后端修掉 dynarmic 的
 > PC off-by-2，是军棋 unidbg 路线的关键突破。
 > "能加载"≠"能调用"，`OnCreate` 仍卡 §124 的 3 项阻塞
-> （① 上下文相关 BL 解码 bug ② C++ 对象图语义缺失 ③ 288MB PROT_NONE mmap）。
+> （① 上下文相关 BL 解码 bug ② 数据与指令对齐对应缺口（N44）③ 288MB PROT_NONE mmap）。
 
 ---
 

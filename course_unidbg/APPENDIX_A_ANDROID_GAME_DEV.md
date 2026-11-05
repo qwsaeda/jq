@@ -147,7 +147,7 @@ so 读 getDefaultDisplay().getWidth()（分辨率）
 
 **"为什么懂入口语义对逆向有用"**：
 - **选哪个入口测**：想测"走子规则"→ 调 `OnTouch`（点格子）+ `OnGraphChange`（看棋盘更新），不是 `OnCreate`
-- **为什么调 `OnCreate` 崩**：`OnCreate` 是"建对象"入口，崩在"建对象时对象图未初始化"（§124 ②），跟"走子规则"无关
+- **为什么调 `OnCreate` 崩**：`OnCreate` 是"建对象"入口，崩在"建对象时数据与指令对齐未初始化"（§124 ②），跟"走子规则"无关
 - **§124z 黑屏跟"渲染入口"的关系**：渲染入口 = `OnGraphChange`/`OnUpdate`/`OnTimer`（循环里反复调），黑屏根因是这些入口里的"glClear 类对象未构造"（A.3 游戏循环 + A.2 渲染管线）
 
 ---

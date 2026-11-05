@@ -203,7 +203,7 @@ POST /junqi/onCreate
   深层 bug）+ no-init_array 全局未初始化（§124g）+ 288MB PROT_NONE
   mmap（DiagJni5）
 - 完整"能玩"需**真实 arm64 GPU 设备验收**（redroid 无 GPU，只能 dump
-  数据；MuMu 影子库稳定运行但游戏板黑屏——对象图分歧）
+  数据；MuMu 影子库稳定运行但游戏板黑屏——数据与指令对齐分歧）
 - 军棋 64 位简化版（`rev64/src/junqi.cpp`）是简化重写（10×9 棋盘、
   颜色棋子、自动走子、GLES2 渲染），**非原版 1MB native 的汇编级逆向**；
   SPAK 解密 key 已提取但资源图为占位，玩法/规则/资源与 32 位原版不一致

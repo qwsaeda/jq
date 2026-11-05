@@ -246,7 +246,7 @@ unicorn2 后端去维度 4，3 招补齐。
 "so 没查出来是 unidbg"，不证明"so 能完整跑 OnCreate"——§124d-g
 的三项阻塞（init_array 路径 bx bug / no-init_array 路径全局未初始化 /
 288MB PROT_NONE mmap）与环境变量/hook 检测无关，反检测全通也突破不了
-对象图卡点。
+数据与指令对齐卡点。
 ## 28.6 本章小结（一句话版）
 
 > xHook 检测 = so 查"我是不是被 hook 了"。

@@ -53,13 +53,13 @@ so 一崩，你只知道"崩了"，不知道"崩在哪条指令、读的哪个�
 
 **军棋诚实边界**：第 3 层"主动取值"军棋**走不通**——因为 `OnCreate` 推进到
 `std::vector` 对象图 0x43ed8 就卡住（§124 纠正后 3 项阻塞：① 上下文相关 BL 解码 bug
-② C++ 对象图未初始化 ③ 288MB PROT_NONE mmap，红线 §R6 + §124），拿不到 18 地址的完整
+② 数据与指令对齐未初始化 ③ 288MB PROT_NONE mmap，红线 §R6 + §124），拿不到 18 地址的完整
 运行时上下文。所以军棋 18 地址唯一拿法仍是 **redroid 跑原版 so → dlopen 后 dump
 72 字节**（`frida-dump/redroid_jni_dump.py` 三件套）。
 
 **预判追问："为什么 unidbg_FindKey 拿不到 18 常量，redroid 却能？"**
 unidbg_FindKey 思路是"跑通 so → hook 常量池地址 → 读运行时值"，但军棋 unidbg
-跑不通（§124 三项阻塞：① BL 解码 bug ② C++ 对象图 ③ 288MB mmap），到不了
+跑不通（§124 三项阻塞：① BL 解码 bug ② 数据与指令对齐对应（N44，原"对象图"）③ 288MB mmap），到不了
 "填 18 常量"的时机。redroid 是真跑原版 32 位 so（有 GPU + 真 dlopen + 真内核），
 `.text` 常量池被 linker 填上真值，dump 出 72B 注入 unidbg 适配层（`jq_load_runtime_values`）
 → 模拟时读到正确值。**本质区别：redroid 是真跑，unidbg 是模拟跑（模拟跑不全）**。
@@ -176,7 +176,7 @@ hook 关键地址 → 读运行时值）。军棋 so 的"密钥"场景有两个�
      `.rodata` 静态即明文已证）
    - **unidbg_FindKey 思路**：跑通 dlopen → hook 常量池地址 → 取运行时值
    - **但军棋走不通**：`OnCreate` 对象图未补全（推进到 `std::vector` 0x43ed8 卡住，
-     §124 纠正后 3 项阻塞：① 上下文相关 BL 解码 bug ② C++ 对象图未初始化
+     §124 纠正后 3 项阻塞：① 上下文相关 BL 解码 bug ② 数据与指令对齐未初始化
      ③ 288MB PROT_NONE mmap）→ 仍需 **redroid 跑原版 dump 这 18 地址 72 字节**
      （工具三件套 `redroid_jni_dump.py` + `redroid_dump_jni.sh` + `gen_runtime_table.py`，
      红线 §R6）
@@ -192,7 +192,7 @@ hook 关键地址 → 读运行时值）。军棋 so 的"密钥"场景有两个�
 
 **"为什么 unidbg 拿不到这 18 地址"（大白话）**：
 unidbg 模拟 so，但 §124 的 ① 上下文相关 BL 解码 bug（unicorn2 精度）+
-② C++ 对象图语义缺失 + ③ 288MB PROT_NONE mmap 让 unidbg 跑不到"填 18 地址"
+② 数据与指令对齐对应缺口（N44） + ③ 288MB PROT_NONE mmap 让 unidbg 跑不到"填 18 地址"
 的时机。redroid 是真跑原版 so（有 GPU + 真 dlopen），`.text` 常量池被填上真值，
 dump 出 72B 注入 unidbg 适配层（`jq_load_runtime_values`）→ 模拟时读到正确值。
 
@@ -209,14 +209,14 @@ dump 出 72B 注入 unidbg 适配层（`jq_load_runtime_values`）→ 模拟时�
 | **指令追踪（R0dbg）** | 一条一条拍指令执行流，定位崩在哪条（12 init_array 全跑完、JNI_OnLoad 跑通） | 单步穿越 §124 三项阻塞（BL 解码 bug / C++ 对象图 / 288MB mmap） |
 | **系统调用拦截** | 拦 `open`/`uname`/`mmap` 喂假数据骗过反检测（fd=1、uname 正常值） | 给真 `mmap` 288MB PROT_NONE（unidbg mmap2 处理失败，§124 ③） |
 | **主动取值（FindKey）** | 跑通 so 后 hook 关键地址读运行时值（SPAK key 32B 静态 dump 也行） | 拿 18 个 `.text` 常量（unidbg 跑不通，§124 ①②③，需 redroid dump） |
-| **定位崩点** | OnCreate 推进到 `std::vector` 对象图 0x43ed8（DiagJni 实证），PC off-by-2 修好（0xa37fc=0x159880） | 突破 0x43ed8（§124 ② C++ 对象图语义缺失，std::vector begin/end 未初始化） |
+| **定位崩点** | OnCreate 推进到 `std::vector` 对象图 0x43ed8（DiagJni 实证），PC off-by-2 修好（0xa37fc=0x159880） | 突破 0x43ed8（§124 ② 数据与指令对齐对应缺口（N44），std::vector begin/end 未初始化） |
 
 **军棋实测对照**：
 - 指令追踪 ✓（R0dbg 拍到 12 init_array 全跑完、JNI_OnLoad 跑通、OnCreate 推进到 0x43ed8）
 - 系统调用拦截 ✓（`open`/`uname` 喂假数据）
 - 主动取值 ⚠️（SPAK key 静态 dump ✓；18 常量 unidbg 拿不到，需 redroid）
 - 定位崩点 ✓（0x43ed8 + PC off-by-2 修好）
-- **✗ 突破 0x43ed8**：§124 ② C++ 对象图语义缺失（std::vector 未初始化）
+- **✗ 突破 0x43ed8**：§124 ② 数据与指令对齐对应缺口（N44）（std::vector 未初始化，N44 外层缺口）
 
 ## 9.6 军棋实战验证：R0dbg 追踪 OnCreate 崩点
 
@@ -226,11 +226,11 @@ dump 出 72B 注入 unidbg 适配层（`jq_load_runtime_values`）→ 模拟时�
 |---|---|---|
 | 12 init_array | 全跑完 ✓ | 初始化无崩点 |
 | JNI_OnLoad | 跑通 ✓ | 注册 14 入口 |
-| OnCreate（0x233e1） | 推进到 `std::vector` 0x43ed8 后卡 | 卡在 native C++ 对象图 |
+| OnCreate（0x233e1） | 推进到 `std::vector` 0x43ed8 后卡 | 卡在 native 数据与指令对齐（N44） |
 | 0xa37fc（PC off-by-2） | dynarmic 存 `&~3`（错），unicorn2 存 0x159880（对） | 后端切换铁证 |
 
 **结论**：R0dbg 把"崩在哪"看得清清楚楚——不是 init、不是 JNI 注册，是 `OnCreate`
-推进到 0x43ed8（std::vector 对象图）后卡住，加上 §124 的 ① 上下文相关 BL 解码 bug
+推进到 0x43ed8（std::vector 拷贝构造点（数据与指令对齐，N44））后卡住，加上 §124 的 ① 上下文相关 BL 解码 bug
 （加载 .so 后 BL 0x7965a 被 unicorn2 解码成 0x6eaea 而非真实目标 0x43ed8）。
 
 ## 9.7 本章小结（一句话版）
@@ -238,7 +238,7 @@ dump 出 72B 注入 unidbg 适配层（`jq_load_runtime_values`）→ 模拟时�
 > R0dbg = 追踪 + 拦截，能定位崩点、喂假数据骗过反检测（军棋 12 init_array 全通后用它排错）。
 > Unidbg_FindKey 的"跑通再 hook 取值"对军棋 18 个 `.text` 常量**走不通**
 > （OnCreate 卡 0x43ed8，§124 纠正后 3 项阻塞：① 上下文相关 BL 解码 bug
-> ② C++ 对象图未初始化 ③ 288MB PROT_NONE mmap），唯一拿法是 redroid dump。
+> ② 数据与指令对齐未初始化 ③ 288MB PROT_NONE mmap），唯一拿法是 redroid dump。
 > 军棋 PC off-by-2 已用 unicorn2 后端修复（DiagTracePC 实证 0xa37fc = 0x159880）。
 
 ---

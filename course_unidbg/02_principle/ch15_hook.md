@@ -221,13 +221,13 @@ unidbg 的 Debugger 模块（基于 r0dbg 思路），四个"镜头"各拍一类
 军棋 32 位 so 的 Debugger 实证（红线 §R6）：
 - `DiagTracePC` 0xa37fc 存 0x159880 = 不 mask 值（unicorn2 修复 PC off-by-2 的铁证）
 - `DiagJni` OnCreate 推进到 `std::vector` 对象图 0x43ed8（Java 侧接通后卡在 §124 的
-  3 项阻塞：① 上下文相关 BL 解码 bug ② C++ 对象图未初始化 ③ 288MB PROT_NONE mmap）
+  3 项阻塞：① 上下文相关 BL 解码 bug ② 数据与指令对齐未初始化 ③ 288MB PROT_NONE mmap）
 ## 15.3 逐环节"能干什么 / 不能干什么"
 
 | 环节 | 能干什么（✓） | 不能干什么（✗） |
 |---|---|---|
 | **mmap 段** | 2 个 PT_LOAD（r-x/rw-）全映射到 base=0x40000000 | 真 Linux mmap 语义（Java 堆 mock，PROT_NONE 是"假的"，§124 ③） |
-| **栈/堆** | 栈 0x40000（256KB）够用；堆模拟 `malloc` | 补 C++ 对象图语义（std::vector begin/end 未初始化，§124 ②） |
+| **栈/堆** | 栈 0x40000（256KB）够用；堆模拟 `malloc` | 补数据与指令对齐（std::vector begin/end 未初始化，§124 ②） |
 | **填 .got** | 重定位时填 5312 RELATIVE + 214 PLT + 6 GLOB_DAT（内存里填） | 从静态 `.got` 读运行时值（静态文件全 0，需 redroid dump 18 地址 72B） |
 | **Hook 拦截** | Hook `__cxa_atexit`（喂 0 跳过读零 `.got`）、`FindClass`（喂 null 去广告）、I/O 重定向 | 拦截 288MB PROT_NONE mmap（unidbg mmap2 处理失败，§124 ③） |
 | **Debugger 追踪** | `DiagTracePC` 拍到 0xa37fc=0x159880（PC off-by-2 修好）；`DiagJni` 拍到 OnCreate 推进到 0x43ed8 | 单步穿越 §124 三项阻塞（BL 解码 bug / C++ 对象图 / 288MB mmap） |
@@ -266,7 +266,7 @@ unidbg 的 Debugger 模块（基于 r0dbg 思路），四个"镜头"各拍一类
 > `.got` + `FindClass` 喂 null 跳广告类），一石二鸟（补环境 + 去广告）。
 > unidbg Debugger = "行车记录仪四镜头"（InterruptHook/CodeTrace/MemoryTrace/Console），
 > 军棋实证 DiagTracePC（PC off-by-2 修复）+ DiagJni（OnCreate 到 0x43ed8，
-> 卡在 §124 的 3 项阻塞：① 上下文相关 BL 解码 bug ② C++ 对象图未初始化
+> 卡在 §124 的 3 项阻塞：① 上下文相关 BL 解码 bug ② 数据与指令对齐未初始化
 > ③ 288MB PROT_NONE mmap）。
 > 军棋 18 个 `.text` 常量池静态读不出，需 redroid dump；Hook 优先、Patch 是最后手段
 > （军棋 `.text` 100% 对齐基本不 patch）。

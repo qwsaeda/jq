@@ -34,17 +34,17 @@ OnBluetooth / OnPause / OnGraphCreate / OnTimer / OnInput / OnTouch），
 
 ### 卡点 3：补到最后发现"语义不对"
 
-军棋的 C++ 对象图（`std::vector`）不是"没补"，是"补了也不对"——这是最难的。
+军棋的 C++ 运行时布局（`std::vector`）不是"没补"，是"补了也不对"——这是最难的。
 
-- **大白话卡点**：前三层（文件/库/Java）补了能过，但第四层"C++ 对象图语义"
-  补了也不对（std::vector 的 begin/end/capacity 没初始化）。
-- **为什么卡**：`std::vector` 对象图语义不是"补个值"能解决的，要理解真实
+- **大白话卡点**：前三层（文件/库/Java）补了能过，但第四层"数据与指令对齐对应"
+  补了也不对（std::vector 的 begin/end/capacity 没初始化，N44：业务数据 apk 静态可推，缺运行时对齐）。
+- **为什么卡**：`std::vector` 运行时布局不是"补个值"能解决的，要理解真实
   C++ 运行时布局（begin 指向堆首元素、end=begin+size、capacity 预留），
   这些值来自 dlopen 后的真实运行时，静态/模拟都读不出。
 - **不解决会怎样**：`OnCreate` 推进到 0x43ed8 卡住（§124 的 ②），
   补环境到顶也突破不了。
 
-## 为什么这样做：按"系统调用 → Java 方法 → 指令 → C++ 对象图"四层补
+## 为什么这样做：按"系统调用 → Java 方法 → 指令 → 数据与指令对齐"四层补
 
 补环境的核心思路：**so 假设它在真 Android 上，你一层层把"真 Android 的应答"补上。**
 
@@ -70,17 +70,17 @@ patch 是"直接改 so 的字节"（比如把 `bl __cxa_atexit` 改成 `bx lr`�
 
 **预判追问："前三层都通了，第四层能不能也'补个值'糊弄过去？"** 不能。
 前三层补的是"应答值"（open 返 fd、FindClass 返类），值错了还能重跑修正；
-第四层补的是"对象图不变式"（std::vector 的 begin/end/capacity 三指针要
+第四层补的是"数据与指令对齐不变式"（std::vector 的 begin/end/capacity 三指针要
 满足"指向同一堆区 + end=begin+size + capacity≥size"），这个不变式来自
 **真实 C++ 运行时布局**（谁 new 的、堆在哪、几号块），unidbg 模拟环境里
-没人知道——手工填 begin/end/capacity 只能填一次，对象图后续演化（拷贝构造、
-扩容）全乱。这就是 §124 的 ② "C++ 对象图语义缺失"补不了的原因。
+没人知道——手工填 begin/end/capacity 只能填一次，对象后续演化（拷贝构造、
+扩容）全乱。这就是 §124 的 ② "数据与指令对齐对应缺口"补不了的原因。
 
 **"挑剔租客"的四层需求（大白话）**：
 - 第 1 层"水电"（系统调用）：读文件/调 libc → mock 值，最易
 - 第 2 层"物业"（Java 方法）：查类/调方法 → DalvikVM 应答，中等
 - 第 3 层"改合同"（patch 指令）：改指令直接返 0 → 少用（军棋基本不 patch）
-- 第 4 层"手艺"（C++ 对象图）：std::vector 真实布局 → 补不了（unidbg 天花板）
+- 第 4 层"手艺"（数据与指令对齐）：std::vector 真实布局 → 补不了（unidbg 天花板）
 军棋"水电 + 物业"全补（前三层通），"手艺"补不了（第四层卡 0x43ed8）。
 
 ## 22.1 军棋补环境现状（红线 §R6 实测）
@@ -110,18 +110,18 @@ patch 是"直接改 so 的字节"（比如把 `bl __cxa_atexit` 改成 `bx lr`�
   而真实目标是 `0x43ed8`（std::vector 构造）。隔离环境 BL 全对，
   说明是"上下文相关"的解码错位。workaround：换 dynarmic 后端 /
   code hook patch 目标 / unicorn2 版本修复。
-- **② C++ 对象图语义缺失**：std::vector 的 `begin`/`end`/`capacity` 来自
-  未初始化对象，模拟器填不出"真实运行时"的对象布局。
+- **② 数据与指令对齐对应缺口**：std::vector 的 `begin`/`end`/`capacity` 来自
+  未初始化对象，模拟器填不出"真实运行时"的对象布局（N44：业务数据 apk 静态可推，缺运行时对齐）。
 - **③ 288MB PROT_NONE mmap**：unidbg mmap2 对 288MB PROT_NONE 处理失败。
 **3 项阻塞为什么都"补不了"？** ① 是模拟器精度 bug（unicorn2 解码错），
-不是"缺环境"；② 是 C++ 语义（std::vector 对象图要真实布局），不是
+不是"缺环境"；② 是运行时内存布局（std::vector 真实布局要真机构造链），不是
 "补个值"；③ 是 unidbg mmap2 限制（288MB 太大）。三者都不是"再补点
 环境"能解决的，是 unidbg 路线的天花板。
-**"补环境"和"补语义"的分界（大白话）**：
+**"补环境"和"补对齐"的分界（大白话）**：
 - 补环境（前三层）= 把"真 Android 的应答"补上（系统调用/Java/指令），军棋全通
-- 补语义（第四层）= 把"真实 C++ 对象图"补对（std::vector 的 begin/end/
+- 补对齐（第四层）= 把"数据与指令运行时对齐"补对（std::vector 的 begin/end/
   capacity 要"运行时真实布局"，不是"补个值"能解决的）
-军棋补环境到第三层就触到天花板（第四层语义补不了），unidbg 路线到此为止，
+军棋补环境到第三层就触到天花板（第四层对齐补不了），unidbg 路线到此为止，
 "能玩"得靠真机 GPU 或 redroid dump + arm64 对齐版。
 ## 22.2 军棋补环境实战（按原书 5 小节拆，恢复细度）
 ![军棋补环境 3 大类](assets/ch22_env_fallback.png)
@@ -216,10 +216,10 @@ long ret = vm.getMemory().call(emulator, 0x233e1L, 0, jniEnv, objHash).singleVal
 | 1 系统调用 | `open`/`read`/`close`（读 7 config XML + one.sjg） | ✓ 全通（I/O 重定向，第 16 章） |
 | 2 Java 方法 | `FindClass`/`GetMethodID`（14 入口 + AdView 去广告） | ✓ 全通（`setJni`，第 3/13 章） |
 | 3 指令 | `__cxa_atexit` Hook 返 0（避免读零 `.got` 崩） | ✓ 全通（Hook，第 3/15 章） |
-| 4 C++ 对象图 | std::vector 0x43ed8 的 begin/end/capacity | ✗ **补不了**（§124 ② 对象图语义缺失） |
+| 4 数据与指令对齐 | std::vector 0x43ed8 的 begin/end/capacity | ✗ **补不了**（§124 ② 数据与指令对齐对应缺口，N44） |
 **"第四层补不了"为什么**：std::vector 是 C++ 对象（按 32 位布局），unidbg 模拟的是
-"指令执行"不是"对象语义"——`begin/end/capacity` 三个指针来自未初始化对象，
-unidbg 填不出"这个 vector 有多少元素"（那是真实 C++ 运行时才有的语义）。
+"指令执行"不是"运行时内存布局"——`begin/end/capacity` 三个指针来自未初始化对象，
+unidbg 填不出"这个 vector 有多少元素"（那是真实 C++ 运行时才有的布局）。
 ### 22.2.5 补环境实战（军棋 18 常量 + §124 三项阻塞）
 
 
@@ -238,7 +238,7 @@ unidbg 填不出"这个 vector 有多少元素"（那是真实 C++ 运行时才�
   → OnCreate 推进到 std::vector 0x43ed8
 第四层卡住(§124 三项阻塞):
   ① 上下文相关 BL 解码 bug:加载 .so 后 BL 0x7965a 被 unicorn2 解码成 0x6eaea(真实 0x43ed8)
-  ② C++ 对象图语义缺失:std::vector 0x43ed8 的 begin/end/capacity 未初始化
+  ② 数据与指令对齐对应缺口:std::vector 0x43ed8 的 begin/end/capacity 未初始化(N44:业务数据 apk 静态可推,缺运行时对齐)
   ③ 288MB PROT_NONE mmap:unidbg mmap2 mock 处理失败
 军棋拿"能玩"的路:
   前三层 = unidbg 补环境(已通)
@@ -312,17 +312,17 @@ redroid 容器跑原版 32 位 so → dlopen → dump 18 地址 72B
 | 系统调用 mock | 全通 ✓ | 读文件/调 libc 都接上了 |
 | Java 方法 mock | 全通 ✓（DiagJni） | 14 入口 + AdView 都应答 |
 | 指令 patch | 不用（.text 100% 对齐） | 基本不 patch |
-| C++ 对象图补全 | **卡 0x43ed8** | §124 的 ②，补不了 |
-**结论**：军棋补环境到第三层（指令 patch 都不用），卡在第四层"C++ 对象图语义"。
+| 数据与指令对齐 | **卡 0x43ed8** | §124 的 ②，补不了 |
+**结论**：军棋补环境到第三层（指令 patch 都不用），卡在第四层"数据与指令对齐对应"。
 unidbg 路线的天花板就是 §124 的 3 项阻塞（① 上下文相关 BL 解码 bug
-② C++ 对象图语义缺失 ③ 288MB PROT_NONE mmap）——这三项 unidbg 补不了，
+② 数据与指令对齐对应缺口 ③ 288MB PROT_NONE mmap）——这三项 unidbg 补不了，
 军棋"能玩"得靠真机 GPU 设备（redroid 无 GPU，只能 dump 数据不能验证"能玩"）。
 ## 22.6 本章小结（一句话版）
 
-> 补环境 = 按"系统调用 → Java 方法 → 指令 → C++ 对象图"四层补。
+> 补环境 = 按"系统调用 → Java 方法 → 指令 → 数据与指令对齐"四层补。
 > 军棋前三层已通（12 init_array + 5312 RELATIVE + 214 PLT + 6 GLOB_DAT
-> + JNIEnv），卡在最难的第四层：C++ 对象图（std::vector begin/end/capacity）补初始值。
-> §124 的 3 项阻塞（① 上下文相关 BL 解码 bug ② C++ 对象图语义缺失
+> + JNIEnv），卡在最难的第四层：数据与指令对齐（std::vector begin/end/capacity）补初始值。
+> §124 的 3 项阻塞（① 上下文相关 BL 解码 bug ② 数据与指令对齐对应缺口
 > ③ 288MB PROT_NONE mmap）是 unidbg 路线天花板，18 常量池退用 redroid dump。
 
 ## 视频

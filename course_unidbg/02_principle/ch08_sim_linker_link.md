@@ -158,7 +158,7 @@ unidbg 的 `AndroidElfLoader` 也做了去重（`moduleMap` 按 so 路径判重�
 
 
 > **本节核心**：
-> 1. 军棋 1MB so 比书内样本大，复杂度全翻上来（18 常量 + C++ 对象图）
+> 1. 军棋 **1.43MB/1435156B** so 比书内样本大，复杂度全翻上来（18 常量 + C++ 对象图）
 > 2. 初尝试 = 先跑通加载，再调 OnCreate（卡 §124）
 >
 > **本节难点**：
@@ -190,7 +190,7 @@ DalvikModule dm = vm.loadLibrary(new File("lib/armeabi/libjunqi.so"), true);
 军棋 so 的 14 个 `Java_com_cnvcs_App_On*` 导出符号（`.dynsym` 里唯一的"门牌号"，
 readelf `--dyn-syms` 实测）：OnCreate / OnDestroy / OnResult / OnResume / OnEvent /
 OnKey / OnUpdate / OnGraphChange / OnBluetooth / OnPause / OnGraphCreate / OnTimer /
-OnInput / OnTouch。全在 0x43ed8 处的 std::vector 对象图卡住（§124 ② C++ 对象图语义
+OnInput / OnTouch。全在 0x43ed8 处的 std::vector 拷贝构造点（数据与指令对齐，N44）卡住（§124 ② 数据与指令对齐对应缺口
 缺失，std::vector begin/end/capacity 未初始化）。
 ## 8.4 探究 unidbg 的 Linker 代码细节（6 段对应 Bionic 简化版）
 ![unidbg Linker 代码 6 段](assets/ch08_linker_code_flow.png)
@@ -199,7 +199,7 @@ OnInput / OnTouch。全在 0x43ed8 处的 std::vector 对象图卡住（§124 �
 
 > **本节核心**：
 > 1. 加载 so 代码入口：unidbg loadLibrary → jelf 解析 → module 对象
-> 2. 军棋 libjunqi.so 1MB 走这个入口
+> 2. 军棋 libjunqi.so **1.43MB/1435156B** 走这个入口
 >
 > **本节难点**：
 > 1. 入口是加载起点，后续 5 段全从这出发
@@ -277,14 +277,14 @@ OnInput / OnTouch。全在 0x43ed8 处的 std::vector 对象图卡住（§124 �
 | **RELATIVE 重定位** | 5312 槽全通（`addr += base`，内部自引用换算） | 读 18 个 `.text` 常量（RELATIVE 只填内部自引用，常量池需 dlopen 重定位） |
 | **PLT/GOT 重定位** | 214 PLT + 6 GLOB_DAT 全通（PLT→GOT→符号 + 全局变量填号） | 填 `.got` 真值到静态文件（unidbg 只在内存里填，静态文件全 0） |
 | **读 18 常量** | 早期 redroid dump 72B 注入（`jq_load_runtime_values` 适配层）；**★ §124x-z 后 = 静态位移固化 `jqt_mem.c` `g_jq_got_tbl`（免 dump）** | 从静态 `.so` 直接读（未重定位，读不出） |
-| **跑通 OnCreate** | Java 侧电话全接通（DiagJni 推进到 0x43ed8） | 突破 0x43ed8（§124 ② C++ 对象图语义缺失，std::vector 未初始化） |
+| **跑通 OnCreate** | Java 侧电话全接通（DiagJni 推进到 0x43ed8） | 突破 0x43ed8（§124 ② 数据与指令对齐对应缺口（N44），std::vector 未初始化） |
 
 **军棋实测对照**：
 - 依赖库加载 ✓（7 个全解析，2 GL 挂桩，递归去重无死循环）
 - RELATIVE ✓（5312/5312 全通）
 - PLT/GOT ✓（214/214 + 6/6 全通）
 - 读 18 常量 ⚠️（静态读不出；早期需 redroid dump 72B 注入，**★ §124x-z 后 = 静态固化 `jqt_mem.c` 免 dump**）
-- 跑通 OnCreate ✗（卡在 §124 ② C++ 对象图 0x43ed8，Java 侧全接通后卡点转 native）
+- 跑通 OnCreate ✗（卡在 §124 ② 数据与指令对齐 0x43ed8（N44，原"对象图"），Java 侧全接通后卡点转 native）
 
 ## 8.6 军棋实战验证："填号"后的 18 个运行时地址
 
@@ -306,7 +306,7 @@ GLOB_DAT 都填过了），是 `.text` 常量池里的"密文占位"，要 dlope
 > 军棋动态链接 3 步：收集 7 依赖 → 递归加载（5 个自带 + 2 个 GL 挂桩）→ 处理 3 类重定位
 > （5312+214+6 全通）。
 > 6 个 GLOB_DAT 符号从 docker 真 ARM libc 解析（已验证）。
-> 军棋 1MB so 比书内样本复杂，但 unidbg/unicorn2 加载全通；卡在"填号"后的 18 个运行时值
+> 军棋 **1.43MB/1435156B** so 比书内样本复杂，但 unidbg/unicorn2 加载全通；卡在"填号"后的 18 个运行时值
 > （需 redroid dump，非壳自解密）。
 
 ---

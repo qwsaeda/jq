@@ -74,7 +74,7 @@ so 加载后 Android 自动调 `JNI_OnLoad`，里面注册方法、建全局对�
 （0x43ed8 是 OnCreate 的 code cave 下游——DiagJni33/35 实证 `createDalvikVM +
 resolveClass + callStaticJniMethodObject` 全通后，OnCreate 链推进到该地址的
 std::vector 构造点；**OnUpdate/OnEvent 等其它 JNI 入口不走 0x43ed8**，各自有自己的
-对象图卡点）。卡点不在 JNI 层（电话全接通了），在 native 层 C++ 对象图未初始化。
+数据与指令对齐卡点）。卡点不在 JNI 层（电话全接通了），在 native 层 数据与指令对齐未初始化。
 
 **三阶段对应"总机"的哪部分？**
 - 注册 = 总机"录入拨号规则"（so 告诉 VM：我有哪些方法、签名是什么）
@@ -188,7 +188,7 @@ Pointer javaVm = vm.getJavaVM();
 // 3. 模拟静态 JNI 方法调用（替 so 拨这个号）
 long ret = vm.callStaticJniMethodObject(dm, "OnCreate", jniEnv, objHash);
 // 4. 军棋 DiagJni：OnCreate 推进到 std::vector 0x43ed8
-//    （电话全接通，卡点转 native C++ 对象图）
+//    （电话全接通，卡点转 native 数据与指令对齐（N44））
 ```
 **14 个入口的分工（大白话）**：
 | 入口 | 大白话 | 对局闭环角色 |
@@ -204,8 +204,8 @@ long ret = vm.callStaticJniMethodObject(dm, "OnCreate", jniEnv, objHash);
 | 环节 | 能干什么（✓） | 不能干什么（✗） |
 |---|---|---|
 | **JNI 注册（JNI_OnLoad）** | 录 14 个 `On*` 静态方法 + 查 AdView（返 null 去广告） | 让 AdView 返真类（要初始化广告 → 广告浮层，去广告目标相反） |
-| **JNI 执行（14 入口被调）** | `callStaticJniMethodObject` 14 个入口全通（DiagJni 推进到 0x43ed8） | 突破 0x43ed8（§124 ② C++ 对象图语义缺失，std::vector 未初始化） |
-| **JNI 应答（DalvikVM）** | `getJNIEnv`/`getJavaVM`/`callStaticJniMethod*` 全通；AdView 返 null | 补 C++ 对象图语义（Java 侧全接通后卡点转 native，§124 ②） |
+| **JNI 执行（14 入口被调）** | `callStaticJniMethodObject` 14 个入口全通（DiagJni 推进到 0x43ed8） | 突破 0x43ed8（§124 ② 数据与指令对齐对应缺口（N44），std::vector 未初始化） |
+| **JNI 应答（DalvikVM）** | `getJNIEnv`/`getJavaVM`/`callStaticJniMethod*` 全通；AdView 返 null | 补数据与指令对齐（Java 侧全接通后卡点转 native，§124 ②） |
 | **读 18 常量** | 早期 redroid dump 72B 注入（`jq_load_runtime_values` 适配层）；**★ §124x-z 后 = 静态位移固化 `jqt_mem.c` `g_jq_got_tbl`（免 dump，`jni_runtime_values.json` 已删）** | 从静态 `.so` 直接读（未重定位，读不出） |
 
 **军棋实测对照**：
@@ -213,7 +213,7 @@ long ret = vm.callStaticJniMethodObject(dm, "OnCreate", jniEnv, objHash);
 - JNI 执行 ✓（`OnCreate` 推进到 0x43ed8）
 - JNI 应答 ✓（DalvikVM 全接，getJNIEnv/getJavaVM 全通）
 - 读 18 常量 ⚠️（静态读不出；早期需 redroid dump 72B 注入，**★ §124x-z 后 = 静态固化 `jqt_mem.c` `g_jq_got_tbl` 免 dump**）
-- **✗ 突破 0x43ed8**：§124 ② C++ 对象图语义缺失（JNI 层全通后卡点转 native）
+- **✗ 突破 0x43ed8**：§124 ② 数据与指令对齐对应缺口（N44）（JNI 层全通后卡点转 native）
 
 ## 13.4 军棋实战验证：JNI 三阶段全通但卡 native
 
@@ -231,13 +231,13 @@ long ret = vm.callStaticJniMethodObject(dm, "OnCreate", jniEnv, objHash);
 | 注册（`JNI_OnLoad`） | 14 入口录好 + `AdView` 查 null ✓ | 拨号规则录入 |
 | 执行（`OnCreate` 被调） | 推进到 0x43ed8 ✓ | 实际通话接通 |
 | 应答（DalvikVM 接电话） | 全接 ✓ | 总机有人接 |
-| 卡点 | native C++ 对象图 0x43ed8 | 卡在 native 层 |
+| 卡点 | native 数据与指令对齐 0x43ed8（N44，原"对象图"） | 卡在 native 层 |
 **关键认知**：军棋 JNI 层（电话）全接通了，瓶颈转移到 native 层（C++ 对象图）。
-§124 的 3 项阻塞（① 上下文相关 BL 解码 bug ② C++ 对象图语义缺失 ③ 288MB
+§124 的 3 项阻塞（① 上下文相关 BL 解码 bug ② 数据与指令对齐对应缺口（N44） ③ 288MB
 PROT_NONE mmap）全在 native 层，不在 JNI 层。
 **"JNI 全通 ≠ 能玩"（诚实边界）**：军棋 JNI 三阶段全通（DiagJni 实证），
 `OnCreate` 推进到 0x43ed8。但这只是"Java 电话接通"，离"游戏能跑"还差
-native C++ 对象图（§124 的 ②）+ redroid dump 的 18 常量池。
+native 数据与指令对齐（N44）（§124 的 ②）+ redroid dump 的 18 常量池。
 JNI 通是"接通电话"，对象图通才是"能聊业务"。
 
 ## 13.4b 看 JNI 调用流：unidbg 侧 vs Frida Jnitrace 侧（吸收自《Frida Android SO 逆向深入实践》）
@@ -277,7 +277,7 @@ JNI 通是"接通电话"，对象图通才是"能聊业务"。
 
 **为什么 unidbg 单独做不到"数据侧"**：
 - unidbg 是**离线模拟**——能"加载 so + 分析调用链 + 跑 so 逻辑"（指令 100% 对齐，1174/1174 PASS），
-  但**读不出"对象图构造后的运行时真值"**（unidbg 跑到 0x43ed8 崩，§124 ② 对象图语义缺失）
+  但**读不出"数据与指令对齐后的运行时真值"**（unidbg 跑到 0x43ed8 崩，§124 ② 数据与指令对齐对应缺口）
 - unidbg 的 mock 值是"填 0 / 填固定值"，**不是"真机跑出来的真值"**
 - 所以 unidbg 数据侧不行，**Frida 真机 dump 对象图真值补上**
 
@@ -286,12 +286,12 @@ JNI 通是"接通电话"，对象图通才是"能聊业务"。
 | 角色 | 工具 | 干什么 | 军棋现状 |
 |---|---|---|---|
 | **模拟加载 + 调用链 + 逻辑** | unidbg | 离线搬 so 进 x86 + §124q 调用链判据 + 1174/1174 指令对齐 | 加载全通（12/5312/214/6），卡 §124 三项 |
-| **真实填充对象图真值** | Frida（MuMu 真机 attach） | 读**运行时真值**（对象图构造后的 vector begin/end、glClear 类对象 vtable、渲染对象图） | 18 常量已静态固化（§124z-3）；**对象图真值还没 dump**（待办） |
+| **真实填充对齐真值** | Frida（MuMu 真机 attach） | 读**运行时真值**（数据与指令对齐后的 vector begin/end、glClear 类对象 vtable、渲染布局） | 18 常量已静态固化（§124z-3）；**对齐真值还没 dump**（待办） |
 | **一对一逐步对齐** | unidbg mock 值 vs Frida 真值 逐点比 | 把 unidbg 读 0 的对象图字段，逐个填上 Frida 真值 → 对象图对齐 | **§124z 黑屏破题路** |
 
 **逐步对齐流程**：
 ```
-1. MuMu 跑原版军棋（32 位）→ 游戏"能玩"的状态（对象图构造完、渲染出帧）
+1. MuMu 跑原版军棋（32 位）→ 游戏"能玩"的状态（数据与指令对齐构造完、渲染出帧）
 2. Frida attach（MuMu 上 32 位 frida-server，跟 redroid 同套路）→ dump 对象图真值
    → object_graph_values.json（跟 jni_runtime_values.json 同套路，但 dump 对象图字段）
 3. unidbg 侧（或翻译体影子内存）逐字段填真值：
@@ -330,7 +330,7 @@ MuMu 是"x86 PC + 真 GPU + 能 dlopen 32 位军棋"的现成环境（§124u-z �
 > 军棋 DiagJni 实证三步全通，`OnCreate` 推进到 `std::vector` 对象图 0x43ed8；
 > 卡点不在 JNI 层（电话全接通），转 native 层 §124 的 3 项阻塞：
 > ① 上下文相关 BL 解码 bug（unicorn2 精度，BL 0x7965a 错位到 0x6eaea）
-> ② C++ 对象图语义缺失（std::vector 0x43ed8）③ 288MB PROT_NONE mmap。
+> ② 数据与指令对齐对应缺口（N44）（std::vector 0x43ed8）③ 288MB PROT_NONE mmap。
 > 军棋 18 个 `.text` 常量池只有 dlopen 才填值（非壳自解密），unidbg 静态读不出，
 > 需 redroid dump。
 > §124q 动态调用链被 BL bug 卡死时，**Frida Jnitrace 真机 trace 是替代路**（13.4b，

@@ -96,14 +96,14 @@ vm.setJni(new Jni() {
 | **§124 三项阻塞** | 即使 3 卡点全通，`OnCreate` 推进到 `std::vector` 对象图 0x43ed8 仍卡住 | ① 上下文相关 BL 解码 bug ② C++ 对象图 ③ 288MB PROT_NONE mmap | ❌ 没通 |
 
 **关键区分**：前 3 个卡点是"补环境能解决的"（填 `.got` / 挂桩 GL / dump 常量），
-第 4 个（§124 三项阻塞）是"补环境解决不了的"（模拟器精度 + C++ 对象图语义 + mmap mock），
+第 4 个（§124 三项阻塞）是"补环境解决不了的"（模拟器精度 + 数据与指令对齐语义 + mmap mock），
 军棋"能跑"≠"能玩"卡就卡在这（诚实边界，红线 §R6 + §124）。
 
 ## 3.3 脱离编译器，命令行编译 so（军棋场景不适用）
 
 
 > **本节核心**：
-> 1. 军棋是逆向现成 so（libjunqi.so 1MB strip），不是写新 so（书内 NDK 场景不适用）
+> 1. 军棋是逆向现成 so（libjunqi.so **1.43MB/1435156B** strip），不是写新 so（书内 NDK 场景不适用）
 > 2. 军棋 64 位简化重写版（rev64/src/junqi.cpp）才是 NDK r25b 编译（路线 B）
 > 3. 「脱离编译器」= 不用 NDK 写 so，直接调现成 so（军棋 32 位走这条路）
 >
@@ -111,7 +111,7 @@ vm.setJni(new Jni() {
 > 1. 军棋 32 位 so 是 API 19 时代产物（v152/1.52），无源码只有 ~7 个 smali 类
 
 书里讲用 `clang --target=armv7a-linux-androideabi` 编译。
-军棋是**逆向现有 so**（`libjunqi.so` 1MB 已 strip），不是写新 so，所以这节跳过。
+军棋是**逆向现有 so**（`libjunqi.so` **1.43MB/1435156B** 已 strip），不是写新 so，所以这节跳过。
 但军棋 64 位简化重写版（`rev64/src/junqi.cpp`，NDK r25b）正是这么编译的（路线 B，红线 §64 位 native）。
 ## 3.4 unidbg 的 Hook（军棋实战代码）
 
@@ -225,8 +225,8 @@ Patch 只用来"跳过 0x138xxx 的高熵索引表"（那是压缩/索引表，�
 > 补环境 = 把 so 假设的"真 Android 环境"一个个补上。
 > 军棋三大卡点：`.got` 零值（填真 ARM libc）、libGLESv1_CM 无 GPU（挂桩）、
 > 18 个 `.text` 常量（redroid dump 注入）——前 3 个补环境能解决。
-> 但军棋"能玩"卡 §124 三项阻塞（① BL 解码 bug ② C++ 对象图 ③ 288MB mmap），
-> 这是补环境解决不了的"模拟器精度 + 对象图语义"问题。
+> 但军棋"能玩"卡 §124 三项阻塞（① BL 解码 bug ② 数据与指令对齐对应（N44，原"对象图"）③ 288MB mmap），
+> 这是补环境解决不了的"模拟器精度 + 数据与指令对齐语义"问题。
 > Hook 拦截优先，Patch 改指令是最后手段（军棋 `.text` 100% 对齐，基本不 patch）。
 
 ## 视频

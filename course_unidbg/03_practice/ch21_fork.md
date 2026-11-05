@@ -123,7 +123,7 @@ Java 层(smali):
   com.cnvcs.TextDlg    ← 文本对话框
   com.cnvcs.InputDlg   ← 输入对话框
 核心逻辑在 native 层:
-  lib/armeabi/libjunqi.so(1MB,strip,EABI5)
+  lib/armeabi/libjunqi.so(**1.43MB/1435156B**,strip,EABI5)
     → ad SDK 后台进程: fork() 起子进程干广告统计
     → 蓝牙联机: OnBluetooth JNI 入口(不用 fork)
     → 音效播放: 线程(用 clone,不用 fork)

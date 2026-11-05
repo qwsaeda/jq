@@ -38,7 +38,7 @@ dynarmic 有 PC off-by-2 bug（军棋实证），选错后端后面全乱。必�
 ### 痛点 4：4 个模块配齐了"能加载"，但"能调用"还差 §124 三项阻塞
 
 军棋 4 模块全配齐后 12/5312/214/6 全通（能加载），但 `OnCreate` 调用仍卡在
-§124 的 ① 上下文相关 BL 解码 bug ② C++ 对象图语义缺失 ③ 288MB PROT_NONE mmap。
+§124 的 ① 上下文相关 BL 解码 bug ② 数据与指令对齐对应缺口（N44）③ 288MB PROT_NONE mmap。
 "能加载"和"能跑通业务"是两回事，4 模块配齐 ≠ 能玩。
 
 - **大白话卡点**：4 个房间（CPU/文件/内存/Java）全配齐了，但"游戏能跑"还差
@@ -202,7 +202,7 @@ dm = vm.loadLibrary(soFile, true);  // true = 跑 init（通水电）
 
 **为什么堆空间是军棋卡点？** 军棋 `OnCreate` 推进到 `std::vector` 对象图 0x43ed8 时，
 C++ 容器（动态数组）在堆上分配对象图。堆没补好（begin/end/capacity 未初始化）就崩——
-这正是 §124 的 ② C++ 对象图语义缺失。SvcMemory 的"堆"能分配内存，但"语义"（对象图
+这正是 §124 的 ② 数据与指令对齐对应缺口（N44）。SvcMemory 的"堆"能分配内存，但"语义"（对象图
 怎么填值）要单独补（第 22 章展开）。
 
 ## 10.5 逐环节"能干什么 / 不能干什么"
@@ -215,7 +215,7 @@ OnPause / OnGraphCreate / OnTimer / OnInput / OnTouch）
 |---|---|---|
 | **Backend（CPU）** | unicorn2 修 PC off-by-2（`add rX,pc` 不 mask，0xa37fc 存 0x159880）；ARM 指令翻 x86 执行 | 绕过 §124 ① 上下文相关 BL 解码 bug（加载 so 后 BL 0x7965a 错位到 0x6eaea） |
 | **FileSystem（文件）** | 宿主目录 link 到虚拟路径（`/data/data/com.cnvcs.junqi` → `./junqi_data`），so 读 7 个 config XML | 真机文件语义（宿主文件 ≠ 真机 `/data`，存档 `one.sjg` 读写行为有差异） |
-| **SvcMemory（内存）** | mmap 段（base=0x40000000）+ 栈 0x40000 + 堆模拟 + 预留 `.got` 零值槽 | 补 C++ 对象图语义（std::vector begin/end/capacity 未初始化，§124 ②）；绕过 288MB PROT_NONE mmap（§124 ③） |
+| **SvcMemory（内存）** | mmap 段（base=0x40000000）+ 栈 0x40000 + 堆模拟 + 预留 `.got` 零值槽 | 补数据与指令对齐（std::vector begin/end/capacity 未初始化，§124 ②）；绕过 288MB PROT_NONE mmap（§124 ③） |
 | **DalvikVM（Java）** | 模拟 7 个 Java 类 + 14 JNI 入口（resolveClass/callStaticJniMethodObject 全通）；AdView 返 null 去广告 | 跑真 Dalvik 字节码（军棋核心逻辑在 native，Java 侧只接 JNI 电话） |
 
 **军棋实测对照**：
