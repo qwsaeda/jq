@@ -997,6 +997,43 @@ python3 rev64/tools/so_probe.py slot <vt> <off>          # 反汇编目标方法
 **★ 诚实边界**：so_probe.py 只读**静态 .so**（.rodata/.text 明文），不能看运行时堆对象图——
 运行时值靠 `redroid_test.sh` 抓 logcat（GS8 诊断钩子）+ so_probe.py 静态槽值对照。
 
+#### 十三、工具链对抗审计 + 缺陷修复 + 一条龙固化（§124y-15）
+
+**★ 对抗审计刚固化的 3 个工具（so_probe.py / dispatch_insert.py / redroid_test.sh）发现 5 个缺陷并修复**：
+
+| 工具 | 缺陷 | 修复 |
+|---|---|---|
+| so_probe.py `reloc` | 只匹配 R_ARM_RELATIVE，.bss 槽（0x15bf04）误报"无重定位" | 列出该 VA 的**所有**重定位类型（RELATIVE/GLOB_DAT/PLT），.bss 无记录时说明"BSS 零初始化 dlopen 不填" |
+| so_probe.py `strings` | 全 so 扫（含 .text/.data），误报 .text 内巧合字节 | 标注 .rodata 区（0x120000-0x138aa0）命中 `✓` / 区外 `·` |
+| so_probe.py `dispatch` | grep 全文找 F_xxx 定义 → 误匹配 extern 声明行 | 只匹配"行首 `uint32_t F_xxx(uint32_t _r0`"（函数体定义），无定义时 ⚠ 提示可能 link 悬空 |
+| so_probe.py `dispatch` | 只查 jqt_vtbl_offs[] 表，漏掉 jqt_blx_dispatch **特判**（F_2af44/F_a4234 等走特判） | 加"是否在 `if (off == 0x...)` 特判里"提示，特判命中则说明"不在表也正常" |
+| dispatch_insert.py `--gen-stub` | stub 插到文件顶层 } 前（fns 表 75862 **之后**）→ C 编译报"undeclared identifier F_xxx"（fns 表引用时未声明） | stub 改插到 `jqt_vtbl_fns[]` 定义**之前** |
+| dispatch_insert.py 多次插入 | jqt_vtbl_n 每次 +1（重复插入时与 offs 实际条目数错位） | 改 `align_vtbl_n`：每次对齐到 offs 表实际条目数（幂等） |
+
+**★ 新增 probe_cycle.sh —— 工具链串成一条命令**（§124y-14 的"工具链串联"落地）：
+```
+bash rev64/tools/probe_cycle.sh --no-install --slots 0x10,0x28,0x48
+```
+- ① redroid_test.sh 抓 gs8 诊断日志（gs[8] 真实 vtable）
+- ② so_probe.py dispatch 查该 vtable + slot 反汇编各游戏方法槽
+- ③ 汇总判定：miss/崩溃/存活 + **各游戏方法槽是否收进 dispatch 表**（vtable 0x159c80 的 [0x10]/[0x28]/[0x48] 目标 F_ad318/F_ad274/F_ad40c）
+
+**★ 探查结论 + 批量收表**：
+- probe_cycle.sh 首跑定位：vtable 0x159c80 的 3 个游戏方法槽目标 **全部未在 dispatch 表**
+- 用 `dispatch_insert.py 0xad318 0xad274 0xad40c --gen-stub` **批量收表 + 生成 stub**（一条命令 3 个）
+- 重跑 probe_cycle.sh 验证：**槽在表 3/3**（修复后工具链闭环）
+
+**★ 经验沉淀（工具对抗审计方法论）**：
+1. **固化前必自审**：每个新工具写完后，用"最坏输入"跑一遍（.bss 槽 / 特判地址 / 批量多地址 / 全 so 字符串搜）暴露边界缺陷
+2. **C 编译顺序**：jqt_vtbl_fns[] 数组（75862 行）引用 F_xxx → F_xxx 定义/声明必须在数组**之前**；stub 生成器插错位置（数组后）必编译失败
+3. **幂等对齐而非累加**：批量插入工具的计数变量（jqt_vtbl_n）应对齐"实际状态"（offs 表条目数），不随调用次数 +1
+4. **一条命令封装多工具**：probe_cycle.sh 把"测试→探查→判定"3 步固化，下次定位新 vtable 槽直接跑，不再手敲 so_probe 5 次
+
+**★ 诚实边界**：
+- 本轮 3 个游戏方法槽（F_ad318/F_ad274/F_ad40c）收表 + stub（return 0）→ 可 dispatch 但不推进（stub 是占位，非真实游戏逻辑）
+- 真实游戏推进需把这 3 个 stub 补成完整翻译体（依赖资源加载/对象图，需 MuMu 验证）
+- 棋子渲染/触摸→棋子交互仍需 MuMu（10.0.182.146 宕机）
+
 ### 调用链对齐统计（§124z-5，用户问"还有多少调用链没补齐"）——合并边界口径
 
 - **★ 统计口径修正**：seed_v2.json **不是完整函数边界表**（1334 个完整定义中仅 907 个在 seed 列表）→ 必须 `bnd = sorted(set(seed) | full | stub)` 合并边界；存根识别用**匿名参数**（`(uint32_t,uint32_t,...){return 0;}`），完整用命名参数 `_r0`（参数命名是区分关键，用 `return 0` 匹配会漏）

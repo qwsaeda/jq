@@ -107,13 +107,22 @@ def ensure_fns_entry(s, off):
     print(f"  ✓ F_{off:05x} 插入 fns 表（行 {target_line_idx}）")
     return s, True
 
-def bump_vtbl_n(s):
-    m = re.search(r'const uint32_t jqt_vtbl_n = (\d+)u;', s)
+def align_vtbl_n(s):
+    """把 jqt_vtbl_n 对齐到 offs 表实际条目数（幂等，防多次插入时重复 +1 错位）"""
+    m = re.search(r'const uint32_t jqt_vtbl_offs\[\] = \{(.*?)\};', s, re.S)
     if not m:
-        print("✗ 找不到 jqt_vtbl_n", file=sys.stderr); sys.exit(1)
-    old = int(m.group(1)); new = old + 1
-    s = s.replace(m.group(0), f'const uint32_t jqt_vtbl_n = {new}u;')
-    print(f"  ✓ jqt_vtbl_n: {old} → {new}")
+        return s, False
+    actual = len(re.findall(r'0x[0-9a-f]+', m.group(1)))
+    m2 = re.search(r'const uint32_t jqt_vtbl_n = (\d+)u;', s)
+    if not m2:
+        print("  ⚠ 找不到 jqt_vtbl_n（需手动补）", file=sys.stderr)
+        return s, False
+    old = int(m2.group(1))
+    if old == actual:
+        print(f"  jqt_vtbl_n 已对齐 {actual}（跳过）")
+        return s, False
+    s = s.replace(m2.group(0), f'const uint32_t jqt_vtbl_n = {actual}u;')
+    print(f"  ✓ jqt_vtbl_n: {old} → {actual}（对齐 offs 实际条目数）")
     return s, True
 
 def gen_stub(s, off):
@@ -132,26 +141,15 @@ uint32_t {fn_name}(uint32_t _r0,uint32_t _r1,uint32_t _r2,uint32_t _r3,uint32_t 
     return 0;
 }}
 """
-    # 定位插入点：最后一个"顶层 }"（depth=0 的独立 } 行）。
-    # jqt_vtbl.c 末尾是 jqt_blx_dispatch 函数体，其最后的 } 是顶层闭合。
-    # 用行扫描找最后一个以 "}" 单独成行且深度归 0 的位置。
-    lines = s.split('\n')
-    depth = 0
-    last_top_brace = -1
-    for li, ln in enumerate(lines):
-        depth += ln.count('{') - ln.count('}')
-        stripped = ln.strip()
-        if stripped == '}' and depth <= 0 and li > 0:
-            last_top_brace = li
-    if last_top_brace > 0:
-        # 在该 } 前插入 stub
-        lines.insert(last_top_brace, stub.strip())
-        s = '\n'.join(lines)
-        print(f"  ✓ {fn_name} stub 已生成（顶层大括号前，行 {last_top_brace}）")
-    else:
-        # fallback：追加文件末尾（带正确顶层结构）
+    # ★ 插入点：jqt_vtbl_fns[] 数组定义**之前**（fns 表引用 F_xxx，C 需先声明/定义）。
+    # 找 "uint32_t (*const jqt_vtbl_fns[])" 行，在其前插入 stub。
+    fns_idx = s.find('uint32_t (*const jqt_vtbl_fns[]')
+    if fns_idx < 0:
+        print("  ⚠ 找不到 jqt_vtbl_fns[] 定义，stub 追加文件末尾（可能 C 编译失败）", file=sys.stderr)
         s = s + '\n' + stub
-        print(f"  ✓ {fn_name} stub 已生成（追加文件末尾）")
+        return s, True
+    s = s[:fns_idx] + stub + s[fns_idx:]
+    print(f"  ✓ {fn_name} stub 已生成（jqt_vtbl_fns[] 定义前）")
     return s, True
 
 def do_build():
@@ -181,7 +179,7 @@ def main():
         s, c2 = ensure_fns_entry(s, off)
         c_tbl = c1 or c2
         if c_tbl:
-            s, _ = bump_vtbl_n(s)
+            s, _ = align_vtbl_n(s)
             any_changed = True
             tbl_changed.append(off)
         if do_gen_stub:

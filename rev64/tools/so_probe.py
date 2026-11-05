@@ -91,57 +91,79 @@ def cmd_dispatch(addr):
     off = hex2i(addr)
     offs, fns = load_dispatch_tbl()
     in_tbl = off in offs
-    print(f"=== 0x{off:05x} 在 dispatch 表: {in_tbl} ===")
+    print(f"=== 0x{off:05x} 在 jqt_vtbl_offs[] 表: {in_tbl} ===")
     if in_tbl:
         i = offs.index(off)
         print(f"  offs[{i}] = 0x{off:05x} ↔ fns[{i}] = {fns[i]}")
-        # 找 F_xxx 定义位置
+        # 找 F_xxx 的**函数体定义**（排除 extern 声明行）
         fn = fns[i]
-        hits = subprocess.run(['grep','-n',fn,JQT_VTBL], capture_output=True, text=True).stdout
-        defs = [l for l in hits.splitlines() if re.search(rf'^\d+:uint32_t {fn}\(uint32_t _r0', l)]
-        if defs:
-            print(f"  定义: {JQT_VTBL}:{defs[0].split(':',1)[1]}")
+        # 用 objdump 风格匹配：行以 "uint32_t F_xxx(uint32_t _r0" 开头（非 "extern "）
+        with open(JQT_VTBL) as f:
+            for li, ln in enumerate(f, 1):
+                if ln.startswith(f'uint32_t {fn}(uint32_t _r0'):
+                    print(f"  定义: {JQT_VTBL}:{li}")
+                    break
+            else:
+                print(f"  ⚠ {fn} 无函数体定义（仅 extern/特判）→ 可能 link 悬空")
     else:
-        # 找最近的函数边界（下方/上方）
+        # 找最近函数边界 + 提示是否在 jqt_blx_dispatch 特判里
         import bisect
         i = bisect.bisect_right(offs, off) - 1
         if i >= 0:
             print(f"  下方 0x{offs[i]:05x}（F_{offs[i]:05x}），上方 0x{offs[i+1]:05x}")
             print(f"  → 0x{off:05x} 在 0x{offs[i]:05x}-0x{offs[i+1]:05x} 函数体内（未单独收进表）")
+        # 查是否在 jqt_blx_dispatch 的 if (off == 0x...) 特判里
+        with open(JQT_VTBL) as f:
+            src = f.read()
+        spec_hits = re.findall(rf'if \(off == 0x{off:05x}\)', src)
+        if spec_hits:
+            print(f"  ★ 在 jqt_blx_dispatch 特判里（{len(spec_hits)} 处 if off==0x{off:05x}）→ 走特判直调，不在表也正常")
+        else:
+            print(f"  ⚠ 不在表也不在特判 → 若被 dispatch 会 miss（需 dispatch_insert.py 收表或加特判）")
     return 0
 
 def cmd_reloc(va, rng=8):
+    """查某 VA 的重定位（不只 R_ARM_RELATIVE——.bss/.data 槽也可能是 GLOB_DAT/PLT 等）。
+    列出该 VA 的**所有**重定位记录（readelf -r），标注类型。"""
     va_i = hex2i(va)
-    # 搜 RELATIVE 重定位（type=0x17）目标 == va_i
     out = subprocess.run([READELF, '-r', SO], capture_output=True, text=True).stdout
-    found = False
+    found = []
     for line in out.splitlines():
-        if 'R_ARM_RELATIVE' in line:
-            m = re.search(r'^\s*0*([0-9a-f]+)\s', line)
-            if m and int(m.group(1),16) == va_i:
-                val = rd32(va_i)
-                print(f"=== 0x{va_i:06x} RELATIVE 重定位命中 ===")
-                print(f"  静态值=0x{val:08x}（+load_base 后 = load_base+0x{val:06x}）")
-                found = True
-    if not found:
-        print(f"0x{va_i:06x} 无 RELATIVE 重定位（可能非 .data/.bss 槽）")
+        # 重定位行格式: "  0001599e4 R_ARM_RELATIVE 0000000000000000" 或带 symbol
+        m = re.match(r'\s*([0-9a-f]+)\s+(R_ARM_\w+)\s+(.*)', line)
+        if m and int(m.group(1), 16) == va_i:
+            found.append((m.group(2), m.group(3)))
+    val = rd32(va_i)
+    if found:
+        print(f"=== 0x{va_i:06x} 重定位命中 {len(found)} 处（静态值=0x{val:08x}）===")
+        for rtype, extra in found:
+            # R_ARM_RELATIVE：运行时 = load_base + addend(=VA)
+            # 其他：标注符号
+            if rtype == 'R_ARM_RELATIVE':
+                print(f"  {rtype}（运行时 = load_base + 0x{va_i:06x}）")
+            else:
+                print(f"  {rtype} {extra}")
+    else:
+        print(f"0x{va_i:06x} 无重定位记录（.bss 槽多为 BSS 零初始化，dlopen 不填，运行时值靠构造器写）")
     return 0
 
 def cmd_strings(sub):
+    """.rodata 明文搜字符串（限定 0x120000-0x138aa0 区标注 ✓，避免误报 .text/.data 巧合字节）"""
     data = rd_bytes(0, os.path.getsize(SO))
     sub_b = sub.encode()
+    RD_LO, RD_HI = 0x120000, 0x138aa0
     idx = 0
     hits = []
     while True:
         i = data.find(sub_b, idx)
         if i < 0: break
-        # 读 NUL 结尾
         j = data.find(b'\0', i)
-        hits.append((i, data[i:j].decode('utf-8','replace')))
+        hits.append((i, data[i:j].decode('utf-8','replace'), RD_LO <= i < RD_HI))
         idx = i + 1
-    print(f"=== 字符串 '{sub}' 命中 {len(hits)} 处 ===")
-    for off, s in hits[:30]:
-        print(f"  0x{off:06x}: {s!r}")
+    print(f"=== 字符串 '{sub}' 命中 {len(hits)} 处（.rodata 区 0x{RD_LO:x}-0x{RD_HI:x} 标 ✓）===")
+    for off, s, in_rd in hits[:30]:
+        mark = "✓" if in_rd else "·"
+        print(f"  {mark} 0x{off:06x}: {s!r}")
     return 0
 
 def main():
