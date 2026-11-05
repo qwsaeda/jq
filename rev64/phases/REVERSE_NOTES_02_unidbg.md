@@ -12,7 +12,7 @@
 - **必须 `|1`（Thumb bit）调用**：偶地址函数（`0x24250`/`0xb9edc`/`0xba12c`/`0x234f8`）被 unidbg 当 ARM 模式执行→误报 "VFP coproc exception"（`0xF090447B`）。init 函数都是奇地址所以此前无此问题。
 - **unidbg dynarmic 的 Thumb `add rX,pc` 用 `(addr+4)&~3`（mask）**，而真实 ARM Thumb 用 `(addr+4)` **不 mask** → 所有 PC-relative 字面量计算 **off-by-2**（如 slot `0x15b744` 被算成 `0x15b742`，`.got` 基址 `0x15b0c8` 被算成 `0x15b0c6`）。这导致 `0xb9edc` 读未对齐槽 `[base+0x15bb0a]`=垃圾 `0xb8441226` 崩溃。**是模拟器精度问题，非库 bug**。
 - **★（本轮实证修复）unicorn2 后端不 mask PC**：`DiagTracePC` 用 **Unicorn2Factory** 调 `0xa37fc|1`（含 `add r3,pc` @0xa3802），hook 捕获 r3=b6072、pc=base+0xa3802，执行后 `[dst]` 存 **0x12272880 = base+0x159880（不 mask 值）**，与真实 ARM 逐字节一致（mask 值应为 0x15987e）。**PC off-by-2 仅存在于 dynarmic 后端，切换 Unicorn2 即修复**。unidbg 的"PC 精度 bug"根因 = 后端选择，非 unidbg 本体逻辑缺陷。
-- **★（本轮实证）JNIEnv 补环境后 OnCreate 深入**：`DiagJni` 用 `emulator.createDalvikVM()` + `vm.resolveClass("com/cnvcs/App")` + `app.callStaticJniMethodObject(emulator,"OnCreate",activity)`（标准 unidbg JNI 调用，自动设 r0=JNIEnv）。OnCreate 从**入口即崩**（dummy env=0）推进到 **`bl 0x43ed8`（std::vector 拷贝构造）**——即从"空 env 解引用"推进到"C++ 对象图内部（vector begin/end 指针垃圾）"。**证明 unidbg 补环境可行，剩余是数据与指令对齐（需真实运行时），非模拟器精度**。
+- **★（本轮实证）JNIEnv 补环境后 OnCreate 深入**：`DiagJni` 用 `emulator.createDalvikVM()` + `vm.resolveClass("com/cnvcs/App")` + `app.callStaticJniMethodObject(emulator,"OnCreate",activity)`（标准 unidbg JNI 调用，自动设 r0=JNIEnv）。OnCreate 从**入口即崩**（dummy env=0）推进到 **`bl 0x43ed8`（std::vector 拷贝构造）**——即从"空 env 解引用"推进到"数据与指令对齐内部（vector begin/end 指针垃圾）"。**证明 unidbg 补环境可行，剩余是数据与指令对齐（需真实运行时），非模拟器精度**。
 
 ### 自解密前提被推翻（核心纠正）
 - **`.rodata` 字符串池是明文**：`rodata_dec.bin`（118832B）与文件 `.rodata`（file offset 0x120bf8, size 0x1d030）**逐字节相同（0 diffs）**。关键串 `Junqi.Move`@0x120f20、`data/config/ui.xml`@0x120c88、`updateUrl`@0x120cf0、`default.lay`@0x1211c1、`one.sjq`@0x12173c **直接可读，无需解密**。共 1794 条 ASCII 串（含 284 条 `Junqi.*`/`data/`/`config`/`*.png`/`*.lay`/`*.sjq`/`updateUrl`/`statHost`/`cfgHost`）。
@@ -26,7 +26,7 @@
 - `0xb9edc`（单例构造器，依次分配 0x80/0x20/0x40/0x1c/0x3c/0x58/0x40/0xc/0xc8/0x108 字节对象）崩溃是 **unidbg dynarmic Thumb PC off-by-2** 读错槽（**unicorn2 后端已修复此点**）。
 - `0x24250|1` 崩溃写 `0xc0` 是**对象语义缺失**（`0x241f4` 构造未初始化 `[r4,#0x40]` 指针），非库逻辑。
 - **★（本轮实证）OnCreate 0x23561 切 unicorn2 后错误从 dynarmic 的 `MemoryWrite32 vaddr=0xe4affea8`（垃圾指针写）变为 `UC_ERR_WRITE_UNMAPPED`（干净未映射写）**——PC off-by-2 已消除，剩余纯数据与指令对齐缺失（dummy env/obj=0,0,0 导致写未映射地址）。
-- **★（本轮实证）`DiagJni`（createDalvikVM + resolveClass + callStaticJniMethodObject）给真实 JNIEnv 后 OnCreate 推进到 `bl 0x43ed8`（std::vector 拷贝构造）**——从"空 env 解引用"推进到"C++ 对象图内部"，证明 unidbg 补环境（JNIEnv/VM/DvmClass/DvmObject）完全可用，剩余阻塞纯为 **std::vector begin/end 指针来自未初始化对象**（真实 C++ 对象图需真实运行时）。
+- **★（本轮实证）`DiagJni`（createDalvikVM + resolveClass + callStaticJniMethodObject）给真实 JNIEnv 后 OnCreate 推进到 `bl 0x43ed8`（std::vector 拷贝构造）**——从"空 env 解引用"推进到"数据与指令对齐内部"，证明 unidbg 补环境（JNIEnv/VM/DvmClass/DvmObject）完全可用，剩余阻塞纯为 **std::vector begin/end 指针来自未初始化对象**（真实数据与指令对齐需真实运行时）。
 - **unidbg 无法验证"能玩"**：需真实 GPU + 对象语义，redroid 无 GPU / 64 位 native bridge 不完整。
 
 ### 下一步建议
