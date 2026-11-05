@@ -1,0 +1,1785 @@
+00120bf8	text
+00120c04	Cancel
+00120c0c	basic_string
+00120c1c	data/720s
+00120c28	data/800
+00120c34	data/720
+00120c40	datax.pak
+00120c4c	data/480
+00120c58	datah.pak
+00120c64	data/320
+00120c70	datam.pak
+00120c7c	data.pak
+00120c88	data/config/ui.xml
+00120c9c	data/config/font.xml
+00120cb4	data/config/image.xml
+00120ccc	data/480x
+00120cd8	Common.DownloadConfirm
+00120cf0	updateUrl
+00120cfc	statHost
+00120d08	cfgHost
+00120d10	channel
+00120d18	junqi
+00120d20	data/config/string.xml
+00120d38	data/config/path.xml
+00120d50	data/font/936.cp
+00120d64	data
+00120d6c	Application: Initialize graph failed
+00120d94	Application: Initialize audio failed
+00120dbc	data/config/sound.xml
+00120dd4	package
+00120ddc	data/base.cfg
+00120dec	one.sav
+00120df4	two.sav
+00120e24	Junqi.RedWin
+00120e34	Junqi.Win
+00120e40	Junqi.Draw
+00120e4c	Junqi.BlueWin
+00120e6c	Junqi.Lose
+00120e7c	rep.sav
+00120e84	Junqi.Select
+00120e94	%d,%d,%d,%d,%d,%d,%d
+00120eac	%d,%d,%d,%d,%d,%d
+00120ec0	code
+00120ec8	Junqi.Start
+00120ed4	data/junqi/back.jpg
+00120ee8	data/junqi/border.png
+00120f00	data/junqi/mark.png
+00120f14	Junqi.Flip
+00120f20	Junqi.Move
+00120f2c	Junqi.Flag
+00120f38	Junqi.Bomb
+00120f44	Junqi.Dead
+00120f50	Junqi.Eat
+00120f5c	data/ui/click%d.wav
+00120f70	Ui.Click
+00120f8c	Version
+00120f94	Wall
+00120f9c	InterInterval
+00120fac	InterDelay
+00120fb8	InterTime
+00120fc4	Insure
+00120fd0	Level
+00120fd8	Graph
+00120fe0	Night
+00120fe8	Bright
+00120ff0	Sound
+00120ff8	Volume
+00121000	BtnSound
+0012100c	Trans
+00121014	PieceAni
+00121020	Opposite
+0012102c	Expand
+00121034	Clockwise
+00121040	NetMatch
+00121050	User
+00121058	Password
+00121064	PeerName
+00121070	PeerFirst
+0012107c	PeerLay
+00121084	PeerShow
+00121090	PeerCmdSafe
+0012109c	PeerDraw
+001210a8	PeerBingLei
+001210b4	PeerBingQi
+001210c0	Guest
+001210c8	env.cfg
+001210d0	2326591b3d28b5a249422dd4c7eb0abb
+001210f4	NetNoChat
+00121100	NetNoSave
+0012110c	RecId
+00121114	envx.cfg
+00121120	data/inter/%02d.cfg
+00121134	result
+0012113c	data/lay/%02d.lay
+00121150	layname.txt
+0012115c	%d,%s
+00121164	jq1.lay
+0012116c	jq2.lay
+00121174	jq3.lay
+0012117c	Junqi.ZhaError
+0012118c	Junqi.LeiError
+0012119c	Junqi.QiError
+001211ac	Ui.Close
+001211b8	data/lay/default.lay
+001211d0	data/sg/main.jpg
+001211e4	data/junqi/main.jpg
+00121218	serverHost
+00121224	serverPort
+00121230	gameHost
+0012123c	gamePort
+00121278	Junqi.Resign
+00121288	Junqi.PeerLayFinish
+0012129c	Junqi.ExitFail
+001212bc	Junqi.DrawAgree
+001212cc	Junqi.DrawDisagree
+001212e0	Junqi.DrawReq
+001212f0	Junqi.ConnectFail
+00121308	%s,%s,%d,%d,%d,%d,%s
+00121320	pay%d.cfg
+0012132c	user
+00121334	ce1404fe-0863-4278-86c2-c9c560f0e215
+0012135c	request
+00121364	Junqi.PeerStart
+00121374	Junqi.RegretAgree
+00121388	Junqi.RegretDisagree
+001213a0	Junqi.RegretReq
+001213b0	Junqi.LeaveGame
+001213f4	%s/%s
+001215a8	data/sg/back.jpg
+001215bc	data/sg/scene.cfg
+001215d0	boardRc
+001215d8	touchDelta
+001215e4	boardMg
+001215ec	interval
+001215f8	boardMgEx
+00121604	intervalEx
+00121610	data/sg/board.png
+00121624	data/sg/piece.png
+00121638	data/sg/word.png
+0012164c	data/sg/border.png
+00121660	data/sg/mark.png
+00121674	data/sg/track.png
+00121688	data/sg/boardx.png
+0012169c	data/sg/piecex.png
+001216b0	data/sg/wordx.png
+001216c4	data/sg/borderx.png
+001216d8	data/sg/markx.png
+001216ec	data/sg/trackx.png
+00121700	flag
+00121708	Junqi.Over
+0012173c	one.sjq
+00121744	time
+0012174c	difficulty
+00121758	level
+00121760	mark
+00121768	resultEx
+00121774	%d;%d;%d;%d
+00121780	%d/%d;
+00121792	1000
+001217b8	cnvcssg
+001217c0	cnvcssg1
+001217d8	cnvcssg1
+001217e8	%d,%d,%d,%d,%d,%d,%d,%d,%d,%d
+00121848	one.sjg
+0012185c	comp.lay
+00121868	net.lay
+001218a0	sgServerHost
+001218b0	sgServerPort
+001218c0	sgGameHost
+001218cc	sgGamePort
+001218d8	1111
+001218e0	Sg.DrawReq
+001218ec	score
+001218f8	draw
+00121904	num%d
+0012190c	name%d
+00121914	score%d
+0012191c	win%d
+00121924	lose%d
+0012192c	draw%d
+001219b8	/sdcard/cnvcs/junqi/sggame
+001219d4	usHost
+001219dc	usPort
+00121a80	/sdcard/cnvcs/junqi/game
+00121a9c	data/junqi/piece.png
+00121ab4	data/junqi/label.png
+00121acc	%02d.lay
+00121ad8	Junqi.GameType%d
+00121aec	Misc.Graph%d
+00121afc	Icon
+00121b04	icon_info.png
+00121b14	Title
+00121b38	icon_alert.png
+00121b68	icon_error.png
+00121b78	data/junqi/scene.cfg
+00121b90	pieceSz
+00121b98	border
+00121ba0	boardPt
+00121ba8	boardIntervalX
+00121bb8	boardIntervalY
+00121bc8	boardGap
+00121bd4	com.cnvcs.junqi.removead
+00121bf0	Feedback
+00121bfc	Review
+00121c04	%03d
+00121c10	 v%c.%c%c
+00121c1c	reviewUrl
+00121c28	aboutdlg.xml
+00121c48	Ui.Pop
+00121c50	audiodlg.xml
+00121c60	brightdlg.xml
+00121c70	cfgmenuexdlg.xml
+00121c84	cfgmenudlg.xml
+00121c98	Audio
+00121ca0	Game
+00121ca8	Menu
+00121cb0	Back
+00121cb8	compctrldlg.xml
+00121ccc	Regret
+00121cd4	Change
+00121cdc	Rule
+00121ce4	Stat
+00121cec	About
+00121cf4	Exit
+00121cfc	Remove
+00121d04	compmenudlg.xml
+00121d14	configdlg.xml
+00121d24	configsgdlg.xml
+00121d80	showseq
+00121d94	sgrep
+00121dc8	feedbackdlg.xml
+00121e24	Command
+00121e44	gamedlg.xml
+00121e50	graphdlg.xml
+00121e60	inputdlg.xml
+00121e70	layctrldlg.xml
+00121e80	Rename
+00121e88	Delete
+00121e94	Cancel2
+00121e9c	Piece0
+00121ea4	Piece%d
+00121eac	Common.DeleteConfirm
+00121ed4	layinfodlg.xml
+00121ee4	List
+00121f0c	layloaddlg.xml
+00121f1c	Clear
+00121f24	laymarkdlg.xml
+00121f34	Load
+00121f3c	Save
+00121f44	Finish
+00121f4c	Junqi.LayError
+00121f5c	laymenudlg.xml
+00121f6c	Common.SaveFail
+00121f7c	Common.SaveOk
+00121f9c	laysavedlg.xml
+00121fac	layseldlg.xml
+00121fbc	leveldlg.xml
+00121fcc	levelexdlg.xml
+00121fe8	Peer
+00122008	mainexdlg.xml
+00122018	msgdlg.xml
+00122040	match
+00122048	netcfgdlg.xml
+00122058	Default
+00122060	Random
+00122068	Custom
+0012208c	netcfgmatchdlg.xml
+001220a0	chat
+001220a8	Edit
+001220b8	Sentence
+001220c4	Block
+001220cc	data/junqi/sentence.txt
+00122108	netchatdlg.xml
+00122118	out of memory
+00122128	{G}%s:{/G} %s
+0012215c	{G}%s:{/G} %s
+0012216c	%H:%M:%S
+00122178	{G}%s{/G}  {Y}%s{/Y}
+00122194	Copy
+0012219c	netchatrecdlg.xml
+001221b0	/data/image/stattinyh.png
+001221cc	/data/image/stattiny.png
+001221e8	Chat
+001221f0	netctrldlg.xml
+00122200	netdetaildlg.xml
+0012221c	gold
+00122224	flipScore
+00122230	flipWin
+00122238	flipLose
+00122244	flipDraw
+00122250	layScore
+0012225c	layWin
+00122264	layLose
+0012226c	layDraw
+00122274	flee
+00122283	:{/Y} %s
+00122297	:{/Y} {G}%s{/G}
+001222b3	:{/Y} %d               {Y}
+001222d1	:{/Y} {C}%s{/C}
+001222ef	:{/Y} %d
+0012230f	:{/Y} %.0f%%
+0012232b	:{/Y} %d               {Y}
+00122349	:{/Y} {C}%s{/C}
+00122367	:{/Y} %d
+00122387	:{/Y} %.0f%%
+001223a1	:{/Y} %.0f%%
+001223b7	:{/Y} %s
+001223c0	Info
+001223c8	Modify
+001223d0	Help
+001223d8	More
+001223e0	Shop
+001223e8	Item
+0012242c	netexitdlg.xml
+0012243c	Table
+0012247c	netfrijoindlg.xml
+00122490	Join
+00122498	peermaindlg.xml
+001224b8	 10 
+001224c8	Junqi.InputPassword
+001224dc	netfrinewdlg.xml
+001224f8	%d{yb}
+00122504	: %s
+00122517	:{/Y} %d{yb}
+00122524	Gold
+00122588	com.cnvcs.junqi.yb%d
+001225a0	netgoldlistdlg.xml
+001225cc	netgoldrecdlg.xml
+001225e0	nethelpmenudlg.xml
+00122620	netiteminfodlg.xml
+0012263f	:{/Y} {G}%s{/G}
+0012265b	:{/Y} %d
+00122673	:{/Y} %s
+0012268b	:{/Y} %s
+00122694	Close1
+001226a0	: %d
+001226af	:{/Y} %d{yb}
+001226bc	Deposit
+001226c4	netitemlistdlg.xml
+0012272c	Login
+00122734	Register
+00122740	Junqi.UserLenError
+00122754	Junqi.PwdLenError
+00122768	Junqi.InputUser
+00122778	Junqi.LoginAuthFail
+0012278c	Junqi.LoginMaxUser
+001227a0	Junqi.LoginVerOld
+001227b4	Junqi.LoginFail
+001227c4	session
+001227cc	4ss4121
+001227d4	4sss
+001227dc	netlogindlg.xml
+001227f0	netloginexdlg.xml
+00122818	...  {Y}%d{/Y}
+00122828	netlostdlg.xml
+00122838	Junqi.ExitConfirm
+0012284c	LowLay
+00122854	LowFlip
+0012285c	MidLay
+00122864	MidFlip
+0012286c	HighLay
+00122874	HighFlip
+00122880	RankLay
+00122888	RankFlip
+00122894	Junqi.MidAreaFail
+001228a8	Junqi.HighAreaFail
+001228bc	netmaindlg.xml
+001228cc	Resign
+001228d4	Junqi.DrawSend
+001228e4	Junqi.GameOver
+001228f4	Junqi.ResignConfirm
+00122908	Junqi.DrawConfirm
+0012291c	netmenudlg.xml
+0012292c	Junqi.NameLenError
+00122940	Junqi.NameCharError
+00122954	Junqi.InputName
+00122964	netmodifydlg.xml
+00122978	Rank
+00122980	netmoredlg.xml
+00122990	netnamedlg.xml
+001229ab	:{/Y} %d   {C}[%s]{/C}
+001229cf	:{/Y} %d   {C}[%s]{/C}
+001229e8	Detail
+001229f0	netplayerdlg.xml
+00122a0b	:{/Y} %d                    {Y}
+00122a2e	:{/Y} {C}%s{/C}
+00122a47	:{/Y} %d
+00122a63	:{/Y} %.0f%%
+00122a90	: %d
+00122a98	netplayerlistdlg.xml
+00122ab0	netplayerpopdlg.xml
+00122acb	:{/Y} %d                 {Y}
+00122aeb	:{/Y} {C}%s{/C}
+00122b05	:{/Y} %.0f%%
+00122b3c	netrankdlg.xml
+00122b64	Retry
+00122b6c	Junqi.Reconnecting
+00122b80	Junqi.ReconnFail
+00122b94	netreconnectdlg.xml
+00122ba8	Email
+00122bb0	ConfirmPwd
+00122bbc	Junqi.UserCharError
+00122bd0	Junqi.EmailLenError
+00122be4	Junqi.EmailError
+00122bf8	Junqi.PwdNotMatch
+00122c0c	Junqi.InputEmail
+00122c20	Junqi.InputConfirmPwd
+00122c38	Junqi.RegOk
+00122c44	Junqi.RegExist
+00122c54	Junqi.RegFail
+00122c64	4ss1ssss
+00122c70	netregdlg.xml
+00122c98	netrecdlg.xml
+00122cb1	{/Y}%s
+00122ccd	{/Y}%s
+00122ce1	{/Y}{G}%s{/G}
+00122cf9	{/Y}{G}%s{/G} {ffa500}(%d){/ffa500}
+00122d29	{/Y}{G}%s{/G}
+00122d41	{/Y}{G}%s{/G} {ffa500}(%d){/ffa500}
+00122d71	{/Y}%d
+00122d85	{/Y}%s
+00122d94	%m-%d %H:%M
+00122da0	Common.ClearConfirm
+00122db4	netreplistdlg.xml
+00122dd4	%s,%d,%d,%s,%d,%s,%d,%d,%d,%d,%d,%d,%d
+00122dfc	%s/list.cfg
+00122e08	%y%m%d%H%M%S
+00122e18	%s %s-%s.sav
+00122e2c	netresultdlg.xml
+00122e47	:{/Y} {G}%s{/G}
+00122e5f	:{/Y} %d
+00122e69	%s%d
+00122e7b	:{/Y} {G}%s{/G}
+00122e93	:{/Y} %d
+00122e9d	%s%d
+00122ec4	netshopinfodlg.xml
+00122ee3	:{/Y} %d{yb}
+00122ef8	: %d{yb}
+00122f04	netshoplistdlg.xml
+00122f18	Time
+00122f20	nettimedlg.xml
+00122f30	netuserdlg.xml
+00122f40	userName
+00122f4c	email
+00122f54	regTime
+00122f5c	lastLoginTime
+00122f75	:{/Y} %s
+00122f8b	:{/Y} %s
+00122fa3	:{/Y} %s
+00122fbb	:{/Y} %s
+00122fc4	OriPwd
+00122fcc	NewPwd
+00122fd4	NewPwdEx
+00122fe0	Junqi.OriPwdLenError
+00122ff8	Junqi.NewPwdLenError
+00123010	Junqi.NewPwdNotMatch
+0012305c	netuserpwddlg.xml
+00123070	Code
+00123098	Desc
+001230a0	netverifydlg.xml
+001230b4	netvipdlg.xml
+001230cb	:{/Y} %d
+001230df	:{/Y} %s
+001230ef	:{/Y} {G}%s{/G}
+00123100	Player1
+0012310f	:{/Y} %d  {C}[%s]{/C}
+00123128	Score1
+00123137	:{/Y} %.0f%%
+00123144	Rate1
+0012314c	Junqi.Ready
+00123158	Ready1
+00123160	Player2
+00123168	Score2
+00123170	Rate2
+00123178	View2
+00123180	Ready2
+00123188	Start
+00123190	View1
+00123198	%s - %s
+001231a0	Junqi.PlayerLeave
+001231b4	netwaitdlg.xml
+001231c4	netfriwaitdlg.xml
+001231f8	newtwodlg.xml
+00123208	peerctrldlg.xml
+00123218	peerjoindlg.xml
+00123228	Junqi.RegretSend
+0012323c	Junqi.RegretConfirm
+00123250	Junqi.RegretFail
+00123264	Junqi.NewFail
+00123274	peermenudlg.xml
+00123284	Device
+0012329c	peermodifydlg.xml
+001232b0	peernewdlg.xml
+001232c0	peerruledlg.xml
+001232d0	Search
+001232d8	address
+001232e0	delete
+001232e8	peersearchdlg.xml
+001232fc	Cancel1
+00123308	Wifi
+00123310	peertypedlg.xml
+00123320	Junqi.PeerWait
+00123336	: {#Y}%s{/#Y}
+00123344	Junqi.JoinGame
+00123354	Junqi.PeerLast
+00123364	Junqi.PeerFirst
+00123374	peerwaitdlg.xml
+00123384	PieceBtn
+00123390	UiButton
+0012339c	UiBaseBtn
+001233a8	UiWindow
+001233b4	piece
+001233c0	PiecePic
+001233cc	UiPicture
+001233d8	Purchase
+001233e4	Restore
+001233fc	Misc.RemoveAdFail
+00123410	Misc.RemoveAdOk
+00123420	purchasedlg.xml
+00123430	Prev
+00123438	Next
+00123440	recctrldlg.xml
+00123450	CurMov
+00123468	replocdlg.xml
+0012347c	Switch
+00123484	repmenudlg.xml
+00123494	resultdlg.xml
+001234a4	data/sg/nethelp.txt
+001234c0	data/sg/help.txt
+001234f0	data/junqi/ruleflip.txt
+00123518	data/junqi/rulelay.txt
+00123530	/data/sg/sidedisc.png
+00123548	/data/sg/sidecomp.png
+00123560	Online
+00123568	/data/sg/piece.png,%d,%d,%d,%d,clip
+0012358c	Side
+00123594	sgboarddlg.xml
+001235a4	sgchatpopupdlg.xml
+001235b8	sgcompctrldlg.xml
+001235cc	sgcompmenudlg.xml
+00123608	sggamedlg.xml
+00123618	sglayctrldlg.xml
+00123638	sglayinfodlg.xml
+00123654	sglaynamedlg.xml
+00123668	sglayseldlg.xml
+00123678	sgleveldlg.xml
+00123688	Comp
+00123690	sgmaindlg.xml
+001236a0	sgmarkdlg.xml
+001236b0	sgmarkxdlg.xml
+001236c0	sgnetareadlg.xml
+001236e4	sgnetcfgdlg.xml
+001236f4	data/sg/sentence.txt
+0012370c	Unrobot
+00123714	Replay
+0012371c	Sg.LeaveConfirm
+0012372c	Sg.DrawConfirm
+0012373c	Sg.ResignConfirm
+00123750	Sg.DrawSend
+0012375c	sgnetctrldlg.xml
+00123770	sgnetdetaildlg.xml
+0012378b	:{/Y} %-20d {Y}
+0012379e	:{/Y} {C}%s{/C}
+001237b0	sgnetexitdlg.xml
+001237c4	sgrepdlg.xml
+001237d4	{Y}%s
+001237db	{/Y}{G}%s{/G} {ffa500}(%s){/ffa500}
+00123854	4s11s
+0012385c	4ssss
+00123864	Area41
+0012386c	Area21
+00123874	Area42
+0012387c	Area22
+00123884	Area43
+0012388c	Area23
+00123894	sgnetmaindlg.xml
+001238a8	sgnetmenudlg.xml
+00123a8c	sgnetnamedlg.xml
+00123aa7	:{/Y} %d   {C}[%s]{/C}
+00123ac0	Unready
+00123ac8	Ready
+00123ad0	sgnetreadydlg.xml
+00123ae4	4sss1ss
+00123aec	Side%d
+00123af4	Name%d
+00123afc	%s%d / %d
+00123b08	Score%d
+00123b10	sgnetresultdlg.xml
+00123b34	... (%d/4)
+00123b40	sgnetwaitdlg.xml
+00123b58	Difficulty
+00123b64	sgnewdlg.xml
+00123b74	SgPieceBtn
+00123b80	side
+00123b88	SgPiecePic
+00123b94	sgplayerpopupdlg.xml
+00123bb3	:{/Y} %-14d {Y}
+00123bc6	:{/Y} {C}%s{/C}
+00123bd8	sgpopupdlg.xml
+00123be8	Jump
+00123bf0	sgrepctrldlg.xml
+00123c0d	{/Y}%s
+00123c21	{/Y}%s
+00123c30	sgrepjumpdlg.xml
+00123c44	%d-%d-%d %02d:%02d
+00123c60	sgreplistdlg.xml
+00123c74	%s,%d,%s,%d,%d,%d,%d,%d,%d
+00123c90	%Y%m%d%H%M%S
+00123ca0	%s.sjq
+00123ca8	area
+00123cb0	duration
+00123cbc	sgreplocdlg.xml
+00123ccc	sgrepmenudlg.xml
+00123ce0	sgsidedlg.xml
+00123cf0	startdlg.xml
+00123d00	Site
+00123d08	siteUrl
+00123d10	sitedlg.xml
+00123d1c	statdlg.xml
+00123d28	{G}%s{/G}
+00123d4d	{/Y}%d
+00123d65	{/Y}%d
+00123d81	{/Y}%d
+00123d88	%s{Y}
+00123d9b	{/Y}%d
+00123db9	{/Y}%d
+00123dd1	{/Y}%d
+00123ded	{/Y}%d
+00123df4	%s{Y}
+00123e07	{/Y}%d
+00123e14	data/config/uitag.xml
+00123e2c	appUrl
+00123e34	updatedlg.xml
+00123e48	uscheckdlg.xml
+00123e5c	Find
+00123e64	usmenudlg.xml
+00123e74	usresetdlg.xml
+00123e84	usverifydlg.xml
+00123fb8	%d_%d
+00125970	%I64d{cg}%d{cs}
+00125980	%I64d{cg}
+0012598c	%d{cs}
+001259fc	class exception
+00125a0c	class bad_exception
+00125af0	%02d%02d_%02d%02d
+00125e70	/sdcard/download/tempad
+00125e88	ad/%s.txt
+00125e94	adHost
+00125e9c	121.41.48.113
+00125eac	adPort
+00125eb4	%s/%d.dat
+00125ec4	ADCS
+00125ecc	data/ad/%02d.cfg
+00125ee4	web/%d.txt
+00125ef0	backColor
+00125efc	textColor
+00125f08	webBackColor
+00125f18	#0288d1
+00125f20	webTextColor
+00125f30	#ffffff
+00125f38	width
+00125f40	title
+00125f48	link
+00125f50	color
+00125f58	jump
+00125f60	getParent
+00125f6c	()Landroid/view/ViewParent;
+00125f88	removeView
+00125f94	(Landroid/view/View;)V
+00125fac	android/view/View
+00125fc0	VISIBLE
+00125fc8	GONE
+00125fd0	setVisibility
+00125fe0	(I)V
+00125fe8	getLayoutParams
+00125ff8	()Landroid/view/ViewGroup$LayoutParams;
+00126020	setMargins
+0012602c	(IIII)V
+00126034	requestLayout
+00126048	android/view/ViewGroup$LayoutParams
+0012606c	<init>
+00126074	(II)V
+0012607c	android/widget/LinearLayout
+00126098	(Landroid/content/Context;)V
+001260b8	addContentView
+001260c8	(Landroid/view/View;Landroid/view/ViewGroup$LayoutParams;)V
+00126104	android/widget/LinearLayout$LayoutParams
+00126130	addView
+00126138	destroy
+00126140	idEx
+00126148	com/baidu/mobads/AdView
+00126160	setAppSid
+0012616c	(Landroid/content/Context;Ljava/lang/String;)V
+0012619c	com/cnvcs/AdLis
+001261ac	setListener
+001261b8	(Lcom/baidu/mobads/AdViewListener;)V
+001261e6	zaDCFG
+001261f4	data.cfg
+0012620c	acfg
+00126214	inter.cfg
+00126220	update/
+00126228	data/ad/ad.cfg
+00126238	data/inter/ad.cfg
+00126254	bank
+0012625c	receipt
+00126264	action
+0012626c	product
+00126274	message
+0012627c	media
+00126284	workHost
+00126290	workPort
+0012629c	java/util/UUID
+001262ac	fromString
+001262b8	(Ljava/lang/String;)Ljava/util/UUID;
+001262e0	close
+001262e8	getRemoteDevice
+001262f8	()Landroid/bluetooth/BluetoothDevice;
+00126320	getName
+00126328	()Ljava/lang/String;
+00126340	getAddress
+0012634c	getOutputStream
+0012635c	()Ljava/io/OutputStream;
+00126378	listenUsingRfcommWithServiceRecord
+0012639c	(Ljava/lang/String;Ljava/util/UUID;)Landroid/bluetooth/BluetoothServerSocket;
+001263ec	accept
+001263f4	()Landroid/bluetooth/BluetoothSocket;
+0012641c	getInputStream
+0012642c	()Ljava/io/InputStream;
+00126444	read
+0012644c	([B)I
+00126454	createRfcommSocketToServiceRecord
+00126478	(Ljava/util/UUID;)Landroid/bluetooth/BluetoothSocket;
+001264b0	connect
+001264b8	(Ljava/lang/String;)Landroid/bluetooth/BluetoothDevice;
+001264f0	write
+001264f8	([B)V
+00126500	RecvBufSize
+0012650c	SendBufSize
+00126518	Timeout
+00126520	android/content/Context
+00126538	WIFI_SERVICE
+00126548	getSystemService
+0012655c	(Ljava/lang/String;)Ljava/lang/Object;
+00126584	getConnectionInfo
+00126598	()Landroid/net/wifi/WifiInfo;
+001265b8	getIpAddress
+001265cc	%d.%d.%d.%d
+001267f8	255.255.255.255
+00126808	11:22:33:44:55:66
+0012681c	startDiscovery
+00126830	cancelDiscovery
+00126840	android/bluetooth/BluetoothAdapter
+00126864	ACTION_REQUEST_ENABLE
+0012687c	android/content/Intent
+00126894	(Ljava/lang/String;)V
+001268ac	startActivityForResult
+001268c4	(Landroid/content/Intent;I)V
+001268e4	getState
+001268f0	isEnabled
+001268fc	getDefaultAdapter
+00126910	()Landroid/bluetooth/BluetoothAdapter;
+00126938	registerReceiver
+0012694c	(Landroid/content/BroadcastReceiver;Landroid/content/IntentFilter;)Landroid/content/Intent;
+001269a8	com/cnvcs/BtReceiver
+001269c0	android/content/IntentFilter
+001269e0	unregisterReceiver
+001269f4	(Landroid/content/BroadcastReceiver;)V
+00126a1c	ACTION_REQUEST_DISCOVERABLE
+00126a38	EXTRA_DISCOVERABLE_DURATION
+00126a54	putExtra
+00126a60	(Ljava/lang/String;I)Landroid/content/Intent;
+00126a90	getBondedDevices
+00126aa4	()Ljava/util/Set;
+00126ab8	iterator
+00126ac4	()Ljava/util/Iterator;
+00126adc	android/bluetooth/BluetoothDevice
+00126b00	next
+00126b08	()Ljava/lang/Object;
+00126b20	hasNext
+00126b28	java/nio/channels/SelectionKey
+00126b48	OP_READ
+00126b50	OP_WRITE
+00126b5c	OP_CONNECT
+00126b68	OP_ACCEPT
+00126b74	java.net.preferIPv6Addresses
+00126b94	false
+00126b9c	java/lang/System
+00126bb0	setProperty
+00126bbc	(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+00126bf8	Hilite
+00126c14	sound
+00126c1c	Click
+00126c24	confirmClick
+00126c34	hoverBlink
+00126c40	hoverSound
+00126c4c	offset
+00126c54	delta
+00126c5c	blink
+00126c68	default
+00126c70	movable
+00126c78	UiImage
+00126c80	UiContainer
+00126c8c	UiAni
+00126c94	UiCaption
+00126ca0	UiCheckBox
+00126cac	UiCheckBtn
+00126cb8	UiComboBox
+00126cc4	UiDialog
+00126cd0	UiEdit
+00126cd8	UiHeader
+00126ce4	UiLabel
+00126cec	UiListBox
+00126cf8	UiMoveBtn
+00126d04	UiMoveCont
+00126d10	UiPicCtrl
+00126d1c	UiProgress
+00126d28	UiRepeatBtn
+00126d34	UiScrollBar
+00126d40	UiSlider
+00126d4c	UiText
+00126d54	UiTextBox
+00126d60	UiFileList
+00126d6c	UiIconBtn
+00126d78	bottom
+00126d80	c-%d,c-%d,c%d,c%d
+00126d94	transparent
+00126da0	true
+00126da8	center
+00126db0	normal
+00126db8	alpha
+00126dc0	closeSound
+00126dcc	escClose
+00126dd8	rBtnClose
+00126de4	clickClose
+00126df0	rBtnMove
+00126dfc	adjustPos
+00126e08	clipCursor
+00126e14	bound
+00126e1c	resizeChild
+00126e28	popup
+00126e30	modal
+00126f28	vector
+00126f30	tabStop
+00126f38	readOnly
+00126f44	number
+00126f4c	password
+00126f58	multiLine
+00126f64	wantReturn
+00126f70	wrap
+00126f78	noHideSel
+00126f84	limit
+00126f8c	maxNum
+00126f94	selColor
+00126fa0	#3169c6
+00126fb0	%s%s
+00126fbc	{fileup}
+00126fcc	{fileunknown}
+00126fdc	{file%s}
+00126fe8	path
+00126ff0	filter
+00126ff8	iconWidth
+00127004	Header,3
+00127010	font
+00127018	Button
+00127020	rect
+00127028	0,0,0,0
+00127030	visible
+00127038	align
+00127044	input
+0012704c	ellipsis
+00127058	autoSize
+00127064	blinkInterval
+00127074	blinkColor
+001270c4	float
+001270cc	List,9
+001270d4	margin
+001270dc	vScroll
+001270e4	header
+001270ec	sort
+001270f4	listMargin
+00127100	listImg
+00127108	Header
+00127110	HorzBar
+00127118	direction
+00127124	horz
+0012712c	hScrollStyle
+0012713c	VertBar
+00127144	vert
+0012714c	vScrollStyle
+0012715c	column
+00127164	smooth
+0012716c	range
+00127178	delay
+00127180	repSound
+00127290	style
+00127298	Window
+001272a0	UiLayout
+001272ac	UiRoot
+001272b4	0,0,%d,%d
+001272c0	Normal
+001272c8	%s.%s
+001272d0	wndName
+001272d8	StyleSet
+001272e4	UiConfig
+001272f4	btnLen
+001272fc	Slider
+00127304	page
+0012730c	minLen
+00127314	maxLen
+0012731c	PrevBtn
+00127324	_prev
+0012732c	NextBtn
+00127334	_next
+0012733c	repeatDelay
+00127348	repeatInterval
+00127358	_shaft
+00127360	_thumb
+00127368	UiTag: Tag name conflict (name:%s)
+0012738c	value
+00127398	UiTag
+001273a0	TagSet
+001273a8	left
+001273b0	right
+001273b8	Label,9
+001273c0	autoNewline
+001273cc	wordBreak
+001273d8	rich
+001273e0	ctrlColor
+001273ec	ctrlAlign
+001273f8	touch
+0012741c	ScrollBar
+00127428	scrollStyle
+00127434	textMargin
+00127440	Ui.%s
+00127448	origin
+00127450	black
+00127458	extra
+00127460	vAlign
+00127468	enable
+00127470	vertical
+0012747c	hScroll
+00127484	leftScroll
+00127490	alwaysScroll
+001274a0	autoHScroll
+001274ac	autoVScroll
+001274b8	autoSetPos
+001274c4	hoverable
+001274d0	hoverDelay
+001274dc	play
+001274e4	frame
+001274ec	check
+001274f4	listStyle
+00127500	btnRc
+00127508	listWidth
+00127514	listHeight
+00127520	Field
+00127528	editImg
+00127530	editMargin
+0012753c	Vert_Next,1
+00127568	UiList
+0012757c	list_item
+00127588	gridBorder
+00127594	itemHeight
+001275a0	indent
+001275a8	hGrid
+001275b0	hGridHeight
+001275bc	vGrid
+001275c4	android/media/AudioManager
+001275e0	STREAM_MUSIC
+001275f0	android/media/AudioFormat
+0012760c	CHANNEL_OUT_MONO
+00127620	CHANNEL_OUT_STEREO
+00127634	ENCODING_PCM_8BIT
+00127648	ENCODING_PCM_16BIT
+0012765c	android/media/AudioTrack
+00127678	MODE_STATIC
+00127684	PLAYSTATE_STOPPED
+00127698	PLAYSTATE_PLAYING
+001276ac	getMinVolume
+001276c0	getMaxVolume
+001276d0	setVolumeControlStream
+001276e8	release
+001276f0	getPlayState
+00127700	pause
+00127708	stop
+00127710	setStereoVolume
+00127720	(FF)I
+00127728	reloadStaticData
+0012773c	(IIIIII)V
+00127748	([BII)I
+00127750	SoundMgr: Sound name conflict (name:%s)
+00127778	volume
+00127780	SoundMgr
+0012778c	SoundSet
+00127798	SoundConfig
+001277a4	vendor
+001277ac	renderer
+001277b8	version
+001277c0	extensions
+001277cc	maxTextureSize
+001277dc	coord
+001277f0	,H<^f
+00127809	4RUgx
+0012784e	g#gQ
+00127854	>D`^
+0012787f	HqEX
+0012788a	O|~o&
+0012791c	Leiy)
+00127937	Xev{A
+00127980	Gj(8/
+001279d6	(x.>
+001279e3	2sgZ%
+001279ef	_BaseTexMgr: Texture leak (count:%d)
+00127a14	BaseTexPool: Texture leak (count:%d)
+00127a3c	File
+00127a44	Frame0
+00127a4c	Frame
+00127a54	Duration
+00127a60	Frame%d
+00127a7c	green
+00127a84	blue
+00127a8c	yellow
+00127a94	magenta
+00127a9c	cyan
+00127aa4	white
+00127aac	orange
+00127ab4	orangered
+00127ac0	ImgMgr: Image name conflict (name:%s)
+00127ae8	height
+00127af0	Image
+00127af8	ImgMgr: Load %s failed (line:%d, column:%d, desc:%s)
+00127b30	ImageSet
+00127b3c	ImageConfig
+00127b48	%s %dx%d %dx%d %dx%d %d %d
+00127b64	FontMgr: Save %s (ori:%d, new:%d)
+00127b90	size
+00127b98	FontMgr: Glyph name conflict (name:%s)
+00127bc8	FontMgr: Create font failed (name:%s)
+00127bf0	rare
+00127bf8	Font
+00127c00	MultiFont
+00127c0c	FontMgr: Load %s failed (line:%d, column:%d, desc:%s)
+00127c44	FontConfig
+00127c98	DDS 
+00127ca0	DXT1
+00127ca8	DXT2
+00127cb0	DXT3
+00127cb8	DXT4
+00127cc0	DXT5
+00127cc8	%s_%d%s
+00127cd0	Interval
+00127ce8	Debug
+00127cf0	Warning
+00127cf8	Storm
+00127d00	%m-%d %H:%M:%S
+00127d10	[%s]
+00127d18	[%s] %s
+00127d24	/sdcard/log.txt
+00127e48	%Y-%m-%d %H:%M:%S
+00127e5c	%.0f%c
+00127e64	%.1f%c
+00127e6c	%.2f%c
+00127e74	%d.%s
+00127e7c	TimerMgr: Counter wrapped %lld %lld
+001280e8	ACCESS_NETWORK_STATE
+00128100	INTERNET
+0012810c	ACCESS_WIFI_STATE
+00128120	READ_PHONE_STATE
+00128134	WRITE_EXTERNAL_STORAGE
+0012814c	ACCESS_COARSE_LOCATION
+00128168	%s%s%s%s%s
+00128188	%.0f%s
+00128190	%.1f%s
+00128198	%.2f%s
+001281a0	%02d:%02d:%02d
+001281b0	http
+001281b8	%s: Load %s failed (line:%d, column:%d, desc:%s)
+001281ec	%d-%d-%d
+001281f8	%H:%M
+00128208	%s%s.%s
+00128210	%s %d
+00128218	%04X
+00128224	android/os/Build$VERSION
+00128240	SDK_INT
+00128248	getPackageName
+00128258	java/util/Locale
+0012826c	getDefault
+00128278	()Ljava/util/Locale;
+00128290	getCountry
+0012829c	getLanguage
+001282a8	RELEASE
+001282b0	deleteFile
+001282bc	(Ljava/lang/String;)Z
+001282d4	android/os/Build
+001282e8	MODEL
+001282f0	Android %s
+001282fc	MANUFACTURER
+0012830c	getResources
+0012831c	()Landroid/content/res/Resources;
+00128340	getDisplayMetrics
+00128354	()Landroid/util/DisplayMetrics;
+00128374	widthPixels
+00128380	heightPixels
+00128390	density
+0012839c	android/provider/Settings
+001283b8	ACTION_WIRELESS_SETTINGS
+001283d4	android/Manifest$permission
+001283f0	android/content/pm/PackageManager
+00128414	PERMISSION_GRANTED
+00128428	checkCallingOrSelfPermission
+00128448	(Ljava/lang/String;)I
+00128460	android/net/Uri
+00128470	parse
+00128478	(Ljava/lang/String;)Landroid/net/Uri;
+001284a0	ACTION_VIEW
+001284ac	(Ljava/lang/String;Landroid/net/Uri;)V
+001284d4	startActivity
+001284e4	(Landroid/content/Intent;)V
+00128500	(Landroid/content/Context;Ljava/lang/Class;)V
+00128530	stopService
+0012853c	(Landroid/content/Intent;)Z
+00128558	ACTIVITY_SERVICE
+0012856c	android/app/ActivityManager$MemoryInfo
+00128594	availMem
+001285a4	getMemoryInfo
+001285b4	(Landroid/app/ActivityManager$MemoryInfo;)V
+001285e0	getAssets
+001285ec	()Landroid/content/res/AssetManager;
+00128614	open
+0012861c	(Ljava/lang/String;)Ljava/io/InputStream;
+00128648	openFileInput
+00128658	(Ljava/lang/String;)Ljava/io/FileInputStream;
+00128688	isWifiEnabled
+00128698	android/os/Environment
+001286b0	getExternalStorageDirectory
+001286cc	()Ljava/io/File;
+001286e0	getAbsolutePath
+001286f0	getMacAddress
+00128700	TELEPHONY_SERVICE
+00128714	getDeviceId
+00128720	%s`%s`%d`%d`%s`%s
+00128734	%s%d%lld
+00128740	java/net/URL
+00128750	openConnection
+00128760	()Ljava/net/URLConnection;
+0012877c	disconnect
+00128788	GET_META_DATA
+00128798	getPackageManager
+001287ac	()Landroid/content/pm/PackageManager;
+001287d4	getApplicationInfo
+001287e8	(Ljava/lang/String;I)Landroid/content/pm/ApplicationInfo;
+00128824	metaData
+00128830	Landroid/os/Bundle;
+00128844	getString
+00128850	(Ljava/lang/String;)Ljava/lang/String;
+00128878	android/content/ComponentName
+00128898	getActivityInfo
+001288a8	(Landroid/content/ComponentName;I)Landroid/content/pm/ActivityInfo;
+001288ec	GET_SIGNATURES
+001288fc	getPackageInfo
+0012890c	(Ljava/lang/String;I)Landroid/content/pm/PackageInfo;
+00128944	signatures
+00128950	[Landroid/content/pm/Signature;
+00128970	toCharsString
+00128980	POST
+00128988	setRequestMethod
+0012899c	setDoOutput
+001289a8	(Z)V
+001289b0	setDoInput
+001289bc	setUseCaches
+001289cc	Content-Type
+001289dc	application/x-www-form-urlencoded
+00128a00	setRequestProperty
+00128a14	(Ljava/lang/String;Ljava/lang/String;)V
+00128a3c	getBytes
+00128a48	()[B
+00128a50	flush
+00128a58	openFileOutput
+00128a68	(Ljava/lang/String;I)Ljava/io/FileOutputStream;
+00128aec	point
+00128af8	onResume
+00128b04	onPause
+00128b0c	getAction
+00128b18	getX
+00128b20	getY
+00128b28	getKeyCode
+00128b34	getRepeatCount
+00128b44	android/view/KeyEvent
+00128b5c	ACTION_DOWN
+00128b68	ACTION_UP
+00128b74	KEYCODE_BACK
+00128b84	KEYCODE_MENU
+00128b94	KEYCODE_DPAD_UP
+00128ba4	KEYCODE_DPAD_DOWN
+00128bb8	android/view/MotionEvent
+00128bd4	ACTION_MOVE
+00128be0	android/app/Activity
+00128bf8	RESULT_CANCELED
+00128c08	ACTION_SCAN_MODE_CHANGED
+00128c24	ACTION_DISCOVERY_STARTED
+00128c40	ACTION_DISCOVERY_FINISHED
+00128c5c	EXTRA_SCAN_MODE
+00128c6c	ACTION_FOUND
+00128c7c	EXTRA_DEVICE
+00128c8c	FILL_PARENT
+00128c98	WRAP_CONTENT
+00128ca8	getWindow
+00128cb4	()Landroid/view/Window;
+00128ccc	setContentView
+00128cdc	getWindowManager
+00128cf0	()Landroid/view/WindowManager;
+00128d10	android/view/WindowManager$LayoutParams
+00128d38	FLAG_FULLSCREEN
+00128d48	FLAG_KEEP_SCREEN_ON
+00128d5c	android/view/Window
+00128d70	FEATURE_NO_TITLE
+00128d84	requestFeature
+00128d94	(I)Z
+00128d9c	setFlags
+00128da8	com/cnvcs/GLView
+00128dbc	setEGLConfigChooser
+00128dd0	setEGLContextClientVersion
+00128dec	getHolder
+00128df8	()Landroid/view/SurfaceHolder;
+00128e18	setFormat
+00128e24	android/graphics/PixelFormat
+00128e44	TRANSLUCENT
+00128e50	getDefaultDisplay
+00128e64	()Landroid/view/Display;
+00128e80	getWidth
+00128e8c	getHeight
+00128e98	finish
+00128ea0	getIntExtra
+00128eac	(Ljava/lang/String;I)I
+00128ec4	mode
+00128ecc	getParcelableExtra
+00128ee0	(Ljava/lang/String;)Landroid/os/Parcelable;
+00128f0c	android/widget/Toast
+00128f24	LENGTH_SHORT
+00128f34	makeText
+00128f40	(Landroid/content/Context;Ljava/lang/CharSequence;I)Landroid/widget/Toast;
+00128f8c	show
+00128f94	equals
+00128f9c	(Ljava/lang/Object;)Z
+00128fb4	java/io/ByteArrayOutputStream
+00128fd4	([BII)V
+00128fdc	toByteArray
+00128fe8	com/cnvcs/SiteView
+00128ffc	create
+00129004	(Landroid/app/Activity;Ljava/lang/String;Ljava/lang/String;IIZ)V
+00129048	StrTable
+00129054	StringSet
+00129060	StringConfig
+00129070	FileReload: Reload %s
+0012908c	PathMgr: Path name conflict (name:%s)
+001290b4	Path
+001290bc	PathMgr
+001290c4	PathConfig
+001290d0	File not found
+001293c8	(null)
+001293d0	0123456789abcdef
+001293e4	0123456789ABCDEF
+00129408	(nil)
+00129710	80( 
+00129718	91)!
+00129720	:2*"
+00129728	;3+#>6.&
+00129734	=5-%
+0012973c	<4,$
+001297e7	'2, /+0&7!4-)1#
+00129ff8	TYPE_TEXT_VARIATION_URI
+0012a010	TYPE_CLASS_PHONE
+0012a024	TYPE_TEXT_VARIATION_EMAIL_ADDRESS
+0012a048	com/cnvcs/InputDlg
+0012a05c	com/cnvcs/TextDlg
+0012a070	(Landroid/content/Context;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;I)V
+0012a0c4	TYPE_CLASS_NUMBER
+0012a0d8	android/text/InputType
+0012a0f8	<%s>
+0012a100	<!--%s-->
+0012a114	</%s>
+0012a11c	&#x%02X;
+0012a12c	<![CDATA[%s]]>
+0012a150	<?xml 
+0012a158	version="%s" 
+0012a168	version="
+0012a174	encoding="%s" 
+0012a184	encoding="
+0012a190	standalone="%s" 
+0012a1a4	standalone="
+0012a1b8	<![CDATA[
+0012a1c8	%s="%s"
+0012a1d0	%s='%s'
+0012a5fc	<?xml
+0012a608	UTF-8
+0012a610	UTF8
+0012a618	encoding
+0012a624	standalone
+0012a630	&amp;
+0012a638	&lt;
+0012a640	&gt;
+0012a648	&quot;
+0012a650	&apos;
+0012a677	#No error
+0012a684	Failed to open file
+0012a698	Memory allocation failed.
+0012a6b4	Error parsing Element.
+0012a6cc	Failed to read Element name
+0012a6e8	Error reading Element value.
+0012a708	Error reading Attributes.
+0012a724	Error: empty tag.
+0012a738	Error reading end tag.
+0012a750	Error parsing Unknown.
+0012a768	Error parsing Comment.
+0012a780	Error parsing Declaration.
+0012a79c	Error document empty.
+0012a7b4	Error null (0) or unexpected EOF found in input stream.
+0012a7ec	Error parsing CDATA.
+0012a804	Error when TiXmlDocument added to document, because TiXmlDocument can only be at the root.
+0012acde	Y&ubF,r
+0012ad17	=acV>.:
+0012ad3b	EQdPE
+0012ad6a	"LubFL
+0012addd	5VT>
+0012ae31	s5VCNMV-@eV
+0012ae3d	H}VSg
+0012ae61	nYWdOrW
+0012ae96	Q\&z^\
+0012af29	,H^acV^
+0012af66	 _"L/_>
+0012af75	{[_LEj_ 
+0012afc2	<dZJDd]
+0012b03e	0eN'8e
+0012b049	LHeQdPe
+0012b051	~Xen
+0012b062	yeb1
+0012b0b6	&foN/f
+0012b0be	7ff&@f
+0012b0d5	sjfR
+0012b0da	rf|s{fq
+0012b132	0gxC9g%
+0012b145	Q\g,
+0012b1c2	8l5F=l
+0012b1ca	AlubFli
+0012b1de	XlS>]lQ
+0012b1f2	olG8tl@
+0012b1fa	xljq}l
+0012b28e	&mWW+m
+0012b2b9	_[m!3`m
+0012b2ce	smxexm
+0012b3a2	znb*
+0012b426	#o4N(o
+0012b43a	=oFIBoK~Go>
+0012b451	[\oW
+0012b461	Gqo>
+0012b509	1(t*
+0012b512	-trG0t=
+0012b521	a8t6
+0012b546	Ptk}St
+0012b566	fttLit>
+0012b576	qt%>tt
+0012b682	,u,`/u
+0012b6b6	Quy~Tu \Wu*:Zu
+0012b6d6	huqvku)WnuC8qu
+0012b7e6	/v4y2v
+0012b7ed	s5v+m8v
+0012b7fd	]Av`YDvQUGv
+0012b809	QJvCNMvDKPv
+0012b815	HSvUFVveDYv
+0012b829	@bv-@ev
+0012b831	@hv-@kv
+0012b841	BtvbDwvOFzv
+0012b84d	H}v6K
+0012b986	lw$2owdOrw
+0012baba	/|LR1|
+0012bac6	4|$#6|e
+0012bad1	Y9|]
+0012bae2	?|"eA|t
+0012baf1	:F|V
+0012baf6	G|EtI|Z
+0012bb16	T|-aV|x
+0012bb25	<[|A
+0012bb2a	\|&z^|2
+0012bb39	Wc|<
+0012bb62	s|o:u|
+0012bb6d	|x|L
+0012bd06	!}=k#}s
+0012bd12	&}J|(}
+0012bd31	S4}-
+0012bd4d	1@}.
+0012bd65	cJ}c
+0012bd71	}O}V1Q}B
+0012bdb6	l}{6n}
+0012bdc5	Ys}2
+0012bf55	=!~X
+0012bf62	&~0M(~d
+0012bf75	^/~v#1~K
+0012bf82	4~Wr6~
+0012bfca	T~acV~
+0012bfd1	*X~q
+0012bff5	3h~e
+0012c002	m~HWo~~ q~
+0012c019	Fx~f
+00133044	"(.66
+001330ac	"*26L
+00133113	&.8DTf
+0013317a	 &.6>FL$
+001331de	 &.4<D:6
+0013328a	 (08@LZ
+001332e8	input buffer too small (or EOF)
+00133308	no error
+00133314	invalid (null) buffer pointer
+00133334	not enough memory
+00133348	lost synchronization
+00133360	reserved header layer value
+0013337c	forbidden bitrate value
+00133394	reserved sample frequency value
+001333b4	reserved emphasis value
+001333cc	CRC check failed
+001333e0	forbidden bit allocation value
+00133400	bad scalefactor index
+00133418	bad bitrate/mode combination
+00133438	bad frame length
+0013344c	bad big_values count
+00133464	reserved block_type
+00133478	bad scalefactor selection info
+00133498	bad main_data_begin pointer
+001334b4	bad audio data length
+001334cc	bad Huffman table select
+001334e8	Huffman data overrun
+00133500	incompatible block_type for JS
+00135198	kerning
+001351a0	glyph-dict
+001351ac	postscript-font-name
+001351c4	sfnt-table
+001351d0	tt-cmaps
+001351dc	truetype
+001351e8	truetype-engine
+001351f8	.resource/
+00135204	resource.frk/
+00135214	/rsrc
+0013521c	.AppleDouble/
+00135230	type1
+001355cc	cinu
+001355d8	cinu
+001355e4	nmra
+001355f0	bmys
+001355fc	cinu
+00135608	cinu
+00135614	sijs
+00135620	  bg
+0013562c	5gib
+00135638	snaw
+00135644	ahoj
+00135658	sfnt
+00135660	postscript-cmaps
+00135674	CHARSET_REGISTRY
+00135688	CHARSET_ENCODING
+001356a0	smooth-lcd
+001356ac	smooth-lcdv
+00135724	Weight
+0013572c	OpticalSize
+00135738	Slant
+00135740	xf86-driver-name
+00135754	TrueType
+00135760	multi-masters
+00135a24	$3br
+00135a30	%&'()*456789:CDEFGHIJSTUVWXYZcdefghijstuvwxyz
+00135b0b	&'()*56789:CDEFGHIJSTUVWXYZcdefghijstuvwxyz
+0013608c	Bogus message code %d
+001360a4	ALIGN_TYPE is wrong, please fix
+001360c4	MAX_ALLOC_CHUNK is wrong, please fix
+001360ec	Bogus buffer control mode
+00136108	Invalid component ID %d in SOS
+00136128	Invalid crop request
+00136140	DCT coefficient out of range
+00136160	DCT scaled block size %dx%d not supported
+0013618c	Component index %d: mismatching sampling ratio %d:%d, %d:%d, %c
+001361cc	Bogus Huffman table definition
+001361ec	Bogus input colorspace
+00136204	Bogus JPEG colorspace
+0013621c	Bogus marker length
+00136230	Wrong JPEG library version: library is %d, caller expects %d
+00136270	Sampling factors too large for interleaved scan
+001362a0	Invalid memory pool code %d
+001362bc	Unsupported JPEG data precision %d
+001362e0	Invalid progressive parameters Ss=%d Se=%d Ah=%d Al=%d
+00136318	Invalid progressive parameters at scan script entry %d
+00136350	Bogus sampling factors
+00136368	Invalid scan script at entry %d
+00136388	Improper call to JPEG library in state %d
+001363b4	JPEG parameter struct mismatch: library thinks size is %u, caller expects %u
+00136404	Bogus virtual array access
+00136420	Buffer passed to JPEG library is too small
+0013644c	Suspension not allowed here
+00136468	CCIR601 sampling not implemented yet
+00136490	Too many color components: %d, max %d
+001364b8	Unsupported color conversion request
+001364e0	Bogus DAC index %d
+001364f4	Bogus DAC value 0x%x
+0013650c	Bogus DHT index %d
+00136520	Bogus DQT index %d
+00136534	Empty JPEG image (DNL not supported)
+0013655c	Read from EMS failed
+00136574	Write to EMS failed
+00136588	Didn't expect more than one scan
+001365ac	Input file read error
+001365c4	Output file write error --- out of disk space?
+001365f4	Fractional sampling not implemented yet
+0013661c	Huffman code size table overflow
+00136640	Missing Huffman code table entry
+00136664	Maximum supported image dimension is %u pixels
+00136694	Empty input file
+001366a8	Premature end of input file
+001366c4	Cannot transcode due to multiple use of quantization table %d
+00136704	Scan script does not transmit all data
+0013672c	Invalid color quantization mode change
+00136754	Not implemented yet
+00136768	Requested feature was omitted at compile time
+00136798	Arithmetic table 0x%02x was not defined
+001367c0	Backing store not supported
+001367dc	Huffman table 0x%02x was not defined
+00136804	JPEG datastream contains no image
+00136828	Quantization table 0x%02x was not defined
+00136854	Not a JPEG file: starts with 0x%02x 0x%02x
+00136880	Insufficient memory (case %d)
+001368a0	Cannot quantize more than %d color components
+001368d0	Cannot quantize to fewer than %d colors
+001368f8	Cannot quantize to more than %d colors
+00136920	Invalid JPEG file structure: %s before SOF
+0013694c	Invalid JPEG file structure: two SOF markers
+0013697c	Invalid JPEG file structure: missing SOS marker
+001369ac	Unsupported JPEG process: SOF type 0x%02x
+001369d8	Invalid JPEG file structure: two SOI markers
+00136a08	Failed to create temporary file %s
+00136a2c	Read failed on temporary file
+00136a4c	Seek failed on temporary file
+00136a6c	Write failed on temporary file --- out of disk space?
+00136aa4	Application transferred too few scanlines
+00136ad0	Unsupported marker type 0x%02x
+00136af0	Virtual array controller messed up
+00136b14	Image too wide for this implementation
+00136b3c	Read from XMS failed
+00136b54	Write to XMS failed
+00136b68	Copyright (C) 2014, Thomas G. Lane, Guido Vollbeding
+00136ba0	9a  19-Jan-2014
+00136bb0	Caution: quantization tables are too coarse for baseline JPEG
+00136bf0	Adobe APP14 marker: version %d, flags 0x%04x 0x%04x, transform %d
+00136c34	Unknown APP0 marker (not JFIF), length %u
+00136c60	Unknown APP14 marker (not Adobe), length %u
+00136c8c	Define Arithmetic Table 0x%02x: 0x%02x
+00136cb4	Define Huffman Table 0x%02x
+00136cd0	Define Quantization Table %d  precision %d
+00136cfc	Define Restart Interval %u
+00136d18	Freed EMS handle %u
+00136d2c	Obtained EMS handle %u
+00136d44	End Of Image
+00136d54	        %3d %3d %3d %3d %3d %3d %3d %3d
+00136d7c	JFIF APP0 marker: version %d.%02d, density %dx%d  %d
+00136db4	Warning: thumbnail image size does not match data length %u
+00136df0	JFIF extension marker: type 0x%02x, length %u
+00136e20	    with %d x %d thumbnail image
+00136e44	Miscellaneous marker 0x%02x, length %u
+00136e6c	Unexpected marker 0x%02x
+00136e88	        %4u %4u %4u %4u %4u %4u %4u %4u
+00136eb0	Quantizing to %d = %d*%d*%d colors
+00136ed4	Quantizing to %d colors
+00136eec	Selected %d colors for quantization
+00136f10	At marker 0x%02x, recovery action %d
+00136f38	RST%d
+00136f40	Smoothing not supported with nonstandard sampling ratios
+00136f7c	Start Of Frame 0x%02x: width=%u, height=%u, components=%d
+00136fb8	    Component %d: %dhx%dv q=%d
+00136fd8	Start of Image
+00136fe8	Start Of Scan: %d components
+00137008	    Component %d: dc=%d ac=%d
+00137028	  Ss=%d, Se=%d, Ah=%d, Al=%d
+00137048	Closed temporary file %s
+00137064	Opened temporary file %s
+00137080	JFIF extension marker: JPEG-compressed thumbnail image, length %u
+001370c4	JFIF extension marker: palette thumbnail image, length %u
+00137100	JFIF extension marker: RGB thumbnail image, length %u
+00137138	Unrecognized component IDs %d %d %d, assuming YCbCr
+0013716c	Freed XMS handle %u
+00137180	Obtained XMS handle %u
+00137198	Unknown Adobe color transform code %d
+001371c0	Corrupt JPEG data: bad arithmetic code
+001371e8	Inconsistent progression sequence for component %d coefficient %d
+0013722c	Corrupt JPEG data: %u extraneous bytes before marker 0x%02x
+00137268	Corrupt JPEG data: premature end of data segment
+0013729c	Corrupt JPEG data: bad Huffman code
+001372c0	Warning: unknown JFIF revision number %d.%02d
+001372f0	Premature end of JPEG file
+0013730c	Corrupt JPEG data: found marker 0x%02x instead of RST%d
+00137344	Invalid SOS parameters for sequential JPEG
+00137370	Application transferred too many scanlines
+001373ac	JPEGMEM
+001373b4	%ld%c
+00137a1b	sAmTb
+00137a28	BKbhTb~XBK!;
+00137a4d	A!;I2
+00137adb	sAmTb
+00137ae8	BKbhTb~XBK!;
+00137b0d	A!;I2
+0013803b	Z@&LHA'
+0013804b	&E*3
+001380af	MQC,ARD
+001380bb	/TF<)VGy#WH
+001380e9	Q2XXR
+00138109	YpU_Z
+00138113	Da\">c]$8c^
+00138127	VeaFOfb
+00138133	Ahd=<c]^7if1Rjg
+00138143	Lkh9Fgc^A
+0013814d	j'Vlk
+0013815b	UokOP
+00138163	Zpm"U
+0013816f	Z1.2.8
+001381f9	 n;^
+001382b9	Qkkbal
+001383c7	i]Wb
+00138507	9a&g
+00138510	MGiI
+00138515	wn>Jj
+00138557	#.zf
+00138565	+o*7
+0013862d	Z* ,
+0013873d	H$6t
+0013885f	52F*
+0013890f	#jT$
+00138a1a	^6o}
+00138a45	[-&LMb#{'
+00138a8b	w+OQvr
+00138ad1	R1h58
+00138b02	SKyu
+00138b6e	)\ZEo^m/
+00138dd2	ru&o
+00138e08	i8P/
+00138e24	?(3w
+00138e3f	H*0"ZOW
+00138eb3	{kHw
+00138f07	)T`D
+00138f6b	!AxU
+00138f88	l!;b
+00138fa4	:1X:
+00138fec	y9*O
+00138ffa	kM`~
+0013901d	Vc0a
+00139087	dQy/
+001390eb	lDa>
+001390f6	7~8A
+0013915b	C-Yn
+00139205	gqr<
+00139267	$/o|
+00139275	f-=v
+001393a1	mj>zjZ
+001393d1	l6qnk
+00139510	IiGM>nw
+0013957e	1A26b
+00139627	i91k
+00139735	ewh/?y
+00139746	*5KS
+001397cd	6~_'
+00139815	F*.f
+00139865	1wsHp
+001399f7	M8MF
+00139a16	Pe6^
+00139a48	#bML"
+00139a62	`F(>
+00139a8c	vQO+t
+00139acf	[h1R
+00139b2e	XsBI
+00139b3a	hPU3
+00139b70	^oEZ_
+00139d8f	2%k_
+00139db2	w3Xc
+00139e08	/P8i
+00139e22	OZw3(?
+00139e40	Z"0*
+00139ed1	fP~V
+00139f7f	^GP~
+00139f88	b;!l
+00139fa2	V_:X1:
+00139fc6	NJ2"v
+00139fec	O*9y]
+0013a05a	fu`z
+0013a089	/yQA
+0013a0fe	&]|v
+0013a178	 deflate 1.2.8 Copyright 1995-2013 Jean-loup Gailly and Mark Adler 
+0013abec	need dictionary
+0013abfc	stream end
+0013ac08	file error
+0013ac14	stream error
+0013ac24	data error
+0013ac30	insufficient memory
+0013ac44	buffer error
+0013ac54	incompatible version
+0013b590	incorrect header check
+0013b5a8	unknown compression method
+0013b5c4	invalid window size
+0013b5d8	unknown header flags set
+0013b5f4	header crc mismatch
+0013b608	invalid block type
+0013b61c	invalid stored block lengths
+0013b63c	too many length or distance symbols
+0013b660	invalid code lengths set
+0013b67c	invalid bit length repeat
+0013b698	invalid code -- missing end-of-block
+0013b6c0	invalid literal/lengths set
+0013b6dc	invalid distances set
+0013b6f4	invalid literal/length code
+0013b710	invalid distance code
+0013b728	invalid distance too far back
+0013b748	incorrect data check
+0013b760	incorrect length check
+0013b878	 inflate 1.2.8 Copyright 1995-2013 Mark Adler 
+0013b924	ios failure
+0013b950	Unable to find facet
+0013b968	 in 
+0013b970	system
+0013b978	 locale
+0013b980	LC_CTYPE=
+0013b98c	LC_TIME=
+0013b998	LC_NUMERIC=
+0013b9a4	LC_COLLATE=
+0013b9b0	LC_MONETARY=
+0013b9c0	LC_MESSAGES=
+0013b9d0	No platform localization support for 
+0013b9f8	 facet category, unable to create facet for 
+0013ba28	No platform localization support, unable to create 
+0013ba5c	Unable to create facet 
+0013ba74	 from name '
+0013bd4c	numpunct
+0013bd58	ctype
+0013be28	moneypunct
+0013be34	collate
+0013be3c	%m/%d/%y
+0013be6c	Sunday
+0013be74	Monday
+0013be7c	Tuesday
+0013be84	Wednesday
+0013be90	Thursday
+0013be9c	Friday
+0013bea4	Saturday
+0013beb0	January
+0013beb8	February
+0013bec4	March
+0013becc	April
+0013bed4	June
+0013bedc	July
+0013bee4	August
+0013beec	September
+0013bef8	October
+0013bf00	November
+0013bf0c	December
+0013c338	 !"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\]^_`ABCDEFGHIJKLMNOPQRSTUVWXYZ{|}~
+0013c438	 !"#$%&'()*+,-./0123456789:;<=>?@abcdefghijklmnopqrstuvwxyz[\]^_`abcdefghijklmnopqrstuvwxyz{|}~
+0013c5a0	+-0xX
+0013c5a8	0123456789abcdefx
+0013c5bc	0123456789ABCDEFX
+0013c65a	@v:k
+0013c693	@aQY
+0013c8f0	0123456789
+0013d846	Sunday
+0013d854	Monday
+0013d862	Tuesday
+0013d870	Wednesday
+0013d87e	Thursday
+0013d88c	Friday
+0013d89a	Saturday
+0013d9c8	January
+0013d9e0	February
+0013d9f8	March
+0013da10	April
+0013da40	June
+0013da58	July
+0013da70	August
+0013da88	September
+0013daa0	October
+0013dab8	November
+0013dad0	December
+0013daec	%2ld
+0013daf4	%.2ld
+0013dafc	%I:%M:%S %p
+0013db2c	messages

@@ -1,0 +1,1597 @@
+#include <jni.h>
+#include <android/native_window_jni.h>
+#include <EGL/egl.h>
+#include <android/log.h>
+#include <android/asset_manager.h>   /* AAsset / AAssetManager / AAsset_openFileDescriptor */
+#include <dlfcn.h>
+#include <pthread.h>
+#include <stdlib.h>
+#include <string.h>
+#include <signal.h>
+#include <unistd.h>
+#include <limits.h>
+#include <sys/system_properties.h>   /* __system_property_get/set（flagtest 触发） */
+#include "render.h"   /* rs_render_frame（GLThread 出屏主路） */
+#include "glview_gl.h"
+#include "touch_state.h"
+#include "ui_menu.h"
+#include "ui_state.h"
+#include "bt_session.h"
+#include "containers.h"     /* jq_layout_container / jq_container_* */
+#include "audio.h"          /* jq_audio */
+#include "render_obj.h"     /* jq_subsys / jq_egl_obj / jq_audio_vec */
+#include "glview_gl.h"      /* jq_glview */
+
+#include "bt_protocol.h"    /* BT_T_FLIP / 帧类型枚举 */
+/* jq_scene / jq_renderer 取自 render_obj.h（避免 render_scene.h 重定义冲突） */
+typedef struct { int vtable, flag0, size; uint8_t pad[0x1c]; } jq_scene_t;
+
+typedef AAssetManager *(*AAM_fromJava_fn)(JNIEnv *, jobject);
+
+/* 子系统/音频/渲染/场景全局（原版 0xba12c 构造链） */
+static jq_subsys_list g_subs;
+static jq_egl_obj g_egl;
+static jq_audio_vec g_aud;
+static jq_renderer g_rend;
+static jq_scene_t g_scene;
+static jq_layout_container g_laycc;
+
+#define LOGI(...) __android_log_print(ANDROID_LOG_INFO, "junqi_rs", __VA_ARGS__)
+#define LOGW(...) __android_log_print(ANDROID_LOG_WARN, "junqi_rs", __VA_ARGS__)
+#define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, "junqi_rs", __VA_ARGS__)
+#define LOGV(...) __android_log_print(ANDROID_LOG_VERBOSE, "junqi_rs", __VA_ARGS__)
+
+/* ★ 这些是 app 运行时全局（jni_bridge.c 定义，非 extern——jni_bridge 是 SoC 入口） */
+jq_state g_state;                /* 对局全局状态（规则引擎） */
+jq_glview g_glview;             /* GLView 线程驱动 */
+jq_touch_state g_ts;            /* 触摸两步态机 */
+jq_bt_session g_bt_sess;        /* 蓝牙会话 */
+
+/* 悔棋栈（OnEvent undo 用） */
+#define UNDO_MAX 128
+static jq_state g_undo[UNDO_MAX];
+static int g_undo_top = 0;
+static void undo_push(void) { if (g_undo_top < UNDO_MAX) g_undo[g_undo_top++] = g_state; }
+static int undo_pop(void) { if (g_undo_top <= 0) return 0; g_state = g_undo[--g_undo_top]; return 1; }
+
+/* ★ 游戏内重开新局统一入口（6 处调用收敛：restartgame property / 菜单按钮 action 0/4 /
+   点棋盘开局 / 对局结束再来一局 / 左上角悔棋重开 / 对局态点棋盘自动开局）。
+   防"改一处漏五处"不一致：load_layout + 明棋/暗棋（★ 选项 UI 模式）+ 清 undo +
+   stage=PLAY + 蓝先手 + 清胜负。
+   ★ 模式（本轮）：ui_opt_get_mode()==0 布局=明棋 revealed=1；1 翻棋=暗棋 revealed=0。
+   调用方需已持有 g_mutex（OnUpdate/OnTouch 锁内；OnCreate 单线程无需锁）。 */
+static void jq_restart_game(void)
+{
+    jq_load_layout(&g_state, JQ_DEFAULT_LAY);
+    int dark = ui_opt_get_mode() == 1;   /* ★ 选项 UI：翻棋模式 = 暗棋开局 */
+    for (int i = 0; i < N_CELLS; i++)
+        if (g_state.cells[i].rank != RANK_EMPTY)
+            g_state.cells[i].revealed = dark ? 0 : 1;
+    g_undo_top = 0;
+    g_state.stage = STG_PLAY;
+    g_state.turn = SIDE_BLUE;
+    g_state.winner = -1;
+    g_state.moves_since_eat = 0;
+    g_state.total_moves = 0;
+    jq_touch_state_init(&g_ts);
+}
+
+/* 红方 AI 贪心（吃子优先 > 同级 > 炸弹 > 工兵挖雷 > 空移 > 翻棋），对齐 game_selftest ai_step
+   视角版：me = 走子方。返回 0=选出着法 / -1=困毙。
+   ★ 难度（本轮）：ui_opt_get_level()——>=2 贪心最优（吃子 sc=1000 优先）；
+     1（新手区）弱——在 sc>=2 里取最小（避免主动吃子/送死，被动游走）。 */
+static int ai_pick(int *from, int *to, int *is_flip)
+{
+    uint8_t me = g_state.turn;
+    int bf = -1, bt = -1, bs = -1;
+    int wf = -1, wt = -1, ws = 999;   /* 新手区：sc>=2 里取最小（弱） */
+    for (int i = 0; i < N_CELLS; i++) {
+        jq_cell *c = &g_state.cells[i];
+        if (c->rank == RANK_EMPTY || c->side != me || !c->revealed) continue;
+        /* ★ 对抗审计 #2：红方棋子存储 rank+0xc（layout.c:59），ai_pick 恒在 turn==RED 被调，
+           必须 rank_norm 还原（旧版用原始编码比较 → 红 rank+12 永不能 < 蓝 rank → sc=1000/900/
+           800/700 全死，AI 只空移不主动吃子）。对照 main.c:39 / game_selftest.c:33 正确写法。 */
+        int r = rank_norm(c->rank);
+        if (r == RANK_FLAG || r == RANK_MINE) continue;
+        for (int t = 0; t < N_CELLS; t++) {
+            if (t == i) continue;
+            jq_cell *d = &g_state.cells[t];
+            if (!jq_can_move(&g_state, i, t)) continue;
+            int sc = ai_score(c->rank, d->rank);  /* ★ 对抗审计 #2：统一走 ai_score（rank_norm 内建） */
+            if (sc > bs) { bs = sc; bf = i; bt = t; }
+            /* ★ 新手区（level 1）：sc>=2 里取最小（空移 sc=2 < 吃子 sc=1000 → 被动） */
+            if (sc >= 2 && sc < ws) { ws = sc; wf = i; wt = t; }
+        }
+    }
+    /* ★ 难度分流：新手区弱（被动游走），中级/高级/好友区贪心最优 */
+    if (ui_opt_get_level() == 1) {
+        if (wf >= 0) { *from = wf; *to = wt; *is_flip = 0; return 0; }
+        if (bf >= 0 && bs >= 1) { *from = bf; *to = bt; *is_flip = 0; return 0; }  /* 无安全格 → 兜底 */
+    } else if (bf >= 0 && bs >= 1) {
+        *from = bf; *to = bt; *is_flip = 0; return 0;
+    }
+    /* 无走子 → 翻棋 */
+    for (int i = 0; i < N_CELLS; i++) {
+        jq_cell *c = &g_state.cells[i];
+        if (c->rank == RANK_EMPTY || c->side != me || c->revealed) continue;
+        if (c->rank == RANK_FLAG || c->rank == RANK_MINE) continue;
+        if (jq_can_flip(&g_state, i)) { *from = i; *to = i; *is_flip = 1; return 0; }
+    }
+    if (bf >= 0) { *from = bf; *to = bt; *is_flip = 0; return 0; }  /* 空移兜底 */
+    return -1;
+}
+
+static JavaVM *g_jvm = NULL;
+
+/* jq_get_jvm：glview_gl.c 引用（渲染线程 attach JVM 用）。正常 so 有定义（0x9e44），
+   重建 header 时丢过 → so 里成 NOTYPE UND → 真机 fail to link。补定义（返回 g_jvm）。 */
+JavaVM *jq_get_jvm(void) { return g_jvm; }
+
+static pthread_mutex_t g_mutex = PTHREAD_MUTEX_INITIALIZER;
+static int g_view_w = 720, g_view_h = 1280;   /* 渲染 viewport（OnGraphChange 更新） */
+static jobject g_gl_surf = NULL;             /* Surface global ref（OnCreate surface 未 ready 存，OnResume 重试） */
+static AAssetManager *g_assets = NULL;
+static int g_assets_avail = 0;
+/* AAsset 函数指针全局（JNI_OnLoad 单线程初始化，免多线程 dlsym 竞态 + 免 AAssetManager_open
+   内 libandroid 全局锁竞争 SIGSEGV SI_KERNEL fault 0x0——崩溃栈实证 AAssetManager_open+54
+   pthread_mutex_lock 崩：渲染线程与 OnCreate 主线程竞争 libandroid 内部锁）。 */
+static AAsset *(*g_aam_open)(AAssetManager *, const char *, int);
+static long (*g_aasset_len)(AAsset *);
+static long (*g_aasset_read)(AAsset *, void *, long);
+static void (*g_aasset_close)(AAsset *);
+
+/* ---- 音效：Java MediaPlayer 播放（WAV 从 /data/local/tmp/jq_sfx/ 读，对齐
+   原版 sound.xml 清单）：事件 move/flip/eat/win/lose/draw → 同名 WAV。 */
+#define SFX_DIR "/data/local/tmp/jq_sfx"
+static int g_sfx_wrote = 0;
+static char g_sfx_priv_dir[256];
+
+/* MediaPlayer global ref 缓存（跨线程安全） */
+static jobject g_mp = NULL;
+static jclass g_mp_cls = NULL;
+static jmethodID g_mp_reset, g_mp_prepare, g_mp_start, g_mp_stop;
+static jmethodID g_mp_setfile = NULL;     /* 无 File 重载（恒 NULL，用 setstr 替代） */
+static jmethodID g_mp_setstr  = NULL;     /* setDataSource(String) */
+static jmethodID g_mp_afd = 0;            /* setDataSource(AssetFileDescriptor) 1 参 */
+static jmethodID g_mp_setfd = NULL;       /* setDataSource(FileDescriptor,long,long) */
+static jclass g_f_cls_sfx = NULL;
+static jmethodID g_f_ctor_sfx = NULL;     /* File(String) */
+
+/* 音效名 → WAV 文件（对齐 spak_res 解包产物名 data_junqi_*.wav） */
+static const char *sfx_wav(const char *event)
+{
+    if (!event) return NULL;
+    if (!strcmp(event, "move")   ) return SFX_DIR "/data_junqi_move.wav";
+    if (!strcmp(event, "eat")    ) return SFX_DIR "/data_junqi_eat.wav";
+    if (!strcmp(event, "bomb")   ) return SFX_DIR "/data_junqi_bomb.wav";
+    if (!strcmp(event, "flag")   ) return SFX_DIR "/data_junqi_flag.wav";
+    if (!strcmp(event, "dead")   ) return SFX_DIR "/data_junqi_dead.wav";
+    if (!strcmp(event, "flip")   ) return SFX_DIR "/data_junqi_flip.wav";
+    if (!strcmp(event, "win")    ) return SFX_DIR "/data_junqi_win.wav";
+    if (!strcmp(event, "lose")   ) return SFX_DIR "/data_junqi_lose.wav";
+    if (!strcmp(event, "draw")   ) return SFX_DIR "/data_junqi_draw.wav";
+    if (!strcmp(event, "start")  ) return SFX_DIR "/data_junqi_start.wav";
+    if (!strcmp(event, "over")   ) return SFX_DIR "/data_junqi_over.wav";
+    if (!strcmp(event, "select") ) return SFX_DIR "/data_junqi_select.wav";
+    if (!strcmp(event, "close")  ) return SFX_DIR "/data_ui_close.wav";
+    if (!strcmp(event, "pop")    ) return SFX_DIR "/data_ui_pop.wav";
+    return SFX_DIR "/data_junqi_move.wav";
+}
+
+/* 走子事件 → 对应音效名（原版 Junqi.* 分类：Move/Eat/Bomb/Flag/Dead）。
+   ★ 走子后必须按事件播对应音效（吃子播 eat 非 move，实证 25→30 吃子统一播 move 是缺口）。 */
+static const char *sfx_for_move(int ev)
+{
+    switch (ev) {
+    case EV_EAT:   return "eat";
+    case EV_BOMB:  return "bomb";
+    case EV_FLAG:  return "flag";
+    case EV_DEAD:  return "dead";
+    case EV_MOVE:
+    default:       return "move";
+    }
+}
+
+/* 对局结束音效统一入口（走子后 stage==OVER → win/lose）。
+   ★ 3 处调用统一（OnTouch 锁外 over_win / AI 锁内 g_state / OnCreate flagtest 锁内），
+   防"改一处漏两处"不一致。winner 无效（-1/越界）不播。 */
+static void sfx_play(JNIEnv *env, const char *event);   /* 前置声明（audio.h 非 static，此处 static 定义在 382） */
+static void sfx_game_over(JNIEnv *env, int stage, int winner)
+{
+    if (stage != STG_OVER) return;
+    if (winner == SIDE_BLUE)        sfx_play(env, "win");
+    else if (winner == SIDE_RED)    sfx_play(env, "lose");
+    else if (winner == 2)           sfx_play(env, "draw");   /* 和棋（winner=2）→ draw 音效 */
+}
+
+/* MediaPlayer 引用缓存（OnCreate 主线程建，global ref 跨线程共享） */
+static int g_mp_ok = 0;
+static void sfx_mp_init(JNIEnv *env)
+{
+    if (g_mp_ok || !env) return;
+    jclass cls = (*env)->FindClass(env, "android/media/MediaPlayer");
+    if (!cls) { (*env)->ExceptionClear(env); return; }
+    g_mp_cls = (jclass)(*env)->NewGlobalRef(env, cls);
+    /* ★ 每个 GetMethodID 失败（NoSuchMethodError）必须 ExceptionClear，否则累积
+       pending exception → 后续 GetMethodID abort（实证：setDataSource(File) 不存在
+       → NoSuchMethodError 未清 → setDataSource(AFD,JJ) 又失败 → ART abort）。
+       MediaPlayer 实际重载：setDataSource(String)/setDataSource(FileDescriptor)/
+       setDataSource(FileDescriptor,long,long)/setDataSource(AssetFileDescriptor)（1 参）。
+       不存在：setDataSource(File)、setDataSource(AFD,long,long)。 */
+    jmethodID reset = (*env)->GetMethodID(env, cls, "reset", "()V");
+    if ((*env)->ExceptionCheck(env)) { (*env)->ExceptionClear(env); reset = NULL; }
+    jmethodID prep  = (*env)->GetMethodID(env, cls, "prepare", "()V");
+    if ((*env)->ExceptionCheck(env)) { (*env)->ExceptionClear(env); prep = NULL; }
+    jmethodID start = (*env)->GetMethodID(env, cls, "start", "()V");
+    if ((*env)->ExceptionCheck(env)) { (*env)->ExceptionClear(env); start = NULL; }
+    jmethodID stop  = (*env)->GetMethodID(env, cls, "stop", "()V");
+    if ((*env)->ExceptionCheck(env)) { (*env)->ExceptionClear(env); stop = NULL; }
+    /* 文件路径重载（正解：setDataSource(String)，非 File——MediaPlayer 无 File 重载） */
+    jmethodID sets  = (*env)->GetMethodID(env, cls, "setDataSource",
+                    "(Ljava/lang/String;)V");
+    if ((*env)->ExceptionCheck(env)) { (*env)->ExceptionClear(env); sets = NULL; }
+    /* AFD 1 参重载（MediaPlayer.setDataSource(AssetFileDescriptor)，非 (AFD,JJ)） */
+    jmethodID seta  = (*env)->GetMethodID(env, cls, "setDataSource",
+                    "(Landroid/content/res/AssetFileDescriptor;)V");
+    if ((*env)->ExceptionCheck(env)) { (*env)->ExceptionClear(env); seta = NULL; }
+    /* FileDescriptor + 偏移重载（AAsset fd 直接播放用） */
+    jmethodID setfd = (*env)->GetMethodID(env, cls, "setDataSource",
+                    "(Ljava/io/FileDescriptor;JJ)V");
+    if ((*env)->ExceptionCheck(env)) { (*env)->ExceptionClear(env); setfd = NULL; }
+    g_mp_reset = reset; g_mp_prepare = prep; g_mp_start = start; g_mp_stop = stop;
+    g_mp_setfile = NULL;                 /* 无 File 重载（用 setstr 替代） */
+    g_mp_setstr  = sets;
+    g_mp_afd     = (jmethodID)seta;
+    g_mp_setfd   = setfd;
+    /* ★ MediaPlayer 实例（公开无参构造 new MediaPlayer()，API 1+）。
+       之前注释"无公开无参构造"是错的 → g_mp 从未建 → sfx_play_file 降级不出声。
+       建实例 + NewGlobalRef（跨线程共享，sfx_play_file 调 setDataSource/prepare/start）。 */
+    jmethodID mp_ctor = (*env)->GetMethodID(env, cls, "<init>", "()V");
+    if ((*env)->ExceptionCheck(env)) { (*env)->ExceptionClear(env); mp_ctor = NULL; }
+    if (mp_ctor) {
+        jobject mp = (*env)->NewObject(env, cls, mp_ctor);
+        if ((*env)->ExceptionCheck(env)) { (*env)->ExceptionClear(env); mp = NULL; }
+        if (mp) {
+            g_mp = (*env)->NewGlobalRef(env, mp);
+            (*env)->DeleteLocalRef(env, mp);
+        }
+    }
+    jclass f_cls = (*env)->FindClass(env, "java/io/File");
+    if (f_cls) {
+        g_f_cls_sfx = (jclass)(*env)->NewGlobalRef(env, f_cls);
+        g_f_ctor_sfx = (*env)->GetMethodID(env, f_cls, "<init>", "(Ljava/lang/String;)V");
+        if ((*env)->ExceptionCheck(env)) { (*env)->ExceptionClear(env); g_f_ctor_sfx = NULL; }
+        (*env)->DeleteLocalRef(env, f_cls);
+    }
+    g_mp_ok = 1;
+    LOGI("sfx：MediaPlayer 就绪（实例=%s，setDataSource(String)=%s AFD=%s FD=%s，事件播放链启用）",
+         g_mp ? "已建" : "未建", g_mp_setstr ? "可用" : "无", g_mp_afd ? "可用" : "无",
+         g_mp_setfd ? "可用" : "无");
+}
+
+/* assets 音效通路：g_assets=0（JNI_OnLoad 设文件系统回退，AAssetManager_fromJava 设备
+   转译层不可达 → 直接 UND 会 fail to link）→ 此函数永不执行。WAV 由
+   sfx_wav_ensure_private 用 Java 反射读 assets 落地 getFilesDir/jq_sfx/（sfx_play ① 优先）。
+   保留空实现：不引用 AAsset_getFd/AAsset_openFileDescriptor（设备 libandroid 不导出，
+   直接引用 → so 有 UND → fail to link）。 */
+static void sfx_play_asset(JNIEnv *env, const char *event)
+{
+    (void)env; (void)event;
+    LOGI("sfx：assets 通路未启用（g_assets=0，WAV 走内部目录落地）");
+}
+
+static void sfx_wav_ensure_private(JNIEnv *env, jobject activity)
+{
+    if (g_sfx_wrote) return;
+    g_sfx_wrote = 1;
+    /* ★ 只做内部目录 mkdirs（getFilesDir/jq_sfx）+ 设 g_sfx_priv_dir，不碰 AAssetManager_open。
+       根因：AAssetManager_open（libandroid）真机有全局锁，主线程 OnCreate 与渲染线程竞争
+       → SIGSEGV SI_KERNEL fault 0x0（崩溃栈实证 AAssetManager_open+54 pthread_mutex_lock）。
+       WAV 文件本身走 sfx_play 的 ② assets 通路（AAsset_openFileDescriptor 一次性拿 fd 不持流，
+       锁窗口小）或 ③ 文件系统回退（/sdcard push，MuMu/桌面）。内部目录暂空仅作 fallback 路径。 */
+    if (!activity) { LOGI("sfx：activity 空 → 跳过内部目录"); return; }
+    jclass act_cls = (*env)->GetObjectClass(env, activity);
+    jmethodID getFilesDir = (*env)->GetMethodID(env, act_cls, "getFilesDir", "()Ljava/io/File;");
+    if (!getFilesDir) { (*env)->ExceptionClear(env); (*env)->DeleteLocalRef(env, act_cls);
+                        LOGI("sfx：getFilesDir 方法缺失"); return; }
+    jobject fobj = (*env)->CallObjectMethod(env, activity, getFilesDir);
+    (*env)->ExceptionClear(env);
+    if (!fobj) { (*env)->DeleteLocalRef(env, act_cls);
+                 LOGI("sfx：getFilesDir 返回 null"); return; }
+    jclass f_cls = (*env)->FindClass(env, "java/io/File");
+    jmethodID ctor_f = (*env)->GetMethodID(env, f_cls, "<init>",
+                    "(Ljava/io/File;Ljava/lang/String;)V");
+    jstring sub = (*env)->NewStringUTF(env, "jq_sfx");
+    jobject subdir = (*env)->NewObject(env, f_cls, ctor_f, fobj, sub);
+    if ((*env)->ExceptionCheck(env)) (*env)->ExceptionClear(env);
+    jmethodID mkdirs_m = (*env)->GetMethodID(env, f_cls, "mkdirs", "()Z");
+    (*env)->CallBooleanMethod(env, subdir, mkdirs_m);
+    if ((*env)->ExceptionCheck(env)) (*env)->ExceptionClear(env);
+    /* getAbsolutePath */
+    jmethodID getAbs = (*env)->GetMethodID(env, f_cls, "getAbsolutePath", "()Ljava/lang/String;");
+    jobject abspath = (*env)->CallObjectMethod(env, subdir, getAbs);
+    (*env)->ExceptionClear(env);
+    if (!abspath) {
+        (*env)->DeleteLocalRef(env, sub); (*env)->DeleteLocalRef(env, act_cls);
+        (*env)->DeleteLocalRef(env, fobj); (*env)->DeleteLocalRef(env, subdir);
+        (*env)->DeleteLocalRef(env, f_cls);
+        return;
+    }
+    const char *adir = (*env)->GetStringUTFChars(env, abspath, NULL);
+    if (adir) {
+        snprintf(g_sfx_priv_dir, sizeof g_sfx_priv_dir, "%s", adir);
+        (*env)->ReleaseStringUTFChars(env, abspath, adir);
+        LOGI("sfx：内部目录就绪 %s（WAV 走 assets/文件回退，内部目录备 fallback）", g_sfx_priv_dir);
+    } else {
+        (*env)->ExceptionClear(env);
+        g_sfx_priv_dir[0] = 0;
+        LOGI("sfx：getAbsolutePath 失败 → 内部目录未设");
+    }
+    (*env)->DeleteLocalRef(env, sub); (*env)->DeleteLocalRef(env, act_cls);
+    (*env)->DeleteLocalRef(env, fobj); (*env)->DeleteLocalRef(env, subdir);
+    (*env)->DeleteLocalRef(env, abspath); (*env)->DeleteLocalRef(env, f_cls);
+
+    /* ★ WAV 落地：Java 反射读 assets（activity.getAssets() + AssetManager.open）写
+       getFilesDir/jq_sfx/。必须在 setContentView 前（渲染线程未启动）跑 → 无
+       AAssetManager_open 锁竞争。AAssetManager_fromJava 设备转译层不可达（直接 UND
+       会 fail to link），故纯 Java 反射读 assets（内部锁竞争窗口在单线程早期可忽略）。 */
+    if (!g_sfx_priv_dir[0]) return;
+    static const char *wav_names[] = {
+        "data_junqi_move.wav","data_junqi_eat.wav","data_junqi_bomb.wav",
+        "data_junqi_flag.wav","data_junqi_dead.wav","data_junqi_flip.wav",
+        "data_junqi_win.wav","data_junqi_lose.wav","data_junqi_draw.wav",
+        "data_junqi_start.wav","data_junqi_over.wav","data_junqi_select.wav",
+        "data_ui_close.wav","data_ui_pop.wav", NULL };
+    /* ★ act_cls 已在上面 DeleteLocalRef，这里必须重新获取（否则悬空引用 SIGSEGV 0x70）。 */
+    jclass act_cls2 = (*env)->GetObjectClass(env, activity);
+    jmethodID getAssets = (*env)->GetMethodID(env, act_cls2, "getAssets",
+                    "()Landroid/content/res/AssetManager;");
+    if ((*env)->ExceptionCheck(env)) { (*env)->ExceptionClear(env); getAssets = NULL; }
+    jobject am = getAssets ? (*env)->CallObjectMethod(env, activity, getAssets) : NULL;
+    if ((*env)->ExceptionCheck(env)) { (*env)->ExceptionClear(env); am = NULL; }
+    if (!am) { LOGI("sfx：getAssets 失败 → WAV 不落地（内部目录空）");
+               if (act_cls2) (*env)->DeleteLocalRef(env, act_cls2); return; }
+    jclass am_cls = (*env)->GetObjectClass(env, am);
+    jmethodID open_m = (*env)->GetMethodID(env, am_cls, "open",
+                    "(Ljava/lang/String;)Ljava/io/InputStream;");
+    if ((*env)->ExceptionCheck(env)) { (*env)->ExceptionClear(env); open_m = NULL; }
+    jclass is_cls = (*env)->FindClass(env, "java/io/InputStream");
+    jmethodID read_m = is_cls ? (*env)->GetMethodID(env, is_cls, "read", "([B)I") : NULL;
+    jmethodID is_close = is_cls ? (*env)->GetMethodID(env, is_cls, "close", "()V") : NULL;
+    jclass fos_cls = (*env)->FindClass(env, "java/io/FileOutputStream");
+    jmethodID fos_ctor = fos_cls ? (*env)->GetMethodID(env, fos_cls, "<init>", "(Ljava/lang/String;)V") : NULL;
+    jmethodID fos_write = fos_cls ? (*env)->GetMethodID(env, fos_cls, "write", "([BII)V") : NULL;
+    jmethodID fos_close = fos_cls ? (*env)->GetMethodID(env, fos_cls, "close", "()V") : NULL;
+    if ((*env)->ExceptionCheck(env)) (*env)->ExceptionClear(env);
+    if (!open_m || !read_m || !fos_ctor) { LOGI("sfx：反射方法缺失 → WAV 不落地"); }
+    else {
+        int copied = 0;
+        for (int i = 0; wav_names[i]; i++) {
+            char asset_name[96], out_path[320];
+            snprintf(asset_name, sizeof asset_name, "jq_sfx/%s", wav_names[i]);
+            snprintf(out_path, sizeof out_path, "%s/%s", g_sfx_priv_dir, wav_names[i]);
+            jstring aname = (*env)->NewStringUTF(env, asset_name);
+            jobject is = (*env)->CallObjectMethod(env, am, open_m, aname);
+            (*env)->DeleteLocalRef(env, aname);
+            if ((*env)->ExceptionCheck(env)) { (*env)->ExceptionClear(env); continue; }
+            if (!is) continue;
+            jstring opath = (*env)->NewStringUTF(env, out_path);
+            jobject fos = (*env)->NewObject(env, fos_cls, fos_ctor, opath);
+            (*env)->DeleteLocalRef(env, opath);
+            if ((*env)->ExceptionCheck(env)) { (*env)->ExceptionClear(env);
+                (*env)->CallVoidMethod(env, is, is_close); continue; }
+            if (!fos) continue;
+            jbyteArray buf = (*env)->NewByteArray(env, 4096);
+            jsize n;
+            while ((n = (*env)->CallIntMethod(env, is, read_m, buf)) > 0) {
+                if ((*env)->ExceptionCheck(env)) { (*env)->ExceptionClear(env); break; }
+                (*env)->CallVoidMethod(env, fos, fos_write, buf, 0, n);
+                if ((*env)->ExceptionCheck(env)) { (*env)->ExceptionClear(env); break; }
+            }
+            if ((*env)->ExceptionCheck(env)) (*env)->ExceptionClear(env);
+            (*env)->CallVoidMethod(env, is, is_close);
+            (*env)->CallVoidMethod(env, fos, fos_close);
+            if ((*env)->ExceptionCheck(env)) (*env)->ExceptionClear(env);
+            (*env)->DeleteLocalRef(env, buf);
+            (*env)->DeleteLocalRef(env, is);
+            (*env)->DeleteLocalRef(env, fos);
+            copied++;
+        }
+        LOGI("sfx：WAV 落地 %s（%d/14 拷贝）", g_sfx_priv_dir, copied);
+    }
+    if (am) (*env)->DeleteLocalRef(env, am);
+    if (am_cls) (*env)->DeleteLocalRef(env, am_cls);
+    if (is_cls) (*env)->DeleteLocalRef(env, is_cls);
+    if (fos_cls) (*env)->DeleteLocalRef(env, fos_cls);
+    if (act_cls2) (*env)->DeleteLocalRef(env, act_cls2);
+}
+
+
+static void sfx_play_file(JNIEnv *env, const char *event, const char *path_override);   /* 前向声明（文件回退/内部存储） */
+static void sfx_play(JNIEnv *env, const char *event)
+{
+    /* ① 内部存储落地优先（sfx_wav_ensure_private OnCreate 已写 getFilesDir/jq_sfx/，
+       MediaPlayer File 路径纯本地读，免 AAssetManager_open 多线程锁竞争 SIGSEGV） */
+    if (g_sfx_priv_dir[0]) {
+        char pth[320];
+        const char *base = sfx_wav(event);
+        if (base) {
+            const char *bn = strrchr(base, '/');
+            snprintf(pth, sizeof pth, "%s/%s", g_sfx_priv_dir, bn ? bn : base);
+            FILE *chk = fopen(pth, "rb");
+            if (chk) { fclose(chk); sfx_play_file(env, event, pth); return; }
+        }
+    }
+    /* ② 内部存储无文件 → assets 通路（AAsset_openFileDescriptor + AFD setDataSource，
+       一次性拿 fd 不持流，锁竞争窗口小） */
+    if (g_assets && g_aam_open) { sfx_play_asset(env, event); return; }
+    /* ③ 文件系统回退（/sdcard push，MuMu/桌面） */
+    sfx_play_file(env, event, NULL);
+}
+
+static void sfx_play_file(JNIEnv *env, const char *event, const char *path_override)
+{
+    const char *base = sfx_wav(event);
+    if (!base) return;
+    const char *path = path_override ? path_override : base;
+    if (!path) return;
+    if (!g_mp_ok) { sfx_mp_init(env); if (!g_mp_ok) return; }
+    /* ★ 跨线程安全：类引用用 global ref（g_mp_cls），jmethodID 线程安全可缓存复用。
+       MediaPlayer 实际重载 setDataSource(String)（非 File——File 重载不存在，
+       GetMethodID(File) 会 NoSuchMethodError 累积 abort，实证）。
+       每个 CallVoidMethod 后清 pending exception（防 NoMethodError 累积 abort）。 */
+    jstring jpath = (*env)->NewStringUTF(env, path);
+    if (!jpath) { if ((*env)->ExceptionCheck(env)) (*env)->ExceptionClear(env); return; }
+    /* ★ g_mp 是 global ref（首建时 NewGlobalRef），所有线程共享同一实例。
+       避免 local ref 跨线程复用 → MuMu checkJNI "accessed deleted Local" abort。
+       MediaPlayer 严格说非线程安全，但本重写仅验证播放链通路（日志实证），
+       真机出声走 AudioTrack/宿主音频；共享 global ref 不崩即可（诚实边界）。 */
+    if (!g_mp) {
+        if (!g_mp_cls) { LOGI("sfx：MediaPlayer 类未缓存 → 跳过 %s", event); return; }
+        /* MediaPlayer 无公开无参构造；reset 是实例方法。用 MediaPlayer.create 替代不可得，
+           改用 static 实例：首次 new 走反射 MediaPlayer() 需 Context 无 → 降级跳过（不崩）。 */
+        LOGI("sfx：MediaPlayer 实例未建（降级，不出声） %s", event);
+        return;
+    }
+    /* reset → setDataSource(String) → prepare → start */
+    if (g_mp_reset) {
+        (*env)->CallVoidMethod(env, g_mp, g_mp_reset);
+        if ((*env)->ExceptionCheck(env)) (*env)->ExceptionClear(env);
+    }
+    if (g_mp_setstr) {
+        (*env)->CallVoidMethod(env, g_mp, g_mp_setstr, jpath);
+        if ((*env)->ExceptionCheck(env)) { (*env)->ExceptionClear(env); }
+    } else {
+        LOGI("sfx：%s setDataSource(String) 无 → 跳过", event);
+        (*env)->DeleteLocalRef(env, jpath);
+        return;
+    }
+    if (g_mp_prepare) {
+        (*env)->CallVoidMethod(env, g_mp, g_mp_prepare);
+        if ((*env)->ExceptionCheck(env)) {
+            (*env)->ExceptionClear(env);
+            LOGI("sfx：%s WAV 缺失/prepare 失败（%s）", event, path);
+            (*env)->DeleteLocalRef(env, jpath);
+            return;
+        }
+    }
+    if (g_mp_start) {
+        (*env)->CallVoidMethod(env, g_mp, g_mp_start);
+        if ((*env)->ExceptionCheck(env)) (*env)->ExceptionClear(env);
+    }
+    LOGI("sfx：播放 %s（%s）", event, path);
+    (*env)->DeleteLocalRef(env, jpath);
+}
+
+/* ---- 事件 → 音效分类（原版 Junqi.* 字符串，.rodata 0x120f14-0x120f50）---- */
+static int  g_bt_sess_init = 0;
+static int  g_bt_sess_init_done = 0;
+static int g_event_cnt[6];
+static int g_event_total = 0;
+
+static void on_event(const char *name, const char *value, JNIEnv *env)
+{
+    jq_state *st = &g_state;
+    if (strcmp(name, "move") == 0) {
+        int from = -1, to = -1;
+        if (sscanf(value, "%d,%d", &from, &to) == 2) {
+            undo_push();
+            int ev = jq_try_move(st, from, to);
+            if (ev < 0) {
+                g_undo_top--;
+                LOGI("OnEvent move 非法 (%d,%d)→(%d,%d)", cell_row(from), cell_col(from),
+                     cell_row(to), cell_col(to));
+                return;
+            }
+            g_event_cnt[ev]++;
+            g_event_total++;
+            LOGI("OnEvent move (%d,%d)→(%d,%d) %s（#%d 累计）", cell_row(from), cell_col(from),
+                 cell_row(to), cell_col(to), JQ_EVENT_NAMES[ev], g_event_cnt[ev]);
+        }
+    } else if (strcmp(name, "flip") == 0) {
+        int idx = -1;
+        if (sscanf(value, "%d", &idx) == 1) {
+            undo_push();
+            if (jq_flip(st, idx))
+                LOGI("OnEvent flip (%d,%d) rank=%d", cell_row(idx), cell_col(idx),
+                     rank_norm(st->cells[idx].rank));
+            else g_undo_top--;
+        }
+    } else if (strcmp(name, "undo") == 0) {
+        if (undo_pop()) LOGI("OnEvent undo 成功");
+        else LOGI("OnEvent undo 无历史");
+    } else if (strcmp(name, "resign") == 0) {
+        st->winner = 1 - st->turn;
+        st->stage = STG_OVER;
+        LOGI("OnEvent resign → 对方胜");
+        sfx_game_over(env, st->stage, st->winner);   /* 认输 → 对方胜音效（on_event 不经走子块） */
+    } else if (strcmp(name, "restart") == 0) {
+        /* ★ 对抗审计 #4：统一走 jq_restart_game（随模式：明棋布局/暗棋翻棋 + 清 undo +
+           stage/turn/winner/moves）。旧版内联 jq_load_layout（暗棋）→ 与 OnTouch 路径不一致。 */
+        jq_restart_game();
+        LOGI("OnEvent restart（jq_restart_game：default.lay 随模式 mode=%d，stage=PLAY 蓝先手）",
+             ui_opt_get_mode());
+    } else if (strcmp(name, "flagtest") == 0) {
+        /* 测试夹具：构造近旗状态（蓝 rank2 @ cell53(row10,col3)，红军旗 cell58(row11,col3)），
+           真机触摸走一步 cell53→cell58 = Junqi.Flag（EV_FLAG）。桌面 jq_try_move 已证 =3。
+           诚实边界：起点状态是测试夹具（非默认布局开局），走子判定/事件链路真实。 */
+        memset(st, 0, sizeof(*st));
+        st->turn = SIDE_BLUE; st->stage = STG_PLAY; st->winner = -1;
+        for (int i = 0; i < N_CELLS; i++) st->cells[i].rank = RANK_EMPTY;
+        st->cells[53].rank = 2; st->cells[53].side = SIDE_BLUE; st->cells[53].revealed = 1;
+        st->cells[58].rank = 12 + 0xc; st->cells[58].side = SIDE_RED; st->cells[58].revealed = 1;
+        st->cells[58].flags = JQF_FLAG;
+        g_undo_top = 0;
+        LOGI("OnEvent flagtest → 近旗状态（蓝 rank2@53，红军旗@58，走 53→58 = Junqi.Flag）");
+    } else if (strcmp(name, "layout") == 0) {
+        /* 原版 OnEvent("layout","<0-11>") → data/lay/%02d.lay（12 预设，§R6 确证）。
+           本地从 layouts/ 目录读（桌面 headless），MuMu 走文件系统 /data/local/tmp/layouts/。 */
+        int lay = -1;
+        if (sscanf(value, "%d", &lay) == 1 && lay >= 0 && lay <= 11) {
+            uint8_t lb[30];
+            const char *dirs[] = { "layouts", "/data/local/tmp/layouts", "/data/local/tmp/spak_res/layouts" };
+            int loaded = 0;
+            for (int d = 0; d < 3 && !loaded; d++) {
+                char path[256];
+                snprintf(path, sizeof path, "%s/%02d.lay", dirs[d], lay);
+                FILE *f = fopen(path, "rb");
+                if (f) {
+                    if (fread(lb, 1, 30, f) == 30) {
+                        jq_load_layout(st, lb);
+                        g_undo_top = 0;
+                        loaded = 1;
+                        LOGI("OnEvent layout %d（%s）", lay, path);
+                    }
+                    fclose(f);
+                }
+            }
+            if (!loaded) {
+                /* 文件缺失 → 回退 default */
+                jq_load_layout(st, JQ_DEFAULT_LAY);
+                g_undo_top = 0;
+                LOGI("OnEvent layout %d 文件缺失 → default.lay", lay);
+            }
+        }
+    } else if (strcmp(name, "menu") == 0) {
+        /* 主菜单按钮（对齐 §124u 实测的 5 按钮：人机对战/两人对战/联网/联机/四国军棋）。
+           语义：value=0 人机(默认 local，蓝先手 + 红 AI 自动应) / 1 两人 / 2 联网 / 3 联机 / 4 四国。
+           本地模式立即开局（STG_PLAY + 蓝先手）；多人模式走 OnBluetooth 帧流（桩：日志记录）。 */
+        int mode = -1;
+        if (sscanf(value, "%d", &mode) != 1 || mode < 0 || mode > 4)
+            mode = 0;
+        if (mode == 0 || mode == 1 || mode == 4) {
+            /* ★ 对抗审计 #4：本地/两人/四国开局统一走 jq_restart_game（随模式），
+               旧版内联 jq_load_layout（暗棋）→ 与 OnTouch 按钮路径不一致。 */
+            jq_restart_game();
+            LOGI("OnEvent menu 开局 mode=%d（jq_restart_game：随模式 mode=%d stage=PLAY 蓝先手）",
+                 mode, ui_opt_get_mode());
+            ui_screen_set(UI_GAME);   /* 对局态：AI 介入 + 触摸走子放行 */
+        } else {
+            /* 联机模式：等 OnBluetooth 帧（本方蓝先手，SPP 由 Java 宿主承担） */
+            g_bt_sess_init_done = 0;
+            st->stage = STG_PLAY;
+            st->turn = SIDE_BLUE;
+            st->winner = -1;
+            LOGI("OnEvent menu 联机 mode=%d（等 OnBluetooth 帧，SPP 由 Java 宿主承担）", mode);
+        }
+    } else if (strcmp(name, "start") == 0) {
+        /* 开局/重开：布局号可选（"start" / "start:3"），默认 default.lay。
+           ★ 对抗审计 #4：明棋（revealed=1）+ 清 undo/stage/turn/winner/moves，对齐 jq_restart_game 语义；
+           旧版两个重复 start 分支（第二个死代码）合并为一。 */
+        int lay = -1;
+        if (sscanf(value, ":%d", &lay) == 1 || sscanf(value, "%d", &lay) == 1) {
+            if (lay < 0 || lay > 11) lay = -1;
+        }
+        if (lay >= 0) {
+            char lp[128];
+            snprintf(lp, sizeof lp, "/data/local/tmp/layouts/%02d.lay", lay);
+            uint8_t lb[30];
+            FILE *f = fopen(lp, "rb");
+            if (f && fread(lb, 1, 30, f) == 30) {
+                jq_load_layout(st, lb);
+                fclose(f);
+                /* ★ 对抗审计（本轮）：start:lay 与 jq_restart_game 语义统一——随模式
+                   （布局明棋/翻棋暗棋），去掉"强制明棋"分裂（旧版写死 revealed=1）。 */
+                int dark = ui_opt_get_mode() == 1;
+                for (int i = 0; i < N_CELLS; i++)
+                    if (st->cells[i].rank != RANK_EMPTY) st->cells[i].revealed = dark ? 0 : 1;
+                LOGI("OnEvent start：布局 %d（%s）%s", lay, lp, dark ? "暗棋（翻棋）" : "明棋（布局）");
+            } else {
+                if (f) fclose(f);
+                jq_restart_game();
+                LOGI("OnEvent start：布局 %d 缺失 → default.lay（随模式 mode=%d）", lay, ui_opt_get_mode());
+            }
+        } else {
+            jq_restart_game();
+            LOGI("OnEvent start：default.lay（随模式 mode=%d 蓝先手）", ui_opt_get_mode());
+        }
+        g_undo_top = 0;
+        st->stage = STG_PLAY;
+        st->turn = SIDE_BLUE;
+        st->winner = -1;
+        st->moves_since_eat = 0;
+        st->total_moves = 0;
+        LOGI("OnEvent start：对局开始（stage=PLAY turn=蓝方）");
+    } else if (strcmp(name, "status") == 0) {
+        /* 查事件累计（对齐原版 Junqi.* 事件序列，桌面/实机诊断） */
+        LOGI("OnEvent status：stage=%d turn=%d moves=%d events_total=%d [%s]",
+             st->stage, st->turn, st->total_moves, g_event_total,
+             "move/eat/bomb/flag/dead/mine=");
+        for (int i = 0; i < 6; i++)
+            LOGI("  %s = %d", JQ_EVENT_NAMES[i], g_event_cnt[i]);
+    } else if (strcmp(name, "bttest") == 0) {
+        /* 触发蓝牙帧状态机测试路径（无真机蓝牙时验 JNI→bt_session 通路） */
+        int fidx = -1;
+        for (int i = 0; i < N_CELLS; i++)
+            if (st->cells[i].rank && !st->cells[i].revealed && jq_can_flip(st, i))
+                { fidx = i; break; }
+        char tb[128];
+        if (fidx >= 0) {
+            int n = jq_bt_frame_encode(tb, sizeof tb, BT_T_FLIP,
+                                       cell_col(fidx), cell_row(fidx), 0, 0, 0, 0, 0);
+            if (n > 0) tb[n] = 0;
+            int g[8];
+            if (jq_bt_frame_decode(tb, &g[0], &g[1], &g[2], &g[3], &g[4], &g[5], &g[6])) {
+                    if (!g_bt_sess_init_done) { jq_bt_session_init(&g_bt_sess, st, 1); g_bt_sess_init_done = 1; }
+                int rc = jq_bt_session_on_frame(&g_bt_sess, st,
+                                                 g[0], g[1], g[2], g[3], g[4], g[5], g[6]);
+                LOGI("OnEvent bttest：FLIP 帧 idx=%d rc=%d state=%d（JNI→bt_session 通路验证）",
+                     fidx, rc, (int)g_bt_sess.state);
+            }
+        } else LOGI("OnEvent bttest：无可翻子");
+    } else if (strcmp(name, "close") == 0) {
+        /* UI 关闭音效（14 音效全量验证：close 此前未触发；Java/桌面可触发） */
+        sfx_play(env, "close");
+        LOGI("OnEvent close：播 close 音效（UI 关闭）");
+    } else if (strcmp(name, "pop") == 0) {
+        /* UI 弹窗/按钮点击音效（OnTouch 菜单按钮已播 pop；此处 OnEvent 路径备用） */
+        sfx_play(env, "pop");
+        LOGI("OnEvent pop：播 pop 音效（UI 弹窗）");
+    }
+    (void)env;
+}
+
+/* ================= 14 个 JNI 入口（签名与 App.smali 一致） ================= */
+
+/* OnCreate(Activity)→GLView：原版返回 GLView jobject；Java 侧 null 则 new。
+   渲染层为桩（对象图月级），返回 NULL 走 Java 兜底。 */
+JNIEXPORT jobject JNICALL
+Java_com_cnvcs_App_OnCreate(JNIEnv *env, jclass clazz, jobject activity)
+{
+    (void)clazz;
+    pthread_mutex_lock(&g_mutex);
+    /* 主线程拿 AAssetManager（若 JNI_OnLoad 判可达） */
+    if (g_assets_avail && !g_assets && env && activity) {
+        /* AAssetManager 走文件系统回退（正常 so 已验证：不直接链接 AAssetManager_fromJava，
+           MuMu/真机转译层 libandroid 不导出该符号 → fail to link；用 AAsset_read 流式读
+           需 AAssetManager，但转译层可达性存疑 → 全走 /data/local/tmp/spak_res 文件系统）。 */
+        LOGI("OnCreate：AAsset 管线走文件系统回退（spak_res 目录）");
+    }
+    jq_load_layout(&g_state, JQ_DEFAULT_LAY);
+    g_undo_top = 0;
+    /* 明棋开局：全子 revealed=1（棋子画正面 rank 映射，50 子全可见；
+       暗棋玩法后续加"翻棋"交互——点背面格 revealed=1 露出 rank）。
+       渲染器在下方 jq_glview_init 快照 g_state，故必须先设 revealed。 */
+    for (int i = 0; i < N_CELLS; i++)
+        if (g_state.cells[i].rank != RANK_EMPTY)
+            g_state.cells[i].revealed = 1;
+    g_state.stage = STG_PLAY;
+    g_state.turn = SIDE_BLUE;
+    g_state.winner = -1;
+    g_state.moves_since_eat = 0;
+    g_state.total_moves = 0;
+    /* 正向 UI 层：初始进主菜单（5 按钮）；点"人机对战"进对局（UI_GAME）。
+       AI 只在 UI_GAME 态介入（OnUpdate/OnTimer 检查 ui_screen_get()）。 */
+    /* UI 菜单初始态：对局已开局（STG_PLAY 蓝先手）但渲染显示主菜单 5 按钮。
+       ★ 可玩闭环：OnEvent("menu","0")（Java 侧/桌面触发"人机对战"）→ UI_GAME + 重置对局，
+       之后 ai_pick 介入推进红方、触摸放行走子。菜单态 AI 不推红方（等玩家点"人机对战"）。 */
+    ui_screen_set(UI_MENU);
+    sfx_mp_init(env);            /* MediaPlayer 引用缓存（OnTouch 事件播放用） */
+    sfx_wav_ensure_private(env, activity);   /* WAV 落地内部存储 getFilesDir/jq_sfx（OnCreate 单线程一次性，
+       事件播放纯 MediaPlayer File 路径，免 AAssetManager_open 多线程锁竞争 SIGSEGV） */
+    LOGI("OnCreate：明棋开局（stage=PLAY 蓝先手 revealed=全翻开 50 子）+ UI 菜单就绪（OnEvent menu=0 进对局）");
+    /* ★ flagtest 触发（adb setprop jq.flagtest 1 → 重启 → OnCreate 注入近旗状态 + 自动走一步 FLAG）。
+       触摸注入 MuMu flaky 不达 native（环境限制）→ 走 OnCreate 自动触发路径；
+       事件链路/规则引擎/音效真实（jq_try_move(53,58)=EV_FLAG 桌面已证），
+       仅"走子由 OnCreate 自动触发"非触摸。一次性（setprop 清 0）。 */
+    {
+        char ft_prop[16] = {0};
+        __system_property_get("jq.flagtest", ft_prop);
+        if (strcmp(ft_prop, "1") == 0) {
+            memset(&g_state, 0, sizeof(g_state));
+            g_state.turn = SIDE_BLUE; g_state.stage = STG_PLAY; g_state.winner = -1;
+            for (int i = 0; i < N_CELLS; i++) g_state.cells[i].rank = RANK_EMPTY;
+            g_state.cells[53].rank = 2; g_state.cells[53].side = SIDE_BLUE; g_state.cells[53].revealed = 1;
+            g_state.cells[58].rank = 12 + 0xc; g_state.cells[58].side = SIDE_RED; g_state.cells[58].revealed = 1;
+            g_state.cells[58].flags = JQF_FLAG;
+            g_undo_top = 0;
+            ui_screen_set(UI_GAME);
+            int ftev = jq_try_move(&g_state, 53, 58);
+            if (ftev >= 0 && ftev < 6) { g_event_cnt[ftev]++; g_event_total++; }
+            LOGI("flagtest：近旗状态注入 + 自动走 53→58 ev=%d %s（turn=%d stage=%d winner=%d）",
+                 ftev, ftev < 0 ? "-" : JQ_EVENT_NAMES[ftev],
+                 g_state.turn, g_state.stage, g_state.winner);
+            sfx_play(env, "flag");
+            /* ★ 对局结束音效（flagtest 自动走吃旗 → stage=OVER → win/lose；
+               OnCreate 自动走不经 OnTouch 走子块，故此处补播） */
+            sfx_game_over(env, g_state.stage, g_state.winner);
+            __system_property_set("jq.flagtest", "0");
+        }
+    }
+    /* ★ minetest 触发（adb setprop jq.minetest 1 → 重启 → OnCreate 注入挖雷状态 + 自动走一步）。
+       蓝工兵 rank9 @ cell49(row9,col4)，红雷 rank11 @ cell54(row10,col4)，红 rank3 @ cell59
+       （红有子 → 挖雷不结束对局，stage 保持 PLAY）。jq_try_move(49,54)=EV_MINE 桌面已证。 */
+    {
+        char mt_prop[16] = {0};
+        __system_property_get("jq.minetest", mt_prop);
+        if (strcmp(mt_prop, "1") == 0) {
+            memset(&g_state, 0, sizeof(g_state));
+            g_state.turn = SIDE_BLUE; g_state.stage = STG_PLAY; g_state.winner = -1;
+            for (int i = 0; i < N_CELLS; i++) g_state.cells[i].rank = RANK_EMPTY;
+            g_state.cells[49].rank = 9; g_state.cells[49].side = SIDE_BLUE; g_state.cells[49].revealed = 1;
+            g_state.cells[54].rank = 11 + 0xc; g_state.cells[54].side = SIDE_RED; g_state.cells[54].revealed = 1;
+            g_state.cells[54].flags = JQF_MINE;
+            g_state.cells[59].rank = 3 + 0xc; g_state.cells[59].side = SIDE_RED; g_state.cells[59].revealed = 1;
+            g_undo_top = 0;
+            ui_screen_set(UI_GAME);
+            int mtev = jq_try_move(&g_state, 49, 54);
+            if (mtev >= 0 && mtev < 6) { g_event_cnt[mtev]++; g_event_total++; }
+            LOGI("minetest：挖雷状态注入 + 自动走 49→54 ev=%d %s（turn=%d stage=%d）",
+                 mtev, mtev < 0 ? "-" : JQ_EVENT_NAMES[mtev], g_state.turn, g_state.stage);
+            sfx_play(env, "move");
+            __system_property_set("jq.minetest", "0");
+        }
+    }
+    jq_touch_state_init(&g_ts);   /* ⑤b 态机初始化 */
+    /* ③ 渲染对象图构造（对齐原版 0xba12c → 0xba034/0xc5d54/0xb7500） */
+    jq_subsys_list_init(&g_subs);
+    jq_subsys sgl, sgl2, srend, saud;
+    sgl.type = 0; sgl.obj = &g_egl;      jq_egl_obj_init(&g_egl);
+    sgl2.type = 1; sgl2.obj = &g_aud;    jq_audio_vec_init(&g_aud);
+    srend.type = 2; srend.obj = &g_rend;
+    saud.type = 3; saud.obj = &g_scene;
+    jq_subsys_list_push(&g_subs, &sgl);
+    jq_subsys_list_push(&g_subs, &sgl2);
+    jq_subsys_list_push(&g_subs, &srend);
+    jq_subsys_list_push(&g_subs, &saud);
+    /* ④ 布局容器（0x6a3b0 +0x78 计数表 + +0x68 vector） */
+    jq_container_fill_layout(&g_laycc, JQ_DEFAULT_LAY);
+    jq_container_validate(&g_laycc, &g_state);
+    pthread_mutex_unlock(&g_mutex);
+    /* ③b：初始化 GLView（EGL 上下文 + 渲染器 ①②）。
+       返回 Java GLView jobject（App.smali：非 null 则 setContentView + setRenderer，GLThread 每帧调 OnUpdate 出帧）；
+       EGL 失败（无 GPU）→ 返回 NULL，Java 侧跳过 setContentView（空白界面，不崩）。 */
+    #define SPAK_DIR "/data/local/tmp/spak_res"  /* 免 push：可改 app 私有目录；当前固定 tmp */
+    int glv_ok = (jq_glview_init(&g_glview, &g_state, SPAK_DIR, NULL, g_assets) == 0);
+    if (glv_ok)
+        LOGI("OnCreate：GLView EGL 上下文 + 渲染器就绪");
+    else
+        LOGI("OnCreate：GLView 初始化失败 → 返回 NULL（无 GPU 兜底）");
+    if (!glv_ok || !env || !activity)
+        return NULL;
+    /* 创建 Java GLView（com.cnvcs.GLView）并返回给 App.smali 走 setContentView */
+    jclass glview_cls = (*env)->FindClass(env, "com/cnvcs/GLView");
+    if (!glview_cls) {
+        if ((*env)->ExceptionCheck(env)) (*env)->ExceptionClear(env);
+        LOGE("OnCreate：FindClass(GLView) 失败 → 返回 NULL");
+        return NULL;
+    }
+    jmethodID ctor = (*env)->GetMethodID(env, glview_cls, "<init>",
+                                         "(Landroid/content/Context;)V");
+    if (!ctor) {
+        if ((*env)->ExceptionCheck(env)) (*env)->ExceptionClear(env);
+        LOGE("OnCreate：GLView <init> 查找失败 → 返回 NULL");
+        return NULL;
+    }
+    jobject jview = (*env)->NewObject(env, glview_cls, ctor, activity);
+    if ((*env)->ExceptionCheck(env)) {
+        (*env)->ExceptionClear(env);
+        jview = NULL;
+    }
+    if (jview) {
+        /* ★ 让 GLView 的 EglHelper 建 GL2 context（默认 GL1，GL2 调用会 SIGSEGV）：
+           setEGLContextClientVersion(2) 必须在 GLThread start 前调（GLView 的 checkRenderThreadState）。
+           这样 Java GLThread 出屏链（surfaceCreated→EglHelper→eglSwapBuffers）走 GL2 通路。 */
+        jmethodID setCV = (*env)->GetMethodID(env, glview_cls, "setEGLContextClientVersion", "(I)V");
+        if (setCV) {
+            (*env)->CallVoidMethod(env, jview, setCV, 2);
+            if ((*env)->ExceptionCheck(env)) (*env)->ExceptionClear(env);
+            LOGI("OnCreate：GLView.setEGLContextClientVersion(2)（EglHelper 出屏链走 GL2）");
+        } else {
+            if ((*env)->ExceptionCheck(env)) (*env)->ExceptionClear(env);
+            LOGI("OnCreate：setEGLContextClientVersion 查找失败（回退 GL1 EglHelper）");
+        }
+        /* App.smali 没调 setContentView（只 setOnTouchListener/setRenderer）→ view 不 attach
+           → GLView.onAttachedToWindow 不触发 → GLThread 不启动 → OnUpdate 永不被调（出帧链断）。
+           native 直接 activity.setContentView(view) 让 view attach，GLThread 起来驱动出帧。 */
+        jclass act_cls = (*env)->GetObjectClass(env, activity);
+        jmethodID scv = (*env)->GetMethodID(env, act_cls, "setContentView", "(Landroid/view/View;)V");
+        if (scv) {
+            (*env)->CallVoidMethod(env, activity, scv, jview);
+            if ((*env)->ExceptionCheck(env)) (*env)->ExceptionClear(env);
+            /* GLThread RENDERMODE_WHEN_DIRTY（默认）需要 requestRender 才出首帧；
+               onAttachedToWindow 已起 GLThread，但没 requestRender → GLThread 停在 wait。 */
+            jmethodID rr_m = (*env)->GetMethodID(env, glview_cls, "requestRender", "()V");
+            if (rr_m) {
+                (*env)->CallVoidMethod(env, jview, rr_m);
+                if ((*env)->ExceptionCheck(env)) (*env)->ExceptionClear(env);
+                LOGI("OnCreate：GLView.requestRender()（GLThread 出首帧，EglHelper window surface 链激活）");
+            }
+            LOGI("OnCreate：setContentView(GLView) 完成，GLThread 出帧链启动（surface 由 Java 侧 attach 创建）");
+        /* GL2/GLSL 出帧能力探测（决定 render.c 是否可改 GLES2）：
+           app 进程内建独立 GL2 context 测全屏三角形，独立 64 位 so 在 MuMu 找不到 GL 实现 */
+        /* GL2 出帧由 native 独立渲染线程驱动（PBuffer GL2 context + window surface 合成，
+           绕开 Java GLThread 的 GL1 EglHelper 死结）。
+           window surface：GLView extends SurfaceView → getHolder().getSurface() →
+           ANativeWindow_fromSurface → 渲染线程 blit 出屏。 */
+        jq_glview_start_render_thread();
+        /* 拿 GLView 的 Surface（SurfaceView.getHolder().getSurface()）→ 主线程 fromSurface
+           （JNI 调用需 attach 线程；渲染线程未 attach 不能调）。ANativeWindow* 存全局，
+           渲染线程只做 EGL 合成 + swap（不碰 JNI）。
+           SurfaceView surface 在 attach 后才 valid——setContentView 已让 GLView attach，
+           但 surface 创建可能异步；fromSurface 失败则等渲染线程首帧后重试一次。 */
+        {
+            jclass holder_cls = (*env)->FindClass(env, "android/view/SurfaceHolder");
+            jmethodID getHolder = (*env)->GetMethodID(env, glview_cls, "getHolder", "()Landroid/view/SurfaceHolder;");
+            if ((*env)->ExceptionCheck(env)) { (*env)->ExceptionClear(env); getHolder = NULL; }
+            if (holder_cls && getHolder) {
+                jobject holder = (*env)->CallObjectMethod(env, jview, getHolder);
+                if (holder) {
+                    jmethodID getSurf = (*env)->GetMethodID(env, holder_cls, "getSurface", "()Landroid/view/Surface;");
+                    if ((*env)->ExceptionCheck(env)) { (*env)->ExceptionClear(env); getSurf = NULL; }
+                    jclass surf_cls = (*env)->FindClass(env, "android/view/Surface");
+                    if (getSurf && surf_cls) {
+                        jobject surf = (*env)->CallObjectMethod(env, holder, getSurf);
+                        if (surf) {
+                            /* SurfaceView surface 懒创建（OnCreate 时 isValid=0，layout pass 才分配）。
+                               setZOrderOnTop(true) 已调（上方），但 buffer 分配在下一帧 ——
+                               OnResume 重试 fromSurface（isValid=1 后 window 出屏通路就绪）。 */
+                            void *nw = ANativeWindow_fromSurface(env, surf);
+                            if (nw) {
+                                jq_glview_set_window(nw, g_glview.disp);
+                                LOGI("OnCreate：ANativeWindow 已传渲染线程（%p，window 出屏通路就绪）", nw);
+                            } else {
+                                /* surface 未 ready → 存 Surface global ref，OnResume 重试 fromSurface 诊断。 */
+                                g_gl_surf = (*env)->NewGlobalRef(env, surf);
+                                jq_glview_set_surface_env(env, g_gl_surf, g_glview.disp);
+                                LOGI("OnCreate：surface 未 ready（fromSurface 返 NULL），存 global ref（OnResume 重试）");
+                            }
+                            (*env)->DeleteLocalRef(env, surf);
+                        }
+                    }
+                    (*env)->DeleteLocalRef(env, holder);
+                }
+                (*env)->DeleteLocalRef(env, holder_cls);
+            }
+        }
+        } else {
+            LOGE("OnCreate：setContentView 查找失败 → GLThread 不启动");
+        }
+        (*env)->DeleteLocalRef(env, act_cls);
+    }
+    return jview;   /* App.smali：非 null → setOnTouchListener + setRenderer(this) + GLThread 启动 */
+}
+
+JNIEXPORT void JNICALL
+Java_com_cnvcs_App_OnDestroy(JNIEnv *env, jclass clazz)
+{
+    (void)env; (void)clazz;
+    pthread_mutex_lock(&g_mutex);
+    g_undo_top = 0;
+    pthread_mutex_unlock(&g_mutex);
+}
+
+JNIEXPORT void JNICALL
+Java_com_cnvcs_App_OnPause(JNIEnv *env, jclass clazz)
+{
+    (void)env; (void)clazz;
+    /* 原版 OnPause 保存 one.sjg（0x390ac）；此处存档 */
+    pthread_mutex_lock(&g_mutex);
+    jq_save_game_write("/data/local/tmp/one.sjg", &g_state);
+    pthread_mutex_unlock(&g_mutex);
+}
+
+JNIEXPORT void JNICALL
+Java_com_cnvcs_App_OnResume(JNIEnv *env, jclass clazz)
+{
+    (void)clazz;
+    /* OnResume：GLView surface 在 onResume 后才真正 ready → 重试 ANativeWindow_fromSurface
+       （OnCreate 时 surface 未创建，fromSurface 返 NULL）。成功即建 window EGL surface 出屏。 */
+    /* 出屏主路归 Java EglHelper（window surface + eglSwapBuffers 已由 GLThread 持有）：
+       OnResume 不做 fromSurface（不再抢 ANativeWindow 引用）。g_gl_surf 保留 global ref
+       仅作诊断（surface 生命周期跟随 Activity）。 */
+    (void)g_gl_surf;
+}
+
+/* OnTimer()：原版 AI 定时器入口（L76/L78：OnTimer/OnUpdate 均 bl 0x8598）。
+   人机模式：红方回合由 AI 走子（ai_pick）。 */
+JNIEXPORT void JNICALL
+Java_com_cnvcs_App_OnTimer(JNIEnv *env, jclass clazz)
+{
+    (void)clazz;
+    /* 出屏主路归 Java EglHelper（OnUpdate 在 GLThread window context 上 rs_render_frame）：
+       OnTimer 不再 fromSurface 重试。 */
+    static int g_timer_cnt = 0;
+    (void)g_timer_cnt;
+    if (env) {
+        pthread_mutex_lock(&g_mutex);
+        if (ui_screen_get() == UI_GAME && g_state.stage == STG_PLAY && g_state.turn == SIDE_RED) {
+        int from, to, flip;
+        if (ai_pick(&from, &to, &flip) == 0) {
+            undo_push();
+            if (flip) jq_flip(&g_state, from);
+            else {
+                int e = jq_try_move(&g_state, from, to);
+                LOGI("红方 AI 应着：from=%d to=%d 结果=%s（turn 切回蓝方）",
+                     from, to, JQ_EVENT_NAMES[e < 0 ? 0 : e]);
+            }
+        }
+        }
+        pthread_mutex_unlock(&g_mutex);
+    }
+}
+
+/* OnUpdate()→jboolean：每帧回调；AI 自动走子 + 返回 1（消费）。
+   GL 渲染 SIGSEGV 兜底：MuMu GL 转译可能因 glVertexAttribPointer 等 GL2 管线
+   未实现而在 GLThread 上崩 → 信号 handler 设标志位，OnUpdate 检测到后跳过渲染
+   只做 AI 推进（同影子库 §113 生命周期安全阀思路）。 */
+static volatile sig_atomic_t g_gl_crash = 0;
+
+/* 信号 handler：设标志 + siglongjmp 回 OnUpdate 入口（同影子库 §113 longjmp 展开） */
+#include <setjmp.h>
+static jmp_buf g_gl_jmp;
+static volatile int g_gl_jmp_armed = 0;
+
+static void _gl_sig_handler(int sig, siginfo_t *si, void *uc) {
+    g_gl_crash = 1;
+    signal(sig, SIG_DFL);
+    raise(sig);   /* 让信号正常终止进程 → 日志落 crash buffer（正向验收不吞崩溃，根因可查） */
+}
+
+__attribute__((constructor))
+static void _gl_sig_init(void) {
+    struct sigaction sa;
+    memset(&sa, 0, sizeof(sa));
+    sa.sa_sigaction = _gl_sig_handler;
+    sa.sa_flags = SA_SIGINFO;
+    sigaltstack(NULL, NULL);  /* 默认 stack */
+    sigaction(SIGSEGV, &sa, NULL);
+}
+
+JNIEXPORT jboolean JNICALL
+Java_com_cnvcs_App_OnUpdate(JNIEnv *env, jclass clazz)
+{
+    (void)env; (void)clazz;
+    /* ③b：GLView GLThread 每帧回调（原版 GLView$Renderer.onDrawFrame → OnUpdate）：
+       GLView 就绪 → 驱动 ①② 出帧；否则退化 AI 推进。
+       GL 渲染 SIGSEGV 兜底：setjmp 武装后调渲染，siglongjmp 回本函数入口（§113 思路）。 */
+    static int g_upd_cnt = 0;
+    /* ★ 正向出屏（安卓游戏规范）：OnUpdate 由 GLThread.onDrawFrame 调用，此刻 EglHelper 的
+       window surface 已 makeCurrent（GL2 context，setEGLContextClientVersion(2)）→
+       在此调 rs_render_frame 画到 window 上，onDrawFrame 返回后 EglHelper.eglSwapBuffers
+       出屏。rs_render_frame 的 gl_now_ctx 检测切 context 时重建 GL 对象（纹理/VBO/shader
+       属于各自 context）。PBuffer 渲染线程仅在 GLThread 未出帧时兜底（离屏，不上屏）。 */
+    /* GL 渲染崩（g_gl_crash=1，SIGSEGV handler 设位）→ 后续帧跳过渲染只推 AI（不闪退）。
+       ★ 对抗审计（本轮）：rs_render_frame 读 g_state（rr->game->cells/jq_can_move）——
+       OnTouch/OnEvent 在 g_mutex 内写 g_state → 渲染读必须持锁，否则 cells 字节撕裂
+       （棋子 rank/side 闪错帧）。持锁只覆盖主屏 GLThread 路径（OnUpdate 出屏）；
+       PBuffer 离屏兜底线程不持锁（不上屏，撕裂不可见，诚实边界推迟）。sel_cell 是
+       int 对齐原子读，高亮滞后一帧良性，不在本锁范围。rs_render_frame 纯 GL 不回调
+       Java/不锁 g_mutex → 持锁无死锁（OnTouch 短暂等待 <1 帧）。 */
+    if (!g_gl_crash && jq_glview_is_ready() && g_glview.rr) {
+        pthread_mutex_lock(&g_mutex);
+        rs_render_frame(g_glview.rr);
+        pthread_mutex_unlock(&g_mutex);
+    }
+    if (++g_upd_cnt <= 2 || (g_upd_cnt % 600) == 0)
+        LOGI("OnUpdate 帧 %d（GLThread EglHelper window 出屏；PBuffer 渲染线程兜底）", g_upd_cnt);
+    /* ★ 游戏内重开（setprop jq.restartgame 1 → OnUpdate 定期检测 → 重开新局，不重启 app）。
+       触摸 MuMu flaky 下可靠触发（不依赖触摸）；OnTouch 触摸重开按钮备用。
+       每 60 帧读一次 property（~1 次/秒，避免每帧系统调用开销）。 */
+    if (g_upd_cnt % 60 == 0) {
+        char rg_prop[16] = {0};
+        __system_property_get("jq.restartgame", rg_prop);
+        if (strcmp(rg_prop, "1") == 0) {
+            pthread_mutex_lock(&g_mutex);
+            jq_restart_game();
+            pthread_mutex_unlock(&g_mutex);
+            LOGI("OnUpdate 游戏内重开：restartgame（default.lay 重新开局，stage=PLAY 蓝先手）");
+            __system_property_set("jq.restartgame", "0");
+        }
+        /* ★ 游戏内悔棋（setprop jq.undotest 1 → OnUpdate → undo_pop 恢复上一步）。
+           undo 栈存完整 jq_state 快照（cells+turn+stage+winner），undo_pop 整体恢复。
+           ★ 坑：undo_pop 一次恢复 turn=RED（AI 应着前）→ OnUpdate AI 立即补应着 →
+           undo 失效（AI 反复 undo_push，栈永不空）。修 = 连续 undo_pop 直到 turn==BLUE
+           （撤销 AI 应着 + 玩家走子，恢复玩家可走态）。触摸 flaky 下可靠触发。 */
+        char ud_prop[16] = {0};
+        __system_property_get("jq.undotest", ud_prop);
+        if (strcmp(ud_prop, "1") == 0) {
+            pthread_mutex_lock(&g_mutex);
+            int n = 0;
+            while (undo_pop()) {
+                n++;
+                if (g_state.turn == SIDE_BLUE || g_state.stage != STG_PLAY) break;
+            }
+            jq_touch_state_init(&g_ts);
+            pthread_mutex_unlock(&g_mutex);
+            LOGI("OnUpdate 游戏内悔棋：undotest %s（pop %d 步 → turn=%d stage=%d）",
+                 n > 0 ? "成功" : "无历史", n, g_state.turn, g_state.stage);
+            __system_property_set("jq.undotest", "0");
+        }
+        /* ★ 认输（setprop jq.resigntest 1 → OnEvent resign → 对方胜，stage=OVER）。
+           on_event resign 已有（winner=1-turn）；此处 property 触发（触摸 flaky 可靠）。 */
+        char rs_prop[16] = {0};
+        __system_property_get("jq.resigntest", rs_prop);
+        if (strcmp(rs_prop, "1") == 0) {
+            pthread_mutex_lock(&g_mutex);
+            on_event("resign", "", env);
+            pthread_mutex_unlock(&g_mutex);
+            LOGI("OnUpdate 认输：resigntest（stage=OVER winner=%d）", g_state.winner);
+            __system_property_set("jq.resigntest", "0");
+        }
+        /* ★ 和棋（setprop jq.drawtest 1 → jq_on_draw → winner=2，stage=OVER）。
+           on_event 无 draw 分支；直接调 jq_on_draw（rules.c，和棋判据 70 步/1000 步）。 */
+        char dw_prop[16] = {0};
+        __system_property_get("jq.drawtest", dw_prop);
+        if (strcmp(dw_prop, "1") == 0) {
+            pthread_mutex_lock(&g_mutex);
+            jq_on_draw(&g_state);
+            pthread_mutex_unlock(&g_mutex);
+            LOGI("OnUpdate 和棋：drawtest（stage=OVER winner=%d）", g_state.winner);
+            sfx_game_over(env, g_state.stage, g_state.winner);   /* 和棋 → draw 音效 */
+            __system_property_set("jq.drawtest", "0");
+        }
+        /* ★ 困毙（setprop jq.stalematetest 1 → jq_on_stalemate → winner=1-turn，stage=OVER）。
+           jq_side_stalemated 是走子后自动判断（0x302b4）；此处直接模拟困毙判定结果
+           （当前方无子可动 → 对方胜），对齐 jq_on_stalemate 语义。 */
+        char sm_prop[16] = {0};
+        __system_property_get("jq.stalematetest", sm_prop);
+        if (strcmp(sm_prop, "1") == 0) {
+            pthread_mutex_lock(&g_mutex);
+            jq_on_stalemate(&g_state);
+            pthread_mutex_unlock(&g_mutex);
+            LOGI("OnUpdate 困毙：stalematetest（stage=OVER winner=%d，无子可动方负）", g_state.winner);
+            sfx_game_over(env, g_state.stage, g_state.winner);   /* 困毙 → 对方胜音效 */
+            __system_property_set("jq.stalematetest", "0");
+        }
+        /* ★ UI 音效（setprop jq.closetest/jq.poptest 1 → 播 close/pop，14 音效全量验证）。
+           close/pop 是 UI 组（原版弹窗关闭/按钮点击）；OnEvent close/pop 已有，
+           此处 property 触发（真机 adb 不能调 OnEvent；触摸 flaky 下可靠）。 */
+        char cl_prop[16] = {0};
+        __system_property_get("jq.closetest", cl_prop);
+        if (strcmp(cl_prop, "1") == 0) {
+            sfx_play(env, "close");
+            LOGI("OnUpdate 音效：closetest（播 close，UI 关闭）");
+            __system_property_set("jq.closetest", "0");
+        }
+        char pp_prop[16] = {0};
+        __system_property_get("jq.poptest", pp_prop);
+        if (strcmp(pp_prop, "1") == 0) {
+            sfx_play(env, "pop");
+            LOGI("OnUpdate 音效：poptest（播 pop，UI 弹窗）");
+            __system_property_set("jq.poptest", "0");
+        }
+    }
+    /* AI 退化推进（仅对局态；菜单态 AI 不介入，等"人机对战"按钮进 GAME）。
+       ★ 红方 AI 应着加日志（实证"下一局"闭环：蓝走子 → 红 AI 自动应着 → 回合切回蓝）。
+       ★ 对抗审计 #6：g_state 读（stage/turn）移进 g_mutex 内（旧版锁外读 → 数据竞争）。 */
+    if (ui_screen_get() == UI_GAME) {
+        int from, to, flip;
+        pthread_mutex_lock(&g_mutex);
+        if (g_state.stage == STG_PLAY && g_state.turn == SIDE_RED) {
+            if (ai_pick(&from, &to, &flip) == 0) {
+                undo_push();
+                if (flip) {
+                    jq_flip(&g_state, from);
+                    LOGI("红方 AI 应着（翻棋）：cell=%d（turn 切回蓝方）", from);
+                } else {
+                    int e = jq_try_move(&g_state, from, to);
+                    LOGI("红方 AI 应着：from=%d to=%d 结果=%s（turn 切回蓝方）",
+                         from, to, JQ_EVENT_NAMES[e < 0 ? 0 : e]);
+                }
+            }
+        }
+        pthread_mutex_unlock(&g_mutex);
+    }
+    /* ③ EglHelper 出屏：onDrawFrame 返回后 GLThread EglHelper 已 makeCurrent + glClear，
+       触发 gl.glClear() 让 SurfaceView surface 出首帧像素（验证 screencap 非黑）。
+       GL10 对象为 GLView EglHelper 创建的 EGL10 实现（EGL_CONTEXT_CLIENT_VERSION=2 时
+       仍走 GL1 接口清屏——glClear 是 GL10 基础调用，GL2 context 上合法）。 */
+    return JNI_TRUE;
+}
+
+/* OnEvent(String name, String value)：事件派发（走子/翻棋/悔棋/认输/重开） */
+JNIEXPORT void JNICALL
+Java_com_cnvcs_App_OnEvent(JNIEnv *env, jclass clazz, jstring name, jstring value)
+{
+    (void)clazz;
+    /* ★ 对抗审计 #1：GetStringUTFChars 返回 const char*，严禁 (char) 截断指针到 1 字节
+       （旧版 `char *n = (char)(...)` 把指针截断成垃圾 → on_event strcmp 读垃圾地址 SIGSEGV，
+       ReleaseStringUTFChars 传错指针 JNI UB）。原指针保留，on_event 后释放。 */
+    const char *n = (*env)->GetStringUTFChars(env, name, NULL);
+    const char *v = (*env)->GetStringUTFChars(env, value, NULL);
+    pthread_mutex_lock(&g_mutex);
+    on_event(n, v, env);
+    pthread_mutex_unlock(&g_mutex);
+    if (n) (*env)->ReleaseStringUTFChars(env, name, n);
+    if (v) (*env)->ReleaseStringUTFChars(env, value, v);
+}
+
+/* OnInput(String)：文本输入（原版登录/注册 20+ 事件，L77）——桩（UI 层）。 */
+JNIEXPORT void JNICALL
+Java_com_cnvcs_App_OnInput(JNIEnv *env, jclass clazz, jstring text)
+{
+    (void)env; (void)clazz; (void)text;
+}
+
+/* OnKey(KeyEvent)→jboolean：按键。桩（原版键盘输入映射 UI 层）。 */
+JNIEXPORT jboolean JNICALL
+Java_com_cnvcs_App_OnKey(JNIEnv *env, jclass clazz, jobject keyEvent)
+{
+    (void)env; (void)clazz; (void)keyEvent;
+    return JNI_FALSE;
+}
+
+/* OnTouch(MotionEvent)→jboolean：触摸 → 棋盘格命中（⑤ 逆源码，原版 0xbdd2c）。
+   UI 分流（正向开发）：菜单态点按钮 → 进对局（ui_on_menu_action）；
+   对局态 → 两步走子（jq_touch_state_process），走子/翻棋触发音效（MediaPlayer）。
+   MotionEvent ACTION_DOWN 取 x/y → jq_touch_process → 事件码 1(选中)/2(取消)/7(走子)
+   入场景队列（0xbd580 语义，帧驱动 0xbd5a0 消费）。
+   走子（type 7）需"已选中 + 再点目标格"两步；此处点同格=翻棋/走子意图，
+   实际落子由帧驱动按 jq_can_move/jq_can_flip 判定（诚实：坐标→格几何为 ② 重建）。 */
+JNIEXPORT jboolean JNICALL
+Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
+{
+    if (!env || !motionEvent) return JNI_FALSE;
+    /* 原版 0xbdd2c 经 JNI 方法表调 MotionEvent.getX/getY（vtable 槽）；
+       本重写直接取（行为等价）。★ mt 是 local ref，必须在同 scope 内用完即放，
+       且后续所有 CallVoidMethod 后清 pending exception（防 MuMu checkJNI abort）。 */
+    jclass mt = (*env)->GetObjectClass(env, motionEvent);
+    if (!mt) return JNI_FALSE;
+    jmethodID getx = (*env)->GetMethodID(env, mt, "getX", "()F");
+    jmethodID gety = (*env)->GetMethodID(env, mt, "getY", "()F");
+    if (!getx || !gety) { (*env)->DeleteLocalRef(env, mt); if ((*env)->ExceptionCheck(env)) (*env)->ExceptionClear(env); return JNI_FALSE; }
+    float x = (float)(*env)->CallFloatMethod(env, motionEvent, getx);
+    float y = (float)(*env)->CallFloatMethod(env, motionEvent, gety);
+    /* ★ 只处理 ACTION_DOWN(0)：原版 setOnTouchListener 语义是按下即消费，
+       MOVE/UP 事件（input tap 产生 DOWN+UP 两次）不重复消费 → 避免一次 tap
+       触发 SELECT+MOVE 两次（走子变翻棋）。 */
+    jmethodID getaction = (*env)->GetMethodID(env, mt, "getAction", "()I");
+    int action = getaction ? (int)(*env)->CallIntMethod(env, motionEvent, getaction) : 0;
+    if ((*env)->ExceptionCheck(env)) (*env)->ExceptionClear(env);
+    (*env)->DeleteLocalRef(env, mt);   /* ★ 立即释放 mt（local ref 同 scope 内用完即放） */
+    if (action != 0) return JNI_FALSE;   /* 非 ACTION_DOWN 不消费 */
+    /* 触摸诊断（定位"菜单点击不生效"：确认 native 收到 + 坐标 + 当前 UI 态） */
+    static int g_touch_cnt = 0;
+    if (++g_touch_cnt <= 5 || (g_touch_cnt % 500) == 0)
+        LOGI("OnTouch 触摸 #%d（x=%.0f y=%.0f，view=%dx%d，ui=%s）",
+             g_touch_cnt, x, y, g_view_w, g_view_h,
+             ui_screen_get() == UI_MENU ? "MENU" : "GAME");
+    /* UI 分流：菜单态点按钮 → 进对局（人机/重开），其它按钮占位日志。
+       ★ 触摸坐标（MotionEvent.getX/getY）与渲染 viewport 坐标系不一致
+         （MuMu input 注入坐标被缩放），故菜单命中用 720×1280 按钮几何
+         的"屏幕相对位置"：x ∈ [0.05, 0.97] 实际 view 宽度内的按钮 x 区 +
+         y 按实际 view 高度 5 等分带（按钮 5 行 × 2 列布局的 y 相对位置），
+         命中 = 实际 view 内的 5 按钮矩形（与 rs_draw_menu 的缩放渲染一致，
+         不依赖 MotionEvent 坐标的绝对像素）。 */
+    if (ui_screen_get() == UI_MENU) {
+        /* 按钮相对几何（归一化：x 相对 view_w，y 相对 view_h）—— 与渲染的
+           基准坐标 720×1280 同布局，rs_draw_menu 用 sx/sy 缩放画到实际 view，
+           触摸 x/y 在实际 view 坐标系 → 归一化后直接命中同一套相对矩形。 */
+        /* 命中：触摸坐标归一化 [0,1]²（x/view_w、y/view_h）vs g_btns 720×1280 基准归一化，
+           与渲染 rs_draw_menu 的 sx/sy 缩放同一套相对几何（MuMu 触摸坐标系不同 → 归一化解耦）。 */
+        const ui_btn *btns = ui_menu_buttons();
+        float nx = g_view_w > 0 ? x / (float)g_view_w : 0;
+        float ny = g_view_h > 0 ? y / (float)g_view_h : 0;
+        int hit = -1, hit_action = -1;
+        for (int i = 0; i < UI_BTN_COUNT; i++) {
+            /* ★ 按钮几何 720×1280 基准 → 实际 view 像素（与 rs_draw_menu sx/sy 缩放同几何）：
+               MotionEvent x/y 已是 view 像素（顶左原点）→ 按钮矩形转 view 像素直接比较 */
+            float b0 = btns[i].x0 * g_view_w / 720.0f, b1 = btns[i].x1 * g_view_w / 720.0f;
+            float c0 = btns[i].y0 * g_view_h / 1280.0f, c1 = btns[i].y1 * g_view_h / 1280.0f;
+            if (x >= b0 && x <= b1 && y >= c0 && y <= c1) { hit = i; hit_action = btns[i].action; }
+        }
+        LOGI("UI命中：x=%.0f y=%.0f nx=%.3f ny=%.3f hit=%d action=%d",
+             x, y, nx, ny, hit, hit_action);
+        if (hit >= 0) {
+            LOGI("UI命中 按钮%d（action=%d）", hit, hit_action);
+            ui_on_menu_action(hit_action);
+            sfx_play(env, "pop");   /* ★ UI 按钮点击音效（14 音效全量验证：pop 此前未触发） */
+            /* ★ 原版 UI 对齐（用户指正"没有高手新手"）：人机/两人/重开 → 直开局，
+               无难度弹窗（datah_041 判误）。flagtest/minetest 测试夹具走 setprop 路径
+               （mumu_evtest.sh），不占菜单按钮。 */
+            if (hit_action == 0 || hit_action == 1 || hit_action == 4) {
+                pthread_mutex_lock(&g_mutex);
+                jq_restart_game();
+                pthread_mutex_unlock(&g_mutex);
+                sfx_play(env, "over");
+                LOGI("OnTouch 菜单进对局：按钮%d（action=%d → 直开局，stage=PLAY 蓝先手）",
+                     hit, hit_action);   /* ★ tap_until"进对局"判定词 */
+            }
+            (void)clazz;
+            return JNI_TRUE;
+        }
+        /* ★ 原版 UI 对齐：菜单态点按钮外 = 不消费（原版主菜单仅 5 按钮可点，
+           点空白无反应——去掉旧"点棋盘区快速开局"测试路径，对齐原版交互） */
+        (void)clazz;
+        return JNI_FALSE;
+    }
+    /* ★ 原版 UI 对齐：☰ 游戏内菜单 / ↩ 悔棋 图标（棋盘中部）。
+       对局态点 ☰ → UI_INGAME_MENU；点 ↩ → 悔棋（undo_pop）。
+       坐标换算 720×1280 基准（与渲染同几何）。
+       ★ 对抗审计修复：图标命中块加 UI_GAME 守卫——☰ 菜单（UI_INGAME_MENU）打开时
+         图标不可再截获菜单按钮（"退出程序"中心落在 ↩ 图标、"功能设置"中心落在 ☰ 图标，
+         无守卫会误触发悔棋/重开菜单，所见与所点不一致）。 */
+    if (ui_screen_get() == UI_GAME) {
+        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
+        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float ix0, iy0, ix1, iy1;
+        ui_imen_icon_rect(0, &ix0, &iy0, &ix1, &iy1);   /* ☰ */
+        if (bx >= ix0 && bx <= ix1 && by >= iy0 && by <= iy1) {
+            ui_screen_set(UI_INGAME_MENU);
+            LOGI("OnTouch 对局态点 ☰ → UI_INGAME_MENU（datah_006 游戏内菜单）");
+            sfx_play(env, "pop");
+            (void)clazz;
+            return JNI_TRUE;
+        }
+        ui_imen_icon_rect(1, &ix0, &iy0, &ix1, &iy1);   /* ↩ 悔棋 */
+        if (bx >= ix0 && bx <= ix1 && by >= iy0 && by <= iy1) {
+            /* ★ 对抗审计修复：连续 pop 到 BLUE（人机模式 undo 栈顶是 AI 应着前
+               turn=RED，一次 pop 恢复 RED 后 OnUpdate AI 立即补应着 → 悔棋失效）。 */
+            pthread_mutex_lock(&g_mutex);
+            int popped = 0;
+            while (undo_pop()) {
+                popped = 1;
+                if (g_state.turn == SIDE_BLUE || g_state.stage != STG_PLAY) break;
+            }
+            pthread_mutex_unlock(&g_mutex);
+            if (popped) {
+                LOGI("OnTouch ↩ 悔棋：连续 undo_pop 到 BLUE（撤销 AI 应着 + 蓝的走子）");
+                sfx_play(env, "pop");
+            } else {
+                LOGI("OnTouch ↩ 悔棋：无可悔（undo 栈空）");
+            }
+            (void)clazz;
+            return JNI_TRUE;
+        }
+    }
+    /* ★ 原版 UI 对齐：☰ 游戏内菜单态（datah_006 8 项）——点按钮 → 动作；
+       点面板外 → 回对局。 */
+    if (ui_screen_get() == UI_INGAME_MENU) {
+        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
+        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        const ui_imen_btn *im = ui_imen_buttons();
+        int ih = ui_imen_hit(im, UI_IMENU_COUNT, bx, by);
+        if (ih >= 0) {
+            int act = im[ih].action;
+            LOGI("OnTouch ☰菜单：按钮%d（action=%d）", ih, act);
+            if (act == 0) {   /* 重新开始 */
+                pthread_mutex_lock(&g_mutex);
+                jq_restart_game();
+                pthread_mutex_unlock(&g_mutex);
+                sfx_play(env, "over");
+                LOGI("☰菜单 重新开始：default.lay 重开局（stage=PLAY 蓝先手）");
+            } else if (act == 1) {   /* 悔棋 */
+                pthread_mutex_lock(&g_mutex);
+                int popped = 0;
+                while (undo_pop()) {
+                    popped = 1;
+                    if (g_state.turn == SIDE_BLUE || g_state.stage != STG_PLAY) break;
+                }
+                pthread_mutex_unlock(&g_mutex);
+                sfx_play(env, "pop");
+                LOGI("☰菜单 悔棋：连续 undo_pop 到 BLUE（popped=%d）", popped);
+            } else if (act == 7) {   /* 退出程序 → 回主菜单 */
+                ui_screen_set(UI_MENU);
+                sfx_play(env, "pop");
+                LOGI("☰菜单 退出程序 → 回主菜单");
+                (void)clazz;
+                return JNI_TRUE;
+            } else {
+                sfx_play(env, "pop");
+                LOGI("☰菜单 action=%d（占位：电脑变着/游戏规则/功能设置/战况统计/软件信息）", act);
+            }
+            ui_screen_set(UI_GAME);
+            (void)clazz;
+            return JNI_TRUE;
+        }
+        if (!ui_imen_popup_inside(bx, by)) {
+            ui_screen_set(UI_GAME);
+            LOGI("OnTouch ☰菜单外（bx=%.0f by=%.0f）→ 回对局", bx, by);
+            sfx_play(env, "pop");
+        }
+        (void)clazz;
+        return JNI_TRUE;
+    }
+    /* 对局态：两步走子态机（点格 A 选中 → 点格 B 走子/翻棋） */
+    int from = -1, to = -1;
+    /* ★ 对抗审计 #6：AI 应着音效锁外播（锁内缓存，锁外调 sfx_play/sfx_game_over） */
+    int sfx_done = 0;
+    const char *sfx_name = NULL;
+    int sfx_stage = -1, sfx_win = -1;
+    /* 触摸坐标归一化到 [0,1]²（消除 MotionEvent 坐标系与渲染 viewport 的 MuMu 缩放差异） */
+    float nx = g_view_w > 0 ? x / (float)g_view_w : 0;
+    float ny = g_view_h > 0 ? y / (float)g_view_h : 0;
+    (void)ny;
+    /* ★ 对局结束"再来一局"按钮：stage==OVER + 触摸按钮区（nx 0.35-0.65 / ny 0.62-0.72，
+       与 rs_draw_overlay 按钮几何一致）→ 重开新局。对局结束 UI 用户流程闭环
+       （胜负有横幅 + 按钮可点 → 重开，不重启 app）。触摸路径；property 为可靠备用。 */
+    if (nx >= 0.35f && nx <= 0.72f &&
+        ny >= 0.62f && ny <= 0.72f) {
+        pthread_mutex_lock(&g_mutex);
+        int over = (g_state.stage == STG_OVER);   /* ★ 对抗审计 #6：stage 读锁内（旧版锁外读） */
+        if (over) jq_restart_game();
+        pthread_mutex_unlock(&g_mutex);
+        if (over) {
+            LOGI("OnTouch 对局结束再来一局：按钮（default.lay 重新开局，stage=PLAY 蓝先手）");
+            sfx_play(env, "over");
+            (void)clazz;
+            return JNI_TRUE;
+        }
+    }
+    /* ★ 游戏内"悔棋重开"按钮：对局态左上角（nx<0.15, ny<0.10，棋盘左侧空闲区）
+       → 重开新局（不重启 app）。触摸路径（property jq.restartgame 为可靠备用路径）。 */
+    if (nx < 0.15f && ny < 0.10f) {
+        pthread_mutex_lock(&g_mutex);
+        jq_restart_game();
+        pthread_mutex_unlock(&g_mutex);
+        LOGI("OnTouch 游戏内重开：左上角重开按钮（default.lay 重新开局，stage=PLAY 蓝先手）");
+        sfx_play(env, "over");
+        (void)clazz;
+        return JNI_TRUE;
+    }
+    /* ★ 原版 UI 对齐：删除旧"点棋盘区自动开局"块（对齐原版点棋盘走子，无自动开局）。
+       ★ 对抗审计修复：该块在中心带（nx 0.366-0.631）每次触摸无条件重置 turn=BLUE/
+         winner=-1/moves——对局中破坏进行中的棋局；stage=OVER 时点棋盘上部绕过来一局
+         按钮意外重开。原版无此行为，整块删除。 */
+    int ev = jq_touch_state_process(&g_ts, x, y, g_view_w, g_view_h, &from, &to);
+    if (ev != 0)
+        LOGI("OnTouch 走子态机：ev=%d（SELECT/UNSELECT/MOVE）from=%d to=%d（cell 索引）",
+             ev, from, to);
+    /* ★ 走子/翻棋的 g_state 读写 + jq_try_move/jq_flip 全部在 g_mutex 内（GLThread
+       的 OnUpdate/AI 也持同一把锁读写 g_state → 免并发野指针 0x80b5dbe78 SIGSEGV）。
+       sfx 在锁外调（不读 g_state，只读事件名 + MediaPlayer 全局 ref）。 */
+    int jnev = -1;
+    int over_win = -1;   /* 走子后 stage==OVER 记录 winner（锁外 sfx win/lose，防锁竞争读） */
+    int flip_done = 0, move_ok = 0;
+    if (ev == JQ_EV_SELECT) {
+        if (jq_glview_is_ready()) jq_glview_set_selected(&g_glview, jq_touch_state_selected(&g_ts));
+        sfx_play(env, "select");
+    } else if (ev == JQ_EV_UNSELECT) {
+        if (jq_glview_is_ready()) jq_glview_set_selected(&g_glview, -1);
+    } else if (ev == JQ_EV_MOVE) {
+        pthread_mutex_lock(&g_mutex);
+        jq_state *st = &g_state;
+        if (to == from) {
+            /* 点自身 = 翻棋。翻棋成功保持选中（态机已 SELECTED，下一步走子）；
+               翻棋失败（已翻开/非己方）回 IDLE。 */
+            if (from >= 0 && jq_can_flip(st, from)) {
+                undo_push();
+                flip_done = jq_flip(st, from);
+            } else {
+                jq_touch_state_reset(&g_ts);
+            }
+        } else {
+            /* 走子 A→B（jq_can_move 判定 + jq_try_move 事件） */
+            if (from >= 0 && to >= 0) {
+                int movable = jq_can_move(st, from, to);
+                undo_push();
+                jnev = jq_try_move(st, from, to);
+                move_ok = (jnev >= 0);
+                if (move_ok && jnev >= 0 && jnev < 6) {
+                    g_event_cnt[jnev]++;   /* 事件计数（对齐 on_event，OnTouch 直接走子不经 on_event） */
+                    g_event_total++;
+                }
+                if (move_ok && st->stage == STG_OVER)
+                    over_win = st->winner;   /* 对局结束（吃旗/无子可走等），锁外播 win/lose */
+                LOGI("走子判定：from=%d to=%d can_move=%d 结果=%s（事件累计 move=%d eat=%d）",
+                     from, to, movable, JQ_EVENT_NAMES[jnev < 0 ? 0 : jnev], g_event_cnt[0], g_event_cnt[1]);
+            }
+        }
+        pthread_mutex_unlock(&g_mutex);
+        if ((flip_done || move_ok) && jq_glview_is_ready()) {
+            jq_glview_dirty(&g_glview);
+            sfx_play(env, flip_done ? "flip" : sfx_for_move(jnev));
+        }
+        /* ★ 对局结束音效（走子后 stage==OVER → win/lose，sfx_wav 表已有 win/lose/draw） */
+        if (over_win >= 0)
+            sfx_game_over(env, STG_OVER, over_win);
+        /* 翻棋成功保持选中（下一步走子）；走子/翻棋失败清高亮 */
+        if (jq_glview_is_ready())
+            jq_glview_set_selected(&g_glview, flip_done ? from : -1);
+        /* ★ 红方 AI 应着（主线程同步，OnTouch 走子后触发；GLThread OnUpdate 的 AI 块
+           在 MuMu surface attach flaky 停帧时兜底不了 → 主线程直接推进）。
+           OnUpdate 检查 turn==RED 时 AI 已把 turn 切回 BLUE → 不重复（同 g_mutex）。 */
+        if (move_ok) {
+            pthread_mutex_lock(&g_mutex);
+            if (ui_screen_get() == UI_GAME && g_state.stage == STG_PLAY &&
+                g_state.turn == SIDE_RED) {
+                int af, at, aflip, ae = -1;
+                if (ai_pick(&af, &at, &aflip) == 0) {
+                    undo_push();
+                    if (aflip) {
+                        jq_flip(&g_state, af);
+                        LOGI("红方 AI 应着（翻棋）：cell=%d（turn 切回蓝方）", af);
+                    } else {
+                        ae = jq_try_move(&g_state, af, at);
+                        LOGI("红方 AI 应着：from=%d to=%d 结果=%s（turn 切回蓝方）",
+                             af, at, JQ_EVENT_NAMES[ae < 0 ? 0 : ae]);
+                    }
+                    if (jq_glview_is_ready()) {
+                        jq_glview_dirty(&g_glview);
+                        sfx_done = 1;
+                        sfx_name = aflip ? "flip" : sfx_for_move(ae);
+                        sfx_stage = g_state.stage; sfx_win = g_state.winner;  /* 锁内读，锁外播 */
+                    }
+                }
+            }
+            pthread_mutex_unlock(&g_mutex);
+            /* ★ 对抗审计 #6：音效挪锁外（sfx_play/sfx_game_over 不读 g_state，
+               旧版锁内调与 GUIDELINE §3"sfx 锁外"矛盾） */
+            if (sfx_done) {
+                sfx_play(env, sfx_name);
+                if (sfx_stage == STG_OVER && sfx_win >= 0)
+                    sfx_game_over(env, sfx_stage, sfx_win);
+            }
+        }
+    }
+    (void)clazz;
+    return ev != 0;   /* 命中棋盘区=消费 */
+}
+
+/* OnGraphCreate()：GLView.onSurfaceCreated → 场景构造（对齐原版 0xbd764 OnGraphCreate
+   构造链：渲染对象图 + 棋盘/棋子纹理上传 + 菜单布局）。 */
+JNIEXPORT void JNICALL
+Java_com_cnvcs_App_OnGraphCreate(JNIEnv *env, jclass clazz)
+{
+    (void)env; (void)clazz;
+    pthread_mutex_lock(&g_mutex);
+    /* 场景构造：布局加载（12 预设）+ 棋盘/棋子纹理就绪（rs_render 由 EglHelper 出屏链驱动） */
+    if (g_state.stage == STG_PLAY)
+        LOGI("OnGraphCreate：场景构造（stage=PLAY 布局已加载 棋子/棋盘纹理由渲染线程上传）");
+    pthread_mutex_unlock(&g_mutex);
+}
+JNIEXPORT void JNICALL
+Java_com_cnvcs_App_OnGraphChange(JNIEnv *env, jclass clazz, jint w, jint h)
+{
+    (void)env; (void)clazz;
+    /* ③b：GLView.onSurfaceChanged(w,h) → OnGraphChange(w,h) → 渲染器 resize */
+    g_view_w = w > 0 ? w : g_view_w;
+    g_view_h = h > 0 ? h : g_view_h;
+    if (jq_glview_is_ready())
+        jq_glview_resize(&g_glview, w, h);
+}
+
+/* OnResult(int req, int res, Intent data)：Activity 结果（对话框等）。桩。 */
+JNIEXPORT void JNICALL
+Java_com_cnvcs_App_OnResult(JNIEnv *env, jclass clazz, jint req, jint res, jobject data)
+{
+    (void)env; (void)clazz; (void)req; (void)res; (void)data;
+}
+
+/* OnBluetooth(Intent)：原版 0xbe9cc 主逻辑（getAction/getIntExtra/getAddress
+   + RFCOMM SPP，§89/§92）。帧状态机在 bt_session.c（收帧→校验→规则引擎→回合翻转）。
+   SPP socket IO 由 Java 宿主承担；此入口解析 Intent 的 extra 文本帧，
+   经 jq_bt_session 处理。无真机蓝牙验证（诚实边界）。 */
+
+JNIEXPORT void JNICALL
+Java_com_cnvcs_App_OnBluetooth(JNIEnv *env, jclass clazz, jobject intent)
+{
+    if (!intent) return;
+    /* 懒初始化：本方 = 蓝方（先手），对局 = 当前状态 */
+    if (!g_bt_sess_init_done) {
+        jq_bt_session_init(&g_bt_sess, &g_state, 1);
+        g_bt_sess_init_done = 1;
+        g_bt_sess_init = 1;
+    }
+    /* 取 extra 文本（Java 宿主把收到的 v2 帧字符串放 Intent extra）
+       extra 键名 = 原版 .rodata "extra"（0x127458 确证） */
+    /* 走 getStringExtra("extra") 路径（原版 .rodata "extra" 0x127458 确证键名） */
+    jclass i_cls = (*env)->GetObjectClass(env, intent);
+    jmethodID gse = (*env)->GetMethodID(env, i_cls, "getStringExtra",
+                                        "(Ljava/lang/String;)Ljava/lang/String;");
+    if (!gse) {
+        if ((*env)->ExceptionCheck(env)) (*env)->ExceptionClear(env);
+        (*env)->DeleteLocalRef(env, i_cls);
+        LOGI("OnBluetooth：getStringExtra 方法查找失败");
+        return;
+    }
+    jstring key = (*env)->NewStringUTF(env, "extra");
+    jstring extra = (jstring)(*env)->CallObjectMethod(env, intent, gse, key);
+    if ((*env)->ExceptionCheck(env)) (*env)->ExceptionClear(env);
+    (*env)->DeleteLocalRef(env, key);
+    (*env)->DeleteLocalRef(env, i_cls);
+    if (!extra) { LOGI("OnBluetooth：extra 为空"); return; }
+
+    /* 测试入口：extra="test" → 构造 1 个合法 FLIP 帧走完整处理链（无真机蓝牙时验证 JNI→状态机通路） */
+    const char *txt = (*env)->GetStringUTFChars(env, extra, NULL);
+    if (!txt) return;
+    const char *disp = txt;   /* ★ 对抗审计 #11：解析用指针（test 路径可能切到栈缓冲 testframe） */
+    if (strcmp(txt, "test") == 0) {
+        /* 找当前可翻子（暗棋阶段），构造 FLIP 帧文本 → 走 decode + on_frame 链 */
+        int fidx = -1;
+        pthread_mutex_lock(&g_mutex);
+        for (int i = 0; i < N_CELLS; i++)
+            if (g_state.cells[i].rank && !g_state.cells[i].revealed && jq_can_flip(&g_state, i))
+                { fidx = i; break; }
+        char testframe[128];
+        if (fidx >= 0) {
+            int n = jq_bt_frame_encode(testframe, sizeof testframe, BT_T_FLIP,
+                                       cell_col(fidx), cell_row(fidx), 0, 0, 0, 0, 0);
+            if (n > 0) testframe[n] = 0;
+            pthread_mutex_unlock(&g_mutex);
+            LOGI("OnBluetooth(test)：构造 FLIP 帧 idx=%d → %s", fidx, testframe);
+            /* 解析用 testframe（栈缓冲）；释放仍用 txt（原 JNI 指针，勿释放栈地址） */
+            disp = testframe;
+        } else {
+            pthread_mutex_unlock(&g_mutex);
+            LOGI("OnBluetooth(test)：无可翻子，跳过");
+            (*env)->ReleaseStringUTFChars(env, extra, txt);
+            return;
+        }
+    }
+
+    /* 逐帧解析（v2 帧以 '\n' 结尾，可能多帧连发） */
+    const char *p = disp;
+    int f[8];
+    int nframes = 0;
+    while (*p) {
+        if (jq_bt_frame_decode(p, &f[0], &f[1], &f[2], &f[3], &f[4], &f[5], &f[6])) {
+            int rc = jq_bt_session_on_frame(&g_bt_sess, &g_state,
+                                            f[0], f[1], f[2], f[3],
+                                            f[4], f[5], f[6]);
+            nframes++;
+            if (rc < 0)
+                LOGI("OnBluetooth：帧 type=%d 被拒（rc=%d）", f[0], rc);
+            /* 找下一帧起点（跳过本帧的 '\n'） */
+            const char *nl = strchr(p, '\n');
+            p = nl ? nl + 1 : p + 1;
+        } else {
+            break;
+        }
+    }
+    (*env)->ReleaseStringUTFChars(env, extra, txt);
+    LOGI("OnBluetooth：处理 %d 帧，会话状态=%d，stage=%d",
+         nframes, (int)g_bt_sess.state, (int)g_state.stage);
+}
+
+JNIEXPORT jint JNICALL
+JNI_OnLoad(JavaVM *vm, void *reserved)
+{
+    (void)reserved;
+    g_jvm = vm;
+    LOGI("JNI_OnLoad：逆源码重写版 libjunqi（14 On* 入口 + 规则引擎）");
+    /* assets 管线：AAssetManager 在真机可达（小米 libandroid.so 导出 AAssetManager_fromJava），
+       MuMu 64 位转译体裁剪该符号 → 走文件系统回退（/data/local/tmp/spak_res）。
+       WAV 音效打包进 assets/jq_sfx/（AAssetManager 读，免外部存储 SELinux 限制）。 */
+    /* AAsset 管线走文件系统回退（正常 so 已验证：AAssetManager_fromJava 等 libandroid
+       符号在设备转译层不可达 → 不直接链接；WAV/纹理全从 /data/local/tmp/spak_res 读）。 */
+    g_assets_avail = 0;
+    g_aam_open = NULL;
+    g_aasset_len = NULL;
+    g_aasset_read = NULL;
+    g_aasset_close = NULL;
+    g_assets = NULL;
+    LOGI("JNI_OnLoad：assets 管线未启用（文件系统回退 spak_res）");
+    return JNI_VERSION_1_2;
+}

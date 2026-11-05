@@ -1,0 +1,160 @@
+# 军棋 APK 逆向工程工作区
+
+这是"军棋"游戏的 APK 逆向工程工作区，**不是** 源码仓库。
+用户回答任何问题（能否装、能否玩、进度、状态）时，**只能回答"在阶段 X"**，不展开细节。
+
+## 仓库结构
+
+- `军棋.apk` — 原始 APK（`com.cnvcs.junqi`，v152/1.52，构建于 API 19 时代）
+- 解码产物放 `/tmp/opencode/jq_apk/`（apktool 输出在 `/tmp/opencode/jq_apk/dec/`）
+- 各阶段产物放 `/disk/workspaces/jq/dist/`
+- 32 位 native `.rodata` 明文 dump 放 `/disk/workspaces/jq/frida-dump/`（非壳解密，静态文件即明文）；Frida 工作流系统参考见 `frida-dump/FRIDA_NOTES.md`（18 地址 dump / Jnitrace 看 JNI 调用流 / 与 unidbg 两条路互补 / §9 Stalker 指令级追踪模板）
+
+## 已验证的现状事实
+
+- `minSdk 4` / `targetSdk 19` / `installLocation=preferExternal`
+- 无源码，Java 侧只有 ~7 个类（`com.cnvcs.App`、`GLView`、`SiteView`、`AdLis`、`BtReceiver`、`TextDlg`、`InputDlg`），几百行 smali
+- 游戏核心逻辑在 native 层：`lib/armeabi/libjunqi.so`，**ELF32 / ARM / EABI5 / stripped**，依赖 `libstdc++.so`(32 位)、`libGLESv1_CM.so`（GL1 渲染），导出 15 个 `Java_com_cnvcs_App_On*` JNI 符号
+- **`.text` 代码段是明文**（objdump 反汇编出真实 ARM/Thumb 指令 + JNI 符号名，熵 7.10 = 正常机器码）
+- **`.rodata` 字符串池也是明文**（非加密）：已知串 `Junqi.Move/updateUrl/statHost/com/baidu/mobads/AdView` 在**静态文件里即可见**；静态 `.rodata` 与运行时 dump 逐字节相同（0/118832 不同）→ **无运行时自解密**
+  - 纠正：之前写"`.rodata` 加密、dlopen 自解密"是**错的**。唯一高熵点 0x138000(7.87) 在 `.rodata` 只读数据段内，是压缩/索引表（值非有效地址），**非加密代码**
+  - **结论：这不是加壳 so**。无 `.text` 加密、无 `.rodata` 加密、无运行时自解密。unidbg 失败根因是 `.got` 零槽位（未重定位）+ 初始化例程反检测，与壳无关
+- 广告层（拆除目标）：
+  - `assets/__xadsdk__remote__final__.jar`（内嵌第二个 dex 的远程广告 SDK）
+  - `smali/com/baidu/mobads/` + `smali/com/baidu/mobad/`（数百个类）
+  - manifest 中 `com.baidu.mobads.AppActivity` + `UMENG_APPKEY`
+  - native 层 `FindClass("com/baidu/mobads/AdView")` 直接引用（全删 baidu smali 前必须先处理这个引用点）
+- 工具：`apktool`、`baksmali`、`java 17`、`keytool`、NDK r25b 已装；签名用 `apksig.jar` 的 `SignV2`（v1+v2）
+- 全面屏/沉浸式**不是障碍**（manifest 写法在新系统上被自动接管）；真正卡安装的是 `minSdk 4` 太旧
+
+## 核心规范（先读这个，避免重踩坑）
+
+### 重打包三件套（缺一个都装不上）
+
+```
+# 1. 解码 → 改 → 重打包
+apktool d -f 军棋.apk -o /tmp/opencode/jq_apk/dec
+apktool b /tmp/opencode/jq_apk/dec -o out.apk
+
+# 2. 强制 .so/.arsc/.png/.pak 为 STORE（不压缩）—— apktool 默认会压缩，装必失败
+python3 /tmp/opencode/jq_apk/store_compressed.py out.apk out_stored.apk
+
+# 3. v1+v2 双签 —— 旧版 Android 也接受 v2，新版必须
+java -cp /tmp/opencode/apksigner/apksig.jar:/tmp/opencode/apksigner SignV2 \
+     out_stored.apk /disk/workspaces/jq/junqi.keystore junqi2026 junqi junqi2026
+```
+
+安装失败排查顺序：①`.so` 是否被 zip 压缩（必须 store）→ ②是否缺 v2 签名 → ③`armeabi`（非 v7a）在 64 位 only 设备装不上 → ④`resources.arsc` 未 4 字节对齐（`aapt dump badging` 报 "stored uncompressed and aligned on a 4-byte boundary"）。
+
+### MuMu 翻译体内存访问规范（§124x 沉淀，先读这个）
+
+- **镜像偏移**：`jq_img.bin` 从 `.text` 起点 `0x233e0` 开始（`gen_shadow.py IMG_LO=0x233e0`，`img[i]=原版[0x233e0+i]`），必须 `memcpy(shadow+0x233e0, img, sz)`；`img_end=0x233e0+sz=0x15be80`，`.bss` 从 `img_end` 清零。**拷到 `shadow+0` 是错**（所有 `.text`/`.rodata` MEM 读偏移 `+0x233e0`）。验证：`MEM(0x6e9c0)=0xec728`、`MEM(0x120bf8)="text"`
+- **MEM 必须支持真实映射地址**：`JQT_VALID` 不能只允许影子区 `[g_jqt_shadow, g_jqt_shadow+MAP_HI)`——`_Znwj`/malloc 返回的真实堆指针（`0xea58feb0`，`[anon:scudo:primary]`）会被拒落零页读 0 → 链表遍历永不终止（无限循环，主线程 spin）。必须 `jqt_mem_valid()`（偏移/影子区/`/proc/self/maps` 真实映射区表三路命中）
+- **真实映射区表上限 ≥4096**：设备 `/proc/self/maps` 有 **~1943 条**，`JQT_REAL_MAX=256` 满表漏 scudo 堆（实测 `MISS n=256`）→ 扩 `4096` + `qsort` + 二分（实测 `real_n=1799`）；线性扫 1799 条/次会拖慢 MEM
+- **真实映射区表快照时机**：`jqt_mem_init`（JNI_OnLoad）建表，scudo 堆在 OnCreate 前已映射，能覆盖；堆后续增长新区不在表内（当前够用，若 MISS 可重建）
+- **`.data` 段 + RELATIVE 重定位**：`jq_rel_data.h`（28288B `.data` 0x155000-0x15be80 + 5312 RELATIVE 槽），`memcpy(shadow+0x155000, jq_data_blob, 28288)` + 每槽 `+= g_jqt_shadow`（影子"load_base"=g_jqt_shadow）
+- **外部函数指针参数转绝对**：`JQT_ABS_PTR(a)=(a<MAP_HI ? shadow+a : a)`（偏移→绝对；已是绝对保持）
+
+### 拿 32 位 native 明文的正确路线（按性价比排序）
+
+1. **redroid / 真 Android 容器跑原版 32 位 so**（最终验证可行）：
+   - 容器：`registry.cn-hangzhou.aliyuncs.com/zywx/lingyan-face-check-service:android_tts_1210`（x86 宿主 + houdini 转译 ARM32，无需 KVM）
+   - 起容器：`docker run -d --privileged -p 5555:5555 <image>`，`adb connect localhost:5555`
+   - 触发：`am start` 让 so dlopen → `dd /proc/PID/mem` dump `.rodata`（静态即明文，dump 仅为确认）
+   - 产物：`frida-dump/rodata_dec.bin`（118KB）+ `rodata_strings.txt`（1715 条，含 `Junqi.Move/Flip/Flag/Bomb/Eat/Dead`、`data/config/*.xml`、`updateUrl/statHost/cfgHost`）
+   - 限制：redroid 无 GPU（GL 渲染不可用，app 进不了主界面）、64 位 native bridge 不完整（arm64 库 dlopen 失败）。只用于**提取数据**，不能验证"能玩"
+2. **unidbg/unicorn2 纯 x86 模拟 32 位 so**（**已验证可突破 init_array + 重定位，非死路**——见 REVERSE_NOTES §84）：12 个 init_array 全通、RELATIVE 5312 槽全重定位、PLT→GOT→符号映射 214/214、GLOB_DAT 6 符号从 docker 真 ARM libc 解析；依赖 libc/libstdc++/libm/libdl/libGLESv1_CM/libGLESv2 可加载。**★ PC off-by-2 已实证修复：切换 Unicorn2 后端**（dynarmic 对 Thumb `add rX,pc` 用 `(addr+4)&~3` mask，unicorn2 用 `(addr+4)` 不 mask，与真实 ARM 一致；DiagTracePC 实证 0xa37fc 存 0x159880=不 mask 值）。**★ JNIEnv/VM 补环境实证可行**（DiagJni：createDalvikVM + resolveClass + callStaticJniMethodObject，OnCreate 从空 env 入口即崩推进到 std::vector 对象图 0x43ed8）。**★ 本轮（§124）纠正**：checkpoint 的"BL off-by-2 -0xa"是**误读**（`F000 F800` 正确目标是 0x10000004 非 0x10000020，隔离环境 BL 全对）；但**加载 .so 后 BL 0x7965a 上下文相关错位到 0x6eaea**（非 0x43ed8，memset 循环，非函数入口）——**模拟器精度 bug**（unicorn2 上下文相关），**非翻译/逻辑 bug**。剩余阻塞 = **① 上下文相关 BL 解码 bug**（新，需 workaround）+ **② C++ 对象图语义缺失**（std::vector begin/end 未初始化）+ **③ 288MB PROT_NONE mmap**（unidbg mmap2 处理失败）。unidbg 强项（补环境/反检测/花指令/加密壳处理）正可用于攻克这些——**别轻易下"死路"结论**
+3. **反汇编直接看**：`.text` 和 `.rodata` 都是明文，`objdump` 可直接反汇编 `.text`、直接读 `.rodata` 字符串
+
+### 64 位 native 的诚实边界
+
+- 当前 arm64 `libjunqi.so`（`native64/junqi.cpp`，~97KB）是**简化重写版**（10×9 棋盘、颜色棋子、自动走子、GLES2 渲染），**不是** 32 位 1MB native 的汇编级逆向
+- 它能在 64 位设备"跑起来"，但玩法/规则/资源与原版不一致
+- 完整对齐（原版 38 子布局、地雷/炸弹/悔棋规则、蓝牙联机协议、SPAK 解密 key）需后续把 32 位 `.rodata` 明文逻辑移植进 arm64，工作量另计
+- **不要在交付物里把"简化版"包装成"完整版"**
+
+## 四个阶段
+
+验收判据（统一）：装上 → 进主界面 → 下一局（本地或蓝牙）→ 正常退出 → 重进不崩。
+
+### 阶段 0：去广告 + 旧 ABI 快速包
+
+- 产物：`dist/phase0.apk`（v1+v2，`armeabi` 原样）
+- 改动：`minSdk 19`、`targetSdk 34`、去广告（删 `__xadsdk__remote__final__.jar`、删 manifest 中 `com.baidu.mobads.AppActivity` 和 `UMENG_APPKEY`、去广告相关权限 `INTERNET`/`ACCESS_NETWORK_STATE`/`ACCESS_WIFI_STATE`/`READ_PHONE_STATE`/`ACCESS_COARSE_LOCATION`；保留 `BLUETOOTH(_ADMIN)`）
+- 验收：32 位设备（Android 5.0–13）能装能玩；断网启动无广告浮层
+- 已知限制：64 位 only 设备装得上但加载库失败（预期内）
+
+### 阶段 1：双 ABI 可装
+
+- 产物：`dist/phase1.apk`（v1+v2，`armeabi` + `arm64-v8a` 双目录，arm64 为 5KB 占位桩）
+- 验收：32 位设备同阶段 0；64 位 only 设备能装但 arm64 桩跑不起来（预期，作为阶段 2 入口）
+
+### 阶段 2：真 64 位 native（全设备可装，64 位可玩）
+
+- 产物：`dist/phase2.apk`（v1+v2，`armeabi-v7a` + `arm64-v8a`，`minSdk 21` / `targetSdk 34`）
+- 改动：`armeabi` 升级为 `armeabi-v7a`（v7a 兼容 v5，32 位 native 原样复用）；arm64 用 NDK 编译**简化版**C++ 实现（`native64/junqi.cpp` → `lib/arm64-v8a/libjunqi.so`，~97KB，无 GL 依赖，仅 `liblog/libm/libandroid`）：
+  - 15 个 JNI 入口签名与 `smali/com/cnvcs/App.smali` 一致
+  - 军棋棋盘（10×9，38 子）+ 走子/吃子/炸弹/悔棋规则 + 简单 AI（blue 方）
+  - 事件名对齐 32 位 `.rodata` 明文（`Junqi.Move/Flip/Flag/Bomb/Eat/Dead` 等）
+- 注意：arm64 是**简化重写版**，非原版汇编级逆向；SPAK 解密 key 未提取，资源图占位；32 位设备走 v7a 能玩原版完整逻辑
+- 验收：64 位 only 设备能装，arm64 简化版可渲染可交互；32 位设备走 v7a 能装能玩原版
+- 已知代价：`minSdk 21` 起，Android 4.4–5.0 旧设备装不了
+
+### 阶段 3：去广告终态（面向 64 位设备）
+
+- 产物：`dist/phase3.apk` = 阶段 2 基础上完整去广告
+- 改动：删 `smali/com/baidu/*` 全量、删 `smali/com/cnvcs/AdLis.smali`、删 `assets/__xadsdk__remote__final__.jar`、manifest 去全部广告项（INTERNET/NETWORK/WIFI/PHONE/LOCATION 权限、baidu AppActivity、UMENG_APPKEY）
+- 验收：64 位设备断网能装、无广告浮层、无 baidu 类、无 ad jar、网络权限 0 项；32 位设备不在本阶段验收范围
+
+## 红线（不要碰）
+
+- 不要改动 `assets/data*.pak` 的 `doNotCompress` 标记（动了会破坏资源加载）
+- 全删 `smali/com/baidu/*` 前必须处理 native 里 `FindClass("com/baidu/mobads/AdView")` 引用：32 位 `lib/armeabi-v7a/libjunqi.so` 仍引用 baidu，阶段 2 保留 `smali/com/baidu/*` + `smali/com/cnvcs/AdLis.smali`；阶段 3 删全量后仅 arm64 native 可用
+- 重打包必须用新 keystore 签名（`/disk/workspaces/jq/junqi.keystore`，密码 `junqi2026`，alias `junqi`；原签名证书不可用）
+- 不要做 64 位 native 时用 `dlopen` 32 位库的"混合方案"（Android 不支持，走不通）
+- 不要修改 `smali/com/cnvcs/App.smali` 里 native 调用签名
+- **不要在交付物里把 arm64 简化版说成"完整版"**
+
+## 用户约束
+
+- 回答任何问题（能装吗/能玩吗/进度如何）：**只说"在阶段 X"**，不展开
+- 严格按上面 4 个阶段顺序推进，不做跳阶段
+
+
+## 文档路由表（AGENTS.md 只做路由，规范/经验在单一文档）
+
+> AGENTS.md = 工作区顶层规范 + 路由索引。**各主题内容在单一文档**，勿全塞 AGENTS.md。
+
+### 正向开发（src_rs 64 位逆源码重写）
+
+| 文档 | 内容 | 状态 |
+|---|---|---|
+| `rev64/docs_rs/SPEC_BUSINESS.md` | 业务规格说明书（规则条款/事件契约/UI 流程/音效映射/布局/蓝牙） | ✅ 成文（本轮） |
+| `rev64/docs_rs/GAME_DEV_GUIDELINE.md` | 游戏开发规范（状态机/返回契约/锁纪律/音效三入口/重开悔棋/回归） | ✅ 成文（本轮） |
+| `rev64/docs_rs/CODE_STYLE.md` | 代码规范（JNI 反射/链接安全/命名/坑防复发） | ✅ 成文（本轮） |
+| `rev64/docs_rs/EXPERIENCE_LOG.md` | src_rs 经验库（闭环事实/坑清单/工具清单/方法论） | ✅ 成文 + 对抗审计修复 + 层 2 视觉对齐追加（菜单几何/字体/背景 + 对局态背景/棋子 datax_177）+ 原版 UI 对齐纠正（datah_023/041 判误、datax_294 菜单背景、☰ 菜单 datah_006 8 项、直开局去难度弹窗、菜单/对局背景分离、明棋/暗棋诚实差异）+ 对抗审计 2 阻塞项修复（☰ 图标 UI_GAME 守卫、悔棋连续 pop 到 BLUE）+ 用户指正"UI 选项/棋子间隙"修复（☰ 菜单实测几何+真实图标位图裁剪、棋子 0.59×0.82 间隙比例对齐原版）+ 主菜单按钮位图/☰↩ 真实图标对齐（orig_menu/orig_human 裁剪，so b6301851）+ 用户指正"重新开始/悔棋按钮小问题"修复（☰ 菜单文字 160→134 对齐原版 157×37，so af0e8ad4）+ 用户指正"顶部栏黑边"→全面屏（App.smali FLAG_FULLSCREEN+IMMERSIVE_STICKY，view 900×1600，walk_coords/菜单 tap 校准更新） |
+| `rev64/docs_rs/AUDIT_CHECKLIST.md` | 对抗审计 checklist（代码 vs 规格/规范/防复发，下轮 subagent 套用） | ✅ 成文（本轮固化） |
+| `rev64/docs_rs/PIPELINE.md` | **逆向→正向→验收→补差异 四段流水线 + 三回路 + 5 固化原则**（段 1 提取 / 段 2 src_rs 回归 / 段 3 真机判据门 / 段 4 unidbg-frida 对象图） | ✅ 成文（本轮） |
+| `rev64/docs_rs/R-route_reversal.md` | 逆向证据链（核心函数/控制流/常量/布局） | ✅ 已有 |
+| `rev64/src_rs/CONSISTENCY.md` | 一致测试口径（行为级重写判据） | ✅ 已有 |
+
+### 32 位逆向路线（R6 / 翻译体 / unidbg / frida / MuMu）
+
+| 文档 | 内容 | 状态 |
+|---|---|---|
+| `rev64/phases/REVERSE_NOTES.md` | 主逆向笔记（§1-§121） | ✅ 已有 |
+| `rev64/docs_rs/REVERSE_LOG.md` | 32 位逆向经验库（红线/终局反思/量化） | ✅ 成文（本轮迁移） |
+
+### 流水线 orchestrator（一条命令跑通"逆向→正向→验收→补差异"全链）
+
+| 脚本 | 作用 | 用法 |
+|---|---|---|
+| `rev64/tools/pipeline_run.sh` | 四段流水线 + 回路 C 口径，**段 3/4 真机部分只报 PENDING 不误判 PASS** | `bash rev64/tools/pipeline_run.sh --all`（本机段 PASS，真机 PENDING） |
+| `rev64/docs_rs/PIPELINE.md` | 流水线设计文档（每段一条命令 + 一组判据 + 一个诚实边界 + 5 固化原则） | 读 |
+
+### 顶层规范（保留在本文件）
+
+- 仓库结构 / 已验证现状事实 / 核心规范（重打包三件套 / MuMu 内存 / 拿明文路线 / 64 位诚实边界）
+- 四个阶段（阶段 0-3） / 红线（不要碰） / 用户约束
+- **规范单一文档原则**：新增闭环事实/坑/规范 → 写对应单一文档（EXPERIENCE_LOG / SPEC_BUSINESS /
+  GAME_DEV_GUIDELINE / CODE_STYLE / REVERSE_LOG），AGENTS.md 只更新路由表条目（不塞全文）。

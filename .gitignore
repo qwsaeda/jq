@@ -1,0 +1,53 @@
+# === 大文件（不入库）===
+*.pdf
+
+# === 二进制 / 可重建产物 ===
+*.so
+*.apk
+*.dex
+smali/
+dist/
+out*.apk
+junqi.keystore
+keystore/
+
+# === 二进制 dump / 可执行探测（不入库）===
+frida-dump/*.bin
+frida-dump/*.txt
+frida-dump/*.h
+frida-dump/shell_probe32
+frida-dump/shell_probe_dyn
+
+# === 二进制 key（不入库）===
+rev64/analysis/spak_key.bin
+rev64/analysis/spak_key_dec.bin
+
+# === 课程配套素材（视频/截图，不入库）===
+course_unidbg/videos/
+course_unidbg/assets/
+
+# === 自动生成的大头 / 数据 blob（不入库，可本地重建）===
+rev64/src_jni_translated/jq_board_px.h
+rev64/src_jni_translated/jq_texdata_board.h
+rev64/src_jni_translated/jqt_vtbl.c
+rev64/src_jni_translated/jq_data_blob.h
+rev64/src_jni_translated/jq_rel_data.h
+rev64/src_jni_translated/jq_data_blob.c
+
+# === 构建中间产物 ===
+rev64/tools/bin
+rev64/out
+rev64/jq_img.bin
+rev64/native64/*.o
+*.log
+*.tmp
+
+# === 通用 ===
+*.class
+__pycache__/
+node_modules/
+build/
+*.keystore
+
+# === 保留 ===
+!README.md

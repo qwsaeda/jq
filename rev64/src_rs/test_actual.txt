@@ -1,0 +1,9 @@
+OK Flip
+OK Flip
+OK Junqi.Move
+OK Junqi.Move
+ILLEGAL
+OK Undo
+ILLEGAL
+OK Resign
+FINAL winner=1 turn=1 total=3 since_eat=3 stage=2

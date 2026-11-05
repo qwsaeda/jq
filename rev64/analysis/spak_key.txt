@@ -1,0 +1,2 @@
+key_addr=0x12a658
+key=c2cbe5e7ce5c4ac411ca6c9906f476f86d4fcbb62621de0e6a67874c93f0d523

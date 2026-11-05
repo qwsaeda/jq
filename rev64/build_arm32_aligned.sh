@@ -1,0 +1,45 @@
+#!/bin/bash
+# build_arm32_aligned.sh — 编译"翻译体"arm32 库（jqt_*.c → armv7a）
+# 目标：arm32→C→arm32 验证——编成 32 位 so，unidbg 加载跑 OnCreate 比对原版 32 位 so
+# MEM 用 jqt_mem.h（镜像数组 + 18 常量注入），非裸指针
+set -e
+CLANG=/tmp/opencode/android-ndk-r25b/toolchains/llvm/prebuilt/linux-x86_64/bin/armv7a-linux-androideabi24-clang
+SYSROOT_INC=/tmp/opencode/android-ndk-r25b/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/include
+JTI=/disk/workspaces/jq/rev64/src_jni_translated
+OUT=${1:-/disk/workspaces/jq/rev64/dist/libjunqi_arm32_aligned.so}
+TMP=/tmp/jq32_aligned_build
+rm -rf $TMP; mkdir -p $TMP
+
+echo "[1/4] 编译 14 个 JNI 翻译体（armv7a）+ jqt_mem"
+for f in $JTI/jqt_*.c; do
+  b=$(basename $f .c)
+  [ "$b" = "jqt_mem" ] && continue
+  [ "$b" = "jqt_jnibr" ] && continue
+  [ "$b" = "jqt_jni_calls_tbl" ] && continue
+  cp $f $TMP/$b.c
+  $CLANG -c -O0 -fPIC -fvisibility=hidden -w -I$JTI $TMP/$b.c -o $TMP/$b.o
+done
+$CLANG -c -O0 -fPIC -fvisibility=hidden -w -I$JTI $JTI/jqt_mem.c -o $TMP/jqt_mem.o
+# JQJNI 桥（so→Java JNI 语义）：jqt_jnibr.c + jqt_jni_calls_tbl.c
+$CLANG -c -O0 -fPIC -fvisibility=hidden -w -I$SYSROOT_INC -I$JTI $JTI/jqt_jnibr.c -o $TMP/jqt_jnibr.o
+$CLANG -c -O0 -fPIC -fvisibility=hidden -w -I$SYSROOT_INC -I$JTI $JTI/jqt_jni_calls_tbl.c -o $TMP/jqt_jni_calls_tbl.o
+$CLANG -c -O0 -fPIC -fvisibility=hidden -w -I$SYSROOT_INC -I$JTI $JTI/jqt_render_jni.c -o $TMP/jqt_render_jni.o
+
+echo "[2/4] 编译镜像嵌入 jq_img.S"
+$CLANG -c -O0 -fPIC -w $JTI/jq_img.S -o $TMP/jq_img.o
+
+echo "[3/4] 编译适配层 jni_aligned.c"
+$CLANG -c -O0 -fPIC -fvisibility=hidden -w -I$SYSROOT_INC -I$JTI $JTI/jni_aligned.c -o $TMP/jni_aligned.o
+
+echo "[4/4] 链接 arm32 .so"
+JQT_OBJ=""
+for o in $TMP/jqt_*.o; do
+  bn=$(basename $o .o)
+  case "$bn" in jqt_jnibr|jqt_jni_calls_tbl|jqt_render_jni) ;; *) JQT_OBJ="$JQT_OBJ $o";; esac
+done
+$CLANG -shared -o $OUT \
+  $TMP/jni_aligned.o $JQT_OBJ $TMP/jqt_jnibr.o $TMP/jqt_jni_calls_tbl.o $TMP/jqt_render_jni.o $TMP/jq_img.o \
+  -Wl,-z,lazy -Wl,--hash-style=sysv \
+  -llog -lm -lGLESv1_CM -lGLESv2
+echo "OK: $OUT ($(stat -c%s $OUT) bytes)"
+echo -n "JNI 符号: "; arm-linux-gnueabi-readelf --dyn-syms --wide $OUT 2>/dev/null | grep -c Java_com_cnvcs || true
