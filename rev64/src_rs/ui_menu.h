@@ -21,6 +21,9 @@ typedef enum {
     UI_NEWGAME,    /* ★ P0（datah_062 证据）：两人新局简化弹窗——
                        玩法(Lay)/明暗棋(Show) + 确定/取消 4 控件（原版 datah_062 450×315 面板）。
                        两人热座（AI 不介入）；取消 → 回主菜单 */
+    UI_GAMESET,    /* ★ P1（datah_012 证据）：游戏设置弹窗——
+                        4 规则开关（和棋/大本营/吃地雷/吃军旗）+ 确定/取消（原版 datah_012 450×465 面板）。
+                        4 开关各循环翻转 开/关；确定 → jq_rules.txt 持久化 + 应用 g_rule_*；取消 → 恢复原值 */
 } ui_screen;
 
 /* ★ 声音设置弹窗（对抗审计 datah_001 证据：静音模式/按键声音/音量/确定/取消）。
@@ -150,5 +153,28 @@ typedef struct {
 const ui_newgame_btn *ui_newgame_buttons(void);   /* 4 控件（静态表） */
 int ui_newgame_hit(const ui_newgame_btn *btns, int n, float x, float y);  /* 命中 0-3，-1 无 */
 int ui_newgame_popup_inside(float x, float y);   /* 点在弹窗面板内 */
+
+/* ★ P1（datah_012 证据）：游戏设置弹窗——4 规则开关（和棋/大本营/吃地雷/吃军旗）+ 确定/取消。
+   几何 720×1280 基准（datah_012 450×465 面板居中，偏移=(720-450)/2=135,(1280-465)/2=407.5；
+   局部 1:1 平移：和棋 210,75,420,135 → 345,483-555,543；大本营 210,150,420,210 →
+   345,558-555,618；吃地雷 210,225,420,285 → 345,633-555,693；吃军旗 210,300,420,360 →
+   345,708-555,768；确定 30,385,210,445 → 165,793-345,853；取消 240,385,420,445 → 375,793-555,853）。
+   action：0=和棋开关 1=大本营开关 2=吃地雷开关 3=吃军旗开关 4=确定（持久化+应用到规则引擎）
+   5=取消（恢复原值）。4 开关各循环翻转 开/关（对齐 datah_001 音量循环范式）。
+   ★ 诚实边界：开关"开"状态的原版精确可选值 .rodata 未读全（和棋=70步/1000步判和、
+   大本营=进大本营不可再动、地雷=工兵可挖雷、扛旗=扛旗胜为 src_rs 现状语义），默认全开。 */
+#define UI_GAMESET_COUNT 6
+#define UI_GAMESET_POPUP_X0 135.0f
+#define UI_GAMESET_POPUP_Y0 407.5f
+#define UI_GAMESET_POPUP_W  450.0f
+#define UI_GAMESET_POPUP_H  465.0f
+typedef struct {
+    float x0, y0, x1, y1;   /* 按钮矩形（720×1280 基准） */
+    int action;             /* 0=和棋 1=大本营 2=吃地雷 3=吃军旗 4=确定 5=取消 */
+} ui_gameset_btn;
+
+const ui_gameset_btn *ui_gameset_buttons(void);   /* 6 控件（静态表） */
+int ui_gameset_hit(const ui_gameset_btn *btns, int n, float x, float y);  /* 命中 0-5，-1 无 */
+int ui_gameset_popup_inside(float x, float y);   /* 点在弹窗面板内 */
 
 #endif

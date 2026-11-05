@@ -777,6 +777,30 @@ static void on_event(const char *name, const char *value, JNIEnv *env)
             LOGI("  %s = %d", JQ_EVENT_NAMES[i], g_event_cnt[i]);
     } else if (strcmp(name, "bttest") == 0) {
         jq_bt_test_run(st, "OnEvent");
+    } else if (strcmp(name, "gameset") == 0) {
+        /* ★ P1（datah_012）：游戏设置弹窗测试钩子（OnEvent("gameset","1") → UI_GAMESET）。
+           值 0=关闭（恢复对局/主菜单）；与 jq.bttest 测试钩子同范式。 */
+        int on = 0;
+        if (sscanf(value, "%d", &on) != 1) on = 1;
+        if (on) {
+            ui_screen_set(UI_GAMESET);
+            LOGI("OnEvent gameset：→ UI_GAMESET 游戏设置弹窗（datah_012 4 规则开关 + 确定/取消）");
+        } else {
+            ui_screen_set((ui_bt_active()) ? UI_GAME : UI_MENU);
+            LOGI("OnEvent gameset：关闭 → %s", ui_bt_active() ? "回对局" : "回主菜单");
+        }
+    } else if (strcmp(name, "soundset") == 0) {
+        /* ★ 对抗审计（datah_001）：声音设置弹窗测试钩子（OnEvent("soundset","1") → UI_SETTINGS）。
+           游戏设置（datah_012）接管 ☰ 功能设置后，声音设置经此钩子触发（不破坏现有声音设置）。 */
+        int on = 0;
+        if (sscanf(value, "%d", &on) != 1) on = 1;
+        if (on) {
+            ui_screen_set(UI_SETTINGS);
+            LOGI("OnEvent soundset：→ UI_SETTINGS 声音设置弹窗（datah_001 静音/按键/音量 + 确定/取消）");
+        } else {
+            ui_screen_set((ui_bt_active()) ? UI_GAME : UI_MENU);
+            LOGI("OnEvent soundset：关闭 → %s", ui_bt_active() ? "回对局" : "回主菜单");
+        }
     } else if (strcmp(name, "close") == 0) {
         /* UI 关闭音效（14 音效全量验证：close 此前未触发；Java/桌面可触发） */
         sfx_play(env, "close");
@@ -882,6 +906,7 @@ Java_com_cnvcs_App_OnCreate(JNIEnv *env, jclass clazz, jobject activity)
        事件播放纯 MediaPlayer File 路径，免 AAssetManager_open 多线程锁竞争 SIGSEGV） */
     sfx_sound_load();            /* ★ 音效持久化：读 jq_sound_on.txt（☰ 功能设置 4 上次状态） */
     ui_settings_load();          /* ★ 对抗审计（datah_001）：读 jq_settings.txt（静音/按键/音量） */
+    ui_rules_load();            /* ★ P1（datah_012）：读 jq_rules.txt（和棋/大本营/地雷/扛旗 4 规则开关） */
     LOGI("OnCreate：明棋开局（stage=PLAY 蓝先手 revealed=全翻开 50 子）+ UI 菜单就绪（OnEvent menu=0 进对局）");
     /* ★ flagtest 触发（adb setprop jq.flagtest 1 → 重启 → OnCreate 注入近旗状态 + 自动走一步 FLAG）。
        触摸注入 MuMu flaky 不达 native（环境限制）→ 走 OnCreate 自动触发路径；
@@ -971,6 +996,17 @@ Java_com_cnvcs_App_OnCreate(JNIEnv *env, jclass clazz, jobject activity)
                  mtev, mtev < 0 ? "-" : JQ_EVENT_NAMES[mtev], g_state.turn, g_state.stage);
             sfx_play(env, "move");
             __system_property_set("jq.minetest", "0");
+        }
+    }
+    /* ★ P1（datah_012）：游戏设置 setprop 钩子（adb setprop jq.gameset 1 → 重启 → OnCreate 弹 UI_GAMESET）。
+       测试钩子范式，与 jq.bttest 同；值 1=弹出，0=不触发。一次性（清 0）。 */
+    {
+        char gs_prop[16] = {0};
+        __system_property_get("jq.gameset", gs_prop);
+        if (strcmp(gs_prop, "1") == 0) {
+            ui_screen_set(UI_GAMESET);
+            LOGI("jq.gameset 钩子：→ UI_GAMESET 游戏设置弹窗（datah_012 4 规则开关 + 确定/取消）");
+            __system_property_set("jq.gameset", "0");
         }
     }
     jq_touch_state_init(&g_ts);   /* ⑤b 态机初始化 */
@@ -1708,6 +1744,59 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
         (void)clazz;
         return JNI_TRUE;
     }
+    /* ★ P1（datah_012 证据）：游戏设置弹窗态。
+       点 4 开关（和棋/大本营/吃地雷/吃军旗）→ 各循环翻转 开/关（本地副本，未确定不落盘）；
+       点 确定 → ui_rules_save + 应用到规则引擎 + 回对局；点 取消 → ui_rules_load 恢复原值 + 回对局；
+       点面板外 → 恢复原值 + 回对局。★ 诚实边界：4 开关默认全开（对齐原版默认）。 */
+    if (ui_screen_get() == UI_GAMESET) {
+        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
+        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        const ui_gameset_btn *gb = ui_gameset_buttons();
+        int gh = ui_gameset_hit(gb, UI_GAMESET_COUNT, bx, by);
+        if (gh >= 0) {
+            int gact = gb[gh].action;
+            LOGI("OnTouch 游戏设置：按钮%d（action=%d）", gh, gact);
+            if (gact == 0) {   /* 和棋开关翻转（开→关→开） */
+                ui_rule_draw_set(!ui_rule_draw_get());
+                sfx_play(env, "pop");
+                LOGI("游戏设置：和棋 → %s", ui_rule_draw_get() ? "开" : "关");
+            } else if (gact == 1) {   /* 大本营开关翻转 */
+                ui_rule_hq_set(!ui_rule_hq_get());
+                sfx_play(env, "pop");
+                LOGI("游戏设置：大本营 → %s", ui_rule_hq_get() ? "开" : "关");
+            } else if (gact == 2) {   /* 吃地雷开关翻转 */
+                ui_rule_mine_set(!ui_rule_mine_get());
+                sfx_play(env, "pop");
+                LOGI("游戏设置：吃地雷 → %s", ui_rule_mine_get() ? "开" : "关");
+            } else if (gact == 3) {   /* 吃军旗开关翻转 */
+                ui_rule_flag_set(!ui_rule_flag_get());
+                sfx_play(env, "pop");
+                LOGI("游戏设置：吃军旗 → %s", ui_rule_flag_get() ? "开" : "关");
+            } else if (gact == 4) {   /* 确定：持久化 + 应用到规则引擎 + 回对局 */
+                ui_rules_save();
+                sfx_play(env, "pop");
+                LOGI("游戏设置：确定 → 保存（和棋=%d 大本营=%d 地雷=%d 扛旗=%d）+ 应用 g_rule_* + 回对局",
+                     ui_rule_draw_get(), ui_rule_hq_get(), ui_rule_mine_get(), ui_rule_flag_get());
+                ui_screen_set(UI_GAME);
+            } else if (gact == 5) {   /* 取消：重读磁盘恢复原值 + 回对局 */
+                ui_rules_load();
+                sfx_play(env, "pop");
+                LOGI("游戏设置：取消 → 恢复原值（和棋=%d 大本营=%d 地雷=%d 扛旗=%d）+ 回对局",
+                     ui_rule_draw_get(), ui_rule_hq_get(), ui_rule_mine_get(), ui_rule_flag_get());
+                ui_screen_set(UI_GAME);
+            }
+            (void)clazz;
+            return JNI_TRUE;
+        }
+        if (!ui_gameset_popup_inside(bx, by)) {
+            ui_rules_load();   /* 面板外 = 取消语义：恢复原值 */
+            ui_screen_set(UI_GAME);
+            LOGI("OnTouch 游戏设置外（bx=%.0f by=%.0f）→ 恢复原值 + 回对局", bx, by);
+            sfx_play(env, "pop");
+        }
+        (void)clazz;
+        return JNI_TRUE;
+    }
     /* ★ 原版 UI 对齐：☰ 游戏内菜单 / ↩ 悔棋 图标（棋盘中部）。
        对局态点 ☰ → UI_INGAME_MENU；点 ↩ → 悔棋（undo_pop）。
        坐标换算 720×1280 基准（与渲染同几何）。
@@ -1818,10 +1907,10 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
                     "翻明棋后按规则走子/吃子，吃光或夺旗方胜。");
                 sfx_play(env, "pop");
                 LOGI("☰菜单 游戏规则：显示规则对话框");
-            } else if (bt_mode && act == 5) {   /* 功能设置（联机版）→ 声音设置弹窗 */
-                ui_screen_set(UI_SETTINGS);
+            } else if (bt_mode && act == 5) {   /* 系统设置（联机版）→ 游戏设置弹窗（datah_012） */
+                ui_screen_set(UI_GAMESET);
                 sfx_play(env, "pop");
-                LOGI("☰菜单 功能设置：→ UI_SETTINGS 声音设置弹窗（datah_001）");
+                LOGI("☰菜单 系统设置：→ UI_GAMESET 游戏设置弹窗（datah_012 4 规则开关，原版 datah_067 Config=系统设置含声音+游戏设置）");
             } else if (bt_mode && act == 6) {   /* 战况统计（联机版） */
                 pthread_mutex_lock(&g_mutex);
                 int b = 0, r = 0, i;
@@ -1869,10 +1958,10 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
                     "翻明棋后按规则走子/吃子，吃光或夺旗方胜。");
                 sfx_play(env, "pop");
                 LOGI("☰菜单 游戏规则：显示规则对话框");
-            } else if (!bt_mode && act == 4) {   /* 功能设置（本地版）→ 声音设置弹窗 */
-                ui_screen_set(UI_SETTINGS);
+            } else if (!bt_mode && act == 4) {   /* 功能设置（本地版）→ 游戏设置弹窗（datah_012） */
+                ui_screen_set(UI_GAMESET);
                 sfx_play(env, "pop");
-                LOGI("☰菜单 功能设置：→ UI_SETTINGS 声音设置弹窗（datah_001）");
+                LOGI("☰菜单 功能设置：→ UI_GAMESET 游戏设置弹窗（datah_012 4 规则开关；声音设置 UI_SETTINGS 经 OnEvent gameset/sound 测试钩子触发，不覆写）");
             } else if (!bt_mode && act == 5) {   /* 战况统计（本地版） */
                 pthread_mutex_lock(&g_mutex);
                 int b = 0, r = 0, i;

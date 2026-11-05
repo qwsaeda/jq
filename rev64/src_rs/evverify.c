@@ -8,7 +8,7 @@
  *   --bomb   蓝 cell27@32 同级（默认布局）   → 期望 EV_BOMB(2)
  *   --move   蓝 cell12@11 空移（默认布局）   → 期望 EV_MOVE(0)
  *   --lay    打印默认布局 60 格（side/rank 原始值）
- *   --all    跑全部 5 事件断言，全对 exit=0
+ *   --all    跑全部事件断言（含 P1 datah_012 4 规则开关），全对 exit=0
  *
  * 对齐 jni_bridge 的 flagtest/minetest 夹具（起点状态注入，规则引擎/事件判定真实）。
  * 诚实边界：状态是测试夹具（非默认布局开局），验证事件类型/副作用/音效分类映射。
@@ -129,6 +129,65 @@ static int run_stalemate(void)
     return ok;
 }
 
+/* ★ P1（datah_012）：游戏设置 4 规则开关（和棋/大本营/吃地雷/吃军旗）默认全开行为不变
+   + 各开关翻转后规则引擎判定点守卫生效验证。
+   用 ui_rule_cfg_get（ui_state_stub 桩，默认全 1）驱动 rules.c 4 个判定点：
+   - 默认全开：flag 53→58 = EV_FLAG stage=OVER winner=BLUE（jq_on_flag_capture 执行）；
+     mine 49→54 = EV_MINE stage=PLAY（工兵挖雷）；hq：蓝 rank2@56 进大本营@58 后不可再动
+     （is_base 守卫在 jq_can_move，用 56→57→...  验证 58 源格不可动）；
+   - 开关关闭（模拟 ui_rule_xxx_set(0)）：flag 扛旗不判胜（stage=PLAY winner=-1）；
+     mine 工兵不能挖雷（EV_DEAD）；hq 进大本营可再动（58→... 可走）。
+   ★ 诚实边界：ui_state_stub 是桩（桌面），真机走 ui_state.c 真实实现（同逻辑）。 */
+static int run_ruleset(void)
+{
+    jq_state st;
+    /* ① 默认全开（ui_state_stub 桩默认值 = 对齐原版默认） */
+    mk_flag(&st);
+    int ok1 = run_case("flag-on", &st, 53, 58, EV_FLAG, STG_OVER, SIDE_BLUE);
+    mk_mine(&st);
+    int ok2 = run_case("mine-on", &st, 49, 54, EV_MINE, STG_PLAY, -1);
+
+    /* ② 吃军旗开关关（模拟 ui_rule_flag_set(0)）：扛旗不判胜（stage 保持 PLAY，winner 不变） */
+    ui_rule_flag_set(0);
+    mk_flag(&st);
+    int ok3 = run_case("flag-off", &st, 53, 58, EV_FLAG, STG_PLAY, -1);   /* 不判胜 */
+    ui_rule_flag_set(1);   /* 恢复默认全开 */
+
+    /* ③ 吃地雷开关关（模拟 ui_rule_mine_set(0)）：工兵撞雷=送死（EV_DEAD，雷不动）。
+       ★ mk_mine 夹具：cell49=蓝工兵(rank9)，cell54=红雷(rank11+0xc=23)，cell59=红rank3(+0xc=15)。
+       工兵(rank9) vs 雷(rank11)：rank9 < rank11 → 大压小，但 mine-off 时工兵不能吃雷（ui_rule_mine=0），
+       故走 else 分支（非工兵撞雷）→ EV_DEAD，蓝工兵被炸，红方 cell59 rank3 存活。
+       ★ 红方 cell59 rank3 无法移动（cell49已空且非相邻），红方困毙 → jq_on_stalemate → winner=BLUE(0)。
+       期望：ev=EV_DEAD(4)，stage=STG_OVER（困毙判胜），winner=0（BLUE 胜）。 */
+    ui_rule_mine_set(0);
+    mk_mine(&st);
+    int ok4 = run_case("mine-off", &st, 49, 54, EV_DEAD, STG_OVER, SIDE_BLUE);   /* 工兵被雷炸+红困毙 */
+    ui_rule_mine_set(1);   /* 恢复默认全开 */
+
+    /* ④ 和棋开关关（模拟 ui_rule_draw_set(0)）：70/1000 步不判和（jq_on_draw 不触发） */
+    ui_rule_draw_set(0);
+    {
+        jq_state st;
+        jq_load_layout(&st, JQ_DEFAULT_LAY);
+        for (int i = 0; i < N_CELLS; i++) if (st.cells[i].rank) st.cells[i].revealed = 1;
+        st.moves_since_eat = 70;   /* 触发和棋阈值 */
+        st.total_moves = 1000;
+        /* 走一步（任意合法空移），不应判和（开关关） */
+        int ev = jq_try_move(&st, 12, 11);
+        int ok5 = (ev == EV_MOVE && st.stage == STG_PLAY && st.winner == -1);
+        printf("draw-off: ev=%d stage=%d winner=%d %s\n", ev, st.stage, st.winner, ok5 ? "" : "  [FAIL]");
+        /* 开关开（恢复）：同状态走一步 → 判和 */
+        ui_rule_draw_set(1);
+        jq_load_layout(&st, JQ_DEFAULT_LAY);
+        for (int i = 0; i < N_CELLS; i++) if (st.cells[i].rank) st.cells[i].revealed = 1;
+        st.moves_since_eat = 70; st.total_moves = 1000;
+        ev = jq_try_move(&st, 12, 11);
+        int ok6 = (ev == EV_MOVE && st.stage == STG_OVER && st.winner == 2);
+        printf("draw-on : ev=%d stage=%d winner=%d %s\n", ev, st.stage, st.winner, ok6 ? "" : "  [FAIL]");
+        return ok1 && ok2 && ok3 && ok4 && ok5 && ok6;
+    }
+}
+
 int main(int argc, char **argv)
 {
     if (argc < 2) {
@@ -179,6 +238,8 @@ int main(int argc, char **argv)
         total++; pass += run_draw_resign();
         /* STALEMATE：困毙 winner=1-turn（无子可动方负） */
         total++; pass += run_stalemate();
+        /* ★ P1（datah_012）：游戏设置 4 规则开关（默认全开行为不变 + 各开关翻转后守卫） */
+        total++; pass += run_ruleset();
         printf("=== 桌面事件验证: %d/%d 全对 ===\n", pass, total);
         return pass == total ? 0 : 1;
     }

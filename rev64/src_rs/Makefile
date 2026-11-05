@@ -28,9 +28,11 @@ dist/libjunqi_rs.so: $(SRCS_CORE) jni_bridge.c bt_session.c junqi.h bt_protocol.
 	@echo "构建完成: $@"
 
 # 一致测试（重写侧规则引擎基准序列）：./dist/jq_consistency selftest
+# ★ P1（datah_012）：rules.c 依赖 ui_state 的 4 规则开关（ui_rule_cfg_get，默认全开），
+#   桌面一致性构建链接 ui_state_stub.c（桩默认全开，行为不变）。
 consistency: dist/jq_consistency
 dist/jq_consistency: $(SRCS_CORE) consistency_desktop.c junqi.h
-	$(CC) $(CFLAGS) -o $@ $(SRCS_CORE) consistency_desktop.c -lm
+	$(CC) $(CFLAGS) -DRS_NO_GL -o $@ $(SRCS_CORE) consistency_desktop.c ui_state_stub.c -lm
 
 clean:
 	rm -rf dist
@@ -81,11 +83,12 @@ walkverify:
 
 # 桌面事件验证（EAT/BOMB/MOVE/FLAG/MINE + 布局打印，替代手写 /tmp/*.c）：
 #   make evverify [MODE=--all|--flag|--mine|--eat|--bomb|--move|--lay]
+# ★ P1（datah_012）：rules.c 依赖 ui_state_stub 的 4 规则开关桩（默认全开，行为不变）
 .PHONY: evverify
 evverify:
 	@mkdir -p dist
 	$(CC) $(CFLAGS) -DRS_NO_GL -o dist/jq_evverify \
-	    board.c layout.c rules.c save.c evverify.c -lm
+	    board.c layout.c rules.c save.c evverify.c ui_state_stub.c -lm
 	@echo "构建完成: dist/jq_evverify"
 	@dist/jq_evverify $(MODE)
 

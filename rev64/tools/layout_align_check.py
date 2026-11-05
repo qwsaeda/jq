@@ -44,6 +44,10 @@ DIALOGS = {
     "datah_062_newgame": (450, 315, [
         ("玩法",220,75,420,135),("明暗棋",220,150,420,210),
         ("确定",30,235,210,295),("取消",240,235,420,295)]),
+    "datah_012_gameset": (450, 465, [
+        ("和棋",210,75,420,135),("大本营",210,150,420,210),
+        ("吃地雷",210,225,420,285),("吃军旗",210,300,420,360),
+        ("确定",30,385,210,445),("取消",240,385,420,445)]),
 }
 
 # 主菜单 = 原版 orig_menu.png 真机 900×1600 实测 ×0.8（非 datah_023 450 系换算）
@@ -97,7 +101,7 @@ def check_geometry(menu_src=None, verbose=True):
             continue
     if verbose:
         print("\n弹窗几何（原版 450/250/230 系换算 720 基准）：")
-    for dname in ["datah_041_diff","datah_072_way","datah_001_set","datah_089_nplayer","datah_062_newgame"]:
+    for dname in ["datah_041_diff","datah_072_way","datah_001_set","datah_089_nplayer","datah_062_newgame","datah_012_gameset"]:
         orig = dialog_720(dname)
         for lbl,ox0,oy0,ox1,oy1 in orig[:2]:  # 抽 2 个代表
             cx,cy = (ox0+ox1)/2,(oy0+oy1)/2

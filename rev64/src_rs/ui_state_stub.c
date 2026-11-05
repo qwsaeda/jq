@@ -19,3 +19,19 @@ void ui_volume_set(int v) { g_vol = (v >= 1 && v <= 3) ? v : 2; }
 void ui_settings_load(void) {}
 void ui_settings_save(void) {}
 void ui_settings_set_dir(const char *dir) { (void)dir; }
+/* ★ P1（datah_012）：游戏设置 4 规则开关桩（默认全开，对齐原版默认） */
+static int g_rd = 1, g_rh = 1, g_rm = 1, g_rf = 1;
+int ui_rule_draw_get(void) { return g_rd; }
+void ui_rule_draw_set(int v) { g_rd = v ? 1 : 0; }
+int ui_rule_hq_get(void) { return g_rh; }
+void ui_rule_hq_set(int v) { g_rh = v ? 1 : 0; }
+int ui_rule_mine_get(void) { return g_rm; }
+void ui_rule_mine_set(int v) { g_rm = v ? 1 : 0; }
+int ui_rule_flag_get(void) { return g_rf; }
+void ui_rule_flag_set(int v) { g_rf = v ? 1 : 0; }
+int ui_rule_cfg_get(int which)
+{
+    switch (which) { case 0: return g_rd; case 1: return g_rh; case 2: return g_rm; default: return g_rf; }
+}
+void ui_rules_load(void) {}
+void ui_rules_save(void) {}

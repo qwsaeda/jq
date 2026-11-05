@@ -25,4 +25,20 @@ void ui_volume_set(int v);
 void ui_settings_load(void);  /* 读文件（OnCreate 调，需 g_files_dir 已设） */
 void ui_settings_save(void);  /* 写文件（设置确定后调） */
 void ui_settings_set_dir(const char *dir);  /* 设存储目录（jni_bridge g_files_dir 同步） */
+
+/* ★ P1（datah_012 证据）：游戏设置 4 规则开关（和棋/大本营/吃地雷/吃军旗），
+   默认全开（对齐原版默认，行为不变——一致性回归 9/9 不破）。
+   g_rule_* 供 rules.c 判定点守卫；jq_rules.txt 持久化（OnCreate 读 / 确定写 / 取消恢复）。 */
+int  ui_rule_draw_get(void);   /* 和棋开关：1=开（70 步无吃子/总 1000 步判和） */
+void ui_rule_draw_set(int v);
+int  ui_rule_hq_get(void);     /* 大本营开关：1=开（进大本营不可再动） */
+void ui_rule_hq_set(int v);
+int  ui_rule_mine_get(void);   /* 吃地雷开关：1=开（工兵可挖地雷） */
+void ui_rule_mine_set(int v);
+int  ui_rule_flag_get(void);   /* 吃军旗开关：1=开（扛旗判胜） */
+void ui_rule_flag_set(int v);
+void ui_rules_load(void);      /* 读 jq_rules.txt（OnCreate 调，缺文件 → 默认全开） */
+void ui_rules_save(void);     /* 写 jq_rules.txt（游戏设置确定后调） */
+/* 规则引擎读入口（rules.c 判定点守卫用，返回 4 开关值） */
+int  ui_rule_cfg_get(int which);  /* which 0=和棋 1=大本营 2=吃地雷 3=吃军旗，返回 0/1 */
 #endif

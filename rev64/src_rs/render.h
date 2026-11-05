@@ -60,6 +60,7 @@ typedef struct {
     rs_glid_t tex_settings_text[2]; /* ★ 对抗审计（datah_001）：声音设置文字图集 200×460（10 标签竖排） */
     rs_glid_t tex_nplayer_text[2];  /* ★ P0（datah_089）：四国人数选择文字图集 220×138（3 标签竖排） */
     rs_glid_t tex_newgame_text[2];  /* ★ P0（datah_062）：两人新局文字图集 220×276（6 标签竖排） */
+    rs_glid_t tex_gameset_text[2];  /* ★ P1（datah_012）：游戏设置文字图集 220×368（8 标签竖排） */
     void *board_px; size_t board_px_len;   /* 解码后 RGBA（跨 context 共享，只解码一次） */
     void *piece_px;  size_t piece_px_len;
     void *text_px;   size_t text_px_len;   /* 菜单文字图集 RGBA（5 label 竖排） */
@@ -82,6 +83,8 @@ typedef struct {
     int nplayer_text_w, nplayer_text_h;          /* 四国人数选择文字图集尺寸 */
     void *newgame_text_px; size_t newgame_text_px_len; /* ★ P0（datah_062）：两人新局文字图集 RGBA（6 标签竖排 220×276） */
     int newgame_text_w, newgame_text_h;          /* 两人新局文字图集尺寸 */
+    void *gameset_text_px; size_t gameset_text_px_len; /* ★ P1（datah_012）：游戏设置文字图集 RGBA（8 标签竖排 220×368） */
+    int gameset_text_w, gameset_text_h;          /* 游戏设置文字图集尺寸 */
     void *imen_text_px; size_t imen_text_px_len; /* ★ ☰ 菜单文字图集 RGBA（8 项竖排 160×320） */
     int imen_text_w, imen_text_h;               /* ☰ 菜单文字图集尺寸 */
     void *imen_icons_px; size_t imen_icons_px_len; /* ★ ☰ 菜单图标图集 RGBA（8 图标 110×100 4×2，原版裁剪） */

@@ -85,6 +85,60 @@ void ui_settings_save(void)
     LOGI("声音设置：保存 %s → 静音=%d 按键=%d 音量=%d", pth, g_snd_mute, g_btn_sound, g_volume);
 }
 
+/* ★ P1（datah_012 证据）：游戏设置 4 规则开关（和棋/大本营/吃地雷/吃军旗），
+   默认全开（对齐原版默认，行为不变——一致性回归 9/9 不破）。
+   持久化 jq_rules.txt（与 ui_settings 同目录范式，4 字段）。 */
+static int g_rule_draw = 1;    /* 和棋：1=开（70 步无吃子/总 1000 步判和） */
+static int g_rule_hq = 1;      /* 大本营：1=开（进大本营不可再动） */
+static int g_rule_mine = 1;    /* 吃地雷：1=开（工兵可挖地雷） */
+static int g_rule_flag = 1;    /* 吃军旗：1=开（扛旗判胜） */
+int ui_rule_draw_get(void) { return g_rule_draw; }
+void ui_rule_draw_set(int v) { g_rule_draw = v ? 1 : 0; }
+int ui_rule_hq_get(void) { return g_rule_hq; }
+void ui_rule_hq_set(int v) { g_rule_hq = v ? 1 : 0; }
+int ui_rule_mine_get(void) { return g_rule_mine; }
+void ui_rule_mine_set(int v) { g_rule_mine = v ? 1 : 0; }
+int ui_rule_flag_get(void) { return g_rule_flag; }
+void ui_rule_flag_set(int v) { g_rule_flag = v ? 1 : 0; }
+int ui_rule_cfg_get(int which)
+{
+    switch (which) {
+    case 0: return g_rule_draw;
+    case 1: return g_rule_hq;
+    case 2: return g_rule_mine;
+    case 3: return g_rule_flag;
+    }
+    return 1;
+}
+void ui_rules_load(void)
+{
+    if (!g_set_dir[0]) return;
+    char pth[320]; snprintf(pth, sizeof pth, "%s/jq_rules.txt", g_set_dir);
+    FILE *f = fopen(pth, "rb");
+    if (!f) { LOGI("游戏设置：无文件（%s）→ 默认全开", pth); return; }
+    int d = -1, h = -1, m = -1, fl = -1;
+    if (fscanf(f, "%d %d %d %d", &d, &h, &m, &fl) == 4) {
+        g_rule_draw = (d == 0 || d == 1) ? d : 1;
+        g_rule_hq = (h == 0 || h == 1) ? h : 1;
+        g_rule_mine = (m == 0 || m == 1) ? m : 1;
+        g_rule_flag = (fl == 0 || fl == 1) ? fl : 1;
+    }
+    fclose(f);
+    LOGI("游戏设置：读取 %s → 和棋=%d 大本营=%d 吃地雷=%d 吃军旗=%d", pth,
+         g_rule_draw, g_rule_hq, g_rule_mine, g_rule_flag);
+}
+void ui_rules_save(void)
+{
+    if (!g_set_dir[0]) return;
+    char pth[320]; snprintf(pth, sizeof pth, "%s/jq_rules.txt", g_set_dir);
+    FILE *f = fopen(pth, "wb");
+    if (!f) { LOGI("游戏设置：写失败 %s", pth); return; }
+    fprintf(f, "%d %d %d %d\n", g_rule_draw, g_rule_hq, g_rule_mine, g_rule_flag);
+    fclose(f);
+    LOGI("游戏设置：保存 %s → 和棋=%d 大本营=%d 吃地雷=%d 吃军旗=%d", pth,
+         g_rule_draw, g_rule_hq, g_rule_mine, g_rule_flag);
+}
+
 /* 菜单按钮点击处理：0=人机 → UI_DIFFICULTY（★ 对抗审计 datah_041：原版弹难度选择弹窗，
    选难度+布局/翻棋后开局）；1=两人 → UI_GAME（直开局，原版两人无难度弹窗）；
    4=四国 → 不切 UI_GAME（OnTouch 显示四国边界对话框，勿静默开 2 人局误导）。

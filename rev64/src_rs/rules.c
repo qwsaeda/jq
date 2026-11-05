@@ -21,6 +21,8 @@
  *   其他子直走不能转弯；行营/大本营在铁路外。
  */
 #include "junqi.h"
+#include "ui_state.h"   /* ★ P1（datah_012）：游戏设置 4 规则开关 ui_rule_cfg_get()
+                          （和棋/大本营/吃地雷/吃军旗，默认全开对齐原版默认，行为不变） */
 #include <string.h>
 #include <stdlib.h>
 
@@ -103,8 +105,10 @@ bool jq_can_move(const jq_state *st, int from, int to)
     if (src->side != st->turn) return false;
     /* 军旗/地雷不能动 */
     if (sr == RANK_FLAG || sr == RANK_MINE) return false;
-    /* 源格在大本营：进入大本营的棋子不能再动（rulelay 原文） */
-    if (is_base(cell_row(from), cell_col(from))) return false;
+    /* 源格在大本营：进入大本营的棋子不能再动（rulelay 原文）。
+       ★ P1（datah_012）：大本营开关（ui_rule_cfg_get(1)，默认 1 对齐原版默认）：
+       =0 时进大本营的棋子可再动。 */
+    if (ui_rule_cfg_get(1) && is_base(cell_row(from), cell_col(from))) return false;
     /* 暗棋：未翻开不可动（side 未定/已定但 revealed=0） */
     if (!src->revealed) return false;
     if (src->side == 0xFF) return false;
@@ -163,17 +167,23 @@ int jq_try_move(jq_state *st, int from, int to)
         ev = EV_BOMB;
         st->moves_since_eat = 0;
     } else if (dr_ == RANK_FLAG) {
-        /* 吃旗胜：任何棋子都能扛军旗（0x30260 → Junqi.Flag） */
+        /* 吃旗胜：任何棋子都能扛军旗（0x30260 → Junqi.Flag）。
+           ★ P1（datah_012）：吃军旗开关（ui_rule_cfg_get(3)，默认 1 对齐原版默认）：
+           =0 时扛旗不判胜（棋子入位但局终不置，继续对局）。 */
         *dst = *src;
         memset(src, 0, sizeof(*src));
         ev = EV_FLAG;
-        jq_on_flag_capture(st, me);
+        if (ui_rule_cfg_get(3))
+            jq_on_flag_capture(st, me);
         st->turn = 1 - me;
         st->total_moves++;
         st->moves_since_eat = 0;
         return ev;
     } else if (dr_ == RANK_MINE) {
-        if (sr == 9) {
+        if (sr == 9 && ui_rule_cfg_get(2)) {
+            /* 工兵挖雷（rank 小=强，9 工兵 > 11 地雷）：工兵留、雷消失。
+               ★ P1（datah_012）：吃地雷开关（ui_rule_cfg_get(2)，默认 1 对齐原版默认）：
+               =0 时工兵也不能吃地雷（地雷无敌，工兵撞雷=送死）。 */
             /* 工兵挖雷（rank 小=强，9 工兵 > 11 地雷）：工兵留、雷消失 */
             *dst = *src;
             memset(src, 0, sizeof(*src));
@@ -209,8 +219,10 @@ int jq_try_move(jq_state *st, int from, int to)
     }
     st->turn = 1 - me;
     st->total_moves++;
-    /* 和棋条件（rulelay：70 步无吃子 / 总 1000 步，0x30280） */
-    if (st->stage == STG_PLAY &&
+    /* 和棋条件（rulelay：70 步无吃子 / 总 1000 步，0x30280）。
+       ★ P1（datah_012）：和棋开关（ui_rule_cfg_get(0)，默认 1 对齐原版默认）：
+       =0 时关闭 70/1000 步判和。 */
+    if (ui_rule_cfg_get(0) && st->stage == STG_PLAY &&
         (st->moves_since_eat >= 70 || st->total_moves >= 1000))
         jq_on_draw(st);
     /* 困毙判定（0x302b4：无棋可走 → 该方负） */
@@ -243,7 +255,9 @@ bool jq_flip(jq_state *st, int idx)
     st->turn = 1 - st->turn;
     st->total_moves++;
     st->moves_since_eat++;
-    if (st->moves_since_eat >= 70 || st->total_moves >= 1000)
+    /* ★ P1（datah_012）：和棋开关守卫（同 jq_try_move，默认 1 对齐原版默认） */
+    if (ui_rule_cfg_get(0) &&
+        (st->moves_since_eat >= 70 || st->total_moves >= 1000))
         jq_on_draw(st);
     return true;
 }

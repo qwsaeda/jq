@@ -295,3 +295,36 @@ int ui_newgame_popup_inside(float x, float y)
     return x >= UI_NEWGAME_POPUP_X0 && x <= UI_NEWGAME_POPUP_X0 + UI_NEWGAME_POPUP_W &&
            y >= UI_NEWGAME_POPUP_Y0 && y <= UI_NEWGAME_POPUP_Y0 + UI_NEWGAME_POPUP_H;
 }
+
+/* ★ P1（datah_012 证据）：游戏设置弹窗——4 规则开关（和棋/大本营/吃地雷/吃军旗）+ 确定/取消。
+   几何 720×1280 基准：面板 135,407.5-585,872.5（datah_012 450×465 居中，偏移+135,+407.5；
+   局部 1:1 平移：和棋 210,75,420,135 → 345,483-555,543；大本营 210,150,420,210 →
+   345,558-555,618；吃地雷 210,225,420,285 → 345,633-555,693；吃军旗 210,300,420,360 →
+   345,708-555,768；确定 30,385,210,445 → 165,793-345,853；取消 240,385,420,445 → 375,793-555,853）。
+   ★ 诚实边界：开关"开"状态的原版精确可选值 .rodata 未读全，默认全开（对齐原版默认，行为不变）。 */
+static const ui_gameset_btn g_gameset_btns[UI_GAMESET_COUNT] = {
+    /* x0, y0, x1, y1, action；★ 原版 datah_012 450 坐标系精确换算（面板 450×465 居中 720，偏移+135,+407.5） */
+    { 345.0f, 483.0f, 555.0f, 543.0f, 0 },   /* 和棋 Draw 开关（默认开） */
+    { 345.0f, 558.0f, 555.0f, 618.0f, 1 },   /* 大本营 Command 开关（默认开） */
+    { 345.0f, 633.0f, 555.0f, 693.0f, 2 },   /* 吃地雷 BingLei 开关（默认开） */
+    { 345.0f, 708.0f, 555.0f, 768.0f, 3 },   /* 吃军旗 BingQi 开关（默认开） */
+    { 165.0f, 793.0f, 345.0f, 853.0f, 4 },   /* 确定 Ok（保存+应用） */
+    { 375.0f, 793.0f, 555.0f, 853.0f, 5 },   /* 取消 Cancel（恢复原值） */
+};
+
+const ui_gameset_btn *ui_gameset_buttons(void) { return g_gameset_btns; }
+
+int ui_gameset_hit(const ui_gameset_btn *btns, int n, float x, float y)
+{
+    for (int i = 0; i < n; i++) {
+        if (x >= btns[i].x0 && x <= btns[i].x1 && y >= btns[i].y0 && y <= btns[i].y1)
+            return i;
+    }
+    return -1;
+}
+
+int ui_gameset_popup_inside(float x, float y)
+{
+    return x >= UI_GAMESET_POPUP_X0 && x <= UI_GAMESET_POPUP_X0 + UI_GAMESET_POPUP_W &&
+           y >= UI_GAMESET_POPUP_Y0 && y <= UI_GAMESET_POPUP_Y0 + UI_GAMESET_POPUP_H;
+}
