@@ -22,7 +22,7 @@
 ### ★ 当前卡点状态(§124 纠正后,2026-11-01)
 
 军棋 32 位 so 的 unidbg 路线已通到:12 init_array + 5312 RELATIVE + 214 PLT + 6 GLOB_DAT 全重定位、
-DiagJni 把 OnCreate 推进到 `std::vector` 对象图 0x43ed8。剩余 **3 项阻塞**
+DiagJni 把 OnCreate 推进到 `std::vector` 数据与指令对齐点 0x43ed8。剩余 **3 项阻塞**
 (之前认为"剩 1 项 C++ 对象图"是误判,§124 纠正):
 
 1. **① 上下文相关 BL 解码 bug(新发现,需 workaround)**:加载 .so 后

@@ -96,7 +96,7 @@ course_unidbg/
 | 6 个 GLOB_DAT 符号从 docker 真 ARM libc 解析 | ✓ | Ch 8 |
 | `.got` 零值槽（未重定位） | 已证 | Ch 4 / 14 / 15 |
 | PC off-by-2 修复（unicorn2 后端） | ✓ DiagTracePC 0xa37fc = 0x159880 | Ch 5 / 7 / 30 |
-| JNIEnv/VM 补环境实证可行 | ✓ DiagJni 推进到 std::vector 对象图 0x43ed8 | Ch 11 / 12 / 13 / 22 |
+| JNIEnv/VM 补环境实证可行 | ✓ DiagJni 推进到 std::vector 数据与指令对齐点 0x43ed8 | Ch 11 / 12 / 13 / 22 |
 | 14 个 JNI 入口 + 14 个 On* 静态方法（`Java_com_cnvcs_App_On*`） | ✓ | Ch 2 / 12 / 13 / 30 / 31 |
 | 7 个 DT_NEEDED 依赖库（含 liblog） | ✓ | Ch 8 / 14 |
 | 18 个运行时地址（15 `.text` 常量池 + 2 `.data`；★§124z-3 后改**静态位移**固化在 `jqt_mem.c`，无需 redroid dump） | 已证 | Ch 9 / 17 / 19 / 5(5.4.2) |
@@ -104,7 +104,7 @@ course_unidbg/
 | `0x138xxx` 高熵索引表（非加密代码） | 已证 | Ch 4 / 19 |
 | `FindClass("com/baidu/mobads/AdView")` 广告层引用 | 拆除目标 | Ch 15 / 29 |
 | 剩余阻塞（§124 纠正后 3 项） | ① 上下文相关 BL 解码 bug（unicorn2 精度，BL 0x7965a→0x6eaea）+ ② 数据与指令对齐对应缺口（std::vector begin/end）+ ③ 288MB PROT_NONE mmap（unidbg mmap2 处理失败） | Ch 5 / 6 / 11 / 12 / 22 / 25 / 26 / 31 |
-| ★ 下一轮主攻：C++ 对象图补全（std::vector begin/end/capacity 补初始值） | 教程待办 | Ch 25 / 26 |
+| ★ 下一轮主攻：数据与指令对齐补全（std::vector begin/end/capacity 补初始值，N44） | 教程待办 | Ch 25 / 26 |
 | SPAK 解密 key（32B，内嵌 `.rodata`） | 已 dump | Ch 19 / 20 |
 | 对局存档 `one.sjg`（60 格棋盘） | 已逆向 | Ch 16 / 23 / 24 |
 | **★ 32→32 翻译体（§124u-z 突破 + §〇d-2 gate-set 后续）**：32 位 ARM → 32 位 C → armv7a 编译回 32 位 so → MuMu 渲染主菜单 UI 层；**gate-set 直接置位闸口字节 → F_76b14 全链走通（破写侧数据缺口一层，工具 patch_gate_chain.py 幂等）** | 实测（GL 棋盘区未出帧，**slot22 纹理创建仍 0 命中** = 对象图"数据"未填充，gate-set 突破部分但完整构造链未通） | Ch 1(1.4.3★) / 5(5.4.2) / 附录 C.1(gate-set 第三路) |
