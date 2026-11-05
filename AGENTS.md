@@ -166,6 +166,7 @@ java -cp /tmp/opencode/apksigner/apksig.jar:/tmp/opencode/apksigner SignV2 \
 | `rev64/tools/so_probe.py` | **32 位 so 静态探查**（vtable 槽/函数反汇编/槽反汇编/dispatch 表查询/RELATIVE 重定位/字符串搜，把本轮高频手敲的 objdump+struct+grep 固化成 6 子命令） | `python3 rev64/tools/so_probe.py vtable 0x159c80` / `dispatch 0xad248` / `slot 0x159c80 0x28` |
 | `rev64/tools/dispatch_insert.py` | **dispatch 表批量插入**（offs/fns/jqt_vtbl_n 三处同步 + 可选 stub 生成，幂等，fns/offs 逐行对齐） | `python3 rev64/tools/dispatch_insert.py 0xad248 0x78890 --gen-stub` |
 | `rev64/tools/probe_cycle.sh` | **"红果测试+对象图探查"一条龙**（redroid_test.sh 抓 gs8 → so_probe.py 查 vtable 各槽是否收进 dispatch 表 → 汇总，一条命令定位"哪个游戏方法槽还没收表"） | `bash rev64/tools/probe_cycle.sh --no-install --slots 0x10,0x28,0x48` |
+| `rev64/tools/layout_align_check.py` | **布局/按钮对齐可复现判据**（几何 Δ=0 + 截图按钮区非黑比，防"非黑%糊弄"。主菜单基准=orig_menu 真机×0.8，弹窗基准=datah 450/250/230 系换算。机读 `--json` / `--baseline` 只几何） | `python3 rev64/tools/layout_align_check.py --screenshot /tmp/xxx.png` / `--baseline` |
 | `rev64/docs_rs/PIPELINE.md` | 流水线设计文档（每段一条命令 + 一组判据 + 一个诚实边界 + 5 固化原则） | 读 |
 
 ### 顶层规范（保留在本文件）
