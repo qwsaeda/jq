@@ -4,6 +4,26 @@
 > 每轮 loop 闭环后在此追加（AGENTS.md 只做路由指向）。
 > 规格/规范基准见 `SPEC_BUSINESS.md` / `GAME_DEV_GUIDELINE.md` / `CODE_STYLE.md`。
 
+## 仓库 / 规范固化（2026-11-05）
+
+**事实**：军棋逆向工作区已建立独立 git 仓库，规范 + 经验 + 32 位/64 位路线代码全入库。
+
+- 仓库：`https://github.com/qwsaeda/jq.git`（remote `origin`，branch `main`，已 push）。
+- 入库 290 文件 / ~6.7M 文本：
+  - 顶层：`AGENTS.md`、`REVERSE_PLAN.md`、`jni_reversal_report.md`、`.gitignore`
+  - 正向 64 位规范：`rev64/docs_rs/`（SPEC_BUSINESS / GAME_DEV_GUIDELINE / CODE_STYLE / EXPERIENCE_LOG / AUDIT_CHECKLIST / PIPELINE / R-route_reversal / REVERSE_LOG）
+  - 32 位逆向：`rev64/phases/REVERSE_NOTES.md`（§1-§121）、`rev64/analysis/`（callgraph / got_map / spak 分析）、`rev64/src_jni_translated/`（R6 翻译体）
+  - 课程：`course_unidbg/`（31 章 md，排除 videos/assets）
+  - Frida 工作流：`frida-dump/`（排除 .bin/.txt/shell_probe32/shell_probe_dyn）
+- 排除（.gitignore，不入库）：
+  - 二进制：`*.so` / `*.apk` / `*.dex` / `*.keystore` / `junqi.keystore` / `keystore/`
+  - 大文件：`*.pdf`（4 本参考书 ~33M）
+  - 自动生成大头：`rev64/src_jni_translated/jq_board_px.h`(6.5M) / `jq_texdata_board.h`(6.5M) / `jqt_vtbl.c`(4.0M) / `jq_data_blob.h|c` / `jq_rel_data.h`
+  - 二进制 key：`rev64/analysis/spak_key.bin` / `spak_key_dec.bin`
+  - 课程素材：`course_unidbg/videos/`(83M mp4) / `course_unidbg/assets/`(40M+ png)
+  - 构建中间产物：`rev64/tools/bin` / `rev64/out` / `rev64/jq_img.bin` / `rev64/native64/*.o`
+- 红线：本工作区**不是源码仓库**（军棋.apk 是逆向对象），git 仓库存的是**规范 + 经验 + 路线代码**，不存 APK/so/keystore。
+
 ## 逆源码重写（R-route，本次新增，不属阶段 0-3）
 
 > **★ 正向开发定位（本轮审视成文）**：src_rs = **逆向驱动重写**（规则引擎对齐原版函数）→

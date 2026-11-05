@@ -1,6 +1,6 @@
 # 军棋 APK 逆向工程工作区
 
-这是"军棋"游戏的 APK 逆向工程工作区，**不是** 源码仓库。
+这是"军棋"游戏的 APK 逆向工程工作区，**不是** 源码仓库（指游戏源码；工作区本身的规范/经验/路线代码已建 git 仓库存入 `https://github.com/qwsaeda/jq.git`，remote `origin` / branch `main`，排除二进制/大文件/PDF/课程素材，见 `.gitignore`）。
 用户回答任何问题（能否装、能否玩、进度、状态）时，**只能回答"在阶段 X"**，不展开细节。
 
 ## 仓库结构
@@ -9,6 +9,14 @@
 - 解码产物放 `/tmp/opencode/jq_apk/`（apktool 输出在 `/tmp/opencode/jq_apk/dec/`）
 - 各阶段产物放 `/disk/workspaces/jq/dist/`
 - 32 位 native `.rodata` 明文 dump 放 `/disk/workspaces/jq/frida-dump/`（非壳解密，静态文件即明文）；Frida 工作流系统参考见 `frida-dump/FRIDA_NOTES.md`（18 地址 dump / Jnitrace 看 JNI 调用流 / 与 unidbg 两条路互补 / §9 Stalker 指令级追踪模板）
+
+## git 仓库（工作区规范/经验/路线代码入库）
+
+- 远程：`https://github.com/qwsaeda/jq.git`（`origin`，branch `main`）
+- 入库：顶层规范（AGENTS.md / REVERSE_PLAN.md / jni_reversal_report.md / .gitignore）+ `rev64/docs_rs/`（64 位正向规范）+ `rev64/phases/` + `rev64/analysis/` + `rev64/src_jni_translated/`（32 位 R6 翻译体）+ `course_unidbg/`（31 章课程 md）+ `frida-dump/`（Frida 工作流脚本）
+- 排除（.gitignore）：二进制（*.so / *.apk / *.dex / *.keystore）/ 大文件（*.pdf）/ 自动生成大头（jq_board_px.h / jq_texdata_board.h / jqt_vtbl.c / jq_data_blob.* / jq_rel_data.h）/ 二进制 key（spak_key*.bin）/ 课程素材（videos / assets）/ 构建中间产物（rev64/tools/bin / rev64/out / rev64/jq_img.bin / rev64/native64/*.o）
+- 推送：`git push -u origin main`（需 GitHub credentials，本机 `~/.git-credentials` 已配）
+- 详细清单 + 红线见 `rev64/docs_rs/EXPERIENCE_LOG.md` §"仓库 / 规范固化"
 
 ## 已验证的现状事实
 
