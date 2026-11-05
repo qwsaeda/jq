@@ -1065,6 +1065,32 @@ bash rev64/tools/probe_cycle.sh --no-install --slots 0x10,0x28,0x48
 - 真正游戏推进需重建资源对象图 + MuMu（有 GPU）验证
 - 棋子渲染/触摸→棋子交互仍需 MuMu（10.0.182.146 宕机）
 
+#### 十五、游戏事件发送器定位 + 收表（§124y-17）
+
+**★ 定位游戏事件发送器 F_03ab80（.rodata `Junqi.*` 字符串的用法）**：
+- `Junqi.Move/Flip/Flag/Bomb/Eat/Dead/Select/Start/Win/Lose` 等 73 条事件字符串
+  集中在 .rodata 0x120e24-0x121364 区（`so_probe.py strings "Junqi."` 一条命令列出）
+- 搜 `.text` → 该区指针引用：`lit@0x03ab82 → 0x121324`（`d.cfg` 等配置字符串）+
+  `0x03ab8a/0x03ac06`（事件名偏移 182/0xb6）→ 定位发送器 **F_03ab80**
+- F_03ab80 调 `F_33790/F_3376c/F_336ec/F_336c8`（事件发送底层，**全在 dispatch 表已翻译**）
+- 4 个调用者：`F_03ac4a/F_03acb6/F_03af2c/F_03b140/F_03b306`（bl 0x3ab80）
+- 收表 F_03ab80（`dispatch_insert.py 0x03ab80 --gen-stub`）
+
+**★ 探查工具链固化（一条命令定位事件发送器）**：
+```
+python3 rev64/tools/so_probe.py strings "Junqi.Move"   # → 0x120f20
+# 搜 .text 里 lit 值 == 0x120f20 的引用 → F_03ab80 区
+python3 rev64/tools/dispatch_insert.py 0x3ab80 --gen-stub  # 收表
+```
+
+**★ 诚实边界（本轮定位，未补齐）**：
+- F_03ab80 完整翻译体依赖深层子对象图（`r5[0xb6*4]/r5[0x44]` 等运行时值未填充）
+  → 收表后 dispatch 不崩但不推进（stub return 0）
+- 真正游戏推进需：① 重建资源对象图（data*.pak 资源加载器 F_b464c/F_25988 深层依赖）
+  ② 注入触摸输入（OnTouch 坐标 → 选子/走子事件链）③ 事件发送器完整翻译体
+  ④ 棋盘棋子渲染（无棋子 quad 绘制）——**均需 MuMu（有 GPU，10.0.182.146 宕机）**
+- redroid 验证：0 miss / 0 崩溃 / 进程存活
+
 ### 调用链对齐统计（§124z-5，用户问"还有多少调用链没补齐"）——合并边界口径
 
 - **★ 统计口径修正**：seed_v2.json **不是完整函数边界表**（1334 个完整定义中仅 907 个在 seed 列表）→ 必须 `bnd = sorted(set(seed) | full | stub)` 合并边界；存根识别用**匿名参数**（`(uint32_t,uint32_t,...){return 0;}`），完整用命名参数 `_r0`（参数命名是区分关键，用 `return 0` 匹配会漏）
