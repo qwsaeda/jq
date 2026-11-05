@@ -21,10 +21,10 @@ typedef enum {
    几何 720×1280 基准（datah_001 450×390 居中 ×1.2）。action：
    0=静音模式切换 1=按键声音切换 2=音量循环 3=确定 4=取消 */
 #define UI_SETTINGS_COUNT 5
-#define UI_SETTINGS_POPUP_X0 170.0f
-#define UI_SETTINGS_POPUP_Y0 400.0f
-#define UI_SETTINGS_POPUP_W  380.0f
-#define UI_SETTINGS_POPUP_H  470.0f
+#define UI_SETTINGS_POPUP_X0 135.0f
+#define UI_SETTINGS_POPUP_Y0 445.0f
+#define UI_SETTINGS_POPUP_W  450.0f
+#define UI_SETTINGS_POPUP_H  390.0f
 typedef struct {
     float x0, y0, x1, y1;   /* 按钮矩形（720×1280 基准） */
     int action;             /* 0=静音模式 1=按键声音 2=音量 3=确定 4=取消 */
@@ -38,10 +38,10 @@ int ui_set_popup_inside(float x, float y); /* 点在弹窗面板内 */
    几何 720×1280 基准（datah_072 250×325 居中 ×1.2）。action：
    0=蓝牙联机 1=Wi-Fi 联机 2=个人资料 3=返回 */
 #define UI_WAYSEL_COUNT 4
-#define UI_WAYSEL_POPUP_X0 210.0f
-#define UI_WAYSEL_POPUP_Y0 440.0f
-#define UI_WAYSEL_POPUP_W  300.0f
-#define UI_WAYSEL_POPUP_H  390.0f
+#define UI_WAYSEL_POPUP_X0 235.0f
+#define UI_WAYSEL_POPUP_Y0 478.0f
+#define UI_WAYSEL_POPUP_W  250.0f
+#define UI_WAYSEL_POPUP_H  325.0f
 typedef struct {
     float x0, y0, x1, y1;   /* 按钮矩形（720×1280 基准） */
     int action;             /* 0=蓝牙联机 1=Wi-Fi 联机 2=个人资料 3=返回 */
@@ -55,10 +55,10 @@ int ui_way_popup_inside(float x, float y); /* 点在弹窗面板内 */
    几何 720×1280 基准（datah_041 450×335 居中）。action 编码 level/mode：
    action=0..7 → level=action/2+1（1新手/2中级/3高级/4好友），mode=action%2（0布局/1翻棋） */
 #define UI_DIFF_COUNT 8
-#define UI_DIFF_POPUP_X0 180.0f
-#define UI_DIFF_POPUP_Y0 420.0f
-#define UI_DIFF_POPUP_W  360.0f
-#define UI_DIFF_POPUP_H  400.0f
+#define UI_DIFF_POPUP_X0 135.0f
+#define UI_DIFF_POPUP_Y0 472.0f
+#define UI_DIFF_POPUP_W  450.0f
+#define UI_DIFF_POPUP_H  335.0f
 typedef struct {
     float x0, y0, x1, y1;   /* 按钮矩形（720×1280 基准） */
     int action;             /* 0=新手布局 1=新手翻棋 2=中级布局 3=中级翻棋
@@ -73,10 +73,10 @@ int ui_diff_popup_inside(float x, float y); /* 点在弹窗面板内 */
    4 列 x=123/284/445/606（列距 161）、2 行 y=514/702（行距 188）、图标 88×80、
    文字行中心 594/780；datah_006 的 450×285 非实际面板尺寸） */
 #define UI_IMENU_COUNT 8
-#define UI_IMENU_POPUP_X0 55.0f
-#define UI_IMENU_POPUP_Y0 460.0f
-#define UI_IMENU_POPUP_W  615.0f
-#define UI_IMENU_POPUP_H  360.0f
+#define UI_IMENU_POPUP_X0 135.0f
+#define UI_IMENU_POPUP_Y0 498.0f
+#define UI_IMENU_POPUP_W  450.0f
+#define UI_IMENU_POPUP_H  285.0f
 typedef struct {
     float x0, y0, x1, y1;   /* 按钮矩形（720×1280 基准绝对） */
     int action;             /* 0=重新开始 1=悔棋 2=电脑变着 3=游戏规则

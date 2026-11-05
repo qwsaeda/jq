@@ -984,9 +984,10 @@ static void rs_draw_difficulty(rs_render *rr, int slot)
         /* region 标签：左列 x 200-300，y 对齐各行中心 */
         for (int r = 0; r < 4; r++) {
             int row_idx = r;   /* row0-3 = 新手/中级/高级/好友区 */
+            /* ★ 原版 datah_041 区域标签列 x=30-150（450 系）→ 720 屏幕 x=165-285（+135 偏移） */
             float tcy = (db[r * 2].y0 + db[r * 2].y1) * 0.5f * sy;
-            float tw = 100.0f * sx, th = tw * ((float)row_h / rr->opt_text_w);
-            float tx0 = 200.0f * sx, ty0 = tcy - th * 0.5f;
+            float tw = 120.0f * sx, th = tw * ((float)row_h / rr->opt_text_w);
+            float tx0 = 165.0f * sx, ty0 = tcy - th * 0.5f;
             float v0 = (float)(row_idx * row_h) / rr->opt_text_h;
             float v1 = (float)(row_idx * row_h + row_h) / rr->opt_text_h;
             rs_v4f tq[6] = {
