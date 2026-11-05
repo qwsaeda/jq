@@ -13,10 +13,12 @@ TOOLS=/disk/workspaces/jq/rev64/tools
 DEV=${DEV:-10.0.182.146:5555}
 START=1
 REGRESS=1
+DEVREGRESS=0
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --no-start) START=0; shift;;
     --no-regress) REGRESS=0; shift;;
+    --device-regress) DEVREGRESS=1; shift;;
     --dev) DEV="$2"; shift 2;;
     *) echo "未知参数: $1"; exit 2;;
   esac
@@ -48,6 +50,11 @@ if [[ $START -eq 1 ]]; then
   bash $TOOLS/rebuild_rs_apk.sh --start --dev $DEV 2>&1 | grep -E "对账|启动 app|进程|完成|FAIL"
 else
   bash $TOOLS/rebuild_rs_apk.sh --dev $DEV 2>&1 | grep -E "对账|完成|FAIL"
+fi
+
+if [[ $DEVREGRESS -eq 1 ]]; then
+  log "=== [4/4] 设备事件回归（mumu_regress.sh，含 btconn）==="
+  bash $TOOLS/mumu_regress.sh --dev $DEV 2>&1 | grep -E "✓|✗|汇总"
 fi
 log "✓ rs_cycle 完成"
 exit 0

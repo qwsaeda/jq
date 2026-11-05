@@ -32,6 +32,10 @@ M4=$(grep -rn "11/11 全 PASS\|10/10 全 PASS" $BODY 2>/dev/null | grep -v "→\
 M5=$(grep -rn "5/5 全对\|6/6 全对\|4/4 PASS\|6/6 PASS" $BODY 2>/dev/null | grep -v "演进\|早期\|→\|升级\|第 [0-9]* 轮\|轮次")
 [ -n "$M5" ] && { echo "[模式5 旧断言数] 需修（逐行定性，历史轮次记录里的 OK）："; echo "$M5"; }
 
+# 模式 6：so 尺寸"1MB"约数（N23 同型，实测 1435156B≈1.43MB，"1MB"裸写 = 需修）
+M6=$(grep -rn "libjunqi.so.*1MB\|军棋 1MB\|（1MB\|\.text（1MB\|5312（1MB\|1MB vs" $BODY 2>/dev/null | grep -v "1.43MB\|1435156B\|\.bak")
+[ -n "$M6" ] && { echo "[模式6 so 尺寸 1MB 裸写] 需修（C.5b 精确值 1.43MB/1435156B）："; echo "$M6"; FAIL=1; }
+
 # 用户自定义额外模式
 for pat in "$@"; do
   M=$(grep -rn "$pat" $BODY 2>/dev/null)

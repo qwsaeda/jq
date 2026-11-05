@@ -15,15 +15,72 @@
  *   垃圾（非 malloc 返回）直接 SKIP → 主线程崩溃消失。 */
 #define JQ_ALLOC_MAX 65536
 static uint32_t g_jq_alloc_tbl[JQ_ALLOC_MAX];
+static uint32_t g_jq_alloc_sz[JQ_ALLOC_MAX];   /* ★ CANARY-DIAG：记录每分配尺寸 */
 static int g_jq_alloc_n = 0;
 static void jq_alloc_add(uint32_t p){ if (g_jq_alloc_n < JQ_ALLOC_MAX) g_jq_alloc_tbl[g_jq_alloc_n++] = p; }
 static int jq_alloc_has(uint32_t p){ for (int i=0;i<g_jq_alloc_n;i++) if (g_jq_alloc_tbl[i]==p) return 1; return 0; }
+static int jq_alloc_idx(uint32_t p){ for (int i=0;i<g_jq_alloc_n;i++) if (g_jq_alloc_tbl[i]==p) return i; return -1; }
 static void jq_alloc_remove(uint32_t p){
-    for (int i=0;i<g_jq_alloc_n;i++) if (g_jq_alloc_tbl[i]==p) { g_jq_alloc_tbl[i]=g_jq_alloc_tbl[--g_jq_alloc_n]; return; }
+    for (int i=0;i<g_jq_alloc_n;i++) if (g_jq_alloc_tbl[i]==p) { g_jq_alloc_tbl[i]=g_jq_alloc_tbl[--g_jq_alloc_n]; g_jq_alloc_sz[i]=g_jq_alloc_sz[g_jq_alloc_n]; return; }
+}
+/* ★ CANARY-DIAG（§124y-7，堆损坏 0xd3a40010 调查）：_Znwj 分配尾部写 canary，
+ *   _ZdlPv 检查——若被破坏，说明该分配被越界写（定位溢出源）。
+ *   canary = 4×0xDEADBEEF（16B）写在 [p+sz, p+sz+16)。malloc 实际给 ≥sz+16B，
+ *   但 scudo 可能给 sz+16 附近——用 malloc_usable_size 保证 canary 在已分配区内。 */
+#define JQ_CANARY_MAGIC 0xDEADBEEFu
+
+/* 返回 1 若 p 对应分配 canary 完好（canary 在 p+sz，分配 sz+16 保证可写） */
+static int jq_alloc_canary_ok(uint32_t p, uint32_t *out_sz){
+    int idx = jq_alloc_idx(p);
+    if (idx < 0) return 1;
+    uint32_t sz = g_jq_alloc_sz[idx];
+    if (out_sz) *out_sz = sz;
+    uint32_t *can = (uint32_t*)(uintptr_t)(p + sz);
+    for (int i=0;i<4;i++) if (can[i] != JQ_CANARY_MAGIC) return 0;
+    return 1;
 }
 
-void* _Znwj(unsigned int sz){ void *p=malloc(sz ? sz : 1); jq_alloc_add((uint32_t)(uintptr_t)p); return p; }
-void* _Znaj(unsigned int sz){ void *p=malloc(sz ? sz : 1); jq_alloc_add((uint32_t)(uintptr_t)p); return p; }
+static void jq_canary_write(uint32_t p, uint32_t sz){
+    uint32_t *can = (uint32_t*)(uintptr_t)(p + sz);
+    for (int i=0;i<4;i++) can[i] = JQ_CANARY_MAGIC;
+}
+
+void* _Znwj(unsigned int sz){
+    uint32_t alloc_sz = sz ? sz : 1;
+    /* ★ HUGE-ALLOC-DIAG（§124y-7，redroid 无真实 surface 崩溃 malloc(4.29GB) 调查）：
+     *   巨大分配（>16MB）记录来源（g_cur_fn+backtrace），防崩溃钳制到 16MB。
+     *   正常分配（棋盘纹理 737×751×3=1.6MB，对象几十-几百 B）不受影响。 */
+    if (alloc_sz > 0x1000000u) {
+        extern volatile uint32_t g_cur_fn;
+        void *ra = __builtin_return_address(0);
+        Dl_info dli; const char *mod = "?"; uintptr_t off = 0;
+        if (dladdr(ra, &dli) && dli.dli_fname) { mod = dli.dli_fname; off = (uintptr_t)ra - (uintptr_t)dli.dli_fbase; }
+        __android_log_print(6,"junqi","★ HUGE-ALLOC: _Znwj(%u=0x%x) g_cur_fn=0x%08x off=0x%08x mod=%s tid=%d（钳制 16MB）",
+            alloc_sz, alloc_sz, g_cur_fn, (uint32_t)off, mod, (int)gettid());
+        alloc_sz = 0x1000000u;
+    }
+    void *p = malloc(alloc_sz + 16);
+    uint32_t pp = (uint32_t)(uintptr_t)p;
+    if (g_jq_alloc_n < JQ_ALLOC_MAX) {
+        g_jq_alloc_tbl[g_jq_alloc_n] = pp;
+        g_jq_alloc_sz[g_jq_alloc_n] = alloc_sz;
+        g_jq_alloc_n++;
+    }
+    jq_canary_write(pp, alloc_sz);
+    return p;
+}
+void* _Znaj(unsigned int sz){
+    uint32_t alloc_sz = sz ? sz : 1;
+    void *p = malloc(alloc_sz + 16);
+    uint32_t pp = (uint32_t)(uintptr_t)p;
+    if (g_jq_alloc_n < JQ_ALLOC_MAX) {
+        g_jq_alloc_tbl[g_jq_alloc_n] = pp;
+        g_jq_alloc_sz[g_jq_alloc_n] = alloc_sz;
+        g_jq_alloc_n++;
+    }
+    jq_canary_write(pp, alloc_sz);
+    return p;
+}
 void _ZdlPv(void* p){
     extern volatile uint32_t g_cur_fn;
     uint32_t pp = (uint32_t)(uintptr_t)p;
@@ -34,8 +91,15 @@ void _ZdlPv(void* p){
         __android_log_print(6,"junqi","_ZdlPv SKIP 未分配指针 p=0x%08x g_cur_fn=0x%08x off=0x%08x mod=%s tid=%d", pp, g_cur_fn, (uint32_t)off, mod, (int)gettid());
         return;
     }
+    /* ★ CANARY-DIAG：检查 canary（越界写检测） */
+    uint32_t sz = 0;
+    int ok = jq_alloc_canary_ok(pp, &sz);
+    if (!ok) {
+        __android_log_print(6,"junqi","★ CANARY-CORRUPT: p=0x%08x sz=%u g_cur_fn=0x%08x off=0x%08x mod=%s tid=%d（越界写检测，堆损坏候选）",
+            pp, sz, g_cur_fn, (uint32_t)off, mod, (int)gettid());
+    }
     jq_alloc_remove(pp);
-    __android_log_print(6,"junqi","_ZdlPv(p=0x%08x) g_cur_fn=0x%08x off=0x%08x mod=%s tid=%d", pp, g_cur_fn, (uint32_t)off, mod, (int)gettid());
+    __android_log_print(6,"junqi","_ZdlPv(p=0x%08x sz=%u) g_cur_fn=0x%08x off=0x%08x mod=%s tid=%d", pp, sz, g_cur_fn, (uint32_t)off, mod, (int)gettid());
     free(p);
 }
 void _ZdaPv(void* p){

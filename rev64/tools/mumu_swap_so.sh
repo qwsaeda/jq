@@ -101,9 +101,12 @@ fi
 echo "so 哈希对账通过（设备 lib/arm64/libjunqi.so == 本地 dist so）"
 
 echo "=== [5/6] 启动 + 日志 ==="
-adb -s $DEV shell "rm -f /data/local/tmp/spak_res/*; mkdir -p /data/local/tmp/spak_res /data/local/tmp/layouts"
-adb -s $DEV push /disk/workspaces/jq/rev64/dist/spak_res/datah_188_21d95e03e7692e98.bin \
-                /disk/workspaces/jq/rev64/dist/spak_res/datah_183_9e1b7fbc4dfc09c3.bin /data/local/tmp/spak_res/ >/dev/null 2>&1
+adb -s $DEV shell "mkdir -p /data/local/tmp/spak_res /data/local/tmp/layouts"
+# ★ 全量 spak_res（bin + png 纹理），勿只推 bin（漏推 PNG → 菜单/☰/棋盘 UI 全退化）
+#   ★ 勿 rm 再推（会删掉 PNG）；单文件循环幂等。
+for f in /disk/workspaces/jq/rev64/dist/spak_res/*; do
+  adb -s $DEV push "$f" /data/local/tmp/spak_res/ >/dev/null 2>&1
+done
 # 12 预设布局（on_event "layout" 事件用，原版 data/lay/%02d.lay）
 adb -s $DEV push /disk/workspaces/jq/rev64/dist/layouts/ /data/local/tmp/layouts/ >/dev/null 2>&1 || \
   (cd /disk/workspaces/jq/rev64/dist/layouts && for f in *.lay; do adb -s $DEV push $f /data/local/tmp/layouts/$f >/dev/null 2>&1; done)

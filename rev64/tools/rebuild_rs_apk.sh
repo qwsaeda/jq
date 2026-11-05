@@ -98,9 +98,14 @@ if [[ $INSTALL -eq 1 ]]; then
   unzip -o "$OUT" "assets/spak_res/*" -d /tmp/opencode/spak_res_push >/dev/null 2>&1
   if ls /tmp/opencode/spak_res_push/assets/spak_res/*.bin >/dev/null 2>&1; then
     adb -s $DEV shell mkdir -p /data/local/tmp/spak_res >/dev/null 2>&1
-    adb -s $DEV push /tmp/opencode/spak_res_push/assets/spak_res/ /data/local/tmp/spak_res/ >/dev/null 2>&1
-    N=$(adb -s $DEV shell ls /data/local/tmp/spak_res/*.bin 2>/dev/null | wc -l)
-    log "✓ spak_res 推送完成（设备端 $N 个 .bin）"
+    # ★ 单文件循环推送（目录 push 在部分设备只推部分文件，PNG 纹理漏推 → UI 全退化）。
+    #   逐个 push 幂等，含 .bin + .png（菜单背景/按钮/☰ 图标/弹窗 纹理全量）。
+    for f in /tmp/opencode/spak_res_push/assets/spak_res/*; do
+      adb -s $DEV push "$f" /data/local/tmp/spak_res/ >/dev/null 2>&1
+    done
+    NBIN=$(adb -s $DEV shell ls /data/local/tmp/spak_res/*.bin 2>/dev/null | wc -l)
+    NPNG=$(adb -s $DEV shell ls /data/local/tmp/spak_res/*.png 2>/dev/null | wc -l)
+    log "✓ spak_res 推送完成（设备端 $NBIN .bin / $NPNG .png，含 UI 纹理）"
   else
     log "⚠ 源 APK 无 assets/spak_res（设备端已有则复用：$(adb -s $DEV shell ls /data/local/tmp/spak_res/*.bin 2>/dev/null | wc -l) 个）"
   fi

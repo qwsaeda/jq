@@ -54,6 +54,32 @@ case "$KIND" in
     fi
     log "✓ restart 事件测试完成"
     exit 0;;
+  btconn)
+    # 蓝牙连接自动开局：setprop jq.btconn 1 → OnCreate spawn 后台线程模拟 BtSpp 回调
+    # btState("host_connected") → runOnUiThread → App$BtStart → OnEvent menu 1 → 两人对局
+    log "=== btconn 连接自动开局测试（setprop jq.btconn 1 → 模拟 host_connected）==="
+    adb -s $DEV shell am force-stop com.cnvcs.junqirs >/dev/null 2>&1; sleep 3
+    adb -s $DEV shell setprop jq.btconn 1
+    adb -s $DEV logcat -c
+    adb -s $DEV shell am start -n com.cnvcs.junqirs/com.cnvcs.App >/dev/null 2>&1
+    sleep 12
+    echo "=== btconn 事件日志 ==="
+    adb -s $DEV logcat -d 2>/dev/null | grep -iE "junqi_rs|junqi_bt" | grep -iE "host_connected|OnEvent menu 开局|ui_screen=1" | tail -4
+    if adb -s $DEV logcat -d 2>/dev/null | grep -qiE "OnEvent menu 开局 mode=1"; then
+      log "✓ 连接后两人对局自动开局（mode=1 蓝先手）"
+    else
+      log "★ 对局自动开局未出现"; exit 1
+    fi
+    if adb -s $DEV logcat -d 2>/dev/null | grep -qiE "FATAL|ClassNotFound"; then
+      log "★ 崩溃"; exit 1
+    fi
+    if adb -s $DEV shell pidof com.cnvcs.junqirs >/dev/null 2>&1; then
+      log "✓ 进程存活 $(adb -s $DEV shell pidof com.cnvcs.junqirs)"
+    else
+      log "★ 进程死了"; exit 1
+    fi
+    log "✓ btconn 事件测试完成"
+    exit 0;;
   draw)
     # 和棋：重启确保 OnUpdate 活跃（MuMu GLThread attach flaky 停帧 → property 不消费）
     # → setprop jq.drawtest 1 → jq_on_draw（winner=2）

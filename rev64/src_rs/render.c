@@ -277,12 +277,14 @@ int rs_render_init(rs_render *rr, const char *spak_dir, const jq_state *init_sta
         snprintf(p9, sizeof p9, "%s/imen_icons_atlas.png", spak_dir ? spak_dir : "");
         char p10[512];
         snprintf(p10, sizeof p10, "%s/imen_hamburger_atlas.png", spak_dir ? spak_dir : "");
-        char p11[512], p12[512], p13[512], p14[512], p15[512];
+        char p11[512], p12[512], p13[512], p14[512], p15[512], p16[512], p17[512];
         snprintf(p11, sizeof p11, "%s/menu_btn_big.png", spak_dir ? spak_dir : "");
         snprintf(p12, sizeof p12, "%s/menu_btn_small.png", spak_dir ? spak_dir : "");
         snprintf(p13, sizeof p13, "%s/waysel_text_atlas.png", spak_dir ? spak_dir : "");
         snprintf(p14, sizeof p14, "%s/btimen_text_atlas.png", spak_dir ? spak_dir : "");
         snprintf(p15, sizeof p15, "%s/settings_text_atlas.png", spak_dir ? spak_dir : "");
+        snprintf(p16, sizeof p16, "%s/nplayer_text_atlas.png", spak_dir ? spak_dir : "");
+        snprintf(p17, sizeof p17, "%s/newgame_text_atlas.png", spak_dir ? spak_dir : "");
         unsigned char *braw = NULL; size_t braw_len = 0;
         unsigned char *praw = NULL; size_t praw_len = 0;
         unsigned char *traw = NULL; size_t traw_len = 0;
@@ -298,12 +300,16 @@ int rs_render_init(rs_render *rr, const char *spak_dir, const jq_state *init_sta
         unsigned char *wsraw = NULL; size_t wsraw_len = 0;  /* ★ 方式选择文字图集 */
         unsigned char *bira = NULL; size_t bira_len = 0;    /* ★ 联机 ☰ 菜单文字图集 */
         unsigned char *straw = NULL; size_t straw_len = 0;  /* ★ 声音设置文字图集 */
+        unsigned char *npaw = NULL; size_t npaw_len = 0;    /* ★ P0 datah_089 四国人数文字图集 */
+        unsigned char *ngaw = NULL; size_t ngaw_len = 0;    /* ★ P0 datah_062 两人新局文字图集 */
         unsigned char *bpx = NULL, *ppx = NULL, *tpx = NULL, *gpx = NULL;
         unsigned char *opx = NULL, *ppx2 = NULL, *mpx = NULL, *ipx = NULL, *icpx = NULL, *hbpx = NULL, *bbpx = NULL, *bspx = NULL;
         unsigned char *wspx = NULL, *bipx = NULL, *stpx = NULL;
+        unsigned char *nppx = NULL, *ngpx = NULL;
         int bw = 0, bh = 0, pw = 0, ph = 0, tw = 0, th = 0, gw = 0, gh = 0;
         int ow = 0, oh = 0, pw2 = 0, ph2 = 0, mw = 0, mh = 0, iw = 0, ih = 0, icw = 0, ich = 0;
         int hbw = 0, hbh = 0, bbw = 0, bbh = 0, bsw = 0, bsh = 0, wsw = 0, wsh = 0, biw = 0, bih = 0, stw = 0, sth = 0;
+        int npw = 0, nph = 0, ngw = 0, ngh = 0;
         rs_read_png(am, "spak_res/datah_188_21d95e03e7692e98.bin", p1, &braw, &braw_len);
         rs_read_png(am, "spak_res/datah_183_9e1b7fbc4dfc09c3.bin", p2, &praw, &praw_len);
         rs_read_png(am, "spak_res/menu_text_atlas.png", p3, &traw, &traw_len);
@@ -319,6 +325,8 @@ int rs_render_init(rs_render *rr, const char *spak_dir, const jq_state *init_sta
         rs_read_png(am, "spak_res/waysel_text_atlas.png", p13, &wsraw, &wsraw_len);
         rs_read_png(am, "spak_res/btimen_text_atlas.png", p14, &bira, &bira_len);
         rs_read_png(am, "spak_res/settings_text_atlas.png", p15, &straw, &straw_len);
+        rs_read_png(am, "spak_res/nplayer_text_atlas.png", p16, &npaw, &npaw_len);
+        rs_read_png(am, "spak_res/newgame_text_atlas.png", p17, &ngaw, &ngaw_len);
         if (braw && png_decode(braw, braw_len, &bpx, &bw, &bh) == 0) { rr->board_px = bpx; rr->board_px_len = (size_t)bw * bh * 4; }
         free(braw);
         if (praw && png_decode(praw, praw_len, &ppx, &pw, &ph) == 0) { rr->piece_px = ppx; rr->piece_px_len = (size_t)pw * ph * 4; }
@@ -400,8 +408,20 @@ int rs_render_init(rs_render *rr, const char *spak_dir, const jq_state *init_sta
             rr->settings_text_w = stw; rr->settings_text_h = sth;
         }
         free(straw);
+        /* ★ P0（datah_089）：四国人数选择文字图集（3 标签竖排 220×138：2人/3人/4人） */
+        if (npaw && png_decode(npaw, npaw_len, &nppx, &npw, &nph) == 0) {
+            rr->nplayer_text_px = nppx; rr->nplayer_text_px_len = (size_t)npw * nph * 4;
+            rr->nplayer_text_w = npw; rr->nplayer_text_h = nph;
+        }
+        free(npaw);
+        /* ★ P0（datah_062）：两人新局文字图集（6 标签竖排 220×276：玩法/布局明棋/翻棋暗棋/明暗棋/确定/取消） */
+        if (ngaw && png_decode(ngaw, ngaw_len, &ngpx, &ngw, &ngh) == 0) {
+            rr->newgame_text_px = ngpx; rr->newgame_text_px_len = (size_t)ngw * ngh * 4;
+            rr->newgame_text_w = ngw; rr->newgame_text_h = ngh;
+        }
+        free(ngaw);
         rr->gl_px_loaded = 1;
-        LOGI("Init 像素解码：board=%s(%dx%d) piece=%s(%dx%d) text=%s(%dx%d) bg=%s(%dx%d) menu_bg=%s(%dx%d) popup=%s(%dx%d) opt_text=%s(%dx%d) imen_text=%s(%dx%d) waysel=%s(%dx%d) btimen=%s(%dx%d) settings=%s(%dx%d)",
+        LOGI("Init 像素解码：board=%s(%dx%d) piece=%s(%dx%d) text=%s(%dx%d) bg=%s(%dx%d) menu_bg=%s(%dx%d) popup=%s(%dx%d) opt_text=%s(%dx%d) imen_text=%s(%dx%d) waysel=%s(%dx%d) btimen=%s(%dx%d) settings=%s(%dx%d) nplayer=%s(%dx%d) newgame=%s(%dx%d)",
              rr->board_px ? "OK" : "MISS", bw, bh, rr->piece_px ? "OK" : "MISS", pw, ph,
              rr->text_px ? "OK" : "MISS", tw, th, rr->bg_px ? "OK" : "MISS", gw, gh,
              rr->menu_bg_px ? "OK" : "MISS", mw, mh, rr->popup_px ? "OK" : "MISS", pw2, ph2,
@@ -409,7 +429,8 @@ int rs_render_init(rs_render *rr, const char *spak_dir, const jq_state *init_sta
              rr->imen_icons_px ? "OK" : "MISS", icw, ich, rr->hamburger_px ? "OK" : "MISS", hbw, hbh,
              rr->btn_big_px ? "OK" : "MISS", bbw, bbh, rr->btn_small_px ? "OK" : "MISS", bsw, bsh,
              rr->waysel_text_px ? "OK" : "MISS", wsw, wsh, rr->btimen_text_px ? "OK" : "MISS", biw, bih,
-             rr->settings_text_px ? "OK" : "MISS", stw, sth);
+             rr->settings_text_px ? "OK" : "MISS", stw, sth,
+             rr->nplayer_text_px ? "OK" : "MISS", npw, nph, rr->newgame_text_px ? "OK" : "MISS", ngw, ngh);
     }
     if (rr->egl_ctx)
         LOGI("render 初始化：GL2 context 就绪，GL 对象延迟到 GLThread 首帧建");
@@ -1348,6 +1369,329 @@ static void rs_draw_settings(rs_render *rr, int slot)
     if (!stdiag) { stdiag = 1; LOGI("rs_draw_settings：声音设置弹窗（datah_001 静音模式/按键声音/音量/确定/取消，面板 %.0f×%.0f）", UI_SETTINGS_POPUP_W, UI_SETTINGS_POPUP_H); }
 }
 
+/* ★ P0（datah_089 证据）：四国人数选择弹窗渲染。
+   主菜单背景 + 面板深色半透明 + 3 按钮（2 人/3 人/4 人，纯色）+ 文字图集。
+   按钮几何 ui_nplayer_buttons()（720×1280 基准）。★ 诚实边界：四国=未实现 4 方规则。 */
+static void rs_draw_nplayer(rs_render *rr, int slot)
+{
+    if (!rr->prog_solid[slot] || !rr->gl2_ok[slot]) return;
+    float sx = (float)rr->view_w / 720.0f, sy = (float)rr->view_h / 1280.0f;
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    /* ⓪ 背景：主菜单背景（四国人数选择弹窗是主菜单上的模态框） */
+    if (rr->tex_menu_bg[slot] && rr->prog_tex[slot]) {
+        float w = (float)rr->view_w, h = (float)rr->view_h;
+        rs_v4f bg[6] = {
+            {0, 0, 0, 0}, {w, 0, 1, 0}, {0, h, 0, 1},
+            {0, h, 0, 1}, {w, 0, 1, 0}, {w, h, 1, 1},
+        };
+        glUseProgram(rr->prog_tex[slot]);
+        glUniform2f(rr->uViewWH_tex[slot], (GLfloat)rr->view_w, (GLfloat)rr->view_h);
+        glUniform1i(glGetUniformLocation(rr->prog_tex[slot], "uTex"), 0);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, rr->tex_menu_bg[slot]);
+        glGenBuffers(1, &rr->vbo_sel[slot]);
+        glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(bg), bg, GL_DYNAMIC_DRAW);
+        rs_bind_vbo(rr->vbo_sel[slot]);
+        glDrawArrays(GL_TRIANGLES, 0, 6);
+        rs_unbind_vbo();
+        glDeleteBuffers(1, &rr->vbo_sel[slot]);
+        rr->vbo_sel[slot] = 0;
+    }
+    /* ① 全屏模态遮罩 */
+    rs_v4f mq[6] = {
+        {0, 0, 0, 0}, {(float)rr->view_w, 0, 0, 0}, {0, (float)rr->view_h, 0, 0},
+        {0, (float)rr->view_h, 0, 0}, {(float)rr->view_w, 0, 0, 0},
+        {(float)rr->view_w, (float)rr->view_h, 0, 0},
+    };
+    glUseProgram(rr->prog_solid[slot]);
+    glUniform2f(rr->uViewWH_solid[slot], (GLfloat)rr->view_w, (GLfloat)rr->view_h);
+    glUniform4f(uc, 0.0f, 0.0f, 0.0f, 0.35f);
+    glGenBuffers(1, &rr->vbo_sel[slot]);
+    glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(mq), mq, GL_DYNAMIC_DRAW);
+    rs_bind_vbo(rr->vbo_sel[slot]);
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+    rs_unbind_vbo();
+    glDeleteBuffers(1, &rr->vbo_sel[slot]);
+    rr->vbo_sel[slot] = 0;
+    /* ② 面板：深色半透明矩形（datah_089 230×230 居中，720 基准 245,525-475,755） */
+    float px0 = UI_NPLAYER_POPUP_X0 * sx, py0 = UI_NPLAYER_POPUP_Y0 * sy;
+    float pw = UI_NPLAYER_POPUP_W * sx, ph = UI_NPLAYER_POPUP_H * sy;
+    rs_v4f pq[6] = {
+        {px0, py0, 0, 0}, {px0 + pw, py0, 0, 0}, {px0, py0 + ph, 0, 0},
+        {px0, py0 + ph, 0, 0}, {px0 + pw, py0, 0, 0}, {px0 + pw, py0 + ph, 0, 0},
+    };
+    glUseProgram(rr->prog_solid[slot]);
+    glUniform2f(rr->uViewWH_solid[slot], (GLfloat)rr->view_w, (GLfloat)rr->view_h);
+    glUniform4f(uc, 0.08f, 0.08f, 0.10f, 0.78f);
+    glGenBuffers(1, &rr->vbo_sel[slot]);
+    glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(pq), pq, GL_DYNAMIC_DRAW);
+    rs_bind_vbo(rr->vbo_sel[slot]);
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+    rs_unbind_vbo();
+    glDeleteBuffers(1, &rr->vbo_sel[slot]);
+    rr->vbo_sel[slot] = 0;
+    /* ③ 3 按钮：2 人/3 人/4 人（纯色） */
+    static const float BTN_COL[3][4] = {
+        {0.20f, 0.45f, 0.90f, 0.9f},   /* 2 人 蓝 */
+        {0.30f, 0.70f, 0.50f, 0.9f},   /* 3 人 绿 */
+        {0.95f, 0.80f, 0.20f, 0.9f},   /* 4 人 金（默认四国=4 人，金色=推荐） */
+    };
+    const ui_nplayer_btn *nb = ui_nplayer_buttons();
+    for (int i = 0; i < UI_NPLAYER_COUNT; i++) {
+        float bx0 = nb[i].x0 * sx, by0 = nb[i].y0 * sy;
+        float bx1 = nb[i].x1 * sx, by1 = nb[i].y1 * sy;
+        rs_v4f bq[6] = {
+            {bx0, by0, 0, 0}, {bx1, by0, 0, 0}, {bx0, by1, 0, 0},
+            {bx0, by1, 0, 0}, {bx1, by0, 0, 0}, {bx1, by1, 0, 0},
+        };
+        glUseProgram(rr->prog_solid[slot]);
+        glUniform2f(rr->uViewWH_solid[slot], (GLfloat)rr->view_w, (GLfloat)rr->view_h);
+        glUniform4f(uc, BTN_COL[i][0], BTN_COL[i][1], BTN_COL[i][2], BTN_COL[i][3]);
+        glGenBuffers(1, &rr->vbo_sel[slot]);
+        glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(bq), bq, GL_DYNAMIC_DRAW);
+        rs_bind_vbo(rr->vbo_sel[slot]);
+        glDrawArrays(GL_TRIANGLES, 0, 6);
+        rs_unbind_vbo();
+        glDeleteBuffers(1, &rr->vbo_sel[slot]);
+        rr->vbo_sel[slot] = 0;
+    }
+    /* ④ 3 按钮文字（nplayer_text_atlas，每按钮一 label，居中） */
+    if (rr->tex_nplayer_text[slot] && rr->prog_tex[slot] && rr->nplayer_text_w > 0 && rr->nplayer_text_h > 0) {
+        int row_h = rr->nplayer_text_h / UI_NPLAYER_COUNT;   /* 每行 46px */
+        for (int i = 0; i < UI_NPLAYER_COUNT; i++) {
+            float bx0 = nb[i].x0 * sx, by0 = nb[i].y0 * sy;
+            float bx1 = nb[i].x1 * sx, by1 = nb[i].y1 * sy;
+            float tw = 150.0f * sx, th = tw * ((float)row_h / rr->nplayer_text_w);
+            float tx0 = (bx0 + bx1) * 0.5f - tw * 0.5f, ty0 = (by0 + by1) * 0.5f - th * 0.5f;
+            float u0 = 0.0f, u1 = 1.0f;
+            float v0 = (float)(i * row_h) / rr->nplayer_text_h;
+            float v1 = (float)(i * row_h + row_h) / rr->nplayer_text_h;
+            rs_v4f tq[6] = {
+                {tx0, ty0, u0, v0}, {tx0 + tw, ty0, u1, v0}, {tx0, ty0 + th, u0, v1},
+                {tx0, ty0 + th, u0, v1}, {tx0 + tw, ty0, u1, v0}, {tx0 + tw, ty0 + th, u1, v1},
+            };
+            glUseProgram(rr->prog_tex[slot]);
+            glUniform2f(rr->uViewWH_tex[slot], (GLfloat)rr->view_w, (GLfloat)rr->view_h);
+            glUniform1i(glGetUniformLocation(rr->prog_tex[slot], "uTex"), 0);
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, rr->tex_nplayer_text[slot]);
+            glGenBuffers(1, &rr->vbo_sel[slot]);
+            glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
+            glBufferData(GL_ARRAY_BUFFER, sizeof(tq), tq, GL_DYNAMIC_DRAW);
+            rs_bind_vbo(rr->vbo_sel[slot]);
+            glDrawArrays(GL_TRIANGLES, 0, 6);
+            rs_unbind_vbo();
+            glDeleteBuffers(1, &rr->vbo_sel[slot]);
+            rr->vbo_sel[slot] = 0;
+        }
+    }
+    static int npdiag = 0;
+    if (!npdiag) { npdiag = 1; LOGI("rs_draw_nplayer：四国人数选择弹窗（datah_089 2/3/4 人 3 按钮，面板 %.0f×%.0f，诚实边界）", UI_NPLAYER_POPUP_W, UI_NPLAYER_POPUP_H); }
+}
+
+/* ★ P0（datah_062 证据）：两人新局简化弹窗渲染。
+   主菜单背景 + 面板深色半透明 + 4 控件（玩法/明暗棋 + 确定/取消）+ 文字图集。
+   按钮几何 ui_newgame_buttons()（720×1280 基准）。★ 诚实边界：两人热座（AI 不介入）。 */
+static void rs_draw_newgame(rs_render *rr, int slot)
+{
+    if (!rr->prog_solid[slot] || !rr->gl2_ok[slot]) return;
+    float sx = (float)rr->view_w / 720.0f, sy = (float)rr->view_h / 1280.0f;
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    /* ⓪ 背景：主菜单背景（新局弹窗是主菜单上的模态框） */
+    if (rr->tex_menu_bg[slot] && rr->prog_tex[slot]) {
+        float w = (float)rr->view_w, h = (float)rr->view_h;
+        rs_v4f bg[6] = {
+            {0, 0, 0, 0}, {w, 0, 1, 0}, {0, h, 0, 1},
+            {0, h, 0, 1}, {w, 0, 1, 0}, {w, h, 1, 1},
+        };
+        glUseProgram(rr->prog_tex[slot]);
+        glUniform2f(rr->uViewWH_tex[slot], (GLfloat)rr->view_w, (GLfloat)rr->view_h);
+        glUniform1i(glGetUniformLocation(rr->prog_tex[slot], "uTex"), 0);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, rr->tex_menu_bg[slot]);
+        glGenBuffers(1, &rr->vbo_sel[slot]);
+        glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(bg), bg, GL_DYNAMIC_DRAW);
+        rs_bind_vbo(rr->vbo_sel[slot]);
+        glDrawArrays(GL_TRIANGLES, 0, 6);
+        rs_unbind_vbo();
+        glDeleteBuffers(1, &rr->vbo_sel[slot]);
+        rr->vbo_sel[slot] = 0;
+    }
+    /* ① 全屏模态遮罩 */
+    rs_v4f mq[6] = {
+        {0, 0, 0, 0}, {(float)rr->view_w, 0, 0, 0}, {0, (float)rr->view_h, 0, 0},
+        {0, (float)rr->view_h, 0, 0}, {(float)rr->view_w, 0, 0, 0},
+        {(float)rr->view_w, (float)rr->view_h, 0, 0},
+    };
+    glUseProgram(rr->prog_solid[slot]);
+    glUniform2f(rr->uViewWH_solid[slot], (GLfloat)rr->view_w, (GLfloat)rr->view_h);
+    glUniform4f(uc, 0.0f, 0.0f, 0.0f, 0.35f);
+    glGenBuffers(1, &rr->vbo_sel[slot]);
+    glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(mq), mq, GL_DYNAMIC_DRAW);
+    rs_bind_vbo(rr->vbo_sel[slot]);
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+    rs_unbind_vbo();
+    glDeleteBuffers(1, &rr->vbo_sel[slot]);
+    rr->vbo_sel[slot] = 0;
+    /* ② 面板：深色半透明矩形（datah_062 450×315 居中，720 基准 135,482.5-585,797.5） */
+    float px0 = UI_NEWGAME_POPUP_X0 * sx, py0 = UI_NEWGAME_POPUP_Y0 * sy;
+    float pw = UI_NEWGAME_POPUP_W * sx, ph = UI_NEWGAME_POPUP_H * sy;
+    rs_v4f pq[6] = {
+        {px0, py0, 0, 0}, {px0 + pw, py0, 0, 0}, {px0, py0 + ph, 0, 0},
+        {px0, py0 + ph, 0, 0}, {px0 + pw, py0, 0, 0}, {px0 + pw, py0 + ph, 0, 0},
+    };
+    glUseProgram(rr->prog_solid[slot]);
+    glUniform2f(rr->uViewWH_solid[slot], (GLfloat)rr->view_w, (GLfloat)rr->view_h);
+    glUniform4f(uc, 0.08f, 0.08f, 0.10f, 0.78f);
+    glGenBuffers(1, &rr->vbo_sel[slot]);
+    glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(pq), pq, GL_DYNAMIC_DRAW);
+    rs_bind_vbo(rr->vbo_sel[slot]);
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+    rs_unbind_vbo();
+    glDeleteBuffers(1, &rr->vbo_sel[slot]);
+    rr->vbo_sel[slot] = 0;
+    /* ③ 4 控件：玩法/明暗棋（当前模式高亮金色）+ 确定/取消（纯色） */
+    static const float BTN_COL[4][4] = {
+        {0.45f, 0.30f, 0.75f, 0.9f},   /* 玩法 紫 */
+        {0.45f, 0.30f, 0.75f, 0.9f},   /* 明暗棋 紫 */
+        {0.20f, 0.45f, 0.90f, 0.9f},   /* 确定 蓝 */
+        {0.55f, 0.55f, 0.60f, 0.9f},   /* 取消 灰 */
+    };
+    /* 玩法/明暗棋 2 个切换按钮当前模式标签行：row2=布局明棋 row3=翻棋暗棋 */
+    const ui_newgame_btn *nb = ui_newgame_buttons();
+    int cur_mode = ui_opt_get_mode();   /* 0=布局明棋 1=翻棋暗棋 */
+    for (int i = 0; i < UI_NEWGAME_COUNT; i++) {
+        float bx0 = nb[i].x0 * sx, by0 = nb[i].y0 * sy;
+        float bx1 = nb[i].x1 * sx, by1 = nb[i].y1 * sy;
+        rs_v4f bq[6] = {
+            {bx0, by0, 0, 0}, {bx1, by0, 0, 0}, {bx0, by1, 0, 0},
+            {bx0, by1, 0, 0}, {bx1, by0, 0, 0}, {bx1, by1, 0, 0},
+        };
+        glUseProgram(rr->prog_solid[slot]);
+        glUniform2f(rr->uViewWH_solid[slot], (GLfloat)rr->view_w, (GLfloat)rr->view_h);
+        glUniform4f(uc, BTN_COL[i][0], BTN_COL[i][1], BTN_COL[i][2], BTN_COL[i][3]);
+        glGenBuffers(1, &rr->vbo_sel[slot]);
+        glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(bq), bq, GL_DYNAMIC_DRAW);
+        rs_bind_vbo(rr->vbo_sel[slot]);
+        glDrawArrays(GL_TRIANGLES, 0, 6);
+        rs_unbind_vbo();
+        glDeleteBuffers(1, &rr->vbo_sel[slot]);
+        rr->vbo_sel[slot] = 0;
+        /* ★ 玩法/明暗棋 2 个切换按钮：当前选中模式金色高亮（非选中的画普通色） */
+        if (i == 0 || i == 1) {
+            float cr = 1.0f, cg = 0.85f, cb = 0.2f;
+            glUniform4f(uc, cr, cg, cb, 0.15f);
+            rs_v4f oq[6] = {
+                {bx0 - 4*sx, by0 - 4*sy, 0, 0}, {bx1 + 4*sx, by0 - 4*sy, 0, 0}, {bx0 - 4*sx, by1 + 4*sy, 0, 0},
+                {bx0 - 4*sx, by1 + 4*sy, 0, 0}, {bx1 + 4*sx, by0 - 4*sy, 0, 0}, {bx1 + 4*sx, by1 + 4*sy, 0, 0},
+            };
+            glGenBuffers(1, &rr->vbo_sel[slot]);
+            glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
+            glBufferData(GL_ARRAY_BUFFER, sizeof(oq), oq, GL_DYNAMIC_DRAW);
+            rs_bind_vbo(rr->vbo_sel[slot]);
+            glDrawArrays(GL_TRIANGLES, 0, 6);
+            rs_unbind_vbo();
+            glDeleteBuffers(1, &rr->vbo_sel[slot]);
+            rr->vbo_sel[slot] = 0;
+        }
+    }
+    /* ④ 文字：标签列（玩法:/明暗棋: 2 项）+ 当前模式标签 + 确定/取消
+       （newgame_text_atlas 6 行：row0=玩法 row1=明暗棋 row2=布局明棋 row3=翻棋暗棋 row4=确定 row5=取消） */
+    if (rr->tex_newgame_text[slot] && rr->prog_tex[slot] && rr->newgame_text_w > 0 && rr->newgame_text_h > 0) {
+        int row_h = rr->newgame_text_h / 6;   /* 每行 46px（6 标签竖排） */
+        float u0 = 0.0f, u1 = 1.0f;
+        /* 标签列：玩法/明暗棋 左侧 label（x 165-290，对齐原版 datah_062 标签位置） */
+        for (int r = 0; r < 2; r++) {
+            float tcy = (nb[r].y0 + nb[r].y1) * 0.5f * sy;
+            float tw = 90.0f * sx, th = tw * ((float)row_h / rr->newgame_text_w);
+            float tx0 = 165.0f * sx, ty0 = tcy - th * 0.5f;
+            float v0 = (float)(r * row_h) / rr->newgame_text_h;
+            float v1 = (float)(r * row_h + row_h) / rr->newgame_text_h;
+            rs_v4f tq[6] = {
+                {tx0, ty0, u0, v0}, {tx0 + tw, ty0, u1, v0}, {tx0, ty0 + th, u0, v1},
+                {tx0, ty0 + th, u0, v1}, {tx0 + tw, ty0, u1, v0}, {tx0 + tw, ty0 + th, u1, v1},
+            };
+            glUseProgram(rr->prog_tex[slot]);
+            glUniform2f(rr->uViewWH_tex[slot], (GLfloat)rr->view_w, (GLfloat)rr->view_h);
+            glUniform1i(glGetUniformLocation(rr->prog_tex[slot], "uTex"), 0);
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, rr->tex_newgame_text[slot]);
+            glGenBuffers(1, &rr->vbo_sel[slot]);
+            glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
+            glBufferData(GL_ARRAY_BUFFER, sizeof(tq), tq, GL_DYNAMIC_DRAW);
+            rs_bind_vbo(rr->vbo_sel[slot]);
+            glDrawArrays(GL_TRIANGLES, 0, 6);
+            rs_unbind_vbo();
+            glDeleteBuffers(1, &rr->vbo_sel[slot]);
+            rr->vbo_sel[slot] = 0;
+        }
+        /* 当前模式标签（玩法/明暗棋 按钮内，row2=布局明棋 row3=翻棋暗棋，按当前 ui_opt_get_mode() 高亮对应行） */
+        for (int r = 0; r < 2; r++) {
+            int mode = ui_opt_get_mode();
+            int row_idx = 2 + (mode ? 1 : 0);   /* 行 2=布局明棋 行 3=翻棋暗棋 */
+            float bx0 = nb[r].x0 * sx, by0 = nb[r].y0 * sy;
+            float bx1 = nb[r].x1 * sx, by1 = nb[r].y1 * sy;
+            float tw = 150.0f * sx, th = tw * ((float)row_h / rr->newgame_text_w);
+            float tx0 = (bx0 + bx1) * 0.5f - tw * 0.5f, ty0 = (by0 + by1) * 0.5f - th * 0.5f;
+            float v0 = (float)(row_idx * row_h) / rr->newgame_text_h;
+            float v1 = (float)(row_idx * row_h + row_h) / rr->newgame_text_h;
+            rs_v4f tq[6] = {
+                {tx0, ty0, u0, v0}, {tx0 + tw, ty0, u1, v0}, {tx0, ty0 + th, u0, v1},
+                {tx0, ty0 + th, u0, v1}, {tx0 + tw, ty0, u1, v0}, {tx0 + tw, ty0 + th, u1, v1},
+            };
+            glUseProgram(rr->prog_tex[slot]);
+            glUniform2f(rr->uViewWH_tex[slot], (GLfloat)rr->view_w, (GLfloat)rr->view_h);
+            glUniform1i(glGetUniformLocation(rr->prog_tex[slot], "uTex"), 0);
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, rr->tex_newgame_text[slot]);
+            glGenBuffers(1, &rr->vbo_sel[slot]);
+            glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
+            glBufferData(GL_ARRAY_BUFFER, sizeof(tq), tq, GL_DYNAMIC_DRAW);
+            rs_bind_vbo(rr->vbo_sel[slot]);
+            glDrawArrays(GL_TRIANGLES, 0, 6);
+            rs_unbind_vbo();
+            glDeleteBuffers(1, &rr->vbo_sel[slot]);
+            rr->vbo_sel[slot] = 0;
+        }
+        /* 确定/取消（row4-5） */
+        for (int i = 2; i < UI_NEWGAME_COUNT; i++) {
+            float bx0 = nb[i].x0 * sx, by0 = nb[i].y0 * sy;
+            float bx1 = nb[i].x1 * sx, by1 = nb[i].y1 * sy;
+            float tw = 120.0f * sx, th = tw * ((float)row_h / rr->newgame_text_w);
+            float tx0 = (bx0 + bx1) * 0.5f - tw * 0.5f, ty0 = (by0 + by1) * 0.5f - th * 0.5f;
+            float v0 = (float)(i * row_h) / rr->newgame_text_h;
+            float v1 = (float)(i * row_h + row_h) / rr->newgame_text_h;
+            rs_v4f tq[6] = {
+                {tx0, ty0, u0, v0}, {tx0 + tw, ty0, u1, v0}, {tx0, ty0 + th, u0, v1},
+                {tx0, ty0 + th, u0, v1}, {tx0 + tw, ty0, u1, v0}, {tx0 + tw, ty0 + th, u1, v1},
+            };
+            glUseProgram(rr->prog_tex[slot]);
+            glUniform2f(rr->uViewWH_tex[slot], (GLfloat)rr->view_w, (GLfloat)rr->view_h);
+            glUniform1i(glGetUniformLocation(rr->prog_tex[slot], "uTex"), 0);
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, rr->tex_newgame_text[slot]);
+            glGenBuffers(1, &rr->vbo_sel[slot]);
+            glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
+            glBufferData(GL_ARRAY_BUFFER, sizeof(tq), tq, GL_DYNAMIC_DRAW);
+            rs_bind_vbo(rr->vbo_sel[slot]);
+            glDrawArrays(GL_TRIANGLES, 0, 6);
+            rs_unbind_vbo();
+            glDeleteBuffers(1, &rr->vbo_sel[slot]);
+            rr->vbo_sel[slot] = 0;
+        }
+    }
+    static int ngdiag = 0;
+    if (!ngdiag) { ngdiag = 1; LOGI("rs_draw_newgame：两人新局弹窗（datah_062 玩法/明暗棋+确定/取消，面板 %.0f×%.0f，两人热座 AI 不介入）", UI_NEWGAME_POPUP_W, UI_NEWGAME_POPUP_H); }
+}
+
 /* 判当前是否在 GLThread/EglHelper 的 window context（≠ 我们 init 的 PBuffer context） */
 static int now_is_glthread_ctx(rs_render *rr)
 {
@@ -1503,6 +1847,24 @@ static void rs_gl_rebuild(rs_render *rr, int slot)
         glBindTexture(GL_TEXTURE_2D, rr->tex_settings_text[slot]);
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->settings_text_w, rr->settings_text_h, 0,
                      GL_RGBA, GL_UNSIGNED_BYTE, rr->settings_text_px);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    }
+    /* ★ P0（datah_089）：四国人数选择文字图集（3 标签竖排 220×138） */
+    if (rr->nplayer_text_px && rr->gl2_ok[slot] && rr->nplayer_text_w > 0 && rr->nplayer_text_h > 0) {
+        glGenTextures(1, &rr->tex_nplayer_text[slot]);
+        glBindTexture(GL_TEXTURE_2D, rr->tex_nplayer_text[slot]);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->nplayer_text_w, rr->nplayer_text_h, 0,
+                     GL_RGBA, GL_UNSIGNED_BYTE, rr->nplayer_text_px);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    }
+    /* ★ P0（datah_062）：两人新局文字图集（6 标签竖排 220×276） */
+    if (rr->newgame_text_px && rr->gl2_ok[slot] && rr->newgame_text_w > 0 && rr->newgame_text_h > 0) {
+        glGenTextures(1, &rr->tex_newgame_text[slot]);
+        glBindTexture(GL_TEXTURE_2D, rr->tex_newgame_text[slot]);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->newgame_text_w, rr->newgame_text_h, 0,
+                     GL_RGBA, GL_UNSIGNED_BYTE, rr->newgame_text_px);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     }
@@ -1727,6 +2089,12 @@ void rs_render_frame(rs_render *rr)
         } else if (ui_screen_get() == UI_SETTINGS) {
             /* ★ 对抗审计（datah_001 证据）：声音设置弹窗 */
             rs_draw_settings(rr, slot);
+        } else if (ui_screen_get() == UI_NPLAYER) {
+            /* ★ P0（datah_089 证据）：四国人数选择弹窗（2/3/4 人） */
+            rs_draw_nplayer(rr, slot);
+        } else if (ui_screen_get() == UI_NEWGAME) {
+            /* ★ P0（datah_062 证据）：两人新局简化弹窗（玩法/明暗棋+确定/取消） */
+            rs_draw_newgame(rr, slot);
         } else if (rr->game && rr->game->stage == STG_OVER) {
             /* ★ 对局结束（GAME 态且 stage=OVER）→ 胜负横幅（winner 色可视化） */
             rs_draw_overlay(rr, slot, rr->game->winner);

@@ -1472,15 +1472,13 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
                 (void)clazz;
                 return JNI_TRUE;
             }
-            /* ★ 诚实边界：四国（action 4）——src_rs 为 10×9 两人军棋重写，非真四国。
-               点四国显示边界说明（勿静默开 2 人局误导为四国可玩） */
+            /* ★ P0（datah_089 证据）：四国（action 4）→ 四国人数选择弹窗（UI_NPLAYER，
+               2/3/4 人 3 按钮，原版 datah_089 230×230 面板居中）。诚实边界：选人数后
+               显示边界对话框（4 方规则未实现，勿静默开 2 人局误导为四国可玩）。 */
             if (hit_action == 4) {
-                jq_show_dialog(env, "四国军棋",
-                    "四国军棋（诚实边界）：\n"
-                    "src_rs 为 10×9 两人军棋规则重写，四国（4 方混战）\n"
-                    "未实现。原版四国棋盘/规则需另项逆向移植。\n"
-                    "四国模式当前不可玩，请选择人机/两人对战。");
-                LOGI("OnTouch 菜单按钮%d（action=%d）：四国军棋边界说明（诚实边界）", hit, hit_action);
+                ui_screen_set(UI_NPLAYER);
+                LOGI("OnTouch 菜单按钮%d（action=%d → UI_NPLAYER 四国人数选择弹窗，datah_089 2/3/4 人，诚实边界）",
+                     hit, hit_action);
                 (void)clazz;
                 return JNI_TRUE;
             }
@@ -1488,7 +1486,10 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
                无难度弹窗（datah_041 判误）。flagtest/minetest 测试夹具走 setprop 路径
                （mumu_evtest.sh），不占菜单按钮。
                ★ 对抗审计（datah_041 证据修正）：人机（action 0）弹难度选择弹窗
-               （新手/中级/高级/好友区 × 布局/翻棋，选完开局）；两人（action 1）直开局热座。 */
+               （新手/中级/高级/好友区 × 布局/翻棋，选完开局）。
+               ★ P0（datah_062 证据修正）：两人（action 1）→ 新局简化弹窗（UI_NEWGAME，
+               玩法/明暗棋 + 确定/取消 4 控件，原版 datah_062 450×315 面板居中），
+               选玩法+明暗棋后确定 → 随模式直开局（两人热座，AI 不介入）；取消 → 回主菜单。 */
             if (hit_action == 0) {
                 /* 人机：进难度弹窗（UI_DIFFICULTY），选难度/模式后开局（AI 走红） */
                 g_vs_ai = 1;
@@ -1496,13 +1497,12 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
                 LOGI("OnTouch 菜单按钮%d（action=%d → UI_DIFFICULTY 人机难度弹窗，AI 走红）",
                      hit, hit_action);
             } else if (hit_action == 1) {
-                /* 两人：直开局热座（原版两人无难度弹窗，orig_two 截图自证） */
+                /* ★ P0（datah_062 证据）：两人 → 新局简化弹窗（玩法/明暗棋 + 确定/取消），
+                   确定后才开局（两人热座，AI 不介入；默认翻棋暗棋对齐原版） */
                 g_vs_ai = 0;
-                pthread_mutex_lock(&g_mutex);
-                jq_restart_game();
-                pthread_mutex_unlock(&g_mutex);
-                sfx_play(env, "over");
-                LOGI("OnTouch 菜单进对局：按钮%d（action=%d → 直开局，stage=PLAY 蓝先手两人热座）",
+                ui_screen_set(UI_NEWGAME);
+                sfx_play(env, "pop");
+                LOGI("OnTouch 菜单按钮%d（action=%d → UI_NEWGAME 两人新局弹窗，datah_062 玩法/明暗棋+确定/取消，两人热座 AI 不介入）",
                      hit, hit_action);
             }
             (void)clazz;
@@ -1630,6 +1630,79 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
         if (!ui_set_popup_inside(bx, by)) {
             ui_screen_set(UI_GAME);
             LOGI("OnTouch 声音设置外（bx=%.0f by=%.0f）→ 回对局", bx, by);
+            sfx_play(env, "pop");
+        }
+        (void)clazz;
+        return JNI_TRUE;
+    }
+    /* ★ P0（datah_089 证据）：四国人数选择弹窗态。
+       点 2/3/4 人 → 诚实边界对话框（4 方规则未实现）→ 回主菜单；
+       点面板外 → 回主菜单。★ 诚实边界：不假装四国可玩。 */
+    if (ui_screen_get() == UI_NPLAYER) {
+        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
+        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        const ui_nplayer_btn *nb = ui_nplayer_buttons();
+        int nh = ui_nplayer_hit(nb, UI_NPLAYER_COUNT, bx, by);
+        if (nh >= 0) {
+            int nact = nb[nh].action;   /* 0=2 人 1=3 人 2=4 人（默认） */
+            jq_show_dialog(env, "四国军棋",
+                "四国军棋（诚实边界）：\n"
+                "src_rs 为 10×9 两人军棋规则重写，四国（4 方混战）\n"
+                "未实现。原版四国棋盘/规则需另项逆向移植。\n"
+                "四国模式当前不可玩，请选择人机/两人对战。");
+            LOGI("OnTouch 四国人数弹窗：选%d（action=%d 人数）→ 诚实边界对话框 → 回主菜单",
+                 nact + 2, nact);
+            sfx_play(env, "pop");
+            ui_screen_set(UI_MENU);
+            (void)clazz;
+            return JNI_TRUE;
+        }
+        if (!ui_nplayer_popup_inside(bx, by)) {
+            ui_screen_set(UI_MENU);
+            LOGI("OnTouch 四国人数弹窗外（bx=%.0f by=%.0f）→ 回主菜单", bx, by);
+            sfx_play(env, "pop");
+        }
+        (void)clazz;
+        return JNI_TRUE;
+    }
+    /* ★ P0（datah_062 证据）：两人新局简化弹窗态。
+       点 玩法/明暗棋 → 切换模式（明棋/翻棋暗棋循环，默认翻棋暗棋对齐原版）；
+       点 确定 → ui_opt_select(mode) + jq_restart_game（随模式开局，两人热座 AI 不介入）；
+       点 取消 → 回主菜单；点面板外 → 回主菜单。 */
+    if (ui_screen_get() == UI_NEWGAME) {
+        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
+        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        const ui_newgame_btn *nb = ui_newgame_buttons();
+        int nh = ui_newgame_hit(nb, UI_NEWGAME_COUNT, bx, by);
+        if (nh >= 0) {
+            int nact = nb[nh].action;
+            if (nact == 0 || nact == 1) {   /* 玩法/明暗棋：同义切换（明棋=布局 / 翻棋暗棋） */
+                int mode = ui_opt_get_mode();
+                mode = !mode;
+                ui_opt_select(ui_opt_get_level(), mode);
+                sfx_play(env, "pop");
+                LOGI("OnTouch 新局弹窗：玩法/明暗棋切换 → mode=%d（%s，默认翻棋暗棋对齐原版）",
+                     mode, mode ? "翻棋暗棋" : "布局明棋");
+            } else if (nact == 2) {         /* 确定：随模式开局（两人热座，AI 不介入） */
+                g_vs_ai = 0;
+                pthread_mutex_lock(&g_mutex);
+                jq_restart_game();
+                pthread_mutex_unlock(&g_mutex);
+                ui_screen_set(UI_GAME);
+                sfx_play(env, "over");
+                LOGI("OnTouch 新局弹窗：确定 → 开局（stage=PLAY 蓝先手，mode=%d %s，两人热座 AI 不介入）",
+                     ui_opt_get_mode(), ui_opt_get_mode() ? "翻棋暗棋" : "布局明棋");
+            } else if (nact == 3) {         /* 取消：回主菜单 */
+                ui_screen_set(UI_MENU);
+                sfx_play(env, "pop");
+                LOGI("OnTouch 新局弹窗：取消 → 回主菜单（不开局）");
+            }
+            (void)clazz;
+            return JNI_TRUE;
+        }
+        if (!ui_newgame_popup_inside(bx, by)) {
+            ui_screen_set(UI_MENU);
+            LOGI("OnTouch 新局弹窗外（bx=%.0f by=%.0f）→ 回主菜单", bx, by);
             sfx_play(env, "pop");
         }
         (void)clazz;

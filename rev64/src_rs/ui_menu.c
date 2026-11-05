@@ -110,7 +110,7 @@ void ui_menu_action_log(int action)
     case 1: LOGI("UI菜单：两人对战 → 直开局（★ 原版 UI 对齐：两人无难度弹窗，orig_two 截图自证）"); break;
     case 2: LOGI("UI菜单：联网对战（占位，SPP socket 由 Java 宿主承担）"); break;
     case 3: LOGI("UI菜单：四国军棋（占位，未实现四国规则）"); break;
-    case 4: LOGI("UI菜单：悔棋重开 → restart（default.lay）"); break;
+    case 4: LOGI("UI菜单：四国军棋 → UI_NPLAYER 四国人数选择弹窗（★ P0 datah_089 证据：2/3/4 人 3 按钮，诚实边界）"); break;
     default: break;
     }
 }
@@ -236,4 +236,62 @@ int ui_set_popup_inside(float x, float y)
 {
     return x >= UI_SETTINGS_POPUP_X0 && x <= UI_SETTINGS_POPUP_X0 + UI_SETTINGS_POPUP_W &&
            y >= UI_SETTINGS_POPUP_Y0 && y <= UI_SETTINGS_POPUP_Y0 + UI_SETTINGS_POPUP_H;
+}
+
+/* ★ P0（datah_089 证据）：四国人数选择弹窗——2/3/4 人 3 按钮（无 text 标签，纯数字）。
+   几何 720×1280 基准：面板 245,525-475,755（datah_089 230×230 居中，偏移+245,+525；
+   局部 1:1 平移：2 人 15,15,215,75 → 260,540-460,600；3 人 15,85,215,145 → 260,610-460,670；
+   4 人 15,155,215,215 → 260,680-460,740）。★ 诚实边界：四国=未实现 4 方规则。 */
+static const ui_nplayer_btn g_nplayer_btns[UI_NPLAYER_COUNT] = {
+    /* x0, y0, x1, y1, action；★ 原版 datah_089 230 坐标系精确换算（面板 230×230 居中 720，偏移+245,+525） */
+    { 260.0f, 540.0f, 460.0f, 600.0f, 0 },   /* 2 人 */
+    { 260.0f, 610.0f, 460.0f, 670.0f, 1 },   /* 3 人 */
+    { 260.0f, 680.0f, 460.0f, 740.0f, 2 },   /* 4 人（默认：四国=4 人） */
+};
+
+const ui_nplayer_btn *ui_nplayer_buttons(void) { return g_nplayer_btns; }
+
+int ui_nplayer_hit(const ui_nplayer_btn *btns, int n, float x, float y)
+{
+    for (int i = 0; i < n; i++) {
+        if (x >= btns[i].x0 && x <= btns[i].x1 && y >= btns[i].y0 && y <= btns[i].y1)
+            return i;
+    }
+    return -1;
+}
+
+int ui_nplayer_popup_inside(float x, float y)
+{
+    return x >= UI_NPLAYER_POPUP_X0 && x <= UI_NPLAYER_POPUP_X0 + UI_NPLAYER_POPUP_W &&
+           y >= UI_NPLAYER_POPUP_Y0 && y <= UI_NPLAYER_POPUP_Y0 + UI_NPLAYER_POPUP_H;
+}
+
+/* ★ P0（datah_062 证据）：两人新局简化弹窗——玩法(Lay)/明暗棋(Show)/确定/取消 4 控件。
+   几何 720×1280 基准：面板 135,482.5-585,797.5（datah_062 450×315 居中，偏移+135,+482.5；
+   局部 1:1 平移：玩法 220,75,420,135 → 355,557-555,617；明暗棋 220,150,420,210 →
+   355,632-555,692；确定 30,235,210,295 → 165,717-345,777；取消 240,235,420,295 → 375,717-555,777）。
+   ★ 诚实边界：两人热座（AI 不介入）；默认翻棋暗棋（对齐原版 g_opt_mode 默认 1）。 */
+static const ui_newgame_btn g_newgame_btns[UI_NEWGAME_COUNT] = {
+    /* x0, y0, x1, y1, action；★ 原版 datah_062 450 坐标系精确换算（面板 450×315 居中 720，偏移+135,+482.5） */
+    { 355.0f, 557.0f, 555.0f, 617.0f, 0 },   /* 玩法 Lay（明棋/翻棋暗棋切换，默认翻棋暗棋） */
+    { 355.0f, 632.0f, 555.0f, 692.0f, 1 },   /* 明暗棋 Show（同玩法切换） */
+    { 165.0f, 717.0f, 345.0f, 777.0f, 2 },   /* 确定 Ok（随模式直开局） */
+    { 375.0f, 717.0f, 555.0f, 777.0f, 3 },   /* 取消 Cancel（回主菜单） */
+};
+
+const ui_newgame_btn *ui_newgame_buttons(void) { return g_newgame_btns; }
+
+int ui_newgame_hit(const ui_newgame_btn *btns, int n, float x, float y)
+{
+    for (int i = 0; i < n; i++) {
+        if (x >= btns[i].x0 && x <= btns[i].x1 && y >= btns[i].y0 && y <= btns[i].y1)
+            return i;
+    }
+    return -1;
+}
+
+int ui_newgame_popup_inside(float x, float y)
+{
+    return x >= UI_NEWGAME_POPUP_X0 && x <= UI_NEWGAME_POPUP_X0 + UI_NEWGAME_POPUP_W &&
+           y >= UI_NEWGAME_POPUP_Y0 && y <= UI_NEWGAME_POPUP_Y0 + UI_NEWGAME_POPUP_H;
 }

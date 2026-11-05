@@ -16,6 +16,7 @@ L2343c: {uint32_t a_=r0,b_=0; r1=(a_+b_); Z=(r1==0); C=(r1<a_); N=((r1)>>31)&1; 
 L2343e: r3=(144448+r3);
 L23440: r0=MEM(r3);
 L23442: r0=F_bdd2c(r0,r1,r2,r3,r4,r5,r6,r7,r8,r9,r10,r11,sp); /* bl 0xbdd2c 完整 */
+    { static int _td=0; if(_td++ < 0x40) __android_log_print(4, JQT_LOG_TAG, "OnTouch: F_bdd2c 返回 r0=0x%08x tid=%d", r0, (int)gettid()); }
 L23446_l0: r4=MEM(sp+0);
 L23446: sp+=(1*4); /* pop {r4, pc} */
 L23446_r: goto RET;

@@ -59,7 +59,10 @@ if [[ $RESTART -eq 1 ]]; then
   done
   sleep 2
   log "菜单进对局（tap 448,1089 人机按钮；★ 原版 UI 对齐：人机 → 直开局，无难度弹窗）"
+  # ★ 暗棋默认对齐（原版人机=暗棋）：测试走明棋强制 jq.mode=0（默认暗棋 mode=1 会先翻牌）
+  adb -s $DEV shell setprop jq.mode 0 >/dev/null 2>&1
   tap_until 448 1089 "OnTouch 菜单进对局" 6 || { log "★ 菜单进对局失败（触摸 flaky）"; exit 1; }
+  adb -s $DEV shell setprop jq.mode "" >/dev/null 2>&1
 fi
 
 # 批量走子序列

@@ -15,6 +15,12 @@ typedef enum {
                        蓝牙联机/Wi-Fi 联机/个人资料/返回 4 按钮 */
     UI_SETTINGS,   /* ★ 对抗审计（datah_001 证据）：声音设置弹窗——
                        静音模式/按键声音/音量 + 确定/取消 */
+    UI_NPLAYER,    /* ★ P0（datah_089 证据）：四国人数选择弹窗——
+                       2/3/4 人 3 按钮（原版 datah_089 230×230 面板）。
+                       诚实边界：选人数 → 边界对话框（4 方规则未实现）→ 回主菜单 */
+    UI_NEWGAME,    /* ★ P0（datah_062 证据）：两人新局简化弹窗——
+                       玩法(Lay)/明暗棋(Show) + 确定/取消 4 控件（原版 datah_062 450×315 面板）。
+                       两人热座（AI 不介入）；取消 → 回主菜单 */
 } ui_screen;
 
 /* ★ 声音设置弹窗（对抗审计 datah_001 证据：静音模式/按键声音/音量/确定/取消）。
@@ -104,5 +110,45 @@ int ui_imen_popup_inside(float x, float y); /* 点在菜单面板内 */
 const ui_imen_btn *ui_imen_bt_buttons(void);
 /* ☰ / ↩ 图标命中区域（棋盘中部，720×1280 基准；原版 ~(270,900)/(620,900) 屏幕） */
 void ui_imen_icon_rect(int which, float *x0, float *y0, float *x1, float *y1);
+
+/* ★ P0（datah_089 证据）：四国人数选择弹窗——2/3/4 人 3 按钮。
+   几何 720×1280 基准（datah_089 230×230 面板居中，偏移=(720-230)/2=245,(1280-230)/2=525；
+   局部 1:1 平移：按钮 15,15,215,75 / 15,85,215,145 / 15,155,215,215 →
+   720 系 260,540-460,600 / 260,610-460,670 / 260,680-460,740）。
+   action：0=2 人 1=3 人 2=4 人（默认 4）。★ 诚实边界：四国 4 方规则未实现（src_rs=10×9 两人军棋）。 */
+#define UI_NPLAYER_COUNT 3
+#define UI_NPLAYER_POPUP_X0 245.0f
+#define UI_NPLAYER_POPUP_Y0 525.0f
+#define UI_NPLAYER_POPUP_W  230.0f
+#define UI_NPLAYER_POPUP_H  230.0f
+typedef struct {
+    float x0, y0, x1, y1;   /* 按钮矩形（720×1280 基准） */
+    int action;             /* 0=2 人 1=3 人 2=4 人 */
+} ui_nplayer_btn;
+
+const ui_nplayer_btn *ui_nplayer_buttons(void);   /* 3 按钮（静态表） */
+int ui_nplayer_hit(const ui_nplayer_btn *btns, int n, float x, float y);  /* 命中 0-2，-1 无 */
+int ui_nplayer_popup_inside(float x, float y);   /* 点在弹窗面板内 */
+
+/* ★ P0（datah_062 证据）：两人新局简化弹窗——玩法(Lay)/明暗棋(Show)/确定/取消 4 控件。
+   几何 720×1280 基准（datah_062 450×315 面板居中，偏移=(720-450)/2=135,(1280-315)/2=482.5；
+   局部 1:1 平移：玩法 220,75,420,135 / 明暗棋 220,150,420,210 /
+   确定 30,235,210,295 / 取消 240,235,420,295 →
+   720 系 355,557-555,617 / 355,632-555,692 / 165,717-345,777 / 375,717-555,777）。
+   action：0=玩法切换（明棋/翻棋暗棋循环）1=明暗棋切换（同玩法切换）2=确定（随模式开局）3=取消（回主菜单）。
+   ★ 诚实边界：两人热座（AI 不介入），非四国/非 AI。 */
+#define UI_NEWGAME_COUNT 4
+#define UI_NEWGAME_POPUP_X0 135.0f
+#define UI_NEWGAME_POPUP_Y0 482.5f
+#define UI_NEWGAME_POPUP_W  450.0f
+#define UI_NEWGAME_POPUP_H  315.0f
+typedef struct {
+    float x0, y0, x1, y1;   /* 按钮矩形（720×1280 基准） */
+    int action;             /* 0=玩法 1=明暗棋 2=确定 3=取消 */
+} ui_newgame_btn;
+
+const ui_newgame_btn *ui_newgame_buttons(void);   /* 4 控件（静态表） */
+int ui_newgame_hit(const ui_newgame_btn *btns, int n, float x, float y);  /* 命中 0-3，-1 无 */
+int ui_newgame_popup_inside(float x, float y);   /* 点在弹窗面板内 */
 
 #endif
