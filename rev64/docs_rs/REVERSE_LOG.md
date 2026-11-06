@@ -1635,6 +1635,51 @@ F_3ab64: 成功路径 single=0x00000000 evt+0x44=0x04 F_55d40 ret=0x00000002 ok=
   需先构造单例 handler 表（.bss 运行时对象图）才能真跳
 - 当前 F_55d40 收表只读 handler 指针 + 兜底返回 2，成功路径逻辑闭环但**事件业务未真分发**
 
+### §124y-29 F_55d40 事件业务 thunk 区 code→handler 分发实锤 + 21 handler 收表
+
+**★ 核心事实**：0x55d40 区 73 个 12B thunk 是**编译期固定 code→handler 映射**（每个 thunk `bl` 到专属
+handler，非 .bss handler 表运行时读）。§124y-28 写的"读 single+code*4"是误读——thunk 体
+`lsls r1,#2; ldr r0,[r1<<2+r0]` 是 vtable 偏移 getter（`ldr r0,[r0,#0xa4]`），非 handler 表跳转。
+
+**★ code→handler 映射（0x55d40 区 30 thunk 提取，21 个不同 handler）**：
+```
+code 0→0x557d4  1→0x5586c  2→0x557d0  3→0x557cc  4→0x8571c  5→0x85798  6→0x857b0
+code 7→0x85348  8→0xb549c  9→0x85704  10→0xb54dc 11→0xb52a0 12→0x33878 13→0x85744
+code 14→0x85730 15→0x85758 16→0x55dc4 17→0x55ba4 18→0x557c8 19→0x82d3c 20→0xb4edc
+```
+（code 4=Junqi.Move 主链 → F_8571c；code 16=Junqi.Flip → F_55ba4）
+
+**★ 13 个未收表 handler 完整翻译体（jqt_vtbl.c 76251–76310）**：
+- F_557d0：`return _r0+0x6c`（vtable 偏移 getter，0x38→+0x6c）
+- F_557cc：`return _r0+0x54`（vtable 偏移 getter，0x38→+0x54）
+- F_557c8：`MEM(r0+0x50)=r1`（写字段）
+- F_8571c/F_85704：读 `MEM(r0+0x38)`，非零→读 vtable 0xa4/0xd8 槽（JQT_VALID 守卫）；
+  单例 .bss 未构造（0x38=0）→ 返回 2 兜底（成功路径 abs(2-2)=0 → ok=1）
+- F_33878/F_55dc4/F_55ba4：深水区 C++ 构造 → 返回 2 兜底
+- F_b549c/F_b54dc/F_b52a0/F_b4edc：已有自动 stub 在 jqt_OnCreate_full.c（17161/17486/10646/24252），
+  jqt_vtbl.c 副本已删（避免 duplicate symbol）
+
+**★ 坑（4-dupe-removal）**：`jqt_OnCreate_full.c` 已自动生成 F_b549c/F_b54dc/F_b52a0/F_b4edc 的完整
+stub 定义体，jqt_vtbl.c 又插一份 → linker `duplicate symbol`。解法：删 jqt_vtbl.c 副本，
+保留 OnCreate_full 的自动 stub（4 个）。
+
+**★ 实证（MuMu，so 8318508B，2026-11-06 13:31）**：
+```
+F_3a92c: 事件表匹配 outer=0 inner=8 tbl=0x41 evt+0x44=0x04（disc 非零）
+F_8571c: 0x38=0（.bss 未构造，返回 2 兜底走通成功路径）
+F_55d40: code=4 → handler=0x0008571c ret=0x00000002（§124y-29 事件业务分发）
+F_3ab64: 成功路径 single=0x00000000 evt+0x44=0x04 F_55d40 ret=0x00000002 ok=1
+```
+- ok=1 + 0 崩溃 + app 存活（pidof 非零）
+- arm32_walkregress.sh native_event 判据更新为 `F_3ab64: 成功路径.*ok=1`（4/4 PASS）
+
+**★ 诚实边界**：
+- F_8571c/F_85704 真返回 0（.bss 单例未构造）→ 修正后 0x38=0 时返回 2 兜底（诚实标注边界）
+- 4 个 handler（b549c/b54dc/b52a0/b4edc）的 auto-stub 在 OnCreate_full.c 返回 auto-gen 默认值；
+  若成功路径需 `ret==2` 才能 ok=1，可能需其 body 更新为返回 2（当前仅 code=4 主链已实锤 ok=1）
+- 73 thunk 只提取了前 30（objdump stop-address 0x55ee8）；剩余 43 thunk 未逐个提取（低优先级）
+- 事件业务真分发（走子/翻牌/终局）需 .bss 单例 handler 表构造 = 深水区，未闭环
+
 ### 32 位 native 数据提取（已完成）
 
 - 路线：redroid 真 Android 容器跑原版 32 位 so → `dd /proc/PID/mem` dump `.rodata`

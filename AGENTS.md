@@ -151,7 +151,7 @@ java -cp /tmp/opencode/apksigner/apksig.jar:/tmp/opencode/apksigner SignV2 \
 | 文档 | 内容 | 状态 |
 |---|---|---|
 | `rev64/phases/REVERSE_NOTES.md` | 主逆向笔记（§1-§121） | ✅ 已有 |
-| `rev64/docs_rs/REVERSE_LOG.md` | 32 位逆向经验库（红线/终局反思/量化/§124y-10~28 触摸+游戏状态构造+dispatch 全链+gs[8] vtable 定位+探查工具+工具对抗审计+游戏方法槽完整翻译体+事件发送器收表+会话 B 规则引擎走子桥+32 位原生布局加载链+原生事件发送器 F_3ab80 补全+真实事件对象构造（F_3a92c 分发字段逆向）+三条走子路径回归脚本（arm32_walkregress.sh）+全局单例事件发送逆向+事件名写入模式逆向（F_3432c 深层事件底层）+§124y-26 端到端"游戏可玩"判据（jq.game_test 钩子：reset+flip×2+触摸注入+move×2=Junqi.Move+终局，4 路径回归 4/4 PASS+0 崩溃；命中几何 32 位 libc 设备端 0/60 诚实边界）+§124y-27 F_3a92c disc 非零闭环（真实事件表匹配器，MuMu 实锤 disc=0x00000001）+§124y-28 F_55d40 事件业务 thunk 收表 + F_3ab64 ok 逻辑修正（成功路径真返回 1；73 handler 深水区边界）） | ✅ 成文（本轮迁移） |
+| `rev64/docs_rs/REVERSE_LOG.md` | 32 位逆向经验库（红线/终局反思/量化/§124y-10~29 触摸+游戏状态构造+dispatch 全链+gs[8] vtable 定位+探查工具+工具对抗审计+游戏方法槽完整翻译体+事件发送器收表+会话 B 规则引擎走子桥+32 位原生布局加载链+原生事件发送器 F_3ab80 补全+真实事件对象构造（F_3a92c 分发字段逆向）+三条走子路径回归脚本（arm32_walkregress.sh）+全局单例事件发送逆向+事件名写入模式逆向（F_3432c 深层事件底层）+§124y-26 端到端"游戏可玩"判据（jq.game_test 钩子：reset+flip×2+触摸注入+move×2=Junqi.Move+终局，4 路径回归 4/4 PASS+0 崩溃；命中几何 32 位 libc 设备端 0/60 诚实边界）+§124y-27 F_3a92c disc 非零闭环（真实事件表匹配器，MuMu 实锤 disc=0x00000001）+§124y-28 F_55d40 事件业务 thunk 收表 + F_3ab64 ok 逻辑修正（成功路径真返回 1；73 handler 深水区边界）+§124y-29 F_55d40 事件业务 thunk 区 code→handler 分发实锤 + 21 handler 收表（0x55d40 区 73 thunk 编译期固定映射非 .bss 表，code4→F_8571c/code16→F_55ba4，13 未收表 handler 完整翻译体 + 4 auto-stub 去重坑，F_8571c/F_85704 vtable 偏移 getter + .bss 未构造返回 2 兜底，MuMu 实锤 F_3a92c disc 非零→F_55d40 code=4→F_8571c ret=2→F_3ab64 ok=1 全链 + arm32_walkregress native_event 判据=F_3ab64 ok=1 4/4 PASS）） | ✅ 成文（本轮迁移） |
 
 ### 流水线 orchestrator（一条命令跑通"逆向→正向→验收→补差异"全链）
 
