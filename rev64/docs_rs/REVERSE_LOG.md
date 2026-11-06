@@ -2013,16 +2013,16 @@ python3 /tmp/opencode/incremental_regress.py reset 0xADDR  # 改了某指令 →
    - ⑥ `bl F_33684(sgl, [evt+0x16c])` → 底层 0x34918（发送）
    - 成功路径后续校验：`cmp [evt+0x16c], [evt+0x44]; bne 3abb2`（事件名字段 vs 事件码二次校验，不匹配跳失败兜底）
 
-2. **sgl 槽精确核对**：
+2. **sgl 槽精确核对（5 底层函数全量）**：
    - 翻译体 F_3ab80 用 `MEM(0x15b0c4)`（.data 文件态=0，无 RELATIVE 槽，C++ 构造填）
-   - 原版 F_33790/F_3376c/F_336ec/F_336c8/F_33684 的池值（0x12884a/0x12886e/0x1288ee/0x128912/…）
-     经 `pool[addr]+pc` 精算 → 分别指向 **0x15beac/0x15bfe0/0x15bfe2**（.bss 惰性区，非 .data）
-   - 翻译体 sgl=0x15b0c4（.data 惰性，文件态 0）≠ 原版 sgl=0x15beac/.bss（运行时 scudo）
-   - **差异原因**：sgl 是全局事件底层 C++ 对象指针（构造时填 scudo 堆），0x15b0c4 是 .data 区静态槽
-     （文件态 0，运行时 C++ 构造填 scudo），0x15beac 是 .bss 区另一惰性槽
-     ——两者都是"未构造时=0，构造后=scudo 指针"，读 0 等价，不影响 4 路径回归
-   - 精确语义：原版 sgl 槽地址域=.bss（0x15beac/0x15bfe0/0x15bfe2），翻译体=.data（0x15b0c4）
-     需后续 frida/unidbg 实锤运行时 sgl 实际指向哪个 scudo 块
+   - 原版 5 个底层函数 sgl 池值（F_33790 pool@0x337ac / F_3376c@0x33788 / F_336ec@0x33708 /
+     F_336c8@0x336e4 / F_33684@0x336a0，各 `pool[addr]+pc` 精算）→ **全部 = 0x15bfe0（.bss 惰性）**
+   - 翻译体 sgl=0x15b0c4（.data 惰性，文件态 0）≠ 原版 sgl=0x15bfe0（.bss 惰性，运行时 scudo）
+   - **差异原因**：sgl 是全局事件底层 C++ 对象指针（构造时填 scudo 堆），0x15b0c4 是 .data 区
+     C++ 单例槽（F_3a92c 事件表基址，§124y-27 实锤 [0x15b640]=0x15af08），0x15bfe0 是 .bss 区
+     底层单例槽（构造时填 scudo）——两者都是"未构造时=0，构造后=scudo 指针"，读 0 等价，不影响 4 路径回归
+   - 精确语义：原版 5 底层 sgl 槽地址域=.bss（0x15bfe0），翻译体=.data（0x15b0c4）
+     需后续 frida/unidbg 实锤运行时 0x15bfe0 实际 scudo 块地址
 
 3. **事件表基址链精确重算（§124y-27 核对）**：
    - F_3a92c：`pool[0x3a978]=0x120790 + pc(0x3a934) = 0x15b0c4`（事件表单例槽 s1）
