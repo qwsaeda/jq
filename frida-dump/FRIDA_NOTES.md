@@ -610,3 +610,6 @@ OnUpdate @0xbd5a0 (JNI 入口, §124y-100)
    是 C++ enum 2 字节/多字节对齐编码，读枚举值时须 lsls 还原（勿把编码后值 310 当直接枚举值 155）
 8. .bss 区 0 REL 槽（§124y-71/125 实锤）：.bss 全段 0 REL（4800+458+42 全在 .bss 外），
    .bss 目标一律 NOBITS scudo 运行时填，静态读 = 全 0 / 读到 .comment 字节（§124y-32 坑），勿静态判值
+9. C++ 缓冲区追加模式（§124y-134 实锤，thunk 4 模式外第 5 模式）：`memcpy + 指针递增 this[off]+=len`
+   = std::vector/buffer append 语义（读 this 4 字段 + 负长度保护 cmp+bcs + blx memcpy + str [this+8]），
+   OnUpdate 主循环调 0xb7eb0 追加事件/数据到 C++ buffer（非事件表匹配，§124y-134 澄清）
