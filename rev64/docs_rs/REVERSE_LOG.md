@@ -4194,3 +4194,50 @@ python3 /tmp/opencode/incremental_regress.py reset 0xADDR  # 改了某指令 →
 - .data.rel.ro 216 槽 vtable 表的完整 C++ 对象图（216 个 vtable 对应哪些 C++ 类）需
   unidbg 补重定位 + frida dump 运行时 C++ 对象虚表实锤（本轮实锤 addend 分布 + vtable 布局）
 - .got 区 100 槽 .bss addend（scudo 指针）需 frida dump .bss 0x15be80-0x162e88 全量实锤
+
+## §124y-94 PLT 符号 214 分类全量实锤（C 93 + 其它 57 + GLES2 35 + pthread 17 + 网络 12）+ GLOB_DAT 6 符号实锤
+
+**★ 闭环事实（静态实锤，214 JUMP_SLOT + 6 GLOB_DAT 全量符号分类）**：
+
+1. **214 PLT 符号 5 类分组实锤**：
+   | 类 | 数量 | 代表符号 |
+   |---|---|---|
+   | C 标准库 | 93 | malloc/free/memcpy/printf 系/字符串/文件 IO/数学 |
+   | 其它（C 扩展/Android/系统） | 57 | `__android_log_print`（Android log）/ `mmap/munmap`（内存映射）/ `opendir/readdir`（目录）/ `select/setjmp`（系统调用）/ `localtime/mktime/strftime`（时间）/ `snprintf/vsnprintf`（格式化）/ `tanf/acosf/cosf/sqrtf/powf/expf`（数学浮点） |
+   | **GLES2** | **35** | `glAttachShader/glGetShaderiv/glClear/glDisable/glEnable/glBlendFuncSeparate/glDeleteProgram` 等 |
+   | pthread | 17 | `pthread_attr_init/pthread_mutex_init/pthread_key_create/clock_gettime/sem_init` |
+   | 网络（socket） | 12 | `bind/connect/send/recv/socket/setsockopt/getaddrinfo/freeaddrinfo` 等 |
+
+2. **原版 native 层能力全量实锤**（从 PLT 符号推断）：
+   - **GLES2 渲染**（35 符号）：原版 .so 用 **GLES2**（`glAttachShader/glGetShaderiv` 等 shader 编译 API），非 AGENTS.md 标注的 `libGLESv1_CM.so` GL1
+     - **重要修正**：AGENTS.md 的"libGLESv1_CM.so（GL1 渲染）"认知 → 实锤 35 个 **GLES2** 符号（GL2 shader/program 系），原版 native 实际用 **GL2**
+   - **socket 网络**（12 符号）：`connect/bind/send/recv` = 原版 native 层有**联机 socket 逻辑**（蓝牙/网络对局，§蓝牙联机 SPP 对应）
+   - **mmap/munmap**（2 符号）：原版 native 有**内存映射**（资源加载/大内存分配）
+   - **`__android_log_print`**：原版 native 有 **Android logcat 输出**（诊断日志）
+   - **pthread 17**：多线程（渲染线程/游戏逻辑线程分离，§124y-65 的 pthread_mutex_init 对应）
+
+3. **6 GLOB_DAT 符号实锤**（全局变量指针，静态值全 0，运行时 dlopen 填）：
+   | 槽 | 符号 | 语义 |
+   |---|---|---|
+   | 0x15b488 | `__stack_chk_guard` | **栈保护（stack canary）**，原版 .so 启用 -fstack-protector |
+   | 0x15b4bc | `__sF` | C 标准库全局 FILE 表（stdio） |
+   | 0x15b51c | `_toupper_tab_` | C 字符大写转换表 |
+   | 0x15b620 | `_tolower_tab_` | C 字符小写转换表 |
+   | 0x15b764 | `_ctype_` | C 字符类型表 |
+   | 0x15b7d8 | `__dso_handle` | **__aeabi_atexit 析构注册 DSO 句柄**（§124y-67 实锤 atexit 析构链对应） |
+   - 即 6 GLOB_DAT = 栈保护 + C 字符表 + atexit DSO 句柄（C++ 运行时全局）
+
+4. **§124y-67 的 atexit 析构链 GLOB_DAT 对应实锤**：
+   - `__dso_handle`（GLOB_DAT 0x15b7d8）= `__aeabi_atexit(dso, obj, destructor, arg)` 的 DSO 句柄参数
+   - 即 §124y-67 实锤的 12 处 `blx __aeabi_atexit` 调用点用 `__dso_handle` 作 DSO 参数（本轮实锤 GLOB_DAT 槽）
+
+### 修正 AGENTS.md 的 GL 版本认知
+- AGENTS.md 标注"libGLESv1_CM.so（GL1 渲染）"→ 实锤 35 个 **GLES2** PLT 符号（`glAttachShader/glGetShaderiv/glDeleteProgram` 等 GL2 shader/program API）
+- 即原版 native 实际用 **GL2（OpenGLES2）**，依赖 `libGLESv2.so`（非 GL1 的 `libGLESv1_CM.so`）
+- AGENTS.md 的 GL1 认知是**错误**（本轮 PLT 符号实锤纠正）
+
+### 诚实边界
+- 35 个 GLES2 符号的完整渲染 pipeline（shader 编译/绑定/绘制调用顺序）需查 .text 渲染函数全量反汇编
+  （本轮实锤符号存在性，未实锤渲染逻辑调用序）
+- `mmap/munmap` 的内存映射用途（资源 pak 加载 vs 大内存分配）需查调用点实锤
+- `__stack_chk_guard` 栈保护 = 原版 .so 编译启用 -fstack-protector（翻译体/jqt 需对应实现防栈溢出检测）
