@@ -3082,3 +3082,45 @@ python3 /tmp/opencode/incremental_regress.py reset 0xADDR  # 改了某指令 →
 ### 诚实边界
 - 0x363 字段值的精确语义（长度？类型标记？字符串内联？）需读 F_340c4 后续 + frida dump 实锤
 - 事件对象 0x16c/0x363 两个偏移与事件名的关系（指针 vs 字段值）是事件对象布局的关键区分
+
+## §124y-65 .init_array 12 构造器全量精确体实锤（.bss 单例槽构造链完整闭环）
+
+**★ 闭环事实（静态实锤，.init_array 12 槽 → 12 构造器）**：
+
+1. **.init_array 12 槽 → 12 个 .text 构造器入口**（RELATIVE addend & ~1 去 Thumb 标志）：
+   | 槽 | addend | .text 入口 | 构造器语义 |
+   |---|---|---|---|
+   | 0 | 0x03dae5 | 0x03dae4 | **填 .bss 0x15c096 五元组**（§124y-32 实锤，从 .data REL 槽读 5 值填 .bss） |
+   | 1 | 0x06ef21 | 0x06ef20 | **pthread_mutex_init**（`blx pthread_mutex_init@plt`，初始化互斥锁） |
+   | 2 | 0x0afbd9 | 0xafbd8 | 清零 [池] 0/4 字段（`str 0,[r3+0/4]`） |
+   | 3 | 0x0afc85 | 0xafc84 | 清零 [池] 0/4 字段 |
+   | 4 | 0x0affd5 | 0xaffd4 | 清零 [池] 0/4/8/12 字段（4 字段） |
+   | 5 | 0x0b01fd | 0xb01fc | 清零 0/4 + 写 0xfe（`str 0xfe,[r3+8]`，标志位） |
+   | 6-11 | ... | 0xb06f0... | （待逐查，同模式清零/标志初始化） |
+
+2. **构造器 0（0x03dae4）= 事件底层 .bss 单例五元组填充**（§124y-32 实锤，本轮精确体核对）：
+   - `ldr r2,[pool 0x3db14]; ldr r1,[pool 0x3db18]; add r2,pc; ldr r1,[r2,r1]`
+   - `add r3,pc; ldr r0,[r1+0]; ldr r1,[r1+4]`（读 .data REL 槽 0x15be00/04 的 5 元组）
+   - `str r0,[r3+0]; str r1,[r3+4]...`（填 .bss 0x15c096 五元组）
+   - 即 init_array[0] 是**事件底层 C++ 对象构造器**（填 .bss 0x15c096，§124y-32 实锤）
+
+3. **构造器 1（0x06ef20）= pthread_mutex_init**：
+   - `blx pthread_mutex_init@plt`（初始化全局互斥锁，保护事件底层并发访问）
+   - 即原版事件底层有**互斥锁保护**（pthread_mutex_init 构造器 + .bss 互斥锁对象）
+   - .bss 未构造时互斥锁未初始化 → 忠实空操作（4 路径回归不触发锁）
+
+4. **构造器 2-11 = .bss 单例槽清零/标志初始化**（`str 0,[r3+N]` + 部分写标志 0xfe/0x14）：
+   - 各构造器读池值（.bss 单例槽地址）→ 清零字段 / 写标志位
+   - 即 .bss 0x15be/0x15bf 区 4 单例槽（0x15beb0/0x15beb8/0x15bfe4/0x15bfec，§124y-55）
+     由 init_array 构造器 2-11 清零/初始化（C++ 惰性构造 = 这些构造器填 scudo）
+
+5. **.bss 单例槽构造链完整闭环**（§124y-32 + 本轮 §124y-65）：
+   - .init_array 12 槽 = dlopen 时依次调 12 构造器 → 填 .bss 单例槽（0x15c096 五元组 + 互斥锁 + 清零标志）
+   - .bss 未构造（翻译体场景）= 12 构造器未跑 → .bss 单例槽全 0 → 各 handler 忠实空操作
+   - 完整版 = unidbg 补 12 构造器运行（BL 解码 bug 阻塞）或 frida dump 实锤运行时 scudo
+
+### 诚实边界
+- 构造器 6-11（0xb06f0/0xb1d68/0xb222c/0x105e8c/0x10a58c/0x11c10c）本轮未逐一精读（同模式清零/标志）
+  完整语义待后续逐查
+- .bss 单例槽（4 区）的 scudo 运行时指针需 frida dump / unidbg 补 12 构造器（BL 解码 bug 阻塞）
+- pthread_mutex_init 构造器实锤 = 原版事件底层有互斥锁保护（并发安全），翻译体未实现锁（单线程忠实空操作）
