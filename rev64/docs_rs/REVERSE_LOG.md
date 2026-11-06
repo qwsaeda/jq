@@ -4893,3 +4893,43 @@ python3 /tmp/opencode/incremental_regress.py reset 0xADDR  # 改了某指令 →
   + dump [0x44] 实锤（本轮实锤 42 code → 24 handler 复用关系，未实锤 17 事件码逐码业务）
 - 24 handler 的完整 C++ 逻辑（各事件码的业务处理）需查 .text 全量反汇编 + frida 追踪
   （§124y-33/36 实锤忠实体，未实锤 handler 内部完整逻辑）
+
+## §124y-117 F_55d40 thunk 区 0x55d40-0x55dc4 精确实锤（codes 复用 handler 的 C++ 虚函数 thunk 模式）
+
+**★ 闭环事实（静态实锤，F_55d40 switch 区 0x55d40-0x55dc4 thunk 体精确实锤）**：
+
+1. **thunk 区 0x55d40-0x55dc4 的 C++ 虚函数 thunk 模式实锤**（§124y-29/30/31 实锤 codes 复用 handler）：
+   - **直接 thunk**（`bl handler; pop`，codes 0/2/3 等）：`push {r4,lr}; bl F_xxx; pop`
+   - **寄存器搬移 thunk**（`lsls r1,#2; ldr r0,[r1,r0]`，codes 7/8/9/10 等）：
+     - `lsls r1,r1,#2`（r1 = 事件对象×4，4 字节对齐偏移）
+     - `ldr r0,[r1,r0]`（读事件对象 [r0] 字段，r0 = 字段索引）
+     - `bl F_85348`（调共用 handler，事件对象字段作参数）
+     - 即 **codes 7/8/9/10 → F_85348 的 4 thunk = 同一 handler 的 4 个字段搬移变体**
+       （r0 = 字段索引 0/1/2/3，读事件对象 [r0] 后调 F_85348），子状态展开实锤
+   - **带条件 thunk**（`cmp r2,#0; bne`，codes 4/5/6 等）：
+     - `cmp r2,#0; bne`（r2 = 子状态判定）
+     - 非 0 → `bl F_85798`（直接）/ 0 → `movs r1,#0; bl F_857b0`（r1=0 参数）
+     - 即同一 handler 按 r2 子状态分 2 路径（直接/带 0 参数）
+   - **多字段 thunk**（`ldr r0,[r5,#0/4/8/12]` 循环，codes 20-23 等）：
+     - `push {r4-r6}; ldr r0,[r0,#0]`（读事件对象首字段）
+     - `bl F_85348 × 4`（读 [r5+0/4/8/12] 4 字段各调 1 次 F_85348）
+     - 即 **codes 20-23 的 4 thunk = F_85348 的 4 字段批量处理变体**（事件对象 4 字段各调 handler）
+
+2. **thunk 区 4 种 C++ 虚函数模式实锤（§124y-117 全量）**：
+   | thunk 模式 | 代码 | 对应 codes | 语义 |
+   |---|---|---|---|
+   | 直接 thunk | `bl handler; pop` | 0/2/3 等独立 code | 直接调 handler |
+   | 寄存器搬移 | `lsls r1,#2; ldr r0,[r1,r0]; bl handler` | 7/8/9/10（→F_85348） | 字段索引 r0 × handler 复用 |
+   | 带条件 | `cmp r2,#0; bne; bl handler(0)` | 4/5/6（→F_85798/857b0） | 子状态 r2 分 2 路径 |
+   | 多字段批量 | `ldr r0,[r5,#0/4/8/12]; bl handler ×4` | 20-23（→F_85348） | 4 字段各调 handler |
+
+3. **与 §124y-115 的 42 code → 24 handler 对上**：
+   - codes 7/8/9/10 → F_85348（4 thunk = 寄存器搬移 4 变体，r0=字段索引 0/1/2/3）
+   - codes 20-23 → F_55dc4（4 thunk = 多字段批量 4 变体，读 [r5+0/4/8/12]）
+   - 即多 code 共用 1 handler = **同一 handler 的字段索引/批量处理变体**（§124y-115 的子状态展开实锤）
+
+### 诚实边界
+- 4 thunk 模式（直接/寄存器搬移/带条件/多字段批量）的完整 codes 对应（42+13 全量）需
+  thunk_code_map.py 扩展 codes 53-65 区（§124y-31 实锤 13 case 复用已收表 handler）
+- F_85348/F_85798/F_857b0 等共用 handler 的完整 C++ 逻辑（各字段/子状态处理）需 .text 全量反汇编
+  （§124y-33/36 实锤忠实体，未实锤 handler 内部完整逻辑）
