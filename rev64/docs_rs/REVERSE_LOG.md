@@ -4568,3 +4568,72 @@ python3 /tmp/opencode/incremental_regress.py reset 0xADDR  # 改了某指令 →
   （.bss 中间区 NOBITS，静态文件无值，§124y-71 实锤）
 - 74 事件名 → 事件表 0x121 行的逐行通配掩码映射需 frida dump + 运行时事件触发实锤
   （§124y-102 实锤匹配机制，未实锤 0x121 行全量掩码值）
+
+## §124y-105 本轮（§124y-72~104）经验/规范/反思/复用 总结（33 节闭环沉淀）
+
+### 一、★ 经验（机械化工具 + 公式，防复发）
+
+1. **pc 相对读公式（§124y-72/76/90/102 反复实锤，本轮最高频坑）**：
+   - Thumb `ldr rN,[pc,#K]` 的 pool = 指令地址 + 4 + K（非指令地址 + K）
+   - `add rN,pc` 的 pc = add 指令地址 + 4（下一条指令地址，非指令本身）
+   - **pc 取错 1 处 = 目标错 4~8 字节 = 整节误判**（§124y-63/64/76 三次误判全因 pc 取法）
+   - 固化：`pool = instr_addr + 4 + K`，`tgt = rd(pool) + (add_addr + 4)`（每节精确实锤前先算 pc）
+
+2. **段归属必查（§124y-90/101/103 坑）**：
+   - 算出的目标地址**必须先查 readelf -S 段表落段**（.text/.rodata/.data.rel.ro/.got/.data/.bss），
+     再判语义（.got 槽 vs .data REL 槽 vs .bss scudo 指针，机制完全不同）
+   - §124y-101/103 的 .rodata 0x138xxx / 0x15b644 误判"字符串/REL"，实为 .got 段槽（addend 值）
+
+3. **NOBITS 段无静态值（§124y-71/103 坑）**：
+   - .bss 全段（含中间区 0x170-0x6654）静态文件无值，**任何 .bss 目标 = 需 frida dump**
+   - 算出 .bss 目标后直接标注"需 frida"，不静态读（§124y-71 已实锤，§124y-103 事件表落 .bss）
+
+### 二、★ 规范（收表格式 + 修正惯例）
+
+1. **精确实锤三件套**：每节实锤 = ① pool 值 + pc 精确算目标 ② readelf 查目标落段 ③ 语义判读
+   （非仅"ld r3,[pc]"一行，需算出 + 查段 + 判据）
+2. **修正惯例**：发现前节误判 = 新节"修正 §X 的 Y 认知"（不删旧节，标注修正关系），
+   本轮修正 §124y-59(73→74)/§124y-60(18→0x121)/§124y-66(清零→构造)/§124y-87(Misc码6→4)/
+   §124y-100(pool字符串→addend) 全用此惯例
+3. **AGENTS.md 认知纠正路由**：实锤与 AGENTS.md 旧认知冲突（GL1→GL2、15→14 JNI、
+   "18×17 事件表"）= 新节实锤 + 路由表标记，不直接改 AGENTS.md 正文（单一文档原则）
+
+### 三、★ 反思（本轮 3 类误判根因）
+
+1. **pc 取法误判（§124y-63/64/76）**：`ldr [pc]` 的 pool 偏移 +4 惯例漏算 → 目标错 4 字节
+   → 字符串表基址 0x153038（误）/0x15b0c8（正）等连锁误判。根因 = 未查 ARM ARM 的 Thumb pc 取值。
+2. **段归属误判（§124y-90/101/103）**：算出地址不查 readelf -S 段表 → .got 槽误判 .data REL /
+   .rodata 字符串。根因 = 缺"先查段"步骤。
+3. **NOBITS 误读（§124y-71/103）**：.bss 目标静态读值 → 读到全 0 / .comment 字节。
+   根因 = 未标注 .bss = 运行时 scudo，静态无值。
+
+### 四、★ 复用（本轮固化工具/清单，后续直接用）
+
+| 复用项 | 位置 | 用途 |
+|---|---|---|
+| `frida-dump/bss_dump_align.py` | frida-dump/ | .bss dump 自动对照 16 槽 + 中间区非零比 + scudo 特征 + 判读 |
+| `/tmp/opencode/junqi_event_table.md`（19 部分） | /tmp/opencode/ | 事件数据模型总表（34~104 全链，frida/unidbg 对照基准） |
+| `/tmp/opencode/junqi_events.txt`（74 条） | /tmp/opencode/ | 事件名全量（72 Junqi.* + 2 Misc.* + 偏移 + 前缀 asr4=4） |
+| `so_probe.py vtable/dispatch/slot/reloc/strings` | rev64/tools/ | 32 位 so 静态探查（vtable 槽/函数反汇编/dispatch 表/REL 槽/字符串搜） |
+| `thunk_code_map.py --gen-switch/--return-sem` | rev64/tools/ | F_55d40 code→handler→返回语义 42/24 映射 |
+| FRIDA_NOTES §十二（.bss dump 对照基准 + 12.4 待 dump 清单） | frida-dump/ | frida dump 判读 + 待 dump 运行时值全量清单 |
+
+### 五、★ 本轮全链收表总览（§124y-72~104，33 节）
+
+- **事件表匹配机制**：§124y-102/103（0x121×17 位掩码 + .got 0x15b644 → .bss 0x4704 C++ vector + asr4 匹配）
+- **.bss 段完整布局**：§124y-70/71/72（低区 6 惰性槽 + 中间区 0x4704 事件表 + 高区 0x1625xx 构造器区）
+- **REL 重定位分布**：§124y-81/82/92/93（4800 vtable + 458 .got + 42 .data + 0 .bss）
+- **PLT/GLOB_DAT/导出**：§124y-94/97（214 PLT 分类 + 6 GLOB_DAT + 690 T 导出 + 14 JNI）
+- **去广告 JNI 链**：§124y-86/87/88（SP key + getString + Misc.RemoveAdOk/Fail + 74 事件名）
+- **JNI 入口根对象槽**：§124y-100/101（14 入口读 .bss 0x15be80 根对象 + 0xbdxxx C++ 桥接）
+- **frida 对照基准**：§124y-99（MuMu .bss dump 16 槽 87% 实锤 + bss_dump_align.py）
+
+### 六、诚实边界（累积，全记入 REVERSE_LOG + FRIDA_NOTES §12.4）
+
+- 事件表 0x121×17 全量掩码值需 frida dump .bss 0x160584 区（.bss 中间区 NOBITS）
+- .bss 中间区 ~24KB + 高区 0x1625xx + 低区 5 惰性槽 scudo 运行时指针需 frida dump
+- .got 458 REL 槽 100 个 .bss addend + 216 vtable C++ 对象图需 unidbg 补重定位 + frida 实锤
+- 4800 .data.rel.ro vtable 槽（2563 唯一 addend）需 unidbg 补重定位（§124y-31 BL 解码 bug 阻塞）
+- 74 事件名 → 事件表 0x121 行逐行通配掩码映射需 frida dump + 运行时事件触发实锤
+- 事件对象 [0x48] 匹配字段（asr4 = [0x44]）运行时取值需 frida dump
+- 35 GLES2 渲染 pipeline / 92 广告字符串运行时配置值 / 45 登录字符串字段映射需进一步实锤
