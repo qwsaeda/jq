@@ -354,3 +354,114 @@ int ui_about_hit(const ui_about_btn *b, int n, float x, float y)
 int ui_about_popup_inside(float x, float y)
 { return x>=UI_ABOUT_POPUP_X0&&x<=UI_ABOUT_POPUP_X0+UI_ABOUT_POPUP_W&&
          y>=UI_ABOUT_POPUP_Y0&&y<=UI_ABOUT_POPUP_Y0+UI_ABOUT_POPUP_H; }
+
+/* ★ SPAK2UI 批量（12 弹窗）：战况统计子菜单链 + 玩家/对局/对战方式/创建游戏/版本更新。
+   桌面桩与 ui_menu.c 真实几何表同步（诚实边界占位不包装成"已实现"）。 */
+static const ui_ui44_btn ui44_stub[UI_UI44_COUNT] = {
+    { 65.0f,640.0f,205.0f,700.0f,0 },{ 65.0f,715.0f,205.0f,775.0f,1 },
+};
+const ui_ui44_btn *ui_ui44_buttons(void) { return ui44_stub; }
+int ui_ui44_hit(const ui_ui44_btn *b,int n,float x,float y)
+{ for (int i=0;i<n;i++) if (x>=b[i].x0&&x<=b[i].x1&&y>=b[i].y0&&y<=b[i].y1) return i; return -1; }
+int ui_ui44_popup_inside(float x,float y)
+{ return x>=UI_UI44_POPUP_X0&&x<=UI_UI44_POPUP_X0+UI_UI44_POPUP_W&&
+         y>=UI_UI44_POPUP_Y0&&y<=UI_UI44_POPUP_Y0+UI_UI44_POPUP_H; }
+static const ui_ui45_btn ui45_stub[UI_UI45_COUNT] = {
+    { 320.0f,658.0f,412.0f,718.0f,0 },
+};
+const ui_ui45_btn *ui_ui45_buttons(void) { return ui45_stub; }
+int ui_ui45_hit(const ui_ui45_btn *b,int n,float x,float y)
+{ for (int i=0;i<n;i++) if (x>=b[i].x0&&x<=b[i].x1&&y>=b[i].y0&&y<=b[i].y1) return i; return -1; }
+int ui_ui45_popup_inside(float x,float y)
+{ return x>=UI_UI45_POPUP_X0&&x<=UI_UI45_POPUP_X0+UI_UI45_POPUP_W&&
+         y>=UI_UI45_POPUP_Y0&&y<=UI_UI45_POPUP_Y0+UI_UI45_POPUP_H; }
+static const ui_ui46_btn ui46_stub[UI_UI46_COUNT] = {
+    { 270.0f,765.0f,450.0f,825.0f,0 },
+};
+const ui_ui46_btn *ui_ui46_buttons(void) { return ui46_stub; }
+int ui_ui46_hit(const ui_ui46_btn *b,int n,float x,float y)
+{ for (int i=0;i<n;i++) if (x>=b[i].x0&&x<=b[i].x1&&y>=b[i].y0&&y<=b[i].y1) return i; return -1; }
+int ui_ui46_popup_inside(float x,float y)
+{ return x>=UI_UI46_POPUP_X0&&x<=UI_UI46_POPUP_X0+UI_UI46_POPUP_W&&
+         y>=UI_UI46_POPUP_Y0&&y<=UI_UI46_POPUP_Y0+UI_UI46_POPUP_H; }
+static const ui_ui47_btn ui47_stub[UI_UI47_COUNT] = {
+    { 270.0f,708.0f,450.0f,768.0f,0 },
+};
+const ui_ui47_btn *ui_ui47_buttons(void) { return ui47_stub; }
+int ui_ui47_hit(const ui_ui47_btn *b,int n,float x,float y)
+{ for (int i=0;i<n;i++) if (x>=b[i].x0&&x<=b[i].x1&&y>=b[i].y0&&y<=b[i].y1) return i; return -1; }
+int ui_ui47_popup_inside(float x,float y)
+{ return x>=UI_UI47_POPUP_X0&&x<=UI_UI47_POPUP_X0+UI_UI47_POPUP_W&&
+         y>=UI_UI47_POPUP_Y0&&y<=UI_UI47_POPUP_Y0+UI_UI47_POPUP_H; }
+static const ui_ui49_btn ui49_stub[UI_UI49_COUNT] = {
+    { 270.0f,860.0f,450.0f,920.0f,0 },
+};
+const ui_ui49_btn *ui_ui49_buttons(void) { return ui49_stub; }
+int ui_ui49_hit(const ui_ui49_btn *b,int n,float x,float y)
+{ for (int i=0;i<n;i++) if (x>=b[i].x0&&x<=b[i].x1&&y>=b[i].y0&&y<=b[i].y1) return i; return -1; }
+int ui_ui49_popup_inside(float x,float y)
+{ return x>=UI_UI49_POPUP_X0&&x<=UI_UI49_POPUP_X0+UI_UI49_POPUP_W&&
+         y>=UI_UI49_POPUP_Y0&&y<=UI_UI49_POPUP_Y0+UI_UI49_POPUP_H; }
+static const ui_ui51_btn ui51_stub[UI_UI51_COUNT] = {
+    { 180.0f,860.0f,337.0f,920.0f,0 },{ 383.0f,860.0f,540.0f,920.0f,1 },
+};
+const ui_ui51_btn *ui_ui51_buttons(void) { return ui51_stub; }
+int ui_ui51_hit(const ui_ui51_btn *b,int n,float x,float y)
+{ for (int i=0;i<n;i++) if (x>=b[i].x0&&x<=b[i].x1&&y>=b[i].y0&&y<=b[i].y1) return i; return -1; }
+int ui_ui51_popup_inside(float x,float y)
+{ return x>=UI_UI51_POPUP_X0&&x<=UI_UI51_POPUP_X0+UI_UI51_POPUP_W&&
+         y>=UI_UI51_POPUP_Y0&&y<=UI_UI51_POPUP_Y0+UI_UI51_POPUP_H; }
+static const ui_ui54_btn ui54_stub[UI_UI54_COUNT] = {
+    { 180.0f,860.0f,337.0f,920.0f,0 },{ 383.0f,860.0f,540.0f,920.0f,1 },
+};
+const ui_ui54_btn *ui_ui54_buttons(void) { return ui54_stub; }
+int ui_ui54_hit(const ui_ui54_btn *b,int n,float x,float y)
+{ for (int i=0;i<n;i++) if (x>=b[i].x0&&x<=b[i].x1&&y>=b[i].y0&&y<=b[i].y1) return i; return -1; }
+int ui_ui54_popup_inside(float x,float y)
+{ return x>=UI_UI54_POPUP_X0&&x<=UI_UI54_POPUP_X0+UI_UI54_POPUP_W&&
+         y>=UI_UI54_POPUP_Y0&&y<=UI_UI54_POPUP_Y0+UI_UI54_POPUP_H; }
+static const ui_ui73_btn ui73_stub[UI_UI73_COUNT] = {
+    { 165.0f,695.0f,345.0f,755.0f,0 },{ 375.0f,695.0f,555.0f,755.0f,1 },
+};
+const ui_ui73_btn *ui_ui73_buttons(void) { return ui73_stub; }
+int ui_ui73_hit(const ui_ui73_btn *b,int n,float x,float y)
+{ for (int i=0;i<n;i++) if (x>=b[i].x0&&x<=b[i].x1&&y>=b[i].y0&&y<=b[i].y1) return i; return -1; }
+int ui_ui73_popup_inside(float x,float y)
+{ return x>=UI_UI73_POPUP_X0&&x<=UI_UI73_POPUP_X0+UI_UI73_POPUP_W&&
+         y>=UI_UI73_POPUP_Y0&&y<=UI_UI73_POPUP_Y0+UI_UI73_POPUP_H; }
+static const ui_ui90_btn ui90_stub[UI_UI90_COUNT] = {
+    { 135.0f,570.0f,345.0f,630.0f,0 },{ 135.0f,660.0f,345.0f,720.0f,1 },
+};
+const ui_ui90_btn *ui_ui90_buttons(void) { return ui90_stub; }
+int ui_ui90_hit(const ui_ui90_btn *b,int n,float x,float y)
+{ for (int i=0;i<n;i++) if (x>=b[i].x0&&x<=b[i].x1&&y>=b[i].y0&&y<=b[i].y1) return i; return -1; }
+int ui_ui90_popup_inside(float x,float y)
+{ return x>=UI_UI90_POPUP_X0&&x<=UI_UI90_POPUP_X0+UI_UI90_POPUP_W&&
+         y>=UI_UI90_POPUP_Y0&&y<=UI_UI90_POPUP_Y0+UI_UI90_POPUP_H; }
+static const ui_ui100_btn ui100_stub[UI_UI100_COUNT] = {
+    { 320.0f,658.0f,412.0f,718.0f,0 },
+};
+const ui_ui100_btn *ui_ui100_buttons(void) { return ui100_stub; }
+int ui_ui100_hit(const ui_ui100_btn *b,int n,float x,float y)
+{ for (int i=0;i<n;i++) if (x>=b[i].x0&&x<=b[i].x1&&y>=b[i].y0&&y<=b[i].y1) return i; return -1; }
+int ui_ui100_popup_inside(float x,float y)
+{ return x>=UI_UI100_POPUP_X0&&x<=UI_UI100_POPUP_X0+UI_UI100_POPUP_W&&
+         y>=UI_UI100_POPUP_Y0&&y<=UI_UI100_POPUP_Y0+UI_UI100_POPUP_H; }
+static const ui_ui110_btn ui110_stub[UI_UI110_COUNT] = {
+    { 180.0f,860.0f,337.0f,920.0f,0 },{ 383.0f,860.0f,540.0f,920.0f,1 },
+};
+const ui_ui110_btn *ui_ui110_buttons(void) { return ui110_stub; }
+int ui_ui110_hit(const ui_ui110_btn *b,int n,float x,float y)
+{ for (int i=0;i<n;i++) if (x>=b[i].x0&&x<=b[i].x1&&y>=b[i].y0&&y<=b[i].y1) return i; return -1; }
+int ui_ui110_popup_inside(float x,float y)
+{ return x>=UI_UI110_POPUP_X0&&x<=UI_UI110_POPUP_X0+UI_UI110_POPUP_W&&
+         y>=UI_UI110_POPUP_Y0&&y<=UI_UI110_POPUP_Y0+UI_UI110_POPUP_H; }
+static const ui_ui118_btn ui118_stub[UI_UI118_COUNT] = {
+    { 175.0f,735.0f,340.0f,795.0f,0 },{ 380.0f,735.0f,545.0f,795.0f,1 },
+};
+const ui_ui118_btn *ui_ui118_buttons(void) { return ui118_stub; }
+int ui_ui118_hit(const ui_ui118_btn *b,int n,float x,float y)
+{ for (int i=0;i<n;i++) if (x>=b[i].x0&&x<=b[i].x1&&y>=b[i].y0&&y<=b[i].y1) return i; return -1; }
+int ui_ui118_popup_inside(float x,float y)
+{ return x>=UI_UI118_POPUP_X0&&x<=UI_UI118_POPUP_X0+UI_UI118_POPUP_W&&
+         y>=UI_UI118_POPUP_Y0&&y<=UI_UI118_POPUP_Y0+UI_UI118_POPUP_H; }

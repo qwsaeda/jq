@@ -1144,3 +1144,272 @@ int ui_about_popup_inside(float x, float y)
     return x >= UI_ABOUT_POPUP_X0 && x <= UI_ABOUT_POPUP_X0 + UI_ABOUT_POPUP_W &&
            y >= UI_ABOUT_POPUP_Y0 && y <= UI_ABOUT_POPUP_Y0 + UI_ABOUT_POPUP_H;
 }
+
+/* ★ SPAK2UI 批量（datah_044 证据）：战况统计·消息/排行 2 按钮。
+   ★ 固定位置类（BackDlg 45,620，面板 180×175 局部平移，不再居中偏移；
+   gen 按居中算（偏移 270,552）有误，手校正 45,620）：
+   消息 Chat 20,20,160,80 → 65,640-205,700；
+   排行 Rank 20,95,160,155 → 65,715-205,775。
+   ★ 诚实边界：排行榜/消息数据未逆向，按钮→边界对话框占位。 */
+static const ui_ui44_btn g_ui44_btns[UI_UI44_COUNT] = {
+    { 65.0f, 640.0f, 205.0f, 700.0f, 0 },   /* 消息 Chat（20,20,160,80 + 45,620）→ 边界对话框（排行榜数据未逆向） */
+    { 65.0f, 715.0f, 205.0f, 775.0f, 1 },   /* 排行 Rank（20,95,160,155 + 45,620）→ 边界对话框（排行数据未逆向） */
+};
+
+const ui_ui44_btn *ui_ui44_buttons(void) { return g_ui44_btns; }
+int ui_ui44_hit(const ui_ui44_btn *btns, int n, float x, float y)
+{
+    for (int i = 0; i < n; i++)
+        if (x >= btns[i].x0 && x <= btns[i].x1 && y >= btns[i].y0 && y <= btns[i].y1)
+            return i;
+    return -1;
+}
+int ui_ui44_popup_inside(float x, float y)
+{
+    return x >= UI_UI44_POPUP_X0 && x <= UI_UI44_POPUP_X0 + UI_UI44_POPUP_W &&
+           y >= UI_UI44_POPUP_Y0 && y <= UI_UI44_POPUP_Y0 + UI_UI44_POPUP_H;
+}
+
+/* ★ SPAK2UI 批量（datah_045 证据）：战况统计·详细 1 按钮（BackDlg 固定位置 45,620，
+   面板 w390,h135 局部平移；gen 居中换算有误，手校正；与 datah_100 同构）：
+   详细 Detail 275,38,367,98 → 320,658-412,718。
+   ★ 诚实边界：详细战绩数据未逆向。 */
+static const ui_ui45_btn g_ui45_btns[UI_UI45_COUNT] = {
+    { 320.0f, 658.0f, 412.0f, 718.0f, 0 },  /* 详细 Detail（275,38,367,98 + 45,620）→ 边界对话框（详细战绩未逆向） */
+};
+
+const ui_ui45_btn *ui_ui45_buttons(void) { return g_ui45_btns; }
+int ui_ui45_hit(const ui_ui45_btn *btns, int n, float x, float y)
+{
+    for (int i = 0; i < n; i++)
+        if (x >= btns[i].x0 && x <= btns[i].x1 && y >= btns[i].y0 && y <= btns[i].y1)
+            return i;
+    return -1;
+}
+int ui_ui45_popup_inside(float x, float y)
+{
+    return x >= UI_UI45_POPUP_X0 && x <= UI_UI45_POPUP_X0 + UI_UI45_POPUP_W &&
+           y >= UI_UI45_POPUP_Y0 && y <= UI_UI45_POPUP_Y0 + UI_UI45_POPUP_H;
+}
+
+/* ★ SPAK2UI 批量（datah_046 证据）：玩家资料 1 按钮（420×420 居中，偏移+150,+430，
+   局部 1:1 平移取整）：返回 Close 120,335,300,395 → 270,765-450,825。
+   ★ 诚实边界：玩家资料内容未逆向（账号系统未实现），Info 占位标签。 */
+static const ui_ui46_btn g_ui46_btns[UI_UI46_COUNT] = {
+    { 270.0f, 765.0f, 450.0f, 825.0f, 0 },  /* 返回 Close（120,335,300,395）→ 回对局 */
+};
+
+const ui_ui46_btn *ui_ui46_buttons(void) { return g_ui46_btns; }
+int ui_ui46_hit(const ui_ui46_btn *btns, int n, float x, float y)
+{
+    for (int i = 0; i < n; i++)
+        if (x >= btns[i].x0 && x <= btns[i].x1 && y >= btns[i].y0 && y <= btns[i].y1)
+            return i;
+    return -1;
+}
+int ui_ui46_popup_inside(float x, float y)
+{
+    return x >= UI_UI46_POPUP_X0 && x <= UI_UI46_POPUP_X0 + UI_UI46_POPUP_W &&
+           y >= UI_UI46_POPUP_Y0 && y <= UI_UI46_POPUP_Y0 + UI_UI46_POPUP_H;
+}
+
+/* ★ SPAK2UI 批量（datah_047 证据）：玩家列表 1 按钮（420×305 居中，偏移+150,+487.5，
+   局部 1:1 平移取整）：关闭 Close 120,220,300,280 → 270,708-450,768。
+   ★ 诚实边界：玩家列表未逆向，ListBox 占位标签。 */
+static const ui_ui47_btn g_ui47_btns[UI_UI47_COUNT] = {
+    { 270.0f, 708.0f, 450.0f, 768.0f, 0 },  /* 关闭 Close（120,220,300,280）→ 回对局 */
+};
+
+const ui_ui47_btn *ui_ui47_buttons(void) { return g_ui47_btns; }
+int ui_ui47_hit(const ui_ui47_btn *btns, int n, float x, float y)
+{
+    for (int i = 0; i < n; i++)
+        if (x >= btns[i].x0 && x <= btns[i].x1 && y >= btns[i].y0 && y <= btns[i].y1)
+            return i;
+    return -1;
+}
+int ui_ui47_popup_inside(float x, float y)
+{
+    return x >= UI_UI47_POPUP_X0 && x <= UI_UI47_POPUP_X0 + UI_UI47_POPUP_W &&
+           y >= UI_UI47_POPUP_Y0 && y <= UI_UI47_POPUP_Y0 + UI_UI47_POPUP_H;
+}
+
+/* ★ SPAK2UI 批量（datah_049 证据）：对局详情 1 按钮（420×610 居中，偏移+150,+335，
+   局部 1:1 平移取整）：关闭 Close 120,525,300,585 → 270,860-450,920。
+   ★ 诚实边界：对局详情内容未逆向，ListBox 占位标签。 */
+static const ui_ui49_btn g_ui49_btns[UI_UI49_COUNT] = {
+    { 270.0f, 860.0f, 450.0f, 920.0f, 0 },  /* 关闭 Close（120,525,300,585）→ 回对局 */
+};
+
+const ui_ui49_btn *ui_ui49_buttons(void) { return g_ui49_btns; }
+int ui_ui49_hit(const ui_ui49_btn *btns, int n, float x, float y)
+{
+    for (int i = 0; i < n; i++)
+        if (x >= btns[i].x0 && x <= btns[i].x1 && y >= btns[i].y0 && y <= btns[i].y1)
+            return i;
+    return -1;
+}
+int ui_ui49_popup_inside(float x, float y)
+{
+    return x >= UI_UI49_POPUP_X0 && x <= UI_UI49_POPUP_X0 + UI_UI49_POPUP_W &&
+           y >= UI_UI49_POPUP_Y0 && y <= UI_UI49_POPUP_Y0 + UI_UI49_POPUP_H;
+}
+
+/* ★ SPAK2UI 批量（datah_051 证据）：我的对局 2 按钮（450×610 居中，偏移+135,+335，
+   局部 1:1 平移取整；与 datah_054/110 同构）：
+   清空 Clear 45,525,202,585 → 180,860-337,920；
+   关闭 Close 248,525,405,585 → 383,860-540,920。
+   ★ 诚实边界：我的对局存档未逆向，清空=清复盘记录简化。 */
+static const ui_ui51_btn g_ui51_btns[UI_UI51_COUNT] = {
+    { 180.0f, 860.0f, 337.0f, 920.0f, 0 },  /* 清空 Clear（45,525,202,585）→ 清复盘记录（ui_replay_init） */
+    { 383.0f, 860.0f, 540.0f, 920.0f, 1 },  /* 关闭 Close（248,525,405,585）→ 回对局 */
+};
+
+const ui_ui51_btn *ui_ui51_buttons(void) { return g_ui51_btns; }
+int ui_ui51_hit(const ui_ui51_btn *btns, int n, float x, float y)
+{
+    for (int i = 0; i < n; i++)
+        if (x >= btns[i].x0 && x <= btns[i].x1 && y >= btns[i].y0 && y <= btns[i].y1)
+            return i;
+    return -1;
+}
+int ui_ui51_popup_inside(float x, float y)
+{
+    return x >= UI_UI51_POPUP_X0 && x <= UI_UI51_POPUP_X0 + UI_UI51_POPUP_W &&
+           y >= UI_UI51_POPUP_Y0 && y <= UI_UI51_POPUP_Y0 + UI_UI51_POPUP_H;
+}
+
+/* ★ SPAK2UI 批量（datah_054 证据）：历史对局 2 按钮（450×610 居中，偏移+135,+335，
+   与 datah_051 同构）。★ 诚实边界：历史对局未逆向，清空=清复盘记录简化。 */
+static const ui_ui54_btn g_ui54_btns[UI_UI54_COUNT] = {
+    { 180.0f, 860.0f, 337.0f, 920.0f, 0 },  /* 清空 Clear（45,525,202,585）→ 清复盘记录（ui_replay_init） */
+    { 383.0f, 860.0f, 540.0f, 920.0f, 1 },  /* 关闭 Close（248,525,405,585）→ 回对局 */
+};
+
+const ui_ui54_btn *ui_ui54_buttons(void) { return g_ui54_btns; }
+int ui_ui54_hit(const ui_ui54_btn *btns, int n, float x, float y)
+{
+    for (int i = 0; i < n; i++)
+        if (x >= btns[i].x0 && x <= btns[i].x1 && y >= btns[i].y0 && y <= btns[i].y1)
+            return i;
+    return -1;
+}
+int ui_ui54_popup_inside(float x, float y)
+{
+    return x >= UI_UI54_POPUP_X0 && x <= UI_UI54_POPUP_X0 + UI_UI54_POPUP_W &&
+           y >= UI_UI54_POPUP_Y0 && y <= UI_UI54_POPUP_Y0 + UI_UI54_POPUP_H;
+}
+
+/* ★ SPAK2UI 批量（datah_073 证据）：创建游戏 2 按钮（450×270 居中，偏移+135,+505，
+   局部 1:1 平移取整）：
+   开始 Ok 30,190,210,250 → 165,695-345,755；
+   取消 Cancel 240,190,420,250 → 375,695-555,755。
+   ★ 诚实边界：联机创建游戏（Wi-Fi/局域网协议）未逆向，开始=本地开局简化。 */
+static const ui_ui73_btn g_ui73_btns[UI_UI73_COUNT] = {
+    { 165.0f, 695.0f, 345.0f, 755.0f, 0 },  /* 开始 Ok（30,190,210,250）→ 本地开局（jq_restart_game 简化） */
+    { 375.0f, 695.0f, 555.0f, 755.0f, 1 },  /* 取消 Cancel（240,190,420,250）→ 回主菜单 */
+};
+
+const ui_ui73_btn *ui_ui73_buttons(void) { return g_ui73_btns; }
+int ui_ui73_hit(const ui_ui73_btn *btns, int n, float x, float y)
+{
+    for (int i = 0; i < n; i++)
+        if (x >= btns[i].x0 && x <= btns[i].x1 && y >= btns[i].y0 && y <= btns[i].y1)
+            return i;
+    return -1;
+}
+int ui_ui73_popup_inside(float x, float y)
+{
+    return x >= UI_UI73_POPUP_X0 && x <= UI_UI73_POPUP_X0 + UI_UI73_POPUP_W &&
+           y >= UI_UI73_POPUP_Y0 && y <= UI_UI73_POPUP_Y0 + UI_UI73_POPUP_H;
+}
+
+/* ★ SPAK2UI 批量（datah_090 证据）：对战方式 2 按钮（★ 固定位置类 BackDlg 135,570，
+   面板 w210,h150 局部平移，不再居中偏移；gen 按居中算（W=75 误读）有误，手校正）：
+   人机 Comp 0,0,210,60 → 135,570-345,630；
+   联网 Net 0,90,210,150 → 135,660-345,720。
+   ★ 诚实边界：联网对战=Wi-Fi/局域网协议未逆向（src_rs 仅蓝牙 SPP）。 */
+static const ui_ui90_btn g_ui90_btns[UI_UI90_COUNT] = {
+    { 135.0f, 570.0f, 345.0f, 630.0f, 0 },  /* 人机对战 Comp（0,0,210,60 + 135,570）→ UI_DIFFICULTY */
+    { 135.0f, 660.0f, 345.0f, 720.0f, 1 },  /* 联网对战 Net（0,90,210,150 + 135,570）→ 边界对话框 */
+};
+
+const ui_ui90_btn *ui_ui90_buttons(void) { return g_ui90_btns; }
+int ui_ui90_hit(const ui_ui90_btn *btns, int n, float x, float y)
+{
+    for (int i = 0; i < n; i++)
+        if (x >= btns[i].x0 && x <= btns[i].x1 && y >= btns[i].y0 && y <= btns[i].y1)
+            return i;
+    return -1;
+}
+int ui_ui90_popup_inside(float x, float y)
+{
+    return x >= UI_UI90_POPUP_X0 && x <= UI_UI90_POPUP_X0 + UI_UI90_POPUP_W &&
+           y >= UI_UI90_POPUP_Y0 && y <= UI_UI90_POPUP_Y0 + UI_UI90_POPUP_H;
+}
+
+/* ★ SPAK2UI 批量（datah_100 证据）：详细战况 1 按钮（★ 固定位置类 BackDlg 45,620，
+   与 datah_045 同构）：详细 Detail 275,38,367,98 → 320,658-412,718。
+   ★ 诚实边界：详细战况数据未逆向。 */
+static const ui_ui100_btn g_ui100_btns[UI_UI100_COUNT] = {
+    { 320.0f, 658.0f, 412.0f, 718.0f, 0 },  /* 详细 Detail（275,38,367,98 + 45,620）→ 边界对话框（详细战况未逆向） */
+};
+
+const ui_ui100_btn *ui_ui100_buttons(void) { return g_ui100_btns; }
+int ui_ui100_hit(const ui_ui100_btn *btns, int n, float x, float y)
+{
+    for (int i = 0; i < n; i++)
+        if (x >= btns[i].x0 && x <= btns[i].x1 && y >= btns[i].y0 && y <= btns[i].y1)
+            return i;
+    return -1;
+}
+int ui_ui100_popup_inside(float x, float y)
+{
+    return x >= UI_UI100_POPUP_X0 && x <= UI_UI100_POPUP_X0 + UI_UI100_POPUP_W &&
+           y >= UI_UI100_POPUP_Y0 && y <= UI_UI100_POPUP_Y0 + UI_UI100_POPUP_H;
+}
+
+/* ★ SPAK2UI 批量（datah_110 证据）：历史对局（联机版）2 按钮（450×610 居中，
+   偏移+135,+335，与 datah_054 同构）。★ 诚实边界：历史对局未逆向。 */
+static const ui_ui110_btn g_ui110_btns[UI_UI110_COUNT] = {
+    { 180.0f, 860.0f, 337.0f, 920.0f, 0 },  /* 清空 Clear（45,525,202,585）→ 清复盘记录（ui_replay_init） */
+    { 383.0f, 860.0f, 540.0f, 920.0f, 1 },  /* 关闭 Close（248,525,405,585）→ 回对局 */
+};
+
+const ui_ui110_btn *ui_ui110_buttons(void) { return g_ui110_btns; }
+int ui_ui110_hit(const ui_ui110_btn *btns, int n, float x, float y)
+{
+    for (int i = 0; i < n; i++)
+        if (x >= btns[i].x0 && x <= btns[i].x1 && y >= btns[i].y0 && y <= btns[i].y1)
+            return i;
+    return -1;
+}
+int ui_ui110_popup_inside(float x, float y)
+{
+    return x >= UI_UI110_POPUP_X0 && x <= UI_UI110_POPUP_X0 + UI_UI110_POPUP_W &&
+           y >= UI_UI110_POPUP_Y0 && y <= UI_UI110_POPUP_Y0 + UI_UI110_POPUP_H;
+}
+
+/* ★ SPAK2UI 批量（datah_118 证据）：版本更新 2 按钮（450×360 居中，偏移+135,+460，
+   局部 1:1 平移取整）：
+   更新 Ok 40,275,205,335 → 175,735-340,795；
+   取消 Cancel 245,275,410,335 → 380,735-545,795。
+   ★ 诚实边界：版本更新通道（下载/升级）未逆向。 */
+static const ui_ui118_btn g_ui118_btns[UI_UI118_COUNT] = {
+    { 175.0f, 735.0f, 340.0f, 795.0f, 0 },  /* 更新 Ok（40,275,205,335）→ 边界对话框（版本更新通道未逆向） */
+    { 380.0f, 735.0f, 545.0f, 795.0f, 1 },  /* 取消 Cancel（245,275,410,335）→ 关闭回对局 */
+};
+
+const ui_ui118_btn *ui_ui118_buttons(void) { return g_ui118_btns; }
+int ui_ui118_hit(const ui_ui118_btn *btns, int n, float x, float y)
+{
+    for (int i = 0; i < n; i++)
+        if (x >= btns[i].x0 && x <= btns[i].x1 && y >= btns[i].y0 && y <= btns[i].y1)
+            return i;
+    return -1;
+}
+int ui_ui118_popup_inside(float x, float y)
+{
+    return x >= UI_UI118_POPUP_X0 && x <= UI_UI118_POPUP_X0 + UI_UI118_POPUP_W &&
+           y >= UI_UI118_POPUP_Y0 && y <= UI_UI118_POPUP_Y0 + UI_UI118_POPUP_H;
+}

@@ -232,6 +232,94 @@ UI_REPLAY,     /* ★ P1（datah_039/107 证据）：复盘回放态——
                         setprop jq.drawdetail 测试钩子（OnCreate + OnUpdate 双路）。
                         ★ 诚实边界：本地提和判定未实现（src_rs 离线单机无对端），
                         联机提和/认输走 BT 帧 + 边界对话框，不包装成"已提和判定" */
+    UI_UI44,      /* ★ SPAK2UI 批量（datah_044 证据）：战况统计·消息/排行子菜单弹窗
+                     （消息/排行 2 按钮，原版 BackDlg 固定位置 45,620 小浮窗 180×175
+                     局部平移。★ 固定位置类：面板直接用原 rect X0,Y0 作 720 基准位置，
+                     不再居中偏移；gen 居中换算（270,552）有误，手校正为 45,620）。
+                     消息/排行 → 诚实边界对话框（原版排行榜/消息数据未逆向）。
+                     入口：☰ 菜单"战况统计"子菜单链（UI_GAMEINFO 3 按钮已对齐不破坏，
+                     本弹窗经 setprop jq.ui44 触发，不强接）+
+                     setprop jq.ui44 测试钩子（OnCreate + OnUpdate 双路，值 1=进 / 0=退）。
+                     ★ 诚实边界：排行榜/消息数据未逆向，按钮→边界对话框占位 */
+    UI_UI45,      /* ★ SPAK2UI 批量（datah_045 证据）：战况统计·详细弹窗
+                     （Info 文本框 + 详细 1 按钮，原版 BackDlg 固定位置 45,620，
+                     面板 w390,h135 局部平移。★ 固定位置类：gen 按居中算会错，手校正；
+                     面板 720 基准 = 45,620（不再居中），按钮 Detail 275,38,367,98
+                     局部 → 720 基准 320,658-412,718）。
+                     详细 → 诚实边界对话框。入口：setprop jq.ui45 测试钩子。
+                     ★ 诚实边界：详细战绩数据未逆向 */
+    UI_UI46,      /* ★ SPAK2UI 批量（datah_046 证据）：玩家资料弹窗
+                     （标题"玩家资料" + Info 文本框占位 + 返回 1 按钮，原版 420×420
+                     面板居中偏移 +150,+430；局部 1:1 平移取整：
+                     Close 120,335,300,395 → 270,765-450,825）。
+                     返回 → 回对局。入口：setprop jq.ui46 测试钩子。
+                     ★ 诚实边界：玩家资料内容未逆向（账号系统未实现），占位标签 */
+    UI_UI47,      /* ★ SPAK2UI 批量（datah_047 证据）：玩家列表弹窗
+                     （标题"玩家列表" + ListBox 占位 + 关闭 1 按钮，原版 420×305
+                     面板居中偏移 +150,+487.5；局部 1:1 平移取整：
+                     Close 120,220,300,280 → 270,708-450,768）。
+                     关闭 → 回对局。入口：setprop jq.ui47 测试钩子。
+                     ★ 诚实边界：玩家列表未逆向，ListBox=占位标签 */
+    UI_UI49,      /* ★ SPAK2UI 批量（datah_049 证据）：对局详情弹窗
+                     （标题 + ListBox 占位 + 关闭 1 按钮，原版 420×610 面板居中
+                     偏移 +150,+335；局部 1:1 平移取整：
+                     Close 120,525,300,585 → 270,860-450,920）。
+                     关闭 → 回对局。入口：setprop jq.ui49 测试钩子。
+                     ★ 诚实边界：对局详情内容未逆向，ListBox=占位标签 */
+    UI_UI51,      /* ★ SPAK2UI 批量（datah_051 证据）：我的对局弹窗
+                     （标题"我的对局" + ListBox 占位 + 清空/关闭 2 按钮，原版 450×610
+                     面板居中偏移 +135,+335；局部 1:1 平移取整：
+                     Clear 45,525,202,585 → 180,860-337,920；
+                     Close 248,525,405,585 → 383,860-540,920）。
+                     清空 → 清复盘记录（ui_replay_init，诚实边界简化）；关闭 → 回对局。
+                     入口：setprop jq.ui51 测试钩子。
+                     ★ 诚实边界：我的对局存档未逆向，清空=清复盘记录简化 */
+    UI_UI54,      /* ★ SPAK2UI 批量（datah_054 证据）：历史对局弹窗
+                     （标题"历史对局" + ListBox 占位 + 清空/关闭 2 按钮，原版 450×610
+                     面板居中偏移 +135,+335；局部 1:1 平移取整，与 datah_051 同构：
+                     Clear 45,525,202,585 → 180,860-337,920；
+                     Close 248,525,405,585 → 383,860-540,920）。
+                     清空 → 清复盘记录；关闭 → 回对局。入口：setprop jq.ui54 测试钩子。
+                     ★ 诚实边界：历史对局未逆向，清空=清复盘记录简化 */
+    UI_UI73,      /* ★ SPAK2UI 批量（datah_073 证据）：创建游戏弹窗
+                     （标题"创建游戏" + Player1/Player2 输入框占位 + 开始/取消 2 按钮，
+                     原版 450×270 面板居中偏移 +135,+505；局部 1:1 平移取整：
+                     Ok 30,190,210,250 → 165,695-345,755；
+                     Cancel 240,190,420,250 → 375,695-555,755）。
+                     开始 → 本地开局（jq_restart_game 简化，诚实边界）；取消 → 回菜单。
+                     入口：setprop jq.ui73 测试钩子。
+                     ★ 诚实边界：联机创建游戏（Wi-Fi/局域网协议）未逆向，开始=本地开局简化 */
+    UI_UI90,      /* ★ SPAK2UI 批量（datah_090 证据）：对战方式弹窗
+                     （人机对战/联网对战 2 按钮，原版 BackDlg 固定位置 135,570
+                     面板 w210,h150 局部平移。★ 固定位置类：gen 按居中算（W=75）会错，
+                     手校正面板 720 基准 = 135,570，按钮 Comp 0,0,210,h60 → 135,570-345,630；
+                     Net 0,90,210,h60 → 135,660-345,720）。
+                     人机对战 → UI_DIFFICULTY（datah_041 难度弹窗已实现）；
+                     联网对战 → 诚实边界对话框（联机协议未逆向，仅蓝牙已实现）。
+                     入口：setprop jq.ui90 测试钩子。
+                     ★ 诚实边界：联网对战=Wi-Fi/局域网协议未逆向（src_rs 仅蓝牙 SPP） */
+    UI_UI100,     /* ★ SPAK2UI 批量（datah_100 证据）：详细（战况）弹窗
+                     （Info 文本框 + 详细 1 按钮，原版 BackDlg 固定位置 45,620
+                     面板 w390,h135 局部平移。★ 固定位置类：gen 按居中算会错，
+                     手校正面板 720 基准 = 45,620（与 datah_045 同构同位置）；
+                     按钮 Detail 275,38,367,98 局部 → 720 基准 320,658-412,718）。
+                     详细 → 诚实边界对话框。入口：setprop jq.ui100 测试钩子。
+                     ★ 诚实边界：详细战况数据未逆向 */
+    UI_UI110,     /* ★ SPAK2UI 批量（datah_110 证据）：历史对局弹窗（联机版）
+                     （标题"历史对局" + ListBox 占位 + 清空/关闭 2 按钮，原版 450×610
+                     面板居中偏移 +135,+335；局部 1:1 平移取整，与 datah_054 同构：
+                     Clear 45,525,202,585 → 180,860-337,920；
+                     Close 248,525,405,585 → 383,860-540,920）。
+                     清空 → 清复盘记录；关闭 → 回对局。入口：setprop jq.ui110 测试钩子。
+                     ★ 诚实边界：历史对局未逆向，清空=清复盘记录简化 */
+    UI_UI118,     /* ★ SPAK2UI 批量（datah_118 证据）：版本更新弹窗
+                     （标题"版本更新" + Info 文本框占位 + 更新/取消 2 按钮，
+                     原版 450×360 面板居中偏移 +135,+460；局部 1:1 平移取整：
+                     Ok 40,275,205,335 → 175,735-340,795；
+                     Cancel 245,275,410,335 → 380,735-545,795）。
+                     更新 → 诚实边界对话框（版本更新通道未逆向）；取消 → 关闭回对局。
+                     入口：setprop jq.ui118 测试钩子。
+                     ★ 诚实边界：版本更新通道（下载/升级）未逆向 */
 
 } ui_screen;
 
@@ -1020,5 +1108,150 @@ typedef struct {
 const ui_about_btn *ui_about_buttons(void);   /* 2 按钮（静态表） */
 int ui_about_hit(const ui_about_btn *btns, int n, float x, float y);  /* 命中 0-1，-1 无 */
 int ui_about_popup_inside(float x, float y);   /* 点在弹窗面板内 */
+
+/* ★ SPAK2UI 批量（12 弹窗）：战况统计子菜单链 + 玩家/对局/对战方式/创建游戏/版本更新。
+   坐标换算规则：面板 rect 0,0,W,H（center=true 类）→ 720 偏移 ((720-W)/2,(1280-H)/2)
+   局部 1:1 平移；面板 BackDlg 固定位置（044/045/090/100）→ 直接用原 rect X0,Y0 作
+   720 基准位置（不再居中偏移），按钮局部坐标 + (X0,Y0)。
+   ★ 诚实边界：排行榜/玩家资料/我的对局存档/历史对局/联网对战/版本更新 通道未逆向，
+   占位标签 + 边界对话框，不包装成"已实现" */
+/* ① datah_044 战况统计·消息/排行（固定位置 45,620，面板 180×175；
+   消息 Chat 20,20,160,80 → 65,640-205,700；排行 Rank 20,95,160,155 → 65,715-205,775） */
+#define UI_UI44_COUNT 2
+#define UI_UI44_POPUP_X0 45.0f
+#define UI_UI44_POPUP_Y0 620.0f
+#define UI_UI44_POPUP_W  180.0f
+#define UI_UI44_POPUP_H  175.0f
+typedef struct { float x0,y0,x1,y1; int action; } ui_ui44_btn;
+const ui_ui44_btn *ui_ui44_buttons(void);
+int ui_ui44_hit(const ui_ui44_btn *btns, int n, float x, float y);
+int ui_ui44_popup_inside(float x, float y);
+/* ② datah_045 战况统计·详细（固定位置 45,620，面板 390×135；
+   详细 Detail 275,38,367,98 → 320,658-412,718） */
+#define UI_UI45_COUNT 1
+#define UI_UI45_POPUP_X0 45.0f
+#define UI_UI45_POPUP_Y0 620.0f
+#define UI_UI45_POPUP_W  390.0f
+#define UI_UI45_POPUP_H  135.0f
+typedef struct { float x0,y0,x1,y1; int action; } ui_ui45_btn;
+const ui_ui45_btn *ui_ui45_buttons(void);
+int ui_ui45_hit(const ui_ui45_btn *btns, int n, float x, float y);
+int ui_ui45_popup_inside(float x, float y);
+/* ③ datah_046 玩家资料（420×420 居中 偏移+150,+430；
+   返回 Close 120,335,300,395 → 270,765-450,825） */
+#define UI_UI46_COUNT 1
+#define UI_UI46_POPUP_X0 150.0f
+#define UI_UI46_POPUP_Y0 430.0f
+#define UI_UI46_POPUP_W  420.0f
+#define UI_UI46_POPUP_H  420.0f
+typedef struct { float x0,y0,x1,y1; int action; } ui_ui46_btn;
+const ui_ui46_btn *ui_ui46_buttons(void);
+int ui_ui46_hit(const ui_ui46_btn *btns, int n, float x, float y);
+int ui_ui46_popup_inside(float x, float y);
+/* ④ datah_047 玩家列表（420×305 居中 偏移+150,+487.5；
+   关闭 Close 120,220,300,280 → 270,708-450,768） */
+#define UI_UI47_COUNT 1
+#define UI_UI47_POPUP_X0 150.0f
+#define UI_UI47_POPUP_Y0 487.5f
+#define UI_UI47_POPUP_W  420.0f
+#define UI_UI47_POPUP_H  305.0f
+typedef struct { float x0,y0,x1,y1; int action; } ui_ui47_btn;
+const ui_ui47_btn *ui_ui47_buttons(void);
+int ui_ui47_hit(const ui_ui47_btn *btns, int n, float x, float y);
+int ui_ui47_popup_inside(float x, float y);
+/* ⑤ datah_049 对局详情（420×610 居中 偏移+150,+335；
+   关闭 Close 120,525,300,585 → 270,860-450,920） */
+#define UI_UI49_COUNT 1
+#define UI_UI49_POPUP_X0 150.0f
+#define UI_UI49_POPUP_Y0 335.0f
+#define UI_UI49_POPUP_W  420.0f
+#define UI_UI49_POPUP_H  610.0f
+typedef struct { float x0,y0,x1,y1; int action; } ui_ui49_btn;
+const ui_ui49_btn *ui_ui49_buttons(void);
+int ui_ui49_hit(const ui_ui49_btn *btns, int n, float x, float y);
+int ui_ui49_popup_inside(float x, float y);
+/* ⑥ datah_051 我的对局（450×610 居中 偏移+135,+335；
+   清空 Clear 45,525,202,585 → 180,860-337,920；
+   关闭 Close 248,525,405,585 → 383,860-540,920） */
+#define UI_UI51_COUNT 2
+#define UI_UI51_POPUP_X0 135.0f
+#define UI_UI51_POPUP_Y0 335.0f
+#define UI_UI51_POPUP_W  450.0f
+#define UI_UI51_POPUP_H  610.0f
+typedef struct { float x0,y0,x1,y1; int action; } ui_ui51_btn;
+const ui_ui51_btn *ui_ui51_buttons(void);
+int ui_ui51_hit(const ui_ui51_btn *btns, int n, float x, float y);
+int ui_ui51_popup_inside(float x, float y);
+/* ⑦ datah_054 历史对局（450×610 居中 偏移+135,+335，与 051 同构；
+   清空 Clear 45,525,202,585 → 180,860-337,920；
+   关闭 Close 248,525,405,585 → 383,860-540,920） */
+#define UI_UI54_COUNT 2
+#define UI_UI54_POPUP_X0 135.0f
+#define UI_UI54_POPUP_Y0 335.0f
+#define UI_UI54_POPUP_W  450.0f
+#define UI_UI54_POPUP_H  610.0f
+typedef struct { float x0,y0,x1,y1; int action; } ui_ui54_btn;
+const ui_ui54_btn *ui_ui54_buttons(void);
+int ui_ui54_hit(const ui_ui54_btn *btns, int n, float x, float y);
+int ui_ui54_popup_inside(float x, float y);
+/* ⑧ datah_073 创建游戏（450×270 居中 偏移+135,+505；
+   开始 Ok 30,190,210,250 → 165,695-345,755；
+   取消 Cancel 240,190,420,250 → 375,695-555,755） */
+#define UI_UI73_COUNT 2
+#define UI_UI73_POPUP_X0 135.0f
+#define UI_UI73_POPUP_Y0 505.0f
+#define UI_UI73_POPUP_W  450.0f
+#define UI_UI73_POPUP_H  270.0f
+typedef struct { float x0,y0,x1,y1; int action; } ui_ui73_btn;
+const ui_ui73_btn *ui_ui73_buttons(void);
+int ui_ui73_hit(const ui_ui73_btn *btns, int n, float x, float y);
+int ui_ui73_popup_inside(float x, float y);
+/* ⑨ datah_090 对战方式（固定位置 135,570，面板 210×150；
+   人机 Comp 0,0,210,60 → 135,570-345,630；
+   联网 Net 0,90,210,150 → 135,660-345,720） */
+#define UI_UI90_COUNT 2
+#define UI_UI90_POPUP_X0 135.0f
+#define UI_UI90_POPUP_Y0 570.0f
+#define UI_UI90_POPUP_W  210.0f
+#define UI_UI90_POPUP_H  150.0f
+typedef struct { float x0,y0,x1,y1; int action; } ui_ui90_btn;
+const ui_ui90_btn *ui_ui90_buttons(void);
+int ui_ui90_hit(const ui_ui90_btn *btns, int n, float x, float y);
+int ui_ui90_popup_inside(float x, float y);
+/* ⑩ datah_100 详细战况（固定位置 45,620，面板 390×135，与 045 同构；
+   详细 Detail 275,38,367,98 → 320,658-412,718） */
+#define UI_UI100_COUNT 1
+#define UI_UI100_POPUP_X0 45.0f
+#define UI_UI100_POPUP_Y0 620.0f
+#define UI_UI100_POPUP_W  390.0f
+#define UI_UI100_POPUP_H  135.0f
+typedef struct { float x0,y0,x1,y1; int action; } ui_ui100_btn;
+const ui_ui100_btn *ui_ui100_buttons(void);
+int ui_ui100_hit(const ui_ui100_btn *btns, int n, float x, float y);
+int ui_ui100_popup_inside(float x, float y);
+/* ⑪ datah_110 历史对局（联机版）（450×610 居中 偏移+135,+335，与 054 同构；
+   清空 Clear 45,525,202,585 → 180,860-337,920；
+   关闭 Close 248,525,405,585 → 383,860-540,920） */
+#define UI_UI110_COUNT 2
+#define UI_UI110_POPUP_X0 135.0f
+#define UI_UI110_POPUP_Y0 335.0f
+#define UI_UI110_POPUP_W  450.0f
+#define UI_UI110_POPUP_H  610.0f
+typedef struct { float x0,y0,x1,y1; int action; } ui_ui110_btn;
+const ui_ui110_btn *ui_ui110_buttons(void);
+int ui_ui110_hit(const ui_ui110_btn *btns, int n, float x, float y);
+int ui_ui110_popup_inside(float x, float y);
+/* ⑫ datah_118 版本更新（450×360 居中 偏移+135,+460；
+   更新 Ok 40,275,205,335 → 175,735-340,795；
+   取消 Cancel 245,275,410,335 → 380,735-545,795） */
+#define UI_UI118_COUNT 2
+#define UI_UI118_POPUP_X0 135.0f
+#define UI_UI118_POPUP_Y0 460.0f
+#define UI_UI118_POPUP_W  450.0f
+#define UI_UI118_POPUP_H  360.0f
+typedef struct { float x0,y0,x1,y1; int action; } ui_ui118_btn;
+const ui_ui118_btn *ui_ui118_buttons(void);
+int ui_ui118_hit(const ui_ui118_btn *btns, int n, float x, float y);
+int ui_ui118_popup_inside(float x, float y);
 #endif
 

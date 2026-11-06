@@ -120,6 +120,11 @@ typedef struct {
     int menu_bg_w, menu_bg_h;                  /* 主菜单背景尺寸 */
     void *popup_px;  size_t popup_px_len;  /* ★ 弹窗背景 popup.png RGBA（24×24 9-patch） */
     int popup_w, popup_h;                  /* 弹窗背景尺寸 */
+    /* ★ 原版 UI 位图真值（ch02 N45 门牌号→房间真值）：面板 9patch + 彩色按钮 + 图标 */
+    void *panel_px;  size_t panel_px_len;  int panel_w, panel_h;         /* 面板 9patch（datax_246 圆形） */
+    void *panel_btn_px; size_t panel_btn_px_len; int panel_btn_w, panel_btn_h; /* 彩色按钮（datax_194） */
+    void *panel_icon_px; size_t panel_icon_px_len; int panel_icon_w, panel_icon_h; /* 图标（datax_138） */
+    unsigned int tex_panel[2]; unsigned int tex_panel_btn[2]; unsigned int tex_panel_icon[2];
     void *opt_text_px; size_t opt_text_px_len;  /* ★ 弹窗文字图集 RGBA（6 label 竖排） */
     int opt_text_w, opt_text_h;                 /* 弹窗文字图集尺寸 */
     void *waysel_text_px; size_t waysel_text_px_len; /* ★ 方式选择文字图集 RGBA（4 标签竖排 220×184） */
@@ -174,6 +179,10 @@ typedef struct {
     int chat063_text_w, chat063_text_h; /* 聊天完整版文字图集尺寸 */
     void *about_text_px; size_t about_text_px_len; /* ★ P2（datah_000）：软件信息文字图集 RGBA（7 标签竖排 220×322） */
     int about_text_w, about_text_h; /* 软件信息文字图集尺寸 */
+    void *uibat_text_px; size_t uibat_text_px_len; /* ★ SPAK2UI 批量（12 弹窗）：战况统计子菜单链 + 玩家/对局/对战方式/
+                                                        创建游戏/版本更新 共用文字图集（14 标签竖排 220×644） */
+    int uibat_text_w, uibat_text_h; /* 12 弹窗共用文字图集尺寸 */
+    rs_glid_t tex_uibat_text[2];    /* ★ SPAK2UI 批量（12 弹窗）：共用文字图集 GL 纹理（每 slot 一套） */
     void *imen_text_px; size_t imen_text_px_len; /* ★ ☰ 菜单文字图集 RGBA（8 项竖排 160×320） */
     int imen_text_w, imen_text_h;               /* ☰ 菜单文字图集尺寸 */
     void *imen_icons_px; size_t imen_icons_px_len; /* ★ ☰ 菜单图标图集 RGBA（8 图标 110×100 4×2，原版裁剪） */

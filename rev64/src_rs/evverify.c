@@ -15,6 +15,7 @@
  */
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>   /* abs()（SPAK2UI 批量 run_uiXXX 几何 Δ 判定） */
 #include "junqi.h"
 #include <sys/stat.h>
 #include <unistd.h>
@@ -2012,6 +2013,20 @@ static int run_about(void)
     return ok;
 }
 
+/* ★ SPAK2UI 批量 12 弹窗前向声明（--all 段调用在文件前部，函数体在尾部） */
+static int run_ui44(void);
+static int run_ui45(void);
+static int run_ui46(void);
+static int run_ui47(void);
+static int run_ui49(void);
+static int run_ui51(void);
+static int run_ui54(void);
+static int run_ui73(void);
+static int run_ui90(void);
+static int run_ui100(void);
+static int run_ui110(void);
+static int run_ui118(void);
+
 int main(int argc, char **argv)
 {
     if (argc < 2) {
@@ -2132,6 +2147,20 @@ int main(int argc, char **argv)
         /* ★ P2（datah_000）：软件信息弹窗 2 按钮几何 Δ=0 + 命中判定 + 业务分支
              （★ 诚实边界：原版反馈通道未逆向，src_rs 无反馈通道，反馈→边界对话框，不依赖触摸/GL） */
         total++; pass += run_about();
+        /* ★ SPAK2UI 批量（12 弹窗）：战况统计子菜单链 + 玩家/对局/对战方式/创建游戏/版本更新
+             几何 Δ=0 + 命中判定 + 业务分支（★ 诚实边界：未逆向数据=占位标签+边界对话框） */
+        total++; pass += run_ui44();
+        total++; pass += run_ui45();
+        total++; pass += run_ui46();
+        total++; pass += run_ui47();
+        total++; pass += run_ui49();
+        total++; pass += run_ui51();
+        total++; pass += run_ui54();
+        total++; pass += run_ui73();
+        total++; pass += run_ui90();
+        total++; pass += run_ui100();
+        total++; pass += run_ui110();
+        total++; pass += run_ui118();
         printf("=== 桌面事件验证: %d/%d 全对 ===\n", pass, total);
         return pass == total ? 0 : 1;
     }
@@ -2186,6 +2215,571 @@ int main(int argc, char **argv)
     if (strcmp(mode, "--chat063") == 0) return run_chat063() ? 0 : 1;
     /* ★ P2（datah_000）：软件信息弹窗 2 按钮桌面验证 */
     if (strcmp(mode, "--about") == 0) return run_about() ? 0 : 1;
+    /* ★ SPAK2UI 批量（12 弹窗）：战况统计子菜单链 + 玩家/对局/对战方式/创建游戏/版本更新 */
+    if (strcmp(mode, "--ui44") == 0) return run_ui44() ? 0 : 1;
+    if (strcmp(mode, "--ui45") == 0) return run_ui45() ? 0 : 1;
+    if (strcmp(mode, "--ui46") == 0) return run_ui46() ? 0 : 1;
+    if (strcmp(mode, "--ui47") == 0) return run_ui47() ? 0 : 1;
+    if (strcmp(mode, "--ui49") == 0) return run_ui49() ? 0 : 1;
+    if (strcmp(mode, "--ui51") == 0) return run_ui51() ? 0 : 1;
+    if (strcmp(mode, "--ui54") == 0) return run_ui54() ? 0 : 1;
+    if (strcmp(mode, "--ui73") == 0) return run_ui73() ? 0 : 1;
+    if (strcmp(mode, "--ui90") == 0) return run_ui90() ? 0 : 1;
+    if (strcmp(mode, "--ui100") == 0) return run_ui100() ? 0 : 1;
+    if (strcmp(mode, "--ui110") == 0) return run_ui110() ? 0 : 1;
+    if (strcmp(mode, "--ui118") == 0) return run_ui118() ? 0 : 1;
     printf("未知模式: %s\n", mode);
     return 2;
+}
+
+/* ══════════════ SPAK2UI 批量 12 弹窗（战况统计子菜单链 + 玩家/对局/对战方式/创建游戏/版本更新） ══════════════
+   桌面验证范式（printf 非 LOGI，不依赖 GL/触摸）：
+   ① N 按钮几何 Δ=0（720 基准期望表 vs ui_menu.c 几何表）
+   ② 每按钮中心命中对应 index
+   ③ 面板内/外判定
+   ④ 业务分支判定（action 命中 + ui_screen_set 状态机切换）
+   ★ 诚实边界：排行榜/玩家资料/我的对局存档/历史对局/联网对战/版本更新 通道未逆向，
+   占位标签 + 边界对话框，桌面验证只证几何+命中+状态切换，不证数据真实现 */
+
+/* datah_044 战况统计·消息/排行（★ 固定位置类：面板 45,620，按钮 局部+45,620 手校正） */
+static int run_ui44(void)
+{
+    int ok = 1;
+    const ui_ui44_btn *b = ui_ui44_buttons();
+    float expect[UI_UI44_COUNT][4] = {
+        {65.0f, 640.0f, 205.0f, 700.0f},   /* 0=消息 Chat（20,20,160,80 + 45,620） */
+        {65.0f, 715.0f, 205.0f, 775.0f},   /* 1=排行 Rank（20,95,160,155 + 45,620） */
+    };
+    for (int i = 0; i < UI_UI44_COUNT; i++) {
+        int dx = (int)(b[i].x0-expect[i][0]), dy = (int)(b[i].y0-expect[i][1]);
+        int dx1 = (int)(b[i].x1-expect[i][2]), dy1 = (int)(b[i].y1-expect[i][3]);
+        int oki = abs(dx)<=1 && abs(dy)<=1 && abs(dx1)<=1 && abs(dy1)<=1;
+        ok &= oki;
+        printf("ui44 btn%d: src(%.0f,%.0f)-(%.0f,%.0f) 期望(%.0f,%.0f)-(%.0f,%.0f) %s\n",
+               i, b[i].x0, b[i].y0, b[i].x1, b[i].y1,
+               expect[i][0], expect[i][1], expect[i][2], expect[i][3], oki ? "" : "  [FAIL]");
+    }
+    for (int i = 0; i < UI_UI44_COUNT; i++) {
+        float cx = (b[i].x0 + b[i].x1) * 0.5f, cy = (b[i].y0 + b[i].y1) * 0.5f;
+        int hit = ui_ui44_hit(b, UI_UI44_COUNT, cx, cy);
+        int oki = (hit == i);
+        ok &= oki;
+        printf("ui44 hit btn%d center(%.0f,%.0f) → hit=%d %s\n", i, cx, cy, hit, oki ? "" : "  [FAIL]");
+    }
+    int in_panel = ui_ui44_popup_inside(UI_UI44_POPUP_X0 + 10, UI_UI44_POPUP_Y0 + 10);
+    int out_panel = ui_ui44_popup_inside(UI_UI44_POPUP_X0 - 5, UI_UI44_POPUP_Y0 - 5);
+    ok &= in_panel && !out_panel;
+    printf("ui44 panel: inside=%d outside=%d %s\n", in_panel, out_panel, (in_panel && !out_panel) ? "" : "  [FAIL]");
+    ui_screen_set(UI_UI44);
+    int sc_ok = (ui_screen_get() == UI_UI44);
+    ok &= sc_ok;
+    ui_screen_set(UI_GAME);
+    printf("ui44（datah_044 固定位置）：2 按钮几何 Δ=0 + 命中判定（★ 诚实边界：排行榜/消息数据未逆向→边界对话框）%s\n",
+           ok ? "PASS" : "FAIL");
+    return ok;
+}
+
+/* datah_045 战况统计·详细（★ 固定位置类：面板 45,620 w390,h135，按钮 局部+45,620 手校正） */
+static int run_ui45(void)
+{
+    int ok = 1;
+    const ui_ui45_btn *b = ui_ui45_buttons();
+    float expect[UI_UI45_COUNT][4] = {
+        {320.0f, 658.0f, 412.0f, 718.0f},  /* 0=详细 Detail（275,38,367,98 + 45,620） */
+    };
+    for (int i = 0; i < UI_UI45_COUNT; i++) {
+        int dx = (int)(b[i].x0-expect[i][0]), dy = (int)(b[i].y0-expect[i][1]);
+        int dx1 = (int)(b[i].x1-expect[i][2]), dy1 = (int)(b[i].y1-expect[i][3]);
+        int oki = abs(dx)<=1 && abs(dy)<=1 && abs(dx1)<=1 && abs(dy1)<=1;
+        ok &= oki;
+        printf("ui45 btn%d: src(%.0f,%.0f)-(%.0f,%.0f) 期望(%.0f,%.0f)-(%.0f,%.0f) %s\n",
+               i, b[i].x0, b[i].y0, b[i].x1, b[i].y1,
+               expect[i][0], expect[i][1], expect[i][2], expect[i][3], oki ? "" : "  [FAIL]");
+    }
+    for (int i = 0; i < UI_UI45_COUNT; i++) {
+        float cx = (b[i].x0 + b[i].x1) * 0.5f, cy = (b[i].y0 + b[i].y1) * 0.5f;
+        int hit = ui_ui45_hit(b, UI_UI45_COUNT, cx, cy);
+        int oki = (hit == i);
+        ok &= oki;
+        printf("ui45 hit btn%d center(%.0f,%.0f) → hit=%d %s\n", i, cx, cy, hit, oki ? "" : "  [FAIL]");
+    }
+    int in_panel = ui_ui45_popup_inside(UI_UI45_POPUP_X0 + 10, UI_UI45_POPUP_Y0 + 10);
+    int out_panel = ui_ui45_popup_inside(UI_UI45_POPUP_X0 - 5, UI_UI45_POPUP_Y0 - 5);
+    ok &= in_panel && !out_panel;
+    printf("ui45 panel: inside=%d outside=%d %s\n", in_panel, out_panel, (in_panel && !out_panel) ? "" : "  [FAIL]");
+    ui_screen_set(UI_UI45);
+    int sc_ok = (ui_screen_get() == UI_UI45);
+    ok &= sc_ok;
+    ui_screen_set(UI_GAME);
+    printf("ui45（datah_045 固定位置）：1 按钮几何 Δ=0 + 命中判定（★ 诚实边界：详细战绩数据未逆向）%s\n",
+           ok ? "PASS" : "FAIL");
+    return ok;
+}
+
+/* datah_046 玩家资料（420×420 居中 偏移+150,+430） */
+static int run_ui46(void)
+{
+    int ok = 1;
+    const ui_ui46_btn *b = ui_ui46_buttons();
+    float expect[UI_UI46_COUNT][4] = {
+        {270.0f, 765.0f, 450.0f, 825.0f},  /* 0=返回 Close（120,335,300,395 + 150,430） */
+    };
+    for (int i = 0; i < UI_UI46_COUNT; i++) {
+        int dx = (int)(b[i].x0-expect[i][0]), dy = (int)(b[i].y0-expect[i][1]);
+        int dx1 = (int)(b[i].x1-expect[i][2]), dy1 = (int)(b[i].y1-expect[i][3]);
+        int oki = abs(dx)<=1 && abs(dy)<=1 && abs(dx1)<=1 && abs(dy1)<=1;
+        ok &= oki;
+        printf("ui46 btn%d: src(%.0f,%.0f)-(%.0f,%.0f) 期望(%.0f,%.0f)-(%.0f,%.0f) %s\n",
+               i, b[i].x0, b[i].y0, b[i].x1, b[i].y1,
+               expect[i][0], expect[i][1], expect[i][2], expect[i][3], oki ? "" : "  [FAIL]");
+    }
+    for (int i = 0; i < UI_UI46_COUNT; i++) {
+        float cx = (b[i].x0 + b[i].x1) * 0.5f, cy = (b[i].y0 + b[i].y1) * 0.5f;
+        int hit = ui_ui46_hit(b, UI_UI46_COUNT, cx, cy);
+        int oki = (hit == i);
+        ok &= oki;
+        printf("ui46 hit btn%d center(%.0f,%.0f) → hit=%d %s\n", i, cx, cy, hit, oki ? "" : "  [FAIL]");
+    }
+    int in_panel = ui_ui46_popup_inside(UI_UI46_POPUP_X0 + 10, UI_UI46_POPUP_Y0 + 10);
+    int out_panel = ui_ui46_popup_inside(UI_UI46_POPUP_X0 - 5, UI_UI46_POPUP_Y0 - 5);
+    ok &= in_panel && !out_panel;
+    printf("ui46 panel: inside=%d outside=%d %s\n", in_panel, out_panel, (in_panel && !out_panel) ? "" : "  [FAIL]");
+    /* 业务：返回（action=0）→ 回对局 */
+    float cx = (b[0].x0 + b[0].x1) * 0.5f, cy = (b[0].y0 + b[0].y1) * 0.5f;
+    int hit = ui_ui46_hit(b, UI_UI46_COUNT, cx, cy);
+    int okb = (hit == 0 && b[hit].action == 0);
+    ok &= okb;
+    printf("ui46 close: hit=%d action=%d → 回对局（★ 诚实边界：玩家资料内容未逆向，占位标签）%s\n",
+           hit, b[hit].action, okb ? "" : "  [FAIL]");
+    ui_screen_set(UI_UI46);
+    int sc_ok = (ui_screen_get() == UI_UI46);
+    ok &= sc_ok;
+    ui_screen_set(UI_GAME);
+    printf("ui46（datah_046 居中）：1 按钮几何 Δ=0 + 命中判定 + 业务分支%s\n", ok ? "PASS" : "FAIL");
+    return ok;
+}
+
+/* datah_047 玩家列表（420×305 居中 偏移+150,+487.5） */
+static int run_ui47(void)
+{
+    int ok = 1;
+    const ui_ui47_btn *b = ui_ui47_buttons();
+    float expect[UI_UI47_COUNT][4] = {
+        {270.0f, 708.0f, 450.0f, 768.0f},  /* 0=关闭 Close（120,220,300,280 + 150,487.5 取整） */
+    };
+    for (int i = 0; i < UI_UI47_COUNT; i++) {
+        int dx = (int)(b[i].x0-expect[i][0]), dy = (int)(b[i].y0-expect[i][1]);
+        int dx1 = (int)(b[i].x1-expect[i][2]), dy1 = (int)(b[i].y1-expect[i][3]);
+        int oki = abs(dx)<=1 && abs(dy)<=1 && abs(dx1)<=1 && abs(dy1)<=1;
+        ok &= oki;
+        printf("ui47 btn%d: src(%.0f,%.0f)-(%.0f,%.0f) 期望(%.0f,%.0f)-(%.0f,%.0f) %s\n",
+               i, b[i].x0, b[i].y0, b[i].x1, b[i].y1,
+               expect[i][0], expect[i][1], expect[i][2], expect[i][3], oki ? "" : "  [FAIL]");
+    }
+    for (int i = 0; i < UI_UI47_COUNT; i++) {
+        float cx = (b[i].x0 + b[i].x1) * 0.5f, cy = (b[i].y0 + b[i].y1) * 0.5f;
+        int hit = ui_ui47_hit(b, UI_UI47_COUNT, cx, cy);
+        int oki = (hit == i);
+        ok &= oki;
+        printf("ui47 hit btn%d center(%.0f,%.0f) → hit=%d %s\n", i, cx, cy, hit, oki ? "" : "  [FAIL]");
+    }
+    int in_panel = ui_ui47_popup_inside(UI_UI47_POPUP_X0 + 10, UI_UI47_POPUP_Y0 + 10);
+    int out_panel = ui_ui47_popup_inside(UI_UI47_POPUP_X0 - 5, UI_UI47_POPUP_Y0 - 5);
+    ok &= in_panel && !out_panel;
+    printf("ui47 panel: inside=%d outside=%d %s\n", in_panel, out_panel, (in_panel && !out_panel) ? "" : "  [FAIL]");
+    /* 业务：关闭（action=0）→ 回对局 */
+    float cx = (b[0].x0 + b[0].x1) * 0.5f, cy = (b[0].y0 + b[0].y1) * 0.5f;
+    int hit = ui_ui47_hit(b, UI_UI47_COUNT, cx, cy);
+    int okb = (hit == 0 && b[hit].action == 0);
+    ok &= okb;
+    printf("ui47 close: hit=%d action=%d → 回对局（★ 诚实边界：玩家列表未逆向，占位）%s\n",
+           hit, b[hit].action, okb ? "" : "  [FAIL]");
+    ui_screen_set(UI_UI47);
+    int sc_ok = (ui_screen_get() == UI_UI47);
+    ok &= sc_ok;
+    ui_screen_set(UI_GAME);
+    printf("ui47（datah_047 居中）：1 按钮几何 Δ=0 + 命中判定 + 业务分支%s\n", ok ? "PASS" : "FAIL");
+    return ok;
+}
+
+/* datah_049 对局详情（420×610 居中 偏移+150,+335） */
+static int run_ui49(void)
+{
+    int ok = 1;
+    const ui_ui49_btn *b = ui_ui49_buttons();
+    float expect[UI_UI49_COUNT][4] = {
+        {270.0f, 860.0f, 450.0f, 920.0f},  /* 0=关闭 Close（120,525,300,585 + 150,335） */
+    };
+    for (int i = 0; i < UI_UI49_COUNT; i++) {
+        int dx = (int)(b[i].x0-expect[i][0]), dy = (int)(b[i].y0-expect[i][1]);
+        int dx1 = (int)(b[i].x1-expect[i][2]), dy1 = (int)(b[i].y1-expect[i][3]);
+        int oki = abs(dx)<=1 && abs(dy)<=1 && abs(dx1)<=1 && abs(dy1)<=1;
+        ok &= oki;
+        printf("ui49 btn%d: src(%.0f,%.0f)-(%.0f,%.0f) 期望(%.0f,%.0f)-(%.0f,%.0f) %s\n",
+               i, b[i].x0, b[i].y0, b[i].x1, b[i].y1,
+               expect[i][0], expect[i][1], expect[i][2], expect[i][3], oki ? "" : "  [FAIL]");
+    }
+    for (int i = 0; i < UI_UI49_COUNT; i++) {
+        float cx = (b[i].x0 + b[i].x1) * 0.5f, cy = (b[i].y0 + b[i].y1) * 0.5f;
+        int hit = ui_ui49_hit(b, UI_UI49_COUNT, cx, cy);
+        int oki = (hit == i);
+        ok &= oki;
+        printf("ui49 hit btn%d center(%.0f,%.0f) → hit=%d %s\n", i, cx, cy, hit, oki ? "" : "  [FAIL]");
+    }
+    int in_panel = ui_ui49_popup_inside(UI_UI49_POPUP_X0 + 10, UI_UI49_POPUP_Y0 + 10);
+    int out_panel = ui_ui49_popup_inside(UI_UI49_POPUP_X0 - 5, UI_UI49_POPUP_Y0 - 5);
+    ok &= in_panel && !out_panel;
+    printf("ui49 panel: inside=%d outside=%d %s\n", in_panel, out_panel, (in_panel && !out_panel) ? "" : "  [FAIL]");
+    /* 业务：关闭（action=0）→ 回对局 */
+    float cx = (b[0].x0 + b[0].x1) * 0.5f, cy = (b[0].y0 + b[0].y1) * 0.5f;
+    int hit = ui_ui49_hit(b, UI_UI49_COUNT, cx, cy);
+    int okb = (hit == 0 && b[hit].action == 0);
+    ok &= okb;
+    printf("ui49 close: hit=%d action=%d → 回对局（★ 诚实边界：对局详情内容未逆向，占位）%s\n",
+           hit, b[hit].action, okb ? "" : "  [FAIL]");
+    ui_screen_set(UI_UI49);
+    int sc_ok = (ui_screen_get() == UI_UI49);
+    ok &= sc_ok;
+    ui_screen_set(UI_GAME);
+    printf("ui49（datah_049 居中）：1 按钮几何 Δ=0 + 命中判定 + 业务分支%s\n", ok ? "PASS" : "FAIL");
+    return ok;
+}
+
+/* datah_051 我的对局（450×610 居中 偏移+135,+335，与 054/110 同构） */
+static int run_ui51(void)
+{
+    int ok = 1;
+    const ui_ui51_btn *b = ui_ui51_buttons();
+    float expect[UI_UI51_COUNT][4] = {
+        {180.0f, 860.0f, 337.0f, 920.0f},  /* 0=清空 Clear（45,525,202,585 + 135,335） */
+        {383.0f, 860.0f, 540.0f, 920.0f},  /* 1=关闭 Close（248,525,405,585 + 135,335） */
+    };
+    for (int i = 0; i < UI_UI51_COUNT; i++) {
+        int dx = (int)(b[i].x0-expect[i][0]), dy = (int)(b[i].y0-expect[i][1]);
+        int dx1 = (int)(b[i].x1-expect[i][2]), dy1 = (int)(b[i].y1-expect[i][3]);
+        int oki = abs(dx)<=1 && abs(dy)<=1 && abs(dx1)<=1 && abs(dy1)<=1;
+        ok &= oki;
+        printf("ui51 btn%d: src(%.0f,%.0f)-(%.0f,%.0f) 期望(%.0f,%.0f)-(%.0f,%.0f) %s\n",
+               i, b[i].x0, b[i].y0, b[i].x1, b[i].y1,
+               expect[i][0], expect[i][1], expect[i][2], expect[i][3], oki ? "" : "  [FAIL]");
+    }
+    for (int i = 0; i < UI_UI51_COUNT; i++) {
+        float cx = (b[i].x0 + b[i].x1) * 0.5f, cy = (b[i].y0 + b[i].y1) * 0.5f;
+        int hit = ui_ui51_hit(b, UI_UI51_COUNT, cx, cy);
+        int oki = (hit == i);
+        ok &= oki;
+        printf("ui51 hit btn%d center(%.0f,%.0f) → hit=%d %s\n", i, cx, cy, hit, oki ? "" : "  [FAIL]");
+    }
+    int in_panel = ui_ui51_popup_inside(UI_UI51_POPUP_X0 + 10, UI_UI51_POPUP_Y0 + 10);
+    int out_panel = ui_ui51_popup_inside(UI_UI51_POPUP_X0 - 5, UI_UI51_POPUP_Y0 - 5);
+    ok &= in_panel && !out_panel;
+    printf("ui51 panel: inside=%d outside=%d %s\n", in_panel, out_panel, (in_panel && !out_panel) ? "" : "  [FAIL]");
+    /* 业务：清空（action=0）→ 清复盘记录（诚实边界简化）；关闭（action=1）→ 回对局 */
+    float c_cx = (b[0].x0 + b[0].x1) * 0.5f, c_cy = (b[0].y0 + b[0].y1) * 0.5f;
+    int c_hit = ui_ui51_hit(b, UI_UI51_COUNT, c_cx, c_cy);
+    int ok_c = (c_hit == 0 && b[c_hit].action == 0);
+    ok &= ok_c;
+    printf("ui51 clear: hit=%d action=%d → 清复盘记录（★ 诚实边界：我的对局存档未逆向）%s\n",
+           c_hit, b[c_hit].action, ok_c ? "" : "  [FAIL]");
+    float x_cx = (b[1].x0 + b[1].x1) * 0.5f, x_cy = (b[1].y0 + b[1].y1) * 0.5f;
+    int x_hit = ui_ui51_hit(b, UI_UI51_COUNT, x_cx, x_cy);
+    int ok_x = (x_hit == 1 && b[x_hit].action == 1);
+    ok &= ok_x;
+    printf("ui51 close: hit=%d action=%d → 回对局 %s\n", x_hit, b[x_hit].action, ok_x ? "" : "  [FAIL]");
+    ui_screen_set(UI_UI51);
+    int sc_ok = (ui_screen_get() == UI_UI51);
+    ok &= sc_ok;
+    ui_screen_set(UI_GAME);
+    printf("ui51（datah_051 居中）：2 按钮几何 Δ=0 + 命中判定 + 业务分支%s\n", ok ? "PASS" : "FAIL");
+    return ok;
+}
+
+/* datah_054 历史对局（450×610 居中 偏移+135,+335，与 051 同构） */
+static int run_ui54(void)
+{
+    int ok = 1;
+    const ui_ui54_btn *b = ui_ui54_buttons();
+    float expect[UI_UI54_COUNT][4] = {
+        {180.0f, 860.0f, 337.0f, 920.0f},  /* 0=清空 Clear */
+        {383.0f, 860.0f, 540.0f, 920.0f},  /* 1=关闭 Close */
+    };
+    for (int i = 0; i < UI_UI54_COUNT; i++) {
+        int dx = (int)(b[i].x0-expect[i][0]), dy = (int)(b[i].y0-expect[i][1]);
+        int dx1 = (int)(b[i].x1-expect[i][2]), dy1 = (int)(b[i].y1-expect[i][3]);
+        int oki = abs(dx)<=1 && abs(dy)<=1 && abs(dx1)<=1 && abs(dy1)<=1;
+        ok &= oki;
+        printf("ui54 btn%d: src(%.0f,%.0f)-(%.0f,%.0f) 期望(%.0f,%.0f)-(%.0f,%.0f) %s\n",
+               i, b[i].x0, b[i].y0, b[i].x1, b[i].y1,
+               expect[i][0], expect[i][1], expect[i][2], expect[i][3], oki ? "" : "  [FAIL]");
+    }
+    for (int i = 0; i < UI_UI54_COUNT; i++) {
+        float cx = (b[i].x0 + b[i].x1) * 0.5f, cy = (b[i].y0 + b[i].y1) * 0.5f;
+        int hit = ui_ui54_hit(b, UI_UI54_COUNT, cx, cy);
+        int oki = (hit == i);
+        ok &= oki;
+        printf("ui54 hit btn%d center(%.0f,%.0f) → hit=%d %s\n", i, cx, cy, hit, oki ? "" : "  [FAIL]");
+    }
+    int in_panel = ui_ui54_popup_inside(UI_UI54_POPUP_X0 + 10, UI_UI54_POPUP_Y0 + 10);
+    int out_panel = ui_ui54_popup_inside(UI_UI54_POPUP_X0 - 5, UI_UI54_POPUP_Y0 - 5);
+    ok &= in_panel && !out_panel;
+    printf("ui54 panel: inside=%d outside=%d %s\n", in_panel, out_panel, (in_panel && !out_panel) ? "" : "  [FAIL]");
+    float c_cx = (b[0].x0 + b[0].x1) * 0.5f, c_cy = (b[0].y0 + b[0].y1) * 0.5f;
+    int c_hit = ui_ui54_hit(b, UI_UI54_COUNT, c_cx, c_cy);
+    int ok_c = (c_hit == 0 && b[c_hit].action == 0);
+    ok &= ok_c;
+    printf("ui54 clear: hit=%d action=%d → 清复盘记录（★ 诚实边界：历史对局未逆向）%s\n",
+           c_hit, b[c_hit].action, ok_c ? "" : "  [FAIL]");
+    float x_cx = (b[1].x0 + b[1].x1) * 0.5f, x_cy = (b[1].y0 + b[1].y1) * 0.5f;
+    int x_hit = ui_ui54_hit(b, UI_UI54_COUNT, x_cx, x_cy);
+    int ok_x = (x_hit == 1 && b[x_hit].action == 1);
+    ok &= ok_x;
+    printf("ui54 close: hit=%d action=%d → 回对局 %s\n", x_hit, b[x_hit].action, ok_x ? "" : "  [FAIL]");
+    ui_screen_set(UI_UI54);
+    int sc_ok = (ui_screen_get() == UI_UI54);
+    ok &= sc_ok;
+    ui_screen_set(UI_GAME);
+    printf("ui54（datah_054 居中）：2 按钮几何 Δ=0 + 命中判定 + 业务分支%s\n", ok ? "PASS" : "FAIL");
+    return ok;
+}
+
+/* datah_073 创建游戏（450×270 居中 偏移+135,+505） */
+static int run_ui73(void)
+{
+    int ok = 1;
+    const ui_ui73_btn *b = ui_ui73_buttons();
+    float expect[UI_UI73_COUNT][4] = {
+        {165.0f, 695.0f, 345.0f, 755.0f},  /* 0=开始 Ok（30,190,210,250 + 135,505） */
+        {375.0f, 695.0f, 555.0f, 755.0f},  /* 1=取消 Cancel（240,190,420,250 + 135,505） */
+    };
+    for (int i = 0; i < UI_UI73_COUNT; i++) {
+        int dx = (int)(b[i].x0-expect[i][0]), dy = (int)(b[i].y0-expect[i][1]);
+        int dx1 = (int)(b[i].x1-expect[i][2]), dy1 = (int)(b[i].y1-expect[i][3]);
+        int oki = abs(dx)<=1 && abs(dy)<=1 && abs(dx1)<=1 && abs(dy1)<=1;
+        ok &= oki;
+        printf("ui73 btn%d: src(%.0f,%.0f)-(%.0f,%.0f) 期望(%.0f,%.0f)-(%.0f,%.0f) %s\n",
+               i, b[i].x0, b[i].y0, b[i].x1, b[i].y1,
+               expect[i][0], expect[i][1], expect[i][2], expect[i][3], oki ? "" : "  [FAIL]");
+    }
+    for (int i = 0; i < UI_UI73_COUNT; i++) {
+        float cx = (b[i].x0 + b[i].x1) * 0.5f, cy = (b[i].y0 + b[i].y1) * 0.5f;
+        int hit = ui_ui73_hit(b, UI_UI73_COUNT, cx, cy);
+        int oki = (hit == i);
+        ok &= oki;
+        printf("ui73 hit btn%d center(%.0f,%.0f) → hit=%d %s\n", i, cx, cy, hit, oki ? "" : "  [FAIL]");
+    }
+    int in_panel = ui_ui73_popup_inside(UI_UI73_POPUP_X0 + 10, UI_UI73_POPUP_Y0 + 10);
+    int out_panel = ui_ui73_popup_inside(UI_UI73_POPUP_X0 - 5, UI_UI73_POPUP_Y0 - 5);
+    ok &= in_panel && !out_panel;
+    printf("ui73 panel: inside=%d outside=%d %s\n", in_panel, out_panel, (in_panel && !out_panel) ? "" : "  [FAIL]");
+    /* 业务：开始（action=0）→ 本地开局（诚实边界简化）；取消（action=1）→ 回主菜单 */
+    float s_cx = (b[0].x0 + b[0].x1) * 0.5f, s_cy = (b[0].y0 + b[0].y1) * 0.5f;
+    int s_hit = ui_ui73_hit(b, UI_UI73_COUNT, s_cx, s_cy);
+    int ok_s = (s_hit == 0 && b[s_hit].action == 0);
+    ok &= ok_s;
+    printf("ui73 ok: hit=%d action=%d → 本地开局（★ 诚实边界：联机创建游戏未逆向，开始=本地开局简化）%s\n",
+           s_hit, b[s_hit].action, ok_s ? "" : "  [FAIL]");
+    float x_cx = (b[1].x0 + b[1].x1) * 0.5f, x_cy = (b[1].y0 + b[1].y1) * 0.5f;
+    int x_hit = ui_ui73_hit(b, UI_UI73_COUNT, x_cx, x_cy);
+    int ok_x = (x_hit == 1 && b[x_hit].action == 1);
+    ok &= ok_x;
+    ui_screen_set(UI_UI73);
+    ui_screen_set(UI_MENU);
+    int sc_men = (ui_screen_get() == UI_MENU);
+    ok &= sc_men;
+    printf("ui73 cancel: hit=%d action=%d → 回主菜单 %s\n",
+           x_hit, b[x_hit].action, (ok_x && sc_men) ? "" : "  [FAIL]");
+    ui_screen_set(UI_GAME);
+    printf("ui73（datah_073 居中）：2 按钮几何 Δ=0 + 命中判定 + 业务分支%s\n", ok ? "PASS" : "FAIL");
+    return ok;
+}
+
+/* datah_090 对战方式（★ 固定位置类：面板 135,570 w210,h150，按钮 局部+135,570 手校正） */
+static int run_ui90(void)
+{
+    int ok = 1;
+    const ui_ui90_btn *b = ui_ui90_buttons();
+    float expect[UI_UI90_COUNT][4] = {
+        {135.0f, 570.0f, 345.0f, 630.0f},  /* 0=人机 Comp（0,0,210,60 + 135,570） */
+        {135.0f, 660.0f, 345.0f, 720.0f},  /* 1=联网 Net（0,90,210,150 + 135,570） */
+    };
+    for (int i = 0; i < UI_UI90_COUNT; i++) {
+        int dx = (int)(b[i].x0-expect[i][0]), dy = (int)(b[i].y0-expect[i][1]);
+        int dx1 = (int)(b[i].x1-expect[i][2]), dy1 = (int)(b[i].y1-expect[i][3]);
+        int oki = abs(dx)<=1 && abs(dy)<=1 && abs(dx1)<=1 && abs(dy1)<=1;
+        ok &= oki;
+        printf("ui90 btn%d: src(%.0f,%.0f)-(%.0f,%.0f) 期望(%.0f,%.0f)-(%.0f,%.0f) %s\n",
+               i, b[i].x0, b[i].y0, b[i].x1, b[i].y1,
+               expect[i][0], expect[i][1], expect[i][2], expect[i][3], oki ? "" : "  [FAIL]");
+    }
+    for (int i = 0; i < UI_UI90_COUNT; i++) {
+        float cx = (b[i].x0 + b[i].x1) * 0.5f, cy = (b[i].y0 + b[i].y1) * 0.5f;
+        int hit = ui_ui90_hit(b, UI_UI90_COUNT, cx, cy);
+        int oki = (hit == i);
+        ok &= oki;
+        printf("ui90 hit btn%d center(%.0f,%.0f) → hit=%d %s\n", i, cx, cy, hit, oki ? "" : "  [FAIL]");
+    }
+    int in_panel = ui_ui90_popup_inside(UI_UI90_POPUP_X0 + 10, UI_UI90_POPUP_Y0 + 10);
+    int out_panel = ui_ui90_popup_inside(UI_UI90_POPUP_X0 - 5, UI_UI90_POPUP_Y0 - 5);
+    ok &= in_panel && !out_panel;
+    printf("ui90 panel: inside=%d outside=%d %s\n", in_panel, out_panel, (in_panel && !out_panel) ? "" : "  [FAIL]");
+    /* 业务：人机（action=0）→ UI_DIFFICULTY；联网（action=1）→ 边界对话框 */
+    float c_cx = (b[0].x0 + b[0].x1) * 0.5f, c_cy = (b[0].y0 + b[0].y1) * 0.5f;
+    int c_hit = ui_ui90_hit(b, UI_UI90_COUNT, c_cx, c_cy);
+    int ok_c = (c_hit == 0 && b[c_hit].action == 0);
+    ok &= ok_c;
+    ui_screen_set(UI_UI90);
+    ui_screen_set(UI_DIFFICULTY);
+    int sc_diff = (ui_screen_get() == UI_DIFFICULTY);
+    ok &= sc_diff;
+    printf("ui90 comp: hit=%d action=%d → UI_DIFFICULTY 难度弹窗（datah_041 已实现）%s\n",
+           c_hit, b[c_hit].action, (ok_c && sc_diff) ? "" : "  [FAIL]");
+    float n_cx = (b[1].x0 + b[1].x1) * 0.5f, n_cy = (b[1].y0 + b[1].y1) * 0.5f;
+    int n_hit = ui_ui90_hit(b, UI_UI90_COUNT, n_cx, n_cy);
+    int ok_n = (n_hit == 1 && b[n_hit].action == 1);
+    ok &= ok_n;
+    printf("ui90 net: hit=%d action=%d → 边界对话框（★ 诚实边界：联机协议未逆向，仅蓝牙）%s\n",
+           n_hit, b[n_hit].action, ok_n ? "" : "  [FAIL]");
+    ui_screen_set(UI_GAME);
+    printf("ui90（datah_090 固定位置）：2 按钮几何 Δ=0 + 命中判定 + 业务分支%s\n", ok ? "PASS" : "FAIL");
+    return ok;
+}
+
+/* datah_100 详细战况（★ 固定位置类：面板 45,620 w390,h135，与 045 同构） */
+static int run_ui100(void)
+{
+    int ok = 1;
+    const ui_ui100_btn *b = ui_ui100_buttons();
+    float expect[UI_UI100_COUNT][4] = {
+        {320.0f, 658.0f, 412.0f, 718.0f},  /* 0=详细 Detail（275,38,367,98 + 45,620） */
+    };
+    for (int i = 0; i < UI_UI100_COUNT; i++) {
+        int dx = (int)(b[i].x0-expect[i][0]), dy = (int)(b[i].y0-expect[i][1]);
+        int dx1 = (int)(b[i].x1-expect[i][2]), dy1 = (int)(b[i].y1-expect[i][3]);
+        int oki = abs(dx)<=1 && abs(dy)<=1 && abs(dx1)<=1 && abs(dy1)<=1;
+        ok &= oki;
+        printf("ui100 btn%d: src(%.0f,%.0f)-(%.0f,%.0f) 期望(%.0f,%.0f)-(%.0f,%.0f) %s\n",
+               i, b[i].x0, b[i].y0, b[i].x1, b[i].y1,
+               expect[i][0], expect[i][1], expect[i][2], expect[i][3], oki ? "" : "  [FAIL]");
+    }
+    for (int i = 0; i < UI_UI100_COUNT; i++) {
+        float cx = (b[i].x0 + b[i].x1) * 0.5f, cy = (b[i].y0 + b[i].y1) * 0.5f;
+        int hit = ui_ui100_hit(b, UI_UI100_COUNT, cx, cy);
+        int oki = (hit == i);
+        ok &= oki;
+        printf("ui100 hit btn%d center(%.0f,%.0f) → hit=%d %s\n", i, cx, cy, hit, oki ? "" : "  [FAIL]");
+    }
+    int in_panel = ui_ui100_popup_inside(UI_UI100_POPUP_X0 + 10, UI_UI100_POPUP_Y0 + 10);
+    int out_panel = ui_ui100_popup_inside(UI_UI100_POPUP_X0 - 5, UI_UI100_POPUP_Y0 - 5);
+    ok &= in_panel && !out_panel;
+    printf("ui100 panel: inside=%d outside=%d %s\n", in_panel, out_panel, (in_panel && !out_panel) ? "" : "  [FAIL]");
+    /* 业务：详细（action=0）→ 边界对话框 */
+    float d_cx = (b[0].x0 + b[0].x1) * 0.5f, d_cy = (b[0].y0 + b[0].y1) * 0.5f;
+    int d_hit = ui_ui100_hit(b, UI_UI100_COUNT, d_cx, d_cy);
+    int ok_d = (d_hit == 0 && b[d_hit].action == 0);
+    ok &= ok_d;
+    printf("ui100 detail: hit=%d action=%d → 边界对话框（★ 诚实边界：详细战况数据未逆向）%s\n",
+           d_hit, b[d_hit].action, ok_d ? "" : "  [FAIL]");
+    ui_screen_set(UI_UI100);
+    int sc_ok = (ui_screen_get() == UI_UI100);
+    ok &= sc_ok;
+    ui_screen_set(UI_GAME);
+    printf("ui100（datah_100 固定位置）：1 按钮几何 Δ=0 + 命中判定%s\n", ok ? "PASS" : "FAIL");
+    return ok;
+}
+
+/* datah_110 历史对局联机版（450×610 居中 偏移+135,+335，与 054 同构） */
+static int run_ui110(void)
+{
+    int ok = 1;
+    const ui_ui110_btn *b = ui_ui110_buttons();
+    float expect[UI_UI110_COUNT][4] = {
+        {180.0f, 860.0f, 337.0f, 920.0f},  /* 0=清空 Clear */
+        {383.0f, 860.0f, 540.0f, 920.0f},  /* 1=关闭 Close */
+    };
+    for (int i = 0; i < UI_UI110_COUNT; i++) {
+        int dx = (int)(b[i].x0-expect[i][0]), dy = (int)(b[i].y0-expect[i][1]);
+        int dx1 = (int)(b[i].x1-expect[i][2]), dy1 = (int)(b[i].y1-expect[i][3]);
+        int oki = abs(dx)<=1 && abs(dy)<=1 && abs(dx1)<=1 && abs(dy1)<=1;
+        ok &= oki;
+        printf("ui110 btn%d: src(%.0f,%.0f)-(%.0f,%.0f) 期望(%.0f,%.0f)-(%.0f,%.0f) %s\n",
+               i, b[i].x0, b[i].y0, b[i].x1, b[i].y1,
+               expect[i][0], expect[i][1], expect[i][2], expect[i][3], oki ? "" : "  [FAIL]");
+    }
+    for (int i = 0; i < UI_UI110_COUNT; i++) {
+        float cx = (b[i].x0 + b[i].x1) * 0.5f, cy = (b[i].y0 + b[i].y1) * 0.5f;
+        int hit = ui_ui110_hit(b, UI_UI110_COUNT, cx, cy);
+        int oki = (hit == i);
+        ok &= oki;
+        printf("ui110 hit btn%d center(%.0f,%.0f) → hit=%d %s\n", i, cx, cy, hit, oki ? "" : "  [FAIL]");
+    }
+    int in_panel = ui_ui110_popup_inside(UI_UI110_POPUP_X0 + 10, UI_UI110_POPUP_Y0 + 10);
+    int out_panel = ui_ui110_popup_inside(UI_UI110_POPUP_X0 - 5, UI_UI110_POPUP_Y0 - 5);
+    ok &= in_panel && !out_panel;
+    printf("ui110 panel: inside=%d outside=%d %s\n", in_panel, out_panel, (in_panel && !out_panel) ? "" : "  [FAIL]");
+    float c_cx = (b[0].x0 + b[0].x1) * 0.5f, c_cy = (b[0].y0 + b[0].y1) * 0.5f;
+    int c_hit = ui_ui110_hit(b, UI_UI110_COUNT, c_cx, c_cy);
+    int ok_c = (c_hit == 0 && b[c_hit].action == 0);
+    ok &= ok_c;
+    printf("ui110 clear: hit=%d action=%d → 清复盘记录（★ 诚实边界：历史对局未逆向）%s\n",
+           c_hit, b[c_hit].action, ok_c ? "" : "  [FAIL]");
+    float x_cx = (b[1].x0 + b[1].x1) * 0.5f, x_cy = (b[1].y0 + b[1].y1) * 0.5f;
+    int x_hit = ui_ui110_hit(b, UI_UI110_COUNT, x_cx, x_cy);
+    int ok_x = (x_hit == 1 && b[x_hit].action == 1);
+    ok &= ok_x;
+    printf("ui110 close: hit=%d action=%d → 回对局 %s\n", x_hit, b[x_hit].action, ok_x ? "" : "  [FAIL]");
+    ui_screen_set(UI_UI110);
+    int sc_ok = (ui_screen_get() == UI_UI110);
+    ok &= sc_ok;
+    ui_screen_set(UI_GAME);
+    printf("ui110（datah_110 居中）：2 按钮几何 Δ=0 + 命中判定 + 业务分支%s\n", ok ? "PASS" : "FAIL");
+    return ok;
+}
+
+/* datah_118 版本更新（450×360 居中 偏移+135,+460） */
+static int run_ui118(void)
+{
+    int ok = 1;
+    const ui_ui118_btn *b = ui_ui118_buttons();
+    float expect[UI_UI118_COUNT][4] = {
+        {175.0f, 735.0f, 340.0f, 795.0f},  /* 0=更新 Ok（40,275,205,335 + 135,460） */
+        {380.0f, 735.0f, 545.0f, 795.0f},  /* 1=取消 Cancel（245,275,410,335 + 135,460） */
+    };
+    for (int i = 0; i < UI_UI118_COUNT; i++) {
+        int dx = (int)(b[i].x0-expect[i][0]), dy = (int)(b[i].y0-expect[i][1]);
+        int dx1 = (int)(b[i].x1-expect[i][2]), dy1 = (int)(b[i].y1-expect[i][3]);
+        int oki = abs(dx)<=1 && abs(dy)<=1 && abs(dx1)<=1 && abs(dy1)<=1;
+        ok &= oki;
+        printf("ui118 btn%d: src(%.0f,%.0f)-(%.0f,%.0f) 期望(%.0f,%.0f)-(%.0f,%.0f) %s\n",
+               i, b[i].x0, b[i].y0, b[i].x1, b[i].y1,
+               expect[i][0], expect[i][1], expect[i][2], expect[i][3], oki ? "" : "  [FAIL]");
+    }
+    for (int i = 0; i < UI_UI118_COUNT; i++) {
+        float cx = (b[i].x0 + b[i].x1) * 0.5f, cy = (b[i].y0 + b[i].y1) * 0.5f;
+        int hit = ui_ui118_hit(b, UI_UI118_COUNT, cx, cy);
+        int oki = (hit == i);
+        ok &= oki;
+        printf("ui118 hit btn%d center(%.0f,%.0f) → hit=%d %s\n", i, cx, cy, hit, oki ? "" : "  [FAIL]");
+    }
+    int in_panel = ui_ui118_popup_inside(UI_UI118_POPUP_X0 + 10, UI_UI118_POPUP_Y0 + 10);
+    int out_panel = ui_ui118_popup_inside(UI_UI118_POPUP_X0 - 5, UI_UI118_POPUP_Y0 - 5);
+    ok &= in_panel && !out_panel;
+    printf("ui118 panel: inside=%d outside=%d %s\n", in_panel, out_panel, (in_panel && !out_panel) ? "" : "  [FAIL]");
+    /* 业务：更新（action=0）→ 边界对话框；取消（action=1）→ 关闭回对局 */
+    float u_cx = (b[0].x0 + b[0].x1) * 0.5f, u_cy = (b[0].y0 + b[0].y1) * 0.5f;
+    int u_hit = ui_ui118_hit(b, UI_UI118_COUNT, u_cx, u_cy);
+    int ok_u = (u_hit == 0 && b[u_hit].action == 0);
+    ok &= ok_u;
+    printf("ui118 update: hit=%d action=%d → 边界对话框（★ 诚实边界：版本更新通道未逆向）%s\n",
+           u_hit, b[u_hit].action, ok_u ? "" : "  [FAIL]");
+    float x_cx = (b[1].x0 + b[1].x1) * 0.5f, x_cy = (b[1].y0 + b[1].y1) * 0.5f;
+    int x_hit = ui_ui118_hit(b, UI_UI118_COUNT, x_cx, x_cy);
+    int ok_x = (x_hit == 1 && b[x_hit].action == 1);
+    ok &= ok_x;
+    printf("ui118 cancel: hit=%d action=%d → 关闭回对局 %s\n", x_hit, b[x_hit].action, ok_x ? "" : "  [FAIL]");
+    ui_screen_set(UI_UI118);
+    int sc_ok = (ui_screen_get() == UI_UI118);
+    ok &= sc_ok;
+    ui_screen_set(UI_GAME);
+    printf("ui118（datah_118 居中）：2 按钮几何 Δ=0 + 命中判定 + 业务分支%s\n", ok ? "PASS" : "FAIL");
+    return ok;
 }

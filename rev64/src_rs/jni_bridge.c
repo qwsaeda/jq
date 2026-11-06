@@ -1274,6 +1274,130 @@ Java_com_cnvcs_App_OnCreate(JNIEnv *env, jclass clazz, jobject activity)
             __system_property_set("jq.drawdetail", "0");
         }
     }
+    /* ★ SPAK2UI 批量（12 弹窗）：战况统计子菜单链 + 玩家/对局/对战方式/创建游戏/版本更新
+       setprop 钩子（OnCreate 路，范式与 jq.drawdetail 同：值 1=弹出，0=不触发，一次性清 0）。
+       ★ 诚实边界：排行榜/玩家资料/我的对局存档/历史对局/联网对战/版本更新 通道未逆向，
+       占位标签 + 边界对话框，不包装成"已实现" */
+    {
+        char p44[16] = {0};
+        __system_property_get("jq.ui44", p44);
+        if (strcmp(p44, "1") == 0) {
+            ui_screen_set(UI_UI44);
+            LOGI("jq.ui44 钩子：→ UI_UI44 战况统计·消息/排行弹窗（datah_044 固定位置 45,620，"
+                  "2 按钮，★ 诚实边界：排行榜/消息数据未逆向→边界对话框）");
+            __system_property_set("jq.ui44", "0");
+        }
+    }
+    {
+        char p45[16] = {0};
+        __system_property_get("jq.ui45", p45);
+        if (strcmp(p45, "1") == 0) {
+            ui_screen_set(UI_UI45);
+            LOGI("jq.ui45 钩子：→ UI_UI45 战况统计·详细弹窗（datah_045 固定位置 45,620，"
+                  "1 按钮，★ 诚实边界：详细战绩数据未逆向）");
+            __system_property_set("jq.ui45", "0");
+        }
+    }
+    {
+        char p46[16] = {0};
+        __system_property_get("jq.ui46", p46);
+        if (strcmp(p46, "1") == 0) {
+            ui_screen_set(UI_UI46);
+            LOGI("jq.ui46 钩子：→ UI_UI46 玩家资料弹窗（datah_046 420×420 居中，"
+                  "1 按钮，★ 诚实边界：玩家资料内容未逆向，占位标签）");
+            __system_property_set("jq.ui46", "0");
+        }
+    }
+    {
+        char p47[16] = {0};
+        __system_property_get("jq.ui47", p47);
+        if (strcmp(p47, "1") == 0) {
+            ui_screen_set(UI_UI47);
+            LOGI("jq.ui47 钩子：→ UI_UI47 玩家列表弹窗（datah_047 420×305 居中，"
+                  "1 按钮，★ 诚实边界：玩家列表未逆向，占位）");
+            __system_property_set("jq.ui47", "0");
+        }
+    }
+    {
+        char p49[16] = {0};
+        __system_property_get("jq.ui49", p49);
+        if (strcmp(p49, "1") == 0) {
+            ui_screen_set(UI_UI49);
+            LOGI("jq.ui49 钩子：→ UI_UI49 对局详情弹窗（datah_049 420×610 居中，"
+                  "1 按钮，★ 诚实边界：对局详情内容未逆向，占位）");
+            __system_property_set("jq.ui49", "0");
+        }
+    }
+    {
+        char p51[16] = {0};
+        __system_property_get("jq.ui51", p51);
+        if (strcmp(p51, "1") == 0) {
+            ui_screen_set(UI_UI51);
+            LOGI("jq.ui51 钩子：→ UI_UI51 我的对局弹窗（datah_051 450×610 居中，"
+                  "2 按钮，★ 诚实边界：我的对局存档未逆向，清空=清复盘记录简化）");
+            __system_property_set("jq.ui51", "0");
+        }
+    }
+    {
+        char p54[16] = {0};
+        __system_property_get("jq.ui54", p54);
+        if (strcmp(p54, "1") == 0) {
+            ui_screen_set(UI_UI54);
+            LOGI("jq.ui54 钩子：→ UI_UI54 历史对局弹窗（datah_054 450×610 居中，"
+                  "2 按钮，★ 诚实边界：历史对局未逆向，清空=清复盘记录简化）");
+            __system_property_set("jq.ui54", "0");
+        }
+    }
+    {
+        char p73[16] = {0};
+        __system_property_get("jq.ui73", p73);
+        if (strcmp(p73, "1") == 0) {
+            ui_screen_set(UI_UI73);
+            LOGI("jq.ui73 钩子：→ UI_UI73 创建游戏弹窗（datah_073 450×270 居中，"
+                  "2 按钮，★ 诚实边界：联机创建游戏未逆向，开始=本地开局简化）");
+            __system_property_set("jq.ui73", "0");
+        }
+    }
+    {
+        char p90[16] = {0};
+        __system_property_get("jq.ui90", p90);
+        if (strcmp(p90, "1") == 0) {
+            ui_screen_set(UI_UI90);
+            LOGI("jq.ui90 钩子：→ UI_UI90 对战方式弹窗（datah_090 固定位置 135,570，"
+                  "2 按钮，★ 诚实边界：联网对战未逆向（仅蓝牙），人机→UI_DIFFICULTY）");
+            __system_property_set("jq.ui90", "0");
+        }
+    }
+    {
+        char p100[16] = {0};
+        __system_property_get("jq.ui100", p100);
+        if (strcmp(p100, "1") == 0) {
+            ui_screen_set(UI_UI100);
+            LOGI("jq.ui100 钩子：→ UI_UI100 详细战况弹窗（datah_100 固定位置 45,620，"
+                  "1 按钮，★ 诚实边界：详细战况数据未逆向）");
+            __system_property_set("jq.ui100", "0");
+        }
+    }
+    {
+        char p110[16] = {0};
+        __system_property_get("jq.ui110", p110);
+        if (strcmp(p110, "1") == 0) {
+            ui_screen_set(UI_UI110);
+            LOGI("jq.ui110 钩子：→ UI_UI110 历史对局联机版弹窗（datah_110 450×610 居中，"
+                  "2 按钮，★ 诚实边界：历史对局未逆向，清空=清复盘记录简化）");
+            __system_property_set("jq.ui110", "0");
+        }
+    }
+    {
+        char p118[16] = {0};
+        __system_property_get("jq.ui118", p118);
+        if (strcmp(p118, "1") == 0) {
+            ui_screen_set(UI_UI118);
+            LOGI("jq.ui118 钩子：→ UI_UI118 版本更新弹窗（datah_118 450×360 居中，"
+                  "2 按钮，★ 诚实边界：版本更新通道未逆向）");
+            __system_property_set("jq.ui118", "0");
+        }
+    }
     /* ★ P2（datah_003 证据）：设置入口 setprop 钩子（adb setprop jq.setentry 1 → 重启 →
         OnCreate 弹 UI_SETEXTTRY 设置入口弹窗（完整版）：图像/声音/游戏设置 3 按钮入口。
         测试钩子范式，与 jq.drawdetail 同；值 1=弹出，0=不触发。一次性（清 0）。
@@ -2232,6 +2356,39 @@ Java_com_cnvcs_App_OnUpdate(JNIEnv *env, jclass clazz)
             ui_screen_set(UI_MENU);
             LOGI("OnUpdate 登录入口：login=2 → 退登录回主菜单");
             __system_property_set("jq.login", "0");
+        }
+    }
+    /* ★ SPAK2UI 批量（12 弹窗）：OnUpdate 轮询钩子（同会话 setprop，值 1=进 / 2=退，
+       范式与 jq.login 同；不重启 app）。★ 诚实边界：未逆向数据=占位标签+边界对话框。 */
+    {
+        static const struct { const char *prop; int scr_in; int scr_out; } uihooks[] = {
+            { "jq.ui44",  UI_UI44,  UI_GAME },
+            { "jq.ui45",  UI_UI45,  UI_GAME },
+            { "jq.ui46",  UI_UI46,  UI_GAME },
+            { "jq.ui47",  UI_UI47,  UI_GAME },
+            { "jq.ui49",  UI_UI49,  UI_GAME },
+            { "jq.ui51",  UI_UI51,  UI_GAME },
+            { "jq.ui54",  UI_UI54,  UI_GAME },
+            { "jq.ui73",  UI_UI73,  UI_MENU },
+            { "jq.ui90",  UI_UI90,  UI_GAME },
+            { "jq.ui100", UI_UI100, UI_GAME },
+            { "jq.ui110", UI_UI110, UI_GAME },
+            { "jq.ui118", UI_UI118, UI_GAME },
+        };
+        for (size_t hi = 0; hi < sizeof(uihooks)/sizeof(uihooks[0]); hi++) {
+            char hp[24] = {0};
+            __system_property_get(uihooks[hi].prop, hp);
+            if (strcmp(hp, "1") == 0) {
+                ui_screen_set(uihooks[hi].scr_in);
+                LOGI("OnUpdate SPAK2UI 批量入口：%s=1 → UI_UI%d 弹窗（诚实边界：未逆向数据=占位）",
+                     uihooks[hi].prop, uihooks[hi].scr_in);
+                __system_property_set(uihooks[hi].prop, "0");
+            } else if (strcmp(hp, "2") == 0) {
+                ui_screen_set(uihooks[hi].scr_out);
+                LOGI("OnUpdate SPAK2UI 批量入口：%s=2 → 退弹窗回 %d",
+                     uihooks[hi].prop, uihooks[hi].scr_out);
+                __system_property_set(uihooks[hi].prop, "0");
+            }
         }
     }
     /* AI 退化推进（仅对局态；菜单态 AI 不介入，等"人机对战"按钮进 GAME）。
@@ -3966,6 +4123,263 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
         if (!ui_about_popup_inside(bx, by)) {
             ui_screen_set(UI_GAME);
             LOGI("OnTouch 软件信息弹窗外（bx=%.0f by=%.0f）→ 回对局", bx, by);
+            sfx_play(env, "pop");
+        }
+        (void)clazz;
+        return JNI_TRUE;
+    }
+    /* ★ SPAK2UI 批量（12 弹窗）：战况统计子菜单链 + 玩家/对局/对战方式/创建游戏/版本更新。
+       命中分发范式与 UI_ABOUT 同：按钮命中 → 业务（边界对话框/切弹窗/清复盘/回对局）；
+       点面板外 → 回对局。★ 诚实边界：未逆向数据=占位标签+边界对话框，不包装成"已实现" */
+    if (ui_screen_get() == UI_UI44) {
+        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
+        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        const ui_ui44_btn *b44 = ui_ui44_buttons();
+        int h44 = ui_ui44_hit(b44, UI_UI44_COUNT, bx, by);
+        if (h44 >= 0) {
+            LOGI("OnTouch 战况统计·消息/排行弹窗：按钮%d（action=%d）", h44, b44[h44].action);
+            jq_show_dialog(env, "消息/排行（诚实边界）",
+                "战况统计·消息/排行（诚实边界）：\n"
+                "原版排行榜/消息数据未逆向，\n"
+                "src_rs 无排行榜数据通道，占位。");
+            ui_screen_set(UI_GAME);
+            sfx_play(env, "pop");
+            (void)clazz;
+            return JNI_TRUE;
+        }
+        if (!ui_ui44_popup_inside(bx, by)) {
+            ui_screen_set(UI_GAME);
+            LOGI("OnTouch 战况统计·消息/排行弹窗外 → 回对局");
+            sfx_play(env, "pop");
+        }
+        (void)clazz;
+        return JNI_TRUE;
+    }
+    if (ui_screen_get() == UI_UI45) {
+        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
+        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        const ui_ui45_btn *b45 = ui_ui45_buttons();
+        int h45 = ui_ui45_hit(b45, UI_UI45_COUNT, bx, by);
+        if (h45 >= 0) {
+            LOGI("OnTouch 战况统计·详细弹窗：按钮%d（action=%d）", h45, b45[h45].action);
+            jq_show_dialog(env, "详细（诚实边界）",
+                "战况统计·详细（诚实边界）：\n"
+                "详细战绩数据未逆向，\n"
+                "src_rs 无详细战绩数据通道，占位。");
+            ui_screen_set(UI_GAME);
+            sfx_play(env, "pop");
+            (void)clazz;
+            return JNI_TRUE;
+        }
+        if (!ui_ui45_popup_inside(bx, by)) {
+            ui_screen_set(UI_GAME);
+            LOGI("OnTouch 战况统计·详细弹窗外 → 回对局");
+            sfx_play(env, "pop");
+        }
+        (void)clazz;
+        return JNI_TRUE;
+    }
+    if (ui_screen_get() == UI_UI46) {
+        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
+        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        const ui_ui46_btn *b46 = ui_ui46_buttons();
+        int h46 = ui_ui46_hit(b46, UI_UI46_COUNT, bx, by);
+        if (h46 >= 0) {
+            LOGI("OnTouch 玩家资料弹窗：返回 → 回对局");
+            ui_screen_set(UI_GAME);
+            sfx_play(env, "pop");
+            (void)clazz;
+            return JNI_TRUE;
+        }
+        if (!ui_ui46_popup_inside(bx, by)) {
+            ui_screen_set(UI_GAME);
+            LOGI("OnTouch 玩家资料弹窗外 → 回对局");
+            sfx_play(env, "pop");
+        }
+        (void)clazz;
+        return JNI_TRUE;
+    }
+    if (ui_screen_get() == UI_UI47) {
+        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
+        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        const ui_ui47_btn *b47 = ui_ui47_buttons();
+        int h47 = ui_ui47_hit(b47, UI_UI47_COUNT, bx, by);
+        if (h47 >= 0) {
+            LOGI("OnTouch 玩家列表弹窗：关闭 → 回对局（★ 诚实边界：玩家列表未逆向）");
+            ui_screen_set(UI_GAME);
+            sfx_play(env, "pop");
+            (void)clazz;
+            return JNI_TRUE;
+        }
+        if (!ui_ui47_popup_inside(bx, by)) {
+            ui_screen_set(UI_GAME);
+            LOGI("OnTouch 玩家列表弹窗外 → 回对局");
+            sfx_play(env, "pop");
+        }
+        (void)clazz;
+        return JNI_TRUE;
+    }
+    if (ui_screen_get() == UI_UI49) {
+        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
+        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        const ui_ui49_btn *b49 = ui_ui49_buttons();
+        int h49 = ui_ui49_hit(b49, UI_UI49_COUNT, bx, by);
+        if (h49 >= 0) {
+            LOGI("OnTouch 对局详情弹窗：关闭 → 回对局（★ 诚实边界：对局详情内容未逆向）");
+            ui_screen_set(UI_GAME);
+            sfx_play(env, "pop");
+            (void)clazz;
+            return JNI_TRUE;
+        }
+        if (!ui_ui49_popup_inside(bx, by)) {
+            ui_screen_set(UI_GAME);
+            LOGI("OnTouch 对局详情弹窗外 → 回对局");
+            sfx_play(env, "pop");
+        }
+        (void)clazz;
+        return JNI_TRUE;
+    }
+    if (ui_screen_get() == UI_UI51 || ui_screen_get() == UI_UI54 || ui_screen_get() == UI_UI110) {
+        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
+        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        int scr = ui_screen_get();
+        const ui_ui51_btn *b51 = ui_ui51_buttons();
+        const ui_ui54_btn *b54 = ui_ui54_buttons();
+        const ui_ui110_btn *b110 = ui_ui110_buttons();
+        int h;
+        if (scr == UI_UI51)      h = ui_ui51_hit(b51, UI_UI51_COUNT, bx, by);
+        else if (scr == UI_UI54) h = ui_ui54_hit(b54, UI_UI54_COUNT, bx, by);
+        else                      h = ui_ui110_hit(b110, UI_UI110_COUNT, bx, by);
+        if (h >= 0) {
+            if (h == 0) {   /* 清空 → 清复盘记录（诚实边界简化） */
+                pthread_mutex_lock(&g_mutex);
+                ui_replay_init();
+                pthread_mutex_unlock(&g_mutex);
+                LOGI("OnTouch 我的对局/历史对局弹窗（scr=%d）：清空 → 清复盘记录（n=%d，"
+                      "★ 诚实边界：对局存档未逆向，简化为清复盘记录）", scr, ui_replay_count());
+            } else {       /* 关闭 → 回对局 */
+                LOGI("OnTouch 我的对局/历史对局弹窗（scr=%d）：关闭 → 回对局", scr);
+            }
+            ui_screen_set(UI_GAME);
+            sfx_play(env, "pop");
+            (void)clazz;
+            return JNI_TRUE;
+        }
+        int in = (scr == UI_UI51) ? ui_ui51_popup_inside(bx, by)
+              : (scr == UI_UI54) ? ui_ui54_popup_inside(bx, by)
+              : ui_ui110_popup_inside(bx, by);
+        if (!in) {
+            ui_screen_set(UI_GAME);
+            LOGI("OnTouch 我的对局/历史对局弹窗外（scr=%d）→ 回对局", scr);
+            sfx_play(env, "pop");
+        }
+        (void)clazz;
+        return JNI_TRUE;
+    }
+    if (ui_screen_get() == UI_UI73) {
+        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
+        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        const ui_ui73_btn *b73 = ui_ui73_buttons();
+        int h73 = ui_ui73_hit(b73, UI_UI73_COUNT, bx, by);
+        if (h73 >= 0) {
+            if (h73 == 0) {   /* 开始 → 本地开局（诚实边界简化：联机创建游戏未逆向） */
+                pthread_mutex_lock(&g_mutex);
+                jq_restart_game();
+                pthread_mutex_unlock(&g_mutex);
+                ui_screen_set(UI_GAME);
+                LOGI("OnTouch 创建游戏弹窗：开始 → 本地开局（jq_restart_game，"
+                      "★ 诚实边界：联机创建游戏未逆向，开始=本地开局简化）");
+            } else {          /* 取消 → 回主菜单 */
+                ui_screen_set(UI_MENU);
+                LOGI("OnTouch 创建游戏弹窗：取消 → 回主菜单");
+            }
+            sfx_play(env, "pop");
+            (void)clazz;
+            return JNI_TRUE;
+        }
+        if (!ui_ui73_popup_inside(bx, by)) {
+            ui_screen_set(UI_MENU);
+            LOGI("OnTouch 创建游戏弹窗外 → 回主菜单");
+            sfx_play(env, "pop");
+        }
+        (void)clazz;
+        return JNI_TRUE;
+    }
+    if (ui_screen_get() == UI_UI90) {
+        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
+        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        const ui_ui90_btn *b90 = ui_ui90_buttons();
+        int h90 = ui_ui90_hit(b90, UI_UI90_COUNT, bx, by);
+        if (h90 >= 0) {
+            if (h90 == 0) {   /* 人机对战 → UI_DIFFICULTY（datah_041 难度弹窗已实现） */
+                ui_screen_set(UI_DIFFICULTY);
+                LOGI("OnTouch 对战方式弹窗：人机对战 → UI_DIFFICULTY 难度选择弹窗（datah_041 已实现）");
+            } else {          /* 联网对战 → 诚实边界对话框（联机协议未逆向，仅蓝牙） */
+                jq_show_dialog(env, "联网对战（诚实边界）",
+                    "联网对战（诚实边界）：\n"
+                    "Wi-Fi/局域网联机协议未逆向，\n"
+                    "src_rs 仅蓝牙 SPP 已实现，请选蓝牙联机。");
+                ui_screen_set(UI_GAME);
+                LOGI("OnTouch 对战方式弹窗：联网对战 → 边界对话框（★ 诚实边界：联机协议未逆向，仅蓝牙）");
+            }
+            sfx_play(env, "pop");
+            (void)clazz;
+            return JNI_TRUE;
+        }
+        if (!ui_ui90_popup_inside(bx, by)) {
+            ui_screen_set(UI_GAME);
+            LOGI("OnTouch 对战方式弹窗外 → 回对局");
+            sfx_play(env, "pop");
+        }
+        (void)clazz;
+        return JNI_TRUE;
+    }
+    if (ui_screen_get() == UI_UI100) {
+        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
+        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        const ui_ui100_btn *b100 = ui_ui100_buttons();
+        int h100 = ui_ui100_hit(b100, UI_UI100_COUNT, bx, by);
+        if (h100 >= 0) {
+            LOGI("OnTouch 详细战况弹窗：详细 → 边界对话框（★ 诚实边界：详细战况数据未逆向）");
+            jq_show_dialog(env, "详细战况（诚实边界）",
+                "详细战况（诚实边界）：\n"
+                "详细战况数据未逆向，\n"
+                "src_rs 无详细战况数据通道，占位。");
+            ui_screen_set(UI_GAME);
+            sfx_play(env, "pop");
+            (void)clazz;
+            return JNI_TRUE;
+        }
+        if (!ui_ui100_popup_inside(bx, by)) {
+            ui_screen_set(UI_GAME);
+            LOGI("OnTouch 详细战况弹窗外 → 回对局");
+            sfx_play(env, "pop");
+        }
+        (void)clazz;
+        return JNI_TRUE;
+    }
+    if (ui_screen_get() == UI_UI118) {
+        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
+        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        const ui_ui118_btn *b118 = ui_ui118_buttons();
+        int h118 = ui_ui118_hit(b118, UI_UI118_COUNT, bx, by);
+        if (h118 >= 0) {
+            if (h118 == 0) {   /* 更新 → 诚实边界对话框（版本更新通道未逆向） */
+                jq_show_dialog(env, "版本更新（诚实边界）",
+                    "版本更新（诚实边界）：\n"
+                    "版本更新通道（下载/升级）未逆向，\n"
+                    "src_rs 无更新通道，占位。");
+            } else {          /* 取消 → 关闭回对局 */
+                LOGI("OnTouch 版本更新弹窗：取消 → 关闭回对局");
+            }
+            ui_screen_set(UI_GAME);
+            sfx_play(env, "pop");
+            (void)clazz;
+            return JNI_TRUE;
+        }
+        if (!ui_ui118_popup_inside(bx, by)) {
+            ui_screen_set(UI_GAME);
+            LOGI("OnTouch 版本更新弹窗外 → 回对局");
             sfx_play(env, "pop");
         }
         (void)clazz;

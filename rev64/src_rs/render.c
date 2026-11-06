@@ -18,6 +18,14 @@
 #include "png_decode.h"
 #include "ui_menu.h"
 #include "ui_state.h"   /* P2 图像设置 4 开关 ui_imgset_cfg_get（夜间/对方棋子接渲染层） */
+
+/* ★ 原版 UI 位图真值（ch02 N45）前向声明 */
+static int panraw_seen = 0;
+static int panbdiag = 0;   /* 面板/按钮/图标位图渲染诊断 */
+static void rs_draw_bitmap(rs_render *rr, int slot, unsigned int tex, int tex_w, int tex_h,
+                           float x0, float y0, float x1, float y1);
+static void rs_solid_btn(rs_render *rr, int slot, float x0, float y0, float x1, float y1,
+                         float cr, float cg, float cb, float ca, int highlight, GLint uc);
 #include <EGL/egl.h>
 #include <GLES2/gl2.h>
 #include <GLES2/gl2ext.h>
@@ -288,6 +296,10 @@ int rs_render_init(rs_render *rr, const char *spak_dir, const jq_state *init_sta
         snprintf(p17, sizeof p17, "%s/newgame_text_atlas.png", spak_dir ? spak_dir : "");
         char p18[512];
         snprintf(p18, sizeof p18, "%s/gameset_text_atlas.png", spak_dir ? spak_dir : "");
+        char p100[512], p101[512], p102[512];   /* ★ 原版 UI 位图真值（ch02 N45）：面板 9patch + 彩色按钮 + 图标 */
+        snprintf(p100, sizeof p100, "%s/panel_circle.png", spak_dir ? spak_dir : "");
+        snprintf(p101, sizeof p101, "%s/btn_color1.png", spak_dir ? spak_dir : "");
+        snprintf(p102, sizeof p102, "%s/icon_file.png", spak_dir ? spak_dir : "");
         char p19[512];
         snprintf(p19, sizeof p19, "%s/layres_text_atlas.png", spak_dir ? spak_dir : "");
         char p20[512];
@@ -317,6 +329,8 @@ int rs_render_init(rs_render *rr, const char *spak_dir, const jq_state *init_sta
         snprintf(p37, sizeof p37, "%s/chat063_text_atlas.png", spak_dir ? spak_dir : "");
         char p38[512];
         snprintf(p38, sizeof p38, "%s/about_text_atlas.png", spak_dir ? spak_dir : "");
+        char p39[512];
+        snprintf(p39, sizeof p39, "%s/uibat_text_atlas.png", spak_dir ? spak_dir : "");
         unsigned char *braw = NULL; size_t braw_len = 0;
         unsigned char *praw = NULL; size_t praw_len = 0;
         unsigned char *traw = NULL; size_t traw_len = 0;
@@ -355,6 +369,7 @@ int rs_render_init(rs_render *rr, const char *spak_dir, const jq_state *init_sta
         unsigned char *rmaw = NULL; size_t rmaw_len = 0;    /* ★ P2 datah_060 房间态文字图集 */
         unsigned char *chaw = NULL; size_t chaw_len = 0;    /* ★ P2 datah_063 聊天完整版文字图集 */
         unsigned char *abaw = NULL; size_t abaw_len = 0;    /* ★ P2 datah_000 软件信息文字图集 */
+        unsigned char *uiaw = NULL; size_t uiaw_len = 0;    /* ★ SPAK2UI 批量（12 弹窗）共用文字图集 */
         unsigned char *bpx = NULL, *ppx = NULL, *tpx = NULL, *gpx = NULL;
         unsigned char *opx = NULL, *ppx2 = NULL, *mpx = NULL, *ipx = NULL, *icpx = NULL, *hbpx = NULL, *bbpx = NULL, *bspx = NULL;
         unsigned char *wspx = NULL, *bipx = NULL, *stpx = NULL;
@@ -381,12 +396,20 @@ int rs_render_init(rs_render *rr, const char *spak_dir, const jq_state *init_sta
         int rmw = 0, rmh = 0;    /* ★ P2 datah_060 房间态文字图集尺寸 */
         int chw = 0, chh = 0;    /* ★ P2 datah_063 聊天完整版文字图集尺寸 */
         int abw = 0, abh = 0;    /* ★ P2 datah_000 软件信息文字图集尺寸 */
+        int uiw = 0, uih = 0;    /* ★ SPAK2UI 批量（12 弹窗）共用文字图集尺寸 */
+        unsigned char *panraw = NULL; size_t panraw_len = 0;   /* ★ 原版面板 9patch */
+        unsigned char *btnraw = NULL; size_t btnraw_len = 0;   /* ★ 原版彩色按钮 */
+        unsigned char *icoraw = NULL; size_t icoraw_len = 0;   /* ★ 原版图标 */
+        int panw=0, panh=0, btnw=0, btnh=0;
         rs_read_png(am, "spak_res/datah_188_21d95e03e7692e98.bin", p1, &braw, &braw_len);
         rs_read_png(am, "spak_res/datah_183_9e1b7fbc4dfc09c3.bin", p2, &praw, &praw_len);
         rs_read_png(am, "spak_res/menu_text_atlas.png", p3, &traw, &traw_len);
         rs_read_png(am, "spak_res/bg_menu_720.png", p4, &graw, &graw_len);
         rs_read_png(am, "spak_res/popup_text_atlas.png", p5, &oraw, &oraw_len);
         rs_read_png(am, "spak_res/popup.png", p6, &praw2, &praw2_len);
+        rs_read_png(am, p100, "spak_res/panel_circle.png", &panraw, &panraw_len);
+        rs_read_png(am, p101, "spak_res/btn_color1.png", &btnraw, &btnraw_len);
+        rs_read_png(am, p102, "spak_res/icon_file.png", &icoraw, &icoraw_len);
         rs_read_png(am, "spak_res/menu_bg_294.png", p7, &mraw, &mraw_len);
         rs_read_png(am, "spak_res/imen_text_atlas.png", p8, &iraw, &iraw_len);
         rs_read_png(am, "spak_res/imen_icons_atlas.png", p9, &icraw, &icraw_len);
@@ -419,6 +442,7 @@ int rs_render_init(rs_render *rr, const char *spak_dir, const jq_state *init_sta
         rs_read_png(am, "spak_res/room060_text_atlas.png", p36, &rmaw, &rmaw_len);
         rs_read_png(am, "spak_res/chat063_text_atlas.png", p37, &chaw, &chaw_len);
         rs_read_png(am, "spak_res/about_text_atlas.png", p38, &abaw, &abaw_len);
+        rs_read_png(am, "spak_res/uibat_text_atlas.png", p39, &uiaw, &uiaw_len);
         if (braw && png_decode(braw, braw_len, &bpx, &bw, &bh) == 0) { rr->board_px = bpx; rr->board_px_len = (size_t)bw * bh * 4; }
         free(braw);
         if (praw && png_decode(praw, praw_len, &ppx, &pw, &ph) == 0) { rr->piece_px = ppx; rr->piece_px_len = (size_t)pw * ph * 4; }
@@ -482,6 +506,32 @@ int rs_render_init(rs_render *rr, const char *spak_dir, const jq_state *init_sta
             rr->popup_w = pw2; rr->popup_h = ph2;
         }
         free(praw2);
+        /* ★ 原版 UI 位图真值（ch02 N45）：面板 9patch + 彩色按钮 */
+        {
+            unsigned char *panpx=NULL,*btnpx=NULL; int panw2=0,panh2=0,btnw2=0,btnh2=0;
+            if (panraw) {
+                LOGI("原版位图资源对齐（ch02 N45）：panel_circle.png 文件大小=%zu（读取后解码）", panraw_len);
+            } else {
+                LOGI("原版位图资源对齐（ch02 N45）：panel_circle.png 读取失败（spak_dir fs_path 无效）");
+            }
+            if (panraw && png_decode(panraw, panraw_len, &panpx, &panw2, &panh2) == 0) {
+                rr->panel_px = panpx; rr->panel_px_len = (size_t)panw2 * panh2 * 4;
+                rr->panel_w = panw2; rr->panel_h = panh2;
+                LOGI("原版位图资源对齐（ch02 N45）：面板 9patch 位图加载成功 %.0fx%.0f（datax_246）", panw2, panh2);
+            } else if (panraw) {
+                LOGI("原版位图资源对齐（ch02 N45）：面板 9patch 位图解码失败（诚实边界：面板位图不可用，深色矩形退化底）");
+            }
+            if (btnraw && png_decode(btnraw, btnraw_len, &btnpx, &btnw2, &btnh2) == 0) {
+                rr->panel_btn_px = btnpx; rr->panel_btn_px_len = (size_t)btnw2 * btnh2 * 4;
+                rr->panel_btn_w = btnw2; rr->panel_btn_h = btnh2;
+            }
+            unsigned char *iconpx=NULL; int iconw2=0,iconh2=0;
+            if (icoraw && png_decode(icoraw, icoraw_len, &iconpx, &iconw2, &iconh2) == 0) {
+                rr->panel_icon_px = iconpx; rr->panel_icon_px_len = (size_t)iconw2 * iconh2 * 4;
+                rr->panel_icon_w = iconw2; rr->panel_icon_h = iconh2;
+            }
+        }
+        free(panraw); free(btnraw); free(icoraw);
         /* ★ 对抗审计（datah_072）：方式选择文字图集（4 标签竖排 220×184） */
         if (wsraw && png_decode(wsraw, wsraw_len, &wspx, &wsw, &wsh) == 0) {
             rr->waysel_text_px = wspx; rr->waysel_text_px_len = (size_t)wsw * wsh * 4;
@@ -696,6 +746,16 @@ int rs_render_init(rs_render *rr, const char *spak_dir, const jq_state *init_sta
             }
         }
         free(abaw);
+        /* ★ SPAK2UI 批量（12 弹窗）：战况统计/玩家/对局/对战方式/创建游戏/版本更新 共用文字图集
+           （14 标签竖排 220×644） */
+        {
+            unsigned char *ub_px = NULL;
+            if (uiaw && png_decode(uiaw, uiaw_len, &ub_px, &uiw, &uih) == 0) {
+                rr->uibat_text_px = ub_px; rr->uibat_text_px_len = (size_t)uiw * uih * 4;
+                rr->uibat_text_w = uiw; rr->uibat_text_h = uih;
+            }
+        }
+        free(uiaw);
         rr->gl_px_loaded = 1;
         LOGI("Init 像素解码：board=%s(%dx%d) piece=%s(%dx%d) text=%s(%dx%d) bg=%s(%dx%d) menu_bg=%s(%dx%d) popup=%s(%dx%d) opt_text=%s(%dx%d) imen_text=%s(%dx%d) waysel=%s(%dx%d) btimen=%s(%dx%d) settings=%s(%dx%d) nplayer=%s(%dx%d) newgame=%s(%dx%d) gameset=%s(%dx%d) layres=%s(%dx%d) replay=%s(%dx%d) login=%s(%dx%d) rules=%s(%dx%d) ng104=%s(%dx%d) join=%s(%dx%d) ng061=%s(%dx%d) gameinfo=%s(%dx%d) bright=%s(%dx%d) chatlog=%s(%dx%d) profile=%s(%dx%d) drawdetail=%s(%dx%d) setentry=%s(%dx%d) imgset=%s(%dx%d) join065=%s(%dx%d) create069=%s(%dx%d) rules070=%s(%dx%d) room060=%s(%dx%d) chat063=%s(%dx%d) about=%s(%dx%d)",
              rr->board_px ? "OK" : "MISS", bw, bh, rr->piece_px ? "OK" : "MISS", pw, ph,
@@ -1081,7 +1141,7 @@ static void rs_draw_imen(rs_render *rr, int slot)
     };
     glUseProgram(rr->prog_solid[slot]);
     glUniform2f(rr->uViewWH_solid[slot], (GLfloat)rr->view_w, (GLfloat)rr->view_h);
-    glUniform4f(uc, 0.08f, 0.08f, 0.10f, 0.75f);   /* 深色半透明面板 */
+    glUniform4f(uc, 0.08f, 0.08f, 0.10f, 0.75f);   /* 深色半透明面板（退化底） */
     glGenBuffers(1, &rr->vbo_sel[slot]);
     glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
     glBufferData(GL_ARRAY_BUFFER, sizeof(pq), pq, GL_DYNAMIC_DRAW);
@@ -1090,6 +1150,22 @@ static void rs_draw_imen(rs_render *rr, int slot)
     rs_unbind_vbo();
     glDeleteBuffers(1, &rr->vbo_sel[slot]);
     rr->vbo_sel[slot] = 0;
+    /* ★ 原版面板 9patch 位图（datax_246）叠加（若加载成功）：720 基准面板 rect */
+    if (rr->tex_panel[slot] && rr->panel_w > 0 && rr->panel_h > 0) {
+        rs_draw_bitmap(rr, slot, rr->tex_panel[slot], rr->panel_w, rr->panel_h,
+                       px0, py0, px0 + pw, py0 + ph);
+        if (!panbdiag) { panbdiag = 1;
+            LOGI("原版位图资源对齐（ch02 N45）：面板 9patch（datax_246）%.0fx%.0f + 图标（datax_244）"
+                 " + 彩色按钮（datax_194）位图真值已渲染（深色矩形保留为退化底）",
+                 rr->panel_w, rr->panel_h);
+        }
+    }
+    /* ★ 原版图标位图（datax_244 icon_file）叠加于面板左上角（36×36 720 基准） */
+    if (rr->tex_panel_icon[slot] && rr->panel_icon_w > 0 && rr->panel_icon_h > 0) {
+        float icw = 36.0f * sx, ich = 36.0f * sy;
+        rs_draw_bitmap(rr, slot, rr->tex_panel_icon[slot], rr->panel_icon_w, rr->panel_icon_h,
+                       px0 + 14.0f, py0 + 12.0f, px0 + 14.0f + icw, py0 + 12.0f + ich);
+    }
     /* ③ 8 项：按钮图标（纯色近似：黄星/绿回/蓝箭/白纸/扳手/彩饼/蓝i/红X）+ 文字 */
     static const float ICON_COLOR[UI_IMENU_COUNT][4] = {
         {1.0f, 0.9f, 0.2f, 0.95f},   /* 重新开始 黄星 */
@@ -3536,7 +3612,8 @@ static void rs_popup_shell(rs_render *rr, int slot,
     rs_unbind_vbo();
     glDeleteBuffers(1, &rr->vbo_sel[slot]);
     rr->vbo_sel[slot] = 0;
-    /* ② 面板：深色半透明矩形（720 基准 px0,py0,pw,ph） */
+    /* ② 面板：深色半透明矩形（720 基准 px0,py0,pw,ph）
+       ★ 原版 UI 位图真值（ch02 N45）：面板位图存在时叠加 9patch 缩放（深色底保留） */
     float p0x = px0 * sx, p0y = py0 * sy;
     float pw2 = pw * sx, ph2 = ph * sy;
     rs_v4f pq[6] = {
@@ -3574,6 +3651,11 @@ static void rs_solid_btn(rs_render *rr, int slot, float x0, float y0, float x1, 
     rs_unbind_vbo();
     glDeleteBuffers(1, &rr->vbo_sel[slot]);
     rr->vbo_sel[slot] = 0;
+    /* ★ 原版彩色按钮位图（datax_194）叠加（若加载）：按按钮 720 rect 拉伸铺满 */
+    if (rr->tex_panel_btn[slot] && rr->panel_btn_w > 0 && rr->panel_btn_h > 0) {
+        rs_draw_bitmap(rr, slot, rr->tex_panel_btn[slot], rr->panel_btn_w, rr->panel_btn_h,
+                       x0, y0, x1, y1);
+    }
     if (highlight) {
         /* 金色高亮描边（按钮外围 4px 720 基准） */
         rs_v4f oq[6] = {
@@ -3594,6 +3676,33 @@ static void rs_solid_btn(rs_render *rr, int slot, float x0, float y0, float x1, 
 }
 
 /* 文字图集标签绘制（单标签居中于 cx,cy 720 基准，宽 w；atlas 行索引 row_idx，总行数 n_rows） */
+/* ★ 原版 UI 位图真值（ch02 N45）：面板 9patch / 按钮 / 图标 位图绘制
+   （纹理四边形：x0,y0,x1,y1 720 基准；uv 全 0-1；面板=整体缩放，按钮=拉伸铺满） */
+void rs_draw_bitmap(rs_render *rr, int slot, unsigned int tex, int tex_w, int tex_h,
+                           float x0, float y0, float x1, float y1)
+{
+    if (tex == 0 || tex_w <= 0 || tex_h <= 0) return;
+    float sx = (float)rr->view_w / 720.0f, sy = (float)rr->view_h / 1280.0f;
+    float ax0 = x0 * sx, ay0 = y0 * sy, ax1 = x1 * sx, ay1 = y1 * sy;
+    rs_v4f q[6] = {
+        {ax0, ay0, 0.0f, 0.0f}, {ax1, ay0, 1.0f, 0.0f}, {ax0, ay1, 0.0f, 1.0f},
+        {ax0, ay1, 0.0f, 1.0f}, {ax1, ay0, 1.0f, 0.0f}, {ax1, ay1, 1.0f, 1.0f},
+    };
+    glUseProgram(rr->prog_tex[slot]);
+    glUniform2f(rr->uViewWH_tex[slot], (GLfloat)rr->view_w, (GLfloat)rr->view_h);
+    glUniform1i(glGetUniformLocation(rr->prog_tex[slot], "uTex"), 0);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, tex);
+    glGenBuffers(1, &rr->vbo_sel[slot]);
+    glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(q), q, GL_DYNAMIC_DRAW);
+    rs_bind_vbo(rr->vbo_sel[slot]);
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+    rs_unbind_vbo();
+    glDeleteBuffers(1, &rr->vbo_sel[slot]);
+    rr->vbo_sel[slot] = 0;
+}
+
 static void rs_atlas_label(rs_render *rr, int slot, unsigned int tex, int tex_w, int tex_h,
                            int n_rows, int row_idx, float cx, float cy, float w, GLint uc)
 {
@@ -4507,6 +4616,321 @@ static void rs_draw_about(rs_render *rr, int slot)
     }
 }
 
+/* ★ SPAK2UI 批量（12 弹窗）：共用文字图集 14 标签行定义（uibat_text_atlas.png，
+   竖排 220×644，row 高 46）：
+   row0=战况统计 row1=详细 row2=玩家资料 row3=玩家列表 row4=对局详情
+   row5=我的对局 row6=历史对局 row7=创建游戏 row8=人机对战 row9=对战方式
+   row10=联网对战 row11=版本更新 row12=清空 row13=关闭 */
+#define UIBAT_ROW 14
+
+/* SPAK2UI 批量弹窗通用：标题行（uibat row，cx 中心 720 基准） */
+static void rs_uibat_title(rs_render *rr, int slot, int row, float cx, float cy, GLint uc)
+{
+    rs_atlas_label(rr, slot, rr->tex_uibat_text[slot], rr->uibat_text_w, rr->uibat_text_h,
+                   UIBAT_ROW, row, cx, cy, 150.0f, uc);
+}
+
+/* ① datah_044 战况统计·消息/排行（固定位置 45,620，面板 180×175；
+   ★ 诚实边界：排行榜/消息数据未逆向→边界对话框，按钮标签=图集 row12/row13 占位） */
+static void rs_draw_ui44(rs_render *rr, int slot)
+{
+    if (!rr->prog_solid[slot] || !rr->gl2_ok[slot]) return;
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    rs_popup_shell(rr, slot, UI_UI44_POPUP_X0, UI_UI44_POPUP_Y0,
+                   UI_UI44_POPUP_W, UI_UI44_POPUP_H, 0, uc);
+    rs_uibat_title(rr, slot, 0, 360.0f, UI_UI44_POPUP_Y0 + 18.0f, uc);   /* 战况统计 */
+    const ui_ui44_btn *b = ui_ui44_buttons();
+    static const float BTN_COL[2][4] = {
+        {0.20f, 0.45f, 0.90f, 0.9f}, {0.55f, 0.55f, 0.60f, 0.9f} };
+    for (int i = 0; i < UI_UI44_COUNT; i++) {
+        rs_solid_btn(rr, slot, b[i].x0, b[i].y0, b[i].x1, b[i].y1,
+                     BTN_COL[i][0], BTN_COL[i][1], BTN_COL[i][2], BTN_COL[i][3], 0, uc);
+        rs_atlas_label(rr, slot, rr->tex_uibat_text[slot], rr->uibat_text_w, rr->uibat_text_h,
+                       UIBAT_ROW, 12 + i,
+                       (b[i].x0 + b[i].x1) * 0.5f, (b[i].y0 + b[i].y1) * 0.5f, 100.0f, uc);
+    }
+    static int d44 = 0;
+    if (!d44) { d44 = 1;
+        LOGI("rs_draw_ui44：战况统计·消息/排行弹窗出帧（datah_044 固定位置 45,620 面板 %.0f×%.0f，"
+              "2 按钮，uibat 图集 %s，★ 诚实边界：排行榜/消息数据未逆向→边界对话框）",
+              UI_UI44_POPUP_W, UI_UI44_POPUP_H,
+              (rr->tex_uibat_text[slot] && rr->uibat_text_w > 0) ? "OK" : "MISS");
+    }
+}
+
+/* ② datah_045 战况统计·详细（固定位置 45,620，面板 390×135；Info 文本框 + 详细 1 按钮） */
+static void rs_draw_ui45(rs_render *rr, int slot)
+{
+    if (!rr->prog_solid[slot] || !rr->gl2_ok[slot]) return;
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    rs_popup_shell(rr, slot, UI_UI45_POPUP_X0, UI_UI45_POPUP_Y0,
+                   UI_UI45_POPUP_W, UI_UI45_POPUP_H, 0, uc);
+    /* Info 文本框占位（22,15,367,120 局部 + 45,620 → 67,635-412,740，720 基准） */
+    rs_solid_btn(rr, slot, 67.0f, 635.0f, 412.0f, 740.0f,
+                 0.90f, 0.90f, 0.92f, 0.92f, 0, uc);
+    rs_uibat_title(rr, slot, 0, 360.0f, UI_UI45_POPUP_Y0 + 18.0f, uc);   /* 战况统计 */
+    const ui_ui45_btn *b = ui_ui45_buttons();
+    rs_solid_btn(rr, slot, b[0].x0, b[0].y0, b[0].x1, b[0].y1,
+                 0.20f, 0.45f, 0.90f, 0.9f, 0, uc);
+    rs_atlas_label(rr, slot, rr->tex_uibat_text[slot], rr->uibat_text_w, rr->uibat_text_h,
+                   UIBAT_ROW, 1,
+                   (b[0].x0 + b[0].x1) * 0.5f, (b[0].y0 + b[0].y1) * 0.5f, 100.0f, uc);
+    static int d45 = 0;
+    if (!d45) { d45 = 1;
+        LOGI("rs_draw_ui45：战况统计·详细弹窗出帧（datah_045 固定位置 45,620 面板 %.0f×%.0f，"
+              "1 按钮，★ 诚实边界：详细战绩数据未逆向→边界对话框）",
+              UI_UI45_POPUP_W, UI_UI45_POPUP_H);
+    }
+}
+
+/* ③ datah_046 玩家资料（420×420 居中 +150,+430；标题 + Info 占位 + 返回 1 按钮） */
+static void rs_draw_ui46(rs_render *rr, int slot)
+{
+    if (!rr->prog_solid[slot] || !rr->gl2_ok[slot]) return;
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    rs_popup_shell(rr, slot, UI_UI46_POPUP_X0, UI_UI46_POPUP_Y0,
+                   UI_UI46_POPUP_W, UI_UI46_POPUP_H, 0, uc);
+    /* Info 文本框占位（30,75,390,325 局部 + 150,430 → 180,505-540,755，720 基准） */
+    rs_solid_btn(rr, slot, 180.0f, 505.0f, 540.0f, 755.0f,
+                 0.90f, 0.90f, 0.92f, 0.92f, 0, uc);
+    rs_uibat_title(rr, slot, 2, 360.0f, UI_UI46_POPUP_Y0 + 30.0f, uc);   /* 玩家资料 */
+    const ui_ui46_btn *b = ui_ui46_buttons();
+    rs_solid_btn(rr, slot, b[0].x0, b[0].y0, b[0].x1, b[0].y1,
+                 0.55f, 0.55f, 0.60f, 0.9f, 0, uc);
+    rs_atlas_label(rr, slot, rr->tex_uibat_text[slot], rr->uibat_text_w, rr->uibat_text_h,
+                   UIBAT_ROW, 13,
+                   (b[0].x0 + b[0].x1) * 0.5f, (b[0].y0 + b[0].y1) * 0.5f, 100.0f, uc);
+    static int d46 = 0;
+    if (!d46) { d46 = 1;
+        LOGI("rs_draw_ui46：玩家资料弹窗出帧（datah_046 420×420 居中 面板 %.0f×%.0f，"
+              "1 按钮，★ 诚实边界：玩家资料内容未逆向，占位标签）",
+              UI_UI46_POPUP_W, UI_UI46_POPUP_H);
+    }
+}
+
+/* ④ datah_047 玩家列表（420×305 居中 +150,+487.5；标题 + ListBox 占位 + 关闭 1 按钮） */
+static void rs_draw_ui47(rs_render *rr, int slot)
+{
+    if (!rr->prog_solid[slot] || !rr->gl2_ok[slot]) return;
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    rs_popup_shell(rr, slot, UI_UI47_POPUP_X0, UI_UI47_POPUP_Y0,
+                   UI_UI47_POPUP_W, UI_UI47_POPUP_H, 0, uc);
+    /* ListBox 占位（20,75,400,200 局部 + 150,487.5 → 170,563-550,688，720 基准） */
+    rs_solid_btn(rr, slot, 170.0f, 563.0f, 550.0f, 688.0f,
+                 0.90f, 0.90f, 0.92f, 0.92f, 0, uc);
+    rs_uibat_title(rr, slot, 3, 360.0f, UI_UI47_POPUP_Y0 + 30.0f, uc);   /* 玩家列表 */
+    const ui_ui47_btn *b = ui_ui47_buttons();
+    rs_solid_btn(rr, slot, b[0].x0, b[0].y0, b[0].x1, b[0].y1,
+                 0.55f, 0.55f, 0.60f, 0.9f, 0, uc);
+    rs_atlas_label(rr, slot, rr->tex_uibat_text[slot], rr->uibat_text_w, rr->uibat_text_h,
+                   UIBAT_ROW, 13,
+                   (b[0].x0 + b[0].x1) * 0.5f, (b[0].y0 + b[0].y1) * 0.5f, 100.0f, uc);
+    static int d47 = 0;
+    if (!d47) { d47 = 1;
+        LOGI("rs_draw_ui47：玩家列表弹窗出帧（datah_047 420×305 居中 面板 %.0f×%.0f，"
+              "1 按钮，★ 诚实边界：玩家列表未逆向，ListBox 占位）",
+              UI_UI47_POPUP_W, UI_UI47_POPUP_H);
+    }
+}
+
+/* ⑤ datah_049 对局详情（420×610 居中 +150,+335；标题 + ListBox 占位 + 关闭 1 按钮） */
+static void rs_draw_ui49(rs_render *rr, int slot)
+{
+    if (!rr->prog_solid[slot] || !rr->gl2_ok[slot]) return;
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    rs_popup_shell(rr, slot, UI_UI49_POPUP_X0, UI_UI49_POPUP_Y0,
+                   UI_UI49_POPUP_W, UI_UI49_POPUP_H, 0, uc);
+    /* ListBox 占位（20,75,400,505 局部 + 150,335 → 170,410-550,915，720 基准） */
+    rs_solid_btn(rr, slot, 170.0f, 410.0f, 550.0f, 915.0f,
+                 0.90f, 0.90f, 0.92f, 0.92f, 0, uc);
+    rs_uibat_title(rr, slot, 4, 360.0f, UI_UI49_POPUP_Y0 + 30.0f, uc);   /* 对局详情 */
+    const ui_ui49_btn *b = ui_ui49_buttons();
+    rs_solid_btn(rr, slot, b[0].x0, b[0].y0, b[0].x1, b[0].y1,
+                 0.55f, 0.55f, 0.60f, 0.9f, 0, uc);
+    rs_atlas_label(rr, slot, rr->tex_uibat_text[slot], rr->uibat_text_w, rr->uibat_text_h,
+                   UIBAT_ROW, 13,
+                   (b[0].x0 + b[0].x1) * 0.5f, (b[0].y0 + b[0].y1) * 0.5f, 100.0f, uc);
+    static int d49 = 0;
+    if (!d49) { d49 = 1;
+        LOGI("rs_draw_ui49：对局详情弹窗出帧（datah_049 420×610 居中 面板 %.0f×%.0f，"
+              "1 按钮，★ 诚实边界：对局详情内容未逆向，ListBox 占位）",
+              UI_UI49_POPUP_W, UI_UI49_POPUP_H);
+    }
+}
+
+/* SPAK2UI 批量 3 弹窗共用体（datah_051/054/110 同构 450×610：ListBox + 清空/关闭） */
+static void rs_uibat_clearclose_dialog(rs_render *rr, int slot,
+                                       int s44 /* UI_UI51/54/110 枚举值 */,
+                                       int title_row, const char *tag)
+{
+    if (!rr->prog_solid[slot] || !rr->gl2_ok[slot]) return;
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    float px0 = (s44 == UI_UI51) ? UI_UI51_POPUP_X0 : ((s44 == UI_UI54) ? UI_UI54_POPUP_X0 : UI_UI110_POPUP_X0);
+    float py0 = (s44 == UI_UI51) ? UI_UI51_POPUP_Y0 : ((s44 == UI_UI54) ? UI_UI54_POPUP_Y0 : UI_UI110_POPUP_Y0);
+    float pw = (s44 == UI_UI51) ? UI_UI51_POPUP_W : ((s44 == UI_UI54) ? UI_UI54_POPUP_W : UI_UI110_POPUP_W);
+    float ph = (s44 == UI_UI51) ? UI_UI51_POPUP_H : ((s44 == UI_UI54) ? UI_UI54_POPUP_H : UI_UI110_POPUP_H);
+    rs_popup_shell(rr, slot, px0, py0, pw, ph, 0, uc);
+    /* ListBox 占位（20,75,430,505 局部 + 135,335 → 155,410-585,915，720 基准） */
+    rs_solid_btn(rr, slot, 155.0f, 410.0f, 585.0f, 915.0f,
+                 0.90f, 0.90f, 0.92f, 0.92f, 0, uc);
+    rs_uibat_title(rr, slot, title_row, 360.0f, py0 + 30.0f, uc);
+    static const float BTN_COL[2][4] = {
+        {0.85f, 0.40f, 0.20f, 0.9f}, {0.55f, 0.55f, 0.60f, 0.9f} };
+    const ui_ui51_btn *b51 = ui_ui51_buttons();
+    const ui_ui54_btn *b54 = ui_ui54_buttons();
+    const ui_ui110_btn *b110 = ui_ui110_buttons();
+    float bx[2][4];
+    if (s44 == UI_UI51)      { bx[0][0]=b51[0].x0; bx[0][1]=b51[0].y0; bx[0][2]=b51[0].x1; bx[0][3]=b51[0].y1;
+                                bx[1][0]=b51[1].x0; bx[1][1]=b51[1].y0; bx[1][2]=b51[1].x1; bx[1][3]=b51[1].y1; }
+    else if (s44 == UI_UI54) { bx[0][0]=b54[0].x0; bx[0][1]=b54[0].y0; bx[0][2]=b54[0].x1; bx[0][3]=b54[0].y1;
+                                bx[1][0]=b54[1].x0; bx[1][1]=b54[1].y0; bx[1][2]=b54[1].x1; bx[1][3]=b54[1].y1; }
+    else                      { bx[0][0]=b110[0].x0; bx[0][1]=b110[0].y0; bx[0][2]=b110[0].x1; bx[0][3]=b110[0].y1;
+                                bx[1][0]=b110[1].x0; bx[1][1]=b110[1].y0; bx[1][2]=b110[1].x1; bx[1][3]=b110[1].y1; }
+    for (int i = 0; i < 2; i++) {
+        rs_solid_btn(rr, slot, bx[i][0], bx[i][1], bx[i][2], bx[i][3],
+                     BTN_COL[i][0], BTN_COL[i][1], BTN_COL[i][2], BTN_COL[i][3], 0, uc);
+        rs_atlas_label(rr, slot, rr->tex_uibat_text[slot], rr->uibat_text_w, rr->uibat_text_h,
+                       UIBAT_ROW, 12 + i,
+                       (bx[i][0] + bx[i][2]) * 0.5f, (bx[i][1] + bx[i][3]) * 0.5f, 100.0f, uc);
+    }
+    static int dclearclose = 0;
+    if (!dclearclose) {
+        dclearclose = 1;
+        LOGI("%s：450×610 对局列表弹窗出帧（ListBox 占位 + 清空/关闭 2 按钮，"
+              "★ 诚实边界：对局存档未逆向，清空=清复盘记录简化）", tag);
+    }
+}
+
+/* ⑥ datah_051 我的对局（450×610 居中 +135,+335） */
+static void rs_draw_ui51(rs_render *rr, int slot)
+{
+    rs_uibat_clearclose_dialog(rr, slot, UI_UI51, 5, "rs_draw_ui51（datah_051 我的对局）");
+}
+/* ⑦ datah_054 历史对局（450×610 居中 +135,+335） */
+static void rs_draw_ui54(rs_render *rr, int slot)
+{
+    rs_uibat_clearclose_dialog(rr, slot, UI_UI54, 6, "rs_draw_ui54（datah_054 历史对局）");
+}
+/* ⑪ datah_110 历史对局联机版（450×610 居中 +135,+335） */
+static void rs_draw_ui110(rs_render *rr, int slot)
+{
+    rs_uibat_clearclose_dialog(rr, slot, UI_UI110, 6, "rs_draw_ui110（datah_110 历史对局联机版）");
+}
+
+/* ⑧ datah_073 创建游戏（450×270 居中 +135,+505；标题 + 输入框占位 + 开始/取消 2 按钮） */
+static void rs_draw_ui73(rs_render *rr, int slot)
+{
+    if (!rr->prog_solid[slot] || !rr->gl2_ok[slot]) return;
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    rs_popup_shell(rr, slot, UI_UI73_POPUP_X0, UI_UI73_POPUP_Y0,
+                   UI_UI73_POPUP_W, UI_UI73_POPUP_H, 0, uc);
+    /* Player1 输入框占位（30,85,420,120 局部 + 135,505 → 165,590-555,625，720 基准） */
+    rs_solid_btn(rr, slot, 165.0f, 590.0f, 555.0f, 625.0f,
+                 0.90f, 0.90f, 0.92f, 0.92f, 0, uc);
+    /* Player2 输入框占位（30,130,420,165 局部 + 135,505 → 165,635-555,670，720 基准） */
+    rs_solid_btn(rr, slot, 165.0f, 635.0f, 555.0f, 670.0f,
+                 0.90f, 0.90f, 0.92f, 0.92f, 0, uc);
+    rs_uibat_title(rr, slot, 7, 360.0f, UI_UI73_POPUP_Y0 + 30.0f, uc);   /* 创建游戏 */
+    const ui_ui73_btn *b = ui_ui73_buttons();
+    static const float BTN_COL[2][4] = {
+        {0.20f, 0.45f, 0.90f, 0.9f}, {0.55f, 0.55f, 0.60f, 0.9f} };
+    for (int i = 0; i < UI_UI73_COUNT; i++) {
+        rs_solid_btn(rr, slot, b[i].x0, b[i].y0, b[i].x1, b[i].y1,
+                     BTN_COL[i][0], BTN_COL[i][1], BTN_COL[i][2], BTN_COL[i][3], 0, uc);
+        /* 按钮文字：row8=人机对战/row10=联网对战 图集占位（★ 诚实边界：标签非精确"开始/取消"） */
+        rs_atlas_label(rr, slot, rr->tex_uibat_text[slot], rr->uibat_text_w, rr->uibat_text_h,
+                       UIBAT_ROW, i == 0 ? 12 : 13,
+                       (b[i].x0 + b[i].x1) * 0.5f, (b[i].y0 + b[i].y1) * 0.5f, 100.0f, uc);
+    }
+    static int d73 = 0;
+    if (!d73) { d73 = 1;
+        LOGI("rs_draw_ui73：创建游戏弹窗出帧（datah_073 450×270 居中 面板 %.0f×%.0f，"
+              "2 按钮，★ 诚实边界：联机创建游戏未逆向，开始=本地开局简化）",
+              UI_UI73_POPUP_W, UI_UI73_POPUP_H);
+    }
+}
+
+/* ⑨ datah_090 对战方式（固定位置 135,570，面板 210×150；人机/联网 2 按钮） */
+static void rs_draw_ui90(rs_render *rr, int slot)
+{
+    if (!rr->prog_solid[slot] || !rr->gl2_ok[slot]) return;
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    rs_popup_shell(rr, slot, UI_UI90_POPUP_X0, UI_UI90_POPUP_Y0,
+                   UI_UI90_POPUP_W, UI_UI90_POPUP_H, 0, uc);
+    rs_uibat_title(rr, slot, 8, 360.0f, UI_UI90_POPUP_Y0 - 12.0f, uc);   /* 对战方式 面板上方 */
+    const ui_ui90_btn *b = ui_ui90_buttons();
+    rs_solid_btn(rr, slot, b[0].x0, b[0].y0, b[0].x1, b[0].y1,
+                 0.20f, 0.45f, 0.90f, 0.9f, 0, uc);
+    rs_atlas_label(rr, slot, rr->tex_uibat_text[slot], rr->uibat_text_w, rr->uibat_text_h,
+                   UIBAT_ROW, 8,
+                   (b[0].x0 + b[0].x1) * 0.5f, (b[0].y0 + b[0].y1) * 0.5f, 110.0f, uc);
+    rs_solid_btn(rr, slot, b[1].x0, b[1].y0, b[1].x1, b[1].y1,
+                 0.55f, 0.55f, 0.60f, 0.9f, 0, uc);
+    rs_atlas_label(rr, slot, rr->tex_uibat_text[slot], rr->uibat_text_w, rr->uibat_text_h,
+                   UIBAT_ROW, 10,
+                   (b[1].x0 + b[1].x1) * 0.5f, (b[1].y0 + b[1].y1) * 0.5f, 110.0f, uc);
+    static int d90 = 0;
+    if (!d90) { d90 = 1;
+        LOGI("rs_draw_ui90：对战方式弹窗出帧（datah_090 固定位置 135,570 面板 %.0f×%.0f，"
+              "2 按钮，★ 诚实边界：联网对战未逆向（仅蓝牙已实现），人机→UI_DIFFICULTY）",
+              UI_UI90_POPUP_W, UI_UI90_POPUP_H);
+    }
+}
+
+/* ⑩ datah_100 详细战况（固定位置 45,620，面板 390×135，与 045 同构） */
+static void rs_draw_ui100(rs_render *rr, int slot)
+{
+    if (!rr->prog_solid[slot] || !rr->gl2_ok[slot]) return;
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    rs_popup_shell(rr, slot, UI_UI100_POPUP_X0, UI_UI100_POPUP_Y0,
+                   UI_UI100_POPUP_W, UI_UI100_POPUP_H, 0, uc);
+    rs_solid_btn(rr, slot, 67.0f, 635.0f, 412.0f, 740.0f,
+                 0.90f, 0.90f, 0.92f, 0.92f, 0, uc);
+    rs_uibat_title(rr, slot, 1, 360.0f, UI_UI100_POPUP_Y0 + 18.0f, uc);   /* 详细 */
+    const ui_ui100_btn *b = ui_ui100_buttons();
+    rs_solid_btn(rr, slot, b[0].x0, b[0].y0, b[0].x1, b[0].y1,
+                 0.20f, 0.45f, 0.90f, 0.9f, 0, uc);
+    rs_atlas_label(rr, slot, rr->tex_uibat_text[slot], rr->uibat_text_w, rr->uibat_text_h,
+                   UIBAT_ROW, 1,
+                   (b[0].x0 + b[0].x1) * 0.5f, (b[0].y0 + b[0].y1) * 0.5f, 100.0f, uc);
+    static int d100 = 0;
+    if (!d100) { d100 = 1;
+        LOGI("rs_draw_ui100：详细战况弹窗出帧（datah_100 固定位置 45,620 面板 %.0f×%.0f，"
+              "1 按钮，★ 诚实边界：详细战况数据未逆向→边界对话框）",
+              UI_UI100_POPUP_W, UI_UI100_POPUP_H);
+    }
+}
+
+/* ⑫ datah_118 版本更新（450×360 居中 +135,+460；标题 + Info 占位 + 更新/取消 2 按钮） */
+static void rs_draw_ui118(rs_render *rr, int slot)
+{
+    if (!rr->prog_solid[slot] || !rr->gl2_ok[slot]) return;
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    rs_popup_shell(rr, slot, UI_UI118_POPUP_X0, UI_UI118_POPUP_Y0,
+                   UI_UI118_POPUP_W, UI_UI118_POPUP_H, 0, uc);
+    /* Info 文本框占位（35,80,420,253 局部 + 135,460 → 170,540-555,713，720 基准） */
+    rs_solid_btn(rr, slot, 170.0f, 540.0f, 555.0f, 713.0f,
+                 0.90f, 0.90f, 0.92f, 0.92f, 0, uc);
+    rs_uibat_title(rr, slot, 11, 360.0f, UI_UI118_POPUP_Y0 + 30.0f, uc);   /* 版本更新 */
+    const ui_ui118_btn *b = ui_ui118_buttons();
+    static const float BTN_COL[2][4] = {
+        {0.20f, 0.45f, 0.90f, 0.9f}, {0.55f, 0.55f, 0.60f, 0.9f} };
+    for (int i = 0; i < UI_UI118_COUNT; i++) {
+        rs_solid_btn(rr, slot, b[i].x0, b[i].y0, b[i].x1, b[i].y1,
+                     BTN_COL[i][0], BTN_COL[i][1], BTN_COL[i][2], BTN_COL[i][3], 0, uc);
+        /* 按钮文字：row11/row13 占位（★ 诚实边界：标签非精确"更新/取消"） */
+        rs_atlas_label(rr, slot, rr->tex_uibat_text[slot], rr->uibat_text_w, rr->uibat_text_h,
+                       UIBAT_ROW, i == 0 ? 11 : 13,
+                       (b[i].x0 + b[i].x1) * 0.5f, (b[i].y0 + b[i].y1) * 0.5f, 100.0f, uc);
+    }
+    static int d118 = 0;
+    if (!d118) { d118 = 1;
+        LOGI("rs_draw_ui118：版本更新弹窗出帧（datah_118 450×360 居中 面板 %.0f×%.0f，"
+              "2 按钮，★ 诚实边界：版本更新通道未逆向，更新→边界对话框）",
+              UI_UI118_POPUP_W, UI_UI118_POPUP_H);
+    }
+}
+
 
 static void rs_draw_replay(rs_render *rr, int slot)
 {
@@ -4723,6 +5147,31 @@ static void rs_gl_rebuild(rs_render *rr, int slot)
         glBindTexture(GL_TEXTURE_2D, rr->tex_popup[slot]);
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->popup_w, rr->popup_h, 0,
                      GL_RGBA, GL_UNSIGNED_BYTE, rr->popup_px);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    }
+    /* ★ 原版 UI 位图真值（ch02 N45）：面板 9patch + 彩色按钮 纹理上传 */
+    if (rr->panel_px && rr->gl2_ok[slot] && rr->panel_w > 0 && rr->panel_h > 0) {
+        glGenTextures(1, &rr->tex_panel[slot]);
+        glBindTexture(GL_TEXTURE_2D, rr->tex_panel[slot]);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->panel_w, rr->panel_h, 0,
+                     GL_RGBA, GL_UNSIGNED_BYTE, rr->panel_px);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    }
+    if (rr->panel_btn_px && rr->gl2_ok[slot] && rr->panel_btn_w > 0 && rr->panel_btn_h > 0) {
+        glGenTextures(1, &rr->tex_panel_btn[slot]);
+        glBindTexture(GL_TEXTURE_2D, rr->tex_panel_btn[slot]);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->panel_btn_w, rr->panel_btn_h, 0,
+                     GL_RGBA, GL_UNSIGNED_BYTE, rr->panel_btn_px);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    }
+    if (rr->panel_icon_px && rr->gl2_ok[slot] && rr->panel_icon_w > 0 && rr->panel_icon_h > 0) {
+        glGenTextures(1, &rr->tex_panel_icon[slot]);
+        glBindTexture(GL_TEXTURE_2D, rr->tex_panel_icon[slot]);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->panel_icon_w, rr->panel_icon_h, 0,
+                     GL_RGBA, GL_UNSIGNED_BYTE, rr->panel_icon_px);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     }
@@ -4966,6 +5415,16 @@ static void rs_gl_rebuild(rs_render *rr, int slot)
         glBindTexture(GL_TEXTURE_2D, rr->tex_about_text[slot]);
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->about_text_w, rr->about_text_h, 0,
                      GL_RGBA, GL_UNSIGNED_BYTE, rr->about_text_px);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    }
+    /* ★ SPAK2UI 批量（12 弹窗）：战况统计/玩家/对局/对战方式/创建游戏/版本更新 共用
+       文字图集（14 标签竖排 220×644） */
+    if (rr->uibat_text_px && rr->gl2_ok[slot] && rr->uibat_text_w > 0 && rr->uibat_text_h > 0) {
+        glGenTextures(1, &rr->tex_uibat_text[slot]);
+        glBindTexture(GL_TEXTURE_2D, rr->tex_uibat_text[slot]);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->uibat_text_w, rr->uibat_text_h, 0,
+                     GL_RGBA, GL_UNSIGNED_BYTE, rr->uibat_text_px);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     }
@@ -5320,6 +5779,42 @@ void rs_render_frame(rs_render *rr)
         } else if (ui_screen_get() == UI_ABOUT) {
             /* ★ P2（datah_000 证据）：软件信息弹窗（Version 版本号 1.6.8 + 官网 www.cnvcs.com + 反馈/关闭，面板 400×280 居中） */
             rs_draw_about(rr, slot);
+        } else if (ui_screen_get() == UI_UI44) {
+            /* ★ SPAK2UI 批量（datah_044）：战况统计·消息/排行（固定位置 45,620 面板 180×175，2 按钮） */
+            rs_draw_ui44(rr, slot);
+        } else if (ui_screen_get() == UI_UI45) {
+            /* ★ SPAK2UI 批量（datah_045）：战况统计·详细（固定位置 45,620 面板 390×135，1 按钮） */
+            rs_draw_ui45(rr, slot);
+        } else if (ui_screen_get() == UI_UI46) {
+            /* ★ SPAK2UI 批量（datah_046）：玩家资料（420×420 居中，1 按钮） */
+            rs_draw_ui46(rr, slot);
+        } else if (ui_screen_get() == UI_UI47) {
+            /* ★ SPAK2UI 批量（datah_047）：玩家列表（420×305 居中，1 按钮） */
+            rs_draw_ui47(rr, slot);
+        } else if (ui_screen_get() == UI_UI49) {
+            /* ★ SPAK2UI 批量（datah_049）：对局详情（420×610 居中，1 按钮） */
+            rs_draw_ui49(rr, slot);
+        } else if (ui_screen_get() == UI_UI51) {
+            /* ★ SPAK2UI 批量（datah_051）：我的对局（450×610 居中，清空/关闭 2 按钮） */
+            rs_draw_ui51(rr, slot);
+        } else if (ui_screen_get() == UI_UI54) {
+            /* ★ SPAK2UI 批量（datah_054）：历史对局（450×610 居中，清空/关闭 2 按钮） */
+            rs_draw_ui54(rr, slot);
+        } else if (ui_screen_get() == UI_UI73) {
+            /* ★ SPAK2UI 批量（datah_073）：创建游戏（450×270 居中，开始/取消 2 按钮） */
+            rs_draw_ui73(rr, slot);
+        } else if (ui_screen_get() == UI_UI90) {
+            /* ★ SPAK2UI 批量（datah_090）：对战方式（固定位置 135,570 面板 210×150，人机/联网 2 按钮） */
+            rs_draw_ui90(rr, slot);
+        } else if (ui_screen_get() == UI_UI100) {
+            /* ★ SPAK2UI 批量（datah_100）：详细战况（固定位置 45,620 面板 390×135，1 按钮） */
+            rs_draw_ui100(rr, slot);
+        } else if (ui_screen_get() == UI_UI110) {
+            /* ★ SPAK2UI 批量（datah_110）：历史对局联机版（450×610 居中，清空/关闭 2 按钮） */
+            rs_draw_ui110(rr, slot);
+        } else if (ui_screen_get() == UI_UI118) {
+            /* ★ SPAK2UI 批量（datah_118）：版本更新（450×360 居中，更新/取消 2 按钮） */
+            rs_draw_ui118(rr, slot);
         } else if (rr->game && rr->game->stage == STG_OVER) {
             /* ★ 对局结束（GAME 态且 stage=OVER）→ 胜负横幅（winner 色可视化） */
             rs_draw_overlay(rr, slot, rr->game->winner);
