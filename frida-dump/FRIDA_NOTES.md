@@ -566,6 +566,8 @@ Interceptor.attach(Module.getExportByName('libdl.so', 'android_dlopen_ext'), {
 | C++ 枚举事件类型层 | F_55700 switch (cmp 155) | 枚举边界值 155 (0x9b), .so stripped 无枚举名 | 枚举 155 对应事件类型 (frida 运行时值) |
 | .got 100 槽 .bss addend | .got 0x15b0c8-0x15bb6c | 高区 74 (locale 堆) + 中间区 21 (C++ 对象堆) + 低区 5 (事件底层), §124y-128 | 100 槽 scudo 指针 (frida dump .bss 全量) |
 | .bss 0x4704 事件表 | .got[0x57c]=0x15b644 → 0x160584 | 17×17 位掩码表, 17 行全 asr4=0 (事件码 0) | 事件码 1-16 行 + 事件表基址真值 |
+| 0xbdxxx JNI 桥接层 7 函数 | .text 0xbd5xx-0xbdcxx | 8 函数 1 收表 (0xbe9cc OnBluetooth) + 7 未收表 (OnUpdate/OnGraph×2/OnKey/OnTimer/OnPause/OnResume), §124y-130 | 7 函数完整 C++ 逻辑 (JNI 桥接层, 非 vtable dispatch, frida 追踪) |
+| 0xbdxxx vs F_3ab80 两层机制 | .text 0xbdxxx / .bss 单例槽 | JNI 桥接层 (读 .bss 0x15be80 根对象) vs 事件底层 (F_3ab80 填单例槽) 两层独立, §124y-130 | 桥接如何触发事件底层 (frida 调用链实锤) |
 
 ### 13.3 修正链（§124y-60→102→109 三轮误判记录，防复发）
 
