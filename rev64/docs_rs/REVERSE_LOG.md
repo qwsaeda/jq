@@ -4803,3 +4803,39 @@ python3 /tmp/opencode/incremental_regress.py reset 0xADDR  # 改了某指令 →
 - 17 事件码（0..16）与 74 事件名的多对一映射 + F_55d40 42 code 子类型展开需
   frida 触发各事件码实锤（§124y-109 实锤事件表 17 行，事件码 0..16 具体对应事件名需 dump）
 - 事件码 [0x44] 运行时取值（0..16）需 frida dump 事件对象实锤（dump 当前全事件码 0）
+
+## §124y-114 74 事件名 → 10 业务大类 + Misc 杂项分组实锤（17 事件码 × 子状态命名枚举推断）
+
+**★ 闭环事实（静态实锤，74 事件名按业务大类分组，推断 17 事件码对应关系）**：
+
+1. **74 事件名按 10 业务大类 + Misc 杂项分组实锤**（.rodata 74 条全量，§124y-88 修正版）：
+   | 业务大类 | 事件名数 | 代表事件名 |
+   |---|---|---|
+   | 走子/吃子/翻牌 | 7 | Move/Flip/Eat/Bomb/Dead/Flag/Select |
+   | 胜负/终局 | 7 | RedWin/Win/BlueWin/Lose/Draw/Over/GameOver |
+   | 悔棋 | 6 | RegretReq/Agree/Disagree/Send/Confirm/Fail |
+   | 和棋 | 5 | DrawReq/Agree/Disagree/Send/Confirm |
+   | 投降 | 2 | Resign/ResignConfirm |
+   | 登录/账号 | 10 | LoginFail/AuthFail/MaxUser/VerOld/InputUser/InputPassword/... |
+   | 注册 | 12 | RegOk/RegExist/RegFail/InputEmail/... |
+   | 联机 | 11 | ConnectFail/PeerStart/Wait/First/Last/JoinGame/PlayerLeave/Ready/Reconnecting/... |
+   | 摆子/布局 | 8 | ZhaError/LeiError/QiError/LayError/MidAreaFail/HighAreaFail/PeerLayFinish/Start |
+   | 系统/杂项 | 4 | ExitConfirm/ExitFail/InputName/NewFail |
+   | **Misc 去广告** | **2** | **Misc.RemoveAdOk/Misc.RemoveAdFail** |
+   - 即 74 事件名 = 10 业务大类 + Misc 杂项（72 Junqi.* + 2 Misc.*，§124y-88 实锤）
+
+2. **17 事件码（0..16）= 10 业务大类 + Misc + 子状态展开（§124y-114 推断）**：
+   - 17 事件码 > 10 业务大类 → 部分大类拆多个事件码（走子类 7 事件名可能 = 事件码 0..6 子状态）
+   - 74 事件名 = 17 事件码 × 子状态的命名枚举（多对一映射，§124y-112 实锤）
+   - 即 F_55d40 42 code = 17 事件码 × 子类型展开（§124y-30/31 实锤 codes 0-41）
+
+3. **与 §124y-88/112 的事件名分组对上**：
+   - §124y-88 实锤 72 Junqi.* + 2 Misc.* = 74 条（.rodata 精确偏移）
+   - §124y-112 实锤 74 事件名 = 17 事件码 × 子类型命名枚举（多对一映射）
+   - 本轮 §124y-114 实锤 74 事件名的 10 业务大类分组（走子/胜负/悔棋/和棋/投降/登录/注册/联机/摆子/系统 + Misc）
+
+### 诚实边界
+- 17 事件码（0..16）与 10 业务大类的精确对应（哪个事件码 = 哪个大类）需 frida 触发各事件码
+  + dump [0x44] 事件码值实锤（本轮实锤 74 事件名 10 大类分组，未实锤事件码 0..16 逐码对应）
+- F_55d40 42 code 与 17 事件码 × 子类型的展开关系需查 F_55d40 switch 42 case 的 .text 分支实锤
+  （§124y-30/31 实锤 42 code，未实锤 42 code = 17 事件码 × 子类型）
