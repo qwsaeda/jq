@@ -17,6 +17,10 @@
                           例: so_probe.py reloc 0x1599e4
   strings <substr>       在 .rodata 明文里搜字符串 + 偏移
   seg <va> [n]           查 VA 落段(readelf -S)+ 段内偏移 + NOBITS 标注 + 前后 n 槽值
+  audit <pool> [add]    pc 相对读公式自动校验(公式 1+2+8 工具化, §124y-127):
+                        pool(=ldr 地址+4+K, 反汇编 @ 注释读) + 段归属 + NOBITS
+                        + 可选 add 指令地址 → tgt=pool 值+(add+4) + tgt 段归属
+                        例: so_probe.py audit 0x34384 0x34348 (F_3432c pool1)
                         防段归属误判(§124y-90/101/103 坑: .got 槽 vs .data REL vs .bss scudo)
                         例: so_probe.py seg 0x15b644
 
@@ -202,6 +206,46 @@ def cmd_strings(sub):
         print(f"  {mark} 0x{off:06x}: {s!r}")
     return 0
 
+def cmd_audit(pool_addr, add_addr=None):
+    """自动校验 pc 相对读公式 (公式 1+2+8 工具化, §124y-127).
+    用法: so_probe.py audit <pool 地址> [add 指令地址]
+    pool = ldr 指令地址+4+K (从反汇编 @ 注释直接读, 非手算),
+    可选 add = 后续 add rM,pc 指令地址, tgt = pool 值 + (add+4)."""
+    pool = hex2i(pool_addr)
+    v = rd32(pool)
+    print(f"  pool[0x{pool:05x}] = 0x{v:08x}")
+    # pool 值段归属
+    import subprocess, re as _re
+    r2 = subprocess.run([READELF, '-S', SO], capture_output=True, text=True)
+    for line in r2.stdout.split('\n'):
+        m2 = _re.match(r'^\s*(\[\d+\]\s+)?(\.\S+)\s+\S+\s+([0-9a-f]{6,8})\s+[0-9a-f]{6,8}\s+([0-9a-f]{6,8})', line)
+        if m2:
+            name, va0, size = m2.group(2), int(m2.group(3), 16), int(m2.group(4), 16)
+            if size and va0 <= v < va0 + size:
+                print(f"  pool 值 v=0x{v:06x} ∈ {name} 段" + ("  ★NOBITS (公式 8: scudo)" if name == '.bss' else ""))
+                break
+    # add 后 tgt (pc = add 指令地址 + 4, add_addr = add rM,pc 指令地址)
+    if add_addr:
+        add_a = hex2i(add_addr)
+        pc = add_a + 4
+        tgt = v + pc
+        r3 = subprocess.run([READELF, '-S', SO], capture_output=True, text=True)
+        hit = None
+        for line in r3.stdout.split('\n'):
+            m3 = _re.match(r'^\s*(\[\d+\]\s+)?(\.\S+)\s+\S+\s+([0-9a-f]{6,8})\s+[0-9a-f]{6,8}\s+([0-9a-f]{6,8})', line)
+            if m3:
+                name, va0, size = m3.group(2), int(m3.group(3), 16), int(m3.group(4), 16)
+                if size and va0 <= tgt < va0 + size:
+                    hit = (name, va0, size)
+        if hit:
+            print(f"  +add @0x{add_a:05x}(pc=0x{pc:05x}) → tgt = 0x{tgt:06x} ∈ {hit[0]} 段"
+                  + ("  ★NOBITS (公式 8: scudo)" if hit[0] == '.bss' else ""))
+        else:
+            print(f"  +add @0x{add_a:05x}(pc=0x{pc:05x}) → tgt = 0x{tgt:06x} (不落段, 核对 add 地址)")
+    print(f"\n  防复发对照 (§124y-63/90/101/103/127): pool 漏 +4 / 段归属未查 / .bss 静态读")
+    return 0
+
+
 def main():
     if len(sys.argv) < 2:
         print(__doc__); return 0
@@ -221,6 +265,8 @@ def main():
         return cmd_strings(args[0])
     if cmd == 'seg':
         return cmd_seg(hex2i(args[0]), int(args[1]) if len(args)>1 else 4)
+    if cmd == 'audit':
+        return cmd_audit(args[0], args[1])
     print(f"未知子命令: {cmd}\n{__doc__}"); return 2
 
 if __name__ == '__main__':
