@@ -3248,3 +3248,36 @@ python3 /tmp/opencode/incremental_regress.py reset 0xADDR  # 改了某指令 →
 - 析构器 3/4（0x162660/0x162668）落点 .bss 高区 0x162xxx（C++ 对象堆），非 0x15be/0x15bf 事件底层区
   —— 完整 C++ 对象图（std::locale 等全局）需 frida dump .bss 高区 scudo 块
 - 析构器 1-6 的 .bss 单例槽 scudo 运行时指针需 frida dump 实锤（构造 12 + 析构 6 + atexit 12 全链闭环）
+
+## §124y-69 事件底层 C++ 对象生命周期总表固化（.bss 10 槽 + 构造/析构对偶）
+
+**★ 固化产物（可复用参考，§124y-32/55/65/66/67/68 全量汇总）**：
+
+1. **.bss 单例槽 10 槽全量清单**（0x15be/0x15bf 区 8 + .bss 高区 0x162xxx 2）：
+   | 槽 | 偏移 | 读者 | 构造 | 析构 |
+   |---|---|---|---|---|
+   | 0x15be80 | 0x00 | — | init 槽8 清零 | 析构器5(bl 0xbdbc4) |
+   | 0x15beb0 | 0x30 | F_3ab80① F_33790 | init 槽2-8 清零 | — |
+   | 0x15beb8 | 0x38 | F_3ab80⑥ F_33684 | init 槽2-8 清零 | — |
+   | 0x15bef0 | 0x70 | — | init 槽2-8 | 析构器2(bl 0xc0ed0) |
+   | 0x15befa | 0x7a | — | — | 析构器1(bl 0xba080) |
+   | 0x15bf0c | 0x8c | F_a373c 容器 | — | 析构器6(bl 0xb26c4) |
+   | 0x15bfe4 | 0x164 | 5 底层函数（§124y-44） | — | — |
+   | 0x15bfec | 0x16c | F_3ab64 single（§124y-32） | init 槽0 填五元组 | — |
+   | 0x162660 | 0x67E0 | .bss 高区 C++ 对象 | init 槽9-11(locale) | 析构器4(bl 0xbf0f4) |
+   | 0x162668 | 0x67E8 | .bss 高区 C++ 对象 | init 槽9-11(locale) | 析构器3(bl 0xbf67c) |
+
+2. **构造链 ↔ 析构链对偶（.bss C++ 对象完整生命周期）**：
+   - 构造：.init_array 12 构造器（槽0 五元组 + 槽1 互斥锁 + 槽2-8 清零 + 槽9-11 locale）
+   - 析构：__aeabi_atexit 12 注册（.so 无 .fini_array 段，§124y-67）+ 析构器 6（读槽非 0 → bl 析构器 + _ZdlPv + 清零）
+   - 对偶：构造 .init_array 12 ↔ 析构 __aeabi_atexit 12 + 析构器 6（.bss 10 槽全量收表）
+
+3. **完整数据模型固化到 `/tmp/opencode/junqi_event_table.md`**（第 5-7 部分）：
+   - 第 5 部分：.bss 10 槽全量清单（读者/构造/析构对应）
+   - 第 6 部分：构造链 ↔ 析构链对偶（.init_array 12 + __aeabi_atexit 12 + 析构器 6）
+   - 第 7 部分：运行时需要实锤项（frida dump 4 事件底层 scudo 槽 + .bss 高区 locale 对象堆 + unidbg 补 12 构造器 BL 链）
+
+### 诚实边界
+- .bss 单例槽 scudo 运行时指针需 frida dump（unidbg BL 解码 bug 阻塞）
+- .data REL 槽（0x15b0c4/0x15b0c8/0x15b640/0x15af08）已由 jq_rel_data.h 重定位覆盖，设备实锤读通
+- 完整 std::string SSO/堆分配切换需 unidbg 补 12 构造器 BL 链（§124y-63 事件名比较器 0x6efd4）
