@@ -2565,3 +2565,30 @@ python3 /tmp/opencode/incremental_regress.py reset 0xADDR  # 改了某指令 →
 - 0x36008 池值 = .bss 字符串表单例（非 0x35fb4 直接读，是 0x35fbc 的 add r5,pc 算出），
   精确 scudo 指针需 frida dump .bss 实锤
 - F_35ed4 auto-stub `return 0` 忠实（.bss 未构造 vtable 调用无效跳过），不影响 4 路径回归
+
+## §124y-50 F_35fb4 池值精确算（.bss 字符串表单例 0x15bb00）
+
+**★ 闭环事实（静态实锤，§124y-49 池值补全）**：
+
+1. **F_35fb4 的 .bss 字符串表单例池值精算**（各 `pool[addr]+pc` 精确 Thumb pc）：
+   | 池地址 | pool 值 | 用途 |
+   |---|---|---|
+   | 0x36008 | 0x125108 | .bss 字符串表基址（`add r5,pc` 后读） |
+   | 0x3600c | 0xaa0 | 字符串表内偏移（`ldr r1,[r5+0xaa0]` 字符串指针） |
+   | 0x36010 | 0x510 | 字符串表内偏移（2 字节前缀读 0x510） |
+   | 0x36014 | 0x34f | 事件对象 0x34f 字段（`strb [r4+0x34f]`，§124y-49 实锤） |
+   - 0x36008 池 0x125108 + pc(0x35fb4 add 指令+4=0x35fbc) → 精确 .bss 字符串表单例地址
+
+2. **0x125108 是 .bss 字符串表基址 addend**（非 .rodata 字符串常量）：
+   - .bss 字符串表单例槽 = C++ 运行时构造填的字符串表 scudo 指针（.bss 未构造=0）
+   - 与 §124y-49 的 0x35fb4/F_35ed4 场景底层字符串写入链同源（.bss 字符串表）
+   - .rodata 0x126d80（§124y-48 事件名格式化的字符串常量池）是**静态明文**，与此 .bss 运行时表不同
+
+3. **翻译体对应**：F_35fb4 当前 jqt_vtbl.c 完整体（auto-stub `return r0`）已覆盖
+   .bss 未构造语义（.bss 字符串表=0 → 各 `ldr [0+偏移]` 读 0 空操作）；
+   完整字符串表写入需 frida dump .bss scudo 块实锤 0x36008 池的运行时字符串表指针
+
+### 诚实边界
+- 0x36008 池值精确算出的 .bss 字符串表单例槽（C++ 构造填 scudo）需 frida dump 实锤运行时地址
+- 0x125108 作为 addend 精确对应 .bss 哪个偏移（0x15xxx 区）需 readelf -r 核对（本轮未逐字节算）
+- 不影响 4 路径回归（.bss 未构造字符串表读 0 等价）
