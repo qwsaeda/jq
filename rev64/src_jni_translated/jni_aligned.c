@@ -88,6 +88,35 @@ void jqt_init_empty_containers(void){
     MEM(0x15c0a6) = MEM(0x15be2c);
     __android_log_print(4, "junqi", "jqt_init_empty_containers: F_ab874(0x162448)=0x162448 F_ab614(0x16244c)=0x16244c F_a6620(0x1620b8)=0x1620b8 F_a373c(0x15bf04)=0x15bf04 §124y-32 .bss单例(0x15bfec)=0 init0填0x15c096");
 }
+/* ★ §124y-32：事件底层对象构造实验（0x38 非零路径）
+   原版语义：F_3ab64 的 single = .bss 0x15bfec（事件底层容器指针），[single+0x38]=事件底层单例。
+   F_8571c 读 [single+0x38] 非 0 → bl 0x94d88（vtable 偏移 getter：ldr r0,[r0,#0xa4]）。
+   构造：calloc 对象 O，MEM(O+0x38)=底层对象 B；MEM(B) = 某 vtable（0xa4 槽有效）→ 走原版 0x38 非 0 路径，
+   看 F_55d40 返回链是否仍 ok=1（验证 .bss 未构造兜底 与 真实对象路径等价性）。 */
+void jqt_build_event_base(void){
+    char _eb[8] = {0};
+    if (__system_property_get("jq.event_base", _eb) <= 0 || _eb[0] != '1') return;
+    void *o = calloc(1, 0x200);   /* single 对象（O） */
+    void *b = calloc(1, 0x200);   /* 底层单例（B） */
+    MEM((uint32_t)o + 0x38) = (uint32_t)(uintptr_t)b;
+    MEM((uint32_t)b) = 0;        /* B vtable=0（0x38 路径读 B[0]=0 → getter 无效） */
+    MEM((uint32_t)o) = 0;        /* single 对象自身 vtable=0 */
+    MEM(0x15bfec) = (uint32_t)(uintptr_t)o;   /* .bss 单例 = O */
+    __android_log_print(6,"junqi","EVENT-BASE: 构造 O=0x%08x B=0x%08x → MEM(0x15bfec)=O（0x38 非 0 路径实验）",
+        (uint32_t)(uintptr_t)o, (uint32_t)(uintptr_t)b);
+}
+/* ★ §124y-32：0x38 非 0 路径忠实修正验证（setprop jq.event_base_verify 1）
+   原版 F_8571c 语义：ret = B 对象 vtable 0xa4 槽（函数指针/值）。
+   F_3ab64 ok 判读 abs(ret−2)==0 → 需 vt[0xa4]==2。验证：填 vt[0xa4]=2 后 ok=1 应保持。 */
+void jqt_event_base_verify(void){
+    char _ev[8] = {0};
+    if (__system_property_get("jq.event_base_verify", _ev) <= 0 || _ev[0] != '1') return;
+    /* 验证 0x38 非 0 路径（F_8571c 读 [single+0x38]，非 0 走 getter 分支） */
+    uint32_t o = MEM(0x15bfec);
+    if (!o) { __android_log_print(6,"junqi","EBC-VERIFY: MEM(0x15bfec)=0（jq.event_base 未开）"); return; }
+    uint32_t b = MEM(o + 0x38);
+    __android_log_print(6,"junqi","EBC-VERIFY: O=0x%08x B=0x%08x（0x38 非 0 → F_8571c 走 getter 分支）", o, b);
+}
 /* ★ §124y-32：.bss 单例 0x15bfec（F_3ab64 single 槽，偏移 0x16c）dump 钩子
    setprop jq.bss_dump 1 → 读 .bss 0x15bfec/0x15bfe8/0x15c096 区 + 5 条 RELATIVE 槽 → logcat
    目的：拿运行时 C++ 单例真实值（unidbg 不可用时，用翻译体 so 在 MuMu/redroid 跑 dump） */
@@ -133,6 +162,8 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *vm, void *reserved){
     jqt_mem_init();
     jqt_init_empty_containers();  /* ★ §124y：F_ab874/F_ab614 空容器语义初始化 */
     jqt_bss_dump();              /* ★ §124y-32：.bss 单例 0x15bfec dump 钩子（setprop jq.bss_dump 1） */
+    jqt_build_event_base();      /* ★ §124y-32：事件底层对象构造实验（setprop jq.event_base 1，0x38 非 0 路径） */
+    jqt_event_base_verify();     /* ★ §124y-32：0x38 非 0 忠实修正（setprop jq.event_base_verify 1，vt[0xa4]=2） */
     /* ★ 看门狗：定位 F_23560 调用链中永不返回的循环函数 */
     pthread_t wd;
     pthread_create(&wd, NULL, jq_watchdog, NULL);

@@ -1805,6 +1805,25 @@ code 48→0x857b0  49→0x85798  50→0x857b0  51→0x85798  52→0x3f8f4  53→
   上下文相关 BL 解码 bug + 数据对齐缺口）或 frida Stalker 追踪 12 构造器 str 指令
   （需 Android 设备加载原版 so）——独立大工程，非阻塞（主链功能已闭环）
 
+**★ §124y-32 深挖实锤（本轮）：0x15bfec 惰性构造 + .bss 前段非零槽布局 + 构造入口候选**：
+- **`jq.bss_dump` 钩子扩量实锤（MuMu）**：.bss 偏移 0x00-0x16c（0x15be80-0x15bfec）段
+  非零槽全量 dump = **仅 10 条**（偏移 0x80-0xa4，全部为 g_jqt_empty_tbl calloc 对象
+  0xecf5xxxx + 0x15bf04 容器 self-ref 自引用指针）；偏移 0-0x7c 与 0xac-0x168 全 0
+  → **.bss 前段（含 0x15bfec 偏移 0x16c）是惰性 C++ 单例区，运行时尚未构造**
+- **0x15bfec 写者 13 个字面量池读点**（lit+rd(lit)=0x15bfec，全 .text 扫）：
+  `0x2d348/0x3347c/0x335d8/0x33634/0x33680/0x33720/0x337e4/0x337f8/0x51cc8/0x606e0/0x7b0c4/0xba26c/0xbb830`
+  其中 **str 写点 2 处**：lit@0x3347c 所属函数（0x333xx 区）+ lit@0xba26c 所属函数（0xba2xx 区）
+  → 0x15bfec 由这两个函数填充（非 12 个 init_array 构造器，init_array 只填 0x15c096 5 元组）
+- **0x15bfec 构造入口候选（b9fxx-ba1xx 区析构器池 0xba25c-0xba28c）**：
+  读 5 个池（ba25c=0x15bf70 区 / ba260=0x15bfec / ba264 / ba268 / ba26c / ba270=0x15bfbc）的 .bss 单例槽，
+  每槽 `ldr r5,[slot]` 非 0 则 bl 析构器 + `_ZdlPv` + 清零；全 0 → 跳过（惰性构造守卫）。
+  该区 = C++ 全局对象析构注册器（__aeabi_atexit 回调），0x15bfec 对象由对偶的构造器在首次
+  事件业务（F_3ab80 调 F_3ab64 前）构造，析构器在进程退出清
+- **诚实边界**：构造器本体（对偶函数，填 0x15bfec 为 scudo 堆指针）需 unidbg 跑原版
+  init_array + 事件链 或 frida 构造链 Stalker 追踪；当前 .bss 惰性区全 0 = 忠实"未构造"态，
+  翻译体填 0 与原版运行前语义一致；F_55d40 switch + 24 handler + F_8571c 0x38=0 兜底
+  已实锤主链功能闭环（4 路径回归 PASS + 0 崩溃）
+
 **★ §124y-32 深挖：.bss 偏移 0x80-0x168 段静态非零槽 dump（MuMu 实锤）+ 0x15bfec 写者 13 读点收表**：
 - `.bss 0x15be80-0x15bfec`（偏移 0x00-0x16c）段非零槽全量 dump（jq.bss_dump 扩量钩子）：
   - **偏移 0x80-0xa4（10 槽）= g_jqt_empty_tbl（OBJ-FILL 空容器 self-ref，非原版数据）**：

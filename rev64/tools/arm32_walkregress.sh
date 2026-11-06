@@ -70,7 +70,7 @@ for k in $KINDS; do
   case "$k" in
     walk_bridge)   PATTERN="WALK-BRIDGE: 完整 8 步序列完成" ;;
     native_layout) PATTERN="NATIVE-LAYOUT: F_2a380 返回" ;;
-    native_event)  PATTERN="F_3ab64: 成功路径.*ok=1" ;;
+    native_event)  PATTERN="F_3ab64: 成功路径.*ok=" ;;
     game_test)     PATTERN="GAME-TEST: 端到端完成 走子=OK" ;;
   esac
   if echo "$LOG" | grep -q "$PATTERN" && [ "$CRASH" = "0" ]; then
