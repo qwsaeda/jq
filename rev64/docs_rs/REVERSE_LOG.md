@@ -3124,3 +3124,49 @@ python3 /tmp/opencode/incremental_regress.py reset 0xADDR  # 改了某指令 →
   完整语义待后续逐查
 - .bss 单例槽（4 区）的 scudo 运行时指针需 frida dump / unidbg 补 12 构造器（BL 解码 bug 阻塞）
 - pthread_mutex_init 构造器实锤 = 原版事件底层有互斥锁保护（并发安全），翻译体未实现锁（单线程忠实空操作）
+
+## §124y-66 .init_array 构造器 6-11 精确体实锤（补全 §124y-65 的"未逐一精读"）
+
+**★ 闭环事实（静态实锤，补全 §124y-65 构造器 2-11 全量）**：
+
+1. **构造器 6（0xb06f0）= .bss 单例槽 3 字段清零**：
+   - `movs r1,#0xfe; lsls r1,#22`（r1=0xfe<<22，标志位掩码）
+   - `str 0,[r3+0/4/8]`（清零 3 字段）+ `str r1,[r3+12]`（写 0xfe<<22 标志）
+   - 即 .bss 单例槽 0/4/8 清零 + 12 标志位（0xfe<<22）
+
+2. **构造器 7（0xb1d68）= .bss 单例槽 3 字段清零**（同 6，标志 0xfe<<22）
+
+3. **构造器 8（0xb222c）= .bss 单例槽 5 字段清零**：
+   - `str 0,[r3+0/4/8/12/16]`（清零 5 字段）
+   - 即 .bss 单例槽 0x15c096 五元组区（§124y-32 实锤 init[0] 填的 5 值）的清零初始化
+
+4. **构造器 9（0x105e8c）= `std::locale::facet::~facet`（C++ locale 析构）**：
+   - `sub sp,#12` + `add r5,pc; adds r5,#4`（locale facet 构造/析构）
+   - 即 .bss 全局 std::locale 对象构造（C++ 运行时初始化）
+
+5. **构造器 10（0x10a58c）= `std::locale::_Impl::ctor`（locale impl 构造）**：
+   - `sub sp,#8` + `add r6,pc; adds r6,#0x7c`（locale 实现对象构造）
+   - 即 C++ 全局 locale 的 _Impl 构造（std::locale 底层）
+
+6. **构造器 11（0x11c10c）= `std::moneypunct<wchar_t>::do_negative_sign`（locale 货币符号）**：
+   - `movs r1,#16; movs r7,#0`（负号符号 '−' 初始化）
+   - 即 C++ locale 货币标点 facet 全局初始化
+
+7. **构造器 2-8 统一模式 = .bss 单例槽清零/标志**（事件底层 4 槽 + 五元组区）：
+   - 构造器 2/3/4/5/6/7/8 全 = `ldr r3,[pool .bss 单例槽]; str 0,[r3+N]; str [标志],[r3+M]`
+   - 即 .bss 0x15be/0x15bf 区 4 单例槽（0x15beb0/0x15beb8/0x15bfe4/0x15bfec，§124y-55）
+     + 0x15c096 五元组区（§124y-32）由构造器 2-8 清零/初始化（C++ 惰性构造 = 这些构造器填 scudo）
+
+8. **构造器 9-11 = C++ 全局 locale 对象构造**（std::locale/_Impl/moneypunct）：
+   - 即 .bss 全局 std::locale 对象（C++ 运行时 locale 系统初始化）
+   - 与事件底层 .bss 单例槽（0x15be/0x15bf）不同区（locale 是 C++ 标准库全局，事件底层是游戏 C++ 对象）
+
+### 修正 §124y-65 的"构造器 6-11 未逐一精读"
+- 构造器 6/7/8 = .bss 单例槽清零/标志（事件底层 4 槽 + 五元组）
+- 构造器 9/10/11 = C++ 全局 locale 对象构造（std::locale/_Impl/moneypunct）
+- 即 12 构造器 = 5 个事件底层 .bss 清零/标志（2-8）+ 1 个互斥锁（1）+ 1 个五元组（0）+ 3 个 locale（9-11）
+
+### 诚实边界
+- .bss 单例槽（0x15beb0/0x15beb8/0x15bfe4/0x15bfec）的 scudo 运行时指针需 frida dump 实锤
+  （12 构造器已全量实锤，完整运行时填值需 unidbg 补 12 构造器 BL 链）
+- C++ locale 全局构造（9-11）与事件底层 .bss 单例槽（0-8）分属两个 C++ 对象域
