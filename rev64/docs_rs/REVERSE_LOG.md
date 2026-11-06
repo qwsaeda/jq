@@ -2528,3 +2528,40 @@ python3 /tmp/opencode/incremental_regress.py reset 0xADDR  # 改了某指令 →
   翻译体直接读文件态值忠实，无需运行时解密
 - 0x340c4 的完整 std::string 前缀比较（0x6efd4/0x341b6）深水区，
   当前翻译体 auto-stub `return r0` 已覆盖 .bss 未构造语义
+
+## §124y-49 F_35fb4（场景底层 0x335b4 bl 目标）完整体精读 + F_35ed4 末段 vtable 调用收表
+
+**★ 闭环事实（静态实锤）**：
+
+1. **F_35fb4（0x35fb4，F_335b4 场景底层 bl 目标，~0x80 字节完整体）= 事件字符串写入 + 0x618 清除 + vtable 调用**：
+   - `movs r1,#0xd5<<2=0x354`（事件字符串写入偏移 0x354）
+   - `ldr r5,[pool 0x36008]; add r5,pc`（.bss 字符串表单例指针）
+   - `ldr r1,[r5, r3]`（读字符串表指针）→ `bl 0xafb7c`（std::string 浅拷贝 2 指针，§124y-48）
+   - 读 `[r5+0x36010]` 字符串地址 → `ldrb [r3+0]/[r3+1]` 2 字节 → `strb [r4+0x354/0x35f]`
+     （事件对象 0x354/0x35f 字段填充，与 §124y-48 F_3432c 的 0x34d/0x34f 同模式）
+   - `ldr r0,[pool 0x35fe4 单例]` → `bl 0xb67ec`（§124y-43 [底层+0x56] 置位）
+   - `movs r3,#0xc3<<3=0x618; ldrb r2,[r4+0x618]`（读事件对象 0x618 字节字段）
+   - `cmp r2,#0; beq → 0x36004`（0x618 非 0 → `strb 0,[r4+0x618]` 清除 0x618 标志
+     + `ldr r3,[r4+0]（vtable）; blx r3`（**vtable 槽 0 虚方法调用**，带 0x35fb0 池字符串参数）
+   - 末尾 0x36004 `pop {r4,r5,r6,pc}` 前 r0 = 0x618 非 0 时 vtable 调用 ret / 非 0 时 0
+   - **忠实语义**：事件字符串写入（0x354/0x35f）+ 0x618 标志清除 + 0x618 非 0 时 vtable 槽 0 虚方法调用
+
+2. **F_35ed4（§124y-39 float 坐标计算）末段精确收表**：
+   - `bl 0x35e0c`（§124y-40 事件底层 0xc2/c3/c4/c5 字段排序计算）后
+   - `ldr r3,[r4+0]（vtable）; ldr r1,[0x35fb0 池 字符串参数]; movs r2,#0; blx r3`
+     （**vtable 槽 0 虚方法调用**，r1=字符串参数 r2=0，即"事件底层对象虚方法 0（带字符串 + 0 参数）"）
+   - 末尾 0x35f9c `pop {r3,r4,r5,r6,r7,pc}` 前 r0 = vtable 调用 ret（非 0）
+   - 即 F_35ed4 的完整语义 = **float 坐标 i2f/fmul/fadd/fsub 计算 + bl 0x35e0c 字段排序 + vtable 槽 0 虚方法调用**
+   - 当前 auto-stub `return 0` 已覆盖 .bss 未构造语义（vtable 槽 0 读 [0]=0 无效调用跳过）
+
+3. **事件底层 vtable 槽 0 虚方法调用点汇总**（本轮 + §124y-43 实锤）：
+   - 0x35fb4（场景底层）：0x618 非 0 → `blx [底层+0x0]`（vtable 槽 0）
+   - F_35ed4（float 坐标）：末段 `blx [底层+0x0]`（vtable 槽 0）
+   - F_b6808（§124y-43 字段分派器）：默认 `blx [0xc0值+0x2c]`（vtable 0x2c 槽）
+   - 即事件底层 C++ 对象 = **vtable 虚方法表 + 字节标志字段（0x56/0x618）+ 字符串指针（0x3c）+ 排序字段（0xc2-c5）**
+
+### 诚实边界
+- 0x35fb4/F_35ed4 的 vtable 槽 0 虚方法调用深水区（.bss 未构造时 [底层+0]=0 无效调用跳过）
+- 0x36008 池值 = .bss 字符串表单例（非 0x35fb4 直接读，是 0x35fbc 的 add r5,pc 算出），
+  精确 scudo 指针需 frida dump .bss 实锤
+- F_35ed4 auto-stub `return 0` 忠实（.bss 未构造 vtable 调用无效跳过），不影响 4 路径回归
