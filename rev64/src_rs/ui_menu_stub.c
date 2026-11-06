@@ -89,4 +89,57 @@ int ui_login_hit(const ui_login_btn *b, int n, float x, float y)
 int ui_login_popup_inside(float x, float y)
 { return x>=UI_LOGIN_POPUP_X0&&x<=UI_LOGIN_POPUP_X0+UI_LOGIN_POPUP_W&&
          y>=UI_LOGIN_POPUP_Y0&&y<=UI_LOGIN_POPUP_Y0+UI_LOGIN_POPUP_H; }
+/* ★ P2（datah_037 证据）：规则文本弹窗 3 按钮桩（几何表返回 720 基准占位供
+   一致性/evverify 链接；真机走 ui_menu.c 真实几何表）。
+   诚实边界：规则文本=src_rs 现有简化版固定文本（2 套：翻棋/布局）。 */
+static const ui_rules_btn ru_stub[UI_RULES_COUNT] = {
+    { 255.0f,530.0f,465.0f,590.0f,0 },{ 255.0f,610.0f,465.0f,670.0f,1 },
+    { 255.0f,690.0f,465.0f,750.0f,2 },
+};
+const ui_rules_btn *ui_rules_buttons(void) { return ru_stub; }
+int ui_rules_hit(const ui_rules_btn *b, int n, float x, float y)
+{ for (int i=0;i<n;i++) if (x>=b[i].x0&&x<=b[i].x1&&y>=b[i].y0&&y<=b[i].y1) return i; return -1; }
+int ui_rules_popup_inside(float x, float y)
+{ return x>=UI_RULES_POPUP_X0&&x<=UI_RULES_POPUP_X0+UI_RULES_POPUP_W&&
+         y>=UI_RULES_POPUP_Y0&&y<=UI_RULES_POPUP_Y0+UI_RULES_POPUP_H; }
+/* ★ P2（datah_104 证据）：新局完整版弹窗 5 控件桩（几何表返回 720 基准占位供
+   一致性/evverify 链接；真机走 ui_menu.c 真实几何表）。
+   诚实边界：3 项各循环切换当前值（对齐 datah_001 音量循环 + datah_012 开关循环范式）。 */
+static const ui_newgame104_btn ng_stub[UI_NEWGAME104_COUNT] = {
+    { 355.0f,520.0f,555.0f,580.0f,0 },{ 355.0f,595.0f,555.0f,655.0f,1 },
+    { 355.0f,670.0f,555.0f,730.0f,2 },{ 165.0f,755.0f,345.0f,815.0f,3 },
+    { 375.0f,755.0f,555.0f,815.0f,4 },
+};
+const ui_newgame104_btn *ui_newgame104_buttons(void) { return ng_stub; }
+int ui_newgame104_hit(const ui_newgame104_btn *b, int n, float x, float y)
+{ for (int i=0;i<n;i++) if (x>=b[i].x0&&x<=b[i].x1&&y>=b[i].y0&&y<=b[i].y1) return i; return -1; }
+int ui_newgame104_popup_inside(float x, float y)
+{ return x>=UI_NEWGAME104_POPUP_X0&&x<=UI_NEWGAME104_POPUP_X0+UI_NEWGAME104_POPUP_W&&
+         y>=UI_NEWGAME104_POPUP_Y0&&y<=UI_NEWGAME104_POPUP_Y0+UI_NEWGAME104_POPUP_H; }
+/* ★ P2（datah_034 证据）：联机"加入游戏"弹窗 3 控件桩（几何表返回 720 基准占位供
+   一致性/evverify 链接；真机走 ui_menu.c 真实几何表）。
+   诚实边界：原版加入=局域网/Wi-Fi 联机协议（未逆向），src_rs 仅蓝牙 SPP。 */
+static const ui_join_btn jo_stub[UI_JOIN_COUNT] = {
+    { 270.0f,602.5f,510.0f,647.5f,0 },{ 185.0f,672.5f,345.0f,732.5f,1 },
+    { 375.0f,672.5f,535.0f,732.5f,2 },
+};
+const ui_join_btn *ui_join_buttons(void) { return jo_stub; }
+int ui_join_hit(const ui_join_btn *b, int n, float x, float y)
+{ for (int i=0;i<n;i++) if (x>=b[i].x0&&x<=b[i].x1&&y>=b[i].y0&&y<=b[i].y1) return i; return -1; }
+int ui_join_popup_inside(float x, float y)
+{ return x>=UI_JOIN_POPUP_X0&&x<=UI_JOIN_POPUP_X0+UI_JOIN_POPUP_W&&
+         y>=UI_JOIN_POPUP_Y0&&y<=UI_JOIN_POPUP_Y0+UI_JOIN_POPUP_H; }
+/* ★ P2（datah_035 证据）：联机"创建游戏"弹窗 3 控件桩（几何表返回 720 基准占位供
+   一致性/evverify 链接；真机走 ui_menu.c 真实几何表）。
+   诚实边界：原版创建=Wi-Fi/局域网协议（未逆向），src_rs 仅蓝牙 SPP。 */
+static const ui_create_btn cr_stub[UI_CREATE_COUNT] = {
+    { 250.0f,602.5f,470.0f,647.5f,0 },{ 185.0f,672.5f,345.0f,732.5f,1 },
+    { 375.0f,672.5f,535.0f,732.5f,2 },
+};
+const ui_create_btn *ui_create_buttons(void) { return cr_stub; }
+int ui_create_hit(const ui_create_btn *b, int n, float x, float y)
+{ for (int i=0;i<n;i++) if (x>=b[i].x0&&x<=b[i].x1&&y>=b[i].y0&&y<=b[i].y1) return i; return -1; }
+int ui_create_popup_inside(float x, float y)
+{ return x>=UI_CREATE_POPUP_X0&&x<=UI_CREATE_POPUP_X0+UI_CREATE_POPUP_W&&
+         y>=UI_CREATE_POPUP_Y0&&y<=UI_CREATE_POPUP_Y0+UI_CREATE_POPUP_H; }
 

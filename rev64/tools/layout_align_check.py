@@ -85,6 +85,32 @@ DIALOGS = {
         ("用户名",130,80,375,125),("密码",130,140,375,185),
         ("登录",18,205,108,265),("注册",120,205,210,265),
         ("游客",222,205,312,265),("返回",324,205,414,265)]),
+    # ★ P2（datah_037 证据）：规则文本弹窗（260×270 面板居中 720 屏，
+    # 偏移=(720-260)/2=230, (1280-270)/2=505；翻棋 25,25,235,85 → 255,530-465,590；
+    # 布局 25,105,235,165 → 255,610-465,670；返回 25,185,235,245 → 255,690-465,750。
+    # 诚实边界：规则文本=src_rs 简化版固定文本（2 套：翻棋/布局））
+    "datah_037_rules": (260, 270, [
+        ("翻棋",25,25,235,85),("布局",25,105,235,165),("返回",25,185,235,245)]),
+    # ★ P2（datah_104 证据）：新局完整版弹窗（450×390 面板居中 720 屏，
+    # 偏移=(720-450)/2=135, (1280-390)/2=445；我方 220,75,420,135 → 355,520-555,580；
+    # 电脑水平 220,150,420,210 → 355,595-555,655；玩法 220,225,420,285 → 355,670-555,730；
+    # 确定 30,310,210,370 → 165,755-345,815；取消 240,310,420,370 → 375,755-555,815。
+    # 诚实边界：3 项各循环切换当前值（对齐 datah_001 音量循环范式））
+    "datah_104_newgame": (450, 390, [
+        ("我方",220,75,420,135),("电脑",220,150,420,210),("玩法",220,225,420,285),
+        ("确定",30,310,210,370),("取消",240,310,420,370)]),
+    # ★ P2（datah_034 证据）：加入游戏弹窗（420×235 面板居中 720 屏，
+    # 偏移=(720-420)/2=150, (1280-235)/2=522.5；桌号 120,80,360,125 → 270,603-510,648；
+    # 确定 35,150,195,210 → 185,673-345,733；取消 225,150,385,210 → 375,673-535,733。
+    # 诚实边界：原版加入=Wi-Fi/局域网协议未逆向，src_rs 仅蓝牙 SPP，确定→边界对话框）
+    "datah_034_join": (420, 235, [
+        ("桌号",120,80,360,125),("确定",35,150,195,210),("取消",225,150,385,210)]),
+    # ★ P2（datah_035 证据）：创建游戏弹窗（420×235 面板居中 720 屏，
+    # 偏移同 034=+150,+522.5；密码 100,80,320,125 → 250,603-470,648；
+    # 确定 35,150,195,210 → 185,673-345,733；取消 225,150,385,210 → 375,673-535,733。
+    # 诚实边界：原版创建=Wi-Fi/局域网协议未逆向，src_rs 仅蓝牙 SPP，确定→边界对话框）
+    "datah_035_create": (420, 235, [
+        ("密码",100,80,320,125),("确定",35,150,195,210),("取消",225,150,385,210)]),
 }
 
 # datah_107/039 绝对坐标面板（不居中，局部 1:1 平移 @ 偏移）
@@ -125,6 +151,14 @@ def load_src_rs_buttons(path="rev64/src_rs/ui_menu.c"):
     tables["replay"] = _grab("g_replay_ctrl_btns")
     # ★ P1（datah_038 证据）：登录弹窗 6 控件（g_login_btns）
     tables["login"] = _grab("g_login_btns")
+    # ★ P2（datah_037 证据）：规则文本弹窗 3 按钮（g_rules_btns）
+    tables["rules"] = _grab("g_rules_btns")
+    # ★ P2（datah_104 证据）：新局完整版弹窗 5 控件（g_newgame104_btns）
+    tables["ng104"] = _grab("g_newgame104_btns")
+    # ★ P2（datah_034 证据）：加入游戏弹窗 3 控件（g_join_btns）
+    tables["join"] = _grab("g_join_btns")
+    # ★ P2（datah_035 证据）：创建游戏弹窗 3 控件（g_create_btns）
+    tables["create"] = _grab("g_create_btns")
     return tables
 def dialog_720(name):
     """原版对话框 → 720×1280 物理基准（面板水平居中 +135，垂直居中按面板 H）；
@@ -175,7 +209,11 @@ def check_geometry(menu_src=None, verbose=True):
                          ("datah_020_savelay","savelay"),
                          ("datah_016_laymgr","laymgr"),
                          ("datah_107_replay","replay"),
-                         ("datah_038_login","login")]:
+                         ("datah_038_login","login"),
+                         ("datah_037_rules","rules"),
+                         ("datah_104_newgame","ng104"),
+                         ("datah_034_join","join"),
+                         ("datah_035_create","create")]:
         if dname not in DIALOGS or tname not in src: continue
         W,H,obtns = DIALOGS[dname]
         ox,oy = (720-W)/2.0,(1280-H)/2.0
@@ -230,6 +268,34 @@ def check_geometry(menu_src=None, verbose=True):
             for i, (lbl, x0, y0, x1, y1) in enumerate(obtns):
                 pairs.append((lbl, (ax+x0, ay+y0, ax+x1, ay+y1),
                               (srcs[i][0],srcs[i][1],srcs[i][2],srcs[i][3])))
+        # ★ P2（datah_037 证据）：规则文本弹窗 3 按钮（260×270 居中，偏移+230,+505，
+        #   局部 1:1 平移；src_rs g_rules_btns 3 项对应原版 3 按钮）
+        if dname == "datah_037_rules":
+            pairs = []
+            for i, (lbl, x0, y0, x1, y1) in enumerate(obtns):
+                pairs.append((lbl, (ox+x0, oy+y0, ox+x1, oy+y1),
+                              (srcs[i][0],srcs[i][1],srcs[i][2],srcs[i][3])))
+        # ★ P2（datah_104 证据）：新局完整版弹窗 5 控件（450×390 居中，偏移+135,+445，
+        #   局部 1:1 平移；src_rs g_newgame104_btns 前 5 项对应原版 5 控件）
+        if dname == "datah_104_newgame":
+            pairs = []
+            for i, (lbl, x0, y0, x1, y1) in enumerate(obtns):
+                pairs.append((lbl, (ox+x0, oy+y0, ox+x1, oy+y1),
+                              (srcs[i][0],srcs[i][1],srcs[i][2],srcs[i][3])))
+        # ★ P2（datah_034 证据）：加入游戏弹窗 3 控件（420×235 居中，偏移+150,+522.5，
+        #   局部 1:1 平移；src_rs g_join_btns 3 项对应原版 3 控件）
+        if dname == "datah_034_join":
+            pairs = []
+            for i, (lbl, x0, y0, x1, y1) in enumerate(obtns):
+                pairs.append((lbl, (ox+x0, oy+y0, ox+x1, oy+y1),
+                              (srcs[i][0],srcs[i][1],srcs[i][2],srcs[i][3])))
+        # ★ P2（datah_035 证据）：创建游戏弹窗 3 控件（420×235 居中，偏移+150,+522.5，
+        #   局部 1:1 平移；src_rs g_create_btns 3 项对应原版 3 控件）
+        if dname == "datah_035_create":
+            pairs = []
+            for i, (lbl, x0, y0, x1, y1) in enumerate(obtns):
+                pairs.append((lbl, (ox+x0, oy+y0, ox+x1, oy+y1),
+                              (srcs[i][0],srcs[i][1],srcs[i][2],srcs[i][3])))
         if not srcs or len(srcs) < 3:
             if verbose and verbose_global: print(f"  {dname} src_rs 按钮表缺失/不足（{len(srcs)} 行）→ 跳过 Δ 比对（诚实边界）")
             continue
@@ -244,9 +310,9 @@ def check_geometry(menu_src=None, verbose=True):
                 print(f"  {dname} {lbl:4s} 原版720中心({(oox0+oox1)/2:.0f},{(ooy0+ooy1)/2:.0f}) src({(sox0+sox1)/2:.0f},{(soy0+soy1)/2:.0f}) Δc=({dcx:+.1f},{dcy:+.1f}) {('—' if is_region else ('✓' if ok else '✗'))} {note}")
             if not ok and not is_region:
                 failures.append(f"{dname} {lbl} Δ=({dcx:+.1f},{dcy:+.1f})")
-    for dname in ["datah_041_diff","datah_072_way","datah_001_set","datah_089_nplayer","datah_062_newgame","datah_012_gameset","datah_017_loadlay","datah_020_savelay","datah_016_laymgr","datah_107_replay","datah_039_replay","datah_038_login"]:
+    for dname in ["datah_041_diff","datah_072_way","datah_001_set","datah_089_nplayer","datah_062_newgame","datah_012_gameset","datah_017_loadlay","datah_020_savelay","datah_016_laymgr","datah_107_replay","datah_039_replay","datah_038_login","datah_037_rules","datah_104_newgame","datah_034_join","datah_035_create"]:
         orig = dialog_720(dname)
-        nrep = len(orig) if dname in ("datah_017_loadlay","datah_020_savelay","datah_016_laymgr","datah_107_replay","datah_039_replay","datah_038_login") else 2
+        nrep = len(orig) if dname in ("datah_017_loadlay","datah_020_savelay","datah_016_laymgr","datah_107_replay","datah_039_replay","datah_038_login","datah_037_rules","datah_104_newgame","datah_034_join","datah_035_create") else 2
         for lbl,ox0,oy0,ox1,oy1 in orig[:nrep]:
             cx,cy = (ox0+ox1)/2,(oy0+oy1)/2
             if verbose and verbose_global:

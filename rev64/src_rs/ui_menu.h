@@ -49,6 +49,36 @@ UI_REPLAY,     /* ★ P1（datah_039/107 证据）：复盘回放态——
                           入口：datah_039 BackDlg 复盘小浮标（原版命中 flaky）→ setprop jq.replay 测试钩子。
                           诚实边界：跳转=回开头(cur=0)/跳结尾(cur=n)循环（无步进输入框）；
                           菜单=退复盘回对局（无复盘内子菜单）；复盘态不画真实棋子图 */
+  UI_RULES,      /* ★ P2（datah_037 证据）：规则文本弹窗——
+                      规则-翻棋/规则-布局 2 模式切换按钮 + 返回（原版 datah_037 260×270 面板居中，
+                      局部坐标 1:1 平移偏移 +230,+505）。点"规则-翻棋"→ 显示翻棋模式规则文本
+                      （暗棋：棋子背面，按 rank 大小吃子，工兵挖雷，炸弹同归于尽，夺旗胜）；
+                      点"规则-布局"→ 显示布局模式规则文本（明棋：自由布阵，军旗在大本营，
+                      地雷后两行，炸弹前线）。入口：☰ 菜单"游戏规则"（本地 !bt_mode act=3 /
+                      联机 bt_mode act=7）改切 UI_RULES 弹窗 + setprop jq.rules 测试钩子。
+                      ★ 诚实边界：规则文本=src_rs 现有简化版固定文本（2 套：翻棋/布局） */
+  UI_NEWGAME104, /* ★ P2（datah_104 证据）：新局完整版弹窗（我方/电脑水平/玩法 3 选择 +
+                      确定/取消，原版 datah_104 450×390 面板居中，局部坐标 1:1 平移偏移 +135,+445）。
+                      比 UI_NEWGAME（datah_062 简化版）多"我方/电脑水平"2 项：
+                      我方=蓝/红 切换，电脑水平=难度 1-4 循环，玩法=布局/翻棋 切换；
+                      3 项各循环切换当前值（对齐 datah_001 音量循环 + datah_012 开关循环范式）。
+                      确定 → 按选择开局（ui_opt_select + jq_restart_game 随模式）；取消 → 回主菜单。
+                      入口：setprop jq.newgame104 测试钩子（不破坏 062 简化版 UI_NEWGAME）。
+                      ★ 诚实边界：我方=蓝/红 切换简化（本机蓝先手固定，我方选择仅影响开局侧）；
+                      文字显示当前值（循环切换简化版） */
+  UI_JOIN,       /* ★ P2（datah_034 证据）：联机"加入游戏"弹窗（桌号输入 + 确定/取消，
+                      原版 datah_034 420×235 面板居中，局部坐标 1:1 平移偏移 +150,+522.5）。
+                      桌号=占位标签（不画真输入框）。入口：datah_072 方式弹窗"Wi-Fi 联机"
+                      （wact=1）改切 UI_JOIN 弹窗 + setprop jq.join 测试钩子。
+                      ★ 诚实边界：原版加入=局域网/Wi-Fi 联机协议（未逆向），src_rs 仅蓝牙 SPP；
+                      确定 → 诚实边界对话框（"加入游戏需 Wi-Fi/局域网协议，src_rs 仅蓝牙联机已实现"）
+                      + 回主菜单；取消 → 回主菜单 */
+  UI_CREATE,     /* ★ P2（datah_035 证据）：联机"创建游戏"弹窗（密码输入 + 确定/取消，
+                      原版 datah_035 420×235 面板居中，局部坐标 1:1 平移偏移 +150,+522.5）。
+                      密码=占位标签（不画真输入框）。入口：setprop jq.create 测试钩子。
+                      ★ 诚实边界：原版创建=Wi-Fi/局域网协议（未逆向），src_rs 仅蓝牙 SPP；
+                      确定 → 诚实边界对话框（"创建房间需 Wi-Fi/局域网协议，src_rs 仅蓝牙联机已实现"）
+                      + 回主菜单；取消 → 回主菜单 */
 } ui_screen;
 
 /* ★ 声音设置弹窗（对抗审计 datah_001 证据：静音模式/按键声音/音量/确定/取消）。
@@ -318,5 +348,89 @@ typedef struct {
 const ui_login_btn *ui_login_buttons(void);   /* 6 控件（静态表） */
 int ui_login_hit(const ui_login_btn *btns, int n, float x, float y);  /* 命中 0-5，-1 无 */
 int ui_login_popup_inside(float x, float y);  /* 点在弹窗面板内 */
+
+/* ★ P2（datah_037 证据）：规则文本弹窗——规则-翻棋/规则-布局 2 模式按钮 + 返回。
+   几何 720×1280 基准（datah_037 260×270 面板居中，偏移=(720-260)/2=230,(1280-270)/2=505；
+   局部 1:1 平移：翻棋 25,25,235,85 → 255,530-465,590；布局 25,105,235,165 →
+   255,610-465,670；返回 25,185,235,245 → 255,690-465,750）。
+   action：0=规则-翻棋（显示翻棋模式规则文本，暗棋）1=规则-布局（显示布局模式规则文本，明棋）
+   2=返回（回对局/主菜单）。★ 诚实边界：规则文本=src_rs 现有简化版固定文本（2 套）。 */
+#define UI_RULES_COUNT 3
+#define UI_RULES_POPUP_X0 230.0f
+#define UI_RULES_POPUP_Y0 505.0f
+#define UI_RULES_POPUP_W  260.0f
+#define UI_RULES_POPUP_H  270.0f
+typedef struct {
+    float x0, y0, x1, y1;   /* 按钮矩形（720×1280 基准） */
+    int action;             /* 0=规则-翻棋 1=规则-布局 2=返回 */
+} ui_rules_btn;
+
+const ui_rules_btn *ui_rules_buttons(void);   /* 3 按钮（静态表） */
+int ui_rules_hit(const ui_rules_btn *btns, int n, float x, float y);  /* 命中 0-2，-1 无 */
+int ui_rules_popup_inside(float x, float y);  /* 点在弹窗面板内 */
+
+/* ★ P2（datah_104 证据）：新局完整版弹窗——我方/电脑水平/玩法 3 选择 + 确定/取消。
+   几何 720×1280 基准（datah_104 450×390 面板居中，偏移=(720-450)/2=135,(1280-390)/2=445；
+   局部 1:1 平移：我方 220,75,420,135 → 355,520-555,580；电脑水平 220,150,420,210 →
+   355,595-555,655；玩法 220,225,420,285 → 355,670-555,730；
+   确定 30,310,210,370 → 165,755-345,815；取消 240,310,420,370 → 375,755-555,815）。
+   action：0=我方（蓝/红 切换）1=电脑水平（难度 1-4 循环）2=玩法（布局/翻棋 切换）
+   3=确定（按选择开局）4=取消（回主菜单）。
+   ★ 诚实边界：3 项各循环切换当前值（对齐 datah_001 音量循环 + datah_012 开关循环范式）。 */
+#define UI_NEWGAME104_COUNT 5
+#define UI_NEWGAME104_POPUP_X0 135.0f
+#define UI_NEWGAME104_POPUP_Y0 445.0f
+#define UI_NEWGAME104_POPUP_W  450.0f
+#define UI_NEWGAME104_POPUP_H  390.0f
+typedef struct {
+    float x0, y0, x1, y1;   /* 按钮矩形（720×1280 基准） */
+    int action;             /* 0=我方 1=电脑水平 2=玩法 3=确定 4=取消 */
+} ui_newgame104_btn;
+
+const ui_newgame104_btn *ui_newgame104_buttons(void);   /* 5 控件（静态表） */
+int ui_newgame104_hit(const ui_newgame104_btn *btns, int n, float x, float y);  /* 命中 0-4，-1 无 */
+int ui_newgame104_popup_inside(float x, float y);   /* 点在弹窗面板内 */
+
+/* ★ P2（datah_034 证据）：联机"加入游戏"弹窗——桌号输入（占位标签）+ 确定/取消。
+   几何 720×1280 基准（datah_034 420×235 面板居中，偏移=(720-420)/2=150,(1280-235)/2=522.5；
+   局部 1:1 平移：桌号 120,80,360,125 → 270,603-510,648；
+   确定 35,150,195,210 → 185,673-345,733；取消 225,150,385,210 → 375,673-535,733）。
+   action：0=桌号（占位标签）1=确定（诚实边界对话框）2=取消（回主菜单）。
+   ★ 诚实边界：原版加入=局域网/Wi-Fi 联机协议（未逆向），src_rs 仅蓝牙 SPP；
+   确定 → 诚实边界对话框 + 回主菜单；取消 → 回主菜单。 */
+#define UI_JOIN_COUNT 3
+#define UI_JOIN_POPUP_X0 150.0f
+#define UI_JOIN_POPUP_Y0 522.5f
+#define UI_JOIN_POPUP_W  420.0f
+#define UI_JOIN_POPUP_H  235.0f
+typedef struct {
+    float x0, y0, x1, y1;   /* 控件矩形（720×1280 基准） */
+    int action;             /* 0=桌号 1=确定 2=取消 */
+} ui_join_btn;
+
+const ui_join_btn *ui_join_buttons(void);   /* 3 控件（静态表） */
+int ui_join_hit(const ui_join_btn *btns, int n, float x, float y);  /* 命中 0-2，-1 无 */
+int ui_join_popup_inside(float x, float y);  /* 点在弹窗面板内 */
+
+/* ★ P2（datah_035 证据）：联机"创建游戏"弹窗——密码输入（占位标签）+ 确定/取消。
+   几何 720×1280 基准（datah_035 420×235 面板居中，偏移同 034=+150,+522.5；
+   局部 1:1 平移：密码 100,80,320,125 → 250,603-470,648；
+   确定 35,150,195,210 → 185,673-345,733；取消 225,150,385,210 → 375,673-535,733）。
+   action：0=密码（占位标签）1=确定（诚实边界对话框）2=取消（回主菜单）。
+   ★ 诚实边界：原版创建=Wi-Fi/局域网协议（未逆向），src_rs 仅蓝牙 SPP；
+   确定 → 诚实边界对话框 + 回主菜单；取消 → 回主菜单。 */
+#define UI_CREATE_COUNT 3
+#define UI_CREATE_POPUP_X0 150.0f
+#define UI_CREATE_POPUP_Y0 522.5f
+#define UI_CREATE_POPUP_W  420.0f
+#define UI_CREATE_POPUP_H  235.0f
+typedef struct {
+    float x0, y0, x1, y1;   /* 控件矩形（720×1280 基准） */
+    int action;             /* 0=密码 1=确定 2=取消 */
+} ui_create_btn;
+
+const ui_create_btn *ui_create_buttons(void);   /* 3 控件（静态表） */
+int ui_create_hit(const ui_create_btn *btns, int n, float x, float y);  /* 命中 0-2，-1 无 */
+int ui_create_popup_inside(float x, float y);  /* 点在弹窗面板内 */
 #endif
 

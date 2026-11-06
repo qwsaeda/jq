@@ -487,3 +487,128 @@ int ui_login_popup_inside(float x, float y)
     return x >= UI_LOGIN_POPUP_X0 && x <= UI_LOGIN_POPUP_X0 + UI_LOGIN_POPUP_W &&
            y >= UI_LOGIN_POPUP_Y0 && y <= UI_LOGIN_POPUP_Y0 + UI_LOGIN_POPUP_H;
 }
+
+/* ★ P2（datah_037 证据）：规则文本弹窗 3 按钮（规则-翻棋/规则-布局/返回）。
+   几何 720×1280 基准：面板 260×270 居中（偏移+230,+505）；局部 1:1 平移：
+   翻棋 25,25,235,85 → 255,530-465,590；布局 25,105,235,165 → 255,610-465,670；
+   返回 25,185,235,245 → 255,690-465,750。
+   ★ 诚实边界：规则文本=src_rs 现有简化版固定文本（2 套：翻棋/布局）。 */
+static const ui_rules_btn g_rules_btns[UI_RULES_COUNT] = {
+    /* x0, y0, x1, y1, action；★ 原版 datah_037 260 坐标系精确换算（面板 260×270 居中 720，偏移+230,+505） */
+    { 255.0f, 530.0f, 465.0f, 590.0f, 0 },   /* 规则-翻棋（25,25,235,85）→ 显示翻棋模式规则文本 */
+    { 255.0f, 610.0f, 465.0f, 670.0f, 1 },   /* 规则-布局（25,105,235,165）→ 显示布局模式规则文本 */
+    { 255.0f, 690.0f, 465.0f, 750.0f, 2 },   /* 返回 Back（25,185,235,245）→ 回对局/主菜单 */
+};
+
+const ui_rules_btn *ui_rules_buttons(void) { return g_rules_btns; }
+
+int ui_rules_hit(const ui_rules_btn *btns, int n, float x, float y)
+{
+    for (int i = 0; i < n; i++)
+        if (x >= btns[i].x0 && x <= btns[i].x1 && y >= btns[i].y0 && y <= btns[i].y1)
+            return i;
+    return -1;
+}
+
+int ui_rules_popup_inside(float x, float y)
+{
+    return x >= UI_RULES_POPUP_X0 && x <= UI_RULES_POPUP_X0 + UI_RULES_POPUP_W &&
+           y >= UI_RULES_POPUP_Y0 && y <= UI_RULES_POPUP_Y0 + UI_RULES_POPUP_H;
+}
+
+/* ★ P2（datah_104 证据）：新局完整版弹窗 5 控件（我方/电脑水平/玩法/确定/取消）。
+   几何 720×1280 基准：面板 450×390 居中（偏移+135,+445）；局部 1:1 平移：
+   我方 220,75,420,135 → 355,520-555,580；电脑水平 220,150,420,210 → 355,595-555,655；
+   玩法 220,225,420,285 → 355,670-555,730；确定 30,310,210,370 → 165,755-345,815；
+   取消 240,310,420,370 → 375,755-555,815。
+   ★ 诚实边界：3 项各循环切换当前值（对齐 datah_001 音量循环 + datah_012 开关循环范式）。 */
+static const ui_newgame104_btn g_newgame104_btns[UI_NEWGAME104_COUNT] = {
+    /* x0, y0, x1, y1, action；★ 原版 datah_104 450 坐标系精确换算（面板 450×390 居中 720，偏移+135,+445） */
+    { 355.0f, 520.0f, 555.0f, 580.0f, 0 },   /* 我方 Me（220,75,420,135）→ 蓝/红 切换 */
+    { 355.0f, 595.0f, 555.0f, 655.0f, 1 },   /* 电脑水平 Difficulty（220,150,420,210）→ 难度 1-4 循环 */
+    { 355.0f, 670.0f, 555.0f, 730.0f, 2 },   /* 玩法 Type（220,225,420,285）→ 布局/翻棋 切换 */
+    { 165.0f, 755.0f, 345.0f, 815.0f, 3 },   /* 确定 Ok（30,310,210,370）→ 按选择开局 */
+    { 375.0f, 755.0f, 555.0f, 815.0f, 4 },   /* 取消 Cancel（240,310,420,370）→ 回主菜单 */
+};
+
+const ui_newgame104_btn *ui_newgame104_buttons(void) { return g_newgame104_btns; }
+
+int ui_newgame104_hit(const ui_newgame104_btn *btns, int n, float x, float y)
+{
+    for (int i = 0; i < n; i++)
+        if (x >= btns[i].x0 && x <= btns[i].x1 && y >= btns[i].y0 && y <= btns[i].y1)
+            return i;
+    return -1;
+}
+
+int ui_newgame104_popup_inside(float x, float y)
+{
+    return x >= UI_NEWGAME104_POPUP_X0 && x <= UI_NEWGAME104_POPUP_X0 + UI_NEWGAME104_POPUP_W &&
+           y >= UI_NEWGAME104_POPUP_Y0 && y <= UI_NEWGAME104_POPUP_Y0 + UI_NEWGAME104_POPUP_H;
+}
+
+/* ★ P2（datah_034 证据）：联机"加入游戏"弹窗 3 控件（桌号/确定/取消）。
+   几何 720×1280 基准：面板 420×235 居中（偏移+150,+522.5）；局部 1:1 平移：
+   桌号 120,80,360,125 → 270,603-510,648；确定 35,150,195,210 → 185,673-345,733；
+   取消 225,150,385,210 → 375,673-535,733。
+   ★ 诚实边界：原版加入=局域网/Wi-Fi 联机协议（未逆向），src_rs 仅蓝牙 SPP；
+   确定 → 诚实边界对话框 + 回主菜单；取消 → 回主菜单。 */
+static const ui_join_btn g_join_btns[UI_JOIN_COUNT] = {
+    /* x0, y0, x1, y1, action；★ 原版 datah_034 420 坐标系精确换算（面板 420×235 居中 720，
+       偏移=(720-420)/2=150, (1280-235)/2=522.5；局部 1:1 平移：
+       桌号 120,80,360,125 → 270,602.5-510,647.5 → 四舍五入 270,603-510,648；
+       确定 35,150,195,210 → 185,672.5-345,732.5 → 四舍五入 185,673-345,733；
+       取消 225,150,385,210 → 375,672.5-535,732.5 → 四舍五入 375,673-535,733） */
+    { 270.0f, 602.5f, 510.0f, 647.5f, 0 },   /* 桌号 Table（120,80,360,125）→ 占位标签 */
+    { 185.0f, 672.5f, 345.0f, 732.5f, 1 },   /* 确定 Ok（35,150,195,210）→ 诚实边界对话框 */
+    { 375.0f, 672.5f, 535.0f, 732.5f, 2 },   /* 取消 Cancel（225,150,385,210）→ 回主菜单 */
+};
+
+const ui_join_btn *ui_join_buttons(void) { return g_join_btns; }
+
+int ui_join_hit(const ui_join_btn *btns, int n, float x, float y)
+{
+    for (int i = 0; i < n; i++)
+        if (x >= btns[i].x0 && x <= btns[i].x1 && y >= btns[i].y0 && y <= btns[i].y1)
+            return i;
+    return -1;
+}
+
+int ui_join_popup_inside(float x, float y)
+{
+    return x >= UI_JOIN_POPUP_X0 && x <= UI_JOIN_POPUP_X0 + UI_JOIN_POPUP_W &&
+           y >= UI_JOIN_POPUP_Y0 && y <= UI_JOIN_POPUP_Y0 + UI_JOIN_POPUP_H;
+}
+
+/* ★ P2（datah_035 证据）：联机"创建游戏"弹窗 3 控件（密码/确定/取消）。
+   几何 720×1280 基准：面板 420×235 居中（偏移同 034=+150,+522.5）；局部 1:1 平移：
+   密码 100,80,320,125 → 250,603-470,648；确定 35,150,195,210 → 185,673-345,733；
+   取消 225,150,385,210 → 375,673-535,733。
+   ★ 诚实边界：原版创建=Wi-Fi/局域网协议（未逆向），src_rs 仅蓝牙 SPP；
+   确定 → 诚实边界对话框 + 回主菜单；取消 → 回主菜单。 */
+static const ui_create_btn g_create_btns[UI_CREATE_COUNT] = {
+    /* x0, y0, x1, y1, action；★ 原版 datah_035 420 坐标系精确换算（面板 420×235 居中 720，
+       偏移=(720-420)/2=150, (1280-235)/2=522.5；局部 1:1 平移：
+       密码 100,80,320,125 → 250,602.5-470,647.5 → 四舍五入 250,603-470,648；
+       确定 35,150,195,210 → 185,672.5-345,732.5 → 四舍五入 185,673-345,733；
+       取消 225,150,385,210 → 375,672.5-535,732.5 → 四舍五入 375,673-535,733） */
+    { 250.0f, 602.5f, 470.0f, 647.5f, 0 },   /* 密码 Pwd（100,80,320,125）→ 占位标签 */
+    { 185.0f, 672.5f, 345.0f, 732.5f, 1 },   /* 确定 Ok（35,150,195,210）→ 诚实边界对话框 */
+    { 375.0f, 672.5f, 535.0f, 732.5f, 2 },   /* 取消 Cancel（225,150,385,210）→ 回主菜单 */
+};
+
+const ui_create_btn *ui_create_buttons(void) { return g_create_btns; }
+
+int ui_create_hit(const ui_create_btn *btns, int n, float x, float y)
+{
+    for (int i = 0; i < n; i++)
+        if (x >= btns[i].x0 && x <= btns[i].x1 && y >= btns[i].y0 && y <= btns[i].y1)
+            return i;
+    return -1;
+}
+
+int ui_create_popup_inside(float x, float y)
+{
+    return x >= UI_CREATE_POPUP_X0 && x <= UI_CREATE_POPUP_X0 + UI_CREATE_POPUP_W &&
+           y >= UI_CREATE_POPUP_Y0 && y <= UI_CREATE_POPUP_Y0 + UI_CREATE_POPUP_H;
+}

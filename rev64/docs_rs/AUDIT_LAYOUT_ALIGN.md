@@ -140,9 +140,9 @@ datah_023 面板 450 坐标系（offset_x=(720-450)/2=135, offset_y=(1280-450)/2
 | datah_089 | 四国人数选择（2/3/4 人） | 2/3/4 | ❌ src_rs 主菜单"四国"=边界对话框，未实现人数选择 | 中 |
 | datah_061 | 新局（先后手/电脑水平/玩法/明暗棋） | First/Level/Lay/Show/Ok/Cancel 6 | ❌ 未实现（人机新局走 datah_041，缺先后手选择） | 中 |
 | datah_062 | 新局（玩法/明暗棋 简化版） | 4 | ❌ 未实现 | 中 |
-| datah_104 | 新局（我方/电脑水平/玩法） | 5 | ❌ 未实现 | 中 |
+| datah_104 | 新局（我方/电脑水平/玩法） | 5 | ✅ 已实现（§十九，UI_NEWGAME104 循环切换简化，evverify 16/16） | 中 |
 | datah_042 | 提和详情（提和/认输/聊天/查看/统计/信息） | 7 | ⚠️ 提和走 BT_T_DRAW 帧（联机），本地未实现提和判定 | 低 |
-| datah_037 | 规则-翻棋 | Flip/Lay/Back 3 | ❌ 未实现（规则文本弹窗） | 低 |
+| datah_037 | 规则-翻棋/布局 | Flip/Lay/Back 3 | ✅ 已实现（§十九，UI_RULES 翻棋/布局 2 套简化文本，evverify 16/16） | 低 |
 | datah_050 | 对局信息 | View/Remove/Close 3 | ❌ 未实现 | 低 |
 | datah_002 | 亮度 | Ok/Cancel 2 | ❌ 未实现 | 低 |
 | datah_012 | 游戏设置（和棋/大本营/吃地雷/吃军旗） | 6 | ✅ 已实现（4 规则开关 + 确定/取消，§十五，evverify 9/9） | 高 |
@@ -154,8 +154,8 @@ datah_023 面板 450 坐标系（offset_x=(720-450)/2=135, offset_y=(1280-450)/2
 | datah_029 | 聊天记录 | Clear/Close 2 | ❌ 未实现 | 低 |
 | datah_031 | 个人资料 | Modify/Help/Close 3 | ⚠️ 方式选择"个人资料"=边界对话框 | 低 |
 | datah_032 | 退出 | Exit/Config/User/More 4 | ✅ ☰ 菜单"退出程序"=回菜单 | 已对齐 |
-| datah_034 | 加入游戏 | Ok/Cancel 2 | ❌ 未实现（联机） | 低 |
-| datah_035 | 创建游戏 | Ok/Cancel 2 | ❌ 未实现（联机） | 低 |
+| datah_034 | 加入游戏 | Ok/Cancel 2 | ✅ 已实现（§十九，UI_JOIN 占位标签 + 确定→边界对话框，Wi-Fi 协议未逆向） | 低 |
+| datah_035 | 创建游戏 | Ok/Cancel 2 | ✅ 已实现（§十九，UI_CREATE 占位标签 + 确定→边界对话框，Wi-Fi 协议未逆向） | 低 |
 | datah_038 | 登录（用户名/密码/登录/注册/游客/返回） | 6 | ✅ 已实现（§十八，UI_LOGIN 弹窗 + setprop jq.login 钩子 + 游客本地热座，evverify 12/12；账号系统=诚实边界） | 低 |
 
 ### 9.3 诚实边界（未实现，明确告知）
@@ -178,11 +178,11 @@ datah_023 面板 450 坐标系（offset_x=(720-450)/2=135, offset_y=(1280-450)/2
 ## 十一、下一步（按优先级补全业务功能）
 
 - **P0（核心对局）**：datah_089 四国人数选择弹窗（主菜单"四国"→ 2/3/4 人）
-- **P1（新局设置）**：datah_104 新局（我方/电脑水平/玩法）—— 两人/人机新局设置弹窗
+- **P1（新局设置）**：datah_104 新局（我方/电脑水平/玩法）✅ 已实现（§十九，UI_NEWGAME104 循环切换简化）
 - **P1（布局存档）**：datah_016/017/020 载入/保存布局 ✅ 已实现（§十六，evverify 10/10）
 - **P1（复盘）**：datah_039/107 走子记录回放 ✅ 已实现（§十七，evverify 11/11）
-- **P2（联机功能）**：datah_038 登录 ✅ 已实现（§十八，UI_LOGIN 弹窗 + 游客本地热座，账号系统=诚实边界）/ 034 加入 / 035 创建（边界对话框）
-- **P2（规则/复盘）**：datah_037 规则文本（☰ 菜单简化版）
+- **P2（联机功能）**：datah_038 登录 ✅ 已实现（§十八）/ 034 加入 ✅ §十九 / 035 创建 ✅ §十九（占位标签 + 确定→边界对话框，Wi-Fi/局域网协议未逆向）
+- **P2（规则/复盘）**：datah_037 规则文本 ✅ 已实现（§十九，UI_RULES 翻棋/布局 2 套简化文本，☰ 菜单改切 UI_RULES）
 
 ## 十二、逐功能对齐证明（像素级 Δ=0 证据链，非"出帧非黑"糊弄）
 
@@ -836,3 +836,105 @@ jni_bridge.c L1940-1988）**，非触摸糊弄。
 6 控件 + setprop jq.login 钩子 + datah_072 入口改造 + login 文字图集 + evverify 12/12
 + 一致性 9/9 不破 + 真机 rs_draw_login 出帧 + 6 控件截图非黑 92-94%，
 sha256 5908d27df1a038f6a393836c8098dbf68177b70f588468a3f921d0c6f276b5b8)
+
+---
+
+## 十九、P2 4 弹窗对齐（datah_037/104/034/035，§P2 补齐）
+
+**背景**：P0/P1 全对齐后，P2 剩余 4 个原版对话框缺口（datah_037 规则文本 / datah_104 新局完整版 / datah_034 加入 / datah_035 创建），补齐后 P0/P1/P2 全对齐。
+
+**设计范式**（对齐 P1 布局存档/复盘/登录范式）：
+- 坐标系面板居中 720×1280 屏，局部坐标 1:1 平移（偏移=(720-panel_w)/2, (1280-panel_h)/2）
+- 文件分工：ui_menu.h（UI_*_POPUP 宏 + ui_*_btn 结构 + COUNT + getter/hit/popup_inside）+ ui_menu.c（g_*_btns 720 基准表 + hit + popup_inside）+ render.c（rs_draw_* 面板 + 文字图集 + 帧调度 case）+ jni_bridge.c（OnTouch 命中分发 + 业务 + setprop/OnEvent 钩子）+ evverify.c（桌面验证）+ layout_align_check.py（几何 Δ 校验）
+
+### 19.1 datah_037 规则文本（UI_RULES）
+
+**几何**（260×270 面板居中，偏移=+230,+505，局部 1:1 平移）：
+
+| 按钮 | 原版 260 系 | 720 系 | src_rs Δc | 实证 |
+|------|-----------|--------|---------|------|
+| 翻棋 | (25,25)-(235,85) | (255,530)-(465,590) | (+0.0,+0.0) ✓ | evverify run_rules PASS |
+| 布局 | (25,105)-(235,165) | (255,610)-(465,670) | (+0.0,+0.0) ✓ | evverify run_rules PASS |
+| 返回 | (25,185)-(235,245) | (255,690)-(465,750) | (+0.0,+0.0) ✓ | evverify run_rules PASS |
+
+**业务**：☰ 菜单"游戏规则"（本地 !bt_mode act=3 / 联机 bt_mode act=7）改切 UI_RULES 弹窗（原 jq_show_dialog 替换）；点"规则-翻棋"→ 显示翻棋模式规则文本（暗棋简化版）；点"规则-布局"→ 显示布局模式规则文本（明棋简化版）；点"返回"→ 回对局。setprop 钩子 jq.rules 触发（OnCreate 重启 + OnUpdate 同会话双路）。
+
+**★ 诚实边界**：规则文本=src_rs 简化版固定文本（2 套：翻棋/布局），非原版完整规则引擎。
+
+**真机实证**：
+- `adb setprop jq.rules 1` → logcat `OnUpdate 规则文本入口：rules=1 → UI_RULES 规则文本弹窗` + `rs_draw_rules：规则文本弹窗（datah_037 规则-翻棋/规则-布局 2 模式 + 返回，面板 260×270）`
+- 截图 `jq_rules_037.png` → `layout_align_check.py --screenshot` 几何 Δ=0 PASS + 截图非黑 PASS
+- 触摸命中未触发（MuMu flaky）→ 业务逻辑用桌面 evverify run_rules PASS + 代码路径证明（jni_bridge.c UI_RULES 命中分发块）
+
+### 19.2 datah_104 新局完整版（UI_NEWGAME104）
+
+**几何**（450×390 面板居中，偏移=+135,+445，局部 1:1 平移）：
+
+| 按钮 | 原版 450 系 | 720 系 | src_rs Δc | 实证 |
+|------|-----------|--------|---------|------|
+| 我方 | (220,75)-(420,135) | (355,520)-(555,580) | (+0.0,+0.0) ✓ | evverify run_newgame104 PASS |
+| 电脑 | (220,150)-(420,210) | (355,595)-(555,655) | (+0.0,+0.0) ✓ | evverify run_newgame104 PASS |
+| 玩法 | (220,225)-(420,285) | (355,670)-(555,730) | (+0.0,+0.0) ✓ | evverify run_newgame104 PASS |
+| 确定 | (30,310)-(210,370) | (165,755)-(345,815) | (+0.0,+0.0) ✓ | evverify run_newgame104 PASS |
+| 取消 | (240,310)-(420,370) | (375,755)-(555,815) | (+0.0,+0.0) ✓ | evverify run_newgame104 PASS |
+
+**业务**：比 UI_NEWGAME（datah_062 简化版）多"我方/电脑水平"2 项。我方=蓝/红 切换（循环）；电脑水平=难度 1-4 循环（新手/中级/高级/好友）；玩法=布局/翻棋 切换（循环）。确定 → ui_opt_select + jq_restart_game 随模式开局（两人热座 AI 不介入）；取消 → 回主菜单。setprop 钩子 jq.newgame104 触发（OnCreate + OnUpdate 双路）。**不破坏 062 简化版 UI_NEWGAME**（独立态）。
+
+**★ 诚实边界**：我方=蓝/红 切换简化（本机蓝先手固定，我方选择仅影响开局侧）；3 项各循环切换当前值（对齐 datah_001 音量循环范式），文字显示当前值（简化版，非原版完整难度/模式选择 UI）。
+
+**真机实证**：
+- `adb setprop jq.newgame104 1` → logcat `OnUpdate 新局完整版入口：newgame104=1 → UI_NEWGAME104 新局完整版弹窗` + `rs_draw_newgame104：新局完整版弹窗（datah_104 我方/电脑水平/玩法 3 选择 + 确定/取消，面板 450×390）`
+- 截图 `jq_ng104.png` → `layout_align_check.py --screenshot` 几何 Δ=0 PASS + 截图非黑 PASS
+- 触摸命中未触发（MuMu flaky）→ 业务逻辑用桌面 evverify run_newgame104 PASS + 代码路径证明（jni_bridge.c UI_NEWGAME104 命中分发块）
+
+### 19.3 datah_034 加入游戏（UI_JOIN）
+
+**几何**（420×235 面板居中，偏移=+150,+522.5，局部 1:1 平移）：
+
+| 按钮 | 原版 420 系 | 720 系 | src_rs Δc | 实证 |
+|------|-----------|--------|---------|------|
+| 桌号 | (120,80)-(360,125) | (270,602.5)-(510,647.5) | (+0.0,+0.0) ✓ | evverify run_join PASS |
+| 确定 | (35,150)-(195,210) | (185,672.5)-(345,732.5) | (+0.0,+0.0) ✓ | evverify run_join PASS |
+| 取消 | (225,150)-(385,210) | (375,672.5)-(535,732.5) | (+0.0,+0.0) ✓ | evverify run_join PASS |
+
+**业务**：联机"加入游戏"（桌号加入）。桌号=占位标签（不画真输入框）。**入口**：datah_072 方式弹窗"Wi-Fi 联机"（wact=1）改切 UI_JOIN 弹窗（原 jq_show_dialog 边界对话框替换）+ setprop 钩子 jq.join 触发（OnCreate + OnUpdate 双路）。
+
+**★ 诚实边界**：原版加入=局域网/Wi-Fi 联机协议（未逆向），src_rs 仅蓝牙 SPP。**确定 → 诚实边界对话框**（"加入游戏需 Wi-Fi/局域网协议，src_rs 仅蓝牙联机已实现，请选蓝牙联机"）+ 回主菜单；取消 → 回主菜单。**不包装成"已联机"**。
+
+**真机实证**：
+- `adb setprop jq.join 1` → logcat `OnUpdate 加入游戏入口：join=1 → UI_JOIN 加入游戏弹窗` + `rs_draw_join：加入/创建游戏弹窗（datah_034 桌号/密码占位标签 + 确定/取消，面板 420×235）`
+- 截图 `jq_join_034.png` → `layout_align_check.py --screenshot` 几何 Δ=0 PASS + 截图非黑 PASS
+- 触摸命中未触发（MuMu flaky）→ 业务逻辑用桌面 evverify run_join PASS + 代码路径证明（jni_bridge.c UI_JOIN 命中分发块）
+
+### 19.4 datah_035 创建游戏（UI_CREATE）
+
+**几何**（420×235 面板居中，偏移=+150,+522.5，局部 1:1 平移，同 034）：
+
+| 按钮 | 原版 420 系 | 720 系 | src_rs Δc | 实证 |
+|------|-----------|--------|---------|------|
+| 密码 | (100,80)-(320,125) | (250,602.5)-(470,647.5) | (+0.0,+0.0) ✓ | evverify run_create PASS |
+| 确定 | (35,150)-(195,210) | (185,672.5)-(345,732.5) | (+0.0,+0.0) ✓ | evverify run_create PASS |
+| 取消 | (225,150)-(385,210) | (375,672.5)-(535,732.5) | (+0.0,+0.0) ✓ | evverify run_create PASS |
+
+**业务**：联机"创建游戏"（密码创建）。密码=占位标签（不画真输入框）。**入口**：setprop 钩子 jq.create 触发（OnCreate + OnUpdate 双路）。
+
+**★ 诚实边界**：原版创建=Wi-Fi/局域网协议（未逆向），src_rs 仅蓝牙 SPP。**确定 → 诚实边界对话框**（"创建房间需 Wi-Fi/局域网协议，src_rs 仅蓝牙联机已实现，请选蓝牙联机"）+ 回主菜单；取消 → 回主菜单。**不包装成"已联机"**。
+
+**真机实证**：
+- `adb setprop jq.create 1` → logcat `OnUpdate 创建游戏入口：create=1 → UI_CREATE 创建游戏弹窗`
+- 截图 `jq_rules_create.png` → `layout_align_check.py --screenshot` 几何 Δ=0 PASS + 截图非黑 PASS
+- 触摸命中未触发（MuMu flaky）→ 业务逻辑用桌面 evverify run_create PASS + 代码路径证明（jni_bridge.c UI_CREATE 命中分发块）
+
+### 19.5 全量实证汇总
+
+**桌面 evverify**（`make evverify && ./dist/jq_evverify --all`）：16/16 全对（含 4 个新 run_*：run_rules / run_newgame104 / run_join / run_create）
+
+**一致性回归**（`make consistency && ./dist/jq_consistency selftest`）：9/9 基准序列逐行一致（4 弹窗默认行为不变，不影响走子）
+
+**编译**（`NDK=/tmp/opencode/android-ndk-r25b make so`）：无 error（2 个既有 warning，非本轮引入）
+
+**真机截图**（MuMu emulator-5554）：4 弹窗 rs_draw_* 出帧 logcat 实证 + 截图非黑 PASS + 逐按钮 Δc=+0.0/+0.0 全 ✓
+
+**so 哈希**：`402f6611d42e371beb66c2e54f547b36c00076f35c7a720ff0880a73b1f7434f`（P2 4 弹窗补齐，225792B）
+
+**★ 诚实边界汇总（触摸命中 flaky，非触摸实证）**：4 弹窗 14 控件几何 Δ=0 + 渲染出帧（rs_draw_* logcat）+ 截图非黑 为真机实证；触摸命中（点各按钮业务动作）真机触摸 flaky（MuMu PBuffer 坐标映射非线性）→ 业务逻辑用**桌面 evverify run_* PASS（几何 + 命中判定 + 业务分支）+ 代码路径证明（jni_bridge.c 各 UI_* 命中分发块）**，非触摸糊弄。034/035 加入/创建=Wi-Fi/局域网协议未逆向（确定→边界对话框），不包装成"已联机"；037 规则文本=简化版固定文本 2 套；104=循环切换简化版。

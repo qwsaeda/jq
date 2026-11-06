@@ -34,7 +34,7 @@ done
 WS="$(cd "$(dirname "$0")/../.." && pwd)"
 APK="$WS/$APK"
 
-KINDS="walk_bridge native_layout native_event"
+KINDS="walk_bridge native_layout native_event game_test"
 [ -n "$ONLY" ] && KINDS="$ONLY"
 
 PASS=0; FAIL=0; FAILED=""
@@ -54,7 +54,7 @@ fi
 for k in $KINDS; do
   echo "═══ $k ═══"
   # 清 prop + 启 app + 触发钩子
-  timeout 10 adb -s "$DEV" shell "setprop jq.native_layout 0; setprop jq.walk_bridge 0; setprop jq.test_game 0" >/dev/null 2>&1
+  timeout 10 adb -s "$DEV" shell "setprop jq.native_layout 0; setprop jq.walk_bridge 0; setprop jq.game_test 0; setprop jq.test_game 0" >/dev/null 2>&1
   timeout 10 adb -s "$DEV" logcat -c >/dev/null 2>&1
   timeout 20 adb -s "$DEV" shell "am force-stop $PKG; am start -n $PKG/com.cnvcs.App" >/dev/null 2>&1
   sleep 6
@@ -62,6 +62,7 @@ for k in $KINDS; do
     walk_bridge)   timeout 10 adb -s "$DEV" shell "setprop jq.walk_bridge 1" ;;
     native_layout) timeout 10 adb -s "$DEV" shell "setprop jq.native_layout 1" ;;
     native_event)  timeout 10 adb -s "$DEV" shell "setprop jq.native_layout 1" ;;
+    game_test)     timeout 10 adb -s "$DEV" shell "setprop jq.game_test 1" ;;
   esac
   sleep 5
   LOG=$(timeout 10 adb -s "$DEV" logcat -d 2>/dev/null)
@@ -70,6 +71,7 @@ for k in $KINDS; do
     walk_bridge)   PATTERN="WALK-BRIDGE: 完整 8 步序列完成" ;;
     native_layout) PATTERN="NATIVE-LAYOUT: F_2a380 返回" ;;
     native_event)  PATTERN="NATIVE-EVENT: F_3ab80 返回" ;;
+    game_test)     PATTERN="GAME-TEST: 端到端完成" ;;
   esac
   if echo "$LOG" | grep -q "$PATTERN" && [ "$CRASH" = "0" ]; then
     echo "  ✓ $k（匹配 '$PATTERN' + 0 崩溃）"

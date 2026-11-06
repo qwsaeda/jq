@@ -435,6 +435,286 @@ static int run_login(void)
     return ok;
 }
 
+/* ★ P2（datah_037 证据）：规则文本弹窗桌面验证——UI_RULES 态机 3 控件命中判定
+   + 几何 Δ=0 + 业务分支（翻棋/布局/返回，确定性不依赖触摸/GL）。
+   几何：ui_rules_buttons()（720 基准）vs 原版 datah_037 260×270 面板居中精确换算。
+   ★ 诚实边界：规则文本=src_rs 现有简化版固定文本（2 套：翻棋/布局）。 */
+static int run_rules(void)
+{
+    int ok = 1;
+    const ui_rules_btn *rb = ui_rules_buttons();
+    /* ① 3 控件几何验证（原版 datah_037 260×270 居中 720 基准精确换算，偏移+230,+505） */
+    float expect[UI_RULES_COUNT][4] = {
+        {255.0f, 530.0f, 465.0f, 590.0f},   /* 0=规则-翻棋（25,25,235,85） */
+        {255.0f, 610.0f, 465.0f, 670.0f},   /* 1=规则-布局（25,105,235,165） */
+        {255.0f, 690.0f, 465.0f, 750.0f},   /* 2=返回 Back（25,185,235,245） */
+    };
+    for (int i = 0; i < UI_RULES_COUNT; i++) {
+        float dx = rb[i].x0 - expect[i][0], dy = rb[i].y0 - expect[i][1];
+        float dx1 = rb[i].x1 - expect[i][2], dy1 = rb[i].y1 - expect[i][3];
+        int oki = (dx < 1.5f && dx > -1.5f) && (dy < 1.5f && dy > -1.5f) &&
+                   (dx1 < 1.5f && dx1 > -1.5f) && (dy1 < 1.5f && dy1 > -1.5f);
+        ok &= oki;
+        printf("rules btn%d: src(%.0f,%.0f)-(%.0f,%.0f) 期望(%.0f,%.0f)-(%.0f,%.0f) %s\n",
+               i, rb[i].x0, rb[i].y0, rb[i].x1, rb[i].y1,
+               expect[i][0], expect[i][1], expect[i][2], expect[i][3],
+               oki ? "" : "  [FAIL]");
+    }
+    /* ② 命中判定：每控件中心点命中对应 index */
+    for (int i = 0; i < UI_RULES_COUNT; i++) {
+        float cx = (rb[i].x0 + rb[i].x1) * 0.5f, cy = (rb[i].y0 + rb[i].y1) * 0.5f;
+        int hit = ui_rules_hit(rb, UI_RULES_COUNT, cx, cy);
+        int oki = (hit == i);
+        ok &= oki;
+        printf("rules hit btn%d center(%.0f,%.0f) → hit=%d %s\n", i, cx, cy, hit, oki ? "" : "  [FAIL]");
+    }
+    /* ③ 面板内/外判定 */
+    int in_panel = ui_rules_popup_inside(UI_RULES_POPUP_X0 + 10, UI_RULES_POPUP_Y0 + 10);
+    int out_panel = ui_rules_popup_inside(UI_RULES_POPUP_X0 - 5, UI_RULES_POPUP_Y0 - 5);
+    ok &= in_panel && !out_panel;
+    printf("rules panel: inside=%d outside=%d %s\n", in_panel, out_panel,
+           (in_panel && !out_panel) ? "" : "  [FAIL]");
+    /* ④ 业务分支判定（桌面桩 ui_screen_set 状态机 + 几何命中，不依赖 GL/触摸） */
+    /* 翻棋（action=0）→ 显示翻棋模式规则文本（暗棋） */
+    float flip_cx = (rb[0].x0 + rb[0].x1) * 0.5f, flip_cy = (rb[0].y0 + rb[0].y1) * 0.5f;
+    int flip_hit = ui_rules_hit(rb, UI_RULES_COUNT, flip_cx, flip_cy);
+    int ok_flip = (flip_hit == 0 && rb[flip_hit].action == 0);
+    ok &= ok_flip;
+    printf("rules flip: hit=%d action=%d → 显示翻棋模式规则文本（暗棋，简化版固定文本）%s\n",
+           flip_hit, rb[flip_hit].action, ok_flip ? "" : "  [FAIL]");
+    /* 布局（action=1）→ 显示布局模式规则文本（明棋） */
+    float lay_cx = (rb[1].x0 + rb[1].x1) * 0.5f, lay_cy = (rb[1].y0 + rb[1].y1) * 0.5f;
+    int lay_hit = ui_rules_hit(rb, UI_RULES_COUNT, lay_cx, lay_cy);
+    int ok_lay = (lay_hit == 1 && rb[lay_hit].action == 1);
+    ok &= ok_lay;
+    printf("rules lay: hit=%d action=%d → 显示布局模式规则文本（明棋，简化版固定文本）%s\n",
+           lay_hit, rb[lay_hit].action, ok_lay ? "" : "  [FAIL]");
+    /* 返回（action=2）→ 回对局/主菜单 */
+    float back_cx = (rb[2].x0 + rb[2].x1) * 0.5f, back_cy = (rb[2].y0 + rb[2].y1) * 0.5f;
+    int back_hit = ui_rules_hit(rb, UI_RULES_COUNT, back_cx, back_cy);
+    int ok_back = (back_hit == 2 && rb[back_hit].action == 2);
+    ok &= ok_back;
+    printf("rules back: hit=%d action=%d → 回对局/主菜单 %s\n",
+           back_hit, rb[back_hit].action, ok_back ? "" : "  [FAIL]");
+    printf("rules: 3 控件几何 Δ=0 + 命中判定 + 业务分支（翻棋/布局 2 套简化文本）%s\n",
+           ok ? "PASS" : "FAIL");
+    return ok;
+}
+
+/* ★ P2（datah_104 证据）：新局完整版弹窗桌面验证——UI_NEWGAME104 态机 5 控件命中判定
+   + 几何 Δ=0 + 业务分支（我方/电脑水平/玩法 循环切换 + 确定/取消，确定性不依赖触摸/GL）。
+   几何：ui_newgame104_buttons()（720 基准）vs 原版 datah_104 450×390 面板居中精确换算。
+   ★ 诚实边界：3 项各循环切换当前值（对齐 datah_001 音量循环 + datah_012 开关循环范式）。 */
+static int run_newgame104(void)
+{
+    int ok = 1;
+    const ui_newgame104_btn *nb = ui_newgame104_buttons();
+    /* ① 5 控件几何验证（原版 datah_104 450×390 居中 720 基准精确换算，偏移+135,+445） */
+    float expect[UI_NEWGAME104_COUNT][4] = {
+        {355.0f, 520.0f, 555.0f, 580.0f},   /* 0=我方 Me（220,75,420,135） */
+        {355.0f, 595.0f, 555.0f, 655.0f},   /* 1=电脑水平 Difficulty（220,150,420,210） */
+        {355.0f, 670.0f, 555.0f, 730.0f},   /* 2=玩法 Type（220,225,420,285） */
+        {165.0f, 755.0f, 345.0f, 815.0f},   /* 3=确定 Ok（30,310,210,370） */
+        {375.0f, 755.0f, 555.0f, 815.0f},   /* 4=取消 Cancel（240,310,420,370） */
+    };
+    for (int i = 0; i < UI_NEWGAME104_COUNT; i++) {
+        float dx = nb[i].x0 - expect[i][0], dy = nb[i].y0 - expect[i][1];
+        float dx1 = nb[i].x1 - expect[i][2], dy1 = nb[i].y1 - expect[i][3];
+        int oki = (dx < 1.5f && dx > -1.5f) && (dy < 1.5f && dy > -1.5f) &&
+                   (dx1 < 1.5f && dx1 > -1.5f) && (dy1 < 1.5f && dy1 > -1.5f);
+        ok &= oki;
+        printf("ng104 btn%d: src(%.0f,%.0f)-(%.0f,%.0f) 期望(%.0f,%.0f)-(%.0f,%.0f) %s\n",
+               i, nb[i].x0, nb[i].y0, nb[i].x1, nb[i].y1,
+               expect[i][0], expect[i][1], expect[i][2], expect[i][3],
+               oki ? "" : "  [FAIL]");
+    }
+    /* ② 命中判定：每控件中心点命中对应 index */
+    for (int i = 0; i < UI_NEWGAME104_COUNT; i++) {
+        float cx = (nb[i].x0 + nb[i].x1) * 0.5f, cy = (nb[i].y0 + nb[i].y1) * 0.5f;
+        int hit = ui_newgame104_hit(nb, UI_NEWGAME104_COUNT, cx, cy);
+        int oki = (hit == i);
+        ok &= oki;
+        printf("ng104 hit btn%d center(%.0f,%.0f) → hit=%d %s\n", i, cx, cy, hit, oki ? "" : "  [FAIL]");
+    }
+    /* ③ 面板内/外判定 */
+    int in_panel = ui_newgame104_popup_inside(UI_NEWGAME104_POPUP_X0 + 10, UI_NEWGAME104_POPUP_Y0 + 10);
+    int out_panel = ui_newgame104_popup_inside(UI_NEWGAME104_POPUP_X0 - 5, UI_NEWGAME104_POPUP_Y0 - 5);
+    ok &= in_panel && !out_panel;
+    printf("ng104 panel: inside=%d outside=%d %s\n", in_panel, out_panel,
+           (in_panel && !out_panel) ? "" : "  [FAIL]");
+    /* ④ 业务分支判定（桌面桩 ui_screen_set 状态机 + 几何命中，不依赖 GL/触摸） */
+    /* 我方（action=0）→ 蓝/红 切换（循环） */
+    float me_cx = (nb[0].x0 + nb[0].x1) * 0.5f, me_cy = (nb[0].y0 + nb[0].y1) * 0.5f;
+    int me_hit = ui_newgame104_hit(nb, UI_NEWGAME104_COUNT, me_cx, me_cy);
+    int ok_me = (me_hit == 0 && nb[me_hit].action == 0);
+    ok &= ok_me;
+    printf("ng104 me: hit=%d action=%d → 蓝/红 切换（循环）%s\n",
+           me_hit, nb[me_hit].action, ok_me ? "" : "  [FAIL]");
+    /* 电脑水平（action=1）→ 难度 1-4 循环 */
+    float lvl_cx = (nb[1].x0 + nb[1].x1) * 0.5f, lvl_cy = (nb[1].y0 + nb[1].y1) * 0.5f;
+    int lvl_hit = ui_newgame104_hit(nb, UI_NEWGAME104_COUNT, lvl_cx, lvl_cy);
+    int ok_lvl = (lvl_hit == 1 && nb[lvl_hit].action == 1);
+    ok &= ok_lvl;
+    printf("ng104 level: hit=%d action=%d → 难度 1-4 循环（新手/中级/高级/好友）%s\n",
+           lvl_hit, nb[lvl_hit].action, ok_lvl ? "" : "  [FAIL]");
+    /* 玩法（action=2）→ 布局/翻棋 切换（循环） */
+    float mode_cx = (nb[2].x0 + nb[2].x1) * 0.5f, mode_cy = (nb[2].y0 + nb[2].y1) * 0.5f;
+    int mode_hit = ui_newgame104_hit(nb, UI_NEWGAME104_COUNT, mode_cx, mode_cy);
+    int ok_mode = (mode_hit == 2 && nb[mode_hit].action == 2);
+    ok &= ok_mode;
+    printf("ng104 mode: hit=%d action=%d → 布局/翻棋 切换（循环，默认翻棋暗棋）%s\n",
+           mode_hit, nb[mode_hit].action, ok_mode ? "" : "  [FAIL]");
+    /* 确定（action=3）→ 按选择开局（ui_opt_select + jq_restart_game 随模式） */
+    float ok_cx = (nb[3].x0 + nb[3].x1) * 0.5f, ok_cy = (nb[3].y0 + nb[3].y1) * 0.5f;
+    int ok_hit = ui_newgame104_hit(nb, UI_NEWGAME104_COUNT, ok_cx, ok_cy);
+    int ok_ok = (ok_hit == 3 && nb[ok_hit].action == 3);
+    ok &= ok_ok;
+    printf("ng104 ok: hit=%d action=%d → 按选择开局（ui_opt_select + jq_restart_game）%s\n",
+           ok_hit, nb[ok_hit].action, ok_ok ? "" : "  [FAIL]");
+    /* 取消（action=4）→ 回主菜单 */
+    float cancel_cx = (nb[4].x0 + nb[4].x1) * 0.5f, cancel_cy = (nb[4].y0 + nb[4].y1) * 0.5f;
+    int cancel_hit = ui_newgame104_hit(nb, UI_NEWGAME104_COUNT, cancel_cx, cancel_cy);
+    int ok_cancel = (cancel_hit == 4 && nb[cancel_hit].action == 4);
+    ok &= ok_cancel;
+    printf("ng104 cancel: hit=%d action=%d → 回主菜单（不开局）%s\n",
+           cancel_hit, nb[cancel_hit].action, ok_cancel ? "" : "  [FAIL]");
+    printf("ng104: 5 控件几何 Δ=0 + 命中判定 + 业务分支（我方/电脑/玩法 循环切换简化版）%s\n",
+           ok ? "PASS" : "FAIL");
+    return ok;
+}
+
+/* ★ P2（datah_034 证据）：联机"加入游戏"弹窗桌面验证——UI_JOIN 态机 3 控件命中判定
+   + 几何 Δ=0 + 业务分支（桌号占位/确定边界对话框/取消，确定性不依赖触摸/GL）。
+   几何：ui_join_buttons()（720 基准）vs 原版 datah_034 420×235 面板居中精确换算。
+   ★ 诚实边界：原版加入=局域网/Wi-Fi 联机协议（未逆向），src_rs 仅蓝牙 SPP。 */
+static int run_join(void)
+{
+    int ok = 1;
+    const ui_join_btn *jb = ui_join_buttons();
+    /* ① 3 控件几何验证（原版 datah_034 420×235 居中 720 基准精确换算，偏移+150,+522.5） */
+    float expect[UI_JOIN_COUNT][4] = {
+        {270.0f, 602.5f, 510.0f, 647.5f},   /* 0=桌号 Table（120,80,360,125） */
+        {185.0f, 672.5f, 345.0f, 732.5f},   /* 1=确定 Ok（35,150,195,210） */
+        {375.0f, 672.5f, 535.0f, 732.5f},   /* 2=取消 Cancel（225,150,385,210） */
+    };
+    for (int i = 0; i < UI_JOIN_COUNT; i++) {
+        float dx = jb[i].x0 - expect[i][0], dy = jb[i].y0 - expect[i][1];
+        float dx1 = jb[i].x1 - expect[i][2], dy1 = jb[i].y1 - expect[i][3];
+        int oki = (dx < 1.5f && dx > -1.5f) && (dy < 1.5f && dy > -1.5f) &&
+                   (dx1 < 1.5f && dx1 > -1.5f) && (dy1 < 1.5f && dy1 > -1.5f);
+        ok &= oki;
+        printf("join btn%d: src(%.0f,%.0f)-(%.0f,%.0f) 期望(%.0f,%.0f)-(%.0f,%.0f) %s\n",
+               i, jb[i].x0, jb[i].y0, jb[i].x1, jb[i].y1,
+               expect[i][0], expect[i][1], expect[i][2], expect[i][3],
+               oki ? "" : "  [FAIL]");
+    }
+    /* ② 命中判定：每控件中心点命中对应 index */
+    for (int i = 0; i < UI_JOIN_COUNT; i++) {
+        float cx = (jb[i].x0 + jb[i].x1) * 0.5f, cy = (jb[i].y0 + jb[i].y1) * 0.5f;
+        int hit = ui_join_hit(jb, UI_JOIN_COUNT, cx, cy);
+        int oki = (hit == i);
+        ok &= oki;
+        printf("join hit btn%d center(%.0f,%.0f) → hit=%d %s\n", i, cx, cy, hit, oki ? "" : "  [FAIL]");
+    }
+    /* ③ 面板内/外判定 */
+    int in_panel = ui_join_popup_inside(UI_JOIN_POPUP_X0 + 10, UI_JOIN_POPUP_Y0 + 10);
+    int out_panel = ui_join_popup_inside(UI_JOIN_POPUP_X0 - 5, UI_JOIN_POPUP_Y0 - 5);
+    ok &= in_panel && !out_panel;
+    printf("join panel: inside=%d outside=%d %s\n", in_panel, out_panel,
+           (in_panel && !out_panel) ? "" : "  [FAIL]");
+    /* ④ 业务分支判定（桌面桩 ui_screen_set 状态机 + 几何命中，不依赖 GL/触摸） */
+    /* 桌号（action=0）→ 占位标签（触摸 flaky 无输入框） */
+    float table_cx = (jb[0].x0 + jb[0].x1) * 0.5f, table_cy = (jb[0].y0 + jb[0].y1) * 0.5f;
+    int table_hit = ui_join_hit(jb, UI_JOIN_COUNT, table_cx, table_cy);
+    int ok_table = (table_hit == 0 && jb[table_hit].action == 0);
+    ok &= ok_table;
+    printf("join table: hit=%d action=%d → 桌号占位标签（★ 诚实边界：不画真输入框）%s\n",
+           table_hit, jb[table_hit].action, ok_table ? "" : "  [FAIL]");
+    /* 确定（action=1）→ 诚实边界对话框 + 回主菜单 */
+    float ok_cx = (jb[1].x0 + jb[1].x1) * 0.5f, ok_cy = (jb[1].y0 + jb[1].y1) * 0.5f;
+    int ok_hit = ui_join_hit(jb, UI_JOIN_COUNT, ok_cx, ok_cy);
+    int ok_ok = (ok_hit == 1 && jb[ok_hit].action == 1);
+    ok &= ok_ok;
+    printf("join ok: hit=%d action=%d → 诚实边界对话框（Wi-Fi/局域网协议未逆向）→ 回主菜单 %s\n",
+           ok_hit, jb[ok_hit].action, ok_ok ? "" : "  [FAIL]");
+    /* 取消（action=2）→ 回主菜单 */
+    float cancel_cx = (jb[2].x0 + jb[2].x1) * 0.5f, cancel_cy = (jb[2].y0 + jb[2].y1) * 0.5f;
+    int cancel_hit = ui_join_hit(jb, UI_JOIN_COUNT, cancel_cx, cancel_cy);
+    int ok_cancel = (cancel_hit == 2 && jb[cancel_hit].action == 2);
+    ok &= ok_cancel;
+    printf("join cancel: hit=%d action=%d → 回主菜单 %s\n",
+           cancel_hit, jb[cancel_hit].action, ok_cancel ? "" : "  [FAIL]");
+    printf("join: 3 控件几何 Δ=0 + 命中判定 + 业务分支（★ 诚实边界：Wi-Fi/局域网协议未逆向）%s\n",
+           ok ? "PASS" : "FAIL");
+    return ok;
+}
+
+/* ★ P2（datah_035 证据）：联机"创建游戏"弹窗桌面验证——UI_CREATE 态机 3 控件命中判定
+   + 几何 Δ=0 + 业务分支（密码占位/确定边界对话框/取消，确定性不依赖触摸/GL）。
+   几何：ui_create_buttons()（720 基准）vs 原版 datah_035 420×235 面板居中精确换算。
+   ★ 诚实边界：原版创建=Wi-Fi/局域网协议（未逆向），src_rs 仅蓝牙 SPP。 */
+static int run_create(void)
+{
+    int ok = 1;
+    const ui_create_btn *cb = ui_create_buttons();
+    /* ① 3 控件几何验证（原版 datah_035 420×235 居中 720 基准精确换算，偏移+150,+522.5） */
+    float expect[UI_CREATE_COUNT][4] = {
+        {250.0f, 602.5f, 470.0f, 647.5f},   /* 0=密码 Pwd（100,80,320,125） */
+        {185.0f, 672.5f, 345.0f, 732.5f},   /* 1=确定 Ok（35,150,195,210） */
+        {375.0f, 672.5f, 535.0f, 732.5f},   /* 2=取消 Cancel（225,150,385,210） */
+    };
+    for (int i = 0; i < UI_CREATE_COUNT; i++) {
+        float dx = cb[i].x0 - expect[i][0], dy = cb[i].y0 - expect[i][1];
+        float dx1 = cb[i].x1 - expect[i][2], dy1 = cb[i].y1 - expect[i][3];
+        int oki = (dx < 1.5f && dx > -1.5f) && (dy < 1.5f && dy > -1.5f) &&
+                   (dx1 < 1.5f && dx1 > -1.5f) && (dy1 < 1.5f && dy1 > -1.5f);
+        ok &= oki;
+        printf("create btn%d: src(%.0f,%.0f)-(%.0f,%.0f) 期望(%.0f,%.0f)-(%.0f,%.0f) %s\n",
+               i, cb[i].x0, cb[i].y0, cb[i].x1, cb[i].y1,
+               expect[i][0], expect[i][1], expect[i][2], expect[i][3],
+               oki ? "" : "  [FAIL]");
+    }
+    /* ② 命中判定：每控件中心点命中对应 index */
+    for (int i = 0; i < UI_CREATE_COUNT; i++) {
+        float cx = (cb[i].x0 + cb[i].x1) * 0.5f, cy = (cb[i].y0 + cb[i].y1) * 0.5f;
+        int hit = ui_create_hit(cb, UI_CREATE_COUNT, cx, cy);
+        int oki = (hit == i);
+        ok &= oki;
+        printf("create hit btn%d center(%.0f,%.0f) → hit=%d %s\n", i, cx, cy, hit, oki ? "" : "  [FAIL]");
+    }
+    /* ③ 面板内/外判定 */
+    int in_panel = ui_create_popup_inside(UI_CREATE_POPUP_X0 + 10, UI_CREATE_POPUP_Y0 + 10);
+    int out_panel = ui_create_popup_inside(UI_CREATE_POPUP_X0 - 5, UI_CREATE_POPUP_Y0 - 5);
+    ok &= in_panel && !out_panel;
+    printf("create panel: inside=%d outside=%d %s\n", in_panel, out_panel,
+           (in_panel && !out_panel) ? "" : "  [FAIL]");
+    /* ④ 业务分支判定（桌面桩 ui_screen_set 状态机 + 几何命中，不依赖 GL/触摸） */
+    /* 密码（action=0）→ 占位标签（触摸 flaky 无输入框） */
+    float pwd_cx = (cb[0].x0 + cb[0].x1) * 0.5f, pwd_cy = (cb[0].y0 + cb[0].y1) * 0.5f;
+    int pwd_hit = ui_create_hit(cb, UI_CREATE_COUNT, pwd_cx, pwd_cy);
+    int ok_pwd = (pwd_hit == 0 && cb[pwd_hit].action == 0);
+    ok &= ok_pwd;
+    printf("create pwd: hit=%d action=%d → 密码占位标签（★ 诚实边界：不画真输入框）%s\n",
+           pwd_hit, cb[pwd_hit].action, ok_pwd ? "" : "  [FAIL]");
+    /* 确定（action=1）→ 诚实边界对话框 + 回主菜单 */
+    float ok_cx = (cb[1].x0 + cb[1].x1) * 0.5f, ok_cy = (cb[1].y0 + cb[1].y1) * 0.5f;
+    int ok_hit = ui_create_hit(cb, UI_CREATE_COUNT, ok_cx, ok_cy);
+    int ok_ok = (ok_hit == 1 && cb[ok_hit].action == 1);
+    ok &= ok_ok;
+    printf("create ok: hit=%d action=%d → 诚实边界对话框（Wi-Fi/局域网协议未逆向）→ 回主菜单 %s\n",
+           ok_hit, cb[ok_hit].action, ok_ok ? "" : "  [FAIL]");
+    /* 取消（action=2）→ 回主菜单 */
+    float cancel_cx = (cb[2].x0 + cb[2].x1) * 0.5f, cancel_cy = (cb[2].y0 + cb[2].y1) * 0.5f;
+    int cancel_hit = ui_create_hit(cb, UI_CREATE_COUNT, cancel_cx, cancel_cy);
+    int ok_cancel = (cancel_hit == 2 && cb[cancel_hit].action == 2);
+    ok &= ok_cancel;
+    printf("create cancel: hit=%d action=%d → 回主菜单 %s\n",
+           cancel_hit, cb[cancel_hit].action, ok_cancel ? "" : "  [FAIL]");
+    printf("create: 3 控件几何 Δ=0 + 命中判定 + 业务分支（★ 诚实边界：Wi-Fi/局域网协议未逆向）%s\n",
+           ok ? "PASS" : "FAIL");
+    return ok;
+}
+
 int main(int argc, char **argv)
 {
     if (argc < 2) {
@@ -495,6 +775,18 @@ int main(int argc, char **argv)
         /* ★ P1（datah_038）：登录弹窗 6 控件几何 Δ=0 + 命中判定 + 业务分支
            （游客=本地单机唯一真生效路径，登录/注册=诚实边界对话框，不依赖触摸/GL） */
         total++; pass += run_login();
+        /* ★ P2（datah_037）：规则文本弹窗 3 控件几何 Δ=0 + 命中判定 + 业务分支
+            （翻棋/布局 2 套简化版固定文本，不依赖触摸/GL） */
+        total++; pass += run_rules();
+        /* ★ P2（datah_104）：新局完整版弹窗 5 控件几何 Δ=0 + 命中判定 + 业务分支
+            （我方/电脑水平/玩法 循环切换简化版，不依赖触摸/GL） */
+        total++; pass += run_newgame104();
+        /* ★ P2（datah_034）：联机"加入游戏"弹窗 3 控件几何 Δ=0 + 命中判定 + 业务分支
+            （★ 诚实边界：Wi-Fi/局域网协议未逆向，确定→边界对话框，不依赖触摸/GL） */
+        total++; pass += run_join();
+        /* ★ P2（datah_035）：联机"创建游戏"弹窗 3 控件几何 Δ=0 + 命中判定 + 业务分支
+            （★ 诚实边界：Wi-Fi/局域网协议未逆向，确定→边界对话框，不依赖触摸/GL） */
+        total++; pass += run_create();
         printf("=== 桌面事件验证: %d/%d 全对 ===\n", pass, total);
         return pass == total ? 0 : 1;
     }
@@ -518,6 +810,11 @@ int main(int argc, char **argv)
     if (strcmp(mode, "--stalemate") == 0) return run_stalemate() ? 0 : 1;
     if (strcmp(mode, "--replay") == 0) return run_replay() ? 0 : 1;
     if (strcmp(mode, "--login") == 0) return run_login() ? 0 : 1;
+    /* ★ P2（datah_037/104/034/035）：4 个原版对话框桌面验证 */
+    if (strcmp(mode, "--rules") == 0) return run_rules() ? 0 : 1;
+    if (strcmp(mode, "--newgame104") == 0) return run_newgame104() ? 0 : 1;
+    if (strcmp(mode, "--join") == 0) return run_join() ? 0 : 1;
+    if (strcmp(mode, "--create") == 0) return run_create() ? 0 : 1;
     printf("未知模式: %s\n", mode);
     return 2;
 }

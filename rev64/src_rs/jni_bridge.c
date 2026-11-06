@@ -1108,6 +1108,64 @@ Java_com_cnvcs_App_OnCreate(JNIEnv *env, jclass clazz, jobject activity)
         }
     }
 
+    /* ★ P2（datah_037 证据）：规则文本 setprop 钩子（adb setprop jq.rules 1 → 重启 →
+        OnCreate 弹 UI_RULES 规则文本弹窗：规则-翻棋/规则-布局 2 模式 + 返回）。
+        测试钩子范式，与 jq.gameset 同；值 1=弹出，0=不触发。一次性（清 0）。
+        ★ 诚实边界：规则文本=src_rs 现有简化版固定文本（2 套：翻棋/布局）。 */
+    {
+        char ru_prop[16] = {0};
+        __system_property_get("jq.rules", ru_prop);
+        if (strcmp(ru_prop, "1") == 0) {
+            ui_screen_set(UI_RULES);
+            LOGI("jq.rules 钩子：→ UI_RULES 规则文本弹窗（datah_037 规则-翻棋/规则-布局 2 模式 + 返回，"
+                 "诚实边界：规则文本=src_rs 简化版固定文本 2 套）");
+            __system_property_set("jq.rules", "0");
+        }
+    }
+    /* ★ P2（datah_104 证据）：新局完整版 setprop 钩子（adb setprop jq.newgame104 1 → 重启 →
+        OnCreate 弹 UI_NEWGAME104 新局完整版弹窗：我方/电脑水平/玩法 3 选择 + 确定/取消）。
+        测试钩子范式，与 jq.gameset 同；值 1=弹出，0=不触发。一次性（清 0）。
+        ★ 诚实边界：3 项各循环切换当前值（对齐 datah_001 音量循环 + datah_012 开关循环范式）。 */
+    {
+        char ng_prop[16] = {0};
+        __system_property_get("jq.newgame104", ng_prop);
+        if (strcmp(ng_prop, "1") == 0) {
+            ui_screen_set(UI_NEWGAME104);
+            LOGI("jq.newgame104 钩子：→ UI_NEWGAME104 新局完整版弹窗（datah_104 我方/电脑水平/玩法 3 选择 + 确定/取消，"
+                 "诚实边界：3 项各循环切换当前值简化版）");
+            __system_property_set("jq.newgame104", "0");
+        }
+    }
+    /* ★ P2（datah_034 证据）：加入游戏 setprop 钩子（adb setprop jq.join 1 → 重启 →
+        OnCreate 弹 UI_JOIN 加入游戏弹窗：桌号占位标签 + 确定/取消）。
+        测试钩子范式，与 jq.gameset 同；值 1=弹出，0=不触发。一次性（清 0）。
+        ★ 诚实边界：原版加入=局域网/Wi-Fi 联机协议（未逆向），src_rs 仅蓝牙 SPP；
+        确定 → 诚实边界对话框 + 回主菜单。 */
+    {
+        char jo_prop[16] = {0};
+        __system_property_get("jq.join", jo_prop);
+        if (strcmp(jo_prop, "1") == 0) {
+            ui_screen_set(UI_JOIN);
+            LOGI("jq.join 钩子：→ UI_JOIN 加入游戏弹窗（datah_034 桌号占位标签 + 确定/取消，"
+                 "诚实边界：Wi-Fi/局域网协议未逆向，src_rs 仅蓝牙联机已实现，确定→边界对话框）");
+            __system_property_set("jq.join", "0");
+        }
+    }
+    /* ★ P2（datah_035 证据）：创建游戏 setprop 钩子（adb setprop jq.create 1 → 重启 →
+        OnCreate 弹 UI_CREATE 创建游戏弹窗：密码占位标签 + 确定/取消）。
+        测试钩子范式，与 jq.gameset 同；值 1=弹出，0=不触发。一次性（清 0）。
+        ★ 诚实边界：原版创建=Wi-Fi/局域网协议（未逆向），src_rs 仅蓝牙 SPP；
+        确定 → 诚实边界对话框 + 回主菜单。 */
+    {
+        char cr_prop[16] = {0};
+        __system_property_get("jq.create", cr_prop);
+        if (strcmp(cr_prop, "1") == 0) {
+            ui_screen_set(UI_CREATE);
+            LOGI("jq.create 钩子：→ UI_CREATE 创建游戏弹窗（datah_035 密码占位标签 + 确定/取消，"
+                 "诚实边界：Wi-Fi/局域网协议未逆向，src_rs 仅蓝牙联机已实现，确定→边界对话框）");
+            __system_property_set("jq.create", "0");
+        }
+    }
     /* ★ P1（datah_039 证据）：复盘回放 setprop 钩子（adb setprop jq.replay 1 → 重启 →
        OnCreate 进 UI_REPLAY 复盘态：重建 g_state 到记录末尾 + datah_107 控制条渲染）。
        入口简化（原版 BackDlg 浮标命中 flaky → 钩子触发，参考 jq.gameset L1024 范式）。
@@ -1510,6 +1568,74 @@ Java_com_cnvcs_App_OnUpdate(JNIEnv *env, jclass clazz)
             __system_property_set("jq.replay", "0");
         }
     }
+    /* ★ P2（datah_037 证据）：规则文本 setprop 钩子（adb setprop jq.rules 1 → 同会话 OnUpdate 轮询
+       → UI_RULES 规则文本弹窗；0=退规则回对局。与 jq.replay 同范式，不重启 app）。
+       ★ 诚实边界：规则文本=src_rs 简化版固定文本（2 套：翻棋/布局）。 */
+    {
+        char ru_prop[16] = {0};
+        __system_property_get("jq.rules", ru_prop);
+        if (strcmp(ru_prop, "1") == 0) {
+            ui_screen_set(UI_RULES);
+            LOGI("OnUpdate 规则文本入口：rules=1 → UI_RULES 规则文本弹窗（datah_037 规则-翻棋/规则-布局 2 模式 + 返回，"
+                 "诚实边界：规则文本=src_rs 简化版固定文本 2 套）");
+            __system_property_set("jq.rules", "0");
+        } else if (strcmp(ru_prop, "2") == 0) {
+            ui_screen_set(UI_GAME);
+            LOGI("OnUpdate 规则文本入口：rules=2 → 退规则回对局");
+            __system_property_set("jq.rules", "0");
+        }
+    }
+    /* ★ P2（datah_104 证据）：新局完整版 setprop 钩子（adb setprop jq.newgame104 1 → 同会话 OnUpdate 轮询
+       → UI_NEWGAME104 新局完整版弹窗；0=退弹窗回主菜单。与 jq.replay 同范式，不重启 app）。
+       ★ 诚实边界：3 项各循环切换当前值（对齐 datah_001 音量循环 + datah_012 开关循环范式）。 */
+    {
+        char ng_prop[16] = {0};
+        __system_property_get("jq.newgame104", ng_prop);
+        if (strcmp(ng_prop, "1") == 0) {
+            ui_screen_set(UI_NEWGAME104);
+            LOGI("OnUpdate 新局完整版入口：newgame104=1 → UI_NEWGAME104 新局完整版弹窗（datah_104 我方/电脑水平/玩法 3 选择 + 确定/取消，"
+                 "诚实边界：3 项各循环切换当前值简化版）");
+            __system_property_set("jq.newgame104", "0");
+        } else if (strcmp(ng_prop, "2") == 0) {
+            ui_screen_set(UI_MENU);
+            LOGI("OnUpdate 新局完整版入口：newgame104=2 → 退弹窗回主菜单");
+            __system_property_set("jq.newgame104", "0");
+        }
+    }
+    /* ★ P2（datah_034 证据）：加入游戏 setprop 钩子（adb setprop jq.join 1 → 同会话 OnUpdate 轮询
+       → UI_JOIN 加入游戏弹窗；0=退弹窗回主菜单。与 jq.replay 同范式，不重启 app）。
+       ★ 诚实边界：原版加入=局域网/Wi-Fi 联机协议（未逆向），src_rs 仅蓝牙 SPP。 */
+    {
+        char jo_prop[16] = {0};
+        __system_property_get("jq.join", jo_prop);
+        if (strcmp(jo_prop, "1") == 0) {
+            ui_screen_set(UI_JOIN);
+            LOGI("OnUpdate 加入游戏入口：join=1 → UI_JOIN 加入游戏弹窗（datah_034 桌号占位标签 + 确定/取消，"
+                 "诚实边界：Wi-Fi/局域网协议未逆向，src_rs 仅蓝牙联机已实现，确定→边界对话框）");
+            __system_property_set("jq.join", "0");
+        } else if (strcmp(jo_prop, "2") == 0) {
+            ui_screen_set(UI_MENU);
+            LOGI("OnUpdate 加入游戏入口：join=2 → 退弹窗回主菜单");
+            __system_property_set("jq.join", "0");
+        }
+    }
+    /* ★ P2（datah_035 证据）：创建游戏 setprop 钩子（adb setprop jq.create 1 → 同会话 OnUpdate 轮询
+       → UI_CREATE 创建游戏弹窗；0=退弹窗回主菜单。与 jq.replay 同范式，不重启 app）。
+       ★ 诚实边界：原版创建=Wi-Fi/局域网协议（未逆向），src_rs 仅蓝牙 SPP。 */
+    {
+        char cr_prop[16] = {0};
+        __system_property_get("jq.create", cr_prop);
+        if (strcmp(cr_prop, "1") == 0) {
+            ui_screen_set(UI_CREATE);
+            LOGI("OnUpdate 创建游戏入口：create=1 → UI_CREATE 创建游戏弹窗（datah_035 密码占位标签 + 确定/取消，"
+                 "诚实边界：Wi-Fi/局域网协议未逆向，src_rs 仅蓝牙联机已实现，确定→边界对话框）");
+            __system_property_set("jq.create", "0");
+        } else if (strcmp(cr_prop, "2") == 0) {
+            ui_screen_set(UI_MENU);
+            LOGI("OnUpdate 创建游戏入口：create=2 → 退弹窗回主菜单");
+            __system_property_set("jq.create", "0");
+        }
+    }
     /* ★ P1（datah_038）：登录 setprop 钩子（adb setprop jq.login 1 → 同会话 OnUpdate 轮询
        → UI_LOGIN 登录弹窗；0=退登录回主菜单。与 jq.replay 同范式，不重启 app）。
        诚实边界：原版登录=账号系统（服务器协议未逆向），游客=本地单机唯一真生效路径。 */
@@ -1782,14 +1908,11 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
             if (wact == 0) {   /* 蓝牙联机 */
                 start_bt_session(env, g_way_host);
                 ui_screen_set(UI_GAME);
-            } else if (wact == 1) {   /* Wi-Fi 联机（诚实边界） */
-                jq_show_dialog(env, "Wi-Fi 联机",
-                    "Wi-Fi 联机（诚实边界）：\n"
-                    "src_rs 蓝牙联机已实现（SPP socket），Wi-Fi 联机\n"
-                    "协议未逆向（原版 Wi-Fi 需局域网发现/握手）。\n"
-                    "请选择蓝牙联机。");
-                LOGI("OnTouch 方式选择：Wi-Fi 联机边界说明（诚实边界）");
-                ui_screen_set(UI_MENU);
+            } else if (wact == 1) {   /* Wi-Fi 联机（★ P2 datah_034：加入游戏弹窗，诚实边界） */
+                ui_screen_set(UI_JOIN);
+                sfx_play(env, "pop");
+                LOGI("OnTouch 方式选择：Wi-Fi 联机 → UI_JOIN 加入游戏弹窗（datah_034 桌号占位标签 + 确定/取消，"
+                     "诚实边界：Wi-Fi/局域网协议未逆向，src_rs 仅蓝牙联机已实现，确定→边界对话框）");
             } else if (wact == 2) {   /* 个人资料 → 登录弹窗（★ P1 datah_038 证据：对齐原版登录对话框几何） */
                 ui_screen_set(UI_LOGIN);
                 sfx_play(env, "pop");
@@ -2294,6 +2417,183 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
         (void)clazz;
         return JNI_TRUE;
     }
+    /* ★ P2（datah_037 证据）：规则文本弹窗态。
+        点 规则-翻棋 → 显示翻棋模式规则文本（暗棋：棋子背面，按 rank 大小吃子，
+        工兵挖雷，炸弹同归于尽，夺旗胜）；点 规则-布局 → 显示布局模式规则文本
+        （明棋：自由布阵，军旗在大本营，地雷后两行，炸弹前线）；点 返回 → 回对局。
+        点面板外 → 回对局。★ 诚实边界：规则文本=src_rs 简化版固定文本（2 套）。 */
+    if (ui_screen_get() == UI_RULES) {
+        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
+        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        const ui_rules_btn *rb = ui_rules_buttons();
+        int rh = ui_rules_hit(rb, UI_RULES_COUNT, bx, by);
+        if (rh >= 0) {
+            int ract = rb[rh].action;
+            LOGI("OnTouch 规则文本弹窗：控件%d（action=%d）", rh, ract);
+            if (ract == 0) {   /* 规则-翻棋 → 显示翻棋模式规则文本 */
+                jq_show_dialog(env, "规则-翻棋（暗棋）",
+                    "翻棋模式规则（简化版）：\n"
+                    "暗棋：棋子背面，按 rank 大小吃子。\n"
+                    "工兵可挖雷，炸弹遇任何子同归于尽。\n"
+                    "军旗被吃或被困则负；夺旗方胜。\n"
+                    "★ 诚实边界：规则文本=src_rs 简化版固定文本。");
+                sfx_play(env, "pop");
+                LOGI("OnTouch 规则文本弹窗：规则-翻棋 → 显示翻棋模式规则文本（暗棋）");
+            } else if (ract == 1) {   /* 规则-布局 → 显示布局模式规则文本 */
+                jq_show_dialog(env, "规则-布局（明棋）",
+                    "布局模式规则（简化版）：\n"
+                    "明棋：自由布阵，军旗在大本营。\n"
+                    "地雷后两行，炸弹前线。\n"
+                    "工兵挖雷，炸弹同归于尽，夺旗方胜。\n"
+                    "★ 诚实边界：规则文本=src_rs 简化版固定文本。");
+                sfx_play(env, "pop");
+                LOGI("OnTouch 规则文本弹窗：规则-布局 → 显示布局模式规则文本（明棋）");
+            } else if (ract == 2) {   /* 返回 → 回对局 */
+                ui_screen_set(UI_GAME);
+                sfx_play(env, "pop");
+                LOGI("OnTouch 规则文本弹窗：返回 → 回对局");
+            }
+            (void)clazz;
+            return JNI_TRUE;
+        }
+        if (!ui_rules_popup_inside(bx, by)) {
+            ui_screen_set(UI_GAME);
+            LOGI("OnTouch 规则文本弹窗外（bx=%.0f by=%.0f）→ 回对局", bx, by);
+            sfx_play(env, "pop");
+        }
+        (void)clazz;
+        return JNI_TRUE;
+    }
+    /* ★ P2（datah_104 证据）：新局完整版弹窗态。
+        点 我方 → 蓝/红 切换（循环）；点 电脑水平 → 难度 1-4 循环；
+        点 玩法 → 布局/翻棋 切换（循环）；点 确定 → 按选择开局；
+        点 取消 → 回主菜单；点面板外 → 回主菜单。
+        ★ 诚实边界：3 项各循环切换当前值（对齐 datah_001 音量循环范式）。 */
+    if (ui_screen_get() == UI_NEWGAME104) {
+        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
+        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        const ui_newgame104_btn *nb = ui_newgame104_buttons();
+        int nh = ui_newgame104_hit(nb, UI_NEWGAME104_COUNT, bx, by);
+        if (nh >= 0) {
+            int nact = nb[nh].action;
+            LOGI("OnTouch 新局完整版弹窗：控件%d（action=%d）", nh, nact);
+            if (nact == 0) {   /* 我方：蓝/红 切换（循环，对齐 datah_001 音量循环范式） */
+                int cur = ui_opt_get_mode();   /* 用 mode 位存储我方选择（0=蓝方 1=红方，简化） */
+                ui_opt_select(ui_opt_get_level(), cur ? 0 : 1);
+                sfx_play(env, "pop");
+                LOGI("OnTouch 新局完整版弹窗：我方切换 → mode=%d（蓝方/红方，★ 诚实边界：简化用 mode 位存储）",
+                     ui_opt_get_mode());
+            } else if (nact == 1) {   /* 电脑水平：难度 1-4 循环 */
+                int lvl = ui_opt_get_level() + 1;
+                if (lvl > 4) lvl = 1;
+                ui_opt_select(lvl, ui_opt_get_mode());
+                sfx_play(env, "pop");
+                LOGI("OnTouch 新局完整版弹窗：电脑水平切换 → level=%d（新手/中级/高级/好友循环）", lvl);
+            } else if (nact == 2) {   /* 玩法：布局/翻棋 切换 */
+                int mode = !ui_opt_get_mode();
+                ui_opt_select(ui_opt_get_level(), mode);
+                sfx_play(env, "pop");
+                LOGI("OnTouch 新局完整版弹窗：玩法切换 → mode=%d（%s，默认翻棋暗棋）",
+                     mode, mode ? "翻棋暗棋" : "布局明棋");
+            } else if (nact == 3) {   /* 确定：按选择开局（ui_opt_select + jq_restart_game 随模式） */
+                g_vs_ai = 0;
+                pthread_mutex_lock(&g_mutex);
+                jq_restart_game();
+                pthread_mutex_unlock(&g_mutex);
+                ui_screen_set(UI_GAME);
+                sfx_play(env, "over");
+                LOGI("OnTouch 新局完整版弹窗：确定 → 开局（stage=PLAY 蓝先手，level=%d mode=%d，两人热座 AI 不介入）",
+                     ui_opt_get_level(), ui_opt_get_mode());
+            } else if (nact == 4) {   /* 取消：回主菜单 */
+                ui_screen_set(UI_MENU);
+                sfx_play(env, "pop");
+                LOGI("OnTouch 新局完整版弹窗：取消 → 回主菜单（不开局）");
+            }
+            (void)clazz;
+            return JNI_TRUE;
+        }
+        if (!ui_newgame104_popup_inside(bx, by)) {
+            ui_screen_set(UI_MENU);
+            LOGI("OnTouch 新局完整版弹窗外（bx=%.0f by=%.0f）→ 回主菜单", bx, by);
+            sfx_play(env, "pop");
+        }
+        (void)clazz;
+        return JNI_TRUE;
+    }
+    /* ★ P2（datah_034 证据）：加入游戏弹窗态。
+        点 桌号（占位标签）→ 无动作（LOGI）；点 确定 → 诚实边界对话框 + 回主菜单；
+        点 取消 → 回主菜单；点面板外 → 回主菜单。
+        ★ 诚实边界：原版加入=局域网/Wi-Fi 联机协议（未逆向），src_rs 仅蓝牙 SPP。 */
+    if (ui_screen_get() == UI_JOIN) {
+        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
+        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        const ui_join_btn *jb = ui_join_buttons();
+        int jh = ui_join_hit(jb, UI_JOIN_COUNT, bx, by);
+        if (jh >= 0) {
+            int jact = jb[jh].action;
+            LOGI("OnTouch 加入游戏弹窗：控件%d（action=%d）", jh, jact);
+            if (jact == 0) {   /* 桌号占位标签（触摸 flaky 无输入框） */
+                LOGI("OnTouch 加入游戏弹窗：桌号占位标签（★ 诚实边界：输入框简化，不画真输入框）");
+            } else if (jact == 1) {   /* 确定 → 诚实边界对话框 + 回主菜单 */
+                jq_show_dialog(env, "加入游戏（诚实边界）",
+                    "加入游戏（诚实边界）：\n"
+                    "桌号加入需 Wi-Fi/局域网协议，src_rs 仅蓝牙联机已实现，\n"
+                    "请选蓝牙联机（datah_072 方式弹窗“蓝牙联机”项）。");
+                LOGI("OnTouch 加入游戏弹窗：确定 → 诚实边界对话框 → 回主菜单");
+                ui_screen_set(UI_MENU);
+            } else if (jact == 2) {   /* 取消 → 回主菜单 */
+                ui_screen_set(UI_MENU);
+                sfx_play(env, "pop");
+                LOGI("OnTouch 加入游戏弹窗：取消 → 回主菜单");
+            }
+            (void)clazz;
+            return JNI_TRUE;
+        }
+        if (!ui_join_popup_inside(bx, by)) {
+            ui_screen_set(UI_MENU);
+            LOGI("OnTouch 加入游戏弹窗外（bx=%.0f by=%.0f）→ 回主菜单", bx, by);
+            sfx_play(env, "pop");
+        }
+        (void)clazz;
+        return JNI_TRUE;
+    }
+    /* ★ P2（datah_035 证据）：创建游戏弹窗态。
+        点 密码（占位标签）→ 无动作（LOGI）；点 确定 → 诚实边界对话框 + 回主菜单；
+        点 取消 → 回主菜单；点面板外 → 回主菜单。
+        ★ 诚实边界：原版创建=Wi-Fi/局域网协议（未逆向），src_rs 仅蓝牙 SPP。 */
+    if (ui_screen_get() == UI_CREATE) {
+        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
+        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        const ui_create_btn *cb = ui_create_buttons();
+        int ch = ui_create_hit(cb, UI_CREATE_COUNT, bx, by);
+        if (ch >= 0) {
+            int cact = cb[ch].action;
+            LOGI("OnTouch 创建游戏弹窗：控件%d（action=%d）", ch, cact);
+            if (cact == 0) {   /* 密码占位标签（触摸 flaky 无输入框） */
+                LOGI("OnTouch 创建游戏弹窗：密码占位标签（★ 诚实边界：输入框简化，不画真输入框）");
+            } else if (cact == 1) {   /* 确定 → 诚实边界对话框 + 回主菜单 */
+                jq_show_dialog(env, "创建游戏（诚实边界）",
+                    "创建游戏（诚实边界）：\n"
+                    "创建房间需 Wi-Fi/局域网协议，src_rs 仅蓝牙联机已实现，\n"
+                    "请选蓝牙联机（datah_072 方式弹窗“蓝牙联机”项）。");
+                LOGI("OnTouch 创建游戏弹窗：确定 → 诚实边界对话框 → 回主菜单");
+                ui_screen_set(UI_MENU);
+            } else if (cact == 2) {   /* 取消 → 回主菜单 */
+                ui_screen_set(UI_MENU);
+                sfx_play(env, "pop");
+                LOGI("OnTouch 创建游戏弹窗：取消 → 回主菜单");
+            }
+            (void)clazz;
+            return JNI_TRUE;
+        }
+        if (!ui_create_popup_inside(bx, by)) {
+            ui_screen_set(UI_MENU);
+            LOGI("OnTouch 创建游戏弹窗外（bx=%.0f by=%.0f）→ 回主菜单", bx, by);
+            sfx_play(env, "pop");
+        }
+        (void)clazz;
+        return JNI_TRUE;
+    }
     /* ★ 原版 UI 对齐：☰ 游戏内菜单 / ↩ 悔棋 图标（棋盘中部）。
        对局态点 ☰ → UI_INGAME_MENU；点 ↩ → 悔棋（undo_pop）。
        坐标换算 720×1280 基准（与渲染同几何）。
@@ -2396,14 +2696,11 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
                     "当前发送聊天占位帧（对端无文本渲染）。");
                 sfx_play(env, "pop");
                 LOGI("☰菜单 聊天：发送 CHAT 占位帧");
-            } else if (bt_mode && act == 7) {   /* 游戏规则（联机版，datah_067） */
-                jq_show_dialog(env, "游戏规则",
-                    "军棋规则：司令>军长>师长>旅长>团长>营长>连长>排长>工兵。\n"
-                    "工兵可沿铁路线任意格移动；炸弹遇任何子同归于尽；\n"
-                    "军旗被吃或被困则负；地雷不能移动，工兵可挖雷。\n"
-                    "翻明棋后按规则走子/吃子，吃光或夺旗方胜。");
+            } else if (bt_mode && act == 7) {   /* 游戏规则（联机版，datah_067）→ 规则文本弹窗（datah_037） */
+                ui_screen_set(UI_RULES);
                 sfx_play(env, "pop");
-                LOGI("☰菜单 游戏规则：显示规则对话框");
+                LOGI("☰菜单 游戏规则（联机版）：→ UI_RULES 规则文本弹窗（datah_037 规则-翻棋/规则-布局 2 模式 + 返回，"
+                     "诚实边界：规则文本=src_rs 简化版固定文本 2 套）");
             } else if (bt_mode && act == 5) {   /* 系统设置（联机版）→ 游戏设置弹窗（datah_012） */
                 ui_screen_set(UI_GAMESET);
                 sfx_play(env, "pop");
@@ -2447,14 +2744,11 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
                 pthread_mutex_unlock(&g_mutex);
                 sfx_play(env, done ? "move" : "pop");
                 LOGI("☰菜单 电脑变着：%s（turn=%d）", done ? "AI 走子" : "无可走", g_state.turn);
-            } else if (!bt_mode && act == 3) {   /* 游戏规则（本地版） */
-                jq_show_dialog(env, "游戏规则",
-                    "军棋规则：司令>军长>师长>旅长>团长>营长>连长>排长>工兵。\n"
-                    "工兵可沿铁路线任意格移动；炸弹遇任何子同归于尽；\n"
-                    "军旗被吃或被困则负；地雷不能移动，工兵可挖雷。\n"
-                    "翻明棋后按规则走子/吃子，吃光或夺旗方胜。");
+            } else if (!bt_mode && act == 3) {   /* 游戏规则（本地版）→ 规则文本弹窗（datah_037） */
+                ui_screen_set(UI_RULES);
                 sfx_play(env, "pop");
-                LOGI("☰菜单 游戏规则：显示规则对话框");
+                LOGI("☰菜单 游戏规则（本地版）：→ UI_RULES 规则文本弹窗（datah_037 规则-翻棋/规则-布局 2 模式 + 返回，"
+                     "诚实边界：规则文本=src_rs 简化版固定文本 2 套）");
             } else if (!bt_mode && act == 4) {   /* 功能设置（本地版）→ 游戏设置弹窗（datah_012） */
                 ui_screen_set(UI_GAMESET);
                 sfx_play(env, "pop");

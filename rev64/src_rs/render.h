@@ -67,6 +67,13 @@ typedef struct {
                                           复盘/菜单/回退/前进/跳转/返回/第N步/结束） */
     rs_glid_t tex_login_text[2];  /* ★ P1（datah_038）：登录文字图集 220×368（8 标签竖排：
                                            登录/用户名/密码/注册/游客/返回/账户/边界） */
+    rs_glid_t tex_rules_text[2];  /* ★ P2（datah_037）：规则文本文字图集 220×368（8 标签竖排：
+                                           规则/翻棋/布局/工兵/地雷/炸弹/夺旗/边界） */
+    rs_glid_t tex_ng104_text[2];  /* ★ P2（datah_104）：新局完整版文字图集 220×460（10 标签竖排：
+                                           新局/我方/电脑/玩法/蓝方/红方/新手/中级/高级/确定） */
+    rs_glid_t tex_join_text[2];   /* ★ P2（datah_034/035）：加入/创建游戏文字图集 220×460
+                                           （10 标签竖排：加入/创建/桌号/密码/确定/取消/
+                                           蓝牙/边界/联机/Wi-Fi） */
     void *board_px; size_t board_px_len;   /* 解码后 RGBA（跨 context 共享，只解码一次） */
     void *piece_px;  size_t piece_px_len;
     void *text_px;   size_t text_px_len;   /* 菜单文字图集 RGBA（5 label 竖排） */
@@ -97,6 +104,12 @@ typedef struct {
     int replay_text_w, replay_text_h;          /* 复盘文字图集尺寸 */
     void *login_text_px; size_t login_text_px_len; /* ★ P1（datah_038）：登录文字图集 RGBA（8 标签竖排 220×368） */
     int login_text_w, login_text_h;           /* 登录文字图集尺寸 */
+    void *rules_text_px; size_t rules_text_px_len; /* ★ P2（datah_037）：规则文本文字图集 RGBA（8 标签竖排 220×368） */
+    int rules_text_w, rules_text_h;           /* 规则文本文字图集尺寸 */
+    void *ng104_text_px; size_t ng104_text_px_len; /* ★ P2（datah_104）：新局完整版文字图集 RGBA（10 标签竖排 220×460） */
+    int ng104_text_w, ng104_text_h;           /* 新局完整版文字图集尺寸 */
+    void *join_text_px; size_t join_text_px_len; /* ★ P2（datah_034/035）：加入/创建游戏文字图集 RGBA（10 标签竖排 220×460） */
+    int join_text_w, join_text_h;             /* 加入/创建游戏文字图集尺寸 */
     void *imen_text_px; size_t imen_text_px_len; /* ★ ☰ 菜单文字图集 RGBA（8 项竖排 160×320） */
     int imen_text_w, imen_text_h;               /* ☰ 菜单文字图集尺寸 */
     void *imen_icons_px; size_t imen_icons_px_len; /* ★ ☰ 菜单图标图集 RGBA（8 图标 110×100 4×2，原版裁剪） */
