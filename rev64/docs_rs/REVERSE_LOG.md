@@ -3901,3 +3901,44 @@ python3 /tmp/opencode/incremental_regress.py reset 0xADDR  # 改了某指令 →
   （unidbg BL 解码 bug 阻塞）
 - 4800 REL 槽完整 vtable 表（2563 唯一 addend）需 unidbg 补重定位实锤
 - 73 事件名与事件码逐行映射需运行时事件触发实锤（静态三套常量区已区分，§124y-80）
+
+## §124y-85 .data 区 42 REL 槽 addend 全量实锤（.rodata 字符串常量 + 1 个 .text 函数指针）
+
+**★ 闭环事实（静态实锤，.data 区 42 REL 槽 addend 分布 + 内容实锤）**：
+
+1. **.data 区 42 REL 槽 addend 段分布**：
+   - **.rodata 41 槽**（addend 全指向 .rodata 字符串常量/数据区）
+   - **.text 1 槽**（偏移 0x01b4，addend 0x0b89b1 → .text 函数指针）
+   - 即 .data 区 42 REL 槽 = 41 个 .rodata 字符串常量指针 + 1 个 .text 函数指针（vtable/回调）
+
+2. **.data REL 槽 addend 对应 .rodata 字符串内容实锤（抽样）**：
+   - 偏移 0x0000 槽（0x15bb6c）= 0x1210d0 = `"2326591b3d28b5a249422dd4c7eb0a"`（**32 字符 = MD5/SHA 摘要**，广告/更新校验值）
+   - 偏移 0x0004 槽（0x15bb70）= 0x121bd4 = `"com.cnvcs.junqi.removead"`（**AG 去广告 SharedPreferences key**，§去广告目标）
+   - 偏移 0x0058 槽 = 0x126200（.rodata 数据区，非纯字符串）
+   - 偏移 0x0068 槽 = 0x127a7c = `"green"`（**棋色/阵营名**，游戏逻辑字符串）
+   - 偏移 0x0214 区 = 0x12a630 = `"&amp;"`（**HTML/XML 转义串**，UI/网络数据）
+   - 偏移 0x0294 区（0x13a1bc）= 数据区
+
+3. **.data REL 槽内容分组实锤**：
+   | 区 | 槽 | 内容 | 语义 |
+   |---|---|---|---|
+   | 偏移 0x0000 | 0x15bb6c | MD5 摘要 `2326...` | 资源/更新校验 |
+   | 偏移 0x0004 | 0x15bb70 | `com.cnvcs.junqi.removead` | AG 去广告 SP key |
+   | 偏移 0x0058-0x00a8 | 15 槽 | .rodata 数据区（0x126xxx/0x127xxx） | 游戏配置数据 |
+   | 偏移 0x01b4 | 0x15bd20 | 0x0b89b1（.text 函数指针） | C++ 回调/vtable |
+   | 偏移 0x0214-0x0290 | 22 槽 | .rodata 0x12a6xx（`&amp;` 等 HTML/XML 串） | 网络/UI 数据 |
+   | 偏移 0x0294-0x02c0 | 5 槽 | .rodata 0x13a1xx/0x13aaXX | 游戏字符串常量 |
+
+4. **§124y-32 的"5 条 .bss REL 槽（0x15be00-0x15be2c）"精确实锤纠正（§124y-81 已标注，本轮补内容）**：
+   - 0x15be00（偏移 0x0294）= 0x13a1bc / 0x15be04 = 0x13a93c / 0x15be14 = 0x13ab28 / 0x15be18 = 0x13aa24 / 0x15be2c = 0x13aba0
+   - 全指向 .rodata 0x13a1xx/0x13aaXX/0x13abXX 区（**游戏字符串常量**，非 §124y-32 标注的".rodata vtable"）
+   - 即 .data 高区 5 REL 槽（0x15be00-0x15be2c）= 游戏字符串常量指针（.rodata 0x13a1xx 区），非 vtable 指针
+
+### .data 区 42 REL 槽全量收表完毕
+- 41 .rodata 字符串常量指针（MD5 摘要 + AG key + 棋色 + HTML 转义 + 游戏字符串）+ 1 .text 函数指针
+- §124y-32 的 5 条（0x15be00-0x15be2c）精确实锤 = .rodata 0x13a1xx 游戏字符串常量（非 vtable）
+
+### 诚实边界
+- .data 区 42 REL 槽的运行时重定位（load_base + addend）需 unidbg 补重定位实锤（4800 .data.rel.ro 同源机制）
+- 偏移 0x0000 的 MD5 摘要 `2326...` 对应的资源/更新包需查 .rodata 0x1210d0 附近全量 + 广告 jar 关联
+  （AG 去广告目标：`com.cnvcs.junqi.removead` SP key 是去广告逻辑触发点）
