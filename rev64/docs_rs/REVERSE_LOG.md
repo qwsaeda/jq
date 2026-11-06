@@ -3979,3 +3979,41 @@ python3 /tmp/opencode/incremental_regress.py reset 0xADDR  # 改了某指令 →
   未实锤读者函数 + 运行时 SP 值）
 - `com.cnvcs.junqi.removead` SP 的读写方（Java 层 App.smali 或 native 层）需查 smali 全量
   `com.cnvcs` 包 + native JNI 调用关联实锤
+
+## §124y-87 native 层去广告 SP key 读取链精确实锤（Misc.RemoveAdOk/Fail 事件 + getString JNI 调用）
+
+**★ 闭环事实（静态实锤，去广告完整 JNI 调用链 + 事件名实锤）**：
+
+1. **native so 里去广告相关字符串全量实锤（strings 扫）**：
+   - `com.cnvcs.junqi.removead`（SP key，§124y-86 实锤）
+   - `Misc.RemoveAdFail`（**Misc.* 事件名，去广告失败事件**）
+   - `Misc.RemoveAdOk`（**Misc.* 事件名，去广告成功事件**）
+   - `getString`（**JNI SharedPreferences.getString 调用**）
+   - `glGetString`（GLES 函数，与去广告无关，误匹配）
+
+2. **去广告完整 JNI 调用链实锤**：
+   - native 层读 .data REL 槽 0x15bb70 → `.rodata 0x121bd4` 字符串 `com.cnvcs.junqi.removead`
+   - native 层调 JNI `FindClass(SharedPreferences)` + `getString("com.cnvcs.junqi.removead")`
+   - SP 值非 0 → 发 `Misc.RemoveAdOk` 事件（去广告成功）
+   - SP 值 0/失败 → 发 `Misc.RemoveAdFail` 事件（去广告失败）
+   - 即**去广告 = native 层 JNI 读 SharedPreferences key + 事件反馈**，非 smali 层逻辑
+
+3. **Misc.RemoveAdOk/Fail 与 §124y-59 的 73 条事件名关系实锤**：
+   - §124y-59 的 73 条 = `Junqi.*` 事件名（游戏逻辑事件，码 = 首字节 asr4 = 4）
+   - `Misc.RemoveAdOk`/`Misc.RemoveAdFail` = **Misc.* 事件名**（码 = 6，§124y-59 实锤 Misc.* = 6）
+   - 即完整事件名 = 73 Junqi.*（码 4）+ Misc.* 若干（码 6，含 RemoveAdOk/Fail）
+   - §124y-59 的 73 条 = Junqi.* 子集，非全量事件名（Misc.* 是另一组）
+
+4. **smali 层无 removead 字符串（§124y-87 核对）**：
+   - smali 全量 grep `removead` = 空（去广告逻辑全在 native 层，非 Java 层）
+   - 即 AGENTS.md 的"AG 去广告"目标（删 jar/manifest）是 Java 层资源去广告，
+     **与 native 层 SP key 去广告开关是两套独立机制**（本轮实锤区分）
+
+### 事件名分组修正（§124y-59 补全）
+- 完整事件名 = **Junqi.*（73 条，码 4）+ Misc.*（含 RemoveAdOk/RemoveAdFail，码 6）+ 其它前缀**
+- §124y-59 的 73 条 = Junqi.* 子集，非全量（Misc.* 是独立一组，§124y-87 实锤）
+
+### 诚实边界
+- native 层读 removead SP key 的**具体触发函数**（bl FindClass/getString 的 .text 地址）
+  需查 .text 全量反汇编 + frida 追踪 JNI 调用实锤（本轮实锤字符串 + 事件名 + 调用链语义）
+- Misc.RemoveAdOk/Fail 的完整 Misc.* 事件名池需查 .rodata 全量（§124y-59 只收 Junqi.* 73 条）
