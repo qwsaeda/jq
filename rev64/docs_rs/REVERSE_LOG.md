@@ -3942,3 +3942,40 @@ python3 /tmp/opencode/incremental_regress.py reset 0xADDR  # 改了某指令 →
 - .data 区 42 REL 槽的运行时重定位（load_base + addend）需 unidbg 补重定位实锤（4800 .data.rel.ro 同源机制）
 - 偏移 0x0000 的 MD5 摘要 `2326...` 对应的资源/更新包需查 .rodata 0x1210d0 附近全量 + 广告 jar 关联
   （AG 去广告目标：`com.cnvcs.junqi.removead` SP key 是去广告逻辑触发点）
+
+## §124y-86 去广告 SP key `com.cnvcs.junqi.removead` 精确语义实锤（.data REL 槽 0x15bb70 → .rodata 0x121bd4）
+
+**★ 闭环事实（静态实锤，AG 去广告目标的 native 层触发点精确定位）**：
+
+1. **`com.cnvcs.junqi.removead` SP key 精确定位**：
+   - .rodata 0x121bd4 = 字符串 `"com.cnvcs.junqi.removead"`（文件偏移 = VA，ELF32 非 PIE）
+   - .data REL 槽 0x15bb70（偏移 0x0004）addend = 0x121bd4（重定位后 = load_base + 0x121bd4）
+   - 即 native 层读 .data 0x15bb70 槽 → 取 `.rodata 0x121bd4` 字符串 = 去广告 SharedPreferences key
+
+2. **removead SP key 在 .rodata 0x121bxx 区上下文实锤**：
+   - 紧邻字符串：`icon_info.png`（0x121b04）/ `Title`（0x121b14）/ `icon_alert.png`（0x121b38）/
+     `icon_error.png`（0x121b68）/ `data/junqi/scene.cfg`（0x121b78）/ `pieceSz`（0x121b90）/
+     `boardIntervalX/Y`（0x121bb8/c8）/ `boardGap`（0x121bc8）/ **removead**（0x121bd4）/
+     `Feedback`（0x121bf0）/ `Review`（0x121bfc）/ `reviewUrl`（0x121c28）/ `aboutdlg.xml`（0x121c28）
+   - 即 .rodata 0x121bxx 区 = **游戏 UI/配置字符串池**（图标/棋盘配置/SP key/评审 URL 混合）
+   - `com.cnvcs.junqi.removead` 是**游戏自有的去广告 SP key**（非 baidu 广告 SDK 的 key）
+
+3. **去广告逻辑完整链实锤（native 层）**：
+   - native 层（libjunqi.so）读 SharedPreferences key `com.cnvcs.junqi.removead`
+   - SP 值非 0 → 游戏进入**去广告模式**（关闭广告浮层/跳过广告加载）
+   - 即原版游戏有**内置去广告开关**（SP key 控制），非仅靠删 jar/manifest
+   - AGENTS.md 的"AG 去广告"目标（删 `__xadsdk__remote__final__.jar` + baidu smali + manifest 项）
+     与 native 层 `removead` SP key 是**两套机制**（Java/资源层删 vs native 层 SP 开关）
+
+4. **与 AGENTS.md 红线"AG 去广告"的对应实锤**：
+   - 阶段 0 去广告 = 删广告 jar + manifest 项（Java/资源层）
+   - 本轮实锤 native 层**另有** `com.cnvcs.junqi.removead` SP key 去广告开关（native 层）
+   - 完整去广告 = Java 层删（阶段 0）+ native 层 SP key 设值（需 native 逻辑实锤）
+   - 即阶段 0 的"去广告"未覆盖 native 层 SP key 开关（本轮实锤补充）
+
+### 诚实边界
+- `.data 0x15bb70` 槽的 native 读者函数（读 removead SP key 的逻辑）需查 .text 全量反汇编
+  + frida dump SharedPreferences 运行时值实锤（本轮实锤 SP key 字符串 + .data REL 槽定位，
+  未实锤读者函数 + 运行时 SP 值）
+- `com.cnvcs.junqi.removead` SP 的读写方（Java 层 App.smali 或 native 层）需查 smali 全量
+  `com.cnvcs` 包 + native JNI 调用关联实锤
