@@ -562,6 +562,8 @@ Interceptor.attach(Module.getExportByName('libdl.so', 'android_dlopen_ext'), {
 | [0x35] 类型 | 事件对象 | ≠ 0 才匹配 | 运行时取值 |
 | 14 JNI 根对象 | .bss 0x15be80 | 0xcf8d78f0（scudo，§124y-99） | scudo 块结构 |
 | 事件表匹配器 | F_3a92c | dispatch offs[316] 已收 | vtable this 偏移 |
+| [0x44] 直接事件码层 | 事件表 17×17 (.bss 0x4704) | 17 事件码 0..16, 字段 asrs#4 匹配 | 事件码 1-16 行 (frida 触发) |
+| C++ 枚举事件类型层 | F_55700 switch (cmp 155) | 枚举边界值 155 (0x9b), .so stripped 无枚举名 | 枚举 155 对应事件类型 (frida 运行时值) |
 
 ### 13.3 修正链（§124y-60→102→109 三轮误判记录，防复发）
 
@@ -571,6 +573,7 @@ Interceptor.attach(Module.getExportByName('libdl.so', 'android_dlopen_ext'), {
 | §124y-102 | 0x121(289) 行 × 17 | §124y-109: 17 行 × 17（ip=289 字节=行宽上限） | 0x121 误读为行数（实为字节累计上限） |
 | §124y-106 | .bss 0x4704 非事件表 | §124y-108: dump 偏移对齐正确（dump[0]=.bss[0]） | dump 布局误判 |
 | §124y-89 | 事件码 asr4=6（Misc） | §124y-89/112: 前缀 asr4 全=4（J/M 高 4 位均 4），[0x44] 事件码 ≠ 前缀 asr4 | 事件码与前缀 asr4 混淆 |
+| §124y-120 | 155 = 事件码常量 | §124y-121: 155 = C++ 枚举事件类型码（非 [0x44] 直接码），事件分发两层编码 | 155 超 [0x44] 上限 16 + 事件名 74，是 enum 底层值 |
 
 **防复发公式（§124y-105 经验区，本轮补强）**：
 1. pc 相对读：`ldr rN,[pc,#K]` pool = 指令地址+4+K；`add rN,pc` pc = add 地址+4
