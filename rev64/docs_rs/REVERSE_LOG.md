@@ -2453,3 +2453,34 @@ python3 /tmp/opencode/incremental_regress.py reset 0xADDR  # 改了某指令 →
 ### 诚实边界
 - 0x34714 完整字符串构造（0x6ef9c std::string 区）需 C++ 对象图运行时内存对齐（unidbg BL 解码 bug 阻塞）
 - 当前 F_33684/F_34918 auto-stub `return r0` 已覆盖 .bss 未构造语义（读 0 早退），不影响 4 路径回归
+
+## §124y-47 事件字符串处理密集区（0x6ef9c/0x6f824/0xb2ac8）精确收表
+
+**★ 闭环事实（静态实锤）**：
+
+1. **0x6ef9c（事件字符串逐字节比较器）精确体**：
+   - `ldrsb r2,[r0,#0]; ldrsb r3,[r1,#0]; cmp` 逐字节（0/1/2/3... 偏移）比较
+   - 全等 → `sub r3,r2,r3` 等后续；不等 → `movs r0,#0; bx lr`（返回 0 标记）
+   - 即事件字符串前缀逐字节相等比较器（C++ string 比较底层）
+
+2. **0x6f824（事件字符串 memcpy 短函数）精确体**：
+   - `blx memcpy@plt`（3 行 memcpy 包装，r0=源 r1=目标 len）→ pop 返回
+   - F_3432c 的 bl 目标（§124y-34 事件底层字符串处理链），纯 memcpy 转发
+
+3. **0xb2ac8（std::string 构造器，0xb2ac8-0xb2ba8+）精确体**：
+   - `sub sp,#84`（0x54 栈帧）+ `ldr r6,[r0+4]`（string 对象 +4 字段 = 长度/容量）
+   - `cmp r6,#0; beq 0xb2ba8`（长度==0 → 跳过构造，走 0xb2ba8 空字符串路径）
+   - 非 0 → 栈上分配字符串缓冲（`add r5,sp,#52` 字符串数据区）
+   - 即 C++ std::string 构造器（.bss 未构造时 [r0+4]=0 → 空字符串路径）
+
+4. **事件字符串处理密集区（0x6ef9c/0x6f824/0xb2ac8/0x3432c）全量收表**：
+   - 0x3432c（§124y-34 事件底层字符串处理）→ bl 0x6f824（memcpy）+ 0xafb7c（拼接）+ 0xb67ec（[0x56] 置位）
+   - 0x34714（§124y-46 字符串构造 + [0x37c] 清零）→ bl 0x6ef9c（逐字节比较）+ 0x348f0（重建）
+   - 0xb2da8（§124y-43 底层字符串方法）→ bl 0xb2ac8（std::string 构造）+ 0xb4854（strtol 数字解析，§124y-36）
+   - **完整事件字符串链 = memcpy + 逐字节比较 + std::string 构造 + strtol 数字解析**（C++ 字符串密集区）
+
+### 诚实边界
+- 0x6ef9c/0xb2ac8 的完整 std::string 构造（栈上缓冲 + 长度/容量字段）需 C++ 对象图运行时对齐
+  （unidbg BL 解码 bug 阻塞），.bss 未构造时 [r0+4]=0 → 空字符串路径忠实空操作
+- 事件字符串密集区（0x6ef9c/0x6f824/0xb2ac8/0xb4854）已全量收表，但完整 C++ std::string 语义
+  （堆分配/SSO 短字符串优化）需 frida dump .bss scudo 块实锤
