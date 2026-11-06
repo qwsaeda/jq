@@ -4281,3 +4281,45 @@ python3 /tmp/opencode/incremental_regress.py reset 0xADDR  # 改了某指令 →
 - 92 更新/广告字符串的运行时配置值（adHost/updateUrl 实际域名）需 frida dump SharedPreferences 实锤
 - 35 GLES2 符号的完整渲染 pipeline（shader 编译/绑定/绘制调用序）需查 .text 渲染函数全量反汇编
 - 45 登录/账号字符串与 §124y-45 事件对象登录字段的对应需查登录逻辑 .text 函数实锤
+
+## §124y-97 原版 native JNI 导出符号 + 690 T 符号全量实锤（14 个 JNI + C 库/C++ 内嵌导出，无 JNI_OnLoad）
+
+**★ 闭环事实（静态实锤，原版 .so 导出符号全量分类）**：
+
+1. **14 个 JNI 导出符号精确实锤**（`nm -D` 实锤，修正 AGENTS.md 的"15 个"认知）：
+   | 符号 | 地址 | 语义 |
+   |---|---|---|
+   | `Java_com_cnvcs_App_OnEvent` | 0x233e0 | 事件处理入口（主入口，§124y-48 事件链对应） |
+   | `Java_com_cnvcs_App_OnInput` | 0x233f4 | 输入处理 |
+   | `Java_com_cnvcs_App_OnTouch` | 0x23438 | 触摸处理（§124y-26 触摸注入对应） |
+   | `Java_com_cnvcs_App_OnKey` | 0x2344c | 按键处理 |
+   | `Java_com_cnvcs_App_OnBluetooth` | 0x23424 | 蓝牙处理（§蓝牙联机对应） |
+   | `Java_com_cnvcs_App_OnCreate` | 0x23560 | 创建初始化（JNI_OnLoad 对应，但**无独立 JNI_OnLoad 导出**） |
+   | `Java_com_cnvcs_App_OnUpdate` | 0x23474 | 更新循环 |
+   | `Java_com_cnvcs_App_OnGraphCreate` | 0x2349c | GL 图创建（GL2 渲染，§124y-94 实锤） |
+   | `Java_com_cnvcs_App_OnGraphChange` | 0x23488 | GL 图变更 |
+   | `Java_com_cnvcs_App_OnResult` | 0x23408 | 结果回调 |
+   | `Java_com_cnvcs_App_OnTimer` | 0x23460 | 定时器 |
+   | `Java_com_cnvcs_App_OnPause/OnResume` | 0x234c4/0x234b0 | 生命周期 |
+   | `Java_com_cnvcs_App_OnDestroy` | 0x235d4 | 销毁 |
+   - **14 个 JNI 符号**（非 AGENTS.md 标注的 15 个，§124y-97 实锤纠正）
+   - **无独立 `JNI_OnLoad`/`JNI_OnUnload` 导出符号**（初始化走 `OnCreate` + .init_array 12 构造器，§124y-65/66 实锤）
+
+2. **690 个 T 导出符号全量实锤**（`nm -D` 实锤，原版 .so 导出非仅 JNI）：
+   - **14 个 `Java_com_cnvcs_App_On*`**（JNI 导出）
+   - **C 标准库内嵌导出**（`__aeabi_*` / `_Locale_*` / `__fixunssfsi` 等）：原版 .so **内嵌了 C 运行时 + C++ locale 库代码**（非仅 dlopen libc）
+   - 即原版 .so 是**静态链接 C/C++ 运行时**的胖 so（内嵌 locale/异常/C++ 运行时 690 导出），非仅动态依赖 libc.so
+   - 与 §124y-65/66 的 12 .init_array 构造器（C++ locale 全局构造）+ §124y-80 的 C++ 异常类名（`class exception`）对应
+
+3. **AGENTS.md 认知修正**：
+   - "导出 15 个 `Java_com_cnvcs_App_On*` JNI 符号"→ 精确实锤 **14 个**（§124y-97 nm -D 实锤）
+   - 原版 .so 依赖 `libstdc++.so`（§AGENTS.md 标注）→ 实锤 690 导出**内嵌 C++ 运行时/locale**（静态链接，非纯动态）
+   - 即原版 native 层 = 14 JNI 入口 + 690 内嵌 C/C++ 运行时导出（胖 so 静态链接特征）
+
+### 诚实边界
+- 14 个 JNI 符号的完整参数签名（native 方法形参）需查 smali App.smali 的 native 声明
+  + 各符号函数体全量反汇编实锤（本轮实锤符号名 + 地址，未实参签名）
+- 690 个内嵌 C/C++ 运行时导出的完整调用图（locale/异常/字符串内嵌库）需查 .text 全量反汇编
+  （本轮实锤导出特征，未实锤内部调用关系）
+- 无 JNI_OnLoad 的初始化时序（OnCreate 触发 .init_array 12 构造器 + pthread 起渲染线程）需
+  查 OnCreate 函数体（0x23560）全量反汇编 + frida 追踪实锤
