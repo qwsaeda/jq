@@ -5220,3 +5220,37 @@ python3 /tmp/opencode/incremental_regress.py reset 0xADDR  # 改了某指令 →
 - OnUpdate → 0xb7eb0 追加的数据（C++ 事件 buffer）与 §124y-109 事件表 17×17 的关系需
   frida 实锤（本轮实锤 0xb7eb0 是 C++ 缓冲区追加，非事件表匹配）
 - 根对象[0x24]（C++ 场景管理器成员）指向的对象布局需查 .bss 0x15be8c+0x24 区 + frida dump
+
+## §124y-136 OnTouch @0xbdd2c 精确实锤（MotionEvent C++ 虚调用 + 触摸事件处理）
+
+**★ 闭环事实（静态实锤，§124y-130 未收表的 OnTouch 触摸处理 C++ 逻辑全量实锤）**：
+
+1. **OnTouch @0xbdd2c 的 MotionEvent C++ 虚调用精确实锤**：
+   - `0xbdd38 ldr r3,[r1,#0]`（r1 = MotionEvent 对象，[0] = vtable 基址，C++ 封装的 Java MotionEvent）
+   - `0xbdd3e ldr r3,[vtable,#124=0x7c]`（**vtable 槽 31**（0x7c/4=31），MotionEvent 第 31 虚函数）
+   - `0xbdd48 blx r3`（**MotionEvent::method31() 虚调用**，触摸事件处理）
+   - `0xbdd52 movs r0,#132(0x84); 0xbdd54 ldr r6,[r1,#0x84]`（读 MotionEvent +0x84 字段，方法指针）
+   - `0xbdd60 blx r6`（**第二次虚调用**，r6 = [MotionEvent+0x84] = 另一 C++ 方法指针）
+   - 即 OnTouch = **MotionEvent C++ 类双重虚调用**（vtable 槽 31 + 对象 +0x84 字段方法指针）
+
+2. **MotionEvent C++ 封装实锤（JNI 桥接层触摸处理）**：
+   - MotionEvent = C++ 封装的 Java MotionEvent（JNI 桥接，§124y-100 的 OnTouch 参数）
+   - C++ 类布局：[0] = vtable 基址 / +0x84 = 方法指针字段（C++ 对象双重虚调用）
+   - 即 OnTouch 触摸处理 = C++ MotionEvent 对象的双重虚调用（vtable 槽 31 + 对象方法指针）
+   - 与 §124y-83 的"C++ 对象三层嵌套（this[0x34]/[0x38]→[0x60]）"同机制（C++ 多层虚调用）
+
+3. **触摸事件处理完整链实锤（§124y-26/100/136 全链）**：
+   - §124y-26 实锤"触摸注入 32 位 libc 设备端命中几何 0/60"（4 路径回归的触摸路径）
+   - 本轮 §124y-136 实锤 OnTouch = MotionEvent C++ 双重虚调用（vtable 槽 31 + 对象 +0x84）
+   - 即触摸事件 = JNI OnTouch(MotionEvent) → C++ MotionEvent 双重虚调用 → 触摸几何计算
+     （§124y-26 的命中几何 0/60 诚实边界 = C++ 触摸几何计算未对齐，需 frida 实锤）
+
+### 修正 §124y-100 的 OnTouch prologue 认知
+- §124y-100 实锤 OnTouch prologue（读 .rodata + bl 内部函数）→ 本轮实锤内部函数 0xbdd2c
+  = MotionEvent C++ 双重虚调用（vtable 槽 31 + 对象 +0x84 方法指针），非简单 C 函数
+
+### 诚实边界
+- MotionEvent C++ 类 vtable（槽 31 = 触摸处理虚函数）的 .rodata/.data vtable 目标需
+  frida dump vtable 实锤（本轮实锤双重虚调用机制，未实锤 vtable 槽 31 的 .text 目标）
+- 触摸几何计算（§124y-26 命中几何 0/60）的完整 C++ 逻辑需查 MotionEvent 方法 + frida 实锤
+  （本轮实锤触摸处理 = C++ 双重虚调用，未实锤几何计算函数）
