@@ -2083,3 +2083,21 @@ python3 /tmp/opencode/incremental_regress.py reset 0xADDR  # 改了某指令 →
 | 0x170 (0xb8<<1) | 字段 | 0x3a90c |
 | 0x17c (0xbe<<1) | 字段 | 0x3a914 |
 | 0x48 | 字段 | F_33790 写入 |
+
+### 收表落地（jqt_vtbl.c + 设备实锤）
+- **6 个新函数收进 dispatch 表**（jqt_vtbl_fns[]/jqt_vtbl_offs[] 同步 + jqt_vtbl_n 2097→2103）：
+  - F_5a104（事件创建工厂，0x59ce0 后插入）
+  - F_3a900（[r0+0x44] 事件码 getter）/ F_3a904（[r0+0x16c] 事件名 getter）/
+    F_3a90c（[r0+0x170]）/ F_3a914（[r0+0x17c]）/ F_3a924（ldrb [r0+0x35] 类型标记）
+  - 均 3 指令小函数，忠实 JQT_VALID 守卫 + 日志
+- **坑（link_audit FAIL 根因）**：fns[]/offs[] 表加 6 条但 `jqt_vtbl_n` 常量仍 2097
+  → "表末尾条目二分查不到" FAIL；改 2103 后 PASS。dispatch_insert.py 三处同步（fns/offs/jqt_vtbl_n）
+  的坑本轮再次验证——手动加槽必须同步三处。
+- **设备实锤（MuMu 59943，新 so）**：F_3a92c disc 非零 + F_3ab64 ok=0（§124y-33 忠实）正常；
+  4 路径回归 PASS=4/FAIL=0 + 0 崩溃。F_5a104/getter 群本身未被 jq.native_event 钩子触发
+  （钩子走 F_3a92c+F_3ab80 直接发送链，非 F_5a104 创建工厂），收表是为后续场景池 bl 路径服务。
+
+### 诚实边界
+- F_5a104 创建工厂"返回入参"语义已忠实，但 9 入口场景（0x3acxx 区场景对象池 bl 0x3a984→0x5a104）
+  需 C++ 事件对象 new（0x855c4 bl 目标，堆分配校验）——.bss 未构造时忠实早退返回 0，
+  完整创建链需 0x855c4 堆校验 + 0x8548c 字段填充深水区（C++ 对象图运行时内存对齐）
