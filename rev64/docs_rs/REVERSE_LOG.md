@@ -2655,3 +2655,46 @@ python3 /tmp/opencode/incremental_regress.py reset 0xADDR  # 改了某指令 →
 - 0x15afe0 表 16 条完整内容：前 3 条 ASCII/GBK 可读（`dbackdlg.xml`/`.xml`/中文），
   后续 13 条为 .rodata 数据区（非纯字符串，可能是 C 结构体/表，非事件名字符串）
 - 完整"事件名/字段名"字符串语义需逐个 .rodata 偏移取字符串 + GBK 解码（深水区）
+
+## §124y-53 F_3ab80 sgl 槽精确重算（修正 §124y-27 翻译体 0x15b0c4 误读）
+
+**★ 闭环事实（静态实锤，修正 §124y-27 翻译体）**：
+
+1. **F_3ab80（0x3ab80，事件发送器）的 sgl 槽精确重算**（§124y-27 翻译体写 `MEM(0x15b0c4)`，本轮重算纠正）：
+   - ① F_33790：`pool[0x3abe4]=0x121324 + pc(0x3ab88, ldr 后第一条 add r4,pc)`
+     → 精确 = 0x15beac（.bss，非 0x15b0c4）
+   - ⑥ F_33684：`pool[0x3abe8]=0x1212f0 + pc(0x3abc0)` → 0x15beb0（.bss）
+   - **即 5 个底层函数（F_33790/3376c/336ec/336c8/33684）的 sgl 槽 = .bss 0x15beac/0x15beb0（惰性 C++ 单例）**
+   - 与 §124y-44 已实锤的 0x15bfe4（4 个底层函数）同属 .bss 0x15be/0x15bf 区
+
+2. **§124y-27 翻译体 `sgl = MEM(0x15b0c4)` 的精确纠正**：
+   - 0x15b0c4 是 .data RELATIVE 槽（文件态=0，§124y-27 实锤 = 事件表基址 0x15af08 的来源）
+   - 但 F_33790 的 sgl 池值精确算 = **0x15beac（.bss 惰性）**，不是 0x15b0c4
+   - 0x15b0c4 与 0x15beac 差 0xA68（2664 字节）→ 不同对象
+   - **影响**：翻译体读 0x15b0c4（.data REL 槽，C++ 构造后 = 事件表 0x15af08）
+     与原版读 0x15beac（.bss 惰性，C++ 构造后 = 底层对象 scudo）语义不同
+     ——.data REL 槽 = 静态重定位（load_base+addend，运行时填），.bss = C++ 惰性构造填 scudo
+
+3. **两套地址域精确区分**（本轮 + §124y-44/51 汇总）：
+   | 槽 | 域 | 文件态 | 运行时 | 填者 |
+   |---|---|---|---|---|
+   | 0x15b0c4 | .data REL | 0 | load_base+0x125108(事件表) | 静态重定位 |
+   | 0x15beac | .bss | 0 | scudo 底层对象 | C++ 惰性构造 |
+   | 0x15beb0 | .bss | 0 | scudo 底层对象 | C++ 惰性构造 |
+   | 0x15bfe4 | .bss | 0 | scudo 底层对象 | C++ 惰性构造 |
+   | 0x15bfec | .bss | 0 | scudo 事件容器 | C++ 惰性构造 |
+   - 即 .data REL 槽（0x15b0c4）与 .bss 惰性槽（0x15beac/0x15beb0/0x15bfe4/0x15bfec）是**两套不同机制**
+
+4. **翻译体对应项 + 诚实边界**：
+   - F_3ab80 当前 `MEM(0x15b0c4)` 是**近似**（.data REL 槽，非原版 .bss 0x15beac）
+   - .bss 未构造时 0x15b0c4（.data REL 槽运行时重定位后 = 事件表 0x15af08，非 0）
+     vs 原版 0x15beac（.bss 未构造 = 0）→ **差异**：翻译体读 .data REL 槽非 0（事件表），
+     原版读 .bss 惰性槽 0（未构造）
+   - 4 路径回归不受影响（底层函数读 0/事件表都走忠实空操作），但精确语义记录
+   - 修正后续 frida dump 对照：0x15beac/0x15beb0/0x15bfe4/0x15bfec 4 个 .bss scudo 槽
+
+### 诚实边界
+- 0x15beac/0x15beb0 精确 pc 取值（0x3ab88/0x3abc0）基于 Thumb2 add r4,pc 的 pc=指令地址+4
+  惯例，需 frida dump 实锤运行时 0x15beac/0x15beb0 scudo 块地址
+- 翻译体 0x15b0c4（.data REL）vs 原版 0x15beac（.bss）的差异不影响 4 路径回归，
+  但完整语义对齐需改翻译体 F_33790/F_33684 的 sgl 为 .bss 惰性槽（需 MEM 支持真实 .bss 偏移）
