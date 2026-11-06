@@ -1426,3 +1426,76 @@ cp 报错被忽略 → **OUT 永不更新**。
 
 ### ⑧ 回归不变性
 ☰ 菜单几何改动**只动视觉与命中区**，走子逻辑未动：一致性 selftest **9/9**、evverify **47/47** 全过。
+
+---
+
+## §2026-11-07 批量弹窗生成器（gen_dialog_batch.py）+ 原版字符串表接入
+
+### ① 生成器幂等-clean 循环（模板迭代必备）
+`gen_dialog_batch.py` 插 7 个文件（ui_menu.h/c/stub + render.h/c + jni_bridge.c + evverify.c + layout_align_check.py）。
+改模板后要重生成 → 必须先把旧产物清干净，否则**重复 append → 重复符号 → 编译炸**。
+- 固化：`--clean` 子命令逆向删所有 ★ 批量对齐片段；**迭代循环**清同行残留（旧版 append 到同一行，
+  单条正则删不完）；每文件用带 `★ 批量对齐` / `dlg_batch_text` / `jq_dlg_batch` 标记的正则，不动其它代码。
+- 坑固化：
+  - render.c 的 `p104/dlgraw/dlgpx` 曾 append 到同一行 → 必须**迭代 30 轮**清（`re.sub` 循环到不变）；
+  - jni_bridge 钩子表 `g_dlg_batch_hooks` 重复 append → 必须删整段（`★ 批量对齐 setprop 钩子表` 起，到 `\n}\n(?=#include)`）；
+  - ui_menu.h 宏块 `#define UI_D\d{3}_COUNT` 后跟多行 → 正则要 `[\s\S]*?` + 多行匹配，且 `POPUP_W  230.0f` 是**双空格**
+    （`\w+\s+` 兼容单/双空格）。
+
+### ② f-string 变量泄漏（模板代码生成第一大坑）
+f-string 里写 `float tw = {widths[row-cnt+i]}.0f;` —— **`i` 是 Python 循环变量**（来自上一段
+`for i,it in enumerate(b["items"])` 的残留值），烘焙成**块级常量** → 9 按钮全用同一宽度 → 文字压成窄竖条。
+- 固化：模板生成 C 代码时，**per-item 数据必须显式生成 C 数组**（`D095_pw[] = { 76,76,76,... }`），
+  运行时用 `i` 索引，**绝不**把 Python 变量直接塞进 f-string 的循环体。
+
+### ③ 图集文字渲染三坑（datah_095 实证）
+`rs_atlas_label` 旧版：只收宽度、按「图集整行」推高度、`n_rows` 传按钮数 `cnt`、`u1=1.0` 映射整行 416px。
+- 固化：`rs_atlas_label_wh(rr,slot,tex,tex_w,tex_h, row_idx, cx,cy, w,h, u0,u1, uc)`：
+  1. 每按钮独立字形像素宽高（`D095_pw/ph` 数组）；
+  2. 图集行高**固定 40**（bake_atlas 行距），`v = (行号*40)/图集高`；
+  3. `u1 = 字形像素宽/图集宽`（非 1.0，否则整行 416px 压进字宽）；
+  4. 目标字高 30px（720 基准），宽按字形 bbox 比例等比。
+- 实证：datah_095 旧版 → 文字窄竖条 + 彩条；新版 → "菜单 复盘 设置 投降 提和" 5 槽清晰（截图 `d095_strip_zoom.png`）。
+
+### ④ strip 横条型去重（互斥按钮组只留独立槽）
+datah_095 原版 9 按钮但**互斥重叠**（复盘/聊天同位、提和/取消托管/离开/返回同位）→ 实为 **5 个独立槽**。
+- 固化：`load_batches` 规则改"先按原版 rect 去重（相交>30% 视为互斥组，只留首个），再用原版真实 x 坐标"；
+  均分整条宽仅作**兜底**（去重后坐标无效/全挤一处时）。
+- 坑：旧版对 strip 直接按 9 按钮均分 → 既错位又重复。
+
+### ⑤ datax_194 误接入（诚实边界：语义未确认 ≠ 可拉伸铺满）
+`datax_194` 160×40 内含 **4 个 40px 硬边色段**（橙/紫/绿/蓝），用途未从原版确认；
+旧版被逐按钮拉伸铺满（`rs_solid_btn` 叠加 `tex_panel_btn`）→ 每个窄按钮都变彩条（datah_095 实证渲染错误）。
+- 固化：**语义未确认的位图不接入**（宁可纯色 + 描边，不冒险拉伸）；要接入必须先目视确认语义
+  （`spak_ui_assets.py --set NNN "语义"` 登记 + `--sheet` 对比）。
+
+### ⑥ 原版字符串表接入（data_config_string.xml → jq_strings.h）
+我方弹窗文字此前**手写硬编码**（自编文案），与原版不一致。
+- 固化：原版**完整界面字符串表**（`data_config_string.xml`，79 条 Common/Misc/Junqi 三组）→
+  `jq_strings.h`（88 宏，自动生成）；UI 文案**一律引用本表，不再自编**（`spak_strings.py --list/--grep` 查）。
+  - 例：`JQ_STR_ExitConfirm = 真的要退出吗？` / `JQ_STR_RegretConfirm = 您真的要悔棋吗？` /
+    `JQ_STR_ResignConfirm = 您真的要投降吗？` / `JQ_STR_Update = 有新的版本，是否更新？`
+  - 富文本标记 `{#Y}..{/#Y}` 不渲染 → 用纯文本副本（宏值去标记）。
+- 接入点：render.c 3 个确认弹窗（ExitConfirm/ResignConfirm/RegretConfirm）+ jni_bridge.c 版本更新对话框（Common.Update）。
+- 坑：`jq_strings.h` 曾有**自别名段**（`#define JQ_STR_X JQ_STR_X`）→ 自引用编译错；已删（主定义已同名）。
+
+### ⑦ 钩子函数位置 vs 宏定义（U LOGI → dlopen 失败 → app 崩溃）
+`jq_dlg_batch_hook` 被插到文件顶部（`#include "ui_menu.h"` 后），但 **`LOGI` 宏定义在更下方**（L76）→
+`LOGI(...)` 未展开 → 变成**未定义外部符号 `U LOGI`** → `dlopen failed: failed to link` → app 启动即崩。
+- 固化：
+  1. 钩子函数用 **`__android_log_print`** 而非 `LOGI`（不依赖宏定义位置）；
+  2. 链接审计**加 UND 白名单检查**（`so_link_check.py` 不只查 GL/EGL，还要查自定义符号 `ui_*/jq_*` 是否全解析）；
+  3. 编译后必 `llvm-nm -u dist/libjunqi.so | grep -cw LOGI`（=0 才安全）。
+- 实证：MuMu 上 `UnsatisfiedLinkError: dlopen failed: failed to link libjunqi.so`（崩溃日志行）。
+
+### ⑧ 证据层级 & 诚实边界（批量弹窗）
+- **像素级对齐**：几何（面板/按钮 rect）走 `layout_align_check.py DIALOGS`（Δ=0 判据）；文字走原版 `data_font_all.ttf` 烘焙；
+- **业务边界**：批量 13 弹窗的**按钮业务映射**走 `REUSE_UI`（复用已有弹窗）+ `SPECIAL`（直接动作）+ 兜底**诚实边界对话框**；
+  未逆向的业务项一律标注"诚实边界"，不包装成"已实现"；
+- **资源真值**：图标/面板位图优先 SPAK datax PNG 原图（`spak_ui_assets.py --index` 建语义索引），
+  未确认语义的**不接入**（⑤）。
+
+### ⑨ 回归不变性
+批量 13 弹窗 + 字符串表接入，**只动视觉与命中区**，走子逻辑未动：
+编译 0 error、evverify **60/60**、一致性 selftest **9/9**、无未定义 `U LOGI`。
+截图存证：`dist/spak_res/d095_aligned.png`（整屏）+ `d095_strip_zoom.png`（横条放大）。

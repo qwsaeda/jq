@@ -47,7 +47,8 @@ typedef struct {
     rs_glid_t tex_piece[2];     /* 棋子图集 212×280（GL 纹理，每 context 一套） */
     rs_glid_t tex_text[2];      /* 菜单按钮文字图集 136×214（原版字体 data_029 光栅化） */
     rs_glid_t tex_bg[2];        /* 对局棋盘背景 datax_177 720×1280（原版完整棋盘背景） */
-    rs_glid_t tex_menu_bg[2];   /* ★ 原版 UI 对齐：主菜单背景 datax_294 800×1205（卡通士兵） */
+    rs_glid_t tex_menu_bg[2];   /* ★ 原版 UI 对齐：主菜单背景 datax_294 800×1205（卡通士兵） */        rs_glid_t tex_dlg_text[2];   /* ★ 批量对齐：共用按钮文字图集（dlg_batch_text.png） */
+    void *dlg_text_px; size_t dlg_text_px_len; int dlg_text_w, dlg_text_h;
     rs_glid_t tex_imen_text[2]; /* ★ ☰ 菜单文字图集 160×320（8 项竖排，data_029 字体） */
     rs_glid_t tex_imen_icons[2];/* ★ ☰ 菜单图标图集 440×200（8 图标 110×100 4×2，原版裁剪） */
     rs_glid_t tex_imen_orig[2]; /* ★ 原版 datax 图标真值图集 384×384（16 图标 4×4，每格 96） */

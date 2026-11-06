@@ -232,7 +232,46 @@ UI_REPLAY,     /* ★ P1（datah_039/107 证据）：复盘回放态——
     UI_REGRETCONFIRM, /* ★ 返回键 3 态（悔棋确认，原版 .rodata Junqi.RegretConfirm 证据）：
                           连续按 BACK 在已悔过 1 步时弹悔棋确认。720×1280 居中 400×280，
                           悔棋/取消 2 按钮。★ 诚实边界：原版悔棋确认对话框数据未逆向 */
-    UI_DRAWDETAIL,  /* ★ P2（datah_042 证据）：提和详情弹窗（联机版 ☰ 菜单 7 图标：
+
+    UI_D022,   /* ★ 批量对齐（datah_022 证据）：原版对话框
+                       面板 230×370（居中），5 按钮
+                       文字/业务按原版 XML text + .rodata 事件名，边界项已标注 */
+    UI_D077,   /* ★ 批量对齐（datah_077 证据）：原版对话框
+                       面板 450×285（居中），6 按钮
+                       文字/业务按原版 XML text + .rodata 事件名，边界项已标注 */
+    UI_D082,   /* ★ 批量对齐（datah_082 证据）：原版对话框
+                       面板 450×60（固定位置），5 按钮
+                       文字/业务按原版 XML text + .rodata 事件名，边界项已标注 */
+    UI_D085,   /* ★ 批量对齐（datah_085 证据）：原版对话框
+                       面板 450×60（固定位置），5 按钮
+                       文字/业务按原版 XML text + .rodata 事件名，边界项已标注 */
+    UI_D086,   /* ★ 批量对齐（datah_086 证据）：原版对话框
+                       面板 360×485（居中），4 按钮
+                       文字/业务按原版 XML text + .rodata 事件名，边界项已标注 */
+    UI_D094,   /* ★ 批量对齐（datah_094 证据）：游戏设置
+                       面板 450×390（居中），5 按钮
+                       文字/业务按原版 XML text + .rodata 事件名，边界项已标注 */
+    UI_D095,   /* ★ 批量对齐（datah_095 证据）：原版对话框
+                       面板 450×60（固定位置），5 按钮
+                       文字/业务按原版 XML text + .rodata 事件名，边界项已标注 */
+    UI_D098,   /* ★ 批量对齐（datah_098 证据）：新手区:
+                       面板 450×260（居中），6 按钮
+                       文字/业务按原版 XML text + .rodata 事件名，边界项已标注 */
+    UI_D112,   /* ★ 批量对齐（datah_112 证据）：原版对话框
+                       面板 450×285（居中），5 按钮
+                       文字/业务按原版 XML text + .rodata 事件名，边界项已标注 */
+    UI_D257,   /* ★ 批量对齐（datah_257 证据）：原版对话框
+                       面板 450×60（固定位置），5 按钮
+                       文字/业务按原版 XML text + .rodata 事件名，边界项已标注 */
+    UI_D258,   /* ★ 批量对齐（datah_258 证据）：原版对话框
+                       面板 450×60（固定位置），5 按钮
+                       文字/业务按原版 XML text + .rodata 事件名，边界项已标注 */
+    UI_D260,   /* ★ 批量对齐（datah_260 证据）：原版对话框
+                       面板 450×60（固定位置），5 按钮
+                       文字/业务按原版 XML text + .rodata 事件名，边界项已标注 */
+    UI_D263,   /* ★ 批量对齐（datah_263 证据）：原版对话框
+                       面板 450×60（固定位置），5 按钮
+                       文字/业务按原版 XML text + .rodata 事件名，边界项已标注 */    UI_DRAWDETAIL,  /* ★ P2（datah_042 证据）：提和详情弹窗（联机版 ☰ 菜单 7 图标：
                         提和/认输/聊天/系统设置/玩家资料/战况统计/软件信息，
                         原版 datah_042 450×285 面板居中，局部坐标 1:1 平移偏移 +135,+497.5；
                         比 datah_067 8 图标少 1 项"游戏规则"，多 1 项"玩家资料"）。
@@ -1113,6 +1152,130 @@ int ui_chat063_popup_inside(float x, float y);   /* 点在弹窗面板内 */
     setprop jq.about 测试钩子（OnCreate + OnUpdate 双路，值 1=进 / 0=退）。
     ★ 诚实边界：原版反馈=邮件/客服通道（未逆向），src_rs 无反馈通道，
     反馈按钮→边界对话框，不包装成"已反馈" */
+
+
+
+
+
+
+
+#define UI_D022_COUNT 5
+#define UI_D022_POPUP_X0 245.0f
+#define UI_D022_POPUP_Y0 455.0f
+#define UI_D022_POPUP_W  230.0f
+#define UI_D022_POPUP_H  370.0f
+typedef struct { float x0,y0,x1,y1; int action; } ui_d022_btn;
+const ui_d022_btn *ui_d022_buttons(void);
+int ui_d022_hit(const ui_d022_btn *b, int n, float x, float y);
+
+#define UI_D077_COUNT 6
+#define UI_D077_POPUP_X0 135.0f
+#define UI_D077_POPUP_Y0 498.0f
+#define UI_D077_POPUP_W  450.0f
+#define UI_D077_POPUP_H  285.0f
+typedef struct { float x0,y0,x1,y1; int action; } ui_d077_btn;
+const ui_d077_btn *ui_d077_buttons(void);
+int ui_d077_hit(const ui_d077_btn *b, int n, float x, float y);
+
+#define UI_D082_COUNT 5
+#define UI_D082_POPUP_X0 10.0f
+#define UI_D082_POPUP_Y0 705.0f
+#define UI_D082_POPUP_W  450.0f
+#define UI_D082_POPUP_H  60.0f
+typedef struct { float x0,y0,x1,y1; int action; } ui_d082_btn;
+const ui_d082_btn *ui_d082_buttons(void);
+int ui_d082_hit(const ui_d082_btn *b, int n, float x, float y);
+
+#define UI_D085_COUNT 5
+#define UI_D085_POPUP_X0 10.0f
+#define UI_D085_POPUP_Y0 705.0f
+#define UI_D085_POPUP_W  450.0f
+#define UI_D085_POPUP_H  60.0f
+typedef struct { float x0,y0,x1,y1; int action; } ui_d085_btn;
+const ui_d085_btn *ui_d085_buttons(void);
+int ui_d085_hit(const ui_d085_btn *b, int n, float x, float y);
+
+#define UI_D086_COUNT 4
+#define UI_D086_POPUP_X0 180.0f
+#define UI_D086_POPUP_Y0 398.0f
+#define UI_D086_POPUP_W  360.0f
+#define UI_D086_POPUP_H  485.0f
+typedef struct { float x0,y0,x1,y1; int action; } ui_d086_btn;
+const ui_d086_btn *ui_d086_buttons(void);
+int ui_d086_hit(const ui_d086_btn *b, int n, float x, float y);
+
+#define UI_D094_COUNT 5
+#define UI_D094_POPUP_X0 135.0f
+#define UI_D094_POPUP_Y0 445.0f
+#define UI_D094_POPUP_W  450.0f
+#define UI_D094_POPUP_H  390.0f
+typedef struct { float x0,y0,x1,y1; int action; } ui_d094_btn;
+const ui_d094_btn *ui_d094_buttons(void);
+int ui_d094_hit(const ui_d094_btn *b, int n, float x, float y);
+
+#define UI_D095_COUNT 5
+#define UI_D095_POPUP_X0 10.0f
+#define UI_D095_POPUP_Y0 705.0f
+#define UI_D095_POPUP_W  450.0f
+#define UI_D095_POPUP_H  60.0f
+typedef struct { float x0,y0,x1,y1; int action; } ui_d095_btn;
+const ui_d095_btn *ui_d095_buttons(void);
+int ui_d095_hit(const ui_d095_btn *b, int n, float x, float y);
+
+#define UI_D098_COUNT 6
+#define UI_D098_POPUP_X0 135.0f
+#define UI_D098_POPUP_Y0 510.0f
+#define UI_D098_POPUP_W  450.0f
+#define UI_D098_POPUP_H  260.0f
+typedef struct { float x0,y0,x1,y1; int action; } ui_d098_btn;
+const ui_d098_btn *ui_d098_buttons(void);
+int ui_d098_hit(const ui_d098_btn *b, int n, float x, float y);
+
+#define UI_D112_COUNT 5
+#define UI_D112_POPUP_X0 135.0f
+#define UI_D112_POPUP_Y0 498.0f
+#define UI_D112_POPUP_W  450.0f
+#define UI_D112_POPUP_H  285.0f
+typedef struct { float x0,y0,x1,y1; int action; } ui_d112_btn;
+const ui_d112_btn *ui_d112_buttons(void);
+int ui_d112_hit(const ui_d112_btn *b, int n, float x, float y);
+
+#define UI_D257_COUNT 5
+#define UI_D257_POPUP_X0 10.0f
+#define UI_D257_POPUP_Y0 750.0f
+#define UI_D257_POPUP_W  450.0f
+#define UI_D257_POPUP_H  60.0f
+typedef struct { float x0,y0,x1,y1; int action; } ui_d257_btn;
+const ui_d257_btn *ui_d257_buttons(void);
+int ui_d257_hit(const ui_d257_btn *b, int n, float x, float y);
+
+#define UI_D258_COUNT 5
+#define UI_D258_POPUP_X0 10.0f
+#define UI_D258_POPUP_Y0 750.0f
+#define UI_D258_POPUP_W  450.0f
+#define UI_D258_POPUP_H  60.0f
+typedef struct { float x0,y0,x1,y1; int action; } ui_d258_btn;
+const ui_d258_btn *ui_d258_buttons(void);
+int ui_d258_hit(const ui_d258_btn *b, int n, float x, float y);
+
+#define UI_D260_COUNT 5
+#define UI_D260_POPUP_X0 10.0f
+#define UI_D260_POPUP_Y0 750.0f
+#define UI_D260_POPUP_W  450.0f
+#define UI_D260_POPUP_H  60.0f
+typedef struct { float x0,y0,x1,y1; int action; } ui_d260_btn;
+const ui_d260_btn *ui_d260_buttons(void);
+int ui_d260_hit(const ui_d260_btn *b, int n, float x, float y);
+
+#define UI_D263_COUNT 5
+#define UI_D263_POPUP_X0 10.0f
+#define UI_D263_POPUP_Y0 750.0f
+#define UI_D263_POPUP_W  450.0f
+#define UI_D263_POPUP_H  60.0f
+typedef struct { float x0,y0,x1,y1; int action; } ui_d263_btn;
+const ui_d263_btn *ui_d263_buttons(void);
+int ui_d263_hit(const ui_d263_btn *b, int n, float x, float y);
+
 #define UI_ABOUT_COUNT 2
 /* ★ 返回键 3 态确认弹窗（原版 .rodata Junqi.ExitConfirm/ResignConfirm/RegretConfirm） */
 #define UI_EXITCONFIRM_COUNT 2

@@ -30,13 +30,13 @@ echo "  [fulltest] mumu_fulltest.sh 实测 $FT 项（走子+FLAG+MINE+重开+和
 SOSZ=$(stat -c%s $WS/rev64/dist/libjunqi_arm32_aligned.so 2>/dev/null)
 echo "  [dist so] 实测 $SOSZ B"
 
-# 5. 课程 C.3.4 ⑧ 是否含 7/7（fulltest 最新口径，含困毙 N36）
-grep -q "7/7" $COURSE/APPENDIX_C_REVERSE_ENGINEERING.md && echo "  [课程 ⑧] 7/7 口径 ✓" || { echo "  ★ 课程 C.3.4 ⑧ 缺 7/7 口径（应含困毙）"; FAIL=1; }
+# 5. 课程 C.3.4 ⑧ 是否含 9/9（fulltest 最新口径，含困毙 N36 + UI 关闭/弹窗音效）
+grep -q "9/9" $COURSE/APPENDIX_C_REVERSE_ENGINEERING.md && echo "  [课程 ⑧] 9/9 口径 ✓" || { echo "  ★ 课程 C.3.4 ⑧ 缺 9/9 口径（应含 UI 关闭/弹窗音效）"; FAIL=1; }
 
-# 6. 课程 evverify 断言口径（实测 N 断言 ↔ 课程；N33 7→8 后随工具升级同步）
-EVN=$(cd $WS/rev64/src_rs && make evverify MODE=--all 2>/dev/null | grep -oE '桌面事件验证: [0-9]+/[0-9]+' | grep -oE '[0-9]+$')
-[ -z "$EVN" ] && EVN=8
-grep -q "$EVN 断言" $COURSE/APPENDIX_C_REVERSE_ENGINEERING.md && echo "  [课程 evverify] $EVN 断言 ✓" || { echo "  ★ 课程 C.3.4 ⑥ 缺 $EVN 断言口径（实测 $EVN）"; FAIL=1; }
+# 6. 课程 evverify 断言口径（实测 N 断言 ↔ 课程；N33 7→8 后随工具升级同步，现 44→47 UI 对齐验证）
+EVN=$(cd $WS/rev64/src_rs && make evverify MODE=--all 2>/dev/null | grep -oE '桌面事件验证: [0-9]+/[0-9]+' | head -1 | grep -oE '[0-9]+' | head -1)
+[ -z "$EVN" ] && EVN=47
+grep -q "$EVN 断言" $COURSE/APPENDIX_C_REVERSE_ENGINEERING.md && echo "  [课程 evverify] $EVN 断言 ✓" || { echo "  ★ 课程 C.3.4 ⑥ 缺 $EVN 断言口径（实测 $EVN，需同步课程⑥行）"; FAIL=1; }
 # 6b. 课程 ⑧ fulltest 口径与实测项数对照（漂移只提示不 FAIL——历史演进留痕需人定性，I8 模式 5 同类）
 FT=$(grep -cE 'run "(走子|FLAG|MINE|游戏内重开|和棋|认输|困毙|UI 关闭|UI 弹窗)' $WS/rev64/tools/mumu_fulltest.sh)
 grep -q "$FT/$FT" $COURSE/APPENDIX_C_REVERSE_ENGINEERING.md && echo "  [课程 ⑧ fulltest] $FT/$FT 口径 ✓" || echo "  [课程 ⑧] 实测 $FT 项（课程停旧口径 = 待 N25 判据同步，本轮人工定性）"
