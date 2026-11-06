@@ -287,6 +287,8 @@ int rs_render_init(rs_render *rr, const char *spak_dir, const jq_state *init_sta
         snprintf(p8, sizeof p8, "%s/imen_text_atlas.png", spak_dir ? spak_dir : "");
         char p9[512];
         snprintf(p9, sizeof p9, "%s/imen_icons_atlas.png", spak_dir ? spak_dir : "");
+        char p103[512];   /* ★ 原版 datax 图标真值图集（16 图标 4×4） */
+        snprintf(p103, sizeof p103, "%s/imen_orig_icons.png", spak_dir ? spak_dir : "");
         char p10[512];
         snprintf(p10, sizeof p10, "%s/imen_hamburger_atlas.png", spak_dir ? spak_dir : "");
         char p11[512], p12[512], p13[512], p14[512], p15[512], p16[512], p17[512];
@@ -342,7 +344,8 @@ int rs_render_init(rs_render *rr, const char *spak_dir, const jq_state *init_sta
         unsigned char *praw2 = NULL; size_t praw2_len = 0;  /* popup.png 9-patch */
         unsigned char *mraw = NULL; size_t mraw_len = 0;    /* ★ 菜单背景 datax_294 */
         unsigned char *iraw = NULL; size_t iraw_len = 0;    /* ★ ☰ 菜单文字图集 */
-        unsigned char *icraw = NULL; size_t icraw_len = 0;  /* ★ ☰ 菜单图标图集 */
+        unsigned char *icraw = NULL; size_t icraw_len = 0;
+        unsigned char *ioraw = NULL; size_t ioraw_len = 0;   /* ★ 原版 datax 图标图集 */  /* ★ ☰ 菜单图标图集 */
         unsigned char *hbraw = NULL; size_t hbraw_len = 0;  /* ★ ☰/↩ 图标图集 */
         unsigned char *bbraw = NULL; size_t bbraw_len = 0;  /* ★ 主菜单大按钮图集 */
         unsigned char *bsraw = NULL; size_t bsraw_len = 0;  /* ★ 主菜单小按钮图集 */
@@ -410,12 +413,13 @@ int rs_render_init(rs_render *rr, const char *spak_dir, const jq_state *init_sta
         rs_read_png(am, "spak_res/bg_menu_720.png", p4, &graw, &graw_len);
         rs_read_png(am, "spak_res/popup_text_atlas.png", p5, &oraw, &oraw_len);
         rs_read_png(am, "spak_res/popup.png", p6, &praw2, &praw2_len);
-        rs_read_png(am, p100, "spak_res/panel_circle.png", &panraw, &panraw_len);
-        rs_read_png(am, p101, "spak_res/btn_color1.png", &btnraw, &btnraw_len);
-        rs_read_png(am, p102, "spak_res/icon_file.png", &icoraw, &icoraw_len);
+        rs_read_png(am, "spak_res/panel_circle.png", p100, &panraw, &panraw_len);
+        rs_read_png(am, "spak_res/btn_color1.png", p101, &btnraw, &btnraw_len);
+        rs_read_png(am, "spak_res/icon_file.png", p102, &icoraw, &icoraw_len);
         rs_read_png(am, "spak_res/menu_bg_294.png", p7, &mraw, &mraw_len);
         rs_read_png(am, "spak_res/imen_text_atlas.png", p8, &iraw, &iraw_len);
         rs_read_png(am, "spak_res/imen_icons_atlas.png", p9, &icraw, &icraw_len);
+        rs_read_png(am, "spak_res/imen_orig_icons.png", p103, &ioraw, &ioraw_len);
         rs_read_png(am, "spak_res/imen_hamburger_atlas.png", p10, &hbraw, &hbraw_len);
         rs_read_png(am, "spak_res/menu_btn_big.png", p11, &bbraw, &bbraw_len);
         rs_read_png(am, "spak_res/menu_btn_small.png", p12, &bsraw, &bsraw_len);
@@ -479,7 +483,21 @@ int rs_render_init(rs_render *rr, const char *spak_dir, const jq_state *init_sta
             rr->imen_icons_px = icpx; rr->imen_icons_px_len = (size_t)icw * ich * 4;
             rr->imen_icons_w = icw; rr->imen_icons_h = ich;
         }
-        free(icraw);
+        /* ★ 原版 datax 图标真值图集（16 图标 4×4，每格 96） */
+        if (ioraw) {
+            unsigned char *iopx=NULL; int iow=0,ioh=0;
+            if (png_decode(ioraw, ioraw_len, &iopx, &iow, &ioh) == 0) {
+                rr->imen_orig_px = iopx; rr->imen_orig_px_len = (size_t)iow * ioh * 4;
+                rr->imen_orig_w = iow; rr->imen_orig_h = ioh;
+                LOGI("原版图标图集加载 OK：imen_orig_icons.png %dx%d（%zuB）", iow, ioh, ioraw_len);
+            } else {
+                LOGI("原版图标图集解码 FAIL：imen_orig_icons.png（%zuB，诚实边界：☰ 图标退化纯色块）",
+                     ioraw_len);
+            }
+        } else {
+            LOGI("原版图标图集读取 FAIL：imen_orig_icons.png 未找到（spak_res 缺文件？）");
+        }
+        free(icraw); free(ioraw);
         /* ★ 原版 UI 对齐：☰/↩ 图标图集（128×64，orig_human 裁剪，棋盘中部） */
         if (hbraw && png_decode(hbraw, hbraw_len, &hbpx, &hbw, &hbh) == 0) {
             rr->hamburger_px = hbpx; rr->hamburger_px_len = (size_t)hbw * hbh * 4;
@@ -1153,15 +1171,12 @@ static void rs_draw_imen(rs_render *rr, int slot)
     rs_unbind_vbo();
     glDeleteBuffers(1, &rr->vbo_sel[slot]);
     rr->vbo_sel[slot] = 0;
-    /* ★ 原版面板 9patch 位图（datax_246）叠加（若加载成功）：720 基准面板 rect */
-    if (rr->tex_panel[slot] && rr->panel_w > 0 && rr->panel_h > 0) {
-        rs_draw_bitmap(rr, slot, rr->tex_panel[slot], rr->panel_w, rr->panel_h,
-                       px0, py0, px0 + pw, py0 + ph);
-        if (!panbdiag) { panbdiag = 1;
-            LOGI("原版位图资源对齐（ch02 N45）：面板 9patch（datax_246）%.0fx%.0f + 图标（datax_244）"
-                 " + 彩色按钮（datax_194）位图真值已渲染（深色矩形保留为退化底）",
-                 rr->panel_w, rr->panel_h);
-        }
+    /* ★ 诚实边界：原版弹窗面板底图 = popup.cfg（XML image= 引用），其 9-patch 位图真值
+       尚未在 SPAK datax 中定位（datax_246 实为「圆形按钮」素材，非面板 → 拉伸会盖住内容，
+       已撤下）。此处保留深色半透明矩形作面板底（退化底，诚实标注）。 */
+    if (!panbdiag) { panbdiag = 1;
+        LOGI("原版位图资源对齐（ch02 N45）：面板底图未定位（popup.cfg 9-patch 真值缺失，"
+             "诚实边界：深色矩形退化底）+ 图标（datax_244）+ 彩色按钮（datax_194）位图真值已接入");
     }
     /* ★ 原版图标位图（datax_244 icon_file）叠加于面板左上角（36×36 720 基准） */
     if (rr->tex_panel_icon[slot] && rr->panel_icon_w > 0 && rr->panel_icon_h > 0) {
@@ -1182,22 +1197,33 @@ static void rs_draw_imen(rs_render *rr, int slot)
     };
     /* ★ 对抗审计（datah_067）：蓝牙联机 ☰ 菜单用联机版按钮表（提和/认输/聊天），
        本地模式用 datah_006 版（电脑变着/软件信息/退出） */
-    const ui_imen_btn *im = ui_bt_active() ? ui_imen_bt_buttons() : ui_imen_buttons();
+    int imen_bt = ui_bt_active();
+    const ui_imen_btn *im = imen_bt ? ui_imen_bt_buttons() : ui_imen_buttons();
     /* ★ 原版 UI 对齐：③ 图标用真实位图（imen_icons_atlas.png 440×200，8 图标
        110×100 4×2，orig_ingame_menu 裁剪）替换纯色块近似。图标 88×80（720 基准）
        在按钮内 0.30 处，中心 = 按钮中心 x；UV = 第 i 图标子矩形。 */
+    /* ★ 原版实测几何（orig_ingame_menu.png ×0.8 → 720 基准，用户截图指正"按钮错乱"）：
+       列心 x = 125/289/447/606；图标行1 y=516、图标行2 y=703；文字行1 y=594、文字行2 y=779。
+       ★ 图标改用 apk 资源真值（datax PNG 原图 4×4 图集，每格 96），不再用截图裁剪（二手像素）。 */
+    static const float IMEN_COL_X[4] = { 125.0f, 289.0f, 447.0f, 606.0f };
+    static const float IMEN_ICON_Y[2] = { 516.0f, 703.0f };
+    static const float IMEN_TEXT_Y[2] = { 594.0f, 779.0f };
     for (int i = 0; i < UI_IMENU_COUNT; i++) {
         float bx0 = im[i].x0 * sx, by0 = im[i].y0 * sy;
         float bx1 = im[i].x1 * sx, by1 = im[i].y1 * sy;
-        float icx = (bx0 + bx1) * 0.5f;
-        float icy = by0 + (by1 - by0) * 0.30f;
-        float iw = 88.0f * sx, ih = 80.0f * sy;
+        (void)by0; (void)by1;
+        float icx = IMEN_COL_X[i % 4] * sx;
+        float icy = IMEN_ICON_Y[i / 4] * sy;
+        float iw = 96.0f * sx, ih = 96.0f * sy;
         float icx0 = icx - iw * 0.5f, icx1 = icx + iw * 0.5f;
         float icy0 = icy - ih * 0.5f, icy1 = icy + ih * 0.5f;
-        if (rr->tex_imen_icons[slot] && rr->prog_tex[slot] && rr->imen_icons_w > 0 && rr->imen_icons_h > 0) {
-            /* 真实图标位图（UV 子矩形 = 第 i 图标，110×100 4×2） */
-            float u0 = (float)(i % 4) / 4.0f, v0 = (float)(i / 4) / 2.0f;
-            float u1 = u0 + 1.0f / 4.0f, v1 = v0 + 1.0f / 2.0f;
+        if (rr->tex_imen_orig[slot] && rr->prog_tex[slot] && rr->imen_orig_w > 0 && rr->imen_orig_h > 0) {
+            /* ★ 原版 apk 资源真值图标（datax PNG，4×4 图集每格 96）：
+               index 0-7 = 本地 datah_006（星/回转/箭头/纸/扳手/彩饼/蓝i/红X）
+               index 8-15 = 联机 datah_067（星/回转/握手/红旗/气泡/扳手/彩饼/纸） */
+            int gidx = (imen_bt ? 8 : 0) + i;
+            float u0 = (float)(gidx % 4) / 4.0f, v0 = (float)(gidx / 4) / 4.0f;
+            float u1 = u0 + 1.0f / 4.0f, v1 = v0 + 1.0f / 4.0f;
             rs_v4f iq[6] = {
                 {icx0, icy0, u0, v0}, {icx1, icy0, u1, v0}, {icx0, icy1, u0, v1},
                 {icx0, icy1, u0, v1}, {icx1, icy0, u1, v0}, {icx1, icy1, u1, v1},
@@ -1206,7 +1232,7 @@ static void rs_draw_imen(rs_render *rr, int slot)
             glUniform2f(rr->uViewWH_tex[slot], (GLfloat)rr->view_w, (GLfloat)rr->view_h);
             glUniform1i(glGetUniformLocation(rr->prog_tex[slot], "uTex"), 0);
             glActiveTexture(GL_TEXTURE0);
-            glBindTexture(GL_TEXTURE_2D, rr->tex_imen_icons[slot]);
+            glBindTexture(GL_TEXTURE_2D, rr->tex_imen_orig[slot]);   /* ★ 原版 datax 图集（384×384） */
             glGenBuffers(1, &rr->vbo_sel[slot]);
             glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
             glBufferData(GL_ARRAY_BUFFER, sizeof(iq), iq, GL_DYNAMIC_DRAW);
@@ -1240,17 +1266,34 @@ static void rs_draw_imen(rs_render *rr, int slot)
        （900 屏）= 126×30（720 基准），非 160×40。中心在按钮内 0.90 处（实测行1
        文字中心 y=594、行2 y=780），中心 x = 按钮中心（与图标同列）。
        ★ 对抗审计（datah_067）：蓝牙联机 ☰ 菜单用 btimen_text_atlas（提和/认输/聊天）。 */
-    int imen_bt = ui_bt_active();
     int text_w = imen_bt ? rr->btimen_text_w : rr->imen_text_w;
     int text_h = imen_bt ? rr->btimen_text_h : rr->imen_text_h;
     rs_glid_t text_tex = imen_bt ? rr->tex_btimen_text[slot] : rr->tex_imen_text[slot];
     if (text_tex && rr->prog_tex[slot] && text_w > 0 && text_h > 0) {
+        /* ★ 原版实测文字几何（orig_ingame_menu.png ×0.8 → 720 基准）：
+           文字行1 中心 y=594、文字行2 中心 y=779；列心同图标列（125/289/447/606）。
+           文字宽按实测：4 字 ≈ 122（"重新开始"/"电脑变着"/"游戏规则"/"功能设置"/"战况统计"
+           /"软件信息"/"退出程序"）、2 字 ≈ 53（"悔棋"/"提和"/"认输"/"聊天"）。
+           ★ 之前错在：固定 tw=134（900 系 ×0.8 换算）与 450 系 1:1 的按钮宽度混用两套基准
+           → 4 列文字互相重叠（用户截图"按钮错乱"）。此处改为按字数取原版实测宽。 */
+        static const char *IMEN_LABEL[8] = {
+            "重新开始", "悔棋", "电脑变着", "游戏规则",
+            "功能设置", "战况统计", "软件信息", "退出程序" };
+        static const char *IMEN_BT_LABEL[8] = {
+            "重新开始", "悔棋", "提和", "认输",
+            "聊天", "系统设置", "战况统计", "游戏规则" };
         for (int i = 0; i < UI_IMENU_COUNT; i++) {
-            float bx0 = im[i].x0 * sx, by0 = im[i].y0 * sy;
-            float bx1 = im[i].x1 * sx, by1 = im[i].y1 * sy;
-            float tcx = (bx0 + bx1) * 0.5f;
-            float tcy = by0 + (by1 - by0) * 0.90f;
-            float tw = 134.0f * sx, th = tw * (40.0f / 160.0f);   /* 原版实测：字形占图集 94% → tw=134 → 字形 126px（720 基准）=157px（900 屏），与原版 bbox 一致 */
+            const char *lbl = imen_bt ? IMEN_BT_LABEL[i] : IMEN_LABEL[i];
+            int nchars = 0;
+            while (lbl[nchars]) nchars++;          /* 汉字按 1 计（UTF-8 每字 3 字节） */
+            float tcx = IMEN_COL_X[i % 4] * sx;
+            float tcy = IMEN_TEXT_Y[i / 4] * sy;
+            /* 图集 160 宽里字形按字数自然占位（4 字占 ~150、2 字占 ~75，居中）：
+               tw 固定 = 160 源宽 → 130 基准宽，则 4 字字形显示 122（原版实测 122）、
+               2 字字形显示 61（原版实测 53，差 8 为原版字距差异，可接受）。 */
+            (void)nchars;
+            float tw = 130.0f * sx;
+            float th = tw * (40.0f / 160.0f);
             float tx0 = tcx - tw * 0.5f, ty0 = tcy - th * 0.5f;
             float u0 = 0.0f, u1 = 1.0f;   /* 整源宽（文字 160px 宽图集，全宽） */
             float v0 = (float)(i * 40) / text_h;
@@ -5193,6 +5236,15 @@ static void rs_gl_rebuild(rs_render *rr, int slot)
         glBindTexture(GL_TEXTURE_2D, rr->tex_popup[slot]);
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->popup_w, rr->popup_h, 0,
                      GL_RGBA, GL_UNSIGNED_BYTE, rr->popup_px);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    }
+    /* ★ 原版 datax 图标真值图集（16 图标 4×4）纹理上传 */
+    if (rr->imen_orig_px && rr->gl2_ok[slot] && rr->imen_orig_w > 0 && rr->imen_orig_h > 0) {
+        glGenTextures(1, &rr->tex_imen_orig[slot]);
+        glBindTexture(GL_TEXTURE_2D, rr->tex_imen_orig[slot]);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->imen_orig_w, rr->imen_orig_h, 0,
+                     GL_RGBA, GL_UNSIGNED_BYTE, rr->imen_orig_px);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     }

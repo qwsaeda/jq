@@ -394,10 +394,13 @@ int ui_diff_popup_inside(float x, float y); /* 点在弹窗面板内 */
    4 列 x=123/284/445/606（列距 161）、2 行 y=514/702（行距 188）、图标 88×80、
    文字行中心 594/780；datah_006 的 450×285 非实际面板尺寸） */
 #define UI_IMENU_COUNT 8
-#define UI_IMENU_POPUP_X0 135.0f
-#define UI_IMENU_POPUP_Y0 498.0f
-#define UI_IMENU_POPUP_W  450.0f
-#define UI_IMENU_POPUP_H  285.0f
+/* ★ 原版实测（orig_ingame_menu.png 900×1600 ×0.8 → 720 基准，用户截图指正"按钮错乱"）：
+   原版 ☰ 菜单暗区覆盖 x 22..698 / y 424..844（无边框，整屏暗带）→ 676×420。
+   ★ 之前用 datah_006 XML 的 450×285（1:1 平移）→ 面板偏小，与原版不符。 */
+#define UI_IMENU_POPUP_X0 22.0f
+#define UI_IMENU_POPUP_Y0 424.0f
+#define UI_IMENU_POPUP_W  676.0f
+#define UI_IMENU_POPUP_H  420.0f
 typedef struct {
     float x0, y0, x1, y1;   /* 按钮矩形（720×1280 基准绝对） */
     int action;             /* 0=重新开始 1=悔棋 2=电脑变着 3=游戏规则

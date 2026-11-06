@@ -1558,6 +1558,18 @@ Java_com_cnvcs_App_OnCreate(JNIEnv *env, jclass clazz, jobject activity)
             __system_property_set("jq.backtest", "0");
         }
     }
+    /* ★ ☰ 菜单渲染验证钩子（adb setprop jq.imen 1 → OnCreate/OnUpdate 直接进
+       UI_INGAME_MENU；触摸命中 flaky 时用 setprop 验渲染几何）。
+       ★ 诚实边界：仅测试触发器，不改业务。 */
+    {
+        char im_prop[16] = {0};
+        __system_property_get("jq.imen", im_prop);
+        if (strcmp(im_prop, "1") == 0) {
+            ui_screen_set(UI_INGAME_MENU);
+            LOGI("jq.imen 钩子：→ UI_INGAME_MENU（☰ 菜单渲染验证，原版实测几何）");
+            __system_property_set("jq.imen", "0");
+        }
+    }
     /* ★ P2（datah_000 证据）：软件信息 setprop 钩子（adb setprop jq.about 1 → 重启 →
         OnCreate 弹 UI_ABOUT 软件信息弹窗：Version 版本号 1.6.8 + 官网 www.cnvcs.com
         + 反馈/关闭 2 按钮）。
@@ -2352,6 +2364,16 @@ Java_com_cnvcs_App_OnUpdate(JNIEnv *env, jclass clazz)
             ui_screen_set(bk_prop[0] == '2' ? UI_RESIGNCONFIRM : (bk_prop[0] == '3' ? UI_REGRETCONFIRM : UI_EXITCONFIRM));
             LOGI("OnUpdate jq.backtest 钩子：→ 返回键 3 态确认弹窗（backtest=%s）", bk_prop);
             __system_property_set("jq.backtest", "0");
+        }
+    }
+    /* ★ ☰ 菜单渲染验证钩子（同会话 OnUpdate 轮询 → UI_INGAME_MENU） */
+    {
+        char im_prop[16] = {0};
+        __system_property_get("jq.imen", im_prop);
+        if (strcmp(im_prop, "1") == 0) {
+            ui_screen_set(UI_INGAME_MENU);
+            LOGI("OnUpdate jq.imen 钩子：→ UI_INGAME_MENU（☰ 菜单渲染验证）");
+            __system_property_set("jq.imen", "0");
         }
     }
     /* ★ P2（datah_000 证据）：软件信息 setprop 钩子（adb setprop jq.about 1 → 同会话 OnUpdate 轮询

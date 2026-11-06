@@ -197,12 +197,47 @@ DIALOGS = {
     # 诚实边界：原版反馈=邮件/客服通道未逆向，src_rs 无反馈通道，反馈→边界对话框）
     "datah_000_about": (400, 280, [
         ("反馈",40,198,180,258),("关闭",220,198,360,258)]),
+    # ★ SPAK2UI 批量（12 弹窗）：战况统计子菜单链 + 玩家/对局/对战方式/创建游戏/版本更新
+    # 居中类：按钮局部坐标（面板 0,0,W,H 偏移在 dialog_720 统一加）；
+    # 固定位置类（044/045/090/100 BackDlg）：按钮坐标已是 720 基准绝对值，
+    # 面板 W/H 只用于遮罩范围判定，偏移 (0,0) 经 ABS_PANELS 处理
+    "datah_044_ui44": (0, 0, [
+        ("消息",65,640,205,700),("排行",65,715,205,775)]),
+    "datah_045_ui45": (0, 0, [
+        ("详细",320,658,412,718)]),
+    "datah_046_ui46": (420, 420, [
+        ("返回",120,335,300,395)]),
+    "datah_047_ui47": (420, 305, [
+        ("关闭",120,220,300,280)]),
+    "datah_049_ui49": (420, 610, [
+        ("关闭",120,525,300,585)]),
+    "datah_051_ui51": (450, 610, [
+        ("清空",45,525,202,585),("关闭",248,525,405,585)]),
+    "datah_054_ui54": (450, 610, [
+        ("清空",45,525,202,585),("关闭",248,525,405,585)]),
+    "datah_073_ui73": (450, 270, [
+        ("开始",30,190,210,250),("取消",240,190,420,250)]),
+    "datah_090_ui90": (0, 0, [
+        ("人机",135,570,345,630),("联网",135,660,345,720)]),
+    "datah_100_ui100": (0, 0, [
+        ("详细",320,658,412,718)]),
+    "datah_110_ui110": (450, 610, [
+        ("清空",45,525,202,585),("关闭",248,525,405,585)]),
+    "datah_118_ui118": (450, 360, [
+        ("更新",40,275,205,335),("取消",245,275,410,335)]),
 }
 
 # datah_107/039 绝对坐标面板（不居中，局部 1:1 平移 @ 偏移）
 ABS_PANELS = {
     "datah_107_replay": (10, 705),
     "datah_039_replay": (27, 650),
+    # ★ SPAK2UI 批量：4 个 BackDlg 固定位置面板（面板 720 基准 X0,Y0；
+    # DIALOGS 里按钮坐标已是 720 绝对值，dialog_720 走 ABS_PANELS 分支：
+    # 局部 0,0 + 面板 X0,Y0 = 720 值，Δ 比对需与 ui_menu.c 720 表一致）
+    "datah_044_ui44": (45, 620),
+    "datah_045_ui45": (45, 620),
+    "datah_090_ui90": (135, 570),
+    "datah_100_ui100": (45, 620),
 }
 
 # 主菜单 = 原版 orig_menu.png 真机 900×1600 实测 ×0.8（非 datah_023 450 系换算）
@@ -277,6 +312,9 @@ def load_src_rs_buttons(path="rev64/src_rs/ui_menu.c"):
     tables["chat063"] = _grab("g_chat063_btns")
     # ★ P2（datah_000 证据）：软件信息弹窗 2 按钮（g_about_btns）
     tables["about"] = _grab("g_about_btns")
+    # ★ SPAK2UI 批量 12 弹窗按钮表（g_uiXXX_btns）
+    for t in ["ui44","ui45","ui46","ui47","ui49","ui51","ui54","ui73","ui90","ui100","ui110","ui118"]:
+        tables[t] = _grab(f"g_{t}_btns")
     return tables
 def dialog_720(name):
     """原版对话框 → 720×1280 物理基准（面板水平居中 +135，垂直居中按面板 H）；
@@ -511,7 +549,46 @@ def check_geometry(menu_src=None, verbose=True):
             for i2, (lbl, x0, y0, x1, y1) in enumerate(obtns):
                 pairs.append((lbl, (round(ox+x0,1), round(oy+y0,1), round(ox+x1,1), round(oy+y1,1)),
                               (srcs[i2][0],srcs[i2][1],srcs[i2][2],srcs[i2][3])))
-        # ★ P2（datah_000 证据）：软件信息 2 按钮（400×280 居中，偏移+160,+500）
+        # ★ SPAK2UI 批量 12 弹窗逐按钮 Δ 比对（居中类走 DIALOGS 偏移；固定位置类 044/045/090/100
+    #   的 DIALOGS 按钮坐标已是 720 绝对值（面板 W/H=(0,0) 不偏移），期望值直接取 DIALOGS 720 值）
+    uibat_pairs = [
+        ("datah_044_ui44", "ui44"), ("datah_045_ui45", "ui45"),
+        ("datah_046_ui46", "ui46"), ("datah_047_ui47", "ui47"),
+        ("datah_049_ui49", "ui49"), ("datah_051_ui51", "ui51"),
+        ("datah_054_ui54", "ui54"), ("datah_073_ui73", "ui73"),
+        ("datah_090_ui90", "ui90"), ("datah_100_ui100", "ui100"),
+        ("datah_110_ui110", "ui110"), ("datah_118_ui118", "ui118"),
+    ]
+    for dname, tname in uibat_pairs:
+        if dname not in DIALOGS or tname not in src: continue
+        W, H, obtns = DIALOGS[dname]
+        srcs = src[tname]
+        if W > 0 and H > 0:
+            # 居中类：原版局部坐标 → 720 期望（偏移 = 面板居中 + ABS_PANELS 面板原点）
+            if dname in ABS_PANELS:
+                ax, ay = ABS_PANELS[dname]
+                exp = [(lbl, ax+x0, ay+y0, ax+x1, ay+y1) for lbl, x0, y0, x1, y1 in obtns]
+            else:
+                ox, oy = (720-W)/2.0, (1280-H)/2.0
+                exp = [(lbl, ox+x0, oy+y0, ox+x1, oy+y1) for lbl, x0, y0, x1, y1 in obtns]
+        else:
+            # 固定位置类（W/H=0）：DIALOGS 里已是 720 绝对值
+            exp = [(lbl, x0, y0, x1, y1) for lbl, x0, y0, x1, y1 in obtns]
+        pairs = []
+        for i, ((olbl, oox0, ooy0, oox1, ooy1), s) in enumerate(zip(exp, srcs)):
+            pairs.append((olbl, (oox0, ooy0, oox1, ooy1), (s[0], s[1], s[2], s[3])))
+        for lbl, (oox0, ooy0, oox1, ooy1), so in pairs:
+            sox0, sox1, soy0, soy1 = so[0], so[2], so[1], so[3]
+            dcx = (sox0 + sox1) / 2 - (oox0 + oox1) / 2
+            dcy = (soy0 + soy1) / 2 - (ooy0 + ooy1) / 2
+            ok = abs(dcx) < 2 and abs(dcy) < 2
+            if verbose and verbose_global:
+                print(f"  {dname} {lbl:4s} 原版720中心({(oox0+oox1)/2:.0f},{(ooy0+ooy1)/2:.0f}) "
+                      f"src({(sox0+sox1)/2:.0f},{(soy0+soy1)/2:.0f}) Δc=({dcx:+.1f},{dcy:+.1f}) "
+                      f"{'✓' if ok else '✗'}")
+            if not ok:
+                failures.append(f"{dname} {lbl} Δ=({dcx:+.1f},{dcy:+.1f})")
+    # ★ P2（datah_000 证据）：软件信息 2 按钮（400×280 居中，偏移+160,+500）
         if dname == "datah_000_about":
             pairs = []
             for i2, (lbl, x0, y0, x1, y1) in enumerate(obtns):
@@ -522,6 +599,12 @@ def check_geometry(menu_src=None, verbose=True):
         skip_delta = dname in ("datah_029_chatlog", "datah_004_setentry4", "datah_000_about")
         need_n = 2 if skip_delta else 3
         if not srcs or len(srcs) < need_n:
+            # ★ SPAK2UI 批量弹窗走独立 uibat 比对段（上方 uibat_pairs 循环），
+            # 此处主循环缺表只提示不报错
+            if dname in ("datah_044_ui44","datah_045_ui45","datah_046_ui46","datah_047_ui47",
+                          "datah_049_ui49","datah_051_ui51","datah_054_ui54","datah_073_ui73",
+                          "datah_090_ui90","datah_100_ui100","datah_110_ui110","datah_118_ui118"):
+                continue
             if verbose and verbose_global: print(f"  {dname} src_rs 按钮表缺失/不足（{len(srcs)} 行）→ 跳过 Δ 比对（诚实边界）")
             continue
         for lbl, (oox0,ooy0,oox1,ooy1), so in pairs:
@@ -544,8 +627,8 @@ def check_geometry(menu_src=None, verbose=True):
                 print(f"  {dname} {lbl:8s} 720中心({cx:.0f},{cy:.0f})  区({ox0:.0f},{oy0:.0f})-({ox1:.0f},{oy1:.0f})")
     return failures
 
-def check_screenshot(path, threshold=0.5):
-    """截图按钮区非黑比（≥threshold = 有渲染）"""
+def check_screenshot(path, threshold=0.5, only=None):
+    """截图按钮区非黑比（≥threshold = 有渲染）；only=逗号分隔 DIALOGS 名子集（None=全量）"""
     from PIL import Image
     im = Image.open(path).convert("RGB"); w,h = im.size; px = im.load()
     if verbose_global:
@@ -561,11 +644,15 @@ def check_screenshot(path, threshold=0.5):
             lay_dialogs.append((dname, [(lbl, ox+x0, oy+y0, ox+x1, oy+y1) for lbl,x0,y0,x1,y1 in btns]))
     # ★ P1（datah_107/039）：复盘 2 弹窗（控制条 5 按钮 + 入口浮标，绝对坐标面板不居中）
     replay_dialogs = []
-    for dname in ("datah_107_replay","datah_039_replay"):
+    for dname in ("datah_107_replay","datah_039_replay",
+                  "datah_044_ui44","datah_045_ui45","datah_090_ui90","datah_100_ui100"):
         if dname in DIALOGS and dname in ABS_PANELS:
             ax, ay = ABS_PANELS[dname]
             _,_,btns = DIALOGS[dname]
-            replay_dialogs.append((dname, [(lbl, ax+x0, ay+y0, ax+x1, ay+y1) for lbl,x0,y0,x1,y1 in btns]))
+            out = []
+            for lbl,x0,y0,x1,y1 in btns:
+                out.append((lbl, ax+x0, ay+y0, ax+x1, min(y1, 1280)))
+            replay_dialogs.append((dname, out))
     # ★ P1（datah_038）：登录弹窗（432×285 居中，偏移+144,+497.5）
     login_dialogs = []
     for dname in ("datah_038_login",):
@@ -580,9 +667,25 @@ def check_screenshot(path, threshold=0.5):
             W,H,btns = DIALOGS[dname]
             ox,oy = (720-W)/2.0,(1280-H)/2.0
             drawdetail_dialogs.append((dname, [(lbl, round(ox+x0,1), round(oy+y0,1), round(ox+x1,1), round(oy+y1,1)) for lbl,x0,y0,x1,y1 in btns]))
-    for dname,src in [
+    # ★ SPAK2UI 批量 12 弹窗（居中类 DIALOGS 偏移；044/045/090/100 已并入 replay_dialogs 固定位置分支）
+    uibat_dialogs = []
+    for dname in ("datah_046_ui46","datah_047_ui47","datah_049_ui49","datah_051_ui51",
+                  "datah_054_ui54","datah_073_ui73","datah_110_ui110","datah_118_ui118"):
+        if dname in DIALOGS:
+            W,H,btns = DIALOGS[dname]
+            if dname in ABS_PANELS:
+                ax, ay = ABS_PANELS[dname]
+                uibat_dialogs.append((dname, [(lbl, ax+x0, ay+y0, ax+x1, ay+y1) for lbl, x0, y0, x1, y1 in btns]))
+            else:
+                ox,oy = (720-W)/2.0,(1280-H)/2.0
+                uibat_dialogs.append((dname, [(lbl, round(ox+x0,1), round(oy+y0,1), round(ox+x1,1), round(oy+y1,1)) for lbl,x0,y0,x1,y1 in btns]))
+    check_list = [
         ("主菜单", menu_720()),
-    ] + lay_dialogs + replay_dialogs + login_dialogs + drawdetail_dialogs:
+    ] + lay_dialogs + replay_dialogs + login_dialogs + drawdetail_dialogs + uibat_dialogs
+    if only:
+        only_set = set(d.strip() for d in (only if isinstance(only, str) else ",".join(only)).split(","))
+        check_list = [(dn, src) for dn, src in check_list if dn in only_set]
+    for dname,src in check_list:
         for lbl,x0,y0,x1,y1 in src:
             x0,x1 = max(0,int(x0)),min(w,int(x1)); y0,y1=max(0,int(y0)),min(h,int(y1))
             if x1<=x0 or y1<=y0: continue
@@ -605,6 +708,7 @@ def main():
     ap.add_argument("--baseline", action="store_true", help="只跑几何 Δ 检查（静默出结论，不打印逐行明细）")
     ap.add_argument("--menu-src", default="rev64/src_rs/ui_menu.c", help="src_rs 按钮表文件")
     ap.add_argument("--json", help="输出 JSON（机读）")
+    ap.add_argument("--only", help="截图非黑探测只跑指定 DIALOGS 名（逗号分隔，如 datah_044_ui44）")
     ap.add_argument("-q", action="store_true", help="静默（只出 JSON/结论）")
     a = ap.parse_args()
     verbose_global = not a.q
@@ -620,8 +724,9 @@ def main():
 
     failures = check_geometry(menu_src, verbose=not a.q)
     missing = []
+    only_list = a.only.split(",") if a.only else None
     if a.screenshot and os.path.exists(a.screenshot):
-        missing = check_screenshot(a.screenshot)
+        missing = check_screenshot(a.screenshot, only=only_list)
 
     if a.json:
         print(json.dumps({"geometry_failures":failures,"screenshot_missing":missing,

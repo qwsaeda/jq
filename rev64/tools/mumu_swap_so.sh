@@ -5,12 +5,19 @@
 # 判据: 看 logcat junqi_rs tag + verify.png（出帧验收）
 set -u
 OUT=${1:-/disk/workspaces/jq/rev64/src_rs/dist/phase_rs_a64.apk}
+# ★ 坑固化（2026-11-06）：相对路径 OUT 在脚本 cd $WORK 后 cp 会静默失败（目录不存在）
+#   → OUT 永不更新 → 设备一直跑老 so（"改了没效果/钩子不触发"假象）。
+#   统一转绝对路径（相对路径按调用时 CWD 解析）。
+case "$OUT" in
+  /*) ;;
+  *) OUT="$(cd "$(dirname "$OUT")" 2>/dev/null && pwd)/$(basename "$OUT")" ;;
+esac
 DEV=${2:-127.0.0.1:5555}
 RS=/disk/workspaces/jq/rev64/src_rs
 NDK=/tmp/opencode/android-ndk-r25b
 WORK=/tmp/opencode/jq_apk/rs_a64
 TOOLS=/disk/workspaces/jq/rev64/tools
-PKG=com.cnvcs.junqi
+PKG=com.cnvcs.junqirs
 
 echo "=== [1/6] 编译 src_rs 重写库 ==="
 cd $RS && NDK=$NDK make so >/tmp/opencode/rs_build.log 2>&1
@@ -26,9 +33,22 @@ tail -3 /tmp/opencode/link_check.log
 echo "=== [2/6] 打进 64 位 only APK（STORE + 4 字节对齐）==="
 cd $WORK
 cp $RS/dist/libjunqi_rs.so lib/arm64-v8a/libjunqi.so
-# 用最近一版 raw64 源（含 assets/spak_res）重打
-SRCAPK=$(ls -t raw64_shadow*.apk raw64_v*.apk 2>/dev/null | head -1)
-[ -z "$SRCAPK" ] && SRCAPK=raw64_v12.apk
+# ★★ 坑固化（2026-11-06）：源 APK 必须**包名 = $PKG**（com.cnvcs.junqirs）。
+#   旧实现按"最近修改"选 raw64_shadow*.apk → 那是 com.cnvcs.junqi 包名（另一个包），
+#   装机后 junqirs 根本没被更新，而旧"对账"查的是任意安装包 → 永远"通过"
+#   → 设备长期跑老 so（"改了没效果/钩子不触发"假象的真凶）。
+#   现在：优先用 rs168_wav.apk / raw168_168.apk（已知包名 junqirs），并用 aapt 校验包名。
+SRCAPK=""
+for cand in rs168_wav.apk raw168_168.apk rs168_new.apk; do
+    [ -f "$WORK/$cand" ] || continue
+    cpkg=$(aapt dump badging "$WORK/$cand" 2>/dev/null | grep -oE "package: name='[^']+'" | head -1 | sed "s/.*name='//;s/'//")
+    if [ "$cpkg" = "$PKG" ]; then SRCAPK="$cand"; break; fi
+done
+if [ -z "$SRCAPK" ]; then
+    echo "★ 找不到包名=$PKG 的源 APK（rs168_wav.apk / raw168_168.apk）→ 中止（防止装错包名导致设备跑老 so）"
+    exit 1
+fi
+echo "  [源 APK] $SRCAPK（包名已校验 = $PKG）"
 python3 - "$SRCAPK" <<'PYEOF'
 # zip-surgery：保留源 zip 全部条目原样（含 v1 签名条目 META-INF/*.RSA + zip 头 + STORE 属性），
 # 只替换 lib/arm64-v8a/libjunqi.so 一条。v1 签名不覆盖 .so → 换 so 不破坏 v1 签名；
@@ -54,6 +74,15 @@ if [ "$V1PATCH" = "1" ]; then
 fi
 python3 $RS/zipalign_apk.py raw_new.apk aligned_new.apk >/dev/null 2>&1 || { echo "★ 对齐失败"; exit 1; }
 
+# ★ 打包后自检（2026-11-06 坑固化）：OUT 内 so md5 必须 == dist so md5，
+#   否则说明打包/复制失败 → 后续装机跑的还是老 so（静默失败，必须显式报错中止）。
+APK_SO_MD5=$(unzip -p aligned_new.apk lib/arm64-v8a/libjunqi.so 2>/dev/null | md5sum | awk '{print $1}')
+DIST_SO_MD5=$(md5sum $RS/dist/libjunqi_rs.so | awk '{print $1}')
+if [ "$APK_SO_MD5" != "$DIST_SO_MD5" ]; then
+  echo "★ 自检失败：APK 内 so md5=$APK_SO_MD5 != dist so md5=$DIST_SO_MD5（打包/复制失败，中止——否则设备跑老 so）"
+  exit 1
+fi
+echo "  [自检] APK 内 so md5 == dist so md5（$DIST_SO_MD5）"
 echo "=== [3/6] 纯 v1 签名（MuMu 解析器只认 v1 META-INF/*.RSA 包；v2 块致 INSTALL_PARSE_FAILED）==="
 # 签名方式：
 # ① 首选系统 apksigner（apt 装，--v1-signing-enabled true +v2 false = 纯 v1）
@@ -85,20 +114,36 @@ if echo "$INSTALL_OUT" | grep -q "Failure"; then
     exit 1
 fi
 
-echo "=== [4.5/6] 装机后 so 哈希对账（设备 lib/arm64/libjunqi.so == 本工具链产物）==="
-# 注：manifest 1.69 patch 在纯 v1 签名下被 MuMu 忽略（dumpsys 仍报 1.52），版本号不可作判据；
-# so 哈希才是"装的是本工具链产物"的可靠对账。
-# ★ 设备 so 实际部署路径：优先 /data/local/tmp/so_for_hash（push 的 so 原文件），
-# 其次 $PDIR/lib/arm64/（容器 shell 里 PDIR 特殊字符 ~ 会被展开坏，不可靠）
-adb -s $DEV shell "mkdir -p /data/local/tmp/so_for_hash" >/dev/null 2>&1
-adb -s $DEV push $RS/dist/libjunqi_rs.so /data/local/tmp/so_for_hash/libjunqi.so >/dev/null 2>&1
-DEV_SO=$(adb -s $DEV shell "sha256sum /data/local/tmp/so_for_hash/libjunqi.so 2>/dev/null | cut -d' ' -f1")
+echo "=== [4.5/6] 装机后 so 哈希对账（★ 查设备实际安装的 so，非自 push 副本）==="
+# ★★ 坑固化（2026-11-06）：旧实现 push 一份 so 到 /data/local/tmp 再与本地比 → 永远相等
+#   = 假对账，设备实际跑老 so 也不报错（"改了没效果/钩子不触发"假象的真凶）。
+#   现改为：查 pm path 定位已安装 APK → 读其 lib/<abi>/libjunqi.so 的真实 sha256。
+APK_PATH=$(adb -s $DEV shell "pm path $PKG" 2>/dev/null | head -1 | sed 's/package://' | tr -d '\r')
+DEV_SO=""
+if [ -n "$APK_PATH" ]; then
+    # 已安装 APK 的 so：从设备 pull 出来算 sha256（最可靠，不依赖容器 shell 路径展开）
+    adb -s $DEV pull "$APK_PATH" /tmp/opencode/_installed.apk >/dev/null 2>&1
+    DEV_SO=$(unzip -p /tmp/opencode/_installed.apk lib/arm64-v8a/libjunqi.so 2>/dev/null | sha256sum | cut -d' ' -f1)
+    [ -z "$DEV_SO" ] && DEV_SO=$(unzip -p /tmp/opencode/_installed.apk lib/arm64/libjunqi.so 2>/dev/null | sha256sum | cut -d' ' -f1)
+fi
 LOCAL_SO=$(sha256sum $RS/dist/libjunqi_rs.so | cut -d' ' -f1)
 if [ -z "$DEV_SO" ] || [ "$DEV_SO" != "$LOCAL_SO" ]; then
-    echo "★ so 哈希对不上：设备=$DEV_SO 本地=$LOCAL_SO → 装的不是本工具链产物，中止"
-    exit 1
+    echo "★ 设备实际 so 哈希对不上：设备=${DEV_SO:0:12} 本地=${LOCAL_SO:0:12}"
+    echo "  → 装机未生效（老 so 还在跑）→ 强制重装（uninstall + install）后重试"
+    adb -s $DEV uninstall $PKG >/dev/null 2>&1
+    adb -s $DEV install -t "$OUT" 2>&1 | grep -E "Success|Failure"
+    sleep 1
+    APK_PATH=$(adb -s $DEV shell "pm path $PKG" 2>/dev/null | head -1 | sed 's/package://' | tr -d '\r')
+    if [ -n "$APK_PATH" ]; then
+        adb -s $DEV pull "$APK_PATH" /tmp/opencode/_installed.apk >/dev/null 2>&1
+        DEV_SO=$(unzip -p /tmp/opencode/_installed.apk lib/arm64-v8a/libjunqi.so 2>/dev/null | sha256sum | cut -d' ' -f1)
+    fi
+    if [ -z "$DEV_SO" ] || [ "$DEV_SO" != "$LOCAL_SO" ]; then
+        echo "★ 强制重装后仍对不上（设备=${DEV_SO:0:12} 本地=${LOCAL_SO:0:12}）→ 中止（设备跑的不是本工具链产物）"
+        exit 1
+    fi
 fi
-echo "so 哈希对账通过（设备 lib/arm64/libjunqi.so == 本地 dist so）"
+echo "so 哈希对账通过（设备已安装 APK 内 so == 本地 dist so，sha256=${LOCAL_SO:0:12}）"
 
 echo "=== [5/6] 启动 + 日志 ==="
 adb -s $DEV shell "mkdir -p /data/local/tmp/spak_res /data/local/tmp/layouts"

@@ -50,6 +50,7 @@ typedef struct {
     rs_glid_t tex_menu_bg[2];   /* ★ 原版 UI 对齐：主菜单背景 datax_294 800×1205（卡通士兵） */
     rs_glid_t tex_imen_text[2]; /* ★ ☰ 菜单文字图集 160×320（8 项竖排，data_029 字体） */
     rs_glid_t tex_imen_icons[2];/* ★ ☰ 菜单图标图集 440×200（8 图标 110×100 4×2，原版裁剪） */
+    rs_glid_t tex_imen_orig[2]; /* ★ 原版 datax 图标真值图集 384×384（16 图标 4×4，每格 96） */
     rs_glid_t tex_hamburger[2]; /* ★ ☰/↩ 图标图集 128×64（orig_human 裁剪） */
     rs_glid_t tex_btn_big[2];   /* ★ 主菜单大按钮图集 802×118（人机+两人，orig_menu 裁剪） */
     rs_glid_t tex_btn_small[2]; /* ★ 主菜单小按钮图集 666×116（联网+联机+四国，orig_menu 裁剪） */
@@ -187,6 +188,11 @@ typedef struct {
     int imen_text_w, imen_text_h;               /* ☰ 菜单文字图集尺寸 */
     void *imen_icons_px; size_t imen_icons_px_len; /* ★ ☰ 菜单图标图集 RGBA（8 图标 110×100 4×2，原版裁剪） */
     int imen_icons_w, imen_icons_h;             /* ☰ 菜单图标图集尺寸 */
+    /* ★ 原版 apk 资源真值（ch02 N45）：☰ 菜单 16 图标（本地 8 + 联机 8）
+       来源 = SPAK datax PNG 原图裁 alpha bbox（datax_153 星/134 回转/128 箭头/163 纸/
+       136 扳手/171 彩饼/124 蓝i/142 红X/140 握手/179 红旗/132 气泡），4×4 网格每格 96。 */
+    void *imen_orig_px; size_t imen_orig_px_len;
+    int imen_orig_w, imen_orig_h;
     void *hamburger_px; size_t hamburger_px_len; /* ★ ☰/↩ 图标图集 RGBA（128×64，orig_human 裁剪） */
     int hamburger_w, hamburger_h;               /* ☰/↩ 图标图集尺寸 */
     void *btn_big_px; size_t btn_big_px_len;    /* ★ 主菜单大按钮图集 RGBA（802×118，人机+两人） */
