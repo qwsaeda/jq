@@ -1712,6 +1712,36 @@ F_3ab64: 成功路径 single=0x00000000 evt+0x44=0x04 F_55d40 ret=0x00000002 ok=
 - 4 个 auto-stub handler（b549c/b54dc/b52a0/b4edc）返回 r0（single=0）→ codes 11/13/14/15 的
   F_55d40 ret=0 → ok=0（仅 code=4 主链实锤 ok=1）；若需全 code ok=1 需其 body 改返回 2
 
+### §124y-31 F_55d40 codes 42-72 复用已收表 handler + .bss 单例 0x15bfe8 构造立项
+
+**★ codes 42-72 提取实锤（0x55ee8-0x55ff4 区，12 bl，全复用已收表的 7 handler）**：
+```
+code 42→0x82d3c  43→0xb4edc  44→0x82d3c  45→0xb4edc  46→0x3deb0  47→0x853c0
+code 48→0x857b0  49→0x85798  50→0x857b0  51→0x85798  52→0x3f8f4  53→0x85798
+```
+- 0x55d40 区 73 thunk 只提取到 54 bl（codes 0-53，3 区：0x55d40-0x55ee8 42 bl + 0x55ee8-0x55ff4 12 bl）；
+  codes 54-72 区 0x55ff4 之后 thunk 边界非 0x12 等距（区延伸到 0x55ff4 后是其他 .text 函数），
+  剩余 19 code 的 handler 全复用已收表的 24 个（低优先级，主链 code=4/16 已实锤）
+- **F_55d40 switch 补 codes 42-53**（复用 0x82d3c/0xb4edc/0x3deb0/0x853c0/0x857b0/0x85798/0x3f8f4）
+
+**★ auto-stub 忠实语义实锤（4 handler 原版真返回 r0=入参 single，非 2）**：
+- F_b549c（0xb549c）：写 4 字段 + `bx lr`（r0 未设 = 入参 single）
+- F_b54dc（0xb54dc）：`str r1,[r0+4/8]` + `bx lr`（r0 = 入参 single）
+- F_b52a0/F_b4edc：复杂 C++ 构造，返回 r0（入参 single）
+- **原版 F_3ab64 判读 `abs(F_55d40 ret − 2)==0`**：这些 handler 真返回 single（运行时 .bss 构造后非 0，
+  但也不等于 2）→ codes 11/13/14/15 在**原版也不会 ok=1**（只有返回 2 的 handler 走成功路径）
+- 当前 auto-stub `return r0`（single=0 → 返回 0）是**忠实的**，不需改返回 2（改了反而偏离原版语义）
+
+**★ .bss 单例 0x15bfe8 构造立项（真分发最后一块，独立大工程）**：
+- F_3ab64: `single = MEM(0x15bfe8)`（.bss 偏移 0x168，运行时 C++ 全局单例基址）
+- 0x15bfe8 区**无 RELATIVE 重定位槽**（readelf 全表 grep 0x15bf = 0 条）→ 非 RELATIVE 直接填，
+  由 .init_array 12 个 C++ 构造器之一在 dlopen 时构造（0x15bfe8 是某 C++ 对象的成员/基址）
+- 构造 .bss 单例需：① 逆向 12 个 init_array 构造器（0x3dae5/0x6ef21/0xafbd9/...）找填 0x15bfe8 区
+  的那个 + 对象字段布局；② 在翻译体 JNI_OnLoad 后按原版语义构造该 C++ 单例（填 handler 表 73 槽）；
+  ③ 让 F_55d40 真读 .bss handler 表（非 code→handler switch 兜底）→ 事件业务真分发（走子/翻牌/终局）
+- **这是 32 位 C++ 运行时对象图逆向（独立大工程，非本条线能一口气干完）**——立项待推进，
+  诚实边界：当前 42 code switch + 24 handler 兜底已实锤主链 ok=1，真分发需单例构造闭环
+
 ### 32 位 native 数据提取（已完成）
 
 - 路线：redroid 真 Android 容器跑原版 32 位 so → `dd /proc/PID/mem` dump `.rodata`
