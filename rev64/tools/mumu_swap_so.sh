@@ -49,6 +49,24 @@ if [ -z "$SRCAPK" ]; then
     exit 1
 fi
 echo "  [源 APK] $SRCAPK（包名已校验 = $PKG）"
+# ★★ 坑固化（2026-11-06）：rs168_wav.apk 的 manifest 无全屏 theme（默认 theme 带 ActionBar
+#   + 状态栏）→ GLView 不全屏 → MotionEvent 坐标相对 view 顶，与 720×1280 基准差一截
+#   → 全部触摸命中失效（误判为"按钮点了没反应"）。dec_rs 树 manifest 已补
+#   android:theme="@android:style/Theme.NoTitleBar.Fullscreen" + App.smali FLAG_FULLSCREEN
+#   + setSystemUiVisibility(0x1706) 沉浸式 sticky。
+#   故优先从 dec_rs 树 apktool 重建（含全屏 theme + 最新 smali），失败才回退 $SRCAPK。
+DECTREE=$WORK/dec_rs
+if [ -d "$DECTREE" ]; then
+    cp $RS/dist/libjunqi_rs.so $DECTREE/lib/arm64-v8a/libjunqi.so
+    (cd $WORK && apktool b dec_rs -o raw_decrs.apk) >/tmp/opencode/mumu_apktool.log 2>&1
+    if [ -f "$WORK/raw_decrs.apk" ]; then
+        SRCAPK="raw_decrs.apk"
+        echo "  [源 APK] 改用 dec_rs 树重建（含全屏 theme + 沉浸式，apktool b 成功）"
+    else
+        echo "  [警告] dec_rs 树重建失败（回退 $SRCAPK，可能无全屏 theme → 触摸坐标会偏）"
+        tail -3 /tmp/opencode/mumu_apktool.log
+    fi
+fi
 python3 - "$SRCAPK" <<'PYEOF'
 # zip-surgery：保留源 zip 全部条目原样（含 v1 签名条目 META-INF/*.RSA + zip 头 + STORE 属性），
 # 只替换 lib/arm64-v8a/libjunqi.so 一条。v1 签名不覆盖 .so → 换 so 不破坏 v1 签名；
