@@ -3170,3 +3170,37 @@ python3 /tmp/opencode/incremental_regress.py reset 0xADDR  # 改了某指令 →
 - .bss 单例槽（0x15beb0/0x15beb8/0x15bfe4/0x15bfec）的 scudo 运行时指针需 frida dump 实锤
   （12 构造器已全量实锤，完整运行时填值需 unidbg 补 12 构造器 BL 链）
 - C++ locale 全局构造（9-11）与事件底层 .bss 单例槽（0-8）分属两个 C++ 对象域
+
+## §124y-67 析构机制实锤：__aeabi_atexit（atexit 注册）而非 .fini_array（无 .fini_array 段）
+
+**★ 闭环事实（静态实锤，补全 §124y-32/65/66 的 .bss 单例槽构造/析构对偶）**：
+
+1. **原版 .so 无 .fini_array 段**（全段表实锤）：
+   - 段表全量：.hash/.dynsym/.dynstr/.rel.dyn/.rel.plt/.plt/.text/.rodata/.ARM.extab/
+     .ARM.exidx/.init_array(0x155000, 0x30=12 槽)/.data.rel.ro/.dynamic/.got/.data/.bss/.comment/.ARM.attributes/.shstrtab
+   - **无 .fini_array** → C++ 静态对象析构不用 .fini_array 段，而用 **`__aeabi_atexit`（atexit 注册）**
+
+2. **析构机制 = `__aeabi_atexit` 注册（12 处调用点实锤）**：
+   - .rel.dyn 0x15b1f4 = `R_ARM_JUMP_SLOT __aeabi_atexit`（PLT 跳板 0x22d34）
+   - .text 里 12 处 `blx __aeabi_atexit@plt` 调用点：
+     - 0x6ef3c（构造器 1 互斥锁区，§124y-65 槽1）
+     - 0x105eb0（locale facet 区，§124y-66 槽9）
+     - 0x107504/0x10a24c/0x10a2f0/0x10a40e/0x10a466/0x10a5b8/0x10a5ca（locale _Impl/moneypunct 区，槽10/11）
+     - 0x11c13e/0x11c15a（moneypunct 区）
+   - 即 C++ 全局对象（locale/互斥锁）构造时用 `__aeabi_atexit` 注册析构函数（进程退出时调），
+     **非 .fini_array 段**
+
+3. **与 §124y-32 析构注册器池 0xba25c-0xba28c 对偶关系**：
+   - §124y-32 实锤 .bss 析构注册器池 0xba25c-0xba28c（读 5 个 .bss 单例槽非 0 → bl 析构器 + _ZdlPv + 清零）
+   - 本轮实锤 .so 无 .fini_array，析构走 `__aeabi_atexit`（12 处注册）
+   - 即 .bss 单例槽的析构 = C++ 全局对象 atexit 注册（12 处 `blx __aeabi_atexit`）+ 析构器池 0xba25c（读槽非 0 则析构）
+   - **构造链（.init_array 12 构造器）与析构链（__aeabi_atexit 12 注册 + 0xba2xx 池）精确对偶**
+
+4. **翻译体对应项 + 诚实边界**：
+   - 翻译体 .so 是 NDK 编译的 arm32 .so，析构机制由 NDK 决定（可能 .fini_array 或 atexit）
+   - 原版 `__aeabi_atexit` 析构注册 + 0xba2xx 析构器池 = C++ 静态对象完整生命周期（构造 .init_array + 析构 atexit）
+   - .bss 单例槽的 scudo 运行时指针需 frida dump 实锤（构造 12 + 析构 12 + 0xba2xx 池全链闭环）
+
+### 修正 §124y-32 的析构机制认知
+- §124y-32 标注"析构注册器池 0xba25c-0xba28c 对偶"，本轮补全：析构注册 = `__aeabi_atexit`（12 处）
+  + 析构器池 0xba2xx（读 .bss 单例槽非 0 → bl 析构器 + _ZdlPv + 清零），**无 .fini_array 段**
