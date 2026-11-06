@@ -2365,3 +2365,31 @@ python3 /tmp/opencode/incremental_regress.py reset 0xADDR  # 改了某指令 →
 - 0xb6808 的 vtable 0x2c 槽方法调用（blx [0xc0值+0x2c]）深水区——.bss 未构造时 0xc0=0 无效
 - 0xb6808 的 code 0-7 位标志测试（0x86=134）需 C++ 事件对象 0x86 字段实锤，当前忠实空操作
 - 0xb2da8 字符串解析（0xb4854 strtol）与 F_b52a0 构造链同源，深水区 C++ 对象图
+
+## §124y-44 事件底层 5 函数 sgl 槽 = 0x15bfe4（.bss，5 个共用）精确实锤
+
+**★ 闭环事实（精确重算，修正 §124y-41）**：
+
+1. **5 个底层函数（F_33790/3376c/336ec/336c8/33684）的 sgl 池值精确重算**
+   （各 `pool[addr] + pc(下一条指令地址)` 精确 ARM pc 计算）：
+   - 全部 5 个函数 = **0x15bfe4**（.bss 偏移 0x164，同一单例槽）
+   - **修正 §124y-41**：当时重算 0x15bfe0（取 pc=指令地址，错）；正确 pc = 下一条指令地址
+     （ARM Thumb `ldr r3,[pc,#N]` 的 pc = ldr 指令地址 + 4），全 5 个 = 0x15bfe4
+   - .bss 区全量 readelf -r **无 RELATIVE 槽**（0x15bfe4 纯惰性，C++ 构造填 scudo）
+
+2. **.bss 0x15bfxx 区单例槽布局精确实锤**：
+   | 槽 | 读者 | 语义 |
+   |---|---|---|
+   | 0x15bfe4（偏移 0x164） | F_33790/3376c/336ec/336c8/33684 全 5 个 | 事件底层全局单例（共用） |
+   | 0x15bfec（偏移 0x16c） | F_3ab64 single 槽（§124y-32） | 事件底层容器单例 |
+   - 0x15bfe4 与 0x15bfec 相邻（差 8 字节）= **同一 C++ 对象块的两个字段**
+     （0x15bfe4 = 对象指针字段，0x15bfec = 对象另一字段；C++ 运行时构造填 scudo）
+   - 与 §124y-32 析构注册器池 0xba25c-0xba28c 对偶——构造器对偶填 0x15bfe4/0x15bfec
+
+3. **翻译体对应项**：F_33790/3376c 等 auto-stub 当前用 `MEM(池值)`（.data 静态值）
+   近似；精确 .bss 0x15bfe4 需运行时 scudo（unidbg BL 解码 bug 阻塞 / frida Stalker 追踪构造器）
+   ——不影响 4 路径回归（.bss 未构造读 0 等价）
+
+### 诚实边界
+- 0x15bfe4 真实 scudo 指针 = C++ 构造器（0x333xx 区 str 写点，§124y-32 已收 13 读点）填的 scudo 堆
+  需 frida dump / unidbg 实锤；当前 .bss 未构造语义（读 0）已被 auto-stub 覆盖
