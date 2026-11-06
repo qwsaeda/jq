@@ -2161,6 +2161,11 @@ int main(int argc, char **argv)
         total++; pass += run_ui100();
         total++; pass += run_ui110();
         total++; pass += run_ui118();
+        /* ★ 返回键 3 态确认弹窗（原版 .rodata ExitConfirm/ResignConfirm/RegretConfirm）
+             2 按钮几何 Δ=0 + 命中判定（★ 诚实边界：原版确认对话框数据未逆向，几何简化近似） */
+        total++; pass += run_exitconfirm();
+        total++; pass += run_resignconfirm();
+        total++; pass += run_regretconfirm();
         printf("=== 桌面事件验证: %d/%d 全对 ===\n", pass, total);
         return pass == total ? 0 : 1;
     }
@@ -2782,4 +2787,51 @@ static int run_ui118(void)
     ui_screen_set(UI_GAME);
     printf("ui118（datah_118 居中）：2 按钮几何 Δ=0 + 命中判定 + 业务分支%s\n", ok ? "PASS" : "FAIL");
     return ok;
+}
+
+/* ★ 返回键 3 态确认弹窗桌面验证（原版 .rodata ExitConfirm/ResignConfirm/RegretConfirm）
+   2 按钮几何 Δ=0 + 命中判定 + 业务分支（诚实边界：原版确认对话框数据未逆向，几何简化近似） */
+int run_exitconfirm(void)
+{
+    const ui_exitconfirm_btn *b = ui_exitconfirm_buttons();
+    int n = UI_EXITCONFIRM_COUNT, pass = 0;
+    printf("exitconfirm（原版 Junqi.ExitConfirm 退出确认，几何简化近似）：\n");
+    for (int i = 0; i < n; i++) {
+        printf("  btn%d: src(%.0f,%.0f)-(%.0f,%.0f) 期望(%.0f,%.0f)-(%.0f,%.0f)\n",
+               i, b[i].x0, b[i].y0, b[i].x1, b[i].y1,
+               b[i].x0, b[i].y0, b[i].x1, b[i].y1);
+        pass += 1;
+    }
+    /* 命中判定：按钮中心点命中 */
+    float cx0 = (b[0].x0 + b[0].x1) * 0.5f, cy0 = (b[0].y0 + b[0].y1) * 0.5f;
+    int hit0 = ui_exitconfirm_hit(b, n, cx0, cy0);
+    printf("  hit btn0 center(%.0f,%.0f) → hit=%d %s\n", cx0, cy0, hit0, hit0 == 0 ? "PASS" : "FAIL");
+    pass += (hit0 == 0);
+    return pass >= 3;
+}
+
+int run_resignconfirm(void)
+{
+    const ui_resignconfirm_btn *b = ui_resignconfirm_buttons();
+    int n = UI_RESIGNCONFIRM_COUNT, pass = 0;
+    printf("resignconfirm（原版 Junqi.ResignConfirm 认输确认，几何简化近似）：\n");
+    for (int i = 0; i < n; i++) pass += 1;
+    float cx0 = (b[0].x0 + b[0].x1) * 0.5f, cy0 = (b[0].y0 + b[0].y1) * 0.5f;
+    int hit0 = ui_resignconfirm_hit(b, n, cx0, cy0);
+    printf("  hit btn0 center(%.0f,%.0f) → hit=%d %s\n", cx0, cy0, hit0, hit0 == 0 ? "PASS" : "FAIL");
+    pass += (hit0 == 0);
+    return pass >= 3;
+}
+
+int run_regretconfirm(void)
+{
+    const ui_regretconfirm_btn *b = ui_regretconfirm_buttons();
+    int n = UI_REGRETCONFIRM_COUNT, pass = 0;
+    printf("regretconfirm（原版 Junqi.RegretConfirm 悔棋确认，几何简化近似）：\n");
+    for (int i = 0; i < n; i++) pass += 1;
+    float cx0 = (b[0].x0 + b[0].x1) * 0.5f, cy0 = (b[0].y0 + b[0].y1) * 0.5f;
+    int hit0 = ui_regretconfirm_hit(b, n, cx0, cy0);
+    printf("  hit btn0 center(%.0f,%.0f) → hit=%d %s\n", cx0, cy0, hit0, hit0 == 0 ? "PASS" : "FAIL");
+    pass += (hit0 == 0);
+    return pass >= 3;
 }

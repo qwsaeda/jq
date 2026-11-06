@@ -1535,6 +1535,29 @@ Java_com_cnvcs_App_OnCreate(JNIEnv *env, jclass clazz, jobject activity)
             __system_property_set("jq.chat063", "0");
         }
     }
+    /* ★ 返回键 3 态测试钩子（adb setprop jq.backtest 1 → 重启 →
+        OnCreate 进 UI_GAME 对局态 + 模拟按 BACK → UI_EXITCONFIRM；
+        值 1=触发退出确认弹窗，2=认输确认，3=悔棋确认，0=不触发。一次性清 0）。
+        测试钩子范式（与 jq.about 同；触摸 flaky → setprop 触发）。
+        ★ 诚实边界：原版 3 类确认对话框数据未逆向，几何简化近似（对齐 3 态行为）。 */
+    {
+        char bk_prop[16] = {0};
+        __system_property_get("jq.backtest", bk_prop);
+        LOGI("jq.backtest 钩子：prop=%s（读到的值，诚实边界诊断）", bk_prop[0] ? bk_prop : "(empty)");
+        if (strcmp(bk_prop, "1") == 0) {
+            ui_screen_set(UI_EXITCONFIRM);
+            LOGI("jq.backtest 钩子：→ UI_EXITCONFIRM 退出确认弹窗（模拟返回键 3 态，datah 简化近似）");
+            __system_property_set("jq.backtest", "0");
+        } else if (strcmp(bk_prop, "2") == 0) {
+            ui_screen_set(UI_RESIGNCONFIRM);
+            LOGI("jq.backtest 钩子：→ UI_RESIGNCONFIRM 认输确认弹窗（模拟联机版 BACK）");
+            __system_property_set("jq.backtest", "0");
+        } else if (strcmp(bk_prop, "3") == 0) {
+            ui_screen_set(UI_REGRETCONFIRM);
+            LOGI("jq.backtest 钩子：→ UI_REGRETCONFIRM 悔棋确认弹窗（模拟已悔步 BACK）");
+            __system_property_set("jq.backtest", "0");
+        }
+    }
     /* ★ P2（datah_000 证据）：软件信息 setprop 钩子（adb setprop jq.about 1 → 重启 →
         OnCreate 弹 UI_ABOUT 软件信息弹窗：Version 版本号 1.6.8 + 官网 www.cnvcs.com
         + 反馈/关闭 2 按钮）。
@@ -2320,6 +2343,17 @@ Java_com_cnvcs_App_OnUpdate(JNIEnv *env, jclass clazz)
             __system_property_set("jq.chat063", "0");
         }
     }
+    /* ★ 返回键 3 态测试钩子（adb setprop jq.backtest 1/2/3 → 同会话 OnUpdate 轮询
+        → UI_EXITCONFIRM/RESIGN/REGRET 确认弹窗；0=退弹窗回对局。与 jq.about 同范式，不重启 app） */
+    {
+        char bk_prop[16] = {0};
+        __system_property_get("jq.backtest", bk_prop);
+        if (strcmp(bk_prop, "1") == 0 || strcmp(bk_prop, "2") == 0 || strcmp(bk_prop, "3") == 0) {
+            ui_screen_set(bk_prop[0] == '2' ? UI_RESIGNCONFIRM : (bk_prop[0] == '3' ? UI_REGRETCONFIRM : UI_EXITCONFIRM));
+            LOGI("OnUpdate jq.backtest 钩子：→ 返回键 3 态确认弹窗（backtest=%s）", bk_prop);
+            __system_property_set("jq.backtest", "0");
+        }
+    }
     /* ★ P2（datah_000 证据）：软件信息 setprop 钩子（adb setprop jq.about 1 → 同会话 OnUpdate 轮询
         → UI_ABOUT 软件信息弹窗：Version 版本号 1.6.8 + 官网 www.cnvcs.com + 反馈/关闭 2 按钮；
         2=退弹窗回对局。与 jq.chat063 同范式，不重启 app）。
@@ -2446,10 +2480,61 @@ Java_com_cnvcs_App_OnInput(JNIEnv *env, jclass clazz, jstring text)
 
 /* OnKey(KeyEvent)→jboolean：按键。桩（原版键盘输入映射 UI 层）。 */
 JNIEXPORT jboolean JNICALL
+/* ★ 返回键（KEYCODE_BACK）原版对齐（ch02 N45 + 原版 .rodata Junqi.ExitConfirm/ResignConfirm/
+   RegretConfirm 证据）：原版 back key 3 态状态机——
+   ① 对局态（UI_GAME）→ 弹 UI_EXITCONFIRM 退出确认（原版 Junqi.ExitConfirm）；
+   ② 主菜单态（UI_MENU）→ 返回上级（退出程序 / 回菜单）；
+   ③ 弹窗态（其它 UI_*）→ 关闭当前弹窗回对局（原版"返回"通用行为）。
+   联机版（bt_mode）按 BACK → UI_RESIGNCONFIRM 认输确认（原版 Junqi.ResignConfirm）；
+   已悔过步时连续 BACK → UI_REGRETCONFIRM 悔棋确认（原版 Junqi.RegretConfirm）。
+   ★ 诚实边界：原版 3 类确认对话框 .data 组 XML 几何未逆向（.rodata 仅事件名
+   Junqi.ExitConfirm/ResignConfirm/RegretConfirm），几何/按钮为简化近似（对齐原版 3 态
+   行为），不包装成"原版 datah 精确对齐"。返回键入口 = App.smali onKeyDown → native
+   OnKey（原版 App.smali L202 已 wire，src_rs 沿用 native 签名 JNI 不变）。 */
 Java_com_cnvcs_App_OnKey(JNIEnv *env, jclass clazz, jobject keyEvent)
 {
-    (void)env; (void)clazz; (void)keyEvent;
-    return JNI_FALSE;
+    (void)clazz;
+    if (keyEvent == NULL) { LOGI("OnKey 返回键：keyEvent=NULL（诚实边界）"); return JNI_FALSE; }
+    /* 读 keyCode（KeyEvent.getKeyCode() = 0x4 KEYCODE_BACK）——GetObjectClass 反射（主线程安全） */
+    jclass kcls = (*env)->GetObjectClass(env, keyEvent);
+    jmethodID mid = (*env)->GetMethodID(env, kcls, "getKeyCode", "()I");
+    int keycode = (*env)->CallIntMethod(env, keyEvent, mid);
+    if (keycode != 4) { LOGI("OnKey 非 BACK 键（keyCode=%d）交系统", keycode); return JNI_FALSE; }
+    LOGI("OnKey 返回键（KEYCODE_BACK）触发（scr=%d）", ui_screen_get());
+    int scr = ui_screen_get();
+    int is_bt = ui_bt_active();
+    int undo_n = 0;
+    pthread_mutex_lock(&g_mutex);
+    undo_n = g_undo_top;
+    if (is_bt && scr == UI_GAME) {
+        /* ① 联机版对局态按 BACK → 认输确认（原版 Junqi.ResignConfirm） */
+        ui_screen_set(UI_RESIGNCONFIRM);
+        LOGI("OnKey 返回键（联机版对局）：→ UI_RESIGNCONFIRM 认输确认弹窗"
+             "（原版 .rodata Junqi.ResignConfirm，几何简化近似，诚实边界）");
+    } else if (undo_n > 0 && scr == UI_GAME) {
+        /* ② 本地对局已悔过步 → 悔棋确认（原版 Junqi.RegretConfirm） */
+        ui_screen_set(UI_REGRETCONFIRM);
+        LOGI("OnKey 返回键（对局已悔过 undo=%d）：→ UI_REGRETCONFIRM 悔棋确认弹窗"
+             "（原版 .rodata Junqi.RegretConfirm，几何简化近似，诚实边界）", undo_n);
+    } else if (scr == UI_GAME) {
+        /* ③ 对局态（无已悔步）→ 退出确认（原版 Junqi.ExitConfirm） */
+        ui_screen_set(UI_EXITCONFIRM);
+        LOGI("OnKey 返回键（对局态）：→ UI_EXITCONFIRM 退出确认弹窗"
+             "（原版 .rodata Junqi.ExitConfirm，几何简化近似，诚实边界）");
+    } else if (scr == UI_MENU) {
+        /* ④ 主菜单态 → 回主菜单（对局返回上级语义；原版菜单态按 BACK 返回上级/退出。
+           src_rs 诚实边界：菜单态返回=回 UI_MENU 停留，不直接 finish 活动（避免误退 app） */
+        ui_screen_set(UI_MENU);
+        sfx_play(env, "pop");
+        LOGI("OnKey 返回键（主菜单态）：回主菜单停留（对齐原版菜单返回=返回上级，不 finish 活动，诚实边界）");
+    } else {
+        /* ⑤ 其它弹窗态 → 关闭回对局（原版"返回"通用行为） */
+        ui_screen_set(UI_GAME);
+        LOGI("OnKey 返回键（弹窗态 UI_%d）：关闭回对局（对齐原版返回=关弹窗）", scr);
+    }
+    pthread_mutex_unlock(&g_mutex);
+    sfx_play(env, "pop");
+    return JNI_TRUE;   /* 消费 BACK（原版 App.smali onKeyDown 返 true） */
 }
 
 /* ★ 对抗审计（datah_072）：蓝牙联机启动（联网=host 蓝先手 / 联机=client 红后手）。
@@ -4096,6 +4181,75 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
         点 关闭 → 回对局；点面板外 → 回对局。
         ★ 诚实边界：原版反馈=邮件/客服通道（未逆向），src_rs 无反馈通道，
         不包装成"已反馈" */
+    /* ★ 返回键 3 态确认弹窗命中分发（原版 .rodata ExitConfirm/ResignConfirm/RegretConfirm） */
+    if (ui_screen_get() == UI_EXITCONFIRM) {
+        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
+        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        const ui_exitconfirm_btn *eb = ui_exitconfirm_buttons();
+        int eh = ui_exitconfirm_hit(eb, UI_EXITCONFIRM_COUNT, bx, by);
+        if (eh >= 0) {
+            int eact = eb[eh].action;
+            LOGI("OnTouch 退出确认弹窗：按钮%d（action=%d）", eh, eact);
+            if (eact == 0) {   /* 退出 → 回主菜单 */
+                ui_screen_set(UI_MENU);
+                sfx_play(env, "pop");
+                LOGI("OnTouch 退出确认：退出 → 回主菜单（对齐原版 Junqi.ExitConfirm 确认退出）");
+            } else if (eact == 1) {   /* 继续 → 回对局 */
+                ui_screen_set(UI_GAME);
+                sfx_play(env, "pop");
+                LOGI("OnTouch 退出确认：继续 → 回对局");
+            }
+        }
+        return JNI_TRUE;
+    }
+    if (ui_screen_get() == UI_RESIGNCONFIRM) {
+        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
+        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        const ui_resignconfirm_btn *rb = ui_resignconfirm_buttons();
+        int rh = ui_resignconfirm_hit(rb, UI_RESIGNCONFIRM_COUNT, bx, by);
+        if (rh >= 0) {
+            int ract = rb[rh].action;
+            LOGI("OnTouch 认输确认弹窗：按钮%d（action=%d）", rh, ract);
+            if (ract == 0) {   /* 认输 → 本机败（winner=对方）+ 回对局结束态 */
+                pthread_mutex_lock(&g_mutex);
+                g_state.winner = (g_state.turn == SIDE_BLUE) ? SIDE_RED : SIDE_BLUE;
+                g_state.stage = STG_OVER;
+                pthread_mutex_unlock(&g_mutex);
+                ui_screen_set(UI_GAME);
+                sfx_play(env, "over");
+                LOGI("OnTouch 认输确认：认输 → 本机败（winner=%d stage=OVER，对齐原版 Junqi.ResignConfirm）",
+                     g_state.winner);
+            } else if (ract == 1) {   /* 取消 → 回对局 */
+                ui_screen_set(UI_GAME);
+                sfx_play(env, "pop");
+                LOGI("OnTouch 认输确认：取消 → 回对局");
+            }
+        }
+        return JNI_TRUE;
+    }
+    if (ui_screen_get() == UI_REGRETCONFIRM) {
+        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
+        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        const ui_regretconfirm_btn *gb = ui_regretconfirm_buttons();
+        int gh = ui_regretconfirm_hit(gb, UI_REGRETCONFIRM_COUNT, bx, by);
+        if (gh >= 0) {
+            int gact = gb[gh].action;
+            LOGI("OnTouch 悔棋确认弹窗：按钮%d（action=%d）", gh, gact);
+            if (gact == 0) {   /* 悔棋 → undo_pop 一步 + 回对局 */
+                pthread_mutex_lock(&g_mutex);
+                int popped = undo_pop();
+                pthread_mutex_unlock(&g_mutex);
+                ui_screen_set(UI_GAME);
+                sfx_play(env, "pop");
+                LOGI("OnTouch 悔棋确认：悔棋 → undo_pop（popped=%d，对齐原版 Junqi.RegretConfirm）", popped);
+            } else if (gact == 1) {   /* 取消 → 回对局 */
+                ui_screen_set(UI_GAME);
+                sfx_play(env, "pop");
+                LOGI("OnTouch 悔棋确认：取消 → 回对局");
+            }
+        }
+        return JNI_TRUE;
+    }
     if (ui_screen_get() == UI_ABOUT) {
         float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
         float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;

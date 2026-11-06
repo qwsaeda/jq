@@ -217,6 +217,21 @@ UI_REPLAY,     /* ★ P1（datah_039/107 证据）：复盘回放态——
                           值 1=进 / 0=退）。
                           ★ 诚实边界：原版反馈=邮件/客服通道（未逆向），src_rs 无
                           反馈通道，反馈按钮→边界对话框，不包装成"已反馈" */
+    UI_EXITCONFIRM, /* ★ 返回键 3 态确认（原版 .rodata Junqi.ExitConfirm 证据）：
+                          按 BACK 键在 UI_GAME 对局态弹确认（退出/继续），原版 back key
+                          state 机（对局→退出确认 → 菜单→返回菜单 → 弹窗→关闭弹窗）。
+                          720×1280 居中 400×280 面板，退出/继续 2 按钮，几何对照 datah_032
+                          （原版 320×240 菜单弹窗系）。★ 诚实边界：原版 Junqi.ExitConfirm
+                          对话框数据未逆向（.rodata 仅事件名），几何/按钮为简化近似
+                          （对齐原版 3 态行为），不包装成"原版 datah 精确对齐"。
+                          入口：OnKey（KEYCODE_BACK）+ setprop jq.backtest 测试钩子 */
+    UI_RESIGNCONFIRM, /* ★ 返回键 3 态（认输确认，原版 .rodata Junqi.ResignConfirm 证据）：
+                          蓝牙联机版按 BACK 弹认输确认（认输/取消），对应原版 3 态
+                          ResignConfirm。720×1280 居中 400×280，认输/取消 2 按钮。
+                          ★ 诚实边界：原版认输确认对话框数据未逆向，几何简化近似 */
+    UI_REGRETCONFIRM, /* ★ 返回键 3 态（悔棋确认，原版 .rodata Junqi.RegretConfirm 证据）：
+                          连续按 BACK 在已悔过 1 步时弹悔棋确认。720×1280 居中 400×280，
+                          悔棋/取消 2 按钮。★ 诚实边界：原版悔棋确认对话框数据未逆向 */
     UI_DRAWDETAIL,  /* ★ P2（datah_042 证据）：提和详情弹窗（联机版 ☰ 菜单 7 图标：
                         提和/认输/聊天/系统设置/玩家资料/战况统计/软件信息，
                         原版 datah_042 450×285 面板居中，局部坐标 1:1 平移偏移 +135,+497.5；
@@ -1096,6 +1111,23 @@ int ui_chat063_popup_inside(float x, float y);   /* 点在弹窗面板内 */
     ★ 诚实边界：原版反馈=邮件/客服通道（未逆向），src_rs 无反馈通道，
     反馈按钮→边界对话框，不包装成"已反馈" */
 #define UI_ABOUT_COUNT 2
+/* ★ 返回键 3 态确认弹窗（原版 .rodata Junqi.ExitConfirm/ResignConfirm/RegretConfirm） */
+#define UI_EXITCONFIRM_COUNT 2
+#define UI_RESIGNCONFIRM_COUNT 2
+#define UI_REGRETCONFIRM_COUNT 2
+#define UI_EXITCONFIRM_POPUP_X0 160.0f
+#define UI_EXITCONFIRM_POPUP_Y0 500.0f
+#define UI_EXITCONFIRM_POPUP_W  400.0f
+#define UI_EXITCONFIRM_POPUP_H  280.0f
+typedef struct { float x0,y0,x1,y1; int action; } ui_exitconfirm_btn;
+const ui_exitconfirm_btn *ui_exitconfirm_buttons(void);
+int ui_exitconfirm_hit(const ui_exitconfirm_btn *b, int n, float x, float y);
+typedef struct { float x0,y0,x1,y1; int action; } ui_resignconfirm_btn;
+const ui_resignconfirm_btn *ui_resignconfirm_buttons(void);
+int ui_resignconfirm_hit(const ui_resignconfirm_btn *b, int n, float x, float y);
+typedef struct { float x0,y0,x1,y1; int action; } ui_regretconfirm_btn;
+const ui_regretconfirm_btn *ui_regretconfirm_buttons(void);
+int ui_regretconfirm_hit(const ui_regretconfirm_btn *b, int n, float x, float y);
 #define UI_ABOUT_POPUP_X0 160.0f
 #define UI_ABOUT_POPUP_Y0 500.0f
 #define UI_ABOUT_POPUP_W  400.0f

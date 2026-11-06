@@ -1413,3 +1413,30 @@ int ui_ui118_popup_inside(float x, float y)
     return x >= UI_UI118_POPUP_X0 && x <= UI_UI118_POPUP_X0 + UI_UI118_POPUP_W &&
            y >= UI_UI118_POPUP_Y0 && y <= UI_UI118_POPUP_Y0 + UI_UI118_POPUP_H;
 }
+
+/* ★ 返回键 3 态确认弹窗按钮表（原版 .rodata ExitConfirm/ResignConfirm/RegretConfirm）
+   720×1280 居中 400×280 面板（偏移 +160,+500），2 按钮 720 基准。
+   ★ 诚实边界：原版确认对话框几何未逆向，简化近似（对齐原版 3 态行为） */
+static const ui_exitconfirm_btn g_exitconfirm_btns[UI_EXITCONFIRM_COUNT] = {
+    { 180.0f, 690.0f, 340.0f, 750.0f, 0 },   /* 退出 */
+    { 380.0f, 690.0f, 540.0f, 750.0f, 1 },   /* 继续 */
+};
+const ui_exitconfirm_btn *ui_exitconfirm_buttons(void) { return g_exitconfirm_btns; }
+int ui_exitconfirm_hit(const ui_exitconfirm_btn *b, int n, float x, float y)
+{ for (int i = 0; i < n; i++) if (x>=b[i].x0 && x<=b[i].x1 && y>=b[i].y0 && y<=b[i].y1) return i; return -1; }
+
+static const ui_resignconfirm_btn g_resignconfirm_btns[UI_RESIGNCONFIRM_COUNT] = {
+    { 180.0f, 690.0f, 340.0f, 750.0f, 0 },   /* 认输 */
+    { 380.0f, 690.0f, 540.0f, 750.0f, 1 },   /* 取消 */
+};
+const ui_resignconfirm_btn *ui_resignconfirm_buttons(void) { return g_resignconfirm_btns; }
+int ui_resignconfirm_hit(const ui_resignconfirm_btn *b, int n, float x, float y)
+{ for (int i = 0; i < n; i++) if (x>=b[i].x0 && x<=b[i].x1 && y>=b[i].y0 && y<=b[i].y1) return i; return -1; }
+
+static const ui_regretconfirm_btn g_regretconfirm_btns[UI_REGRETCONFIRM_COUNT] = {
+    { 180.0f, 690.0f, 340.0f, 750.0f, 0 },   /* 悔棋 */
+    { 380.0f, 690.0f, 540.0f, 750.0f, 1 },   /* 取消 */
+};
+const ui_regretconfirm_btn *ui_regretconfirm_buttons(void) { return g_regretconfirm_btns; }
+int ui_regretconfirm_hit(const ui_regretconfirm_btn *b, int n, float x, float y)
+{ for (int i = 0; i < n; i++) if (x>=b[i].x0 && x<=b[i].x1 && y>=b[i].y0 && y<=b[i].y1) return i; return -1; }

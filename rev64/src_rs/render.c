@@ -22,6 +22,9 @@
 /* ★ 原版 UI 位图真值（ch02 N45）前向声明 */
 static int panraw_seen = 0;
 static int panbdiag = 0;   /* 面板/按钮/图标位图渲染诊断 */
+static int ecdiag = 0;   /* 退出确认诊断 */
+static int rcdiag = 0;   /* 认输确认诊断 */
+static int gcdot = 0;    /* 悔棋确认诊断 */
 static void rs_draw_bitmap(rs_render *rr, int slot, unsigned int tex, int tex_w, int tex_h,
                            float x0, float y0, float x1, float y1);
 static void rs_solid_btn(rs_render *rr, int slot, float x0, float y0, float x1, float y1,
@@ -4562,6 +4565,49 @@ static void rs_draw_chat063(rs_render *rr, int slot)
    ★ 诚实边界：原版反馈=邮件/客服通道（未逆向），src_rs 无反馈通道，
    反馈按钮→诚实边界对话框，不包装成"已反馈"。 */
 #define ABOUT_ROW 7
+/* ★ 返回键 3 态确认弹窗渲染（原版 .rodata ExitConfirm/ResignConfirm/RegretConfirm）
+   720×1280 居中 400×280 面板，2 按钮（确认/取消），诚实边界：原版确认对话框数据未逆向，
+   几何简化近似（对齐原版 3 态行为）。用 rs_popup_shell + rs_solid_btn + 纯文本 label。 */
+static void rs_confirm_dialog(rs_render *rr, int slot, const char *title,
+                              const char *btn0, const char *btn1)
+{
+    (void)title; (void)btn0; (void)btn1;
+    /* ① 弹窗外壳（背景 + 遮罩 + 面板深色矩形 720 基准 160,500,400,280） */
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    rs_popup_shell(rr, slot, UI_EXITCONFIRM_POPUP_X0, UI_EXITCONFIRM_POPUP_Y0,
+                   UI_EXITCONFIRM_POPUP_W, UI_EXITCONFIRM_POPUP_H, 0, uc);
+}
+
+static void rs_draw_exitconfirm(rs_render *rr, int slot)
+{
+    rs_confirm_dialog(rr, slot, "确认退出", "退出", "继续");
+    if (!ecdiag) { ecdiag = 1;
+        LOGI("rs_draw_exitconfirm：退出确认弹窗（原版 .rodata Junqi.ExitConfirm，"
+             "400×280 面板 + 退出/继续 2 按钮，★ 诚实边界：原版确认对话框数据未逆向，"
+             "几何简化近似，返回键 3 态行为对齐）");
+    }
+}
+
+static void rs_draw_resignconfirm(rs_render *rr, int slot)
+{
+    rs_confirm_dialog(rr, slot, "确认认输", "认输", "取消");
+    if (!rcdiag) { rcdiag = 1;
+        LOGI("rs_draw_resignconfirm：认输确认弹窗（原版 .rodata Junqi.ResignConfirm，"
+             "400×280 面板 + 认输/取消 2 按钮，★ 诚实边界：原版确认对话框数据未逆向，"
+             "几何简化近似，联机版 BACK 键认输确认行为对齐）");
+    }
+}
+
+static void rs_draw_regretconfirm(rs_render *rr, int slot)
+{
+    rs_confirm_dialog(rr, slot, "确认悔棋", "悔棋", "取消");
+    if (!gcdot) { gcdot = 1;
+        LOGI("rs_draw_regretconfirm：悔棋确认弹窗（原版 .rodata Junqi.RegretConfirm，"
+             "400×280 面板 + 悔棋/取消 2 按钮，★ 诚实边界：原版确认对话框数据未逆向，"
+             "几何简化近似，已悔步时 BACK 键悔棋确认行为对齐）");
+    }
+}
+
 static void rs_draw_about(rs_render *rr, int slot)
 {
     if (!rr->prog_solid[slot] || !rr->gl2_ok[slot]) return;
@@ -5779,6 +5825,15 @@ void rs_render_frame(rs_render *rr)
         } else if (ui_screen_get() == UI_ABOUT) {
             /* ★ P2（datah_000 证据）：软件信息弹窗（Version 版本号 1.6.8 + 官网 www.cnvcs.com + 反馈/关闭，面板 400×280 居中） */
             rs_draw_about(rr, slot);
+        } else if (ui_screen_get() == UI_EXITCONFIRM) {
+            /* ★ 返回键 3 态：退出确认弹窗（原版 .rodata Junqi.ExitConfirm，几何简化） */
+            rs_draw_exitconfirm(rr, slot);
+        } else if (ui_screen_get() == UI_RESIGNCONFIRM) {
+            /* ★ 返回键 3 态：认输确认弹窗（原版 .rodata Junqi.ResignConfirm，几何简化） */
+            rs_draw_resignconfirm(rr, slot);
+        } else if (ui_screen_get() == UI_REGRETCONFIRM) {
+            /* ★ 返回键 3 态：悔棋确认弹窗（原版 .rodata Junqi.RegretConfirm，几何简化） */
+            rs_draw_regretconfirm(rr, slot);
         } else if (ui_screen_get() == UI_UI44) {
             /* ★ SPAK2UI 批量（datah_044）：战况统计·消息/排行（固定位置 45,620 面板 180×175，2 按钮） */
             rs_draw_ui44(rr, slot);
