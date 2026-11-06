@@ -182,6 +182,61 @@ void ui_rules_save(void)
          g_rule_draw, g_rule_hq, g_rule_mine, g_rule_flag);
 }
 
+/* ★ P2（datah_007 证据）：图像设置 4 开关（界面动画/棋子动画/夜间模式/对方棋子）。
+   ★ 诚实边界：图像/夜间模式/对方棋子 = 渲染层未实现（src_rs 无对应渲染参数），
+   开关只是 UI 状态记录（不实际改渲染）。持久化 jq_imgset.txt（4 字段，
+   与 ui_rules 同目录范式，默认全开）。 */
+static int g_img_trans = 1;    /* 界面动画：1=开 */
+static int g_img_piece = 1;    /* 棋子动画：1=开 */
+static int g_img_night = 0;    /* 夜间模式：0=关（默认） */
+static int g_img_opp = 1;      /* 对方棋子：1=开 */
+int ui_imgset_trans_get(void) { return g_img_trans; }
+void ui_imgset_trans_set(int v) { g_img_trans = v ? 1 : 0; }
+int ui_imgset_piece_get(void) { return g_img_piece; }
+void ui_imgset_piece_set(int v) { g_img_piece = v ? 1 : 0; }
+int ui_imgset_night_get(void) { return g_img_night; }
+void ui_imgset_night_set(int v) { g_img_night = v ? 1 : 0; }
+int ui_imgset_opp_get(void) { return g_img_opp; }
+void ui_imgset_opp_set(int v) { g_img_opp = v ? 1 : 0; }
+int ui_imgset_cfg_get(int which)
+{
+    switch (which) {
+    case 0: return g_img_trans;
+    case 1: return g_img_piece;
+    case 2: return g_img_night;
+    case 3: return g_img_opp;
+    }
+    return 1;
+}
+void ui_imgset_load(void)
+{
+    if (!g_set_dir[0]) return;
+    char pth[320]; snprintf(pth, sizeof pth, "%s/jq_imgset.txt", g_set_dir);
+    FILE *f = fopen(pth, "rb");
+    if (!f) { LOGI("图像设置：无文件（%s）→ 默认 界面开/棋子开/夜间关/对方开", pth); return; }
+    int t = -1, p = -1, n = -1, o = -1;
+    if (fscanf(f, "%d %d %d %d", &t, &p, &n, &o) == 4) {
+        g_img_trans = (t == 0 || t == 1) ? t : 1;
+        g_img_piece = (p == 0 || p == 1) ? p : 1;
+        g_img_night = (n == 0 || n == 1) ? n : 0;
+        g_img_opp = (o == 0 || o == 1) ? o : 1;
+    }
+    fclose(f);
+    LOGI("图像设置：读取 %s → 界面=%d 棋子=%d 夜间=%d 对方=%d", pth,
+         g_img_trans, g_img_piece, g_img_night, g_img_opp);
+}
+void ui_imgset_save(void)
+{
+    if (!g_set_dir[0]) return;
+    char pth[320]; snprintf(pth, sizeof pth, "%s/jq_imgset.txt", g_set_dir);
+    FILE *f = fopen(pth, "wb");
+    if (!f) { LOGI("图像设置：写失败 %s", pth); return; }
+    fprintf(f, "%d %d %d %d\n", g_img_trans, g_img_piece, g_img_night, g_img_opp);
+    fclose(f);
+    LOGI("图像设置：保存 %s → 界面=%d 棋子=%d 夜间=%d 对方=%d", pth,
+         g_img_trans, g_img_piece, g_img_night, g_img_opp);
+}
+
 /* 菜单按钮点击处理：0=人机 → UI_DIFFICULTY（★ 对抗审计 datah_041：原版弹难度选择弹窗，
    选难度+布局/翻棋后开局）；1=两人 → UI_GAME（直开局，原版两人无难度弹窗）；
    4=四国 → 不切 UI_GAME（OnTouch 显示四国边界对话框，勿静默开 2 人局误导）。

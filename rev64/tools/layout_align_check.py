@@ -157,6 +157,40 @@ DIALOGS = {
         ("聊天",225,25,330,160),("系统设置",330,25,435,160),
         ("玩家资料",15,150,120,285),("战况统计",120,150,225,285),
         ("软件信息",225,150,330,285)]),
+    # ★ P2 批量 9 弹窗（datah_003/004/007/008/065/069/070/060/063 证据）：
+    # 设置入口/图像设置/加入游戏完整版/创建游戏完整版/游戏规则完整版/房间态/聊天完整版
+    # 几何按原版 SPAK 对话框 XML 精确换算（面板居中 720 屏，局部坐标 1:1 平移）
+    # 诚实边界：图像设置=渲染参数未实现（仅 UI 状态记录）；
+    # 联机加入/创建/房间/聊天完整版=Wi-Fi/局域网协议未逆向（确定/开始→边界对话框）
+    "datah_003_setentry": (260, 270, [
+        ("图像",25,25,235,85),("声音",25,105,235,165),("游戏",25,185,235,245)]),
+    "datah_004_setentry4": (260, 190, [
+        ("图像",25,25,235,85),("声音",25,105,235,165)]),
+    "datah_007_imgset7": (450, 465, [
+        ("界面",220,75,420,135),("棋子",220,150,420,210),
+        ("夜间",220,225,420,285),("对方",220,300,420,360),
+        ("确定",30,380,210,440),("取消",240,380,420,440)]),
+    "datah_008_imgset8": (450, 390, [
+        ("界面",220,75,420,135),("棋子",220,150,420,210),
+        ("夜间",220,225,420,285),("确定",30,305,210,365),("取消",240,305,420,365)]),
+    "datah_065_join065": (450, 505, [
+        ("先手",140,85,420,120),("后手",140,125,420,160),
+        ("玩法",140,165,420,200),("明暗棋",140,205,420,240),
+        ("和棋",140,245,420,280),("大本营",140,285,420,320),
+        ("吃雷",140,325,420,360),("吃旗",140,365,420,400),
+        ("开始",30,420,210,480),("取消",240,420,420,480)]),
+    "datah_069_create069": (450, 465, [
+        ("先后手",220,75,420,135),("玩法",220,150,420,210),
+        ("明暗棋",220,225,420,285),("规则",220,300,420,360),
+        ("确定",30,385,210,445),("取消",240,385,420,445)]),
+    "datah_070_rules070": (450, 465, [
+        ("和棋",220,75,420,135),("大本营",220,150,420,210),
+        ("吃雷",220,225,420,285),("吃旗",220,300,420,360),
+        ("确定",30,385,210,445),("取消",240,385,420,445)]),
+    "datah_060_room060": (450, 352, [
+        ("开始",25,270,145,330),("换桌",165,270,285,330),("离开",305,270,425,330)]),
+    "datah_063_chat063": (420, 325, [
+        ("发送",25,245,135,305),("记录",155,245,265,305),("关闭",285,245,395,305)]),
 }
 
 # datah_107/039 绝对坐标面板（不居中，局部 1:1 平移 @ 偏移）
@@ -217,6 +251,24 @@ def load_src_rs_buttons(path="rev64/src_rs/ui_menu.c"):
     tables["profile"] = _grab("g_profile_btns")
     # ★ P2（datah_042 证据）：提和详情弹窗 7 图标（g_drawdetail_btns）
     tables["drawdetail"] = _grab("g_drawdetail_btns")
+    # ★ P2（datah_003 证据）：设置入口弹窗 3 按钮（g_setentry_btns）
+    tables["setentry"] = _grab("g_setentry_btns")
+    # ★ P2（datah_004 证据）：设置入口（简化版）弹窗 2 按钮（g_setentry4_btns）
+    tables["setentry4"] = _grab("g_setentry4_btns")
+    # ★ P2（datah_007 证据）：图像设置弹窗（完整版）6 控件（g_imgset7_btns）
+    tables["imgset7"] = _grab("g_imgset7_btns")
+    # ★ P2（datah_008 证据）：图像设置弹窗（简化版）5 控件（g_imgset8_btns）
+    tables["imgset8"] = _grab("g_imgset8_btns")
+    # ★ P2（datah_065 证据）：加入游戏完整版弹窗 10 控件（g_join065_btns）
+    tables["join065"] = _grab("g_join065_btns")
+    # ★ P2（datah_069 证据）：创建游戏完整版弹窗 6 控件（g_create069_btns）
+    tables["create069"] = _grab("g_create069_btns")
+    # ★ P2（datah_070 证据）：游戏规则完整版弹窗 6 控件（g_rules070_btns）
+    tables["rules070"] = _grab("g_rules070_btns")
+    # ★ P2（datah_060 证据）：房间态弹窗 3 按钮（g_room060_btns）
+    tables["room060"] = _grab("g_room060_btns")
+    # ★ P2（datah_063 证据）：聊天完整版弹窗 3 按钮（g_chat063_btns）
+    tables["chat063"] = _grab("g_chat063_btns")
     return tables
 def dialog_720(name):
     """原版对话框 → 720×1280 物理基准（面板水平居中 +135，垂直居中按面板 H）；
@@ -255,14 +307,20 @@ def check_geometry(menu_src=None, verbose=True):
                 print(f"  主菜单 {lbl:4s} 原版({ox0:.0f},{oy0:.0f}) src({sx0:.0f},{sy0:.0f}) Δc=({dcx:+.1f},{dcy:+.1f}) {'✓' if ok else '✗'}")
             if not ok: failures.append(f"主菜单 {lbl} Δ=({dcx:+.1f},{dcy:+.1f})")
     # 弹窗（原版 720 换算 vs src_rs 按钮表 720 基准）
+    src = load_src_rs_buttons(src_rs_c_path or "rev64/src_rs/ui_menu.c")
     for dname in DIALOGS:
         if dname in ("datah_067_imen_bt","datah_006_imen"):  # ☰ 菜单图标 105×135，单独比中心
+            continue
+        if dname not in src.keys() and dname in (
+            "datah_003_setentry","datah_004_setentry4",
+            "datah_007_imgset7","datah_008_imgset8",
+            "datah_065_join065","datah_069_create069",
+            "datah_070_rules070","datah_060_room060","datah_063_chat063"):
             continue
     if verbose and verbose_global:
         print("\n弹窗几何（原版 450/250/230 系换算 720 基准）：")
     # ★ P1 布局存档 3 弹窗逐按钮 Δ 比对（src_rs 按钮表 720 基准 vs 原版 400 系换算 720，
     #   中心偏差 <2 = Δ≈0）
-    src = load_src_rs_buttons(src_rs_c_path or "rev64/src_rs/ui_menu.c")
     for dname, tname in [("datah_017_loadlay","loadlay"),
                          ("datah_020_savelay","savelay"),
                          ("datah_016_laymgr","laymgr"),
@@ -277,7 +335,17 @@ def check_geometry(menu_src=None, verbose=True):
                          ("datah_002_bright","bright"),
                          ("datah_029_chatlog","chatlog"),
                          ("datah_031_profile","profile"),
-                          ("datah_042_drawdetail","drawdetail")]:
+                         ("datah_042_drawdetail","drawdetail"),
+                         # ★ P2 批量 9 弹窗
+                         ("datah_003_setentry","setentry"),
+                         ("datah_004_setentry4","setentry4"),
+                         ("datah_007_imgset7","imgset7"),
+                         ("datah_008_imgset8","imgset8"),
+                         ("datah_065_join065","join065"),
+                         ("datah_069_create069","create069"),
+                         ("datah_070_rules070","rules070"),
+                         ("datah_060_room060","room060"),
+                         ("datah_063_chat063","chat063")]:
         if dname not in DIALOGS or tname not in src: continue
         W,H,obtns = DIALOGS[dname]
         ox,oy = (720-W)/2.0,(1280-H)/2.0
@@ -398,8 +466,44 @@ def check_geometry(menu_src=None, verbose=True):
             for i2, (lbl, x0, y0, x1, y1) in enumerate(obtns):
                 pairs.append((lbl, (round(ox+x0,1), round(oy+y0,1), round(ox+x1,1), round(oy+y1,1)),
                               (srcs[i2][0],srcs[i2][1],srcs[i2][2],srcs[i2][3])))
-        # 跳过 Δ 比对的 DIALOGS（029 chatlog 只有 2 按钮，002 bright 3 控件走循环切换）
-        skip_delta = dname in ("datah_029_chatlog",)
+        # ★ P2（datah_003/004 证据）：设置入口 3/2 按钮（260×270/260×190 居中，偏移+230,+505/+545）
+        if dname in ("datah_003_setentry","datah_004_setentry4"):
+            pairs = []
+            for i2, (lbl, x0, y0, x1, y1) in enumerate(obtns):
+                pairs.append((lbl, (round(ox+x0,1), round(oy+y0,1), round(ox+x1,1), round(oy+y1,1)),
+                              (srcs[i2][0],srcs[i2][1],srcs[i2][2],srcs[i2][3])))
+        # ★ P2（datah_007/008 证据）：图像设置 6/5 控件（450×465/450×390 居中，偏移+135,+407.5/+445）
+        if dname in ("datah_007_imgset7","datah_008_imgset8"):
+            pairs = []
+            for i2, (lbl, x0, y0, x1, y1) in enumerate(obtns):
+                pairs.append((lbl, (round(ox+x0,1), round(oy+y0,1), round(ox+x1,1), round(oy+y1,1)),
+                              (srcs[i2][0],srcs[i2][1],srcs[i2][2],srcs[i2][3])))
+        # ★ P2（datah_065 证据）：加入游戏完整版 10 控件（450×505 居中，偏移+135,+387.5）
+        if dname == "datah_065_join065":
+            pairs = []
+            for i2, (lbl, x0, y0, x1, y1) in enumerate(obtns):
+                pairs.append((lbl, (round(ox+x0,1), round(oy+y0,1), round(ox+x1,1), round(oy+y1,1)),
+                              (srcs[i2][0],srcs[i2][1],srcs[i2][2],srcs[i2][3])))
+        # ★ P2（datah_069/070 证据）：创建游戏/游戏规则完整版 6 控件（450×465 居中，偏移+135,+407.5）
+        if dname in ("datah_069_create069","datah_070_rules070"):
+            pairs = []
+            for i2, (lbl, x0, y0, x1, y1) in enumerate(obtns):
+                pairs.append((lbl, (round(ox+x0,1), round(oy+y0,1), round(ox+x1,1), round(oy+y1,1)),
+                              (srcs[i2][0],srcs[i2][1],srcs[i2][2],srcs[i2][3])))
+        # ★ P2（datah_060 证据）：房间态 3 按钮（450×352 居中，偏移+135,+464）
+        if dname == "datah_060_room060":
+            pairs = []
+            for i2, (lbl, x0, y0, x1, y1) in enumerate(obtns):
+                pairs.append((lbl, (round(ox+x0,1), round(oy+y0,1), round(ox+x1,1), round(oy+y1,1)),
+                              (srcs[i2][0],srcs[i2][1],srcs[i2][2],srcs[i2][3])))
+        # ★ P2（datah_063 证据）：聊天完整版 3 按钮（420×325 居中，偏移+150,+477.5）
+        if dname == "datah_063_chat063":
+            pairs = []
+            for i2, (lbl, x0, y0, x1, y1) in enumerate(obtns):
+                pairs.append((lbl, (round(ox+x0,1), round(oy+y0,1), round(ox+x1,1), round(oy+y1,1)),
+                              (srcs[i2][0],srcs[i2][1],srcs[i2][2],srcs[i2][3])))
+        # 跳过 Δ 比对的 DIALOGS（029 chatlog 只有 2 按钮，002 bright 3 控件走循环切换，004 setentry4 只有 2 按钮）
+        skip_delta = dname in ("datah_029_chatlog", "datah_004_setentry4")
         need_n = 2 if skip_delta else 3
         if not srcs or len(srcs) < need_n:
             if verbose and verbose_global: print(f"  {dname} src_rs 按钮表缺失/不足（{len(srcs)} 行）→ 跳过 Δ 比对（诚实边界）")

@@ -112,7 +112,100 @@ UI_REPLAY,     /* ★ P1（datah_039/107 证据）：复盘回放态——
                        帮助 → 显示帮助文本；返回 → 回主菜单。
                        入口：setprop jq.profile 测试钩子（现有 datah_072"个人资料"→UI_LOGIN
                        不破坏，031 作为登录后资料查看补充，独立态） */
-    UI_DRAWDETAIL, /* ★ P2（datah_042 证据）：提和详情弹窗（联机版 ☰ 菜单 7 图标：
+    UI_SETEXTTRY,   /* ★ P2（datah_003 证据）：设置入口弹窗（完整版，3 按钮：
+                         图像/声音/游戏设置入口，原版 datah_003 260×270 面板居中，
+                         局部坐标 1:1 平移偏移 +230,+505）。
+                         图像设置 → UI_IMGSET7（datah_008 简化版，图像设置简化合并）；
+                         声音设置 → UI_SETTINGS（datah_001 已实现）；
+                         游戏设置 → UI_GAMESET（datah_012 已实现）。
+                         入口：setprop jq.setentry 测试钩子（OnCreate + OnUpdate 双路，
+                         值 1=进 / 0=退）。★ 诚实边界：图像设置=渲染参数未实现，
+                         仅 UI 状态记录（UI_IMGSET7 4 开关循环切换不实际改渲染） */
+    UI_SETEXTTRY4,  /* ★ P2（datah_004 证据）：设置入口（简化版，2 按钮：图像/声音，
+                         无游戏设置项，原版 datah_004 260×190 面板居中，
+                         局部坐标 1:1 平移偏移 +230,+545）。
+                         图像设置 → UI_IMGSET8（datah_008 简化版）；
+                         声音设置 → UI_SETTINGS（datah_001 已实现）。
+                         业务：datah_004 是 datah_003 的简化版（联机态/蓝牙态设置入口，
+                         无游戏设置项）。入口：setprop jq.setentry4 测试钩子（OnCreate +
+                         OnUpdate 双路，值 1=进 / 0=退） */
+    UI_IMGSET7,     /* ★ P2（datah_007 证据）：图像设置弹窗（完整版，4 开关 + 确定/取消，
+                         界面/棋子动画/夜间模式/对方棋子，原版 datah_007 450×465 面板
+                         居中，局部坐标 1:1 平移偏移 +135,+407.5）。
+                         4 开关各循环切换 开/关（对齐 datah_001/012 循环范式）；
+                         确定 → ui_imgset_save（jq_imgset.txt 4 字段）+ 回主菜单；
+                         取消 → 恢复原值 + 回主菜单。
+                         入口：setprop jq.imgset7 测试钩子（OnCreate + OnUpdate 双路，
+                         值 1=进 / 0=退）。
+                         ★ 诚实边界：图像/夜间模式/对方棋子 = 渲染层未实现（src_rs
+                         无对应渲染参数），开关只是 UI 状态记录（不实际改渲染） */
+    UI_IMGSET8,     /* ★ P2（datah_008 证据）：图像设置弹窗（简化版，3 开关 + 确定/取消，
+                         界面/棋子动画/夜间模式，无对方棋子项，原版 datah_008 450×390
+                         面板居中，局部坐标 1:1 平移偏移 +135,+445）。
+                         3 开关各循环切换 开/关；确定 → ui_imgset_save（jq_imgset8.txt
+                         3 字段）+ 回主菜单；取消 → 恢复原值 + 回主菜单。
+                         业务：datah_008 是 datah_007 简化版（3 开关，蓝牙态）。
+                         入口：setprop jq.imgset8 测试钩子（OnCreate + OnUpdate 双路，
+                         值 1=进 / 0=退）。
+                         ★ 诚实边界：图像/夜间模式 = 渲染层未实现（src_rs 无对应渲染
+                         参数），开关只是 UI 状态记录（不实际改渲染） */
+    UI_JOIN065,     /* ★ P2（datah_065 证据）：加入游戏完整版弹窗（先手/后手/玩法/明暗棋/
+                         4 规则显示 + 开始/取消，原版 datah_065 450×505 面板居中，
+                         局部坐标 1:1 平移偏移 +135,+387.5）。
+                         8 项显示用 TransLabel（非按钮，显示当前值占位标签"蓝方/红方/
+                         布局/暗棋/开/开/开/开"），开始/取消 2 按钮可点。
+                         开始 → 诚实边界对话框（"加入游戏完整版：联机开局需 Wi-Fi/局域网
+                         房间协议，src_rs 仅蓝牙联机已实现，请选蓝牙联机"）+ 回主菜单；
+                         取消 → 回主菜单。
+                         入口：setprop jq.join065 测试钩子（OnCreate + OnUpdate 双路，
+                         值 1=进 / 0=退）。
+                         ★ 诚实边界：先手/后手/玩法/明暗棋/4 规则 = 联机开局配置（src_rs
+                         无联机开局逻辑，显示占位标签，不画真数据） */
+    UI_CREATE069,   /* ★ P2（datah_069 证据）：创建游戏完整版弹窗（先后手/玩法/明暗棋/
+                         游戏规则 4 选择 + 设置/确定/取消，原版 datah_069 450×465 面板
+                         居中，局部坐标 1:1 平移偏移 +135,+407.5）。
+                         4 选择各循环切换当前值（对齐 datah_104 范式）；
+                         游戏规则（action=3）→ UI_RULES070（datah_070 游戏规则弹窗）；
+                         确定 → 诚实边界对话框（"创建游戏完整版：联机房间创建需
+                         Wi-Fi/局域网协议，src_rs 仅蓝牙已实现"）+ 回主菜单；
+                         取消 → 回主菜单。
+                         入口：setprop jq.create069 测试钩子（OnCreate + OnUpdate 双路，
+                         值 1=进 / 0=退）。
+                         ★ 诚实边界：先后手/玩法/明暗棋 = 联机开局配置（src_rs 无联机
+                         房间创建逻辑，循环切换仅 UI 状态记录） */
+    UI_RULES070,    /* ★ P2（datah_070 证据）：游戏规则完整版弹窗（4 规则开关 + 确定/取消，
+                         和棋/大本营/吃地雷/吃军旗，原版 datah_070 450×465 面板居中，
+                         局部坐标 1:1 平移偏移 +135,+407.5）。与 datah_012 游戏设置同构，
+                         复用 ui_rule_*_get/set + 4 开关各循环切换 + 确定保存/取消恢复。
+                         业务：联机"游戏规则"弹窗（datah_069 创建游戏"游戏规则"按钮切此
+                         弹窗）。★ 与 datah_012 区分：012 是本地 ☰ 菜单"功能设置"
+                         →UI_GAMESET，070 是联机"游戏规则"弹窗。
+                         入口：setprop jq.rules070 测试钩子（OnCreate + OnUpdate 双路，
+                         值 1=进 / 0=退） */
+    UI_ROOM060,     /* ★ P2（datah_060 证据）：房间态弹窗（2 玩家房间列表 + 开始/换桌/离开，
+                         原版 datah_060 450×352 面板居中，局部坐标 1:1 平移偏移
+                         +135,+464）。Player1/Player2/Ready1/2/Score1/2/Rate1/2/View1/2
+                         是 TransText 显示区（非按钮），简化为占位标签；开始/换桌/离开
+                         3 按钮可点。
+                         开始 → 诚实边界对话框（"房间开始：联机房间需 Wi-Fi/局域网协议，
+                         src_rs 仅蓝牙已实现"）；换桌 → 诚实边界对话框（同上）；
+                         离开 → 回主菜单。
+                         入口：setprop jq.room060 测试钩子（OnCreate + OnUpdate 双路，
+                         值 1=进 / 0=退）。
+                         ★ 诚实边界：2 玩家显示区 = 占位标签（不画真数据，触摸 flaky
+                         下房间列表无意义） */
+    UI_CHAT063,     /* ★ P2（datah_063 证据）：聊天完整版弹窗（Msg 输入框 + 发送/记录/关闭
+                         3 按钮，原版 datah_063 420×325 面板居中，局部坐标 1:1 平移
+                         偏移 +150,+477.5）。
+                         Msg 输入框简化为占位标签"聊天输入（诚实边界：联机聊天文本
+                         未逆向）"；发送 → BT_T_CHAT 占位帧 + 边界对话框；
+                         记录 → UI_CHATLOG（datah_029 聊天记录已实现）；
+                         关闭 → 回对局。
+                         入口：setprop jq.chat063 测试钩子（OnCreate + OnUpdate 双路，
+                         值 1=进 / 0=退）。
+                         ★ 诚实边界：联机聊天文本未逆向（src_rs 蓝牙聊天是占位帧
+                         BT_T_CHAT，无真实文本渲染） */
+    UI_DRAWDETAIL,  /* ★ P2（datah_042 证据）：提和详情弹窗（联机版 ☰ 菜单 7 图标：
                         提和/认输/聊天/系统设置/玩家资料/战况统计/软件信息，
                         原版 datah_042 450×285 面板居中，局部坐标 1:1 平移偏移 +135,+497.5；
                         比 datah_067 8 图标少 1 项"游戏规则"，多 1 项"玩家资料"）。
@@ -633,5 +726,258 @@ typedef struct {
 const ui_drawdetail_btn *ui_drawdetail_buttons(void);   /* 7 图标（静态表） */
 int ui_drawdetail_hit(const ui_drawdetail_btn *btns, int n, float x, float y);  /* 命中 0-6，-1 无 */
 int ui_drawdetail_popup_inside(float x, float y);  /* 点在弹窗面板内 */
+
+/* ★ P2（datah_003 证据）：设置入口弹窗（完整版）——3 按钮（图像/声音/游戏设置入口）。
+    几何 720×1280 基准（datah_003 260×270 面板居中，偏移=(720-260)/2=230,(1280-270)/2=505；
+    局部 1:1 平移：图像 25,25,235,85 → 255,530-465,590；声音 25,105,235,165 →
+    255,610-465,670；游戏 25,185,235,245 → 255,690-465,750）。
+    action：0=图像设置（→ UI_IMGSET7 图像设置弹窗 datah_008）
+    1=声音设置（→ UI_SETTINGS datah_001 已实现）
+    2=游戏设置（→ UI_GAMESET datah_012 已实现）
+    入口：setprop jq.setentry 测试钩子（OnCreate + OnUpdate 双路，值 1=进 / 0=退）。
+    ★ 诚实边界：图像设置入口指向 UI_IMGSET7（图像设置渲染参数未实现，仅 UI 状态记录）。 */
+#define UI_SETEXTTRY_COUNT 3
+#define UI_SETEXTTRY_POPUP_X0 230.0f
+#define UI_SETEXTTRY_POPUP_Y0 505.0f
+#define UI_SETEXTTRY_POPUP_W  260.0f
+#define UI_SETEXTTRY_POPUP_H  270.0f
+typedef struct {
+    float x0, y0, x1, y1;   /* 按钮矩形（720×1280 基准） */
+    int action;             /* 0=图像设置 1=声音设置 2=游戏设置 */
+} ui_setentry_btn;
+
+const ui_setentry_btn *ui_setentry_buttons(void);   /* 3 按钮（静态表） */
+int ui_setentry_hit(const ui_setentry_btn *btns, int n, float x, float y);  /* 命中 0-2，-1 无 */
+int ui_setentry_popup_inside(float x, float y);   /* 点在弹窗面板内 */
+
+/* ★ P2（datah_004 证据）：设置入口（简化版）——2 按钮（图像/声音，无游戏设置）。
+    几何 720×1280 基准（datah_004 260×190 面板居中，偏移=(720-260)/2=230,(1280-190)/2=545；
+    局部 1:1 平移：图像 25,25,235,85 → 255,570-465,630；声音 25,105,235,165 →
+    255,650-465,710）。
+    action：0=图像设置（→ UI_IMGSET8 图像设置简化版 datah_008）
+    1=声音设置（→ UI_SETTINGS datah_001 已实现）
+    业务：datah_004 是 datah_003 的简化版（联机态/蓝牙态设置入口，无游戏设置项）。
+    入口：setprop jq.setentry4 测试钩子（OnCreate + OnUpdate 双路，值 1=进 / 0=退）。
+    ★ 诚实边界：图像设置入口指向 UI_IMGSET8（图像设置渲染参数未实现，仅 UI 状态记录）。 */
+#define UI_SETEXTTRY4_COUNT 2
+#define UI_SETEXTTRY4_POPUP_X0 230.0f
+#define UI_SETEXTTRY4_POPUP_Y0 545.0f
+#define UI_SETEXTTRY4_POPUP_W  260.0f
+#define UI_SETEXTTRY4_POPUP_H  190.0f
+typedef struct {
+    float x0, y0, x1, y1;   /* 按钮矩形（720×1280 基准） */
+    int action;             /* 0=图像设置 1=声音设置 */
+} ui_setentry4_btn;
+
+const ui_setentry4_btn *ui_setentry4_buttons(void);   /* 2 按钮（静态表） */
+int ui_setentry4_hit(const ui_setentry4_btn *btns, int n, float x, float y);  /* 命中 0-1，-1 无 */
+int ui_setentry4_popup_inside(float x, float y);   /* 点在弹窗面板内 */
+
+/* ★ P2（datah_007 证据）：图像设置弹窗（完整版）——4 开关 + 确定/取消。
+    几何 720×1280 基准（datah_007 450×465 面板居中，偏移=(720-450)/2=135,
+    (1280-465)/2=407.5；局部 1:1 平移取整：
+    界面动画 220,75,420,135 → 355,482.5-555,542.5 → 355,483-555,543；
+    棋子动画 220,150,420,210 → 355,557.5-555,617.5 → 355,558-555,618；
+    夜间模式 220,225,420,285 → 355,632.5-555,692.5 → 355,633-555,693；
+    对方棋子 220,300,420,360 → 355,707.5-555,767.5 → 355,708-555,768；
+    确定 30,380,210,440 → 165,787.5-345,847.5 → 165,788-345,848；
+    取消 240,380,420,440 → 375,787.5-555,847.5 → 375,788-555,848）。
+    action：0=界面动画 1=棋子动画 2=夜间模式 3=对方棋子 4=确定 5=取消。
+    4 开关各循环切换 开/关（对齐 datah_001/012 循环范式）；
+    确定 → ui_imgset_save（jq_imgset.txt 4 字段）+ 回主菜单；
+    取消 → 恢复原值 + 回主菜单。
+    入口：setprop jq.imgset7 测试钩子（OnCreate + OnUpdate 双路，值 1=进 / 0=退）。
+    ★ 诚实边界：图像/夜间模式/对方棋子 = 渲染层未实现（src_rs 无对应渲染参数），
+    开关只是 UI 状态记录（不实际改渲染）。 */
+#define UI_IMGSET7_COUNT 6
+#define UI_IMGSET7_POPUP_X0 135.0f
+#define UI_IMGSET7_POPUP_Y0 407.5f
+#define UI_IMGSET7_POPUP_W  450.0f
+#define UI_IMGSET7_POPUP_H  465.0f
+typedef struct {
+    float x0, y0, x1, y1;   /* 控件矩形（720×1280 基准） */
+    int action;             /* 0=界面动画 1=棋子动画 2=夜间模式 3=对方棋子 4=确定 5=取消 */
+} ui_imgset7_btn;
+
+const ui_imgset7_btn *ui_imgset7_buttons(void);   /* 6 控件（静态表） */
+int ui_imgset7_hit(const ui_imgset7_btn *btns, int n, float x, float y);  /* 命中 0-5，-1 无 */
+int ui_imgset7_popup_inside(float x, float y);   /* 点在弹窗面板内 */
+
+/* ★ P2（datah_008 证据）：图像设置弹窗（简化版）——3 开关 + 确定/取消。
+    几何 720×1280 基准（datah_008 450×390 面板居中，偏移=(720-450)/2=135,
+    (1280-390)/2=445；局部 1:1 平移：
+    界面动画 220,75,420,135 → 355,520-555,580；
+    棋子动画 220,150,420,210 → 355,595-555,655；
+    夜间模式 220,225,420,285 → 355,670-555,730；
+    确定 30,305,210,365 → 165,750-345,810；
+    取消 240,305,420,365 → 375,750-555,810）。
+    action：0=界面动画 1=棋子动画 2=夜间模式 3=确定 4=取消。
+    3 开关各循环切换 开/关；确定 → ui_imgset_save（jq_imgset8.txt 3 字段）+ 回主菜单；
+    取消 → 恢复原值 + 回主菜单。
+    业务：datah_008 是 datah_007 简化版（3 开关，蓝牙态）。
+    入口：setprop jq.imgset8 测试钩子（OnCreate + OnUpdate 双路，值 1=进 / 0=退）。
+    ★ 诚实边界：图像/夜间模式 = 渲染层未实现（src_rs 无对应渲染参数），
+    开关只是 UI 状态记录（不实际改渲染）。 */
+#define UI_IMGSET8_COUNT 5
+#define UI_IMGSET8_POPUP_X0 135.0f
+#define UI_IMGSET8_POPUP_Y0 445.0f
+#define UI_IMGSET8_POPUP_W  450.0f
+#define UI_IMGSET8_POPUP_H  390.0f
+typedef struct {
+    float x0, y0, x1, y1;   /* 控件矩形（720×1280 基准） */
+    int action;             /* 0=界面动画 1=棋子动画 2=夜间模式 3=确定 4=取消 */
+} ui_imgset8_btn;
+
+const ui_imgset8_btn *ui_imgset8_buttons(void);   /* 5 控件（静态表） */
+int ui_imgset8_hit(const ui_imgset8_btn *btns, int n, float x, float y);  /* 命中 0-4，-1 无 */
+int ui_imgset8_popup_inside(float x, float y);   /* 点在弹窗面板内 */
+
+/* ★ P2（datah_065 证据）：加入游戏完整版弹窗——8 显示项 + 开始/取消。
+    几何 720×1280 基准（datah_065 450×505 面板居中，偏移=(720-450)/2=135,
+    (1280-505)/2=387.5；局部 1:1 平移取整：
+    先手 140,85,420,120 → 275,472.5-555,507.5 → 275,473-555,508；
+    后手 140,125,420,160 → 275,512.5-555,547.5 → 275,513-555,548；
+    玩法 140,165,420,200 → 275,552.5-555,587.5 → 275,553-555,588；
+    明暗棋 140,205,420,240 → 275,592.5-555,627.5 → 275,593-555,628；
+    和棋 140,245,420,280 → 275,632.5-555,667.5 → 275,633-555,668；
+    大本营 140,285,420,320 → 275,672.5-555,707.5 → 275,673-555,708；
+    吃地雷 140,325,420,360 → 275,712.5-555,747.5 → 275,713-555,748；
+    吃军旗 140,365,420,400 → 275,752.5-555,787.5 → 275,753-555,788；
+    开始 30,420,210,480 → 165,807.5-345,867.5 → 165,808-345,868；
+    取消 240,420,420,480 → 375,807.5-555,867.5 → 375,808-555,868）。
+    action：0-7=8 显示项（先手/后手/玩法/明暗棋/和棋/大本营/吃地雷/吃军旗，TransLabel 占位标签
+    非按钮，显示当前值占位"蓝方/红方/布局/暗棋/开/开/开/开"）
+    8=开始（→ 诚实边界对话框 + 回主菜单）
+    9=取消（→ 回主菜单）
+    入口：setprop jq.join065 测试钩子（OnCreate + OnUpdate 双路，值 1=进 / 0=退）。
+    ★ 诚实边界：先手/后手/玩法/明暗棋/4 规则 = 联机开局配置（src_rs 无联机开局逻辑，
+    显示占位标签，不画真数据；触摸 flaky 下输入框无意义） */
+#define UI_JOIN065_COUNT 10
+#define UI_JOIN065_POPUP_X0 135.0f
+#define UI_JOIN065_POPUP_Y0 387.5f
+#define UI_JOIN065_POPUP_W  450.0f
+#define UI_JOIN065_POPUP_H  505.0f
+typedef struct {
+    float x0, y0, x1, y1;   /* 控件矩形（720×1280 基准） */
+    int action;             /* 0-7=显示项 8=开始 9=取消 */
+} ui_join065_btn;
+
+const ui_join065_btn *ui_join065_buttons(void);   /* 10 控件（静态表） */
+int ui_join065_hit(const ui_join065_btn *btns, int n, float x, float y);  /* 命中 0-9，-1 无 */
+int ui_join065_popup_inside(float x, float y);   /* 点在弹窗面板内 */
+
+/* ★ P2（datah_069 证据）：创建游戏完整版弹窗——4 选择 + 确定/取消。
+    几何 720×1280 基准（datah_069 450×465 面板居中，偏移=(720-450)/2=135,
+    (1280-465)/2=407.5；局部 1:1 平移取整：
+    先后手 220,75,420,135 → 355,482.5-555,542.5 → 355,483-555,543；
+    玩法 220,150,420,210 → 355,557.5-555,617.5 → 355,558-555,618；
+    明暗棋 220,225,420,285 → 355,632.5-555,692.5 → 355,633-555,693；
+    游戏规则 220,300,420,360 → 355,707.5-555,767.5 → 355,708-555,768（text="设置"，
+    点→UI_RULES070 游戏规则弹窗）；
+    确定 30,385,210,445 → 165,792.5-345,852.5 → 165,793-345,853；
+    取消 240,385,420,445 → 375,792.5-555,852.5 → 375,793-555,853）。
+    action：0=先后手（蓝/红 循环）1=玩法（布局/翻棋 切换）2=明暗棋（明/暗 切换）
+    3=游戏规则（→ UI_RULES070）4=确定（→ 诚实边界对话框 + 回主菜单）
+    5=取消（→ 回主菜单）
+    入口：setprop jq.create069 测试钩子（OnCreate + OnUpdate 双路，值 1=进 / 0=退）。
+    ★ 诚实边界：先后手/玩法/明暗棋 = 联机开局配置（src_rs 无联机房间创建逻辑，
+    循环切换仅 UI 状态记录）；确定 → 边界对话框 */
+#define UI_CREATE069_COUNT 6
+#define UI_CREATE069_POPUP_X0 135.0f
+#define UI_CREATE069_POPUP_Y0 407.5f
+#define UI_CREATE069_POPUP_W  450.0f
+#define UI_CREATE069_POPUP_H  465.0f
+typedef struct {
+    float x0, y0, x1, y1;   /* 控件矩形（720×1280 基准） */
+    int action;             /* 0=先后手 1=玩法 2=明暗棋 3=游戏规则 4=确定 5=取消 */
+} ui_create069_btn;
+
+const ui_create069_btn *ui_create069_buttons(void);   /* 6 控件（静态表） */
+int ui_create069_hit(const ui_create069_btn *btns, int n, float x, float y);  /* 命中 0-5，-1 无 */
+int ui_create069_popup_inside(float x, float y);   /* 点在弹窗面板内 */
+
+/* ★ P2（datah_070 证据）：游戏规则完整版弹窗——4 规则开关 + 确定/取消。
+    与 datah_012 游戏设置同构，复用 ui_rule_*_get/set + 4 开关各循环切换
+    + 确定保存（ui_rules_save）/取消恢复（ui_rules_load）。
+    几何 720×1280 基准（datah_070 450×465 面板居中，偏移=(720-450)/2=135,
+    (1280-465)/2=407.5；局部 1:1 平移取整：
+    和棋 220,75,420,135 → 355,483-555,543；
+    大本营 220,150,420,210 → 355,558-555,618；
+    吃地雷 220,225,420,285 → 355,633-555,693；
+    吃军旗 220,300,420,360 → 355,708-555,768；
+    确定 30,385,210,445 → 165,793-345,853；
+    取消 240,385,420,445 → 375,793-555,853）。
+    action：0=和棋开关 1=大本营开关 2=吃地雷开关 3=吃军旗开关 4=确定 5=取消。
+    业务：联机"游戏规则"弹窗（datah_069 创建游戏"游戏规则"按钮切此弹窗）。
+    ★ 与 datah_012 区分：012 是本地 ☰ 菜单"功能设置"→UI_GAMESET，
+    070 是联机"游戏规则"弹窗（datah_069 入口），复用同一组 ui_rule_* 开关。
+    入口：setprop jq.rules070 测试钩子（OnCreate + OnUpdate 双路，值 1=进 / 0=退）。 */
+#define UI_RULES070_COUNT 6
+#define UI_RULES070_POPUP_X0 135.0f
+#define UI_RULES070_POPUP_Y0 407.5f
+#define UI_RULES070_POPUP_W  450.0f
+#define UI_RULES070_POPUP_H  465.0f
+typedef struct {
+    float x0, y0, x1, y1;   /* 控件矩形（720×1280 基准） */
+    int action;             /* 0=和棋 1=大本营 2=吃地雷 3=吃军旗 4=确定 5=取消 */
+} ui_rules070_btn;
+
+const ui_rules070_btn *ui_rules070_buttons(void);   /* 6 控件（静态表） */
+int ui_rules070_hit(const ui_rules070_btn *btns, int n, float x, float y);  /* 命中 0-5，-1 无 */
+int ui_rules070_popup_inside(float x, float y);   /* 点在弹窗面板内 */
+
+/* ★ P2（datah_060 证据）：房间态弹窗——2 玩家房间列表 + 开始/换桌/离开。
+    几何 720×1280 基准（datah_060 450×352 面板居中，偏移=(720-450)/2=135,
+    (1280-352)/2=464；局部 1:1 平移：
+    开始 25,270,145,330 → 160,734-280,794；
+    换桌 165,270,285,330 → 300,734-420,794；
+    离开 305,270,425,330 → 440,734-560,794。
+    Player1/Player2/Ready1/2/Score1/2/Rate1/2/View1/2 是 TransText 显示区（非按钮，
+    简化为占位标签"蓝方/红方"）。
+    action：0=开始（→ 诚实边界对话框"房间开始需 Wi-Fi/局域网协议"）
+    1=换桌（→ 诚实边界对话框"换桌需 Wi-Fi/局域网协议"）
+    2=离开（→ 回主菜单）
+    入口：setprop jq.room060 测试钩子（OnCreate + OnUpdate 双路，值 1=进 / 0=退）。
+    ★ 诚实边界：2 玩家显示区 = 占位标签（不画真数据，触摸 flaky 下房间列表无意义） */
+#define UI_ROOM060_COUNT 3
+#define UI_ROOM060_POPUP_X0 135.0f
+#define UI_ROOM060_POPUP_Y0 464.0f
+#define UI_ROOM060_POPUP_W  450.0f
+#define UI_ROOM060_POPUP_H  352.0f
+typedef struct {
+    float x0, y0, x1, y1;   /* 按钮矩形（720×1280 基准） */
+    int action;             /* 0=开始 1=换桌 2=离开 */
+} ui_room060_btn;
+
+const ui_room060_btn *ui_room060_buttons(void);   /* 3 按钮（静态表） */
+int ui_room060_hit(const ui_room060_btn *btns, int n, float x, float y);  /* 命中 0-2，-1 无 */
+int ui_room060_popup_inside(float x, float y);   /* 点在弹窗面板内 */
+
+/* ★ P2（datah_063 证据）：聊天完整版弹窗——Msg 输入框 + 发送/记录/关闭 3 按钮。
+    几何 720×1280 基准（datah_063 420×325 面板居中，偏移=(720-420)/2=150,
+    (1280-325)/2=477.5；局部 1:1 平移取整：
+    发送 25,245,135,305 → 175,722.5-285,782.5 → 175,723-285,783；
+    记录 155,245,265,305 → 305,722.5-415,782.5 → 305,723-415,783；
+    关闭 285,245,395,305 → 435,722.5-545,782.5 → 435,723-545,783。
+    Msg 输入框简化为占位标签"聊天输入（诚实边界：联机聊天文本未逆向）"。
+    action：0=发送（→ BT_T_CHAT 占位帧 + 边界对话框）
+    1=记录（→ UI_CHATLOG datah_029 聊天记录已实现）
+    2=关闭（→ 回对局）
+    入口：setprop jq.chat063 测试钩子（OnCreate + OnUpdate 双路，值 1=进 / 0=退）。
+    ★ 诚实边界：联机聊天文本未逆向（src_rs 蓝牙聊天是占位帧 BT_T_CHAT，
+    无真实文本渲染） */
+#define UI_CHAT063_COUNT 3
+#define UI_CHAT063_POPUP_X0 150.0f
+#define UI_CHAT063_POPUP_Y0 477.5f
+#define UI_CHAT063_POPUP_W  420.0f
+#define UI_CHAT063_POPUP_H  325.0f
+typedef struct {
+    float x0, y0, x1, y1;   /* 按钮矩形（720×1280 基准） */
+    int action;             /* 0=发送 1=记录 2=关闭 */
+} ui_chat063_btn;
+
+const ui_chat063_btn *ui_chat063_buttons(void);   /* 3 按钮（静态表） */
+int ui_chat063_hit(const ui_chat063_btn *btns, int n, float x, float y);  /* 命中 0-2，-1 无 */
+int ui_chat063_popup_inside(float x, float y);   /* 点在弹窗面板内 */
 #endif
 

@@ -218,3 +218,125 @@ int ui_drawdetail_hit(const ui_drawdetail_btn *b, int n, float x, float y)
 int ui_drawdetail_popup_inside(float x, float y)
 { return x>=UI_DRAWDETAIL_POPUP_X0&&x<=UI_DRAWDETAIL_POPUP_X0+UI_DRAWDETAIL_POPUP_W&&
           y>=UI_DRAWDETAIL_POPUP_Y0&&y<=UI_DRAWDETAIL_POPUP_Y0+UI_DRAWDETAIL_POPUP_H; }
+
+/* ★ P2（datah_003/004 证据）：设置入口 3/2 按钮桩（几何表返回 720 基准占位供
+   一致性/evverify 链接；真机走 ui_menu.c 真实几何表）。
+   诚实边界：图像设置渲染参数未实现，开关仅 UI 状态记录。 */
+static const ui_setentry_btn se_stub[UI_SETEXTTRY_COUNT] = {
+    { 255.0f,530.0f,465.0f,590.0f,0 },{ 255.0f,610.0f,465.0f,670.0f,1 },
+    { 255.0f,690.0f,465.0f,750.0f,2 },
+};
+const ui_setentry_btn *ui_setentry_buttons(void) { return se_stub; }
+int ui_setentry_hit(const ui_setentry_btn *b, int n, float x, float y)
+{ for (int i=0;i<n;i++) if (x>=b[i].x0&&x<=b[i].x1&&y>=b[i].y0&&y<=b[i].y1) return i; return -1; }
+int ui_setentry_popup_inside(float x, float y)
+{ return x>=UI_SETEXTTRY_POPUP_X0&&x<=UI_SETEXTTRY_POPUP_X0+UI_SETEXTTRY_POPUP_W&&
+         y>=UI_SETEXTTRY_POPUP_Y0&&y<=UI_SETEXTTRY_POPUP_Y0+UI_SETEXTTRY_POPUP_H; }
+static const ui_setentry4_btn se4_stub[UI_SETEXTTRY4_COUNT] = {
+    { 255.0f,570.0f,465.0f,630.0f,0 },{ 255.0f,650.0f,465.0f,710.0f,1 },
+};
+const ui_setentry4_btn *ui_setentry4_buttons(void) { return se4_stub; }
+int ui_setentry4_hit(const ui_setentry4_btn *b, int n, float x, float y)
+{ for (int i=0;i<n;i++) if (x>=b[i].x0&&x<=b[i].x1&&y>=b[i].y0&&y<=b[i].y1) return i; return -1; }
+int ui_setentry4_popup_inside(float x, float y)
+{ return x>=UI_SETEXTTRY4_POPUP_X0&&x<=UI_SETEXTTRY4_POPUP_X0+UI_SETEXTTRY4_POPUP_W&&
+         y>=UI_SETEXTTRY4_POPUP_Y0&&y<=UI_SETEXTTRY4_POPUP_Y0+UI_SETEXTTRY4_POPUP_H; }
+
+/* ★ P2（datah_007/008 证据）：图像设置 6/5 控件桩。
+   诚实边界：图像/夜间模式渲染参数未实现，开关仅 UI 状态记录。 */
+static const ui_imgset7_btn i7_stub[UI_IMGSET7_COUNT] = {
+    { 355.0f,483.0f,555.0f,543.0f,0 },{ 355.0f,558.0f,555.0f,618.0f,1 },
+    { 355.0f,633.0f,555.0f,693.0f,2 },{ 355.0f,708.0f,555.0f,768.0f,3 },
+    { 165.0f,788.0f,345.0f,848.0f,4 },{ 375.0f,788.0f,555.0f,848.0f,5 },
+};
+const ui_imgset7_btn *ui_imgset7_buttons(void) { return i7_stub; }
+int ui_imgset7_hit(const ui_imgset7_btn *b, int n, float x, float y)
+{ for (int i=0;i<n;i++) if (x>=b[i].x0&&x<=b[i].x1&&y>=b[i].y0&&y<=b[i].y1) return i; return -1; }
+int ui_imgset7_popup_inside(float x, float y)
+{ return x>=UI_IMGSET7_POPUP_X0&&x<=UI_IMGSET7_POPUP_X0+UI_IMGSET7_POPUP_W&&
+         y>=UI_IMGSET7_POPUP_Y0&&y<=UI_IMGSET7_POPUP_Y0+UI_IMGSET7_POPUP_H; }
+static const ui_imgset8_btn i8_stub[UI_IMGSET8_COUNT] = {
+    { 355.0f,520.0f,555.0f,580.0f,0 },{ 355.0f,595.0f,555.0f,655.0f,1 },
+    { 355.0f,670.0f,555.0f,730.0f,2 },{ 165.0f,750.0f,345.0f,810.0f,3 },
+    { 375.0f,750.0f,555.0f,810.0f,4 },
+};
+const ui_imgset8_btn *ui_imgset8_buttons(void) { return i8_stub; }
+int ui_imgset8_hit(const ui_imgset8_btn *b, int n, float x, float y)
+{ for (int i=0;i<n;i++) if (x>=b[i].x0&&x<=b[i].x1&&y>=b[i].y0&&y<=b[i].y1) return i; return -1; }
+int ui_imgset8_popup_inside(float x, float y)
+{ return x>=UI_IMGSET8_POPUP_X0&&x<=UI_IMGSET8_POPUP_X0+UI_IMGSET8_POPUP_W&&
+         y>=UI_IMGSET8_POPUP_Y0&&y<=UI_IMGSET8_POPUP_Y0+UI_IMGSET8_POPUP_H; }
+
+/* ★ P2（datah_065 证据）：加入游戏完整版 10 控件桩。
+   诚实边界：联机开局配置（src_rs 无联机开局逻辑），8 项显示=占位标签，
+   开始→边界对话框。 */
+static const ui_join065_btn j65_stub[UI_JOIN065_COUNT] = {
+    { 275.0f,473.0f,555.0f,508.0f,0 },{ 275.0f,513.0f,555.0f,548.0f,1 },
+    { 275.0f,553.0f,555.0f,588.0f,2 },{ 275.0f,593.0f,555.0f,628.0f,3 },
+    { 275.0f,633.0f,555.0f,668.0f,4 },{ 275.0f,673.0f,555.0f,708.0f,5 },
+    { 275.0f,713.0f,555.0f,748.0f,6 },{ 275.0f,753.0f,555.0f,788.0f,7 },
+    { 165.0f,808.0f,345.0f,868.0f,8 },{ 375.0f,808.0f,555.0f,868.0f,9 },
+};
+const ui_join065_btn *ui_join065_buttons(void) { return j65_stub; }
+int ui_join065_hit(const ui_join065_btn *b, int n, float x, float y)
+{ for (int i=0;i<n;i++) if (x>=b[i].x0&&x<=b[i].x1&&y>=b[i].y0&&y<=b[i].y1) return i; return -1; }
+int ui_join065_popup_inside(float x, float y)
+{ return x>=UI_JOIN065_POPUP_X0&&x<=UI_JOIN065_POPUP_X0+UI_JOIN065_POPUP_W&&
+         y>=UI_JOIN065_POPUP_Y0&&y<=UI_JOIN065_POPUP_Y0+UI_JOIN065_POPUP_H; }
+
+/* ★ P2（datah_069 证据）：创建游戏完整版 6 控件桩。
+   诚实边界：联机房间创建需 Wi-Fi/局域网协议（src_rs 仅蓝牙已实现），
+   确定→边界对话框。 */
+static const ui_create069_btn c69_stub[UI_CREATE069_COUNT] = {
+    { 355.0f,483.0f,555.0f,543.0f,0 },{ 355.0f,558.0f,555.0f,618.0f,1 },
+    { 355.0f,633.0f,555.0f,693.0f,2 },{ 355.0f,708.0f,555.0f,768.0f,3 },
+    { 165.0f,793.0f,345.0f,853.0f,4 },{ 375.0f,793.0f,555.0f,853.0f,5 },
+};
+const ui_create069_btn *ui_create069_buttons(void) { return c69_stub; }
+int ui_create069_hit(const ui_create069_btn *b, int n, float x, float y)
+{ for (int i=0;i<n;i++) if (x>=b[i].x0&&x<=b[i].x1&&y>=b[i].y0&&y<=b[i].y1) return i; return -1; }
+int ui_create069_popup_inside(float x, float y)
+{ return x>=UI_CREATE069_POPUP_X0&&x<=UI_CREATE069_POPUP_X0+UI_CREATE069_POPUP_W&&
+         y>=UI_CREATE069_POPUP_Y0&&y<=UI_CREATE069_POPUP_Y0+UI_CREATE069_POPUP_H; }
+
+/* ★ P2（datah_070 证据）：游戏规则完整版 6 控件桩。
+   与 datah_012 同构，复用 ui_rule_*_get/set。 */
+static const ui_rules070_btn r70_stub[UI_RULES070_COUNT] = {
+    { 355.0f,483.0f,555.0f,543.0f,0 },{ 355.0f,558.0f,555.0f,618.0f,1 },
+    { 355.0f,633.0f,555.0f,693.0f,2 },{ 355.0f,708.0f,555.0f,768.0f,3 },
+    { 165.0f,793.0f,345.0f,853.0f,4 },{ 375.0f,793.0f,555.0f,853.0f,5 },
+};
+const ui_rules070_btn *ui_rules070_buttons(void) { return r70_stub; }
+int ui_rules070_hit(const ui_rules070_btn *b, int n, float x, float y)
+{ for (int i=0;i<n;i++) if (x>=b[i].x0&&x<=b[i].x1&&y>=b[i].y0&&y<=b[i].y1) return i; return -1; }
+int ui_rules070_popup_inside(float x, float y)
+{ return x>=UI_RULES070_POPUP_X0&&x<=UI_RULES070_POPUP_X0+UI_RULES070_POPUP_W&&
+         y>=UI_RULES070_POPUP_Y0&&y<=UI_RULES070_POPUP_Y0+UI_RULES070_POPUP_H; }
+
+/* ★ P2（datah_060 证据）：房间态 3 按钮桩。
+   诚实边界：联机房间需 Wi-Fi/局域网协议（src_rs 仅蓝牙已实现），
+   开始/换桌→边界对话框。 */
+static const ui_room060_btn rm_stub[UI_ROOM060_COUNT] = {
+    { 160.0f,734.0f,280.0f,794.0f,0 },{ 300.0f,734.0f,420.0f,794.0f,1 },
+    { 440.0f,734.0f,560.0f,794.0f,2 },
+};
+const ui_room060_btn *ui_room060_buttons(void) { return rm_stub; }
+int ui_room060_hit(const ui_room060_btn *b, int n, float x, float y)
+{ for (int i=0;i<n;i++) if (x>=b[i].x0&&x<=b[i].x1&&y>=b[i].y0&&y<=b[i].y1) return i; return -1; }
+int ui_room060_popup_inside(float x, float y)
+{ return x>=UI_ROOM060_POPUP_X0&&x<=UI_ROOM060_POPUP_X0+UI_ROOM060_POPUP_W&&
+         y>=UI_ROOM060_POPUP_Y0&&y<=UI_ROOM060_POPUP_Y0+UI_ROOM060_POPUP_H; }
+
+/* ★ P2（datah_063 证据）：聊天完整版 3 按钮桩。
+   诚实边界：联机聊天文本未逆向（src_rs 蓝牙聊天是占位帧 BT_T_CHAT），
+   发送→占位帧+边界对话框。 */
+static const ui_chat063_btn ch_stub[UI_CHAT063_COUNT] = {
+    { 175.0f,723.0f,285.0f,783.0f,0 },{ 305.0f,723.0f,415.0f,783.0f,1 },
+    { 435.0f,723.0f,545.0f,783.0f,2 },
+};
+const ui_chat063_btn *ui_chat063_buttons(void) { return ch_stub; }
+int ui_chat063_hit(const ui_chat063_btn *b, int n, float x, float y)
+{ for (int i=0;i<n;i++) if (x>=b[i].x0&&x<=b[i].x1&&y>=b[i].y0&&y<=b[i].y1) return i; return -1; }
+int ui_chat063_popup_inside(float x, float y)
+{ return x>=UI_CHAT063_POPUP_X0&&x<=UI_CHAT063_POPUP_X0+UI_CHAT063_POPUP_W&&
+         y>=UI_CHAT063_POPUP_Y0&&y<=UI_CHAT063_POPUP_Y0+UI_CHAT063_POPUP_H; }

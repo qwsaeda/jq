@@ -47,6 +47,24 @@ int ui_rule_cfg_get(int which)
 }
 void ui_rules_load(void) {}
 void ui_rules_save(void) {}
+/* ★ P2（datah_007 证据）：图像设置 4 开关桩（桌面 headless 无持久化，默认值供
+   一致性/evverify 链接；真机走 ui_state.c 真实实现）。
+   诚实边界：图像/夜间模式渲染参数未实现，开关仅 UI 状态记录。 */
+static int g_it = 1, g_ip = 1, g_in = 0, g_io = 1;
+int ui_imgset_trans_get(void) { return g_it; }
+void ui_imgset_trans_set(int v) { g_it = v ? 1 : 0; }
+int ui_imgset_piece_get(void) { return g_ip; }
+void ui_imgset_piece_set(int v) { g_ip = v ? 1 : 0; }
+int ui_imgset_night_get(void) { return g_in; }
+void ui_imgset_night_set(int v) { g_in = v ? 1 : 0; }
+int ui_imgset_opp_get(void) { return g_io; }
+void ui_imgset_opp_set(int v) { g_io = v ? 1 : 0; }
+int ui_imgset_cfg_get(int which)
+{
+    switch (which) { case 0: return g_it; case 1: return g_ip; case 2: return g_in; default: return g_io; }
+}
+void ui_imgset_load(void) {}
+void ui_imgset_save(void) {}
 
 /* ★ P1（datah_016/017/020）：布局存档 API 桩（桌面 headless：evverify 直接调真实
    save.c/jq_load_layout，不依赖此桩；此桩仅保证一致性构建链接完整）。 */

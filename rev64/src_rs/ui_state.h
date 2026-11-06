@@ -58,6 +58,22 @@ void ui_rules_save(void);     /* 写 jq_rules.txt（游戏设置确定后调） 
 /* 规则引擎读入口（rules.c 判定点守卫用，返回 4 开关值） */
 int  ui_rule_cfg_get(int which);  /* which 0=和棋 1=大本营 2=吃地雷 3=吃军旗，返回 0/1 */
 
+/* ★ P2（datah_007 证据）：图像设置 4 开关（界面动画/棋子动画/夜间模式/对方棋子），
+   持久化 jq_imgset.txt（与 ui_rules 同目录范式，4 字段）。
+   ★ 诚实边界：图像/夜间模式/对方棋子 = 渲染层未实现（src_rs 无对应渲染参数），
+   开关只是 UI 状态记录（不实际改渲染），默认 界面开/棋子开/夜间关/对方开。 */
+int  ui_imgset_trans_get(void);    /* 界面动画开关：1=开 */
+void ui_imgset_trans_set(int v);
+int  ui_imgset_piece_get(void);    /* 棋子动画开关：1=开 */
+void ui_imgset_piece_set(int v);
+int  ui_imgset_night_get(void);    /* 夜间模式开关：1=开（默认 0 关） */
+void ui_imgset_night_set(int v);
+int  ui_imgset_opp_get(void);      /* 对方棋子开关：1=开 */
+void ui_imgset_opp_set(int v);
+int  ui_imgset_cfg_get(int which); /* which 0=界面 1=棋子 2=夜间 3=对方，返回 0/1 */
+void ui_imgset_load(void);         /* 读 jq_imgset.txt（OnCreate 调，缺文件 → 默认值） */
+void ui_imgset_save(void);         /* 写 jq_imgset.txt（图像设置确定后调） */
+
 /* ★ P1（datah_016/017/020 证据）：布局存档 API——.lay 30 字节格式（对齐原版
    OnEvent layout 读 30 字节范式 / data/lay/%02d.lay），layouts/ 目录文件 IO。
    目录：ui_laydir_set（jni_bridge OnCreate 设 /data/local/tmp/layouts；桌面 evverify

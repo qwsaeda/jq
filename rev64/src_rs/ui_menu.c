@@ -805,3 +805,313 @@ int ui_drawdetail_popup_inside(float x, float y)
     return x >= UI_DRAWDETAIL_POPUP_X0 && x <= UI_DRAWDETAIL_POPUP_X0 + UI_DRAWDETAIL_POPUP_W &&
            y >= UI_DRAWDETAIL_POPUP_Y0 && y <= UI_DRAWDETAIL_POPUP_Y0 + UI_DRAWDETAIL_POPUP_H;
 }
+
+/* ★ P2（datah_003 证据）：设置入口弹窗（完整版）3 按钮（图像/声音/游戏设置入口）。
+    几何 720×1280 基准：面板 260×270 居中（偏移+230,+505）；局部 1:1 平移：
+    图像设置 Sys 25,25,235,85 → 255,530-465,590；
+    声音设置 Audio 25,105,235,165 → 255,610-465,670；
+    游戏设置 Game 25,185,235,245 → 255,690-465,750。
+    业务：☰ 菜单"功能设置"二级入口（原版 datah_003 设置总入口）——
+    图像→UI_IMGSET7（datah_008 简化版，图像设置简化合并）；
+    声音→UI_SETTINGS（datah_001 已实现）；游戏→UI_GAMESET（datah_012 已实现）。
+    ★ 诚实边界：图像设置渲染参数未实现（src_rs 无对应渲染参数），开关仅 UI 状态记录。 */
+static const ui_setentry_btn g_setentry_btns[UI_SETEXTTRY_COUNT] = {
+    /* x0, y0, x1, y1, action；★ 原版 datah_003 260 坐标系精确换算（面板 260×270 居中 720，偏移+230,+505） */
+    { 255.0f, 530.0f, 465.0f, 590.0f, 0 },   /* 图像设置 Sys（25,25,235,85）→ UI_IMGSET7 */
+    { 255.0f, 610.0f, 465.0f, 670.0f, 1 },   /* 声音设置 Audio（25,105,235,165）→ UI_SETTINGS */
+    { 255.0f, 690.0f, 465.0f, 750.0f, 2 },   /* 游戏设置 Game（25,185,235,245）→ UI_GAMESET */
+};
+
+const ui_setentry_btn *ui_setentry_buttons(void) { return g_setentry_btns; }
+
+int ui_setentry_hit(const ui_setentry_btn *btns, int n, float x, float y)
+{
+    for (int i = 0; i < n; i++)
+        if (x >= btns[i].x0 && x <= btns[i].x1 && y >= btns[i].y0 && y <= btns[i].y1)
+            return i;
+    return -1;
+}
+
+int ui_setentry_popup_inside(float x, float y)
+{
+    return x >= UI_SETEXTTRY_POPUP_X0 && x <= UI_SETEXTTRY_POPUP_X0 + UI_SETEXTTRY_POPUP_W &&
+           y >= UI_SETEXTTRY_POPUP_Y0 && y <= UI_SETEXTTRY_POPUP_Y0 + UI_SETEXTTRY_POPUP_H;
+}
+
+/* ★ P2（datah_004 证据）：设置入口（简化版）2 按钮（图像/声音，无游戏设置）。
+    几何 720×1280 基准：面板 260×190 居中（偏移+230,+545）；局部 1:1 平移：
+    图像设置 Sys 25,25,235,85 → 255,570-465,630；
+    声音设置 Audio 25,105,235,165 → 255,650-465,710。
+    业务：datah_004 是 datah_003 的简化版（联机态/蓝牙态设置入口，无游戏设置项）。
+    ★ 诚实边界：图像设置渲染参数未实现，开关仅 UI 状态记录。 */
+static const ui_setentry4_btn g_setentry4_btns[UI_SETEXTTRY4_COUNT] = {
+    /* x0, y0, x1, y1, action；★ 原版 datah_004 260 坐标系精确换算（面板 260×190 居中 720，偏移+230,+545） */
+    { 255.0f, 570.0f, 465.0f, 630.0f, 0 },   /* 图像设置 Sys（25,25,235,85）→ UI_IMGSET8 */
+    { 255.0f, 650.0f, 465.0f, 710.0f, 1 },   /* 声音设置 Audio（25,105,235,165）→ UI_SETTINGS */
+};
+
+const ui_setentry4_btn *ui_setentry4_buttons(void) { return g_setentry4_btns; }
+
+int ui_setentry4_hit(const ui_setentry4_btn *btns, int n, float x, float y)
+{
+    for (int i = 0; i < n; i++)
+        if (x >= btns[i].x0 && x <= btns[i].x1 && y >= btns[i].y0 && y <= btns[i].y1)
+            return i;
+    return -1;
+}
+
+int ui_setentry4_popup_inside(float x, float y)
+{
+    return x >= UI_SETEXTTRY4_POPUP_X0 && x <= UI_SETEXTTRY4_POPUP_X0 + UI_SETEXTTRY4_POPUP_W &&
+           y >= UI_SETEXTTRY4_POPUP_Y0 && y <= UI_SETEXTTRY4_POPUP_Y0 + UI_SETEXTTRY4_POPUP_H;
+}
+
+/* ★ P2（datah_007 证据）：图像设置弹窗（完整版）6 控件（4 开关 + 确定/取消）。
+    几何 720×1280 基准：面板 450×465 居中（偏移+135,+407.5）；局部 1:1 平移取整：
+    界面动画 220,75,420,135 → 355,483-555,543；棋子动画 220,150,420,210 → 355,558-555,618；
+    夜间模式 220,225,420,285 → 355,633-555,693；对方棋子 220,300,420,360 → 355,708-555,768；
+    确定 30,380,210,440 → 165,788-345,848；取消 240,380,420,440 → 375,788-555,848。
+    业务：图像设置 4 开关（各循环切换 开/关，对齐 datah_001/012 循环范式）+
+    确定保存（ui_imgset_save，jq_imgset.txt 4 字段）+ 取消恢复。
+    ★ 诚实边界：图像/夜间模式/对方棋子 = 渲染层未实现（src_rs 无对应渲染参数），
+    开关只是 UI 状态记录（不实际改渲染）。 */
+static const ui_imgset7_btn g_imgset7_btns[UI_IMGSET7_COUNT] = {
+    /* x0, y0, x1, y1, action；★ 原版 datah_007 450 坐标系精确换算（面板 450×465 居中 720，偏移+135,+407.5，取整） */
+    { 355.0f, 483.0f, 555.0f, 543.0f, 0 },   /* 界面动画 Trans（220,75,420,135）→ 开/关 循环 */
+    { 355.0f, 558.0f, 555.0f, 618.0f, 1 },   /* 棋子动画 PieceAni（220,150,420,210）→ 开/关 循环 */
+    { 355.0f, 633.0f, 555.0f, 693.0f, 2 },   /* 夜间模式 Night（220,225,420,285）→ 开/关 循环 */
+    { 355.0f, 708.0f, 555.0f, 768.0f, 3 },   /* 对方棋子 Opposite（220,300,420,360）→ 开/关 循环 */
+    { 165.0f, 788.0f, 345.0f, 848.0f, 4 },   /* 确定 Ok（30,380,210,440）→ 保存 + 回主菜单 */
+    { 375.0f, 788.0f, 555.0f, 848.0f, 5 },   /* 取消 Cancel（240,380,420,440）→ 恢复 + 回主菜单 */
+};
+
+const ui_imgset7_btn *ui_imgset7_buttons(void) { return g_imgset7_btns; }
+
+int ui_imgset7_hit(const ui_imgset7_btn *btns, int n, float x, float y)
+{
+    for (int i = 0; i < n; i++)
+        if (x >= btns[i].x0 && x <= btns[i].x1 && y >= btns[i].y0 && y <= btns[i].y1)
+            return i;
+    return -1;
+}
+
+int ui_imgset7_popup_inside(float x, float y)
+{
+    return x >= UI_IMGSET7_POPUP_X0 && x <= UI_IMGSET7_POPUP_X0 + UI_IMGSET7_POPUP_W &&
+           y >= UI_IMGSET7_POPUP_Y0 && y <= UI_IMGSET7_POPUP_Y0 + UI_IMGSET7_POPUP_H;
+}
+
+/* ★ P2（datah_008 证据）：图像设置弹窗（简化版）5 控件（3 开关 + 确定/取消）。
+    几何 720×1280 基准：面板 450×390 居中（偏移+135,+445）；局部 1:1 平移：
+    界面动画 220,75,420,135 → 355,520-555,580；棋子动画 220,150,420,210 → 355,595-555,655；
+    夜间模式 220,225,420,285 → 355,670-555,730；确定 30,305,210,365 → 165,750-345,810；
+    取消 240,305,420,365 → 375,750-555,810。
+    业务：datah_008 是 datah_007 简化版（3 开关，蓝牙态）。与 007 同范式。
+    ★ 诚实边界：图像/夜间模式 = 渲染层未实现（src_rs 无对应渲染参数），
+    开关只是 UI 状态记录（不实际改渲染）。 */
+static const ui_imgset8_btn g_imgset8_btns[UI_IMGSET8_COUNT] = {
+    /* x0, y0, x1, y1, action；★ 原版 datah_008 450 坐标系精确换算（面板 450×390 居中 720，偏移+135,+445） */
+    { 355.0f, 520.0f, 555.0f, 580.0f, 0 },   /* 界面动画 Trans（220,75,420,135）→ 开/关 循环 */
+    { 355.0f, 595.0f, 555.0f, 655.0f, 1 },   /* 棋子动画 PieceAni（220,150,420,210）→ 开/关 循环 */
+    { 355.0f, 670.0f, 555.0f, 730.0f, 2 },   /* 夜间模式 Night（220,225,420,285）→ 开/关 循环 */
+    { 165.0f, 750.0f, 345.0f, 810.0f, 3 },   /* 确定 Ok（30,305,210,365）→ 保存 + 回主菜单 */
+    { 375.0f, 750.0f, 555.0f, 810.0f, 4 },   /* 取消 Cancel（240,305,420,365）→ 恢复 + 回主菜单 */
+};
+
+const ui_imgset8_btn *ui_imgset8_buttons(void) { return g_imgset8_btns; }
+
+int ui_imgset8_hit(const ui_imgset8_btn *btns, int n, float x, float y)
+{
+    for (int i = 0; i < n; i++)
+        if (x >= btns[i].x0 && x <= btns[i].x1 && y >= btns[i].y0 && y <= btns[i].y1)
+            return i;
+    return -1;
+}
+
+int ui_imgset8_popup_inside(float x, float y)
+{
+    return x >= UI_IMGSET8_POPUP_X0 && x <= UI_IMGSET8_POPUP_X0 + UI_IMGSET8_POPUP_W &&
+           y >= UI_IMGSET8_POPUP_Y0 && y <= UI_IMGSET8_POPUP_Y0 + UI_IMGSET8_POPUP_H;
+}
+
+/* ★ P2（datah_065 证据）：加入游戏完整版弹窗 10 控件（8 显示项 + 开始/取消）。
+    几何 720×1280 基准：面板 450×505 居中（偏移+135,+387.5）；局部 1:1 平移取整：
+    先手 140,85,420,120 → 275,473-555,508；后手 140,125,420,160 → 275,513-555,548；
+    玩法 140,165,420,200 → 275,553-555,588；明暗棋 140,205,420,240 → 275,593-555,628；
+    和棋 140,245,420,280 → 275,633-555,668；大本营 140,285,420,320 → 275,673-555,708；
+    吃地雷 140,325,420,360 → 275,713-555,748；吃军旗 140,365,420,400 → 275,753-555,788；
+    开始 30,420,210,480 → 165,808-345,868；取消 240,420,420,480 → 375,808-555,868。
+    业务：联机"加入游戏"完整版（8 项显示用 TransLabel 占位标签
+    "蓝方/红方/布局/暗棋/开/开/开/开"），开始/取消 2 按钮可点。
+    ★ 诚实边界：先手/后手/玩法/明暗棋/4 规则 = 联机开局配置（src_rs 无联机开局逻辑，
+    显示占位标签，不画真数据，触摸 flaky 下输入框无意义）；
+    开始 → 边界对话框（"加入游戏完整版：联机开局需 Wi-Fi/局域网房间协议，
+    src_rs 仅蓝牙联机已实现，请选蓝牙联机"）+ 回主菜单；取消 → 回主菜单。 */
+static const ui_join065_btn g_join065_btns[UI_JOIN065_COUNT] = {
+    /* x0, y0, x1, y1, action；★ 原版 datah_065 450 坐标系精确换算（面板 450×505 居中 720，偏移+135,+387.5，取整） */
+    { 275.0f, 473.0f, 555.0f, 508.0f, 0 },   /* 先手 Player1（140,85,420,120）→ 占位标签"蓝方" */
+    { 275.0f, 513.0f, 555.0f, 548.0f, 1 },   /* 后手 Player2（140,125,420,160）→ 占位标签"红方" */
+    { 275.0f, 553.0f, 555.0f, 588.0f, 2 },   /* 玩法 Lay（140,165,420,200）→ 占位标签"布局" */
+    { 275.0f, 593.0f, 555.0f, 628.0f, 3 },   /* 明暗棋 Show（140,205,420,240）→ 占位标签"暗棋" */
+    { 275.0f, 633.0f, 555.0f, 668.0f, 4 },   /* 和棋 Draw（140,245,420,280）→ 占位标签"开" */
+    { 275.0f, 673.0f, 555.0f, 708.0f, 5 },   /* 大本营 CmdSafe（140,285,420,320）→ 占位标签"开" */
+    { 275.0f, 713.0f, 555.0f, 748.0f, 6 },   /* 吃地雷 BingLei（140,325,420,360）→ 占位标签"开" */
+    { 275.0f, 753.0f, 555.0f, 788.0f, 7 },   /* 吃军旗 BingQi（140,365,420,400）→ 占位标签"开" */
+    { 165.0f, 808.0f, 345.0f, 868.0f, 8 },   /* 开始 Ok（30,420,210,480）→ 诚实边界对话框 + 回主菜单 */
+    { 375.0f, 808.0f, 555.0f, 868.0f, 9 },   /* 取消 Cancel（240,420,420,480）→ 回主菜单 */
+};
+
+const ui_join065_btn *ui_join065_buttons(void) { return g_join065_btns; }
+
+int ui_join065_hit(const ui_join065_btn *btns, int n, float x, float y)
+{
+    for (int i = 0; i < n; i++)
+        if (x >= btns[i].x0 && x <= btns[i].x1 && y >= btns[i].y0 && y <= btns[i].y1)
+            return i;
+    return -1;
+}
+
+int ui_join065_popup_inside(float x, float y)
+{
+    return x >= UI_JOIN065_POPUP_X0 && x <= UI_JOIN065_POPUP_X0 + UI_JOIN065_POPUP_W &&
+           y >= UI_JOIN065_POPUP_Y0 && y <= UI_JOIN065_POPUP_Y0 + UI_JOIN065_POPUP_H;
+}
+
+/* ★ P2（datah_069 证据）：创建游戏完整版弹窗 6 控件（4 选择 + 确定/取消）。
+    几何 720×1280 基准：面板 450×465 居中（偏移+135,+407.5）；局部 1:1 平移取整：
+    先后手 220,75,420,135 → 355,483-555,543；玩法 220,150,420,210 → 355,558-555,618；
+    明暗棋 220,225,420,285 → 355,633-555,693；游戏规则 220,300,420,360 → 355,708-555,768
+    （text="设置"，点→UI_RULES070 游戏规则弹窗）；
+    确定 30,385,210,445 → 165,793-345,853；取消 240,385,420,445 → 375,793-555,853。
+    业务：联机"创建游戏"完整版（4 选择各循环切换当前值，对齐 datah_104 范式），
+    确定→边界对话框（"创建游戏完整版：联机房间创建需 Wi-Fi/局域网协议，
+    src_rs 仅蓝牙已实现"），取消→回主菜单。
+    ★ 诚实边界：先后手/玩法/明暗棋 = 联机开局配置（src_rs 无联机房间创建逻辑，
+    循环切换仅 UI 状态记录） */
+static const ui_create069_btn g_create069_btns[UI_CREATE069_COUNT] = {
+    /* x0, y0, x1, y1, action；★ 原版 datah_069 450 坐标系精确换算（面板 450×465 居中 720，偏移+135,+407.5，取整） */
+    { 355.0f, 483.0f, 555.0f, 543.0f, 0 },   /* 先后手 First（220,75,420,135）→ 蓝/红 循环 */
+    { 355.0f, 558.0f, 555.0f, 618.0f, 1 },   /* 玩法 Lay（220,150,420,210）→ 布局/翻棋 切换 */
+    { 355.0f, 633.0f, 555.0f, 693.0f, 2 },   /* 明暗棋 Show（220,225,420,285）→ 明/暗 切换 */
+    { 355.0f, 708.0f, 555.0f, 768.0f, 3 },   /* 游戏规则 Rule（220,300,420,360）text="设置"→UI_RULES070 */
+    { 165.0f, 793.0f, 345.0f, 853.0f, 4 },   /* 确定 Ok（30,385,210,445）→ 诚实边界对话框 + 回主菜单 */
+    { 375.0f, 793.0f, 555.0f, 853.0f, 5 },   /* 取消 Cancel（240,385,420,445）→ 回主菜单 */
+};
+
+const ui_create069_btn *ui_create069_buttons(void) { return g_create069_btns; }
+
+int ui_create069_hit(const ui_create069_btn *btns, int n, float x, float y)
+{
+    for (int i = 0; i < n; i++)
+        if (x >= btns[i].x0 && x <= btns[i].x1 && y >= btns[i].y0 && y <= btns[i].y1)
+            return i;
+    return -1;
+}
+
+int ui_create069_popup_inside(float x, float y)
+{
+    return x >= UI_CREATE069_POPUP_X0 && x <= UI_CREATE069_POPUP_X0 + UI_CREATE069_POPUP_W &&
+           y >= UI_CREATE069_POPUP_Y0 && y <= UI_CREATE069_POPUP_Y0 + UI_CREATE069_POPUP_H;
+}
+
+/* ★ P2（datah_070 证据）：游戏规则完整版弹窗 6 控件（4 规则开关 + 确定/取消）。
+    与 datah_012 游戏设置同构，复用 ui_rule_*_get/set + 4 开关各循环切换
+    + 确定保存（ui_rules_save）/取消恢复（ui_rules_load）。
+    几何 720×1280 基准：面板 450×465 居中（偏移+135,+407.5）；局部 1:1 平移取整：
+    和棋 220,75,420,135 → 355,483-555,543；大本营 220,150,420,210 → 355,558-555,618；
+    吃地雷 220,225,420,285 → 355,633-555,693；吃军旗 220,300,420,360 → 355,708-555,768；
+    确定 30,385,210,445 → 165,793-345,853；取消 240,385,420,445 → 375,793-555,853。
+    业务：联机"游戏规则"弹窗（datah_069 创建游戏"游戏规则"按钮切此弹窗）。
+    ★ 与 datah_012 区分：012 是本地 ☰ 菜单"功能设置"→UI_GAMESET，
+    070 是联机"游戏规则"弹窗（datah_069 入口），复用同一组 ui_rule_* 开关。 */
+static const ui_rules070_btn g_rules070_btns[UI_RULES070_COUNT] = {
+    /* x0, y0, x1, y1, action；★ 原版 datah_070 450 坐标系精确换算（面板 450×465 居中 720，偏移+135,+407.5，取整） */
+    { 355.0f, 483.0f, 555.0f, 543.0f, 0 },   /* 和棋 Draw 开关（220,75,420,135）→ 开/关 循环 */
+    { 355.0f, 558.0f, 555.0f, 618.0f, 1 },   /* 大本营 Command 开关（220,150,420,210）→ 开/关 循环 */
+    { 355.0f, 633.0f, 555.0f, 693.0f, 2 },   /* 吃地雷 BingLei 开关（220,225,420,285）→ 开/关 循环 */
+    { 355.0f, 708.0f, 555.0f, 768.0f, 3 },   /* 吃军旗 BingQi 开关（220,300,420,360）→ 开/关 循环 */
+    { 165.0f, 793.0f, 345.0f, 853.0f, 4 },   /* 确定 Ok（30,385,210,445）→ 保存 + 回主菜单 */
+    { 375.0f, 793.0f, 555.0f, 853.0f, 5 },   /* 取消 Cancel（240,385,420,445）→ 恢复 + 回主菜单 */
+};
+
+const ui_rules070_btn *ui_rules070_buttons(void) { return g_rules070_btns; }
+
+int ui_rules070_hit(const ui_rules070_btn *btns, int n, float x, float y)
+{
+    for (int i = 0; i < n; i++)
+        if (x >= btns[i].x0 && x <= btns[i].x1 && y >= btns[i].y0 && y <= btns[i].y1)
+            return i;
+    return -1;
+}
+
+int ui_rules070_popup_inside(float x, float y)
+{
+    return x >= UI_RULES070_POPUP_X0 && x <= UI_RULES070_POPUP_X0 + UI_RULES070_POPUP_W &&
+           y >= UI_RULES070_POPUP_Y0 && y <= UI_RULES070_POPUP_Y0 + UI_RULES070_POPUP_H;
+}
+
+/* ★ P2（datah_060 证据）：房间态弹窗 3 按钮（开始/换桌/离开）。
+    几何 720×1280 基准：面板 450×352 居中（偏移+135,+464）；局部 1:1 平移：
+    开始 Start 25,270,145,330 → 160,734-280,794；
+    换桌 Change 165,270,285,330 → 300,734-420,794；
+    离开 Cancel 305,270,425,330 → 440,734-560,794。
+    Player1/Player2/Ready1/2/Score1/2/Rate1/2/View1/2 是 TransText 显示区（非按钮，
+    简化为占位标签"蓝方/红方"）。
+    业务：联机"房间态"（2 玩家房间列表 + 开始/换桌/离开），
+    开始/换桌→边界对话框（"房间需 Wi-Fi/局域网协议"），离开→回主菜单。
+    ★ 诚实边界：2 玩家显示区 = 占位标签（不画真数据，触摸 flaky 下房间列表无意义） */
+static const ui_room060_btn g_room060_btns[UI_ROOM060_COUNT] = {
+    /* x0, y0, x1, y1, action；★ 原版 datah_060 450 坐标系精确换算（面板 450×352 居中 720，偏移+135,+464） */
+    { 160.0f, 734.0f, 280.0f, 794.0f, 0 },   /* 开始 Start（25,270,145,330）→ 诚实边界对话框 */
+    { 300.0f, 734.0f, 420.0f, 794.0f, 1 },   /* 换桌 Change（165,270,285,330）→ 诚实边界对话框 */
+    { 440.0f, 734.0f, 560.0f, 794.0f, 2 },   /* 离开 Cancel（305,270,425,330）→ 回主菜单 */
+};
+
+const ui_room060_btn *ui_room060_buttons(void) { return g_room060_btns; }
+
+int ui_room060_hit(const ui_room060_btn *btns, int n, float x, float y)
+{
+    for (int i = 0; i < n; i++)
+        if (x >= btns[i].x0 && x <= btns[i].x1 && y >= btns[i].y0 && y <= btns[i].y1)
+            return i;
+    return -1;
+}
+
+int ui_room060_popup_inside(float x, float y)
+{
+    return x >= UI_ROOM060_POPUP_X0 && x <= UI_ROOM060_POPUP_X0 + UI_ROOM060_POPUP_W &&
+           y >= UI_ROOM060_POPUP_Y0 && y <= UI_ROOM060_POPUP_Y0 + UI_ROOM060_POPUP_H;
+}
+
+/* ★ P2（datah_063 证据）：聊天完整版弹窗 3 按钮（发送/记录/关闭）。
+    几何 720×1280 基准：面板 420×325 居中（偏移+150,+477.5）；局部 1:1 平移取整：
+    发送 Send 25,245,135,305 → 175,723-285,783；
+    记录 Record 155,245,265,305 → 305,723-415,783；
+    关闭 Cancel 285,245,395,305 → 435,723-545,783。
+    Msg 输入框简化为占位标签"聊天输入（诚实边界：联机聊天文本未逆向）"。
+    业务：联机"聊天"完整版，发送→BT_T_CHAT 占位帧+边界对话框，
+    记录→UI_CHATLOG（datah_029 聊天记录已实现），关闭→回对局。
+    ★ 诚实边界：联机聊天文本未逆向（src_rs 蓝牙聊天是占位帧 BT_T_CHAT，
+    无真实文本渲染） */
+static const ui_chat063_btn g_chat063_btns[UI_CHAT063_COUNT] = {
+    /* x0, y0, x1, y1, action；★ 原版 datah_063 420 坐标系精确换算（面板 420×325 居中 720，偏移+150,+477.5，取整） */
+    { 175.0f, 723.0f, 285.0f, 783.0f, 0 },   /* 发送 Send（25,245,135,305）→ BT_T_CHAT 占位帧 + 边界对话框 */
+    { 305.0f, 723.0f, 415.0f, 783.0f, 1 },   /* 记录 Record（155,245,265,305）→ UI_CHATLOG */
+    { 435.0f, 723.0f, 545.0f, 783.0f, 2 },   /* 关闭 Cancel（285,245,395,305）→ 回对局 */
+};
+
+const ui_chat063_btn *ui_chat063_buttons(void) { return g_chat063_btns; }
+
+int ui_chat063_hit(const ui_chat063_btn *btns, int n, float x, float y)
+{
+    for (int i = 0; i < n; i++)
+        if (x >= btns[i].x0 && x <= btns[i].x1 && y >= btns[i].y0 && y <= btns[i].y1)
+            return i;
+    return -1;
+}
+
+int ui_chat063_popup_inside(float x, float y)
+{
+    return x >= UI_CHAT063_POPUP_X0 && x <= UI_CHAT063_POPUP_X0 + UI_CHAT063_POPUP_W &&
+           y >= UI_CHAT063_POPUP_Y0 && y <= UI_CHAT063_POPUP_Y0 + UI_CHAT063_POPUP_H;
+}

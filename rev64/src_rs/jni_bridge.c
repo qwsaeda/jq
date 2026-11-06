@@ -955,6 +955,7 @@ Java_com_cnvcs_App_OnCreate(JNIEnv *env, jclass clazz, jobject activity)
     ui_settings_load();          /* ★ 对抗审计（datah_001）：读 jq_settings.txt（静音/按键/音量） */
     ui_rules_load();            /* ★ P1（datah_012）：读 jq_rules.txt（和棋/大本营/地雷/扛旗 4 规则开关） */
     ui_bright_load();          /* ★ P2（datah_002）：读 jq_bright.txt（亮度档位 0低/1中/2高，缺文件默认中） */
+    ui_imgset_load();          /* ★ P2（datah_007）：读 jq_imgset.txt（界面/棋子/夜间/对方 4 图像设置开关，缺文件默认值） */
     LOGI("OnCreate：明棋开局（stage=PLAY 蓝先手 revealed=全翻开 50 子）+ UI 菜单就绪（OnEvent menu=0 进对局）");
     /* ★ flagtest 触发（adb setprop jq.flagtest 1 → 重启 → OnCreate 注入近旗状态 + 自动走一步 FLAG）。
        触摸注入 MuMu flaky 不达 native（环境限制）→ 走 OnCreate 自动触发路径；
@@ -1271,6 +1272,143 @@ Java_com_cnvcs_App_OnCreate(JNIEnv *env, jclass clazz, jobject activity)
                   "提和/认输/聊天/系统设置/玩家资料/战况统计/软件信息，诚实边界：本地提和判定未实现，"
                   "提和/认输走 BT 帧 + 边界对话框）");
             __system_property_set("jq.drawdetail", "0");
+        }
+    }
+    /* ★ P2（datah_003 证据）：设置入口 setprop 钩子（adb setprop jq.setentry 1 → 重启 →
+        OnCreate 弹 UI_SETEXTTRY 设置入口弹窗（完整版）：图像/声音/游戏设置 3 按钮入口。
+        测试钩子范式，与 jq.drawdetail 同；值 1=弹出，0=不触发。一次性（清 0）。
+        ★ 诚实边界：图像设置渲染参数未实现，图像设置入口指向 UI_IMGSET7；
+        声音设置→UI_SETTINGS（datah_001）；游戏设置→UI_GAMESET（datah_012）。 */
+    {
+        char se_prop[16] = {0};
+        __system_property_get("jq.setentry", se_prop);
+        if (strcmp(se_prop, "1") == 0) {
+            ui_screen_set(UI_SETEXTTRY);
+            LOGI("jq.setentry 钩子：→ UI_SETEXTTRY 设置入口弹窗（datah_003 图像/声音/游戏设置 3 按钮入口，"
+                 "图像→UI_IMGSET7；声音→UI_SETTINGS（datah_001）；游戏→UI_GAMESET（datah_012），"
+                 "★ 诚实边界：图像设置渲染参数未实现，仅 UI 状态记录）");
+            __system_property_set("jq.setentry", "0");
+        }
+    }
+    /* ★ P2（datah_004 证据）：设置入口（简化版）setprop 钩子（adb setprop jq.setentry4 1 → 重启 →
+        OnCreate 弹 UI_SETEXTTRY4 设置入口（简化版）弹窗：图像/声音 2 按钮入口（无游戏设置项）。
+        测试钩子范式，与 jq.setentry 同；值 1=弹出，0=不触发。一次性（清 0）。
+        ★ 诚实边界：图像设置渲染参数未实现，图像设置入口指向 UI_IMGSET8；
+        声音设置→UI_SETTINGS（datah_001）。 */
+    {
+        char se4_prop[16] = {0};
+        __system_property_get("jq.setentry4", se4_prop);
+        if (strcmp(se4_prop, "1") == 0) {
+            ui_screen_set(UI_SETEXTTRY4);
+            LOGI("jq.setentry4 钩子：→ UI_SETEXTTRY4 设置入口（简化版）弹窗（datah_004 图像/声音 2 按钮入口，"
+                 "图像→UI_IMGSET8；声音→UI_SETTINGS（datah_001），★ 诚实边界：图像设置渲染参数未实现）");
+            __system_property_set("jq.setentry4", "0");
+        }
+    }
+    /* ★ P2（datah_007 证据）：图像设置（完整版）setprop 钩子（adb setprop jq.imgset7 1 → 重启 →
+        OnCreate 弹 UI_IMGSET7 图像设置弹窗（完整版）：界面/棋子动画/夜间模式/对方棋子
+        4 开关 + 确定/取消。测试钩子范式，与 jq.setentry 同；值 1=弹出，0=不触发。一次性（清 0）。
+        ★ 诚实边界：图像/夜间/对方棋子渲染参数未实现，开关仅 UI 状态记录；
+        确定→ui_imgset_save（jq_imgset.txt 4 字段）。 */
+    {
+        char i7_prop[16] = {0};
+        __system_property_get("jq.imgset7", i7_prop);
+        if (strcmp(i7_prop, "1") == 0) {
+            ui_screen_set(UI_IMGSET7);
+            LOGI("jq.imgset7 钩子：→ UI_IMGSET7 图像设置弹窗（完整版 datah_007 4 开关 + 确定/取消，"
+                 "★ 诚实边界：图像/夜间/对方棋子渲染参数未实现，仅 UI 状态记录；"
+                 "界面=%d 棋子=%d 夜间=%d 对方=%d）",
+                 ui_imgset_trans_get(), ui_imgset_piece_get(), ui_imgset_night_get(), ui_imgset_opp_get());
+            __system_property_set("jq.imgset7", "0");
+        }
+    }
+    /* ★ P2（datah_008 证据）：图像设置（简化版）setprop 钩子（adb setprop jq.imgset8 1 → 重启 →
+        OnCreate 弹 UI_IMGSET8 图像设置弹窗（简化版）：界面/棋子动画/夜间模式
+        3 开关 + 确定/取消。测试钩子范式，与 jq.imgset7 同；值 1=弹出，0=不触发。一次性（清 0）。
+        ★ 诚实边界：图像/夜间渲染参数未实现，开关仅 UI 状态记录；
+        确定→ui_imgset_save（jq_imgset.txt 3 字段）。 */
+    {
+        char i8_prop[16] = {0};
+        __system_property_get("jq.imgset8", i8_prop);
+        if (strcmp(i8_prop, "1") == 0) {
+            ui_screen_set(UI_IMGSET8);
+            LOGI("jq.imgset8 钩子：→ UI_IMGSET8 图像设置弹窗（简化版 datah_008 3 开关 + 确定/取消，"
+                 "★ 诚实边界：图像/夜间渲染参数未实现，仅 UI 状态记录；"
+                 "界面=%d 棋子=%d 夜间=%d）",
+                 ui_imgset_trans_get(), ui_imgset_piece_get(), ui_imgset_night_get());
+            __system_property_set("jq.imgset8", "0");
+        }
+    }
+    /* ★ P2（datah_065 证据）：加入游戏完整版 setprop 钩子（adb setprop jq.join065 1 → 重启 →
+        OnCreate 弹 UI_JOIN065 加入游戏完整版弹窗：先手/后手/玩法/明暗棋/4 规则显示
+        + 开始/取消。测试钩子范式，与 jq.join（datah_034 简化版）同；值 1=弹出，0=不触发。一次性（清 0）。
+        ★ 诚实边界：联机开局配置=占位标签，开始→边界对话框（src_rs 仅蓝牙已实现）。 */
+    {
+        char j65_prop[16] = {0};
+        __system_property_get("jq.join065", j65_prop);
+        if (strcmp(j65_prop, "1") == 0) {
+            ui_screen_set(UI_JOIN065);
+            LOGI("jq.join065 钩子：→ UI_JOIN065 加入游戏完整版弹窗（datah_065 先手/后手/玩法/明暗棋/"
+                 "4 规则显示 + 开始/取消，★ 诚实边界：联机开局配置=占位标签，开始→边界对话框）");
+            __system_property_set("jq.join065", "0");
+        }
+    }
+    /* ★ P2（datah_069 证据）：创建游戏完整版 setprop 钩子（adb setprop jq.create069 1 → 重启 →
+        OnCreate 弹 UI_CREATE069 创建游戏完整版弹窗：先后手/玩法/明暗棋/游戏规则
+        4 选择 + 确定/取消。测试钩子范式，与 jq.create（datah_035 简化版）同；值 1=弹出，0=不触发。一次性（清 0）。
+        ★ 诚实边界：联机房间创建=边界对话框；游戏规则→UI_RULES070（datah_070）。 */
+    {
+        char c69_prop[16] = {0};
+        __system_property_get("jq.create069", c69_prop);
+        if (strcmp(c69_prop, "1") == 0) {
+            ui_screen_set(UI_CREATE069);
+            LOGI("jq.create069 钩子：→ UI_CREATE069 创建游戏完整版弹窗（datah_069 先后手/玩法/明暗棋/"
+                 "游戏规则 4 选择 + 确定/取消，★ 诚实边界：联机房间创建=边界对话框；游戏规则→UI_RULES070）");
+            __system_property_set("jq.create069", "0");
+        }
+    }
+    /* ★ P2（datah_070 证据）：游戏规则完整版 setprop 钩子（adb setprop jq.rules070 1 → 重启 →
+        OnCreate 弹 UI_RULES070 游戏规则完整版弹窗：和棋/大本营/吃地雷/吃军旗
+        4 规则开关 + 确定/取消。与 datah_012 游戏设置同构，复用 ui_rule_*_get/set。
+        测试钩子范式，与 jq.rules（datah_037 规则文本）同；值 1=弹出，0=不触发。一次性（清 0）。
+        ★ 与 datah_012 区分：070 是联机"游戏规则"弹窗（datah_069 入口），
+        012 是本地 ☰ 菜单"功能设置"→UI_GAMESET，复用同一组 ui_rule_* 开关。 */
+    {
+        char r70_prop[16] = {0};
+        __system_property_get("jq.rules070", r70_prop);
+        if (strcmp(r70_prop, "1") == 0) {
+            ui_screen_set(UI_RULES070);
+            LOGI("jq.rules070 钩子：→ UI_RULES070 游戏规则完整版弹窗（datah_070 4 规则开关 + 确定/取消，"
+                 "与 datah_012 同构，复用 ui_rule_*；★ 与 012 区分：070=联机游戏规则弹窗，012=本地 ☰ UI_GAMESET）");
+            __system_property_set("jq.rules070", "0");
+        }
+    }
+    /* ★ P2（datah_060 证据）：房间态 setprop 钩子（adb setprop jq.room060 1 → 重启 →
+        OnCreate 弹 UI_ROOM060 房间态弹窗：2 玩家房间列表（占位标签）+ 开始/换桌/离开。
+        测试钩子范式，与 jq.join065 同；值 1=弹出，0=不触发。一次性（清 0）。
+        ★ 诚实边界：联机房间=边界对话框（src_rs 仅蓝牙已实现），2 玩家显示区=占位标签。 */
+    {
+        char rm_prop[16] = {0};
+        __system_property_get("jq.room060", rm_prop);
+        if (strcmp(rm_prop, "1") == 0) {
+            ui_screen_set(UI_ROOM060);
+            LOGI("jq.room060 钩子：→ UI_ROOM060 房间态弹窗（datah_060 2 玩家房间列表（占位标签）+ 开始/换桌/离开，"
+                 "★ 诚实边界：联机房间=边界对话框，2 玩家显示区=占位标签）");
+            __system_property_set("jq.room060", "0");
+        }
+    }
+    /* ★ P2（datah_063 证据）：聊天完整版 setprop 钩子（adb setprop jq.chat063 1 → 重启 →
+        OnCreate 弹 UI_CHAT063 聊天完整版弹窗：Msg 输入框（占位标签）+ 发送/记录/关闭。
+        测试钩子范式，与 jq.chatlog（datah_029 聊天记录）同；值 1=弹出，0=不触发。一次性（清 0）。
+        ★ 诚实边界：联机聊天文本未逆向，发送=BT_T_CHAT 占位帧+边界对话框；记录→UI_CHATLOG（datah_029）。 */
+    {
+        char ch63_prop[16] = {0};
+        __system_property_get("jq.chat063", ch63_prop);
+        if (strcmp(ch63_prop, "1") == 0) {
+            ui_screen_set(UI_CHAT063);
+            LOGI("jq.chat063 钩子：→ UI_CHAT063 聊天完整版弹窗（datah_063 Msg 输入框（占位标签）+ 发送/记录/关闭，"
+                 "★ 诚实边界：联机聊天文本未逆向，发送=占位帧+边界对话框；记录→UI_CHATLOG（datah_029））");
+            __system_property_set("jq.chat063", "0");
         }
     }
 
@@ -1847,6 +1985,198 @@ Java_com_cnvcs_App_OnUpdate(JNIEnv *env, jclass clazz)
             ui_screen_set(UI_GAME);
             LOGI("OnUpdate 提和详情入口：drawdetail=2 → 退弹窗回对局");
             __system_property_set("jq.drawdetail", "0");
+        }
+    }
+
+    /* ★ P2（datah_003 证据）：设置入口 setprop 钩子（adb setprop jq.setentry 1 → 重启 →
+        OnCreate 弹 UI_SETEXTTRY 设置入口弹窗（完整版）：图像/声音/游戏设置 3 按钮入口。
+        测试钩子范式，与 jq.profile 同；值 1=弹出，0=不触发。一次性（清 0）。
+        ★ 诚实边界：图像设置渲染参数未实现（src_rs 无对应渲染参数），
+        图像设置入口指向 UI_IMGSET7（datah_008 简化版，4 开关仅 UI 状态记录）；
+        声音设置→UI_SETTINGS（datah_001 已实现）；游戏设置→UI_GAMESET（datah_012 已实现）。 */
+    {
+        char se_prop[16] = {0};
+        __system_property_get("jq.setentry", se_prop);
+        if (strcmp(se_prop, "1") == 0) {
+            ui_screen_set(UI_SETEXTTRY);
+            LOGI("jq.setentry 钩子：→ UI_SETEXTTRY 设置入口弹窗（datah_003 图像/声音/游戏设置 3 按钮入口，"
+                 "图像→UI_IMGSET7（★ 诚实边界：渲染参数未实现，仅 UI 状态记录）；声音→UI_SETTINGS（datah_001）；"
+                 "游戏→UI_GAMESET（datah_012））");
+            __system_property_set("jq.setentry", "0");
+        } else if (strcmp(se_prop, "2") == 0) {
+            ui_screen_set(UI_MENU);
+            LOGI("OnUpdate 设置入口入口：setentry=2 → 退弹窗回主菜单");
+            __system_property_set("jq.setentry", "0");
+        }
+    }
+    /* ★ P2（datah_004 证据）：设置入口（简化版）setprop 钩子（adb setprop jq.setentry4 1 → 重启 →
+        OnCreate 弹 UI_SETEXTTRY4 设置入口（简化版）弹窗：图像/声音 2 按钮入口（无游戏设置项，
+        联机态/蓝牙态设置入口）。测试钩子范式，与 jq.setentry 同；值 1=弹出，0=不触发。一次性（清 0）。
+        ★ 诚实边界：图像设置渲染参数未实现，图像设置入口指向 UI_IMGSET8（datah_008 简化版，
+        3 开关仅 UI 状态记录）；声音设置→UI_SETTINGS（datah_001 已实现）。 */
+    {
+        char se4_prop[16] = {0};
+        __system_property_get("jq.setentry4", se4_prop);
+        if (strcmp(se4_prop, "1") == 0) {
+            ui_screen_set(UI_SETEXTTRY4);
+            LOGI("jq.setentry4 钩子：→ UI_SETEXTTRY4 设置入口（简化版）弹窗（datah_004 图像/声音 2 按钮入口，"
+                 "无游戏设置项，联机态/蓝牙态；图像→UI_IMGSET8（★ 诚实边界：渲染参数未实现，仅 UI 状态记录）；"
+                 "声音→UI_SETTINGS（datah_001））");
+            __system_property_set("jq.setentry4", "0");
+        } else if (strcmp(se4_prop, "2") == 0) {
+            ui_screen_set(UI_MENU);
+            LOGI("OnUpdate 设置入口（简化版）入口：setentry4=2 → 退弹窗回主菜单");
+            __system_property_set("jq.setentry4", "0");
+        }
+    }
+    /* ★ P2（datah_007 证据）：图像设置（完整版）setprop 钩子（adb setprop jq.imgset7 1 → 重启 →
+        OnCreate 弹 UI_IMGSET7 图像设置弹窗（完整版）：界面/棋子动画/夜间模式/对方棋子
+        4 开关 + 确定/取消。测试钩子范式，与 jq.setentry 同；值 1=弹出，0=不触发。一次性（清 0）。
+        ★ 诚实边界：图像/夜间模式/对方棋子 = 渲染层未实现（src_rs 无对应渲染参数），
+        开关只是 UI 状态记录（不实际改渲染），确定→ui_imgset_save（jq_imgset.txt 4 字段）。 */
+    {
+        char i7_prop[16] = {0};
+        __system_property_get("jq.imgset7", i7_prop);
+        if (strcmp(i7_prop, "1") == 0) {
+            ui_screen_set(UI_IMGSET7);
+            LOGI("jq.imgset7 钩子：→ UI_IMGSET7 图像设置弹窗（完整版 datah_007 4 开关 + 确定/取消，"
+                 "诚实边界：图像/夜间/对方棋子渲染参数未实现，仅 UI 状态记录；"
+                 "界面=%d 棋子=%d 夜间=%d 对方=%d）",
+                 ui_imgset_trans_get(), ui_imgset_piece_get(), ui_imgset_night_get(), ui_imgset_opp_get());
+            __system_property_set("jq.imgset7", "0");
+        } else if (strcmp(i7_prop, "2") == 0) {
+            ui_screen_set(UI_MENU);
+            LOGI("OnUpdate 图像设置（完整版）入口：imgset7=2 → 退弹窗回主菜单");
+            __system_property_set("jq.imgset7", "0");
+        }
+    }
+    /* ★ P2（datah_008 证据）：图像设置（简化版）setprop 钩子（adb setprop jq.imgset8 1 → 重启 →
+        OnCreate 弹 UI_IMGSET8 图像设置弹窗（简化版）：界面/棋子动画/夜间模式
+        3 开关 + 确定/取消（无对方棋子项，蓝牙态）。测试钩子范式，与 jq.imgset7 同；
+        值 1=弹出，0=不触发。一次性（清 0）。
+        ★ 诚实边界：图像/夜间模式 = 渲染层未实现（src_rs 无对应渲染参数），
+        开关只是 UI 状态记录（不实际改渲染），确定→ui_imgset_save（jq_imgset.txt 3 字段）。 */
+    {
+        char i8_prop[16] = {0};
+        __system_property_get("jq.imgset8", i8_prop);
+        if (strcmp(i8_prop, "1") == 0) {
+            ui_screen_set(UI_IMGSET8);
+            LOGI("jq.imgset8 钩子：→ UI_IMGSET8 图像设置弹窗（简化版 datah_008 3 开关 + 确定/取消，"
+                 "诚实边界：图像/夜间渲染参数未实现，仅 UI 状态记录；"
+                 "界面=%d 棋子=%d 夜间=%d）",
+                 ui_imgset_trans_get(), ui_imgset_piece_get(), ui_imgset_night_get());
+            __system_property_set("jq.imgset8", "0");
+        } else if (strcmp(i8_prop, "2") == 0) {
+            ui_screen_set(UI_MENU);
+            LOGI("OnUpdate 图像设置（简化版）入口：imgset8=2 → 退弹窗回主菜单");
+            __system_property_set("jq.imgset8", "0");
+        }
+    }
+    /* ★ P2（datah_065 证据）：加入游戏完整版 setprop 钩子（adb setprop jq.join065 1 → 重启 →
+        OnCreate 弹 UI_JOIN065 加入游戏完整版弹窗：先手/后手/玩法/明暗棋/4 规则显示
+        + 开始/取消。测试钩子范式，与 jq.join 同（datah_034 简化版不破坏）；
+        值 1=弹出，0=不触发。一次性（清 0）。
+        ★ 诚实边界：先手/后手/玩法/明暗棋/4 规则 = 联机开局配置（src_rs 无联机开局逻辑，
+        显示占位标签"蓝方/红方/布局/暗棋/开/开/开/开"，不画真数据）；
+        开始→边界对话框（"加入游戏完整版：联机开局需 Wi-Fi/局域网房间协议，
+        src_rs 仅蓝牙联机已实现，请选蓝牙联机"）+ 回主菜单；取消→回主菜单。 */
+    {
+        char j65_prop[16] = {0};
+        __system_property_get("jq.join065", j65_prop);
+        if (strcmp(j65_prop, "1") == 0) {
+            ui_screen_set(UI_JOIN065);
+            LOGI("jq.join065 钩子：→ UI_JOIN065 加入游戏完整版弹窗（datah_065 先手/后手/玩法/明暗棋/"
+                 "4 规则显示 + 开始/取消，诚实边界：联机开局配置=占位标签，开始→边界对话框（src_rs 仅蓝牙已实现））");
+            __system_property_set("jq.join065", "0");
+        } else if (strcmp(j65_prop, "2") == 0) {
+            ui_screen_set(UI_MENU);
+            LOGI("OnUpdate 加入游戏完整版入口：join065=2 → 退弹窗回主菜单");
+            __system_property_set("jq.join065", "0");
+        }
+    }
+    /* ★ P2（datah_069 证据）：创建游戏完整版 setprop 钩子（adb setprop jq.create069 1 → 重启 →
+        OnCreate 弹 UI_CREATE069 创建游戏完整版弹窗：先后手/玩法/明暗棋/游戏规则
+        4 选择 + 设置/确定/取消。测试钩子范式，与 jq.create 同（datah_035 简化版不破坏）；
+        值 1=弹出，0=不触发。一次性（清 0）。
+        ★ 诚实边界：先后手/玩法/明暗棋 = 联机开局配置（src_rs 无联机房间创建逻辑，
+        循环切换仅 UI 状态记录）；游戏规则（action=3）→UI_RULES070（datah_070）；
+        确定→边界对话框（"创建游戏完整版：联机房间创建需 Wi-Fi/局域网协议，src_rs 仅蓝牙已实现"）
+        + 回主菜单；取消→回主菜单。 */
+    {
+        char c69_prop[16] = {0};
+        __system_property_get("jq.create069", c69_prop);
+        if (strcmp(c69_prop, "1") == 0) {
+            ui_screen_set(UI_CREATE069);
+            LOGI("jq.create069 钩子：→ UI_CREATE069 创建游戏完整版弹窗（datah_069 先后手/玩法/明暗棋/"
+                 "游戏规则 4 选择 + 确定/取消，诚实边界：联机房间创建=边界对话框（src_rs 仅蓝牙已实现）；"
+                 "游戏规则→UI_RULES070（datah_070））");
+            __system_property_set("jq.create069", "0");
+        } else if (strcmp(c69_prop, "2") == 0) {
+            ui_screen_set(UI_MENU);
+            LOGI("OnUpdate 创建游戏完整版入口：create069=2 → 退弹窗回主菜单");
+            __system_property_set("jq.create069", "0");
+        }
+    }
+    /* ★ P2（datah_070 证据）：游戏规则完整版 setprop 钩子（adb setprop jq.rules070 1 → 重启 →
+        OnCreate 弹 UI_RULES070 游戏规则完整版弹窗：和棋/大本营/吃地雷/吃军旗
+        4 规则开关 + 确定/取消。与 datah_012 游戏设置同构，复用 ui_rule_*_get/set。
+        测试钩子范式，与 jq.rules（datah_037 规则文本）同；值 1=弹出，0=不触发。一次性（清 0）。
+        ★ 与 datah_012 区分：012 是本地 ☰ 菜单"功能设置"→UI_GAMESET，
+        070 是联机"游戏规则"弹窗（datah_069 创建游戏"游戏规则"按钮切此弹窗），
+        复用同一组 ui_rule_* 开关；确定→ui_rules_save（jq_rules.txt 4 字段）；
+        取消→ui_rules_load 恢复原值。 */
+    {
+        char r70_prop[16] = {0};
+        __system_property_get("jq.rules070", r70_prop);
+        if (strcmp(r70_prop, "1") == 0) {
+            ui_screen_set(UI_RULES070);
+            LOGI("jq.rules070 钩子：→ UI_RULES070 游戏规则完整版弹窗（datah_070 4 规则开关 + 确定/取消，"
+                 "与 datah_012 同构，复用 ui_rule_*；诚实边界：联机游戏规则弹窗，非本地 ☰ 菜单 UI_GAMESET）");
+            __system_property_set("jq.rules070", "0");
+        } else if (strcmp(r70_prop, "2") == 0) {
+            ui_screen_set(UI_MENU);
+            LOGI("OnUpdate 游戏规则完整版入口：rules070=2 → 退弹窗回主菜单");
+            __system_property_set("jq.rules070", "0");
+        }
+    }
+    /* ★ P2（datah_060 证据）：房间态 setprop 钩子（adb setprop jq.room060 1 → 重启 →
+        OnCreate 弹 UI_ROOM060 房间态弹窗：2 玩家房间列表（占位标签）+ 开始/换桌/离开。
+        测试钩子范式，与 jq.join065 同；值 1=弹出，0=不触发。一次性（清 0）。
+        ★ 诚实边界：联机房间需 Wi-Fi/局域网协议（src_rs 仅蓝牙已实现），
+        开始/换桌→边界对话框；2 玩家显示区=占位标签（不画真数据，触摸 flaky 下房间列表无意义）。 */
+    {
+        char rm_prop[16] = {0};
+        __system_property_get("jq.room060", rm_prop);
+        if (strcmp(rm_prop, "1") == 0) {
+            ui_screen_set(UI_ROOM060);
+            LOGI("jq.room060 钩子：→ UI_ROOM060 房间态弹窗（datah_060 2 玩家房间列表（占位标签）+ 开始/换桌/离开，"
+                 "诚实边界：联机房间=边界对话框（src_rs 仅蓝牙已实现），2 玩家显示区=占位标签）");
+            __system_property_set("jq.room060", "0");
+        } else if (strcmp(rm_prop, "2") == 0) {
+            ui_screen_set(UI_MENU);
+            LOGI("OnUpdate 房间态入口：room060=2 → 退弹窗回主菜单");
+            __system_property_set("jq.room060", "0");
+        }
+    }
+    /* ★ P2（datah_063 证据）：聊天完整版 setprop 钩子（adb setprop jq.chat063 1 → 重启 →
+        OnCreate 弹 UI_CHAT063 聊天完整版弹窗：Msg 输入框（占位标签）+ 发送/记录/关闭。
+        测试钩子范式，与 jq.chatlog（datah_029 聊天记录）同；值 1=弹出，0=不触发。一次性（清 0）。
+        ★ 诚实边界：联机聊天文本未逆向（src_rs 蓝牙聊天是占位帧 BT_T_CHAT，无真实文本渲染），
+        Msg 输入框简化为占位标签"聊天输入（诚实边界：联机聊天文本未逆向）"；
+        发送→BT_T_CHAT 占位帧+边界对话框；记录→UI_CHATLOG（datah_029 已实现）；
+        关闭→回对局。 */
+    {
+        char ch63_prop[16] = {0};
+        __system_property_get("jq.chat063", ch63_prop);
+        if (strcmp(ch63_prop, "1") == 0) {
+            ui_screen_set(UI_CHAT063);
+            LOGI("jq.chat063 钩子：→ UI_CHAT063 聊天完整版弹窗（datah_063 Msg 输入框（占位标签）+ 发送/记录/关闭，"
+                 "诚实边界：联机聊天文本未逆向，发送=BT_T_CHAT 占位帧+边界对话框；记录→UI_CHATLOG（datah_029））");
+            __system_property_set("jq.chat063", "0");
+        } else if (strcmp(ch63_prop, "2") == 0) {
+            ui_screen_set(UI_GAME);
+            LOGI("OnUpdate 聊天完整版入口：chat063=2 → 退弹窗回对局");
+            __system_property_set("jq.chat063", "0");
         }
     }
 
@@ -3121,6 +3451,452 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
         if (!ui_drawdetail_popup_inside(bx, by)) {
             ui_screen_set(UI_GAME);
             LOGI("OnTouch 提和详情弹窗外（bx=%.0f by=%.0f）→ 回对局", bx, by);
+            sfx_play(env, "pop");
+        }
+        (void)clazz;
+        return JNI_TRUE;
+    }
+    /* ★ P2（datah_003 证据）：设置入口弹窗态（完整版，3 按钮）。
+        点 图像 → UI_IMGSET7（图像设置完整版 datah_008）；
+        点 声音 → UI_SETTINGS（声音设置 datah_001，已实现）；
+        点 游戏 → UI_GAMESET（游戏设置 datah_012，已实现）；
+        点面板外 → 回主菜单。
+        ★ 诚实边界：图像设置渲染参数未实现（src_rs 无对应渲染参数），
+        开关只是 UI 状态记录（不实际改渲染）。 */
+    if (ui_screen_get() == UI_SETEXTTRY) {
+        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
+        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        const ui_setentry_btn *sb = ui_setentry_buttons();
+        int sh = ui_setentry_hit(sb, UI_SETEXTTRY_COUNT, bx, by);
+        if (sh >= 0) {
+            int sact = sb[sh].action;
+            LOGI("OnTouch 设置入口弹窗（完整版）：按钮%d（action=%d）", sh, sact);
+            if (sact == 0) {   /* 图像 → UI_IMGSET7（图像设置完整版 datah_008） */
+                ui_screen_set(UI_IMGSET7);
+                sfx_play(env, "pop");
+                LOGI("OnTouch 设置入口弹窗（完整版）：图像 → UI_IMGSET7 图像设置弹窗（datah_008，"
+                     "★ 诚实边界：渲染参数未实现，仅 UI 状态记录）");
+            } else if (sact == 1) {   /* 声音 → UI_SETTINGS（datah_001，已实现） */
+                ui_screen_set(UI_SETTINGS);
+                sfx_play(env, "pop");
+                LOGI("OnTouch 设置入口弹窗（完整版）：声音 → UI_SETTINGS 声音设置弹窗（datah_001，已实现）");
+            } else if (sact == 2) {   /* 游戏 → UI_GAMESET（datah_012，已实现） */
+                ui_screen_set(UI_GAMESET);
+                sfx_play(env, "pop");
+                LOGI("OnTouch 设置入口弹窗（完整版）：游戏 → UI_GAMESET 游戏设置弹窗（datah_012，已实现）");
+            }
+            (void)clazz;
+            return JNI_TRUE;
+        }
+        if (!ui_setentry_popup_inside(bx, by)) {
+            ui_screen_set(UI_MENU);
+            LOGI("OnTouch 设置入口弹窗（完整版）外（bx=%.0f by=%.0f）→ 回主菜单", bx, by);
+            sfx_play(env, "pop");
+        }
+        (void)clazz;
+        return JNI_TRUE;
+    }
+    /* ★ P2（datah_004 证据）：设置入口（简化版）弹窗态（2 按钮，无游戏设置项）。
+        点 图像 → UI_IMGSET8（图像设置简化版 datah_008）；
+        点 声音 → UI_SETTINGS（声音设置 datah_001，已实现）；
+        点面板外 → 回主菜单。
+        业务：datah_004 是 datah_003 的简化版（联机态/蓝牙态设置入口，无游戏设置项）。
+        ★ 诚实边界：图像设置渲染参数未实现，开关只是 UI 状态记录。 */
+    if (ui_screen_get() == UI_SETEXTTRY4) {
+        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
+        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        const ui_setentry4_btn *s4 = ui_setentry4_buttons();
+        int s4h = ui_setentry4_hit(s4, UI_SETEXTTRY4_COUNT, bx, by);
+        if (s4h >= 0) {
+            int s4act = s4[s4h].action;
+            LOGI("OnTouch 设置入口（简化版）弹窗：按钮%d（action=%d）", s4h, s4act);
+            if (s4act == 0) {   /* 图像 → UI_IMGSET8（图像设置简化版 datah_008） */
+                ui_screen_set(UI_IMGSET8);
+                sfx_play(env, "pop");
+                LOGI("OnTouch 设置入口（简化版）弹窗：图像 → UI_IMGSET8 图像设置弹窗（简化版 datah_008，"
+                     "★ 诚实边界：渲染参数未实现，仅 UI 状态记录）");
+            } else if (s4act == 1) {   /* 声音 → UI_SETTINGS（datah_001，已实现） */
+                ui_screen_set(UI_SETTINGS);
+                sfx_play(env, "pop");
+                LOGI("OnTouch 设置入口（简化版）弹窗：声音 → UI_SETTINGS 声音设置弹窗（datah_001，已实现）");
+            }
+            (void)clazz;
+            return JNI_TRUE;
+        }
+        if (!ui_setentry4_popup_inside(bx, by)) {
+            ui_screen_set(UI_MENU);
+            LOGI("OnTouch 设置入口（简化版）弹窗外（bx=%.0f by=%.0f）→ 回主菜单", bx, by);
+            sfx_play(env, "pop");
+        }
+        (void)clazz;
+        return JNI_TRUE;
+    }
+    /* ★ P2（datah_007 证据）：图像设置弹窗（完整版）态（4 开关 + 确定/取消）。
+        点 界面动画/棋子动画/夜间模式/对方棋子 → 各循环切换 开/关
+        （ui_imgset_trans/piece/night/opp_set，对齐 datah_001/012 循环范式）；
+        点 确定 → ui_imgset_save（jq_imgset.txt 4 字段）+ 回主菜单；
+        点 取消 → ui_imgset_load 恢复原值 + 回主菜单；点面板外 → 回主菜单。
+        ★ 诚实边界：图像/夜间模式/对方棋子 = 渲染层未实现（src_rs 无对应渲染参数），
+        开关只是 UI 状态记录（不实际改渲染）。 */
+    if (ui_screen_get() == UI_IMGSET7) {
+        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
+        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        const ui_imgset7_btn *ib = ui_imgset7_buttons();
+        int ih = ui_imgset7_hit(ib, UI_IMGSET7_COUNT, bx, by);
+        if (ih >= 0) {
+            int iact = ib[ih].action;
+            LOGI("OnTouch 图像设置弹窗（完整版）：控件%d（action=%d）", ih, iact);
+            if (iact == 0) {   /* 界面动画：开/关 循环 */
+                ui_imgset_trans_set(!ui_imgset_trans_get());
+                sfx_play(env, "pop");
+                LOGI("OnTouch 图像设置弹窗（完整版）：界面动画切换 → %s（★ 诚实边界：渲染参数未实现，仅 UI 状态记录）",
+                     ui_imgset_trans_get() ? "开" : "关");
+            } else if (iact == 1) {   /* 棋子动画：开/关 循环 */
+                ui_imgset_piece_set(!ui_imgset_piece_get());
+                sfx_play(env, "pop");
+                LOGI("OnTouch 图像设置弹窗（完整版）：棋子动画切换 → %s（★ 诚实边界：渲染参数未实现，仅 UI 状态记录）",
+                     ui_imgset_piece_get() ? "开" : "关");
+            } else if (iact == 2) {   /* 夜间模式：开/关 循环 */
+                ui_imgset_night_set(!ui_imgset_night_get());
+                sfx_play(env, "pop");
+                LOGI("OnTouch 图像设置弹窗（完整版）：夜间模式切换 → %s（★ 诚实边界：渲染参数未实现，仅 UI 状态记录）",
+                     ui_imgset_night_get() ? "开" : "关");
+            } else if (iact == 3) {   /* 对方棋子：开/关 循环 */
+                ui_imgset_opp_set(!ui_imgset_opp_get());
+                sfx_play(env, "pop");
+                LOGI("OnTouch 图像设置弹窗（完整版）：对方棋子切换 → %s（★ 诚实边界：渲染参数未实现，仅 UI 状态记录）",
+                     ui_imgset_opp_get() ? "开" : "关");
+            } else if (iact == 4) {   /* 确定：保存 + 回主菜单 */
+                ui_imgset_save();
+                sfx_play(env, "pop");
+                LOGI("OnTouch 图像设置弹窗（完整版）：确定 → 保存 jq_imgset.txt（界面=%d 棋子=%d 夜间=%d 对方=%d）+ 回主菜单",
+                     ui_imgset_trans_get(), ui_imgset_piece_get(), ui_imgset_night_get(), ui_imgset_opp_get());
+                ui_screen_set(UI_MENU);
+            } else if (iact == 5) {   /* 取消：恢复原值 + 回主菜单 */
+                ui_imgset_load();
+                sfx_play(env, "pop");
+                LOGI("OnTouch 图像设置弹窗（完整版）：取消 → 恢复原值（界面=%d 棋子=%d 夜间=%d 对方=%d）+ 回主菜单",
+                     ui_imgset_trans_get(), ui_imgset_piece_get(), ui_imgset_night_get(), ui_imgset_opp_get());
+                ui_screen_set(UI_MENU);
+            }
+            (void)clazz;
+            return JNI_TRUE;
+        }
+        if (!ui_imgset7_popup_inside(bx, by)) {
+            ui_screen_set(UI_MENU);
+            LOGI("OnTouch 图像设置弹窗（完整版）外（bx=%.0f by=%.0f）→ 回主菜单", bx, by);
+            sfx_play(env, "pop");
+        }
+        (void)clazz;
+        return JNI_TRUE;
+    }
+    /* ★ P2（datah_008 证据）：图像设置弹窗（简化版）态（3 开关 + 确定/取消）。
+        点 界面动画/棋子动画/夜间模式 → 各循环切换 开/关
+        （ui_imgset_trans/piece/night_set，对齐 datah_001/012 循环范式）；
+        点 确定 → ui_imgset_save（jq_imgset.txt 3 字段）+ 回主菜单；
+        点 取消 → ui_imgset_load 恢复原值 + 回主菜单；点面板外 → 回主菜单。
+        业务：datah_008 是 datah_007 简化版（3 开关，蓝牙态）。
+        ★ 诚实边界：图像/夜间模式 = 渲染层未实现（src_rs 无对应渲染参数），
+        开关只是 UI 状态记录（不实际改渲染）。 */
+    if (ui_screen_get() == UI_IMGSET8) {
+        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
+        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        const ui_imgset8_btn *i8 = ui_imgset8_buttons();
+        int i8h = ui_imgset8_hit(i8, UI_IMGSET8_COUNT, bx, by);
+        if (i8h >= 0) {
+            int i8act = i8[i8h].action;
+            LOGI("OnTouch 图像设置弹窗（简化版）：控件%d（action=%d）", i8h, i8act);
+            if (i8act == 0) {   /* 界面动画：开/关 循环 */
+                ui_imgset_trans_set(!ui_imgset_trans_get());
+                sfx_play(env, "pop");
+                LOGI("OnTouch 图像设置弹窗（简化版）：界面动画切换 → %s（★ 诚实边界：渲染参数未实现，仅 UI 状态记录）",
+                     ui_imgset_trans_get() ? "开" : "关");
+            } else if (i8act == 1) {   /* 棋子动画：开/关 循环 */
+                ui_imgset_piece_set(!ui_imgset_piece_get());
+                sfx_play(env, "pop");
+                LOGI("OnTouch 图像设置弹窗（简化版）：棋子动画切换 → %s（★ 诚实边界：渲染参数未实现，仅 UI 状态记录）",
+                     ui_imgset_piece_get() ? "开" : "关");
+            } else if (i8act == 2) {   /* 夜间模式：开/关 循环 */
+                ui_imgset_night_set(!ui_imgset_night_get());
+                sfx_play(env, "pop");
+                LOGI("OnTouch 图像设置弹窗（简化版）：夜间模式切换 → %s（★ 诚实边界：渲染参数未实现，仅 UI 状态记录）",
+                     ui_imgset_night_get() ? "开" : "关");
+            } else if (i8act == 3) {   /* 确定：保存 + 回主菜单 */
+                ui_imgset_save();
+                sfx_play(env, "pop");
+                LOGI("OnTouch 图像设置弹窗（简化版）：确定 → 保存 jq_imgset.txt（界面=%d 棋子=%d 夜间=%d）+ 回主菜单",
+                     ui_imgset_trans_get(), ui_imgset_piece_get(), ui_imgset_night_get());
+                ui_screen_set(UI_MENU);
+            } else if (i8act == 4) {   /* 取消：恢复原值 + 回主菜单 */
+                ui_imgset_load();
+                sfx_play(env, "pop");
+                LOGI("OnTouch 图像设置弹窗（简化版）：取消 → 恢复原值（界面=%d 棋子=%d 夜间=%d）+ 回主菜单",
+                     ui_imgset_trans_get(), ui_imgset_piece_get(), ui_imgset_night_get());
+                ui_screen_set(UI_MENU);
+            }
+            (void)clazz;
+            return JNI_TRUE;
+        }
+        if (!ui_imgset8_popup_inside(bx, by)) {
+            ui_screen_set(UI_MENU);
+            LOGI("OnTouch 图像设置弹窗（简化版）外（bx=%.0f by=%.0f）→ 回主菜单", bx, by);
+            sfx_play(env, "pop");
+        }
+        (void)clazz;
+        return JNI_TRUE;
+    }
+    /* ★ P2（datah_065 证据）：加入游戏完整版弹窗态（8 显示项 + 开始/取消）。
+        8 显示项 = 占位标签（先手/后手/玩法/明暗棋/4 规则，非按钮，显示当前值占位
+        "蓝方/红方/布局/暗棋/开/开/开/开"，触摸 flaky 下输入框无意义，不画真数据）；
+        点 开始 → 诚实边界对话框（"加入游戏完整版：联机开局需 Wi-Fi/局域网房间协议，
+        src_rs 仅蓝牙联机已实现，请选蓝牙联机"）+ 回主菜单；
+        点 取消 → 回主菜单；点面板外 → 回主菜单。
+        ★ 诚实边界：先手/后手/玩法/明暗棋/4 规则 = 联机开局配置（src_rs 无联机开局逻辑）。 */
+    if (ui_screen_get() == UI_JOIN065) {
+        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
+        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        const ui_join065_btn *jb = ui_join065_buttons();
+        int jh = ui_join065_hit(jb, UI_JOIN065_COUNT, bx, by);
+        if (jh >= 0) {
+            int jact = jb[jh].action;
+            LOGI("OnTouch 加入游戏完整版弹窗：控件%d（action=%d）", jh, jact);
+            if (jact >= 0 && jact <= 7) {   /* 8 显示项：占位标签（不实际处理，仅日志） */
+                LOGI("OnTouch 加入游戏完整版弹窗：显示项%d（占位标签，不实际处理，"
+                     "★ 诚实边界：联机开局配置 src_rs 无逻辑）", jact);
+            } else if (jact == 8) {   /* 开始 → 边界对话框 + 回主菜单 */
+                jq_show_dialog(env, "加入游戏完整版（诚实边界）",
+                    "加入游戏完整版（诚实边界）：\n"
+                    "联机开局需 Wi-Fi/局域网房间协议，\n"
+                    "src_rs 仅蓝牙联机已实现，请选蓝牙联机。");
+                sfx_play(env, "pop");
+                LOGI("OnTouch 加入游戏完整版弹窗：开始 → 边界对话框（联机开局需 Wi-Fi/局域网协议，src_rs 仅蓝牙已实现）+ 回主菜单");
+                ui_screen_set(UI_MENU);
+            } else if (jact == 9) {   /* 取消 → 回主菜单 */
+                ui_screen_set(UI_MENU);
+                sfx_play(env, "pop");
+                LOGI("OnTouch 加入游戏完整版弹窗：取消 → 回主菜单");
+            }
+            (void)clazz;
+            return JNI_TRUE;
+        }
+        if (!ui_join065_popup_inside(bx, by)) {
+            ui_screen_set(UI_MENU);
+            LOGI("OnTouch 加入游戏完整版弹窗外（bx=%.0f by=%.0f）→ 回主菜单", bx, by);
+            sfx_play(env, "pop");
+        }
+        (void)clazz;
+        return JNI_TRUE;
+    }
+    /* ★ P2（datah_069 证据）：创建游戏完整版弹窗态（4 选择 + 确定/取消）。
+        点 先后手 → 蓝/红 循环（ui_first_set，对齐 datah_104 范式）；
+        点 玩法 → 布局/翻棋 切换（ui_opt_select mode，对齐 datah_104 范式）；
+        点 明暗棋 → 明/暗 切换（ui_show_set，对齐 datah_104 范式）；
+        点 游戏规则（action=3）→ UI_RULES070（datah_070 游戏规则弹窗）；
+        点 确定 → 诚实边界对话框（"创建游戏完整版：联机房间创建需 Wi-Fi/局域网协议，
+        src_rs 仅蓝牙已实现"）+ 回主菜单；
+        点 取消 → 回主菜单；点面板外 → 回主菜单。
+        ★ 诚实边界：先后手/玩法/明暗棋 = 联机开局配置（src_rs 无联机房间创建逻辑，
+        循环切换仅 UI 状态记录） */
+    if (ui_screen_get() == UI_CREATE069) {
+        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
+        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        const ui_create069_btn *cb = ui_create069_buttons();
+        int ch = ui_create069_hit(cb, UI_CREATE069_COUNT, bx, by);
+        if (ch >= 0) {
+            int cact = cb[ch].action;
+            LOGI("OnTouch 创建游戏完整版弹窗：控件%d（action=%d）", ch, cact);
+            if (cact == 0) {   /* 先后手：蓝/红 循环 */
+                ui_first_set(ui_first_get() ? 0 : 1);
+                sfx_play(env, "pop");
+                LOGI("OnTouch 创建游戏完整版弹窗：先后手切换 → %s（★ 诚实边界：联机开局配置，仅 UI 状态记录）",
+                     ui_first_get() ? "红先手" : "蓝先手");
+            } else if (cact == 1) {   /* 玩法：布局/翻棋 切换 */
+                int mode = !ui_opt_get_mode();
+                ui_opt_select(ui_opt_get_level(), mode);
+                sfx_play(env, "pop");
+                LOGI("OnTouch 创建游戏完整版弹窗：玩法切换 → mode=%d（%s，★ 诚实边界：联机开局配置，仅 UI 状态记录）",
+                     mode, mode ? "翻棋暗棋" : "布局明棋");
+            } else if (cact == 2) {   /* 明暗棋：明/暗 切换 */
+                ui_show_set(ui_show_get() ? 0 : 1);
+                sfx_play(env, "pop");
+                LOGI("OnTouch 创建游戏完整版弹窗：明暗棋切换 → %s（★ 诚实边界：联机开局配置，仅 UI 状态记录）",
+                     ui_show_get() ? "暗棋" : "明棋");
+            } else if (cact == 3) {   /* 游戏规则 → UI_RULES070（datah_070） */
+                ui_screen_set(UI_RULES070);
+                sfx_play(env, "pop");
+                LOGI("OnTouch 创建游戏完整版弹窗：游戏规则 → UI_RULES070 游戏规则弹窗（datah_070，与 012 同构）");
+            } else if (cact == 4) {   /* 确定 → 边界对话框 + 回主菜单 */
+                jq_show_dialog(env, "创建游戏完整版（诚实边界）",
+                    "创建游戏完整版（诚实边界）：\n"
+                    "联机房间创建需 Wi-Fi/局域网协议，\n"
+                    "src_rs 仅蓝牙已实现。");
+                sfx_play(env, "pop");
+                LOGI("OnTouch 创建游戏完整版弹窗：确定 → 边界对话框（联机房间创建需 Wi-Fi/局域网协议，src_rs 仅蓝牙已实现）+ 回主菜单");
+                ui_screen_set(UI_MENU);
+            } else if (cact == 5) {   /* 取消 → 回主菜单 */
+                ui_screen_set(UI_MENU);
+                sfx_play(env, "pop");
+                LOGI("OnTouch 创建游戏完整版弹窗：取消 → 回主菜单");
+            }
+            (void)clazz;
+            return JNI_TRUE;
+        }
+        if (!ui_create069_popup_inside(bx, by)) {
+            ui_screen_set(UI_MENU);
+            LOGI("OnTouch 创建游戏完整版弹窗外（bx=%.0f by=%.0f）→ 回主菜单", bx, by);
+            sfx_play(env, "pop");
+        }
+        (void)clazz;
+        return JNI_TRUE;
+    }
+    /* ★ P2（datah_070 证据）：游戏规则完整版弹窗态（4 规则开关 + 确定/取消）。
+        与 datah_012 游戏设置同构，复用 ui_rule_*_get/set + 4 开关各循环切换
+        + 确定保存（ui_rules_save）/取消恢复（ui_rules_load）。
+        点 和棋/大本营/吃地雷/吃军旗 → 各循环切换 开/关（ui_rule_*_set）；
+        点 确定 → ui_rules_save（jq_rules.txt 4 字段）+ 回主菜单；
+        点 取消 → ui_rules_load 恢复原值 + 回主菜单；点面板外 → 回主菜单。
+        ★ 与 datah_012 区分：012 是本地 ☰ 菜单"功能设置"→UI_GAMESET，
+        070 是联机"游戏规则"弹窗（datah_069 创建游戏"游戏规则"按钮切此弹窗）。 */
+    if (ui_screen_get() == UI_RULES070) {
+        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
+        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        const ui_rules070_btn *r70 = ui_rules070_buttons();
+        int r70h = ui_rules070_hit(r70, UI_RULES070_COUNT, bx, by);
+        if (r70h >= 0) {
+            int r70act = r70[r70h].action;
+            LOGI("OnTouch 游戏规则完整版弹窗：控件%d（action=%d）", r70h, r70act);
+            if (r70act == 0) {   /* 和棋：开/关 循环 */
+                ui_rule_draw_set(!ui_rule_draw_get());
+                sfx_play(env, "pop");
+                LOGI("OnTouch 游戏规则完整版弹窗：和棋切换 → %s（与 datah_012 同构，复用 ui_rule_draw_set）",
+                     ui_rule_draw_get() ? "开" : "关");
+            } else if (r70act == 1) {   /* 大本营：开/关 循环 */
+                ui_rule_hq_set(!ui_rule_hq_get());
+                sfx_play(env, "pop");
+                LOGI("OnTouch 游戏规则完整版弹窗：大本营切换 → %s（与 datah_012 同构，复用 ui_rule_hq_set）",
+                     ui_rule_hq_get() ? "开" : "关");
+            } else if (r70act == 2) {   /* 吃地雷：开/关 循环 */
+                ui_rule_mine_set(!ui_rule_mine_get());
+                sfx_play(env, "pop");
+                LOGI("OnTouch 游戏规则完整版弹窗：吃地雷切换 → %s（与 datah_012 同构，复用 ui_rule_mine_set）",
+                     ui_rule_mine_get() ? "开" : "关");
+            } else if (r70act == 3) {   /* 吃军旗：开/关 循环 */
+                ui_rule_flag_set(!ui_rule_flag_get());
+                sfx_play(env, "pop");
+                LOGI("OnTouch 游戏规则完整版弹窗：吃军旗切换 → %s（与 datah_012 同构，复用 ui_rule_flag_set）",
+                     ui_rule_flag_get() ? "开" : "关");
+            } else if (r70act == 4) {   /* 确定：保存 + 回主菜单 */
+                ui_rules_save();
+                sfx_play(env, "pop");
+                LOGI("OnTouch 游戏规则完整版弹窗：确定 → 保存 jq_rules.txt（和棋=%d 大本营=%d 吃地雷=%d 吃军旗=%d）+ 回主菜单",
+                     ui_rule_draw_get(), ui_rule_hq_get(), ui_rule_mine_get(), ui_rule_flag_get());
+                ui_screen_set(UI_MENU);
+            } else if (r70act == 5) {   /* 取消：恢复原值 + 回主菜单 */
+                ui_rules_load();
+                sfx_play(env, "pop");
+                LOGI("OnTouch 游戏规则完整版弹窗：取消 → 恢复原值（和棋=%d 大本营=%d 吃地雷=%d 吃军旗=%d）+ 回主菜单",
+                     ui_rule_draw_get(), ui_rule_hq_get(), ui_rule_mine_get(), ui_rule_flag_get());
+                ui_screen_set(UI_MENU);
+            }
+            (void)clazz;
+            return JNI_TRUE;
+        }
+        if (!ui_rules070_popup_inside(bx, by)) {
+            ui_screen_set(UI_MENU);
+            LOGI("OnTouch 游戏规则完整版弹窗外（bx=%.0f by=%.0f）→ 回主菜单", bx, by);
+            sfx_play(env, "pop");
+        }
+        (void)clazz;
+        return JNI_TRUE;
+    }
+    /* ★ P2（datah_060 证据）：房间态弹窗（2 玩家房间列表 + 开始/换桌/离开）。
+        Player1/Player2/Ready1/2/Score1/2/Rate1/2/View1/2 是 TransText 显示区
+        （非按钮，简化为占位标签"蓝方/红方"，触摸 flaky 下房间列表无意义）；
+        点 开始 → 诚实边界对话框（"房间开始（诚实边界）：联机房间需 Wi-Fi/局域网协议，
+        src_rs 仅蓝牙已实现"）；
+        点 换桌 → 诚实边界对话框（"换桌（诚实边界）：联机房间需 Wi-Fi/局域网协议，
+        src_rs 仅蓝牙已实现"）；
+        点 离开 → 回主菜单；点面板外 → 回主菜单。
+        ★ 诚实边界：联机房间需 Wi-Fi/局域网协议（src_rs 仅蓝牙已实现），
+        2 玩家显示区 = 占位标签（不画真数据） */
+    if (ui_screen_get() == UI_ROOM060) {
+        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
+        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        const ui_room060_btn *rm = ui_room060_buttons();
+        int rmh = ui_room060_hit(rm, UI_ROOM060_COUNT, bx, by);
+        if (rmh >= 0) {
+            int rmact = rm[rmh].action;
+            LOGI("OnTouch 房间态弹窗：按钮%d（action=%d）", rmh, rmact);
+            if (rmact == 0) {   /* 开始 → 边界对话框 */
+                jq_show_dialog(env, "房间开始（诚实边界）",
+                    "房间开始（诚实边界）：\n"
+                    "联机房间需 Wi-Fi/局域网协议，\n"
+                    "src_rs 仅蓝牙已实现。");
+                sfx_play(env, "pop");
+                LOGI("OnTouch 房间态弹窗：开始 → 边界对话框（联机房间需 Wi-Fi/局域网协议，src_rs 仅蓝牙已实现）");
+            } else if (rmact == 1) {   /* 换桌 → 边界对话框 */
+                jq_show_dialog(env, "换桌（诚实边界）",
+                    "换桌（诚实边界）：\n"
+                    "联机房间需 Wi-Fi/局域网协议，\n"
+                    "src_rs 仅蓝牙已实现。");
+                sfx_play(env, "pop");
+                LOGI("OnTouch 房间态弹窗：换桌 → 边界对话框（联机房间需 Wi-Fi/局域网协议，src_rs 仅蓝牙已实现）");
+            } else if (rmact == 2) {   /* 离开 → 回主菜单 */
+                ui_screen_set(UI_MENU);
+                sfx_play(env, "pop");
+                LOGI("OnTouch 房间态弹窗：离开 → 回主菜单");
+            }
+            (void)clazz;
+            return JNI_TRUE;
+        }
+        if (!ui_room060_popup_inside(bx, by)) {
+            ui_screen_set(UI_MENU);
+            LOGI("OnTouch 房间态弹窗外（bx=%.0f by=%.0f）→ 回主菜单", bx, by);
+            sfx_play(env, "pop");
+        }
+        (void)clazz;
+        return JNI_TRUE;
+    }
+    /* ★ P2（datah_063 证据）：聊天完整版弹窗态（Msg 输入框 + 发送/记录/关闭）。
+        Msg 输入框简化为占位标签"聊天输入（诚实边界：联机聊天文本未逆向）"；
+        点 发送 → jq_bt_ctrl_send(BT_T_CHAT) 占位帧 + 诚实边界对话框
+        （"聊天（诚实边界）：联机聊天文本未逆向，src_rs 蓝牙聊天是占位帧 BT_T_CHAT，
+        对端无文本渲染"）；
+        点 记录 → UI_CHATLOG（datah_029 聊天记录已实现）；
+        点 关闭 → 回对局；点面板外 → 回对局。
+        ★ 诚实边界：联机聊天文本未逆向（src_rs 蓝牙聊天是占位帧 BT_T_CHAT） */
+    if (ui_screen_get() == UI_CHAT063) {
+        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
+        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        const ui_chat063_btn *c63 = ui_chat063_buttons();
+        int c63h = ui_chat063_hit(c63, UI_CHAT063_COUNT, bx, by);
+        if (c63h >= 0) {
+            int c63act = c63[c63h].action;
+            LOGI("OnTouch 聊天完整版弹窗：按钮%d（action=%d）", c63h, c63act);
+            if (c63act == 0) {   /* 发送 → BT_T_CHAT 占位帧 + 边界对话框 */
+                jq_bt_ctrl_send(env, BT_T_CHAT);
+                jq_show_dialog(env, "聊天（诚实边界）",
+                    "聊天（诚实边界）：\n"
+                    "联机聊天文本未逆向，\n"
+                    "src_rs 蓝牙聊天是占位帧 BT_T_CHAT，\n"
+                    "对端无文本渲染。");
+                sfx_play(env, "pop");
+                LOGI("OnTouch 聊天完整版弹窗：发送 → BT_T_CHAT 占位帧 + 边界对话框（联机聊天文本未逆向）");
+            } else if (c63act == 1) {   /* 记录 → UI_CHATLOG（datah_029 聊天记录已实现） */
+                ui_screen_set(UI_CHATLOG);
+                sfx_play(env, "pop");
+                LOGI("OnTouch 聊天完整版弹窗：记录 → UI_CHATLOG 聊天记录弹窗（datah_029，已实现）");
+            } else if (c63act == 2) {   /* 关闭 → 回对局 */
+                ui_screen_set(UI_GAME);
+                sfx_play(env, "pop");
+                LOGI("OnTouch 聊天完整版弹窗：关闭 → 回对局");
+            }
+            (void)clazz;
+            return JNI_TRUE;
+        }
+        if (!ui_chat063_popup_inside(bx, by)) {
+            ui_screen_set(UI_GAME);
+            LOGI("OnTouch 聊天完整版弹窗外（bx=%.0f by=%.0f）→ 回对局", bx, by);
             sfx_play(env, "pop");
         }
         (void)clazz;

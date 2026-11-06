@@ -87,6 +87,26 @@ typedef struct {
                                            资料/修改/帮助/返回/账号/昵称/头像/胜率/边界/未逆向） */
     rs_glid_t tex_drawdetail_text[2]; /* ★ P2（datah_042）：提和详情文字图集 220×322（7 标签竖排：
                                            提和/认输/聊天/系统设置/玩家资料/战况统计/软件信息） */
+    rs_glid_t tex_setentry_text[2]; /* ★ P2（datah_003/004）：设置入口文字图集 220×322
+                                           （7 标签竖排：设置入口/图像/声音/游戏/简化/取消/返回） */
+    rs_glid_t tex_imgset_text[2];   /* ★ P2（datah_007/008）：图像设置文字图集 220×460
+                                           （10 标签竖排：图像/界面/棋子/夜间/对方/开/关/
+                                           确定/取消/设置） */
+    rs_glid_t tex_join065_text[2];  /* ★ P2（datah_065）：加入游戏完整版文字图集 220×460
+                                           （10 标签竖排：加入/先手/后手/玩法/明暗/和棋/
+                                           大本营/吃雷/吃旗/开始） */
+    rs_glid_t tex_create069_text[2];/* ★ P2（datah_069）：创建游戏完整版文字图集 220×460
+                                           （10 标签竖排：创建/先后/玩法/明暗/规则/
+                                           蓝方/红方/布局/翻棋/确定） */
+    rs_glid_t tex_rules070_text[2]; /* ★ P2（datah_070）：游戏规则完整版文字图集 220×460
+                                           （10 标签竖排：规则/和棋/大本营/吃雷/吃旗/
+                                           开/关/确定/取消/设置） */
+    rs_glid_t tex_room060_text[2];  /* ★ P2（datah_060）：房间态文字图集 220×368
+                                           （8 标签竖排：房间/玩家/蓝方/红方/开始/换桌/
+                                           离开/边界） */
+    rs_glid_t tex_chat063_text[2];  /* ★ P2（datah_063）：聊天完整版文字图集 220×368
+                                           （8 标签竖排：聊天/输入/发送/记录/关闭/
+                                           占位/边界/未逆向） */
     void *board_px; size_t board_px_len;   /* 解码后 RGBA（跨 context 共享，只解码一次） */
     void *piece_px;  size_t piece_px_len;
     void *text_px;   size_t text_px_len;   /* 菜单文字图集 RGBA（5 label 竖排） */
@@ -135,6 +155,20 @@ typedef struct {
     int profile_text_w, profile_text_h;      /* 个人资料文字图集尺寸 */
     void *drawdetail_text_px; size_t drawdetail_text_px_len; /* ★ P2（datah_042）：提和详情文字图集 RGBA（7 标签竖排 220×322） */
     int drawdetail_text_w, drawdetail_text_h; /* 提和详情文字图集尺寸 */
+    void *setentry_text_px; size_t setentry_text_px_len; /* ★ P2（datah_003/004）：设置入口文字图集 RGBA（7 标签竖排 220×322） */
+    int setentry_text_w, setentry_text_h; /* 设置入口文字图集尺寸 */
+    void *imgset_text_px; size_t imgset_text_px_len; /* ★ P2（datah_007/008）：图像设置文字图集 RGBA（10 标签竖排 220×460） */
+    int imgset_text_w, imgset_text_h; /* 图像设置文字图集尺寸 */
+    void *join065_text_px; size_t join065_text_px_len; /* ★ P2（datah_065）：加入游戏完整版文字图集 RGBA（10 标签竖排 220×460） */
+    int join065_text_w, join065_text_h; /* 加入游戏完整版文字图集尺寸 */
+    void *create069_text_px; size_t create069_text_px_len; /* ★ P2（datah_069）：创建游戏完整版文字图集 RGBA（10 标签竖排 220×460） */
+    int create069_text_w, create069_text_h; /* 创建游戏完整版文字图集尺寸 */
+    void *rules070_text_px; size_t rules070_text_px_len; /* ★ P2（datah_070）：游戏规则完整版文字图集 RGBA（10 标签竖排 220×460） */
+    int rules070_text_w, rules070_text_h; /* 游戏规则完整版文字图集尺寸 */
+    void *room060_text_px; size_t room060_text_px_len; /* ★ P2（datah_060）：房间态文字图集 RGBA（8 标签竖排 220×368） */
+    int room060_text_w, room060_text_h; /* 房间态文字图集尺寸 */
+    void *chat063_text_px; size_t chat063_text_px_len; /* ★ P2（datah_063）：聊天完整版文字图集 RGBA（8 标签竖排 220×368） */
+    int chat063_text_w, chat063_text_h; /* 聊天完整版文字图集尺寸 */
     void *imen_text_px; size_t imen_text_px_len; /* ★ ☰ 菜单文字图集 RGBA（8 项竖排 160×320） */
     int imen_text_w, imen_text_h;               /* ☰ 菜单文字图集尺寸 */
     void *imen_icons_px; size_t imen_icons_px_len; /* ★ ☰ 菜单图标图集 RGBA（8 图标 110×100 4×2，原版裁剪） */
