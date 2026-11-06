@@ -78,7 +78,31 @@ def main():
     print(f"\n--- 中间区 0x{MID_LO:04x}-0x{MID_HI:04x} ({mid_total} 槽) ---")
     print(f"  非零比: {mid_nz}/{mid_total} = {pct}% ({'79% 场景对象图构造态实锤' if pct>=70 else ('低, 未构造/未 dump 运行时' if pct<30 else '中间态')})")
 
-    # 3. 全段 scudo 指针特征 (0xcf/0xea/0xe8 高位 = scudo 堆)
+    # 3. 事件表 17×17 位掩码区 (0x4704, §124y-109 实锤, .got[0x57c] 基址)
+    EV_LO, EV_ROWS, EV_FIELDS = 0x4704, 17, 17
+    ev_off = EV_LO
+    asr4_cnt = {}
+    rows_with_code = []
+    for row in range(EV_ROWS):
+        r_off = ev_off + row*EV_FIELDS
+        row_asr4 = []
+        for i in range(EV_FIELDS):
+            b = data[r_off+i]
+            a4 = b >> 4
+            asr4_cnt[a4] = asr4_cnt.get(a4,0)+1
+            row_asr4.append(a4)
+        codes = sorted(set(a for a in row_asr4 if a))
+        if codes:
+            rows_with_code.append((row, codes))
+    print(f"\n--- 事件表 17×17 位掩码区 (偏移 0x4704, §124y-109) ---")
+    print(f"  字段 asr4 分布: {dict(sorted(asr4_cnt.items()))}")
+    if rows_with_code:
+        print(f"  含非 0 事件码的行: {rows_with_code}")
+    else:
+        print(f"  全 17 行 asr4=0 (事件码 0 匹配表, §124y-109 实锤; 事件码 1-16 需 frida 触发)")
+    print(f"  判读: 若 dump 为运行时真值, 非 0 事件码行 = 已触发的事件码匹配行")
+
+    # 4. 全段 scudo 指针特征 (0xcf/0xea/0xe8 高位 = scudo 堆)
     scudo_cnt = 0
     for i in range(0, BSS_SIZE, 4):
         v = struct.unpack_from('<I', data, i)[0]
