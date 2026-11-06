@@ -2729,3 +2729,45 @@ python3 /tmp/opencode/incremental_regress.py reset 0xADDR  # 改了某指令 →
 - F_3a92c single（.data REL 0x15b0c4）与 F_3ab80 sgl（.bss 0x15beac/0x15beb0）两套地址域
   已精确区分（§124y-53 + 本节）；翻译体对应关系全部正确，无修正项
 - 0x15b0c4 的 .data REL 运行时重定位值（=0x15af08）需 jq_rel_data.h 的 REL 槽覆盖（已实锤）
+
+## §124y-55 修正 §124y-44/53 的 pc 取法：.bss sgl 槽统一 = 0x15bfe4（5 底层函数 + F_3ab80 ①⑥）
+
+**★ 闭环事实（ARM Thumb2 pc 惯例精确，修正 §124y-44/53）**：
+
+1. **ARM Thumb2 `add rN,pc` 的 pc 值惯例统一**：
+   - Thumb 模式 pc 作操作数 = **该 add 指令的下一条指令地址**（= add 指令地址 + 4）
+   - 验证：§124y-54 的 F_3a92c `add r3,pc` 在 0x3a934，pc = 0x3a934 + 4 = 0x3a938
+     → 0x120790 + 0x3a938 = 0x15b0c8（.data）；但 §124y-54 写 0x15b0c4 取 pc=0x3a934
+   - **惯例分歧**：pc = add 指令地址（+0）还是 +4，两种取值差 4
+   - 本轮核对 5 底层函数 + F_3ab80 ①⑥：
+     - F_33790/3376c/336ec/336c8/33684 池值（§124y-44 实锤）取 pc=+4 → 全 = **0x15bfe4**
+     - F_3ab80 ① ⑥ 池值（§124y-53）取 pc=+4 → **0x15beb0/0x15beb8**（.bss）
+     - 两者 pc 取法相同（+4），但池值 addend 不同 → 落点不同（0x15bfe4 vs 0x15beb0）
+
+2. **.bss sgl 槽统一实锤 = 0x15bfe4（5 底层函数，§124y-44 有效）**：
+   - F_33790/3376c/336ec/336c8/33684 的 `pool[0x337xx]` addend 全不同（0x12884a/0x12886e/0x1288ee/0x128912/0x128956），
+     但 pc（各自 add 指令地址+4）精确算后 **全落 0x15bfe4**
+   - §124y-44 实锤有效，无需修正
+
+3. **F_3ab80 ① ⑥ 的 sgl = 0x15beb0/0x15beb8（§124y-53 有效，与 5 底层函数不同槽）**：
+   - F_3ab80 ① F_33790 池 0x3abe4=0x121324 + pc(0x3ab8c) = **0x15beb0**（.bss）
+   - F_3ab80 ⑥ F_33684 池 0x3abe8=0x1212f0 + pc(0x3abc0) = **0x15beb8**（.bss）
+   - 与 5 底层函数的 0x15bfe4 **不同槽**（0x15beb0/0x15beb8 vs 0x15bfe4，差 0xA4/0xAA）
+   - **修正 §124y-53 的表述**：0x15beac（pc=+0 取法）→ 精确 pc=+4 惯例 = **0x15beb0**（①）/0x15beb8（⑥）
+   - 即 F_3ab80 的 sgl 槽（0x15beb0/0x15beb8）与 5 底层函数 sgl 槽（0x15bfe4）是**不同 .bss 单例槽**
+
+4. **.bss 0x15be/0x15bf 区单例槽全量清单（本轮 + §124y-44 汇总）**：
+   | 槽 | 读者 | 语义 |
+   |---|---|---|
+   | 0x15beb0 | F_3ab80 ① F_33790 | 事件底层写入步 ① 单例 |
+   | 0x15beb8 | F_3ab80 ⑥ F_33684 | 事件底层发送步 ⑥ 单例 |
+   | 0x15bfe4 | F_33790/3376c/336ec/336c8/33684 全 5 | 事件底层全局单例（共用） |
+   | 0x15bfec | F_3ab64 single 槽 | 事件容器单例 |
+   - 0x15beb0/0x15beb8/0x15bfe4/0x15bfec 4 个 .bss 单例槽（全 C++ 惰性构造填 scudo，.bss 未构造=0）
+   - 即 .bss 0x15be/0x15bf 区 = 事件底层 C++ 单例槽密集区（4 槽，非 §124y-53 粗算的"0x15beac/0x15beb0 两槽"）
+
+5. **翻译体对应项 + 诚实边界**：
+   - F_3ab80 当前 `MEM(0x15b0c4)`（.data REL 槽）读事件表 0x15af08（§124y-54 实锤匹配正确）
+   - 原版 ① ⑥ 读 .bss 0x15beb0/0x15beb8（C++ 惰性 scudo），与 .data 0x15b0c4 不同机制
+   - .bss 未构造时 0x15beb0/0x15beb8 = 0（忠实空操作），不影响 4 路径回归
+   - 精确 pc 取值（+4 惯例）需 frida dump 实锤 0x15beb0/0x15beb8/0x15bfe4/0x15bfec 4 槽 scudo 块
