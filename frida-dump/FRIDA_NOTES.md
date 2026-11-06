@@ -577,3 +577,8 @@ Interceptor.attach(Module.getExportByName('libdl.so', 'android_dlopen_ext'), {
 2. 段归属必查：`so_probe.py seg <va>`（§124y-111 新 seg 子命令）
 3. 行宽/行数区分：外层循环 `cmp r6,ip` 的 ip = **行宽累计字节上限**（非行数），行数 = ip/行宽
 4. 事件码 [0x44]（事件对象字段）≠ 事件名前缀 asr4（字符串编码），勿混淆
+5. C++ thunk 区 4 模式（§124y-117 实锤）：直接（bl+pop）/ 寄存器搬移（lsls r1,#2+ldr[r1,r0]，字段索引复用）
+   / 带条件（cmp r2,#0+bne，子状态 2 路径）/ 多字段批量（ldr[r5,#0/4/8/12]×4，4 字段各调 handler）
+   多 code 共用 1 handler = 同一 handler 的字段/子状态变体（非独立逻辑）
+6. dump 文件偏移 = 段偏移对齐（§124y-108 实锤）：dump[0] = .bss[0]（段起点值核对），
+   dump 偏移 0xNNNN = 段偏移 0xNNNN（dump 从段 0 开始，非全 so 偏移）
