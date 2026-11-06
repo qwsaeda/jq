@@ -48,6 +48,20 @@ DIALOGS = {
         ("和棋",210,75,420,135),("大本营",210,150,420,210),
         ("吃地雷",210,225,420,285),("吃军旗",210,300,420,360),
         ("确定",30,385,210,445),("取消",240,385,420,445)]),
+    # ★ P1（datah_016/017/020 证据）：布局存档 3 弹窗（400 宽坐标系面板居中 720 屏，
+    # 偏移=(720-400)/2=160,(1280-H)/2；017/020 面板 400×535 → 偏移+160,+372.5；
+    # 016 面板 400×475 → 偏移+160,+402.5。简化：ListBox 文本列表 6 条 + 小方块预览，
+    # 几何按原版 XML 精确换算（017 列表 20,75,380,440 + 取消 120,455,280,515；
+    # 020 保存/改名/删除/关闭 4 按钮；016 预览区 20,75,380,360 + 载入/删除/取消 3 按钮）
+    "datah_017_loadlay": (400, 535, [
+        ("列表",20,75,380,440),("取消",120,455,280,515)]),
+    "datah_020_savelay": (400, 535, [
+        ("列表",20,75,380,440),
+        ("保存",15,455,100,515),("改名",110,455,195,515),
+        ("删除",205,455,290,515),("关闭",300,455,385,515)]),
+    "datah_016_laymgr": (400, 475, [
+        ("预览",20,75,380,360),
+        ("载入",25,390,129,450),("删除",148,390,252,450),("取消",271,390,375,450)]),
 }
 
 # 主菜单 = 原版 orig_menu.png 真机 900×1600 实测 ×0.8（非 datah_023 450 系换算）
@@ -65,8 +79,20 @@ def load_src_rs_buttons(path="rev64/src_rs/ui_menu.c"):
     # g_btns[5] 主菜单
     m = re.findall(r"\{\s*([\d.]+)f\s*,\s*([\d.]+)f\s*,\s*([\d.]+)f\s*,\s*([\d.]+)f\s*,\s*\"([^\"]+)\"", txt)
     tables["menu"] = [(float(a),float(b),float(c),float(d),e) for a,b,c,d,e in m[:5]]
+    # ★ P1（datah_016/017/020）：布局存档 3 按钮表（5 元素 x0f,y0f,x1f,y1f,action 行，
+    #   按 g_loadlayout_btns / g_savelayout_btns / g_laymgr_btns 注释锚点定位）
+    def _grab(table_marker):
+        """取 table_marker 注释后到下一个 static const 间的 5 元素行"""
+        i = txt.find(table_marker)
+        if i < 0: return []
+        j = txt.find("static const", i + 10)
+        seg = txt[i:j if j > 0 else len(txt)]
+        mm = re.findall(r"\{\s*([\d.]+)f\s*,\s*([\d.]+)f\s*,\s*([\d.]+)f\s*,\s*([\d.]+)f\s*,\s*(\d+)\s*\}", seg)
+        return [(float(x),float(y),float(x1),float(y1),int(ac)) for x,y,x1,y1,ac in mm]
+    tables["loadlay"] = _grab("g_loadlayout_btns")
+    tables["savelay"] = _grab("g_savelayout_btns")
+    tables["laymgr"] = _grab("g_laymgr_btns")
     return tables
-
 def dialog_720(name):
     """原版对话框 → 720×1280 物理基准（面板水平居中 +135，垂直居中按面板 H）"""
     W,H,btns = DIALOGS[name]
@@ -101,9 +127,68 @@ def check_geometry(menu_src=None, verbose=True):
             continue
     if verbose:
         print("\n弹窗几何（原版 450/250/230 系换算 720 基准）：")
-    for dname in ["datah_041_diff","datah_072_way","datah_001_set","datah_089_nplayer","datah_062_newgame","datah_012_gameset"]:
+    # ★ P1 布局存档 3 弹窗逐按钮 Δ 比对（src_rs 按钮表 720 基准 vs 原版 400 系换算 720，
+    #   中心偏差 <2 = Δ≈0）
+    src = load_src_rs_buttons(src_rs_c_path or "rev64/src_rs/ui_menu.c")
+    for dname, tname in [("datah_017_loadlay","loadlay"),
+                         ("datah_020_savelay","savelay"),
+                         ("datah_016_laymgr","laymgr")]:
+        if dname not in DIALOGS or tname not in src: continue
+        W,H,obtns = DIALOGS[dname]
+        ox,oy = (720-W)/2.0,(1280-H)/2.0
+        srcs = src[tname]
+        if dname == "datah_017_loadlay":
+            pairs = [
+                ("取消", (ox+120,oy+455,ox+280,oy+515),
+                    (srcs[-1][0],srcs[-1][1],srcs[-1][2],srcs[-1][3])),
+                ("列表", (ox+20,oy+75,ox+380,oy+440),
+                    ((srcs[0][0]+srcs[0][2])/2,(srcs[0][1]+srcs[0][3])/2,
+                     (srcs[0][0]+srcs[0][2])/2,(srcs[0][1]+srcs[0][3])/2)),
+            ]
+        elif dname == "datah_020_savelay":
+            pairs = [
+                ("保存", (ox+15,oy+455,ox+100,oy+515),
+                    (srcs[0][0],srcs[0][1],srcs[0][2],srcs[0][3])),
+                ("改名", (ox+110,oy+455,ox+195,oy+515),
+                    (srcs[1][0],srcs[1][1],srcs[1][2],srcs[1][3])),
+                ("删除", (ox+205,oy+455,ox+290,oy+515),
+                    (srcs[2][0],srcs[2][1],srcs[2][2],srcs[2][3])),
+                ("关闭", (ox+300,oy+455,ox+385,oy+515),
+                    (srcs[3][0],srcs[3][1],srcs[3][2],srcs[3][3])),
+                ("列表", (ox+20,oy+75,ox+380,oy+440),
+                    ((srcs[0][0]+srcs[0][2])/2,(srcs[0][1]+srcs[0][3])/2,
+                     (srcs[0][0]+srcs[0][2])/2,(srcs[0][1]+srcs[0][3])/2)),
+            ]
+        else:   # datah_016_laymgr
+            pairs = [
+                ("载入", (ox+25,oy+390,ox+129,oy+450),
+                    (srcs[0][0],srcs[0][1],srcs[0][2],srcs[0][3])),
+                ("删除", (ox+148,oy+390,ox+252,oy+450),
+                    (srcs[1][0],srcs[1][1],srcs[1][2],srcs[1][3])),
+                ("取消", (ox+271,oy+390,ox+375,oy+450),
+                    (srcs[2][0],srcs[2][1],srcs[2][2],srcs[2][3])),
+                ("预览", (ox+20,oy+75,ox+380,oy+360),
+                    ((srcs[0][0]+srcs[0][2])/2,(srcs[0][1]+srcs[0][3])/2,
+                     (srcs[0][0]+srcs[0][2])/2,(srcs[0][1]+srcs[0][3])/2)),
+            ]
+        if not srcs or len(srcs) < 3:
+            if verbose: print(f"  {dname} src_rs 按钮表缺失/不足（{len(srcs)} 行）→ 跳过 Δ 比对（诚实边界）")
+            continue
+        for lbl, (oox0,ooy0,oox1,ooy1), so in pairs:
+            sox0,sox1,soy0,soy1 = so[0],so[2],so[1],so[3]
+            dcx = (sox0+sox1)/2 - (oox0+oox1)/2
+            dcy = (soy0+soy1)/2 - (ooy0+ooy1)/2
+            ok = abs(dcx)<2 and abs(dcy)<2
+            is_region = lbl in ("列表","预览")   # ListBox 容器区 vs src_rs 条目行 = 语义差非几何偏移
+            if verbose:
+                note = "（容器区 vs 条目行，语义差）" if is_region else ""
+                print(f"  {dname} {lbl:4s} 原版720中心({(oox0+oox1)/2:.0f},{(ooy0+ooy1)/2:.0f}) src({(sox0+sox1)/2:.0f},{(soy0+soy1)/2:.0f}) Δc=({dcx:+.1f},{dcy:+.1f}) {('—' if is_region else ('✓' if ok else '✗'))} {note}")
+            if not ok and not is_region:
+                failures.append(f"{dname} {lbl} Δ=({dcx:+.1f},{dcy:+.1f})")
+    for dname in ["datah_041_diff","datah_072_way","datah_001_set","datah_089_nplayer","datah_062_newgame","datah_012_gameset","datah_017_loadlay","datah_020_savelay","datah_016_laymgr"]:
         orig = dialog_720(dname)
-        for lbl,ox0,oy0,ox1,oy1 in orig[:2]:  # 抽 2 个代表
+        nrep = len(orig) if dname in ("datah_017_loadlay","datah_020_savelay","datah_016_laymgr") else 2
+        for lbl,ox0,oy0,ox1,oy1 in orig[:nrep]:
             cx,cy = (ox0+ox1)/2,(oy0+oy1)/2
             if verbose:
                 print(f"  {dname} {lbl:8s} 720中心({cx:.0f},{cy:.0f})  区({ox0:.0f},{oy0:.0f})-({ox1:.0f},{oy1:.0f})")
@@ -116,9 +201,17 @@ def check_screenshot(path, threshold=0.5):
     if verbose_global:
         print(f"\n截图 {w}×{h} 按钮区非黑比（≥{threshold*100:.0f}% = 有渲染）：")
     missing=[]
+    # ★ P1（datah_016/017/020）：布局存档 3 弹窗（布局名列表/预览区 + 按钮，
+    #   非黑比判据；面板区 160,373/402-560,908/878）
+    lay_dialogs = []
+    for dname in ("datah_017_loadlay","datah_020_savelay","datah_016_laymgr"):
+        if dname in DIALOGS:
+            W,H,btns = DIALOGS[dname]
+            ox,oy = (720-W)/2.0,(1280-H)/2.0
+            lay_dialogs.append((dname, [(lbl, ox+x0, oy+y0, ox+x1, oy+y1) for lbl,x0,y0,x1,y1 in btns]))
     for dname,src in [
         ("主菜单", menu_720()),
-    ]:
+    ] + lay_dialogs:
         for lbl,x0,y0,x1,y1 in src:
             x0,x1 = max(0,int(x0)),min(w,int(x1)); y0,y1=max(0,int(y0)),min(h,int(y1))
             if x1<=x0 or y1<=y0: continue
@@ -132,6 +225,7 @@ def check_screenshot(path, threshold=0.5):
     return missing
 
 verbose_global = True
+src_rs_c_path = None
 
 def main():
     global verbose_global
@@ -144,6 +238,8 @@ def main():
     a = ap.parse_args()
     verbose_global = not a.q
 
+    global src_rs_c_path
+    src_rs_c_path = a.menu_src
     src = load_src_rs_buttons(a.menu_src)
     menu_src = [ (x0,y0,x1,y1,lbl) for lbl,x0,y0,x1,y1 in [] ]  # 主菜单 720 基准从 ui_menu.c g_btns 取
     # 重新解析 g_btns（带 label 5 个）

@@ -24,6 +24,18 @@ typedef enum {
     UI_GAMESET,    /* ★ P1（datah_012 证据）：游戏设置弹窗——
                         4 规则开关（和棋/大本营/吃地雷/吃军旗）+ 确定/取消（原版 datah_012 450×465 面板）。
                         4 开关各循环翻转 开/关；确定 → jq_rules.txt 持久化 + 应用 g_rule_*；取消 → 恢复原值 */
+     UI_LOAD_LAY,   /* ★ P1（datah_017 证据）：载入布局弹窗——
+                         布局名文本列表（6 条截断 + 选中高亮）+ 取消（原版 datah_017 400×535 面板居中）。
+                         点列表项 → 载入该布局到棋盘 + 清 undo + 回对局；取消/面板外 → 回对局。
+                         诚实边界：ListBox 滚动简化为文本列表 6 条截断（触摸 flaky 不画滚动条） */
+     UI_SAVE_LAY,   /* ★ P1（datah_020 证据）：保存布局弹窗——
+                         布局名列表 + 保存/改名/删除/关闭 4 按钮（原版 datah_020 400×535 面板居中）。
+                         保存 = 当前棋盘 30 字节 .lay 写 layouts/；改名 = 旧名+数字后缀（简化）；
+                         删除 = 删选中项 .lay；关闭/面板外 → 回对局 */
+     UI_LAY_MGR,    /* ★ P1（datah_016 证据）：布局管理弹窗——
+                         30 格棋子预览（简化小方块占位）+ 载入/删除/取消 3 按钮（原版 datah_016 400×475 面板居中）。
+                         选中布局显示预览 → 载入（应用到棋盘）/ 删除（删文件）/ 取消。
+                         诚实边界：30 格 PiecePic 真棋子图未画，小方块占位（有子=蓝/红） */
 } ui_screen;
 
 /* ★ 声音设置弹窗（对抗审计 datah_001 证据：静音模式/按键声音/音量/确定/取消）。
@@ -177,4 +189,63 @@ const ui_gameset_btn *ui_gameset_buttons(void);   /* 6 控件（静态表） */
 int ui_gameset_hit(const ui_gameset_btn *btns, int n, float x, float y);  /* 命中 0-5，-1 无 */
 int ui_gameset_popup_inside(float x, float y);   /* 点在弹窗面板内 */
 
+/* ★ P1（datah_017 证据）： 载入布局弹窗——布局名文本列表（6 条，原版 ListBox 20,75,380,440
+   400 系 → 720 系行高 60px：447-807 每行一个可点区）+ 取消（原版 Cancel 120,455,280,515 →
+   280,828-440,888）。面板 400×535 居中（偏移+160,+372.5，720 基准 160,373-560,908）。
+   action：0-5=列表项（ui_layout_list 第 0-5 条）6=取消。
+   ★ 诚实边界： ListBox 滚动未实现（触摸 flaky），文本列表 6 条截断 + 选中高亮。 */
+#define UI_LOADLAYOUT_COUNT 7
+#define UI_LOADLAYOUT_POPUP_X0 160.0f
+#define UI_LOADLAYOUT_POPUP_Y0 372.5f
+#define UI_LOADLAYOUT_POPUP_W  400.0f
+#define UI_LOADLAYOUT_POPUP_H  535.0f
+typedef struct {
+    float x0, y0, x1, y1;   /* 按钮矩形（720×1280 基准） */
+    int action;             /* 0-5=列表项 6=取消 */
+} ui_loadlayout_btn;
+
+const ui_loadlayout_btn *ui_loadlayout_buttons(void);   /* 7 控件（静态表） */
+int ui_loadlayout_hit(const ui_loadlayout_btn *btns, int n, float x, float y);  /* 命中 0-6，-1 无 */
+int ui_loadlayout_popup_inside(float x, float y);      /* 点在弹窗面板内 */
+
+/* ★ P1（datah_020 证据）： 保存布局弹窗——布局名列表（同 017 ListBox 区）+ 保存/改名/删除/关闭
+   4 按钮（原版 Ok 15,455,100,515 → 175,828-260,888；Rename 110,455,195,515 → 270,828-355,888；
+   Delete 205,455,290,515 → 365,828-450,888；Cancel 300,455,385,515 → 460,828-545,888）。
+   action：0=保存（当前棋盘 30 字节 .lay 写 layouts/）1=改名（旧名+数字后缀）2=删除（删选中项）
+   3=关闭（回对局）。 ★ 诚实边界： 改名简化为自动编号（无文本输入框）。 */
+#define UI_SAVELAYOUT_COUNT 4
+#define UI_SAVELAYOUT_POPUP_X0 160.0f
+#define UI_SAVELAYOUT_POPUP_Y0 372.5f
+#define UI_SAVELAYOUT_POPUP_W  400.0f
+#define UI_SAVELAYOUT_POPUP_H  535.0f
+typedef struct {
+    float x0, y0, x1, y1;   /* 按钮矩形（720×1280 基准） */
+    int action;             /* 0=保存 1=改名 2=删除 3=关闭 */
+} ui_savelayout_btn;
+
+const ui_savelayout_btn *ui_savelayout_buttons(void);   /* 4 按钮（静态表） */
+int ui_savelayout_hit(const ui_savelayout_btn *btns, int n, float x, float y);  /* 命中 0-3，-1 无 */
+int ui_savelayout_popup_inside(float x, float y);      /* 点在弹窗面板内 */
+
+/* ★ P1（datah_016 证据）： 布局管理弹窗——30 格棋子预览（简化小方块 6×5，原版 Piece0-29
+   20,75,380,360 区占位）+ 载入/删除/取消 3 按钮（原版 Ok 25,390,129,450 → 185,793-289,853；
+   Delete 148,390,252,450 → 308,793-412,853；Cancel 271,390,375,450 → 431,793-535,853）。
+   action：0=载入（应用到棋盘 + 清 undo）1=删除（删选中项文件）2=取消（回对局）。
+   面板 400×475 居中（偏移+160,+402.5，720 基准 160,402-560,877）。
+   ★ 诚实边界： 30 格 PiecePic 真棋子图未画（小方块占位，有子=蓝/红方块）；
+   原版 Ok2/Cancel2 重叠备用显示按钮未实现。 */
+#define UI_LAYMGR_COUNT 3
+#define UI_LAYMGR_POPUP_X0 160.0f
+#define UI_LAYMGR_POPUP_Y0 402.5f
+#define UI_LAYMGR_POPUP_W  400.0f
+#define UI_LAYMGR_POPUP_H  475.0f
+typedef struct {
+    float x0, y0, x1, y1;   /* 按钮矩形（720×1280 基准） */
+    int action;             /* 0=载入 1=删除 2=取消 */
+} ui_laymgr_btn;
+
+const ui_laymgr_btn *ui_laymgr_buttons(void);   /* 3 按钮（静态表） */
+int ui_laymgr_hit(const ui_laymgr_btn *btns, int n, float x, float y);  /* 命中 0-2，-1 无 */
+int ui_laymgr_popup_inside(float x, float y);   /* 点在弹窗面板内 */
 #endif
+

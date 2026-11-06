@@ -107,6 +107,22 @@ jq_layout_err jq_validate_layout(const jq_state *st)
     return LAYOUT_OK;
 }
 
+/* 从当前棋盘提取 30 字节布局（jq_load_layout 的逆映射，★ P1 布局存档用）：
+   蓝方半区 cells(5-lrow, lcol)（lrow 0-5）→ layout[lrow*5+lcol]，蓝 rank 原值。
+   提取后 jq_validate_layout 校验（非标准分布布局仍提取成功，仅校验返回错误）。 */
+void jq_extract_layout_30(const jq_state *st, uint8_t out[30])
+{
+    for (int i = 0; i < 30; i++) out[i] = 0;
+    for (int lrow = 0; lrow < 6; lrow++) {
+        for (int lcol = 0; lcol < 5; lcol++) {
+            const jq_cell *c = &st->cells[cell_index(5 - lrow, lcol)];
+            /* 只收蓝方子（红方半区 cells(6+lrow,4-lcol) 镜像同布局，不重复） */
+            if (c->rank != RANK_EMPTY && c->side == SIDE_BLUE)
+                out[lrow * 5 + lcol] = c->rank;   /* 蓝方 rank 原值（无 +0xc） */
+        }
+    }
+}
+
 /* 刷新可动子统计（0x6a3b0 → 0x6b87c，L61：走子后刷新 + 困毙判定输入） */
 void jq_refresh_movable_counts(jq_state *st)
 {

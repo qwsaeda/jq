@@ -41,4 +41,23 @@ void ui_rules_load(void);      /* 读 jq_rules.txt（OnCreate 调，缺文件 �
 void ui_rules_save(void);     /* 写 jq_rules.txt（游戏设置确定后调） */
 /* 规则引擎读入口（rules.c 判定点守卫用，返回 4 开关值） */
 int  ui_rule_cfg_get(int which);  /* which 0=和棋 1=大本营 2=吃地雷 3=吃军旗，返回 0/1 */
+
+/* ★ P1（datah_016/017/020 证据）：布局存档 API——.lay 30 字节格式（对齐原版
+   OnEvent layout 读 30 字节范式 / data/lay/%02d.lay），layouts/ 目录文件 IO。
+   目录：ui_laydir_set（jni_bridge OnCreate 设 /data/local/tmp/layouts；桌面 evverify
+   设 tmp 目录；未设时桌面缺省 ./layouts、真机缺省 /data/local/tmp/layouts）。 */
+void ui_laydir_set(const char *dir);
+const char *ui_laydir_get(void);
+int  ui_layout_list(void);                 /* 刷新目录扫描（readdir *.lay 排序）→ 返回条数 */
+int  ui_layout_count(void);                /* 当前列表条数（≤64） */
+const char *ui_layout_name(int i);         /* 第 i 条布局名（无扩展名，越界/空=0） */
+int  ui_layout_selected(void);            /* 017/020/016 共享选中项（默认 0） */
+void ui_layout_select(int i);              /* 设选中项（越界 clamp） */
+int  ui_layout_selected_valid(void);      /* 选中项在列表内 = 1 */
+int  ui_layout_save(const uint8_t lay[30], const char *name); /* 写 <dir>/<name>.lay（30 字节） */
+int  ui_layout_load(const char *name, uint8_t out[30]);        /* 读 <dir>/<name>.lay，返回 0 成功/负失败 */
+int  ui_layout_delete(const char *name);   /* 删 <dir>/<name>.lay，返回 0 成功/负失败 */
+int  ui_layout_rename(const char *old, const char *new);       /* 重命名（改名=旧名+数字后缀，简化） */
+/* ★ 真机目录缺省：jni_bridge OnCreate 调 ui_laydir_set("/data/local/tmp/layouts")。
+   桌面 evverify：ui_laydir_set(tmp 目录)。未 set 时桌面缺省 ./layouts（mkdir）。 */
 #endif

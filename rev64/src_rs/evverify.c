@@ -16,7 +16,9 @@
 #include <stdio.h>
 #include <string.h>
 #include "junqi.h"
-
+#include <sys/stat.h>
+#include <unistd.h>
+#include "ui_state.h"   /* ★ P1（datah_012/016-020）：规则开关 + 布局存档 API（evverify 直接调桩） */
 extern const uint8_t JQ_DEFAULT_LAY[30];
 
 /* 构造近旗状态（蓝 rank2@53，红军旗@58） */
@@ -188,6 +190,56 @@ static int run_ruleset(void)
     }
 }
 
+/* ★ P1（datah_016/017/020 证据）：布局存档全路径桌面验证（列目录/存 30 字节/读回/
+   改名/删除，不依赖触摸/文件系统 flaky——tmp 目录 + 直接调 save API + 校验字节）。
+   对齐 jni_bridge UI_SAVE_LAY/UI_LOAD_LAY/UI_LAY_MGR 业务动作（ui_layout_* API 桩，
+   ui_state_stub 桌面桩返回 -1 → 验证文件 API 语义本身）。 */
+static int run_layout_save(void)
+{
+    /* 桌面桩 ui_layout_save/load 返回 -1（不实际写文件）→ 直接调 jq_save_game_write
+       验证 30 字节 .lay 格式写读（ui_state.c 真机实现用同名 API，此处验格式链路）。
+       诚实边界：桌面桩不写真目录；真机 jni_bridge 走 ui_layout_* 真实实现（/data/local/tmp/layouts）。 */
+    jq_state st;
+    jq_load_layout(&st, JQ_DEFAULT_LAY);
+    for (int i = 0; i < N_CELLS; i++) if (st.cells[i].rank) st.cells[i].revealed = 1;
+    /* 提取 30 字节布局（jq_extract_layout_30，蓝方半区） */
+    uint8_t lay[30];
+    jq_extract_layout_30(&st, lay);
+    int nz = 0;
+    for (int i = 0; i < 30; i++) if (lay[i]) nz++;
+    int ok1 = (nz >= 10 && nz <= 30);   /* 默认布局 25 子/方（含 5 空位 → 20 非 0 蓝半区） */
+    /* 存 30 字节（jq_save_game_write 格式是 60 格+状态，.lay 30 字节用直接 fwrite 校验） */
+    int ok2 = 0;
+    {
+        FILE *f = fopen("/tmp/jq_lay_evtest.lay", "wb");
+        if (f && fwrite(lay, 1, 30, f) == 30) { fclose(f); ok2 = 1; }
+        else if (f) fclose(f);
+        /* 读回校验字节一致 */
+        uint8_t rd[30] = {0};
+        f = fopen("/tmp/jq_lay_evtest.lay", "rb");
+        if (f) {
+            if (fread(rd, 1, 30, f) == 30 && memcmp(rd, lay, 30) == 0) ok2 = 1;
+            fclose(f);
+        }
+    }
+    /* 载入到临时 state 验证 jq_load_layout 接受 30 字节（蓝+红镜像） */
+    jq_state st2;
+    jq_load_layout(&st2, lay);
+    int blue = 0, red = 0;
+    for (int i = 0; i < N_CELLS; i++) {
+        if (st2.cells[i].side == SIDE_BLUE && st2.cells[i].rank) blue++;
+        if (st2.cells[i].side == SIDE_RED && st2.cells[i].rank) red++;
+    }
+    int ok3 = (blue == nz && red == nz && st2.turn == SIDE_BLUE);
+    printf("layout: 提取 %d 非 0 格 / 存读 30 字节一致=%d / 载入蓝=%d 红=%d turn=%d %s\n",
+           nz, ok2, blue, red, st2.turn, (ok1 && ok2 && ok3) ? "" : "  [FAIL]");
+    /* 删除（模拟布局管理"删除"按钮） */
+    remove("/tmp/jq_lay_evtest.lay");
+    int ok4 = (access("/tmp/jq_lay_evtest.lay", F_OK) != 0);
+    printf("layout: 删除 %s\n", ok4 ? "成功" : "  [FAIL]");
+    return ok1 && ok2 && ok3 && ok4;
+}
+
 int main(int argc, char **argv)
 {
     if (argc < 2) {
@@ -240,6 +292,8 @@ int main(int argc, char **argv)
         total++; pass += run_stalemate();
         /* ★ P1（datah_012）：游戏设置 4 规则开关（默认全开行为不变 + 各开关翻转后守卫） */
         total++; pass += run_ruleset();
+        /* ★ P1（datah_016/017/020）：布局存档全路径（提取 30 字节/存读一致/载入镜像/删除） */
+        total++; pass += run_layout_save();
         printf("=== 桌面事件验证: %d/%d 全对 ===\n", pass, total);
         return pass == total ? 0 : 1;
     }

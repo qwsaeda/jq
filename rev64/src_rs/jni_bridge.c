@@ -809,6 +809,29 @@ static void on_event(const char *name, const char *value, JNIEnv *env)
         /* UI 弹窗/按钮点击音效（OnTouch 菜单按钮已播 pop；此处 OnEvent 路径备用） */
         sfx_play(env, "pop");
         LOGI("OnEvent pop：播 pop 音效（UI 弹窗）");
+    } else if (strcmp(name, "layoutsave") == 0 ||
+               strcmp(name, "layoutload") == 0 ||
+               strcmp(name, "layoutmgr") == 0) {
+        /* ★ P1（datah_016/017/020 证据）：布局存档 3 弹窗测试钩子（OnEvent setprop 范式，
+           与 jq.gameset L1001 同；触摸 flaky 下可靠触发）。值 0=关闭（回对局）。 */
+        int on = 0;
+        if (sscanf(value, "%d", &on) != 1) on = 1;
+        if (on) {
+            ui_layout_list();   /* 进弹窗前刷新目录扫描 */
+            if (strcmp(name, "layoutsave") == 0) {
+                ui_screen_set(UI_SAVE_LAY);
+                LOGI("OnEvent layoutsave：→ UI_SAVE_LAY 保存布局弹窗（datah_020 保存/改名/删除/关闭，30 字节 .lay）");
+            } else if (strcmp(name, "layoutload") == 0) {
+                ui_screen_set(UI_LOAD_LAY);
+                LOGI("OnEvent layoutload：→ UI_LOAD_LAY 载入布局弹窗（datah_017 布局名列表 6 条 + 取消，ListBox 滚动简化）");
+            } else {
+                ui_screen_set(UI_LAY_MGR);
+                LOGI("OnEvent layoutmgr：→ UI_LAY_MGR 布局管理弹窗（datah_016 30 格预览小方块 + 载入/删除/取消）");
+            }
+        } else {
+            ui_screen_set(UI_GAME);
+            LOGI("OnEvent %s：关闭 → 回对局", name);
+        }
     }
     (void)env;
 }
@@ -1009,6 +1032,45 @@ Java_com_cnvcs_App_OnCreate(JNIEnv *env, jclass clazz, jobject activity)
             __system_property_set("jq.gameset", "0");
         }
     }
+    /* ★ P1 布局存档目录：/data/local/tmp/layouts（jni_bridge L684 dirs[1] 范式，
+       真机写目录；桌面 evverify 用 tmp 目录 ui_laydir_set）。★ 必须在 ui_layout_list
+       （setprop 钩子块）之前 set，否则首次扫描走 ui_laydir_get 缺省 ./layouts 桌面路径
+       （实证 0 条），扫描不到真机 /data/local/tmp/layouts。 */
+    ui_laydir_set("/data/local/tmp/layouts");
+    /* ★ P1（datah_016/017/020 证据）：布局存档 3 弹窗 setprop 钩子
+       （adb setprop jq.layoutsave/layoutload/layoutmgr 1 → 重启 → OnCreate 弹对应弹窗）。
+       测试钩子范式，与 jq.gameset 同；值 1=弹出，0=不触发。一次性（清 0）。 */
+    {
+        char ls_prop[16] = {0};
+        __system_property_get("jq.layoutsave", ls_prop);
+        if (strcmp(ls_prop, "1") == 0) {
+            ui_layout_list();
+            ui_screen_set(UI_SAVE_LAY);
+            LOGI("jq.layoutsave 钩子：→ UI_SAVE_LAY 保存布局弹窗（datah_020 保存/改名/删除/关闭，30 字节 .lay）");
+            __system_property_set("jq.layoutsave", "0");
+        }
+    }
+    {
+        char ll_prop[16] = {0};
+        __system_property_get("jq.layoutload", ll_prop);
+        if (strcmp(ll_prop, "1") == 0) {
+            ui_layout_list();
+            ui_screen_set(UI_LOAD_LAY);
+            LOGI("jq.layoutload 钩子：→ UI_LOAD_LAY 载入布局弹窗（datah_017 布局名列表 6 条 + 取消，ListBox 滚动简化）");
+            __system_property_set("jq.layoutload", "0");
+        }
+    }
+    {
+        char lm_prop[16] = {0};
+        __system_property_get("jq.layoutmgr", lm_prop);
+        if (strcmp(lm_prop, "1") == 0) {
+            ui_layout_list();
+            ui_screen_set(UI_LAY_MGR);
+            LOGI("jq.layoutmgr 钩子：→ UI_LAY_MGR 布局管理弹窗（datah_016 30 格预览小方块 + 载入/删除/取消）");
+            __system_property_set("jq.layoutmgr", "0");
+        }
+    }
+
     jq_touch_state_init(&g_ts);   /* ⑤b 态机初始化 */
     /* ③ 渲染对象图构造（对齐原版 0xba12c → 0xba034/0xc5d54/0xb7500） */
     jq_subsys_list_init(&g_subs);
@@ -1792,6 +1854,196 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
             ui_rules_load();   /* 面板外 = 取消语义：恢复原值 */
             ui_screen_set(UI_GAME);
             LOGI("OnTouch 游戏设置外（bx=%.0f by=%.0f）→ 恢复原值 + 回对局", bx, by);
+            sfx_play(env, "pop");
+        }
+        (void)clazz;
+        return JNI_TRUE;
+    }
+    /* ★ P1（datah_017 证据）：载入布局弹窗态。
+       点列表项（0-5）→ 选中并载入该布局到棋盘 + 清 undo + 回对局；
+       点 取消 / 面板外 → 回对局（不载入）。★ 诚实边界：ListBox 滚动未实现（6 条截断）。 */
+    if (ui_screen_get() == UI_LOAD_LAY) {
+        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
+        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        const ui_loadlayout_btn *lb = ui_loadlayout_buttons();
+        int lh = ui_loadlayout_hit(lb, UI_LOADLAYOUT_COUNT, bx, by);
+        if (lh >= 0) {
+            int lrow = lb[lh].action;   /* 0-5=列表项 6=取消 */
+            LOGI("OnTouch 载入布局：控件%d（action=%d）", lh, lrow);
+            if (lrow <= 5 && lrow < ui_layout_count()) {
+                const char *nm = ui_layout_name(lrow);
+                ui_layout_select(lrow);
+                uint8_t lay[30];
+                if (nm && ui_layout_load(nm, lay) == 0) {
+                    pthread_mutex_lock(&g_mutex);
+                    jq_load_layout(&g_state, lay);
+                    int dark = ui_opt_get_mode() == 1;
+                    for (int i = 0; i < N_CELLS; i++)
+                        if (g_state.cells[i].rank != RANK_EMPTY)
+                            g_state.cells[i].revealed = dark ? 0 : 1;
+                    g_undo_top = 0;
+                    g_state.stage = STG_PLAY;
+                    g_state.turn = SIDE_BLUE;
+                    g_state.winner = -1;
+                    pthread_mutex_unlock(&g_mutex);
+                    ui_screen_set(UI_GAME);
+                    sfx_play(env, "over");
+                    LOGI("载入布局：载入 %s 到棋盘（30 字节 .lay，随模式 mode=%d，清 undo，蓝先手）",
+                         nm, ui_opt_get_mode());
+                    (void)clazz;
+                    return JNI_TRUE;
+                }
+            } else {
+                ui_screen_set(UI_GAME);
+                sfx_play(env, "pop");
+                LOGI("载入布局：取消/列表外 → 回对局（不载入）");
+                (void)clazz;
+                return JNI_TRUE;
+            }
+        }
+        if (!ui_loadlayout_popup_inside(bx, by)) {
+            ui_screen_set(UI_GAME);
+            LOGI("OnTouch 载入布局外（bx=%.0f by=%.0f）→ 回对局", bx, by);
+            sfx_play(env, "pop");
+        }
+        (void)clazz;
+        return JNI_TRUE;
+    }
+    /* ★ P1（datah_020 证据）：保存布局弹窗态。
+       点 保存 → 当前棋盘 30 字节 .lay 写 layouts/<名>；点 改名 → 旧名+数字后缀（简化，
+       自动编号）；点 删除 → 删选中项 .lay；点 关闭 / 面板外 → 回对局。
+       点列表区（同 017 ListBox 行）→ 选中该条目（供改名/删除操作）。★ 诚实边界：
+       改名=自动编号（无文本输入框）。 */
+    if (ui_screen_get() == UI_SAVE_LAY) {
+        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
+        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        const ui_savelayout_btn *sb = ui_savelayout_buttons();
+        int sh = ui_savelayout_hit(sb, UI_SAVELAYOUT_COUNT, bx, by);
+        if (sh >= 0) {
+            int sact = sb[sh].action;
+            LOGI("OnTouch 保存布局：按钮%d（action=%d）", sh, sact);
+            if (sact == 0) {   /* 保存：当前棋盘 30 字节 .lay 写 layouts/ */
+                uint8_t lay[30];
+                pthread_mutex_lock(&g_mutex);
+                jq_extract_layout_30(&g_state, lay);
+                pthread_mutex_unlock(&g_mutex);
+                /* 自动命名 Lay%d（找未占用号） */
+                char name[32];
+                int k = 0;
+                int cnt = ui_layout_count();
+                for (k = 0; k < 64 && k < cnt; k++) {
+                    char probe[32];
+                    snprintf(probe, sizeof probe, "Lay%d", k);
+                    if (strcmp(ui_layout_name(k), probe) != 0) break;
+                }
+                snprintf(name, sizeof name, "Lay%d", k);
+                if (ui_layout_save(lay, name) == 0)
+                    LOGI("保存布局：当前棋盘 → %s.lay（30 字节，layouts/ 目录）", ui_laydir_get());
+            } else if (sact == 1) {   /* 改名：旧名+数字后缀（简化：Lay1 → Lay1_1） */
+                const char *old = ui_layout_selected_valid() ? ui_layout_name(ui_layout_selected()) : 0;
+                if (old) {
+                    char newn[40];
+                    int cnt = ui_layout_count();
+                    int n2 = 1, found = 0;
+                    for (n2 = 1; n2 < 100 && !found; n2++) {
+                        snprintf(newn, sizeof newn, "%s_%d", old, n2);
+                        for (int k = 0; k < cnt; k++)
+                            if (strcmp(ui_layout_name(k), newn) == 0) { found = 1; break; }
+                    }
+                    if (found) newn[0] = 0;   /* 全被占 → 不执行 */
+                    if (newn[0] && ui_layout_rename(old, newn) == 0)
+                        LOGI("保存布局：改名 %s → %s（旧名+数字后缀，简化无输入框）", old, newn);
+                }
+            } else if (sact == 2) {   /* 删除：删选中项 */
+                const char *nm = ui_layout_selected_valid() ? ui_layout_name(ui_layout_selected()) : 0;
+                if (nm && ui_layout_delete(nm) == 0)
+                    LOGI("保存布局：删除 %s.lay（选中项）", nm);
+            } else if (sact == 3) {   /* 关闭：回对局 */
+                ui_screen_set(UI_GAME);
+                sfx_play(env, "pop");
+                LOGI("保存布局：关闭 → 回对局");
+                (void)clazz;
+                return JNI_TRUE;
+            }
+            if (sact != 3) sfx_play(env, "pop");
+            ui_layout_list();   /* 列表刷新 */
+            (void)clazz;
+            return JNI_TRUE;
+        }
+        /* 列表区（同 017 ListBox 行 180,447-540,807）：点行 = 选中该条目 */
+        {
+            const ui_loadlayout_btn *lb = ui_loadlayout_buttons();
+            int lh = ui_loadlayout_hit(lb, 6, bx, by);
+            if (lh >= 0 && lh < ui_layout_count()) {
+                ui_layout_select(lh);
+                sfx_play(env, "select");
+                LOGI("保存布局：选中 %s（action=%d）", ui_layout_name(lh), lh);
+                (void)clazz;
+                return JNI_TRUE;
+            }
+        }
+        if (!ui_savelayout_popup_inside(bx, by)) {
+            ui_screen_set(UI_GAME);
+            LOGI("OnTouch 保存布局外（bx=%.0f by=%.0f）→ 回对局", bx, by);
+            sfx_play(env, "pop");
+        }
+        (void)clazz;
+        return JNI_TRUE;
+    }
+    /* ★ P1（datah_016 证据）：布局管理弹窗态。
+       点 载入 → 选中布局应用到棋盘 + 清 undo + 回对局；点 删除 → 删选中项文件；
+       点 取消 / 面板外 → 回对局。30 格预览区 = 小方块占位（★ 诚实边界）。 */
+    if (ui_screen_get() == UI_LAY_MGR) {
+        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
+        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        const ui_laymgr_btn *mb = ui_laymgr_buttons();
+        int mh = ui_laymgr_hit(mb, UI_LAYMGR_COUNT, bx, by);
+        if (mh >= 0) {
+            int mact = mb[mh].action;
+            LOGI("OnTouch 布局管理：按钮%d（action=%d）", mh, mact);
+            if (mact == 0) {   /* 载入：选中布局应用到棋盘 */
+                const char *nm = ui_layout_selected_valid() ? ui_layout_name(ui_layout_selected()) : 0;
+                uint8_t lay[30];
+                if (nm && ui_layout_load(nm, lay) == 0) {
+                    pthread_mutex_lock(&g_mutex);
+                    jq_load_layout(&g_state, lay);
+                    int dark = ui_opt_get_mode() == 1;
+                    for (int i = 0; i < N_CELLS; i++)
+                        if (g_state.cells[i].rank != RANK_EMPTY)
+                            g_state.cells[i].revealed = dark ? 0 : 1;
+                    g_undo_top = 0;
+                    g_state.stage = STG_PLAY;
+                    g_state.turn = SIDE_BLUE;
+                    g_state.winner = -1;
+                    pthread_mutex_unlock(&g_mutex);
+                    ui_screen_set(UI_GAME);
+                    sfx_play(env, "over");
+                    LOGI("布局管理：载入 %s 到棋盘（30 字节 .lay，清 undo，蓝先手）", nm);
+                    (void)clazz;
+                    return JNI_TRUE;
+                }
+                sfx_play(env, "pop");
+                LOGI("布局管理：载入失败（选中无效/文件缺失）");
+            } else if (mact == 1) {   /* 删除：删选中项文件 */
+                const char *nm = ui_layout_selected_valid() ? ui_layout_name(ui_layout_selected()) : 0;
+                if (nm && ui_layout_delete(nm) == 0) {
+                    ui_layout_list();
+                    LOGI("布局管理：删除 %s.lay（选中项）", nm);
+                }
+                sfx_play(env, "pop");
+            } else if (mact == 2) {   /* 取消：回对局 */
+                ui_screen_set(UI_GAME);
+                sfx_play(env, "pop");
+                LOGI("布局管理：取消 → 回对局");
+                (void)clazz;
+                return JNI_TRUE;
+            }
+            (void)clazz;
+            return JNI_TRUE;
+        }
+        if (!ui_laymgr_popup_inside(bx, by)) {
+            ui_screen_set(UI_GAME);
+            LOGI("OnTouch 布局管理外（bx=%.0f by=%.0f）→ 回对局", bx, by);
             sfx_play(env, "pop");
         }
         (void)clazz;

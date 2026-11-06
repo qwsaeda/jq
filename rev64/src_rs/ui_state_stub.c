@@ -1,6 +1,7 @@
 /* ui_state_stub.c — 桌面 RS_NO_GL 桩（UI 菜单状态机；桌面 headless 无 GL，
    ui_screen_get 恒返 UI_GAME 等价：对局逻辑正常跑，菜单渲染无意义。 */
 #include "ui_state.h"
+#include <stdio.h>
 static int g_ui = UI_GAME;
 static int g_bt_act = 0;
 int ui_screen_get(void) { return g_ui; }
@@ -35,3 +36,19 @@ int ui_rule_cfg_get(int which)
 }
 void ui_rules_load(void) {}
 void ui_rules_save(void) {}
+
+/* ★ P1（datah_016/017/020）：布局存档 API 桩（桌面 headless：evverify 直接调真实
+   save.c/jq_load_layout，不依赖此桩；此桩仅保证一致性构建链接完整）。 */
+static char lay_dir_stub[320] = "./layouts";
+void ui_laydir_set(const char *d) { if (d) snprintf(lay_dir_stub, sizeof lay_dir_stub, "%s", d); }
+const char *ui_laydir_get(void) { return lay_dir_stub; }
+int ui_layout_list(void) { return 0; }
+int ui_layout_count(void) { return 0; }
+const char *ui_layout_name(int i) { (void)i; return 0; }
+int ui_layout_selected(void) { return 0; }
+void ui_layout_select(int i) { (void)i; }
+int ui_layout_selected_valid(void) { return 0; }
+int ui_layout_save(const uint8_t l[30], const char *n) { (void)l; (void)n; return -1; }
+int ui_layout_load(const char *n, uint8_t o[30]) { (void)n; (void)o; return -1; }
+int ui_layout_delete(const char *n) { (void)n; return -1; }
+int ui_layout_rename(const char *a, const char *b) { (void)a; (void)b; return -1; }

@@ -169,6 +169,9 @@ int ai_score(int src_rank_raw, int dst_rank_raw);  /* AI 贪心评分（对抗�
 extern const uint8_t JQ_DEFAULT_LAY[30];
 /* 标准单方 25 子 rank 分布（1×1,2×1,3×2,4×2,5×2,6×2,7×3,8×3,9×3,10×2,11×3,12×1） */
 void jq_standard_army_count(int cnt[RANK_COUNT]);
+/* 从当前棋盘提取 30 字节布局（jq_load_layout 逆映射：蓝方半区 cells(5-lrow,lcol)→layout[lrow*5+lcol]，
+   蓝 rank 原值（无 +0xc 编码）。★ P1 布局存档（datah_016/017/020）保存当前棋盘用。 */
+void jq_extract_layout_30(const jq_state *st, uint8_t out[30]);
 
 /* ---- 事件名（原版 .rodata 0x120f14-0x120f50 明文字符串）---- */
 extern const char *JQ_EVENT_NAMES[6];

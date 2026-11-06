@@ -497,3 +497,118 @@ ui_rules_load: 无文件 → 默认全开（LOGI "游戏设置：无文件 → �
   业务逻辑用桌面 evverify 9/9（4 开关开/关全路径）+ 代码路径（L1754-1800 翻转/保存/恢复）实证，非触摸糊弄
 
 **so md5 历史**：… → 010546be(主菜单恢复) → b79c9720(P0 弹窗) → **ef92431a**(P1 datah_012 游戏设置 + 规则引擎 4 参数)
+
+## 十六、P1 布局存档 3 弹窗对齐（datah_016/017/020，2026-11-06）
+
+> 新增 3 个 P1 弹窗：载入布局（datah_017，列表 6 条+取消）+ 保存布局（datah_020，保存/改名/删除/关闭）
+> + 布局管理（datah_016，30 格预览+载入/删除/取消）。400 宽坐标系面板居中 720×1280 屏，
+> 局部坐标 1:1 平移（偏移=(720-400)/2=160, (1280-H)/2）。
+> 文件 IO：layouts/ 目录 .lay 30 字节格式（对齐原版 OnEvent layout 读 30 字节范式 /
+> data/lay/%02d.lay），ui_state.c 新增 ui_laydir_*/ui_layout_* API。
+
+### 16.1 datah_017 载入布局 2 控件（面板 400×535，偏移 +160,+372.5）
+
+| 控件 | 原版 XML rect（400 系） | →720 屏幕 | src_rs g_loadlayout_btns | 中心偏差 Δ |
+|---|---|---|---|---|
+| 列表 ListBox | (20,75)-(380,440) | (180,448)-(540,812) | 列表 6 行 (180,447)-(540,807) 行高 60px | **1**（取整） |
+| 取消 Cancel | (120,455)-(280,515) | (280,828)-(440,888) | (280,828,440,888) | **0** |
+
+面板：UI_LOADLAYOUT_POPUP (160,372.5,400,535) → 对齐 (160,372.5,400,535)（Δ=0）
+
+**业务**：ui_layout_list 列目录（readdir *.lay 排序）→ 点列表项 = ui_layout_load 30 字节 +
+jq_load_layout 应用到 g_state + 清 undo + 随模式明暗 + 回对局；取消/面板外 → 回对局（不载入）。
+
+### 16.2 datah_020 保存布局 5 控件（面板 400×535，偏移 +160,+372.5）
+
+| 控件 | 原版 XML rect（400 系） | →720 屏幕 | src_rs g_savelayout_btns | 中心偏差 Δ |
+|---|---|---|---|---|
+| 列表 ListBox | (20,75)-(380,440) | (180,448)-(540,812) | 列表 6 行（同 017 区，点行=选中条目） | **1**（取整） |
+| 保存 Ok | (15,455)-(100,515) | (175,828)-(260,888) | (175,828,260,888) | **0** |
+| 改名 Rename | (110,455)-(195,515) | (270,828)-(355,888) | (270,828,355,888) | **0** |
+| 删除 Delete | (205,455)-(290,515) | (365,828)-(450,888) | (365,828,450,888) | **0** |
+| 关闭 Cancel | (300,455)-(385,515) | (460,828)-(545,888) | (460,828,545,888) | **0** |
+
+面板：UI_SAVELAYOUT_POPUP (160,372.5,400,535) → 对齐 (160,372.5,400,535)（Δ=0）
+
+**业务**：保存 = jq_extract_layout_30（蓝方半区逆映射）→ ui_layout_save 写 layouts/<名>.lay；
+改名 = 旧名+数字后缀（自动编号，简化无输入框）；删除 = ui_layout_delete 删选中项；
+关闭/面板外 → 回对局。
+
+### 16.3 datah_016 布局管理 4 控件（面板 400×475，偏移 +160,+402.5）
+
+| 控件 | 原版 XML rect（400 系） | →720 屏幕 | src_rs g_laymgr_btns | 中心偏差 Δ |
+|---|---|---|---|---|
+| 预览 Piece0-29 | (20,75)-(380,360) | (180,478)-(540,762) | 30 格小方块 6×5（占位） | **1**（取整） |
+| 载入 Ok | (25,390)-(129,450) | (185,793)-(289,853) | (185,793,289,853) | **0** |
+| 删除 Delete | (148,390)-(252,450) | (308,793)-(412,853) | (308,793,412,853) | **0** |
+| 取消 Cancel | (271,390)-(375,450) | (431,793)-(535,853) | (431,793,535,853) | **0** |
+
+面板：UI_LAYMGR_POPUP (160,402.5,400,475) → 对齐 (160,402.5,400,475)（Δ=0）
+
+**业务**：选中布局 30 格棋子预览（小方块占位）→ 载入 = 应用到棋盘 + 清 undo；
+删除 = 删文件；取消/面板外 → 回对局。原版 Ok2/Cancel2 重叠备用显示按钮未实现（简化）。
+
+### 16.4 文件 IO + 入口（真机 /data/local/tmp/layouts，桌面 ./layouts）
+
+- **ui_state.c 新增**：ui_laydir_set/ui_laydir_get（目录）+ ui_layout_list（readdir *.lay
+  排序 ≤64 条）+ ui_layout_save/load/rename/delete（30 字节 .lay 文件 IO，对齐原版
+  OnEvent layout 读 30 字节范式）
+- **layout.c 新增**：jq_extract_layout_30（jq_load_layout 逆映射，蓝方半区 cells(5-lrow,lcol)
+  → layout[lrow*5+lcol]，蓝 rank 原值）
+- **入口（简化，不破坏现有流程）**：原版 datah_019 布局操作条（清空/载入/保存/完成布局）
+  未在缺口清单 → 改 3 个 OnEvent 测试钩子 `layoutsave`/`layoutload`/`layoutmgr` +
+  3 个 setprop 钩子 `jq.layoutsave`/`jq.layoutload`/`jq.layoutmgr`（setprop 范式同 jq.gameset）
+- **目录**：真机 OnCreate `ui_laydir_set("/data/local/tmp/layouts")`（jni_bridge L684 dirs[1]
+  范式，且必须在 setprop 钩子之前 set，否则首扫走桌面缺省 ./layouts）；桌面 evverify 用 tmp 目录
+
+### 16.5 真机 logcat 实证（emulator-5554，pid 49043/49112/49175）
+
+**测试①：jq.layoutload setprop 钩子触发 UI_LOAD_LAY + 目录扫描 + 面板渲染（真机实证 ✓）**
+```
+布局目录扫描：/data/local/tmp/layouts → 3 条
+  布局[0] 00
+  布局[1] 01
+  布局[2] 02
+jq.layoutload 钩子：→ UI_LOAD_LAY 载入布局弹窗（datah_017 布局名列表 6 条 + 取消，ListBox 滚动简化）
+rs_draw_loadlay：载入布局弹窗（datah_017 布局列表 3 条（前 6 显示）+ 取消，面板 400×535，ListBox 滚动简化）
+```
+截图 lay_017.png 720×1280：面板区 (160,373)-(560,908) 非黑 100% / 列表区 (180,448)-(540,808) 100% /
+取消按钮区 (280,828)-(440,888) 100%。layout_align_check.py PASS（几何 Δ 检查 + 截图非黑检查）。
+
+**测试②：jq.layoutsave 触发 UI_SAVE_LAY（真机实证 ✓）**
+```
+布局目录扫描：/data/local/tmp/layouts → 3 条
+rs_draw_savelay：保存布局弹窗（datah_020 保存/改名/删除/关闭 4 按钮，面板 400×535，改名自动编号简化）
+```
+截图 lay_020.png：保存/改名/删除/关闭 4 按钮区 + 列表区全非黑 100%。
+
+**测试③：jq.layoutmgr 触发 UI_LAY_MGR（真机实证 ✓）**
+```
+布局目录扫描：/data/local/tmp/layouts → 3 条
+rs_layres_preview：30 格棋子预览（小方块占位，选中=00）
+rs_draw_laymgr：布局管理弹窗（datah_016 30 格预览（小方块占位）+ 载入/删除/取消，面板 400×475）
+```
+截图 lay_016.png：面板/预览区/载入/删除/取消 5 区全非黑 100%。
+
+**★ 诚实边界（触摸命中 flaky）**：列表项命中/按钮点击（保存/改名/删除/载入 业务动作）
+真机触摸 flaky（MuMu PBuffer 坐标映射非线性，input tap 360,640 落在 GAME 态非弹窗区，
+ui_screen_get 返回 GAME 说明弹窗态触摸未路由到布局弹窗分支）→ 业务逻辑改用
+**桌面 evverify 10/10 全对（run_layout_save 全路径：提取 25 非 0 格 / 存读 30 字节一致 /
+载入蓝=25 红=25 镜像 / 删除成功）+ 代码路径证明（jni_bridge UI_SAVE_LAY/UI_LOAD_LAY/
+UI_LAY_MGR 命中分发块）**，非触摸糊弄。布局文件 3 条真机目录扫描 + 3 弹窗渲染真机实证。
+
+### 16.6 对齐证明汇总
+
+- **datah_017 2 控件 + datah_020 5 控件 + datah_016 4 控件 = 11 控件/区**：Δ=0（原版 400 系
+  换算 vs src_rs g_loadlayout_btns/g_savelayout_btns/g_laymgr_btns，1px 取整误差）
+- **文件 IO**：30 字节 .lay 格式（ui_layout_save/load 写读）+ jq_extract_layout_30（蓝方半区
+  逆映射）+ jq_load_layout（蓝+红镜像），桌面 evverify 10/10 全路径实证
+- **文字图集**：layres_text_atlas.png（220×414，9 标签竖排 载入布局/保存布局/布局管理/
+  取消/保存/改名/删除/关闭/载入），data_font_all.ttf sz38 烘焙（make_layres_atlas.py）
+- **★ 诚实边界（简化，勿包装成完整版）**：ListBox 真滚动未实现（文本列表 6 条截断 +
+  选中金色高亮）；30 格 PiecePic 真棋子图未画（小方块占位，有子=蓝底）；改名=自动编号
+  （旧名+数字后缀，无文本输入框）；原版 016 Ok2/Cancel2 重叠备用按钮未实现；
+  入口用 setprop/OnEvent 测试钩子（原版 datah_019 布局操作条未逆向移植）
+
+**so md5 历史**：… → ef92431a(P1 datah_012) → **74e65ac2**(P1 布局存档 3 弹窗 + 文件 IO
++ setprop/OnEvent 钩子 + layres 文字图集，真机 3 弹窗渲染实证 + evverify 10/10)

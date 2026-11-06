@@ -84,7 +84,9 @@ walkverify:
 # 桌面事件验证（EAT/BOMB/MOVE/FLAG/MINE + 布局打印，替代手写 /tmp/*.c）：
 #   make evverify [MODE=--all|--flag|--mine|--eat|--bomb|--move|--lay]
 # ★ P1（datah_012）：rules.c 依赖 ui_state_stub 的 4 规则开关桩（默认全开，行为不变）
+# ★ P1（datah_016/017/020）：布局存档 3 弹窗桌面验证（run_layout_save 10/10）
 .PHONY: evverify
+MODE ?= --all
 evverify:
 	@mkdir -p dist
 	$(CC) $(CFLAGS) -DRS_NO_GL -o dist/jq_evverify \

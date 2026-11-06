@@ -287,6 +287,8 @@ int rs_render_init(rs_render *rr, const char *spak_dir, const jq_state *init_sta
         snprintf(p17, sizeof p17, "%s/newgame_text_atlas.png", spak_dir ? spak_dir : "");
         char p18[512];
         snprintf(p18, sizeof p18, "%s/gameset_text_atlas.png", spak_dir ? spak_dir : "");
+        char p19[512];
+        snprintf(p19, sizeof p19, "%s/layres_text_atlas.png", spak_dir ? spak_dir : "");
         unsigned char *braw = NULL; size_t braw_len = 0;
         unsigned char *praw = NULL; size_t praw_len = 0;
         unsigned char *traw = NULL; size_t traw_len = 0;
@@ -305,14 +307,15 @@ int rs_render_init(rs_render *rr, const char *spak_dir, const jq_state *init_sta
         unsigned char *npaw = NULL; size_t npaw_len = 0;    /* ★ P0 datah_089 四国人数文字图集 */
         unsigned char *ngaw = NULL; size_t ngaw_len = 0;    /* ★ P0 datah_062 两人新局文字图集 */
         unsigned char *gsaw = NULL; size_t gsaw_len = 0;    /* ★ P1 datah_012 游戏设置文字图集 */
+        unsigned char *lrsw = NULL; size_t lrsw_len = 0;    /* ★ P1 datah_016/017/020 布局存档文字图集 */
         unsigned char *bpx = NULL, *ppx = NULL, *tpx = NULL, *gpx = NULL;
         unsigned char *opx = NULL, *ppx2 = NULL, *mpx = NULL, *ipx = NULL, *icpx = NULL, *hbpx = NULL, *bbpx = NULL, *bspx = NULL;
         unsigned char *wspx = NULL, *bipx = NULL, *stpx = NULL;
-        unsigned char *nppx = NULL, *ngpx = NULL, *gsp_x = NULL;
+        unsigned char *nppx = NULL, *ngpx = NULL, *gsp_x = NULL, *lrpx = NULL;
         int bw = 0, bh = 0, pw = 0, ph = 0, tw = 0, th = 0, gw = 0, gh = 0;
         int ow = 0, oh = 0, pw2 = 0, ph2 = 0, mw = 0, mh = 0, iw = 0, ih = 0, icw = 0, ich = 0;
         int hbw = 0, hbh = 0, bbw = 0, bbh = 0, bsw = 0, bsh = 0, wsw = 0, wsh = 0, biw = 0, bih = 0, stw = 0, sth = 0;
-        int npw = 0, nph = 0, ngw = 0, ngh = 0, gsw = 0, gsh = 0;
+        int npw = 0, nph = 0, ngw = 0, ngh = 0, gsw = 0, gsh = 0, lrw = 0, lrh = 0;
         rs_read_png(am, "spak_res/datah_188_21d95e03e7692e98.bin", p1, &braw, &braw_len);
         rs_read_png(am, "spak_res/datah_183_9e1b7fbc4dfc09c3.bin", p2, &praw, &praw_len);
         rs_read_png(am, "spak_res/menu_text_atlas.png", p3, &traw, &traw_len);
@@ -331,6 +334,7 @@ int rs_render_init(rs_render *rr, const char *spak_dir, const jq_state *init_sta
         rs_read_png(am, "spak_res/nplayer_text_atlas.png", p16, &npaw, &npaw_len);
         rs_read_png(am, "spak_res/newgame_text_atlas.png", p17, &ngaw, &ngaw_len);
         rs_read_png(am, "spak_res/gameset_text_atlas.png", p18, &gsaw, &gsaw_len);
+        rs_read_png(am, "spak_res/layres_text_atlas.png", p19, &lrsw, &lrsw_len);
         if (braw && png_decode(braw, braw_len, &bpx, &bw, &bh) == 0) { rr->board_px = bpx; rr->board_px_len = (size_t)bw * bh * 4; }
         free(braw);
         if (praw && png_decode(praw, praw_len, &ppx, &pw, &ph) == 0) { rr->piece_px = ppx; rr->piece_px_len = (size_t)pw * ph * 4; }
@@ -430,8 +434,15 @@ int rs_render_init(rs_render *rr, const char *spak_dir, const jq_state *init_sta
             rr->gameset_text_w = gsw; rr->gameset_text_h = gsh;
         }
         free(gsaw);
+        /* ★ P1（datah_016/017/020）：布局存档文字图集（9 标签竖排 220×414：
+           载入布局/保存布局/布局管理/取消/保存/改名/删除/关闭/载入） */
+        if (lrsw && png_decode(lrsw, lrsw_len, &lrpx, &lrw, &lrh) == 0) {
+            rr->layres_text_px = lrpx; rr->layres_text_px_len = (size_t)lrw * lrh * 4;
+            rr->layres_text_w = lrw; rr->layres_text_h = lrh;
+        }
+        free(lrsw);
         rr->gl_px_loaded = 1;
-        LOGI("Init 像素解码：board=%s(%dx%d) piece=%s(%dx%d) text=%s(%dx%d) bg=%s(%dx%d) menu_bg=%s(%dx%d) popup=%s(%dx%d) opt_text=%s(%dx%d) imen_text=%s(%dx%d) waysel=%s(%dx%d) btimen=%s(%dx%d) settings=%s(%dx%d) nplayer=%s(%dx%d) newgame=%s(%dx%d) gameset=%s(%dx%d)",
+        LOGI("Init 像素解码：board=%s(%dx%d) piece=%s(%dx%d) text=%s(%dx%d) bg=%s(%dx%d) menu_bg=%s(%dx%d) popup=%s(%dx%d) opt_text=%s(%dx%d) imen_text=%s(%dx%d) waysel=%s(%dx%d) btimen=%s(%dx%d) settings=%s(%dx%d) nplayer=%s(%dx%d) newgame=%s(%dx%d) gameset=%s(%dx%d) layres=%s(%dx%d)",
              rr->board_px ? "OK" : "MISS", bw, bh, rr->piece_px ? "OK" : "MISS", pw, ph,
              rr->text_px ? "OK" : "MISS", tw, th, rr->bg_px ? "OK" : "MISS", gw, gh,
              rr->menu_bg_px ? "OK" : "MISS", mw, mh, rr->popup_px ? "OK" : "MISS", pw2, ph2,
@@ -441,7 +452,8 @@ int rs_render_init(rs_render *rr, const char *spak_dir, const jq_state *init_sta
              rr->waysel_text_px ? "OK" : "MISS", wsw, wsh, rr->btimen_text_px ? "OK" : "MISS", biw, bih,
              rr->settings_text_px ? "OK" : "MISS", stw, sth,
              rr->nplayer_text_px ? "OK" : "MISS", npw, nph, rr->newgame_text_px ? "OK" : "MISS", ngw, ngh,
-              rr->gameset_text_px ? "OK" : "MISS", gsw, gsh);
+              rr->gameset_text_px ? "OK" : "MISS", gsw, gsh,
+              rr->layres_text_px ? "OK" : "MISS", lrw, lrh);
     }
     if (rr->egl_ctx)
         LOGI("render 初始化：GL2 context 就绪，GL 对象延迟到 GLThread 首帧建");
@@ -1893,6 +1905,406 @@ static void rs_draw_gameset(rs_render *rr, int slot)
         ui_rule_cfg_get(0), ui_rule_cfg_get(1), ui_rule_cfg_get(2), ui_rule_cfg_get(3), UI_GAMESET_POPUP_W, UI_GAMESET_POPUP_H); }
 }
 
+/* 布局存档弹窗共用：全屏模态遮罩 + 深色半透明面板（ui_menu.h 面板宏，720 基准 ×sx/sy） */
+static void rs_layres_panel(rs_render *rr, int slot, int ui, GLint uc)
+{
+    float px0, py0, pw, ph;
+    if (ui == UI_LOAD_LAY)
+        px0 = UI_LOADLAYOUT_POPUP_X0, py0 = UI_LOADLAYOUT_POPUP_Y0, pw = UI_LOADLAYOUT_POPUP_W, ph = UI_LOADLAYOUT_POPUP_H;
+    else if (ui == UI_SAVE_LAY)
+        px0 = UI_SAVELAYOUT_POPUP_X0, py0 = UI_SAVELAYOUT_POPUP_Y0, pw = UI_SAVELAYOUT_POPUP_W, ph = UI_SAVELAYOUT_POPUP_H;
+    else
+        px0 = UI_LAYMGR_POPUP_X0, py0 = UI_LAYMGR_POPUP_Y0, pw = UI_LAYMGR_POPUP_W, ph = UI_LAYMGR_POPUP_H;
+    float sx = (float)rr->view_w / 720.0f, sy = (float)rr->view_h / 1280.0f;
+    /* ⓪ 背景：对局棋盘背景（布局存档弹窗从 ☰/对局弹出，背景为对局） */
+    if (rr->tex_bg[slot] && rr->prog_tex[slot]) {
+        float w = (float)rr->view_w, h = (float)rr->view_h;
+        rs_v4f bg[6] = {
+            {0, 0, 0, 0}, {w, 0, 1, 0}, {0, h, 0, 1},
+            {0, h, 0, 1}, {w, 0, 1, 0}, {w, h, 1, 1},
+        };
+        glUseProgram(rr->prog_tex[slot]);
+        glUniform2f(rr->uViewWH_tex[slot], (GLfloat)rr->view_w, (GLfloat)rr->view_h);
+        glUniform1i(glGetUniformLocation(rr->prog_tex[slot], "uTex"), 0);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, rr->tex_bg[slot]);
+        glGenBuffers(1, &rr->vbo_sel[slot]);
+        glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(bg), bg, GL_DYNAMIC_DRAW);
+        rs_bind_vbo(rr->vbo_sel[slot]);
+        glDrawArrays(GL_TRIANGLES, 0, 6);
+        rs_unbind_vbo();
+        glDeleteBuffers(1, &rr->vbo_sel[slot]);
+        rr->vbo_sel[slot] = 0;
+    }
+    /* ① 全屏模态遮罩 */
+    rs_v4f mq[6] = {
+        {0, 0, 0, 0}, {(float)rr->view_w, 0, 0, 0}, {0, (float)rr->view_h, 0, 0},
+        {0, (float)rr->view_h, 0, 0}, {(float)rr->view_w, 0, 0, 0},
+        {(float)rr->view_w, (float)rr->view_h, 0, 0},
+    };
+    glUseProgram(rr->prog_solid[slot]);
+    glUniform2f(rr->uViewWH_solid[slot], (GLfloat)rr->view_w, (GLfloat)rr->view_h);
+    glUniform4f(uc, 0.0f, 0.0f, 0.0f, 0.35f);
+    glGenBuffers(1, &rr->vbo_sel[slot]);
+    glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(mq), mq, GL_DYNAMIC_DRAW);
+    rs_bind_vbo(rr->vbo_sel[slot]);
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+    rs_unbind_vbo();
+    glDeleteBuffers(1, &rr->vbo_sel[slot]);
+    rr->vbo_sel[slot] = 0;
+    /* ② 面板：深色半透明矩形 */
+    float X0 = px0 * sx, Y0 = py0 * sy;
+    float W = pw * sx, H = ph * sy;
+    rs_v4f pq[6] = {
+        {X0, Y0, 0, 0}, {X0 + W, Y0, 0, 0}, {X0, Y0 + H, 0, 0},
+        {X0, Y0 + H, 0, 0}, {X0 + W, Y0, 0, 0}, {X0 + W, Y0 + H, 0, 0},
+    };
+    glUseProgram(rr->prog_solid[slot]);
+    glUniform2f(rr->uViewWH_solid[slot], (GLfloat)rr->view_w, (GLfloat)rr->view_h);
+    glUniform4f(uc, 0.08f, 0.08f, 0.10f, 0.78f);
+    glGenBuffers(1, &rr->vbo_sel[slot]);
+    glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(pq), pq, GL_DYNAMIC_DRAW);
+    rs_bind_vbo(rr->vbo_sel[slot]);
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+    rs_unbind_vbo();
+    glDeleteBuffers(1, &rr->vbo_sel[slot]);
+    rr->vbo_sel[slot] = 0;
+}
+
+/* 布局存档文字图集 9 行 row 索引（layres_text_atlas 220×414，每行 46px，row_h=h/9）：
+   row0=载入布局 row1=保存布局 row2=布局管理 row3=取消 row4=保存 row5=改名
+   row6=删除 row7=关闭 row8=载入 */
+#define LAYRES_ROW 9
+static void rs_layres_text(rs_render *rr, int slot, float x, float y, float w,
+                           float h, int row, GLint uc)
+{
+    (void)uc;
+    if (!rr->tex_layres_text[slot] || !rr->prog_tex[slot] ||
+        rr->layres_text_w <= 0 || rr->layres_text_h <= 0) return;
+    int row_h = rr->layres_text_h / LAYRES_ROW;
+    float sx = (float)rr->view_w / 720.0f, sy = (float)rr->view_h / 1280.0f;
+    float tw = w * sx, th = h * sy;
+    float u0 = 0.0f, u1 = 1.0f;
+    float v0 = (float)(row * row_h) / rr->layres_text_h;
+    float v1 = (float)(row * row_h + row_h) / rr->layres_text_h;
+    rs_v4f tq[6] = {
+        {x * sx, y * sy, u0, v0}, {x * sx + tw, y * sy, u1, v0}, {x * sx, y * sy + th, u0, v1},
+        {x * sx, y * sy + th, u0, v1}, {x * sx + tw, y * sy, u1, v0}, {x * sx + tw, y * sy + th, u1, v1},
+    };
+    glUseProgram(rr->prog_tex[slot]);
+    glUniform2f(rr->uViewWH_tex[slot], (GLfloat)rr->view_w, (GLfloat)rr->view_h);
+    glUniform1i(glGetUniformLocation(rr->prog_tex[slot], "uTex"), 0);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, rr->tex_layres_text[slot]);
+    glGenBuffers(1, &rr->vbo_sel[slot]);
+    glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(tq), tq, GL_DYNAMIC_DRAW);
+    rs_bind_vbo(rr->vbo_sel[slot]);
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+    rs_unbind_vbo();
+    glDeleteBuffers(1, &rr->vbo_sel[slot]);
+    rr->vbo_sel[slot] = 0;
+}
+
+/* 布局列表行（017/020 共用）：6 行文本列表区（180,447-540,807 720 基准，行高 60px），
+   行底色（选中=金色高亮 / 未选中=深蓝）+ 布局名位图无法烘焙动态文本 →
+   简化：行底色 + 序号纯色块占位（★ 诚实边界：ListBox 文本渲染未接动态名，占位块）。 */
+static void rs_layres_list_rows(rs_render *rr, int slot, int sel, GLint uc)
+{
+    const ui_loadlayout_btn *lb = ui_loadlayout_buttons();   /* 前 6 项 = 列表行 */
+    float sx = (float)rr->view_w / 720.0f, sy = (float)rr->view_h / 1280.0f;
+    int n = ui_layout_count() > 6 ? 6 : ui_layout_count();
+    for (int i = 0; i < 6; i++) {
+        float bx0 = lb[i].x0 * sx, by0 = lb[i].y0 * sy;
+        float bx1 = lb[i].x1 * sx, by1 = lb[i].y1 * sy;
+        int active = (i < n);
+        int is_sel = active && (i == ui_layout_selected());
+        rs_v4f bq[6] = {
+            {bx0, by0, 0, 0}, {bx1, by0, 0, 0}, {bx0, by1, 0, 0},
+            {bx0, by1, 0, 0}, {bx1, by0, 0, 0}, {bx1, by1, 0, 0},
+        };
+        glUseProgram(rr->prog_solid[slot]);
+        glUniform2f(rr->uViewWH_solid[slot], (GLfloat)rr->view_w, (GLfloat)rr->view_h);
+        if (is_sel) glUniform4f(uc, 1.0f, 0.85f, 0.2f, 0.95f);   /* 选中金色高亮 */
+        else if (active) glUniform4f(uc, 0.30f, 0.40f, 0.60f, 0.90f);  /* 未选中深蓝 */
+        else glUniform4f(uc, 0.15f, 0.15f, 0.18f, 0.60f);        /* 无条目灰暗占位 */
+        glGenBuffers(1, &rr->vbo_sel[slot]);
+        glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(bq), bq, GL_DYNAMIC_DRAW);
+        rs_bind_vbo(rr->vbo_sel[slot]);
+        glDrawArrays(GL_TRIANGLES, 0, 6);
+        rs_unbind_vbo();
+        glDeleteBuffers(1, &rr->vbo_sel[slot]);
+        rr->vbo_sel[slot] = 0;
+    }
+}
+
+/* 布局管理 30 格棋子预览（016，简化小方块 6×5，180,477-540,762 720 基准区）：
+   选中布局载入临时 state → jq_extract_layout_30 → 每格画蓝/红小方块（有子）/深灰（空）。
+   ★ 诚实边界：30 格 PiecePic 真棋子图未画，小方块占位（原版 Piece0-29 为棋子图）。 */
+static void rs_layres_preview(rs_render *rr, int slot, GLint uc)
+{
+    float sx = (float)rr->view_w / 720.0f, sy = (float)rr->view_h / 1280.0f;
+    uint8_t lay[30];
+    int have = 0;
+    if (ui_layout_selected_valid()) {
+        const char *nm = ui_layout_name(ui_layout_selected());
+        if (nm && ui_layout_load(nm, lay) == 0) have = 1;
+    }
+    /* 预览区 6 行 × 5 列，行 75→360（400 系）= 477→762（720 系），格 40×34（720 基准） */
+    for (int r = 0; r < 6; r++) {
+        for (int c = 0; c < 5; c++) {
+            float cx = (220.0f + c * 70.0f) * sx;
+            float cy = (517.0f + r * 48.0f) * sy;
+            float s = 40.0f * sx, sh = 34.0f * sy;
+            rs_v4f sq[6] = {
+                {cx, cy, 0, 0}, {cx + s, cy, 0, 0}, {cx, cy + sh, 0, 0},
+                {cx, cy + sh, 0, 0}, {cx + s, cy, 0, 0}, {cx + s, cy + sh, 0, 0},
+            };
+            glUseProgram(rr->prog_solid[slot]);
+            glUniform2f(rr->uViewWH_solid[slot], (GLfloat)rr->view_w, (GLfloat)rr->view_h);
+            int filled = have && lay[r * 5 + c] != 0;
+            glUniform4f(uc,
+                        filled ? 0.35f : 0.30f,
+                        filled ? 0.55f : 0.30f,
+                        filled ? 0.95f : 0.32f,   /* 有子=蓝底；★ 诚实边界：真棋子图未画 */
+                        filled ? 0.9f : 0.55f);
+            glGenBuffers(1, &rr->vbo_sel[slot]);
+            glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
+            glBufferData(GL_ARRAY_BUFFER, sizeof(sq), sq, GL_DYNAMIC_DRAW);
+            rs_bind_vbo(rr->vbo_sel[slot]);
+            glDrawArrays(GL_TRIANGLES, 0, 6);
+            rs_unbind_vbo();
+            glDeleteBuffers(1, &rr->vbo_sel[slot]);
+            rr->vbo_sel[slot] = 0;
+        }
+    }
+    static int pdiag = 0;
+    if (!pdiag) { pdiag = 1; LOGI("rs_layres_preview：30 格棋子预览（小方块占位，选中=%s）",
+        ui_layout_selected_valid() ? ui_layout_name(ui_layout_selected()) : "无"); }
+}
+
+/* ★ P1（datah_017 证据）：载入布局弹窗渲染（布局名文本列表 6 行 + 取消按钮）。
+   面板 400×535 居中（偏移+160,+372.5）。业务（jni_bridge）：点列表项=载入 + 回对局；
+   取消/面板外=回对局。★ 诚实边界：ListBox 滚动未实现，6 条截断 + 选中金色高亮。 */
+static void rs_draw_loadlay(rs_render *rr, int slot)
+{
+    if (!rr->prog_solid[slot] || !rr->gl2_ok[slot]) return;
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    rs_layres_panel(rr, slot, UI_LOAD_LAY, uc);
+    /* 标题"载入布局"（layres row0，面板顶部 160,392-560,442 720 基准区） */
+    rs_layres_text(rr, slot, 255.0f, 402.0f, 150.0f, 46.0f, 0, uc);
+    /* 布局名文本列表（前 6 条，选中金色高亮） */
+    rs_layres_list_rows(rr, slot, ui_layout_selected(), uc);
+    /* 取消按钮（280,828-440,888，row3 取消 文字居中） */
+    {
+        const ui_loadlayout_btn *lb = ui_loadlayout_buttons();
+        float bx0 = lb[6].x0 * (float)rr->view_w / 720.0f;
+        float by0 = lb[6].y0 * (float)rr->view_h / 1280.0f;
+        float bx1 = lb[6].x1 * (float)rr->view_w / 720.0f;
+        float by1 = lb[6].y1 * (float)rr->view_h / 1280.0f;
+        rs_v4f bq[6] = {
+            {bx0, by0, 0, 0}, {bx1, by0, 0, 0}, {bx0, by1, 0, 0},
+            {bx0, by1, 0, 0}, {bx1, by0, 0, 0}, {bx1, by1, 0, 0},
+        };
+        glUseProgram(rr->prog_solid[slot]);
+        glUniform2f(rr->uViewWH_solid[slot], (GLfloat)rr->view_w, (GLfloat)rr->view_h);
+        glUniform4f(uc, 0.55f, 0.55f, 0.60f, 0.9f);   /* 取消 灰 */
+        glGenBuffers(1, &rr->vbo_sel[slot]);
+        glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(bq), bq, GL_DYNAMIC_DRAW);
+        rs_bind_vbo(rr->vbo_sel[slot]);
+        glDrawArrays(GL_TRIANGLES, 0, 6);
+        rs_unbind_vbo();
+        glDeleteBuffers(1, &rr->vbo_sel[slot]);
+        rr->vbo_sel[slot] = 0;
+        /* 取消 文字（row3，按钮内居中） */
+        if (rr->tex_layres_text[slot] && rr->prog_tex[slot] &&
+            rr->layres_text_w > 0 && rr->layres_text_h > 0) {
+            int row_h = rr->layres_text_h / LAYRES_ROW;
+            float tw = 60.0f * (float)rr->view_w / 720.0f;
+            float th = tw * ((float)row_h / rr->layres_text_w);
+            float tx0 = (bx0 + bx1) * 0.5f - tw * 0.5f;
+            float ty0 = (by0 + by1) * 0.5f - th * 0.5f;
+            float u0 = 0.0f, u1 = 1.0f;
+            float v0 = (float)(3 * row_h) / rr->layres_text_h;
+            float v1 = (float)(3 * row_h + row_h) / rr->layres_text_h;
+            rs_v4f tq[6] = {
+                {tx0, ty0, u0, v0}, {tx0 + tw, ty0, u1, v0}, {tx0, ty0 + th, u0, v1},
+                {tx0, ty0 + th, u0, v1}, {tx0 + tw, ty0, u1, v0}, {tx0 + tw, ty0 + th, u1, v1},
+            };
+            glUseProgram(rr->prog_tex[slot]);
+            glUniform2f(rr->uViewWH_tex[slot], (GLfloat)rr->view_w, (GLfloat)rr->view_h);
+            glUniform1i(glGetUniformLocation(rr->prog_tex[slot], "uTex"), 0);
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, rr->tex_layres_text[slot]);
+            glGenBuffers(1, &rr->vbo_sel[slot]);
+            glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
+            glBufferData(GL_ARRAY_BUFFER, sizeof(tq), tq, GL_DYNAMIC_DRAW);
+            rs_bind_vbo(rr->vbo_sel[slot]);
+            glDrawArrays(GL_TRIANGLES, 0, 6);
+            rs_unbind_vbo();
+            glDeleteBuffers(1, &rr->vbo_sel[slot]);
+            rr->vbo_sel[slot] = 0;
+        }
+    }
+    static int ldiag = 0;
+    if (!ldiag) { ldiag = 1; LOGI("rs_draw_loadlay：载入布局弹窗（datah_017 布局列表 %d 条（前 6 显示）+ 取消，面板 400×535，ListBox 滚动简化）",
+        ui_layout_count()); }
+}
+
+/* ★ P1（datah_020 证据）：保存布局弹窗渲染（布局名列表 + 保存/改名/删除/关闭 4 按钮）。
+   面板 400×535 居中。业务（jni_bridge）：保存=当前棋盘 30 字节 .lay；改名=旧名+数字后缀；
+   删除=删选中项；关闭=回对局。★ 诚实边界：改名自动编号（无文本输入框）。 */
+static void rs_draw_savelay(rs_render *rr, int slot)
+{
+    if (!rr->prog_solid[slot] || !rr->gl2_ok[slot]) return;
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    rs_layres_panel(rr, slot, UI_SAVE_LAY, uc);
+    /* 标题"保存布局"（row1） */
+    rs_layres_text(rr, slot, 255.0f, 402.0f, 150.0f, 46.0f, 1, uc);
+    /* 布局名列表（同 017 区，选中金色高亮） */
+    rs_layres_list_rows(rr, slot, ui_layout_selected(), uc);
+    /* 4 按钮：保存（蓝）/ 改名（紫）/ 删除（红）/ 关闭（灰）+ 文字 */
+    static const float BTN_COL[UI_SAVELAYOUT_COUNT][4] = {
+        {0.20f, 0.45f, 0.90f, 0.9f},   /* 保存 蓝 */
+        {0.45f, 0.30f, 0.75f, 0.9f},   /* 改名 紫 */
+        {0.85f, 0.25f, 0.25f, 0.9f},   /* 删除 红 */
+        {0.55f, 0.55f, 0.60f, 0.9f},   /* 关闭 灰 */
+    };
+    const ui_savelayout_btn *sb = ui_savelayout_buttons();
+    for (int i = 0; i < UI_SAVELAYOUT_COUNT; i++) {
+        float bx0 = sb[i].x0 * (float)rr->view_w / 720.0f;
+        float by0 = sb[i].y0 * (float)rr->view_h / 1280.0f;
+        float bx1 = sb[i].x1 * (float)rr->view_w / 720.0f;
+        float by1 = sb[i].y1 * (float)rr->view_h / 1280.0f;
+        rs_v4f bq[6] = {
+            {bx0, by0, 0, 0}, {bx1, by0, 0, 0}, {bx0, by1, 0, 0},
+            {bx0, by1, 0, 0}, {bx1, by0, 0, 0}, {bx1, by1, 0, 0},
+        };
+        glUseProgram(rr->prog_solid[slot]);
+        glUniform2f(rr->uViewWH_solid[slot], (GLfloat)rr->view_w, (GLfloat)rr->view_h);
+        glUniform4f(uc, BTN_COL[i][0], BTN_COL[i][1], BTN_COL[i][2], BTN_COL[i][3]);
+        glGenBuffers(1, &rr->vbo_sel[slot]);
+        glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(bq), bq, GL_DYNAMIC_DRAW);
+        rs_bind_vbo(rr->vbo_sel[slot]);
+        glDrawArrays(GL_TRIANGLES, 0, 6);
+        rs_unbind_vbo();
+        glDeleteBuffers(1, &rr->vbo_sel[slot]);
+        rr->vbo_sel[slot] = 0;
+        /* 按钮文字（row4=保存 row5=改名 row6=删除 row7=关闭，按钮内居中） */
+        if (rr->tex_layres_text[slot] && rr->prog_tex[slot] &&
+            rr->layres_text_w > 0 && rr->layres_text_h > 0) {
+            int row_h = rr->layres_text_h / LAYRES_ROW;
+            int row_idx = 4 + i;
+            float tw = 55.0f * (float)rr->view_w / 720.0f;
+            float th = tw * ((float)row_h / rr->layres_text_w);
+            float tx0 = (bx0 + bx1) * 0.5f - tw * 0.5f;
+            float ty0 = (by0 + by1) * 0.5f - th * 0.5f;
+            float u0 = 0.0f, u1 = 1.0f;
+            float v0 = (float)(row_idx * row_h) / rr->layres_text_h;
+            float v1 = (float)(row_idx * row_h + row_h) / rr->layres_text_h;
+            rs_v4f tq[6] = {
+                {tx0, ty0, u0, v0}, {tx0 + tw, ty0, u1, v0}, {tx0, ty0 + th, u0, v1},
+                {tx0, ty0 + th, u0, v1}, {tx0 + tw, ty0, u1, v0}, {tx0 + tw, ty0 + th, u1, v1},
+            };
+            glUseProgram(rr->prog_tex[slot]);
+            glUniform2f(rr->uViewWH_tex[slot], (GLfloat)rr->view_w, (GLfloat)rr->view_h);
+            glUniform1i(glGetUniformLocation(rr->prog_tex[slot], "uTex"), 0);
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, rr->tex_layres_text[slot]);
+            glGenBuffers(1, &rr->vbo_sel[slot]);
+            glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
+            glBufferData(GL_ARRAY_BUFFER, sizeof(tq), tq, GL_DYNAMIC_DRAW);
+            rs_bind_vbo(rr->vbo_sel[slot]);
+            glDrawArrays(GL_TRIANGLES, 0, 6);
+            rs_unbind_vbo();
+            glDeleteBuffers(1, &rr->vbo_sel[slot]);
+            rr->vbo_sel[slot] = 0;
+        }
+    }
+    static int sdiag = 0;
+    if (!sdiag) { sdiag = 1; LOGI("rs_draw_savelay：保存布局弹窗（datah_020 保存/改名/删除/关闭 4 按钮，面板 400×535，改名自动编号简化）"); }
+}
+
+/* ★ P1（datah_016 证据）：布局管理弹窗渲染（30 格棋子预览小方块 + 载入/删除/取消 3 按钮）。
+   面板 400×475 居中（偏移+160,+4"); }2.5）。业务（jni_bridge）：载入=应用到棋盘；
+   删除=删选中项；取消=回对局。★ 诚实边界：PiecePic 真棋子图未画（小方块占位）。 */
+static void rs_draw_laymgr(rs_render *rr, int slot)
+{
+    if (!rr->prog_solid[slot] || !rr->gl2_ok[slot]) return;
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    rs_layres_panel(rr, slot, UI_LAY_MGR, uc);
+    /* 标题"布局管理"（row2，面板顶部） */
+    rs_layres_text(rr, slot, 255.0f, 432.0f, 150.0f, 46.0f, 2, uc);
+    /* 30 格棋子预览（小方块 6×5 占位） */
+    rs_layres_preview(rr, slot, uc);
+    /* 3 按钮：载入（蓝）/ 删除（红）/ 取消（灰）+ 文字 */
+    static const float BTN_COL[UI_LAYMGR_COUNT][4] = {
+        {0.20f, 0.45f, 0.90f, 0.9f},   /* 载入 蓝 */
+        {0.85f, 0.25f, 0.25f, 0.9f},   /* 删除 红 */
+        {0.55f, 0.55f, 0.60f, 0.9f},   /* 取消 灰 */
+    };
+    const ui_laymgr_btn *mb = ui_laymgr_buttons();
+    for (int i = 0; i < UI_LAYMGR_COUNT; i++) {
+        float bx0 = mb[i].x0 * (float)rr->view_w / 720.0f;
+        float by0 = mb[i].y0 * (float)rr->view_h / 1280.0f;
+        float bx1 = mb[i].x1 * (float)rr->view_w / 720.0f;
+        float by1 = mb[i].y1 * (float)rr->view_h / 1280.0f;
+        rs_v4f bq[6] = {
+            {bx0, by0, 0, 0}, {bx1, by0, 0, 0}, {bx0, by1, 0, 0},
+            {bx0, by1, 0, 0}, {bx1, by0, 0, 0}, {bx1, by1, 0, 0},
+        };
+        glUseProgram(rr->prog_solid[slot]);
+        glUniform2f(rr->uViewWH_solid[slot], (GLfloat)rr->view_w, (GLfloat)rr->view_h);
+        glUniform4f(uc, BTN_COL[i][0], BTN_COL[i][1], BTN_COL[i][2], BTN_COL[i][3]);
+        glGenBuffers(1, &rr->vbo_sel[slot]);
+        glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(bq), bq, GL_DYNAMIC_DRAW);
+        rs_bind_vbo(rr->vbo_sel[slot]);
+        glDrawArrays(GL_TRIANGLES, 0, 6);
+        rs_unbind_vbo();
+        glDeleteBuffers(1, &rr->vbo_sel[slot]);
+        rr->vbo_sel[slot] = 0;
+        /* 按钮文字（row8=载入 row6=删除 row3=取消，按钮内居中） */
+        if (rr->tex_layres_text[slot] && rr->prog_tex[slot] &&
+            rr->layres_text_w > 0 && rr->layres_text_h > 0) {
+            int row_h = rr->layres_text_h / LAYRES_ROW;
+            int row_idx = (i == 0) ? 8 : (i == 1 ? 6 : 3);
+            float tw = 55.0f * (float)rr->view_w / 720.0f;
+            float th = tw * ((float)row_h / rr->layres_text_w);
+            float tx0 = (bx0 + bx1) * 0.5f - tw * 0.5f;
+            float ty0 = (by0 + by1) * 0.5f - th * 0.5f;
+            float u0 = 0.0f, u1 = 1.0f;
+            float v0 = (float)(row_idx * row_h) / rr->layres_text_h;
+            float v1 = (float)(row_idx * row_h + row_h) / rr->layres_text_h;
+            rs_v4f tq[6] = {
+                {tx0, ty0, u0, v0}, {tx0 + tw, ty0, u1, v0}, {tx0, ty0 + th, u0, v1},
+                {tx0, ty0 + th, u0, v1}, {tx0 + tw, ty0, u1, v0}, {tx0 + tw, ty0 + th, u1, v1},
+            };
+            glUseProgram(rr->prog_tex[slot]);
+            glUniform2f(rr->uViewWH_tex[slot], (GLfloat)rr->view_w, (GLfloat)rr->view_h);
+            glUniform1i(glGetUniformLocation(rr->prog_tex[slot], "uTex"), 0);
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, rr->tex_layres_text[slot]);
+            glGenBuffers(1, &rr->vbo_sel[slot]);
+            glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
+            glBufferData(GL_ARRAY_BUFFER, sizeof(tq), tq, GL_DYNAMIC_DRAW);
+            rs_bind_vbo(rr->vbo_sel[slot]);
+            glDrawArrays(GL_TRIANGLES, 0, 6);
+            rs_unbind_vbo();
+            glDeleteBuffers(1, &rr->vbo_sel[slot]);
+            rr->vbo_sel[slot] = 0;
+        }
+    }
+    static int mdiag = 0;
+    if (!mdiag) { mdiag = 1; LOGI("rs_draw_laymgr：布局管理弹窗（datah_016 30 格预览（小方块占位）+ 载入/删除/取消，面板 400×475）"); }
+}
+
 /* 判当前是否在 GLThread/EglHelper 的 window context（≠ 我们 init 的 PBuffer context） */
 static int now_is_glthread_ctx(rs_render *rr)
 {
@@ -2075,6 +2487,15 @@ static void rs_gl_rebuild(rs_render *rr, int slot)
         glBindTexture(GL_TEXTURE_2D, rr->tex_gameset_text[slot]);
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->gameset_text_w, rr->gameset_text_h, 0,
                      GL_RGBA, GL_UNSIGNED_BYTE, rr->gameset_text_px);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    }
+    /* ★ P1（datah_016/017/020）：布局存档文字图集（9 标签竖排 220×414） */
+    if (rr->layres_text_px && rr->gl2_ok[slot] && rr->layres_text_w > 0 && rr->layres_text_h > 0) {
+        glGenTextures(1, &rr->tex_layres_text[slot]);
+        glBindTexture(GL_TEXTURE_2D, rr->tex_layres_text[slot]);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->layres_text_w, rr->layres_text_h, 0,
+                     GL_RGBA, GL_UNSIGNED_BYTE, rr->layres_text_px);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     }
@@ -2308,6 +2729,15 @@ void rs_render_frame(rs_render *rr)
         } else if (ui_screen_get() == UI_GAMESET) {
             /* ★ P1（datah_012 证据）：游戏设置弹窗（4 规则开关+确定/取消） */
             rs_draw_gameset(rr, slot);
+        } else if (ui_screen_get() == UI_LOAD_LAY) {
+            /* ★ P1（datah_017 证据）：载入布局弹窗（布局名列表 6 条+取消） */
+            rs_draw_loadlay(rr, slot);
+        } else if (ui_screen_get() == UI_SAVE_LAY) {
+            /* ★ P1（datah_020 证据）：保存布局弹窗（保存/改名/删除/关闭 4 按钮） */
+            rs_draw_savelay(rr, slot);
+        } else if (ui_screen_get() == UI_LAY_MGR) {
+            /* ★ P1（datah_016 证据）：布局管理弹窗（30 格预览小方块+载入/删除/取消） */
+            rs_draw_laymgr(rr, slot);
         } else if (rr->game && rr->game->stage == STG_OVER) {
             /* ★ 对局结束（GAME 态且 stage=OVER）→ 胜负横幅（winner 色可视化） */
             rs_draw_overlay(rr, slot, rr->game->winner);

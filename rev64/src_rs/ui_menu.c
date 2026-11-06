@@ -328,3 +328,94 @@ int ui_gameset_popup_inside(float x, float y)
     return x >= UI_GAMESET_POPUP_X0 && x <= UI_GAMESET_POPUP_X0 + UI_GAMESET_POPUP_W &&
            y >= UI_GAMESET_POPUP_Y0 && y <= UI_GAMESET_POPUP_Y0 + UI_GAMESET_POPUP_H;
 }
+
+/* ★ P1（datah_017 证据）：载入布局弹窗——布局名文本列表 6 行（ListBox 20,75,380,440 400 系 →
+   720 系 180,447-540,807，行高 60px 每行 1 可点区）+ 取消（原版 Cancel 120,455,280,515 →
+   280,828-440,888）。面板 400×535 居中（偏移+160,+372.5）。
+   ★ 诚实边界：ListBox 滚动未实现（触摸 flaky），文本列表 6 条截断 + 选中高亮。 */
+static const ui_loadlayout_btn g_loadlayout_btns[UI_LOADLAYOUT_COUNT] = {
+    /* x0, y0, x1, y1, action；★ 原版 datah_017 400 坐标系精确换算（面板 400×535 居中 720，偏移+160,+372.5） */
+    { 180.0f, 447.0f, 540.0f, 507.0f, 0 },   /* 列表项 0（第 1 条，默认选中高亮） */
+    { 180.0f, 507.0f, 540.0f, 567.0f, 1 },   /* 列表项 1 */
+    { 180.0f, 567.0f, 540.0f, 627.0f, 2 },   /* 列表项 2 */
+    { 180.0f, 627.0f, 540.0f, 687.0f, 3 },   /* 列表项 3 */
+    { 180.0f, 687.0f, 540.0f, 747.0f, 4 },   /* 列表项 4 */
+    { 180.0f, 747.0f, 540.0f, 807.0f, 5 },   /* 列表项 5（第 6 条，超出截断） */
+    { 280.0f, 828.0f, 440.0f, 888.0f, 6 },   /* 取消 Cancel（120,455,280,515 +160,+372.5） */
+};
+
+const ui_loadlayout_btn *ui_loadlayout_buttons(void) { return g_loadlayout_btns; }
+
+int ui_loadlayout_hit(const ui_loadlayout_btn *btns, int n, float x, float y)
+{
+    for (int i = 0; i < n; i++) {
+        if (x >= btns[i].x0 && x <= btns[i].x1 && y >= btns[i].y0 && y <= btns[i].y1)
+            return i;
+    }
+    return -1;
+}
+
+int ui_loadlayout_popup_inside(float x, float y)
+{
+    return x >= UI_LOADLAYOUT_POPUP_X0 && x <= UI_LOADLAYOUT_POPUP_X0 + UI_LOADLAYOUT_POPUP_W &&
+           y >= UI_LOADLAYOUT_POPUP_Y0 && y <= UI_LOADLAYOUT_POPUP_Y0 + UI_LOADLAYOUT_POPUP_H;
+}
+
+/* ★ P1（datah_020 证据）：保存布局弹窗——保存/改名/删除/关闭 4 按钮
+   （原版 Ok 15,455,100,515 → 175,828-260,888；Rename 110,455,195,515 → 270,828-355,888；
+   Delete 205,455,290,515 → 365,828-450,888；Cancel 300,455,385,515 → 460,828-545,888）。
+   布局名列表显示区 = 017 ListBox 同区（180,447-540,807，文本列表 6 条截断）。
+   ★ 诚实边界：改名简化为自动编号（旧名+数字后缀，无文本输入框）。 */
+static const ui_savelayout_btn g_savelayout_btns[UI_SAVELAYOUT_COUNT] = {
+    /* x0, y0, x1, y1, action；★ 原版 datah_020 400 坐标系精确换算（面板 400×535 居中 720，偏移+160,+372.5） */
+    { 175.0f, 828.0f, 260.0f, 888.0f, 0 },   /* 保存 Ok（写当前棋盘 30 字节 .lay） */
+    { 270.0f, 828.0f, 355.0f, 888.0f, 1 },   /* 改名 Rename（旧名+数字后缀） */
+    { 365.0f, 828.0f, 450.0f, 888.0f, 2 },   /* 删除 Delete（删选中项 .lay） */
+    { 460.0f, 828.0f, 545.0f, 888.0f, 3 },   /* 关闭 Cancel（回对局） */
+};
+
+const ui_savelayout_btn *ui_savelayout_buttons(void) { return g_savelayout_btns; }
+
+int ui_savelayout_hit(const ui_savelayout_btn *btns, int n, float x, float y)
+{
+    for (int i = 0; i < n; i++) {
+        if (x >= btns[i].x0 && x <= btns[i].x1 && y >= btns[i].y0 && y <= btns[i].y1)
+            return i;
+    }
+    return -1;
+}
+
+int ui_savelayout_popup_inside(float x, float y)
+{
+    return x >= UI_SAVELAYOUT_POPUP_X0 && x <= UI_SAVELAYOUT_POPUP_X0 + UI_SAVELAYOUT_POPUP_W &&
+           y >= UI_SAVELAYOUT_POPUP_Y0 && y <= UI_SAVELAYOUT_POPUP_Y0 + UI_SAVELAYOUT_POPUP_H;
+}
+
+/* ★ P1（datah_016 证据）：布局管理弹窗——载入/删除/取消 3 按钮（原版 Ok 25,390,129,450 →
+   185,793-289,853；Delete 148,390,252,450 → 308,793-412,853；Cancel 271,390,375,450 →
+   431,793-535,853）。30 格棋子预览区（原版 Piece0-29 20,75,380,360 → 180,477-540,762）
+   简化小方块 6×5 占位（有子=蓝/红方块，真棋子图未画）。
+   面板 400×475 居中（偏移+160,+402.5）。★ 诚实边界：原版 Ok2/Cancel2 重叠备用按钮未实现。 */
+static const ui_laymgr_btn g_laymgr_btns[UI_LAYMGR_COUNT] = {
+    /* x0, y0, x1, y1, action；★ 原版 datah_016 400 坐标系精确换算（面板 400×475 居中 720，偏移+160,+402.5） */
+    { 185.0f, 793.0f, 289.0f, 853.0f, 0 },   /* 载入 Ok（应用到棋盘 + 清 undo） */
+    { 308.0f, 793.0f, 412.0f, 853.0f, 1 },   /* 删除 Delete（删选中项文件） */
+    { 431.0f, 793.0f, 535.0f, 853.0f, 2 },   /* 取消 Cancel（回对局） */
+};
+
+const ui_laymgr_btn *ui_laymgr_buttons(void) { return g_laymgr_btns; }
+
+int ui_laymgr_hit(const ui_laymgr_btn *btns, int n, float x, float y)
+{
+    for (int i = 0; i < n; i++) {
+        if (x >= btns[i].x0 && x <= btns[i].x1 && y >= btns[i].y0 && y <= btns[i].y1)
+            return i;
+    }
+    return -1;
+}
+
+int ui_laymgr_popup_inside(float x, float y)
+{
+    return x >= UI_LAYMGR_POPUP_X0 && x <= UI_LAYMGR_POPUP_X0 + UI_LAYMGR_POPUP_W &&
+           y >= UI_LAYMGR_POPUP_Y0 && y <= UI_LAYMGR_POPUP_Y0 + UI_LAYMGR_POPUP_H;
+}
