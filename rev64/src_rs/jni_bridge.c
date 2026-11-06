@@ -1031,6 +1031,9 @@ Java_com_cnvcs_App_OnCreate(JNIEnv *env, jclass clazz, jobject activity)
         if (strcmp(mt_prop, "1") == 0) {
             memset(&g_state, 0, sizeof(g_state));
             g_state.turn = SIDE_BLUE; g_state.stage = STG_PLAY; g_state.winner = -1;
+            /* ★ 幂等修复：memset 后 mines_cleared/pieces_left 残留上一次注入值（ev 漂移 5→4），
+               每次注入前重置（挖雷状态测试需确定性 ev=5）。 */
+            for (int i = 0; i < 2; i++) { g_state.mines_cleared[i] = 0; g_state.pieces_left[i] = 0; }
             for (int i = 0; i < N_CELLS; i++) g_state.cells[i].rank = RANK_EMPTY;
             g_state.cells[49].rank = 9; g_state.cells[49].side = SIDE_BLUE; g_state.cells[49].revealed = 1;
             g_state.cells[54].rank = 11 + 0xc; g_state.cells[54].side = SIDE_RED; g_state.cells[54].revealed = 1;

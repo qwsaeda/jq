@@ -61,7 +61,7 @@ for k in $KINDS; do
   case "$k" in
     walk_bridge)   timeout 10 adb -s "$DEV" shell "setprop jq.walk_bridge 1" ;;
     native_layout) timeout 10 adb -s "$DEV" shell "setprop jq.native_layout 1" ;;
-    native_event)  timeout 10 adb -s "$DEV" shell "setprop jq.native_layout 1" ;;
+    native_event)  timeout 10 adb -s "$DEV" shell "setprop jq.native_layout 1; setprop jq.native_event 1" ;;
     game_test)     timeout 10 adb -s "$DEV" shell "setprop jq.game_test 1" ;;
   esac
   sleep 5
@@ -70,7 +70,7 @@ for k in $KINDS; do
   case "$k" in
     walk_bridge)   PATTERN="WALK-BRIDGE: 完整 8 步序列完成" ;;
     native_layout) PATTERN="NATIVE-LAYOUT: F_2a380 返回" ;;
-    native_event)  PATTERN="NATIVE-EVENT: F_3ab80 返回" ;;
+    native_event)  PATTERN="F_3ab80: 事件发送.*disc=0x00000001" ;;
     game_test)     PATTERN="GAME-TEST: 端到端完成 走子=OK" ;;
   esac
   if echo "$LOG" | grep -q "$PATTERN" && [ "$CRASH" = "0" ]; then
@@ -84,7 +84,7 @@ for k in $KINDS; do
     sleep 6
     case "$k" in
       walk_bridge)   timeout 10 adb -s "$DEV" shell "setprop jq.walk_bridge 1" ;;
-      native_layout|native_event) timeout 10 adb -s "$DEV" shell "setprop jq.native_layout 1" ;;
+      native_layout|native_event) timeout 10 adb -s "$DEV" shell "setprop jq.native_layout 1; setprop jq.native_event 1" ;;
     esac
     sleep 5
     LOG=$(timeout 10 adb -s "$DEV" logcat -d 2>/dev/null)

@@ -545,12 +545,13 @@ Java_com_cnvcs_App_OnTimer(JNIEnv *env, jclass c){
                evt+0x44 = 事件码（走子=0，F_3a92c ldr r5,[r0,#68] 对比事件码）
                evt+0x48 = 事件名指针首字节（Junqi.Move @ .rodata 0x120f20，绝对指针 = g_jqt_shadow+0x120f20）
                evt+0x35 = 类型标记（F_3a92c ldrb [r0,#53]，非零才进事件表遍历） */
-            MEM(evtobj + 0x44) = 0;                          /* 事件码 0=走子 */
-            MEM(evtobj + 0x48) = JQT_ABS_PTR(0x120f20);     /* "Junqi.Move" .rodata 指针 */
-            MEM(evtobj + 0x35) = 1;                          /* 类型标记（非零进事件表遍历） */
-            /* 打日志确认事件字段填对了（32 位原生事件对象） */
-            __android_log_print(6,"junqi","NATIVE-EVENT: 真实事件对象 evt+0x35=%d evt+0x44=0x%08x evt+0x48=0x%08x(Junqi.Move@.rodata 0x120f20)",
-                (int)MEM(evtobj+0x35), MEM(evtobj+0x44), MEM(evtobj+0x48));
+            /* §124y-27：F_3a92c 匹配读 [evt+r6+r3+0x48] 的**字节**（非指针）——事件名首字节 'J'=0x4A>>4=4=事件码
+               事件表 outer[0] inner[8] @0x15af10=0x41(asr4=4)，evt+0x44=4 + evt[0x50]='J' 使 (0x4A>>4)==4 匹配成功 */
+            MEMB(evtobj + 0x35) = 1;                          /* 类型标记（非零进事件表遍历） */
+            MEM(evtobj + 0x44) = 4;                           /* 事件码 Junqi.Move=4（'J'>>4） */
+            MEMB(evtobj + 0x48 + 8) = 0x4A;                   /* 'J' 事件名首字节（outer[0] inner[8] 位） */
+            __android_log_print(6,"junqi","NATIVE-EVENT: §124y-27 事件对象 evt+0x35=%d evt+0x44=%d evt[0x50]=0x%02x('J'事件名字节，disc 非零路径)",
+                (int)MEM(evtobj+0x35), MEM(evtobj+0x44), MEMB(evtobj+0x48+8));
             uint32_t evret = F_3ab80(evtobj, 0,0,0,0,0,0,0,0,0,0,0, 0x20f000);
             __android_log_print(6,"junqi","NATIVE-EVENT: F_3ab80 返回 0x%08x evt=0x%08x（32 位原生事件链，真实事件对象）", evret, evtobj);
         }
