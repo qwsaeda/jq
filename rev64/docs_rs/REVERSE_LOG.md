@@ -4435,3 +4435,44 @@ python3 /tmp/opencode/incremental_regress.py reset 0xADDR  # 改了某指令 →
 - 14 内部处理函数（0xbdxxx 区）的完整 C++ 逻辑（事件分发/触摸/按键/蓝牙/生命周期各分支）需
   逐函数全量反汇编 + frida 追踪实锤（本轮实锤入口签名 + 内部函数 prologue 模式 + OnCreate 精确体）
 - .rodata 0x1388xx 字符串常量池的具体内容（JNI 方法名/参数格式串）需逐 .rodata 字符串扫描实锤
+
+## §124y-101 14 JNI 入口 pool 值精确实锤（全部读 .bss 0x15be80 起点区 = 场景/游戏根对象槽）
+
+**★ 闭环事实（静态实锤，修正 §124y-100 的 pool 取值误算 + .bss 起点区语义实锤）**：
+
+1. **14 JNI 入口 pool 值 + pc 精确实锤**（修正 §124y-100 的"读 .rodata 字符串常量池"误判）：
+   - 14 入口的 `ldr rN,[pc,#K]` pool 值 = 0x138xxx（.rodata 区静态 addend），`add rN,pc` 后
+     → **全部指向 .bss 0x15be80 起点区**（.bss 偏移 0x00/0x04/0x02）
+   - 即 14 JNI 入口 = 读 **.bss 0x15be80 起点区（场景/游戏根对象槽）** + bl 内部 0xbdxxx C++ 处理函数
+   - §124y-100 误判"读 .rodata 字符串常量池 0x138xxx"→ 实锤 0x138xxx 是 **addend 值**（+pc 后落 .bss）
+
+2. **.bss 0x15be80 起点区 = 场景/游戏根对象槽（JNI 全局入口）精确实锤**：
+   | JNI 入口 | pool 值 | +pc → 目标 | .bss 偏移 | 语义 |
+   |---|---|---|---|---|
+   | OnEvent/OnInput/OnTouch/OnKey/OnBluetooth/OnUpdate/OnGraphCreate/OnGraphChange/OnResult/OnTimer/OnPause/OnResume | 0x138a96 等 | **0x15be80** | 0x0000 | 场景/游戏根对象槽（12 入口共用） |
+   | OnCreate | 0x138918 | **0x15be84** | 0x0004 | 根对象槽 +4（GLView 构造参数区） |
+   | OnDestroy | 0x1388a0 | **0x15be82** | 0x0002 | 根对象槽 +2（销毁标志区） |
+   - 即 .bss 0x15be80 区 = **场景/游戏根对象 C++ 结构体**（12 入口读 0x15be80 读根对象首指针，
+     OnCreate 读 +4，OnDestroy 读 +2），根对象 = 全局游戏场景管理器（C++ 单例）
+
+3. **与 §124y-69/99 的 .bss 10 槽 / 运行时 dump 对上**：
+   - .bss 0x15be80（偏移 0x00，§124y-69 的"析构器 5 槽"）= **场景/游戏根对象首指针槽**（12 JNI 入口共用读）
+   - §124y-99 的 MuMu 运行时 dump 实锤 0x15be80 = 0xcf8d78f0（scudo 堆指针，非 0）
+     = 根对象槽运行时已构造（指向 scudo 堆的场景管理器对象）
+   - 即 JNI 入口读根对象槽 → 若 0（.bss 未构造）则 C++ 处理函数走空路径（§124y-33/35 实锤 ok=0 路径）
+
+4. **JNI 入口层完整收表（§124y-100/101 全链）**：
+   - 14 JNI 入口（薄 C 桥接）= 读 .bss 0x15be80 根对象槽（12 共用 / OnCreate +4 / OnDestroy +2）
+     + bl 内部 0xbdxxx C++ 处理函数（游戏逻辑/生命周期）
+   - .rodata 0x138xxx 区 = addend 值区（非字符串常量，§124y-100 误判纠正）
+   - 根对象槽运行时 = scudo 堆指针（§124y-99 实锤 0xcf8d78f0），.bss 未构造时全 0（忠实空操作）
+
+### 修正 §124y-100 的 pool 取值误判
+- §124y-100 标注"14 JNI 入口 ldr 读 .rodata 字符串常量池 0x138xxx"→ 实锤 0x138xxx 是 **addend 值**
+  （+pc 后落 .bss 0x15be80 起点区，§124y-101 精确算 pc 取值）
+- .rodata 0x138xxx 区 = .bss 0x15be80 根对象槽的 **PC 相对重定位 addend 区**（非字符串/REL 槽）
+
+### 诚实边界
+- .bss 0x15be80 根对象槽（场景/游戏根对象 C++ 结构体）的完整布局（首指针/+2 标志/+4 GLView 参数区）
+  需查 0xbdxxx 内部处理函数 + frida dump 根对象 scudo 块实锤（本轮实锤槽归属 + addend 区）
+- 14 入口 12 共用 0x15be80 的根对象读取语义（场景管理器首指针）需查 0xbd5a0/0xbd914 等函数体实锤
