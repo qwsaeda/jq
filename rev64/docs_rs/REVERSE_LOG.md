@@ -1286,6 +1286,58 @@ NATIVE-LAYOUT: F_2a380 返回 0x00000000 state=0xe5596ed0（32 位原生布局�
 - `jqt_vtbl.c`（5 个补全翻译体 + 前向声明 + 离线数据块）
 - `jni_aligned.c`（OnCreate native_layout 测试钩子）
 
+### §124y-21 32 位原生事件发送器 F_3ab80 补全 + 会话 B 走子桥对照
+
+**★ 背景**：§124y-17 收表了事件发送器 F_03ab80，但其翻译体是 **stub**（return 0）。
+深层事件底层 F_3432c/F_340c4/F_340a4/F_6f824/F_6efd4 已完整（§124y-20 确认），但
+F_3ab80 本体 + 它调用的 F_3a92c/F_3ab64 未收表。
+
+**★ 收表 + 补全**：
+- `dispatch_insert.py` 收表 `F_3a92c`（分发判断）+ `F_3ab64`（成功路径）
+- 补全 `F_3ab80` 完整翻译体（反汇编 0x03ab80）：
+  ```
+  r5=r0（事件对象）
+  bl F_33790(单例, [evt+0x48])    事件底层 1
+  bl F_3376c(单例, [evt+0x16c])   事件底层 2
+  bl F_336ec(单例, [evt+0x44])    事件底层 3
+  r0=F_3a92c(evt, 单例)           分发判断
+  if(!r0) bl F_336c8(单例, 0)     失败路径
+  else bl F_3ab64(evt)            成功路径
+  bl F_33684(单例, [evt+0x16c])   发送
+  ```
+
+**★ 接进走子桥对照（jni_aligned.c OnCreate 钩子）**：
+- `setprop jq.native_layout 1` → F_2a380 布局链 + F_3ab80 事件链（32 位原生）
+- `setprop jq.walk_bridge 1` → 会话 B 走子桥（替代驱动）
+- redroid 同时设两个 prop → **两条路径同时实跑通，互为对照**
+
+**★ redroid 实证（0 崩溃、进程存活）**：
+```
+NATIVE-LAYOUT: F_2a380 布局加载 state=0xe558fc10 side=0（32 位原生布局链）
+NATIVE-EVENT:  F_3ab80 事件发送 evt=0xed1018d0 disc=0x00000000（32 位原生事件链）
+WALK-BRIDGE:    完整 8 步序列完成（会话 B 引擎驱动 32 位 so 走子事件）
+```
+`disc=0` 是**诚实边界**（redroid 无资源对象图，事件对象字段全零 → F_3a92c 分发
+返回 0 走失败路径）；MuMu（有资源）下 `disc` 应非零走成功路径（F_3ab64）。
+
+**★ 两条走子路径对照表**：
+| 维度 | 32 位原生链（§124y-20/21） | 会话 B 走子桥（§124y-19） |
+|---|---|---|
+| 布局 | F_2a380 → F_3dd60（离线 JQ_DEFAULT_LAY） | 会话 B jq_load_layout（JQ_DEFAULT_LAY） |
+| 事件 | F_3ab80 → F_33790/F_3376c/F_336ec + F_3a92c/F_33684 | 会话 B jq_try_move（纯 C 走子） |
+| redroid | ✅ 布局链 + 事件链跑通（disc=0 无资源边界） | ✅ 完整 8 步序列 |
+| 真机(MuMu) | 待验证（disc 应非零走成功路径） | 不依赖 GL（纯逻辑，可跑） |
+
+**★ 关键坑（固化）**：
+1. **F_3ab80 是 stub**（§124y-17 收表时只 stub，未补全）→ 本轮补全（反汇编 0x03ab80）
+2. **F_3a92c/F_3ab64 未收表**（F_3ab80 调用的分发/成功路径底层）→ dispatch_insert 收表
+3. **诚实边界**：redroid 无资源 → 事件对象字段全零 → 分发 disc=0 走失败路径（预期非 bug）
+
+**★ 工具固化**：
+- `dispatch_insert.py`（收表 F_3a92c/F_3ab64）
+- `jqt_vtbl.c`（F_3ab80 完整翻译体 + F_3a92c/F_3ab64 stub）
+- `jni_aligned.c`（OnCreate native_event 钩子：F_3ab80 对照会话 B 走子桥）
+
 ### 32 位 native 数据提取（已完成）
 
 - 路线：redroid 真 Android 容器跑原版 32 位 so → `dd /proc/PID/mem` dump `.rodata`

@@ -548,6 +548,16 @@ Java_com_cnvcs_App_OnTimer(JNIEnv *env, jclass c){
             for (int i = 0; i < 64; i++) MEM(stobj + i*4) = (i==0) ? MEM(stobj) : 0;
             uint32_t ret = F_2a380(stobj, 0, 0,0,0,0,0,0,0,0,0,0, 0x20f000);
             __android_log_print(6,"junqi","NATIVE-LAYOUT: F_2a380 返回 0x%08x state=0x%08x（32 位原生布局链跑通）", ret, stobj);
+            /* ★ §124y-21：32 位原生事件发送器（F_3ab80）对照——构造事件对象 + 调 F_3ab80
+               （32 位原生 Junqi.* 事件链：F_33790/F_3376c/F_336ec + F_3a92c 分发 + F_33684 发送）
+               与会话 B 走子桥事件互为对照（32 位原生 vs 会话 B 替代驱动） */
+            extern uint32_t F_3ab80(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+            /* 构造 32 位事件对象（vtable + 事件字段，redroid 无资源用零初始化） */
+            uint32_t evtobj = (uint32_t)_Znwj(0x100);
+            MEM(evtobj) = JQT_ABS_PTR(0x159950);
+            for (int i = 0; i < 64; i++) MEM(evtobj + i*4) = (i==0) ? MEM(evtobj) : 0;
+            uint32_t evret = F_3ab80(evtobj, 0,0,0,0,0,0,0,0,0,0,0, 0x20f000);
+            __android_log_print(6,"junqi","NATIVE-EVENT: F_3ab80 返回 0x%08x evt=0x%08x（32 位原生事件链，会话 B 走子桥对照）", evret, evtobj);
         }
     }
     /* ★ §124y-19：会话 B 规则引擎走子桥（setprop jq.walk_bridge 1 → 开局 + 走子 + 打 Junqi.* 事件）
