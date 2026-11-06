@@ -374,7 +374,10 @@ def check_geometry(menu_src=None, verbose=True):
             for i2, (lbl, x0, y0, x1, y1) in enumerate(obtns):
                 pairs.append((lbl, (ox+x0, oy+y0, ox+x1, oy+y1),
                               (srcs[i2][0],srcs[i2][1],srcs[i2][2],srcs[i2][3])))
-        if not srcs or len(srcs) < 3:
+        # 跳过 Δ 比对的 DIALOGS（029 chatlog 只有 2 按钮，002 bright 3 控件走循环切换）
+        skip_delta = dname in ("datah_029_chatlog",)
+        need_n = 2 if skip_delta else 3
+        if not srcs or len(srcs) < need_n:
             if verbose and verbose_global: print(f"  {dname} src_rs 按钮表缺失/不足（{len(srcs)} 行）→ 跳过 Δ 比对（诚实边界）")
             continue
         for lbl, (oox0,ooy0,oox1,ooy1), so in pairs:
