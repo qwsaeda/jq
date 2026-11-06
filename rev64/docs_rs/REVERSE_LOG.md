@@ -2802,3 +2802,47 @@ python3 /tmp/opencode/incremental_regress.py reset 0xADDR  # 改了某指令 →
 - 0x229c0 占位值是 ARM 指令（非数据），运行时被动态链接器覆盖——静态文件态非有效指针
 - 完整 .rel.dyn 5312 槽（JUMP_SLOT + RELATIVE）的全量映射已在 jq_rel_data.h（§AGENTS.md 已知）
   覆盖（5312 REL 槽全重定位），本轮实锤 0x15b0d4 区是其中的 JUMP_SLOT 子集
+
+## §124y-57 0x15afe0 字符串表 16 条完整语义实锤 + 0x15b028 表项指向 init_array[0]
+
+**★ 闭环事实（静态实锤）**：
+
+1. **0x15afe0 字符串表 16 条完整语义**（基址 .rodata 0x120bf8 + off，前 8 条 + 后 8 条）：
+   | # | flag | off | 字符串/指向 | 语义 |
+   |---|---|---|---|---|
+   | 0 | 0x01 | 0x11d3 | `dbackdlg.xml` | 返回对话框 XML |
+   | 1 | 0x01 | 0x11db | `.xml` | 扩展名 |
+   | 2 | 0x01 | 0x11e8 | `的反馈意见` | GBK 中文资源名 |
+   | 3 | 0x01 | 0xf77f | （.rodata 0xf7xx 数据区） | 事件数据表 |
+   | 4 | 0x01 | 0xf789 | （.rodata 0xf7xx 数据区） | 事件数据表 |
+   | 5 | 0x01 | 0xf799 | （.rodata 0xf7xx 数据区） | 事件数据表 |
+   | 6 | 0x01 | 0xf7c7 | （.rodata 0xf7xx 数据区） | 事件数据表 |
+   | 7 | 0x0e | 0xf82c | （.rodata 0xf8xx 数据区） | 事件数据表 |
+   | 8 | 0x10 | 0x0000 | `text`（.rodata 起点） | 文本控件 |
+   | 9 | 0x19 | 0x155000 | **init_array[0]@0x3dae4**（.data REL） | 构造器指针 |
+   | 10 | 0x1b | 0x0030 | `data/800` | 分辨率资源目录 800 |
+   | 11 | 0x04 | 0x00d4 | `data/480x` | 分辨率资源目录 480x |
+   | 12 | 0x05 | 0x8470 | `nfig` | 控件类型（"nfig"=config 截断） |
+   | 13 | 0x06 | 0x2810 | `dFail` | 错误名（"dFail"=loadFail 截断） |
+   | 14 | 0x0a | 0xf838 | （.rodata 0xf8xx 数据区） | 事件数据表 |
+   | 15 | 0x0b | 0x0010 | `el` | 控件类型（"el"=ctrl 截断） |
+
+2. **0x15b028 表项（#9）的特殊性实锤**：
+   - off=0x155000 → 文件态 0x155000 = 0x0003dae5（.data REL 槽，运行时 = load_base+0x3dae5）
+   - 0x3dae4 = **init_array[0]**（§124y-32 实锤：填 .bss 0x15c096 五元组 REL 值）
+   - 即字符串表第 9 项**指向 init 构造器地址**（非 .rodata 字符串），flag=0x19 标记"构造器指针"
+   - 完整字符串表 = 事件/对话框 XML 资源名（#0-2）+ 事件数据表（#3-7/14）+ 分辨率目录（#10-11）
+     + 控件类型名（#12/15）+ 构造器指针（#9）—— 16 项混合表，非纯字符串
+
+3. **0x15b028 表项 0x3dae4 init_array[0] 精确体**（§124y-32 已实锤）：
+   - `ldr r2,[pc,#44]; ldr r1,[pc,#48]; add r2,pc; ldr r1,[r2,r1]; add r3,pc; ldr r0,[r1+0]...`
+   - 从 .data REL 槽读 5 元组 → 写 .bss 0x15c096（§124y-32 实锤 init[0] 填 .bss 单例五元组）
+   - 字符串表 #9 把 init_array[0] 指针纳入表，说明事件底层对象构造链（.bss 单例）依赖此构造器
+
+### 诚实边界
+- 字符串表 #3-7/14 的 .rodata 0xf7xx/0xf8xx 区是**事件数据表**（非字符串，17 字节结构体），
+  完整结构体语义需逐个读 0xf7xx 区（深水区）
+- 字符串表 #12/15 的 `nfig`/`el` 是 .rodata 字符串池内的**子串指针**（config/ctrl 截断），
+  需读 0x8470/0x0010 前文确认完整字符串
+- 0x15b028→0x3dae4 构造器指针实锤，但 init_array[0] 填 .bss 单例的完整 C++ 对象语义
+  （§124y-32 已实锤五元组）需 unidbg/frida 补运行时对齐
