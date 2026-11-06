@@ -1317,8 +1317,23 @@ NATIVE-LAYOUT: F_2a380 布局加载 state=0xe558fc10 side=0（32 位原生布局
 NATIVE-EVENT:  F_3ab80 事件发送 evt=0xed1018d0 disc=0x00000000（32 位原生事件链）
 WALK-BRIDGE:    完整 8 步序列完成（会话 B 引擎驱动 32 位 so 走子事件）
 ```
-`disc=0` 是**诚实边界**（redroid 无资源对象图，事件对象字段全零 → F_3a92c 分发
-返回 0 走失败路径）；MuMu（有资源）下 `disc` 应非零走成功路径（F_3ab64）。
+
+**★ MuMu 实证（0 崩溃、进程存活，11-06 09:09）**：
+```
+NATIVE-LAYOUT: F_2a380 布局加载 state=0xe7703cd0（32 位原生布局链跑通）
+NATIVE-EVENT:  F_3ab80 事件发送 evt=0xc4ceb870 disc=0x00000000（事件对象构造成功）
+WALK-BRIDGE:    完整 8 步序列（Junqi.Move cell6→11 / cell33→38，会话 B 引擎驱动）
+```
+
+**★ disc=0 根因纠正（§124y-21）**：
+- 初判"redroid 无资源 → 事件对象全零 → disc=0"是**误读**。MuMu（有 GPU + 资源加载）
+  跑同一钩子 `disc` 仍=0 → **根因是钩子构造的 evtobj 是全零事件对象**
+  （`for i<64: MEM(evtobj+i*4)=0`），`F_3ab80` 的 `else F_3ab64(evtobj)` 成功路径
+  需**真实事件字段**（`evt+0x48`/`evt+0x44`/`evt+0x16c` 事件名指针 + 参数），
+  全零 → `F_3a92c` 分发判断 0 → 走失败路径（预期行为，非 bug、非资源缺失）
+- 要 `disc` 非零需**构造真实事件对象**：填事件字段 + 指向 .rodata 的 `Junqi.Move`
+  字符串指针（32 位 so .rodata 73 条 Junqi.* 明文）+ 事件参数（走子 cell 坐标/rank）
+- 这是下一步工作（§124y-22 候选）
 
 **★ 两条走子路径对照表**：
 | 维度 | 32 位原生链（§124y-20/21） | 会话 B 走子桥（§124y-19） |
