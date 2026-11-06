@@ -1423,6 +1423,36 @@ frame loop 抢占 eglMakeCurrent 失败）+ crash_dump 写 tombstone 时的 EGL 
 | redroid/MuMu | ✅ 布局链 + 事件链跑通（disc=0 未全填） | ✅ 完整 8 步序列 |
 | 诚实边界 | 完整事件对象需 32 位 C++ 事件结构逆向 | 不依赖 GL（纯逻辑） |
 
+### §124y-23 三条走子路径回归脚本（arm32_walkregress.sh）+ §124y-24 全局单例事件发送逆向
+
+**§124y-23 回归脚本固化**：
+- `arm32_walkregress.sh` 一键回归 3 条走子路径（§124y-19/20/21/22）：
+  - `walk_bridge`：会话 B 规则引擎走子桥（纯 C 走子，完整 8 步序列）
+  - `native_layout`：32 位原生布局加载链（F_2a380 → F_3dd60 → F_2a340）
+  - `native_event`：32 位原生事件发送器（F_3ab80 真实事件对象）
+- 判据：每条路径 logcat 匹配特定日志 + 0 崩溃；整体 0 崩溃
+- 首跑失败自动重跑一次（MuMu EGL 多线程竞争瞬时时序，非代码回归）
+- 用法：`bash rev64/tools/arm32_walkregress.sh --dev 10.0.182.146:5555 --no-install`
+- MuMu 实测：PASS=3 FAIL=0 + 全局崩溃 0
+
+**§124y-24 事件发送全局单例逆向（诚实边界）**：
+- F_33684（事件发送）→ F_34918（底层）：`ldr r3,[pc,#12]` + `add r3,pc` + `ldr r0,[r3]`
+  读全局单例 `0x15be86`（.bss 起点，运行时 RELATIVE 重定位 += load_base）
+- `.data` 静态初始值 `0x15be86=0x554e4728`（运行时 MuMu 会写，redroid 可能未写）
+- **disc 非零的关键**：F_3a92c 分发要事件表真实数据（0x120790 在 .text 代码段，
+  非 .rodata 指针池），实际事件字符串池在 .rodata `0x120f14` 起（§124y-22 纠正）
+- 完整事件对象布局（32 位 C++ 事件对象 `evt+0x35` 类型 / `evt+0x44` 事件码 /
+  `evt+0x48+` 事件名+参数）需进一步逆向，当前标记为未闭环候选
+
+**★ 关键坑（固化）**：
+1. **0x120790 误标纠正**（§124y-22）：`.rodata` 从 `0x120bf8` 起，`0x120790 < 0x120bf8`
+   → 在 .text 代码段（`_ZNSt10_UnderflowIc...` C++ 函数体），非 .rodata 事件表。
+   真正的事件字符串池在 .rodata `0x120f14` 起
+2. **全局单例 0x15be86**：F_34918 事件发送读的全局单例，.bss 起点，运行时 RELATIVE
+   重定位 += load_base。`.data` 静态值 `0x554e4728`（运行时 MuMu 写真实单例指针）
+3. **disc 非零需完整事件结构**：F_3a92c 遍历事件表匹配事件名字节，需 32 位 C++
+   事件对象布局逆向（`evt+0x35/0x44/0x48+`），当前走子桥（会话 B 纯 C）是对照基准
+
 ### 32 位 native 数据提取（已完成）
 
 - 路线：redroid 真 Android 容器跑原版 32 位 so → `dd /proc/PID/mem` dump `.rodata`
