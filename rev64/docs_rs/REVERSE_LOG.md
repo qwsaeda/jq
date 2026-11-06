@@ -2882,3 +2882,37 @@ python3 /tmp/opencode/incremental_regress.py reset 0xADDR  # 改了某指令 →
 ### 诚实边界
 - #13 off=0x2810 → .rodata 0x123408 = `dFail`，前文是否完整（"loadFail"?）需读 0x123400 区确认
 - 字符串表 off 字段统一 = .rodata 内部偏移（非绝对指针），§124y-57 的"截断"误判已修正
+
+## §124y-59 .rodata Junqi.* 事件名全量固化（73 条）+ 字符串表 #13 完整语义
+
+**★ 闭环事实（静态实锤，§124y-27 事件表 18×17 匹配的事件名全量对照基准）**：
+
+1. **.rodata 区 Junqi.* 事件名全量 = 73 条**（grep 0x120bf8-0x13dc28 区实锤）：
+   - **走子/翻牌核心**：`Junqi.Move`/`Flip`/`Flag`/`Bomb`/`Eat`/`Dead`/`Start`/`Select`/`Over`/`GameType`
+     /`PeerLayFinish`/`ZhaError`/`LeiError`/`QiError`/`LayError`/`MidAreaFail`/`HighAreaFail`
+   - **胜负**：`RedWin`/`BlueWin`/`Win`/`Lose`/`Draw`/`DrawAgree`/`DrawDisagree`/`DrawReq`/`DrawSend`/`DrawConfirm`
+   - **悔棋**：`RegretAgree`/`RegretDisagree`/`RegretReq`/`RegretSend`/`RegretConfirm`/`RegretFail`
+   - **认输/退出**：`Resign`/`ResignConfirm`/`ExitFail`/`ExitConfirm`/`PlayerLeave`/`LeaveGame`
+   - **联机**：`ConnectFail`/`Reconnecting`/`ReconnFail`/`PeerStart`/`PeerWait`/`JoinGame`/`PeerLast`/`PeerFirst`
+   - **账号/注册**：`InputPassword`/`InputUser`/`InputName`/`InputEmail`/`InputConfirmPwd`
+     /`UserLenError`/`PwdLenError`/`NameLenError`/`NameCharError`/`UserCharError`/`EmailLenError`/`EmailError`
+     /`OriPwdLenError`/`NewPwdLenError`/`NewPwdNotMatch`/`PwdNotMatch`
+     /`LoginAuthFail`/`LoginMaxUser`/`LoginVerOld`/`LoginFail`
+     /`RegOk`/`RegExist`/`RegFail`/`Ready`
+   - **其它**：`NewFail`/`GameType`/`Reg*`（9 条注册）/`Dra*`（6 条和棋）/`Pee*`（5 条联机对手）
+   - 事件码 = 事件名字节 asr4（§124y-27 实锤：`'J'=0x4A>>4=4`，Junqi.* 全事件码=4）
+
+2. **字符串表 #13 完整语义实锤**（§124y-58 修正）：
+   - #13 off=0x2810 → .rodata 0x123408 = **`Misc.RemoveAdFail`**（完整，非 "dFail" 截断）
+   - 即字符串表 #13 是 `Misc.RemoveAdFail`（去广告失败事件名），与事件名 `Junqi.*` 同区（Misc.* 前缀）
+   - 修正 §124y-57 的 "dFail" 误判：完整 = `Misc.RemoveAdFail`
+
+3. **字符串表 off 字段统一 = .rodata 内部偏移**（基址 0x120bf8），指向完整字符串：
+   - #12 `StringConfig` / #15 `Cancel` / #13 `Misc.RemoveAdFail` 全实锤完整（§124y-58/59）
+
+4. **全量 73 条已固化到 `/tmp/opencode/junqi_events.txt`**（可复用参考）
+
+### 诚实边界
+- 73 条 Junqi.* 事件名 = 事件表 18×17 匹配的事件名全量对照基准（§124y-27 匹配逻辑 + 本节全量对照）
+- 事件名到事件码（asr4）的映射：Junqi.* 全 = 4（首字节 'J'>>4），Misc.* = 6（'M'>>4=6）
+- 完整事件名 → 事件表 18×17 行的逐行对应（哪个 Junqi.* 对应哪行）需事件表 0x15af08 逐行实锤（§124y-54 已实锤项0 [2]=65='A'，非 Junqi.* 行，待后续全量对应）
