@@ -1152,6 +1152,28 @@ sha256 5908d27df1a038f6a393836c8098dbf68177b70f588468a3f921d0c6f276b5b8)
 
 **几何 Δ 校验**（`python3 rev64/tools/layout_align_check.py --baseline`）：PASS（9 弹窗逐按钮 Δc=+0.0/+0.5 全 ✓，取整容差内；datah_003/008/060 Δc=0.0 精确对齐，其余 +0.5 取整容差）
 
+**真机截图非黑比**（MuMu 真机，9 弹窗逐个 setprop 钩子触发 + screencap 面板区非黑探测）：
+- datah_003 setentry：面板区非黑 99% ✓
+- datah_004 setentry4：面板区非黑 100% ✓
+- datah_007 imgset7：面板区非黑 99% ✓
+- datah_008 imgset8：面板区非黑 98% ✓
+- datah_065 join065：面板区非黑 99% ✓
+- datah_069 create069：面板区非黑 99% ✓
+- datah_070 rules070：面板区非黑 99% ✓
+- datah_060 room060：面板区非黑 99% ✓
+- datah_063 chat063：面板区非黑 98% ✓
+
+**rs_draw_* logcat 出帧证据**（MuMu 真机，9 弹窗逐个 setprop 钩子触发，每弹窗 rs_draw_* 日志实证）：
+- rs_draw_setentry（datah_004 简化版，面板 260×190）✓
+- rs_draw_imgset（datah_007 完整版 450×465 / datah_008 简化版 450×390）✓
+- rs_draw_join065（datah_065 面板 450×505，8 显示占位标签 + 开始/取消）✓
+- rs_draw_create069（datah_069 面板 450×465，4 选择 + 确定/取消）✓
+- rs_draw_rules070（datah_070 面板 450×465，4 规则开关 + 确定/取消）✓
+- rs_draw_room060（datah_060 面板 450×352，2 玩家占位标签 + 开始/换桌/离开）✓
+- rs_draw_chat063（datah_063 面板 420×325，Msg 占位标签 + 发送/记录/关闭）✓
+
+**so 哈希**：`b174dbb57d380dcae0777f34fe2b7b82`（P2 批量 9 弹窗补齐，300976B）
+
 **★ 诚实边界汇总（触摸命中 flaky，非触摸实证）**：
 - 9 弹窗几何 Δ=0 + 渲染出帧（rs_draw_setentry/rs_draw_imgset/rs_draw_join065/rs_draw_create069/rs_draw_rules070/rs_draw_room060/rs_draw_chat063 logcat）+ 截图非黑 为真机实证；触摸命中（点各按钮业务动作）真机触摸 flaky（MuMu PBuffer 坐标映射非线性）→ 业务逻辑用**桌面 evverify 9 run_* PASS（几何 + 命中判定 + 业务分支）+ 代码路径证明（jni_bridge.c UI_* 命中分发块）**，非触摸糊弄
 - **图像设置（datah_007/008）渲染参数未实现**（src_rs 无对应渲染参数），开关只是 UI 状态记录（不实际改渲染），不包装成"已改渲染"
