@@ -3281,3 +3281,38 @@ python3 /tmp/opencode/incremental_regress.py reset 0xADDR  # 改了某指令 →
 - .bss 单例槽 scudo 运行时指针需 frida dump（unidbg BL 解码 bug 阻塞）
 - .data REL 槽（0x15b0c4/0x15b0c8/0x15b640/0x15af08）已由 jq_rel_data.h 重定位覆盖，设备实锤读通
 - 完整 std::string SSO/堆分配切换需 unidbg 补 12 构造器 BL 链（§124y-63 事件名比较器 0x6efd4）
+
+## §124y-70 .bss 段范围精确实锤（0x15be80-0x162e88, size 0x7008）+ 10 槽偏移全量对应
+
+**★ 闭环事实（静态实锤，补全 §124y-69 的 .bss 段布局）**：
+
+1. **.bss 段精确范围**（readelf -S 实锤）：
+   - `.bss NOBITS 0x15be80 size 0x7008` → 0x15be80 - 0x162e88（28672 字节 = 0x7008）
+   - 即 .bss 段 0x15be80 起 0x7008 字节，终点 0x162e88
+
+2. **10 单例槽的 .bss 偏移全量对应**（§124y-69 表补偏移列）：
+   | 槽 | .bss 偏移 | 区 |
+   |---|---|---|
+   | 0x15be80 | 0x0000 | .bss 起点 |
+   | 0x15beb0 | 0x0030 | 低区（事件底层 ①） |
+   | 0x15beb8 | 0x0038 | 低区（事件底层 ⑥） |
+   | 0x15bef0 | 0x0070 | 低区 |
+   | 0x15befa | 0x007a | 低区 |
+   | 0x15bf0c | 0x008c | 低区（F_a373c 容器） |
+   | 0x15bfe4 | 0x0164 | 低区（5 底层共用） |
+   | 0x15bfec | 0x016c | 低区（F_3ab64 single） |
+   | 0x162660 | 0x67E0 | 高区（C++ locale 对象堆） |
+   | 0x162668 | 0x67E8 | 高区（C++ locale 对象堆） |
+   - **低区 8 槽（.bss 偏移 0x00-0x16c）= 事件底层 C++ 单例**
+   - **高区 2 槽（.bss 偏移 0x67E0-0x67E8）= C++ 全局 locale 对象堆**
+   - 两区相差 0x67xx（约 26KB），即 .bss 段内事件底层单例（低区）与 C++ locale 全局（高区）分两区分布
+
+3. **与 §124y-32 的 .bss 区 5 条 RELATIVE 槽（0x15be00-0x15be2c）的区分**：
+   - §124y-32 实锤 .bss 偏移 0x15be00/04/14/18/2c（.data 区 REL 槽，指向 .rodata vtable）
+   - 本轮 10 槽 = .bss 0x15be80-0x162e88 段的 C++ 单例槽（惰性构造，非 REL 槽）
+   - 即 .bss 区全量 = **偏移 0x00 的 RELATIVE 槽（5 条，.rodata vtable 指针）** + **偏移 0x00 区 C++ 单例槽（10 条，惰性构造）**
+
+### 诚实边界
+- .bss 段 0x7008 字节（0x15be80-0x162e88）完整布局：低区 0x00-0x16c 事件底层 10 单例槽 +
+  高区 0x67E0-0x67E8 locale 对象堆（中间 0x16c-0x67E0 区未逐一收表）
+- 中间区（.bss 偏移 0x170-0x67D8，约 25KB）的 C++ 对象分布需 frida dump .bss 段全量实锤
