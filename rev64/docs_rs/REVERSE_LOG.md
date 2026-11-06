@@ -2771,3 +2771,34 @@ python3 /tmp/opencode/incremental_regress.py reset 0xADDR  # 改了某指令 →
    - 原版 ① ⑥ 读 .bss 0x15beb0/0x15beb8（C++ 惰性 scudo），与 .data 0x15b0c4 不同机制
    - .bss 未构造时 0x15beb0/0x15beb8 = 0（忠实空操作），不影响 4 路径回归
    - 精确 pc 取值（+4 惯例）需 frida dump 实锤 0x15beb0/0x15beb8/0x15bfe4/0x15bfec 4 槽 scudo 块
+
+## §124y-56 .data 0x15b0d4 区 JUMP_SLOT GOT 表实锤（0x229c0 默认解析值）
+
+**★ 闭环事实（静态实锤）**：
+
+1. **.data 0x15b0d4-0x15b0e8 区 = PLT JUMP_SLOT GOT 表**（.rel.dyn R_ARM_JUMP_SLOT 槽）：
+   - 0x15b0d4 = `__aeabi_fadd`（PLT 跳板）
+   - 0x15b0d8 = `sem_init`
+   - 0x15b0e0 = `rewind`
+   - 0x15b0e4 = `bind`
+   - 0x15b0e8 = `sysconf`
+   - 等（完整 .rel.dyn 5312 槽含全量 JUMP_SLOT + RELATIVE）
+   - 文件态全 = 0x229c0（PLT 默认解析值，运行时动态链接器填真实符号地址）
+
+2. **0x229c0 位置**：.so 文件偏移 0x229c0（非 .text/.rodata/.data 区，是 PLT 默认解析目标）
+   - 文件态 0x229c0 = 0xe52de004（ARM 指令，非有效地址，是 GOT 槽未解析时的占位值）
+   - 运行时 dlopen 动态链接器把各 JUMP_SLOT 槽（0x15b0d4 等）填成 `__aeabi_fadd`/`sem_init` 等真实地址
+
+3. **与事件底层单例槽（.bss 0x15be/0x15bf 区）的区分**：
+   - 0x15b0d4-0x15b0e8 = PLT GOT 表（C 函数跳板，动态链接填真实函数地址）
+   - 0x15beb0/0x15beb8/0x15bfe4/0x15bfec = C++ 单例槽（C++ 惰性构造填 scudo 对象）
+   - 两者同 .data/.bss 区但性质不同：GOT = PLT 跳板（libc 函数），单例槽 = C++ 对象指针
+
+4. **翻译体对应**：GOT 表 0x15b0d4 区在翻译体里通过 JUMP_SLOT 重定位映射到 libc 函数
+   （__aeabi_fadd/sem_init/rewind/bind/sysconf 等，§AGENTS.md 已知依赖 libc/libstdc++）；
+   翻译体 .so 的 GOT 表由 NDK 动态链接器填，无需手动处理
+
+### 诚实边界
+- 0x229c0 占位值是 ARM 指令（非数据），运行时被动态链接器覆盖——静态文件态非有效指针
+- 完整 .rel.dyn 5312 槽（JUMP_SLOT + RELATIVE）的全量映射已在 jq_rel_data.h（§AGENTS.md 已知）
+  覆盖（5312 REL 槽全重定位），本轮实锤 0x15b0d4 区是其中的 JUMP_SLOT 子集
