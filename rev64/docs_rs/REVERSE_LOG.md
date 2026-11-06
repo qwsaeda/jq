@@ -4164,3 +4164,33 @@ python3 /tmp/opencode/incremental_regress.py reset 0xADDR  # 改了某指令 →
   需 frida dump .data/.bss 区 scudo 指针实锤（本轮实锤 addend 分布，未实锤对象内容）
 - .got 区 100 槽 .bss addend（C++ 对象堆 scudo 指针）需 frida dump .bss 运行时实锤
   （§124y-71 实锤 .bss 0 REL 槽，本轮实锤 .got 458 槽中 100 槽指向 .bss）
+
+## §124y-93 .got 区指向 .data 区的 239 REL 槽精确实锤（216 .data.rel.ro C++ vtable + 23 .data 对象）
+
+**★ 闭环事实（静态实锤，.got 区 239 个指向 .data 区的 REL 槽分布 + 对象布局）**：
+
+1. **.got 区 239 个指向 .data 区的 REL 槽 addend 精确分布**：
+   - **.data.rel.ro 区 216 个**（0x155030-0x15afe0，C++ vtable/对象表）
+   - .got 区 0 个 / .data 区 23 个（0x15bb6c-0x15be80）
+   - 全 239 唯一（无共享），即 .got 区 239 槽 = 216 .data.rel.ro 对象指针 + 23 .data 对象指针
+
+2. **.data.rel.ro C++ vtable/对象表布局实锤（0x15ac78/0x159f88 区抽样）**：
+   - `0x15ac74/78/7c = 0`（对齐空槽）+ `0x15ac80/84 = 0x11b2c5/0x11b2e5`（.text 函数指针，Thumb 标志）
+   - `0x159f84/88/8c = 0` + `0x159f90 = 0x0bfacd`（.text 函数指针）
+   - 即 .data.rel.ro 区 = **C++ vtable 表**（全 0 槽 = 虚函数 NULL / .text 指针 = 虚函数地址，
+     §124y-82 的 4800 REL 槽 92.3% .text 同源机制）
+   - .got 区 216 槽 → .data.rel.ro vtable 表（C++ 对象 vtable 指针，运行时 load_base + addend）
+
+3. **.got 区 458 REL 槽全量语义总表（§124y-92/93 补全）**：
+   | addend 段 | 槽数 | 精确对象 |
+   |---|---|---|
+   | .data.rel.ro（216） | C++ vtable 表（全 0 / .text 虚函数指针混合，§124y-93 实锤） |
+   | .data（23） | C++ 数据对象（0x15bbxx 区，§124y-85 的 42 REL 槽同源） |
+   | .bss（100） | C++ 对象堆 scudo 指针（运行时填，§124y-71 实锤 .bss 0 REL） |
+   | .text（93） | C++ 虚函数/回调（§124y-82 的 .text addend 同源） |
+   | .rodata（26） | C++ 常量数据（§124y-80 的 0x125ac0 区同源） |
+
+### 诚实边界
+- .data.rel.ro 216 槽 vtable 表的完整 C++ 对象图（216 个 vtable 对应哪些 C++ 类）需
+  unidbg 补重定位 + frida dump 运行时 C++ 对象虚表实锤（本轮实锤 addend 分布 + vtable 布局）
+- .got 区 100 槽 .bss addend（scudo 指针）需 frida dump .bss 0x15be80-0x162e88 全量实锤
