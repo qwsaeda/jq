@@ -585,3 +585,7 @@ Interceptor.attach(Module.getExportByName('libdl.so', 'android_dlopen_ext'), {
    多 code 共用 1 handler = 同一 handler 的字段/子状态变体（非独立逻辑）
 6. dump 文件偏移 = 段偏移对齐（§124y-108 实锤）：dump[0] = .bss[0]（段起点值核对），
    dump 偏移 0xNNNN = 段偏移 0xNNNN（dump 从段 0 开始，非全 so 偏移）
+7. C++ 枚举编码 ×N 移位（§124y-123 实锤）：`movs r1,#K; lsls r1,#N` = 枚举值 K×2^N（如 155×2=310）
+   是 C++ enum 2 字节/多字节对齐编码，读枚举值时须 lsls 还原（勿把编码后值 310 当直接枚举值 155）
+8. .bss 区 0 REL 槽（§124y-71/125 实锤）：.bss 全段 0 REL（4800+458+42 全在 .bss 外），
+   .bss 目标一律 NOBITS scudo 运行时填，静态读 = 全 0 / 读到 .comment 字节（§124y-32 坑），勿静态判值
