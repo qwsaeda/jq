@@ -1680,6 +1680,38 @@ F_3ab64: 成功路径 single=0x00000000 evt+0x44=0x04 F_55d40 ret=0x00000002 ok=
 - 73 thunk 只提取了前 30（objdump stop-address 0x55ee8）；剩余 43 thunk 未逐个提取（低优先级）
 - 事件业务真分发（走子/翻牌/终局）需 .bss 单例 handler 表构造 = 深水区，未闭环
 
+### §124y-30 F_55d40 全量 42 code 映射 + 3 新 handler（codes 34-41）收表
+
+**★ 定义**：§124y-29 的 codes 0-20 switch 扩展到全量 42 code（0x55d40 区 42 thunk 提取实锤），
+补全 3 个新 handler（F_3deb0/F_853c0/F_3f8f4，codes 34-41 区）。
+
+**★ 全量 42 code→handler 映射**（objdump 0x55d40-0x55ee8 提取 42 bl，24 个不同 handler）：
+- codes 0-6 各专属（557d4/5586c/557d0/557cc/8571c/85798/857b0）
+- codes 7-10→0x85348；11→0xb549c；12→0x85704；13→0xb54dc；14-15→0xb52a0
+- 16→0x33878；17→0x85744；18→0x85730；19→0x85758；20-23→0x55dc4
+- 24/26→0x55ba4；25/27→0x557c8；28/30/32→0x82d3c；29/31/33→0xb4edc
+- 34→0x3deb0；35→0x853c0；36/38→0x857b0；37/39/41→0x85798；40→0x3f8f4
+
+**★ 3 新 handler 完整翻译体**（jqt_vtbl.c，codes 34-41 区，均返回 2 兜底）：
+- F_3deb0：ldr [pc]→bl 0x279cc（事件底层对象 getter，深层 C++ 对象图）
+- F_853c0：ldr [r0+0x38] 非零→bl 0x84118（事件底层 vtable 深层）
+- F_3f8f4：事件名写入 + bl 0x857b0（字符串构造链，深层 C++）
+
+**★ 实证（MuMu so 8320052B，2026-11-06 13:42）**：
+```
+F_3a92c: 事件表匹配 outer=0 inner=8 tbl=0x41 evt+0x44=0x04（disc 非零）
+F_8571c: 0x38=0（.bss 未构造，返回 2 兜底走通成功路径）
+F_55d40: code=4 → handler=0x0008571c ret=0x00000002（§124y-29 事件业务分发）
+F_3ab64: 成功路径 single=0x00000000 evt+0x44=0x04 F_55d40 ret=0x00000002 ok=1
+```
+- ok=1 + 0 崩溃 + app 存活
+- arm32_walkregress.sh 4/4 PASS（native_event 首跑瞬时时序，重跑过）
+
+**★ 诚实边界**：
+- codes 42-72 的 31 thunk 未逐个提取（0x55ee8 之后），低优先级
+- 4 个 auto-stub handler（b549c/b54dc/b52a0/b4edc）返回 r0（single=0）→ codes 11/13/14/15 的
+  F_55d40 ret=0 → ok=0（仅 code=4 主链实锤 ok=1）；若需全 code ok=1 需其 body 改返回 2
+
 ### 32 位 native 数据提取（已完成）
 
 - 路线：redroid 真 Android 容器跑原版 32 位 so → `dd /proc/PID/mem` dump `.rodata`
