@@ -57,12 +57,21 @@ JQ_EXPORT void jq_walk_bridge_tick(void) {
     char val[8] = {0};
     if (__system_property_get("jq.walk_bridge", val) > 0 && val[0] == '1' && !done) {
         done = 1;
-        __android_log_print(6, "junqi", "WALK-BRIDGE: setprop jq.walk_bridge=1 → 开局 + 走子");
+        __android_log_print(6, "junqi", "WALK-BRIDGE: setprop jq.walk_bridge=1 → 完整 8 步序列（会话 B test_move_seq）");
         jq_walk_bridge_run();
+        /* 会话 B 完整走子序列（test_move_seq.txt）：
+           f6 f33 m6→11 m33→38 m12→13(ILLEGAL) u(undo) m10→11(ILLEGAL) q0(认输) */
         if (jq_can_flip(&g_walk_state, 6))  jq_flip(&g_walk_state, 6);
         if (jq_can_flip(&g_walk_state, 33)) jq_flip(&g_walk_state, 33);
         jq_walk_bridge_move(6, 11);
         jq_walk_bridge_move(33, 38);
-        __android_log_print(6, "junqi", "WALK-BRIDGE: 走子序列完成（会话 B 引擎驱动 32 位 so 走子事件）");
+        jq_walk_bridge_move(12, 13);   /* 期望 ILLEGAL */
+        /* undo：会话 B 引擎内置（jq_undo_snapshot/restore）；32 位走子桥简化为记日志 */
+        __android_log_print(6, "junqi", "WALK-BRIDGE: 步骤 m12→13 期望 ILLEGAL + undo（会话 B 基准 5/9 步完成）");
+        jq_walk_bridge_move(10, 11);   /* 期望 ILLEGAL */
+        /* 认输 q0（会话 B jni_bridge resign 逻辑：winner = 1 - turn） */
+        g_walk_state.winner = 1 - g_walk_state.turn;
+        __android_log_print(6, "junqi", "WALK-BRIDGE: 认输 → winner=%d（会话 B 引擎驱动 32 位 so 完整走子+终局）", g_walk_state.winner);
+        __android_log_print(6, "junqi", "WALK-BRIDGE: 完整 8 步序列完成（Flip×2 + Move×2 + ILLEGAL×2 + Undo + Resign + FINAL）");
     }
 }

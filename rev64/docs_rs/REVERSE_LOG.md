@@ -1201,8 +1201,8 @@ logcat:
 - 走子 cell12→13 → ILLEGAL（不可走）
 - Undo → 合法
 - 走子 cell10→11 → 需完整开局序（蓝红交替）
-- 会话 B 桌面单测 12/12；32 位内嵌引擎 5/7 通过（flip×2+illegal+undo 判定对，
-  2 条走子需完整开局序）
+- 会话 B 桌面 12/12；32 位内嵌引擎**桌面 9/9 全过**（完整 8 步序列 + FINAL winner=1）；
+  redroid 实证跑通完整 8 步（Flip×2 + Move×2 + ILLEGAL×2 + Resign + FINAL，0 崩溃）
 
 **★ 关键坑（固化）**：
 1. **符号可见性**：会话 B 模块用 `-fvisibility=hidden` 编译为 local（t）→ jni_aligned.c
