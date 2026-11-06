@@ -2101,3 +2101,29 @@ python3 /tmp/opencode/incremental_regress.py reset 0xADDR  # 改了某指令 →
 - F_5a104 创建工厂"返回入参"语义已忠实，但 9 入口场景（0x3acxx 区场景对象池 bl 0x3a984→0x5a104）
   需 C++ 事件对象 new（0x855c4 bl 目标，堆分配校验）——.bss 未构造时忠实早退返回 0，
   完整创建链需 0x855c4 堆校验 + 0x8548c 字段填充深水区（C++ 对象图运行时内存对齐）
+## §124y-36 4 个 auto-stub handler 忠实化确认（jqt_OnCreate_full.c 已有）
+
+**★ 闭环事实（本轮实锤）**：
+
+1. **4 个 auto-stub handler 在 jqt_OnCreate_full.c 已有忠实翻译体**（§124y-29 生成器产出，
+   非"return 2 兜底"——之前 §124y-29 标记的"4 auto-stub 去重坑"指它们曾被去重成 auto-stub
+   返回 2，本轮实锤已在 jqt_OnCreate_full.c 重新生成完整忠实体）：
+   - `F_b549c`（code11）：vtable 写 `[r0+0]=vtable+8`（REL 0x159e8e）+ `[r0+4/8/12]=0`
+     → `RET: return r0`（返回事件对象 r0，忠实）
+   - `F_b54dc`（code13）：写 `[r0+4/8]=r1` → `return r0`（返回事件对象）
+   - `F_b52a0`（code14/15）：完整 C++ 构造（blx vtable + bl 0xb4854 字符串解析）
+     → `Lb530c: pop {r4,r5,r6,pc}` 前 r0=构造结果（忠实）
+   - `F_b4edc`（code29/31/33）：完整 C++ 对象链表构造（多字段填充 + bl 0x292d4）
+     → `return r0`（忠实）
+   - 结论：原版 4 handler 无一 `movs r0,#2`，全部返回事件对象/构造结果，
+     "return 2 兜底"已从 auto-stub 忠实体替换
+2. **0x94e68 精确体**（F_855c4 的 bl 目标）：`movs r3,#0xf1; ldrb r0,[r0,r3]; bx lr`
+   = 返回 [r0+0xf1] 字节（事件底层 0xf1 字段 getter，同 §124y-32 0x94d80 区系列小 getter）
+   - F_855c4 忠实语义：`[single+0x38]` 非0 → `bl 0x94e68`（ldrb [底层+0xf1]）；0x38=0 → `movs r0,#0` 早退
+3. **0xb4854 精确体**（F_b52a0 的 bl 目标）：完整 C++ 字符串解析器
+   （`ldrb [r3+0]` 首字节比对 0x30('0')→`blx strtol@plt` 数字转换，`0xb4854` 完整体 ~0x80 字节）
+   - 0xb52a0 构造链 = vtable blx + 0xb4854 字符串解析 → 事件字段填充（C++ 对象图深层）
+
+### 收表验证（dispatch_insert 三处同步坑）
+- `jqt_vtbl.c` fns[]/offs[] 表加 6 槽（0x5a104 + 0x3a900/04/0c/14/24）后，
+  `jqt_vtbl_n` 常量同步 2097→2103，link_audit PASS，4 路径回归 PASS=4/FAIL=0
