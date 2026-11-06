@@ -2195,3 +2195,34 @@ python3 /tmp/opencode/incremental_regress.py reset 0xADDR  # 改了某指令 →
 - F_855c4/F_855d8 当前是 jqt_OnCreate_full.c auto-stub（`return r0` 忠实，非 2 兜底）
 - 精确忠实语义（0x38==0→0 / 0x38≠0→getter）已被 auto-stub 的 `return r0` 近似覆盖
   （auto-stub 忠实返回 r0 末态，与原版"0x38==0 早退 r0=入参"等价——.bss 未构造时入参=0）
+
+## §124y-39 F_33528/F_35ed4 收表 + F_33528 池值精算 0x15bfe8 + 收表排序坑固化
+
+**★ 闭环事实（设备实锤 + 坑固化）**：
+
+1. **F_33528（事件底层写入步，F_5a104 构造链 ⑤ bl 目标）精确收表**：
+   - 原版 `ldr r3,[pool 0x33538=0x128ab8 + pc(0x33530)] = 0x15bfe8`（.bss 惰性单例槽，与 §124y-34 的 5 底层函数 sgl 槽 0x15bfe0 同区）
+   - `ldr r0,[r3]（读 .bss 单例底层对象）; bl 0x35ecc`（ldrb [底层+0x618] 事件底层 0x618 字节字段 getter）
+   - 忠实翻译体：`MEM(0x15bfe8)` 非 0 → `MEMB(base+0x618)`；.bss 未构造 → 读 0 → 忠实空操作
+   - 0x618 = 0xc3<<3（与 F_35ecc 的 `movs r3,#0xc3; lsls r3,#3` 精确对应，事件底层 0xc3 字节字段 ×8 对齐）
+
+2. **F_35ed4（float 坐标计算，0x35ed4-0x35f9c）精确收表**：
+   - 完整 float 运算链：`i2f`×多次 + `fmul/fadd/fsub/f2iz`（`__aeabi_*@plt` 全链）
+   - + 写 `[r4+0x618/0x61c]`（事件底层 0xc3/0xc2 字段）+ 末尾 `bl 0x35e0c` + `blx r3`（vtable 调用）
+   - 忠实语义：.bss 未构造时入参底层指针=0 → 各 `[0+0x3c/0x54/0x58/0x618]` 读 0 → 返回 0
+   - 深水区标注：完整 float 坐标计算需 32 位 `__aeabi_*` 浮点库 + C++ 对象图，当前忠实空操作
+
+3. **收表坑固化（link_audit FAIL 根因）**：
+   - 初次把 `F_35ed4` 插在 `F_35ecc` 前（offs 表 0x35ecc < 0x35ed4 降序）→ "offs 未严格升序于 idx 270（0x35ecc <= 0x35ed4）"FAIL
+   - **坑：dispatch 表 offs[] 必须严格升序（二分查找依赖），插入新槽必须按 .text 偏移精确排序，非按函数名/区**
+   - 修正：F_35ed4 移到 F_35ecc 后（0x35ecc < 0x35ed4 升序）→ link_audit PASS
+   - 与 §124y-35 的 `jqt_vtbl_n` 同步坑（2097→2103→2105）合并：**dispatch_insert.py 三处同步 + offs 严格升序** 两条纪律
+
+4. **设备实锤（MuMu，新 so 8326428B）**：
+   - F_3a92c disc 非零 + F_3ab64 ok=0（§124y-33 忠实）正常
+   - 4 路径回归 PASS=4/FAIL=0 + 0 崩溃（link_audit PASS）
+
+### 事件底层 0x618 字段（0xc3<<3）的收表
+- F_35ecc = `ldrb [底层+0x618]`（getter，已收表 §124y-38 前）
+- F_33528 = 读 0x15bfe8 单例槽 → bl F_35ecc（底层写入步，§124y-39 收表）
+- 0x618 是事件底层 C++ 对象的 0xc3 字段 ×8（字节字段区，与 0x94dxx 区 0xe4-e7 同类型）
