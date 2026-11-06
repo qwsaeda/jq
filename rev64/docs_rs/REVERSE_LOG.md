@@ -2592,3 +2592,37 @@ python3 /tmp/opencode/incremental_regress.py reset 0xADDR  # 改了某指令 →
 - 0x36008 池值精确算出的 .bss 字符串表单例槽（C++ 构造填 scudo）需 frida dump 实锤运行时地址
 - 0x125108 作为 addend 精确对应 .bss 哪个偏移（0x15xxx 区）需 readelf -r 核对（本轮未逐字节算）
 - 不影响 4 路径回归（.bss 未构造字符串表读 0 等价）
+
+## §124y-51 修正 §124y-50：F_35fb4 池 0x36008 落点 = 0x15b0c8（.data 静态字符串表，非 .bss）
+
+**★ 闭环事实（静态实锤，修正 §124y-50 误读）**：
+
+1. **F_35fb4 池 0x36008 精确落点重算**（ARM/Thumb PC-relative 精确）：
+   - `0x36008` 池值 = 0x125108（addend）
+   - `add r5,pc` 在 0x35fbc（ldr 0x35fb6 后，Thumb2 4 字节指令 0x35fbc-0x35fbe），pc = 0x35fbc + 4 = 0x35fc0
+   - 落点 = 0x125108 + 0x35fc0 = **0x15b0c8（.data 区，非 .bss）**
+   - **§124y-50 误读为".bss 字符串表单例"——错，0x15b0c8 是 .data 区静态槽**
+   - 文件态 0x15b0c8 = 0x0015afe0（静态初始化的指针，非 REL 槽——.rel.dyn 无 0x15b0c8/0x15afe0）
+
+2. **0x15afe0 区 = .data 静态字符串表数据**（16 条 [标志, .rodata 偏移] 对，非 C++ 惰性构造）：
+   - 0x15afe0=1 / 0x15afe4=0x11d3；0x15afe8=1 / 0x15afec=0x11db；... 0x15b018=14 / 0x15b01c=0xf82c
+   - 全 16 条（0x15afe0-0x15b01c）= [u32 标志, u32 .rodata 偏移] 成对，.rodata 偏移 0x11d3/0x11db/0x11e8/0xf77f/...
+   - 这是 **C 静态初始化字符串表**（非 C++ 惰性构造、非 scudo 堆指针）——区别于 §124y-44 的 .bss 0x15bfe4/0x15bfec（C++ 构造填 scudo）
+   - .data REL 槽（0x15b0c4，§124y-27 实锤 = 0x15af08 事件表）与此静态表同 .data 区但性质不同：
+     0x15b0c4 是 REL 槽（运行时 = load_base+0x125108 重定位），0x15b0c8 是静态 .data 指针（文件态 0x15afe0）
+
+3. **修正 §124y-50 的核心误判**：
+   - §124y-50 说"0x125108 是 .bss 字符串表基址 addend（C++ 运行时构造填 scudo）"——**错**
+   - 正确：0x125108 + pc(0x35fc0) = 0x15b0c8（.data 静态槽），文件态 = 0x15afe0（静态字符串表数据）
+   - 0x35fb4 读 0x15b0c8（静态 .data 指针）→ 读 0x15afe0 字符串表 → .rodata 字符串常量
+   - **.data 静态字符串表 = 文件态即可读（非 .bss 惰性，非 scudo），比 §124y-50 判断更简单**
+
+4. **翻译体对应**：F_35fb4 auto-stub `return r0` 已覆盖；
+   完整字符串表读 0x15b0c8（.data 静态 0x15afe0）是**文件态可直读**（无需 frida dump .bss），
+   比 §124y-50 标注的"需 frida dump .bss scudo 块"更简单——.data 静态表直接读文件值即可
+
+### 诚实边界
+- 0x15b0c8 是 .data 静态指针（文件态 0x15afe0），非 REL 槽、非 .bss C++ 惰性对象
+- 0x15afe0 字符串表 16 条 [标志, .rodata 偏移] 的完整语义（每偏移对应什么事件名字符串）
+  需逐个读 .rodata 偏移 0x11d3/0x11db/... 取字符串内容（深水区，本轮未逐一取字符串）
+- 修正记录：§124y-50 的".bss 字符串表"→ §124y-51 的".data 静态字符串表 0x15afe0"
