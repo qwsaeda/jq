@@ -564,6 +564,8 @@ Interceptor.attach(Module.getExportByName('libdl.so', 'android_dlopen_ext'), {
 | 事件表匹配器 | F_3a92c | dispatch offs[316] 已收 | vtable this 偏移 |
 | [0x44] 直接事件码层 | 事件表 17×17 (.bss 0x4704) | 17 事件码 0..16, 字段 asrs#4 匹配 | 事件码 1-16 行 (frida 触发) |
 | C++ 枚举事件类型层 | F_55700 switch (cmp 155) | 枚举边界值 155 (0x9b), .so stripped 无枚举名 | 枚举 155 对应事件类型 (frida 运行时值) |
+| .got 100 槽 .bss addend | .got 0x15b0c8-0x15bb6c | 高区 74 (locale 堆) + 中间区 21 (C++ 对象堆) + 低区 5 (事件底层), §124y-128 | 100 槽 scudo 指针 (frida dump .bss 全量) |
+| .bss 0x4704 事件表 | .got[0x57c]=0x15b644 → 0x160584 | 17×17 位掩码表, 17 行全 asr4=0 (事件码 0) | 事件码 1-16 行 + 事件表基址真值 |
 
 ### 13.3 修正链（§124y-60→102→109 三轮误判记录，防复发）
 
