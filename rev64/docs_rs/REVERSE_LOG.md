@@ -5090,3 +5090,49 @@ python3 /tmp/opencode/incremental_regress.py reset 0xADDR  # 改了某指令 →
 - .got 100 槽 .bss addend 的运行时 scudo 指针需 frida dump .bss 全量（高区 74 + 中间区 21 + 低区 5）
 - 低区 5 槽 .got 指向（0x15c054 等）与 §124y-55 的 5 惰性槽（0x15beb0 等）是否同区需核对
   （.bss 偏移 0x01d4 vs 0x30/0x38/0x158/0x164/0x16c，本轮 .got 指向 0x01d4 区，非 §124y-55 的 5 槽精确地址）
+
+## §124y-130 0xbdxxx JNI 内部处理函数收表状态实锤（8 函数 1 收表 7 未收表，诚实边界）
+
+**★ 闭环事实（静态实锤，§124y-100 的 14 JNI 内部 0xbdxxx 处理函数 dispatch 收表状态）**：
+
+1. **0xbdxxx 区 8 个 JNI 内部处理函数 dispatch 收表状态实锤**（so_probe.py dispatch 查）：
+   | 函数 | 对应 JNI | dispatch 表 | 状态 |
+   |---|---|---|---|
+   | 0xbe9cc | OnBluetooth | **True** | 已收表 |
+   | 0xbd5a0 | OnUpdate | False | **未收表** |
+   | 0xbd764 | OnGraphCreate | False | **未收表** |
+   | 0xbd74c | OnGraphChange | False | **未收表** |
+   | 0xbde34 | OnKey | False | **未收表** |
+   | 0xbe930 | OnTimer | False | **未收表** |
+   | 0xbdcf4 | OnPause | False | **未收表** |
+   | 0xbdc7c | OnResume | False | **未收表** |
+   - 即 8 函数中 **1 收表（0xbe9cc OnBluetooth）+ 7 未收表**（dispatch miss 会落默认 handler）
+
+2. **0xbdxxx 区 = JNI 内部 C++ 桥接层（游戏逻辑），非 vtable 游戏方法槽**：
+   - 0xbdxxx 区函数 = 14 JNI 入口的 C++ 处理函数（§124y-100 实锤，读 .bss 0x15be80 根对象 + bl 游戏逻辑）
+   - 与 dispatch 表的"游戏方法槽"（gs[8] vtable，§124y-10）不同：0xbdxxx 是 JNI 桥接，非 vtable 槽
+   - 即 7 个未收表函数**不必收 dispatch 表**（JNI 桥接层走 .text 直接调用，非 vtable dispatch）
+
+3. **诚实边界（0xbdxxx 7 未收表 ≠ dispatch miss）**：
+   - 0xbd5a0/0xbd764/0xbd74c/0xbde34/0xbe930/0xbdcf4/0xbdc7c 7 函数未收 dispatch 表
+   - 但这 7 函数 = **JNI 桥接层 C++ 处理函数**（.text 直接调用，非 vtable dispatch 机制）
+   - 即 so_probe.py dispatch 的"⚠ 不在表 = 若被 dispatch 会 miss"对 0xbdxxx 区**不适用**
+     （0xbdxxx 走 .text bl 直接调，不走 gs[8] vtable dispatch）
+   - 7 函数完整 C++ 逻辑（OnUpdate 更新循环/OnGraphCreate GL 图创建等）需 .text 全量反汇编
+     + frida 追踪实锤（§124y-100 实锤 prologue，未实锤完整逻辑）
+
+4. **0xbdxxx 区与 §124y-48 事件发送链的关系澄清**：
+   - 0xbdxxx = JNI 桥接层（14 入口 C++ 处理，读根对象 + 游戏逻辑）
+   - §124y-48 的事件发送链（F_3ab80 6 步）= .bss 单例槽 + .text 事件底层（非 0xbdxxx）
+   - 即 JNI 桥接（0xbdxxx）与事件底层（F_3ab80 区）是**两层独立机制**（桥接读根对象 / 底层填单例槽）
+
+### 修正 §124y-100 的"0xbdxxx C++ 桥接层"认知
+- §124y-100 实锤 14 JNI 入口读 .bss 0x15be80 根对象 + bl 0xbdxxx 内部处理函数
+- 本轮 §124y-130 补全 0xbdxxx 8 函数 dispatch 收表状态（1 收表 + 7 未收表）+ 澄清 0xbdxxx 是
+  JNI 桥接层（非 vtable dispatch 机制，7 未收表 ≠ dispatch miss，诚实边界）
+
+### 诚实边界
+- 7 个未收表 0xbdxxx 函数（OnUpdate/OnGraphCreate/OnGraphChange/OnKey/OnTimer/OnPause/OnResume）
+  的完整 C++ 逻辑需 .text 全量反汇编 + frida 追踪实锤（本轮实锤收表状态 + 桥接层澄清）
+- 0xbdxxx JNI 桥接层与 F_3ab80 事件底层两层独立机制的完整调用关系（桥接如何触发事件底层）
+  需查 .text 调用链 + frida 实锤（本轮澄清两层关系，未实锤调用触发点）
