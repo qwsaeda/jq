@@ -1277,7 +1277,7 @@ Java_com_cnvcs_App_OnCreate(JNIEnv *env, jclass clazz, jobject activity)
     /* ★ P2（datah_003 证据）：设置入口 setprop 钩子（adb setprop jq.setentry 1 → 重启 →
         OnCreate 弹 UI_SETEXTTRY 设置入口弹窗（完整版）：图像/声音/游戏设置 3 按钮入口。
         测试钩子范式，与 jq.drawdetail 同；值 1=弹出，0=不触发。一次性（清 0）。
-        ★ 诚实边界：图像设置渲染参数未实现，图像设置入口指向 UI_IMGSET7；
+        ★ 诚实边界（已部分解除）：夜间模式/对方棋子接渲染层（暗色遮罩/红方隐藏），仅界面/棋子动画过渡帧未实现，入口指向 UI_IMGSET7；
         声音设置→UI_SETTINGS（datah_001）；游戏设置→UI_GAMESET（datah_012）。 */
     {
         char se_prop[16] = {0};
@@ -1286,14 +1286,14 @@ Java_com_cnvcs_App_OnCreate(JNIEnv *env, jclass clazz, jobject activity)
             ui_screen_set(UI_SETEXTTRY);
             LOGI("jq.setentry 钩子：→ UI_SETEXTTRY 设置入口弹窗（datah_003 图像/声音/游戏设置 3 按钮入口，"
                  "图像→UI_IMGSET7；声音→UI_SETTINGS（datah_001）；游戏→UI_GAMESET（datah_012），"
-                 "★ 诚实边界：图像设置渲染参数未实现，仅 UI 状态记录）");
+                 "★ 诚实边界（已部分解除）：夜间/对方棋子接渲染层，仅动画过渡帧未实现）");
             __system_property_set("jq.setentry", "0");
         }
     }
     /* ★ P2（datah_004 证据）：设置入口（简化版）setprop 钩子（adb setprop jq.setentry4 1 → 重启 →
         OnCreate 弹 UI_SETEXTTRY4 设置入口（简化版）弹窗：图像/声音 2 按钮入口（无游戏设置项）。
         测试钩子范式，与 jq.setentry 同；值 1=弹出，0=不触发。一次性（清 0）。
-        ★ 诚实边界：图像设置渲染参数未实现，图像设置入口指向 UI_IMGSET8；
+        ★ 诚实边界（已部分解除）：夜间/对方棋子接渲染层，仅动画过渡帧未实现，入口指向 UI_IMGSET8；
         声音设置→UI_SETTINGS（datah_001）。 */
     {
         char se4_prop[16] = {0};
@@ -1301,14 +1301,14 @@ Java_com_cnvcs_App_OnCreate(JNIEnv *env, jclass clazz, jobject activity)
         if (strcmp(se4_prop, "1") == 0) {
             ui_screen_set(UI_SETEXTTRY4);
             LOGI("jq.setentry4 钩子：→ UI_SETEXTTRY4 设置入口（简化版）弹窗（datah_004 图像/声音 2 按钮入口，"
-                 "图像→UI_IMGSET8；声音→UI_SETTINGS（datah_001），★ 诚实边界：图像设置渲染参数未实现）");
+                 "图像→UI_IMGSET8；声音→UI_SETTINGS（datah_001），★ 诚实边界（已部分解除）：夜间/对方棋子接渲染层，仅动画过渡帧未实现）");
             __system_property_set("jq.setentry4", "0");
         }
     }
     /* ★ P2（datah_007 证据）：图像设置（完整版）setprop 钩子（adb setprop jq.imgset7 1 → 重启 →
         OnCreate 弹 UI_IMGSET7 图像设置弹窗（完整版）：界面/棋子动画/夜间模式/对方棋子
         4 开关 + 确定/取消。测试钩子范式，与 jq.setentry 同；值 1=弹出，0=不触发。一次性（清 0）。
-        ★ 诚实边界：图像/夜间/对方棋子渲染参数未实现，开关仅 UI 状态记录；
+        ★ 诚实边界（已部分解除）：夜间模式接渲染层暗色遮罩 / 对方棋子接渲染层隐藏红方 / 棋子动画关=不画，仅界面动画过渡帧未实现；
         确定→ui_imgset_save（jq_imgset.txt 4 字段）。 */
     {
         char i7_prop[16] = {0};
@@ -1316,7 +1316,7 @@ Java_com_cnvcs_App_OnCreate(JNIEnv *env, jclass clazz, jobject activity)
         if (strcmp(i7_prop, "1") == 0) {
             ui_screen_set(UI_IMGSET7);
             LOGI("jq.imgset7 钩子：→ UI_IMGSET7 图像设置弹窗（完整版 datah_007 4 开关 + 确定/取消，"
-                 "★ 诚实边界：图像/夜间/对方棋子渲染参数未实现，仅 UI 状态记录；"
+                 "★ 诚实边界（已部分解除）：夜间/对方棋子接渲染层，仅界面动画过渡帧未实现；"
                  "界面=%d 棋子=%d 夜间=%d 对方=%d）",
                  ui_imgset_trans_get(), ui_imgset_piece_get(), ui_imgset_night_get(), ui_imgset_opp_get());
             __system_property_set("jq.imgset7", "0");

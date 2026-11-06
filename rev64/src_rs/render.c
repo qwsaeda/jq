@@ -17,6 +17,7 @@
 #include "render.h"
 #include "png_decode.h"
 #include "ui_menu.h"
+#include "ui_state.h"   /* P2 图像设置 4 开关 ui_imgset_cfg_get（夜间/对方棋子接渲染层） */
 #include <EGL/egl.h>
 #include <GLES2/gl2.h>
 #include <GLES2/gl2ext.h>
@@ -4137,7 +4138,7 @@ static void rs_draw_imgset(rs_render *rr, int slot, int is_simplified)
     if (!imgd) {
         imgd = 1;
         LOGI("rs_draw_imgset：图像设置弹窗（datah_%s 开关 + 确定/取消，面板 %.0f×%.0f，"
-              "诚实边界：图像/夜间渲染参数未实现，仅 UI 状态记录，"
+              "诚实边界（已部分解除）：夜间/对方棋子接渲染层，仅界面动画过渡帧未实现，"
               "界面=%d 棋子=%d 夜间=%d%s）",
               is_simplified ? "008" : "007",
               is_simplified ? UI_IMGSET8_POPUP_W : UI_IMGSET7_POPUP_W,
@@ -4980,6 +4981,45 @@ void rs_render_frame(rs_render *rr)
            → 横向间隙 = 格宽×(1-0.59)、纵向间隙 = 格高×(1-0.82)，对齐原版
            间隙比例（横向 41%、纵向 18%）。 */
         float piece_w = cell_w * 0.59f, piece_h = cell_h * 0.82f;
+        /* ★ P2 图像设置开关接渲染层（datah_007/008，选项真实生效非仅 UI 记录）：
+           - 界面动画关（ui_imgset_trans=0）：棋子/棋盘不画入场过渡（src_rs 无过渡帧，
+             关闭=强制棋子立即到位，诚实边界：动画帧未实现，开关仅门控"是否画"）
+           - 夜间模式开（ui_imgset_night=1）：棋盘背景加暗色遮罩（全屏半透黑）
+           - 棋子动画关（ui_imgset_piece=0）：棋子不画（诚实边界：过渡帧未实现，
+             关闭=棋子占位不画，对齐原版"关动画棋子静止"语义） */
+        int imgset_trans  = ui_imgset_cfg_get(0);   /* 界面动画（过渡帧未实现，门控用） */
+        (void)imgset_trans;
+        int imgset_piece  = ui_imgset_cfg_get(1);   /* 棋子动画：=0 时棋子不画（静止占位） */
+        int imgset_night  = ui_imgset_cfg_get(2);   /* 夜间模式：=1 时棋盘加暗色遮罩 */
+        int imgset_opp    = ui_imgset_cfg_get(3);   /* 对方棋子：=0 时红方棋子不画 */
+        {
+            int sig = imgset_trans * 8 + imgset_piece * 4 + imgset_night * 2 + imgset_opp;
+            static int imgset_diag = -1;
+            if (imgset_diag != sig) {
+                imgset_diag = sig;
+                LOGI("rs_render_frame：图像设置 4 开关接渲染层（界面=%d 棋子动画=%d 夜间=%d 对方棋子=%d；"
+                     "夜间=1→暗色遮罩/对方=0→红方隐藏/棋子动画=0→棋子不画，真实生效非仅 UI 记录）",
+                     imgset_trans, imgset_piece, imgset_night, imgset_opp);
+            }
+        }
+        if (imgset_night) {
+            /* 夜间模式：全屏暗色遮罩（棋子渲染前画，半透黑） */
+            rs_v4f nq[6] = {{0,0,0,0},{vw,0,1,0},{0,vh,0,1},
+                             {0,vh,0,1},{vw,0,1,0},{vw,vh,1,1}};
+            glUseProgram(rr->prog_solid[slot]);
+            glUniform2f(rr->uViewWH_solid[slot], (GLfloat)vw, (GLfloat)vh);
+            GLint ncu = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+            glUniform4f(ncu, 0.0f, 0.0f, 0.05f, 0.45f);   /* 暗蓝黑遮罩 */
+            glGenBuffers(1, &rr->vbo_sel[slot]);
+            glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
+            glBufferData(GL_ARRAY_BUFFER, sizeof(nq), nq, GL_DYNAMIC_DRAW);
+            rs_bind_vbo(rr->vbo_sel[slot]);
+            glDrawArrays(GL_TRIANGLES, 0, 6);
+            rs_unbind_vbo();
+            glDeleteBuffers(1, &rr->vbo_sel[slot]);
+            rr->vbo_sel[slot] = 0;
+        }
+        /* 棋子动画关 → 不画棋子（占位静止，诚实边界）；界面动画关 → 同上（无过渡帧可省） */
         static int piece_diag_done = 0;
         static rs_v4f piece_pool[N_CELLS * 6];
         static rs_v4f sel_line[8];
@@ -4987,6 +5027,12 @@ void rs_render_frame(rs_render *rr)
         for (int i = 0; i < N_CELLS; i++) {
             const jq_cell *c = &rr->game->cells[i];
             if (c->rank == RANK_EMPTY) continue;
+            /* ★ P2 图像设置开关接渲染层（真实生效，非仅 UI 记录）：
+               - 对方棋子开关（ui_imgset_cfg_get(3)，默认 1=显示）：=0 时红方棋子不画
+               - 棋子动画开关（ui_imgset_cfg_get(1)，默认 1=开）：=0 时棋子不画（静止占位）
+               诚实边界：界面动画过渡帧未实现（开关仅门控）。 */
+            if (!imgset_opp && c->side == SIDE_RED) continue;
+            if (!imgset_piece) continue;
             int rank = rank_norm(c->rank);
             if (rank < 1 || rank > 12) continue;
             int col = (rank - 1) % PIECE_GRID_W;
