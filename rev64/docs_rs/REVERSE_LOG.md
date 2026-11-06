@@ -4241,3 +4241,43 @@ python3 /tmp/opencode/incremental_regress.py reset 0xADDR  # 改了某指令 →
   （本轮实锤符号存在性，未实锤渲染逻辑调用序）
 - `mmap/munmap` 的内存映射用途（资源 pak 加载 vs 大内存分配）需查调用点实锤
 - `__stack_chk_guard` 栈保护 = 原版 .so 编译启用 -fstack-protector（翻译体/jqt 需对应实现防栈溢出检测）
+
+## §124y-96 原版 native 能力全景固化（.rodata 1801 字符串功能面分组 + 去广告字符串全量实锤）
+
+**★ 闭环事实（静态实锤，.rodata 1801 字符串按 8 功能面分组 + 去广告目标全量）**：
+
+1. **.rodata 1801 字符串 8 功能面分组实锤**：
+   | 功能面 | 条数 | 代表 |
+   |---|---|---|
+   | 配置/路径 | 194 | `data/junqi/scene.cfg` / `boardIntervalX/Y` / `pieceSz` / `data/ad/%02d.cfg` |
+   | 更新/广告 | 92 | `updateUrl/statHost/cfgHost/adHost/adPort` / `com.cnvcs.junqi.removead` / `com/baidu/mobads/AdView` |
+   | 游戏字符串 | 46 | 74 条事件名（§124y-88 实锤 72 Junqi.* + 2 Misc.*） |
+   | 登录/账号 | 45 | `InputPassword/InputUser/LoginFail/RegOk` 等 |
+   | 网络/URL | 14 | `serverHost/gameHost/sgServerHost/siteUrl/appUrl` |
+   | UI/菜单 | 13 | `layloaddlg.xml/statdlg.xml/updatedlg.xml` |
+   | 音效/资源 | 12 | `.wav` / `getPlayState` / `PLAYSTATE_PLAYING` |
+   | 蓝牙 | 6 | `android/bluetooth/BluetoothAdapter` / `getDefaultAdapter` / `getState` |
+
+2. **去广告目标字符串全量实锤（AGENTS.md 阶段 0/3 删目标对应）**：
+   - `com/baidu/mobads/AdView`（native FindClass，§AGENTS.md 红线实锤）
+   - `com/cnvcs/AdLis`（native 字符串，AdLis.smali 对应）
+   - `com.cnvcs.junqi.removead`（native SP key 去广告开关，§124y-86 实锤）
+   - `ad/%s.txt` / `data/ad/ad.cfg` / `data/inter/ad.cfg` / `adHost/adPort` / `update/`（广告资源路径）
+   - `updateUrl/statHost/cfgHost/serverHost/gameHost/sgServerHost/sgGameHost/usHost`（更新/统计/配置/游戏服务器 host）
+   - 即去广告 = native SP 开关（removead，§124y-86/87）+ 删 92 条广告字符串对应逻辑（AGENTS.md 阶段 0/3）
+
+3. **原版 native 完整能力面固化到事件数据模型总表第 17-18 部分**：
+   - 第 17：PLT 214 + GLOB_DAT 6 + 能力全景（GL2 渲染 + socket 联机 + pthread + mmap + logcat + C++ 静态对象生命周期）
+   - 第 18：.rodata 1801 字符串 8 功能面 + 去广告目标全量
+   - 即原版 native = 1801 字符串 + 214 PLT + 6 GLOB_DAT 全量实锤（AGENTS.md 的 native 层认知本轮补全）
+
+4. **AGENTS.md 红线"FindClass AdView"实锤对应**：
+   - `com/baidu/mobads/AdView`（.rodata 0x126148）+ `(Lcom/baidu/mobads/AdViewListener;)V`（0x1261b8）
+   - `com/cnvcs/AdLis`（0x12619c）
+   - 即 AGENTS.md 红线"全删 smali/com/baidu/* 前必须处理 native FindClass AdView 引用"实锤对应
+     这 3 条 native 字符串（§124y-96 实锤 .rodata 精确偏移）
+
+### 诚实边界
+- 92 更新/广告字符串的运行时配置值（adHost/updateUrl 实际域名）需 frida dump SharedPreferences 实锤
+- 35 GLES2 符号的完整渲染 pipeline（shader 编译/绑定/绘制调用序）需查 .text 渲染函数全量反汇编
+- 45 登录/账号字符串与 §124y-45 事件对象登录字段的对应需查登录逻辑 .text 函数实锤
