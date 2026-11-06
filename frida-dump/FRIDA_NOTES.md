@@ -472,3 +472,48 @@ Interceptor.attach(Module.getExportByName('libdl.so', 'android_dlopen_ext'), {
 ---
 
 *最后更新：2026-11-03（第八节"unidbg + Frida 一对一逐步对齐"更新到 §124ah：§124ag 真实 glClear 已 dispatch（vtable 0x1595c0 slot13，首帧清屏色蓝达成）；§124ah 棋盘三层阻塞（draw dispatch 未达/对象图分歧=核心/触摸→对局未翻译）；用户确认两前提：①MuMu hook 必须 32 位 frida-server（x86+houdini）②unidbg `.got` 全零=缺真值根源；18 值改静态固化在 jqt_mem.c g_jq_got_tbl；待办#5 更新；新增第九节 Stalker 指令级追踪模板（看雪 x1ny 银行加固实战文沉淀，dlopen 总入口/排除法元凶线程/逐层上找/30ms批量+模块过滤/maps 中间落栈点改数据 5 套路 + SIGSEGV 型退出捕获坑 + 军棋版 stalker_trace.py 模板）*
+
+## 十二、.bss 全量 dump 对照基准（§124y-99/100/101 本轮固化）
+
+> **新增对照基准**（2026-11 本轮）：.bss 16 关键槽 + 中间区非零比 + scudo 指针特征 +
+> JNI 根对象槽归属，供后续 frida dump / unidbg 补运行时对齐时自动判读。
+
+### 12.1 `bss_dump_align.py`（.bss dump 自动对照基准）
+- 输入：.bss dump 28680B（0x7008 全段，`jq_bss_runtime_converted.bin` 或 `data_dump.py` 的 `redroid_bss.bin`）
+- 输出：16 关键槽（低区 6 惰性 + 0x15c062 五元组 + 高区 7 构造器区 + locale 2 槽）逐个值 +
+  中间区非零比 + scudo 堆指针特征计数 + 判读
+- 判据：
+  - 低区 6 槽非 0 = 惰性单例已构造 / 高区 7 区非 0 = .init_array 2-8 已跑 /
+    中间区 ≥70% 非零 = 场景对象图构造态（MuMu 实测 87%）
+- 诚实边界（FRIDA_NOTES §实锤不变）：.bss 整段回填翻译体**失败**（scudo 跨进程指针失效），
+  dump 仅拿"值"作对照基准；翻译体需自身 F_9d3d4 构造（sp28-ROOT 已证可行）
+
+### 12.2 MuMu .bss 运行时 dump 实锤值（jq_bss_runtime_converted.bin，对照基准样例）
+| 槽 | .bss 偏移 | 运行时值 | 判读 |
+|---|---|---|---|
+| 0x15be80 | 0x0000 | 0xcf8d78f0 | 场景根对象槽（scudo 堆指针）非 0 ✓ |
+| 0x15beb0 | 0x0030 | 0xf32dbb90 | F_3ab80①惰性构造 ✓ |
+| 0x15beb8 | 0x0038 | 0xd08296f0 | F_3ab80⑥惰性构造 ✓ |
+| 0x15bfd8 | 0x0158 | 0xecc44320 | F_5a104 容器池 ✓ |
+| 0x15bfe4 | 0x0164 | 0xecb8c220 | 5 底层共用 ✓ |
+| 0x15bfec | 0x016c | 0xd0829730 | F_3ab64 single ✓ |
+| 0x15c062 | 0x01E2 | 0xc570f325 | 构造器 0 五元组 ✓ |
+| 0x162554-0x162640 | 0x654-0x740 | 非 0 ×7 | .init_array 2-8 已跑（**修正 §124y-66/72 "清零"认知**：清零仅各对象特定字段 str 0,[r3+0/4/8]，整区运行时被 C++ 后续构造填非 0） |
+| 0x162660/0x162668 | 0x7E0/0x7E8 | 非 0 ×2 | locale 构造 ✓ |
+
+### 12.3 JNI 根对象槽归属（§124y-101 实锤）
+- **14 JNI 入口（0x233e0-0x235d4）= 读 .bss 0x15be80 起点区（场景/游戏根对象槽）**：
+  - 12 入口（OnEvent/OnInput/OnTouch/OnKey/OnBluetooth/OnUpdate/OnGraphCreate/OnGraphChange/OnResult/OnTimer/OnPause/OnResume）共用 **0x15be80**（根对象首指针）
+  - OnCreate 读 **0x15be84**（+4，GLView 构造参数区）/ OnDestroy 读 **0x15be82**（+2，销毁标志区）
+  - 然后 bl 内部 0xbdxxx C++ 处理函数（游戏逻辑/生命周期）
+- **.rodata 0x138xxx 区 = PC 相对重定位 addend 区**（非字符串常量，§124y-100 误判已纠正）：
+  - 各 JNI 入口的 `ldr rN,[pc,#K]` pool 值（0x138xxx）= addend，`add rN,pc` 后落 .bss 0x15be80 区
+- **.bss 未构造（全 0）时 = 各 JNI 入口读根对象槽 0 → 内部 C++ 处理函数走空路径**
+  （§124y-33/35 实锤 ok=0 路径，4 路径回归 PASS 即此路径）
+
+### 12.4 待 dump 的运行时值（frida 对照基准，本轮累积）
+- .bss 0x15be80 根对象槽的 scudo 块完整结构（场景管理器 C++ 对象图，中间区 87% 非零对应）
+- .got 458 REL 槽中 100 个 .bss addend 的运行时 scudo 指针（§124y-92 实锤分布）
+- 4800 .data.rel.ro vtable 槽完整重定位（2563 唯一 addend，92.3% .text，§124y-82 实锤）
+- SharedPreferences 运行时值（`com.cnvcs.junqi.removead` / adHost / updateUrl 实际域名，§124y-86/87 去广告链）
+- 74 事件名（72 Junqi.* + 2 Misc.*，§124y-88 实锤）与事件码的逐行映射（jq.game_test 钩子扩量触发）
