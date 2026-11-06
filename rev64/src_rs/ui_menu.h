@@ -201,10 +201,22 @@ UI_REPLAY,     /* ★ P1（datah_039/107 证据）：复盘回放态——
                          未逆向）"；发送 → BT_T_CHAT 占位帧 + 边界对话框；
                          记录 → UI_CHATLOG（datah_029 聊天记录已实现）；
                          关闭 → 回对局。
-                         入口：setprop jq.chat063 测试钩子（OnCreate + OnUpdate 双路，
+                          入口：☰ 菜单"聊天"（联机 bt_mode && act==4）改切此弹窗
+                          + setprop jq.chat063 测试钩子（OnCreate + OnUpdate 双路，
                          值 1=进 / 0=退）。
                          ★ 诚实边界：联机聊天文本未逆向（src_rs 蓝牙聊天是占位帧
                          BT_T_CHAT，无真实文本渲染） */
+     UI_ABOUT,      /* ★ P2（datah_000 证据）：软件信息弹窗（Version 版本号 + 官网文本
+                          + 反馈/关闭 2 按钮，原版 datah_000 400×280 面板居中，
+                          局部坐标 1:1 平移偏移 +160,+500）。
+                          Version 显示 src_rs 1.6.8 版本号 + 官网 "www.cnvcs.com" 文本；
+                          反馈 → 诚实边界对话框（"原版反馈通道未逆向，src_rs 无反馈
+                          通道"）+ 回对局；关闭 → 回对局。
+                          入口：☰ 菜单"软件信息"（本地 !bt_mode && act==6）改切此弹窗
+                          + setprop jq.about 测试钩子（OnCreate + OnUpdate 双路，
+                          值 1=进 / 0=退）。
+                          ★ 诚实边界：原版反馈=邮件/客服通道（未逆向），src_rs 无
+                          反馈通道，反馈按钮→边界对话框，不包装成"已反馈" */
     UI_DRAWDETAIL,  /* ★ P2（datah_042 证据）：提和详情弹窗（联机版 ☰ 菜单 7 图标：
                         提和/认输/聊天/系统设置/玩家资料/战况统计/软件信息，
                         原版 datah_042 450×285 面板居中，局部坐标 1:1 平移偏移 +135,+497.5；
@@ -979,5 +991,34 @@ typedef struct {
 const ui_chat063_btn *ui_chat063_buttons(void);   /* 3 按钮（静态表） */
 int ui_chat063_hit(const ui_chat063_btn *btns, int n, float x, float y);  /* 命中 0-2，-1 无 */
 int ui_chat063_popup_inside(float x, float y);   /* 点在弹窗面板内 */
+
+/* ★ P2（datah_000 证据）：软件信息弹窗——Version 版本号 + 官网文本
+    + 反馈/关闭 2 按钮。
+    几何 720×1280 基准（datah_000 400×280 面板居中，偏移=(720-400)/2=160,
+    (1280-280)/2=500；局部 1:1 平移取整：
+    反馈 Feedback 40,198,180,258 → 200,698-340,758；
+    关闭 Ok 220,198,360,258 → 380,698-520,758。
+    Icon/Title 区（图标 + "软件信息"标题）；
+    Version 文本框 140,90,390,120 → 300,590-550,620（显示版本号 1.6.8）；
+    官网文本 145,135,390,165 → 305,635-550,665（"www.cnvcs.com"）。
+    action：0=反馈（→ 诚实边界对话框"原版反馈通道未逆向，src_rs 无反馈通道"）
+    1=关闭（→ 回对局/主菜单）。
+    入口：☰ 菜单"软件信息"（本地 !bt_mode && act==6）改切 UI_ABOUT +
+    setprop jq.about 测试钩子（OnCreate + OnUpdate 双路，值 1=进 / 0=退）。
+    ★ 诚实边界：原版反馈=邮件/客服通道（未逆向），src_rs 无反馈通道，
+    反馈按钮→边界对话框，不包装成"已反馈" */
+#define UI_ABOUT_COUNT 2
+#define UI_ABOUT_POPUP_X0 160.0f
+#define UI_ABOUT_POPUP_Y0 500.0f
+#define UI_ABOUT_POPUP_W  400.0f
+#define UI_ABOUT_POPUP_H  280.0f
+typedef struct {
+    float x0, y0, x1, y1;   /* 按钮矩形（720×1280 基准） */
+    int action;             /* 0=反馈 1=关闭 */
+} ui_about_btn;
+
+const ui_about_btn *ui_about_buttons(void);   /* 2 按钮（静态表） */
+int ui_about_hit(const ui_about_btn *btns, int n, float x, float y);  /* 命中 0-1，-1 无 */
+int ui_about_popup_inside(float x, float y);   /* 点在弹窗面板内 */
 #endif
 

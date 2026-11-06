@@ -1411,6 +1411,23 @@ Java_com_cnvcs_App_OnCreate(JNIEnv *env, jclass clazz, jobject activity)
             __system_property_set("jq.chat063", "0");
         }
     }
+    /* ★ P2（datah_000 证据）：软件信息 setprop 钩子（adb setprop jq.about 1 → 重启 →
+        OnCreate 弹 UI_ABOUT 软件信息弹窗：Version 版本号 1.6.8 + 官网 www.cnvcs.com
+        + 反馈/关闭 2 按钮）。
+        测试钩子范式，与 jq.chat063 同；值 1=弹出，0=不触发。一次性（清 0）。
+        ★ 诚实边界：原版反馈=邮件/客服通道（未逆向），src_rs 无反馈通道，
+        反馈按钮→边界对话框，不包装成"已反馈"。 */
+    {
+        char ab_prop[16] = {0};
+        __system_property_get("jq.about", ab_prop);
+        if (strcmp(ab_prop, "1") == 0) {
+            ui_screen_set(UI_ABOUT);
+            LOGI("jq.about 钩子：→ UI_ABOUT 软件信息弹窗（datah_000 Version=1.6.8 + "
+                  "官网 www.cnvcs.com + 反馈/关闭 2 按钮，"
+                  "★ 诚实边界：原版反馈通道未逆向，src_rs 无反馈通道，反馈→边界对话框）");
+            __system_property_set("jq.about", "0");
+        }
+    }
 
     }
     /* ★ P1（datah_039 证据）：复盘回放 setprop 钩子（adb setprop jq.replay 1 → 重启 →
@@ -2177,6 +2194,25 @@ Java_com_cnvcs_App_OnUpdate(JNIEnv *env, jclass clazz)
             ui_screen_set(UI_GAME);
             LOGI("OnUpdate 聊天完整版入口：chat063=2 → 退弹窗回对局");
             __system_property_set("jq.chat063", "0");
+        }
+    }
+    /* ★ P2（datah_000 证据）：软件信息 setprop 钩子（adb setprop jq.about 1 → 同会话 OnUpdate 轮询
+        → UI_ABOUT 软件信息弹窗：Version 版本号 1.6.8 + 官网 www.cnvcs.com + 反馈/关闭 2 按钮；
+        2=退弹窗回对局。与 jq.chat063 同范式，不重启 app）。
+        ★ 诚实边界：原版反馈=邮件/客服通道（未逆向），src_rs 无反馈通道，
+        反馈按钮→边界对话框，不包装成"已反馈"。 */
+    {
+        char ab_prop[16] = {0};
+        __system_property_get("jq.about", ab_prop);
+        if (strcmp(ab_prop, "1") == 0) {
+            ui_screen_set(UI_ABOUT);
+            LOGI("jq.about 钩子：→ UI_ABOUT 软件信息弹窗（datah_000 Version=1.6.8 + 官网 www.cnvcs.com + "
+                  "反馈/关闭 2 按钮，诚实边界：原版反馈通道未逆向，src_rs 无反馈通道）");
+            __system_property_set("jq.about", "0");
+        } else if (strcmp(ab_prop, "2") == 0) {
+            ui_screen_set(UI_GAME);
+            LOGI("OnUpdate 软件信息入口：about=2 → 退弹窗回对局");
+            __system_property_set("jq.about", "0");
         }
     }
 
@@ -3434,16 +3470,11 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
                 jq_show_dialog(env, "战况统计", msg);
                 sfx_play(env, "pop");
                 LOGI("OnTouch 提和详情：战况统计 → 蓝%d 红%d 步%d（复用 ☰ 菜单逻辑）", b, r, g_state.total_moves);
-            } else if (dact == 6) {   /* 软件信息 → 复用 ☰ 菜单版本信息逻辑 */
-                jq_show_dialog(env, "软件信息",
-                    "军棋（Junqi）src_rs 64 位重写版\n"
-                    "版本：1.6.8（com.cnvcs.junqirs）\n"
-                    "玩法等价重写：规则/UI 对齐原版 v152；\n"
-                    "暗棋默认（对齐原版人机/两人开局）；\n"
-                    "人机=AI 走红 / 两人=热座轮流；\n"
-                    "蓝牙联机/四国为诚实边界。");
+            } else if (dact == 6) {   /* 软件信息 → 软件信息弹窗（datah_000，★ P2，对齐 ☰ 菜单本地版入口） */
+                ui_screen_set(UI_ABOUT);
                 sfx_play(env, "pop");
-                LOGI("OnTouch 提和详情：软件信息 → 显示版本信息（复用 ☰ 菜单逻辑）");
+                LOGI("OnTouch 提和详情：软件信息 → UI_ABOUT 软件信息弹窗（datah_000 Version=1.6.8 + "
+                     "官网 www.cnvcs.com + 反馈/关闭，诚实边界：原版反馈通道未逆向）");
             }
             (void)clazz;
             return JNI_TRUE;
@@ -3902,6 +3933,44 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
         (void)clazz;
         return JNI_TRUE;
     }
+    /* ★ P2（datah_000 证据）：软件信息弹窗态（Version 版本号 + 官网文本 + 反馈/关闭）。
+        点 反馈 → jq_show_dialog 诚实边界对话框（"反馈（诚实边界）：原版反馈通道未逆向，
+        src_rs 无反馈通道"）+ 回对局；
+        点 关闭 → 回对局；点面板外 → 回对局。
+        ★ 诚实边界：原版反馈=邮件/客服通道（未逆向），src_rs 无反馈通道，
+        不包装成"已反馈" */
+    if (ui_screen_get() == UI_ABOUT) {
+        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
+        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        const ui_about_btn *ab = ui_about_buttons();
+        int abh = ui_about_hit(ab, UI_ABOUT_COUNT, bx, by);
+        if (abh >= 0) {
+            int abact = ab[abh].action;
+            LOGI("OnTouch 软件信息弹窗：按钮%d（action=%d）", abh, abact);
+            if (abact == 0) {   /* 反馈 → 诚实边界对话框（原版反馈通道未逆向）+ 回对局 */
+                jq_show_dialog(env, "反馈（诚实边界）",
+                    "反馈（诚实边界）：\n"
+                    "原版反馈通道（邮件/客服）未逆向，\n"
+                    "src_rs 无反馈通道。");
+                ui_screen_set(UI_GAME);
+                sfx_play(env, "pop");
+                LOGI("OnTouch 软件信息弹窗：反馈 → 诚实边界对话框（原版反馈通道未逆向）+ 回对局");
+            } else if (abact == 1) {   /* 关闭 → 回对局 */
+                ui_screen_set(UI_GAME);
+                sfx_play(env, "pop");
+                LOGI("OnTouch 软件信息弹窗：关闭 → 回对局");
+            }
+            (void)clazz;
+            return JNI_TRUE;
+        }
+        if (!ui_about_popup_inside(bx, by)) {
+            ui_screen_set(UI_GAME);
+            LOGI("OnTouch 软件信息弹窗外（bx=%.0f by=%.0f）→ 回对局", bx, by);
+            sfx_play(env, "pop");
+        }
+        (void)clazz;
+        return JNI_TRUE;
+    }
     /* ★ 原版 UI 对齐：☰ 游戏内菜单 / ↩ 悔棋 图标（棋盘中部）。
        对局态点 ☰ → UI_INGAME_MENU；点 ↩ → 悔棋（undo_pop）。
        坐标换算 720×1280 基准（与渲染同几何）。
@@ -3999,14 +4068,16 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
                 jq_bt_ctrl_send(env, BT_T_RESIGN);
                 sfx_play(env, "over");
                 LOGI("☰菜单 认输：本机认输 → 对方胜（winner=%d）", g_state.winner);
-            } else if (bt_mode && act == 4) {   /* 聊天（联机版，datah_067） */
-                jq_bt_ctrl_send(env, BT_T_CHAT);
-                jq_show_dialog(env, "聊天",
-                    "聊天（诚实边界）：\n"
-                    "原版联机聊天消息（Junqi.Chat*）未逆向，\n"
-                    "当前发送聊天占位帧（对端无文本渲染）。");
+            } else if (bt_mode && act == 4) {   /* 聊天（联机版，datah_067）→ 聊天完整版弹窗（★ P2 datah_063） */
+                /* ★ P2（datah_063 证据）：聊天入口从"直接发帧+纯文本对话框"升级为
+                   datah_063 聊天完整版弹窗（Msg 输入框占位标签 + 发送/记录/关闭 3 按钮），
+                   发帧逻辑保留在弹窗内（发送→BT_T_CHAT 占位帧 + 边界对话框）。 */
+                ui_screen_set(UI_CHAT063);
                 sfx_play(env, "pop");
-                LOGI("☰菜单 聊天：发送 CHAT 占位帧");
+                LOGI("☰菜单 聊天（联机版）：→ UI_CHAT063 聊天完整版弹窗（datah_063 Msg 输入框占位 + "
+                     "发送/记录/关闭 3 按钮，诚实边界：联机聊天文本未逆向，发送=BT_T_CHAT 占位帧+边界对话框）");
+                (void)clazz;
+                return JNI_TRUE;
             } else if (bt_mode && act == 7) {   /* 游戏规则（联机版，datah_067）→ 规则文本弹窗（datah_037） */
                 ui_screen_set(UI_RULES);
                 sfx_play(env, "pop");
@@ -4016,23 +4087,10 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
                 ui_screen_set(UI_GAMESET);
                 sfx_play(env, "pop");
                 LOGI("☰菜单 系统设置：→ UI_GAMESET 游戏设置弹窗（datah_012 4 规则开关，原版 datah_067 Config=系统设置含声音+游戏设置）");
-            } else if (bt_mode && act == 6) {   /* 战况统计（联机版） */
-                pthread_mutex_lock(&g_mutex);
-                int b = 0, r = 0, i;
-                for (i = 0; i < N_CELLS; i++) {
-                    if (g_state.cells[i].rank == RANK_EMPTY) continue;
-                    if (g_state.cells[i].side == SIDE_BLUE) b++;
-                    else if (g_state.cells[i].side == SIDE_RED) r++;
-                }
-                char msg[160];
-                snprintf(msg, sizeof msg,
-                    "蓝方余子：%d\n红方余子：%d\n总步数：%d\n当前回合：%s",
-                    b, r, g_state.total_moves,
-                    g_state.turn == SIDE_BLUE ? "蓝方" : "红方");
-                pthread_mutex_unlock(&g_mutex);
-                jq_show_dialog(env, "战况统计", msg);
+            } else if (bt_mode && act == 6) {   /* 战况统计（联机版）→ 对局信息弹窗（datah_050，含 复盘/删除/返回 子菜单） */
+                ui_screen_set(UI_GAMEINFO);
                 sfx_play(env, "pop");
-                LOGI("☰菜单 战况统计：蓝%d 红%d 步%d", b, r, g_state.total_moves);
+                LOGI("☰菜单 战况统计（联机版）：→ UI_GAMEINFO 对局信息弹窗（datah_050 复盘/删除/返回 子菜单）");
             } else if (!bt_mode && act == 7) {   /* 退出程序 → 回主菜单（本地版） */
                 ui_screen_set(UI_MENU);
                 ui_bt_set_active(0);
@@ -4064,33 +4122,20 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
                 ui_screen_set(UI_GAMESET);
                 sfx_play(env, "pop");
                 LOGI("☰菜单 功能设置：→ UI_GAMESET 游戏设置弹窗（datah_012 4 规则开关；声音设置 UI_SETTINGS 经 OnEvent gameset/sound 测试钩子触发，不覆写）");
-            } else if (!bt_mode && act == 5) {   /* 战况统计（本地版） */
-                pthread_mutex_lock(&g_mutex);
-                int b = 0, r = 0, i;
-                for (i = 0; i < N_CELLS; i++) {
-                    if (g_state.cells[i].rank == RANK_EMPTY) continue;
-                    if (g_state.cells[i].side == SIDE_BLUE) b++;
-                    else if (g_state.cells[i].side == SIDE_RED) r++;
-                }
-                char msg[160];
-                snprintf(msg, sizeof msg,
-                    "蓝方余子：%d\n红方余子：%d\n总步数：%d\n当前回合：%s",
-                    b, r, g_state.total_moves,
-                    g_state.turn == SIDE_BLUE ? "蓝方" : "红方");
-                pthread_mutex_unlock(&g_mutex);
-                jq_show_dialog(env, "战况统计", msg);
+            } else if (!bt_mode && act == 5) {   /* 战况统计（本地版）→ 对局信息弹窗（datah_050，含 复盘/删除/返回 子菜单） */
+                ui_screen_set(UI_GAMEINFO);
                 sfx_play(env, "pop");
-                LOGI("☰菜单 战况统计：蓝%d 红%d 步%d", b, r, g_state.total_moves);
-            } else if (!bt_mode && act == 6) {   /* 软件信息（本地版） */
-                jq_show_dialog(env, "软件信息",
-                    "军棋（Junqi）src_rs 64 位重写版\n"
-                    "版本：1.6.8（com.cnvcs.junqirs）\n"
-                    "玩法等价重写：规则/UI 对齐原版 v152；\n"
-                    "暗棋默认（对齐原版人机/两人开局）；\n"
-                    "人机=AI 走红 / 两人=热座轮流；\n"
-                    "蓝牙联机/四国为诚实边界。");
+                LOGI("☰菜单 战况统计：→ UI_GAMEINFO 对局信息弹窗（datah_050 Info 文本框（战况统计复用） + 复盘/删除/返回 3 按钮子菜单）");
+            } else if (!bt_mode && act == 6) {   /* 软件信息（本地版）→ 软件信息弹窗（★ P2 datah_000） */
+                /* ★ P2（datah_000 证据）：软件信息入口从"纯文本对话框"升级为
+                   datah_000 软件信息弹窗（Version 版本号 1.6.8 + 官网 www.cnvcs.com
+                   + 反馈/关闭 2 按钮），反馈按钮→诚实边界对话框（原版反馈通道未逆向）。 */
+                ui_screen_set(UI_ABOUT);
                 sfx_play(env, "pop");
-                LOGI("☰菜单 软件信息：显示版本信息");
+                LOGI("☰菜单 软件信息（本地版）：→ UI_ABOUT 软件信息弹窗（datah_000 Version=1.6.8 + "
+                     "官网 www.cnvcs.com + 反馈/关闭 2 按钮，诚实边界：原版反馈通道未逆向，src_rs 无反馈通道）");
+                (void)clazz;
+                return JNI_TRUE;
             }
             /* ★ 对抗审计（datah_001）：功能设置切到 UI_SETTINGS（声音设置弹窗），
                不覆写回对局；其余动作（弹窗类已 dialog）回对局。 */

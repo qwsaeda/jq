@@ -340,3 +340,17 @@ int ui_chat063_hit(const ui_chat063_btn *b, int n, float x, float y)
 int ui_chat063_popup_inside(float x, float y)
 { return x>=UI_CHAT063_POPUP_X0&&x<=UI_CHAT063_POPUP_X0+UI_CHAT063_POPUP_W&&
          y>=UI_CHAT063_POPUP_Y0&&y<=UI_CHAT063_POPUP_Y0+UI_CHAT063_POPUP_H; }
+
+/* ★ P2（datah_000 证据）：软件信息弹窗 2 按钮桩（反馈/关闭）。
+   诚实边界：原版反馈=邮件/客服通道（未逆向），src_rs 无反馈通道，
+   反馈按钮→诚实边界对话框（几何表返回 720 基准占位供一致性/evverify 链接；
+   真机走 ui_menu.c 真实几何表）。 */
+static const ui_about_btn ab_stub[UI_ABOUT_COUNT] = {
+    { 200.0f,698.0f,340.0f,758.0f,0 },{ 380.0f,698.0f,520.0f,758.0f,1 },
+};
+const ui_about_btn *ui_about_buttons(void) { return ab_stub; }
+int ui_about_hit(const ui_about_btn *b, int n, float x, float y)
+{ for (int i=0;i<n;i++) if (x>=b[i].x0&&x<=b[i].x1&&y>=b[i].y0&&y<=b[i].y1) return i; return -1; }
+int ui_about_popup_inside(float x, float y)
+{ return x>=UI_ABOUT_POPUP_X0&&x<=UI_ABOUT_POPUP_X0+UI_ABOUT_POPUP_W&&
+         y>=UI_ABOUT_POPUP_Y0&&y<=UI_ABOUT_POPUP_Y0+UI_ABOUT_POPUP_H; }

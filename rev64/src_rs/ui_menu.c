@@ -1115,3 +1115,32 @@ int ui_chat063_popup_inside(float x, float y)
     return x >= UI_CHAT063_POPUP_X0 && x <= UI_CHAT063_POPUP_X0 + UI_CHAT063_POPUP_W &&
            y >= UI_CHAT063_POPUP_Y0 && y <= UI_CHAT063_POPUP_Y0 + UI_CHAT063_POPUP_H;
 }
+
+/* ★ P2（datah_000 证据）：软件信息弹窗 2 按钮（反馈/关闭）。
+   几何 720×1280 基准：面板 400×280 居中（偏移=(720-400)/2=160,(1280-280)/2=500）；
+   局部 1:1 平移取整：
+   反馈 Feedback 40,198,180,258 → 200,698-340,758；
+   关闭 Ok 220,198,360,258 → 380,698-520,758。
+   ★ 诚实边界：原版反馈=邮件/客服通道（未逆向），src_rs 无反馈通道，
+   反馈按钮→诚实边界对话框，不包装成"已反馈"。 */
+static const ui_about_btn g_about_btns[UI_ABOUT_COUNT] = {
+    /* x0, y0, x1, y1, action；★ 原版 datah_000 400 坐标系精确换算（面板 400×280 居中 720，偏移+160,+500，取整） */
+    { 200.0f, 698.0f, 340.0f, 758.0f, 0 },   /* 反馈 Feedback（40,198,180,258）→ 诚实边界对话框（原版反馈通道未逆向） */
+    { 380.0f, 698.0f, 520.0f, 758.0f, 1 },   /* 关闭 Ok（220,198,360,258）→ 回对局/主菜单 */
+};
+
+const ui_about_btn *ui_about_buttons(void) { return g_about_btns; }
+
+int ui_about_hit(const ui_about_btn *btns, int n, float x, float y)
+{
+    for (int i = 0; i < n; i++)
+        if (x >= btns[i].x0 && x <= btns[i].x1 && y >= btns[i].y0 && y <= btns[i].y1)
+            return i;
+    return -1;
+}
+
+int ui_about_popup_inside(float x, float y)
+{
+    return x >= UI_ABOUT_POPUP_X0 && x <= UI_ABOUT_POPUP_X0 + UI_ABOUT_POPUP_W &&
+           y >= UI_ABOUT_POPUP_Y0 && y <= UI_ABOUT_POPUP_Y0 + UI_ABOUT_POPUP_H;
+}

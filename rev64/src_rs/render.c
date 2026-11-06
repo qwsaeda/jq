@@ -315,6 +315,8 @@ int rs_render_init(rs_render *rr, const char *spak_dir, const jq_state *init_sta
         snprintf(p35, sizeof p35, "%s/rules070_text_atlas.png", spak_dir ? spak_dir : "");
         snprintf(p36, sizeof p36, "%s/room060_text_atlas.png", spak_dir ? spak_dir : "");
         snprintf(p37, sizeof p37, "%s/chat063_text_atlas.png", spak_dir ? spak_dir : "");
+        char p38[512];
+        snprintf(p38, sizeof p38, "%s/about_text_atlas.png", spak_dir ? spak_dir : "");
         unsigned char *braw = NULL; size_t braw_len = 0;
         unsigned char *praw = NULL; size_t praw_len = 0;
         unsigned char *traw = NULL; size_t traw_len = 0;
@@ -352,6 +354,7 @@ int rs_render_init(rs_render *rr, const char *spak_dir, const jq_state *init_sta
         unsigned char *r70aw = NULL; size_t r70aw_len = 0;  /* ★ P2 datah_070 游戏规则完整版文字图集 */
         unsigned char *rmaw = NULL; size_t rmaw_len = 0;    /* ★ P2 datah_060 房间态文字图集 */
         unsigned char *chaw = NULL; size_t chaw_len = 0;    /* ★ P2 datah_063 聊天完整版文字图集 */
+        unsigned char *abaw = NULL; size_t abaw_len = 0;    /* ★ P2 datah_000 软件信息文字图集 */
         unsigned char *bpx = NULL, *ppx = NULL, *tpx = NULL, *gpx = NULL;
         unsigned char *opx = NULL, *ppx2 = NULL, *mpx = NULL, *ipx = NULL, *icpx = NULL, *hbpx = NULL, *bbpx = NULL, *bspx = NULL;
         unsigned char *wspx = NULL, *bipx = NULL, *stpx = NULL;
@@ -377,6 +380,7 @@ int rs_render_init(rs_render *rr, const char *spak_dir, const jq_state *init_sta
         int r70w = 0, r70h = 0;  /* ★ P2 datah_070 游戏规则完整版文字图集尺寸 */
         int rmw = 0, rmh = 0;    /* ★ P2 datah_060 房间态文字图集尺寸 */
         int chw = 0, chh = 0;    /* ★ P2 datah_063 聊天完整版文字图集尺寸 */
+        int abw = 0, abh = 0;    /* ★ P2 datah_000 软件信息文字图集尺寸 */
         rs_read_png(am, "spak_res/datah_188_21d95e03e7692e98.bin", p1, &braw, &braw_len);
         rs_read_png(am, "spak_res/datah_183_9e1b7fbc4dfc09c3.bin", p2, &praw, &praw_len);
         rs_read_png(am, "spak_res/menu_text_atlas.png", p3, &traw, &traw_len);
@@ -414,6 +418,7 @@ int rs_render_init(rs_render *rr, const char *spak_dir, const jq_state *init_sta
         rs_read_png(am, "spak_res/rules070_text_atlas.png", p35, &r70aw, &r70aw_len);
         rs_read_png(am, "spak_res/room060_text_atlas.png", p36, &rmaw, &rmaw_len);
         rs_read_png(am, "spak_res/chat063_text_atlas.png", p37, &chaw, &chaw_len);
+        rs_read_png(am, "spak_res/about_text_atlas.png", p38, &abaw, &abaw_len);
         if (braw && png_decode(braw, braw_len, &bpx, &bw, &bh) == 0) { rr->board_px = bpx; rr->board_px_len = (size_t)bw * bh * 4; }
         free(braw);
         if (praw && png_decode(praw, praw_len, &ppx, &pw, &ph) == 0) { rr->piece_px = ppx; rr->piece_px_len = (size_t)pw * ph * 4; }
@@ -681,8 +686,18 @@ int rs_render_init(rs_render *rr, const char *spak_dir, const jq_state *init_sta
             }
         }
         free(chaw);
+        /* ★ P2（datah_000）：软件信息文字图集（7 标签竖排 220×322：软件信息/版本/
+           官网/反馈/关闭/1.6.8/cnvcs.com） */
+        {
+            unsigned char *ab_px = NULL;
+            if (abaw && png_decode(abaw, abaw_len, &ab_px, &abw, &abh) == 0) {
+                rr->about_text_px = ab_px; rr->about_text_px_len = (size_t)abw * abh * 4;
+                rr->about_text_w = abw; rr->about_text_h = abh;
+            }
+        }
+        free(abaw);
         rr->gl_px_loaded = 1;
-        LOGI("Init 像素解码：board=%s(%dx%d) piece=%s(%dx%d) text=%s(%dx%d) bg=%s(%dx%d) menu_bg=%s(%dx%d) popup=%s(%dx%d) opt_text=%s(%dx%d) imen_text=%s(%dx%d) waysel=%s(%dx%d) btimen=%s(%dx%d) settings=%s(%dx%d) nplayer=%s(%dx%d) newgame=%s(%dx%d) gameset=%s(%dx%d) layres=%s(%dx%d) replay=%s(%dx%d) login=%s(%dx%d) rules=%s(%dx%d) ng104=%s(%dx%d) join=%s(%dx%d) ng061=%s(%dx%d) gameinfo=%s(%dx%d) bright=%s(%dx%d) chatlog=%s(%dx%d) profile=%s(%dx%d) drawdetail=%s(%dx%d) setentry=%s(%dx%d) imgset=%s(%dx%d) join065=%s(%dx%d) create069=%s(%dx%d) rules070=%s(%dx%d) room060=%s(%dx%d) chat063=%s(%dx%d)",
+        LOGI("Init 像素解码：board=%s(%dx%d) piece=%s(%dx%d) text=%s(%dx%d) bg=%s(%dx%d) menu_bg=%s(%dx%d) popup=%s(%dx%d) opt_text=%s(%dx%d) imen_text=%s(%dx%d) waysel=%s(%dx%d) btimen=%s(%dx%d) settings=%s(%dx%d) nplayer=%s(%dx%d) newgame=%s(%dx%d) gameset=%s(%dx%d) layres=%s(%dx%d) replay=%s(%dx%d) login=%s(%dx%d) rules=%s(%dx%d) ng104=%s(%dx%d) join=%s(%dx%d) ng061=%s(%dx%d) gameinfo=%s(%dx%d) bright=%s(%dx%d) chatlog=%s(%dx%d) profile=%s(%dx%d) drawdetail=%s(%dx%d) setentry=%s(%dx%d) imgset=%s(%dx%d) join065=%s(%dx%d) create069=%s(%dx%d) rules070=%s(%dx%d) room060=%s(%dx%d) chat063=%s(%dx%d) about=%s(%dx%d)",
              rr->board_px ? "OK" : "MISS", bw, bh, rr->piece_px ? "OK" : "MISS", pw, ph,
              rr->text_px ? "OK" : "MISS", tw, th, rr->bg_px ? "OK" : "MISS", gw, gh,
              rr->menu_bg_px ? "OK" : "MISS", mw, mh, rr->popup_px ? "OK" : "MISS", pw2, ph2,
@@ -712,7 +727,8 @@ int rs_render_init(rs_render *rr, const char *spak_dir, const jq_state *init_sta
                  rr->create069_text_px ? "OK" : "MISS", c69w, c69h,
                  rr->rules070_text_px ? "OK" : "MISS", r70w, r70h,
                  rr->room060_text_px ? "OK" : "MISS", rmw, rmh,
-                 rr->chat063_text_px ? "OK" : "MISS", chw, chh);
+                 rr->chat063_text_px ? "OK" : "MISS", chw, chh,
+                 rr->about_text_px ? "OK" : "MISS", abw, abh);
     }
     if (rr->egl_ctx)
         LOGI("render 初始化：GL2 context 就绪，GL 对象延迟到 GLThread 首帧建");
@@ -4431,6 +4447,67 @@ static void rs_draw_chat063(rs_render *rr, int slot)
 }
 
 
+/* ★ P2（datah_000 证据）：软件信息弹窗渲染——棋盘背景 + 面板
+   + Version 版本号文本 + 官网文本 + 反馈/关闭 2 按钮 + 文字图集。
+   按钮几何 ui_about_buttons()（720×1280 基准）。
+   ★ 诚实边界：原版反馈=邮件/客服通道（未逆向），src_rs 无反馈通道，
+   反馈按钮→诚实边界对话框，不包装成"已反馈"。 */
+#define ABOUT_ROW 7
+static void rs_draw_about(rs_render *rr, int slot)
+{
+    if (!rr->prog_solid[slot] || !rr->gl2_ok[slot]) return;
+    float sx = (float)rr->view_w / 720.0f, sy = (float)rr->view_h / 1280.0f;
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    /* ⓪①② 面板 shell（棋盘背景 + 遮罩 + 深色面板 400×280 居中） */
+    rs_popup_shell(rr, slot, UI_ABOUT_POPUP_X0, UI_ABOUT_POPUP_Y0,
+                   UI_ABOUT_POPUP_W, UI_ABOUT_POPUP_H, 0, uc);
+    /* ③ Version 文本框（浅色矩形占位，datah_000 Version 140,90,390,120 400 系 → 300,590-550,620 720 基准） */
+    rs_solid_btn(rr, slot, 300.0f, 590.0f, 550.0f, 620.0f,
+                 0.90f, 0.90f, 0.92f, 0.92f, 0, uc);
+    /* ④ 官网文本框（浅色矩形占位，datah_000 官网 145,135,390,165 400 系 → 305,635-550,665 720 基准） */
+    rs_solid_btn(rr, slot, 305.0f, 635.0f, 550.0f, 665.0f,
+                 0.90f, 0.90f, 0.92f, 0.92f, 0, uc);
+    /* ⑤ 标题"软件信息"（about_text row0，面板顶部 360,520 720 基准中心） */
+    rs_atlas_label(rr, slot, rr->tex_about_text[slot], rr->about_text_w, rr->about_text_h,
+                   ABOUT_ROW, 0, 360.0f, 520.0f, 130.0f, uc);
+    /* ⑥ Version 文本框内"1.6.8"（row5=1.6.8）+ 官网文本框内"cnvcs.com"（row6=cnvcs.com） */
+    if (rr->tex_about_text[slot] && rr->about_text_w > 0) {
+        rs_atlas_label(rr, slot, rr->tex_about_text[slot], rr->about_text_w, rr->about_text_h,
+                       ABOUT_ROW, 5, 425.0f, 605.0f, 200.0f, uc);   /* 版本号 1.6.8 */
+        rs_atlas_label(rr, slot, rr->tex_about_text[slot], rr->about_text_w, rr->about_text_h,
+                       ABOUT_ROW, 6, 427.0f, 650.0f, 200.0f, uc);   /* 官网 cnvcs.com */
+        static int avid = 0;
+        if (!avid) {
+            avid = 1;
+            LOGI("rs_draw_about：软件信息 Version=1.6.8 + 官网 www.cnvcs.com（占位标签，未烘焙动态版本字段）");
+        }
+    }
+    /* ⑦ 2 按钮：反馈（蓝）/ 关闭（灰）+ 文字 */
+    static const float BTN_COL[2][4] = {
+        {0.20f, 0.45f, 0.90f, 0.9f},   /* 反馈 蓝 */
+        {0.55f, 0.55f, 0.60f, 0.9f},   /* 关闭 灰 */
+    };
+    const ui_about_btn *ab = ui_about_buttons();
+    for (int i = 0; i < UI_ABOUT_COUNT; i++) {
+        rs_solid_btn(rr, slot, ab[i].x0, ab[i].y0, ab[i].x1, ab[i].y1,
+                     BTN_COL[i][0], BTN_COL[i][1], BTN_COL[i][2], BTN_COL[i][3], 0, uc);
+        int row_idx = 3 + i;   /* row3=反馈 row4=关闭 */
+        rs_atlas_label(rr, slot, rr->tex_about_text[slot], rr->about_text_w, rr->about_text_h,
+                       ABOUT_ROW, row_idx,
+                       (ab[i].x0 + ab[i].x1) * 0.5f, (ab[i].y0 + ab[i].y1) * 0.5f, 120.0f, uc);
+    }
+    (void)sx; (void)sy;
+    static int ab2 = 0;
+    if (!ab2) {
+        ab2 = 1;
+        LOGI("rs_draw_about：软件信息弹窗（datah_000 Version 版本号 1.6.8 + 官网 www.cnvcs.com + "
+              "反馈/关闭 2 按钮，面板 %.0f×%.0f，诚实边界：原版反馈通道未逆向，src_rs 无反馈通道，"
+              "反馈按钮→边界对话框，不包装成已反馈）",
+              UI_ABOUT_POPUP_W, UI_ABOUT_POPUP_H);
+    }
+}
+
+
 static void rs_draw_replay(rs_render *rr, int slot)
 {
     if (!rr->prog_solid[slot] || !rr->gl2_ok[slot]) return;
@@ -4883,6 +4960,15 @@ static void rs_gl_rebuild(rs_render *rr, int slot)
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     }
+    /* ★ P2（datah_000）：软件信息文字图集（7 标签竖排 220×322） */
+    if (rr->about_text_px && rr->gl2_ok[slot] && rr->about_text_w > 0 && rr->about_text_h > 0) {
+        glGenTextures(1, &rr->tex_about_text[slot]);
+        glBindTexture(GL_TEXTURE_2D, rr->tex_about_text[slot]);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->about_text_w, rr->about_text_h, 0,
+                     GL_RGBA, GL_UNSIGNED_BYTE, rr->about_text_px);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    }
     /* 棋盘 VBO */
     {
         float w = (float)rr->view_w, h = (float)rr->view_h;
@@ -5231,6 +5317,9 @@ void rs_render_frame(rs_render *rr)
         } else if (ui_screen_get() == UI_CHAT063) {
             /* ★ P2（datah_063 证据）：聊天完整版弹窗（Msg 输入框占位 + 发送/记录/关闭，面板 420×325 居中） */
             rs_draw_chat063(rr, slot);
+        } else if (ui_screen_get() == UI_ABOUT) {
+            /* ★ P2（datah_000 证据）：软件信息弹窗（Version 版本号 1.6.8 + 官网 www.cnvcs.com + 反馈/关闭，面板 400×280 居中） */
+            rs_draw_about(rr, slot);
         } else if (rr->game && rr->game->stage == STG_OVER) {
             /* ★ 对局结束（GAME 态且 stage=OVER）→ 胜负横幅（winner 色可视化） */
             rs_draw_overlay(rr, slot, rr->game->winner);

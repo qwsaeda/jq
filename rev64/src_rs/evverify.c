@@ -1945,6 +1945,73 @@ static int run_chat063(void)
     return ok;
 }
 
+/* ★ P2（datah_000 证据）：软件信息弹窗桌面验证——UI_ABOUT 态机 2 按钮
+   命中判定 + 几何 Δ=0 + 业务分支（反馈→诚实边界对话框+回对局/关闭→回对局，
+   确定性不依赖触摸/GL）。
+   几何：ui_about_buttons()（720 基准）vs 原版 datah_000 400×280 面板居中精确换算
+   （偏移+160,+500，局部 1:1 平移取整）。
+   ★ 诚实边界：原版反馈=邮件/客服通道（未逆向），src_rs 无反馈通道，
+   反馈按钮→边界对话框，不包装成"已反馈" */
+static int run_about(void)
+{
+    int ok = 1;
+    const ui_about_btn *ab = ui_about_buttons();
+    /* ① 2 按钮几何验证（原版 datah_000 400×280 居中 720 基准精确换算，偏移+160,+500，取整） */
+    float expect[UI_ABOUT_COUNT][4] = {
+        {200.0f, 698.0f, 340.0f, 758.0f},   /* 0=反馈 Feedback（40,198,180,258）→ 诚实边界对话框 + 回对局 */
+        {380.0f, 698.0f, 520.0f, 758.0f},   /* 1=关闭 Ok（220,198,360,258）→ 回对局/主菜单 */
+    };
+    for (int i = 0; i < UI_ABOUT_COUNT; i++) {
+        float dx = ab[i].x0 - expect[i][0], dy = ab[i].y0 - expect[i][1];
+        float dx1 = ab[i].x1 - expect[i][2], dy1 = ab[i].y1 - expect[i][3];
+        int oki = (dx < 1.5f && dx > -1.5f) && (dy < 1.5f && dy > -1.5f) &&
+                   (dx1 < 1.5f && dx1 > -1.5f) && (dy1 < 1.5f && dy1 > -1.5f);
+        ok &= oki;
+        printf("about btn%d: src(%.0f,%.0f)-(%.0f,%.0f) 期望(%.0f,%.0f)-(%.0f,%.0f) %s\n",
+               i, ab[i].x0, ab[i].y0, ab[i].x1, ab[i].y1,
+               expect[i][0], expect[i][1], expect[i][2], expect[i][3],
+               oki ? "" : "  [FAIL]");
+    }
+    /* ② 命中判定：每按钮中心点命中对应 index */
+    for (int i = 0; i < UI_ABOUT_COUNT; i++) {
+        float cx = (ab[i].x0 + ab[i].x1) * 0.5f, cy = (ab[i].y0 + ab[i].y1) * 0.5f;
+        int hit = ui_about_hit(ab, UI_ABOUT_COUNT, cx, cy);
+        int oki = (hit == i);
+        ok &= oki;
+        printf("about hit btn%d center(%.0f,%.0f) → hit=%d %s\n", i, cx, cy, hit, oki ? "" : "  [FAIL]");
+    }
+    /* ③ 面板内/外判定 */
+    int in_panel = ui_about_popup_inside(UI_ABOUT_POPUP_X0 + 10, UI_ABOUT_POPUP_Y0 + 10);
+    int out_panel = ui_about_popup_inside(UI_ABOUT_POPUP_X0 - 5, UI_ABOUT_POPUP_Y0 - 5);
+    ok &= in_panel && !out_panel;
+    printf("about panel: inside=%d outside=%d %s\n", in_panel, out_panel,
+           (in_panel && !out_panel) ? "" : "  [FAIL]");
+    /* ④ 业务分支判定（桌面桩 ui_screen_set 状态机 + 几何命中，不依赖 GL/触摸） */
+    /* 反馈（action=0）→ 诚实边界对话框（原版反馈通道未逆向）+ 回对局 */
+    float f_cx = (ab[0].x0 + ab[0].x1) * 0.5f, f_cy = (ab[0].y0 + ab[0].y1) * 0.5f;
+    int f_hit = ui_about_hit(ab, UI_ABOUT_COUNT, f_cx, f_cy);
+    int ok_f = (f_hit == 0 && ab[f_hit].action == 0);
+    ok &= ok_f;
+    printf("about feedback: hit=%d action=%d → 诚实边界对话框（★ 诚实边界：原版反馈通道未逆向，src_rs 无反馈通道）%s\n",
+           f_hit, ab[f_hit].action, ok_f ? "" : "  [FAIL]");
+    /* 关闭（action=1）→ 回对局 */
+    float x_cx = (ab[1].x0 + ab[1].x1) * 0.5f, x_cy = (ab[1].y0 + ab[1].y1) * 0.5f;
+    int x_hit = ui_about_hit(ab, UI_ABOUT_COUNT, x_cx, x_cy);
+    int ok_x = (x_hit == 1 && ab[x_hit].action == 1);
+    ok &= ok_x;
+    printf("about close: hit=%d action=%d → 回对局/主菜单 %s\n",
+           x_hit, ab[x_hit].action, ok_x ? "" : "  [FAIL]");
+    /* ⑤ 入口分流判定（桌面桩 ui_screen_set 状态机） */
+    ui_screen_set(UI_ABOUT);
+    int sc_ok = (ui_screen_get() == UI_ABOUT);
+    ok &= sc_ok;
+    printf("about state: UI_ABOUT 进弹窗态机 %s\n", sc_ok ? "" : "  [FAIL]");
+    ui_screen_set(UI_GAME);
+    printf("about: 2 按钮几何 Δ=0 + 命中判定 + 业务分支（★ 诚实边界：原版反馈通道未逆向，src_rs 无反馈通道）%s\n",
+           ok ? "PASS" : "FAIL");
+    return ok;
+}
+
 int main(int argc, char **argv)
 {
     if (argc < 2) {
@@ -2062,6 +2129,9 @@ int main(int argc, char **argv)
         /* ★ P2（datah_063）：聊天完整版弹窗 3 按钮几何 Δ=0 + 命中判定 + 业务分支
              （★ 诚实边界：联机聊天文本未逆向，发送=占位帧+边界对话框，不依赖触摸/GL） */
         total++; pass += run_chat063();
+        /* ★ P2（datah_000）：软件信息弹窗 2 按钮几何 Δ=0 + 命中判定 + 业务分支
+             （★ 诚实边界：原版反馈通道未逆向，src_rs 无反馈通道，反馈→边界对话框，不依赖触摸/GL） */
+        total++; pass += run_about();
         printf("=== 桌面事件验证: %d/%d 全对 ===\n", pass, total);
         return pass == total ? 0 : 1;
     }
@@ -2114,6 +2184,8 @@ int main(int argc, char **argv)
     if (strcmp(mode, "--room060") == 0) return run_room060() ? 0 : 1;
     /* ★ P2（datah_063）：聊天完整版弹窗 3 按钮桌面验证 */
     if (strcmp(mode, "--chat063") == 0) return run_chat063() ? 0 : 1;
+    /* ★ P2（datah_000）：软件信息弹窗 2 按钮桌面验证 */
+    if (strcmp(mode, "--about") == 0) return run_about() ? 0 : 1;
     printf("未知模式: %s\n", mode);
     return 2;
 }

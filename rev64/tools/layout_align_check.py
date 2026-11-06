@@ -191,6 +191,12 @@ DIALOGS = {
         ("开始",25,270,145,330),("换桌",165,270,285,330),("离开",305,270,425,330)]),
     "datah_063_chat063": (420, 325, [
         ("发送",25,245,135,305),("记录",155,245,265,305),("关闭",285,245,395,305)]),
+    # ★ P2（datah_000 证据）：软件信息弹窗（400×280 面板居中 720 屏，
+    # 偏移=(720-400)/2=160, (1280-280)/2=500；反馈 40,198,180,258 → 200,698-340,758；
+    # 关闭 220,198,360,258 → 380,698-520,758。
+    # 诚实边界：原版反馈=邮件/客服通道未逆向，src_rs 无反馈通道，反馈→边界对话框）
+    "datah_000_about": (400, 280, [
+        ("反馈",40,198,180,258),("关闭",220,198,360,258)]),
 }
 
 # datah_107/039 绝对坐标面板（不居中，局部 1:1 平移 @ 偏移）
@@ -269,6 +275,8 @@ def load_src_rs_buttons(path="rev64/src_rs/ui_menu.c"):
     tables["room060"] = _grab("g_room060_btns")
     # ★ P2（datah_063 证据）：聊天完整版弹窗 3 按钮（g_chat063_btns）
     tables["chat063"] = _grab("g_chat063_btns")
+    # ★ P2（datah_000 证据）：软件信息弹窗 2 按钮（g_about_btns）
+    tables["about"] = _grab("g_about_btns")
     return tables
 def dialog_720(name):
     """原版对话框 → 720×1280 物理基准（面板水平居中 +135，垂直居中按面板 H）；
@@ -345,7 +353,8 @@ def check_geometry(menu_src=None, verbose=True):
                          ("datah_069_create069","create069"),
                          ("datah_070_rules070","rules070"),
                          ("datah_060_room060","room060"),
-                         ("datah_063_chat063","chat063")]:
+                         ("datah_063_chat063","chat063"),
+                         ("datah_000_about","about")]:
         if dname not in DIALOGS or tname not in src: continue
         W,H,obtns = DIALOGS[dname]
         ox,oy = (720-W)/2.0,(1280-H)/2.0
@@ -502,8 +511,15 @@ def check_geometry(menu_src=None, verbose=True):
             for i2, (lbl, x0, y0, x1, y1) in enumerate(obtns):
                 pairs.append((lbl, (round(ox+x0,1), round(oy+y0,1), round(ox+x1,1), round(oy+y1,1)),
                               (srcs[i2][0],srcs[i2][1],srcs[i2][2],srcs[i2][3])))
-        # 跳过 Δ 比对的 DIALOGS（029 chatlog 只有 2 按钮，002 bright 3 控件走循环切换，004 setentry4 只有 2 按钮）
-        skip_delta = dname in ("datah_029_chatlog", "datah_004_setentry4")
+        # ★ P2（datah_000 证据）：软件信息 2 按钮（400×280 居中，偏移+160,+500）
+        if dname == "datah_000_about":
+            pairs = []
+            for i2, (lbl, x0, y0, x1, y1) in enumerate(obtns):
+                pairs.append((lbl, (round(ox+x0,1), round(oy+y0,1), round(ox+x1,1), round(oy+y1,1)),
+                              (srcs[i2][0],srcs[i2][1],srcs[i2][2],srcs[i2][3])))
+        # 跳过 Δ 比对的 DIALOGS（029 chatlog 只有 2 按钮，002 bright 3 控件走循环切换，004 setentry4 只有 2 按钮，
+        # 000 about 只有 2 按钮）
+        skip_delta = dname in ("datah_029_chatlog", "datah_004_setentry4", "datah_000_about")
         need_n = 2 if skip_delta else 3
         if not srcs or len(srcs) < need_n:
             if verbose and verbose_global: print(f"  {dname} src_rs 按钮表缺失/不足（{len(srcs)} 行）→ 跳过 Δ 比对（诚实边界）")

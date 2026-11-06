@@ -107,6 +107,9 @@ typedef struct {
     rs_glid_t tex_chat063_text[2];  /* ★ P2（datah_063）：聊天完整版文字图集 220×368
                                            （8 标签竖排：聊天/输入/发送/记录/关闭/
                                            占位/边界/未逆向） */
+    rs_glid_t tex_about_text[2];   /* ★ P2（datah_000）：软件信息文字图集 220×322
+                                           （7 标签竖排：软件信息/版本/官网/反馈/关闭/
+                                           1.6.8/cnvcs.com） */
     void *board_px; size_t board_px_len;   /* 解码后 RGBA（跨 context 共享，只解码一次） */
     void *piece_px;  size_t piece_px_len;
     void *text_px;   size_t text_px_len;   /* 菜单文字图集 RGBA（5 label 竖排） */
@@ -169,6 +172,8 @@ typedef struct {
     int room060_text_w, room060_text_h; /* 房间态文字图集尺寸 */
     void *chat063_text_px; size_t chat063_text_px_len; /* ★ P2（datah_063）：聊天完整版文字图集 RGBA（8 标签竖排 220×368） */
     int chat063_text_w, chat063_text_h; /* 聊天完整版文字图集尺寸 */
+    void *about_text_px; size_t about_text_px_len; /* ★ P2（datah_000）：软件信息文字图集 RGBA（7 标签竖排 220×322） */
+    int about_text_w, about_text_h; /* 软件信息文字图集尺寸 */
     void *imen_text_px; size_t imen_text_px_len; /* ★ ☰ 菜单文字图集 RGBA（8 项竖排 160×320） */
     int imen_text_w, imen_text_h;               /* ☰ 菜单文字图集尺寸 */
     void *imen_icons_px; size_t imen_icons_px_len; /* ★ ☰ 菜单图标图集 RGBA（8 图标 110×100 4×2，原版裁剪） */
