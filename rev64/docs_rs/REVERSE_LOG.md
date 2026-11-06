@@ -3749,3 +3749,47 @@ python3 /tmp/opencode/incremental_regress.py reset 0xADDR  # 改了某指令 →
   非游戏事件名池；游戏事件名比较走 §124y-60 的 disc 匹配机制）
 - 73 条事件名池（0x120xxx）与事件码（[0x44]/[0x35]）的逐行映射需运行时事件触发实锤
   （静态 3 套常量区已区分，运行时匹配逻辑需 frida 追踪 F_3a92c disc 循环）
+
+## §124y-81 .rel.dyn 重定位槽段分布精确实锤（RELATIVE 5312 + JUMP_SLOT 214 + GLOB_DAT 6 全量分布）
+
+**★ 闭环事实（静态实锤，.rel.dyn 5532 条重定位按段分布精确实锤）**：
+
+1. **.rel.dyn 重定位类型分布实锤**：
+   - `JUMP_SLOT: 214`（PLT 跳板重定位，§124y-31 实锤 214/214 映射）
+   - `GLOB_DAT: 6`（全局数据指针重定位，§124 实锤 6 符号从 docker 真 ARM libc 解析）
+   - `RELATIVE: 5312`（相对重定位，load_base + addend）
+   - 总计 5532 条
+
+2. **5312 RELATIVE 槽段分布精确实锤**（按段边界精确归属）：
+   | 段 | 范围 | RELATIVE 槽数 |
+   |---|---|---|
+   | .got | 0x15b0c8-0x15bb6c | **458** |
+   | .data.rel.ro | 0x155030-0x15afe0 | **4800** |
+   | .data | 0x15bb6c-0x15be80 | **42** |
+   | .bss | 0x15be80-0x162e88 | **0**（§124y-71 实锤=0 核对 ✓） |
+   | .rodata | 0x120bf8-0x155000 | 0 |
+   | .text | 0x233e0-0x120bf8 | 0 |
+   | other | — | 12 |
+   - **4800/5312 = 90.4% RELATIVE 槽在 .data.rel.ro 区**（C++ vtable/函数指针表重定位主战场）
+   - .got 区 458 槽（C++ vtable/函数指针 REL 重定位，§124y-79 的 0x229c0 PLT 槽 + REL 槽混合）
+   - .data 区 42 槽（RELATIVE addend，运行时 load_base + addend）
+   - **.bss 区 0 槽**（§124y-71 实锤 .bss 中间区无 REL 槽，C++ 对象堆全 scudo 运行时填，需 frida dump）
+
+3. **.got 区 458 REL 槽精确分布**：
+   - 最小偏移 0x0364 @ 0x15b42c / 最大偏移 0x0aa0 @ 0x15bb68
+   - 区段边界（gap>4）：956/964, 1008/1016, 1104/1112, 1364/1372, 1688/1696, 1804/1812（6 段）
+   - 即 .got 区 458 REL 槽 = 6 段连续区（C++ vtable/函数指针表 REL 重定位，.data.rel.ro 4800 槽同源）
+
+4. **.data 区 42 REL 槽精确分布**：
+   - 偏移 0x0000/0x0004（.data 起点 2 槽）+ 0x0058-0x00a8（中间 10 槽）+ 0x01b4/0x0214-0x0244（高区 10 槽）
+   - 即 .data 区 42 REL 槽 = .init_array REL 槽（§124y-32 实锤 0x15be00-0x15be2c 5 条，落在 .data 区高区）
+
+### 修正 §124y-32 的".bss 区 5 条 REL 槽"认知
+- §124y-32 标注".bss 区 5 条 RELATIVE 槽（0x15be00-0x15be2c）"→ 精确实锤 0x15be00-0x15be2c 落在 **.data 区**（0x15bb6c-0x15be80），**非 .bss 区**
+- .bss 区（0x15be80-0x162e88）REL 槽 = **0**（§124y-71 实锤核对 ✓）
+- 即 §124y-32 的"5 条 .bss REL 槽"实为 .data 区 42 REL 槽中的 5 条（.init_array REL 槽），非 .bss 区
+
+### 诚实边界
+- .got 区 458 REL 槽 + .data.rel.ro 4800 REL 槽 = C++ vtable/函数指针表重定位（4800 槽 = 90.4%，需 unidbg 补重定位实锤）
+- .bss 区 0 REL 槽（§124y-71 实锤）= C++ 对象堆全 scudo 运行时填，需 frida dump 实锤
+- 8 个全 0 .got 槽（§124y-79 实锤，未重定位）的运行时 scudo 指针需 frida dump
