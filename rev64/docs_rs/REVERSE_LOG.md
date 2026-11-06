@@ -5254,3 +5254,37 @@ python3 /tmp/opencode/incremental_regress.py reset 0xADDR  # 改了某指令 →
   frida dump vtable 实锤（本轮实锤双重虚调用机制，未实锤 vtable 槽 31 的 .text 目标）
 - 触摸几何计算（§124y-26 命中几何 0/60）的完整 C++ 逻辑需查 MotionEvent 方法 + frida 实锤
   （本轮实锤触摸处理 = C++ 双重虚调用，未实锤几何计算函数）
+
+## §124y-137 OnKey @0xbde34 精确实锤（KeyEvent C++ 双重虚调用，与 OnTouch 同 vtable 槽 31 基类）
+
+**★ 闭环事实（静态实锤，§124y-130 未收表的 OnKey 按键处理 C++ 逻辑 + C++ 事件对象通用模式）**：
+
+1. **OnKey @0xbde34 的 KeyEvent C++ 双重虚调用精确实锤**（与 OnTouch @0xbdd2c 同模式）：
+   - **第 1 虚调用**：`0xbde40 ldr r3,[r1,#0]`（KeyEvent vtable 基址）+
+     `0xbde46 ldr r3,[vtable,#124=0x7c]`（**vtable 槽 31**，0x7c/4=31）+ `0xbde50 blx r3`
+     （KeyEvent::method31() 虚调用，**与 OnTouch 的 MotionEvent 同用 vtable 槽 31**）
+   - **第 2 虚调用**：`0xbde54 movs r1,#132(0x84)` + `0xbde58 ldr r3,[r3,#0x84]`
+     （**vtable 槽 42**，0x84/4=42）+ `0xbde6c blx ip`（第二次虚调用，槽 42 函数）
+
+2. **C++ 事件对象通用模式实锤（OnTouch/OnKey 共用，§124y-136/137 全链）**：
+   - **第 1 虚调用 = vtable 槽 31（基类虚函数）**：MotionEvent 与 KeyEvent **共用 vtable 槽 31**
+     = 同一 C++ 基类虚函数（C++ 多态基类，输入事件基类）
+   - **第 2 虚调用 = vtable 槽 42 / 对象 +0x84 方法指针（子类虚函数）**：事件子类特有方法
+   - 即 C++ 事件对象 = **基类 vtable（槽 31 虚调用，输入事件基类）+ 子类（槽 42 虚调用，事件特有）**
+     的双重虚调用模式（C++ 多态基类 + 子类）
+
+3. **OnTouch/OnKey 输入事件处理完整链实锤（§124y-100/136/137 全链）**：
+   - OnTouch(MotionEvent) = 基类虚调用（槽 31）+ 子类虚调用（+0x84/槽 42）→ 触摸几何计算
+   - OnKey(KeyEvent) = 基类虚调用（槽 31，共用）+ 子类虚调用（槽 42）→ 按键处理
+   - 即 **输入事件（触摸/按键）= C++ 多态基类（槽 31 共用虚函数）+ 子类（槽 42/0x84 特有）**
+   - 与 §124y-83 的"C++ 对象三层嵌套（this[0x34]/[0x38]→[0x60]）"同机制（C++ 多态层级）
+
+4. **修正 §124y-136 的"MotionEvent 专用"认知**：
+   - §124y-136 标注 OnTouch 的 vtable 槽 31 = MotionEvent 虚函数 → 实锤 **槽 31 是输入事件基类虚函数**
+     （MotionEvent/KeyEvent 共用，C++ 多态基类，非 MotionEvent 专用）
+   - 即输入事件 C++ 基类（vtable 槽 31）+ 事件子类（vtable 槽 42 / +0x84）双重虚调用
+
+### 诚实边界
+- 输入事件 C++ 基类（vtable 槽 31）+ 子类（槽 42）的 .rodata/.data vtable 目标需
+  frida dump C++ 类 vtable 实锤（本轮实锤双重虚调用机制 + 基类共用槽 31，未实锤 vtable 目标）
+- 触摸几何计算（§124y-26 命中几何 0/60）+ 按键处理的完整 C++ 逻辑需查槽 42 虚函数 + frida 实锤
