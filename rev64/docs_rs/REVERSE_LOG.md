@@ -1742,6 +1742,54 @@ code 48→0x857b0  49→0x85798  50→0x857b0  51→0x85798  52→0x3f8f4  53→
 - **这是 32 位 C++ 运行时对象图逆向（独立大工程，非本条线能一口气干完）**——立项待推进，
   诚实边界：当前 42 code switch + 24 handler 兜底已实锤主链 ok=1，真分发需单例构造闭环
 
+### §124y-32 .bss 单例构造者定位（静态分析已尽 + F_3ab64 single 槽精确纠正 + 运行时 dump 立项）
+
+**★ F_3ab64 single 槽精确纠正（0x15bfe8 → 0x15bfec，.bss 偏移 0x168 → 0x16c）**：
+- 原始反汇编 F_3ab64（0x3ab64）：
+  ```
+  3ab64: push {r4, lr}
+  3ab66: ldr r3, [pc, #20] @ (3ab7c)   ; r3 = pool[0x3ab7c] = 0x0012147e（RELATIVE）
+  3ab68: ldr r1, [r0, #68]            ; r1 = evt[0x44] = code
+  3ab6a: add r3, pc                   ; r3 = 0x0012147e + pc(0x3ab6a+4=0x3ab6e)
+  3ab6c: ldr r3, [r3, #0]            ; r3 = *slot = single 基址（.bss C++ 单例）
+  ```
+- **slot so 内 VA = 0x0012147e + 0x3ab6e = 0x15bfec**（.bss 偏移 0x16c），**非 jqt_vtbl.c 所写 0x15bfe8（偏移 0x168）**
+- 4 字节差异在同一 .bss C++ 对象块内（0x15bfe8 是对象基址区，0x15bfec 是 F_3ab64 实际读的槽）
+- 需一次性确认：jqt_vtbl.c `MEM(0x15bfe8)` 是否改 `MEM(0x15bfec)`（若改，重建 + 回归）
+
+**★ 12 个 init_array 构造器逐个反汇编结论（无一直接写 0x15bfec 区）**：
+- init[0]@0x3dae4：填 .bss 0x15c096（偏移 0x216，事件底层单例 5 元组：pool@0x3db1c=0x0011e57a + pc(0x3daee+4=0x3daf2) = 0x15c096；5 个 str：0x15c096/09a/0a0/0a4/0b0 + pool@0x3db24→.data 0x15b090 区数据源）
+- init[1]@0x6ef20：pthread_mutex_init（pool@0x6ef44 → .data RELATIVE 槽 0x15b0e0 区）+ `__aeabi_atexit`（析构注册），**不写 .bss 0x15bfec**
+- init[2]@0xafbd8：`movs r2,#0; str r2,[r3,#0]`（pool@0xafbe4=0x000b2974 + pc(0xafbdc+4=0xafbe0) = 0x162554）——写 .bss 尾部 0x162554（偏移 0x66d4）
+- init[3]@0xafc84：写 0x16255c（偏移 0x66dc）；init[4]@0xaffd4：写 0x162564（偏移 0x66e4）
+- init[5]@0xb01fc：写 0x162574（偏移 0x66f4）+ `__cxa_atexit`（析构）；init[6]@0xb06f0：写 0x1625a6（偏移 0x6726，float/locale 初始化）
+- init[7]@0xb1d68：写 0x162602（偏移 0x6782）；init[8]@0xb222c：写 0x162654（偏移 0x67d4）
+- init[9]@0x105e8c / init[10]@0x10a58c / init[11]@0x11c10c：locale/ios_base C++ 全局（libstdc++），不写 .bss 0x15bfec 区
+- **结论：12 个 init_array 无一直接 str 写 0x15bfec（偏移 0x16c）。0x15bfec 是 .bss 内 C++ 全局对象，由某构造器（或运行时函数）填，静态分析无法从字面量池 RELATIVE 值静态判定（池值需 load_base + 重定位后才是运行时槽）**
+
+**★ .bss 区 RELATIVE 槽全量确认（0x15be80-0x15fe88 共 5 条，均在 .bss 开头）**：
+- 0x15be00/04/14/18/2c，静态值 0x13a1bc/0x13a93c/0x13ab28/0x13aa24/0x13aba0，全部指向 .rodata 0x13a1xx 区（C++ vtable/typeinfo）
+- **0x15bfec 不在 5 条 RELATIVE 槽**（readelf -r 全表 grep 0015bfec = 空）→ 是 .bss 内 C++ 对象直接字节，由 init_array 构造器在 dlopen 时填
+- 与 0x15c096（偏移 0x216，init[0] 填的事件底层单例）同对象块，.bss 前段
+
+**★ .bss 文件偏移误读澄清（静态 .so 文件里 0x15bfec 区读到的是 .comment，非 .bss 数据）**：
+- .bss 是 NOBITS 段（readelf -S 确认 `.bss PROGBITS 0015be80 ... 7008 AL`，文件里无实际字节）
+- 静态 .so 文件里偏移 0x15bfec 处读到 `0x4728203a`、0x15bfe8 处读到 `0x43434700`（"CCG\0"）——这是 **.comment 段**（`GCC: (GNU) 4.4.3` 字符串，紧跟 .rodata/.ARM.exidx 之后），**不是 .bss 运行时值**
+- 0x15bfec 区 .bss 运行时全 0（NOBITS），需 init_array 构造器填，静态文件里读不到
+
+**★ 下一步（运行时 dump，独立大工程立项，非本轮完成）**：
+1. **unidbg .bss dump**（首选）：unidbg 跑 32 位 so 完整 init_array → 读 shadow 区 `.bss` 0x15bfec（偏移 0x16c）+ 0x15c096（偏移 0x216）+ 0x1625xx 区 → 拿 C++ 单例真实字段布局 + handler 表
+2. **frida 运行时 dump**（次选，需 Android 设备 + 原版 app 跑起来）：Frida hook `JNI_OnLoad` 后读 `.bss` 0x15bfec 区（需原版 so 加载到设备内存）
+3. **Stalker 追踪构造链**（`frida-dump/FRIDA_NOTES.md §9` 模板）：trace 12 个 init_array 构造器 → 找写 0x15bfec 区的具体 str 指令 → 拿到 handler 表填充顺序
+4. **拿到 handler 表后**：`jqt_OnCreate_full.c` JNI_OnLoad 填 .bss 0x15bfec（偏移 0x16c）区 + F_55d40 改读 .bss handler 表（switch 兜底保留）+ 重建 + 回归
+5. **诚实边界**：当前 `F_55d40 switch + 24 handler`（.bss 未构造）主链 `code=4 → F_8571c → ret=2 → F_3ab64 ok=1` 已实锤 + 4 路径回归 PASS + 0 崩溃。**单例构造是"真分发"的最后一块，但主链功能已闭环**；非阻塞
+
+**★ 固化产物（本轮复用）**：
+- `thunk_code_map.py`（0x55d40 code→handler 提取 + F_55d40 switch 生成 + 24 handler 收表检查，§124y-31 沉淀）
+- 12 个 init_array 构造器反汇编 + 字面量池 RELATIVE 值 + 目标槽 so 内 VA 计算（§124y-32，写进 REVERSE_LOG）
+- .bss 区 5 条 RELATIVE 槽（0x15be00/04/14/18/2c → .rodata vtable/typeinfo）确认
+- F_3ab64 single 槽精确 = 0x15bfec（.bss 偏移 0x16c），非 0x15bfe8（偏移 0x168）
+
 ### 32 位 native 数据提取（已完成）
 
 - 路线：redroid 真 Android 容器跑原版 32 位 so → `dd /proc/PID/mem` dump `.rodata`
