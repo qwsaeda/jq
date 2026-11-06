@@ -4381,3 +4381,57 @@ python3 /tmp/opencode/incremental_regress.py reset 0xADDR  # 改了某指令 →
   翻译体回填需 unidbg 补 .init_array 12 构造器 + 自身 F_9d3d4 构造（sp28-ROOT 已证可行）
 - 中间区 87% 非零的完整 C++ 对象图（std::list 节点/std::string/场景对象）需 unidbg 补运行时对齐
   （§124y-31 的 BL 解码 bug 阻塞），frida dump 仅拿"值"，对象图"结构"带不回来
+
+## §124y-100 14 JNI 入口参数签名 + 内部处理函数全量实锤（smali 声明 + .text 0xbdxxx 区 C++ 桥接）
+
+**★ 闭环事实（静态实锤，14 JNI 入口 smali 声明 + 内部 C++ 处理函数全收表）**：
+
+1. **14 JNI 入口参数签名实锤（smali App.smali native 声明 + .text 函数体核对）**：
+   | JNI | smali 签名 | .text 入口 | 内部处理函数 (bl 目标) |
+   |---|---|---|---|
+   | OnEvent | `(Ljava/lang/String;Ljava/lang/String;)V` | 0x233e0 | 0xbd914 |
+   | OnInput | `(Ljava/lang/String;)V` | 0x233f4 | 0xbd870 |
+   | OnTouch | `(Landroid/view/MotionEvent;)Z` | 0x23438 | 0xbdd2c |
+   | OnKey | `(Landroid/view/KeyEvent;)Z` | 0x2344c | 0xbde34 |
+   | OnBluetooth | `(Landroid/content/Intent;)V` | 0x23424 | 0xbe9cc |
+   | OnCreate | `(Landroid/app/Activity;)Lcom/cnvcs/GLView;` | 0x23560 | 0xbdacc |
+   | OnUpdate | `()Z` | 0x23474 | 0xbd5a0 |
+   | OnGraphCreate | `()V` | 0x2349c | 0xbd764 |
+   | OnGraphChange | `(II)V` | 0x23488 | 0xbd74c |
+   | OnResult | `(IILandroid/content/Intent;)V` | 0x23408 | 0xbdaec |
+   | OnTimer | `()V` | 0x23460 | 0xbe930 |
+   | OnPause | `()V` | 0x234c4 | 0xbdcf4 |
+   | OnResume | `()V` | 0x234b0 | 0xbdc7c |
+   | OnDestroy | `()V` | 0x235d4 | 0xbdacc（同 OnCreate 清理路径） |
+   - 即 14 JNI = 11 个事件/生命周期入口（OnEvent/Input/Touch/Key/Bluetooth/Update/Timer/Pause/Resume）
+     + 2 个 GL 图形入口（OnGraphCreate/OnGraphChange）+ 1 个 OnCreate（返回 GLView）
+     + 1 个 OnResult（Activity 结果回调）+ 1 个 OnDestroy
+
+2. **JNI 入口 → 内部 C++ 处理函数 0xbdxxx 区实锤**：
+   - 14 入口的 bl 目标全在 .text 0xbd5xx-0xbe9xx 区（C++ JNI 桥接层，§124y-97 的 690 导出内嵌 C++ 运行时）
+   - 各入口 prologue = 读 .rodata 字符串常量池（0x1388xx 区，JNI 方法名/参数字符串）+
+     bl 内部 0xbdxxx 处理函数（C++ 逻辑）
+   - 即 JNI 入口 = 薄 C 桥接层（参数解析 + 读字符串常量）→ 内部 C++ 处理函数（游戏逻辑）
+
+3. **JNI 桥接层 3 模式实锤**（.text 0xbdxxx 区 C++ 处理函数 prologue 特征）：
+   - **C++ 成员函数 prologue**（`push {r4-r7,lr}; mov r7,fp; ...`，OnEvent/OnTouch/OnKey/OnUpdate）：
+     多参数 C++ 成员函数（r0=this / r1-r3 参数，C++ 调用约定）
+   - **C 函数 prologue**（`push {r4,lr}; ldr r3,[pc]`，OnCreate/OnResult/OnDestroy）：
+     短 C 函数（单参数 + bl 后续）
+   - 即 JNI 桥接层 = C++ 成员函数（OnEvent 等游戏逻辑）+ C 函数（OnCreate 等生命周期）混合
+
+4. **OnCreate 内部处理函数（0xbdacc）精确体实锤**：
+   - `push {r4,r5,r6,lr}; ldr r3,[pc,#24]@bdae8; add r5,r0; add r4,r1; add r3,pc; ldr r0,[r3+0]`
+     （读 .rodata REL 槽 + r0=Activity / r1=GLView 参数）
+   - `bl 0xb677c`（C++ 初始化）+ `bl 0xbda20`（GLView 构造，返回 GLView）
+   - 即 OnCreate = C++ 初始化（0xb677c）+ GLView 构造（0xbda20，返回 GLView 对象）
+
+### JNI 入口层完整收表
+- 14 JNI 入口（薄 C 桥接 + .rodata 字符串常量池）→ 内部 0xbdxxx C++ 处理函数（游戏逻辑/C++ 成员函数）
+- .rodata 0x1388xx 区 = JNI 字符串常量池（各入口 ldr 读的方法名/参数常量，非 REL 槽指针）
+- 14 入口参数签名与 smali App.smali native 声明完全对上（§124y-100 实锤）
+
+### 诚实边界
+- 14 内部处理函数（0xbdxxx 区）的完整 C++ 逻辑（事件分发/触摸/按键/蓝牙/生命周期各分支）需
+  逐函数全量反汇编 + frida 追踪实锤（本轮实锤入口签名 + 内部函数 prologue 模式 + OnCreate 精确体）
+- .rodata 0x1388xx 字符串常量池的具体内容（JNI 方法名/参数格式串）需逐 .rodata 字符串扫描实锤
