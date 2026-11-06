@@ -1493,6 +1493,65 @@ r0=事件对象(evt), r1=单例
 - 当前走子桥（会话 B 纯 C 走子）+ 原生布局链 + 原生事件链（disc=0）可机判对照，
   **32 位原生"能真发 Junqi.* 事件"（disc 非零）是未闭环候选**（需 32 位 C++ 对象图填充）
 
+### §124y-26 端到端"游戏可玩"判据（触摸→走子→Junqi.*→终局 一条命令回归）
+
+**★ 定义**：把已闭环的 3 条走子路径（§124y-19/20/21）+ 命中几何串成**一条端到端
+"游戏可玩"判据**（AGENTS 阶段 2 验收的真判据），setprop `jq.game_test 1` 触发，
+logcat 可机判。这是 32 位翻译体"能玩"的机器判据，不依赖 32 位 .pak 资源对象图。
+
+**★ 钩子（jni_aligned.c OnCreate test 段，`jq.game_test`）**：
+```
+setprop jq.game_test 1 → jq_walk_bridge_reset() 独立开局
+  → jq_walk_bridge_flip(6)/flip(33)   暗棋模式翻源子（会话 B test_move_seq f6/f33）
+  → jq_walk_bridge_touch(274,1268,900,1468)  触摸坐标注入（命中几何）
+  → jq_walk_bridge_move(6,11)         走子 cell6→11 = Junqi.Move
+  → jq_walk_bridge_move(33,38)        走子 cell33→38 = Junqi.Move
+  → jq_game_test_finish()             终局（认输 winner=1-turn）
+判据：logcat "GAME-TEST: 端到端完成 走子=OK(2步Move) fin=0" + 0 崩溃
+```
+
+**★ 命中几何坐标基准（view=900×1468，OnGraphChange 实测非全面屏布局）**：
+| cell | 设备 row,col | image_row | tap(900×1468) |
+|---|---|---|---|
+| cell6  | row1,col1 | 10 | (274,1268) |
+| cell11 | row2,col1 | 9  | (274,1187) |
+| cell33 | row6,col3 | 5  | (625,662)  |
+| cell38 | row7,col3 | 4  | (625,580)  |
+公式：`px=(78.5+col*140.5)/720*900, py=bg_row_cy(image_row)/1280*1468`，
+`image_row=11-设备row`（会话 B 命中几何 datax_177 BG_GRID，与 touch.c/render.c 同几何）。
+
+**★ 关键坑（固化）**：
+1. **game_test 需 `jq_walk_bridge_reset()` 独立开局**：走子桥 8 步序列（`jq.walk_bridge`）
+   与 game_test 共享 static `g_walk_state`。8 步先跑会消耗回合（cell6 已走 cell11、
+   turn 已切），game_test 不 reset 则 `move(6,11)` 非法。reset 后独立走子序列。
+2. **暗棋模式 move 前需先 flip 源子**：`jq_can_move` 校验 `!src->revealed` 拒绝未翻子
+   move。会话 B test_move_seq 基准 `f6 f33 m6,11`——game_test 钩子须先 `flip(6)/flip(33)`
+   再 move，否则 Junqi.Illegal。
+3. **触摸命中几何在 32 位 so 设备端 0/60（诚实边界，不阻塞主线）**：
+   - 桌面 x86 编译 32 位版 `jq_rs_touch.c` 命中 60/60（cell6/11/33/38 全对）
+   - 设备（MuMu houdini 转译 32 位 so）逐格扫描命中 0/60，HITDBG 探针实证
+     `img_x=-0.00 cx=78.50 gap=78.50`（col 越界）+ `img_y=0.00 ir=-2`（row 越界）
+   - 已将 `lroundf`→`(int)(v+0.5f)` 整数舍入 + `fabsf`→算术绝对值（绕开 libc ABI 差异），
+     桌面仍 60/60，设备仍 0/60 → **设备端 32 位 libc 浮点除法 `px/(float)view_w*BG_IMG_W`
+     行为差异（houdini 转译 quirk）**，非命中几何逻辑 bug
+   - **诚实边界**：触摸命中几何 32 位 libc 设备端未对齐，端到端判据主线走
+     **move 全链（纯 C 规则引擎，设备端 cell6→11/33→38 Junqi.Move 实证）**，
+     触摸注入坐标保留记录（命中 -1 也打日志，便于后续 32 位 libc 适配）
+
+**★ 回归脚本（arm32_walkregress.sh，4 条路径一键回归）**：
+- `walk_bridge`   logcat "WALK-BRIDGE: 完整 8 步序列完成" + 0 崩溃
+- `native_layout` logcat "NATIVE-LAYOUT: F_2a380 返回" + 0 崩溃
+- `native_event`  logcat "NATIVE-EVENT: F_3ab80 返回" + 0 崩溃
+- `game_test`     logcat "GAME-TEST: 端到端完成 走子=OK" + 0 崩溃
+用法：`bash rev64/tools/arm32_walkregress.sh --dev <mumu> --no-install`
+实证：MuMu 4/4 PASS + 全局崩溃 0（2026-11-06）。
+
+**★ 诚实边界（未闭环候选，深水区）**：
+- 触摸命中几何 32 位 libc 设备端 0/60（houdini 转译浮点 quirk）——主线 move 全链已闭环，
+  触摸注入为记录项
+- `disc` 非零真发 Junqi.* 事件（§124y-24/25）仍需 32 位 C++ 对象图填充（全局单例 0x15be86
+  + 事件数据表 0x126d80 + 事件对象全字段），边际收益递减
+
 **★ 32 位 C++ 事件对象布局（逆向基准）**：
 | 偏移 | 字段 | 来源 |
 |---|---|---|

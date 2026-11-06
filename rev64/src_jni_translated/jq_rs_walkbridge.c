@@ -26,6 +26,14 @@ JQ_EXPORT int jq_walk_bridge_run(void) {
     return 0;
 }
 
+/* §124y-26：强制重置开局（供 game_test 端到端钩子用——共享 static g_walk_state，
+   8 步序列会消耗回合，game_test 需独立开局，故先 reset 再走子） */
+JQ_EXPORT int jq_walk_bridge_reset(void) {
+    g_walk_init = 0;
+    jq_walk_bridge_run();
+    return 0;
+}
+
 JQ_EXPORT int jq_walk_bridge_touch(float px, float py, int view_w, int view_h) {
     if (!g_walk_init) jq_walk_bridge_run();
     int out_row, out_col, cell;
@@ -58,6 +66,16 @@ JQ_EXPORT int jq_walk_bridge_touch(float px, float py, int view_w, int view_h) {
     __android_log_print(4, "junqi", "jq_walk_bridge_touch: tap(%.0f,%.0f) → cell%d rank=%d side=%d",
                         px, py, cell, c->rank, c->side);
     return cell;
+}
+
+/* §124y-26：走子桥翻子入口（game_test 端到端钩子用，暗棋模式 move 前需先翻源子） */
+JQ_EXPORT int jq_walk_bridge_flip(int cell) {
+    if (!g_walk_init) jq_walk_bridge_run();
+    int ok = jq_can_flip(&g_walk_state, cell) ? jq_flip(&g_walk_state, cell) : 0;
+    const jq_cell *c = &g_walk_state.cells[cell];
+    __android_log_print(4, "junqi", "jq_walk_bridge_flip: cell%d 翻子 ok=%d rank=%d side=%d revealed=%d",
+                        cell, ok, c->rank, c->side, c->revealed);
+    return ok;
 }
 
 JQ_EXPORT int jq_walk_bridge_move(int from, int to) {

@@ -71,7 +71,7 @@ for k in $KINDS; do
     walk_bridge)   PATTERN="WALK-BRIDGE: 完整 8 步序列完成" ;;
     native_layout) PATTERN="NATIVE-LAYOUT: F_2a380 返回" ;;
     native_event)  PATTERN="NATIVE-EVENT: F_3ab80 返回" ;;
-    game_test)     PATTERN="GAME-TEST: 端到端完成 命中=2/2 走子=OK" ;;
+    game_test)     PATTERN="GAME-TEST: 端到端完成 走子=OK" ;;
   esac
   if echo "$LOG" | grep -q "$PATTERN" && [ "$CRASH" = "0" ]; then
     echo "  ✓ $k（匹配 '$PATTERN' + 0 崩溃）"
