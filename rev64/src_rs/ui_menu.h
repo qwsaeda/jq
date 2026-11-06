@@ -112,6 +112,21 @@ UI_REPLAY,     /* ★ P1（datah_039/107 证据）：复盘回放态——
                        帮助 → 显示帮助文本；返回 → 回主菜单。
                        入口：setprop jq.profile 测试钩子（现有 datah_072"个人资料"→UI_LOGIN
                        不破坏，031 作为登录后资料查看补充，独立态） */
+    UI_DRAWDETAIL, /* ★ P2（datah_042 证据）：提和详情弹窗（联机版 ☰ 菜单 7 图标：
+                        提和/认输/聊天/系统设置/玩家资料/战况统计/软件信息，
+                        原版 datah_042 450×285 面板居中，局部坐标 1:1 平移偏移 +135,+497.5；
+                        比 datah_067 8 图标少 1 项"游戏规则"，多 1 项"玩家资料"）。
+                        提和 → jq_bt_ctrl_send(BT_T_DRAW) + 诚实边界对话框（本地提和判定未
+                        实现，原版需对端应答）；认输 → g_state.winner=对方 stage=OVER +
+                        jq_bt_ctrl_send(BT_T_RESIGN)；聊天 → jq_bt_ctrl_send(BT_T_CHAT) +
+                        边界对话框（联机聊天文本未逆向）；系统设置 → UI_GAMESET（datah_012）；
+                        玩家资料 → UI_PROFILE（datah_031）；战况统计/软件信息 → 复用 ☰ 菜单
+                        逻辑（遍历 cells 蓝红余子+总步数+回合 / jq_show_dialog 版本）。
+                        入口：联机版 ☰ 菜单（datah_067）"提和"(act=2) 改切 UI_DRAWDETAIL
+                        （原直接发帧升级为完整弹窗入口，发帧逻辑保留在弹窗内）+
+                        setprop jq.drawdetail 测试钩子（OnCreate + OnUpdate 双路）。
+                        ★ 诚实边界：本地提和判定未实现（src_rs 离线单机无对端），
+                        联机提和/认输走 BT 帧 + 边界对话框，不包装成"已提和判定" */
 
 } ui_screen;
 
@@ -588,5 +603,35 @@ typedef struct {
 const ui_profile_btn *ui_profile_buttons(void);   /* 3 按钮（静态表） */
 int ui_profile_hit(const ui_profile_btn *btns, int n, float x, float y);  /* 命中 0-2，-1 无 */
 int ui_profile_popup_inside(float x, float y);  /* 点在弹窗面板内 */
+
+/* ★ P2（datah_042 证据）：提和详情弹窗（联机版 ☰ 菜单 7 图标：提和/认输/聊天/系统设置/
+    玩家资料/战况统计/软件信息）。比 datah_067 8 图标少 1 项"游戏规则"，多 1 项"玩家资料"。
+    几何 720×1280 基准（datah_042 450×285 面板居中，偏移=(720-450)/2=135,(1280-285)/2=497.5；
+    局部 1:1 平移 7 图标 105×135：
+    提和 15,25 → 150,522.5-255,657.5 → 150,523-255,658；
+    认输 120,25 → 255,523-360,658；聊天 225,25 → 360,523-465,658；
+    系统设置 330,25 → 465,523-570,658；
+    玩家资料 15,150 → 150,647.5-255,782.5 → 150,648-255,783；
+    战况统计 120,150 → 255,648-360,783；软件信息 225,150 → 360,648-465,783）。
+    action：0=提和（BT_T_DRAW 帧 + 诚实边界对话框）1=认输（winner=对方 stage=OVER +
+    BT_T_RESIGN 帧）2=聊天（BT_T_CHAT 帧 + 边界对话框）3=系统设置（UI_GAMESET）
+    4=玩家资料（UI_PROFILE）5=战况统计（复用 ☰ 菜单遍历 cells 逻辑）
+    6=软件信息（jq_show_dialog 版本，复用 ☰ 菜单逻辑）。
+    入口：联机版 ☰ 菜单（datah_067）"提和"(act=2) 改切 UI_DRAWDETAIL + setprop jq.drawdetail。
+    ★ 诚实边界：本地提和判定未实现（原版需对端应答，src_rs 离线单机无对端），
+    联机提和/认输走 BT 帧 + 边界对话框，不包装成"已提和判定"。 */
+#define UI_DRAWDETAIL_COUNT 7
+#define UI_DRAWDETAIL_POPUP_X0 135.0f
+#define UI_DRAWDETAIL_POPUP_Y0 497.5f
+#define UI_DRAWDETAIL_POPUP_W  450.0f
+#define UI_DRAWDETAIL_POPUP_H  285.0f
+typedef struct {
+    float x0, y0, x1, y1;   /* 图标矩形（720×1280 基准） */
+    int action;             /* 0=提和 1=认输 2=聊天 3=系统设置 4=玩家资料 5=战况统计 6=软件信息 */
+} ui_drawdetail_btn;
+
+const ui_drawdetail_btn *ui_drawdetail_buttons(void);   /* 7 图标（静态表） */
+int ui_drawdetail_hit(const ui_drawdetail_btn *btns, int n, float x, float y);  /* 命中 0-6，-1 无 */
+int ui_drawdetail_popup_inside(float x, float y);  /* 点在弹窗面板内 */
 #endif
 

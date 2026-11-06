@@ -85,6 +85,8 @@ typedef struct {
                                            记录/聊天/清除/关闭/占位/帧/边界/未逆向） */
     rs_glid_t tex_profile_text[2]; /* ★ P2（datah_031）：个人资料文字图集 220×460（10 标签竖排：
                                            资料/修改/帮助/返回/账号/昵称/头像/胜率/边界/未逆向） */
+    rs_glid_t tex_drawdetail_text[2]; /* ★ P2（datah_042）：提和详情文字图集 220×322（7 标签竖排：
+                                           提和/认输/聊天/系统设置/玩家资料/战况统计/软件信息） */
     void *board_px; size_t board_px_len;   /* 解码后 RGBA（跨 context 共享，只解码一次） */
     void *piece_px;  size_t piece_px_len;
     void *text_px;   size_t text_px_len;   /* 菜单文字图集 RGBA（5 label 竖排） */
@@ -131,6 +133,8 @@ typedef struct {
     int chatlog_text_w, chatlog_text_h;      /* 聊天记录文字图集尺寸 */
     void *profile_text_px; size_t profile_text_px_len; /* ★ P2（datah_031）：个人资料文字图集 RGBA（10 标签竖排 220×460） */
     int profile_text_w, profile_text_h;      /* 个人资料文字图集尺寸 */
+    void *drawdetail_text_px; size_t drawdetail_text_px_len; /* ★ P2（datah_042）：提和详情文字图集 RGBA（7 标签竖排 220×322） */
+    int drawdetail_text_w, drawdetail_text_h; /* 提和详情文字图集尺寸 */
     void *imen_text_px; size_t imen_text_px_len; /* ★ ☰ 菜单文字图集 RGBA（8 项竖排 160×320） */
     int imen_text_w, imen_text_h;               /* ☰ 菜单文字图集尺寸 */
     void *imen_icons_px; size_t imen_icons_px_len; /* ★ ☰ 菜单图标图集 RGBA（8 图标 110×100 4×2，原版裁剪） */

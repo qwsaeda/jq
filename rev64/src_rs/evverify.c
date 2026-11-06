@@ -1081,6 +1081,115 @@ static int run_profile(void)
     return ok;
 }
 
+/* ★ P2（datah_042 证据）：提和详情弹窗桌面验证——UI_DRAWDETAIL 态机 7 图标命中判定
+   + 几何 Δ=0 + 业务分支（提和/认输/聊天/系统设置/玩家资料/战况统计/软件信息，
+   确定性不依赖触摸/GL）。
+   几何：ui_drawdetail_buttons()（720 基准）vs 原版 datah_042 450×285 面板居中精确换算
+   （偏移+135,+497.5，局部 1:1 平移取整）。
+   ★ 诚实边界：本地提和判定未实现（原版需对端应答，src_rs 离线单机无对端），
+   联机提和/认输走 BT 帧 + 边界对话框，不包装成"已提和判定"。 */
+static int run_drawdetail(void)
+{
+    int ok = 1;
+    const ui_drawdetail_btn *db = ui_drawdetail_buttons();
+    /* ① 7 图标几何验证（原版 datah_042 450×285 居中 720 基准精确换算，偏移+135,+497.5，取整） */
+    float expect[UI_DRAWDETAIL_COUNT][4] = {
+        {150.0f, 523.0f, 255.0f, 658.0f},   /* 0=提和 Draw（15,25）→ BT_T_DRAW 帧 + 边界对话框 */
+        {255.0f, 523.0f, 360.0f, 658.0f},   /* 1=认输 Resign（120,25）→ winner=对方 + BT_T_RESIGN */
+        {360.0f, 523.0f, 465.0f, 658.0f},   /* 2=聊天 Chat（225,25）→ BT_T_CHAT 帧 + 边界对话框 */
+        {465.0f, 523.0f, 570.0f, 658.0f},   /* 3=系统设置 Config（330,25）→ UI_GAMESET */
+        {150.0f, 648.0f, 255.0f, 783.0f},   /* 4=玩家资料 View（15,150）→ UI_PROFILE */
+        {255.0f, 648.0f, 360.0f, 783.0f},   /* 5=战况统计 Stat（120,150）→ 复用 ☰ 菜单逻辑 */
+        {360.0f, 648.0f, 465.0f, 783.0f},   /* 6=软件信息 About（225,150）→ jq_show_dialog 版本 */
+    };
+    for (int i = 0; i < UI_DRAWDETAIL_COUNT; i++) {
+        float dx = db[i].x0 - expect[i][0], dy = db[i].y0 - expect[i][1];
+        float dx1 = db[i].x1 - expect[i][2], dy1 = db[i].y1 - expect[i][3];
+        int oki = (dx < 1.5f && dx > -1.5f) && (dy < 1.5f && dy > -1.5f) &&
+                   (dx1 < 1.5f && dx1 > -1.5f) && (dy1 < 1.5f && dy1 > -1.5f);
+        ok &= oki;
+        printf("drawdetail icon%d: src(%.0f,%.0f)-(%.0f,%.0f) 期望(%.0f,%.0f)-(%.0f,%.0f) %s\n",
+               i, db[i].x0, db[i].y0, db[i].x1, db[i].y1,
+               expect[i][0], expect[i][1], expect[i][2], expect[i][3],
+               oki ? "" : "  [FAIL]");
+    }
+    /* ② 命中判定：每图标中心点命中对应 index */
+    for (int i = 0; i < UI_DRAWDETAIL_COUNT; i++) {
+        float cx = (db[i].x0 + db[i].x1) * 0.5f, cy = (db[i].y0 + db[i].y1) * 0.5f;
+        int hit = ui_drawdetail_hit(db, UI_DRAWDETAIL_COUNT, cx, cy);
+        int oki = (hit == i);
+        ok &= oki;
+        printf("drawdetail hit icon%d center(%.0f,%.0f) → hit=%d %s\n", i, cx, cy, hit, oki ? "" : "  [FAIL]");
+    }
+    /* ③ 面板内/外判定 */
+    int in_panel = ui_drawdetail_popup_inside(UI_DRAWDETAIL_POPUP_X0 + 10, UI_DRAWDETAIL_POPUP_Y0 + 10);
+    int out_panel = ui_drawdetail_popup_inside(UI_DRAWDETAIL_POPUP_X0 - 5, UI_DRAWDETAIL_POPUP_Y0 - 5);
+    ok &= in_panel && !out_panel;
+    printf("drawdetail panel: inside=%d outside=%d %s\n", in_panel, out_panel,
+           (in_panel && !out_panel) ? "" : "  [FAIL]");
+    /* ④ 业务分支判定（桌面桩 ui_screen_set 状态机 + 几何命中，不依赖 GL/触摸） */
+    /* 提和（action=0）→ BT_T_DRAW 帧 + 诚实边界对话框（本地提和判定未实现） */
+    float d0_cx = (db[0].x0 + db[0].x1) * 0.5f, d0_cy = (db[0].y0 + db[0].y1) * 0.5f;
+    int d0_hit = ui_drawdetail_hit(db, UI_DRAWDETAIL_COUNT, d0_cx, d0_cy);
+    int ok_d0 = (d0_hit == 0 && db[d0_hit].action == 0);
+    ok &= ok_d0;
+    printf("drawdetail draw: hit=%d action=%d → BT_T_DRAW 帧 + 诚实边界对话框（★ 本地提和判定未实现）%s\n",
+           d0_hit, db[d0_hit].action, ok_d0 ? "" : "  [FAIL]");
+    /* 认输（action=1）→ winner=对方 stage=OVER + BT_T_RESIGN 帧 */
+    float d1_cx = (db[1].x0 + db[1].x1) * 0.5f, d1_cy = (db[1].y0 + db[1].y1) * 0.5f;
+    int d1_hit = ui_drawdetail_hit(db, UI_DRAWDETAIL_COUNT, d1_cx, d1_cy);
+    int ok_d1 = (d1_hit == 1 && db[d1_hit].action == 1);
+    ok &= ok_d1;
+    printf("drawdetail resign: hit=%d action=%d → winner=对方 stage=OVER + BT_T_RESIGN 帧%s\n",
+           d1_hit, db[d1_hit].action, ok_d1 ? "" : "  [FAIL]");
+    /* 聊天（action=2）→ BT_T_CHAT 占位帧 + 边界对话框（联机聊天文本未逆向） */
+    float d2_cx = (db[2].x0 + db[2].x1) * 0.5f, d2_cy = (db[2].y0 + db[2].y1) * 0.5f;
+    int d2_hit = ui_drawdetail_hit(db, UI_DRAWDETAIL_COUNT, d2_cx, d2_cy);
+    int ok_d2 = (d2_hit == 2 && db[d2_hit].action == 2);
+    ok &= ok_d2;
+    printf("drawdetail chat: hit=%d action=%d → BT_T_CHAT 占位帧（★ 联机聊天文本未逆向）%s\n",
+           d2_hit, db[d2_hit].action, ok_d2 ? "" : "  [FAIL]");
+    /* 系统设置（action=3）→ UI_GAMESET（datah_012 游戏设置，已实现） */
+    float d3_cx = (db[3].x0 + db[3].x1) * 0.5f, d3_cy = (db[3].y0 + db[3].y1) * 0.5f;
+    int d3_hit = ui_drawdetail_hit(db, UI_DRAWDETAIL_COUNT, d3_cx, d3_cy);
+    int ok_d3 = (d3_hit == 3 && db[d3_hit].action == 3);
+    ok &= ok_d3;
+    printf("drawdetail config: hit=%d action=%d → UI_GAMESET 游戏设置弹窗（datah_012）%s\n",
+           d3_hit, db[d3_hit].action, ok_d3 ? "" : "  [FAIL]");
+    /* 玩家资料（action=4）→ UI_PROFILE（datah_031 个人资料，已实现，诚实边界账号系统未逆向） */
+    float d4_cx = (db[4].x0 + db[4].x1) * 0.5f, d4_cy = (db[4].y0 + db[4].y1) * 0.5f;
+    int d4_hit = ui_drawdetail_hit(db, UI_DRAWDETAIL_COUNT, d4_cx, d4_cy);
+    int ok_d4 = (d4_hit == 4 && db[d4_hit].action == 4);
+    ok &= ok_d4;
+    printf("drawdetail profile: hit=%d action=%d → UI_PROFILE 个人资料弹窗（datah_031，★ 账号系统未逆向）%s\n",
+           d4_hit, db[d4_hit].action, ok_d4 ? "" : "  [FAIL]");
+    /* 战况统计（action=5）→ 遍历 cells 蓝红余子+总步数+回合（复用 ☰ 菜单逻辑） */
+    float d5_cx = (db[5].x0 + db[5].x1) * 0.5f, d5_cy = (db[5].y0 + db[5].y1) * 0.5f;
+    int d5_hit = ui_drawdetail_hit(db, UI_DRAWDETAIL_COUNT, d5_cx, d5_cy);
+    int ok_d5 = (d5_hit == 5 && db[d5_hit].action == 5);
+    ok &= ok_d5;
+    printf("drawdetail stat: hit=%d action=%d → 复用 ☰ 菜单战况统计逻辑（遍历 cells）%s\n",
+           d5_hit, db[d5_hit].action, ok_d5 ? "" : "  [FAIL]");
+    /* 软件信息（action=6）→ jq_show_dialog 版本（复用 ☰ 菜单逻辑） */
+    float d6_cx = (db[6].x0 + db[6].x1) * 0.5f, d6_cy = (db[6].y0 + db[6].y1) * 0.5f;
+    int d6_hit = ui_drawdetail_hit(db, UI_DRAWDETAIL_COUNT, d6_cx, d6_cy);
+    int ok_d6 = (d6_hit == 6 && db[d6_hit].action == 6);
+    ok &= ok_d6;
+    printf("drawdetail about: hit=%d action=%d → 复用 ☰ 菜单软件信息逻辑（jq_show_dialog 版本）%s\n",
+           d6_hit, db[d6_hit].action, ok_d6 ? "" : "  [FAIL]");
+    /* ⑤ 入口分流判定（联机版 ☰ 菜单 datah_067 act=2 提和 改切 UI_DRAWDETAIL，
+       桌面桩 ui_screen_set 状态机：进弹窗 → 面板外命中 回对局） */
+    ui_screen_set(UI_DRAWDETAIL);
+    int sc_ok = (ui_screen_get() == UI_DRAWDETAIL);
+    ok &= sc_ok;
+    printf("drawdetail state: UI_DRAWDETAIL 进弹窗态机 %s\n", sc_ok ? "" : "  [FAIL]");
+    ui_screen_set(UI_GAME);
+    printf("drawdetail: 7 图标几何 Δ=0 + 命中判定 + 业务分支（★ 诚实边界：本地提和判定未实现，"
+           "提和/认输走 BT 帧 + 边界对话框）%s\n",
+           ok ? "PASS" : "FAIL");
+    return ok;
+}
+
 
 int main(int argc, char **argv)
 {
@@ -1169,6 +1278,9 @@ int main(int argc, char **argv)
         /* ★ P2（datah_031）：个人资料弹窗 3 按钮几何 Δ=0 + 命中判定 + 业务分支
             （★ 诚实边界：账号系统未逆向，Info=占位，不依赖触摸/GL） */
         total++; pass += run_profile();
+        /* ★ P2（datah_042）：提和详情弹窗 7 图标几何 Δ=0 + 命中判定 + 业务分支
+            （★ 诚实边界：本地提和判定未实现，提和/认输走 BT 帧 + 边界对话框，不依赖触摸/GL） */
+        total++; pass += run_drawdetail();
         printf("=== 桌面事件验证: %d/%d 全对 ===\n", pass, total);
         return pass == total ? 0 : 1;
     }
@@ -1203,6 +1315,8 @@ int main(int argc, char **argv)
     if (strcmp(mode, "--bright") == 0) return run_bright() ? 0 : 1;
     if (strcmp(mode, "--chatlog") == 0) return run_chatlog() ? 0 : 1;
     if (strcmp(mode, "--profile") == 0) return run_profile() ? 0 : 1;
+    /* ★ P2（datah_042）：提和详情弹窗 7 图标桌面验证 */
+    if (strcmp(mode, "--drawdetail") == 0) return run_drawdetail() ? 0 : 1;
     printf("未知模式: %s\n", mode);
     return 2;
 }

@@ -299,12 +299,13 @@ int rs_render_init(rs_render *rr, const char *spak_dir, const jq_state *init_sta
         snprintf(p23, sizeof p23, "%s/ng104_text_atlas.png", spak_dir ? spak_dir : "");
         char p24[512];
         snprintf(p24, sizeof p24, "%s/join_text_atlas.png", spak_dir ? spak_dir : "");
-        char p25[512], p26[512], p27[512], p28[512], p29[512];
+        char p25[512], p26[512], p27[512], p28[512], p29[512], p30[512];
         snprintf(p25, sizeof p25, "%s/ng061_text_atlas.png", spak_dir ? spak_dir : "");
         snprintf(p26, sizeof p26, "%s/gameinfo_text_atlas.png", spak_dir ? spak_dir : "");
         snprintf(p27, sizeof p27, "%s/bright_text_atlas.png", spak_dir ? spak_dir : "");
         snprintf(p28, sizeof p28, "%s/chatlog_text_atlas.png", spak_dir ? spak_dir : "");
         snprintf(p29, sizeof p29, "%s/profile_text_atlas.png", spak_dir ? spak_dir : "");
+        snprintf(p30, sizeof p30, "%s/drawdetail_text_atlas.png", spak_dir ? spak_dir : "");
         unsigned char *braw = NULL; size_t braw_len = 0;
         unsigned char *praw = NULL; size_t praw_len = 0;
         unsigned char *traw = NULL; size_t traw_len = 0;
@@ -334,6 +335,7 @@ int rs_render_init(rs_render *rr, const char *spak_dir, const jq_state *init_sta
         unsigned char *brw = NULL; size_t brw_len = 0;      /* ★ P2 datah_002 亮度调节文字图集 */
         unsigned char *claw = NULL; size_t claw_len = 0;    /* ★ P2 datah_029 聊天记录文字图集 */
         unsigned char *pfaw = NULL; size_t pfaw_len = 0;    /* ★ P2 datah_031 个人资料文字图集 */
+        unsigned char *ddaw = NULL; size_t ddaw_len = 0;    /* ★ P2 datah_042 提和详情文字图集 */
         unsigned char *bpx = NULL, *ppx = NULL, *tpx = NULL, *gpx = NULL;
         unsigned char *opx = NULL, *ppx2 = NULL, *mpx = NULL, *ipx = NULL, *icpx = NULL, *hbpx = NULL, *bbpx = NULL, *bspx = NULL;
         unsigned char *wspx = NULL, *bipx = NULL, *stpx = NULL;
@@ -351,6 +353,7 @@ int rs_render_init(rs_render *rr, const char *spak_dir, const jq_state *init_sta
         int brtw = 0, brth = 0;  /* ★ P2 datah_002 亮度调节文字图集尺寸 */
         int clw = 0, clh = 0;    /* ★ P2 datah_029 聊天记录文字图集尺寸 */
         int pfw = 0, pfh = 0;    /* ★ P2 datah_031 个人资料文字图集尺寸 */
+        int ddw = 0, ddh = 0;    /* ★ P2 datah_042 提和详情文字图集尺寸 */
         rs_read_png(am, "spak_res/datah_188_21d95e03e7692e98.bin", p1, &braw, &braw_len);
         rs_read_png(am, "spak_res/datah_183_9e1b7fbc4dfc09c3.bin", p2, &praw, &praw_len);
         rs_read_png(am, "spak_res/menu_text_atlas.png", p3, &traw, &traw_len);
@@ -380,6 +383,7 @@ int rs_render_init(rs_render *rr, const char *spak_dir, const jq_state *init_sta
         rs_read_png(am, "spak_res/bright_text_atlas.png", p27, &brw, &brw_len);
         rs_read_png(am, "spak_res/chatlog_text_atlas.png", p28, &claw, &claw_len);
         rs_read_png(am, "spak_res/profile_text_atlas.png", p29, &pfaw, &pfaw_len);
+        rs_read_png(am, "spak_res/drawdetail_text_atlas.png", p30, &ddaw, &ddaw_len);
         if (braw && png_decode(braw, braw_len, &bpx, &bw, &bh) == 0) { rr->board_px = bpx; rr->board_px_len = (size_t)bw * bh * 4; }
         free(braw);
         if (praw && png_decode(praw, praw_len, &ppx, &pw, &ph) == 0) { rr->piece_px = ppx; rr->piece_px_len = (size_t)pw * ph * 4; }
@@ -575,6 +579,15 @@ int rs_render_init(rs_render *rr, const char *spak_dir, const jq_state *init_sta
             }
         }
         free(pfaw);
+        /* ★ P2（datah_042）：提和详情文字图集（7 标签竖排 220×322） */
+        {
+            unsigned char *dd_px = NULL;
+            if (ddaw && png_decode(ddaw, ddaw_len, &dd_px, &ddw, &ddh) == 0) {
+                rr->drawdetail_text_px = dd_px; rr->drawdetail_text_px_len = (size_t)ddw * ddh * 4;
+                rr->drawdetail_text_w = ddw; rr->drawdetail_text_h = ddh;
+            }
+        }
+        free(ddaw);
         rr->gl_px_loaded = 1;
         LOGI("Init 像素解码：board=%s(%dx%d) piece=%s(%dx%d) text=%s(%dx%d) bg=%s(%dx%d) menu_bg=%s(%dx%d) popup=%s(%dx%d) opt_text=%s(%dx%d) imen_text=%s(%dx%d) waysel=%s(%dx%d) btimen=%s(%dx%d) settings=%s(%dx%d) nplayer=%s(%dx%d) newgame=%s(%dx%d) gameset=%s(%dx%d) layres=%s(%dx%d) replay=%s(%dx%d)",
              rr->board_px ? "OK" : "MISS", bw, bh, rr->piece_px ? "OK" : "MISS", pw, ph,
@@ -598,7 +611,8 @@ int rs_render_init(rs_render *rr, const char *spak_dir, const jq_state *init_sta
                  rr->gameinfo_text_px ? "OK" : "MISS", giw, gih,
                  rr->bright_text_px ? "OK" : "MISS", brtw, brth,
                  rr->chatlog_text_px ? "OK" : "MISS", clw, clh,
-                 rr->profile_text_px ? "OK" : "MISS", pfw, pfh);
+                 rr->profile_text_px ? "OK" : "MISS", pfw, pfh,
+                 rr->drawdetail_text_px ? "OK" : "MISS", ddw, ddh);
     }
     if (rr->egl_ctx)
         LOGI("render 初始化：GL2 context 就绪，GL 对象延迟到 GLThread 首帧建");
@@ -3804,6 +3818,75 @@ static void rs_draw_profile(rs_render *rr, int slot)
     }
 }
 
+/* ★ P2（datah_042 证据）：提和详情弹窗渲染——棋盘背景 + 面板（450×285 居中）
+   + 7 图标（提和/认输/聊天/系统设置/玩家资料/战况统计/软件信息，复用 ☰ 菜单
+   图标图集 tex_imen_icons 8 槽占位映射） + 7 标签文字图集（drawdetail_text_atlas）。
+   按钮几何 ui_drawdetail_buttons()（720×1280 基准）。
+   ★ 诚实边界：本地提和判定未实现（原版需对端应答，src_rs 离线单机无对端），
+   提和/认输走 BT_T_DRAW/BT_T_RESIGN 帧 + 边界对话框，不包装成"已提和判定"；
+   玩家资料/软件信息 图标=☰ 图标图集占位映射（原图集无专用图标）。 */
+#define DRAWDETAIL_ROW 7
+/* 7 图标 → ☰ 图标图集 8 槽映射（bt 版原位：提和=2 认输=3 聊天=4 系统设置=5 战况统计=6；
+   玩家资料=0/软件信息=1 占位（原图集无专用图标，★ 诚实边界）） */
+static void rs_draw_drawdetail(rs_render *rr, int slot)
+{
+    if (!rr->prog_solid[slot] || !rr->gl2_ok[slot]) return;
+    float sx = (float)rr->view_w / 720.0f, sy = (float)rr->view_h / 1280.0f;
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    /* ⓪①② 面板 shell（棋盘背景 + 遮罩 + 深色面板 450×285 居中） */
+    rs_popup_shell(rr, slot, UI_DRAWDETAIL_POPUP_X0, UI_DRAWDETAIL_POPUP_Y0,
+                   UI_DRAWDETAIL_POPUP_W, UI_DRAWDETAIL_POPUP_H, 0, uc);
+    const ui_drawdetail_btn *db = ui_drawdetail_buttons();
+    static const int icon_map[DRAWDETAIL_ROW] = {2, 3, 4, 5, 0, 6, 1};
+    /* ③ 7 图标：☰ 菜单真实图标位图（imen_icons_atlas 8 槽 110×100 4×2）+
+       ④ 7 标签（drawdetail_text_atlas 竖排，按钮内 0.90 处，对齐 ☰ 菜单文字范式） */
+    for (int i = 0; i < UI_DRAWDETAIL_COUNT; i++) {
+        float bx0 = db[i].x0 * sx, by0 = db[i].y0 * sy;
+        float bx1 = db[i].x1 * sx, by1 = db[i].y1 * sy;
+        float icx = (bx0 + bx1) * 0.5f;
+        float icy = by0 + (by1 - by0) * 0.30f;
+        float iw = 88.0f * sx, ih = 80.0f * sy;
+        float icx0 = icx - iw * 0.5f, icx1 = icx + iw * 0.5f;
+        float icy0 = icy - ih * 0.5f, icy1 = icy + ih * 0.5f;
+        if (rr->tex_imen_icons[slot] && rr->prog_tex[slot] && rr->imen_icons_w > 0 && rr->imen_icons_h > 0) {
+            int gi = icon_map[i];
+            float u0 = (float)(gi % 4) / 4.0f, v0 = (float)(gi / 4) / 2.0f;
+            float u1 = u0 + 1.0f / 4.0f, v1 = v0 + 1.0f / 2.0f;
+            rs_v4f iq[6] = {
+                {icx0, icy0, u0, v0}, {icx1, icy0, u1, v0}, {icx0, icy1, u0, v1},
+                {icx0, icy1, u0, v1}, {icx1, icy0, u1, v0}, {icx1, icy1, u1, v1},
+            };
+            glUseProgram(rr->prog_tex[slot]);
+            glUniform2f(rr->uViewWH_tex[slot], (GLfloat)rr->view_w, (GLfloat)rr->view_h);
+            glUniform1i(glGetUniformLocation(rr->prog_tex[slot], "uTex"), 0);
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, rr->tex_imen_icons[slot]);
+            glGenBuffers(1, &rr->vbo_sel[slot]);
+            glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
+            glBufferData(GL_ARRAY_BUFFER, sizeof(iq), iq, GL_DYNAMIC_DRAW);
+            rs_bind_vbo(rr->vbo_sel[slot]);
+            glDrawArrays(GL_TRIANGLES, 0, 6);
+            rs_unbind_vbo();
+            glDeleteBuffers(1, &rr->vbo_sel[slot]);
+            rr->vbo_sel[slot] = 0;
+        }
+        /* 7 标签文字（按钮内 0.90 处，对齐 ☰ 菜单文字范式） */
+        if (rr->tex_drawdetail_text[slot] && rr->prog_tex[slot] &&
+            rr->drawdetail_text_w > 0 && rr->drawdetail_text_h > 0) {
+            rs_atlas_label(rr, slot, rr->tex_drawdetail_text[slot],
+                           rr->drawdetail_text_w, rr->drawdetail_text_h,
+                           DRAWDETAIL_ROW, i, icx, by0 + (by1 - by0) * 0.90f, 95.0f, uc);
+        }
+    }
+    static int ddd = 0;
+    if (!ddd) {
+        ddd = 1;
+        LOGI("rs_draw_drawdetail：提和详情弹窗（datah_042 联机版 ☰ 菜单 7 图标：提和/认输/聊天/系统设置/玩家资料/"
+              "战况统计/软件信息，面板 %.0f×%.0f，图标=☰ 图标图集占位映射，诚实边界：本地提和判定未实现，"
+              "提和/认输走 BT 帧 + 边界对话框）", UI_DRAWDETAIL_POPUP_W, UI_DRAWDETAIL_POPUP_H);
+    }
+}
+
 
 static void rs_draw_replay(rs_render *rr, int slot)
 {
@@ -4185,6 +4268,15 @@ static void rs_gl_rebuild(rs_render *rr, int slot)
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     }
+    /* ★ P2（datah_042）：提和详情文字图集（7 标签竖排 220×322） */
+    if (rr->drawdetail_text_px && rr->gl2_ok[slot] && rr->drawdetail_text_w > 0 && rr->drawdetail_text_h > 0) {
+        glGenTextures(1, &rr->tex_drawdetail_text[slot]);
+        glBindTexture(GL_TEXTURE_2D, rr->tex_drawdetail_text[slot]);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->drawdetail_text_w, rr->drawdetail_text_h, 0,
+                     GL_RGBA, GL_UNSIGNED_BYTE, rr->drawdetail_text_px);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    }
     /* 棋盘 VBO */
     {
         float w = (float)rr->view_w, h = (float)rr->view_h;
@@ -4457,6 +4549,10 @@ void rs_render_frame(rs_render *rr)
         } else if (ui_screen_get() == UI_PROFILE) {
             /* ★ P2（datah_031 证据）：个人资料弹窗（Info 文本框 + 修改/帮助/返回 3 按钮，面板 420×520 居中） */
             rs_draw_profile(rr, slot);
+        } else if (ui_screen_get() == UI_DRAWDETAIL) {
+            /* ★ P2（datah_042 证据）：提和详情弹窗（联机版 ☰ 菜单 7 图标：提和/认输/聊天/系统设置/玩家资料/
+               战况统计/软件信息，面板 450×285 居中） */
+            rs_draw_drawdetail(rr, slot);
         } else if (rr->game && rr->game->stage == STG_OVER) {
             /* ★ 对局结束（GAME 态且 stage=OVER）→ 胜负横幅（winner 色可视化） */
             rs_draw_overlay(rr, slot, rr->game->winner);

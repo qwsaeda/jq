@@ -1239,6 +1239,37 @@ Java_com_cnvcs_App_OnCreate(JNIEnv *env, jclass clazz, jobject activity)
             __system_property_set("jq.profile", "0");
         }
     }
+    /* ★ P2（datah_042 证据）：提和详情 setprop 钩子（adb setprop jq.drawdetail 1 → 重启 →
+        OnCreate 弹 UI_DRAWDETAIL 提和详情弹窗：联机版 ☰ 菜单 7 图标 提和/认输/聊天/系统设置/
+        玩家资料/战况统计/软件信息）。测试钩子范式，与 jq.profile 同；值 1=弹出，0=不触发。
+        一次性（清 0）。★ 诚实边界：本地提和判定未实现（原版需对端应答，src_rs 离线单机无对端），
+        联机提和/认输走 BT 帧 + 边界对话框，不包装成"已提和判定"。 */
+    {
+        char dd_prop[16] = {0};
+        __system_property_get("jq.drawdetail", dd_prop);
+        if (strcmp(dd_prop, "1") == 0) {
+            ui_screen_set(UI_DRAWDETAIL);
+            LOGI("jq.drawdetail 钩子：→ UI_DRAWDETAIL 提和详情弹窗（datah_042 联机版 ☰ 菜单 7 图标：提和/认输/聊天/系统设置/玩家资料/战况统计/软件信息，"
+                  "诚实边界：本地提和判定未实现，提和/认输走 BT 帧 + 边界对话框）");
+            __system_property_set("jq.drawdetail", "0");
+        }
+    }
+    /* ★ P2（datah_042 证据）：提和详情 setprop 钩子（adb setprop jq.drawdetail 1 → 重启 →
+        OnCreate 弹 UI_DRAWDETAIL 提和详情弹窗：联机版 ☰ 菜单 7 图标 提和/认输/聊天/系统设置/
+        玩家资料/战况统计/软件信息）。测试钩子范式，与 jq.profile 同；值 1=弹出，0=不触发。
+        一次性（清 0）。★ 诚实边界：本地提和判定未实现（原版需对端应答），联机提和/认输走
+        BT 帧 + 边界对话框，不包装成"已提和判定"。 */
+    {
+        char dd_prop[16] = {0};
+        __system_property_get("jq.drawdetail", dd_prop);
+        if (strcmp(dd_prop, "1") == 0) {
+            ui_screen_set(UI_DRAWDETAIL);
+            LOGI("jq.drawdetail 钩子：→ UI_DRAWDETAIL 提和详情弹窗（datah_042 联机版 ☰ 菜单 7 图标："
+                  "提和/认输/聊天/系统设置/玩家资料/战况统计/软件信息，诚实边界：本地提和判定未实现，"
+                  "提和/认输走 BT 帧 + 边界对话框）");
+            __system_property_set("jq.drawdetail", "0");
+        }
+    }
 
     }
     /* ★ P1（datah_039 证据）：复盘回放 setprop 钩子（adb setprop jq.replay 1 → 重启 →
@@ -1795,6 +1826,24 @@ Java_com_cnvcs_App_OnUpdate(JNIEnv *env, jclass clazz)
             ui_screen_set(UI_MENU);
             LOGI("OnUpdate 个人资料入口：profile=2 → 退弹窗回主菜单");
             __system_property_set("jq.profile", "0");
+        }
+    }
+    /* ★ P2（datah_042 证据）：提和详情 setprop 钩子（adb setprop jq.drawdetail 1 → 同会话 OnUpdate 轮询
+        → UI_DRAWDETAIL 提和详情弹窗；2=退弹窗回对局。与 jq.profile 同范式，不重启 app）。
+        ★ 诚实边界：本地提和判定未实现（原版需对端应答，src_rs 离线单机无对端），
+        联机提和/认输走 BT 帧 + 边界对话框，不包装成"已提和判定"。 */
+    {
+        char dd_prop[16] = {0};
+        __system_property_get("jq.drawdetail", dd_prop);
+        if (strcmp(dd_prop, "1") == 0) {
+            ui_screen_set(UI_DRAWDETAIL);
+            LOGI("OnUpdate 提和详情入口：drawdetail=1 → UI_DRAWDETAIL 提和详情弹窗（datah_042 联机版 ☰ 菜单 7 图标："
+                  "提和/认输/聊天/系统设置/玩家资料/战况统计/软件信息，诚实边界：本地提和判定未实现，提和/认输走 BT 帧 + 边界对话框）");
+            __system_property_set("jq.drawdetail", "0");
+        } else if (strcmp(dd_prop, "2") == 0) {
+            ui_screen_set(UI_GAME);
+            LOGI("OnUpdate 提和详情入口：drawdetail=2 → 退弹窗回对局");
+            __system_property_set("jq.drawdetail", "0");
         }
     }
 
@@ -2983,6 +3032,97 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
         return JNI_TRUE;
     }
 
+    /* ★ P2（datah_042 证据）：提和详情弹窗态（联机版 ☰ 菜单 7 图标）。
+        提和 → jq_bt_ctrl_send(BT_T_DRAW) + 诚实边界对话框（本地提和判定未实现，
+        原版需对端应答）；认输 → g_state.winner=对方 stage=OVER + jq_bt_ctrl_send(BT_T_RESIGN)；
+        聊天 → jq_bt_ctrl_send(BT_T_CHAT) + 边界对话框（联机聊天文本未逆向）；
+        系统设置 → UI_GAMESET（datah_012 游戏设置，已实现）；
+        玩家资料 → UI_PROFILE（datah_031 个人资料，已实现，诚实边界账号系统未逆向）；
+        战况统计 → 遍历 cells 蓝红余子+总步数+回合（复用 ☰ 菜单战况统计逻辑）；
+        软件信息 → jq_show_dialog 版本（复用 ☰ 菜单软件信息逻辑）；
+        点面板外 → 回对局。
+        ★ 诚实边界：本地提和判定未实现（src_rs 离线单机无对端），联机提和/认输走
+        BT 帧 + 边界对话框，不包装成"已提和判定"。 */
+    if (ui_screen_get() == UI_DRAWDETAIL) {
+        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
+        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        const ui_drawdetail_btn *db = ui_drawdetail_buttons();
+        int dh = ui_drawdetail_hit(db, UI_DRAWDETAIL_COUNT, bx, by);
+        if (dh >= 0) {
+            int dact = db[dh].action;
+            LOGI("OnTouch 提和详情弹窗：图标%d（action=%d）", dh, dact);
+            if (dact == 0) {   /* 提和 → 发 BT_T_DRAW 帧 + 诚实边界对话框（本地提和判定未实现） */
+                jq_bt_ctrl_send(env, BT_T_DRAW);
+                jq_show_dialog(env, "提和（诚实边界）",
+                    "提和已发送，等待对方回应。\n"
+                    "本地提和判定未实现（原版需对端应答，\n"
+                    "src_rs 离线单机无对端），联机协议为诚实边界。");
+                sfx_play(env, "pop");
+                LOGI("OnTouch 提和详情：提和 → 发送 DRAW 帧 + 诚实边界对话框（本地提和判定未实现）");
+            } else if (dact == 1) {   /* 认输 → 对方胜 + 发 BT_T_RESIGN 帧（保留现有逻辑） */
+                pthread_mutex_lock(&g_mutex);
+                g_state.winner = (g_state.turn == SIDE_BLUE) ? SIDE_RED : SIDE_BLUE;
+                g_state.stage = STG_OVER;
+                pthread_mutex_unlock(&g_mutex);
+                jq_bt_ctrl_send(env, BT_T_RESIGN);
+                sfx_play(env, "over");
+                LOGI("OnTouch 提和详情：认输 → 对方胜（winner=%d）+ RESIGN 帧", g_state.winner);
+            } else if (dact == 2) {   /* 聊天 → 发 BT_T_CHAT 占位帧 + 边界对话框 */
+                jq_bt_ctrl_send(env, BT_T_CHAT);
+                jq_show_dialog(env, "聊天（诚实边界）",
+                    "聊天（诚实边界）：\n"
+                    "原版联机聊天消息（Junqi.Chat*）未逆向，\n"
+                    "当前发送聊天占位帧（对端无文本渲染）。");
+                sfx_play(env, "pop");
+                LOGI("OnTouch 提和详情：聊天 → 发送 CHAT 占位帧（联机聊天文本未逆向）");
+            } else if (dact == 3) {   /* 系统设置 → 游戏设置弹窗（datah_012，已实现） */
+                ui_screen_set(UI_GAMESET);
+                sfx_play(env, "pop");
+                LOGI("OnTouch 提和详情：系统设置 → UI_GAMESET 游戏设置弹窗（datah_012 4 规则开关）");
+            } else if (dact == 4) {   /* 玩家资料 → 个人资料弹窗（datah_031，已实现，诚实边界） */
+                ui_screen_set(UI_PROFILE);
+                sfx_play(env, "pop");
+                LOGI("OnTouch 提和详情：玩家资料 → UI_PROFILE 个人资料弹窗（datah_031，"
+                     "诚实边界：账号系统未逆向，离线单机无账号）");
+            } else if (dact == 5) {   /* 战况统计 → 复用 ☰ 菜单遍历 cells 逻辑 */
+                pthread_mutex_lock(&g_mutex);
+                int b = 0, r = 0, i;
+                for (i = 0; i < N_CELLS; i++) {
+                    if (g_state.cells[i].rank == RANK_EMPTY) continue;
+                    if (g_state.cells[i].side == SIDE_BLUE) b++;
+                    else if (g_state.cells[i].side == SIDE_RED) r++;
+                }
+                char msg[160];
+                snprintf(msg, sizeof msg,
+                    "蓝方余子：%d\n红方余子：%d\n总步数：%d\n当前回合：%s",
+                    b, r, g_state.total_moves,
+                    g_state.turn == SIDE_BLUE ? "蓝方" : "红方");
+                pthread_mutex_unlock(&g_mutex);
+                jq_show_dialog(env, "战况统计", msg);
+                sfx_play(env, "pop");
+                LOGI("OnTouch 提和详情：战况统计 → 蓝%d 红%d 步%d（复用 ☰ 菜单逻辑）", b, r, g_state.total_moves);
+            } else if (dact == 6) {   /* 软件信息 → 复用 ☰ 菜单版本信息逻辑 */
+                jq_show_dialog(env, "软件信息",
+                    "军棋（Junqi）src_rs 64 位重写版\n"
+                    "版本：1.6.8（com.cnvcs.junqirs）\n"
+                    "玩法等价重写：规则/UI 对齐原版 v152；\n"
+                    "暗棋默认（对齐原版人机/两人开局）；\n"
+                    "人机=AI 走红 / 两人=热座轮流；\n"
+                    "蓝牙联机/四国为诚实边界。");
+                sfx_play(env, "pop");
+                LOGI("OnTouch 提和详情：软件信息 → 显示版本信息（复用 ☰ 菜单逻辑）");
+            }
+            (void)clazz;
+            return JNI_TRUE;
+        }
+        if (!ui_drawdetail_popup_inside(bx, by)) {
+            ui_screen_set(UI_GAME);
+            LOGI("OnTouch 提和详情弹窗外（bx=%.0f by=%.0f）→ 回对局", bx, by);
+            sfx_play(env, "pop");
+        }
+        (void)clazz;
+        return JNI_TRUE;
+    }
     /* ★ 原版 UI 对齐：☰ 游戏内菜单 / ↩ 悔棋 图标（棋盘中部）。
        对局态点 ☰ → UI_INGAME_MENU；点 ↩ → 悔棋（undo_pop）。
        坐标换算 720×1280 基准（与渲染同几何）。
@@ -3061,13 +3201,16 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
                 LOGI("☰菜单 悔棋：连续 undo_pop 到 BLUE（popped=%d）", popped);
                 /* ★ BT 联机：悔棋 → 发 UNDO 帧（对端同步悔棋） */
                 if (g_bt_sess_init_done && popped) jq_bt_ctrl_send(env, BT_T_UNDO);
-            } else if (bt_mode && act == 2) {   /* 提和（联机版，datah_067） */
-                jq_bt_ctrl_send(env, BT_T_DRAW);
-                jq_show_dialog(env, "提和",
-                    "提和请求已发送，等待对方回应…\n"
-                    "（联机协议提和/认输为诚实边界：需对端应答）");
+            } else if (bt_mode && act == 2) {   /* 提和（联机版，datah_067）→ 提和详情弹窗（★ P2 datah_042） */
+                /* ★ P2（datah_042 证据）：提和入口从"直接发帧"升级为 datah_042 7 图标
+                   提和详情弹窗（提和/认输/聊天/系统设置/玩家资料/战况统计/软件信息），
+                   发帧逻辑保留在弹窗内（提和→BT_T_DRAW 帧 + 边界对话框）。 */
+                ui_screen_set(UI_DRAWDETAIL);
                 sfx_play(env, "pop");
-                LOGI("☰菜单 提和：发送 DRAW 帧");
+                LOGI("☰菜单 提和：→ UI_DRAWDETAIL 提和详情弹窗（datah_042 7 图标：提和/认输/聊天/系统设置/玩家资料/战况统计/软件信息，"
+                     "诚实边界：本地提和判定未实现，提和/认输走 BT 帧 + 边界对话框）");
+                (void)clazz;
+                return JNI_TRUE;
             } else if (bt_mode && act == 3) {   /* 认输（联机版，datah_067） */
                 pthread_mutex_lock(&g_mutex);
                 /* 认输 → 对方胜（本机当前 turn 方为认输方；双方可认输） */

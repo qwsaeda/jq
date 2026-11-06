@@ -143,6 +143,20 @@ DIALOGS = {
     # 诚实边界：原版个人资料+账号系统未逆向，Info 文本框=诚实边界占位）
     "datah_031_profile": (420, 520, [
         ("修改",25,435,135,495),("帮助",155,435,265,495),("返回",285,435,395,495)]),
+    # ★ P2（datah_042 证据）：提和详情弹窗（联机版 ☰ 菜单 7 图标：提和/认输/聊天/系统设置/
+    # 玩家资料/战况统计/软件信息，450×285 面板居中 720 屏，偏移=(720-450)/2=135,
+    # (1280-285)/2=497.5；7 图标 105×135 局部 1:1 平移取整：
+    # 提和 15,25 → 150,523-255,658；认输 120,25 → 255,523-360,658；
+    # 聊天 225,25 → 360,523-465,658；系统设置 330,25 → 465,523-570,658；
+    # 玩家资料 15,150 → 150,648-255,783；战况统计 120,150 → 255,648-360,783；
+    # 软件信息 225,150 → 360,648-465,783。
+    # 诚实边界：本地提和判定未实现（原版需对端应答，src_rs 离线单机无对端），
+    # 联机提和/认输走 BT 帧 + 边界对话框，不包装成"已提和判定"）
+    "datah_042_drawdetail": (450, 285, [
+        ("提和",15,25,120,160),("认输",120,25,225,160),
+        ("聊天",225,25,330,160),("系统设置",330,25,435,160),
+        ("玩家资料",15,150,120,285),("战况统计",120,150,225,285),
+        ("软件信息",225,150,330,285)]),
 }
 
 # datah_107/039 绝对坐标面板（不居中，局部 1:1 平移 @ 偏移）
@@ -201,6 +215,8 @@ def load_src_rs_buttons(path="rev64/src_rs/ui_menu.c"):
     tables["chatlog"] = _grab("g_chatlog_btns")
     # ★ P2（datah_031 证据）：个人资料弹窗 3 按钮（g_profile_btns）
     tables["profile"] = _grab("g_profile_btns")
+    # ★ P2（datah_042 证据）：提和详情弹窗 7 图标（g_drawdetail_btns）
+    tables["drawdetail"] = _grab("g_drawdetail_btns")
     return tables
 def dialog_720(name):
     """原版对话框 → 720×1280 物理基准（面板水平居中 +135，垂直居中按面板 H）；
@@ -260,7 +276,8 @@ def check_geometry(menu_src=None, verbose=True):
                          ("datah_050_gameinfo","gameinfo"),
                          ("datah_002_bright","bright"),
                          ("datah_029_chatlog","chatlog"),
-                         ("datah_031_profile","profile")]:
+                         ("datah_031_profile","profile"),
+                          ("datah_042_drawdetail","drawdetail")]:
         if dname not in DIALOGS or tname not in src: continue
         W,H,obtns = DIALOGS[dname]
         ox,oy = (720-W)/2.0,(1280-H)/2.0
@@ -374,6 +391,13 @@ def check_geometry(menu_src=None, verbose=True):
             for i2, (lbl, x0, y0, x1, y1) in enumerate(obtns):
                 pairs.append((lbl, (ox+x0, oy+y0, ox+x1, oy+y1),
                               (srcs[i2][0],srcs[i2][1],srcs[i2][2],srcs[i2][3])))
+        # ★ P2（datah_042 证据）：提和详情弹窗 7 图标（450×285 居中，偏移+135,+497.5，
+        #   局部 1:1 平移取整；src_rs g_drawdetail_btns 7 项对应原版 7 图标）
+        if dname == "datah_042_drawdetail":
+            pairs = []
+            for i2, (lbl, x0, y0, x1, y1) in enumerate(obtns):
+                pairs.append((lbl, (round(ox+x0,1), round(oy+y0,1), round(ox+x1,1), round(oy+y1,1)),
+                              (srcs[i2][0],srcs[i2][1],srcs[i2][2],srcs[i2][3])))
         # 跳过 Δ 比对的 DIALOGS（029 chatlog 只有 2 按钮，002 bright 3 控件走循环切换）
         skip_delta = dname in ("datah_029_chatlog",)
         need_n = 2 if skip_delta else 3
@@ -391,9 +415,9 @@ def check_geometry(menu_src=None, verbose=True):
                 print(f"  {dname} {lbl:4s} 原版720中心({(oox0+oox1)/2:.0f},{(ooy0+ooy1)/2:.0f}) src({(sox0+sox1)/2:.0f},{(soy0+soy1)/2:.0f}) Δc=({dcx:+.1f},{dcy:+.1f}) {('—' if is_region else ('✓' if ok else '✗'))} {note}")
             if not ok and not is_region:
                 failures.append(f"{dname} {lbl} Δ=({dcx:+.1f},{dcy:+.1f})")
-    for dname in ["datah_041_diff","datah_072_way","datah_001_set","datah_089_nplayer","datah_062_newgame","datah_012_gameset","datah_017_loadlay","datah_020_savelay","datah_016_laymgr","datah_107_replay","datah_039_replay","datah_038_login","datah_037_rules","datah_104_newgame","datah_034_join","datah_035_create","datah_061_ng061","datah_050_gameinfo","datah_002_bright","datah_029_chatlog","datah_031_profile"]:
+    for dname in ["datah_041_diff","datah_072_way","datah_001_set","datah_089_nplayer","datah_062_newgame","datah_012_gameset","datah_017_loadlay","datah_020_savelay","datah_016_laymgr","datah_107_replay","datah_039_replay","datah_038_login","datah_037_rules","datah_104_newgame","datah_034_join","datah_035_create","datah_061_ng061","datah_050_gameinfo","datah_002_bright","datah_029_chatlog","datah_031_profile","datah_042_drawdetail"]:
         orig = dialog_720(dname)
-        nrep = len(orig) if dname in ("datah_017_loadlay","datah_020_savelay","datah_016_laymgr","datah_107_replay","datah_039_replay","datah_038_login","datah_037_rules","datah_104_newgame","datah_034_join","datah_035_create","datah_061_ng061","datah_050_gameinfo","datah_002_bright","datah_029_chatlog","datah_031_profile") else 2
+        nrep = len(orig) if dname in ("datah_017_loadlay","datah_020_savelay","datah_016_laymgr","datah_107_replay","datah_039_replay","datah_038_login","datah_037_rules","datah_104_newgame","datah_034_join","datah_035_create","datah_061_ng061","datah_050_gameinfo","datah_002_bright","datah_029_chatlog","datah_031_profile","datah_042_drawdetail") else 2
         for lbl,ox0,oy0,ox1,oy1 in orig[:nrep]:
             cx,cy = (ox0+ox1)/2,(oy0+oy1)/2
             if verbose and verbose_global:
@@ -429,9 +453,16 @@ def check_screenshot(path, threshold=0.5):
             W,H,btns = DIALOGS[dname]
             ox,oy = (720-W)/2.0,(1280-H)/2.0
             login_dialogs.append((dname, [(lbl, ox+x0, oy+y0, ox+x1, oy+y1) for lbl,x0,y0,x1,y1 in btns]))
+    # ★ P2（datah_042）：提和详情弹窗（450×285 居中，偏移+135,+497.5，7 图标 105×135）
+    drawdetail_dialogs = []
+    for dname in ("datah_042_drawdetail",):
+        if dname in DIALOGS:
+            W,H,btns = DIALOGS[dname]
+            ox,oy = (720-W)/2.0,(1280-H)/2.0
+            drawdetail_dialogs.append((dname, [(lbl, round(ox+x0,1), round(oy+y0,1), round(ox+x1,1), round(oy+y1,1)) for lbl,x0,y0,x1,y1 in btns]))
     for dname,src in [
         ("主菜单", menu_720()),
-    ] + lay_dialogs + replay_dialogs + login_dialogs:
+    ] + lay_dialogs + replay_dialogs + login_dialogs + drawdetail_dialogs:
         for lbl,x0,y0,x1,y1 in src:
             x0,x1 = max(0,int(x0)),min(w,int(x1)); y0,y1=max(0,int(y0)),min(h,int(y1))
             if x1<=x0 or y1<=y0: continue

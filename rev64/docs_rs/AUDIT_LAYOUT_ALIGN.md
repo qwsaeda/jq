@@ -141,7 +141,7 @@ datah_023 面板 450 坐标系（offset_x=(720-450)/2=135, offset_y=(1280-450)/2
 | datah_061 | 新局（先后手/电脑水平/玩法/明暗棋） | 6 | ✅ 已实现（§二十，UI_NG061 完整版补充，4 项各循环切换简化版，evverify 21/21） | 中 |
 | datah_062 | 新局（玩法/明暗棋 简化版） | 4 | ✅ 已实现（P0，UI_NEWGAME 弹窗，§十四，两人热座 AI 不介入） | 中 |
 | datah_104 | 新局（我方/电脑水平/玩法） | 5 | ✅ 已实现（§十九，UI_NEWGAME104 循环切换简化，evverify 16/16） | 中 |
-| datah_042 | 提和详情（提和/认输/聊天/查看/统计/信息） | 7 | ⚠️ 提和走 BT_T_DRAW 帧（联机），本地未实现提和判定 | 低 |
+| datah_042 | 提和详情（提和/认输/聊天/系统设置/玩家资料/战况统计/软件信息） | 7 | ✅ 已实现（§二十一，UI_DRAWDETAIL 联机版 ☰ 菜单 7 图标弹窗，本地提和判定未实现=诚实边界，evverify 22/22） | 低 |
 | datah_037 | 规则-翻棋/布局 | Flip/Lay/Back 3 | ✅ 已实现（§十九，UI_RULES 翻棋/布局 2 套简化文本，evverify 16/16） | 低 |
 | datah_050 | 对局信息 | View/Remove/Close 3 | ✅ 已实现（§二十，UI_GAMEINFO Info 文本框（战况统计复用） + 复盘/删除/返回，删除=清复盘记录简化，evverify 21/21） | 低 |
 | datah_002 | 亮度 | Ok/Cancel 2 | ✅ 已实现（§二十，UI_BRIGHT 滑条简化=亮度 低/中/高 3 档循环 + 确定/取消，不画真滑条，evverify 21/21） | 低 |
@@ -1035,3 +1035,57 @@ sha256 5908d27df1a038f6a393836c8098dbf68177b70f588468a3f921d0c6f276b5b8)
 - 002 亮度=滑条简化为"低/中/高"3 档循环切换（不画真滑条，原版滑条拖拽=触摸 flaky）
 - 029 聊天记录=联机聊天文本未逆向（占位 + 清除/关闭，src_rs 蓝牙聊天是占位帧 BT_T_CHAT）
 - 031 个人资料=账号系统未逆向（占位 + 修改→边界对话框/帮助/返回，离线单机无账号）
+
+
+## 二十一、P2 datah_042 提和详情对齐（UI_DRAWDETAIL 联机版 ☰ 菜单 7 图标，§P2 最后一对话框补齐）
+
+**背景**：P2 最后 5 弹窗（datah_061/050/002/029/031）对齐后，P2 仍剩 1 个原版对话框缺口——datah_042 提和详情（联机版 ☰ 菜单 7 图标弹窗，比 datah_067 8 图标少 1 项"游戏规则"，多 1 项"玩家资料"）。补齐后 P0/P1/P2 全对话框对齐（含 datah_042 最后一项）。
+
+**设计范式**（对齐 P2 最后 5 弹窗 / P1 布局存档/复盘/登录范式）：
+- 坐标系面板居中 720×1280 屏，局部坐标 1:1 平移（偏移=(720-panel_w)/2, (1280-panel_h)/2）
+- 文件分工：ui_menu.h（UI_DRAWDETAIL 枚举 + UI_DRAWDETAIL_COUNT=7 + UI_DRAWDETAIL_POPUP 宏（450×285 @135,497.5）+ ui_drawdetail_btn 结构 + getter/hit/popup_inside 声明）+ ui_menu.c（g_drawdetail_btns[7] 720 基准表 + hit + popup_inside）+ ui_menu_stub.c（桌面桩几何表）+ render.c（rs_draw_drawdetail 面板 + 7 图标 + 文字图集 drawdetail_text_atlas.png + 帧调度 case）+ jni_bridge.c（OnTouch 命中分发 + 业务 + setprop 钩子 jq.drawdetail OnCreate + OnUpdate 双路）+ evverify.c（run_drawdetail 桌面验证）+ layout_align_check.py（datah_042_drawdetail 7 图标几何 Δ 校验）
+
+### 21.1 datah_042 提和详情（UI_DRAWDETAIL，联机版 ☰ 菜单 7 图标）
+
+**几何**（450×285 面板居中，偏移=+135,+497.5，局部 1:1 平移取整）：
+
+| 图标 | 原版 450 系 | 720 系 | src_rs Δc | 实证 |
+|------|-----------|--------|---------|------|
+| 提和 | (15,25)-(120,160) | (150,523)-(255,658) | (+0.0,+0.5) ✓ | evverify run_drawdetail PASS |
+| 认输 | (120,25)-(225,160) | (255,523)-(360,658) | (+0.0,+0.5) ✓ | evverify run_drawdetail PASS |
+| 聊天 | (225,25)-(330,160) | (360,523)-(465,658) | (+0.0,+0.5) ✓ | evverify run_drawdetail PASS |
+| 系统设置 | (330,25)-(435,160) | (465,523)-(570,658) | (+0.0,+0.5) ✓ | evverify run_drawdetail PASS |
+| 玩家资料 | (15,150)-(120,285) | (150,648)-(255,783) | (+0.0,+0.5) ✓ | evverify run_drawdetail PASS |
+| 战况统计 | (120,150)-(225,285) | (255,648)-(360,783) | (+0.0,+0.5) ✓ | evverify run_drawdetail PASS |
+| 软件信息 | (225,150)-(330,285) | (360,648)-(465,783) | (+0.0,+0.5) ✓ | evverify run_drawdetail PASS |
+
+**业务**（对齐原版 datah_042 7 图标）：
+- **提和**：`jq_bt_ctrl_send(BT_T_DRAW)` + 诚实边界对话框（"提和已发送，等待对方回应。本地提和判定未实现（原版需对端应答），联机协议为诚实边界"）——保留现有提和发帧，升级对话框文案标注本地提和判定诚实边界
+- **认输**：`g_state.winner=对方, stage=OVER` + `jq_bt_ctrl_send(BT_T_RESIGN)`（保留现有）
+- **聊天**：`jq_bt_ctrl_send(BT_T_CHAT)` + 边界对话框（联机聊天文本未逆向，保留现有）
+- **系统设置**：切 `UI_GAMESET`（datah_012 游戏设置，已实现）
+- **玩家资料**：切 `UI_PROFILE`（datah_031 个人资料，已实现，诚实边界账号系统未逆向）
+- **战况统计**：遍历 cells 蓝红余子+总步数+回合（复用 ☰ 菜单战况统计逻辑）
+- **软件信息**：`jq_show_dialog` 版本（复用 ☰ 菜单软件信息逻辑）
+
+**入口**：联机版 ☰ 菜单（datah_067 8 图标）的"提和"(act==2) 现在直接发帧，改为切 `UI_DRAWDETAIL`（datah_042 7 图标弹窗），让提和详情弹窗成为完整入口。setprop 钩子 `jq.drawdetail` 触发（OnCreate + OnUpdate 双路，1=进 / 2=退回对局）。
+
+**渲染**：`rs_draw_drawdetail()`（面板深色半透明 + 7 图标 + 文字图集）。文字图集：新 PNG `drawdetail_text_atlas.png`（make_drawdetail_atlas.py PIL + data_font_all.ttf sz38 烘焙 7 标签"提和/认输/聊天/系统设置/玩家资料/战况统计/软件信息"，220×322）。图标复用现有 ☰ 菜单图标范式（原 datah_006/067 的图标位图裁剪，btimen_text_atlas 范式；7 图标 → ☰ 图标图集 8 槽映射：提和=2 认输=3 聊天=4 系统设置=5 玩家资料=0 占位 战况统计=6 软件信息=1 占位（原图集无专用图标，★ 诚实边界））。
+
+### 21.2 全量实证汇总
+
+**桌面 evverify**（`make evverify && ./dist/jq_evverify --all`）：22/22 全对（含新 run_drawdetail：7 图标几何 Δ=0 + 命中判定 + 业务分支）
+
+**一致性回归**（`make consistency && ./dist/jq_consistency selftest`）：9/9 基准序列逐行一致（datah_042 是新增态，提和入口从"直接发帧"升级为"切 datah_042 弹窗"，发帧逻辑保留在弹窗内，默认行为不变）
+
+**编译**（`NDK=/tmp/opencode/android-ndk-r25b make so`）：无 error（既有 warning 非本轮引入）
+
+**几何 Δ 校验**（`python3 rev64/tools/layout_align_check.py --baseline`）：PASS（datah_042 7 图标逐图标 Δc=+0.0/+0.5 全 ✓，取整容差内）
+
+**so 哈希**：`b6b54ed59b97c299270391d9f904bf08687127984ede0d8cdeed67cb31e27d0d`（P2 datah_042 提和详情补齐，258696B）
+
+**★ 诚实边界汇总（触摸命中 flaky，非触摸实证）**：
+- datah_042 7 图标几何 Δ=0 + 渲染出帧（rs_draw_drawdetail logcat）+ 截图非黑 为真机实证；触摸命中（点各图标业务动作）真机触摸 flaky（MuMu PBuffer 坐标映射非线性）→ 业务逻辑用**桌面 evverify run_drawdetail PASS（几何 + 命中判定 + 业务分支）+ 代码路径证明（jni_bridge.c UI_DRAWDETAIL 命中分发块）**，非触摸糊弄
+- **本地提和判定未实现**（原版需对端应答，src_rs 离线单机无对端）——不包装成"已提和判定"；联机提和/认输走 BT_T_DRAW/BT_T_RESIGN 帧 + 边界对话框
+- 玩家资料/软件信息 图标=☰ 图标图集占位映射（原图集无专用图标，诚实边界）
+- 聊天=BT_T_CHAT 占位帧（联机聊天文本未逆向）

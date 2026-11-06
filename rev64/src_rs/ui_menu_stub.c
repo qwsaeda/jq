@@ -203,3 +203,18 @@ int ui_profile_hit(const ui_profile_btn *b, int n, float x, float y)
 int ui_profile_popup_inside(float x, float y)
 { return x>=UI_PROFILE_POPUP_X0&&x<=UI_PROFILE_POPUP_X0+UI_PROFILE_POPUP_W&&
          y>=UI_PROFILE_POPUP_Y0&&y<=UI_PROFILE_POPUP_Y0+UI_PROFILE_POPUP_H; }
+/* ★ P2（datah_042 证据）：提和详情弹窗 7 图标桩（几何表返回 720 基准占位供
+   一致性/evverify 链接；真机走 ui_menu.c 真实几何表）。
+   诚实边界：本地提和判定未实现（原版需对端应答），提和/认输走 BT 帧 + 边界对话框。 */
+static const ui_drawdetail_btn dd_stub[UI_DRAWDETAIL_COUNT] = {
+    { 150.0f,523.0f,255.0f,658.0f,0 },{ 255.0f,523.0f,360.0f,658.0f,1 },
+    { 360.0f,523.0f,465.0f,658.0f,2 },{ 465.0f,523.0f,570.0f,658.0f,3 },
+    { 150.0f,648.0f,255.0f,783.0f,4 },{ 255.0f,648.0f,360.0f,783.0f,5 },
+    { 360.0f,648.0f,465.0f,783.0f,6 },
+};
+const ui_drawdetail_btn *ui_drawdetail_buttons(void) { return dd_stub; }
+int ui_drawdetail_hit(const ui_drawdetail_btn *b, int n, float x, float y)
+{ for (int i=0;i<n;i++) if (x>=b[i].x0&&x<=b[i].x1&&y>=b[i].y0&&y<=b[i].y1) return i; return -1; }
+int ui_drawdetail_popup_inside(float x, float y)
+{ return x>=UI_DRAWDETAIL_POPUP_X0&&x<=UI_DRAWDETAIL_POPUP_X0+UI_DRAWDETAIL_POPUP_W&&
+          y>=UI_DRAWDETAIL_POPUP_Y0&&y<=UI_DRAWDETAIL_POPUP_Y0+UI_DRAWDETAIL_POPUP_H; }

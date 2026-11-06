@@ -766,3 +766,42 @@ int ui_profile_popup_inside(float x, float y)
     return x >= UI_PROFILE_POPUP_X0 && x <= UI_PROFILE_POPUP_X0 + UI_PROFILE_POPUP_W &&
            y >= UI_PROFILE_POPUP_Y0 && y <= UI_PROFILE_POPUP_Y0 + UI_PROFILE_POPUP_H;
 }
+
+/* ★ P2（datah_042 证据）：提和详情弹窗 7 图标（提和/认输/聊天/系统设置/玩家资料/
+   战况统计/软件信息）。几何 720×1280 基准：面板 450×285 居中（偏移+135,+497.5）；
+   局部 1:1 平移（取整）：
+   提和 15,25,120,160 → 150,522.5-255,657.5 → 150,523-255,658；
+   认输 120,25,225,160 → 255,523-360,658；聊天 225,25,330,160 → 360,523-465,658；
+   系统设置 330,25,435,160 → 465,523-570,658；
+   玩家资料 15,150,120,285 → 150,647.5-255,782.5 → 150,648-255,783；
+   战况统计 120,150,225,285 → 255,648-360,783；软件信息 225,150,330,285 → 360,648-465,783。
+   业务：提和/认输/聊天 = 发 BT 帧 + 边界对话框（本地提和判定未实现，诚实边界）；
+   系统设置 → UI_GAMESET；玩家资料 → UI_PROFILE；战况统计/软件信息 复用 ☰ 菜单逻辑。
+   ★ 诚实边界：原版提和需对端应答（判定未实现），src_rs 离线单机无对端，
+   提和/认输走 BT_T_DRAW/BT_T_RESIGN 帧 + 边界对话框，不包装成"已提和判定"。 */
+static const ui_drawdetail_btn g_drawdetail_btns[UI_DRAWDETAIL_COUNT] = {
+    /* x0, y0, x1, y1, action；★ 原版 datah_042 450 坐标系精确换算（面板 450×285 居中 720，偏移+135,+497.5，取整） */
+    { 150.0f, 523.0f, 255.0f, 658.0f, 0 },  /* 提和 Draw（15,25）→ BT_T_DRAW 帧 + 边界对话框 */
+    { 255.0f, 523.0f, 360.0f, 658.0f, 1 },  /* 认输 Resign（120,25）→ winner=对方 stage=OVER + BT_T_RESIGN */
+    { 360.0f, 523.0f, 465.0f, 658.0f, 2 },  /* 聊天 Chat（225,25）→ BT_T_CHAT 帧 + 边界对话框 */
+    { 465.0f, 523.0f, 570.0f, 658.0f, 3 },  /* 系统设置 Config（330,25）→ UI_GAMESET（datah_012） */
+    { 150.0f, 648.0f, 255.0f, 783.0f, 4 },  /* 玩家资料 View（15,150）→ UI_PROFILE（datah_031） */
+    { 255.0f, 648.0f, 360.0f, 783.0f, 5 },  /* 战况统计 Stat（120,150）→ 复用 ☰ 菜单遍历 cells 逻辑 */
+    { 360.0f, 648.0f, 465.0f, 783.0f, 6 },  /* 软件信息 About（225,150）→ jq_show_dialog 版本（复用 ☰ 菜单逻辑） */
+};
+
+const ui_drawdetail_btn *ui_drawdetail_buttons(void) { return g_drawdetail_btns; }
+
+int ui_drawdetail_hit(const ui_drawdetail_btn *btns, int n, float x, float y)
+{
+    for (int i = 0; i < n; i++)
+        if (x >= btns[i].x0 && x <= btns[i].x1 && y >= btns[i].y0 && y <= btns[i].y1)
+            return i;
+    return -1;
+}
+
+int ui_drawdetail_popup_inside(float x, float y)
+{
+    return x >= UI_DRAWDETAIL_POPUP_X0 && x <= UI_DRAWDETAIL_POPUP_X0 + UI_DRAWDETAIL_POPUP_W &&
+           y >= UI_DRAWDETAIL_POPUP_Y0 && y <= UI_DRAWDETAIL_POPUP_Y0 + UI_DRAWDETAIL_POPUP_H;
+}
