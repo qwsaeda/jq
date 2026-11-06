@@ -1353,6 +1353,70 @@ WALK-BRIDGE:    完整 8 步序列（Junqi.Move cell6→11 / cell33→38，会�
 - `jqt_vtbl.c`（F_3ab80 完整翻译体 + F_3a92c/F_3ab64 stub）
 - `jni_aligned.c`（OnCreate native_event 钩子：F_3ab80 对照会话 B 走子桥）
 
+### §124y-22 真实事件对象构造（F_3a92c 分发字段逆向 + MuMu 实测）
+
+**★ 背景**：§124y-21 全零事件对象 disc=0（F_3a92c 第一行 evt+0x35=0 → 早退）。
+本轮逆向 F_3a92c 分发逻辑 + 构造**真实事件对象**（填 .rodata Junqi.Move 指针 + 事件码 +
+类型标记），让 32 位原生事件链读到真实事件字段。
+
+**★ F_3a92c（分发判断 0x03a92c）反汇编逆向**：
+```
+r0=evt, r1=单例
+  ldrb r2,[r0,#53]（evt+0x35 类型标记）→ 0 则 disc=0 早退（全零对象走这里）
+  否则遍历 [0x120790] 事件表（17 项）：
+    每项读 [item] 事件名指针 + [evt+0x48+i*?] 字段
+    evt+0x44 = 事件码（ldr r5,[r0,#68] 对比）
+    evt+0x48 = 事件名首字节/长度（ldrb，对比事件码 asr4）
+    匹配 → disc=1（3a972 movs r0,#1）
+```
+F_3a92c literal pool：0x120790（事件表基址）/0x57c/0x121（表参数）。
+事件表 0x120790 区是 .rodata 压缩/索引数据（非纯指针表），需进一步逆向。
+
+**★ 真实事件对象字段（jni_aligned.c native_event 钩子）**：
+```c
+MEM(evt+0x44) = 0;                        /* 事件码 0=走子 */
+MEM(evt+0x48) = JQT_ABS_PTR(0x120f20);    /* "Junqi.Move" .rodata 指针（绝对地址） */
+MEM(evt+0x35) = 1;                        /* 类型标记（非零进事件表遍历） */
+```
+32 位 .rodata Junqi.Move @ 0x120f20（.rodata 73 条 Junqi.* 明文之一，
+Junqi.Eat=0x120f50/Bomb=0x120f38/Flag=0x120f2c/Dead=0x120f44）。
+
+**★ MuMu 实证（真实事件对象，0 崩溃、进程存活）**：
+```
+NATIVE-EVENT: 真实事件对象 evt+0x35=1 evt+0x44=0x00000000 evt+0x48=0xb158df20(Junqi.Move@.rodata 0x120f20)
+NATIVE-EVENT: F_3ab80 返回 0x00000000（32 位原生事件链，真实事件对象）
+WALK-BRIDGE:  完整 8 步序列完成（会话 B 引擎驱动 32 位 so 走子事件）
+```
+**disc 仍=0**：填了 3 字段（evt+0x35/0x44/0x48）但 F_3a92c 完整匹配需更多事件字段
+（事件表 0x120790 区 17 项遍历 + [evt+0x48+i] 后续字段），未全填 → disc=0。
+**但不崩**（真实事件对象比全零对象读更多字段，仍 SEGV 边界内）。
+
+**★ 1 次崩溃根因（诚实边界）**：
+MuMu 跑真实事件对象时 1 次 `Fatal signal 11 (SIGSEGV) fault addr 0x10`，**非 F_3ab80 直接崩**——
+日志同时有 `EGL_emulation: eglMakeCurrent: EGL_BAD_ACCESS context current to another thread`
++ 32 位 `crash_dump32` 时序竞争 → 是 MuMu 的 **EGL 多线程上下文竞争**（GLThread 持 context，
+frame loop 抢占 eglMakeCurrent 失败）+ crash_dump 写 tombstone 时的 EGL 竞争，非事件对象
+读未填字段崩。重跑 0 崩溃。
+
+**★ 关键坑（固化）**：
+1. **全零事件对象 disc=0 是安全早退**（evt+0x35=0 → 不读后续字段）；**部分填字段**
+   （evt+0x35=1 但 evt+0x44/0x48 后续字段未填）→ F_3a92c 进事件表遍历读未填字段 →
+   危险（可能读 0 地址 / 未映射区）。要 disc 非零需**完整填充**所有 F_3a92c/F_336c8/F_3ab64
+   读的事件字段（事件结构逆向）
+2. **MuMu EGL 多线程竞争**：32 位 so 的 GLThread（渲染线程）+ frame loop（主线程）抢
+   eglMakeCurrent → `EGL_BAD_ACCESS`（context current to another thread）+ crash_dump32
+   写 tombstone 时 EGL 竞争 → 偶发 SIGSEGV（非 so 逻辑崩，是 MuMu 容器 EGL 环境）
+3. **真实事件对象是"能真发 Junqi.* 事件"的最后一环**，需逆向完整事件结构
+   （32 位 C++ 事件对象布局：evt+0x35 类型 / evt+0x44 事件码 / evt+0x48+ 事件名+参数）
+
+**★ 32 位原生事件链 vs 会话 B 走子桥（对照）**：
+| 维度 | 32 位原生事件链（§124y-21/22） | 会话 B 走子桥（§124y-19） |
+|---|---|---|
+| 事件发送 | F_3ab80 → F_3a92c 分发 + F_33684 发送 | jq_try_move 纯 C 走子 |
+| 事件字段 | .rodata Junqi.Move 指针（0x120f20 等 73 条） | 会话 B JQ_EVENT_NAMES |
+| redroid/MuMu | ✅ 布局链 + 事件链跑通（disc=0 未全填） | ✅ 完整 8 步序列 |
+| 诚实边界 | 完整事件对象需 32 位 C++ 事件结构逆向 | 不依赖 GL（纯逻辑） |
+
 ### 32 位 native 数据提取（已完成）
 
 - 路线：redroid 真 Android 容器跑原版 32 位 so → `dd /proc/PID/mem` dump `.rodata`

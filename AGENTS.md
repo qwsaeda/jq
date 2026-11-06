@@ -151,7 +151,7 @@ java -cp /tmp/opencode/apksigner/apksig.jar:/tmp/opencode/apksigner SignV2 \
 | 文档 | 内容 | 状态 |
 |---|---|---|
 | `rev64/phases/REVERSE_NOTES.md` | 主逆向笔记（§1-§121） | ✅ 已有 |
-| `rev64/docs_rs/REVERSE_LOG.md` | 32 位逆向经验库（红线/终局反思/量化/§124y-10~21 触摸+游戏状态构造+dispatch 全链+gs[8] vtable 定位+探查工具+工具对抗审计+游戏方法槽完整翻译体+事件发送器收表+会话 B 规则引擎走子桥+32 位原生布局加载链+原生事件发送器 F_3ab80 补全对照） | ✅ 成文（本轮迁移） |
+| `rev64/docs_rs/REVERSE_LOG.md` | 32 位逆向经验库（红线/终局反思/量化/§124y-10~22 触摸+游戏状态构造+dispatch 全链+gs[8] vtable 定位+探查工具+工具对抗审计+游戏方法槽完整翻译体+事件发送器收表+会话 B 规则引擎走子桥+32 位原生布局加载链+原生事件发送器 F_3ab80 补全+真实事件对象构造（F_3a92c 分发字段逆向）） | ✅ 成文（本轮迁移） |
 
 ### 流水线 orchestrator（一条命令跑通"逆向→正向→验收→补差异"全链）
 

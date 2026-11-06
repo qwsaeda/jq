@@ -534,12 +534,25 @@ Java_com_cnvcs_App_OnTimer(JNIEnv *env, jclass c){
                （32 位原生 Junqi.* 事件链：F_33790/F_3376c/F_336ec + F_3a92c 分发 + F_33684 发送）
                与会话 B 走子桥事件互为对照（32 位原生 vs 会话 B 替代驱动） */
             extern uint32_t F_3ab80(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
-            /* 构造 32 位事件对象（vtable + 事件字段，redroid 无资源用零初始化） */
+            /* ★ §124y-22：构造**真实事件对象**（非全零）——填 .rodata Junqi.Move 事件名指针
+               + 事件码 + 走子 cell 参数，让 32 位原生事件链 F_3a92c 分发读到真实事件字段
+               （F_3a92c 反汇编：evt+0x35 类型标记 + evt+0x44 事件码 + evt+0x48 事件名首字节）
+               32 位 .rodata Junqi.Move @ 0x120f20（.rodata 73 条 Junqi.* 明文之一） */
             uint32_t evtobj = (uint32_t)_Znwj(0x100);
             MEM(evtobj) = JQT_ABS_PTR(0x159950);
             for (int i = 0; i < 64; i++) MEM(evtobj + i*4) = (i==0) ? MEM(evtobj) : 0;
+            /* 真实事件对象字段（F_3a92c 读这些）：
+               evt+0x44 = 事件码（走子=0，F_3a92c ldr r5,[r0,#68] 对比事件码）
+               evt+0x48 = 事件名指针首字节（Junqi.Move @ .rodata 0x120f20，绝对指针 = g_jqt_shadow+0x120f20）
+               evt+0x35 = 类型标记（F_3a92c ldrb [r0,#53]，非零才进事件表遍历） */
+            MEM(evtobj + 0x44) = 0;                          /* 事件码 0=走子 */
+            MEM(evtobj + 0x48) = JQT_ABS_PTR(0x120f20);     /* "Junqi.Move" .rodata 指针 */
+            MEM(evtobj + 0x35) = 1;                          /* 类型标记（非零进事件表遍历） */
+            /* 打日志确认事件字段填对了（32 位原生事件对象） */
+            __android_log_print(6,"junqi","NATIVE-EVENT: 真实事件对象 evt+0x35=%d evt+0x44=0x%08x evt+0x48=0x%08x(Junqi.Move@.rodata 0x120f20)",
+                (int)MEM(evtobj+0x35), MEM(evtobj+0x44), MEM(evtobj+0x48));
             uint32_t evret = F_3ab80(evtobj, 0,0,0,0,0,0,0,0,0,0,0, 0x20f000);
-            __android_log_print(6,"junqi","NATIVE-EVENT: F_3ab80 返回 0x%08x evt=0x%08x（32 位原生事件链，会话 B 走子桥对照）", evret, evtobj);
+            __android_log_print(6,"junqi","NATIVE-EVENT: F_3ab80 返回 0x%08x evt=0x%08x（32 位原生事件链，真实事件对象）", evret, evtobj);
         }
     }
     /* ★ §124y-19：会话 B 规则引擎走子桥（setprop jq.walk_bridge 1 → 开局 + 走子 + 打 Junqi.* 事件）
