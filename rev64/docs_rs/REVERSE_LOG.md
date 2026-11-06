@@ -3793,3 +3793,40 @@ python3 /tmp/opencode/incremental_regress.py reset 0xADDR  # 改了某指令 →
 - .got 区 458 REL 槽 + .data.rel.ro 4800 REL 槽 = C++ vtable/函数指针表重定位（4800 槽 = 90.4%，需 unidbg 补重定位实锤）
 - .bss 区 0 REL 槽（§124y-71 实锤）= C++ 对象堆全 scudo 运行时填，需 frida dump 实锤
 - 8 个全 0 .got 槽（§124y-79 实锤，未重定位）的运行时 scudo 指针需 frida dump
+
+## §124y-82 .data.rel.ro 4800 REL 槽 addend 分布精确实锤（92% 指向 .text，C++ vtable 重定位主战场实锤）
+
+**★ 闭环事实（静态实锤，4800 .data.rel.ro REL 槽的 addend 段分布 + 高频 addend 实锤）**：
+
+1. **.data.rel.ro 4800 REL 槽 addend 段分布精确实锤**：
+   | 段 | 槽数 | 占比 |
+   |---|---|---|
+   | .text（0x233e0-0x120bf8） | 4432 | 92.3% |
+   | .rodata（0x120bf8-0x155000） | 336 | 7.0% |
+   | other | 32 | 0.7% |
+   - **92.3% REL 槽指向 .text 函数**（C++ vtable/函数指针表重定位主战场）
+   - 唯一 addend 值 = 2563 个（4800 槽共用，即 2563 个 .text/.rodata 目标被 4800 槽共享）
+
+2. **高频 addend 实锤（前 20，按频次）**：
+   - `addend=0x0b4e11 × 190`（.text，最高频——某 C++ 成员函数被 190 个 vtable 槽共享）
+   - `addend=0x085309 × 118` / `0x085305 × 116`（.text，高频 C++ 函数）
+   - `addend=0x0950c9/0x095641/0x094fd5 × 33` 等（.text，C++ 函数群）
+   - 即 0x0b4e10（F_b4e10）= C++ 成员函数（`push {r4-r7,lr}; ldrb r3,[r0+28]`，
+     读对象 [0x1c] 字段，被 190 个 vtable 槽共享 = 高频虚函数/回调）
+
+3. **0x0b4e10 函数体实锤（最高频 addend，190 槽共享）**：
+   - `push {r4,r5,r6,r7,lr}; mov r7,sl; mov r6,r9; mov r5,r8`（C++ 成员函数 prologue，
+     r0=this / r1 / r2 / r3 参数）
+   - `ldrb r3,[r0,#28]`（读 this [0x1c] 字段，C++ 对象 0x1c 偏移成员）
+   - 即 F_b4e10 = C++ 成员函数（读对象 [0x1c]，被 190 个 vtable 槽共享 = 高频虚函数回调）
+
+4. **修正 §124y-32 的"RELATIVE 5312 槽全重定位"认知**：
+   - §124y-32 标注"RELATIVE 5312 槽全重定位"→ 精确实锤 5312 = 4800(.data.rel.ro) + 458(.got)
+     + 42(.data) + 0(.bss) + 12(other)
+   - 4800 .data.rel.ro REL 槽 = C++ vtable/函数指针表（92.3% .text addend，§124y-82 实锤）
+   - 即 unidbg 补 5312 REL 槽重定位 = 4800 C++ vtable 表 + 458 .got 表 + 42 .init_array 表（§124y-81 实锤）
+
+### 诚实边界
+- 4800 .data.rel.ro REL 槽的完整 vtable 表（2563 唯一 addend，92.3% .text）需 unidbg 补重定位
+  实锤（§124y-81 实锤 .bss 0 REL 槽 = C++ 对象堆全 scudo 运行时填，需 frida dump）
+- 0x0b4e10（F_b4e10，190 槽共享高频虚函数）的完整语义需查 .text 全量反汇编 + frida 实锤
