@@ -2324,3 +2324,44 @@ python3 /tmp/opencode/incremental_regress.py reset 0xADDR  # 改了某指令 →
 - F_33684 当前是 jqt_vtbl.c 完整翻译体（auto-stub `return r0`），其 bl 目标 0x34918 未单独收表
   （0x34918 是 F_33684 的 bl 目标，非 vtable 槽；F_33684 auto-stub 已覆盖"返回 r0"语义）
 - 0x34918 的完整 memcpy+字段搬运需 32 位 __aeabi_memcpy + C++ 对象图，深水区忠实空操作
+
+## §124y-43 事件底层 0xb67xx 区 getter/setter 群 + 0xb6808 事件字段分派器精确收表
+
+**★ 闭环事实（静态实锤）**：
+
+1. **0xb67xx 区 = 事件底层对象字节 getter/setter 密集区**（同 0x94dxx 区系列）：
+   - 0xb67ec = `movs r2,#1; movs r3,#0x56; strb r2,[r0,r3]; bx lr` → **写 [底层+0x56]=1**（事件底层 0x56 字段置位 setter）
+   - 与 0x94dxx 区（0x70/0x80/0xa4/0xa8/0xc0/0xd8 指针 + 0xe4-e7 字节）同模式——0xb67xx 区补 0x56 字节字段 setter
+   - F_34918 末段 `bl 0xb67ec` = 事件发送时置位 [底层+0x56]（底层事件对象 0x56 标志）
+
+2. **F_b6808（事件底层字段分派器，0xb6808）精确体**：
+   - 入参 r0=事件底层对象, r1=code（事件字段索引 0-7）, r2=值
+   - `cmp r1,#7; bhi 0xb681e`（code>7 → 跳字段 0xc4 读路径）
+   - code 0-7：`movs r2,#1; lsls r2,r1`（1<<code 位标志）+ `movs r3,#0x86; tst r2,r3`（0x86=134 位测试）
+   - 测试通过 → 读 `[底层+0xc4]`（0xc4 字段）分支：
+     - `cmp r4(#code),#2/#7/#1` 三分支（code 值特定处理）
+     - 默认：`ldr r2,[底层+0xc0]; ldr r3,[r2+0]; ldr r3,[r3+0x2c]; blx r3`（**vtable 方法调用**：0xc0 字段指针 → 其 0x2c 槽 blx）
+   - 0xb684a 分支：`bl 0xb2da8`（底层事件字符串方法）+ 写 `[底层+0x6c]`
+   - 末尾 0xb6848 `pop {r4,r5,r6,pc}` 前 r0 = blx/bl 返回值
+   - **忠实语义**：事件底层对象按 code（0-7 字段索引）分派，默认走 0xc0 指针的 vtable 0x2c 槽方法调用；
+     .bss 未构造时 0xc0/0xc4 读 0 → blx [0+0] 无效（忠实空操作）
+
+3. **F_b2da8（底层事件字符串方法，0xb2da8）精确体**：
+   - `bl 0xb2ac8`（字符串构造）→ `cmp r0,r4`（字符串 == 入参对象?）
+   - 不等 → `ldr r0,[底层+0x3c]; bl 0xb4854`（§124y-36 已实锤 C++ 字符串解析器，strtol 数字转换）
+   - 末尾 0xb2dca `pop {r4,r5,pc}` 前 r0 = 构造结果
+   - 即事件底层字符串字段 + 数字解析（与 F_b52a0 构造链的 0xb4854 同源——C++ 字符串解析密集区）
+
+4. **事件底层对象字段布局总表（0xb68xx 区实锤）**：
+   | 偏移 | 字段 | 类型 | 来源 |
+   |---|---|---|---|
+   | 0x56 | 标志 | byte（F_34918 置位） | 0xb67ec |
+   | 0x6c | 字段 | ptr（0xb684a 写） | F_b6808 |
+   | 0xc0 | 指针 | ptr（vtable 基址） | F_b6808 |
+   | 0xc2/0xc3/0xc4/0xc5 | 字段 | 32bit（排序） | F_35e0c |
+   | 0x2c | vtable 槽 | 0xc0 指针的 +0x2c | F_b6808 blx |
+
+### 诚实边界
+- 0xb6808 的 vtable 0x2c 槽方法调用（blx [0xc0值+0x2c]）深水区——.bss 未构造时 0xc0=0 无效
+- 0xb6808 的 code 0-7 位标志测试（0x86=134）需 C++ 事件对象 0x86 字段实锤，当前忠实空操作
+- 0xb2da8 字符串解析（0xb4854 strtol）与 F_b52a0 构造链同源，深水区 C++ 对象图
