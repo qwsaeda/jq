@@ -1805,6 +1805,26 @@ code 48→0x857b0  49→0x85798  50→0x857b0  51→0x85798  52→0x3f8f4  53→
   上下文相关 BL 解码 bug + 数据对齐缺口）或 frida Stalker 追踪 12 构造器 str 指令
   （需 Android 设备加载原版 so）——独立大工程，非阻塞（主链功能已闭环）
 
+**★ §124y-32 深挖：.bss 偏移 0x80-0x168 段静态非零槽 dump（MuMu 实锤）+ 0x15bfec 写者 13 读点收表**：
+- `.bss 0x15be80-0x15bfec`（偏移 0x00-0x16c）段非零槽全量 dump（jq.bss_dump 扩量钩子）：
+  - **偏移 0x80-0xa4（10 槽）= g_jqt_empty_tbl（OBJ-FILL 空容器 self-ref，非原版数据）**：
+    0x15bf00=0xecf50310 / 0x15bf04=0x0015bf04 / 0x15bf08=0xecf533a0 ... 0x15bf24=0xecf5b520
+    （0xecf5xxxx 是翻译体 calloc 堆对象指针，0x15bf04 是 F_a373c 容器 self-ref）
+  - **偏移 0-0x7c（0x15be80-0x15befc）全 0**（.bss 前段未构造区，原版运行时此区也全 0 直到某构造器填）
+  - **偏移 0xac-0x168（0x15bf28-0x15bfe8）全 0**（含 0x15bfec，未构造惰性单例区）
+- **0x15bfec 写者定位（13 个字面量池读点 + 2 个 str 写点）**：
+  - 读点 13 处：lit@0x2d348/0x3347c/0x335d8/0x33634/0x33680/0x33720/0x337e4/0x337f8/
+    0x51cc8/0x606e0/0x7b0c4/0xba26c/0xbb830（lit+rd(lit)=0x15bfec，REL 目标槽）
+  - **str 写点 2 处**：lit@0x3347c 所属函数（0x333xx 区）+ lit@0xba26c 所属函数（0xba2xx 区）
+    有 `str rY,[rX,#N]` 指令 → **0x15bfec 区是被这两个函数 str 填的（非 12 个 init_array 构造器）**
+  - init[0]@0x3dae4 填的是 0x15c096（偏移 0x216），与 0x15bfec（偏移 0x16c）同对象块但不同 8B 字段
+- **事件底层 5 元组（init[0] 填 0x15c096）消费点 77 处**（全 .text lit+rd=0x15c080-0x15c0c0 区）：
+  - 0x3d37c 区 4 连续 REL 槽（0x15c090/092/094/096）= C++ 事件底层容器 vtable 偏移表
+  - 77 处读点分布在 0x23e70-0xbec84（含 0xbec84 = 0xb9edc 全局单例初始化检查器）
+- **结论**：0x15bfec 是被 C++ 惰性构造器（0x333xx/0xba2xx 区函数，非 init_array）填的单例基址，
+  当前翻译体填 0 = 忠实未构造；77 处 5 元组读点已实证填成 REL 槽值（指向 .rodata vtable），
+  但 0x15bfec 本身需原版 C++ 对象构造器运行（unidbg init_array 或 frida 构造链）才能拿到真实指针
+
 ### 32 位 native 数据提取（已完成）
 
 - 路线：redroid 真 Android 容器跑原版 32 位 so → `dd /proc/PID/mem` dump `.rodata`

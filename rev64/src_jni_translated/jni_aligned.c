@@ -76,7 +76,51 @@ void jqt_init_empty_containers(void){
     MEM(0x1620b8) = 0x1620b8;
     /* F_a373c 容器：MEM(0x15bf04)=容器，字段零（BSS）→ F_9f79c 早返回 */
     MEM(0x15bf04) = 0x15bf04;
-    __android_log_print(4, "junqi", "jqt_init_empty_containers: F_ab874(0x162448)=0x162448 F_ab614(0x16244c)=0x16244c F_a6620(0x1620b8)=0x1620b8 F_a373c(0x15bf04)=0x15bf04");
+    /* ★ §124y-32：.bss 单例 0x15bfec（F_3ab64 single 槽，偏移 0x16c）构造
+       init[0]@0x3dae4 语义：从 .data RELATIVE 5 槽 0x15be00/04/14/18/2c（load_base+addend）
+       复制 8B 对填 .bss 0x15c096-0x15c0a4（偏移 0x216-0x224）。0x15bfec 同对象块
+       （偏移 0x16c，单例基址区）——原版运行时此处 = C++ 单例指针（构造后非 0），
+       当前填 0 = 忠实"未构造"语义（F_8571c 0x38=0 → 返回 2 兜底，主链 ok=1 已实锤）。
+       若后续 runtime dump 拿到真实单例指针，改此处为 g_jqt_shadow+真实偏移。 */
+    MEM(0x15bfec) = 0;   /* .bss 单例基址（忠实未构造，offset 0x16c，§124y-32） */
+    MEM(0x15c096) = MEM(0x15be00);  MEM(0x15c09a) = MEM(0x15be04);
+    MEM(0x15c09e) = MEM(0x15be14);  MEM(0x15c0a2) = MEM(0x15be18);
+    MEM(0x15c0a6) = MEM(0x15be2c);
+    __android_log_print(4, "junqi", "jqt_init_empty_containers: F_ab874(0x162448)=0x162448 F_ab614(0x16244c)=0x16244c F_a6620(0x1620b8)=0x1620b8 F_a373c(0x15bf04)=0x15bf04 §124y-32 .bss单例(0x15bfec)=0 init0填0x15c096");
+}
+/* ★ §124y-32：.bss 单例 0x15bfec（F_3ab64 single 槽，偏移 0x16c）dump 钩子
+   setprop jq.bss_dump 1 → 读 .bss 0x15bfec/0x15bfe8/0x15c096 区 + 5 条 RELATIVE 槽 → logcat
+   目的：拿运行时 C++ 单例真实值（unidbg 不可用时，用翻译体 so 在 MuMu/redroid 跑 dump） */
+void jqt_bss_dump(void){
+    char _bd[8] = {0};
+    if (__system_property_get("jq.bss_dump", _bd) <= 0 || _bd[0] != '1') return;
+    __android_log_print(6,"junqi","BSS-DUMP: setprop jq.bss_dump=1 → 读 .bss 0x15bfec 区 + RELATIVE 槽");
+    /* 5 条 .bss RELATIVE 槽（运行时 = load_base + 静态值，指向 .rodata vtable/typeinfo） */
+    __android_log_print(6,"junqi","BSS-DUMP: REL[0x15be00]=0x%08x REL[0x15be04]=0x%08x REL[0x15be14]=0x%08x REL[0x15be18]=0x%08x REL[0x15be2c]=0x%08x",
+        MEM(0x15be00), MEM(0x15be04), MEM(0x15be14), MEM(0x15be18), MEM(0x15be2c));
+    /* 0x15bfec = F_3ab64 single 槽（偏移 0x16c，§124y-32 精确纠正） */
+    __android_log_print(6,"junqi","BSS-DUMP: 0x15bfec(single)=0x%08x 0x15bfec+4=0x%08x 0x15bfe8=0x%08x 0x15bfe4=0x%08x",
+        MEM(0x15bfec), MEM(0x15bfec+4), MEM(0x15bfe8), MEM(0x15bfe4));
+    /* 0x15c096 = init[0]@0x3dae4 填的事件底层单例 5 元组（偏移 0x216） */
+    __android_log_print(6,"junqi","BSS-DUMP: 0x15c096=0x%08x 0x15c09a=0x%08x 0x15c09e=0x%08x 0x15c0a2=0x%08x 0x15c0a6=0x%08x",
+        MEM(0x15c096), MEM(0x15c09a), MEM(0x15c09e), MEM(0x15c0a2), MEM(0x15c0a6));
+    /* .bss 前段 + 容器 */
+    __android_log_print(6,"junqi","BSS-DUMP: 0x15be80=0x%08x 0x15bf04=0x%08x（F_a373c 容器） 0x162448=0x%08x（F_ab874 容器）",
+        MEM(0x15be80), MEM(0x15bf04), MEM(0x162448));
+    /* ★ §124y-32 扩量：.bss 0x15be80-0x15bfec 段非零槽全量 dump（找已构造区）
+       .bss 偏移 0x16c（0x15bfec）之前，逐 4B 读，非零打出来（最多 64 条） */
+    {
+        int nz=0;
+        for (uint32_t off=0; off<=0x16c && nz<64; off+=4) {
+            uint32_t va = 0x15be80 + off;
+            uint32_t v = MEM(va);
+            if (v) {
+                __android_log_print(6,"junqi","BSS-DUMP: .bss[0x%08x](偏移0x%03x)=0x%08x", va, off, v);
+                nz++;
+            }
+        }
+        __android_log_print(6,"junqi","BSS-DUMP: .bss 0x15be80-0x15bfec 非零槽共 %d 条（0=全零未构造区）", nz);
+    }
 }
 static void *jq_watchdog(void *arg) {
     while (1) {
@@ -88,6 +132,7 @@ static void *jq_watchdog(void *arg) {
 JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *vm, void *reserved){
     jqt_mem_init();
     jqt_init_empty_containers();  /* ★ §124y：F_ab874/F_ab614 空容器语义初始化 */
+    jqt_bss_dump();              /* ★ §124y-32：.bss 单例 0x15bfec dump 钩子（setprop jq.bss_dump 1） */
     /* ★ 看门狗：定位 F_23560 调用链中永不返回的循环函数 */
     pthread_t wd;
     pthread_create(&wd, NULL, jq_watchdog, NULL);
