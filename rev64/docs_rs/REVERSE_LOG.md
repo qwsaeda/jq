@@ -1604,6 +1604,37 @@ F_3ab64: 成功路径 single=0x... evt+0x44=0x04 F_55d40 ret=0x... ok=1
 **★ 回归（arm32_walkregress.sh native_event 路径，disc 非零判据）**：
 - logcat `F_3a92c: 事件表匹配.*（disc 非零）` + `F_3ab80.*disc=0x00000001` + 0 崩溃
 
+### §124y-28 F_55d40 事件业务 thunk 收表 + F_3ab64 成功路径 ok 逻辑修正
+
+**★ 定义**：§124y-27 disc 非零闭环的最后一块——`F_3ab64` 成功路径调 `F_55d40`
+（.text 0x55d40，事件业务 thunk），让它收表 + 修正 ok 返回逻辑，使成功路径完整走通。
+
+**★ F_55d40 结构（逆向实锤）**：
+- .text 0x55d40 区是 **73 个 12B thunk**（每个 `push; lsls r1,#2; ldr r0,[r1<<2+r0]; bl handler; pop`），
+  按事件码 `code` 选 thunk，读 `handler = *(single + code*4)`（handler 表在单例内），转发到真实业务
+- handler 表在 `.bss`（单例运行时构造），73 个 handler 逐个收表 = 深水区（大工作量）
+- **当前收表实现**（jqt_vtbl.c `F_55d40`）：读 handler 指针 + 判断可跳性，跳不到返回 2
+  （成功路径 `abs(2-2)==0` → ok=1 走通）
+
+**★ F_3ab64 ok 逻辑 bug（本轮修正）**：
+- 旧：`diff=abs(r-2); ok = diff?1:0; return ok?1:0` → r=2 时 diff=0 → ok=0 → 返回 0（**逻辑反了**）
+- 新：`ok = (r==2)?1:0; return ok` → r=2 → ok=1（成功路径真返回 1）
+- 反汇编基准：`subs r3,r0,#2; negs r0,r3; adcs r0,r3` = `abs(r0-2)`，==0（r0==2）时成功
+
+**★ 实证（MuMu，新 so 8313204B，2026-11-06）**：
+```
+F_3a92c: 事件表匹配 outer=0 inner=8 tbl=0x41 evt+0x44=0x04（disc 非零）
+F_55d40: code=4 handler=0x07000600（.bss handler 表，可跳）
+F_3ab64: 成功路径 single=0x00000000 evt+0x44=0x04 F_55d40 ret=0x00000002 ok=1
+```
+- ok=1（成功路径真返回 1）+ 0 崩溃 + app 存活
+- single=[0x15bfe8]=0（.bss 静态 0，运行时未构造）→ handler=0x07000600（无效），F_55d40 返回 2 兜底
+
+**★ 诚实边界（深水区，未闭环）**：
+- 73 个 handler thunk（走子/翻牌/终局等 Junqi.* 业务）逐个收进 dispatch 表 = 大工作量，
+  需先构造单例 handler 表（.bss 运行时对象图）才能真跳
+- 当前 F_55d40 收表只读 handler 指针 + 兜底返回 2，成功路径逻辑闭环但**事件业务未真分发**
+
 ### 32 位 native 数据提取（已完成）
 
 - 路线：redroid 真 Android 容器跑原版 32 位 so → `dd /proc/PID/mem` dump `.rodata`
