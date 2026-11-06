@@ -1790,6 +1790,21 @@ code 48→0x857b0  49→0x85798  50→0x857b0  51→0x85798  52→0x3f8f4  53→
 - .bss 区 5 条 RELATIVE 槽（0x15be00/04/14/18/2c → .rodata vtable/typeinfo）确认
 - F_3ab64 single 槽精确 = 0x15bfec（.bss 偏移 0x16c），非 0x15bfe8（偏移 0x168）
 
+**★ §124y-32 运行时 .bss dump 闭环（翻译体 so 路线，MuMu 实锤）**：
+- 路线：翻译体 so 加 `jq.bss_dump` setprop 钩子（JNI_OnLoad 读 .bss 0x15bfec 区 + 5 条 REL 槽）
+  → `jqt_init_empty_containers` 还原 init[0]@0x3dae4 语义（.bss 0x15c096 = 5 条 REL 槽值）
+  → MuMu 装机 dump（so 8321764B）
+- **REL 槽重定位实证**（load_base=0xb1f26000）：`REL[0x15be00]=0xb1f261bc = load_base + 0x13a1bc` ✓
+  （5 条 .bss REL 槽全部正确重定位指向 .rodata vtable）
+- **init[0] 填充实证**：`.bss 0x15c096=0xb1f261bc 0x15c09a=0xb1f2693c 0x15c09e=0xb1f26b28 ...`
+  （事件底层单例 5 元组 = 5 条 REL 槽值，指向 .rodata）
+- **0x15bfec = 0（忠实未构造）**：12 个 init_array 无一填 0x15bfec → 是**惰性 C++ 单例**
+  （首次事件业务构造），当前 0 → F_8571c 读 [single+0x38]=0 → 返回 2 兜底 → F_3ab64 ok=1 主链实锤
+- **4 路径回归 4/4 PASS + 0 崩溃**（walk_bridge/native_layout/native_event/game_test）
+- **诚实边界**：拿 0x15bfec 真实单例指针需原版 unidbg 跑 init_array（当前 unidbg 阻塞于
+  上下文相关 BL 解码 bug + 数据对齐缺口）或 frida Stalker 追踪 12 构造器 str 指令
+  （需 Android 设备加载原版 so）——独立大工程，非阻塞（主链功能已闭环）
+
 ### 32 位 native 数据提取（已完成）
 
 - 路线：redroid 真 Android 容器跑原版 32 位 so → `dd /proc/PID/mem` dump `.rodata`
