@@ -16,6 +16,9 @@
   reloc <addr> [range]   读某 VA 的 RELATIVE 重定位目标（加 load_base 后的值）
                           例: so_probe.py reloc 0x1599e4
   strings <substr>       在 .rodata 明文里搜字符串 + 偏移
+  seg <va> [n]           查 VA 落段(readelf -S)+ 段内偏移 + NOBITS 标注 + 前后 n 槽值
+                        防段归属误判(§124y-90/101/103 坑: .got 槽 vs .data REL vs .bss scudo)
+                        例: so_probe.py seg 0x15b644
 
 依赖：arm-linux-gnueabi-objdump / arm-linux-gnueabi-readelf（本机已装）。
 默认 so 路径 /tmp/orig/lib/armeabi/libjunqi.so（原版 32 位 libjunqi.so，VA=文件偏移）。
@@ -24,6 +27,7 @@ import struct, subprocess, sys, os, re, shutil
 
 SO = os.environ.get('JQ_SO', '/tmp/orig/lib/armeabi/libjunqi.so')
 OBJDUMP = 'arm-linux-gnueabi-objdump'
+import subprocess
 READELF = 'arm-linux-gnueabi-readelf'
 JQT_VTBL = os.path.join(os.path.dirname(__file__), '..', 'src_jni_translated', 'jqt_vtbl.c')
 
@@ -147,6 +151,38 @@ def cmd_reloc(va, rng=8):
         print(f"0x{va_i:06x} 无重定位记录（.bss 槽多为 BSS 零初始化，dlopen 不填，运行时值靠构造器写）")
     return 0
 
+def cmd_seg(va, n=4):
+    """查 VA 落哪个段 (readelf -S) + 段内偏移 + 前后 n 槽静态值 (防段归属误判, §124y-90/101/103 坑).
+    用法: so_probe.py seg 0x15b644 [n]
+    输出: 落段名 + 段范围 + .bss 偏移 (NOBITS 标注需 frida) + 前后 n 槽值."""
+    r = subprocess.run([READELF, '-S', SO], capture_output=True, text=True)
+    import re as _re
+    cur = None
+    hit = None
+    for line in r.stdout.split('\n'):
+        m = _re.match(r'^\s*(\[\d+\]\s+)?(\.\S+)\s+\S+\s+([0-9a-f]{6,8})\s+[0-9a-f]{6,8}\s+([0-9a-f]{6,8})', line)
+        if m:
+            name, va0, size = m.group(2), int(m.group(3), 16), int(m.group(4), 16)
+            if size and va0 <= va < va0 + size:
+                hit = (name, va0, size)
+    if not hit:
+        print(f"  0x{va:06x} 不落任何段 (超出 .so 范围?)")
+        return 0
+    name, va0, size = hit
+    in_bss = name == '.bss'
+    print(f"  0x{va:06x} ∈ {name} 段 (0x{va0:06x}-0x{va0+size:06x}, size 0x{size:x})"
+          + ("  ★NOBITS 无静态值 (需 frida dump)" if in_bss else ""))
+    if in_bss:
+        print(f"     .bss 段偏移 = 0x{va - va0:04x}")
+    # 前后 n 槽静态值 (NOBITS 段跳过)
+    if not in_bss:
+        print(f"  前后 {n} 槽静态值:")
+        for i in range(-n, n + 1):
+            off = va + i * 4
+            if off >= 0:
+                print(f"     0x{off:06x} = 0x{rd32(off):08x}")
+    return 0
+
 def cmd_strings(sub):
     """.rodata 明文搜字符串（限定 0x120000-0x138aa0 区标注 ✓，避免误报 .text/.data 巧合字节）"""
     data = rd_bytes(0, os.path.getsize(SO))
@@ -183,6 +219,8 @@ def main():
         return cmd_reloc(args[0], int(args[1]) if len(args)>1 else 8)
     if cmd == 'strings':
         return cmd_strings(args[0])
+    if cmd == 'seg':
+        return cmd_seg(hex2i(args[0]), int(args[1]) if len(args)>1 else 4)
     print(f"未知子命令: {cmd}\n{__doc__}"); return 2
 
 if __name__ == '__main__':

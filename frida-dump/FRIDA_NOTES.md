@@ -517,5 +517,8 @@ Interceptor.attach(Module.getExportByName('libdl.so', 'android_dlopen_ext'), {
 - 4800 .data.rel.ro vtable 槽完整重定位（2563 唯一 addend，92.3% .text，§124y-82 实锤）
 - SharedPreferences 运行时值（`com.cnvcs.junqi.removead` / adHost / updateUrl 实际域名，§124y-86/87 去广告链）
 - 74 事件名（72 Junqi.* + 2 Misc.*，§124y-88 实锤）与事件码的逐行映射（jq.game_test 钩子扩量触发）
-- **事件表 0x121 行 × 17 字段掩码表**（.bss 0x160584 区，§124y-103 实锤：.got 槽 0x15b644 → REL addend 0x160584 = .bss 中间区 C++ std::vector 掩码数组，按 [0x44] 事件码 asr4 匹配）
+- **事件表 17 行 × 17 字段位掩码表**（.bss 0x4704 区 = load_base+0x160584，§124y-109 实锤：
+  .got[0x57c](0x15b644) REL 槽 addend 0x160584 → .bss 0x4704 C++ vector；外层 ip=0x121=289 字节
+  = 行宽累计上限(17 行×17)，非 289 行；字段值 asrs#4 = [0x44] 事件码(非事件名前缀 asr4)
+  匹配；MuMu dump 17 行全 asr4=0 = 事件码 0 匹配表，事件码 1-16 需 frida 触发实锤）
 - 事件对象 [0x48] 匹配字段值（§124y-102 新实锤，asr4 = [0x44] 事件码）的运行时取值
