@@ -1363,14 +1363,20 @@ WALK-BRIDGE:    完整 8 步序列（Junqi.Move cell6→11 / cell33→38，会�
 ```
 r0=evt, r1=单例
   ldrb r2,[r0,#53]（evt+0x35 类型标记）→ 0 则 disc=0 早退（全零对象走这里）
-  否则遍历 [0x120790] 事件表（17 项）：
-    每项读 [item] 事件名指针 + [evt+0x48+i*?] 字段
-    evt+0x44 = 事件码（ldr r5,[r0,#68] 对比）
-    evt+0x48 = 事件名首字节/长度（ldrb，对比事件码 asr4）
+  否则遍历事件表（cmp r3,#17，17 项）：
+    每项读 [item] 事件名字节 + [evt+0x48+i] 字段
+    evt+0x44 = 事件码（ldr r5,[r0,#68] 对比 asr4）
+    evt+0x48 = 事件名首字节（ldrb，对比事件码）
     匹配 → disc=1（3a972 movs r0,#1）
 ```
-F_3a92c literal pool：0x120790（事件表基址）/0x57c/0x121（表参数）。
-事件表 0x120790 区是 .rodata 压缩/索引数据（非纯指针表），需进一步逆向。
+**★ 纠正（§124y-22 修订）**：F_3a92c literal pool `0x3a978/0x3a97c/0x3a980`
+的值 `0x120790/0x57c/0x121` 是 **.text 内 PC-relative literal**（`readelf -S` 确认
+.rodata 从 `0x120bf8` 起，`0x120790 < 0x120bf8` → 在 .text 段，非 .rodata 事件表）。
+事件表基址 `0x120790` 是重定位后的绝对目标（.text 内数据），非 .rodata 指针池。
+**真正的事件字符串池在 .rodata `0x120f14` 起**：
+  Junqi.Flip=0x120f14 / Move=0x120f20 / Flag=0x120f2c / Bomb=0x120f38 /
+  Dead=0x120f44 / Eat=0x120f50 / Win=0x120e34 / Draw=0x120e40 / Resign=0x121278
+（.rodata 73 条 Junqi.* 明文之一，F_3a92c 遍历匹配的事件名指针最终指向此池）
 
 **★ 真实事件对象字段（jni_aligned.c native_event 钩子）**：
 ```c
