@@ -36,6 +36,12 @@ typedef enum {
                          30 格棋子预览（简化小方块占位）+ 载入/删除/取消 3 按钮（原版 datah_016 400×475 面板居中）。
                          选中布局显示预览 → 载入（应用到棋盘）/ 删除（删文件）/ 取消。
                          诚实边界：30 格 PiecePic 真棋子图未画，小方块占位（有子=蓝/红） */
+      UI_REPLAY,     /* ★ P1（datah_039/107 证据）：复盘回放态——
+                          棋盘（当前回放位置）+ datah_107 底部 5 按钮控制条
+                          （菜单/回退/前进/跳转/返回，460×60 @10,705）+ 步数标签"第 cur/n 步"。
+                          入口：datah_039 BackDlg 复盘小浮标（原版命中 flaky）→ setprop jq.replay 测试钩子。
+                          诚实边界：跳转=回开头(cur=0)/跳结尾(cur=n)循环（无步进输入框）；
+                          菜单=退复盘回对局（无复盘内子菜单）；复盘态不画真实棋子图 */
 } ui_screen;
 
 /* ★ 声音设置弹窗（对抗审计 datah_001 证据：静音模式/按键声音/音量/确定/取消）。
@@ -247,5 +253,36 @@ typedef struct {
 const ui_laymgr_btn *ui_laymgr_buttons(void);   /* 3 按钮（静态表） */
 int ui_laymgr_hit(const ui_laymgr_btn *btns, int n, float x, float y);  /* 命中 0-2，-1 无 */
 int ui_laymgr_popup_inside(float x, float y);   /* 点在弹窗面板内 */
+
+/* ★ P1（datah_107 证据）：复盘回放控制条 5 按钮（菜单/回退/前进/跳转/返回）。
+   几何 720×1280 基准：面板 460×60 @ 绝对 10,705（不居中，局部 1:1 平移）；
+   5 按钮各 84×60（步长 94，原版 datah_107 精确 720 边界：
+   10,104 / 104,188 / 188,282 / 292,376 / 386,470；y 705-765）。
+   action：0=菜单（简化=退复盘回对局）1=回退（cur-- 重放）
+   2=前进（cur++ 走 1 步）3=跳转（简化=回开头 cur=0 / 跳结尾 cur=n 循环）
+   4=返回（退复盘回对局/主菜单）。
+   ★ 诚实边界：跳转无步进输入框（二选一循环）；菜单无复盘内子菜单。 */
+#define UI_REPLAY_CTRL_COUNT 5
+#define UI_REPLAY_CTRL_POPUP_X0 10.0f
+#define UI_REPLAY_CTRL_POPUP_Y0 705.0f
+#define UI_REPLAY_CTRL_POPUP_W  460.0f
+#define UI_REPLAY_CTRL_POPUP_H  60.0f
+typedef struct {
+    float x0, y0, x1, y1;   /* 按钮矩形（720×1280 基准） */
+    int action;             /* 0=菜单 1=回退 2=前进 3=跳转 4=返回 */
+} ui_replay_btn;
+
+const ui_replay_btn *ui_replay_ctrl_buttons(void);  /* 5 按钮（静态表） */
+int ui_replay_ctrl_hit(const ui_replay_btn *btns, int n, float x, float y);  /* 命中 0-4，-1 无 */
+int ui_replay_ctrl_popup_inside(float x, float y); /* 点在控制条面板内 */
+
+/* ★ P1（datah_039 证据）：复盘入口小浮标（BackDlg 单按钮，绝对坐标 27,650，120×90
+   不居中；Rep 局部 15,15,90,60 → 720 基准 42,665-132,725）。
+   业务：对局结束/进行中点"复盘"→ 进 UI_REPLAY。★ 诚实边界：原版浮标命中 flaky，
+   真机入口用 setprop jq.replay 测试钩子触发（几何保留供 layout_align_check Δ 校验）。 */
+#define UI_REPLAY_ENTRY_X0 42.0f
+#define UI_REPLAY_ENTRY_Y0 665.0f
+#define UI_REPLAY_ENTRY_X1 132.0f
+#define UI_REPLAY_ENTRY_Y1 725.0f
 #endif
 

@@ -84,6 +84,7 @@ static void jq_restart_game(void)
     g_state.winner = -1;
     g_state.moves_since_eat = 0;
     g_state.total_moves = 0;
+    ui_replay_init();   /* ★ P1（datah_039/107）：重开清复盘走子记录 + 重新提取开局布局 */
     jq_touch_state_init(&g_ts);
 }
 
@@ -637,6 +638,7 @@ static void on_event(const char *name, const char *value, JNIEnv *env)
             }
             g_event_cnt[ev]++;
             g_event_total++;
+            ui_replay_record(from, to, 0);   /* ★ P1（datah_039/107）：OnEvent 走子成功记录 1 步 */
             LOGI("OnEvent move (%d,%d)→(%d,%d) %s（#%d 累计）", cell_row(from), cell_col(from),
                  cell_row(to), cell_col(to), JQ_EVENT_NAMES[ev], g_event_cnt[ev]);
         }
@@ -644,10 +646,11 @@ static void on_event(const char *name, const char *value, JNIEnv *env)
         int idx = -1;
         if (sscanf(value, "%d", &idx) == 1) {
             undo_push();
-            if (jq_flip(st, idx))
+            if (jq_flip(st, idx)) {
+                ui_replay_record(idx, idx, 1);   /* ★ P1（datah_039/107）：OnEvent 翻棋成功记录 1 步 */
                 LOGI("OnEvent flip (%d,%d) rank=%d", cell_row(idx), cell_col(idx),
                      rank_norm(st->cells[idx].rank));
-            else g_undo_top--;
+            } else g_undo_top--;
         }
     } else if (strcmp(name, "undo") == 0) {
         if (undo_pop()) LOGI("OnEvent undo 成功");
@@ -691,6 +694,7 @@ static void on_event(const char *name, const char *value, JNIEnv *env)
                     if (fread(lb, 1, 30, f) == 30) {
                         jq_load_layout(st, lb);
                         g_undo_top = 0;
+                        ui_replay_init();   /* ★ P1（datah_039/107）：布局载入清复盘记录 */
                         loaded = 1;
                         LOGI("OnEvent layout %d（%s）", lay, path);
                     }
@@ -701,6 +705,7 @@ static void on_event(const char *name, const char *value, JNIEnv *env)
                 /* 文件缺失 → 回退 default */
                 jq_load_layout(st, JQ_DEFAULT_LAY);
                 g_undo_top = 0;
+                ui_replay_init();   /* ★ P1（datah_039/107）：布局载入清复盘记录 */
                 LOGI("OnEvent layout %d 文件缺失 → default.lay", lay);
             }
         }
@@ -767,6 +772,7 @@ static void on_event(const char *name, const char *value, JNIEnv *env)
         st->winner = -1;
         st->moves_since_eat = 0;
         st->total_moves = 0;
+        ui_replay_init();   /* ★ P1（datah_039/107）：开局清复盘记录 + 存开局 30 字节布局 */
         LOGI("OnEvent start：对局开始（stage=PLAY turn=蓝方）");
     } else if (strcmp(name, "status") == 0) {
         /* 查事件累计（对齐原版 Junqi.* 事件序列，桌面/实机诊断） */
@@ -831,6 +837,23 @@ static void on_event(const char *name, const char *value, JNIEnv *env)
         } else {
             ui_screen_set(UI_GAME);
             LOGI("OnEvent %s：关闭 → 回对局", name);
+        }
+    } else if (strcmp(name, "replay") == 0) {
+        /* ★ P1（datah_039/107 证据）：复盘入口测试钩子（OnEvent("replay","1") → UI_REPLAY）。
+           值 1=进复盘态（ui_replay_rewind 重建 g_state 到 cur=n 记录末尾）；
+           0=退复盘回对局（保留记录）。★ 诚实边界：datah_039 原版 BackDlg 浮标命中
+           flaky → 钩子触发（与 jq.gameset L1001 同范式），非触摸路径。 */
+        int on = 0;
+        if (sscanf(value, "%d", &on) != 1) on = 1;
+        if (on) {
+            int n = ui_replay_count();
+            int rc = ui_replay_rewind(n);   /* 重建到记录末尾（n=0 = 纯开局布局） */
+            ui_screen_set(UI_REPLAY);
+            LOGI("OnEvent replay：→ UI_REPLAY 复盘回放态（datah_107 控制条 5 按钮，cur=%d/%d rewind rc=%d，入口 setprop 钩子范式；跳转简化回开头/跳结尾，菜单简化退复盘）",
+                 n, n, rc);
+        } else {
+            ui_screen_set(UI_GAME);
+            LOGI("OnEvent replay：关闭 → 回对局（保留走子记录 %d 条）", ui_replay_count());
         }
     }
     (void)env;
@@ -907,6 +930,7 @@ Java_com_cnvcs_App_OnCreate(JNIEnv *env, jclass clazz, jobject activity)
     }
     jq_load_layout(&g_state, JQ_DEFAULT_LAY);
     g_undo_top = 0;
+    ui_replay_init();   /* ★ P1（datah_039/107）：开局清复盘记录 + 存开局 30 字节布局 */
     /* 明棋开局：全子 revealed=1（棋子画正面 rank 映射，50 子全可见；
        暗棋玩法后续加"翻棋"交互——点背面格 revealed=1 露出 rank）。
        渲染器在下方 jq_glview_init 快照 g_state，故必须先设 revealed。 */
@@ -1068,6 +1092,58 @@ Java_com_cnvcs_App_OnCreate(JNIEnv *env, jclass clazz, jobject activity)
             ui_screen_set(UI_LAY_MGR);
             LOGI("jq.layoutmgr 钩子：→ UI_LAY_MGR 布局管理弹窗（datah_016 30 格预览小方块 + 载入/删除/取消）");
             __system_property_set("jq.layoutmgr", "0");
+        }
+    }
+
+    /* ★ P1（datah_039 证据）：复盘回放 setprop 钩子（adb setprop jq.replay 1 → 重启 →
+       OnCreate 进 UI_REPLAY 复盘态：重建 g_state 到记录末尾 + datah_107 控制条渲染）。
+       入口简化（原版 BackDlg 浮标命中 flaky → 钩子触发，参考 jq.gameset L1024 范式）。
+       值 1=进复盘态，0=不触发。一次性（清 0）。
+       ★ 走子记录验证链（真机实证）：jq.movetest 1 钩子（下方，OnCreate 自动走 3 步
+       每步 ui_replay_record 1 条，n=3）→ 同会话 setprop jq.replay 1（OnUpdate 轮询，
+       不重启 app）→ UI_REPLAY cur=3/3 → 回退/前进/跳转 有真实步进。 */
+    {
+        char rp_prop[16] = {0};
+        __system_property_get("jq.replay", rp_prop);
+        LOGI("jq.replay 钩子：属性=%s（%s）", rp_prop, strcmp(rp_prop, "1") == 0 ? "触发进复盘" : "未触发");
+        if (strcmp(rp_prop, "1") == 0) {
+            int n = ui_replay_count();
+            int rc = ui_replay_rewind(n);   /* 重建到记录末尾（n=0 = 纯开局布局） */
+            ui_screen_set(UI_REPLAY);
+            LOGI("jq.replay 钩子：→ UI_REPLAY 复盘回放态（datah_107 控制条 5 按钮，cur=%d/%d rewind rc=%d；跳转简化回开头/跳结尾，菜单简化退复盘，入口 setprop 钩子）",
+                 n, n, rc);
+            __system_property_set("jq.replay", "0");
+        }
+    }
+    /* ★ P1（datah_039 走子记录实证钩子）：jq.movetest 1 → 重启 → OnCreate 明棋开局 +
+       自动走 3 步（默认布局 6→11 / 30→25 / 5→6，蓝红交替合法走子，桌面 evverify
+       同序列已证）→ 每步走子成功后 ui_replay_record 1 条（n=3）→ 供 jq.replay 钩子
+       进复盘态 cur=3/3 走子记录回放实证（诚实边界：走子由 OnCreate 自动触发非触摸，
+       规则引擎/事件/记录链真实；触摸 flaky 下的可靠触发路径）。一次性（清 0）。 */
+    {
+        char mv_prop[16] = {0};
+        __system_property_get("jq.movetest", mv_prop);
+        LOGI("jq.movetest 钩子：属性=%s（%s）", mv_prop, strcmp(mv_prop, "1") == 0 ? "触发自动走 3 步" : "未触发");
+        if (strcmp(mv_prop, "1") == 0) {
+            static const int seq3[3][2] = { {6,11}, {30,25}, {5,6} };   /* 蓝/红 交替（turn 走子后翻转） */
+            int okcnt = 0;
+            for (int k = 0; k < 3; k++) {
+                int f = seq3[k][0], t = seq3[k][1];
+                int mv = jq_try_move(&g_state, f, t);
+                if (mv >= 0) {
+                    ui_replay_record(f, t, 0);   /* 走子成功记录 1 步（复盘序列 n++） */
+                    okcnt++;
+                    LOGI("movetest 自动走子 第%d步 (%d,%d)→(%d,%d) ev=%d %s（记录 n=%d）",
+                         k + 1, f, t, f, t, mv, JQ_EVENT_NAMES[mv], ui_replay_count());
+                } else {
+                    LOGI("movetest 自动走子 第%d步 (%d,%d) 非法（布局/回合不合法，停止）", k + 1, f, t);
+                    break;
+                }
+            }
+            sfx_play(env, "move");
+            LOGI("movetest：自动走子完成 %d/3 步（复盘走子记录 n=%d，jq.replay 钩子可进复盘 cur=%d/%d）",
+                 okcnt, ui_replay_count(), ui_replay_cur(), ui_replay_count());
+            __system_property_set("jq.movetest", "0");
         }
     }
 
@@ -1248,9 +1324,11 @@ Java_com_cnvcs_App_OnTimer(JNIEnv *env, jclass clazz)
         int from, to, flip;
         if (ai_pick(&from, &to, &flip) == 0) {
             undo_push();
-            if (flip) jq_flip(&g_state, from);
-            else {
+            if (flip) {
+                if (jq_flip(&g_state, from)) ui_replay_record(from, from, 1);   /* ★ P1（datah_039/107）：AI 翻棋记录 */
+            } else {
                 int e = jq_try_move(&g_state, from, to);
+                if (e >= 0) ui_replay_record(from, to, 0);   /* ★ P1（datah_039/107）：AI 走子记录 */
                 LOGI("红方 AI 应着：from=%d to=%d 结果=%s（turn 切回蓝方）",
                      from, to, JQ_EVENT_NAMES[e < 0 ? 0 : e]);
             }
@@ -1401,6 +1479,23 @@ Java_com_cnvcs_App_OnUpdate(JNIEnv *env, jclass clazz)
             LOGI("OnUpdate 音效：poptest（播 pop，UI 弹窗）");
             __system_property_set("jq.poptest", "0");
         }
+        /* ★ P1（datah_039 证据）：复盘入口（setprop jq.replay 1 → OnUpdate → UI_REPLAY 复盘态，
+           不重启 app；与 OnCreate 钩子同语义）。1=进复盘态 / 2=退复盘回对局。 */
+        char rp_prop[16] = {0};
+        __system_property_get("jq.replay", rp_prop);
+        if (strcmp(rp_prop, "1") == 0 || strcmp(rp_prop, "2") == 0) {
+            if (strcmp(rp_prop, "1") == 0) {
+                int n = ui_replay_count();
+                int rc = ui_replay_rewind(n);
+                ui_screen_set(UI_REPLAY);
+                LOGI("OnUpdate 复盘入口：replay=1 → UI_REPLAY（cur=%d/%d rewind rc=%d，datah_107 控制条 5 按钮；跳转简化回开头/跳结尾）",
+                     n, n, rc);
+            } else {
+                ui_screen_set(UI_GAME);
+                LOGI("OnUpdate 复盘入口：replay=2 → 退复盘回对局（保留记录 %d 条）", ui_replay_count());
+            }
+            __system_property_set("jq.replay", "0");
+        }
     }
     /* AI 退化推进（仅对局态；菜单态 AI 不介入，等"人机对战"按钮进 GAME）。
        ★ 红方 AI 应着加日志（实证"下一局"闭环：蓝走子 → 红 AI 自动应着 → 回合切回蓝）。
@@ -1412,10 +1507,11 @@ Java_com_cnvcs_App_OnUpdate(JNIEnv *env, jclass clazz)
             if (ai_pick(&from, &to, &flip) == 0) {
                 undo_push();
                 if (flip) {
-                    jq_flip(&g_state, from);
+                    if (jq_flip(&g_state, from)) ui_replay_record(from, from, 1);   /* ★ P1（datah_039/107）：AI 翻棋记录 */
                     LOGI("红方 AI 应着（翻棋）：cell=%d（turn 切回蓝方）", from);
                 } else {
                     int e = jq_try_move(&g_state, from, to);
+                    if (e >= 0) ui_replay_record(from, to, 0);   /* ★ P1（datah_039/107）：AI 走子记录 */
                     LOGI("红方 AI 应着：from=%d to=%d 结果=%s（turn 切回蓝方）",
                          from, to, JQ_EVENT_NAMES[e < 0 ? 0 : e]);
                 }
@@ -2049,6 +2145,71 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
         (void)clazz;
         return JNI_TRUE;
     }
+    /* ★ P1（datah_107 证据）：复盘回放控制条态——底部 5 按钮（菜单/回退/前进/跳转/返回，
+       460×60 @10,705 不居中）。业务（replay.c 确定性回放，g_mutex 内改 g_state）：
+       回退 = cur-- 重建 / 前进 = cur++ 走 1 步 / 跳转 = 回开头(cur=0)/跳结尾(cur=n) 循环
+       （简化，无步进输入框）/ 菜单/返回 = 退复盘回对局（保留记录）。
+       ★ 诚实边界：原版 datah_039 入口浮标命中 flaky，复盘态入口走 setprop jq.replay 钩子；
+       本控制条按钮命中走触摸路径（与 gameset 同范式，flaky 时业务逻辑桌面 evverify 实证）。 */
+    if (ui_screen_get() == UI_REPLAY) {
+        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
+        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        const ui_replay_btn *rb = ui_replay_ctrl_buttons();
+        int rh = ui_replay_ctrl_hit(rb, UI_REPLAY_CTRL_COUNT, bx, by);
+        if (rh >= 0) {
+            int ract = rb[rh].action;
+            int cur = ui_replay_cur(), n = ui_replay_count();
+            LOGI("OnTouch 复盘控制条：按钮%d（action=%d，cur=%d n=%d）", rh, ract, cur, n);
+            if (ract == 0 || ract == 4) {   /* 菜单（简化=退复盘）/ 返回（退复盘回对局） */
+                ui_screen_set(UI_GAME);
+                sfx_play(env, "pop");
+                LOGI("复盘控制条：%s → 退复盘回对局（保留走子记录 %d 条）",
+                     ract == 0 ? "菜单（简化=退复盘，无复盘内子菜单）" : "返回", n);
+                (void)clazz;
+                return JNI_TRUE;
+            }
+            pthread_mutex_lock(&g_mutex);
+            int rc;
+            if (ract == 1) {               /* 回退：cur-- 重建（游标 0 停住） */
+                cur = ui_replay_cur();
+                if (cur > 0) {
+                    cur--;
+                    rc = ui_replay_rewind(cur);
+                    if (rc != 0) { LOGI("复盘控制条：回退重放失败（记录与规则引擎不一致，防御停止）"); }
+                } else {
+                    rc = 0;
+                    LOGI("复盘控制条：回退 → 已在开头（cur=0）");
+                }
+            } else if (ract == 2) {        /* 前进：cur++ 走 1 步（到 n 停住） */
+                cur = ui_replay_cur();
+                if (cur < n) {
+                    cur++;
+                    rc = ui_replay_rewind(cur);
+                    if (rc != 0) { LOGI("复盘控制条：前进重放失败（记录与规则引擎不一致，防御停止）"); }
+                } else {
+                    rc = 0;
+                    LOGI("复盘控制条：前进 → 已在末尾（cur=%d）", cur);
+                }
+            } else {                       /* 跳转：回开头(cur=0) / 跳结尾(cur=n) 循环（简化） */
+                cur = ui_replay_cur();
+                cur = (cur == 0) ? n : 0;  /* 0 → 跳结尾；否则回开头 */
+                rc = ui_replay_rewind(cur);
+                LOGI("复盘控制条：跳转 → cur=%d（简化=回开头/跳结尾二选一循环，无步进输入框）", cur);
+            }
+            pthread_mutex_unlock(&g_mutex);
+            sfx_play(env, "select");
+            if (jq_glview_is_ready()) jq_glview_dirty(&g_glview);
+            (void)clazz;
+            return JNI_TRUE;
+        }
+        if (!ui_replay_ctrl_popup_inside(bx, by)) {
+            ui_screen_set(UI_GAME);
+            LOGI("OnTouch 复盘控制条外（bx=%.0f by=%.0f）→ 退复盘回对局", bx, by);
+            sfx_play(env, "pop");
+        }
+        (void)clazz;
+        return JNI_TRUE;
+    }
     /* ★ 原版 UI 对齐：☰ 游戏内菜单 / ↩ 悔棋 图标（棋盘中部）。
        对局态点 ☰ → UI_INGAME_MENU；点 ↩ → 悔棋（undo_pop）。
        坐标换算 720×1280 基准（与渲染同几何）。
@@ -2194,8 +2355,8 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
                     int from, to, flip;
                     if (ai_pick(&from, &to, &flip) == 0) {
                         undo_push();
-                        if (flip) jq_flip(&g_state, from);
-                        else { int e = jq_try_move(&g_state, from, to); (void)e; }
+                        if (flip) { if (jq_flip(&g_state, from)) ui_replay_record(from, from, 1); }   /* ★ P1（datah_039/107）：电脑变着翻棋记录 */
+                        else { int e = jq_try_move(&g_state, from, to); if (e >= 0) ui_replay_record(from, to, 0); (void)e; }   /* ★ P1（datah_039/107）：电脑变着走子记录 */
                         done = 1;
                     }
                 }
@@ -2321,6 +2482,7 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
             if (from >= 0 && jq_can_flip(st, from)) {
                 undo_push();
                 flip_done = jq_flip(st, from);
+                if (flip_done) ui_replay_record(from, from, 1);   /* ★ P1（datah_039/107）：翻棋成功记录 1 步 */
                 LOGI("走子判定 翻棋：cell=%d rc=%d turn→%d（人机AI走红=%d）",
                      from, flip_done, st->turn, g_vs_ai);
             } else {
@@ -2333,6 +2495,7 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
                 undo_push();
                 jnev = jq_try_move(st, from, to);
                 move_ok = (jnev >= 0);
+                if (move_ok) ui_replay_record(from, to, 0);   /* ★ P1（datah_039/107）：走子成功记录 1 步 */
                 if (move_ok && jnev >= 0 && jnev < 6) {
                     g_event_cnt[jnev]++;   /* 事件计数（对齐 on_event，OnTouch 直接走子不经 on_event） */
                     g_event_total++;
@@ -2380,10 +2543,11 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
                 if (ai_pick(&af, &at, &aflip) == 0) {
                     undo_push();
                     if (aflip) {
-                        jq_flip(&g_state, af);
+                        if (jq_flip(&g_state, af)) ui_replay_record(af, af, 1);   /* ★ P1（datah_039/107）：AI 翻棋记录 */
                         LOGI("红方 AI 应着（翻棋）：cell=%d（turn 切回蓝方）", af);
                     } else {
                         ae = jq_try_move(&g_state, af, at);
+                        if (ae >= 0) ui_replay_record(af, at, 0);   /* ★ P1（datah_039/107）：AI 走子记录 */
                         LOGI("红方 AI 应着：from=%d to=%d 结果=%s（turn 切回蓝方）",
                              af, at, JQ_EVENT_NAMES[ae < 0 ? 0 : ae]);
                     }

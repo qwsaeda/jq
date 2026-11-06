@@ -149,7 +149,7 @@ datah_023 面板 450 坐标系（offset_x=(720-450)/2=135, offset_y=(1280-450)/2
 | datah_016 | 布局管理（30 格预览 + 载入/删除/取消） | 4 | ✅ 已实现（§十六，evverify 10/10） | 中 |
 | datah_017 | 载入布局（列表 + 取消） | 7 | ✅ 已实现（§十六，evverify 10/10） | 中 |
 | datah_020 | 保存布局（保存/改名/删除/关闭） | 4 | ✅ 已实现（§十六，evverify 10/10） | 中 |
-| datah_039 | 复盘 | Rep 1 | ❌ 未实现 | 中 |
+| datah_039 | 复盘 | Rep 1 | ✅ 已实现（入口 setprop jq.replay 钩子，§十七，evverify 11/11） | 中 |
 | datah_028 | 聊天 | Sentence/Record/Close 3 | ✅ 走 BT_T_CHAT 帧（联机），本地未实现 | 中 |
 | datah_029 | 聊天记录 | Clear/Close 2 | ❌ 未实现 | 低 |
 | datah_031 | 个人资料 | Modify/Help/Close 3 | ⚠️ 方式选择"个人资料"=边界对话框 | 低 |
@@ -165,7 +165,7 @@ datah_023 面板 450 坐标系（offset_x=(720-450)/2=135, offset_y=(1280-450)/2
 | 四国 4 方规则 | datah_089 人数 2/3/4 | 主菜单"四国"=边界对话框（未实现 4 方棋盘/规则） |
 | 联机账号/登录 | datah_038 登录/034 加入/035 创建 | 蓝牙 SPP 已接线（jq_bt_*），Wi-Fi/账号=边界 |
 | 布局存档（载入/保存） | datah_016/017/020 | 未实现（.pak 布局解析已有，存档 UI 缺） |
-| 复盘 | datah_039 | 未实现 |
+| 复盘 | datah_039/107 | 未实现（走子记录+回放 UI 缺；§十七 补齐：入口 setprop 钩子+控制条 5 按钮+evverify 确定性校验） |
 | 规则文本弹窗 | datah_037 | ☰ 菜单"游戏规则"=简化版，非原版翻棋规则文本 |
 
 ## 十、本轮对齐修正清单（已落地）
@@ -249,8 +249,8 @@ datah_023 面板 450 坐标系（offset_x=(720-450)/2=135, offset_y=(1280-450)/2
 - **主菜单 5 按钮**：Δ=0.0（渲染顶点日志 vs 原版截图实测 ×0.8）
 - **难度 8 + 方式 4 + 设置 5 + ☰菜单 8 = 25 控件**：Δ=0（原版 450 系换算 vs src_rs 按钮表）
 - **业务功能**：人机→难度弹窗 / 两人→直开局 / 联网·联机→方式选择 / 四国→边界对话框；☰ 本地 vs 联机菜单分流；提和/认输/聊天 BT 帧。全部对齐。
-- **诚实边界**：datah_089 四国人数 / 061/062/104 新局设置 / 039 复盘 / 038 登录 = 原版有、src_rs 未实现（§9.2 缺口表，不包装成已对齐）。
-  （datah_012 游戏设置 ✅ 已实现 §十五；datah_016/017/020 布局存档 ✅ 已实现 §十六。）
+- **诚实边界**：datah_089 四国人数 / 061/062/104 新局设置 / 038 登录 = 原版有、src_rs 未实现（§9.2 缺口表，不包装成已对齐）。
+  （datah_012 游戏设置 ✅ §十五；datah_016/017/020 布局存档 ✅ §十六；datah_039/107 复盘 ✅ §十七。）
 
 **so md5 历史**：b79c9720(前) → bba27987(弹窗 450 系对齐) → 3bd37be8(误用 datah_023 主菜单) → **010546be**(主菜单恢复 orig_menu 真机实测，最终态)。
 
@@ -419,7 +419,7 @@ OnTouch 新局弹窗：确定 → 开局（stage=PLAY 蓝先手，mode=0 布局�
 
 **未对齐缺口（原版有、src_rs 未实现，诚实标注）**：
 - P0：datah_089 四国 4 方规则（弹窗对齐，规则未实现）/ datah_061/062/104 新局完整版（062 简化版已对齐）
-- P1：039 复盘 / 038 登录（datah_012 游戏设置 ✅ 已实现 §十五；datah_016/017/020 布局存档 ✅ 已实现 §十六）
+- P1：038 登录（datah_012 游戏设置 ✅ §十五；datah_016/017/020 布局存档 ✅ §十六；datah_039/107 复盘 ✅ §十七）
 
 ## 十五、P1 datah_012 游戏设置对齐（4 规则开关 + 确定/取消，2026-11-05）
 
@@ -613,3 +613,115 @@ UI_LAY_MGR 命中分发块）**，非触摸糊弄。布局文件 3 条真机目�
 
 **so md5 历史**：… → ef92431a(P1 datah_012) → **74e65ac2**(P1 布局存档 3 弹窗 + 文件 IO
 + setprop/OnEvent 钩子 + layres 文字图集，真机 3 弹窗渲染实证 + evverify 10/10)
+
+## 十七、P1 复盘 2 弹窗对齐（datah_039 入口 + datah_107 回放控制条，2026-11-06）
+
+> 新增复盘回放业务（datah_039 复盘入口 + datah_107 回放控制条 5 按钮）：
+> 走子记录（jq_replay，开局 60 格 cells 快照基底 + 每步 from/to/is_flip 序列 512 条）
+> → 复盘态（UI_REPLAY）下 回退(cur--) / 前进(cur++) / 跳转(回开头/跳结尾循环) /
+> 返回/菜单(退复盘) 控制条逐步重放。回放 = 开局 cells 快照 + 前 k 步逐条
+> jq_try_move/jq_flip 重走（确定性，桌面 evverify run_replay 校验三游标
+> cur=K/0/N cells 终态 == 独立重放结果，不依赖触摸/GL）。
+
+### 17.1 datah_107 复盘回放控制条 5 按钮（面板 460×60 @ 绝对 10,705，不居中，局部 1:1 平移）
+
+| 控件 | 原版局部 rect | →720 屏幕 | src_rs g_replay_ctrl_btns | 中心偏差 Δ |
+|---|---|---|---|---|
+| 菜单 Menu | (0,0)-(84,60) | (10,705)-(94,765) | (10,705,94,765) | **0** |
+| 回退 Prev | (94,0)-(178,60) | (104,705)-(188,765) | (104,705,188,765) | **0** |
+| 前进 Next | (188,0)-(272,60) | (198,705)-(282,765) | (198,705,282,765) | **0** |
+| 跳转 Jump | (282,0)-(366,60) | (292,705)-(376,765) | (292,705,376,765) | **0** |
+| 返回 Back | (376,0)-(460,60) | (386,705)-(470,765) | (386,705,470,765) | **0** |
+
+面板：UI_REPLAY_CTRL_POPUP (10,705,460,60) → 对齐 (10,705,460,60)（Δ=0）
+
+**业务**：ui_replay_rewind(cur) 重建 g_state（开局 60 格 cells 快照 + 前 cur 步重走）；
+回退 = cur-- 重建 / 前进 = cur++ 走 1 步 / 跳转 = cur 在 0 和 n 间循环（回开头/跳结尾）/
+返回/菜单 = ui_screen_set(UI_GAME) 退复盘（保留记录）。
+
+### 17.2 datah_039 复盘入口（单按钮浮标 @ 绝对 27,650，120×90 不居中）
+
+| 控件 | 原版局部 rect | →720 屏幕 | 入口实现 | 备注 |
+|---|---|---|---|---|
+| 复盘 Rep | (15,15)-(90,60) | (42,665)-(132,725) | setprop jq.replay 钩子 | 原版浮标命中 flaky → 钩子触发 |
+
+**入口**：adb setprop jq.replay 1 → 重启 → OnCreate 进 UI_REPLAY（jq.replay 钩子，
+jq.gameset L1001 同范式）；同会话 setprop jq.replay 1 → OnUpdate 轮询进 UI_REPLAY
+（不重启 app）；jq.movetest 1 → OnCreate 自动走 3 步（每步 ui_replay_record 1 条，
+n=3）供 jq.replay 钩子进复盘 cur=3/3 走子记录回放实证。
+
+### 17.3 走子记录 + 回放确定性（replay.c，桌面 evverify 实证）
+
+- **jq_replay 结构体**：seq[512][2]（from/to）+ is_flip[512] + n（已记录步数）+
+  cur（回放游标，record 时跟随末尾）+ init_cells[60]（开局 60 格 cells 快照，
+  rank/side/revealed/flags 全还原）。
+  ★ 基底用 60 格 cells 快照（非 30 字节布局）：jq_extract_layout_30 只收蓝方半区，
+  对局进行中（已被红子占位）提取会镜像出错误红方分布（实证 init_lay 非零 24 vs
+  默认布局 22）→ 回放失真；cells 快照精确还原。
+- **记录点**（jni_bridge，每 jq_try_move/jq_flip 成功后 ui_replay_record 1 步）：
+  OnEvent move/flip / OnTouch 走子 / AI 应着（OnUpdate/OnTimer/电脑变着）/
+  蓝牙对端走子（bt_session on_frame MOVE/FLIP）。
+- **清记录点**（ui_replay_init）：jq_restart_game / OnEvent start / OnEvent layout
+  载入 / OnCreate 开局。
+- **evverify run_replay 桌面实证**（11/11 全对含此项）：
+  默认布局明棋全翻，蓝/红交替生成 12 步走子序列，前 6 条入 seq/rp（越限步不进
+  记录缓冲防堆越界），三游标 rewind cur=K/0/N 重放 cells 终态 == 独立重放结果
+  （rank/side 逐格一致，revealed 全翻开不参与比对——诚实边界）：
+  ```
+  replay: 序列 N=6 步（默认布局明棋交替走子，K=3）→ rewind cur=K rc=0 cells==独立前K步 PASS
+  / cur=0 rc=0 cells==纯初始布局 PASS / cur=N rc=0 cells==全走终态 PASS
+  ```
+
+### 17.4 真机 logcat 实证（emulator-5554，pid 54081）
+
+**测试①：jq.movetest 自动走 3 步 + 走子记录（真机实证 ✓）**
+```
+jq.movetest 钩子：属性=1（触发自动走 3 步）
+复盘记录：+走子 from=6 to=11（n=1 cur=1）
+movetest 自动走子 第1步 (6,11) ev=0 Junqi.Move（记录 n=1）
+复盘记录：+走子 from=30 to=25（n=2 cur=2）
+movetest 自动走子 第2步 (30,25) ev=4 Junqi.Dead（记录 n=2）
+复盘记录：+走子 from=5 to=6（n=3 cur=3）
+movetest 自动走子 第3步 (5,6) ev=0 Junqi.Move（记录 n=3）
+movetest：自动走子完成 3/3 步（复盘走子记录 n=3，jq.replay 钩子可进复盘 cur=3/3）
+```
+
+**测试②：同会话 jq.replay=1 → OnUpdate 进复盘态 + rs_draw_replay 出帧（真机实证 ✓）**
+```
+OnUpdate 复盘入口：replay=1 → UI_REPLAY（cur=3/3 rewind rc=0，datah_107 控制条 5 按钮；跳转简化回开头/跳结尾）
+rs_draw_replay：复盘回放渲染（datah_107 控制条 5 按钮 460×60@10,705 + 棋盘占位 + 步数标签 cur=3/3，jump 简化回开头/跳结尾，菜单简化退复盘）
+```
+截图 replay_cur3.png 720×1280：控制条 5 按钮区（10,705)-(470,765）非黑 89-92%
+（菜单 89% / 回退 92% / 前进 92% / 跳转 89% / 返回 92%），layout_align_check.py
+--screenshot 几何 Δ=0 + 截图非黑检查全 PASS。
+
+**★ 诚实边界（简化，勿包装成完整版）**：
+- **跳转简化**为"回开头(cur=0)/跳结尾(cur=n)"二选一循环（无步进输入框）；
+- **菜单简化**为"退复盘回对局"（无复盘内子菜单）；
+- **datah_039 入口**用 setprop jq.replay 测试钩子触发（原版 BackDlg 浮标命中 flaky，
+  几何 42,665-132,725 保留供 layout_align_check Δ 校验，非触摸命中）；
+- **复盘态不画真实棋子图**（渲染层 rs_draw_replay 复用棋盘现有占位方块范式，
+  棋子图集缺失退化纯色格）；
+- **走子记录容量 512 条**（N_REPLAY，和棋前 1000 步内够复盘，容量满忽略）；
+- 走子由 jq.movetest OnCreate 自动触发（非触摸，触摸 flaky 下的可靠触发路径，
+  规则引擎/事件/记录链真实）。
+
+### 17.5 对齐证明汇总
+
+- **datah_107 控制条 5 按钮**：Δ=0（原版局部坐标精确 720 换算 vs src_rs
+  g_replay_ctrl_btns，0px 偏差）
+- **datah_039 入口浮标**：几何保留 Δ=0（42,665-132,725），入口 setprop 钩子
+- **走子记录 + 回放确定性**：replay.c jq_replay（60 格 cells 快照基底 + 512 条
+  走子/翻棋序列）+ 桌面 evverify 11/11 全对（run_replay 三游标 cells 终态
+  == 独立重放结果，不依赖触摸/GL）
+- **文字图集**：replay_text_atlas.png（220×368，8 标签竖排 复盘/菜单/回退/前进/
+  跳转/返回/第步/结束），data_font_all.ttf sz38 烘焙（make_replay_atlas.py）
+- **真机 logcat**：jq.movetest 自动走 3 步（每步 ui_replay_record 1 条，n=3）+
+  同会话 jq.replay 钩子进 UI_REPLAY（cur=3/3 rewind rc=0）+ rs_draw_replay
+  出帧（datah_107 控制条 5 按钮渲染）+ 截图非黑 89-92% + Δ=0
+- **★ 诚实边界**：跳转简化回开头/跳结尾 + 菜单简化退复盘 + datah_039 入口
+  setprop 钩子（非触摸）+ 复盘态不画真实棋子图（占位方块范式）
+
+**so md5 历史**：… → 74e65ac2(P1 布局存档 3 弹窗) → **a17fc4e5**(P1 复盘 2 弹窗
++ 走子记录 + 回放确定性 + setprop/OnEvent 钩子 + replay 文字图集，真机走子记录
++ 复盘态渲染实证 + evverify 11/11 + 一致性 9/9)

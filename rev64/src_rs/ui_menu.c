@@ -419,3 +419,35 @@ int ui_laymgr_popup_inside(float x, float y)
     return x >= UI_LAYMGR_POPUP_X0 && x <= UI_LAYMGR_POPUP_X0 + UI_LAYMGR_POPUP_W &&
            y >= UI_LAYMGR_POPUP_Y0 && y <= UI_LAYMGR_POPUP_Y0 + UI_LAYMGR_POPUP_H;
 }
+
+/* ★ P1（datah_107 证据）：复盘回放控制条 5 按钮（菜单/回退/前进/跳转/返回）。
+   几何 720×1280 基准：面板 460×60 @ 绝对 10,705（不居中，局部 1:1 平移）；
+   5 按钮各 84×60（局部 x 0/94/188/282/376 → 720 系 10/104/188/292/386；y 705-765）。
+   ★ 诚实边界：跳转=回开头/跳结尾循环（无步进输入框）；菜单=退复盘（无子菜单）。 */
+static const ui_replay_btn g_replay_ctrl_btns[UI_REPLAY_CTRL_COUNT] = {
+    /* x0, y0, x1, y1, action；★ 原版 datah_107 局部坐标精确平移（面板 @10,705，
+       局部 1:1 平移：Menu 0,0,84,60 / Prev 94,0,178,60 / Next 188,0,272,60 /
+       Jump 282,0,366,60 / Back 376,0,460,60 → 720 系 10,705/104,705/198,705/
+       292,705/386,705，各 84×60；layout_align_check datah_107_replay 逐按钮 Δ 校验） */
+    { 10.0f,  705.0f, 94.0f,  765.0f, 0 },  /* 菜单 Menu（简化=退复盘回对局） */
+    { 104.0f, 705.0f, 188.0f, 765.0f, 1 },  /* 回退 Prev（cur-- 重放） */
+    { 198.0f, 705.0f, 282.0f, 765.0f, 2 },  /* 前进 Next（cur++ 走 1 步） */
+    { 292.0f, 705.0f, 376.0f, 765.0f, 3 },  /* 跳转 Jump（回开头/跳结尾循环，简化） */
+    { 386.0f, 705.0f, 470.0f, 765.0f, 4 },  /* 返回 Back（退复盘回对局/主菜单） */
+};
+
+const ui_replay_btn *ui_replay_ctrl_buttons(void) { return g_replay_ctrl_btns; }
+
+int ui_replay_ctrl_hit(const ui_replay_btn *btns, int n, float x, float y)
+{
+    for (int i = 0; i < n; i++)
+        if (x >= btns[i].x0 && x <= btns[i].x1 && y >= btns[i].y0 && y <= btns[i].y1)
+            return i;
+    return -1;
+}
+
+int ui_replay_ctrl_popup_inside(float x, float y)
+{
+    return x >= UI_REPLAY_CTRL_POPUP_X0 && x <= UI_REPLAY_CTRL_POPUP_X0 + UI_REPLAY_CTRL_POPUP_W &&
+           y >= UI_REPLAY_CTRL_POPUP_Y0 && y <= UI_REPLAY_CTRL_POPUP_Y0 + UI_REPLAY_CTRL_POPUP_H;
+}

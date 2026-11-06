@@ -62,4 +62,17 @@ int ui_laymgr_hit(const ui_laymgr_btn *b, int n, float x, float y)
 int ui_laymgr_popup_inside(float x, float y)
 { return x>=UI_LAYMGR_POPUP_X0&&x<=UI_LAYMGR_POPUP_X0+UI_LAYMGR_POPUP_W&&
          y>=UI_LAYMGR_POPUP_Y0&&y<=UI_LAYMGR_POPUP_Y0+UI_LAYMGR_POPUP_H; }
+/* ★ P1（datah_039/107）：复盘回放控制条 5 按钮桩（几何表返回 720 基准占位供
+   一致性/evverify 链接；真机走 ui_menu.c 真实几何表）。 */
+static const ui_replay_btn rc_stub[UI_REPLAY_CTRL_COUNT] = {
+    { 10.0f,705.0f,94.0f,765.0f,0 },{ 104.0f,705.0f,188.0f,765.0f,1 },
+    { 198.0f,705.0f,282.0f,765.0f,2 },{ 292.0f,705.0f,376.0f,765.0f,3 },
+    { 386.0f,705.0f,470.0f,765.0f,4 },
+};
+const ui_replay_btn *ui_replay_ctrl_buttons(void) { return rc_stub; }
+int ui_replay_ctrl_hit(const ui_replay_btn *b, int n, float x, float y)
+{ for (int i=0;i<n;i++) if (x>=b[i].x0&&x<=b[i].x1&&y>=b[i].y0&&y<=b[i].y1) return i; return -1; }
+int ui_replay_ctrl_popup_inside(float x, float y)
+{ return x>=UI_REPLAY_CTRL_POPUP_X0&&x<=UI_REPLAY_CTRL_POPUP_X0+UI_REPLAY_CTRL_POPUP_W&&
+         y>=UI_REPLAY_CTRL_POPUP_Y0&&y<=UI_REPLAY_CTRL_POPUP_Y0+UI_REPLAY_CTRL_POPUP_H; }
 

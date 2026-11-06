@@ -52,3 +52,11 @@ int ui_layout_save(const uint8_t l[30], const char *n) { (void)l; (void)n; retur
 int ui_layout_load(const char *n, uint8_t o[30]) { (void)n; (void)o; return -1; }
 int ui_layout_delete(const char *n) { (void)n; return -1; }
 int ui_layout_rename(const char *a, const char *b) { (void)a; (void)b; return -1; }
+
+/* ★ P1（datah_039/107）：复盘回放桩（桌面 headless：evverify 直接调 replay.c 真实
+   实现校验回放确定性；此桩仅保证一致性/桌面构建链接完整，默认行为不变）。 */
+void ui_replay_init(void) {}
+void ui_replay_record(int f, int t, int is_flip) { (void)f; (void)t; (void)is_flip; }
+int  ui_replay_count(void) { return 0; }
+int  ui_replay_cur(void) { return 0; }
+int  ui_replay_rewind(int cur) { (void)cur; return 0; }

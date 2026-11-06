@@ -1,6 +1,7 @@
 #ifndef RS_UI_STATE_H
 #define RS_UI_STATE_H
 #include "ui_menu.h"
+#include "replay.h"
 int  ui_screen_get(void);
 void ui_screen_set(int s);
 void ui_on_menu_action(int action);   /* 菜单按钮点击：0人机→选项弹窗 4重开 其它占位 */
@@ -60,4 +61,15 @@ int  ui_layout_delete(const char *name);   /* 删 <dir>/<name>.lay，返回 0 �
 int  ui_layout_rename(const char *old, const char *new);       /* 重命名（改名=旧名+数字后缀，简化） */
 /* ★ 真机目录缺省：jni_bridge OnCreate 调 ui_laydir_set("/data/local/tmp/layouts")。
    桌面 evverify：ui_laydir_set(tmp 目录)。未 set 时桌面缺省 ./layouts（mkdir）。 */
+
+/* ★ P1（datah_039/107 证据）：复盘回放——走子记录 + 逐 cursor 重放。
+   记录在 ui_state 维护（对局生命周期），jni_bridge 每次 jq_try_move/jq_flip
+   成功后调 ui_replay_record；开局/重开/布局载入调 ui_replay_init。
+   回放 = 初始布局 + 前 cur 步 jq_try_move/jq_flip 重走（确定性，桌面可验证）。
+   诚实边界：跳转简化为回开头(cur=0)/跳结尾(cur=n)循环；菜单简化为退复盘。 */
+void ui_replay_init(void);                /* 开局/重开/布局载入清记录（需 g_mutex 内，读 g_state） */
+void ui_replay_record(int from, int to, int is_flip);  /* 走子/翻棋成功后追加 */
+int  ui_replay_count(void);                /* 已记录步数 */
+int  ui_replay_cur(void);                 /* 回放游标 */
+int  ui_replay_rewind(int cur);           /* 重放前 cur 步到 g_state（0/负=越界不重建；越界返 -1 不改 state） */
 #endif

@@ -240,6 +240,125 @@ static int run_layout_save(void)
     return ok1 && ok2 && ok3 && ok4;
 }
 
+/* ★ P1（datah_039/107）：复盘回放确定性桌面验证——
+   构造走子序列 N 步（默认布局 明棋全翻，蓝/红 交替合法走子 逐条 jq_try_move 生成
+   真实序列）→ jq_replay_record N 步 → jq_replay_rewind_to 重放到 cur=k →
+   校验 g_state.cells == 独立重放前 k 步的 cells（同一序列两次走子，终态必须
+   逐字节一致）。不依赖触摸/GL，纯规则引擎确定性。
+   诚实边界：重放失败（记录与引擎不一致）防御性返回 -1 不崩。 */
+static int run_replay(void)
+{
+    jq_state st, ref, chk, chk0;
+    jq_replay rp;
+    /* 独立参考：前 k 步直接走（不记 replay，纯 jq_try_move 链）。
+       ★ 用独立 jq_replay rp 记录（不经过 ui_replay_record 桩——桌面桩是空实现
+       （ui_state_stub.c），真机走 ui_state.c 真实记录；本测试直接 jq_replay_*
+       API 链，避免桩差异） */
+    int N = 0, K = 0;
+    int seq[N_REPLAY][2];
+    int is_flip[N_REPLAY];
+    jq_load_layout(&st, JQ_DEFAULT_LAY);
+    for (int i = 0; i < N_CELLS; i++) if (st.cells[i].rank) st.cells[i].revealed = 1;
+    /* 生成走子序列（蓝/红 交替：当前 turn 方扫合法走子 取 1 条，N=6 步封顶，
+       留 4 步余量确保前 N 条不越终局（终局后无新走子可记） */
+    N = 0;
+    int gen_moves[12][2];   /* 生成链全序列（12 步封顶），seq[6] 只记前 6 条供回放校验 */
+    int gn = 0;
+    for (int step = 0; step < 12; step++) {
+        if (st.stage != STG_PLAY) break;
+        int done = 0;
+        for (int f = 0; f < N_CELLS && !done; f++) {
+            if (st.cells[f].rank == RANK_EMPTY) continue;
+            if (!st.cells[f].revealed || st.cells[f].side != st.turn) continue;
+            for (int t = 0; t < N_CELLS && !done; t++) {
+                if (t == f) continue;
+                if (jq_can_move(&st, f, t)) {
+                    if (gn < 12) { gen_moves[gn][0] = f; gen_moves[gn][1] = t; gn++; }
+                    done = 1;
+                    jq_try_move(&st, f, t);
+                    break;
+                }
+            }
+        }
+        if (!done) break;
+        if (gn >= 12) break;
+    }
+    /* 前 6 条入 seq（rp 记录缓冲），N=min(gn,6) */
+    N = (gn < 6) ? gn : 6;
+    for (int k = 0; k < N; k++) { seq[k][0] = gen_moves[k][0]; seq[k][1] = gen_moves[k][1]; is_flip[k] = 0; }
+    /* ★ 开局快照（生成前 st 已推完，需独立还原初始布局取快照） */
+    {
+        jq_state st0;
+        jq_load_layout(&st0, JQ_DEFAULT_LAY);
+        for (int i = 0; i < N_CELLS; i++) if (st0.cells[i].rank) st0.cells[i].revealed = 1;
+        rp = (jq_replay){0};
+        jq_replay_init(&rp, &st0);
+        for (int k = 0; k < N; k++) jq_replay_record(&rp, seq[k][0], seq[k][1], 0);
+    }
+    K = N / 2 + (N % 2);   /* 中间游标 */
+    /* 独立参考重放前 K 步（初始布局 明棋全翻 + 前 K 条，不走 replay API） */
+    jq_load_layout(&ref, JQ_DEFAULT_LAY);
+    for (int i = 0; i < N_CELLS; i++) if (ref.cells[i].rank) ref.cells[i].revealed = 1;
+    ref.stage = STG_PLAY; ref.turn = SIDE_BLUE; ref.winner = -1;
+    ref.moves_since_eat = 0; ref.total_moves = 0;
+    for (int k = 0; k < K; k++)
+        if (jq_try_move(&ref, seq[k][0], seq[k][1]) < 0) break;
+    /* replay API 重放到 cur=K（同一序列，确定性比对） */
+    int rc = jq_replay_rewind_to(&rp, &chk, K);
+    int same = 1;
+    if (rc == 0) {
+        for (int i = 0; i < N_CELLS; i++)
+            if (chk.cells[i].rank != ref.cells[i].rank ||
+                chk.cells[i].side != ref.cells[i].side)
+                { same = 0; break; }
+    }
+    /* cur=0 重放 = 纯初始布局（jq_load_layout 30 字节）：rank/side 与初始布局一致
+       （重放链全翻开 vs 独立 ref 已吃棋子 revealed=0 → revealed 不参与本比对，诚实边界） */
+    jq_state init_ref;
+    jq_load_layout(&init_ref, JQ_DEFAULT_LAY);
+    int rc0 = jq_replay_rewind_to(&rp, &chk0, 0);
+    int same0 = 1;
+    if (rc0 == 0) {
+        for (int i = 0; i < N_CELLS; i++)
+            if (chk0.cells[i].rank != init_ref.cells[i].rank ||
+                chk0.cells[i].side != init_ref.cells[i].side)
+                { same0 = 0; break; }
+    }
+    /* cur=n（末尾）重放 = 前 N 步全走（应与独立全走终态一致；N=6 封顶留余量不越终局） */
+    jq_state full, chkf;
+    jq_load_layout(&full, JQ_DEFAULT_LAY);
+    for (int i = 0; i < N_CELLS; i++) if (full.cells[i].rank) full.cells[i].revealed = 1;
+    full.stage = STG_PLAY; full.turn = SIDE_BLUE; full.winner = -1;
+    full.moves_since_eat = 0; full.total_moves = 0;
+    for (int k = 0; k < N; k++)
+        if (jq_try_move(&full, seq[k][0], seq[k][1]) < 0) break;
+    int rcf = jq_replay_rewind_to(&rp, &chkf, N);
+    int samef = 1;
+    if (rcf == 0) {
+        for (int i = 0; i < N_CELLS; i++)
+            if (chkf.cells[i].rank != full.cells[i].rank ||
+                chkf.cells[i].side != full.cells[i].side)
+                { samef = 0; break; }
+    }
+    int ok = (rc == 0 && rc0 == 0 && rcf == 0) && same && same0 && samef;
+    printf("replay: 序列 N=%d 步（默认布局明棋交替走子，K=%d）→ rewind cur=K rc=%d cells==独立前K步 %s"
+           " / cur=0 rc=%d cells==纯初始布局 %s / cur=N rc=%d cells==全走终态 %s\n",
+           N, K, rc, same ? "PASS" : "FAIL",
+           rc0, same0 ? "PASS" : "FAIL",
+           rcf, samef ? "PASS" : "FAIL");
+    if (!ok) {
+        /* 诊断：逐个 rewind 定位失败步 */
+        for (int k = 1; k <= K; k++) {
+            jq_state c2;
+            int r2 = jq_replay_rewind_to(&rp, &c2, k);
+            if (r2 != 0) {
+                printf("diag: rewind cur=%d rc=%d（第 %d 条 %d->%d 失败）\n", k, r2, k, seq[k-1][0], seq[k-1][1]);
+            }
+        }
+    }
+    return ok;
+}
+
 int main(int argc, char **argv)
 {
     if (argc < 2) {
@@ -294,6 +413,9 @@ int main(int argc, char **argv)
         total++; pass += run_ruleset();
         /* ★ P1（datah_016/017/020）：布局存档全路径（提取 30 字节/存读一致/载入镜像/删除） */
         total++; pass += run_layout_save();
+        /* ★ P1（datah_039/107）：复盘回放确定性（走子序列 N 步 → rewind cur=k/0/n 三游标
+           cells 终态 == 独立重放结果，不依赖触摸/GL） */
+        total++; pass += run_replay();
         printf("=== 桌面事件验证: %d/%d 全对 ===\n", pass, total);
         return pass == total ? 0 : 1;
     }
@@ -315,6 +437,7 @@ int main(int argc, char **argv)
     if (strcmp(mode, "--draw") == 0 || strcmp(mode, "--resign") == 0)
         return run_draw_resign() ? 0 : 1;
     if (strcmp(mode, "--stalemate") == 0) return run_stalemate() ? 0 : 1;
+    if (strcmp(mode, "--replay") == 0) return run_replay() ? 0 : 1;
     printf("未知模式: %s\n", mode);
     return 2;
 }

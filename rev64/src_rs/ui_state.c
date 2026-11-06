@@ -22,6 +22,9 @@
 
 static int g_ui = UI_MENU;
 static pthread_mutex_t g_ui_lock = PTHREAD_MUTEX_INITIALIZER;
+
+/* 对局全局状态（桌面构建在 consistency_desktop.c 定义；NDK so 在 jni_bridge.c 定义） */
+extern jq_state g_state;
 /* ★ 选项 UI：人机难度弹窗选中值（level 1-4 / mode 0=布局明棋 1=翻棋暗棋） */
 static int g_opt_level = 2;   /* 默认中级区（datah_041 中间档） */
 static int g_opt_mode = 1;    /* ★ 原版开局对齐：人机/两人均全背面暗棋（orig_human/orig_two3 截图自证）→ 默认暗棋（mode=1） */
@@ -159,6 +162,43 @@ void ui_on_menu_action(int action)
         LOGI("ui_state：菜单 action=%d → UI_GAME（两人直开局）", action);
     }
     pthread_mutex_unlock(&g_ui_lock);
+}
+
+/* ★ P1（datah_039/107 证据）：复盘回放——走子记录（jq_replay）+ 逐 cursor 重放。
+   记录存 ui_state（对局生命周期）；jni_bridge 每次走子/翻棋成功后 ui_replay_record，
+   开局/重开/布局载入 ui_replay_init。回放 = 初始布局 + 前 cur 步重走（确定性）。
+   诚实边界：跳转简化为回开头/跳结尾；菜单简化为退复盘（不建复盘内子菜单）。
+   调用方需已持有 g_mutex（jni_bridge OnTouch/OnEvent 锁内；读/写 g_state）。 */
+static jq_replay g_replay;
+static int g_replay_inited = 0;
+
+static void replay_ensure_inited(void)
+{
+    if (!g_replay_inited) { g_replay_inited = 1; jq_replay_init(&g_replay, &g_state); }
+}
+
+void ui_replay_init(void)
+{
+    jq_replay_init(&g_replay, &g_state);
+    g_replay_inited = 1;
+    LOGI("复盘回放：初始化（清记录 + 开局 30 字节布局提取，n=0 cur=0）");
+}
+void ui_replay_record(int from, int to, int is_flip)
+{
+    replay_ensure_inited();
+    jq_replay_record(&g_replay, from, to, is_flip);
+    LOGI("复盘记录：+%s from=%d to=%d（n=%d cur=%d）",
+         is_flip ? "翻棋" : "走子", from, to, jq_replay_count(&g_replay), jq_replay_cur_get(&g_replay));
+}
+int  ui_replay_count(void) { replay_ensure_inited(); return jq_replay_count(&g_replay); }
+int  ui_replay_cur(void)   { replay_ensure_inited(); return jq_replay_cur_get(&g_replay); }
+int  ui_replay_rewind(int cur)
+{
+    replay_ensure_inited();
+    int rc = jq_replay_rewind_to(&g_replay, &g_state, cur);
+    LOGI("复盘回放：重放到 cur=%d/%d %s（g_state 已重建为初始布局+前 cur 步）",
+         cur, jq_replay_count(&g_replay), rc == 0 ? "成功" : "越界/不一致");
+    return rc;
 }
 
 /* ★ P1（datah_016/017/020 证据）：布局存档 API——.lay 30 字节格式（对齐原版

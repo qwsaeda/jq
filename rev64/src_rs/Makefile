@@ -6,7 +6,7 @@
 CC ?= gcc
 CFLAGS ?= -O2 -Wall -I.
 
-SRCS_CORE := board.c layout.c rules.c save.c bt_protocol.c
+SRCS_CORE := board.c layout.c rules.c save.c bt_protocol.c replay.c
 
 all: desk
 
@@ -90,7 +90,7 @@ MODE ?= --all
 evverify:
 	@mkdir -p dist
 	$(CC) $(CFLAGS) -DRS_NO_GL -o dist/jq_evverify \
-	    board.c layout.c rules.c save.c evverify.c ui_state_stub.c -lm
+	    board.c layout.c rules.c save.c replay.c evverify.c ui_state_stub.c -lm
 	@echo "构建完成: dist/jq_evverify"
 	@dist/jq_evverify $(MODE)
 

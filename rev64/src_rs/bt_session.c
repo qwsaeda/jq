@@ -6,6 +6,7 @@
  */
 #include "bt_session.h"
 #include "bt_protocol.h"
+#include "ui_state.h"   /* ★ P1（datah_039/107）：ui_replay_record（蓝牙走子/翻棋记录复盘序列） */
 #include <string.h>
 static jq_state g_undo_snap;
 
@@ -48,6 +49,7 @@ int jq_bt_session_on_frame(jq_bt_session *s, jq_state *st,
         if (s->state != BT_ST_THEIR_TURN) return -2;
         /* 用规则引擎验对方走子（原版 0x39f20 校验） */
         if (jq_try_move(st, from, to) < 0) return -1;  /* 非法走子拒绝 */
+        ui_replay_record(from, to, 0);   /* ★ P1（datah_039/107）：蓝牙对端走子成功记录 1 步 */
         s->state = s->we_blue ? BT_ST_OUR_TURN : BT_ST_OUR_TURN; /* 回合翻转 */
         s->peer_state = *st;
         return 0;
@@ -56,7 +58,7 @@ int jq_bt_session_on_frame(jq_bt_session *s, jq_state *st,
         if (!frame_coord_ok(f2, f3, 0, 0)) return -1;
         int idx = cell_index(f3, f2);
         if (s->state != BT_ST_THEIR_TURN) return -2;
-        jq_flip(st, idx);
+        if (jq_flip(st, idx)) ui_replay_record(idx, idx, 1);   /* ★ P1（datah_039/107）：蓝牙对端翻棋记录 */
         s->state = BT_ST_OUR_TURN;
         return 0;
     }

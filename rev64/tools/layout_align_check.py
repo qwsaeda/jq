@@ -22,6 +22,9 @@ import argparse, json, sys, os, re
 # 面板居中 720×1280 偏移 = ((720-W)/2, (1280-H)/2)，局部坐标 1:1 平移
 DIALOGS = {
     # name: (panel_w, panel_h, [(label, x0,y0,x1,y1), ...])
+    # ★ P1（datah_039/107 证据）：复盘回放 2 弹窗（datah_107 控制条 5 按钮 460×60 @
+    # 绝对 10,705 不居中；datah_039 入口浮标 @27,650，原版命中 flaky → setprop jq.replay
+    # 钩子触发，几何保留 Δ 校验）
     "datah_041_diff": (450, 335, [
         ("新手布局",155,25,275,85),("新手翻棋",300,25,420,85),
         ("中级布局",155,100,275,160),("中级翻棋",300,100,420,160),
@@ -62,6 +65,24 @@ DIALOGS = {
     "datah_016_laymgr": (400, 475, [
         ("预览",20,75,380,360),
         ("载入",25,390,129,450),("删除",148,390,252,450),("取消",271,390,375,450)]),
+    # ★ P1（datah_039/107 证据）：复盘回放 2 弹窗
+    # datah_107 复盘回放控制条（BackDlg 460×60 @ 绝对 10,705，不居中，局部 1:1 平移；
+    # 5 按钮各 84×60，步长 94，任务规范 720 精确边界：
+    # 10,104 / 104,188 / 188,282 / 292,376 / 386,470；y 705-765）
+    "datah_107_replay": (460, 60, [
+        ("菜单",0,0,84,60),("回退",94,0,178,60),("前进",188,0,272,60),
+        ("跳转",282,0,366,60),("返回",376,0,460,60)]),
+    # datah_039 复盘入口（BackDlg 单按钮浮标，绝对 27,650 120×90 不居中；
+    # Rep 局部 15,15,90,60 → 720 基准 42,665-132,725。★ 诚实边界：原版浮标命中
+    # flaky，真机入口用 setprop jq.replay 测试钩子触发，几何保留供 Δ 校验）
+    "datah_039_replay": (120, 90, [
+        ("复盘",15,15,90,60)]),
+}
+
+# datah_107/039 绝对坐标面板（不居中，局部 1:1 平移 @ 偏移）
+ABS_PANELS = {
+    "datah_107_replay": (10, 705),
+    "datah_039_replay": (27, 650),
 }
 
 # 主菜单 = 原版 orig_menu.png 真机 900×1600 实测 ×0.8（非 datah_023 450 系换算）
@@ -92,10 +113,19 @@ def load_src_rs_buttons(path="rev64/src_rs/ui_menu.c"):
     tables["loadlay"] = _grab("g_loadlayout_btns")
     tables["savelay"] = _grab("g_savelayout_btns")
     tables["laymgr"] = _grab("g_laymgr_btns")
+    # ★ P1（datah_107 证据）：复盘回放控制条 5 按钮（g_replay_ctrl_btns）
+    tables["replay"] = _grab("g_replay_ctrl_btns")
     return tables
 def dialog_720(name):
-    """原版对话框 → 720×1280 物理基准（面板水平居中 +135，垂直居中按面板 H）"""
+    """原版对话框 → 720×1280 物理基准（面板水平居中 +135，垂直居中按面板 H）；
+    绝对坐标面板（datah_107/039）直接 1:1 平移 @ ABS_PANELS 偏移，不居中"""
     W,H,btns = DIALOGS[name]
+    if name in ABS_PANELS:
+        ax, ay = ABS_PANELS[name]
+        out=[]
+        for lbl,x0,y0,x1,y1 in btns:
+            out.append((lbl, ax+x0, ay+y0, ax+x1, ay+y1))
+        return out
     ox,oy = (720-W)/2.0, (1280-H)/2.0
     out=[]
     for lbl,x0,y0,x1,y1 in btns:
@@ -132,7 +162,8 @@ def check_geometry(menu_src=None, verbose=True):
     src = load_src_rs_buttons(src_rs_c_path or "rev64/src_rs/ui_menu.c")
     for dname, tname in [("datah_017_loadlay","loadlay"),
                          ("datah_020_savelay","savelay"),
-                         ("datah_016_laymgr","laymgr")]:
+                         ("datah_016_laymgr","laymgr"),
+                         ("datah_107_replay","replay")]:
         if dname not in DIALOGS or tname not in src: continue
         W,H,obtns = DIALOGS[dname]
         ox,oy = (720-W)/2.0,(1280-H)/2.0
@@ -171,6 +202,15 @@ def check_geometry(menu_src=None, verbose=True):
                     ((srcs[0][0]+srcs[0][2])/2,(srcs[0][1]+srcs[0][3])/2,
                      (srcs[0][0]+srcs[0][2])/2,(srcs[0][1]+srcs[0][3])/2)),
             ]
+        # ★ P1（datah_107 证据）：复盘回放控制条 5 按钮（原版 460×60 @ 绝对 10,705，
+        #   局部 1:1 平移，720 系 x0=10/104/198/292/386（局部 0/94/188/282/376 + 10），
+        #   x1=x0+84=94/188/282/376/470；y 705-765）
+        if dname == "datah_107_replay":
+            ax, ay = ABS_PANELS[dname]
+            pairs = []
+            for i, (lbl, x0, y0, x1, y1) in enumerate(obtns):
+                pairs.append((lbl, (ax+x0, ay+y0, ax+x1, ay+y1),
+                              (srcs[i][0],srcs[i][1],srcs[i][2],srcs[i][3])))
         if not srcs or len(srcs) < 3:
             if verbose: print(f"  {dname} src_rs 按钮表缺失/不足（{len(srcs)} 行）→ 跳过 Δ 比对（诚实边界）")
             continue
@@ -185,9 +225,9 @@ def check_geometry(menu_src=None, verbose=True):
                 print(f"  {dname} {lbl:4s} 原版720中心({(oox0+oox1)/2:.0f},{(ooy0+ooy1)/2:.0f}) src({(sox0+sox1)/2:.0f},{(soy0+soy1)/2:.0f}) Δc=({dcx:+.1f},{dcy:+.1f}) {('—' if is_region else ('✓' if ok else '✗'))} {note}")
             if not ok and not is_region:
                 failures.append(f"{dname} {lbl} Δ=({dcx:+.1f},{dcy:+.1f})")
-    for dname in ["datah_041_diff","datah_072_way","datah_001_set","datah_089_nplayer","datah_062_newgame","datah_012_gameset","datah_017_loadlay","datah_020_savelay","datah_016_laymgr"]:
+    for dname in ["datah_041_diff","datah_072_way","datah_001_set","datah_089_nplayer","datah_062_newgame","datah_012_gameset","datah_017_loadlay","datah_020_savelay","datah_016_laymgr","datah_107_replay","datah_039_replay"]:
         orig = dialog_720(dname)
-        nrep = len(orig) if dname in ("datah_017_loadlay","datah_020_savelay","datah_016_laymgr") else 2
+        nrep = len(orig) if dname in ("datah_017_loadlay","datah_020_savelay","datah_016_laymgr","datah_107_replay","datah_039_replay") else 2
         for lbl,ox0,oy0,ox1,oy1 in orig[:nrep]:
             cx,cy = (ox0+ox1)/2,(oy0+oy1)/2
             if verbose:
@@ -209,9 +249,16 @@ def check_screenshot(path, threshold=0.5):
             W,H,btns = DIALOGS[dname]
             ox,oy = (720-W)/2.0,(1280-H)/2.0
             lay_dialogs.append((dname, [(lbl, ox+x0, oy+y0, ox+x1, oy+y1) for lbl,x0,y0,x1,y1 in btns]))
+    # ★ P1（datah_107/039）：复盘 2 弹窗（控制条 5 按钮 + 入口浮标，绝对坐标面板不居中）
+    replay_dialogs = []
+    for dname in ("datah_107_replay","datah_039_replay"):
+        if dname in DIALOGS and dname in ABS_PANELS:
+            ax, ay = ABS_PANELS[dname]
+            _,_,btns = DIALOGS[dname]
+            replay_dialogs.append((dname, [(lbl, ax+x0, ay+y0, ax+x1, ay+y1) for lbl,x0,y0,x1,y1 in btns]))
     for dname,src in [
         ("主菜单", menu_720()),
-    ] + lay_dialogs:
+    ] + lay_dialogs + replay_dialogs:
         for lbl,x0,y0,x1,y1 in src:
             x0,x1 = max(0,int(x0)),min(w,int(x1)); y0,y1=max(0,int(y0)),min(h,int(y1))
             if x1<=x0 or y1<=y0: continue
