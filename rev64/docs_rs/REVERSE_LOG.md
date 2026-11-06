@@ -3316,3 +3316,38 @@ python3 /tmp/opencode/incremental_regress.py reset 0xADDR  # 改了某指令 →
 - .bss 段 0x7008 字节（0x15be80-0x162e88）完整布局：低区 0x00-0x16c 事件底层 10 单例槽 +
   高区 0x67E0-0x67E8 locale 对象堆（中间 0x16c-0x67E0 区未逐一收表）
 - 中间区（.bss 偏移 0x170-0x67D8，约 25KB）的 C++ 对象分布需 frida dump .bss 段全量实锤
+
+## §124y-71 .bss 中间区（偏移 0x170-0x67D8, ~25KB）无文件静态值（NOBITS）—— 需 frida dump 实锤
+
+**★ 闭环事实（静态实锤，补全 §124y-70 的 .bss 中间区）**：
+
+1. **.bss 段 NOBITS 实锤（readelf -S）**：
+   - `.data PROGBITS 0x15bb6c size 0x314` → 终点 0x15be80
+   - `.bss NOBITS 0x15be80 size 0x7008` → 终点 0x162e88（**文件无字节**）
+   - 即 .bss 全段（含中间区 0x170-0x67D8，~25KB）在文件里**无静态值**（NOBITS），
+     运行时 C++ 构造填 scudo 指针
+
+2. **.bss 中间区（偏移 0x170-0x67D8）RELATIVE 槽全量 = 0**：
+   - .rel.dyn 里 .bss 区（0x15be80-0x162e88）**无 RELATIVE 槽**（5 条 .bss REL 槽全在 .data 0x15be00 区，§124y-32 实锤）
+   - 即中间区无静态重定位槽，全为 C++ 运行时构造的 scudo 对象（std::locale/字符串表/互斥锁等）
+
+3. **.bss 段完整布局实锤（本轮 + §124y-69/70）**：
+   | 区 | 偏移 | 性质 | 实锤来源 |
+   |---|---|---|---|
+   | .bss 低区 | 0x00-0x16c | 事件底层 8 单例槽（C++ 惰性构造） | §124y-55/69 |
+   | .bss 中间区 | 0x170-0x67D8（~25KB） | C++ 全局对象堆（locale/字符串表/互斥锁） | **§124y-71 NOBITS，需 frida** |
+   | .bss 高区 | 0x67E0-0x67E8 | C++ locale 对象 2 槽 | §124y-69 |
+   | .bss 终点 | 0x7008 | .bss 段 end | §124y-70 |
+
+4. **翻译体对应项 + 诚实边界**：
+   - .bss 中间区（~25KB C++ 对象堆）在文件态全 0（NOBITS），翻译体 MEM 读全 0 → 忠实空操作
+   - 完整 .bss 中间区布局（std::locale 对象/字符串表/互斥锁的具体分布）需 **frida dump 运行时 .bss 段全量**
+     （unidbg BL 解码 bug 阻塞，.bss 10 槽 + 中间区 ~25KB 全量 scudo 块是 frida dump 目标）
+   - 4 路径回归实锤 .bss 未构造（全 0）下事件链忠实空操作（§124y-27/33/35 实锤 ok=0 路径）
+
+### 固化为 frida dump 对照基准
+- .bss 段全量 dump 目标（frida `/proc/PID/mem` 0x15be80-0x162e88，28672 字节）：
+  - 低区 8 槽（0x00-0x16c）：事件底层 4 + F_a373c + 0x15be80 + 0x15bef0/fa
+  - 中间区（0x170-0x67D8）：C++ 全局对象堆（locale/字符串表/互斥锁，~25KB）
+  - 高区 2 槽（0x67E0-0x67E8）：C++ locale 对象
+- 10 槽 + 中间区全量 scudo 块是 frida dump .bss 的完整对照基准（§124y-69 数据模型第 7 部分）
