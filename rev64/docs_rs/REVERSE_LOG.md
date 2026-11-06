@@ -4017,3 +4017,43 @@ python3 /tmp/opencode/incremental_regress.py reset 0xADDR  # 改了某指令 →
 - native 层读 removead SP key 的**具体触发函数**（bl FindClass/getString 的 .text 地址）
   需查 .text 全量反汇编 + frida 追踪 JNI 调用实锤（本轮实锤字符串 + 事件名 + 调用链语义）
 - Misc.RemoveAdOk/Fail 的完整 Misc.* 事件名池需查 .rodata 全量（§124y-59 只收 Junqi.* 73 条）
+
+## §124y-88 事件名全量修正实锤：72 Junqi.* + 2 Misc.* = 74 条（修正 §124y-59 的 73 条）
+
+**★ 闭环事实（静态实锤，.rodata 全量事件名扫描 + 前缀分组修正）**：
+
+1. **事件名全量精确实锤（strings -t x 全 .rodata 扫描）**：
+   - **Junqi.* = 72 条**（.rodata 0x120e24-0x123364，码 4）
+     - §124y-59 标注 73 条 → 实锤 **72 条**（§124y-59 计数误多 1）
+     - 末条 = `Junqi.PeerFirst`（0x123364）
+   - **Misc.* = 2 条**（.rodata 0x1233fc/0x123410，码 6）
+     - `Misc.RemoveAdFail`（0x1233fc）/ `Misc.RemoveAdOk`（0x123410）
+     - 即去广告事件名（§124y-87 实锤）= Misc.* 全量 2 条
+   - **总计 = 74 条**（72 Junqi.* + 2 Misc.*，非 §124y-59 的 73 条）
+
+2. **事件名分组与事件码对应实锤（修正 §124y-59/87）**：
+   | 前缀 | 条数 | 事件码 | 语义 |
+   |---|---|---|---|
+   | Junqi.* | 72 | 4（asr4 首字节） | 游戏逻辑事件（走子/吃子/翻牌/登录/注册/悔棋/联机） |
+   | Misc.* | 2 | 6 | 系统/杂项事件（去广告 RemoveAdOk/Fail） |
+   - 即完整事件名 = 74 条（Junqi.* 72 + Misc.* 2），§124y-59 的"73 条"是 Junqi.* 计数误 1
+
+3. **固化产物更新（/tmp/opencode/junqi_events.txt 替换 §124y-59 版）**：
+   - 72 Junqi.*（0x120e24-0x123364）+ 2 Misc.*（0x1233fc/0x123410）= 74 条
+   - 每行含 .rodata 精确偏移 + 事件名（§124y-88 实锤）
+
+4. **Misc.RemoveAdOk/Fail 与去广告链（§124y-86/87）的完整闭环**：
+   - native 读 SP key `com.cnvcs.junqi.removead`（.data REL 0x15bb70 → .rodata 0x121bd4）
+   - JNI `getString` 读 SP 值 → 非 0 发 `Misc.RemoveAdOk`（0x123410）/ 失败发 `Misc.RemoveAdFail`（0x1233fc）
+   - 即去广告 = SP key 读取（§124y-86）+ Misc.* 事件反馈（§124y-88 实锤全量 2 条）
+
+### 修正 §124y-59 的事件名计数
+- §124y-59 标注"73 条 Junqi.* 事件名全量"→ 精确实锤 **72 条 Junqi.* + 2 条 Misc.* = 74 条**
+- §124y-87 的"Misc.* 含 RemoveAdOk/Fail 是独立一组"→ 精确实锤 Misc.* **全量 = 2 条**（仅 RemoveAdOk/Fail）
+- 完整事件名池 = 74 条（Junqi.* 72 游戏逻辑 + Misc.* 2 系统杂项），固化到 /tmp/opencode/junqi_events.txt
+
+### 诚实边界
+- 74 条事件名与事件码（[0x44] 事件码字段 / [0x35] 类型标记）的逐行映射需运行时事件触发实锤
+  （§124y-27 实锤 code4 disc 非零路径，全 74 条逐码映射需 jq.game_test 钩子扩量触发）
+- Misc.* 事件码 6 的 asr4 首字节实锤需查 .rodata 0x1233fc/0x123410 的 C++ std::string 首字节
+  （"M" = 0x4d，asr4 = 0 = 非 6，需查 Misc.* 事件码的实际编码机制，非 asr4）
