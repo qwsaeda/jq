@@ -36,7 +36,14 @@ typedef enum {
                          30 格棋子预览（简化小方块占位）+ 载入/删除/取消 3 按钮（原版 datah_016 400×475 面板居中）。
                          选中布局显示预览 → 载入（应用到棋盘）/ 删除（删文件）/ 取消。
                          诚实边界：30 格 PiecePic 真棋子图未画，小方块占位（有子=蓝/红） */
-      UI_REPLAY,     /* ★ P1（datah_039/107 证据）：复盘回放态——
+      UI_LOGIN,      /* ★ P1（datah_038 证据）：登录弹窗——
+                  用户名/密码占位标签（EditLabel，不画真输入框）+ 登录/注册/游客/返回 4 按钮
+                  （原版 datah_038 432×285 面板居中，局部坐标 1:1 平移偏移 +144,+497.5）。
+                  诚实边界：原版登录=账号系统（登录/注册 需服务器协议，src_rs 未逆向，
+                  Junqi.* 登录/注册 20+ 事件未实现）；游客=本地单机（无账号，唯一真生效路径）；
+                  返回=回主菜单。入口：datah_072 方式弹窗"个人资料"→ UI_LOGIN +
+                  setprop jq.login 测试钩子 */
+UI_REPLAY,     /* ★ P1（datah_039/107 证据）：复盘回放态——
                           棋盘（当前回放位置）+ datah_107 底部 5 按钮控制条
                           （菜单/回退/前进/跳转/返回，460×60 @10,705）+ 步数标签"第 cur/n 步"。
                           入口：datah_039 BackDlg 复盘小浮标（原版命中 flaky）→ setprop jq.replay 测试钩子。
@@ -284,5 +291,32 @@ int ui_replay_ctrl_popup_inside(float x, float y); /* 点在控制条面板内 *
 #define UI_REPLAY_ENTRY_Y0 665.0f
 #define UI_REPLAY_ENTRY_X1 132.0f
 #define UI_REPLAY_ENTRY_Y1 725.0f
+
+/* ★ P1（datah_038 证据）：登录弹窗——用户名/密码占位标签 + 登录/注册/游客/返回 4 按钮。
+   几何 720×1280 基准（datah_038 432×285 面板居中，偏移=(720-432)/2=144,(1280-285)/2=497.5；
+   局部 1:1 平移：用户名 EditLabel 130,80,375,125 → 274,578-519,623；
+   密码 EditLabel 130,140,375,185 → 274,638-519,683；
+   登录 Login 18,205,108,265 → 162,703-252,763；
+   注册 Register 120,205,210,265 → 264,703-354,763；
+   游客 Guest 222,205,312,265 → 366,703-456,763；
+   返回 Cancel 324,205,414,265 → 468,703-558,763）。
+   action：0=用户名标签 1=密码标签 2=登录（诚实边界对话框）3=注册（诚实边界对话框）
+   4=游客（本地单机开局）5=返回（回主菜单）。
+   ★ 诚实边界：原版登录=账号系统（登录/注册 需服务器协议，src_rs 未逆向，
+   Junqi.* 登录/注册 20+ 事件未实现）；用户名/密码 输入框简化为占位标签（触摸 flaky
+   下输入框无意义）；游客=本地单机模式（无账号，唯一真生效路径）。 */
+#define UI_LOGIN_COUNT 6
+#define UI_LOGIN_POPUP_X0 144.0f
+#define UI_LOGIN_POPUP_Y0 497.5f
+#define UI_LOGIN_POPUP_W  432.0f
+#define UI_LOGIN_POPUP_H  285.0f
+typedef struct {
+    float x0, y0, x1, y1;   /* 控件矩形（720×1280 基准） */
+    int action;             /* 0=用户名 1=密码 2=登录 3=注册 4=游客 5=返回 */
+} ui_login_btn;
+
+const ui_login_btn *ui_login_buttons(void);   /* 6 控件（静态表） */
+int ui_login_hit(const ui_login_btn *btns, int n, float x, float y);  /* 命中 0-5，-1 无 */
+int ui_login_popup_inside(float x, float y);  /* 点在弹窗面板内 */
 #endif
 

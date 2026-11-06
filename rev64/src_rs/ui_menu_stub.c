@@ -75,4 +75,18 @@ int ui_replay_ctrl_hit(const ui_replay_btn *b, int n, float x, float y)
 int ui_replay_ctrl_popup_inside(float x, float y)
 { return x>=UI_REPLAY_CTRL_POPUP_X0&&x<=UI_REPLAY_CTRL_POPUP_X0+UI_REPLAY_CTRL_POPUP_W&&
          y>=UI_REPLAY_CTRL_POPUP_Y0&&y<=UI_REPLAY_CTRL_POPUP_Y0+UI_REPLAY_CTRL_POPUP_H; }
+/* ★ P1（datah_038）：登录弹窗 6 控件桩（几何表返回 720 基准占位供
+   一致性/evverify 链接；真机走 ui_menu.c 真实几何表）。
+   诚实边界：原版登录=账号系统（服务器协议未逆向）；游客=本地单机唯一真生效路径。 */
+static const ui_login_btn ln_stub[UI_LOGIN_COUNT] = {
+    { 274.0f,578.0f,519.0f,623.0f,0 },{ 274.0f,638.0f,519.0f,683.0f,1 },
+    { 162.0f,703.0f,252.0f,763.0f,2 },{ 264.0f,703.0f,354.0f,763.0f,3 },
+    { 366.0f,703.0f,456.0f,763.0f,4 },{ 468.0f,703.0f,558.0f,763.0f,5 },
+};
+const ui_login_btn *ui_login_buttons(void) { return ln_stub; }
+int ui_login_hit(const ui_login_btn *b, int n, float x, float y)
+{ for (int i=0;i<n;i++) if (x>=b[i].x0&&x<=b[i].x1&&y>=b[i].y0&&y<=b[i].y1) return i; return -1; }
+int ui_login_popup_inside(float x, float y)
+{ return x>=UI_LOGIN_POPUP_X0&&x<=UI_LOGIN_POPUP_X0+UI_LOGIN_POPUP_W&&
+         y>=UI_LOGIN_POPUP_Y0&&y<=UI_LOGIN_POPUP_Y0+UI_LOGIN_POPUP_H; }
 

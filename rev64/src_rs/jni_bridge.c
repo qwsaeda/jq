@@ -1056,6 +1056,19 @@ Java_com_cnvcs_App_OnCreate(JNIEnv *env, jclass clazz, jobject activity)
             __system_property_set("jq.gameset", "0");
         }
     }
+    /* ★ P1（datah_038）：登录 setprop 钩子（adb setprop jq.login 1 → 重启 → OnCreate 弹 UI_LOGIN）。
+       测试钩子范式，与 jq.gameset 同；值 1=进登录弹窗，0=不触发。一次性（清 0）。
+       诚实边界：原版登录=账号系统（服务器协议未逆向），游客=本地单机唯一真生效路径。 */
+    {
+        char ln_prop[16] = {0};
+        __system_property_get("jq.login", ln_prop);
+        if (strcmp(ln_prop, "1") == 0) {
+            ui_screen_set(UI_LOGIN);
+            LOGI("jq.login 钩子：→ UI_LOGIN 登录弹窗（datah_038 用户名/密码 + 登录/注册/游客/返回，"
+                 "诚实边界：账号系统未逆向，游客=本地单机唯一真生效路径）");
+            __system_property_set("jq.login", "0");
+        }
+    }
     /* ★ P1 布局存档目录：/data/local/tmp/layouts（jni_bridge L684 dirs[1] 范式，
        真机写目录；桌面 evverify 用 tmp 目录 ui_laydir_set）。★ 必须在 ui_layout_list
        （setprop 钩子块）之前 set，否则首次扫描走 ui_laydir_get 缺省 ./layouts 桌面路径
@@ -1497,6 +1510,23 @@ Java_com_cnvcs_App_OnUpdate(JNIEnv *env, jclass clazz)
             __system_property_set("jq.replay", "0");
         }
     }
+    /* ★ P1（datah_038）：登录 setprop 钩子（adb setprop jq.login 1 → 同会话 OnUpdate 轮询
+       → UI_LOGIN 登录弹窗；0=退登录回主菜单。与 jq.replay 同范式，不重启 app）。
+       诚实边界：原版登录=账号系统（服务器协议未逆向），游客=本地单机唯一真生效路径。 */
+    {
+        char ln_prop[16] = {0};
+        __system_property_get("jq.login", ln_prop);
+        if (strcmp(ln_prop, "1") == 0) {
+            ui_screen_set(UI_LOGIN);
+            LOGI("OnUpdate 登录入口：login=1 → UI_LOGIN 登录弹窗（datah_038 用户名/密码 + "
+                 "登录/注册/游客/返回，诚实边界：账号系统未逆向，游客=本地单机唯一真生效路径）");
+            __system_property_set("jq.login", "0");
+        } else if (strcmp(ln_prop, "2") == 0) {
+            ui_screen_set(UI_MENU);
+            LOGI("OnUpdate 登录入口：login=2 → 退登录回主菜单");
+            __system_property_set("jq.login", "0");
+        }
+    }
     /* AI 退化推进（仅对局态；菜单态 AI 不介入，等"人机对战"按钮进 GAME）。
        ★ 红方 AI 应着加日志（实证"下一局"闭环：蓝走子 → 红 AI 自动应着 → 回合切回蓝）。
        ★ 对抗审计 #6：g_state 读（stage/turn）移进 g_mutex 内（旧版锁外读 → 数据竞争）。 */
@@ -1760,13 +1790,11 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
                     "请选择蓝牙联机。");
                 LOGI("OnTouch 方式选择：Wi-Fi 联机边界说明（诚实边界）");
                 ui_screen_set(UI_MENU);
-            } else if (wact == 2) {   /* 个人资料（诚实边界） */
-                jq_show_dialog(env, "个人资料",
-                    "个人资料（诚实边界）：\n"
-                    "原版个人资料（昵称/头像/胜率）未逆向，\n"
-                    "登录注册协议（Junqi.* 20+ 事件）未实现。");
-                LOGI("OnTouch 方式选择：个人资料边界说明（诚实边界）");
-                ui_screen_set(UI_MENU);
+            } else if (wact == 2) {   /* 个人资料 → 登录弹窗（★ P1 datah_038 证据：对齐原版登录对话框几何） */
+                ui_screen_set(UI_LOGIN);
+                sfx_play(env, "pop");
+                LOGI("OnTouch 方式选择：个人资料 → UI_LOGIN 登录弹窗（datah_038 用户名/密码 + 登录/注册/游客/返回，"
+                     "诚实边界：账号系统未逆向，游客=本地单机唯一真生效路径）");
             } else if (wact == 3) {   /* 返回 */
                 ui_screen_set(UI_MENU);
                 LOGI("OnTouch 方式选择：返回 → 主菜单");
@@ -1897,6 +1925,62 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
         if (!ui_newgame_popup_inside(bx, by)) {
             ui_screen_set(UI_MENU);
             LOGI("OnTouch 新局弹窗外（bx=%.0f by=%.0f）→ 回主菜单", bx, by);
+            sfx_play(env, "pop");
+        }
+        (void)clazz;
+        return JNI_TRUE;
+    }
+    /* ★ P1（datah_038 证据）：登录弹窗态。
+       点 用户名/密码（占位标签，无输入框）→ 无动作（LOGI）；
+       点 登录/注册 → 诚实边界对话框（账号系统/服务器协议未逆向）+ 回主菜单；
+       点 游客 → 本地单机模式（g_vs_ai=0 两人热座开局，无账号）；
+       点 返回 → 回主菜单；点面板外 → 回主菜单。
+       ★ 诚实边界：原版登录=账号系统（登录/注册 需服务器协议，src_rs 未逆向，
+       Junqi.* 登录/注册 20+ 事件未实现）；游客=本地单机唯一真生效路径。 */
+    if (ui_screen_get() == UI_LOGIN) {
+        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
+        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        const ui_login_btn *lb = ui_login_buttons();
+        int lh = ui_login_hit(lb, UI_LOGIN_COUNT, bx, by);
+        if (lh >= 0) {
+            int lact = lb[lh].action;   /* 0=用户名 1=密码 2=登录 3=注册 4=游客 5=返回 */
+            LOGI("OnTouch 登录弹窗：控件%d（action=%d）", lh, lact);
+            if (lact == 0 || lact == 1) {   /* 用户名/密码 占位标签（触摸 flaky 无输入框） */
+                LOGI("OnTouch 登录弹窗：用户名/密码 占位标签（★ 诚实边界：输入框简化，不画真输入框）");
+            } else if (lact == 2) {   /* 登录 → 诚实边界对话框 + 回主菜单 */
+                jq_show_dialog(env, "账号登录（诚实边界）",
+                    "账号登录（诚实边界）：\n"
+                    "服务器协议未逆向，原版 Junqi.* 登录/注册 20+ 事件\n"
+                    "未实现，当前为离线单机模式。请选择游客进入。");
+                LOGI("OnTouch 登录弹窗：登录 → 诚实边界对话框 → 回主菜单");
+                ui_screen_set(UI_MENU);
+            } else if (lact == 3) {   /* 注册 → 同样诚实边界对话框 + 回主菜单 */
+                jq_show_dialog(env, "账号注册（诚实边界）",
+                    "账号注册（诚实边界）：\n"
+                    "服务器协议未逆向，原版 Junqi.* 登录/注册 20+ 事件\n"
+                    "未实现，当前为离线单机模式。请选择游客进入。");
+                LOGI("OnTouch 登录弹窗：注册 → 诚实边界对话框 → 回主菜单");
+                ui_screen_set(UI_MENU);
+            } else if (lact == 4) {   /* 游客 → 本地单机（两人热座，无账号） */
+                g_vs_ai = 0;   /* 游客=本地单机：AI 不介入，两人热座 */
+                pthread_mutex_lock(&g_mutex);
+                jq_restart_game();
+                pthread_mutex_unlock(&g_mutex);
+                ui_screen_set(UI_GAME);
+                sfx_play(env, "over");
+                LOGI("OnTouch 登录弹窗：游客 → 本地单机模式（g_vs_ai=0 两人热座开局，无账号，"
+                     "★ 诚实边界：唯一真生效路径，登录/注册 服务器协议未逆向）");
+            } else if (lact == 5) {   /* 返回 → 回主菜单 */
+                ui_screen_set(UI_MENU);
+                sfx_play(env, "pop");
+                LOGI("OnTouch 登录弹窗：返回 → 主菜单");
+            }
+            (void)clazz;
+            return JNI_TRUE;
+        }
+        if (!ui_login_popup_inside(bx, by)) {
+            ui_screen_set(UI_MENU);
+            LOGI("OnTouch 登录弹窗外（bx=%.0f by=%.0f）→ 回主菜单", bx, by);
             sfx_play(env, "pop");
         }
         (void)clazz;

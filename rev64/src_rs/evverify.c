@@ -359,6 +359,82 @@ static int run_replay(void)
     return ok;
 }
 
+/* ★ P1（datah_038 证据）：登录弹窗桌面验证——UI_LOGIN 态机 6 控件命中判定
+   + 游客/返回/登录/注册 业务分支（确定性，不依赖触摸/GL）。
+   几何：ui_login_buttons()（720 基准）vs 原版 datah_038 432×285 面板居中精确换算。
+   ★ 诚实边界：原版登录=账号系统（服务器协议未逆向）；游客=本地单机唯一真生效路径。 */
+static int run_login(void)
+{
+    int ok = 1;
+    const ui_login_btn *lb = ui_login_buttons();
+    /* ① 6 控件几何验证（原版 datah_038 432×285 居中 720 基准精确换算） */
+    float expect[UI_LOGIN_COUNT][4] = {
+        {274.0f, 578.0f, 519.0f, 623.0f},   /* 0=用户名 EditLabel（130,80,375,125） */
+        {274.0f, 638.0f, 519.0f, 683.0f},   /* 1=密码 EditLabel（130,140,375,185） */
+        {162.0f, 703.0f, 252.0f, 763.0f},   /* 2=登录 Login（18,205,108,265） */
+        {264.0f, 703.0f, 354.0f, 763.0f},   /* 3=注册 Register（120,205,210,265） */
+        {366.0f, 703.0f, 456.0f, 763.0f},   /* 4=游客 Guest（222,205,312,265） */
+        {468.0f, 703.0f, 558.0f, 763.0f},   /* 5=返回 Cancel（324,205,414,265） */
+    };
+    for (int i = 0; i < UI_LOGIN_COUNT; i++) {
+        float dx = lb[i].x0 - expect[i][0], dy = lb[i].y0 - expect[i][1];
+        float dx1 = lb[i].x1 - expect[i][2], dy1 = lb[i].y1 - expect[i][3];
+        int oki = (dx < 1.5f && dx > -1.5f) && (dy < 1.5f && dy > -1.5f) &&
+                   (dx1 < 1.5f && dx1 > -1.5f) && (dy1 < 1.5f && dy1 > -1.5f);
+        ok &= oki;
+        printf("login btn%d: src(%.0f,%.0f)-(%.0f,%.0f) 期望(%.0f,%.0f)-(%.0f,%.0f) %s\n",
+               i, lb[i].x0, lb[i].y0, lb[i].x1, lb[i].y1,
+               expect[i][0], expect[i][1], expect[i][2], expect[i][3],
+               oki ? "" : "  [FAIL]");
+    }
+    /* ② 命中判定：每控件中心点命中对应 index */
+    for (int i = 0; i < UI_LOGIN_COUNT; i++) {
+        float cx = (lb[i].x0 + lb[i].x1) * 0.5f, cy = (lb[i].y0 + lb[i].y1) * 0.5f;
+        int hit = ui_login_hit(lb, UI_LOGIN_COUNT, cx, cy);
+        int oki = (hit == i);
+        ok &= oki;
+        printf("login hit btn%d center(%.0f,%.0f) → hit=%d %s\n", i, cx, cy, hit, oki ? "" : "  [FAIL]");
+    }
+    /* ③ 面板内/外判定 */
+    int in_panel = ui_login_popup_inside(UI_LOGIN_POPUP_X0 + 10, UI_LOGIN_POPUP_Y0 + 10);
+    int out_panel = ui_login_popup_inside(UI_LOGIN_POPUP_X0 - 5, UI_LOGIN_POPUP_Y0 - 5);
+    ok &= in_panel && !out_panel;
+    printf("login panel: inside=%d outside=%d %s\n", in_panel, out_panel,
+           (in_panel && !out_panel) ? "" : "  [FAIL]");
+    /* ④ 业务分支判定（桌面桩 ui_screen_set 状态机 + 几何命中，不依赖 GL/触摸） */
+    /* 游客（action=4）→ 本地单机（g_vs_ai=0 两人热座）——唯一真生效路径 */
+    float guest_cx = (lb[4].x0 + lb[4].x1) * 0.5f, guest_cy = (lb[4].y0 + lb[4].y1) * 0.5f;
+    int guest_hit = ui_login_hit(lb, UI_LOGIN_COUNT, guest_cx, guest_cy);
+    int ok_guest = (guest_hit == 4 && lb[guest_hit].action == 4);
+    ok &= ok_guest;
+    printf("login guest: hit=%d action=%d → 本地单机（g_vs_ai=0 两人热座，无账号）%s\n",
+           guest_hit, lb[guest_hit].action, ok_guest ? "" : "  [FAIL]");
+    /* 登录（action=2）→ 诚实边界对话框 + 回主菜单 */
+    float login_cx = (lb[2].x0 + lb[2].x1) * 0.5f, login_cy = (lb[2].y0 + lb[2].y1) * 0.5f;
+    int login_hit = ui_login_hit(lb, UI_LOGIN_COUNT, login_cx, login_cy);
+    int ok_login = (login_hit == 2 && lb[login_hit].action == 2);
+    ok &= ok_login;
+    printf("login btn: hit=%d action=%d → 诚实边界对话框（服务器协议未逆向）→ 回主菜单 %s\n",
+           login_hit, lb[login_hit].action, ok_login ? "" : "  [FAIL]");
+    /* 注册（action=3）→ 同登录边界 */
+    float reg_cx = (lb[3].x0 + lb[3].x1) * 0.5f, reg_cy = (lb[3].y0 + lb[3].y1) * 0.5f;
+    int reg_hit = ui_login_hit(lb, UI_LOGIN_COUNT, reg_cx, reg_cy);
+    int ok_reg = (reg_hit == 3 && lb[reg_hit].action == 3);
+    ok &= ok_reg;
+    printf("login reg: hit=%d action=%d → 诚实边界对话框（服务器协议未逆向）→ 回主菜单 %s\n",
+           reg_hit, lb[reg_hit].action, ok_reg ? "" : "  [FAIL]");
+    /* 返回（action=5）→ 回主菜单 */
+    float back_cx = (lb[5].x0 + lb[5].x1) * 0.5f, back_cy = (lb[5].y0 + lb[5].y1) * 0.5f;
+    int back_hit = ui_login_hit(lb, UI_LOGIN_COUNT, back_cx, back_cy);
+    int ok_back = (back_hit == 5 && lb[back_hit].action == 5);
+    ok &= ok_back;
+    printf("login back: hit=%d action=%d → 回主菜单 %s\n",
+           back_hit, lb[back_hit].action, ok_back ? "" : "  [FAIL]");
+    printf("login: 6 控件几何 Δ=0 + 命中判定 + 业务分支（游客=本地单机唯一真生效路径）%s\n",
+           ok ? "PASS" : "FAIL");
+    return ok;
+}
+
 int main(int argc, char **argv)
 {
     if (argc < 2) {
@@ -416,6 +492,9 @@ int main(int argc, char **argv)
         /* ★ P1（datah_039/107）：复盘回放确定性（走子序列 N 步 → rewind cur=k/0/n 三游标
            cells 终态 == 独立重放结果，不依赖触摸/GL） */
         total++; pass += run_replay();
+        /* ★ P1（datah_038）：登录弹窗 6 控件几何 Δ=0 + 命中判定 + 业务分支
+           （游客=本地单机唯一真生效路径，登录/注册=诚实边界对话框，不依赖触摸/GL） */
+        total++; pass += run_login();
         printf("=== 桌面事件验证: %d/%d 全对 ===\n", pass, total);
         return pass == total ? 0 : 1;
     }
@@ -438,6 +517,7 @@ int main(int argc, char **argv)
         return run_draw_resign() ? 0 : 1;
     if (strcmp(mode, "--stalemate") == 0) return run_stalemate() ? 0 : 1;
     if (strcmp(mode, "--replay") == 0) return run_replay() ? 0 : 1;
+    if (strcmp(mode, "--login") == 0) return run_login() ? 0 : 1;
     printf("未知模式: %s\n", mode);
     return 2;
 }

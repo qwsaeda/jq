@@ -85,12 +85,13 @@ walkverify:
 #   make evverify [MODE=--all|--flag|--mine|--eat|--bomb|--move|--lay]
 # ★ P1（datah_012）：rules.c 依赖 ui_state_stub 的 4 规则开关桩（默认全开，行为不变）
 # ★ P1（datah_016/017/020）：布局存档 3 弹窗桌面验证（run_layout_save 10/10）
+# ★ P1（datah_038）：登录弹窗 6 控件桌面验证（run_login，ui_menu_stub 几何表桩）
 .PHONY: evverify
 MODE ?= --all
 evverify:
 	@mkdir -p dist
 	$(CC) $(CFLAGS) -DRS_NO_GL -o dist/jq_evverify \
-	    board.c layout.c rules.c save.c replay.c evverify.c ui_state_stub.c -lm
+	    board.c layout.c rules.c save.c replay.c evverify.c ui_state_stub.c ui_menu_stub.c -lm
 	@echo "构建完成: dist/jq_evverify"
 	@dist/jq_evverify $(MODE)
 

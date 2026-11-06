@@ -451,3 +451,39 @@ int ui_replay_ctrl_popup_inside(float x, float y)
     return x >= UI_REPLAY_CTRL_POPUP_X0 && x <= UI_REPLAY_CTRL_POPUP_X0 + UI_REPLAY_CTRL_POPUP_W &&
            y >= UI_REPLAY_CTRL_POPUP_Y0 && y <= UI_REPLAY_CTRL_POPUP_Y0 + UI_REPLAY_CTRL_POPUP_H;
 }
+
+/* ★ P1（datah_038 证据）：登录弹窗 6 控件（用户名/密码占位标签 + 登录/注册/游客/返回）。
+   几何 720×1280 基准：面板 432×285 居中（偏移+144,+497.5）；局部 1:1 平移：
+   用户名 EditLabel 130,80,375,125 → 274,578-519,623；
+   密码 EditLabel 130,140,375,185 → 274,638-519,683；
+   登录 Login 18,205,108,265 → 162,703-252,763；
+   注册 Register 120,205,210,265 → 264,703-354,763；
+   游客 Guest 222,205,312,265 → 366,703-456,763；
+   返回 Cancel 324,205,414,265 → 468,703-558,763。
+   ★ 诚实边界：原版登录=账号系统（服务器协议未逆向）；输入框简化为占位标签
+   （触摸 flaky 下输入框无意义）；游客=本地单机唯一真生效路径。 */
+static const ui_login_btn g_login_btns[UI_LOGIN_COUNT] = {
+    /* x0, y0, x1, y1, action；★ 原版 datah_038 432 坐标系精确换算（面板 432×285 居中 720，偏移+144,+497.5） */
+    { 274.0f, 578.0f, 519.0f, 623.0f, 0 },   /* 用户名 EditLabel 占位标签（130,80,375,125） */
+    { 274.0f, 638.0f, 519.0f, 683.0f, 1 },   /* 密码 EditLabel 占位标签（130,140,375,185） */
+    { 162.0f, 703.0f, 252.0f, 763.0f, 2 },   /* 登录 Login（18,205,108,265）→ 诚实边界对话框 */
+    { 264.0f, 703.0f, 354.0f, 763.0f, 3 },   /* 注册 Register（120,205,210,265）→ 诚实边界对话框 */
+    { 366.0f, 703.0f, 456.0f, 763.0f, 4 },   /* 游客 Guest（222,205,312,265）→ 本地单机开局 */
+    { 468.0f, 703.0f, 558.0f, 763.0f, 5 },   /* 返回 Cancel（324,205,414,265）→ 回主菜单 */
+};
+
+const ui_login_btn *ui_login_buttons(void) { return g_login_btns; }
+
+int ui_login_hit(const ui_login_btn *btns, int n, float x, float y)
+{
+    for (int i = 0; i < n; i++)
+        if (x >= btns[i].x0 && x <= btns[i].x1 && y >= btns[i].y0 && y <= btns[i].y1)
+            return i;
+    return -1;
+}
+
+int ui_login_popup_inside(float x, float y)
+{
+    return x >= UI_LOGIN_POPUP_X0 && x <= UI_LOGIN_POPUP_X0 + UI_LOGIN_POPUP_W &&
+           y >= UI_LOGIN_POPUP_Y0 && y <= UI_LOGIN_POPUP_Y0 + UI_LOGIN_POPUP_H;
+}

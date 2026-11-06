@@ -77,6 +77,14 @@ DIALOGS = {
     # flaky，真机入口用 setprop jq.replay 测试钩子触发，几何保留供 Δ 校验）
     "datah_039_replay": (120, 90, [
         ("复盘",15,15,90,60)]),
+    # ★ P1（datah_038 证据）：登录弹窗（432×285 面板居中 720 屏，
+    # 偏移=(720-432)/2=144, (1280-285)/2=497.5；用户名/密码 EditLabel +
+    # 登录/注册/游客/返回 4 按钮。诚实边界：账号系统/登录注册服务器协议未逆向，
+    # 游客=本地单机唯一真生效路径，输入框简化为占位标签）
+    "datah_038_login": (432, 285, [
+        ("用户名",130,80,375,125),("密码",130,140,375,185),
+        ("登录",18,205,108,265),("注册",120,205,210,265),
+        ("游客",222,205,312,265),("返回",324,205,414,265)]),
 }
 
 # datah_107/039 绝对坐标面板（不居中，局部 1:1 平移 @ 偏移）
@@ -115,6 +123,8 @@ def load_src_rs_buttons(path="rev64/src_rs/ui_menu.c"):
     tables["laymgr"] = _grab("g_laymgr_btns")
     # ★ P1（datah_107 证据）：复盘回放控制条 5 按钮（g_replay_ctrl_btns）
     tables["replay"] = _grab("g_replay_ctrl_btns")
+    # ★ P1（datah_038 证据）：登录弹窗 6 控件（g_login_btns）
+    tables["login"] = _grab("g_login_btns")
     return tables
 def dialog_720(name):
     """原版对话框 → 720×1280 物理基准（面板水平居中 +135，垂直居中按面板 H）；
@@ -141,6 +151,7 @@ def menu_720():
 def check_geometry(menu_src=None, verbose=True):
     """Δ=0 几何检查：src_rs 按钮表 vs 原版 720 基准"""
     failures=[]
+    global verbose_global
     # 主菜单（src_rs 720 基准 直接比）
     if menu_src:
         src_menu = menu_src[:5]
@@ -148,14 +159,14 @@ def check_geometry(menu_src=None, verbose=True):
             dcx = (sx0+sx1)/2 - (ox0+ox1)/2
             dcy = (sy0+sy1)/2 - (oy0+oy1)/2
             ok = abs(dcx)<2 and abs(dcy)<2
-            if verbose:
+            if verbose and verbose_global:
                 print(f"  主菜单 {lbl:4s} 原版({ox0:.0f},{oy0:.0f}) src({sx0:.0f},{sy0:.0f}) Δc=({dcx:+.1f},{dcy:+.1f}) {'✓' if ok else '✗'}")
             if not ok: failures.append(f"主菜单 {lbl} Δ=({dcx:+.1f},{dcy:+.1f})")
     # 弹窗（原版 720 换算 vs src_rs 按钮表 720 基准）
     for dname in DIALOGS:
         if dname in ("datah_067_imen_bt","datah_006_imen"):  # ☰ 菜单图标 105×135，单独比中心
             continue
-    if verbose:
+    if verbose and verbose_global:
         print("\n弹窗几何（原版 450/250/230 系换算 720 基准）：")
     # ★ P1 布局存档 3 弹窗逐按钮 Δ 比对（src_rs 按钮表 720 基准 vs 原版 400 系换算 720，
     #   中心偏差 <2 = Δ≈0）
@@ -163,7 +174,8 @@ def check_geometry(menu_src=None, verbose=True):
     for dname, tname in [("datah_017_loadlay","loadlay"),
                          ("datah_020_savelay","savelay"),
                          ("datah_016_laymgr","laymgr"),
-                         ("datah_107_replay","replay")]:
+                         ("datah_107_replay","replay"),
+                         ("datah_038_login","login")]:
         if dname not in DIALOGS or tname not in src: continue
         W,H,obtns = DIALOGS[dname]
         ox,oy = (720-W)/2.0,(1280-H)/2.0
@@ -202,6 +214,13 @@ def check_geometry(menu_src=None, verbose=True):
                     ((srcs[0][0]+srcs[0][2])/2,(srcs[0][1]+srcs[0][3])/2,
                      (srcs[0][0]+srcs[0][2])/2,(srcs[0][1]+srcs[0][3])/2)),
             ]
+        # ★ P1（datah_038 证据）：登录弹窗 6 控件（432×285 居中，偏移+144,+497.5，
+        #   局部 1:1 平移；src_rs g_login_btns 前 6 项对应原版 6 控件）
+        if dname == "datah_038_login":
+            pairs = []
+            for i, (lbl, x0, y0, x1, y1) in enumerate(obtns):
+                pairs.append((lbl, (ox+x0, oy+y0, ox+x1, oy+y1),
+                              (srcs[i][0],srcs[i][1],srcs[i][2],srcs[i][3])))
         # ★ P1（datah_107 证据）：复盘回放控制条 5 按钮（原版 460×60 @ 绝对 10,705，
         #   局部 1:1 平移，720 系 x0=10/104/198/292/386（局部 0/94/188/282/376 + 10），
         #   x1=x0+84=94/188/282/376/470；y 705-765）
@@ -212,7 +231,7 @@ def check_geometry(menu_src=None, verbose=True):
                 pairs.append((lbl, (ax+x0, ay+y0, ax+x1, ay+y1),
                               (srcs[i][0],srcs[i][1],srcs[i][2],srcs[i][3])))
         if not srcs or len(srcs) < 3:
-            if verbose: print(f"  {dname} src_rs 按钮表缺失/不足（{len(srcs)} 行）→ 跳过 Δ 比对（诚实边界）")
+            if verbose and verbose_global: print(f"  {dname} src_rs 按钮表缺失/不足（{len(srcs)} 行）→ 跳过 Δ 比对（诚实边界）")
             continue
         for lbl, (oox0,ooy0,oox1,ooy1), so in pairs:
             sox0,sox1,soy0,soy1 = so[0],so[2],so[1],so[3]
@@ -220,17 +239,17 @@ def check_geometry(menu_src=None, verbose=True):
             dcy = (soy0+soy1)/2 - (ooy0+ooy1)/2
             ok = abs(dcx)<2 and abs(dcy)<2
             is_region = lbl in ("列表","预览")   # ListBox 容器区 vs src_rs 条目行 = 语义差非几何偏移
-            if verbose:
+            if verbose and verbose_global:
                 note = "（容器区 vs 条目行，语义差）" if is_region else ""
                 print(f"  {dname} {lbl:4s} 原版720中心({(oox0+oox1)/2:.0f},{(ooy0+ooy1)/2:.0f}) src({(sox0+sox1)/2:.0f},{(soy0+soy1)/2:.0f}) Δc=({dcx:+.1f},{dcy:+.1f}) {('—' if is_region else ('✓' if ok else '✗'))} {note}")
             if not ok and not is_region:
                 failures.append(f"{dname} {lbl} Δ=({dcx:+.1f},{dcy:+.1f})")
-    for dname in ["datah_041_diff","datah_072_way","datah_001_set","datah_089_nplayer","datah_062_newgame","datah_012_gameset","datah_017_loadlay","datah_020_savelay","datah_016_laymgr","datah_107_replay","datah_039_replay"]:
+    for dname in ["datah_041_diff","datah_072_way","datah_001_set","datah_089_nplayer","datah_062_newgame","datah_012_gameset","datah_017_loadlay","datah_020_savelay","datah_016_laymgr","datah_107_replay","datah_039_replay","datah_038_login"]:
         orig = dialog_720(dname)
-        nrep = len(orig) if dname in ("datah_017_loadlay","datah_020_savelay","datah_016_laymgr","datah_107_replay","datah_039_replay") else 2
+        nrep = len(orig) if dname in ("datah_017_loadlay","datah_020_savelay","datah_016_laymgr","datah_107_replay","datah_039_replay","datah_038_login") else 2
         for lbl,ox0,oy0,ox1,oy1 in orig[:nrep]:
             cx,cy = (ox0+ox1)/2,(oy0+oy1)/2
-            if verbose:
+            if verbose and verbose_global:
                 print(f"  {dname} {lbl:8s} 720中心({cx:.0f},{cy:.0f})  区({ox0:.0f},{oy0:.0f})-({ox1:.0f},{oy1:.0f})")
     return failures
 
@@ -256,9 +275,16 @@ def check_screenshot(path, threshold=0.5):
             ax, ay = ABS_PANELS[dname]
             _,_,btns = DIALOGS[dname]
             replay_dialogs.append((dname, [(lbl, ax+x0, ay+y0, ax+x1, ay+y1) for lbl,x0,y0,x1,y1 in btns]))
+    # ★ P1（datah_038）：登录弹窗（432×285 居中，偏移+144,+497.5）
+    login_dialogs = []
+    for dname in ("datah_038_login",):
+        if dname in DIALOGS:
+            W,H,btns = DIALOGS[dname]
+            ox,oy = (720-W)/2.0,(1280-H)/2.0
+            login_dialogs.append((dname, [(lbl, ox+x0, oy+y0, ox+x1, oy+y1) for lbl,x0,y0,x1,y1 in btns]))
     for dname,src in [
         ("主菜单", menu_720()),
-    ] + lay_dialogs + replay_dialogs:
+    ] + lay_dialogs + replay_dialogs + login_dialogs:
         for lbl,x0,y0,x1,y1 in src:
             x0,x1 = max(0,int(x0)),min(w,int(x1)); y0,y1=max(0,int(y0)),min(h,int(y1))
             if x1<=x0 or y1<=y0: continue
@@ -278,7 +304,7 @@ def main():
     global verbose_global
     ap = argparse.ArgumentParser()
     ap.add_argument("--screenshot", help="真机截图路径（720×1280），做按钮区非黑探测")
-    ap.add_argument("--baseline", action="store_true", help="只跑几何 Δ 检查")
+    ap.add_argument("--baseline", action="store_true", help="只跑几何 Δ 检查（静默出结论，不打印逐行明细）")
     ap.add_argument("--menu-src", default="rev64/src_rs/ui_menu.c", help="src_rs 按钮表文件")
     ap.add_argument("--json", help="输出 JSON（机读）")
     ap.add_argument("-q", action="store_true", help="静默（只出 JSON/结论）")
@@ -294,7 +320,7 @@ def main():
     m=re.findall(r"\{\s*([\d.]+)f\s*,\s*([\d.]+)f\s*,\s*([\d.]+)f\s*,\s*([\d.]+)f\s*,\s*\"([^\"]+)\"", txt)
     menu_src=[(float(a_),float(b_),float(c_),float(d_),e) for a_,b_,c_,d_,e in m[:5]]
 
-    failures = check_geometry(menu_src, verbose=not a.q and not a.baseline)
+    failures = check_geometry(menu_src, verbose=not a.q)
     missing = []
     if a.screenshot and os.path.exists(a.screenshot):
         missing = check_screenshot(a.screenshot)
@@ -303,12 +329,16 @@ def main():
         print(json.dumps({"geometry_failures":failures,"screenshot_missing":missing,
                           "pass": len(failures)==0 and len(missing)==0}, ensure_ascii=False))
     else:
-        print("\n=== 结论 ===")
-        print(f"几何 Δ 检查: {'PASS' if not failures else 'FAIL '+str(failures)}")
-        if a.screenshot:
-            print(f"截图非黑检查: {'PASS' if not missing else 'MISS '+str(missing)}")
-        print("★ 判据 = 逐按钮中心偏差 Δ=0 + 按钮区非黑≥50%（布局对齐真证据，非'非黑总比例'糊弄）")
-        print("★ 诚实边界：触摸命中是 MuMu PBuffer 坐标映射 flaky，本工具只验几何，不验触摸")
+        if not a.baseline:
+            print("\n=== 结论 ===")
+            print(f"几何 Δ 检查: {'PASS' if not failures else 'FAIL '+str(failures)}")
+            if a.screenshot:
+                print(f"截图非黑检查: {'PASS' if not missing else 'MISS '+str(missing)}")
+            print("★ 判据 = 逐按钮中心偏差 Δ=0 + 按钮区非黑≥50%（布局对齐真证据，非'非黑总比例'糊弄）")
+            print("★ 诚实边界：触摸命中是 MuMu PBuffer 坐标映射 flaky，本工具只验几何，不验触摸")
+        else:
+            # --baseline：只出几何结论（静默），供 CI 自动化判断
+            print(f"几何 Δ 检查: {'PASS' if not failures else 'FAIL '+str(failures)}")
     sys.exit(0 if (not failures and not missing) else 1)
 
 if __name__ == "__main__":

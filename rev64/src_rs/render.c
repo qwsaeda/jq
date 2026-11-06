@@ -291,6 +291,8 @@ int rs_render_init(rs_render *rr, const char *spak_dir, const jq_state *init_sta
         snprintf(p19, sizeof p19, "%s/layres_text_atlas.png", spak_dir ? spak_dir : "");
         char p20[512];
         snprintf(p20, sizeof p20, "%s/replay_text_atlas.png", spak_dir ? spak_dir : "");
+        char p21[512];
+        snprintf(p21, sizeof p21, "%s/login_text_atlas.png", spak_dir ? spak_dir : "");
         unsigned char *braw = NULL; size_t braw_len = 0;
         unsigned char *praw = NULL; size_t praw_len = 0;
         unsigned char *traw = NULL; size_t traw_len = 0;
@@ -311,14 +313,16 @@ int rs_render_init(rs_render *rr, const char *spak_dir, const jq_state *init_sta
         unsigned char *gsaw = NULL; size_t gsaw_len = 0;    /* ★ P1 datah_012 游戏设置文字图集 */
         unsigned char *lrsw = NULL; size_t lrsw_len = 0;    /* ★ P1 datah_016/017/020 布局存档文字图集 */
         unsigned char *rpaw = NULL; size_t rpaw_len = 0;    /* ★ P1 datah_039/107 复盘文字图集 */
+        unsigned char *lpaw = NULL; size_t lpaw_len = 0;    /* ★ P1 datah_038 登录文字图集 */
         unsigned char *bpx = NULL, *ppx = NULL, *tpx = NULL, *gpx = NULL;
         unsigned char *opx = NULL, *ppx2 = NULL, *mpx = NULL, *ipx = NULL, *icpx = NULL, *hbpx = NULL, *bbpx = NULL, *bspx = NULL;
         unsigned char *wspx = NULL, *bipx = NULL, *stpx = NULL;
-        unsigned char *nppx = NULL, *ngpx = NULL, *gsp_x = NULL, *lrpx = NULL, *rp_px = NULL;
+        unsigned char *nppx = NULL, *ngpx = NULL, *gsp_x = NULL, *lrpx = NULL, *rp_px = NULL, *lp_px = NULL;
         int bw = 0, bh = 0, pw = 0, ph = 0, tw = 0, th = 0, gw = 0, gh = 0;
         int ow = 0, oh = 0, pw2 = 0, ph2 = 0, mw = 0, mh = 0, iw = 0, ih = 0, icw = 0, ich = 0;
         int hbw = 0, hbh = 0, bbw = 0, bbh = 0, bsw = 0, bsh = 0, wsw = 0, wsh = 0, biw = 0, bih = 0, stw = 0, sth = 0;
         int npw = 0, nph = 0, ngw = 0, ngh = 0, gsw = 0, gsh = 0, lrw = 0, lrh = 0, rpw = 0, rph = 0;
+        int lpw = 0, lph = 0;   /* ★ P1 datah_038 登录文字图集尺寸 */
         rs_read_png(am, "spak_res/datah_188_21d95e03e7692e98.bin", p1, &braw, &braw_len);
         rs_read_png(am, "spak_res/datah_183_9e1b7fbc4dfc09c3.bin", p2, &praw, &praw_len);
         rs_read_png(am, "spak_res/menu_text_atlas.png", p3, &traw, &traw_len);
@@ -339,6 +343,7 @@ int rs_render_init(rs_render *rr, const char *spak_dir, const jq_state *init_sta
         rs_read_png(am, "spak_res/gameset_text_atlas.png", p18, &gsaw, &gsaw_len);
         rs_read_png(am, "spak_res/layres_text_atlas.png", p19, &lrsw, &lrsw_len);
         rs_read_png(am, "spak_res/replay_text_atlas.png", p20, &rpaw, &rpaw_len);
+        rs_read_png(am, "spak_res/login_text_atlas.png", p21, &lpaw, &lpaw_len);
         if (braw && png_decode(braw, braw_len, &bpx, &bw, &bh) == 0) { rr->board_px = bpx; rr->board_px_len = (size_t)bw * bh * 4; }
         free(braw);
         if (praw && png_decode(praw, praw_len, &ppx, &pw, &ph) == 0) { rr->piece_px = ppx; rr->piece_px_len = (size_t)pw * ph * 4; }
@@ -452,6 +457,13 @@ int rs_render_init(rs_render *rr, const char *spak_dir, const jq_state *init_sta
             rr->replay_text_w = rpw; rr->replay_text_h = rph;
         }
         free(rpaw);
+        /* ★ P1（datah_038）：登录文字图集（8 标签竖排 220×368：
+           登录/用户名/密码/注册/游客/返回/账户/边界） */
+        if (lpaw && png_decode(lpaw, lpaw_len, &lp_px, &lpw, &lph) == 0) {
+            rr->login_text_px = lp_px; rr->login_text_px_len = (size_t)lpw * lph * 4;
+            rr->login_text_w = lpw; rr->login_text_h = lph;
+        }
+        free(lpaw);
         rr->gl_px_loaded = 1;
         LOGI("Init 像素解码：board=%s(%dx%d) piece=%s(%dx%d) text=%s(%dx%d) bg=%s(%dx%d) menu_bg=%s(%dx%d) popup=%s(%dx%d) opt_text=%s(%dx%d) imen_text=%s(%dx%d) waysel=%s(%dx%d) btimen=%s(%dx%d) settings=%s(%dx%d) nplayer=%s(%dx%d) newgame=%s(%dx%d) gameset=%s(%dx%d) layres=%s(%dx%d) replay=%s(%dx%d)",
              rr->board_px ? "OK" : "MISS", bw, bh, rr->piece_px ? "OK" : "MISS", pw, ph,
@@ -465,7 +477,8 @@ int rs_render_init(rs_render *rr, const char *spak_dir, const jq_state *init_sta
              rr->nplayer_text_px ? "OK" : "MISS", npw, nph, rr->newgame_text_px ? "OK" : "MISS", ngw, ngh,
               rr->gameset_text_px ? "OK" : "MISS", gsw, gsh,
               rr->layres_text_px ? "OK" : "MISS", lrw, lrh,
-              rr->replay_text_px ? "OK" : "MISS", rpw, rph);
+              rr->replay_text_px ? "OK" : "MISS", rpw, rph,
+               rr->login_text_px ? "OK" : "MISS", lpw, lph);
     }
     if (rr->egl_ctx)
         LOGI("render 初始化：GL2 context 就绪，GL 对象延迟到 GLThread 首帧建");
@@ -2393,11 +2406,221 @@ static void rs_replay_pieces(rs_render *rr, int slot, GLint uc)
     }
 }
 
+/* ★ P1（datah_038 证据）：登录弹窗渲染——主菜单背景 + 面板深色半透明
+   + 用户名/密码占位标签（EditLabel 不画真输入框）+ 登录/注册/游客/返回 4 按钮 + 文字图集。
+   按钮几何 ui_login_buttons()（720×1280 基准）。
+   ★ 诚实边界：原版登录=账号系统（登录/注册 需服务器协议，src_rs 未逆向）；
+   游客=本地单机（无账号，唯一真生效路径）；输入框简化为占位标签（触摸 flaky）。 */
+#define LOGIN_ROW 8
+static void rs_login_text(rs_render *rr, int slot, float x, float y, float w,
+                          float h, int row, GLint uc)
+{
+    (void)uc;
+    if (!rr->tex_login_text[slot] || !rr->prog_tex[slot] ||
+        rr->login_text_w <= 0 || rr->login_text_h <= 0) return;
+    int row_h = rr->login_text_h / LOGIN_ROW;
+    float sx = (float)rr->view_w / 720.0f, sy = (float)rr->view_h / 1280.0f;
+    float tw = w * sx, th = h * sy;
+    float u0 = 0.0f, u1 = 1.0f;
+    float v0 = (float)(row * row_h) / rr->login_text_h;
+    float v1 = (float)(row * row_h + row_h) / rr->login_text_h;
+    rs_v4f tq[6] = {
+        {x * sx, y * sy, u0, v0}, {x * sx + tw, y * sy, u1, v0}, {x * sx, y * sy + th, u0, v1},
+        {x * sx, y * sy + th, u0, v1}, {x * sx + tw, y * sy, u1, v0}, {x * sx + tw, y * sy + th, u1, v1},
+    };
+    glUseProgram(rr->prog_tex[slot]);
+    glUniform2f(rr->uViewWH_tex[slot], (GLfloat)rr->view_w, (GLfloat)rr->view_h);
+    glUniform1i(glGetUniformLocation(rr->prog_tex[slot], "uTex"), 0);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, rr->tex_login_text[slot]);
+    glGenBuffers(1, &rr->vbo_sel[slot]);
+    glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(tq), tq, GL_DYNAMIC_DRAW);
+    rs_bind_vbo(rr->vbo_sel[slot]);
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+    rs_unbind_vbo();
+    glDeleteBuffers(1, &rr->vbo_sel[slot]);
+    rr->vbo_sel[slot] = 0;
+}
+
+static void rs_draw_login(rs_render *rr, int slot)
+{
+    if (!rr->prog_solid[slot] || !rr->gl2_ok[slot]) return;
+    float sx = (float)rr->view_w / 720.0f, sy = (float)rr->view_h / 1280.0f;
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    /* ⓪ 背景：主菜单背景（登录弹窗是主菜单上的模态框，datah_072 方式弹窗"个人资料"弹出） */
+    if (rr->tex_menu_bg[slot] && rr->prog_tex[slot]) {
+        float w = (float)rr->view_w, h = (float)rr->view_h;
+        rs_v4f bg[6] = {
+            {0, 0, 0, 0}, {w, 0, 1, 0}, {0, h, 0, 1},
+            {0, h, 0, 1}, {w, 0, 1, 0}, {w, h, 1, 1},
+        };
+        glUseProgram(rr->prog_tex[slot]);
+        glUniform2f(rr->uViewWH_tex[slot], (GLfloat)rr->view_w, (GLfloat)rr->view_h);
+        glUniform1i(glGetUniformLocation(rr->prog_tex[slot], "uTex"), 0);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, rr->tex_menu_bg[slot]);
+        glGenBuffers(1, &rr->vbo_sel[slot]);
+        glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(bg), bg, GL_DYNAMIC_DRAW);
+        rs_bind_vbo(rr->vbo_sel[slot]);
+        glDrawArrays(GL_TRIANGLES, 0, 6);
+        rs_unbind_vbo();
+        glDeleteBuffers(1, &rr->vbo_sel[slot]);
+        rr->vbo_sel[slot] = 0;
+    }
+    /* ① 全屏模态遮罩（半透明黑，聚焦弹窗） */
+    rs_v4f mq[6] = {
+        {0, 0, 0, 0}, {(float)rr->view_w, 0, 0, 0}, {0, (float)rr->view_h, 0, 0},
+        {0, (float)rr->view_h, 0, 0}, {(float)rr->view_w, 0, 0, 0},
+        {(float)rr->view_w, (float)rr->view_h, 0, 0},
+    };
+    glUseProgram(rr->prog_solid[slot]);
+    glUniform2f(rr->uViewWH_solid[slot], (GLfloat)rr->view_w, (GLfloat)rr->view_h);
+    glUniform4f(uc, 0.0f, 0.0f, 0.0f, 0.35f);
+    glGenBuffers(1, &rr->vbo_sel[slot]);
+    glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(mq), mq, GL_DYNAMIC_DRAW);
+    rs_bind_vbo(rr->vbo_sel[slot]);
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+    rs_unbind_vbo();
+    glDeleteBuffers(1, &rr->vbo_sel[slot]);
+    rr->vbo_sel[slot] = 0;
+    /* ② 面板：深色半透明矩形（datah_038 432×285 居中，720 基准 144,497.5-576,782.5） */
+    float px0 = UI_LOGIN_POPUP_X0 * sx, py0 = UI_LOGIN_POPUP_Y0 * sy;
+    float pw = UI_LOGIN_POPUP_W * sx, ph = UI_LOGIN_POPUP_H * sy;
+    rs_v4f pq[6] = {
+        {px0, py0, 0, 0}, {px0 + pw, py0, 0, 0}, {px0, py0 + ph, 0, 0},
+        {px0, py0 + ph, 0, 0}, {px0 + pw, py0, 0, 0}, {px0 + pw, py0 + ph, 0, 0},
+    };
+    glUseProgram(rr->prog_solid[slot]);
+    glUniform2f(rr->uViewWH_solid[slot], (GLfloat)rr->view_w, (GLfloat)rr->view_h);
+    glUniform4f(uc, 0.08f, 0.08f, 0.10f, 0.78f);
+    glGenBuffers(1, &rr->vbo_sel[slot]);
+    glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(pq), pq, GL_DYNAMIC_DRAW);
+    rs_bind_vbo(rr->vbo_sel[slot]);
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+    rs_unbind_vbo();
+    glDeleteBuffers(1, &rr->vbo_sel[slot]);
+    rr->vbo_sel[slot] = 0;
+    /* ③ 标题"登录"（login_text row0，面板顶部 285,512-435,558 720 基准区） */
+    rs_login_text(rr, slot, 285.0f, 512.0f, 150.0f, 46.0f, 0, uc);
+    /* ④ 用户名/密码 占位 EditLabel（矩形浅色底 + 占位文字，★ 诚实边界：不画真输入框） */
+    const ui_login_btn *lb = ui_login_buttons();
+    for (int i = 0; i < 2; i++) {
+        float bx0 = lb[i].x0 * sx, by0 = lb[i].y0 * sy;
+        float bx1 = lb[i].x1 * sx, by1 = lb[i].y1 * sy;
+        rs_v4f eq[6] = {
+            {bx0, by0, 0, 0}, {bx1, by0, 0, 0}, {bx0, by1, 0, 0},
+            {bx0, by1, 0, 0}, {bx1, by0, 0, 0}, {bx1, by1, 0, 0},
+        };
+        glUseProgram(rr->prog_solid[slot]);
+        glUniform2f(rr->uViewWH_solid[slot], (GLfloat)rr->view_w, (GLfloat)rr->view_h);
+        glUniform4f(uc, 0.90f, 0.90f, 0.92f, 0.92f);   /* 浅色输入框底 */
+        glGenBuffers(1, &rr->vbo_sel[slot]);
+        glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(eq), eq, GL_DYNAMIC_DRAW);
+        rs_bind_vbo(rr->vbo_sel[slot]);
+        glDrawArrays(GL_TRIANGLES, 0, 6);
+        rs_unbind_vbo();
+        glDeleteBuffers(1, &rr->vbo_sel[slot]);
+        rr->vbo_sel[slot] = 0;
+        /* 占位标签文字（row1=用户名 row2=密码，输入框内左对齐） */
+        float tw = 90.0f * sx, th = tw * ((float)(rr->login_text_h / LOGIN_ROW) / rr->login_text_w);
+        float tx0 = bx0 + 14.0f * sx, ty0 = (by0 + by1) * 0.5f - th * 0.5f;
+        float u0 = 0.0f, u1 = 1.0f;
+        int row_h = rr->login_text_h / LOGIN_ROW;
+        float v0 = (float)((1 + i) * row_h) / rr->login_text_h;
+        float v1 = (float)((1 + i) * row_h + row_h) / rr->login_text_h;
+        rs_v4f tq[6] = {
+            {tx0, ty0, u0, v0}, {tx0 + tw, ty0, u1, v0}, {tx0, ty0 + th, u0, v1},
+            {tx0, ty0 + th, u0, v1}, {tx0 + tw, ty0, u1, v0}, {tx0 + tw, ty0 + th, u1, v1},
+        };
+        if (rr->tex_login_text[slot] && rr->prog_tex[slot]) {
+            glUseProgram(rr->prog_tex[slot]);
+            glUniform2f(rr->uViewWH_tex[slot], (GLfloat)rr->view_w, (GLfloat)rr->view_h);
+            glUniform1i(glGetUniformLocation(rr->prog_tex[slot], "uTex"), 0);
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, rr->tex_login_text[slot]);
+            glGenBuffers(1, &rr->vbo_sel[slot]);
+            glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
+            glBufferData(GL_ARRAY_BUFFER, sizeof(tq), tq, GL_DYNAMIC_DRAW);
+            rs_bind_vbo(rr->vbo_sel[slot]);
+            glDrawArrays(GL_TRIANGLES, 0, 6);
+            rs_unbind_vbo();
+            glDeleteBuffers(1, &rr->vbo_sel[slot]);
+            rr->vbo_sel[slot] = 0;
+        }
+    }
+    /* ⑤ 4 按钮：登录（蓝）/ 注册（绿）/ 游客（金）/ 返回（灰）纯色 */
+    static const float BTN_COL[4][4] = {
+        {0.20f, 0.45f, 0.90f, 0.9f},   /* 登录 蓝 */
+        {0.30f, 0.70f, 0.50f, 0.9f},   /* 注册 绿 */
+        {0.95f, 0.80f, 0.20f, 0.9f},   /* 游客 金（本地单机唯一真生效路径） */
+        {0.55f, 0.55f, 0.60f, 0.9f},   /* 返回 灰 */
+    };
+    for (int i = 2; i < UI_LOGIN_COUNT; i++) {
+        float bx0 = lb[i].x0 * sx, by0 = lb[i].y0 * sy;
+        float bx1 = lb[i].x1 * sx, by1 = lb[i].y1 * sy;
+        rs_v4f bq[6] = {
+            {bx0, by0, 0, 0}, {bx1, by0, 0, 0}, {bx0, by1, 0, 0},
+            {bx0, by1, 0, 0}, {bx1, by0, 0, 0}, {bx1, by1, 0, 0},
+        };
+        glUseProgram(rr->prog_solid[slot]);
+        glUniform2f(rr->uViewWH_solid[slot], (GLfloat)rr->view_w, (GLfloat)rr->view_h);
+        glUniform4f(uc, BTN_COL[i - 2][0], BTN_COL[i - 2][1], BTN_COL[i - 2][2], BTN_COL[i - 2][3]);
+        glGenBuffers(1, &rr->vbo_sel[slot]);
+        glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(bq), bq, GL_DYNAMIC_DRAW);
+        rs_bind_vbo(rr->vbo_sel[slot]);
+        glDrawArrays(GL_TRIANGLES, 0, 6);
+        rs_unbind_vbo();
+        glDeleteBuffers(1, &rr->vbo_sel[slot]);
+        rr->vbo_sel[slot] = 0;
+        /* 按钮文字（row3=注册 row4=游客 row5=返回；登录文字 row1 已画在用户名框，
+           登录按钮文字用 row6"账户"占位——★ 诚实边界：登录/注册 未逆向服务器协议） */
+        int row_idx = (i == 2) ? 6 : (i == 3 ? 3 : (i == 4 ? 4 : 5));
+        float tw = 60.0f * sx, th = tw * ((float)(rr->login_text_h / LOGIN_ROW) / rr->login_text_w);
+        float tx0 = (bx0 + bx1) * 0.5f - tw * 0.5f, ty0 = (by0 + by1) * 0.5f - th * 0.5f;
+        float u0 = 0.0f, u1 = 1.0f;
+        int row_h = rr->login_text_h / LOGIN_ROW;
+        float v0 = (float)(row_idx * row_h) / rr->login_text_h;
+        float v1 = (float)(row_idx * row_h + row_h) / rr->login_text_h;
+        rs_v4f tq[6] = {
+            {tx0, ty0, u0, v0}, {tx0 + tw, ty0, u1, v0}, {tx0, ty0 + th, u0, v1},
+            {tx0, ty0 + th, u0, v1}, {tx0 + tw, ty0, u1, v0}, {tx0 + tw, ty0 + th, u1, v1},
+        };
+        if (rr->tex_login_text[slot] && rr->prog_tex[slot] && rr->login_text_w > 0 && rr->login_text_h > 0) {
+            glUseProgram(rr->prog_tex[slot]);
+            glUniform2f(rr->uViewWH_tex[slot], (GLfloat)rr->view_w, (GLfloat)rr->view_h);
+            glUniform1i(glGetUniformLocation(rr->prog_tex[slot], "uTex"), 0);
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, rr->tex_login_text[slot]);
+            glGenBuffers(1, &rr->vbo_sel[slot]);
+            glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
+            glBufferData(GL_ARRAY_BUFFER, sizeof(tq), tq, GL_DYNAMIC_DRAW);
+            rs_bind_vbo(rr->vbo_sel[slot]);
+            glDrawArrays(GL_TRIANGLES, 0, 6);
+            rs_unbind_vbo();
+            glDeleteBuffers(1, &rr->vbo_sel[slot]);
+            rr->vbo_sel[slot] = 0;
+        }
+    }
+    static int ldiag = 0;
+    if (!ldiag) {
+        ldiag = 1;
+        LOGI("rs_draw_login：登录弹窗（datah_038 用户名/密码占位标签 + 登录/注册/游客/返回 4 按钮，面板 %.0f×%.0f，"
+             "诚实边界：账号系统/登录注册服务器协议未逆向，游客=本地单机唯一真生效路径）",
+             UI_LOGIN_POPUP_W, UI_LOGIN_POPUP_H);
+    }
+}
+
 static void rs_draw_replay(rs_render *rr, int slot)
 {
     if (!rr->prog_solid[slot] || !rr->gl2_ok[slot]) return;
-    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     float sx = (float)rr->view_w / 720.0f, sy = (float)rr->view_h / 1280.0f;
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     /* ⓪ 背景：对局棋盘背景（复盘态画当前回放位置棋盘，复用 tex_bg 全图铺满） */
     if (rr->tex_bg[slot] && rr->prog_tex[slot]) {
         float w = (float)rr->view_w, h = (float)rr->view_h;
@@ -2692,6 +2915,15 @@ static void rs_gl_rebuild(rs_render *rr, int slot)
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     }
+    /* ★ P1（datah_038）：登录文字图集（8 标签竖排 220×368） */
+    if (rr->login_text_px && rr->gl2_ok[slot] && rr->login_text_w > 0 && rr->login_text_h > 0) {
+        glGenTextures(1, &rr->tex_login_text[slot]);
+        glBindTexture(GL_TEXTURE_2D, rr->tex_login_text[slot]);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->login_text_w, rr->login_text_h, 0,
+                     GL_RGBA, GL_UNSIGNED_BYTE, rr->login_text_px);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    }
     /* 棋盘 VBO */
     {
         float w = (float)rr->view_w, h = (float)rr->view_h;
@@ -2931,6 +3163,9 @@ void rs_render_frame(rs_render *rr)
         } else if (ui_screen_get() == UI_LAY_MGR) {
             /* ★ P1（datah_016 证据）：布局管理弹窗（30 格预览小方块+载入/删除/取消） */
             rs_draw_laymgr(rr, slot);
+        } else if (ui_screen_get() == UI_LOGIN) {
+            /* ★ P1（datah_038 证据）：登录弹窗（用户名/密码占位标签 + 登录/注册/游客/返回 4 按钮） */
+            rs_draw_login(rr, slot);
         } else if (ui_screen_get() == UI_REPLAY) {
             /* ★ P1（datah_039/107 证据）：复盘回放态（棋盘当前回放位置 + datah_107 控制条 5 按钮 + 步数标签） */
             rs_draw_replay(rr, slot);

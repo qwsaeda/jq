@@ -65,6 +65,8 @@ typedef struct {
                                           载入布局/保存布局/布局管理/取消/保存/改名/删除/关闭/载入） */
     rs_glid_t tex_replay_text[2];   /* ★ P1（datah_039/107）：复盘文字图集 220×368（8 标签竖排：
                                           复盘/菜单/回退/前进/跳转/返回/第N步/结束） */
+    rs_glid_t tex_login_text[2];  /* ★ P1（datah_038）：登录文字图集 220×368（8 标签竖排：
+                                           登录/用户名/密码/注册/游客/返回/账户/边界） */
     void *board_px; size_t board_px_len;   /* 解码后 RGBA（跨 context 共享，只解码一次） */
     void *piece_px;  size_t piece_px_len;
     void *text_px;   size_t text_px_len;   /* 菜单文字图集 RGBA（5 label 竖排） */
@@ -93,6 +95,8 @@ typedef struct {
     int layres_text_w, layres_text_h;          /* 布局存档文字图集尺寸 */
     void *replay_text_px; size_t replay_text_px_len; /* ★ P1（datah_039/107）：复盘文字图集 RGBA（8 标签竖排 220×368） */
     int replay_text_w, replay_text_h;          /* 复盘文字图集尺寸 */
+    void *login_text_px; size_t login_text_px_len; /* ★ P1（datah_038）：登录文字图集 RGBA（8 标签竖排 220×368） */
+    int login_text_w, login_text_h;           /* 登录文字图集尺寸 */
     void *imen_text_px; size_t imen_text_px_len; /* ★ ☰ 菜单文字图集 RGBA（8 项竖排 160×320） */
     int imen_text_w, imen_text_h;               /* ☰ 菜单文字图集尺寸 */
     void *imen_icons_px; size_t imen_icons_px_len; /* ★ ☰ 菜单图标图集 RGBA（8 图标 110×100 4×2，原版裁剪） */
