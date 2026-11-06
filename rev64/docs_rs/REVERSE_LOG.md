@@ -5180,3 +5180,43 @@ python3 /tmp/opencode/incremental_regress.py reset 0xADDR  # 改了某指令 →
   未实锤 0x20/0x21/0x22 各对应哪个事件名）
 - 根对象 this [0x24] 字段（C++ 场景管理器成员）的完整布局需查 .bss 0x15be8c 区 + frida dump
   （本轮实锤 OnUpdate 读 [0x24]，未实锤 [0x24] 指向的 C++ 对象）
+
+## §124y-134 0xb7eb0 更新核心函数精确实锤（C++ 数据追加函数，memcpy 数据搬移 + 指针递增）
+
+**★ 闭环事实（静态实锤，§124y-132 的 OnUpdate bl 0xb7eb0 更新核心 C++ 逻辑全量实锤）**：
+
+1. **0xb7eb0 函数体精确实锤（C++ 数据追加/搬移函数，~0x50 字节）**：
+   - `push {r3-r7,lr}`（C++ 成员函数，r0 = 数据对象 this，r1 = 起始指针，r2 = 追加长度）
+   - `ldr r3,[r0,#12]; ldr r1,[r0,#8]`（读 this [0x0c] 结束指针 / [0x08] 起始指针）
+   - `subs r2,r3,r1; cmp r3,r1; bcs`（计算长度 r3-r1，长度 ≤0 则 r2=0，**负长度保护**）
+   - `ldr r2,[r0,#4]; ldr r0,[r0,#0]`（读 this [0x04] / [0x00]，C++ 对象 4 字段）
+   - `cmp r5,r2; bgt`（r5=r2 原长度 vs r2 计算值，长度判定）
+   - `cmp r6,#0; beq`（r6 = 追加目标指针，0 则跳过 memcpy）
+   - `blx memcpy@plt`（`ldr r1,[r4,#8]; memcpy(r0=r6, r1=this[0x08], r2=r5)`，**memcpy 数据搬移**）
+   - `ldr r3,[r4,#8]; adds r5,r3,r5; str r5,[r4,#8]`（**指针递增**：this[0x08] += r5，C++ 缓冲区追加）
+   - 末尾 `movs r0,#1; bx lr`（返回 1，追加成功标志）
+
+2. **0xb7eb0 = C++ 数据缓冲区追加函数（std::vector/buffer 语义）实锤**：
+   - 读 C++ 对象 4 字段（this [0/4/8/12] = 起始/某指针/结束/长度）
+   - memcpy 搬移数据（目标指针 r6 + 长度 r5）+ 指针递增（this[0x08] += r5）
+   - 即 **C++ 数据缓冲区追加**（std::vector push_back / 字节流 buffer append 语义）
+   - OnUpdate 调用此函数 = **游戏更新循环的数据追加/事件队列追加**（C++ 事件 buffer）
+
+3. **与 §124y-132 的 OnUpdate 主循环对上**：
+   - OnUpdate `bl 0xb7eb0`（参数：根对象[0x24] + 局部 sp+12 + 12）
+   - 0xb7eb0 = 数据缓冲区追加（memcpy + 指针递增，C++ vector/buffer 语义）
+   - 即 OnUpdate 更新循环 = 读根对象[0x24]（场景管理器 C++ 对象）+ 追加数据到缓冲区（0xb7eb0）
+     + 事件码 0x20-0x22 分支（§124y-132）
+   - 完整链：OnUpdate（JNI）→ 根对象[0x24]（C++ 场景）→ 0xb7eb0（缓冲区追加）→ 事件码分支
+
+4. **C++ 数据缓冲区追加函数模式实锤（复用，§124y-117 的 thunk 4 模式之外的第 5 模式）**：
+   - memcpy 搬移 + 指针递增（this[0x08] += len）= **C++ 字节流 buffer append**（std::vector<unsigned char> push）
+   - 与 §124y-83 的"C++ 对象三层嵌套（this[0x34]/[0x38]→[0x60]）"对上（C++ 数据对象 + 指针字段）
+   - 即 0xb7eb0 = C++ 事件/数据 buffer 追加底层（OnUpdate 主循环调，追加事件/数据到缓冲区）
+
+### 诚实边界
+- 0xb7eb0 的 this 对象（C++ 数据缓冲区）的完整布局（this [0/4/8/12] 4 字段语义）需
+  frida dump C++ 对象 + 查 .text 调用者实锤（本轮实锤 4 字段 + memcpy 追加模式）
+- OnUpdate → 0xb7eb0 追加的数据（C++ 事件 buffer）与 §124y-109 事件表 17×17 的关系需
+  frida 实锤（本轮实锤 0xb7eb0 是 C++ 缓冲区追加，非事件表匹配）
+- 根对象[0x24]（C++ 场景管理器成员）指向的对象布局需查 .bss 0x15be8c+0x24 区 + frida dump
