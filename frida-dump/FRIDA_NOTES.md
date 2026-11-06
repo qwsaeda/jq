@@ -552,6 +552,22 @@ Interceptor.attach(Module.getExportByName('libdl.so', 'android_dlopen_ext'), {
   = 17 事件码 × 子类型的命名枚举 (多对一映射)
 ```
 
+### 13.1b OnUpdate 主循环 + 两层事件码模型（§124y-132/133）
+
+```
+OnUpdate @0xbd5a0 (JNI 入口, §124y-100)
+  → 读 .bss 0x15be80 根对象槽 (14 JNI 入口共用, §124y-101)
+  → bl 内部 C++ 处理函数 (JNI 桥接层 0xbdxxx, §124y-100/130)
+    → 读根对象 this[0x24] (C++ 场景管理器成员, §124y-132)
+    → bl 0xb7eb0 (C++ 更新核心, 3 参数: 根对象[0x24] + 局部 + 12, §124y-132)
+    → 事件码 0x20-0x22 分支 (cmp 0x22/0x20, C++ 枚举层 2 事件类型, §124y-132)
+```
+
+**两层事件码模型完整闭环（§124y-109/121/132）**：
+- 层 1：[0x44] 直接事件码 0..16（事件表 17×17 位掩码匹配，§124y-109/112）
+- 层 2：C++ 枚举事件类型码（0x20-0x22 / 155=0x9b，switch cmp 分支，§124y-120/121/132）
+- 两层独立：OnUpdate 主循环走层 2（0x20-0x22），事件表匹配走层 1（[0x44] 0..16）
+
 ### 13.2 关键数据点对照基准（frida dump / unidbg 按此判读）
 
 | 数据点 | 位置 | 静态实锤 | 运行时待实锤 |
@@ -568,6 +584,7 @@ Interceptor.attach(Module.getExportByName('libdl.so', 'android_dlopen_ext'), {
 | .bss 0x4704 事件表 | .got[0x57c]=0x15b644 → 0x160584 | 17×17 位掩码表, 17 行全 asr4=0 (事件码 0) | 事件码 1-16 行 + 事件表基址真值 |
 | 0xbdxxx JNI 桥接层 7 函数 | .text 0xbd5xx-0xbdcxx | 8 函数 1 收表 (0xbe9cc OnBluetooth) + 7 未收表 (OnUpdate/OnGraph×2/OnKey/OnTimer/OnPause/OnResume), §124y-130 | 7 函数完整 C++ 逻辑 (JNI 桥接层, 非 vtable dispatch, frida 追踪) |
 | 0xbdxxx vs F_3ab80 两层机制 | .text 0xbdxxx / .bss 单例槽 | JNI 桥接层 (读 .bss 0x15be80 根对象) vs 事件底层 (F_3ab80 填单例槽) 两层独立, §124y-130 | 桥接如何触发事件底层 (frida 调用链实锤) |
+| OnUpdate 主循环 | 0xbd5a0 (读根对象[0x24] + bl 0xb7eb0 + 事件码 0x20-0x22 分支, §124y-132) | 4 pool 实锤 (.bss 0x162662 locale / .rodata 0x120bfa / .bss 0x15be8c 根对象+0xc) | bl 0xb7eb0 完整体 + 0x20/0x21/0x22 对应事件名 + 根对象[0x24] 布局 (frida) |
 
 ### 13.3 修正链（§124y-60→102→109 三轮误判记录，防复发）
 
