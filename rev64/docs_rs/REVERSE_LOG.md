@@ -1228,6 +1228,64 @@ logcat:
 - `link_audit.py`（PROVEN_LOADABLE 加 jq_walk_bridge_tick/lroundf）
 - `jni_aligned.c`（OnResume + OnTimer 走子桥 tick）
 
+### §124y-20 32 位原生布局加载链收表 + 翻译体 + redroid 实证
+
+**★ 背景**：§124y-19 走子桥是会话 B 引擎的**替代驱动**（纯逻辑走子）。32 位原生走子路径
+需布局加载链（F_2a380 读布局 → F_3dd60 文件读 → F_2a340 解析 → F_6a3a4 单格映射 →
+F_6a3b0 校验），此前 5 个函数未收表（dispatch 表 False）。
+
+**★ 收表 5 函数**（dispatch_insert.py --gen-stub）：
+| 函数 | 作用 | 反汇编语义 |
+|---|---|---|
+| `F_2a380` | 布局加载入口 | r4=state r0=side r2=buf；strb r0,[r4+0x48]（侧）+ str r2,[r4+0x4c]（长度）；bl F_3dd60（读文件）+ bl F_2a340（解析） |
+| `F_3dd60` | 布局文件读 30B | memset(buf,0,30) → bl F_b4bd0（文件读）→ 拷贝 30B |
+| `F_2a340` | 布局解析 60 格 | r4=state+0x1bc（60 格数组基址）循环 0..60，每格调 F_6a3a4 |
+| `F_6a3a4` | 单格映射 | cmp r0/r1,#0：新rank非0且现rank非0 → +12（冲突标记），否则原值 |
+| `F_6a3b0` | 全 60 格校验 + 计数表 | memcpy(state+0x78, 全局单例, 240) 计数表复制 + 校验 |
+
+**★ 翻译体补全（jqt_vtbl.c，离线布局源绕开 .pak 资源读）**：
+- F_3dd60 用会话 B `JQ_DEFAULT_LAY`（30B）作离线布局源（redroid 无 .pak 资源，文件读失败→离线拷贝）
+- F_6a3b0 用 `g_jq_count_tbl[60]` 全局计数表（离线默认）
+- 前向声明（解 C 隐式声明，5 函数互调）+ `#include "jq_rs_rules.h"` 引 JQ_DEFAULT_LAY
+
+**★ redroid 实证（setprop jq.native_layout 1，OnCreate 测试钩子触发）**：
+```
+NATIVE-LAYOUT: setprop jq.native_layout=1 → 32 位原生布局链
+F_3dd60: 布局读取（离线 JQ_DEFAULT_LAY 30B）
+F_2a340: 布局解析完成 state=0xe5596ed0（32 位原生 60 格）
+F_2a380: 布局加载 state=0xe5596ed0 side=0（32 位原生布局链）
+NATIVE-LAYOUT: F_2a380 返回 0x00000000 state=0xe5596ed0（32 位原生布局链跑通）
+0 崩溃、进程存活
+```
+
+**★ 关键坑（固化）**：
+1. **C 隐式声明冲突**：5 个补全翻译体互调（F_2a380→F_3dd60/F_2a340，F_2a340→F_6a3a4），
+   函数定义顺序在后 → C89 隐式声明按 int() 推断 → "conflicting types"。修：补全体前加
+   5 个函数的前向声明（`uint32_t F_xxx(13×uint32_t);`）
+2. **数组不能用变量初始化**：`const uint8_t JQ_DEFAULT_LAY_OFFLINE[30] = JQ_DEFAULT_LAY;`
+   编译错（"array initializer must be an initializer list"）。修：F_3dd60 里直接 `JQ_DEFAULT_LAY[i]`
+3. **redroid 触发时机**：native_layout 钩子初加 OnResume（redroid 卡 OnCreate 到不了）→
+   移到 OnCreate 测试钩子段（与 jq.test_game 同款时机，redroid 能触发）
+
+**★ 会话 B 走子桥 vs 32 位原生布局链（对照）**：
+| 维度 | 会话 B 走子桥（§124y-19） | 32 位原生布局链（§124y-20） |
+|---|---|---|
+| 驱动 | 会话 B 纯 C 规则引擎（替代驱动） | 32 位原生 F_2a380 布局加载 |
+| 布局源 | 会话 B JQ_DEFAULT_LAY | 离线 JQ_DEFAULT_LAY（绕 .pak） |
+| 事件 | 会话 B jq_try_move 走子 | 32 位原生 60 格解析（走子待补） |
+| redroid | ✅ 完整 8 步序列 | ✅ 布局链跑通（走子需 .pak 资源） |
+
+**★ 诚实边界**：
+- 32 位原生布局链跑通（布局加载 + 解析 + 单格映射 + 校验），但**原生走子事件**（触摸→格子→
+  走子→Junqi.*）仍需 .pak 资源对象图填充 + F_6f824/F_340c4 深层事件底层收表
+- 离线布局源用会话 B JQ_DEFAULT_LAY（38 子），非 32 位原版 .pak 文件读（redroid 无资源）
+- 这是 32 位**原生走子路径的基础**（布局基准），与会话 B 走子桥互为对照
+
+**★ 工具固化**：
+- `dispatch_insert.py`（5 函数收表 + stub 生成）
+- `jqt_vtbl.c`（5 个补全翻译体 + 前向声明 + 离线数据块）
+- `jni_aligned.c`（OnCreate native_layout 测试钩子）
+
 ### 32 位 native 数据提取（已完成）
 
 - 路线：redroid 真 Android 容器跑原版 32 位 so → `dd /proc/PID/mem` dump `.rodata`

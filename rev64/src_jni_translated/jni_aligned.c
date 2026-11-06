@@ -385,6 +385,26 @@ Java_com_cnvcs_App_OnResume(JNIEnv *env, jclass c){
     /* ★ §124y-19：走子桥在 OnResume 也触发（redroid 无 GL 卡在 OnCreate/OnResume，OnTimer 到不了；
        OnResume 是主线程生命周期入口，redroid 能触发；tick 幂等，OnTimer 再调无副作用） */
     jq_walk_bridge_tick();
+    /* ★ §124y-20：32 位原生布局加载链（setprop jq.native_layout 1 → F_2a380 布局入口）
+       触发 32 位原生布局链（F_2a380 → F_3dd60 读布局 → F_2a340 解析 → F_6a3a4 单格映射），
+       与会话 B 走子桥互为对照（32 位原生走子路径） */
+    {
+        static int _nl_done = 0;
+        char _nl[8] = {0};
+        if (!_nl_done && __system_property_get("jq.native_layout", _nl) > 0 && _nl[0] == '1') {
+            _nl_done = 1;
+            __android_log_print(6, "junqi", "NATIVE-LAYOUT: setprop jq.native_layout=1 → 32 位原生布局链");
+            /* F_2a380(state, side, buf)：布局加载入口（redroid 无资源，F_3dd60 用离线 JQ_DEFAULT_LAY） */
+            extern uint32_t F_2a380(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+            /* 构造游戏状态对象（vtable 0x159950，与 §124y-13 同款） */
+            extern void *_Znwj(unsigned int);
+            uint32_t stobj = (uint32_t)_Znwj(0x200);
+            MEM(stobj) = JQT_ABS_PTR(0x159950);   /* 游戏状态 vtable */
+            for (int i = 0; i < 64; i++) MEM(stobj + i*4) = (i==0) ? MEM(stobj) : 0;
+            uint32_t ret = F_2a380(stobj, 0, 0,0,0,0,0,0,0,0,0,0, 0x20f000);   /* side=0 蓝方 */
+            __android_log_print(6, "junqi", "NATIVE-LAYOUT: F_2a380 返回 0x%08x state=0x%08x（32 位原生布局链跑通）", ret, stobj);
+        }
+    }
 }
 JNIEXPORT jboolean JNICALL
 Java_com_cnvcs_App_OnUpdate(JNIEnv *env, jclass c){
@@ -511,6 +531,23 @@ Java_com_cnvcs_App_OnTimer(JNIEnv *env, jclass c){
                         (gs8_vt >= 0x70000000u) ? MEM(gs8_vt+0x18) : 0);
                 }
             }
+        }
+    }
+    /* ★ §124y-20：32 位原生布局加载链（OnCreate 测试钩子，redroid 可触发）
+       setprop jq.native_layout 1 → F_2a380 布局入口（32 位原生布局链，离线 JQ_DEFAULT_LAY） */
+    {
+        static int _nl_done = 0;
+        char _nl[8] = {0};
+        if (!_nl_done && __system_property_get("jq.native_layout", _nl) > 0 && _nl[0] == '1') {
+            _nl_done = 1;
+            __android_log_print(6,"junqi","NATIVE-LAYOUT: setprop jq.native_layout=1 → 32 位原生布局链");
+            extern uint32_t F_2a380(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+            extern void *_Znwj(unsigned int);
+            uint32_t stobj = (uint32_t)_Znwj(0x200);
+            MEM(stobj) = JQT_ABS_PTR(0x159950);   /* 游戏状态 vtable */
+            for (int i = 0; i < 64; i++) MEM(stobj + i*4) = (i==0) ? MEM(stobj) : 0;
+            uint32_t ret = F_2a380(stobj, 0, 0,0,0,0,0,0,0,0,0,0, 0x20f000);
+            __android_log_print(6,"junqi","NATIVE-LAYOUT: F_2a380 返回 0x%08x state=0x%08x（32 位原生布局链跑通）", ret, stobj);
         }
     }
     /* ★ §124y-19：会话 B 规则引擎走子桥（setprop jq.walk_bridge 1 → 开局 + 走子 + 打 Junqi.* 事件）
