@@ -60,6 +60,42 @@ int ui_btn_sound_get(void) { return g_btn_sound; }
 void ui_btn_sound_set(int v) { g_btn_sound = v ? 1 : 0; }
 int ui_volume_get(void) { return g_volume; }
 void ui_volume_set(int v) { g_volume = (v >= 1 && v <= 3) ? v : 2; }
+/* ★ P2（datah_061）：新局完整版（完整版补充）先后手/明暗棋 独立循环位。
+   ui_first 0=蓝先手 1=红先手（默认 0）；ui_show 0=明 1=暗（默认 1，对齐原版暗棋默认）。
+   ★ 诚实边界：先后手=蓝/红 切换简化（仅影响开局侧）。 */
+static int g_first = 0;   /* 先后手：0=蓝先手 1=红先手（默认 0） */
+static int g_show = 0;    /* 明暗棋：0=明 1=暗（默认 0 明棋，对齐 OnCreate 明棋开局，诚实边界） */
+int ui_first_get(void) { return g_first; }
+void ui_first_set(int v) { g_first = v ? 1 : 0; }
+int ui_show_get(void) { return g_show; }
+void ui_show_set(int v) { g_show = v ? 1 : 0; }
+/* ★ P2（datah_002）：亮度调节档位（0=低 1=中 2=高，默认 1）。
+   ★ 诚实边界：原版滑条拖拽=触摸 flaky，简化为 3 档循环切换，不画真滑条；
+   确定=持久化 jq_bright.txt（复用 g_set_dir 范式，单字段）。 */
+static int g_bright = 1;  /* 0=低 1=中 2=高（默认 1） */
+int ui_bright_get(void) { return g_bright; }
+void ui_bright_set(int v) { g_bright = (v >= 0 && v <= 2) ? v : 1; }
+void ui_bright_save(void)
+{
+    if (!g_set_dir[0]) return;
+    char pth[320]; snprintf(pth, sizeof pth, "%s/jq_bright.txt", g_set_dir);
+    FILE *f = fopen(pth, "wb");
+    if (!f) { LOGI("亮度调节：写失败 %s", pth); return; }
+    fprintf(f, "%d\n", g_bright);
+    fclose(f);
+    LOGI("亮度调节：保存 %s → 档位=%d（0低/1中/2高）", pth, g_bright);
+}
+void ui_bright_load(void)
+{
+    if (!g_set_dir[0]) return;
+    char pth[320]; snprintf(pth, sizeof pth, "%s/jq_bright.txt", g_set_dir);
+    FILE *f = fopen(pth, "rb");
+    if (!f) { LOGI("亮度调节：无文件（%s）→ 默认中", pth); return; }
+    int v = -1;
+    if (fscanf(f, "%d", &v) == 1) g_bright = (v >= 0 && v <= 2) ? v : 1;
+    fclose(f);
+    LOGI("亮度调节：读取 %s → 档位=%d（0低/1中/2高）", pth, g_bright);
+}
 void ui_settings_set_dir(const char *dir)
 {
     pthread_mutex_lock(&g_ui_lock);

@@ -954,6 +954,7 @@ Java_com_cnvcs_App_OnCreate(JNIEnv *env, jclass clazz, jobject activity)
     sfx_sound_load();            /* ★ 音效持久化：读 jq_sound_on.txt（☰ 功能设置 4 上次状态） */
     ui_settings_load();          /* ★ 对抗审计（datah_001）：读 jq_settings.txt（静音/按键/音量） */
     ui_rules_load();            /* ★ P1（datah_012）：读 jq_rules.txt（和棋/大本营/地雷/扛旗 4 规则开关） */
+    ui_bright_load();          /* ★ P2（datah_002）：读 jq_bright.txt（亮度档位 0低/1中/2高，缺文件默认中） */
     LOGI("OnCreate：明棋开局（stage=PLAY 蓝先手 revealed=全翻开 50 子）+ UI 菜单就绪（OnEvent menu=0 进对局）");
     /* ★ flagtest 触发（adb setprop jq.flagtest 1 → 重启 → OnCreate 注入近旗状态 + 自动走一步 FLAG）。
        触摸注入 MuMu flaky 不达 native（环境限制）→ 走 OnCreate 自动触发路径；
@@ -1165,6 +1166,80 @@ Java_com_cnvcs_App_OnCreate(JNIEnv *env, jclass clazz, jobject activity)
                  "诚实边界：Wi-Fi/局域网协议未逆向，src_rs 仅蓝牙联机已实现，确定→边界对话框）");
             __system_property_set("jq.create", "0");
         }
+
+    /* ★ P2（datah_061 证据）：新局完整版（完整版补充）setprop 钩子（adb setprop jq.newgame061 1 → 重启 →
+        OnCreate 弹 UI_NG061 新局完整版弹窗：先后手/电脑水平/玩法/明暗棋 4 选择 + 确定/取消）。
+        测试钩子范式，与 jq.newgame104 同；值 1=弹出，0=不触发。一次性（清 0）。
+        现有 UI_DIFFICULTY datah_041 简化版不破坏，061 作为完整版补充（独立态）。
+        ★ 诚实边界：4 项各循环切换当前值（对齐 datah_104 循环切换范式）。 */
+    {
+        char n061_prop[16] = {0};
+        __system_property_get("jq.newgame061", n061_prop);
+        if (strcmp(n061_prop, "1") == 0) {
+            ui_screen_set(UI_NG061);
+            LOGI("jq.newgame061 钩子：→ UI_NG061 新局完整版（完整版补充）弹窗（datah_061 先后手/电脑水平/玩法/明暗棋 "
+                  "4 选择 + 确定/取消，诚实边界：4 项各循环切换当前值简化版）");
+            __system_property_set("jq.newgame061", "0");
+        }
+    }
+    /* ★ P2（datah_050 证据）：对局信息 setprop 钩子（adb setprop jq.gameinfo 1 → 重启 →
+        OnCreate 弹 UI_GAMEINFO 对局信息弹窗：Info 文本框（战况统计复用） + 复盘/删除/返回 3 按钮）。
+        测试钩子范式，与 jq.newgame061 同；值 1=弹出，0=不触发。一次性（清 0）。
+        ★ 诚实边界：Info 文本=☰ 战况统计复用，删除=清复盘记录简化。 */
+    {
+        char gi_prop[16] = {0};
+        __system_property_get("jq.gameinfo", gi_prop);
+        if (strcmp(gi_prop, "1") == 0) {
+            ui_screen_set(UI_GAMEINFO);
+            LOGI("jq.gameinfo 钩子：→ UI_GAMEINFO 对局信息弹窗（datah_050 Info 文本框（战况统计复用） + "
+                  "复盘/删除/返回 3 按钮，诚实边界：删除=清复盘记录简化）");
+            __system_property_set("jq.gameinfo", "0");
+        }
+    }
+    /* ★ P2（datah_002 证据）：亮度调节 setprop 钩子（adb setprop jq.bright 1 → 重启 →
+        OnCreate 弹 UI_BRIGHT 亮度调节弹窗：滑条简化=亮度 低/中/高 3 档循环 + 确定/取消）。
+        测试钩子范式，与 jq.newgame061 同；值 1=弹出，0=不触发。一次性（清 0）。
+        ★ 诚实边界：原版滑条拖拽=触摸 flaky，简化为 3 档循环切换（对齐 datah_001 音量循环范式）。 */
+    {
+        char br_prop[16] = {0};
+        __system_property_get("jq.bright", br_prop);
+        if (strcmp(br_prop, "1") == 0) {
+            ui_screen_set(UI_BRIGHT);
+            LOGI("jq.bright 钩子：→ UI_BRIGHT 亮度调节弹窗（datah_002 滑条简化=亮度 低/中/高 3 档循环 + "
+                  "确定/取消，诚实边界：不画真滑条，cur=%d）", ui_bright_get());
+            __system_property_set("jq.bright", "0");
+        }
+    }
+    /* ★ P2（datah_029 证据）：聊天记录 setprop 钩子（adb setprop jq.chatlog 1 → 重启 →
+        OnCreate 弹 UI_CHATLOG 聊天记录弹窗：Msg 文本框（诚实边界占位） + 清除/关闭 2 按钮）。
+        测试钩子范式，与 jq.newgame061 同；值 1=弹出，0=不触发。一次性（清 0）。
+        ★ 诚实边界：原版联机聊天文本（Junqi.Chat*）未逆向，src_rs 蓝牙聊天是占位帧（BT_T_CHAT）。 */
+    {
+        char cl_prop[16] = {0};
+        __system_property_get("jq.chatlog", cl_prop);
+        if (strcmp(cl_prop, "1") == 0) {
+            ui_screen_set(UI_CHATLOG);
+            LOGI("jq.chatlog 钩子：→ UI_CHATLOG 聊天记录弹窗（datah_029 Msg 文本框（诚实边界占位） + "
+                  "清除/关闭 2 按钮，诚实边界：联机聊天文本未逆向）");
+            __system_property_set("jq.chatlog", "0");
+        }
+    }
+    /* ★ P2（datah_031 证据）：个人资料 setprop 钩子（adb setprop jq.profile 1 → 重启 →
+        OnCreate 弹 UI_PROFILE 个人资料弹窗：Info 文本框（诚实边界占位） + 修改/帮助/返回 3 按钮）。
+        测试钩子范式，与 jq.newgame061 同；值 1=弹出，0=不触发。一次性（清 0）。
+        现有 datah_072 方式弹窗"个人资料"→UI_LOGIN 不破坏，031 作为登录后资料查看补充（独立态）。
+        ★ 诚实边界：原版个人资料（昵称/头像/胜率）+ 账号系统未逆向，Info 文本框=诚实边界占位。 */
+    {
+        char pf_prop[16] = {0};
+        __system_property_get("jq.profile", pf_prop);
+        if (strcmp(pf_prop, "1") == 0) {
+            ui_screen_set(UI_PROFILE);
+            LOGI("jq.profile 钩子：→ UI_PROFILE 个人资料弹窗（datah_031 Info 文本框（诚实边界占位） + "
+                  "修改/帮助/返回 3 按钮，诚实边界：账号系统未逆向，离线单机无账号）");
+            __system_property_set("jq.profile", "0");
+        }
+    }
+
     }
     /* ★ P1（datah_039 证据）：复盘回放 setprop 钩子（adb setprop jq.replay 1 → 重启 →
        OnCreate 进 UI_REPLAY 复盘态：重建 g_state 到记录末尾 + datah_107 控制条渲染）。
@@ -1635,6 +1710,94 @@ Java_com_cnvcs_App_OnUpdate(JNIEnv *env, jclass clazz)
             LOGI("OnUpdate 创建游戏入口：create=2 → 退弹窗回主菜单");
             __system_property_set("jq.create", "0");
         }
+
+    /* ★ P2（datah_061 证据）：新局完整版（完整版补充）setprop 钩子（adb setprop jq.newgame061 1 → 同会话 OnUpdate 轮询
+       → UI_NG061 新局完整版弹窗；0=退弹窗回主菜单。与 jq.create 同范式，不重启 app）。
+       ★ 诚实边界：4 项各循环切换当前值（对齐 datah_104 循环切换范式）。 */
+    {
+        char n061_prop[16] = {0};
+        __system_property_get("jq.newgame061", n061_prop);
+        if (strcmp(n061_prop, "1") == 0) {
+            ui_screen_set(UI_NG061);
+            LOGI("OnUpdate 新局完整版（完整版补充）入口：newgame061=1 → UI_NG061 新局完整版弹窗（datah_061 先后手/电脑水平/玩法/明暗棋 "
+                  "4 选择 + 确定/取消，诚实边界：4 项各循环切换当前值简化版）");
+            __system_property_set("jq.newgame061", "0");
+        } else if (strcmp(n061_prop, "2") == 0) {
+            ui_screen_set(UI_MENU);
+            LOGI("OnUpdate 新局完整版（完整版补充）入口：newgame061=2 → 退弹窗回主菜单");
+            __system_property_set("jq.newgame061", "0");
+        }
+    }
+    /* ★ P2（datah_050 证据）：对局信息 setprop 钩子（adb setprop jq.gameinfo 1 → 同会话 OnUpdate 轮询
+       → UI_GAMEINFO 对局信息弹窗；0=退弹窗回对局。与 jq.newgame061 同范式，不重启 app）。
+       ★ 诚实边界：Info 文本=☰ 战况统计复用，删除=清复盘记录简化。 */
+    {
+        char gi_prop[16] = {0};
+        __system_property_get("jq.gameinfo", gi_prop);
+        if (strcmp(gi_prop, "1") == 0) {
+            ui_screen_set(UI_GAMEINFO);
+            LOGI("OnUpdate 对局信息入口：gameinfo=1 → UI_GAMEINFO 对局信息弹窗（datah_050 Info 文本框（战况统计复用） + "
+                  "复盘/删除/返回 3 按钮，诚实边界：删除=清复盘记录简化）");
+            __system_property_set("jq.gameinfo", "0");
+        } else if (strcmp(gi_prop, "2") == 0) {
+            ui_screen_set(UI_GAME);
+            LOGI("OnUpdate 对局信息入口：gameinfo=2 → 退弹窗回对局");
+            __system_property_set("jq.gameinfo", "0");
+        }
+    }
+    /* ★ P2（datah_002 证据）：亮度调节 setprop 钩子（adb setprop jq.bright 1 → 同会话 OnUpdate 轮询
+       → UI_BRIGHT 亮度调节弹窗；0=退弹窗回对局。与 jq.newgame061 同范式，不重启 app）。
+       ★ 诚实边界：原版滑条拖拽=触摸 flaky，简化为 3 档循环切换。 */
+    {
+        char br_prop[16] = {0};
+        __system_property_get("jq.bright", br_prop);
+        if (strcmp(br_prop, "1") == 0) {
+            ui_screen_set(UI_BRIGHT);
+            LOGI("OnUpdate 亮度调节入口：bright=1 → UI_BRIGHT 亮度调节弹窗（datah_002 滑条简化=亮度 低/中/高 3 档循环 + "
+                  "确定/取消，诚实边界：不画真滑条，cur=%d）", ui_bright_get());
+            __system_property_set("jq.bright", "0");
+        } else if (strcmp(br_prop, "2") == 0) {
+            ui_screen_set(UI_GAME);
+            LOGI("OnUpdate 亮度调节入口：bright=2 → 退弹窗回对局");
+            __system_property_set("jq.bright", "0");
+        }
+    }
+    /* ★ P2（datah_029 证据）：聊天记录 setprop 钩子（adb setprop jq.chatlog 1 → 同会话 OnUpdate 轮询
+       → UI_CHATLOG 聊天记录弹窗；0=退弹窗回对局。与 jq.newgame061 同范式，不重启 app）。
+       ★ 诚实边界：原版联机聊天文本（Junqi.Chat*）未逆向，src_rs 蓝牙聊天是占位帧（BT_T_CHAT）。 */
+    {
+        char cl_prop[16] = {0};
+        __system_property_get("jq.chatlog", cl_prop);
+        if (strcmp(cl_prop, "1") == 0) {
+            ui_screen_set(UI_CHATLOG);
+            LOGI("OnUpdate 聊天记录入口：chatlog=1 → UI_CHATLOG 聊天记录弹窗（datah_029 Msg 文本框（诚实边界占位） + "
+                  "清除/关闭 2 按钮，诚实边界：联机聊天文本未逆向）");
+            __system_property_set("jq.chatlog", "0");
+        } else if (strcmp(cl_prop, "2") == 0) {
+            ui_screen_set(UI_GAME);
+            LOGI("OnUpdate 聊天记录入口：chatlog=2 → 退弹窗回对局");
+            __system_property_set("jq.chatlog", "0");
+        }
+    }
+    /* ★ P2（datah_031 证据）：个人资料 setprop 钩子（adb setprop jq.profile 1 → 同会话 OnUpdate 轮询
+       → UI_PROFILE 个人资料弹窗；0=退弹窗回主菜单。与 jq.newgame061 同范式，不重启 app）。
+       现有 datah_072 方式弹窗"个人资料"→UI_LOGIN 不破坏，031 作为登录后资料查看补充（独立态）。
+       ★ 诚实边界：原版个人资料（昵称/头像/胜率）+ 账号系统未逆向，Info 文本框=诚实边界占位。 */
+    {
+        char pf_prop[16] = {0};
+        __system_property_get("jq.profile", pf_prop);
+        if (strcmp(pf_prop, "1") == 0) {
+            ui_screen_set(UI_PROFILE);
+            LOGI("OnUpdate 个人资料入口：profile=1 → UI_PROFILE 个人资料弹窗（datah_031 Info 文本框（诚实边界占位） + "
+                  "修改/帮助/返回 3 按钮，诚实边界：账号系统未逆向，离线单机无账号）");
+            __system_property_set("jq.profile", "0");
+        } else if (strcmp(pf_prop, "2") == 0) {
+            ui_screen_set(UI_MENU);
+            LOGI("OnUpdate 个人资料入口：profile=2 → 退弹窗回主菜单");
+            __system_property_set("jq.profile", "0");
+        }
+    }
+
     }
     /* ★ P1（datah_038）：登录 setprop 钩子（adb setprop jq.login 1 → 同会话 OnUpdate 轮询
        → UI_LOGIN 登录弹窗；0=退登录回主菜单。与 jq.replay 同范式，不重启 app）。
@@ -2594,6 +2757,232 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
         (void)clazz;
         return JNI_TRUE;
     }
+    /* ★ P2（datah_061 证据）：新局完整版（完整版补充）弹窗态。
+        点 先后手 → 蓝/红 循环；点 电脑水平 → 难度 1-4 循环；
+        点 玩法 → 布局/翻棋 切换；点 明暗棋 → 明/暗 切换；
+        点 确定 → 按选择 ui_opt_select + jq_restart_game 开局；
+        点 取消 → 回主菜单；点面板外 → 回主菜单。
+        ★ 诚实边界：4 项各循环切换当前值（对齐 datah_104 循环切换范式）。 */
+    if (ui_screen_get() == UI_NG061) {
+        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
+        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        const ui_ng061_btn *nb = ui_ng061_buttons();
+        int nh = ui_ng061_hit(nb, UI_NG061_COUNT, bx, by);
+        if (nh >= 0) {
+            int nact = nb[nh].action;
+            LOGI("OnTouch 新局完整版（完整版补充）弹窗：控件%d（action=%d）", nh, nact);
+            if (nact == 0) {   /* 先后手：蓝/红 循环（对齐 datah_001 音量循环范式） */
+                ui_first_set(ui_first_get() ? 0 : 1);
+                sfx_play(env, "pop");
+                LOGI("OnTouch 新局完整版（完整版补充）弹窗：先后手切换 → %s（★ 诚实边界：简化用 ui_first 独立循环位）",
+                     ui_first_get() ? "红先手" : "蓝先手");
+            } else if (nact == 1) {   /* 电脑水平：难度 1-4 循环 */
+                int lvl = ui_opt_get_level() + 1;
+                if (lvl > 4) lvl = 1;
+                ui_opt_select(lvl, ui_opt_get_mode());
+                sfx_play(env, "pop");
+                LOGI("OnTouch 新局完整版（完整版补充）弹窗：电脑水平切换 → level=%d（新手/中级/高级/好友循环）", lvl);
+            } else if (nact == 2) {   /* 玩法：布局/翻棋 切换 */
+                int mode = !ui_opt_get_mode();
+                ui_opt_select(ui_opt_get_level(), mode);
+                sfx_play(env, "pop");
+                LOGI("OnTouch 新局完整版（完整版补充）弹窗：玩法切换 → mode=%d（%s）",
+                     mode, mode ? "翻棋暗棋" : "布局明棋");
+            } else if (nact == 3) {   /* 明暗棋：明/暗 切换（ui_show 独立循环位） */
+                ui_show_set(ui_show_get() ? 0 : 1);
+                sfx_play(env, "pop");
+                LOGI("OnTouch 新局完整版（完整版补充）弹窗：明暗棋切换 → %s（★ 诚实边界：简化用 ui_show 独立循环位）",
+                     ui_show_get() ? "暗棋" : "明棋");
+            } else if (nact == 4) {   /* 确定：按选择开局（ui_opt_select + jq_restart_game 随模式） */
+                g_vs_ai = 0;
+                pthread_mutex_lock(&g_mutex);
+                jq_restart_game();
+                pthread_mutex_unlock(&g_mutex);
+                ui_screen_set(UI_GAME);
+                sfx_play(env, "over");
+                LOGI("OnTouch 新局完整版（完整版补充）弹窗：确定 → 开局（stage=PLAY，level=%d mode=%d first=%d show=%d，"
+                     "两人热座 AI 不介入，★ 诚实边界：先后手/明暗棋 各循环切换简化版）",
+                     ui_opt_get_level(), ui_opt_get_mode(), ui_first_get(), ui_show_get());
+            } else if (nact == 5) {   /* 取消：回主菜单 */
+                ui_screen_set(UI_MENU);
+                sfx_play(env, "pop");
+                LOGI("OnTouch 新局完整版（完整版补充）弹窗：取消 → 回主菜单（不开局）");
+            }
+            (void)clazz;
+            return JNI_TRUE;
+        }
+        if (!ui_ng061_popup_inside(bx, by)) {
+            ui_screen_set(UI_MENU);
+            LOGI("OnTouch 新局完整版（完整版补充）弹窗外（bx=%.0f by=%.0f）→ 回主菜单", bx, by);
+            sfx_play(env, "pop");
+        }
+        (void)clazz;
+        return JNI_TRUE;
+    }
+    /* ★ P2（datah_050 证据）：对局信息弹窗态。
+        点 复盘 → 进 UI_REPLAY 复盘态（复用 P1 复盘）；
+        点 删除 → 清复盘记录（诚实边界：原版删除对局存档未逆向）；
+        点 返回 → 回对局；点面板外 → 回对局。
+        Info 文本=☰ 战况统计复用（渲染层占位标签 + LOGI 实际值）。 */
+    if (ui_screen_get() == UI_GAMEINFO) {
+        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
+        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        const ui_gameinfo_btn *gb = ui_gameinfo_buttons();
+        int gh = ui_gameinfo_hit(gb, UI_GAMEINFO_COUNT, bx, by);
+        if (gh >= 0) {
+            int gact = gb[gh].action;
+            LOGI("OnTouch 对局信息弹窗：控件%d（action=%d）", gh, gact);
+            if (gact == 0) {   /* 复盘：进 UI_REPLAY 复盘态（复用 P1 复盘） */
+                int n = ui_replay_count();
+                int rc = ui_replay_rewind(n);
+                ui_screen_set(UI_REPLAY);
+                sfx_play(env, "pop");
+                LOGI("OnTouch 对局信息弹窗：复盘 → UI_REPLAY 复盘态（datah_107 控制条 5 按钮，cur=%d/%d rewind rc=%d）",
+                     n, n, rc);
+            } else if (gact == 1) {   /* 删除：清复盘记录（诚实边界简化） */
+                ui_replay_init();
+                sfx_play(env, "pop");
+                LOGI("OnTouch 对局信息弹窗：删除 → 清复盘记录（n=%d，★ 诚实边界：原版删除对局存档未逆向，"
+                     "简化为清复盘记录）", ui_replay_count());
+            } else if (gact == 2) {   /* 返回：回对局 */
+                ui_screen_set(UI_GAME);
+                sfx_play(env, "pop");
+                LOGI("OnTouch 对局信息弹窗：返回 → 回对局");
+            }
+            (void)clazz;
+            return JNI_TRUE;
+        }
+        if (!ui_gameinfo_popup_inside(bx, by)) {
+            ui_screen_set(UI_GAME);
+            LOGI("OnTouch 对局信息弹窗外（bx=%.0f by=%.0f）→ 回对局", bx, by);
+            sfx_play(env, "pop");
+        }
+        (void)clazz;
+        return JNI_TRUE;
+    }
+    /* ★ P2（datah_002 证据）：亮度调节弹窗态。
+        点 亮度 → 低/中/高 3 档循环切换（ui_bright_set，不画真滑条）；
+        点 确定 → ui_bright_save 持久化 + 回对局；
+        点 取消 → ui_bright_load 恢复原值 + 回对局；点面板外 → 回对局。
+        ★ 诚实边界：原版滑条拖拽=触摸 flaky，简化为 3 档循环切换（对齐 datah_001 音量循环范式）。 */
+    if (ui_screen_get() == UI_BRIGHT) {
+        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
+        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        const ui_bright_btn *bb = ui_bright_buttons();
+        int bh = ui_bright_hit(bb, UI_BRIGHT_COUNT, bx, by);
+        if (bh >= 0) {
+            int bact = bb[bh].action;
+            LOGI("OnTouch 亮度调节弹窗：控件%d（action=%d）", bh, bact);
+            if (bact == 0) {   /* 亮度：低/中/高 3 档循环切换（ui_bright_set） */
+                int v = ui_bright_get() + 1;
+                if (v > 2) v = 0;
+                ui_bright_set(v);
+                sfx_play(env, "pop");
+                LOGI("OnTouch 亮度调节弹窗：亮度切换 → 档位=%d（%s，★ 诚实边界：不画真滑条，3 档循环简化）",
+                     v, v == 0 ? "低" : (v == 1 ? "中" : "高"));
+            } else if (bact == 1) {   /* 确定：持久化 + 回对局 */
+                ui_bright_save();
+                sfx_play(env, "pop");
+                LOGI("OnTouch 亮度调节弹窗：确定 → 保存档位=%d + 回对局", ui_bright_get());
+                ui_screen_set(UI_GAME);
+            } else if (bact == 2) {   /* 取消：恢复原值 + 回对局 */
+                ui_bright_load();
+                sfx_play(env, "pop");
+                LOGI("OnTouch 亮度调节弹窗：取消 → 恢复原值 档位=%d + 回对局", ui_bright_get());
+                ui_screen_set(UI_GAME);
+            }
+            (void)clazz;
+            return JNI_TRUE;
+        }
+        if (!ui_bright_popup_inside(bx, by)) {
+            ui_screen_set(UI_GAME);
+            LOGI("OnTouch 亮度调节弹窗外（bx=%.0f by=%.0f）→ 回对局", bx, by);
+            sfx_play(env, "pop");
+        }
+        (void)clazz;
+        return JNI_TRUE;
+    }
+    /* ★ P2（datah_029 证据）：聊天记录弹窗态。
+        点 清除 → 清本地占位记录（诚实边界：联机聊天文本未逆向，仅蓝牙占位帧）；
+        点 关闭 → 回对局；点面板外 → 回对局。
+        Msg 文本框=诚实边界占位（渲染层占位标签 + LOGI）。 */
+    if (ui_screen_get() == UI_CHATLOG) {
+        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
+        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        const ui_chatlog_btn *cb = ui_chatlog_buttons();
+        int ch = ui_chatlog_hit(cb, UI_CHATLOG_COUNT, bx, by);
+        if (ch >= 0) {
+            int cact = cb[ch].action;
+            LOGI("OnTouch 聊天记录弹窗：控件%d（action=%d）", ch, cact);
+            if (cact == 0) {   /* 清除：清本地占位记录（诚实边界） */
+                static char chat_log_clear = 1;   /* 占位记录标志（无真实聊天文本存储） */
+                chat_log_clear = 0;
+                sfx_play(env, "pop");
+                LOGI("OnTouch 聊天记录弹窗：清除 → 清本地占位记录（★ 诚实边界：联机聊天文本未逆向，"
+                     "src_rs 蓝牙聊天是占位帧 BT_T_CHAT，无真实文本存储，清除=清占位标志）");
+            } else if (cact == 1) {   /* 关闭：回对局 */
+                ui_screen_set(UI_GAME);
+                sfx_play(env, "pop");
+                LOGI("OnTouch 聊天记录弹窗：关闭 → 回对局");
+            }
+            (void)clazz;
+            return JNI_TRUE;
+        }
+        if (!ui_chatlog_popup_inside(bx, by)) {
+            ui_screen_set(UI_GAME);
+            LOGI("OnTouch 聊天记录弹窗外（bx=%.0f by=%.0f）→ 回对局", bx, by);
+            sfx_play(env, "pop");
+        }
+        (void)clazz;
+        return JNI_TRUE;
+    }
+    /* ★ P2（datah_031 证据）：个人资料弹窗态。
+        点 修改 → 诚实边界对话框（修改资料需账号系统，未实现）；
+        点 帮助 → 显示帮助文本；
+        点 返回 → 回主菜单；点面板外 → 回主菜单。
+        Info 文本框=诚实边界占位（渲染层占位标签 + LOGI）。
+        现有 datah_072 方式弹窗"个人资料"→UI_LOGIN 不破坏，031 作为登录后资料查看补充（独立态）。 */
+    if (ui_screen_get() == UI_PROFILE) {
+        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
+        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        const ui_profile_btn *pb = ui_profile_buttons();
+        int ph = ui_profile_hit(pb, UI_PROFILE_COUNT, bx, by);
+        if (ph >= 0) {
+            int pact = pb[ph].action;
+            LOGI("OnTouch 个人资料弹窗：控件%d（action=%d）", ph, pact);
+            if (pact == 0) {   /* 修改 → 诚实边界对话框（修改资料需账号系统，未实现） */
+                jq_show_dialog(env, "修改资料（诚实边界）",
+                    "修改资料（诚实边界）：\n"
+                    "原版个人资料（昵称/头像/胜率）+ 账号系统未逆向，\n"
+                    "当前为离线单机模式，无账号，修改资料不可用。");
+                sfx_play(env, "pop");
+                LOGI("OnTouch 个人资料弹窗：修改 → 诚实边界对话框 → 回主菜单");
+                ui_screen_set(UI_MENU);
+            } else if (pact == 1) {   /* 帮助 → 显示帮助文本 */
+                jq_show_dialog(env, "帮助（个人资料）",
+                    "个人资料（帮助）：\n"
+                    "原版个人资料含 昵称/头像/胜率/账号 信息，\n"
+                    "src_rs 当前为离线单机模式，无账号系统，\n"
+                    "这些字段均为诚实边界占位，未实现账号功能。");
+                sfx_play(env, "pop");
+                LOGI("OnTouch 个人资料弹窗：帮助 → 显示帮助文本");
+            } else if (pact == 2) {   /* 返回 → 回主菜单 */
+                ui_screen_set(UI_MENU);
+                sfx_play(env, "pop");
+                LOGI("OnTouch 个人资料弹窗：返回 → 回主菜单");
+            }
+            (void)clazz;
+            return JNI_TRUE;
+        }
+        if (!ui_profile_popup_inside(bx, by)) {
+            ui_screen_set(UI_MENU);
+            LOGI("OnTouch 个人资料弹窗外（bx=%.0f by=%.0f）→ 回主菜单", bx, by);
+            sfx_play(env, "pop");
+        }
+        (void)clazz;
+        return JNI_TRUE;
+    }
+
     /* ★ 原版 UI 对齐：☰ 游戏内菜单 / ↩ 悔棋 图标（棋盘中部）。
        对局态点 ☰ → UI_INGAME_MENU；点 ↩ → 悔棋（undo_pop）。
        坐标换算 720×1280 基准（与渲染同几何）。

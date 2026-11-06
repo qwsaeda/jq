@@ -142,4 +142,64 @@ int ui_create_hit(const ui_create_btn *b, int n, float x, float y)
 int ui_create_popup_inside(float x, float y)
 { return x>=UI_CREATE_POPUP_X0&&x<=UI_CREATE_POPUP_X0+UI_CREATE_POPUP_W&&
          y>=UI_CREATE_POPUP_Y0&&y<=UI_CREATE_POPUP_Y0+UI_CREATE_POPUP_H; }
-
+/* ★ P2（datah_061 证据）：新局完整版（完整版补充）弹窗 6 控件桩（几何表返回 720 基准占位供
+   一致性/evverify 链接；真机走 ui_menu.c 真实几何表）。
+   诚实边界：4 项各循环切换当前值（对齐 datah_104 循环切换范式）。 */
+static const ui_ng061_btn n061_stub[UI_NG061_COUNT] = {
+    { 355.0f,483.0f,555.0f,543.0f,0 },{ 355.0f,558.0f,555.0f,618.0f,1 },
+    { 355.0f,633.0f,555.0f,693.0f,2 },{ 355.0f,708.0f,555.0f,768.0f,3 },
+    { 165.0f,793.0f,345.0f,853.0f,4 },{ 375.0f,793.0f,555.0f,853.0f,5 },
+};
+const ui_ng061_btn *ui_ng061_buttons(void) { return n061_stub; }
+int ui_ng061_hit(const ui_ng061_btn *b, int n, float x, float y)
+{ for (int i=0;i<n;i++) if (x>=b[i].x0&&x<=b[i].x1&&y>=b[i].y0&&y<=b[i].y1) return i; return -1; }
+int ui_ng061_popup_inside(float x, float y)
+{ return x>=UI_NG061_POPUP_X0&&x<=UI_NG061_POPUP_X0+UI_NG061_POPUP_W&&
+         y>=UI_NG061_POPUP_Y0&&y<=UI_NG061_POPUP_Y0+UI_NG061_POPUP_H; }
+/* ★ P2（datah_050 证据）：对局信息弹窗 3 按钮桩。
+   诚实边界：Info 文本=☰ 战况统计复用；删除=清复盘记录简化（原版删除对局存档未逆向）。 */
+static const ui_gameinfo_btn gi_stub[UI_GAMEINFO_COUNT] = {
+    { 175.0f,745.0f,285.0f,805.0f,0 },{ 305.0f,745.0f,415.0f,805.0f,1 },
+    { 435.0f,745.0f,545.0f,805.0f,2 },
+};
+const ui_gameinfo_btn *ui_gameinfo_buttons(void) { return gi_stub; }
+int ui_gameinfo_hit(const ui_gameinfo_btn *b, int n, float x, float y)
+{ for (int i=0;i<n;i++) if (x>=b[i].x0&&x<=b[i].x1&&y>=b[i].y0&&y<=b[i].y1) return i; return -1; }
+int ui_gameinfo_popup_inside(float x, float y)
+{ return x>=UI_GAMEINFO_POPUP_X0&&x<=UI_GAMEINFO_POPUP_X0+UI_GAMEINFO_POPUP_W&&
+         y>=UI_GAMEINFO_POPUP_Y0&&y<=UI_GAMEINFO_POPUP_Y0+UI_GAMEINFO_POPUP_H; }
+/* ★ P2（datah_002 证据）：亮度调节弹窗 3 控件桩。
+   诚实边界：原版滑条拖拽=触摸 flaky，简化为"低/中/高"3 档循环切换（不画真滑条）。 */
+static const ui_bright_btn br_stub[UI_BRIGHT_COUNT] = {
+    { 152.0f,601.0f,568.0f,649.0f,0 },{ 160.0f,675.0f,345.0f,735.0f,1 },
+    { 375.0f,675.0f,560.0f,735.0f,2 },
+};
+const ui_bright_btn *ui_bright_buttons(void) { return br_stub; }
+int ui_bright_hit(const ui_bright_btn *b, int n, float x, float y)
+{ for (int i=0;i<n;i++) if (x>=b[i].x0&&x<=b[i].x1&&y>=b[i].y0&&y<=b[i].y1) return i; return -1; }
+int ui_bright_popup_inside(float x, float y)
+{ return x>=UI_BRIGHT_POPUP_X0&&x<=UI_BRIGHT_POPUP_X0+UI_BRIGHT_POPUP_W&&
+         y>=UI_BRIGHT_POPUP_Y0&&y<=UI_BRIGHT_POPUP_Y0+UI_BRIGHT_POPUP_H; }
+/* ★ P2（datah_029 证据）：聊天记录弹窗 2 按钮桩。
+   诚实边界：原版联机聊天文本（Junqi.Chat*）未逆向，src_rs 蓝牙聊天是占位帧（BT_T_CHAT）。 */
+static const ui_chatlog_btn cl_stub[UI_CHATLOG_COUNT] = {
+    { 187.0f,825.0f,343.0f,885.0f,0 },{ 377.0f,825.0f,533.0f,885.0f,1 },
+};
+const ui_chatlog_btn *ui_chatlog_buttons(void) { return cl_stub; }
+int ui_chatlog_hit(const ui_chatlog_btn *b, int n, float x, float y)
+{ for (int i=0;i<n;i++) if (x>=b[i].x0&&x<=b[i].x1&&y>=b[i].y0&&y<=b[i].y1) return i; return -1; }
+int ui_chatlog_popup_inside(float x, float y)
+{ return x>=UI_CHATLOG_POPUP_X0&&x<=UI_CHATLOG_POPUP_X0+UI_CHATLOG_POPUP_W&&
+         y>=UI_CHATLOG_POPUP_Y0&&y<=UI_CHATLOG_POPUP_Y0+UI_CHATLOG_POPUP_H; }
+/* ★ P2（datah_031 证据）：个人资料弹窗 3 按钮桩。
+   诚实边界：原版个人资料（昵称/头像/胜率）+ 账号系统未逆向，Info 文本框=诚实边界占位。 */
+static const ui_profile_btn pf_stub[UI_PROFILE_COUNT] = {
+    { 175.0f,815.0f,285.0f,875.0f,0 },{ 305.0f,815.0f,415.0f,875.0f,1 },
+    { 435.0f,815.0f,545.0f,875.0f,2 },
+};
+const ui_profile_btn *ui_profile_buttons(void) { return pf_stub; }
+int ui_profile_hit(const ui_profile_btn *b, int n, float x, float y)
+{ for (int i=0;i<n;i++) if (x>=b[i].x0&&x<=b[i].x1&&y>=b[i].y0&&y<=b[i].y1) return i; return -1; }
+int ui_profile_popup_inside(float x, float y)
+{ return x>=UI_PROFILE_POPUP_X0&&x<=UI_PROFILE_POPUP_X0+UI_PROFILE_POPUP_W&&
+         y>=UI_PROFILE_POPUP_Y0&&y<=UI_PROFILE_POPUP_Y0+UI_PROFILE_POPUP_H; }

@@ -612,3 +612,157 @@ int ui_create_popup_inside(float x, float y)
     return x >= UI_CREATE_POPUP_X0 && x <= UI_CREATE_POPUP_X0 + UI_CREATE_POPUP_W &&
            y >= UI_CREATE_POPUP_Y0 && y <= UI_CREATE_POPUP_Y0 + UI_CREATE_POPUP_H;
 }
+
+/* ★ P2（datah_061 证据）：新局完整版（完整版补充）弹窗 6 控件（先后手/电脑水平/玩法/明暗棋/确定/取消）。
+   几何 720×1280 基准：面板 450×465 居中（偏移=(720-450)/2=135,(1280-465)/2=407.5）；
+   局部 1:1 平移（取整）：
+   先后手 First 220,75,420,135 → 355,482.5-555,542.5 → 355,483-555,543；
+   电脑水平 Level 220,150,420,210 → 355,557.5-555,617.5 → 355,558-555,618；
+   玩法 Lay 220,225,420,285 → 355,632.5-555,692.5 → 355,633-555,693；
+   明暗棋 Show 220,300,420,360 → 355,707.5-555,767.5 → 355,708-555,768；
+   确定 Ok 30,385,210,445 → 165,792.5-345,852.5 → 165,793-345,853；
+   取消 Cancel 240,385,420,445 → 375,792.5-555,852.5 → 375,793-555,853。
+   ★ 诚实边界：4 项各循环切换当前值（对齐 datah_104 循环切换范式）。 */
+static const ui_ng061_btn g_ng061_btns[UI_NG061_COUNT] = {
+    /* x0, y0, x1, y1, action；★ 原版 datah_061 450 坐标系精确换算（面板 450×465 居中 720，偏移+135,+407.5，取整） */
+    { 355.0f, 483.0f, 555.0f, 543.0f, 0 },   /* 先后手 First（220,75,420,135）→ 蓝/红 循环 */
+    { 355.0f, 558.0f, 555.0f, 618.0f, 1 },   /* 电脑水平 Level（220,150,420,210）→ 难度 1-4 循环 */
+    { 355.0f, 633.0f, 555.0f, 693.0f, 2 },   /* 玩法 Lay（220,225,420,285）→ 布局/翻棋 切换 */
+    { 355.0f, 708.0f, 555.0f, 768.0f, 3 },   /* 明暗棋 Show（220,300,420,360）→ 明/暗 切换 */
+    { 165.0f, 793.0f, 345.0f, 853.0f, 4 },   /* 确定 Ok（30,385,210,445）→ 按选择开局 */
+    { 375.0f, 793.0f, 555.0f, 853.0f, 5 },   /* 取消 Cancel（240,385,420,445）→ 回主菜单 */
+};
+
+const ui_ng061_btn *ui_ng061_buttons(void) { return g_ng061_btns; }
+
+int ui_ng061_hit(const ui_ng061_btn *btns, int n, float x, float y)
+{
+    for (int i = 0; i < n; i++)
+        if (x >= btns[i].x0 && x <= btns[i].x1 && y >= btns[i].y0 && y <= btns[i].y1)
+            return i;
+    return -1;
+}
+
+int ui_ng061_popup_inside(float x, float y)
+{
+    return x >= UI_NG061_POPUP_X0 && x <= UI_NG061_POPUP_X0 + UI_NG061_POPUP_W &&
+           y >= UI_NG061_POPUP_Y0 && y <= UI_NG061_POPUP_Y0 + UI_NG061_POPUP_H;
+}
+
+/* ★ P2（datah_050 证据）：对局信息弹窗 3 按钮（复盘/删除/返回）。
+   几何 720×1280 基准：面板 420×380 居中（偏移=(720-420)/2=150,(1280-380)/2=450）；
+   局部 1:1 平移：
+   复盘 View 25,295,135,355 → 175,745-285,805；
+   删除 Remove 155,295,265,355 → 305,745-415,805；
+   返回 Close 285,295,395,355 → 435,745-545,805。
+   ★ 诚实边界：Info 文本=☰ 战况统计复用；删除=清复盘记录简化（原版删除对局存档未逆向）。 */
+static const ui_gameinfo_btn g_gameinfo_btns[UI_GAMEINFO_COUNT] = {
+    /* x0, y0, x1, y1, action；★ 原版 datah_050 420 坐标系精确换算（面板 420×380 居中 720，偏移+150,+450） */
+    { 175.0f, 745.0f, 285.0f, 805.0f, 0 },   /* 复盘 View（25,295,135,355）→ 进 UI_REPLAY 复盘态 */
+    { 305.0f, 745.0f, 415.0f, 805.0f, 1 },   /* 删除 Remove（155,295,265,355）→ 清复盘记录 */
+    { 435.0f, 745.0f, 545.0f, 805.0f, 2 },   /* 返回 Close（285,295,395,355）→ 回对局 */
+};
+
+const ui_gameinfo_btn *ui_gameinfo_buttons(void) { return g_gameinfo_btns; }
+
+int ui_gameinfo_hit(const ui_gameinfo_btn *btns, int n, float x, float y)
+{
+    for (int i = 0; i < n; i++)
+        if (x >= btns[i].x0 && x <= btns[i].x1 && y >= btns[i].y0 && y <= btns[i].y1)
+            return i;
+    return -1;
+}
+
+int ui_gameinfo_popup_inside(float x, float y)
+{
+    return x >= UI_GAMEINFO_POPUP_X0 && x <= UI_GAMEINFO_POPUP_X0 + UI_GAMEINFO_POPUP_W &&
+           y >= UI_GAMEINFO_POPUP_Y0 && y <= UI_GAMEINFO_POPUP_Y0 + UI_GAMEINFO_POPUP_H;
+}
+
+/* ★ P2（datah_002 证据）：亮度调节弹窗 3 控件（亮度/确定/取消）。
+   几何 720×1280 基准：面板 460×240 居中（偏移=(720-460)/2=130,(1280-240)/2=520）；
+   局部 1:1 平移：
+   亮度滑条 Bright 22,81,438,129 → 152,601-568,649（简化：不画真滑条，循环切换区）；
+   确定 Ok 30,155,215,215 → 160,675-345,735；
+   取消 Cancel 245,155,430,215 → 375,675-560,735。
+   ★ 诚实边界：原版滑条拖拽=触摸 flaky，简化为"低/中/高"3 档循环切换（对齐 datah_001 音量循环范式）。 */
+static const ui_bright_btn g_bright_btns[UI_BRIGHT_COUNT] = {
+    /* x0, y0, x1, y1, action；★ 原版 datah_002 460 坐标系精确换算（面板 460×240 居中 720，偏移+130,+520） */
+    { 152.0f, 601.0f, 568.0f, 649.0f, 0 },   /* 亮度 Bright（22,81,438,129）→ 低/中/高 循环（不画真滑条） */
+    { 160.0f, 675.0f, 345.0f, 735.0f, 1 },   /* 确定 Ok（30,155,215,215）→ 保存 g_bright/ui_volume */
+    { 375.0f, 675.0f, 560.0f, 735.0f, 2 },   /* 取消 Cancel（245,155,430,215）→ 恢复原值 */
+};
+
+const ui_bright_btn *ui_bright_buttons(void) { return g_bright_btns; }
+
+int ui_bright_hit(const ui_bright_btn *btns, int n, float x, float y)
+{
+    for (int i = 0; i < n; i++)
+        if (x >= btns[i].x0 && x <= btns[i].x1 && y >= btns[i].y0 && y <= btns[i].y1)
+            return i;
+    return -1;
+}
+
+int ui_bright_popup_inside(float x, float y)
+{
+    return x >= UI_BRIGHT_POPUP_X0 && x <= UI_BRIGHT_POPUP_X0 + UI_BRIGHT_POPUP_W &&
+           y >= UI_BRIGHT_POPUP_Y0 && y <= UI_BRIGHT_POPUP_Y0 + UI_BRIGHT_POPUP_H;
+}
+
+/* ★ P2（datah_029 证据）：聊天记录弹窗 2 按钮（清除/关闭）。
+   几何 720×1280 基准：面板 420×530 居中（偏移=(720-420)/2=150,(1280-530)/2=375）；
+   局部 1:1 平移：
+   清除 Clear 37,450,193,510 → 187,825-343,885；
+   关闭 Close 227,450,383,510 → 377,825-533,885。
+   ★ 诚实边界：原版联机聊天文本（Junqi.Chat*）未逆向，src_rs 蓝牙聊天是占位帧（BT_T_CHAT）。 */
+static const ui_chatlog_btn g_chatlog_btns[UI_CHATLOG_COUNT] = {
+    /* x0, y0, x1, y1, action；★ 原版 datah_029 420 坐标系精确换算（面板 420×530 居中 720，偏移+150,+375） */
+    { 187.0f, 825.0f, 343.0f, 885.0f, 0 },   /* 清除 Clear（37,450,193,510）→ 清本地占位记录 */
+    { 377.0f, 825.0f, 533.0f, 885.0f, 1 },   /* 关闭 Close（227,450,383,510）→ 回对局 */
+};
+
+const ui_chatlog_btn *ui_chatlog_buttons(void) { return g_chatlog_btns; }
+
+int ui_chatlog_hit(const ui_chatlog_btn *btns, int n, float x, float y)
+{
+    for (int i = 0; i < n; i++)
+        if (x >= btns[i].x0 && x <= btns[i].x1 && y >= btns[i].y0 && y <= btns[i].y1)
+            return i;
+    return -1;
+}
+
+int ui_chatlog_popup_inside(float x, float y)
+{
+    return x >= UI_CHATLOG_POPUP_X0 && x <= UI_CHATLOG_POPUP_X0 + UI_CHATLOG_POPUP_W &&
+           y >= UI_CHATLOG_POPUP_Y0 && y <= UI_CHATLOG_POPUP_Y0 + UI_CHATLOG_POPUP_H;
+}
+
+/* ★ P2（datah_031 证据）：个人资料弹窗 3 按钮（修改/帮助/返回）。
+   几何 720×1280 基准：面板 420×520 居中（偏移=(720-420)/2=150,(1280-520)/2=380）；
+   局部 1:1 平移：
+   修改 Modify 25,435,135,495 → 175,815-285,875；
+   帮助 Help 155,435,265,495 → 305,815-415,875；
+   返回 Close 285,435,395,495 → 435,815-545,875。
+   ★ 诚实边界：原版个人资料（昵称/头像/胜率）+ 账号系统未逆向，Info 文本框=诚实边界占位。 */
+static const ui_profile_btn g_profile_btns[UI_PROFILE_COUNT] = {
+    /* x0, y0, x1, y1, action；★ 原版 datah_031 420 坐标系精确换算（面板 420×520 居中 720，偏移+150,+380） */
+    { 175.0f, 815.0f, 285.0f, 875.0f, 0 },   /* 修改 Modify（25,435,135,495）→ 诚实边界对话框 */
+    { 305.0f, 815.0f, 415.0f, 875.0f, 1 },   /* 帮助 Help（155,435,265,495）→ 显示帮助文本 */
+    { 435.0f, 815.0f, 545.0f, 875.0f, 2 },   /* 返回 Close（285,435,395,495）→ 回主菜单 */
+};
+
+const ui_profile_btn *ui_profile_buttons(void) { return g_profile_btns; }
+
+int ui_profile_hit(const ui_profile_btn *btns, int n, float x, float y)
+{
+    for (int i = 0; i < n; i++)
+        if (x >= btns[i].x0 && x <= btns[i].x1 && y >= btns[i].y0 && y <= btns[i].y1)
+            return i;
+    return -1;
+}
+
+int ui_profile_popup_inside(float x, float y)
+{
+    return x >= UI_PROFILE_POPUP_X0 && x <= UI_PROFILE_POPUP_X0 + UI_PROFILE_POPUP_W &&
+           y >= UI_PROFILE_POPUP_Y0 && y <= UI_PROFILE_POPUP_Y0 + UI_PROFILE_POPUP_H;
+}

@@ -34,20 +34,25 @@ int jq_touch_hit_cell(float px, float py, int view_w, int view_h,
        设备行（row0=底，image_row=11-设备row）。 */
     float img_x = px / (float)view_w * BG_IMG_W;
     float img_y = py / (float)view_h * BG_IMG_H;
-    int col = (int)lroundf((img_x - BG_GRID_COL0_CX) / BG_GRID_COL_W);
+    /* §124y-26：lroundf 在 32 位 so（动态符号 U lroundf@LIBC）设备 libc 下行为与
+       桌面 x86 不同（命中 0/60 vs 桌面 60/60）。用 (int)(v+0.5f) 整数舍入，
+       对命中几何的全正值域（col/image_row 均 >=0）与 lroundf 等价，绕开 ABI 差异 */
+    int col = (int)((img_x - BG_GRID_COL0_CX) / BG_GRID_COL_W + 0.5f);
     if (col < 0 || col >= BOARD_COLS) return -1;
     float cx = BG_GRID_COL0_CX + col * BG_GRID_COL_W;
-    if (fabsf(img_x - cx) > BG_GRID_COL_W * 0.5f) return -1;
+    float col_gap = (img_x >= cx) ? (img_x - cx) : (cx - img_x);  /* §124y-26：fabsf→算术绝对值，绕开 libc fabsf */
+    if (col_gap > BG_GRID_COL_W * 0.5f) return -1;
     /* 最近图像行（row5/6 铁路中线间隙：中点 699.5=(577+822)/2，间隙内命中空白） */
     float mid = (bg_row_cy(5) + bg_row_cy(6)) * 0.5f;
     int image_row;
     if (img_y < mid)
-        image_row = (int)lroundf((img_y - BG_GRID_ROW0_CY) / BG_GRID_ROW_H);
+        image_row = (int)((img_y - BG_GRID_ROW0_CY) / BG_GRID_ROW_H + 0.5f);
     else
-        image_row = 6 + (int)lroundf((img_y - BG_GRID_ROW6_CY) / BG_GRID_ROW_H);
+        image_row = 6 + (int)((img_y - BG_GRID_ROW6_CY) / BG_GRID_ROW_H + 0.5f);
     if (image_row < 0 || image_row >= BOARD_ROWS) return -1;
     float cy = bg_row_cy(image_row);
-    if (fabsf(img_y - cy) > BG_GRID_ROW_H * 0.5f) return -1;
+    float row_gap = (img_y >= cy) ? (img_y - cy) : (cy - img_y);  /* §124y-26：fabsf→算术绝对值 */
+    if (row_gap > BG_GRID_ROW_H * 0.5f) return -1;
     int row = BOARD_ROWS - 1 - image_row;   /* 设备行（row0=底，蓝/人） */
     if (out_row) *out_row = row;
     if (out_col) *out_col = col;

@@ -111,6 +111,38 @@ DIALOGS = {
     # 诚实边界：原版创建=Wi-Fi/局域网协议未逆向，src_rs 仅蓝牙 SPP，确定→边界对话框）
     "datah_035_create": (420, 235, [
         ("密码",100,80,320,125),("确定",35,150,195,210),("取消",225,150,385,210)]),
+    # ★ P2（datah_061 证据）：新局完整版（完整版补充）弹窗（450×465 面板居中 720 屏，
+    # 偏移=(720-450)/2=135, (1280-465)/2=407.5；先后手 220,75,420,135 → 355,483-555,543；
+    # 电脑水平 220,150,420,210 → 355,558-555,618；玩法 220,225,420,285 → 355,633-555,693；
+    # 明暗棋 220,300,420,360 → 355,708-555,768；确定 30,385,210,445 → 165,793-345,853；
+    # 取消 240,385,420,445 → 375,793-555,853。诚实边界：4 项各循环切换当前值简化版）
+    "datah_061_ng061": (450, 465, [
+        ("先后手",220,75,420,135),("电脑",220,150,420,210),("玩法",220,225,420,285),
+        ("明暗棋",220,300,420,360),("确定",30,385,210,445),("取消",240,385,420,445)]),
+    # ★ P2（datah_050 证据）：对局信息弹窗（420×380 面板居中 720 屏，
+    # 偏移=(720-420)/2=150, (1280-380)/2=450；复盘 25,295,135,355 → 175,745-285,805；
+    # 删除 155,295,265,355 → 305,745-415,805；返回 285,295,395,355 → 435,745-545,805。
+    # 诚实边界：Info 文本=战况统计复用，删除=清复盘记录简化）
+    "datah_050_gameinfo": (420, 380, [
+        ("复盘",25,295,135,355),("删除",155,295,265,355),("返回",285,295,395,355)]),
+    # ★ P2（datah_002 证据）：亮度调节弹窗（460×240 面板居中 720 屏，
+    # 偏移=(720-460)/2=130, (1280-240)/2=520；亮度滑条 22,81,438,129 → 152,601-568,649；
+    # 确定 30,155,215,215 → 160,675-345,735；取消 245,155,430,215 → 375,675-560,735。
+    # 诚实边界：原版滑条拖拽=触摸 flaky，简化为 3 档循环切换（不画真滑条））
+    "datah_002_bright": (460, 240, [
+        ("亮度",22,81,438,129),("确定",30,155,215,215),("取消",245,155,430,215)]),
+    # ★ P2（datah_029 证据）：聊天记录弹窗（420×530 面板居中 720 屏，
+    # 偏移=(720-420)/2=150, (1280-530)/2=375；清除 37,450,193,510 → 187,825-343,885；
+    # 关闭 227,450,383,510 → 377,825-533,885。
+    # 诚实边界：原版联机聊天文本未逆向，src_rs 蓝牙聊天是占位帧 BT_T_CHAT）
+    "datah_029_chatlog": (420, 530, [
+        ("清除",37,450,193,510),("关闭",227,450,383,510)]),
+    # ★ P2（datah_031 证据）：个人资料弹窗（420×520 面板居中 720 屏，
+    # 偏移=(720-420)/2=150, (1280-520)/2=380；修改 25,435,135,495 → 175,815-285,875；
+    # 帮助 155,435,265,495 → 305,815-415,875；返回 285,435,395,495 → 435,815-545,875。
+    # 诚实边界：原版个人资料+账号系统未逆向，Info 文本框=诚实边界占位）
+    "datah_031_profile": (420, 520, [
+        ("修改",25,435,135,495),("帮助",155,435,265,495),("返回",285,435,395,495)]),
 }
 
 # datah_107/039 绝对坐标面板（不居中，局部 1:1 平移 @ 偏移）
@@ -159,6 +191,16 @@ def load_src_rs_buttons(path="rev64/src_rs/ui_menu.c"):
     tables["join"] = _grab("g_join_btns")
     # ★ P2（datah_035 证据）：创建游戏弹窗 3 控件（g_create_btns）
     tables["create"] = _grab("g_create_btns")
+    # ★ P2（datah_061 证据）：新局完整版（完整版补充）弹窗 6 控件（g_ng061_btns）
+    tables["ng061"] = _grab("g_ng061_btns")
+    # ★ P2（datah_050 证据）：对局信息弹窗 3 按钮（g_gameinfo_btns）
+    tables["gameinfo"] = _grab("g_gameinfo_btns")
+    # ★ P2（datah_002 证据）：亮度调节弹窗 3 控件（g_bright_btns）
+    tables["bright"] = _grab("g_bright_btns")
+    # ★ P2（datah_029 证据）：聊天记录弹窗 2 按钮（g_chatlog_btns）
+    tables["chatlog"] = _grab("g_chatlog_btns")
+    # ★ P2（datah_031 证据）：个人资料弹窗 3 按钮（g_profile_btns）
+    tables["profile"] = _grab("g_profile_btns")
     return tables
 def dialog_720(name):
     """原版对话框 → 720×1280 物理基准（面板水平居中 +135，垂直居中按面板 H）；
@@ -213,7 +255,12 @@ def check_geometry(menu_src=None, verbose=True):
                          ("datah_037_rules","rules"),
                          ("datah_104_newgame","ng104"),
                          ("datah_034_join","join"),
-                         ("datah_035_create","create")]:
+                         ("datah_035_create","create"),
+                         ("datah_061_ng061","ng061"),
+                         ("datah_050_gameinfo","gameinfo"),
+                         ("datah_002_bright","bright"),
+                         ("datah_029_chatlog","chatlog"),
+                         ("datah_031_profile","profile")]:
         if dname not in DIALOGS or tname not in src: continue
         W,H,obtns = DIALOGS[dname]
         ox,oy = (720-W)/2.0,(1280-H)/2.0
@@ -240,7 +287,7 @@ def check_geometry(menu_src=None, verbose=True):
                     ((srcs[0][0]+srcs[0][2])/2,(srcs[0][1]+srcs[0][3])/2,
                      (srcs[0][0]+srcs[0][2])/2,(srcs[0][1]+srcs[0][3])/2)),
             ]
-        else:   # datah_016_laymgr
+        elif dname == "datah_016_laymgr":
             pairs = [
                 ("载入", (ox+25,oy+390,ox+129,oy+450),
                     (srcs[0][0],srcs[0][1],srcs[0][2],srcs[0][3])),
@@ -296,6 +343,37 @@ def check_geometry(menu_src=None, verbose=True):
             for i, (lbl, x0, y0, x1, y1) in enumerate(obtns):
                 pairs.append((lbl, (ox+x0, oy+y0, ox+x1, oy+y1),
                               (srcs[i][0],srcs[i][1],srcs[i][2],srcs[i][3])))
+        # ★ P2（datah_061 证据）：新局完整版（完整版补充）弹窗 6 控件（450×465 居中，偏移+135,+407.5，
+        #   局部 1:1 平移取整；src_rs g_ng061_btns 6 项对应原版 6 控件）
+        if dname == "datah_061_ng061":
+            pairs = []
+            for i2, (lbl, x0, y0, x1, y1) in enumerate(obtns):
+                pairs.append((lbl, (round(ox+x0,1), round(oy+y0,1), round(ox+x1,1), round(oy+y1,1)),
+                              (srcs[i2][0],srcs[i2][1],srcs[i2][2],srcs[i2][3])))
+        # ★ P2（datah_050 证据）：对局信息弹窗 3 按钮（420×380 居中，偏移+150,+450）
+        if dname == "datah_050_gameinfo":
+            pairs = []
+            for i2, (lbl, x0, y0, x1, y1) in enumerate(obtns):
+                pairs.append((lbl, (ox+x0, oy+y0, ox+x1, oy+y1),
+                              (srcs[i2][0],srcs[i2][1],srcs[i2][2],srcs[i2][3])))
+        # ★ P2（datah_002 证据）：亮度调节弹窗 3 控件（460×240 居中，偏移+130,+520）
+        if dname == "datah_002_bright":
+            pairs = []
+            for i2, (lbl, x0, y0, x1, y1) in enumerate(obtns):
+                pairs.append((lbl, (ox+x0, oy+y0, ox+x1, oy+y1),
+                              (srcs[i2][0],srcs[i2][1],srcs[i2][2],srcs[i2][3])))
+        # ★ P2（datah_029 证据）：聊天记录弹窗 2 按钮（420×530 居中，偏移+150,+375）
+        if dname == "datah_029_chatlog":
+            pairs = []
+            for i2, (lbl, x0, y0, x1, y1) in enumerate(obtns):
+                pairs.append((lbl, (ox+x0, oy+y0, ox+x1, oy+y1),
+                              (srcs[i2][0],srcs[i2][1],srcs[i2][2],srcs[i2][3])))
+        # ★ P2（datah_031 证据）：个人资料弹窗 3 按钮（420×520 居中，偏移+150,+380）
+        if dname == "datah_031_profile":
+            pairs = []
+            for i2, (lbl, x0, y0, x1, y1) in enumerate(obtns):
+                pairs.append((lbl, (ox+x0, oy+y0, ox+x1, oy+y1),
+                              (srcs[i2][0],srcs[i2][1],srcs[i2][2],srcs[i2][3])))
         if not srcs or len(srcs) < 3:
             if verbose and verbose_global: print(f"  {dname} src_rs 按钮表缺失/不足（{len(srcs)} 行）→ 跳过 Δ 比对（诚实边界）")
             continue
@@ -310,9 +388,9 @@ def check_geometry(menu_src=None, verbose=True):
                 print(f"  {dname} {lbl:4s} 原版720中心({(oox0+oox1)/2:.0f},{(ooy0+ooy1)/2:.0f}) src({(sox0+sox1)/2:.0f},{(soy0+soy1)/2:.0f}) Δc=({dcx:+.1f},{dcy:+.1f}) {('—' if is_region else ('✓' if ok else '✗'))} {note}")
             if not ok and not is_region:
                 failures.append(f"{dname} {lbl} Δ=({dcx:+.1f},{dcy:+.1f})")
-    for dname in ["datah_041_diff","datah_072_way","datah_001_set","datah_089_nplayer","datah_062_newgame","datah_012_gameset","datah_017_loadlay","datah_020_savelay","datah_016_laymgr","datah_107_replay","datah_039_replay","datah_038_login","datah_037_rules","datah_104_newgame","datah_034_join","datah_035_create"]:
+    for dname in ["datah_041_diff","datah_072_way","datah_001_set","datah_089_nplayer","datah_062_newgame","datah_012_gameset","datah_017_loadlay","datah_020_savelay","datah_016_laymgr","datah_107_replay","datah_039_replay","datah_038_login","datah_037_rules","datah_104_newgame","datah_034_join","datah_035_create","datah_061_ng061","datah_050_gameinfo","datah_002_bright","datah_029_chatlog","datah_031_profile"]:
         orig = dialog_720(dname)
-        nrep = len(orig) if dname in ("datah_017_loadlay","datah_020_savelay","datah_016_laymgr","datah_107_replay","datah_039_replay","datah_038_login","datah_037_rules","datah_104_newgame","datah_034_join","datah_035_create") else 2
+        nrep = len(orig) if dname in ("datah_017_loadlay","datah_020_savelay","datah_016_laymgr","datah_107_replay","datah_039_replay","datah_038_login","datah_037_rules","datah_104_newgame","datah_034_join","datah_035_create","datah_061_ng061","datah_050_gameinfo","datah_002_bright","datah_029_chatlog","datah_031_profile") else 2
         for lbl,ox0,oy0,ox1,oy1 in orig[:nrep]:
             cx,cy = (ox0+ox1)/2,(oy0+oy1)/2
             if verbose and verbose_global:

@@ -74,6 +74,17 @@ typedef struct {
     rs_glid_t tex_join_text[2];   /* ★ P2（datah_034/035）：加入/创建游戏文字图集 220×460
                                            （10 标签竖排：加入/创建/桌号/密码/确定/取消/
                                            蓝牙/边界/联机/Wi-Fi） */
+    rs_glid_t tex_ng061_text[2];  /* ★ P2（datah_061）：新局完整版（完整版补充）文字图集 220×460
+                                           （10 标签竖排：新局/先后手/电脑/玩法/蓝/红/新手/
+                                           中级/高级/确定） */
+    rs_glid_t tex_gameinfo_text[2]; /* ★ P2（datah_050）：对局信息文字图集 220×368（8 标签竖排：
+                                           信息/复盘/删除/返回/蓝方/红方/步数/回合） */
+    rs_glid_t tex_bright_text[2];  /* ★ P2（datah_002）：亮度调节文字图集 220×460（10 标签竖排：
+                                           亮度/滑条/低/中/高/确定/取消/调节/档位/保存） */
+    rs_glid_t tex_chatlog_text[2]; /* ★ P2（datah_029）：聊天记录文字图集 220×368（8 标签竖排：
+                                           记录/聊天/清除/关闭/占位/帧/边界/未逆向） */
+    rs_glid_t tex_profile_text[2]; /* ★ P2（datah_031）：个人资料文字图集 220×460（10 标签竖排：
+                                           资料/修改/帮助/返回/账号/昵称/头像/胜率/边界/未逆向） */
     void *board_px; size_t board_px_len;   /* 解码后 RGBA（跨 context 共享，只解码一次） */
     void *piece_px;  size_t piece_px_len;
     void *text_px;   size_t text_px_len;   /* 菜单文字图集 RGBA（5 label 竖排） */
@@ -110,6 +121,16 @@ typedef struct {
     int ng104_text_w, ng104_text_h;           /* 新局完整版文字图集尺寸 */
     void *join_text_px; size_t join_text_px_len; /* ★ P2（datah_034/035）：加入/创建游戏文字图集 RGBA（10 标签竖排 220×460） */
     int join_text_w, join_text_h;             /* 加入/创建游戏文字图集尺寸 */
+    void *ng061_text_px; size_t ng061_text_px_len; /* ★ P2（datah_061）：新局完整版（完整版补充）文字图集 RGBA（10 标签竖排 220×460） */
+    int ng061_text_w, ng061_text_h;          /* 新局完整版文字图集尺寸 */
+    void *gameinfo_text_px; size_t gameinfo_text_px_len; /* ★ P2（datah_050）：对局信息文字图集 RGBA（8 标签竖排 220×368） */
+    int gameinfo_text_w, gameinfo_text_h;    /* 对局信息文字图集尺寸 */
+    void *bright_text_px; size_t bright_text_px_len; /* ★ P2（datah_002）：亮度调节文字图集 RGBA（10 标签竖排 220×460） */
+    int bright_text_w, bright_text_h;        /* 亮度调节文字图集尺寸 */
+    void *chatlog_text_px; size_t chatlog_text_px_len; /* ★ P2（datah_029）：聊天记录文字图集 RGBA（8 标签竖排 220×368） */
+    int chatlog_text_w, chatlog_text_h;      /* 聊天记录文字图集尺寸 */
+    void *profile_text_px; size_t profile_text_px_len; /* ★ P2（datah_031）：个人资料文字图集 RGBA（10 标签竖排 220×460） */
+    int profile_text_w, profile_text_h;      /* 个人资料文字图集尺寸 */
     void *imen_text_px; size_t imen_text_px_len; /* ★ ☰ 菜单文字图集 RGBA（8 项竖排 160×320） */
     int imen_text_w, imen_text_h;               /* ☰ 菜单文字图集尺寸 */
     void *imen_icons_px; size_t imen_icons_px_len; /* ★ ☰ 菜单图标图集 RGBA（8 图标 110×100 4×2，原版裁剪） */

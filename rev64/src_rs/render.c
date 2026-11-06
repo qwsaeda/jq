@@ -299,6 +299,12 @@ int rs_render_init(rs_render *rr, const char *spak_dir, const jq_state *init_sta
         snprintf(p23, sizeof p23, "%s/ng104_text_atlas.png", spak_dir ? spak_dir : "");
         char p24[512];
         snprintf(p24, sizeof p24, "%s/join_text_atlas.png", spak_dir ? spak_dir : "");
+        char p25[512], p26[512], p27[512], p28[512], p29[512];
+        snprintf(p25, sizeof p25, "%s/ng061_text_atlas.png", spak_dir ? spak_dir : "");
+        snprintf(p26, sizeof p26, "%s/gameinfo_text_atlas.png", spak_dir ? spak_dir : "");
+        snprintf(p27, sizeof p27, "%s/bright_text_atlas.png", spak_dir ? spak_dir : "");
+        snprintf(p28, sizeof p28, "%s/chatlog_text_atlas.png", spak_dir ? spak_dir : "");
+        snprintf(p29, sizeof p29, "%s/profile_text_atlas.png", spak_dir ? spak_dir : "");
         unsigned char *braw = NULL; size_t braw_len = 0;
         unsigned char *praw = NULL; size_t praw_len = 0;
         unsigned char *traw = NULL; size_t traw_len = 0;
@@ -323,6 +329,11 @@ int rs_render_init(rs_render *rr, const char *spak_dir, const jq_state *init_sta
         unsigned char *ruaw = NULL; size_t ruaw_len = 0;    /* ★ P2 datah_037 规则文本文字图集 */
         unsigned char *ngaw2 = NULL; size_t ngaw2_len = 0;  /* ★ P2 datah_104 新局完整版文字图集 */
         unsigned char *joaw = NULL; size_t joaw_len = 0;    /* ★ P2 datah_034/035 加入/创建游戏文字图集 */
+        unsigned char *n061aw = NULL; size_t n061aw_len = 0; /* ★ P2 datah_061 新局完整版（完整版补充）文字图集 */
+        unsigned char *giaw = NULL; size_t giaw_len = 0;    /* ★ P2 datah_050 对局信息文字图集 */
+        unsigned char *brw = NULL; size_t brw_len = 0;      /* ★ P2 datah_002 亮度调节文字图集 */
+        unsigned char *claw = NULL; size_t claw_len = 0;    /* ★ P2 datah_029 聊天记录文字图集 */
+        unsigned char *pfaw = NULL; size_t pfaw_len = 0;    /* ★ P2 datah_031 个人资料文字图集 */
         unsigned char *bpx = NULL, *ppx = NULL, *tpx = NULL, *gpx = NULL;
         unsigned char *opx = NULL, *ppx2 = NULL, *mpx = NULL, *ipx = NULL, *icpx = NULL, *hbpx = NULL, *bbpx = NULL, *bspx = NULL;
         unsigned char *wspx = NULL, *bipx = NULL, *stpx = NULL;
@@ -335,6 +346,11 @@ int rs_render_init(rs_render *rr, const char *spak_dir, const jq_state *init_sta
         int ruw = 0, ruh = 0;   /* ★ P2 datah_037 规则文本文字图集尺寸 */
         int ng2w = 0, ng2h = 0; /* ★ P2 datah_104 新局完整版文字图集尺寸 */
         int joaw_w = 0, joaw_h = 0; /* ★ P2 datah_034/035 加入/创建游戏文字图集尺寸 */
+        int n061w = 0, n061h = 0; /* ★ P2 datah_061 新局完整版（完整版补充）文字图集尺寸 */
+        int giw = 0, gih = 0;    /* ★ P2 datah_050 对局信息文字图集尺寸 */
+        int brtw = 0, brth = 0;  /* ★ P2 datah_002 亮度调节文字图集尺寸 */
+        int clw = 0, clh = 0;    /* ★ P2 datah_029 聊天记录文字图集尺寸 */
+        int pfw = 0, pfh = 0;    /* ★ P2 datah_031 个人资料文字图集尺寸 */
         rs_read_png(am, "spak_res/datah_188_21d95e03e7692e98.bin", p1, &braw, &braw_len);
         rs_read_png(am, "spak_res/datah_183_9e1b7fbc4dfc09c3.bin", p2, &praw, &praw_len);
         rs_read_png(am, "spak_res/menu_text_atlas.png", p3, &traw, &traw_len);
@@ -359,6 +375,11 @@ int rs_render_init(rs_render *rr, const char *spak_dir, const jq_state *init_sta
         rs_read_png(am, "spak_res/rules_text_atlas.png", p22, &ruaw, &ruaw_len);
         rs_read_png(am, "spak_res/ng104_text_atlas.png", p23, &ngaw2, &ngaw2_len);
         rs_read_png(am, "spak_res/join_text_atlas.png", p24, &joaw, &joaw_len);
+        rs_read_png(am, "spak_res/ng061_text_atlas.png", p25, &n061aw, &n061aw_len);
+        rs_read_png(am, "spak_res/gameinfo_text_atlas.png", p26, &giaw, &giaw_len);
+        rs_read_png(am, "spak_res/bright_text_atlas.png", p27, &brw, &brw_len);
+        rs_read_png(am, "spak_res/chatlog_text_atlas.png", p28, &claw, &claw_len);
+        rs_read_png(am, "spak_res/profile_text_atlas.png", p29, &pfaw, &pfaw_len);
         if (braw && png_decode(braw, braw_len, &bpx, &bw, &bh) == 0) { rr->board_px = bpx; rr->board_px_len = (size_t)bw * bh * 4; }
         free(braw);
         if (praw && png_decode(praw, praw_len, &ppx, &pw, &ph) == 0) { rr->piece_px = ppx; rr->piece_px_len = (size_t)pw * ph * 4; }
@@ -509,6 +530,51 @@ int rs_render_init(rs_render *rr, const char *spak_dir, const jq_state *init_sta
             }
         }
         free(joaw);
+        /* ★ P2（datah_061）：新局完整版（完整版补充）文字图集（10 标签竖排 220×460） */
+        {
+            unsigned char *n061_px = NULL;
+            if (n061aw && png_decode(n061aw, n061aw_len, &n061_px, &n061w, &n061h) == 0) {
+                rr->ng061_text_px = n061_px; rr->ng061_text_px_len = (size_t)n061w * n061h * 4;
+                rr->ng061_text_w = n061w; rr->ng061_text_h = n061h;
+            }
+        }
+        free(n061aw);
+        /* ★ P2（datah_050）：对局信息文字图集（8 标签竖排 220×368） */
+        {
+            unsigned char *gi_px = NULL;
+            if (giaw && png_decode(giaw, giaw_len, &gi_px, &giw, &gih) == 0) {
+                rr->gameinfo_text_px = gi_px; rr->gameinfo_text_px_len = (size_t)giw * gih * 4;
+                rr->gameinfo_text_w = giw; rr->gameinfo_text_h = gih;
+            }
+        }
+        free(giaw);
+        /* ★ P2（datah_002）：亮度调节文字图集（10 标签竖排 220×460） */
+        {
+            unsigned char *br_px = NULL;
+            if (brw && png_decode(brw, brw_len, &br_px, &brtw, &brth) == 0) {
+                rr->bright_text_px = br_px; rr->bright_text_px_len = (size_t)brtw * brth * 4;
+                rr->bright_text_w = brtw; rr->bright_text_h = brth;
+            }
+        }
+        free(brw);
+        /* ★ P2（datah_029）：聊天记录文字图集（8 标签竖排 220×368） */
+        {
+            unsigned char *cl_px = NULL;
+            if (claw && png_decode(claw, claw_len, &cl_px, &clw, &clh) == 0) {
+                rr->chatlog_text_px = cl_px; rr->chatlog_text_px_len = (size_t)clw * clh * 4;
+                rr->chatlog_text_w = clw; rr->chatlog_text_h = clh;
+            }
+        }
+        free(claw);
+        /* ★ P2（datah_031）：个人资料文字图集（10 标签竖排 220×460） */
+        {
+            unsigned char *pf_px = NULL;
+            if (pfaw && png_decode(pfaw, pfaw_len, &pf_px, &pfw, &pfh) == 0) {
+                rr->profile_text_px = pf_px; rr->profile_text_px_len = (size_t)pfw * pfh * 4;
+                rr->profile_text_w = pfw; rr->profile_text_h = pfh;
+            }
+        }
+        free(pfaw);
         rr->gl_px_loaded = 1;
         LOGI("Init 像素解码：board=%s(%dx%d) piece=%s(%dx%d) text=%s(%dx%d) bg=%s(%dx%d) menu_bg=%s(%dx%d) popup=%s(%dx%d) opt_text=%s(%dx%d) imen_text=%s(%dx%d) waysel=%s(%dx%d) btimen=%s(%dx%d) settings=%s(%dx%d) nplayer=%s(%dx%d) newgame=%s(%dx%d) gameset=%s(%dx%d) layres=%s(%dx%d) replay=%s(%dx%d)",
              rr->board_px ? "OK" : "MISS", bw, bh, rr->piece_px ? "OK" : "MISS", pw, ph,
@@ -526,7 +592,13 @@ int rs_render_init(rs_render *rr, const char *spak_dir, const jq_state *init_sta
                rr->login_text_px ? "OK" : "MISS", lpw, lph,
                 rr->rules_text_px ? "OK" : "MISS", ruw, ruh,
                 rr->ng104_text_px ? "OK" : "MISS", ng2w, ng2h,
-                rr->join_text_px ? "OK" : "MISS", joaw_w, joaw_h);
+                rr->join_text_px ? "OK" : "MISS", joaw_w, joaw_h,
+                 rr->join_text_px ? "OK" : "MISS", joaw_w, joaw_h,
+                 rr->ng061_text_px ? "OK" : "MISS", n061w, n061h,
+                 rr->gameinfo_text_px ? "OK" : "MISS", giw, gih,
+                 rr->bright_text_px ? "OK" : "MISS", brtw, brth,
+                 rr->chatlog_text_px ? "OK" : "MISS", clw, clh,
+                 rr->profile_text_px ? "OK" : "MISS", pfw, pfh);
     }
     if (rr->egl_ctx)
         LOGI("render 初始化：GL2 context 就绪，GL 对象延迟到 GLThread 首帧建");
@@ -3287,6 +3359,452 @@ static void rs_draw_join(rs_render *rr, int slot, int is_create)
     }
 }
 
+/* ★ P2 最后 5 弹窗（datah_061/050/002/029/031）共享面板渲染辅助：
+   主菜单/棋盘背景 + 全屏模态遮罩 + 深色半透明面板矩形（按 720 基准 POPUP 宏）。
+   各 rs_draw_* 调用此辅助画 ⓪①② 层，再各自画按钮/文字。 */
+static void rs_popup_shell(rs_render *rr, int slot,
+                           float px0, float py0, float pw, float ph,
+                           int use_menu_bg, GLint uc)
+{
+    float sx = (float)rr->view_w / 720.0f, sy = (float)rr->view_h / 1280.0f;
+    /* ⓪ 背景：主菜单背景（use_menu_bg=1）或对局棋盘背景（use_menu_bg=0，复用 tex_bg） */
+    if (rr->prog_tex[slot] &&
+        (use_menu_bg ? rr->tex_menu_bg[slot] : rr->tex_bg[slot])) {
+        float w = (float)rr->view_w, h = (float)rr->view_h;
+        rs_v4f bg[6] = {
+            {0, 0, 0, 0}, {w, 0, 1, 0}, {0, h, 0, 1},
+            {0, h, 0, 1}, {w, 0, 1, 0}, {w, h, 1, 1},
+        };
+        glUseProgram(rr->prog_tex[slot]);
+        glUniform2f(rr->uViewWH_tex[slot], (GLfloat)rr->view_w, (GLfloat)rr->view_h);
+        glUniform1i(glGetUniformLocation(rr->prog_tex[slot], "uTex"), 0);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, use_menu_bg ? rr->tex_menu_bg[slot] : rr->tex_bg[slot]);
+        glGenBuffers(1, &rr->vbo_sel[slot]);
+        glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(bg), bg, GL_DYNAMIC_DRAW);
+        rs_bind_vbo(rr->vbo_sel[slot]);
+        glDrawArrays(GL_TRIANGLES, 0, 6);
+        rs_unbind_vbo();
+        glDeleteBuffers(1, &rr->vbo_sel[slot]);
+        rr->vbo_sel[slot] = 0;
+    }
+    /* ① 全屏模态遮罩 */
+    rs_v4f mq[6] = {
+        {0, 0, 0, 0}, {(float)rr->view_w, 0, 0, 0}, {0, (float)rr->view_h, 0, 0},
+        {0, (float)rr->view_h, 0, 0}, {(float)rr->view_w, 0, 0, 0},
+        {(float)rr->view_w, (float)rr->view_h, 0, 0},
+    };
+    glUseProgram(rr->prog_solid[slot]);
+    glUniform2f(rr->uViewWH_solid[slot], (GLfloat)rr->view_w, (GLfloat)rr->view_h);
+    glUniform4f(uc, 0.0f, 0.0f, 0.0f, 0.35f);
+    glGenBuffers(1, &rr->vbo_sel[slot]);
+    glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(mq), mq, GL_DYNAMIC_DRAW);
+    rs_bind_vbo(rr->vbo_sel[slot]);
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+    rs_unbind_vbo();
+    glDeleteBuffers(1, &rr->vbo_sel[slot]);
+    rr->vbo_sel[slot] = 0;
+    /* ② 面板：深色半透明矩形（720 基准 px0,py0,pw,ph） */
+    float p0x = px0 * sx, p0y = py0 * sy;
+    float pw2 = pw * sx, ph2 = ph * sy;
+    rs_v4f pq[6] = {
+        {p0x, p0y, 0, 0}, {p0x + pw2, p0y, 0, 0}, {p0x, p0y + ph2, 0, 0},
+        {p0x, p0y + ph2, 0, 0}, {p0x + pw2, p0y, 0, 0}, {p0x + pw2, p0y + ph2, 0, 0},
+    };
+    glUniform4f(uc, 0.08f, 0.08f, 0.10f, 0.78f);
+    glGenBuffers(1, &rr->vbo_sel[slot]);
+    glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(pq), pq, GL_DYNAMIC_DRAW);
+    rs_bind_vbo(rr->vbo_sel[slot]);
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+    rs_unbind_vbo();
+    glDeleteBuffers(1, &rr->vbo_sel[slot]);
+    rr->vbo_sel[slot] = 0;
+}
+
+/* 纯色按钮 quad（720 基准坐标，含可选金色高亮描边 highlight=1） */
+static void rs_solid_btn(rs_render *rr, int slot, float x0, float y0, float x1, float y1,
+                         float cr, float cg, float cb, float ca, int highlight, GLint uc)
+{
+    float sx = (float)rr->view_w / 720.0f, sy = (float)rr->view_h / 1280.0f;
+    rs_v4f bq[6] = {
+        {x0 * sx, y0 * sy, 0, 0}, {x1 * sx, y0 * sy, 0, 0}, {x0 * sx, y1 * sy, 0, 0},
+        {x0 * sx, y1 * sy, 0, 0}, {x1 * sx, y0 * sy, 0, 0}, {x1 * sx, y1 * sy, 0, 0},
+    };
+    glUseProgram(rr->prog_solid[slot]);
+    glUniform2f(rr->uViewWH_solid[slot], (GLfloat)rr->view_w, (GLfloat)rr->view_h);
+    glUniform4f(uc, cr, cg, cb, ca);
+    glGenBuffers(1, &rr->vbo_sel[slot]);
+    glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(bq), bq, GL_DYNAMIC_DRAW);
+    rs_bind_vbo(rr->vbo_sel[slot]);
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+    rs_unbind_vbo();
+    glDeleteBuffers(1, &rr->vbo_sel[slot]);
+    rr->vbo_sel[slot] = 0;
+    if (highlight) {
+        /* 金色高亮描边（按钮外围 4px 720 基准） */
+        rs_v4f oq[6] = {
+            {x0 * sx - 4*sx, y0 * sy - 4*sy, 0, 0}, {x1 * sx + 4*sx, y0 * sy - 4*sy, 0, 0},
+            {x0 * sx - 4*sx, y1 * sy + 4*sy, 0, 0}, {x0 * sx - 4*sx, y1 * sy + 4*sy, 0, 0},
+            {x1 * sx + 4*sx, y0 * sy - 4*sy, 0, 0}, {x1 * sx + 4*sx, y1 * sy + 4*sy, 0, 0},
+        };
+        glUniform4f(uc, 1.0f, 0.85f, 0.2f, 0.15f);
+        glGenBuffers(1, &rr->vbo_sel[slot]);
+        glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(oq), oq, GL_DYNAMIC_DRAW);
+        rs_bind_vbo(rr->vbo_sel[slot]);
+        glDrawArrays(GL_TRIANGLES, 0, 6);
+        rs_unbind_vbo();
+        glDeleteBuffers(1, &rr->vbo_sel[slot]);
+        rr->vbo_sel[slot] = 0;
+    }
+}
+
+/* 文字图集标签绘制（单标签居中于 cx,cy 720 基准，宽 w；atlas 行索引 row_idx，总行数 n_rows） */
+static void rs_atlas_label(rs_render *rr, int slot, unsigned int tex, int tex_w, int tex_h,
+                           int n_rows, int row_idx, float cx, float cy, float w, GLint uc)
+{
+    (void)uc;
+    if (tex_w <= 0 || tex_h <= 0) return;
+    float sx = (float)rr->view_w / 720.0f, sy = (float)rr->view_h / 1280.0f;
+    int row_h = tex_h / n_rows;
+    float tw = w * sx, th = tw * ((float)row_h / (float)tex_w);
+    float tx0 = cx * sx - tw * 0.5f, ty0 = cy * sy - th * 0.5f;
+    float u0 = 0.0f, u1 = 1.0f;
+    float v0 = (float)(row_idx * row_h) / (float)tex_h;
+    float v1 = (float)(row_idx * row_h + row_h) / (float)tex_h;
+    rs_v4f tq[6] = {
+        {tx0, ty0, u0, v0}, {tx0 + tw, ty0, u1, v0}, {tx0, ty0 + th, u0, v1},
+        {tx0, ty0 + th, u0, v1}, {tx0 + tw, ty0, u1, v0}, {tx0 + tw, ty0 + th, u1, v1},
+    };
+    glUseProgram(rr->prog_tex[slot]);
+    glUniform2f(rr->uViewWH_tex[slot], (GLfloat)rr->view_w, (GLfloat)rr->view_h);
+    glUniform1i(glGetUniformLocation(rr->prog_tex[slot], "uTex"), 0);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, tex);
+    glGenBuffers(1, &rr->vbo_sel[slot]);
+    glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(tq), tq, GL_DYNAMIC_DRAW);
+    rs_bind_vbo(rr->vbo_sel[slot]);
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+    rs_unbind_vbo();
+    glDeleteBuffers(1, &rr->vbo_sel[slot]);
+    rr->vbo_sel[slot] = 0;
+}
+
+/* ★ P2（datah_061 证据）：新局完整版（完整版补充）弹窗渲染——主菜单背景 + 面板
+   + 先后手/电脑水平/玩法/明暗棋 4 选择 + 确定/取消 + 文字图集。
+   按钮几何 ui_ng061_buttons()（720×1280 基准）。
+   ★ 诚实边界：4 项各循环切换当前值（对齐 datah_104 循环切换范式）。 */
+#define NG061_ROW 10
+static void rs_draw_ng061(rs_render *rr, int slot)
+{
+    if (!rr->prog_solid[slot] || !rr->gl2_ok[slot]) return;
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    /* ⓪①② 面板 shell（主菜单背景 + 遮罩 + 深色面板 450×465 居中） */
+    rs_popup_shell(rr, slot, UI_NG061_POPUP_X0, UI_NG061_POPUP_Y0,
+                   UI_NG061_POPUP_W, UI_NG061_POPUP_H, 1, uc);
+    /* ③ 标题"新局"（ng061_text row0，面板顶部 360,445 720 基准中心） */
+    rs_atlas_label(rr, slot, rr->tex_ng061_text[slot], rr->ng061_text_w, rr->ng061_text_h,
+                   NG061_ROW, 0, 360.0f, 445.0f, 150.0f, uc);
+    /* ④ 6 控件：4 选择（紫）+ 确定（蓝）/ 取消（灰）；4 选择按钮金色高亮描边 */
+    static const float BTN_COL[6][4] = {
+        {0.45f, 0.30f, 0.75f, 0.9f},   /* 先后手 紫 */
+        {0.45f, 0.30f, 0.75f, 0.9f},   /* 电脑水平 紫 */
+        {0.45f, 0.30f, 0.75f, 0.9f},   /* 玩法 紫 */
+        {0.45f, 0.30f, 0.75f, 0.9f},   /* 明暗棋 紫 */
+        {0.20f, 0.45f, 0.90f, 0.9f},   /* 确定 蓝 */
+        {0.55f, 0.55f, 0.60f, 0.9f},   /* 取消 灰 */
+    };
+    const ui_ng061_btn *nb = ui_ng061_buttons();
+    for (int i = 0; i < UI_NG061_COUNT; i++)
+        rs_solid_btn(rr, slot, nb[i].x0, nb[i].y0, nb[i].x1, nb[i].y1,
+                     BTN_COL[i][0], BTN_COL[i][1], BTN_COL[i][2], BTN_COL[i][3],
+                     i < 4, uc);
+    /* ⑤ 文字：4 标签列（先后手/电脑水平/玩法/明暗棋 row1-4 左侧 x=227）+
+        当前值标签（按钮内，按 ui_opt_get_level/mode + 先后手/明暗棋 当前循环位） */
+    if (rr->tex_ng061_text[slot] && rr->ng061_text_w > 0) {
+        int cur_level = ui_opt_get_level();   /* 1-4 */
+        int cur_mode = ui_opt_get_mode();      /* 0=布局 1=翻棋 */
+        /* 4 标签列（左侧 x=227 720 基准中心，对齐原版 datah_061 标签 30,90,165,120 系） */
+        for (int r = 0; r < 4; r++)
+            rs_atlas_label(rr, slot, rr->tex_ng061_text[slot], rr->ng061_text_w, rr->ng061_text_h,
+                           NG061_ROW, 1 + r, 227.0f,
+                           (nb[r].y0 + nb[r].y1) * 0.5f, 90.0f, uc);
+        /* 当前值标签（按钮内）：
+           先后手(row5=蓝/row6=红，ui_first 0=蓝先手 1=红先手)、
+           电脑水平(row7-10=新手/中级/高级/好友，level 1-4→row 6+level)、
+           玩法(row6=布局/row7=翻棋，cur_mode 0/1)、
+           明暗棋(row8=明/row9=暗，cur_show 0=明 1=暗) */
+        int vrow0 = (ui_first_get() ? 6 : 5);   /* 先后手当前值 */
+        int vrow1 = 6 + cur_level;             /* 电脑水平当前值（row7-10） */
+        int vrow2 = (cur_mode ? 7 : 6);        /* 玩法当前值（布局/翻棋） */
+        int vrow3 = (ui_show_get() ? 9 : 8);   /* 明暗棋当前值（明/暗） */
+        int vrows[4] = { vrow0, vrow1, vrow2, vrow3 };
+        for (int r = 0; r < 4; r++)
+            rs_atlas_label(rr, slot, rr->tex_ng061_text[slot], rr->ng061_text_w, rr->ng061_text_h,
+                           NG061_ROW, vrows[r],
+                           (nb[r].x0 + nb[r].x1) * 0.5f, (nb[r].y0 + nb[r].y1) * 0.5f, 150.0f, uc);
+        /* 确定/取消 按钮文字（row10=确定 row6=蓝方 占位，★ 诚实边界：取消用 row6 占位） */
+        rs_atlas_label(rr, slot, rr->tex_ng061_text[slot], rr->ng061_text_w, rr->ng061_text_h,
+                       NG061_ROW, 10, (nb[4].x0 + nb[4].x1) * 0.5f, (nb[4].y0 + nb[4].y1) * 0.5f, 120.0f, uc);
+        rs_atlas_label(rr, slot, rr->tex_ng061_text[slot], rr->ng061_text_w, rr->ng061_text_h,
+                       NG061_ROW, 6, (nb[5].x0 + nb[5].x1) * 0.5f, (nb[5].y0 + nb[5].y1) * 0.5f, 120.0f, uc);
+    }
+    static int n61d = 0;
+    if (!n61d) {
+        n61d = 1;
+        LOGI("rs_draw_ng061：新局完整版（完整版补充）弹窗（datah_061 先后手/电脑水平/玩法/明暗棋 4 选择 + 确定/取消，"
+              "面板 %.0f×%.0f，诚实边界：4 项各循环切换当前值简化版）",
+              UI_NG061_POPUP_W, UI_NG061_POPUP_H);
+    }
+}
+
+/* ★ P2（datah_050 证据）：对局信息弹窗渲染——棋盘背景 + 面板
+   + Info 文本框（战况统计复用占位） + 复盘/删除/返回 3 按钮 + 文字图集。
+   按钮几何 ui_gameinfo_buttons()（720×1280 基准）。
+   ★ 诚实边界：Info 文本=☰ 战况统计复用，删除=清复盘记录简化。 */
+#define GAMEINFO_ROW 8
+static void rs_draw_gameinfo(rs_render *rr, int slot)
+{
+    if (!rr->prog_solid[slot] || !rr->gl2_ok[slot]) return;
+    float sx = (float)rr->view_w / 720.0f, sy = (float)rr->view_h / 1280.0f;
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    /* ⓪①② 面板 shell（棋盘背景 + 遮罩 + 深色面板 420×380 居中） */
+    rs_popup_shell(rr, slot, UI_GAMEINFO_POPUP_X0, UI_GAMEINFO_POPUP_Y0,
+                   UI_GAMEINFO_POPUP_W, UI_GAMEINFO_POPUP_H, 0, uc);
+    /* ③ Info 文本框（浅色矩形占位，datah_050 Info 30,75,390,285 420 系 → 180,525-540,735 720 基准） */
+    rs_solid_btn(rr, slot, 180.0f, 525.0f, 540.0f, 735.0f,
+                 0.90f, 0.90f, 0.92f, 0.92f, 0, uc);
+    /* ④ 标题"信息"（gameinfo_text row0，面板顶部 360,473 720 基准中心） */
+    rs_atlas_label(rr, slot, rr->tex_gameinfo_text[slot], rr->gameinfo_text_w, rr->gameinfo_text_h,
+                   GAMEINFO_ROW, 0, 360.0f, 473.0f, 130.0f, uc);
+    /* ⑤ Info 文本框内 4 行占位标签（row1=蓝方 row2=红方 row3=步数 row4=回合，
+        战况统计语义复用；动态数字未烘焙 → 诚实边界占位标签 + LOGI 实际值） */
+    if (rr->tex_gameinfo_text[slot] && rr->gameinfo_text_w > 0) {
+        int cur = ui_replay_cur(), n = ui_replay_count();
+        int b = 0, r = 0;
+        if (rr->game)
+            for (int i = 0; i < N_CELLS; i++) {
+                if (rr->game->cells[i].rank == RANK_EMPTY) continue;
+                if (rr->game->cells[i].side == SIDE_BLUE) b++;
+                else if (rr->game->cells[i].side == SIDE_RED) r++;
+            }
+        rs_atlas_label(rr, slot, rr->tex_gameinfo_text[slot], rr->gameinfo_text_w, rr->gameinfo_text_h,
+                       GAMEINFO_ROW, 1, 360.0f, 560.0f, 150.0f, uc);   /* 蓝方 */
+        rs_atlas_label(rr, slot, rr->tex_gameinfo_text[slot], rr->gameinfo_text_w, rr->gameinfo_text_h,
+                       GAMEINFO_ROW, 2, 360.0f, 620.0f, 150.0f, uc);   /* 红方 */
+        rs_atlas_label(rr, slot, rr->tex_gameinfo_text[slot], rr->gameinfo_text_w, rr->gameinfo_text_h,
+                       GAMEINFO_ROW, 3, 360.0f, 680.0f, 150.0f, uc);   /* 步数 */
+        rs_atlas_label(rr, slot, rr->tex_gameinfo_text[slot], rr->gameinfo_text_w, rr->gameinfo_text_h,
+                       GAMEINFO_ROW, 4, 360.0f, 735.0f, 150.0f, uc);   /* 回合 */
+        static int gid = 0;
+        if (!gid) {
+            gid = 1;
+            LOGI("rs_draw_gameinfo：对局信息 Info 文本（蓝方=%d 红方=%d 步数=%d cur=%d/%d，占位标签未烘焙数字）",
+                 b, r, n, cur, n);
+        }
+    }
+    /* ⑥ 3 按钮：复盘（蓝）/ 删除（橙）/ 返回（灰）+ 文字 */
+    static const float BTN_COL[3][4] = {
+        {0.20f, 0.45f, 0.90f, 0.9f},   /* 复盘 蓝 */
+        {0.85f, 0.40f, 0.20f, 0.9f},   /* 删除 橙 */
+        {0.55f, 0.55f, 0.60f, 0.9f},   /* 返回 灰 */
+    };
+    const ui_gameinfo_btn *gb = ui_gameinfo_buttons();
+    for (int i = 0; i < UI_GAMEINFO_COUNT; i++) {
+        rs_solid_btn(rr, slot, gb[i].x0, gb[i].y0, gb[i].x1, gb[i].y1,
+                     BTN_COL[i][0], BTN_COL[i][1], BTN_COL[i][2], BTN_COL[i][3], 0, uc);
+        rs_atlas_label(rr, slot, rr->tex_gameinfo_text[slot], rr->gameinfo_text_w, rr->gameinfo_text_h,
+                       GAMEINFO_ROW, 5 + i,
+                       (gb[i].x0 + gb[i].x1) * 0.5f, (gb[i].y0 + gb[i].y1) * 0.5f, 120.0f, uc);
+    }
+    (void)sx; (void)sy;
+    static int gid2 = 0;
+    if (!gid2) {
+        gid2 = 1;
+        LOGI("rs_draw_gameinfo：对局信息弹窗（datah_050 Info 文本框 + 复盘/删除/返回 3 按钮，"
+              "面板 %.0f×%.0f，诚实边界：Info=战况统计复用，删除=清复盘记录简化）",
+              UI_GAMEINFO_POPUP_W, UI_GAMEINFO_POPUP_H);
+    }
+}
+
+/* ★ P2（datah_002 证据）：亮度调节弹窗渲染——主菜单背景 + 面板
+   + 滑条占位（不画真滑条，亮度 低/中/高 3 档循环切换区） + 确定/取消 + 文字图集。
+   按钮几何 ui_bright_buttons()（720×1280 基准）。
+   ★ 诚实边界：原版滑条拖拽=触摸 flaky，简化为 3 档循环切换（对齐 datah_001 音量循环范式）。 */
+#define BRIGHT_ROW 10
+static void rs_draw_bright(rs_render *rr, int slot)
+{
+    if (!rr->prog_solid[slot] || !rr->gl2_ok[slot]) return;
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    /* ⓪①② 面板 shell（主菜单背景 + 遮罩 + 深色面板 460×240 居中） */
+    rs_popup_shell(rr, slot, UI_BRIGHT_POPUP_X0, UI_BRIGHT_POPUP_Y0,
+                   UI_BRIGHT_POPUP_W, UI_BRIGHT_POPUP_H, 1, uc);
+    /* ③ 滑条占位条（Bright 区 152,601-568,649 720 基准，画 3 档占位色块 低/中/高，
+       ★ 诚实边界：不画真滑条，3 档循环切换区简化） */
+    const ui_bright_btn *bb = ui_bright_buttons();
+    float bx0 = bb[0].x0, bx1 = bb[0].x1, by0 = bb[0].y0, by1 = bb[0].y1;
+    int cur = ui_bright_get();   /* 0=低 1=中 2=高（ui_state 亮度档位） */
+    static const float SEG_COL[3][4] = {
+        {0.30f, 0.30f, 0.35f, 0.85f},   /* 低 暗灰 */
+        {0.55f, 0.60f, 0.65f, 0.9f},    /* 中 中灰 */
+        {0.90f, 0.90f, 0.95f, 0.95f},   /* 高 亮白 */
+    };
+    float seg_w = (bx1 - bx0) / 3.0f;
+    for (int s = 0; s < 3; s++) {
+        float sx0 = bx0 + seg_w * s, sx1 = bx0 + seg_w * (s + 1);
+        rs_solid_btn(rr, slot, sx0, by0, sx1, by1,
+                     SEG_COL[s][0], SEG_COL[s][1], SEG_COL[s][2], SEG_COL[s][3], s == cur, uc);
+        rs_atlas_label(rr, slot, rr->tex_bright_text[slot], rr->bright_text_w, rr->bright_text_h,
+                       BRIGHT_ROW, 2 + s,   /* row2=低 row3=中 row4=高 */
+                       (sx0 + sx1) * 0.5f, (by0 + by1) * 0.5f, 60.0f, uc);
+    }
+    /* ④ 标题"亮度"（bright_text row0，面板顶部 360,543 720 基准中心） */
+    rs_atlas_label(rr, slot, rr->tex_bright_text[slot], rr->bright_text_w, rr->bright_text_h,
+                   BRIGHT_ROW, 0, 360.0f, 543.0f, 130.0f, uc);
+    /* ⑤ 滑条标签"滑条"（row1，滑条区上方 360,585 720 基准中心） */
+    rs_atlas_label(rr, slot, rr->tex_bright_text[slot], rr->bright_text_w, rr->bright_text_h,
+                   BRIGHT_ROW, 1, 360.0f, 585.0f, 90.0f, uc);
+    /* ⑥ 确定/取消 2 按钮：确定（蓝）/ 取消（灰）+ 文字 */
+    static const float BTN_COL[2][4] = {
+        {0.20f, 0.45f, 0.90f, 0.9f},   /* 确定 蓝 */
+        {0.55f, 0.55f, 0.60f, 0.9f},   /* 取消 灰 */
+    };
+    for (int i = 1; i < UI_BRIGHT_COUNT; i++) {
+        rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
+                     BTN_COL[i - 1][0], BTN_COL[i - 1][1], BTN_COL[i - 1][2], BTN_COL[i - 1][3], 0, uc);
+        int row_idx = (i == 1) ? 5 : 6;   /* row5=确定 row6=取消 */
+        rs_atlas_label(rr, slot, rr->tex_bright_text[slot], rr->bright_text_w, rr->bright_text_h,
+                       BRIGHT_ROW, row_idx,
+                       (bb[i].x0 + bb[i].x1) * 0.5f, (bb[i].y0 + bb[i].y1) * 0.5f, 120.0f, uc);
+    }
+    static int bd = 0;
+    if (!bd) {
+        bd = 1;
+        LOGI("rs_draw_bright：亮度调节弹窗（datah_002 滑条简化=亮度 低/中/高 3 档循环切换 + 确定/取消，"
+              "面板 %.0f×%.0f，诚实边界：原版滑条拖拽=触摸 flaky，简化为 3 档循环切换，不画真滑条，cur=%d）",
+              UI_BRIGHT_POPUP_W, UI_BRIGHT_POPUP_H, cur);
+    }
+}
+
+/* ★ P2（datah_029 证据）：聊天记录弹窗渲染——棋盘背景 + 面板
+   + Msg 文本框（诚实边界占位文本） + 清除/关闭 2 按钮 + 文字图集。
+   按钮几何 ui_chatlog_buttons()（720×1280 基准）。
+   ★ 诚实边界：原版联机聊天文本（Junqi.Chat*）未逆向，src_rs 蓝牙聊天是占位帧（BT_T_CHAT）。 */
+#define CHATLOG_ROW 8
+static void rs_draw_chatlog(rs_render *rr, int slot)
+{
+    if (!rr->prog_solid[slot] || !rr->gl2_ok[slot]) return;
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    /* ⓪①② 面板 shell（棋盘背景 + 遮罩 + 深色面板 420×530 居中） */
+    rs_popup_shell(rr, slot, UI_CHATLOG_POPUP_X0, UI_CHATLOG_POPUP_Y0,
+                   UI_CHATLOG_POPUP_W, UI_CHATLOG_POPUP_H, 0, uc);
+    /* ③ Msg 文本框（浅色矩形占位，datah_029 Msg 30,75,390,430 420 系 → 180,450-540,805 720 基准） */
+    rs_solid_btn(rr, slot, 180.0f, 450.0f, 540.0f, 805.0f,
+                 0.90f, 0.90f, 0.92f, 0.92f, 0, uc);
+    /* ④ 标题"记录"（chatlog_text row0，面板顶部 360,413 720 基准中心） */
+    rs_atlas_label(rr, slot, rr->tex_chatlog_text[slot], rr->chatlog_text_w, rr->chatlog_text_h,
+                   CHATLOG_ROW, 0, 360.0f, 413.0f, 130.0f, uc);
+    /* ⑤ Msg 文本框内占位标签（row1=聊天 row2=占位 row3=帧 row4=边界 row5=未逆向，
+        诚实边界占位文本；动态聊天文本未烘焙 → 占位标签） */
+    if (rr->tex_chatlog_text[slot] && rr->chatlog_text_w > 0) {
+        rs_atlas_label(rr, slot, rr->tex_chatlog_text[slot], rr->chatlog_text_w, rr->chatlog_text_h,
+                       CHATLOG_ROW, 1, 360.0f, 480.0f, 150.0f, uc);   /* 聊天 */
+        rs_atlas_label(rr, slot, rr->tex_chatlog_text[slot], rr->chatlog_text_w, rr->chatlog_text_h,
+                       CHATLOG_ROW, 2, 360.0f, 540.0f, 150.0f, uc);   /* 占位 */
+        rs_atlas_label(rr, slot, rr->tex_chatlog_text[slot], rr->chatlog_text_w, rr->chatlog_text_h,
+                       CHATLOG_ROW, 3, 360.0f, 600.0f, 150.0f, uc);   /* 帧 */
+        rs_atlas_label(rr, slot, rr->tex_chatlog_text[slot], rr->chatlog_text_w, rr->chatlog_text_h,
+                       CHATLOG_ROW, 4, 360.0f, 660.0f, 150.0f, uc);   /* 边界 */
+        rs_atlas_label(rr, slot, rr->tex_chatlog_text[slot], rr->chatlog_text_w, rr->chatlog_text_h,
+                       CHATLOG_ROW, 5, 360.0f, 720.0f, 150.0f, uc);   /* 未逆向 */
+    }
+    /* ⑥ 2 按钮：清除（橙）/ 关闭（灰） */
+    static const float BTN_COL[2][4] = {
+        {0.85f, 0.40f, 0.20f, 0.9f},   /* 清除 橙 */
+        {0.55f, 0.55f, 0.60f, 0.9f},   /* 关闭 灰 */
+    };
+    const ui_chatlog_btn *cb = ui_chatlog_buttons();
+    for (int i = 0; i < UI_CHATLOG_COUNT; i++) {
+        rs_solid_btn(rr, slot, cb[i].x0, cb[i].y0, cb[i].x1, cb[i].y1,
+                     BTN_COL[i][0], BTN_COL[i][1], BTN_COL[i][2], BTN_COL[i][3], 0, uc);
+        int row_idx = (i == 0) ? 6 : 7;   /* row6=清除 row7=关闭 */
+        rs_atlas_label(rr, slot, rr->tex_chatlog_text[slot], rr->chatlog_text_w, rr->chatlog_text_h,
+                       CHATLOG_ROW, row_idx,
+                       (cb[i].x0 + cb[i].x1) * 0.5f, (cb[i].y0 + cb[i].y1) * 0.5f, 120.0f, uc);
+    }
+    static int chd = 0;
+    if (!chd) {
+        chd = 1;
+        LOGI("rs_draw_chatlog：聊天记录弹窗（datah_029 Msg 文本框 + 清除/关闭 2 按钮，面板 %.0f×%.0f，"
+              "诚实边界：联机聊天文本未逆向，src_rs 蓝牙聊天是占位帧 BT_T_CHAT）",
+              UI_CHATLOG_POPUP_W, UI_CHATLOG_POPUP_H);
+    }
+}
+
+/* ★ P2（datah_031 证据）：个人资料弹窗渲染——主菜单背景 + 面板
+   + Info 文本框（诚实边界占位文本） + 修改/帮助/返回 3 按钮 + 文字图集。
+   按钮几何 ui_profile_buttons()（720×1280 基准）。
+   ★ 诚实边界：原版个人资料（昵称/头像/胜率）+ 账号系统未逆向，Info 文本框=诚实边界占位。 */
+#define PROFILE_ROW 10
+static void rs_draw_profile(rs_render *rr, int slot)
+{
+    if (!rr->prog_solid[slot] || !rr->gl2_ok[slot]) return;
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    /* ⓪①② 面板 shell（主菜单背景 + 遮罩 + 深色面板 420×520 居中） */
+    rs_popup_shell(rr, slot, UI_PROFILE_POPUP_X0, UI_PROFILE_POPUP_Y0,
+                   UI_PROFILE_POPUP_W, UI_PROFILE_POPUP_H, 1, uc);
+    /* ③ Info 文本框（浅色矩形占位，datah_031 Info 30,75,390,420 420 系 → 180,455-540,800 720 基准） */
+    rs_solid_btn(rr, slot, 180.0f, 455.0f, 540.0f, 800.0f,
+                 0.90f, 0.90f, 0.92f, 0.92f, 0, uc);
+    /* ④ 标题"资料"（profile_text row0，面板顶部 360,418 720 基准中心） */
+    rs_atlas_label(rr, slot, rr->tex_profile_text[slot], rr->profile_text_w, rr->profile_text_h,
+                   PROFILE_ROW, 0, 360.0f, 418.0f, 130.0f, uc);
+    /* ⑤ Info 文本框内占位标签（row1=账号 row2=昵称 row3=头像 row4=胜率 row5=边界 row6=未逆向，
+        诚实边界占位文本；动态账号信息未烘焙 → 占位标签） */
+    if (rr->tex_profile_text[slot] && rr->profile_text_w > 0) {
+        rs_atlas_label(rr, slot, rr->tex_profile_text[slot], rr->profile_text_w, rr->profile_text_h,
+                       PROFILE_ROW, 1, 360.0f, 490.0f, 150.0f, uc);   /* 账号 */
+        rs_atlas_label(rr, slot, rr->tex_profile_text[slot], rr->profile_text_w, rr->profile_text_h,
+                       PROFILE_ROW, 2, 360.0f, 540.0f, 150.0f, uc);   /* 昵称 */
+        rs_atlas_label(rr, slot, rr->tex_profile_text[slot], rr->profile_text_w, rr->profile_text_h,
+                       PROFILE_ROW, 3, 360.0f, 590.0f, 150.0f, uc);   /* 头像 */
+        rs_atlas_label(rr, slot, rr->tex_profile_text[slot], rr->profile_text_w, rr->profile_text_h,
+                       PROFILE_ROW, 4, 360.0f, 640.0f, 150.0f, uc);   /* 胜率 */
+        rs_atlas_label(rr, slot, rr->tex_profile_text[slot], rr->profile_text_w, rr->profile_text_h,
+                       PROFILE_ROW, 5, 360.0f, 690.0f, 150.0f, uc);   /* 边界 */
+        rs_atlas_label(rr, slot, rr->tex_profile_text[slot], rr->profile_text_w, rr->profile_text_h,
+                       PROFILE_ROW, 6, 360.0f, 740.0f, 150.0f, uc);   /* 未逆向 */
+    }
+    /* ⑥ 3 按钮：修改（橙）/ 帮助（蓝）/ 返回（灰） */
+    static const float BTN_COL[3][4] = {
+        {0.85f, 0.40f, 0.20f, 0.9f},   /* 修改 橙 */
+        {0.20f, 0.45f, 0.90f, 0.9f},   /* 帮助 蓝 */
+        {0.55f, 0.55f, 0.60f, 0.9f},   /* 返回 灰 */
+    };
+    const ui_profile_btn *pb = ui_profile_buttons();
+    for (int i = 0; i < UI_PROFILE_COUNT; i++) {
+        rs_solid_btn(rr, slot, pb[i].x0, pb[i].y0, pb[i].x1, pb[i].y1,
+                     BTN_COL[i][0], BTN_COL[i][1], BTN_COL[i][2], BTN_COL[i][3], 0, uc);
+        int row_idx = 7 + i;   /* row7=修改 row8=帮助 row9=返回 */
+        rs_atlas_label(rr, slot, rr->tex_profile_text[slot], rr->profile_text_w, rr->profile_text_h,
+                       PROFILE_ROW, row_idx,
+                       (pb[i].x0 + pb[i].x1) * 0.5f, (pb[i].y0 + pb[i].y1) * 0.5f, 120.0f, uc);
+    }
+    static int pfd = 0;
+    if (!pfd) {
+        pfd = 1;
+        LOGI("rs_draw_profile：个人资料弹窗（datah_031 Info 文本框 + 修改/帮助/返回 3 按钮，面板 %.0f×%.0f，"
+              "诚实边界：账号系统未逆向，离线单机无账号，修改→边界对话框）",
+              UI_PROFILE_POPUP_W, UI_PROFILE_POPUP_H);
+    }
+}
+
+
 static void rs_draw_replay(rs_render *rr, int slot)
 {
     if (!rr->prog_solid[slot] || !rr->gl2_ok[slot]) return;
@@ -3622,6 +4140,51 @@ static void rs_gl_rebuild(rs_render *rr, int slot)
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     }
+    /* ★ P2（datah_061）：新局完整版（完整版补充）文字图集（10 标签竖排 220×460） */
+    if (rr->ng061_text_px && rr->gl2_ok[slot] && rr->ng061_text_w > 0 && rr->ng061_text_h > 0) {
+        glGenTextures(1, &rr->tex_ng061_text[slot]);
+        glBindTexture(GL_TEXTURE_2D, rr->tex_ng061_text[slot]);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->ng061_text_w, rr->ng061_text_h, 0,
+                     GL_RGBA, GL_UNSIGNED_BYTE, rr->ng061_text_px);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    }
+    /* ★ P2（datah_050）：对局信息文字图集（8 标签竖排 220×368） */
+    if (rr->gameinfo_text_px && rr->gl2_ok[slot] && rr->gameinfo_text_w > 0 && rr->gameinfo_text_h > 0) {
+        glGenTextures(1, &rr->tex_gameinfo_text[slot]);
+        glBindTexture(GL_TEXTURE_2D, rr->tex_gameinfo_text[slot]);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->gameinfo_text_w, rr->gameinfo_text_h, 0,
+                     GL_RGBA, GL_UNSIGNED_BYTE, rr->gameinfo_text_px);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    }
+    /* ★ P2（datah_002）：亮度调节文字图集（10 标签竖排 220×460） */
+    if (rr->bright_text_px && rr->gl2_ok[slot] && rr->bright_text_w > 0 && rr->bright_text_h > 0) {
+        glGenTextures(1, &rr->tex_bright_text[slot]);
+        glBindTexture(GL_TEXTURE_2D, rr->tex_bright_text[slot]);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->bright_text_w, rr->bright_text_h, 0,
+                     GL_RGBA, GL_UNSIGNED_BYTE, rr->bright_text_px);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    }
+    /* ★ P2（datah_029）：聊天记录文字图集（8 标签竖排 220×368） */
+    if (rr->chatlog_text_px && rr->gl2_ok[slot] && rr->chatlog_text_w > 0 && rr->chatlog_text_h > 0) {
+        glGenTextures(1, &rr->tex_chatlog_text[slot]);
+        glBindTexture(GL_TEXTURE_2D, rr->tex_chatlog_text[slot]);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->chatlog_text_w, rr->chatlog_text_h, 0,
+                     GL_RGBA, GL_UNSIGNED_BYTE, rr->chatlog_text_px);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    }
+    /* ★ P2（datah_031）：个人资料文字图集（10 标签竖排 220×460） */
+    if (rr->profile_text_px && rr->gl2_ok[slot] && rr->profile_text_w > 0 && rr->profile_text_h > 0) {
+        glGenTextures(1, &rr->tex_profile_text[slot]);
+        glBindTexture(GL_TEXTURE_2D, rr->tex_profile_text[slot]);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->profile_text_w, rr->profile_text_h, 0,
+                     GL_RGBA, GL_UNSIGNED_BYTE, rr->profile_text_px);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    }
     /* 棋盘 VBO */
     {
         float w = (float)rr->view_w, h = (float)rr->view_h;
@@ -3879,6 +4442,21 @@ void rs_render_frame(rs_render *rr)
         } else if (ui_screen_get() == UI_CREATE) {
             /* ★ P2（datah_035 证据）：联机"创建游戏"弹窗（密码占位标签 + 确定/取消，面板 420×235 居中） */
             rs_draw_join(rr, slot, 1);
+        } else if (ui_screen_get() == UI_NG061) {
+            /* ★ P2（datah_061 证据）：新局完整版（完整版补充）弹窗（先后手/电脑水平/玩法/明暗棋 4 选择 + 确定/取消，面板 450×465 居中） */
+            rs_draw_ng061(rr, slot);
+        } else if (ui_screen_get() == UI_GAMEINFO) {
+            /* ★ P2（datah_050 证据）：对局信息弹窗（Info 文本框 + 复盘/删除/返回 3 按钮，面板 420×380 居中） */
+            rs_draw_gameinfo(rr, slot);
+        } else if (ui_screen_get() == UI_BRIGHT) {
+            /* ★ P2（datah_002 证据）：亮度调节弹窗（滑条简化=亮度 低/中/高 3 档循环 + 确定/取消，面板 460×240 居中） */
+            rs_draw_bright(rr, slot);
+        } else if (ui_screen_get() == UI_CHATLOG) {
+            /* ★ P2（datah_029 证据）：聊天记录弹窗（Msg 文本框 + 清除/关闭 2 按钮，面板 420×530 居中） */
+            rs_draw_chatlog(rr, slot);
+        } else if (ui_screen_get() == UI_PROFILE) {
+            /* ★ P2（datah_031 证据）：个人资料弹窗（Info 文本框 + 修改/帮助/返回 3 按钮，面板 420×520 居中） */
+            rs_draw_profile(rr, slot);
         } else if (rr->game && rr->game->stage == STG_OVER) {
             /* ★ 对局结束（GAME 态且 stage=OVER）→ 胜负横幅（winner 色可视化） */
             rs_draw_overlay(rr, slot, rr->game->winner);

@@ -23,6 +23,21 @@ int  ui_btn_sound_get(void);  /* 0=关 1=开（按键声） */
 void ui_btn_sound_set(int v);
 int  ui_volume_get(void);     /* 1=低 2=中 3=高 */
 void ui_volume_set(int v);
+/* ★ P2（datah_061）：新局完整版（完整版补充）先后手/明暗棋 独立循环位
+   （比 ui_opt 多 2 个循环状态：先后手=蓝先手/红先手，明暗棋=明/暗 2 位）。
+   ui_first 0=蓝先手 1=红先手（默认 0 蓝先手）；ui_show 0=明 1=暗（默认 1 暗棋，
+   对齐原版暗棋默认）。★ 诚实边界：先后手=蓝/红 切换简化（仅影响开局侧）。 */
+int  ui_first_get(void);      /* 0=蓝先手 1=红先手（默认 0） */
+void ui_first_set(int v);
+int  ui_show_get(void);       /* 0=明 1=暗（默认 1，对齐原版暗棋默认） */
+void ui_show_set(int v);
+/* ★ P2（datah_002）：亮度调节档位（0=低 1=中 2=高，默认 1）。
+   ★ 诚实边界：原版滑条拖拽=触摸 flaky，简化为 3 档循环切换，不画真滑条；
+   确定=持久化（单字段 jq_bright.txt，复用 g_set_dir 范式）。 */
+int  ui_bright_get(void);     /* 0=低 1=中 2=高（默认 1） */
+void ui_bright_set(int v);
+void ui_bright_save(void);    /* 写 jq_bright.txt（确定后调） */
+void ui_bright_load(void);    /* 读 jq_bright.txt（取消/OnCreate 调，缺文件默认中） */
 void ui_settings_load(void);  /* 读文件（OnCreate 调，需 g_files_dir 已设） */
 void ui_settings_save(void);  /* 写文件（设置确定后调） */
 void ui_settings_set_dir(const char *dir);  /* 设存储目录（jni_bridge g_files_dir 同步） */

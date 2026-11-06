@@ -17,6 +17,17 @@ int ui_btn_sound_get(void) { return g_btn; }
 void ui_btn_sound_set(int v) { g_btn = v ? 1 : 0; }
 int ui_volume_get(void) { return g_vol; }
 void ui_volume_set(int v) { g_vol = (v >= 1 && v <= 3) ? v : 2; }
+/* ★ P2（datah_061/002）：先后手/明暗棋/亮度 桩（桌面 headless 无持久化，默认值供
+   一致性/evverify 链接；真机走 ui_state.c 真实实现）。 */
+static int g_first_stub = 0, g_show_stub = 0, g_bright_stub = 1;
+int ui_first_get(void) { return g_first_stub; }
+void ui_first_set(int v) { g_first_stub = v ? 1 : 0; }
+int ui_show_get(void) { return g_show_stub; }
+void ui_show_set(int v) { g_show_stub = v ? 1 : 0; }
+int ui_bright_get(void) { return g_bright_stub; }
+void ui_bright_set(int v) { g_bright_stub = (v >= 0 && v <= 2) ? v : 1; }
+void ui_bright_save(void) {}
+void ui_bright_load(void) {}
 void ui_settings_load(void) {}
 void ui_settings_save(void) {}
 void ui_settings_set_dir(const char *dir) { (void)dir; }
@@ -60,3 +71,12 @@ void ui_replay_record(int f, int t, int is_flip) { (void)f; (void)t; (void)is_fl
 int  ui_replay_count(void) { return 0; }
 int  ui_replay_cur(void) { return 0; }
 int  ui_replay_rewind(int cur) { (void)cur; return 0; }
+
+/* ★ P2（datah_037/104/061）：ui_opt 难度/模式 桩（桌面 headless 无 GL，默认中级/暗棋
+   供一致性/evverify 链接；真机走 ui_state.c 真实实现）。 */
+static int g_opt_level_stub = 2;   /* 默认中级区 */
+static int g_opt_mode_stub = 1;    /* 默认暗棋（对齐原版） */
+void ui_opt_select(int level, int mode)
+{ if (level >= 1 && level <= 4) g_opt_level_stub = level; g_opt_mode_stub = (mode == 1) ? 1 : 0; }
+int ui_opt_get_level(void) { return g_opt_level_stub; }
+int ui_opt_get_mode(void) { return g_opt_mode_stub; }

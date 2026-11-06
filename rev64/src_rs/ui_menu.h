@@ -79,6 +79,40 @@ UI_REPLAY,     /* ★ P1（datah_039/107 证据）：复盘回放态——
                       ★ 诚实边界：原版创建=Wi-Fi/局域网协议（未逆向），src_rs 仅蓝牙 SPP；
                       确定 → 诚实边界对话框（"创建房间需 Wi-Fi/局域网协议，src_rs 仅蓝牙联机已实现"）
                       + 回主菜单；取消 → 回主菜单 */
+   UI_NG061,      /* ★ P2（datah_061 证据）：新局完整版（完整版补充）弹窗（先后手/电脑水平/玩法/明暗棋
+                       4 选择 + 确定/取消，原版 datah_061 450×465 面板居中，局部坐标 1:1 平移偏移
+                       +135,+407.5）。比 UI_NEWGAME104（datah_104 简化版）多"先后手/明暗棋"2 项：
+                       先后手=蓝/红 循环，电脑水平=难度 1-4 循环，玩法=布局/翻棋 切换，
+                       明暗棋=明/暗 切换；4 项各循环切换当前值（对齐 datah_104 循环切换范式）。
+                       确定 → 按选择 ui_opt_select + jq_restart_game 随模式开局；取消 → 回主菜单。
+                       入口：setprop jq.newgame061 测试钩子（现有 UI_DIFFICULTY datah_041 简化版不破坏）。
+                       ★ 诚实边界：4 项各循环切换当前值简化版（先后手/明暗棋 各占独立循环位） */
+   UI_GAMEINFO,   /* ★ P2（datah_050 证据）：对局信息弹窗（Info 文本框 + 复盘/删除/返回 3 按钮，
+                       原版 datah_050 420×380 面板居中，局部坐标 1:1 平移偏移 +150,+450）。
+                       Info 文本=☰ 菜单"战况统计"复用（当前回合/总步数/蓝红余子/winner）；
+                       复盘 → 进 UI_REPLAY 复盘态（复用 P1 复盘）；删除 → 清复盘记录
+                       （诚实边界：原版删除对局存档未逆向）；返回 → 回对局。
+                       入口：setprop jq.gameinfo 测试钩子 */
+   UI_BRIGHT,     /* ★ P2（datah_002 证据）：亮度调节弹窗（滑条简化=亮度 低/中/高 循环切换
+                       + 确定/取消，原版 datah_002 460×240 面板居中，局部坐标 1:1 平移偏移
+                       +130,+520）。★ 诚实边界：原版滑条拖拽=触摸 flaky，简化为 3 档循环切换
+                       （对齐 datah_001 音量循环范式），不画真滑条。
+                       确定 → 保存 g_bright/ui_volume；取消 → 恢复原值。
+                       入口：setprop jq.bright 测试钩子 */
+   UI_CHATLOG,    /* ★ P2（datah_029 证据）：聊天记录弹窗（Msg 文本框 + 清除/关闭 2 按钮，
+                       原版 datah_029 420×530 面板居中，局部坐标 1:1 平移偏移 +150,+375）。
+                       ★ 诚实边界：原版联机聊天文本（Junqi.Chat*）未逆向，src_rs 蓝牙聊天是
+                       占位帧（BT_T_CHAT，对端无文本渲染）；Msg 文本框显示诚实边界占位文本 +
+                       清除 → 清本地占位记录 + 关闭 → 回对局。
+                       入口：setprop jq.chatlog 测试钩子 */
+   UI_PROFILE,    /* ★ P2（datah_031 证据）：个人资料弹窗（Info 文本框 + 修改/帮助/返回 3 按钮，
+                       原版 datah_031 420×520 面板居中，局部坐标 1:1 平移偏移 +150,+380）。
+                       Info 文本=诚实边界占位（账号系统未逆向，离线单机无账号）；
+                       修改 → 诚实边界对话框（"修改资料需账号系统，未实现"）；
+                       帮助 → 显示帮助文本；返回 → 回主菜单。
+                       入口：setprop jq.profile 测试钩子（现有 datah_072"个人资料"→UI_LOGIN
+                       不破坏，031 作为登录后资料查看补充，独立态） */
+
 } ui_screen;
 
 /* ★ 声音设置弹窗（对抗审计 datah_001 证据：静音模式/按键声音/音量/确定/取消）。
@@ -432,5 +466,127 @@ typedef struct {
 const ui_create_btn *ui_create_buttons(void);   /* 3 控件（静态表） */
 int ui_create_hit(const ui_create_btn *btns, int n, float x, float y);  /* 命中 0-2，-1 无 */
 int ui_create_popup_inside(float x, float y);  /* 点在弹窗面板内 */
+
+/* ★ P2（datah_061 证据）：新局完整版（完整版补充）弹窗——先后手/电脑水平/玩法/明暗棋
+   4 选择 + 确定/取消（比 datah_104 简化版多"先后手/明暗棋"2 项）。
+   几何 720×1280 基准（datah_061 450×465 面板居中，偏移=(720-450)/2=135,(1280-465)/2=407.5；
+   局部 1:1 平移：先后手 220,75,420,135 → 355,482.5-555,542.5 → 取整 355,483-555,543；
+   电脑水平 220,150,420,210 → 355,557.5-555,617.5 → 355,558-555,618；
+   玩法 220,225,420,285 → 355,632.5-555,692.5 → 355,633-555,693；
+   明暗棋 220,300,420,360 → 355,707.5-555,767.5 → 355,708-555,768；
+   确定 30,385,210,445 → 165,792.5-345,852.5 → 165,793-345,853；
+   取消 240,385,420,445 → 375,792.5-555,852.5 → 375,793-555,853）。
+   action：0=先后手（蓝/红 循环）1=电脑水平（难度 1-4 循环）2=玩法（布局/翻棋 切换）
+   3=明暗棋（明/暗 切换，同玩法位）4=确定（按选择 ui_opt_select + jq_restart_game 开局）
+   5=取消（回主菜单）。
+   入口：setprop jq.newgame061 测试钩子（原版入口=主菜单"人机"完整设置；现有
+   UI_DIFFICULTY datah_041 简化版不破坏，061 作为完整版补充，独立态）。
+   ★ 诚实边界：4 项各循环切换当前值（对齐 datah_104 循环切换范式）；
+   文字显示当前值（先后手=蓝/红；电脑水平=1-4；玩法=布局/翻棋；明暗棋=明/暗）。 */
+#define UI_NG061_COUNT 6
+#define UI_NG061_POPUP_X0 135.0f
+#define UI_NG061_POPUP_Y0 407.5f
+#define UI_NG061_POPUP_W  450.0f
+#define UI_NG061_POPUP_H  465.0f
+typedef struct {
+    float x0, y0, x1, y1;   /* 按钮矩形（720×1280 基准） */
+    int action;             /* 0=先后手 1=电脑水平 2=玩法 3=明暗棋 4=确定 5=取消 */
+} ui_ng061_btn;
+
+const ui_ng061_btn *ui_ng061_buttons(void);   /* 6 控件（静态表） */
+int ui_ng061_hit(const ui_ng061_btn *btns, int n, float x, float y);  /* 命中 0-5，-1 无 */
+int ui_ng061_popup_inside(float x, float y);  /* 点在弹窗面板内 */
+
+/* ★ P2（datah_050 证据）：对局信息弹窗——Info 文本框（复用 ☰ 菜单"战况统计"文本）
+   + 复盘/删除/返回 3 按钮。
+   几何 720×1280 基准（datah_050 420×380 面板居中，偏移=(720-420)/2=150,(1280-380)/2=450；
+   局部 1:1 平移：复盘 25,295,135,355 → 175,745-285,805；
+   删除 155,295,265,355 → 305,745-415,805；
+   返回 285,295,395,355 → 435,745-545,805）。
+   action：0=复盘（进 UI_REPLAY 复盘态，复用 P1 复盘）1=删除（清复盘记录，
+   诚实边界：原版删除对局存档未逆向）2=返回（回对局）。
+   入口：setprop jq.gameinfo 测试钩子。★ 诚实边界：Info 文本=☰ 战况统计复用，
+   删除=清复盘记录简化。 */
+#define UI_GAMEINFO_COUNT 3
+#define UI_GAMEINFO_POPUP_X0 150.0f
+#define UI_GAMEINFO_POPUP_Y0 450.0f
+#define UI_GAMEINFO_POPUP_W  420.0f
+#define UI_GAMEINFO_POPUP_H  380.0f
+typedef struct {
+    float x0, y0, x1, y1;   /* 按钮矩形（720×1280 基准） */
+    int action;             /* 0=复盘 1=删除 2=返回 */
+} ui_gameinfo_btn;
+
+const ui_gameinfo_btn *ui_gameinfo_buttons(void);   /* 3 按钮（静态表） */
+int ui_gameinfo_hit(const ui_gameinfo_btn *btns, int n, float x, float y);  /* 命中 0-2，-1 无 */
+int ui_gameinfo_popup_inside(float x, float y);  /* 点在弹窗面板内 */
+
+/* ★ P2（datah_002 证据）：亮度调节弹窗——滑条（简化=亮度 低/中/高 循环切换区）
+   + 确定/取消。
+   几何 720×1280 基准（datah_002 460×240 面板居中，偏移=(720-460)/2=130,(1280-240)/2=520；
+   局部 1:1 平移：亮度滑条 Bright 22,81,438,129 → 152,601-568,649；
+   确定 30,155,215,215 → 160,675-345,735；取消 245,155,430,215 → 375,675-560,735）。
+   action：0=亮度（低/中/高 3 档循环切换，不画真滑条）1=确定（保存 g_bright 或
+   ui_volume 持久化）2=取消（恢复原值）。
+   入口：setprop jq.bright 测试钩子。★ 诚实边界：原版滑条拖拽=触摸 flaky，
+   简化为"低/中/高"3 档循环切换（对齐 datah_001 音量循环范式），不画真滑条。 */
+#define UI_BRIGHT_COUNT 3
+#define UI_BRIGHT_POPUP_X0 130.0f
+#define UI_BRIGHT_POPUP_Y0 520.0f
+#define UI_BRIGHT_POPUP_W  460.0f
+#define UI_BRIGHT_POPUP_H  240.0f
+typedef struct {
+    float x0, y0, x1, y1;   /* 控件矩形（720×1280 基准） */
+    int action;             /* 0=亮度 1=确定 2=取消 */
+} ui_bright_btn;
+
+const ui_bright_btn *ui_bright_buttons(void);   /* 3 控件（静态表） */
+int ui_bright_hit(const ui_bright_btn *btns, int n, float x, float y);  /* 命中 0-2，-1 无 */
+int ui_bright_popup_inside(float x, float y);  /* 点在弹窗面板内 */
+
+/* ★ P2（datah_029 证据）：聊天记录弹窗（联机聊天历史）——Msg 文本框 + 清除/关闭 2 按钮。
+   几何 720×1280 基准（datah_029 420×530 面板居中，偏移=(720-420)/2=150,(1280-530)/2=375；
+   局部 1:1 平移：清除 37,450,193,510 → 187,825-343,885；关闭 227,450,383,510 → 377,825-533,885）。
+   action：0=清除（清本地占位记录）1=关闭（回对局）。
+   入口：setprop jq.chatlog 测试钩子。★ 诚实边界：原版联机聊天文本（Junqi.Chat*）未逆向，
+   src_rs 蓝牙聊天是占位帧（BT_T_CHAT，对端无文本渲染）；Msg 文本框显示诚实边界占位文本。 */
+#define UI_CHATLOG_COUNT 2
+#define UI_CHATLOG_POPUP_X0 150.0f
+#define UI_CHATLOG_POPUP_Y0 375.0f
+#define UI_CHATLOG_POPUP_W  420.0f
+#define UI_CHATLOG_POPUP_H  530.0f
+typedef struct {
+    float x0, y0, x1, y1;   /* 按钮矩形（720×1280 基准） */
+    int action;             /* 0=清除 1=关闭 */
+} ui_chatlog_btn;
+
+const ui_chatlog_btn *ui_chatlog_buttons(void);   /* 2 按钮（静态表） */
+int ui_chatlog_hit(const ui_chatlog_btn *btns, int n, float x, float y);  /* 命中 0-1，-1 无 */
+int ui_chatlog_popup_inside(float x, float y);  /* 点在弹窗面板内 */
+
+/* ★ P2（datah_031 证据）：个人资料弹窗（账号信息）——Info 文本框 + 修改/帮助/返回 3 按钮。
+   几何 720×1280 基准（datah_031 420×520 面板居中，偏移=(720-420)/2=150,(1280-520)/2=380；
+   局部 1:1 平移：修改 25,435,135,495 → 175,815-285,875；
+   帮助 155,435,265,495 → 305,815-415,875；
+   返回 285,435,395,495 → 435,815-545,875）。
+   action：0=修改（诚实边界对话框：修改资料需账号系统未实现）1=帮助（显示帮助文本）
+   2=返回（回主菜单）。
+   入口：setprop jq.profile 测试钩子（现有 datah_072 方式弹窗"个人资料"(wact=2)
+   已改切 UI_LOGIN（P1 登录弹窗），031 作为登录后资料查看补充，独立态，不破坏 UI_LOGIN）。
+   ★ 诚实边界：原版个人资料（昵称/头像/胜率）+ 账号系统未逆向，Info 文本框显示诚实
+   边界占位文本；修改=边界对话框。 */
+#define UI_PROFILE_COUNT 3
+#define UI_PROFILE_POPUP_X0 150.0f
+#define UI_PROFILE_POPUP_Y0 380.0f
+#define UI_PROFILE_POPUP_W  420.0f
+#define UI_PROFILE_POPUP_H  520.0f
+typedef struct {
+    float x0, y0, x1, y1;   /* 按钮矩形（720×1280 基准） */
+    int action;             /* 0=修改 1=帮助 2=返回 */
+} ui_profile_btn;
+
+const ui_profile_btn *ui_profile_buttons(void);   /* 3 按钮（静态表） */
+int ui_profile_hit(const ui_profile_btn *btns, int n, float x, float y);  /* 命中 0-2，-1 无 */
+int ui_profile_popup_inside(float x, float y);  /* 点在弹窗面板内 */
 #endif
 

@@ -30,6 +30,26 @@ JQ_EXPORT int jq_walk_bridge_touch(float px, float py, int view_w, int view_h) {
     if (!g_walk_init) jq_walk_bridge_run();
     int out_row, out_col, cell;
     cell = jq_touch_hit_cell(px, py, view_w, view_h, &out_row, &out_col);
+    /* §124y-26 设备端命中几何自检（每 3 次打 1 次，防 logcat 洪泛） */
+    {
+        static int hp_n = 0;
+        hp_n++;
+        if ((hp_n % 3) == 1) {
+            int probe_ok = 0, i;
+            for (i = 0; i < 60; i++) {
+                int prow = i / 5, pcol = i % 5;
+                if (prow >= 12 || pcol >= 5) continue;
+                int pir = 11 - prow;
+                float pix = BG_GRID_COL0_CX + pcol * BG_GRID_COL_W;
+                float piy = bg_row_cy(pir);
+                float ppx = pix / BG_IMG_W * (float)view_w;
+                float ppy = piy / BG_IMG_H * (float)view_h;
+                if (jq_touch_hit_cell(ppx, ppy, view_w, view_h, &out_row, &out_col) == i) probe_ok++;
+            }
+            __android_log_print(4, "junqi", "JQ-WBT-PROBE: view=%dx%d 逐格扫描命中 %d/60（设备端命中几何自检）",
+                                view_w, view_h, probe_ok);
+        }
+    }
     if (cell < 0) {
         __android_log_print(4, "junqi", "jq_walk_bridge_touch: tap(%.0f,%.0f) 未命中格", px, py);
         return -1;
@@ -50,6 +70,16 @@ JQ_EXPORT int jq_walk_bridge_move(int from, int to) {
     else
         __android_log_print(4, "junqi", "jq_walk_bridge_move: cell%d→%d 非法（ev=%d）", from, to, ev);
     return ev;
+}
+
+/* §124y-26：端到端终局（认输 + 状态校验，返回 0=完成） */
+JQ_EXPORT int jq_game_test_finish(void) {
+    if (!g_walk_init) return -1;
+    /* 认输（会话 B jni_bridge resign 逻辑：winner = 1 - turn） */
+    g_walk_state.winner = 1 - g_walk_state.turn;
+    __android_log_print(4, "junqi", "jq_game_test_finish: 认输 → winner=%d stage=%d total=%d",
+                        g_walk_state.winner, (int)g_walk_state.stage, g_walk_state.total_moves);
+    return 0;
 }
 
 JQ_EXPORT void jq_walk_bridge_tick(void) {
