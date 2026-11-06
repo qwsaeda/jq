@@ -67,12 +67,57 @@ def check_handlers(handlers):
             print(f"  {fn}")
     return missing
 
+# §124y-33：24 handler 忠实返回语义表（原版反汇编实锤，.text 无 movs r0,#2）
+RETURN_SEM = {
+    0x557d4: ("getter", "ldr r0,[r0,#0x84]; bx lr → [single+0x84]（.bss 未构造=0）"),
+    0x5586c: ("bl链",  "末尾 bl b3ae4/b2bf4/8548c → 返回 bl 目标 ret（字符串/字段填充）"),
+    0x557d0: ("getter", "adds r0,#0x6c; bx lr → single+0x6c"),
+    0x557cc: ("getter", "adds r0,#0x54; bx lr → single+0x54"),
+    0x8571c: ("getter", "0x38==0?ret=0:bl 0x94d80(+=0x70) → v+0x70（bl 0x94d80 区 5 独立小 getter）"),
+    0x85798: ("bl链",  "0x38!=0→bl 0x8c8c8(事件底层方法 0x44/0x54/0x68 三调用)→返回底层 ret；0x38=0→早退"),
+    0x857b0: ("bl链",  "写 0x3c 字段 + (0x38!=0→blx [底层+0x44]) → 返回 0x85348 ret"),
+    0x85348: ("blx",   "0x38!=0→blx [底层vtable+0x44]（vtable 方法调用）→ 返回方法 ret；0x38=0→ret=0"),
+    0xb549c: ("single", "str 4 字段（vptr+0/4/8/12）→ pop r0=r4（入参 single）"),
+    0x85704: ("getter", "0x38!=0→bl 0x94da0(=vtable 0xd8 槽 ldr) → 返回 0xd8 槽值；0x38=0→ret=0"),
+    0xb54dc: ("single", "str r1,[r0+4/8] → pop r0=r4（入参 single）"),
+    0xb52a0: ("构造",  "复杂 C++ 构造（b5a8c 多次）→ 返回构造结果（.bss 未构造=0）"),
+    0x33878: ("single", "bl 0x33848 + 0x33724 + [r4] 坐标增减 → pop 末态 r0=r4（入参 single）"),
+    0x85744: ("bl链",   "bl 0x8c8c8（事件底层方法）→ 返回底层 ret"),
+    0x85730: ("getter", "strlen 类（adds r2,r4,r0 循环）→ 返回长度"),
+    0x85758: ("bl链",   "bl 0x8426c（底层方法）→ 返回底层 ret"),
+    0x55dc4: ("bl链",   "事件对象构造链（bl b549c/85704/b54dc/b52a0 + bl 85730/85744/85758）→ 返回 85758 ret（.bss 未构造=0）"),
+    0x55ba4: ("single", "bl 85858 + 字段填充 str [r4+0x44/40/48/4c/84/88/90/94] + bl b278c×2 + bl 55ad0 → pop 末态 r0=r4（入参 single）"),
+    0x557c8: ("single", "str r1,[r0+#0x50]; bx lr → pop r0=r0（入参 single）"),
+    0x82d3c: ("构造",   "memcpy 业务（ldr [r5,r6] 拷贝循环）→ 返回目标指针"),
+    0xb4edc: ("构造",   "复杂 C++ 构造（0x44/0x54/0x68/0x84/0x94/0xa0 字段填充）→ 返回构造结果"),
+    0x3deb0: ("bl链",   "ldr [pc]→bl 0x279cc（ldrb r0,[r0,#0x60] 字节 getter）→ 返回 [base+0x60]"),
+    0x853c0: ("bl链",   "0x38!=0→bl 0x84118（底层深层）→ 返回底层 ret；0x38=0→早退 ret=0"),
+    0x3f8f4: ("bl链",   "字符串构造（bl 0x23bec）+ bl 0x857b0（写 0x3c + blx [底层+0x44]）→ 返回 857b0 ret"),
+}
+
+def return_sem(handlers):
+    """§124y-33：code→handler→返回语义 三列对照表（复用）"""
+    mapping, _ = extract()
+    print("=== 24 handler 忠实返回语义表（原版 .text 无 movs r0,#2——全量 handler 无一真返回 2）===")
+    print(f"{'code':>4} {'handler':>10} {'类别':<6} 返回语义")
+    for code in sorted(mapping):
+        h = mapping[code]
+        cls, sem = RETURN_SEM.get(h, ('?','未收表'))
+        print(f"{code:>4}  0x{h:05x}  {cls:<6} {sem}")
+    print("\n★ F_3ab64 ok 判读（subs r3,r0,#2; negs; adcs abs 序列）：ret==2→1（成功，设备实锤）；忠实化后")
+    print("  .bss 未构造时各 handler 返回 0/指针 → code4（F_8571c）ret=0 → ok=0（忠实失败路径，非 2 兜底）")
+    return 0
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--gen-switch', action='store_true', help='只生成 switch case 体')
     ap.add_argument('--check', action='store_true', help='查 handler 收表状态')
+    ap.add_argument('--return-sem', action='store_true',
+                   help='§124y-33 code→handler→返回语义 三列对照表')
     args = ap.parse_args()
     mapping, handlers = extract()
+    if args.return_sem:
+        return return_sem(handlers)
     print(f"=== 0x55d40 区 {len(mapping)} 个 code 的 handler 映射（{len(set(handlers))} 个不同 handler）===")
     for code in sorted(mapping):
         print(f"  code={code:2d} → 0x{mapping[code]:05x} (F_{mapping[code]:05x})")
