@@ -3830,3 +3830,31 @@ python3 /tmp/opencode/incremental_regress.py reset 0xADDR  # 改了某指令 →
 - 4800 .data.rel.ro REL 槽的完整 vtable 表（2563 唯一 addend，92.3% .text）需 unidbg 补重定位
   实锤（§124y-81 实锤 .bss 0 REL 槽 = C++ 对象堆全 scudo 运行时填，需 frida dump）
 - 0x0b4e10（F_b4e10，190 槽共享高频虚函数）的完整语义需查 .text 全量反汇编 + frida 实锤
+
+## §124y-83 高频 C++ 虚函数 0x085304/0x085308 区实锤（vtable [0x34]/[0x38] getter + [0x60] 虚调用）
+
+**★ 闭环事实（静态实锤，§124y-82 的 118/116 槽高频 addend 0x085309/0x085305 函数体实锤）**：
+
+1. **0x085308 区 = C++ 虚函数 getter 群（vtable 槽高频共享）**：
+   - `0x085304: bx lr`（返回 r0，vtable getter）
+   - `0x08530c: ldr r0,[r0,#52]; bx lr`（读 this [0x34] 字段，vtable getter）
+   - `0x085310: push {r4,lr}; ldr r4,[r0,#56]; cmp r4,#0; beq`（读 this [0x38]，非 0 则）
+     `ldr r3,[r4+0]; ldr r3,[r3+#96]; blx r3`（**[0x38] 指针 → [0] → [0x60] 虚函数调用**）
+   - 即 0x085304-0x085322 = C++ vtable 虚函数群（[0x34] 字段 getter + [0x38] 对象 [0x60] 虚调用）
+   - 被 118/116 槽共享（§124y-82 高频 addend）= 核心 C++ 对象虚函数（事件/游戏对象方法）
+
+2. **vtable [0x34]/[0x38]/[0x60] 偏移 C++ 对象布局实锤**（扩展 §124y-45 事件对象布局）：
+   - [0x34] = C++ 对象字段（getter 直接读，高频 118 槽共享）
+   - [0x38] = 嵌套对象指针（非 0 则 `[ptr+0]+0x60` 虚函数调用，高频 116 槽共享）
+   - [0x60] = 嵌套对象虚函数表偏移（C++ 多层对象图，this → [0x38] → [0x60] 虚调用）
+   - 即 C++ 对象三层嵌套（this [0x34] 直接字段 / this [0x38] 嵌套对象 / 嵌套 [0x60] 虚函数）
+
+3. **与 §124y-82 的 4800 .data.rel.ro REL 槽 C++ vtable 重定位对偶实锤**：
+   - 4800 REL 槽（92.3% .text addend）= C++ vtable 表（vtable 槽指向 .text 虚函数）
+   - 0x085304/0x085308（118/116 槽高频共享）= vtable 表高频目标（核心虚函数）
+   - 即 .data.rel.ro 4800 REL 槽重定位 = 4800 vtable 槽填 .text 虚函数地址（§124y-82/83 实锤）
+
+### 诚实边界
+- 0x085304/0x085308 区（vtable [0x34]/[0x38]/[0x60] 虚函数群）的完整 C++ 对象图（this → [0x38] → [0x60]）
+  需 frida dump 运行时 C++ 对象虚表实锤（本轮实锤高频 vtable 目标 + 三层嵌套布局）
+- 4800 REL 槽 vtable 完整表（2563 唯一 addend）需 unidbg 补重定位实锤（§124y-81/82 实锤分布）
