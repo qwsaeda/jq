@@ -4128,3 +4128,39 @@ python3 /tmp/opencode/incremental_regress.py reset 0xADDR  # 改了某指令 →
   查 F_3a92c disc 匹配循环如何索引事件名池（§124y-60 实锤 disc 非零路径，全量 74 条索引表需 frida）
 - .got 681 槽的完整指针表（C++ vtable/函数指针/字符串常量混合）需 unidbg 补重定位
   + frida dump 运行时 scudo 指针实锤
+
+## §124y-92 .got 区 458 REL 槽 addend 段分布精确实锤（52% 指向 .data 区自身，C++ 对象指针表实锤）
+
+**★ 闭环事实（静态实锤，.got 区 458 REL 槽 addend 分布全量实锤）**：
+
+1. **.got 区 458 REL 槽 addend 段分布精确实锤**：
+   | addend 段 | 槽数 | 占比 | 语义 |
+   |---|---|---|---|
+   | .data 区（0x155000-0x15be80） | 239 | 52% | **C++ 对象指针表**（.data 区数据对象地址） |
+   | .bss（0x15be80-0x162e88） | 100 | 21% | C++ 对象堆 scudo 指针（运行时填） |
+   | .text（0x233e0-0x120bf8） | 93 | 20% | C++ vtable/函数指针（.text 虚函数） |
+   | .rodata（0x120bf8-0x155000） | 26 | 5% | C++ 常量数据指针 |
+   | 全 0 | 0 | 0% | 无 |
+   - **52% addend 指向 .data 区自身**（0x15ac78/0x159f88/0x15ae60 等，.data 区 C++ 对象地址）
+   - 即 .got 区 458 REL 槽 = **C++ 对象/函数指针混合表**（.data 对象 239 + .bss scudo 100
+     + .text vtable 93 + .rodata 常量 26），非纯 vtable 表
+
+2. **.got 区 REL 槽 addend 全唯一值实锤**（top 15 均 ×1）：
+   - 458 槽 addend 全量 260 唯一值（高频 addend 全 ×1，无重复共享）
+   - 与 .data.rel.ro 4800 REL 槽（2563 唯一值，0x0b4e11×190 等高频共享）形成对比
+   - 即 .got 458 槽 = 稀疏唯一指针表（每槽独立 C++ 对象/函数地址），
+     .data.rel.ro 4800 槽 = 密集共享 vtable 表（高频 addend 多槽共享）
+
+3. **§124y-81/82 的重定位槽全量分布总表补全**：
+   | 区 | REL 槽 | addend 分布 | 语义 |
+   |---|---|---|---|
+   | .data.rel.ro | 4800（90.4%） | 2563 唯一，92.3% .text，高频共享（×190/×118） | C++ vtable 密集表 |
+   | .got | 458（8.6%） | 260 唯一，52% .data 区，全 ×1 稀疏 | C++ 对象/函数指针混合表 |
+   | .data | 42（0.8%） | 41 .rodata 字符串 + 1 .text | 字符串常量指针 + 回调 |
+   | .bss | 0 | — | C++ 对象堆（NOBITS，scudo 运行时填） |
+
+### 诚实边界
+- .got 区 239 槽 addend 指向 .data 区 C++ 对象（0x15ac78/0x159f88 等）的完整 C++ 对象图
+  需 frida dump .data/.bss 区 scudo 指针实锤（本轮实锤 addend 分布，未实锤对象内容）
+- .got 区 100 槽 .bss addend（C++ 对象堆 scudo 指针）需 frida dump .bss 运行时实锤
+  （§124y-71 实锤 .bss 0 REL 槽，本轮实锤 .got 458 槽中 100 槽指向 .bss）
