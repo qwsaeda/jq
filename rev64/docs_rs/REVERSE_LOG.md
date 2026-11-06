@@ -1949,3 +1949,31 @@ python3 /tmp/opencode/incremental_regress.py reset 0xADDR  # 改了某指令 →
 3. **真机"能玩"验证**：redroid 无 GPU / 64 位 native bridge 不完整，需真实 arm64 GPU 设备
 4. **UI 层**：简化版无完整菜单/对话框（布局选择/认输/求和无 UI 入口），Toast 通知等价
 5. **unidbg 推进 OnCreate（§124d-h 突破 + 诚实边界）**：**OnCreate 已达 ~90%**（DiagJni33/35：no-init_array 或 init[0..8] 路径 → code cave 0x7965a→0xc3a68→0x43ed8 → vecfix 37 次 → JunqiJni 处理 20+ JNI 调用 → GLView 创建 + EGL 配置 + setContentView + registerReceiver×3）。**§124h 突破：bx bug 可绕过 9 个 init**（DiagInitCum2：init[0..8] 安全到达 0x43ed8，init[0..9] 触发 bx bug；init[9..11] 任何单跑都破坏 bx → 最大安全集 = init[0..8]）。**最后 10% 被 READ_PROT 垃圾调用链挡住**（§124g/h：崩溃 0x23b7a `ldrb r2,[r4,r3]` memcpy 循环，垃圾源 r4=0x40000000 + 垃圾 len；9 个 init 未消除——更深数据与指令对齐未初始化）。**死锁**：init[9+]→bx bug（模拟器 bug，§124c），init[0..8]→全局仍不完整。突破需：①修复 bx bug（模拟器深层 bug）或 ②逆向 std::string 全局地址表手动初始化（工作量大）。教程 course_unidbg 数据与指令对齐补全仍为剩余待办。剩余阻塞链：**BL 解码 bug（0x7965a→0x6eaea）+ 288MB PROT_NONE mmap + 全局数据与指令对齐未初始化**
+
+---
+
+## §124y-33 F_3ab64 ok 判读纠正 + 24 handler 忠实返回语义全量收表
+
+**★ 本轮核心纠正（F_3ab64 ok 判读 + handler return 语义全量重审）**：
+
+1. **F_3ab64 判读从"恒 1"误读纠正为忠实 `ok=(r==2)?1:0`（设备实锤）**：
+   - 原版 3ab74-3ab78 = `subs r3,r0,#2; negs r0,r3; adcs r0,r3`（abs 序列）；MuMu 实锤（§124y-27/29）ret=2→F_3ab64 返回 1（成功），F_3ab80 层 3abd2 `cmp r0,#0` 走成功分支
+   - 之前翻译体注释残留"恒 1（abs 序列 C 溢出截断）"误读版 + `ok=1` 恒真——**非忠实**（把 ok 判读错放进 F_3ab64，掩盖 handler 真返回值）
+   - 修正：`ok=(r==2)?1:0` + 日志标注"忠实 |ret−2| 判读"
+2. **24 handler 忠实返回语义全量查清——原版中无一 handler 字面返回 2**（全 .text 无 `movs r0,#2`）：
+   - getter 类：F_557d4=`[single+0x84]`、F_557d0=`single+0x6c`、F_557cc=`single+0x54`、F_8571c=`(0x38?0:bl 0x94d80=+0x70)`、F_85704=bl 0x94da0（vtable 0xd8 槽）
+   - single 返回类：F_b549c/F_b54dc/F_55ba4/F_557c8 末尾 r0=r4（入参 single）
+   - bl 链末端类：F_3deb0=bl 0x279cc（`ldrb r0,[r0,#0x60]` getter）、F_853c0=`(0x38?bl 0x84118:早退)`、F_3f8f4=bl 0x857b0→0x85348、F_55dc4=bl 0x85758、F_85798=`(0x38?bl 0x8c8c8:早退)`
+   - "翻译体 return 2 兜底"全是**非忠实设计**，靠 F_3ab64 的 abs 判读放大为 ok=1
+   - 忠实后：.bss 未构造（single=0→0x38=0）时各 handler 返回 0/指针 → code4（F_8571c）忠实 ret=0 → **F_3ab64 ok=0**（.bss 未构造的真实失败路径，非兜底）
+3. **F_55d40 `default`/`h==0` 兜底从 `return 2` 改忠实 `return 0`**（42-52 区无 uniform thunk，原版 .text 自然流）
+4. **修正落地（jqt_vtbl.c，.gitignore 排除生成文件不入库）**：
+   - F_557d4/F_55ba4/F_33878/F_55dc4/F_3deb0/F_853c0/F_3f8f4/F_85704/F_85798/F_8571c 全改忠实语义（注释标注原版反汇编）
+   - F_3ab64 `ok=(r==2)?1:0` + §124y-33 判读注释
+   - 全链日志：`F_8571c: 0x38=0 → F_55d40 code=4 ret=0 → F_3ab64 ok=0`（忠实失败路径，.bss 单例未构造的真实表现）
+   - 4 路径回归 PASS=4/4（native_layout 瞬时时序重跑即过）+ 0 崩溃
+
+**★ 诚实边界**：
+- F_3ab64 `ok=(r==2)?1:0` 的"设备实锤 ret=2→1"来自旧"return 2 兜底"翻译体（§124y-29 当时 F_55d40 返回 2）；忠实化后 F_55d40 不再返回 2，ok 判读对 code4 忠实输出 0（失败路径）——**原版 .bss 未构造时本就走失败路径**，非翻译 bug
+- .bss 单例 0x15bfec 惰性构造（析构注册器池 0xba25c-0xba28c 对偶），真实 scudo 指针需 unidbg（BL 解码 bug 阻塞）或 frida Stalker 追踪 0x333xx 区写点——独立大工程
+- "24 handler 全量忠实化"指**返回语义忠实**（指针/0/single），非**业务语义完整翻译**（如 F_33878 坐标增减的完整 40 指令 C++ 对象图仍标深水区，但返回值忠实=r4）
