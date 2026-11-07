@@ -5857,3 +5857,35 @@ python3 /tmp/opencode/incremental_regress.py reset 0xADDR  # 改了某指令 →
 ### 坑固化
 - 事件表回填安全判定 = 纯 uint32 掩码值（<0x10000, 非指针）vs scudo 指针槽（高位 0xCF/0xF3 且>0x10000）, 前者 F_c0ed0 安全
 - `jqt_mem.c` SCUDO-FILL 段 #if 块内有重复日志（§124y-150/151 遗留）, 查 SCUDO-FILL 日志产生源时需确认 `JQT_SCUDO_FILL` 宏实际值（本轮=0 禁用）
+
+## §124y-155 0x23475/0x9e0d4 WATCHDOG 停留点对照实锤（非 §124y-154 引入, 历史 F_bd5a0/F_bf4d0 链停留）
+
+**★ 闭环事实（EVENT-TBL-FILL=0 对照实验证明 0x23475 停留与事件表回填无关, F_9e0d4/F_bd5a0 历史停留点）**：
+
+1. **对照实验（JQ_EVENT_TBL_FILL=0 vs 1, 两态 4 路径全 PASS）**：
+   - `JQ_EVENT_TBL_FILL=0`（临时禁用）→ 全新进程 WATCHDOG 仍停留 `g_cur_fn=0x00023475`（同 1 启动态）
+   - `JQ_EVENT_TBL_FILL=1`（默认）→ 4 路径回归 4/4 PASS + 0 崩溃
+   - **结论: 0x23475 停留非 §124y-154 事件表回填引入**, 是 F_23475 OnUpdate 渲染链的历史停留点（§124y-154 前已存在）
+
+2. **0x23475 = F_23475 函数体中间（0x23474 JNI OnUpdate 入口 +1 = 错位半字, 非指令边界）**：
+   - 0x23474 = `push {r4,lr}` 函数头, 0x2347e = `bl 0xbd5a0`（C++ 区 F_bd5a0 完整体, 6 函数调用 + 循环阀）
+   - WATCHDOG 读 `g_cur_fn`（F_23475 函数体首行设 0x23475）, 停留 = 主线程在 OnUpdate→F_23475→F_bd5a0 循环阀处未推进
+   - F_bd5a0 Lbd5e6 循环阀（`_g_bd5e6 > 0x100` 强制返回）每 256 次迭代一次, 非死循环, 但推进慢
+
+3. **0x9e0d4 = F_9e0d4 纹理清理 dispatch（F_bf4d0 主线程 → glDeleteTextures 路径）停留点**：
+   - 0x9e0d4 函数头 `push {r4,lr}`, `ldr r3,[r0,#0x4c]` 读 this+76（渲染器 texID 槽）
+   - §NOOP-9E0D4 修复: 禁用 glDeleteTextures + texID 不归零（保持棋盘每帧绘制条件 texID!=0）
+   - WATCHDOG 有时停留 0x9e0d4（F_bf4d0 dispatch 链）, 有时 0x23475（OnUpdate 渲染链）, 交替 = 两链竞争
+
+4. **诚实边界（停留 = 慢推进, 非死循环, 4 路径仍 4/4 PASS）**：
+   - 主线程 WATCHDOG g_cur_fn 停留 ≠ 崩溃（0 Fatal signal）, 4 路径判据（WALK-BRIDGE/NATIVE-LAYOUT/F_3ab64/GAME-TEST）由 GLThread 渲染 + 事件链独立触发, 不依赖主线程 OnUpdate 推进
+   - F_bd5a0 / F_9e0d4 停留 = 原版 C++ 函数在 .bss 全 0 兜底下的"早退/循环阀"语义（非死循环）, 与 §124y-151 F_c0ed0 真死循环区分
+
+5. **对照基准固化**：
+   - `JQ_EVENT_TBL_FILL` 默认 1（事件表 68B 纯掩码值回填, F_c0ed0 安全）
+   - `jq_event_tbl_fill.h` 注释补 §124y-155 对照标注（0x23475 停留与回填无关）
+   - 4 路径回归 4/4 PASS + 0 崩溃（EVENT-TBL-FILL=1 默认态）
+
+### 坑固化
+- WATCHDOG g_cur_fn 停留点判读: 0xc0ed0 = F_c0ed0 真死循环（§124y-151 scudo 槽非 0）, 0x23475/0x9e0d4 = 慢推进（循环阀/早退, 非死循环, 4 路径仍 PASS）
+- 对照实验方法论: 临时禁用嫌疑宏（JQ_EVENT_TBL_FILL=0）重 build + 全新进程抓 WATCHDOG, 对比启用态, 排除"新回填引入停留"
