@@ -5594,3 +5594,35 @@ python3 /tmp/opencode/incremental_regress.py reset 0xADDR  # 改了某指令 →
 - F_b69b4 的 7 子函数需 .bss C++ 对象图 scudo 构造（翻译体 .bss 全 0 → F_b7eb0 缓冲区追加 0 长度
   忠实兜底，§124y-33/35 ok=0 路径）
 - 收表让 jqt_blx_dispatch 命中，但运行时 .bss 未构造 → 子对象 [r0+0x9c/0x74/0xac]=0 → 全走跳过路径
+
+## §124y-148 0xa-0xc 区 C++ 事件通知链批量收表（jqt_vtbl_n 2111→2175，64 函数补收 + 前向声明）
+
+**★ 闭环事实（0xa-0xc 区 C++ 事件通知链 64 个"有定义体但未收表"函数全量收表固化）**：
+
+1. **批量收表（dispatch_insert.py 幂等工具，64 函数）**：
+   - `python3 rev64/tools/dispatch_insert.py 0xafbc0 0xb26ac ... 0xbfd54`（64 地址）
+   - jqt_vtbl_n 2111→2175（64 函数补收 + 前向声明）
+   - 收表对象 = 0xa 区（C++ 事件底层 0xafbc0）+ 0xb 区（事件通知链 0xb26ac-0xbfd54，
+     含 JNI 入口 F_bd5a0/F_bde34/F_bdc7c/F_bdcd4/F_bd87c 等 + 子函数 F_b69b4/F_b3c28/F_b3c40/F_b7f48/F_b690c/F_b6768 等）
+
+2. **前向声明批量补（64 函数，定义体分散在 jqt_On*_full.c/jqt_On*.c）**：
+   - jqt_vtbl.c 顶部 64 个 `extern uint32_t F_xxx(...)` 声明
+   - 坑固化：收表函数若定义体在 jqt_vtbl.c 外（jqt_OnRender_full.c 等），jqt_vtbl.c fns 表引用
+     必须顶部有前向声明，否则编译 `use of undeclared identifier`（§124y-146/147 同坑，本轮批量固化）
+
+3. **jqt_vtbl_n 同步修正（坑固化）**：
+   - dispatch_insert 工具计数 2175（64 插入），但首次误算 2163（"offs 表实际条目"误读，
+     把 dispatch_insert 插入时已占位的 fns/offs 12 项重复计入）
+   - **权威 = link_audit.py 的 `n/len(fns)/len(offs)` 三者同步判据**：n=2175=len(fns)=len(offs)
+   - 修正 jqt_vtbl_n=2175（对齐 dispatch_insert 计数），link_audit PASS
+
+4. **编译验证 + 4 路径回归全过**：
+   - build_arm32_aligned.sh 链接通过（JNI 符号 14）
+   - link_audit.py audit：dispatch 表一致（n/长度/升序/同址/定义全通过）+ UND 86 全解析 + PASS
+   - 4 路径回归（walk_bridge/native_layout/native_event/game_test）4/4 PASS + 0 崩溃
+
+### 诚实边界
+- 64 收表函数多为 .text 内部 C++ 事件通知链函数（非静态 vtable 分发目标，.data.rel.ro 0 引用，
+  运行时 scudo 构造后 C++ 对象图指向它们）
+- 收表让 jqt_blx_dispatch 命中，但 .bss 未构造 → 子对象/缓冲区全走 0 忠实兜底（§124y-33/35 ok=0）
+- 端到端实证需 frida/unidbg 补 .bss C++ 对象图 scudo 运行时值（§124y-70/71 .bss 中间区 87% 非零待 dump）
