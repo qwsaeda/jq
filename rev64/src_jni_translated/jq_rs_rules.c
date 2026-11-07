@@ -419,6 +419,22 @@ bool JQ_RS_DEF jq_flip(jq_state *st, int idx)
 bool jq_side_stalemated(const jq_state *st, uint8_t side)
 {
     if (st->stage != STG_PLAY || st->winner >= 0) return false;
+
+    /* ★ §124y-169（行为实证专项）R-073 分叉**实证**（rule_probe_compare.py 双端同源探针
+       C4/C4b 用例 diff）：32 位"可翻"检查**未排除 RANK_MINE**（地雷翻了不可走子
+       （下方已翻可动循环 RANK_MINE continue），与 64 位 AUD-R-073 排除地雷的口径分叉。
+       ★ 实证对照用例 C4b：唯一暗子=军旗 → 两端均困毙=1（军旗排除两端一致）→
+       分歧精确到 32 位**仅地雷**算"可行动"（军旗排除一致，地雷 32 位未排）。
+       ★ 语义解读（R-138 诚实标注，非 C 移植——两侧地雷模型假设不同）：
+       32 位侧 jq_can_flip **允许翻出地雷**（C3 实证：暗地雷可翻=1），且翻出后
+       地雷不可动（本函数已翻可动循环 RANK_MINE continue）→ 32 位地雷语义 =
+       "地雷=一次性暗雷，翻出即死"（翻了也算有行动 = 未困毙）；64 位语义 =
+       "地雷翻了也不能走子"（排除出可行动，翻出无意义 = 仍困毙）。两侧对
+       "地雷翻出后是否仍算可行动"判读**相反** → 该分叉是**模型假设差异**
+       （32 位 1.43MB 原版是否也如此需 §124y 反汇编实证原版 0x302b4 困毙段，
+       32 位翻译体此处忠实会话 B 移植未对齐 64 位 AUD-R-073 口径）。
+       影响面：仅暗棋困毙判定（明棋地雷恒 revealed=1 不触发；32 位走子桥基准
+       arm32_walkregress 4/4 PASS 不消费此差异）。 */
     /* 还有未翻暗子可翻 → 未困毙 */
     for (int i = 0; i < N_CELLS; i++) {
         const jq_cell *c = &st->cells[i];

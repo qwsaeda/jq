@@ -13,7 +13,7 @@ rm -rf $TMP; mkdir -p $TMP
 echo "[1/4] 编译 JNI 翻译体 + 会话 B 规则引擎（jq_rs_*.c）+ jqt_mem"
 # 会话 B 规则引擎（rules.c/board.c/layout.c/touch.c，纯 C 无 GL/JNI 依赖，
 # 作为 32 位 so 内嵌走子验证基准——§124y-19 借鉴会话 B 正向开发）
-for f in $JTI/jq_rs_rules.c $JTI/jq_rs_board.c $JTI/jq_rs_layout.c $JTI/jq_rs_touch.c $JTI/jq_rs_walkbridge.c; do
+for f in $JTI/jq_rs_rules.c $JTI/jq_rs_board.c $JTI/jq_rs_layout.c $JTI/jq_rs_touch.c $JTI/jq_rs_walkbridge.c $JTI/jq_rs_ruleprobe.c; do
   [ -f "$f" ] || { echo "⚠ 缺会话 B 模块 $f"; continue; }
   b=$(basename $f .c)
   cp $f $TMP/$b.c

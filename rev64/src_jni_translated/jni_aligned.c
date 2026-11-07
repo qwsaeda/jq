@@ -607,6 +607,25 @@ Java_com_cnvcs_App_OnTimer(JNIEnv *env, jclass c){
             }
         }
     }
+    /* ★ §124y R-138 行为实证专项：规则行为探针（OnCreate 钩子）
+       setprop jq.rule_probe 1 → 打印 RULE-PROBE 行（32 位翻译体规则引擎的判定结果）
+       → 与 64 位桌面探针（rev64/src_rs/rule_probe.c）**逐字节同源**的输出做 diff
+       → 一致 = 行为实证（分叉矩阵项从"已标记"升为"已实证"）；不一致 = 实证分歧。
+       ★ 放 OnCreate 而非走子桥 tick：MuMu 上 32 位 app 卡在 GL 路径进不了主循环
+       （OnTimer/OnResume 的 tick 不跑，实测 WALK-BRIDGE 同样不触发），
+       OnCreate 是**必跑**路径（OBJ-FILL 日志实证）。 */
+    {
+        static int _rp_done = 0;
+        char _rp[8] = {0};
+        if (!_rp_done && __system_property_get("jq.rule_probe", _rp) > 0 && _rp[0] == '1') {
+            _rp_done = 1;
+            __android_log_print(6,"junqi","RULE-PROBE: 32 位翻译体规则行为探针启动（与 64 位同源对比）");
+            {
+                extern void jq_rule_probe_run(void);
+                jq_rule_probe_run();
+            }
+        }
+    }
     /* ★ §124y-20：32 位原生布局加载链（OnCreate 测试钩子，redroid 可触发）
        setprop jq.native_layout 1 → F_2a380 布局入口（32 位原生布局链，离线 JQ_DEFAULT_LAY） */
     {
@@ -700,6 +719,32 @@ Java_com_cnvcs_App_OnTimer(JNIEnv *env, jclass c){
             int move_ok = (ev1 == 0 && ev2 == 0);  /* 0=Junqi.Move */
             __android_log_print(6,"junqi","GAME-TEST: 端到端完成 走子=%s fin=%d（触摸命中几何 32 位 libc 边界，主线 move 全链）",
                 move_ok?"OK(2步Move)":"FAIL", fin);
+            /* ★ §124y-168: 事件后 dump 掩码表（.bss+0x4704, 17 行 × 17 字段 = 289B）
+               目的: 验证事件分发后掩码表是否被填入 (事件码<<4)|标志位（高 nibble = 事件码）
+               → 若高 nibble 出现非 0 值 = 事件匹配可通, disc=1; 若仍全 0x01 = 忠实兜底 */
+            {
+                int hi = 0, nz = 0;
+                uint32_t rows[17];
+                for (int r = 0; r < 17; r++) {
+                    uint32_t va = 0x160584u + (uint32_t)r * 17u;
+                    uint32_t h = 0;
+                    for (int i = 0; i < 17; i++) {
+                        uint8_t b = (uint8_t)MEM(va + (uint32_t)i);
+                        if (b) nz++;
+                        if (b >> 4) { hi++; h |= (1u << (b >> 4)); }
+                    }
+                    rows[r] = h;
+                }
+                uint32_t allmask = 0;
+                for (int r = 0; r < 17; r++) allmask |= rows[r];
+                __android_log_print(6,"junqi","EVT-TBL-DUMP(after game_test): 289B 区 非0字节=%d 高nibble非0字节=%d 事件码位图=%08x（bit n = 事件码 n 出现过）",
+                    nz, hi, allmask);
+                for (int r = 0; r < 17; r++) {
+                    if (rows[r]) {
+                        __android_log_print(6,"junqi","EVT-TBL-DUMP: 行%2d 事件码位图=0x%08x", r, rows[r]);
+                    }
+                }
+            }
         }
     }
     __android_log_print(6,"junqi","JNI OnTimer 被调 tid=%d", (int)gettid());

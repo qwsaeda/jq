@@ -27,8 +27,12 @@ rules_fork_check.py — R-138 分叉检测脚本（src_rs 重写 vs src_jni_tran
       jq_rs_walkbridge.c 内 "§124y-xxx AUD-R 分叉标记" 块注释中标出的 R-xxx）：
       已标记项 → 状态从 [分叉]（无实证）细化为 [已标记]（已标注为 64 位独有
       设计 / 32 位走子桥简化 / 行为等价）。
-      "已标记" ≠ "已实证对齐"——只是降模糊度；真正 32 位实证（arm32_walkregress
-      + 逐条走子桥验证）留待 32 位路线专项。
+      "已标记" ≠ "已实证对齐"——只是降模糊度。
+  6. ★ §124y-169（行为实证）：rule_probe_compare.py 用**逐字节同源**的规则行为
+      探针（rev64/src_rs/rule_probe_shared.inc，32/64 双端编译）让两端引擎跑
+      同一批棋盘位置 → diff 输出。**行为一致 = 该项已实证**；行为不一致 =
+      **实证分歧**（分叉坐实，非判读推测）。
+      实证覆盖项见 EVIDENCED_PROBE 映射表（探针用例 → AUD-R 项）。
 """
 import re
 import subprocess
@@ -52,6 +56,77 @@ TR_EVIDENCE_GLOBS = [
     "rev64/src_jni_translated/jq_rs_walkbridge_test.c",
     "rev64/tools/arm32_walkregress.sh",
 ]
+
+# ★ §124y-169 行为实证映射：探针用例 → 覆盖的 AUD-R 项
+#   依据 rev64/tools/rule_probe_compare.py 的双端 diff 结果（/tmp/opencode/probe*.txt）
+#   · 一致 = 该项**已实证**（两端引擎在同一批棋盘位置上判定相同）
+#   · 不一致 = **实证分歧**（分叉坐实）
+# 说明：探针只覆盖可脚本化的规则判定点，不代表全量规则等价。
+
+# ★ 实证分歧（双端行为不同 → 分叉坐实）：R-073 困毙白名单排地雷
+PROBE_DIVERGENT = {
+    "R-073": "C4：64 位困毙=1（排地雷）/ 32 位困毙=0（未排地雷）。"
+              "★ 归因精确化（§124y-169 续，C4b 对照用例）：C4b=\u552f一暗子=军旗 → "
+              "两端均 SM=1（军旗排除两端一致）→ 32 位侧未排的是**地雷**而非通用终局类，"
+              "分歧精确到『32 位把暗地雷算作可行动』（可能源自 32 位布局地雷可翻出的假设）",
+}
+
+
+# ★ §124y-169 行为实证映射：探针用例 → 覆盖的 AUD-R 项（据双端 diff 结果，
+#   一致 = 已实证；C4 = 实证分歧 R-073）。值内用例短代号（A1/A2/C4b...）被
+#   probe_case_ids 解析用于 32/64 位落盘行匹配。
+EVIDENCED_PROBE = {
+    "R-001": "A1 A2（底线纵滑/横滑 can_move）",
+    "R-002": "B1 B2 C6（地雷仅工兵吃 + 挖雷计数）",
+    "R-005": "C5（困毙查 side != turn）",
+    "R-006": "C1（未定色暗子不可动）",
+    "R-009": "B3（炸弹 vs 军旗判定）",
+    "R-016": "B4（吃旗分支事件/终局）",
+    "R-020": "B3（炸弹撞旗终局信号）",
+    "R-025": "A5（起点越界守卫）",
+    "R-028": "A3（进入空行营）",
+    "R-029": "A4（大本营目标判定）",
+    "R-033": "D1（翻棋 total_moves 计数）",
+    "R-045": "C3（暗地雷可翻判定）",
+    "R-071": "A4（空大本营进入）",
+    "R-073": "C4（困毙排地雷，实证分歧：32 位未排；C4b 军旗对照两端一致 → 32 位地雷模型=翻出即死可行动，语义解读见 jq_rs_rules.c §124y-169 标注）",
+    "R-086": "D1（翻棋 moves_since_eat 计数）",
+    "R-089": "D2（困毙 vs 可吃旗）/ C4b（唯一暗子=军旗 → 两端 SM=1 军旗排除一致）",
+}
+
+
+# ★ 探针用例短代号 → AUD-R 项（从 EVIDENCED_PROBE 映射表值解析）
+def probe_case_ids(lines):
+    out = set()
+    pat = re.compile(r"[A-D]\d+(?:b)?")
+    for l in lines:
+        m = re.match(r"RULE-PROBE (\S+?)[_ ]", l + " ")
+        if not m:
+            m = re.search(r"RULE-PROBE ([A-D]\d+(?:b)?)", l)
+        if not m:
+            continue
+        cid = m.group(1)
+        for item, tag in EVIDENCED_PROBE.items():
+            for u in pat.findall(tag):
+                if u == cid:
+                    out.add(item)
+                    break
+    return out
+
+
+def read_probe_result():
+    """读 rule_probe_compare.py 落盘的双端探针结果 → (一致项集合, 分歧项集合)。
+    无落盘文件 → 返回空（探针未跑，不影响矩阵）。"""
+    p64 = "/tmp/opencode/probe64.txt"
+    p32 = "/tmp/opencode/probe32.txt"
+    if not (os.path.exists(p64) and os.path.exists(p32)):
+        return set(), set()
+    a = set(l.strip() for l in open(p64) if l.strip())
+    b = set(l.strip() for l in open(p32) if l.strip())
+    same = a & b
+    diff = a ^ b
+    return probe_case_ids(same), probe_case_ids(diff)
+
 
 # 审计项号 → 主题短标签（便于矩阵可读）
 THEME = {
@@ -184,6 +259,17 @@ def main():
     print("-" * 78)
 
     no_ev, ev, marked = [], [], []
+    # ★ §124y-169 行为实证：读双端探针 diff 结果（一致 → 已实证；分歧 → 实证分歧）
+    probe_same, probe_diff = read_probe_result()
+    if probe_same:
+        print("-" * 78)
+        print(f"★ §124y-169 行为实证（rule_probe_compare.py 双端同源探针 diff）：")
+        print(f"  已实证一致 {len(probe_same)} 项：{' '.join(sorted(probe_same))}")
+        if probe_diff:
+            print(f"  ★ 实证分歧 {len(probe_diff)} 项（分叉坐实，非判读推测）：")
+            for it in sorted(probe_diff):
+                print(f"      {it}: {PROBE_DIVERGENT.get(it, '（见 probe32/probe64 diff）')}")
+        print("-" * 78)
     for item in sorted(items):
         theme = THEME.get(item, "")
         if item in fork_marks:
@@ -221,7 +307,8 @@ def main():
     na_items = [it for it, _, _ in ev if it == "R-017"]
     real_ev = [(it, t, h) for (it, t, h) in ev if it != "R-017"]
     print(f"矩阵汇总：src_rs 已修 AUD-R 项 {len(items)} 条 | "
-          f"翻译体侧已实证 {len(real_ev)} 条 | 已标记分叉 {len(marked)} 条（含不适用 {len(na_items)} 条）| "
+          f"行为实证 {len(probe_same)} 条 | 实证分歧 {len(probe_diff)} 条 | "
+          f"已标记分叉 {len(marked)} 条（含不适用 {len(na_items)} 条）| "
           f"未标记分叉 {len(no_ev)} 条")
     print("已标记分叉清单（翻译体侧 AUD-R 分叉标记注释：已标注 64 位独有设计 / 走子桥简化 / 行为等价，非实证对齐）：")
     for item, theme, _marks in marked:

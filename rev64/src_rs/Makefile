@@ -46,6 +46,15 @@ bttest:
 	@echo "构建完成: dist/jq_bttest"
 	@./dist/jq_bttest
 
+# ★ 规则行为探针（32/64 位对比用，§124y R-138 实证专项）：打印 RULE-PROBE 行
+.PHONY: ruleprobe
+ruleprobe:
+	@mkdir -p dist
+	$(CC) $(CFLAGS) -DRS_NO_GL -o dist/jq_ruleprobe \
+	    $(SRCS_CORE) rule_probe.c rule_probe_main.c ui_state_stub.c -lm
+	@echo "构建完成: dist/jq_ruleprobe"
+	@./dist/jq_ruleprobe
+
 .PHONY: laytest
 LAYDIR ?= /disk/workspaces/jq/rev64/dist/layouts
 laytest:

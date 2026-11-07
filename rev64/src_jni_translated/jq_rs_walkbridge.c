@@ -158,6 +158,22 @@ JQ_EXPORT int jq_game_test_finish(void) {
 }
 
 JQ_EXPORT void jq_walk_bridge_tick(void) {
+    /* ★ §124y R-138 行为实证专项：规则行为探针钩子
+       （setprop jq.rule_probe 1 → 打印 RULE-PROBE 行 → 与 64 位桌面探针 diff）。
+       探针本体与 64 位 rev64/src_rs/rule_probe_shared.inc **逐字节同源**，
+       只摆棋 + 提问，规则判定全在本侧引擎内 → 输出差异 = 真实行为分歧。 */
+    {
+        static int probe_done = 0;
+        char pv[8] = {0};
+        if (!probe_done && __system_property_get("jq.rule_probe", pv) > 0 && pv[0] == '1') {
+            probe_done = 1;
+            __android_log_print(6, "junqi", "RULE-PROBE: 32 位翻译体规则行为探针启动");
+            {
+                extern void jq_rule_probe_run(void);
+                jq_rule_probe_run();
+            }
+        }
+    }
     /* §124y-161 AUD-R 分叉标记：走子桥 8 步序列（test_move_seq 基准）。
        · AUD-R-061/062 事件契约（7 类 + EV_MINE/EV_MOVE 同名）→ 32 位侧走子桥
          仅 logcat 打印 Junqi.Move/Eat/Bomb/Flag/Dead（5 事件），未实现
