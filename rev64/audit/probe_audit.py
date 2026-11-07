@@ -322,12 +322,15 @@ def probe_thread_safety():
             if "pthread_mutex_lock(&g_mutex)" in body:
                 continue
             if re.search(r"g_state\.\w+\s*=", ln):
+                # AUD-A-0042（P3 真修）：旧版此处多传 1 个 "lock-discipline" 实参（8 参 vs
+                # add() 7 参）→ 探针运行时 TypeError 被 main() try/except 捕获记为
+                # "探针自身异常" 条目。删末尾多余实参修复。
                 add("lock-discipline", "P2",
                     f"{owner or '?'}() 内 g_state 写入未见加锁",
                     f"src_rs/jni_bridge.c:{i}",
                     f"锁外写 g_state：{ln.strip()[:140]}",
                     "该函数既未自行加锁，也未声明「调用方持锁」",
-                    "加锁或补「调用方需已持有 g_mutex」注释声明", "lock-discipline")
+                    "加锁或补「调用方需已持有 g_mutex」注释声明")
 
 
 def probe_recursive_lock():
@@ -1240,8 +1243,11 @@ def main():
         try:
             fn()
         except Exception as e:
+            # AUD-A-0042（P3 探针自身异常）：add() 收 7 位（probe/sev/title/loc/issue/basis/fix），
+            # 旧版此处误传 8 个实参（str(e)[:200] 与 "探针实现有 bug" 多拆 1 个）
+            # → TypeError 又被 try/except 再捕获递归进 add 死循环。归并 issue/basis 修复。
             add(name, "P3", f"探针自身异常：{type(e).__name__}",
-                "audit/probe_audit.py", str(e)[:200], "探针实现有 bug", "修探针")
+                "audit/probe_audit.py", f"{str(e)[:200]}（探针实现有 bug）", "修探针", "修探针")
 
     sev_order = {"P0": 0, "P1": 1, "P2": 2, "P3": 3}
     FINDINGS.sort(key=lambda f: (sev_order.get(f["sev"], 9), f["probe"]))
