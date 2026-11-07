@@ -22,6 +22,12 @@
 
 #define SIDE_BLUE 0
 #define SIDE_RED  1
+/* ★ 对抗审计修正（AUD-R-004 P0）：暗棋「未定色」态的 side 值。
+   junqi.h 原注释写「暗棋未定=0xFF」，但**无具名常量** → 代码里散落字面量 0xFF，
+   且 pieces_left[2] 用 side 直接作下标 → side=0xFF 时越界写 1020 字节外
+   （破坏 jq_state 相邻成员）。现具名化并提供范围守卫宏。 */
+#define SIDE_UNKNOWN 0xFF
+#define SIDE_VALID(s) ((s) == SIDE_BLUE || (s) == SIDE_RED)
 
 /* ---- 棋盘几何（原版 L68 十字铁路 / L79 12×5）----
    12 行 × 5 列；蓝方 row0-5（row0 底线含大本营 col1/3），红方 row6-11。

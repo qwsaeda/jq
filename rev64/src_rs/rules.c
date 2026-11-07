@@ -73,11 +73,24 @@ static bool rail_path_engineer(const jq_state *st, int fr, int fc, int tr, int t
 /* 非工兵沿铁路直走（不拐弯）：同列任意行（纵向贯穿）或同行 row5/6 */
 static bool rail_path_straight(const jq_state *st, int fr, int fc, int tr, int tc)
 {
-    if (fr != tr && fc != tc) return false;
-    /* ★ 对抗审计 #5：放行双方底线（row0/11）横滑（board.c:40 is_rail 已标底线铁路），
-       旧版 `fr != 5 && fr != 6` 误拒底线横滑 → 与 is_rail 矛盾。row5/6 中线仍放行。 */
-    if (fr == tr && fr != 5 && fr != 6 && fr != 0 && fr != 11) return false;
+    if (fr != tr && fc != tc) return false;   /* 必须同行或同列 */
     if (!is_rail(fr, fc) || !is_rail(tr, tc)) return false;
+    /* ★★★ 对抗审计 AUD-R-001（P0）修正：铁路**方向相关**。
+       原版军棋铁路（12×5 盘）：
+         · 纵向铁路 = **仅 col2 一条纵贯线**（row0..row11，行营/大本营除外）
+         · 横向铁路 = row0（蓝底线）/ row5 / row6（中线）/ row11（红底线）整行
+       旧实现只校验**端点** is_rail → 底线（row0/11 整行是铁路）与 col0/col4（非纵线）
+       组合出**跨底线纵向超长滑行**：(11,0)→(0,0) 一步从红底线滑到蓝底线（非法）。
+       旧版立论「底线不设铁路则底角棋子困毙误判」经 20000 局 A/B 实证**证伪**
+       （1848 = 1848，零影响）→ 可安全收紧。
+       现按方向校验：横向滑行 → 整行须是横向铁路行；纵向滑行 → 须在 col2 纵线上。 */
+    if (fr == tr) {
+        /* 横向滑行：整行必须是横向铁路行 */
+        if (!(fr == 0 || fr == 5 || fr == 6 || fr == 11)) return false;
+    } else {
+        /* 纵向滑行：整列必须是纵向铁路（唯一纵贯线 col2） */
+        if (fc != 2) return false;
+    }
     int sr = (tr > fr) ? 1 : (tr < fr) ? -1 : 0;
     int sc = (tc > fc) ? 1 : (tc < fc) ? -1 : 0;
     int r = fr + sr, c = fc + sc;
@@ -163,7 +176,10 @@ int jq_try_move(jq_state *st, int from, int to)
         memset(src, 0, sizeof(*src));
         memset(dst, 0, sizeof(*dst));
         st->pieces_left[me]--;
-        if (dst->side != me) st->pieces_left[dst->side]--;
+        /* ★ 对抗审计修正（AUD-R-004 P0）：dst->side 可能是暗棋未定态 0xFF
+           （junqi.h SIDE_UNKNOWN）→ pieces_left[255] 越界写 1020 字节外，
+           破坏 jq_state 相邻成员。加范围守卫。 */
+        if (dst->side != me && SIDE_VALID(dst->side)) st->pieces_left[dst->side]--;
         ev = EV_BOMB;
         st->moves_since_eat = 0;
     } else if (dr_ == RANK_FLAG) {

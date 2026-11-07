@@ -58,6 +58,93 @@ static int run_case(const char *name, jq_state *st, int from, int to, int want_e
     return ok;
 }
 
+/* ★★ 规则引擎回归断言（AUD-R-001 P0 / AUD-R-004 P0，防复发）
+   R-001：铁路**方向相关** —— 底线（row0/11）是**横向**铁路，纵向铁路仅 col2。
+           旧实现只查端点 is_rail → (11,0)→(0,0) 跨底线纵滑（非法）被放行。
+   R-004：pieces_left[2] 用 side 作下标，side=0xFF（暗棋未定）→ 越界写 1020B 外。 */
+static int run_rail_dir_and_side_guard(void)
+{
+    int ok = 1;
+    jq_state st;
+    jq_load_layout(&st, JQ_DEFAULT_LAY);
+    for (int i = 0; i < N_CELLS; i++) {
+        if (st.cells[i].rank) st.cells[i].revealed = 1;
+    }
+    st.stage = STG_PLAY;
+
+    /* ── R-001 非法：跨底线纵滑 (11,0)→(0,0) 必须被拒
+       （旧版只查端点 is_rail → 红底线滑到蓝底线，一步跨全盘） */
+    st.turn = SIDE_BLUE;
+    int i_from = cell_index(11, 0), i_to = cell_index(0, 0);
+    st.cells[i_from].rank = 2; st.cells[i_from].side = SIDE_BLUE;
+    st.cells[i_from].revealed = 1;
+    st.cells[i_to].rank = RANK_EMPTY; st.cells[i_to].side = SIDE_BLUE;
+    if (jq_can_move(&st, i_from, i_to)) {
+        printf("  R-001 跨底线纵滑 (11,0)→(0,0) 应被拒但被放行\n");
+        ok = 0;
+    }
+    /* ── R-001 非法：非铁路行横滑 (1,0)→(1,2) 必须被拒
+       （row1 非横向铁路；row0/5/6/11 才是横向铁路行） */
+    int i_r1 = cell_index(1, 0), i_r1t = cell_index(1, 2);
+    st.cells[i_r1].rank = 2; st.cells[i_r1].side = SIDE_BLUE; st.cells[i_r1].revealed = 1;
+    st.cells[i_r1t].rank = RANK_EMPTY; st.cells[i_r1t].side = SIDE_BLUE;
+    if (jq_can_move(&st, i_r1, i_r1t)) {
+        printf("  R-001 非铁路行横滑 (1,0)→(1,2) 应被拒但被放行\n");
+        ok = 0;
+    }
+    /* ── R-001 正向：中线长横滑 (5,0)→(5,4) 必须允许
+       （row5 是横向铁路，中间 (5,1)(5,2)(5,3) 均非行营） */
+    int i_m0 = cell_index(5, 0), i_m4 = cell_index(5, 4);
+    /* 清空滑行路径上的中间格（walkable 要求 rank==EMPTY 且非行营/大本营） */
+    for (int cc = 1; cc <= 3; cc++) {
+        int k = cell_index(5, cc);
+        st.cells[k].rank = RANK_EMPTY; st.cells[k].side = SIDE_BLUE;
+    }
+    st.cells[i_m0].rank = 2; st.cells[i_m0].side = SIDE_BLUE; st.cells[i_m0].revealed = 1;
+    st.cells[i_m4].rank = RANK_EMPTY; st.cells[i_m4].side = SIDE_BLUE;
+    if (!jq_can_move(&st, i_m0, i_m4)) {
+        printf("  R-001 中线长横滑 (5,0)→(5,4) 应允许但被拒\n");
+        ok = 0;
+    }
+    /* ── R-001 正向：col2 纵线长滑 (0,2)→(2,2) 必须允许
+       （col2 是唯一纵向铁路，中间 (1,2) 非行营） */
+    int i_c0 = cell_index(0, 2), i_c2 = cell_index(2, 2);
+    { int k = cell_index(1, 2);   /* 清空中间格 (1,2) */
+      st.cells[k].rank = RANK_EMPTY; st.cells[k].side = SIDE_BLUE; }
+    st.cells[i_c0].rank = 2; st.cells[i_c0].side = SIDE_BLUE; st.cells[i_c0].revealed = 1;
+    st.cells[i_c2].rank = RANK_EMPTY; st.cells[i_c2].side = SIDE_BLUE;
+    if (!jq_can_move(&st, i_c0, i_c2)) {
+        printf("  R-001 col2 纵滑 (0,2)→(2,2) 应允许但被拒\n");
+        ok = 0;
+    }
+    /* ── R-004：side=0xFF（暗棋未定）不得越界写 pieces_left ── */
+    {
+        jq_state s2;
+        jq_load_layout(&s2, JQ_DEFAULT_LAY);
+        for (int i = 0; i < N_CELLS; i++) {
+            if (s2.cells[i].rank) s2.cells[i].revealed = 1;
+        }
+        s2.stage = STG_PLAY;
+        int a = cell_index(11, 0), b = cell_index(10, 0);
+        s2.cells[a].rank = RANK_BOMB; s2.cells[a].side = SIDE_RED; s2.cells[a].revealed = 1;
+        s2.cells[b].rank = 2; s2.cells[b].side = SIDE_UNKNOWN; s2.cells[b].revealed = 1;
+        int pl0 = s2.pieces_left[0], pl1 = s2.pieces_left[1];
+        /* 记录哨兵：pieces_left 之后的成员 */
+        int mv = s2.moves_since_eat;
+        int rc = jq_try_move(&s2, a, b);
+        if (rc >= 0 && (s2.pieces_left[0] != pl0 || s2.pieces_left[1] != pl1)) {
+            printf("  R-004 side=0xFF 时 pieces_left 被误改（越界写）\n");
+            ok = 0;
+        }
+        if (rc >= 0 && s2.moves_since_eat != mv && s2.moves_since_eat < 0) {
+            printf("  R-004 越界写破坏相邻成员 moves_since_eat=%d\n", s2.moves_since_eat);
+            ok = 0;
+        }
+    }
+    printf("规则引擎回归（R-001 铁路方向 + R-004 side 守卫）%s\n", ok ? "PASS" : "FAIL");
+    return ok;
+}
+
 /* undo 桌面验证：走 EAT → undo_pop 到 BLUE → 验证 cell25/30 原位 + turn=BLUE。
    对齐 jni_bridge OnUpdate undotest（连续 pop 到 BLUE，撤销 AI 应着 + 玩家走子）。 */
 static int run_undo(void)
@@ -2267,6 +2354,8 @@ int main(int argc, char **argv)
         total++; pass += run_d121();
         total++; pass += run_d122();
         total++; pass += run_d123();
+
+        total++; pass += run_rail_dir_and_side_guard();
         total++; pass += run_d246();
         total++; pass += run_d247();
         total++; pass += run_d248();
