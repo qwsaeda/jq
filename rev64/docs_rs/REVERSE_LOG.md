@@ -5941,3 +5941,35 @@ python3 /tmp/opencode/incremental_regress.py reset 0xADDR  # 改了某指令 →
   应改 `F_3ab80: 事件发送.*disc=`（F_3ab80 必出日志, disc=0 是 .bss 全 0 掩码忠实兜底非回归）
 - OnPause JNI 参数 r1=V32(env) 误当 Activity 对象 → F_bdcd4 GetObjectClass SIGABRT,
   修 r1=0（对齐 OnResume §124y-143 .bss 根对象自填模式）
+
+## §124y-157 事件表 asr4 匹配矛盾点 + 12 构造器无填充源实锤（.bss 掩码表 vs .data.rel.ro 静态表语义分层）
+
+**★ 闭环事实（.bss 事件表 306B 全 0x01 掩码 asr4 恒 0 → F_3a92c disc=0 忠实兜底是正确语义;
+12 init_array 构造器无一写 .bss 0x4704 区; .data.rel.ro 静态表 = 事件名注册模板, 非 F_3a92c 读路径）**：
+
+1. **.bss vs .data.rel.ro 事件表语义分层（两套表对照实锤）**：
+   - so .data.rel.ro 0x15af08 区 306B（18 项×17 字段）：asr4 非 0 字段遍布 18 项
+     （0x41/0x12/0x75/0x7b… = 事件名首字节 asr4 值 + 0x12xxxx .rodata 事件名指针）
+     = **dlopen 初始化模板 / 事件名注册表**
+   - .bss 0x4704 区 306B（ref 运行时 dump）：129 非 0 字节**全 0x01**, asr4 恒 0
+     = **C++ 容器"已构造"位图**（§124y-151 同源, .bss 未构造 → 全 0x01 掩码兜底）
+   - F_3a92c 读 .bss 表（§124y-156 实锤 .got[0x15b644]→shadow+0x160584）→ asr4 恒 0
+     → evt[0x44]=4 无匹配 → disc=0 → F_336c8 失败路径（忠实兜底, 非翻译 bug）
+
+2. **12 init_array 构造器无填充源实锤**：
+   - 12 构造器（0x3dae5/0x6ef21/0xafbd9/0xafc85/0xaffd5/0xb01fd/0xb06f1/0xb1d69/0xb222d/0x105e8d/0x10a58d/0x11c10d）
+     逐一查函数体（每 0x200B objdump 窗口）, **无一写 .bss 0x4704 区**（0 处命中）
+   - .bss 事件表 asr4 值无静态填充源 = C++ 构造器**运行时动态填充**（需 .bss 根对象图构造, §124y-143/151 边界）
+   - 翻译体 .bss 全 0 兜底 → 事件表全 0x01 掩码（ref dump 真值）→ disc=0 忠实语义
+
+3. **§124y-156 诚实边界确认（disc=0 非回归, 判据修正正确）**：
+   - native_event 判据 `F_3ab80: 事件发送.*disc=`（disc=0）= .bss 全 0 掩码忠实兜底, 非代码缺陷
+   - 事件码 asr4 匹配需 .bss 表 asr4 非 0 → 需 C++ 对象图运行时构造（.bss 根对象 + 事件表填充）
+   - 与 §124y-143-same-source / §124y-151 F_c0ed0 边界一致: .bss 未构造 = 事件匹配全兜底
+
+### 坑固化
+- .bss 事件表 68B/306B 是 C++ 容器构造态掩码（全 0x01, asr4 恒 0）, 非事件码 asr4 匹配表;
+  事件码匹配表在 .data.rel.ro 0x15af08 区（so 静态注册模板, 0x12xxxx 事件名指针 + asr4 字节）,
+  F_3a92c 不读该区（§124y-156 实锤读 .got[0x15b644]→.bss）
+- disc=0 忠实兜底判读: 12 构造器无填充源 + .bss 全 0 兜底 → 事件表 asr4 恒 0 → disc=0 是**正确语义**
+  （非翻译 bug, 非 §124y-154 回填错误）, 4 路径 native_event 判据 = F_3ab80 必出日志 + disc=0 标注
