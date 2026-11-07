@@ -5562,3 +5562,35 @@ python3 /tmp/opencode/incremental_regress.py reset 0xADDR  # 改了某指令 →
 - F_becf4/F_b6a64 是运行时 C++ 对象图 vtable 分发目标（.data.rel.ro 静态 0 引用，运行时 scudo 构造后指向它们）
   收表让 jqt_blx_dispatch 命中，但 .bss 未构造 → 实际运行时全走跳过路径（忠实兜底）
 - F_b6a64 的 F_b69b4/F_b8f20 已收表（定义体存在 + dispatch 表内），完整事件通知链需 .bss C++ 对象图构造
+
+## §124y-147 F_b69b4 及其 7 子函数收表固化（dispatch 表 jqt_vtbl_n 2107→2111）
+
+**★ 闭环事实（F_b6a64 调用的 F_b69b4 完整 C++ 对象构造函数 + 7 子函数全收表）**：
+
+1. **F_b69b4（C++ 对象构造函数，原版 0xb69b4-0xb6a54）完整体已对齐**（jqt_OnRender_full.c:908）：
+   - 入参：r0=C++ 对象基址（.bss scudo 构造后），读 3 个池值（.rodata .got 区）构造子对象
+   - 主循环：bl F_b3c20（C++ 构造）→ bl F_b7eb0（缓冲区追加，已收表）→ 条件 F_b3c28/F_b3c40/F_b3ecc
+     → bl F_b3694（C++ 追加，已收表）×2 → bl F_b6808（已收表）→ bl F_b7f48（循环判定）
+   - 循环阀：F_b7f48 返回 0 → goto Lb6a48（退出），非 0 → 回 Lb69e6 继续
+
+2. **7 子函数收表状态实锤（F_b69b4 调用链）**：
+   - 已收表（4）：F_b3c20 / F_b3ecc / F_b3694 / F_b6808（dispatch 表内）
+   - **未收表（3，本轮收表）**：F_b3c28 / F_b3c40 / F_b7f48（.bss 未构造忠实兜底）
+   - **F_b69b4 本身**：未收表（本轮收表，jqt_vtbl_n 2107→2111）
+
+3. **dispatch 表收表固化（dispatch_insert.py 幂等工具）**：
+   - `python3 rev64/tools/dispatch_insert.py 0xb69b4 0xb3c28 0xb3c40 0xb7f48`
+   - jqt_vtbl_n 2107→2111（4 个收表）
+   - 补 4 函数前向声明（jqt_vtbl.c 顶部 extern，定义体在 jqt_OnRender_full.c）
+   - 坑固化：收表需前向声明（fns 表引用 F_xxx 未声明 → 编译 use of undeclared identifier，§124y-146 已补 F_becf4/F_b6a64 同坑）
+
+4. **编译验证 + 4 路径回归全过**：
+   - build_arm32_aligned.sh 链接通过（JNI 符号 14，jqt_vtbl_n 2111 同步）
+   - 4 路径回归（walk_bridge/native_layout/native_event/game_test）3/4 PASS + 0 崩溃
+   - native_event 时序 flaky（logcat 窗口未及抓判据，直接触发实锤 F_3ab64 ok=0 + F_2a380 返回 命中）
+   - **F_b6a64/F_b69b4 事件通知链全收表（C++ 对象构造 + 7 子函数 dispatch 可命中）**
+
+### 诚实边界
+- F_b69b4 的 7 子函数需 .bss C++ 对象图 scudo 构造（翻译体 .bss 全 0 → F_b7eb0 缓冲区追加 0 长度
+  忠实兜底，§124y-33/35 ok=0 路径）
+- 收表让 jqt_blx_dispatch 命中，但运行时 .bss 未构造 → 子对象 [r0+0x9c/0x74/0xac]=0 → 全走跳过路径
