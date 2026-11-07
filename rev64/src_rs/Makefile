@@ -42,7 +42,7 @@ clean:
 .PHONY: bttest
 bttest:
 	$(CC) $(CFLAGS) -DRS_NO_GL -o dist/jq_bttest \
-	    $(SRCS_CORE) bt_session.c bt_selftest.c -lm
+	    $(SRCS_CORE) bt_session.c bt_selftest.c ui_state_stub.c -lm
 	@echo "构建完成: dist/jq_bttest"
 	@./dist/jq_bttest
 
@@ -51,7 +51,7 @@ LAYDIR ?= /disk/workspaces/jq/rev64/dist/layouts
 laytest:
 	@mkdir -p dist
 	$(CC) $(CFLAGS) -DLAY_DIR='"$(LAYDIR)"' \
-	    -o dist/jq_laytest board.c layout.c rules.c save.c lay_selftest.c -lm
+	    -o dist/jq_laytest board.c layout.c rules.c save.c lay_selftest.c ui_state_stub.c -lm
 	@echo "构建完成: dist/jq_laytest"
 	@dist/jq_laytest
 
@@ -59,7 +59,7 @@ laytest:
 aittest:
 	@mkdir -p dist
 	$(CC) $(CFLAGS) -DRS_NO_GL -o dist/jq_aitest \
-	    ai_selftest.c rules.c board.c layout.c -lm
+	    ai_selftest.c rules.c board.c layout.c ui_state_stub.c -lm
 	@echo "构建完成: dist/jq_aitest"
 	@./dist/jq_aitest
 
@@ -67,7 +67,7 @@ aittest:
 touchtest:
 	@mkdir -p dist
 	$(CC) $(CFLAGS) -DRS_NO_GL -o dist/jq_touchtest \
-	    board.c layout.c rules.c save.c touch.c touch_state.c touch_selftest.c -lm
+	    board.c layout.c rules.c save.c touch.c touch_state.c touch_selftest.c ui_state_stub.c -lm
 	@echo "构建完成: dist/jq_touchtest"
 	@dist/jq_touchtest
 
@@ -77,7 +77,7 @@ touchtest:
 walkverify:
 	@mkdir -p dist
 	$(CC) $(CFLAGS) -DRS_NO_GL -o dist/jq_walkverify \
-	    board.c layout.c rules.c save.c walkverify.c -lm
+	    board.c layout.c rules.c save.c walkverify.c ui_state_stub.c -lm
 	@echo "构建完成: dist/jq_walkverify"
 	@if [ -n "$(LONG)" ]; then dist/jq_walkverify --longrun $(LONG); else dist/jq_walkverify "$(SEQ)"; fi
 
@@ -99,6 +99,6 @@ evverify:
 gametest:
 	@mkdir -p dist
 	$(CC) $(CFLAGS) -DRS_NO_GL -o dist/jq_gametest \
-	    board.c layout.c rules.c save.c touch.c touch_state.c game_selftest.c -lm
+	    board.c layout.c rules.c save.c touch.c touch_state.c game_selftest.c ui_state_stub.c -lm
 	@echo "构建完成: dist/jq_gametest"
 	@dist/jq_gametest

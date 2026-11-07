@@ -32,10 +32,12 @@ static int ai_pick(const jq_state *st, int *from, int *to, int *is_flip)
 {
     uint8_t me = st->turn;
     *is_flip = 0;
-    /* 1. 吃子（已翻子，目标为对方/未翻子） */
+    /* 1. 吃子（目标为对方子；明棋布局子可吃，暗棋仅已翻子可吃）
+       行营安全岛/大本营/铁路 判定走 move_legal 内部（明棋语义全对齐）。 */
     for (int i = 0; i < N_CELLS; i++) {
         const jq_cell *c = &st->cells[i];
-        if (c->rank == RANK_EMPTY || c->side != me || !c->revealed) continue;
+        if (c->rank == RANK_EMPTY || c->side != me) continue;
+        if (!c->revealed && c->side != 0xFF) continue;
         int r = rank_norm(c->rank);
         if (r == RANK_FLAG || r == RANK_MINE) continue;
         for (int t = 0; t < N_CELLS; t++) {
@@ -48,11 +50,12 @@ static int ai_pick(const jq_state *st, int *from, int *to, int *is_flip)
                 (r == 9 && dr_ == RANK_MINE)) { *from = i; *to = t; return 1; }
         }
     }
-    /* 2. 向对方方向前进 */
+    /* 2. 向对方方向前进（★ 明棋语义：所有布局子可动；暗棋仅已翻子可动） */
     int dr = (me == SIDE_RED) ? -1 : 1;
     for (int i = 0; i < N_CELLS; i++) {
         const jq_cell *c = &st->cells[i];
-        if (c->rank == RANK_EMPTY || c->side != me || !c->revealed) continue;
+        if (c->rank == RANK_EMPTY || c->side != me) continue;
+        if (!c->revealed && c->side != 0xFF) continue;   /* 暗棋未翻子（side 已定）不可动 */
         int r = rank_norm(c->rank);
         if (r == RANK_FLAG || r == RANK_MINE) continue;
         int nr = cell_row(i) + dr, nc = cell_col(i);
@@ -60,10 +63,11 @@ static int ai_pick(const jq_state *st, int *from, int *to, int *is_flip)
         int t2 = cell_index(nr, nc);
         if (jq_can_move(st, i, t2)) { *from = i; *to = t2; return 1; }
     }
-    /* 3. 兜底：任一合法移动 */
+    /* 3. 兜底：任一合法移动（明棋所有布局子可动；暗棋仅已翻子） */
     for (int i = 0; i < N_CELLS; i++) {
         const jq_cell *c = &st->cells[i];
-        if (c->rank == RANK_EMPTY || c->side != me || !c->revealed) continue;
+        if (c->rank == RANK_EMPTY || c->side != me) continue;
+        if (!c->revealed && c->side != 0xFF) continue;
         int r = rank_norm(c->rank);
         if (r == RANK_FLAG || r == RANK_MINE) continue;
         for (int t2 = 0; t2 < N_CELLS; t2++)
@@ -168,6 +172,8 @@ int main(int argc, char **argv)
         } else {
             memcpy(lay, JQ_DEFAULT_LAY, 30);
         }
+        /* ★ 明棋模式信号：cell.revealed 位即模式（明棋 load_layout 子恒 1），
+           规则层 move_legal 按 dst->revealed 判暗棋语义，无 UI 全局态依赖。 */
         jq_load_layout(&st, lay);
         printf("[明棋 rulelay：default.lay，双方暗置（军旗明置），蓝先手]\n");
     }

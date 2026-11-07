@@ -61,9 +61,13 @@ void jq_load_layout(jq_state *st, const uint8_t layout[30])
         r->flags = b->flags;
         (void)r;
     }
+    /* 明棋（rulelay）：所有布局子可动可吃，revealed=1；行营暗置语义仅暗棋
+       （main.c flip / jni_bridge 暗棋路径）生效，随机布局设 revealed=0。
+       ★ 2026-11-07 回归修复：旧版"双方暗置（军旗明置）"把非军旗子全置 0 →
+       明棋 50 局 AI 对弈 0 吃子（回归断言挂），明棋语义与暗棋混淆。 */
     for (int i = 0; i < N_CELLS; i++)
-        if (st->cells[i].rank && rank_norm(st->cells[i].rank) != RANK_FLAG)
-            st->cells[i].revealed = 0;   /* 双方暗置（军旗明置，L45） */
+        if (st->cells[i].rank)
+            st->cells[i].revealed = 1;
     st->turn = SIDE_BLUE;
 }
 

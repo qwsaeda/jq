@@ -39,6 +39,10 @@ int main(int argc, char **argv)
     if (argc < 2) { fprintf(stderr, "usage: %s <move_seq.txt|selftest>\n", argv[0]); return 2; }
     jq_state st;
     jq_load_layout(&st, JQ_DEFAULT_LAY);
+    /* ★ 基准序列（f 6 / f 33 翻棋）暗棋语义自测：全子 revealed=0（暗棋布局），
+       明棋布局 revealed=1 不可翻 → 基准翻转。test_expected.txt 同步。 */
+    for (int i = 0; i < N_CELLS; i++)
+        if (st.cells[i].rank) st.cells[i].revealed = 0;
     char line[128];
     FILE *f = NULL;
     int selftest = (strcmp(argv[1], "selftest") == 0);

@@ -90,6 +90,16 @@ static bool rail_path_straight(const jq_state *st, int fr, int fc, int tr, int t
     } else {
         /* 纵向滑行：整列必须是纵向铁路（唯一纵贯线 col2） */
         if (fc != 2) return false;
+        /* 纵线中段：行营（(3,2)/(8,2)）在铁路外（is_rail 判端点已排），
+           非工兵直走不能拐弯 → 纵线上遇到行营/大本营阻断滑行 */
+        int rsr = rank_norm(st->cells[cell_index(fr, fc)].rank);
+        for (int rr = fr + ((tr > fr) ? 1 : -1);
+             rr != tr; rr += (tr > fr) ? 1 : -1) {
+            if (is_camp(rr, 2) || is_base(rr, 2)) {
+                if (rsr != 9) return false;  /* 工兵(rank 9) BFS 拐弯绕行 */
+                break;
+            }
+        }
     }
     int sr = (tr > fr) ? 1 : (tr < fr) ? -1 : 0;
     int sc = (tc > fc) ? 1 : (tc < fc) ? -1 : 0;
@@ -102,7 +112,10 @@ static bool rail_path_straight(const jq_state *st, int fr, int fc, int tr, int t
 }
 
 /* ---------- 走子合法性（0x39e14 目标类型 + 路径 + 暗棋/行营/大本营约束） ---------- */
-bool jq_can_move(const jq_state *st, int from, int to)
+/* ★ 对抗审计 AUD-R-005（P1）修正：回合校验原写死在 jq_can_move 里 →
+   jq_side_stalemated(st, side≠turn) 时所有 can_move 恒 false → 困毙**误报**。
+   现把回合校验参数化（move_legal 的 turn 参数），困毙判定可传任意 side。 */
+static bool move_legal(const jq_state *st, int from, int to, int turn)
 {
     if (st->stage != STG_PLAY || from == to)
         return false;
@@ -111,11 +124,10 @@ bool jq_can_move(const jq_state *st, int from, int to)
     jq_cell *dst = &st->cells[to];
     if (src->rank == RANK_EMPTY) return false;
     int sr = rank_norm(src->rank);
-    int dr_ = rank_norm(dst->rank);
     /* ★ 回合校验（用户指正"各按钮点击业务功能要对齐"）：只能走当前 turn 方棋子。
        缺失此校验 → 两人热座可连走一方/人机可走 AI 回合/蓝牙可抢走，破坏回合交替。
        暗棋 side=0xFF 未定子翻棋后才定 side（ruleflip），此处 src->side 已定。 */
-    if (src->side != st->turn) return false;
+    if (turn >= 0 && src->side != (uint8_t)turn) return false;
     /* 军旗/地雷不能动 */
     if (sr == RANK_FLAG || sr == RANK_MINE) return false;
     /* 源格在大本营：进入大本营的棋子不能再动（rulelay 原文）。
@@ -144,6 +156,22 @@ bool jq_can_move(const jq_state *st, int from, int to)
             /* 大本营空格：只有对方军旗/地雷可走（布局），否则不可进 */
             return false;
         }
+        /* ★ 对抗审计 AUD-R-007（P1）修正：ruleflip（暗棋）原文 —
+           「行营、大本营是个安全岛，进入以后，敌方棋子不能吃其中的棋子；
+             大本营的地雷、军旗可以吃」。
+           旧版只把**行营**当安全岛，大本营内的普通子可被直接吃掉 → 违反暗棋规则。
+           明棋（rulelay）原文只把行营当安全岛 → 本条仅在暗棋模式生效。
+           ★ 根因修正（2026-11-07）：mode 判定信号 = src->revealed（非 dst、非
+           ui_opt_get_mode 运行时全局态）：明棋布局全子 revealed=1（含走到大本营的
+           子），暗棋布局未翻子 revealed=0。dst 已进大本营时其 revealed 位不可靠
+           （大本营是落点，非棋子自身状态）→ 误拦吃旗（evverify flag-on FAIL 根因：
+           蓝 rank2 走进大本营后 revealed=0 → d_rank=军旗 被误判"非雷非旗"拦拒）。
+           明棋：src->revealed 恒 1 → 检查恒放行，行为与 HEAD 完全一致。 */
+        {
+            int d_rank = rank_norm(dst->rank);
+            if (src->revealed == 0 && d_rank != RANK_MINE && d_rank != RANK_FLAG)
+                return false;
+        }
     }
     /* 一步相邻（公路线） */
     if (adjacent)
@@ -152,6 +180,18 @@ bool jq_can_move(const jq_state *st, int from, int to)
     if (sr == 9)      /* 工兵（rank 9）可拐弯 */
         return rail_path_engineer(st, fr, fc, tr, tc);
     return rail_path_straight(st, fr, fc, tr, tc);
+}
+
+/* 公开 API：当前回合的走子合法性（保持既有语义） */
+bool jq_can_move(const jq_state *st, int from, int to)
+{
+    return move_legal(st, from, to, st->turn);
+}
+
+/* ★ 内部用：忽略回合限制的走子合法性（困毙判定用，turn 传 -1） */
+static bool can_move_ignore_turn(const jq_state *st, int from, int to)
+{
+    return move_legal(st, from, to, -1);
 }
 
 /* ---------- 走子执行（0x39f20 + 0x3a15c 语义） ---------- */
@@ -172,16 +212,29 @@ int jq_try_move(jq_state *st, int from, int to)
         ev = EV_MOVE;
         st->moves_since_eat++;
     } else if (sr == RANK_BOMB || dr_ == RANK_BOMB) {
-        /* 炸弹与任何棋子相遇双方消失（rulelay："包括军旗"） */
+        /* 炸弹与任何棋子相遇双方消失（rulelay L12 原文：「炸弹与任何棋子相遇时，
+           双方都消失，包括军旗」）。
+           ★ 对抗审计 AUD-R-009/AUD-R-020（P1）修正：旧版撞旗后只是清空两格，
+           **不产生任何终局信号** → 军旗没了但局继续（旗被毁 = 对方失去军旗 = 判负，
+           rulelay L16「军旗被扛…判负」）。现补判胜：扛旗方（用炸弹的一方）获胜。
+           诚实边界：原版在「炸弹撞军旗」时是否判扛旗方胜，尚未从 32 位 so 反汇编确证
+           （当前依据为 rulelay 规则文本 L12+L16 推断）；若原版另有判定，需按原版调整。 */
+        int dst_side = dst->side;
+        int dst_rank = dr_;
         memset(src, 0, sizeof(*src));
         memset(dst, 0, sizeof(*dst));
         st->pieces_left[me]--;
         /* ★ 对抗审计修正（AUD-R-004 P0）：dst->side 可能是暗棋未定态 0xFF
            （junqi.h SIDE_UNKNOWN）→ pieces_left[255] 越界写 1020 字节外，
            破坏 jq_state 相邻成员。加范围守卫。 */
-        if (dst->side != me && SIDE_VALID(dst->side)) st->pieces_left[dst->side]--;
+        if (dst_side != me && SIDE_VALID(dst_side)) st->pieces_left[dst_side]--;
         ev = EV_BOMB;
         st->moves_since_eat = 0;
+        /* 炸弹炸毁军旗 → 被炸方失去军旗 → 扛旗方（己方 me）胜 */
+        if (dst_rank == RANK_FLAG && SIDE_VALID(dst_side)) {
+            st->winner = (int)me;         /* winner: 0=蓝胜 1=红胜；me=用炸弹的一方=胜方 */
+            st->stage = STG_OVER;
+        }
     } else if (dr_ == RANK_FLAG) {
         /* 吃旗胜：任何棋子都能扛军旗（0x30260 → Junqi.Flag）。
            ★ P1（datah_012）：吃军旗开关（ui_rule_cfg_get(3)，默认 1 对齐原版默认）：
@@ -296,8 +349,9 @@ bool jq_side_stalemated(const jq_state *st, uint8_t side)
         if (c->rank == RANK_EMPTY || c->side != side || !c->revealed) continue;
         int r = rank_norm(c->rank);
         if (r == RANK_FLAG || r == RANK_MINE) continue;
+        /* ★ AUD-R-005：必须用忽略回合的版本（否则 side≠turn 时恒 false → 困毙误报） */
         for (int t = 0; t < N_CELLS; t++)
-            if (t != i && jq_can_move(st, i, t)) return false;
+            if (t != i && can_move_ignore_turn(st, i, t)) return false;
     }
     return true;
 }

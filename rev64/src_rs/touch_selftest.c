@@ -77,11 +77,25 @@ int main(void) {
     int ev6 = jq_touch_state_process(&ts, -1, -1, W, H, &f5, &t5);  /* 空白 */
     CHECK(ev6 == JQ_EV_UNSELECT && ts.mode == JQ_TS_IDLE, "选中态点空白 → UNSELECT + IDLE");
 
-    /* 6. targets：选中格 A 的合法目标（走子 + 翻棋自身） */
+    /* 6. targets：选中格 A 的合法目标（走子 + 翻棋自身）
+       ★ A 可能是地雷/军旗（default.lay (0,0)=地雷 rank=11，不可动）→
+       改选第一个**可动**子（非旗非雷）做 targets 断言。 */
     jq_touch_state ts2;
     jq_touch_state_init(&ts2);
+    int A2 = -1;
+    for (int i = 0; i < N_CELLS; i++) {
+        int r = rank_norm(st.cells[i].rank);
+        if (st.cells[i].rank == RANK_EMPTY || r == RANK_FLAG || r == RANK_MINE) continue;
+        int n2 = 0;
+        for (int t = 0; t < N_CELLS; t++)
+            if (t != i && jq_can_move(&st, i, t)) { n2++; break; }
+        if (n2 > 0) { A2 = i; break; }
+    }
+    CHECK(A2 >= 0, "布局存在可动子");
+    float c2x, c2y; bg_cell_img_center(cell_row(A2), cell_col(A2), &c2x, &c2y);
+    c2x = c2x / BG_IMG_W * W; c2y = c2y / BG_IMG_H * H;
     int f6 = -1, t6 = -1;
-    jq_touch_state_process(&ts2, cx, cy, W, H, &f6, &t6);  /* SEL A */
+    jq_touch_state_process(&ts2, c2x, c2y, W, H, &f6, &t6);  /* SEL A2 */
     int tg[64];
     int nt = jq_touch_state_targets(&st, &ts2, tg, 64);
     CHECK(nt >= 1, "选中格有合法目标（走子或翻棋）");

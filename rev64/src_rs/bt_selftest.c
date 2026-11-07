@@ -73,7 +73,12 @@ int main(void) {
     }
     printf("  蓝方可走子: from=%d to=%d stage=%d turn=%d\n", mfrom, mto, st.stage, st.turn);
 
-    /* 5. 暗棋阶段：找可翻子（蓝方先手翻棋），测 FLIP 帧 */
+    /* 5. 暗棋阶段：找可翻子（蓝方先手翻棋），测 FLIP 帧。
+       ★ 2026-11-07：明棋 load_layout 全子 revealed=1（明棋布局语义）→
+       自测构造暗棋状态（全子 revealed=0）以验证 FLIP 帧路径。 */
+    for (int i = 0; i < N_CELLS; i++)
+        if (st.cells[i].rank) st.cells[i].revealed = 0;
+    st.turn = SIDE_BLUE;
     int flip_idx = -1;
     for (int i = 0; i < N_CELLS; i++)
         if (st.cells[i].rank && st.cells[i].side == SIDE_BLUE && !st.cells[i].revealed

@@ -2665,6 +2665,13 @@ Java_com_cnvcs_App_OnKey(JNIEnv *env, jclass clazz, jobject keyEvent)
     /* 读 keyCode（KeyEvent.getKeyCode() = 0x4 KEYCODE_BACK）——GetObjectClass 反射（主线程安全） */
     jclass kcls = (*env)->GetObjectClass(env, keyEvent);
     jmethodID mid = (*env)->GetMethodID(env, kcls, "getKeyCode", "()I");
+    /* ★ C1 防复发：GetMethodID 失败必须 ExceptionCheck/ExceptionClear
+       （NoSuchMethodError → pending 累积 → 后续 JNI 调用 ART abort，jni_method_audit 缺口修复） */
+    if (kcls == NULL || mid == NULL) {
+        if ((*env)->ExceptionCheck(env)) (*env)->ExceptionClear(env);
+        LOGI("OnKey 返回键：getKeyCode 反射失败（异常已清，诚实边界）");
+        return JNI_FALSE;
+    }
     int keycode = (*env)->CallIntMethod(env, keyEvent, mid);
     if (keycode != 4) { LOGI("OnKey 非 BACK 键（keyCode=%d）交系统", keycode); return JNI_FALSE; }
     LOGI("OnKey 返回键（KEYCODE_BACK）触发（scr=%d）", ui_screen_get());
