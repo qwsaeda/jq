@@ -135,6 +135,7 @@ static int g_rule_draw = 1;    /* 和棋：1=开（70 步无吃子/总 1000 步�
 static int g_rule_hq = 1;      /* 大本营：1=开（进大本营不可再动） */
 static int g_rule_mine = 1;    /* 吃地雷：1=开（工兵可挖地雷） */
 static int g_rule_flag = 1;    /* 吃军旗：1=开（扛旗判胜） */
+static int g_rule_dark = 1; /* ★ AUD-R-002/003（P0）：暗棋开关：1=开（ruleflip 规则族生效） */
 int ui_rule_draw_get(void) { return g_rule_draw; }
 void ui_rule_draw_set(int v) { g_rule_draw = v ? 1 : 0; }
 int ui_rule_hq_get(void) { return g_rule_hq; }
@@ -143,6 +144,8 @@ int ui_rule_mine_get(void) { return g_rule_mine; }
 void ui_rule_mine_set(int v) { g_rule_mine = v ? 1 : 0; }
 int ui_rule_flag_get(void) { return g_rule_flag; }
 void ui_rule_flag_set(int v) { g_rule_flag = v ? 1 : 0; }
+int ui_rule_dark_get(void) { return g_rule_dark; }
+void ui_rule_dark_set(int v) { g_rule_dark = v ? 1 : 0; }
 int ui_rule_cfg_get(int which)
 {
     switch (which) {
@@ -150,6 +153,7 @@ int ui_rule_cfg_get(int which)
     case 1: return g_rule_hq;
     case 2: return g_rule_mine;
     case 3: return g_rule_flag;
+    case 4: return g_rule_dark;   /* ★ AUD-R-002/003（P0）：暗棋开关 */
     }
     return 1;
 }

@@ -280,6 +280,119 @@ static int run_ruleset(void)
     }
 }
 
+/* ★ AUD-R-002/003（P0）：暗棋规则族桌面验证
+   ① 非工兵（蓝 rank2）→ 红军旗（暗棋 mode=FLIP）：can_move=0（工兵专属扛旗）
+   ② 蓝工兵（rank9）→ 红军旗（mines_cleared[0]=0）：can_move=0（未挖满 3 雷）
+   ③ 蓝工兵（rank9）→ 红军旗（mines_cleared[0]=3）：can_move=1（挖满 3 雷，EV_FLAG）
+   ④ 非工兵（蓝 rank2）→ 红雷（暗棋）：can_move=0（工兵专属挖雷）
+   ⑤ 蓝工兵（rank9）→ 红雷（暗棋）：can_move=1，EV_MINE，mines_cleared[0]++
+   ⑥ 明棋（mode=LAY）蓝 rank2 → 红军旗：can_move=1（rulelay：任何子扛旗）
+   诚实边界：先手翻子定色（side=UNKNOWN）留待后续轮次；ai_pick 暗棋信息遮蔽未实现。 */
+static int run_dark(void)
+{
+    int ok = 1;
+
+    /* 构造暗棋夹具：蓝工兵@53(rank9)，红军旗@58(rank12+0xc)，mode=JQ_MODE_FLIP */
+    /* 用例①：非工兵（蓝 rank2）→ 红军旗，暗棋 mode=FLIP → can_move=0 */
+    {
+        jq_state st;
+        memset(&st, 0, sizeof(st));
+        st.turn = SIDE_BLUE; st.stage = STG_PLAY; st.winner = -1;
+        st.mode = JQ_MODE_FLIP;
+        st.cells[53].rank = 2; st.cells[53].side = SIDE_BLUE; st.cells[53].revealed = 1;
+        st.cells[58].rank = 12 + 0xc; st.cells[58].side = SIDE_RED; st.cells[58].revealed = 1;
+        st.cells[58].flags = JQF_FLAG;
+        int can = jq_can_move(&st, 53, 58);
+        int c1 = (can == 0);
+        printf("dark① 非工兵rank2→红军旗（暗棋）: can=%d 期望0 %s\n", can, c1 ? "" : "  [FAIL]");
+        if (!c1) ok = 0;
+    }
+
+    /* 用例②：蓝工兵(rank9)→ 红军旗（mines_cleared=0）→ can_move=0 */
+    {
+        jq_state st;
+        memset(&st, 0, sizeof(st));
+        st.turn = SIDE_BLUE; st.stage = STG_PLAY; st.winner = -1;
+        st.mode = JQ_MODE_FLIP;
+        st.cells[53].rank = 9; st.cells[53].side = SIDE_BLUE; st.cells[53].revealed = 1;
+        st.cells[58].rank = 12 + 0xc; st.cells[58].side = SIDE_RED; st.cells[58].revealed = 1;
+        st.cells[58].flags = JQF_FLAG;
+        /* mines_cleared[0]=0（memset） → 未挖满 3 雷 → 不可扛旗 */
+        int can = jq_can_move(&st, 53, 58);
+        int c2 = (can == 0);
+        printf("dark② 工兵rank9→红军旗（未挖3雷）: can=%d 期望0 %s\n", can, c2 ? "" : "  [FAIL]");
+        if (!c2) ok = 0;
+    }
+
+    /* 用例③：蓝工兵(rank9)→ 红军旗（mines_cleared[0]=3）→ can_move=1，EV_FLAG */
+    {
+        jq_state st;
+        memset(&st, 0, sizeof(st));
+        st.turn = SIDE_BLUE; st.stage = STG_PLAY; st.winner = -1;
+        st.mode = JQ_MODE_FLIP;
+        st.cells[53].rank = 9; st.cells[53].side = SIDE_BLUE; st.cells[53].revealed = 1;
+        st.cells[58].rank = 12 + 0xc; st.cells[58].side = SIDE_RED; st.cells[58].revealed = 1;
+        st.cells[58].flags = JQF_FLAG;
+        st.mines_cleared[0] = 3;   /* 已挖满 3 雷 → 可扛旗 */
+        int can = jq_can_move(&st, 53, 58);
+        int ev = can ? jq_try_move(&st, 53, 58) : -1;
+        int c3 = (can == 1 && ev == EV_FLAG && st.stage == STG_OVER && st.winner == SIDE_BLUE);
+        printf("dark③ 工兵rank9→红军旗（挖满3雷）: can=%d ev=%d stage=%d winner=%d 期望can=1 EV_FLAG OVER BLUE %s\n",
+               can, ev, st.stage, st.winner, c3 ? "" : "  [FAIL]");
+        if (!c3) ok = 0;
+    }
+
+    /* 用例④：非工兵（蓝 rank2）→ 红雷（暗棋）→ can_move=0 */
+    {
+        jq_state st;
+        memset(&st, 0, sizeof(st));
+        st.turn = SIDE_BLUE; st.stage = STG_PLAY; st.winner = -1;
+        st.mode = JQ_MODE_FLIP;
+        st.cells[49].rank = 2; st.cells[49].side = SIDE_BLUE; st.cells[49].revealed = 1;
+        st.cells[54].rank = 11 + 0xc; st.cells[54].side = SIDE_RED; st.cells[54].revealed = 1;
+        st.cells[54].flags = JQF_MINE;
+        int can = jq_can_move(&st, 49, 54);
+        int c4 = (can == 0);
+        printf("dark④ 非工兵rank2→红雷（暗棋）: can=%d 期望0 %s\n", can, c4 ? "" : "  [FAIL]");
+        if (!c4) ok = 0;
+    }
+
+    /* 用例⑤：蓝工兵(rank9)→ 红雷（暗棋）→ can_move=1，EV_MINE，mines_cleared[0]++ */
+    {
+        jq_state st;
+        memset(&st, 0, sizeof(st));
+        st.turn = SIDE_BLUE; st.stage = STG_PLAY; st.winner = -1;
+        st.mode = JQ_MODE_FLIP;
+        st.cells[49].rank = 9; st.cells[49].side = SIDE_BLUE; st.cells[49].revealed = 1;
+        st.cells[54].rank = 11 + 0xc; st.cells[54].side = SIDE_RED; st.cells[54].revealed = 1;
+        st.cells[54].flags = JQF_MINE;
+        int can = jq_can_move(&st, 49, 54);
+        int ev = can ? jq_try_move(&st, 49, 54) : -1;
+        int c5 = (can == 1 && ev == EV_MINE && st.mines_cleared[0] == 1);
+        printf("dark⑤ 工兵rank9→红雷（暗棋）: can=%d ev=%d mines_cleared[0]=%d 期望can=1 EV_MINE mc=1 %s\n",
+               can, ev, st.mines_cleared[0], c5 ? "" : "  [FAIL]");
+        if (!c5) ok = 0;
+    }
+
+    /* 用例⑥：明棋（mode=LAY）蓝 rank2 → 红军旗 → can_move=1（rulelay：任何子扛旗） */
+    {
+        jq_state st;
+        memset(&st, 0, sizeof(st));
+        st.turn = SIDE_BLUE; st.stage = STG_PLAY; st.winner = -1;
+        st.mode = JQ_MODE_LAY;   /* 明棋 */
+        st.cells[53].rank = 2; st.cells[53].side = SIDE_BLUE; st.cells[53].revealed = 1;
+        st.cells[58].rank = 12 + 0xc; st.cells[58].side = SIDE_RED; st.cells[58].revealed = 1;
+        st.cells[58].flags = JQF_FLAG;
+        int can = jq_can_move(&st, 53, 58);
+        int c6 = (can == 1);
+        printf("dark⑥ 明棋rank2→红军旗（mode=LAY）: can=%d 期望1 %s\n", can, c6 ? "" : "  [FAIL]");
+        if (!c6) ok = 0;
+    }
+
+    printf("暗棋规则族（AUD-R-002/003 P0）: %s\n", ok ? "PASS" : "FAIL");
+    return ok;
+}
+
 /* ★ P1（datah_016/017/020 证据）：布局存档全路径桌面验证（列目录/存 30 字节/读回/
    改名/删除，不依赖触摸/文件系统 flaky——tmp 目录 + 直接调 save API + 校验字节）。
    对齐 jni_bridge UI_SAVE_LAY/UI_LOAD_LAY/UI_LAY_MGR 业务动作（ui_layout_* API 桩，
@@ -2168,6 +2281,8 @@ int main(int argc, char **argv)
         total++; pass += run_stalemate();
         /* ★ P1（datah_012）：游戏设置 4 规则开关（默认全开行为不变 + 各开关翻转后守卫） */
         total++; pass += run_ruleset();
+        /* ★ AUD-R-002/003（P0）：暗棋规则族（非工兵不可扛旗/挖雷，工兵挖 3 雷后可扛旗） */
+        total++; pass += run_dark();
         /* ★ P1（datah_016/017/020）：布局存档全路径（提取 30 字节/存读一致/载入镜像/删除） */
         total++; pass += run_layout_save();
         /* ★ P1（datah_039/107）：复盘回放确定性（走子序列 N 步 → rewind cur=k/0/n 三游标

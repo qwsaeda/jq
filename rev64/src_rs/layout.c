@@ -33,6 +33,7 @@ void jq_state_init(jq_state *st)
     st->turn = SIDE_BLUE;
     st->stage = STG_PLAY;
     st->winner = -1;
+    st->mode = JQ_MODE_LAY;   /* ★ AUD-R-002/003（P0）：默认明棋（行为不变） */
     /* ★ AUD-R-014（P1）：pieces_left 统计未接线（刷新逻辑恒 1、吃子后变负），
        初始化为 0（勿用于判胜；困毙走 jq_side_stalemated 实时扫描）。
        原 memset 已清零，此处显式注释标记诚实边界。 */
@@ -128,6 +129,27 @@ void jq_extract_layout_30(const jq_state *st, uint8_t out[30])
                 out[lrow * 5 + lcol] = c->rank;   /* 蓝方 rank 原值（无 +0xc） */
         }
     }
+}
+
+/* 暗棋（ruleflip）开局装载（AUD-R-003 P0）：
+   明棋语义 = 全 revealed=0，side 按 5-lrow/6+lrow 分区写死（蓝 side=BLUE / 红 side=RED，
+   与明棋一致），st->mode = JQ_MODE_FLIP。
+   暗棋规则（AUD-R-002 P0）：
+   · 地雷/军旗仅工兵(rank 9)可吃（jq_can_move 暗棋守卫，见 rules.c）；
+   · 工兵挖满 3 雷（st->mines_cleared[me] >= 3）方可扛旗；
+   · 未翻子（revealed=0）不可被攻击（仅可被翻，jq_flip 定色后 revealed=1 才可动/被吃）。
+   兄弟实现 src/game_logic.c:333-353 jq_dark_setup 同款语义。
+   ★ 诚实边界：先手翻子定色（side=UNKNOWN 机制）依赖 rules.c AUD-R-003 补全，
+   此处 layout.c 仍写死 side（与明棋同结构），暗棋 = "明棋藏脸 + 暗棋吃子规则"，
+   真正"先手翻子定色"玩法需侧未知（SIDE_UNKNOWN）装载路径，留待后续轮次。 */
+void jq_dark_setup(jq_state *st, const uint8_t layout[30])
+{
+    jq_load_layout(st, layout);
+    for (int i = 0; i < N_CELLS; i++) {
+        if (st->cells[i].rank != RANK_EMPTY)
+            st->cells[i].revealed = 0;   /* 暗棋：全暗置（ruleflip） */
+    }
+    st->mode = JQ_MODE_FLIP;
 }
 
 /* 刷新可动子统计（0x6a3b0 → 0x6b87c，L61：走子后刷新 + 困毙判定输入）

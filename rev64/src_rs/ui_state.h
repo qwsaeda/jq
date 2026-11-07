@@ -53,10 +53,13 @@ int  ui_rule_mine_get(void);   /* 吃地雷开关：1=开（工兵可挖地雷�
 void ui_rule_mine_set(int v);
 int  ui_rule_flag_get(void);   /* 吃军旗开关：1=开（扛旗判胜） */
 void ui_rule_flag_set(int v);
+/* ★ AUD-R-002/003（P0）：暗棋（ruleflip）开关：1=开（地雷/军旗仅工兵可吃，挖 3 雷扛旗） */
+int  ui_rule_dark_get(void);
+void ui_rule_dark_set(int v);
 void ui_rules_load(void);      /* 读 jq_rules.txt（OnCreate 调，缺文件 → 默认全开） */
 void ui_rules_save(void);     /* 写 jq_rules.txt（游戏设置确定后调） */
 /* 规则引擎读入口（rules.c 判定点守卫用，返回 4 开关值） */
-int  ui_rule_cfg_get(int which);  /* which 0=和棋 1=大本营 2=吃地雷 3=吃军旗，返回 0/1 */
+int  ui_rule_cfg_get(int which);  /* which 0=和棋 1=大本营 2=吃地雷 3=吃军旗 4=暗棋，返回 0/1 */
 
 /* ★ P2（datah_007 证据）：图像设置 4 开关（界面动画/棋子动画/夜间模式/对方棋子），
    持久化 jq_imgset.txt（与 ui_rules 同目录范式，4 字段）。

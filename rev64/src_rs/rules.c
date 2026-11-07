@@ -155,6 +155,27 @@ static bool move_legal(const jq_state *st, int from, int to, int turn)
     if (is_camp(cell_row(to), cell_col(to)) && dst->rank != RANK_EMPTY &&
         dst->side != me)
         return false;
+    /* 暗棋（ruleflip，AUD-R-002 P0）：地雷/军旗仅工兵(rank 9)可吃；
+       军旗额外要求攻方工兵已挖满 3 雷（mines_cleared[me] >= 3）。
+       明棋（st->mode != JQ_MODE_FLIP）：任何棋子可扛旗（rulelay 原文），本段恒放行。
+       ★ 规则开关 ui_rule_cfg_get(4)=1 启用暗棋（默认 1 对齐原版默认）；
+       =0 时退回明棋语义（行为不变）。兄弟实现 src/game_logic.c:100-104 同款判定。 */
+    {
+        int dr_ = rank_norm(dst->rank);
+        if (st->mode == JQ_MODE_FLIP && ui_rule_cfg_get(4) &&
+            dst->rank != RANK_EMPTY &&
+            (dr_ == RANK_MINE || dr_ == RANK_FLAG)) {
+            /* 地雷：仅工兵可吃 */
+            if (dr_ == RANK_MINE) {
+                if (sr != 9) return false;
+            }
+            /* 军旗：仅工兵可扛，且须已挖满 3 雷 */
+            else {
+                if (sr != 9) return false;
+                if (SIDE_VALID(me) && st->mines_cleared[me] < 3) return false;
+            }
+        }
+    }
     int fr = cell_row(from), fc = cell_col(from), tr = cell_row(to), tc = cell_col(to);
     /* 一步相邻（公路线）：行营落点仅允许一步相邻（非铁路） */
     int adjacent = (fr == tr && (fc - tc == 1 || tc - fc == 1)) ||

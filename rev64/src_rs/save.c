@@ -74,6 +74,7 @@ int jq_save_game_write(const char *path, const jq_state *st)
     fwrite(&total, 4, 1, f);
     fwrite(mc, 4, 2, f);
     fwrite(pl, 4, 2, f);
+    { uint32_t mode = st->mode; fwrite(&mode, 4, 1, f); }   /* ★ AUD-R-002/003（P0） */
     for (int i = 0; i < N_CELLS; i++)
         fwrite(&st->cells[i], sizeof(jq_cell), 1, f);
     fclose(f);
@@ -97,6 +98,7 @@ int jq_save_game_read(const char *path, jq_state *st)
     fread(&total, 4, 1, f);
     fread(mc, 4, 2, f);
     fread(pl, 4, 2, f);
+    { uint32_t mode; if (fread(&mode, 4, 1, f) == 1) st->mode = (uint8_t)mode; }   /* ★ AUD-R-002/003（P0） */
     st->turn = turn; st->stage = stage; st->winner = winner;
     st->moves_since_eat = since_eat; st->total_moves = total;
     st->mines_cleared[0] = mc[0]; st->mines_cleared[1] = mc[1];

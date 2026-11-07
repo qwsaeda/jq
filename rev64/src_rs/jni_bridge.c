@@ -223,16 +223,17 @@ int jq_bt_undo_available(void)
    调用方需已持有 g_mutex（OnUpdate/OnTouch 锁内；OnCreate 单线程无需锁）。 */
 static void jq_restart_game(void)
 {
-    jq_load_layout(&g_state, JQ_DEFAULT_LAY);
     int dark = ui_opt_get_mode() == 1;   /* ★ 选项 UI：翻棋模式 = 暗棋开局 */
     /* ★ 测试钩子：jq.mode setprop 覆盖（0=明棋 1=暗棋），walktest/evtest 走明棋用；
        __system_property_get 返回空 = 未设 → 用 ui_opt_get_mode()（默认暗棋） */
     char mode_prop[8] = {0};
     if (__system_property_get("jq.mode", mode_prop) > 0 && mode_prop[0])
         dark = (mode_prop[0] == '1');
-    for (int i = 0; i < N_CELLS; i++)
-        if (g_state.cells[i].rank != RANK_EMPTY)
-            g_state.cells[i].revealed = dark ? 0 : 1;
+    if (dark)
+        /* ★ AUD-R-002/003（P0）：暗棋路径走 jq_dark_setup（mode=FLIP + revealed=0） */
+        jq_dark_setup(&g_state, JQ_DEFAULT_LAY);
+    else
+        jq_load_layout(&g_state, JQ_DEFAULT_LAY);
     g_undo_top = 0;
     g_state.stage = STG_PLAY;
     g_state.turn = SIDE_BLUE;
@@ -911,6 +912,7 @@ static void on_event(const char *name, const char *value, JNIEnv *env)
                 int dark = ui_opt_get_mode() == 1;
                 for (int i = 0; i < N_CELLS; i++)
                     if (st->cells[i].rank != RANK_EMPTY) st->cells[i].revealed = dark ? 0 : 1;
+                st->mode = dark ? JQ_MODE_FLIP : JQ_MODE_LAY;   /* ★ AUD-R-002/003（P0） */
                 LOGI("OnEvent start：布局 %d（%s）%s", lay, lp, dark ? "暗棋（翻棋）" : "明棋（布局）");
             } else {
                 if (f) fclose(f);

@@ -20,6 +20,10 @@
 #define RANK_TOP    12    /* 普通 rank 上限 9，特殊子 10-12 */
 #define RANK_COUNT  13    /* 计数表大小（0-12） */
 
+/* ★ AUD-R-002/003（P0）：对局模式（明棋布局 vs 暗棋翻棋） */
+#define JQ_MODE_LAY  0
+#define JQ_MODE_FLIP 1
+
 #define SIDE_BLUE 0
 #define SIDE_RED  1
 /* ★ 对抗审计修正（AUD-R-004 P0）：暗棋「未定色」态的 side 值。
@@ -121,6 +125,11 @@ typedef struct {
                                         吃子后持续增减（可为负），勿用于判胜；
                                         困毙判定走 jq_side_stalemated 实时扫描，不读本字段 */
     int       count_tbl[RANK_COUNT];  /* 布局计数表（原版 +0x78，rank→数量） */
+    uint8_t   mode;                  /* ★ AUD-R-002/003（P0）：JQ_MODE_LAY=明棋 / JQ_MODE_FLIP=暗棋
+                                        暗棋语义：未翻子 revealed=0、地雷/军旗仅工兵可吃、
+                                        工兵挖满 3 雷方可扛旗（ruleflip 原文）。
+                                        jq_state_init 默认 JQ_MODE_LAY（明棋），
+                                        jni_bridge 暗棋路径 set 为 JQ_MODE_FLIP。 */
     /* 悔棋历史（循环快照，原版无内建悔棋；联机 Regret* 事件驱动，L77） */
     int       undo_depth;
 } jq_state;
@@ -144,10 +153,17 @@ int  coord_cmp(const int8_t *a, const int8_t *b); /* 0x6ef54：[0]=col [1]=row�
 
 /* ---- 布局（0x2a340 加载 / 0x6a3a4 映射 / 0x6a3b0 校验，§3/§7）---- */
 void jq_state_init(jq_state *st);
-/* 载入 30 字节布局（6 行 × 5 列，蓝方视角 row0=前线路 … row5=底线）。
+/* 0x2a340 载入 30 字节布局（6 行 × 5 列，蓝方视角 row0=前线路 … row5=底线）。
    原版 0x2a340：循环 30 次经 0x6a3a4 映射（蓝原值/红+0xc）。
    红方 = 蓝方镜像（row+6, col 翻转）。 */
 void jq_load_layout(jq_state *st, const uint8_t layout[30]);
+/* ★ AUD-R-003（P0）：暗棋（ruleflip）开局装载——
+   50 枚子全暗置（revealed=0，side 按 5-lrow/6+lrow 分区写死 BLUE/RED，
+   明棋布局同结构但全 revealed=1），st->mode = JQ_MODE_FLIP。
+   暗棋规则族（AUD-R-002 P0）：地雷/军旗仅工兵可吃；工兵挖 3 雷才可扛旗。
+   兄弟实现 src/game_logic.c:333-353 jq_dark_setup 同款。
+   ★ 诚实边界：先手翻子定色（side=UNKNOWN 机制）留待后续轮次。 */
+void jq_dark_setup(jq_state *st, const uint8_t layout[30]);
 /* 0x2a228 单格校验：idx 0-59，raw 字节（红方翻开 +0xc 自动归一）。
    炸弹：idx<=34 报错；地雷：idx<=49 报错；军旗：仅 idx∈{56,58}。 */
 jq_layout_err jq_check_layout_cell(int idx, int raw);

@@ -41,9 +41,12 @@ int ui_rule_mine_get(void) { return g_rm; }
 void ui_rule_mine_set(int v) { g_rm = v ? 1 : 0; }
 int ui_rule_flag_get(void) { return g_rf; }
 void ui_rule_flag_set(int v) { g_rf = v ? 1 : 0; }
+static int g_rule_dark_stub = 1; /* ★ AUD-R-002/003：暗棋开关桩（默认开） */
+int ui_rule_dark_get(void) { return g_rule_dark_stub; }
+void ui_rule_dark_set(int v) { g_rule_dark_stub = v ? 1 : 0; }
 int ui_rule_cfg_get(int which)
 {
-    switch (which) { case 0: return g_rd; case 1: return g_rh; case 2: return g_rm; default: return g_rf; }
+    switch (which) { case 0: return g_rd; case 1: return g_rh; case 2: return g_rm; case 4: return 1; default: return g_rf; }
 }
 void ui_rules_load(void) {}
 void ui_rules_save(void) {}
