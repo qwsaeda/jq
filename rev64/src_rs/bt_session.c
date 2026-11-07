@@ -100,7 +100,14 @@ int jq_bt_session_on_frame(jq_bt_session *s, jq_state *st,
         s->state = BT_ST_OUR_TURN;
         return 0;
     case BT_T_RESIGN:
-        st->winner = s->we_blue ? SIDE_RED : SIDE_BLUE;  /* 对方认输，我赢 */
+        /* ★ AUD-BT-RESIGN（P0 真修）：方向纠正——RESIGN 帧是**对端**发给
+           本端的"对端认输"通知，winner 应为**本端阵营**（we_blue=1 我蓝 →
+           蓝胜 SIDE_BLUE；we_blue=0 我红 → 红胜 SIDE_RED）。旧式
+           `we_blue ? SIDE_RED : SIDE_BLUE` 恰好相反（注释"对方认输，我赢"
+           与代码矛盾），致蓝牙对局认输后 winner 误判为负方。
+           对照 jni_bridge 本地认输（g_state.winner = 1 - g_state.turn，
+           本端方负）：BT RESIGN 帧语义 = 对端认输 = 本端胜，方向不同。 */
+        st->winner = s->we_blue ? SIDE_BLUE : SIDE_RED;  /* 对端认输，本端胜 */
         st->stage  = STG_OVER;
         s->state  = BT_ST_DISCONNECTED;
         return 0;

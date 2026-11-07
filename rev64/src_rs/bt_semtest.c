@@ -273,11 +273,9 @@ int main(void)
     printf("[§5] RESIGN / UNDO / RESTART 帧语义\n");
     {
         /* RESIGN：终局语义。
-           bt_session.c 现状（诚实标注）：st->winner = we_blue ? SIDE_RED : SIDE_BLUE
-           （"对方认输，我赢"注释与代码实现相反——we_blue=1 时 winner=SIDE_RED 实际
-           是把"认输方（红）"标为胜方，疑似实现 bug；jni_bridge 侧认输走
-           g_state.winner=(turn==BLUE)?RED:BLUE 自判败方，与此处不同源）。
-           本测试断言现状行为，防回归；修复 winner 方向后同步更新此处。 */
+           ★ AUD-BT-RESIGN（P0 已修）：旧式 we_blue?RED:BLUE 与注释"对方认输，我赢"
+           矛盾（we_blue=1 我蓝收 RESIGN → 旧 winner=RED = 认输方胜，方向错）。
+           修复：we_blue?BLUE:RED（对端认输 → 本端胜）。断言对齐修复后行为。 */
         jq_state st; fixture_play(&st);
         jq_bt_session sess;
         jq_bt_session_init(&sess, &st, 1);   /* we_blue=1 */
@@ -285,15 +283,15 @@ int main(void)
         int ret = jq_bt_session_on_frame(&sess, &st, BT_T_RESIGN, 0, 0, 0, 0, 0, 0);
         CHECK(ret == 0, "RESIGN 帧接受（rc=0）");
         CHECK(st.stage == STG_OVER, "RESIGN 语义：stage=STG_OVER（终局）");
-        CHECK(st.winner == SIDE_RED, "RESIGN 现状：we_blue=1 时 winner=SIDE_RED（实锤）");
+        CHECK(st.winner == SIDE_BLUE, "RESIGN：we_blue=1 收 RESIGN → winner=BLUE（对端认输本端胜）");
         CHECK(sess.state == BT_ST_DISCONNECTED, "RESIGN 语义：会话断开");
 
-        /* 镜像：we_blue=0（我是红方） */
+        /* 镜像：we_blue=0（我是红方）收对端（蓝）RESIGN → 红胜 */
         jq_state str; fixture_play(&str);
         jq_bt_session sessr;
         jq_bt_session_init(&sessr, &str, 0);
         jq_bt_session_on_frame(&sessr, &str, BT_T_RESIGN, 0, 0, 0, 0, 0, 0);
-        CHECK(str.winner == SIDE_BLUE, "RESIGN 镜像现状：we_blue=0 时 winner=SIDE_BLUE（实锤）");
+        CHECK(str.winner == SIDE_RED, "RESIGN 镜像：we_blue=0 收 RESIGN → winner=RED（对端认输本端胜）");
 
         /* UNDO：闸口语义（THEIR_TURN 消费→翻回合；OUR_TURN 拒收） */
         jq_state stu; fixture_play(&stu);
