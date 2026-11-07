@@ -779,7 +779,9 @@ static void sfx_play_file(JNIEnv *env, const char *event, const char *path_overr
 /* ---- 事件 → 音效分类（原版 Junqi.* 字符串，.rodata 0x120f14-0x120f50）---- */
 static int  g_bt_sess_init = 0;
 static int  g_bt_sess_init_done = 0;
-static int g_event_cnt[6];
+static int g_event_cnt[7];   /* ★ AUD-R-061（P2）：扩容 6→7（补 EV_FLIP=Junqi.Flip 计数位；0-5 顺序不变）。
+                               AUD-R-062（P2）：g_event_cnt[0]=EV_MOVE 与 [5]=EV_MINE 同名 "Junqi.Move"
+                               （对齐原版设计）——按**事件码**分流统计（两位分开计），按**事件名**分流音效。 */
 static int g_event_total = 0;
 static int  g_way_host = 1;   /* ★ 对抗审计（datah_072）：方式选择来源——2=联网(host) 3=联机(client) */
 
@@ -809,6 +811,7 @@ static void on_event(const char *name, const char *value, JNIEnv *env)
             undo_push();
             if (jq_flip(st, idx)) {
                 ui_replay_record(idx, idx, 1);   /* ★ P1（datah_039/107）：OnEvent 翻棋成功记录 1 步 */
+                g_event_cnt[EV_FLIP]++; g_event_total++;   /* ★ AUD-R-061（P2）：翻棋计数走 EV_FLIP=6 位（对齐 SPEC §3 7 类事件） */
                 LOGI("OnEvent flip (%d,%d) rank=%d", cell_row(idx), cell_col(idx),
                      rank_norm(st->cells[idx].rank));
             } else g_undo_top--;
@@ -941,7 +944,7 @@ static void on_event(const char *name, const char *value, JNIEnv *env)
         LOGI("OnEvent status：stage=%d turn=%d moves=%d events_total=%d [%s]",
              st->stage, st->turn, st->total_moves, g_event_total,
              "move/eat/bomb/flag/dead/mine=");
-        for (int i = 0; i < 6; i++)
+        for (int i = 0; i < 7; i++)   /* ★ AUD-R-061（P2）：事件名 7 项（补 EV_FLIP） */
             LOGI("  %s = %d", JQ_EVENT_NAMES[i], g_event_cnt[i]);
     } else if (strcmp(name, "bttest") == 0) {
         jq_bt_test_run(st, "OnEvent");
@@ -1136,7 +1139,7 @@ Java_com_cnvcs_App_OnCreate(JNIEnv *env, jclass clazz, jobject activity)
             g_undo_top = 0;
             ui_screen_set(UI_GAME);
             int ftev = jq_try_move(&g_state, 53, 58);
-            if (ftev >= 0 && ftev < 6) { g_event_cnt[ftev]++; g_event_total++; }
+            if (ftev >= 0 && ftev < 7) { g_event_cnt[ftev]++; g_event_total++; }   /* AUD-R-061：7 项事件码 */
             LOGI("flagtest：近旗状态注入 + 自动走 53→58 ev=%d %s（turn=%d stage=%d winner=%d）",
                  ftev, ftev < 0 ? "-" : JQ_EVENT_NAMES[ftev],
                  g_state.turn, g_state.stage, g_state.winner);
@@ -1205,7 +1208,7 @@ Java_com_cnvcs_App_OnCreate(JNIEnv *env, jclass clazz, jobject activity)
             g_undo_top = 0;
             ui_screen_set(UI_GAME);
             int mtev = jq_try_move(&g_state, 49, 54);
-            if (mtev >= 0 && mtev < 6) { g_event_cnt[mtev]++; g_event_total++; }
+            if (mtev >= 0 && mtev < 7) { g_event_cnt[mtev]++; g_event_total++; }   /* AUD-R-061：7 项事件码 */
             LOGI("minetest：挖雷状态注入 + 自动走 49→54 ev=%d %s（turn=%d stage=%d）",
                  mtev, mtev < 0 ? "-" : JQ_EVENT_NAMES[mtev], g_state.turn, g_state.stage);
             sfx_play(env, "move");
@@ -1982,7 +1985,7 @@ Java_com_cnvcs_App_OnTimer(JNIEnv *env, jclass clazz)
         if (ai_pick(&from, &to, &flip) == 0) {
             undo_push();
             if (flip) {
-                if (jq_flip(&g_state, from)) ui_replay_record(from, from, 1);   /* ★ P1（datah_039/107）：AI 翻棋记录 */
+                if (jq_flip(&g_state, from)) { ui_replay_record(from, from, 1); g_event_cnt[EV_FLIP]++; g_event_total++; }   /* AUD-R-061：翻棋计数走 EV_FLIP=6 位 */   /* ★ P1（datah_039/107）：AI 翻棋记录 */
             } else {
                 int e = jq_try_move(&g_state, from, to);
                 if (e >= 0) ui_replay_record(from, to, 0);   /* ★ P1（datah_039/107）：AI 走子记录 */
@@ -2622,7 +2625,7 @@ Java_com_cnvcs_App_OnUpdate(JNIEnv *env, jclass clazz)
             if (ai_pick(&from, &to, &flip) == 0) {
                 undo_push();
                 if (flip) {
-                    if (jq_flip(&g_state, from)) ui_replay_record(from, from, 1);   /* ★ P1（datah_039/107）：AI 翻棋记录 */
+                    if (jq_flip(&g_state, from)) { ui_replay_record(from, from, 1); g_event_cnt[EV_FLIP]++; g_event_total++; }   /* AUD-R-061：翻棋计数走 EV_FLIP=6 位 */   /* ★ P1（datah_039/107）：AI 翻棋记录 */
                     LOGI("红方 AI 应着（翻棋）：cell=%d（turn 切回蓝方）", from);
                 } else {
                     int e = jq_try_move(&g_state, from, to);
@@ -7671,7 +7674,7 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
                     int from, to, flip;
                     if (ai_pick(&from, &to, &flip) == 0) {
                         undo_push();
-                        if (flip) { if (jq_flip(&g_state, from)) ui_replay_record(from, from, 1); }   /* ★ P1（datah_039/107）：电脑变着翻棋记录 */
+                        if (flip) { if (jq_flip(&g_state, from)) { ui_replay_record(from, from, 1); g_event_cnt[EV_FLIP]++; g_event_total++; }   /* AUD-R-061：翻棋计数走 EV_FLIP=6 位 */ }   /* ★ P1（datah_039/107）：电脑变着翻棋记录 */
                         else { int e = jq_try_move(&g_state, from, to); if (e >= 0) ui_replay_record(from, to, 0); (void)e; }   /* ★ P1（datah_039/107）：电脑变着走子记录 */
                         done = 1;
                     }
@@ -7782,7 +7785,10 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
             if (from >= 0 && jq_can_flip(st, from)) {
                 undo_push();
                 flip_done = jq_flip(st, from);
-                if (flip_done) ui_replay_record(from, from, 1);   /* ★ P1（datah_039/107）：翻棋成功记录 1 步 */
+                if (flip_done) {
+                    ui_replay_record(from, from, 1);   /* ★ P1（datah_039/107）：翻棋成功记录 1 步 */
+                    g_event_cnt[EV_FLIP]++; g_event_total++;   /* ★ AUD-R-061（P2）：翻棋计数走 EV_FLIP=6 位 */
+                }
                 LOGI("走子判定 翻棋：cell=%d rc=%d turn→%d（人机AI走红=%d）",
                      from, flip_done, st->turn, g_vs_ai);
             } else {
@@ -7796,7 +7802,7 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
                 jnev = jq_try_move(st, from, to);
                 move_ok = (jnev >= 0);
                 if (move_ok) ui_replay_record(from, to, 0);   /* ★ P1（datah_039/107）：走子成功记录 1 步 */
-                if (move_ok && jnev >= 0 && jnev < 6) {
+                if (move_ok && jnev >= 0 && jnev < 7) {   /* AUD-R-061：7 项事件码 */
                     g_event_cnt[jnev]++;   /* 事件计数（对齐 on_event，OnTouch 直接走子不经 on_event） */
                     g_event_total++;
                 }
@@ -7843,7 +7849,7 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
                 if (ai_pick(&af, &at, &aflip) == 0) {
                     undo_push();
                     if (aflip) {
-                        if (jq_flip(&g_state, af)) ui_replay_record(af, af, 1);   /* ★ P1（datah_039/107）：AI 翻棋记录 */
+                        if (jq_flip(&g_state, af)) { ui_replay_record(af, af, 1); g_event_cnt[EV_FLIP]++; g_event_total++; }   /* AUD-R-061：翻棋计数走 EV_FLIP=6 位 */   /* ★ P1（datah_039/107）：AI 翻棋记录 */
                         LOGI("红方 AI 应着（翻棋）：cell=%d（turn 切回蓝方）", af);
                     } else {
                         ae = jq_try_move(&g_state, af, at);

@@ -107,7 +107,16 @@ typedef enum {
     EV_BOMB,        /* Junqi.Bomb  炸弹同归于尽 */
     EV_FLAG,        /* Junqi.Flag  吃旗胜 */
     EV_DEAD,        /* Junqi.Dead  被吃方死亡 */
-    EV_MINE,        /* Junqi.Move  工兵挖雷（音效分类，arm64 对齐 L71） */
+    EV_MINE,        /* Junqi.Move  工兵挖雷（音效分类，arm64 对齐 L71）
+                     ★ AUD-R-062（P2）：EV_MINE(5) 与 EV_MOVE(0) 共用 "Junqi.Move"
+                     事件名（对齐原版 32 位 .rodata 设计：挖雷不结束对局，音效按名
+                     分流）；调用方按**事件码**分流统计（g_event_cnt[0]/[5] 分开计），
+                     按**事件名**分流音效。 */
+    EV_FLIP,        /* Junqi.Flip  翻棋（★ AUD-R-061（P2）：补 7 类事件对齐 SPEC §3；
+                     值=6 置于 EV_MINE 后，0-5 顺序不变，既有事件码消费方不受影响。
+                     翻棋不经 jq_try_move 事件码通道（jq_flip 返回 bool 不变），
+                     计数由 jni_bridge 调用点 ui_replay_record + g_event_cnt[EV_FLIP]++
+                     承担；32 位 so .rodata 明文含 Junqi.Flip 事件名，原版确有此通道。 */
 } jq_event;
 
 /* ---- 布局错误（原版 0x2a228 事件串 ZhaError/QiError/LeiError，§11/§10）---- */
@@ -234,7 +243,7 @@ void jq_standard_army_count(int cnt[RANK_COUNT]);
 void jq_extract_layout_30(const jq_state *st, uint8_t out[30]);
 
 /* ---- 事件名（原版 .rodata 0x120f14-0x120f50 明文字符串）---- */
-extern const char *JQ_EVENT_NAMES[6];
+extern const char *JQ_EVENT_NAMES[7];   /* ★ AUD-R-061（P2）：扩容 6→7（补 EV_FLIP=Junqi.Flip，值 0-5 顺序不变） */
 
 /* ---- 存档（save.c，L74/L83/L89）---- */
 typedef struct {

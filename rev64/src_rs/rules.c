@@ -48,8 +48,11 @@
 #include <string.h>
 #include <stdlib.h>
 
-const char *JQ_EVENT_NAMES[6] = {
-    "Junqi.Move", "Junqi.Eat", "Junqi.Bomb", "Junqi.Flag", "Junqi.Dead", "Junqi.Move"
+/* ★ AUD-R-061（P2）：7 类事件（SPEC §3 契约表），EV_FLIP=Junqi.Flip（32 位 so
+   .rodata 明文含此事件名）。★ AUD-R-062（P2）：[0]=EV_MOVE 与 [5]=EV_MINE 同名
+   "Junqi.Move"（对齐原版设计），[6]=EV_FLIP 为翻棋独立通道。 */
+const char *JQ_EVENT_NAMES[7] = {
+    "Junqi.Move", "Junqi.Eat", "Junqi.Bomb", "Junqi.Flag", "Junqi.Dead", "Junqi.Move", "Junqi.Flip"
 };
 
 /* ---------- 走子路径 ---------- */

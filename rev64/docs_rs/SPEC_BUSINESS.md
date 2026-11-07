@@ -42,8 +42,12 @@
 | `EV_FLIP` | `Junqi.Flip` | 翻棋 |
 | `EV_MINE` | `Junqi.Move` | 工兵挖雷（不结束对局，红有子则 stage 保持 PLAY） |
 
-- **返回契约**：`jq_try_move` 返回事件码（0-5），**-1 = 非法**（不改变状态）。
-- **事件计数**：`g_event_cnt[6]` + `g_event_total`，OnTouch 直接走子也要递增（不经 on_event）。
+- **同名提示（AUD-R-062）**：`EV_MINE`(5) 与 `EV_MOVE`(0) 共用 "Junqi.Move" 事件名——对齐原版 32 位
+  .rodata 设计（挖雷不结束对局，音效按名分流）；调用方按**事件码**分流统计（`g_event_cnt[0]` 与
+  `[5]` 分开计数），按**事件名**分流音效。
+- **返回契约**：`jq_try_move` 返回事件码（0-5），**-1 = 非法**（不改变状态）。`jq_flip` 返回 bool
+  （翻棋不走 jq_try_move 事件码通道，EV_FLIP=6 计数由调用点承担，AUD-R-061）。
+- **事件计数**：`g_event_cnt[7]` + `g_event_total`，OnTouch 直接走子也要递增（不经 on_event）。
 
 ### 3.1 原版事件分发全链（§124y-34~123 逆向实锤，对齐参考）
 
