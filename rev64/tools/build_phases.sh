@@ -109,6 +109,25 @@ verify_one() {
   local minsdk=$(aapt dump badging $apk 2>/dev/null | grep "sdkVersion" | sed 's/sdkVersion: //')
   local adjar=$(unzip -l $apk 2>/dev/null | grep -c "__xadsdk")
   echo "  [$phase] ABI=$abi minSdk=$minsdk 广告jar=$adjar"
+  # ★ 对抗审计 P2-A3：ABI 判据按 phase 精确匹配期望集合（原只打印不判）——
+  #   phase0={armeabi} / phase1={armeabi,arm64-v8a} / phase2={armeabi-v7a,arm64-v8a}
+  #   / phase3={arm64-v8a}。phase2 误带 armeabi(v5) 目录（原判据漏检）。
+  local expect_abi exp_ok=1
+  case $phase in
+    phase0) expect_abi="armeabi" ;;
+    phase1) expect_abi="armeabi arm64-v8a" ;;
+    phase2) expect_abi="armeabi-v7a arm64-v8a" ;;
+    phase3) expect_abi="arm64-v8a" ;;
+  esac
+  for a in $expect_abi; do
+    echo "$abi" | grep -q "'$a'" || { echo "  ✗ $phase 缺 ABI $a（实际=$abi）"; exp_ok=0; }
+  done
+  # 实际 ABI 目录数（APK 内 lib/ 子目录）
+  local n_abi_dir=$(unzip -l $apk 2>/dev/null | grep -oE "lib/[^/]+/" | sort -u | wc -l)
+  if [ "$n_abi_dir" -ne "$(echo $expect_abi | wc -w)" ]; then
+    echo "  ✗ $phase ABI 目录数=$n_abi_dir（期望 $(echo $expect_abi | wc -w)：$expect_abi）"; exp_ok=0
+  fi
+  [ "$exp_ok" -eq 1 ] || return 1
   # ★ 对抗审计 P1-J3：phase3 去广告终态必须 adjar=0（原只打印不判 → 假绿）
   if [ "$phase" = "phase3" ] && [ "$adjar" != "0" ]; then
     echo "  ✗ phase3 广告jar=$adjar（应 0，去广告终态）"; return 1

@@ -319,10 +319,16 @@ static long (*g_aasset_read)(AAsset *, void *, long);
 static void (*g_aasset_close)(AAsset *);
 
 /* ---- 音效：Java MediaPlayer 播放（WAV 从 /data/local/tmp/jq_sfx/ 读，对齐
-   原版 sound.xml 清单）：事件 move/flip/eat/win/lose/draw → 同名 WAV。 */
+   原版 sound.xml 清单）：事件 move/flip/eat/win/lose/draw → 同名 WAV。
+   ★ 对抗审计 P3-B18（命名双轨澄清）：本文件有 3 处 WAV 路径概念，职责不同——
+     · SFX_DIR（本宏）= 文件系统回退路径（③优先级，MuMu/桌面，sfx_wav 返回此路径）
+     · g_sfx_priv_dir = 内部存储 getFilesDir/jq_sfx（①优先级，OnCreate 反射落地）
+     · assets/jq_sfx/ = APK 内 assets（②优先级，AAsset 可达时）
+   sfx_wav() 返回的 SFX_DIR 路径在 ① 分支只被当作"文件名来源"（strrchr 取 '/' 后段），
+   非直接打开路径；③ 分支才直接使用。勿误读为双轨冗余。 */
 #define SFX_DIR "/data/local/tmp/jq_sfx"
 static int g_sfx_wrote = 0;
-static char g_sfx_priv_dir[256];
+static char g_sfx_priv_dir[256];   /* ① 内部存储 getFilesDir/jq_sfx（OnCreate 落地） */
 static char g_files_dir[256];   /* ★ 音效持久化：getFilesDir 路径（jq_sound_on.txt 存/取） */
 
 /* MediaPlayer global ref 缓存（跨线程安全） */
@@ -2925,16 +2931,6 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
            点空白无反应——去掉旧"点棋盘区快速开局"测试路径，对齐原版交互） */
         (void)clazz;
     
-
-
-
-
-
-
-
-
-
-
 
 
 

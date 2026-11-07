@@ -65,12 +65,20 @@ int main(void) {
         if (ok) pass++;
     }
 
-    /* FINAL 状态校验（test_expected: winner=1 turn=1 total=3 stage=2） */
-    /* 会话 B test_expected 的 FINAL 是基准序列跑完后的状态。
-       32 位走子桥对齐：认输后 winner=1-turn。turn 经 Flip/Move 交替，
-       末次有效操作后 turn=1（蓝），认输 winner=1-1=0？会话 B 期望 winner=1
-       → 会话 B 的 turn 语义不同（认输方=turn，winner=1-turn）。
-       对齐会话 B：认输时 st.winner = 1 - st.turn；若 turn=0 → winner=1（与期望一致）。 */
+    /* FINAL 状态校验（test_expected: winner=1 turn=1 total=3 stage=2）
+       ★ 对抗审计 P2-F7（批2 S-7）修正：原注释"末次有效操作后 turn=1（蓝），
+       认输 winner=1-1=0？会话 B 期望 winner=1"自相矛盾（推导出 0 却断言 1），
+       且未说明 turn 终值依据。实证基准序列（会话 B test_move_seq）：
+         f6 f33（2 次 Flip，各切 turn → turn 回原值）
+         m6→11（有效 Move，切 turn → turn=1）
+         m33→38（有效 Move，切 turn → turn=0）
+         m12→13（ILLEGAL，不切 turn）
+         u（undo，走子桥仅记日志，不切 turn）
+         m10→11（ILLEGAL，不切 turn）
+         q0（认输：winner = 1 - turn = 1 - 0 = 1）
+       → 末次有效操作后 turn=0（红），认输 winner=1-0=1（与期望一致）。
+       故断言 st.winner==1 成立，turn 终值为 0（不是注释原写的 1）。 */
+    /* 认输 winner = 1 - turn（会话 B 语义）：序列终态 turn=0 → winner=1 ✓ */
     int fin_ok = (st.winner == 1);
     printf("  %s  FINAL winner=%d (期望 1) turn=%d total=%d stage=%d\n",
            fin_ok ? "✓" : "✗", st.winner, st.turn, st.total_moves, (int)st.stage);

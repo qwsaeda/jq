@@ -2457,7 +2457,7 @@ int main(int argc, char **argv)
             printf("  row%d\n", r);
         }
         for (int i = 0; i < N_CELLS; i++)
-            if (rank_norm(st.cells[i].rank) == RANK_FLAG)
+            if (rank_of(&st.cells[i]) == RANK_FLAG)
                 printf("军旗: cell%d(row%d,col%d) side=%s\n", i, cell_row(i), cell_col(i),
                        st.cells[i].side == SIDE_BLUE ? "BLUE" : "RED");
         return 0;

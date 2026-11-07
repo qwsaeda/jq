@@ -46,15 +46,29 @@ else
 fi
 
 log "=== [3/3] rebuild_rs_apk.sh 装机+启动（--start=$START）==="
+# ★ 对抗审计 P3-J9（错误吞噬修正）：原 `| grep -E "对账|启动 app|进程|完成|FAIL"` 过滤
+#   后即丢退出码——rebuild 内部失败但 grep 不命中关键词（如 "so 哈希不一致" 含"不一致"
+#   不在 pattern）→ 假绿。现：先落盘全文 + 保留 pipeline 退出码，再 grep 展示；
+#   失败即中止（不静默继续到设备回归）。
 if [[ $START -eq 1 ]]; then
-  bash $TOOLS/rebuild_rs_apk.sh --start --dev $DEV 2>&1 | grep -E "对账|启动 app|进程|完成|FAIL"
+  bash $TOOLS/rebuild_rs_apk.sh --start --dev $DEV > /tmp/opencode/rs_cycle_rebuild.log 2>&1
+  RC=$?
+  grep -E "对账|启动 app|进程|推送|完成|FAIL|不一致|✗" /tmp/opencode/rs_cycle_rebuild.log | head -12
+  [ $RC -ne 0 ] && { log "★ rebuild_rs_apk 失败（rc=$RC），日志 /tmp/opencode/rs_cycle_rebuild.log"; exit 1; }
 else
-  bash $TOOLS/rebuild_rs_apk.sh --dev $DEV 2>&1 | grep -E "对账|完成|FAIL"
+  bash $TOOLS/rebuild_rs_apk.sh --dev $DEV > /tmp/opencode/rs_cycle_rebuild.log 2>&1
+  RC=$?
+  grep -E "对账|推送|完成|FAIL|不一致|✗" /tmp/opencode/rs_cycle_rebuild.log | head -12
+  [ $RC -ne 0 ] && { log "★ rebuild_rs_apk 失败（rc=$RC），日志 /tmp/opencode/rs_cycle_rebuild.log"; exit 1; }
 fi
 
 if [[ $DEVREGRESS -eq 1 ]]; then
   log "=== [4/4] 设备事件回归（mumu_regress.sh，含 btconn）==="
-  bash $TOOLS/mumu_regress.sh --dev $DEV 2>&1 | grep -E "✓|✗|汇总"
+  bash $TOOLS/mumu_regress.sh --dev $DEV > /tmp/opencode/rs_cycle_devregress.log 2>&1
+  RC=$?
+  grep -E "✓|✗|~|汇总" /tmp/opencode/rs_cycle_devregress.log | tail -14
+  # ★ FLAKY/FAIL 均非全绿（rc=2 flaky / rc=1 fail）→ 中止，不静默
+  [ $RC -ne 0 ] && { log "★ 设备事件回归非全绿（rc=$RC，FLAKY 或 FAIL）"; exit $RC; }
 fi
 log "✓ rs_cycle 完成"
 exit 0

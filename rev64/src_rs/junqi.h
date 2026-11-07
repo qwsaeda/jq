@@ -175,11 +175,26 @@ static inline int rank_norm(int v) {
        layout.c seen[r] 计数）只做 <RANK_COUNT 范围过滤不报错。越界还原值统一
        钳到 RANK_TOP（哨兵，由调用方按非法 rank 处理，防 13-23 误还原语义不变）。 */
     if (v > RANK_TOP + 0xc) return RANK_TOP;
-    return v > RANK_TOP ? v - 0xc : v;   /* 红方已翻开还原（0x6a3b0 §7）
-     ★ AUD-R-047（P2 诚实标注）：还原只看数值大小不看 side——蓝方若出现 >12 的
-     rank（BT SYNC_CELL 注入 / 复盘数据损坏）会被静默还原为别的 rank（13→1）。
-     修法（rank_of(const jq_cell*) 结合 side 判定 + 范围校验，废弃裸 rank_norm
-     11 处调用点；或约定 rank 字节永不>12）留待下一轮。 */
+    return v > RANK_TOP ? v - 0xc : v;   /* 红方已翻开还原（0x6a3b0 §7） */
+}
+/* ★ AUD-R-047（P2 已修）：side 感知的 rank 还原——裸 rank_norm 只看数值大小不看
+   side，蓝方（side=SIDE_BLUE）若出现 >12 的 rank（BT SYNC_CELL 注入允许
+   f3∈[0,24]、复盘/存档数据损坏）会被静默还原为别的 rank（13→1 = 司令）。
+   rank_of(const jq_cell*) 按 side 判定 + 范围校验：
+     · side==SIDE_RED：明棋红方 rank 存 rank+0xc（>12）→ 还原 -0xc；
+       暗棋红方（jq_dark_setup 全 raw + 翻子定色后 side=RED）rank≤12 → 直接取。
+     · side==SIDE_BLUE / SIDE_UNKNOWN：rank 必须 ≤12（蓝方原值编码），
+       >12 视为非法 → 钳 RANK_TOP（非法哨兵，调用方按非法 rank 处理）。
+   ★ 编码事实（layout.c 实证）：jq_load_layout 红方 rank+0xc；
+     jq_dark_setup 全 60 格 raw（明棋式统一编码）→ 定色后红方 rank 仍 raw。 */
+static inline int rank_of(const jq_cell *c) {
+    if (!c) return RANK_EMPTY;
+    if (c->rank > RANK_TOP) {
+        if (c->side == SIDE_RED && c->rank <= RANK_TOP + 0xc)
+            return (int)c->rank - 0xc;    /* 明棋红方 +0xc 编码还原 */
+        return RANK_TOP;                  /* 蓝/未定色域出现 >12 = 非法 → 哨兵 */
+    }
+    return (int)c->rank;
 }
 
 /* ---- 格子/铁路/行营/大本营（L68 十字铁路、L49 修复版拓扑）---- */

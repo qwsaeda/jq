@@ -146,7 +146,7 @@ static bool rail_path_straight(const jq_state *st, int fr, int fc, int tr, int t
         if (fc != 2) return false;
         /* 纵线中段：行营（(3,2)/(8,2)）在铁路外（is_rail 判端点已排），
            非工兵直走不能拐弯 → 纵线上遇到行营/大本营阻断滑行 */
-        int rsr = rank_norm(st->cells[cell_index(fr, fc)].rank);
+        int rsr = rank_of(&st->cells[cell_index(fr, fc)]);
         for (int rr = fr + ((tr > fr) ? 1 : -1);
              rr != tr; rr += (tr > fr) ? 1 : -1) {
             if (is_camp(rr, 2) || is_base(rr, 2)) {
@@ -185,7 +185,7 @@ static bool move_legal(const jq_state *st, int from, int to, int turn)
     const jq_cell *src = &st->cells[from];
     const jq_cell *dst = &st->cells[to];
     if (src->rank == RANK_EMPTY) return false;
-    int sr = rank_norm(src->rank);
+    int sr = rank_of(src);
     /* ★ 回合校验（用户指正"各按钮点击业务功能要对齐"）：只能走当前 turn 方棋子。
        缺失此校验 → 两人热座可连走一方/人机可走 AI 回合/蓝牙可抢走，破坏回合交替。
        暗棋 side=0xFF 未定子翻棋后才定 side（ruleflip），此处 src->side 已定。 */
@@ -228,7 +228,7 @@ static bool move_legal(const jq_state *st, int from, int to, int turn)
        ★ 规则开关 ui_rule_cfg_get(4)=1 启用暗棋（默认 1 对齐原版默认）；
        =0 时退回明棋语义（行为不变）。兄弟实现 src/game_logic.c:100-104 同款判定。 */
     {
-        int dr_ = rank_norm(dst->rank);
+        int dr_ = rank_of(dst);
         if (st->mode == JQ_MODE_FLIP && ui_rule_cfg_get(4) &&
             dst->rank != RANK_EMPTY &&
             (dr_ == RANK_MINE || dr_ == RANK_FLAG)) {
@@ -280,7 +280,7 @@ static bool move_legal(const jq_state *st, int from, int to, int turn)
            蓝 rank2 走进大本营后 revealed=0 → d_rank=军旗 被误判"非雷非旗"拦拒）。
            明棋：src->revealed 恒 1 → 检查恒放行，行为与 HEAD 完全一致。 */
         {
-            int d_rank = rank_norm(dst->rank);
+            int d_rank = rank_of(dst);
             if (src->revealed == 0 && d_rank != RANK_MINE && d_rank != RANK_FLAG)
                 return false;
         }
@@ -397,8 +397,8 @@ int jq_try_move(jq_state *st, int from, int to)
         return -1;
     if (!jq_can_move(st, from, to)) return -1;
     jq_cell *src = &st->cells[from], *dst = &st->cells[to];
-    int sr = rank_norm(src->rank);
-    int dr_ = rank_norm(dst->rank);
+    int sr = rank_of(src);
+    int dr_ = rank_of(dst);
     /* ★ AUD-R-104（P3 已修）：me 断言——me 用作 pieces_left[]/turn 下标，
        安全性依赖 jq_can_move 的 src->side==turn 前提 + st->turn 在 0/1（
        jq_state_init 初始化 0，turn 切换 1-me 恒 0/1，jni_bridge 直接写
@@ -574,7 +574,7 @@ bool jq_can_flip(const jq_state *st, int idx)
     /* ★ AUD-R-110（P3 已修）：空/已翻判断前置（原 rank_norm 先求值再判空，
        逻辑无害但顺序反直觉；rank_norm(0)==0==RANK_EMPTY 无害，仅为可读性调整）。 */
     if (c->rank == RANK_EMPTY || c->revealed) return false;
-    int r = rank_norm(c->rank);
+    int r = rank_of(c);
     if (r == RANK_FLAG) return false;   /* 军旗不可翻（§15：from==to 永假） */
     /* ★ AUD-R-111（P3 诚实标注）：side==0xFF（未定色）可翻分支描述的行为在当前
        装载路径（jq_dark_setup 写死 side 分区）下**不可达**（实测 0 个 0xFF 格）
@@ -633,7 +633,7 @@ bool jq_side_stalemated(const jq_state *st, uint8_t side)
        否则暗地雷会被误算"可翻 → 未困毙"（与 AUD-R-045 同源，兄弟实现 game_logic.c:162 同款排除）。 */
     for (int i = 0; i < N_CELLS; i++) {
         const jq_cell *c = &st->cells[i];
-        int cn = rank_norm(c->rank);
+        int cn = rank_of(c);
         if (c->rank != RANK_EMPTY && !c->revealed &&
             cn != RANK_FLAG && cn != RANK_MINE &&
             (c->side == 0xFF || c->side == side))
@@ -643,7 +643,7 @@ bool jq_side_stalemated(const jq_state *st, uint8_t side)
     for (int i = 0; i < N_CELLS; i++) {
         const jq_cell *c = &st->cells[i];
         if (c->rank == RANK_EMPTY || c->side != side || !c->revealed) continue;
-        int r = rank_norm(c->rank);
+        int r = rank_of(c);
         if (r == RANK_FLAG || r == RANK_MINE) continue;
         /* ★ AUD-R-005：必须用忽略回合的版本（否则 side≠turn 时恒 false → 困毙误报）
            ★ AUD-R-074（P2 已修，随 R-005 关闭）：jq_side_stalemated 已参数化

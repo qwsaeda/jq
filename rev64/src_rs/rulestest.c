@@ -195,7 +195,7 @@ static void t_dark_flip_color(void)
     /* 找一个非军旗/地雷的暗子格（军旗/地雷不可翻，rules.c jq_can_flip） */
     int fi = -1;
     for (int i = 0; i < N_CELLS; i++) {
-        int rn = rank_norm(st.cells[i].rank);
+        int rn = rank_of(&st.cells[i]);
         if (st.cells[i].rank != RANK_EMPTY && st.cells[i].side == SIDE_UNKNOWN &&
             rn != RANK_FLAG && rn != RANK_MINE)
             { fi = i; break; }

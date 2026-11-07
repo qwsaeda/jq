@@ -220,7 +220,15 @@ typedef struct {
        GLThread window context 在 OnUpdate 内 rs_gl_rebuild slot1） */
     char *spak_dir;             /* SPAK 纹理目录（首帧建纹理用） */
     AAssetManager *am;          /* AAssetManager（首帧建纹理用） */
-    int gl_now_slot;            /* 当前 GL 对象 slot（rs_render_frame 检测切换） */
+    int gl_now_slot;            /* 当前 GL 对象 slot（rs_render_frame 检测切换，兼容字段） */
+    /* ★ 对抗审计 P0-R4（批4）修正：原 gl_now_slot 是**共享单值**，但 PBuffer 渲染线程
+       （slot0）与 GLThread window 线程（slot1）各自调用 rs_render_frame → 两者互相
+       把 gl_now_slot 改写成对方的值 → 下一帧又"检测到切换" → rs_gl_rebuild 每次
+       都执行 → glGenTextures 覆盖旧 ID（同 context 内旧纹理泄漏，随帧数增长）。
+       改为按 (slot, 当前 EGLContext) 判定重建：同 context 不重建（无泄漏），
+       context 被销毁重建（window surface recreate）时按新 context 重建一次。
+       跨 context 时不删旧对象（旧 ID 属旧 context，删了会崩——见 rs_gl_rebuild 注释）。 */
+    rs_egl_ctx_t slot_ctx[2];   /* 各 slot 的对象所属 context（NULL=未建） */
     int gl_px_loaded;          /* 像素解码完成标志（跨 slot 共享） */
     /* ★ 对抗审计 P3-J1（board_gl_loaded 死字段）：原 int board_gl_loaded 声明未写
        （全仓 0 写入点，纹理上传已归 rs_gl_rebuild），删除。 */

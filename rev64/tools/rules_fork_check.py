@@ -214,8 +214,14 @@ def main():
                 print(f"  [分叉]   {item} {theme:<20} 翻译体侧无实证标记（未同步，诚实边界）")
 
     print("-" * 78)
+    # ★ 对抗审计 P3-F3（口径纠正）：原汇总"已实证 N 条"口径虚高——唯一"已实证"
+    #   项 R-017 实为"32 位不适用"（const 限定丢弃告警，32 位翻译体 st 非 const 入参），
+    #   非真实行为实证。现拆分为"已实证 / 已标记(含不适用) / 未标记"三档，
+    #   并单列"不适用"项（32 位层级无该语义）。
+    na_items = [it for it, _, _ in ev if it == "R-017"]
+    real_ev = [(it, t, h) for (it, t, h) in ev if it != "R-017"]
     print(f"矩阵汇总：src_rs 已修 AUD-R 项 {len(items)} 条 | "
-          f"翻译体侧已实证 {len(ev)} 条 | 已标记分叉 {len(marked)} 条 | "
+          f"翻译体侧已实证 {len(real_ev)} 条 | 已标记分叉 {len(marked)} 条（含不适用 {len(na_items)} 条）| "
           f"未标记分叉 {len(no_ev)} 条")
     print("已标记分叉清单（翻译体侧 AUD-R 分叉标记注释：已标注 64 位独有设计 / 走子桥简化 / 行为等价，非实证对齐）：")
     for item, theme, _marks in marked:

@@ -111,14 +111,18 @@ if [[ $INSTALL -eq 1 ]]; then
   # ★ 对抗审计 P0-A3/P1-A4：推送源 = spak_render_refs.txt 44 张（render.c 实际引用清单），
   #   不从源 APK rs168_wav.apk 推（rs168 仅 16 张旧裁剪 → 新设备首跑缺 28 张 UI 全退化）。
   #   44 张取自 rev64/dist/spak_res/（965 全量源，与 build_phases.sh inject_spak_res 同源）。
-  local refs=$WS/rev64/tools/spak_render_refs.txt
-  local srcdir=$WS/rev64/dist/spak_res
+  # ★ 对抗审计 P0（批4 修 P0-A3 时引入的回归）：本段在脚本顶层（非函数），
+  #   用 local 会报 "local: can only be used in a function" → set -u 下
+  #   refs unbound → 整段推送失败（设备端 44 张推不上 → UI 全退化）。
+  #   改为普通变量赋值（顶层无 local 语义）。
+  refs=$WS/rev64/tools/spak_render_refs.txt
+  srcdir=$WS/rev64/dist/spak_res
   if [ -f "$refs" ]; then
     cp "$srcdir"/$(cat "$refs") /tmp/opencode/spak_res_push/ 2>/dev/null
     adb -s $DEV shell mkdir -p /data/local/tmp/spak_res >/dev/null 2>&1
     # ★ 单文件循环推送（目录 push 在部分设备只推部分文件，PNG 纹理漏推 → UI 全退化）。
     #   逐个 push 幂等，含 .bin + .png（菜单背景/按钮/☰ 图标/弹窗 纹理全量）。
-    local npushed=0
+    npushed=0
     for f in /tmp/opencode/spak_res_push/*; do
       adb -s $DEV push "$f" /data/local/tmp/spak_res/ >/dev/null 2>&1 && npushed=$((npushed+1))
     done

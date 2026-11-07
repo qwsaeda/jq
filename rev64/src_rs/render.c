@@ -362,6 +362,21 @@ static void rs_read_png(AAssetManager *am, const char *asset_path,
     *out = buf; *out_len = sz;
 }
 
+/* ★ 对抗审计 P2-R2（栈帧瘦身）：rs_render_init 原用 44 个 char[512] 路径缓冲
+   （p1..p39 + p100..p104）= 22KB 栈帧（主线程 OnCreate 同步调用，JNI 帧叠加）。
+   改为单缓冲 helper——路径按需构造 + 立即读入 + 立即释放，栈占用 1×512。
+   配对校验：44 个 snprintf 与 44 个 rs_read_png 严格 1:1 按文件名配对（脚本实证
+   0 错位），语义等价。 */
+static void rs_read_one(AAssetManager *am, const char *spak_dir,
+                        const char *file, unsigned char **raw, size_t *len)
+{
+    char path[512];
+    snprintf(path, sizeof path, "%s/%s", spak_dir ? spak_dir : "", file);
+    char asset[128];
+    snprintf(asset, sizeof asset, "spak_res/%s", file);
+    rs_read_png(am, asset, path, raw, len);
+}
+
 static void load_texture(rs_render *rr, AAssetManager *am,
                          const char *asset_path, const char *fs_path,
                          unsigned char **dst, size_t *dst_len, GLuint *tex,
@@ -415,105 +430,9 @@ int rs_render_init(rs_render *rr, const char *spak_dir, const jq_state *init_sta
     rr->dirty = 1;
     /* 像素解码在主线程（Init）做（线程安全）：board/piece RGBA 跨 context 共享 */
     {
-        char p1[512], p2[512], p3[512], p4[512], p5[512], p6[512], p7[512], p8[512];
-        snprintf(p1, sizeof p1, "%s/datah_188_21d95e03e7692e98.bin", spak_dir ? spak_dir : "");
-        snprintf(p2, sizeof p2, "%s/datah_183_9e1b7fbc4dfc09c3.bin", spak_dir ? spak_dir : "");
-        snprintf(p3, sizeof p3, "%s/menu_text_atlas.png", spak_dir ? spak_dir : "");
-        snprintf(p4, sizeof p4, "%s/bg_menu_720.png", spak_dir ? spak_dir : "");
-        snprintf(p5, sizeof p5, "%s/popup_text_atlas.png", spak_dir ? spak_dir : "");
-        snprintf(p6, sizeof p6, "%s/popup.png", spak_dir ? spak_dir : "");
-        snprintf(p7, sizeof p7, "%s/menu_bg_294.png", spak_dir ? spak_dir : "");
-        snprintf(p8, sizeof p8, "%s/imen_text_atlas.png", spak_dir ? spak_dir : "");
-        char p9[512];        
-                
-                
-                
-                
         
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        char p104[512];
-        snprintf(p104, sizeof p104, "%s/dlg_batch_text.png", spak_dir ? spak_dir : "");
-        snprintf(p9, sizeof p9, "%s/imen_icons_atlas.png", spak_dir ? spak_dir : "");
-        char p103[512];   /* ★ 原版 datax 图标真值图集（16 图标 4×4） */
-        snprintf(p103, sizeof p103, "%s/imen_orig_icons.png", spak_dir ? spak_dir : "");
-        char p10[512];
-        snprintf(p10, sizeof p10, "%s/imen_hamburger_atlas.png", spak_dir ? spak_dir : "");
-        char p11[512], p12[512], p13[512], p14[512], p15[512], p16[512], p17[512];
-        snprintf(p11, sizeof p11, "%s/menu_btn_big.png", spak_dir ? spak_dir : "");
-        snprintf(p12, sizeof p12, "%s/menu_btn_small.png", spak_dir ? spak_dir : "");
-        snprintf(p13, sizeof p13, "%s/waysel_text_atlas.png", spak_dir ? spak_dir : "");
-        snprintf(p14, sizeof p14, "%s/btimen_text_atlas.png", spak_dir ? spak_dir : "");
-        snprintf(p15, sizeof p15, "%s/settings_text_atlas.png", spak_dir ? spak_dir : "");
-        snprintf(p16, sizeof p16, "%s/nplayer_text_atlas.png", spak_dir ? spak_dir : "");
-        snprintf(p17, sizeof p17, "%s/newgame_text_atlas.png", spak_dir ? spak_dir : "");
-        char p18[512];
-        snprintf(p18, sizeof p18, "%s/gameset_text_atlas.png", spak_dir ? spak_dir : "");
-        char p100[512], p101[512], p102[512];   /* ★ 原版 UI 位图真值（ch02 N45）：面板 9patch + 彩色按钮 + 图标 */
-        snprintf(p100, sizeof p100, "%s/panel_circle.png", spak_dir ? spak_dir : "");
-        snprintf(p101, sizeof p101, "%s/btn_color1.png", spak_dir ? spak_dir : "");
-        snprintf(p102, sizeof p102, "%s/icon_file.png", spak_dir ? spak_dir : "");
-        char p19[512];
-        snprintf(p19, sizeof p19, "%s/layres_text_atlas.png", spak_dir ? spak_dir : "");
-        char p20[512];
-        snprintf(p20, sizeof p20, "%s/replay_text_atlas.png", spak_dir ? spak_dir : "");
-        char p21[512];
-        snprintf(p21, sizeof p21, "%s/login_text_atlas.png", spak_dir ? spak_dir : "");
-        char p22[512];
-        snprintf(p22, sizeof p22, "%s/rules_text_atlas.png", spak_dir ? spak_dir : "");
-        char p23[512];
-        snprintf(p23, sizeof p23, "%s/ng104_text_atlas.png", spak_dir ? spak_dir : "");
-        char p24[512];
-        snprintf(p24, sizeof p24, "%s/join_text_atlas.png", spak_dir ? spak_dir : "");
-        char p25[512], p26[512], p27[512], p28[512], p29[512], p30[512];
-        snprintf(p25, sizeof p25, "%s/ng061_text_atlas.png", spak_dir ? spak_dir : "");
-        snprintf(p26, sizeof p26, "%s/gameinfo_text_atlas.png", spak_dir ? spak_dir : "");
-        snprintf(p27, sizeof p27, "%s/bright_text_atlas.png", spak_dir ? spak_dir : "");
-        snprintf(p28, sizeof p28, "%s/chatlog_text_atlas.png", spak_dir ? spak_dir : "");
-        snprintf(p29, sizeof p29, "%s/profile_text_atlas.png", spak_dir ? spak_dir : "");
-        snprintf(p30, sizeof p30, "%s/drawdetail_text_atlas.png", spak_dir ? spak_dir : "");
-        char p31[512], p32[512], p33[512], p34[512], p35[512], p36[512], p37[512];
-        snprintf(p31, sizeof p31, "%s/setentry_text_atlas.png", spak_dir ? spak_dir : "");
-        snprintf(p32, sizeof p32, "%s/imgset_text_atlas.png", spak_dir ? spak_dir : "");
-        snprintf(p33, sizeof p33, "%s/join065_text_atlas.png", spak_dir ? spak_dir : "");
-        snprintf(p34, sizeof p34, "%s/create069_text_atlas.png", spak_dir ? spak_dir : "");
-        snprintf(p35, sizeof p35, "%s/rules070_text_atlas.png", spak_dir ? spak_dir : "");
-        snprintf(p36, sizeof p36, "%s/room060_text_atlas.png", spak_dir ? spak_dir : "");
-        snprintf(p37, sizeof p37, "%s/chat063_text_atlas.png", spak_dir ? spak_dir : "");
-        char p38[512];
-        snprintf(p38, sizeof p38, "%s/about_text_atlas.png", spak_dir ? spak_dir : "");
-        char p39[512];
-        snprintf(p39, sizeof p39, "%s/uibat_text_atlas.png", spak_dir ? spak_dir : "");
+/* ★ 原版 datax 图标真值图集（16 图标 4×4） */
+/* ★ 原版 UI 位图真值（ch02 N45）：面板 9patch + 彩色按钮 + 图标 */
         unsigned char *braw = NULL; size_t braw_len = 0;
         unsigned char *praw = NULL; size_t praw_len = 0;
         unsigned char *traw = NULL; size_t traw_len = 0;
@@ -624,17 +543,17 @@ int rs_render_init(rs_render *rr, const char *spak_dir, const jq_state *init_sta
         unsigned char *btnraw = NULL; size_t btnraw_len = 0;   /* ★ 原版彩色按钮 */
         unsigned char *icoraw = NULL; size_t icoraw_len = 0;   /* ★ 原版图标 */
         int panw=0, panh=0, btnw=0, btnh=0;
-        rs_read_png(am, "spak_res/datah_188_21d95e03e7692e98.bin", p1, &braw, &braw_len);
-        rs_read_png(am, "spak_res/datah_183_9e1b7fbc4dfc09c3.bin", p2, &praw, &praw_len);
-        rs_read_png(am, "spak_res/menu_text_atlas.png", p3, &traw, &traw_len);
-        rs_read_png(am, "spak_res/bg_menu_720.png", p4, &graw, &graw_len);
-        rs_read_png(am, "spak_res/popup_text_atlas.png", p5, &oraw, &oraw_len);
-        rs_read_png(am, "spak_res/popup.png", p6, &praw2, &praw2_len);
-        rs_read_png(am, "spak_res/panel_circle.png", p100, &panraw, &panraw_len);
-        rs_read_png(am, "spak_res/btn_color1.png", p101, &btnraw, &btnraw_len);
-        rs_read_png(am, "spak_res/icon_file.png", p102, &icoraw, &icoraw_len);
-        rs_read_png(am, "spak_res/menu_bg_294.png", p7, &mraw, &mraw_len);
-        rs_read_png(am, "spak_res/imen_text_atlas.png", p8, &iraw, &iraw_len);                                        
+        rs_read_one(am, spak_dir, "datah_188_21d95e03e7692e98.bin", &braw, &braw_len);
+        rs_read_one(am, spak_dir, "datah_183_9e1b7fbc4dfc09c3.bin", &praw, &praw_len);
+        rs_read_one(am, spak_dir, "menu_text_atlas.png", &traw, &traw_len);
+        rs_read_one(am, spak_dir, "bg_menu_720.png", &graw, &graw_len);
+        rs_read_one(am, spak_dir, "popup_text_atlas.png", &oraw, &oraw_len);
+        rs_read_one(am, spak_dir, "popup.png", &praw2, &praw2_len);
+        rs_read_one(am, spak_dir, "panel_circle.png", &panraw, &panraw_len);
+        rs_read_one(am, spak_dir, "btn_color1.png", &btnraw, &btnraw_len);
+        rs_read_one(am, spak_dir, "icon_file.png", &icoraw, &icoraw_len);
+        rs_read_one(am, spak_dir, "menu_bg_294.png", &mraw, &mraw_len);
+        rs_read_one(am, spak_dir, "imen_text_atlas.png", &iraw, &iraw_len);
         
         
         
@@ -651,39 +570,39 @@ int rs_render_init(rs_render *rr, const char *spak_dir, const jq_state *init_sta
         
         
         
-        rs_read_png(am, "spak_res/dlg_batch_text.png", p104, &dlgraw, &dlgraw_len);
-        rs_read_png(am, "spak_res/imen_icons_atlas.png", p9, &icraw, &icraw_len);
-        rs_read_png(am, "spak_res/imen_orig_icons.png", p103, &ioraw, &ioraw_len);
-        rs_read_png(am, "spak_res/imen_hamburger_atlas.png", p10, &hbraw, &hbraw_len);
-        rs_read_png(am, "spak_res/menu_btn_big.png", p11, &bbraw, &bbraw_len);
-        rs_read_png(am, "spak_res/menu_btn_small.png", p12, &bsraw, &bsraw_len);
-        rs_read_png(am, "spak_res/waysel_text_atlas.png", p13, &wsraw, &wsraw_len);
-        rs_read_png(am, "spak_res/btimen_text_atlas.png", p14, &bira, &bira_len);
-        rs_read_png(am, "spak_res/settings_text_atlas.png", p15, &straw, &straw_len);
-        rs_read_png(am, "spak_res/nplayer_text_atlas.png", p16, &npaw, &npaw_len);
-        rs_read_png(am, "spak_res/newgame_text_atlas.png", p17, &ngaw, &ngaw_len);
-        rs_read_png(am, "spak_res/gameset_text_atlas.png", p18, &gsaw, &gsaw_len);
-        rs_read_png(am, "spak_res/layres_text_atlas.png", p19, &lrsw, &lrsw_len);
-        rs_read_png(am, "spak_res/replay_text_atlas.png", p20, &rpaw, &rpaw_len);
-        rs_read_png(am, "spak_res/login_text_atlas.png", p21, &lpaw, &lpaw_len);
-        rs_read_png(am, "spak_res/rules_text_atlas.png", p22, &ruaw, &ruaw_len);
-        rs_read_png(am, "spak_res/ng104_text_atlas.png", p23, &ngaw2, &ngaw2_len);
-        rs_read_png(am, "spak_res/join_text_atlas.png", p24, &joaw, &joaw_len);
-        rs_read_png(am, "spak_res/ng061_text_atlas.png", p25, &n061aw, &n061aw_len);
-        rs_read_png(am, "spak_res/gameinfo_text_atlas.png", p26, &giaw, &giaw_len);
-        rs_read_png(am, "spak_res/bright_text_atlas.png", p27, &brw, &brw_len);
-        rs_read_png(am, "spak_res/chatlog_text_atlas.png", p28, &claw, &claw_len);
-        rs_read_png(am, "spak_res/profile_text_atlas.png", p29, &pfaw, &pfaw_len);
-        rs_read_png(am, "spak_res/drawdetail_text_atlas.png", p30, &ddaw, &ddaw_len);
-        rs_read_png(am, "spak_res/setentry_text_atlas.png", p31, &seaw, &seaw_len);
-        rs_read_png(am, "spak_res/imgset_text_atlas.png", p32, &isaw, &isaw_len);
-        rs_read_png(am, "spak_res/join065_text_atlas.png", p33, &j65aw, &j65aw_len);
-        rs_read_png(am, "spak_res/create069_text_atlas.png", p34, &c69aw, &c69aw_len);
-        rs_read_png(am, "spak_res/rules070_text_atlas.png", p35, &r70aw, &r70aw_len);
-        rs_read_png(am, "spak_res/room060_text_atlas.png", p36, &rmaw, &rmaw_len);
-        rs_read_png(am, "spak_res/chat063_text_atlas.png", p37, &chaw, &chaw_len);
-        rs_read_png(am, "spak_res/about_text_atlas.png", p38, &abaw, &abaw_len);
-        rs_read_png(am, "spak_res/uibat_text_atlas.png", p39, &uiaw, &uiaw_len);
+        rs_read_one(am, spak_dir, "dlg_batch_text.png", &dlgraw, &dlgraw_len);
+        rs_read_one(am, spak_dir, "imen_icons_atlas.png", &icraw, &icraw_len);
+        rs_read_one(am, spak_dir, "imen_orig_icons.png", &ioraw, &ioraw_len);
+        rs_read_one(am, spak_dir, "imen_hamburger_atlas.png", &hbraw, &hbraw_len);
+        rs_read_one(am, spak_dir, "menu_btn_big.png", &bbraw, &bbraw_len);
+        rs_read_one(am, spak_dir, "menu_btn_small.png", &bsraw, &bsraw_len);
+        rs_read_one(am, spak_dir, "waysel_text_atlas.png", &wsraw, &wsraw_len);
+        rs_read_one(am, spak_dir, "btimen_text_atlas.png", &bira, &bira_len);
+        rs_read_one(am, spak_dir, "settings_text_atlas.png", &straw, &straw_len);
+        rs_read_one(am, spak_dir, "nplayer_text_atlas.png", &npaw, &npaw_len);
+        rs_read_one(am, spak_dir, "newgame_text_atlas.png", &ngaw, &ngaw_len);
+        rs_read_one(am, spak_dir, "gameset_text_atlas.png", &gsaw, &gsaw_len);
+        rs_read_one(am, spak_dir, "layres_text_atlas.png", &lrsw, &lrsw_len);
+        rs_read_one(am, spak_dir, "replay_text_atlas.png", &rpaw, &rpaw_len);
+        rs_read_one(am, spak_dir, "login_text_atlas.png", &lpaw, &lpaw_len);
+        rs_read_one(am, spak_dir, "rules_text_atlas.png", &ruaw, &ruaw_len);
+        rs_read_one(am, spak_dir, "ng104_text_atlas.png", &ngaw2, &ngaw2_len);
+        rs_read_one(am, spak_dir, "join_text_atlas.png", &joaw, &joaw_len);
+        rs_read_one(am, spak_dir, "ng061_text_atlas.png", &n061aw, &n061aw_len);
+        rs_read_one(am, spak_dir, "gameinfo_text_atlas.png", &giaw, &giaw_len);
+        rs_read_one(am, spak_dir, "bright_text_atlas.png", &brw, &brw_len);
+        rs_read_one(am, spak_dir, "chatlog_text_atlas.png", &claw, &claw_len);
+        rs_read_one(am, spak_dir, "profile_text_atlas.png", &pfaw, &pfaw_len);
+        rs_read_one(am, spak_dir, "drawdetail_text_atlas.png", &ddaw, &ddaw_len);
+        rs_read_one(am, spak_dir, "setentry_text_atlas.png", &seaw, &seaw_len);
+        rs_read_one(am, spak_dir, "imgset_text_atlas.png", &isaw, &isaw_len);
+        rs_read_one(am, spak_dir, "join065_text_atlas.png", &j65aw, &j65aw_len);
+        rs_read_one(am, spak_dir, "create069_text_atlas.png", &c69aw, &c69aw_len);
+        rs_read_one(am, spak_dir, "rules070_text_atlas.png", &r70aw, &r70aw_len);
+        rs_read_one(am, spak_dir, "room060_text_atlas.png", &rmaw, &rmaw_len);
+        rs_read_one(am, spak_dir, "chat063_text_atlas.png", &chaw, &chaw_len);
+        rs_read_one(am, spak_dir, "about_text_atlas.png", &abaw, &abaw_len);
+        rs_read_one(am, spak_dir, "uibat_text_atlas.png", &uiaw, &uiaw_len);
         if (braw && png_decode(braw, braw_len, &bpx, &bw, &bh) == 0) { rr->board_px = bpx; rr->board_px_len = (size_t)bw * bh * 4; }
         free(braw);
         if (praw && png_decode(praw, praw_len, &ppx, &pw, &ph) == 0) { rr->piece_px = ppx; rr->piece_px_len = (size_t)pw * ph * 4; }
@@ -9812,16 +9731,28 @@ void rs_render_frame(rs_render *rr)
        共享像素 buffer 跨 context 各自 glTexImage2D 上传（纹理是每 context 对象）。 */
     int slot = 0;   /* slot0 = PBuffer context（首 init），slot1 = 第二 context（GLThread window） */
     if (rr->egl_ctx && now_is_glthread_ctx(rr)) slot = 1;
-    if (rr->gl_now_slot != slot) {
-        rs_gl_rebuild(rr, slot);
-        rr->gl_now_slot = slot;
-        LOGI("rs_render_frame：切到 GL slot%d（context 对象已建）gl_ok=%d", slot, rr->gl_ok[slot]);
+    /* ★ 对抗审计 P0-R4（批4）修正：重建判据从共享单值 gl_now_slot 改为
+       (slot, 当前 EGLContext) 配对——原判据下 PBuffer 线程（slot0）与 GLThread
+       （slot1）互相改写 gl_now_slot → 每帧触发 rs_gl_rebuild → glGenTextures
+       覆盖旧 ID（同 context 内旧纹理泄漏，随帧数增长）。现：同 slot 同 context
+       不重建（无泄漏）；context 销毁重建（window surface recreate）时按新
+       context 重建一次（旧 context 对象不删——删了会崩，见 rs_gl_rebuild 注释）。 */
+    {
+        EGLContext cur = eglGetCurrentContext();
+        if (slot < 0 || slot > 1) slot = 0;
+        if (rr->slot_ctx[slot] != cur) {
+            rs_gl_rebuild(rr, slot);
+            rr->slot_ctx[slot] = cur;
+            rr->gl_now_slot = slot;   /* 兼容字段（仅诊断用） */
+            LOGI("rs_render_frame：切到 GL slot%d（context 对象已建）gl_ok=%d", slot, rr->gl_ok[slot]);
+        }
     }
-    (void)slot;
     /* GL2 context 由 jq_glview_init 建（client version=2）；EglHelper 跨线程 makeCurrent
        在 mesa 下受限，本函数只在 GLThread 内调（jq_glview_frame → OnUpdate）。 */
-    glViewport(0, 0, rr->view_w, rr->view_h);   /* 实际 view（720×1024）；PBuffer backing 720×1280，
-        超出 view_h 的下 256 行未被画 → 清屏色（正常，view 比 backing 矮） */
+    glViewport(0, 0, rr->view_w, rr->view_h);   /* 实际 view（真机 720×1280，MuMu 720×1024）；
+        ★ 对抗审计 P2-R4（批4）：PBuffer backing 已统一 720×1280（= BG_IMG_H 基准），
+        故 view_h < 1280 时（如 MuMu 1024）超出部分仍为清屏色，但渲染按
+        aPos.y = iy/BG_IMG_H*view_h 等比缩放（无裁剪错位），棋子不会被截断。 */
     glClearColor(0.08f, 0.08f, 0.12f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -9930,7 +9861,7 @@ void rs_render_frame(rs_render *rr)
                诚实边界：界面动画过渡帧未实现（开关仅门控）。 */
             if (!imgset_opp && c->side == SIDE_RED) continue;
             if (!imgset_piece) continue;
-            int rank = rank_norm(c->rank);
+            int rank = rank_of(c);
             if (rank < 1 || rank > 12) continue;
             int col = (rank - 1) % PIECE_GRID_W;
             int row = (rank - 1) / PIECE_GRID_W;

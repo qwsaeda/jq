@@ -109,9 +109,14 @@ int jq_glview_init(jq_glview *gv, const jq_state *st, const char *spak_dir, void
         if (gv->ctx == EGL_NO_CONTEXT) return -1;
     }
     /* PBuffer 兜底 surface（window 未 ready 先出帧保活；window 主路建好后切 window）。
-       尺寸 720x1024 匹配 GLView 实际 view（MuMu 720x1024），PBuffer 兜底离屏可验。 */
+       ★ 对抗审计 P2-R4（批4）修正：原尺寸 720x1024（按当时 MuMu view 假设），
+       与 BG_IMG_H=1280 基准及实际 view（真机 720x1280，logcat 实测 view=720x1280）
+       不一致 → 兜底路径整幅棋盘按 view_h/BG_IMG_H=0.8 缩放，与 window 主路
+       （1.0 缩放）视觉不一致。现统一 720x1280（= BG 基准 + 实际 view）。
+       注：渲染按 aPos.y = iy/BG_IMG_H*view_h 缩放（无裁剪），故原 1024 高度
+       不会导致棋子"画到屏外"，仅是缩放比例差（子代理"屏外 256px"判读不成立）。 */
     {
-        EGLint pa[] = { EGL_WIDTH, 720, EGL_HEIGHT, 1024, EGL_NONE };
+        EGLint pa[] = { EGL_WIDTH, 720, EGL_HEIGHT, 1280, EGL_NONE };
         gv->surf = eglCreatePbufferSurface(gv->disp, g_cfg, pa);
         EGLint pe = eglGetError();
         if (gv->surf == EGL_NO_SURFACE) {
@@ -119,7 +124,7 @@ int jq_glview_init(jq_glview *gv, const jq_state *st, const char *spak_dir, void
             gv->surf = EGL_NO_SURFACE;
         } else {
             g_pbuf_ok = 1;
-            LOGI("GLView：PBuffer 兜底 surface(720x1024) 建成功=%p（window 未 ready 先离屏出帧）", (void*)gv->surf);
+            LOGI("GLView：PBuffer 兜底 surface(720x1280=BG 基准/实际 view) 建成功=%p（window 未 ready 先离屏出帧）", (void*)gv->surf);
         }
     }
     /* 不在主线程预 makeCurrent：PBuffer context 跨线程 makeCurrent 3002（MuMu mesa 限制）；

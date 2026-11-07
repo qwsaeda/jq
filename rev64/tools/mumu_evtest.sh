@@ -25,6 +25,29 @@ done
 
 log() { echo "[evtest] $*"; }
 
+# ★ 对抗审计 P2-B13（时序稳健性）：原各测试用固定 sleep 8/10/12 等 app 启动/GLThread
+#   attach 等待——MuMu/redroid 启动慢时 property 未被消费 → 假 FAIL（实测 draw/restart
+#   首跑失败重跑即过的 flaky 根因）。改为"轮询到判据出现或超时"：
+#   wait_log <pattern> <max_wait_s>：每 1s 扫一次 logcat，命中即返回 0；超时返回 1。
+wait_log() {
+  local pat=$1 maxw=${2:-20} i=0
+  while [ "$i" -lt "$maxw" ]; do
+    if adb -s $DEV logcat -d 2>/dev/null | grep -qiE "$pat"; then return 0; fi
+    sleep 1; i=$((i+1))
+  done
+  return 1
+}
+
+# 等待 so 进程起来（app 启动判据）
+wait_proc() {
+  local maxw=${1:-20} i=0
+  while [ "$i" -lt "$maxw" ]; do
+    if [ -n "$(adb -s $DEV shell pidof com.cnvcs.junqirs 2>/dev/null | tr -d '\r')" ]; then return 0; fi
+    sleep 1; i=$((i+1))
+  done
+  return 1
+}
+
 case "$KIND" in
   flag)
     PROP=jq.flagtest; PAT="flagtest：.*ev=3 Junqi.Flag"; SFX="sfx：播放 flag";;
@@ -34,12 +57,13 @@ case "$KIND" in
     # 游戏内重开：先 flagtest 走 FLAG（stage=OVER）→ setprop restartgame → OnUpdate 重开（stage=PLAY）
     log "=== restart 事件测试（flagtest→OVER→restartgame→重开）==="
     adb -s $DEV shell am force-stop com.cnvcs.junqirs >/dev/null 2>&1; sleep 3
-    adb -s $DEV shell setprop jq.flagtest 1
     adb -s $DEV logcat -c
+    adb -s $DEV shell setprop jq.flagtest 1
     adb -s $DEV shell am start -n com.cnvcs.junqirs/com.cnvcs.App >/dev/null 2>&1
-    sleep 12
+    wait_proc 20 || { log "★ 进程未启动（20s 超时）"; exit 1; }
+    sleep 3   /* 让首帧/OnUpdate 链起稳 */
     adb -s $DEV shell setprop jq.restartgame 1
-    sleep 3
+    wait_log "游戏内重开：.*stage=PLAY" 20 || true   /* 轮询到判据（超时由下方 if 判 FAIL） */
     echo "=== restart 事件日志 ==="
     adb -s $DEV logcat -d 2>/dev/null | grep "junqi_rs" | grep -iE "flagtest|游戏内重开" | tail -3
     if adb -s $DEV logcat -d 2>/dev/null | grep -qiE "游戏内重开：.*stage=PLAY"; then
@@ -59,10 +83,12 @@ case "$KIND" in
     # btState("host_connected") → runOnUiThread → App$BtStart → OnEvent menu 1 → 两人对局
     log "=== btconn 连接自动开局测试（setprop jq.btconn 1 → 模拟 host_connected）==="
     adb -s $DEV shell am force-stop com.cnvcs.junqirs >/dev/null 2>&1; sleep 3
-    adb -s $DEV shell setprop jq.btconn 1
     adb -s $DEV logcat -c
+    adb -s $DEV shell setprop jq.btconn 1
     adb -s $DEV shell am start -n com.cnvcs.junqirs/com.cnvcs.App >/dev/null 2>&1
-    sleep 12
+    wait_proc 20 || { log "★ 进程未启动（20s 超时）"; exit 1; }
+    wait_log "OnEvent menu 开局 mode=1" 25 || true   /* 轮询到判据 */
+    sleep 3   /* 让首帧/OnUpdate 链起稳 */
     echo "=== btconn 事件日志 ==="
     adb -s $DEV logcat -d 2>/dev/null | grep -iE "junqi_rs|junqi_bt" | grep -iE "host_connected|OnEvent menu 开局|ui_screen=1" | tail -4
     if adb -s $DEV logcat -d 2>/dev/null | grep -qiE "OnEvent menu 开局 mode=1"; then
@@ -87,10 +113,11 @@ case "$KIND" in
     adb -s $DEV shell am force-stop com.cnvcs.junqirs >/dev/null 2>&1
     sleep 2
     adb -s $DEV shell am start -n com.cnvcs.junqirs/com.cnvcs.App >/dev/null 2>&1
-    sleep 8
-    adb -s $DEV shell setprop jq.drawtest 1
+    wait_proc 20 || { log "★ 进程未启动（20s 超时）"; exit 1; }
+    sleep 3   /* 让首帧/OnUpdate 链起稳 */
     adb -s $DEV logcat -c
-    sleep 3
+    adb -s $DEV shell setprop jq.drawtest 1
+    wait_log "和棋：drawtest.*winner=2" 20 || true   /* 轮询到判据（超时由下方 if 判 FAIL） */
     echo "=== draw 事件日志 ==="
     adb -s $DEV logcat -d 2>/dev/null | grep "junqi_rs" | grep -iE "和棋|sfx：播放 draw" | tail -3
     if adb -s $DEV logcat -d 2>/dev/null | grep -qiE "和棋：drawtest.*winner=2"; then
@@ -116,10 +143,11 @@ case "$KIND" in
     adb -s $DEV shell am force-stop com.cnvcs.junqirs >/dev/null 2>&1
     sleep 2
     adb -s $DEV shell am start -n com.cnvcs.junqirs/com.cnvcs.App >/dev/null 2>&1
-    sleep 8
-    adb -s $DEV shell setprop jq.resigntest 1
+    wait_proc 20 || { log "★ 进程未启动（20s 超时）"; exit 1; }
+    sleep 3   /* 让首帧/OnUpdate 链起稳 */
     adb -s $DEV logcat -c
-    sleep 3
+    adb -s $DEV shell setprop jq.resigntest 1
+    wait_log "认输：resigntest" 20 || true   /* 轮询到判据（超时由下方 if 判 FAIL） */
     echo "=== resign 事件日志 ==="
     adb -s $DEV logcat -d 2>/dev/null | grep "junqi_rs" | grep -iE "OnEvent resign|sfx：播放 lose" | tail -3
     if adb -s $DEV logcat -d 2>/dev/null | grep -qiE "OnEvent resign.*对方胜"; then
@@ -146,10 +174,11 @@ case "$KIND" in
     adb -s $DEV shell am force-stop com.cnvcs.junqirs >/dev/null 2>&1
     sleep 2
     adb -s $DEV shell am start -n com.cnvcs.junqirs/com.cnvcs.App >/dev/null 2>&1
-    sleep 8
-    adb -s $DEV shell setprop jq.stalematetest 1
+    wait_proc 20 || { log "★ 进程未启动（20s 超时）"; exit 1; }
+    sleep 3   /* 让首帧/OnUpdate 链起稳 */
     adb -s $DEV logcat -c
-    sleep 6
+    adb -s $DEV shell setprop jq.stalematetest 1
+    wait_log "困毙：stalematetest.*winner=[01]" 20 || true   /* 轮询到判据 */
     echo "=== stalemate 事件日志 ==="
     adb -s $DEV logcat -d 2>/dev/null | grep "junqi_rs" | grep -iE "困毙|sfx：播放 lose" | tail -3
     if adb -s $DEV logcat -d 2>/dev/null | grep -qiE "困毙：stalematetest.*winner=[01]"; then
@@ -176,10 +205,11 @@ case "$KIND" in
     adb -s $DEV shell am force-stop com.cnvcs.junqirs >/dev/null 2>&1
     sleep 2
     adb -s $DEV shell am start -n com.cnvcs.junqirs/com.cnvcs.App >/dev/null 2>&1
-    sleep 8
-    adb -s $DEV shell setprop jq.closetest 1
+    wait_proc 20 || { log "★ 进程未启动（20s 超时）"; exit 1; }
+    sleep 3   /* 让首帧/OnUpdate 链起稳 */
     adb -s $DEV logcat -c
-    sleep 4
+    adb -s $DEV shell setprop jq.closetest 1
+    wait_log "sfx：播放 close" 20 || true   /* 轮询到判据 */
     if adb -s $DEV logcat -d 2>/dev/null | grep -qiE "sfx：播放 close"; then
       log "✓ close 音效出现"
     else
@@ -198,10 +228,11 @@ case "$KIND" in
     adb -s $DEV shell am force-stop com.cnvcs.junqirs >/dev/null 2>&1
     sleep 2
     adb -s $DEV shell am start -n com.cnvcs.junqirs/com.cnvcs.App >/dev/null 2>&1
-    sleep 8
-    adb -s $DEV shell setprop jq.poptest 1
+    wait_proc 20 || { log "★ 进程未启动（20s 超时）"; exit 1; }
+    sleep 3   /* 让首帧/OnUpdate 链起稳 */
     adb -s $DEV logcat -c
-    sleep 4
+    adb -s $DEV shell setprop jq.poptest 1
+    wait_log "sfx：播放 pop" 20 || true   /* 轮询到判据 */
     if adb -s $DEV logcat -d 2>/dev/null | grep -qiE "sfx：播放 pop"; then
       log "✓ pop 音效出现"
     else
@@ -222,7 +253,10 @@ adb -s $DEV shell am force-stop com.cnvcs.junqirs >/dev/null 2>&1; sleep 3
 adb -s $DEV shell setprop $PROP 1
 adb -s $DEV logcat -c
 adb -s $DEV shell am start -n com.cnvcs.junqirs/com.cnvcs.App >/dev/null 2>&1
-sleep 12
+wait_proc 20 || { log "★ 进程未启动（20s 超时）"; exit 1; }
+sleep 2   /* 让首帧/OnUpdate 链起稳 */
+wait_log "$PAT" 20 || true   /* ★ P2-B13：轮询到判据（超时由下方 if 判 FAIL） */
+wait_log "$SFX" 15 || true   /* 音效判据单独轮询 */
 
 echo "=== $KIND 事件日志 ==="
 adb -s $DEV logcat -d 2>/dev/null | grep "junqi_rs" | grep -iE "$PAT|$SFX" | tail -4

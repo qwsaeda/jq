@@ -137,19 +137,37 @@ def layer_dev(dev=DEV):
         check(ok, f"设备端 {fn}（UI 纹理）")
     # 资源加载诊断（so logcat 首帧：直接 grep logcat -d 全量，非 -s 过滤——
     #   "Init 像素解码"日志在 OnCreate 线程（非 GLThread），-s junqi_rs 按 tag 过滤会漏）
-    # ★ 对抗审计 P1-J7：logcat 全量历史判据假绿（历史有过一次 OK 即 PASS，即使
-    #   当前 so 重装后首帧失败）。限定到"最近一次启动"——按日志时间戳取最后一段
-    #   junqi_rs 行（Init 像素解码 在 OnCreate，取含该行所在的时间窗口）。
-    log = shell("logcat -d -T 500 2>/dev/null | grep junqi_rs")
+    # ★ 对抗审计 P1-J7（假绿防护）+ 批5 修订：原用 `logcat -T 500` 限窗——真机长时间
+    #   运行后 OnUpdate 帧日志把首帧行挤出窗口 → 假红（实测 34 资源全 OK 却报 FAIL）。
+    #   改用 **PID 精确判据**：logcat 行格式 "MM-DD HH:MM:SS.mmm PID TID L tag: msg"，
+    #   取末条 "Init 像素解码" 行的 PID，与当前进程 pidof 比对——相等即该首帧属
+    #   当前进程（新鲜，非历史残留）；不等 → 历史残留（需重装触发首帧）。
+    #   （中间试过"末次 Init 行 vs 末次 OnCreate 行"启发式，不成立：OnCreate 会输出
+    #   多行且部分在 Init 之后（requestRender/setContentView 等）→ 已废弃。）
+    log = shell("logcat -d 2>/dev/null | grep junqi_rs")
+    lines = log.split("\n")
+    init_line = ""
+    init_pid = ""
+    for ln in reversed(lines):
+        if "Init 像素解码" in ln:
+            init_line = ln
+            parts = ln.split()
+            if len(parts) >= 4: init_pid = parts[3]
+            break
+    cur_pid = shell("pidof com.cnvcs.junqirs 2>/dev/null | tr -d '\\r'").strip()
+    fresh = bool(init_pid) and bool(cur_pid) and init_pid in cur_pid.split()
+    n_ok = len(re.findall(r"=OK\(", init_line))
+    n_miss = len(re.findall(r"=MISS\(", init_line))
     miss = re.findall(r"纹理缺失.*?fs=(\S+)", log)
-    ok_dec = re.search(r"Init 像素解码：board=OK", log)
-    # 全量资源解码计数（★ 对抗审计 P1-A7/P3-A4：refs 44 张 = 2 .bin + 42 .png，
-    #   "=OK(" 正则命中 44 个资源名（含 board/piece 的 2 个 .bin）。注释口径 44。）
-    n_ok = len(re.findall(r"=OK\(", log))
-    if ok_dec:
-        check(True, f"so 首帧 logcat: board 像素解码 OK（全量 {n_ok} 资源 =OK，无缺失诊断；判定窗口=最近 500 行）")
+    if fresh and n_ok > 0:
+        check(n_miss == 0,
+              f"so 首帧 logcat: 全量 {n_ok} 资源 =OK，{n_miss} 资源 MISS（pid {init_pid} = 当前进程，首帧新鲜）")
+    elif n_miss > 0:
+        check(False, f"so 首帧 logcat: {n_miss} 资源 MISS（{init_line[:80]}...）")
     elif miss:
         check(False, f"so 首帧 logcat: 纹理缺失 {miss[0]}")
+    elif init_line and not fresh:
+        check(False, f"so 首帧 logcat: Init 行属历史进程（pid {init_pid} ≠ 当前 {cur_pid or '无'}），需重装触发首帧")
     else:
         check(False, "so 首帧 logcat: 无 board OK 也无缺失（需重装 apk 触发首帧）")
 
