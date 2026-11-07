@@ -35,3 +35,6 @@ int jqt_jni_resolve_only(uint32_t jni_id);
 void jqt_jni_setenv(void *env, void *activity);
 
 #endif
+
+/* §124y-142：GetStringUTFChars 特判 (jstring → const char*) */
+uint32_t jqt_jni_getstringutfchars(uint32_t env, uint32_t str);

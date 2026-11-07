@@ -256,3 +256,15 @@ uint32_t jqt_jni_deletelocalref(uint32_t env, uint32_t obj){
     (*e)->DeleteLocalRef(e, (jobject)(uintptr_t)obj);
     return 0;
 }
+
+/* ★ §124y-142：F_bd870 bda0 `blx r3` = GetStringUTFChars（jstring → const char*）。
+ *   特判真实调用。返回 char* 指针（UTF-8 字符串），需 ReleaseStringUTFChars 释放
+ *   （翻译体诚实边界：未调 Release，依赖进程生命周期）。 */
+uint32_t jqt_jni_getstringutfchars(uint32_t env, uint32_t str){
+    JNIEnv *e = (JNIEnv *)(uintptr_t)env;
+    if (!e || !str) { LOGE("GetStringUTFChars: env/str NULL"); return 0; }
+    jboolean _iscopy = JNI_TRUE;
+    const char *s = (*e)->GetStringUTFChars(e, (jstring)(uintptr_t)str, &_iscopy);
+    if (!s && (*e)->ExceptionCheck(e)) (*e)->ExceptionClear(e);
+    return (uint32_t)(uintptr_t)s;
+}

@@ -5402,3 +5402,38 @@ python3 /tmp/opencode/incremental_regress.py reset 0xADDR  # 改了某指令 →
   （.bss 未构造 → 全走跳过路径，忠实空操作）
 - OnResume/OnPause 无独立回归钩子（生命周期事件需真机按 HOME/APP_SWITCH 触发），4 路径回归覆盖 OnTouch/OnEvent 触摸路径 + 游戏走子链
 - F_bd870（OnInput 内部处理）仍为存根 r0=0（低优先，需 jstring 输入 → 键盘事件构造，完整体待对齐）
+
+## §124y-142 OnInput F_bd870 翻译体对齐（jstring 键盘输入 → GetStringUTFChars → 事件构造 → F_bd778）
+
+**★ 闭环事实（OnInput JNI 内部处理函数完整体对齐进翻译体 jqt_OnInput.c + jni_aligned.c 参数修正 + jqt_jni_getstringutfchars 新增 JNI 桥）**：
+
+1. **F_bd870（OnInput 内部处理，原版 0xbd870-0xbd8f0）完整流程实锤**：
+   - 入参：r0=env(JNIEnv*)，r1=env(adds r1,r0,#0)，r2=jstring（输入文本）（JNI 入口 0x233f4 原版实锤）
+   - 表基址：.got[0x15b488]=.bss 0x15be80 根对象（OnInput 表 scudo 指针），ldr r5=[.got+0x3c0]（表 240 槽）
+   - JNI 调用链：ldr r3=[env,#676]（functions[169]=GetStringUTFChars）→ blx r3（jstring→char*）
+   - `bl 0xc2d24` = C++ 缓冲区函数（F_c2d24 已收表，jqt_OnCreate_full.c:18680 定义体）
+   - ldr r3=[vtable,#680]（vtable 槽 170）→ blx r3（第 2 次 JNI 虚调用）
+   - `bl 0xc6088` = 字符串处理（bl strlen + 缓冲区构造，未收表 → F_c6088 存根 r0=0）
+   - `bl 0xbd778` = 按键事件写入（F_bd778，jqt_OnEvent_full.c:120 定义体，§124y-140 已对齐）
+   - 栈金丝雀：str r3,[sp+0] + cmp r2,r3 + bne __stack_chk_fail（.bss 未构造忠实兜底）
+
+2. **jqt_jni_getstringutfchars 新增 JNI 桥（jqt_jnibr.c + jqt_jnibr.h）**：
+   - GetStringUTFChars(env, jstring, jboolean*) 3 参数签名（Android NDK jni.h）
+   - 特判真实调用（§124ak 同模式），返回 char* 指针（UTF-8 字符串）
+   - 诚实边界：未调 ReleaseStringUTFChars（依赖进程生命周期，.bss 未构造忠实兜底）
+
+3. **jni_aligned.c OnInput 参数修正（§124y-140/141 同模式）**：
+   - 旧版 `jqt_OnInput(V32(t),0,0,...)` → 丢 env，F_bd870 收到 r1=0 → GetStringUTFChars 解析失败
+   - 修正 `jqt_OnInput(V32(env),V32(env),V32(t),...)` 与 OnKey/OnTouch/OnResume/OnPause 同模式
+   - 原版 0x233f8 `adds r1,r0,#0` → r1=env 实锤
+
+4. **编译验证 + 4 路径回归全过**：
+   - build_arm32_aligned.sh 链接通过（JNI 符号 14，F_c6088 存根无重复符号）
+   - 4 路径回归（walk_bridge/native_layout/native_event/game_test）4/4 PASS + 0 崩溃
+   - **14 JNI 入口对齐现状：12 完整（OnCreate/OnEvent/OnTouch/OnBluetooth/OnResult/OnGraphCreate/OnGraphChange/OnTimer/OnDestroy/OnResume/OnPause/OnInput）+ 1 部分（OnUpdate 渲染链对齐 + 事件更新存根）+ 1 未对齐（无）**
+
+### 诚实边界
+- F_bd870 的 .got[0x15b488]=.bss 0x15be80 根对象 scudo 指针（翻译体 .bss 全 0 → 表 [0x3c0]=0 → 忠实兜底）
+- 0xc6088 字符串处理函数（bl strlen + 缓冲区构造）未收表，存根 r0=0
+- GetStringUTFChars 未调 ReleaseStringUTFChars（.bss 未构造忠实兜底）
+- OnInput 无独立回归钩子（需 jstring 键盘输入 → 事件构造，4 路径回归覆盖 OnTouch/OnEvent 触摸路径 + 游戏走子链）

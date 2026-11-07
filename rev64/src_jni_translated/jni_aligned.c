@@ -695,7 +695,7 @@ Java_com_cnvcs_App_OnTimer(JNIEnv *env, jclass c){
     F_23461(0,0,0,0,0,0,0,0,0,0,0,0,0x20f000);
 }
 JNIEXPORT void JNICALL
-Java_com_cnvcs_App_OnInput(JNIEnv *env, jclass c, jstring t){ jqt_OnInput(V32(t),0,0,0,0,0,0,0,0,0,0,0,0x20f000); }
+Java_com_cnvcs_App_OnInput(JNIEnv *env, jclass c, jstring t){ jqt_OnInput(V32(env),V32(env),V32(t),0,0,0,0,0,0,0,0,0,0x20f000); }
 JNIEXPORT jboolean JNICALL
 Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass c, jobject m){ 
     /* ★ §124ak 修正：原版 0x2343c `adds r1,r0,#0` → r1=env(JNIEnv*)。
