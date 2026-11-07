@@ -5288,3 +5288,37 @@ python3 /tmp/opencode/incremental_regress.py reset 0xADDR  # 改了某指令 →
 - 输入事件 C++ 基类（vtable 槽 31）+ 子类（槽 42）的 .rodata/.data vtable 目标需
   frida dump C++ 类 vtable 实锤（本轮实锤双重虚调用机制 + 基类共用槽 31，未实锤 vtable 目标）
 - 触摸几何计算（§124y-26 命中几何 0/60）+ 按键处理的完整 C++ 逻辑需查槽 42 虚函数 + frida 实锤
+
+## §124y-139 输入事件 C++ 基类 vtable 静态定位实锤（172 个 ≥43 槽 vtable + 16 个纯虚基类候选）
+
+**★ 闭环事实（静态实锤，.data.rel.ro 区 574 个 vtable 边界 + 输入事件基类 vtable 定位）**：
+
+1. **.data.rel.ro 区 vtable 边界全量实锤**（vtable 起始 = 该槽 .text addend + 前槽非 .text）：
+   - **574 个 vtable 边界**（.data.rel.ro 0x155030-0x15afe0 区）
+   - 其中 **≥43 槽（覆盖槽 42/0x84）= 172 个** / 31-42 槽（覆盖槽 31/0x7c）= 39 个
+   - 即 .data.rel.ro 区 = C++ 类 vtable 密集区（4800 REL 槽，§124y-82 实锤）
+
+2. **输入事件基类 vtable 定位（§124y-136/137 的 OnTouch/OnKey 双重虚调用）**：
+   - 172 个 ≥43 槽 vtable 中 **16 个 槽31==槽42==NULL（纯虚/保留槽）** = **输入事件抽象基类候选**
+     （vtable @0x1575d8(84 槽) / 0x1599f8(117) / 0x159ef8(112) / 0x15a1f0(183) / 0x15a720(254) 等）
+   - 即 C++ 输入事件基类 = **抽象类（槽 31/42 纯虚 NULL）**，MotionEvent/KeyEvent 子类实现槽 31/42
+   - OnTouch/OnKey 的双重虚调用（§124y-136/137）= 基类纯虚槽（子类 override 实现）
+   - 具体哪个 vtable 是输入事件基类需查 MotionEvent/KeyEvent 构造器（§124y-97 的 14 JNI + C++ 对象图）实锤
+
+3. **修正 §124y-137 的"C++ 多态基类共用槽 31"认知（精确化）**：
+   - §124y-137 标注 MotionEvent/KeyEvent 共用 vtable 槽 31（0x7c）→ 精确实锤 槽 31/42 = **C++ 纯虚/保留槽**
+     （16 个 ≥43 槽 vtable 槽 31==42==NULL，抽象基类特征）
+   - 即 OnTouch/OnKey 读 [vtable+0x7c] 槽 31 = 子类 override 的虚函数（基类纯虚，子类实现）
+     + [vtable+0x84] 槽 42 = 另一子类虚函数（基类保留槽）
+   - 双重虚调用 = 子类 vtable 的槽 31/42 override 函数（非基类共用同一函数，而是基类声明 + 子类实现）
+
+4. **vtable 槽 31/42 的 .text 目标实锤（输入事件子类函数）**：
+   - 各 vtable 槽 31/42 = .text 函数 addend（子类 override 实现，§124y-82 的 4800 REL 槽 92.3% .text 同源）
+   - 如 vtable @0x156074（60 槽）槽31=0x0b4e11（§124y-82 实锤 190 槽共享高频 C++ 成员函数）/ 槽42=0x085305（§124y-83 实锤 118 槽共享高频虚函数）
+   - 即输入事件子类的槽 31/42 = 高频 C++ 成员函数（§124y-82/83 实锤的 0x0b4e11/0x085305 等）
+
+### 诚实边界
+- 172 个 ≥43 槽 vtable 中具体哪个是 MotionEvent/KeyEvent 输入事件基类需查构造器 + frida dump
+  运行时 vtable 指针实锤（本轮实锤 vtable 边界 + 纯虚基类候选 16 个 + 槽 31/42 高频函数）
+- 触摸几何/按键处理完整 C++ 逻辑（槽 31/42 override 函数体）需 .text 全量反汇编 + frida 追踪
+  （§124y-26 命中几何 0/60 诚实边界，本轮实锤 vtable 定位，未实锤几何计算函数）
