@@ -44,6 +44,12 @@ bool is_rail(int row, int col)
     return false;
 }
 
+/* ★ AUD-R-024（P2 诚实标注）：「中线行集合 {5,6}」「纵线列 2」在 board.c is_rail /
+   rules.c rail_path_engineer(:68) / rail_path_straight(:95,:98) 三处硬编码同义常量。
+   修法（提取 is_mid_line(row)/is_main_rail_col(col) 具名谓词）留待下一轮；当前以
+   is_rail 为铁路唯一事实源，方向相关校验（横整行∈{0,5,6,11}/纵 col2）已对齐
+   （AUD-R-001 P0 + AUD-R-022），行为一致，仅代码组织待改进。 */
+
 int cell_index(int row, int col) { return row * BOARD_COLS + col; }
 int cell_row(int idx) { return idx / BOARD_COLS; }
 int cell_col(int idx) { return idx % BOARD_COLS; }
