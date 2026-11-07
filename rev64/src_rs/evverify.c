@@ -472,6 +472,10 @@ static int run_replay(void)
        （ui_state_stub.c），真机走 ui_state.c 真实记录；本测试直接 jq_replay_*
        API 链，避免桩差异） */
     int N = 0, K = 0;
+    /* AUD-A-0001（P2 诚实标注，探针误报）：seq[N_REPLAY] 是桌面 selftest 局部数组
+       （N_REPLAY 编译期宏，jq_replay 记录缓冲容量 6）；N 恒 = min(gn, 6) ≤ N_REPLAY，
+       k 循环上界即 N（<6=N_REPLAY），seq[k] 越界不可能——下标全为编译期宏边界，
+       无外部输入，evverify 不参与 so 链接，探针误报。 */
     int seq[N_REPLAY][2];
     int is_flip[N_REPLAY];
     jq_load_layout(&st, JQ_DEFAULT_LAY);

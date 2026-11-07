@@ -33,7 +33,10 @@ typedef enum {
 } jq_bt_type;
 
 /* 构造单步帧 "v2\n%d,%d,%d,%d,%d,%d,%d\n"（原版 0x26f24）。
-   字段：type, fc, fr, tc, tr, rank, side。返回写入字节数（不含 NUL），<0 失败。 */
+   字段：type, fc, fr, tc, tr, rank, side。返回写入字节数（不含 NUL），<0 失败。
+   AUD-A-0002（P2 真修确认）：越界防护走 snprintf 自身——n>=cap 返回 -1（调用方
+   jq_bt_ctrl_send 等全部按 cap=sizeof tb 传缓冲，BT_BUF=128 对 7 字段帧绰绰有余，
+   恒不触发；本函数无裸写越界点，探针误报已加边界语义注释）。 */
 int jq_bt_frame_encode(char *buf, int cap, int type, int f1, int f2,
                       int f3, int f4, int f5, int f6, int f7)
 {

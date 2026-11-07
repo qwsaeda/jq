@@ -800,11 +800,15 @@ static void on_event(const char *name, const char *value, JNIEnv *env)
                      cell_row(to), cell_col(to));
                 return;
             }
-            g_event_cnt[ev]++;
+            /* AUD-A-0003/0004（P2 真修）：事件码上界守卫——jq_try_move 合法返回 0-6
+               7 类事件码（-1=非法）。ev<7 契约上界防将来扩事件码漏改计数位
+               （g_event_cnt[7] 扩容历史见 AUD-R-061）；越界值降级记 [0] 位 + 不计数。 */
+            if (ev < 7) { g_event_cnt[ev < 7 ? ev : 0]++; g_event_total++; }
             g_event_total++;
             ui_replay_record(from, to, 0);   /* ★ P1（datah_039/107）：OnEvent 走子成功记录 1 步 */
             LOGI("OnEvent move (%d,%d)→(%d,%d) %s（#%d 累计）", cell_row(from), cell_col(from),
-                 cell_row(to), cell_col(to), JQ_EVENT_NAMES[ev], g_event_cnt[ev]);
+                 cell_row(to), cell_col(to), JQ_EVENT_NAMES[ev < 7 ? ev : 0],
+                 g_event_cnt[ev < 7 ? ev : 0]);
         }
     } else if (strcmp(name, "flip") == 0) {
         int idx = -1;
@@ -812,7 +816,7 @@ static void on_event(const char *name, const char *value, JNIEnv *env)
             undo_push();
             if (jq_flip(st, idx)) {
                 ui_replay_record(idx, idx, 1);   /* ★ P1（datah_039/107）：OnEvent 翻棋成功记录 1 步 */
-                g_event_cnt[EV_FLIP]++; g_event_total++;   /* ★ AUD-R-061（P2）：翻棋计数走 EV_FLIP=6 位（对齐 SPEC §3 7 类事件） */
+                g_event_cnt[EV_FLIP]++; g_event_total++;   /* ★ AUD-R-061（P2）：翻棋计数走 EV_FLIP=6 位（EV_FLIP 编译期宏=6<7 恒合法；AUD-A-0003/0004 真修的是 jq_try_move 动态事件码路径，常量下标探针不适用） */
                 LOGI("OnEvent flip (%d,%d) rank=%d", cell_row(idx), cell_col(idx),
                      rank_norm(st->cells[idx].rank));
             } else g_undo_top--;
@@ -1140,7 +1144,7 @@ Java_com_cnvcs_App_OnCreate(JNIEnv *env, jclass clazz, jobject activity)
             g_undo_top = 0;
             ui_screen_set(UI_GAME);
             int ftev = jq_try_move(&g_state, 53, 58);
-            if (ftev >= 0 && ftev < 7) { g_event_cnt[ftev]++; g_event_total++; }   /* AUD-R-061：7 项事件码 */
+            if (ftev >= 0 && ftev < 7) { g_event_cnt[ftev]++; g_event_total++; }   /* AUD-R-061：7 项事件码（AUD-A-0003：下界+上界守卫已全，真修确认关闭） */
             LOGI("flagtest：近旗状态注入 + 自动走 53→58 ev=%d %s（turn=%d stage=%d winner=%d）",
                  ftev, ftev < 0 ? "-" : JQ_EVENT_NAMES[ftev],
                  g_state.turn, g_state.stage, g_state.winner);
@@ -1209,7 +1213,7 @@ Java_com_cnvcs_App_OnCreate(JNIEnv *env, jclass clazz, jobject activity)
             g_undo_top = 0;
             ui_screen_set(UI_GAME);
             int mtev = jq_try_move(&g_state, 49, 54);
-            if (mtev >= 0 && mtev < 7) { g_event_cnt[mtev]++; g_event_total++; }   /* AUD-R-061：7 项事件码 */
+            if (mtev >= 0 && mtev < 7) { g_event_cnt[mtev]++; g_event_total++; }   /* AUD-R-061：7 项事件码（AUD-A-0004：下界+上界守卫已全，真修确认关闭） */
             LOGI("minetest：挖雷状态注入 + 自动走 49→54 ev=%d %s（turn=%d stage=%d）",
                  mtev, mtev < 0 ? "-" : JQ_EVENT_NAMES[mtev], g_state.turn, g_state.stage);
             sfx_play(env, "move");
@@ -7803,7 +7807,7 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
                 jnev = jq_try_move(st, from, to);
                 move_ok = (jnev >= 0);
                 if (move_ok) ui_replay_record(from, to, 0);   /* ★ P1（datah_039/107）：走子成功记录 1 步 */
-                if (move_ok && jnev >= 0 && jnev < 7) {   /* AUD-R-061：7 项事件码 */
+                if (move_ok && jnev >= 0 && jnev < 7) {   /* AUD-R-061：7 项事件码（AUD-A-0003/0004 同族：下界+上界守卫齐全） */
                     g_event_cnt[jnev]++;   /* 事件计数（对齐 on_event，OnTouch 直接走子不经 on_event） */
                     g_event_total++;
                 }

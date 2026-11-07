@@ -1066,6 +1066,7 @@ static void rs_gl_first_init(rs_render *rr)
    view_w/view_h 缩放——GLView 实际尺寸可能 <1280 高，按钮按屏幕比例映射） */
 static void rs_draw_overlay(rs_render *rr, int slot, int winner)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     /* ★ 对局结束胜负横幅（stage==OVER 时画中心横幅，winner 色）+ "再来一局"按钮。
        复刻 rs_draw_menu 纯色 quad 通路（prog_solid + uColor + VBO glDrawArrays）。
        诚实边界：MuMu GLES1 固定管线几何出帧受限（§124zz 三条路径 fail），
@@ -1116,6 +1117,7 @@ static void rs_draw_overlay(rs_render *rr, int slot, int winner)
 
 static void rs_draw_menu(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     if (!rr->prog_solid[slot] || !rr->gl2_ok[slot]) {
         static int md = 0;
         if (!md) { LOGE("rs_draw_menu 跳过：prog_solid=%u gl2_ok=%d", (unsigned)rr->prog_solid[slot], rr->gl2_ok[slot]); md = 1; }
@@ -1272,6 +1274,7 @@ static void rs_draw_menu(rs_render *rr, int slot)
    glDrawArrays，与选中黄框同纯色 program）。 */
 static void rs_draw_highlights(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     if (!rr->prog_solid[slot] || !rr->gl2_ok[slot]) return;
     int nhl = 0;
     if (rr->sel_cell >= 0) {
@@ -1327,6 +1330,7 @@ static void rs_draw_highlights(rs_render *rr, int slot)
    替换旧纯色矩形近似；命中 ui_imen_icon_rect 同几何。 */
 static void rs_draw_imen_icons(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     if (!rr->prog_tex[slot] || !rr->gl2_ok[slot]) return;
     float sx = (float)rr->view_w / 720.0f, sy = (float)rr->view_h / 1280.0f;
     for (int which = 0; which < 2; which++) {
@@ -1369,6 +1373,7 @@ static void rs_draw_imen_icons(rs_render *rr, int slot)
    popup 450×285 center（720×1280 基准），8 按钮 ui_imen_buttons()。 */
 static void rs_draw_imen(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     if (!rr->prog_solid[slot] || !rr->gl2_ok[slot]) return;
     float sx = (float)rr->view_w / 720.0f, sy = (float)rr->view_h / 1280.0f;
     /* ① 全屏模态遮罩（半透明黑，聚焦菜单） */
@@ -1563,6 +1568,7 @@ static void rs_draw_imen(rs_render *rr, int slot)
    （布局/翻棋，opt_text row4-5）。按钮几何 ui_diff_buttons()（720×1280 基准）。 */
 static void rs_draw_difficulty(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     if (!rr->prog_solid[slot] || !rr->gl2_ok[slot]) return;
     float sx = (float)rr->view_w / 720.0f, sy = (float)rr->view_h / 1280.0f;
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
@@ -1723,6 +1729,7 @@ static void rs_draw_difficulty(rs_render *rr, int slot)
    按钮几何 ui_way_buttons()（720×1280 基准）。 */
 static void rs_draw_waysel(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     if (!rr->prog_solid[slot] || !rr->gl2_ok[slot]) return;
     float sx = (float)rr->view_w / 720.0f, sy = (float)rr->view_h / 1280.0f;
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
@@ -1848,6 +1855,7 @@ static void rs_draw_waysel(rs_render *rr, int slot)
    按钮几何 ui_set_buttons()（720×1280 基准）。 */
 static void rs_draw_settings(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     if (!rr->prog_solid[slot] || !rr->gl2_ok[slot]) return;
     float sx = (float)rr->view_w / 720.0f, sy = (float)rr->view_h / 1280.0f;
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
@@ -2030,6 +2038,7 @@ static void rs_draw_settings(rs_render *rr, int slot)
    按钮几何 ui_nplayer_buttons()（720×1280 基准）。★ 诚实边界：四国=未实现 4 方规则。 */
 static void rs_draw_nplayer(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     if (!rr->prog_solid[slot] || !rr->gl2_ok[slot]) return;
     float sx = (float)rr->view_w / 720.0f, sy = (float)rr->view_h / 1280.0f;
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
@@ -2154,6 +2163,7 @@ static void rs_draw_nplayer(rs_render *rr, int slot)
    按钮几何 ui_newgame_buttons()（720×1280 基准）。★ 诚实边界：两人热座（AI 不介入）。 */
 static void rs_draw_newgame(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     if (!rr->prog_solid[slot] || !rr->gl2_ok[slot]) return;
     float sx = (float)rr->view_w / 720.0f, sy = (float)rr->view_h / 1280.0f;
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
@@ -2355,6 +2365,7 @@ static void rs_draw_newgame(rs_render *rr, int slot)
    ★ 诚实边界：开关"开"状态的原版精确可选值 .rodata 未读全，默认全开。 */
 static void rs_draw_gameset(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     if (!rr->prog_solid[slot] || !rr->gl2_ok[slot]) return;
     float sx = (float)rr->view_w / 720.0f, sy = (float)rr->view_h / 1280.0f;
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
@@ -2541,6 +2552,7 @@ static void rs_draw_gameset(rs_render *rr, int slot)
 /* 布局存档弹窗共用：全屏模态遮罩 + 深色半透明面板（ui_menu.h 面板宏，720 基准 ×sx/sy） */
 static void rs_layres_panel(rs_render *rr, int slot, int ui, GLint uc)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     float px0, py0, pw, ph;
     if (ui == UI_LOAD_LAY)
         px0 = UI_LOADLAYOUT_POPUP_X0, py0 = UI_LOADLAYOUT_POPUP_Y0, pw = UI_LOADLAYOUT_POPUP_W, ph = UI_LOADLAYOUT_POPUP_H;
@@ -2647,6 +2659,7 @@ static void rs_layres_text(rs_render *rr, int slot, float x, float y, float w,
    简化：行底色 + 序号纯色块占位（★ 诚实边界：ListBox 文本渲染未接动态名，占位块）。 */
 static void rs_layres_list_rows(rs_render *rr, int slot, int sel, GLint uc)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     const ui_loadlayout_btn *lb = ui_loadlayout_buttons();   /* 前 6 项 = 列表行 */
     float sx = (float)rr->view_w / 720.0f, sy = (float)rr->view_h / 1280.0f;
     int n = ui_layout_count() > 6 ? 6 : ui_layout_count();
@@ -2680,6 +2693,7 @@ static void rs_layres_list_rows(rs_render *rr, int slot, int sel, GLint uc)
    ★ 诚实边界：30 格 PiecePic 真棋子图未画，小方块占位（原版 Piece0-29 为棋子图）。 */
 static void rs_layres_preview(rs_render *rr, int slot, GLint uc)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     float sx = (float)rr->view_w / 720.0f, sy = (float)rr->view_h / 1280.0f;
     uint8_t lay[30];
     int have = 0;
@@ -2725,6 +2739,7 @@ static void rs_layres_preview(rs_render *rr, int slot, GLint uc)
    取消/面板外=回对局。★ 诚实边界：ListBox 滚动未实现，6 条截断 + 选中金色高亮。 */
 static void rs_draw_loadlay(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     if (!rr->prog_solid[slot] || !rr->gl2_ok[slot]) return;
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_layres_panel(rr, slot, UI_LOAD_LAY, uc);
@@ -2794,6 +2809,7 @@ static void rs_draw_loadlay(rs_render *rr, int slot)
    删除=删选中项；关闭=回对局。★ 诚实边界：改名自动编号（无文本输入框）。 */
 static void rs_draw_savelay(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     if (!rr->prog_solid[slot] || !rr->gl2_ok[slot]) return;
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_layres_panel(rr, slot, UI_SAVE_LAY, uc);
@@ -2869,6 +2885,7 @@ static void rs_draw_savelay(rs_render *rr, int slot)
    删除=删选中项；取消=回对局。★ 诚实边界：PiecePic 真棋子图未画（小方块占位）。 */
 static void rs_draw_laymgr(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     if (!rr->prog_solid[slot] || !rr->gl2_ok[slot]) return;
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_layres_panel(rr, slot, UI_LAY_MGR, uc);
@@ -2982,6 +2999,7 @@ static void rs_replay_text(rs_render *rr, int slot, float x, float y, float w,
    棋子图集——复盘态诚实边界不画真棋子图） */
 static void rs_replay_pieces(rs_render *rr, int slot, GLint uc)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     if (!rr->prog_solid[slot] || !rr->gl2_ok[slot] || !rr->game) return;
     float sx = (float)rr->view_w / 720.0f, sy = (float)rr->view_h / 1280.0f;
     /* 棋盘主体格区（720 基准）：中心 60 格 6 列 × 10 行，每格 70×88 */
@@ -3053,6 +3071,7 @@ static void rs_login_text(rs_render *rr, int slot, float x, float y, float w,
 
 static void rs_draw_login(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     if (!rr->prog_solid[slot] || !rr->gl2_ok[slot]) return;
     float sx = (float)rr->view_w / 720.0f, sy = (float)rr->view_h / 1280.0f;
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
@@ -3262,6 +3281,7 @@ static void rs_rules_text(rs_render *rr, int slot, float x, float y, float w,
 
 static void rs_draw_rules(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     if (!rr->prog_solid[slot] || !rr->gl2_ok[slot]) return;
     float sx = (float)rr->view_w / 720.0f, sy = (float)rr->view_h / 1280.0f;
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
@@ -3424,6 +3444,7 @@ static void rs_ng104_text(rs_render *rr, int slot, float x, float y, float w,
 
 static void rs_draw_newgame104(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     if (!rr->prog_solid[slot] || !rr->gl2_ok[slot]) return;
     float sx = (float)rr->view_w / 720.0f, sy = (float)rr->view_h / 1280.0f;
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
@@ -3670,6 +3691,7 @@ static void rs_join_text(rs_render *rr, int slot, float x, float y, float w,
 
 static void rs_draw_join(rs_render *rr, int slot, int is_create)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     if (!rr->prog_solid[slot] || !rr->gl2_ok[slot]) return;
     float sx = (float)rr->view_w / 720.0f, sy = (float)rr->view_h / 1280.0f;
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
@@ -4060,6 +4082,7 @@ static void rs_atlas_label_wh(rs_render *rr, int slot, unsigned int tex, int tex
 #define NG061_ROW 10
 static void rs_draw_ng061(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     if (!rr->prog_solid[slot] || !rr->gl2_ok[slot]) return;
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     /* ⓪①② 面板 shell（主菜单背景 + 遮罩 + 深色面板 450×465 居中） */
@@ -4128,6 +4151,7 @@ static void rs_draw_ng061(rs_render *rr, int slot)
 #define GAMEINFO_ROW 8
 static void rs_draw_gameinfo(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     if (!rr->prog_solid[slot] || !rr->gl2_ok[slot]) return;
     float sx = (float)rr->view_w / 720.0f, sy = (float)rr->view_h / 1280.0f;
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
@@ -4197,6 +4221,7 @@ static void rs_draw_gameinfo(rs_render *rr, int slot)
 #define BRIGHT_ROW 10
 static void rs_draw_bright(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     if (!rr->prog_solid[slot] || !rr->gl2_ok[slot]) return;
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     /* ⓪①② 面板 shell（主菜单背景 + 遮罩 + 深色面板 460×240 居中） */
@@ -4256,6 +4281,7 @@ static void rs_draw_bright(rs_render *rr, int slot)
 #define CHATLOG_ROW 8
 static void rs_draw_chatlog(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     if (!rr->prog_solid[slot] || !rr->gl2_ok[slot]) return;
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     /* ⓪①② 面板 shell（棋盘背景 + 遮罩 + 深色面板 420×530 居中） */
@@ -4311,6 +4337,7 @@ static void rs_draw_chatlog(rs_render *rr, int slot)
 #define PROFILE_ROW 10
 static void rs_draw_profile(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     if (!rr->prog_solid[slot] || !rr->gl2_ok[slot]) return;
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     /* ⓪①② 面板 shell（主菜单背景 + 遮罩 + 深色面板 420×520 居中） */
@@ -4374,6 +4401,7 @@ static void rs_draw_profile(rs_render *rr, int slot)
    玩家资料=0/软件信息=1 占位（原图集无专用图标，★ 诚实边界）） */
 static void rs_draw_drawdetail(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     if (!rr->prog_solid[slot] || !rr->gl2_ok[slot]) return;
     float sx = (float)rr->view_w / 720.0f, sy = (float)rr->view_h / 1280.0f;
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
@@ -4439,6 +4467,7 @@ static void rs_draw_drawdetail(rs_render *rr, int slot)
 #define SETENTRY_ROW 7
 static void rs_draw_setentry(rs_render *rr, int slot, int is_simplified)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     if (!rr->prog_solid[slot] || !rr->gl2_ok[slot]) return;
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     /* ⓪①② 面板 shell（主菜单背景 + 遮罩 + 深色面板） */
@@ -4495,6 +4524,7 @@ static void rs_draw_setentry(rs_render *rr, int slot, int is_simplified)
 #define IMGSET_ROW 10
 static void rs_draw_imgset(rs_render *rr, int slot, int is_simplified)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     if (!rr->prog_solid[slot] || !rr->gl2_ok[slot]) return;
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     /* ⓪①② 面板 shell（主菜单背景 + 遮罩 + 深色面板） */
@@ -4602,6 +4632,7 @@ static void rs_draw_imgset(rs_render *rr, int slot, int is_simplified)
 #define JOIN065_ROW 10
 static void rs_draw_join065(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     if (!rr->prog_solid[slot] || !rr->gl2_ok[slot]) return;
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     /* ⓪①② 面板 shell（主菜单背景 + 遮罩 + 深色面板 450×505 居中） */
@@ -4654,6 +4685,7 @@ static void rs_draw_join065(rs_render *rr, int slot)
 #define CREATE069_ROW 10
 static void rs_draw_create069(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     if (!rr->prog_solid[slot] || !rr->gl2_ok[slot]) return;
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     /* ⓪①② 面板 shell（主菜单背景 + 遮罩 + 深色面板 450×465 居中） */
@@ -4717,6 +4749,7 @@ static void rs_draw_create069(rs_render *rr, int slot)
 #define RULES070_ROW 10
 static void rs_draw_rules070(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     if (!rr->prog_solid[slot] || !rr->gl2_ok[slot]) return;
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     /* ⓪①② 面板 shell（主菜单背景 + 遮罩 + 深色面板 450×465 居中） */
@@ -4777,6 +4810,7 @@ static void rs_draw_rules070(rs_render *rr, int slot)
 #define ROOM060_ROW 8
 static void rs_draw_room060(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     if (!rr->prog_solid[slot] || !rr->gl2_ok[slot]) return;
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     /* ⓪①② 面板 shell（主菜单背景 + 遮罩 + 深色面板 450×352 居中） */
@@ -4826,6 +4860,7 @@ static void rs_draw_room060(rs_render *rr, int slot)
 #define CHAT063_ROW 8
 static void rs_draw_chat063(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     if (!rr->prog_solid[slot] || !rr->gl2_ok[slot]) return;
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     /* ⓪①② 面板 shell（棋盘背景 + 遮罩 + 深色面板 420×325 居中） */
@@ -4896,6 +4931,7 @@ static void rs_confirm_dialog(rs_render *rr, int slot, const char *title,
 
 static void rs_draw_exitconfirm(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     /* ★ 原版字符串表真值（jq_strings.h JQ_STR_ExitConfirm = 真的要退出吗？） */
     rs_confirm_dialog(rr, slot, JQ_STR_ExitConfirm, "退出", "继续");
     if (!ecdiag) { ecdiag = 1;
@@ -4907,6 +4943,7 @@ static void rs_draw_exitconfirm(rs_render *rr, int slot)
 
 static void rs_draw_resignconfirm(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     /* ★ 原版字符串表真值（JQ_STR_ResignConfirm = 您真的要投降吗？） */
     rs_confirm_dialog(rr, slot, JQ_STR_ResignConfirm, "认输", "取消");
     if (!rcdiag) { rcdiag = 1;
@@ -4918,6 +4955,7 @@ static void rs_draw_resignconfirm(rs_render *rr, int slot)
 
 static void rs_draw_regretconfirm(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     /* ★ 原版字符串表真值（JQ_STR_RegretConfirm = 您真的要悔棋吗？） */
     rs_confirm_dialog(rr, slot, JQ_STR_RegretConfirm, "悔棋", "取消");
     if (!gcdot) { gcdot = 1;
@@ -4938,6 +4976,7 @@ static const int D000_pw[UI_D000_COUNT] = { 76,76 };
 static const int D000_ph[UI_D000_COUNT] = { 37,37 };
 static void rs_draw_d000(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D000_POPUP_X0, UI_D000_POPUP_Y0, UI_D000_POPUP_W, UI_D000_POPUP_H, 0, uc);
     const ui_d000_btn *bb = ui_d000_buttons();
@@ -4969,6 +5008,7 @@ static const int D001_pw[UI_D001_COUNT] = { 110,167,76,76 };
 static const int D001_ph[UI_D001_COUNT] = { 29,29,37,37 };
 static void rs_draw_d001(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D001_POPUP_X0, UI_D001_POPUP_Y0, UI_D001_POPUP_W, UI_D001_POPUP_H, 0, uc);
     const ui_d001_btn *bb = ui_d001_buttons();
@@ -5000,6 +5040,7 @@ static const int D002_pw[UI_D002_COUNT] = { 76,76 };
 static const int D002_ph[UI_D002_COUNT] = { 37,37 };
 static void rs_draw_d002(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D002_POPUP_X0, UI_D002_POPUP_Y0, UI_D002_POPUP_W, UI_D002_POPUP_H, 0, uc);
     const ui_d002_btn *bb = ui_d002_buttons();
@@ -5031,6 +5072,7 @@ static const int D003_pw[UI_D003_COUNT] = { 152,152,152 };
 static const int D003_ph[UI_D003_COUNT] = { 37,37,38 };
 static void rs_draw_d003(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D003_POPUP_X0, UI_D003_POPUP_Y0, UI_D003_POPUP_W, UI_D003_POPUP_H, 0, uc);
     const ui_d003_btn *bb = ui_d003_buttons();
@@ -5062,6 +5104,7 @@ static const int D004_pw[UI_D004_COUNT] = { 152,152 };
 static const int D004_ph[UI_D004_COUNT] = { 37,37 };
 static void rs_draw_d004(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D004_POPUP_X0, UI_D004_POPUP_Y0, UI_D004_POPUP_W, UI_D004_POPUP_H, 0, uc);
     const ui_d004_btn *bb = ui_d004_buttons();
@@ -5093,6 +5136,7 @@ static const int D005_pw[UI_D005_COUNT] = { 95,84 };
 static const int D005_ph[UI_D005_COUNT] = { 28,29 };
 static void rs_draw_d005(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D005_POPUP_X0, UI_D005_POPUP_Y0, UI_D005_POPUP_W, UI_D005_POPUP_H, 0, uc);
     const ui_d005_btn *bb = ui_d005_buttons();
@@ -5124,6 +5168,7 @@ static const int D006_pw[UI_D006_COUNT] = { 152,76,152,152,152,152,152,152 };
 static const int D006_ph[UI_D006_COUNT] = { 38,37,38,38,37,37,37,37 };
 static void rs_draw_d006(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D006_POPUP_X0, UI_D006_POPUP_Y0, UI_D006_POPUP_W, UI_D006_POPUP_H, 0, uc);
     const ui_d006_btn *bb = ui_d006_buttons();
@@ -5155,6 +5200,7 @@ static const int D007_pw[UI_D007_COUNT] = { 97,150,89,152,76,76 };
 static const int D007_ph[UI_D007_COUNT] = { 28,29,34,34,37,37 };
 static void rs_draw_d007(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D007_POPUP_X0, UI_D007_POPUP_Y0, UI_D007_POPUP_W, UI_D007_POPUP_H, 0, uc);
     const ui_d007_btn *bb = ui_d007_buttons();
@@ -5186,6 +5232,7 @@ static const int D008_pw[UI_D008_COUNT] = { 97,150,89,76,76 };
 static const int D008_ph[UI_D008_COUNT] = { 28,29,34,37,37 };
 static void rs_draw_d008(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D008_POPUP_X0, UI_D008_POPUP_Y0, UI_D008_POPUP_W, UI_D008_POPUP_H, 0, uc);
     const ui_d008_btn *bb = ui_d008_buttons();
@@ -5217,6 +5264,7 @@ static const int D010_pw[UI_D010_COUNT] = { 76,76 };
 static const int D010_ph[UI_D010_COUNT] = { 37,37 };
 static void rs_draw_d010(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D010_POPUP_X0, UI_D010_POPUP_Y0, UI_D010_POPUP_W, UI_D010_POPUP_H, 0, uc);
     const ui_d010_btn *bb = ui_d010_buttons();
@@ -5248,6 +5296,7 @@ static const int D012_pw[UI_D012_COUNT] = { 89,175,127,114,76,76 };
 static const int D012_ph[UI_D012_COUNT] = { 28,29,34,34,37,37 };
 static void rs_draw_d012(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D012_POPUP_X0, UI_D012_POPUP_Y0, UI_D012_POPUP_W, UI_D012_POPUP_H, 0, uc);
     const ui_d012_btn *bb = ui_d012_buttons();
@@ -5279,6 +5328,7 @@ static const int D013_pw[UI_D013_COUNT] = { 21,21,21 };
 static const int D013_ph[UI_D013_COUNT] = { 28,27,27 };
 static void rs_draw_d013(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D013_POPUP_X0, UI_D013_POPUP_Y0, UI_D013_POPUP_W, UI_D013_POPUP_H, 0, uc);
     const ui_d013_btn *bb = ui_d013_buttons();
@@ -5310,6 +5360,7 @@ static const int D015_pw[UI_D015_COUNT] = { 84 };
 static const int D015_ph[UI_D015_COUNT] = { 29 };
 static void rs_draw_d015(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D015_POPUP_X0, UI_D015_POPUP_Y0, UI_D015_POPUP_W, UI_D015_POPUP_H, 0, uc);
     const ui_d015_btn *bb = ui_d015_buttons();
@@ -5341,6 +5392,7 @@ static const int D016_pw[UI_D016_COUNT] = { 143,76,76,76 };
 static const int D016_ph[UI_D016_COUNT] = { 28,37,37,37 };
 static void rs_draw_d016(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D016_POPUP_X0, UI_D016_POPUP_Y0, UI_D016_POPUP_W, UI_D016_POPUP_H, 0, uc);
     const ui_d016_btn *bb = ui_d016_buttons();
@@ -5372,6 +5424,7 @@ static const int D017_pw[UI_D017_COUNT] = { 76 };
 static const int D017_ph[UI_D017_COUNT] = { 37 };
 static void rs_draw_d017(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D017_POPUP_X0, UI_D017_POPUP_Y0, UI_D017_POPUP_W, UI_D017_POPUP_H, 0, uc);
     const ui_d017_btn *bb = ui_d017_buttons();
@@ -5403,6 +5456,7 @@ static const int D019_pw[UI_D019_COUNT] = { 152,152,152,152 };
 static const int D019_ph[UI_D019_COUNT] = { 37,37,37,37 };
 static void rs_draw_d019(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D019_POPUP_X0, UI_D019_POPUP_Y0, UI_D019_POPUP_W, UI_D019_POPUP_H, 0, uc);
     const ui_d019_btn *bb = ui_d019_buttons();
@@ -5434,6 +5488,7 @@ static const int D020_pw[UI_D020_COUNT] = { 76,76,76,76 };
 static const int D020_ph[UI_D020_COUNT] = { 37,38,37,37 };
 static void rs_draw_d020(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D020_POPUP_X0, UI_D020_POPUP_Y0, UI_D020_POPUP_W, UI_D020_POPUP_H, 0, uc);
     const ui_d020_btn *bb = ui_d020_buttons();
@@ -5465,6 +5520,7 @@ static const int D021_pw[UI_D021_COUNT] = { 21,21,21 };
 static const int D021_ph[UI_D021_COUNT] = { 28,27,27 };
 static void rs_draw_d021(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D021_POPUP_X0, UI_D021_POPUP_Y0, UI_D021_POPUP_W, UI_D021_POPUP_H, 0, uc);
     const ui_d021_btn *bb = ui_d021_buttons();
@@ -5496,6 +5552,7 @@ static const int D022_pw[UI_D022_COUNT] = { 21,21,21,21,21 };
 static const int D022_ph[UI_D022_COUNT] = { 28,27,27,28,27 };
 static void rs_draw_d022(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D022_POPUP_X0, UI_D022_POPUP_Y0, UI_D022_POPUP_W, UI_D022_POPUP_H, 0, uc);
     const ui_d022_btn *bb = ui_d022_buttons();
@@ -5527,6 +5584,7 @@ static const int D023_pw[UI_D023_COUNT] = { 152,152,76,76 };
 static const int D023_ph[UI_D023_COUNT] = { 37,37,37,37 };
 static void rs_draw_d023(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D023_POPUP_X0, UI_D023_POPUP_Y0, UI_D023_POPUP_W, UI_D023_POPUP_H, 0, uc);
     const ui_d023_btn *bb = ui_d023_buttons();
@@ -5558,6 +5616,7 @@ static const int D024_pw[UI_D024_COUNT] = { 84 };
 static const int D024_ph[UI_D024_COUNT] = { 33 };
 static void rs_draw_d024(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D024_POPUP_X0, UI_D024_POPUP_Y0, UI_D024_POPUP_W, UI_D024_POPUP_H, 0, uc);
     const ui_d024_btn *bb = ui_d024_buttons();
@@ -5589,6 +5648,7 @@ static const int D025_pw[UI_D025_COUNT] = { 76 };
 static const int D025_ph[UI_D025_COUNT] = { 37 };
 static void rs_draw_d025(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D025_POPUP_X0, UI_D025_POPUP_Y0, UI_D025_POPUP_W, UI_D025_POPUP_H, 0, uc);
     const ui_d025_btn *bb = ui_d025_buttons();
@@ -5620,6 +5680,7 @@ static const int D026_pw[UI_D026_COUNT] = { 103,76,76 };
 static const int D026_ph[UI_D026_COUNT] = { 29,37,37 };
 static void rs_draw_d026(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D026_POPUP_X0, UI_D026_POPUP_Y0, UI_D026_POPUP_W, UI_D026_POPUP_H, 0, uc);
     const ui_d026_btn *bb = ui_d026_buttons();
@@ -5651,6 +5712,7 @@ static const int D027_pw[UI_D027_COUNT] = { 76,76,114 };
 static const int D027_ph[UI_D027_COUNT] = { 37,38,38 };
 static void rs_draw_d027(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D027_POPUP_X0, UI_D027_POPUP_Y0, UI_D027_POPUP_W, UI_D027_POPUP_H, 0, uc);
     const ui_d027_btn *bb = ui_d027_buttons();
@@ -5682,6 +5744,7 @@ static const int D028_pw[UI_D028_COUNT] = { 114,76,76 };
 static const int D028_ph[UI_D028_COUNT] = { 37,37,37 };
 static void rs_draw_d028(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D028_POPUP_X0, UI_D028_POPUP_Y0, UI_D028_POPUP_W, UI_D028_POPUP_H, 0, uc);
     const ui_d028_btn *bb = ui_d028_buttons();
@@ -5713,6 +5776,7 @@ static const int D029_pw[UI_D029_COUNT] = { 76,76 };
 static const int D029_ph[UI_D029_COUNT] = { 37,37 };
 static void rs_draw_d029(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D029_POPUP_X0, UI_D029_POPUP_Y0, UI_D029_POPUP_W, UI_D029_POPUP_H, 0, uc);
     const ui_d029_btn *bb = ui_d029_buttons();
@@ -5744,6 +5808,7 @@ static const int D030_pw[UI_D030_COUNT] = { 95,81 };
 static const int D030_ph[UI_D030_COUNT] = { 28,29 };
 static void rs_draw_d030(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D030_POPUP_X0, UI_D030_POPUP_Y0, UI_D030_POPUP_W, UI_D030_POPUP_H, 0, uc);
     const ui_d030_btn *bb = ui_d030_buttons();
@@ -5775,6 +5840,7 @@ static const int D031_pw[UI_D031_COUNT] = { 76,76,76 };
 static const int D031_ph[UI_D031_COUNT] = { 38,38,37 };
 static void rs_draw_d031(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D031_POPUP_X0, UI_D031_POPUP_Y0, UI_D031_POPUP_W, UI_D031_POPUP_H, 0, uc);
     const ui_d031_btn *bb = ui_d031_buttons();
@@ -5806,6 +5872,7 @@ static const int D032_pw[UI_D032_COUNT] = { 76,76,76,76 };
 static const int D032_ph[UI_D032_COUNT] = { 37,37,37,37 };
 static void rs_draw_d032(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D032_POPUP_X0, UI_D032_POPUP_Y0, UI_D032_POPUP_W, UI_D032_POPUP_H, 0, uc);
     const ui_d032_btn *bb = ui_d032_buttons();
@@ -5837,6 +5904,7 @@ static const int D033_pw[UI_D033_COUNT] = { 76,76 };
 static const int D033_ph[UI_D033_COUNT] = { 37,37 };
 static void rs_draw_d033(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D033_POPUP_X0, UI_D033_POPUP_Y0, UI_D033_POPUP_W, UI_D033_POPUP_H, 0, uc);
     const ui_d033_btn *bb = ui_d033_buttons();
@@ -5868,6 +5936,7 @@ static const int D034_pw[UI_D034_COUNT] = { 76,76 };
 static const int D034_ph[UI_D034_COUNT] = { 37,37 };
 static void rs_draw_d034(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D034_POPUP_X0, UI_D034_POPUP_Y0, UI_D034_POPUP_W, UI_D034_POPUP_H, 0, uc);
     const ui_d034_btn *bb = ui_d034_buttons();
@@ -5899,6 +5968,7 @@ static const int D035_pw[UI_D035_COUNT] = { 76,76 };
 static const int D035_ph[UI_D035_COUNT] = { 37,37 };
 static void rs_draw_d035(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D035_POPUP_X0, UI_D035_POPUP_Y0, UI_D035_POPUP_W, UI_D035_POPUP_H, 0, uc);
     const ui_d035_btn *bb = ui_d035_buttons();
@@ -5930,6 +6000,7 @@ static const int D036_pw[UI_D036_COUNT] = { 103,103,76,76 };
 static const int D036_ph[UI_D036_COUNT] = { 29,29,37,37 };
 static void rs_draw_d036(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D036_POPUP_X0, UI_D036_POPUP_Y0, UI_D036_POPUP_W, UI_D036_POPUP_H, 0, uc);
     const ui_d036_btn *bb = ui_d036_buttons();
@@ -5961,6 +6032,7 @@ static const int D037_pw[UI_D037_COUNT] = { 186,186,76 };
 static const int D037_ph[UI_D037_COUNT] = { 37,37,37 };
 static void rs_draw_d037(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D037_POPUP_X0, UI_D037_POPUP_Y0, UI_D037_POPUP_W, UI_D037_POPUP_H, 0, uc);
     const ui_d037_btn *bb = ui_d037_buttons();
@@ -5992,6 +6064,7 @@ static const int D038_pw[UI_D038_COUNT] = { 76,76,76,76 };
 static const int D038_ph[UI_D038_COUNT] = { 37,37,37,37 };
 static void rs_draw_d038(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D038_POPUP_X0, UI_D038_POPUP_Y0, UI_D038_POPUP_W, UI_D038_POPUP_H, 0, uc);
     const ui_d038_btn *bb = ui_d038_buttons();
@@ -6023,6 +6096,7 @@ static const int D039_pw[UI_D039_COUNT] = { 76 };
 static const int D039_ph[UI_D039_COUNT] = { 37 };
 static void rs_draw_d039(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D039_POPUP_X0, UI_D039_POPUP_Y0, UI_D039_POPUP_W, UI_D039_POPUP_H, 0, uc);
     const ui_d039_btn *bb = ui_d039_buttons();
@@ -6054,6 +6128,7 @@ static const int D041_pw[UI_D041_COUNT] = { 76,76,76,76,76,76,76,76 };
 static const int D041_ph[UI_D041_COUNT] = { 37,37,37,37,37,37,37,37 };
 static void rs_draw_d041(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D041_POPUP_X0, UI_D041_POPUP_Y0, UI_D041_POPUP_W, UI_D041_POPUP_H, 0, uc);
     const ui_d041_btn *bb = ui_d041_buttons();
@@ -6085,6 +6160,7 @@ static const int D042_pw[UI_D042_COUNT] = { 76,76,76,152,152,152,152 };
 static const int D042_ph[UI_D042_COUNT] = { 37,37,37,37,38,37,37 };
 static void rs_draw_d042(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D042_POPUP_X0, UI_D042_POPUP_Y0, UI_D042_POPUP_W, UI_D042_POPUP_H, 0, uc);
     const ui_d042_btn *bb = ui_d042_buttons();
@@ -6116,6 +6192,7 @@ static const int D043_pw[UI_D043_COUNT] = { 76,76 };
 static const int D043_ph[UI_D043_COUNT] = { 37,37 };
 static void rs_draw_d043(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D043_POPUP_X0, UI_D043_POPUP_Y0, UI_D043_POPUP_W, UI_D043_POPUP_H, 0, uc);
     const ui_d043_btn *bb = ui_d043_buttons();
@@ -6147,6 +6224,7 @@ static const int D044_pw[UI_D044_COUNT] = { 76,76 };
 static const int D044_ph[UI_D044_COUNT] = { 37,37 };
 static void rs_draw_d044(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D044_POPUP_X0, UI_D044_POPUP_Y0, UI_D044_POPUP_W, UI_D044_POPUP_H, 0, uc);
     const ui_d044_btn *bb = ui_d044_buttons();
@@ -6178,6 +6256,7 @@ static const int D045_pw[UI_D045_COUNT] = { 76 };
 static const int D045_ph[UI_D045_COUNT] = { 37 };
 static void rs_draw_d045(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D045_POPUP_X0, UI_D045_POPUP_Y0, UI_D045_POPUP_W, UI_D045_POPUP_H, 0, uc);
     const ui_d045_btn *bb = ui_d045_buttons();
@@ -6209,6 +6288,7 @@ static const int D046_pw[UI_D046_COUNT] = { 76 };
 static const int D046_ph[UI_D046_COUNT] = { 37 };
 static void rs_draw_d046(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D046_POPUP_X0, UI_D046_POPUP_Y0, UI_D046_POPUP_W, UI_D046_POPUP_H, 0, uc);
     const ui_d046_btn *bb = ui_d046_buttons();
@@ -6240,6 +6320,7 @@ static const int D047_pw[UI_D047_COUNT] = { 76 };
 static const int D047_ph[UI_D047_COUNT] = { 37 };
 static void rs_draw_d047(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D047_POPUP_X0, UI_D047_POPUP_Y0, UI_D047_POPUP_W, UI_D047_POPUP_H, 0, uc);
     const ui_d047_btn *bb = ui_d047_buttons();
@@ -6271,6 +6352,7 @@ static const int D049_pw[UI_D049_COUNT] = { 76 };
 static const int D049_ph[UI_D049_COUNT] = { 37 };
 static void rs_draw_d049(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D049_POPUP_X0, UI_D049_POPUP_Y0, UI_D049_POPUP_W, UI_D049_POPUP_H, 0, uc);
     const ui_d049_btn *bb = ui_d049_buttons();
@@ -6302,6 +6384,7 @@ static const int D050_pw[UI_D050_COUNT] = { 76,76,76 };
 static const int D050_ph[UI_D050_COUNT] = { 37,37,37 };
 static void rs_draw_d050(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D050_POPUP_X0, UI_D050_POPUP_Y0, UI_D050_POPUP_W, UI_D050_POPUP_H, 0, uc);
     const ui_d050_btn *bb = ui_d050_buttons();
@@ -6333,6 +6416,7 @@ static const int D051_pw[UI_D051_COUNT] = { 76,76 };
 static const int D051_ph[UI_D051_COUNT] = { 37,37 };
 static void rs_draw_d051(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D051_POPUP_X0, UI_D051_POPUP_Y0, UI_D051_POPUP_W, UI_D051_POPUP_H, 0, uc);
     const ui_d051_btn *bb = ui_d051_buttons();
@@ -6364,6 +6448,7 @@ static const int D052_pw[UI_D052_COUNT] = { 76,76 };
 static const int D052_ph[UI_D052_COUNT] = { 37,37 };
 static void rs_draw_d052(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D052_POPUP_X0, UI_D052_POPUP_Y0, UI_D052_POPUP_W, UI_D052_POPUP_H, 0, uc);
     const ui_d052_btn *bb = ui_d052_buttons();
@@ -6395,6 +6480,7 @@ static const int D053_pw[UI_D053_COUNT] = { 76,76 };
 static const int D053_ph[UI_D053_COUNT] = { 37,37 };
 static void rs_draw_d053(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D053_POPUP_X0, UI_D053_POPUP_Y0, UI_D053_POPUP_W, UI_D053_POPUP_H, 0, uc);
     const ui_d053_btn *bb = ui_d053_buttons();
@@ -6426,6 +6512,7 @@ static const int D054_pw[UI_D054_COUNT] = { 76,76 };
 static const int D054_ph[UI_D054_COUNT] = { 37,37 };
 static void rs_draw_d054(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D054_POPUP_X0, UI_D054_POPUP_Y0, UI_D054_POPUP_W, UI_D054_POPUP_H, 0, uc);
     const ui_d054_btn *bb = ui_d054_buttons();
@@ -6457,6 +6544,7 @@ static const int D055_pw[UI_D055_COUNT] = { 76 };
 static const int D055_ph[UI_D055_COUNT] = { 37 };
 static void rs_draw_d055(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D055_POPUP_X0, UI_D055_POPUP_Y0, UI_D055_POPUP_W, UI_D055_POPUP_H, 0, uc);
     const ui_d055_btn *bb = ui_d055_buttons();
@@ -6488,6 +6576,7 @@ static const int D057_pw[UI_D057_COUNT] = { 152,76 };
 static const int D057_ph[UI_D057_COUNT] = { 38,37 };
 static void rs_draw_d057(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D057_POPUP_X0, UI_D057_POPUP_Y0, UI_D057_POPUP_W, UI_D057_POPUP_H, 0, uc);
     const ui_d057_btn *bb = ui_d057_buttons();
@@ -6519,6 +6608,7 @@ static const int D058_pw[UI_D058_COUNT] = { 76,76 };
 static const int D058_ph[UI_D058_COUNT] = { 37,37 };
 static void rs_draw_d058(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D058_POPUP_X0, UI_D058_POPUP_Y0, UI_D058_POPUP_W, UI_D058_POPUP_H, 0, uc);
     const ui_d058_btn *bb = ui_d058_buttons();
@@ -6550,6 +6640,7 @@ static const int D059_pw[UI_D059_COUNT] = { 114,76,76 };
 static const int D059_ph[UI_D059_COUNT] = { 37,37,37 };
 static void rs_draw_d059(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D059_POPUP_X0, UI_D059_POPUP_Y0, UI_D059_POPUP_W, UI_D059_POPUP_H, 0, uc);
     const ui_d059_btn *bb = ui_d059_buttons();
@@ -6581,6 +6672,7 @@ static const int D060_pw[UI_D060_COUNT] = { 103,103,76,76,76 };
 static const int D060_ph[UI_D060_COUNT] = { 29,29,37,37,37 };
 static void rs_draw_d060(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D060_POPUP_X0, UI_D060_POPUP_Y0, UI_D060_POPUP_W, UI_D060_POPUP_H, 0, uc);
     const ui_d060_btn *bb = ui_d060_buttons();
@@ -6612,6 +6704,7 @@ static const int D061_pw[UI_D061_COUNT] = { 74,91,61,95,76,76 };
 static const int D061_ph[UI_D061_COUNT] = { 29,29,33,29,37,37 };
 static void rs_draw_d061(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D061_POPUP_X0, UI_D061_POPUP_Y0, UI_D061_POPUP_W, UI_D061_POPUP_H, 0, uc);
     const ui_d061_btn *bb = ui_d061_buttons();
@@ -6643,6 +6736,7 @@ static const int D062_pw[UI_D062_COUNT] = { 61,95,76,76 };
 static const int D062_ph[UI_D062_COUNT] = { 33,29,37,37 };
 static void rs_draw_d062(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D062_POPUP_X0, UI_D062_POPUP_Y0, UI_D062_POPUP_W, UI_D062_POPUP_H, 0, uc);
     const ui_d062_btn *bb = ui_d062_buttons();
@@ -6674,6 +6768,7 @@ static const int D063_pw[UI_D063_COUNT] = { 76,76,76 };
 static const int D063_ph[UI_D063_COUNT] = { 37,37,37 };
 static void rs_draw_d063(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D063_POPUP_X0, UI_D063_POPUP_Y0, UI_D063_POPUP_W, UI_D063_POPUP_H, 0, uc);
     const ui_d063_btn *bb = ui_d063_buttons();
@@ -6705,6 +6800,7 @@ static const int D064_pw[UI_D064_COUNT] = { 95,81,84 };
 static const int D064_ph[UI_D064_COUNT] = { 28,29,29 };
 static void rs_draw_d064(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D064_POPUP_X0, UI_D064_POPUP_Y0, UI_D064_POPUP_W, UI_D064_POPUP_H, 0, uc);
     const ui_d064_btn *bb = ui_d064_buttons();
@@ -6736,6 +6832,7 @@ static const int D065_pw[UI_D065_COUNT] = { 76,76 };
 static const int D065_ph[UI_D065_COUNT] = { 37,37 };
 static void rs_draw_d065(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D065_POPUP_X0, UI_D065_POPUP_Y0, UI_D065_POPUP_W, UI_D065_POPUP_H, 0, uc);
     const ui_d065_btn *bb = ui_d065_buttons();
@@ -6767,6 +6864,7 @@ static const int D066_pw[UI_D066_COUNT] = { 152,152,76 };
 static const int D066_ph[UI_D066_COUNT] = { 38,38,37 };
 static void rs_draw_d066(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D066_POPUP_X0, UI_D066_POPUP_Y0, UI_D066_POPUP_W, UI_D066_POPUP_H, 0, uc);
     const ui_d066_btn *bb = ui_d066_buttons();
@@ -6798,6 +6896,7 @@ static const int D067_pw[UI_D067_COUNT] = { 152,76,76,76,76,152,152,152 };
 static const int D067_ph[UI_D067_COUNT] = { 38,37,37,37,37,37,37,38 };
 static void rs_draw_d067(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D067_POPUP_X0, UI_D067_POPUP_Y0, UI_D067_POPUP_W, UI_D067_POPUP_H, 0, uc);
     const ui_d067_btn *bb = ui_d067_buttons();
@@ -6829,6 +6928,7 @@ static const int D068_pw[UI_D068_COUNT] = { 76,114,76 };
 static const int D068_ph[UI_D068_COUNT] = { 37,37,37 };
 static void rs_draw_d068(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D068_POPUP_X0, UI_D068_POPUP_Y0, UI_D068_POPUP_W, UI_D068_POPUP_H, 0, uc);
     const ui_d068_btn *bb = ui_d068_buttons();
@@ -6860,6 +6960,7 @@ static const int D069_pw[UI_D069_COUNT] = { 74,61,95,76,76,76 };
 static const int D069_ph[UI_D069_COUNT] = { 29,33,29,37,37,37 };
 static void rs_draw_d069(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D069_POPUP_X0, UI_D069_POPUP_Y0, UI_D069_POPUP_W, UI_D069_POPUP_H, 0, uc);
     const ui_d069_btn *bb = ui_d069_buttons();
@@ -6891,6 +6992,7 @@ static const int D070_pw[UI_D070_COUNT] = { 89,175,127,114,76,76 };
 static const int D070_ph[UI_D070_COUNT] = { 28,29,34,34,37,37 };
 static void rs_draw_d070(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D070_POPUP_X0, UI_D070_POPUP_Y0, UI_D070_POPUP_W, UI_D070_POPUP_H, 0, uc);
     const ui_d070_btn *bb = ui_d070_buttons();
@@ -6922,6 +7024,7 @@ static const int D071_pw[UI_D071_COUNT] = { 76,76 };
 static const int D071_ph[UI_D071_COUNT] = { 38,37 };
 static void rs_draw_d071(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D071_POPUP_X0, UI_D071_POPUP_Y0, UI_D071_POPUP_W, UI_D071_POPUP_H, 0, uc);
     const ui_d071_btn *bb = ui_d071_buttons();
@@ -6953,6 +7056,7 @@ static const int D072_pw[UI_D072_COUNT] = { 152,175,152,76 };
 static const int D072_ph[UI_D072_COUNT] = { 37,37,37,37 };
 static void rs_draw_d072(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D072_POPUP_X0, UI_D072_POPUP_Y0, UI_D072_POPUP_W, UI_D072_POPUP_H, 0, uc);
     const ui_d072_btn *bb = ui_d072_buttons();
@@ -6984,6 +7088,7 @@ static const int D073_pw[UI_D073_COUNT] = { 76,76 };
 static const int D073_ph[UI_D073_COUNT] = { 37,37 };
 static void rs_draw_d073(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D073_POPUP_X0, UI_D073_POPUP_Y0, UI_D073_POPUP_W, UI_D073_POPUP_H, 0, uc);
     const ui_d073_btn *bb = ui_d073_buttons();
@@ -7015,6 +7120,7 @@ static const int D075_pw[UI_D075_COUNT] = { 78,79,95,84 };
 static const int D075_ph[UI_D075_COUNT] = { 28,28,28,29 };
 static void rs_draw_d075(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D075_POPUP_X0, UI_D075_POPUP_Y0, UI_D075_POPUP_W, UI_D075_POPUP_H, 0, uc);
     const ui_d075_btn *bb = ui_d075_buttons();
@@ -7046,6 +7152,7 @@ static const int D077_pw[UI_D077_COUNT] = { 76,76,152,152,152,152 };
 static const int D077_ph[UI_D077_COUNT] = { 35,37,38,37,37,37 };
 static void rs_draw_d077(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D077_POPUP_X0, UI_D077_POPUP_Y0, UI_D077_POPUP_W, UI_D077_POPUP_H, 0, uc);
     const ui_d077_btn *bb = ui_d077_buttons();
@@ -7077,6 +7184,7 @@ static const int D078_pw[UI_D078_COUNT] = { 76,76,76 };
 static const int D078_ph[UI_D078_COUNT] = { 38,37,37 };
 static void rs_draw_d078(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D078_POPUP_X0, UI_D078_POPUP_Y0, UI_D078_POPUP_W, UI_D078_POPUP_H, 0, uc);
     const ui_d078_btn *bb = ui_d078_buttons();
@@ -7108,6 +7216,7 @@ static const int D079_pw[UI_D079_COUNT] = { 76 };
 static const int D079_ph[UI_D079_COUNT] = { 37 };
 static void rs_draw_d079(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D079_POPUP_X0, UI_D079_POPUP_Y0, UI_D079_POPUP_W, UI_D079_POPUP_H, 0, uc);
     const ui_d079_btn *bb = ui_d079_buttons();
@@ -7139,6 +7248,7 @@ static const int D082_pw[UI_D082_COUNT] = { 76,76,76,76,76 };
 static const int D082_ph[UI_D082_COUNT] = { 37,38,37,37,37 };
 static void rs_draw_d082(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D082_POPUP_X0, UI_D082_POPUP_Y0, UI_D082_POPUP_W, UI_D082_POPUP_H, 0, uc);
     const ui_d082_btn *bb = ui_d082_buttons();
@@ -7170,6 +7280,7 @@ static const int D083_pw[UI_D083_COUNT] = { 152,152,152,152 };
 static const int D083_ph[UI_D083_COUNT] = { 38,37,37,37 };
 static void rs_draw_d083(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D083_POPUP_X0, UI_D083_POPUP_Y0, UI_D083_POPUP_W, UI_D083_POPUP_H, 0, uc);
     const ui_d083_btn *bb = ui_d083_buttons();
@@ -7201,6 +7312,7 @@ static const int D084_pw[UI_D084_COUNT] = { 129,171,76,76 };
 static const int D084_ph[UI_D084_COUNT] = { 34,29,37,37 };
 static void rs_draw_d084(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D084_POPUP_X0, UI_D084_POPUP_Y0, UI_D084_POPUP_W, UI_D084_POPUP_H, 0, uc);
     const ui_d084_btn *bb = ui_d084_buttons();
@@ -7232,6 +7344,7 @@ static const int D085_pw[UI_D085_COUNT] = { 76,76,76,76,76 };
 static const int D085_ph[UI_D085_COUNT] = { 37,37,37,37,37 };
 static void rs_draw_d085(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D085_POPUP_X0, UI_D085_POPUP_Y0, UI_D085_POPUP_W, UI_D085_POPUP_H, 0, uc);
     const ui_d085_btn *bb = ui_d085_buttons();
@@ -7263,6 +7376,7 @@ static const int D086_pw[UI_D086_COUNT] = { 143,76,76,76 };
 static const int D086_ph[UI_D086_COUNT] = { 28,37,37,37 };
 static void rs_draw_d086(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D086_POPUP_X0, UI_D086_POPUP_Y0, UI_D086_POPUP_W, UI_D086_POPUP_H, 0, uc);
     const ui_d086_btn *bb = ui_d086_buttons();
@@ -7294,6 +7408,7 @@ static const int D089_pw[UI_D089_COUNT] = { 21,21,21 };
 static const int D089_ph[UI_D089_COUNT] = { 27,28,27 };
 static void rs_draw_d089(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D089_POPUP_X0, UI_D089_POPUP_Y0, UI_D089_POPUP_W, UI_D089_POPUP_H, 0, uc);
     const ui_d089_btn *bb = ui_d089_buttons();
@@ -7325,6 +7440,7 @@ static const int D090_pw[UI_D090_COUNT] = { 152,152 };
 static const int D090_ph[UI_D090_COUNT] = { 37,37 };
 static void rs_draw_d090(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D090_POPUP_X0, UI_D090_POPUP_Y0, UI_D090_POPUP_W, UI_D090_POPUP_H, 0, uc);
     const ui_d090_btn *bb = ui_d090_buttons();
@@ -7356,6 +7472,7 @@ static const int D094_pw[UI_D094_COUNT] = { 129,171,81,76,76 };
 static const int D094_ph[UI_D094_COUNT] = { 34,29,29,37,37 };
 static void rs_draw_d094(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D094_POPUP_X0, UI_D094_POPUP_Y0, UI_D094_POPUP_W, UI_D094_POPUP_H, 0, uc);
     const ui_d094_btn *bb = ui_d094_buttons();
@@ -7387,6 +7504,7 @@ static const int D095_pw[UI_D095_COUNT] = { 76,76,76,76,76 };
 static const int D095_ph[UI_D095_COUNT] = { 37,37,37,37,37 };
 static void rs_draw_d095(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D095_POPUP_X0, UI_D095_POPUP_Y0, UI_D095_POPUP_W, UI_D095_POPUP_H, 0, uc);
     const ui_d095_btn *bb = ui_d095_buttons();
@@ -7418,6 +7536,7 @@ static const int D096_pw[UI_D096_COUNT] = { 76,76,76 };
 static const int D096_ph[UI_D096_COUNT] = { 38,38,37 };
 static void rs_draw_d096(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D096_POPUP_X0, UI_D096_POPUP_Y0, UI_D096_POPUP_W, UI_D096_POPUP_H, 0, uc);
     const ui_d096_btn *bb = ui_d096_buttons();
@@ -7449,6 +7568,7 @@ static const int D097_pw[UI_D097_COUNT] = { 76,76,76,76 };
 static const int D097_ph[UI_D097_COUNT] = { 37,37,37,37 };
 static void rs_draw_d097(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D097_POPUP_X0, UI_D097_POPUP_Y0, UI_D097_POPUP_W, UI_D097_POPUP_H, 0, uc);
     const ui_d097_btn *bb = ui_d097_buttons();
@@ -7480,6 +7600,7 @@ static const int D098_pw[UI_D098_COUNT] = { 76,76,76,76,76,76 };
 static const int D098_ph[UI_D098_COUNT] = { 37,36,37,36,37,36 };
 static void rs_draw_d098(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D098_POPUP_X0, UI_D098_POPUP_Y0, UI_D098_POPUP_W, UI_D098_POPUP_H, 0, uc);
     const ui_d098_btn *bb = ui_d098_buttons();
@@ -7511,6 +7632,7 @@ static const int D099_pw[UI_D099_COUNT] = { 152,152,152,152 };
 static const int D099_ph[UI_D099_COUNT] = { 37,38,37,37 };
 static void rs_draw_d099(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D099_POPUP_X0, UI_D099_POPUP_Y0, UI_D099_POPUP_W, UI_D099_POPUP_H, 0, uc);
     const ui_d099_btn *bb = ui_d099_buttons();
@@ -7542,6 +7664,7 @@ static const int D100_pw[UI_D100_COUNT] = { 76 };
 static const int D100_ph[UI_D100_COUNT] = { 37 };
 static void rs_draw_d100(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D100_POPUP_X0, UI_D100_POPUP_Y0, UI_D100_POPUP_W, UI_D100_POPUP_H, 0, uc);
     const ui_d100_btn *bb = ui_d100_buttons();
@@ -7573,6 +7696,7 @@ static const int D101_pw[UI_D101_COUNT] = { 76,76,76,76 };
 static const int D101_ph[UI_D101_COUNT] = { 37,37,37,37 };
 static void rs_draw_d101(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D101_POPUP_X0, UI_D101_POPUP_Y0, UI_D101_POPUP_W, UI_D101_POPUP_H, 0, uc);
     const ui_d101_btn *bb = ui_d101_buttons();
@@ -7604,6 +7728,7 @@ static const int D102_pw[UI_D102_COUNT] = { 76 };
 static const int D102_ph[UI_D102_COUNT] = { 37 };
 static void rs_draw_d102(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D102_POPUP_X0, UI_D102_POPUP_Y0, UI_D102_POPUP_W, UI_D102_POPUP_H, 0, uc);
     const ui_d102_btn *bb = ui_d102_buttons();
@@ -7635,6 +7760,7 @@ static const int D104_pw[UI_D104_COUNT] = { 53,144,84,76,76 };
 static const int D104_ph[UI_D104_COUNT] = { 28,34,33,37,37 };
 static void rs_draw_d104(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D104_POPUP_X0, UI_D104_POPUP_Y0, UI_D104_POPUP_W, UI_D104_POPUP_H, 0, uc);
     const ui_d104_btn *bb = ui_d104_buttons();
@@ -7666,6 +7792,7 @@ static const int D107_pw[UI_D107_COUNT] = { 76,76,76,76,76 };
 static const int D107_ph[UI_D107_COUNT] = { 37,37,37,37,37 };
 static void rs_draw_d107(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D107_POPUP_X0, UI_D107_POPUP_Y0, UI_D107_POPUP_W, UI_D107_POPUP_H, 0, uc);
     const ui_d107_btn *bb = ui_d107_buttons();
@@ -7697,6 +7824,7 @@ static const int D108_pw[UI_D108_COUNT] = { 76,76,76 };
 static const int D108_ph[UI_D108_COUNT] = { 37,37,37 };
 static void rs_draw_d108(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D108_POPUP_X0, UI_D108_POPUP_Y0, UI_D108_POPUP_W, UI_D108_POPUP_H, 0, uc);
     const ui_d108_btn *bb = ui_d108_buttons();
@@ -7728,6 +7856,7 @@ static const int D109_pw[UI_D109_COUNT] = { 76,76,76 };
 static const int D109_ph[UI_D109_COUNT] = { 35,37,37 };
 static void rs_draw_d109(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D109_POPUP_X0, UI_D109_POPUP_Y0, UI_D109_POPUP_W, UI_D109_POPUP_H, 0, uc);
     const ui_d109_btn *bb = ui_d109_buttons();
@@ -7759,6 +7888,7 @@ static const int D110_pw[UI_D110_COUNT] = { 76,76 };
 static const int D110_ph[UI_D110_COUNT] = { 37,37 };
 static void rs_draw_d110(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D110_POPUP_X0, UI_D110_POPUP_Y0, UI_D110_POPUP_W, UI_D110_POPUP_H, 0, uc);
     const ui_d110_btn *bb = ui_d110_buttons();
@@ -7790,6 +7920,7 @@ static const int D112_pw[UI_D112_COUNT] = { 152,152,152,152,152 };
 static const int D112_ph[UI_D112_COUNT] = { 38,37,38,37,37 };
 static void rs_draw_d112(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D112_POPUP_X0, UI_D112_POPUP_Y0, UI_D112_POPUP_W, UI_D112_POPUP_H, 0, uc);
     const ui_d112_btn *bb = ui_d112_buttons();
@@ -7821,6 +7952,7 @@ static const int D113_pw[UI_D113_COUNT] = { 21,21,21,21 };
 static const int D113_ph[UI_D113_COUNT] = { 28,27,27,28 };
 static void rs_draw_d113(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D113_POPUP_X0, UI_D113_POPUP_Y0, UI_D113_POPUP_W, UI_D113_POPUP_H, 0, uc);
     const ui_d113_btn *bb = ui_d113_buttons();
@@ -7852,6 +7984,7 @@ static const int D114_pw[UI_D114_COUNT] = { 65 };
 static const int D114_ph[UI_D114_COUNT] = { 29 };
 static void rs_draw_d114(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D114_POPUP_X0, UI_D114_POPUP_Y0, UI_D114_POPUP_W, UI_D114_POPUP_H, 0, uc);
     const ui_d114_btn *bb = ui_d114_buttons();
@@ -7883,6 +8016,7 @@ static const int D118_pw[UI_D118_COUNT] = { 76,76 };
 static const int D118_ph[UI_D118_COUNT] = { 38,37 };
 static void rs_draw_d118(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D118_POPUP_X0, UI_D118_POPUP_Y0, UI_D118_POPUP_W, UI_D118_POPUP_H, 0, uc);
     const ui_d118_btn *bb = ui_d118_buttons();
@@ -7914,6 +8048,7 @@ static const int D119_pw[UI_D119_COUNT] = { 76,76 };
 static const int D119_ph[UI_D119_COUNT] = { 37,37 };
 static void rs_draw_d119(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D119_POPUP_X0, UI_D119_POPUP_Y0, UI_D119_POPUP_W, UI_D119_POPUP_H, 0, uc);
     const ui_d119_btn *bb = ui_d119_buttons();
@@ -7945,6 +8080,7 @@ static const int D120_pw[UI_D120_COUNT] = { 152,152,76 };
 static const int D120_ph[UI_D120_COUNT] = { 37,38,37 };
 static void rs_draw_d120(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D120_POPUP_X0, UI_D120_POPUP_Y0, UI_D120_POPUP_W, UI_D120_POPUP_H, 0, uc);
     const ui_d120_btn *bb = ui_d120_buttons();
@@ -7976,6 +8112,7 @@ static const int D121_pw[UI_D121_COUNT] = { 76,76 };
 static const int D121_ph[UI_D121_COUNT] = { 37,37 };
 static void rs_draw_d121(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D121_POPUP_X0, UI_D121_POPUP_Y0, UI_D121_POPUP_W, UI_D121_POPUP_H, 0, uc);
     const ui_d121_btn *bb = ui_d121_buttons();
@@ -8007,6 +8144,7 @@ static const int D122_pw[UI_D122_COUNT] = { 76,76 };
 static const int D122_ph[UI_D122_COUNT] = { 37,37 };
 static void rs_draw_d122(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D122_POPUP_X0, UI_D122_POPUP_Y0, UI_D122_POPUP_W, UI_D122_POPUP_H, 0, uc);
     const ui_d122_btn *bb = ui_d122_buttons();
@@ -8038,6 +8176,7 @@ static const int D123_pw[UI_D123_COUNT] = { 74 };
 static const int D123_ph[UI_D123_COUNT] = { 29 };
 static void rs_draw_d123(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D123_POPUP_X0, UI_D123_POPUP_Y0, UI_D123_POPUP_W, UI_D123_POPUP_H, 0, uc);
     const ui_d123_btn *bb = ui_d123_buttons();
@@ -8069,6 +8208,7 @@ static const int D246_pw[UI_D246_COUNT] = { 95,84 };
 static const int D246_ph[UI_D246_COUNT] = { 28,29 };
 static void rs_draw_d246(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D246_POPUP_X0, UI_D246_POPUP_Y0, UI_D246_POPUP_W, UI_D246_POPUP_H, 0, uc);
     const ui_d246_btn *bb = ui_d246_buttons();
@@ -8100,6 +8240,7 @@ static const int D247_pw[UI_D247_COUNT] = { 84 };
 static const int D247_ph[UI_D247_COUNT] = { 29 };
 static void rs_draw_d247(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D247_POPUP_X0, UI_D247_POPUP_Y0, UI_D247_POPUP_W, UI_D247_POPUP_H, 0, uc);
     const ui_d247_btn *bb = ui_d247_buttons();
@@ -8131,6 +8272,7 @@ static const int D248_pw[UI_D248_COUNT] = { 152,152,76,76 };
 static const int D248_ph[UI_D248_COUNT] = { 37,37,37,37 };
 static void rs_draw_d248(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D248_POPUP_X0, UI_D248_POPUP_Y0, UI_D248_POPUP_W, UI_D248_POPUP_H, 0, uc);
     const ui_d248_btn *bb = ui_d248_buttons();
@@ -8162,6 +8304,7 @@ static const int D249_pw[UI_D249_COUNT] = { 84 };
 static const int D249_ph[UI_D249_COUNT] = { 33 };
 static void rs_draw_d249(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D249_POPUP_X0, UI_D249_POPUP_Y0, UI_D249_POPUP_W, UI_D249_POPUP_H, 0, uc);
     const ui_d249_btn *bb = ui_d249_buttons();
@@ -8193,6 +8336,7 @@ static const int D250_pw[UI_D250_COUNT] = { 95,81 };
 static const int D250_ph[UI_D250_COUNT] = { 28,29 };
 static void rs_draw_d250(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D250_POPUP_X0, UI_D250_POPUP_Y0, UI_D250_POPUP_W, UI_D250_POPUP_H, 0, uc);
     const ui_d250_btn *bb = ui_d250_buttons();
@@ -8224,6 +8368,7 @@ static const int D251_pw[UI_D251_COUNT] = { 76 };
 static const int D251_ph[UI_D251_COUNT] = { 37 };
 static void rs_draw_d251(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D251_POPUP_X0, UI_D251_POPUP_Y0, UI_D251_POPUP_W, UI_D251_POPUP_H, 0, uc);
     const ui_d251_btn *bb = ui_d251_buttons();
@@ -8255,6 +8400,7 @@ static const int D253_pw[UI_D253_COUNT] = { 76 };
 static const int D253_ph[UI_D253_COUNT] = { 37 };
 static void rs_draw_d253(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D253_POPUP_X0, UI_D253_POPUP_Y0, UI_D253_POPUP_W, UI_D253_POPUP_H, 0, uc);
     const ui_d253_btn *bb = ui_d253_buttons();
@@ -8286,6 +8432,7 @@ static const int D255_pw[UI_D255_COUNT] = { 95,81,84 };
 static const int D255_ph[UI_D255_COUNT] = { 28,29,29 };
 static void rs_draw_d255(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D255_POPUP_X0, UI_D255_POPUP_Y0, UI_D255_POPUP_W, UI_D255_POPUP_H, 0, uc);
     const ui_d255_btn *bb = ui_d255_buttons();
@@ -8317,6 +8464,7 @@ static const int D256_pw[UI_D256_COUNT] = { 78,79,95,84 };
 static const int D256_ph[UI_D256_COUNT] = { 28,28,28,29 };
 static void rs_draw_d256(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D256_POPUP_X0, UI_D256_POPUP_Y0, UI_D256_POPUP_W, UI_D256_POPUP_H, 0, uc);
     const ui_d256_btn *bb = ui_d256_buttons();
@@ -8348,6 +8496,7 @@ static const int D257_pw[UI_D257_COUNT] = { 76,76,76,76,76 };
 static const int D257_ph[UI_D257_COUNT] = { 37,38,37,37,37 };
 static void rs_draw_d257(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D257_POPUP_X0, UI_D257_POPUP_Y0, UI_D257_POPUP_W, UI_D257_POPUP_H, 0, uc);
     const ui_d257_btn *bb = ui_d257_buttons();
@@ -8379,6 +8528,7 @@ static const int D258_pw[UI_D258_COUNT] = { 76,76,76,76,76 };
 static const int D258_ph[UI_D258_COUNT] = { 37,37,37,37,37 };
 static void rs_draw_d258(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D258_POPUP_X0, UI_D258_POPUP_Y0, UI_D258_POPUP_W, UI_D258_POPUP_H, 0, uc);
     const ui_d258_btn *bb = ui_d258_buttons();
@@ -8410,6 +8560,7 @@ static const int D259_pw[UI_D259_COUNT] = { 152,152 };
 static const int D259_ph[UI_D259_COUNT] = { 37,37 };
 static void rs_draw_d259(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D259_POPUP_X0, UI_D259_POPUP_Y0, UI_D259_POPUP_W, UI_D259_POPUP_H, 0, uc);
     const ui_d259_btn *bb = ui_d259_buttons();
@@ -8441,6 +8592,7 @@ static const int D260_pw[UI_D260_COUNT] = { 76,76,76,76,76 };
 static const int D260_ph[UI_D260_COUNT] = { 37,37,37,37,37 };
 static void rs_draw_d260(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D260_POPUP_X0, UI_D260_POPUP_Y0, UI_D260_POPUP_W, UI_D260_POPUP_H, 0, uc);
     const ui_d260_btn *bb = ui_d260_buttons();
@@ -8472,6 +8624,7 @@ static const int D261_pw[UI_D261_COUNT] = { 76 };
 static const int D261_ph[UI_D261_COUNT] = { 37 };
 static void rs_draw_d261(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D261_POPUP_X0, UI_D261_POPUP_Y0, UI_D261_POPUP_W, UI_D261_POPUP_H, 0, uc);
     const ui_d261_btn *bb = ui_d261_buttons();
@@ -8503,6 +8656,7 @@ static const int D262_pw[UI_D262_COUNT] = { 76,76,76,76 };
 static const int D262_ph[UI_D262_COUNT] = { 37,37,37,37 };
 static void rs_draw_d262(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D262_POPUP_X0, UI_D262_POPUP_Y0, UI_D262_POPUP_W, UI_D262_POPUP_H, 0, uc);
     const ui_d262_btn *bb = ui_d262_buttons();
@@ -8534,6 +8688,7 @@ static const int D263_pw[UI_D263_COUNT] = { 76,76,76,76,76 };
 static const int D263_ph[UI_D263_COUNT] = { 37,37,37,37,37 };
 static void rs_draw_d263(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D263_POPUP_X0, UI_D263_POPUP_Y0, UI_D263_POPUP_W, UI_D263_POPUP_H, 0, uc);
     const ui_d263_btn *bb = ui_d263_buttons();
@@ -8565,6 +8720,7 @@ static const int D264_pw[UI_D264_COUNT] = { 65 };
 static const int D264_ph[UI_D264_COUNT] = { 29 };
 static void rs_draw_d264(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D264_POPUP_X0, UI_D264_POPUP_Y0, UI_D264_POPUP_W, UI_D264_POPUP_H, 0, uc);
     const ui_d264_btn *bb = ui_d264_buttons();
@@ -8649,6 +8805,7 @@ static void rs_draw_d264(rs_render *rr, int slot)
 /* SPAK2UI 批量弹窗通用：标题行（uibat row，cx 中心 720 基准） */
 static void rs_uibat_title(rs_render *rr, int slot, int row, float cx, float cy, GLint uc)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     rs_atlas_label(rr, slot, rr->tex_uibat_text[slot], rr->uibat_text_w, rr->uibat_text_h,
                    UIBAT_ROW, row, cx, cy, 150.0f, uc);
 }
@@ -8657,6 +8814,7 @@ static void rs_uibat_title(rs_render *rr, int slot, int row, float cx, float cy,
    ★ 诚实边界：排行榜/消息数据未逆向→边界对话框，按钮标签=图集 row12/row13 占位） */
 static void rs_draw_ui44(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     if (!rr->prog_solid[slot] || !rr->gl2_ok[slot]) return;
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_UI44_POPUP_X0, UI_UI44_POPUP_Y0,
@@ -8684,6 +8842,7 @@ static void rs_draw_ui44(rs_render *rr, int slot)
 /* ② datah_045 战况统计·详细（固定位置 45,620，面板 390×135；Info 文本框 + 详细 1 按钮） */
 static void rs_draw_ui45(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     if (!rr->prog_solid[slot] || !rr->gl2_ok[slot]) return;
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_UI45_POPUP_X0, UI_UI45_POPUP_Y0,
@@ -8709,6 +8868,7 @@ static void rs_draw_ui45(rs_render *rr, int slot)
 /* ③ datah_046 玩家资料（420×420 居中 +150,+430；标题 + Info 占位 + 返回 1 按钮） */
 static void rs_draw_ui46(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     if (!rr->prog_solid[slot] || !rr->gl2_ok[slot]) return;
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_UI46_POPUP_X0, UI_UI46_POPUP_Y0,
@@ -8734,6 +8894,7 @@ static void rs_draw_ui46(rs_render *rr, int slot)
 /* ④ datah_047 玩家列表（420×305 居中 +150,+487.5；标题 + ListBox 占位 + 关闭 1 按钮） */
 static void rs_draw_ui47(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     if (!rr->prog_solid[slot] || !rr->gl2_ok[slot]) return;
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_UI47_POPUP_X0, UI_UI47_POPUP_Y0,
@@ -8759,6 +8920,7 @@ static void rs_draw_ui47(rs_render *rr, int slot)
 /* ⑤ datah_049 对局详情（420×610 居中 +150,+335；标题 + ListBox 占位 + 关闭 1 按钮） */
 static void rs_draw_ui49(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     if (!rr->prog_solid[slot] || !rr->gl2_ok[slot]) return;
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_UI49_POPUP_X0, UI_UI49_POPUP_Y0,
@@ -8827,22 +8989,26 @@ static void rs_uibat_clearclose_dialog(rs_render *rr, int slot,
 /* ⑥ datah_051 我的对局（450×610 居中 +135,+335） */
 static void rs_draw_ui51(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     rs_uibat_clearclose_dialog(rr, slot, UI_UI51, 5, "rs_draw_ui51（datah_051 我的对局）");
 }
 /* ⑦ datah_054 历史对局（450×610 居中 +135,+335） */
 static void rs_draw_ui54(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     rs_uibat_clearclose_dialog(rr, slot, UI_UI54, 6, "rs_draw_ui54（datah_054 历史对局）");
 }
 /* ⑪ datah_110 历史对局联机版（450×610 居中 +135,+335） */
 static void rs_draw_ui110(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     rs_uibat_clearclose_dialog(rr, slot, UI_UI110, 6, "rs_draw_ui110（datah_110 历史对局联机版）");
 }
 
 /* ⑧ datah_073 创建游戏（450×270 居中 +135,+505；标题 + 输入框占位 + 开始/取消 2 按钮） */
 static void rs_draw_ui73(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     if (!rr->prog_solid[slot] || !rr->gl2_ok[slot]) return;
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_UI73_POPUP_X0, UI_UI73_POPUP_Y0,
@@ -8876,6 +9042,7 @@ static void rs_draw_ui73(rs_render *rr, int slot)
 /* ⑨ datah_090 对战方式（固定位置 135,570，面板 210×150；人机/联网 2 按钮） */
 static void rs_draw_ui90(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     if (!rr->prog_solid[slot] || !rr->gl2_ok[slot]) return;
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_UI90_POPUP_X0, UI_UI90_POPUP_Y0,
@@ -8903,6 +9070,7 @@ static void rs_draw_ui90(rs_render *rr, int slot)
 /* ⑩ datah_100 详细战况（固定位置 45,620，面板 390×135，与 045 同构） */
 static void rs_draw_ui100(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     if (!rr->prog_solid[slot] || !rr->gl2_ok[slot]) return;
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_UI100_POPUP_X0, UI_UI100_POPUP_Y0,
@@ -8927,6 +9095,7 @@ static void rs_draw_ui100(rs_render *rr, int slot)
 /* ⑫ datah_118 版本更新（450×360 居中 +135,+460；标题 + Info 占位 + 更新/取消 2 按钮） */
 static void rs_draw_ui118(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     if (!rr->prog_solid[slot] || !rr->gl2_ok[slot]) return;
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_UI118_POPUP_X0, UI_UI118_POPUP_Y0,
@@ -8957,6 +9126,7 @@ static void rs_draw_ui118(rs_render *rr, int slot)
 
 static void rs_draw_replay(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     if (!rr->prog_solid[slot] || !rr->gl2_ok[slot]) return;
     float sx = (float)rr->view_w / 720.0f, sy = (float)rr->view_h / 1280.0f;
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
@@ -9061,6 +9231,7 @@ static int now_is_glthread_ctx(rs_render *rr)
 /* 每 context 重建 GL 对象（纹理/VBO/shader 属当前 context；像素 buffer 共享只上传一次） */
 static void rs_gl_rebuild(rs_render *rr, int slot)
 {
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     /* GLSL program（当前 context） */
     int ok_t = rs_build_tex_prog(&rr->prog_tex[slot], NULL, NULL, NULL);
     int ok_s = rs_build_solid_prog(&rr->prog_solid[slot], NULL, NULL);
