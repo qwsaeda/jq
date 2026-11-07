@@ -218,7 +218,7 @@ def main():
           f"翻译体侧已实证 {len(ev)} 条 | 已标记分叉 {len(marked)} 条 | "
           f"未标记分叉 {len(no_ev)} 条")
     print("已标记分叉清单（翻译体侧 AUD-R 分叉标记注释：已标注 64 位独有设计 / 走子桥简化 / 行为等价，非实证对齐）：")
-    for item, theme in marked:
+    for item, theme, _marks in marked:
         print(f"  · {item} {theme}")
     print("未标记分叉清单（src_rs 已修、翻译体侧既无实证也未标记，须走 32 位反汇编路线对齐）：")
     for item, theme in no_ev:
