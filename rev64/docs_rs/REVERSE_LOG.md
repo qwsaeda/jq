@@ -5471,3 +5471,32 @@ python3 /tmp/opencode/incremental_regress.py reset 0xADDR  # 改了某指令 →
 - F_becf4/F_b6a64 未收表（dispatch 表 False），但 jqt_OnRender_full.c 有定义体（存根 r0=0）
   （§124y-29 未收表 handler 返回 2 兜底模式）
 - 14 JNI 入口中 OnUpdate 的 F_bd5a0 主循环需 .bss 根对象 scudo 构造（unidbg/frida dump 运行时值）
+
+## §124y-144 OnInput F_c6088 字符串处理函数完整体对齐（strlen + F_23bec 缓冲区构造）
+
+**★ 闭环事实（F_c6088 存根改完整体，原版 0xc6088-0xc60a0 真实逻辑）**：
+
+1. **F_c6088 原版 0xc6088 完整流程实锤（OnInput F_bd870 的字符串处理函数）**：
+   - 入参：r0=目标 buffer 指针（.bss 0x162660 区 [0]，§124y-142 实锤），r1=源字符串（char*，GetStringUTFChars 返回的 jstring UTF-8）
+   - 流程：
+     - `blx strlen@plt`（0x22c80）→ 算 strlen(r1)=len（r0）
+     - r5 = r0+0x50（buffer 偏移 0x50 = 字符串区）
+     - r2 = r1+len（字符串末指针）
+     - r1 = str（源字符串）
+     - r0 = r5（buffer+0x50）
+     - `bl 0x23bec`（F_23bec 已收表，jqt_OnCreate_full.c:13973 定义体）→ 构造字符串缓冲区
+
+2. **F_c6088 翻译体完整体（jqt_OnInput.c，照原版 0xc6088-0xc60a0 逐标签翻译）**：
+   - strlen 用 `JQT_ABS_PTR(r1)` 转真实地址逐字节数（翻译体无 PLT 模拟，.bss 未构造 → r1=0 时 len=0 忠实兜底）
+   - 调 F_23bec(buf+0x50, str, str+len, ...) 已收表定义体（非存根）
+   - F_bd870 的 Lbd8ca 调用点改 `F_c6088` 完整体（非存根）
+
+3. **编译验证 + 4 路径回归全过**：
+   - build_arm32_aligned.sh 链接通过（JNI 符号 14，F_c6088 完整体无重复符号）
+   - 4 路径回归（walk_bridge/native_layout/native_event/game_test）4/4 PASS + 0 崩溃
+   - **F_c6088 存根 → 完整体，OnInput F_bd870 字符串处理链完整对齐**
+
+### 诚实边界
+- F_c6088 的 strlen 调用需 r1=GetStringUTFChars 返回的有效 char*（.bss 未构造 → r1=0 → len=0 忠实兜底）
+- F_23bec 缓冲区构造需 [r0+0x50] 字符串区有效（.bss 未构造 → 忠实兜底，§124y-33/35 ok=0 路径）
+- OnInput 无独立回归钩子（需 jstring 键盘输入 → 事件构造，4 路径回归覆盖 OnTouch/OnEvent 触摸路径 + 游戏走子链）

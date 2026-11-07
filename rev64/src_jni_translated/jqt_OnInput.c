@@ -95,7 +95,7 @@ Lbd8c2: r3=MEM(0x162660);     /* ldr r3,[pc] → .bss 0x162660 (OnInput C++ 对�
 Lbd8c4: r1=r8;               /* mov r1,r8 */
 Lbd8c6: r3=(0x162660+r3);     /* add r3,pc → .bss 偏移 */
 Lbd8c8: r0=MEM(r3);           /* ldr r0,[r3,#0] = .bss 0x162660 区 [0] */
-Lbd8ca: r0=F_c6088(r0,r1,r2,r3,r4,r5,r6,r7,r8,r9,r10,r11,sp); /* bl 0xc6088 (字符串处理, 未收表存根) */
+Lbd8ca: r0=F_c6088(r0,r1,r2,r3,r4,r5,r6,r7,r8,r9,r10,r11,sp); /* bl 0xc6088 (字符串处理, §124y-144 完整体: strlen+F_23bec) */
 Lbd8ce: r3=MEM(sp);            /* ldr r3,[pc] = 栈金丝雀 */
 Lbd8d0: r0=r9;               /* mov r0,r9 = env */
 Lbd8d2: r1=sp;               /* mov r1,sp */
