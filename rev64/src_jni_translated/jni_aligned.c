@@ -445,7 +445,7 @@ Java_com_cnvcs_App_OnDestroy(JNIEnv *env, jclass c){
     jqt_OnDestroy(0,0,0,0,0,0,0,0,0,0,0,0,0x20f000);
 }
 JNIEXPORT void JNICALL
-Java_com_cnvcs_App_OnPause(JNIEnv *env, jclass c){ jqt_OnPause(0,0,0,0,0,0,0,0,0,0,0,0,0x20f000); }
+Java_com_cnvcs_App_OnPause(JNIEnv *env, jclass c){ jqt_OnPause(V32(env),V32(env),0,0,0,0,0,0,0,0,0,0,0x20f000); }
 JNIEXPORT void JNICALL
 Java_com_cnvcs_App_OnResume(JNIEnv *env, jclass c){
     __android_log_print(6,"junqi","OnResume: 入口 env=%p done=%d", (void*)env, g_jqt_jni_selftest_done);
@@ -457,7 +457,7 @@ Java_com_cnvcs_App_OnResume(JNIEnv *env, jclass c){
         jqt_jni_selftest();
         g_jqt_jni_selftest_done = 1;
     }
-    jqt_OnResume(0,0,0,0,0,0,0,0,0,0,0,0,0x20f000);
+    jqt_OnResume(V32(env),V32(env),0,0,0,0,0,0,0,0,0,0,0x20f000);
     /* ★ §124y-19：走子桥在 OnResume 也触发（redroid 无 GL 卡在 OnCreate/OnResume，OnTimer 到不了；
        OnResume 是主线程生命周期入口，redroid 能触发；tick 幂等，OnTimer 再调无副作用） */
     jq_walk_bridge_tick();
