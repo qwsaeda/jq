@@ -18,7 +18,7 @@ import re, subprocess, sys, os, argparse
 
 SO = os.environ.get('JQ_SO', '/tmp/orig/lib/armeabi/libjunqi.so')
 OBJDUMP = 'arm-linux-gnueabi-objdump'
-LO, HI = 0x55d40, 0x55ff4   # 0x55d40 区 73 thunk（0x12 × 73 = 0x2B4 → 0x55FF4）
+LO, HI = 0x55d40, 0x56200   # 0x55d40 区 73 thunk + 扩展区（§124y-161: HI 从 0x55ff4 扩到 0x56200, 覆盖扩展区 25 bl）
 JQT_VTBL = os.path.join(os.path.dirname(__file__), '..', 'src_jni_translated', 'jqt_vtbl.c')
 JQT_OC   = os.path.join(os.path.dirname(__file__), '..', 'src_jni_translated', 'jqt_OnCreate_full.c')
 
