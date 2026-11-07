@@ -5626,3 +5626,35 @@ python3 /tmp/opencode/incremental_regress.py reset 0xADDR  # 改了某指令 →
   运行时 scudo 构造后 C++ 对象图指向它们）
 - 收表让 jqt_blx_dispatch 命中，但 .bss 未构造 → 子对象/缓冲区全走 0 忠实兜底（§124y-33/35 ok=0）
 - 端到端实证需 frida/unidbg 补 .bss C++ 对象图 scudo 运行时值（§124y-70/71 .bss 中间区 87% 非零待 dump）
+
+## §124y-149 .text 全 35 缺口函数批量收表（jqt_vtbl_n 2210，定义体 1967/1967 全收表）
+
+**★ 闭环事实（.text 区"有定义体但未收表"35 缺口函数全量收表，翻译体定义体全收表达成）**：
+
+1. **35 缺口函数 4 区分布实锤（dispatch_insert.py 批量收表）**：
+   - 0x2-0x5 区 14 个：JNI 入口区 0x23461/0x23475/0x23489/0x2349d（原版 jni_aligned.c 替代层）
+     + C++ 事件底层 0x241f4/0x24250/0x2af44/0x2afa4/0x32af4/0x33878/0x3deb0/0x3f8f4
+   - 0x5-0x8 区 9 个：F_55d40 switch 区 0x557c8/0x557cc/0x557d0/0x557d4（thunk 池值，§124y-29 实锤）
+     + 0x55ba4（code4 handler）/0x55d40（switch 主）/0x55dc4 + 0x7659c/0x7874c
+   - 0x8-0xa 区 4 个：0x853c0/0x85704/0x8571c（§124y-30 codes 34-41 handler，已实锤）/0x9d43c
+   - 0xc+ 区 8 个：0xc0ed0/0xc1438/0xc5d50-0xc5e38（F_bd5a0 主循环 5 子函数，§124y-132 实锤 bl 0xc5d50）/0xc6088（§124y-144 F_c6088 字符串处理）
+
+2. **前向声明批量补（21 函数，定义体分散）**：
+   - 17 函数定义体在 jqt_On*_full.c（jqt_OnKey.c/jqt_OnRender_full.c 等）→ jqt_vtbl.c 顶部 extern
+   - 4 函数（F_2af44/F_2afa4/F_32af4/F_7659c）定义体在 jqt_vtbl.c 文件后部（fns 表引用在前，定义在后）
+     → 顶部 extern（C 语言跨函数前向声明需求，§124y-146/147/148/149 同坑第四次固化）
+
+3. **jqt_vtbl_n 同步修正（坑固化）**：
+   - dispatch_insert 计数 2210 为权威，首次误改 2198（offs 去重数误读）→ 改回 2210
+   - **权威判据 = link_audit.py `n/len(fns)/len(offs)` 三者同步**（§124y-148 已固化，本轮再验）
+
+4. **翻译体定义体 1967/1967 全收表达成（0 缺口）**：
+   - build_arm32_aligned.sh 链接通过（JNI 符号 14）
+   - link_audit.py audit **PASS**（dispatch 表 n=2210=len(fns)=len(offs) 一致 + UND 全解析）
+   - 4 路径回归（walk_bridge/native_layout/native_event/game_test）4/4 PASS + 0 崩溃
+
+### 诚实边界
+- 35 收表函数含 JNI 入口（0x234xx 区）、C++ 事件底层（0x24xxx）、switch thunk 区（0x55xxx）、
+  codes 34-41 handler（0x85xxx）、F_bd5a0 主循环子函数（0xc5xxx）—— 收表让 jqt_blx_dispatch 全命中
+- 实际运行需 .bss C++ 对象图 scudo 构造（翻译体 .bss 全 0 → 全走 0 忠实兜底，§124y-33/35 ok=0）
+- 端到端实证需 frida/unidbg 补 .bss 中间区（87% 非零，§124y-70/71 待 dump）运行时值
