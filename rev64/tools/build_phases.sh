@@ -26,7 +26,6 @@ SRC_ORIG=/tmp/opencode/orig_libjunqi.so
 SRC_RS=$WS/rev64/src_rs/dist/libjunqi_rs.so
 SRC_STUB=/tmp/opencode/junqi_stub_arm64.so
 DO_VERIFY=1
-refs_n=0   # spak_render_refs.txt 文件数（inject_spak_res 用）
 
 # 构建树 lib 布局（每阶段：树名 + lib/子目录→源 so）
 # phase0: dec_p0 仅 armeabi=orig
@@ -45,25 +44,32 @@ setup_libs() {
   done
 }
 
-# ★ spak_res 全量注入（render.c 引用的 44 个文件，APK 自包含，免设备端 push 兜底）：
-#   从 rev64/dist/spak_res/（962 全量源 + 3 张裁剪产物）取 spak_render_refs.txt 清单，
-#   注入构建树 assets/spak_res/（幂等，每次重建自动带全量资源）。
+# ★ spak_res 注入（render.c 引用的 44 个文件，APK 资产保全）：
+#   从 rev64/dist/spak_res/（965 全量，其中 3 张被裁剪版同名覆盖）取
+#   spak_render_refs.txt 清单，注入构建树 assets/spak_res/（幂等，rm -rf 旧残留后重拷）。
+#   ★ 诚实边界（对抗审计 P0-A2/P3-A1）：当前 so 走文件系统回退（g_assets=NULL，
+#   MuMu 转译 AAssetManager 不可达），APK assets 是资产保全非运行时路径；
+#   若未来修 g_assets 可达则 APK 自包含生效。
 inject_spak_res() {
   local tree=$1
   local refs=$WS/rev64/tools/spak_render_refs.txt
   local src=$WS/rev64/dist/spak_res
-  [ -f "$refs" ] || { echo "  ⚠ spak_render_refs.txt 缺失，跳过注入"; return 0; }
+  # ★ 对抗审计 P1-A1/P2-A1：refs 文件缺失走 return 1（原跳过 → 构建成功但资源缺失假绿）
+  [ -f "$refs" ] || { echo "  ✗ spak_render_refs.txt 缺失"; return 1; }
+  local refs_n=$(grep -c . "$refs")   # ★ 局部化（原全局耦合）；grep -c 文件不存在已先守
   local n=0; local miss=0
+  rm -rf "$tree/assets/spak_res"      # ★ 对抗审计 P2-A2：幂等清理（防 refs.txt 缩减后残留旧文件）
+  mkdir -p "$tree/assets/spak_res"
   while read -r f; do
     [ -z "$f" ] && continue
     if [ -f "$src/$f" ]; then
-      mkdir -p "$tree/assets/spak_res"
       cp "$src/$f" "$tree/assets/spak_res/$f" 2>/dev/null && n=$((n+1))
     else
       miss=$((miss+1)); echo "  ⚠ spak_res 源缺 $f（$src/$f 不存在）"
     fi
   done < "$refs"
-  echo "  spak_res 注入 $n/${refs_n} 文件（缺 $miss）→ $tree/assets/spak_res/"
+  [ "$n" -eq "$refs_n" ] || { echo "  ✗ spak_res 注入不全 $n/$refs_n（缺 $miss）"; return 1; }
+  echo "  spak_res 注入 $n/$refs_n 文件 → $tree/assets/spak_res/"
 }
 
 build_one() {
@@ -79,7 +85,7 @@ build_one() {
   case $phase in phase0|phase1) tree=$P0;; phase2) tree=$RA/dec_dual;; phase3) tree=$RA/dec_full;; esac
   # ★ 仅 arm64 侧（src_rs so）需要 spak_res 全量资源（32 位 so 走 data*.pak，不用 spak_res）
   case $phase in
-    phase2|phase3) refs_n=$(grep -c . $WS/rev64/tools/spak_render_refs.txt 2>/dev/null || echo 0); inject_spak_res $tree ;;
+    phase2|phase3) inject_spak_res $tree || return 1 ;;
     *) : ;;
   esac
   echo "════════ [$phase] apktool b $tree → STORE → zipalign → sign ════════"
@@ -96,10 +102,24 @@ build_one() {
 verify_one() {
   local phase=$1 out=$2
   local apk=$WS/dist/$out
+  # ★ 对抗审计 P1-J4：SRC_RS 缺失时 md5 空 → grep -q "" 恒真（假绿"arm64 so = src_rs ✓"）
+  [ -f "$SRC_RS" ] || { echo "  ✗ $out SRC_RS 缺失（$SRC_RS），so 哈希对账无法执行"; return 1; }
+  [ -f "$apk" ] || { echo "  ✗ $out APK 不存在"; return 1; }
   local abi=$(aapt dump badging $apk 2>/dev/null | grep "native-code" | sed 's/native-code: //')
   local minsdk=$(aapt dump badging $apk 2>/dev/null | grep "sdkVersion" | sed 's/sdkVersion: //')
   local adjar=$(unzip -l $apk 2>/dev/null | grep -c "__xadsdk")
   echo "  [$phase] ABI=$abi minSdk=$minsdk 广告jar=$adjar"
+  # ★ 对抗审计 P1-J3：phase3 去广告终态必须 adjar=0（原只打印不判 → 假绿）
+  if [ "$phase" = "phase3" ] && [ "$adjar" != "0" ]; then
+    echo "  ✗ phase3 广告jar=$adjar（应 0，去广告终态）"; return 1
+  fi
+  # ★ 对抗审计 P1-A2：phase2/3 增 spak_res 条目数抽查（对齐 verify_asset_chain.py ①层）
+  case $phase in
+    phase2|phase3)
+      local nspak=$(unzip -l $apk 2>/dev/null | grep -c "assets/spak_res/")
+      echo "  [$phase] spak_res 条目=$nspak（预期 44，refs 清单全量）"
+      ;;
+  esac
   python3 -c "
 import zipfile,hashlib
 z=zipfile.ZipFile('$apk')

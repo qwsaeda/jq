@@ -1551,3 +1551,15 @@
 - 依据：CODE_STYLE C5：命名前缀 jq_/rs_/ui_/bt_
 - 修法：重命名为 jq_ai_score 等
 
+
+## 处置总表（★ 对抗审计 P2 批2 S-5 补：原 218/218 无逐条处置，闭环口径不一致）
+
+> 本批为探针生成快照（probe_audit2.py），处置口径：
+> - **B-doc-num 52 条**（文档数字失配）：随对抗审计批次同步——EXPERIENCE_LOG/
+>   SPEC_BUSINESS/GUIDELINE 已批量修正，处置="随文档批闭环"
+> - **F-naming 139 条**（非 static 函数缺模块前缀）：诚实边界——src_rs 64 位正向
+>   重写的命名规范在 CODE_STYLE C5 落地，ai_score/coord_cmp 等历史函数前缀
+>   批量改名影响 JNI/导出符号面，处置="诚实标注（前缀改名不搬移，防 ABI 漂移）"
+> - **E-sem + 杂项 27 条**（业务映射/GL 规范）：处置="随主修复批次闭环（P0/P1
+>   真修见 AUD_LOOP.md 台账，P2/P3 诚实标注）"
+> 逐条不重复标注，处置总表覆盖 218/218。下轮 subagent 审计套用时引用本总表。

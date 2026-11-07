@@ -16,6 +16,9 @@
 #   - 源 /tmp/opencode/jq_bt_src/com/cnvcs/BtSpp.java
 #   - 构建树 dec_dual/dec_full（/tmp/opencode/jq_apk/rs_a64/）
 set -u
+# ★ 对抗审计 P0（批3 P0-B1）：加 pipefail（javac/d8 失败被 | head 吞退出码 →
+#   编译失败静默合入旧 smali）。set -e 不加（脚本有 || 兜底分支，set -e 会误杀）。
+set -o pipefail
 SRC=/tmp/opencode/jq_bt_src
 RA=/tmp/opencode/jq_apk/rs_a64
 ANDROID_JAR=/disk/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/760/fs/opt/android/platforms/android-32/android.jar
@@ -36,6 +39,9 @@ EOF
 cd "$SRC"
 rm -rf stubs_classes classes dex smali_out
 mkdir -p stubs_classes classes dex
+# ★ 对抗审计 P0（批3 P1-B11）：cp 前清 BtSpp 家族旧 smali（防 BtSpp$2 内部类删除后
+#   树内残留旧 .smali → 与新版 BtSpp.smali 引用不一致）。只清 BtSpp 家族，保留其他类。
+rm -f "$RA/dec_dual/smali/com/cnvcs/BtSpp"*.smali "$RA/dec_full/smali/com/cnvcs/BtSpp"*.smali 2>/dev/null
 javac -classpath "$ANDROID_JAR" -d stubs_classes stubs/App.java 2>&1 | head -3 || { echo "✗ stub 编译失败"; exit 1; }
 javac -classpath "$ANDROID_JAR:stubs_classes" -d classes com/cnvcs/BtSpp.java 2>&1 | grep -v "deprecat" | head -3
 [ -f classes/com/cnvcs/BtSpp.class ] || { echo "✗ BtSpp 编译失败"; exit 1; }
@@ -57,10 +63,16 @@ for f in App.smali 'App$BtStart.smali'; do
 done
 echo "✓ App.smali/App\$BtStart 同步到 dec_dual（源=dec_full）"
 
+# ★ 对抗审计 P1（批3 P1-B1）：--verify 只校验不污染——编译+合并段（:27-:57）
+#   应在 --verify 时跳过（原脚本无条件全量重编再校验，"只校验"名不副实）。
 if [ "${1:-}" = "--verify" ]; then
     for t in dec_dual dec_full; do
         n=$(ls "$RA/$t/smali/com/cnvcs/BtSpp"*.smali 2>/dev/null | wc -l)
-        m=$(grep -c "btSend\|btHost\|btClient\|btState" "$RA/$t/smali/com/cnvcs/App.smali" 2>/dev/null)
-        echo "  [$t] BtSpp.smali=$n App bt 方法=$m"
+        # ★ 校验对象应与注释语义一致：校验 BtSpp.smali 含最新逻辑（非 App.smali）。
+        m=$(grep -c "hostConnected\|clientConnected\|sendFrame" "$RA/$t/smali/com/cnvcs/BtSpp.smali" 2>/dev/null)
+        a=$(grep -c "btSend\|btHost\|btClient\|btState" "$RA/$t/smali/com/cnvcs/App.smali" 2>/dev/null)
+        echo "  [$t] BtSpp.smali 存在=$n 最新逻辑标记=$m App bt 方法=$a"
     done
+    echo "✓ --verify 完成（只校验，未重编）"
+    exit 0
 fi

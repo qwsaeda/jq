@@ -8,7 +8,9 @@
 #include "bt_protocol.h"
 #include "ui_state.h"   /* ★ P1（datah_039/107）：ui_replay_record（蓝牙走子/翻棋记录复盘序列） */
 #include <string.h>
-static jq_state g_undo_snap;   /* ★ AUD-R-013：无写入点的遗留快照（BT_T_UNDO 已不再消费，保留占位） */
+/* ★ 对抗审计 P3（批3 P3-B19）：原 static jq_state g_undo_snap 死代码
+   （无写入/读取点，jq_state 体量不小白占 BSS）。删除。
+   UNDO 悔棋栈实际在 jni_bridge.c g_undo[]（jq_bt_undo_available 读 g_undo_top）。 */
 
 /* 坐标 → 索引（原版 0x6ef54：[0]=col [1]=row，cell_index(row,col)） */
 static int cell_of(int col, int row, int *out_idx)
@@ -50,7 +52,10 @@ int jq_bt_session_on_frame(jq_bt_session *s, jq_state *st,
         /* 用规则引擎验对方走子（原版 0x39f20 校验） */
         if (jq_try_move(st, from, to) < 0) return -1;  /* 非法走子拒绝 */
         ui_replay_record(from, to, 0);   /* ★ P1（datah_039/107）：蓝牙对端走子成功记录 1 步 */
-        s->state = s->we_blue ? BT_ST_OUR_TURN : BT_ST_OUR_TURN; /* 回合翻转 */
+        /* ★ 对抗审计 P1（批3 P1-B6）：原 `we_blue ? OUR : OUR` 死三元（两分支
+           同值，we_blue 判定无效笔误残留）。语义：收对端 MOVE/FLIP 后恒轮本方
+           走 → 直接置 OUR_TURN，去无意义三元。 */
+        s->state = BT_ST_OUR_TURN;
         s->peer_state = *st;
         return 0;
     }
@@ -64,13 +69,15 @@ int jq_bt_session_on_frame(jq_bt_session *s, jq_state *st,
     }
     case BT_T_UNDO: {
         /* ★ AUD-R-013（P1）：UNDO 帧闸口改走 jni_bridge 暴露的 jq_bt_undo_available()
-           （读实际悔棋栈 g_undo_top），替代恒 0 的 jq_snapshots_left（旧路径死代码，
-           对端收到"悔棋已生效"但本地棋盘不变 → 状态发散）。
-           g_undo_snap 在 bt_session 侧无写入点（全 0 空快照），恢复动作由
-           jni_bridge 收帧回调侧执行（undo_pop + 广播），本处仅切回合。 */
+           （读实际悔棋栈 g_undo_top），替代恒 0 的 jq_snapshots_left（旧路径死代码）。
+           诚实边界（★ 对抗审计 P1 批3 P1-B9/P1-J12）：本地悔棋回退（undo_pop +
+           广播）由 jni_bridge 收帧回调侧执行，本 case 仅切回合。若 jni_bridge
+           收帧侧未接 undo_pop → 双向悔棋状态发散（本地棋盘与对端已回退的棋盘
+           不一致）——当前为 PENDING 缺口，logcat 可诊断。 */
         if (s->state != BT_ST_THEIR_TURN) return -2;
-        if (jq_bt_undo_available()) {
-            /* 栈深>0：本地悔棋栈可恢复 → 切回合后由收帧侧同步状态 */
+        if (!jq_bt_undo_available()) {
+            /* 栈空：拒绝（对端误发 UNDO 或本端无可悔步） */
+            return -3;
         }
         s->state = BT_ST_OUR_TURN;
         return 0;
@@ -92,8 +99,14 @@ int jq_bt_session_on_frame(jq_bt_session *s, jq_state *st,
         return 0;
     }
     case BT_T_SYNC:
-        /* 全盘同步：Java 侧按 60 帧拆开，每帧走 SYNC_CELL 路径 */
-        s->peer_state = *st;
+        /* ★ 对抗审计 P1（批3 P1-B5）：BT_T_SYNC 原 `s->peer_state = *st` 语义错
+           （把本地 state 拷进 peer_state = "对端就是本地镜像"，并非收到对端同步帧；
+           且对端误发 type=3 时本端忽略对端真实数据还谎报消费成功 → 状态发散）。
+           实际全盘同步走 BT_T_SYNC_CELL 批量帧（Java 侧 jq_bt_session_send_sync 按 60 帧
+           拆开，收端走 SYNC_CELL 逐格更新），BT_T_SYNC 无发送点 = 死代码。
+           修正：收到 BT_T_SYNC 只重置 peer_state 为初始态（等待后续 SYNC_CELL 填充），
+           不拷本地 state。 */
+        jq_state_init(&s->peer_state);
         return 0;
     case BT_T_RESTART:
         jq_state_init(st);

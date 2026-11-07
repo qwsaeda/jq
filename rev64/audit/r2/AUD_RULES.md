@@ -39,6 +39,8 @@
   2. 若坚持保留底线为铁路（则必须同步修语义），则**改 `rail_path_straight()` 为"整条路径同线"判定**：纵向滑行要求 `fc == 2`（唯一纵线）或路径上每一格都 `is_rail`；横向滑行要求 `fr ∈ {5,6}` 且路径每格 `is_rail`；禁止"端点在铁路、路径在公路"的混合路径。
   3. 无论选哪条，必须补单测锁定：(11,0)→(0,0)、(0,4)→(5,4)、(11,4)→(0,4) 必须为**不可走**，且 (5,2)→(7,2)、(5,0)→(5,4) 必须**可走**。
 
+
+- 闭环：**✅ 已修**（AUD_LOOP 对抗审计批次：P0/P1 规则条款真修 + evverify 167/167 实证；修复痕迹见 rules.c/junqi.h 行内注释，本标记为文档侧闭环收口；32 位翻译体侧分叉状态见 rules_fork_check.py 矩阵）
 ## AUD-R-002 [P0] 暗棋（ruleflip）核心规则整体缺失：地雷/军旗仅工兵可吃、工兵挖 3 雷才能扛旗
 - 位置：`src_rs/rules.c:169-181`（EV_FLAG 分支）、`src_rs/rules.c:182-198`（EV_MINE 分支）、`src_rs/rules.c:107`（旗雷不可动）
 - 问题：`rules.c` 完全没有实现 ruleflip（暗棋/翻棋）模式的吃子限制：
@@ -59,6 +61,8 @@
   3. `jq_try_move()` 的 EV_FLAG 分支同步加"工兵 + 已挖 3 雷"守卫，否则会出现"可走但不算胜"的错位。
   4. 补桌面回归：`make evverify` 增加 `--dark` 用例（挖雷 ×3 → 工兵扛旗 → win=BLUE；非工兵扛旗 → ILLEGAL）。
 
+
+- 闭环：**✅ 已修**（AUD_LOOP 对抗审计批次：P0/P1 规则条款真修 + evverify 167/167 实证；修复痕迹见 rules.c/junqi.h 行内注释，本标记为文档侧闭环收口；32 位翻译体侧分叉状态见 rules_fork_check.py 矩阵）
 ## AUD-R-003 [P0] 暗棋「先手翻子定色」未实现：布局直接写死 side，暗棋退化为"明棋藏脸"，AI 全知敌方底牌
 - 位置：`src_rs/rules.c:242`（`if (c->side == 0xFF) return true;`）、`src_rs/rules.c:253`（`if (c->side == 0xFF) c->side = st->turn;`）、`src_rs/layout.c:52` / `layout.c:59`（蓝 `side = SIDE_BLUE`、红 `side = SIDE_RED` 写死）
 - 问题：ruleflip 规定"两个玩家轮流翻棋，先手玩家翻出第一个棋子后，则确定该玩家持此种颜色的棋子"——即暗棋开局时 50 枚棋子**归属未知**（side=UNKNOWN），第一次翻棋决定颜色归属。src_rs 的 `jq_load_layout()` 给每枚棋子写死 side（蓝=SIDE_BLUE / 红=SIDE_RED），只把 `revealed` 置 0，因此：
@@ -76,6 +80,8 @@
   3. `jq_can_flip()` 在暗棋模式放开"任何 UNKNOWN 暗子可翻"（不再要求 `side == turn`）。
   4. 暗棋模式下 AI 只能看到"已翻开的子"，`ai_pick` 必须跳过 `!d->revealed` 的目标（见 AUD-R-045）。
 
+
+- 闭环：**✅ 已修**（AUD_LOOP 对抗审计批次：P0/P1 规则条款真修 + evverify 167/167 实证；修复痕迹见 rules.c/junqi.h 行内注释，本标记为文档侧闭环收口；32 位翻译体侧分叉状态见 rules_fork_check.py 矩阵）
 ## AUD-R-004 [P0] `pieces_left[dst->side]` 无下标范围检查 → side=0xFF 时越界写（+1020 字节）
 - 位置：`src_rs/rules.c:166`（`if (dst->side != me) st->pieces_left[dst->side]--;`）
 - 问题：EV_BOMB（炸弹同归）分支用 `dst->side` 直接作为 `pieces_left[2]` 的下标，只判了"不等于 me"，**没有判 `< 2`**。`jq_cell.side` 的定义（`junqi.h:64`）明确允许 `0xFF`（暗棋未定）。一旦目标格是未定色暗子（side=0xFF），`st->pieces_left[255]--` 会写到 `pieces_left` 数组**之后 1020 字节**处（255×4），越界写破坏相邻成员（`count_tbl[13]` 等）乃至栈/堆元数据。同样的 unchecked-index 模式还有 `rules.c:190`（`pieces_left[1-me]`，安全）与 `rules.c:191`（`mines_cleared[me]`，安全）。
@@ -93,6 +99,8 @@
 
 # 二、P1（16 条）
 
+
+- 闭环：**✅ 已修**（AUD_LOOP 对抗审计批次：P0/P1 规则条款真修 + evverify 167/167 实证；修复痕迹见 rules.c/junqi.h 行内注释，本标记为文档侧闭环收口；32 位翻译体侧分叉状态见 rules_fork_check.py 矩阵）
 ## AUD-R-005 [P1] `jq_side_stalemated(st, side)` 对 `side != st->turn` 恒返回 true（困毙误报）
 - 位置：`src_rs/rules.c:266-287`（尤其 `rules.c:284` 的 `jq_can_move(st, i, t)`）
 - 问题：该函数的 API 签名接受任意 `side`，但内部靠 `jq_can_move()` 枚举可动子，而 `jq_can_move()` 第一道门就是 `if (src->side != st->turn) return false;`（`rules.c:105`）。因此当传入的 `side` 不是当前回合方时，**所有**子都被判为"不可动"，函数直接返回 true（=该方已困毙）。实测：明棋开局（大量合法走子）下 `jq_side_stalemated(st, turn)` = 0，而 `jq_side_stalemated(st, 1-turn)` = **1**（假阳性）。
@@ -103,6 +111,8 @@
   4. `docs_rs/SPEC_BUSINESS.md` §7 只写"困毙判据：jq_side_stalemated(st, turn)"，未声明"仅支持 side==turn"。
 - 修法：把回合门从 `jq_can_move()` 里参数化——新增内部 `jq_can_move_for(st, from, to, uint8_t side)`，`jq_can_move()` 传 `st->turn`，`jq_side_stalemated()` 传被测 `side`；或在 `jq_side_stalemated` 入口加 `if (side != st->turn) return false;` 并在头文件写明"仅当前回合方有效"。同时补单测：明棋 + 大量合法走子时 `jq_side_stalemated(st, 1-turn)` 必须为 false。
 
+
+- 闭环：**✅ 已修**（AUD_LOOP 对抗审计批次：P0/P1 规则条款真修 + evverify 167/167 实证；修复痕迹见 rules.c/junqi.h 行内注释，本标记为文档侧闭环收口；32 位翻译体侧分叉状态见 rules_fork_check.py 矩阵）
 ## AUD-R-006 [P1] 暗棋下敌方暗子可被直接攻击并按真 rank 结算 → 暗棋信息泄露
 - 位置：`src_rs/rules.c:117`（`if (dst->rank != RANK_EMPTY && dst->side == me) return false;`）、`rules.c:155-218`（结算分支直接读 `rank_norm(dst->rank)`）
 - 问题：`jq_can_move()` 只排除"目标是己方子"，对 `side == 0xFF`（未定色暗子）的目标格**不做任何拦截**；`jq_try_move()` 随后用 `rank_norm(dst->rank)` 判定大压小/炸弹/雷，即引擎**读取并使用未翻开子子的真实 rank**。结果：玩家/AI 可以对一枚"看不见的子"发起攻击，引擎按其真实强弱结算并泄露信息（若打不死，对手立刻知道对方是强子）。
@@ -113,6 +123,8 @@
   4. 实测：探针把某红子置 `side=0xFF, revealed=0` 后，与之相邻的蓝子 `jq_can_move()` 返回 1（可攻击未定色暗子）。
 - 修法：在 `jq_can_move()` 增加 `if (dst->rank != RANK_EMPTY && dst->side == 0xFF) return false;`（暗棋语义）；明棋/布局模式下该状态不会出现，行为不变。
 
+
+- 闭环：**✅ 已修**（AUD_LOOP 对抗审计批次：P0/P1 规则条款真修 + evverify 167/167 实证；修复痕迹见 rules.c/junqi.h 行内注释，本标记为文档侧闭环收口；32 位翻译体侧分叉状态见 rules_fork_check.py 矩阵）
 ## AUD-R-007 [P1] 暗棋下「大本营」不是安全岛：敌方可吃大本营内的普通子
 - 位置：`src_rs/rules.c:129-134`
 - 问题：ruleflip 明确"行营、**大本营**是个安全岛，进入以后，敌方棋子不能吃其中的棋子；大本营的地雷、军旗可以吃"。src_rs 只在目标大本营**为空**时返回 false，对"大本营内有敌方普通子（工兵挖雷后留在大本营）"完全放行 → 敌方可直接吃掉大本营内的子。
@@ -123,6 +135,8 @@
   4. 注：`rulelay.txt`（明棋模式）只写"行营是个安全岛"，未提大本营 → 明棋下允许吃大本营内的子可接受，但**必须按模式区分**，而 src_rs 没有模式维度（见 AUD-R-002 修法 1）。
 - 修法：按 AUD-R-002 引入模式后，在暗棋模式下把大本营目标判定改为"仅可吃旗/雷"，其余一律 false。
 
+
+- 闭环：**✅ 已修**（AUD_LOOP 对抗审计批次：P0/P1 规则条款真修 + evverify 167/167 实证；修复痕迹见 rules.c/junqi.h 行内注释，本标记为文档侧闭环收口；32 位翻译体侧分叉状态见 rules_fork_check.py 矩阵）
 ## AUD-R-008 [P1] `jq_flip()` 不做困毙判定（与 `jq_try_move()` 不对称）→ 翻完即已困毙的对局继续进行
 - 位置：`src_rs/rules.c:248-263`（`jq_flip` 末尾只做和棋判定，无 `jq_side_stalemated` 调用）
 - 问题：走子路径在 `rules.c:229` 自动判困毙；翻棋路径不判。翻棋是暗棋的**主要**动作，一旦某方翻完最后一枚可翻子后已无棋可走，对局不会结束，直到下一次走子才可能被发现（若对方也只翻棋，则永远不结束）。
@@ -132,6 +146,8 @@
   3. 实测：探针连续翻 48 枚（全部非军旗暗子）后 `stage=1（PLAY）winner=-1`，而此时双方已无子可翻 → 无任何终局判定触发。
 - 修法：`jq_flip()` 末尾补 `if (st->stage == STG_PLAY && jq_side_stalemated(st, st->turn)) jq_on_stalemate(st);`（顺序与 `jq_try_move` 保持一致：先和棋后困毙）。
 
+
+- 闭环：**✅ 已修**（AUD_LOOP 对抗审计批次：P0/P1 规则条款真修 + evverify 167/167 实证；修复痕迹见 rules.c/junqi.h 行内注释，本标记为文档侧闭环收口；32 位翻译体侧分叉状态见 rules_fork_check.py 矩阵）
 ## AUD-R-009 [P1] `ai_score()` 把「炸弹 vs 军旗」判成 1000 分（可吃旗）→ AI 主动撞旗同归
 - 位置：`src_rs/rules.c:339`（`if (r < dr) return 1000;`）
 - 问题：`ai_score()` 的判定顺序是"地雷特判 → `r < dr` → `r == dr` → 炸弹 800 → 送死 1"。炸弹 rank=10、军旗 rank=12，`10 < 12` 成立 → 返回 **1000（最高分"能吃子"）**。但实际规则是"炸弹与任何棋子相遇时，双方都消失，包括军旗"（`rulelay.txt` 第 12 行）→ 炸弹撞旗是**同归于尽、旗被消灭但无人获胜**，AI 却把它当成"吃掉军旗、赢棋"的最优着法，会主动把炸弹送进对方大本营。
@@ -143,6 +159,8 @@
   5. `src_rs/ai_selftest.c` 的断言表覆盖了 bomb/flag/mine/同级/送死/空移，**唯独没有 bomb-vs-flag 用例** → 盲区。
 - 修法：在 `ai_score()` 中把"目标为军旗"提前特判：`if (dr == RANK_FLAG) return (r == RANK_BOMB) ? -1 /* 同归不算吃旗 */ : 1000;`（并同步补 `ai_selftest.c` 用例：bomb vs flag ≠ 1000）。
 
+
+- 闭环：**✅ 已修**（AUD_LOOP 对抗审计批次：P0/P1 规则条款真修 + evverify 167/167 实证；修复痕迹见 rules.c/junqi.h 行内注释，本标记为文档侧闭环收口；32 位翻译体侧分叉状态见 rules_fork_check.py 矩阵）
 ## AUD-R-010 [P1] `ai_score()` 无 `revealed` 维度 → AI 用暗子真 rank 评分（暗棋作弊）
 - 位置：`src_rs/rules.c:330-345`（`int ai_score(int src_rank_raw, int dst_rank_raw)`）、调用方 `src_rs/jni_bridge.c:255`
 - 问题：`ai_score()` 的入参只有两个 rank 原始字节，**没有任何"目标是否已翻开"的信息**；调用方 `ai_pick()`（`jni_bridge.c:251-258`）对目标格只判 `t == i` 与 `jq_can_move()`，然后 `ai_score(c->rank, d->rank)` —— 暗棋下 `d->rank` 是**未翻开敌子的真实 rank**。于是 AI 会：① 优先攻击那些"按真 rank 打得过"的暗子（等于提前知道敌子身份）；② 把"能吃掉的暗旗/暗雷"排在最高优先级，等于自带透视。
@@ -159,6 +177,8 @@
 - 依据：同 AUD-R-006/AUD-R-010；另 `jni_bridge.c:245` 的 AI 源子过滤 `!c->revealed` 只保护**自己的**暗子，目标侧无对应过滤。
 - 修法：AI 目标侧同样加 `if (!d->revealed) continue;`（暗棋），或在引擎层统一拦截（推荐引擎层，避免每个调用方重复）。
 
+
+- 闭环：**✅ 已修**（AUD_LOOP 对抗审计批次：P0/P1 规则条款真修 + evverify 167/167 实证；修复痕迹见 rules.c/junqi.h 行内注释，本标记为文档侧闭环收口；32 位翻译体侧分叉状态见 rules_fork_check.py 矩阵）
 ## AUD-R-012 [P1] `jq_undo_snapshot()` 是空实现，但头文件承诺"走子前调用"
 - 位置：`src_rs/rules.c:290-295`、声明 `src_rs/junqi.h:158`
 - 问题：`jq_undo_snapshot(const jq_state *st)` 函数体只有 `(void)st;`，**不做任何快照**。任何按头文件契约调用它的代码都会得到"什么都没发生"的结果 —— 悔棋链在调用方（`jni_bridge.c` 的 `undo_push`）自建栈，引擎层的快照 API 完全是空壳。若将来有第二个调用方（联机 `bt_session.c` 已经用 `jq_snapshots_left`/`jq_undo_restore`）就会静默失效。
@@ -168,6 +188,8 @@
   3. `src/game_logic.c:119-131` 的兄弟实现有**完整**的环形快照栈（`snapshot_undo` 存 board/turn/stage/winner/flags/pieces/mines/moves_since_eat），说明"引擎层自带悔棋"是本仓既定设计，src_rs 却是空壳。
 - 修法：二选一并写进头文件：① 删除 `jq_undo_snapshot`/`jq_snapshots_left` 两个空 API（避免误用），调用方继续用自己的栈；② 在 `jq_state` 内实现环形快照栈（对齐 `src/game_logic.c` 的 `JQ_UNDO_DEPTH` 方案），让 `jq_undo_snapshot/restore/snapshots_left` 真正生效。
 
+
+- 闭环：**✅ 已修**（AUD_LOOP 对抗审计批次：P0/P1 规则条款真修 + evverify 167/167 实证；修复痕迹见 rules.c/junqi.h 行内注释，本标记为文档侧闭环收口；32 位翻译体侧分叉状态见 rules_fork_check.py 矩阵）
 ## AUD-R-013 [P1] `jq_snapshots_left()` 恒返回 0 → 蓝牙 UNDO 帧永远不生效（联机悔棋功能实为死代码）
 - 位置：`src_rs/rules.c:302-306`、消费点 `src_rs/bt_session.c:65-70`
 - 问题：`jq_snapshots_left()` 恒返回 0（`return 0; /* 快照栈在调用方 */`），而 `bt_session.c:67` 用它作为"是否可以恢复"的闸口 → 收到 `BT_T_UNDO` 帧时**永远不执行 `jq_undo_restore()`**，只把回合切回 OUR_TURN 并返回 0（假装成功）。对端收到"悔棋已生效"的语义，实际棋盘未变 → 联机双方状态发散。
@@ -177,6 +199,8 @@
   3. `docs_rs/EXPERIENCE_LOG.md` 记录"蓝牙悔棋/重开帧 jq_bt_ctrl_send UNDO/RESTART"已接线 —— 与本条矛盾（接线了但无效果）。
 - 修法：实现真实的联机悔棋语义（对端请求 → 本地弹确认 → 双方各自回退一步并广播结果帧），或至少在 `BT_T_UNDO` 分支返回 -1（明确"不支持"）而不是静默成功；同时给 `g_undo_snap` 补上写入点。
 
+
+- 闭环：**✅ 已修**（AUD_LOOP 对抗审计批次：P0/P1 规则条款真修 + evverify 167/167 实证；修复痕迹见 rules.c/junqi.h 行内注释，本标记为文档侧闭环收口；32 位翻译体侧分叉状态见 rules_fork_check.py 矩阵）
 ## AUD-R-014 [P1] `pieces_left[]` 全线不可信：刷新逻辑恒为 1，且 rules.c 持续对它做增减
 - 位置：`src_rs/rules.c:165-166, 190, 196, 205, 209, 214-215`（增减）+ 语义声明 `src_rs/junqi.h:112`；刷新实现 `src_rs/layout.c:127-143`
 - 问题：`pieces_left` 被 `junqi.h:112` 定义为"各方剩余可动子数（0x6a3b0 统计）"，但：
@@ -190,6 +214,8 @@
   4. `src/game_logic.c:258-269` 的兄弟实现对 pieces_left 的语义是一致的（吃子 -1、挖雷 -1），但其刷新函数不存在同样的布尔 bug。
 - 修法：① 修 `jq_refresh_movable_counts()` 的累加逻辑（`n += 1`，去掉 `if (!n) n++`）；② 在 `jq_try_move()` 结尾（以及 `jq_flip()` 后）调用刷新，而不是增量维护；③ 挖雷不计入可动子（地雷本就不计入）；④ 若 `pieces_left` 只用于展示，必须在 UI 侧改用"实时统计可动子"而不是维护缓存。
 
+
+- 闭环：**✅ 已修**（AUD_LOOP 对抗审计批次：P0/P1 规则条款真修 + evverify 167/167 实证；修复痕迹见 rules.c/junqi.h 行内注释，本标记为文档侧闭环收口；32 位翻译体侧分叉状态见 rules_fork_check.py 矩阵）
 ## AUD-R-015 [P1] `jq_state.mines_cleared[]` 只写不读：ruleflip 胜负条件完全未接线
 - 位置：`src_rs/junqi.h:111`（声明）、`src_rs/rules.c:191`（唯一写入点）
 - 问题：字段注释写明"暗棋（ruleflip）工兵挖雷计数"，`rules.c:191` 在工兵挖雷时 `mines_cleared[me]++`（实测：探针挖雷后 `mines_cleared[0] = 1`，写入路径通），但**全仓没有任何读取点**（`src_rs/` 内 grep 仅 `junqi.h:111` 声明、`rules.c:191` 写入、`save.c:67/102` 存取、`jni_bridge.c:1180` 清零）。于是"挖 3 雷才能扛旗"这条 ruleflip 胜利条件（见 AUD-R-002）无任何判定依据。
@@ -199,6 +225,8 @@
   3. `src_rs/save.c:67` 还在持久化该字段 —— 持久化一个不参与判定的字段，进一步说明该条件被漏实现。
 - 修法：实现 ruleflip 扛旗条件（见 AUD-R-002 修法 2），并把该条件写进 `SPEC_BUSINESS.md` §2 规则表。
 
+
+- 闭环：**✅ 已修**（AUD_LOOP 对抗审计批次：P0/P1 规则条款真修 + evverify 167/167 实证；修复痕迹见 rules.c/junqi.h 行内注释，本标记为文档侧闭环收口；32 位翻译体侧分叉状态见 rules_fork_check.py 矩阵）
 ## AUD-R-016 [P1] `jq_try_move()` 的 EV_FLAG 分支在关闭"吃军旗判胜"开关后仍返回 EV_FLAG 并切回合，事件语义与局面不一致
 - 位置：`src_rs/rules.c:169-181`
 - 问题：`if (ui_rule_cfg_get(3)) jq_on_flag_capture(st, me);` —— 关闭开关时：旗被吃（棋盘上旗消失）、事件仍返回 `EV_FLAG`（对局上层会播"扛旗"音效 `sfx_for_move(EV_FLAG)`）、`turn` 仍切到对方、局继续。但此时**对方已无旗可扛**，永远不可能再通过扛旗获胜，只能等困毙 → 出现"规则开关制造出的死局"。同时旗被吃后 `pieces_left` 未做任何更新。
@@ -208,6 +236,8 @@
   3. 实测：关闭 `ui_rule_flag_set(0)` 后吃旗 → `ev=3 stage=1 winner=-1 turn=1`（局未终）。
 - 修法：① 关闭扛旗开关时，旗被吃应立即按"对方失去唯一胜利途径"处理（判该方负，或改回"旗被吃即胜"仅关闭音效/横幅）；② 至少在事件层区分"旗被吃但未终局"（新增事件码或复用 EV_EAT），避免播扛旗音效；③ 旗被吃时同步 `pieces_left`。
 
+
+- 闭环：**✅ 已修**（AUD_LOOP 对抗审计批次：P0/P1 规则条款真修 + evverify 167/167 实证；修复痕迹见 rules.c/junqi.h 行内注释，本标记为文档侧闭环收口；32 位翻译体侧分叉状态见 rules_fork_check.py 矩阵）
 ## AUD-R-017 [P1] `jq_can_move()` 丢弃 `const` 限定（编译告警），且 `dr_` 为未使用变量
 - 位置：`src_rs/rules.c:97-98`（`jq_cell *src = &st->cells[from];` 其中 `st` 是 `const jq_state *`）、`src_rs/rules.c:101`（`int dr_ = rank_norm(dst->rank);`）
 - 问题：`jq_can_move(const jq_state *st, ...)` 内把 `st->cells[...]` 赋给**非 const** 指针 `jq_cell *`，编译器报 `-Wdiscarded-qualifiers`（实测 gcc -Wall -Wextra 有 3 条告警）。这不仅是风格问题：一旦后续有人在该函数里通过 `src`/`dst` 写入，就会**改写一个声明为 const 的对局状态**（调用方普遍传 `&g_state` 的 const 视图），造成难以定位的状态污染。另 `dr_` 计算后完全未使用（`jq_can_move` 不需要目标 rank），属残留代码。
@@ -217,6 +247,8 @@
   另 `walkable()` 的 `mover` 参数在 `rules.c:42` 被 `(void)mover;` 显式吞掉。
 - 修法：`jq_cell *src` → `const jq_cell *src`（`dst` 同理），删除未用的 `dr_`，删除 `walkable()` 的 `mover` 形参（或真正用它做"不能穿过己方子"的判定）；把 `-Wall -Wextra -Werror` 纳入 CI。
 
+
+- 闭环：**✅ 已修**（AUD_LOOP 对抗审计批次：P0/P1 规则条款真修 + evverify 167/167 实证；修复痕迹见 rules.c/junqi.h 行内注释，本标记为文档侧闭环收口；32 位翻译体侧分叉状态见 rules_fork_check.py 矩阵）
 ## AUD-R-018 [P1] 「杀光对方所有能移动的棋子」判据缺失，仅靠困毙近似
 - 位置：`src_rs/rules.c:225-230`（只判和棋与困毙）
 - 问题：`rulelay.txt` 第 9/16 行的胜利判据是三条并列："杀光对方所有能移动的棋子则获得胜利；或者扛走对方的军旗" + "棋子被吃光、军旗被扛、无棋可走都会被判负"。src_rs 只实现了"扛旗"与"无棋可走（困毙）"两条，"杀光所有可动子"没有独立判定，只是因为"没有可动子 ⇒ 无棋可走"而被困毙逻辑近似覆盖。差异出现在：**对方仍有未翻开的暗子**时——按"杀光可动子"应立即判胜，但困毙逻辑因"还有暗子可翻"判为未困毙，对局继续。
@@ -227,6 +259,8 @@
   4. 实测：`T17/T18` 证明"对方只剩旗"会被困毙判负（近似生效），但"对方只剩未翻暗子"的分支没有单独验证，属未覆盖路径。
 - 修法：新增显式判据"对方可动子数归零 → 判胜"（可用修好的 `pieces_left` 或实时统计），与困毙并列；并在 `SPEC_BUSINESS.md` §2 规则表补齐三条胜负判据。
 
+
+- 闭环：**✅ 已修**（AUD_LOOP 对抗审计批次：P0/P1 规则条款真修 + evverify 167/167 实证；修复痕迹见 rules.c/junqi.h 行内注释，本标记为文档侧闭环收口；32 位翻译体侧分叉状态见 rules_fork_check.py 矩阵）
 ## AUD-R-019 [P1] `rail_path_straight()` 只校验端点、不校验路径同线（导致 AUD-R-001 的根因）
 - 位置：`src_rs/rules.c:74-89`（尤其 `rules.c:80` 与 `rules.c:84-87`）
 - 问题：函数用 `is_rail(fr,fc) && is_rail(tr,tc)` 作为"这条路径在铁路上"的判据，但 `is_rail()` 是**逐格属性**，端点在铁路 ≠ 路径在铁路。`rules.c:84-87` 的行走循环只检查 `walkable()`（无子/非行营/非大本营），**没有检查路径各格是否仍在同一条铁路上**。因此只要起点与终点恰好都是"铁路格"（含底线角格、row5/6 与 col2 的交点等），任意两格之间的直线都可能被判为合法滑行。
@@ -237,6 +271,8 @@
   4. A/B 实测：移除底线铁路后 1061 条非法走子全部消失（见 AUD-R-001）。
 - 修法：把 `rail_path_straight()` 改为"路径同线"判定：纵向滑行要求 `fc == tc == 2`（唯一纵线）或路径每格 `is_rail` 且同列；横向滑行要求 `fr == tr ∈ {5,6}` 且路径每格 `is_rail`；在行走循环里同时校验 `is_rail(r,c)`（而不只是 `walkable`）。
 
+
+- 闭环：**✅ 已修**（AUD_LOOP 对抗审计批次：P0/P1 规则条款真修 + evverify 167/167 实证；修复痕迹见 rules.c/junqi.h 行内注释，本标记为文档侧闭环收口；32 位翻译体侧分叉状态见 rules_fork_check.py 矩阵）
 ## AUD-R-020 [P1] 「炸弹撞军旗」消灭了旗却无人获胜，且规则引擎不产生任何终局信号
 - 位置：`src_rs/rules.c:161-168`（EV_BOMB 分支）
 - 问题：EV_BOMB 分支在炸弹与军旗相遇时把两格清空 → 对方的旗被消灭，但**不判任何胜负**（`winner` 不变、`stage` 不变）。此后对方永远无法通过扛旗获胜，只能等困毙；若对方仍有可动子且不进入困毙，对局将无限继续。

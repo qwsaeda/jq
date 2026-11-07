@@ -18,6 +18,8 @@ KINDS="flag mine restart draw resign stalemate close pop btconn"
 [ -n "$ONLY" ] && KINDS="$ONLY"
 PASS=0; FAIL=0
 FAILED=""
+FLAKY=""
+FLAKY_N=0
 for k in $KINDS; do
   echo "═══ $k ═══"
   if timeout 90 bash "$(dirname "$0")/mumu_evtest.sh" --dev "$DEV" "$k" >/tmp/opencode/regress_$k.log 2>&1; then
@@ -25,15 +27,19 @@ for k in $KINDS; do
     PASS=$((PASS+1))
   else
     # 重跑一次（瞬时时序——redroid/MuMu 触摸 flaky、WAV 加载时序，非代码回归）
+    # ★ 对抗审计 P1-J5（flaky 假绿修正）：重跑 PASS 单独计 FLAKY（非 PASS）——
+    #   原"1 FAIL + 1 PASS 即记 PASS"会把偶发竞态/真回归掩盖。flaky 项供人工
+    #   复核（连续 2 次 PASS 才可信），不计入"全事件回归 PASS"总数。
     if timeout 90 bash "$(dirname "$0")/mumu_evtest.sh" --dev "$DEV" "$k" >/tmp/opencode/regress_${k}_r.log 2>&1; then
-      echo "  ✓ $k（重跑过，首跑瞬时时序）"
-      PASS=$((PASS+1))
+      echo "  ~ $k（FLAKY：首跑瞬时时序，重跑过——不计 PASS，供人工复核）"
+      FLAKY="$FLAKY $k"; FLAKY_N=$((FLAKY_N+1))
     else
       echo "  ✗ $k"
       FAIL=$((FAIL+1)); FAILED="$FAILED $k"
     fi
   fi
 done
-echo "════════ 回归汇总：PASS=$PASS FAIL=$FAIL ════════"
+echo "════════ 回归汇总：PASS=$PASS FLAKY=$FLAKY_N FAIL=$FAIL ════════"
 [ -n "$FAILED" ] && { echo "失败: $FAILED"; exit 1; }
+[ -n "$FLAKY" ] && { echo "flaky（重跑过，非确定性 PASS，建议人工复核）: $FLAKY"; exit 2; }
 echo "✓ 全事件回归 PASS"

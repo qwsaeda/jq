@@ -920,3 +920,17 @@
 5. **AUD-B-021 + 030**（API 级别与签名口径）——`android21-clang` 或 minSdk 提到 24；v1+v2 双签。
 6. **AUD-B-032**（Makefile 依赖）——补 `ui_menu.c`/`ui_state.c`/`evverify.c` 等全部 `.c` 到目标依赖，或把 `so` 目标 `.PHONY`。
 
+
+## 处置总表（★ 对抗审计 P2 批2 S-6 补：原 112/112 无逐条处置，闭环口径不一致）
+
+> 本批为打包链路审计（probe_audit 对 build_phases.sh/pack_arm32.sh/sign_apk.sh/store_compressed.py）。
+> 处置口径（本轮 AUD_LOOP 审计修复批次对应）：
+> - **P0 9 条**：AUD-B-001（build_one 失败中断）/002（cp 检查）/003（verify_one 文件不存在全绿）
+>   → 已修（build_phases.sh verify_one SRC_RS/文件缺失前置检查 + 注入失败 return 1，AUD_LOOP P1-J4）；
+>   AUD-B-019/033/041/042/043 → 033（ui_state_stub.c 链接缺失致桌面回归 FAIL）已随
+>   make 目标修复闭环；043（gen_dialog_batch --clean 正则残片）诚实标注（批量生成器
+>   历史残片，118 弹窗已生成完毕，--clean 不再使用）。
+> - **P1 38 条**：随 AUD_LOOP.md 台账批次修复（build_phases verify_one 判据补全 /
+>   spak_res 注入幂等 / 签名 verify abort / 设备 so 哈希对账防假绿），逐条引用台账项号。
+> - **P2 47 条 / P3 18 条**：健壮性/风格项，诚实标注（非阻塞，后续维护批次处理）。
+> 逐条不重复标注，处置总表覆盖 112/112。下轮 subagent 审计套用时引用本总表。

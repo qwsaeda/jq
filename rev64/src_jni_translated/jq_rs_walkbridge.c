@@ -16,12 +16,17 @@ static jq_state g_walk_state;
 static int g_walk_init = 0;
 
 /* §124y-166 AUD-R 分叉标记：布局/几何族 + 事件名表族（走子桥接入点）。
-   · R-021 头注释 0x39e14 行约束误标 → 32 位侧头注释与 64 位同源（行 15-32），误标同源 → 对齐（同源）
+   · R-021 头注释 0x39e14 行约束误标 → 64 位 rules.c 头注释已改"布局期校验限制"
+     措辞（AUD-R-021 P2 已修），32 位头注释（jq_rs_rules.c 行 15-17）仍写"0x39e14
+     目标类型判定"误标原文 → 分叉（★ 对抗审计 P3 批2 D-2 纠正：64 位已修 32 位未修，
+     "同源"当前为假）
    · R-051 jq_state_init 在 layout.c 声明实现分处 → 32 位侧同（jq_rs_rules.c 不含 layout，
      走子桥行 20 调 jq_state_init）→ 对齐（同源）
    · R-052 STG_SETUP 死枚举 → 32 位侧同（走子桥无布阵阶段分支）→ 对齐（同源）
    · R-081 三套实现缺一致性闸门 → 32 位侧即第 3 套实现（本走子桥），arm32_walkregress
-     为 32 位基准闸门，与 64 位 evverify/regress 双路 → 行为等价（分叉同步机制 R-138）
+     为 32 位基准闸门，与 64 位 evverify/regress 双路 → 已建机制（R-138 分叉矩阵
+     + rules_fork_check.py 双基准闸门）；★ 对抗审计 P1 批2 B-6：行为对齐未实证
+     （arm32_walkregress 仅 4 路径主链，规则矩阵未跑），机制存在 ≠ 行为等价
    · R-127 EVENT_NAMES[6] 指针非 const → 32 位侧同（jq_rs_rules.c 行 47 const char*[6]，
      64 位修法加 const 限定 32 位侧未同步）→ 分叉（64 位独有设计）
    · R-128 jq_cell 4 字节紧凑与裸字节序列化耦合 → 32 位侧同布局（走子桥无跨版本存档维度）
@@ -70,10 +75,15 @@ JQ_EXPORT int jq_walk_bridge_reset(void) {
    · R-078 bg_cell_img_center 越界 row/col 不校验 → 32 位侧走子桥 bg_row_cy 无越界检查（行 52）
      → 对齐（同源）
    · R-079 rank_encode 定义未调用 → 32 位侧无 rank_encode 使用点 → 对齐（同源）
-   · R-080 RANK_TOP=12 与 RANK_COUNT=13 边界耦合 → 32 位侧 rank_norm 同实现 → 对齐（同源）
+   · R-080 RANK_TOP=12 与 RANK_COUNT=13 边界耦合 → 32 位侧 rank_norm（jq_rs_rules.h
+     行 122）无上界钳（`v > RANK_TOP ? v-0xc : v`，v=25..255 还原成 13..243 越界
+     rank）；64 位 junqi.h 行 172 已加 `if (v > RANK_TOP+0xc) return RANK_TOP;`
+     上界钳（AUD-R-080 P2 修复）→ 分叉（★ 对抗审计 P2 批2 S-2 纠正：原"同实现"
+     失实，64 位已修 32 位未同步）
    · R-082 每步 O(N²) 移动端性能风险 → 32 位侧同（jq_side_stalemated 双循环，见 R-112 标记）
      → 对齐（同源，未压测）
-   · R-085 can_flip 可翻任意未定色暗子 → 32 位侧已加回合校验（jq_rs_rules.c 行 305-307）
+   · R-085 can_flip 可翻任意未定色暗子 → 32 位侧已加回合校验（jq_rs_rules.c 行 375-377
+     jq_can_flip 回合门，★ 对抗审计 P3 批2 D-6 行号纠正：原"行 305-307"已漂移）
      → 对齐（已同步修复）
    走子桥基准 = arm32_walkregress 4/4 PASS；几何/布局/性能细分 32 位侧未逐条实证，
    诚实边界留待 32 位反汇编专项（F_3ab80 事件分发下游接线）。 */

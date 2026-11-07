@@ -109,7 +109,10 @@ void ui_menu_action_log(int action)
     case 0: LOGI("UI菜单：人机对战 → 难度选择弹窗（★ 对抗审计 datah_041 证据：新手/中级/高级/好友区 × 布局/翻棋）"); break;
     case 1: LOGI("UI菜单：两人对战 → 直开局（★ 原版 UI 对齐：两人无难度弹窗，orig_two 截图自证）"); break;
     case 2: LOGI("UI菜单：联网对战（占位，SPP socket 由 Java 宿主承担）"); break;
-    case 3: LOGI("UI菜单：四国军棋（占位，未实现四国规则）"); break;
+    /* ★ 对抗审计 P1（批4 P1-R4）：原 case 3 日志误写"四国军棋（占位）"——
+       g_btns[3] 是"联机"（action=3），"四国军棋"是 g_btns[4]（action=4）。
+       case 3 应与 case 2 区分：联机=蓝牙 SPP 会话（已实装），联网=边界占位。 */
+    case 3: LOGI("UI菜单：联机对战（蓝牙 SPP，host/client 会话已实装，进入蓝牙联机流程）"); break;
     case 4: LOGI("UI菜单：四国军棋 → UI_NPLAYER 四国人数选择弹窗（★ P0 datah_089 证据：2/3/4 人 3 按钮，诚实边界）"); break;
     default: break;
     }

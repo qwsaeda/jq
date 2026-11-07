@@ -1,7 +1,9 @@
 #!/bin/bash
 # rebuild_rs_apk.sh — src_rs（64 位正向开发）换 so 一条龙
 # 固化：每轮手写 10+ 次的 "cp so → zip 重打(STORE) → zipalign → sign → install → 对账"。
-# 源 APK: /tmp/opencode/jq_apk/rs_a64/rs168_wav.apk（含 14 WAV assets + 正确包名 com.cnvcs.junqirs）
+# 源 APK: /tmp/opencode/jq_apk/rs_a64/rs168_wav.apk（含 14 WAV assets + 正确包名 com.cnvcs.junqirs）。
+#   ★ 诚实边界（对抗审计 P3-A6）：spak_res 推送段已改为从 rev64/dist/spak_res/
+#   44 张（spak_render_refs.txt 清单）取，不再依赖源 APK 的 spak_res（rs168 仅 16 张旧裁剪）。
 # 用法:
 #   bash rev64/tools/rebuild_rs_apk.sh              # 换 so → 打包 → 签名 → 装 → 对账（不启动）
 #   bash rev64/tools/rebuild_rs_apk.sh --start      # 追加启动 app
@@ -9,6 +11,7 @@
 #   bash rev64/tools/rebuild_rs_apk.sh --dev IP:PORT
 # 判据: so 哈希设备=本地 一致（md5 对账），v1+v2 签名，STORE 未压缩
 set -u
+WS=/disk/workspaces/jq
 RS=/disk/workspaces/jq/rev64/src_rs
 TOOLS=/disk/workspaces/jq/rev64/tools
 WORK=/tmp/opencode/jq_apk/rs_a64
@@ -31,6 +34,9 @@ log() { echo "[rebuild_rs] $*"; }
 # 前置检查
 [ -f "$SRCAPK" ] || { log "★ 源 APK 不存在: $SRCAPK（需 rs168_wav.apk，含 14 WAV）"; exit 1; }
 [ -f "$RS/dist/libjunqi_rs.so" ] || { log "★ so 不存在，先 make so"; exit 1; }
+[ -f "$TOOLS/spak_render_refs.txt" ] || { log "★ spak_render_refs.txt 缺失"; exit 1; }
+[ -d "$WS/rev64/dist/spak_res" ] || { log "★ rev64/dist/spak_res 全量源缺失"; exit 1; }
+[ -f "$TOOLS/so_link_check.py" ] || { log "★ so_link_check.py 缺失（工具不在，链接审计无法执行）"; exit 1; }
 
 log "=== [1/5] 链接安全审计 ==="
 python3 $TOOLS/so_link_check.py $RS/dist/libjunqi_rs.so >/tmp/opencode/rebuild_link.log 2>&1
@@ -62,13 +68,20 @@ python3 $RS/zipalign_apk.py rs_new.apk rs_new_a.apk >/tmp/opencode/rebuild_align
 tail -1 /tmp/opencode/rebuild_align.log
 
 log "=== [4/5] v1+v2 签名 ==="
+# ★ 对抗审计 P0-A1（诚实边界标注）：v1+v2 双签。MuMu 解析器部分版本只认 v1
+#   （v2 块致 INSTALL_PARSE_FAILED）——若目标设备是 MuMu 且装机失败，
+#   临时改用 mumu_swap_so.sh 的 zip-surgery 路径（保留源 v1 条目）或
+#   `--v2-signing-enabled false` 纯 v1 签。本脚本默认双签（真机 64 位 OK）。
 apksigner sign --v1-signing-enabled true --v2-signing-enabled true \
   --ks /disk/workspaces/jq/junqi.keystore --ks-pass pass:junqi2026 \
   --ks-key-alias junqi --key-pass pass:junqi2026 rs_new_a.apk 2>&1 | tail -1
 [ $? -ne 0 ] && { log "★ 签名失败"; exit 1; }
 cp rs_new_a.apk $OUT
 log "产物: $OUT ($(stat -c%s $OUT)B)"
-# 签名自检
+# 签名自检（★ 对抗审计 P2-A9：verify 失败必须 abort，原 grep 输出判据假绿）
+if ! apksigner verify --verbose $OUT 2>&1 | grep -q "Verified"; then
+  log "★ 验签失败（v1/v2 任一无效）"; apksigner verify --verbose $OUT 2>&1 | head -8; exit 1
+fi
 apksigner verify --verbose $OUT 2>&1 | grep -E "v1|v2" | head -2
 
 if [[ $INSTALL -eq 1 ]]; then
@@ -95,19 +108,25 @@ if [[ $INSTALL -eq 1 ]]; then
   log "=== 资产复用：推 spak_res ==="
   rm -rf /tmp/opencode/spak_res_push
   mkdir -p /tmp/opencode/spak_res_push
-  unzip -o "$OUT" "assets/spak_res/*" -d /tmp/opencode/spak_res_push >/dev/null 2>&1
-  if ls /tmp/opencode/spak_res_push/assets/spak_res/*.bin >/dev/null 2>&1; then
+  # ★ 对抗审计 P0-A3/P1-A4：推送源 = spak_render_refs.txt 44 张（render.c 实际引用清单），
+  #   不从源 APK rs168_wav.apk 推（rs168 仅 16 张旧裁剪 → 新设备首跑缺 28 张 UI 全退化）。
+  #   44 张取自 rev64/dist/spak_res/（965 全量源，与 build_phases.sh inject_spak_res 同源）。
+  local refs=$WS/rev64/tools/spak_render_refs.txt
+  local srcdir=$WS/rev64/dist/spak_res
+  if [ -f "$refs" ]; then
+    cp "$srcdir"/$(cat "$refs") /tmp/opencode/spak_res_push/ 2>/dev/null
     adb -s $DEV shell mkdir -p /data/local/tmp/spak_res >/dev/null 2>&1
     # ★ 单文件循环推送（目录 push 在部分设备只推部分文件，PNG 纹理漏推 → UI 全退化）。
     #   逐个 push 幂等，含 .bin + .png（菜单背景/按钮/☰ 图标/弹窗 纹理全量）。
-    for f in /tmp/opencode/spak_res_push/assets/spak_res/*; do
-      adb -s $DEV push "$f" /data/local/tmp/spak_res/ >/dev/null 2>&1
+    local npushed=0
+    for f in /tmp/opencode/spak_res_push/*; do
+      adb -s $DEV push "$f" /data/local/tmp/spak_res/ >/dev/null 2>&1 && npushed=$((npushed+1))
     done
     NBIN=$(adb -s $DEV shell ls /data/local/tmp/spak_res/*.bin 2>/dev/null | wc -l)
     NPNG=$(adb -s $DEV shell ls /data/local/tmp/spak_res/*.png 2>/dev/null | wc -l)
-    log "✓ spak_res 推送完成（设备端 $NBIN .bin / $NPNG .png，含 UI 纹理）"
+    log "✓ spak_res 推送完成（本次推 $npushed 张 / refs 清单 $(grep -c . "$refs")，设备端存量 $NBIN .bin / $NPNG .png）"
   else
-    log "⚠ 源 APK 无 assets/spak_res（设备端已有则复用：$(adb -s $DEV shell ls /data/local/tmp/spak_res/*.bin 2>/dev/null | wc -l) 个）"
+    log "⚠ spak_render_refs.txt 缺失（设备端存量复用：$(adb -s $DEV shell ls /data/local/tmp/spak_res/*.bin 2>/dev/null | wc -l) 个 .bin）"
   fi
 fi
 log "✓ rebuild_rs_apk 完成"

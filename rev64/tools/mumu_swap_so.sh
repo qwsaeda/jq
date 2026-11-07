@@ -167,6 +167,9 @@ echo "=== [5/6] 启动 + 日志 ==="
 adb -s $DEV shell "mkdir -p /data/local/tmp/spak_res /data/local/tmp/layouts"
 # ★ 全量 spak_res（bin + png 纹理），勿只推 bin（漏推 PNG → 菜单/☰/棋盘 UI 全退化）
 #   ★ 勿 rm 再推（会删掉 PNG）；单文件循环幂等。
+#   ★ 诚实边界（对抗审计 P3-A3/P1-A4）：全量=965 张（962 SPAK 解包 + 3 裁剪覆盖），
+#   arm64 src_rs 实际只读 44 张（spak_render_refs.txt 清单）。推 965 全量无害但慢
+#   （965 次 adb push）；若只需 44 张可改 `for f in $(cat $WS/rev64/tools/spak_render_refs.txt)`。
 for f in /disk/workspaces/jq/rev64/dist/spak_res/*; do
   adb -s $DEV push "$f" /data/local/tmp/spak_res/ >/dev/null 2>&1
 done
@@ -174,7 +177,11 @@ done
 adb -s $DEV push /disk/workspaces/jq/rev64/dist/layouts/ /data/local/tmp/layouts/ >/dev/null 2>&1 || \
   (cd /disk/workspaces/jq/rev64/dist/layouts && for f in *.lay; do adb -s $DEV push $f /data/local/tmp/layouts/$f >/dev/null 2>&1; done)
 adb -s $DEV logcat -c
-adb -s $DEV shell am start -n com.cnvcs.junqi/com.cnvcs.App >/dev/null 2>&1
+# ★ 对抗审计 P2-A8（P2-6）：包名修正——原 `com.cnvcs.junqi`（32 位原版包）与
+#   PKG=com.cnvcs.junqirs（64 位包）矛盾：装 64 位 so 后启动 32 位 app → so 永不加载，
+#   :179 pidof $PKG（junqirs）查不到进程 → 假红 FAIL。改 $PKG（junqirs）。
+#   主 activity = com.cnvcs.App（aapt dump badging launchable-activity 实证）。
+adb -s $DEV shell am start -n "$PKG/com.cnvcs.App" >/dev/null 2>&1
 sleep 10
 PID=$(adb -s $DEV shell pidof $PKG | tr -d '\r')
 echo "pid=$PID"

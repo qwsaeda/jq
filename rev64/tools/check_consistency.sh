@@ -18,9 +18,11 @@ grep -q "$REGRESS/$REGRESS" $WS/rev64/docs_rs/EXPERIENCE_LOG.md 2>/dev/null || {
 grep -q "$REGRESS/$REGRESS" $WS/course_unidbg/APPENDIX_C_REVERSE_ENGINEERING.md && echo "  [课程 回归] $REGRESS/$REGRESS 口径 ✓" || { echo "  ★ 课程缺 $REGRESS/$REGRESS 回归口径"; FAIL=1; }
 
 # 2. evverify 断言数（AGENTS.md "7 断言" ↔ 课程 "7 断言"）
-EVASSERT=$(cd $WS/rev64/src_rs && make evverify MODE=--all 2>/dev/null | grep -oE '[0-9]+/[0-9]+' | head -1)
+# ★ 对抗审计 P2-J10：原 2 次独立 make evverify（:21 + :23 各跑一次），改为单次实跑复用输出
+EVOUT=$(cd $WS/rev64/src_rs && make evverify MODE=--all 2>/dev/null)
+EVASSERT=$(echo "$EVOUT" | grep -oE '[0-9]+/[0-9]+' | head -1)
 echo "  [evverify] 实测 $EVASSERT 断言"
-echo "  evverify 实测输出：$(cd $WS/rev64/src_rs && make evverify MODE=--all 2>/dev/null | grep 全对)"
+echo "  evverify 实测输出：$(echo "$EVOUT" | grep 全对)"
 
 # 3. fulltest 项数（EXPERIENCE_LOG "9/9" ↔ 课程 C.3.4 ⑧，含困毙 N36 + UI 关闭/弹窗音效）
 FT=$(grep -cE 'run "(走子|FLAG|MINE|游戏内重开|和棋|认输|困毙|UI 关闭|UI 弹窗)' $WS/rev64/tools/mumu_fulltest.sh)

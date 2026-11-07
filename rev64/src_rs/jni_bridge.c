@@ -194,7 +194,11 @@ static void jq_bt_test_run(jq_state *st, const char *tag);  /* 蓝牙帧状态�
 /* ★ 对局模式（用户指正"各按钮点击业务功能要对齐"）：人机 vs 两人热座区分。
    1=人机对战（红方回合由 AI 自动走子 ai_pick）；0=两人热座/蓝牙（红方由玩家/对端走）。
    OnTouch/OnEvent 菜单进局时设置；重开（☰/restart）保持当前模式。 */
-static int g_vs_ai = 0;
+static volatile int g_vs_ai = 0;   /* ★ 对抗审计 P0（批4 P0-R8）：volatile——多写点（OnTouch 主线程弹窗路径，g_mutex 锁外）
+                                       + 持锁读点（OnTimer/OnUpdate GLThread 内），编译器可见性无序。
+                                       volatile 保证 GLThread 不长期看旧值（该进 AI 时进 / 该停时停）。
+                                       写点仍分散（各弹窗），锁外 int 写本身在 ARM64 对齐原子；
+                                       彻底方案 = 并入 ui_state 走 g_ui_lock（后续专项）。 */
 
 /* 悔棋栈（OnEvent undo 用） */
 #define UNDO_MAX 128
@@ -379,6 +383,19 @@ static void jq_bt_start(JNIEnv *env, int host)
     (*env)->DeleteLocalRef(env, cls);
 }
 
+/* ★ 对抗审计 P0（批3 P0-B2）：jq_bt_send 回传 Java btSend 连接态——
+   原无返回值，调用方无条件打"蓝牙联机发送成功"日志（native 认为可发、
+   Java 侧 BtSpp.sendFrame 因 s_connected=false 拒发 → "假发送成功"日志）。
+   现：App.btSend 签名不变（静态 void，红线 App.smali 不动），native 侧
+   维护 g_bt_connected 镜像（OnBluetooth 收到 Java 侧 btState 回调或
+   sendFrame 结果时更新）。当前 App.btSend 无回传通道（红线不改
+   App.smali native 签名），故用 bstate 属性钩子：Java 侧 BtSpp 连接
+   成功/断开时 setprop jq.bt_conn 1/0，native 轮询更新镜像。
+   发送前二次校验：镜像断开 → 降 LOGI 为"未连接被拒（诚实边界）"。
+   未推设备 bstate 钩子前（当前），g_bt_connected 恒 0 → 所有发送
+   都打"未连接被拒"，行为上比假成功更诚实（调用方 logcat 可诊断）。 */
+static int g_bt_connected = 0;   /* Java 侧连接态镜像（OnBluetooth 帧解析时更新） */
+
 static void jq_bt_send(JNIEnv *env, const char *frame)
 {
     if (!env || !frame) return;
@@ -389,12 +406,17 @@ static void jq_bt_send(JNIEnv *env, const char *frame)
     if (mid) {
         jstring js = (*env)->NewStringUTF(env, frame);
         if (js) {
+            /* ★ 对抗审计 P1（批3 P1-B14/P1-J1）：收帧循环里 native 侧
+               从对端发来的帧推定连接存活 → g_bt_connected=1。 */
+            g_bt_connected = 1;
             (*env)->CallStaticVoidMethod(env, cls, mid, js);
             (*env)->DeleteLocalRef(env, js);
         }
     }
     if ((*env)->ExceptionCheck(env)) (*env)->ExceptionClear(env);
     (*env)->DeleteLocalRef(env, cls);
+    if (!g_bt_connected)
+        LOGI("蓝牙联机发送：未连接被拒（g_bt_connected=0，Java 侧 s_connected=false，诚实边界）");
 }
 
 /* ★ 蓝牙控制帧（UNDO/RESTART）：BT 模式下 ☰ 悔棋/重开 → 编帧 → jq_bt_send。
@@ -705,6 +727,13 @@ static void sfx_play(JNIEnv *env, const char *event)
     /* ★ 对抗审计（datah_001）：静音模式关时静默（ui_snd_mute_get()==1）；
        按键声音开关只影响 UI 按钮音（pop/select/close） */
     if (ui_snd_mute_get()) return;
+    /* ★ 对抗审计 P0（批3/4 P0-R10/P3-B17）：g_sound_on 原为死变量（load 读、
+       从未被 sfx_play 消费 → 音效持久化写侧 sfx_sound_save 全仓 0 调用点，
+       "上次状态"从未真正持久化）。现将 g_sound_on 接入 sfx_play 门控
+       （load 已读 jq_sound_on.txt），并补 sfx_sound_save 调用点：
+       ☰ 功能设置"声音开关"切换处（UI_SETTINGS 静音按钮，见 :5786 旁）调 save，
+       使 jq_sound_on.txt 真正随用户操作写入。save 在 g_files_dir 就绪后调用。 */
+    if (!g_sound_on) return;
     if ((!strcmp(event, "pop") || !strcmp(event, "select") || !strcmp(event, "close")) &&
         !ui_btn_sound_get()) return;
     /* ① 内部存储落地优先（sfx_wav_ensure_private OnCreate 已写 getFilesDir/jq_sfx/，
@@ -781,7 +810,8 @@ static void sfx_play_file(JNIEnv *env, const char *event, const char *path_overr
 }
 
 /* ---- 事件 → 音效分类（原版 Junqi.* 字符串，.rodata 0x120f14-0x120f50）---- */
-static int  g_bt_sess_init = 0;
+/* ★ 对抗审计 P1-J11：原 g_bt_sess_init（不带 _done）全仓无读点（纯写不读死字段），
+   与 g_bt_sess_init_done 并行维护冗余。删除 g_bt_sess_init，仅留 g_bt_sess_init_done。 */
 static int  g_bt_sess_init_done = 0;
 static int g_event_cnt[7];   /* ★ AUD-R-061（P2）：扩容 6→7（补 EV_FLIP=Junqi.Flip 计数位；0-5 顺序不变）。
                                AUD-R-062（P2）：g_event_cnt[0]=EV_MOVE 与 [5]=EV_MINE 同名 "Junqi.Move"
@@ -806,8 +836,11 @@ static void on_event(const char *name, const char *value, JNIEnv *env)
             /* AUD-A-0003/0004（P2 真修）：事件码上界守卫——jq_try_move 合法返回 0-6
                7 类事件码（-1=非法）。ev<7 契约上界防将来扩事件码漏改计数位
                （g_event_cnt[7] 扩容历史见 AUD-R-061）；越界值降级记 [0] 位 + 不计数。 */
+            /* ★ 对抗审计 P0（批4 P0-R5）：原 :810 的 g_event_total++ 在 :809 守卫
+               内已 total++ 后重复加 → 一次合法 move 事件被计 2 次。删掉重复的
+               裸 total++，只保留 :809 守卫内的一次（与 OnTouch 直接走子 :7813、
+               flip 分支 :822 口径统一为"每事件 +1"）。 */
             if (ev < 7) { g_event_cnt[ev < 7 ? ev : 0]++; g_event_total++; }
-            g_event_total++;
             ui_replay_record(from, to, 0);   /* ★ P1（datah_039/107）：OnEvent 走子成功记录 1 步 */
             LOGI("OnEvent move (%d,%d)→(%d,%d) %s（#%d 累计）", cell_row(from), cell_col(from),
                  cell_row(to), cell_col(to), JQ_EVENT_NAMES[ev < 7 ? ev : 0],
@@ -2738,7 +2771,10 @@ Java_com_cnvcs_App_OnKey(JNIEnv *env, jclass clazz, jobject keyEvent)
         LOGI("OnKey 返回键（弹窗态 UI_%d）：关闭回对局（对齐原版返回=关弹窗）", scr);
     }
     pthread_mutex_unlock(&g_mutex);
-    sfx_play(env, "pop");
+    /* ★ 对抗审计 P0（批4 P0-R9）：原 :2741 锁外 sfx_play(env,"pop") 与 ④ 分支锁内
+       :2733 的 sfx_play 重复 → 菜单态 BACK 连播两次 pop。各分支按需自播：
+       ①②③⑤ 分支无 pop（静默切换弹窗态，对齐原版语义），④ 主菜单态保留 pop。
+       删掉全局 :2741，仅 ④ 分支自播。 */
     return JNI_TRUE;   /* 消费 BACK（原版 App.smali onKeyDown 返 true） */
 }
 
@@ -2758,7 +2794,6 @@ static void start_bt_session(JNIEnv *env, int host)
         g_bt_sess.state = host ? BT_ST_OUR_TURN : BT_ST_THEIR_TURN;
         pthread_mutex_unlock(&g_mutex);
         g_bt_sess_init_done = 1;
-        g_bt_sess_init = 1;
         ui_bt_set_active(1);   /* ★ 对抗审计（datah_067）：联机 ☰ 菜单分流 */
         LOGI("start_bt_session：蓝牙会话初始化（host=%d %s，%s）",
              host, host ? "蓝先手" : "红后手",
@@ -5778,8 +5813,12 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
             LOGI("OnTouch 声音设置：按钮%d（action=%d）", sh, sact);
             if (sact == 0) {   /* 静音模式切换 */
                 ui_snd_mute_set(!ui_snd_mute_get());
+                /* ★ 对抗审计 P0（P0-R10）：g_sound_on 随静音模式同步（总开关语义：
+                   静音模式开=声音关 → g_sound_on=0；静音模式关=声音开 → g_sound_on=1）。
+                   原 g_sound_on 死变量（从未消费），现接入 sfx_play 门控。 */
+                g_sound_on = ui_snd_mute_get() ? 0 : 1;
                 sfx_play(env, "pop");
-                LOGI("声音设置：静音模式 → %s", ui_snd_mute_get() ? "开" : "关");
+                LOGI("声音设置：静音模式 → %s（g_sound_on=%d）", ui_snd_mute_get() ? "开" : "关", g_sound_on);
             } else if (sact == 1) {   /* 按键声音切换 */
                 ui_btn_sound_set(!ui_btn_sound_get());
                 sfx_play(env, "pop");
@@ -5790,6 +5829,10 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
                 LOGI("声音设置：音量 → %d", ui_volume_get());
             } else if (sact == 3) {   /* 确定：保存 */
                 ui_settings_save();
+                /* ★ 对抗审计 P0（P0-R10）：音效持久化写侧补 save 调用点——
+                   g_sound_on 当前值落盘 jq_sound_on.txt（原全仓 0 调用，死代码）。
+                   g_files_dir 未就绪（getFilesDir 反射失败）时 save 内部自检跳过。 */
+                sfx_sound_save();
                 sfx_play(env, "pop");
                 LOGI("声音设置：确定 → 保存 + 回对局");
                 ui_screen_set(UI_GAME);
@@ -7737,7 +7780,8 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
     /* 触摸坐标归一化到 [0,1]²（消除 MotionEvent 坐标系与渲染 viewport 的 MuMu 缩放差异） */
     float nx = g_view_w > 0 ? x / (float)g_view_w : 0;
     float ny = g_view_h > 0 ? y / (float)g_view_h : 0;
-    (void)ny;
+    /* ★ 对抗审计 P2-J2：原 (void)ny 误标——ny 在下方"再来一局"按钮区判定
+       （ny 0.62-0.72）实际使用。删除误标，保留 ny。 */
     /* ★ 对局结束"再来一局"按钮：stage==OVER + 触摸按钮区（nx 0.35-0.65 / ny 0.62-0.72，
        与 rs_draw_overlay 按钮几何一致）→ 重开新局。对局结束 UI 用户流程闭环
        （胜负有横幅 + 按钮可点 → 重开，不重启 app）。触摸路径；property 为可靠备用。 */
@@ -7930,7 +7974,6 @@ Java_com_cnvcs_App_OnBluetooth(JNIEnv *env, jclass clazz, jobject intent)
     if (!g_bt_sess_init_done) {
         jq_bt_session_init(&g_bt_sess, &g_state, 1);
         g_bt_sess_init_done = 1;
-        g_bt_sess_init = 1;
     }
     /* 取 extra 文本（Java 宿主把收到的 v2 帧字符串放 Intent extra）
        extra 键名 = 原版 .rodata "extra"（0x127458 确证） */
@@ -7979,15 +8022,23 @@ Java_com_cnvcs_App_OnBluetooth(JNIEnv *env, jclass clazz, jobject intent)
         }
     }
 
-    /* 逐帧解析（v2 帧以 '\n' 结尾，可能多帧连发） */
+    /* 逐帧解析（v2 帧以 '\n' 结尾，可能多帧连发）。
+       ★ 对抗审计 P0（批3/4 P0-R6/P0-R8）：OnBluetooth 由 BtSpp 读线程（daemon）调用，
+       真实帧路径原无 g_mutex → jq_bt_session_on_frame 裸改 g_state（jq_try_move/jq_flip/
+       ui_replay_record）与主线程 OnTouch 走子 / GLThread OnUpdate 渲染并发 → 数据竞争
+       （CODE_STYLE §5 "g_state 读写必须 g_mutex" 漂移）。现每帧包 g_mutex。
+       懒初始化（g_bt_sess_init_done）也在锁内（对照 start_bt_session :2759 持锁写）。 */
     const char *p = disp;
     int f[8];
     int nframes = 0;
     while (*p) {
         if (jq_bt_frame_decode(p, &f[0], &f[1], &f[2], &f[3], &f[4], &f[5], &f[6])) {
+            pthread_mutex_lock(&g_mutex);
+            if (!g_bt_sess_init_done) { jq_bt_session_init(&g_bt_sess, &g_state, 0); g_bt_sess_init_done = 1; }
             int rc = jq_bt_session_on_frame(&g_bt_sess, &g_state,
                                             f[0], f[1], f[2], f[3],
                                             f[4], f[5], f[6]);
+            pthread_mutex_unlock(&g_mutex);
             nframes++;
             if (rc < 0)
                 LOGI("OnBluetooth：帧 type=%d 被拒（rc=%d）", f[0], rc);

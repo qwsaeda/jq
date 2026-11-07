@@ -92,7 +92,8 @@ def layer_apk():
         # 统计 spak_res 全量
         nbin = sum(1 for e in entries if e.startswith("assets/spak_res/") and e.endswith(".bin"))
         npng = sum(1 for e in entries if e.startswith("assets/spak_res/") and e.endswith(".png"))
-        nfull = int(open(os.path.join(ROOT, "tools", "spak_render_refs.txt")).read().count("\n")) if os.path.exists(os.path.join(ROOT, "tools", "spak_render_refs.txt")) else 0
+        # ★ 对抗审计 P2-A4：splitlines（CRLF 不误计；原 count("\n") 末行无换行少计 1）
+        nfull = len(open(os.path.join(ROOT, "tools", "spak_render_refs.txt")).read().splitlines()) if os.path.exists(os.path.join(ROOT, "tools", "spak_render_refs.txt")) else 0
         in_spak = sum(1 for e in entries if e.startswith("assets/spak_res/"))
         print(f"  信息: {name} spak_res 共 {nbin} .bin / {npng} .png（APK 内 {in_spak} 文件 / render.c 引用 {nfull} 全量，APK 自包含）")
 
@@ -104,9 +105,11 @@ def layer_dev(dev=DEV):
                            capture_output=True, text=True, timeout=30)
         return p.stdout.strip()
 
-    # 设备在线
-    pid = shell("pidof com.cnvcs.junqirs || echo 0").strip()
-    print(f"  信息: 设备 {dev}（{pid and 'so 运行中' or 'so 未运行'}）")
+    # 设备在线（★ 对抗审计 P1-A6：pidof 旧 Android 可能 "not found" 污染 stdout →
+    #   2>/dev/null + 仅认纯数字 pid；非数字/空均判"未运行"）
+    pid = shell("pidof com.cnvcs.junqirs 2>/dev/null | tr -d '\\r'").strip()
+    running = pid.isdigit()
+    print(f"  信息: 设备 {dev}（{'so 运行中 pid=' + pid if running else 'so 未运行'}）")
     nbin = shell("ls /data/local/tmp/spak_res/*.bin 2>/dev/null | wc -l").strip()
     npng = shell("ls /data/local/tmp/spak_res/*.png 2>/dev/null | wc -l").strip()
     # 设备端 spak_res 判据：arm64 侧只需 render.c 引用的 44 张全量在（2 .bin 棋盘/棋子
@@ -134,13 +137,17 @@ def layer_dev(dev=DEV):
         check(ok, f"设备端 {fn}（UI 纹理）")
     # 资源加载诊断（so logcat 首帧：直接 grep logcat -d 全量，非 -s 过滤——
     #   "Init 像素解码"日志在 OnCreate 线程（非 GLThread），-s junqi_rs 按 tag 过滤会漏）
-    log = shell("logcat -d 2>/dev/null | grep junqi_rs")
+    # ★ 对抗审计 P1-J7：logcat 全量历史判据假绿（历史有过一次 OK 即 PASS，即使
+    #   当前 so 重装后首帧失败）。限定到"最近一次启动"——按日志时间戳取最后一段
+    #   junqi_rs 行（Init 像素解码 在 OnCreate，取含该行所在的时间窗口）。
+    log = shell("logcat -d -T 500 2>/dev/null | grep junqi_rs")
     miss = re.findall(r"纹理缺失.*?fs=(\S+)", log)
     ok_dec = re.search(r"Init 像素解码：board=OK", log)
-    # 全量资源解码计数（33 张 OK = 全量像素解码成功，无缺失）
+    # 全量资源解码计数（★ 对抗审计 P1-A7/P3-A4：refs 44 张 = 2 .bin + 42 .png，
+    #   "=OK(" 正则命中 44 个资源名（含 board/piece 的 2 个 .bin）。注释口径 44。）
     n_ok = len(re.findall(r"=OK\(", log))
     if ok_dec:
-        check(True, f"so 首帧 logcat: board 像素解码 OK（全量 {n_ok} 资源 =OK，无缺失诊断）")
+        check(True, f"so 首帧 logcat: board 像素解码 OK（全量 {n_ok} 资源 =OK，无缺失诊断；判定窗口=最近 500 行）")
     elif miss:
         check(False, f"so 首帧 logcat: 纹理缺失 {miss[0]}")
     else:
@@ -156,7 +163,10 @@ def layer_build():
     p = subprocess.run(["readelf", "--dyn-syms", "-W", so],
                        capture_output=True, text=True)
     njni = len(re.findall(r"Java_com_cnvcs_App_", p.stdout))
-    check(njni >= 14, f"JNI 导出 {njni} 个（≥14）")
+    # ★ 对抗审计 P2-A8（P2-8）：14 来源注释——src_rs 64 位重写 14 个 JNI 入口
+    #   （原版 32 位 15 个 Java_com_cnvcs_App_On*，src_rs 未实现 OnDestroy，缺 1 个）。
+    #   判据 >=14：14 全导出 = PASS；<14 = FAIL（缺入口）；15（全量）也 PASS。
+    check(njni >= 14, f"JNI 导出 {njni} 个（≥14；src_rs 14 入口 = 原版 15 − OnDestroy）")
     # 资源加载符号存在（rs_render_init 引用 AAsset/fopen）
     p2 = subprocess.run(["grep", "-c", "rs_read_png", os.path.join(ROOT, "src_rs", "render.c")],
                         capture_output=True, text=True)

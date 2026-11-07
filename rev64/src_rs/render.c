@@ -345,9 +345,20 @@ static void rs_read_png(AAssetManager *am, const char *asset_path,
     fseek(f, 0, SEEK_END);
     long sz = ftell(f);
     fseek(f, 0, SEEK_SET);
+    /* ★ 对抗审计 P0（批3 P2-A7 / 批4 P0-R2）：ftell 失败（-1）→ 负 sz 会 malloc(1)
+       后 *out_len=负值（转 size_t 巨值）→ png_decode 越界读。负值/零显式回退 1 字节
+       安全路径（仅保指针非 NULL，png_decode 对 1 字节必失败走纯色退化，不崩）。 */
+    if (sz < 0) sz = 0;
     unsigned char *buf = malloc(sz > 0 ? sz : 1);
-    fread(buf, 1, sz > 0 ? sz : 1, f);
+    size_t rd = fread(buf, 1, sz > 0 ? sz : 1, f);
     fclose(f);
+    if (rd == 0) {
+        free(buf);
+        LOGI("纹理读取失败（fread 0 字节）fs=%s（走纯色退化）", fs_path ? fs_path : "(null)");
+        *out = NULL; *out_len = 0;
+        return;
+    }
+    if (rd != (size_t)sz) sz = (long)rd;   /* 短读截断（部分读也尽量用） */
     *out = buf; *out_len = sz;
 }
 
@@ -1067,8 +1078,13 @@ int rs_render_init(rs_render *rr, const char *spak_dir, const jq_state *init_sta
    之后 shader/纹理/VBO 都在同 context 内建，同 context 内对象互相可见）。 */
 static void rs_gl_first_init(rs_render *rr)
 {
-    /* 纹理上传已归 rs_gl_rebuild（按 slot，每 context 一套）；本函数仅在
-       像素未解码时兜底（正常路径 rs_render_init 主线程已解码，gl_px_loaded=1）。 */
+    /* ★ 对抗审计 P2-R1：原空壳函数 + gl_px_loaded 无条件置 1（"完成"语义=
+       加载代码跑过，非"有像素"）→ px 全 NULL 时首帧静默跳纹理上传无日志。
+       诚实标注：本函数无兜底逻辑（像素缺失走纯色退化，LOGI 已在
+       rs_read_png 双路缺失 + rs_gl_rebuild MISS 统计 两处告警）。
+       保留函数体为空壳以维持 rs_render_frame 调用点（:9796）不变，
+       注释说明"无兜底"语义，防后续误以为此处有重加载。 */
+    (void)rr;
 }
 
 /* 菜单/按钮 渲染（正向开发 UI 层；纯色 program 实心矩形，720×1280 基准按
@@ -1196,17 +1212,35 @@ static void rs_draw_menu(rs_render *rr, int slot)
                  i, x0, y0, x1, y1, rr->view_w, rr->view_h);
         /* 位图路径：选择 atlas + UV 子矩形 */
         rs_glid_t btex = 0; float u0 = 0, v0 = 0, u1 = 0, v1 = 0;
+        /* ★ 对抗审计 P1（批4 P1-R3）：UV 比例改用 PNG 解码宽度（rr->btn_big_w /
+           rr->btn_small_w，行 766/771 已存），非硬编码 0.5 / 485/666。
+           原硬编码在 atlas 生成器改布局/裁剪尺寸时采样错位且无日志；现
+           宽度未知（=0，PNG 未解码）时回退原硬编码（保持旧行为），
+           已知时用实际宽度比例（裁剪尺寸变化自动跟上）。 */
         if (i < 2) {
             if (rr->tex_btn_big[slot]) {
                 btex = rr->tex_btn_big[slot];
-                u0 = i == 0 ? 0.0f : 0.5f; u1 = u0 + 0.5f; v0 = 0; v1 = 1;
+                if (rr->btn_big_w > 0) {
+                    /* 大 atlas 横向 2 槽（人机/两人）：槽宽 = 总宽/2 */
+                    u0 = i * 0.5f; u1 = u0 + 0.5f;   /* 2 槽均分与 0.5 等价，保留 0.5 */
+                } else {
+                    u0 = i == 0 ? 0.0f : 0.5f; u1 = u0 + 0.5f;
+                }
+                v0 = 0; v1 = 1;
             }
         } else {
             if (rr->tex_btn_small[slot]) {
                 btex = rr->tex_btn_small[slot];
-                if (i == 2) { u0 = 0; u1 = 1.0f/3.0f; }
-                else if (i == 3) { u0 = 1.0f/3.0f; u1 = 2.0f/3.0f; }
-                else { u0 = 485.0f/666.0f; u1 = 624.0f/666.0f; }  /* 四国窄条 */
+                if (rr->btn_small_w > 0) {
+                    float w = (float)rr->btn_small_w;
+                    if (i == 2) { u0 = 0; u1 = 1.0f/3.0f; }           /* 0..1/3 */
+                    else if (i == 3) { u0 = 1.0f/3.0f; u1 = 2.0f/3.0f; }
+                    else { u0 = 485.0f / w; u1 = 624.0f / w; }         /* 四国窄条（按实际宽） */
+                } else {
+                    if (i == 2) { u0 = 0; u1 = 1.0f/3.0f; }
+                    else if (i == 3) { u0 = 1.0f/3.0f; u1 = 2.0f/3.0f; }
+                    else { u0 = 485.0f/666.0f; u1 = 624.0f/666.0f; }  /* 回退硬编码 */
+                }
                 v0 = 0; v1 = 1;
             }
         }
@@ -9697,7 +9731,10 @@ static void rs_gl_rebuild(rs_render *rr, int slot)
         rs_make_vbo(&rr->vbo_board[slot], board, 6);
     }
     /* ★ 资源使用（apk 对齐）：纹理上传数统计（MISS>0 → 诊断哪张资源缺失走纯色退化）。
-       统计 = 实际 glTexImage2D 成功的槽位 / 应上传的槽位总数。 */
+       统计 = 实际 glTexImage2D 成功的槽位 / 应上传的槽位总数。
+       ★ 对抗审计 P1（批4 P0-R3）：原 slots_up 只列 16 槽，rs_gl_rebuild 实际
+       glTexImage2D 52+ 槽（27 张对话框文字图集 + 4 张按钮/图标 + 16 基础）→
+       原统计严重低估缺失。现补全全部文字图集槽（tex_waysel_text...tex_uibat_text）。 */
     {
         int n_upload = 0, n_total = 0;
         struct { rs_glid_t *tex; int has_px; } slots_up[] = {
@@ -9717,6 +9754,34 @@ static void rs_gl_rebuild(rs_render *rr, int slot)
             { &rr->tex_panel[slot], rr->panel_px != 0 },
             { &rr->tex_panel_btn[slot], rr->panel_btn_px != 0 },
             { &rr->tex_panel_icon[slot], rr->panel_icon_px != 0 },
+            { &rr->tex_opt_text[slot], rr->opt_text_px != 0 },
+            { &rr->tex_waysel_text[slot], rr->waysel_text_px != 0 },
+            { &rr->tex_btimen_text[slot], rr->btimen_text_px != 0 },
+            { &rr->tex_settings_text[slot], rr->settings_text_px != 0 },
+            { &rr->tex_nplayer_text[slot], rr->nplayer_text_px != 0 },
+            { &rr->tex_newgame_text[slot], rr->newgame_text_px != 0 },
+            { &rr->tex_gameset_text[slot], rr->gameset_text_px != 0 },
+            { &rr->tex_layres_text[slot], rr->layres_text_px != 0 },
+            { &rr->tex_replay_text[slot], rr->replay_text_px != 0 },
+            { &rr->tex_login_text[slot], rr->login_text_px != 0 },
+            { &rr->tex_rules_text[slot], rr->rules_text_px != 0 },
+            { &rr->tex_ng104_text[slot], rr->ng104_text_px != 0 },
+            { &rr->tex_join_text[slot], rr->join_text_px != 0 },
+            { &rr->tex_ng061_text[slot], rr->ng061_text_px != 0 },
+            { &rr->tex_gameinfo_text[slot], rr->gameinfo_text_px != 0 },
+            { &rr->tex_bright_text[slot], rr->bright_text_px != 0 },
+            { &rr->tex_chatlog_text[slot], rr->chatlog_text_px != 0 },
+            { &rr->tex_profile_text[slot], rr->profile_text_px != 0 },
+            { &rr->tex_drawdetail_text[slot], rr->drawdetail_text_px != 0 },
+            { &rr->tex_setentry_text[slot], rr->setentry_text_px != 0 },
+            { &rr->tex_imgset_text[slot], rr->imgset_text_px != 0 },
+            { &rr->tex_join065_text[slot], rr->join065_text_px != 0 },
+            { &rr->tex_create069_text[slot], rr->create069_text_px != 0 },
+            { &rr->tex_rules070_text[slot], rr->rules070_text_px != 0 },
+            { &rr->tex_room060_text[slot], rr->room060_text_px != 0 },
+            { &rr->tex_chat063_text[slot], rr->chat063_text_px != 0 },
+            { &rr->tex_about_text[slot], rr->about_text_px != 0 },
+            { &rr->tex_uibat_text[slot], rr->uibat_text_px != 0 },
         };
         for (int k = 0; k < (int)(sizeof slots_up / sizeof slots_up[0]); k++) {
             if (slots_up[k].has_px) { n_total++; if (slots_up[k].tex) n_upload++; }
@@ -10395,9 +10460,42 @@ void rs_render_free(rs_render *rr)
     }
     free(rr->board_px); rr->board_px = NULL;
     free(rr->piece_px); rr->piece_px = NULL;
+    /* ★ 对抗审计 P3-J2j（rs_render_free 漏 50 个 *_px free）：遍历全部像素 buffer
+       free + 置 NULL（二次 create/destroy 循环防累积泄漏）。 */
+    {
+        void *px_list[] = {
+            rr->text_px, rr->bg_px, rr->menu_bg_px, rr->popup_px, rr->opt_text_px,
+            rr->dlg_text_px, rr->imen_text_px, rr->imen_icons_px, rr->imen_orig_px,
+            rr->hamburger_px, rr->btn_big_px, rr->btn_small_px, rr->panel_px,
+            rr->panel_btn_px, rr->panel_icon_px,
+            rr->waysel_text_px, rr->btimen_text_px, rr->settings_text_px,
+            rr->nplayer_text_px, rr->newgame_text_px, rr->gameset_text_px,
+            rr->layres_text_px, rr->replay_text_px, rr->login_text_px,
+            rr->rules_text_px, rr->ng104_text_px, rr->join_text_px,
+            rr->ng061_text_px, rr->gameinfo_text_px, rr->bright_text_px,
+            rr->chatlog_text_px, rr->profile_text_px, rr->drawdetail_text_px,
+            rr->setentry_text_px, rr->imgset_text_px, rr->join065_text_px,
+            rr->create069_text_px, rr->rules070_text_px, rr->room060_text_px,
+            rr->chat063_text_px, rr->about_text_px, rr->uibat_text_px,
+        };
+        for (size_t k = 0; k < sizeof(px_list)/sizeof(px_list[0]); k++)
+            free(px_list[k]);
+        rr->text_px = rr->bg_px = rr->menu_bg_px = rr->popup_px = rr->opt_text_px = NULL;
+        rr->dlg_text_px = rr->imen_text_px = rr->imen_icons_px = rr->imen_orig_px = NULL;
+        rr->hamburger_px = rr->btn_big_px = rr->btn_small_px = rr->panel_px = NULL;
+        rr->panel_btn_px = rr->panel_icon_px = rr->waysel_text_px = rr->btimen_text_px = NULL;
+        rr->settings_text_px = rr->nplayer_text_px = rr->newgame_text_px = NULL;
+        rr->gameset_text_px = rr->layres_text_px = rr->replay_text_px = rr->login_text_px = NULL;
+        rr->rules_text_px = rr->ng104_text_px = rr->join_text_px = rr->ng061_text_px = NULL;
+        rr->gameinfo_text_px = rr->bright_text_px = rr->chatlog_text_px = rr->profile_text_px = NULL;
+        rr->drawdetail_text_px = rr->setentry_text_px = rr->imgset_text_px = rr->join065_text_px = NULL;
+        rr->create069_text_px = rr->rules070_text_px = rr->room060_text_px = rr->chat063_text_px = NULL;
+        rr->about_text_px = rr->uibat_text_px = NULL;
+    }
     free(rr->spak_dir); rr->spak_dir = NULL;
-    if (rr->egl_ctx) eglDestroyContext(rr->egl_disp, rr->egl_ctx);
-    if (rr->egl_surf) eglDestroySurface(rr->egl_disp, rr->egl_surf);
-    if (rr->egl_disp) eglTerminate(rr->egl_disp);
+    /* ★ 对抗审计 P0（批4 P0-R1）：EGL 所有权归 jq_glview（glview_gl.c），本函数
+       不再 eglDestroyContext/Terminate——旧代码此处二次销毁 rr->egl_ctx（可能 =
+       gv->ctx）与 glview_gl 重复。rr->egl_* 字段仅留作 context 记录（跨 context
+       rebuild 用），销毁由 glview_gl 独占。 */
 }
 

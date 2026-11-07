@@ -322,9 +322,16 @@ void jq_glview_destroy(jq_glview *gv)
     eglMakeCurrent(gv->disp, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
     if (g_win_surf != EGL_NO_SURFACE) eglDestroySurface(gv->disp, g_win_surf);
     g_win_surf = EGL_NO_SURFACE;
+    /* ★ 对抗审计 P0（批4 P0-R1）：rs_render_free 必须在 gv->ctx/surf/disp 销毁
+       之前调用——free 内 glDeleteTextures/glDeleteProgram 需 current context（建
+       它们的那个 context）。旧顺序先 eglDestroyContext(ctx)+eglDestroySurface
+       再 free → GL 对象在无 current context 下删除（UB）+ render.c rs_render_free
+       内对 rr->egl_ctx 二次 eglDestroyContext/Terminate（rr->egl_ctx 可能 =
+       gv->ctx，PBuffer 路径）→ 双重销毁。现顺序：先 free（GL 对象在 current
+       context 内删除），再销毁 gv 的 ctx/surf/disp。 */
+    if (gv->rr) rs_render_free(gv->rr);
+    g_rr_ready = 0;
     if (gv->ctx) eglDestroyContext(gv->disp, gv->ctx);
     if (gv->surf) eglDestroySurface(gv->disp, gv->surf);
     if (gv->disp) eglTerminate(gv->disp);
-    if (gv->rr) rs_render_free(gv->rr);
-    g_rr_ready = 0;
 }

@@ -10,5 +10,13 @@ APKSIGNER=/usr/bin/apksigner
 $APKSIGNER sign --ks $KEY --ks-key-alias junqi --ks-pass pass:junqi2026 --key-pass pass:junqi2026 \
   --v1-signing-enabled true --v2-signing-enabled true \
   --out $OUT $IN
-$APKSIGNER verify --verbose $OUT 2>&1 | grep -E "Verified|Number" | head -4
+# ★ 对抗审计 P1-B14/P2-A9（假绿修正）：verify 失败必须 abort——
+#   原 grep "Verified|Number" 无输出时静默继续 → 签名实际失败仍报 OK。
+#   现 apksigner verify 非 0 退出码即 FAIL（v1/v2 任一无效）。
+if ! $APKSIGNER verify --verbose $OUT 2>&1 | tee /tmp/opencode/sign_verify.log | grep -q "Verified"; then
+  echo "✗ 验签失败（v1/v2 任一无效）："
+  head -8 /tmp/opencode/sign_verify.log
+  exit 1
+fi
+grep -E "Verified|Number" /tmp/opencode/sign_verify.log | head -4
 echo "OK: $OUT ($(stat -c%s $OUT) bytes)"

@@ -79,4 +79,13 @@ if [ "$CRASH" -gt 0 ] || [ -z "$PID" ]; then
   echo "✗ FAIL（崩溃或进程死亡）"
   exit 1
 fi
-echo "✓ PASS（进程存活，0 崩溃）"
+# ★ 对抗审计 P1-J6（业务 gate 补全）：原只查崩溃/存活即 PASS（进程活但业务全
+#   miss 也假绿）。加业务判据——jq.test_game 钩子应产出 "TEST-GAME GS8" 诊断
+#   （§124y-13 gs[8] vtable 定位）或 F_a4234 事件日志；两者全无 = 钩子未触发
+#   （setprop 时序/so 未加载）→ FAIL。
+BUS=$(echo "$LOG" | grep -cE "TEST-GAME GS8|F_a4234:")
+if [ "$BUS" -eq 0 ]; then
+  echo "✗ FAIL（进程存活但业务判据缺失：无 TEST-GAME GS8 / F_a4234 日志，钩子未触发）"
+  exit 1
+fi
+echo "✓ PASS（进程存活，0 崩溃，业务判据命中 $BUS 条）"

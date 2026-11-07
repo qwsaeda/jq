@@ -222,7 +222,8 @@ typedef struct {
     AAssetManager *am;          /* AAssetManager（首帧建纹理用） */
     int gl_now_slot;            /* 当前 GL 对象 slot（rs_render_frame 检测切换） */
     int gl_px_loaded;          /* 像素解码完成标志（跨 slot 共享） */
-    int board_gl_loaded;       /* 兼容字段（纹理上传已归 rs_gl_rebuild，未用） */
+    /* ★ 对抗审计 P3-J1（board_gl_loaded 死字段）：原 int board_gl_loaded 声明未写
+       （全仓 0 写入点，纹理上传已归 rs_gl_rebuild），删除。 */
 } rs_render;
 
 /* 初始化：复用 jq_glview_init 已建好的 EGL 上下文（不再自建，避免双套 EGL 冲突）。

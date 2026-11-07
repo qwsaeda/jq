@@ -33,7 +33,11 @@ int __android_log_print(int prio, const char *tag, const char *fmt, ...) {
 }
 
 /* ★ AUD-R-013：bt_semtest 无 jni_bridge 链接 → 悔棋栈桩（与 bt_selftest 同款，恒 0） */
-int jq_bt_undo_available(void) { return 0; }
+/* ★ 对抗审计 P1-B9：jq_bt_undo_available 测试桩（原恒 0 → UNDO 帧永不消费）。
+   改可控桩 g_bt_undo_avail（默认 0 = 诚实边界"栈空拒收"，测试置 1 验证闸口语义）。
+   jni_bridge.c 的真实现读 g_undo_top（悔棋栈实际深度），测试桩仅语义对照。 */
+static int g_bt_undo_avail = 0;
+int jq_bt_undo_available(void) { return g_bt_undo_avail; }
 
 /* ---- CHECK 风格（对齐 bt_selftest.c）---- */
 static int rc = 0;
@@ -258,13 +262,18 @@ int main(void)
                 full_match = 0;
         CHECK(full_match, "回放：peer_state 60 格全量与发送侧一致");
 
-        /* BT_T_SYNC 帧（Java 侧 60 帧拆开的同步头帧：镜像 st） */
+        /* BT_T_SYNC 帧（Java 侧 60 帧拆开的同步头帧：重置 peer_state 待 SYNC_CELL 填充）。
+           ★ 对抗审计 P1-B5 修正：BT_T_SYNC 原 peer_state=*st（镜像本地，语义错——
+           对端误发 type=3 会忽略对端数据还谎报成功）。修正后 = 重置为初始态，
+           等待后续 SYNC_CELL 逐格填充。断言对齐修正后行为。 */
         jq_state stm; fixture_play(&stm);
         int ret = jq_bt_session_on_frame(&sess, &stm, BT_T_SYNC, 0, 0, 0, 0, 0, 0);
         CHECK(ret == 0, "SYNC 头帧接受（rc=0）");
-        CHECK(sess.peer_state.stage == stm.stage &&
-              memcmp(&sess.peer_state.cells, &stm.cells, sizeof(stm.cells)) == 0,
-              "SYNC 头帧：peer_state 全量镜像当前 st");
+        jq_state streset;
+        jq_state_init(&streset);
+        CHECK(sess.peer_state.stage == streset.stage &&
+              memcmp(&sess.peer_state.cells, &streset.cells, sizeof(streset.cells)) == 0,
+              "SYNC 头帧：peer_state 重置为初始态（等待 SYNC_CELL 填充，不镜像本地 st）");
     }
 
     /* =====================================================================
@@ -293,15 +302,19 @@ int main(void)
         jq_bt_session_on_frame(&sessr, &str, BT_T_RESIGN, 0, 0, 0, 0, 0, 0);
         CHECK(str.winner == SIDE_RED, "RESIGN 镜像：we_blue=0 收 RESIGN → winner=RED（对端认输本端胜）");
 
-        /* UNDO：闸口语义（THEIR_TURN 消费→翻回合；OUR_TURN 拒收） */
+        /* UNDO：闸口语义（THEIR_TURN 且悔棋栈非空才消费→翻回合；栈空拒收 rc=-3；OUR_TURN 拒收）
+           ★ 对抗审计 P1-B9 修正：jq_bt_undo_available 原恒 0 桩 → UNDO 帧永不消费
+           （rc=-3）。测试桩改 1（模拟 jni_bridge 侧悔棋栈非空），验证闸口语义
+           "栈深>0 → 切回合，恢复动作由收帧侧 undo_pop + 广播执行（PENDING 缺口）"。 */
         jq_state stu; fixture_play(&stu);
         jq_bt_session sessu;
         jq_bt_session_init(&sessu, &stu, 1);
         stu.total_moves = 3; stu.moves_since_eat = 1;
         sessu.state = BT_ST_THEIR_TURN;
+        g_bt_undo_avail = 1;   /* 模拟悔棋栈非空（jni_bridge 收帧侧 undo_pop 已就绪） */
         int undo_moved = stu.total_moves;
         ret = jq_bt_session_on_frame(&sessu, &stu, BT_T_UNDO, 0, 0, 0, 0, 0, 0);
-        CHECK(ret == 0, "UNDO 帧 THEIR_TURN 消费（rc=0）");
+        CHECK(ret == 0, "UNDO 帧 THEIR_TURN 消费（rc=0，悔棋栈非空）");
         CHECK(sessu.state == BT_ST_OUR_TURN, "UNDO 语义：消费后翻回合 OUR_TURN");
         CHECK(stu.total_moves == undo_moved,
               "UNDO 诚实边界：bt_session 侧不直接改状态（恢复在收帧侧）");

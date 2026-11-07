@@ -147,9 +147,17 @@ static bool rail_path_straight(const jq_state *st, int fr, int fc, int tr, int t
      arm32_walkregress 4/4 PASS 覆盖了主链走子，但**未逐条验证铁路方向**
      → 分叉（64 位独有设计，32 位侧未专项实证）
    · AUD-R-005 困毙参数化 → 32 位侧走子桥困毙走实时扫描
-     （jq_side_stalemated，与 64 位 can_move_ignore_turn 参数化语义等价）→ 等价
+     （jq_side_stalemated，行 397-418 仍用带回合门的 jq_can_move(st,i,t) 枚举，
+     依赖调用侧==turn 前提；64 位已修 can_move_ignore_turn 参数化（turn=-1 任意侧
+     可查），32 位未移植）→ 分叉（★ 对抗审计 P1 批2 B-2 纠正：原"等价"判读只在
+     侧==turn 调用子集成立，API 契约不等价——32 位 side≠turn 时恒返回 true 困毙误报）
    · AUD-R-006 暗棋信息不泄露 → 32 位侧走子桥布局写死 side 分区（"明棋藏脸"），
      暗棋信息遮蔽未实装 → 分叉（64 位独有设计）
+     ★ 对抗审计 P0（批2 F-3 漏标）：32 位 jq_can_move 行 182 只拦 dst->side==me
+     （己方），**不拦 dst->side==0xFF**（未定色暗子目标）——而 32 位 jq_can_flip
+     （行 355）存在 0xFF 未定子分支、jq_flip 行 374 有 0xFF→turn 定色，即 0xFF 格
+     可达；此时任意回合方可按真 rank 吃掉未定色暗子，与 64 位已修 AUD-R-006
+     （dst->side==0xFF → false）语义分叉 → 分叉（64 位已修，32 位未同步）
    走子桥基准 = arm32_walkregress 4/4 PASS，覆盖走子/翻棋/终局主链；
    细分规则 32 位侧未逐条实证，诚实边界留待后续专项。 */
 bool JQ_RS_DEF jq_can_move(const jq_state *st, int from, int to)
@@ -211,8 +219,12 @@ bool JQ_RS_DEF jq_can_move(const jq_state *st, int from, int to)
      jq_walk_bridge_flip 仅 logcat，无事件码）→ 分叉（64 位独有设计）
    · AUD-R-020 炸弹撞旗判胜 → 32 位侧走子桥认输逻辑（winner=1-turn）简化
      （不区分炸弹撞旗/吃旗）→ 分叉（64 位独有设计，32 位走子桥无此细分）
-   · AUD-R-004 pieces_left 越界写守卫 → 32 位侧走子桥无 pieces_left 消费
-     （困毙走实时扫描）→ 行为等价（都靠 jq_side_stalemated 兜底）
+   · AUD-R-004 pieces_left 越界写守卫 → 32 位侧走子桥维护 pieces_left（EV_BOMB/EV_EAT/
+     EV_DEAD 分支），但行 272 `if (dst->side != me) st->pieces_left[dst->side]--;`
+     **无 SIDE_VALID 守卫**——dst->side=0xFF（未定色暗子）时 pieces_left[255]--
+     越界写 1020 字节，AUD-R-004 P0 越界写 bug 在 32 位同样存在且未修 → 分叉
+     （64 位已加 SIDE_VALID(dst_side) 守卫，32 位未同步；32 位布局写死分区时
+     dst->side 恒 0/1 不触发，暗棋路径可达）
    · AUD-R-073 困毙翻棋排除 RANK_MINE → 32 位侧 jq_side_stalemated 未排除地雷
      （翻出地雷视为仍可行动）→ 分叉（64 位独有设计）
    走子桥基准 = arm32_walkregress 4/4 PASS（F_3ab80 ok=1），覆盖走子/翻棋/
@@ -223,12 +235,16 @@ bool JQ_RS_DEF jq_can_move(const jq_state *st, int from, int to)
      但 32 位侧消费点仅走子桥 logcat（无 AI/同步读），不可信影响面小 → 分叉（消费链不同）
    · R-016 EV_FLAG 关闭扛旗开关后事件语义 → 32 位侧无规则开关维度（见 R-031）→ 分叉（64 位独有设计）
    · R-018 杀光判据缺失 → 32 位侧困毙走实时扫描（行 291），语义等价兜底 → 行为等价
-   · R-033 和棋 total_moves 含翻棋 → 32 位侧 total_moves 仅走子累加（行 285），
-     翻棋（jq_flip）不累加 → 分叉（计数口径不同）
+   · R-033 和棋 total_moves 含翻棋 → 32 位侧 jq_flip 行 377-378 同样累加
+     total_moves/moves_since_eat（与 64 位 rules.c 同源口径），行 379-380
+     有和棋判定 → 对齐（同源，两侧翻棋均计入总步数）
    · R-034 和棋先于困毙优先级 → 32 位侧同序（行 287 和棋先、行 291 困毙后），
      双成立时困毙覆盖和棋（后执行生效）→ 对齐（同源顺序）
    · R-035 on_draw/on_stalemate 不查 stage → 32 位侧 jq_on_draw/jq_on_stalemate
-     直接写 winner=2/1-turn，无 stage 守卫（行 353-363）→ 分叉（64 位独有设计）
+     直接写 winner=2/1-turn，无 stage 守卫（行 479-489）；64 位三终局函数均有
+     `if (st->stage != STG_PLAY) return;` 守卫 → 分叉（32 位缺 stage 守卫，
+     64 位独有设计；★ 对抗审计 P0 批2 F-5 方向纠正：原标记"分叉（64 位独有设计）"
+     方向写反）
    · R-036 on_stalemate 胜方由 turn 推导 → 32 位侧同（行 361）→ 对齐（同源）
    · R-037 吃旗分支切 turn/累加 total_moves → 32 位侧同（行 245-246 吃旗后切 turn+累加）→ 对齐（同源）
    · R-038 EV_FLAG 提前 return 跳和棋困毙 → 32 位侧同（行 248 提前 return）→ 对齐（同源简化）
@@ -335,11 +351,14 @@ int JQ_RS_DEF jq_try_move(jq_state *st, int from, int to)
    · R-045 可翻白名单与困毙白名单不统一 → 32 位侧同（可翻=未翻且非旗，困毙排除地雷）→ 分叉（同源）
    · R-046 flags/rank 双表示 → 32 位侧同布局 → 对齐（同源）
    · R-053 winner 取值注释约定 → 32 位侧同（int8_t -1/0/1/2）→ 对齐（同源）
-   · R-085 can_flip 可翻任意未定色暗子不限回合 → 32 位侧已加回合校验（行 305-307），
-     与 64 位同步修复 → 对齐（已同步）
-   · R-086 翻棋消耗 moves_since_eat/total_moves → 32 位侧 jq_flip 不累加（行 330-333），
-     与 64 位不同 → 分叉（计数口径不同，见 R-033）
-   · R-109 flip 和棋缺 stage 守卫 → 32 位侧 jq_flip 末尾 stage 判定走子桥 logcat（无和棋判定）→ 分叉（走子桥简化）
+   · R-085 can_flip 可翻任意未定色暗子不限回合 → 32 位侧已加回合校验（行 375-377
+     jq_can_flip 回合门，★ 对抗审计 P3 批2 D-6 行号纠正），与 64 位同步修复 → 对齐（已同步）
+   · R-086 翻棋消耗 moves_since_eat/total_moves → 32 位侧 jq_flip 行 377-378 同样
+     累加（与 64 位同源口径）→ 对齐（同源；行 379-380 有和棋判定但无 stage 前置
+     守卫——见 R-109 标记）
+   · R-109 flip 和棋缺 stage 守卫 → 32 位侧 jq_flip 行 379-380 有和棋判定（无 stage
+     前置守卫、无困毙收口）；★ 对抗审计 P1 批2 B-3 纠正：原"无和棋判定"措辞失实
+     → 分叉（AUD-R-008 stalemate_after 收口未移植 + R-035 stage 守卫缺失，走子桥简化）
    · R-110 flip rank_norm 先求值 → 32 位侧同（行 301）→ 对齐（同源）
    · R-111 0xFF 可翻注释与实际可达性不符 → 32 位侧同（行 304）→ 对齐（同源）
    · R-140 on_stalemate 后 winner 依赖 turn∈{0,1} 无保护 → 32 位侧同（行 361）→ 对齐（同源）
@@ -450,7 +469,9 @@ int jq_snapshots_left(const jq_state *st)
 
 /* §124y-166 AUD-R 分叉标记：胜负分发族（会话 B 移植，对应 32 位 0x30200 分发）。
    · R-054 on_flag_capture 未校验吃旗方合法/未清旗计数 → 32 位侧同（行 377-381 直接写 winner）→ 对齐（同源）
-   · R-114 on_draw/on_stalemate/flag_capture 无 NULL 防护 → 32 位侧同（行 377-393 全部无判空）→ 对齐（同源）
+   · R-114 on_draw/on_stalemate/flag_capture 无 NULL 防护 → 32 位侧同（行 473-489
+     全部无判空）；64 位已有 NULL 防护统一批（rules.c 三终局函数 `if (!st) return;`）
+     → 分叉（64 位已修，32 位未同步；★ 对抗审计 P0 批2 S-3"同源"措辞纠正）
    · R-115 flag_capture 参数 uint8_t 与 winner int8_t 隐式窄化 → 32 位侧同签名（行 377）→ 对齐（同源）
    · R-002 暗棋 ruleflip 三规则（地雷/军旗仅工兵吃、挖 3 雷扛旗）→ 32 位侧走子桥
      布局写死 side 分区（明棋藏脸），ruleflip 模式维度未实装（mines_cleared 写不读）→ 分叉（64 位独有设计）
@@ -482,16 +503,22 @@ void jq_on_stalemate(jq_state *st)
    返回：1000 吃子 / 900 同级 / 800 炸弹 / 700 工兵挖雷 / 2 空移 / 1 送死 / -1 旗雷不可走。 */
 /* §124y-166 AUD-R 分叉标记：AI 评分族（对抗审计 #2 从设备端 ai_pick 提取，非 32 位 so 反汇编产物——
    32 位走子桥 AI 在 0x3ab80 事件分发侧，本 ai_score 为 64 位侧单测化的贪心评分）。
-   · R-009 炸弹 vs 军旗判 1000 → 32 位侧同 bug 已修（行 405 地雷特判前置，炸弹撞雷 1/800）→ 对齐（已同步修复）
+   · R-009 炸弹 vs 军旗判 1000 → 32 位侧 ai_score 行 508 `r < dr` 对炸弹(10) vs 军旗(12)
+     同样判 1000（炸弹撞旗 1000 两侧行为一致保留）；行 508 地雷特判前置修的是
+     "撞雷误判吃子"（非 R-009 描述的炸弹撞旗）。64 位 rules.c 注释"保持原行为"
+     → 对齐（同源保留，炸弹撞旗=1000 两侧一致，均非"已修"）
    · R-010 无 revealed 维度暗棋作弊 → 32 位侧 ai_score 无 revealed 入参（纯 rank 贪心），
      走子桥 AI 仅明棋主链实证 → 分叉（64 位独有设计，暗棋 AI 32 位未实证）
    · R-055 未归一化吃子全 1000 → 32 位侧同（行 407 大压小 1000）→ 对齐（同源）
    · R-056 不评估被反吃风险 → 32 位侧同（无 lookhead）→ 对齐（同源简化）
-   · R-057 空源 rank=0 返 2 → 32 位侧同（行 411 空移 2）→ 对齐（同源）
+   · R-057 空源 rank=0 返 2 → 32 位侧同（行 514 空移 2），但 64 位有 `if (src_rank_raw==0)
+     return -2;` 空源哨兵（AUD-R-057/092 修复）32 位无 → 分叉（64 位独有 -2 哨兵，
+     32 位非法输入静默得 2 分）
    · R-058 暗棋扛旗条件未实现 → 32 位侧同（无 revealed/mines_cleared 维度）→ 分叉（64 位独有设计）
    · R-059 炸弹空移与普通空移同分 2 → 32 位侧同（行 411 不区分炸弹）→ 对齐（同源）
    · R-060 同级同归 900 混淆两语义 → 32 位侧同（行 408 同级 900 不区分炸弹/普通）→ 对齐（同源）
-   · R-092 ai_score 空源输入返回合法分缺哨兵 → 32 位侧同（rank=0 → 2）→ 对齐（同源）
+   · R-092 ai_score 空源输入返回合法分缺哨兵 → 32 位侧同（rank=0 → 2，无 -2 哨兵）
+     → 分叉（64 位独有 -2 哨兵，32 位非法输入静默得 2 分，同 R-057）
    · R-093 dr 计算与 dst_rank_raw 判定重复 → 32 位侧同（行 402）→ 对齐（同源）
    · R-094 炸弹 800 分支依赖顺序 else-if 链 → 32 位位侧同（行 406-409）→ 对齐（同源）
    · R-095 红方编码无上界校验 → 32 位侧 rank_norm 同实现 → 对齐（同源）

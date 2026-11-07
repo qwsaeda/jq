@@ -43,8 +43,10 @@ seg2() {
   else
     bad "src_rs_regress 12/12 未全 PASS（跑 bash $WS/rev64/src_rs_regress.sh 看哪项挂）"
   fi
-  local ev=$(cd $RS && make evverify MODE=--all 2>/dev/null | grep -oE '桌面事件验证: [0-9]+/[0-9]+ 全对')
-  [ -n "$ev" ] && ok "$ev（桌面事件面）" || bad "evverify 桌面事件未跑通"
+  # ★ 对抗审计 P2-J9：grep 同时匹配 "全对/有失败"，再按结果分支（原只匹配 "全对"，
+  #   输出格式漂移会假红；现鲁棒）
+  local ev=$(cd $RS && make evverify MODE=--all 2>/dev/null | grep -oE '桌面事件验证: [0-9]+/[0-9]+( 全对| 有失败)')
+  if [ -n "$ev" ] && echo "$ev" | grep -q "全对"; then ok "$ev（桌面事件面）"; else bad "evverify 桌面事件未跑通（${ev:-无输出}）"; fi
 }
 
 # ============ 段 3：真机验收（判据门，只报"待真机"不误判）============

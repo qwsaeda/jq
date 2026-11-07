@@ -106,7 +106,15 @@ UI_MENU（5 按钮：人机/两人/联网/联机/四国）
 | Junqi | start/over/select | 开局/重开/选中 | `sfx_play` 直接 |
 | UI 2 | close/pop | 弹窗关闭/按钮点击 | `sfx_play` 直接 |
 
-- WAV 源：`/data/local/tmp/jq_sfx/`（设备 14 WAV）+ APK assets/jq_sfx/（fallback）。
+- WAV 源三路径（优先级 ①>②>③）：① 内部存储 `getFilesDir/jq_sfx/`（OnCreate 反射落地，
+  sfx_wav_ensure_private 14 WAV 拷贝，纯本地读免 AAsset 锁竞争 SIGSEGV）② APK
+  `assets/jq_sfx/`（AAsset_openFileDescriptor 一次性拿 fd，g_assets 可达时）③ 文件
+  系统 `/data/local/tmp/jq_sfx/`（MuMu/桌面回退，sfx_wav 返回路径）。
+- 音效持久化（★ 对抗审计 P0-R10 闭环）：`g_sound_on` 总开关存
+  `getFilesDir/jq_sound_on.txt`（OnCreate sfx_sound_load、☰ 功能设置"确定"按钮
+  sfx_sound_save 落盘，接入 sfx_play 门控——原死代码已修）；静音模式
+  （ui_snd_mute）走 `jq_settings.txt` 双轨——g_sound_on=声音总开关、
+  ui_snd_mute=弹窗内静音切换，sfx_play 两者叠加门控。
 - **音效三入口各司其职**：走子事件走 sfx_for_move、结局走 sfx_game_over、菜单/UI 走 sfx_play——勿散点。
 
 ## 6. 蓝牙联机（行为级约定，非 C++ 类逆向）

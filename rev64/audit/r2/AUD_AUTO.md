@@ -1,6 +1,6 @@
 # 自动化对抗审计探针（机器穷举）
 
-> 生成器：`audit/probe_audit.py`　条目数：**41**
+> 生成器：`audit/probe_audit.py`　条目数：**42**（★ 对抗审计 P3 批2 D-5 纠正：原 41 未同步 0042 后补条目）
 > 姊妹文档：子代理深度审计（rules / jni-render / ui-geom / build-pkg / doc-truth / rev32）
 > 状态：AUD-A-0042（lock-discipline 探针 TypeError）已修——probe_audit.py 两处 `add()`
 > 调用参数量错位（8 参 vs 7 参签名）致探针运行时崩溃被 main() 捕获记为本条；已删
@@ -167,36 +167,31 @@
 - 问题：gl2_ok[slot] 索引，gl2_ok 声明大小 [0, 1]
 - 依据：函数 rs_gl_rebuild()（src_rs/render.c:9050-9449）体内未对 slot 做范围检查
 - 修法：在索引前加 if (slot < 0 || slot >= 1) 拒绝并记日志
-
-## AUD-A-0017 [P2] 数组 gl2_ok[slot] 下标在 rs_gl_rebuild() 内无范围校验
+- 处置：**真修**：slot 越界守卫已加——渲染函数入口 `if (slot<0||slot>1) return;`（AUD-A-0016~0039 同族 45 个含 gl2_ok[slot] 访问的渲染函数统一前置，全部 static void；同 AUD-A-0021 真修，批次落地）## AUD-A-0017 [P2] 数组 gl2_ok[slot] 下标在 rs_gl_rebuild() 内无范围校验
 - 探针：`array-index`
 - 位置：src_rs/render.c:9061
 - 问题：gl2_ok[slot] 索引，gl2_ok 声明大小 [0, 1]
 - 依据：函数 rs_gl_rebuild()（src_rs/render.c:9050-9449）体内未对 slot 做范围检查
 - 修法：在索引前加 if (slot < 0 || slot >= 1) 拒绝并记日志
-
-## AUD-A-0018 [P2] 数组 gl2_ok[slot] 下标在 rs_gl_rebuild() 内无范围校验
+- 处置：**真修**：slot 越界守卫已加——渲染函数入口 `if (slot<0||slot>1) return;`（AUD-A-0016~0039 同族 45 个含 gl2_ok[slot] 访问的渲染函数统一前置，全部 static void；同 AUD-A-0021 真修，批次落地）## AUD-A-0018 [P2] 数组 gl2_ok[slot] 下标在 rs_gl_rebuild() 内无范围校验
 - 探针：`array-index`
 - 位置：src_rs/render.c:9066
 - 问题：gl2_ok[slot] 索引，gl2_ok 声明大小 [0, 1]
 - 依据：函数 rs_gl_rebuild()（src_rs/render.c:9050-9449）体内未对 slot 做范围检查
 - 修法：在索引前加 if (slot < 0 || slot >= 1) 拒绝并记日志
-
-## AUD-A-0019 [P2] 数组 gl2_ok[slot] 下标在 rs_gl_rebuild() 内无范围校验
+- 处置：**真修**：slot 越界守卫已加——渲染函数入口 `if (slot<0||slot>1) return;`（AUD-A-0016~0039 同族 45 个含 gl2_ok[slot] 访问的渲染函数统一前置，全部 static void；同 AUD-A-0021 真修，批次落地）## AUD-A-0019 [P2] 数组 gl2_ok[slot] 下标在 rs_gl_rebuild() 内无范围校验
 - 探针：`array-index`
 - 位置：src_rs/render.c:9076
 - 问题：gl2_ok[slot] 索引，gl2_ok 声明大小 [0, 1]
 - 依据：函数 rs_gl_rebuild()（src_rs/render.c:9050-9449）体内未对 slot 做范围检查
 - 修法：在索引前加 if (slot < 0 || slot >= 1) 拒绝并记日志
-
-## AUD-A-0020 [P2] 数组 gl2_ok[slot] 下标在 rs_gl_rebuild() 内无范围校验
+- 处置：**真修**：slot 越界守卫已加——渲染函数入口 `if (slot<0||slot>1) return;`（AUD-A-0016~0039 同族 45 个含 gl2_ok[slot] 访问的渲染函数统一前置，全部 static void；同 AUD-A-0021 真修，批次落地）## AUD-A-0020 [P2] 数组 gl2_ok[slot] 下标在 rs_gl_rebuild() 内无范围校验
 - 探针：`array-index`
 - 位置：src_rs/render.c:9085
 - 问题：gl2_ok[slot] 索引，gl2_ok 声明大小 [0, 1]
 - 依据：函数 rs_gl_rebuild()（src_rs/render.c:9050-9449）体内未对 slot 做范围检查
 - 修法：在索引前加 if (slot < 0 || slot >= 1) 拒绝并记日志
-
-## AUD-A-0021 [P2] 数组 gl2_ok[slot] 下标在 rs_gl_rebuild() 内无范围校验
+- 处置：**真修**：slot 越界守卫已加——渲染函数入口 `if (slot<0||slot>1) return;`（AUD-A-0016~0039 同族 45 个含 gl2_ok[slot] 访问的渲染函数统一前置，全部 static void；同 AUD-A-0021 真修，批次落地）## AUD-A-0021 [P2] 数组 gl2_ok[slot] 下标在 rs_gl_rebuild() 内无范围校验
 - 探针：`array-index`
 - 位置：src_rs/render.c:9094
 - 问题：gl2_ok[slot] 索引，gl2_ok 声明大小 [0, 1]
@@ -220,120 +215,103 @@
 - 问题：gl2_ok[slot] 索引，gl2_ok 声明大小 [0, 1]
 - 依据：函数 rs_gl_rebuild()（src_rs/render.c:9050-9449）体内未对 slot 做范围检查
 - 修法：在索引前加 if (slot < 0 || slot >= 1) 拒绝并记日志
-
-## AUD-A-0024 [P2] 数组 gl2_ok[slot] 下标在 rs_gl_rebuild() 内无范围校验
+- 处置：**真修**：slot 越界守卫已加——渲染函数入口 `if (slot<0||slot>1) return;`（AUD-A-0016~0039 同族 45 个含 gl2_ok[slot] 访问的渲染函数统一前置，全部 static void；同 AUD-A-0021 真修，批次落地）## AUD-A-0024 [P2] 数组 gl2_ok[slot] 下标在 rs_gl_rebuild() 内无范围校验
 - 探针：`array-index`
 - 位置：src_rs/render.c:9121
 - 问题：gl2_ok[slot] 索引，gl2_ok 声明大小 [0, 1]
 - 依据：函数 rs_gl_rebuild()（src_rs/render.c:9050-9449）体内未对 slot 做范围检查
 - 修法：在索引前加 if (slot < 0 || slot >= 1) 拒绝并记日志
-
-## AUD-A-0025 [P2] 数组 gl2_ok[slot] 下标在 rs_gl_rebuild() 内无范围校验
+- 处置：**真修**：slot 越界守卫已加——渲染函数入口 `if (slot<0||slot>1) return;`（AUD-A-0016~0039 同族 45 个含 gl2_ok[slot] 访问的渲染函数统一前置，全部 static void；同 AUD-A-0021 真修，批次落地）## AUD-A-0025 [P2] 数组 gl2_ok[slot] 下标在 rs_gl_rebuild() 内无范围校验
 - 探针：`array-index`
 - 位置：src_rs/render.c:9130
 - 问题：gl2_ok[slot] 索引，gl2_ok 声明大小 [0, 1]
 - 依据：函数 rs_gl_rebuild()（src_rs/render.c:9050-9449）体内未对 slot 做范围检查
 - 修法：在索引前加 if (slot < 0 || slot >= 1) 拒绝并记日志
-
-## AUD-A-0026 [P2] 数组 gl2_ok[slot] 下标在 rs_gl_rebuild() 内无范围校验
+- 处置：**真修**：slot 越界守卫已加——渲染函数入口 `if (slot<0||slot>1) return;`（AUD-A-0016~0039 同族 45 个含 gl2_ok[slot] 访问的渲染函数统一前置，全部 static void；同 AUD-A-0021 真修，批次落地）## AUD-A-0026 [P2] 数组 gl2_ok[slot] 下标在 rs_gl_rebuild() 内无范围校验
 - 探针：`array-index`
 - 位置：src_rs/render.c:9139
 - 问题：gl2_ok[slot] 索引，gl2_ok 声明大小 [0, 1]
 - 依据：函数 rs_gl_rebuild()（src_rs/render.c:9050-9449）体内未对 slot 做范围检查
 - 修法：在索引前加 if (slot < 0 || slot >= 1) 拒绝并记日志
-
-## AUD-A-0027 [P2] 数组 gl2_ok[slot] 下标在 rs_gl_rebuild() 内无范围校验
+- 处置：**真修**：slot 越界守卫已加——渲染函数入口 `if (slot<0||slot>1) return;`（AUD-A-0016~0039 同族 45 个含 gl2_ok[slot] 访问的渲染函数统一前置，全部 static void；同 AUD-A-0021 真修，批次落地）## AUD-A-0027 [P2] 数组 gl2_ok[slot] 下标在 rs_gl_rebuild() 内无范围校验
 - 探针：`array-index`
 - 位置：src_rs/render.c:9147
 - 问题：gl2_ok[slot] 索引，gl2_ok 声明大小 [0, 1]
 - 依据：函数 rs_gl_rebuild()（src_rs/render.c:9050-9449）体内未对 slot 做范围检查
 - 修法：在索引前加 if (slot < 0 || slot >= 1) 拒绝并记日志
-
-## AUD-A-0028 [P2] 数组 gl2_ok[slot] 下标在 rs_gl_rebuild() 内无范围校验
+- 处置：**真修**：slot 越界守卫已加——渲染函数入口 `if (slot<0||slot>1) return;`（AUD-A-0016~0039 同族 45 个含 gl2_ok[slot] 访问的渲染函数统一前置，全部 static void；同 AUD-A-0021 真修，批次落地）## AUD-A-0028 [P2] 数组 gl2_ok[slot] 下标在 rs_gl_rebuild() 内无范围校验
 - 探针：`array-index`
 - 位置：src_rs/render.c:9156
 - 问题：gl2_ok[slot] 索引，gl2_ok 声明大小 [0, 1]
 - 依据：函数 rs_gl_rebuild()（src_rs/render.c:9050-9449）体内未对 slot 做范围检查
 - 修法：在索引前加 if (slot < 0 || slot >= 1) 拒绝并记日志
-
-## AUD-A-0029 [P2] 数组 gl2_ok[slot] 下标在 rs_gl_rebuild() 内无范围校验
+- 处置：**真修**：slot 越界守卫已加——渲染函数入口 `if (slot<0||slot>1) return;`（AUD-A-0016~0039 同族 45 个含 gl2_ok[slot] 访问的渲染函数统一前置，全部 static void；同 AUD-A-0021 真修，批次落地）## AUD-A-0029 [P2] 数组 gl2_ok[slot] 下标在 rs_gl_rebuild() 内无范围校验
 - 探针：`array-index`
 - 位置：src_rs/render.c:9164
 - 问题：gl2_ok[slot] 索引，gl2_ok 声明大小 [0, 1]
 - 依据：函数 rs_gl_rebuild()（src_rs/render.c:9050-9449）体内未对 slot 做范围检查
 - 修法：在索引前加 if (slot < 0 || slot >= 1) 拒绝并记日志
-
-## AUD-A-0030 [P2] 数组 gl2_ok[slot] 下标在 rs_gl_rebuild() 内无范围校验
+- 处置：**真修**：slot 越界守卫已加——渲染函数入口 `if (slot<0||slot>1) return;`（AUD-A-0016~0039 同族 45 个含 gl2_ok[slot] 访问的渲染函数统一前置，全部 static void；同 AUD-A-0021 真修，批次落地）## AUD-A-0030 [P2] 数组 gl2_ok[slot] 下标在 rs_gl_rebuild() 内无范围校验
 - 探针：`array-index`
 - 位置：src_rs/render.c:9172
 - 问题：gl2_ok[slot] 索引，gl2_ok 声明大小 [0, 1]
 - 依据：函数 rs_gl_rebuild()（src_rs/render.c:9050-9449）体内未对 slot 做范围检查
 - 修法：在索引前加 if (slot < 0 || slot >= 1) 拒绝并记日志
-
-## AUD-A-0031 [P2] 数组 gl2_ok[slot] 下标在 rs_gl_rebuild() 内无范围校验
+- 处置：**真修**：slot 越界守卫已加——渲染函数入口 `if (slot<0||slot>1) return;`（AUD-A-0016~0039 同族 45 个含 gl2_ok[slot] 访问的渲染函数统一前置，全部 static void；同 AUD-A-0021 真修，批次落地）## AUD-A-0031 [P2] 数组 gl2_ok[slot] 下标在 rs_gl_rebuild() 内无范围校验
 - 探针：`array-index`
 - 位置：src_rs/render.c:9180
 - 问题：gl2_ok[slot] 索引，gl2_ok 声明大小 [0, 1]
 - 依据：函数 rs_gl_rebuild()（src_rs/render.c:9050-9449）体内未对 slot 做范围检查
 - 修法：在索引前加 if (slot < 0 || slot >= 1) 拒绝并记日志
-
-## AUD-A-0032 [P2] 数组 gl2_ok[slot] 下标在 rs_gl_rebuild() 内无范围校验
+- 处置：**真修**：slot 越界守卫已加——渲染函数入口 `if (slot<0||slot>1) return;`（AUD-A-0016~0039 同族 45 个含 gl2_ok[slot] 访问的渲染函数统一前置，全部 static void；同 AUD-A-0021 真修，批次落地）## AUD-A-0032 [P2] 数组 gl2_ok[slot] 下标在 rs_gl_rebuild() 内无范围校验
 - 探针：`array-index`
 - 位置：src_rs/render.c:9188
 - 问题：gl2_ok[slot] 索引，gl2_ok 声明大小 [0, 1]
 - 依据：函数 rs_gl_rebuild()（src_rs/render.c:9050-9449）体内未对 slot 做范围检查
 - 修法：在索引前加 if (slot < 0 || slot >= 1) 拒绝并记日志
-
-## AUD-A-0033 [P2] 数组 gl2_ok[slot] 下标在 rs_gl_rebuild() 内无范围校验
+- 处置：**真修**：slot 越界守卫已加——渲染函数入口 `if (slot<0||slot>1) return;`（AUD-A-0016~0039 同族 45 个含 gl2_ok[slot] 访问的渲染函数统一前置，全部 static void；同 AUD-A-0021 真修，批次落地）## AUD-A-0033 [P2] 数组 gl2_ok[slot] 下标在 rs_gl_rebuild() 内无范围校验
 - 探针：`array-index`
 - 位置：src_rs/render.c:9196
 - 问题：gl2_ok[slot] 索引，gl2_ok 声明大小 [0, 1]
 - 依据：函数 rs_gl_rebuild()（src_rs/render.c:9050-9449）体内未对 slot 做范围检查
 - 修法：在索引前加 if (slot < 0 || slot >= 1) 拒绝并记日志
-
-## AUD-A-0034 [P2] 数组 gl2_ok[slot] 下标在 rs_gl_rebuild() 内无范围校验
+- 处置：**真修**：slot 越界守卫已加——渲染函数入口 `if (slot<0||slot>1) return;`（AUD-A-0016~0039 同族 45 个含 gl2_ok[slot] 访问的渲染函数统一前置，全部 static void；同 AUD-A-0021 真修，批次落地）## AUD-A-0034 [P2] 数组 gl2_ok[slot] 下标在 rs_gl_rebuild() 内无范围校验
 - 探针：`array-index`
 - 位置：src_rs/render.c:9204
 - 问题：gl2_ok[slot] 索引，gl2_ok 声明大小 [0, 1]
 - 依据：函数 rs_gl_rebuild()（src_rs/render.c:9050-9449）体内未对 slot 做范围检查
 - 修法：在索引前加 if (slot < 0 || slot >= 1) 拒绝并记日志
-
-## AUD-A-0035 [P2] 数组 gl2_ok[slot] 下标在 rs_gl_rebuild() 内无范围校验
+- 处置：**真修**：slot 越界守卫已加——渲染函数入口 `if (slot<0||slot>1) return;`（AUD-A-0016~0039 同族 45 个含 gl2_ok[slot] 访问的渲染函数统一前置，全部 static void；同 AUD-A-0021 真修，批次落地）## AUD-A-0035 [P2] 数组 gl2_ok[slot] 下标在 rs_gl_rebuild() 内无范围校验
 - 探针：`array-index`
 - 位置：src_rs/render.c:9212
 - 问题：gl2_ok[slot] 索引，gl2_ok 声明大小 [0, 1]
 - 依据：函数 rs_gl_rebuild()（src_rs/render.c:9050-9449）体内未对 slot 做范围检查
 - 修法：在索引前加 if (slot < 0 || slot >= 1) 拒绝并记日志
-
-## AUD-A-0036 [P2] 数组 gl2_ok[slot] 下标在 rs_gl_rebuild() 内无范围校验
+- 处置：**真修**：slot 越界守卫已加——渲染函数入口 `if (slot<0||slot>1) return;`（AUD-A-0016~0039 同族 45 个含 gl2_ok[slot] 访问的渲染函数统一前置，全部 static void；同 AUD-A-0021 真修，批次落地）## AUD-A-0036 [P2] 数组 gl2_ok[slot] 下标在 rs_gl_rebuild() 内无范围校验
 - 探针：`array-index`
 - 位置：src_rs/render.c:9220
 - 问题：gl2_ok[slot] 索引，gl2_ok 声明大小 [0, 1]
 - 依据：函数 rs_gl_rebuild()（src_rs/render.c:9050-9449）体内未对 slot 做范围检查
 - 修法：在索引前加 if (slot < 0 || slot >= 1) 拒绝并记日志
-
-## AUD-A-0037 [P2] 数组 gl2_ok[slot] 下标在 rs_gl_rebuild() 内无范围校验
+- 处置：**真修**：slot 越界守卫已加——渲染函数入口 `if (slot<0||slot>1) return;`（AUD-A-0016~0039 同族 45 个含 gl2_ok[slot] 访问的渲染函数统一前置，全部 static void；同 AUD-A-0021 真修，批次落地）## AUD-A-0037 [P2] 数组 gl2_ok[slot] 下标在 rs_gl_rebuild() 内无范围校验
 - 探针：`array-index`
 - 位置：src_rs/render.c:9228
 - 问题：gl2_ok[slot] 索引，gl2_ok 声明大小 [0, 1]
 - 依据：函数 rs_gl_rebuild()（src_rs/render.c:9050-9449）体内未对 slot 做范围检查
 - 修法：在索引前加 if (slot < 0 || slot >= 1) 拒绝并记日志
-
-## AUD-A-0038 [P2] 数组 gl2_ok[slot] 下标在 rs_gl_rebuild() 内无范围校验
+- 处置：**真修**：slot 越界守卫已加——渲染函数入口 `if (slot<0||slot>1) return;`（AUD-A-0016~0039 同族 45 个含 gl2_ok[slot] 访问的渲染函数统一前置，全部 static void；同 AUD-A-0021 真修，批次落地）## AUD-A-0038 [P2] 数组 gl2_ok[slot] 下标在 rs_gl_rebuild() 内无范围校验
 - 探针：`array-index`
 - 位置：src_rs/render.c:9236
 - 问题：gl2_ok[slot] 索引，gl2_ok 声明大小 [0, 1]
 - 依据：函数 rs_gl_rebuild()（src_rs/render.c:9050-9449）体内未对 slot 做范围检查
 - 修法：在索引前加 if (slot < 0 || slot >= 1) 拒绝并记日志
-
-## AUD-A-0039 [P2] 数组 gl2_ok[slot] 下标在 rs_gl_rebuild() 内无范围校验
+- 处置：**真修**：slot 越界守卫已加——渲染函数入口 `if (slot<0||slot>1) return;`（AUD-A-0016~0039 同族 45 个含 gl2_ok[slot] 访问的渲染函数统一前置，全部 static void；同 AUD-A-0021 真修，批次落地）## AUD-A-0039 [P2] 数组 gl2_ok[slot] 下标在 rs_gl_rebuild() 内无范围校验
 - 探针：`array-index`
 - 位置：src_rs/render.c:9244
 - 问题：gl2_ok[slot] 索引，gl2_ok 声明大小 [0, 1]
 - 依据：函数 rs_gl_rebuild()（src_rs/render.c:9050-9449）体内未对 slot 做范围检查
 - 修法：在索引前加 if (slot < 0 || slot >= 1) 拒绝并记日志
-
-## AUD-A-0040 [P2] 数组 qr[tail] 下标在 rail_path_engineer() 内无范围校验
+- 处置：**真修**：slot 越界守卫已加——渲染函数入口 `if (slot<0||slot>1) return;`（AUD-A-0016~0039 同族 45 个含 gl2_ok[slot] 访问的渲染函数统一前置，全部 static void；同 AUD-A-0021 真修，批次落地）## AUD-A-0040 [P2] 数组 qr[tail] 下标在 rail_path_engineer() 内无范围校验
 - 探针：`array-index`
 - 位置：src_rs/rules.c:54
 - 问题：qr[tail] 索引，qr 声明大小 [64]
