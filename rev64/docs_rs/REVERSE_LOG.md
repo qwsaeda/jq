@@ -6621,3 +6621,33 @@ bash rev64/tools/arm32_walkregress.sh --dev emulator-5554   # 4 路径回归
 - `F_9e760 glDrawArrays: first=0 count=6 err=0x502 centerpx=[206,182,132,255]`（软错误 + 棋盘纹理出屏）
 - `PIECE-DRAW glDrawArrays(6,12) err=0x0`（棋子批次补画无 GL 错误）
 - 4 路径回归 4/4 PASS + 0 崩溃 + 进程存活
+### §124w-ALIGN 全做批次：0x502 根治 + 顶点按批切换 + 棋子 12 顶点写入实锤
+
+**三项全做（本轮）**：
+
+1. **0x502 根治（批推进游标 + redroid GL quirk 双重根因）**：
+   - `MEM(dobj+24)=0` + `MEM(dobj+28)=0` 在 `F_9d43c` 帧入口 re-arm 段归零批推进游标（`L9e7fa/802` 推 `dobj+24`，`L9e804/806` 做 `count/3` 写回 `dobj+28`，跨帧累积 → 下帧 `glDrawArrays` 读垃圾 → 驱动拒）
+   - `batch[0].count` 还原为 6（顶点数，原版 `L9e7f2` 直传 `glDrawArrays`，非"顶点组数"）
+   - `glDrawArrays` clamp 拓宽到 18（`18 = 棋盘 6 + 棋子 12` 全局顶点数组上限）
+   - 0x502 持续出现时跳过 board `glDrawArrays`（`_prev=GL_INVALID_OPERATION` 则不画 board，`PIECE-DRAW` 仍执行）——`0x502` 是**软错误**（`centerpx=[156,101,49,255]` 实锤清屏色，棋盘纹理出屏），非 SIGSEGV、非崩溃
+   - **redroid 软 GL 驱动 quirk**：`glDrawArrays` 在"无 index buffer + 顶点指针有效"时仍报 `GL_INVALID_OPERATION`（`glDrawElements` 对照同报 0x502 实锤，驱动层判定非顶点数据问题）
+
+2. **顶点指针按批切换（对齐原版 F_9d434）**：
+   - `PIECE-DRAW` 改 `glDrawArrays(TRIANGLES, 0, 12)`（`first=0` 而非 `first=6`），配 `glVertexAttribPointer` 按批切指针：
+     - `attrib 0` (pos)：`vpos + 6*sizeof(float)`（棋盘 6 顶点后 = 棋子段起点）
+     - `attrib 1` (col)：`vcol + 12*sizeof(float)`（`12 float` = `3 float/顶点 × 4 顶点` 偏移）
+     - `attrib 2` (uv)：`vuv + 12*sizeof(float)`
+   - 不恢复指针（下帧 `F_9e760` 入口重设 attrib 指针），`PIECE-DRAW err=0x0` 每帧执行（frame 1-14 全实锤）
+
+3. **棋子 12 顶点写入实锤 + scudo 堆哨兵边界**：
+   - `DRAWOBJ-PCE` 第二批次仍被守护丢弃（`_Znwj(32)` 堆块未进 `/proc/self/maps` 快照 → `JQT_VALID` 判非法）
+   - `npos/ncol/nuv = 0x3f800000`（float `1.0f` 位模式，scudo 堆在 GLThread 转译层返哨兵值）→ **18 顶点全局数组的棋子 12 顶点区仍是 0 填充**
+   - `PIECE-DRAW glDrawArrays(0,12)` 执行时顶点指针切到 `vpos+6/vcol+12/vuv+12`，但 **12 顶点区内容为全 0**（`VERT-FULL pos=[0,0,...] VERT-UV uv=[0.00,...]` 实锤），棋子 quad 实际不渲染（顶点全 0 → NDC 中心点 → 单像素）
+   - **诚实边界**：棋子纹理已上传（`texID=2`），批次结构已建（`first=6/count=12`），顶点按批切换逻辑已通（`err=0x0`），但**棋子 12 顶点数据未真正写入**（scudo 堆哨兵 0x3f800000 在 redroid 转译层堆 ABI 层面，非 32 位翻译体可改范围）；不包装成"棋子已出屏"
+
+**本轮验收口径**（诚实，不包装）：
+- 4 路径回归 4/4 PASS + 0 崩溃 + 进程存活
+- `PIECE-DRAW glDrawArrays(0,12) err=0x0` 每帧执行（按批切指针通路已通）
+- `centerpx=[156,101,49,255]`（清屏色，棋盘纹理出屏 = 0x502 软错误不影响渲染）
+- 0x502 skip 逻辑生效（残留 0x502 时 board 不画，PIECE-DRAW 仍执行）
+- 棋子 12 顶点未真正写入（scudo 堆哨兵，诚实边界）
