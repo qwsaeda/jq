@@ -82,9 +82,12 @@ static void board_print(const jq_state *st)
     (void)st;
     printf("      col: 0  1  2  3  4\n");
     for (int r = 0; r < BOARD_ROWS; r++) {
+        /* ★ 对抗审计修正（§2026-11-11）：sprintf → snprintf。
+           实际容量足够（BOARD_COLS×4 + 8 ≤ 64），但 BOARD_COLS 若变更即溢出 →
+           静态审计长期报 P1。改为受控写入并显式检查截断。 */
         char line[64]; int n = 0;
-        n += sprintf(line + n, "row%2d: ", r);
-        for (int c = 0; c < BOARD_COLS; c++) {
+        n += snprintf(line + n, sizeof line - (size_t)n, "row%2d: ", r);
+        for (int c = 0; c < BOARD_COLS && n < (int)sizeof line - 8; c++) {
             const jq_cell *x = &st->cells[cell_index(r, c)];
             int rv = rank_norm(x->rank);
             char ch = '.';
@@ -93,8 +96,11 @@ static void board_print(const jq_state *st)
             char tag = ' ';
             if (is_camp(r, c)) tag = '@';
             else if (is_base(r, c)) tag = '#';
-            n += sprintf(line + n, "%c%c  ", ch, tag);
+            n += snprintf(line + n, sizeof line - (size_t)n, "%c%c  ", ch, tag);
+            if (n < 0) break;   /* 编码错误等异常 */
         }
+        if (n < 0 || n >= (int)sizeof line) n = (int)sizeof line - 1;
+        line[n] = '\0';
         printf("%s\n", line);
     }
 }

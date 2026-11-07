@@ -103,7 +103,10 @@ int main(int argc, char **argv)
     char buf[256];
     snprintf(buf, sizeof buf, "%s", argv[1]);
     int total = 0, pass = 0;
-    for (char *tok = strtok(buf, " "); tok; tok = strtok(NULL, " ")) {
+    /* ★ 对抗审计修正（§2026-11-11）：strtok 不可重入且非线程安全 → 改 strtok_r。
+       原版对同一缓冲连续 strtok(NULL,...) 依赖隐式状态，多线程/嵌套调用会串味。 */
+    char *saveptr = NULL;
+    for (char *tok = strtok_r(buf, " ", &saveptr); tok; tok = strtok_r(NULL, " ", &saveptr)) {
         int from, to;
         if (sscanf(tok, "%d,%d", &from, &to) != 2) continue;
         if (st.turn != SIDE_BLUE) {   /* 红方应着（若未走） */

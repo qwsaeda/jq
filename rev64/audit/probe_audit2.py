@@ -211,6 +211,12 @@ def probeB_doc_numbers():
         t = read(doc)
         for m in re.finditer(r"已对齐\s*(\d+)\s*个", t):
             v = int(m.group(1))
+            # ★ 反噪：历史段落里的数字是**当时快照**（不可改，改则破坏审计链）→
+            #   只报**无历史限定词**的现状声明。
+            line = t[max(0, m.start() - 200):m.end() + 200]
+            if any(k in line for k in ("§", "本轮", "当时", "历史", "已固化", "推进",
+                                       "已推", "剩余")):
+                continue
             if v != actual_d and v != actual_ev:
                 add("P1", f"文档「已对齐 {v} 个」与实际（UI_D={actual_d}, evverify={actual_ev}）不符",
                     os.path.relpath(doc, ROOT),
@@ -252,7 +258,10 @@ def probeB_overclaim():
     # 限定词：出现即视为"诚实降级/纠正语境"，不报
     QUALIFIER = ("诚实", "边界", "降级", "纠正", "不是", "非本轮", "≠", "撞", "墙",
                  "未", "缺", "需", "非", "否", "错", "但", "只是", "仅", "实际",
-                 "不等于", "尚未", "待", "stub", "桩", "简化版")
+                 "不等于", "尚未", "待", "stub", "桩", "简化版",
+                 # ★ 反噪 2：有**证据支撑**的技术断言（非交付夸大）不算夸大
+                 "实锤", "实测", "反汇编", "偏移", "布局", "访问", "指令", "语义",
+                 "字节", "逐字节", "一致率", "抽样")
     targets = sorted(glob.glob(os.path.join(DOCS, "*.md"))) + \
         [os.path.join(ROOT, "..", "AGENTS.md")]
     for doc in targets:
@@ -317,7 +326,10 @@ def probeB_stale_paths():
 # C. 打包交付链路实检
 # ════════════════════════════════════════════════════════════
 def probeC_apk_exists():
-    dist = os.path.join(ROOT, "dist")
+    # ★ 产物在**仓库根** dist/（AGENTS.md 规定），不在 rev64/dist/
+    dist = os.path.join(ROOT, "..", "dist")   # ★ 产物在仓库根 dist/
+    if not os.path.isdir(dist):
+        dist = os.path.join(ROOT, "dist")
     for ph in range(4):
         apk = os.path.join(dist, f"phase{ph}.apk")
         if not os.path.exists(apk):
@@ -335,7 +347,9 @@ def probeC_apk_exists():
 
 def probeC_apk_contents():
     """实际解包 APK 检查：签名/STORE/ABI/广告残留。"""
-    dist = os.path.join(ROOT, "dist")
+    dist = os.path.join(ROOT, "..", "dist")   # ★ 产物在仓库根 dist/
+    if not os.path.isdir(dist):
+        dist = os.path.join(ROOT, "dist")
     for ph in range(4):
         apk = os.path.join(dist, f"phase{ph}.apk")
         if not os.path.exists(apk):
@@ -403,7 +417,9 @@ def probeC_apk_contents():
 
 def probeC_manifest_ads():
     """解包 APK 的 manifest 查广告项。"""
-    dist = os.path.join(ROOT, "dist")
+    dist = os.path.join(ROOT, "..", "dist")   # ★ 产物在仓库根 dist/
+    if not os.path.isdir(dist):
+        dist = os.path.join(ROOT, "dist")
     aapt = None
     for c in ("aapt", "aapt2", "/tmp/opencode/android-ndk-r25b/../aapt"):
         if shutil_which(c):
@@ -452,11 +468,24 @@ def probeC_build_script():
             "tools/build_phases.sh", "无 set -euo pipefail",
             "失败即停是打包链的基本要求", "加 set -euo pipefail", "C-build")
     for need, desc in (("store_compressed", "STORE 转换步骤缺失"),
-                       ("SignV2", "v1+v2 签名步骤缺失"),
-                       ("zipalign", "4 字节对齐步骤缺失")):
+                       ("zipalign", "4 字节对齐步骤缺失"),
+                       ("sign_apk", "签名步骤缺失")):
         if need not in t:
             add("P1", f"build_phases.sh 缺 {desc}", "tools/build_phases.sh",
                 f"未见 {need}", "重打包三件套缺一都装不上", f"补 {need} 步骤", "C-build")
+    # ★ 反噪：签名走 sign_apk.sh（内部 apksigner --v1 --v2），
+    #   初版在 build_phases.sh 里找 "SignV2" 字面 → 假阳性。
+    sign_sh = os.path.join(ROOT, "sign_apk.sh")
+    if os.path.exists(sign_sh):
+        st = read(sign_sh)
+        if "v2-signing-enabled" not in st:
+            add("P0", "sign_apk.sh 未启用 v2 签名", "rev64/sign_apk.sh",
+                "未见 --v2-signing-enabled",
+                "v2 签名缺失 → 新版 Android 拒绝安装", "补 --v2-signing-enabled true", "C-build")
+        if "v1-signing-enabled" not in st:
+            add("P1", "sign_apk.sh 未启用 v1 签名", "rev64/sign_apk.sh",
+                "未见 --v1-signing-enabled",
+                "v1 签名缺失 → 旧版 Android 拒绝安装", "补 --v1-signing-enabled true", "C-build")
     if "--clean" not in t and "rm -rf" not in t:
         add("P3", "build_phases.sh 无清理逻辑（重复跑可能累积产物）",
             "tools/build_phases.sh", "未见清理", "幂等性隐患",

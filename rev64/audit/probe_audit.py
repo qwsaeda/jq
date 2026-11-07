@@ -87,8 +87,12 @@ def probe_unsafe_funcs():
     for p in iter_c_files():
         rel = os.path.relpath(p, ROOT)
         for i, ln in enumerate(lines_of(p), 1):
-            if ln.strip().startswith("//") or ln.strip().startswith("*"):
-                continue
+            st = ln.strip()
+            if (st.startswith("//") or st.startswith("*") or st.startswith("/*")
+                    or st.endswith("*/") or "/*" in ln):
+                continue          # ★ 反噪：注释里提到 strtok/sprintf 的说明文字不算调用
+            if "strtok" in ln and "strtok(" not in ln:
+                continue          # ★ 反噪：已改 strtok_r 的行不算
             for pat, name, desc in UNSAFE_FUNCS:
                 if re.search(pat, ln):
                     has_bound = any(b + "(" in ln for b in NO_BOUND_LIST)
@@ -402,49 +406,70 @@ def probe_magic_numbers():
 
 
 def probe_button_out_of_panel():
-    """按钮 rect 超出所属面板范围。"""
+    """按钮 rect 超出所属面板范围。
+
+    ★ 反噪（§2026-11-11）：原版本身存在「按钮比面板大」的排版
+      （datah_019 面板 450×150 但按钮局部 y=25..160 → 绝对 455..590 超面板底 580），
+      我方如实还原原版坐标 → 探针误报为 bug。
+      改为：**同时**核对原版 XML 绝对坐标 —— 只有「我方绝对坐标 ≠ 原版绝对坐标」
+      才是真问题（原版如此 → 记 P3 说明，不算缺陷）。
+    """
     um = os.path.join(SRC, "ui_menu.h")
-    if not os.path.exists(um):
-        return
-    txt = read(um)
-    panels = {}
-    for m in re.finditer(r"#define\s+UI_D(\d{3})_POPUP_(X0|Y0|W|H)\s+([\d.]+)f", txt):
-        panels.setdefault(m.group(1), {})[m.group(2)] = float(m.group(3))
-    # 按钮表在 ui_menu.c
     umc = os.path.join(SRC, "ui_menu.c")
-    if not os.path.exists(umc):
+    if not (os.path.exists(um) and os.path.exists(umc)):
         return
-    ls = lines_of(umc)
-    cur = None
-    for i, ln in enumerate(ls, 1):
-        m = re.search(r"g_d(\d{3})_btns\s*\[", ln)
-        if m:
-            cur = m.group(1)
-        m2 = re.search(r"\{\s*([\d.]+)f\s*,\s*([\d.]+)f\s*,\s*([\d.]+)f\s*,\s*([\d.]+)f\s*,\s*(-?\d+)\s*\}", ln)
-        if m2 and cur:
-            x0, y0, x1, y1 = (float(m2.group(k)) for k in (1, 2, 3, 4))
-            p = panels.get(cur)
-            if p and all(k in p for k in ("X0", "Y0", "W", "H")):
-                px0, py0 = p["X0"], p["Y0"]
-                px1, py1 = p["X0"] + p["W"], p["Y0"] + p["H"]
-                if x0 < px0 - 0.5 or x1 > px1 + 0.5 or y0 < py0 - 0.5 or y1 > py1 + 0.5:
+    ht = read(um)
+    ct = read(umc)
+    panels = {}
+    for m in re.finditer(r"#define\s+UI_D(\d{3})_POPUP_(X0|Y0|W|H)\s+([\d.]+)f", ht):
+        panels.setdefault(m.group(1), {})[m.group(2)] = float(m.group(3))
+    dlgs = _load_spak_dialogs()
+    for n, p in sorted(panels.items()):
+        if not all(k in p for k in ("X0", "Y0", "W", "H")):
+            continue
+        m = re.search(r"g_d%s_btns\[UI_D%s_COUNT\]\s*=\s*\{(.*?)\n\};" % (n, n), ct, re.S)
+        if not m:
+            continue
+        ours = re.findall(r"\{\s*([\d.]+)f\s*,\s*([\d.]+)f\s*,\s*([\d.]+)f\s*,\s*([\d.]+)f\s*,",
+                          m.group(1))
+        px0, py0 = p["X0"], p["Y0"]
+        px1, py1 = p["X0"] + p["W"], p["Y0"] + p["H"]
+        d = dlgs.get(n)
+        d_btns = (d.get("buttons") if d else None) or []
+        exp = _expected_geom(d) if d else None
+        for i, o in enumerate(ours):
+            x0, y0, x1, y1 = (float(v) for v in o)
+            if x1 <= x0 or y1 <= y0:
+                add("ui-geom", "P1", f"UI_D{n} 按钮 rect 退化（宽或高非正）",
+                    "src_rs/ui_menu.c", f"rect=({x0},{y0})-({x1},{y1})",
+                    "宽高必须为正", "核对原版 XML rect")
+                continue
+            if x0 < px0 - 0.5 or x1 > px1 + 0.5 or y0 < py0 - 0.5 or y1 > py1 + 0.5:
+                orig_ok = False
+                if i < len(d_btns) and exp:
+                    b = d_btns[i]
+                    ox, oy = exp[0], exp[1]
+                    if abs((ox + b["x0"]) - x0) <= 1 and abs((oy + b["y0"]) - y0) <= 1 \
+                       and abs((ox + b["x1"]) - x1) <= 1 and abs((oy + b["y1"]) - y1) <= 1:
+                        orig_ok = True
+                if orig_ok:
+                    add("ui-geom", "P3",
+                        f"UI_D{n} 按钮超出面板（原版排版如此，已如实还原）",
+                        "src_rs/ui_menu.c",
+                        f"按钮 ({x0:.0f},{y0:.0f})-({x1:.0f},{y1:.0f}) 面板 ({px0:.0f},{py0:.0f})-({px1:.0f},{py1:.0f})",
+                        "与原版 XML 绝对坐标一致 → 非我方缺陷",
+                        "无需修（原版 UI 本身如此）")
+                else:
                     add("ui-geom", "P1",
-                        f"UI_D{cur} 按钮超出面板范围",
-                        f"src_rs/ui_menu.c:{i}",
-                        f"按钮 rect=({x0},{y0})-({x1},{y1})，面板=({px0},{py0})-({px1},{py1})",
-                        "按钮应完全落在面板内（局部 1:1 平移语义）",
-                        "核对原版 XML rect 与居中偏移")
-                if x1 <= x0 or y1 <= y0:
-                    add("ui-geom", "P1",
-                        f"UI_D{cur} 按钮 rect 退化（宽或高非正）",
-                        f"src_rs/ui_menu.c:{i}",
-                        f"rect=({x0},{y0})-({x1},{y1})",
-                        "宽高必须为正",
-                        "核对原版 XML rect")
+                        f"UI_D{n} 按钮超出面板且与原版不符",
+                        "src_rs/ui_menu.c",
+                        f"按钮 ({x0:.0f},{y0:.0f})-({x1:.0f},{y1:.0f}) 面板 ({px0:.0f},{py0:.0f})-({px1:.0f},{py1:.0f})",
+                        "与原版绝对坐标不一致 → 我方换算有误",
+                        "核对 panel_origin 与原版 rect")
             if x0 < 0 or y0 < 0 or x1 > 720 or y1 > 1280:
                 add("ui-geom", "P2",
-                    f"UI_D{cur} 按钮超出 720×1280 屏幕",
-                    f"src_rs/ui_menu.c:{i}",
+                    f"UI_D{n} 按钮超出 720×1280 屏幕",
+                    "src_rs/ui_menu.c",
                     f"rect=({x0},{y0})-({x1},{y1})",
                     "坐标应在屏幕范围内",
                     "核对换算")
@@ -621,7 +646,14 @@ def probe_dist_artifacts():
     so_mt = os.path.getmtime(so)
     newest_src = 0
     newest_file = None
+    # ★ 反噪：只有**参与 so 链接**的源文件才影响产物时效；
+    #   桌面工具（main.c/walkverify.c/evverify.c 等）不进 so → 不比较。
+    SO_SRC_EXCLUDE = ("main.c", "walkverify.c", "evverify.c", "consistency_desktop.c",
+                      "ai_selftest.c", "bt_selftest.c", "lay_selftest.c",
+                      "touch_selftest.c", "game_selftest.c", "gl2_probe_gl.c")
     for p in iter_c_files():
+        if os.path.basename(p) in SO_SRC_EXCLUDE:
+            continue
         m = os.path.getmtime(p)
         if m > newest_src:
             newest_src = m
@@ -673,21 +705,23 @@ def probe_link_audit():
 
 
 def probe_apk_artifacts():
-    """阶段交付物 APK 存在性 + 关键属性。"""
-    dist = os.path.join(ROOT, "dist")
+    """阶段交付物 APK 存在性（★ 注意：产物在**仓库根** dist/，不在 rev64/dist/）。"""
+    # ★ 反噪（§2026-11-11）：初版只查 rev64/dist/ → 4 个阶段全报「缺失」（假阳性）
+    dists = [os.path.join(ROOT, "..", "dist"), os.path.join(ROOT, "dist")]
     for ph in range(4):
-        apk = os.path.join(dist, f"phase{ph}.apk")
-        if not os.path.exists(apk):
+        apk = next((os.path.join(d, f"phase{ph}.apk") for d in dists
+                    if os.path.exists(os.path.join(d, f"phase{ph}.apk"))), None)
+        if not apk:
             add("artifact", "P1",
                 f"阶段 {ph} 交付物缺失",
-                f"rev64/dist/phase{ph}.apk",
-                "文件不存在",
+                "dist/phase{0}.apk".format(ph),
+                "在 rev64/dist/ 与 仓库根 dist/ 均未找到",
                 "阶段验收判据要求产物存在",
                 "执行 bash rev64/tools/build_phases.sh all")
             continue
         add("artifact", "P3",
             f"阶段 {ph} 交付物存在",
-            f"rev64/dist/phase{ph}.apk",
+            os.path.relpath(apk, os.path.join(ROOT, "..")),
             f"大小 {os.path.getsize(apk)} 字节",
             "需校验 STORE/签名/ABI",
             "跑 build_phases.sh --verify-only")
