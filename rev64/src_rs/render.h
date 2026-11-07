@@ -4,6 +4,7 @@
  * render.h — 最小出帧渲染器（①+②：GL 状态机 + 纹理管线）
  * 依据原版：
  *   - GL 导入 35 函数（.dynsym：glClear/glBegin/glVertex/glDrawArrays/glTexImage2D...）
+ * ★ AUD-A2 F-gl: 排障时可临时开 JQ_GL_ERR_CHECK 宏在 glDrawArrays 后 glGetError（默认关，性能敏感路径不加运行时检查）
  *   - 渲染入口 0xbd764（OnGraphCreate 桩 bl）/ 0xbd5a0（OnUpdate）/ 0xbdd2c（OnTouch）
  *   - 棋盘纹理 SPAK datah#188（737×751，十字棋盘 PNG，L44/L75）
  *   - 棋子图集 SPAK datah#183（212×280，4列×7行 53×40/格，rank→列/行，L75 已确证）

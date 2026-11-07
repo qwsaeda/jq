@@ -45,6 +45,7 @@
 #define BOARD_ROWS 12
 #define BOARD_COLS 5
 #define N_CELLS    60
+#define JQ_CELLS   N_CELLS          /* ★ AUD-A2 A-board: 棋盘格数别名（60 格），与 N_CELLS 同值 */
 
 /* ---- datax_177 棋盘格（★ 层 2 视觉对齐：原版 720×1280 完整棋盘背景）----
    ★ AUD-R-077（P2 诚实标注）：渲染层 720×1280 贴图坐标常量（BG_* / bg_row_cy /
@@ -216,10 +217,19 @@ static inline int rank_norm(int v) {
 }
 
 /* ---- 格子/铁路/行营/大本营（L68 十字铁路、L49 修复版拓扑）---- */
+/* ★ AUD-A2 F-naming（诚实标注，0 行为变化）：board.c 核心几何 API 族
+   （cell_index/cell_row/cell_col/is_camp/is_base/is_rail/coord_cmp）无模块前缀，
+   保留原名：
+   - 规则引擎公开 API：被 rules.c/layout.c/jni_bridge.c/touch.c/bt_session.c/render.c 等
+     全仓数十处调用，改前缀需全仓同步 + 跨编译目标（so/desk/evverify/bttest）联动；
+   - 与 32 位翻译体对照（src_jni_translated 同族签名）；
+   - board.c 在 SRCS_CORE 里被全部编译目标复用。
+   留待重构轮统一处理；coord_cmp 全仓 0 调用点（翻译体路径使用，见 AUD-R-069），
+   亦同约束，保留原名。 */
 int  cell_index(int row, int col);
 int  cell_row(int idx);
 int  cell_col(int idx);
-bool is_camp(int row, int col);       /* 行营（安全岛：敌方不能**吃**行营中棋子，空行营可入，非铁路；★ AUD-R-105 修正头注释） */
+bool is_camp(int row, int col);       /* 行营（安全岛：敌方不能**吃**行营中棋子，空行营可入，非铁路；★ AUD-R-105 修正头注释；★ AUD-A2 F-naming 诚实标注：无模块前缀保留，见上方 AUD-A2 族注释） */
 bool is_base(int row, int col);       /* 大本营（军旗所在，进后不可动 L17） */
 bool is_rail(int row, int col);       /* 铁路（col2 纵线 + row5/6 横线） */
 int  coord_cmp(const int8_t *a, const int8_t *b); /* 0x6ef54：[0]=col [1]=row，0=相同 1=不同
@@ -310,7 +320,7 @@ void jq_on_draw(jq_state *st);
 /* ★ AUD-R-036（P2）：显式传"被判负方"（原用调用时刻 st->turn 推导，外部调用
    语义脆弱）；内部收口（stalemate_after）传 st->turn，AI/main 路径传该步 mover。 */
 void jq_on_stalemate(jq_state *st, uint8_t loser_side);
-int ai_score(int src_rank_raw, int dst_rank_raw, int dst_revealed);  /* AI 贪心评分（对抗审计 #2，可单测；★ AUD-R-010 暗棋目标未翻=不透视真 rank） */
+int ai_score(int src_rank_raw, int dst_rank_raw, int dst_revealed);  /* AI 贪心评分（对抗审计 #2，可单测；★ AUD-R-010 暗棋目标未翻=不透视真 rank；★ AUD-A2 F-naming 诚实标注：被 ai_selftest.c/jni_bridge.c 调用，改前缀需全仓同步，保留原名留待重构轮） */
 
 /* ---- 默认布局（SPAK data/lay/default.lay，L52 分布确证）---- */
 extern const uint8_t JQ_DEFAULT_LAY[30];

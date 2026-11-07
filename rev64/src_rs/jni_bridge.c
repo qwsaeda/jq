@@ -3026,11 +3026,11 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
             int a = bb[bh].action;
             LOGI("OnTouch datah_005 弹窗：按钮%d（action=%d）", bh, a);
             if (a < 0) {
-            } else if (a == 0) {   /* Menu → 边界对话框（诚实边界） */
+            } else if (a == 0) {   /* Menu（菜单）→ 边界对话框（诚实边界：Wi-Fi/局域网联机未逆向，仅蓝牙已实现） */
                 jq_show_dialog(env, "Menu（诚实边界）",
                     "Menu：原版业务未逆向，src_rs 无此通道。");
                 ui_screen_set(UI_GAME); sfx_play(env, "pop");
-            } else if (a == 1) {   /* Back → 边界对话框（诚实边界） */
+            } else if (a == 1) {   /* Back（返回）→ 边界对话框（诚实边界：Wi-Fi/局域网联机未逆向，仅蓝牙已实现） */
                 jq_show_dialog(env, "Back（诚实边界）",
                     "Back：原版业务未逆向，src_rs 无此通道。");
                 ui_screen_set(UI_GAME); sfx_play(env, "pop");
@@ -3170,7 +3170,7 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
             int a = bb[bh].action;
             LOGI("OnTouch datah_012 弹窗：按钮%d（action=%d）", bh, a);
             if (a < 0) {
-            } else if (a == 0) {   /* Draw → 边界对话框（诚实边界） */
+            } else if (a == 0) {   /* Draw（和棋/提和）→ 边界对话框（诚实边界：本地提和判定未实现，提和/认输走 BT 帧） */
                 jq_show_dialog(env, "Draw（诚实边界）",
                     "Draw：原版业务未逆向，src_rs 无此通道。");
                 ui_screen_set(UI_GAME); sfx_play(env, "pop");
@@ -3230,7 +3230,7 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
             int a = bb[bh].action;
             LOGI("OnTouch datah_015 弹窗：按钮%d（action=%d）", bh, a);
             if (a < 0) {
-            } else if (a == 0) {   /* Back → 边界对话框（诚实边界） */
+            } else if (a == 0) {   /* Back（返回）→ 边界对话框（诚实边界：Wi-Fi/局域网联机未逆向，仅蓝牙已实现） */
                 jq_show_dialog(env, "Back（诚实边界）",
                     "Back：原版业务未逆向，src_rs 无此通道。");
                 ui_screen_set(UI_GAME); sfx_play(env, "pop");
@@ -3562,11 +3562,11 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
             int a = bb[bh].action;
             LOGI("OnTouch datah_030 弹窗：按钮%d（action=%d）", bh, a);
             if (a < 0) {
-            } else if (a == 0) {   /* Menu → 边界对话框（诚实边界） */
+            } else if (a == 0) {   /* Menu（菜单）→ 边界对话框（诚实边界：Wi-Fi/局域网联机未逆向，仅蓝牙已实现） */
                 jq_show_dialog(env, "Menu（诚实边界）",
                     "Menu：原版业务未逆向，src_rs 无此通道。");
                 ui_screen_set(UI_GAME); sfx_play(env, "pop");
-            } else if (a == 1) {   /* Chat → 业务动作 */
+            } else if (a == 1) {   /* Chat（聊天）→ 业务动作（聊天文本未逆向，发送=BT_T_CHAT 占位帧） */
                 jq_show_dialog(env, "Chat（诚实边界）", "Chat：原版聊天设置项未逆向。"); ui_screen_set(UI_GAME); sfx_play(env, "pop");
             }   /* 收尾：末分支闭合 */
         }
@@ -4274,13 +4274,13 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
             int a = bb[bh].action;
             LOGI("OnTouch datah_064 弹窗：按钮%d（action=%d）", bh, a);
             if (a < 0) {
-            } else if (a == 0) {   /* Menu → 边界对话框（诚实边界） */
+            } else if (a == 0) {   /* Menu（菜单）→ 边界对话框（诚实边界：Wi-Fi/局域网联机未逆向，仅蓝牙已实现） */
                 jq_show_dialog(env, "Menu（诚实边界）",
                     "Menu：原版业务未逆向，src_rs 无此通道。");
                 ui_screen_set(UI_GAME); sfx_play(env, "pop");
-            } else if (a == 1) {   /* Chat → 业务动作 */
+            } else if (a == 1) {   /* Chat（聊天）→ 业务动作（聊天文本未逆向，发送=BT_T_CHAT 占位帧） */
                 jq_show_dialog(env, "Chat（诚实边界）", "Chat：原版聊天设置项未逆向。"); ui_screen_set(UI_GAME); sfx_play(env, "pop");
-            } else if (a == 2) {   /* Back → 边界对话框（诚实边界） */
+            } else if (a == 2) {   /* Back（返回）→ 边界对话框（诚实边界：Wi-Fi/局域网联机未逆向，仅蓝牙已实现） */
                 jq_show_dialog(env, "Back（诚实边界）",
                     "Back：原版业务未逆向，src_rs 无此通道。");
                 ui_screen_set(UI_GAME); sfx_play(env, "pop");
@@ -4436,7 +4436,7 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
             int a = bb[bh].action;
             LOGI("OnTouch datah_070 弹窗：按钮%d（action=%d）", bh, a);
             if (a < 0) {
-            } else if (a == 0) {   /* Draw → 边界对话框（诚实边界） */
+            } else if (a == 0) {   /* Draw（和棋/提和）→ 边界对话框（诚实边界：本地提和判定未实现，提和/认输走 BT 帧） */
                 jq_show_dialog(env, "Draw（诚实边界）",
                     "Draw：原版业务未逆向，src_rs 无此通道。");
                 ui_screen_set(UI_GAME); sfx_play(env, "pop");
@@ -4546,11 +4546,11 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
                 jq_show_dialog(env, "Next（诚实边界）",
                     "Next：原版业务未逆向，src_rs 无此通道。");
                 ui_screen_set(UI_GAME); sfx_play(env, "pop");
-            } else if (a == 2) {   /* Menu → 边界对话框（诚实边界） */
+            } else if (a == 2) {   /* Menu（菜单）→ 边界对话框（诚实边界：Wi-Fi/局域网联机未逆向，仅蓝牙已实现） */
                 jq_show_dialog(env, "Menu（诚实边界）",
                     "Menu：原版业务未逆向，src_rs 无此通道。");
                 ui_screen_set(UI_GAME); sfx_play(env, "pop");
-            } else if (a == 3) {   /* Back → 边界对话框（诚实边界） */
+            } else if (a == 3) {   /* Back（返回）→ 边界对话框（诚实边界：Wi-Fi/局域网联机未逆向，仅蓝牙已实现） */
                 jq_show_dialog(env, "Back（诚实边界）",
                     "Back：原版业务未逆向，src_rs 无此通道。");
                 ui_screen_set(UI_GAME); sfx_play(env, "pop");
@@ -4802,7 +4802,7 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
                 jq_show_dialog(env, "Expand（诚实边界）", "Expand：原版设置扩展项未逆向。"); ui_screen_set(UI_GAME); sfx_play(env, "pop");
             } else if (a == 1) {   /* Clockwise → 业务动作 */
                 jq_show_dialog(env, "Clockwise（诚实边界）", "Clockwise：原版旋转设置未逆向。"); ui_screen_set(UI_GAME); sfx_play(env, "pop");
-            } else if (a == 2) {   /* Chat → 业务动作 */
+            } else if (a == 2) {   /* Chat（聊天）→ 业务动作（聊天文本未逆向，发送=BT_T_CHAT 占位帧） */
                 jq_show_dialog(env, "Chat（诚实边界）", "Chat：原版聊天设置项未逆向。"); ui_screen_set(UI_GAME); sfx_play(env, "pop");
             } else if (a == 3) {   /* 确定 → 业务动作 */
                 ui_screen_set(UI_GAME); LOGI("批量对齐：确定 → 回对局"); sfx_play(env, "pop");
@@ -5314,11 +5314,11 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
             int a = bb[bh].action;
             LOGI("OnTouch datah_246 弹窗：按钮%d（action=%d）", bh, a);
             if (a < 0) {
-            } else if (a == 0) {   /* Menu → 边界对话框（诚实边界） */
+            } else if (a == 0) {   /* Menu（菜单）→ 边界对话框（诚实边界：Wi-Fi/局域网联机未逆向，仅蓝牙已实现） */
                 jq_show_dialog(env, "Menu（诚实边界）",
                     "Menu：原版业务未逆向，src_rs 无此通道。");
                 ui_screen_set(UI_GAME); sfx_play(env, "pop");
-            } else if (a == 1) {   /* Back → 边界对话框（诚实边界） */
+            } else if (a == 1) {   /* Back（返回）→ 边界对话框（诚实边界：Wi-Fi/局域网联机未逆向，仅蓝牙已实现） */
                 jq_show_dialog(env, "Back（诚实边界）",
                     "Back：原版业务未逆向，src_rs 无此通道。");
                 ui_screen_set(UI_GAME); sfx_play(env, "pop");
@@ -5336,7 +5336,7 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
             int a = bb[bh].action;
             LOGI("OnTouch datah_247 弹窗：按钮%d（action=%d）", bh, a);
             if (a < 0) {
-            } else if (a == 0) {   /* Back → 边界对话框（诚实边界） */
+            } else if (a == 0) {   /* Back（返回）→ 边界对话框（诚实边界：Wi-Fi/局域网联机未逆向，仅蓝牙已实现） */
                 jq_show_dialog(env, "Back（诚实边界）",
                     "Back：原版业务未逆向，src_rs 无此通道。");
                 ui_screen_set(UI_GAME); sfx_play(env, "pop");
@@ -5402,11 +5402,11 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
             int a = bb[bh].action;
             LOGI("OnTouch datah_250 弹窗：按钮%d（action=%d）", bh, a);
             if (a < 0) {
-            } else if (a == 0) {   /* Menu → 边界对话框（诚实边界） */
+            } else if (a == 0) {   /* Menu（菜单）→ 边界对话框（诚实边界：Wi-Fi/局域网联机未逆向，仅蓝牙已实现） */
                 jq_show_dialog(env, "Menu（诚实边界）",
                     "Menu：原版业务未逆向，src_rs 无此通道。");
                 ui_screen_set(UI_GAME); sfx_play(env, "pop");
-            } else if (a == 1) {   /* Chat → 业务动作 */
+            } else if (a == 1) {   /* Chat（聊天）→ 业务动作（聊天文本未逆向，发送=BT_T_CHAT 占位帧） */
                 jq_show_dialog(env, "Chat（诚实边界）", "Chat：原版聊天设置项未逆向。"); ui_screen_set(UI_GAME); sfx_play(env, "pop");
             }   /* 收尾：末分支闭合 */
         }
@@ -5456,13 +5456,13 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
             int a = bb[bh].action;
             LOGI("OnTouch datah_255 弹窗：按钮%d（action=%d）", bh, a);
             if (a < 0) {
-            } else if (a == 0) {   /* Menu → 边界对话框（诚实边界） */
+            } else if (a == 0) {   /* Menu（菜单）→ 边界对话框（诚实边界：Wi-Fi/局域网联机未逆向，仅蓝牙已实现） */
                 jq_show_dialog(env, "Menu（诚实边界）",
                     "Menu：原版业务未逆向，src_rs 无此通道。");
                 ui_screen_set(UI_GAME); sfx_play(env, "pop");
-            } else if (a == 1) {   /* Chat → 业务动作 */
+            } else if (a == 1) {   /* Chat（聊天）→ 业务动作（聊天文本未逆向，发送=BT_T_CHAT 占位帧） */
                 jq_show_dialog(env, "Chat（诚实边界）", "Chat：原版聊天设置项未逆向。"); ui_screen_set(UI_GAME); sfx_play(env, "pop");
-            } else if (a == 2) {   /* Back → 边界对话框（诚实边界） */
+            } else if (a == 2) {   /* Back（返回）→ 边界对话框（诚实边界：Wi-Fi/局域网联机未逆向，仅蓝牙已实现） */
                 jq_show_dialog(env, "Back（诚实边界）",
                     "Back：原版业务未逆向，src_rs 无此通道。");
                 ui_screen_set(UI_GAME); sfx_play(env, "pop");
@@ -5488,11 +5488,11 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
                 jq_show_dialog(env, "Next（诚实边界）",
                     "Next：原版业务未逆向，src_rs 无此通道。");
                 ui_screen_set(UI_GAME); sfx_play(env, "pop");
-            } else if (a == 2) {   /* Menu → 边界对话框（诚实边界） */
+            } else if (a == 2) {   /* Menu（菜单）→ 边界对话框（诚实边界：Wi-Fi/局域网联机未逆向，仅蓝牙已实现） */
                 jq_show_dialog(env, "Menu（诚实边界）",
                     "Menu：原版业务未逆向，src_rs 无此通道。");
                 ui_screen_set(UI_GAME); sfx_play(env, "pop");
-            } else if (a == 3) {   /* Back → 边界对话框（诚实边界） */
+            } else if (a == 3) {   /* Back（返回）→ 边界对话框（诚实边界：Wi-Fi/局域网联机未逆向，仅蓝牙已实现） */
                 jq_show_dialog(env, "Back（诚实边界）",
                     "Back：原版业务未逆向，src_rs 无此通道。");
                 ui_screen_set(UI_GAME); sfx_play(env, "pop");

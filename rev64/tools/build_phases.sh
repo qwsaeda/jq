@@ -30,6 +30,7 @@ DO_VERIFY=1
 # 构建树 lib 布局（每阶段：树名 + lib/子目录→源 so）
 # phase0: dec_p0 仅 armeabi=orig
 # phase1: dec_p0 armeabi=orig + arm64-v8a=stub
+# ★ AUD-A2 C-apk: 阶段 0/1 保留广告 jar（32 位 so 硬依赖，AGENTS.md 红线），仅阶段 3 清理
 # phase2: dec_dual armeabi-v7a=orig + arm64-v8a=src_rs
 # phase3: dec_full arm64-v8a=src_rs
 setup_libs() {

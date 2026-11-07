@@ -20,6 +20,11 @@
  *   为部分覆盖（非全量），全量补测试（make rulestest 表驱动用例）留待下一轮。
  * ★ AUD-R-136（P3 诚实标注）：ai_selftest.c 缺关键用例（bomb-vs-flag /
  *   暗棋扛旗 / side!=turn 困毙 / 底线纵滑），4 条断言补全留待下一轮。
+ * ★ AUD-A2 F-naming（诚实标注）：桌面事件验证入口族（run_exitconfirm /
+ *   run_resignconfirm / run_regretconfirm + run_d000..run_d264，共 121 个）均已
+ *   static 化（模块内非公开 API，仅 main 的 dispatch 表调用，无跨文件引用），
+ *   前向声明统一在"SPAK2UI 批量前向声明"块。F-naming 探针（只看函数名不看
+ *   static 限定）对此族的告警为误报路径；其余 run_* 入口（54 个）本即 static。
  */
 #include <stdio.h>
 #include <string.h>
@@ -2238,6 +2243,163 @@ static int run_ui100(void);
 static int run_ui110(void);
 static int run_ui118(void);
 
+/* ★ AUD-A2 F-naming：桌面事件验证入口（run_exitconfirm/run_resignconfirm/run_regretconfirm +
+ *    run_d000..run_d264，共 121 个）static 化（模块内非公开 API），前向声明 */
+static int run_about(void);
+static int run_bright(void);
+static int run_chat063(void);
+static int run_chatlog(void);
+static int run_create(void);
+static int run_create069(void);
+static int run_d000(void);
+static int run_d001(void);
+static int run_d002(void);
+static int run_d003(void);
+static int run_d004(void);
+static int run_d005(void);
+static int run_d006(void);
+static int run_d007(void);
+static int run_d008(void);
+static int run_d010(void);
+static int run_d012(void);
+static int run_d013(void);
+static int run_d015(void);
+static int run_d016(void);
+static int run_d017(void);
+static int run_d019(void);
+static int run_d020(void);
+static int run_d021(void);
+static int run_d022(void);
+static int run_d023(void);
+static int run_d024(void);
+static int run_d025(void);
+static int run_d026(void);
+static int run_d027(void);
+static int run_d028(void);
+static int run_d029(void);
+static int run_d030(void);
+static int run_d031(void);
+static int run_d032(void);
+static int run_d033(void);
+static int run_d034(void);
+static int run_d035(void);
+static int run_d036(void);
+static int run_d037(void);
+static int run_d038(void);
+static int run_d039(void);
+static int run_d041(void);
+static int run_d042(void);
+static int run_d043(void);
+static int run_d044(void);
+static int run_d045(void);
+static int run_d046(void);
+static int run_d047(void);
+static int run_d049(void);
+static int run_d050(void);
+static int run_d051(void);
+static int run_d052(void);
+static int run_d053(void);
+static int run_d054(void);
+static int run_d055(void);
+static int run_d057(void);
+static int run_d058(void);
+static int run_d059(void);
+static int run_d060(void);
+static int run_d061(void);
+static int run_d062(void);
+static int run_d063(void);
+static int run_d064(void);
+static int run_d065(void);
+static int run_d066(void);
+static int run_d067(void);
+static int run_d068(void);
+static int run_d069(void);
+static int run_d070(void);
+static int run_d071(void);
+static int run_d072(void);
+static int run_d073(void);
+static int run_d075(void);
+static int run_d077(void);
+static int run_d078(void);
+static int run_d079(void);
+static int run_d082(void);
+static int run_d083(void);
+static int run_d084(void);
+static int run_d085(void);
+static int run_d086(void);
+static int run_d089(void);
+static int run_d090(void);
+static int run_d094(void);
+static int run_d095(void);
+static int run_d096(void);
+static int run_d097(void);
+static int run_d098(void);
+static int run_d099(void);
+static int run_d100(void);
+static int run_d101(void);
+static int run_d102(void);
+static int run_d104(void);
+static int run_d107(void);
+static int run_d108(void);
+static int run_d109(void);
+static int run_d110(void);
+static int run_d112(void);
+static int run_d113(void);
+static int run_d114(void);
+static int run_d118(void);
+static int run_d119(void);
+static int run_d120(void);
+static int run_d121(void);
+static int run_d122(void);
+static int run_d123(void);
+static int run_d246(void);
+static int run_d247(void);
+static int run_d248(void);
+static int run_d249(void);
+static int run_d250(void);
+static int run_d251(void);
+static int run_d253(void);
+static int run_d255(void);
+static int run_d256(void);
+static int run_d257(void);
+static int run_d258(void);
+static int run_d259(void);
+static int run_d260(void);
+static int run_d261(void);
+static int run_d262(void);
+static int run_d263(void);
+static int run_d264(void);
+static int run_dark(void);
+static int run_draw_resign(void);
+static int run_drawdetail(void);
+static int run_exitconfirm(void);
+static int run_gameinfo(void);
+static int run_imgset7(void);
+static int run_imgset8(void);
+static int run_join(void);
+static int run_join065(void);
+static int run_layout_save(void);
+static int run_login(void);
+static int run_newgame104(void);
+static int run_ng061(void);
+static int run_profile(void);
+static int run_rail_dir_and_side_guard(void);
+static int run_regretconfirm(void);
+static int run_replay(void);
+static int run_resignconfirm(void);
+static int run_room060(void);
+static int run_rules(void);
+static int run_rules070(void);
+static int run_ruleset(void);
+static int run_setentry(void);
+static int run_setentry4(void);
+static int run_stalemate(void);
+static int run_undo(void);
+
+
+
+
+
 int main(int argc, char **argv)
 {
     if (argc < 2) {
@@ -3124,7 +3286,7 @@ static int run_ui118(void)
 
 /* ★ 返回键 3 态确认弹窗桌面验证（原版 .rodata ExitConfirm/ResignConfirm/RegretConfirm）
    2 按钮几何 Δ=0 + 命中判定 + 业务分支（诚实边界：原版确认对话框数据未逆向，几何简化近似） */
-int run_exitconfirm(void)
+static int run_exitconfirm(void)
 {
     const ui_exitconfirm_btn *b = ui_exitconfirm_buttons();
     int n = UI_EXITCONFIRM_COUNT, pass = 0;
@@ -3143,7 +3305,7 @@ int run_exitconfirm(void)
     return pass >= 3;
 }
 
-int run_resignconfirm(void)
+static int run_resignconfirm(void)
 {
     const ui_resignconfirm_btn *b = ui_resignconfirm_buttons();
     int n = UI_RESIGNCONFIRM_COUNT, pass = 0;
@@ -3156,7 +3318,7 @@ int run_resignconfirm(void)
     return pass >= 3;
 }
 
-int run_regretconfirm(void)
+static int run_regretconfirm(void)
 {
     const ui_regretconfirm_btn *b = ui_regretconfirm_buttons();
     int n = UI_REGRETCONFIRM_COUNT, pass = 0;
@@ -3170,7 +3332,7 @@ int run_regretconfirm(void)
 }
 
 /* ★ 批量对齐（datah_000）：2 按钮几何 Δ=0 + 命中判定 */
-int run_d000(void)
+static int run_d000(void)
 {
     const ui_d000_btn *b = ui_d000_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
@@ -3195,7 +3357,7 @@ int run_d000(void)
     return ok;
 }
 /* ★ 批量对齐（datah_001）：4 按钮几何 Δ=0 + 命中判定 */
-int run_d001(void)
+static int run_d001(void)
 {
     const ui_d001_btn *b = ui_d001_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
@@ -3222,7 +3384,7 @@ int run_d001(void)
     return ok;
 }
 /* ★ 批量对齐（datah_002）：2 按钮几何 Δ=0 + 命中判定 */
-int run_d002(void)
+static int run_d002(void)
 {
     const ui_d002_btn *b = ui_d002_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
@@ -3247,7 +3409,7 @@ int run_d002(void)
     return ok;
 }
 /* ★ 批量对齐（datah_003）：3 按钮几何 Δ=0 + 命中判定 */
-int run_d003(void)
+static int run_d003(void)
 {
     const ui_d003_btn *b = ui_d003_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
@@ -3273,7 +3435,7 @@ int run_d003(void)
     return ok;
 }
 /* ★ 批量对齐（datah_004）：2 按钮几何 Δ=0 + 命中判定 */
-int run_d004(void)
+static int run_d004(void)
 {
     const ui_d004_btn *b = ui_d004_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
@@ -3298,7 +3460,7 @@ int run_d004(void)
     return ok;
 }
 /* ★ 批量对齐（datah_005）：2 按钮几何 Δ=0 + 命中判定 */
-int run_d005(void)
+static int run_d005(void)
 {
     const ui_d005_btn *b = ui_d005_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
@@ -3323,7 +3485,7 @@ int run_d005(void)
     return ok;
 }
 /* ★ 批量对齐（datah_006）：8 按钮几何 Δ=0 + 命中判定 */
-int run_d006(void)
+static int run_d006(void)
 {
     const ui_d006_btn *b = ui_d006_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
@@ -3354,7 +3516,7 @@ int run_d006(void)
     return ok;
 }
 /* ★ 批量对齐（datah_007）：6 按钮几何 Δ=0 + 命中判定 */
-int run_d007(void)
+static int run_d007(void)
 {
     const ui_d007_btn *b = ui_d007_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
@@ -3383,7 +3545,7 @@ int run_d007(void)
     return ok;
 }
 /* ★ 批量对齐（datah_008）：5 按钮几何 Δ=0 + 命中判定 */
-int run_d008(void)
+static int run_d008(void)
 {
     const ui_d008_btn *b = ui_d008_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
@@ -3411,7 +3573,7 @@ int run_d008(void)
     return ok;
 }
 /* ★ 批量对齐（datah_010）：2 按钮几何 Δ=0 + 命中判定 */
-int run_d010(void)
+static int run_d010(void)
 {
     const ui_d010_btn *b = ui_d010_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
@@ -3436,7 +3598,7 @@ int run_d010(void)
     return ok;
 }
 /* ★ 批量对齐（datah_012）：6 按钮几何 Δ=0 + 命中判定 */
-int run_d012(void)
+static int run_d012(void)
 {
     const ui_d012_btn *b = ui_d012_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
@@ -3465,7 +3627,7 @@ int run_d012(void)
     return ok;
 }
 /* ★ 批量对齐（datah_013）：3 按钮几何 Δ=0 + 命中判定 */
-int run_d013(void)
+static int run_d013(void)
 {
     const ui_d013_btn *b = ui_d013_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
@@ -3491,7 +3653,7 @@ int run_d013(void)
     return ok;
 }
 /* ★ 批量对齐（datah_015）：1 按钮几何 Δ=0 + 命中判定 */
-int run_d015(void)
+static int run_d015(void)
 {
     const ui_d015_btn *b = ui_d015_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
@@ -3515,7 +3677,7 @@ int run_d015(void)
     return ok;
 }
 /* ★ 批量对齐（datah_016）：4 按钮几何 Δ=0 + 命中判定 */
-int run_d016(void)
+static int run_d016(void)
 {
     const ui_d016_btn *b = ui_d016_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
@@ -3542,7 +3704,7 @@ int run_d016(void)
     return ok;
 }
 /* ★ 批量对齐（datah_017）：1 按钮几何 Δ=0 + 命中判定 */
-int run_d017(void)
+static int run_d017(void)
 {
     const ui_d017_btn *b = ui_d017_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
@@ -3566,7 +3728,7 @@ int run_d017(void)
     return ok;
 }
 /* ★ 批量对齐（datah_019）：4 按钮几何 Δ=0 + 命中判定 */
-int run_d019(void)
+static int run_d019(void)
 {
     const ui_d019_btn *b = ui_d019_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
@@ -3593,7 +3755,7 @@ int run_d019(void)
     return ok;
 }
 /* ★ 批量对齐（datah_020）：4 按钮几何 Δ=0 + 命中判定 */
-int run_d020(void)
+static int run_d020(void)
 {
     const ui_d020_btn *b = ui_d020_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
@@ -3620,7 +3782,7 @@ int run_d020(void)
     return ok;
 }
 /* ★ 批量对齐（datah_021）：3 按钮几何 Δ=0 + 命中判定 */
-int run_d021(void)
+static int run_d021(void)
 {
     const ui_d021_btn *b = ui_d021_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
@@ -3646,7 +3808,7 @@ int run_d021(void)
     return ok;
 }
 /* ★ 批量对齐（datah_022）：5 按钮几何 Δ=0 + 命中判定 */
-int run_d022(void)
+static int run_d022(void)
 {
     const ui_d022_btn *b = ui_d022_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
@@ -3674,7 +3836,7 @@ int run_d022(void)
     return ok;
 }
 /* ★ 批量对齐（datah_023）：4 按钮几何 Δ=0 + 命中判定 */
-int run_d023(void)
+static int run_d023(void)
 {
     const ui_d023_btn *b = ui_d023_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
@@ -3701,7 +3863,7 @@ int run_d023(void)
     return ok;
 }
 /* ★ 批量对齐（datah_024）：1 按钮几何 Δ=0 + 命中判定 */
-int run_d024(void)
+static int run_d024(void)
 {
     const ui_d024_btn *b = ui_d024_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
@@ -3725,7 +3887,7 @@ int run_d024(void)
     return ok;
 }
 /* ★ 批量对齐（datah_025）：1 按钮几何 Δ=0 + 命中判定 */
-int run_d025(void)
+static int run_d025(void)
 {
     const ui_d025_btn *b = ui_d025_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
@@ -3749,7 +3911,7 @@ int run_d025(void)
     return ok;
 }
 /* ★ 批量对齐（datah_026）：3 按钮几何 Δ=0 + 命中判定 */
-int run_d026(void)
+static int run_d026(void)
 {
     const ui_d026_btn *b = ui_d026_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
@@ -3775,7 +3937,7 @@ int run_d026(void)
     return ok;
 }
 /* ★ 批量对齐（datah_027）：3 按钮几何 Δ=0 + 命中判定 */
-int run_d027(void)
+static int run_d027(void)
 {
     const ui_d027_btn *b = ui_d027_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
@@ -3801,7 +3963,7 @@ int run_d027(void)
     return ok;
 }
 /* ★ 批量对齐（datah_028）：3 按钮几何 Δ=0 + 命中判定 */
-int run_d028(void)
+static int run_d028(void)
 {
     const ui_d028_btn *b = ui_d028_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
@@ -3827,7 +3989,7 @@ int run_d028(void)
     return ok;
 }
 /* ★ 批量对齐（datah_029）：2 按钮几何 Δ=0 + 命中判定 */
-int run_d029(void)
+static int run_d029(void)
 {
     const ui_d029_btn *b = ui_d029_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
@@ -3852,7 +4014,7 @@ int run_d029(void)
     return ok;
 }
 /* ★ 批量对齐（datah_030）：2 按钮几何 Δ=0 + 命中判定 */
-int run_d030(void)
+static int run_d030(void)
 {
     const ui_d030_btn *b = ui_d030_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
@@ -3877,7 +4039,7 @@ int run_d030(void)
     return ok;
 }
 /* ★ 批量对齐（datah_031）：3 按钮几何 Δ=0 + 命中判定 */
-int run_d031(void)
+static int run_d031(void)
 {
     const ui_d031_btn *b = ui_d031_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
@@ -3903,7 +4065,7 @@ int run_d031(void)
     return ok;
 }
 /* ★ 批量对齐（datah_032）：4 按钮几何 Δ=0 + 命中判定 */
-int run_d032(void)
+static int run_d032(void)
 {
     const ui_d032_btn *b = ui_d032_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
@@ -3930,7 +4092,7 @@ int run_d032(void)
     return ok;
 }
 /* ★ 批量对齐（datah_033）：2 按钮几何 Δ=0 + 命中判定 */
-int run_d033(void)
+static int run_d033(void)
 {
     const ui_d033_btn *b = ui_d033_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
@@ -3955,7 +4117,7 @@ int run_d033(void)
     return ok;
 }
 /* ★ 批量对齐（datah_034）：2 按钮几何 Δ=0 + 命中判定 */
-int run_d034(void)
+static int run_d034(void)
 {
     const ui_d034_btn *b = ui_d034_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
@@ -3980,7 +4142,7 @@ int run_d034(void)
     return ok;
 }
 /* ★ 批量对齐（datah_035）：2 按钮几何 Δ=0 + 命中判定 */
-int run_d035(void)
+static int run_d035(void)
 {
     const ui_d035_btn *b = ui_d035_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
@@ -4005,7 +4167,7 @@ int run_d035(void)
     return ok;
 }
 /* ★ 批量对齐（datah_036）：4 按钮几何 Δ=0 + 命中判定 */
-int run_d036(void)
+static int run_d036(void)
 {
     const ui_d036_btn *b = ui_d036_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
@@ -4032,7 +4194,7 @@ int run_d036(void)
     return ok;
 }
 /* ★ 批量对齐（datah_037）：3 按钮几何 Δ=0 + 命中判定 */
-int run_d037(void)
+static int run_d037(void)
 {
     const ui_d037_btn *b = ui_d037_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
@@ -4058,7 +4220,7 @@ int run_d037(void)
     return ok;
 }
 /* ★ 批量对齐（datah_038）：4 按钮几何 Δ=0 + 命中判定 */
-int run_d038(void)
+static int run_d038(void)
 {
     const ui_d038_btn *b = ui_d038_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
@@ -4085,7 +4247,7 @@ int run_d038(void)
     return ok;
 }
 /* ★ 批量对齐（datah_039）：1 按钮几何 Δ=0 + 命中判定 */
-int run_d039(void)
+static int run_d039(void)
 {
     const ui_d039_btn *b = ui_d039_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
@@ -4109,7 +4271,7 @@ int run_d039(void)
     return ok;
 }
 /* ★ 批量对齐（datah_041）：8 按钮几何 Δ=0 + 命中判定 */
-int run_d041(void)
+static int run_d041(void)
 {
     const ui_d041_btn *b = ui_d041_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
@@ -4140,7 +4302,7 @@ int run_d041(void)
     return ok;
 }
 /* ★ 批量对齐（datah_042）：7 按钮几何 Δ=0 + 命中判定 */
-int run_d042(void)
+static int run_d042(void)
 {
     const ui_d042_btn *b = ui_d042_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
@@ -4170,7 +4332,7 @@ int run_d042(void)
     return ok;
 }
 /* ★ 批量对齐（datah_043）：2 按钮几何 Δ=0 + 命中判定 */
-int run_d043(void)
+static int run_d043(void)
 {
     const ui_d043_btn *b = ui_d043_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
@@ -4195,7 +4357,7 @@ int run_d043(void)
     return ok;
 }
 /* ★ 批量对齐（datah_044）：2 按钮几何 Δ=0 + 命中判定 */
-int run_d044(void)
+static int run_d044(void)
 {
     const ui_d044_btn *b = ui_d044_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
@@ -4220,7 +4382,7 @@ int run_d044(void)
     return ok;
 }
 /* ★ 批量对齐（datah_045）：1 按钮几何 Δ=0 + 命中判定 */
-int run_d045(void)
+static int run_d045(void)
 {
     const ui_d045_btn *b = ui_d045_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
@@ -4244,7 +4406,7 @@ int run_d045(void)
     return ok;
 }
 /* ★ 批量对齐（datah_046）：1 按钮几何 Δ=0 + 命中判定 */
-int run_d046(void)
+static int run_d046(void)
 {
     const ui_d046_btn *b = ui_d046_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
@@ -4268,7 +4430,7 @@ int run_d046(void)
     return ok;
 }
 /* ★ 批量对齐（datah_047）：1 按钮几何 Δ=0 + 命中判定 */
-int run_d047(void)
+static int run_d047(void)
 {
     const ui_d047_btn *b = ui_d047_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
@@ -4292,7 +4454,7 @@ int run_d047(void)
     return ok;
 }
 /* ★ 批量对齐（datah_049）：1 按钮几何 Δ=0 + 命中判定 */
-int run_d049(void)
+static int run_d049(void)
 {
     const ui_d049_btn *b = ui_d049_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
@@ -4316,7 +4478,7 @@ int run_d049(void)
     return ok;
 }
 /* ★ 批量对齐（datah_050）：3 按钮几何 Δ=0 + 命中判定 */
-int run_d050(void)
+static int run_d050(void)
 {
     const ui_d050_btn *b = ui_d050_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
@@ -4342,7 +4504,7 @@ int run_d050(void)
     return ok;
 }
 /* ★ 批量对齐（datah_051）：2 按钮几何 Δ=0 + 命中判定 */
-int run_d051(void)
+static int run_d051(void)
 {
     const ui_d051_btn *b = ui_d051_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
@@ -4367,7 +4529,7 @@ int run_d051(void)
     return ok;
 }
 /* ★ 批量对齐（datah_052）：2 按钮几何 Δ=0 + 命中判定 */
-int run_d052(void)
+static int run_d052(void)
 {
     const ui_d052_btn *b = ui_d052_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
@@ -4392,7 +4554,7 @@ int run_d052(void)
     return ok;
 }
 /* ★ 批量对齐（datah_053）：2 按钮几何 Δ=0 + 命中判定 */
-int run_d053(void)
+static int run_d053(void)
 {
     const ui_d053_btn *b = ui_d053_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
@@ -4417,7 +4579,7 @@ int run_d053(void)
     return ok;
 }
 /* ★ 批量对齐（datah_054）：2 按钮几何 Δ=0 + 命中判定 */
-int run_d054(void)
+static int run_d054(void)
 {
     const ui_d054_btn *b = ui_d054_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
@@ -4442,7 +4604,7 @@ int run_d054(void)
     return ok;
 }
 /* ★ 批量对齐（datah_055）：1 按钮几何 Δ=0 + 命中判定 */
-int run_d055(void)
+static int run_d055(void)
 {
     const ui_d055_btn *b = ui_d055_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
@@ -4466,7 +4628,7 @@ int run_d055(void)
     return ok;
 }
 /* ★ 批量对齐（datah_057）：2 按钮几何 Δ=0 + 命中判定 */
-int run_d057(void)
+static int run_d057(void)
 {
     const ui_d057_btn *b = ui_d057_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
@@ -4491,7 +4653,7 @@ int run_d057(void)
     return ok;
 }
 /* ★ 批量对齐（datah_058）：2 按钮几何 Δ=0 + 命中判定 */
-int run_d058(void)
+static int run_d058(void)
 {
     const ui_d058_btn *b = ui_d058_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
@@ -4516,7 +4678,7 @@ int run_d058(void)
     return ok;
 }
 /* ★ 批量对齐（datah_059）：3 按钮几何 Δ=0 + 命中判定 */
-int run_d059(void)
+static int run_d059(void)
 {
     const ui_d059_btn *b = ui_d059_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
@@ -4542,7 +4704,7 @@ int run_d059(void)
     return ok;
 }
 /* ★ 批量对齐（datah_060）：5 按钮几何 Δ=0 + 命中判定 */
-int run_d060(void)
+static int run_d060(void)
 {
     const ui_d060_btn *b = ui_d060_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
@@ -4570,7 +4732,7 @@ int run_d060(void)
     return ok;
 }
 /* ★ 批量对齐（datah_061）：6 按钮几何 Δ=0 + 命中判定 */
-int run_d061(void)
+static int run_d061(void)
 {
     const ui_d061_btn *b = ui_d061_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
@@ -4599,7 +4761,7 @@ int run_d061(void)
     return ok;
 }
 /* ★ 批量对齐（datah_062）：4 按钮几何 Δ=0 + 命中判定 */
-int run_d062(void)
+static int run_d062(void)
 {
     const ui_d062_btn *b = ui_d062_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
@@ -4626,7 +4788,7 @@ int run_d062(void)
     return ok;
 }
 /* ★ 批量对齐（datah_063）：3 按钮几何 Δ=0 + 命中判定 */
-int run_d063(void)
+static int run_d063(void)
 {
     const ui_d063_btn *b = ui_d063_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
@@ -4652,7 +4814,7 @@ int run_d063(void)
     return ok;
 }
 /* ★ 批量对齐（datah_064）：3 按钮几何 Δ=0 + 命中判定 */
-int run_d064(void)
+static int run_d064(void)
 {
     const ui_d064_btn *b = ui_d064_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
@@ -4678,7 +4840,7 @@ int run_d064(void)
     return ok;
 }
 /* ★ 批量对齐（datah_065）：2 按钮几何 Δ=0 + 命中判定 */
-int run_d065(void)
+static int run_d065(void)
 {
     const ui_d065_btn *b = ui_d065_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
@@ -4703,7 +4865,7 @@ int run_d065(void)
     return ok;
 }
 /* ★ 批量对齐（datah_066）：3 按钮几何 Δ=0 + 命中判定 */
-int run_d066(void)
+static int run_d066(void)
 {
     const ui_d066_btn *b = ui_d066_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
@@ -4729,7 +4891,7 @@ int run_d066(void)
     return ok;
 }
 /* ★ 批量对齐（datah_067）：8 按钮几何 Δ=0 + 命中判定 */
-int run_d067(void)
+static int run_d067(void)
 {
     const ui_d067_btn *b = ui_d067_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
@@ -4760,7 +4922,7 @@ int run_d067(void)
     return ok;
 }
 /* ★ 批量对齐（datah_068）：3 按钮几何 Δ=0 + 命中判定 */
-int run_d068(void)
+static int run_d068(void)
 {
     const ui_d068_btn *b = ui_d068_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
@@ -4786,7 +4948,7 @@ int run_d068(void)
     return ok;
 }
 /* ★ 批量对齐（datah_069）：6 按钮几何 Δ=0 + 命中判定 */
-int run_d069(void)
+static int run_d069(void)
 {
     const ui_d069_btn *b = ui_d069_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
@@ -4815,7 +4977,7 @@ int run_d069(void)
     return ok;
 }
 /* ★ 批量对齐（datah_070）：6 按钮几何 Δ=0 + 命中判定 */
-int run_d070(void)
+static int run_d070(void)
 {
     const ui_d070_btn *b = ui_d070_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
@@ -4844,7 +5006,7 @@ int run_d070(void)
     return ok;
 }
 /* ★ 批量对齐（datah_071）：2 按钮几何 Δ=0 + 命中判定 */
-int run_d071(void)
+static int run_d071(void)
 {
     const ui_d071_btn *b = ui_d071_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
@@ -4869,7 +5031,7 @@ int run_d071(void)
     return ok;
 }
 /* ★ 批量对齐（datah_072）：4 按钮几何 Δ=0 + 命中判定 */
-int run_d072(void)
+static int run_d072(void)
 {
     const ui_d072_btn *b = ui_d072_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
@@ -4896,7 +5058,7 @@ int run_d072(void)
     return ok;
 }
 /* ★ 批量对齐（datah_073）：2 按钮几何 Δ=0 + 命中判定 */
-int run_d073(void)
+static int run_d073(void)
 {
     const ui_d073_btn *b = ui_d073_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
@@ -4921,7 +5083,7 @@ int run_d073(void)
     return ok;
 }
 /* ★ 批量对齐（datah_075）：4 按钮几何 Δ=0 + 命中判定 */
-int run_d075(void)
+static int run_d075(void)
 {
     const ui_d075_btn *b = ui_d075_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
@@ -4948,7 +5110,7 @@ int run_d075(void)
     return ok;
 }
 /* ★ 批量对齐（datah_077）：6 按钮几何 Δ=0 + 命中判定 */
-int run_d077(void)
+static int run_d077(void)
 {
     const ui_d077_btn *b = ui_d077_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
@@ -4977,7 +5139,7 @@ int run_d077(void)
     return ok;
 }
 /* ★ 批量对齐（datah_078）：3 按钮几何 Δ=0 + 命中判定 */
-int run_d078(void)
+static int run_d078(void)
 {
     const ui_d078_btn *b = ui_d078_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
@@ -5003,7 +5165,7 @@ int run_d078(void)
     return ok;
 }
 /* ★ 批量对齐（datah_079）：1 按钮几何 Δ=0 + 命中判定 */
-int run_d079(void)
+static int run_d079(void)
 {
     const ui_d079_btn *b = ui_d079_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
@@ -5027,7 +5189,7 @@ int run_d079(void)
     return ok;
 }
 /* ★ 批量对齐（datah_082）：5 按钮几何 Δ=0 + 命中判定 */
-int run_d082(void)
+static int run_d082(void)
 {
     const ui_d082_btn *b = ui_d082_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
@@ -5055,7 +5217,7 @@ int run_d082(void)
     return ok;
 }
 /* ★ 批量对齐（datah_083）：4 按钮几何 Δ=0 + 命中判定 */
-int run_d083(void)
+static int run_d083(void)
 {
     const ui_d083_btn *b = ui_d083_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
@@ -5082,7 +5244,7 @@ int run_d083(void)
     return ok;
 }
 /* ★ 批量对齐（datah_084）：4 按钮几何 Δ=0 + 命中判定 */
-int run_d084(void)
+static int run_d084(void)
 {
     const ui_d084_btn *b = ui_d084_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
@@ -5109,7 +5271,7 @@ int run_d084(void)
     return ok;
 }
 /* ★ 批量对齐（datah_085）：5 按钮几何 Δ=0 + 命中判定 */
-int run_d085(void)
+static int run_d085(void)
 {
     const ui_d085_btn *b = ui_d085_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
@@ -5137,7 +5299,7 @@ int run_d085(void)
     return ok;
 }
 /* ★ 批量对齐（datah_086）：4 按钮几何 Δ=0 + 命中判定 */
-int run_d086(void)
+static int run_d086(void)
 {
     const ui_d086_btn *b = ui_d086_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
@@ -5164,7 +5326,7 @@ int run_d086(void)
     return ok;
 }
 /* ★ 批量对齐（datah_089）：3 按钮几何 Δ=0 + 命中判定 */
-int run_d089(void)
+static int run_d089(void)
 {
     const ui_d089_btn *b = ui_d089_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
@@ -5190,7 +5352,7 @@ int run_d089(void)
     return ok;
 }
 /* ★ 批量对齐（datah_090）：2 按钮几何 Δ=0 + 命中判定 */
-int run_d090(void)
+static int run_d090(void)
 {
     const ui_d090_btn *b = ui_d090_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
@@ -5215,7 +5377,7 @@ int run_d090(void)
     return ok;
 }
 /* ★ 批量对齐（datah_094）：5 按钮几何 Δ=0 + 命中判定 */
-int run_d094(void)
+static int run_d094(void)
 {
     const ui_d094_btn *b = ui_d094_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
@@ -5243,7 +5405,7 @@ int run_d094(void)
     return ok;
 }
 /* ★ 批量对齐（datah_095）：5 按钮几何 Δ=0 + 命中判定 */
-int run_d095(void)
+static int run_d095(void)
 {
     const ui_d095_btn *b = ui_d095_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
@@ -5271,7 +5433,7 @@ int run_d095(void)
     return ok;
 }
 /* ★ 批量对齐（datah_096）：3 按钮几何 Δ=0 + 命中判定 */
-int run_d096(void)
+static int run_d096(void)
 {
     const ui_d096_btn *b = ui_d096_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
@@ -5297,7 +5459,7 @@ int run_d096(void)
     return ok;
 }
 /* ★ 批量对齐（datah_097）：4 按钮几何 Δ=0 + 命中判定 */
-int run_d097(void)
+static int run_d097(void)
 {
     const ui_d097_btn *b = ui_d097_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
@@ -5324,7 +5486,7 @@ int run_d097(void)
     return ok;
 }
 /* ★ 批量对齐（datah_098）：6 按钮几何 Δ=0 + 命中判定 */
-int run_d098(void)
+static int run_d098(void)
 {
     const ui_d098_btn *b = ui_d098_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
@@ -5353,7 +5515,7 @@ int run_d098(void)
     return ok;
 }
 /* ★ 批量对齐（datah_099）：4 按钮几何 Δ=0 + 命中判定 */
-int run_d099(void)
+static int run_d099(void)
 {
     const ui_d099_btn *b = ui_d099_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
@@ -5380,7 +5542,7 @@ int run_d099(void)
     return ok;
 }
 /* ★ 批量对齐（datah_100）：1 按钮几何 Δ=0 + 命中判定 */
-int run_d100(void)
+static int run_d100(void)
 {
     const ui_d100_btn *b = ui_d100_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
@@ -5404,7 +5566,7 @@ int run_d100(void)
     return ok;
 }
 /* ★ 批量对齐（datah_101）：4 按钮几何 Δ=0 + 命中判定 */
-int run_d101(void)
+static int run_d101(void)
 {
     const ui_d101_btn *b = ui_d101_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
@@ -5431,7 +5593,7 @@ int run_d101(void)
     return ok;
 }
 /* ★ 批量对齐（datah_102）：1 按钮几何 Δ=0 + 命中判定 */
-int run_d102(void)
+static int run_d102(void)
 {
     const ui_d102_btn *b = ui_d102_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
@@ -5455,7 +5617,7 @@ int run_d102(void)
     return ok;
 }
 /* ★ 批量对齐（datah_104）：5 按钮几何 Δ=0 + 命中判定 */
-int run_d104(void)
+static int run_d104(void)
 {
     const ui_d104_btn *b = ui_d104_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
@@ -5483,7 +5645,7 @@ int run_d104(void)
     return ok;
 }
 /* ★ 批量对齐（datah_107）：5 按钮几何 Δ=0 + 命中判定 */
-int run_d107(void)
+static int run_d107(void)
 {
     const ui_d107_btn *b = ui_d107_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
@@ -5511,7 +5673,7 @@ int run_d107(void)
     return ok;
 }
 /* ★ 批量对齐（datah_108）：3 按钮几何 Δ=0 + 命中判定 */
-int run_d108(void)
+static int run_d108(void)
 {
     const ui_d108_btn *b = ui_d108_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
@@ -5537,7 +5699,7 @@ int run_d108(void)
     return ok;
 }
 /* ★ 批量对齐（datah_109）：3 按钮几何 Δ=0 + 命中判定 */
-int run_d109(void)
+static int run_d109(void)
 {
     const ui_d109_btn *b = ui_d109_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
@@ -5563,7 +5725,7 @@ int run_d109(void)
     return ok;
 }
 /* ★ 批量对齐（datah_110）：2 按钮几何 Δ=0 + 命中判定 */
-int run_d110(void)
+static int run_d110(void)
 {
     const ui_d110_btn *b = ui_d110_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
@@ -5588,7 +5750,7 @@ int run_d110(void)
     return ok;
 }
 /* ★ 批量对齐（datah_112）：5 按钮几何 Δ=0 + 命中判定 */
-int run_d112(void)
+static int run_d112(void)
 {
     const ui_d112_btn *b = ui_d112_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
@@ -5616,7 +5778,7 @@ int run_d112(void)
     return ok;
 }
 /* ★ 批量对齐（datah_113）：4 按钮几何 Δ=0 + 命中判定 */
-int run_d113(void)
+static int run_d113(void)
 {
     const ui_d113_btn *b = ui_d113_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
@@ -5643,7 +5805,7 @@ int run_d113(void)
     return ok;
 }
 /* ★ 批量对齐（datah_114）：1 按钮几何 Δ=0 + 命中判定 */
-int run_d114(void)
+static int run_d114(void)
 {
     const ui_d114_btn *b = ui_d114_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
@@ -5667,7 +5829,7 @@ int run_d114(void)
     return ok;
 }
 /* ★ 批量对齐（datah_118）：2 按钮几何 Δ=0 + 命中判定 */
-int run_d118(void)
+static int run_d118(void)
 {
     const ui_d118_btn *b = ui_d118_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
@@ -5692,7 +5854,7 @@ int run_d118(void)
     return ok;
 }
 /* ★ 批量对齐（datah_119）：2 按钮几何 Δ=0 + 命中判定 */
-int run_d119(void)
+static int run_d119(void)
 {
     const ui_d119_btn *b = ui_d119_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
@@ -5717,7 +5879,7 @@ int run_d119(void)
     return ok;
 }
 /* ★ 批量对齐（datah_120）：3 按钮几何 Δ=0 + 命中判定 */
-int run_d120(void)
+static int run_d120(void)
 {
     const ui_d120_btn *b = ui_d120_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
@@ -5743,7 +5905,7 @@ int run_d120(void)
     return ok;
 }
 /* ★ 批量对齐（datah_121）：2 按钮几何 Δ=0 + 命中判定 */
-int run_d121(void)
+static int run_d121(void)
 {
     const ui_d121_btn *b = ui_d121_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
@@ -5768,7 +5930,7 @@ int run_d121(void)
     return ok;
 }
 /* ★ 批量对齐（datah_122）：2 按钮几何 Δ=0 + 命中判定 */
-int run_d122(void)
+static int run_d122(void)
 {
     const ui_d122_btn *b = ui_d122_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
@@ -5793,7 +5955,7 @@ int run_d122(void)
     return ok;
 }
 /* ★ 批量对齐（datah_123）：1 按钮几何 Δ=0 + 命中判定 */
-int run_d123(void)
+static int run_d123(void)
 {
     const ui_d123_btn *b = ui_d123_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
@@ -5817,7 +5979,7 @@ int run_d123(void)
     return ok;
 }
 /* ★ 批量对齐（datah_246）：2 按钮几何 Δ=0 + 命中判定 */
-int run_d246(void)
+static int run_d246(void)
 {
     const ui_d246_btn *b = ui_d246_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
@@ -5842,7 +6004,7 @@ int run_d246(void)
     return ok;
 }
 /* ★ 批量对齐（datah_247）：1 按钮几何 Δ=0 + 命中判定 */
-int run_d247(void)
+static int run_d247(void)
 {
     const ui_d247_btn *b = ui_d247_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
@@ -5866,7 +6028,7 @@ int run_d247(void)
     return ok;
 }
 /* ★ 批量对齐（datah_248）：4 按钮几何 Δ=0 + 命中判定 */
-int run_d248(void)
+static int run_d248(void)
 {
     const ui_d248_btn *b = ui_d248_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
@@ -5893,7 +6055,7 @@ int run_d248(void)
     return ok;
 }
 /* ★ 批量对齐（datah_249）：1 按钮几何 Δ=0 + 命中判定 */
-int run_d249(void)
+static int run_d249(void)
 {
     const ui_d249_btn *b = ui_d249_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
@@ -5917,7 +6079,7 @@ int run_d249(void)
     return ok;
 }
 /* ★ 批量对齐（datah_250）：2 按钮几何 Δ=0 + 命中判定 */
-int run_d250(void)
+static int run_d250(void)
 {
     const ui_d250_btn *b = ui_d250_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
@@ -5942,7 +6104,7 @@ int run_d250(void)
     return ok;
 }
 /* ★ 批量对齐（datah_251）：1 按钮几何 Δ=0 + 命中判定 */
-int run_d251(void)
+static int run_d251(void)
 {
     const ui_d251_btn *b = ui_d251_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
@@ -5966,7 +6128,7 @@ int run_d251(void)
     return ok;
 }
 /* ★ 批量对齐（datah_253）：1 按钮几何 Δ=0 + 命中判定 */
-int run_d253(void)
+static int run_d253(void)
 {
     const ui_d253_btn *b = ui_d253_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
@@ -5990,7 +6152,7 @@ int run_d253(void)
     return ok;
 }
 /* ★ 批量对齐（datah_255）：3 按钮几何 Δ=0 + 命中判定 */
-int run_d255(void)
+static int run_d255(void)
 {
     const ui_d255_btn *b = ui_d255_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
@@ -6016,7 +6178,7 @@ int run_d255(void)
     return ok;
 }
 /* ★ 批量对齐（datah_256）：4 按钮几何 Δ=0 + 命中判定 */
-int run_d256(void)
+static int run_d256(void)
 {
     const ui_d256_btn *b = ui_d256_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
@@ -6043,7 +6205,7 @@ int run_d256(void)
     return ok;
 }
 /* ★ 批量对齐（datah_257）：5 按钮几何 Δ=0 + 命中判定 */
-int run_d257(void)
+static int run_d257(void)
 {
     const ui_d257_btn *b = ui_d257_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
@@ -6071,7 +6233,7 @@ int run_d257(void)
     return ok;
 }
 /* ★ 批量对齐（datah_258）：5 按钮几何 Δ=0 + 命中判定 */
-int run_d258(void)
+static int run_d258(void)
 {
     const ui_d258_btn *b = ui_d258_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
@@ -6099,7 +6261,7 @@ int run_d258(void)
     return ok;
 }
 /* ★ 批量对齐（datah_259）：2 按钮几何 Δ=0 + 命中判定 */
-int run_d259(void)
+static int run_d259(void)
 {
     const ui_d259_btn *b = ui_d259_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
@@ -6124,7 +6286,7 @@ int run_d259(void)
     return ok;
 }
 /* ★ 批量对齐（datah_260）：5 按钮几何 Δ=0 + 命中判定 */
-int run_d260(void)
+static int run_d260(void)
 {
     const ui_d260_btn *b = ui_d260_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
@@ -6152,7 +6314,7 @@ int run_d260(void)
     return ok;
 }
 /* ★ 批量对齐（datah_261）：1 按钮几何 Δ=0 + 命中判定 */
-int run_d261(void)
+static int run_d261(void)
 {
     const ui_d261_btn *b = ui_d261_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
@@ -6176,7 +6338,7 @@ int run_d261(void)
     return ok;
 }
 /* ★ 批量对齐（datah_262）：4 按钮几何 Δ=0 + 命中判定 */
-int run_d262(void)
+static int run_d262(void)
 {
     const ui_d262_btn *b = ui_d262_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
@@ -6203,7 +6365,7 @@ int run_d262(void)
     return ok;
 }
 /* ★ 批量对齐（datah_263）：5 按钮几何 Δ=0 + 命中判定 */
-int run_d263(void)
+static int run_d263(void)
 {
     const ui_d263_btn *b = ui_d263_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
@@ -6231,7 +6393,7 @@ int run_d263(void)
     return ok;
 }
 /* ★ 批量对齐（datah_264）：1 按钮几何 Δ=0 + 命中判定 */
-int run_d264(void)
+static int run_d264(void)
 {
     const ui_d264_btn *b = ui_d264_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
