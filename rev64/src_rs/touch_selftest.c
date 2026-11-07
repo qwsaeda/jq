@@ -11,6 +11,7 @@
  */
 #include <stdio.h>
 #include "junqi.h"
+#include "board_geom.h"   /* AUD-R-077/118/120：bg_cell_img_center/BG_IMG_W/BG_IMG_H 已拆出 junqi.h */
 #include "touch.h"
 #include "touch_state.h"
 

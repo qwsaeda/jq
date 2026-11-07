@@ -41,53 +41,19 @@
 
 /* ---- 棋盘几何（原版 L68 十字铁路 / L79 12×5）----
    12 行 × 5 列；蓝方 row0-5（row0 底线含大本营 col1/3），红方 row6-11。
-   铁路：纵向仅 col2 贯穿；横向仅 row5/6（中线）贯穿。行营/大本营在铁路外。 */
+   铁路：纵向仅 col2 贯穿；横向仅 row5/6（中线）贯穿。行营/大本营在铁路外。
+   ★ AUD-R-077/118/120（修复）：渲染层 720×1280 贴图坐标常量（BG_* / bg_row_cy /
+   bg_cell_img_center）已拆出 board_geom.h（渲染几何专用头，本头依赖它，纯规则层
+   编译单元不再隐式携带渲染资源规格）。 */
 #define BOARD_ROWS 12
 #define BOARD_COLS 5
 #define N_CELLS    60
 #define JQ_CELLS   N_CELLS          /* ★ AUD-A2 A-board: 棋盘格数别名（60 格），与 N_CELLS 同值 */
 
-/* ---- datax_177 棋盘格（★ 层 2 视觉对齐：原版 720×1280 完整棋盘背景）----
-   ★ AUD-R-077（P2 诚实标注）：渲染层 720×1280 贴图坐标常量（BG_* / bg_row_cy /
-   bg_cell_img_center）与规则层 12×5 概念混放于规则头 junqi.h——touch.c/render.c
-   各自复用 bg_row_cy。拆分到 render.h/board_geom.h 需同步 10+ 文件 #include，
-   留待下一轮；本轮仅加 R-078 越界守卫。
-   ★ AUD-R-118（P3 诚实标注）：与 AUD-R-077 同源——junqi.h 被 layout.c/rules.c/
-   touch_state.c/ui_menu.c 等广泛 include，携带 720×1280 渲染常量使规则层编译
-   单元隐式依赖渲染资源规格。拆出 board_geom.h 需同步 10+ 文件 include，
-   行为 0 变化但跨文件重构量大，留待下一轮。
-   棋盘格只占图像 y≈205-1195（非全高 12 等分）：col0 中心 x=78.5，列宽 140.5；
-   row0-5 中心 y=222+r*71（行高 71），row6-11 中心 y=822+(r-6)*71
-   （row5→6 铁路中线间隙 246，非等距）。图像 row0=顶部；设备格 row0=底部
-   （真机 walktest 锚点实证：row0 蓝/人在底部），故 image_row = 11 - 设备row。 */
-#define BG_IMG_W        720.0f
-#define BG_IMG_H        1280.0f
-#define BG_GRID_COL0_CX 78.5f
-#define BG_GRID_COL_W   140.5f
-#define BG_GRID_ROW0_CY 222.0f
-#define BG_GRID_ROW_H   71.0f
-#define BG_GRID_ROW6_CY 822.0f
-
-/* datax_177 图像内某行（image_row 0-11，0=顶）的中心 y 像素 */
-static inline float bg_row_cy(int image_row)
-{
-    return image_row < 6
-        ? BG_GRID_ROW0_CY + image_row * BG_GRID_ROW_H
-        : BG_GRID_ROW6_CY + (image_row - 6) * BG_GRID_ROW_H;
-}
-
-/* 设备格(row,col)（row0=底部，与 touch/walktest 约定一致）→ 图像中心像素
-   ★ AUD-R-078（P2）：越界前置守卫——row/col 超域（image_row 负值会走错 bg_row_cy
-   分支返回"看似合法"的错误坐标）→ 置 -1 返回，调用方据此跳过渲染。 */
-static inline void bg_cell_img_center(int row, int col, float *ix, float *iy)
-{
-    int image_row = BOARD_ROWS - 1 - row;
-    if (ix) *ix = -1.0f;
-    if (iy) *iy = -1.0f;
-    if (row < 0 || row >= BOARD_ROWS || col < 0 || col >= BOARD_COLS) return;
-    if (ix) *ix = BG_GRID_COL0_CX + col * BG_GRID_COL_W;
-    if (iy) *iy = bg_row_cy(image_row);
-}
+/* ---- 渲染层棋盘几何已拆出 board_geom.h（AUD-R-077/118/120 修复，职责单一化）----
+   本头文件只保留纯规则层；棋盘格几何背景：棋盘格只占图像 y≈205-1195（非全高
+   12 等分）；图像 row0=顶部，设备格 row0=底部（真机 walktest 锚点实证），故
+   image_row = 11 - 设备row。 */
 
 typedef struct {
     uint8_t rank;    /* 0-12（红方翻开存储 +0xc，用 rank_norm 还原） */

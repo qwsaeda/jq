@@ -1,6 +1,7 @@
 #ifndef RS_TOUCH_H
 #define RS_TOUCH_H
 #include "junqi.h"
+#include "board_geom.h"   /* AUD-R-077/118/120：渲染层棋盘几何（BG_GRID 等）已拆出 junqi.h */
 
 #define JQ_EV_SELECT   1   /* 原版 0xbddcc switch：选中 */
 #define JQ_EV_UNSELECT 2   /* 取消选中 */

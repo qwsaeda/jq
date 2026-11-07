@@ -12,6 +12,7 @@
  *   纹理/几何对齐原版 SPAK 资源，出帧后视觉验收需真机 GPU。
  */
 #include "junqi.h"
+#include "board_geom.h"   /* AUD-R-077/118/120：渲染层棋盘几何（BG_* / bg_cell_img_center）已拆出 junqi.h */
 #include "ui_state.h"
 #include <stdint.h>
 #include <stddef.h>

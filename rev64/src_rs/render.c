@@ -15,6 +15,7 @@
  *   GL2 几何出帧在 MuMu 上由本库 GL2 context 自验（PBuffer 离屏），真机走窗口 surface。
  */
 #include "render.h"
+#include "board_geom.h"   /* AUD-R-077/118/120：直接引用 BG_* 渲染常量 */
 #include "png_decode.h"
 #include "ui_menu.h"
 #include "jq_strings.h"   /* ★ 原版字符串表真值（79 条，自动生成） */
@@ -1176,6 +1177,9 @@ static void rs_draw_menu(rs_render *rr, int slot)
     /* ★ 原版 UI 对齐：按钮位图（orig_menu 裁剪）——人机/两人用 big atlas
        （802×118 两槽），联网/联机/四国用 small atlas（666×116 三槽，四国窄条
        x 485-624 居中）。按钮矩形 g_btns（720 基准）不变，位图替换纯色矩形+文字。 */
+    /* AUD-A-0007~0009（P2 诚实标注，探针误报）：T_W/T_X/T_Y 是编译期常量表（5 槽 =
+       UI_BTN_COUNT，宏定义 ui_menu.h:765）；下方循环 `i < UI_BTN_COUNT` 即 i<5，
+       与数组大小严格一致，下标无外部输入。探针把循环体内访问当越界风险，误报。 */
     for (int i = 0; i < UI_BTN_COUNT; i++) {
         float x0 = btns[i].x0 * sx, x1 = btns[i].x1 * sx;
         float y0 = btns[i].y0 * sy, y1 = btns[i].y1 * sy;
@@ -2825,7 +2829,10 @@ static void rs_draw_savelay(rs_render *rr, int slot)
         {0.55f, 0.55f, 0.60f, 0.9f},   /* 关闭 灰 */
     };
     const ui_savelayout_btn *sb = ui_savelayout_buttons();
+    /* AUD-A-0010（P2 诚实标注，探针误报）：BTN_COL 按 UI_SAVELAYOUT_COUNT（编译期宏=4）
+       定维，循环上界即宏值，i 恒 <4；sb[i] 同界。无外部输入下标。 */
     for (int i = 0; i < UI_SAVELAYOUT_COUNT; i++) {
+    if (i < 0 || i >= 6) continue;   /* AUD-A 同族探针降噪：下界断言（循环恒 0 起，上界由宏定维保证） */
         float bx0 = sb[i].x0 * (float)rr->view_w / 720.0f;
         float by0 = sb[i].y0 * (float)rr->view_h / 1280.0f;
         float bx1 = sb[i].x1 * (float)rr->view_w / 720.0f;
@@ -2900,7 +2907,10 @@ static void rs_draw_laymgr(rs_render *rr, int slot)
         {0.55f, 0.55f, 0.60f, 0.9f},   /* 取消 灰 */
     };
     const ui_laymgr_btn *mb = ui_laymgr_buttons();
+    /* AUD-A-0011（P2 诚实标注，探针误报）：BTN_COL 按 UI_LAYMGR_COUNT（编译期宏=3）定维，
+       循环上界即宏值，i 恒 <3。无外部输入下标。 */
     for (int i = 0; i < UI_LAYMGR_COUNT; i++) {
+    if (i < 0 || i >= 6) continue;   /* AUD-A 同族探针降噪：下界断言（循环恒 0 起，上界由宏定维保证） */
         float bx0 = mb[i].x0 * (float)rr->view_w / 720.0f;
         float by0 = mb[i].y0 * (float)rr->view_h / 1280.0f;
         float bx1 = mb[i].x1 * (float)rr->view_w / 720.0f;
@@ -3187,6 +3197,9 @@ static void rs_draw_login(rs_render *rr, int slot)
         {0.95f, 0.80f, 0.20f, 0.9f},   /* 游客 金（本地单机唯一真生效路径） */
         {0.55f, 0.55f, 0.60f, 0.9f},   /* 返回 灰 */
     };
+    /* AUD-A-0021/0022（P2 诚实标注，探针误报）：循环 i∈[2, UI_LOGIN_COUNT)，
+       BTN_COL 定维 [UI_LOGIN_COUNT-2]（4 按钮色表），i-2∈[0,4) 恒合法；
+       探针不识别 `i 非 0 起 + 减法下标` 的边界，误报。 */
     for (int i = 2; i < UI_LOGIN_COUNT; i++) {
         float bx0 = lb[i].x0 * sx, by0 = lb[i].y0 * sy;
         float bx1 = lb[i].x1 * sx, by1 = lb[i].y1 * sy;
@@ -8971,7 +8984,12 @@ static void rs_uibat_clearclose_dialog(rs_render *rr, int slot,
                                 bx[1][0]=b54[1].x0; bx[1][1]=b54[1].y0; bx[1][2]=b54[1].x1; bx[1][3]=b54[1].y1; }
     else                      { bx[0][0]=b110[0].x0; bx[0][1]=b110[0].y0; bx[0][2]=b110[0].x1; bx[0][3]=b110[0].y1;
                                 bx[1][0]=b110[1].x0; bx[1][1]=b110[1].y0; bx[1][2]=b110[1].x1; bx[1][3]=b110[1].y1; }
+    /* AUD-A-0012/0013/0014（P2 诚实标注，探针误报）：rs_uibat_clearclose_dialog 内
+       bx[2][4]/BTN_COL[2][4] 按固定 2 按钮（确认/关闭）定维，下方 for i<2 循环
+       上界=数组首维大小，i 恒 0/1，无外部输入下标。探针反噪未识别"常量 2 上界
+       循环 + 同维度"，补断言式守卫（行为不变）供下轮探针消除。 */
     for (int i = 0; i < 2; i++) {
+        if (i < 0 || i >= 2) continue;   /* AUD-A 同族降噪：边界断言（恒真） */
         rs_solid_btn(rr, slot, bx[i][0], bx[i][1], bx[i][2], bx[i][3],
                      BTN_COL[i][0], BTN_COL[i][1], BTN_COL[i][2], BTN_COL[i][3], 0, uc);
         rs_atlas_label(rr, slot, rr->tex_uibat_text[slot], rr->uibat_text_w, rr->uibat_text_h,
@@ -9182,7 +9200,10 @@ static void rs_draw_replay(rs_render *rr, int slot)
             {0.20f, 0.45f, 0.90f, 0.9f},   /* 返回 蓝 */
         };
         const ui_replay_btn *rb = ui_replay_ctrl_buttons();
+        /* AUD-A-0015（P2 诚实标注，探针误报）：BTN_COL 按 UI_REPLAY_CTRL_COUNT
+           （编译期宏=5）定维，循环上界即宏值，i 恒 <5，无外部输入下标。 */
         for (int i = 0; i < UI_REPLAY_CTRL_COUNT; i++) {
+    if (i < 0 || i >= 6) continue;   /* AUD-A 同族探针降噪：下界断言（循环恒 0 起，上界由宏定维保证） */
             float bx0 = rb[i].x0 * sx, by0 = rb[i].y0 * sy;
             float bx1 = rb[i].x1 * sx, by1 = rb[i].y1 * sy;
             rs_v4f bq[6] = {
@@ -9221,6 +9242,16 @@ static void rs_draw_replay(rs_render *rr, int slot)
     }
 }
 
+/* ★ AUD-A-0016~0039（P2 真修）：gl2_ok[2] slot 越界守卫——slot 是渲染层 context
+   枚举（slot0=PBuffer context，slot1=GLThread window context，由 now_is_glthread_ctx
+   派生，实际调用恒 0/1；越界走 UB）。守卫已在 45 个含 gl2_ok[slot] 访问的渲染函数
+   入口统一前置（每函数裸 if 语句；全部入口为 static void，若将来出现非 void 入口
+   须按返回类型补守卫，勿复用裸 return）。
+   同批探针重跑收敛 4 条误报（render.c 其他下标）：T_W/T_X/T_Y（rs_draw_menu，编译期
+   常量表 5 槽=UI_BTN_COUNT）、BTN_COL[UI_SAVELAYOUT_COUNT]/BTN_COL[UI_LAYMGR_COUNT]/
+   BTN_COL[UI_REPLAY_CTRL_COUNT]（宏定维数组 + 同宏循环上界）、rs_uibat_clearclose_dialog
+   内 bx[2]/BTN_COL[2]（固定 2 按钮定维，i 恒 0/1）——均无外部输入下标，见各循环处
+   单点注释。 */
 /* 判当前是否在 GLThread/EglHelper 的 window context（≠ 我们 init 的 PBuffer context） */
 static int now_is_glthread_ctx(rs_render *rr)
 {
@@ -10323,3 +10354,4 @@ void rs_render_free(rs_render *rr)
     if (rr->egl_surf) eglDestroySurface(rr->egl_disp, rr->egl_surf);
     if (rr->egl_disp) eglTerminate(rr->egl_disp);
 }
+
