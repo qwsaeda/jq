@@ -19,33 +19,54 @@
    真机渲染验证入口（触摸命中 flaky 时用 setprop 触发）。 */
 static const struct { const char *prop; int scr; } g_dlg_batch_hooks[] = {
     { "jq.dlg001", UI_D001 },
+    { "jq.dlg003", UI_D003 },
+    { "jq.dlg013", UI_D013 },
     { "jq.dlg019", UI_D019 },
     { "jq.dlg020", UI_D020 },
+    { "jq.dlg021", UI_D021 },
     { "jq.dlg022", UI_D022 },
     { "jq.dlg023", UI_D023 },
+    { "jq.dlg025", UI_D025 },
+    { "jq.dlg026", UI_D026 },
+    { "jq.dlg027", UI_D027 },
+    { "jq.dlg028", UI_D028 },
+    { "jq.dlg031", UI_D031 },
     { "jq.dlg032", UI_D032 },
     { "jq.dlg036", UI_D036 },
+    { "jq.dlg037", UI_D037 },
     { "jq.dlg038", UI_D038 },
     { "jq.dlg050", UI_D050 },
+    { "jq.dlg059", UI_D059 },
     { "jq.dlg062", UI_D062 },
+    { "jq.dlg063", UI_D063 },
+    { "jq.dlg064", UI_D064 },
+    { "jq.dlg066", UI_D066 },
+    { "jq.dlg068", UI_D068 },
+    { "jq.dlg071", UI_D071 },
     { "jq.dlg072", UI_D072 },
     { "jq.dlg075", UI_D075 },
     { "jq.dlg077", UI_D077 },
+    { "jq.dlg078", UI_D078 },
     { "jq.dlg082", UI_D082 },
     { "jq.dlg083", UI_D083 },
     { "jq.dlg084", UI_D084 },
     { "jq.dlg085", UI_D085 },
     { "jq.dlg086", UI_D086 },
+    { "jq.dlg089", UI_D089 },
     { "jq.dlg094", UI_D094 },
     { "jq.dlg095", UI_D095 },
+    { "jq.dlg096", UI_D096 },
     { "jq.dlg097", UI_D097 },
     { "jq.dlg098", UI_D098 },
     { "jq.dlg099", UI_D099 },
     { "jq.dlg101", UI_D101 },
     { "jq.dlg108", UI_D108 },
+    { "jq.dlg109", UI_D109 },
     { "jq.dlg112", UI_D112 },
     { "jq.dlg113", UI_D113 },
+    { "jq.dlg120", UI_D120 },
     { "jq.dlg248", UI_D248 },
+    { "jq.dlg255", UI_D255 },
     { "jq.dlg256", UI_D256 },
     { "jq.dlg257", UI_D257 },
     { "jq.dlg258", UI_D258 },
@@ -2775,6 +2796,7 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
 
 
 
+
     /* ★ 批量对齐（datah_001）：4 按钮业务分发 */
     if (ui_screen_get() == UI_D001) {
         float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
@@ -2797,6 +2819,58 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
                 ui_screen_set(UI_GAME); LOGI("批量对齐：确定 → 回对局"); sfx_play(env, "pop");
             } else if (a == 3) {   /* 取消 → 业务动作 */
                 ui_screen_set(UI_GAME); LOGI("批量对齐：取消 → 回对局"); sfx_play(env, "pop");
+            }   /* 收尾：末分支闭合 */
+        }
+        return JNI_TRUE;
+    }
+    /* ★ 批量对齐（datah_003）：3 按钮业务分发 */
+    if (ui_screen_get() == UI_D003) {
+        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
+        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        const ui_d003_btn *bb = ui_d003_buttons();
+        int bh = ui_d003_hit(bb, UI_D003_COUNT, bx, by);
+        if (bh >= 0) {
+            int a = bb[bh].action;
+            LOGI("OnTouch datah_003 弹窗：按钮%d（action=%d）", bh, a);
+            if (a < 0) {
+            } else if (a == 0) {   /* 图像设置 → 边界对话框（诚实边界） */
+                jq_show_dialog(env, "图像设置（诚实边界）",
+                    "图像设置：原版业务未逆向，src_rs 无此通道。");
+                ui_screen_set(UI_GAME); sfx_play(env, "pop");
+            } else if (a == 1) {   /* 声音设置 → 边界对话框（诚实边界） */
+                jq_show_dialog(env, "声音设置（诚实边界）",
+                    "声音设置：原版业务未逆向，src_rs 无此通道。");
+                ui_screen_set(UI_GAME); sfx_play(env, "pop");
+            } else if (a == 2) {   /* 游戏设置 → 边界对话框（诚实边界） */
+                jq_show_dialog(env, "游戏设置（诚实边界）",
+                    "游戏设置：原版业务未逆向，src_rs 无此通道。");
+                ui_screen_set(UI_GAME); sfx_play(env, "pop");
+            }   /* 收尾：末分支闭合 */
+        }
+        return JNI_TRUE;
+    }
+    /* ★ 批量对齐（datah_013）：3 按钮业务分发 */
+    if (ui_screen_get() == UI_D013) {
+        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
+        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        const ui_d013_btn *bb = ui_d013_buttons();
+        int bh = ui_d013_hit(bb, UI_D013_COUNT, bx, by);
+        if (bh >= 0) {
+            int a = bb[bh].action;
+            LOGI("OnTouch datah_013 弹窗：按钮%d（action=%d）", bh, a);
+            if (a < 0) {
+            } else if (a == 0) {   /* 0 → 边界对话框（诚实边界） */
+                jq_show_dialog(env, "0（诚实边界）",
+                    "0：原版业务未逆向，src_rs 无此通道。");
+                ui_screen_set(UI_GAME); sfx_play(env, "pop");
+            } else if (a == 1) {   /* 1 → 边界对话框（诚实边界） */
+                jq_show_dialog(env, "1（诚实边界）",
+                    "1：原版业务未逆向，src_rs 无此通道。");
+                ui_screen_set(UI_GAME); sfx_play(env, "pop");
+            } else if (a == 2) {   /* 2 → 边界对话框（诚实边界） */
+                jq_show_dialog(env, "2（诚实边界）",
+                    "2：原版业务未逆向，src_rs 无此通道。");
+                ui_screen_set(UI_GAME); sfx_play(env, "pop");
             }   /* 收尾：末分支闭合 */
         }
         return JNI_TRUE;
@@ -2852,6 +2926,32 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
             } else if (a == 3) {   /* 关闭 → 边界对话框（诚实边界） */
                 jq_show_dialog(env, "关闭（诚实边界）",
                     "关闭：原版业务未逆向，src_rs 无此通道。");
+                ui_screen_set(UI_GAME); sfx_play(env, "pop");
+            }   /* 收尾：末分支闭合 */
+        }
+        return JNI_TRUE;
+    }
+    /* ★ 批量对齐（datah_021）：3 按钮业务分发 */
+    if (ui_screen_get() == UI_D021) {
+        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
+        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        const ui_d021_btn *bb = ui_d021_buttons();
+        int bh = ui_d021_hit(bb, UI_D021_COUNT, bx, by);
+        if (bh >= 0) {
+            int a = bb[bh].action;
+            LOGI("OnTouch datah_021 弹窗：按钮%d（action=%d）", bh, a);
+            if (a < 0) {
+            } else if (a == 0) {   /* 0 → 边界对话框（诚实边界） */
+                jq_show_dialog(env, "0（诚实边界）",
+                    "0：原版业务未逆向，src_rs 无此通道。");
+                ui_screen_set(UI_GAME); sfx_play(env, "pop");
+            } else if (a == 1) {   /* 1 → 边界对话框（诚实边界） */
+                jq_show_dialog(env, "1（诚实边界）",
+                    "1：原版业务未逆向，src_rs 无此通道。");
+                ui_screen_set(UI_GAME); sfx_play(env, "pop");
+            } else if (a == 2) {   /* 2 → 边界对话框（诚实边界） */
+                jq_show_dialog(env, "2（诚实边界）",
+                    "2：原版业务未逆向，src_rs 无此通道。");
                 ui_screen_set(UI_GAME); sfx_play(env, "pop");
             }   /* 收尾：末分支闭合 */
         }
@@ -2921,6 +3021,120 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
         }
         return JNI_TRUE;
     }
+    /* ★ 批量对齐（datah_025）：1 按钮业务分发 */
+    if (ui_screen_get() == UI_D025) {
+        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
+        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        const ui_d025_btn *bb = ui_d025_buttons();
+        int bh = ui_d025_hit(bb, UI_D025_COUNT, bx, by);
+        if (bh >= 0) {
+            int a = bb[bh].action;
+            LOGI("OnTouch datah_025 弹窗：按钮%d（action=%d）", bh, a);
+            if (a < 0) {
+            } else if (a == 0) {   /* 确定 → 业务动作 */
+                ui_screen_set(UI_GAME); LOGI("批量对齐：确定 → 回对局"); sfx_play(env, "pop");
+            }   /* 收尾：末分支闭合 */
+        }
+        return JNI_TRUE;
+    }
+    /* ★ 批量对齐（datah_026）：3 按钮业务分发 */
+    if (ui_screen_get() == UI_D026) {
+        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
+        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        const ui_d026_btn *bb = ui_d026_buttons();
+        int bh = ui_d026_hit(bb, UI_D026_COUNT, bx, by);
+        if (bh >= 0) {
+            int a = bb[bh].action;
+            LOGI("OnTouch datah_026 弹窗：按钮%d（action=%d）", bh, a);
+            if (a < 0) {
+            } else if (a == 0) {   /* Match → 边界对话框（诚实边界） */
+                jq_show_dialog(env, "Match（诚实边界）",
+                    "Match：原版业务未逆向，src_rs 无此通道。");
+                ui_screen_set(UI_GAME); sfx_play(env, "pop");
+            } else if (a == 1) {   /* 确定 → 业务动作 */
+                ui_screen_set(UI_GAME); LOGI("批量对齐：确定 → 回对局"); sfx_play(env, "pop");
+            } else if (a == 2) {   /* 取消 → 业务动作 */
+                ui_screen_set(UI_GAME); LOGI("批量对齐：取消 → 回对局"); sfx_play(env, "pop");
+            }   /* 收尾：末分支闭合 */
+        }
+        return JNI_TRUE;
+    }
+    /* ★ 批量对齐（datah_027）：3 按钮业务分发 */
+    if (ui_screen_get() == UI_D027) {
+        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
+        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        const ui_d027_btn *bb = ui_d027_buttons();
+        int bh = ui_d027_hit(bb, UI_D027_COUNT, bx, by);
+        if (bh >= 0) {
+            int a = bb[bh].action;
+            LOGI("OnTouch datah_027 弹窗：按钮%d（action=%d）", bh, a);
+            if (a < 0) {
+            } else if (a == 0) {   /* 随机 → 边界对话框（诚实边界） */
+                jq_show_dialog(env, "随机（诚实边界）",
+                    "随机：原版业务未逆向，src_rs 无此通道。");
+                ui_screen_set(UI_GAME); sfx_play(env, "pop");
+            } else if (a == 1) {   /* 默认 → 边界对话框（诚实边界） */
+                jq_show_dialog(env, "默认（诚实边界）",
+                    "默认：原版业务未逆向，src_rs 无此通道。");
+                ui_screen_set(UI_GAME); sfx_play(env, "pop");
+            } else if (a == 2) {   /* 自定义 → 边界对话框（诚实边界） */
+                jq_show_dialog(env, "自定义（诚实边界）",
+                    "自定义：原版业务未逆向，src_rs 无此通道。");
+                ui_screen_set(UI_GAME); sfx_play(env, "pop");
+            }   /* 收尾：末分支闭合 */
+        }
+        return JNI_TRUE;
+    }
+    /* ★ 批量对齐（datah_028）：3 按钮业务分发 */
+    if (ui_screen_get() == UI_D028) {
+        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
+        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        const ui_d028_btn *bb = ui_d028_buttons();
+        int bh = ui_d028_hit(bb, UI_D028_COUNT, bx, by);
+        if (bh >= 0) {
+            int a = bb[bh].action;
+            LOGI("OnTouch datah_028 弹窗：按钮%d（action=%d）", bh, a);
+            if (a < 0) {
+            } else if (a == 0) {   /* 常用语 → 边界对话框（诚实边界） */
+                jq_show_dialog(env, "常用语（诚实边界）",
+                    "常用语：原版业务未逆向，src_rs 无此通道。");
+                ui_screen_set(UI_GAME); sfx_play(env, "pop");
+            } else if (a == 1) {   /* 记录 → 边界对话框（诚实边界） */
+                jq_show_dialog(env, "记录（诚实边界）",
+                    "记录：原版业务未逆向，src_rs 无此通道。");
+                ui_screen_set(UI_GAME); sfx_play(env, "pop");
+            } else if (a == 2) {   /* 关闭 → 边界对话框（诚实边界） */
+                jq_show_dialog(env, "关闭（诚实边界）",
+                    "关闭：原版业务未逆向，src_rs 无此通道。");
+                ui_screen_set(UI_GAME); sfx_play(env, "pop");
+            }   /* 收尾：末分支闭合 */
+        }
+        return JNI_TRUE;
+    }
+    /* ★ 批量对齐（datah_031）：3 按钮业务分发 */
+    if (ui_screen_get() == UI_D031) {
+        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
+        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        const ui_d031_btn *bb = ui_d031_buttons();
+        int bh = ui_d031_hit(bb, UI_D031_COUNT, bx, by);
+        if (bh >= 0) {
+            int a = bb[bh].action;
+            LOGI("OnTouch datah_031 弹窗：按钮%d（action=%d）", bh, a);
+            if (a < 0) {
+            } else if (a == 0) {   /* 修改 → 边界对话框（诚实边界） */
+                jq_show_dialog(env, "修改（诚实边界）",
+                    "修改：原版业务未逆向，src_rs 无此通道。");
+                ui_screen_set(UI_GAME); sfx_play(env, "pop");
+            } else if (a == 1) {   /* 帮助 → 边界对话框（诚实边界） */
+                jq_show_dialog(env, "帮助（诚实边界）",
+                    "帮助：原版业务未逆向，src_rs 无此通道。");
+                ui_screen_set(UI_GAME); sfx_play(env, "pop");
+            } else if (a == 2) {   /* 返回 → 业务动作 */
+                ui_screen_set(UI_GAME); LOGI("批量对齐：返回 → 回对局"); sfx_play(env, "pop");
+            }   /* 收尾：末分支闭合 */
+        }
+        return JNI_TRUE;
+    }
     /* ★ 批量对齐（datah_032）：4 按钮业务分发 */
     if (ui_screen_get() == UI_D032) {
         float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
@@ -2979,6 +3193,30 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
         }
         return JNI_TRUE;
     }
+    /* ★ 批量对齐（datah_037）：3 按钮业务分发 */
+    if (ui_screen_get() == UI_D037) {
+        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
+        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        const ui_d037_btn *bb = ui_d037_buttons();
+        int bh = ui_d037_hit(bb, UI_D037_COUNT, bx, by);
+        if (bh >= 0) {
+            int a = bb[bh].action;
+            LOGI("OnTouch datah_037 弹窗：按钮%d（action=%d）", bh, a);
+            if (a < 0) {
+            } else if (a == 0) {   /* 规则 - 翻棋 → 边界对话框（诚实边界） */
+                jq_show_dialog(env, "规则 - 翻棋（诚实边界）",
+                    "规则 - 翻棋：原版业务未逆向，src_rs 无此通道。");
+                ui_screen_set(UI_GAME); sfx_play(env, "pop");
+            } else if (a == 1) {   /* 规则 - 布局 → 边界对话框（诚实边界） */
+                jq_show_dialog(env, "规则 - 布局（诚实边界）",
+                    "规则 - 布局：原版业务未逆向，src_rs 无此通道。");
+                ui_screen_set(UI_GAME); sfx_play(env, "pop");
+            } else if (a == 2) {   /* 返回 → 业务动作 */
+                ui_screen_set(UI_GAME); LOGI("批量对齐：返回 → 回对局"); sfx_play(env, "pop");
+            }   /* 收尾：末分支闭合 */
+        }
+        return JNI_TRUE;
+    }
     /* ★ 批量对齐（datah_038）：4 按钮业务分发 */
     if (ui_screen_get() == UI_D038) {
         float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
@@ -3027,6 +3265,28 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
         }
         return JNI_TRUE;
     }
+    /* ★ 批量对齐（datah_059）：3 按钮业务分发 */
+    if (ui_screen_get() == UI_D059) {
+        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
+        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        const ui_d059_btn *bb = ui_d059_buttons();
+        int bh = ui_d059_hit(bb, UI_D059_COUNT, bx, by);
+        if (bh >= 0) {
+            int a = bb[bh].action;
+            LOGI("OnTouch datah_059 弹窗：按钮%d（action=%d）", bh, a);
+            if (a < 0) {
+            } else if (a == 0) {   /* 换一张 → 边界对话框（诚实边界） */
+                jq_show_dialog(env, "换一张（诚实边界）",
+                    "换一张：原版业务未逆向，src_rs 无此通道。");
+                ui_screen_set(UI_GAME); sfx_play(env, "pop");
+            } else if (a == 1) {   /* 确定 → 业务动作 */
+                ui_screen_set(UI_GAME); LOGI("批量对齐：确定 → 回对局"); sfx_play(env, "pop");
+            } else if (a == 2) {   /* 取消 → 业务动作 */
+                ui_screen_set(UI_GAME); LOGI("批量对齐：取消 → 回对局"); sfx_play(env, "pop");
+            }   /* 收尾：末分支闭合 */
+        }
+        return JNI_TRUE;
+    }
     /* ★ 批量对齐（datah_062）：4 按钮业务分发 */
     if (ui_screen_get() == UI_D062) {
         float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
@@ -3048,6 +3308,122 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
             } else if (a == 2) {   /* 确定 → 业务动作 */
                 ui_screen_set(UI_GAME); LOGI("批量对齐：确定 → 回对局"); sfx_play(env, "pop");
             } else if (a == 3) {   /* 取消 → 业务动作 */
+                ui_screen_set(UI_GAME); LOGI("批量对齐：取消 → 回对局"); sfx_play(env, "pop");
+            }   /* 收尾：末分支闭合 */
+        }
+        return JNI_TRUE;
+    }
+    /* ★ 批量对齐（datah_063）：3 按钮业务分发 */
+    if (ui_screen_get() == UI_D063) {
+        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
+        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        const ui_d063_btn *bb = ui_d063_buttons();
+        int bh = ui_d063_hit(bb, UI_D063_COUNT, bx, by);
+        if (bh >= 0) {
+            int a = bb[bh].action;
+            LOGI("OnTouch datah_063 弹窗：按钮%d（action=%d）", bh, a);
+            if (a < 0) {
+            } else if (a == 0) {   /* 发送 → 边界对话框（诚实边界） */
+                jq_show_dialog(env, "发送（诚实边界）",
+                    "发送：原版业务未逆向，src_rs 无此通道。");
+                ui_screen_set(UI_GAME); sfx_play(env, "pop");
+            } else if (a == 1) {   /* 记录 → 边界对话框（诚实边界） */
+                jq_show_dialog(env, "记录（诚实边界）",
+                    "记录：原版业务未逆向，src_rs 无此通道。");
+                ui_screen_set(UI_GAME); sfx_play(env, "pop");
+            } else if (a == 2) {   /* 关闭 → 边界对话框（诚实边界） */
+                jq_show_dialog(env, "关闭（诚实边界）",
+                    "关闭：原版业务未逆向，src_rs 无此通道。");
+                ui_screen_set(UI_GAME); sfx_play(env, "pop");
+            }   /* 收尾：末分支闭合 */
+        }
+        return JNI_TRUE;
+    }
+    /* ★ 批量对齐（datah_064）：3 按钮业务分发 */
+    if (ui_screen_get() == UI_D064) {
+        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
+        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        const ui_d064_btn *bb = ui_d064_buttons();
+        int bh = ui_d064_hit(bb, UI_D064_COUNT, bx, by);
+        if (bh >= 0) {
+            int a = bb[bh].action;
+            LOGI("OnTouch datah_064 弹窗：按钮%d（action=%d）", bh, a);
+            if (a < 0) {
+            } else if (a == 0) {   /* Menu → 边界对话框（诚实边界） */
+                jq_show_dialog(env, "Menu（诚实边界）",
+                    "Menu：原版业务未逆向，src_rs 无此通道。");
+                ui_screen_set(UI_GAME); sfx_play(env, "pop");
+            } else if (a == 1) {   /* Chat → 业务动作 */
+                jq_show_dialog(env, "Chat（诚实边界）", "Chat：原版聊天设置项未逆向。"); ui_screen_set(UI_GAME); sfx_play(env, "pop");
+            } else if (a == 2) {   /* Back → 边界对话框（诚实边界） */
+                jq_show_dialog(env, "Back（诚实边界）",
+                    "Back：原版业务未逆向，src_rs 无此通道。");
+                ui_screen_set(UI_GAME); sfx_play(env, "pop");
+            }   /* 收尾：末分支闭合 */
+        }
+        return JNI_TRUE;
+    }
+    /* ★ 批量对齐（datah_066）：3 按钮业务分发 */
+    if (ui_screen_get() == UI_D066) {
+        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
+        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        const ui_d066_btn *bb = ui_d066_buttons();
+        int bh = ui_d066_hit(bb, UI_D066_COUNT, bx, by);
+        if (bh >= 0) {
+            int a = bb[bh].action;
+            LOGI("OnTouch datah_066 弹窗：按钮%d（action=%d）", bh, a);
+            if (a < 0) {
+            } else if (a == 0) {   /* 创建游戏 → 边界对话框（诚实边界） */
+                jq_show_dialog(env, "创建游戏（诚实边界）",
+                    "创建游戏：原版业务未逆向，src_rs 无此通道。");
+                ui_screen_set(UI_GAME); sfx_play(env, "pop");
+            } else if (a == 1) {   /* 加入游戏 → 边界对话框（诚实边界） */
+                jq_show_dialog(env, "加入游戏（诚实边界）",
+                    "加入游戏：原版业务未逆向，src_rs 无此通道。");
+                ui_screen_set(UI_GAME); sfx_play(env, "pop");
+            } else if (a == 2) {   /* 返回 → 业务动作 */
+                ui_screen_set(UI_GAME); LOGI("批量对齐：返回 → 回对局"); sfx_play(env, "pop");
+            }   /* 收尾：末分支闭合 */
+        }
+        return JNI_TRUE;
+    }
+    /* ★ 批量对齐（datah_068）：3 按钮业务分发 */
+    if (ui_screen_get() == UI_D068) {
+        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
+        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        const ui_d068_btn *bb = ui_d068_buttons();
+        int bh = ui_d068_hit(bb, UI_D068_COUNT, bx, by);
+        if (bh >= 0) {
+            int a = bb[bh].action;
+            LOGI("OnTouch datah_068 弹窗：按钮%d（action=%d）", bh, a);
+            if (a < 0) {
+            } else if (a == 0) {   /* 确定 → 业务动作 */
+                ui_screen_set(UI_GAME); LOGI("批量对齐：确定 → 回对局"); sfx_play(env, "pop");
+            } else if (a == 1) {   /* 设备名 → 边界对话框（诚实边界） */
+                jq_show_dialog(env, "设备名（诚实边界）",
+                    "设备名：原版业务未逆向，src_rs 无此通道。");
+                ui_screen_set(UI_GAME); sfx_play(env, "pop");
+            } else if (a == 2) {   /* 取消 → 业务动作 */
+                ui_screen_set(UI_GAME); LOGI("批量对齐：取消 → 回对局"); sfx_play(env, "pop");
+            }   /* 收尾：末分支闭合 */
+        }
+        return JNI_TRUE;
+    }
+    /* ★ 批量对齐（datah_071）：2 按钮业务分发 */
+    if (ui_screen_get() == UI_D071) {
+        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
+        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        const ui_d071_btn *bb = ui_d071_buttons();
+        int bh = ui_d071_hit(bb, UI_D071_COUNT, bx, by);
+        if (bh >= 0) {
+            int a = bb[bh].action;
+            LOGI("OnTouch datah_071 弹窗：按钮%d（action=%d）", bh, a);
+            if (a < 0) {
+            } else if (a == 0) {   /* 搜索 → 边界对话框（诚实边界） */
+                jq_show_dialog(env, "搜索（诚实边界）",
+                    "搜索：原版业务未逆向，src_rs 无此通道。");
+                ui_screen_set(UI_GAME); sfx_play(env, "pop");
+            } else if (a == 1) {   /* 取消 → 业务动作 */
                 ui_screen_set(UI_GAME); LOGI("批量对齐：取消 → 回对局"); sfx_play(env, "pop");
             }   /* 收尾：末分支闭合 */
         }
@@ -3133,6 +3509,28 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
                 ui_screen_set(UI_GAMESET); sfx_play(env, "pop");
             } else if (a == 5) {   /* 软件信息 → UI_ABOUT */
                 ui_screen_set(UI_ABOUT); sfx_play(env, "pop");
+            }   /* 收尾：末分支闭合 */
+        }
+        return JNI_TRUE;
+    }
+    /* ★ 批量对齐（datah_078）：3 按钮业务分发 */
+    if (ui_screen_get() == UI_D078) {
+        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
+        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        const ui_d078_btn *bb = ui_d078_buttons();
+        int bh = ui_d078_hit(bb, UI_D078_COUNT, bx, by);
+        if (bh >= 0) {
+            int a = bb[bh].action;
+            LOGI("OnTouch datah_078 弹窗：按钮%d（action=%d）", bh, a);
+            if (a < 0) {
+            } else if (a == 0) {   /* 新局 → UI_NEWGAME */
+                ui_screen_set(UI_NEWGAME); sfx_play(env, "pop");
+            } else if (a == 1) {   /* 复盘 → UI_REPLAY */
+                ui_screen_set(UI_REPLAY); sfx_play(env, "pop");
+            } else if (a == 2) {   /* 关闭 → 边界对话框（诚实边界） */
+                jq_show_dialog(env, "关闭（诚实边界）",
+                    "关闭：原版业务未逆向，src_rs 无此通道。");
+                ui_screen_set(UI_GAME); sfx_play(env, "pop");
             }   /* 收尾：末分支闭合 */
         }
         return JNI_TRUE;
@@ -3255,6 +3653,32 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
         }
         return JNI_TRUE;
     }
+    /* ★ 批量对齐（datah_089）：3 按钮业务分发 */
+    if (ui_screen_get() == UI_D089) {
+        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
+        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        const ui_d089_btn *bb = ui_d089_buttons();
+        int bh = ui_d089_hit(bb, UI_D089_COUNT, bx, by);
+        if (bh >= 0) {
+            int a = bb[bh].action;
+            LOGI("OnTouch datah_089 弹窗：按钮%d（action=%d）", bh, a);
+            if (a < 0) {
+            } else if (a == 0) {   /* 2 → 边界对话框（诚实边界） */
+                jq_show_dialog(env, "2（诚实边界）",
+                    "2：原版业务未逆向，src_rs 无此通道。");
+                ui_screen_set(UI_GAME); sfx_play(env, "pop");
+            } else if (a == 1) {   /* 3 → 边界对话框（诚实边界） */
+                jq_show_dialog(env, "3（诚实边界）",
+                    "3：原版业务未逆向，src_rs 无此通道。");
+                ui_screen_set(UI_GAME); sfx_play(env, "pop");
+            } else if (a == 2) {   /* 4 → 边界对话框（诚实边界） */
+                jq_show_dialog(env, "4（诚实边界）",
+                    "4：原版业务未逆向，src_rs 无此通道。");
+                ui_screen_set(UI_GAME); sfx_play(env, "pop");
+            }   /* 收尾：末分支闭合 */
+        }
+        return JNI_TRUE;
+    }
     /* ★ 批量对齐（datah_094）：5 按钮业务分发 */
     if (ui_screen_get() == UI_D094) {
         float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
@@ -3301,6 +3725,30 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
                 g_state.winner = (g_state.turn == SIDE_BLUE) ? SIDE_RED : SIDE_BLUE; g_state.stage = STG_OVER; ui_screen_set(UI_GAME); LOGI("批量对齐：投降 → 本机败（winner=%d）", g_state.winner); sfx_play(env, "pop");
             } else if (a == 4) {   /* 提和 → 业务动作 */
                 jq_show_dialog(env, "提和（诚实边界）", "提和：原版需对端应答，src_rs 本地未实现提和判定。"); ui_screen_set(UI_GAME); sfx_play(env, "pop");
+            }   /* 收尾：末分支闭合 */
+        }
+        return JNI_TRUE;
+    }
+    /* ★ 批量对齐（datah_096）：3 按钮业务分发 */
+    if (ui_screen_get() == UI_D096) {
+        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
+        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        const ui_d096_btn *bb = ui_d096_buttons();
+        int bh = ui_d096_hit(bb, UI_D096_COUNT, bx, by);
+        if (bh >= 0) {
+            int a = bb[bh].action;
+            LOGI("OnTouch datah_096 弹窗：按钮%d（action=%d）", bh, a);
+            if (a < 0) {
+            } else if (a == 0) {   /* 修改 → 边界对话框（诚实边界） */
+                jq_show_dialog(env, "修改（诚实边界）",
+                    "修改：原版业务未逆向，src_rs 无此通道。");
+                ui_screen_set(UI_GAME); sfx_play(env, "pop");
+            } else if (a == 1) {   /* 帮助 → 边界对话框（诚实边界） */
+                jq_show_dialog(env, "帮助（诚实边界）",
+                    "帮助：原版业务未逆向，src_rs 无此通道。");
+                ui_screen_set(UI_GAME); sfx_play(env, "pop");
+            } else if (a == 2) {   /* 返回 → 业务动作 */
+                ui_screen_set(UI_GAME); LOGI("批量对齐：返回 → 回对局"); sfx_play(env, "pop");
             }   /* 收尾：末分支闭合 */
         }
         return JNI_TRUE;
@@ -3429,6 +3877,28 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
         }
         return JNI_TRUE;
     }
+    /* ★ 批量对齐（datah_109）：3 按钮业务分发 */
+    if (ui_screen_get() == UI_D109) {
+        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
+        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        const ui_d109_btn *bb = ui_d109_buttons();
+        int bh = ui_d109_hit(bb, UI_D109_COUNT, bx, by);
+        if (bh >= 0) {
+            int a = bb[bh].action;
+            LOGI("OnTouch datah_109 弹窗：按钮%d（action=%d）", bh, a);
+            if (a < 0) {
+            } else if (a == 0) {   /* 开局 → 业务动作 */
+                jq_show_dialog(env, "开局（诚实边界）", "开局：原版开局操作通道未逆向。"); ui_screen_set(UI_GAME); sfx_play(env, "pop");
+            } else if (a == 1) {   /* 终局 → 业务动作 */
+                jq_show_dialog(env, "终局（诚实边界）", "终局：原版终局操作通道未逆向。"); ui_screen_set(UI_GAME); sfx_play(env, "pop");
+            } else if (a == 2) {   /* 定位 → 边界对话框（诚实边界） */
+                jq_show_dialog(env, "定位（诚实边界）",
+                    "定位：原版业务未逆向，src_rs 无此通道。");
+                ui_screen_set(UI_GAME); sfx_play(env, "pop");
+            }   /* 收尾：末分支闭合 */
+        }
+        return JNI_TRUE;
+    }
     /* ★ 批量对齐（datah_112）：5 按钮业务分发 */
     if (ui_screen_get() == UI_D112) {
         float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
@@ -3483,6 +3953,30 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
         }
         return JNI_TRUE;
     }
+    /* ★ 批量对齐（datah_120）：3 按钮业务分发 */
+    if (ui_screen_get() == UI_D120) {
+        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
+        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        const ui_d120_btn *bb = ui_d120_buttons();
+        int bh = ui_d120_hit(bb, UI_D120_COUNT, bx, by);
+        if (bh >= 0) {
+            int a = bb[bh].action;
+            LOGI("OnTouch datah_120 弹窗：按钮%d（action=%d）", bh, a);
+            if (a < 0) {
+            } else if (a == 0) {   /* 注册用户 → 边界对话框（诚实边界） */
+                jq_show_dialog(env, "注册用户（诚实边界）",
+                    "注册用户：原版业务未逆向，src_rs 无此通道。");
+                ui_screen_set(UI_GAME); sfx_play(env, "pop");
+            } else if (a == 1) {   /* 找回密码 → 边界对话框（诚实边界） */
+                jq_show_dialog(env, "找回密码（诚实边界）",
+                    "找回密码：原版业务未逆向，src_rs 无此通道。");
+                ui_screen_set(UI_GAME); sfx_play(env, "pop");
+            } else if (a == 2) {   /* 返回 → 业务动作 */
+                ui_screen_set(UI_GAME); LOGI("批量对齐：返回 → 回对局"); sfx_play(env, "pop");
+            }   /* 收尾：末分支闭合 */
+        }
+        return JNI_TRUE;
+    }
     /* ★ 批量对齐（datah_248）：4 按钮业务分发 */
     if (ui_screen_get() == UI_D248) {
         float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
@@ -3508,6 +4002,30 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
             } else if (a == 3) {   /* 联机 → 边界对话框（诚实边界） */
                 jq_show_dialog(env, "联机（诚实边界）",
                     "联机：原版业务未逆向，src_rs 无此通道。");
+                ui_screen_set(UI_GAME); sfx_play(env, "pop");
+            }   /* 收尾：末分支闭合 */
+        }
+        return JNI_TRUE;
+    }
+    /* ★ 批量对齐（datah_255）：3 按钮业务分发 */
+    if (ui_screen_get() == UI_D255) {
+        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
+        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        const ui_d255_btn *bb = ui_d255_buttons();
+        int bh = ui_d255_hit(bb, UI_D255_COUNT, bx, by);
+        if (bh >= 0) {
+            int a = bb[bh].action;
+            LOGI("OnTouch datah_255 弹窗：按钮%d（action=%d）", bh, a);
+            if (a < 0) {
+            } else if (a == 0) {   /* Menu → 边界对话框（诚实边界） */
+                jq_show_dialog(env, "Menu（诚实边界）",
+                    "Menu：原版业务未逆向，src_rs 无此通道。");
+                ui_screen_set(UI_GAME); sfx_play(env, "pop");
+            } else if (a == 1) {   /* Chat → 业务动作 */
+                jq_show_dialog(env, "Chat（诚实边界）", "Chat：原版聊天设置项未逆向。"); ui_screen_set(UI_GAME); sfx_play(env, "pop");
+            } else if (a == 2) {   /* Back → 边界对话框（诚实边界） */
+                jq_show_dialog(env, "Back（诚实边界）",
+                    "Back：原版业务未逆向，src_rs 无此通道。");
                 ui_screen_set(UI_GAME); sfx_play(env, "pop");
             }   /* 收尾：末分支闭合 */
         }
