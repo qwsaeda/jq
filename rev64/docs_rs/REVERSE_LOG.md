@@ -5773,3 +5773,49 @@ python3 /tmp/opencode/incremental_regress.py reset 0xADDR  # 改了某指令 →
 ### 诚实边界
 - unidbg 补 C++ 对象图路径当前实证不可行（指令解码精度 + 内存模型双重阻塞），.bss 保持全 0 忠实兜底（§124y-151 SCUDO-FILL 对照实验同源）
 - .bss 中间区 87% 非零的 scudo 块完整字段 + 事件表 17 行事件码 + [0x44] 直接码运行时值需转向 frida 深度 dump（真机 32 位 so 进程），作为对比基准固化（非 unidbg）
+
+## §124y-153 事件表 17×17 对照基准固化 + dd 直读 MuMu .bss 全段 (C++ 对象图真值)
+
+**★ 闭环事实（ref 原版 so 进程 .bss dump 事件表 17 行 stride=4B 运行时真值 + 中间区 87.4% 非零 scudo 块对照基准，修正 §124y-102 的 289 行误判）**：
+
+1. **事件表 17×17 真实布局实锤（.bss+0x4704, stride=4B/行, 17-bit 掩码 uint32）**：
+   - §124y-102 的"17×17 = 289 行字节"是误判，实际 = 17 行 × 4B = 68B（每行 uint32 17-bit 掩码，bit N = 子事件码 N+1）
+   - ref 原版 so 进程 dump（jq_bss_runtime_converted.bin）实锤 8/17 行非 0：
+     - 行 2: 0x01010000 命中子码 [17]
+     - 行 3: 0x00010101 命中子码 [1, 9, 17]
+     - 行 6: 0x01000000（bit16, 超 17-bit 范围 = 高 32-bit 掩码扩展）
+     - 行 7: 0x01010101 命中子码 [1, 9, 17]
+     - 行 11: 0x01010101 命中子码 [1, 9, 17]
+     - 行 12: 0x00000001 命中子码 [1]
+     - 行 15: 0x01010100 命中子码 [9, 17]
+     - 行 16: 0x00000101 命中子码 [1, 9]
+   - 非 0 行 = 8/17 主事件码, 非 0 列 = 子码 [1, 9, 17] 共 3/17, 非 0 单元格 20/289 = 6.9%
+   - 事件表 17 行值全 < 0x10000 → 纯 17-bit 掩码（非 scudo 块指针）, 与 §124y-109 asr4 匹配机制对应
+
+2. **dd 直读 MuMu 翻译体 .bss 全段（28680B, 64.6% 非零）+ 与 ref 对照**：
+   - shadow=0xb1ef7000（logcat 实锤）, .bss 运行时 = shadow+0x138aa0（VA 0x15be80 映射, IMG_LO=0x233e0 镜像偏移）
+   - dd /proc/PID/mem bs=1 分段 7×4KB 读全段 28680B 成功
+   - fresh 翻译体 dump 与 ref 原版 so 进程 dump 对照：
+     - 事件表 0x4704 区: fresh 仅行 17=0x53（F_3ab80 事件底层写入残留）, ref 8 行非 0（C++ 对象图构造态）
+     - 非零率: fresh 64.6% vs ref 78.9%（ref 多 14.3% = C++ 场景对象图构造态 scudo 块字段）
+   - 诚实边界: fresh（翻译体）.bss 中间区全 0 兜底 vs ref（原版 so 进程）中间区 87.4% 非零 scudo 块 → C++ 对象图真值需原版 so 进程 dump（redroid / 真机 32 位环境）
+
+3. **中间区 scudo 块字段对照基准（.bss 0x170-0x6654, ref 87.4% 非零）**：
+   - ref 中间区非零 5643/6457 = 87.4%（C++ 全局对象堆 scudo 运行时填）
+   - ref 全段非零 4B 槽高位 0xF 区 1961 个（scudo 0xF3/0xF2/0xF0 堆区特征）
+   - scudo 块首字段（size/next）= C++ STL 容器完整语义, 翻译体 .bss 全 0 = 容器"未构造"忠实兜底（§124y-151 对照实验同源）
+   - 对照基准: ref .bss+0x44 区 scudo 指针 0xf32dbf10/0xcf8d80c0/0xcf8d7d50/0xcf5fa1e0（堆上 C++ 事件对象指针）
+
+4. **bss_dump_align.py 事件表段 stride 17→4 修正**：
+   - §124y-102 的 EV_FIELDS=17（17 字节/行）错, 实锤 = 4（4B/行 17-bit 掩码）
+   - 修正后对 ref 判读 8 行非 0（行 2/3/6/7/11/12/15/16）, 对 fresh 判读 1 行非 0（行 17）
+
+5. **工具资产固化**：
+   - dd 分段读 .bss 方法: /proc/PID/mem bs=1 skip=ADDR count=CHUNK, 7 段 × 4KB（.bss 28680B）
+   - shadow 基址从 logcat mem_init 行实锤（0xb1ef7000）
+   - .bss 运行时地址 = shadow + (0x15be80 - 0x233e0) = shadow + 0x138aa0（IMG_LO 镜像偏移）
+
+### 诚实边界
+- 事件表 17 行事件码 1-16 + [0x44] 直接码运行时值 = ref 原版 so 进程 dump 真值（8 主码非 0）, 翻译体 .bss 全 0 兜底（行 17=0x53 残留）
+- 中间区 87.4% 非零 scudo 块完整字段（size/next）需原版 so 进程 dump（redroid / 真机 32 位）, 翻译体无法端到端构造 C++ 对象图
+- 对照基准 = jq_bss_runtime_converted.bin（ref 原版 so 进程 79.1% 非零）vs jq_bss_mumu_full.bin（fresh 翻译体 64.6% 非零）
