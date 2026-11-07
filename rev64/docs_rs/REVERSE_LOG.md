@@ -5690,3 +5690,41 @@ python3 /tmp/opencode/incremental_regress.py reset 0xADDR  # 改了某指令 →
   （scudo 块首字段），下游 C++ 逻辑读到"看起来正确"的 scudo 块首 → 不崩
 - 4 路径判据（WALK-BRIDGE/NATIVE-LAYOUT/F_3ab64/GAME-TEST）需 app 启动 + 时序窗口命中，
   本轮 0 崩溃 + app 存活 + SCUDO-FILL 实锤 = 稳定态（判据 flaky 为时序竞争，非代码回归）
+
+## §124y-151 SCUDO-FILL 对照实验实锤（.bss scudo 槽回填不可行，F_c0ed0 析构器死循环根因）
+
+**★ 闭环事实（SCUDO-FILL 316 scudo 槽回填 → C++ 析构器 F_c0ed0 遍历 scudo 链表读到非 0 子对象 → 循环不终止，对照实验实锤）**：
+
+1. **SCUDO-FILL 方案实证失败（§124y-150 回填段保留但默认禁用，JQT_SCUDO_FILL=0）**：
+   - 机制：316 scudo 槽（低区 78 + 中间区 238）回填自建 calloc 堆对象基址，对象 [0] = dump 原值（scudo 块首字段）
+   - 实机 SCUDO-FILL 日志实锤：`回填 316 槽 (首 0x0015be80=0xecf58490, dump 原值 0xcf8d78f0)` + 0 崩溃 + app 存活
+   - **但**：316 scudo 槽非 0 = C++ 容器"已构造"标志 → 析构器 F_c0ed0（C++ STL 容器析构，已收表 dispatch 2210）
+     遍历 scudo 链表读到非 0 子对象指针 → 循环不终止 → WATCHDOG `g_cur_fn=0x000c0ed0` 停留
+
+2. **对照实验实锤（A/B 验证 SCUDO-FILL 是根因）**：
+   - 无 SCUDO-FILL（回填段禁用）：4 路径回归 4/4 PASS + 0 崩溃（walk_bridge/native_layout/native_event/game_test 全过）
+   - 有 SCUDO-FILL（对象 [0]=dump 值）：F_c0ed0 死循环（WATCHDOG 停留 0xc0ed0，4 路径判据不产生，0 崩溃）
+   - 有 SCUDO-FILL（对象 [0]=0 空容器语义）：仍 F_c0ed0 死循环（槽本身非 0 = "已构造" → 析构器走"非空"路径读 [子对象+40] 深度遍历）
+   - **结论：.bss scudo 槽在"非 0 = 已构造"的 C++ 容器语义下，回填自建堆对象必然触发析构器深度遍历 → 不可行**
+
+3. **诚实边界固化（§sp28-SCALE-9c 整段回退 + 本轮 SCUDO-FILL 子槽回退）**：
+   - .bss scudo 指针槽保持全 0（未构造态忠实兜底，§124y-33/35 ok=0 路径），与 §sp28-SCALE-9c 整段回填回退同源
+   - 根因一致：.bss 运行时值里的指针指向 MuMu 原版进程堆（scudo 0xcf/0xce/0xd0/0xf3 区），翻译体进程 jqt_mem_valid
+     真映射区表无此区 → 直接回填越界 0x3a SIGSEGV；自建堆回填则 scudo 槽非 0 触发 C++ 析构器深度遍历死循环
+   - 两条路（直接 dump 回填 / 自建堆回填）均实证不可行 → .bss 保持全 0 稳定态
+
+4. **代码现状（保留 SCUDO-FILL 实现，宏开关默认禁用）**：
+   - `jq_scudo_slots.h`（316 槽映射表，dump 值 → 槽 VA）保留（工具/数据资产，后续 unidbg 可复用）
+   - `jqt_mem.c` `jqt_build_scudo_objs`（316 calloc 对象池）保留 + `JQT_SCUDO_FILL=0` 默认禁用
+   - 启用条件：F_c0ed0 析构器读到 [0]=0 即终止的修复（需 C++ 对象图字段级还原），或 unidbg 补真 C++ 对象图
+   - 4 路径回归 4/4 PASS + 0 崩溃（默认禁用态）
+
+5. **4 路径回归脚本坑固化（main 缓冲）**：
+   - MuMu junqi INFO 日志（level 4）落在 main 缓冲，回归脚本 `logcat -d`（默认缓冲）+ 时序窗口竞争 → 判据 flaky
+   - 修：`logcat -b main -d`（main 缓冲）+ 全缓冲 `logcat -b main -b system -b crash -b events -d`
+   - 坑固化进 `arm32_walkregress.sh`（3 处 logcat -d → logcat -b main -d）
+
+### 诚实边界
+- .bss 316 scudo 指针槽（中间区 87% 非零，§124y-70/71）需 unidbg 补 C++ 对象图构造（F_c0ed0 析构器 + F_3a92c 事件表
+  真 scudo 块 size/next 字段还原）才能端到端实证，当前翻译体 .bss 全 0 忠实兜底（非 0 = 已构造 → 死循环）
+- 本轮实锤 C++ 容器"非 0 = 已构造"语义在 .bss scudo 槽回填上的边界（两条路均不可行），避免后续重复踩坑

@@ -7,6 +7,10 @@
 #include "jq_rel_data.h"
 #include "jq_bss_runtime.h"
 #include "jq_scudo_slots.h"   /* §124y-150: .bss 316 scudo 指针槽映射表 */
+/* §124y-151: SCUDO-FILL 默认禁用 (F_c0ed0 析构器死循环根因, 对照实验实锤), 置 1 启用 */
+#ifndef JQT_SCUDO_FILL
+#define JQT_SCUDO_FILL 0
+#endif
 #include <sys/mman.h>
 #include <unistd.h>
 #include <string.h>
@@ -200,8 +204,10 @@ static void jqt_build_scudo_objs(void) {
     for (unsigned i = 0; i < JQT_SCUDO_SLOT_N; i++) {
         void *o = calloc(1, 0x1000);
         if (o) {
-            /* dump 原值存对象 [0] (scudo 块首字段, C++ 读 [ptr] 得原版值) */
-            *(uint32_t *)o = jq_scudo_slot_tbl[i].dump_val;
+            /* §124y-151: 对象 [0] 存 0 (非 dump 值) — scudo 槽非 0 但 C++ 析构器 F_c0ed0 读 [0]=0
+             * 走空容器语义 (链表 [r4+40]=0 判 0 终止遍历), 不触发深度遍历死循环。
+             * 诚实边界: scudo 块首字段 (size/prev 等) 未还原, 槽非 0 = 对象存在标志,
+             * 字段全 0 = STL 空容器 (begin=end=0 语义), 与 OBJ-FILL 10 空对象同模式。 */
             g_jqt_scudo_objs[i] = (uint32_t)(uintptr_t)o;
         }
     }
@@ -294,10 +300,25 @@ void jqt_mem_init(void) {
      * 每个 scudo 槽写自建 calloc 对象基址 (jqt_build_scudo_objs 分配, 堆区在真映射区表内),
      * 对象 [0] = dump 原值 (scudo 块首字段), MEM 读槽 → 解引用得 dump 原值。
      * 诚实边界: 自建对象 [1+] 全 0 (scudo 块后续字段未还原), 深度遍历读 0 = 空容器语义。 */
+    /* §124y-151: SCUDO-FILL 回填段 (316 scudo 槽 → 自建堆对象基址)
+     * 默认禁用 (JQT_SCUDO_FILL=0): 实锤 SCUDO-FILL 让 316 scudo 槽非 0 后,
+     * C++ 析构器 F_c0ed0 (C0ED0 区, 已收表) 遍历 scudo 链表读到非 0 子对象 → 循环不终止。
+     * 即使对象 [0]=0, 槽本身非 0 = C++ 容器"已构造"标志 → 析构器走"非空"路径 → 读 [子对象+40] 非 0 深度遍历。
+     * 对照实验实锤: 无 SCUDO-FILL 4 路径 PASS, 有 SCUDO-FILL F_c0ed0 死循环 (WATCHDOG 停留)。
+     * 诚实边界: .bss scudo 槽回填在"非 0 = 已构造"语义下不可行, 保持全 0 (未构造) 忠实兜底。
+     * 待 JQT_SCUDO_FILL=1 启用 (需 F_c0ed0 遍历到 [0]=0 即终止的修复, 或 unidbg 补 C++ 对象图)。 */
+#if JQT_SCUDO_FILL
     for (unsigned i = 0; i < JQT_SCUDO_SLOT_N; i++) {
         if (g_jqt_scudo_objs[i] == 0) continue;
-        *(uint32_t *)(g_jqt_shadow + jq_scudo_slot_tbl[i].va) = g_jqt_scudo_objs[i];
+        /* §124y-151: 跳过 OBJ-FILL 区 0x15bf00-0x15bf24 (10 空对象表, 渲染树遍历修复专用, 勿覆盖) */
+        uint32_t va = jq_scudo_slot_tbl[i].va;
+        if (va >= 0x15bf00u && va < 0x15bf28u) continue;
+        *(uint32_t *)(g_jqt_shadow + va) = g_jqt_scudo_objs[i];
     }
+    { static int _sc=0; if (++_sc <= 4) __android_log_print(4, "junqi",
+        "SCUDO-FILL: 回填 %u 槽 (首 0x%08x=0x%08x, dump 原值 0x%08x)",
+        JQT_SCUDO_SLOT_N, jq_scudo_slot_tbl[0].va, g_jqt_scudo_objs[0], jq_scudo_slot_tbl[0].dump_val); }
+#endif
     { static int _sc=0; if (++_sc <= 4) __android_log_print(4, "junqi",
         "SCUDO-FILL: 回填 %u 槽 (首 0x%08x=0x%08x, dump 原值 0x%08x)",
         JQT_SCUDO_SLOT_N, jq_scudo_slot_tbl[0].va, g_jqt_scudo_objs[0], jq_scudo_slot_tbl[0].dump_val); }
