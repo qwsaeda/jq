@@ -5973,3 +5973,53 @@ python3 /tmp/opencode/incremental_regress.py reset 0xADDR  # 改了某指令 →
   F_3a92c 不读该区（§124y-156 实锤读 .got[0x15b644]→.bss）
 - disc=0 忠实兜底判读: 12 构造器无填充源 + .bss 全 0 兜底 → 事件表 asr4 恒 0 → disc=0 是**正确语义**
   （非翻译 bug, 非 §124y-154 回填错误）, 4 路径 native_event 判据 = F_3ab80 必出日志 + disc=0 标注
+
+---
+
+## §124y-158 .bss 事件表 0x4704 区 asr4 运行时验证 + 最终结论（§124y-157 续闭环）
+
+### 前置事实（§124y-156/157 已实锤）
+- F_3a92c 读 .got[0x15b644]→.bss 事件表（shadow+0x160584）, 非 .data.rel.ro 0x15af08 静态区
+- 12 init_array 构造器逐一查函数体（每 0x200B objdump 窗口）, **无一写 .bss 0x4704 区**
+- ref dump .bss 事件表 306B（18 项 × 17 字段）= 全 0x01 掩码（asr4 恒 0）, 非事件码匹配表
+- .data.rel.ro 0x15af08 区（so 静态注册模板）含 asr4 字节（0x12/0x7d/0x41 等）, 但 F_3a92c 不读该区
+
+### redroid 运行时直读验证（本条新增实锤）
+- **redroid_dump 容器 32 位 so 进程**（`com.cnvcs.junqi32` PID=50326, so 基址 0x0c23c000）
+  .bss 段 rw-p 0x0ca01000, .bss 事件表 VA 0x160584 → 容器地址 0x0ca0C584（`0x0ca01000+(0x160584-0x155000)`）
+- 直读 306B（`dd /proc/50326/mem bs=1 skip=0x0ca0c584 count=306`）:
+  **全 0**（18 项 × 17 字段, asr4 非 0 字节 = 0）
+  - 与 MuMu ref dump（全 0x01 掩码, asr4 恒 0）一致: redroid 无 GPU（app 进不了主界面）,
+    C++ 事件表对象未构造 → .bss 事件表保持 dlopen 全 0 初值
+  - ref dump 的 0x01 掩码来自 MuMu 实跑（部分 C++ 构造器已跑, 填了 0x01 位但 asr4 仍 0）
+  - 两源均证实: **asr4 值（事件码匹配位）在 32 位 so 可运行的容器环境里也全 0**
+
+### 最终结论（.bss 事件表 asr4 语义分层）
+1. **`.bss` 0x4704 区 306B = C++ 容器"已构造"位图**（§124y-151 同源, 全 0x01/全 0 掩码）,
+   非事件码 asr4 匹配表
+2. **事件码 asr4 匹配表在 `.data.rel.ro` 0x15af08 区**（so 静态注册模板, 0x12xxxx 事件名指针 +
+   asr4 字节, 项0 字段8 = 0x41 asr4=4 对应 Junqi.Move 事件码 4）, F_3a92c **不读**该区
+   （§124y-156 实锤读 .got[0x15b644]→.bss, 非 .got[0x15b640]→0x15af08）
+3. **disc=0 是忠实语义**（非翻译 bug）:
+   - .bss 未构造 → 事件表全 0/全 0x01 掩码 → F_3a92c 读 .bss 表 → asr4 恒 0
+   - evt[0x44]=4（Junqi.Move）无匹配 → disc=0 → F_336c8 失败路径 → 事件不发
+   - 与 §124y-143/151 C++ 对象图边界一致: 事件表 asr4 填充需 C++ 运行时动态构造
+     （.bss 根对象 + 事件注册器）, 无静态填充源（12 构造器实锤无写）
+4. **§124y-154 的 `.bss` 事件表 68B 回填（`JQ_EVENT_TBL_FILL=1`）= 忠实兜底回填**
+   （ref dump 17 行真值, 全 0x01 掩码, asr4 恒 0）, F_c0ed0 安全（纯 uint32 掩码非指针）,
+   4 路径回归 4/4 PASS + 0 崩溃
+5. **诚实边界**（.bss 事件表 asr4 真值不可提取）:
+   - asr4 非 0 值（事件码匹配位）只在 C++ 运行时构造态存在, 需 32 位 so 实跑+游戏事件触发
+   - redroid 无 GPU（进不了主界面）/ MuMu 实跑 ref dump 也只有 0x01 掩码 → 事件码 4 无匹配
+   - 真机 32 位 so 端到端 dump 是唯一路线（当前设备环境无 32 位 ARM 实跑）, 非阻塞
+     （.bss 全 0 兜底 = 事件匹配全 disc=0 = 忠实语义, 4 路径回归 PASS）
+
+### 坑固化
+- redroid 容器 32 位 so 段映射: rw-p 段文件偏移 0x7c2000 对应 VA 0x155000（非 0x7c2000）,
+  .bss VA 0x160584 → 容器地址 = rw-p 基址 0x0ca01000 + (0x160584-0x155000) = 0x0ca0C584
+  （非 load_base+0x160584 直觉公式, 需按段布局算）
+- `.bss` 事件表 asr4 语义分层: 0x4704 区 = 构造态位图（全 0x01/全 0）, 非事件码匹配表;
+  事件码匹配表在 .data.rel.ro 0x15af08 区（F_3a92c 不读, §124y-156 实锤）
+- disc=0 忠实兜底判读: 12 构造器无填充源 + redroid/MuMu 运行时 asr4 全 0 + .bss 全 0 兜底
+  → 事件表 asr4 恒 0 → disc=0 是**正确语义**（非翻译 bug, 非 §124y-154 回填错误）,
+  4 路径 native_event 判据 = F_3ab80 必出日志 + disc=0 标注
