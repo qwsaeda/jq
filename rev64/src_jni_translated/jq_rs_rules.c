@@ -1,4 +1,15 @@
 /*
+ * ★ AUD-R-138（P3）：本文件（32 位翻译体）与 rev64/src_rs/rules.c（64 位重写）分叉自
+ * commit 401a735（§124y-19 会话 B 规则引擎移植进 32 位 so 走子桥）。两者实现层级不同
+ * （汇编级翻译 vs C 级重写），不做强求 1:1 代码同步。
+ * 同步机制 = 行为一致性闸门：
+ *   · 32 位走子桥基准 = rev64/tools/arm32_walkregress.sh（4 路径回归，F_3ab80 判据）
+ *   · 64 位基准 = evverify 167/167 + regress.py 50/50 + consistency 9/9
+ *   · 分叉检测 = rev64/tools/rules_fork_check.py（列出 src_rs 已修 AUD-R 项在翻译体侧的实证状态）
+ * 新 AUD-R 修复需同时验证两条路线基准（32 位 arm32_walkregress + 64 位 evverify），
+ * 单条路线 PASS 不代表另一条路线对齐。翻译体侧规则修复须走 32 位反汇编路线
+ * （§124y 实证），不搬移 src_rs 的 C 修复（层级不同，搬了也是语义近似）。
+ *
  * rules.c — 走子 / 吃子 / 翻棋 / 胜负 规则（逆源码重写）
  * 依据原版函数（VA）+ 规则文本（SPAK data/junqi/rulelay.txt / ruleflip.txt，GBK 已读）：
  *   0x39e14 目标类型判定：

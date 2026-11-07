@@ -1,0 +1,169 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+rules_fork_check.py — R-138 分叉检测脚本（src_rs 重写 vs src_jni_translated 翻译体）
+
+诚实边界前提：
+  · src_rs/rules.c            = 64 位 C 正向重写（jni_bridge 调用，跑 64 位设备）
+  · src_jni_translated/jq_rs_rules.c = 32 位翻译体（§124y-19 会话 B 规则引擎走子桥，
+    汇编级 jqt_ 语境，跑 32 位设备）
+  · 两者共同祖先 = commit 401a735（§124y-19），此后 src_rs 持续演进，
+    翻译体侧只跟了 §124y-154/156/157（32 位路线事件表回填实证），未同步 src_rs 的
+    AUD-R 修复批 → 产生行为分叉。
+
+同步机制 = 行为一致性闸门（非代码同步）：
+  · 32 位基准 = rev64/tools/arm32_walkregress.sh（4 路径回归，F_3ab80/F_3ab64 判据）
+  · 64 位基准 = evverify 167/167 + regress.py 50/50 + consistency 9/9
+  单条路线 PASS 不代表另一条路线对齐。
+
+本脚本只做只读扫描 + 报告，不改任何 .c 文件：
+  1. 从 git log 提取 401a735..HEAD 内改动过 src_rs/rules.c 的 commit 清单
+  2. 从各 commit message + 当前 src_rs/rules.c 注释提取 AUD-R 项号（R-xxx）
+  3. grep 翻译体侧（jq_rs_rules.c/h + jq_rs_walkbridge.c + 相关 32 位实证文件）
+     是否出现对应 R-xxx 实证标记 / §124y 实证节
+  4. 输出分叉矩阵：每条 src_rs 已修 AUD-R 项 → 翻译体侧实证状态
+     （EVIDENCED / NO-EVIDENCE / N/A-层级不适用）
+"""
+import re
+import subprocess
+import sys
+import os
+
+WS = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+
+RS_RULES = "rev64/src_rs/rules.c"
+TR_RULES = "rev64/src_jni_translated/jq_rs_rules.c"
+TR_RULES_H = "rev64/src_jni_translated/jq_rs_rules.h"
+TR_WALK = "rev64/src_jni_translated/jq_rs_walkbridge.c"
+TR_TEST = "rev64/src_jni_translated/jq_rs_walkbridge_test.c"
+ANCESTOR = "401a735"
+
+# 32 位侧的实证标记来源（§124y 事件表回填批次 + 走子桥回归脚本）
+TR_EVIDENCE_GLOBS = [
+    "rev64/src_jni_translated/jq_rs_rules.c",
+    "rev64/src_jni_translated/jq_rs_rules.h",
+    "rev64/src_jni_translated/jq_rs_walkbridge.c",
+    "rev64/src_jni_translated/jq_rs_walkbridge_test.c",
+    "rev64/tools/arm32_walkregress.sh",
+]
+
+# 审计项号 → 主题短标签（便于矩阵可读）
+THEME = {
+    "R-001": "底线铁路纵滑", "R-002": "暗棋 ruleflip 三规则", "R-003": "先手翻子定色",
+    "R-004": "pieces_left 越界写", "R-005": "困毙 side 语义", "R-009": "AI 炸弹撞旗",
+    "R-010": "AI 暗棋透视", "R-020": "炸弹撞旗判胜", "R-061": "EV_FLIP 事件契约",
+    "R-081": "三实现一致性闸门", "R-087": "count_tbl 240B 表", "R-091": "API NULL 防护",
+    "R-138": "分叉同步机制（本条）",
+}
+
+
+def git_log_r():
+    """401a735..HEAD 内改动过 src_rs/rules.c 的 commit（新→旧）。"""
+    out = subprocess.run(
+        ["git", "log", "--oneline", f"{ANCESTOR}..HEAD", "--", RS_RULES],
+        cwd=WS, capture_output=True, text=True,
+    )
+    return [ln for ln in out.stdout.splitlines() if ln.strip()]
+
+
+def git_log_tr():
+    """401a735..HEAD 内改动过 src_jni_translated/ 的 commit（翻译体侧历史）。"""
+    out = subprocess.run(
+        ["git", "log", "--oneline", f"{ANCESTOR}..HEAD", "--",
+         "rev64/src_jni_translated/"],
+        cwd=WS, capture_output=True, text=True,
+    )
+    return [ln for ln in out.stdout.splitlines() if ln.strip()]
+
+
+def read(p):
+    fp = os.path.join(WS, p)
+    if not os.path.exists(fp):
+        return ""
+    with open(fp, encoding="utf-8", errors="replace") as f:
+        return f.read()
+
+
+def extract_items_from_rs():
+    """从当前 src_rs/rules.c 注释里提取被标记的 R-xxx 项（审计修复痕迹）。"""
+    txt = read(RS_RULES)
+    found = set(re.findall(r"\bR-\d{3}\b", txt))
+    found.discard("R-138")  # R-138 是机制条，非行为修复
+    return found
+
+
+def extract_items_from_commit_msgs(rs_lines):
+    """从 commit message 里提取 R-xxx 项号。"""
+    found = set()
+    for ln in rs_lines:
+        found |= set(re.findall(r"\bR-\d{3}\b", ln))
+    return found
+
+
+def check_tr_evidence(item):
+    """
+    检查某 R-xxx 项在翻译体侧是否有实证痕迹。
+    判据（宽松，防误报为已同步）：
+      ① 翻译体 .c/.h 里出现该 R-xxx 标记（注释/断言）
+      ② arm32_walkregress.sh 等 32 位实证脚本引用该项
+    都没有 → NO-EVIDENCE（诚实边界：未搬移代码，翻译体侧须走 §124y 反汇编路线）。
+    """
+    pat = re.compile(r"\b" + item + r"\b")
+    hits = []
+    for g in TR_EVIDENCE_GLOBS:
+        for i, ln in enumerate(read(g).splitlines(), 1):
+            if pat.search(ln):
+                hits.append((g, i, ln.strip()[:80]))
+    return hits
+
+
+def main():
+    rs_lines = git_log_r()
+    tr_lines = git_log_tr()
+    items = extract_items_from_rs() | extract_items_from_commit_msgs(rs_lines)
+    items.discard("R-138")
+
+    print("═" * 78)
+    print("R-138 分叉检测矩阵（src_rs/rules.c vs src_jni_translated/jq_rs_rules.c）")
+    print("═" * 78)
+    print(f"共同祖先        : {ANCESTOR}（§124y-19 会话 B 规则引擎走子桥移植）")
+    print(f"src_rs 侧历史   : {len(rs_lines)} commits 改过 {RS_RULES}（401a735..HEAD）")
+    print(f"翻译体侧历史    : {len(tr_lines)} commits 改过 src_jni_translated/")
+    for ln in tr_lines:
+        print(f"  · {ln[:76]}")
+    print("-" * 78)
+    print("行为一致性闸门（非代码同步）：")
+    print("  · 32 位基准 = rev64/tools/arm32_walkregress.sh（4 路径回归，F_3ab80 判据）")
+    print("  · 64 位基准 = evverify 167/167 + regress.py 50/50 + consistency 9/9")
+    print("  · 单条路线 PASS 不代表另一条路线对齐；新 AUD-R 修复须双路验证。")
+    print("-" * 78)
+
+    no_ev, ev = [], []
+    for item in sorted(items):
+        hits = check_tr_evidence(item)
+        theme = THEME.get(item, "")
+        if hits:
+            ev.append((item, theme, hits))
+            print(f"  [已实证] {item} {theme:<20} 翻译体侧 {len(hits)} 处标记")
+            for g, i, l in hits[:3]:
+                print(f"             · {g}:{i}: {l}")
+        else:
+            no_ev.append((item, theme))
+            print(f"  [分叉]   {item} {theme:<20} 翻译体侧无实证标记（未同步，诚实边界）")
+
+    print("-" * 78)
+    print(f"矩阵汇总：src_rs 已修 AUD-R 项 {len(items)} 条 | "
+          f"翻译体侧已实证 {len(ev)} 条 | 分叉（无实证） {len(no_ev)} 条")
+    print("分叉项清单（src_rs 已修、翻译体侧未见实证，须走 32 位反汇编路线对齐）：")
+    for item, theme in no_ev:
+        print(f"  · {item} {theme}")
+    print("-" * 78)
+    print("诚实边界：本脚本只读报告。翻译体侧规则修复须走 §124y 反汇编实证路线，")
+    print("不搬移 src_rs 的 C 修复（层级不同：汇编级翻译 vs C 级重写，搬了也是语义近似）。")
+    print("若需将分叉项降为 0，须：① 32 位 so 走子桥补实证（arm32_walkregress 4/4 PASS）")
+    print("② 在 jq_rs_rules.c 内落对应行为改动 + 实证标记；或 ③ 明确冻结翻译体规则层。")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
