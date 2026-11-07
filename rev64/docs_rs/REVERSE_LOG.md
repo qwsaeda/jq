@@ -5819,3 +5819,41 @@ python3 /tmp/opencode/incremental_regress.py reset 0xADDR  # 改了某指令 →
 - 事件表 17 行事件码 1-16 + [0x44] 直接码运行时值 = ref 原版 so 进程 dump 真值（8 主码非 0）, 翻译体 .bss 全 0 兜底（行 17=0x53 残留）
 - 中间区 87.4% 非零 scudo 块完整字段（size/next）需原版 so 进程 dump（redroid / 真机 32 位）, 翻译体无法端到端构造 C++ 对象图
 - 对照基准 = jq_bss_runtime_converted.bin（ref 原版 so 进程 79.1% 非零）vs jq_bss_mumu_full.bin（fresh 翻译体 64.6% 非零）
+
+## §124y-154 事件表 68B 最小可回填子集实验（纯掩码值 vs scudo 指针, F_c0ed0 安全边界）
+
+**★ 闭环事实（事件表 17 行 stride=4B 纯掩码值回填 .bss+0x4704, 与 §124y-151 scudo 槽回填对照, 4 路径 4/4 PASS + 0 崩溃）**：
+
+1. **事件表 68B 最小可回填子集（jq_event_tbl_fill.h 生成, jqt_mem.c 接线）**：
+   - 回填区 .bss+0x4704~0x4748 (VA 0x160584~0x1605c8), 17 行 × 4B = 68B (stride 4B, 17-bit 掩码 uint32)
+   - 与 jq_scudo_slots.h 316 scudo 槽 **0 交集**（scudo 槽判定 = 高位 0xCF/0xCE/0xD0/0xF3 且值>0x10000,
+     事件表 17 行值全 <0x10000 = 纯 uint32 掩码非指针）
+   - `JQ_EVENT_TBL_FILL=1` 默认启用（对照 §124y-151 `JQT_SCUDO_FILL=0` 默认禁用）
+
+2. **与 §124y-151 的关键区别（纯掩码值安全边界实锤）**：
+   - §124y-151 失败根因 = scudo **指针槽**非 0 → C++ 容器"已构造" → 析构器 F_c0ed0 深度遍历 scudo 链表读到非 0 子对象指针 → 死循环
+   - 事件表 68B = **纯 uint32 掩码值**（非指针, <0x10000）, C++ 不把它当"已构造容器"遍历（无子对象指针可解引用）→ F_c0ed0 安全
+   - 实锤: 回填后 4 路径回归 4/4 PASS + 0 崩溃（对照 §124y-151 有 SCUDO-FILL 时 F_c0ed0 死循环 WATCHDOG 停留）
+
+3. **编译 + 实机验证（MuMu）**：
+   - build_arm32_aligned.sh 链接通过（JNI 符号 14, so 8350656B）
+   - pack_arm32 + 重装 + 4 路径回归 4/4 PASS + 0 崩溃
+   - EVENT-TBL-FILL 日志实锤: `回填 17 行 @ .bss+0x4704 (行3=0x00010101 行7=0x01010101 行17=0x00000000, ref dump 真值)`
+   - mem_init 实锤: shadow=0xb1f0c000 sz=0x138aa0 img_end=0x15be80 real_n=557
+   - 0 崩溃（logcat -b crash 0 Fatal signal）
+
+4. **诚实边界（事件表回填 = 真值对照基准, 非 C++ 对象图构造）**：
+   - 事件表 68B 回填 = ref dump 运行时真值（8 主码非 0）, 让 F_3a92c 事件匹配走真值路径
+   - 但中间区 87.4% 非零的 scudo 块完整字段（size/next, C++ STL 容器语义）仍不可回填（§124y-151 同源:
+     scudo 指针槽非 0 = 容器"已构造" → F_c0ed0 析构器深度遍历死循环）
+   - 翻译体 .bss 现状: 事件表 68B 真值 + OBJ-FILL 10 空对象 + .bss 其余全 0 忠实兜底 + 4 路径 4/4 PASS
+
+5. **WATCHDOG 观察点（新发现, 非回归）**：
+   - EVENT-TBL-FILL 启用后, 主线程 WATCHDOG `g_cur_fn=0x23475` 停留（OnUpdate 入口 0x23474 的 +1 = 非对齐半字 0x23475）
+   - 0x23475 在 .text 内（OnUpdate 0x23474-0x23482 函数体中间）, 停留 = 主线程进入 OnUpdate 后未推进
+   - **非 §124y-151 的 F_c0ed0 死循环**（g_cur_fn 非 0xc0ed0）, 且 4 路径判据仍 4/4 PASS（GLThread 渲染 + 事件链独立于主线程 OnUpdate）
+   - 诚实边界: 主线程 OnUpdate 停留 0x23475 = .bss 全 0 兜底下 F_bd5a0 主循环读未构造根对象 [0x24] 早退（§124y-143 同源, 非本轮回填引入）
+
+### 坑固化
+- 事件表回填安全判定 = 纯 uint32 掩码值（<0x10000, 非指针）vs scudo 指针槽（高位 0xCF/0xF3 且>0x10000）, 前者 F_c0ed0 安全
+- `jqt_mem.c` SCUDO-FILL 段 #if 块内有重复日志（§124y-150/151 遗留）, 查 SCUDO-FILL 日志产生源时需确认 `JQT_SCUDO_FILL` 宏实际值（本轮=0 禁用）

@@ -7,6 +7,7 @@
 #include "jq_rel_data.h"
 #include "jq_bss_runtime.h"
 #include "jq_scudo_slots.h"   /* §124y-150: .bss 316 scudo 指针槽映射表 */
+#include "jq_event_tbl_fill.h"  /* §124y-154: 事件表 17 行 @ .bss+0x4704 (纯掩码, ref dump 真值) */
 /* §124y-151: SCUDO-FILL 默认禁用 (F_c0ed0 析构器死循环根因, 对照实验实锤), 置 1 启用 */
 #ifndef JQT_SCUDO_FILL
 #define JQT_SCUDO_FILL 0
@@ -322,6 +323,18 @@ void jqt_mem_init(void) {
     { static int _sc=0; if (++_sc <= 4) __android_log_print(4, "junqi",
         "SCUDO-FILL: 回填 %u 槽 (首 0x%08x=0x%08x, dump 原值 0x%08x)",
         JQT_SCUDO_SLOT_N, jq_scudo_slot_tbl[0].va, g_jqt_scudo_objs[0], jq_scudo_slot_tbl[0].dump_val); }
+    /* §124y-154: EVENT-TBL-FILL 事件表 17×17 @ .bss+0x4704 (stride 4B, 17-bit 掩码, ref dump 真值)
+     * 与 scudo 槽 0 交集 (jq_scudo_slots.h 316 槽判定 = 高位 0xCF/0xCE/0xF3 且值>0x10000,
+     * 事件表 17 行值全 <0x10000 = 纯 uint32 掩码非指针) → F_c0ed0 析构器不深度遍历 (无子对象指针)。
+     * 对照 §124y-151 scudo 槽回填不可行 (非 0 指针 = 已构造容器), 纯掩码值安全。 */
+#if JQ_EVENT_TBL_FILL
+    for (unsigned i = 0; i < JQ_EVENT_TBL_N; i++) {
+        *(uint32_t *)(g_jqt_shadow + jq_event_tbl_fill[i].va) = jq_event_tbl_fill[i].val;
+    }
+    { static int _et=0; if (++_et <= 4) __android_log_print(4, "junqi",
+        "EVENT-TBL-FILL: 回填 %u 行 @ .bss+0x4704 (行3=0x%08x 行7=0x%08x 行17=0x%08x, ref dump 真值)",
+        JQ_EVENT_TBL_N, jq_event_tbl_fill[2].val, jq_event_tbl_fill[6].val, jq_event_tbl_fill[16].val); }
+#endif
     /* ★ §sp28-SCALE-9c .bss 运行时构造态回填 = 实证失败（回退）：
      * MuMu 原版 32 位 so 进程 dd /proc/PID/mem dump .bss 28680B（79% 非零）memcpy 进
      * 影子 .bss → GLThread SIGSEGV SEGV_MAPERR 0x3a（下游读 .bss 槽里的 scudo 指针
