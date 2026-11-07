@@ -5889,3 +5889,55 @@ python3 /tmp/opencode/incremental_regress.py reset 0xADDR  # 改了某指令 →
 ### 坑固化
 - WATCHDOG g_cur_fn 停留点判读: 0xc0ed0 = F_c0ed0 真死循环（§124y-151 scudo 槽非 0）, 0x23475/0x9e0d4 = 慢推进（循环阀/早退, 非死循环, 4 路径仍 PASS）
 - 对照实验方法论: 临时禁用嫌疑宏（JQ_EVENT_TBL_FILL=0）重 build + 全新进程抓 WATCHDOG, 对比启用态, 排除"新回填引入停留"
+
+## §124y-156 F_3a92c 事件匹配真值路径实锤（.got[0x15b644] → .bss 事件表, disc=0 诚实兜底）
+
+**★ 闭环事实（F_3a92c r7 读路径实锤 = .got[0x15b644] → .bss 事件表 68B（§124y-154 回填区）,
+非 §124y-27 误判的 .got[0x15b640] → .data.rel.ro 静态表；.bss 事件表 ref 运行时真值 asr4 恒 0
+→ evt[0x44]=4 无匹配 → disc=0 走 F_336c8 失败路径, F_3ab64 不执行, native_event 判据诚实兜底）**：
+
+1. **F_3a92c r7 读路径实锤（反汇编常量池逐条验证）**：
+   - 反汇编 0x3a930 `ldr r3,[pc,#68]` → 常量池 0x3a978 = 0x120790
+   - 0x3a934 `add r3,pc` → r3 = 0x120790 + 0x3a938 = **0x15b0c8**（.got REL 区基址）
+   - 0x3a93a `ldr r2,[pc,#64]` → 常量池 0x3a97c = 0x57c（偏移）
+   - 0x3a93e `ldr r7,[r3,r2]` → r7 = MEM(0x15b0c8+0x57c) = **MEM(0x15b644)** = .got[0x15b644]
+   - .got[0x15b644] so 文件值 = 0x160584, REL 加端 = 槽自身 VA（REL 表 4942 槽）
+   - jqt_mem.c: `*(shadow+0x15b644) += shadow` → 重定位后 = shadow+0x160584 = .bss+0x4704（事件表 68B）
+   - **§124y-27 误读纠正**：旧注释 r3=0x15b0c4（+1 错位）→ r7=MEM(0x15b640)=.data.rel.ro 静态表,
+     实际 r3=0x15b0c8 → r7=MEM(0x15b644)=.bss 事件表（§124y-154 回填区）
+
+2. **.bss 事件表 vs .data.rel.ro 静态表 asr4 对照**：
+   - .bss 0x4704 区 306B（18 项×17 字段）ref 运行时真值全 0x00/0x01 掩码, **asr4 恒 0**
+   - .data.rel.ro 0x15af08 区 so 文件值含 0x41（asr4=4, 项0 字段8）等多事件码匹配点
+   - F_3a92c 读 .bss 表 → evt[0x44]=4（Junqi.Move 事件码）无匹配 → disc=0（F_336c8 失败路径）
+   - .data.rel.ro 静态表 0x41 匹配点非 F_3a92c 读路径（诚实边界：静态表是初始化模板,
+     运行时 dlopen 后 .bss 表由 C++ 构造器填充, ref dump 的 .bss 表 = 填充后真值）
+
+3. **对照实验（F_3a92c 读 .bss 表 disc=0, 4 路径回归 3/4 PASS + 0 崩溃）**：
+   - 编译通过（JNI 符号 14, so 8350528B, F_3a92c r7 基址 0x15b0c8 修正 + OnPause r1=0 修正）
+   - 4 路径回归: walk_bridge/native_layout/game_test 3/3 PASS + 0 崩溃
+   - native_event FAIL（判据 `F_3ab64: 成功路径.*ok=` 恒不命中）：
+     .bss 事件表 asr4 全 0 → disc=0 → F_336c8 失败路径（F_3ab64 不执行）→ 判据设计前提错误
+   - 诚实边界：native_event 判据应改 `F_3ab80: 事件发送.*disc=`（F_3ab80 必出日志,
+     disc=0 是 .bss 事件表全 0 掩码的忠实兜底, 非回归）
+
+4. **OnPause JNI 参数修正（§124y-156 附带, 非本轮回填引入）**：
+   - jni_aligned.c:448 `jqt_OnPause(V32(env),V32(env),...)` → r1=V32(env)（env 指针误当 Activity 对象）
+   - F_bdcd4 Lbdcde `ldr r3,[r3,#124]` 读 vtable 槽 31 → GetObjectClass(env 指针) → "use of invalid jobject 0x20000" SIGABRT
+   - 修: jni_aligned.c 改 r1=0 + jqt_OnPause.c L234c8 `adds r1,r0,#0` 改 r1=0（对齐 OnResume §124y-143 模式,
+     F_bdcd4 读 .bss 根对象自填, .bss 未构造 → 忠实兜底跳过 GetObjectClass）
+
+5. **jq_event_tbl_fill.h 注释补 §124y-156 标注（.bss 事件表 asr4 全 0, 非 F_3a92c 匹配数据源）**：
+   - 事件表 68B 回填 = ref dump 运行时 0x01 掩码真值（8 主码非 0, §124y-153）, 非 asr4 事件码表
+   - F_3a92c 匹配需 asr4 非 0 字节（.data.rel.ro 静态表 0x15af08 区有, .bss 表无）,
+     .bss 表全 0x01 掩码 = C++ 容器"已构造"位图, 非事件码 asr4 表 → disc=0 是忠实兜底非 bug
+
+### 坑固化
+- F_3a92c r7 读路径 = .got[0x15b644]（REL 槽 4942, 加端=槽自身 VA, 重定位后 shadow+0x160584）,
+  非 .got[0x15b640]（.data.rel.ro 静态表）——§124y-27 的 r3=0x15b0c4 是 +1 错位, 实际 r3=0x15b0c8
+- .bss 事件表 68B（17 行 stride 4B 掩码）ref 运行时值全 0x00/0x01, asr4 恒 0 → F_3a92c 事件码匹配
+  在 .bss 表恒 disc=0（忠实兜底）; 事件码 asr4 匹配表在 .data.rel.ro 0x15af08 区（so 静态, 非 F_3a92c 读路径）
+- native_event 判据 `F_3ab64: 成功路径.*ok=` 恒不命中（disc=0 → F_336c8 失败路径）,
+  应改 `F_3ab80: 事件发送.*disc=`（F_3ab80 必出日志, disc=0 是 .bss 全 0 掩码忠实兜底非回归）
+- OnPause JNI 参数 r1=V32(env) 误当 Activity 对象 → F_bdcd4 GetObjectClass SIGABRT,
+  修 r1=0（对齐 OnResume §124y-143 .bss 根对象自填模式）

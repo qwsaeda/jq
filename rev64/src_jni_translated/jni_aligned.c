@@ -445,7 +445,12 @@ Java_com_cnvcs_App_OnDestroy(JNIEnv *env, jclass c){
     jqt_OnDestroy(0,0,0,0,0,0,0,0,0,0,0,0,0x20f000);
 }
 JNIEXPORT void JNICALL
-Java_com_cnvcs_App_OnPause(JNIEnv *env, jclass c){ jqt_OnPause(V32(env),V32(env),0,0,0,0,0,0,0,0,0,0,0x20f000); }
+Java_com_cnvcs_App_OnPause(JNIEnv *env, jclass c){
+    /* §124y-156 修正: 旧版 (env,env) → F_bdcd4 的 jqt_jni_getobjectclass(r0, r1=env) 收到
+       env 误当 jobject → "use of invalid jobject" SIGABRT。对齐 OnResume §124y-143 模式:
+       r1=0 (F_bdcd4 读 .bss 根对象自填, §124y-97 根对象槽, .bss 未构造 → 忠实兜底跳过)。 */
+    jqt_OnPause(V32(env),0,0,0,0,0,0,0,0,0,0,0,0x20f000);
+}
 JNIEXPORT void JNICALL
 Java_com_cnvcs_App_OnResume(JNIEnv *env, jclass c){
     __android_log_print(6,"junqi","OnResume: 入口 env=%p done=%d", (void*)env, g_jqt_jni_selftest_done);

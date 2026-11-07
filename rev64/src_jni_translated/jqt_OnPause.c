@@ -11,7 +11,10 @@ uint32_t jqt_OnPause(uint32_t _r0,uint32_t _r1,uint32_t _r2,uint32_t _r3,uint32_
     uint32_t sp=_sp, lr=0;
     int Z=0, C=0, N=0, V=0;
 L234c6: r3=MEM(144584+12);
-L234c8: {uint32_t a_=r0,b_=0; r1=(a_+b_); Z=(r1==0); C=(r1<a_); N=((r1)>>31)&1; V=(((a_^r1)&(b_^r1))>>31)&1;}
+L234c8: /* §124y-156: 原版 adds r1,r0,#0 → r1=env, 但 F_bdcd4 的 r1 参数语义 = Activity
+   对象指针 (0xbdcde ldr r3,[r1,#0] 读 Activity[0]=vtable 基址), 传 env → MEM(env)=scratch 0
+   → F_bdcd4 读 r3=0 → vtable[31]=0 → 忠实兜底 (跳过 GetObjectClass)。显式 r1=0 更忠实。 */
+   r1 = 0;
 L234ca: r3=(144588+r3);
 L234cc: r0=MEM(r3);
 L234ce: r0=F_bdcd4(r0,r1,r2,r3,r4,r5,r6,r7,r8,r9,r10,r11,sp); /* bl 0xbdcd4 完整 (§124y-141, 非存根) */
