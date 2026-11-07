@@ -265,7 +265,6 @@ static bool move_legal(const jq_state *st, int from, int to, int turn)
 }
 
 /* 公开 API：当前回合的走子合法性（保持既有语义）
-   /* 公开 API：当前回合的走子合法性（保持既有语义）
    ★ AUD-R-082（P2 诚实标注）：困毙/可动判定 O(N²) 次 jq_can_move（每次含工兵 BFS），
    单步 ~3.5k 次合法性判定 / ~20 万次格点运算——规则引擎在主线程 OnTouch 单步执行，
    移动端 60fps 渲染线程不做走子计算，实测 OK；缓存合法目标格或射线扫描替代

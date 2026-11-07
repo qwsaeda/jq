@@ -163,7 +163,11 @@ typedef struct {
     /* ★ AUD-R-041（P2 诚实标注）：原 count_tbl[RANK_COUNT] 布局计数表字段已删——
        全仓从未写入（layout.c jq_validate_layout 用局部 seen[] 数组，从不回填
        st->count_tbl），与 undo_depth 同类"零使用者"死字段；布局计数需求走
-       containers.c 的 cc->count_tbl（jq_container_check 校验链路，有写入/读取点）。 */
+       containers.c 的 cc->count_tbl（jq_container_check 校验链路，有写入/读取点）。
+       ★ AUD-R-087（P2 关闭）：count_tbl 语义与原版 +0x78（240 字节计数表）不对应
+       的问题随字段删除关闭——本重写不再持有 count_tbl 字段，无映射争议；
+       原版 +0x78 的 240 字节语义（60 格×4 字节按格 rank 表）属翻译体侧
+       （jqt_vtbl.c 240 字节复制）关切，src_rs 侧无需对齐。 */
     uint8_t   mode;                  /* ★ AUD-R-002/003（P0）：JQ_MODE_LAY=明棋 / JQ_MODE_FLIP=暗棋
                                         暗棋语义：未翻子 revealed=0、地雷/军旗仅工兵可吃、
                                         工兵挖满 3 雷方可扛旗（ruleflip 原文）。
