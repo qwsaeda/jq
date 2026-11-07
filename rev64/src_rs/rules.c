@@ -88,9 +88,11 @@ static const int8_t RAIL_DIRS[4][2] = {{1,0},{-1,0},{0,1},{0,-1}};
 /* 工兵沿铁路任意路径（可拐弯）：BFS，横向仅 row5/6 中线
    ★ AUD-R-025（P2 已修）：入口起点越界自检（fr/fc 越界 → false，防 visited 越界写）；
    当前唯一调用方 jq_can_move 传已校验坐标，本守卫为双保险（函数 static 但无自检）。
-   ★ AUD-R-026（P2 诚实标注）：队列 qr/qc[64] > 60 格理论安全；visited 保证不重复
-   入队，重复入队防护依赖 visited 语义不被改动——若将来改 visited 逻辑，
-   须同步加 tail 上界断言（提为 q[ROWS*COLS]），本轮未硬改（BFS 边界行为已冻结）。 */
+   ★ AUD-R-026（P2 诚实标注 → 真修）：队列 qr/qc[64] > 60 格理论安全；visited 保证
+   不重复入队。AUD-A-0040/0041（P2）补显式 tail 上界断言（入队前 `if (tail >= 64)
+   break;`）——60 格棋盘 visited 不重复入队，tail 恒 ≤60 永不触发，纯防御（与
+   AUD-R-026 "BFS 边界行为已冻结"一致，行为 0 变化，仅把"依赖 visited 语义不被
+   改动"的隐性假设升级为显式守卫）。 */
 static bool rail_path_engineer(const jq_state *st, int fr, int fc, int tr, int tc)
 {
     /* ★ AUD-R-101（P3 注释确认）：同格视为可达（防御早退；调用方 jq_can_move
@@ -101,6 +103,7 @@ static bool rail_path_engineer(const jq_state *st, int fr, int fc, int tr, int t
     uint8_t visited[BOARD_ROWS][BOARD_COLS];
     memset(visited, 0, sizeof(visited));
     int qr[64], qc[64], head = 0, tail = 0;
+    if (tail >= 64) return false;   /* AUD-A-0040：入队上界断言（恒不触发，纯防御） */
     qr[tail] = fr; qc[tail] = fc; tail++;
     visited[fr][fc] = 1;
     while (head < tail) {
@@ -114,6 +117,7 @@ static bool rail_path_engineer(const jq_state *st, int fr, int fc, int tr, int t
             if (nr == tr && nc == tc) return true;
             if (!walkable(st, nr, nc)) continue;
             visited[nr][nc] = 1;
+            if (tail >= 64) break;   /* AUD-A-0041：队列满保护（60 格棋盘恒不触发，纯防御） */
             qr[tail] = nr; qc[tail] = nc; tail++;
         }
     }
@@ -310,6 +314,9 @@ static bool move_legal(const jq_state *st, int from, int to, int turn)
    留待下一轮；本轮诚实标注不加防护（避免引入 10+ 处改动风险）。 */
 bool jq_can_move(const jq_state *st, int from, int to)
 {
+    /* ★ AUD-R-091/114（P3 NULL 防护统一批）：公开 API 入口 NULL 守卫
+       （兄弟实现 game_logic.c 同款防御风格；规则引擎 10 个公开 API 全覆盖）。 */
+    if (!st) return false;
     return move_legal(st, from, to, st->turn);
 }
 
@@ -375,6 +382,8 @@ static void stalemate_after(jq_state *st)
 /* 执行走子。成功返回事件类型；失败返回 -1（不切 turn、不计数，L54）。 */
 int jq_try_move(jq_state *st, int from, int to)
 {
+    /* ★ AUD-R-091/114（P3 NULL 防护统一批）：st NULL → -1（失败契约）。 */
+    if (!st) return -1;
     /* ★ AUD-R-042（P2）：双层防护——入口显式校验 from/to 与 from != to。
        主判定在 jq_can_move（from==to→false），但走子有第二个入口时
        （联机/复放/BT 帧）若绕过 jq_can_move 直接进执行器，from==to 会造成
@@ -549,6 +558,8 @@ int jq_try_move(jq_state *st, int from, int to)
 /* ---------- 翻棋（0x39e14 同格判定，§15/L48/L50） ---------- */
 bool jq_can_flip(const jq_state *st, int idx)
 {
+    /* ★ AUD-R-091/114（P3 NULL 防护统一批）：st NULL → false。 */
+    if (!st) return false;
     /* ★ AUD-R-043（P2 诚实标注）：仅判 rank!=EMPTY + 军旗不可翻 + 回合，
        未校验 rank_norm 合法性（非法 rank>12 蓝方值会被 rank_norm 静默还原为
        别的 rank）。rank 写入点（layout.c 装载 / BT SYNC_CELL 注入）均不在此
@@ -581,6 +592,8 @@ bool jq_can_flip(const jq_state *st, int idx)
 
 bool jq_flip(jq_state *st, int idx)
 {
+    /* ★ AUD-R-091/114（P3 NULL 防护统一批）：st NULL → false。 */
+    if (!st) return false;
     /* ★ AUD-R-044（P2 诚实标注）：翻棋成功即切 turn（:470），但 UI 侧
        jni_bridge :7751-7755 翻棋后保持选中提示"下一步走子"——玩家点目标格
        会被 move_legal 回合校验（src->side != turn）拒，UI 与引擎语义不一致。
@@ -611,6 +624,8 @@ bool jq_flip(jq_state *st, int idx)
    留待下一轮压测驱动。 */
 bool jq_side_stalemated(const jq_state *st, uint8_t side)
 {
+    /* ★ AUD-R-091/114（P3 NULL 防护统一批）：st NULL → false（未困毙）。 */
+    if (!st) return false;
     if (st->stage != STG_PLAY || st->winner >= 0) return false;
     /* 还有未翻暗子可翻 → 未困毙
        ★ AUD-R-073（P2）：排除地雷（rank_norm==RANK_MINE）——地雷翻了也不能走子
@@ -668,6 +683,8 @@ int  jq_bt_undo_available(void);   /* bt_session.c BT_T_UNDO 分支用（jni_bri
 /* ---------- 胜负（0x30200 分发，winner: JQ_WIN_BLUE 蓝胜 / JQ_WIN_RED 红胜 / JQ_WIN_DRAW 和，AUD-R-053） ---------- */
 void jq_on_flag_capture(jq_state *st, uint8_t captor_side)
 {
+    /* ★ AUD-R-091/114（P3 NULL 防护统一批）：st NULL → 忽略。 */
+    if (!st) return;
     /* ★ AUD-R-035（P2）：已终局则忽略（防测试钩子/外部调用改写终局 winner）。 */
     if (st->stage != STG_PLAY) return;
     /* ★ AUD-R-054（P2）：前置守卫——吃旗方必须合法（SIDE_VALID），防御非法侧
@@ -683,6 +700,8 @@ void jq_on_flag_capture(jq_state *st, uint8_t captor_side)
 
 void jq_on_draw(jq_state *st)
 {
+    /* ★ AUD-R-091/114（P3 NULL 防护统一批）：st NULL → 忽略。 */
+    if (!st) return;
     /* ★ AUD-R-035（P2）：已终局则忽略。 */
     if (st->stage != STG_PLAY) return;
     st->winner = JQ_WIN_DRAW;        /* 和（0x30280） */
@@ -696,14 +715,14 @@ void jq_on_draw(jq_state *st)
    "无棋可走方"（走子前 turn 未切换，AI 路径的 mover 也恒等于 st->turn）。 */
 void jq_on_stalemate(jq_state *st, uint8_t loser_side)
 {
+     /* ★ AUD-R-091/114（P3 NULL 防护统一批）：st NULL → 忽略（三终局函数统一入口守卫）。 */
+    if (!st) return;
     if (st->stage != STG_PLAY) return;
     /* ★ AUD-R-140（P3 已修）：turn/loser_side 若被外部误写 >1，1-loser_side 为负
        （int8_t winner 与"未定"哨兵 -1 撞码）。用 & 1 取模确保 winner∈{0,1}
        与 JQ_WIN_BLUE/JQ_WIN_RED 常量域一致，外部误写时安全降级而非 UB。
-       ★ AUD-R-114（P3 诚实标注）：jq_on_flag_capture/jq_on_draw/jq_on_stalemate
-       三终局函数未做 st==NULL 防护（全仓调用点均传有效 g_state，无 NULL 传入
-       路径）；加防护需 3 函数入口各 1 行 if(!st)return，行为 0 变化，与
-       AUD-R-091 同源（全引擎 NULL 防护统一处理），留待下一轮。 */
+       ★ AUD-R-114（P3 已修）：jq_on_flag_capture/jq_on_draw/jq_on_stalemate
+       三终局函数入口统一加 st==NULL 守卫（本轮随 AUD-R-091 NULL 防护统一批落地）。 */
     st->winner = 1 - (loser_side & 1);   /* 无棋可走方负，对方胜（&1 防 turn>1 时 winner 为负） */
     st->stage = STG_OVER;
 }

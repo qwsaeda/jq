@@ -144,25 +144,39 @@ void jq_extract_layout_30(const jq_state *st, uint8_t out[30])
     }
 }
 
-/* 暗棋（ruleflip）开局装载（AUD-R-003 P0）：
-   明棋语义 = 全 revealed=0，side 按 5-lrow/6+lrow 分区写死（蓝 side=BLUE / 红 side=RED，
-   与明棋一致），st->mode = JQ_MODE_FLIP。
-   暗棋规则（AUD-R-002 P0）：
-   · 地雷/军旗仅工兵(rank 9)可吃（jq_can_move 暗棋守卫，见 rules.c）；
-   · 工兵挖满 3 雷（st->mines_cleared[me] >= 3）方可扛旗；
-   · 未翻子（revealed=0）不可被攻击（仅可被翻，jq_flip 定色后 revealed=1 才可动/被吃）。
-   兄弟实现 src/game_logic.c:333-353 jq_dark_setup 同款语义。
-   ★ 诚实边界：先手翻子定色（side=UNKNOWN 机制）依赖 rules.c AUD-R-003 补全，
-   此处 layout.c 仍写死 side（与明棋同结构），暗棋 = "明棋藏脸 + 暗棋吃子规则"，
-   真正"先手翻子定色"玩法需侧未知（SIDE_UNKNOWN）装载路径，留待后续轮次。 */
+/* 暗棋（ruleflip）开局装载（AUD-R-003 P0 先手翻子定色，本轮落地）：
+   与明棋同结构（蓝 (5-lrow,lcol) / 红 (6+lrow,4-lcol) 镜像，rank 红方 +0xc 编码），
+   但**全 60 格 side=SIDE_UNKNOWN(0xFF)、rank 统一为蓝方原值（不含 +0xc）**：
+   · 先手翻子定色：首翻子 c->side==SIDE_UNKNOWN → 翻定 st->turn 方（rules.c jq_flip，
+     §L48 ruleflip「先手翻出第一个棋子确定该玩家持此颜色」）；
+   · 未翻子不可被吃（move_legal 暗棋守卫，AUD-R-006 信息不泄露）；
+   · 地雷/军旗仅工兵(rank 9)可吃；工兵挖满 3 雷（mines_cleared[me]>=3）方可扛旗（AUD-R-002）。
+   ★ 诚实边界（与兄弟实现 game_logic.c:333 的分歧点）：兄弟实现 jq_dark_setup 仍写死
+     side 分区（"明棋藏脸"），本实现真正走 SIDE_UNKNOWN 先手翻子定色（原版 ruleflip 玩法）。
+     红方 rank 不 +0xc（rank_norm 还原依赖 side==SIDE_RED 时才加 0xc，先手翻子定色前
+     双方 side 均 UNKNOWN → 全用蓝方原值统一编码，定色后 move_legal 按 src->side 判归属）。
+     兄弟实现对齐需 game_logic.c 同步改（留待翻译体下一轮，R-138 分叉边界）。 */
 void jq_dark_setup(jq_state *st, const uint8_t layout[30])
 {
-    jq_load_layout(st, layout);
-    for (int i = 0; i < N_CELLS; i++) {
-        if (st->cells[i].rank != RANK_EMPTY)
-            st->cells[i].revealed = 0;   /* 暗棋：全暗置（ruleflip） */
+    jq_state_init(st);
+    for (int i = 0; i < 30; i++) {
+        int v = layout[i];
+        if (v == 0) continue;                 /* 行营空位 */
+        int lrow = i / 5, lcol = i % 5;
+        /* 双方同结构：蓝方 (5-lrow, lcol)；红方镜像 (6+lrow, 4-lcol)（与 jq_load_layout 同几何） */
+        jq_cell *b = &st->cells[cell_index(5 - lrow, lcol)];
+        b->rank = (uint8_t)v; b->side = SIDE_UNKNOWN;   /* ★ AUD-R-003：全 0xFF 未定色 */
+        b->revealed = 0;
+        b->flags = (v == RANK_BOMB ? JQF_BOMB : 0)
+                 | (v == RANK_MINE ? JQF_MINE : 0)
+                 | (v == RANK_FLAG ? JQF_FLAG : 0);
+        jq_cell *r = &st->cells[cell_index(6 + lrow, 4 - lcol)];
+        r->rank = (uint8_t)v; r->side = SIDE_UNKNOWN;   /* ★ 不 +0xc（统一蓝方原值编码） */
+        r->revealed = 0;
+        r->flags = b->flags;
     }
     st->mode = JQ_MODE_FLIP;
+    st->turn = SIDE_BLUE;
 }
 
 /* 刷新可动子统计（0x6a3b0 → 0x6b87c，L61：走子后刷新 + 困毙判定输入）
