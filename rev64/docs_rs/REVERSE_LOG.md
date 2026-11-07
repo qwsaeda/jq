@@ -5364,3 +5364,41 @@ python3 /tmp/opencode/incremental_regress.py reset 0xADDR  # 改了某指令 →
 - .bss 0x16266c 键码常量槽的运行时真值（+16=2/+24=4/+32=82/+44=19 等）来自 MuMu dump，
   键码匹配分支需 KeyEvent 注入端到端验证（4 路径回归未覆盖 OnKey，OnKey 对齐为静态翻译体忠实，未端到端实证）
 - 触摸几何/按键处理完整 C++ 逻辑（vtable 槽 31/42 override 函数体）仍为 §124y-26 命中几何 0/60 诚实边界
+
+## §124y-141 OnResume F_bdc7c + OnPause F_bdcd4 翻译体对齐（生命周期 JNI 入口存根改真调）
+
+**★ 闭环事实（OnResume/OnPause JNI 内部处理函数完整体对齐进翻译体 jqt_OnResume.c + jqt_OnPause.c + jni_aligned.c 参数修正）**：
+
+1. **F_bdc7c（OnResume 内部处理，原版 0xbdc7c-0xbdcc4）完整流程实锤**：
+   - 入参：r0=env(JNIEnv*)，r1=env(adds r1,r0,#0)，Activity 对象（JNI 入口 0x234b0 原版实锤）
+   - JNI 虚调用链：GetObjectClass（vtable 槽 31/0x7c）→ GetMethodID（vtable 槽 42/0x84，name "onResume" sig "()V"）
+   - `bl 0x77800` = CallVoidMethod（F_77800 已收表，jqt_OnCreate_full.c:403 定义体）
+   - 条件虚调用：cmp r5,#0 / beq → vtable 槽 0x5c（GetMethodID 成功才调）
+   - `bl 0xb690c` = 读 [r0+0xc0] C++ 子对象 vtable 虚调用（未收表，存根忠实空操作）
+   - .bss 根对象池：pool[0xbdcd0]→.bss 0x15be90（根对象+0x10 区）
+
+2. **F_bdcd4（OnPause 内部处理，原版 0xbdcd4-0xbdd1c）同模式实锤**：
+   - 与 F_bdc7c 同结构，差异：GetMethodID name "getRepeatCount" sig "(II)V"（.rodata 0x128b34/0x126074）
+   - `bl 0xb6768` = 读 [r0+0xc0] vtable 槽 1 虚调用（未收表，存根忠实空操作）
+   - .bss 根对象池：pool[0xbdd28]→.bss 0x15be84（根对象+0xc 区，与 §124y-97 的 OnDestroy 0x15be82 相邻）
+
+3. **F_b690c/F_b6768 存根定义体（各 20 字节 C++ 虚调用函数）**：
+   - 读 [r0+0xc0] 子对象指针 → 非 0 → 读 vtable 虚调用；0 → 跳过（忠实空操作）
+   - 翻译体 .bss 未构造 → [r0+0xc0]=0 → 全走跳过路径（§124y-33/35 ok=0 兜底）
+   - 存根定义体在 jqt_OnResume.c（与 F_bdc7c/F_bdcd4 同文件，避免符号冲突）
+
+4. **jni_aligned.c OnResume/OnPause 参数修正（§124y-140 同模式）**：
+   - 旧版 `jqt_OnResume(0,0,0,...)` / `jqt_OnPause(0,0,0,...)` → 丢 env，F_bdc7c/F_bdcd4 收到 r1=0 → GetObjectClass 解析失败
+   - 修正 `jqt_OnResume(V32(env),V32(env),0,...)` / `jqt_OnPause(V32(env),V32(env),0,...)` 与 OnKey/OnTouch 同模式
+   - 原版 0x234b4/0x234c8 `adds r1,r0,#0` → r1=env 实锤
+
+5. **编译验证 + 4 路径回归全过**：
+   - build_arm32_aligned.sh 链接通过（JNI 符号 14，F_b690c/F_b6768 存根无重复符号）
+   - 4 路径回归（walk_bridge/native_layout/native_event/game_test）4/4 PASS + 0 崩溃
+   - 对齐现状：14 JNI 入口 11 完整（OnCreate/OnEvent/OnTouch/OnBluetooth/OnResult/OnGraphCreate/OnGraphChange/OnTimer/OnDestroy + **OnResume F_bdc7c** + **OnPause F_bdcd4**）+ 3 未对齐（OnKey 已完成 §124y-140 / OnInput F_bd870）
+
+### 诚实边界
+- F_b690c/F_b6768 存根定义体（读 [r0+0xc0] 虚调用）需 C++ 子对象构造 + frida dump 运行时 vtable 指针实锤
+  （.bss 未构造 → 全走跳过路径，忠实空操作）
+- OnResume/OnPause 无独立回归钩子（生命周期事件需真机按 HOME/APP_SWITCH 触发），4 路径回归覆盖 OnTouch/OnEvent 触摸路径 + 游戏走子链
+- F_bd870（OnInput 内部处理）仍为存根 r0=0（低优先，需 jstring 输入 → 键盘事件构造，完整体待对齐）
