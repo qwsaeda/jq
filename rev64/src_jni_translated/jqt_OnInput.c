@@ -116,15 +116,37 @@ Lbd8f0_r: r0=0; goto RET;
 RET: return r0;
 }
 
-/* F_c6088 (字符串处理函数) 存根定义体 (原版 bl strlen + 缓冲区构造, 未收表) */
+/* §124y-144: F_c6088 (字符串处理函数) 完整体对齐 (原版 0xc6088-0xc60a0)
+ * 入参: r0=目标 buffer 指针, r1=源字符串 (char*)
+ * 流程: blx strlen(r1) → len; r5=r0+0x50; r2=r1+len; r1=str; r0=r5; bl F_23bec(已收表, jqt_OnCreate_full.c:13973)
+ * 调用 F_23bec(buf+0x50, str, str+len, ...) 构造字符串缓冲区 (事件对象 [0x50] 区)。 */
+extern uint32_t F_23bec(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+#include <string.h>
 uint32_t F_c6088(uint32_t _r0,uint32_t _r1,uint32_t _r2,uint32_t _r3,uint32_t _r4,uint32_t _r5,uint32_t _r6,uint32_t _r7,uint32_t _r8,uint32_t _r9,uint32_t _r10,uint32_t _r11,uint32_t _sp){
     uint32_t r0=_r0, r1=_r1, r2=_r2, r3=_r3, r4=_r4, r5=_r5, r6=_r6, r7=_r7, r8=_r8, r9=_r9, r10=_r10, r11=_r11, r12=0;
     uint32_t sp=_sp, lr=0;
     int Z=0, C=0, N=0, V=0;
-    /* 原版 0xc6088: push {r4, r5, r6, lr} / blx strlen / 缓冲区构造 / pop
-     * 诚实边界: .bss 未构造 → 存根 r0=0 (§124y-33/35 ok=0 兜底) */
-    r0=0;
-    return r0;
+Lc6088: r4=_r4; /* push {r4, r5, r6, lr} */
+Lc6088_p0: MEM(sp+0)=r4;
+Lc608a: {uint32_t a_=r0,b_=0; r5=(a_+b_); Z=(r5==0); C=(r5<a_); N=((r5)>>31)&1; V=(((a_^r5)&(b_^r5))>>31)&1;}
+Lc608c: {uint32_t a_=r1,b_=0; r0=(a_+b_); Z=(r0==0); C=(r0<a_); N=((r0)>>31)&1; V=(((a_^r0)&(b_^r0))>>31)&1;}
+Lc608e: {uint32_t a_=r1,b_=0; r4=(a_+b_); Z=(r4==0); C=(r4<a_); N=((r4)>>31)&1; V=(((a_^r4)&(b_^r4))>>31)&1;}
+Lc6090: { /* blx strlen@plt: 算 strlen(r1=str 指针) */
+    uint32_t _len = 0;
+    if (r1 != 0) {
+        volatile const char *_ps = (volatile const char *)(uintptr_t)JQT_ABS_PTR(r1);
+        if (_ps) { while (_ps[_len]) _len++; }
+    }
+    r0 = _len;
+}
+Lc6094: r5=(r5+0x50); /* adds r5,#80 */
+Lc6096: r2=(r4+r0);   /* adds r2,r4,r0 (str+len) */
+Lc6098: {uint32_t a_=r4,b_=0; r1=(a_+b_); Z=(r1==0); C=(r1<a_); N=((r1)>>31)&1; V=(((a_^r1)&(b_^r1))>>31)&1;}
+Lc609a: {uint32_t a_=r5,b_=0; r0=(a_+b_); Z=(r0==0); C=(r0<a_); N=((r0)>>31)&1; V=(((a_^r0)&(b_^r0))>>31)&1;}
+Lc609c: r0=F_23bec(r0,r1,r2,r3,r4,r5,r6,r7,r8,r9,r10,r11,sp); /* bl 0x23bec (F_23bec 已收表) */
+Lc60a0: r4=MEM(sp+0); /* pop {r4, lr} */
+Lc60a0_r: goto RET;
+RET: return r0;
 }
 
 /* jqt_OnInput 入口 (JNI 入口真调 F_bd870, 非存根) */

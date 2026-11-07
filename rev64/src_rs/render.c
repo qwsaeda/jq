@@ -21,20 +21,122 @@
 #include "ui_state.h"   /* P2 图像设置 4 开关 ui_imgset_cfg_get（夜间/对方棋子接渲染层） */
 
 /* ★ 原版 UI 位图真值（ch02 N45）前向声明 */
+static int d000_diag = 0;
+static int d001_diag = 0;
+static int d002_diag = 0;
+static int d003_diag = 0;
+static int d004_diag = 0;
+static int d005_diag = 0;
 static int d006_diag = 0;
 static int d007_diag = 0;
 static int d008_diag = 0;
+static int d010_diag = 0;
 static int d012_diag = 0;
+static int d013_diag = 0;
+static int d015_diag = 0;
+static int d016_diag = 0;
+static int d017_diag = 0;
+static int d019_diag = 0;
+static int d020_diag = 0;
+static int d021_diag = 0;
+static int d022_diag = 0;
+static int d023_diag = 0;
+static int d024_diag = 0;
+static int d025_diag = 0;
+static int d026_diag = 0;
+static int d027_diag = 0;
+static int d028_diag = 0;
+static int d029_diag = 0;
+static int d030_diag = 0;
+static int d031_diag = 0;
+static int d032_diag = 0;
+static int d033_diag = 0;
+static int d034_diag = 0;
+static int d035_diag = 0;
+static int d036_diag = 0;
+static int d037_diag = 0;
+static int d038_diag = 0;
+static int d039_diag = 0;
 static int d041_diag = 0;
 static int d042_diag = 0;
+static int d043_diag = 0;
+static int d044_diag = 0;
+static int d045_diag = 0;
+static int d046_diag = 0;
+static int d047_diag = 0;
+static int d049_diag = 0;
+static int d050_diag = 0;
+static int d051_diag = 0;
+static int d052_diag = 0;
+static int d053_diag = 0;
+static int d054_diag = 0;
+static int d055_diag = 0;
+static int d057_diag = 0;
+static int d058_diag = 0;
+static int d059_diag = 0;
 static int d060_diag = 0;
 static int d061_diag = 0;
-static int d067_diag = 0;
+static int d062_diag = 0;
+static int d063_diag = 0;
+static int d064_diag = 0;
+static int d066_diag = 0;
+static int d068_diag = 0;
 static int d069_diag = 0;
 static int d070_diag = 0;
+static int d071_diag = 0;
+static int d072_diag = 0;
+static int d073_diag = 0;
+static int d075_diag = 0;
+static int d077_diag = 0;
+static int d078_diag = 0;
+static int d079_diag = 0;
+static int d082_diag = 0;
+static int d083_diag = 0;
+static int d084_diag = 0;
+static int d085_diag = 0;
+static int d086_diag = 0;
+static int d089_diag = 0;
+static int d090_diag = 0;
+static int d094_diag = 0;
+static int d095_diag = 0;
+static int d096_diag = 0;
+static int d097_diag = 0;
+static int d098_diag = 0;
+static int d099_diag = 0;
+static int d100_diag = 0;
+static int d101_diag = 0;
+static int d102_diag = 0;
 static int d104_diag = 0;
 static int d107_diag = 0;
+static int d108_diag = 0;
+static int d109_diag = 0;
+static int d110_diag = 0;
+static int d112_diag = 0;
+static int d113_diag = 0;
+static int d114_diag = 0;
+static int d118_diag = 0;
+static int d119_diag = 0;
 static int d120_diag = 0;
+static int d121_diag = 0;
+static int d122_diag = 0;
+static int d123_diag = 0;
+static int d246_diag = 0;
+static int d247_diag = 0;
+static int d248_diag = 0;
+static int d249_diag = 0;
+static int d250_diag = 0;
+static int d251_diag = 0;
+static int d253_diag = 0;
+static int d255_diag = 0;
+static int d256_diag = 0;
+static int d257_diag = 0;
+static int d258_diag = 0;
+static int d259_diag = 0;
+static int d260_diag = 0;
+static int d261_diag = 0;
+static int d262_diag = 0;
+static int d263_diag = 0;
+static int d264_diag = 0;
 static int panraw_seen = 0;
 static int panbdiag = 0;   /* 面板/按钮/图标位图渲染诊断 */
 static int ecdiag = 0;   /* 退出确认诊断 */
@@ -320,6 +422,8 @@ int rs_render_init(rs_render *rr, const char *spak_dir, const jq_state *init_sta
         
         
         
+        
+        
         char p104[512];
         snprintf(p104, sizeof p104, "%s/dlg_batch_text.png", spak_dir ? spak_dir : "");
         snprintf(p9, sizeof p9, "%s/imen_icons_atlas.png", spak_dir ? spak_dir : "");
@@ -385,6 +489,8 @@ int rs_render_init(rs_render *rr, const char *spak_dir, const jq_state *init_sta
                 
                 
                 
+        
+        
         
         
         
@@ -482,6 +588,7 @@ int rs_render_init(rs_render *rr, const char *spak_dir, const jq_state *init_sta
         
         
         
+        
         rs_read_png(am, "spak_res/dlg_batch_text.png", p104, &dlgraw, &dlgraw_len);
         rs_read_png(am, "spak_res/imen_icons_atlas.png", p9, &icraw, &icraw_len);
         rs_read_png(am, "spak_res/imen_orig_icons.png", p103, &ioraw, &ioraw_len);
@@ -569,10 +676,11 @@ int rs_render_init(rs_render *rr, const char *spak_dir, const jq_state *init_sta
         
         
         
+        
         if (dlgraw && png_decode(dlgraw, dlgraw_len, &dlgpx, &dlgw, &dlgh) == 0) {
             rr->dlg_text_px = dlgpx; rr->dlg_text_px_len = (size_t)dlgw * dlgh * 4;
             rr->dlg_text_w = dlgw; rr->dlg_text_h = dlgh;
-            LOGI("批量对齐文字图集加载 OK：dlg_batch_text.png %dx%d（84 行）", dlgw, dlgh);
+            LOGI("批量对齐文字图集加载 OK：dlg_batch_text.png %dx%d（361 行）", dlgw, dlgh);
         }
         free(dlgraw);
         free(icraw); free(ioraw);
@@ -4770,6 +4878,192 @@ static void rs_draw_regretconfirm(rs_render *rr, int slot)
 }
 
 
+/* ★ 批量对齐（datah_000）：2 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
+   ★ 文字不变形三要素（本轮 datah_095 文字被压成窄竖条实证后修正）：
+     1) 每按钮独立字形像素宽高（D000_pw/ph 数组，非块级常量——旧版 i 泄漏成常量）
+     2) 图集行高固定 40（bake_atlas 行距）→ v = (行号*40)/图集高；n_rows 不再传 cnt
+     3) u1 = 字形像素宽/图集宽（旧版传 1.0 = 整行 416px 压进字宽）
+   目标字高 30px（720 基准），宽按字形 bbox 比例等比缩放。 */
+static const int D000_pw[UI_D000_COUNT] = { 76,76 };
+static const int D000_ph[UI_D000_COUNT] = { 37,37 };
+static void rs_draw_d000(rs_render *rr, int slot)
+{
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    rs_popup_shell(rr, slot, UI_D000_POPUP_X0, UI_D000_POPUP_Y0, UI_D000_POPUP_W, UI_D000_POPUP_H, 0, uc);
+    const ui_d000_btn *bb = ui_d000_buttons();
+    for (int i = 0; i < UI_D000_COUNT; i++) {
+        rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
+                     0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
+        int gr = 0 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int wpx = D000_pw[i], hpx = D000_ph[i];
+        if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
+            float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
+            float tw = (float)wpx * scale, th = 30.0f;
+            float u1 = ((float)wpx + 1.0f) / (float)rr->dlg_text_w;
+            rs_atlas_label_wh(rr, slot, rr->tex_dlg_text[slot], rr->dlg_text_w, rr->dlg_text_h,
+                              gr, (bb[i].x0 + bb[i].x1) * 0.5f, (bb[i].y0 + bb[i].y1) * 0.5f,
+                              tw, th, 0.0f, u1, uc);
+        }
+    }
+    if (!d000_diag) { d000_diag = 1;
+        LOGI("rs_draw_d000：datah_000 弹窗（400×280 面板 + 2 按钮，原版按钮文字）");
+    }
+}
+/* ★ 批量对齐（datah_001）：4 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
+   ★ 文字不变形三要素（本轮 datah_095 文字被压成窄竖条实证后修正）：
+     1) 每按钮独立字形像素宽高（D001_pw/ph 数组，非块级常量——旧版 i 泄漏成常量）
+     2) 图集行高固定 40（bake_atlas 行距）→ v = (行号*40)/图集高；n_rows 不再传 cnt
+     3) u1 = 字形像素宽/图集宽（旧版传 1.0 = 整行 416px 压进字宽）
+   目标字高 30px（720 基准），宽按字形 bbox 比例等比缩放。 */
+static const int D001_pw[UI_D001_COUNT] = { 110,167,76,76 };
+static const int D001_ph[UI_D001_COUNT] = { 29,29,37,37 };
+static void rs_draw_d001(rs_render *rr, int slot)
+{
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    rs_popup_shell(rr, slot, UI_D001_POPUP_X0, UI_D001_POPUP_Y0, UI_D001_POPUP_W, UI_D001_POPUP_H, 0, uc);
+    const ui_d001_btn *bb = ui_d001_buttons();
+    for (int i = 0; i < UI_D001_COUNT; i++) {
+        rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
+                     0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
+        int gr = 2 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int wpx = D001_pw[i], hpx = D001_ph[i];
+        if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
+            float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
+            float tw = (float)wpx * scale, th = 30.0f;
+            float u1 = ((float)wpx + 1.0f) / (float)rr->dlg_text_w;
+            rs_atlas_label_wh(rr, slot, rr->tex_dlg_text[slot], rr->dlg_text_w, rr->dlg_text_h,
+                              gr, (bb[i].x0 + bb[i].x1) * 0.5f, (bb[i].y0 + bb[i].y1) * 0.5f,
+                              tw, th, 0.0f, u1, uc);
+        }
+    }
+    if (!d001_diag) { d001_diag = 1;
+        LOGI("rs_draw_d001：datah_001 弹窗（450×390 面板 + 4 按钮，原版按钮文字）");
+    }
+}
+/* ★ 批量对齐（datah_002）：2 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
+   ★ 文字不变形三要素（本轮 datah_095 文字被压成窄竖条实证后修正）：
+     1) 每按钮独立字形像素宽高（D002_pw/ph 数组，非块级常量——旧版 i 泄漏成常量）
+     2) 图集行高固定 40（bake_atlas 行距）→ v = (行号*40)/图集高；n_rows 不再传 cnt
+     3) u1 = 字形像素宽/图集宽（旧版传 1.0 = 整行 416px 压进字宽）
+   目标字高 30px（720 基准），宽按字形 bbox 比例等比缩放。 */
+static const int D002_pw[UI_D002_COUNT] = { 76,76 };
+static const int D002_ph[UI_D002_COUNT] = { 37,37 };
+static void rs_draw_d002(rs_render *rr, int slot)
+{
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    rs_popup_shell(rr, slot, UI_D002_POPUP_X0, UI_D002_POPUP_Y0, UI_D002_POPUP_W, UI_D002_POPUP_H, 0, uc);
+    const ui_d002_btn *bb = ui_d002_buttons();
+    for (int i = 0; i < UI_D002_COUNT; i++) {
+        rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
+                     0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
+        int gr = 6 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int wpx = D002_pw[i], hpx = D002_ph[i];
+        if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
+            float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
+            float tw = (float)wpx * scale, th = 30.0f;
+            float u1 = ((float)wpx + 1.0f) / (float)rr->dlg_text_w;
+            rs_atlas_label_wh(rr, slot, rr->tex_dlg_text[slot], rr->dlg_text_w, rr->dlg_text_h,
+                              gr, (bb[i].x0 + bb[i].x1) * 0.5f, (bb[i].y0 + bb[i].y1) * 0.5f,
+                              tw, th, 0.0f, u1, uc);
+        }
+    }
+    if (!d002_diag) { d002_diag = 1;
+        LOGI("rs_draw_d002：datah_002 弹窗（460×240 面板 + 2 按钮，原版按钮文字）");
+    }
+}
+/* ★ 批量对齐（datah_003）：3 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
+   ★ 文字不变形三要素（本轮 datah_095 文字被压成窄竖条实证后修正）：
+     1) 每按钮独立字形像素宽高（D003_pw/ph 数组，非块级常量——旧版 i 泄漏成常量）
+     2) 图集行高固定 40（bake_atlas 行距）→ v = (行号*40)/图集高；n_rows 不再传 cnt
+     3) u1 = 字形像素宽/图集宽（旧版传 1.0 = 整行 416px 压进字宽）
+   目标字高 30px（720 基准），宽按字形 bbox 比例等比缩放。 */
+static const int D003_pw[UI_D003_COUNT] = { 152,152,152 };
+static const int D003_ph[UI_D003_COUNT] = { 37,37,38 };
+static void rs_draw_d003(rs_render *rr, int slot)
+{
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    rs_popup_shell(rr, slot, UI_D003_POPUP_X0, UI_D003_POPUP_Y0, UI_D003_POPUP_W, UI_D003_POPUP_H, 0, uc);
+    const ui_d003_btn *bb = ui_d003_buttons();
+    for (int i = 0; i < UI_D003_COUNT; i++) {
+        rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
+                     0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
+        int gr = 8 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int wpx = D003_pw[i], hpx = D003_ph[i];
+        if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
+            float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
+            float tw = (float)wpx * scale, th = 30.0f;
+            float u1 = ((float)wpx + 1.0f) / (float)rr->dlg_text_w;
+            rs_atlas_label_wh(rr, slot, rr->tex_dlg_text[slot], rr->dlg_text_w, rr->dlg_text_h,
+                              gr, (bb[i].x0 + bb[i].x1) * 0.5f, (bb[i].y0 + bb[i].y1) * 0.5f,
+                              tw, th, 0.0f, u1, uc);
+        }
+    }
+    if (!d003_diag) { d003_diag = 1;
+        LOGI("rs_draw_d003：datah_003 弹窗（260×270 面板 + 3 按钮，原版按钮文字）");
+    }
+}
+/* ★ 批量对齐（datah_004）：2 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
+   ★ 文字不变形三要素（本轮 datah_095 文字被压成窄竖条实证后修正）：
+     1) 每按钮独立字形像素宽高（D004_pw/ph 数组，非块级常量——旧版 i 泄漏成常量）
+     2) 图集行高固定 40（bake_atlas 行距）→ v = (行号*40)/图集高；n_rows 不再传 cnt
+     3) u1 = 字形像素宽/图集宽（旧版传 1.0 = 整行 416px 压进字宽）
+   目标字高 30px（720 基准），宽按字形 bbox 比例等比缩放。 */
+static const int D004_pw[UI_D004_COUNT] = { 152,152 };
+static const int D004_ph[UI_D004_COUNT] = { 37,37 };
+static void rs_draw_d004(rs_render *rr, int slot)
+{
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    rs_popup_shell(rr, slot, UI_D004_POPUP_X0, UI_D004_POPUP_Y0, UI_D004_POPUP_W, UI_D004_POPUP_H, 0, uc);
+    const ui_d004_btn *bb = ui_d004_buttons();
+    for (int i = 0; i < UI_D004_COUNT; i++) {
+        rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
+                     0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
+        int gr = 11 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int wpx = D004_pw[i], hpx = D004_ph[i];
+        if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
+            float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
+            float tw = (float)wpx * scale, th = 30.0f;
+            float u1 = ((float)wpx + 1.0f) / (float)rr->dlg_text_w;
+            rs_atlas_label_wh(rr, slot, rr->tex_dlg_text[slot], rr->dlg_text_w, rr->dlg_text_h,
+                              gr, (bb[i].x0 + bb[i].x1) * 0.5f, (bb[i].y0 + bb[i].y1) * 0.5f,
+                              tw, th, 0.0f, u1, uc);
+        }
+    }
+    if (!d004_diag) { d004_diag = 1;
+        LOGI("rs_draw_d004：datah_004 弹窗（260×190 面板 + 2 按钮，原版按钮文字）");
+    }
+}
+/* ★ 批量对齐（datah_005）：2 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
+   ★ 文字不变形三要素（本轮 datah_095 文字被压成窄竖条实证后修正）：
+     1) 每按钮独立字形像素宽高（D005_pw/ph 数组，非块级常量——旧版 i 泄漏成常量）
+     2) 图集行高固定 40（bake_atlas 行距）→ v = (行号*40)/图集高；n_rows 不再传 cnt
+     3) u1 = 字形像素宽/图集宽（旧版传 1.0 = 整行 416px 压进字宽）
+   目标字高 30px（720 基准），宽按字形 bbox 比例等比缩放。 */
+static const int D005_pw[UI_D005_COUNT] = { 95,84 };
+static const int D005_ph[UI_D005_COUNT] = { 28,29 };
+static void rs_draw_d005(rs_render *rr, int slot)
+{
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    rs_popup_shell(rr, slot, UI_D005_POPUP_X0, UI_D005_POPUP_Y0, UI_D005_POPUP_W, UI_D005_POPUP_H, 0, uc);
+    const ui_d005_btn *bb = ui_d005_buttons();
+    for (int i = 0; i < UI_D005_COUNT; i++) {
+        rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
+                     0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
+        int gr = 13 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int wpx = D005_pw[i], hpx = D005_ph[i];
+        if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
+            float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
+            float tw = (float)wpx * scale, th = 30.0f;
+            float u1 = ((float)wpx + 1.0f) / (float)rr->dlg_text_w;
+            rs_atlas_label_wh(rr, slot, rr->tex_dlg_text[slot], rr->dlg_text_w, rr->dlg_text_h,
+                              gr, (bb[i].x0 + bb[i].x1) * 0.5f, (bb[i].y0 + bb[i].y1) * 0.5f,
+                              tw, th, 0.0f, u1, uc);
+        }
+    }
+    if (!d005_diag) { d005_diag = 1;
+        LOGI("rs_draw_d005：datah_005 弹窗（257×45 面板 + 2 按钮，原版按钮文字）");
+    }
+}
 /* ★ 批量对齐（datah_006）：8 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
    ★ 文字不变形三要素（本轮 datah_095 文字被压成窄竖条实证后修正）：
      1) 每按钮独立字形像素宽高（D006_pw/ph 数组，非块级常量——旧版 i 泄漏成常量）
@@ -4786,7 +5080,7 @@ static void rs_draw_d006(rs_render *rr, int slot)
     for (int i = 0; i < UI_D006_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 0 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 15 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D006_pw[i], hpx = D006_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -4817,7 +5111,7 @@ static void rs_draw_d007(rs_render *rr, int slot)
     for (int i = 0; i < UI_D007_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 8 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 23 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D007_pw[i], hpx = D007_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -4848,7 +5142,7 @@ static void rs_draw_d008(rs_render *rr, int slot)
     for (int i = 0; i < UI_D008_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 14 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 29 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D008_pw[i], hpx = D008_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -4861,6 +5155,37 @@ static void rs_draw_d008(rs_render *rr, int slot)
     }
     if (!d008_diag) { d008_diag = 1;
         LOGI("rs_draw_d008：datah_008 弹窗（450×390 面板 + 5 按钮，原版按钮文字）");
+    }
+}
+/* ★ 批量对齐（datah_010）：2 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
+   ★ 文字不变形三要素（本轮 datah_095 文字被压成窄竖条实证后修正）：
+     1) 每按钮独立字形像素宽高（D010_pw/ph 数组，非块级常量——旧版 i 泄漏成常量）
+     2) 图集行高固定 40（bake_atlas 行距）→ v = (行号*40)/图集高；n_rows 不再传 cnt
+     3) u1 = 字形像素宽/图集宽（旧版传 1.0 = 整行 416px 压进字宽）
+   目标字高 30px（720 基准），宽按字形 bbox 比例等比缩放。 */
+static const int D010_pw[UI_D010_COUNT] = { 76,76 };
+static const int D010_ph[UI_D010_COUNT] = { 37,37 };
+static void rs_draw_d010(rs_render *rr, int slot)
+{
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    rs_popup_shell(rr, slot, UI_D010_POPUP_X0, UI_D010_POPUP_Y0, UI_D010_POPUP_W, UI_D010_POPUP_H, 0, uc);
+    const ui_d010_btn *bb = ui_d010_buttons();
+    for (int i = 0; i < UI_D010_COUNT; i++) {
+        rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
+                     0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
+        int gr = 34 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int wpx = D010_pw[i], hpx = D010_ph[i];
+        if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
+            float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
+            float tw = (float)wpx * scale, th = 30.0f;
+            float u1 = ((float)wpx + 1.0f) / (float)rr->dlg_text_w;
+            rs_atlas_label_wh(rr, slot, rr->tex_dlg_text[slot], rr->dlg_text_w, rr->dlg_text_h,
+                              gr, (bb[i].x0 + bb[i].x1) * 0.5f, (bb[i].y0 + bb[i].y1) * 0.5f,
+                              tw, th, 0.0f, u1, uc);
+        }
+    }
+    if (!d010_diag) { d010_diag = 1;
+        LOGI("rs_draw_d010：datah_010 弹窗（400×337 面板 + 2 按钮，原版按钮文字）");
     }
 }
 /* ★ 批量对齐（datah_012）：6 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
@@ -4879,7 +5204,7 @@ static void rs_draw_d012(rs_render *rr, int slot)
     for (int i = 0; i < UI_D012_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 19 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 36 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D012_pw[i], hpx = D012_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -4892,6 +5217,781 @@ static void rs_draw_d012(rs_render *rr, int slot)
     }
     if (!d012_diag) { d012_diag = 1;
         LOGI("rs_draw_d012：datah_012 弹窗（450×465 面板 + 6 按钮，原版按钮文字）");
+    }
+}
+/* ★ 批量对齐（datah_013）：3 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
+   ★ 文字不变形三要素（本轮 datah_095 文字被压成窄竖条实证后修正）：
+     1) 每按钮独立字形像素宽高（D013_pw/ph 数组，非块级常量——旧版 i 泄漏成常量）
+     2) 图集行高固定 40（bake_atlas 行距）→ v = (行号*40)/图集高；n_rows 不再传 cnt
+     3) u1 = 字形像素宽/图集宽（旧版传 1.0 = 整行 416px 压进字宽）
+   目标字高 30px（720 基准），宽按字形 bbox 比例等比缩放。 */
+static const int D013_pw[UI_D013_COUNT] = { 21,21,21 };
+static const int D013_ph[UI_D013_COUNT] = { 28,27,27 };
+static void rs_draw_d013(rs_render *rr, int slot)
+{
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    rs_popup_shell(rr, slot, UI_D013_POPUP_X0, UI_D013_POPUP_Y0, UI_D013_POPUP_W, UI_D013_POPUP_H, 0, uc);
+    const ui_d013_btn *bb = ui_d013_buttons();
+    for (int i = 0; i < UI_D013_COUNT; i++) {
+        rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
+                     0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
+        int gr = 42 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int wpx = D013_pw[i], hpx = D013_ph[i];
+        if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
+            float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
+            float tw = (float)wpx * scale, th = 30.0f;
+            float u1 = ((float)wpx + 1.0f) / (float)rr->dlg_text_w;
+            rs_atlas_label_wh(rr, slot, rr->tex_dlg_text[slot], rr->dlg_text_w, rr->dlg_text_h,
+                              gr, (bb[i].x0 + bb[i].x1) * 0.5f, (bb[i].y0 + bb[i].y1) * 0.5f,
+                              tw, th, 0.0f, u1, uc);
+        }
+    }
+    if (!d013_diag) { d013_diag = 1;
+        LOGI("rs_draw_d013：datah_013 弹窗（230×230 面板 + 3 按钮，原版按钮文字）");
+    }
+}
+/* ★ 批量对齐（datah_015）：1 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
+   ★ 文字不变形三要素（本轮 datah_095 文字被压成窄竖条实证后修正）：
+     1) 每按钮独立字形像素宽高（D015_pw/ph 数组，非块级常量——旧版 i 泄漏成常量）
+     2) 图集行高固定 40（bake_atlas 行距）→ v = (行号*40)/图集高；n_rows 不再传 cnt
+     3) u1 = 字形像素宽/图集宽（旧版传 1.0 = 整行 416px 压进字宽）
+   目标字高 30px（720 基准），宽按字形 bbox 比例等比缩放。 */
+static const int D015_pw[UI_D015_COUNT] = { 84 };
+static const int D015_ph[UI_D015_COUNT] = { 29 };
+static void rs_draw_d015(rs_render *rr, int slot)
+{
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    rs_popup_shell(rr, slot, UI_D015_POPUP_X0, UI_D015_POPUP_Y0, UI_D015_POPUP_W, UI_D015_POPUP_H, 0, uc);
+    const ui_d015_btn *bb = ui_d015_buttons();
+    for (int i = 0; i < UI_D015_COUNT; i++) {
+        rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
+                     0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
+        int gr = 45 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int wpx = D015_pw[i], hpx = D015_ph[i];
+        if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
+            float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
+            float tw = (float)wpx * scale, th = 30.0f;
+            float u1 = ((float)wpx + 1.0f) / (float)rr->dlg_text_w;
+            rs_atlas_label_wh(rr, slot, rr->tex_dlg_text[slot], rr->dlg_text_w, rr->dlg_text_h,
+                              gr, (bb[i].x0 + bb[i].x1) * 0.5f, (bb[i].y0 + bb[i].y1) * 0.5f,
+                              tw, th, 0.0f, u1, uc);
+        }
+    }
+    if (!d015_diag) { d015_diag = 1;
+        LOGI("rs_draw_d015：datah_015 弹窗（257×45 面板 + 1 按钮，原版按钮文字）");
+    }
+}
+/* ★ 批量对齐（datah_016）：4 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
+   ★ 文字不变形三要素（本轮 datah_095 文字被压成窄竖条实证后修正）：
+     1) 每按钮独立字形像素宽高（D016_pw/ph 数组，非块级常量——旧版 i 泄漏成常量）
+     2) 图集行高固定 40（bake_atlas 行距）→ v = (行号*40)/图集高；n_rows 不再传 cnt
+     3) u1 = 字形像素宽/图集宽（旧版传 1.0 = 整行 416px 压进字宽）
+   目标字高 30px（720 基准），宽按字形 bbox 比例等比缩放。 */
+static const int D016_pw[UI_D016_COUNT] = { 143,76,76,76 };
+static const int D016_ph[UI_D016_COUNT] = { 28,37,37,37 };
+static void rs_draw_d016(rs_render *rr, int slot)
+{
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    rs_popup_shell(rr, slot, UI_D016_POPUP_X0, UI_D016_POPUP_Y0, UI_D016_POPUP_W, UI_D016_POPUP_H, 0, uc);
+    const ui_d016_btn *bb = ui_d016_buttons();
+    for (int i = 0; i < UI_D016_COUNT; i++) {
+        rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
+                     0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
+        int gr = 46 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int wpx = D016_pw[i], hpx = D016_ph[i];
+        if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
+            float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
+            float tw = (float)wpx * scale, th = 30.0f;
+            float u1 = ((float)wpx + 1.0f) / (float)rr->dlg_text_w;
+            rs_atlas_label_wh(rr, slot, rr->tex_dlg_text[slot], rr->dlg_text_w, rr->dlg_text_h,
+                              gr, (bb[i].x0 + bb[i].x1) * 0.5f, (bb[i].y0 + bb[i].y1) * 0.5f,
+                              tw, th, 0.0f, u1, uc);
+        }
+    }
+    if (!d016_diag) { d016_diag = 1;
+        LOGI("rs_draw_d016：datah_016 弹窗（400×475 面板 + 4 按钮，原版按钮文字）");
+    }
+}
+/* ★ 批量对齐（datah_017）：1 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
+   ★ 文字不变形三要素（本轮 datah_095 文字被压成窄竖条实证后修正）：
+     1) 每按钮独立字形像素宽高（D017_pw/ph 数组，非块级常量——旧版 i 泄漏成常量）
+     2) 图集行高固定 40（bake_atlas 行距）→ v = (行号*40)/图集高；n_rows 不再传 cnt
+     3) u1 = 字形像素宽/图集宽（旧版传 1.0 = 整行 416px 压进字宽）
+   目标字高 30px（720 基准），宽按字形 bbox 比例等比缩放。 */
+static const int D017_pw[UI_D017_COUNT] = { 76 };
+static const int D017_ph[UI_D017_COUNT] = { 37 };
+static void rs_draw_d017(rs_render *rr, int slot)
+{
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    rs_popup_shell(rr, slot, UI_D017_POPUP_X0, UI_D017_POPUP_Y0, UI_D017_POPUP_W, UI_D017_POPUP_H, 0, uc);
+    const ui_d017_btn *bb = ui_d017_buttons();
+    for (int i = 0; i < UI_D017_COUNT; i++) {
+        rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
+                     0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
+        int gr = 50 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int wpx = D017_pw[i], hpx = D017_ph[i];
+        if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
+            float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
+            float tw = (float)wpx * scale, th = 30.0f;
+            float u1 = ((float)wpx + 1.0f) / (float)rr->dlg_text_w;
+            rs_atlas_label_wh(rr, slot, rr->tex_dlg_text[slot], rr->dlg_text_w, rr->dlg_text_h,
+                              gr, (bb[i].x0 + bb[i].x1) * 0.5f, (bb[i].y0 + bb[i].y1) * 0.5f,
+                              tw, th, 0.0f, u1, uc);
+        }
+    }
+    if (!d017_diag) { d017_diag = 1;
+        LOGI("rs_draw_d017：datah_017 弹窗（400×535 面板 + 1 按钮，原版按钮文字）");
+    }
+}
+/* ★ 批量对齐（datah_019）：4 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
+   ★ 文字不变形三要素（本轮 datah_095 文字被压成窄竖条实证后修正）：
+     1) 每按钮独立字形像素宽高（D019_pw/ph 数组，非块级常量——旧版 i 泄漏成常量）
+     2) 图集行高固定 40（bake_atlas 行距）→ v = (行号*40)/图集高；n_rows 不再传 cnt
+     3) u1 = 字形像素宽/图集宽（旧版传 1.0 = 整行 416px 压进字宽）
+   目标字高 30px（720 基准），宽按字形 bbox 比例等比缩放。 */
+static const int D019_pw[UI_D019_COUNT] = { 152,152,152,152 };
+static const int D019_ph[UI_D019_COUNT] = { 37,37,37,37 };
+static void rs_draw_d019(rs_render *rr, int slot)
+{
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    rs_popup_shell(rr, slot, UI_D019_POPUP_X0, UI_D019_POPUP_Y0, UI_D019_POPUP_W, UI_D019_POPUP_H, 0, uc);
+    const ui_d019_btn *bb = ui_d019_buttons();
+    for (int i = 0; i < UI_D019_COUNT; i++) {
+        rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
+                     0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
+        int gr = 51 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int wpx = D019_pw[i], hpx = D019_ph[i];
+        if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
+            float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
+            float tw = (float)wpx * scale, th = 30.0f;
+            float u1 = ((float)wpx + 1.0f) / (float)rr->dlg_text_w;
+            rs_atlas_label_wh(rr, slot, rr->tex_dlg_text[slot], rr->dlg_text_w, rr->dlg_text_h,
+                              gr, (bb[i].x0 + bb[i].x1) * 0.5f, (bb[i].y0 + bb[i].y1) * 0.5f,
+                              tw, th, 0.0f, u1, uc);
+        }
+    }
+    if (!d019_diag) { d019_diag = 1;
+        LOGI("rs_draw_d019：datah_019 弹窗（675×360 面板 + 4 按钮，原版按钮文字）");
+    }
+}
+/* ★ 批量对齐（datah_020）：4 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
+   ★ 文字不变形三要素（本轮 datah_095 文字被压成窄竖条实证后修正）：
+     1) 每按钮独立字形像素宽高（D020_pw/ph 数组，非块级常量——旧版 i 泄漏成常量）
+     2) 图集行高固定 40（bake_atlas 行距）→ v = (行号*40)/图集高；n_rows 不再传 cnt
+     3) u1 = 字形像素宽/图集宽（旧版传 1.0 = 整行 416px 压进字宽）
+   目标字高 30px（720 基准），宽按字形 bbox 比例等比缩放。 */
+static const int D020_pw[UI_D020_COUNT] = { 76,76,76,76 };
+static const int D020_ph[UI_D020_COUNT] = { 37,38,37,37 };
+static void rs_draw_d020(rs_render *rr, int slot)
+{
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    rs_popup_shell(rr, slot, UI_D020_POPUP_X0, UI_D020_POPUP_Y0, UI_D020_POPUP_W, UI_D020_POPUP_H, 0, uc);
+    const ui_d020_btn *bb = ui_d020_buttons();
+    for (int i = 0; i < UI_D020_COUNT; i++) {
+        rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
+                     0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
+        int gr = 55 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int wpx = D020_pw[i], hpx = D020_ph[i];
+        if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
+            float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
+            float tw = (float)wpx * scale, th = 30.0f;
+            float u1 = ((float)wpx + 1.0f) / (float)rr->dlg_text_w;
+            rs_atlas_label_wh(rr, slot, rr->tex_dlg_text[slot], rr->dlg_text_w, rr->dlg_text_h,
+                              gr, (bb[i].x0 + bb[i].x1) * 0.5f, (bb[i].y0 + bb[i].y1) * 0.5f,
+                              tw, th, 0.0f, u1, uc);
+        }
+    }
+    if (!d020_diag) { d020_diag = 1;
+        LOGI("rs_draw_d020：datah_020 弹窗（400×535 面板 + 4 按钮，原版按钮文字）");
+    }
+}
+/* ★ 批量对齐（datah_021）：3 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
+   ★ 文字不变形三要素（本轮 datah_095 文字被压成窄竖条实证后修正）：
+     1) 每按钮独立字形像素宽高（D021_pw/ph 数组，非块级常量——旧版 i 泄漏成常量）
+     2) 图集行高固定 40（bake_atlas 行距）→ v = (行号*40)/图集高；n_rows 不再传 cnt
+     3) u1 = 字形像素宽/图集宽（旧版传 1.0 = 整行 416px 压进字宽）
+   目标字高 30px（720 基准），宽按字形 bbox 比例等比缩放。 */
+static const int D021_pw[UI_D021_COUNT] = { 21,21,21 };
+static const int D021_ph[UI_D021_COUNT] = { 28,27,27 };
+static void rs_draw_d021(rs_render *rr, int slot)
+{
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    rs_popup_shell(rr, slot, UI_D021_POPUP_X0, UI_D021_POPUP_Y0, UI_D021_POPUP_W, UI_D021_POPUP_H, 0, uc);
+    const ui_d021_btn *bb = ui_d021_buttons();
+    for (int i = 0; i < UI_D021_COUNT; i++) {
+        rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
+                     0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
+        int gr = 59 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int wpx = D021_pw[i], hpx = D021_ph[i];
+        if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
+            float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
+            float tw = (float)wpx * scale, th = 30.0f;
+            float u1 = ((float)wpx + 1.0f) / (float)rr->dlg_text_w;
+            rs_atlas_label_wh(rr, slot, rr->tex_dlg_text[slot], rr->dlg_text_w, rr->dlg_text_h,
+                              gr, (bb[i].x0 + bb[i].x1) * 0.5f, (bb[i].y0 + bb[i].y1) * 0.5f,
+                              tw, th, 0.0f, u1, uc);
+        }
+    }
+    if (!d021_diag) { d021_diag = 1;
+        LOGI("rs_draw_d021：datah_021 弹窗（230×230 面板 + 3 按钮，原版按钮文字）");
+    }
+}
+/* ★ 批量对齐（datah_022）：5 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
+   ★ 文字不变形三要素（本轮 datah_095 文字被压成窄竖条实证后修正）：
+     1) 每按钮独立字形像素宽高（D022_pw/ph 数组，非块级常量——旧版 i 泄漏成常量）
+     2) 图集行高固定 40（bake_atlas 行距）→ v = (行号*40)/图集高；n_rows 不再传 cnt
+     3) u1 = 字形像素宽/图集宽（旧版传 1.0 = 整行 416px 压进字宽）
+   目标字高 30px（720 基准），宽按字形 bbox 比例等比缩放。 */
+static const int D022_pw[UI_D022_COUNT] = { 21,21,21,21,21 };
+static const int D022_ph[UI_D022_COUNT] = { 28,27,27,28,27 };
+static void rs_draw_d022(rs_render *rr, int slot)
+{
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    rs_popup_shell(rr, slot, UI_D022_POPUP_X0, UI_D022_POPUP_Y0, UI_D022_POPUP_W, UI_D022_POPUP_H, 0, uc);
+    const ui_d022_btn *bb = ui_d022_buttons();
+    for (int i = 0; i < UI_D022_COUNT; i++) {
+        rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
+                     0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
+        int gr = 62 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int wpx = D022_pw[i], hpx = D022_ph[i];
+        if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
+            float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
+            float tw = (float)wpx * scale, th = 30.0f;
+            float u1 = ((float)wpx + 1.0f) / (float)rr->dlg_text_w;
+            rs_atlas_label_wh(rr, slot, rr->tex_dlg_text[slot], rr->dlg_text_w, rr->dlg_text_h,
+                              gr, (bb[i].x0 + bb[i].x1) * 0.5f, (bb[i].y0 + bb[i].y1) * 0.5f,
+                              tw, th, 0.0f, u1, uc);
+        }
+    }
+    if (!d022_diag) { d022_diag = 1;
+        LOGI("rs_draw_d022：datah_022 弹窗（230×370 面板 + 5 按钮，原版按钮文字）");
+    }
+}
+/* ★ 批量对齐（datah_023）：4 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
+   ★ 文字不变形三要素（本轮 datah_095 文字被压成窄竖条实证后修正）：
+     1) 每按钮独立字形像素宽高（D023_pw/ph 数组，非块级常量——旧版 i 泄漏成常量）
+     2) 图集行高固定 40（bake_atlas 行距）→ v = (行号*40)/图集高；n_rows 不再传 cnt
+     3) u1 = 字形像素宽/图集宽（旧版传 1.0 = 整行 416px 压进字宽）
+   目标字高 30px（720 基准），宽按字形 bbox 比例等比缩放。 */
+static const int D023_pw[UI_D023_COUNT] = { 152,152,76,76 };
+static const int D023_ph[UI_D023_COUNT] = { 37,37,37,37 };
+static void rs_draw_d023(rs_render *rr, int slot)
+{
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    rs_popup_shell(rr, slot, UI_D023_POPUP_X0, UI_D023_POPUP_Y0, UI_D023_POPUP_W, UI_D023_POPUP_H, 0, uc);
+    const ui_d023_btn *bb = ui_d023_buttons();
+    for (int i = 0; i < UI_D023_COUNT; i++) {
+        rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
+                     0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
+        int gr = 67 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int wpx = D023_pw[i], hpx = D023_ph[i];
+        if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
+            float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
+            float tw = (float)wpx * scale, th = 30.0f;
+            float u1 = ((float)wpx + 1.0f) / (float)rr->dlg_text_w;
+            rs_atlas_label_wh(rr, slot, rr->tex_dlg_text[slot], rr->dlg_text_w, rr->dlg_text_h,
+                              gr, (bb[i].x0 + bb[i].x1) * 0.5f, (bb[i].y0 + bb[i].y1) * 0.5f,
+                              tw, th, 0.0f, u1, uc);
+        }
+    }
+    if (!d023_diag) { d023_diag = 1;
+        LOGI("rs_draw_d023：datah_023 弹窗（135×210 面板 + 4 按钮，原版按钮文字）");
+    }
+}
+/* ★ 批量对齐（datah_024）：1 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
+   ★ 文字不变形三要素（本轮 datah_095 文字被压成窄竖条实证后修正）：
+     1) 每按钮独立字形像素宽高（D024_pw/ph 数组，非块级常量——旧版 i 泄漏成常量）
+     2) 图集行高固定 40（bake_atlas 行距）→ v = (行号*40)/图集高；n_rows 不再传 cnt
+     3) u1 = 字形像素宽/图集宽（旧版传 1.0 = 整行 416px 压进字宽）
+   目标字高 30px（720 基准），宽按字形 bbox 比例等比缩放。 */
+static const int D024_pw[UI_D024_COUNT] = { 84 };
+static const int D024_ph[UI_D024_COUNT] = { 33 };
+static void rs_draw_d024(rs_render *rr, int slot)
+{
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    rs_popup_shell(rr, slot, UI_D024_POPUP_X0, UI_D024_POPUP_Y0, UI_D024_POPUP_W, UI_D024_POPUP_H, 0, uc);
+    const ui_d024_btn *bb = ui_d024_buttons();
+    for (int i = 0; i < UI_D024_COUNT; i++) {
+        rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
+                     0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
+        int gr = 71 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int wpx = D024_pw[i], hpx = D024_ph[i];
+        if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
+            float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
+            float tw = (float)wpx * scale, th = 30.0f;
+            float u1 = ((float)wpx + 1.0f) / (float)rr->dlg_text_w;
+            rs_atlas_label_wh(rr, slot, rr->tex_dlg_text[slot], rr->dlg_text_w, rr->dlg_text_h,
+                              gr, (bb[i].x0 + bb[i].x1) * 0.5f, (bb[i].y0 + bb[i].y1) * 0.5f,
+                              tw, th, 0.0f, u1, uc);
+        }
+    }
+    if (!d024_diag) { d024_diag = 1;
+        LOGI("rs_draw_d024：datah_024 弹窗（-318×-634 面板 + 1 按钮，原版按钮文字）");
+    }
+}
+/* ★ 批量对齐（datah_025）：1 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
+   ★ 文字不变形三要素（本轮 datah_095 文字被压成窄竖条实证后修正）：
+     1) 每按钮独立字形像素宽高（D025_pw/ph 数组，非块级常量——旧版 i 泄漏成常量）
+     2) 图集行高固定 40（bake_atlas 行距）→ v = (行号*40)/图集高；n_rows 不再传 cnt
+     3) u1 = 字形像素宽/图集宽（旧版传 1.0 = 整行 416px 压进字宽）
+   目标字高 30px（720 基准），宽按字形 bbox 比例等比缩放。 */
+static const int D025_pw[UI_D025_COUNT] = { 76 };
+static const int D025_ph[UI_D025_COUNT] = { 37 };
+static void rs_draw_d025(rs_render *rr, int slot)
+{
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    rs_popup_shell(rr, slot, UI_D025_POPUP_X0, UI_D025_POPUP_Y0, UI_D025_POPUP_W, UI_D025_POPUP_H, 0, uc);
+    const ui_d025_btn *bb = ui_d025_buttons();
+    for (int i = 0; i < UI_D025_COUNT; i++) {
+        rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
+                     0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
+        int gr = 72 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int wpx = D025_pw[i], hpx = D025_ph[i];
+        if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
+            float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
+            float tw = (float)wpx * scale, th = 30.0f;
+            float u1 = ((float)wpx + 1.0f) / (float)rr->dlg_text_w;
+            rs_atlas_label_wh(rr, slot, rr->tex_dlg_text[slot], rr->dlg_text_w, rr->dlg_text_h,
+                              gr, (bb[i].x0 + bb[i].x1) * 0.5f, (bb[i].y0 + bb[i].y1) * 0.5f,
+                              tw, th, 0.0f, u1, uc);
+        }
+    }
+    if (!d025_diag) { d025_diag = 1;
+        LOGI("rs_draw_d025：datah_025 弹窗（450×220 面板 + 1 按钮，原版按钮文字）");
+    }
+}
+/* ★ 批量对齐（datah_026）：3 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
+   ★ 文字不变形三要素（本轮 datah_095 文字被压成窄竖条实证后修正）：
+     1) 每按钮独立字形像素宽高（D026_pw/ph 数组，非块级常量——旧版 i 泄漏成常量）
+     2) 图集行高固定 40（bake_atlas 行距）→ v = (行号*40)/图集高；n_rows 不再传 cnt
+     3) u1 = 字形像素宽/图集宽（旧版传 1.0 = 整行 416px 压进字宽）
+   目标字高 30px（720 基准），宽按字形 bbox 比例等比缩放。 */
+static const int D026_pw[UI_D026_COUNT] = { 103,76,76 };
+static const int D026_ph[UI_D026_COUNT] = { 29,37,37 };
+static void rs_draw_d026(rs_render *rr, int slot)
+{
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    rs_popup_shell(rr, slot, UI_D026_POPUP_X0, UI_D026_POPUP_Y0, UI_D026_POPUP_W, UI_D026_POPUP_H, 0, uc);
+    const ui_d026_btn *bb = ui_d026_buttons();
+    for (int i = 0; i < UI_D026_COUNT; i++) {
+        rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
+                     0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
+        int gr = 73 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int wpx = D026_pw[i], hpx = D026_ph[i];
+        if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
+            float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
+            float tw = (float)wpx * scale, th = 30.0f;
+            float u1 = ((float)wpx + 1.0f) / (float)rr->dlg_text_w;
+            rs_atlas_label_wh(rr, slot, rr->tex_dlg_text[slot], rr->dlg_text_w, rr->dlg_text_h,
+                              gr, (bb[i].x0 + bb[i].x1) * 0.5f, (bb[i].y0 + bb[i].y1) * 0.5f,
+                              tw, th, 0.0f, u1, uc);
+        }
+    }
+    if (!d026_diag) { d026_diag = 1;
+        LOGI("rs_draw_d026：datah_026 弹窗（450×240 面板 + 3 按钮，原版按钮文字）");
+    }
+}
+/* ★ 批量对齐（datah_027）：3 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
+   ★ 文字不变形三要素（本轮 datah_095 文字被压成窄竖条实证后修正）：
+     1) 每按钮独立字形像素宽高（D027_pw/ph 数组，非块级常量——旧版 i 泄漏成常量）
+     2) 图集行高固定 40（bake_atlas 行距）→ v = (行号*40)/图集高；n_rows 不再传 cnt
+     3) u1 = 字形像素宽/图集宽（旧版传 1.0 = 整行 416px 压进字宽）
+   目标字高 30px（720 基准），宽按字形 bbox 比例等比缩放。 */
+static const int D027_pw[UI_D027_COUNT] = { 76,76,114 };
+static const int D027_ph[UI_D027_COUNT] = { 37,38,38 };
+static void rs_draw_d027(rs_render *rr, int slot)
+{
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    rs_popup_shell(rr, slot, UI_D027_POPUP_X0, UI_D027_POPUP_Y0, UI_D027_POPUP_W, UI_D027_POPUP_H, 0, uc);
+    const ui_d027_btn *bb = ui_d027_buttons();
+    for (int i = 0; i < UI_D027_COUNT; i++) {
+        rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
+                     0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
+        int gr = 76 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int wpx = D027_pw[i], hpx = D027_ph[i];
+        if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
+            float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
+            float tw = (float)wpx * scale, th = 30.0f;
+            float u1 = ((float)wpx + 1.0f) / (float)rr->dlg_text_w;
+            rs_atlas_label_wh(rr, slot, rr->tex_dlg_text[slot], rr->dlg_text_w, rr->dlg_text_h,
+                              gr, (bb[i].x0 + bb[i].x1) * 0.5f, (bb[i].y0 + bb[i].y1) * 0.5f,
+                              tw, th, 0.0f, u1, uc);
+        }
+    }
+    if (!d027_diag) { d027_diag = 1;
+        LOGI("rs_draw_d027：datah_027 弹窗（230×230 面板 + 3 按钮，原版按钮文字）");
+    }
+}
+/* ★ 批量对齐（datah_028）：3 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
+   ★ 文字不变形三要素（本轮 datah_095 文字被压成窄竖条实证后修正）：
+     1) 每按钮独立字形像素宽高（D028_pw/ph 数组，非块级常量——旧版 i 泄漏成常量）
+     2) 图集行高固定 40（bake_atlas 行距）→ v = (行号*40)/图集高；n_rows 不再传 cnt
+     3) u1 = 字形像素宽/图集宽（旧版传 1.0 = 整行 416px 压进字宽）
+   目标字高 30px（720 基准），宽按字形 bbox 比例等比缩放。 */
+static const int D028_pw[UI_D028_COUNT] = { 114,76,76 };
+static const int D028_ph[UI_D028_COUNT] = { 37,37,37 };
+static void rs_draw_d028(rs_render *rr, int slot)
+{
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    rs_popup_shell(rr, slot, UI_D028_POPUP_X0, UI_D028_POPUP_Y0, UI_D028_POPUP_W, UI_D028_POPUP_H, 0, uc);
+    const ui_d028_btn *bb = ui_d028_buttons();
+    for (int i = 0; i < UI_D028_COUNT; i++) {
+        rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
+                     0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
+        int gr = 79 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int wpx = D028_pw[i], hpx = D028_ph[i];
+        if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
+            float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
+            float tw = (float)wpx * scale, th = 30.0f;
+            float u1 = ((float)wpx + 1.0f) / (float)rr->dlg_text_w;
+            rs_atlas_label_wh(rr, slot, rr->tex_dlg_text[slot], rr->dlg_text_w, rr->dlg_text_h,
+                              gr, (bb[i].x0 + bb[i].x1) * 0.5f, (bb[i].y0 + bb[i].y1) * 0.5f,
+                              tw, th, 0.0f, u1, uc);
+        }
+    }
+    if (!d028_diag) { d028_diag = 1;
+        LOGI("rs_draw_d028：datah_028 弹窗（430×552 面板 + 3 按钮，原版按钮文字）");
+    }
+}
+/* ★ 批量对齐（datah_029）：2 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
+   ★ 文字不变形三要素（本轮 datah_095 文字被压成窄竖条实证后修正）：
+     1) 每按钮独立字形像素宽高（D029_pw/ph 数组，非块级常量——旧版 i 泄漏成常量）
+     2) 图集行高固定 40（bake_atlas 行距）→ v = (行号*40)/图集高；n_rows 不再传 cnt
+     3) u1 = 字形像素宽/图集宽（旧版传 1.0 = 整行 416px 压进字宽）
+   目标字高 30px（720 基准），宽按字形 bbox 比例等比缩放。 */
+static const int D029_pw[UI_D029_COUNT] = { 76,76 };
+static const int D029_ph[UI_D029_COUNT] = { 37,37 };
+static void rs_draw_d029(rs_render *rr, int slot)
+{
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    rs_popup_shell(rr, slot, UI_D029_POPUP_X0, UI_D029_POPUP_Y0, UI_D029_POPUP_W, UI_D029_POPUP_H, 0, uc);
+    const ui_d029_btn *bb = ui_d029_buttons();
+    for (int i = 0; i < UI_D029_COUNT; i++) {
+        rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
+                     0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
+        int gr = 82 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int wpx = D029_pw[i], hpx = D029_ph[i];
+        if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
+            float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
+            float tw = (float)wpx * scale, th = 30.0f;
+            float u1 = ((float)wpx + 1.0f) / (float)rr->dlg_text_w;
+            rs_atlas_label_wh(rr, slot, rr->tex_dlg_text[slot], rr->dlg_text_w, rr->dlg_text_h,
+                              gr, (bb[i].x0 + bb[i].x1) * 0.5f, (bb[i].y0 + bb[i].y1) * 0.5f,
+                              tw, th, 0.0f, u1, uc);
+        }
+    }
+    if (!d029_diag) { d029_diag = 1;
+        LOGI("rs_draw_d029：datah_029 弹窗（420×530 面板 + 2 按钮，原版按钮文字）");
+    }
+}
+/* ★ 批量对齐（datah_030）：2 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
+   ★ 文字不变形三要素（本轮 datah_095 文字被压成窄竖条实证后修正）：
+     1) 每按钮独立字形像素宽高（D030_pw/ph 数组，非块级常量——旧版 i 泄漏成常量）
+     2) 图集行高固定 40（bake_atlas 行距）→ v = (行号*40)/图集高；n_rows 不再传 cnt
+     3) u1 = 字形像素宽/图集宽（旧版传 1.0 = 整行 416px 压进字宽）
+   目标字高 30px（720 基准），宽按字形 bbox 比例等比缩放。 */
+static const int D030_pw[UI_D030_COUNT] = { 95,81 };
+static const int D030_ph[UI_D030_COUNT] = { 28,29 };
+static void rs_draw_d030(rs_render *rr, int slot)
+{
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    rs_popup_shell(rr, slot, UI_D030_POPUP_X0, UI_D030_POPUP_Y0, UI_D030_POPUP_W, UI_D030_POPUP_H, 0, uc);
+    const ui_d030_btn *bb = ui_d030_buttons();
+    for (int i = 0; i < UI_D030_COUNT; i++) {
+        rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
+                     0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
+        int gr = 84 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int wpx = D030_pw[i], hpx = D030_ph[i];
+        if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
+            float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
+            float tw = (float)wpx * scale, th = 30.0f;
+            float u1 = ((float)wpx + 1.0f) / (float)rr->dlg_text_w;
+            rs_atlas_label_wh(rr, slot, rr->tex_dlg_text[slot], rr->dlg_text_w, rr->dlg_text_h,
+                              gr, (bb[i].x0 + bb[i].x1) * 0.5f, (bb[i].y0 + bb[i].y1) * 0.5f,
+                              tw, th, 0.0f, u1, uc);
+        }
+    }
+    if (!d030_diag) { d030_diag = 1;
+        LOGI("rs_draw_d030：datah_030 弹窗（39×45 面板 + 2 按钮，原版按钮文字）");
+    }
+}
+/* ★ 批量对齐（datah_031）：3 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
+   ★ 文字不变形三要素（本轮 datah_095 文字被压成窄竖条实证后修正）：
+     1) 每按钮独立字形像素宽高（D031_pw/ph 数组，非块级常量——旧版 i 泄漏成常量）
+     2) 图集行高固定 40（bake_atlas 行距）→ v = (行号*40)/图集高；n_rows 不再传 cnt
+     3) u1 = 字形像素宽/图集宽（旧版传 1.0 = 整行 416px 压进字宽）
+   目标字高 30px（720 基准），宽按字形 bbox 比例等比缩放。 */
+static const int D031_pw[UI_D031_COUNT] = { 76,76,76 };
+static const int D031_ph[UI_D031_COUNT] = { 38,38,37 };
+static void rs_draw_d031(rs_render *rr, int slot)
+{
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    rs_popup_shell(rr, slot, UI_D031_POPUP_X0, UI_D031_POPUP_Y0, UI_D031_POPUP_W, UI_D031_POPUP_H, 0, uc);
+    const ui_d031_btn *bb = ui_d031_buttons();
+    for (int i = 0; i < UI_D031_COUNT; i++) {
+        rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
+                     0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
+        int gr = 86 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int wpx = D031_pw[i], hpx = D031_ph[i];
+        if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
+            float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
+            float tw = (float)wpx * scale, th = 30.0f;
+            float u1 = ((float)wpx + 1.0f) / (float)rr->dlg_text_w;
+            rs_atlas_label_wh(rr, slot, rr->tex_dlg_text[slot], rr->dlg_text_w, rr->dlg_text_h,
+                              gr, (bb[i].x0 + bb[i].x1) * 0.5f, (bb[i].y0 + bb[i].y1) * 0.5f,
+                              tw, th, 0.0f, u1, uc);
+        }
+    }
+    if (!d031_diag) { d031_diag = 1;
+        LOGI("rs_draw_d031：datah_031 弹窗（420×520 面板 + 3 按钮，原版按钮文字）");
+    }
+}
+/* ★ 批量对齐（datah_032）：4 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
+   ★ 文字不变形三要素（本轮 datah_095 文字被压成窄竖条实证后修正）：
+     1) 每按钮独立字形像素宽高（D032_pw/ph 数组，非块级常量——旧版 i 泄漏成常量）
+     2) 图集行高固定 40（bake_atlas 行距）→ v = (行号*40)/图集高；n_rows 不再传 cnt
+     3) u1 = 字形像素宽/图集宽（旧版传 1.0 = 整行 416px 压进字宽）
+   目标字高 30px（720 基准），宽按字形 bbox 比例等比缩放。 */
+static const int D032_pw[UI_D032_COUNT] = { 76,76,76,76 };
+static const int D032_ph[UI_D032_COUNT] = { 37,37,37,37 };
+static void rs_draw_d032(rs_render *rr, int slot)
+{
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    rs_popup_shell(rr, slot, UI_D032_POPUP_X0, UI_D032_POPUP_Y0, UI_D032_POPUP_W, UI_D032_POPUP_H, 0, uc);
+    const ui_d032_btn *bb = ui_d032_buttons();
+    for (int i = 0; i < UI_D032_COUNT; i++) {
+        rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
+                     0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
+        int gr = 89 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int wpx = D032_pw[i], hpx = D032_ph[i];
+        if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
+            float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
+            float tw = (float)wpx * scale, th = 30.0f;
+            float u1 = ((float)wpx + 1.0f) / (float)rr->dlg_text_w;
+            rs_atlas_label_wh(rr, slot, rr->tex_dlg_text[slot], rr->dlg_text_w, rr->dlg_text_h,
+                              gr, (bb[i].x0 + bb[i].x1) * 0.5f, (bb[i].y0 + bb[i].y1) * 0.5f,
+                              tw, th, 0.0f, u1, uc);
+        }
+    }
+    if (!d032_diag) { d032_diag = 1;
+        LOGI("rs_draw_d032：datah_032 弹窗（375×60 面板 + 4 按钮，原版按钮文字）");
+    }
+}
+/* ★ 批量对齐（datah_033）：2 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
+   ★ 文字不变形三要素（本轮 datah_095 文字被压成窄竖条实证后修正）：
+     1) 每按钮独立字形像素宽高（D033_pw/ph 数组，非块级常量——旧版 i 泄漏成常量）
+     2) 图集行高固定 40（bake_atlas 行距）→ v = (行号*40)/图集高；n_rows 不再传 cnt
+     3) u1 = 字形像素宽/图集宽（旧版传 1.0 = 整行 416px 压进字宽）
+   目标字高 30px（720 基准），宽按字形 bbox 比例等比缩放。 */
+static const int D033_pw[UI_D033_COUNT] = { 76,76 };
+static const int D033_ph[UI_D033_COUNT] = { 37,37 };
+static void rs_draw_d033(rs_render *rr, int slot)
+{
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    rs_popup_shell(rr, slot, UI_D033_POPUP_X0, UI_D033_POPUP_Y0, UI_D033_POPUP_W, UI_D033_POPUP_H, 0, uc);
+    const ui_d033_btn *bb = ui_d033_buttons();
+    for (int i = 0; i < UI_D033_COUNT; i++) {
+        rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
+                     0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
+        int gr = 93 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int wpx = D033_pw[i], hpx = D033_ph[i];
+        if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
+            float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
+            float tw = (float)wpx * scale, th = 30.0f;
+            float u1 = ((float)wpx + 1.0f) / (float)rr->dlg_text_w;
+            rs_atlas_label_wh(rr, slot, rr->tex_dlg_text[slot], rr->dlg_text_w, rr->dlg_text_h,
+                              gr, (bb[i].x0 + bb[i].x1) * 0.5f, (bb[i].y0 + bb[i].y1) * 0.5f,
+                              tw, th, 0.0f, u1, uc);
+        }
+    }
+    if (!d033_diag) { d033_diag = 1;
+        LOGI("rs_draw_d033：datah_033 弹窗（400×337 面板 + 2 按钮，原版按钮文字）");
+    }
+}
+/* ★ 批量对齐（datah_034）：2 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
+   ★ 文字不变形三要素（本轮 datah_095 文字被压成窄竖条实证后修正）：
+     1) 每按钮独立字形像素宽高（D034_pw/ph 数组，非块级常量——旧版 i 泄漏成常量）
+     2) 图集行高固定 40（bake_atlas 行距）→ v = (行号*40)/图集高；n_rows 不再传 cnt
+     3) u1 = 字形像素宽/图集宽（旧版传 1.0 = 整行 416px 压进字宽）
+   目标字高 30px（720 基准），宽按字形 bbox 比例等比缩放。 */
+static const int D034_pw[UI_D034_COUNT] = { 76,76 };
+static const int D034_ph[UI_D034_COUNT] = { 37,37 };
+static void rs_draw_d034(rs_render *rr, int slot)
+{
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    rs_popup_shell(rr, slot, UI_D034_POPUP_X0, UI_D034_POPUP_Y0, UI_D034_POPUP_W, UI_D034_POPUP_H, 0, uc);
+    const ui_d034_btn *bb = ui_d034_buttons();
+    for (int i = 0; i < UI_D034_COUNT; i++) {
+        rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
+                     0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
+        int gr = 95 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int wpx = D034_pw[i], hpx = D034_ph[i];
+        if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
+            float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
+            float tw = (float)wpx * scale, th = 30.0f;
+            float u1 = ((float)wpx + 1.0f) / (float)rr->dlg_text_w;
+            rs_atlas_label_wh(rr, slot, rr->tex_dlg_text[slot], rr->dlg_text_w, rr->dlg_text_h,
+                              gr, (bb[i].x0 + bb[i].x1) * 0.5f, (bb[i].y0 + bb[i].y1) * 0.5f,
+                              tw, th, 0.0f, u1, uc);
+        }
+    }
+    if (!d034_diag) { d034_diag = 1;
+        LOGI("rs_draw_d034：datah_034 弹窗（420×235 面板 + 2 按钮，原版按钮文字）");
+    }
+}
+/* ★ 批量对齐（datah_035）：2 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
+   ★ 文字不变形三要素（本轮 datah_095 文字被压成窄竖条实证后修正）：
+     1) 每按钮独立字形像素宽高（D035_pw/ph 数组，非块级常量——旧版 i 泄漏成常量）
+     2) 图集行高固定 40（bake_atlas 行距）→ v = (行号*40)/图集高；n_rows 不再传 cnt
+     3) u1 = 字形像素宽/图集宽（旧版传 1.0 = 整行 416px 压进字宽）
+   目标字高 30px（720 基准），宽按字形 bbox 比例等比缩放。 */
+static const int D035_pw[UI_D035_COUNT] = { 76,76 };
+static const int D035_ph[UI_D035_COUNT] = { 37,37 };
+static void rs_draw_d035(rs_render *rr, int slot)
+{
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    rs_popup_shell(rr, slot, UI_D035_POPUP_X0, UI_D035_POPUP_Y0, UI_D035_POPUP_W, UI_D035_POPUP_H, 0, uc);
+    const ui_d035_btn *bb = ui_d035_buttons();
+    for (int i = 0; i < UI_D035_COUNT; i++) {
+        rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
+                     0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
+        int gr = 97 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int wpx = D035_pw[i], hpx = D035_ph[i];
+        if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
+            float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
+            float tw = (float)wpx * scale, th = 30.0f;
+            float u1 = ((float)wpx + 1.0f) / (float)rr->dlg_text_w;
+            rs_atlas_label_wh(rr, slot, rr->tex_dlg_text[slot], rr->dlg_text_w, rr->dlg_text_h,
+                              gr, (bb[i].x0 + bb[i].x1) * 0.5f, (bb[i].y0 + bb[i].y1) * 0.5f,
+                              tw, th, 0.0f, u1, uc);
+        }
+    }
+    if (!d035_diag) { d035_diag = 1;
+        LOGI("rs_draw_d035：datah_035 弹窗（420×235 面板 + 2 按钮，原版按钮文字）");
+    }
+}
+/* ★ 批量对齐（datah_036）：4 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
+   ★ 文字不变形三要素（本轮 datah_095 文字被压成窄竖条实证后修正）：
+     1) 每按钮独立字形像素宽高（D036_pw/ph 数组，非块级常量——旧版 i 泄漏成常量）
+     2) 图集行高固定 40（bake_atlas 行距）→ v = (行号*40)/图集高；n_rows 不再传 cnt
+     3) u1 = 字形像素宽/图集宽（旧版传 1.0 = 整行 416px 压进字宽）
+   目标字高 30px（720 基准），宽按字形 bbox 比例等比缩放。 */
+static const int D036_pw[UI_D036_COUNT] = { 103,103,76,76 };
+static const int D036_ph[UI_D036_COUNT] = { 29,29,37,37 };
+static void rs_draw_d036(rs_render *rr, int slot)
+{
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    rs_popup_shell(rr, slot, UI_D036_POPUP_X0, UI_D036_POPUP_Y0, UI_D036_POPUP_W, UI_D036_POPUP_H, 0, uc);
+    const ui_d036_btn *bb = ui_d036_buttons();
+    for (int i = 0; i < UI_D036_COUNT; i++) {
+        rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
+                     0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
+        int gr = 99 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int wpx = D036_pw[i], hpx = D036_ph[i];
+        if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
+            float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
+            float tw = (float)wpx * scale, th = 30.0f;
+            float u1 = ((float)wpx + 1.0f) / (float)rr->dlg_text_w;
+            rs_atlas_label_wh(rr, slot, rr->tex_dlg_text[slot], rr->dlg_text_w, rr->dlg_text_h,
+                              gr, (bb[i].x0 + bb[i].x1) * 0.5f, (bb[i].y0 + bb[i].y1) * 0.5f,
+                              tw, th, 0.0f, u1, uc);
+        }
+    }
+    if (!d036_diag) { d036_diag = 1;
+        LOGI("rs_draw_d036：datah_036 弹窗（450×392 面板 + 4 按钮，原版按钮文字）");
+    }
+}
+/* ★ 批量对齐（datah_037）：3 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
+   ★ 文字不变形三要素（本轮 datah_095 文字被压成窄竖条实证后修正）：
+     1) 每按钮独立字形像素宽高（D037_pw/ph 数组，非块级常量——旧版 i 泄漏成常量）
+     2) 图集行高固定 40（bake_atlas 行距）→ v = (行号*40)/图集高；n_rows 不再传 cnt
+     3) u1 = 字形像素宽/图集宽（旧版传 1.0 = 整行 416px 压进字宽）
+   目标字高 30px（720 基准），宽按字形 bbox 比例等比缩放。 */
+static const int D037_pw[UI_D037_COUNT] = { 186,186,76 };
+static const int D037_ph[UI_D037_COUNT] = { 37,37,37 };
+static void rs_draw_d037(rs_render *rr, int slot)
+{
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    rs_popup_shell(rr, slot, UI_D037_POPUP_X0, UI_D037_POPUP_Y0, UI_D037_POPUP_W, UI_D037_POPUP_H, 0, uc);
+    const ui_d037_btn *bb = ui_d037_buttons();
+    for (int i = 0; i < UI_D037_COUNT; i++) {
+        rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
+                     0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
+        int gr = 103 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int wpx = D037_pw[i], hpx = D037_ph[i];
+        if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
+            float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
+            float tw = (float)wpx * scale, th = 30.0f;
+            float u1 = ((float)wpx + 1.0f) / (float)rr->dlg_text_w;
+            rs_atlas_label_wh(rr, slot, rr->tex_dlg_text[slot], rr->dlg_text_w, rr->dlg_text_h,
+                              gr, (bb[i].x0 + bb[i].x1) * 0.5f, (bb[i].y0 + bb[i].y1) * 0.5f,
+                              tw, th, 0.0f, u1, uc);
+        }
+    }
+    if (!d037_diag) { d037_diag = 1;
+        LOGI("rs_draw_d037：datah_037 弹窗（260×270 面板 + 3 按钮，原版按钮文字）");
+    }
+}
+/* ★ 批量对齐（datah_038）：4 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
+   ★ 文字不变形三要素（本轮 datah_095 文字被压成窄竖条实证后修正）：
+     1) 每按钮独立字形像素宽高（D038_pw/ph 数组，非块级常量——旧版 i 泄漏成常量）
+     2) 图集行高固定 40（bake_atlas 行距）→ v = (行号*40)/图集高；n_rows 不再传 cnt
+     3) u1 = 字形像素宽/图集宽（旧版传 1.0 = 整行 416px 压进字宽）
+   目标字高 30px（720 基准），宽按字形 bbox 比例等比缩放。 */
+static const int D038_pw[UI_D038_COUNT] = { 76,76,76,76 };
+static const int D038_ph[UI_D038_COUNT] = { 37,37,37,37 };
+static void rs_draw_d038(rs_render *rr, int slot)
+{
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    rs_popup_shell(rr, slot, UI_D038_POPUP_X0, UI_D038_POPUP_Y0, UI_D038_POPUP_W, UI_D038_POPUP_H, 0, uc);
+    const ui_d038_btn *bb = ui_d038_buttons();
+    for (int i = 0; i < UI_D038_COUNT; i++) {
+        rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
+                     0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
+        int gr = 106 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int wpx = D038_pw[i], hpx = D038_ph[i];
+        if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
+            float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
+            float tw = (float)wpx * scale, th = 30.0f;
+            float u1 = ((float)wpx + 1.0f) / (float)rr->dlg_text_w;
+            rs_atlas_label_wh(rr, slot, rr->tex_dlg_text[slot], rr->dlg_text_w, rr->dlg_text_h,
+                              gr, (bb[i].x0 + bb[i].x1) * 0.5f, (bb[i].y0 + bb[i].y1) * 0.5f,
+                              tw, th, 0.0f, u1, uc);
+        }
+    }
+    if (!d038_diag) { d038_diag = 1;
+        LOGI("rs_draw_d038：datah_038 弹窗（432×285 面板 + 4 按钮，原版按钮文字）");
+    }
+}
+/* ★ 批量对齐（datah_039）：1 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
+   ★ 文字不变形三要素（本轮 datah_095 文字被压成窄竖条实证后修正）：
+     1) 每按钮独立字形像素宽高（D039_pw/ph 数组，非块级常量——旧版 i 泄漏成常量）
+     2) 图集行高固定 40（bake_atlas 行距）→ v = (行号*40)/图集高；n_rows 不再传 cnt
+     3) u1 = 字形像素宽/图集宽（旧版传 1.0 = 整行 416px 压进字宽）
+   目标字高 30px（720 基准），宽按字形 bbox 比例等比缩放。 */
+static const int D039_pw[UI_D039_COUNT] = { 76 };
+static const int D039_ph[UI_D039_COUNT] = { 37 };
+static void rs_draw_d039(rs_render *rr, int slot)
+{
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    rs_popup_shell(rr, slot, UI_D039_POPUP_X0, UI_D039_POPUP_Y0, UI_D039_POPUP_W, UI_D039_POPUP_H, 0, uc);
+    const ui_d039_btn *bb = ui_d039_buttons();
+    for (int i = 0; i < UI_D039_COUNT; i++) {
+        rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
+                     0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
+        int gr = 110 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int wpx = D039_pw[i], hpx = D039_ph[i];
+        if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
+            float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
+            float tw = (float)wpx * scale, th = 30.0f;
+            float u1 = ((float)wpx + 1.0f) / (float)rr->dlg_text_w;
+            rs_atlas_label_wh(rr, slot, rr->tex_dlg_text[slot], rr->dlg_text_w, rr->dlg_text_h,
+                              gr, (bb[i].x0 + bb[i].x1) * 0.5f, (bb[i].y0 + bb[i].y1) * 0.5f,
+                              tw, th, 0.0f, u1, uc);
+        }
+    }
+    if (!d039_diag) { d039_diag = 1;
+        LOGI("rs_draw_d039：datah_039 弹窗（93×90 面板 + 1 按钮，原版按钮文字）");
     }
 }
 /* ★ 批量对齐（datah_041）：8 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
@@ -4910,7 +6010,7 @@ static void rs_draw_d041(rs_render *rr, int slot)
     for (int i = 0; i < UI_D041_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 25 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 111 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D041_pw[i], hpx = D041_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -4941,7 +6041,7 @@ static void rs_draw_d042(rs_render *rr, int slot)
     for (int i = 0; i < UI_D042_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 33 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 119 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D042_pw[i], hpx = D042_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -4954,6 +6054,471 @@ static void rs_draw_d042(rs_render *rr, int slot)
     }
     if (!d042_diag) { d042_diag = 1;
         LOGI("rs_draw_d042：datah_042 弹窗（450×285 面板 + 7 按钮，原版按钮文字）");
+    }
+}
+/* ★ 批量对齐（datah_043）：2 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
+   ★ 文字不变形三要素（本轮 datah_095 文字被压成窄竖条实证后修正）：
+     1) 每按钮独立字形像素宽高（D043_pw/ph 数组，非块级常量——旧版 i 泄漏成常量）
+     2) 图集行高固定 40（bake_atlas 行距）→ v = (行号*40)/图集高；n_rows 不再传 cnt
+     3) u1 = 字形像素宽/图集宽（旧版传 1.0 = 整行 416px 压进字宽）
+   目标字高 30px（720 基准），宽按字形 bbox 比例等比缩放。 */
+static const int D043_pw[UI_D043_COUNT] = { 76,76 };
+static const int D043_ph[UI_D043_COUNT] = { 37,37 };
+static void rs_draw_d043(rs_render *rr, int slot)
+{
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    rs_popup_shell(rr, slot, UI_D043_POPUP_X0, UI_D043_POPUP_Y0, UI_D043_POPUP_W, UI_D043_POPUP_H, 0, uc);
+    const ui_d043_btn *bb = ui_d043_buttons();
+    for (int i = 0; i < UI_D043_COUNT; i++) {
+        rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
+                     0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
+        int gr = 126 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int wpx = D043_pw[i], hpx = D043_ph[i];
+        if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
+            float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
+            float tw = (float)wpx * scale, th = 30.0f;
+            float u1 = ((float)wpx + 1.0f) / (float)rr->dlg_text_w;
+            rs_atlas_label_wh(rr, slot, rr->tex_dlg_text[slot], rr->dlg_text_w, rr->dlg_text_h,
+                              gr, (bb[i].x0 + bb[i].x1) * 0.5f, (bb[i].y0 + bb[i].y1) * 0.5f,
+                              tw, th, 0.0f, u1, uc);
+        }
+    }
+    if (!d043_diag) { d043_diag = 1;
+        LOGI("rs_draw_d043：datah_043 弹窗（420×235 面板 + 2 按钮，原版按钮文字）");
+    }
+}
+/* ★ 批量对齐（datah_044）：2 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
+   ★ 文字不变形三要素（本轮 datah_095 文字被压成窄竖条实证后修正）：
+     1) 每按钮独立字形像素宽高（D044_pw/ph 数组，非块级常量——旧版 i 泄漏成常量）
+     2) 图集行高固定 40（bake_atlas 行距）→ v = (行号*40)/图集高；n_rows 不再传 cnt
+     3) u1 = 字形像素宽/图集宽（旧版传 1.0 = 整行 416px 压进字宽）
+   目标字高 30px（720 基准），宽按字形 bbox 比例等比缩放。 */
+static const int D044_pw[UI_D044_COUNT] = { 76,76 };
+static const int D044_ph[UI_D044_COUNT] = { 37,37 };
+static void rs_draw_d044(rs_render *rr, int slot)
+{
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    rs_popup_shell(rr, slot, UI_D044_POPUP_X0, UI_D044_POPUP_Y0, UI_D044_POPUP_W, UI_D044_POPUP_H, 0, uc);
+    const ui_d044_btn *bb = ui_d044_buttons();
+    for (int i = 0; i < UI_D044_COUNT; i++) {
+        rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
+                     0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
+        int gr = 128 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int wpx = D044_pw[i], hpx = D044_ph[i];
+        if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
+            float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
+            float tw = (float)wpx * scale, th = 30.0f;
+            float u1 = ((float)wpx + 1.0f) / (float)rr->dlg_text_w;
+            rs_atlas_label_wh(rr, slot, rr->tex_dlg_text[slot], rr->dlg_text_w, rr->dlg_text_h,
+                              gr, (bb[i].x0 + bb[i].x1) * 0.5f, (bb[i].y0 + bb[i].y1) * 0.5f,
+                              tw, th, 0.0f, u1, uc);
+        }
+    }
+    if (!d044_diag) { d044_diag = 1;
+        LOGI("rs_draw_d044：datah_044 弹窗（180×175 面板 + 2 按钮，原版按钮文字）");
+    }
+}
+/* ★ 批量对齐（datah_045）：1 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
+   ★ 文字不变形三要素（本轮 datah_095 文字被压成窄竖条实证后修正）：
+     1) 每按钮独立字形像素宽高（D045_pw/ph 数组，非块级常量——旧版 i 泄漏成常量）
+     2) 图集行高固定 40（bake_atlas 行距）→ v = (行号*40)/图集高；n_rows 不再传 cnt
+     3) u1 = 字形像素宽/图集宽（旧版传 1.0 = 整行 416px 压进字宽）
+   目标字高 30px（720 基准），宽按字形 bbox 比例等比缩放。 */
+static const int D045_pw[UI_D045_COUNT] = { 76 };
+static const int D045_ph[UI_D045_COUNT] = { 37 };
+static void rs_draw_d045(rs_render *rr, int slot)
+{
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    rs_popup_shell(rr, slot, UI_D045_POPUP_X0, UI_D045_POPUP_Y0, UI_D045_POPUP_W, UI_D045_POPUP_H, 0, uc);
+    const ui_d045_btn *bb = ui_d045_buttons();
+    for (int i = 0; i < UI_D045_COUNT; i++) {
+        rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
+                     0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
+        int gr = 130 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int wpx = D045_pw[i], hpx = D045_ph[i];
+        if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
+            float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
+            float tw = (float)wpx * scale, th = 30.0f;
+            float u1 = ((float)wpx + 1.0f) / (float)rr->dlg_text_w;
+            rs_atlas_label_wh(rr, slot, rr->tex_dlg_text[slot], rr->dlg_text_w, rr->dlg_text_h,
+                              gr, (bb[i].x0 + bb[i].x1) * 0.5f, (bb[i].y0 + bb[i].y1) * 0.5f,
+                              tw, th, 0.0f, u1, uc);
+        }
+    }
+    if (!d045_diag) { d045_diag = 1;
+        LOGI("rs_draw_d045：datah_045 弹窗（345×135 面板 + 1 按钮，原版按钮文字）");
+    }
+}
+/* ★ 批量对齐（datah_046）：1 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
+   ★ 文字不变形三要素（本轮 datah_095 文字被压成窄竖条实证后修正）：
+     1) 每按钮独立字形像素宽高（D046_pw/ph 数组，非块级常量——旧版 i 泄漏成常量）
+     2) 图集行高固定 40（bake_atlas 行距）→ v = (行号*40)/图集高；n_rows 不再传 cnt
+     3) u1 = 字形像素宽/图集宽（旧版传 1.0 = 整行 416px 压进字宽）
+   目标字高 30px（720 基准），宽按字形 bbox 比例等比缩放。 */
+static const int D046_pw[UI_D046_COUNT] = { 76 };
+static const int D046_ph[UI_D046_COUNT] = { 37 };
+static void rs_draw_d046(rs_render *rr, int slot)
+{
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    rs_popup_shell(rr, slot, UI_D046_POPUP_X0, UI_D046_POPUP_Y0, UI_D046_POPUP_W, UI_D046_POPUP_H, 0, uc);
+    const ui_d046_btn *bb = ui_d046_buttons();
+    for (int i = 0; i < UI_D046_COUNT; i++) {
+        rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
+                     0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
+        int gr = 131 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int wpx = D046_pw[i], hpx = D046_ph[i];
+        if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
+            float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
+            float tw = (float)wpx * scale, th = 30.0f;
+            float u1 = ((float)wpx + 1.0f) / (float)rr->dlg_text_w;
+            rs_atlas_label_wh(rr, slot, rr->tex_dlg_text[slot], rr->dlg_text_w, rr->dlg_text_h,
+                              gr, (bb[i].x0 + bb[i].x1) * 0.5f, (bb[i].y0 + bb[i].y1) * 0.5f,
+                              tw, th, 0.0f, u1, uc);
+        }
+    }
+    if (!d046_diag) { d046_diag = 1;
+        LOGI("rs_draw_d046：datah_046 弹窗（420×420 面板 + 1 按钮，原版按钮文字）");
+    }
+}
+/* ★ 批量对齐（datah_047）：1 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
+   ★ 文字不变形三要素（本轮 datah_095 文字被压成窄竖条实证后修正）：
+     1) 每按钮独立字形像素宽高（D047_pw/ph 数组，非块级常量——旧版 i 泄漏成常量）
+     2) 图集行高固定 40（bake_atlas 行距）→ v = (行号*40)/图集高；n_rows 不再传 cnt
+     3) u1 = 字形像素宽/图集宽（旧版传 1.0 = 整行 416px 压进字宽）
+   目标字高 30px（720 基准），宽按字形 bbox 比例等比缩放。 */
+static const int D047_pw[UI_D047_COUNT] = { 76 };
+static const int D047_ph[UI_D047_COUNT] = { 37 };
+static void rs_draw_d047(rs_render *rr, int slot)
+{
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    rs_popup_shell(rr, slot, UI_D047_POPUP_X0, UI_D047_POPUP_Y0, UI_D047_POPUP_W, UI_D047_POPUP_H, 0, uc);
+    const ui_d047_btn *bb = ui_d047_buttons();
+    for (int i = 0; i < UI_D047_COUNT; i++) {
+        rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
+                     0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
+        int gr = 132 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int wpx = D047_pw[i], hpx = D047_ph[i];
+        if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
+            float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
+            float tw = (float)wpx * scale, th = 30.0f;
+            float u1 = ((float)wpx + 1.0f) / (float)rr->dlg_text_w;
+            rs_atlas_label_wh(rr, slot, rr->tex_dlg_text[slot], rr->dlg_text_w, rr->dlg_text_h,
+                              gr, (bb[i].x0 + bb[i].x1) * 0.5f, (bb[i].y0 + bb[i].y1) * 0.5f,
+                              tw, th, 0.0f, u1, uc);
+        }
+    }
+    if (!d047_diag) { d047_diag = 1;
+        LOGI("rs_draw_d047：datah_047 弹窗（420×305 面板 + 1 按钮，原版按钮文字）");
+    }
+}
+/* ★ 批量对齐（datah_049）：1 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
+   ★ 文字不变形三要素（本轮 datah_095 文字被压成窄竖条实证后修正）：
+     1) 每按钮独立字形像素宽高（D049_pw/ph 数组，非块级常量——旧版 i 泄漏成常量）
+     2) 图集行高固定 40（bake_atlas 行距）→ v = (行号*40)/图集高；n_rows 不再传 cnt
+     3) u1 = 字形像素宽/图集宽（旧版传 1.0 = 整行 416px 压进字宽）
+   目标字高 30px（720 基准），宽按字形 bbox 比例等比缩放。 */
+static const int D049_pw[UI_D049_COUNT] = { 76 };
+static const int D049_ph[UI_D049_COUNT] = { 37 };
+static void rs_draw_d049(rs_render *rr, int slot)
+{
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    rs_popup_shell(rr, slot, UI_D049_POPUP_X0, UI_D049_POPUP_Y0, UI_D049_POPUP_W, UI_D049_POPUP_H, 0, uc);
+    const ui_d049_btn *bb = ui_d049_buttons();
+    for (int i = 0; i < UI_D049_COUNT; i++) {
+        rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
+                     0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
+        int gr = 133 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int wpx = D049_pw[i], hpx = D049_ph[i];
+        if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
+            float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
+            float tw = (float)wpx * scale, th = 30.0f;
+            float u1 = ((float)wpx + 1.0f) / (float)rr->dlg_text_w;
+            rs_atlas_label_wh(rr, slot, rr->tex_dlg_text[slot], rr->dlg_text_w, rr->dlg_text_h,
+                              gr, (bb[i].x0 + bb[i].x1) * 0.5f, (bb[i].y0 + bb[i].y1) * 0.5f,
+                              tw, th, 0.0f, u1, uc);
+        }
+    }
+    if (!d049_diag) { d049_diag = 1;
+        LOGI("rs_draw_d049：datah_049 弹窗（420×610 面板 + 1 按钮，原版按钮文字）");
+    }
+}
+/* ★ 批量对齐（datah_050）：3 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
+   ★ 文字不变形三要素（本轮 datah_095 文字被压成窄竖条实证后修正）：
+     1) 每按钮独立字形像素宽高（D050_pw/ph 数组，非块级常量——旧版 i 泄漏成常量）
+     2) 图集行高固定 40（bake_atlas 行距）→ v = (行号*40)/图集高；n_rows 不再传 cnt
+     3) u1 = 字形像素宽/图集宽（旧版传 1.0 = 整行 416px 压进字宽）
+   目标字高 30px（720 基准），宽按字形 bbox 比例等比缩放。 */
+static const int D050_pw[UI_D050_COUNT] = { 76,76,76 };
+static const int D050_ph[UI_D050_COUNT] = { 37,37,37 };
+static void rs_draw_d050(rs_render *rr, int slot)
+{
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    rs_popup_shell(rr, slot, UI_D050_POPUP_X0, UI_D050_POPUP_Y0, UI_D050_POPUP_W, UI_D050_POPUP_H, 0, uc);
+    const ui_d050_btn *bb = ui_d050_buttons();
+    for (int i = 0; i < UI_D050_COUNT; i++) {
+        rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
+                     0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
+        int gr = 134 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int wpx = D050_pw[i], hpx = D050_ph[i];
+        if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
+            float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
+            float tw = (float)wpx * scale, th = 30.0f;
+            float u1 = ((float)wpx + 1.0f) / (float)rr->dlg_text_w;
+            rs_atlas_label_wh(rr, slot, rr->tex_dlg_text[slot], rr->dlg_text_w, rr->dlg_text_h,
+                              gr, (bb[i].x0 + bb[i].x1) * 0.5f, (bb[i].y0 + bb[i].y1) * 0.5f,
+                              tw, th, 0.0f, u1, uc);
+        }
+    }
+    if (!d050_diag) { d050_diag = 1;
+        LOGI("rs_draw_d050：datah_050 弹窗（420×380 面板 + 3 按钮，原版按钮文字）");
+    }
+}
+/* ★ 批量对齐（datah_051）：2 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
+   ★ 文字不变形三要素（本轮 datah_095 文字被压成窄竖条实证后修正）：
+     1) 每按钮独立字形像素宽高（D051_pw/ph 数组，非块级常量——旧版 i 泄漏成常量）
+     2) 图集行高固定 40（bake_atlas 行距）→ v = (行号*40)/图集高；n_rows 不再传 cnt
+     3) u1 = 字形像素宽/图集宽（旧版传 1.0 = 整行 416px 压进字宽）
+   目标字高 30px（720 基准），宽按字形 bbox 比例等比缩放。 */
+static const int D051_pw[UI_D051_COUNT] = { 76,76 };
+static const int D051_ph[UI_D051_COUNT] = { 37,37 };
+static void rs_draw_d051(rs_render *rr, int slot)
+{
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    rs_popup_shell(rr, slot, UI_D051_POPUP_X0, UI_D051_POPUP_Y0, UI_D051_POPUP_W, UI_D051_POPUP_H, 0, uc);
+    const ui_d051_btn *bb = ui_d051_buttons();
+    for (int i = 0; i < UI_D051_COUNT; i++) {
+        rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
+                     0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
+        int gr = 137 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int wpx = D051_pw[i], hpx = D051_ph[i];
+        if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
+            float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
+            float tw = (float)wpx * scale, th = 30.0f;
+            float u1 = ((float)wpx + 1.0f) / (float)rr->dlg_text_w;
+            rs_atlas_label_wh(rr, slot, rr->tex_dlg_text[slot], rr->dlg_text_w, rr->dlg_text_h,
+                              gr, (bb[i].x0 + bb[i].x1) * 0.5f, (bb[i].y0 + bb[i].y1) * 0.5f,
+                              tw, th, 0.0f, u1, uc);
+        }
+    }
+    if (!d051_diag) { d051_diag = 1;
+        LOGI("rs_draw_d051：datah_051 弹窗（450×610 面板 + 2 按钮，原版按钮文字）");
+    }
+}
+/* ★ 批量对齐（datah_052）：2 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
+   ★ 文字不变形三要素（本轮 datah_095 文字被压成窄竖条实证后修正）：
+     1) 每按钮独立字形像素宽高（D052_pw/ph 数组，非块级常量——旧版 i 泄漏成常量）
+     2) 图集行高固定 40（bake_atlas 行距）→ v = (行号*40)/图集高；n_rows 不再传 cnt
+     3) u1 = 字形像素宽/图集宽（旧版传 1.0 = 整行 416px 压进字宽）
+   目标字高 30px（720 基准），宽按字形 bbox 比例等比缩放。 */
+static const int D052_pw[UI_D052_COUNT] = { 76,76 };
+static const int D052_ph[UI_D052_COUNT] = { 37,37 };
+static void rs_draw_d052(rs_render *rr, int slot)
+{
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    rs_popup_shell(rr, slot, UI_D052_POPUP_X0, UI_D052_POPUP_Y0, UI_D052_POPUP_W, UI_D052_POPUP_H, 0, uc);
+    const ui_d052_btn *bb = ui_d052_buttons();
+    for (int i = 0; i < UI_D052_COUNT; i++) {
+        rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
+                     0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
+        int gr = 139 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int wpx = D052_pw[i], hpx = D052_ph[i];
+        if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
+            float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
+            float tw = (float)wpx * scale, th = 30.0f;
+            float u1 = ((float)wpx + 1.0f) / (float)rr->dlg_text_w;
+            rs_atlas_label_wh(rr, slot, rr->tex_dlg_text[slot], rr->dlg_text_w, rr->dlg_text_h,
+                              gr, (bb[i].x0 + bb[i].x1) * 0.5f, (bb[i].y0 + bb[i].y1) * 0.5f,
+                              tw, th, 0.0f, u1, uc);
+        }
+    }
+    if (!d052_diag) { d052_diag = 1;
+        LOGI("rs_draw_d052：datah_052 弹窗（420×220 面板 + 2 按钮，原版按钮文字）");
+    }
+}
+/* ★ 批量对齐（datah_053）：2 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
+   ★ 文字不变形三要素（本轮 datah_095 文字被压成窄竖条实证后修正）：
+     1) 每按钮独立字形像素宽高（D053_pw/ph 数组，非块级常量——旧版 i 泄漏成常量）
+     2) 图集行高固定 40（bake_atlas 行距）→ v = (行号*40)/图集高；n_rows 不再传 cnt
+     3) u1 = 字形像素宽/图集宽（旧版传 1.0 = 整行 416px 压进字宽）
+   目标字高 30px（720 基准），宽按字形 bbox 比例等比缩放。 */
+static const int D053_pw[UI_D053_COUNT] = { 76,76 };
+static const int D053_ph[UI_D053_COUNT] = { 37,37 };
+static void rs_draw_d053(rs_render *rr, int slot)
+{
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    rs_popup_shell(rr, slot, UI_D053_POPUP_X0, UI_D053_POPUP_Y0, UI_D053_POPUP_W, UI_D053_POPUP_H, 0, uc);
+    const ui_d053_btn *bb = ui_d053_buttons();
+    for (int i = 0; i < UI_D053_COUNT; i++) {
+        rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
+                     0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
+        int gr = 141 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int wpx = D053_pw[i], hpx = D053_ph[i];
+        if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
+            float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
+            float tw = (float)wpx * scale, th = 30.0f;
+            float u1 = ((float)wpx + 1.0f) / (float)rr->dlg_text_w;
+            rs_atlas_label_wh(rr, slot, rr->tex_dlg_text[slot], rr->dlg_text_w, rr->dlg_text_h,
+                              gr, (bb[i].x0 + bb[i].x1) * 0.5f, (bb[i].y0 + bb[i].y1) * 0.5f,
+                              tw, th, 0.0f, u1, uc);
+        }
+    }
+    if (!d053_diag) { d053_diag = 1;
+        LOGI("rs_draw_d053：datah_053 弹窗（420×452 面板 + 2 按钮，原版按钮文字）");
+    }
+}
+/* ★ 批量对齐（datah_054）：2 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
+   ★ 文字不变形三要素（本轮 datah_095 文字被压成窄竖条实证后修正）：
+     1) 每按钮独立字形像素宽高（D054_pw/ph 数组，非块级常量——旧版 i 泄漏成常量）
+     2) 图集行高固定 40（bake_atlas 行距）→ v = (行号*40)/图集高；n_rows 不再传 cnt
+     3) u1 = 字形像素宽/图集宽（旧版传 1.0 = 整行 416px 压进字宽）
+   目标字高 30px（720 基准），宽按字形 bbox 比例等比缩放。 */
+static const int D054_pw[UI_D054_COUNT] = { 76,76 };
+static const int D054_ph[UI_D054_COUNT] = { 37,37 };
+static void rs_draw_d054(rs_render *rr, int slot)
+{
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    rs_popup_shell(rr, slot, UI_D054_POPUP_X0, UI_D054_POPUP_Y0, UI_D054_POPUP_W, UI_D054_POPUP_H, 0, uc);
+    const ui_d054_btn *bb = ui_d054_buttons();
+    for (int i = 0; i < UI_D054_COUNT; i++) {
+        rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
+                     0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
+        int gr = 143 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int wpx = D054_pw[i], hpx = D054_ph[i];
+        if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
+            float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
+            float tw = (float)wpx * scale, th = 30.0f;
+            float u1 = ((float)wpx + 1.0f) / (float)rr->dlg_text_w;
+            rs_atlas_label_wh(rr, slot, rr->tex_dlg_text[slot], rr->dlg_text_w, rr->dlg_text_h,
+                              gr, (bb[i].x0 + bb[i].x1) * 0.5f, (bb[i].y0 + bb[i].y1) * 0.5f,
+                              tw, th, 0.0f, u1, uc);
+        }
+    }
+    if (!d054_diag) { d054_diag = 1;
+        LOGI("rs_draw_d054：datah_054 弹窗（450×610 面板 + 2 按钮，原版按钮文字）");
+    }
+}
+/* ★ 批量对齐（datah_055）：1 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
+   ★ 文字不变形三要素（本轮 datah_095 文字被压成窄竖条实证后修正）：
+     1) 每按钮独立字形像素宽高（D055_pw/ph 数组，非块级常量——旧版 i 泄漏成常量）
+     2) 图集行高固定 40（bake_atlas 行距）→ v = (行号*40)/图集高；n_rows 不再传 cnt
+     3) u1 = 字形像素宽/图集宽（旧版传 1.0 = 整行 416px 压进字宽）
+   目标字高 30px（720 基准），宽按字形 bbox 比例等比缩放。 */
+static const int D055_pw[UI_D055_COUNT] = { 76 };
+static const int D055_ph[UI_D055_COUNT] = { 37 };
+static void rs_draw_d055(rs_render *rr, int slot)
+{
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    rs_popup_shell(rr, slot, UI_D055_POPUP_X0, UI_D055_POPUP_Y0, UI_D055_POPUP_W, UI_D055_POPUP_H, 0, uc);
+    const ui_d055_btn *bb = ui_d055_buttons();
+    for (int i = 0; i < UI_D055_COUNT; i++) {
+        rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
+                     0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
+        int gr = 145 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int wpx = D055_pw[i], hpx = D055_ph[i];
+        if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
+            float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
+            float tw = (float)wpx * scale, th = 30.0f;
+            float u1 = ((float)wpx + 1.0f) / (float)rr->dlg_text_w;
+            rs_atlas_label_wh(rr, slot, rr->tex_dlg_text[slot], rr->dlg_text_w, rr->dlg_text_h,
+                              gr, (bb[i].x0 + bb[i].x1) * 0.5f, (bb[i].y0 + bb[i].y1) * 0.5f,
+                              tw, th, 0.0f, u1, uc);
+        }
+    }
+    if (!d055_diag) { d055_diag = 1;
+        LOGI("rs_draw_d055：datah_055 弹窗（395×360 面板 + 1 按钮，原版按钮文字）");
+    }
+}
+/* ★ 批量对齐（datah_057）：2 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
+   ★ 文字不变形三要素（本轮 datah_095 文字被压成窄竖条实证后修正）：
+     1) 每按钮独立字形像素宽高（D057_pw/ph 数组，非块级常量——旧版 i 泄漏成常量）
+     2) 图集行高固定 40（bake_atlas 行距）→ v = (行号*40)/图集高；n_rows 不再传 cnt
+     3) u1 = 字形像素宽/图集宽（旧版传 1.0 = 整行 416px 压进字宽）
+   目标字高 30px（720 基准），宽按字形 bbox 比例等比缩放。 */
+static const int D057_pw[UI_D057_COUNT] = { 152,76 };
+static const int D057_ph[UI_D057_COUNT] = { 38,37 };
+static void rs_draw_d057(rs_render *rr, int slot)
+{
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    rs_popup_shell(rr, slot, UI_D057_POPUP_X0, UI_D057_POPUP_Y0, UI_D057_POPUP_W, UI_D057_POPUP_H, 0, uc);
+    const ui_d057_btn *bb = ui_d057_buttons();
+    for (int i = 0; i < UI_D057_COUNT; i++) {
+        rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
+                     0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
+        int gr = 146 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int wpx = D057_pw[i], hpx = D057_ph[i];
+        if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
+            float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
+            float tw = (float)wpx * scale, th = 30.0f;
+            float u1 = ((float)wpx + 1.0f) / (float)rr->dlg_text_w;
+            rs_atlas_label_wh(rr, slot, rr->tex_dlg_text[slot], rr->dlg_text_w, rr->dlg_text_h,
+                              gr, (bb[i].x0 + bb[i].x1) * 0.5f, (bb[i].y0 + bb[i].y1) * 0.5f,
+                              tw, th, 0.0f, u1, uc);
+        }
+    }
+    if (!d057_diag) { d057_diag = 1;
+        LOGI("rs_draw_d057：datah_057 弹窗（420×320 面板 + 2 按钮，原版按钮文字）");
+    }
+}
+/* ★ 批量对齐（datah_058）：2 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
+   ★ 文字不变形三要素（本轮 datah_095 文字被压成窄竖条实证后修正）：
+     1) 每按钮独立字形像素宽高（D058_pw/ph 数组，非块级常量——旧版 i 泄漏成常量）
+     2) 图集行高固定 40（bake_atlas 行距）→ v = (行号*40)/图集高；n_rows 不再传 cnt
+     3) u1 = 字形像素宽/图集宽（旧版传 1.0 = 整行 416px 压进字宽）
+   目标字高 30px（720 基准），宽按字形 bbox 比例等比缩放。 */
+static const int D058_pw[UI_D058_COUNT] = { 76,76 };
+static const int D058_ph[UI_D058_COUNT] = { 37,37 };
+static void rs_draw_d058(rs_render *rr, int slot)
+{
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    rs_popup_shell(rr, slot, UI_D058_POPUP_X0, UI_D058_POPUP_Y0, UI_D058_POPUP_W, UI_D058_POPUP_H, 0, uc);
+    const ui_d058_btn *bb = ui_d058_buttons();
+    for (int i = 0; i < UI_D058_COUNT; i++) {
+        rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
+                     0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
+        int gr = 148 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int wpx = D058_pw[i], hpx = D058_ph[i];
+        if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
+            float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
+            float tw = (float)wpx * scale, th = 30.0f;
+            float u1 = ((float)wpx + 1.0f) / (float)rr->dlg_text_w;
+            rs_atlas_label_wh(rr, slot, rr->tex_dlg_text[slot], rr->dlg_text_w, rr->dlg_text_h,
+                              gr, (bb[i].x0 + bb[i].x1) * 0.5f, (bb[i].y0 + bb[i].y1) * 0.5f,
+                              tw, th, 0.0f, u1, uc);
+        }
+    }
+    if (!d058_diag) { d058_diag = 1;
+        LOGI("rs_draw_d058：datah_058 弹窗（420×352 面板 + 2 按钮，原版按钮文字）");
+    }
+}
+/* ★ 批量对齐（datah_059）：3 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
+   ★ 文字不变形三要素（本轮 datah_095 文字被压成窄竖条实证后修正）：
+     1) 每按钮独立字形像素宽高（D059_pw/ph 数组，非块级常量——旧版 i 泄漏成常量）
+     2) 图集行高固定 40（bake_atlas 行距）→ v = (行号*40)/图集高；n_rows 不再传 cnt
+     3) u1 = 字形像素宽/图集宽（旧版传 1.0 = 整行 416px 压进字宽）
+   目标字高 30px（720 基准），宽按字形 bbox 比例等比缩放。 */
+static const int D059_pw[UI_D059_COUNT] = { 114,76,76 };
+static const int D059_ph[UI_D059_COUNT] = { 37,37,37 };
+static void rs_draw_d059(rs_render *rr, int slot)
+{
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    rs_popup_shell(rr, slot, UI_D059_POPUP_X0, UI_D059_POPUP_Y0, UI_D059_POPUP_W, UI_D059_POPUP_H, 0, uc);
+    const ui_d059_btn *bb = ui_d059_buttons();
+    for (int i = 0; i < UI_D059_COUNT; i++) {
+        rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
+                     0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
+        int gr = 150 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int wpx = D059_pw[i], hpx = D059_ph[i];
+        if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
+            float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
+            float tw = (float)wpx * scale, th = 30.0f;
+            float u1 = ((float)wpx + 1.0f) / (float)rr->dlg_text_w;
+            rs_atlas_label_wh(rr, slot, rr->tex_dlg_text[slot], rr->dlg_text_w, rr->dlg_text_h,
+                              gr, (bb[i].x0 + bb[i].x1) * 0.5f, (bb[i].y0 + bb[i].y1) * 0.5f,
+                              tw, th, 0.0f, u1, uc);
+        }
+    }
+    if (!d059_diag) { d059_diag = 1;
+        LOGI("rs_draw_d059：datah_059 弹窗（420×352 面板 + 3 按钮，原版按钮文字）");
     }
 }
 /* ★ 批量对齐（datah_060）：5 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
@@ -4972,7 +6537,7 @@ static void rs_draw_d060(rs_render *rr, int slot)
     for (int i = 0; i < UI_D060_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 40 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 153 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D060_pw[i], hpx = D060_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -5003,7 +6568,7 @@ static void rs_draw_d061(rs_render *rr, int slot)
     for (int i = 0; i < UI_D061_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 45 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 158 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D061_pw[i], hpx = D061_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -5018,24 +6583,24 @@ static void rs_draw_d061(rs_render *rr, int slot)
         LOGI("rs_draw_d061：datah_061 弹窗（450×465 面板 + 6 按钮，原版按钮文字）");
     }
 }
-/* ★ 批量对齐（datah_067）：8 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
+/* ★ 批量对齐（datah_062）：4 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
    ★ 文字不变形三要素（本轮 datah_095 文字被压成窄竖条实证后修正）：
-     1) 每按钮独立字形像素宽高（D067_pw/ph 数组，非块级常量——旧版 i 泄漏成常量）
+     1) 每按钮独立字形像素宽高（D062_pw/ph 数组，非块级常量——旧版 i 泄漏成常量）
      2) 图集行高固定 40（bake_atlas 行距）→ v = (行号*40)/图集高；n_rows 不再传 cnt
      3) u1 = 字形像素宽/图集宽（旧版传 1.0 = 整行 416px 压进字宽）
    目标字高 30px（720 基准），宽按字形 bbox 比例等比缩放。 */
-static const int D067_pw[UI_D067_COUNT] = { 152,76,76,76,76,152,152,152 };
-static const int D067_ph[UI_D067_COUNT] = { 38,37,37,37,37,37,37,38 };
-static void rs_draw_d067(rs_render *rr, int slot)
+static const int D062_pw[UI_D062_COUNT] = { 61,95,76,76 };
+static const int D062_ph[UI_D062_COUNT] = { 33,29,37,37 };
+static void rs_draw_d062(rs_render *rr, int slot)
 {
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
-    rs_popup_shell(rr, slot, UI_D067_POPUP_X0, UI_D067_POPUP_Y0, UI_D067_POPUP_W, UI_D067_POPUP_H, 0, uc);
-    const ui_d067_btn *bb = ui_d067_buttons();
-    for (int i = 0; i < UI_D067_COUNT; i++) {
+    rs_popup_shell(rr, slot, UI_D062_POPUP_X0, UI_D062_POPUP_Y0, UI_D062_POPUP_W, UI_D062_POPUP_H, 0, uc);
+    const ui_d062_btn *bb = ui_d062_buttons();
+    for (int i = 0; i < UI_D062_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 51 + i;   /* 共用图集行号（bake_atlas 顺序） */
-        int wpx = D067_pw[i], hpx = D067_ph[i];
+        int gr = 164 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int wpx = D062_pw[i], hpx = D062_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
             float tw = (float)wpx * scale, th = 30.0f;
@@ -5045,8 +6610,132 @@ static void rs_draw_d067(rs_render *rr, int slot)
                               tw, th, 0.0f, u1, uc);
         }
     }
-    if (!d067_diag) { d067_diag = 1;
-        LOGI("rs_draw_d067：datah_067 弹窗（450×285 面板 + 8 按钮，原版按钮文字）");
+    if (!d062_diag) { d062_diag = 1;
+        LOGI("rs_draw_d062：datah_062 弹窗（450×315 面板 + 4 按钮，原版按钮文字）");
+    }
+}
+/* ★ 批量对齐（datah_063）：3 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
+   ★ 文字不变形三要素（本轮 datah_095 文字被压成窄竖条实证后修正）：
+     1) 每按钮独立字形像素宽高（D063_pw/ph 数组，非块级常量——旧版 i 泄漏成常量）
+     2) 图集行高固定 40（bake_atlas 行距）→ v = (行号*40)/图集高；n_rows 不再传 cnt
+     3) u1 = 字形像素宽/图集宽（旧版传 1.0 = 整行 416px 压进字宽）
+   目标字高 30px（720 基准），宽按字形 bbox 比例等比缩放。 */
+static const int D063_pw[UI_D063_COUNT] = { 76,76,76 };
+static const int D063_ph[UI_D063_COUNT] = { 37,37,37 };
+static void rs_draw_d063(rs_render *rr, int slot)
+{
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    rs_popup_shell(rr, slot, UI_D063_POPUP_X0, UI_D063_POPUP_Y0, UI_D063_POPUP_W, UI_D063_POPUP_H, 0, uc);
+    const ui_d063_btn *bb = ui_d063_buttons();
+    for (int i = 0; i < UI_D063_COUNT; i++) {
+        rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
+                     0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
+        int gr = 168 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int wpx = D063_pw[i], hpx = D063_ph[i];
+        if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
+            float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
+            float tw = (float)wpx * scale, th = 30.0f;
+            float u1 = ((float)wpx + 1.0f) / (float)rr->dlg_text_w;
+            rs_atlas_label_wh(rr, slot, rr->tex_dlg_text[slot], rr->dlg_text_w, rr->dlg_text_h,
+                              gr, (bb[i].x0 + bb[i].x1) * 0.5f, (bb[i].y0 + bb[i].y1) * 0.5f,
+                              tw, th, 0.0f, u1, uc);
+        }
+    }
+    if (!d063_diag) { d063_diag = 1;
+        LOGI("rs_draw_d063：datah_063 弹窗（420×325 面板 + 3 按钮，原版按钮文字）");
+    }
+}
+/* ★ 批量对齐（datah_064）：3 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
+   ★ 文字不变形三要素（本轮 datah_095 文字被压成窄竖条实证后修正）：
+     1) 每按钮独立字形像素宽高（D064_pw/ph 数组，非块级常量——旧版 i 泄漏成常量）
+     2) 图集行高固定 40（bake_atlas 行距）→ v = (行号*40)/图集高；n_rows 不再传 cnt
+     3) u1 = 字形像素宽/图集宽（旧版传 1.0 = 整行 416px 压进字宽）
+   目标字高 30px（720 基准），宽按字形 bbox 比例等比缩放。 */
+static const int D064_pw[UI_D064_COUNT] = { 95,81,84 };
+static const int D064_ph[UI_D064_COUNT] = { 28,29,29 };
+static void rs_draw_d064(rs_render *rr, int slot)
+{
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    rs_popup_shell(rr, slot, UI_D064_POPUP_X0, UI_D064_POPUP_Y0, UI_D064_POPUP_W, UI_D064_POPUP_H, 0, uc);
+    const ui_d064_btn *bb = ui_d064_buttons();
+    for (int i = 0; i < UI_D064_COUNT; i++) {
+        rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
+                     0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
+        int gr = 171 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int wpx = D064_pw[i], hpx = D064_ph[i];
+        if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
+            float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
+            float tw = (float)wpx * scale, th = 30.0f;
+            float u1 = ((float)wpx + 1.0f) / (float)rr->dlg_text_w;
+            rs_atlas_label_wh(rr, slot, rr->tex_dlg_text[slot], rr->dlg_text_w, rr->dlg_text_h,
+                              gr, (bb[i].x0 + bb[i].x1) * 0.5f, (bb[i].y0 + bb[i].y1) * 0.5f,
+                              tw, th, 0.0f, u1, uc);
+        }
+    }
+    if (!d064_diag) { d064_diag = 1;
+        LOGI("rs_draw_d064：datah_064 弹窗（285×45 面板 + 3 按钮，原版按钮文字）");
+    }
+}
+/* ★ 批量对齐（datah_066）：3 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
+   ★ 文字不变形三要素（本轮 datah_095 文字被压成窄竖条实证后修正）：
+     1) 每按钮独立字形像素宽高（D066_pw/ph 数组，非块级常量——旧版 i 泄漏成常量）
+     2) 图集行高固定 40（bake_atlas 行距）→ v = (行号*40)/图集高；n_rows 不再传 cnt
+     3) u1 = 字形像素宽/图集宽（旧版传 1.0 = 整行 416px 压进字宽）
+   目标字高 30px（720 基准），宽按字形 bbox 比例等比缩放。 */
+static const int D066_pw[UI_D066_COUNT] = { 152,152,76 };
+static const int D066_ph[UI_D066_COUNT] = { 38,38,37 };
+static void rs_draw_d066(rs_render *rr, int slot)
+{
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    rs_popup_shell(rr, slot, UI_D066_POPUP_X0, UI_D066_POPUP_Y0, UI_D066_POPUP_W, UI_D066_POPUP_H, 0, uc);
+    const ui_d066_btn *bb = ui_d066_buttons();
+    for (int i = 0; i < UI_D066_COUNT; i++) {
+        rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
+                     0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
+        int gr = 174 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int wpx = D066_pw[i], hpx = D066_ph[i];
+        if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
+            float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
+            float tw = (float)wpx * scale, th = 30.0f;
+            float u1 = ((float)wpx + 1.0f) / (float)rr->dlg_text_w;
+            rs_atlas_label_wh(rr, slot, rr->tex_dlg_text[slot], rr->dlg_text_w, rr->dlg_text_h,
+                              gr, (bb[i].x0 + bb[i].x1) * 0.5f, (bb[i].y0 + bb[i].y1) * 0.5f,
+                              tw, th, 0.0f, u1, uc);
+        }
+    }
+    if (!d066_diag) { d066_diag = 1;
+        LOGI("rs_draw_d066：datah_066 弹窗（250×250 面板 + 3 按钮，原版按钮文字）");
+    }
+}
+/* ★ 批量对齐（datah_068）：3 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
+   ★ 文字不变形三要素（本轮 datah_095 文字被压成窄竖条实证后修正）：
+     1) 每按钮独立字形像素宽高（D068_pw/ph 数组，非块级常量——旧版 i 泄漏成常量）
+     2) 图集行高固定 40（bake_atlas 行距）→ v = (行号*40)/图集高；n_rows 不再传 cnt
+     3) u1 = 字形像素宽/图集宽（旧版传 1.0 = 整行 416px 压进字宽）
+   目标字高 30px（720 基准），宽按字形 bbox 比例等比缩放。 */
+static const int D068_pw[UI_D068_COUNT] = { 76,114,76 };
+static const int D068_ph[UI_D068_COUNT] = { 37,37,37 };
+static void rs_draw_d068(rs_render *rr, int slot)
+{
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    rs_popup_shell(rr, slot, UI_D068_POPUP_X0, UI_D068_POPUP_Y0, UI_D068_POPUP_W, UI_D068_POPUP_H, 0, uc);
+    const ui_d068_btn *bb = ui_d068_buttons();
+    for (int i = 0; i < UI_D068_COUNT; i++) {
+        rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
+                     0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
+        int gr = 177 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int wpx = D068_pw[i], hpx = D068_ph[i];
+        if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
+            float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
+            float tw = (float)wpx * scale, th = 30.0f;
+            float u1 = ((float)wpx + 1.0f) / (float)rr->dlg_text_w;
+            rs_atlas_label_wh(rr, slot, rr->tex_dlg_text[slot], rr->dlg_text_w, rr->dlg_text_h,
+                              gr, (bb[i].x0 + bb[i].x1) * 0.5f, (bb[i].y0 + bb[i].y1) * 0.5f,
+                              tw, th, 0.0f, u1, uc);
+        }
+    }
+    if (!d068_diag) { d068_diag = 1;
+        LOGI("rs_draw_d068：datah_068 弹窗（420×235 面板 + 3 按钮，原版按钮文字）");
     }
 }
 /* ★ 批量对齐（datah_069）：6 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
@@ -5065,7 +6754,7 @@ static void rs_draw_d069(rs_render *rr, int slot)
     for (int i = 0; i < UI_D069_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 59 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 180 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D069_pw[i], hpx = D069_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -5096,7 +6785,7 @@ static void rs_draw_d070(rs_render *rr, int slot)
     for (int i = 0; i < UI_D070_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 65 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 186 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D070_pw[i], hpx = D070_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -5109,6 +6798,719 @@ static void rs_draw_d070(rs_render *rr, int slot)
     }
     if (!d070_diag) { d070_diag = 1;
         LOGI("rs_draw_d070：datah_070 弹窗（450×465 面板 + 6 按钮，原版按钮文字）");
+    }
+}
+/* ★ 批量对齐（datah_071）：2 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
+   ★ 文字不变形三要素（本轮 datah_095 文字被压成窄竖条实证后修正）：
+     1) 每按钮独立字形像素宽高（D071_pw/ph 数组，非块级常量——旧版 i 泄漏成常量）
+     2) 图集行高固定 40（bake_atlas 行距）→ v = (行号*40)/图集高；n_rows 不再传 cnt
+     3) u1 = 字形像素宽/图集宽（旧版传 1.0 = 整行 416px 压进字宽）
+   目标字高 30px（720 基准），宽按字形 bbox 比例等比缩放。 */
+static const int D071_pw[UI_D071_COUNT] = { 76,76 };
+static const int D071_ph[UI_D071_COUNT] = { 38,37 };
+static void rs_draw_d071(rs_render *rr, int slot)
+{
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    rs_popup_shell(rr, slot, UI_D071_POPUP_X0, UI_D071_POPUP_Y0, UI_D071_POPUP_W, UI_D071_POPUP_H, 0, uc);
+    const ui_d071_btn *bb = ui_d071_buttons();
+    for (int i = 0; i < UI_D071_COUNT; i++) {
+        rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
+                     0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
+        int gr = 192 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int wpx = D071_pw[i], hpx = D071_ph[i];
+        if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
+            float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
+            float tw = (float)wpx * scale, th = 30.0f;
+            float u1 = ((float)wpx + 1.0f) / (float)rr->dlg_text_w;
+            rs_atlas_label_wh(rr, slot, rr->tex_dlg_text[slot], rr->dlg_text_w, rr->dlg_text_h,
+                              gr, (bb[i].x0 + bb[i].x1) * 0.5f, (bb[i].y0 + bb[i].y1) * 0.5f,
+                              tw, th, 0.0f, u1, uc);
+        }
+    }
+    if (!d071_diag) { d071_diag = 1;
+        LOGI("rs_draw_d071：datah_071 弹窗（390×495 面板 + 2 按钮，原版按钮文字）");
+    }
+}
+/* ★ 批量对齐（datah_072）：4 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
+   ★ 文字不变形三要素（本轮 datah_095 文字被压成窄竖条实证后修正）：
+     1) 每按钮独立字形像素宽高（D072_pw/ph 数组，非块级常量——旧版 i 泄漏成常量）
+     2) 图集行高固定 40（bake_atlas 行距）→ v = (行号*40)/图集高；n_rows 不再传 cnt
+     3) u1 = 字形像素宽/图集宽（旧版传 1.0 = 整行 416px 压进字宽）
+   目标字高 30px（720 基准），宽按字形 bbox 比例等比缩放。 */
+static const int D072_pw[UI_D072_COUNT] = { 152,175,152,76 };
+static const int D072_ph[UI_D072_COUNT] = { 37,37,37,37 };
+static void rs_draw_d072(rs_render *rr, int slot)
+{
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    rs_popup_shell(rr, slot, UI_D072_POPUP_X0, UI_D072_POPUP_Y0, UI_D072_POPUP_W, UI_D072_POPUP_H, 0, uc);
+    const ui_d072_btn *bb = ui_d072_buttons();
+    for (int i = 0; i < UI_D072_COUNT; i++) {
+        rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
+                     0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
+        int gr = 194 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int wpx = D072_pw[i], hpx = D072_ph[i];
+        if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
+            float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
+            float tw = (float)wpx * scale, th = 30.0f;
+            float u1 = ((float)wpx + 1.0f) / (float)rr->dlg_text_w;
+            rs_atlas_label_wh(rr, slot, rr->tex_dlg_text[slot], rr->dlg_text_w, rr->dlg_text_h,
+                              gr, (bb[i].x0 + bb[i].x1) * 0.5f, (bb[i].y0 + bb[i].y1) * 0.5f,
+                              tw, th, 0.0f, u1, uc);
+        }
+    }
+    if (!d072_diag) { d072_diag = 1;
+        LOGI("rs_draw_d072：datah_072 弹窗（250×325 面板 + 4 按钮，原版按钮文字）");
+    }
+}
+/* ★ 批量对齐（datah_073）：2 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
+   ★ 文字不变形三要素（本轮 datah_095 文字被压成窄竖条实证后修正）：
+     1) 每按钮独立字形像素宽高（D073_pw/ph 数组，非块级常量——旧版 i 泄漏成常量）
+     2) 图集行高固定 40（bake_atlas 行距）→ v = (行号*40)/图集高；n_rows 不再传 cnt
+     3) u1 = 字形像素宽/图集宽（旧版传 1.0 = 整行 416px 压进字宽）
+   目标字高 30px（720 基准），宽按字形 bbox 比例等比缩放。 */
+static const int D073_pw[UI_D073_COUNT] = { 76,76 };
+static const int D073_ph[UI_D073_COUNT] = { 37,37 };
+static void rs_draw_d073(rs_render *rr, int slot)
+{
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    rs_popup_shell(rr, slot, UI_D073_POPUP_X0, UI_D073_POPUP_Y0, UI_D073_POPUP_W, UI_D073_POPUP_H, 0, uc);
+    const ui_d073_btn *bb = ui_d073_buttons();
+    for (int i = 0; i < UI_D073_COUNT; i++) {
+        rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
+                     0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
+        int gr = 198 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int wpx = D073_pw[i], hpx = D073_ph[i];
+        if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
+            float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
+            float tw = (float)wpx * scale, th = 30.0f;
+            float u1 = ((float)wpx + 1.0f) / (float)rr->dlg_text_w;
+            rs_atlas_label_wh(rr, slot, rr->tex_dlg_text[slot], rr->dlg_text_w, rr->dlg_text_h,
+                              gr, (bb[i].x0 + bb[i].x1) * 0.5f, (bb[i].y0 + bb[i].y1) * 0.5f,
+                              tw, th, 0.0f, u1, uc);
+        }
+    }
+    if (!d073_diag) { d073_diag = 1;
+        LOGI("rs_draw_d073：datah_073 弹窗（450×270 面板 + 2 按钮，原版按钮文字）");
+    }
+}
+/* ★ 批量对齐（datah_075）：4 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
+   ★ 文字不变形三要素（本轮 datah_095 文字被压成窄竖条实证后修正）：
+     1) 每按钮独立字形像素宽高（D075_pw/ph 数组，非块级常量——旧版 i 泄漏成常量）
+     2) 图集行高固定 40（bake_atlas 行距）→ v = (行号*40)/图集高；n_rows 不再传 cnt
+     3) u1 = 字形像素宽/图集宽（旧版传 1.0 = 整行 416px 压进字宽）
+   目标字高 30px（720 基准），宽按字形 bbox 比例等比缩放。 */
+static const int D075_pw[UI_D075_COUNT] = { 78,79,95,84 };
+static const int D075_ph[UI_D075_COUNT] = { 28,28,28,29 };
+static void rs_draw_d075(rs_render *rr, int slot)
+{
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    rs_popup_shell(rr, slot, UI_D075_POPUP_X0, UI_D075_POPUP_Y0, UI_D075_POPUP_W, UI_D075_POPUP_H, 0, uc);
+    const ui_d075_btn *bb = ui_d075_buttons();
+    for (int i = 0; i < UI_D075_COUNT; i++) {
+        rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
+                     0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
+        int gr = 200 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int wpx = D075_pw[i], hpx = D075_ph[i];
+        if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
+            float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
+            float tw = (float)wpx * scale, th = 30.0f;
+            float u1 = ((float)wpx + 1.0f) / (float)rr->dlg_text_w;
+            rs_atlas_label_wh(rr, slot, rr->tex_dlg_text[slot], rr->dlg_text_w, rr->dlg_text_h,
+                              gr, (bb[i].x0 + bb[i].x1) * 0.5f, (bb[i].y0 + bb[i].y1) * 0.5f,
+                              tw, th, 0.0f, u1, uc);
+        }
+    }
+    if (!d075_diag) { d075_diag = 1;
+        LOGI("rs_draw_d075：datah_075 弹窗（280×45 面板 + 4 按钮，原版按钮文字）");
+    }
+}
+/* ★ 批量对齐（datah_077）：6 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
+   ★ 文字不变形三要素（本轮 datah_095 文字被压成窄竖条实证后修正）：
+     1) 每按钮独立字形像素宽高（D077_pw/ph 数组，非块级常量——旧版 i 泄漏成常量）
+     2) 图集行高固定 40（bake_atlas 行距）→ v = (行号*40)/图集高；n_rows 不再传 cnt
+     3) u1 = 字形像素宽/图集宽（旧版传 1.0 = 整行 416px 压进字宽）
+   目标字高 30px（720 基准），宽按字形 bbox 比例等比缩放。 */
+static const int D077_pw[UI_D077_COUNT] = { 76,76,152,152,152,152 };
+static const int D077_ph[UI_D077_COUNT] = { 35,37,38,37,37,37 };
+static void rs_draw_d077(rs_render *rr, int slot)
+{
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    rs_popup_shell(rr, slot, UI_D077_POPUP_X0, UI_D077_POPUP_Y0, UI_D077_POPUP_W, UI_D077_POPUP_H, 0, uc);
+    const ui_d077_btn *bb = ui_d077_buttons();
+    for (int i = 0; i < UI_D077_COUNT; i++) {
+        rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
+                     0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
+        int gr = 204 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int wpx = D077_pw[i], hpx = D077_ph[i];
+        if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
+            float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
+            float tw = (float)wpx * scale, th = 30.0f;
+            float u1 = ((float)wpx + 1.0f) / (float)rr->dlg_text_w;
+            rs_atlas_label_wh(rr, slot, rr->tex_dlg_text[slot], rr->dlg_text_w, rr->dlg_text_h,
+                              gr, (bb[i].x0 + bb[i].x1) * 0.5f, (bb[i].y0 + bb[i].y1) * 0.5f,
+                              tw, th, 0.0f, u1, uc);
+        }
+    }
+    if (!d077_diag) { d077_diag = 1;
+        LOGI("rs_draw_d077：datah_077 弹窗（450×285 面板 + 6 按钮，原版按钮文字）");
+    }
+}
+/* ★ 批量对齐（datah_078）：3 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
+   ★ 文字不变形三要素（本轮 datah_095 文字被压成窄竖条实证后修正）：
+     1) 每按钮独立字形像素宽高（D078_pw/ph 数组，非块级常量——旧版 i 泄漏成常量）
+     2) 图集行高固定 40（bake_atlas 行距）→ v = (行号*40)/图集高；n_rows 不再传 cnt
+     3) u1 = 字形像素宽/图集宽（旧版传 1.0 = 整行 416px 压进字宽）
+   目标字高 30px（720 基准），宽按字形 bbox 比例等比缩放。 */
+static const int D078_pw[UI_D078_COUNT] = { 76,76,76 };
+static const int D078_ph[UI_D078_COUNT] = { 38,37,37 };
+static void rs_draw_d078(rs_render *rr, int slot)
+{
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    rs_popup_shell(rr, slot, UI_D078_POPUP_X0, UI_D078_POPUP_Y0, UI_D078_POPUP_W, UI_D078_POPUP_H, 0, uc);
+    const ui_d078_btn *bb = ui_d078_buttons();
+    for (int i = 0; i < UI_D078_COUNT; i++) {
+        rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
+                     0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
+        int gr = 210 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int wpx = D078_pw[i], hpx = D078_ph[i];
+        if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
+            float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
+            float tw = (float)wpx * scale, th = 30.0f;
+            float u1 = ((float)wpx + 1.0f) / (float)rr->dlg_text_w;
+            rs_atlas_label_wh(rr, slot, rr->tex_dlg_text[slot], rr->dlg_text_w, rr->dlg_text_h,
+                              gr, (bb[i].x0 + bb[i].x1) * 0.5f, (bb[i].y0 + bb[i].y1) * 0.5f,
+                              tw, th, 0.0f, u1, uc);
+        }
+    }
+    if (!d078_diag) { d078_diag = 1;
+        LOGI("rs_draw_d078：datah_078 弹窗（450×220 面板 + 3 按钮，原版按钮文字）");
+    }
+}
+/* ★ 批量对齐（datah_079）：1 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
+   ★ 文字不变形三要素（本轮 datah_095 文字被压成窄竖条实证后修正）：
+     1) 每按钮独立字形像素宽高（D079_pw/ph 数组，非块级常量——旧版 i 泄漏成常量）
+     2) 图集行高固定 40（bake_atlas 行距）→ v = (行号*40)/图集高；n_rows 不再传 cnt
+     3) u1 = 字形像素宽/图集宽（旧版传 1.0 = 整行 416px 压进字宽）
+   目标字高 30px（720 基准），宽按字形 bbox 比例等比缩放。 */
+static const int D079_pw[UI_D079_COUNT] = { 76 };
+static const int D079_ph[UI_D079_COUNT] = { 37 };
+static void rs_draw_d079(rs_render *rr, int slot)
+{
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    rs_popup_shell(rr, slot, UI_D079_POPUP_X0, UI_D079_POPUP_Y0, UI_D079_POPUP_W, UI_D079_POPUP_H, 0, uc);
+    const ui_d079_btn *bb = ui_d079_buttons();
+    for (int i = 0; i < UI_D079_COUNT; i++) {
+        rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
+                     0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
+        int gr = 213 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int wpx = D079_pw[i], hpx = D079_ph[i];
+        if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
+            float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
+            float tw = (float)wpx * scale, th = 30.0f;
+            float u1 = ((float)wpx + 1.0f) / (float)rr->dlg_text_w;
+            rs_atlas_label_wh(rr, slot, rr->tex_dlg_text[slot], rr->dlg_text_w, rr->dlg_text_h,
+                              gr, (bb[i].x0 + bb[i].x1) * 0.5f, (bb[i].y0 + bb[i].y1) * 0.5f,
+                              tw, th, 0.0f, u1, uc);
+        }
+    }
+    if (!d079_diag) { d079_diag = 1;
+        LOGI("rs_draw_d079：datah_079 弹窗（440×615 面板 + 1 按钮，原版按钮文字）");
+    }
+}
+/* ★ 批量对齐（datah_082）：5 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
+   ★ 文字不变形三要素（本轮 datah_095 文字被压成窄竖条实证后修正）：
+     1) 每按钮独立字形像素宽高（D082_pw/ph 数组，非块级常量——旧版 i 泄漏成常量）
+     2) 图集行高固定 40（bake_atlas 行距）→ v = (行号*40)/图集高；n_rows 不再传 cnt
+     3) u1 = 字形像素宽/图集宽（旧版传 1.0 = 整行 416px 压进字宽）
+   目标字高 30px（720 基准），宽按字形 bbox 比例等比缩放。 */
+static const int D082_pw[UI_D082_COUNT] = { 76,76,76,76,76 };
+static const int D082_ph[UI_D082_COUNT] = { 37,38,37,37,37 };
+static void rs_draw_d082(rs_render *rr, int slot)
+{
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    rs_popup_shell(rr, slot, UI_D082_POPUP_X0, UI_D082_POPUP_Y0, UI_D082_POPUP_W, UI_D082_POPUP_H, 0, uc);
+    const ui_d082_btn *bb = ui_d082_buttons();
+    for (int i = 0; i < UI_D082_COUNT; i++) {
+        rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
+                     0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
+        int gr = 214 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int wpx = D082_pw[i], hpx = D082_ph[i];
+        if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
+            float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
+            float tw = (float)wpx * scale, th = 30.0f;
+            float u1 = ((float)wpx + 1.0f) / (float)rr->dlg_text_w;
+            rs_atlas_label_wh(rr, slot, rr->tex_dlg_text[slot], rr->dlg_text_w, rr->dlg_text_h,
+                              gr, (bb[i].x0 + bb[i].x1) * 0.5f, (bb[i].y0 + bb[i].y1) * 0.5f,
+                              tw, th, 0.0f, u1, uc);
+        }
+    }
+    if (!d082_diag) { d082_diag = 1;
+        LOGI("rs_draw_d082：datah_082 弹窗（450×60 面板 + 5 按钮，原版按钮文字）");
+    }
+}
+/* ★ 批量对齐（datah_083）：4 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
+   ★ 文字不变形三要素（本轮 datah_095 文字被压成窄竖条实证后修正）：
+     1) 每按钮独立字形像素宽高（D083_pw/ph 数组，非块级常量——旧版 i 泄漏成常量）
+     2) 图集行高固定 40（bake_atlas 行距）→ v = (行号*40)/图集高；n_rows 不再传 cnt
+     3) u1 = 字形像素宽/图集宽（旧版传 1.0 = 整行 416px 压进字宽）
+   目标字高 30px（720 基准），宽按字形 bbox 比例等比缩放。 */
+static const int D083_pw[UI_D083_COUNT] = { 152,152,152,152 };
+static const int D083_ph[UI_D083_COUNT] = { 38,37,37,37 };
+static void rs_draw_d083(rs_render *rr, int slot)
+{
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    rs_popup_shell(rr, slot, UI_D083_POPUP_X0, UI_D083_POPUP_Y0, UI_D083_POPUP_W, UI_D083_POPUP_H, 0, uc);
+    const ui_d083_btn *bb = ui_d083_buttons();
+    for (int i = 0; i < UI_D083_COUNT; i++) {
+        rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
+                     0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
+        int gr = 219 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int wpx = D083_pw[i], hpx = D083_ph[i];
+        if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
+            float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
+            float tw = (float)wpx * scale, th = 30.0f;
+            float u1 = ((float)wpx + 1.0f) / (float)rr->dlg_text_w;
+            rs_atlas_label_wh(rr, slot, rr->tex_dlg_text[slot], rr->dlg_text_w, rr->dlg_text_h,
+                              gr, (bb[i].x0 + bb[i].x1) * 0.5f, (bb[i].y0 + bb[i].y1) * 0.5f,
+                              tw, th, 0.0f, u1, uc);
+        }
+    }
+    if (!d083_diag) { d083_diag = 1;
+        LOGI("rs_draw_d083：datah_083 弹窗（450×153 面板 + 4 按钮，原版按钮文字）");
+    }
+}
+/* ★ 批量对齐（datah_084）：4 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
+   ★ 文字不变形三要素（本轮 datah_095 文字被压成窄竖条实证后修正）：
+     1) 每按钮独立字形像素宽高（D084_pw/ph 数组，非块级常量——旧版 i 泄漏成常量）
+     2) 图集行高固定 40（bake_atlas 行距）→ v = (行号*40)/图集高；n_rows 不再传 cnt
+     3) u1 = 字形像素宽/图集宽（旧版传 1.0 = 整行 416px 压进字宽）
+   目标字高 30px（720 基准），宽按字形 bbox 比例等比缩放。 */
+static const int D084_pw[UI_D084_COUNT] = { 129,171,76,76 };
+static const int D084_ph[UI_D084_COUNT] = { 34,29,37,37 };
+static void rs_draw_d084(rs_render *rr, int slot)
+{
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    rs_popup_shell(rr, slot, UI_D084_POPUP_X0, UI_D084_POPUP_Y0, UI_D084_POPUP_W, UI_D084_POPUP_H, 0, uc);
+    const ui_d084_btn *bb = ui_d084_buttons();
+    for (int i = 0; i < UI_D084_COUNT; i++) {
+        rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
+                     0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
+        int gr = 223 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int wpx = D084_pw[i], hpx = D084_ph[i];
+        if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
+            float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
+            float tw = (float)wpx * scale, th = 30.0f;
+            float u1 = ((float)wpx + 1.0f) / (float)rr->dlg_text_w;
+            rs_atlas_label_wh(rr, slot, rr->tex_dlg_text[slot], rr->dlg_text_w, rr->dlg_text_h,
+                              gr, (bb[i].x0 + bb[i].x1) * 0.5f, (bb[i].y0 + bb[i].y1) * 0.5f,
+                              tw, th, 0.0f, u1, uc);
+        }
+    }
+    if (!d084_diag) { d084_diag = 1;
+        LOGI("rs_draw_d084：datah_084 弹窗（450×315 面板 + 4 按钮，原版按钮文字）");
+    }
+}
+/* ★ 批量对齐（datah_085）：5 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
+   ★ 文字不变形三要素（本轮 datah_095 文字被压成窄竖条实证后修正）：
+     1) 每按钮独立字形像素宽高（D085_pw/ph 数组，非块级常量——旧版 i 泄漏成常量）
+     2) 图集行高固定 40（bake_atlas 行距）→ v = (行号*40)/图集高；n_rows 不再传 cnt
+     3) u1 = 字形像素宽/图集宽（旧版传 1.0 = 整行 416px 压进字宽）
+   目标字高 30px（720 基准），宽按字形 bbox 比例等比缩放。 */
+static const int D085_pw[UI_D085_COUNT] = { 76,76,76,76,76 };
+static const int D085_ph[UI_D085_COUNT] = { 37,37,37,37,37 };
+static void rs_draw_d085(rs_render *rr, int slot)
+{
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    rs_popup_shell(rr, slot, UI_D085_POPUP_X0, UI_D085_POPUP_Y0, UI_D085_POPUP_W, UI_D085_POPUP_H, 0, uc);
+    const ui_d085_btn *bb = ui_d085_buttons();
+    for (int i = 0; i < UI_D085_COUNT; i++) {
+        rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
+                     0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
+        int gr = 227 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int wpx = D085_pw[i], hpx = D085_ph[i];
+        if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
+            float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
+            float tw = (float)wpx * scale, th = 30.0f;
+            float u1 = ((float)wpx + 1.0f) / (float)rr->dlg_text_w;
+            rs_atlas_label_wh(rr, slot, rr->tex_dlg_text[slot], rr->dlg_text_w, rr->dlg_text_h,
+                              gr, (bb[i].x0 + bb[i].x1) * 0.5f, (bb[i].y0 + bb[i].y1) * 0.5f,
+                              tw, th, 0.0f, u1, uc);
+        }
+    }
+    if (!d085_diag) { d085_diag = 1;
+        LOGI("rs_draw_d085：datah_085 弹窗（450×60 面板 + 5 按钮，原版按钮文字）");
+    }
+}
+/* ★ 批量对齐（datah_086）：4 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
+   ★ 文字不变形三要素（本轮 datah_095 文字被压成窄竖条实证后修正）：
+     1) 每按钮独立字形像素宽高（D086_pw/ph 数组，非块级常量——旧版 i 泄漏成常量）
+     2) 图集行高固定 40（bake_atlas 行距）→ v = (行号*40)/图集高；n_rows 不再传 cnt
+     3) u1 = 字形像素宽/图集宽（旧版传 1.0 = 整行 416px 压进字宽）
+   目标字高 30px（720 基准），宽按字形 bbox 比例等比缩放。 */
+static const int D086_pw[UI_D086_COUNT] = { 143,76,76,76 };
+static const int D086_ph[UI_D086_COUNT] = { 28,37,37,37 };
+static void rs_draw_d086(rs_render *rr, int slot)
+{
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    rs_popup_shell(rr, slot, UI_D086_POPUP_X0, UI_D086_POPUP_Y0, UI_D086_POPUP_W, UI_D086_POPUP_H, 0, uc);
+    const ui_d086_btn *bb = ui_d086_buttons();
+    for (int i = 0; i < UI_D086_COUNT; i++) {
+        rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
+                     0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
+        int gr = 232 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int wpx = D086_pw[i], hpx = D086_ph[i];
+        if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
+            float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
+            float tw = (float)wpx * scale, th = 30.0f;
+            float u1 = ((float)wpx + 1.0f) / (float)rr->dlg_text_w;
+            rs_atlas_label_wh(rr, slot, rr->tex_dlg_text[slot], rr->dlg_text_w, rr->dlg_text_h,
+                              gr, (bb[i].x0 + bb[i].x1) * 0.5f, (bb[i].y0 + bb[i].y1) * 0.5f,
+                              tw, th, 0.0f, u1, uc);
+        }
+    }
+    if (!d086_diag) { d086_diag = 1;
+        LOGI("rs_draw_d086：datah_086 弹窗（360×485 面板 + 4 按钮，原版按钮文字）");
+    }
+}
+/* ★ 批量对齐（datah_089）：3 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
+   ★ 文字不变形三要素（本轮 datah_095 文字被压成窄竖条实证后修正）：
+     1) 每按钮独立字形像素宽高（D089_pw/ph 数组，非块级常量——旧版 i 泄漏成常量）
+     2) 图集行高固定 40（bake_atlas 行距）→ v = (行号*40)/图集高；n_rows 不再传 cnt
+     3) u1 = 字形像素宽/图集宽（旧版传 1.0 = 整行 416px 压进字宽）
+   目标字高 30px（720 基准），宽按字形 bbox 比例等比缩放。 */
+static const int D089_pw[UI_D089_COUNT] = { 21,21,21 };
+static const int D089_ph[UI_D089_COUNT] = { 27,28,27 };
+static void rs_draw_d089(rs_render *rr, int slot)
+{
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    rs_popup_shell(rr, slot, UI_D089_POPUP_X0, UI_D089_POPUP_Y0, UI_D089_POPUP_W, UI_D089_POPUP_H, 0, uc);
+    const ui_d089_btn *bb = ui_d089_buttons();
+    for (int i = 0; i < UI_D089_COUNT; i++) {
+        rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
+                     0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
+        int gr = 236 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int wpx = D089_pw[i], hpx = D089_ph[i];
+        if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
+            float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
+            float tw = (float)wpx * scale, th = 30.0f;
+            float u1 = ((float)wpx + 1.0f) / (float)rr->dlg_text_w;
+            rs_atlas_label_wh(rr, slot, rr->tex_dlg_text[slot], rr->dlg_text_w, rr->dlg_text_h,
+                              gr, (bb[i].x0 + bb[i].x1) * 0.5f, (bb[i].y0 + bb[i].y1) * 0.5f,
+                              tw, th, 0.0f, u1, uc);
+        }
+    }
+    if (!d089_diag) { d089_diag = 1;
+        LOGI("rs_draw_d089：datah_089 弹窗（230×230 面板 + 3 按钮，原版按钮文字）");
+    }
+}
+/* ★ 批量对齐（datah_090）：2 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
+   ★ 文字不变形三要素（本轮 datah_095 文字被压成窄竖条实证后修正）：
+     1) 每按钮独立字形像素宽高（D090_pw/ph 数组，非块级常量——旧版 i 泄漏成常量）
+     2) 图集行高固定 40（bake_atlas 行距）→ v = (行号*40)/图集高；n_rows 不再传 cnt
+     3) u1 = 字形像素宽/图集宽（旧版传 1.0 = 整行 416px 压进字宽）
+   目标字高 30px（720 基准），宽按字形 bbox 比例等比缩放。 */
+static const int D090_pw[UI_D090_COUNT] = { 152,152 };
+static const int D090_ph[UI_D090_COUNT] = { 37,37 };
+static void rs_draw_d090(rs_render *rr, int slot)
+{
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    rs_popup_shell(rr, slot, UI_D090_POPUP_X0, UI_D090_POPUP_Y0, UI_D090_POPUP_W, UI_D090_POPUP_H, 0, uc);
+    const ui_d090_btn *bb = ui_d090_buttons();
+    for (int i = 0; i < UI_D090_COUNT; i++) {
+        rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
+                     0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
+        int gr = 239 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int wpx = D090_pw[i], hpx = D090_ph[i];
+        if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
+            float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
+            float tw = (float)wpx * scale, th = 30.0f;
+            float u1 = ((float)wpx + 1.0f) / (float)rr->dlg_text_w;
+            rs_atlas_label_wh(rr, slot, rr->tex_dlg_text[slot], rr->dlg_text_w, rr->dlg_text_h,
+                              gr, (bb[i].x0 + bb[i].x1) * 0.5f, (bb[i].y0 + bb[i].y1) * 0.5f,
+                              tw, th, 0.0f, u1, uc);
+        }
+    }
+    if (!d090_diag) { d090_diag = 1;
+        LOGI("rs_draw_d090：datah_090 弹窗（75×150 面板 + 2 按钮，原版按钮文字）");
+    }
+}
+/* ★ 批量对齐（datah_094）：5 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
+   ★ 文字不变形三要素（本轮 datah_095 文字被压成窄竖条实证后修正）：
+     1) 每按钮独立字形像素宽高（D094_pw/ph 数组，非块级常量——旧版 i 泄漏成常量）
+     2) 图集行高固定 40（bake_atlas 行距）→ v = (行号*40)/图集高；n_rows 不再传 cnt
+     3) u1 = 字形像素宽/图集宽（旧版传 1.0 = 整行 416px 压进字宽）
+   目标字高 30px（720 基准），宽按字形 bbox 比例等比缩放。 */
+static const int D094_pw[UI_D094_COUNT] = { 129,171,81,76,76 };
+static const int D094_ph[UI_D094_COUNT] = { 34,29,29,37,37 };
+static void rs_draw_d094(rs_render *rr, int slot)
+{
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    rs_popup_shell(rr, slot, UI_D094_POPUP_X0, UI_D094_POPUP_Y0, UI_D094_POPUP_W, UI_D094_POPUP_H, 0, uc);
+    const ui_d094_btn *bb = ui_d094_buttons();
+    for (int i = 0; i < UI_D094_COUNT; i++) {
+        rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
+                     0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
+        int gr = 241 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int wpx = D094_pw[i], hpx = D094_ph[i];
+        if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
+            float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
+            float tw = (float)wpx * scale, th = 30.0f;
+            float u1 = ((float)wpx + 1.0f) / (float)rr->dlg_text_w;
+            rs_atlas_label_wh(rr, slot, rr->tex_dlg_text[slot], rr->dlg_text_w, rr->dlg_text_h,
+                              gr, (bb[i].x0 + bb[i].x1) * 0.5f, (bb[i].y0 + bb[i].y1) * 0.5f,
+                              tw, th, 0.0f, u1, uc);
+        }
+    }
+    if (!d094_diag) { d094_diag = 1;
+        LOGI("rs_draw_d094：datah_094 弹窗（450×390 面板 + 5 按钮，原版按钮文字）");
+    }
+}
+/* ★ 批量对齐（datah_095）：5 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
+   ★ 文字不变形三要素（本轮 datah_095 文字被压成窄竖条实证后修正）：
+     1) 每按钮独立字形像素宽高（D095_pw/ph 数组，非块级常量——旧版 i 泄漏成常量）
+     2) 图集行高固定 40（bake_atlas 行距）→ v = (行号*40)/图集高；n_rows 不再传 cnt
+     3) u1 = 字形像素宽/图集宽（旧版传 1.0 = 整行 416px 压进字宽）
+   目标字高 30px（720 基准），宽按字形 bbox 比例等比缩放。 */
+static const int D095_pw[UI_D095_COUNT] = { 76,76,76,76,76 };
+static const int D095_ph[UI_D095_COUNT] = { 37,37,37,37,37 };
+static void rs_draw_d095(rs_render *rr, int slot)
+{
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    rs_popup_shell(rr, slot, UI_D095_POPUP_X0, UI_D095_POPUP_Y0, UI_D095_POPUP_W, UI_D095_POPUP_H, 0, uc);
+    const ui_d095_btn *bb = ui_d095_buttons();
+    for (int i = 0; i < UI_D095_COUNT; i++) {
+        rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
+                     0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
+        int gr = 246 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int wpx = D095_pw[i], hpx = D095_ph[i];
+        if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
+            float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
+            float tw = (float)wpx * scale, th = 30.0f;
+            float u1 = ((float)wpx + 1.0f) / (float)rr->dlg_text_w;
+            rs_atlas_label_wh(rr, slot, rr->tex_dlg_text[slot], rr->dlg_text_w, rr->dlg_text_h,
+                              gr, (bb[i].x0 + bb[i].x1) * 0.5f, (bb[i].y0 + bb[i].y1) * 0.5f,
+                              tw, th, 0.0f, u1, uc);
+        }
+    }
+    if (!d095_diag) { d095_diag = 1;
+        LOGI("rs_draw_d095：datah_095 弹窗（450×60 面板 + 5 按钮，原版按钮文字）");
+    }
+}
+/* ★ 批量对齐（datah_096）：3 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
+   ★ 文字不变形三要素（本轮 datah_095 文字被压成窄竖条实证后修正）：
+     1) 每按钮独立字形像素宽高（D096_pw/ph 数组，非块级常量——旧版 i 泄漏成常量）
+     2) 图集行高固定 40（bake_atlas 行距）→ v = (行号*40)/图集高；n_rows 不再传 cnt
+     3) u1 = 字形像素宽/图集宽（旧版传 1.0 = 整行 416px 压进字宽）
+   目标字高 30px（720 基准），宽按字形 bbox 比例等比缩放。 */
+static const int D096_pw[UI_D096_COUNT] = { 76,76,76 };
+static const int D096_ph[UI_D096_COUNT] = { 38,38,37 };
+static void rs_draw_d096(rs_render *rr, int slot)
+{
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    rs_popup_shell(rr, slot, UI_D096_POPUP_X0, UI_D096_POPUP_Y0, UI_D096_POPUP_W, UI_D096_POPUP_H, 0, uc);
+    const ui_d096_btn *bb = ui_d096_buttons();
+    for (int i = 0; i < UI_D096_COUNT; i++) {
+        rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
+                     0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
+        int gr = 251 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int wpx = D096_pw[i], hpx = D096_ph[i];
+        if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
+            float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
+            float tw = (float)wpx * scale, th = 30.0f;
+            float u1 = ((float)wpx + 1.0f) / (float)rr->dlg_text_w;
+            rs_atlas_label_wh(rr, slot, rr->tex_dlg_text[slot], rr->dlg_text_w, rr->dlg_text_h,
+                              gr, (bb[i].x0 + bb[i].x1) * 0.5f, (bb[i].y0 + bb[i].y1) * 0.5f,
+                              tw, th, 0.0f, u1, uc);
+        }
+    }
+    if (!d096_diag) { d096_diag = 1;
+        LOGI("rs_draw_d096：datah_096 弹窗（420×385 面板 + 3 按钮，原版按钮文字）");
+    }
+}
+/* ★ 批量对齐（datah_097）：4 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
+   ★ 文字不变形三要素（本轮 datah_095 文字被压成窄竖条实证后修正）：
+     1) 每按钮独立字形像素宽高（D097_pw/ph 数组，非块级常量——旧版 i 泄漏成常量）
+     2) 图集行高固定 40（bake_atlas 行距）→ v = (行号*40)/图集高；n_rows 不再传 cnt
+     3) u1 = 字形像素宽/图集宽（旧版传 1.0 = 整行 416px 压进字宽）
+   目标字高 30px（720 基准），宽按字形 bbox 比例等比缩放。 */
+static const int D097_pw[UI_D097_COUNT] = { 76,76,76,76 };
+static const int D097_ph[UI_D097_COUNT] = { 37,37,37,37 };
+static void rs_draw_d097(rs_render *rr, int slot)
+{
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    rs_popup_shell(rr, slot, UI_D097_POPUP_X0, UI_D097_POPUP_Y0, UI_D097_POPUP_W, UI_D097_POPUP_H, 0, uc);
+    const ui_d097_btn *bb = ui_d097_buttons();
+    for (int i = 0; i < UI_D097_COUNT; i++) {
+        rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
+                     0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
+        int gr = 254 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int wpx = D097_pw[i], hpx = D097_ph[i];
+        if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
+            float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
+            float tw = (float)wpx * scale, th = 30.0f;
+            float u1 = ((float)wpx + 1.0f) / (float)rr->dlg_text_w;
+            rs_atlas_label_wh(rr, slot, rr->tex_dlg_text[slot], rr->dlg_text_w, rr->dlg_text_h,
+                              gr, (bb[i].x0 + bb[i].x1) * 0.5f, (bb[i].y0 + bb[i].y1) * 0.5f,
+                              tw, th, 0.0f, u1, uc);
+        }
+    }
+    if (!d097_diag) { d097_diag = 1;
+        LOGI("rs_draw_d097：datah_097 弹窗（375×60 面板 + 4 按钮，原版按钮文字）");
+    }
+}
+/* ★ 批量对齐（datah_098）：6 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
+   ★ 文字不变形三要素（本轮 datah_095 文字被压成窄竖条实证后修正）：
+     1) 每按钮独立字形像素宽高（D098_pw/ph 数组，非块级常量——旧版 i 泄漏成常量）
+     2) 图集行高固定 40（bake_atlas 行距）→ v = (行号*40)/图集高；n_rows 不再传 cnt
+     3) u1 = 字形像素宽/图集宽（旧版传 1.0 = 整行 416px 压进字宽）
+   目标字高 30px（720 基准），宽按字形 bbox 比例等比缩放。 */
+static const int D098_pw[UI_D098_COUNT] = { 76,76,76,76,76,76 };
+static const int D098_ph[UI_D098_COUNT] = { 37,36,37,36,37,36 };
+static void rs_draw_d098(rs_render *rr, int slot)
+{
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    rs_popup_shell(rr, slot, UI_D098_POPUP_X0, UI_D098_POPUP_Y0, UI_D098_POPUP_W, UI_D098_POPUP_H, 0, uc);
+    const ui_d098_btn *bb = ui_d098_buttons();
+    for (int i = 0; i < UI_D098_COUNT; i++) {
+        rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
+                     0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
+        int gr = 258 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int wpx = D098_pw[i], hpx = D098_ph[i];
+        if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
+            float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
+            float tw = (float)wpx * scale, th = 30.0f;
+            float u1 = ((float)wpx + 1.0f) / (float)rr->dlg_text_w;
+            rs_atlas_label_wh(rr, slot, rr->tex_dlg_text[slot], rr->dlg_text_w, rr->dlg_text_h,
+                              gr, (bb[i].x0 + bb[i].x1) * 0.5f, (bb[i].y0 + bb[i].y1) * 0.5f,
+                              tw, th, 0.0f, u1, uc);
+        }
+    }
+    if (!d098_diag) { d098_diag = 1;
+        LOGI("rs_draw_d098：datah_098 弹窗（450×260 面板 + 6 按钮，原版按钮文字）");
+    }
+}
+/* ★ 批量对齐（datah_099）：4 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
+   ★ 文字不变形三要素（本轮 datah_095 文字被压成窄竖条实证后修正）：
+     1) 每按钮独立字形像素宽高（D099_pw/ph 数组，非块级常量——旧版 i 泄漏成常量）
+     2) 图集行高固定 40（bake_atlas 行距）→ v = (行号*40)/图集高；n_rows 不再传 cnt
+     3) u1 = 字形像素宽/图集宽（旧版传 1.0 = 整行 416px 压进字宽）
+   目标字高 30px（720 基准），宽按字形 bbox 比例等比缩放。 */
+static const int D099_pw[UI_D099_COUNT] = { 152,152,152,152 };
+static const int D099_ph[UI_D099_COUNT] = { 37,38,37,37 };
+static void rs_draw_d099(rs_render *rr, int slot)
+{
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    rs_popup_shell(rr, slot, UI_D099_POPUP_X0, UI_D099_POPUP_Y0, UI_D099_POPUP_W, UI_D099_POPUP_H, 0, uc);
+    const ui_d099_btn *bb = ui_d099_buttons();
+    for (int i = 0; i < UI_D099_COUNT; i++) {
+        rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
+                     0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
+        int gr = 264 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int wpx = D099_pw[i], hpx = D099_ph[i];
+        if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
+            float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
+            float tw = (float)wpx * scale, th = 30.0f;
+            float u1 = ((float)wpx + 1.0f) / (float)rr->dlg_text_w;
+            rs_atlas_label_wh(rr, slot, rr->tex_dlg_text[slot], rr->dlg_text_w, rr->dlg_text_h,
+                              gr, (bb[i].x0 + bb[i].x1) * 0.5f, (bb[i].y0 + bb[i].y1) * 0.5f,
+                              tw, th, 0.0f, u1, uc);
+        }
+    }
+    if (!d099_diag) { d099_diag = 1;
+        LOGI("rs_draw_d099：datah_099 弹窗（450×153 面板 + 4 按钮，原版按钮文字）");
+    }
+}
+/* ★ 批量对齐（datah_100）：1 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
+   ★ 文字不变形三要素（本轮 datah_095 文字被压成窄竖条实证后修正）：
+     1) 每按钮独立字形像素宽高（D100_pw/ph 数组，非块级常量——旧版 i 泄漏成常量）
+     2) 图集行高固定 40（bake_atlas 行距）→ v = (行号*40)/图集高；n_rows 不再传 cnt
+     3) u1 = 字形像素宽/图集宽（旧版传 1.0 = 整行 416px 压进字宽）
+   目标字高 30px（720 基准），宽按字形 bbox 比例等比缩放。 */
+static const int D100_pw[UI_D100_COUNT] = { 76 };
+static const int D100_ph[UI_D100_COUNT] = { 37 };
+static void rs_draw_d100(rs_render *rr, int slot)
+{
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    rs_popup_shell(rr, slot, UI_D100_POPUP_X0, UI_D100_POPUP_Y0, UI_D100_POPUP_W, UI_D100_POPUP_H, 0, uc);
+    const ui_d100_btn *bb = ui_d100_buttons();
+    for (int i = 0; i < UI_D100_COUNT; i++) {
+        rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
+                     0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
+        int gr = 268 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int wpx = D100_pw[i], hpx = D100_ph[i];
+        if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
+            float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
+            float tw = (float)wpx * scale, th = 30.0f;
+            float u1 = ((float)wpx + 1.0f) / (float)rr->dlg_text_w;
+            rs_atlas_label_wh(rr, slot, rr->tex_dlg_text[slot], rr->dlg_text_w, rr->dlg_text_h,
+                              gr, (bb[i].x0 + bb[i].x1) * 0.5f, (bb[i].y0 + bb[i].y1) * 0.5f,
+                              tw, th, 0.0f, u1, uc);
+        }
+    }
+    if (!d100_diag) { d100_diag = 1;
+        LOGI("rs_draw_d100：datah_100 弹窗（345×135 面板 + 1 按钮，原版按钮文字）");
+    }
+}
+/* ★ 批量对齐（datah_101）：4 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
+   ★ 文字不变形三要素（本轮 datah_095 文字被压成窄竖条实证后修正）：
+     1) 每按钮独立字形像素宽高（D101_pw/ph 数组，非块级常量——旧版 i 泄漏成常量）
+     2) 图集行高固定 40（bake_atlas 行距）→ v = (行号*40)/图集高；n_rows 不再传 cnt
+     3) u1 = 字形像素宽/图集宽（旧版传 1.0 = 整行 416px 压进字宽）
+   目标字高 30px（720 基准），宽按字形 bbox 比例等比缩放。 */
+static const int D101_pw[UI_D101_COUNT] = { 76,76,76,76 };
+static const int D101_ph[UI_D101_COUNT] = { 37,37,37,37 };
+static void rs_draw_d101(rs_render *rr, int slot)
+{
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    rs_popup_shell(rr, slot, UI_D101_POPUP_X0, UI_D101_POPUP_Y0, UI_D101_POPUP_W, UI_D101_POPUP_H, 0, uc);
+    const ui_d101_btn *bb = ui_d101_buttons();
+    for (int i = 0; i < UI_D101_COUNT; i++) {
+        rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
+                     0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
+        int gr = 269 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int wpx = D101_pw[i], hpx = D101_ph[i];
+        if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
+            float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
+            float tw = (float)wpx * scale, th = 30.0f;
+            float u1 = ((float)wpx + 1.0f) / (float)rr->dlg_text_w;
+            rs_atlas_label_wh(rr, slot, rr->tex_dlg_text[slot], rr->dlg_text_w, rr->dlg_text_h,
+                              gr, (bb[i].x0 + bb[i].x1) * 0.5f, (bb[i].y0 + bb[i].y1) * 0.5f,
+                              tw, th, 0.0f, u1, uc);
+        }
+    }
+    if (!d101_diag) { d101_diag = 1;
+        LOGI("rs_draw_d101：datah_101 弹窗（450×60 面板 + 4 按钮，原版按钮文字）");
+    }
+}
+/* ★ 批量对齐（datah_102）：1 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
+   ★ 文字不变形三要素（本轮 datah_095 文字被压成窄竖条实证后修正）：
+     1) 每按钮独立字形像素宽高（D102_pw/ph 数组，非块级常量——旧版 i 泄漏成常量）
+     2) 图集行高固定 40（bake_atlas 行距）→ v = (行号*40)/图集高；n_rows 不再传 cnt
+     3) u1 = 字形像素宽/图集宽（旧版传 1.0 = 整行 416px 压进字宽）
+   目标字高 30px（720 基准），宽按字形 bbox 比例等比缩放。 */
+static const int D102_pw[UI_D102_COUNT] = { 76 };
+static const int D102_ph[UI_D102_COUNT] = { 37 };
+static void rs_draw_d102(rs_render *rr, int slot)
+{
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    rs_popup_shell(rr, slot, UI_D102_POPUP_X0, UI_D102_POPUP_Y0, UI_D102_POPUP_W, UI_D102_POPUP_H, 0, uc);
+    const ui_d102_btn *bb = ui_d102_buttons();
+    for (int i = 0; i < UI_D102_COUNT; i++) {
+        rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
+                     0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
+        int gr = 273 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int wpx = D102_pw[i], hpx = D102_ph[i];
+        if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
+            float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
+            float tw = (float)wpx * scale, th = 30.0f;
+            float u1 = ((float)wpx + 1.0f) / (float)rr->dlg_text_w;
+            rs_atlas_label_wh(rr, slot, rr->tex_dlg_text[slot], rr->dlg_text_w, rr->dlg_text_h,
+                              gr, (bb[i].x0 + bb[i].x1) * 0.5f, (bb[i].y0 + bb[i].y1) * 0.5f,
+                              tw, th, 0.0f, u1, uc);
+        }
+    }
+    if (!d102_diag) { d102_diag = 1;
+        LOGI("rs_draw_d102：datah_102 弹窗（395×370 面板 + 1 按钮，原版按钮文字）");
     }
 }
 /* ★ 批量对齐（datah_104）：5 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
@@ -5127,7 +7529,7 @@ static void rs_draw_d104(rs_render *rr, int slot)
     for (int i = 0; i < UI_D104_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 71 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 274 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D104_pw[i], hpx = D104_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -5158,7 +7560,7 @@ static void rs_draw_d107(rs_render *rr, int slot)
     for (int i = 0; i < UI_D107_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 76 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 279 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D107_pw[i], hpx = D107_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -5171,6 +7573,254 @@ static void rs_draw_d107(rs_render *rr, int slot)
     }
     if (!d107_diag) { d107_diag = 1;
         LOGI("rs_draw_d107：datah_107 弹窗（450×60 面板 + 5 按钮，原版按钮文字）");
+    }
+}
+/* ★ 批量对齐（datah_108）：3 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
+   ★ 文字不变形三要素（本轮 datah_095 文字被压成窄竖条实证后修正）：
+     1) 每按钮独立字形像素宽高（D108_pw/ph 数组，非块级常量——旧版 i 泄漏成常量）
+     2) 图集行高固定 40（bake_atlas 行距）→ v = (行号*40)/图集高；n_rows 不再传 cnt
+     3) u1 = 字形像素宽/图集宽（旧版传 1.0 = 整行 416px 压进字宽）
+   目标字高 30px（720 基准），宽按字形 bbox 比例等比缩放。 */
+static const int D108_pw[UI_D108_COUNT] = { 76,76,76 };
+static const int D108_ph[UI_D108_COUNT] = { 37,37,37 };
+static void rs_draw_d108(rs_render *rr, int slot)
+{
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    rs_popup_shell(rr, slot, UI_D108_POPUP_X0, UI_D108_POPUP_Y0, UI_D108_POPUP_W, UI_D108_POPUP_H, 0, uc);
+    const ui_d108_btn *bb = ui_d108_buttons();
+    for (int i = 0; i < UI_D108_COUNT; i++) {
+        rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
+                     0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
+        int gr = 284 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int wpx = D108_pw[i], hpx = D108_ph[i];
+        if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
+            float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
+            float tw = (float)wpx * scale, th = 30.0f;
+            float u1 = ((float)wpx + 1.0f) / (float)rr->dlg_text_w;
+            rs_atlas_label_wh(rr, slot, rr->tex_dlg_text[slot], rr->dlg_text_w, rr->dlg_text_h,
+                              gr, (bb[i].x0 + bb[i].x1) * 0.5f, (bb[i].y0 + bb[i].y1) * 0.5f,
+                              tw, th, 0.0f, u1, uc);
+        }
+    }
+    if (!d108_diag) { d108_diag = 1;
+        LOGI("rs_draw_d108：datah_108 弹窗（420×450 面板 + 3 按钮，原版按钮文字）");
+    }
+}
+/* ★ 批量对齐（datah_109）：3 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
+   ★ 文字不变形三要素（本轮 datah_095 文字被压成窄竖条实证后修正）：
+     1) 每按钮独立字形像素宽高（D109_pw/ph 数组，非块级常量——旧版 i 泄漏成常量）
+     2) 图集行高固定 40（bake_atlas 行距）→ v = (行号*40)/图集高；n_rows 不再传 cnt
+     3) u1 = 字形像素宽/图集宽（旧版传 1.0 = 整行 416px 压进字宽）
+   目标字高 30px（720 基准），宽按字形 bbox 比例等比缩放。 */
+static const int D109_pw[UI_D109_COUNT] = { 76,76,76 };
+static const int D109_ph[UI_D109_COUNT] = { 35,37,37 };
+static void rs_draw_d109(rs_render *rr, int slot)
+{
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    rs_popup_shell(rr, slot, UI_D109_POPUP_X0, UI_D109_POPUP_Y0, UI_D109_POPUP_W, UI_D109_POPUP_H, 0, uc);
+    const ui_d109_btn *bb = ui_d109_buttons();
+    for (int i = 0; i < UI_D109_COUNT; i++) {
+        rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
+                     0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
+        int gr = 287 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int wpx = D109_pw[i], hpx = D109_ph[i];
+        if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
+            float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
+            float tw = (float)wpx * scale, th = 30.0f;
+            float u1 = ((float)wpx + 1.0f) / (float)rr->dlg_text_w;
+            rs_atlas_label_wh(rr, slot, rr->tex_dlg_text[slot], rr->dlg_text_w, rr->dlg_text_h,
+                              gr, (bb[i].x0 + bb[i].x1) * 0.5f, (bb[i].y0 + bb[i].y1) * 0.5f,
+                              tw, th, 0.0f, u1, uc);
+        }
+    }
+    if (!d109_diag) { d109_diag = 1;
+        LOGI("rs_draw_d109：datah_109 弹窗（260×90 面板 + 3 按钮，原版按钮文字）");
+    }
+}
+/* ★ 批量对齐（datah_110）：2 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
+   ★ 文字不变形三要素（本轮 datah_095 文字被压成窄竖条实证后修正）：
+     1) 每按钮独立字形像素宽高（D110_pw/ph 数组，非块级常量——旧版 i 泄漏成常量）
+     2) 图集行高固定 40（bake_atlas 行距）→ v = (行号*40)/图集高；n_rows 不再传 cnt
+     3) u1 = 字形像素宽/图集宽（旧版传 1.0 = 整行 416px 压进字宽）
+   目标字高 30px（720 基准），宽按字形 bbox 比例等比缩放。 */
+static const int D110_pw[UI_D110_COUNT] = { 76,76 };
+static const int D110_ph[UI_D110_COUNT] = { 37,37 };
+static void rs_draw_d110(rs_render *rr, int slot)
+{
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    rs_popup_shell(rr, slot, UI_D110_POPUP_X0, UI_D110_POPUP_Y0, UI_D110_POPUP_W, UI_D110_POPUP_H, 0, uc);
+    const ui_d110_btn *bb = ui_d110_buttons();
+    for (int i = 0; i < UI_D110_COUNT; i++) {
+        rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
+                     0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
+        int gr = 290 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int wpx = D110_pw[i], hpx = D110_ph[i];
+        if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
+            float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
+            float tw = (float)wpx * scale, th = 30.0f;
+            float u1 = ((float)wpx + 1.0f) / (float)rr->dlg_text_w;
+            rs_atlas_label_wh(rr, slot, rr->tex_dlg_text[slot], rr->dlg_text_w, rr->dlg_text_h,
+                              gr, (bb[i].x0 + bb[i].x1) * 0.5f, (bb[i].y0 + bb[i].y1) * 0.5f,
+                              tw, th, 0.0f, u1, uc);
+        }
+    }
+    if (!d110_diag) { d110_diag = 1;
+        LOGI("rs_draw_d110：datah_110 弹窗（450×610 面板 + 2 按钮，原版按钮文字）");
+    }
+}
+/* ★ 批量对齐（datah_112）：5 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
+   ★ 文字不变形三要素（本轮 datah_095 文字被压成窄竖条实证后修正）：
+     1) 每按钮独立字形像素宽高（D112_pw/ph 数组，非块级常量——旧版 i 泄漏成常量）
+     2) 图集行高固定 40（bake_atlas 行距）→ v = (行号*40)/图集高；n_rows 不再传 cnt
+     3) u1 = 字形像素宽/图集宽（旧版传 1.0 = 整行 416px 压进字宽）
+   目标字高 30px（720 基准），宽按字形 bbox 比例等比缩放。 */
+static const int D112_pw[UI_D112_COUNT] = { 152,152,152,152,152 };
+static const int D112_ph[UI_D112_COUNT] = { 38,37,38,37,37 };
+static void rs_draw_d112(rs_render *rr, int slot)
+{
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    rs_popup_shell(rr, slot, UI_D112_POPUP_X0, UI_D112_POPUP_Y0, UI_D112_POPUP_W, UI_D112_POPUP_H, 0, uc);
+    const ui_d112_btn *bb = ui_d112_buttons();
+    for (int i = 0; i < UI_D112_COUNT; i++) {
+        rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
+                     0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
+        int gr = 292 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int wpx = D112_pw[i], hpx = D112_ph[i];
+        if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
+            float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
+            float tw = (float)wpx * scale, th = 30.0f;
+            float u1 = ((float)wpx + 1.0f) / (float)rr->dlg_text_w;
+            rs_atlas_label_wh(rr, slot, rr->tex_dlg_text[slot], rr->dlg_text_w, rr->dlg_text_h,
+                              gr, (bb[i].x0 + bb[i].x1) * 0.5f, (bb[i].y0 + bb[i].y1) * 0.5f,
+                              tw, th, 0.0f, u1, uc);
+        }
+    }
+    if (!d112_diag) { d112_diag = 1;
+        LOGI("rs_draw_d112：datah_112 弹窗（450×285 面板 + 5 按钮，原版按钮文字）");
+    }
+}
+/* ★ 批量对齐（datah_113）：4 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
+   ★ 文字不变形三要素（本轮 datah_095 文字被压成窄竖条实证后修正）：
+     1) 每按钮独立字形像素宽高（D113_pw/ph 数组，非块级常量——旧版 i 泄漏成常量）
+     2) 图集行高固定 40（bake_atlas 行距）→ v = (行号*40)/图集高；n_rows 不再传 cnt
+     3) u1 = 字形像素宽/图集宽（旧版传 1.0 = 整行 416px 压进字宽）
+   目标字高 30px（720 基准），宽按字形 bbox 比例等比缩放。 */
+static const int D113_pw[UI_D113_COUNT] = { 21,21,21,21 };
+static const int D113_ph[UI_D113_COUNT] = { 28,27,27,28 };
+static void rs_draw_d113(rs_render *rr, int slot)
+{
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    rs_popup_shell(rr, slot, UI_D113_POPUP_X0, UI_D113_POPUP_Y0, UI_D113_POPUP_W, UI_D113_POPUP_H, 0, uc);
+    const ui_d113_btn *bb = ui_d113_buttons();
+    for (int i = 0; i < UI_D113_COUNT; i++) {
+        rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
+                     0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
+        int gr = 297 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int wpx = D113_pw[i], hpx = D113_ph[i];
+        if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
+            float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
+            float tw = (float)wpx * scale, th = 30.0f;
+            float u1 = ((float)wpx + 1.0f) / (float)rr->dlg_text_w;
+            rs_atlas_label_wh(rr, slot, rr->tex_dlg_text[slot], rr->dlg_text_w, rr->dlg_text_h,
+                              gr, (bb[i].x0 + bb[i].x1) * 0.5f, (bb[i].y0 + bb[i].y1) * 0.5f,
+                              tw, th, 0.0f, u1, uc);
+        }
+    }
+    if (!d113_diag) { d113_diag = 1;
+        LOGI("rs_draw_d113：datah_113 弹窗（230×300 面板 + 4 按钮，原版按钮文字）");
+    }
+}
+/* ★ 批量对齐（datah_114）：1 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
+   ★ 文字不变形三要素（本轮 datah_095 文字被压成窄竖条实证后修正）：
+     1) 每按钮独立字形像素宽高（D114_pw/ph 数组，非块级常量——旧版 i 泄漏成常量）
+     2) 图集行高固定 40（bake_atlas 行距）→ v = (行号*40)/图集高；n_rows 不再传 cnt
+     3) u1 = 字形像素宽/图集宽（旧版传 1.0 = 整行 416px 压进字宽）
+   目标字高 30px（720 基准），宽按字形 bbox 比例等比缩放。 */
+static const int D114_pw[UI_D114_COUNT] = { 65 };
+static const int D114_ph[UI_D114_COUNT] = { 29 };
+static void rs_draw_d114(rs_render *rr, int slot)
+{
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    rs_popup_shell(rr, slot, UI_D114_POPUP_X0, UI_D114_POPUP_Y0, UI_D114_POPUP_W, UI_D114_POPUP_H, 0, uc);
+    const ui_d114_btn *bb = ui_d114_buttons();
+    for (int i = 0; i < UI_D114_COUNT; i++) {
+        rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
+                     0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
+        int gr = 301 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int wpx = D114_pw[i], hpx = D114_ph[i];
+        if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
+            float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
+            float tw = (float)wpx * scale, th = 30.0f;
+            float u1 = ((float)wpx + 1.0f) / (float)rr->dlg_text_w;
+            rs_atlas_label_wh(rr, slot, rr->tex_dlg_text[slot], rr->dlg_text_w, rr->dlg_text_h,
+                              gr, (bb[i].x0 + bb[i].x1) * 0.5f, (bb[i].y0 + bb[i].y1) * 0.5f,
+                              tw, th, 0.0f, u1, uc);
+        }
+    }
+    if (!d114_diag) { d114_diag = 1;
+        LOGI("rs_draw_d114：datah_114 弹窗（30×60 面板 + 1 按钮，原版按钮文字）");
+    }
+}
+/* ★ 批量对齐（datah_118）：2 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
+   ★ 文字不变形三要素（本轮 datah_095 文字被压成窄竖条实证后修正）：
+     1) 每按钮独立字形像素宽高（D118_pw/ph 数组，非块级常量——旧版 i 泄漏成常量）
+     2) 图集行高固定 40（bake_atlas 行距）→ v = (行号*40)/图集高；n_rows 不再传 cnt
+     3) u1 = 字形像素宽/图集宽（旧版传 1.0 = 整行 416px 压进字宽）
+   目标字高 30px（720 基准），宽按字形 bbox 比例等比缩放。 */
+static const int D118_pw[UI_D118_COUNT] = { 76,76 };
+static const int D118_ph[UI_D118_COUNT] = { 38,37 };
+static void rs_draw_d118(rs_render *rr, int slot)
+{
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    rs_popup_shell(rr, slot, UI_D118_POPUP_X0, UI_D118_POPUP_Y0, UI_D118_POPUP_W, UI_D118_POPUP_H, 0, uc);
+    const ui_d118_btn *bb = ui_d118_buttons();
+    for (int i = 0; i < UI_D118_COUNT; i++) {
+        rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
+                     0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
+        int gr = 302 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int wpx = D118_pw[i], hpx = D118_ph[i];
+        if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
+            float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
+            float tw = (float)wpx * scale, th = 30.0f;
+            float u1 = ((float)wpx + 1.0f) / (float)rr->dlg_text_w;
+            rs_atlas_label_wh(rr, slot, rr->tex_dlg_text[slot], rr->dlg_text_w, rr->dlg_text_h,
+                              gr, (bb[i].x0 + bb[i].x1) * 0.5f, (bb[i].y0 + bb[i].y1) * 0.5f,
+                              tw, th, 0.0f, u1, uc);
+        }
+    }
+    if (!d118_diag) { d118_diag = 1;
+        LOGI("rs_draw_d118：datah_118 弹窗（450×360 面板 + 2 按钮，原版按钮文字）");
+    }
+}
+/* ★ 批量对齐（datah_119）：2 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
+   ★ 文字不变形三要素（本轮 datah_095 文字被压成窄竖条实证后修正）：
+     1) 每按钮独立字形像素宽高（D119_pw/ph 数组，非块级常量——旧版 i 泄漏成常量）
+     2) 图集行高固定 40（bake_atlas 行距）→ v = (行号*40)/图集高；n_rows 不再传 cnt
+     3) u1 = 字形像素宽/图集宽（旧版传 1.0 = 整行 416px 压进字宽）
+   目标字高 30px（720 基准），宽按字形 bbox 比例等比缩放。 */
+static const int D119_pw[UI_D119_COUNT] = { 76,76 };
+static const int D119_ph[UI_D119_COUNT] = { 37,37 };
+static void rs_draw_d119(rs_render *rr, int slot)
+{
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    rs_popup_shell(rr, slot, UI_D119_POPUP_X0, UI_D119_POPUP_Y0, UI_D119_POPUP_W, UI_D119_POPUP_H, 0, uc);
+    const ui_d119_btn *bb = ui_d119_buttons();
+    for (int i = 0; i < UI_D119_COUNT; i++) {
+        rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
+                     0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
+        int gr = 304 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int wpx = D119_pw[i], hpx = D119_ph[i];
+        if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
+            float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
+            float tw = (float)wpx * scale, th = 30.0f;
+            float u1 = ((float)wpx + 1.0f) / (float)rr->dlg_text_w;
+            rs_atlas_label_wh(rr, slot, rr->tex_dlg_text[slot], rr->dlg_text_w, rr->dlg_text_h,
+                              gr, (bb[i].x0 + bb[i].x1) * 0.5f, (bb[i].y0 + bb[i].y1) * 0.5f,
+                              tw, th, 0.0f, u1, uc);
+        }
+    }
+    if (!d119_diag) { d119_diag = 1;
+        LOGI("rs_draw_d119：datah_119 弹窗（420×287 面板 + 2 按钮，原版按钮文字）");
     }
 }
 /* ★ 批量对齐（datah_120）：3 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
@@ -5189,7 +7839,7 @@ static void rs_draw_d120(rs_render *rr, int slot)
     for (int i = 0; i < UI_D120_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 81 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 306 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D120_pw[i], hpx = D120_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -5202,6 +7852,626 @@ static void rs_draw_d120(rs_render *rr, int slot)
     }
     if (!d120_diag) { d120_diag = 1;
         LOGI("rs_draw_d120：datah_120 弹窗（250×250 面板 + 3 按钮，原版按钮文字）");
+    }
+}
+/* ★ 批量对齐（datah_121）：2 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
+   ★ 文字不变形三要素（本轮 datah_095 文字被压成窄竖条实证后修正）：
+     1) 每按钮独立字形像素宽高（D121_pw/ph 数组，非块级常量——旧版 i 泄漏成常量）
+     2) 图集行高固定 40（bake_atlas 行距）→ v = (行号*40)/图集高；n_rows 不再传 cnt
+     3) u1 = 字形像素宽/图集宽（旧版传 1.0 = 整行 416px 压进字宽）
+   目标字高 30px（720 基准），宽按字形 bbox 比例等比缩放。 */
+static const int D121_pw[UI_D121_COUNT] = { 76,76 };
+static const int D121_ph[UI_D121_COUNT] = { 37,37 };
+static void rs_draw_d121(rs_render *rr, int slot)
+{
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    rs_popup_shell(rr, slot, UI_D121_POPUP_X0, UI_D121_POPUP_Y0, UI_D121_POPUP_W, UI_D121_POPUP_H, 0, uc);
+    const ui_d121_btn *bb = ui_d121_buttons();
+    for (int i = 0; i < UI_D121_COUNT; i++) {
+        rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
+                     0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
+        int gr = 309 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int wpx = D121_pw[i], hpx = D121_ph[i];
+        if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
+            float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
+            float tw = (float)wpx * scale, th = 30.0f;
+            float u1 = ((float)wpx + 1.0f) / (float)rr->dlg_text_w;
+            rs_atlas_label_wh(rr, slot, rr->tex_dlg_text[slot], rr->dlg_text_w, rr->dlg_text_h,
+                              gr, (bb[i].x0 + bb[i].x1) * 0.5f, (bb[i].y0 + bb[i].y1) * 0.5f,
+                              tw, th, 0.0f, u1, uc);
+        }
+    }
+    if (!d121_diag) { d121_diag = 1;
+        LOGI("rs_draw_d121：datah_121 弹窗（420×287 面板 + 2 按钮，原版按钮文字）");
+    }
+}
+/* ★ 批量对齐（datah_122）：2 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
+   ★ 文字不变形三要素（本轮 datah_095 文字被压成窄竖条实证后修正）：
+     1) 每按钮独立字形像素宽高（D122_pw/ph 数组，非块级常量——旧版 i 泄漏成常量）
+     2) 图集行高固定 40（bake_atlas 行距）→ v = (行号*40)/图集高；n_rows 不再传 cnt
+     3) u1 = 字形像素宽/图集宽（旧版传 1.0 = 整行 416px 压进字宽）
+   目标字高 30px（720 基准），宽按字形 bbox 比例等比缩放。 */
+static const int D122_pw[UI_D122_COUNT] = { 76,76 };
+static const int D122_ph[UI_D122_COUNT] = { 37,37 };
+static void rs_draw_d122(rs_render *rr, int slot)
+{
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    rs_popup_shell(rr, slot, UI_D122_POPUP_X0, UI_D122_POPUP_Y0, UI_D122_POPUP_W, UI_D122_POPUP_H, 0, uc);
+    const ui_d122_btn *bb = ui_d122_buttons();
+    for (int i = 0; i < UI_D122_COUNT; i++) {
+        rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
+                     0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
+        int gr = 311 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int wpx = D122_pw[i], hpx = D122_ph[i];
+        if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
+            float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
+            float tw = (float)wpx * scale, th = 30.0f;
+            float u1 = ((float)wpx + 1.0f) / (float)rr->dlg_text_w;
+            rs_atlas_label_wh(rr, slot, rr->tex_dlg_text[slot], rr->dlg_text_w, rr->dlg_text_h,
+                              gr, (bb[i].x0 + bb[i].x1) * 0.5f, (bb[i].y0 + bb[i].y1) * 0.5f,
+                              tw, th, 0.0f, u1, uc);
+        }
+    }
+    if (!d122_diag) { d122_diag = 1;
+        LOGI("rs_draw_d122：datah_122 弹窗（420×302 面板 + 2 按钮，原版按钮文字）");
+    }
+}
+/* ★ 批量对齐（datah_123）：1 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
+   ★ 文字不变形三要素（本轮 datah_095 文字被压成窄竖条实证后修正）：
+     1) 每按钮独立字形像素宽高（D123_pw/ph 数组，非块级常量——旧版 i 泄漏成常量）
+     2) 图集行高固定 40（bake_atlas 行距）→ v = (行号*40)/图集高；n_rows 不再传 cnt
+     3) u1 = 字形像素宽/图集宽（旧版传 1.0 = 整行 416px 压进字宽）
+   目标字高 30px（720 基准），宽按字形 bbox 比例等比缩放。 */
+static const int D123_pw[UI_D123_COUNT] = { 74 };
+static const int D123_ph[UI_D123_COUNT] = { 29 };
+static void rs_draw_d123(rs_render *rr, int slot)
+{
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    rs_popup_shell(rr, slot, UI_D123_POPUP_X0, UI_D123_POPUP_Y0, UI_D123_POPUP_W, UI_D123_POPUP_H, 0, uc);
+    const ui_d123_btn *bb = ui_d123_buttons();
+    for (int i = 0; i < UI_D123_COUNT; i++) {
+        rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
+                     0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
+        int gr = 313 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int wpx = D123_pw[i], hpx = D123_ph[i];
+        if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
+            float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
+            float tw = (float)wpx * scale, th = 30.0f;
+            float u1 = ((float)wpx + 1.0f) / (float)rr->dlg_text_w;
+            rs_atlas_label_wh(rr, slot, rr->tex_dlg_text[slot], rr->dlg_text_w, rr->dlg_text_h,
+                              gr, (bb[i].x0 + bb[i].x1) * 0.5f, (bb[i].y0 + bb[i].y1) * 0.5f,
+                              tw, th, 0.0f, u1, uc);
+        }
+    }
+    if (!d123_diag) { d123_diag = 1;
+        LOGI("rs_draw_d123：datah_123 弹窗（120×75 面板 + 1 按钮，原版按钮文字）");
+    }
+}
+/* ★ 批量对齐（datah_246）：2 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
+   ★ 文字不变形三要素（本轮 datah_095 文字被压成窄竖条实证后修正）：
+     1) 每按钮独立字形像素宽高（D246_pw/ph 数组，非块级常量——旧版 i 泄漏成常量）
+     2) 图集行高固定 40（bake_atlas 行距）→ v = (行号*40)/图集高；n_rows 不再传 cnt
+     3) u1 = 字形像素宽/图集宽（旧版传 1.0 = 整行 416px 压进字宽）
+   目标字高 30px（720 基准），宽按字形 bbox 比例等比缩放。 */
+static const int D246_pw[UI_D246_COUNT] = { 95,84 };
+static const int D246_ph[UI_D246_COUNT] = { 28,29 };
+static void rs_draw_d246(rs_render *rr, int slot)
+{
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    rs_popup_shell(rr, slot, UI_D246_POPUP_X0, UI_D246_POPUP_Y0, UI_D246_POPUP_W, UI_D246_POPUP_H, 0, uc);
+    const ui_d246_btn *bb = ui_d246_buttons();
+    for (int i = 0; i < UI_D246_COUNT; i++) {
+        rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
+                     0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
+        int gr = 314 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int wpx = D246_pw[i], hpx = D246_ph[i];
+        if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
+            float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
+            float tw = (float)wpx * scale, th = 30.0f;
+            float u1 = ((float)wpx + 1.0f) / (float)rr->dlg_text_w;
+            rs_atlas_label_wh(rr, slot, rr->tex_dlg_text[slot], rr->dlg_text_w, rr->dlg_text_h,
+                              gr, (bb[i].x0 + bb[i].x1) * 0.5f, (bb[i].y0 + bb[i].y1) * 0.5f,
+                              tw, th, 0.0f, u1, uc);
+        }
+    }
+    if (!d246_diag) { d246_diag = 1;
+        LOGI("rs_draw_d246：datah_246 弹窗（257×45 面板 + 2 按钮，原版按钮文字）");
+    }
+}
+/* ★ 批量对齐（datah_247）：1 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
+   ★ 文字不变形三要素（本轮 datah_095 文字被压成窄竖条实证后修正）：
+     1) 每按钮独立字形像素宽高（D247_pw/ph 数组，非块级常量——旧版 i 泄漏成常量）
+     2) 图集行高固定 40（bake_atlas 行距）→ v = (行号*40)/图集高；n_rows 不再传 cnt
+     3) u1 = 字形像素宽/图集宽（旧版传 1.0 = 整行 416px 压进字宽）
+   目标字高 30px（720 基准），宽按字形 bbox 比例等比缩放。 */
+static const int D247_pw[UI_D247_COUNT] = { 84 };
+static const int D247_ph[UI_D247_COUNT] = { 29 };
+static void rs_draw_d247(rs_render *rr, int slot)
+{
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    rs_popup_shell(rr, slot, UI_D247_POPUP_X0, UI_D247_POPUP_Y0, UI_D247_POPUP_W, UI_D247_POPUP_H, 0, uc);
+    const ui_d247_btn *bb = ui_d247_buttons();
+    for (int i = 0; i < UI_D247_COUNT; i++) {
+        rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
+                     0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
+        int gr = 316 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int wpx = D247_pw[i], hpx = D247_ph[i];
+        if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
+            float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
+            float tw = (float)wpx * scale, th = 30.0f;
+            float u1 = ((float)wpx + 1.0f) / (float)rr->dlg_text_w;
+            rs_atlas_label_wh(rr, slot, rr->tex_dlg_text[slot], rr->dlg_text_w, rr->dlg_text_h,
+                              gr, (bb[i].x0 + bb[i].x1) * 0.5f, (bb[i].y0 + bb[i].y1) * 0.5f,
+                              tw, th, 0.0f, u1, uc);
+        }
+    }
+    if (!d247_diag) { d247_diag = 1;
+        LOGI("rs_draw_d247：datah_247 弹窗（257×45 面板 + 1 按钮，原版按钮文字）");
+    }
+}
+/* ★ 批量对齐（datah_248）：4 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
+   ★ 文字不变形三要素（本轮 datah_095 文字被压成窄竖条实证后修正）：
+     1) 每按钮独立字形像素宽高（D248_pw/ph 数组，非块级常量——旧版 i 泄漏成常量）
+     2) 图集行高固定 40（bake_atlas 行距）→ v = (行号*40)/图集高；n_rows 不再传 cnt
+     3) u1 = 字形像素宽/图集宽（旧版传 1.0 = 整行 416px 压进字宽）
+   目标字高 30px（720 基准），宽按字形 bbox 比例等比缩放。 */
+static const int D248_pw[UI_D248_COUNT] = { 152,152,76,76 };
+static const int D248_ph[UI_D248_COUNT] = { 37,37,37,37 };
+static void rs_draw_d248(rs_render *rr, int slot)
+{
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    rs_popup_shell(rr, slot, UI_D248_POPUP_X0, UI_D248_POPUP_Y0, UI_D248_POPUP_W, UI_D248_POPUP_H, 0, uc);
+    const ui_d248_btn *bb = ui_d248_buttons();
+    for (int i = 0; i < UI_D248_COUNT; i++) {
+        rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
+                     0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
+        int gr = 317 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int wpx = D248_pw[i], hpx = D248_ph[i];
+        if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
+            float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
+            float tw = (float)wpx * scale, th = 30.0f;
+            float u1 = ((float)wpx + 1.0f) / (float)rr->dlg_text_w;
+            rs_atlas_label_wh(rr, slot, rr->tex_dlg_text[slot], rr->dlg_text_w, rr->dlg_text_h,
+                              gr, (bb[i].x0 + bb[i].x1) * 0.5f, (bb[i].y0 + bb[i].y1) * 0.5f,
+                              tw, th, 0.0f, u1, uc);
+        }
+    }
+    if (!d248_diag) { d248_diag = 1;
+        LOGI("rs_draw_d248：datah_248 弹窗（140×210 面板 + 4 按钮，原版按钮文字）");
+    }
+}
+/* ★ 批量对齐（datah_249）：1 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
+   ★ 文字不变形三要素（本轮 datah_095 文字被压成窄竖条实证后修正）：
+     1) 每按钮独立字形像素宽高（D249_pw/ph 数组，非块级常量——旧版 i 泄漏成常量）
+     2) 图集行高固定 40（bake_atlas 行距）→ v = (行号*40)/图集高；n_rows 不再传 cnt
+     3) u1 = 字形像素宽/图集宽（旧版传 1.0 = 整行 416px 压进字宽）
+   目标字高 30px（720 基准），宽按字形 bbox 比例等比缩放。 */
+static const int D249_pw[UI_D249_COUNT] = { 84 };
+static const int D249_ph[UI_D249_COUNT] = { 33 };
+static void rs_draw_d249(rs_render *rr, int slot)
+{
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    rs_popup_shell(rr, slot, UI_D249_POPUP_X0, UI_D249_POPUP_Y0, UI_D249_POPUP_W, UI_D249_POPUP_H, 0, uc);
+    const ui_d249_btn *bb = ui_d249_buttons();
+    for (int i = 0; i < UI_D249_COUNT; i++) {
+        rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
+                     0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
+        int gr = 321 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int wpx = D249_pw[i], hpx = D249_ph[i];
+        if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
+            float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
+            float tw = (float)wpx * scale, th = 30.0f;
+            float u1 = ((float)wpx + 1.0f) / (float)rr->dlg_text_w;
+            rs_atlas_label_wh(rr, slot, rr->tex_dlg_text[slot], rr->dlg_text_w, rr->dlg_text_h,
+                              gr, (bb[i].x0 + bb[i].x1) * 0.5f, (bb[i].y0 + bb[i].y1) * 0.5f,
+                              tw, th, 0.0f, u1, uc);
+        }
+    }
+    if (!d249_diag) { d249_diag = 1;
+        LOGI("rs_draw_d249：datah_249 弹窗（-318×-667 面板 + 1 按钮，原版按钮文字）");
+    }
+}
+/* ★ 批量对齐（datah_250）：2 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
+   ★ 文字不变形三要素（本轮 datah_095 文字被压成窄竖条实证后修正）：
+     1) 每按钮独立字形像素宽高（D250_pw/ph 数组，非块级常量——旧版 i 泄漏成常量）
+     2) 图集行高固定 40（bake_atlas 行距）→ v = (行号*40)/图集高；n_rows 不再传 cnt
+     3) u1 = 字形像素宽/图集宽（旧版传 1.0 = 整行 416px 压进字宽）
+   目标字高 30px（720 基准），宽按字形 bbox 比例等比缩放。 */
+static const int D250_pw[UI_D250_COUNT] = { 95,81 };
+static const int D250_ph[UI_D250_COUNT] = { 28,29 };
+static void rs_draw_d250(rs_render *rr, int slot)
+{
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    rs_popup_shell(rr, slot, UI_D250_POPUP_X0, UI_D250_POPUP_Y0, UI_D250_POPUP_W, UI_D250_POPUP_H, 0, uc);
+    const ui_d250_btn *bb = ui_d250_buttons();
+    for (int i = 0; i < UI_D250_COUNT; i++) {
+        rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
+                     0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
+        int gr = 322 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int wpx = D250_pw[i], hpx = D250_ph[i];
+        if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
+            float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
+            float tw = (float)wpx * scale, th = 30.0f;
+            float u1 = ((float)wpx + 1.0f) / (float)rr->dlg_text_w;
+            rs_atlas_label_wh(rr, slot, rr->tex_dlg_text[slot], rr->dlg_text_w, rr->dlg_text_h,
+                              gr, (bb[i].x0 + bb[i].x1) * 0.5f, (bb[i].y0 + bb[i].y1) * 0.5f,
+                              tw, th, 0.0f, u1, uc);
+        }
+    }
+    if (!d250_diag) { d250_diag = 1;
+        LOGI("rs_draw_d250：datah_250 弹窗（39×45 面板 + 2 按钮，原版按钮文字）");
+    }
+}
+/* ★ 批量对齐（datah_251）：1 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
+   ★ 文字不变形三要素（本轮 datah_095 文字被压成窄竖条实证后修正）：
+     1) 每按钮独立字形像素宽高（D251_pw/ph 数组，非块级常量——旧版 i 泄漏成常量）
+     2) 图集行高固定 40（bake_atlas 行距）→ v = (行号*40)/图集高；n_rows 不再传 cnt
+     3) u1 = 字形像素宽/图集宽（旧版传 1.0 = 整行 416px 压进字宽）
+   目标字高 30px（720 基准），宽按字形 bbox 比例等比缩放。 */
+static const int D251_pw[UI_D251_COUNT] = { 76 };
+static const int D251_ph[UI_D251_COUNT] = { 37 };
+static void rs_draw_d251(rs_render *rr, int slot)
+{
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    rs_popup_shell(rr, slot, UI_D251_POPUP_X0, UI_D251_POPUP_Y0, UI_D251_POPUP_W, UI_D251_POPUP_H, 0, uc);
+    const ui_d251_btn *bb = ui_d251_buttons();
+    for (int i = 0; i < UI_D251_COUNT; i++) {
+        rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
+                     0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
+        int gr = 324 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int wpx = D251_pw[i], hpx = D251_ph[i];
+        if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
+            float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
+            float tw = (float)wpx * scale, th = 30.0f;
+            float u1 = ((float)wpx + 1.0f) / (float)rr->dlg_text_w;
+            rs_atlas_label_wh(rr, slot, rr->tex_dlg_text[slot], rr->dlg_text_w, rr->dlg_text_h,
+                              gr, (bb[i].x0 + bb[i].x1) * 0.5f, (bb[i].y0 + bb[i].y1) * 0.5f,
+                              tw, th, 0.0f, u1, uc);
+        }
+    }
+    if (!d251_diag) { d251_diag = 1;
+        LOGI("rs_draw_d251：datah_251 弹窗（93×90 面板 + 1 按钮，原版按钮文字）");
+    }
+}
+/* ★ 批量对齐（datah_253）：1 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
+   ★ 文字不变形三要素（本轮 datah_095 文字被压成窄竖条实证后修正）：
+     1) 每按钮独立字形像素宽高（D253_pw/ph 数组，非块级常量——旧版 i 泄漏成常量）
+     2) 图集行高固定 40（bake_atlas 行距）→ v = (行号*40)/图集高；n_rows 不再传 cnt
+     3) u1 = 字形像素宽/图集宽（旧版传 1.0 = 整行 416px 压进字宽）
+   目标字高 30px（720 基准），宽按字形 bbox 比例等比缩放。 */
+static const int D253_pw[UI_D253_COUNT] = { 76 };
+static const int D253_ph[UI_D253_COUNT] = { 37 };
+static void rs_draw_d253(rs_render *rr, int slot)
+{
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    rs_popup_shell(rr, slot, UI_D253_POPUP_X0, UI_D253_POPUP_Y0, UI_D253_POPUP_W, UI_D253_POPUP_H, 0, uc);
+    const ui_d253_btn *bb = ui_d253_buttons();
+    for (int i = 0; i < UI_D253_COUNT; i++) {
+        rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
+                     0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
+        int gr = 325 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int wpx = D253_pw[i], hpx = D253_ph[i];
+        if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
+            float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
+            float tw = (float)wpx * scale, th = 30.0f;
+            float u1 = ((float)wpx + 1.0f) / (float)rr->dlg_text_w;
+            rs_atlas_label_wh(rr, slot, rr->tex_dlg_text[slot], rr->dlg_text_w, rr->dlg_text_h,
+                              gr, (bb[i].x0 + bb[i].x1) * 0.5f, (bb[i].y0 + bb[i].y1) * 0.5f,
+                              tw, th, 0.0f, u1, uc);
+        }
+    }
+    if (!d253_diag) { d253_diag = 1;
+        LOGI("rs_draw_d253：datah_253 弹窗（345×135 面板 + 1 按钮，原版按钮文字）");
+    }
+}
+/* ★ 批量对齐（datah_255）：3 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
+   ★ 文字不变形三要素（本轮 datah_095 文字被压成窄竖条实证后修正）：
+     1) 每按钮独立字形像素宽高（D255_pw/ph 数组，非块级常量——旧版 i 泄漏成常量）
+     2) 图集行高固定 40（bake_atlas 行距）→ v = (行号*40)/图集高；n_rows 不再传 cnt
+     3) u1 = 字形像素宽/图集宽（旧版传 1.0 = 整行 416px 压进字宽）
+   目标字高 30px（720 基准），宽按字形 bbox 比例等比缩放。 */
+static const int D255_pw[UI_D255_COUNT] = { 95,81,84 };
+static const int D255_ph[UI_D255_COUNT] = { 28,29,29 };
+static void rs_draw_d255(rs_render *rr, int slot)
+{
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    rs_popup_shell(rr, slot, UI_D255_POPUP_X0, UI_D255_POPUP_Y0, UI_D255_POPUP_W, UI_D255_POPUP_H, 0, uc);
+    const ui_d255_btn *bb = ui_d255_buttons();
+    for (int i = 0; i < UI_D255_COUNT; i++) {
+        rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
+                     0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
+        int gr = 326 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int wpx = D255_pw[i], hpx = D255_ph[i];
+        if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
+            float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
+            float tw = (float)wpx * scale, th = 30.0f;
+            float u1 = ((float)wpx + 1.0f) / (float)rr->dlg_text_w;
+            rs_atlas_label_wh(rr, slot, rr->tex_dlg_text[slot], rr->dlg_text_w, rr->dlg_text_h,
+                              gr, (bb[i].x0 + bb[i].x1) * 0.5f, (bb[i].y0 + bb[i].y1) * 0.5f,
+                              tw, th, 0.0f, u1, uc);
+        }
+    }
+    if (!d255_diag) { d255_diag = 1;
+        LOGI("rs_draw_d255：datah_255 弹窗（285×45 面板 + 3 按钮，原版按钮文字）");
+    }
+}
+/* ★ 批量对齐（datah_256）：4 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
+   ★ 文字不变形三要素（本轮 datah_095 文字被压成窄竖条实证后修正）：
+     1) 每按钮独立字形像素宽高（D256_pw/ph 数组，非块级常量——旧版 i 泄漏成常量）
+     2) 图集行高固定 40（bake_atlas 行距）→ v = (行号*40)/图集高；n_rows 不再传 cnt
+     3) u1 = 字形像素宽/图集宽（旧版传 1.0 = 整行 416px 压进字宽）
+   目标字高 30px（720 基准），宽按字形 bbox 比例等比缩放。 */
+static const int D256_pw[UI_D256_COUNT] = { 78,79,95,84 };
+static const int D256_ph[UI_D256_COUNT] = { 28,28,28,29 };
+static void rs_draw_d256(rs_render *rr, int slot)
+{
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    rs_popup_shell(rr, slot, UI_D256_POPUP_X0, UI_D256_POPUP_Y0, UI_D256_POPUP_W, UI_D256_POPUP_H, 0, uc);
+    const ui_d256_btn *bb = ui_d256_buttons();
+    for (int i = 0; i < UI_D256_COUNT; i++) {
+        rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
+                     0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
+        int gr = 329 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int wpx = D256_pw[i], hpx = D256_ph[i];
+        if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
+            float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
+            float tw = (float)wpx * scale, th = 30.0f;
+            float u1 = ((float)wpx + 1.0f) / (float)rr->dlg_text_w;
+            rs_atlas_label_wh(rr, slot, rr->tex_dlg_text[slot], rr->dlg_text_w, rr->dlg_text_h,
+                              gr, (bb[i].x0 + bb[i].x1) * 0.5f, (bb[i].y0 + bb[i].y1) * 0.5f,
+                              tw, th, 0.0f, u1, uc);
+        }
+    }
+    if (!d256_diag) { d256_diag = 1;
+        LOGI("rs_draw_d256：datah_256 弹窗（280×45 面板 + 4 按钮，原版按钮文字）");
+    }
+}
+/* ★ 批量对齐（datah_257）：5 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
+   ★ 文字不变形三要素（本轮 datah_095 文字被压成窄竖条实证后修正）：
+     1) 每按钮独立字形像素宽高（D257_pw/ph 数组，非块级常量——旧版 i 泄漏成常量）
+     2) 图集行高固定 40（bake_atlas 行距）→ v = (行号*40)/图集高；n_rows 不再传 cnt
+     3) u1 = 字形像素宽/图集宽（旧版传 1.0 = 整行 416px 压进字宽）
+   目标字高 30px（720 基准），宽按字形 bbox 比例等比缩放。 */
+static const int D257_pw[UI_D257_COUNT] = { 76,76,76,76,76 };
+static const int D257_ph[UI_D257_COUNT] = { 37,38,37,37,37 };
+static void rs_draw_d257(rs_render *rr, int slot)
+{
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    rs_popup_shell(rr, slot, UI_D257_POPUP_X0, UI_D257_POPUP_Y0, UI_D257_POPUP_W, UI_D257_POPUP_H, 0, uc);
+    const ui_d257_btn *bb = ui_d257_buttons();
+    for (int i = 0; i < UI_D257_COUNT; i++) {
+        rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
+                     0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
+        int gr = 333 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int wpx = D257_pw[i], hpx = D257_ph[i];
+        if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
+            float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
+            float tw = (float)wpx * scale, th = 30.0f;
+            float u1 = ((float)wpx + 1.0f) / (float)rr->dlg_text_w;
+            rs_atlas_label_wh(rr, slot, rr->tex_dlg_text[slot], rr->dlg_text_w, rr->dlg_text_h,
+                              gr, (bb[i].x0 + bb[i].x1) * 0.5f, (bb[i].y0 + bb[i].y1) * 0.5f,
+                              tw, th, 0.0f, u1, uc);
+        }
+    }
+    if (!d257_diag) { d257_diag = 1;
+        LOGI("rs_draw_d257：datah_257 弹窗（450×60 面板 + 5 按钮，原版按钮文字）");
+    }
+}
+/* ★ 批量对齐（datah_258）：5 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
+   ★ 文字不变形三要素（本轮 datah_095 文字被压成窄竖条实证后修正）：
+     1) 每按钮独立字形像素宽高（D258_pw/ph 数组，非块级常量——旧版 i 泄漏成常量）
+     2) 图集行高固定 40（bake_atlas 行距）→ v = (行号*40)/图集高；n_rows 不再传 cnt
+     3) u1 = 字形像素宽/图集宽（旧版传 1.0 = 整行 416px 压进字宽）
+   目标字高 30px（720 基准），宽按字形 bbox 比例等比缩放。 */
+static const int D258_pw[UI_D258_COUNT] = { 76,76,76,76,76 };
+static const int D258_ph[UI_D258_COUNT] = { 37,37,37,37,37 };
+static void rs_draw_d258(rs_render *rr, int slot)
+{
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    rs_popup_shell(rr, slot, UI_D258_POPUP_X0, UI_D258_POPUP_Y0, UI_D258_POPUP_W, UI_D258_POPUP_H, 0, uc);
+    const ui_d258_btn *bb = ui_d258_buttons();
+    for (int i = 0; i < UI_D258_COUNT; i++) {
+        rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
+                     0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
+        int gr = 338 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int wpx = D258_pw[i], hpx = D258_ph[i];
+        if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
+            float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
+            float tw = (float)wpx * scale, th = 30.0f;
+            float u1 = ((float)wpx + 1.0f) / (float)rr->dlg_text_w;
+            rs_atlas_label_wh(rr, slot, rr->tex_dlg_text[slot], rr->dlg_text_w, rr->dlg_text_h,
+                              gr, (bb[i].x0 + bb[i].x1) * 0.5f, (bb[i].y0 + bb[i].y1) * 0.5f,
+                              tw, th, 0.0f, u1, uc);
+        }
+    }
+    if (!d258_diag) { d258_diag = 1;
+        LOGI("rs_draw_d258：datah_258 弹窗（450×60 面板 + 5 按钮，原版按钮文字）");
+    }
+}
+/* ★ 批量对齐（datah_259）：2 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
+   ★ 文字不变形三要素（本轮 datah_095 文字被压成窄竖条实证后修正）：
+     1) 每按钮独立字形像素宽高（D259_pw/ph 数组，非块级常量——旧版 i 泄漏成常量）
+     2) 图集行高固定 40（bake_atlas 行距）→ v = (行号*40)/图集高；n_rows 不再传 cnt
+     3) u1 = 字形像素宽/图集宽（旧版传 1.0 = 整行 416px 压进字宽）
+   目标字高 30px（720 基准），宽按字形 bbox 比例等比缩放。 */
+static const int D259_pw[UI_D259_COUNT] = { 152,152 };
+static const int D259_ph[UI_D259_COUNT] = { 37,37 };
+static void rs_draw_d259(rs_render *rr, int slot)
+{
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    rs_popup_shell(rr, slot, UI_D259_POPUP_X0, UI_D259_POPUP_Y0, UI_D259_POPUP_W, UI_D259_POPUP_H, 0, uc);
+    const ui_d259_btn *bb = ui_d259_buttons();
+    for (int i = 0; i < UI_D259_COUNT; i++) {
+        rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
+                     0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
+        int gr = 343 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int wpx = D259_pw[i], hpx = D259_ph[i];
+        if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
+            float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
+            float tw = (float)wpx * scale, th = 30.0f;
+            float u1 = ((float)wpx + 1.0f) / (float)rr->dlg_text_w;
+            rs_atlas_label_wh(rr, slot, rr->tex_dlg_text[slot], rr->dlg_text_w, rr->dlg_text_h,
+                              gr, (bb[i].x0 + bb[i].x1) * 0.5f, (bb[i].y0 + bb[i].y1) * 0.5f,
+                              tw, th, 0.0f, u1, uc);
+        }
+    }
+    if (!d259_diag) { d259_diag = 1;
+        LOGI("rs_draw_d259：datah_259 弹窗（75×150 面板 + 2 按钮，原版按钮文字）");
+    }
+}
+/* ★ 批量对齐（datah_260）：5 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
+   ★ 文字不变形三要素（本轮 datah_095 文字被压成窄竖条实证后修正）：
+     1) 每按钮独立字形像素宽高（D260_pw/ph 数组，非块级常量——旧版 i 泄漏成常量）
+     2) 图集行高固定 40（bake_atlas 行距）→ v = (行号*40)/图集高；n_rows 不再传 cnt
+     3) u1 = 字形像素宽/图集宽（旧版传 1.0 = 整行 416px 压进字宽）
+   目标字高 30px（720 基准），宽按字形 bbox 比例等比缩放。 */
+static const int D260_pw[UI_D260_COUNT] = { 76,76,76,76,76 };
+static const int D260_ph[UI_D260_COUNT] = { 37,37,37,37,37 };
+static void rs_draw_d260(rs_render *rr, int slot)
+{
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    rs_popup_shell(rr, slot, UI_D260_POPUP_X0, UI_D260_POPUP_Y0, UI_D260_POPUP_W, UI_D260_POPUP_H, 0, uc);
+    const ui_d260_btn *bb = ui_d260_buttons();
+    for (int i = 0; i < UI_D260_COUNT; i++) {
+        rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
+                     0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
+        int gr = 345 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int wpx = D260_pw[i], hpx = D260_ph[i];
+        if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
+            float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
+            float tw = (float)wpx * scale, th = 30.0f;
+            float u1 = ((float)wpx + 1.0f) / (float)rr->dlg_text_w;
+            rs_atlas_label_wh(rr, slot, rr->tex_dlg_text[slot], rr->dlg_text_w, rr->dlg_text_h,
+                              gr, (bb[i].x0 + bb[i].x1) * 0.5f, (bb[i].y0 + bb[i].y1) * 0.5f,
+                              tw, th, 0.0f, u1, uc);
+        }
+    }
+    if (!d260_diag) { d260_diag = 1;
+        LOGI("rs_draw_d260：datah_260 弹窗（450×60 面板 + 5 按钮，原版按钮文字）");
+    }
+}
+/* ★ 批量对齐（datah_261）：1 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
+   ★ 文字不变形三要素（本轮 datah_095 文字被压成窄竖条实证后修正）：
+     1) 每按钮独立字形像素宽高（D261_pw/ph 数组，非块级常量——旧版 i 泄漏成常量）
+     2) 图集行高固定 40（bake_atlas 行距）→ v = (行号*40)/图集高；n_rows 不再传 cnt
+     3) u1 = 字形像素宽/图集宽（旧版传 1.0 = 整行 416px 压进字宽）
+   目标字高 30px（720 基准），宽按字形 bbox 比例等比缩放。 */
+static const int D261_pw[UI_D261_COUNT] = { 76 };
+static const int D261_ph[UI_D261_COUNT] = { 37 };
+static void rs_draw_d261(rs_render *rr, int slot)
+{
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    rs_popup_shell(rr, slot, UI_D261_POPUP_X0, UI_D261_POPUP_Y0, UI_D261_POPUP_W, UI_D261_POPUP_H, 0, uc);
+    const ui_d261_btn *bb = ui_d261_buttons();
+    for (int i = 0; i < UI_D261_COUNT; i++) {
+        rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
+                     0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
+        int gr = 350 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int wpx = D261_pw[i], hpx = D261_ph[i];
+        if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
+            float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
+            float tw = (float)wpx * scale, th = 30.0f;
+            float u1 = ((float)wpx + 1.0f) / (float)rr->dlg_text_w;
+            rs_atlas_label_wh(rr, slot, rr->tex_dlg_text[slot], rr->dlg_text_w, rr->dlg_text_h,
+                              gr, (bb[i].x0 + bb[i].x1) * 0.5f, (bb[i].y0 + bb[i].y1) * 0.5f,
+                              tw, th, 0.0f, u1, uc);
+        }
+    }
+    if (!d261_diag) { d261_diag = 1;
+        LOGI("rs_draw_d261：datah_261 弹窗（345×135 面板 + 1 按钮，原版按钮文字）");
+    }
+}
+/* ★ 批量对齐（datah_262）：4 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
+   ★ 文字不变形三要素（本轮 datah_095 文字被压成窄竖条实证后修正）：
+     1) 每按钮独立字形像素宽高（D262_pw/ph 数组，非块级常量——旧版 i 泄漏成常量）
+     2) 图集行高固定 40（bake_atlas 行距）→ v = (行号*40)/图集高；n_rows 不再传 cnt
+     3) u1 = 字形像素宽/图集宽（旧版传 1.0 = 整行 416px 压进字宽）
+   目标字高 30px（720 基准），宽按字形 bbox 比例等比缩放。 */
+static const int D262_pw[UI_D262_COUNT] = { 76,76,76,76 };
+static const int D262_ph[UI_D262_COUNT] = { 37,37,37,37 };
+static void rs_draw_d262(rs_render *rr, int slot)
+{
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    rs_popup_shell(rr, slot, UI_D262_POPUP_X0, UI_D262_POPUP_Y0, UI_D262_POPUP_W, UI_D262_POPUP_H, 0, uc);
+    const ui_d262_btn *bb = ui_d262_buttons();
+    for (int i = 0; i < UI_D262_COUNT; i++) {
+        rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
+                     0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
+        int gr = 351 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int wpx = D262_pw[i], hpx = D262_ph[i];
+        if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
+            float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
+            float tw = (float)wpx * scale, th = 30.0f;
+            float u1 = ((float)wpx + 1.0f) / (float)rr->dlg_text_w;
+            rs_atlas_label_wh(rr, slot, rr->tex_dlg_text[slot], rr->dlg_text_w, rr->dlg_text_h,
+                              gr, (bb[i].x0 + bb[i].x1) * 0.5f, (bb[i].y0 + bb[i].y1) * 0.5f,
+                              tw, th, 0.0f, u1, uc);
+        }
+    }
+    if (!d262_diag) { d262_diag = 1;
+        LOGI("rs_draw_d262：datah_262 弹窗（450×60 面板 + 4 按钮，原版按钮文字）");
+    }
+}
+/* ★ 批量对齐（datah_263）：5 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
+   ★ 文字不变形三要素（本轮 datah_095 文字被压成窄竖条实证后修正）：
+     1) 每按钮独立字形像素宽高（D263_pw/ph 数组，非块级常量——旧版 i 泄漏成常量）
+     2) 图集行高固定 40（bake_atlas 行距）→ v = (行号*40)/图集高；n_rows 不再传 cnt
+     3) u1 = 字形像素宽/图集宽（旧版传 1.0 = 整行 416px 压进字宽）
+   目标字高 30px（720 基准），宽按字形 bbox 比例等比缩放。 */
+static const int D263_pw[UI_D263_COUNT] = { 76,76,76,76,76 };
+static const int D263_ph[UI_D263_COUNT] = { 37,37,37,37,37 };
+static void rs_draw_d263(rs_render *rr, int slot)
+{
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    rs_popup_shell(rr, slot, UI_D263_POPUP_X0, UI_D263_POPUP_Y0, UI_D263_POPUP_W, UI_D263_POPUP_H, 0, uc);
+    const ui_d263_btn *bb = ui_d263_buttons();
+    for (int i = 0; i < UI_D263_COUNT; i++) {
+        rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
+                     0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
+        int gr = 355 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int wpx = D263_pw[i], hpx = D263_ph[i];
+        if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
+            float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
+            float tw = (float)wpx * scale, th = 30.0f;
+            float u1 = ((float)wpx + 1.0f) / (float)rr->dlg_text_w;
+            rs_atlas_label_wh(rr, slot, rr->tex_dlg_text[slot], rr->dlg_text_w, rr->dlg_text_h,
+                              gr, (bb[i].x0 + bb[i].x1) * 0.5f, (bb[i].y0 + bb[i].y1) * 0.5f,
+                              tw, th, 0.0f, u1, uc);
+        }
+    }
+    if (!d263_diag) { d263_diag = 1;
+        LOGI("rs_draw_d263：datah_263 弹窗（450×60 面板 + 5 按钮，原版按钮文字）");
+    }
+}
+/* ★ 批量对齐（datah_264）：1 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
+   ★ 文字不变形三要素（本轮 datah_095 文字被压成窄竖条实证后修正）：
+     1) 每按钮独立字形像素宽高（D264_pw/ph 数组，非块级常量——旧版 i 泄漏成常量）
+     2) 图集行高固定 40（bake_atlas 行距）→ v = (行号*40)/图集高；n_rows 不再传 cnt
+     3) u1 = 字形像素宽/图集宽（旧版传 1.0 = 整行 416px 压进字宽）
+   目标字高 30px（720 基准），宽按字形 bbox 比例等比缩放。 */
+static const int D264_pw[UI_D264_COUNT] = { 65 };
+static const int D264_ph[UI_D264_COUNT] = { 29 };
+static void rs_draw_d264(rs_render *rr, int slot)
+{
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    rs_popup_shell(rr, slot, UI_D264_POPUP_X0, UI_D264_POPUP_Y0, UI_D264_POPUP_W, UI_D264_POPUP_H, 0, uc);
+    const ui_d264_btn *bb = ui_d264_buttons();
+    for (int i = 0; i < UI_D264_COUNT; i++) {
+        rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
+                     0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
+        int gr = 360 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int wpx = D264_pw[i], hpx = D264_ph[i];
+        if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
+            float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
+            float tw = (float)wpx * scale, th = 30.0f;
+            float u1 = ((float)wpx + 1.0f) / (float)rr->dlg_text_w;
+            rs_atlas_label_wh(rr, slot, rr->tex_dlg_text[slot], rr->dlg_text_w, rr->dlg_text_h,
+                              gr, (bb[i].x0 + bb[i].x1) * 0.5f, (bb[i].y0 + bb[i].y1) * 0.5f,
+                              tw, th, 0.0f, u1, uc);
+        }
+    }
+    if (!d264_diag) { d264_diag = 1;
+        LOGI("rs_draw_d264：datah_264 弹窗（30×65 面板 + 1 按钮，原版按钮文字）");
     }
 }static void rs_draw_about(rs_render *rr, int slot)
 {
@@ -5788,6 +9058,14 @@ static void rs_gl_rebuild(rs_render *rr, int slot)
         glBindTexture(GL_TEXTURE_2D, rr->tex_popup[slot]);
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->popup_w, rr->popup_h, 0,
                      GL_RGBA, GL_UNSIGNED_BYTE, rr->popup_px);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    }
+    if (rr->dlg_text_px && rr->gl2_ok[slot] && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
+        glGenTextures(1, &rr->tex_dlg_text[slot]);
+        glBindTexture(GL_TEXTURE_2D, rr->tex_dlg_text[slot]);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->dlg_text_w, rr->dlg_text_h, 0,
+                     GL_RGBA, GL_UNSIGNED_BYTE, rr->dlg_text_px);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     }
@@ -6570,34 +9848,238 @@ void rs_render_frame(rs_render *rr)
         } else if (ui_screen_get() == UI_CHAT063) {
             /* ★ P2（datah_063 证据）：聊天完整版弹窗（Msg 输入框占位 + 发送/记录/关闭，面板 420×325 居中） */
             rs_draw_chat063(rr, slot);
+        } else if (ui_screen_get() == UI_D000) {
+            rs_draw_d000(rr, slot);
+        } else if (ui_screen_get() == UI_D001) {
+            rs_draw_d001(rr, slot);
+        } else if (ui_screen_get() == UI_D002) {
+            rs_draw_d002(rr, slot);
+        } else if (ui_screen_get() == UI_D003) {
+            rs_draw_d003(rr, slot);
+        } else if (ui_screen_get() == UI_D004) {
+            rs_draw_d004(rr, slot);
+        } else if (ui_screen_get() == UI_D005) {
+            rs_draw_d005(rr, slot);
         } else if (ui_screen_get() == UI_D006) {
             rs_draw_d006(rr, slot);
         } else if (ui_screen_get() == UI_D007) {
             rs_draw_d007(rr, slot);
         } else if (ui_screen_get() == UI_D008) {
             rs_draw_d008(rr, slot);
+        } else if (ui_screen_get() == UI_D010) {
+            rs_draw_d010(rr, slot);
         } else if (ui_screen_get() == UI_D012) {
             rs_draw_d012(rr, slot);
+        } else if (ui_screen_get() == UI_D013) {
+            rs_draw_d013(rr, slot);
+        } else if (ui_screen_get() == UI_D015) {
+            rs_draw_d015(rr, slot);
+        } else if (ui_screen_get() == UI_D016) {
+            rs_draw_d016(rr, slot);
+        } else if (ui_screen_get() == UI_D017) {
+            rs_draw_d017(rr, slot);
+        } else if (ui_screen_get() == UI_D019) {
+            rs_draw_d019(rr, slot);
+        } else if (ui_screen_get() == UI_D020) {
+            rs_draw_d020(rr, slot);
+        } else if (ui_screen_get() == UI_D021) {
+            rs_draw_d021(rr, slot);
+        } else if (ui_screen_get() == UI_D022) {
+            rs_draw_d022(rr, slot);
+        } else if (ui_screen_get() == UI_D023) {
+            rs_draw_d023(rr, slot);
+        } else if (ui_screen_get() == UI_D024) {
+            rs_draw_d024(rr, slot);
+        } else if (ui_screen_get() == UI_D025) {
+            rs_draw_d025(rr, slot);
+        } else if (ui_screen_get() == UI_D026) {
+            rs_draw_d026(rr, slot);
+        } else if (ui_screen_get() == UI_D027) {
+            rs_draw_d027(rr, slot);
+        } else if (ui_screen_get() == UI_D028) {
+            rs_draw_d028(rr, slot);
+        } else if (ui_screen_get() == UI_D029) {
+            rs_draw_d029(rr, slot);
+        } else if (ui_screen_get() == UI_D030) {
+            rs_draw_d030(rr, slot);
+        } else if (ui_screen_get() == UI_D031) {
+            rs_draw_d031(rr, slot);
+        } else if (ui_screen_get() == UI_D032) {
+            rs_draw_d032(rr, slot);
+        } else if (ui_screen_get() == UI_D033) {
+            rs_draw_d033(rr, slot);
+        } else if (ui_screen_get() == UI_D034) {
+            rs_draw_d034(rr, slot);
+        } else if (ui_screen_get() == UI_D035) {
+            rs_draw_d035(rr, slot);
+        } else if (ui_screen_get() == UI_D036) {
+            rs_draw_d036(rr, slot);
+        } else if (ui_screen_get() == UI_D037) {
+            rs_draw_d037(rr, slot);
+        } else if (ui_screen_get() == UI_D038) {
+            rs_draw_d038(rr, slot);
+        } else if (ui_screen_get() == UI_D039) {
+            rs_draw_d039(rr, slot);
         } else if (ui_screen_get() == UI_D041) {
             rs_draw_d041(rr, slot);
         } else if (ui_screen_get() == UI_D042) {
             rs_draw_d042(rr, slot);
+        } else if (ui_screen_get() == UI_D043) {
+            rs_draw_d043(rr, slot);
+        } else if (ui_screen_get() == UI_D044) {
+            rs_draw_d044(rr, slot);
+        } else if (ui_screen_get() == UI_D045) {
+            rs_draw_d045(rr, slot);
+        } else if (ui_screen_get() == UI_D046) {
+            rs_draw_d046(rr, slot);
+        } else if (ui_screen_get() == UI_D047) {
+            rs_draw_d047(rr, slot);
+        } else if (ui_screen_get() == UI_D049) {
+            rs_draw_d049(rr, slot);
+        } else if (ui_screen_get() == UI_D050) {
+            rs_draw_d050(rr, slot);
+        } else if (ui_screen_get() == UI_D051) {
+            rs_draw_d051(rr, slot);
+        } else if (ui_screen_get() == UI_D052) {
+            rs_draw_d052(rr, slot);
+        } else if (ui_screen_get() == UI_D053) {
+            rs_draw_d053(rr, slot);
+        } else if (ui_screen_get() == UI_D054) {
+            rs_draw_d054(rr, slot);
+        } else if (ui_screen_get() == UI_D055) {
+            rs_draw_d055(rr, slot);
+        } else if (ui_screen_get() == UI_D057) {
+            rs_draw_d057(rr, slot);
+        } else if (ui_screen_get() == UI_D058) {
+            rs_draw_d058(rr, slot);
+        } else if (ui_screen_get() == UI_D059) {
+            rs_draw_d059(rr, slot);
         } else if (ui_screen_get() == UI_D060) {
             rs_draw_d060(rr, slot);
         } else if (ui_screen_get() == UI_D061) {
             rs_draw_d061(rr, slot);
-        } else if (ui_screen_get() == UI_D067) {
-            rs_draw_d067(rr, slot);
+        } else if (ui_screen_get() == UI_D062) {
+            rs_draw_d062(rr, slot);
+        } else if (ui_screen_get() == UI_D063) {
+            rs_draw_d063(rr, slot);
+        } else if (ui_screen_get() == UI_D064) {
+            rs_draw_d064(rr, slot);
+        } else if (ui_screen_get() == UI_D066) {
+            rs_draw_d066(rr, slot);
+        } else if (ui_screen_get() == UI_D068) {
+            rs_draw_d068(rr, slot);
         } else if (ui_screen_get() == UI_D069) {
             rs_draw_d069(rr, slot);
         } else if (ui_screen_get() == UI_D070) {
             rs_draw_d070(rr, slot);
+        } else if (ui_screen_get() == UI_D071) {
+            rs_draw_d071(rr, slot);
+        } else if (ui_screen_get() == UI_D072) {
+            rs_draw_d072(rr, slot);
+        } else if (ui_screen_get() == UI_D073) {
+            rs_draw_d073(rr, slot);
+        } else if (ui_screen_get() == UI_D075) {
+            rs_draw_d075(rr, slot);
+        } else if (ui_screen_get() == UI_D077) {
+            rs_draw_d077(rr, slot);
+        } else if (ui_screen_get() == UI_D078) {
+            rs_draw_d078(rr, slot);
+        } else if (ui_screen_get() == UI_D079) {
+            rs_draw_d079(rr, slot);
+        } else if (ui_screen_get() == UI_D082) {
+            rs_draw_d082(rr, slot);
+        } else if (ui_screen_get() == UI_D083) {
+            rs_draw_d083(rr, slot);
+        } else if (ui_screen_get() == UI_D084) {
+            rs_draw_d084(rr, slot);
+        } else if (ui_screen_get() == UI_D085) {
+            rs_draw_d085(rr, slot);
+        } else if (ui_screen_get() == UI_D086) {
+            rs_draw_d086(rr, slot);
+        } else if (ui_screen_get() == UI_D089) {
+            rs_draw_d089(rr, slot);
+        } else if (ui_screen_get() == UI_D090) {
+            rs_draw_d090(rr, slot);
+        } else if (ui_screen_get() == UI_D094) {
+            rs_draw_d094(rr, slot);
+        } else if (ui_screen_get() == UI_D095) {
+            rs_draw_d095(rr, slot);
+        } else if (ui_screen_get() == UI_D096) {
+            rs_draw_d096(rr, slot);
+        } else if (ui_screen_get() == UI_D097) {
+            rs_draw_d097(rr, slot);
+        } else if (ui_screen_get() == UI_D098) {
+            rs_draw_d098(rr, slot);
+        } else if (ui_screen_get() == UI_D099) {
+            rs_draw_d099(rr, slot);
+        } else if (ui_screen_get() == UI_D100) {
+            rs_draw_d100(rr, slot);
+        } else if (ui_screen_get() == UI_D101) {
+            rs_draw_d101(rr, slot);
+        } else if (ui_screen_get() == UI_D102) {
+            rs_draw_d102(rr, slot);
         } else if (ui_screen_get() == UI_D104) {
             rs_draw_d104(rr, slot);
         } else if (ui_screen_get() == UI_D107) {
             rs_draw_d107(rr, slot);
+        } else if (ui_screen_get() == UI_D108) {
+            rs_draw_d108(rr, slot);
+        } else if (ui_screen_get() == UI_D109) {
+            rs_draw_d109(rr, slot);
+        } else if (ui_screen_get() == UI_D110) {
+            rs_draw_d110(rr, slot);
+        } else if (ui_screen_get() == UI_D112) {
+            rs_draw_d112(rr, slot);
+        } else if (ui_screen_get() == UI_D113) {
+            rs_draw_d113(rr, slot);
+        } else if (ui_screen_get() == UI_D114) {
+            rs_draw_d114(rr, slot);
+        } else if (ui_screen_get() == UI_D118) {
+            rs_draw_d118(rr, slot);
+        } else if (ui_screen_get() == UI_D119) {
+            rs_draw_d119(rr, slot);
         } else if (ui_screen_get() == UI_D120) {
             rs_draw_d120(rr, slot);
+        } else if (ui_screen_get() == UI_D121) {
+            rs_draw_d121(rr, slot);
+        } else if (ui_screen_get() == UI_D122) {
+            rs_draw_d122(rr, slot);
+        } else if (ui_screen_get() == UI_D123) {
+            rs_draw_d123(rr, slot);
+        } else if (ui_screen_get() == UI_D246) {
+            rs_draw_d246(rr, slot);
+        } else if (ui_screen_get() == UI_D247) {
+            rs_draw_d247(rr, slot);
+        } else if (ui_screen_get() == UI_D248) {
+            rs_draw_d248(rr, slot);
+        } else if (ui_screen_get() == UI_D249) {
+            rs_draw_d249(rr, slot);
+        } else if (ui_screen_get() == UI_D250) {
+            rs_draw_d250(rr, slot);
+        } else if (ui_screen_get() == UI_D251) {
+            rs_draw_d251(rr, slot);
+        } else if (ui_screen_get() == UI_D253) {
+            rs_draw_d253(rr, slot);
+        } else if (ui_screen_get() == UI_D255) {
+            rs_draw_d255(rr, slot);
+        } else if (ui_screen_get() == UI_D256) {
+            rs_draw_d256(rr, slot);
+        } else if (ui_screen_get() == UI_D257) {
+            rs_draw_d257(rr, slot);
+        } else if (ui_screen_get() == UI_D258) {
+            rs_draw_d258(rr, slot);
+        } else if (ui_screen_get() == UI_D259) {
+            rs_draw_d259(rr, slot);
+        } else if (ui_screen_get() == UI_D260) {
+            rs_draw_d260(rr, slot);
+        } else if (ui_screen_get() == UI_D261) {
+            rs_draw_d261(rr, slot);
+        } else if (ui_screen_get() == UI_D262) {
+            rs_draw_d262(rr, slot);
+        } else if (ui_screen_get() == UI_D263) {
+            rs_draw_d263(rr, slot);
+        } else if (ui_screen_get() == UI_D264) {
+            rs_draw_d264(rr, slot);
         } else if (ui_screen_get() == UI_ABOUT) {
             /* ★ P2（datah_000 证据）：软件信息弹窗（Version 版本号 1.6.8 + 官网 www.cnvcs.com + 反馈/关闭，面板 400×280 居中） */
             rs_draw_about(rr, slot);
