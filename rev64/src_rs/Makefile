@@ -86,6 +86,16 @@ walkverify:
 # ★ P1（datah_012）：rules.c 依赖 ui_state_stub 的 4 规则开关桩（默认全开，行为不变）
 # ★ P1（datah_016/017/020）：布局存档 3 弹窗桌面验证（run_layout_save 10/10）
 # ★ P1（datah_038）：登录弹窗 6 控件桌面验证（run_login，ui_menu_stub 几何表桩）
+.PHONY: rulestest
+# ★ AUD-R-135（P3 落地）：规则引擎全量用例（表驱动 13 族，对齐 evverify 基准 + 暗棋族
+#   + 回合门 + 困毙 + 铁路方向）——make rulestest 一键构建 + 跑（dist/jq_rulestest）
+rulestest:
+	@mkdir -p dist
+	$(CC) $(CFLAGS) -DRS_NO_GL -o dist/jq_rulestest \
+	    board.c layout.c rules.c save.c rulestest.c ui_state_stub.c -lm
+	@echo "构建完成: dist/jq_rulestest"
+	@./dist/jq_rulestest
+
 .PHONY: evverify
 MODE ?= --all
 evverify:

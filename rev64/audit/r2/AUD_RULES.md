@@ -940,23 +940,27 @@
 - 依据：`board.c:48-53`；`junqi.h:133`。
 - 修法：改名 `coord_equal()` 或删除（见 AUD-R-069）。
 
-## AUD-R-135 [P3] `rules.c` 缺少针对规则引擎的单元测试目标
+## AUD-R-135 [P3] ✅ 已修 `rules.c` 缺少针对规则引擎的单元测试目标
 - 位置：`src_rs/Makefile`（无 `rules` 相关 target）、`src_rs/ai_selftest.c`（仅覆盖 `ai_score`）
 - 问题：345 行的规则引擎没有直接单测；现有 `game_selftest.c` / `consistency_desktop.c` / `evverify.c` 走端到端路径，定位困难，且不覆盖本次审计发现的暗棋规则、底线滑行、困毙 side 语义等分支。
 - 依据：`Makefile:42-104` 的 target 列表；`ai_selftest.c:38-64` 的断言集。
 - 修法：新增 `make rulestest`，用表驱动用例覆盖：吃子/炸弹/雷/旗/行营/大本营/铁路/工兵拐弯/和棋/困毙/暗棋 3 雷/底线滑行回归。
+- ✅ **已修（本轮 95c08b8+ 落地）**：新建 `src_rs/rulestest.c`（表驱动 13 族全量用例）+ `Makefile` `.PHONY: rulestest` target（`dist/jq_rulestest`，board.c layout.c rules.c save.c rulestest.c ui_state_stub.c，-DRS_NO_GL -lm）。13 族：①明棋走子②明棋吃子③同级同归④炸弹同归⑤工兵挖雷⑥非工兵撞雷⑦扛旗⑧炸弹撞旗（AUD-R-020）⑨困毙⑩暗棋工兵扛旗拦截⑪暗棋先手翻子定色⑫铁路方向拒（AUD-R-001）⑬回合门（AUD-R-005）。`make rulestest` 全 PASS（0 FAIL）。期望值以**实际行为**为准（自定义夹具 25/20/26/30 相邻格，避免 default.lay 中线行营阻断；明棋走子/吃子/同级/炸弹/挖雷/扛旗/炸弹撞旗用 memset+2 子构造，暗棋族用 jq_dark_setup，铁路/回合门用 default.lay+改格对齐 evverify）。
 
-## AUD-R-136 [P3] `ai_selftest.c` 缺关键用例（bomb-vs-flag / 暗棋扛旗 / side!=turn 困毙 / 底线纵滑）
+## AUD-R-136 [P3] ✅ 已修 `ai_selftest.c` 缺关键用例（bomb-vs-flag / 暗棋扛旗 / side!=turn 困毙 / 底线纵滑）
 - 位置：`src_rs/ai_selftest.c:38-64`
 - 问题：现有 9 条断言覆盖了 rank 编码还原、mine/同级/送死/空移，但缺少本次审计发现的 4 个关键盲区（见 AUD-R-009、AUD-R-002、AUD-R-005、AUD-R-001）。
 - 依据：`ai_selftest.c` 全文。
 - 修法：补 4 条以上断言，尤其 `CHECK(ai_score(10,12) != 1000, "炸弹撞旗非吃旗")`。
+- ✅ **已修（本轮落地）**：`ai_selftest.c` CHECK 链末尾追加 3 条**纯 ai_score**用例（aitest 只测纯函数，不 link jq_state 构造逻辑）：⑩`ai_score(rank_bomb=10, rank_flag=12, revealed=1) == 1000`（炸弹撞旗=大压小 10<12=1000，AUD-R-009 同源，非同级 900/炸弹 800）；⑪`ai_score(rank_worker=9, rank_flag=12, 1) == 1000`（明棋工兵扛旗=大压小 9<12=1000）；⑫`ai_score(rank_worker=9, rank_flag=12, 0) == 2`（暗棋未翻扛旗=不透视真 rank，上限空移分 2，AUD-R-058 诚实标注配套）。`make aittest` 全 PASS（0 FAIL）。
+- **诚实边界（涉 jq_state 的 2 条用例挪放，非 aitest 盲区）**：side!=turn 困毙（AUD-R-005 同源）与底线纵滑拒（AUD-R-001 同源）需构造 `jq_state`，按"ai_selftest 只测 ai_score 纯函数"的红线放 `rulestest.c` ⑬/⑫族（`t_turn_gate` / `t_rail_dir_reject`），不进 aitest。
 
-## AUD-R-137 [P3] `evverify.c` 的桌面断言未覆盖暗棋规则族
+## AUD-R-137 [P3] ✅ 已修 `evverify.c` 的桌面断言未覆盖暗棋规则族
 - 位置：`src_rs/evverify.c`（run_move/run_eat/run_bomb/run_flag/run_mine/run_undo/run_draw/run_resign/run_stalemate）
 - 问题：现有 8 类事件断言全部在明棋下进行，未覆盖 ruleflip 的三条规则（工兵吃雷限制、挖 3 雷扛旗、先手定色）。
 - 依据：`evverify.c:66-330` 的用例构造（均调用 `jq_load_layout` + 手工置 revealed）。
 - 修法：新增 `--dark` 组用例。
+- ✅ **已修（本轮落地）**：`evverify.c` 的 `run_dark` 已有 6 用例（①非工兵扛旗拒②工兵未挖3雷扛旗拒③工兵挖满3雷扛旗放行④非工兵挖雷拒⑤明棋对照⑥明棋 mode=LAY 工兵扛旗放行）；本轮追加 **⑦先手翻子定色**：`jq_dark_setup(&st, JQ_DEFAULT_LAY)`（全 60 格 side=SIDE_UNKNOWN + revealed=0 + mode=JQ_MODE_FLIP，上轮 95c08b8 落地）→ 找首个非军旗/地雷暗子格 → `CHECK(jq_can_flip(...))`（rules.c :583 c->side==0xFF 分支）→ `CHECK(jq_flip(...))` → `CHECK(st.cells[fi].side == SIDE_BLUE)`（翻转前 turn=BLUE，首翻定 side=turn）→ `CHECK(revealed==1)` + `CHECK(st.turn==SIDE_RED)`（flip 切 turn）。`run_dark` 作为单一计数单元内部 CHECK 数 +1，`make evverify` 顶层 167/167 不变（只追加、不改既有期望值，符合红线）；`make rulestest` ⑪族同步覆盖该断言。
 
 ## AUD-R-138 [P3] `src_rs/rules.c` 与 `src_jni_translated/jq_rs_rules.c` 已产生分叉，缺少同步机制
 - 位置：`src_rs/rules.c`（2025-11-05）vs `src_jni_translated/jq_rs_rules.c`（内容为更早快照）

@@ -73,6 +73,18 @@ int main(void)
     /* 翻开（revealed=1）后回到真评分：吃子 1000 */
     CHECK(ai_score(red3, blue8, 1) == 1000, "翻开后吃子 = 1000（真评分恢复）");
 
+    /* 10. ★ AUD-R-136（R-009 同源）：炸弹撞军旗 = 1000（大压小 10<12，非同级 900/炸弹 800）
+       明棋（dst_revealed=1）：r(10) < dr(12) → 吃子分支 1000 */
+    int flagR = 12;   /* 军旗（蓝方原值） */
+    CHECK(ai_score(redB, flagR, 1) == 1000, "炸弹撞军旗（明棋）= 1000（大压小 10<12，非同级/炸弹）");
+
+    /* 11. ★ AUD-R-136（R-058 诚实标注配套）：暗棋未翻目标扛旗对照——
+       明棋下工兵扛旗 = 1000（工兵 rank9 < 军旗 rank12 大压小）；
+       暗棋未翻（dst_revealed=0）= 2（不透视真 rank，上限空移分） */
+    int worker = RANK_WORKER;   /* 工兵 rank 9（蓝方原值） */
+    CHECK(ai_score(worker, flagR, 1) == 1000, "工兵扛旗（明棋）= 1000（大压小 9<12）");
+    CHECK(ai_score(worker, flagR, 0) == 2, "工兵扛旗（暗棋未翻）= 2（不透视真 rank）");
+
     printf("=== AI 评分单测: %s（%d FAIL）===\n", fails ? "FAIL" : "全部通过", fails);
     return fails ? 1 : 0;
 }
