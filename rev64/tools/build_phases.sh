@@ -15,7 +15,7 @@
 #   - zipalign（build-tools 36 或 PATH）
 #   - sign_apk.sh（v1+v2 双签，junqi.keystore）
 #   - 源 so：orig_libjunqi.so（原版 32 位）/ libjunqi_rs.so（src_rs）/ junqi_stub_arm64.so（4.8KB 桩）
-set -u
+set -euo pipefail
 WS=/disk/workspaces/jq
 RA=/tmp/opencode/jq_apk/rs_a64
 P0=/tmp/opencode/jq_apk/dec_p0   # phase0/1 树（原版 dec 副本：baidu 334 类 + 广告 jar 保留 + manifest 广告项删）
@@ -62,6 +62,7 @@ build_one() {
   cp $RA/${phase}_signed.apk $WS/dist/$out
   echo "✓ $out 构建完成"
   if [ $DO_VERIFY -eq 1 ]; then verify_one $phase $out; fi
+  return 0
 }
 
 verify_one() {
@@ -119,4 +120,6 @@ else
     phase3) build_one phase3 phase3.apk;;
   esac
 fi
+# ★ 对抗审计修正（§2026-11-11）：build_one 失败时原脚本**继续往下跑**并最终打印
+#   "✓ build_phases 完成" → 失败也报成功（假绿）。现改为任一阶段失败即中止。
 echo "✓ build_phases 完成（$TARGET）"

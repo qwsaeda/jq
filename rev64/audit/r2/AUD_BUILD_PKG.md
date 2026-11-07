@@ -11,7 +11,7 @@
 ## 0. 审计结论速览
 
 **当前 `dist/` 为空目录 —— 阶段 0/1/2/3 四个交付物一个都不存在。**
-在此基础上，本轮共发现 **112 条**问题，其中 **P0（装不上/崩溃/门禁彻底失效）12 条**、P1（功能错）45 条、P2（边界）40 条、P3（风格）15 条。
+在此基础上，本轮共发现 **112 条**问题：**P0（装不上/崩溃/交付物缺失/关键门禁彻底失效）9 条**、P1（功能错/判据漏检/假成功）38 条、P2（边界/健壮性/可复现性）47 条、P3（风格/一致性/可读性）18 条。
 
 三条主线：
 
@@ -167,7 +167,7 @@
   ```
 - 修法：重新构建并把"产物内 so md5 == src_rs/dist so md5"写成 `verify_one` 的**硬断言**（当前只对 arm64 做软打印，见 AUD-B-005/006）。
 
-## AUD-B-021 [P1] 阶段 2/3 声明 `minSdk 21`，但 arm64 so 以 API 24 为基线构建 → Android 5.0/5.1/6.0 加载即失败
+## AUD-B-021 [P0] 阶段 2/3 声明 `minSdk 21`，但 arm64 so 以 API 24 为基线构建 → Android 5.0/5.1/6.0 加载即失败
 - 位置：`rev64/src_rs/Makefile:25`（`aarch64-linux-android24-clang`）vs `/tmp/opencode/jq_apk/rs_a64/dec_{dual,full}/apktool.yml`（`sdkInfo.minSdkVersion: '21'`）
 - 问题：so 的 `.note.android.ident` 里 API level = `0x18` = **24**。运行时 linker 在设备 API < 24 时拒绝加载该 so（"requires API level 24"）→ 声明支持 Android 5.0（API 21）的阶段 2/3 在 Android 5.0/5.1/6.0 上**一点图标就崩**。
 - 依据：
@@ -233,7 +233,7 @@
 - 依据：`ls dec_p0/assets/__xadsdk__remote__final__.jar` 存在；`dec_p0/smali/com/baidu` = 334 个类。
 - 修法：把广告 jar 相关的加载入口（`AdLis`）在阶段 0/1 里改为"直接 return，不实例化广告 SDK"，保留类定义仅为满足 `FindClass`。
 
-## AUD-B-030 [P1] `src_rs/dist/phase_rs_a64.apk` 内 so 陈旧 + 只 v1/v3 签名 + sdkVersion 19 与 so 的 API 24 冲突
+## AUD-B-030 [P0] `src_rs/dist/phase_rs_a64.apk` 内 so 陈旧 + 只 v1/v3 签名 + sdkVersion 19 与 so 的 API 24 冲突
 - 位置：`rev64/src_rs/dist/phase_rs_a64.apk`
 - 问题：三个问题叠加：
   (a) 内含 so md5 = `685c73d175be900b6b0eb2bfd5692f73`（518024B），≠ 当前 `dist/libjunqi_rs.so`（`2bb06989...`，550248B）→ **打包的是旧 so**；
@@ -869,48 +869,47 @@
 
 | 级别 | 数量 | 说明 |
 |---|---|---|
-| **P0** | **12** | 装不上 / 闪退 / 门禁彻底失效 / 交付物缺失 |
-| **P1** | **45** | 功能错、假成功、几何与链接判据漏检 |
-| **P2** | **40** | 边界、健壮性、可复现性、性能 |
-| **P3** | **15** | 风格、一致性、可读性 |
+| **P0** | **9** | 装不上 / 启动闪退 / 交付物缺失 / 关键门禁彻底失效（假成功） |
+| **P1** | **38** | 功能错、假成功、几何与链接判据漏检、口径失真 |
+| **P2** | **47** | 边界、健壮性、可复现性、性能 |
+| **P3** | **18** | 风格、一致性、可读性 |
 | **合计** | **112** | AUD-B-001 ~ AUD-B-112 |
 
 ### 按文件分布
 
 | 文件 / 对象 | P0 | P1 | P2 | P3 | 小计 |
 |---|---|---|---|---|---|
-| `tools/build_phases.sh` | 4 | 5 | 6 | 3 | 18 |
-| 交付物实际状态（`dist/`、阶段属性、apktool.yml） | 2 | 4 | 8 | 1 | 15 |
-| `src_rs/Makefile` + `src_rs_regress.sh` + `jni_bridge.c` | 1 | 5 | 4 | 2 | 12 |
-| `tools/layout_align_check.py` | 2 | 2 | 2 | 1 | 7 |
-| `tools/gen_dialog_batch.py` | 1 | 4 | 3 | 1 | 9 |
-| `tools/spak2ui.py` | 0 | 4 | 4 | 1 | 9 |
-| `tools/link_audit.py` + `so_link_check.py` | 0 | 7 | 3 | 1 | 11 |
+| `tools/build_phases.sh` | 3 | 6 | 6 | 3 | 18 |
+| 交付物实际状态（`dist/`、`src_rs/dist/`、阶段属性、apktool.yml） | 3 | 1 | 9 | 0 | 13 |
+| `src_rs/Makefile` + `src_rs_regress.sh` + `jni_bridge.c` | 1 | 3 | 4 | 1 | 9 |
+| `tools/layout_align_check.py` | 2 | 2 | 1 | 1 | 6 |
+| `tools/gen_dialog_batch.py` | 0 | 4 | 2 | 1 | 7 |
+| `tools/spak2ui.py` | 0 | 6 | 4 | 1 | 11 |
+| `tools/link_audit.py` + `so_link_check.py` | 0 | 8 | 2 | 1 | 11 |
 | `tools/rs_cycle.sh` | 0 | 2 | 2 | 1 | 5 |
-| `tools/mumu_swap_so.sh` | 0 | 3 | 6 | 1 | 10 |
+| `tools/mumu_swap_so.sh` | 0 | 3 | 5 | 1 | 9 |
 | `tools/bt_smali.sh` | 0 | 1 | 5 | 2 | 8 |
-| `tools/spak_strings.py` / `spak_ui_assets.py` / `jq_strings.h` | 0 | 1 | 6 | 3 | 10 |
-| 交叉一致性 / 红线断言 | 0 | 2 | 3 | 0 | 5 |
-| **合计** | **12** | **45** | **40** | **15** | **112** |
+| `tools/spak_strings.py` / `spak_ui_assets.py` / `jq_strings.h` | 0 | 1 | 4 | 3 | 8 |
+| 交叉一致性 / 红线断言 | 0 | 1 | 3 | 3 | 7 |
+| **合计** | **9** | **38** | **47** | **18** | **112** |
 
 ---
 
-## P0 汇总表（会导致装不上 / 闪退 / 门禁彻底失效）
+## P0 汇总表（会导致装不上 / 闪退 / 交付物缺失 / 关键门禁彻底失效）
 
 | 编号 | 标题 | 后果 | 复现命令 |
 |---|---|---|---|
-| **AUD-B-001** | `build_one` 失败不中断顶层循环，恒 exit 0 并打印"✓ 完成" | 构建失败被判成功，坏包进交付 | `bash rev64/tools/build_phases.sh all; echo $?`（人为破坏源 so 后仍返回 0） |
-| **AUD-B-002** | `setup_libs` 的 `cp` 失败无人检查 | 产出缺 `.so` 的 APK，装上一点图标就 `UnsatisfiedLinkError` 闪退 | 删除 `/tmp/opencode/orig_libjunqi.so` 后跑 `build_phases.sh phase0` |
-| **AUD-B-003** | `verify_one` 对不存在的 APK 静默全绿 | 交付物缺失 / 阶段定义不符均不可见 | `ls /disk/workspaces/jq/dist/`（空）→ `bash rev64/tools/build_phases.sh --verify-only` → 全部"✓"、EXIT=0 |
+| **AUD-B-001** | `build_one` 失败不中断顶层循环，恒 exit 0 并打印"✓ 完成" | 构建失败被判成功，坏包进交付 | `bash rev64/tools/build_phases.sh all; echo $?`（破坏源 so 后仍返回 0） |
+| **AUD-B-002** | `setup_libs` 的 `cp` 失败无人检查 | 产出缺 `.so` 的 APK，装上一点图标就 `UnsatisfiedLinkError` 闪退 | `mv /tmp/opencode/orig_libjunqi.so{,.bak} && bash rev64/tools/build_phases.sh phase0` |
+| **AUD-B-003** | `verify_one` 对不存在的 APK 静默全绿 | 交付物缺失 / 阶段定义不符均不可见 | `ls /disk/workspaces/jq/dist/`（空）→ `bash rev64/tools/build_phases.sh --verify-only` → 全"✓"、EXIT=0 |
 | **AUD-B-004** | "arm64 目录无（预期）"对阶段 2/3 是致命缺失却判预期 | 阶段 2/3 缺 arm64 so → 64 位设备必闪退 | 同上（phase2/phase3 输出"arm64 目录无（预期）"） |
 | **AUD-B-019** | `dist/` 为空 —— 四阶段交付物全缺 | 无可验收产物 | `ls -la /disk/workspaces/jq/dist/` |
-| **AUD-B-033** | 6 个桌面测试目标链接缺 `ui_state_stub.c` | undefined reference → 12/12 回归 9 项 FAIL，一条龙必中止 | `cd rev64/src_rs && make bttest` |
-| **AUD-B-041** | `layout_align_check.py` 语法错误（IndentationError） | 几何对齐门禁完全失效（自 842787d 起 8 个提交未发现） | `python3 -m py_compile rev64/tools/layout_align_check.py` |
-| **AUD-B-042** | `gen_dialog_batch.py` 把 DIALOGS 插到 dict 外 | 每跑一次生成就破坏语法（已造成 041） | `compile(open('layout_align_check.py').read().replace("DIALOGS = {", '    "x": (1,2,[],),\nDIALOGS = {',1),'x','exec')` → SyntaxError |
-| **AUD-B-043** | `--clean` 正则只吃到第一个 `)` | 118 处残片粘行，文件被逐次腐蚀 | `re.subn(r'\n    "datah_\d{3}_dlg": \([^)]*\),','',s,flags=re.S)` → n=118，删后不可编译 |
-| **AUD-B-032→P1** | （`make so` 陈旧依赖，见 P1 表） | so 不重编 → APK 内 so 与源码不符 | `cd rev64/src_rs && touch ui_menu.c && make -n so` → "Nothing to be done" |
-| **AUD-B-085→P1** | （12/12 回归 9 项 FAIL，见 P1 表） | 回归门禁红，"全周期一条龙"不可用 | `bash rev64/src_rs_regress.sh` → "★ 回归有 9 项 FAIL" |
-| **AUD-B-020→P1** | （归档 APK 的 arm64 so 陈旧，见 P1 表） | 交付的 so 比 src_rs 落后 2 天 | `unzip -p phase3_signed.apk lib/arm64-v8a/libjunqi.so \| md5sum` → c7f971b8… vs 2bb06989… |
+| **AUD-B-021** | 阶段 2/3 声明 `minSdk 21`，但 arm64 so 以 API 24 为基线构建 | Android 5.0/5.1/6.0（API 21-23）装得上但**一启动就崩**（linker 拒绝加载） | `readelf -n rev64/src_rs/dist/libjunqi_rs.so` → `.note.android.ident` api=0x18=24；`aapt dump badging phase2_signed.apk` → sdkVersion:'21' |
+| **AUD-B-030** | `src_rs/dist/phase_rs_a64.apk` 只有 v1+v3 签名，**缺 v2** | 违反"重打包三件套：v1+v2 双签，缺一个都装不上" | `apksigner verify --verbose rev64/src_rs/dist/phase_rs_a64.apk \| grep scheme` → `v2 scheme: false` |
+| **AUD-B-041** | `layout_align_check.py` 语法错误（IndentationError） | 几何对齐门禁完全失效（自 `842787d` 起 8 个提交未发现） | `python3 -m py_compile rev64/tools/layout_align_check.py` |
+| **AUD-B-042** | `gen_dialog_batch.py` 把 DIALOGS 条目插到 dict **外面** | 每跑一次生成就破坏语法（已造成 041） | `compile(open('layout_align_check.py').read().replace("DIALOGS = {", '    "x": (1,2,[],),\nDIALOGS = {',1),'x','exec')` → SyntaxError |
+| **AUD-B-043** | `--clean` 正则只吃到第一个 `)` | 118 处残片粘行，文件被逐次腐蚀（同样造成 041） | `re.subn(r'\n    "datah_\d{3}_dlg": \([^)]*\),','',s,flags=re.S)` → n=118，删后不可编译 |
+| **AUD-B-033** | 6 个桌面测试目标链接缺 `ui_state_stub.c` | 回归门禁红：12/12 实际 9 项 FAIL，一条龙必中止 | `cd rev64/src_rs && make bttest` → `undefined reference to 'ui_rule_cfg_get'` |
 
 ### P0 修复优先级（建议顺序）
 
@@ -920,3 +919,4 @@
 4. **AUD-B-002 + 004 + 006 + 007 + 008 + 009**（so 与阶段属性断言）——把"阶段定义"变成机器化断言表。
 5. **AUD-B-021 + 030**（API 级别与签名口径）——`android21-clang` 或 minSdk 提到 24；v1+v2 双签。
 6. **AUD-B-032**（Makefile 依赖）——补 `ui_menu.c`/`ui_state.c`/`evverify.c` 等全部 `.c` 到目标依赖，或把 `so` 目标 `.PHONY`。
+

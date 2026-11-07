@@ -526,7 +526,7 @@ void jq_dlg_batch_hook(const char *tag)
             ui_screen_set(g_dlg_batch_hooks[hi].scr);
             __android_log_print(ANDROID_LOG_INFO, "junqi_rs",
                 "%s 批量对齐钩子：%s=1 → UI_%d（datah_%s 弹窗渲染验证）",
-                 tag, g_dlg_batch_hooks[hi].prop, g_dlg_batch_hooks[hi].scr, g_dlg_batch_hooks[hi].prop + 7);
+                 tag, g_dlg_batch_hooks[hi].prop, g_dlg_batch_hooks[hi].scr, g_dlg_batch_hooks[hi].prop + 6);
             __system_property_set(g_dlg_batch_hooks[hi].prop, "0");
             break;
         }}
