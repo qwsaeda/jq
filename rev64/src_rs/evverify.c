@@ -2166,32 +2166,61 @@ int main(int argc, char **argv)
         total++; pass += run_exitconfirm();
         total++; pass += run_resignconfirm();
         total++; pass += run_regretconfirm();
+        total++; pass += run_d000();
         total++; pass += run_d001();
+        total++; pass += run_d002();
         total++; pass += run_d003();
+        total++; pass += run_d004();
+        total++; pass += run_d005();
+        total++; pass += run_d010();
         total++; pass += run_d013();
+        total++; pass += run_d015();
+        total++; pass += run_d017();
         total++; pass += run_d019();
         total++; pass += run_d020();
         total++; pass += run_d021();
         total++; pass += run_d022();
         total++; pass += run_d023();
+        total++; pass += run_d024();
         total++; pass += run_d025();
         total++; pass += run_d026();
         total++; pass += run_d027();
         total++; pass += run_d028();
+        total++; pass += run_d029();
+        total++; pass += run_d030();
         total++; pass += run_d031();
         total++; pass += run_d032();
+        total++; pass += run_d033();
+        total++; pass += run_d034();
+        total++; pass += run_d035();
         total++; pass += run_d036();
         total++; pass += run_d037();
         total++; pass += run_d038();
+        total++; pass += run_d039();
+        total++; pass += run_d043();
+        total++; pass += run_d044();
+        total++; pass += run_d045();
+        total++; pass += run_d046();
+        total++; pass += run_d047();
+        total++; pass += run_d049();
         total++; pass += run_d050();
+        total++; pass += run_d051();
+        total++; pass += run_d052();
+        total++; pass += run_d053();
+        total++; pass += run_d054();
+        total++; pass += run_d055();
+        total++; pass += run_d057();
+        total++; pass += run_d058();
         total++; pass += run_d059();
         total++; pass += run_d062();
         total++; pass += run_d063();
         total++; pass += run_d064();
+        total++; pass += run_d065();
         total++; pass += run_d066();
         total++; pass += run_d068();
         total++; pass += run_d071();
         total++; pass += run_d072();
+        total++; pass += run_d073();
         total++; pass += run_d075();
         total++; pass += run_d077();
         total++; pass += run_d078();
@@ -2201,24 +2230,41 @@ int main(int argc, char **argv)
         total++; pass += run_d085();
         total++; pass += run_d086();
         total++; pass += run_d089();
+        total++; pass += run_d090();
         total++; pass += run_d094();
         total++; pass += run_d095();
         total++; pass += run_d096();
         total++; pass += run_d097();
         total++; pass += run_d098();
         total++; pass += run_d099();
+        total++; pass += run_d100();
         total++; pass += run_d101();
+        total++; pass += run_d102();
         total++; pass += run_d108();
         total++; pass += run_d109();
+        total++; pass += run_d110();
         total++; pass += run_d112();
         total++; pass += run_d113();
-        total++; pass += run_d120();
+        total++; pass += run_d114();
+        total++; pass += run_d118();
+        total++; pass += run_d119();
+        total++; pass += run_d121();
+        total++; pass += run_d122();
+        total++; pass += run_d123();
+        total++; pass += run_d246();
+        total++; pass += run_d247();
         total++; pass += run_d248();
+        total++; pass += run_d249();
+        total++; pass += run_d250();
+        total++; pass += run_d251();
+        total++; pass += run_d253();
         total++; pass += run_d255();
         total++; pass += run_d256();
         total++; pass += run_d257();
         total++; pass += run_d258();
+        total++; pass += run_d259();
         total++; pass += run_d260();
+        total++; pass += run_d261();
         total++; pass += run_d262();
         total++; pass += run_d263();
         printf("=== 桌面事件验证: %d/%d 全对 ===\n", pass, total);
@@ -2891,6 +2937,31 @@ int run_regretconfirm(void)
     return pass >= 3;
 }
 
+/* ★ 批量对齐（datah_000）：2 按钮几何 Δ=0 + 命中判定 */
+int run_d000(void)
+{
+    const ui_d000_btn *b = ui_d000_buttons();
+    static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
+    { "反馈", 200, 698, 340, 758 },
+    { "关闭", 380, 698, 520, 758 },
+    };
+    int n = UI_D000_COUNT, ok = 1;
+    for (int i = 0; i < n; i++) {
+        if (b[i].x0 != exp[i].x0 || b[i].y0 != exp[i].y0 ||
+            b[i].x1 != exp[i].x1 || b[i].y1 != exp[i].y1) {
+            ok = 0;
+            printf("  %s btn%d 几何不符 src(%.0f,%.0f)-(%.0f,%.0f) 期望(%d,%d)-(%d,%d)\n",
+                   exp[i].lbl, i, b[i].x0, b[i].y0, b[i].x1, b[i].y1,
+                   exp[i].x0, exp[i].y0, exp[i].x1, exp[i].y1);
+        }
+        float cx = (b[i].x0 + b[i].x1) * 0.5f, cy = (b[i].y0 + b[i].y1) * 0.5f;
+        int hit = ui_d000_hit(b, n, cx, cy);
+        ok &= (hit == i);
+    }
+    printf("datah_000（400×280 居中）：2 按钮几何 Δ=0 + 命中判定%s\n",
+           ok ? "PASS" : "FAIL");
+    return ok;
+}
 /* ★ 批量对齐（datah_001）：4 按钮几何 Δ=0 + 命中判定 */
 int run_d001(void)
 {
@@ -2915,6 +2986,31 @@ int run_d001(void)
         ok &= (hit == i);
     }
     printf("datah_001（450×390 居中）：4 按钮几何 Δ=0 + 命中判定%s\n",
+           ok ? "PASS" : "FAIL");
+    return ok;
+}
+/* ★ 批量对齐（datah_002）：2 按钮几何 Δ=0 + 命中判定 */
+int run_d002(void)
+{
+    const ui_d002_btn *b = ui_d002_buttons();
+    static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
+    { "确定", 160, 675, 345, 735 },
+    { "取消", 375, 675, 560, 735 },
+    };
+    int n = UI_D002_COUNT, ok = 1;
+    for (int i = 0; i < n; i++) {
+        if (b[i].x0 != exp[i].x0 || b[i].y0 != exp[i].y0 ||
+            b[i].x1 != exp[i].x1 || b[i].y1 != exp[i].y1) {
+            ok = 0;
+            printf("  %s btn%d 几何不符 src(%.0f,%.0f)-(%.0f,%.0f) 期望(%d,%d)-(%d,%d)\n",
+                   exp[i].lbl, i, b[i].x0, b[i].y0, b[i].x1, b[i].y1,
+                   exp[i].x0, exp[i].y0, exp[i].x1, exp[i].y1);
+        }
+        float cx = (b[i].x0 + b[i].x1) * 0.5f, cy = (b[i].y0 + b[i].y1) * 0.5f;
+        int hit = ui_d002_hit(b, n, cx, cy);
+        ok &= (hit == i);
+    }
+    printf("datah_002（460×240 居中）：2 按钮几何 Δ=0 + 命中判定%s\n",
            ok ? "PASS" : "FAIL");
     return ok;
 }
@@ -2944,6 +3040,81 @@ int run_d003(void)
            ok ? "PASS" : "FAIL");
     return ok;
 }
+/* ★ 批量对齐（datah_004）：2 按钮几何 Δ=0 + 命中判定 */
+int run_d004(void)
+{
+    const ui_d004_btn *b = ui_d004_buttons();
+    static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
+    { "图像设置", 255, 570, 465, 630 },
+    { "声音设置", 255, 650, 465, 710 },
+    };
+    int n = UI_D004_COUNT, ok = 1;
+    for (int i = 0; i < n; i++) {
+        if (b[i].x0 != exp[i].x0 || b[i].y0 != exp[i].y0 ||
+            b[i].x1 != exp[i].x1 || b[i].y1 != exp[i].y1) {
+            ok = 0;
+            printf("  %s btn%d 几何不符 src(%.0f,%.0f)-(%.0f,%.0f) 期望(%d,%d)-(%d,%d)\n",
+                   exp[i].lbl, i, b[i].x0, b[i].y0, b[i].x1, b[i].y1,
+                   exp[i].x0, exp[i].y0, exp[i].x1, exp[i].y1);
+        }
+        float cx = (b[i].x0 + b[i].x1) * 0.5f, cy = (b[i].y0 + b[i].y1) * 0.5f;
+        int hit = ui_d004_hit(b, n, cx, cy);
+        ok &= (hit == i);
+    }
+    printf("datah_004（260×190 居中）：2 按钮几何 Δ=0 + 命中判定%s\n",
+           ok ? "PASS" : "FAIL");
+    return ok;
+}
+/* ★ 批量对齐（datah_005）：2 按钮几何 Δ=0 + 命中判定 */
+int run_d005(void)
+{
+    const ui_d005_btn *b = ui_d005_buttons();
+    static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
+    { "Menu", 113, 415, 175, 460 },
+    { "Back", 303, 415, 365, 460 },
+    };
+    int n = UI_D005_COUNT, ok = 1;
+    for (int i = 0; i < n; i++) {
+        if (b[i].x0 != exp[i].x0 || b[i].y0 != exp[i].y0 ||
+            b[i].x1 != exp[i].x1 || b[i].y1 != exp[i].y1) {
+            ok = 0;
+            printf("  %s btn%d 几何不符 src(%.0f,%.0f)-(%.0f,%.0f) 期望(%d,%d)-(%d,%d)\n",
+                   exp[i].lbl, i, b[i].x0, b[i].y0, b[i].x1, b[i].y1,
+                   exp[i].x0, exp[i].y0, exp[i].x1, exp[i].y1);
+        }
+        float cx = (b[i].x0 + b[i].x1) * 0.5f, cy = (b[i].y0 + b[i].y1) * 0.5f;
+        int hit = ui_d005_hit(b, n, cx, cy);
+        ok &= (hit == i);
+    }
+    printf("datah_005（257×45 固定）：2 按钮几何 Δ=0 + 命中判定%s\n",
+           ok ? "PASS" : "FAIL");
+    return ok;
+}
+/* ★ 批量对齐（datah_010）：2 按钮几何 Δ=0 + 命中判定 */
+int run_d010(void)
+{
+    const ui_d010_btn *b = ui_d010_buttons();
+    static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
+    { "提交", 200, 726, 340, 786 },
+    { "取消", 380, 726, 520, 786 },
+    };
+    int n = UI_D010_COUNT, ok = 1;
+    for (int i = 0; i < n; i++) {
+        if (b[i].x0 != exp[i].x0 || b[i].y0 != exp[i].y0 ||
+            b[i].x1 != exp[i].x1 || b[i].y1 != exp[i].y1) {
+            ok = 0;
+            printf("  %s btn%d 几何不符 src(%.0f,%.0f)-(%.0f,%.0f) 期望(%d,%d)-(%d,%d)\n",
+                   exp[i].lbl, i, b[i].x0, b[i].y0, b[i].x1, b[i].y1,
+                   exp[i].x0, exp[i].y0, exp[i].x1, exp[i].y1);
+        }
+        float cx = (b[i].x0 + b[i].x1) * 0.5f, cy = (b[i].y0 + b[i].y1) * 0.5f;
+        int hit = ui_d010_hit(b, n, cx, cy);
+        ok &= (hit == i);
+    }
+    printf("datah_010（400×337 居中）：2 按钮几何 Δ=0 + 命中判定%s\n",
+           ok ? "PASS" : "FAIL");
+    return ok;
+}
 /* ★ 批量对齐（datah_013）：3 按钮几何 Δ=0 + 命中判定 */
 int run_d013(void)
 {
@@ -2967,6 +3138,54 @@ int run_d013(void)
         ok &= (hit == i);
     }
     printf("datah_013（230×230 居中）：3 按钮几何 Δ=0 + 命中判定%s\n",
+           ok ? "PASS" : "FAIL");
+    return ok;
+}
+/* ★ 批量对齐（datah_015）：1 按钮几何 Δ=0 + 命中判定 */
+int run_d015(void)
+{
+    const ui_d015_btn *b = ui_d015_buttons();
+    static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
+    { "Back", 113, 415, 370, 460 },
+    };
+    int n = UI_D015_COUNT, ok = 1;
+    for (int i = 0; i < n; i++) {
+        if (b[i].x0 != exp[i].x0 || b[i].y0 != exp[i].y0 ||
+            b[i].x1 != exp[i].x1 || b[i].y1 != exp[i].y1) {
+            ok = 0;
+            printf("  %s btn%d 几何不符 src(%.0f,%.0f)-(%.0f,%.0f) 期望(%d,%d)-(%d,%d)\n",
+                   exp[i].lbl, i, b[i].x0, b[i].y0, b[i].x1, b[i].y1,
+                   exp[i].x0, exp[i].y0, exp[i].x1, exp[i].y1);
+        }
+        float cx = (b[i].x0 + b[i].x1) * 0.5f, cy = (b[i].y0 + b[i].y1) * 0.5f;
+        int hit = ui_d015_hit(b, n, cx, cy);
+        ok &= (hit == i);
+    }
+    printf("datah_015（257×45 固定）：1 按钮几何 Δ=0 + 命中判定%s\n",
+           ok ? "PASS" : "FAIL");
+    return ok;
+}
+/* ★ 批量对齐（datah_017）：1 按钮几何 Δ=0 + 命中判定 */
+int run_d017(void)
+{
+    const ui_d017_btn *b = ui_d017_buttons();
+    static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
+    { "取消", 280, 828, 440, 888 },
+    };
+    int n = UI_D017_COUNT, ok = 1;
+    for (int i = 0; i < n; i++) {
+        if (b[i].x0 != exp[i].x0 || b[i].y0 != exp[i].y0 ||
+            b[i].x1 != exp[i].x1 || b[i].y1 != exp[i].y1) {
+            ok = 0;
+            printf("  %s btn%d 几何不符 src(%.0f,%.0f)-(%.0f,%.0f) 期望(%d,%d)-(%d,%d)\n",
+                   exp[i].lbl, i, b[i].x0, b[i].y0, b[i].x1, b[i].y1,
+                   exp[i].x0, exp[i].y0, exp[i].x1, exp[i].y1);
+        }
+        float cx = (b[i].x0 + b[i].x1) * 0.5f, cy = (b[i].y0 + b[i].y1) * 0.5f;
+        int hit = ui_d017_hit(b, n, cx, cy);
+        ok &= (hit == i);
+    }
+    printf("datah_017（400×535 居中）：1 按钮几何 Δ=0 + 命中判定%s\n",
            ok ? "PASS" : "FAIL");
     return ok;
 }
@@ -3105,6 +3324,30 @@ int run_d023(void)
            ok ? "PASS" : "FAIL");
     return ok;
 }
+/* ★ 批量对齐（datah_024）：1 按钮几何 Δ=0 + 命中判定 */
+int run_d024(void)
+{
+    const ui_d024_btn *b = ui_d024_buttons();
+    static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
+    { "Type", 388, 698, 70, 64 },
+    };
+    int n = UI_D024_COUNT, ok = 1;
+    for (int i = 0; i < n; i++) {
+        if (b[i].x0 != exp[i].x0 || b[i].y0 != exp[i].y0 ||
+            b[i].x1 != exp[i].x1 || b[i].y1 != exp[i].y1) {
+            ok = 0;
+            printf("  %s btn%d 几何不符 src(%.0f,%.0f)-(%.0f,%.0f) 期望(%d,%d)-(%d,%d)\n",
+                   exp[i].lbl, i, b[i].x0, b[i].y0, b[i].x1, b[i].y1,
+                   exp[i].x0, exp[i].y0, exp[i].x1, exp[i].y1);
+        }
+        float cx = (b[i].x0 + b[i].x1) * 0.5f, cy = (b[i].y0 + b[i].y1) * 0.5f;
+        int hit = ui_d024_hit(b, n, cx, cy);
+        ok &= (hit == i);
+    }
+    printf("datah_024（-318×-634 固定）：1 按钮几何 Δ=0 + 命中判定%s\n",
+           ok ? "PASS" : "FAIL");
+    return ok;
+}
 /* ★ 批量对齐（datah_025）：1 按钮几何 Δ=0 + 命中判定 */
 int run_d025(void)
 {
@@ -3207,6 +3450,56 @@ int run_d028(void)
            ok ? "PASS" : "FAIL");
     return ok;
 }
+/* ★ 批量对齐（datah_029）：2 按钮几何 Δ=0 + 命中判定 */
+int run_d029(void)
+{
+    const ui_d029_btn *b = ui_d029_buttons();
+    static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
+    { "清除", 187, 825, 343, 885 },
+    { "关闭", 377, 825, 533, 885 },
+    };
+    int n = UI_D029_COUNT, ok = 1;
+    for (int i = 0; i < n; i++) {
+        if (b[i].x0 != exp[i].x0 || b[i].y0 != exp[i].y0 ||
+            b[i].x1 != exp[i].x1 || b[i].y1 != exp[i].y1) {
+            ok = 0;
+            printf("  %s btn%d 几何不符 src(%.0f,%.0f)-(%.0f,%.0f) 期望(%d,%d)-(%d,%d)\n",
+                   exp[i].lbl, i, b[i].x0, b[i].y0, b[i].x1, b[i].y1,
+                   exp[i].x0, exp[i].y0, exp[i].x1, exp[i].y1);
+        }
+        float cx = (b[i].x0 + b[i].x1) * 0.5f, cy = (b[i].y0 + b[i].y1) * 0.5f;
+        int hit = ui_d029_hit(b, n, cx, cy);
+        ok &= (hit == i);
+    }
+    printf("datah_029（420×530 居中）：2 按钮几何 Δ=0 + 命中判定%s\n",
+           ok ? "PASS" : "FAIL");
+    return ok;
+}
+/* ★ 批量对齐（datah_030）：2 按钮几何 Δ=0 + 命中判定 */
+int run_d030(void)
+{
+    const ui_d030_btn *b = ui_d030_buttons();
+    static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
+    { "Menu", 85, 415, 147, 460 },
+    { "Chat", 147, 415, 209, 460 },
+    };
+    int n = UI_D030_COUNT, ok = 1;
+    for (int i = 0; i < n; i++) {
+        if (b[i].x0 != exp[i].x0 || b[i].y0 != exp[i].y0 ||
+            b[i].x1 != exp[i].x1 || b[i].y1 != exp[i].y1) {
+            ok = 0;
+            printf("  %s btn%d 几何不符 src(%.0f,%.0f)-(%.0f,%.0f) 期望(%d,%d)-(%d,%d)\n",
+                   exp[i].lbl, i, b[i].x0, b[i].y0, b[i].x1, b[i].y1,
+                   exp[i].x0, exp[i].y0, exp[i].x1, exp[i].y1);
+        }
+        float cx = (b[i].x0 + b[i].x1) * 0.5f, cy = (b[i].y0 + b[i].y1) * 0.5f;
+        int hit = ui_d030_hit(b, n, cx, cy);
+        ok &= (hit == i);
+    }
+    printf("datah_030（39×45 固定）：2 按钮几何 Δ=0 + 命中判定%s\n",
+           ok ? "PASS" : "FAIL");
+    return ok;
+}
 /* ★ 批量对齐（datah_031）：3 按钮几何 Δ=0 + 命中判定 */
 int run_d031(void)
 {
@@ -3257,6 +3550,81 @@ int run_d032(void)
         ok &= (hit == i);
     }
     printf("datah_032（375×60 固定）：4 按钮几何 Δ=0 + 命中判定%s\n",
+           ok ? "PASS" : "FAIL");
+    return ok;
+}
+/* ★ 批量对齐（datah_033）：2 按钮几何 Δ=0 + 命中判定 */
+int run_d033(void)
+{
+    const ui_d033_btn *b = ui_d033_buttons();
+    static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
+    { "提交", 200, 726, 340, 786 },
+    { "取消", 380, 726, 520, 786 },
+    };
+    int n = UI_D033_COUNT, ok = 1;
+    for (int i = 0; i < n; i++) {
+        if (b[i].x0 != exp[i].x0 || b[i].y0 != exp[i].y0 ||
+            b[i].x1 != exp[i].x1 || b[i].y1 != exp[i].y1) {
+            ok = 0;
+            printf("  %s btn%d 几何不符 src(%.0f,%.0f)-(%.0f,%.0f) 期望(%d,%d)-(%d,%d)\n",
+                   exp[i].lbl, i, b[i].x0, b[i].y0, b[i].x1, b[i].y1,
+                   exp[i].x0, exp[i].y0, exp[i].x1, exp[i].y1);
+        }
+        float cx = (b[i].x0 + b[i].x1) * 0.5f, cy = (b[i].y0 + b[i].y1) * 0.5f;
+        int hit = ui_d033_hit(b, n, cx, cy);
+        ok &= (hit == i);
+    }
+    printf("datah_033（400×337 居中）：2 按钮几何 Δ=0 + 命中判定%s\n",
+           ok ? "PASS" : "FAIL");
+    return ok;
+}
+/* ★ 批量对齐（datah_034）：2 按钮几何 Δ=0 + 命中判定 */
+int run_d034(void)
+{
+    const ui_d034_btn *b = ui_d034_buttons();
+    static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
+    { "确定", 185, 672, 345, 732 },
+    { "取消", 375, 672, 535, 732 },
+    };
+    int n = UI_D034_COUNT, ok = 1;
+    for (int i = 0; i < n; i++) {
+        if (b[i].x0 != exp[i].x0 || b[i].y0 != exp[i].y0 ||
+            b[i].x1 != exp[i].x1 || b[i].y1 != exp[i].y1) {
+            ok = 0;
+            printf("  %s btn%d 几何不符 src(%.0f,%.0f)-(%.0f,%.0f) 期望(%d,%d)-(%d,%d)\n",
+                   exp[i].lbl, i, b[i].x0, b[i].y0, b[i].x1, b[i].y1,
+                   exp[i].x0, exp[i].y0, exp[i].x1, exp[i].y1);
+        }
+        float cx = (b[i].x0 + b[i].x1) * 0.5f, cy = (b[i].y0 + b[i].y1) * 0.5f;
+        int hit = ui_d034_hit(b, n, cx, cy);
+        ok &= (hit == i);
+    }
+    printf("datah_034（420×235 居中）：2 按钮几何 Δ=0 + 命中判定%s\n",
+           ok ? "PASS" : "FAIL");
+    return ok;
+}
+/* ★ 批量对齐（datah_035）：2 按钮几何 Δ=0 + 命中判定 */
+int run_d035(void)
+{
+    const ui_d035_btn *b = ui_d035_buttons();
+    static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
+    { "确定", 185, 672, 345, 732 },
+    { "取消", 375, 672, 535, 732 },
+    };
+    int n = UI_D035_COUNT, ok = 1;
+    for (int i = 0; i < n; i++) {
+        if (b[i].x0 != exp[i].x0 || b[i].y0 != exp[i].y0 ||
+            b[i].x1 != exp[i].x1 || b[i].y1 != exp[i].y1) {
+            ok = 0;
+            printf("  %s btn%d 几何不符 src(%.0f,%.0f)-(%.0f,%.0f) 期望(%d,%d)-(%d,%d)\n",
+                   exp[i].lbl, i, b[i].x0, b[i].y0, b[i].x1, b[i].y1,
+                   exp[i].x0, exp[i].y0, exp[i].x1, exp[i].y1);
+        }
+        float cx = (b[i].x0 + b[i].x1) * 0.5f, cy = (b[i].y0 + b[i].y1) * 0.5f;
+        int hit = ui_d035_hit(b, n, cx, cy);
+        ok &= (hit == i);
+    }
+    printf("datah_035（420×235 居中）：2 按钮几何 Δ=0 + 命中判定%s\n",
            ok ? "PASS" : "FAIL");
     return ok;
 }
@@ -3340,6 +3708,176 @@ int run_d038(void)
            ok ? "PASS" : "FAIL");
     return ok;
 }
+/* ★ 批量对齐（datah_039）：1 按钮几何 Δ=0 + 命中判定 */
+int run_d039(void)
+{
+    const ui_d039_btn *b = ui_d039_buttons();
+    static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
+    { "复盘", 27, 650, 120, 740 },
+    };
+    int n = UI_D039_COUNT, ok = 1;
+    for (int i = 0; i < n; i++) {
+        if (b[i].x0 != exp[i].x0 || b[i].y0 != exp[i].y0 ||
+            b[i].x1 != exp[i].x1 || b[i].y1 != exp[i].y1) {
+            ok = 0;
+            printf("  %s btn%d 几何不符 src(%.0f,%.0f)-(%.0f,%.0f) 期望(%d,%d)-(%d,%d)\n",
+                   exp[i].lbl, i, b[i].x0, b[i].y0, b[i].x1, b[i].y1,
+                   exp[i].x0, exp[i].y0, exp[i].x1, exp[i].y1);
+        }
+        float cx = (b[i].x0 + b[i].x1) * 0.5f, cy = (b[i].y0 + b[i].y1) * 0.5f;
+        int hit = ui_d039_hit(b, n, cx, cy);
+        ok &= (hit == i);
+    }
+    printf("datah_039（93×90 固定）：1 按钮几何 Δ=0 + 命中判定%s\n",
+           ok ? "PASS" : "FAIL");
+    return ok;
+}
+/* ★ 批量对齐（datah_043）：2 按钮几何 Δ=0 + 命中判定 */
+int run_d043(void)
+{
+    const ui_d043_btn *b = ui_d043_buttons();
+    static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
+    { "确定", 185, 672, 345, 732 },
+    { "取消", 375, 672, 535, 732 },
+    };
+    int n = UI_D043_COUNT, ok = 1;
+    for (int i = 0; i < n; i++) {
+        if (b[i].x0 != exp[i].x0 || b[i].y0 != exp[i].y0 ||
+            b[i].x1 != exp[i].x1 || b[i].y1 != exp[i].y1) {
+            ok = 0;
+            printf("  %s btn%d 几何不符 src(%.0f,%.0f)-(%.0f,%.0f) 期望(%d,%d)-(%d,%d)\n",
+                   exp[i].lbl, i, b[i].x0, b[i].y0, b[i].x1, b[i].y1,
+                   exp[i].x0, exp[i].y0, exp[i].x1, exp[i].y1);
+        }
+        float cx = (b[i].x0 + b[i].x1) * 0.5f, cy = (b[i].y0 + b[i].y1) * 0.5f;
+        int hit = ui_d043_hit(b, n, cx, cy);
+        ok &= (hit == i);
+    }
+    printf("datah_043（420×235 居中）：2 按钮几何 Δ=0 + 命中判定%s\n",
+           ok ? "PASS" : "FAIL");
+    return ok;
+}
+/* ★ 批量对齐（datah_044）：2 按钮几何 Δ=0 + 命中判定 */
+int run_d044(void)
+{
+    const ui_d044_btn *b = ui_d044_buttons();
+    static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
+    { "消息", 290, 572, 430, 632 },
+    { "排行", 290, 648, 430, 708 },
+    };
+    int n = UI_D044_COUNT, ok = 1;
+    for (int i = 0; i < n; i++) {
+        if (b[i].x0 != exp[i].x0 || b[i].y0 != exp[i].y0 ||
+            b[i].x1 != exp[i].x1 || b[i].y1 != exp[i].y1) {
+            ok = 0;
+            printf("  %s btn%d 几何不符 src(%.0f,%.0f)-(%.0f,%.0f) 期望(%d,%d)-(%d,%d)\n",
+                   exp[i].lbl, i, b[i].x0, b[i].y0, b[i].x1, b[i].y1,
+                   exp[i].x0, exp[i].y0, exp[i].x1, exp[i].y1);
+        }
+        float cx = (b[i].x0 + b[i].x1) * 0.5f, cy = (b[i].y0 + b[i].y1) * 0.5f;
+        int hit = ui_d044_hit(b, n, cx, cy);
+        ok &= (hit == i);
+    }
+    printf("datah_044（180×175 居中）：2 按钮几何 Δ=0 + 命中判定%s\n",
+           ok ? "PASS" : "FAIL");
+    return ok;
+}
+/* ★ 批量对齐（datah_045）：1 按钮几何 Δ=0 + 命中判定 */
+int run_d045(void)
+{
+    const ui_d045_btn *b = ui_d045_buttons();
+    static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
+    { "详细", 320, 658, 412, 718 },
+    };
+    int n = UI_D045_COUNT, ok = 1;
+    for (int i = 0; i < n; i++) {
+        if (b[i].x0 != exp[i].x0 || b[i].y0 != exp[i].y0 ||
+            b[i].x1 != exp[i].x1 || b[i].y1 != exp[i].y1) {
+            ok = 0;
+            printf("  %s btn%d 几何不符 src(%.0f,%.0f)-(%.0f,%.0f) 期望(%d,%d)-(%d,%d)\n",
+                   exp[i].lbl, i, b[i].x0, b[i].y0, b[i].x1, b[i].y1,
+                   exp[i].x0, exp[i].y0, exp[i].x1, exp[i].y1);
+        }
+        float cx = (b[i].x0 + b[i].x1) * 0.5f, cy = (b[i].y0 + b[i].y1) * 0.5f;
+        int hit = ui_d045_hit(b, n, cx, cy);
+        ok &= (hit == i);
+    }
+    printf("datah_045（345×135 固定）：1 按钮几何 Δ=0 + 命中判定%s\n",
+           ok ? "PASS" : "FAIL");
+    return ok;
+}
+/* ★ 批量对齐（datah_046）：1 按钮几何 Δ=0 + 命中判定 */
+int run_d046(void)
+{
+    const ui_d046_btn *b = ui_d046_buttons();
+    static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
+    { "返回", 270, 765, 450, 825 },
+    };
+    int n = UI_D046_COUNT, ok = 1;
+    for (int i = 0; i < n; i++) {
+        if (b[i].x0 != exp[i].x0 || b[i].y0 != exp[i].y0 ||
+            b[i].x1 != exp[i].x1 || b[i].y1 != exp[i].y1) {
+            ok = 0;
+            printf("  %s btn%d 几何不符 src(%.0f,%.0f)-(%.0f,%.0f) 期望(%d,%d)-(%d,%d)\n",
+                   exp[i].lbl, i, b[i].x0, b[i].y0, b[i].x1, b[i].y1,
+                   exp[i].x0, exp[i].y0, exp[i].x1, exp[i].y1);
+        }
+        float cx = (b[i].x0 + b[i].x1) * 0.5f, cy = (b[i].y0 + b[i].y1) * 0.5f;
+        int hit = ui_d046_hit(b, n, cx, cy);
+        ok &= (hit == i);
+    }
+    printf("datah_046（420×420 居中）：1 按钮几何 Δ=0 + 命中判定%s\n",
+           ok ? "PASS" : "FAIL");
+    return ok;
+}
+/* ★ 批量对齐（datah_047）：1 按钮几何 Δ=0 + 命中判定 */
+int run_d047(void)
+{
+    const ui_d047_btn *b = ui_d047_buttons();
+    static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
+    { "关闭", 270, 708, 450, 768 },
+    };
+    int n = UI_D047_COUNT, ok = 1;
+    for (int i = 0; i < n; i++) {
+        if (b[i].x0 != exp[i].x0 || b[i].y0 != exp[i].y0 ||
+            b[i].x1 != exp[i].x1 || b[i].y1 != exp[i].y1) {
+            ok = 0;
+            printf("  %s btn%d 几何不符 src(%.0f,%.0f)-(%.0f,%.0f) 期望(%d,%d)-(%d,%d)\n",
+                   exp[i].lbl, i, b[i].x0, b[i].y0, b[i].x1, b[i].y1,
+                   exp[i].x0, exp[i].y0, exp[i].x1, exp[i].y1);
+        }
+        float cx = (b[i].x0 + b[i].x1) * 0.5f, cy = (b[i].y0 + b[i].y1) * 0.5f;
+        int hit = ui_d047_hit(b, n, cx, cy);
+        ok &= (hit == i);
+    }
+    printf("datah_047（420×305 居中）：1 按钮几何 Δ=0 + 命中判定%s\n",
+           ok ? "PASS" : "FAIL");
+    return ok;
+}
+/* ★ 批量对齐（datah_049）：1 按钮几何 Δ=0 + 命中判定 */
+int run_d049(void)
+{
+    const ui_d049_btn *b = ui_d049_buttons();
+    static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
+    { "关闭", 270, 860, 450, 920 },
+    };
+    int n = UI_D049_COUNT, ok = 1;
+    for (int i = 0; i < n; i++) {
+        if (b[i].x0 != exp[i].x0 || b[i].y0 != exp[i].y0 ||
+            b[i].x1 != exp[i].x1 || b[i].y1 != exp[i].y1) {
+            ok = 0;
+            printf("  %s btn%d 几何不符 src(%.0f,%.0f)-(%.0f,%.0f) 期望(%d,%d)-(%d,%d)\n",
+                   exp[i].lbl, i, b[i].x0, b[i].y0, b[i].x1, b[i].y1,
+                   exp[i].x0, exp[i].y0, exp[i].x1, exp[i].y1);
+        }
+        float cx = (b[i].x0 + b[i].x1) * 0.5f, cy = (b[i].y0 + b[i].y1) * 0.5f;
+        int hit = ui_d049_hit(b, n, cx, cy);
+        ok &= (hit == i);
+    }
+    printf("datah_049（420×610 居中）：1 按钮几何 Δ=0 + 命中判定%s\n",
+           ok ? "PASS" : "FAIL");
+    return ok;
+}
 /* ★ 批量对齐（datah_050）：3 按钮几何 Δ=0 + 命中判定 */
 int run_d050(void)
 {
@@ -3363,6 +3901,180 @@ int run_d050(void)
         ok &= (hit == i);
     }
     printf("datah_050（420×380 居中）：3 按钮几何 Δ=0 + 命中判定%s\n",
+           ok ? "PASS" : "FAIL");
+    return ok;
+}
+/* ★ 批量对齐（datah_051）：2 按钮几何 Δ=0 + 命中判定 */
+int run_d051(void)
+{
+    const ui_d051_btn *b = ui_d051_buttons();
+    static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
+    { "清空", 180, 860, 337, 920 },
+    { "关闭", 383, 860, 540, 920 },
+    };
+    int n = UI_D051_COUNT, ok = 1;
+    for (int i = 0; i < n; i++) {
+        if (b[i].x0 != exp[i].x0 || b[i].y0 != exp[i].y0 ||
+            b[i].x1 != exp[i].x1 || b[i].y1 != exp[i].y1) {
+            ok = 0;
+            printf("  %s btn%d 几何不符 src(%.0f,%.0f)-(%.0f,%.0f) 期望(%d,%d)-(%d,%d)\n",
+                   exp[i].lbl, i, b[i].x0, b[i].y0, b[i].x1, b[i].y1,
+                   exp[i].x0, exp[i].y0, exp[i].x1, exp[i].y1);
+        }
+        float cx = (b[i].x0 + b[i].x1) * 0.5f, cy = (b[i].y0 + b[i].y1) * 0.5f;
+        int hit = ui_d051_hit(b, n, cx, cy);
+        ok &= (hit == i);
+    }
+    printf("datah_051（450×610 居中）：2 按钮几何 Δ=0 + 命中判定%s\n",
+           ok ? "PASS" : "FAIL");
+    return ok;
+}
+/* ★ 批量对齐（datah_052）：2 按钮几何 Δ=0 + 命中判定 */
+int run_d052(void)
+{
+    const ui_d052_btn *b = ui_d052_buttons();
+    static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
+    { "重试", 180, 665, 345, 725 },
+    { "取消", 375, 665, 540, 725 },
+    };
+    int n = UI_D052_COUNT, ok = 1;
+    for (int i = 0; i < n; i++) {
+        if (b[i].x0 != exp[i].x0 || b[i].y0 != exp[i].y0 ||
+            b[i].x1 != exp[i].x1 || b[i].y1 != exp[i].y1) {
+            ok = 0;
+            printf("  %s btn%d 几何不符 src(%.0f,%.0f)-(%.0f,%.0f) 期望(%d,%d)-(%d,%d)\n",
+                   exp[i].lbl, i, b[i].x0, b[i].y0, b[i].x1, b[i].y1,
+                   exp[i].x0, exp[i].y0, exp[i].x1, exp[i].y1);
+        }
+        float cx = (b[i].x0 + b[i].x1) * 0.5f, cy = (b[i].y0 + b[i].y1) * 0.5f;
+        int hit = ui_d052_hit(b, n, cx, cy);
+        ok &= (hit == i);
+    }
+    printf("datah_052（420×220 居中）：2 按钮几何 Δ=0 + 命中判定%s\n",
+           ok ? "PASS" : "FAIL");
+    return ok;
+}
+/* ★ 批量对齐（datah_053）：2 按钮几何 Δ=0 + 命中判定 */
+int run_d053(void)
+{
+    const ui_d053_btn *b = ui_d053_buttons();
+    static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
+    { "注册", 185, 784, 345, 844 },
+    { "取消", 375, 784, 535, 844 },
+    };
+    int n = UI_D053_COUNT, ok = 1;
+    for (int i = 0; i < n; i++) {
+        if (b[i].x0 != exp[i].x0 || b[i].y0 != exp[i].y0 ||
+            b[i].x1 != exp[i].x1 || b[i].y1 != exp[i].y1) {
+            ok = 0;
+            printf("  %s btn%d 几何不符 src(%.0f,%.0f)-(%.0f,%.0f) 期望(%d,%d)-(%d,%d)\n",
+                   exp[i].lbl, i, b[i].x0, b[i].y0, b[i].x1, b[i].y1,
+                   exp[i].x0, exp[i].y0, exp[i].x1, exp[i].y1);
+        }
+        float cx = (b[i].x0 + b[i].x1) * 0.5f, cy = (b[i].y0 + b[i].y1) * 0.5f;
+        int hit = ui_d053_hit(b, n, cx, cy);
+        ok &= (hit == i);
+    }
+    printf("datah_053（420×452 居中）：2 按钮几何 Δ=0 + 命中判定%s\n",
+           ok ? "PASS" : "FAIL");
+    return ok;
+}
+/* ★ 批量对齐（datah_054）：2 按钮几何 Δ=0 + 命中判定 */
+int run_d054(void)
+{
+    const ui_d054_btn *b = ui_d054_buttons();
+    static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
+    { "清空", 180, 860, 337, 920 },
+    { "关闭", 383, 860, 540, 920 },
+    };
+    int n = UI_D054_COUNT, ok = 1;
+    for (int i = 0; i < n; i++) {
+        if (b[i].x0 != exp[i].x0 || b[i].y0 != exp[i].y0 ||
+            b[i].x1 != exp[i].x1 || b[i].y1 != exp[i].y1) {
+            ok = 0;
+            printf("  %s btn%d 几何不符 src(%.0f,%.0f)-(%.0f,%.0f) 期望(%d,%d)-(%d,%d)\n",
+                   exp[i].lbl, i, b[i].x0, b[i].y0, b[i].x1, b[i].y1,
+                   exp[i].x0, exp[i].y0, exp[i].x1, exp[i].y1);
+        }
+        float cx = (b[i].x0 + b[i].x1) * 0.5f, cy = (b[i].y0 + b[i].y1) * 0.5f;
+        int hit = ui_d054_hit(b, n, cx, cy);
+        ok &= (hit == i);
+    }
+    printf("datah_054（450×610 居中）：2 按钮几何 Δ=0 + 命中判定%s\n",
+           ok ? "PASS" : "FAIL");
+    return ok;
+}
+/* ★ 批量对齐（datah_055）：1 按钮几何 Δ=0 + 命中判定 */
+int run_d055(void)
+{
+    const ui_d055_btn *b = ui_d055_buttons();
+    static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
+    { "确定", 268, 737, 452, 797 },
+    };
+    int n = UI_D055_COUNT, ok = 1;
+    for (int i = 0; i < n; i++) {
+        if (b[i].x0 != exp[i].x0 || b[i].y0 != exp[i].y0 ||
+            b[i].x1 != exp[i].x1 || b[i].y1 != exp[i].y1) {
+            ok = 0;
+            printf("  %s btn%d 几何不符 src(%.0f,%.0f)-(%.0f,%.0f) 期望(%d,%d)-(%d,%d)\n",
+                   exp[i].lbl, i, b[i].x0, b[i].y0, b[i].x1, b[i].y1,
+                   exp[i].x0, exp[i].y0, exp[i].x1, exp[i].y1);
+        }
+        float cx = (b[i].x0 + b[i].x1) * 0.5f, cy = (b[i].y0 + b[i].y1) * 0.5f;
+        int hit = ui_d055_hit(b, n, cx, cy);
+        ok &= (hit == i);
+    }
+    printf("datah_055（395×360 居中）：1 按钮几何 Δ=0 + 命中判定%s\n",
+           ok ? "PASS" : "FAIL");
+    return ok;
+}
+/* ★ 批量对齐（datah_057）：2 按钮几何 Δ=0 + 命中判定 */
+int run_d057(void)
+{
+    const ui_d057_btn *b = ui_d057_buttons();
+    static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
+    { "修改密码", 185, 715, 344, 775 },
+    { "返回", 376, 715, 535, 775 },
+    };
+    int n = UI_D057_COUNT, ok = 1;
+    for (int i = 0; i < n; i++) {
+        if (b[i].x0 != exp[i].x0 || b[i].y0 != exp[i].y0 ||
+            b[i].x1 != exp[i].x1 || b[i].y1 != exp[i].y1) {
+            ok = 0;
+            printf("  %s btn%d 几何不符 src(%.0f,%.0f)-(%.0f,%.0f) 期望(%d,%d)-(%d,%d)\n",
+                   exp[i].lbl, i, b[i].x0, b[i].y0, b[i].x1, b[i].y1,
+                   exp[i].x0, exp[i].y0, exp[i].x1, exp[i].y1);
+        }
+        float cx = (b[i].x0 + b[i].x1) * 0.5f, cy = (b[i].y0 + b[i].y1) * 0.5f;
+        int hit = ui_d057_hit(b, n, cx, cy);
+        ok &= (hit == i);
+    }
+    printf("datah_057（420×320 居中）：2 按钮几何 Δ=0 + 命中判定%s\n",
+           ok ? "PASS" : "FAIL");
+    return ok;
+}
+/* ★ 批量对齐（datah_058）：2 按钮几何 Δ=0 + 命中判定 */
+int run_d058(void)
+{
+    const ui_d058_btn *b = ui_d058_buttons();
+    static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
+    { "确定", 185, 734, 344, 794 },
+    { "取消", 376, 734, 535, 794 },
+    };
+    int n = UI_D058_COUNT, ok = 1;
+    for (int i = 0; i < n; i++) {
+        if (b[i].x0 != exp[i].x0 || b[i].y0 != exp[i].y0 ||
+            b[i].x1 != exp[i].x1 || b[i].y1 != exp[i].y1) {
+            ok = 0;
+            printf("  %s btn%d 几何不符 src(%.0f,%.0f)-(%.0f,%.0f) 期望(%d,%d)-(%d,%d)\n",
+                   exp[i].lbl, i, b[i].x0, b[i].y0, b[i].x1, b[i].y1,
+                   exp[i].x0, exp[i].y0, exp[i].x1, exp[i].y1);
+        }
+        float cx = (b[i].x0 + b[i].x1) * 0.5f, cy = (b[i].y0 + b[i].y1) * 0.5f;
+        int hit = ui_d058_hit(b, n, cx, cy);
+        ok &= (hit == i);
+    }
+    printf("datah_058（420×352 居中）：2 按钮几何 Δ=0 + 命中判定%s\n",
            ok ? "PASS" : "FAIL");
     return ok;
 }
@@ -3471,6 +4183,31 @@ int run_d064(void)
            ok ? "PASS" : "FAIL");
     return ok;
 }
+/* ★ 批量对齐（datah_065）：2 按钮几何 Δ=0 + 命中判定 */
+int run_d065(void)
+{
+    const ui_d065_btn *b = ui_d065_buttons();
+    static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
+    { "开始", 165, 808, 345, 868 },
+    { "取消", 375, 808, 555, 868 },
+    };
+    int n = UI_D065_COUNT, ok = 1;
+    for (int i = 0; i < n; i++) {
+        if (b[i].x0 != exp[i].x0 || b[i].y0 != exp[i].y0 ||
+            b[i].x1 != exp[i].x1 || b[i].y1 != exp[i].y1) {
+            ok = 0;
+            printf("  %s btn%d 几何不符 src(%.0f,%.0f)-(%.0f,%.0f) 期望(%d,%d)-(%d,%d)\n",
+                   exp[i].lbl, i, b[i].x0, b[i].y0, b[i].x1, b[i].y1,
+                   exp[i].x0, exp[i].y0, exp[i].x1, exp[i].y1);
+        }
+        float cx = (b[i].x0 + b[i].x1) * 0.5f, cy = (b[i].y0 + b[i].y1) * 0.5f;
+        int hit = ui_d065_hit(b, n, cx, cy);
+        ok &= (hit == i);
+    }
+    printf("datah_065（450×505 居中）：2 按钮几何 Δ=0 + 命中判定%s\n",
+           ok ? "PASS" : "FAIL");
+    return ok;
+}
 /* ★ 批量对齐（datah_066）：3 按钮几何 Δ=0 + 命中判定 */
 int run_d066(void)
 {
@@ -3572,6 +4309,31 @@ int run_d072(void)
         ok &= (hit == i);
     }
     printf("datah_072（250×325 居中）：4 按钮几何 Δ=0 + 命中判定%s\n",
+           ok ? "PASS" : "FAIL");
+    return ok;
+}
+/* ★ 批量对齐（datah_073）：2 按钮几何 Δ=0 + 命中判定 */
+int run_d073(void)
+{
+    const ui_d073_btn *b = ui_d073_buttons();
+    static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
+    { "开始", 165, 695, 345, 755 },
+    { "取消", 375, 695, 555, 755 },
+    };
+    int n = UI_D073_COUNT, ok = 1;
+    for (int i = 0; i < n; i++) {
+        if (b[i].x0 != exp[i].x0 || b[i].y0 != exp[i].y0 ||
+            b[i].x1 != exp[i].x1 || b[i].y1 != exp[i].y1) {
+            ok = 0;
+            printf("  %s btn%d 几何不符 src(%.0f,%.0f)-(%.0f,%.0f) 期望(%d,%d)-(%d,%d)\n",
+                   exp[i].lbl, i, b[i].x0, b[i].y0, b[i].x1, b[i].y1,
+                   exp[i].x0, exp[i].y0, exp[i].x1, exp[i].y1);
+        }
+        float cx = (b[i].x0 + b[i].x1) * 0.5f, cy = (b[i].y0 + b[i].y1) * 0.5f;
+        int hit = ui_d073_hit(b, n, cx, cy);
+        ok &= (hit == i);
+    }
+    printf("datah_073（450×270 居中）：2 按钮几何 Δ=0 + 命中判定%s\n",
            ok ? "PASS" : "FAIL");
     return ok;
 }
@@ -3820,6 +4582,31 @@ int run_d089(void)
            ok ? "PASS" : "FAIL");
     return ok;
 }
+/* ★ 批量对齐（datah_090）：2 按钮几何 Δ=0 + 命中判定 */
+int run_d090(void)
+{
+    const ui_d090_btn *b = ui_d090_buttons();
+    static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
+    { "人机对战", 135, 570, 345, 630 },
+    { "联网对战", 135, 660, 345, 720 },
+    };
+    int n = UI_D090_COUNT, ok = 1;
+    for (int i = 0; i < n; i++) {
+        if (b[i].x0 != exp[i].x0 || b[i].y0 != exp[i].y0 ||
+            b[i].x1 != exp[i].x1 || b[i].y1 != exp[i].y1) {
+            ok = 0;
+            printf("  %s btn%d 几何不符 src(%.0f,%.0f)-(%.0f,%.0f) 期望(%d,%d)-(%d,%d)\n",
+                   exp[i].lbl, i, b[i].x0, b[i].y0, b[i].x1, b[i].y1,
+                   exp[i].x0, exp[i].y0, exp[i].x1, exp[i].y1);
+        }
+        float cx = (b[i].x0 + b[i].x1) * 0.5f, cy = (b[i].y0 + b[i].y1) * 0.5f;
+        int hit = ui_d090_hit(b, n, cx, cy);
+        ok &= (hit == i);
+    }
+    printf("datah_090（75×150 固定）：2 按钮几何 Δ=0 + 命中判定%s\n",
+           ok ? "PASS" : "FAIL");
+    return ok;
+}
 /* ★ 批量对齐（datah_094）：5 按钮几何 Δ=0 + 命中判定 */
 int run_d094(void)
 {
@@ -3985,6 +4772,30 @@ int run_d099(void)
            ok ? "PASS" : "FAIL");
     return ok;
 }
+/* ★ 批量对齐（datah_100）：1 按钮几何 Δ=0 + 命中判定 */
+int run_d100(void)
+{
+    const ui_d100_btn *b = ui_d100_buttons();
+    static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
+    { "详细", 320, 658, 412, 718 },
+    };
+    int n = UI_D100_COUNT, ok = 1;
+    for (int i = 0; i < n; i++) {
+        if (b[i].x0 != exp[i].x0 || b[i].y0 != exp[i].y0 ||
+            b[i].x1 != exp[i].x1 || b[i].y1 != exp[i].y1) {
+            ok = 0;
+            printf("  %s btn%d 几何不符 src(%.0f,%.0f)-(%.0f,%.0f) 期望(%d,%d)-(%d,%d)\n",
+                   exp[i].lbl, i, b[i].x0, b[i].y0, b[i].x1, b[i].y1,
+                   exp[i].x0, exp[i].y0, exp[i].x1, exp[i].y1);
+        }
+        float cx = (b[i].x0 + b[i].x1) * 0.5f, cy = (b[i].y0 + b[i].y1) * 0.5f;
+        int hit = ui_d100_hit(b, n, cx, cy);
+        ok &= (hit == i);
+    }
+    printf("datah_100（345×135 固定）：1 按钮几何 Δ=0 + 命中判定%s\n",
+           ok ? "PASS" : "FAIL");
+    return ok;
+}
 /* ★ 批量对齐（datah_101）：4 按钮几何 Δ=0 + 命中判定 */
 int run_d101(void)
 {
@@ -4009,6 +4820,30 @@ int run_d101(void)
         ok &= (hit == i);
     }
     printf("datah_101（450×60 固定）：4 按钮几何 Δ=0 + 命中判定%s\n",
+           ok ? "PASS" : "FAIL");
+    return ok;
+}
+/* ★ 批量对齐（datah_102）：1 按钮几何 Δ=0 + 命中判定 */
+int run_d102(void)
+{
+    const ui_d102_btn *b = ui_d102_buttons();
+    static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
+    { "确定", 268, 742, 452, 802 },
+    };
+    int n = UI_D102_COUNT, ok = 1;
+    for (int i = 0; i < n; i++) {
+        if (b[i].x0 != exp[i].x0 || b[i].y0 != exp[i].y0 ||
+            b[i].x1 != exp[i].x1 || b[i].y1 != exp[i].y1) {
+            ok = 0;
+            printf("  %s btn%d 几何不符 src(%.0f,%.0f)-(%.0f,%.0f) 期望(%d,%d)-(%d,%d)\n",
+                   exp[i].lbl, i, b[i].x0, b[i].y0, b[i].x1, b[i].y1,
+                   exp[i].x0, exp[i].y0, exp[i].x1, exp[i].y1);
+        }
+        float cx = (b[i].x0 + b[i].x1) * 0.5f, cy = (b[i].y0 + b[i].y1) * 0.5f;
+        int hit = ui_d102_hit(b, n, cx, cy);
+        ok &= (hit == i);
+    }
+    printf("datah_102（395×370 居中）：1 按钮几何 Δ=0 + 命中判定%s\n",
            ok ? "PASS" : "FAIL");
     return ok;
 }
@@ -4061,6 +4896,31 @@ int run_d109(void)
         ok &= (hit == i);
     }
     printf("datah_109（260×90 固定）：3 按钮几何 Δ=0 + 命中判定%s\n",
+           ok ? "PASS" : "FAIL");
+    return ok;
+}
+/* ★ 批量对齐（datah_110）：2 按钮几何 Δ=0 + 命中判定 */
+int run_d110(void)
+{
+    const ui_d110_btn *b = ui_d110_buttons();
+    static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
+    { "清空", 180, 860, 337, 920 },
+    { "关闭", 383, 860, 540, 920 },
+    };
+    int n = UI_D110_COUNT, ok = 1;
+    for (int i = 0; i < n; i++) {
+        if (b[i].x0 != exp[i].x0 || b[i].y0 != exp[i].y0 ||
+            b[i].x1 != exp[i].x1 || b[i].y1 != exp[i].y1) {
+            ok = 0;
+            printf("  %s btn%d 几何不符 src(%.0f,%.0f)-(%.0f,%.0f) 期望(%d,%d)-(%d,%d)\n",
+                   exp[i].lbl, i, b[i].x0, b[i].y0, b[i].x1, b[i].y1,
+                   exp[i].x0, exp[i].y0, exp[i].x1, exp[i].y1);
+        }
+        float cx = (b[i].x0 + b[i].x1) * 0.5f, cy = (b[i].y0 + b[i].y1) * 0.5f;
+        int hit = ui_d110_hit(b, n, cx, cy);
+        ok &= (hit == i);
+    }
+    printf("datah_110（450×610 居中）：2 按钮几何 Δ=0 + 命中判定%s\n",
            ok ? "PASS" : "FAIL");
     return ok;
 }
@@ -4119,16 +4979,14 @@ int run_d113(void)
            ok ? "PASS" : "FAIL");
     return ok;
 }
-/* ★ 批量对齐（datah_120）：3 按钮几何 Δ=0 + 命中判定 */
-int run_d120(void)
+/* ★ 批量对齐（datah_114）：1 按钮几何 Δ=0 + 命中判定 */
+int run_d114(void)
 {
-    const ui_d120_btn *b = ui_d120_buttons();
+    const ui_d114_btn *b = ui_d114_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
-    { "注册用户", 255, 535, 465, 595 },
-    { "找回密码", 255, 610, 465, 670 },
-    { "返回", 255, 685, 465, 745 },
+    { "Site", 30, 700, 60, 760 },
     };
-    int n = UI_D120_COUNT, ok = 1;
+    int n = UI_D114_COUNT, ok = 1;
     for (int i = 0; i < n; i++) {
         if (b[i].x0 != exp[i].x0 || b[i].y0 != exp[i].y0 ||
             b[i].x1 != exp[i].x1 || b[i].y1 != exp[i].y1) {
@@ -4138,10 +4996,183 @@ int run_d120(void)
                    exp[i].x0, exp[i].y0, exp[i].x1, exp[i].y1);
         }
         float cx = (b[i].x0 + b[i].x1) * 0.5f, cy = (b[i].y0 + b[i].y1) * 0.5f;
-        int hit = ui_d120_hit(b, n, cx, cy);
+        int hit = ui_d114_hit(b, n, cx, cy);
         ok &= (hit == i);
     }
-    printf("datah_120（250×250 居中）：3 按钮几何 Δ=0 + 命中判定%s\n",
+    printf("datah_114（30×60 固定）：1 按钮几何 Δ=0 + 命中判定%s\n",
+           ok ? "PASS" : "FAIL");
+    return ok;
+}
+/* ★ 批量对齐（datah_118）：2 按钮几何 Δ=0 + 命中判定 */
+int run_d118(void)
+{
+    const ui_d118_btn *b = ui_d118_buttons();
+    static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
+    { "更新", 175, 735, 340, 795 },
+    { "取消", 380, 735, 545, 795 },
+    };
+    int n = UI_D118_COUNT, ok = 1;
+    for (int i = 0; i < n; i++) {
+        if (b[i].x0 != exp[i].x0 || b[i].y0 != exp[i].y0 ||
+            b[i].x1 != exp[i].x1 || b[i].y1 != exp[i].y1) {
+            ok = 0;
+            printf("  %s btn%d 几何不符 src(%.0f,%.0f)-(%.0f,%.0f) 期望(%d,%d)-(%d,%d)\n",
+                   exp[i].lbl, i, b[i].x0, b[i].y0, b[i].x1, b[i].y1,
+                   exp[i].x0, exp[i].y0, exp[i].x1, exp[i].y1);
+        }
+        float cx = (b[i].x0 + b[i].x1) * 0.5f, cy = (b[i].y0 + b[i].y1) * 0.5f;
+        int hit = ui_d118_hit(b, n, cx, cy);
+        ok &= (hit == i);
+    }
+    printf("datah_118（450×360 居中）：2 按钮几何 Δ=0 + 命中判定%s\n",
+           ok ? "PASS" : "FAIL");
+    return ok;
+}
+/* ★ 批量对齐（datah_119）：2 按钮几何 Δ=0 + 命中判定 */
+int run_d119(void)
+{
+    const ui_d119_btn *b = ui_d119_buttons();
+    static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
+    { "确定", 185, 702, 344, 762 },
+    { "取消", 376, 702, 535, 762 },
+    };
+    int n = UI_D119_COUNT, ok = 1;
+    for (int i = 0; i < n; i++) {
+        if (b[i].x0 != exp[i].x0 || b[i].y0 != exp[i].y0 ||
+            b[i].x1 != exp[i].x1 || b[i].y1 != exp[i].y1) {
+            ok = 0;
+            printf("  %s btn%d 几何不符 src(%.0f,%.0f)-(%.0f,%.0f) 期望(%d,%d)-(%d,%d)\n",
+                   exp[i].lbl, i, b[i].x0, b[i].y0, b[i].x1, b[i].y1,
+                   exp[i].x0, exp[i].y0, exp[i].x1, exp[i].y1);
+        }
+        float cx = (b[i].x0 + b[i].x1) * 0.5f, cy = (b[i].y0 + b[i].y1) * 0.5f;
+        int hit = ui_d119_hit(b, n, cx, cy);
+        ok &= (hit == i);
+    }
+    printf("datah_119（420×287 居中）：2 按钮几何 Δ=0 + 命中判定%s\n",
+           ok ? "PASS" : "FAIL");
+    return ok;
+}
+/* ★ 批量对齐（datah_121）：2 按钮几何 Δ=0 + 命中判定 */
+int run_d121(void)
+{
+    const ui_d121_btn *b = ui_d121_buttons();
+    static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
+    { "确定", 185, 702, 344, 762 },
+    { "取消", 376, 702, 535, 762 },
+    };
+    int n = UI_D121_COUNT, ok = 1;
+    for (int i = 0; i < n; i++) {
+        if (b[i].x0 != exp[i].x0 || b[i].y0 != exp[i].y0 ||
+            b[i].x1 != exp[i].x1 || b[i].y1 != exp[i].y1) {
+            ok = 0;
+            printf("  %s btn%d 几何不符 src(%.0f,%.0f)-(%.0f,%.0f) 期望(%d,%d)-(%d,%d)\n",
+                   exp[i].lbl, i, b[i].x0, b[i].y0, b[i].x1, b[i].y1,
+                   exp[i].x0, exp[i].y0, exp[i].x1, exp[i].y1);
+        }
+        float cx = (b[i].x0 + b[i].x1) * 0.5f, cy = (b[i].y0 + b[i].y1) * 0.5f;
+        int hit = ui_d121_hit(b, n, cx, cy);
+        ok &= (hit == i);
+    }
+    printf("datah_121（420×287 居中）：2 按钮几何 Δ=0 + 命中判定%s\n",
+           ok ? "PASS" : "FAIL");
+    return ok;
+}
+/* ★ 批量对齐（datah_122）：2 按钮几何 Δ=0 + 命中判定 */
+int run_d122(void)
+{
+    const ui_d122_btn *b = ui_d122_buttons();
+    static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
+    { "确定", 185, 709, 344, 769 },
+    { "取消", 376, 709, 535, 769 },
+    };
+    int n = UI_D122_COUNT, ok = 1;
+    for (int i = 0; i < n; i++) {
+        if (b[i].x0 != exp[i].x0 || b[i].y0 != exp[i].y0 ||
+            b[i].x1 != exp[i].x1 || b[i].y1 != exp[i].y1) {
+            ok = 0;
+            printf("  %s btn%d 几何不符 src(%.0f,%.0f)-(%.0f,%.0f) 期望(%d,%d)-(%d,%d)\n",
+                   exp[i].lbl, i, b[i].x0, b[i].y0, b[i].x1, b[i].y1,
+                   exp[i].x0, exp[i].y0, exp[i].x1, exp[i].y1);
+        }
+        float cx = (b[i].x0 + b[i].x1) * 0.5f, cy = (b[i].y0 + b[i].y1) * 0.5f;
+        int hit = ui_d122_hit(b, n, cx, cy);
+        ok &= (hit == i);
+    }
+    printf("datah_122（420×302 居中）：2 按钮几何 Δ=0 + 命中判定%s\n",
+           ok ? "PASS" : "FAIL");
+    return ok;
+}
+/* ★ 批量对齐（datah_123）：1 按钮几何 Δ=0 + 命中判定 */
+int run_d123(void)
+{
+    const ui_d123_btn *b = ui_d123_buttons();
+    static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
+    { "Wall", 0, 0, 120, 75 },
+    };
+    int n = UI_D123_COUNT, ok = 1;
+    for (int i = 0; i < n; i++) {
+        if (b[i].x0 != exp[i].x0 || b[i].y0 != exp[i].y0 ||
+            b[i].x1 != exp[i].x1 || b[i].y1 != exp[i].y1) {
+            ok = 0;
+            printf("  %s btn%d 几何不符 src(%.0f,%.0f)-(%.0f,%.0f) 期望(%d,%d)-(%d,%d)\n",
+                   exp[i].lbl, i, b[i].x0, b[i].y0, b[i].x1, b[i].y1,
+                   exp[i].x0, exp[i].y0, exp[i].x1, exp[i].y1);
+        }
+        float cx = (b[i].x0 + b[i].x1) * 0.5f, cy = (b[i].y0 + b[i].y1) * 0.5f;
+        int hit = ui_d123_hit(b, n, cx, cy);
+        ok &= (hit == i);
+    }
+    printf("datah_123（120×75 固定）：1 按钮几何 Δ=0 + 命中判定%s\n",
+           ok ? "PASS" : "FAIL");
+    return ok;
+}
+/* ★ 批量对齐（datah_246）：2 按钮几何 Δ=0 + 命中判定 */
+int run_d246(void)
+{
+    const ui_d246_btn *b = ui_d246_buttons();
+    static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
+    { "Menu", 113, 442, 175, 487 },
+    { "Back", 303, 442, 365, 487 },
+    };
+    int n = UI_D246_COUNT, ok = 1;
+    for (int i = 0; i < n; i++) {
+        if (b[i].x0 != exp[i].x0 || b[i].y0 != exp[i].y0 ||
+            b[i].x1 != exp[i].x1 || b[i].y1 != exp[i].y1) {
+            ok = 0;
+            printf("  %s btn%d 几何不符 src(%.0f,%.0f)-(%.0f,%.0f) 期望(%d,%d)-(%d,%d)\n",
+                   exp[i].lbl, i, b[i].x0, b[i].y0, b[i].x1, b[i].y1,
+                   exp[i].x0, exp[i].y0, exp[i].x1, exp[i].y1);
+        }
+        float cx = (b[i].x0 + b[i].x1) * 0.5f, cy = (b[i].y0 + b[i].y1) * 0.5f;
+        int hit = ui_d246_hit(b, n, cx, cy);
+        ok &= (hit == i);
+    }
+    printf("datah_246（257×45 固定）：2 按钮几何 Δ=0 + 命中判定%s\n",
+           ok ? "PASS" : "FAIL");
+    return ok;
+}
+/* ★ 批量对齐（datah_247）：1 按钮几何 Δ=0 + 命中判定 */
+int run_d247(void)
+{
+    const ui_d247_btn *b = ui_d247_buttons();
+    static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
+    { "Back", 113, 442, 370, 487 },
+    };
+    int n = UI_D247_COUNT, ok = 1;
+    for (int i = 0; i < n; i++) {
+        if (b[i].x0 != exp[i].x0 || b[i].y0 != exp[i].y0 ||
+            b[i].x1 != exp[i].x1 || b[i].y1 != exp[i].y1) {
+            ok = 0;
+            printf("  %s btn%d 几何不符 src(%.0f,%.0f)-(%.0f,%.0f) 期望(%d,%d)-(%d,%d)\n",
+                   exp[i].lbl, i, b[i].x0, b[i].y0, b[i].x1, b[i].y1,
+                   exp[i].x0, exp[i].y0, exp[i].x1, exp[i].y1);
+        }
+        float cx = (b[i].x0 + b[i].x1) * 0.5f, cy = (b[i].y0 + b[i].y1) * 0.5f;
+        int hit = ui_d247_hit(b, n, cx, cy);
+        ok &= (hit == i);
+    }
+    printf("datah_247（257×45 固定）：1 按钮几何 Δ=0 + 命中判定%s\n",
            ok ? "PASS" : "FAIL");
     return ok;
 }
@@ -4169,6 +5200,103 @@ int run_d248(void)
         ok &= (hit == i);
     }
     printf("datah_248（140×210 固定）：4 按钮几何 Δ=0 + 命中判定%s\n",
+           ok ? "PASS" : "FAIL");
+    return ok;
+}
+/* ★ 批量对齐（datah_249）：1 按钮几何 Δ=0 + 命中判定 */
+int run_d249(void)
+{
+    const ui_d249_btn *b = ui_d249_buttons();
+    static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
+    { "Type", 388, 731, 70, 64 },
+    };
+    int n = UI_D249_COUNT, ok = 1;
+    for (int i = 0; i < n; i++) {
+        if (b[i].x0 != exp[i].x0 || b[i].y0 != exp[i].y0 ||
+            b[i].x1 != exp[i].x1 || b[i].y1 != exp[i].y1) {
+            ok = 0;
+            printf("  %s btn%d 几何不符 src(%.0f,%.0f)-(%.0f,%.0f) 期望(%d,%d)-(%d,%d)\n",
+                   exp[i].lbl, i, b[i].x0, b[i].y0, b[i].x1, b[i].y1,
+                   exp[i].x0, exp[i].y0, exp[i].x1, exp[i].y1);
+        }
+        float cx = (b[i].x0 + b[i].x1) * 0.5f, cy = (b[i].y0 + b[i].y1) * 0.5f;
+        int hit = ui_d249_hit(b, n, cx, cy);
+        ok &= (hit == i);
+    }
+    printf("datah_249（-318×-667 固定）：1 按钮几何 Δ=0 + 命中判定%s\n",
+           ok ? "PASS" : "FAIL");
+    return ok;
+}
+/* ★ 批量对齐（datah_250）：2 按钮几何 Δ=0 + 命中判定 */
+int run_d250(void)
+{
+    const ui_d250_btn *b = ui_d250_buttons();
+    static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
+    { "Menu", 85, 442, 147, 487 },
+    { "Chat", 147, 442, 209, 487 },
+    };
+    int n = UI_D250_COUNT, ok = 1;
+    for (int i = 0; i < n; i++) {
+        if (b[i].x0 != exp[i].x0 || b[i].y0 != exp[i].y0 ||
+            b[i].x1 != exp[i].x1 || b[i].y1 != exp[i].y1) {
+            ok = 0;
+            printf("  %s btn%d 几何不符 src(%.0f,%.0f)-(%.0f,%.0f) 期望(%d,%d)-(%d,%d)\n",
+                   exp[i].lbl, i, b[i].x0, b[i].y0, b[i].x1, b[i].y1,
+                   exp[i].x0, exp[i].y0, exp[i].x1, exp[i].y1);
+        }
+        float cx = (b[i].x0 + b[i].x1) * 0.5f, cy = (b[i].y0 + b[i].y1) * 0.5f;
+        int hit = ui_d250_hit(b, n, cx, cy);
+        ok &= (hit == i);
+    }
+    printf("datah_250（39×45 固定）：2 按钮几何 Δ=0 + 命中判定%s\n",
+           ok ? "PASS" : "FAIL");
+    return ok;
+}
+/* ★ 批量对齐（datah_251）：1 按钮几何 Δ=0 + 命中判定 */
+int run_d251(void)
+{
+    const ui_d251_btn *b = ui_d251_buttons();
+    static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
+    { "复盘", 27, 690, 120, 780 },
+    };
+    int n = UI_D251_COUNT, ok = 1;
+    for (int i = 0; i < n; i++) {
+        if (b[i].x0 != exp[i].x0 || b[i].y0 != exp[i].y0 ||
+            b[i].x1 != exp[i].x1 || b[i].y1 != exp[i].y1) {
+            ok = 0;
+            printf("  %s btn%d 几何不符 src(%.0f,%.0f)-(%.0f,%.0f) 期望(%d,%d)-(%d,%d)\n",
+                   exp[i].lbl, i, b[i].x0, b[i].y0, b[i].x1, b[i].y1,
+                   exp[i].x0, exp[i].y0, exp[i].x1, exp[i].y1);
+        }
+        float cx = (b[i].x0 + b[i].x1) * 0.5f, cy = (b[i].y0 + b[i].y1) * 0.5f;
+        int hit = ui_d251_hit(b, n, cx, cy);
+        ok &= (hit == i);
+    }
+    printf("datah_251（93×90 固定）：1 按钮几何 Δ=0 + 命中判定%s\n",
+           ok ? "PASS" : "FAIL");
+    return ok;
+}
+/* ★ 批量对齐（datah_253）：1 按钮几何 Δ=0 + 命中判定 */
+int run_d253(void)
+{
+    const ui_d253_btn *b = ui_d253_buttons();
+    static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
+    { "详细", 320, 698, 412, 758 },
+    };
+    int n = UI_D253_COUNT, ok = 1;
+    for (int i = 0; i < n; i++) {
+        if (b[i].x0 != exp[i].x0 || b[i].y0 != exp[i].y0 ||
+            b[i].x1 != exp[i].x1 || b[i].y1 != exp[i].y1) {
+            ok = 0;
+            printf("  %s btn%d 几何不符 src(%.0f,%.0f)-(%.0f,%.0f) 期望(%d,%d)-(%d,%d)\n",
+                   exp[i].lbl, i, b[i].x0, b[i].y0, b[i].x1, b[i].y1,
+                   exp[i].x0, exp[i].y0, exp[i].x1, exp[i].y1);
+        }
+        float cx = (b[i].x0 + b[i].x1) * 0.5f, cy = (b[i].y0 + b[i].y1) * 0.5f;
+        int hit = ui_d253_hit(b, n, cx, cy);
+        ok &= (hit == i);
+    }
+    printf("datah_253（345×135 固定）：1 按钮几何 Δ=0 + 命中判定%s\n",
            ok ? "PASS" : "FAIL");
     return ok;
 }
@@ -4281,6 +5409,31 @@ int run_d258(void)
            ok ? "PASS" : "FAIL");
     return ok;
 }
+/* ★ 批量对齐（datah_259）：2 按钮几何 Δ=0 + 命中判定 */
+int run_d259(void)
+{
+    const ui_d259_btn *b = ui_d259_buttons();
+    static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
+    { "人机对战", 135, 610, 345, 670 },
+    { "联网对战", 135, 700, 345, 760 },
+    };
+    int n = UI_D259_COUNT, ok = 1;
+    for (int i = 0; i < n; i++) {
+        if (b[i].x0 != exp[i].x0 || b[i].y0 != exp[i].y0 ||
+            b[i].x1 != exp[i].x1 || b[i].y1 != exp[i].y1) {
+            ok = 0;
+            printf("  %s btn%d 几何不符 src(%.0f,%.0f)-(%.0f,%.0f) 期望(%d,%d)-(%d,%d)\n",
+                   exp[i].lbl, i, b[i].x0, b[i].y0, b[i].x1, b[i].y1,
+                   exp[i].x0, exp[i].y0, exp[i].x1, exp[i].y1);
+        }
+        float cx = (b[i].x0 + b[i].x1) * 0.5f, cy = (b[i].y0 + b[i].y1) * 0.5f;
+        int hit = ui_d259_hit(b, n, cx, cy);
+        ok &= (hit == i);
+    }
+    printf("datah_259（75×150 固定）：2 按钮几何 Δ=0 + 命中判定%s\n",
+           ok ? "PASS" : "FAIL");
+    return ok;
+}
 /* ★ 批量对齐（datah_260）：5 按钮几何 Δ=0 + 命中判定 */
 int run_d260(void)
 {
@@ -4306,6 +5459,30 @@ int run_d260(void)
         ok &= (hit == i);
     }
     printf("datah_260（450×60 固定）：5 按钮几何 Δ=0 + 命中判定%s\n",
+           ok ? "PASS" : "FAIL");
+    return ok;
+}
+/* ★ 批量对齐（datah_261）：1 按钮几何 Δ=0 + 命中判定 */
+int run_d261(void)
+{
+    const ui_d261_btn *b = ui_d261_buttons();
+    static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
+    { "详细", 320, 708, 412, 768 },
+    };
+    int n = UI_D261_COUNT, ok = 1;
+    for (int i = 0; i < n; i++) {
+        if (b[i].x0 != exp[i].x0 || b[i].y0 != exp[i].y0 ||
+            b[i].x1 != exp[i].x1 || b[i].y1 != exp[i].y1) {
+            ok = 0;
+            printf("  %s btn%d 几何不符 src(%.0f,%.0f)-(%.0f,%.0f) 期望(%d,%d)-(%d,%d)\n",
+                   exp[i].lbl, i, b[i].x0, b[i].y0, b[i].x1, b[i].y1,
+                   exp[i].x0, exp[i].y0, exp[i].x1, exp[i].y1);
+        }
+        float cx = (b[i].x0 + b[i].x1) * 0.5f, cy = (b[i].y0 + b[i].y1) * 0.5f;
+        int hit = ui_d261_hit(b, n, cx, cy);
+        ok &= (hit == i);
+    }
+    printf("datah_261（345×135 固定）：1 按钮几何 Δ=0 + 命中判定%s\n",
            ok ? "PASS" : "FAIL");
     return ok;
 }
