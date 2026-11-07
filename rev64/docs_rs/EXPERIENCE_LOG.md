@@ -1600,3 +1600,44 @@ datah_095 原版 9 按钮但**互斥重叠**（复盘/聊天同位、提和/取�
   矩阵现状：102 条中 1 实证 + 101 已标记 + 0 未标记。
 - **固化**: rules_fork_check.py 矩阵读"§124y-xxx AUD-R 分叉标记"块注释，新增标记须带
   该前缀 + 块内 R-xxx 行号才计"已标记"；32 位 so 编译验证 build_arm32_aligned.sh OK（8.35MB）。
+
+### §2026-11-08 对抗审计 loop 修复两批次（117+ 项发现 → 台账 100 项全闭环）
+
+- **审计组织**：4 批并行子代理审计（资源对齐链路 / 32 位分叉标记+审计清单 / 构建流水线+蓝牙+音效 /
+  渲染 UI+JNI 桥+工具链+文档），共 117 项发现（>100 达标），台账 `rev64/audit/r2/AUD_LOOP.md`
+  （P0×18 P1×25 P2×20 P3×25 + 撤回误报 9）。
+- **修复批次**：① `3d5d04d`（P0/P1 全修 + P2/P3 批量）② `9037e53`（剩余 48 项闭环 + 撤回 1 误报）
+  → 最终 **已修 100 | 待修 0 | 诚实标注 1 | 撤回误报 1**。
+- **本批真 bug 修复（P0）**：
+  1. **rs_gl_rebuild 重建判据**（render.c）：原 `gl_now_slot` 是**共享单值**，PBuffer 线程(slot0) 与
+     GLThread(slot1) 互相改写 → 每帧触发 rebuild → `glGenTextures` 覆盖旧 ID（同 context 旧纹理
+     泄漏随帧增长）。改按 **(slot, 当前 EGLContext) 配对**判定。真机实测：每 context 只重建一次。
+  2. **rebuild_rs_apk.sh 推送段 `local` 在脚本顶层**（上一批修 P0-A3 时引入的回归）：bash 报
+     "local: can only be used in a function" + `set -u` 下 `refs: unbound variable` → **整段推送失败**
+     （设备端 22 张文字图集缺失 → UI 全退化）。改普通变量赋值。**教训：脚本顶层禁用 local。**
+- **★ 栈帧瘦身（P2-R2）**：`rs_render_init` 原用 44 个 `char[512]` 路径缓冲（22KB 栈帧，主线程
+  OnCreate 同步调用）→ 改 `rs_read_one` 单缓冲 helper（512B）。改前用脚本实证 44 对
+  `snprintf`/`rs_read_png` **严格 1:1 按文件名配对（0 错位）**再动刀——机械重构前必须先证明等价。
+- **★ AUD-R-047 闭环（P2-R3）**：新增 `rank_of(const jq_cell*)`（side 感知还原）替代裸 `rank_norm`：
+  裸 rank_norm 只看数值不看 side，蓝方 `rank>12`（BT SYNC_CELL 注入 f3∈[0,24]）会被静默还原成
+  别的 rank（13→1 司令）。编码语义核实：明棋红方 `rank+0xc`、暗棋全 raw（jq_dark_setup）→
+  `rank_of` 按 side 分支（RED 且 >12 → 减 0xc；BLUE/UNKNOWN 且 >12 → 钳 RANK_TOP 非法哨兵）。
+- **★ flaky 根治（P2-B13）**：`mumu_evtest.sh` 7 处判据从固定 `sleep 8/10/12` 改**轮询**
+  （`wait_log`/`wait_proc` helper）→ 真机事件回归 **9/9 PASS FLAKY=0**（此前 PASS=6 FLAKY=2 FAIL=1）。
+  **固定 sleep 是 flaky 的头号来源；判据就绪用轮询而非等待。**
+- **★ 首帧判据精确化**：`verify_asset_chain.py` 用 **PID 判据**（末条 `Init 像素解码` 行的 PID ==
+  当前 `pidof`）替掉 `logcat -T 500` 限窗（真机长时间运行后帧日志把首帧行挤出窗口 → 假红）。
+  中间试过"末次 Init 行 vs 末次 OnCreate 行"启发式——**不成立**（OnCreate 输出多行且部分在
+  Init 之后），已废弃。
+- **★ 32 位标记判读纠正（7 处）**：AUD-R-020（32 位 EV_BOMB 无炸弹撞旗判胜分支，原标记引"走子
+  桥认输逻辑"与该项无关）、R-005（side_stalemated 仍带回合门，API 契约与 64 位参数化版不等价）、
+  R-109（jq_flip 有和棋判定、无困毙收口）、R-081（改判"已建机制 + 行为对齐未实证"，原写"行为
+  等价"自相矛盾）、R-021/R-080/R-085 判读；**58 处行号引用全改语义锚点**（函数名/分支名）——
+  行号引用必然随编辑漂移，语义锚点才稳定。
+- **口径诚实化**：`rules_fork_check.py` 汇总由"已实证 1 条"纠正为"**已实证 0 条 + 不适用 1 条**"
+  （R-017 实为 32 位不适用，非行为实证）。
+- **32 位侧 4 项真缺陷按 R-138 约定处理**：诚实标注，**不搬移 src_rs 的 C 修复**（层级不同，
+  须走 §124y 反汇编路线）——困毙未排地雷 / rank_norm 无上界钳 / 终局函数无 stage 守卫 /
+  ai_score 无空源哨兵。
+- **固化经验 ⑪**：机械重构前先用脚本证明等价性（配对 1:1）；**脚本顶层禁用 local**；
+  固定 sleep → 轮询；日志判据用 PID 而非行号/位置启发式；标记块用语义锚点不用行号。
