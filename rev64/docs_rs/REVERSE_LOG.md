@@ -6312,3 +6312,57 @@ python3 /tmp/opencode/incremental_regress.py reset 0xADDR  # 改了某指令 →
   0x0069xxxx = 容器堆指针（0x69 区）, 两者都触发 F_c0ed0 / SIGSEGV
 - 容器堆基址 ≠ MuMu 堆基址（redroid 0x006x vs MuMu 0xcf/0xf3）, "scudo 槽 = 0xcf 区" 说法
   仅对 MuMu 实跑成立, redroid 容器 scudo 槽 = 0x006x 区（容器进程堆）
+
+---
+
+## §124y-165 F_55d40 扩展区 8 handler 收表补全 + switch case 42-66 映射修正（收表缺口全闭环）
+
+### 前置事实（§124y-161/162 已固化）
+- 0x55d40 区 67 bl 提取（主区 42 bl + 扩展区 0x55ff4-0x56200 25 bl）
+- 4 个 handler 缺定义体: F_33724(code 66) / F_55d74(code 54) / F_55fbc(code 44,46) / F_9411c(code 58)
+- 3 个下游依赖也缺: F_27a6c / F_91d18 / F_91774
+- §124y-162 实锤: F_55d40 switch case 53-65 handler 映射**全部 MISMATCH** objdump 67bl 序列
+- §124y-162 实锤: 事件码 [0x44] 取值 0..16（17 事件码）→ code 17-66 运行时不可达
+
+### 本条实锤 + 落地
+1. **运行时可达性实测确认**（MuMu emulator-5554, native_event 路径）:
+   - evt+0x44=4（Junqi.Move 事件码）, 但 **F_55d40 完全未被调用**
+     （disc=0 → F_336c8 失败路径 → F_3ab64 不执行 → 无 F_55d40 日志）
+   - 即 case 42-66 映射修正**对运行时行为零影响**（不可达区）, 修正为**代码正确性**需求
+2. **8 个 handler 翻译体补全**（jqt_vtbl.c, 忠实反汇编语义）:
+   | handler | 地址 | 语义 | 下游 |
+   |---|---|---|---|
+   | F_27a6c | 0x27a6c | `ldrb [r0+0x68]; bx lr` → [r0+0x68] 字节 getter | — |
+   | F_953cc | 0x953cc | .bss 槽 0x15bf10 → F_a7d20 → vtable[7] 虚调用 | F_a7d20(已收) |
+   | F_91d18 | 0x91d18 | F_91864(r4) + F_953cc(r0) 长度累加 | F_91864/F_953cc |
+   | F_91774 | 0x91774 | [r0+0x1cc]!=0 → [r0+0x1d8]+1; 否则 0 | — |
+   | F_55d74 | 0x55d74 | 表槽 [r0+r1*4] → F_8571c 转发 | F_8571c(已收) |
+   | F_55fbc | 0x55fbc | std::string::append（[this+0x10] 长度 / [this+0x14] 数据） | — |
+   | F_9411c | 0x9411c | [this+0x118] → F_91d18 转发 | F_91d18 |
+   | F_33724 | 0x33724 | .bss 槽 0x15bfe4/0x15be98 + 4 字节对齐换算 | F_33fb4/F_27a6c |
+   - F_33724 读的 2 个 .bss 槽（0x15bfe4 / 0x15be98）**不在 REL 表**（非 RELATIVE 槽）
+     且在 .bss 区（.data blob 28288B 无此槽）→ 未构造态 = 0, 忠实兜底
+3. **F_55d40 switch case 42-66 映射修正**（§124y-162 纠正落地）:
+   - switch (code): 55 case → **67 case**（补 case 42-52 + 修正 case 53-66 为 objdump 真值）
+   - switch (h): 24 handler → **37 handler**（+13 新 handler case + extern 声明）
+   - case 53 = 0x85594（修正前错为 0x85798）/ case 54 = 0x55d74（修正前错为 0x82d3c）/
+     case 58 = 0x9411c（修正前错为 0x3deb0）/ case 65 = 0xafc98（修正前错为 0x85798）
+4. **dispatch 表同步**: jqt_vtbl_n 2210 → **2218**（8 新 handler 入 offs/fns 表, dispatch_insert.py 幂等插入）
+5. **编译 + 门禁 + 回归**:
+   - 编译 OK: so 8357232B（+128B = 8 handler 翻译体）, JNI 符号 14
+   - link_audit **PASS**（无悬空 UND / dispatch 表三同步 / .hash 风格合规）
+   - pack_arm32 → phase_chain_arm32.apk 15128087B（v1+v2+v3 双签, .so STORE, manifest 头 OK）
+   - **4 路径回归 4/4 PASS + 0 崩溃**（walk_bridge / native_layout / native_event / game_test）
+
+### 收表缺口全闭环结论
+- F_55d40 事件业务 thunk 区: **67 bl / 37 handler 全有定义体**（0 缺口）
+- 8 新 handler 中 4 个（code 44/46/54/58/66 所属）**运行时不可达**（事件码 max=16）,
+  补全为忠实语义收表（消除缺口 + 修正 switch 映射）, 非运行时必需但代码正确
+- 编译期 ABI 坑固化: 13 参数 ABI（_r0.._r11 + _sp）, jqt_blx_dispatch 是 **14 参数**（fn + 13）
+
+### 坑固化
+- jqt_blx_dispatch 是 **14 参数**（fn + 13 参）, 与其他 F_xxx 的 13 参数 ABI 不同 → 补翻译体时易踩
+- dispatch 表插入用 `dispatch_insert.py`（幂等, 自动三处同步 + jqt_vtbl_n 递增）, 别手改
+- .bss 槽判定: 不在 REL 表 + 在 .bss 区（.data blob 28288B 无）→ 未构造态 = 0, 忠实兜底
+- 不可达 code 的 switch 映射**仍需修正**（代码正确性 + 后续 .bss 构造后行为正确）, 不能因"运行时不可达"而不修
+- 前向声明区去重脚本会误删**原有**重复声明（C 允许 identical redeclaration）→ 去重需限定只删本次插入的
