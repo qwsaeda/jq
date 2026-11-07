@@ -22,6 +22,7 @@ import time
 import json
 import argparse
 import subprocess
+import random
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(ROOT, "tools"))
@@ -92,7 +93,7 @@ def detect_btn_rows(px, x_probe, y_from, y_to, w=720):
     return segs
 
 
-def verify_one(n, keep_shot=False):
+def verify_one(n, keep_shot=False, jitter=True):
     r = {"n": n, "ok": True, "issues": []}
     d = load_dialog(n)
     if not d:
@@ -106,14 +107,16 @@ def verify_one(n, keep_shot=False):
         return r
 
     # 触发
+    # ★ flaky 抖动专项（MuMu 渲染线程 118 条连续 am start 压力时序漂移）：
+    #   force-stop 后随机 0.5~1.5s（旧进程 logcat Abort 串扰，确定性 0.8s 不够，
+    #   加抖动消除固定时序碰撞）；渲染等待 4s + 随机 0~1s（冷启动首帧稳态）。
     adb("shell", "am", "force-stop", PKG)
-    time.sleep(0.8)   # ★ flaky 防复现：force-stop 后等进程真的死（logcat 缓冲里的
-                       # 旧 Abort message 会被下一条新进程 logcat -d 带出误判崩溃）
+    time.sleep(random.uniform(0.5, 1.5))
     adb("shell", "setprop", "jq.dlgbatch", f"{n:03d}")
     adb("shell", "setprop", f"jq.dlg{n:03d}", "1")
     adb("logcat", "-c")
     adb("shell", "am", "start", "-n", f"{PKG}/com.cnvcs.App")
-    time.sleep(4.0)   # 3s→4s：渲染线程首帧稳态（冷启动 + 连续 am start 压力下首条未渲染稳）
+    time.sleep(4.0 + (random.uniform(0.0, 1.0) if jitter else 0.0))
 
     pid = adb("shell", "pidof", PKG).strip()
     if not pid:
@@ -189,7 +192,21 @@ def main():
     ap.add_argument("--list", nargs="*", help="指定 datah 编号")
     ap.add_argument("--out", default=os.path.join(ROOT, "audit", "r2", "DEVICE_VERIFY.md"))
     ap.add_argument("--all", action="store_true")
+    ap.add_argument("--noinstall", action="store_true",
+                    help="跳过 install -r（假设 phase3.apk 已装）")
     a = ap.parse_args()
+
+    # ★ MuMu flaky 抖动专项：全量模式默认先重装 phase3.apk（消除 so 与 APK 不一致
+    #   导致的"钩子未命中（so 可能是旧的）"假 FAIL）。--noinstall 跳过（快速重验）。
+    if not a.list and not a.noinstall:
+        apk = os.path.join(ROOT, "dist", "phase3.apk")
+        if os.path.exists(apk):
+            print(f"★ 重装 {apk}（消除 so 与 APK 不一致的 flaky 假 FAIL）", flush=True)
+            subprocess.run(["adb", "-s", DEV, "install", "-r", apk],
+                           capture_output=True, timeout=120)
+            time.sleep(2.0)
+        else:
+            print(f"★ {apk} 不存在，跳过重装（用设备现有 so）", flush=True)
 
     ids = []
     if a.list:
@@ -201,10 +218,11 @@ def main():
     results = []
     for i, n in enumerate(ids, 1):
         r = verify_one(n)
-        # ★ flaky 容错（mumu_regress.sh 同款思路）：失败条自动补跑 1 次。
-        #   118 条连续 am start 压力下 MuMu 渲染线程周期性卡顿/旧进程 logcat
-        #   串扰 → 单条失败漂移（轮 A 挂 007、轮 B 挂 262/263），单条重验全过。
-        #   判据 = 两轮都挂才 FAIL（消除时序 flaky 误判，保留真实回归）。
+        # ★ flaky 抖动专项：失败条自动补跑 1 次（mumu_regress.sh 同款思路）。
+        #   118 条连续 am start 压力下 MuMu 渲染线程时序漂移（失败条无交集 +
+        #   单条重验全过 + 代码基线 167/167 全绿 = 非代码回归）。随机抖动
+        #   sleep 已降低碰撞概率，补跑消除残余 flaky。判据 = 两轮都挂才 FAIL
+        #   （消除时序 flaky 误判，保留真实回归）。
         if not r["ok"]:
             time.sleep(2.0)
             r2 = verify_one(n)
