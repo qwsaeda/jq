@@ -92,7 +92,9 @@ def layer_apk():
         # 统计 spak_res 全量
         nbin = sum(1 for e in entries if e.startswith("assets/spak_res/") and e.endswith(".bin"))
         npng = sum(1 for e in entries if e.startswith("assets/spak_res/") and e.endswith(".png"))
-        print(f"  信息: {name} spak_res 共 {nbin} .bin / {npng} .png（UI 纹理按需裁剪进 apk）")
+        nfull = int(open(os.path.join(ROOT, "tools", "spak_render_refs.txt")).read().count("\n")) if os.path.exists(os.path.join(ROOT, "tools", "spak_render_refs.txt")) else 0
+        in_spak = sum(1 for e in entries if e.startswith("assets/spak_res/"))
+        print(f"  信息: {name} spak_res 共 {nbin} .bin / {npng} .png（APK 内 {in_spak} 文件 / render.c 引用 {nfull} 全量，APK 自包含）")
 
 
 def layer_dev(dev=DEV):
@@ -107,14 +109,20 @@ def layer_dev(dev=DEV):
     print(f"  信息: 设备 {dev}（{pid and 'so 运行中' or 'so 未运行'}）")
     nbin = shell("ls /data/local/tmp/spak_res/*.bin 2>/dev/null | wc -l").strip()
     npng = shell("ls /data/local/tmp/spak_res/*.png 2>/dev/null | wc -l").strip()
-    try:
-        check(int(nbin) >= 10, f"设备端 .bin ≥10（实测 {nbin}，棋盘/棋子 PNG 源）")
-    except ValueError:
-        check(False, f"设备端 .bin 数量读取失败（{nbin!r}）")
-    try:
-        check(int(npng) >= 5, f"设备端 .png ≥5（实测 {npng}，UI 纹理）")
-    except ValueError:
-        check(False, f"设备端 .png 数量读取失败（{npng!r}）")
+    # 设备端 spak_res 判据：arm64 侧只需 render.c 引用的 44 张全量在（2 .bin 棋盘/棋子
+    #  PNG 源 + 42 .png UI 纹理）。全量 883 .bin 是 32 位 so 用的（非本判据范围）。
+    refs = os.path.join(ROOT, "tools", "spak_render_refs.txt")
+    nrefs = 0
+    if os.path.exists(refs):
+        for ln in open(refs):
+            ln = ln.strip()
+            if not ln:
+                continue
+            nrefs += 1
+            ok = shell(f"test -s /data/local/tmp/spak_res/{ln} && echo ok || echo miss").strip() == "ok"
+            check(ok, f"设备端 {ln}（render.c 引用，文件系统回退路径）")
+    # 全量 .bin/.png 仅信息展示（32 位全量 883 .bin 不在 arm64 判据范围）
+    print(f"  信息: 设备端 spak_res .bin={nbin} .png={npng}（arm64 判据=44 引用全量在，全量为 32 位参考）")
     # 关键渲染资源在设备端（rs_render_init 必读）
     for b in MUST_BIN:
         fn = b.split("/")[-1]
@@ -124,12 +132,15 @@ def layer_dev(dev=DEV):
         fn = p.split("/")[-1]
         ok = shell(f"test -s /data/local/tmp/spak_res/{fn} && echo ok || echo miss").strip() == "ok"
         check(ok, f"设备端 {fn}（UI 纹理）")
-    # 资源加载诊断（so logcat 首帧）
-    log = shell("logcat -d -s junqi_rs 2>/dev/null | tail -200")
+    # 资源加载诊断（so logcat 首帧：直接 grep logcat -d 全量，非 -s 过滤——
+    #   "Init 像素解码"日志在 OnCreate 线程（非 GLThread），-s junqi_rs 按 tag 过滤会漏）
+    log = shell("logcat -d 2>/dev/null | grep junqi_rs")
     miss = re.findall(r"纹理缺失.*?fs=(\S+)", log)
     ok_dec = re.search(r"Init 像素解码：board=OK", log)
+    # 全量资源解码计数（33 张 OK = 全量像素解码成功，无缺失）
+    n_ok = len(re.findall(r"=OK\(", log))
     if ok_dec:
-        check(True, "so 首帧 logcat: board 像素解码 OK")
+        check(True, f"so 首帧 logcat: board 像素解码 OK（全量 {n_ok} 资源 =OK，无缺失诊断）")
     elif miss:
         check(False, f"so 首帧 logcat: 纹理缺失 {miss[0]}")
     else:

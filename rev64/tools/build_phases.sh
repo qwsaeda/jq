@@ -26,6 +26,7 @@ SRC_ORIG=/tmp/opencode/orig_libjunqi.so
 SRC_RS=$WS/rev64/src_rs/dist/libjunqi_rs.so
 SRC_STUB=/tmp/opencode/junqi_stub_arm64.so
 DO_VERIFY=1
+refs_n=0   # spak_render_refs.txt 文件数（inject_spak_res 用）
 
 # 构建树 lib 布局（每阶段：树名 + lib/子目录→源 so）
 # phase0: dec_p0 仅 armeabi=orig
@@ -44,6 +45,27 @@ setup_libs() {
   done
 }
 
+# ★ spak_res 全量注入（render.c 引用的 44 个文件，APK 自包含，免设备端 push 兜底）：
+#   从 rev64/dist/spak_res/（962 全量源 + 3 张裁剪产物）取 spak_render_refs.txt 清单，
+#   注入构建树 assets/spak_res/（幂等，每次重建自动带全量资源）。
+inject_spak_res() {
+  local tree=$1
+  local refs=$WS/rev64/tools/spak_render_refs.txt
+  local src=$WS/rev64/dist/spak_res
+  [ -f "$refs" ] || { echo "  ⚠ spak_render_refs.txt 缺失，跳过注入"; return 0; }
+  local n=0; local miss=0
+  while read -r f; do
+    [ -z "$f" ] && continue
+    if [ -f "$src/$f" ]; then
+      mkdir -p "$tree/assets/spak_res"
+      cp "$src/$f" "$tree/assets/spak_res/$f" 2>/dev/null && n=$((n+1))
+    else
+      miss=$((miss+1)); echo "  ⚠ spak_res 源缺 $f（$src/$f 不存在）"
+    fi
+  done < "$refs"
+  echo "  spak_res 注入 $n/${refs_n} 文件（缺 $miss）→ $tree/assets/spak_res/"
+}
+
 build_one() {
   local phase=$1 out=$2
   case $phase in
@@ -55,6 +77,11 @@ build_one() {
   esac
   local tree
   case $phase in phase0|phase1) tree=$P0;; phase2) tree=$RA/dec_dual;; phase3) tree=$RA/dec_full;; esac
+  # ★ 仅 arm64 侧（src_rs so）需要 spak_res 全量资源（32 位 so 走 data*.pak，不用 spak_res）
+  case $phase in
+    phase2|phase3) refs_n=$(grep -c . $WS/rev64/tools/spak_render_refs.txt 2>/dev/null || echo 0); inject_spak_res $tree ;;
+    *) : ;;
+  esac
   echo "════════ [$phase] apktool b $tree → STORE → zipalign → sign ════════"
   apktool b $tree -o $RA/${phase}_raw.apk >/dev/null 2>&1 || { echo "✗ $phase apktool b 失败"; return 1; }
   python3 /tmp/opencode/jq_apk/store_compressed.py $RA/${phase}_raw.apk $RA/${phase}_stored.apk >/dev/null 2>&1 || { echo "✗ $phase STORE 失败"; return 1; }
