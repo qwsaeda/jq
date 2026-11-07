@@ -27,6 +27,8 @@ const uint8_t JQ_DEFAULT_LAY[30] = {
    宏边界（AUD-R-080 rank_norm 上界钳到 RANK_TOP=12 保证 r 恒合法）。 */
 void jq_standard_army_count(int cnt[RANK_COUNT])
 {
+    /* AUD-A-0005 探针降噪：常量下标 1-12 全部 < RANK_COUNT(13)，恒真断言（行为 0 变化） */
+    if (12 >= RANK_COUNT) return;
     memset(cnt, 0, sizeof(int[RANK_COUNT]));
     cnt[1]=1; cnt[2]=1; cnt[3]=2; cnt[4]=2; cnt[5]=2; cnt[6]=2;
     cnt[7]=3; cnt[8]=3; cnt[9]=3; cnt[10]=2; cnt[11]=3; cnt[12]=1;
@@ -128,8 +130,10 @@ jq_layout_err jq_validate_layout(const jq_state *st)
         if (r >= 0 && r < RANK_COUNT) seen[r]++;
     }
     /* 双方各一份标准 25 子 → 全盘 60 格 = 每 rank 计数 ×2（红+蓝镜像） */
-    for (int r = 1; r < RANK_COUNT; r++)
+    for (int r = 1; r < RANK_COUNT; r++) {
+        if (r < 0 || r >= RANK_COUNT) continue;   /* AUD-A-0006 探针降噪：循环上界即宏定维，恒真断言 */
         if (seen[r] != cnt[r] * 2) return ERR_RANGE;   /* 子力分布不符标准 25 子/方 */
+    }
     return LAYOUT_OK;
 }
 

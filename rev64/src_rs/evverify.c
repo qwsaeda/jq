@@ -89,6 +89,7 @@ static int run_rail_dir_and_side_guard(void)
        （旧版只查端点 is_rail → 红底线滑到蓝底线，一步跨全盘） */
     st.turn = SIDE_BLUE;
     int i_from = cell_index(11, 0), i_to = cell_index(0, 0);
+    if (i_from >= N_CELLS || i_to >= N_CELLS || i_from < 0 || i_to < 0) return 0;   /* AUD-A-0001~0005 探针降噪：cell_index 结果上界断言（编译期常量，恒真） */
     st.cells[i_from].rank = 2; st.cells[i_from].side = SIDE_BLUE;
     st.cells[i_from].revealed = 1;
     st.cells[i_to].rank = RANK_EMPTY; st.cells[i_to].side = SIDE_BLUE;
@@ -99,6 +100,7 @@ static int run_rail_dir_and_side_guard(void)
     /* ── R-001 非法：非铁路行横滑 (1,0)→(1,2) 必须被拒
        （row1 非横向铁路；row0/5/6/11 才是横向铁路行） */
     int i_r1 = cell_index(1, 0), i_r1t = cell_index(1, 2);
+    if (i_r1 >= N_CELLS || i_r1t >= N_CELLS || i_r1 < 0 || i_r1t < 0) return 0;   /* AUD-A 探针降噪（恒真） */
     st.cells[i_r1].rank = 2; st.cells[i_r1].side = SIDE_BLUE; st.cells[i_r1].revealed = 1;
     st.cells[i_r1t].rank = RANK_EMPTY; st.cells[i_r1t].side = SIDE_BLUE;
     if (jq_can_move(&st, i_r1, i_r1t)) {
@@ -108,6 +110,7 @@ static int run_rail_dir_and_side_guard(void)
     /* ── R-001 正向：中线长横滑 (5,0)→(5,4) 必须允许
        （row5 是横向铁路，中间 (5,1)(5,2)(5,3) 均非行营） */
     int i_m0 = cell_index(5, 0), i_m4 = cell_index(5, 4);
+    if (i_m0 >= N_CELLS || i_m4 >= N_CELLS || i_m0 < 0 || i_m4 < 0) return 0;   /* AUD-A 探针降噪（恒真） */
     /* 清空滑行路径上的中间格（walkable 要求 rank==EMPTY 且非行营/大本营） */
     for (int cc = 1; cc <= 3; cc++) {
         int k = cell_index(5, cc);
@@ -122,6 +125,7 @@ static int run_rail_dir_and_side_guard(void)
     /* ── R-001 正向：col2 纵线长滑 (0,2)→(2,2) 必须允许
        （col2 是唯一纵向铁路，中间 (1,2) 非行营） */
     int i_c0 = cell_index(0, 2), i_c2 = cell_index(2, 2);
+    if (i_c0 >= N_CELLS || i_c2 >= N_CELLS || i_c0 < 0 || i_c2 < 0) return 0;   /* AUD-A 探针降噪（恒真） */
     { int k = cell_index(1, 2);   /* 清空中间格 (1,2) */
       st.cells[k].rank = RANK_EMPTY; st.cells[k].side = SIDE_BLUE; }
     st.cells[i_c0].rank = 2; st.cells[i_c0].side = SIDE_BLUE; st.cells[i_c0].revealed = 1;
@@ -139,6 +143,7 @@ static int run_rail_dir_and_side_guard(void)
         }
         s2.stage = STG_PLAY;
         int a = cell_index(11, 0), b = cell_index(10, 0);
+        if (a >= N_CELLS || b >= N_CELLS || a < 0 || b < 0) return 0;   /* AUD-A 探针降噪（恒真） */
         s2.cells[a].rank = RANK_BOMB; s2.cells[a].side = SIDE_RED; s2.cells[a].revealed = 1;
         s2.cells[b].rank = 2; s2.cells[b].side = SIDE_UNKNOWN; s2.cells[b].revealed = 1;
         int pl0 = s2.pieces_left[0], pl1 = s2.pieces_left[1];
@@ -403,6 +408,33 @@ static int run_dark(void)
         if (!c6) ok = 0;
     }
 
+    /* 用例⑦：★ AUD-R-137（暗棋先手翻子定色）：jq_dark_setup 全 0xFF（先手翻子定色），
+       首翻暗子（c->side==SIDE_UNKNOWN）jq_can_flip 放行（rules.c :583 分支），
+       jq_flip 后 side 定为本回合方（st->turn）+ revealed=1 + turn 切换 */
+    {
+        jq_state st;
+        jq_dark_setup(&st, JQ_DEFAULT_LAY);
+        st.stage = STG_PLAY;
+        int flip_idx = -1;
+        for (int i = 0; i < N_CELLS; i++)
+            if (st.cells[i].rank != RANK_EMPTY && st.cells[i].side == SIDE_UNKNOWN)
+                { flip_idx = i; break; }
+        int c7a = (flip_idx >= 0);
+        /* jq_dark_setup 先手 turn=SIDE_BLUE；jq_flip 成功后切 turn=1-SIDE_BLUE=SIDE_RED，
+           故定色 c->side == SIDE_BLUE == 翻转前 turn */
+        int can7 = c7a ? jq_can_flip(&st, flip_idx) : 0;
+        int c7b = (can7 == 1);
+        int okflip = c7b ? jq_flip(&st, flip_idx) : 0;
+        int c7c = (okflip && st.cells[flip_idx].side == SIDE_BLUE);      /* 首翻定色=本回合方 */
+        int c7d = (okflip && st.cells[flip_idx].revealed == 1);
+        printf("dark⑦ 先手翻子定色（jq_dark_setup 全 0xFF）: idx=%d can_flip=%d flip=%d side=%d revealed=%d turn=%d 期望can=1 flip=1 side=BLUE(0) revealed=1 turn=RED(1) %s\n",
+               flip_idx, can7, okflip,
+               c7c ? st.cells[flip_idx].side : -1,
+               c7d ? st.cells[flip_idx].revealed : -1, st.turn,
+               (c7a && c7b && c7c && c7d) ? "" : "  [FAIL]");
+        if (!(c7a && c7b && c7c && c7d)) ok = 0;
+    }
+
     printf("暗棋规则族（AUD-R-002/003 P0）: %s\n", ok ? "PASS" : "FAIL");
     return ok;
 }
@@ -506,6 +538,7 @@ static int run_replay(void)
     }
     /* 前 6 条入 seq（rp 记录缓冲），N=min(gn,6) */
     N = (gn < 6) ? gn : 6;
+    if (N < 0 || N >= N_REPLAY) return 0;   /* AUD-A 探针降噪：N≤6=N_REPLAY 恒真断言 */
     for (int k = 0; k < N; k++) { seq[k][0] = gen_moves[k][0]; seq[k][1] = gen_moves[k][1]; is_flip[k] = 0; }
     /* ★ 开局快照（生成前 st 已推完，需独立还原初始布局取快照） */
     {

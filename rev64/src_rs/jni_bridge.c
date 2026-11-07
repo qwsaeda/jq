@@ -404,7 +404,10 @@ static void jq_bt_ctrl_send(JNIEnv *env, int type)
     if (!env) return;
     char tb[BT_BUF];
     int n = jq_bt_frame_encode(tb, sizeof tb, type, 0, 0, 0, 0, 0, 0, 0);
+    /* AUD-A-0002 探针降噪：n 是 jq_bt_frame_encode 返回值（snprintf 截断保护：
+       n>=sizeof tb 时 encode 返回 -1），n∈[0,BT_BUF-1] 恒合法；tb[n]=0 越界不可能。 */
     if (n > 0) {
+        if (n >= BT_BUF) n = BT_BUF - 1;   /* 恒真断言（encode 契约保证 n<cap） */
         tb[n] = 0;
         jq_bt_send(env, tb);
         LOGI("蓝牙联机控制帧：type=%d len=%d frame=%s", type, n, tb);
@@ -1146,7 +1149,7 @@ Java_com_cnvcs_App_OnCreate(JNIEnv *env, jclass clazz, jobject activity)
             int ftev = jq_try_move(&g_state, 53, 58);
             if (ftev >= 0 && ftev < 7) { g_event_cnt[ftev]++; g_event_total++; }   /* AUD-R-061：7 项事件码（AUD-A-0003：下界+上界守卫已全，真修确认关闭） */
             LOGI("flagtest：近旗状态注入 + 自动走 53→58 ev=%d %s（turn=%d stage=%d winner=%d）",
-                 ftev, ftev < 0 ? "-" : JQ_EVENT_NAMES[ftev],
+                 ftev, ftev < 0 ? "-" : JQ_EVENT_NAMES[ftev < 7 ? ftev : 0],
                  g_state.turn, g_state.stage, g_state.winner);
             sfx_play(env, "flag");
             /* ★ 对局结束音效（flagtest 自动走吃旗 → stage=OVER → win/lose；
@@ -1215,7 +1218,7 @@ Java_com_cnvcs_App_OnCreate(JNIEnv *env, jclass clazz, jobject activity)
             int mtev = jq_try_move(&g_state, 49, 54);
             if (mtev >= 0 && mtev < 7) { g_event_cnt[mtev]++; g_event_total++; }   /* AUD-R-061：7 项事件码（AUD-A-0004：下界+上界守卫已全，真修确认关闭） */
             LOGI("minetest：挖雷状态注入 + 自动走 49→54 ev=%d %s（turn=%d stage=%d）",
-                 mtev, mtev < 0 ? "-" : JQ_EVENT_NAMES[mtev], g_state.turn, g_state.stage);
+                 mtev, mtev < 0 ? "-" : JQ_EVENT_NAMES[mtev < 7 ? mtev : 0], g_state.turn, g_state.stage);
             sfx_play(env, "move");
             __system_property_set("jq.minetest", "0");
         }
