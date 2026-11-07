@@ -6061,3 +6061,48 @@ python3 /tmp/opencode/incremental_regress.py reset 0xADDR  # 改了某指令 →
   objdump 0x55d40 区 bl 计数（42 = code 0-41 全量），codes 42-52/66-72 无 bl 属正常
 - "73 code" 纠正: 0x55d40 区实际 42 bl（code 0-41），codes 53-65 = switch 扩展段（13 case 复用），
   codes 42-52/66-72 = 原版未实现（无 bl）；FRIDA_NOTES §十三 "42 code" 正确，§124y-30 "42 code 映射" 正确
+
+---
+
+## §124y-160 redroid 容器 .bss 全段直读 + scudo 槽非指针值实锤（§124y-151 边界第三路证实）
+
+### 前置事实（§124y-151 已固化）
+- .bss 316 scudo 指针槽（低区 78 + 中间区 238）在 MuMu ref dump 里非 0 = scudo 块指针（0xcf/0xf3/0xd0/0xf3 区）
+- 回填翻译体 → 非 0 = C++ 容器"已构造"标志 → 析构器 F_c0ed0 遍历 scudo 链表读到非 0 子对象 → 循环不终止 → WATCHDOG 停留 0xc0ed0
+- 两条路（直接 dump 回填 / 自建堆回填）均实证不可行 → .bss 保持全 0 稳定态
+
+### 本条实锤（redroid 容器第三路证实）
+- **redroid_dump 容器 32 位 so 进程**（`com.cnvcs.junqi32` PID=50326, so 基址 0x0c23c000）
+  .bss 全段 28680B（容器 0x0ca01000-0x0ca08000）直读:
+  - 非 0 率 = **30.4%**（8720/28680）, 对照 MuMu ref dump 79.1%
+  - redroid 无 GPU（app 进不了主界面）→ C++ 构造器部分跑（填了部分小整数字段）, 远少于 MuMu 实跑
+- **scudo 槽区（VA 0x15be80 起, jq_scudo_slots.h 316 槽）redroid 容器真值**:
+  - 槽 0-9（VA 0x15be80-0x15bea4）: **非 0 = 小整数**（0x04/0x30/0x18/0x64/0x70/0x94/0x0c/0x14/0xa4）, **非 scudo 指针**
+  - 对照 MuMu dump 原值（0xcf8d78f0/0xf32596f0/0xcf88b8b0 等, 4 字节 scudo 块指针）
+  - 槽 150-159（VA 0x15c144-0x15c168）: 部分非 0 小整数（0x28/0x64/0x65/0x69/0x29）, 部分 0
+  - 槽 306-315（VA 0x162cac-0x162e14）: 全 0（高区未构造）
+  - **scudo 槽非 0 = 小整数（偏移/构造标记）, 非 scudo 块指针** → 回填翻译体仍触发 F_c0ed0 死循环
+    （§124y-151 "非 0 = 已构造" 语义不变, 小整数也触发析构器深度遍历）
+
+### 容器地址公式（坑固化）
+- redroid 容器 32 位 so RW 段: VA 0x155000, filesz 0x6e80, memsz 0xde88
+  - .bss VA 0x15be80 = RW 段 VA 基址 0x155000 + 0x6e80（filesz 末尾）
+  - 容器 rw-p 段 0x0ca01000（文件偏移 0x7c2000 = RW 段 filesz 末尾）→ .bss 容器地址 = 0x0ca01000（memsz 起）
+  - .bss 事件表 VA 0x160584 → 容器地址 = 0x0ca01000 + (0x160584-0x15be80) = 0x0ca0C584（§124y-158 公式修正）
+  - 非 load_base+VA 直觉公式（so 基址 0x0c23c000 是 R--p 段, 非 RW 段）, 需按段布局算
+
+### 最终结论（.bss scudo 槽回填不可行, 三路证实）
+1. **直接 dump 回填**（§124y-150）: dump 值 = MuMu 进程堆 scudo 指针（0xcf/0xf3 区）, 翻译体进程 jqt_mem_valid
+   真映射区表无此区 → 越界 0x3a SIGSEGV
+2. **自建堆回填**（§124y-151）: calloc 对象 [0] = dump 值 → scudo 槽非 0 = "已构造" → F_c0ed0 深度遍历死循环
+3. **redroid 容器回填**（§124y-160）: 容器 scudo 槽 = 小整数（0x04/0x30/0x64 等, 非指针）, 回填翻译体
+   仍触发 F_c0ed0 死循环（非 0 = 已构造语义不变）
+- **三路均实证不可行** → .bss scudo 槽保持全 0（未构造态忠实兜底, §124y-33/35 ok=0 路径）
+- 唯一路线 = unidbg/frida 补 C++ 对象图字段级还原（scudo 块 size/next 真值）, 需 32 位 so 实跑+游戏事件触发
+  （redroid 无 GPU / MuMu 实跑 ref dump scudo 槽 = 指针非小整数）, 非阻塞（.bss 全 0 稳定态 4 路径回归 PASS）
+
+### 坑固化
+- redroid 容器 .bss 非 0 率 30.4% ≠ MuMu 79.1%: redroid 无 GPU（C++ 构造器只部分跑）, 非 so 差异
+- scudo 槽非 0 值判定: 小整数（<0x100, 偏移/构造标记）vs 大指针（0xcf/0xf3 区, 4 字节 scudo 块）, 两者都触发
+  F_c0ed0 死循环（"非 0 = 已构造" 语义）, 勿混淆
+- .bss 全段 28680B 容器地址 = rw-p 基址 0x0ca01000（非 so 基址 0x0c23c000+0x15be80）, 按段布局算
