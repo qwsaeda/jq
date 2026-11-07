@@ -279,7 +279,7 @@ UI_REPLAY,     /* ★ P1（datah_039/107 证据）：复盘回放态——
                        面板 400×535（居中），1 按钮
                        文字/业务按原版 XML text + .rodata 事件名，边界项已标注 */
     UI_D019,   /* ★ 批量对齐（datah_019 证据）：原版对话框
-                       面板 675×360（固定位置），4 按钮
+                       面板 450×150（居中），4 按钮
                        文字/业务按原版 XML text + .rodata 事件名，边界项已标注 */
     UI_D020,   /* ★ 批量对齐（datah_020 证据）：保存布局
                        面板 400×535（居中），4 按钮
@@ -291,10 +291,10 @@ UI_REPLAY,     /* ★ P1（datah_039/107 证据）：复盘回放态——
                        面板 230×370（居中），5 按钮
                        文字/业务按原版 XML text + .rodata 事件名，边界项已标注 */
     UI_D023,   /* ★ 批量对齐（datah_023 证据）：原版对话框
-                       面板 135×210（固定位置），4 按钮
+                       面板 250×210（固定位置），4 按钮
                        文字/业务按原版 XML text + .rodata 事件名，边界项已标注 */
     UI_D024,   /* ★ 批量对齐（datah_024 证据）：原版对话框
-                       面板 -318×-634（固定位置），1 按钮
+                       面板 70×64（固定位置），1 按钮
                        文字/业务按原版 XML text + .rodata 事件名，边界项已标注 */
     UI_D025,   /* ★ 批量对齐（datah_025 证据）：原版对话框
                        面板 450×220（居中），1 按钮
@@ -312,13 +312,13 @@ UI_REPLAY,     /* ★ P1（datah_039/107 证据）：复盘回放态——
                        面板 420×530（居中），2 按钮
                        文字/业务按原版 XML text + .rodata 事件名，边界项已标注 */
     UI_D030,   /* ★ 批量对齐（datah_030 证据）：原版对话框
-                       面板 39×45（固定位置），2 按钮
+                       面板 124×460（固定位置），2 按钮
                        文字/业务按原版 XML text + .rodata 事件名，边界项已标注 */
     UI_D031,   /* ★ 批量对齐（datah_031 证据）：个人资料
                        面板 420×520（居中），3 按钮
                        文字/业务按原版 XML text + .rodata 事件名，边界项已标注 */
     UI_D032,   /* ★ 批量对齐（datah_032 证据）：原版对话框
-                       面板 375×60（固定位置），4 按钮
+                       面板 390×60（固定位置），4 按钮
                        文字/业务按原版 XML text + .rodata 事件名，边界项已标注 */
     UI_D033,   /* ★ 批量对齐（datah_033 证据）：举报投诉
                        面板 400×337（居中），2 按钮
@@ -339,7 +339,7 @@ UI_REPLAY,     /* ★ P1（datah_039/107 证据）：复盘回放态——
                        面板 432×285（居中），4 按钮
                        文字/业务按原版 XML text + .rodata 事件名，边界项已标注 */
     UI_D039,   /* ★ 批量对齐（datah_039 证据）：原版对话框
-                       面板 93×90（固定位置），1 按钮
+                       面板 120×90（固定位置），1 按钮
                        文字/业务按原版 XML text + .rodata 事件名，边界项已标注 */
     UI_D041,   /* ★ 批量对齐（datah_041 证据）：新手区:
                        面板 450×335（居中），8 按钮
@@ -354,7 +354,7 @@ UI_REPLAY,     /* ★ P1（datah_039/107 证据）：复盘回放态——
                        面板 180×175（居中），2 按钮
                        文字/业务按原版 XML text + .rodata 事件名，边界项已标注 */
     UI_D045,   /* ★ 批量对齐（datah_045 证据）：原版对话框
-                       面板 345×135（固定位置），1 按钮
+                       面板 390×135（固定位置），1 按钮
                        文字/业务按原版 XML text + .rodata 事件名，边界项已标注 */
     UI_D046,   /* ★ 批量对齐（datah_046 证据）：玩家资料
                        面板 420×420（居中），1 按钮
@@ -435,7 +435,7 @@ UI_REPLAY,     /* ★ P1（datah_039/107 证据）：复盘回放态——
                        面板 450×270（居中），2 按钮
                        文字/业务按原版 XML text + .rodata 事件名，边界项已标注 */
     UI_D075,   /* ★ 批量对齐（datah_075 证据）：原版对话框
-                       面板 280×45（固定位置），4 按钮
+                       面板 340×45（固定位置），4 按钮
                        文字/业务按原版 XML text + .rodata 事件名，边界项已标注 */
     UI_D077,   /* ★ 批量对齐（datah_077 证据）：原版对话框
                        面板 450×285（居中），6 按钮
@@ -444,10 +444,10 @@ UI_REPLAY,     /* ★ P1（datah_039/107 证据）：复盘回放态——
                        面板 450×220（居中），3 按钮
                        文字/业务按原版 XML text + .rodata 事件名，边界项已标注 */
     UI_D079,   /* ★ 批量对齐（datah_079 证据）：游戏规则
-                       面板 440×615（居中），1 按钮
+                       面板 220×340（居中），1 按钮
                        文字/业务按原版 XML text + .rodata 事件名，边界项已标注 */
     UI_D082,   /* ★ 批量对齐（datah_082 证据）：原版对话框
-                       面板 450×60（固定位置），5 按钮
+                       面板 460×60（固定位置），5 按钮
                        文字/业务按原版 XML text + .rodata 事件名，边界项已标注 */
     UI_D083,   /* ★ 批量对齐（datah_083 证据）：原版对话框
                        面板 450×153（居中），4 按钮
@@ -456,7 +456,7 @@ UI_REPLAY,     /* ★ P1（datah_039/107 证据）：复盘回放态——
                        面板 450×315（居中），4 按钮
                        文字/业务按原版 XML text + .rodata 事件名，边界项已标注 */
     UI_D085,   /* ★ 批量对齐（datah_085 证据）：原版对话框
-                       面板 450×60（固定位置），5 按钮
+                       面板 460×60（固定位置），5 按钮
                        文字/业务按原版 XML text + .rodata 事件名，边界项已标注 */
     UI_D086,   /* ★ 批量对齐（datah_086 证据）：原版对话框
                        面板 360×485（居中），4 按钮
@@ -465,19 +465,19 @@ UI_REPLAY,     /* ★ P1（datah_039/107 证据）：复盘回放态——
                        面板 230×230（居中），3 按钮
                        文字/业务按原版 XML text + .rodata 事件名，边界项已标注 */
     UI_D090,   /* ★ 批量对齐（datah_090 证据）：原版对话框
-                       面板 75×150（固定位置），2 按钮
+                       面板 210×150（固定位置），2 按钮
                        文字/业务按原版 XML text + .rodata 事件名，边界项已标注 */
     UI_D094,   /* ★ 批量对齐（datah_094 证据）：游戏设置
                        面板 450×390（居中），5 按钮
                        文字/业务按原版 XML text + .rodata 事件名，边界项已标注 */
     UI_D095,   /* ★ 批量对齐（datah_095 证据）：原版对话框
-                       面板 450×60（固定位置），5 按钮
+                       面板 460×60（固定位置），5 按钮
                        文字/业务按原版 XML text + .rodata 事件名，边界项已标注 */
     UI_D096,   /* ★ 批量对齐（datah_096 证据）：个人资料
                        面板 420×385（居中），3 按钮
                        文字/业务按原版 XML text + .rodata 事件名，边界项已标注 */
     UI_D097,   /* ★ 批量对齐（datah_097 证据）：原版对话框
-                       面板 375×60（固定位置），4 按钮
+                       面板 390×60（固定位置），4 按钮
                        文字/业务按原版 XML text + .rodata 事件名，边界项已标注 */
     UI_D098,   /* ★ 批量对齐（datah_098 证据）：新手区:
                        面板 450×260（居中），6 按钮
@@ -486,10 +486,10 @@ UI_REPLAY,     /* ★ P1（datah_039/107 证据）：复盘回放态——
                        面板 450×153（居中），4 按钮
                        文字/业务按原版 XML text + .rodata 事件名，边界项已标注 */
     UI_D100,   /* ★ 批量对齐（datah_100 证据）：原版对话框
-                       面板 345×135（固定位置），1 按钮
+                       面板 390×135（固定位置），1 按钮
                        文字/业务按原版 XML text + .rodata 事件名，边界项已标注 */
     UI_D101,   /* ★ 批量对齐（datah_101 证据）：原版对话框
-                       面板 450×60（固定位置），4 按钮
+                       面板 460×60（固定位置），4 按钮
                        文字/业务按原版 XML text + .rodata 事件名，边界项已标注 */
     UI_D102,   /* ★ 批量对齐（datah_102 证据）：提示
                        面板 395×370（居中），1 按钮
@@ -498,13 +498,13 @@ UI_REPLAY,     /* ★ P1（datah_039/107 证据）：复盘回放态——
                        面板 450×390（居中），5 按钮
                        文字/业务按原版 XML text + .rodata 事件名，边界项已标注 */
     UI_D107,   /* ★ 批量对齐（datah_107 证据）：原版对话框
-                       面板 450×60（固定位置），5 按钮
+                       面板 460×60（固定位置），5 按钮
                        文字/业务按原版 XML text + .rodata 事件名，边界项已标注 */
     UI_D108,   /* ★ 批量对齐（datah_108 证据）：对局信息
                        面板 420×450（居中），3 按钮
                        文字/业务按原版 XML text + .rodata 事件名，边界项已标注 */
     UI_D109,   /* ★ 批量对齐（datah_109 证据）：原版对话框
-                       面板 260×90（固定位置），3 按钮
+                       面板 260×90（居中），3 按钮
                        文字/业务按原版 XML text + .rodata 事件名，边界项已标注 */
     UI_D110,   /* ★ 批量对齐（datah_110 证据）：历史对局
                        面板 450×610（居中），2 按钮
@@ -516,7 +516,7 @@ UI_REPLAY,     /* ★ P1（datah_039/107 证据）：复盘回放态——
                        面板 230×300（居中），4 按钮
                        文字/业务按原版 XML text + .rodata 事件名，边界项已标注 */
     UI_D114,   /* ★ 批量对齐（datah_114 证据）：原版对话框
-                       面板 30×60（固定位置），1 按钮
+                       面板 60×60（固定位置），1 按钮
                        文字/业务按原版 XML text + .rodata 事件名，边界项已标注 */
     UI_D118,   /* ★ 批量对齐（datah_118 证据）：版本更新
                        面板 450×360（居中），2 按钮
@@ -534,58 +534,58 @@ UI_REPLAY,     /* ★ P1（datah_039/107 证据）：复盘回放态——
                        面板 420×302（居中），2 按钮
                        文字/业务按原版 XML text + .rodata 事件名，边界项已标注 */
     UI_D123,   /* ★ 批量对齐（datah_123 证据）：原版对话框
-                       面板 120×75（固定位置），1 按钮
+                       面板 120×75（居中），1 按钮
                        文字/业务按原版 XML text + .rodata 事件名，边界项已标注 */
     UI_D246,   /* ★ 批量对齐（datah_246 证据）：原版对话框
-                       面板 257×45（固定位置），2 按钮
+                       面板 370×45（固定位置），2 按钮
                        文字/业务按原版 XML text + .rodata 事件名，边界项已标注 */
     UI_D247,   /* ★ 批量对齐（datah_247 证据）：原版对话框
-                       面板 257×45（固定位置），1 按钮
+                       面板 370×45（固定位置），1 按钮
                        文字/业务按原版 XML text + .rodata 事件名，边界项已标注 */
     UI_D248,   /* ★ 批量对齐（datah_248 证据）：原版对话框
-                       面板 140×210（固定位置），4 按钮
+                       面板 255×210（固定位置），4 按钮
                        文字/业务按原版 XML text + .rodata 事件名，边界项已标注 */
     UI_D249,   /* ★ 批量对齐（datah_249 证据）：原版对话框
-                       面板 -318×-667（固定位置），1 按钮
+                       面板 70×64（固定位置），1 按钮
                        文字/业务按原版 XML text + .rodata 事件名，边界项已标注 */
     UI_D250,   /* ★ 批量对齐（datah_250 证据）：原版对话框
-                       面板 39×45（固定位置），2 按钮
+                       面板 124×45（固定位置），2 按钮
                        文字/业务按原版 XML text + .rodata 事件名，边界项已标注 */
     UI_D251,   /* ★ 批量对齐（datah_251 证据）：原版对话框
-                       面板 93×90（固定位置），1 按钮
+                       面板 120×90（固定位置），1 按钮
                        文字/业务按原版 XML text + .rodata 事件名，边界项已标注 */
     UI_D253,   /* ★ 批量对齐（datah_253 证据）：原版对话框
-                       面板 345×135（固定位置），1 按钮
+                       面板 390×135（固定位置），1 按钮
                        文字/业务按原版 XML text + .rodata 事件名，边界项已标注 */
     UI_D255,   /* ★ 批量对齐（datah_255 证据）：原版对话框
-                       面板 285×45（固定位置），3 按钮
+                       面板 370×45（固定位置），3 按钮
                        文字/业务按原版 XML text + .rodata 事件名，边界项已标注 */
     UI_D256,   /* ★ 批量对齐（datah_256 证据）：原版对话框
-                       面板 280×45（固定位置），4 按钮
+                       面板 340×45（固定位置），4 按钮
                        文字/业务按原版 XML text + .rodata 事件名，边界项已标注 */
     UI_D257,   /* ★ 批量对齐（datah_257 证据）：原版对话框
-                       面板 450×60（固定位置），5 按钮
+                       面板 460×60（固定位置），5 按钮
                        文字/业务按原版 XML text + .rodata 事件名，边界项已标注 */
     UI_D258,   /* ★ 批量对齐（datah_258 证据）：原版对话框
-                       面板 450×60（固定位置），5 按钮
+                       面板 460×60（固定位置），5 按钮
                        文字/业务按原版 XML text + .rodata 事件名，边界项已标注 */
     UI_D259,   /* ★ 批量对齐（datah_259 证据）：原版对话框
-                       面板 75×150（固定位置），2 按钮
+                       面板 210×150（固定位置），2 按钮
                        文字/业务按原版 XML text + .rodata 事件名，边界项已标注 */
     UI_D260,   /* ★ 批量对齐（datah_260 证据）：原版对话框
-                       面板 450×60（固定位置），5 按钮
+                       面板 460×60（固定位置），5 按钮
                        文字/业务按原版 XML text + .rodata 事件名，边界项已标注 */
     UI_D261,   /* ★ 批量对齐（datah_261 证据）：原版对话框
-                       面板 345×135（固定位置），1 按钮
+                       面板 390×135（固定位置），1 按钮
                        文字/业务按原版 XML text + .rodata 事件名，边界项已标注 */
     UI_D262,   /* ★ 批量对齐（datah_262 证据）：原版对话框
-                       面板 450×60（固定位置），4 按钮
+                       面板 460×60（固定位置），4 按钮
                        文字/业务按原版 XML text + .rodata 事件名，边界项已标注 */
     UI_D263,   /* ★ 批量对齐（datah_263 证据）：原版对话框
-                       面板 450×60（固定位置），5 按钮
+                       面板 460×60（固定位置），5 按钮
                        文字/业务按原版 XML text + .rodata 事件名，边界项已标注 */
     UI_D264,   /* ★ 批量对齐（datah_264 证据）：原版对话框
-                       面板 30×65（固定位置），1 按钮
+                       面板 60×65（固定位置），1 按钮
                        文字/业务按原版 XML text + .rodata 事件名，边界项已标注 */    UI_DRAWDETAIL,  /* ★ P2（datah_042 证据）：提和详情弹窗（联机版 ☰ 菜单 7 图标：
                         提和/认输/聊天/系统设置/玩家资料/战况统计/软件信息，
                         原版 datah_042 450×285 面板居中，局部坐标 1:1 平移偏移 +135,+497.5；
@@ -1485,6 +1485,9 @@ int ui_chat063_popup_inside(float x, float y);   /* 点在弹窗面板内 */
 
 
 
+
+
+
 #define UI_D000_COUNT 2
 #define UI_D000_POPUP_X0 160.0f
 #define UI_D000_POPUP_Y0 500.0f
@@ -1621,10 +1624,10 @@ const ui_d017_btn *ui_d017_buttons(void);
 int ui_d017_hit(const ui_d017_btn *b, int n, float x, float y);
 
 #define UI_D019_COUNT 4
-#define UI_D019_POPUP_X0 -225.0f
-#define UI_D019_POPUP_Y0 -210.0f
-#define UI_D019_POPUP_W  675.0f
-#define UI_D019_POPUP_H  360.0f
+#define UI_D019_POPUP_X0 135.0f
+#define UI_D019_POPUP_Y0 430.0f
+#define UI_D019_POPUP_W  450.0f
+#define UI_D019_POPUP_H  150.0f
 typedef struct { float x0,y0,x1,y1; int action; } ui_d019_btn;
 const ui_d019_btn *ui_d019_buttons(void);
 int ui_d019_hit(const ui_d019_btn *b, int n, float x, float y);
@@ -1659,7 +1662,7 @@ int ui_d022_hit(const ui_d022_btn *b, int n, float x, float y);
 #define UI_D023_COUNT 4
 #define UI_D023_POPUP_X0 115.0f
 #define UI_D023_POPUP_Y0 540.0f
-#define UI_D023_POPUP_W  135.0f
+#define UI_D023_POPUP_W  250.0f
 #define UI_D023_POPUP_H  210.0f
 typedef struct { float x0,y0,x1,y1; int action; } ui_d023_btn;
 const ui_d023_btn *ui_d023_buttons(void);
@@ -1668,8 +1671,8 @@ int ui_d023_hit(const ui_d023_btn *b, int n, float x, float y);
 #define UI_D024_COUNT 1
 #define UI_D024_POPUP_X0 388.0f
 #define UI_D024_POPUP_Y0 698.0f
-#define UI_D024_POPUP_W  -318.0f
-#define UI_D024_POPUP_H  -634.0f
+#define UI_D024_POPUP_W  70.0f
+#define UI_D024_POPUP_H  64.0f
 typedef struct { float x0,y0,x1,y1; int action; } ui_d024_btn;
 const ui_d024_btn *ui_d024_buttons(void);
 int ui_d024_hit(const ui_d024_btn *b, int n, float x, float y);
@@ -1722,8 +1725,8 @@ int ui_d029_hit(const ui_d029_btn *b, int n, float x, float y);
 #define UI_D030_COUNT 2
 #define UI_D030_POPUP_X0 85.0f
 #define UI_D030_POPUP_Y0 415.0f
-#define UI_D030_POPUP_W  39.0f
-#define UI_D030_POPUP_H  45.0f
+#define UI_D030_POPUP_W  124.0f
+#define UI_D030_POPUP_H  460.0f
 typedef struct { float x0,y0,x1,y1; int action; } ui_d030_btn;
 const ui_d030_btn *ui_d030_buttons(void);
 int ui_d030_hit(const ui_d030_btn *b, int n, float x, float y);
@@ -1740,7 +1743,7 @@ int ui_d031_hit(const ui_d031_btn *b, int n, float x, float y);
 #define UI_D032_COUNT 4
 #define UI_D032_POPUP_X0 15.0f
 #define UI_D032_POPUP_Y0 110.0f
-#define UI_D032_POPUP_W  375.0f
+#define UI_D032_POPUP_W  390.0f
 #define UI_D032_POPUP_H  60.0f
 typedef struct { float x0,y0,x1,y1; int action; } ui_d032_btn;
 const ui_d032_btn *ui_d032_buttons(void);
@@ -1803,7 +1806,7 @@ int ui_d038_hit(const ui_d038_btn *b, int n, float x, float y);
 #define UI_D039_COUNT 1
 #define UI_D039_POPUP_X0 27.0f
 #define UI_D039_POPUP_Y0 650.0f
-#define UI_D039_POPUP_W  93.0f
+#define UI_D039_POPUP_W  120.0f
 #define UI_D039_POPUP_H  90.0f
 typedef struct { float x0,y0,x1,y1; int action; } ui_d039_btn;
 const ui_d039_btn *ui_d039_buttons(void);
@@ -1848,7 +1851,7 @@ int ui_d044_hit(const ui_d044_btn *b, int n, float x, float y);
 #define UI_D045_COUNT 1
 #define UI_D045_POPUP_X0 45.0f
 #define UI_D045_POPUP_Y0 620.0f
-#define UI_D045_POPUP_W  345.0f
+#define UI_D045_POPUP_W  390.0f
 #define UI_D045_POPUP_H  135.0f
 typedef struct { float x0,y0,x1,y1; int action; } ui_d045_btn;
 const ui_d045_btn *ui_d045_buttons(void);
@@ -2091,7 +2094,7 @@ int ui_d073_hit(const ui_d073_btn *b, int n, float x, float y);
 #define UI_D075_COUNT 4
 #define UI_D075_POPUP_X0 60.0f
 #define UI_D075_POPUP_Y0 415.0f
-#define UI_D075_POPUP_W  280.0f
+#define UI_D075_POPUP_W  340.0f
 #define UI_D075_POPUP_H  45.0f
 typedef struct { float x0,y0,x1,y1; int action; } ui_d075_btn;
 const ui_d075_btn *ui_d075_buttons(void);
@@ -2117,9 +2120,9 @@ int ui_d078_hit(const ui_d078_btn *b, int n, float x, float y);
 
 #define UI_D079_COUNT 1
 #define UI_D079_POPUP_X0 140.0f
-#define UI_D079_POPUP_Y0 332.0f
-#define UI_D079_POPUP_W  440.0f
-#define UI_D079_POPUP_H  615.0f
+#define UI_D079_POPUP_Y0 365.0f
+#define UI_D079_POPUP_W  220.0f
+#define UI_D079_POPUP_H  340.0f
 typedef struct { float x0,y0,x1,y1; int action; } ui_d079_btn;
 const ui_d079_btn *ui_d079_buttons(void);
 int ui_d079_hit(const ui_d079_btn *b, int n, float x, float y);
@@ -2127,7 +2130,7 @@ int ui_d079_hit(const ui_d079_btn *b, int n, float x, float y);
 #define UI_D082_COUNT 5
 #define UI_D082_POPUP_X0 10.0f
 #define UI_D082_POPUP_Y0 705.0f
-#define UI_D082_POPUP_W  450.0f
+#define UI_D082_POPUP_W  460.0f
 #define UI_D082_POPUP_H  60.0f
 typedef struct { float x0,y0,x1,y1; int action; } ui_d082_btn;
 const ui_d082_btn *ui_d082_buttons(void);
@@ -2154,7 +2157,7 @@ int ui_d084_hit(const ui_d084_btn *b, int n, float x, float y);
 #define UI_D085_COUNT 5
 #define UI_D085_POPUP_X0 10.0f
 #define UI_D085_POPUP_Y0 705.0f
-#define UI_D085_POPUP_W  450.0f
+#define UI_D085_POPUP_W  460.0f
 #define UI_D085_POPUP_H  60.0f
 typedef struct { float x0,y0,x1,y1; int action; } ui_d085_btn;
 const ui_d085_btn *ui_d085_buttons(void);
@@ -2181,7 +2184,7 @@ int ui_d089_hit(const ui_d089_btn *b, int n, float x, float y);
 #define UI_D090_COUNT 2
 #define UI_D090_POPUP_X0 135.0f
 #define UI_D090_POPUP_Y0 570.0f
-#define UI_D090_POPUP_W  75.0f
+#define UI_D090_POPUP_W  210.0f
 #define UI_D090_POPUP_H  150.0f
 typedef struct { float x0,y0,x1,y1; int action; } ui_d090_btn;
 const ui_d090_btn *ui_d090_buttons(void);
@@ -2199,7 +2202,7 @@ int ui_d094_hit(const ui_d094_btn *b, int n, float x, float y);
 #define UI_D095_COUNT 5
 #define UI_D095_POPUP_X0 10.0f
 #define UI_D095_POPUP_Y0 705.0f
-#define UI_D095_POPUP_W  450.0f
+#define UI_D095_POPUP_W  460.0f
 #define UI_D095_POPUP_H  60.0f
 typedef struct { float x0,y0,x1,y1; int action; } ui_d095_btn;
 const ui_d095_btn *ui_d095_buttons(void);
@@ -2217,7 +2220,7 @@ int ui_d096_hit(const ui_d096_btn *b, int n, float x, float y);
 #define UI_D097_COUNT 4
 #define UI_D097_POPUP_X0 15.0f
 #define UI_D097_POPUP_Y0 110.0f
-#define UI_D097_POPUP_W  375.0f
+#define UI_D097_POPUP_W  390.0f
 #define UI_D097_POPUP_H  60.0f
 typedef struct { float x0,y0,x1,y1; int action; } ui_d097_btn;
 const ui_d097_btn *ui_d097_buttons(void);
@@ -2244,7 +2247,7 @@ int ui_d099_hit(const ui_d099_btn *b, int n, float x, float y);
 #define UI_D100_COUNT 1
 #define UI_D100_POPUP_X0 45.0f
 #define UI_D100_POPUP_Y0 620.0f
-#define UI_D100_POPUP_W  345.0f
+#define UI_D100_POPUP_W  390.0f
 #define UI_D100_POPUP_H  135.0f
 typedef struct { float x0,y0,x1,y1; int action; } ui_d100_btn;
 const ui_d100_btn *ui_d100_buttons(void);
@@ -2253,7 +2256,7 @@ int ui_d100_hit(const ui_d100_btn *b, int n, float x, float y);
 #define UI_D101_COUNT 4
 #define UI_D101_POPUP_X0 10.0f
 #define UI_D101_POPUP_Y0 705.0f
-#define UI_D101_POPUP_W  450.0f
+#define UI_D101_POPUP_W  460.0f
 #define UI_D101_POPUP_H  60.0f
 typedef struct { float x0,y0,x1,y1; int action; } ui_d101_btn;
 const ui_d101_btn *ui_d101_buttons(void);
@@ -2280,7 +2283,7 @@ int ui_d104_hit(const ui_d104_btn *b, int n, float x, float y);
 #define UI_D107_COUNT 5
 #define UI_D107_POPUP_X0 10.0f
 #define UI_D107_POPUP_Y0 705.0f
-#define UI_D107_POPUP_W  450.0f
+#define UI_D107_POPUP_W  460.0f
 #define UI_D107_POPUP_H  60.0f
 typedef struct { float x0,y0,x1,y1; int action; } ui_d107_btn;
 const ui_d107_btn *ui_d107_buttons(void);
@@ -2334,7 +2337,7 @@ int ui_d113_hit(const ui_d113_btn *b, int n, float x, float y);
 #define UI_D114_COUNT 1
 #define UI_D114_POPUP_X0 30.0f
 #define UI_D114_POPUP_Y0 700.0f
-#define UI_D114_POPUP_W  30.0f
+#define UI_D114_POPUP_W  60.0f
 #define UI_D114_POPUP_H  60.0f
 typedef struct { float x0,y0,x1,y1; int action; } ui_d114_btn;
 const ui_d114_btn *ui_d114_buttons(void);
@@ -2397,7 +2400,7 @@ int ui_d123_hit(const ui_d123_btn *b, int n, float x, float y);
 #define UI_D246_COUNT 2
 #define UI_D246_POPUP_X0 113.0f
 #define UI_D246_POPUP_Y0 442.0f
-#define UI_D246_POPUP_W  257.0f
+#define UI_D246_POPUP_W  370.0f
 #define UI_D246_POPUP_H  45.0f
 typedef struct { float x0,y0,x1,y1; int action; } ui_d246_btn;
 const ui_d246_btn *ui_d246_buttons(void);
@@ -2406,7 +2409,7 @@ int ui_d246_hit(const ui_d246_btn *b, int n, float x, float y);
 #define UI_D247_COUNT 1
 #define UI_D247_POPUP_X0 113.0f
 #define UI_D247_POPUP_Y0 442.0f
-#define UI_D247_POPUP_W  257.0f
+#define UI_D247_POPUP_W  370.0f
 #define UI_D247_POPUP_H  45.0f
 typedef struct { float x0,y0,x1,y1; int action; } ui_d247_btn;
 const ui_d247_btn *ui_d247_buttons(void);
@@ -2415,7 +2418,7 @@ int ui_d247_hit(const ui_d247_btn *b, int n, float x, float y);
 #define UI_D248_COUNT 4
 #define UI_D248_POPUP_X0 115.0f
 #define UI_D248_POPUP_Y0 575.0f
-#define UI_D248_POPUP_W  140.0f
+#define UI_D248_POPUP_W  255.0f
 #define UI_D248_POPUP_H  210.0f
 typedef struct { float x0,y0,x1,y1; int action; } ui_d248_btn;
 const ui_d248_btn *ui_d248_buttons(void);
@@ -2424,8 +2427,8 @@ int ui_d248_hit(const ui_d248_btn *b, int n, float x, float y);
 #define UI_D249_COUNT 1
 #define UI_D249_POPUP_X0 388.0f
 #define UI_D249_POPUP_Y0 731.0f
-#define UI_D249_POPUP_W  -318.0f
-#define UI_D249_POPUP_H  -667.0f
+#define UI_D249_POPUP_W  70.0f
+#define UI_D249_POPUP_H  64.0f
 typedef struct { float x0,y0,x1,y1; int action; } ui_d249_btn;
 const ui_d249_btn *ui_d249_buttons(void);
 int ui_d249_hit(const ui_d249_btn *b, int n, float x, float y);
@@ -2433,7 +2436,7 @@ int ui_d249_hit(const ui_d249_btn *b, int n, float x, float y);
 #define UI_D250_COUNT 2
 #define UI_D250_POPUP_X0 85.0f
 #define UI_D250_POPUP_Y0 442.0f
-#define UI_D250_POPUP_W  39.0f
+#define UI_D250_POPUP_W  124.0f
 #define UI_D250_POPUP_H  45.0f
 typedef struct { float x0,y0,x1,y1; int action; } ui_d250_btn;
 const ui_d250_btn *ui_d250_buttons(void);
@@ -2442,7 +2445,7 @@ int ui_d250_hit(const ui_d250_btn *b, int n, float x, float y);
 #define UI_D251_COUNT 1
 #define UI_D251_POPUP_X0 27.0f
 #define UI_D251_POPUP_Y0 690.0f
-#define UI_D251_POPUP_W  93.0f
+#define UI_D251_POPUP_W  120.0f
 #define UI_D251_POPUP_H  90.0f
 typedef struct { float x0,y0,x1,y1; int action; } ui_d251_btn;
 const ui_d251_btn *ui_d251_buttons(void);
@@ -2451,7 +2454,7 @@ int ui_d251_hit(const ui_d251_btn *b, int n, float x, float y);
 #define UI_D253_COUNT 1
 #define UI_D253_POPUP_X0 45.0f
 #define UI_D253_POPUP_Y0 660.0f
-#define UI_D253_POPUP_W  345.0f
+#define UI_D253_POPUP_W  390.0f
 #define UI_D253_POPUP_H  135.0f
 typedef struct { float x0,y0,x1,y1; int action; } ui_d253_btn;
 const ui_d253_btn *ui_d253_buttons(void);
@@ -2460,7 +2463,7 @@ int ui_d253_hit(const ui_d253_btn *b, int n, float x, float y);
 #define UI_D255_COUNT 3
 #define UI_D255_POPUP_X0 85.0f
 #define UI_D255_POPUP_Y0 442.0f
-#define UI_D255_POPUP_W  285.0f
+#define UI_D255_POPUP_W  370.0f
 #define UI_D255_POPUP_H  45.0f
 typedef struct { float x0,y0,x1,y1; int action; } ui_d255_btn;
 const ui_d255_btn *ui_d255_buttons(void);
@@ -2469,7 +2472,7 @@ int ui_d255_hit(const ui_d255_btn *b, int n, float x, float y);
 #define UI_D256_COUNT 4
 #define UI_D256_POPUP_X0 60.0f
 #define UI_D256_POPUP_Y0 442.0f
-#define UI_D256_POPUP_W  280.0f
+#define UI_D256_POPUP_W  340.0f
 #define UI_D256_POPUP_H  45.0f
 typedef struct { float x0,y0,x1,y1; int action; } ui_d256_btn;
 const ui_d256_btn *ui_d256_buttons(void);
@@ -2478,7 +2481,7 @@ int ui_d256_hit(const ui_d256_btn *b, int n, float x, float y);
 #define UI_D257_COUNT 5
 #define UI_D257_POPUP_X0 10.0f
 #define UI_D257_POPUP_Y0 750.0f
-#define UI_D257_POPUP_W  450.0f
+#define UI_D257_POPUP_W  460.0f
 #define UI_D257_POPUP_H  60.0f
 typedef struct { float x0,y0,x1,y1; int action; } ui_d257_btn;
 const ui_d257_btn *ui_d257_buttons(void);
@@ -2487,7 +2490,7 @@ int ui_d257_hit(const ui_d257_btn *b, int n, float x, float y);
 #define UI_D258_COUNT 5
 #define UI_D258_POPUP_X0 10.0f
 #define UI_D258_POPUP_Y0 750.0f
-#define UI_D258_POPUP_W  450.0f
+#define UI_D258_POPUP_W  460.0f
 #define UI_D258_POPUP_H  60.0f
 typedef struct { float x0,y0,x1,y1; int action; } ui_d258_btn;
 const ui_d258_btn *ui_d258_buttons(void);
@@ -2496,7 +2499,7 @@ int ui_d258_hit(const ui_d258_btn *b, int n, float x, float y);
 #define UI_D259_COUNT 2
 #define UI_D259_POPUP_X0 135.0f
 #define UI_D259_POPUP_Y0 610.0f
-#define UI_D259_POPUP_W  75.0f
+#define UI_D259_POPUP_W  210.0f
 #define UI_D259_POPUP_H  150.0f
 typedef struct { float x0,y0,x1,y1; int action; } ui_d259_btn;
 const ui_d259_btn *ui_d259_buttons(void);
@@ -2505,7 +2508,7 @@ int ui_d259_hit(const ui_d259_btn *b, int n, float x, float y);
 #define UI_D260_COUNT 5
 #define UI_D260_POPUP_X0 10.0f
 #define UI_D260_POPUP_Y0 750.0f
-#define UI_D260_POPUP_W  450.0f
+#define UI_D260_POPUP_W  460.0f
 #define UI_D260_POPUP_H  60.0f
 typedef struct { float x0,y0,x1,y1; int action; } ui_d260_btn;
 const ui_d260_btn *ui_d260_buttons(void);
@@ -2514,7 +2517,7 @@ int ui_d260_hit(const ui_d260_btn *b, int n, float x, float y);
 #define UI_D261_COUNT 1
 #define UI_D261_POPUP_X0 45.0f
 #define UI_D261_POPUP_Y0 670.0f
-#define UI_D261_POPUP_W  345.0f
+#define UI_D261_POPUP_W  390.0f
 #define UI_D261_POPUP_H  135.0f
 typedef struct { float x0,y0,x1,y1; int action; } ui_d261_btn;
 const ui_d261_btn *ui_d261_buttons(void);
@@ -2523,7 +2526,7 @@ int ui_d261_hit(const ui_d261_btn *b, int n, float x, float y);
 #define UI_D262_COUNT 4
 #define UI_D262_POPUP_X0 10.0f
 #define UI_D262_POPUP_Y0 750.0f
-#define UI_D262_POPUP_W  450.0f
+#define UI_D262_POPUP_W  460.0f
 #define UI_D262_POPUP_H  60.0f
 typedef struct { float x0,y0,x1,y1; int action; } ui_d262_btn;
 const ui_d262_btn *ui_d262_buttons(void);
@@ -2532,7 +2535,7 @@ int ui_d262_hit(const ui_d262_btn *b, int n, float x, float y);
 #define UI_D263_COUNT 5
 #define UI_D263_POPUP_X0 10.0f
 #define UI_D263_POPUP_Y0 750.0f
-#define UI_D263_POPUP_W  450.0f
+#define UI_D263_POPUP_W  460.0f
 #define UI_D263_POPUP_H  60.0f
 typedef struct { float x0,y0,x1,y1; int action; } ui_d263_btn;
 const ui_d263_btn *ui_d263_buttons(void);
@@ -2541,7 +2544,7 @@ int ui_d263_hit(const ui_d263_btn *b, int n, float x, float y);
 #define UI_D264_COUNT 1
 #define UI_D264_POPUP_X0 30.0f
 #define UI_D264_POPUP_Y0 735.0f
-#define UI_D264_POPUP_W  30.0f
+#define UI_D264_POPUP_W  60.0f
 #define UI_D264_POPUP_H  65.0f
 typedef struct { float x0,y0,x1,y1; int action; } ui_d264_btn;
 const ui_d264_btn *ui_d264_buttons(void);

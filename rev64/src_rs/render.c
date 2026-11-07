@@ -432,6 +432,12 @@ int rs_render_init(rs_render *rr, const char *spak_dir, const jq_state *init_sta
         
         
         
+        
+        
+        
+        
+        
+        
         char p104[512];
         snprintf(p104, sizeof p104, "%s/dlg_batch_text.png", spak_dir ? spak_dir : "");
         snprintf(p9, sizeof p9, "%s/imen_icons_atlas.png", spak_dir ? spak_dir : "");
@@ -497,6 +503,12 @@ int rs_render_init(rs_render *rr, const char *spak_dir, const jq_state *init_sta
                 
                 
                 
+        
+        
+        
+        
+        
+        
         
         
         
@@ -606,6 +618,9 @@ int rs_render_init(rs_render *rr, const char *spak_dir, const jq_state *init_sta
         
         
         
+        
+        
+        
         rs_read_png(am, "spak_res/dlg_batch_text.png", p104, &dlgraw, &dlgraw_len);
         rs_read_png(am, "spak_res/imen_icons_atlas.png", p9, &icraw, &icraw_len);
         rs_read_png(am, "spak_res/imen_orig_icons.png", p103, &ioraw, &ioraw_len);
@@ -686,6 +701,9 @@ int rs_render_init(rs_render *rr, const char *spak_dir, const jq_state *init_sta
         } else {
             LOGI("原版图标图集读取 FAIL：imen_orig_icons.png 未找到（spak_res 缺文件？）");
         }                                        
+        
+        
+        
         
         
         
@@ -5391,7 +5409,7 @@ static void rs_draw_d019(rs_render *rr, int slot)
         }
     }
     if (!d019_diag) { d019_diag = 1;
-        LOGI("rs_draw_d019：datah_019 弹窗（675×360 面板 + 4 按钮，原版按钮文字）");
+        LOGI("rs_draw_d019：datah_019 弹窗（450×150 面板 + 4 按钮，原版按钮文字）");
     }
 }
 /* ★ 批量对齐（datah_020）：4 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
@@ -5515,7 +5533,7 @@ static void rs_draw_d023(rs_render *rr, int slot)
         }
     }
     if (!d023_diag) { d023_diag = 1;
-        LOGI("rs_draw_d023：datah_023 弹窗（135×210 面板 + 4 按钮，原版按钮文字）");
+        LOGI("rs_draw_d023：datah_023 弹窗（250×210 面板 + 4 按钮，原版按钮文字）");
     }
 }
 /* ★ 批量对齐（datah_024）：1 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
@@ -5546,7 +5564,7 @@ static void rs_draw_d024(rs_render *rr, int slot)
         }
     }
     if (!d024_diag) { d024_diag = 1;
-        LOGI("rs_draw_d024：datah_024 弹窗（-318×-634 面板 + 1 按钮，原版按钮文字）");
+        LOGI("rs_draw_d024：datah_024 弹窗（70×64 面板 + 1 按钮，原版按钮文字）");
     }
 }
 /* ★ 批量对齐（datah_025）：1 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
@@ -5732,7 +5750,7 @@ static void rs_draw_d030(rs_render *rr, int slot)
         }
     }
     if (!d030_diag) { d030_diag = 1;
-        LOGI("rs_draw_d030：datah_030 弹窗（39×45 面板 + 2 按钮，原版按钮文字）");
+        LOGI("rs_draw_d030：datah_030 弹窗（124×460 面板 + 2 按钮，原版按钮文字）");
     }
 }
 /* ★ 批量对齐（datah_031）：3 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
@@ -5794,7 +5812,7 @@ static void rs_draw_d032(rs_render *rr, int slot)
         }
     }
     if (!d032_diag) { d032_diag = 1;
-        LOGI("rs_draw_d032：datah_032 弹窗（375×60 面板 + 4 按钮，原版按钮文字）");
+        LOGI("rs_draw_d032：datah_032 弹窗（390×60 面板 + 4 按钮，原版按钮文字）");
     }
 }
 /* ★ 批量对齐（datah_033）：2 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
@@ -6011,7 +6029,7 @@ static void rs_draw_d039(rs_render *rr, int slot)
         }
     }
     if (!d039_diag) { d039_diag = 1;
-        LOGI("rs_draw_d039：datah_039 弹窗（93×90 面板 + 1 按钮，原版按钮文字）");
+        LOGI("rs_draw_d039：datah_039 弹窗（120×90 面板 + 1 按钮，原版按钮文字）");
     }
 }
 /* ★ 批量对齐（datah_041）：8 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
@@ -6166,7 +6184,7 @@ static void rs_draw_d045(rs_render *rr, int slot)
         }
     }
     if (!d045_diag) { d045_diag = 1;
-        LOGI("rs_draw_d045：datah_045 弹窗（345×135 面板 + 1 按钮，原版按钮文字）");
+        LOGI("rs_draw_d045：datah_045 弹窗（390×135 面板 + 1 按钮，原版按钮文字）");
     }
 }
 /* ★ 批量对齐（datah_046）：1 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
@@ -7003,7 +7021,7 @@ static void rs_draw_d075(rs_render *rr, int slot)
         }
     }
     if (!d075_diag) { d075_diag = 1;
-        LOGI("rs_draw_d075：datah_075 弹窗（280×45 面板 + 4 按钮，原版按钮文字）");
+        LOGI("rs_draw_d075：datah_075 弹窗（340×45 面板 + 4 按钮，原版按钮文字）");
     }
 }
 /* ★ 批量对齐（datah_077）：6 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
@@ -7096,7 +7114,7 @@ static void rs_draw_d079(rs_render *rr, int slot)
         }
     }
     if (!d079_diag) { d079_diag = 1;
-        LOGI("rs_draw_d079：datah_079 弹窗（440×615 面板 + 1 按钮，原版按钮文字）");
+        LOGI("rs_draw_d079：datah_079 弹窗（220×340 面板 + 1 按钮，原版按钮文字）");
     }
 }
 /* ★ 批量对齐（datah_082）：5 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
@@ -7127,7 +7145,7 @@ static void rs_draw_d082(rs_render *rr, int slot)
         }
     }
     if (!d082_diag) { d082_diag = 1;
-        LOGI("rs_draw_d082：datah_082 弹窗（450×60 面板 + 5 按钮，原版按钮文字）");
+        LOGI("rs_draw_d082：datah_082 弹窗（460×60 面板 + 5 按钮，原版按钮文字）");
     }
 }
 /* ★ 批量对齐（datah_083）：4 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
@@ -7220,7 +7238,7 @@ static void rs_draw_d085(rs_render *rr, int slot)
         }
     }
     if (!d085_diag) { d085_diag = 1;
-        LOGI("rs_draw_d085：datah_085 弹窗（450×60 面板 + 5 按钮，原版按钮文字）");
+        LOGI("rs_draw_d085：datah_085 弹窗（460×60 面板 + 5 按钮，原版按钮文字）");
     }
 }
 /* ★ 批量对齐（datah_086）：4 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
@@ -7313,7 +7331,7 @@ static void rs_draw_d090(rs_render *rr, int slot)
         }
     }
     if (!d090_diag) { d090_diag = 1;
-        LOGI("rs_draw_d090：datah_090 弹窗（75×150 面板 + 2 按钮，原版按钮文字）");
+        LOGI("rs_draw_d090：datah_090 弹窗（210×150 面板 + 2 按钮，原版按钮文字）");
     }
 }
 /* ★ 批量对齐（datah_094）：5 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
@@ -7375,7 +7393,7 @@ static void rs_draw_d095(rs_render *rr, int slot)
         }
     }
     if (!d095_diag) { d095_diag = 1;
-        LOGI("rs_draw_d095：datah_095 弹窗（450×60 面板 + 5 按钮，原版按钮文字）");
+        LOGI("rs_draw_d095：datah_095 弹窗（460×60 面板 + 5 按钮，原版按钮文字）");
     }
 }
 /* ★ 批量对齐（datah_096）：3 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
@@ -7437,7 +7455,7 @@ static void rs_draw_d097(rs_render *rr, int slot)
         }
     }
     if (!d097_diag) { d097_diag = 1;
-        LOGI("rs_draw_d097：datah_097 弹窗（375×60 面板 + 4 按钮，原版按钮文字）");
+        LOGI("rs_draw_d097：datah_097 弹窗（390×60 面板 + 4 按钮，原版按钮文字）");
     }
 }
 /* ★ 批量对齐（datah_098）：6 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
@@ -7530,7 +7548,7 @@ static void rs_draw_d100(rs_render *rr, int slot)
         }
     }
     if (!d100_diag) { d100_diag = 1;
-        LOGI("rs_draw_d100：datah_100 弹窗（345×135 面板 + 1 按钮，原版按钮文字）");
+        LOGI("rs_draw_d100：datah_100 弹窗（390×135 面板 + 1 按钮，原版按钮文字）");
     }
 }
 /* ★ 批量对齐（datah_101）：4 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
@@ -7561,7 +7579,7 @@ static void rs_draw_d101(rs_render *rr, int slot)
         }
     }
     if (!d101_diag) { d101_diag = 1;
-        LOGI("rs_draw_d101：datah_101 弹窗（450×60 面板 + 4 按钮，原版按钮文字）");
+        LOGI("rs_draw_d101：datah_101 弹窗（460×60 面板 + 4 按钮，原版按钮文字）");
     }
 }
 /* ★ 批量对齐（datah_102）：1 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
@@ -7654,7 +7672,7 @@ static void rs_draw_d107(rs_render *rr, int slot)
         }
     }
     if (!d107_diag) { d107_diag = 1;
-        LOGI("rs_draw_d107：datah_107 弹窗（450×60 面板 + 5 按钮，原版按钮文字）");
+        LOGI("rs_draw_d107：datah_107 弹窗（460×60 面板 + 5 按钮，原版按钮文字）");
     }
 }
 /* ★ 批量对齐（datah_108）：3 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
@@ -7840,7 +7858,7 @@ static void rs_draw_d114(rs_render *rr, int slot)
         }
     }
     if (!d114_diag) { d114_diag = 1;
-        LOGI("rs_draw_d114：datah_114 弹窗（30×60 面板 + 1 按钮，原版按钮文字）");
+        LOGI("rs_draw_d114：datah_114 弹窗（60×60 面板 + 1 按钮，原版按钮文字）");
     }
 }
 /* ★ 批量对齐（datah_118）：2 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
@@ -8057,7 +8075,7 @@ static void rs_draw_d246(rs_render *rr, int slot)
         }
     }
     if (!d246_diag) { d246_diag = 1;
-        LOGI("rs_draw_d246：datah_246 弹窗（257×45 面板 + 2 按钮，原版按钮文字）");
+        LOGI("rs_draw_d246：datah_246 弹窗（370×45 面板 + 2 按钮，原版按钮文字）");
     }
 }
 /* ★ 批量对齐（datah_247）：1 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
@@ -8088,7 +8106,7 @@ static void rs_draw_d247(rs_render *rr, int slot)
         }
     }
     if (!d247_diag) { d247_diag = 1;
-        LOGI("rs_draw_d247：datah_247 弹窗（257×45 面板 + 1 按钮，原版按钮文字）");
+        LOGI("rs_draw_d247：datah_247 弹窗（370×45 面板 + 1 按钮，原版按钮文字）");
     }
 }
 /* ★ 批量对齐（datah_248）：4 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
@@ -8119,7 +8137,7 @@ static void rs_draw_d248(rs_render *rr, int slot)
         }
     }
     if (!d248_diag) { d248_diag = 1;
-        LOGI("rs_draw_d248：datah_248 弹窗（140×210 面板 + 4 按钮，原版按钮文字）");
+        LOGI("rs_draw_d248：datah_248 弹窗（255×210 面板 + 4 按钮，原版按钮文字）");
     }
 }
 /* ★ 批量对齐（datah_249）：1 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
@@ -8150,7 +8168,7 @@ static void rs_draw_d249(rs_render *rr, int slot)
         }
     }
     if (!d249_diag) { d249_diag = 1;
-        LOGI("rs_draw_d249：datah_249 弹窗（-318×-667 面板 + 1 按钮，原版按钮文字）");
+        LOGI("rs_draw_d249：datah_249 弹窗（70×64 面板 + 1 按钮，原版按钮文字）");
     }
 }
 /* ★ 批量对齐（datah_250）：2 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
@@ -8181,7 +8199,7 @@ static void rs_draw_d250(rs_render *rr, int slot)
         }
     }
     if (!d250_diag) { d250_diag = 1;
-        LOGI("rs_draw_d250：datah_250 弹窗（39×45 面板 + 2 按钮，原版按钮文字）");
+        LOGI("rs_draw_d250：datah_250 弹窗（124×45 面板 + 2 按钮，原版按钮文字）");
     }
 }
 /* ★ 批量对齐（datah_251）：1 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
@@ -8212,7 +8230,7 @@ static void rs_draw_d251(rs_render *rr, int slot)
         }
     }
     if (!d251_diag) { d251_diag = 1;
-        LOGI("rs_draw_d251：datah_251 弹窗（93×90 面板 + 1 按钮，原版按钮文字）");
+        LOGI("rs_draw_d251：datah_251 弹窗（120×90 面板 + 1 按钮，原版按钮文字）");
     }
 }
 /* ★ 批量对齐（datah_253）：1 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
@@ -8243,7 +8261,7 @@ static void rs_draw_d253(rs_render *rr, int slot)
         }
     }
     if (!d253_diag) { d253_diag = 1;
-        LOGI("rs_draw_d253：datah_253 弹窗（345×135 面板 + 1 按钮，原版按钮文字）");
+        LOGI("rs_draw_d253：datah_253 弹窗（390×135 面板 + 1 按钮，原版按钮文字）");
     }
 }
 /* ★ 批量对齐（datah_255）：3 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
@@ -8274,7 +8292,7 @@ static void rs_draw_d255(rs_render *rr, int slot)
         }
     }
     if (!d255_diag) { d255_diag = 1;
-        LOGI("rs_draw_d255：datah_255 弹窗（285×45 面板 + 3 按钮，原版按钮文字）");
+        LOGI("rs_draw_d255：datah_255 弹窗（370×45 面板 + 3 按钮，原版按钮文字）");
     }
 }
 /* ★ 批量对齐（datah_256）：4 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
@@ -8305,7 +8323,7 @@ static void rs_draw_d256(rs_render *rr, int slot)
         }
     }
     if (!d256_diag) { d256_diag = 1;
-        LOGI("rs_draw_d256：datah_256 弹窗（280×45 面板 + 4 按钮，原版按钮文字）");
+        LOGI("rs_draw_d256：datah_256 弹窗（340×45 面板 + 4 按钮，原版按钮文字）");
     }
 }
 /* ★ 批量对齐（datah_257）：5 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
@@ -8336,7 +8354,7 @@ static void rs_draw_d257(rs_render *rr, int slot)
         }
     }
     if (!d257_diag) { d257_diag = 1;
-        LOGI("rs_draw_d257：datah_257 弹窗（450×60 面板 + 5 按钮，原版按钮文字）");
+        LOGI("rs_draw_d257：datah_257 弹窗（460×60 面板 + 5 按钮，原版按钮文字）");
     }
 }
 /* ★ 批量对齐（datah_258）：5 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
@@ -8367,7 +8385,7 @@ static void rs_draw_d258(rs_render *rr, int slot)
         }
     }
     if (!d258_diag) { d258_diag = 1;
-        LOGI("rs_draw_d258：datah_258 弹窗（450×60 面板 + 5 按钮，原版按钮文字）");
+        LOGI("rs_draw_d258：datah_258 弹窗（460×60 面板 + 5 按钮，原版按钮文字）");
     }
 }
 /* ★ 批量对齐（datah_259）：2 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
@@ -8398,7 +8416,7 @@ static void rs_draw_d259(rs_render *rr, int slot)
         }
     }
     if (!d259_diag) { d259_diag = 1;
-        LOGI("rs_draw_d259：datah_259 弹窗（75×150 面板 + 2 按钮，原版按钮文字）");
+        LOGI("rs_draw_d259：datah_259 弹窗（210×150 面板 + 2 按钮，原版按钮文字）");
     }
 }
 /* ★ 批量对齐（datah_260）：5 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
@@ -8429,7 +8447,7 @@ static void rs_draw_d260(rs_render *rr, int slot)
         }
     }
     if (!d260_diag) { d260_diag = 1;
-        LOGI("rs_draw_d260：datah_260 弹窗（450×60 面板 + 5 按钮，原版按钮文字）");
+        LOGI("rs_draw_d260：datah_260 弹窗（460×60 面板 + 5 按钮，原版按钮文字）");
     }
 }
 /* ★ 批量对齐（datah_261）：1 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
@@ -8460,7 +8478,7 @@ static void rs_draw_d261(rs_render *rr, int slot)
         }
     }
     if (!d261_diag) { d261_diag = 1;
-        LOGI("rs_draw_d261：datah_261 弹窗（345×135 面板 + 1 按钮，原版按钮文字）");
+        LOGI("rs_draw_d261：datah_261 弹窗（390×135 面板 + 1 按钮，原版按钮文字）");
     }
 }
 /* ★ 批量对齐（datah_262）：4 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
@@ -8491,7 +8509,7 @@ static void rs_draw_d262(rs_render *rr, int slot)
         }
     }
     if (!d262_diag) { d262_diag = 1;
-        LOGI("rs_draw_d262：datah_262 弹窗（450×60 面板 + 4 按钮，原版按钮文字）");
+        LOGI("rs_draw_d262：datah_262 弹窗（460×60 面板 + 4 按钮，原版按钮文字）");
     }
 }
 /* ★ 批量对齐（datah_263）：5 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
@@ -8522,7 +8540,7 @@ static void rs_draw_d263(rs_render *rr, int slot)
         }
     }
     if (!d263_diag) { d263_diag = 1;
-        LOGI("rs_draw_d263：datah_263 弹窗（450×60 面板 + 5 按钮，原版按钮文字）");
+        LOGI("rs_draw_d263：datah_263 弹窗（460×60 面板 + 5 按钮，原版按钮文字）");
     }
 }
 /* ★ 批量对齐（datah_264）：1 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
@@ -8553,7 +8571,7 @@ static void rs_draw_d264(rs_render *rr, int slot)
         }
     }
     if (!d264_diag) { d264_diag = 1;
-        LOGI("rs_draw_d264：datah_264 弹窗（30×65 面板 + 1 按钮，原版按钮文字）");
+        LOGI("rs_draw_d264：datah_264 弹窗（60×65 面板 + 1 按钮，原版按钮文字）");
     }
 }static void rs_draw_about(rs_render *rr, int slot)
 {
@@ -9140,6 +9158,30 @@ static void rs_gl_rebuild(rs_render *rr, int slot)
         glBindTexture(GL_TEXTURE_2D, rr->tex_popup[slot]);
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->popup_w, rr->popup_h, 0,
                      GL_RGBA, GL_UNSIGNED_BYTE, rr->popup_px);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    }
+    if (rr->dlg_text_px && rr->gl2_ok[slot] && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
+        glGenTextures(1, &rr->tex_dlg_text[slot]);
+        glBindTexture(GL_TEXTURE_2D, rr->tex_dlg_text[slot]);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->dlg_text_w, rr->dlg_text_h, 0,
+                     GL_RGBA, GL_UNSIGNED_BYTE, rr->dlg_text_px);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    }
+    if (rr->dlg_text_px && rr->gl2_ok[slot] && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
+        glGenTextures(1, &rr->tex_dlg_text[slot]);
+        glBindTexture(GL_TEXTURE_2D, rr->tex_dlg_text[slot]);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->dlg_text_w, rr->dlg_text_h, 0,
+                     GL_RGBA, GL_UNSIGNED_BYTE, rr->dlg_text_px);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    }
+    if (rr->dlg_text_px && rr->gl2_ok[slot] && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
+        glGenTextures(1, &rr->tex_dlg_text[slot]);
+        glBindTexture(GL_TEXTURE_2D, rr->tex_dlg_text[slot]);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->dlg_text_w, rr->dlg_text_h, 0,
+                     GL_RGBA, GL_UNSIGNED_BYTE, rr->dlg_text_px);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     }

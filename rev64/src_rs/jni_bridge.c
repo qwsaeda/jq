@@ -2866,6 +2866,9 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
 
 
 
+
+
+
     /* ★ 批量对齐（datah_000）：2 按钮业务分发 */
     if (ui_screen_get() == UI_D000) {
         float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;

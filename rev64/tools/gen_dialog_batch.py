@@ -21,7 +21,7 @@
 """
 import os,re,sys,glob,shutil
 sys.path.insert(0,os.path.dirname(os.path.abspath(__file__)))
-from spak2ui import parse_dialog, to_720
+from spak2ui import parse_dialog, to_720, panel_origin
 
 ROOT="/disk/workspaces/jq"
 RS=f"{ROOT}/rev64/src_rs"
@@ -106,19 +106,29 @@ def load_batches(nums):
                         ov=True; break
             if not ov: ded.append(b)
         if strip and ded:
-            # 坐标有效性：x 需铺开（最大跨度 ≥ 面板宽 60%）且各槽不全等宽
+            # ★ 对抗审计修正（§2026-11-11）：均分兜底判据原为 "span < Wp*0.6"，
+            #   但 strip 型按钮常只占面板一部分（如 datah_015 单个 Back 在 190..252，
+            #   跨度 62 < 370*0.6 → 被误触均分 → 按钮摊平成整条 → **返回键位置全错**）。
+            #   改为：仅当原版坐标**真正无效**时才均分（越界 / 零宽 / 全部同位）。
+            Wp,Hp=info["panel"]
             xs=[b["x1"] for b in ded]; x0s=[b["x0"] for b in ded]
             span=(max(xs)-min(x0s)) if xs else 0
-            Wp,Hp=info["panel"]
-            if span < Wp*0.6 or len(set((b["x0"],b["x1"]) for b in ded)) < 2:
+            oob = any(b["x0"]<0 or b["x1"]>Wp or b["x1"]<=b["x0"] for b in ded)
+            same = len(set((b["x0"],b["x1"]) for b in ded))==1 and len(ded)>1
+            if oob or same or span<=0:
                 # 兜底：按去重后槽位均分整条宽
                 n_btn=len(ded); bw=Wp/float(n_btn)
                 ded=[{"name":b["name"],"text":b["text"],"style":b["style"],
                       "x0":int(round(i*bw)),"y0":0,
                       "x1":int(round((i+1)*bw)),"y1":Hp} for i,b in enumerate(ded)]
             else:
-                # 原版坐标有效 → y 归一到面板高（x 保留原版真值）
-                ded=[{**b,"y0":0,"y1":info["panel"][1]} for b in ded]
+                # 原版坐标有效 → **保留原版 y 真值**（★ 对抗审计修正 §2026-11-11：
+                #   旧版无条件 y 归一到面板高 → datah_109 按钮原版 y=15..75 被拉成 0..90
+                #   （按钮整体变高 30px，视觉与命中都偏离原版）。
+                #   仅当原版按钮 y 恰为 0..Hp 时才归一（等价，无副作用）。
+                Hp=info["panel"][1]
+                ded=[{**b, "y0": (0 if b["y0"]==0 else b["y0"]),
+                      "y1": (Hp if b["y1"]==Hp else b["y1"])} for b in ded]
         raw_items=ded
         if not raw_items:
             print(f"  ⚠ datah_{n:03d} 去重后无按钮，跳过"); continue
@@ -132,11 +142,7 @@ def load_batches(nums):
                 except Exception: wpx=len(txt)*30; hpx=38
             else:
                 wpx=0; hpx=0
-            if info.get("centered"):
-                ox,oy=(720-info["panel"][0])/2.0,(1280-info["panel"][1])/2.0
-            else:
-                rr=info.get("rect") or [0,0]
-                ox,oy=(rr[0] or 0),(rr[1] or 0)
+            ox,oy=panel_origin(info)   # ★ 单一真相源（c- 锚点偏移在此生效）
             items.append({"text":txt,"name":b["name"],"x0":round(ox+b["x0"]),"y0":round(oy+b["y0"]),
                           "x1":round(ox+b["x1"]),"y1":round(oy+b["y1"]),"w":0})
             items[-1]["w"]=round(wpx*0.62)  # 38px 字高 ≈ 720 基准 30px 高，字宽 ×0.62
@@ -185,10 +191,8 @@ def gen_code(batches,widths,heights):
         # （to_720 对 centered 用居中偏移；非 centered 用 rect 原点 → 需回读 rect）
         # 简化：面板 X0/Y0 直接由按钮最小包围盒反推不合适 → 用 spak2ui 解析结果
         info=parse_dialog(datah_path(n))
-        r=info.get("rect")
-        if b["centered"]: px0,py0=round((720-W)/2),round((1280-Hh)/2)
-        elif r and r[0] and r[1]: px0,py0=round(r[0]),round(r[1])
-        else: px0,py0=round((720-W)/2),round((1280-Hh)/2)
+        _ox,_oy=panel_origin(info)
+        px0,py0=round(_ox),round(_oy)
         # ── ui_menu.h
         H[tag]=f"""
     {sid},   /* ★ 批量对齐（datah_{n:03d} 证据）：{b['labels'][0] if b['labels'] else '原版对话框'}

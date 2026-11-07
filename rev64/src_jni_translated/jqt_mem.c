@@ -6,6 +6,7 @@
 #include "jqt_mem.h"
 #include "jq_rel_data.h"
 #include "jq_bss_runtime.h"
+#include "jq_scudo_slots.h"   /* §124y-150: .bss 316 scudo 指针槽映射表 */
 #include <sys/mman.h>
 #include <unistd.h>
 #include <string.h>
@@ -185,6 +186,27 @@ static void jqt_build_empty_objs(void) {
         g_jqt_empty_tbl[i] = (uint32_t)(uintptr_t)calloc(1, 0x1000);
 }
 
+/* ★ §124y-150: 316 scudo 指针槽自建堆对象池 (替代 MuMu 原版 scudo 堆, 跨进程指针失效修复)
+ * 背景：.bss dump 的 316 个 scudo 指针槽指向 MuMu 原版进程堆 (0xcf/0xce/0xd0/0xf3 区),
+ *   翻译体进程 jqt_mem_valid 真映射区表无此区 → 解引用 0x3a 类小地址 SIGSEGV。
+ * 修复：每个 scudo 槽分配 4KB calloc 自建对象 (calloc 堆区在 jqt_build_real_ranges 快照内,
+ *   jqt_mem_valid 命中), dump 原值存对象 [0], 槽写自建堆基址。MEM 读槽 = 自建堆指针,
+ *   解引用 [0] 得 dump 原值 (如 0xcf8d78f0), 下游 C++ 逻辑读到"看起来正确"的 scudo 块首字段。
+ * 诚实边界：自建对象 [1+] 全 0 (scudo 块后续字段如 size/next 未还原), 深度遍历会读到 0
+ *   (= 空容器语义, 遍历立即终止), 非真实对象图语义。 */
+#include "jq_scudo_slots.h"
+static uint32_t g_jqt_scudo_objs[JQT_SCUDO_SLOT_N];
+static void jqt_build_scudo_objs(void) {
+    for (unsigned i = 0; i < JQT_SCUDO_SLOT_N; i++) {
+        void *o = calloc(1, 0x1000);
+        if (o) {
+            /* dump 原值存对象 [0] (scudo 块首字段, C++ 读 [ptr] 得原版值) */
+            *(uint32_t *)o = jq_scudo_slot_tbl[i].dump_val;
+            g_jqt_scudo_objs[i] = (uint32_t)(uintptr_t)o;
+        }
+    }
+}
+
 void jqt_mem_init(void) {
     if (g_jqt_shadow) return;
     uint32_t sz = jqt_img_size();
@@ -202,6 +224,8 @@ void jqt_mem_init(void) {
     if (g_jqt_shadow == MAP_FAILED) { g_jqt_shadow = (uint8_t *)calloc(1, JQT_MAP_HI); }
     /* ★ OBJ-FILL：先分配空对象（扩展堆区），再建真映射区表 → 表含堆区 */
     jqt_build_empty_objs();
+    /* ★ §124y-150：先分配 316 scudo 槽自建堆对象（calloc 堆区需进真映射区表），再建表 */
+    jqt_build_scudo_objs();
     /* ★ §124x：真实映射区表（/proc/self/maps 快照）——MEM 支持 malloc 堆/JNI 对象绝对指针 */
     jqt_build_real_ranges();
     /* 4KB 零页：越界（垃圾指针）读写落这里（mmap 保证零初始化） */
@@ -266,6 +290,17 @@ void jqt_mem_init(void) {
         __android_log_print(4, "junqi", "OBJ-FILL: 0x%08x = empty_obj 0x%08x",
                             0x15bf00 + i*4, g_jqt_empty_tbl[i]);
     }
+    /* ★ §124y-150: 316 scudo 指针槽回填自建堆对象 (跨进程指针失效修复, §sp28-SCALE-9c 回退方案改良)
+     * 每个 scudo 槽写自建 calloc 对象基址 (jqt_build_scudo_objs 分配, 堆区在真映射区表内),
+     * 对象 [0] = dump 原值 (scudo 块首字段), MEM 读槽 → 解引用得 dump 原值。
+     * 诚实边界: 自建对象 [1+] 全 0 (scudo 块后续字段未还原), 深度遍历读 0 = 空容器语义。 */
+    for (unsigned i = 0; i < JQT_SCUDO_SLOT_N; i++) {
+        if (g_jqt_scudo_objs[i] == 0) continue;
+        *(uint32_t *)(g_jqt_shadow + jq_scudo_slot_tbl[i].va) = g_jqt_scudo_objs[i];
+    }
+    { static int _sc=0; if (++_sc <= 4) __android_log_print(4, "junqi",
+        "SCUDO-FILL: 回填 %u 槽 (首 0x%08x=0x%08x, dump 原值 0x%08x)",
+        JQT_SCUDO_SLOT_N, jq_scudo_slot_tbl[0].va, g_jqt_scudo_objs[0], jq_scudo_slot_tbl[0].dump_val); }
     /* ★ §sp28-SCALE-9c .bss 运行时构造态回填 = 实证失败（回退）：
      * MuMu 原版 32 位 so 进程 dd /proc/PID/mem dump .bss 28680B（79% 非零）memcpy 进
      * 影子 .bss → GLThread SIGSEGV SEGV_MAPERR 0x3a（下游读 .bss 槽里的 scudo 指针

@@ -1572,7 +1572,7 @@ int ui_d013_hit(const ui_d013_btn *b, int n, float x, float y)
 { for (int i = 0; i < n; i++) if (x>=b[i].x0 && x<=b[i].x1 && y>=b[i].y0 && y<=b[i].y1) return i; return -1; }
 /* ★ 批量对齐（datah_015）：1 按钮（720 基准，局部 1:1 平移） */
 static const ui_d015_btn g_d015_btns[UI_D015_COUNT] = {
-    { 113.0f, 415.0f, 370.0f, 460.0f, 0 },  /* Back */
+    { 303.0f, 415.0f, 365.0f, 460.0f, 0 },  /* Back */
 };
 const ui_d015_btn *ui_d015_buttons(void) { return g_d015_btns; }
 int ui_d015_hit(const ui_d015_btn *b, int n, float x, float y)
@@ -1596,10 +1596,10 @@ int ui_d017_hit(const ui_d017_btn *b, int n, float x, float y)
 { for (int i = 0; i < n; i++) if (x>=b[i].x0 && x<=b[i].x1 && y>=b[i].y0 && y<=b[i].y1) return i; return -1; }
 /* ★ 批量对齐（datah_019）：4 按钮（720 基准，局部 1:1 平移） */
 static const ui_d019_btn g_d019_btns[UI_D019_COUNT] = {
-    { -210.0f, -185.0f, -105.0f, -50.0f, 0 },  /* 清空布局 */
-    { -105.0f, -185.0f, 0.0f, -50.0f, 1 },  /* 载入布局 */
-    { 0.0f, -185.0f, 105.0f, -50.0f, 2 },  /* 保存布局 */
-    { 105.0f, -185.0f, 210.0f, -50.0f, 3 },  /* 完成布局 */
+    { 150.0f, 455.0f, 255.0f, 590.0f, 0 },  /* 清空布局 */
+    { 255.0f, 455.0f, 360.0f, 590.0f, 1 },  /* 载入布局 */
+    { 360.0f, 455.0f, 465.0f, 590.0f, 2 },  /* 保存布局 */
+    { 465.0f, 455.0f, 570.0f, 590.0f, 3 },  /* 完成布局 */
 };
 const ui_d019_btn *ui_d019_buttons(void) { return g_d019_btns; }
 int ui_d019_hit(const ui_d019_btn *b, int n, float x, float y)
@@ -1646,7 +1646,7 @@ int ui_d023_hit(const ui_d023_btn *b, int n, float x, float y)
 { for (int i = 0; i < n; i++) if (x>=b[i].x0 && x<=b[i].x1 && y>=b[i].y0 && y<=b[i].y1) return i; return -1; }
 /* ★ 批量对齐（datah_024）：1 按钮（720 基准，局部 1:1 平移） */
 static const ui_d024_btn g_d024_btns[UI_D024_COUNT] = {
-    { 388.0f, 698.0f, 70.0f, 64.0f, 0 },  /* Type */
+    { 388.0f, 698.0f, 458.0f, 762.0f, 0 },  /* Type */
 };
 const ui_d024_btn *ui_d024_buttons(void) { return g_d024_btns; }
 int ui_d024_hit(const ui_d024_btn *b, int n, float x, float y)
@@ -1775,7 +1775,7 @@ int ui_d038_hit(const ui_d038_btn *b, int n, float x, float y)
 { for (int i = 0; i < n; i++) if (x>=b[i].x0 && x<=b[i].x1 && y>=b[i].y0 && y<=b[i].y1) return i; return -1; }
 /* ★ 批量对齐（datah_039）：1 按钮（720 基准，局部 1:1 平移） */
 static const ui_d039_btn g_d039_btns[UI_D039_COUNT] = {
-    { 27.0f, 650.0f, 120.0f, 740.0f, 0 },  /* 复盘 */
+    { 42.0f, 665.0f, 132.0f, 725.0f, 0 },  /* 复盘 */
 };
 const ui_d039_btn *ui_d039_buttons(void) { return g_d039_btns; }
 int ui_d039_hit(const ui_d039_btn *b, int n, float x, float y)
@@ -2098,7 +2098,7 @@ int ui_d078_hit(const ui_d078_btn *b, int n, float x, float y)
 { for (int i = 0; i < n; i++) if (x>=b[i].x0 && x<=b[i].x1 && y>=b[i].y0 && y<=b[i].y1) return i; return -1; }
 /* ★ 批量对齐（datah_079）：1 按钮（720 基准，局部 1:1 平移） */
 static const ui_d079_btn g_d079_btns[UI_D079_COUNT] = {
-    { 270.0f, 868.0f, 450.0f, 928.0f, 0 },  /* 确定 */
+    { 270.0f, 900.0f, 450.0f, 960.0f, 0 },  /* 确定 */
 };
 const ui_d079_btn *ui_d079_buttons(void) { return g_d079_btns; }
 int ui_d079_hit(const ui_d079_btn *b, int n, float x, float y)
@@ -2292,9 +2292,9 @@ int ui_d108_hit(const ui_d108_btn *b, int n, float x, float y)
 { for (int i = 0; i < n; i++) if (x>=b[i].x0 && x<=b[i].x1 && y>=b[i].y0 && y<=b[i].y1) return i; return -1; }
 /* ★ 批量对齐（datah_109）：3 按钮（720 基准，局部 1:1 平移） */
 static const ui_d109_btn g_d109_btns[UI_D109_COUNT] = {
-    { 15.0f, 0.0f, 85.0f, 90.0f, 0 },  /* 开局 */
-    { 95.0f, 0.0f, 165.0f, 90.0f, 1 },  /* 终局 */
-    { 175.0f, 0.0f, 245.0f, 90.0f, 2 },  /* 定位 */
+    { 245.0f, 610.0f, 315.0f, 670.0f, 0 },  /* 开局 */
+    { 325.0f, 610.0f, 395.0f, 670.0f, 1 },  /* 终局 */
+    { 405.0f, 610.0f, 475.0f, 670.0f, 2 },  /* 定位 */
 };
 const ui_d109_btn *ui_d109_buttons(void) { return g_d109_btns; }
 int ui_d109_hit(const ui_d109_btn *b, int n, float x, float y)
@@ -2330,7 +2330,7 @@ int ui_d113_hit(const ui_d113_btn *b, int n, float x, float y)
 { for (int i = 0; i < n; i++) if (x>=b[i].x0 && x<=b[i].x1 && y>=b[i].y0 && y<=b[i].y1) return i; return -1; }
 /* ★ 批量对齐（datah_114）：1 按钮（720 基准，局部 1:1 平移） */
 static const ui_d114_btn g_d114_btns[UI_D114_COUNT] = {
-    { 30.0f, 700.0f, 60.0f, 760.0f, 0 },  /* Site */
+    { 30.0f, 700.0f, 90.0f, 760.0f, 0 },  /* Site */
 };
 const ui_d114_btn *ui_d114_buttons(void) { return g_d114_btns; }
 int ui_d114_hit(const ui_d114_btn *b, int n, float x, float y)
@@ -2378,7 +2378,7 @@ int ui_d122_hit(const ui_d122_btn *b, int n, float x, float y)
 { for (int i = 0; i < n; i++) if (x>=b[i].x0 && x<=b[i].x1 && y>=b[i].y0 && y<=b[i].y1) return i; return -1; }
 /* ★ 批量对齐（datah_123）：1 按钮（720 基准，局部 1:1 平移） */
 static const ui_d123_btn g_d123_btns[UI_D123_COUNT] = {
-    { 0.0f, 0.0f, 120.0f, 75.0f, 0 },  /* Wall */
+    { 307.0f, 610.0f, 382.0f, 678.0f, 0 },  /* Wall */
 };
 const ui_d123_btn *ui_d123_buttons(void) { return g_d123_btns; }
 int ui_d123_hit(const ui_d123_btn *b, int n, float x, float y)
@@ -2393,7 +2393,7 @@ int ui_d246_hit(const ui_d246_btn *b, int n, float x, float y)
 { for (int i = 0; i < n; i++) if (x>=b[i].x0 && x<=b[i].x1 && y>=b[i].y0 && y<=b[i].y1) return i; return -1; }
 /* ★ 批量对齐（datah_247）：1 按钮（720 基准，局部 1:1 平移） */
 static const ui_d247_btn g_d247_btns[UI_D247_COUNT] = {
-    { 113.0f, 442.0f, 370.0f, 487.0f, 0 },  /* Back */
+    { 303.0f, 442.0f, 365.0f, 487.0f, 0 },  /* Back */
 };
 const ui_d247_btn *ui_d247_buttons(void) { return g_d247_btns; }
 int ui_d247_hit(const ui_d247_btn *b, int n, float x, float y)
@@ -2410,7 +2410,7 @@ int ui_d248_hit(const ui_d248_btn *b, int n, float x, float y)
 { for (int i = 0; i < n; i++) if (x>=b[i].x0 && x<=b[i].x1 && y>=b[i].y0 && y<=b[i].y1) return i; return -1; }
 /* ★ 批量对齐（datah_249）：1 按钮（720 基准，局部 1:1 平移） */
 static const ui_d249_btn g_d249_btns[UI_D249_COUNT] = {
-    { 388.0f, 731.0f, 70.0f, 64.0f, 0 },  /* Type */
+    { 388.0f, 731.0f, 458.0f, 795.0f, 0 },  /* Type */
 };
 const ui_d249_btn *ui_d249_buttons(void) { return g_d249_btns; }
 int ui_d249_hit(const ui_d249_btn *b, int n, float x, float y)
@@ -2425,7 +2425,7 @@ int ui_d250_hit(const ui_d250_btn *b, int n, float x, float y)
 { for (int i = 0; i < n; i++) if (x>=b[i].x0 && x<=b[i].x1 && y>=b[i].y0 && y<=b[i].y1) return i; return -1; }
 /* ★ 批量对齐（datah_251）：1 按钮（720 基准，局部 1:1 平移） */
 static const ui_d251_btn g_d251_btns[UI_D251_COUNT] = {
-    { 27.0f, 690.0f, 120.0f, 780.0f, 0 },  /* 复盘 */
+    { 42.0f, 705.0f, 132.0f, 765.0f, 0 },  /* 复盘 */
 };
 const ui_d251_btn *ui_d251_buttons(void) { return g_d251_btns; }
 int ui_d251_hit(const ui_d251_btn *b, int n, float x, float y)
@@ -2527,7 +2527,7 @@ int ui_d263_hit(const ui_d263_btn *b, int n, float x, float y)
 { for (int i = 0; i < n; i++) if (x>=b[i].x0 && x<=b[i].x1 && y>=b[i].y0 && y<=b[i].y1) return i; return -1; }
 /* ★ 批量对齐（datah_264）：1 按钮（720 基准，局部 1:1 平移） */
 static const ui_d264_btn g_d264_btns[UI_D264_COUNT] = {
-    { 30.0f, 735.0f, 60.0f, 800.0f, 0 },  /* Site */
+    { 30.0f, 735.0f, 90.0f, 795.0f, 0 },  /* Site */
 };
 const ui_d264_btn *ui_d264_buttons(void) { return g_d264_btns; }
 int ui_d264_hit(const ui_d264_btn *b, int n, float x, float y)

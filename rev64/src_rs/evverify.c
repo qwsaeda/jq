@@ -3280,7 +3280,7 @@ int run_d015(void)
 {
     const ui_d015_btn *b = ui_d015_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
-    { "Back", 113, 415, 370, 460 },
+    { "Back", 303, 415, 365, 460 },
     };
     int n = UI_D015_COUNT, ok = 1;
     for (int i = 0; i < n; i++) {
@@ -3355,10 +3355,10 @@ int run_d019(void)
 {
     const ui_d019_btn *b = ui_d019_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
-    { "清空布局", -210, -185, -105, -50 },
-    { "载入布局", -105, -185, 0, -50 },
-    { "保存布局", 0, -185, 105, -50 },
-    { "完成布局", 105, -185, 210, -50 },
+    { "清空布局", 150, 455, 255, 590 },
+    { "载入布局", 255, 455, 360, 590 },
+    { "保存布局", 360, 455, 465, 590 },
+    { "完成布局", 465, 455, 570, 590 },
     };
     int n = UI_D019_COUNT, ok = 1;
     for (int i = 0; i < n; i++) {
@@ -3373,7 +3373,7 @@ int run_d019(void)
         int hit = ui_d019_hit(b, n, cx, cy);
         ok &= (hit == i);
     }
-    printf("datah_019（675×360 固定）：4 按钮几何 Δ=0 + 命中判定%s\n",
+    printf("datah_019（450×150 居中）：4 按钮几何 Δ=0 + 命中判定%s\n",
            ok ? "PASS" : "FAIL");
     return ok;
 }
@@ -3481,7 +3481,7 @@ int run_d023(void)
         int hit = ui_d023_hit(b, n, cx, cy);
         ok &= (hit == i);
     }
-    printf("datah_023（135×210 固定）：4 按钮几何 Δ=0 + 命中判定%s\n",
+    printf("datah_023（250×210 固定）：4 按钮几何 Δ=0 + 命中判定%s\n",
            ok ? "PASS" : "FAIL");
     return ok;
 }
@@ -3490,7 +3490,7 @@ int run_d024(void)
 {
     const ui_d024_btn *b = ui_d024_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
-    { "Type", 388, 698, 70, 64 },
+    { "Type", 388, 698, 458, 762 },
     };
     int n = UI_D024_COUNT, ok = 1;
     for (int i = 0; i < n; i++) {
@@ -3505,7 +3505,7 @@ int run_d024(void)
         int hit = ui_d024_hit(b, n, cx, cy);
         ok &= (hit == i);
     }
-    printf("datah_024（-318×-634 固定）：1 按钮几何 Δ=0 + 命中判定%s\n",
+    printf("datah_024（70×64 固定）：1 按钮几何 Δ=0 + 命中判定%s\n",
            ok ? "PASS" : "FAIL");
     return ok;
 }
@@ -3657,7 +3657,7 @@ int run_d030(void)
         int hit = ui_d030_hit(b, n, cx, cy);
         ok &= (hit == i);
     }
-    printf("datah_030（39×45 固定）：2 按钮几何 Δ=0 + 命中判定%s\n",
+    printf("datah_030（124×460 固定）：2 按钮几何 Δ=0 + 命中判定%s\n",
            ok ? "PASS" : "FAIL");
     return ok;
 }
@@ -3710,7 +3710,7 @@ int run_d032(void)
         int hit = ui_d032_hit(b, n, cx, cy);
         ok &= (hit == i);
     }
-    printf("datah_032（375×60 固定）：4 按钮几何 Δ=0 + 命中判定%s\n",
+    printf("datah_032（390×60 固定）：4 按钮几何 Δ=0 + 命中判定%s\n",
            ok ? "PASS" : "FAIL");
     return ok;
 }
@@ -3874,7 +3874,7 @@ int run_d039(void)
 {
     const ui_d039_btn *b = ui_d039_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
-    { "复盘", 27, 650, 120, 740 },
+    { "复盘", 42, 665, 132, 725 },
     };
     int n = UI_D039_COUNT, ok = 1;
     for (int i = 0; i < n; i++) {
@@ -3889,7 +3889,7 @@ int run_d039(void)
         int hit = ui_d039_hit(b, n, cx, cy);
         ok &= (hit == i);
     }
-    printf("datah_039（93×90 固定）：1 按钮几何 Δ=0 + 命中判定%s\n",
+    printf("datah_039（120×90 固定）：1 按钮几何 Δ=0 + 命中判定%s\n",
            ok ? "PASS" : "FAIL");
     return ok;
 }
@@ -4024,7 +4024,7 @@ int run_d045(void)
         int hit = ui_d045_hit(b, n, cx, cy);
         ok &= (hit == i);
     }
-    printf("datah_045（345×135 固定）：1 按钮几何 Δ=0 + 命中判定%s\n",
+    printf("datah_045（390×135 固定）：1 按钮几何 Δ=0 + 命中判定%s\n",
            ok ? "PASS" : "FAIL");
     return ok;
 }
@@ -4728,7 +4728,7 @@ int run_d075(void)
         int hit = ui_d075_hit(b, n, cx, cy);
         ok &= (hit == i);
     }
-    printf("datah_075（280×45 固定）：4 按钮几何 Δ=0 + 命中判定%s\n",
+    printf("datah_075（340×45 固定）：4 按钮几何 Δ=0 + 命中判定%s\n",
            ok ? "PASS" : "FAIL");
     return ok;
 }
@@ -4792,7 +4792,7 @@ int run_d079(void)
 {
     const ui_d079_btn *b = ui_d079_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
-    { "确定", 270, 868, 450, 928 },
+    { "确定", 270, 900, 450, 960 },
     };
     int n = UI_D079_COUNT, ok = 1;
     for (int i = 0; i < n; i++) {
@@ -4807,7 +4807,7 @@ int run_d079(void)
         int hit = ui_d079_hit(b, n, cx, cy);
         ok &= (hit == i);
     }
-    printf("datah_079（440×615 居中）：1 按钮几何 Δ=0 + 命中判定%s\n",
+    printf("datah_079（220×340 居中）：1 按钮几何 Δ=0 + 命中判定%s\n",
            ok ? "PASS" : "FAIL");
     return ok;
 }
@@ -4835,7 +4835,7 @@ int run_d082(void)
         int hit = ui_d082_hit(b, n, cx, cy);
         ok &= (hit == i);
     }
-    printf("datah_082（450×60 固定）：5 按钮几何 Δ=0 + 命中判定%s\n",
+    printf("datah_082（460×60 固定）：5 按钮几何 Δ=0 + 命中判定%s\n",
            ok ? "PASS" : "FAIL");
     return ok;
 }
@@ -4917,7 +4917,7 @@ int run_d085(void)
         int hit = ui_d085_hit(b, n, cx, cy);
         ok &= (hit == i);
     }
-    printf("datah_085（450×60 固定）：5 按钮几何 Δ=0 + 命中判定%s\n",
+    printf("datah_085（460×60 固定）：5 按钮几何 Δ=0 + 命中判定%s\n",
            ok ? "PASS" : "FAIL");
     return ok;
 }
@@ -4995,7 +4995,7 @@ int run_d090(void)
         int hit = ui_d090_hit(b, n, cx, cy);
         ok &= (hit == i);
     }
-    printf("datah_090（75×150 固定）：2 按钮几何 Δ=0 + 命中判定%s\n",
+    printf("datah_090（210×150 固定）：2 按钮几何 Δ=0 + 命中判定%s\n",
            ok ? "PASS" : "FAIL");
     return ok;
 }
@@ -5051,7 +5051,7 @@ int run_d095(void)
         int hit = ui_d095_hit(b, n, cx, cy);
         ok &= (hit == i);
     }
-    printf("datah_095（450×60 固定）：5 按钮几何 Δ=0 + 命中判定%s\n",
+    printf("datah_095（460×60 固定）：5 按钮几何 Δ=0 + 命中判定%s\n",
            ok ? "PASS" : "FAIL");
     return ok;
 }
@@ -5104,7 +5104,7 @@ int run_d097(void)
         int hit = ui_d097_hit(b, n, cx, cy);
         ok &= (hit == i);
     }
-    printf("datah_097（375×60 固定）：4 按钮几何 Δ=0 + 命中判定%s\n",
+    printf("datah_097（390×60 固定）：4 按钮几何 Δ=0 + 命中判定%s\n",
            ok ? "PASS" : "FAIL");
     return ok;
 }
@@ -5184,7 +5184,7 @@ int run_d100(void)
         int hit = ui_d100_hit(b, n, cx, cy);
         ok &= (hit == i);
     }
-    printf("datah_100（345×135 固定）：1 按钮几何 Δ=0 + 命中判定%s\n",
+    printf("datah_100（390×135 固定）：1 按钮几何 Δ=0 + 命中判定%s\n",
            ok ? "PASS" : "FAIL");
     return ok;
 }
@@ -5211,7 +5211,7 @@ int run_d101(void)
         int hit = ui_d101_hit(b, n, cx, cy);
         ok &= (hit == i);
     }
-    printf("datah_101（450×60 固定）：4 按钮几何 Δ=0 + 命中判定%s\n",
+    printf("datah_101（460×60 固定）：4 按钮几何 Δ=0 + 命中判定%s\n",
            ok ? "PASS" : "FAIL");
     return ok;
 }
@@ -5291,7 +5291,7 @@ int run_d107(void)
         int hit = ui_d107_hit(b, n, cx, cy);
         ok &= (hit == i);
     }
-    printf("datah_107（450×60 固定）：5 按钮几何 Δ=0 + 命中判定%s\n",
+    printf("datah_107（460×60 固定）：5 按钮几何 Δ=0 + 命中判定%s\n",
            ok ? "PASS" : "FAIL");
     return ok;
 }
@@ -5326,9 +5326,9 @@ int run_d109(void)
 {
     const ui_d109_btn *b = ui_d109_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
-    { "开局", 15, 0, 85, 90 },
-    { "终局", 95, 0, 165, 90 },
-    { "定位", 175, 0, 245, 90 },
+    { "开局", 245, 610, 315, 670 },
+    { "终局", 325, 610, 395, 670 },
+    { "定位", 405, 610, 475, 670 },
     };
     int n = UI_D109_COUNT, ok = 1;
     for (int i = 0; i < n; i++) {
@@ -5343,7 +5343,7 @@ int run_d109(void)
         int hit = ui_d109_hit(b, n, cx, cy);
         ok &= (hit == i);
     }
-    printf("datah_109（260×90 固定）：3 按钮几何 Δ=0 + 命中判定%s\n",
+    printf("datah_109（260×90 居中）：3 按钮几何 Δ=0 + 命中判定%s\n",
            ok ? "PASS" : "FAIL");
     return ok;
 }
@@ -5432,7 +5432,7 @@ int run_d114(void)
 {
     const ui_d114_btn *b = ui_d114_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
-    { "Site", 30, 700, 60, 760 },
+    { "Site", 30, 700, 90, 760 },
     };
     int n = UI_D114_COUNT, ok = 1;
     for (int i = 0; i < n; i++) {
@@ -5447,7 +5447,7 @@ int run_d114(void)
         int hit = ui_d114_hit(b, n, cx, cy);
         ok &= (hit == i);
     }
-    printf("datah_114（30×60 固定）：1 按钮几何 Δ=0 + 命中判定%s\n",
+    printf("datah_114（60×60 固定）：1 按钮几何 Δ=0 + 命中判定%s\n",
            ok ? "PASS" : "FAIL");
     return ok;
 }
@@ -5582,7 +5582,7 @@ int run_d123(void)
 {
     const ui_d123_btn *b = ui_d123_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
-    { "Wall", 0, 0, 120, 75 },
+    { "Wall", 307, 610, 382, 678 },
     };
     int n = UI_D123_COUNT, ok = 1;
     for (int i = 0; i < n; i++) {
@@ -5597,7 +5597,7 @@ int run_d123(void)
         int hit = ui_d123_hit(b, n, cx, cy);
         ok &= (hit == i);
     }
-    printf("datah_123（120×75 固定）：1 按钮几何 Δ=0 + 命中判定%s\n",
+    printf("datah_123（120×75 居中）：1 按钮几何 Δ=0 + 命中判定%s\n",
            ok ? "PASS" : "FAIL");
     return ok;
 }
@@ -5622,7 +5622,7 @@ int run_d246(void)
         int hit = ui_d246_hit(b, n, cx, cy);
         ok &= (hit == i);
     }
-    printf("datah_246（257×45 固定）：2 按钮几何 Δ=0 + 命中判定%s\n",
+    printf("datah_246（370×45 固定）：2 按钮几何 Δ=0 + 命中判定%s\n",
            ok ? "PASS" : "FAIL");
     return ok;
 }
@@ -5631,7 +5631,7 @@ int run_d247(void)
 {
     const ui_d247_btn *b = ui_d247_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
-    { "Back", 113, 442, 370, 487 },
+    { "Back", 303, 442, 365, 487 },
     };
     int n = UI_D247_COUNT, ok = 1;
     for (int i = 0; i < n; i++) {
@@ -5646,7 +5646,7 @@ int run_d247(void)
         int hit = ui_d247_hit(b, n, cx, cy);
         ok &= (hit == i);
     }
-    printf("datah_247（257×45 固定）：1 按钮几何 Δ=0 + 命中判定%s\n",
+    printf("datah_247（370×45 固定）：1 按钮几何 Δ=0 + 命中判定%s\n",
            ok ? "PASS" : "FAIL");
     return ok;
 }
@@ -5673,7 +5673,7 @@ int run_d248(void)
         int hit = ui_d248_hit(b, n, cx, cy);
         ok &= (hit == i);
     }
-    printf("datah_248（140×210 固定）：4 按钮几何 Δ=0 + 命中判定%s\n",
+    printf("datah_248（255×210 固定）：4 按钮几何 Δ=0 + 命中判定%s\n",
            ok ? "PASS" : "FAIL");
     return ok;
 }
@@ -5682,7 +5682,7 @@ int run_d249(void)
 {
     const ui_d249_btn *b = ui_d249_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
-    { "Type", 388, 731, 70, 64 },
+    { "Type", 388, 731, 458, 795 },
     };
     int n = UI_D249_COUNT, ok = 1;
     for (int i = 0; i < n; i++) {
@@ -5697,7 +5697,7 @@ int run_d249(void)
         int hit = ui_d249_hit(b, n, cx, cy);
         ok &= (hit == i);
     }
-    printf("datah_249（-318×-667 固定）：1 按钮几何 Δ=0 + 命中判定%s\n",
+    printf("datah_249（70×64 固定）：1 按钮几何 Δ=0 + 命中判定%s\n",
            ok ? "PASS" : "FAIL");
     return ok;
 }
@@ -5722,7 +5722,7 @@ int run_d250(void)
         int hit = ui_d250_hit(b, n, cx, cy);
         ok &= (hit == i);
     }
-    printf("datah_250（39×45 固定）：2 按钮几何 Δ=0 + 命中判定%s\n",
+    printf("datah_250（124×45 固定）：2 按钮几何 Δ=0 + 命中判定%s\n",
            ok ? "PASS" : "FAIL");
     return ok;
 }
@@ -5731,7 +5731,7 @@ int run_d251(void)
 {
     const ui_d251_btn *b = ui_d251_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
-    { "复盘", 27, 690, 120, 780 },
+    { "复盘", 42, 705, 132, 765 },
     };
     int n = UI_D251_COUNT, ok = 1;
     for (int i = 0; i < n; i++) {
@@ -5746,7 +5746,7 @@ int run_d251(void)
         int hit = ui_d251_hit(b, n, cx, cy);
         ok &= (hit == i);
     }
-    printf("datah_251（93×90 固定）：1 按钮几何 Δ=0 + 命中判定%s\n",
+    printf("datah_251（120×90 固定）：1 按钮几何 Δ=0 + 命中判定%s\n",
            ok ? "PASS" : "FAIL");
     return ok;
 }
@@ -5770,7 +5770,7 @@ int run_d253(void)
         int hit = ui_d253_hit(b, n, cx, cy);
         ok &= (hit == i);
     }
-    printf("datah_253（345×135 固定）：1 按钮几何 Δ=0 + 命中判定%s\n",
+    printf("datah_253（390×135 固定）：1 按钮几何 Δ=0 + 命中判定%s\n",
            ok ? "PASS" : "FAIL");
     return ok;
 }
@@ -5796,7 +5796,7 @@ int run_d255(void)
         int hit = ui_d255_hit(b, n, cx, cy);
         ok &= (hit == i);
     }
-    printf("datah_255（285×45 固定）：3 按钮几何 Δ=0 + 命中判定%s\n",
+    printf("datah_255（370×45 固定）：3 按钮几何 Δ=0 + 命中判定%s\n",
            ok ? "PASS" : "FAIL");
     return ok;
 }
@@ -5823,7 +5823,7 @@ int run_d256(void)
         int hit = ui_d256_hit(b, n, cx, cy);
         ok &= (hit == i);
     }
-    printf("datah_256（280×45 固定）：4 按钮几何 Δ=0 + 命中判定%s\n",
+    printf("datah_256（340×45 固定）：4 按钮几何 Δ=0 + 命中判定%s\n",
            ok ? "PASS" : "FAIL");
     return ok;
 }
@@ -5851,7 +5851,7 @@ int run_d257(void)
         int hit = ui_d257_hit(b, n, cx, cy);
         ok &= (hit == i);
     }
-    printf("datah_257（450×60 固定）：5 按钮几何 Δ=0 + 命中判定%s\n",
+    printf("datah_257（460×60 固定）：5 按钮几何 Δ=0 + 命中判定%s\n",
            ok ? "PASS" : "FAIL");
     return ok;
 }
@@ -5879,7 +5879,7 @@ int run_d258(void)
         int hit = ui_d258_hit(b, n, cx, cy);
         ok &= (hit == i);
     }
-    printf("datah_258（450×60 固定）：5 按钮几何 Δ=0 + 命中判定%s\n",
+    printf("datah_258（460×60 固定）：5 按钮几何 Δ=0 + 命中判定%s\n",
            ok ? "PASS" : "FAIL");
     return ok;
 }
@@ -5904,7 +5904,7 @@ int run_d259(void)
         int hit = ui_d259_hit(b, n, cx, cy);
         ok &= (hit == i);
     }
-    printf("datah_259（75×150 固定）：2 按钮几何 Δ=0 + 命中判定%s\n",
+    printf("datah_259（210×150 固定）：2 按钮几何 Δ=0 + 命中判定%s\n",
            ok ? "PASS" : "FAIL");
     return ok;
 }
@@ -5932,7 +5932,7 @@ int run_d260(void)
         int hit = ui_d260_hit(b, n, cx, cy);
         ok &= (hit == i);
     }
-    printf("datah_260（450×60 固定）：5 按钮几何 Δ=0 + 命中判定%s\n",
+    printf("datah_260（460×60 固定）：5 按钮几何 Δ=0 + 命中判定%s\n",
            ok ? "PASS" : "FAIL");
     return ok;
 }
@@ -5956,7 +5956,7 @@ int run_d261(void)
         int hit = ui_d261_hit(b, n, cx, cy);
         ok &= (hit == i);
     }
-    printf("datah_261（345×135 固定）：1 按钮几何 Δ=0 + 命中判定%s\n",
+    printf("datah_261（390×135 固定）：1 按钮几何 Δ=0 + 命中判定%s\n",
            ok ? "PASS" : "FAIL");
     return ok;
 }
@@ -5983,7 +5983,7 @@ int run_d262(void)
         int hit = ui_d262_hit(b, n, cx, cy);
         ok &= (hit == i);
     }
-    printf("datah_262（450×60 固定）：4 按钮几何 Δ=0 + 命中判定%s\n",
+    printf("datah_262（460×60 固定）：4 按钮几何 Δ=0 + 命中判定%s\n",
            ok ? "PASS" : "FAIL");
     return ok;
 }
@@ -6011,7 +6011,7 @@ int run_d263(void)
         int hit = ui_d263_hit(b, n, cx, cy);
         ok &= (hit == i);
     }
-    printf("datah_263（450×60 固定）：5 按钮几何 Δ=0 + 命中判定%s\n",
+    printf("datah_263（460×60 固定）：5 按钮几何 Δ=0 + 命中判定%s\n",
            ok ? "PASS" : "FAIL");
     return ok;
 }
@@ -6020,7 +6020,7 @@ int run_d264(void)
 {
     const ui_d264_btn *b = ui_d264_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
-    { "Site", 30, 735, 60, 800 },
+    { "Site", 30, 735, 90, 795 },
     };
     int n = UI_D264_COUNT, ok = 1;
     for (int i = 0; i < n; i++) {
@@ -6035,7 +6035,7 @@ int run_d264(void)
         int hit = ui_d264_hit(b, n, cx, cy);
         ok &= (hit == i);
     }
-    printf("datah_264（30×65 固定）：1 按钮几何 Δ=0 + 命中判定%s\n",
+    printf("datah_264（60×65 固定）：1 按钮几何 Δ=0 + 命中判定%s\n",
            ok ? "PASS" : "FAIL");
     return ok;
 }

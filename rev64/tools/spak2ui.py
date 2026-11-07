@@ -50,6 +50,65 @@ def spak_files():
         if m: out.append((int(m.group(1)), os.path.join(SPAK, f)))
     return sorted(out)
 
+def _parse_rect_tokens(rect):
+    """解析原版 rect token 串 → (cx_off, cy_off, W, H, abs_x, abs_y, kind)
+
+    原版 rect 语法有 5 种变体（对抗审计 AUD-A-* geom-delta 实锤）：
+      1. "0,0,W,H"        → 居中（plain）
+      2. "0,0,wW,hH"      → 居中（带 w/h 前缀）
+      3. "x,y,wW,hH"      → 绝对位置（带 w/h 前缀）
+      4. "x,y,X,Y"        → 绝对位置（plain 右下角）
+      5. "c-CX,c-CY,wW,hH"→ 居中锚点（c- 前缀 = 相对屏幕中心的偏移）
+    旧解析器把 2/3/5 全判成"绝对定位"，且对 5 的 W/H 算成 (W-cx, H-cy) → 尺寸与偏移双错。
+    """
+    parts = [p.strip() for p in rect.split(",")]
+    vals = []
+    for p in parts:
+        s = p
+        prefix = ""
+        if s[:1] in ("w", "h", "c"):
+            prefix = s[0]
+            s = s[1:]
+        try:
+            v = float(s)
+        except ValueError:
+            v = None
+        vals.append((prefix, v))
+
+    def get(i):
+        return vals[i] if i < len(vals) else ("", None)
+
+    p0, p1 = get(0), get(1)
+    p2, p3 = get(2), get(3)
+
+    # c- 锚点类
+    if p0[0] == "c" or p1[0] == "c":
+        cx = p0[1] or 0.0
+        cy = p1[1] or 0.0
+        W = p2[1] if p2[0] == "w" and p2[1] is not None else (p2[1] or 0.0)
+        H = p3[1] if p3[0] == "h" and p3[1] is not None else (p3[1] or 0.0)
+        return cx, cy, W, H, None, None, "C_ANCHOR"
+
+    # w/h 前缀类
+    if p2[0] == "w" or p3[0] == "h":
+        W = p2[1] if p2[1] is not None else 0.0
+        H = p3[1] if p3[1] is not None else 0.0
+        ax = p0[1] or 0.0
+        ay = p1[1] or 0.0
+        kind = "CENTERED_wh" if (ax == 0 and ay == 0) else "ABS_wh"
+        return 0.0, 0.0, W, H, ax, ay, kind
+
+    # plain 类：x,y,X,Y
+    ax = p0[1] or 0.0
+    ay = p1[1] or 0.0
+    bx = p2[1] if p2[1] is not None else ax
+    by = p3[1] if p3[1] is not None else ay
+    W = bx - ax
+    H = by - ay
+    kind = "CENTERED_plain" if (ax == 0 and ay == 0 and W > 100 and H > 50) else "ABS_plain"
+    return 0.0, 0.0, W, H, ax, ay, kind
+
+
 def parse_dialog(path):
     """机读 datah XML → 结构化（面板 + 按钮 + 文本标签）"""
     raw = open(path, "rb").read()
@@ -57,24 +116,27 @@ def parse_dialog(path):
     except UnicodeDecodeError: txt = raw.decode("utf-8", "ignore")
     dlg = re.search(r'<Window style="(\w+)"\s*([^>]*?)(/?)>', txt)
     info = {"style": dlg.group(1) if dlg else "Dialog", "raw": txt}
-    # 顶层面板 rect（两种：rect="0,0,W,H" 居中 / rect="x,y,wW,hH" 绝对）
+    # 顶层面板 rect（5 种语法变体，见 _parse_rect_tokens 文档）
     m = re.search(r'style="[^"]*" rect="([^"]+)"([^>]*)', txt)
     if m:
         rect = m.group(1); opts = m.group(2)
-        parts = [p.strip().strip('wch') for p in rect.split(",")]
-        num = lambda s: float(s) if s.lstrip('-').replace('.','',1).isdigit() else None
-        x0,y0,x1,y1 = (num(p) for p in parts)
-        info["rect"] = [x0,y0,x1,y1]
-        # 判断面板尺寸：0,0,W,H（居中）vs x,y,wW,hH（绝对）
-        if x0==0 and y0==0 and x1 and y1 and x1>100 and y1>50 and "w" not in m.group(1):
-            info["panel"] = (int(x1), int(y1)); info["centered"] = True
-        elif x1 and y1 and x1 < x0 and y1 < y0:  # w460,h465 形式（x0=0,y0=0 时 x1=x0+460）
-            info["panel"] = (int(x1-x0), int(y1-y0)); info["centered"] = "center" in opts
+        cx, cy, W, H, ax, ay, kind = _parse_rect_tokens(rect)
+        info["rect_kind"] = kind
+        info["rect"] = [ax if ax is not None else cx, ay if ay is not None else cy, W, H]
+        info["center_off"] = (cx, cy)
+        if W > 0 and H > 0:
+            info["panel"] = (int(W), int(H))
+            info["centered"] = kind in ("CENTERED_plain", "CENTERED_wh", "C_ANCHOR")
+            if kind == "C_ANCHOR":
+                info["centered"] = True
         else:
-            info["panel"] = (int((x1-x0)) if x1>x0 else int(x1), int((y1-y0)) if y1>y0 else int(y1))
-            info["centered"] = "center" in opts or "center=true" in opts
+            info["panel"] = None
+            info["centered"] = False
     else:
-        info["panel"] = None; info["centered"] = False
+        info["panel"] = None
+        info["centered"] = False
+        info["rect_kind"] = "NO_RECT"
+        info["center_off"] = (0.0, 0.0)
     # 按钮（style=Button/IconBtn，有 rect + 可选 name/text）
     btns = []
     for bm in re.finditer(r'<Window\s+([^>]*style="(?:Button|IconBtn)"[^>]*)/?>', txt):
@@ -102,17 +164,43 @@ def parse_dialog(path):
     info["editboxes"] = len(edits)
     return info
 
+def panel_origin(info):
+    """面板左上角在 720×1280 基准的坐标（**单一真相源**）
+
+    ★ 对抗审计修正（§2026-11-11）：原版 rect 有 5 种语法变体，
+    面板原点换算必须与 to_720() 完全同源 —— 此前 gen_dialog_batch.py 自带一份换算，
+    与 to_720 语义漂移 → c- 锚点类面板偏移丢失 → 按钮坐标全错（返回键点不到）。
+
+    C_ANCHOR（c-CX,c-CY）语义推导：
+      实测 6 个 c- 类弹窗的 CX 恒等于 -W/2（019: -225=-450/2、040: -165=-330/2、
+      048: -187≈-375/2、087: -90=-180/2、252: -165=-330/2）
+      → 证明 c- 的 X 是**左上角相对屏幕中心**的偏移（解读 a），
+        且 x 方向恰好退化为严格居中。Y 不与 H/2 相关 → 有意偏离中心（浮标类工具条）。
+      诚实边界：c- 类的 Y 锚点语义未在真机验证（x 方向无风险，两解读等价）。
+    """
+    if not info.get("panel"):
+        return (0.0, 0.0)
+    W, H = info["panel"]
+    kind = info.get("rect_kind")
+    if kind == "C_ANCHOR":
+        cx, cy = info.get("center_off") or (0.0, 0.0)
+        return 360.0 + cx, 640.0 + cy
+    if info.get("centered"):
+        return (720 - W) / 2.0, (1280 - H) / 2.0
+    r = info.get("rect") or [0, 0]
+    return (r[0] or 0), (r[1] or 0)
+
+
 def to_720(info):
-    """面板居中/绝对 → 720×1280 按钮坐标（局部 1:1 平移）"""
+    """面板居中/绝对 → 720×1280 按钮坐标（局部 1:1 平移）
+
+    ★ 对抗审计修正（§2026-11-11）：c- 锚点类（C_ANCHOR）的偏移是**相对屏幕中心**，
+    不是严格居中 → 需在居中偏移上叠加 center_off。
+    """
     out = []
     if not info.get("panel"):
         return out
-    W,H = info["panel"]
-    if info.get("centered"):
-        ox, oy = (720-W)/2.0, (1280-H)/2.0
-    else:
-        r = info.get("rect")
-        ox, oy = (r[0] if r and r[0] else 0), (r[1] if r and r[1] else 0)
+    ox, oy = panel_origin(info)
     for b in info["buttons"]:
         out.append({
             "name": b["name"], "text": b["text"], "style": b["style"],
