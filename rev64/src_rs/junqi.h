@@ -191,7 +191,7 @@ int  jq_snapshots_left(const jq_state *st);         /* 恒 0（快照栈在调�
 void jq_on_flag_capture(jq_state *st, uint8_t captor_side);
 void jq_on_draw(jq_state *st);
 void jq_on_stalemate(jq_state *st);
-int ai_score(int src_rank_raw, int dst_rank_raw);  /* AI 贪心评分（对抗审计 #2，可单测） */
+int ai_score(int src_rank_raw, int dst_rank_raw, int dst_revealed);  /* AI 贪心评分（对抗审计 #2，可单测；★ AUD-R-010 暗棋目标未翻=不透视真 rank） */
 
 /* ---- 默认布局（SPAK data/lay/default.lay，L52 分布确证）---- */
 extern const uint8_t JQ_DEFAULT_LAY[30];

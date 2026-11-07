@@ -265,7 +265,12 @@ static int ai_pick(int *from, int *to, int *is_flip)
             if (t == i) continue;
             jq_cell *d = &g_state.cells[t];
             if (!jq_can_move(&g_state, i, t)) continue;
-            int sc = ai_score(c->rank, d->rank);  /* ★ 对抗审计 #2：统一走 ai_score（rank_norm 内建） */
+            /* ★ AUD-R-011（P1）：暗棋目标侧过滤（与 move_legal 拦截语义一致，双重保险）：
+               暗棋下未翻开的目标（rank 非空）不入候选，不浪费 ai_score 调用。
+               明棋（mode=LAY）无此过滤，行为不变。 */
+            if (g_state.mode == JQ_MODE_FLIP && d->rank != RANK_EMPTY && !d->revealed)
+                continue;
+            int sc = ai_score(c->rank, d->rank, d->revealed);  /* ★ 对抗审计 #2：统一走 ai_score（rank_norm 内建）；★ AUD-R-010 传 d->revealed */
             if (sc > bs) { bs = sc; bf = i; bt = t; }
             /* ★ 新手区（level 1）：sc>=2 里取最小（空移 sc=2 < 吃子 sc=1000 → 被动） */
             if (sc >= 2 && sc < ws) { ws = sc; wf = i; wt = t; }

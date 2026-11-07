@@ -466,10 +466,15 @@ void jq_on_stalemate(jq_state *st)
 /* AI 贪心评分（对抗审计 #2 提取：设备端 ai_pick 用原始编码 rank 比较的 bug 修复 + 可单测化）。
    src/dst 为原始存储 rank（红方 = 实际+0xc，需 rank_norm 还原）。
    返回：1000 吃子 / 900 同级 / 800 炸弹 / 700 工兵挖雷 / 2 空移 / 1 送死 / -1 旗雷不可走。 */
-int ai_score(int src_rank_raw, int dst_rank_raw)
+int ai_score(int src_rank_raw, int dst_rank_raw, int dst_revealed)
 {
     int r = rank_norm(src_rank_raw);
     if (r == RANK_FLAG || r == RANK_MINE) return -1;
+    /* ★ AUD-R-010（P1）：暗棋目标未翻开（dst_revealed=0 且非空格）→ 评分上限降为空移级
+       sc=2，不按真 rank 透视敌子（旧版 ai_score 入参只有 2 个 rank，暗棋下 AI 直接读
+       未翻暗子真 rank 给出 1000/900/800 分 = 自带透视，与 ruleflip 信息博弈前提冲突）。
+       明棋路径 dst 恒 revealed=1，行为不变；暗棋翻棋后 revealed=1 再走真评分。 */
+    if (dst_rank_raw && !dst_revealed) return 2;
     int dr = dst_rank_raw ? rank_norm(dst_rank_raw) : 0;
     if (dst_rank_raw) {
         /* ★ 地雷特判必须在 r<dr 之前：普通子（rank<11）碰雷会先命中 r<dr → 误判"能吃"1000，

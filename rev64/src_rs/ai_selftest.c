@@ -35,33 +35,43 @@ int main(void)
     int empty = 0;          /* 空格      → 0  */
 
     /* 1. 吃子：红 rank3 吃 蓝 rank8（3<8 大压小）→ 1000 */
-    CHECK(ai_score(red3, blue8) == 1000, "红 rank3 吃蓝 rank8 = 1000（吃子）");
+    CHECK(ai_score(red3, blue8, 1) == 1000, "红 rank3 吃蓝 rank8 = 1000（吃子）");
 
     /* 2. 同级互杀：红 rank6 vs 蓝 rank6 → 900 */
-    CHECK(ai_score(red6, blue6) == 900, "红 rank6 同级蓝 rank6 = 900（同级）");
+    CHECK(ai_score(red6, blue6, 1) == 900, "红 rank6 同级蓝 rank6 = 900（同级）");
 
     /* 3. 炸弹：红炸弹（存储22）撞任意 → 800 */
-    CHECK(ai_score(redB, blue1) == 800, "红炸弹 = 800（炸弹）");
+    CHECK(ai_score(redB, blue1, 1) == 800, "红炸弹 = 800（炸弹）");
 
     /* 4. 工兵挖雷：红工兵（存储21）挖地雷 → 700 */
-    CHECK(ai_score(redE, mine) == 700, "红工兵挖雷 = 700（工兵挖雷）");
+    CHECK(ai_score(redE, mine, 1) == 700, "红工兵挖雷 = 700（工兵挖雷）");
 
     /* 5. 送死：红 rank2 撞蓝 rank1（2>1 吃不掉）→ 1（最低分，不主动送死） */
-    CHECK(ai_score(red2, blue1) == 1, "红 rank2 撞蓝 rank1 = 1（送死最低分）");
+    CHECK(ai_score(red2, blue1, 1) == 1, "红 rank2 撞蓝 rank1 = 1（送死最低分）");
 
     /* 5b. ★ 隐藏 bug 修复验证：普通子碰地雷 = 送死（非"能吃"1000），仅工兵可挖 */
-    CHECK(ai_score(red2, mine) == 1, "红 rank2 碰地雷 = 1（送死，非工兵不能挖）");
-    CHECK(ai_score(red6, mine) == 1, "红 rank6 碰地雷 = 1（送死，非工兵不能挖）");
+    CHECK(ai_score(red2, mine, 1) == 1, "红 rank2 碰地雷 = 1（送死，非工兵不能挖）");
+    CHECK(ai_score(red6, mine, 1) == 1, "红 rank6 碰地雷 = 1（送死，非工兵不能挖）");
 
     /* 6. 空移：目标空格 → 2（优先于送死） */
-    CHECK(ai_score(red3, empty) == 2, "红 rank3 空格 = 2（空移）");
+    CHECK(ai_score(red3, empty, 1) == 2, "红 rank3 空格 = 2（空移）");
 
     /* 7. 旗/雷不可走：src 为军旗/地雷 → -1 */
-    CHECK(ai_score(12, empty) == -1, "军旗不可走 = -1");
-    CHECK(ai_score(11, empty) == -1, "地雷不可走 = -1");
+    CHECK(ai_score(12, empty, 1) == -1, "军旗不可走 = -1");
+    CHECK(ai_score(11, empty, 1) == -1, "地雷不可走 = -1");
 
     /* 8. 蓝方视角（无 +0xc）：蓝 rank3 吃 红 rank8（存储 8+12=20）→ 1000 */
-    CHECK(ai_score(3, 20) == 1000, "蓝 rank3 吃红 rank8（存储20）= 1000（吃子）");
+    CHECK(ai_score(3, 20, 1) == 1000, "蓝 rank3 吃红 rank8（存储20）= 1000（吃子）");
+
+    /* 9. ★ AUD-R-010：暗棋未翻目标（dst_revealed=0）不透视真 rank，上限=空移分 2 */
+    CHECK(ai_score(red3, blue8, 0) == 2, "暗棋未翻暗子（真 rank 蓝8）= 2（不透视，非吃子1000）");
+    CHECK(ai_score(red6, blue6, 0) == 2, "暗棋未翻同级暗子 = 2（不透视，非同级900）");
+    CHECK(ai_score(red2, blue1, 0) == 2, "暗棋未翻弱暗子 = 2（不透视，非送死1）");
+    CHECK(ai_score(3, 20, 0) == 2, "蓝 rank3 vs 未翻红暗 rank8（存储20）= 2（不透视）");
+    /* 暗棋空格目标 dst_revealed 无意义（rank 空）：维持原评分 */
+    CHECK(ai_score(red3, empty, 0) == 2, "暗棋空格目标 = 2（空移）");
+    /* 翻开（revealed=1）后回到真评分：吃子 1000 */
+    CHECK(ai_score(red3, blue8, 1) == 1000, "翻开后吃子 = 1000（真评分恢复）");
 
     printf("=== AI 评分单测: %s（%d FAIL）===\n", fails ? "FAIL" : "全部通过", fails);
     return fails ? 1 : 0;
