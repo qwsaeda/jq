@@ -19,7 +19,12 @@ const uint8_t JQ_DEFAULT_LAY[30] = {
     8,3,4,9,11, 11,12,11,8,7
 };
 
-/* 标准单方 25 子 rank 分布（default.lay 实测，L52 决定性证据） */
+/* 标准单方 25 子 rank 分布（default.lay 实测，L52 决定性证据）。
+   AUD-A-0005/0006（P2 诚实标注，探针误报）：cnt 是**调用方栈数组**（jq_standard_army_count
+   签名契约 int cnt[RANK_COUNT]，RANK_COUNT=13 编译期宏）；本函数写死常量下标 1-12
+   （cnt[1]..cnt[12]），全部 < RANK_COUNT，无外部输入下标——探针把形参类型标注当越界
+   风险，属误报。jq_validate_layout 的 seen[]/cnt[] 循环 r∈[1,RANK_COUNT) 亦为编译期
+   宏边界（AUD-R-080 rank_norm 上界钳到 RANK_TOP=12 保证 r 恒合法）。 */
 void jq_standard_army_count(int cnt[RANK_COUNT])
 {
     memset(cnt, 0, sizeof(int[RANK_COUNT]));
