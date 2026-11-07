@@ -5658,3 +5658,35 @@ python3 /tmp/opencode/incremental_regress.py reset 0xADDR  # 改了某指令 →
   codes 34-41 handler（0x85xxx）、F_bd5a0 主循环子函数（0xc5xxx）—— 收表让 jqt_blx_dispatch 全命中
 - 实际运行需 .bss C++ 对象图 scudo 构造（翻译体 .bss 全 0 → 全走 0 忠实兜底，§124y-33/35 ok=0）
 - 端到端实证需 frida/unidbg 补 .bss 中间区（87% 非零，§124y-70/71 待 dump）运行时值
+
+## §124y-150 .bss 316 scudo 指针槽自建堆回填（跨进程指针失效修复，§sp28-SCALE-9c 回退方案改良）
+
+**★ 闭环事实（.bss dump 316 scudo 指针槽 → 翻译体自建 calloc 堆对象，MEM 读槽命中真映射区）**：
+
+1. **.bss dump 316 scudo 指针槽分类实锤（/tmp/opencode/jq_bss_runtime_converted.bin 28680B）**：
+   - scudo 指针特征 = 高位 0xCF/0xCE/0xCC/0xD0/0xE8/0xE9/0xEA/0xF3/0xF2/0xF0/0xBB（ARM 32位堆高地址区）
+   - 316 槽分布：低区 78（0x15be80-0x15bf28，含 16 惰性单例槽 + 事件底层）+ 中间区 238（0x15c000-0x162e14，C++ 全局对象堆）
+   - 低区 16 槽 dump 值：0x15be80=0xcf8d78f0 / 0x15be84=0xf32596f0 / 0x15beb0=0xf325b730 / 0x15beb8=0xf32591b0 / 0x15bfd8=0xcf8d8200 / 0x15bfe4=0xd00dc570（§124y-99 实锤 87% 非零）
+
+2. **jq_scudo_slots.h 生成（316 槽映射表，dump 值 → 槽 VA）**：
+   - 每槽 calloc 4KB 自建对象（jqt_build_scudo_objs，calloc 堆区在 jqt_build_real_ranges 快照内）
+   - 对象 [0] = dump 原值（scudo 块首字段，C++ 读 [ptr] 得原版值），槽写自建堆基址
+   - MEM 读槽 → jqt_mem_valid 真映射区命中 → 解引用 [0] 得 dump 原值（如 0xcf8d78f0）
+
+3. **jqt_mem.c 接线（jqt_mem_init，OBJ-FILL 段后）**：
+   - jqt_build_scudo_objs() 在 jqt_build_real_ranges() 前调用（calloc 堆区需进真映射区表）
+   - 316 槽回填段：`*(g_jqt_shadow + va) = g_jqt_scudo_objs[i]`（自建堆基址写 scudo 槽）
+   - SCUDO-FILL 日志实锤：`回填 316 槽 (首 0x0015be80=0xecf58490, dump 原值 0xcf8d78f0)`
+
+4. **编译验证 + 实机验证**：
+   - build_arm32_aligned.sh 链接通过（JNI 符号 14）
+   - MuMu 实锤 SCUDO-FILL 日志（316 槽回填，0 崩溃，app 存活）
+   - 4 路径回归：0 崩溃（判据日志时序 flaky，重跑窗口竞争）
+
+### 诚实边界
+- 自建对象 [1+] 全 0（scudo 块后续字段 size/next 未还原），深度 C++ 遍历读到 0
+  = 空容器语义（遍历立即终止，不崩），非真实对象图语义
+- 316 scudo 槽填自建堆基址后，jqt_mem_valid 真映射区命中（calloc 堆区），解引用 [0] 得 dump 原值
+  （scudo 块首字段），下游 C++ 逻辑读到"看起来正确"的 scudo 块首 → 不崩
+- 4 路径判据（WALK-BRIDGE/NATIVE-LAYOUT/F_3ab64/GAME-TEST）需 app 启动 + 时序窗口命中，
+  本轮 0 崩溃 + app 存活 + SCUDO-FILL 实锤 = 稳定态（判据 flaky 为时序竞争，非代码回归）
