@@ -1975,6 +1975,14 @@ static const ui_d064_btn g_d064_btns[UI_D064_COUNT] = {
 const ui_d064_btn *ui_d064_buttons(void) { return g_d064_btns; }
 int ui_d064_hit(const ui_d064_btn *b, int n, float x, float y)
 { for (int i = 0; i < n; i++) if (x>=b[i].x0 && x<=b[i].x1 && y>=b[i].y0 && y<=b[i].y1) return i; return -1; }
+/* ★ 批量对齐（datah_065）：2 按钮（720 基准，局部 1:1 平移） */
+static const ui_d065_btn g_d065_btns[UI_D065_COUNT] = {
+    { 165.0f, 808.0f, 345.0f, 868.0f, 0 },  /* 开始 */
+    { 375.0f, 808.0f, 555.0f, 868.0f, 1 },  /* 取消 */
+};
+const ui_d065_btn *ui_d065_buttons(void) { return g_d065_btns; }
+int ui_d065_hit(const ui_d065_btn *b, int n, float x, float y)
+{ for (int i = 0; i < n; i++) if (x>=b[i].x0 && x<=b[i].x1 && y>=b[i].y0 && y<=b[i].y1) return i; return -1; }
 /* ★ 批量对齐（datah_066）：3 按钮（720 基准，局部 1:1 平移） */
 static const ui_d066_btn g_d066_btns[UI_D066_COUNT] = {
     { 255.0f, 535.0f, 465.0f, 595.0f, 0 },  /* 创建游戏 */
@@ -1983,6 +1991,20 @@ static const ui_d066_btn g_d066_btns[UI_D066_COUNT] = {
 };
 const ui_d066_btn *ui_d066_buttons(void) { return g_d066_btns; }
 int ui_d066_hit(const ui_d066_btn *b, int n, float x, float y)
+{ for (int i = 0; i < n; i++) if (x>=b[i].x0 && x<=b[i].x1 && y>=b[i].y0 && y<=b[i].y1) return i; return -1; }
+/* ★ 批量对齐（datah_067）：8 按钮（720 基准，局部 1:1 平移） */
+static const ui_d067_btn g_d067_btns[UI_D067_COUNT] = {
+    { 150.0f, 522.0f, 255.0f, 658.0f, 0 },  /* 重新开始 */
+    { 255.0f, 522.0f, 360.0f, 658.0f, 1 },  /* 悔棋 */
+    { 360.0f, 522.0f, 465.0f, 658.0f, 2 },  /* 提和 */
+    { 465.0f, 522.0f, 570.0f, 658.0f, 3 },  /* 认输 */
+    { 150.0f, 648.0f, 255.0f, 782.0f, 4 },  /* 聊天 */
+    { 255.0f, 648.0f, 360.0f, 782.0f, 5 },  /* 系统设置 */
+    { 360.0f, 648.0f, 465.0f, 782.0f, 6 },  /* 战况统计 */
+    { 465.0f, 648.0f, 570.0f, 782.0f, 7 },  /* 游戏规则 */
+};
+const ui_d067_btn *ui_d067_buttons(void) { return g_d067_btns; }
+int ui_d067_hit(const ui_d067_btn *b, int n, float x, float y)
 { for (int i = 0; i < n; i++) if (x>=b[i].x0 && x<=b[i].x1 && y>=b[i].y0 && y<=b[i].y1) return i; return -1; }
 /* ★ 批量对齐（datah_068）：3 按钮（720 基准，局部 1:1 平移） */
 static const ui_d068_btn g_d068_btns[UI_D068_COUNT] = {

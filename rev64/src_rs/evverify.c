@@ -2224,7 +2224,9 @@ int main(int argc, char **argv)
         total++; pass += run_d062();
         total++; pass += run_d063();
         total++; pass += run_d064();
+        total++; pass += run_d065();
         total++; pass += run_d066();
+        total++; pass += run_d067();
         total++; pass += run_d068();
         total++; pass += run_d069();
         total++; pass += run_d070();
@@ -4460,6 +4462,31 @@ int run_d064(void)
            ok ? "PASS" : "FAIL");
     return ok;
 }
+/* ★ 批量对齐（datah_065）：2 按钮几何 Δ=0 + 命中判定 */
+int run_d065(void)
+{
+    const ui_d065_btn *b = ui_d065_buttons();
+    static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
+    { "开始", 165, 808, 345, 868 },
+    { "取消", 375, 808, 555, 868 },
+    };
+    int n = UI_D065_COUNT, ok = 1;
+    for (int i = 0; i < n; i++) {
+        if (b[i].x0 != exp[i].x0 || b[i].y0 != exp[i].y0 ||
+            b[i].x1 != exp[i].x1 || b[i].y1 != exp[i].y1) {
+            ok = 0;
+            printf("  %s btn%d 几何不符 src(%.0f,%.0f)-(%.0f,%.0f) 期望(%d,%d)-(%d,%d)\n",
+                   exp[i].lbl, i, b[i].x0, b[i].y0, b[i].x1, b[i].y1,
+                   exp[i].x0, exp[i].y0, exp[i].x1, exp[i].y1);
+        }
+        float cx = (b[i].x0 + b[i].x1) * 0.5f, cy = (b[i].y0 + b[i].y1) * 0.5f;
+        int hit = ui_d065_hit(b, n, cx, cy);
+        ok &= (hit == i);
+    }
+    printf("datah_065（450×505 居中）：2 按钮几何 Δ=0 + 命中判定%s\n",
+           ok ? "PASS" : "FAIL");
+    return ok;
+}
 /* ★ 批量对齐（datah_066）：3 按钮几何 Δ=0 + 命中判定 */
 int run_d066(void)
 {
@@ -4483,6 +4510,37 @@ int run_d066(void)
         ok &= (hit == i);
     }
     printf("datah_066（250×250 居中）：3 按钮几何 Δ=0 + 命中判定%s\n",
+           ok ? "PASS" : "FAIL");
+    return ok;
+}
+/* ★ 批量对齐（datah_067）：8 按钮几何 Δ=0 + 命中判定 */
+int run_d067(void)
+{
+    const ui_d067_btn *b = ui_d067_buttons();
+    static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
+    { "重新开始", 150, 522, 255, 658 },
+    { "悔棋", 255, 522, 360, 658 },
+    { "提和", 360, 522, 465, 658 },
+    { "认输", 465, 522, 570, 658 },
+    { "聊天", 150, 648, 255, 782 },
+    { "系统设置", 255, 648, 360, 782 },
+    { "战况统计", 360, 648, 465, 782 },
+    { "游戏规则", 465, 648, 570, 782 },
+    };
+    int n = UI_D067_COUNT, ok = 1;
+    for (int i = 0; i < n; i++) {
+        if (b[i].x0 != exp[i].x0 || b[i].y0 != exp[i].y0 ||
+            b[i].x1 != exp[i].x1 || b[i].y1 != exp[i].y1) {
+            ok = 0;
+            printf("  %s btn%d 几何不符 src(%.0f,%.0f)-(%.0f,%.0f) 期望(%d,%d)-(%d,%d)\n",
+                   exp[i].lbl, i, b[i].x0, b[i].y0, b[i].x1, b[i].y1,
+                   exp[i].x0, exp[i].y0, exp[i].x1, exp[i].y1);
+        }
+        float cx = (b[i].x0 + b[i].x1) * 0.5f, cy = (b[i].y0 + b[i].y1) * 0.5f;
+        int hit = ui_d067_hit(b, n, cx, cy);
+        ok &= (hit == i);
+    }
+    printf("datah_067（450×285 居中）：8 按钮几何 Δ=0 + 命中判定%s\n",
            ok ? "PASS" : "FAIL");
     return ok;
 }

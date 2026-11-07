@@ -76,7 +76,9 @@ static const struct { const char *prop; int scr; } g_dlg_batch_hooks[] = {
     { "jq.dlg062", UI_D062 },
     { "jq.dlg063", UI_D063 },
     { "jq.dlg064", UI_D064 },
+    { "jq.dlg065", UI_D065 },
     { "jq.dlg066", UI_D066 },
+    { "jq.dlg067", UI_D067 },
     { "jq.dlg068", UI_D068 },
     { "jq.dlg069", UI_D069 },
     { "jq.dlg070", UI_D070 },
@@ -2862,6 +2864,7 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
 
 
 
+
     /* ★ 批量对齐（datah_000）：2 按钮业务分发 */
     if (ui_screen_get() == UI_D000) {
         float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
@@ -4248,6 +4251,26 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
         }
         return JNI_TRUE;
     }
+    /* ★ 批量对齐（datah_065）：2 按钮业务分发 */
+    if (ui_screen_get() == UI_D065) {
+        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
+        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        const ui_d065_btn *bb = ui_d065_buttons();
+        int bh = ui_d065_hit(bb, UI_D065_COUNT, bx, by);
+        if (bh >= 0) {
+            int a = bb[bh].action;
+            LOGI("OnTouch datah_065 弹窗：按钮%d（action=%d）", bh, a);
+            if (a < 0) {
+            } else if (a == 0) {   /* 开始 → 边界对话框（诚实边界） */
+                jq_show_dialog(env, "开始（诚实边界）",
+                    "开始：原版业务未逆向，src_rs 无此通道。");
+                ui_screen_set(UI_GAME); sfx_play(env, "pop");
+            } else if (a == 1) {   /* 取消 → 业务动作 */
+                ui_screen_set(UI_GAME); LOGI("批量对齐：取消 → 回对局"); sfx_play(env, "pop");
+            }   /* 收尾：末分支闭合 */
+        }
+        return JNI_TRUE;
+    }
     /* ★ 批量对齐（datah_066）：3 按钮业务分发 */
     if (ui_screen_get() == UI_D066) {
         float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
@@ -4268,6 +4291,44 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
                 ui_screen_set(UI_GAME); sfx_play(env, "pop");
             } else if (a == 2) {   /* 返回 → 业务动作 */
                 ui_screen_set(UI_GAME); LOGI("批量对齐：返回 → 回对局"); sfx_play(env, "pop");
+            }   /* 收尾：末分支闭合 */
+        }
+        return JNI_TRUE;
+    }
+    /* ★ 批量对齐（datah_067）：8 按钮业务分发 */
+    if (ui_screen_get() == UI_D067) {
+        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
+        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        const ui_d067_btn *bb = ui_d067_buttons();
+        int bh = ui_d067_hit(bb, UI_D067_COUNT, bx, by);
+        if (bh >= 0) {
+            int a = bb[bh].action;
+            LOGI("OnTouch datah_067 弹窗：按钮%d（action=%d）", bh, a);
+            if (a < 0) {
+            } else if (a == 0) {   /* 重新开始 → 边界对话框（诚实边界） */
+                jq_show_dialog(env, "重新开始（诚实边界）",
+                    "重新开始：原版业务未逆向，src_rs 无此通道。");
+                ui_screen_set(UI_GAME); sfx_play(env, "pop");
+            } else if (a == 1) {   /* 悔棋 → 业务动作 */
+                undo_pop();ui_screen_set(UI_GAME); LOGI("批量对齐：悔棋 → undo_pop（已悔步）"); sfx_play(env, "pop");
+            } else if (a == 2) {   /* 提和 → 业务动作 */
+                jq_show_dialog(env, "提和（诚实边界）", "提和：原版需对端应答，src_rs 本地未实现提和判定。"); ui_screen_set(UI_GAME); sfx_play(env, "pop");
+            } else if (a == 3) {   /* 认输 → 边界对话框（诚实边界） */
+                jq_show_dialog(env, "认输（诚实边界）",
+                    "认输：原版业务未逆向，src_rs 无此通道。");
+                ui_screen_set(UI_GAME); sfx_play(env, "pop");
+            } else if (a == 4) {   /* 聊天 → UI_CHAT063 */
+                ui_screen_set(UI_CHAT063); sfx_play(env, "pop");
+            } else if (a == 5) {   /* 系统设置 → 边界对话框（诚实边界） */
+                jq_show_dialog(env, "系统设置（诚实边界）",
+                    "系统设置：原版业务未逆向，src_rs 无此通道。");
+                ui_screen_set(UI_GAME); sfx_play(env, "pop");
+            } else if (a == 6) {   /* 战况统计 → 边界对话框（诚实边界） */
+                jq_show_dialog(env, "战况统计（诚实边界）",
+                    "战况统计：原版业务未逆向，src_rs 无此通道。");
+                ui_screen_set(UI_GAME); sfx_play(env, "pop");
+            } else if (a == 7) {   /* 游戏规则 → UI_RULES */
+                ui_screen_set(UI_RULES); sfx_play(env, "pop");
             }   /* 收尾：末分支闭合 */
         }
         return JNI_TRUE;

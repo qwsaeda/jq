@@ -407,8 +407,14 @@ UI_REPLAY,     /* ★ P1（datah_039/107 证据）：复盘回放态——
     UI_D064,   /* ★ 批量对齐（datah_064 证据）：原版对话框
                        面板 285×45（固定位置），3 按钮
                        文字/业务按原版 XML text + .rodata 事件名，边界项已标注 */
+    UI_D065,   /* ★ 批量对齐（datah_065 证据）：加入游戏
+                       面板 450×505（居中），2 按钮
+                       文字/业务按原版 XML text + .rodata 事件名，边界项已标注 */
     UI_D066,   /* ★ 批量对齐（datah_066 证据）：原版对话框
                        面板 250×250（居中），3 按钮
+                       文字/业务按原版 XML text + .rodata 事件名，边界项已标注 */
+    UI_D067,   /* ★ 批量对齐（datah_067 证据）：原版对话框
+                       面板 450×285（居中），8 按钮
                        文字/业务按原版 XML text + .rodata 事件名，边界项已标注 */
     UI_D068,   /* ★ 批量对齐（datah_068 证据）：个人资料
                        面板 420×235（居中），3 按钮
@@ -1476,6 +1482,7 @@ int ui_chat063_popup_inside(float x, float y);   /* 点在弹窗面板内 */
 
 
 
+
 #define UI_D000_COUNT 2
 #define UI_D000_POPUP_X0 160.0f
 #define UI_D000_POPUP_Y0 500.0f
@@ -1998,6 +2005,15 @@ typedef struct { float x0,y0,x1,y1; int action; } ui_d064_btn;
 const ui_d064_btn *ui_d064_buttons(void);
 int ui_d064_hit(const ui_d064_btn *b, int n, float x, float y);
 
+#define UI_D065_COUNT 2
+#define UI_D065_POPUP_X0 135.0f
+#define UI_D065_POPUP_Y0 388.0f
+#define UI_D065_POPUP_W  450.0f
+#define UI_D065_POPUP_H  505.0f
+typedef struct { float x0,y0,x1,y1; int action; } ui_d065_btn;
+const ui_d065_btn *ui_d065_buttons(void);
+int ui_d065_hit(const ui_d065_btn *b, int n, float x, float y);
+
 #define UI_D066_COUNT 3
 #define UI_D066_POPUP_X0 235.0f
 #define UI_D066_POPUP_Y0 515.0f
@@ -2006,6 +2022,15 @@ int ui_d064_hit(const ui_d064_btn *b, int n, float x, float y);
 typedef struct { float x0,y0,x1,y1; int action; } ui_d066_btn;
 const ui_d066_btn *ui_d066_buttons(void);
 int ui_d066_hit(const ui_d066_btn *b, int n, float x, float y);
+
+#define UI_D067_COUNT 8
+#define UI_D067_POPUP_X0 135.0f
+#define UI_D067_POPUP_Y0 498.0f
+#define UI_D067_POPUP_W  450.0f
+#define UI_D067_POPUP_H  285.0f
+typedef struct { float x0,y0,x1,y1; int action; } ui_d067_btn;
+const ui_d067_btn *ui_d067_buttons(void);
+int ui_d067_hit(const ui_d067_btn *b, int n, float x, float y);
 
 #define UI_D068_COUNT 3
 #define UI_D068_POPUP_X0 150.0f
