@@ -31,6 +31,9 @@ bool is_base(int row, int col)
    纵向：col2 纵线贯穿全高；双方底线 row0（蓝方）/row11（红方）横向贯通。
    横向：row5/6（中线）贯通全宽。
    行营/大本营在铁路外（安全格不可穿行）。
+   ★ AUD-R-022（P2）：原 board.c is_rail 含 row0/row11 底线，rules.c 头注释写
+   "横向仅 row5/6"（缺底线），两处矛盾。现以 board.c 实现为唯一事实源：
+   横向铁路 = row0/row5/row6/row11，纵向铁路 = 仅 col2。
    双方底线为铁路是原版军棋标准（否则底角棋子无纵向通道，困毙误判）。 */
 bool is_rail(int row, int col)
 {

@@ -237,10 +237,12 @@ static int run_ruleset(void)
     mk_mine(&st);
     int ok2 = run_case("mine-on", &st, 49, 54, EV_MINE, STG_PLAY, -1);
 
-    /* ② 吃军旗开关关（模拟 ui_rule_flag_set(0)）：扛旗不判胜（stage 保持 PLAY，winner 不变） */
+    /* ② 吃军旗开关关（模拟 ui_rule_flag_set(0)）：扛旗不判胜（EV_FLAG 但局终不置）。
+       ★ AUD-R-008（P1）后：flag-off 收口走 stalemate_after → RED 困毙（58 军旗不可动），
+       winner=BLUE stage=OVER。事件码仍 EV_FLAG（棋子确实落在军旗格）。 */
     ui_rule_flag_set(0);
     mk_flag(&st);
-    int ok3 = run_case("flag-off", &st, 53, 58, EV_FLAG, STG_PLAY, -1);   /* 不判胜 */
+    int ok3 = run_case("flag-off", &st, 53, 58, EV_FLAG, STG_OVER, SIDE_BLUE);   /* 困毙判胜（RED 无棋可走） */
     ui_rule_flag_set(1);   /* 恢复默认全开 */
 
     /* ③ 吃地雷开关关（模拟 ui_rule_mine_set(0)）：工兵撞雷=送死（EV_DEAD，雷不动）。

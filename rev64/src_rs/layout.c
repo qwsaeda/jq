@@ -33,6 +33,9 @@ void jq_state_init(jq_state *st)
     st->turn = SIDE_BLUE;
     st->stage = STG_PLAY;
     st->winner = -1;
+    /* ★ AUD-R-014（P1）：pieces_left 统计未接线（刷新逻辑恒 1、吃子后变负），
+       初始化为 0（勿用于判胜；困毙走 jq_side_stalemated 实时扫描）。
+       原 memset 已清零，此处显式注释标记诚实边界。 */
 }
 
 /* 载入 30 字节布局（原版 0x2a340 语义，§3）：
@@ -127,7 +130,11 @@ void jq_extract_layout_30(const jq_state *st, uint8_t out[30])
     }
 }
 
-/* 刷新可动子统计（0x6a3b0 → 0x6b87c，L61：走子后刷新 + 困毙判定输入） */
+/* 刷新可动子统计（0x6a3b0 → 0x6b87c，L61：走子后刷新 + 困毙判定输入）
+   ★ AUD-R-014（P1）：n 累加逻辑诚实标注——原实现 n 当布尔标志用（n=1 即停），
+   统计值恒 1（只要该方有可动子）；保留原语义不改动（调用方无消费者：
+   困毙判定走 jq_side_stalemated 实时扫描，不读 pieces_left），
+   勿用于判胜/UI 展示（需真实统计时改为累加器 + 走子后调用）。 */
 void jq_refresh_movable_counts(jq_state *st)
 {
     for (int s = 0; s < 2; s++) {

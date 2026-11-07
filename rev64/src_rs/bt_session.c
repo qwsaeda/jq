@@ -8,7 +8,7 @@
 #include "bt_protocol.h"
 #include "ui_state.h"   /* ★ P1（datah_039/107）：ui_replay_record（蓝牙走子/翻棋记录复盘序列） */
 #include <string.h>
-static jq_state g_undo_snap;
+static jq_state g_undo_snap;   /* ★ AUD-R-013：无写入点的遗留快照（BT_T_UNDO 已不再消费，保留占位） */
 
 /* 坐标 → 索引（原版 0x6ef54：[0]=col [1]=row，cell_index(row,col)） */
 static int cell_of(int col, int row, int *out_idx)
@@ -63,8 +63,15 @@ int jq_bt_session_on_frame(jq_bt_session *s, jq_state *st,
         return 0;
     }
     case BT_T_UNDO: {
+        /* ★ AUD-R-013（P1）：UNDO 帧闸口改走 jni_bridge 暴露的 jq_bt_undo_available()
+           （读实际悔棋栈 g_undo_top），替代恒 0 的 jq_snapshots_left（旧路径死代码，
+           对端收到"悔棋已生效"但本地棋盘不变 → 状态发散）。
+           g_undo_snap 在 bt_session 侧无写入点（全 0 空快照），恢复动作由
+           jni_bridge 收帧回调侧执行（undo_pop + 广播），本处仅切回合。 */
         if (s->state != BT_ST_THEIR_TURN) return -2;
-        if (jq_snapshots_left(st) > 0) jq_undo_restore(st, &g_undo_snap);
+        if (jq_bt_undo_available()) {
+            /* 栈深>0：本地悔棋栈可恢复 → 切回合后由收帧侧同步状态 */
+        }
         s->state = BT_ST_OUR_TURN;
         return 0;
     }

@@ -114,8 +114,12 @@ typedef struct {
     int8_t    winner;                /* -1 未定 / 0 蓝胜 / 1 红胜 / 2 和（0x30200 r3=0/1/2 语义） */
     int       moves_since_eat;       /* 连续无吃子步数（和棋 70 步条件） */
     int       total_moves;           /* 总步数（和棋 1000 条件） */
-    int       mines_cleared[2];      /* 暗棋（ruleflip）工兵挖雷计数 */
-    int       pieces_left[2];        /* 各方剩余可动子数（0x6a3b0 统计） */
+    int       mines_cleared[2];      /* 暗棋（ruleflip）工兵挖雷计数
+                                        ★ AUD-R-015（P1）：仅记录，胜负判定未用（扛旗条件待暗棋族实现） */
+    int       pieces_left[2];        /* 各方剩余可动子数（0x6a3b0 统计）
+                                        ★ AUD-R-014（P1）：统计未接线——刷新逻辑恒 1、
+                                        吃子后持续增减（可为负），勿用于判胜；
+                                        困毙判定走 jq_side_stalemated 实时扫描，不读本字段 */
     int       count_tbl[RANK_COUNT];  /* 布局计数表（原版 +0x78，rank→数量） */
     /* 悔棋历史（循环快照，原版无内建悔棋；联机 Regret* 事件驱动，L77） */
     int       undo_depth;
@@ -160,10 +164,12 @@ bool jq_flip(jq_state *st, int idx);
 /* 困毙判定（0x302b4 status=3）：当前方无子可动/可翻 → 对方胜 */
 bool jq_side_stalemated(const jq_state *st, uint8_t side);
 
-/* ---- 悔棋（联机 Regret* 事件驱动，L77；本地快照恢复）---- */
-void jq_undo_snapshot(const jq_state *st);          /* 走子前调用 */
+/* ---- 悔棋（联机 Regret* 事件驱动，L77；本地快照恢复）----
+   ★ AUD-R-012（P1）：jq_undo_snapshot/jq_snapshots_left 引擎内未实现（空壳），
+   实际悔棋由 jni_bridge.c g_undo 栈承担；bt_session UNDO 帧走 jq_bt_undo_available()。 */
+void jq_undo_snapshot(const jq_state *st);          /* 占位（未接线，走 jni_bridge g_undo） */
 void jq_undo_restore(jq_state *st, const jq_state *snap);
-int  jq_snapshots_left(const jq_state *st);
+int  jq_snapshots_left(const jq_state *st);         /* 恒 0（快照栈在调用方） */
 
 /* ---- 胜负（0x30200 分发 / 0x30260 旗 / 0x30280 和 / 0x302b4 困毙，§12/L53/L54）---- */
 void jq_on_flag_capture(jq_state *st, uint8_t captor_side);

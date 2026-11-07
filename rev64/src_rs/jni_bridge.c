@@ -203,6 +203,18 @@ static int g_undo_top = 0;
 static void undo_push(void) { if (g_undo_top < UNDO_MAX) { g_undo[g_undo_top++] = g_state; LOGI("undo_push：top=%d turn=%d", g_undo_top, g_state.turn); } }
 static int undo_pop(void) { if (g_undo_top <= 0) return 0; g_state = g_undo[--g_undo_top]; LOGI("undo_pop：top=%d turn=%d", g_undo_top, g_state.turn); return 1; }
 
+/* ★ AUD-R-013（P1）：蓝牙 UNDO 帧可用的悔棋步数（rules.c 声明、bt_session.c 消费）。
+   实际悔棋栈 = g_undo/g_undo_top（本文件 static，跨文件不可见）→
+   bt_session.c 的 BT_T_UNDO 分支经本函数读栈深，替代恒 0 的 jq_snapshots_left
+   （旧路径永不恢复快照 → 双方棋盘状态发散）。
+   诚实边界：UNDO 帧仅通知"对端已请求悔棋"，本地栈深>0 时由 jni_bridge 侧
+   在收帧回调里执行 undo_pop + 广播同步帧（现状：bt_session 只切回合，
+   完整"确认→回退→广播"链路留待后续轮次）。 */
+int jq_bt_undo_available(void)
+{
+    return g_undo_top > 0 ? 1 : 0;
+}
+
 /* ★ 游戏内重开新局统一入口（6 处调用收敛：restartgame property / 菜单按钮 action 0/4 /
    点棋盘开局 / 对局结束再来一局 / 左上角悔棋重开 / 对局态点棋盘自动开局）。
    防"改一处漏五处"不一致：load_layout + 明棋/暗棋（★ 选项 UI 模式）+ 清 undo +

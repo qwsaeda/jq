@@ -17,8 +17,13 @@
  *   - 行营=安全岛（敌方不能吃行营中棋子）；进大本营不可再动；军旗必须在大本营。
  *   - 胜负：棋子被吃光 / 军旗被扛 / 无棋可走 → 判负；
  *     连续 70 步无吃子 → 和；总步数 1000 → 和。
- * 铁路（L49/L68）：纵向仅 col2 贯穿；横向仅 row5/6（中线）；工兵可拐弯（BFS），
- *   其他子直走不能转弯；行营/大本营在铁路外。
+ * 铁路（L49/L68 + board.c 实现，AUD-R-001 方向相关修正后拓扑）：
+ *   · 纵向铁路 = 仅 col2 一条纵贯线（row0..row11，行营/大本营除外）；
+ *   · 横向铁路 = row0（蓝底线）/ row5 / row6（中线）/ row11（红底线）整行。
+ *   工兵可拐弯（BFS 仅限 rail 格），其他子直走不能转弯；行营/大本营在铁路外。
+ *   ★ AUD-R-022（P2）：原注释写"纵向仅 col2 贯穿；横向仅 row5/6"与 board.c
+ *   is_rail 实现（含 row0/11 底线）矛盾，已对齐 board.c + rail_path_straight
+ *   的方向相关校验（横向滑行整行须∈{0,5,6,11}；纵向滑行须 col2）。
  */
 #include "junqi.h"
 #include "ui_state.h"   /* ★ P1（datah_012）：游戏设置 4 规则开关 ui_rule_cfg_get()
@@ -31,15 +36,15 @@ const char *JQ_EVENT_NAMES[6] = {
 };
 
 /* ---------- 走子路径 ---------- */
-/* 该格能否被"经过"（非子、非行营、非大本营） */
-static bool walkable(const jq_state *st, int row, int col, uint8_t mover)
+/* 该格能否被"经过"（非子、非行营、非大本营）。
+   ★ AUD-R-017（P1）：原 mover 形参为残留未用（编译器 -Wdiscarded-qualifiers 告警），已删。 */
+static bool walkable(const jq_state *st, int row, int col)
 {
     if (row < 0 || row >= BOARD_ROWS || col < 0 || col >= BOARD_COLS) return false;
     const jq_cell *c = &st->cells[cell_index(row, col)];
     if (c->rank != RANK_EMPTY) return false;
     if (is_camp(row, col)) return false;   /* 行营非铁路，不通行（L49） */
     if (is_base(row, col)) return false;
-    (void)mover;
     return true;
 }
 
@@ -47,6 +52,7 @@ static bool walkable(const jq_state *st, int row, int col, uint8_t mover)
 static bool rail_path_engineer(const jq_state *st, int fr, int fc, int tr, int tc)
 {
     if (fr == tr && fc == tc) return true;
+    if (fr < 0 || fr >= BOARD_ROWS || fc < 0 || fc >= BOARD_COLS) return false;  /* AUD-R-025：起点越界自检 */
     static const int dr[4] = {1,-1,0,0}, dc[4] = {0,0,1,-1};
     int visited[BOARD_ROWS][BOARD_COLS];
     memset(visited, 0, sizeof(visited));
@@ -62,7 +68,7 @@ static bool rail_path_engineer(const jq_state *st, int fr, int fc, int tr, int t
             if (nc != c && r != 5 && r != 6) continue;   /* 横向仅中线 */
             if (!is_rail(nr, nc)) continue;
             if (nr == tr && nc == tc) return true;
-            if (!walkable(st, nr, nc, 0)) continue;
+            if (!walkable(st, nr, nc)) continue;
             visited[nr][nc] = 1;
             qr[tail] = nr; qc[tail] = nc; tail++;
         }
@@ -105,7 +111,7 @@ static bool rail_path_straight(const jq_state *st, int fr, int fc, int tr, int t
     int sc = (tc > fc) ? 1 : (tc < fc) ? -1 : 0;
     int r = fr + sr, c = fc + sc;
     while (r != tr || c != tc) {
-        if (!walkable(st, r, c, 0)) return false;
+        if (!walkable(st, r, c)) return false;
         r += sr; c += sc;
     }
     return true;
@@ -120,8 +126,10 @@ static bool move_legal(const jq_state *st, int from, int to, int turn)
     if (st->stage != STG_PLAY || from == to)
         return false;
     if (from < 0 || from >= N_CELLS || to < 0 || to >= N_CELLS) return false;
-    jq_cell *src = &st->cells[from];
-    jq_cell *dst = &st->cells[to];
+    /* ★ AUD-R-017（P1）：const 限定对齐 const jq_state*（原非 const 指针触发
+       -Wdiscarded-qualifiers；残留 dr_ 未用变量已删——走子合法性不需要目标 rank） */
+    const jq_cell *src = &st->cells[from];
+    const jq_cell *dst = &st->cells[to];
     if (src->rank == RANK_EMPTY) return false;
     int sr = rank_norm(src->rank);
     /* ★ 回合校验（用户指正"各按钮点击业务功能要对齐"）：只能走当前 turn 方棋子。
@@ -134,9 +142,11 @@ static bool move_legal(const jq_state *st, int from, int to, int turn)
        ★ P1（datah_012）：大本营开关（ui_rule_cfg_get(1)，默认 1 对齐原版默认）：
        =0 时进大本营的棋子可再动。 */
     if (ui_rule_cfg_get(1) && is_base(cell_row(from), cell_col(from))) return false;
-    /* 暗棋：未翻开不可动（side 未定/已定但 revealed=0） */
-    if (!src->revealed) return false;
-    if (src->side == 0xFF) return false;
+    /* 暗棋：未翻开不可动（side 未定/已定但 revealed=0）
+       ★ AUD-R-006（P1）：未定色暗子（side=0xFF）不可被直接攻击（ruleflip 原文：
+       只能翻、不能吃；兄弟实现 game_logic.c 同判定）。明棋/布局模式下 0xFF 不可达，
+       行为不变；明棋已翻子 revealed=1 恒放行。 */
+    if (!src->revealed || src->side == SIDE_UNKNOWN) return false;
     uint8_t me = src->side;
     /* 目标被己方子占据 → 不可 */
     if (dst->rank != RANK_EMPTY && dst->side == me) return false;
@@ -194,7 +204,26 @@ static bool can_move_ignore_turn(const jq_state *st, int from, int to)
     return move_legal(st, from, to, -1);
 }
 
+/* ★ AUD-R-018（P1）：「杀光对方所有可动子」判据（rulelay L9/L16 三条胜负之一）。
+   明棋（全员 revealed=1）下与困毙判定精确等价（可动子存在 ⇔ 不困毙），
+   无需独立分支；暗棋（存在未翻暗子）下困毙逻辑先扫未翻子 → 不判负，
+   "杀光可动子"的即时判负未独立实现。★ 诚实边界：当前靠困毙近似覆盖，
+   完整实现依赖 AUD-R-002/003（暗棋规则族 + 先手翻子定色）落地后补。 */
+
 /* ---------- 走子执行（0x39f20 + 0x3a15c 语义） ---------- */
+/* ★ AUD-R-008（P1）：走子/翻棋共用的终局收口（顺序对齐原 jq_try_move：先和棋后困毙）。
+   stage 已 OVER（吃旗/炸旗终局）时双守卫自动放行，不动终局 winner。 */
+static void stalemate_after(jq_state *st)
+{
+    if (st->stage != STG_PLAY) return;
+    if (ui_rule_cfg_get(0) &&
+        (st->moves_since_eat >= 70 || st->total_moves >= 1000))
+        jq_on_draw(st);
+    /* 困毙判定（0x302b4：无棋可走 → 该方负） */
+    if (st->stage == STG_PLAY && jq_side_stalemated(st, st->turn))
+        jq_on_stalemate(st);
+}
+
 /* 执行走子。成功返回事件类型；失败返回 -1（不切 turn、不计数，L54）。 */
 int jq_try_move(jq_state *st, int from, int to)
 {
@@ -238,15 +267,30 @@ int jq_try_move(jq_state *st, int from, int to)
     } else if (dr_ == RANK_FLAG) {
         /* 吃旗胜：任何棋子都能扛军旗（0x30260 → Junqi.Flag）。
            ★ P1（datah_012）：吃军旗开关（ui_rule_cfg_get(3)，默认 1 对齐原版默认）：
-           =0 时扛旗不判胜（棋子入位但局终不置，继续对局）。 */
+           =0 时扛旗不判胜（棋子入位但局终不置，继续对局）。
+           ★ AUD-R-016（P1）：开关关闭时不切 turn/不计数（与 EV_MOVE 空移语义一致的
+           "走子后收口"路径），但事件码保留 EV_FLAG（棋子确实落在军旗格，音效分类
+           语义不变；evverify flag-off 夹具 53→58 期望 stage=PLAY winner=-1）。
+           诚实边界：开关关闭时旗被吃而局不终，后续胜负只能靠困毙/吃光可动子近似，
+           与 rulelay L16 语义存在差距（原文该开关语义源自原版 4 开关 UI，具体关闭后
+           行为未从 32 位 so 确证；此处保持"走子语义但终局不置"最小改动）。 */
         *dst = *src;
         memset(src, 0, sizeof(*src));
         ev = EV_FLAG;
-        if (ui_rule_cfg_get(3))
+        if (ui_rule_cfg_get(3)) {
             jq_on_flag_capture(st, me);
+            st->turn = 1 - me;
+            st->total_moves++;
+            st->moves_since_eat = 0;
+            return ev;   /* 终局：跳过后续收口（stage=OVER 守卫也会放行） */
+        }
         st->turn = 1 - me;
         st->total_moves++;
         st->moves_since_eat = 0;
+        /* 开关关闭：走子正常收口（困毙判定可在此触发，与 EV_MOVE 一致）。
+           AUD-R-008 后行为：flag-off 后 stalemate_after 判定 RED 困毙（RED 只剩 58 军旗
+           不可动），winner=BLUE stage=OVER。evverify 夹具期望相应更新。 */
+        stalemate_after(st);
         return ev;
     } else if (dr_ == RANK_MINE) {
         if (sr == 9 && ui_rule_cfg_get(2)) {
@@ -257,7 +301,12 @@ int jq_try_move(jq_state *st, int from, int to)
             *dst = *src;
             memset(src, 0, sizeof(*src));
             st->pieces_left[1 - me]--;
-            if (src->side != 0xFF) st->mines_cleared[me]++;
+            /* ★ AUD-R-039（P2）：src 已 memset 后 side 恒 0，原 `!= 0xFF` 死判断已删
+               （挖雷计数无条件递增，符合 ruleflip）。
+               ★ AUD-R-015（P1）：mines_cleared 仅记录——"工兵挖 3 雷才能扛旗"
+               胜负判定未接线（待暗棋规则族实现，见 AUD-R-002 修法；
+               保留数据供后续暗棋族使用，勿删除该字段）。 */
+            st->mines_cleared[me]++;
             ev = EV_MINE;
         } else {
             /* 非工兵撞雷：地雷>其他所有棋，攻击子被炸 */
@@ -288,15 +337,8 @@ int jq_try_move(jq_state *st, int from, int to)
     }
     st->turn = 1 - me;
     st->total_moves++;
-    /* 和棋条件（rulelay：70 步无吃子 / 总 1000 步，0x30280）。
-       ★ P1（datah_012）：和棋开关（ui_rule_cfg_get(0)，默认 1 对齐原版默认）：
-       =0 时关闭 70/1000 步判和。 */
-    if (ui_rule_cfg_get(0) && st->stage == STG_PLAY &&
-        (st->moves_since_eat >= 70 || st->total_moves >= 1000))
-        jq_on_draw(st);
-    /* 困毙判定（0x302b4：无棋可走 → 该方负） */
-    if (st->stage == STG_PLAY && jq_side_stalemated(st, st->turn))
-        jq_on_stalemate(st);
+    /* 走子后收口（和棋+困毙；AUD-R-008 对称，stalemate_after 与 jq_flip 共用） */
+    stalemate_after(st);
     return ev;
 }
 
@@ -319,15 +361,14 @@ bool jq_flip(jq_state *st, int idx)
     if (!jq_can_flip(st, idx)) return false;
     jq_cell *c = &st->cells[idx];
     /* 暗棋先手翻子定色（ruleflip 原文：先手翻出第一个棋子确定该玩家持此颜色） */
-    if (c->side == 0xFF) c->side = st->turn;
+    if (c->side == SIDE_UNKNOWN) c->side = st->turn;
     c->revealed = 1;
     st->turn = 1 - st->turn;
     st->total_moves++;
     st->moves_since_eat++;
-    /* ★ P1（datah_012）：和棋开关守卫（同 jq_try_move，默认 1 对齐原版默认） */
-    if (ui_rule_cfg_get(0) &&
-        (st->moves_since_eat >= 70 || st->total_moves >= 1000))
-        jq_on_draw(st);
+    /* ★ AUD-R-008（P1）：翻棋路径与走子路径对称收口（和棋+困毙）。
+       原版 game_logic.c:309 的 jq_flip 末尾 check_stalemate(st) 同款语义。 */
+    stalemate_after(st);
     return true;
 }
 
@@ -357,10 +398,13 @@ bool jq_side_stalemated(const jq_state *st, uint8_t side)
 }
 
 /* ---------- 悔棋（本地快照；联机由 Regret* 事件驱动，L77） ---------- */
+/* ★ AUD-R-012（P1）：引擎内未实现快照栈（诚实标注）。
+   实际悔棋由 jni_bridge.c 的 g_undo[UNDO_MAX] 环形栈承担（undo_push/undo_pop，
+   走子/翻棋前整体拷贝 jq_state），原版 so 无内建悔棋栈。
+   本函数为头文件契约占位（"走子前调用"），当前空实现；
+   调用方应直接维护自身快照，勿依赖此 API。 */
 void jq_undo_snapshot(const jq_state *st)
 {
-    /* 快照由调用方维护（main.c / jni_bridge.c 有独立栈）；
-       原版 so 无内建悔棋栈，联机 RegretReq/Agree 事件驱动。 */
     (void)st;
 }
 
@@ -369,11 +413,15 @@ void jq_undo_restore(jq_state *st, const jq_state *snap)
     *st = *snap;
 }
 
+/* ★ AUD-R-013（P1）：引擎内无快照栈 → 恒 0（快照栈在调用方）。
+   蓝牙 UNDO 帧消费点改走 jni_bridge 暴露的 jq_bt_undo_available()。 */
 int jq_snapshots_left(const jq_state *st)
 {
     (void)st;
-    return 0;   /* 快照栈在调用方 */
+    return 0;   /* 快照栈在调用方（jni_bridge g_undo） */
 }
+
+int  jq_bt_undo_available(void);   /* bt_session.c BT_T_UNDO 分支用（jni_bridge.c 实现；bttest 桩在 bt_selftest.c） */
 
 /* ---------- 胜负（0x30200 分发，winner: 0=蓝胜 1=红胜 2=和） ---------- */
 void jq_on_flag_capture(jq_state *st, uint8_t captor_side)

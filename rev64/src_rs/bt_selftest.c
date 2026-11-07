@@ -22,6 +22,9 @@ int __android_log_print(int prio, const char *tag, const char *fmt, ...) {
     (void)prio; (void)tag; (void)fmt; return 0;
 }
 
+/* ★ AUD-R-013：bttest 无 jni_bridge 链接 → 提供默认桩（无悔棋栈，恒 0） */
+int jq_bt_undo_available(void) { return 0; }
+
 static int rc = 0;
 #define CHECK(cond, msg) do { \
     if (!(cond)) { printf("  FAIL: %s\n", msg); rc = 1; } \
