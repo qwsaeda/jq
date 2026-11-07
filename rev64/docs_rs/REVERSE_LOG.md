@@ -6266,3 +6266,49 @@ python3 /tmp/opencode/incremental_regress.py reset 0xADDR  # 改了某指令 →
 - 事件名第 5 字节 asr4 ≠ 事件码（只有 2/6 两值）, 事件码映射需 .bss 表行 asr4 实锤（非事件名字节直接映射）
 - .bss 事件表 17 行 asr4 全 0（ref dump）= 事件码匹配全兜底, 76 事件名 → 17 事件码映射**需运行时填 .bss 表**
   才能提取（§124y-158 同源边界, 非静态可推）
+
+---
+
+## §124y-164 redroid .bss scudo 槽逐槽 4B 分析 + 容器堆指针区实锤（§124y-151 边界精确化）
+
+### 前置事实（§124y-151/160 已固化）
+- .bss 316 scudo 指针槽（低区 78 + 中间区 238）回填翻译体 → 非 0 = "已构造" → F_c0ed0 死循环
+- redroid 容器 .bss 全段 28680B 非 0 率 30.4%（vs MuMu 79.1%）
+- §124y-160 固化"scudo 槽非 0 = 小整数（0x04/0x30/0x64 等, 非指针）"
+
+### 本条精确化（逐槽 4B 分析, 修正 §124y-160 "小整数非指针" 的笼统说法）
+1. **jq_scudo_slots.h 316 槽在 redroid 容器里非 0 槽 = 148/316（46.8%）**:
+   - 对照 MuMu ref dump 79.1%（scudo 槽指针非 0）, redroid 46.8%（C++ 构造器部分跑, 非全构造）
+2. **scudo 槽非 0 值混合三类**（§124y-160 "小整数" 说法精确化）:
+   - **小整数/偏移**（槽 0-10, 0x15be80-0x15bea4）: 0x04/0x30/0x18/0x64/0x70/0x94/0x0c/0x14/0xa4/0x90
+     = 构造标记/偏移, 非指针（.bss 部分构造态）
+   - **scudo 块指针特征**（槽 11-19, 0x15beb0-0x15becc）: 0x01 掩码 + 0xcb/0xd5/0xdd/0xed/0xb5/0xc3
+     = scudo 块地址低字节（4B 值 0x000006cb/0x000006d5/0x000006dd 等, 0x6xxx 区 = redroid 容器 scudo 块）
+   - **容器堆指针**（4B 值区 0x0000-0x0024）: 0x0069xxxx/0x0067xxxx/0x0066xxxx/0x002ee8xx
+     = **redroid 容器进程堆基址 0x006xxxxx**（非 MuMu 的 0xcf/0xf3 区）
+3. **容器堆指针区（0x006x/0x002e/0x002f/0x0031/0x0032/0x0033/0x0034/0x003b/0x0037/0x0038/0x0039/0x003f/0x0041/0x0044/0x0052/0x0050/0x001b）实锤**:
+   - redroid 容器 `com.cnvcs.junqi32` 进程堆 = 0x006x 区（Android 64 位 host 转译 32 位 so 的堆基址）
+   - 对照 MuMu ref dump scudo 槽 = 0xcf/0xf3/0xd0 区（MuMu 32 位进程堆基址）
+   - **scudo 槽指针值 = 所在进程堆基址**, 非 so 内偏移 → 翻译体进程 jqt_mem_valid 真映射区表
+     无此区 → 回填 SIGSEGV（§124y-151 直接 dump 路线不可行, 本条精确化堆基址差异）
+
+### 容器地址公式（坑固化, 修正 §124y-160）
+- redroid 容器 32 位 so RW 段: VA 0x155000, filesz 0x6e80, memsz 0xde88
+  - .bss VA 0x15be80 = RW 段 VA 基址 0x155000 + 0x6e80（filesz 末尾）
+  - 容器 rw-p 段 0x0ca01000（文件偏移 0x7c2000 = RW 段 filesz 末尾）→ .bss 容器地址 = 0x0ca01000
+  - .bss 事件表 VA 0x160584 → 容器 0x0ca0C584（§124y-158 公式）, .bss scudo 槽 VA 0x15be80 → 容器 0x0ca01000
+
+### 最终结论（.bss scudo 槽回填不可行, 四路证实 + 堆基址精确化）
+1. 直接 dump 回填（§124y-150）: dump 值 = MuMu 进程堆 scudo 指针（0xcf/0xf3 区）→ 翻译体越界 SIGSEGV
+2. 自建堆回填（§124y-151）: calloc 对象 [0]=dump 值 → 非 0 = "已构造" → F_c0ed0 死循环
+3. redroid 容器回填（§124y-160）: 容器 scudo 槽 = 小整数 → F_c0ed0 死循环（非 0 = 已构造）
+4. **redroid 容器堆指针回填（§124y-164, 本条精确化）**: 容器 scudo 槽 4B 值 = 0x006x 区（容器堆基址）
+   → 翻译体进程 jqt_mem_valid 无此区 → 越界 SIGSEGV（与 MuMu 0xcf/0xf3 区同因, 不同堆基址）
+- **四路均不可行** → .bss scudo 槽保持全 0（未构造态忠实兜底）
+- 唯一路线 = unidbg/frida 补 C++ 对象图字段级还原 + 真机 32 位 so 实跑堆 dump（非阻塞）
+
+### 坑固化
+- scudo 槽非 0 值判定需查 4B 值区（非 1B 小整数）: 0x000006xx = scudo 块指针特征（0x6 区堆）,
+  0x0069xxxx = 容器堆指针（0x69 区）, 两者都触发 F_c0ed0 / SIGSEGV
+- 容器堆基址 ≠ MuMu 堆基址（redroid 0x006x vs MuMu 0xcf/0xf3）, "scudo 槽 = 0xcf 区" 说法
+  仅对 MuMu 实跑成立, redroid 容器 scudo 槽 = 0x006x 区（容器进程堆）

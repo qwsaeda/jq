@@ -45,27 +45,48 @@ def gen_switch(mapping):
     lines.append("      default: break;")
     return "\n".join(lines)
 
-def check_handlers(handlers):
-    """查 handler 收表状态（jqt_vtbl.c + jqt_OnCreate_full.c 定义体）"""
+def check_handlers(handlers, mapping=None):
+    """查 handler 收表状态（jqt_vtbl.c + jqt_OnCreate_full.c 定义体）
+
+    §124y-162 纠正：F_55d40 真实可达 case = 0-16（事件码 0..16, §124y-109 实锤事件表 17 行）。
+    case 17-72 = .text 73 thunk 区编译期 switch 展开的冗余 case, 运行时事件码 [0x44] max=16
+    → 不可达。本工具提取 67 bl（0x55d40 区 42 bl + 扩展区 25 bl）映射 code 0-66, 但其中
+    code 17-66 全不可达。--check 区分"可达区（code 0-16）缺 handler"（需补）与"不可达区
+    （code 17+）缺 handler"（诚实边界, 默认兜底, 非阻塞）, 避免按 67 bl 全量误判补全工作量。
+    """
     srcs = []
     for f in (JQT_VTBL, JQT_OC):
         if os.path.exists(f):
             with open(f, encoding='utf-8') as fh:
                 srcs.append(fh.read())
-    print(f"=== {len(set(handlers))} 个不同 handler 的收表状态 ===")
-    missing = []
+    REACHABLE = 16   # §124y-109/162：事件码 0..16 可达
+    print(f"=== {len(set(handlers))} 个不同 handler 的收表状态（可达区 code 0-{REACHABLE} 优先）===")
+    reachable_missing, unreachable_missing = [], []
     for h in sorted(set(handlers)):
         fn = f"F_{h:05x}"
         n = sum(s.count(f"uint32_t {fn}(uint32_t _r0") for s in srcs)
-        mark = "✓" if n > 0 else "★缺"
+        codes = [c for c, hh in mapping.items() if hh == h] if mapping else []
+        reach = [c for c in codes if c <= REACHABLE]
+        unreach = [c for c in codes if c > REACHABLE]
+        mark = "✓" if n > 0 else ("★缺" if not unreach or reach else "·不可达缺")
+        detail = f" code {','.join(map(str, reach))}" if reach else ""
+        if unreach and not reach:
+            detail += f"（不可达 code {','.join(map(str, unreach))}）"
+        print(f"  {mark} {fn}{detail}")
         if n == 0:
-            missing.append(fn)
-        print(f"  {mark} {fn}")
-    if missing:
-        print(f"\n=== {len(missing)} 个 handler 缺定义体（需补全）===")
-        for fn in missing:
-            print(f"  {fn}")
-    return missing
+            if reach:
+                reachable_missing.append((fn, reach))
+            if unreach:
+                unreachable_missing.append((fn, unreach))
+    if reachable_missing:
+        print(f"\n=== {len(reachable_missing)} 个 handler 可达区（code 0-{REACHABLE}）缺定义体（需补全）===")
+        for fn, codes in reachable_missing:
+            print(f"  {fn} code {codes}")
+    if unreachable_missing:
+        print(f"=== {len(unreachable_missing)} 个 handler 仅不可达区（code 17+）缺定义体（§124y-162 诚实边界, 非阻塞, default 兜底 r=0）===")
+        for fn, codes in unreachable_missing:
+            print(f"  {fn} code {codes}")
+    return reachable_missing + unreachable_missing
 
 # §124y-33：24 handler 忠实返回语义表（原版反汇编实锤，.text 无 movs r0,#2）
 RETURN_SEM = {
@@ -125,7 +146,7 @@ def main():
         print(f"\n=== F_55d40 switch case 体（{len(mapping)} case，供粘贴）===")
         print(gen_switch(mapping))
     if args.check:
-        check_handlers(handlers)
+        check_handlers(handlers, mapping)
     return 0
 
 if __name__ == '__main__':
