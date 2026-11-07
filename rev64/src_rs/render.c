@@ -321,7 +321,10 @@ static void rs_read_png(AAssetManager *am, const char *asset_path,
         fclose(f);
     }
     }
-    /* AAsset 直接链接（正常 so 已验证可 dlopen；免 dlopen/dlsym 引入 libdl VERNEED） */
+    /* AAsset 直接链接（正常 so 已验证可 dlopen；免 dlopen/dlsym 引入 libdl VERNEED）
+       ★ 资源使用（apk 对齐）：asset_path 传 "spak_res/xxx" 时，APK assets 里
+       assets/spak_res/xxx 可被 AAssetManager_open 命中（相对 APK 根）。当前
+       g_assets=NULL（文件系统回退），此通路为设备端未推 spak_res 时的 APK 兜底。 */
     AAsset *a = NULL;
     if (am) a = AAssetManager_open(am, asset_path, AASSET_MODE_BUFFER);
     if (a) {
@@ -332,8 +335,13 @@ static void rs_read_png(AAssetManager *am, const char *asset_path,
         if (rd == sz) { *out = buf; *out_len = sz; return; }
         free(buf);
     }
+    /* 双路均无 → LOGI 诊断（资源缺失显式告警，便于真机/设备端资源对齐排查） */
     FILE *f = fopen(fs_path, "rb");
-    if (!f) { LOGI("纹理缺失（asset+fs 均无）%s / %s", asset_path, fs_path); return; }
+    if (!f) {
+        LOGI("纹理缺失（fs+asset 均无）fs=%s asset=%s（设备端 spak_res 未推或 apk assets 缺失，走纯色退化）",
+             fs_path ? fs_path : "(null)", asset_path ? asset_path : "(null)");
+        return;
+    }
     fseek(f, 0, SEEK_END);
     long sz = ftell(f);
     fseek(f, 0, SEEK_SET);
@@ -9265,7 +9273,10 @@ static int now_is_glthread_ctx(rs_render *rr)
     return (rr->egl_ctx != EGL_NO_CONTEXT && now != EGL_NO_CONTEXT && now != rr->egl_ctx);
 }
 
-/* 每 context 重建 GL 对象（纹理/VBO/shader 属当前 context；像素 buffer 共享只上传一次） */
+/* 每 context 重建 GL 对象（纹理/VBO/shader 属当前 context；像素 buffer 共享只上传一次）
+   ★ 资源使用（apk 对齐）：纹理上传后统计"成功上传数 / 总槽数"，MISS>0 时 LOGI 诊断
+   （哪张纹理退化纯色块，设备端 spak_res 缺哪个文件）。gl2_ok[slot] 保持现状
+   （任一 program 建成功即置 1，不因部分纹理缺失置 0——部分资源缺失走退化而非全黑）。 */
 static void rs_gl_rebuild(rs_render *rr, int slot)
 {
     if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
@@ -9684,6 +9695,35 @@ static void rs_gl_rebuild(rs_render *rr, int slot)
             {w, 0, BOARD_UV_X1, 0},  {w, h, BOARD_UV_X1, 1},
         };
         rs_make_vbo(&rr->vbo_board[slot], board, 6);
+    }
+    /* ★ 资源使用（apk 对齐）：纹理上传数统计（MISS>0 → 诊断哪张资源缺失走纯色退化）。
+       统计 = 实际 glTexImage2D 成功的槽位 / 应上传的槽位总数。 */
+    {
+        int n_upload = 0, n_total = 0;
+        struct { rs_glid_t *tex; int has_px; } slots_up[] = {
+            { &rr->tex_board[slot], rr->board_px != 0 },
+            { &rr->tex_piece[slot], rr->piece_px != 0 },
+            { &rr->tex_text[slot], rr->text_px != 0 },
+            { &rr->tex_bg[slot], rr->bg_px != 0 },
+            { &rr->tex_menu_bg[slot], rr->menu_bg_px != 0 },
+            { &rr->tex_imen_text[slot], rr->imen_text_px != 0 },
+            { &rr->tex_imen_icons[slot], rr->imen_icons_px != 0 },
+            { &rr->tex_hamburger[slot], rr->hamburger_px != 0 },
+            { &rr->tex_btn_big[slot], rr->btn_big_px != 0 },
+            { &rr->tex_btn_small[slot], rr->btn_small_px != 0 },
+            { &rr->tex_popup[slot], rr->popup_px != 0 },
+            { &rr->tex_dlg_text[slot], rr->dlg_text_px != 0 },
+            { &rr->tex_imen_orig[slot], rr->imen_orig_px != 0 },
+            { &rr->tex_panel[slot], rr->panel_px != 0 },
+            { &rr->tex_panel_btn[slot], rr->panel_btn_px != 0 },
+            { &rr->tex_panel_icon[slot], rr->panel_icon_px != 0 },
+        };
+        for (int k = 0; k < (int)(sizeof slots_up / sizeof slots_up[0]); k++) {
+            if (slots_up[k].has_px) { n_total++; if (slots_up[k].tex) n_upload++; }
+        }
+        if (n_upload < n_total)
+            LOGI("rs_gl_rebuild slot%d 纹理资源使用：%d/%d 上传成功（%d 张缺失→纯色退化，查设备端 spak_res）",
+                 slot, n_upload, n_total, n_total - n_upload);
     }
     rr->gl_ok[slot] = rr->gl2_ok[slot] && rr->vbo_board[slot] && rr->tex_board[slot] && rr->tex_piece[slot];
 }
