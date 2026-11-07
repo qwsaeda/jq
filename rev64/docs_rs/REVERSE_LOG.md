@@ -6578,3 +6578,23 @@ bash rev64/build_arm32_aligned.sh            # 编译 so（含 jq_piece_atlas.h�
 bash rev64/pack_arm32.sh rev64/dist/libjunqi_arm32_aligned.so rev64/dist/phase_chain_arm32.apk
 bash rev64/tools/arm32_walkregress.sh --dev emulator-5554   # 4 路径回归
 ```
+
+### §124w-ALIGN 续：GLThread 首帧 SIGSEGV 根因与修复闭环（本轮）
+
+**根因定位（崩溃栈 libtcb.so ARM32→x86 转译层，fault 0x3f8000xx 序列）**：
+1. **`F_9d43c` 越界读 `MEM(this_+0x88)`（mat_loc）**：渲染器单例 `_Znwj(136)` 只有 136B（offset 0..0x87 有效），+0x88 越界 1 字节 → `jqt_mem_addr` 解析到未映射地址 → GLThread 首帧 SIGSEGV（fault 0x3f800070）。**修复**：mat 矩阵改由 `F_9e760` 帧内 `glGetUniformLocation(prog,"mat")` 现取 + `glUniformMatrix4fv`，不再读渲染器越界字段。
+2. **`F_9d420/424/428/434` 渲染器字段 getter 越界读**：读 `this+116/120/124/132`（0x74/0x78/0x7c/0x84，部分越界或读到墨圳堆垃圾）→ 作 attrib index / tex unit 用 → 后续 `glVertexAttribPointer` 解引用 0x3f8000xx 类值 SEGV（fault 0x3f800040/0x3f800050）。**修复**：4 个 getter 改返回归一化常量（pos=0/color=1/coord=2/texunit=0，F_9d5d8 已证真实 attrib 索引即 0/1/2），不再越界堆读。
+3. **`_Znwj` 新堆块未进 `/proc/self/maps` 快照表**：JNI_OnLoad 期建的真实映射区表是快照，GLThread 期 `_Znwj` 新分配的 nbatch/npos/ncol/nuv 堆块不在旧表 → `JQT_VALID` 判非法 → DRAWOBJ-PCE 第二批次构造被守护丢弃（pos=0x3f800000 = .bss float 1.0f 被当指针的连锁症状）。**修复**：DRAWOBJ-FILL 建堆块前后调 `jqt_mem_rebuild()`（复用 §TOUCH-INTERACT-TEST 的 F_2af44 钩子模式），使新堆指针可被 `JQT_VALID` 命中。
+4. **越界 memcpy 连锁**：旧顶点数组 6 顶点（48B pos/96B col/48B uv），新数组 18 顶点——`memcpy(npos, old_pos, 12*8)` 越界读相邻堆垃圾 → 写坏。已改按实际 6 顶点拷贝（`6*2*4` 等）+ 棋子 12 顶点单独写（局部数组 `pp[24]/cc[48]/uu[24]` 按全局顶点索引 `v=12+i*4` 填充）。
+
+**守护原则（固化）**：
+- 所有对 `_Znwj` 新堆块的写/读先 `JQT_VALID` 校验，非法则**丢弃构造、保留原棋盘顶点、不崩**（宁可少画棋子，不崩 GLThread）。
+- `glVertexAttribPointer` 顶点指针=0 时 stride 置 0 + 非空 dummy 指针（`0x1`），驱动不解引用 NULL。
+- `F_9e760` 棋盘批 `glDrawArrays` 的 count 钳制 ≤6（本批只画棋盘 batch[0]），防批推进游标跨批读垃圾 first/count。
+- PIECE-DRAW 帧内补画：仅当 dobj+8/12/16 三组顶点指针全 `JQT_VALID` 才发起 `glDrawArrays(TRIANGLES,6,12)`，画完恢复棋盘纹理绑定。
+
+**实锤（redroid 32 位 so 容器）**：崩溃计数 0、进程存活、`PIECE-TEX texID=2 err=0x0`（棋子纹理已建）、`PIECE-DRAW glDrawArrays(6,12) err=0x0 vpos/vcol/vuv 非 0`（棋子批次帧内补画已发起）。
+
+**诚实边界（未闭环）**：
+- 棋盘批 `glDrawArrays` 仍报 `err=0x502`（GL_INVALID_OPERATION）+ centerpx 非黑——批推进游标（`dobj+24/28`）跨批读旧 batch 数组字段所致，顶点属性指针需按批切换（对齐原版 F_9d434 批次切换逻辑），为后续轮次目标；**本轮 SIGSEGV 根治 + 棋子批次通路已通，不包装成"棋子已出屏"**。
+- `npos/ncol/nuv` 在快照表外被判非法 → 第二批次顶点数组用原 6 顶点数组兜底（棋子 12 顶点数据写入被丢弃，仅 6 顶点棋盘可画）；`jqt_mem_rebuild` 已加但 scudo 增长区是否全命中需下轮 `jqt_mem_rebuild` + maps 增量对照验证。
