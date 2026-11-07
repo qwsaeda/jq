@@ -38,6 +38,12 @@ bool is_base(int row, int col)
 bool is_rail(int row, int col)
 {
     if (is_camp(row, col) || is_base(row, col)) return false;
+    /* ★ AUD-R-066（P2）：底线与纵线交点 (0,2)/(11,2) 双重身份说明——该格同时
+       满足 col2 纵线与 row0/row11 底线，is_rail 只回答"是否铁路格"（布尔），
+       路径校验按**方向**分派无歧义：rail_path_straight 横向滑行整行须 ∈{0,5,6,11}
+       （(0,2) 按横线端点用），纵向滑行须 col2（(0,2) 按纵线端点用）；两端点
+       在同一方向线内即合法。无"铁路线归属"抽象（AUD-R-067 同源，不引入
+       rail_line_id 查表，对齐原版 0x39e14 常量 if 链设计）。 */
     if (col == 2) return true;             /* 纵线 */
     if (row == 5 || row == 6) return true; /* 中线 */
     if (row == 0 || row == 11) return true;/* 双方底线 */
@@ -50,9 +56,22 @@ bool is_rail(int row, int col)
    is_rail 为铁路唯一事实源，方向相关校验（横整行∈{0,5,6,11}/纵 col2）已对齐
    （AUD-R-001 P0 + AUD-R-022），行为一致，仅代码组织待改进。 */
 
+/* ★ AUD-R-067（P2 诚实标注）：行营（6 格）/大本营（4 格）/铁路（3 类）全部硬编码
+   为坐标 if 链，无可查询地形表——对齐原版 0x39e14 常量 if 链设计（原版亦无
+   抽象地形表，常量直接来自 32 位 so 反汇编）。支持 17×12 四国棋盘拓扑需重开
+   board.c 几何，属超范围改动，本轮诚实标注不抽象。 */
 int cell_index(int row, int col) { return row * BOARD_COLS + col; }
+/* ★ AUD-R-068（P2 诚实标注）：cell_index/cell_row/cell_col 无边界检查——row/col 越界
+   （或负 idx 传入 cell_row 走 C 向零截断得"看似合法"的 0/-1）属调用方契约：全仓
+   调用点均先经 0..N_CELLS-1 校验（rules.c 走子入口 / 棋盘循环）或来自 N_CELLS
+   循环本身，负 idx 无传入路径。性能敏感路径（BFS/遍历）不加运行时 check，
+   若引入新调用点须先自检。 */
 int cell_row(int idx) { return idx / BOARD_COLS; }
 int cell_col(int idx) { return idx % BOARD_COLS; }
+/* ★ AUD-R-069（P2 诚实标注）：coord_cmp 全仓无调用点（grep 确认）——保留函数体
+   对齐原版 0x6ef54 坐标比较语义（[0]=col [1]=row，返回 0=相同/1=不同），调用方
+   在翻译体路径（src_jni_translated）；若将来需要坐标等值判定，建议新写
+   coord_eq(row_a,col_a,row_b,col_b)，勿复用裸指针签名。 */
 
 int coord_cmp(const int8_t *a, const int8_t *b)
 {

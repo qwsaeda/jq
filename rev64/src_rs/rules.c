@@ -215,12 +215,20 @@ static bool move_legal(const jq_state *st, int from, int to, int turn)
     }
     int fr = cell_row(from), fc = cell_col(from), tr = cell_row(to), tc = cell_col(to);
     /* 一步相邻（公路线）：行营落点仅允许一步相邻（非铁路）
+       ★ AUD-R-072（P2 已修）：源格在行营的子可自由走出（行营是安全岛非陷阱，
+       不限制源侧移动）——原 SPEC §2 未记录行营条款，本轮已补
+       "行营/大本营/铁路"三条独立条款（与实现逐条对齐）。
        ★ AUD-R-070（P2）：改为具名差值 dr/dc 判定（同行差 1 列 / 同列差 1 行），
        原写法两次减法（fc-tc==1||tc-fc==1）易与"行列同行"语义混淆。 */
     int dr = tr - fr, dc = tc - fc;
     int adjacent = (dr == 0 && (dc == 1 || dc == -1)) || (dc == 0 && (dr == 1 || dr == -1));
     if (is_camp(tr, tc) && !adjacent) return false;
     /* 目标在大本营：仅能吃军旗/地雷（翻棋模式）或其他子（明棋"任何棋子扛旗"）
+       ★ AUD-R-071（P2 诚实标注）：空大本营任何棋子不可进（return false）——
+       对齐原版 0x39e14 大本营目标判定（布局态仅军旗/地雷可进；对局态大本营格
+       是"落点"非"子"，进大本营 = 吃旗/布雷准备的语义，非普通走子目标格），
+       与 rulelay「结点、行营、大本营并列落点」的通常解读存在张力，本轮不改
+       行为（保持 0x39e14 实证语义），SPEC §2 已补大本营条款。
        ★ AUD-R-029（P2 诚实标注）：暗棋（src->revealed==0）收窄为"大本营仅旗/雷
        可吃"（ruleflip 第 3 行），明棋放行任何子（rulelay 未禁）。语义边界：
        明棋"大本营内普通子可被吃"未在 rulelay 明文，属推断，需人工复核
@@ -257,6 +265,14 @@ static bool move_legal(const jq_state *st, int from, int to, int turn)
 }
 
 /* 公开 API：当前回合的走子合法性（保持既有语义）
+   /* 公开 API：当前回合的走子合法性（保持既有语义）
+   ★ AUD-R-082（P2 诚实标注）：困毙/可动判定 O(N²) 次 jq_can_move（每次含工兵 BFS），
+   单步 ~3.5k 次合法性判定 / ~20 万次格点运算——规则引擎在主线程 OnTouch 单步执行，
+   移动端 60fps 渲染线程不做走子计算，实测 OK；缓存合法目标格或射线扫描替代
+   逐目标 BFS（性能重构）留待下一轮压测驱动。
+   ★ AUD-R-086（P2 诚实标注）：翻棋（jq_flip）消耗 moves_since_eat 与 total_moves
+   （对齐原版 0x39f20 from==to 路径消耗步数，与和棋 70/1000 步判定一致），
+   暗棋下翻牌速度主导和棋阈值——与 AUD-R-033 同源，本轮不改行为。
    ★ AUD-R-041（P2 诚实标注）：jq_try_move 全程不刷新 pieces_left/count_tbl
    （只做增量减法，与 AUD-R-014 同源——计数可为负/未刷新，困毙判定走
    jq_side_stalemated 实时扫描不读计数）。原 st->count_tbl 字段已删（全仓
@@ -290,7 +306,15 @@ static void stalemate_after(jq_state *st)
        明文"翻棋计入总步数"）留待下一轮。
        ★ AUD-R-034（P2 诚实标注）：和棋判定先于困毙判定，同一步同时成立时判和
        不判负——原版优先级无据（兄弟实现 game_logic.c:275-276 同序）。修法
-       （困毙优先 + 回归用例）留待下一轮。 */
+       （困毙优先 + 回归用例）留待下一轮。
+       ★ AUD-R-075（P2 诚实标注）：和棋先于困毙 + 两者都在 turn 切换后判定
+       （stalemate_after 判"下一方"）——原版 0x30200 分发顺序未逆向确证，当前
+       实现先和棋后困毙，对齐 evverify 基准（evverify 对和棋/困毙夹具的期望值即
+       此优先级），本轮不改优先级。
+       ★ AUD-R-089（P2 关闭）：困毙未显式排除"可直接吃旗"情形——能吃旗的子
+       必有合法目标格（大本营目标分支放行军旗），jq_side_stalemated 的
+       can_move_ignore_turn 扫描已覆盖；终局路径优先级：吃旗（即时 EV_FLAG）
+       > 和棋 > 困毙（走子后收口），无需显式排除。 */
     if (ui_rule_cfg_get(0) &&
         (st->moves_since_eat >= 70 || st->total_moves >= 1000))
         jq_on_draw(st);
@@ -521,7 +545,9 @@ bool jq_side_stalemated(const jq_state *st, uint8_t side)
         if (c->rank == RANK_EMPTY || c->side != side || !c->revealed) continue;
         int r = rank_norm(c->rank);
         if (r == RANK_FLAG || r == RANK_MINE) continue;
-        /* ★ AUD-R-005：必须用忽略回合的版本（否则 side≠turn 时恒 false → 困毙误报） */
+        /* ★ AUD-R-005：必须用忽略回合的版本（否则 side≠turn 时恒 false → 困毙误报）
+           ★ AUD-R-074（P2 已修，随 R-005 关闭）：jq_side_stalemated 已参数化
+           can_move_ignore_turn（turn=-1），不再依赖 side==st->turn 耦合，本项关闭。 */
         for (int t = 0; t < N_CELLS; t++)
             if (t != i && can_move_ignore_turn(st, i, t)) return false;
     }

@@ -86,7 +86,14 @@ jq_layout_err jq_check_layout_cell(int idx, int raw)
 {
     if (idx < 0 || idx >= N_CELLS) return ERR_RANGE;
     if (raw == 0) return LAYOUT_OK;              /* 行营空位（default.lay 5 格） */
-    if (idx <= 0x1d) return LAYOUT_OK;                 /* 蓝半区 */
+    if (idx <= 0x1d) return LAYOUT_OK;                 /* 蓝半区
+       ★ AUD-R-063（P2 诚实标注）：蓝半区（idx 0-29 = row0-5）直接放行，蓝方军旗
+       不受 0x38/0x3a 格约束——is_base 同时认 row0 col1/3（蓝大本营）与 row11
+       col1/3（红大本营），但校验器只对红方半区做军旗格校验（0x2a228 原版指令
+       即如此，蓝半区由 30 字节布局装载链路 jq_load_layout 保证：layout 行5（蓝旗行）
+       固定映射 (0,*) → 默认/暗棋开局蓝旗必在 row0）。自定义布局（0x2a228 之外的
+       装载路径）理论上可出现"蓝旗不在蓝大本营"，引擎照样放行——对齐原版 0x2a228
+       的不对称校验（原版蓝半区即无条件 LAYOUT_OK），补齐蓝半区对称校验留待下一轮。 */
     if (raw > RANK_TOP) raw -= 0xc;                    /* 红方还原 */
     if (raw > RANK_TOP || raw == 0) return ERR_RANGE;
     if (raw == RANK_BOMB && idx <= 0x22) return ERR_ZHA;
@@ -107,6 +114,12 @@ jq_layout_err jq_validate_layout(const jq_state *st)
         jq_layout_err e = jq_check_layout_cell(i, st->cells[i].rank);
         if (e != LAYOUT_OK) return e;
         int r = rank_norm(st->cells[i].rank);
+        /* ★ AUD-R-064（P2 诚实标注）：ERR_RANGE 复用于"分布不符"（UI 若按码映射
+           文案会显示"字节非法"而非"子力分布不符"）——错误码语义混淆，修法（新增
+           ERR_COUNT）需同步 UI 文案映射，留待下一轮。
+           ★ AUD-R-065（P2 诚实标注）：seen[r]==cnt[r]*2 假设全盘双方严格镜像
+           （25+25 子）——自定义/联机/四国非标准布局会被误报 ERR_RANGE，仅默认
+           布局校验有效（jq_extract_layout_30 注释已承认该限制）。 */
         if (r >= 0 && r < RANK_COUNT) seen[r]++;
     }
     /* 双方各一份标准 25 子 → 全盘 60 格 = 每 rank 计数 ×2（红+蓝镜像） */

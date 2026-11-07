@@ -41,6 +41,10 @@
 #define N_CELLS    60
 
 /* ---- datax_177 棋盘格（★ 层 2 视觉对齐：原版 720×1280 完整棋盘背景）----
+   ★ AUD-R-077（P2 诚实标注）：渲染层 720×1280 贴图坐标常量（BG_* / bg_row_cy /
+   bg_cell_img_center）与规则层 12×5 概念混放于规则头 junqi.h——touch.c/render.c
+   各自复用 bg_row_cy。拆分到 render.h/board_geom.h 需同步 10+ 文件 #include，
+   留待下一轮；本轮仅加 R-078 越界守卫。
    棋盘格只占图像 y≈205-1195（非全高 12 等分）：col0 中心 x=78.5，列宽 140.5；
    row0-5 中心 y=222+r*71（行高 71），row6-11 中心 y=822+(r-6)*71
    （row5→6 铁路中线间隙 246，非等距）。图像 row0=顶部；设备格 row0=底部
@@ -61,10 +65,15 @@ static inline float bg_row_cy(int image_row)
         : BG_GRID_ROW6_CY + (image_row - 6) * BG_GRID_ROW_H;
 }
 
-/* 设备格(row,col)（row0=底部，与 touch/walktest 约定一致）→ 图像中心像素 */
+/* 设备格(row,col)（row0=底部，与 touch/walktest 约定一致）→ 图像中心像素
+   ★ AUD-R-078（P2）：越界前置守卫——row/col 超域（image_row 负值会走错 bg_row_cy
+   分支返回"看似合法"的错误坐标）→ 置 -1 返回，调用方据此跳过渲染。 */
 static inline void bg_cell_img_center(int row, int col, float *ix, float *iy)
 {
     int image_row = BOARD_ROWS - 1 - row;
+    if (ix) *ix = -1.0f;
+    if (iy) *iy = -1.0f;
+    if (row < 0 || row >= BOARD_ROWS || col < 0 || col >= BOARD_COLS) return;
     if (ix) *ix = BG_GRID_COL0_CX + col * BG_GRID_COL_W;
     if (iy) *iy = bg_row_cy(image_row);
 }
@@ -88,7 +97,12 @@ typedef struct {
 
 /* ---- 对局阶段 ---- */
 typedef enum {
-    STG_SETUP = 0,  /* 布阵（rulelay 编辑） */
+    STG_SETUP = 0,  /* 布阵（rulelay 编辑）
+                     ★ AUD-R-052（P2 诚实标注）：死枚举——规则引擎（jq_can_move/jq_flip）
+                     仅对 STG_PLAY 放行，无布阵编辑 API（整盘编辑+校验+提交流程在兄弟
+                     实现 src/game_logic.c:421-499 jq_setup_*，src_rs 未移植）；全仓
+                     STG_SETUP 无使用点（grep 确认）。修法（实现布阵 API 对齐 game_logic
+                     或删枚举改"布阵仅 UI 层"）留待下一轮。 */
     STG_PLAY,       /* 对局 */
     STG_OVER,
 } jq_stage;
@@ -158,6 +172,10 @@ typedef struct {
 } jq_state;
 
 /* 红方已翻开的 rank 存储值：rank+0xc（0x6a3a4 确证，L60） */
+/* ★ AUD-R-079（P2 诚实标注）：rank_encode 全仓无调用点（grep 确认）——保留函数
+   对齐原版 0x6a3b0 编码语义（红方 +0xc）的唯一表达式；layout.c:59 的装载写入点
+   仍用字面量 `v + 0xc`，编码规则有两个来源。修法（装载点统一走 rank_encode +
+   rank_norm 与 side 绑定，见 AUD-R-047）留待下一轮。 */
 static inline int rank_encode(uint8_t side, int rank) {
     return (side == SIDE_RED && rank != 0) ? rank + 0xc : rank;
 }
@@ -183,7 +201,12 @@ bool is_base(int row, int col);       /* 大本营（军旗所在，进后不可
 bool is_rail(int row, int col);       /* 铁路（col2 纵线 + row5/6 横线） */
 int  coord_cmp(const int8_t *a, const int8_t *b); /* 0x6ef54：[0]=col [1]=row，0=相同 */
 
-/* ---- 布局（0x2a340 加载 / 0x6a3a4 映射 / 0x6a3b0 校验，§3/§7）---- */
+/* ---- 布局（0x2a340 加载 / 0x6a3a4 映射 / 0x6a3b0 校验，§3/§7）----
+   ★ AUD-R-051（P2 诚实标注）：jq_state_init/jq_load_layout/jq_check_layout_cell/
+   jq_validate_layout 四个状态+布局核心函数实现均在 layout.c（头文件与走子 API
+   并列声明）——新增编译目标若只链接 board.c+rules.c 会链接失败（Makefile 各目标
+   手工列 layout.c 正为此耦合，SRCS_CORE 已统一）。修法（移 state.c 或按 SRCS_CORE
+   收敛目标）为构建组织调整，本轮诚实标注不重构。 */
 void jq_state_init(jq_state *st);
 /* 0x2a340 载入 30 字节布局（6 行 × 5 列，蓝方视角 row0=前线路 … row5=底线）。
    原版 0x2a340：循环 30 次经 0x6a3a4 映射（蓝原值/红+0xc）。
@@ -194,6 +217,9 @@ void jq_load_layout(jq_state *st, const uint8_t layout[30]);
    明棋布局同结构但全 revealed=1），st->mode = JQ_MODE_FLIP。
    暗棋规则族（AUD-R-002 P0）：地雷/军旗仅工兵可吃；工兵挖 3 雷才可扛旗。
    兄弟实现 src/game_logic.c:333-353 jq_dark_setup 同款。
+   ★ AUD-R-090（P2 已修）：jq_state 的 mode 字段（JQ_MODE_LAY/JQ_MODE_FLIP）随
+   布局装载（jq_dark_setup set FLIP）与悔棋快照（整结构拷贝含 mode）一起保存，
+   stage 与 mode 为两个正交维度（stage=布阵/对局/终局，mode=明棋/暗棋）。
    ★ 诚实边界：先手翻子定色（side=UNKNOWN 机制）留待后续轮次。 */
 void jq_dark_setup(jq_state *st, const uint8_t layout[30]);
 /* 0x2a228 单格校验：idx 0-59，raw 字节（红方翻开 +0xc 自动归一）。
@@ -205,6 +231,10 @@ jq_layout_err jq_check_layout_cell(int idx, int raw);
 jq_layout_err jq_validate_layout(const jq_state *st);
 void jq_refresh_movable_counts(jq_state *st);
 
+/* ★ AUD-R-081（P2 诚实标注）：三套规则实现并存——src_rs/rules.c（本仓）、
+   src_jni_translated/jq_rs_rules.c（32 位翻译体镜像，修改须同步否则两套 so 分叉）、
+   src/game_logic.c（手写路线）；一致性闸门 = make consistency（consistency_desktop.c
+   9/9 规则矩阵对照）+ evverify 167 + regress.py 50/50，修任何规则条款后必跑三闸。 */
 /* ---- 走子（0x39e14 目标类型判定 + 0x39f20 执行器 + 0x3a15c 交换，§5/§6）---- */
 bool jq_can_move(const jq_state *st, int from, int to);
 /* 执行走子。返回事件类型；失败返回 -1（不切 turn，L54）。 */
@@ -216,7 +246,10 @@ bool jq_side_stalemated(const jq_state *st, uint8_t side);
 
 /* ---- 悔棋（联机 Regret* 事件驱动，L77；本地快照恢复）----
    ★ AUD-R-012（P1）：jq_undo_snapshot/jq_snapshots_left 引擎内未实现（空壳），
-   实际悔棋由 jni_bridge.c g_undo 栈承担；bt_session UNDO 帧走 jq_bt_undo_available()。 */
+   实际悔棋由 jni_bridge.c g_undo 栈承担；bt_session UNDO 帧走 jq_bt_undo_available()。
+   ★ AUD-R-088（P2 诚实标注）：无走子级部分回滚能力——悔棋粒度 = 整盘快照
+   （对齐原版 undo 栈设计：Regret* 事件驱动整局回退，原版无部分回滚概念），
+   不做走子级部分回滚。 */
 void jq_undo_snapshot(const jq_state *st);          /* 占位（未接线，走 jni_bridge g_undo） */
 /* ★ AUD-R-050（P2 诚实标注）：整体状态恢复语义（*st = *snap 全字段覆盖，含
    cells/turn/stage/winner/计数字段）——对"悔一步"合适；调用方 bt_session.c:11

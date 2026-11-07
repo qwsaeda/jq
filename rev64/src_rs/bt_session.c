@@ -76,12 +76,14 @@ int jq_bt_session_on_frame(jq_bt_session *s, jq_state *st,
         return 0;
     }
     case BT_T_SYNC_CELL: {
-        int idx = f2;
-        if (idx < 0 || idx >= N_CELLS) return -1;
         /* ★ AUD-R-084（P2）：同步帧 side/rank 合法性白名单过滤——防止越界/非法值
            污染规则引擎 side 语义（AUD-R-004 pieces_left[255] 越界写 / AUD-R-047
-           rank_norm 错误还原同源）：rank∈{0..24}（蓝 0-12 / 红编码 13-24）、
-           side∈{0,1,0xFF}；超域帧按空格拒收（rank=0），不写 peer_state。 */
+           rank_norm 错误还原同源）。
+           帧字段（bt_protocol.h 约定）：f2=idx, f3=rank, f4=side, f5=revealed
+           （sync 编码 jq_bt_frame_sync_encode 每格一帧），故白名单过滤 f3/f4/f5。
+           rank∈{0..24}（蓝 0-12 / 红编码 13-24）、side∈{0,1,0xFF}，超域拒收。 */
+        int idx = f2;
+        if (idx < 0 || idx >= N_CELLS) return -1;
         if (f3 < 0 || f3 > RANK_TOP + 0xc || (f4 != 0 && f4 != 1 && f4 != SIDE_UNKNOWN))
             return -1;
         s->peer_state.cells[idx].rank = f3;
