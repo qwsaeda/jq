@@ -515,7 +515,12 @@ Java_com_cnvcs_App_OnEvent(JNIEnv *env, jclass c, jstring n, jstring v){
 JNIEXPORT void JNICALL
 Java_com_cnvcs_App_OnResult(JNIEnv *env, jclass c, jint r, jint res, jobject d){ jqt_OnResult((uint32_t)r,(uint32_t)res,V32(d),0,0,0,0,0,0,0,0,0,0x20f000); }
 JNIEXPORT jboolean JNICALL
-Java_com_cnvcs_App_OnKey(JNIEnv *env, jclass c, jobject k){ return (jboolean)jqt_OnKey(V32(k),0,0,0,0,0,0,0,0,0,0,0,0x20f000); }
+Java_com_cnvcs_App_OnKey(JNIEnv *env, jclass c, jobject k){
+    /* §124y-140: 对照 OnTouch 的 §124ak 修正模式——原版 OnKey JNI 入口 0x2344c
+     *   r0=env(JNIEnv*), r1=env(adds r1,r0,#0), r2=KeyEvent。
+     *   旧版传 V32(k) 当 r0 → F_bde34 收到 r1=KeyEvent 而非 env → GetObjectClass 解析失败。
+     *   修正: jqt_OnKey(env, env, k, ...) 与 jqt_OnTouch(env,env,m) 同模式。 */
+    return (jboolean)jqt_OnKey(V32(env),V32(env),V32(k),0,0,0,0,0,0,0,0,0,0x20f000); }
 JNIEXPORT void JNICALL
 Java_com_cnvcs_App_OnBluetooth(JNIEnv *env, jclass c, jobject i){ jqt_OnBluetooth(V32(i),0,0,0,0,0,0,0,0,0,0,0,0x20f000); }
 JNIEXPORT void JNICALL
