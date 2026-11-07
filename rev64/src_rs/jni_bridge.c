@@ -8034,10 +8034,51 @@ Java_com_cnvcs_App_OnBluetooth(JNIEnv *env, jclass clazz, jobject intent)
             int rc = jq_bt_session_on_frame(&g_bt_sess, &g_state,
                                             f[0], f[1], f[2], f[3],
                                             f[4], f[5], f[6]);
+            /* ★ 蓝牙 UNDO 收帧侧闭环（对抗审计 P1-B9 / P1-J12 PENDING → 真接线）：
+               对端发 BT_T_UNDO = "我已悔棋"（本端之前发的 UNDO 帧的对端应答）。
+               bt_session 侧只切回合（不持有悔棋栈），真实回退必须在本文件做——
+               悔棋栈 g_undo/g_undo_top 是本文件 static，跨文件不可见。
+               语义：BT 交替走棋下，双方各悔**自己那一步**（本地栈只存自己走的子，
+               对端栈只存对端走的子）→ 双方各弹一次 = 退一个完整回合 = 棋盘一致。
+               回退后广播 SYNC_CELL 全量（60 帧）→ 请求方以权威态覆盖，双端收敛。
+               诚实边界：若双方栈深不一致（如一侧本地悔过未广播），SYNC_CELL 兜底收敛。 */
+            int did_undo = 0;
+            if (f[0] == BT_T_UNDO && rc == 0) {
+                if (undo_pop()) {
+                    did_undo = 1;
+                    LOGI("OnBluetooth：收 UNDO 帧 → 本地回退 1 步（undo_pop，turn=%d）", g_state.turn);
+                } else {
+                    LOGI("OnBluetooth：收 UNDO 帧但本地栈空（不悔，诚实边界）");
+                }
+            }
             pthread_mutex_unlock(&g_mutex);
             nframes++;
             if (rc < 0)
                 LOGI("OnBluetooth：帧 type=%d 被拒（rc=%d）", f[0], rc);
+            /* 回退后广播全量 SYNC_CELL（60 帧）→ 请求方覆盖为权威态（双端收敛） */
+            if (did_undo) {
+                char sbuf[BT_BUF * 64];        /* 60 帧 × BT_BUF 槽（strided 布局） */
+                int sn = jq_bt_session_send_sync(&g_bt_sess, &g_state, sbuf, BT_BUF);
+                if (sn > 0) {
+                    /* jq_bt_frame_sync_encode 返回**帧数**，每帧占 BT_BUF 槽，
+                       槽内 "v2\npayload\n\0"（帧自带尾 '\n'）→ 直接串接即可，
+                       无需额外分隔符（Java 读线程按 "v2\n"+payload+"\n" 重组帧）。 */
+                    char payload[BT_BUF * 64];
+                    int plen = 0;
+                    for (int k = 0; k < sn; k++) {
+                        const char *fr = sbuf + k * BT_BUF;
+                        int flen = (int)strlen(fr);
+                        if (flen <= 0 || plen + flen >= (int)sizeof(payload)) break;
+                        memcpy(payload + plen, fr, flen);
+                        plen += flen;
+                    }
+                    payload[plen] = 0;
+                    if (plen > 0) {
+                        jq_bt_send(env, payload);
+                        LOGI("OnBluetooth：UNDO 回退后广播 SYNC_CELL 全量（%d 帧 / %d 字节）", sn, plen);
+                    }
+                }
+            }
             /* 找下一帧起点（跳过本帧的 '\n'） */
             const char *nl = strchr(p, '\n');
             p = nl ? nl + 1 : p + 1;

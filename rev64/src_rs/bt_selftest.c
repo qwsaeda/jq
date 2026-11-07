@@ -135,6 +135,112 @@ int main(void) {
                                  BT_T_MOVE, 99, 0, 0, 0, 0, 0);  /* f1=type f2=99 非法 */
     CHECK(ret == -1, "非法坐标帧拒绝（rc=-1）");
 
+    /* =====================================================================
+     * §9. ★★ 跨语言帧契约测试（Java 读线程分帧 ↔ native 帧格式）
+     *   背景（对抗审计批6 P0）：native 帧 = "v2\n" + payload + "\n"（两行），
+     *   而 Java 读线程原实现"按 \n 逐行分发" → 把 "v2" 与 payload 当两帧下发
+     *   → native decode 找不到 "v2\n" → **收帧全丢**（端到端蓝牙同步失效）。
+     *   native 端 encode→decode 自测（本文 §1）两端自洽，永远发现不了这个
+     *   **跨语言契约错位**——必须显式模拟 Java 侧分帧行为。
+     *   本节实现 Java 读线程（修复后）的重组算法，验证：
+     *     ① 单帧：wire = native帧 + writer 追加的 "\n" → 重组出可解码帧
+     *     ② 多帧：60 格 SYNC_CELL 串接载荷 → 重组出 60 帧且字段正确
+     *     ③ 旧版逐行分发（已知坏行为）→ 复现"解码失败"（回归哨兵）
+     * ===================================================================== */
+    printf("[§9] 跨语言帧契约（Java 读线程分帧 ↔ native 帧格式）\n");
+    {
+        /* --- ① 单帧：wire = frame + "\n"（Java sendFrame 追加终止符） --- */
+        char wire[256];
+        int wl = 0;
+        int fn = jq_bt_frame_encode(wire, sizeof wire, BT_T_MOVE, 1, 2, 3, 4, 9, 0, 0);
+        CHECK(fn > 0, "§9.1 native 帧 encode");
+        memcpy(wire + wl, wire, fn); wl += fn;
+        wire[wl++] = '\n'; wire[wl] = 0;   /* Java sendFrame：frame + "\n" */
+
+        /* 模拟 Java 读线程（修复后）：找 "v2\n" 头 + payload 尾 '\n' */
+        char frames[8][160];
+        int nfr = 0;
+        {
+            const char *vs = strstr(wire, "v2\n");
+            CHECK(vs != NULL, "§9.1 wire 含 v2\\n 头");
+            if (vs) {
+                const char *pe = strchr(vs + 3, '\n');
+                CHECK(pe != NULL, "§9.1 wire 含 payload 终止符");
+                if (pe) {
+                    int flen = (int)(pe - vs);
+                    if (flen > 0 && flen < (int)sizeof frames[0]) {
+                        memcpy(frames[nfr], vs, flen);
+                        frames[nfr][flen] = 0;
+                        nfr++;
+                    }
+                }
+            }
+        }
+        CHECK(nfr == 1, "§9.1 Java 重组得 1 帧（旧版逐行分发会得 2 个残片）");
+        if (nfr == 1) {
+            int q[8];
+            CHECK(jq_bt_frame_decode(frames[0], &q[0], &q[1], &q[2], &q[3], &q[4], &q[5], &q[6]) == 1,
+                  "§9.1 重组帧可被 native decode");
+            CHECK(q[0] == BT_T_MOVE && q[1] == 1 && q[5] == 9,
+                  "§9.1 重组帧字段正确（g[0]=type, g[1..6]=f1..f6；encode 实参 f1=1,f5=9）");
+        }
+        /* --- ③ 旧版逐行分发（坏行为）→ 复现解码失败（回归哨兵） --- */
+        {
+            char line1[160], line2[160];
+            int l1 = 0, l2 = 0;
+            const char *p = wire;
+            while (*p && *p != '\n') { line1[l1++] = *p++; }
+            line1[l1] = 0;
+            if (*p == '\n') p++;
+            while (*p && *p != '\n') { line2[l2++] = *p++; }
+            line2[l2] = 0;
+            int q1[8], q2[8];
+            int ok_old = jq_bt_frame_decode(line1, &q1[0], &q1[1], &q1[2], &q1[3], &q1[4], &q1[5], &q1[6])
+                       && jq_bt_frame_decode(line2, &q2[0], &q2[1], &q2[2], &q2[3], &q2[4], &q2[5], &q2[6]);
+            CHECK(ok_old == 0, "§9.3 旧版逐行分发确实解码失败（回归哨兵：证明本测试有效）");
+        }
+
+        /* --- ② 多帧载荷：60 格 SYNC_CELL 串接 → 重组 60 帧 --- */
+        {
+            char sb[60 * 64];
+            int sn = jq_bt_frame_sync_encode(sb, 64, &st, 0, N_CELLS);
+            /* 串接成连续载荷（帧自带尾 '\n'，直接拼接） */
+            static char multi[60 * 80];
+            int ml = 0;
+            for (int k = 0; k < sn; k++) {
+                const char *fr = sb + k * 64;
+                int flen = (int)strlen(fr);
+                if (flen > 0 && ml + flen < (int)sizeof multi) {
+                    memcpy(multi + ml, fr, flen);
+                    ml += flen;
+                }
+            }
+            /* Java 重组：逐帧抽取 */
+            int got = 0, bad = 0;
+            const char *cur = multi;
+            const char *end = multi + ml;
+            while (cur < end) {
+                const char *vs = strstr(cur, "v2\n");
+                if (!vs || vs >= end) break;
+                const char *pe = NULL;
+                for (const char *q = vs + 3; q < end; q++) if (*q == '\n') { pe = q; break; }
+                if (!pe) break;
+                char fr[160];
+                int flen = (int)(pe - vs);
+                if (flen > 0 && flen < (int)sizeof fr) {
+                    memcpy(fr, vs, flen); fr[flen] = 0;
+                    int q[8];
+                    if (jq_bt_frame_decode(fr, &q[0], &q[1], &q[2], &q[3], &q[4], &q[5], &q[6])
+                        && q[0] == BT_T_SYNC_CELL && q[1] == got) got++;
+                    else bad++;
+                }
+                cur = pe + 1;
+            }
+            CHECK(got == sn, "§9.2 多帧载荷重组 60 帧且 idx 顺序正确");
+            CHECK(bad == 0, "§9.2 多帧载荷无解码失败帧");
+        }
+    }
+
     printf(rc ? "== 结果: 有失败 ==\n" : "== 结果: 全部通过 ==\n");
     return rc;
 }

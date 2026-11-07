@@ -13,7 +13,8 @@
 #   - android-32.jar（android.platforms）
 #   - d8（build-tools 36）
 #   - baksmali
-#   - 源 /tmp/opencode/jq_bt_src/com/cnvcs/BtSpp.java
+#   - 源 rev64/src_rs/bt_java/BtSpp.java（★ 已入库，权威源；/tmp/opencode/jq_bt_src
+#     是工作副本，本脚本每次从仓库源同步过去——/tmp 会被清空，仓库源才可复现）
 #   - 构建树 dec_dual/dec_full（/tmp/opencode/jq_apk/rs_a64/）
 set -u
 # ★ 对抗审计 P0（批3 P0-B1）：加 pipefail（javac/d8 失败被 | head 吞退出码 →
@@ -21,12 +22,26 @@ set -u
 set -o pipefail
 SRC=/tmp/opencode/jq_bt_src
 RA=/tmp/opencode/jq_apk/rs_a64
+# ★ 权威源（仓库入库，/tmp 丢失可恢复）：BtSpp.java
+BT_SRC_REPO=/disk/workspaces/jq/rev64/src_rs/bt_java/BtSpp.java
+BT_SRC_REPO_DIR=/disk/workspaces/jq/rev64/src_rs/bt_java
 ANDROID_JAR=/disk/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/760/fs/opt/android/platforms/android-32/android.jar
 D8=/disk/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/741/fs/opt/android/build-tools/36.0.0/d8
 [ -x "$D8" ] || D8=$(command -v d8)
 API=21
 
+# ★ 权威源同步（仓库 → /tmp 工作副本）：/tmp/opencode/jq_bt_src 会被清空，
+#   BtSpp.java + 编译期 stub 已入库 rev64/src_rs/bt_java/ → 每次从仓库源同步
+#   （可复现；stub 也入库否则 /tmp 清空后编译必失败——实测踩过）。
+if [ -f "$BT_SRC_REPO" ]; then
+  mkdir -p "$SRC/com/cnvcs" "$SRC/stubs/com/cnvcs"
+  cp "$BT_SRC_REPO" "$SRC/com/cnvcs/BtSpp.java"
+  cp "$BT_SRC_REPO_DIR/stubs/com/cnvcs/App.java" "$SRC/stubs/com/cnvcs/App.java" 2>/dev/null || true
+fi
+
 # 编译期 stub（真实 App 由 dex 合并提供；仅需签名匹配，不入 dex）
+# 注：stub 内容以仓库源为准（rev64/src_rs/bt_java/stubs/com/cnvcs/App.java）；
+#     下面 heredoc 仅作 /tmp 缺失时的兜底（两者内容一致）。
 cat > "$SRC/stubs/App.java" <<'EOF'
 package com.cnvcs;
 public class App {
