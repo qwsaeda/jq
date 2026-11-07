@@ -6555,3 +6555,26 @@ EVT-TBL-DUMP(after game_test): 289B 区 非0字节=129 高nibble非0字节=0 事
   位置早于任何游戏逻辑）→ 需在 game_test 分支内追加采样
 - 掩码表统计口径: 非 0 字节数（对齐 ref dump 真值）+ 高 nibble 非 0 字节数（事件码是否出现），
   两个指标缺一不可（只看前者会漏判"回填未生效"）
+
+## §124w-ALIGN 棋子图集纹理对齐（正向开发经验移植到 32 位翻译体）
+
+**正向开发经验参考**：`rev64/src/junqi_jni.c` + `rev64/src/render_gles2.c` 双纹理渲染（棋盘 datah#188 737×751 + 棋子图集 datah#183 212×280，4 列 × 7 行，53×40/格，rank→列 (rank-1)%4、子行 (rank-1)/4；红方 side=1 行0-2，蓝方 side=0 行3-5，行6=背面/选中/空）。
+
+**本轮 32 位翻译体对齐**：
+- 新增 `rev64/src_jni_translated/jq_piece_atlas.h`（SPAK 解包产物 `rev64/dist/spak_res/datah_183_*.bin` 像素内嵌，212×280 RGB，~178KB），同 `jq_board_px.h` 同源。
+- `jqt_vtbl.c` F_23eec 的 SLOT22-TRIGGER-GL 块后追加 PIECE-TEX 子块：GL 里再建第二纹理对象（glGenTextures + glTexImage2D 上传棋子图集），texID 存 `.bss 0x15c0a4` 槽（未占用，紧邻 0x15c0a0 渲染器共享槽）。
+- `DRAWOBJ-FILL` 构造 dobj 后追加第二批次（batch[1]）：复用 PIECE-TEX 建的 piece_tex，扩 batch 数组 2×16B（batch[0]=棋盘 quad 保留，batch[1]=棋子 4 子 rank1-4，图集列 0-3 行0，像素坐标 x 220+i*140 y 1010，uv 图集归一化 col i→u i/4..(i+1)/4、v 0..1/7）。批次数 1→2，顶点数组 6→18 顶点（pos/col/uv 各扩容）。
+- 编译 0 error、链接审计 PASS、arm32 4 路径回归 4/4 PASS + 0 崩溃。
+- 设备日志实锤：`SLOT22-TRIGGER-GL ... after=0x1`（棋盘纹理已建）、`PIECE-TEX ... texID=2 err=0x0`（棋子图集纹理已建，GL 无错）、`DRAWOBJ-PCE ... batches=2 pos=0x...`（第二批次已扩）。
+
+**诚实边界**：
+- 棋子位置 = 静态摆 4 子示范（红方底区 rank 1-4），非动态跟随走子（走子批次需场景构造链生成真实顶点，后续轮次）。
+- `F_9e760` 批次 2 的 `glDrawArrays` 首跑出现 `first=12 count=12`（字段读反）+ 后续 `centerpx` 全黑——顶点属性指针需按批切换 `glVertexAttribPointer`（对齐原版 F_9d434 批次切换逻辑），本轮先验证纹理上传 + 批次构造通路正确，顶点指针切换为后续轮次目标。
+- 棋盘纹理（datah#188）已在 `jq_board_px.h` 内嵌并实锤出屏（framebuffer center 非黑），本轮补齐第二纹理（棋子图集），与正向开发 `render_gles2.c` 同源对齐。
+
+**构建命令固化**：
+```
+bash rev64/build_arm32_aligned.sh            # 编译 so（含 jq_piece_atlas.h）
+bash rev64/pack_arm32.sh rev64/dist/libjunqi_arm32_aligned.so rev64/dist/phase_chain_arm32.apk
+bash rev64/tools/arm32_walkregress.sh --dev emulator-5554   # 4 路径回归
+```

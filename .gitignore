@@ -51,3 +51,6 @@ build/
 
 # === 保留 ===
 !README.md
+
+# §124w-ALIGN 棋子图集生成头（SPAK datah#183 像素内嵌，~650KB，同 jq_board_px.h 排除）
+rev64/src_jni_translated/jq_piece_atlas.h
