@@ -267,8 +267,10 @@ int jq_try_move(jq_state *st, int from, int to)
            ★ 对抗审计 AUD-R-009/AUD-R-020（P1）修正：旧版撞旗后只是清空两格，
            **不产生任何终局信号** → 军旗没了但局继续（旗被毁 = 对方失去军旗 = 判负，
            rulelay L16「军旗被扛…判负」）。现补判胜：扛旗方（用炸弹的一方）获胜。
-           诚实边界：原版在「炸弹撞军旗」时是否判扛旗方胜，尚未从 32 位 so 反汇编确证
-           （当前依据为 rulelay 规则文本 L12+L16 推断）；若原版另有判定，需按原版调整。 */
+            ★ AUD-R-020（P1）：炸弹撞军旗 → 扛旗方（用炸弹的一方 me）胜（守卫
+            SIDE_VALID(dst_side)：暗棋未定色暗子 side=0xFF 撞旗同归后不判胜，旗归属未定）。
+            诚实边界：原版该场景判定尚未从 32 位 so 反汇编确证（依据 rulelay L12+L16 文本
+            推断），若原版另有判定需按原版调整。 */
         int dst_side = dst->side;
         int dst_rank = dr_;
         memset(src, 0, sizeof(*src));
@@ -280,7 +282,9 @@ int jq_try_move(jq_state *st, int from, int to)
         if (dst_side != me && SIDE_VALID(dst_side)) st->pieces_left[dst_side]--;
         ev = EV_BOMB;
         st->moves_since_eat = 0;
-        /* 炸弹炸毁军旗 → 被炸方失去军旗 → 扛旗方（己方 me）胜 */
+         /* 炸弹炸毁军旗 → 被炸方失去军旗 → 扛旗方（己方 me）胜。
+            ★ AUD-R-020（P1）：终局信号（winner+stage 双置，stage=OVER 使后续收口守卫放行）。
+            暗棋未定色暗子（side=0xFF）撞旗同归后 SIDE_VALID 不满足 → 不判胜（旗归属未定）。 */
         if (dst_rank == RANK_FLAG && SIDE_VALID(dst_side)) {
             st->winner = (int)me;         /* winner: 0=蓝胜 1=红胜；me=用炸弹的一方=胜方 */
             st->stage = STG_OVER;
