@@ -107,11 +107,13 @@ def verify_one(n, keep_shot=False):
 
     # 触发
     adb("shell", "am", "force-stop", PKG)
+    time.sleep(0.8)   # ★ flaky 防复现：force-stop 后等进程真的死（logcat 缓冲里的
+                       # 旧 Abort message 会被下一条新进程 logcat -d 带出误判崩溃）
     adb("shell", "setprop", "jq.dlgbatch", f"{n:03d}")
     adb("shell", "setprop", f"jq.dlg{n:03d}", "1")
     adb("logcat", "-c")
     adb("shell", "am", "start", "-n", f"{PKG}/com.cnvcs.App")
-    time.sleep(3.0)
+    time.sleep(4.0)   # 3s→4s：渲染线程首帧稳态（冷启动 + 连续 am start 压力下首条未渲染稳）
 
     pid = adb("shell", "pidof", PKG).strip()
     if not pid:
@@ -199,17 +201,36 @@ def main():
     results = []
     for i, n in enumerate(ids, 1):
         r = verify_one(n)
+        # ★ flaky 容错（mumu_regress.sh 同款思路）：失败条自动补跑 1 次。
+        #   118 条连续 am start 压力下 MuMu 渲染线程周期性卡顿/旧进程 logcat
+        #   串扰 → 单条失败漂移（轮 A 挂 007、轮 B 挂 262/263），单条重验全过。
+        #   判据 = 两轮都挂才 FAIL（消除时序 flaky 误判，保留真实回归）。
+        if not r["ok"]:
+            time.sleep(2.0)
+            r2 = verify_one(n)
+            r2["retried"] = True
+            r2["first_issues"] = r["issues"]
+            r = r2
         results.append(r)
         flag = "✓" if r["ok"] else "✗"
-        print(f"[{i}/{len(ids)}] datah_{n:03d} {flag} "
+        retry = " (retry)" if r.get("retried") else ""
+        print(f"[{i}/{len(ids)}] datah_{n:03d} {flag}{retry} "
               f"非黑{r.get('nonblack', 0)}% "
               f"{'; '.join(r['issues']) if r['issues'] else ''}", flush=True)
 
     npass = sum(1 for r in results if r["ok"])
+    flaky = [r for r in results if r.get("retried") and r["ok"]]
+    hardfail = [r for r in results if not r["ok"]]
     with open(a.out, "w", encoding="utf-8") as f:
         f.write("# 真机全量弹窗验收（对抗审计闭环）\n\n")
         f.write(f"> 判据：进程存活 + 无崩溃 + 钩子命中 + 几何 |Δ|≤6px + 非黑≥85%\n")
-        f.write(f"> 结果：**{npass}/{len(results)} PASS**\n\n")
+        f.write(f"> 结果：**{npass}/{len(results)} PASS**\n")
+        if flaky:
+            f.write(f"> flaky 容错：{len(flaky)} 条首跑失败、补跑 PASS（MuMu 渲染线程 118 条连续 am start 时序 flaky，非代码回归）："
+                    + " ".join(f"{r['n']:03d}" for r in flaky) + "\n")
+        if hardfail:
+            f.write(f"> 两轮均挂（真实 FAIL 候选）：" + " ".join(f"{r['n']:03d}" for r in hardfail) + "\n")
+        f.write("\n")
         f.write("| datah | 结果 | 非黑% | 几何期望 | 几何实测 | Δ | 问题 |\n")
         f.write("|---|---|---|---|---|---|---|\n")
         for r in results:
