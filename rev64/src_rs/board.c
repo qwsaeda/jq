@@ -8,7 +8,10 @@
  * ★ AUD-R-133（P3 已修）：头注释统一为"§Lxx（REVERSE_NOTES_01_basics.md）"格式
  *   （原"L51/L79"裸 L 编号检索易漏，与 rules.c "§L49/§L68" 风格不一致）。
  * 棋盘 12×5=60 格；蓝方 row0-5（row0 底线含大本营 col1/3），红方 row6-11。
- */
+ * ★ AUD-A2 F-naming（诚实标注，0 行为变化）：本模块 7 个核心几何 API
+ *   （is_camp/is_base/is_rail/cell_index/cell_row/cell_col/coord_cmp）无模块前缀，
+ *   保留原名（历史命名 + 32 位翻译体同签名对照 + 全仓数十处调用点跨编译目标复用，
+ *   改前缀需全仓同步，留待重构轮）。详见 junqi.h 声明处 AUD-A2 族注释。 */
 #include "junqi.h"
 
 /* 行营坐标集合（★ AUD-R-130（P3 已修）：改坐标集合注释，原 layout idx 映射注释

@@ -15,7 +15,10 @@
 #include "bt_protocol.h"
 #include "bt_session.h"
 
-/* stub __android_log_print（bt_protocol.c 引用） */
+/* stub __android_log_print（bt_protocol.c 引用）
+ * ★ AUD-A2 F-naming（诚实标注）：__android_log_print 是 Android NDK 系统符号名
+ * （<android/log.h> 契约），桌面桩必须保留原名（NDK 链接契约，对齐系统符号名），
+ * 不能加模块前缀。非公开 API（bttest 编译目标本地桩，不导出）。 */
 int __android_log_print(int prio, const char *tag, const char *fmt, ...);
 #include <stdarg.h>
 int __android_log_print(int prio, const char *tag, const char *fmt, ...) {
