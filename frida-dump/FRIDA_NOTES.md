@@ -597,6 +597,8 @@ OnTouch(MotionEvent) / OnKey(KeyEvent)  (JNI 入口, §124y-100)
 | 0xbdxxx JNI 桥接层 7 函数 | .text 0xbd5xx-0xbdcxx | 8 函数 1 收表 (0xbe9cc OnBluetooth) + 7 未收表 (OnUpdate/OnGraph×2/OnKey/OnTimer/OnPause/OnResume), §124y-130 | 7 函数完整 C++ 逻辑 (JNI 桥接层, 非 vtable dispatch, frida 追踪) |
 | 0xbdxxx vs F_3ab80 两层机制 | .text 0xbdxxx / .bss 单例槽 | JNI 桥接层 (读 .bss 0x15be80 根对象) vs 事件底层 (F_3ab80 填单例槽) 两层独立, §124y-130 | 桥接如何触发事件底层 (frida 调用链实锤) |
 | OnUpdate 主循环 | 0xbd5a0 (读根对象[0x24] + bl 0xb7eb0 + 事件码 0x20-0x22 分支, §124y-132) | 4 pool 实锤 (.bss 0x162662 locale / .rodata 0x120bfa / .bss 0x15be8c 根对象+0xc) | bl 0xb7eb0 完整体 + 0x20/0x21/0x22 对应事件名 + 根对象[0x24] 布局 (frida) |
+| OnKey 键码常量 8 槽 | .bss 0x16266c (+16/20/24/28/32/36/40/44, §124y-140) | MuMu dump: +16=2/+24=4/+28=1/+32=0x52(82)/+44=0x13(19), 其余=0 | 键码匹配分支 KeyEvent 注入端到端 (4 路径回归未覆盖 OnKey) |
+| F_bde34 GetMethodID name | .rodata 0x128b0c "getAction" / 0x128b28 "getKeyCode" (§124y-140) | C++ 拼接字符串表指针 (池 0xbdf50/bdf54/bdf58 → 0x128b08/0x128b24/0x128b30) | KeyEvent 注入 + JNI CallIntMethod 端到端实证 |
 
 ### 13.3 修正链（§124y-60→102→109 三轮误判记录，防复发）
 
