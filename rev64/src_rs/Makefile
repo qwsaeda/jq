@@ -96,6 +96,14 @@ rulestest:
 	@echo "构建完成: dist/jq_rulestest"
 	@./dist/jq_rulestest
 
+.PHONY: bt_semtest
+bt_semtest:
+	@mkdir -p dist
+	$(CC) $(CFLAGS) -DRS_NO_GL -o dist/jq_bt_semtest \
+	    $(SRCS_CORE) bt_session.c bt_semtest.c ui_state_stub.c -lm
+	@echo "构建完成: dist/jq_bt_semtest"
+	@./dist/jq_bt_semtest
+
 .PHONY: evverify
 MODE ?= --all
 evverify:
