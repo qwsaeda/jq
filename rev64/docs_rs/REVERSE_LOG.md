@@ -5322,3 +5322,45 @@ python3 /tmp/opencode/incremental_regress.py reset 0xADDR  # 改了某指令 →
   运行时 vtable 指针实锤（本轮实锤 vtable 边界 + 纯虚基类候选 16 个 + 槽 31/42 高频函数）
 - 触摸几何/按键处理完整 C++ 逻辑（槽 31/42 override 函数体）需 .text 全量反汇编 + frida 追踪
   （§124y-26 命中几何 0/60 诚实边界，本轮实锤 vtable 定位，未实锤几何计算函数）
+
+## §124y-140 OnKey F_bde34 翻译体对齐（JNI 入口 0x2344c → 0xbde34 → 键码匹配 → 事件码写入 → F_bd778）
+
+**★ 闭环事实（OnKey JNI 内部处理函数 F_bde34 完整体对齐进翻译体 jqt_OnKey.c + jni_aligned.c 参数修正）**：
+
+1. **F_bde34 原版 0xbde34 完整流程实锤（§124y-137 的双重虚调用精确化）**：
+   - 入参：r0=env(JNIEnv*)，r1=env(adds r1,r0,#0)，r2=KeyEvent 对象（JNI 入口 0x2344c 原版实锤）
+   - 3 次 JNI 虚调用：GetObjectClass（vtable 槽 31/0x7c）→ GetMethodID×2（vtable 槽 42/0x84）
+     - name 字符串池：0x128b0c "getAction" / 0x128b28 "getKeyCode"（.rodata 0x128bxx 区）
+     - sig 字符串：0x1265c8 "()I"
+   - 3 次 `bl 0x7bf80` = CallIntMethod（F_7bf80 已收表 §124y-97，jqt_OnCreate_full.c:26650 定义体）
+   - r9 = 第 1 次 GetMethodID 返回（mid 句柄）；sl/r10 = 第 2 次 CallIntMethod 返回（action 值）
+   - 键码匹配分支：cmp r9 vs .bss[0x16266c+16/24]，cmp sl vs .bss[0x16266c+20/28/32/36/40/44]
+     - 匹配 → str 事件码 18/27/0x25/0x28/0x27/0x26 到 [r1+4]（事件码层 2，§124y-132 两层编码）
+     - 事件码写入后 `bl 0xbd778`（按键事件写入）
+
+2. **.bss 0x16266c 键码常量 8 槽区 MuMu 实锤非 0（.bss 偏移 0x67EC）**：
+   - 0x16267c(+16)=2 / 0x162680(+20)=0 / 0x162684(+24)=4 / 0x162688(+28)=1 /
+     0x16268c(+32)=0x52(82) / 0x162690(+36)=0 / 0x162694(+40)=0 / 0x162698(+44)=0x13(19)
+   - 即键码匹配分支运行时非空操作（非 §124y-33/35 的 ok=0 全 0 兜底路径）
+
+3. **F_bd778（按键事件写入函数，0xbd778-0xbd78e）已在 jqt_OnEvent_full.c 完整体**（§124ai）：
+   - 读 [r0+0x3c] 字节标志，非 0 → 直接返回 1（跳过 F_b7e00）；0 → 读 [r0+0x24] 子对象 + 事件码 12 → bl F_b7e00
+   - F_b7e00 已收表（dispatch 表内，jqt_vtbl.c:70458 定义体）
+   - jqt_OnKey.c 的 F_bde34 调用 F_bd778 真调（extern 引用，非重复定义）
+
+4. **jni_aligned.c OnKey 参数修正（§124ak 同模式）**：
+   - 旧版 `jqt_OnKey(V32(k),0,0,...)` → 丢 env，F_bde34 收到 r1=KeyEvent 而非 env → GetObjectClass 解析失败
+   - 修正 `jqt_OnKey(V32(env),V32(env),V32(k),...)` 与 jqt_OnTouch(env,env,motion) 同模式
+   - 原版 0x2344c `adds r1,r0,#0` → r1=env 实锤
+
+5. **编译验证 + 4 路径回归全过**：
+   - build_arm32_aligned.sh 链接通过（JNI 符号 14）；pack_arm32.sh 重打包（so 未压缩，v1+v2 签名 OK）
+   - 4 路径回归（walk_bridge/native_layout/native_event/game_test）4/4 PASS + 0 崩溃（native_layout 首跑 flaky 重跑过）
+   - OnKey 无独立回归钩子（需 KeyEvent 注入，4 路径回归覆盖 OnTouch/OnEvent 触摸路径 + 游戏走子链）
+
+### 诚实边界
+- F_bde34 的 3 次 GetMethodID name 池值（0x128b0c "getAction" / 0x128b28 "getKeyCode"）为 C++ 拼接字符串表指针，
+  翻译体照 F_bdd2c 模式用 MEM(池偏移) 读 .rodata 影子区明文（§124ai 实锤可行）
+- .bss 0x16266c 键码常量槽的运行时真值（+16=2/+24=4/+32=82/+44=19 等）来自 MuMu dump，
+  键码匹配分支需 KeyEvent 注入端到端验证（4 路径回归未覆盖 OnKey，OnKey 对齐为静态翻译体忠实，未端到端实证）
+- 触摸几何/按键处理完整 C++ 逻辑（vtable 槽 31/42 override 函数体）仍为 §124y-26 命中几何 0/60 诚实边界
