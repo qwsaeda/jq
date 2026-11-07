@@ -15,7 +15,7 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 KINDS="flag mine restart draw resign stalemate close pop btconn"
-[ -n "$ONLY" ] && KINDS="$ONLY"
+[ -n "$ONLY" ] && KINDS=$(echo "$ONLY" | tr ',' ' ')   # ★ 逗号分隔支持（--only flag,btconn）
 PASS=0; FAIL=0
 FAILED=""
 FLAKY=""

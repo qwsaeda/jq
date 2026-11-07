@@ -49,6 +49,16 @@ static int g_bt_active = 0;
 void ui_bt_set_active(int on) { pthread_mutex_lock(&g_ui_lock); g_bt_active = on; pthread_mutex_unlock(&g_ui_lock); }
 int ui_bt_active(void) { return g_bt_active; }
 
+/* ★ 对抗审计 P1（批4 P0-R8 / 批6 彻底锁化）：人机模式标志（g_vs_ai）移入 ui_state。
+   原为 jni_bridge.c 的 static int g_vs_ai：写点分散在 OnTouch 各弹窗路径（**锁外**
+   写），读点在 OnTimer/OnUpdate（**持 g_mutex 内**读）→ 持锁读对无锁写不构成
+   同步，编译器可见性无序 → GLThread 可能长期看旧值（该进 AI 时不进 / 该停时不停）。
+   先以 volatile 临时兜底（批4），现彻底迁入 ui_state 走 g_ui_lock（与 g_bt_active
+   同款），写读双方同一把锁 → 数据竞争根除。 */
+static int g_vs_ai = 0;
+void ui_vs_ai_set(int on) { pthread_mutex_lock(&g_ui_lock); g_vs_ai = on ? 1 : 0; pthread_mutex_unlock(&g_ui_lock); }
+int  ui_vs_ai_get(void) { pthread_mutex_lock(&g_ui_lock); int v = g_vs_ai; pthread_mutex_unlock(&g_ui_lock); return v; }
+
 /* ★ 对抗审计（datah_001）：声音设置（静音/按键声音/音量 1-3），存文件持久化 */
 static int g_snd_mute = 0;    /* 0=声音开 1=静音 */
 static int g_btn_sound = 1;   /* 0=关 1=开 */

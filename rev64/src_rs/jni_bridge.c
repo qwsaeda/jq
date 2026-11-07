@@ -194,11 +194,12 @@ static void jq_bt_test_run(jq_state *st, const char *tag);  /* 蓝牙帧状态�
 /* ★ 对局模式（用户指正"各按钮点击业务功能要对齐"）：人机 vs 两人热座区分。
    1=人机对战（红方回合由 AI 自动走子 ai_pick）；0=两人热座/蓝牙（红方由玩家/对端走）。
    OnTouch/OnEvent 菜单进局时设置；重开（☰/restart）保持当前模式。 */
-static volatile int g_vs_ai = 0;   /* ★ 对抗审计 P0（批4 P0-R8）：volatile——多写点（OnTouch 主线程弹窗路径，g_mutex 锁外）
-                                       + 持锁读点（OnTimer/OnUpdate GLThread 内），编译器可见性无序。
-                                       volatile 保证 GLThread 不长期看旧值（该进 AI 时进 / 该停时停）。
-                                       写点仍分散（各弹窗），锁外 int 写本身在 ARM64 对齐原子；
-                                       彻底方案 = 并入 ui_state 走 g_ui_lock（后续专项）。 */
+/* ★ 对抗审计 P1（批4 P0-R8 → 批6 彻底锁化）：人机模式标志已迁入 ui_state
+   （ui_vs_ai_get/set，走 g_ui_lock）——原为 jni_bridge static，写点分散在
+   OnTouch 各弹窗路径（锁外写）+ 读点在 OnTimer/OnUpdate（持 g_mutex 读）→
+   持锁读对无锁写不构成同步（编译器可见性无序，GLThread 可能看旧值）。
+   现保留同名宏代理，调用点写法不变（语义 = ui_state 统一锁）。 */
+#define g_vs_ai  ui_vs_ai_get()
 
 /* 悔棋栈（OnEvent undo 用） */
 #define UNDO_MAX 128
@@ -931,14 +932,14 @@ static void on_event(const char *name, const char *value, JNIEnv *env)
             /* ★ 对抗审计 #4：本地/两人/四国开局统一走 jq_restart_game（随模式），
                旧版内联 jq_load_layout（暗棋）→ 与 OnTouch 按钮路径不一致。
                ★ 按钮业务对齐：mode 0=人机（AI 走红），mode 1=两人热座，mode 4=四国（AI 不介入）。 */
-            g_vs_ai = (mode == 0);
+            ui_vs_ai_set((mode == 0));
             jq_restart_game();
             LOGI("OnEvent menu 开局 mode=%d（%s，jq_restart_game：随模式 mode=%d stage=PLAY 蓝先手）",
                  mode, g_vs_ai ? "人机AI走红" : "两人热座", ui_opt_get_mode());
             ui_screen_set(UI_GAME);   /* 对局态：AI 介入 + 触摸走子放行 */
         } else {
             /* 联机模式：等 OnBluetooth 帧（本方蓝先手，SPP 由 Java 宿主承担） */
-            g_vs_ai = 0;   /* ★ 蓝牙模式：AI 不介入（回合闸口接管红方走子） */
+            ui_vs_ai_set(0);   /* ★ 蓝牙模式：AI 不介入（回合闸口接管红方走子） */
             g_bt_sess_init_done = 0;
             ui_bt_set_active(0);   /* ★ 对抗审计（datah_067）：退出联机 ☰ 菜单分流 */
             st->stage = STG_PLAY;
@@ -2788,7 +2789,7 @@ Java_com_cnvcs_App_OnKey(JNIEnv *env, jclass clazz, jobject keyEvent)
    从方式选择弹窗"蓝牙联机"按钮进入。 */
 static void start_bt_session(JNIEnv *env, int host)
 {
-    g_vs_ai = 0;   /* ★ 蓝牙模式：红方由对端/本机玩家走，AI 不介入（回合闸口接管） */
+    ui_vs_ai_set(0);   /* ★ 蓝牙模式：红方由对端/本机玩家走，AI 不介入（回合闸口接管） */
     jq_bt_start(env, host);
     /* ★ 联机会话初始化：联网=蓝先手（host），联机=红后手（client）——双方 we_blue 不可同为 1。
        发送走子帧经 jq_bt_send；BT 模式走子由本机状态机放行。 */
@@ -2911,14 +2912,14 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
                选玩法+明暗棋后确定 → 随模式直开局（两人热座，AI 不介入）；取消 → 回主菜单。 */
             if (hit_action == 0) {
                 /* 人机：进难度弹窗（UI_DIFFICULTY），选难度/模式后开局（AI 走红） */
-                g_vs_ai = 1;
+                ui_vs_ai_set(1);
                 ui_screen_set(UI_DIFFICULTY);
                 LOGI("OnTouch 菜单按钮%d（action=%d → UI_DIFFICULTY 人机难度弹窗，AI 走红）",
                      hit, hit_action);
             } else if (hit_action == 1) {
                 /* ★ P0（datah_062 证据）：两人 → 新局简化弹窗（玩法/明暗棋 + 确定/取消），
                    确定后才开局（两人热座，AI 不介入；默认翻棋暗棋对齐原版） */
-                g_vs_ai = 0;
+                ui_vs_ai_set(0);
                 ui_screen_set(UI_NEWGAME);
                 sfx_play(env, "pop");
                 LOGI("OnTouch 菜单按钮%d（action=%d → UI_NEWGAME 两人新局弹窗，datah_062 玩法/明暗棋+确定/取消，两人热座 AI 不介入）",
@@ -5735,7 +5736,7 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
         if (dh >= 0) {
             int level = db[dh].action / 2 + 1, mode = db[dh].action % 2;
             ui_opt_select(level, mode);
-            g_vs_ai = 1;   /* ★ 人机：红方 AI 走子 */
+            ui_vs_ai_set(1);   /* ★ 人机：红方 AI 走子 */
             pthread_mutex_lock(&g_mutex);
             jq_restart_game();
             pthread_mutex_unlock(&g_mutex);
@@ -5898,7 +5899,7 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
                 LOGI("OnTouch 新局弹窗：玩法/明暗棋切换 → mode=%d（%s，默认翻棋暗棋对齐原版）",
                      mode, mode ? "翻棋暗棋" : "布局明棋");
             } else if (nact == 2) {         /* 确定：随模式开局（两人热座，AI 不介入） */
-                g_vs_ai = 0;
+                ui_vs_ai_set(0);
                 pthread_mutex_lock(&g_mutex);
                 jq_restart_game();
                 pthread_mutex_unlock(&g_mutex);
@@ -5954,7 +5955,7 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
                 LOGI("OnTouch 登录弹窗：注册 → 诚实边界对话框 → 回主菜单");
                 ui_screen_set(UI_MENU);
             } else if (lact == 4) {   /* 游客 → 本地单机（两人热座，无账号） */
-                g_vs_ai = 0;   /* 游客=本地单机：AI 不介入，两人热座 */
+                ui_vs_ai_set(0);   /* 游客=本地单机：AI 不介入，两人热座 */
                 pthread_mutex_lock(&g_mutex);
                 jq_restart_game();
                 pthread_mutex_unlock(&g_mutex);
@@ -6365,7 +6366,7 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
                 LOGI("OnTouch 新局完整版弹窗：玩法切换 → mode=%d（%s，默认翻棋暗棋）",
                      mode, mode ? "翻棋暗棋" : "布局明棋");
             } else if (nact == 3) {   /* 确定：按选择开局（ui_opt_select + jq_restart_game 随模式） */
-                g_vs_ai = 0;
+                ui_vs_ai_set(0);
                 pthread_mutex_lock(&g_mutex);
                 jq_restart_game();
                 pthread_mutex_unlock(&g_mutex);
@@ -6500,7 +6501,7 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
                 LOGI("OnTouch 新局完整版（完整版补充）弹窗：明暗棋切换 → %s（★ 诚实边界：简化用 ui_show 独立循环位）",
                      ui_show_get() ? "暗棋" : "明棋");
             } else if (nact == 4) {   /* 确定：按选择开局（ui_opt_select + jq_restart_game 随模式） */
-                g_vs_ai = 0;
+                ui_vs_ai_set(0);
                 pthread_mutex_lock(&g_mutex);
                 jq_restart_game();
                 pthread_mutex_unlock(&g_mutex);

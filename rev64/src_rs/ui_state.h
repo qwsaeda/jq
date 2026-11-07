@@ -16,6 +16,10 @@ int  ui_opt_get_mode(void);               /* 返回 0=明棋 1=暗棋 */
    与本地版（datah_006：电脑变着/软件信息/退出）分流 */
 void ui_bt_set_active(int on);
 int  ui_bt_active(void);
+/* ★ P1（批6）：人机模式标志（g_vs_ai 迁入 ui_state 走 g_ui_lock，消除多写点
+   锁外写 + 持锁读的数据竞争） */
+void ui_vs_ai_set(int on);
+int  ui_vs_ai_get(void);
 /* ★ 对抗审计（datah_001）：声音设置（静音模式/按键声音/音量 1-3）——功能设置弹窗读/写 */
 int  ui_snd_mute_get(void);   /* 0=声音开 1=静音 */
 void ui_snd_mute_set(int m);
