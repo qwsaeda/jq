@@ -5437,3 +5437,37 @@ python3 /tmp/opencode/incremental_regress.py reset 0xADDR  # 改了某指令 →
 - 0xc6088 字符串处理函数（bl strlen + 缓冲区构造）未收表，存根 r0=0
 - GetStringUTFChars 未调 ReleaseStringUTFChars（.bss 未构造忠实兜底）
 - OnInput 无独立回归钩子（需 jstring 键盘输入 → 事件构造，4 路径回归覆盖 OnTouch/OnEvent 触摸路径 + 游戏走子链）
+
+## §124y-143 OnUpdate F_bd5a0 对齐验证 + JNI 桥 null 防御（java_object==null SIGABRT 消除）
+
+**★ 闭环事实（OnUpdate F_bd5a0 已在 jqt_OnRender_full.c:1275 完整体对齐，本轮验证 + jni_aligned.c 参数还原 + JNI 桥 null 防御）**：
+
+1. **F_bd5a0（OnUpdate 内部处理，原版 0xbd5a0-0xbd6f0）完整体已对齐**（jqt_OnRender_full.c:1275）：
+   - 入参：r0=.bss 根对象值（ldr [r3]，非 env），r1=env（adds r1,r0,#0）（原版 0x23474 实锤）
+   - 主循环：bl F_afb68（构造 12 字段事件对象）→ bl F_b7eb0（C++ 缓冲区追加）→ 事件码 32-34/40/49 分支（bl F_b38c0/F_b6808/F_becf4/F_b6a64）
+   - 循环阀：Lbd5e6 循环 0x100 次强制返回（防死循环）
+   - 4 路径回归 4/4 PASS（jqt_OnUpdate.c JNI 层存根 r0=0，jni_aligned.c 走 F_23475→F_bd5a0 真调路径）
+
+2. **jni_aligned.c 参数修正（OnResume 还原 env,0）**：
+   - 旧版 §124y-141 传 (env,env) → F_bdc7c 的 `r3=MEM(r1)` 读 .bss 根对象槽（r1=env 误当 .bss 指针）
+   - 崩溃根因：GetObjectClass(env 误当 java 对象) → JNI DETECTED ERROR java_object==null → SIGABRT
+   - 修正 jqt_OnResume(V32(env),0,0,...) r0=env（第 1 参），r1=0（F_bdc7c 读 .bss 根对象自填，§124y-97）
+   - jqt_OnUpdate 还原存根 r0=0（F_bd5a0 由 F_23475 真调路径执行，非 jqt_OnUpdate 层）
+
+3. **JNI 桥 null 防御（jqt_jnibr.c，消除 java_object==null SIGABRT）**：
+   - jqt_jni_getobjectclass：obj==0 → 返回 0（不崩）
+   - jqt_jni_getmethodid：name_off/sig_off==0 → 返回 0（不崩）
+   - F_bdc7c/F_bdcd4 防御分支：r1!=0 才 GetObjectClass，r4!=0 才 GetMethodID/CallVoidMethod
+   - 诚实边界：.bss 未构造 → r1=0/r4=0 → 全走跳过路径（忠实空操作，§124y-33/35 ok=0）
+
+4. **编译验证 + 4 路径回归全过**：
+   - build_arm32_aligned.sh 链接通过（JNI 符号 14）
+   - 4 路径回归 4/4 PASS + 0 崩溃（native_event 首跑 flaky 重跑过）
+   - **14 JNI 入口对齐现状：13 完整 + 1 部分（OnUpdate F_bd5a0 已完整对齐，渲染链 F_23475 真调路径 + jni_aligned.c 参数修正）**
+
+### 诚实边界
+- OnUpdate F_bd5a0 的 .bss 根对象值（r0=ldr [r3]，非 env）由 jni_aligned.c F_23475 传 r0=0
+  （翻译体 .bss 未构造 → 根对象=0 → 主循环事件码分支全走跳过路径，忠实兜底）
+- F_becf4/F_b6a64 未收表（dispatch 表 False），但 jqt_OnRender_full.c 有定义体（存根 r0=0）
+  （§124y-29 未收表 handler 返回 2 兜底模式）
+- 14 JNI 入口中 OnUpdate 的 F_bd5a0 主循环需 .bss 根对象 scudo 构造（unidbg/frida dump 运行时值）

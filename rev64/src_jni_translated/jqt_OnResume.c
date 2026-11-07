@@ -46,13 +46,15 @@ Lbdc7c_p1: MEM(sp+4)=r4;
 Lbdc7c_p2: MEM(sp+8)=r5;
 Lbdc7c_p3: MEM(sp+12)=r6;
 Lbdc7c_p4: MEM(sp+16)=r7;
-Lbdc7e: r3=MEM(r1);             /* Activity 对象 [0] = vtable 基址 */
+Lbdc7e: r3=MEM(r1);             /* .bss 根对象[0] (r1=env, §124y-97 根对象槽) */
+if (r1 != 0) { /* 防御: .bss 未构造 → r1=0 → 忠实兜底 (跳过 GetObjectClass) */
 Lbdc80: {uint32_t a_=r1,b_=0; r4=(a_+b_); Z=(r4==0); C=(r4<a_); N=((r4)>>31)&1; V=(((a_^r4)&(b_^r4))>>31)&1;}
 Lbdc82: {uint32_t a_=r0,b_=0; r6=(a_+b_); Z=(r6==0); C=(r6<a_); N=((r6)>>31)&1; V=(((a_^r6)&(b_^r6))>>31)&1;}
-Lbdc84: r1=MEM(r0+8);          /* env[0x8] = JNI 函数表 [GetFieldID 区] */
+Lbdc84: r1=MEM(r0+8);          /* env[0x8] = JNI 函数表 */
 Lbdc86: r3=MEM(r3+124);        /* vtable 槽 31 (0x7c/4), §124y-136/137 输入事件基类 */
 Lbdc88: {uint32_t a_=r4,b_=0; r0=(a_+b_); Z=(r0==0); C=(r0<a_); N=((r0)>>31)&1; V=(((a_^r0)&(b_^r0))>>31)&1;}
-Lbdc8a: r0=jqt_jni_getobjectclass(r0, r1); /* blx r3 = GetObjectClass (§124ak) */
+Lbdc8a: r0=jqt_jni_getobjectclass(r0, r1); /* blx r3 = GetObjectClass (§124ak, r1=对象) */
+}
 Lbdc8c: r2=MEM(795192);        /* ldr r2,[pc] → .rodata 0x128af8 "onResume" */
 Lbdc8e: r5=r0;                /* r5 = GetMethodID 返回 (mid 句柄) */
 Lbdc90: r3=MEM(795196);        /* ldr r3,[pc] → .rodata 0x126044 "()V" */
@@ -64,12 +66,15 @@ Lbdc9a: r3=(0x126044+r3);      /* add r3,pc → .rodata 偏移 (()V sig) */
 Lbdc9c: {uint32_t a_=r5,b_=0; r1=(a_+b_); Z=(r1==0); C=(r1<a_); N=((r1)>>31)&1; V=(((a_^r1)&(b_^r1))>>31)&1;}
 Lbdc9e: {uint32_t a_=r4,b_=0; r0=(a_+b_); Z=(r0==0); C=(r0<a_); N=((r0)>>31)&1; V=(((a_^r0)&(b_^r0))>>31)&1;}
 Lbdca0: r12=r7;               /* ip = vtable[0x84] */
+if (r4 != 0 && r0 != 0) { /* 防御: .bss 未构造 → r4=0 → 忠实兜底 (跳过 GetMethodID) */
 Lbdca0_r: r0=jqt_jni_getmethodid(r0, r1, r2, r3); /* blx r7 = GetMethodID "onResume" "()V" (§124ak) */
+}
 Lbdca2: r1=MEM(r6+8);         /* Activity 对象 [0x8] 子字段 */
 Lbdca4: {uint32_t a_=r0,b_=0; r2=(a_+b_); Z=(r2==0); C=(r2<a_); N=((r2)>>31)&1; V=(((a_^r2)&(b_^r2))>>31)&1;}
 Lbdca6: {uint32_t a_=r4,b_=0; r0=(a_+b_); Z=(r0==0); C=(r0<a_); N=((r0)>>31)&1; V=(((a_^r0)&(b_^r0))>>31)&1;}
+if (r4 != 0) { /* 防御: CallVoidMethod 需 valid activity */
 Lbdca8: r0=F_77800(r0,r1,r2,r3,r4,r5,r6,r7,r8,r9,r10,r11,sp); /* bl 0x77800 CallVoidMethod */
-Lbdca: r0=F_77800(r0,r1,r2,r3,r4,r5,r6,r7,r8,r9,r10,r11,sp);
+}
 Lbdcac: {uint32_t a_=r5,b_=0; Z=(r5==b_); C=(r5<a_); N=((r5)>>31)&1; V=(((a_^r5)&(b_^r5))>>31)&1;}
 if(Z==0){ /* r5!=0 (GetMethodID 成功) → 执行 vtable 槽 0x5c 虚调用 */
 Lbdcb0: r3=MEM(MEM(r4)+92);   /* ldr r3,[r4+0]=vtable; ldr r3,[vtable+0x5c] 槽 23 */
@@ -113,13 +118,15 @@ Lbdcd4_p1: MEM(sp+4)=r4;
 Lbdcd4_p2: MEM(sp+8)=r5;
 Lbdcd4_p3: MEM(sp+12)=r6;
 Lbdcd4_p4: MEM(sp+16)=r7;
-Lbdcd6: r3=MEM(r1);             /* Activity 对象 [0] = vtable 基址 */
+Lbdcd6: r3=MEM(r1);             /* .bss 根对象[0] (r1=env, §124y-97 根对象槽) */
+if (r1 != 0) { /* 防御: .bss 未构造 → r1=0 → 忠实兜底 (跳过 GetObjectClass) */
 Lbdcd8: {uint32_t a_=r1,b_=0; r4=(a_+b_); Z=(r4==0); C=(r4<a_); N=((r4)>>31)&1; V=(((a_^r4)&(b_^r4))>>31)&1;}
 Lbdcd: {uint32_t a_=r0,b_=0; r6=(a_+b_); Z=(r6==0); C=(r6<a_); N=((r6)>>31)&1; V=(((a_^r6)&(b_^r6))>>31)&1;}
-Lbdcdc: r1=MEM(r0+8);          /* env[0x8] */
+Lbdcdc: r1=MEM(r0+8);          /* env[0x8] = JNI 函数表 */
 Lbdcde: r3=MEM(r3+124);        /* vtable 槽 31 (0x7c/4) */
 Lbdce0: {uint32_t a_=r4,b_=0; r0=(a_+b_); Z=(r0==0); C=(r0<a_); N=((r0)>>31)&1; V=(((a_^r0)&(b_^r0))>>31)&1;}
-Lbdce2: r0=jqt_jni_getobjectclass(r0, r1); /* blx r3 = GetObjectClass (§124ak) */
+Lbdce2: r0=jqt_jni_getobjectclass(r0, r1); /* blx r3 = GetObjectClass (§124ak, r1=对象) */
+}
 Lbdce4: r2=MEM(795200);        /* ldr r2,[pc] → .rodata 0x128b34 "getRepeatCount" */
 Lbdce6: r5=r0;                /* r5 = GetMethodID 返回 */
 Lbdce8: r3=MEM(795204);        /* ldr r3,[pc] → .rodata 0x126074 "(II)V" */
@@ -131,11 +138,15 @@ Lbdcf2: r3=(0x126074+r3);      /* add r3,pc → .rodata 偏移 */
 Lbdcf4: {uint32_t a_=r5,b_=0; r1=(a_+b_); Z=(r1==0); C=(r1<a_); N=((r1)>>31)&1; V=(((a_^r1)&(b_^r1))>>31)&1;}
 Lbdcf6: {uint32_t a_=r4,b_=0; r0=(a_+b_); Z=(r0==0); C=(r0<a_); N=((r0)>>31)&1; V=(((a_^r0)&(b_^r0))>>31)&1;}
 Lbdcf8: r12=r7;               /* ip = vtable[0x84] */
+if (r4 != 0 && r0 != 0) { /* 防御: .bss 未构造 → 忠实兜底 (跳过 GetMethodID) */
 Lbdcf8_r: r0=jqt_jni_getmethodid(r0, r1, r2, r3); /* blx r7 = GetMethodID "getRepeatCount" "(II)V" */
+}
 Lbdcfa: r1=MEM(r6+8);         /* Activity [0x8] */
 Lbdcfc: {uint32_t a_=r0,b_=0; r2=(a_+b_); Z=(r2==0); C=(r2<a_); N=((r2)>>31)&1; V=(((a_^r2)&(b_^r2))>>31)&1;}
 Lbdcfe: {uint32_t a_=r4,b_=0; r0=(a_+b_); Z=(r0==0); C=(r0<a_); N=((r0)>>31)&1; V=(((a_^r0)&(b_^r0))>>31)&1;}
+if (r4 != 0) { /* 防御: CallVoidMethod 需 valid activity */
 Lbdd00: r0=F_77800(r0,r1,r2,r3,r4,r5,r6,r7,r8,r9,r10,r11,sp); /* bl 0x77800 CallVoidMethod */
+}
 Lbdd04: {uint32_t a_=r5,b_=0; Z=(r5==b_); C=(r5<a_); N=((r5)>>31)&1; V=(((a_^r5)&(b_^r5))>>31)&1;}
 if(Z==0){ /* r5!=0 → vtable 槽 0x5c 虚调用 */
 Lbdd08: r3=MEM(MEM(r4)+92);

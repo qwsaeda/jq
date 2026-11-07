@@ -457,7 +457,10 @@ Java_com_cnvcs_App_OnResume(JNIEnv *env, jclass c){
         jqt_jni_selftest();
         g_jqt_jni_selftest_done = 1;
     }
-    jqt_OnResume(V32(env),V32(env),0,0,0,0,0,0,0,0,0,0,0x20f000);
+    /* §124y-143 修正: 原版 0x234b4 `adds r1,r0,#0` → r1=env, r0=ldr [r3]=.bss 根对象值 (非 env)
+     *   旧版传 (env,env) → F_bdc7c 的 jqt_jni_getobjectclass(r0, r1) 收到 r0=env 误当对象 → java_object==null → SIGABRT。
+     *   修正: jqt_OnResume(V32(env),0,0,...) r0=env(第1参), r1=0(F_bdc7c 读 .bss 根对象自填, §124y-97 根对象槽)。 */
+    jqt_OnResume(V32(env),0,0,0,0,0,0,0,0,0,0,0,0x20f000);
     /* ★ §124y-19：走子桥在 OnResume 也触发（redroid 无 GL 卡在 OnCreate/OnResume，OnTimer 到不了；
        OnResume 是主线程生命周期入口，redroid 能触发；tick 幂等，OnTimer 再调无副作用） */
     jq_walk_bridge_tick();
@@ -502,6 +505,9 @@ Java_com_cnvcs_App_OnUpdate(JNIEnv *env, jclass c){
      *   OnUpdate→F_23475→F_bd5a0 循环阀返回 0（实证）→ drawn=false → 不 swap。
      *   ★ 修复：jqt_gl_bridge 已每帧绘制棋盘（F_9d43c→glDrawArrays，swap前 framebuffer
      *   =棋盘色实证），强制返回 true 让 GLThread swap 上屏。 */
+    /* §124y-143: OnUpdate 真调 F_bd5a0 已对齐进 jqt_OnRender_full.c:1275 (完整体, 6 函数调用 + 循环阀)
+     *   F_23475 (渲染链, 原版 0x23474 JNI 入口 → bl 0xbd5a0) 每帧调 jqt_gl_bridge 出帧。
+     *   jqt_OnUpdate.c 的 JNI 层存根 r0=0 (忠实, 原版 bl 0xbd5a0 由 F_23475 真调路径执行)。 */
     F_23475(0,0,0,0,0,0,0,0,0,0,0,0,0x20f000);
     return (jboolean)1;
 }

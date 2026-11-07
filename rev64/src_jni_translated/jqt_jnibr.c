@@ -230,6 +230,10 @@ uint32_t jqt_jni_call(uint32_t jni_id, uint32_t n_args, const uint32_t *args){
 uint32_t jqt_jni_getobjectclass(uint32_t env, uint32_t obj){
     JNIEnv *e = (JNIEnv *)(uintptr_t)env;
     if (!e) { LOGE("GetObjectClass: env NULL"); return 0; }
+    if (obj == 0) { /* §124y-143 防御: java_object==null → JNI_CHECK 崩 SIGABRT */
+        LOGE("GetObjectClass: obj NULL (忠实兜底, 返回 0)");
+        return 0;
+    }
     jclass cls = (*e)->GetObjectClass(e, (jobject)(uintptr_t)obj);
     if (!cls && (*e)->ExceptionCheck(e)) (*e)->ExceptionClear(e);
     return (uint32_t)(uintptr_t)cls;
@@ -242,6 +246,10 @@ extern uint8_t *g_jqt_shadow;
 uint32_t jqt_jni_getmethodid(uint32_t env, uint32_t cls, uint32_t name_off, uint32_t sig_off){
     JNIEnv *e = (JNIEnv *)(uintptr_t)env;
     if (!e || !cls) { LOGE("GetMethodID: env/cls NULL"); return 0; }
+    if (name_off == 0 || sig_off == 0) { /* §124y-143 防御: name/sig 偏移无效 → 返回 0 */
+        LOGE("GetMethodID: name/sig NULL (忠实兜底, 返回 0)");
+        return 0;
+    }
     const char *name = (const char *)(uintptr_t)(g_jqt_shadow + name_off);
     const char *sig  = (const char *)(uintptr_t)(g_jqt_shadow + sig_off);
     jmethodID mid = (*e)->GetMethodID(e, (jclass)(uintptr_t)cls, name, sig);
