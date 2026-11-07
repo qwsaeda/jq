@@ -5500,3 +5500,32 @@ python3 /tmp/opencode/incremental_regress.py reset 0xADDR  # 改了某指令 →
 - F_c6088 的 strlen 调用需 r1=GetStringUTFChars 返回的有效 char*（.bss 未构造 → r1=0 → len=0 忠实兜底）
 - F_23bec 缓冲区构造需 [r0+0x50] 字符串区有效（.bss 未构造 → 忠实兜底，§124y-33/35 ok=0 路径）
 - OnInput 无独立回归钩子（需 jstring 键盘输入 → 事件构造，4 路径回归覆盖 OnTouch/OnEvent 触摸路径 + 游戏走子链）
+
+## §124y-145 OnResume/OnPause 虚调用存根改完整体（F_b690c/F_b6768 → jqt_blx_dispatch 真调 + F_b5d58 完整链）
+
+**★ 闭环事实（F_b690c/F_b6768 存根改完整体，原版 0xb690c/0xb6768 真实虚调用逻辑）**：
+
+1. **F_b690c 原版 0xb690c 完整流程实锤（OnResume F_bdc7c 的条件虚调用目标）**：
+   - 入参：r0=C++ 对象指针（.bss 0x15be90 区，§124y-141 实锤），读 [r0+0xc0] 子对象
+   - 非 0 路径：ldr r3=[r0]（vtable）→ ldr r3=[vtable+8] 槽 2 → blx r3（虚调用）
+   - 后续：str 0 到 [r4+0x68]（C++ 字段清零）+ 栈构造（r1=sp+8, [sp+0]=250, [sp+8]=池→0xb6af1）
+   - `bl 0xb5d58`（F_b5d58 已收表，jqt_vtbl.c:69270 定义体）→ 完整 C++ 事件通知链
+
+2. **F_b6768 原版 0xb6768 完整流程实锤（OnPause F_bdcd4 的条件虚调用目标）**：
+   - 入参：r0=C++ 对象指针（.bss 0x15be84 区），读 [r0+0xc0] 子对象
+   - 非 0 路径：ldr r3=[r0]（vtable）→ ldr r3=[vtable+4] 槽 1 → blx r3（虚调用）
+   - 20 字节小函数（push/pop + 1 条虚调用）
+
+3. **存根改完整体（jqt_OnResume.c，jqt_blx_dispatch 真调）**：
+   - F_b690c：`jqt_blx_dispatch(r3, ...)` 替代 r0=0 存根（vtable 槽 2 真 dispatch）
+   - F_b6768：`jqt_blx_dispatch(r3, ...)` 替代 r0=0 存根（vtable 槽 1 真 dispatch）
+   - 诚实边界：.bss 未构造 → [r0+0xc0]=0 → beq 跳过虚调用路径（忠实空操作，§124y-33/35）
+
+4. **编译验证 + 4 路径回归全过**：
+   - build_arm32_aligned.sh 链接通过（JNI 符号 14，F_b5d58 已收表无重复符号）
+   - 4 路径回归（walk_bridge/native_layout/native_event/game_test）4/4 PASS + 0 崩溃
+
+### 诚实边界
+- F_b690c/F_b6768 的 [r0+0xc0] 子对象需 .bss scudo 构造（翻译体 .bss 全 0 → 全走跳过路径）
+- F_b5d58（已收表，jqt_vtbl.c:69270）完整体需 .bss C++ 对象图 + frida dump 运行时值（§124y-34~71 事件底层 C++ 生命周期）
+- OnResume/OnPause 无独立回归钩子（生命周期事件需真机 HOME/APP_SWITCH 触发）

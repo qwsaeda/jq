@@ -181,10 +181,12 @@ RET: return r0;
 }
 
 
-/* §124y-141: F_b690c/F_b6768 存根定义体 (20 字节 C++ 虚调用函数, 读 [r0+0xc0] 子对象 vtable 虚调用)
- * 原版 0xb690c: push {r4,lr} / movs r3,#192(0xc0) / ldr r0,[r0,#0xc0] / cmp r0,#0 / beq → 读 [r0+0] vtable → blx
- * 原版 0xb6768: push {r4,lr} / movs r3,#192(0xc0) / ldr r0,[r0,#0xc0] / cmp r0,#0 / beq → 读 [vtable+4] blx
- * 诚实边界: .bss 未构造 → [r0+0xc0]=0 → beq 跳过虚调用 → 返回 0 (忠实空操作, §124y-33/35 ok=0 路径) */
+/* §124y-145: F_b690c 完整体对齐 (原版 0xb690c-0xb6942, 读 [r0+0xc0] 子对象 vtable 虚调用 + F_b5d58 完整体)
+ * 原版 0xb690c: ldr r0,[r0,#0xc0] / cmp r0,#0 / beq → 读 [vtable+8] 虚调用
+ *   非 0 路径: str r3,[r4+#0x68] + 栈构造 (r1=sp+8, r2=池→0xb6af1, [sp+0]=250<<1, [sp+8]=r2, r0=r4+32)
+ *   + bl 0xb5d58 (F_b5d58 已收表, jqt_vtbl.c:69270 定义体)
+ * 诚实边界: .bss 未构造 → [r0+0xc0]=0 → beq 跳过 → r0=0 (忠实空操作, §124y-33/35 ok=0 路径) */
+extern uint32_t F_b5d58(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_b690c(uint32_t _r0,uint32_t _r1,uint32_t _r2,uint32_t _r3,uint32_t _r4,uint32_t _r5,uint32_t _r6,uint32_t _r7,uint32_t _r8,uint32_t _r9,uint32_t _r10,uint32_t _r11,uint32_t _sp){
     uint32_t r0=_r0, r1=_r1, r2=_r2, r3=_r3, r4=_r4, r5=_r5, r6=_r6, r7=_r7, r8=_r8, r9=_r9, r10=_r10, r11=_r11, r12=0;
     uint32_t sp=_sp, lr=0;
@@ -194,11 +196,29 @@ Lb690c_p0: MEM(sp+0)=r4;
 Lb690e: r3=0xc0;
 Lb6910: {uint32_t a_=r0,b_=0; r4=(a_+b_); Z=(r4==0); C=(r4<a_); N=((r4)>>31)&1; V=(((a_^r4)&(b_^r4))>>31)&1;}
 Lb6912: r0=MEM(r0+0xc0);       /* ldr r0,[r0,#192=0xc0] 子对象 */
+Lb6914: sp-=16;               /* sub sp,#16 */
 Lb6916: {uint32_t a_=r0,b_=0; Z=(r0==b_); C=(r0<a_); N=((r0)>>31)&1; V=(((a_^r0)&(b_^r0))>>31)&1;}
 if(Z){ goto Lb6940; }          /* r0==0 → 跳过虚调用, 返回 0 */
 Lb691a: r3=MEM(r0);            /* ldr r3,[r0,#0] = vtable 基址 */
-Lb691c: r0=0; /* blx r3 存根 (vtable 虚调用, .bss 未构造忠实空操作) */
-Lb6940: r4=MEM(sp+0); /* pop {r4, pc} */
+Lb691c: r3=MEM(r3+8);          /* ldr r3,[vtable+8] 槽 2 */
+Lb691e: r0=jqt_blx_dispatch(r3, r0,r1,r2,r3,r4,r5,r6,r7,r8,r9,r10,r11,sp); /* blx r3 (vtable 槽 2 虚调用) */
+Lb6920: r3=0;
+Lb6922: r1=sp+8;              /* add r1,sp,#8 */
+Lb6924: r2=MEM(0xb6af1);       /* ldr r2,[pc] → 池 0xb6944 → 0xb6af1 */
+Lb6926: MEM(r4+0x68)=r3;       /* str r3,[r4,#104=0x68] (子对象 C++ 字段清零) */
+Lb6928: MEM(r1+4)=r3;          /* str r3,[r1,#4] (栈 [sp+12]=0) */
+Lb692a: r3=250;
+Lb692c: r3=(r3<<1);            /* lsls r3,#2 → 250<<1=500? 实际 movs r3,#250 即 0xfa */
+Lb692e: {uint32_t a_=r4,b_=0; r0=(a_+b_); Z=(r0==0); C=(r0<a_); N=((r0)>>31)&1; V=(((a_^r0)&(b_^r0))>>31)&1;}
+Lb6930: r2=(0xb6af1+r2);      /* add r2,pc → 池目标 */
+Lb6932: MEM(sp+0)=r3;          /* str r3,[sp,#0] */
+Lb6934: r0=(r0+32);           /* adds r0,#32 (子对象 +0x20) */
+Lb6936: {uint32_t a_=r4,b_=0; r1=(a_+b_); Z=(r1==0); C=(r1<a_); N=((r1)>>31)&1; V=(((a_^r1)&(b_^r1))>>31)&1;}
+Lb6938: r3=0;
+Lb693a: MEM(sp+8)=r2;          /* str r2,[sp,#8] */
+Lb693c: r0=F_b5d58(r0,r1,r2,r3,r4,r5,r6,r7,r8,r9,r10,r11,sp); /* bl 0xb5d58 (已收表) */
+Lb6940: sp+=16;               /* add sp,#16 */
+Lb6942: r4=MEM(sp+0); /* pop {r4, pc} */
 RET: return r0;
 }
 
@@ -214,7 +234,8 @@ Lb676e: {uint32_t a_=r0,b_=0; Z=(r0==b_); C=(r0<a_); N=((r0)>>31)&1; V=(((a_^r0)
 if(Z){ goto Lb6778; }          /* r0==0 → 跳过虚调用, 返回 0 */
 Lb6772: r3=MEM(r0);            /* ldr r3,[r0,#0] = vtable 基址 */
 Lb6774: r3=MEM(r3+4);         /* ldr r3,[vtable+4] 槽 1 */
-Lb6776: r0=0; /* blx r3 存根 (vtable 槽 1 虚调用, .bss 未构造忠实空操作) */
+Lb6776: r0=jqt_blx_dispatch(r3, r0,r1,r2,r3,r4,r5,r6,r7,r8,r9,r10,r11,sp); /* blx r3 (vtable 槽 1 虚调用, §124y-145 非存根) */
 Lb6778: r4=MEM(sp+0); /* pop {r4, pc} */
+Lb6778_r: goto RET;
 RET: return r0;
 }
