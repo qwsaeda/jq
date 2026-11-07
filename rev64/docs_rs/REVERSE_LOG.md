@@ -5529,3 +5529,36 @@ python3 /tmp/opencode/incremental_regress.py reset 0xADDR  # 改了某指令 →
 - F_b690c/F_b6768 的 [r0+0xc0] 子对象需 .bss scudo 构造（翻译体 .bss 全 0 → 全走跳过路径）
 - F_b5d58（已收表，jqt_vtbl.c:69270）完整体需 .bss C++ 对象图 + frida dump 运行时值（§124y-34~71 事件底层 C++ 生命周期）
 - OnResume/OnPause 无独立回归钩子（生命周期事件需真机 HOME/APP_SWITCH 触发）
+
+## §124y-146 F_bd5a0 主循环 2 子函数收表固化（F_becf4/F_b6a64 → dispatch 表，jqt_vtbl_n 2105→2107）
+
+**★ 闭环事实（F_becf4/F_b6a64 收进 dispatch 表，F_bd5a0 主循环 4 子函数全收表）**：
+
+1. **F_becf4（OnUpdate F_bd5a0 主循环条件虚调用目标，原版 0xbecf4-0xbed02）收表实锤**：
+   - 原版语义：读 [r0] 字节标志（C++ 对象初始化标记）→ 非 0 → `blx sem_post@plt`（r0+=4 传 sem_t*）
+   - 翻译体（jqt_OnRender_full.c:1620）已完整（sem_post 真实调用 JQT_ABS_PTR，非存根）
+   - **收表进 jqt_vtbl.c fns/offs 表**（jqt_blx_dispatch 可命中，vtable 槽 → F_becf4 虚调用真分派）
+   - .data.rel.ro 区搜 0xbecf4 直接引用 = 0 次（非静态 vtable 槽，是运行时 C++ 对象图 vtable 分发目标）
+
+2. **F_b6a64（OnUpdate F_bd5a0 主循环条件虚调用目标，原版 0xb6a64-0xb6b00）收表实锤**：
+   - 原版语义：读 [r0+0x55] 字节标志（C++ 对象初始化标记）+ [r0+0xc0] 子对象 → 非 0
+     → bl F_b69b4（已收表）→ 读 [r4+0xc0] vtable 槽 7（[vtable+28] 虚调用）
+     → bl F_b8f20（已收表，事件通知链）→ [r4+96/100] 写回 + [r0+0x57/0x56] 字节标志检查
+     → 返回 0（不匹配）/ 1（匹配）
+   - 翻译体（jqt_OnRender_full.c:1003）已完整（F_b69b4/F_b8f20 全真调 + vtable dispatch，非存根）
+   - **收表进 jqt_vtbl.c fns/offs 表**（jqt_blx_dispatch 可命中）
+
+3. **dispatch 表收表固化（jqt_vtbl.c，dispatch_insert.py 幂等工具）**：
+   - `python3 rev64/tools/dispatch_insert.py 0xbecf4 0xb6a64` → offs 表 + fns 表 + jqt_vtbl_n 2105→2107
+   - 需补 F_becf4/F_b6a64 前向声明（extern，定义体在 jqt_OnRender_full.c，jqt_vtbl.c fns 表引用）
+   - 坑固化：收表时 fns 表引用 F_xxx 必须 jqt_vtbl.c 顶部有 extern 声明，否则编译 `use of undeclared identifier`
+
+4. **编译验证 + 4 路径回归全过**：
+   - build_arm32_aligned.sh 链接通过（JNI 符号 14，jqt_vtbl_n 2107 同步）
+   - 4 路径回归（walk_bridge/native_layout/native_event/game_test）4/4 PASS + 0 崩溃
+   - **F_bd5a0 主循环 4 子函数（F_afb68/F_b7eb0/F_b38c0/F_b6808 既有 + F_becf4/F_b6a64 本轮）全收表**
+
+### 诚实边界
+- F_becf4/F_b6a64 是运行时 C++ 对象图 vtable 分发目标（.data.rel.ro 静态 0 引用，运行时 scudo 构造后指向它们）
+  收表让 jqt_blx_dispatch 命中，但 .bss 未构造 → 实际运行时全走跳过路径（忠实兜底）
+- F_b6a64 的 F_b69b4/F_b8f20 已收表（定义体存在 + dispatch 表内），完整事件通知链需 .bss C++ 对象图构造
