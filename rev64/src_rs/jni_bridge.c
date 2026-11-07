@@ -271,6 +271,7 @@ static int ai_pick(int *from, int *to, int *is_flip)
             if (g_state.mode == JQ_MODE_FLIP && d->rank != RANK_EMPTY && !d->revealed)
                 continue;
             int sc = ai_score(c->rank, d->rank, d->revealed);  /* ★ 对抗审计 #2：统一走 ai_score（rank_norm 内建）；★ AUD-R-010 传 d->revealed */
+            if (sc < 0) continue;   /* ★ AUD-R-057（P2）：ai_score 返回哨兵 -2（空源）/-1（旗雷不可走）时跳过，不污染 bs/ws */
             if (sc > bs) { bs = sc; bf = i; bt = t; }
             /* ★ 新手区（level 1）：sc>=2 里取最小（空移 sc=2 < 吃子 sc=1000 → 被动） */
             if (sc >= 2 && sc < ws) { ws = sc; wf = i; wt = t; }

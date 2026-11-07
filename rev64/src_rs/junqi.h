@@ -162,6 +162,11 @@ static inline int rank_encode(uint8_t side, int rank) {
     return (side == SIDE_RED && rank != 0) ? rank + 0xc : rank;
 }
 static inline int rank_norm(int v) {
+    /* ★ AUD-R-080（P2）：加上界校验——红方合法编码域 [13,24]（rank 1..12 + 0xc）；
+       v>24（25..255 越界字节）若直接还原得 13..243 越界 rank，调用方（如
+       layout.c seen[r] 计数）只做 <RANK_COUNT 范围过滤不报错。越界还原值统一
+       钳到 RANK_TOP（哨兵，由调用方按非法 rank 处理，防 13-23 误还原语义不变）。 */
+    if (v > RANK_TOP + 0xc) return RANK_TOP;
     return v > RANK_TOP ? v - 0xc : v;   /* 红方已翻开还原（0x6a3b0 §7）
      ★ AUD-R-047（P2 诚实标注）：还原只看数值大小不看 side——蓝方若出现 >12 的
      rank（BT SYNC_CELL 注入 / 复盘数据损坏）会被静默还原为别的 rank（13→1）。

@@ -214,9 +214,11 @@ static bool move_legal(const jq_state *st, int from, int to, int turn)
         }
     }
     int fr = cell_row(from), fc = cell_col(from), tr = cell_row(to), tc = cell_col(to);
-    /* 一步相邻（公路线）：行营落点仅允许一步相邻（非铁路） */
-    int adjacent = (fr == tr && (fc - tc == 1 || tc - fc == 1)) ||
-                   (fc == tc && (fr - tr == 1 || tr - fr == 1));
+    /* 一步相邻（公路线）：行营落点仅允许一步相邻（非铁路）
+       ★ AUD-R-070（P2）：改为具名差值 dr/dc 判定（同行差 1 列 / 同列差 1 行），
+       原写法两次减法（fc-tc==1||tc-fc==1）易与"行列同行"语义混淆。 */
+    int dr = tr - fr, dc = tc - fc;
+    int adjacent = (dr == 0 && (dc == 1 || dc == -1)) || (dc == 0 && (dr == 1 || dr == -1));
     if (is_camp(tr, tc) && !adjacent) return false;
     /* 目标在大本营：仅能吃军旗/地雷（翻棋模式）或其他子（明棋"任何棋子扛旗"）
        ★ AUD-R-029（P2 诚实标注）：暗棋（src->revealed==0）收窄为"大本营仅旗/雷
@@ -306,6 +308,11 @@ int jq_try_move(jq_state *st, int from, int to)
        主判定在 jq_can_move（from==to→false），但走子有第二个入口时
        （联机/复放/BT 帧）若绕过 jq_can_move 直接进执行器，from==to 会造成
        "自己吃自己"同级同归。此处为执行器自身的最小守卫。 */
+    /* ★ AUD-R-083（P2）：原子性确认——任何 return -1 之前无 st-> 写（下方两段
+       校验均纯读），所有状态变更（*dst=*src / memset / 计数 / turn/stage/winner）
+       都在 jq_can_move 通过之后。stage 守卫由 jq_can_move 承担（stage!=STG_PLAY
+       恒 false），复放/BT 帧第二入口若绕过 jq_can_move 直接进执行器，from==to
+       入口守卫 + 后续可动性判定仍拦截。 */
     if (from == to || from < 0 || from >= N_CELLS || to < 0 || to >= N_CELLS)
         return -1;
     if (!jq_can_move(st, from, to)) return -1;
@@ -463,7 +470,11 @@ bool jq_can_flip(const jq_state *st, int idx)
     if (r == RANK_FLAG) return false;   /* 军旗不可翻（§15：from==to 永假） */
     if (c->side == 0xFF) return true;   /* 暗棋未定子可翻（先手定色，ruleflip） */
     /* ★ 回合校验：己方暗子（side==turn）可翻；敌方暗子（side!=turn）不可翻。
-       缺失此校验 → 任意回合可翻任意方暗子，破坏暗棋回合交替。 */
+       缺失此校验 → 任意回合可翻任意方暗子，破坏暗棋回合交替。
+       ★ AUD-R-085（P2）：回合门已确认——side==0xFF（未定色）分支在暗棋"先手
+       定色"语义下属当前方翻子定色（与 move_legal 回合门不冲突：走子仍须
+       src->side==turn）；已定色子必须 side==turn 方可翻。与 jq_can_move 的
+       回合门一致，本项关闭。 */
     return c->side == st->turn;         /* 己方暗子可翻 */
 }
 
@@ -492,11 +503,15 @@ bool jq_flip(jq_state *st, int idx)
 bool jq_side_stalemated(const jq_state *st, uint8_t side)
 {
     if (st->stage != STG_PLAY || st->winner >= 0) return false;
-    /* 还有未翻暗子可翻 → 未困毙 */
+    /* 还有未翻暗子可翻 → 未困毙
+       ★ AUD-R-073（P2）：排除地雷（rank_norm==RANK_MINE）——地雷翻了也不能走子
+       （RANK_MINE 在下方"已翻可动"循环被 continue），"可翻"检查须与可动性一致，
+       否则暗地雷会被误算"可翻 → 未困毙"（与 AUD-R-045 同源，兄弟实现 game_logic.c:162 同款排除）。 */
     for (int i = 0; i < N_CELLS; i++) {
         const jq_cell *c = &st->cells[i];
+        int cn = rank_norm(c->rank);
         if (c->rank != RANK_EMPTY && !c->revealed &&
-            rank_norm(c->rank) != RANK_FLAG &&
+            cn != RANK_FLAG && cn != RANK_MINE &&
             (c->side == 0xFF || c->side == side))
             return false;
     }
@@ -544,8 +559,15 @@ void jq_on_flag_capture(jq_state *st, uint8_t captor_side)
 {
     /* ★ AUD-R-035（P2）：已终局则忽略（防测试钩子/外部调用改写终局 winner）。 */
     if (st->stage != STG_PLAY) return;
+    /* ★ AUD-R-054（P2）：前置守卫——吃旗方必须合法（SIDE_VALID），防御非法侧
+       值污染 winner（int8_t 会存 0xFF/越界值）。 */
+    if (!SIDE_VALID(captor_side)) return;
     st->winner = captor_side;        /* 吃旗方胜（JQ_WIN_BLUE/JQ_WIN_RED） */
     st->stage = STG_OVER;
+    /* ★ AUD-R-054（P2）：被吃方旗计数扣减（旗是普通子之一；flag 被吃时该方
+       pieces_left 同步 -1，与 EV_BOMB/EV_DEAD 分支的 pieces_left 维护风格一致。
+       AUD-R-014 注：pieces_left 统计未完全接线，此扣减仅保持字段一致性）。 */
+    st->pieces_left[1 - captor_side]--;
 }
 
 void jq_on_draw(jq_state *st)
@@ -570,10 +592,25 @@ void jq_on_stalemate(jq_state *st, uint8_t loser_side)
 
 /* AI 贪心评分（对抗审计 #2 提取：设备端 ai_pick 用原始编码 rank 比较的 bug 修复 + 可单测化）。
    src/dst 为原始存储 rank（红方 = 实际+0xc，需 rank_norm 还原）。
-   返回：1000 吃子 / 900 同级 / 800 炸弹 / 700 工兵挖雷 / 2 空移 / 1 送死 / -1 旗雷不可走。 */
+   返回：1000 吃子 / 900 同级 / 800 炸弹 / 700 工兵挖雷 / 2 空移 / 1 送死 / -1 旗雷不可走 / -2 空源（AUD-R-057）。
+   ★ AUD-R-055（P2 诚实标注）：评分不区分子价值（用司令吃掉排长 = 用排长吃掉司令 = 1000）——
+     对齐原版 0x39f20/0x55d40 单步贪心无价值维度（原版无 ai_value 子力表，兄弟实现
+     game_logic.c:534 ai_value 为手写路线自有设计，非原版对齐目标）。
+   ★ AUD-R-056（P2 诚实标注）：不评估吃子后被反吃的风险（无前瞻/无模拟走子）——
+     原版贪心 0x55d40 handler 实证单步评分，不实现前瞻（性能 + 对齐原版）。
+   ★ AUD-R-059（P2 诚实标注）：炸弹空移与普通子空移同分（2）——原版贪心无此区分。
+   ★ AUD-R-060（P2 诚实标注）：同级同归 900 覆盖"两炸弹相撞"与"同级普通子互杀"两种语义——
+     原版 ai_score 无此区分（0x55d40 实证），事件侧 EV_BOMB 同码同源。
+   ★ AUD-R-058（P2 诚实标注）：暗棋扛旗前置条件（工兵 + 挖 3 雷）未进评分——需 st 状态
+     查询（mines_cleared/mode），ai_score 签名改动大，留待下一轮；当前暗棋下 AI 靠
+     move_legal 拦截兜底（非工兵扛旗被拒），不会误胜。 */
 int ai_score(int src_rank_raw, int dst_rank_raw, int dst_revealed)
 {
     int r = rank_norm(src_rank_raw);
+    /* ★ AUD-R-057（P2）：空源（rank=0）返回哨兵 -2，与非法着法区分
+       （原返回 2 与合法空移同分，调用方无法识别"源格为空"这种非法输入）。
+       当前调用方 ai_pick 靠外层 c->rank==RANK_EMPTY 过滤不会传 0，本守卫为函数自身契约。 */
+    if (src_rank_raw == 0) return -2;
     if (r == RANK_FLAG || r == RANK_MINE) return -1;
     /* ★ AUD-R-010（P1）：暗棋目标未翻开（dst_revealed=0 且非空格）→ 评分上限降为空移级
        sc=2，不按真 rank 透视敌子（旧版 ai_score 入参只有 2 个 rank，暗棋下 AI 直接读
