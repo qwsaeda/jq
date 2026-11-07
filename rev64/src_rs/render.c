@@ -438,6 +438,10 @@ int rs_render_init(rs_render *rr, const char *spak_dir, const jq_state *init_sta
         
         
         
+        
+        
+        
+        
         char p104[512];
         snprintf(p104, sizeof p104, "%s/dlg_batch_text.png", spak_dir ? spak_dir : "");
         snprintf(p9, sizeof p9, "%s/imen_icons_atlas.png", spak_dir ? spak_dir : "");
@@ -503,6 +507,10 @@ int rs_render_init(rs_render *rr, const char *spak_dir, const jq_state *init_sta
                 
                 
                 
+        
+        
+        
+        
         
         
         
@@ -621,6 +629,8 @@ int rs_render_init(rs_render *rr, const char *spak_dir, const jq_state *init_sta
         
         
         
+        
+        
         rs_read_png(am, "spak_res/dlg_batch_text.png", p104, &dlgraw, &dlgraw_len);
         rs_read_png(am, "spak_res/imen_icons_atlas.png", p9, &icraw, &icraw_len);
         rs_read_png(am, "spak_res/imen_orig_icons.png", p103, &ioraw, &ioraw_len);
@@ -701,6 +711,8 @@ int rs_render_init(rs_render *rr, const char *spak_dir, const jq_state *init_sta
         } else {
             LOGI("原版图标图集读取 FAIL：imen_orig_icons.png 未找到（spak_res 缺文件？）");
         }                                        
+        
+        
         
         
         
@@ -9160,200 +9172,7 @@ static void rs_gl_rebuild(rs_render *rr, int slot)
                      GL_RGBA, GL_UNSIGNED_BYTE, rr->popup_px);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    }
-    if (rr->dlg_text_px && rr->gl2_ok[slot] && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
-        glGenTextures(1, &rr->tex_dlg_text[slot]);
-        glBindTexture(GL_TEXTURE_2D, rr->tex_dlg_text[slot]);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->dlg_text_w, rr->dlg_text_h, 0,
-                     GL_RGBA, GL_UNSIGNED_BYTE, rr->dlg_text_px);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    }
-    if (rr->dlg_text_px && rr->gl2_ok[slot] && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
-        glGenTextures(1, &rr->tex_dlg_text[slot]);
-        glBindTexture(GL_TEXTURE_2D, rr->tex_dlg_text[slot]);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->dlg_text_w, rr->dlg_text_h, 0,
-                     GL_RGBA, GL_UNSIGNED_BYTE, rr->dlg_text_px);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    }
-    if (rr->dlg_text_px && rr->gl2_ok[slot] && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
-        glGenTextures(1, &rr->tex_dlg_text[slot]);
-        glBindTexture(GL_TEXTURE_2D, rr->tex_dlg_text[slot]);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->dlg_text_w, rr->dlg_text_h, 0,
-                     GL_RGBA, GL_UNSIGNED_BYTE, rr->dlg_text_px);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    }
-    if (rr->dlg_text_px && rr->gl2_ok[slot] && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
-        glGenTextures(1, &rr->tex_dlg_text[slot]);
-        glBindTexture(GL_TEXTURE_2D, rr->tex_dlg_text[slot]);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->dlg_text_w, rr->dlg_text_h, 0,
-                     GL_RGBA, GL_UNSIGNED_BYTE, rr->dlg_text_px);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    }
-    if (rr->dlg_text_px && rr->gl2_ok[slot] && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
-        glGenTextures(1, &rr->tex_dlg_text[slot]);
-        glBindTexture(GL_TEXTURE_2D, rr->tex_dlg_text[slot]);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->dlg_text_w, rr->dlg_text_h, 0,
-                     GL_RGBA, GL_UNSIGNED_BYTE, rr->dlg_text_px);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    }
-    if (rr->dlg_text_px && rr->gl2_ok[slot] && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
-        glGenTextures(1, &rr->tex_dlg_text[slot]);
-        glBindTexture(GL_TEXTURE_2D, rr->tex_dlg_text[slot]);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->dlg_text_w, rr->dlg_text_h, 0,
-                     GL_RGBA, GL_UNSIGNED_BYTE, rr->dlg_text_px);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    }
-    if (rr->dlg_text_px && rr->gl2_ok[slot] && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
-        glGenTextures(1, &rr->tex_dlg_text[slot]);
-        glBindTexture(GL_TEXTURE_2D, rr->tex_dlg_text[slot]);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->dlg_text_w, rr->dlg_text_h, 0,
-                     GL_RGBA, GL_UNSIGNED_BYTE, rr->dlg_text_px);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    }
-    if (rr->dlg_text_px && rr->gl2_ok[slot] && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
-        glGenTextures(1, &rr->tex_dlg_text[slot]);
-        glBindTexture(GL_TEXTURE_2D, rr->tex_dlg_text[slot]);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->dlg_text_w, rr->dlg_text_h, 0,
-                     GL_RGBA, GL_UNSIGNED_BYTE, rr->dlg_text_px);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    }
-    if (rr->dlg_text_px && rr->gl2_ok[slot] && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
-        glGenTextures(1, &rr->tex_dlg_text[slot]);
-        glBindTexture(GL_TEXTURE_2D, rr->tex_dlg_text[slot]);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->dlg_text_w, rr->dlg_text_h, 0,
-                     GL_RGBA, GL_UNSIGNED_BYTE, rr->dlg_text_px);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    }
-    if (rr->dlg_text_px && rr->gl2_ok[slot] && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
-        glGenTextures(1, &rr->tex_dlg_text[slot]);
-        glBindTexture(GL_TEXTURE_2D, rr->tex_dlg_text[slot]);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->dlg_text_w, rr->dlg_text_h, 0,
-                     GL_RGBA, GL_UNSIGNED_BYTE, rr->dlg_text_px);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    }
-    if (rr->dlg_text_px && rr->gl2_ok[slot] && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
-        glGenTextures(1, &rr->tex_dlg_text[slot]);
-        glBindTexture(GL_TEXTURE_2D, rr->tex_dlg_text[slot]);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->dlg_text_w, rr->dlg_text_h, 0,
-                     GL_RGBA, GL_UNSIGNED_BYTE, rr->dlg_text_px);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    }
-    if (rr->dlg_text_px && rr->gl2_ok[slot] && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
-        glGenTextures(1, &rr->tex_dlg_text[slot]);
-        glBindTexture(GL_TEXTURE_2D, rr->tex_dlg_text[slot]);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->dlg_text_w, rr->dlg_text_h, 0,
-                     GL_RGBA, GL_UNSIGNED_BYTE, rr->dlg_text_px);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    }
-    if (rr->dlg_text_px && rr->gl2_ok[slot] && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
-        glGenTextures(1, &rr->tex_dlg_text[slot]);
-        glBindTexture(GL_TEXTURE_2D, rr->tex_dlg_text[slot]);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->dlg_text_w, rr->dlg_text_h, 0,
-                     GL_RGBA, GL_UNSIGNED_BYTE, rr->dlg_text_px);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    }
-    if (rr->dlg_text_px && rr->gl2_ok[slot] && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
-        glGenTextures(1, &rr->tex_dlg_text[slot]);
-        glBindTexture(GL_TEXTURE_2D, rr->tex_dlg_text[slot]);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->dlg_text_w, rr->dlg_text_h, 0,
-                     GL_RGBA, GL_UNSIGNED_BYTE, rr->dlg_text_px);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    }
-    if (rr->dlg_text_px && rr->gl2_ok[slot] && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
-        glGenTextures(1, &rr->tex_dlg_text[slot]);
-        glBindTexture(GL_TEXTURE_2D, rr->tex_dlg_text[slot]);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->dlg_text_w, rr->dlg_text_h, 0,
-                     GL_RGBA, GL_UNSIGNED_BYTE, rr->dlg_text_px);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    }
-    if (rr->dlg_text_px && rr->gl2_ok[slot] && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
-        glGenTextures(1, &rr->tex_dlg_text[slot]);
-        glBindTexture(GL_TEXTURE_2D, rr->tex_dlg_text[slot]);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->dlg_text_w, rr->dlg_text_h, 0,
-                     GL_RGBA, GL_UNSIGNED_BYTE, rr->dlg_text_px);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    }
-    if (rr->dlg_text_px && rr->gl2_ok[slot] && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
-        glGenTextures(1, &rr->tex_dlg_text[slot]);
-        glBindTexture(GL_TEXTURE_2D, rr->tex_dlg_text[slot]);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->dlg_text_w, rr->dlg_text_h, 0,
-                     GL_RGBA, GL_UNSIGNED_BYTE, rr->dlg_text_px);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    }
-    if (rr->dlg_text_px && rr->gl2_ok[slot] && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
-        glGenTextures(1, &rr->tex_dlg_text[slot]);
-        glBindTexture(GL_TEXTURE_2D, rr->tex_dlg_text[slot]);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->dlg_text_w, rr->dlg_text_h, 0,
-                     GL_RGBA, GL_UNSIGNED_BYTE, rr->dlg_text_px);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    }
-    if (rr->dlg_text_px && rr->gl2_ok[slot] && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
-        glGenTextures(1, &rr->tex_dlg_text[slot]);
-        glBindTexture(GL_TEXTURE_2D, rr->tex_dlg_text[slot]);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->dlg_text_w, rr->dlg_text_h, 0,
-                     GL_RGBA, GL_UNSIGNED_BYTE, rr->dlg_text_px);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    }
-    if (rr->dlg_text_px && rr->gl2_ok[slot] && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
-        glGenTextures(1, &rr->tex_dlg_text[slot]);
-        glBindTexture(GL_TEXTURE_2D, rr->tex_dlg_text[slot]);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->dlg_text_w, rr->dlg_text_h, 0,
-                     GL_RGBA, GL_UNSIGNED_BYTE, rr->dlg_text_px);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    }
-    if (rr->dlg_text_px && rr->gl2_ok[slot] && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
-        glGenTextures(1, &rr->tex_dlg_text[slot]);
-        glBindTexture(GL_TEXTURE_2D, rr->tex_dlg_text[slot]);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->dlg_text_w, rr->dlg_text_h, 0,
-                     GL_RGBA, GL_UNSIGNED_BYTE, rr->dlg_text_px);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    }
-    if (rr->dlg_text_px && rr->gl2_ok[slot] && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
-        glGenTextures(1, &rr->tex_dlg_text[slot]);
-        glBindTexture(GL_TEXTURE_2D, rr->tex_dlg_text[slot]);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->dlg_text_w, rr->dlg_text_h, 0,
-                     GL_RGBA, GL_UNSIGNED_BYTE, rr->dlg_text_px);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    }
-    if (rr->dlg_text_px && rr->gl2_ok[slot] && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
-        glGenTextures(1, &rr->tex_dlg_text[slot]);
-        glBindTexture(GL_TEXTURE_2D, rr->tex_dlg_text[slot]);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->dlg_text_w, rr->dlg_text_h, 0,
-                     GL_RGBA, GL_UNSIGNED_BYTE, rr->dlg_text_px);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    }
-    if (rr->dlg_text_px && rr->gl2_ok[slot] && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
-        glGenTextures(1, &rr->tex_dlg_text[slot]);
-        glBindTexture(GL_TEXTURE_2D, rr->tex_dlg_text[slot]);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->dlg_text_w, rr->dlg_text_h, 0,
-                     GL_RGBA, GL_UNSIGNED_BYTE, rr->dlg_text_px);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    }
-    if (rr->dlg_text_px && rr->gl2_ok[slot] && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
+    }    if (rr->dlg_text_px && rr->gl2_ok[slot] && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
         glGenTextures(1, &rr->tex_dlg_text[slot]);
         glBindTexture(GL_TEXTURE_2D, rr->tex_dlg_text[slot]);
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->dlg_text_w, rr->dlg_text_h, 0,

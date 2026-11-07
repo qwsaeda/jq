@@ -65,7 +65,7 @@ for k in $KINDS; do
     game_test)     timeout 10 adb -s "$DEV" shell "setprop jq.game_test 1" ;;
   esac
   sleep 5
-  LOG=$(timeout 10 adb -s "$DEV" logcat -d 2>/dev/null)
+  LOG=$(timeout 10 adb -s "$DEV" logcat -b main -d 2>/dev/null)
   CRASH=$(echo "$LOG" | grep -c "Fatal signal" || true)
   case "$k" in
     walk_bridge)   PATTERN="WALK-BRIDGE: 完整 8 步序列完成" ;;
@@ -87,7 +87,7 @@ for k in $KINDS; do
       native_layout|native_event) timeout 10 adb -s "$DEV" shell "setprop jq.native_layout 1; setprop jq.native_event 1" ;;
     esac
     sleep 5
-    LOG=$(timeout 10 adb -s "$DEV" logcat -d 2>/dev/null)
+    LOG=$(timeout 10 adb -s "$DEV" logcat -b main -d 2>/dev/null)
     CRASH=$(echo "$LOG" | grep -c "Fatal signal" || true)
     if echo "$LOG" | grep -q "$PATTERN" && [ "$CRASH" = "0" ]; then
       echo "  ✓ $k（重跑过，首跑瞬时时序）"
@@ -104,7 +104,7 @@ echo "═══ arm32_walkregress 汇总 ═══"
 echo "  PASS=$PASS FAIL=$FAIL"
 [ -n "$FAILED" ] && echo "  失败:$FAILED"
 # 全局崩溃检查
-GC=$(timeout 10 adb -s "$DEV" shell "logcat -d" 2>/dev/null | grep -c "Fatal signal" || true)
+GC=$(timeout 10 adb -s "$DEV" shell "logcat -b main -d" 2>/dev/null | grep -c "Fatal signal" || true)
 echo "  全局崩溃计数: $GC"
 [ "$FAIL" = "0" ] && [ "$GC" = "0" ] && echo "  ✓ 全 PASS + 0 崩溃" && exit 0
 exit 1

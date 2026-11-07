@@ -181,6 +181,13 @@ def probe_array_index():
             # 整个函数体内是否有对该下标变量的范围校验
             if re.search(r"(if|while|assert)\s*\(?[^{;\n]*\b%s\b\s*(>=|>|<=|<)\s*" % re.escape(idx), body):
                 continue
+            # ★ 反噪（§2026-11-11）：**计数循环变量**天然有界
+            #   （for (size_t i = 0; i < N; i++) → i < N 已保证），
+            #   初版未识别 → 776 条误报（EV2WAV[i] / au->pcm[i] 等全是有界循环）。
+            if re.search(r"for\s*\([^;]*\b%s\s*=\s*0\s*;[^;]*\b%s\b\s*<" % (re.escape(idx), re.escape(idx)), body):
+                continue
+            if re.search(r"for\s*\([^;]*\b%s\s*=\s*0\s*;[^;]*\b%s\b\s*<\s*\w+" % (re.escape(idx), re.escape(idx)), body):
+                continue
             if re.search(r"\b%s\s*=\s*[^;]*%%\s*\w+" % re.escape(idx), body):
                 continue
             if re.search(r"\b%s\b\s*=\s*0\s*;" % re.escape(idx), body) and \
@@ -278,19 +285,49 @@ def probe_thread_safety():
     if not os.path.exists(jb):
         return
     ls = lines_of(jb)
-    lock_line = None
+    # ★ 反噪（§2026-11-11）：初版按**文件顺序**猜锁区间 → 误报 5 条
+    #   （jq_restart_game 的注释明确写「调用方需已持有 g_mutex（OnUpdate/OnTouch 锁内；
+    #   OnCreate 单线程无需锁）」→ 函数体本身不加锁是正确的）。
+    #   现改为**数据流感知**：先解析每个函数的 doc comment，若声明「调用方需持锁」
+    #   则跳过其函数体内的 g_state 写入；同时只报**无任何锁上下文**的写入。
+    CALLER_LOCKS = ("需已持有 g_mutex", "调用方需", "持锁", "调用者需")
+    func_doc = {}          # 行号 -> 该行所属函数是否声明「调用方持锁」
+    cur_fn = None
+    doc_buf = []
     for i, ln in enumerate(ls, 1):
-        if "pthread_mutex_lock(&g_mutex)" in ln:
-            lock_line = i
-        if "g_state" in ln and "=" in ln and not ln.strip().startswith("/*"):
-            if lock_line is None or i < lock_line:
-                if re.search(r"g_state\.\w+\s*=", ln) and "g_state" in ln:
-                    add("lock-discipline", "P2",
-                        "g_state 写入疑似在 g_mutex 之外",
-                        f"src_rs/jni_bridge.c:{i}",
-                        f"锁外写 g_state：{ln.strip()[:140]}",
-                        f"最近一次 pthread_mutex_lock 在第 {lock_line} 行，此处更早或之后未解锁",
-                        "把 g_state 读写统一收敛到 g_mutex 临界区")
+        st = ln.strip()
+        if st.startswith("/*") or st.startswith("*"):
+            doc_buf.append(ln)
+            continue
+        fm = re.search(r"^static\s+[\w\s\*]+\b(\w+)\s*\(", ln)
+        if fm:
+            cur_fn = fm.group(1)
+            doc = "\n".join(doc_buf)
+            func_doc[i] = (cur_fn, any(k in doc for k in CALLER_LOCKS))
+            doc_buf = []
+            continue
+        doc_buf = []
+        if "g_state" in ln and "=" in ln and not st.startswith("/*"):
+            # 找到本行所属函数（向上最近的函数定义）
+            owner = None
+            caller_locks = False
+            for j in range(i - 1, max(0, i - 120), -1):
+                if j in func_doc:
+                    owner, caller_locks = func_doc[j]
+                    break
+            if owner and caller_locks:
+                continue    # 声明了「调用方持锁」→ 函数体内不加锁是正确设计
+            # 该函数体内是否出现过 lock/unlock（自行加锁）
+            body = "\n".join(ls[i - 1:i + 80])
+            if "pthread_mutex_lock(&g_mutex)" in body:
+                continue
+            if re.search(r"g_state\.\w+\s*=", ln):
+                add("lock-discipline", "P2",
+                    f"{owner or '?'}() 内 g_state 写入未见加锁",
+                    f"src_rs/jni_bridge.c:{i}",
+                    f"锁外写 g_state：{ln.strip()[:140]}",
+                    "该函数既未自行加锁，也未声明「调用方持锁」",
+                    "加锁或补「调用方需已持有 g_mutex」注释声明", "lock-discipline")
 
 
 def probe_recursive_lock():
@@ -911,7 +948,14 @@ def probe_button_geom_delta():
 
 
 def probe_button_text_delta():
-    """按钮文案对比：原版 XML text vs 代码注释里的文案。"""
+    """按钮文案对比：原版 XML text vs 我方按钮表注释（注释 = 渲染文字来源）。
+
+    ★ 反噪（§2026-11-11）：
+      初版（a）`cur` 状态永不重置 → 跨弹窗串行误匹配（把别处的 /* Rename */ 当本弹窗）
+      （b）取整文件首个注释而非当前行
+      → 77 条全是误报（实际按钮表注释就是原版中文）。
+      现改为：只在 `g_dNNN_btns[...]{ ... };` **块内**逐行取注释比对。
+    """
     umc = os.path.join(SRC, "ui_menu.c")
     if not os.path.exists(umc):
         return
@@ -919,45 +963,41 @@ def probe_button_text_delta():
     if not dlgs:
         return
     ls = lines_of(umc)
-    for n, d in sorted(dlgs.items()):
-        btns = d.get("buttons") or []
-        if not btns:
+    i = 0
+    while i < len(ls):
+        m = re.search(r"g_d(\d{3})_btns\[UI_D\d{3}_COUNT\]\s*=\s*\{", ls[i])
+        if not m:
+            i += 1
             continue
-        cur = None
-        for i, ln in enumerate(ls, 1):
-            m = re.search(r"g_d%s_btns\[" % n, ln)
-            if m:
-                cur = n
-                continue
-            if cur != n:
-                continue
-            m2 = re.search(r"/\*\s*(.*?)\s*\*/", ln)
-            if not m2:
-                continue
-            cmt = m2.group(1).strip()
-            # 找对应原版按钮（按顺序）
-            order = [b for b in btns]
-            try:
-                bidx = len([x for x in ls[:i] if "g_d%s_btns[" % n in x]) - 1
-            except Exception:
-                bidx = 0
-            # 简化：按注释中的 name 匹配
-            matched = None
-            for b in btns:
-                nm = b.get("name", "")
-                if nm and nm in cmt:
-                    matched = b
-                    break
-            if matched is None:
-                continue
-            t = (matched.get("text") or "").strip()
-            if t and t not in cmt:
-                add("text-delta", "P2",
-                    f"UI_D{n} 按钮（{matched.get('name')}）文案与原版不一致",
-                    f"src_rs/ui_menu.c:{i}",
-                    f"我方注释「{cmt}」，原版 text=「{t}」",
-                    "原版 XML 为权威文案",
-                    f"改用原版文案「{t}」")
+        n = m.group(1)
+        d = dlgs.get(n)
+        if not d:
+            i += 1
+            continue
+        btns = d.get("buttons") or []
+        # 收集块内按钮行（含行尾注释）
+        rows = []
+        j = i
+        while j < len(ls) and "};" not in ls[j]:
+            ln = ls[j]
+            mm = re.search(r"\{\s*([\d.]+)f\s*,.*?\}\s*,\s*(?:/\*\s*(.*?)\s*\*/)?", ln)
+            if mm:
+                rows.append((j + 1, (mm.group(2) or "").strip()))
+            j += 1
+        if len(rows) == len(btns):
+            for (ln_no, cmt), b in zip(rows, btns):
+                t = (b.get("text") or "").strip()
+                if not t:
+                    continue
+                # 注释里可能带补充说明（"改名 Rename（旧名+数字后缀）"）→ 只要含原版文案即通过
+                if t not in cmt:
+                    add("text-delta", "P1",
+                        f"UI_D{n} 按钮（{b.get('name')}）渲染文案与原版不一致",
+                        f"src_rs/ui_menu.c:{ln_no}",
+                        f"我方注释「{cmt}」未含原版 text「{t}」",
+                        "按钮表注释即渲染文字来源（原版 text 为权威）",
+                        f"改用原版文案「{t}」", "text-delta")
+        i = j + 1
 
 
 def probe_jni_signature():

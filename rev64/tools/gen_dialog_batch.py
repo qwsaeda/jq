@@ -333,6 +333,13 @@ int run_{tag.lower()}(void)
     return H,HDEF,C,STUB,RH,R,J,E,L,row
 
 def insert(path, anchor, text, before=True):
+    """插入内容（★ 幂等：内容已存在则跳过）。
+
+    ★ 对抗审计修正（§2026-11-11）：旧版只对「批量对齐弹窗」类内容做幂等判断，
+      纹理上传块等**公共块**不在判断范围内 → 每跑一次生成器就多插一份 →
+      累积 25 份 glGenTextures（同纹理生成 25 个 ID，前 24 个泄漏）。
+      现改为：内容**已存在**（按首行特征串比对）即跳过。
+    """
     s=open(path).read()
     if "★ 批量对齐（datah_" in s and text.strip().startswith(("UI_D","/* ★ 批量对齐","    {sid}")):
         # 幂等：同批次标记已存在则跳过
@@ -340,6 +347,17 @@ def insert(path, anchor, text, before=True):
         m=_re.search(r'datah_(\d{3})', text)
         if m and f'datah_{m.group(1)}' in s:
             return False
+    # ★ 通用幂等：按内容首行特征串（去掉空白）判断是否已存在
+    import re as _re2
+    feat = None
+    for ln in text.split("\n"):
+        t = ln.strip()
+        if not t or t in ("}", "{"):
+            continue
+        feat = t
+        break
+    if feat and len(feat) >= 12 and feat in s:
+        return False
     if not s.count(anchor): return False
     s=s.replace(anchor, (text+anchor) if before else (anchor+text), 1)
     open(path,"w").write(s)
@@ -380,6 +398,11 @@ def clean():
     tot += sub(f"{RS_}/render.h", '\n    /\* ★ 批量对齐 datah_\d{3}：[^\n]*\*/')
     # ── render.c：diag 变量 / 加载 / 上传 / 绘制函数 / 帧调度
     tot += sub(f"{RS_}/render.c", r'(?:static int d\d{3}_diag = 0;\n)+')
+    # ★ 对抗审计修正（§2026-11-11）：清理**共用** dlg_text 纹理上传块
+    #   （旧版 clean 漏删 → 每跑一次生成器累积一份 → 25 份 glGenTextures 同纹理 → 纹理泄漏）
+    tot += sub(f"{RS_}/render.c",
+               '\n    if \\(rr->dlg_text_px && rr->gl2_ok\\[slot\\] && rr->dlg_text_w > 0 && rr->dlg_text_h > 0\\) \\{'
+               '[\\s\\S]*?\\n    \\}\\n')
     # ★ 迭代清同行/跨行残留（旧版 p104/dlgraw 等 append 到同一行 → 单条正则删不完）
     import re as _re2
     for _round in range(30):
