@@ -70,6 +70,11 @@ JQ_EXPORT int jq_walk_bridge_touch(float px, float py, int view_w, int view_h) {
 
 /* §124y-26：走子桥翻子入口（game_test 端到端钩子用，暗棋模式 move 前需先翻源子） */
 JQ_EXPORT int jq_walk_bridge_flip(int cell) {
+    /* §124y-161 AUD-R 分叉标记：走子桥翻子入口（会话 B 移植）。
+       · AUD-R-008 翻棋收口困毙 → 32 位侧本入口仅 logcat，无 stalemate_after
+         收口 → 分叉（64 位独有设计）
+       · AUD-R-003 先手翻子定色 → 定色在 jq_flip 内（side==0xFF→turn），
+         本入口不介入 → 等价（jq_flip 语义与 64 位一致，布局未走 SIDE_UNKNOWN） */
     if (!g_walk_init) jq_walk_bridge_run();
     int ok = jq_can_flip(&g_walk_state, cell) ? jq_flip(&g_walk_state, cell) : 0;
     const jq_cell *c = &g_walk_state.cells[cell];
@@ -101,6 +106,14 @@ JQ_EXPORT int jq_game_test_finish(void) {
 }
 
 JQ_EXPORT void jq_walk_bridge_tick(void) {
+    /* §124y-161 AUD-R 分叉标记：走子桥 8 步序列（test_move_seq 基准）。
+       · AUD-R-061/062 事件契约（7 类 + EV_MINE/EV_MOVE 同名）→ 32 位侧走子桥
+         仅 logcat 打印 Junqi.Move/Eat/Bomb/Flag/Dead（5 事件），未实现
+         EV_FLIP=6 / EV_MINE 同名统计 → 分叉（64 位独有设计）
+       · AUD-R-004 pieces_left 越界写守卫 → 走子桥 8 步序列不消费 pieces_left
+         （困毙走 jq_side_stalemated 实时扫描）→ 行为等价
+       基准 = arm32_walkregress 4/4 PASS（reset + flip×2 + 触摸注入 +
+       move×2=Junqi.Move + 终局，F_3ab80 ok=1），覆盖走子/翻棋/终局主链。 */
     static int done = 0;
     char val[8] = {0};
     if (__system_property_get("jq.walk_bridge", val) > 0 && val[0] == '1' && !done) {

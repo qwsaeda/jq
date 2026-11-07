@@ -23,6 +23,12 @@ rules_fork_check.py — R-138 分叉检测脚本（src_rs 重写 vs src_jni_tran
      是否出现对应 R-xxx 实证标记 / §124y 实证节
   4. 输出分叉矩阵：每条 src_rs 已修 AUD-R 项 → 翻译体侧实证状态
      （EVIDENCED / NO-EVIDENCE / N/A-层级不适用）
+   5. ★ §124y-161：识别翻译体侧 "AUD-R 分叉标记" 注释（jq_rs_rules.c /
+      jq_rs_walkbridge.c 内 "§124y-xxx AUD-R 分叉标记" 块注释中标出的 R-xxx）：
+      已标记项 → 状态从 [分叉]（无实证）细化为 [已标记]（已标注为 64 位独有
+      设计 / 32 位走子桥简化 / 行为等价）。
+      "已标记" ≠ "已实证对齐"——只是降模糊度；真正 32 位实证（arm32_walkregress
+      + 逐条走子桥验证）留待 32 位路线专项。
 """
 import re
 import subprocess
@@ -117,11 +123,50 @@ def check_tr_evidence(item):
     return hits
 
 
+def collect_fork_marks():
+    """★ §124y-161：收集翻译体侧 "AUD-R 分叉标记" 注释块中提及的 R-xxx 项。
+    标记 = jq_rs_rules.c / jq_rs_walkbridge.c 内 "§124y-xxx AUD-R 分叉标记"
+    开头的块注释，块内提及的 R-xxx 即"已标记分叉"（诚实标注：已注明该项为
+    64 位独有设计 / 32 位走子桥简化 / 行为等价，非实证对齐）。
+    返回 {item: [(file, block_line, snippet)]}。
+    """
+    marked_files = [g for g in TR_EVIDENCE_GLOBS if "jq_rs_rules.c" in g
+                    or "jq_rs_walkbridge.c" in g]
+    out = {}
+    for g in marked_files:
+        lines = read(g).splitlines()
+        # 块注释边界：标记块从其 "/* §124y-xxx AUD-R 分叉标记" 行到首个 "*/" 行
+        starts = [i for i, ln in enumerate(lines, 1) if "AUD-R 分叉标记" in ln]
+        for s in starts:
+            end = s
+            for j in range(s, len(lines) + 1):
+                if j > s and "*/" in lines[j - 1]:
+                    end = j
+                    break
+            for j in range(s, min(end, len(lines) + 1)):
+                if j < 1 or j > len(lines):
+                    continue
+                for m in re.findall(r"\bR-\d{3}\b", lines[j - 1]):
+                    if m != "R-138":
+                        out.setdefault(m, []).append(
+                            (g, j, lines[j - 1].strip()[:80]))
+    # 同一项同一行去重
+    for k, v in out.items():
+        seen, uniq = set(), []
+        for t in v:
+            if t not in seen:
+                seen.add(t)
+                uniq.append(t)
+        out[k] = uniq
+    return out
+
+
 def main():
     rs_lines = git_log_r()
     tr_lines = git_log_tr()
     items = extract_items_from_rs() | extract_items_from_commit_msgs(rs_lines)
     items.discard("R-138")
+    fork_marks = collect_fork_marks()
 
     print("═" * 78)
     print("R-138 分叉检测矩阵（src_rs/rules.c vs src_jni_translated/jq_rs_rules.c）")
@@ -138,23 +183,44 @@ def main():
     print("  · 单条路线 PASS 不代表另一条路线对齐；新 AUD-R 修复须双路验证。")
     print("-" * 78)
 
-    no_ev, ev = [], []
+    no_ev, ev, marked = [], [], []
     for item in sorted(items):
-        hits = check_tr_evidence(item)
         theme = THEME.get(item, "")
-        if hits:
-            ev.append((item, theme, hits))
-            print(f"  [已实证] {item} {theme:<20} 翻译体侧 {len(hits)} 处标记")
-            for g, i, l in hits[:3]:
+        if item in fork_marks:
+            # ★ §124y-161 优先级：分叉标记注释内提及的项 → [已标记]（诚实标注，
+            # 非实证对齐）；仅标记块外的命中才算真实证
+            marks = fork_marks[item]
+            hit_lines = {(g, i) for (g, i, l) in check_tr_evidence(item)}
+            mark_lines = {(g, i) for (g, i, l) in marks}
+            real_hits = [(g, i, l) for (g, i, l) in check_tr_evidence(item)
+                         if (g, i) not in mark_lines]
+            if real_hits:
+                ev.append((item, theme, real_hits))
+                print(f"  [已实证] {item} {theme:<20} 翻译体侧 {len(real_hits)} 处真实证（块外）+ {len(marks)} 处分叉标记")
+            else:
+                marked.append((item, theme, marks))
+                print(f"  [已标记] {item} {theme:<20} 翻译体侧 AUD-R 分叉标记（诚实标注，非实证）")
+            for g, i, l in marks[:3]:
                 print(f"             · {g}:{i}: {l}")
         else:
-            no_ev.append((item, theme))
-            print(f"  [分叉]   {item} {theme:<20} 翻译体侧无实证标记（未同步，诚实边界）")
+            hits = check_tr_evidence(item)
+            if hits:
+                ev.append((item, theme, hits))
+                print(f"  [已实证] {item} {theme:<20} 翻译体侧 {len(hits)} 处标记")
+                for g, i, l in hits[:3]:
+                    print(f"             · {g}:{i}: {l}")
+            else:
+                no_ev.append((item, theme))
+                print(f"  [分叉]   {item} {theme:<20} 翻译体侧无实证标记（未同步，诚实边界）")
 
     print("-" * 78)
     print(f"矩阵汇总：src_rs 已修 AUD-R 项 {len(items)} 条 | "
-          f"翻译体侧已实证 {len(ev)} 条 | 分叉（无实证） {len(no_ev)} 条")
-    print("分叉项清单（src_rs 已修、翻译体侧未见实证，须走 32 位反汇编路线对齐）：")
+          f"翻译体侧已实证 {len(ev)} 条 | 已标记分叉 {len(marked)} 条 | "
+          f"未标记分叉 {len(no_ev)} 条")
+    print("已标记分叉清单（翻译体侧 AUD-R 分叉标记注释：已标注 64 位独有设计 / 走子桥简化 / 行为等价，非实证对齐）：")
+    for item, theme in marked:
+        print(f"  · {item} {theme}")
+    print("未标记分叉清单（src_rs 已修、翻译体侧既无实证也未标记，须走 32 位反汇编路线对齐）：")
     for item, theme in no_ev:
         print(f"  · {item} {theme}")
     print("-" * 78)

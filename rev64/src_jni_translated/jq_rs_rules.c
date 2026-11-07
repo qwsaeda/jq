@@ -37,6 +37,13 @@
 #include <string.h>
 #include <stdlib.h>
 
+/* §124y-161 AUD-R 分叉标记：事件名表（会话 B 移植）。
+   · AUD-R-061 EV_FLIP=6 事件契约 → 32 位侧本表 6 项无 EV_FLIP 通道（翻子事件走子桥
+     仅 logcat）→ 分叉（64 位独有设计）
+   · AUD-R-062 EV_MINE/EV_MOVE 同名"Junqi.Move" → 32 位侧表 [5]="Junqi.Move"
+     与 64 位同名设计对齐（无按码分流统计）→ 对齐
+   32 位 .rodata 明文 Junqi.Flip 事件名存在，但走子桥未实装该事件通道，
+   细分规则 32 位侧未逐条实证，诚实边界留待后续专项。 */
 const char *JQ_EVENT_NAMES[6] = {
     "Junqi.Move", "Junqi.Eat", "Junqi.Bomb", "Junqi.Flag", "Junqi.Dead", "Junqi.Move"
 };
@@ -100,6 +107,16 @@ static bool rail_path_straight(const jq_state *st, int fr, int fc, int tr, int t
 }
 
 /* ---------- 走子合法性（0x39e14 目标类型 + 路径 + 暗棋/行营/大本营约束） ---------- */
+/* §124y-161 AUD-R 分叉标记：走子合法性（会话 B 移植）。
+   · AUD-R-001 铁路方向（跨底线纵滑 1061 条非法）→ 32 位侧走子桥基准
+     arm32_walkregress 4/4 PASS 覆盖了主链走子，但**未逐条验证铁路方向**
+     → 分叉（64 位独有设计，32 位侧未专项实证）
+   · AUD-R-005 困毙参数化 → 32 位侧走子桥困毙走实时扫描
+     （jq_side_stalemated，与 64 位 can_move_ignore_turn 参数化语义等价）→ 等价
+   · AUD-R-006 暗棋信息不泄露 → 32 位侧走子桥布局写死 side 分区（"明棋藏脸"），
+     暗棋信息遮蔽未实装 → 分叉（64 位独有设计）
+   走子桥基准 = arm32_walkregress 4/4 PASS，覆盖走子/翻棋/终局主链；
+   细分规则 32 位侧未逐条实证，诚实边界留待后续专项。 */
 bool JQ_RS_DEF jq_can_move(const jq_state *st, int from, int to)
 {
     if (st->stage != STG_PLAY || from == to)
@@ -152,6 +169,20 @@ bool JQ_RS_DEF jq_can_move(const jq_state *st, int from, int to)
 
 /* ---------- 走子执行（0x39f20 + 0x3a15c 语义） ---------- */
 /* 执行走子。成功返回事件类型；失败返回 -1（不切 turn、不计数，L54）。 */
+/* §124y-161 AUD-R 分叉标记：走子执行器（会话 B 移植，对应 src_rs 0x39f20/0x3a15c 语义）。
+   与 64 位 src_rs/rules.c jq_try_move 的 AUD-R 分叉项对照：
+   · 事件码 0-5 同名契约（Junqi.Move/Eat/Bomb/Flag/Dead/Move）→ 对齐
+   · AUD-R-061 EV_FLIP=6 事件契约 → 32 位侧走子桥未实现翻子事件通道（走子桥
+     jq_walk_bridge_flip 仅 logcat，无事件码）→ 分叉（64 位独有设计）
+   · AUD-R-020 炸弹撞旗判胜 → 32 位侧走子桥认输逻辑（winner=1-turn）简化
+     （不区分炸弹撞旗/吃旗）→ 分叉（64 位独有设计，32 位走子桥无此细分）
+   · AUD-R-004 pieces_left 越界写守卫 → 32 位侧走子桥无 pieces_left 消费
+     （困毙走实时扫描）→ 行为等价（都靠 jq_side_stalemated 兜底）
+   · AUD-R-073 困毙翻棋排除 RANK_MINE → 32 位侧 jq_side_stalemated 未排除地雷
+     （翻出地雷视为仍可行动）→ 分叉（64 位独有设计）
+   走子桥基准 = arm32_walkregress 4/4 PASS（F_3ab80 ok=1），覆盖走子/翻棋/
+   终局主链；细分规则（吃旗/炸弹撞旗/和棋 70 步/1000 步上限）32 位侧未
+   逐条实证，诚实边界留待后续专项。 */
 int JQ_RS_DEF jq_try_move(jq_state *st, int from, int to)
 {
     if (!jq_can_move(st, from, to)) return -1;
@@ -246,6 +277,14 @@ bool JQ_RS_DEF jq_can_flip(const jq_state *st, int idx)
     return c->side == st->turn;         /* 己方暗子可翻 */
 }
 
+/* §124y-161 AUD-R 分叉标记：翻棋（会话 B 移植）。
+   · AUD-R-008 翻棋收口困毙（stalemate_after）→ 32 位侧 jq_flip 末尾无
+     stalemate_after 收口（走子桥简化，仅 logcat）→ 分叉（64 位独有设计）
+   · AUD-R-003 先手翻子定色 → 32 位侧走子桥布局写死 side 分区（"明棋藏脸"），
+     本 jq_flip 含 c->side==0xFF→turn 定色逻辑（语义与 64 位一致），但未走
+     SIDE_UNKNOWN 全流程实证 → 分叉（64 位独有设计，32 位走子桥简化布局）
+   走子桥基准 = arm32_walkregress 4/4 PASS（flip×2），覆盖翻棋主链；
+   细分规则 32 位侧未逐条实证，诚实边界留待后续专项。 */
 bool JQ_RS_DEF jq_flip(jq_state *st, int idx)
 {
     if (!jq_can_flip(st, idx)) return false;
