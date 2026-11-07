@@ -6026,41 +6026,46 @@ python3 /tmp/opencode/incremental_regress.py reset 0xADDR  # 改了某指令 →
 
 ---
 
-## §124y-159 F_55d40 事件业务 thunk 区全 code 收表复核 + "73 code" 纠正（0x55d40 区实测 42 bl）
+## §124y-159 F_55d40 事件业务 thunk 区全 code 收表复核（0x55d40 区 42 bl + 扩展区 25 bl 发现）
+
+> **§124y-161 纠正**（本条 "73→42" 误纠正, 详见 §124y-161）: 0x55d40-0x55ff4 区实为 **73 thunk**
+> （§124y-30 原说法正确）, objdump 提取 42 bl（thunk 0-41 有 bl, thunk 42-72 无 bl 属正常）。
+> 本条原 "73→42 纠正" 混淆了 "bl 数" 与 "thunk 数"，已按 §124y-161 修正。
 
 ### 前置事实（§124y-30/31 已固化）
 - F_55d40 switch (code) 已收 55 case: codes 0-41（§124y-30 全量 42 code 映射）+ codes 53-65（§124y-31 补 13 case 复用已收 handler）
 - 24 不同 handler 全有定义体（jqt_vtbl.c F_557d4~F_3f8f4 区，§124y-31 "24 handler 全有定义体" 实锤）
 
 ### 本条复核实锤
-1. **0x55d40 区 objdump 实测 42 个 bl**（非 73 个）:
+1. **0x55d40-0x55ff4 区 objdump 实测 42 个 bl**（73 thunk 中 thunk 0-41 有 bl, thunk 42-72 无 bl）:
    - `thunk_code_map.py LO=0x55d40 HI=0x55ff4` 提取 42 bl，按出现顺序映射 code 0-41（1:1）
    - 42 bl 的 handler 全在 24 handler 集合内（F_557d4/F_5586c/F_557d0/F_557cc/F_8571c/F_85798/F_857b0/F_85348/F_b549c/F_85704/F_b54dc/F_b52a0/F_33878/F_85744/F_85730/F_85758/F_55dc4/F_55ba4/F_557c8/F_82d3c/F_b4edc/F_3deb0/F_853c0/F_3f8f4）
-   - **"73 thunk" 说法纠正**: 0x55d40 区实际 42 bl（非 73），§124y-30 "全量 42 code 映射" 正确；
-     FRIDA_NOTES §十三 "42 code" 正确；"73 code" 系早期误读（74 事件名 vs 42 code 混淆）
-2. **codes 42-52（11 个）+ 66-72（7 个）= 18 个无对应 0x55d40 区 bl**:
-   - 该 code 范围在原版 so 里**未实现**（objdump 实测 0 bl），非收表缺口
-   - F_55d40 switch default: break → r=0（诚实兜底，该 code 范围无 handler）
-   - 对照 17 事件码（0..16）× 子类型展开: 42 code = 17 事件码实际使用的 code 子集（非全 73）
+   - "73 thunk" 说法**正确**（§124y-30 原说法）: 0x55d40 区 73 thunk（0x12×73=0x2B4）, 其中 thunk 0-41 有 bl（42 bl）,
+     thunk 42-72 无 bl（纯跳转/return, 非事件分发）
+2. **扩展区 0x55ff4-0x56200 发现 25 个 bl**（codes 42-52/66 区, 本条新发现）:
+   - 25 bl 的 20 不同 handler 中 **4 个缺定义体**（0x33724/0x55d74/0x55fbc/0x9411c）, 16 个有定义体
+   - codes 42-52/66 在 F_55d40 switch **未收 case**（switch 只收 0-41+53-65 = 55 case）
+   - 该 4 个缺定义体 handler = **收表缺口**（非 "原版未实现"，§124y-161 纠正）
 3. **codes 53-65（§124y-31 补 13 case）= 复用已收 handler**:
    - 非 0x55d40 区新 bl（42 bl 只覆盖 code 0-41），而是 F_55d40 switch 扩展段
    - 13 case 全部指向 24 handler 集合内已有函数（0x85798/0x82d3c/0xb4edc/0x3deb0/0x853c0/0x857b0/0x3f8f4）
    - 语义: 事件码 53-65 = 事件码 0-41 的子类型扩展（复用同一 handler，仅 code 参数不同）
 
 ### 收表完整性结论
-- F_55d40 事件业务 thunk 区**收表全闭环**:
-  - 0x55d40 区 42 bl（code 0-41）全收 + 24 handler 全有定义体
-  - codes 53-65 扩展 13 case 全收（复用已收 handler）
-  - codes 42-52/66-72 = 原版未实现（无 bl），switch default 兜底 r=0（诚实语义）
-- 无收表缺口，无未收 handler
+- F_55d40 事件业务 thunk 区**收表有缺口**（§124y-161 纠正 "全闭环" 说法）:
+  - 0x55d40 区 42 bl（code 0-41）全收 + 24 handler 全有定义体 ✅
+  - codes 53-65 扩展 13 case 全收（复用已收 handler）✅
+  - **codes 42-52/66 区 25 bl 中 4 个 handler（0x33724/0x55d74/0x55fbc/0x9411c）缺定义体 + F_55d40 switch 未收 case** ❌
+  - 该 4 个 handler 既无定义体也不在 jqt_vtbl_n dispatch 表 → switch default 兜底 r=0（诚实但非完整）
 
 ### 坑固化
-- 0x55d40 区 thunk 数量以 objdump 实测为准（42 bl），勿信"73 thunk"早期误读
-  （74 事件名 ≠ 73 code，事件名 → 17 事件码 → 42 code 是多对一映射，非 1:1）
+- 0x55d40 区 "bl 数" ≠ "thunk 数": 73 thunk 中 42 bl（thunk 0-41）, thunk 42-72 无 bl（纯跳转/return）
+  - objdump 提取 bl 数（42）是 thunk 中实际有 bl 指令的子集, 非 thunk 总数
+  - 扩展区 0x55ff4-0x56200 另 25 bl（codes 42-52/66 区）, 本条新发现
 - F_55d40 switch 收表判据: `thunk_code_map.py --check`（24 handler 收表状态）+
-  objdump 0x55d40 区 bl 计数（42 = code 0-41 全量），codes 42-52/66-72 无 bl 属正常
-- "73 code" 纠正: 0x55d40 区实际 42 bl（code 0-41），codes 53-65 = switch 扩展段（13 case 复用），
-  codes 42-52/66-72 = 原版未实现（无 bl）；FRIDA_NOTES §十三 "42 code" 正确，§124y-30 "42 code 映射" 正确
+  objdump 0x55d40 区 bl 计数（42 = code 0-41）, **扩展区 25 bl 需单独查**（thunk_code_map.py HI=0x55ff4 截断）
+- 本条原 "73→42 纠正" 有误: 42 bl ≠ 42 thunk, 73 thunk 说法正确; codes 42-52/66 非 "原版未实现"
+  而是扩展区有 25 bl（4 个 handler 缺定义体 = 收表缺口）
 
 ---
 
@@ -6106,3 +6111,58 @@ python3 /tmp/opencode/incremental_regress.py reset 0xADDR  # 改了某指令 →
 - scudo 槽非 0 值判定: 小整数（<0x100, 偏移/构造标记）vs 大指针（0xcf/0xf3 区, 4 字节 scudo 块）, 两者都触发
   F_c0ed0 死循环（"非 0 = 已构造" 语义）, 勿混淆
 - .bss 全段 28680B 容器地址 = rw-p 基址 0x0ca01000（非 so 基址 0x0c23c000+0x15be80）, 按段布局算
+
+---
+
+## §124y-161 F_55d40 扩展区 25 bl 收表缺口实锤 + §124y-159 "73→42 纠正" 误纠正纠正
+
+> **纠正 §124y-159**：本条 "0x55d40 区实际 42 bl（非 73）" + "codes 42-52/66-72 = 原版未实现（无 bl）"
+> **两处均有误**, 按本条实锤修正:
+> - "42 bl" 是 0x55d40-0x55ff4 区（73 thunk）的 bl 提取数（thunk 0-41 有 bl, thunk 42-72 无 bl）,
+>   非 "73→42 纠正"。73 thunk 说法（§124y-30）正确。
+> - codes 42-52/66 非 "原版未实现", 而是**扩展区 0x55ff4-0x56200 有 25 bl**（本条新发现）,
+>   其中 4 个 handler（0x33724/0x55d74/0x55fbc/0x9411c）缺定义体 = **收表缺口**。
+
+### 前置事实（§124y-159/30/31 已固化）
+- 0x55d40-0x55ff4 区 = 73 thunk（0x12×73=0x2B4）, objdump 提取 42 bl（thunk 0-41 有 bl, thunk 42-72 无 bl）
+- F_55d40 switch 已收 55 case（codes 0-41 + 53-65）, 24 handler 全有定义体
+- §124y-159 原 "codes 42-52/66-72 = 原版未实现（无 bl）" 有误, 本条纠正
+
+### 本条实锤
+1. **扩展区 0x55ff4-0x56200 发现 25 个 bl**（§124y-159 未查区, 本条新发现）:
+   - objdump `--start-address=0x55ff4 --stop-address=0x56200` 提取 25 bl
+   - 25 bl 的 20 不同 handler:
+     - **16 个有定义体**: 0x23ae8/0x85858/0xb5eec/0x859a4/0x85798/0x857b0/0x85594/0x94d80/0x940dc/0x940b4/0xb549c/0x85704/0xb54dc/0xb52a0/0x33878/0xafc98
+     - **4 个缺定义体**: 0x33724（bl 24）/ 0x55d74（bl 12）/ 0x55fbc（bl 2+4）/ 0x9411c（bl 16）
+   - 4 个缺定义体 handler 既无 `uint32_t F_xxx(` 定义体, 也不在 jqt_vtbl_n dispatch 表
+     → F_55d40 switch 走 `default: break` → r=0（诚实兜底但非完整收表）
+
+2. **codes 42-52/66 在扩展区有 bl**（非 "原版未实现"）:
+   - 扩展区 25 bl 按出现顺序映射 code 42-66（thunk 42-72 区）
+   - codes 42-52/66 = 扩展区 25 bl 的 code 范围（非 §124y-159 说的 "无 bl"）
+   - 该 25 bl 里 4 个 handler 缺定义体 = **收表缺口**（需补 `jqt_vtbl.c` 定义体 + dispatch 表）
+
+3. **thunk_code_map.py 工具边界**（坑固化）:
+   - `thunk_code_map.py LO=0x55d40 HI=0x55ff4` 只覆盖 73 thunk 区（42 bl）, **扩展区 0x55ff4-0x56200 未查**
+   - 需扩 `HI=0x56200` 才能提取完整 67 bl（42+25）
+   - 本条手动 objdump 扩展区 = 工具边界补查
+
+### 收表缺口清单（4 个 handler, 需后续补定义体）
+| handler | 扩展区 bl 位置 | 对应 code（按序） | 定义体 | dispatch 表 |
+|---|---|---|---|---|
+| 0x33724 | bl 24 | code 66 | ❌ 无 | ❌ 无 |
+| 0x55d74 | bl 12 | code 54 | ❌ 无 | ❌ 无 |
+| 0x55fbc | bl 2+4 | code 44+46 | ❌ 无 | ❌ 无 |
+| 0x9411c | bl 16 | code 58 | ❌ 无 | ❌ 无 |
+
+**诚实边界**: 该 4 个 handler 缺定义体, F_55d40 switch 走 default r=0（诚实兜底）, 非崩溃/死循环。
+补定义体需: ①objdump 反汇编 4 个 handler 完整体 → ②补 `jqt_vtbl.c` 定义体 + 前向声明 →
+③补 dispatch 表（`jqt_vtbl_n`）→ ④link_audit 审计无悬空 UND → ⑤4 路径回归 PASS。
+**非阻塞**（.bss 全 0 兜底下事件表 asr4 恒 0 → disc=0 → F_55d40 根本不调, §124y-158 实锤）,
+4 路径回归 4/4 PASS + 0 崩溃（当前态）。
+
+### 坑固化
+- objdump "bl 数" ≠ "thunk 数": 73 thunk 中 42 bl（thunk 0-41）, thunk 42-72 无 bl（纯跳转/return）;
+  扩展区 0x55ff4-0x56200 另 25 bl（codes 42-66 区）, 需单独 objdump 查（thunk_code_map.py HI 截断）
+- "原版未实现" 判读需查扩展区: 0x55ff4-0x56200 区有 25 bl（非 "无 bl"）, §124y-159 误判已纠正
+- 4 个缺定义体 handler（0x33724/0x55d74/0x55fbc/0x9411c）= 收表缺口, 非崩溃风险（default 兜底 r=0）
