@@ -76,7 +76,7 @@ int main(void) {
         while (st.stage == STG_PLAY && guard++ < 5000) {
             int from = -1, to = -1;
             if (ai_step(&st, st.turn, &from, &to) != 0) {
-                jq_on_stalemate(&st);
+                jq_on_stalemate(&st, st.turn);   /* AUD-R-036：显式 loser=当前 turn */
                 stalemates++;
                 break;
             }
@@ -94,7 +94,7 @@ int main(void) {
                 /* st.winner 语义（0x30200）：-1 未定 / 0 蓝胜 / 1 红胜 / 2 和 */
                 if (st.winner == 1) win_red++;
                 else if (st.winner == 0) win_blue++;
-                else if (st.winner == 2) draws++;
+                else if (st.winner == JQ_WIN_DRAW) draws++;
                 else printf("  局%d winner=%d 非法值\n", g, st.winner);
                 break;
             }
@@ -182,7 +182,7 @@ int main(void) {
     while (as.stage == STG_PLAY && guard++ < 20) {
         int from = -1, to = -1;
         int mover = as.turn;
-        if (ai_step(&as, as.turn, &from, &to) != 0) { stale = 1; jq_on_stalemate(&as); break; }
+        if (ai_step(&as, as.turn, &from, &to) != 0) { stale = 1; jq_on_stalemate(&as, mover); break; }
         if (from == to) { if (!jq_flip(&as, from)) continue; }
         else { int ev = jq_try_move(&as, from, to); if (ev < 0) continue; }
         if (mover == SIDE_BLUE) blue_moves++; else red_moves++;

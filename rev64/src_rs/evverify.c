@@ -26,7 +26,7 @@ extern const uint8_t JQ_DEFAULT_LAY[30];
 static void mk_flag(jq_state *st)
 {
     memset(st, 0, sizeof(*st));
-    st->turn = SIDE_BLUE; st->stage = STG_PLAY; st->winner = -1;
+    st->turn = SIDE_BLUE; st->stage = STG_PLAY; st->winner = JQ_WIN_NONE;   // AUD-R-053：winner 未定哨兵
     for (int i = 0; i < N_CELLS; i++) st->cells[i].rank = RANK_EMPTY;
     st->cells[53].rank = 2; st->cells[53].side = SIDE_BLUE; st->cells[53].revealed = 1;
     st->cells[58].rank = 12 + 0xc; st->cells[58].side = SIDE_RED; st->cells[58].revealed = 1;
@@ -37,7 +37,7 @@ static void mk_flag(jq_state *st)
 static void mk_mine(jq_state *st)
 {
     memset(st, 0, sizeof(*st));
-    st->turn = SIDE_BLUE; st->stage = STG_PLAY; st->winner = -1;
+    st->turn = SIDE_BLUE; st->stage = STG_PLAY; st->winner = JQ_WIN_NONE;   // AUD-R-053：winner 未定哨兵
     for (int i = 0; i < N_CELLS; i++) st->cells[i].rank = RANK_EMPTY;
     st->cells[49].rank = 9; st->cells[49].side = SIDE_BLUE; st->cells[49].revealed = 1;
     st->cells[54].rank = 11 + 0xc; st->cells[54].side = SIDE_RED; st->cells[54].revealed = 1;
@@ -186,7 +186,7 @@ static int run_undo(void)
     return ok;
 }
 
-/* 和棋/认输桌面验证：jq_on_draw → winner=2 stage=OVER；resign → winner=1-turn。
+/* 和棋/认输桌面验证：jq_on_draw → winner=JQ_WIN_DRAW stage=OVER；resign → winner=1-turn。
    对齐 jni_bridge OnUpdate drawtest/resigntest（property 触发路径）。 */
 static int run_draw_resign(void)
 {
@@ -195,7 +195,7 @@ static int run_draw_resign(void)
     for (int i = 0; i < N_CELLS; i++) if (st.cells[i].rank) st.cells[i].revealed = 1;
     /* 和棋 */
     jq_on_draw(&st);
-    int ok1 = (st.winner == 2 && st.stage == STG_OVER);
+    int ok1 = (st.winner == JQ_WIN_DRAW && st.stage == STG_OVER);
     printf("draw: winner=%d stage=%d %s\n", st.winner, st.stage, ok1 ? "" : "  [FAIL]");
     /* 认输（蓝走子前 turn=BLUE → winner=1=RED） */
     jq_load_layout(&st, JQ_DEFAULT_LAY);
@@ -206,15 +206,16 @@ static int run_draw_resign(void)
     return ok1 && ok2;
 }
 
-/* 困毙桌面验证：jq_on_stalemate → winner=1-turn（无子可动方负）。
+/* 困毙桌面验证：jq_on_stalemate(st, loser_side) → winner=1-loser_side（无子可动方负）。
+   ★ AUD-R-036（P2）：胜方由显式 loser_side 参数推导（原用调用时刻 turn）。
    对齐 jni_bridge OnUpdate stalematetest（property 触发路径）。 */
 static int run_stalemate(void)
 {
     jq_state st;
     jq_load_layout(&st, JQ_DEFAULT_LAY);
     for (int i = 0; i < N_CELLS; i++) if (st.cells[i].rank) st.cells[i].revealed = 1;
-    jq_on_stalemate(&st);
-    int ok = (st.winner == 1 - SIDE_BLUE && st.stage == STG_OVER);   /* turn=BLUE → RED 胜 */
+    jq_on_stalemate(&st, st.turn);
+    int ok = (st.winner == 1 - SIDE_BLUE && st.stage == STG_OVER);   /* loser=BLUE → RED 胜 */
     printf("stalemate: winner=%d stage=%d %s\n", st.winner, st.stage, ok ? "" : "  [FAIL]");
     return ok;
 }
@@ -266,7 +267,7 @@ static int run_ruleset(void)
         st.total_moves = 1000;
         /* 走一步（任意合法空移），不应判和（开关关） */
         int ev = jq_try_move(&st, 12, 11);
-        int ok5 = (ev == EV_MOVE && st.stage == STG_PLAY && st.winner == -1);
+        int ok5 = (ev == EV_MOVE && st.stage == STG_PLAY && st.winner == JQ_WIN_NONE);
         printf("draw-off: ev=%d stage=%d winner=%d %s\n", ev, st.stage, st.winner, ok5 ? "" : "  [FAIL]");
         /* 开关开（恢复）：同状态走一步 → 判和 */
         ui_rule_draw_set(1);
@@ -274,7 +275,7 @@ static int run_ruleset(void)
         for (int i = 0; i < N_CELLS; i++) if (st.cells[i].rank) st.cells[i].revealed = 1;
         st.moves_since_eat = 70; st.total_moves = 1000;
         ev = jq_try_move(&st, 12, 11);
-        int ok6 = (ev == EV_MOVE && st.stage == STG_OVER && st.winner == 2);
+        int ok6 = (ev == EV_MOVE && st.stage == STG_OVER && st.winner == JQ_WIN_DRAW);
         printf("draw-on : ev=%d stage=%d winner=%d %s\n", ev, st.stage, st.winner, ok6 ? "" : "  [FAIL]");
         return ok1 && ok2 && ok3 && ok4 && ok5 && ok6;
     }
@@ -297,7 +298,7 @@ static int run_dark(void)
     {
         jq_state st;
         memset(&st, 0, sizeof(st));
-        st.turn = SIDE_BLUE; st.stage = STG_PLAY; st.winner = -1;
+        st.turn = SIDE_BLUE; st.stage = STG_PLAY; st.winner = JQ_WIN_NONE;
         st.mode = JQ_MODE_FLIP;
         st.cells[53].rank = 2; st.cells[53].side = SIDE_BLUE; st.cells[53].revealed = 1;
         st.cells[58].rank = 12 + 0xc; st.cells[58].side = SIDE_RED; st.cells[58].revealed = 1;
@@ -312,7 +313,7 @@ static int run_dark(void)
     {
         jq_state st;
         memset(&st, 0, sizeof(st));
-        st.turn = SIDE_BLUE; st.stage = STG_PLAY; st.winner = -1;
+        st.turn = SIDE_BLUE; st.stage = STG_PLAY; st.winner = JQ_WIN_NONE;
         st.mode = JQ_MODE_FLIP;
         st.cells[53].rank = 9; st.cells[53].side = SIDE_BLUE; st.cells[53].revealed = 1;
         st.cells[58].rank = 12 + 0xc; st.cells[58].side = SIDE_RED; st.cells[58].revealed = 1;
@@ -328,7 +329,7 @@ static int run_dark(void)
     {
         jq_state st;
         memset(&st, 0, sizeof(st));
-        st.turn = SIDE_BLUE; st.stage = STG_PLAY; st.winner = -1;
+        st.turn = SIDE_BLUE; st.stage = STG_PLAY; st.winner = JQ_WIN_NONE;
         st.mode = JQ_MODE_FLIP;
         st.cells[53].rank = 9; st.cells[53].side = SIDE_BLUE; st.cells[53].revealed = 1;
         st.cells[58].rank = 12 + 0xc; st.cells[58].side = SIDE_RED; st.cells[58].revealed = 1;
@@ -346,7 +347,7 @@ static int run_dark(void)
     {
         jq_state st;
         memset(&st, 0, sizeof(st));
-        st.turn = SIDE_BLUE; st.stage = STG_PLAY; st.winner = -1;
+        st.turn = SIDE_BLUE; st.stage = STG_PLAY; st.winner = JQ_WIN_NONE;
         st.mode = JQ_MODE_FLIP;
         st.cells[49].rank = 2; st.cells[49].side = SIDE_BLUE; st.cells[49].revealed = 1;
         st.cells[54].rank = 11 + 0xc; st.cells[54].side = SIDE_RED; st.cells[54].revealed = 1;
@@ -361,7 +362,7 @@ static int run_dark(void)
     {
         jq_state st;
         memset(&st, 0, sizeof(st));
-        st.turn = SIDE_BLUE; st.stage = STG_PLAY; st.winner = -1;
+        st.turn = SIDE_BLUE; st.stage = STG_PLAY; st.winner = JQ_WIN_NONE;
         st.mode = JQ_MODE_FLIP;
         st.cells[49].rank = 9; st.cells[49].side = SIDE_BLUE; st.cells[49].revealed = 1;
         st.cells[54].rank = 11 + 0xc; st.cells[54].side = SIDE_RED; st.cells[54].revealed = 1;
@@ -378,7 +379,7 @@ static int run_dark(void)
     {
         jq_state st;
         memset(&st, 0, sizeof(st));
-        st.turn = SIDE_BLUE; st.stage = STG_PLAY; st.winner = -1;
+        st.turn = SIDE_BLUE; st.stage = STG_PLAY; st.winner = JQ_WIN_NONE;
         st.mode = JQ_MODE_LAY;   /* 明棋 */
         st.cells[53].rank = 2; st.cells[53].side = SIDE_BLUE; st.cells[53].revealed = 1;
         st.cells[58].rank = 12 + 0xc; st.cells[58].side = SIDE_RED; st.cells[58].revealed = 1;
@@ -502,7 +503,7 @@ static int run_replay(void)
     /* 独立参考重放前 K 步（初始布局 明棋全翻 + 前 K 条，不走 replay API） */
     jq_load_layout(&ref, JQ_DEFAULT_LAY);
     for (int i = 0; i < N_CELLS; i++) if (ref.cells[i].rank) ref.cells[i].revealed = 1;
-    ref.stage = STG_PLAY; ref.turn = SIDE_BLUE; ref.winner = -1;
+    ref.stage = STG_PLAY; ref.turn = SIDE_BLUE; ref.winner = JQ_WIN_NONE;
     ref.moves_since_eat = 0; ref.total_moves = 0;
     for (int k = 0; k < K; k++)
         if (jq_try_move(&ref, seq[k][0], seq[k][1]) < 0) break;
@@ -531,7 +532,7 @@ static int run_replay(void)
     jq_state full, chkf;
     jq_load_layout(&full, JQ_DEFAULT_LAY);
     for (int i = 0; i < N_CELLS; i++) if (full.cells[i].rank) full.cells[i].revealed = 1;
-    full.stage = STG_PLAY; full.turn = SIDE_BLUE; full.winner = -1;
+    full.stage = STG_PLAY; full.turn = SIDE_BLUE; full.winner = JQ_WIN_NONE;
     full.moves_since_eat = 0; full.total_moves = 0;
     for (int k = 0; k < N; k++)
         if (jq_try_move(&full, seq[k][0], seq[k][1]) < 0) break;

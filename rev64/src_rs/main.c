@@ -217,7 +217,7 @@ int main(int argc, char **argv)
                 /* 蓝方也由 AI 代走 */
                 if (!ai_pick(&st, &from, &to, &do_flip)) {
                     printf("[蓝方无棋可走 → 困毙]\n");
-                    jq_on_stalemate(&st);
+                    jq_on_stalemate(&st, st.turn);   /* AUD-R-036：显式 loser=当前 turn */
                     break;
                 }
             } else if (sscanf(cmd, "F %d %d", &from, &to) == 2) {
@@ -236,7 +236,7 @@ int main(int argc, char **argv)
         } else {
             if (!ai_pick(&st, &from, &to, &do_flip)) {
                 printf("[当前方无棋可走/可翻 → 困毙]\n");
-                jq_on_stalemate(&st);
+                jq_on_stalemate(&st, st.turn);   /* AUD-R-036：显式 loser=当前 turn */
                 break;
             }
         }
@@ -267,7 +267,7 @@ int main(int argc, char **argv)
 
     printf("\n=== 终局 === winner=%d(%s) total_moves=%d since_eat=%d\n",
            st.winner,
-           st.winner == 0 ? "蓝胜" : st.winner == 1 ? "红胜" : st.winner == 2 ? "和" : "未定",
+           st.winner == JQ_WIN_BLUE ? "蓝胜" : st.winner == JQ_WIN_RED ? "红胜" : st.winner == JQ_WIN_DRAW ? "和" : "未定",
            st.total_moves, st.moves_since_eat);
     return 0;
 }

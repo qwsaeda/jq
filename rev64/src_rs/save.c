@@ -16,6 +16,13 @@
 #include <string.h>
 #include <stdlib.h>
 
+/* ★ AUD-R-049/041（P2）：jq_state 删掉 undo_depth / count_tbl 死字段后结构体变小。
+   one.sjg 是自有二进制格式（无外部兼容旧档需求，"非逐字节"自述），
+   写读两侧同步用 sizeof(jq_state) 序列化——写旧读新/写新读旧互读时
+   读侧 fread 按新 sizeof 读，字段顺序不变则逐字段可解析；诚实边界：
+   混合版本互读未回归测试（设备存档每次重装 so 后覆盖写，实际不会发生）。 */
+#define SJG_STATE_BYTES sizeof(jq_state)
+
 
 
 int jq_save_write(const char *path, const jq_save_data *sd)
@@ -62,21 +69,8 @@ int jq_save_game_write(const char *path, const jq_state *st)
     FILE *f = fopen(path, "wb");
     if (!f) return 0;
     uint32_t m = SJG_MAGIC;
-    uint32_t turn = st->turn, stage = st->stage, winner = st->winner;
-    uint32_t since_eat = st->moves_since_eat, total = st->total_moves;
-    uint32_t mc[2] = {st->mines_cleared[0], st->mines_cleared[1]};
-    uint32_t pl[2] = {st->pieces_left[0], st->pieces_left[1]};
     fwrite(&m, 4, 1, f);
-    fwrite(&turn, 4, 1, f);
-    fwrite(&stage, 4, 1, f);
-    fwrite(&winner, 4, 1, f);
-    fwrite(&since_eat, 4, 1, f);
-    fwrite(&total, 4, 1, f);
-    fwrite(mc, 4, 2, f);
-    fwrite(pl, 4, 2, f);
-    { uint32_t mode = st->mode; fwrite(&mode, 4, 1, f); }   /* ★ AUD-R-002/003（P0） */
-    for (int i = 0; i < N_CELLS; i++)
-        fwrite(&st->cells[i], sizeof(jq_cell), 1, f);
+    fwrite(st, 1, SJG_STATE_BYTES, f);   /* ★ AUD-R-049/041（P2）：整结构序列化 */
     fclose(f);
     return 1;
 }
@@ -87,24 +81,12 @@ int jq_save_game_read(const char *path, jq_state *st)
     FILE *f = fopen(path, "rb");
     if (!f) return 0;
     uint32_t m = 0;
-    fread(&m, 4, 1, f);
-    if (m != SJG_MAGIC) { fclose(f); return 0; }
-    uint32_t turn, stage, winner, since_eat, total;
-    uint32_t mc[2], pl[2];
-    fread(&turn, 4, 1, f);
-    fread(&stage, 4, 1, f);
-    fread(&winner, 4, 1, f);
-    fread(&since_eat, 4, 1, f);
-    fread(&total, 4, 1, f);
-    fread(mc, 4, 2, f);
-    fread(pl, 4, 2, f);
-    { uint32_t mode; if (fread(&mode, 4, 1, f) == 1) st->mode = (uint8_t)mode; }   /* ★ AUD-R-002/003（P0） */
-    st->turn = turn; st->stage = stage; st->winner = winner;
-    st->moves_since_eat = since_eat; st->total_moves = total;
-    st->mines_cleared[0] = mc[0]; st->mines_cleared[1] = mc[1];
-    st->pieces_left[0] = pl[0]; st->pieces_left[1] = pl[1];
-    for (int i = 0; i < N_CELLS; i++)
-        fread(&st->cells[i], sizeof(jq_cell), 1, f);
+    if (fread(&m, 4, 1, f) != 1 || m != SJG_MAGIC) {
+        fclose(f);
+        return 0;
+    }
+    /* ★ AUD-R-049/041（P2）：整结构读取（与写侧同版 sizeof） */
+    if (fread(st, 1, SJG_STATE_BYTES, f) != SJG_STATE_BYTES) { fclose(f); return 0; }
     fclose(f);
     return 1;
 }

@@ -237,7 +237,7 @@ static void jq_restart_game(void)
     g_undo_top = 0;
     g_state.stage = STG_PLAY;
     g_state.turn = SIDE_BLUE;
-    g_state.winner = -1;
+    g_state.winner = JQ_WIN_NONE;   // AUD-R-053：winner 未定哨兵
     g_state.moves_since_eat = 0;
     g_state.total_moves = 0;
     ui_replay_init();   /* ★ P1（datah_039/107）：重开清复盘走子记录 + 重新提取开局布局 */
@@ -454,7 +454,7 @@ static void sfx_game_over(JNIEnv *env, int stage, int winner)
     if (stage != STG_OVER) return;
     if (winner == SIDE_BLUE)        sfx_play(env, "win");
     else if (winner == SIDE_RED)    sfx_play(env, "lose");
-    else if (winner == 2)           sfx_play(env, "draw");   /* 和棋（winner=2）→ draw 音效 */
+    else if (winner == JQ_WIN_DRAW) sfx_play(env, "draw");   /* 和棋（winner=JQ_WIN_DRAW）→ draw 音效 */
 }
 
 /* MediaPlayer 引用缓存（OnCreate 主线程建，global ref 跨线程共享） */
@@ -832,7 +832,7 @@ static void on_event(const char *name, const char *value, JNIEnv *env)
            真机触摸走一步 cell53→cell58 = Junqi.Flag（EV_FLAG）。桌面 jq_try_move 已证 =3。
            诚实边界：起点状态是测试夹具（非默认布局开局），走子判定/事件链路真实。 */
         memset(st, 0, sizeof(*st));
-        st->turn = SIDE_BLUE; st->stage = STG_PLAY; st->winner = -1;
+        st->turn = SIDE_BLUE; st->stage = STG_PLAY; st->winner = JQ_WIN_NONE;   // AUD-R-053：winner 未定哨兵
         for (int i = 0; i < N_CELLS; i++) st->cells[i].rank = RANK_EMPTY;
         st->cells[53].rank = 2; st->cells[53].side = SIDE_BLUE; st->cells[53].revealed = 1;
         st->cells[58].rank = 12 + 0xc; st->cells[58].side = SIDE_RED; st->cells[58].revealed = 1;
@@ -893,7 +893,7 @@ static void on_event(const char *name, const char *value, JNIEnv *env)
             ui_bt_set_active(0);   /* ★ 对抗审计（datah_067）：退出联机 ☰ 菜单分流 */
             st->stage = STG_PLAY;
             st->turn = SIDE_BLUE;
-            st->winner = -1;
+            st->winner = JQ_WIN_NONE;   // AUD-R-053：winner 未定哨兵
             LOGI("OnEvent menu 联机 mode=%d（等 OnBluetooth 帧，SPP 由 Java 宿主承担）", mode);
         }
     } else if (strcmp(name, "start") == 0) {
@@ -931,7 +931,7 @@ static void on_event(const char *name, const char *value, JNIEnv *env)
         g_undo_top = 0;
         st->stage = STG_PLAY;
         st->turn = SIDE_BLUE;
-        st->winner = -1;
+        st->winner = JQ_WIN_NONE;   // AUD-R-053：winner 未定哨兵
         st->moves_since_eat = 0;
         st->total_moves = 0;
         ui_replay_init();   /* ★ P1（datah_039/107）：开局清复盘记录 + 存开局 30 字节布局 */
@@ -1101,7 +1101,7 @@ Java_com_cnvcs_App_OnCreate(JNIEnv *env, jclass clazz, jobject activity)
             g_state.cells[i].revealed = 1;
     g_state.stage = STG_PLAY;
     g_state.turn = SIDE_BLUE;
-    g_state.winner = -1;
+    g_state.winner = JQ_WIN_NONE;   // AUD-R-053：winner 未定哨兵
     g_state.moves_since_eat = 0;
     g_state.total_moves = 0;
     /* 正向 UI 层：初始进主菜单（5 按钮）；点"人机对战"进对局（UI_GAME）。
@@ -1128,7 +1128,7 @@ Java_com_cnvcs_App_OnCreate(JNIEnv *env, jclass clazz, jobject activity)
         __system_property_get("jq.flagtest", ft_prop);
         if (strcmp(ft_prop, "1") == 0) {
             memset(&g_state, 0, sizeof(g_state));
-            g_state.turn = SIDE_BLUE; g_state.stage = STG_PLAY; g_state.winner = -1;
+            g_state.turn = SIDE_BLUE; g_state.stage = STG_PLAY; g_state.winner = JQ_WIN_NONE;   // AUD-R-053：winner 未定哨兵
             for (int i = 0; i < N_CELLS; i++) g_state.cells[i].rank = RANK_EMPTY;
             g_state.cells[53].rank = 2; g_state.cells[53].side = SIDE_BLUE; g_state.cells[53].revealed = 1;
             g_state.cells[58].rank = 12 + 0xc; g_state.cells[58].side = SIDE_RED; g_state.cells[58].revealed = 1;
@@ -1193,7 +1193,7 @@ Java_com_cnvcs_App_OnCreate(JNIEnv *env, jclass clazz, jobject activity)
         __system_property_get("jq.minetest", mt_prop);
         if (strcmp(mt_prop, "1") == 0) {
             memset(&g_state, 0, sizeof(g_state));
-            g_state.turn = SIDE_BLUE; g_state.stage = STG_PLAY; g_state.winner = -1;
+            g_state.turn = SIDE_BLUE; g_state.stage = STG_PLAY; g_state.winner = JQ_WIN_NONE;   // AUD-R-053：winner 未定哨兵
             /* ★ 幂等修复：memset 后 mines_cleared/pieces_left 残留上一次注入值（ev 漂移 5→4），
                每次注入前重置（挖雷状态测试需确定性 ev=5）。 */
             for (int i = 0; i < 2; i++) { g_state.mines_cleared[i] = 0; g_state.pieces_left[i] = 0; }
@@ -2113,7 +2113,8 @@ Java_com_cnvcs_App_OnUpdate(JNIEnv *env, jclass clazz)
         __system_property_get("jq.stalematetest", sm_prop);
         if (strcmp(sm_prop, "1") == 0) {
             pthread_mutex_lock(&g_mutex);
-            jq_on_stalemate(&g_state);
+            int mv_ = g_state.turn;
+            jq_on_stalemate(&g_state, (uint8_t)mv_);
             pthread_mutex_unlock(&g_mutex);
             LOGI("OnUpdate 困毙：stalematetest（stage=OVER winner=%d，无子可动方负）", g_state.winner);
             sfx_game_over(env, g_state.stage, g_state.winner);   /* 困毙 → 对方胜音效 */
@@ -6005,7 +6006,7 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
                     g_undo_top = 0;
                     g_state.stage = STG_PLAY;
                     g_state.turn = SIDE_BLUE;
-                    g_state.winner = -1;
+                    g_state.winner = JQ_WIN_NONE;   // AUD-R-053：winner 未定哨兵
                     pthread_mutex_unlock(&g_mutex);
                     ui_screen_set(UI_GAME);
                     sfx_play(env, "over");
@@ -6135,7 +6136,7 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
                     g_undo_top = 0;
                     g_state.stage = STG_PLAY;
                     g_state.turn = SIDE_BLUE;
-                    g_state.winner = -1;
+                    g_state.winner = JQ_WIN_NONE;   // AUD-R-053：winner 未定哨兵
                     pthread_mutex_unlock(&g_mutex);
                     ui_screen_set(UI_GAME);
                     sfx_play(env, "over");

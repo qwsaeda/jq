@@ -32,7 +32,7 @@ void jq_state_init(jq_state *st)
     memset(st, 0, sizeof(*st));
     st->turn = SIDE_BLUE;
     st->stage = STG_PLAY;
-    st->winner = -1;
+    st->winner = JQ_WIN_NONE;   /* AUD-R-053：winner 未定哨兵 */
     st->mode = JQ_MODE_LAY;   /* ★ AUD-R-002/003（P0）：默认明棋（行为不变） */
     /* ★ AUD-R-014（P1）：pieces_left 统计未接线（刷新逻辑恒 1、吃子后变负），
        初始化为 0（勿用于判胜；困毙走 jq_side_stalemated 实时扫描）。

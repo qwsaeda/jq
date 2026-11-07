@@ -73,7 +73,13 @@ typedef struct {
     uint8_t rank;    /* 0-12（红方翻开存储 +0xc，用 rank_norm 还原） */
     uint8_t side;    /* SIDE_BLUE/SIDE_RED；暗棋未定=0xFF */
     uint8_t revealed;/* 翻棋状态：0=背面（暗棋未翻）1=正面 */
-    uint8_t flags;   /* 位：1=is_bomb 2=is_mine 4=is_flag */
+    uint8_t flags;   /* 位：1=is_bomb 2=is_mine 4=is_flag
+                       ★ AUD-R-046（P2 诚实标注）：flags 完全可由 rank_norm(rank)
+                       推导，却独立存储：layout.c 装载时写一次，走子靠整格拷贝
+                       被动跟随，全仓无规则读取点（规则引擎一律用 rank 判）——纯
+                       冗余。jq_flip 只改 side/revealed 不改 flags（AUD-R-043）即
+                       静默不一致的入口。修法（删字段或用 rank 派生 + 写点同步维护
+                       断言）留待下一轮。 */
 } jq_cell;
 
 #define JQF_BOMB 1
@@ -86,6 +92,13 @@ typedef enum {
     STG_PLAY,       /* 对局 */
     STG_OVER,
 } jq_stage;
+
+/* ★ AUD-R-053（P2）：winner 取值具名化（原靠"0x30200 r3=0/1/2"注释，int8_t 允许 -1）。
+   原版 0x30200 分发 r3=0/1/2（蓝胜/红胜/和）；-1 为本重写"未定"哨兵（原版用 status 判定）。 */
+#define JQ_WIN_NONE  -1
+#define JQ_WIN_BLUE   SIDE_BLUE   /* 0：蓝胜 */
+#define JQ_WIN_RED    SIDE_RED    /* 1：红胜 */
+#define JQ_WIN_DRAW   2          /* 和 */
 
 /* ---- 走子事件（原版 Junqi.* 音效分类，rodata 0x120f14-0x120f50）---- */
 typedef enum {
@@ -115,7 +128,7 @@ typedef struct {
     jq_cell   cells[N_CELLS];        /* 60 格，cells[row*5+col] */
     uint8_t   turn;                  /* 当前方（原版 +0xa8 相关） */
     jq_stage  stage;
-    int8_t    winner;                /* -1 未定 / 0 蓝胜 / 1 红胜 / 2 和（0x30200 r3=0/1/2 语义） */
+    int8_t    winner;                /* JQ_WIN_NONE 未定 / JQ_WIN_BLUE / JQ_WIN_RED / JQ_WIN_DRAW（0x30200 r3 语义，AUD-R-053） */
     int       moves_since_eat;       /* 连续无吃子步数（和棋 70 步条件） */
     int       total_moves;           /* 总步数（和棋 1000 条件） */
     int       mines_cleared[2];      /* 暗棋（ruleflip）工兵挖雷计数
@@ -124,14 +137,15 @@ typedef struct {
                                         ★ AUD-R-014（P1）：统计未接线——刷新逻辑恒 1、
                                         吃子后持续增减（可为负），勿用于判胜；
                                         困毙判定走 jq_side_stalemated 实时扫描，不读本字段 */
-    int       count_tbl[RANK_COUNT];  /* 布局计数表（原版 +0x78，rank→数量） */
+    /* ★ AUD-R-041（P2 诚实标注）：原 count_tbl[RANK_COUNT] 布局计数表字段已删——
+       全仓从未写入（layout.c jq_validate_layout 用局部 seen[] 数组，从不回填
+       st->count_tbl），与 undo_depth 同类"零使用者"死字段；布局计数需求走
+       containers.c 的 cc->count_tbl（jq_container_check 校验链路，有写入/读取点）。 */
     uint8_t   mode;                  /* ★ AUD-R-002/003（P0）：JQ_MODE_LAY=明棋 / JQ_MODE_FLIP=暗棋
                                         暗棋语义：未翻子 revealed=0、地雷/军旗仅工兵可吃、
                                         工兵挖满 3 雷方可扛旗（ruleflip 原文）。
                                         jq_state_init 默认 JQ_MODE_LAY（明棋），
                                         jni_bridge 暗棋路径 set 为 JQ_MODE_FLIP。 */
-    /* 悔棋历史（循环快照，原版无内建悔棋；联机 Regret* 事件驱动，L77） */
-    int       undo_depth;
 } jq_state;
 
 /* 红方已翻开的 rank 存储值：rank+0xc（0x6a3a4 确证，L60） */
@@ -139,7 +153,11 @@ static inline int rank_encode(uint8_t side, int rank) {
     return (side == SIDE_RED && rank != 0) ? rank + 0xc : rank;
 }
 static inline int rank_norm(int v) {
-    return v > RANK_TOP ? v - 0xc : v;   /* 红方已翻开还原（0x6a3b0 §7） */
+    return v > RANK_TOP ? v - 0xc : v;   /* 红方已翻开还原（0x6a3b0 §7）
+     ★ AUD-R-047（P2 诚实标注）：还原只看数值大小不看 side——蓝方若出现 >12 的
+     rank（BT SYNC_CELL 注入 / 复盘数据损坏）会被静默还原为别的 rank（13→1）。
+     修法（rank_of(const jq_cell*) 结合 side 判定 + 范围校验，废弃裸 rank_norm
+     11 处调用点；或约定 rank 字节永不>12）留待下一轮。 */
 }
 
 /* ---- 格子/铁路/行营/大本营（L68 十字铁路、L49 修复版拓扑）---- */
@@ -165,7 +183,9 @@ void jq_load_layout(jq_state *st, const uint8_t layout[30]);
    ★ 诚实边界：先手翻子定色（side=UNKNOWN 机制）留待后续轮次。 */
 void jq_dark_setup(jq_state *st, const uint8_t layout[30]);
 /* 0x2a228 单格校验：idx 0-59，raw 字节（红方翻开 +0xc 自动归一）。
-   炸弹：idx<=34 报错；地雷：idx<=49 报错；军旗：仅 idx∈{56,58}。 */
+   炸弹：idx<=34 报错；地雷：idx<=49 报错；军旗：仅 idx∈{56,58}。
+   ★ AUD-R-021（P2 已修）：上述为**布局期**校验限制（非走子目标判定，
+   走子路径不引用；rules.c 头注释已同步改写，依据 REVERSE_NOTES_01 §L59）。 */
 jq_layout_err jq_check_layout_cell(int idx, int raw);
 /* 0x6a3b0 全 60 格校验 + 计数表（军旗/地雷特判 rank-0xb<=1） */
 jq_layout_err jq_validate_layout(const jq_state *st);
@@ -184,13 +204,21 @@ bool jq_side_stalemated(const jq_state *st, uint8_t side);
    ★ AUD-R-012（P1）：jq_undo_snapshot/jq_snapshots_left 引擎内未实现（空壳），
    实际悔棋由 jni_bridge.c g_undo 栈承担；bt_session UNDO 帧走 jq_bt_undo_available()。 */
 void jq_undo_snapshot(const jq_state *st);          /* 占位（未接线，走 jni_bridge g_undo） */
+/* ★ AUD-R-050（P2 诚实标注）：整体状态恢复语义（*st = *snap 全字段覆盖，含
+   cells/turn/stage/winner/计数字段）——对"悔一步"合适；调用方 bt_session.c:11
+   的 g_undo_snap 是**从未写入**的全局变量（UNDO 帧闸口未打开），一旦打开会
+   把整盘清零（AUD-R-013 同源）。修法（补写入点或删除 UNDO 分支）留待下一轮。
+   ★ AUD-R-049（P2 已修）：原 st->undo_depth 字段已删（全仓无使用者，且快照
+   恢复会回退调用方自行维护的栈深，与栈内容不一致）。 */
 void jq_undo_restore(jq_state *st, const jq_state *snap);
 int  jq_snapshots_left(const jq_state *st);         /* 恒 0（快照栈在调用方） */
 
-/* ---- 胜负（0x30200 分发 / 0x30260 旗 / 0x30280 和 / 0x302b4 困毙，§12/L53/L54）---- */
+/* ---------- 胜负（0x30200 分发 / 0x30260 旗 / 0x30280 和 / 0x302b4 困毙，§12/L53/L54）---- */
 void jq_on_flag_capture(jq_state *st, uint8_t captor_side);
 void jq_on_draw(jq_state *st);
-void jq_on_stalemate(jq_state *st);
+/* ★ AUD-R-036（P2）：显式传"被判负方"（原用调用时刻 st->turn 推导，外部调用
+   语义脆弱）；内部收口（stalemate_after）传 st->turn，AI/main 路径传该步 mover。 */
+void jq_on_stalemate(jq_state *st, uint8_t loser_side);
 int ai_score(int src_rank_raw, int dst_rank_raw, int dst_revealed);  /* AI 贪心评分（对抗审计 #2，可单测；★ AUD-R-010 暗棋目标未翻=不透视真 rank） */
 
 /* ---- 默认布局（SPAK data/lay/default.lay，L52 分布确证）---- */
@@ -198,7 +226,11 @@ extern const uint8_t JQ_DEFAULT_LAY[30];
 /* 标准单方 25 子 rank 分布（1×1,2×1,3×2,4×2,5×2,6×2,7×3,8×3,9×3,10×2,11×3,12×1） */
 void jq_standard_army_count(int cnt[RANK_COUNT]);
 /* 从当前棋盘提取 30 字节布局（jq_load_layout 逆映射：蓝方半区 cells(5-lrow,lcol)→layout[lrow*5+lcol]，
-   蓝 rank 原值（无 +0xc 编码）。★ P1 布局存档（datah_016/017/020）保存当前棋盘用。 */
+   蓝 rank 原值（无 +0xc 编码）。★ P1 布局存档（datah_016/017/020）保存当前棋盘用。
+   ★ AUD-R-048（P2 诚实标注）：只导出蓝方半区 30 字节，红方半区信息丢失——
+   仅在"双方布局严格镜像"时成立；红方独有布局（联机同步/单机改布局/四国）
+   无法用 30 字节还原真实局面。全量状态存档走 jq_save_game_*（整结构序列化），
+   本函数仅用于"导出可分享布局"场景，UI 需标注。 */
 void jq_extract_layout_30(const jq_state *st, uint8_t out[30]);
 
 /* ---- 事件名（原版 .rodata 0x120f14-0x120f50 明文字符串）---- */
