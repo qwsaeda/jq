@@ -21,6 +21,7 @@
 #include <stdio.h>
 #include <string.h>
 #include "junqi.h"
+#include "ui_state.h"   /* ★ 和棋开关 ui_rule_draw_set（桌面桩 g_rd 默认 1） */
 
 extern const uint8_t JQ_DEFAULT_LAY[30];
 
@@ -238,6 +239,90 @@ static void t_turn_gate(void)
     CHECK(can == 0, "回合门：turn=BLUE 但 src side=RED → can=0");
 }
 
+/* ⑭ 和棋（总 1000 步上限）：total_moves=999 → 走子后 total_moves=1000 触发收口
+   jq_on_draw → winner=JQ_WIN_DRAW。夹具坐标 (3,0)→(3,1) 普通相邻格（非行营/大本营）。 */
+static void t_draw_1000(void)
+{
+    jq_state st; setup_lay(&st);
+    put(&st, C(3,0), 2, SIDE_BLUE, 1);
+    st.turn = SIDE_BLUE;
+    st.total_moves = 999;            /* 下一次走子后 total_moves=1000 触发和棋 */
+    st.moves_since_eat = 0;
+    int ev = jq_try_move(&st, C(3,0), C(3,1));
+    CHECK(ev == EV_MOVE, "1000 步前走子 ev=EV_MOVE");
+    CHECK(st.stage == STG_OVER, "1000 步上限触发 stage=OVER");
+    CHECK(st.winner == JQ_WIN_DRAW, "1000 步上限 winner=JQ_WIN_DRAW");
+    CHECK(st.total_moves == 1000, "total_moves=1000（收口前计数）");
+}
+
+/* ⑮ 和棋开关关闭（ui_rule_draw_set(0)）：total_moves=1000 不触发和棋。
+   夹具坐标 (3,0)→(3,1) 普通相邻格 + 红 rank8@(3,1)（非困毙：红方有其他子可动）。 */
+static void t_draw_disabled(void)
+{
+    jq_state st; setup_lay(&st);
+    put(&st, C(3,0), 2, SIDE_BLUE, 1);
+    put(&st, C(3,1), 8, SIDE_RED, 1);
+    put(&st, C(4,0), 3, SIDE_RED, 1);   /* 红 rank3@(4,0) 确保红方有可动子（防困毙） */
+    st.turn = SIDE_BLUE;
+    st.total_moves = 999;
+    st.moves_since_eat = 0;
+    ui_rule_draw_set(0);            /* 关闭和棋开关（桌面桩 g_rd 默认 1） */
+    int ev = jq_try_move(&st, C(3,0), C(3,1));
+    CHECK(ev == EV_EAT, "开关关闭 1000 步吃子 ev=EV_EAT");
+    CHECK(st.stage == STG_PLAY, "开关关闭：1000 步不触发和棋 stage=PLAY（吃子复位 since_eat，无困毙）");
+    CHECK(st.winner == JQ_WIN_NONE, "开关关闭：winner 保持 JQ_WIN_NONE");
+    ui_rule_draw_set(1);            /* 恢复默认 */
+}
+
+/* ⑯ 70 步无吃子和棋（moves_since_eat=69 → 空移后 70 触发收口） */
+static void t_draw_70(void)
+{
+    jq_state st; setup_lay(&st);
+    put(&st, C(3,0), 2, SIDE_BLUE, 1);
+    put(&st, C(4,0), 3, SIDE_RED, 1);   /* 红 rank3@(4,0) 确保红方有可动子（非困毙） */
+    st.turn = SIDE_BLUE;
+    st.moves_since_eat = 69;        /* 下一次空移 moves_since_eat=70 触发和棋 */
+    st.total_moves = 1;
+    int ev = jq_try_move(&st, C(3,0), C(3,1));
+    CHECK(ev == EV_MOVE, "70 步前走子 ev=EV_MOVE");
+    CHECK(st.stage == STG_OVER, "70 步无吃子触发 stage=OVER");
+    CHECK(st.winner == JQ_WIN_DRAW, "70 步无吃子 winner=JQ_WIN_DRAW");
+}
+
+/* ⑰ 吃子重置 moves_since_eat（防 70 步误触发）：69 步吃子 → 复位 0 不触发 */
+static void t_eat_reset_counter(void)
+{
+    jq_state st; setup_lay(&st);
+    put(&st, C(3,0), 2, SIDE_BLUE, 1);
+    put(&st, C(3,1), 8, SIDE_RED, 1);
+    put(&st, C(4,0), 3, SIDE_RED, 1);   /* 红 rank3@(4,0) 确保红方有可动子（防困毙误判） */
+    st.turn = SIDE_BLUE;
+    st.moves_since_eat = 69;        /* 再 1 步空移就 70，但吃子会复位 */
+    st.total_moves = 1;
+    int ev = jq_try_move(&st, C(3,0), C(3,1));
+    CHECK(ev == EV_EAT, "吃子 ev=EV_EAT");
+    CHECK(st.moves_since_eat == 0, "吃子后 moves_since_eat=0（70 步计数复位）");
+    CHECK(st.stage == STG_PLAY, "吃子复位：未触发和棋 stage=PLAY（红方 rank3 可动，无困毙）");
+}
+
+/* ⑱ 开关关闭时 70 步也不触发和棋（ui_rule_draw_get()==0）。
+   夹具坐标 (3,0)→(3,1) 普通相邻格 + 红 rank8@(3,1)（非困毙：红方有其他子可动）。 */
+static void t_draw_70_disabled(void)
+{
+    jq_state st; setup_lay(&st);
+    put(&st, C(3,0), 2, SIDE_BLUE, 1);
+    put(&st, C(3,1), 8, SIDE_RED, 1);
+    put(&st, C(4,0), 3, SIDE_RED, 1);   /* 红 rank3@(4,0) 确保红方有可动子（防困毙误判） */
+    st.turn = SIDE_BLUE;
+    st.moves_since_eat = 69;
+    st.total_moves = 1;
+    ui_rule_draw_set(0);
+    int ev = jq_try_move(&st, C(3,0), C(3,1));
+    CHECK(ev == EV_EAT, "开关关闭 70 步吃子 ev=EV_EAT");
+    CHECK(st.stage == STG_PLAY, "开关关闭：70 步不触发和棋 stage=PLAY（吃子复位 since_eat，无困毙）");
+    ui_rule_draw_set(1);
+}
+
 int main(void)
 {
     printf("=== 规则引擎全量用例（AUD-R-135 P3 落地）===\n");
@@ -254,6 +339,11 @@ int main(void)
     t_dark_flip_color();
     t_rail_dir_reject();
     t_turn_gate();
+    t_draw_1000();
+    t_draw_disabled();
+    t_draw_70();
+    t_eat_reset_counter();
+    t_draw_70_disabled();
     printf("=== rulestest 全量 %s（%d FAIL）===\n", fails ? "FAIL" : "PASS", fails);
     return fails ? 1 : 0;
 }
