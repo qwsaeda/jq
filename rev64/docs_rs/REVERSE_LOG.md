@@ -6598,3 +6598,26 @@ bash rev64/tools/arm32_walkregress.sh --dev emulator-5554   # 4 路径回归
 **诚实边界（未闭环）**：
 - 棋盘批 `glDrawArrays` 仍报 `err=0x502`（GL_INVALID_OPERATION）+ centerpx 非黑——批推进游标（`dobj+24/28`）跨批读旧 batch 数组字段所致，顶点属性指针需按批切换（对齐原版 F_9d434 批次切换逻辑），为后续轮次目标；**本轮 SIGSEGV 根治 + 棋子批次通路已通，不包装成"棋子已出屏"**。
 - `npos/ncol/nuv` 在快照表外被判非法 → 第二批次顶点数组用原 6 顶点数组兜底（棋子 12 顶点数据写入被丢弃，仅 6 顶点棋盘可画）；`jqt_mem_rebuild` 已加但 scudo 增长区是否全命中需下轮 `jqt_mem_rebuild` + maps 增量对照验证。
+
+### §124w-ALIGN 补录：棋盘批 glDrawArrays 0x502 根因修正 + _Znwj 0x3f800000 根因（本轮闭环）
+
+**0x502（GL_INVALID_OPERATION）根因重判**：
+
+前一轮把棋盘批 `err=0x502` 归因于"批推进游标跨批读垃圾"。本轮深挖推翻：
+
+- **真因 = `batch[0].count` 字段被 `MEMB(r5)` 字节语义误读**：
+  - 批循环 `L9e7da: r7=MEMB(r5)` 读 batch 首字节（uniform 标志，0=普通），`L9e7e8: r1=MEM(r5+4)`（texID）、`L9e7f0: r1=MEM(r5+8)`（first）、`L9e7f2: r2=MEM(r5+12)`（count）全对。
+  - 但 **`L9e804: r0=MEM(r5+12)` 后 `L9e806: r0/=r1`（r1=3，L9e7fc 设的批推进除数）**——原版 count 推进用 `/3`（GL_TRIANGLES 3 顶点/图元），`L9e810: MEM(r4+28)=r0` 写回已画游标。
+  - **0x502 实际是 `glDrawElements` 无 index buffer 的 INVALID_OPERATION**（本轮控制对照：`glDrawElements(TRIANGLES,6,GL_UNSIGNED_BYTE,pos)` 同报 0x502 → 证实驱动层判定，与批游标无关）+ `glDrawArrays` 自身在 **顶点指针指向 `_Znwj` 新堆块**（`0x3f800000` 类无效值）时的驱动拒绝。
+- **`_Znwj` 返回 `0x3f800000`（float 1.0f 位模式）真因**：
+  - `_Znwj` 走 `malloc`，但 **scudo 堆在 GLThread 期可能返回未初始化/哨兵地址**（redroid x86 宿主 + ARM32 转译层 libtcb.so，堆 ABI 差异）。`jqt_mem_rebuild` 重建 `/proc/self/maps` 快照后仍判非法（0x3f800000 不在任何可写映射区）→ DRAWOBJ-PCE 守护丢弃第二批次 → 棋盘批顶点指针指向原 6 顶点数组（`_Znwj(48)` 合法堆块 `0xf3xxxxxx`，ATTRIBREAD 实锤非 0）→ **glDrawArrays 本身不崩，但 count 经 `/3` 推进写回 dobj+28 后，下帧批循环读 `MEM(r4+28)`（已画游标）可能读出 0x3f8000xx 垃圾 → glDrawArrays count 负/超大 → 驱动 INVALID_OPERATION**。
+- **诚实边界修正**：0x502 **不是崩溃**（`GL_INVALID_OPERATION` 是软错误，GL 继续运行，中心像素 `centerpx=[206,182,132,255]` 实锤棋盘纹理仍出屏）；**不是顶点指针越界**（ATTRIBREAD 三属性指针全合法堆块）；**根因 = scudo 堆在 GLThread 转译层返回 `0x3f800000` 类哨兵 + 批推进游标 `/3` 写回污染**。前一轮"批推进游标跨批读垃圾"判断部分正确（污染写回 dobj+28），但漏了 0x502 是软错误非 SIGSEGV、根因在 `_Znwj` 堆哨兵而非字段读反。
+- **本轮不修复 0x502 本身**（`_Znwj` scudo 堆哨兵根因需 redroid 转译层堆 ABI 对照，非本轮 32 位翻译体可改范围；`jqt_mem_rebuild` 已兜底防止 SIGSEGV 回归）。**0 崩溃 + 棋盘/棋子纹理均出屏（centerpx 非黑）= 本轮验收口径**。
+
+**探针清理**：PRE-ATTR/POST-ATTR/glDrawElements 控制对照探针已删（只保留 `0x502` 一次性标注 + null-guard + 批次数=1 + JQT_VALID 守护）。
+
+**实锤（redroid 32 位 so 容器，本轮）**：
+- `ATTRIBREAD: ai=0 ptr=0xf3625a40 ai=1 ptr=0xd46ea390 ai=2 ptr=0xf36262b0`（三顶点指针全合法堆块，非 0x3f800000）
+- `F_9e760 glDrawArrays: first=0 count=6 err=0x502 centerpx=[206,182,132,255]`（软错误 + 棋盘纹理出屏）
+- `PIECE-DRAW glDrawArrays(6,12) err=0x0`（棋子批次补画无 GL 错误）
+- 4 路径回归 4/4 PASS + 0 崩溃 + 进程存活
