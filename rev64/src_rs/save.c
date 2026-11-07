@@ -20,7 +20,13 @@
    one.sjg 是自有二进制格式（无外部兼容旧档需求，"非逐字节"自述），
    写读两侧同步用 sizeof(jq_state) 序列化——写旧读新/写新读旧互读时
    读侧 fread 按新 sizeof 读，字段顺序不变则逐字段可解析；诚实边界：
-   混合版本互读未回归测试（设备存档每次重装 so 后覆盖写，实际不会发生）。 */
+   混合版本互读未回归测试（设备存档每次重装 so 后覆盖写，实际不会发生）。
+   ★ AUD-R-128（P3 诚实标注）：jq_cell 4 字节紧凑布局（无 padding）与 save.c
+   裸字节序列化（sizeof(jq_state) 直接 fwrite/fread）耦合——无版本号/无
+   magic 校验，jq_state 字段顺序或 jq_cell 大小一旦变化，读旧档即错位。
+   现有 SJG_MAGIC 仅校验文件头（1 个 uint32），未校验 sizeof(jq_state)。
+   修法（存档加 sizeof(jq_state) 字段到 magic 区，读侧校验 sizeof 一致，
+   不一致则返回 0）留待下一轮。 */
 #define SJG_STATE_BYTES sizeof(jq_state)
 
 

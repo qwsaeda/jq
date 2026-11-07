@@ -12,6 +12,14 @@
  *
  * 对齐 jni_bridge 的 flagtest/minetest 夹具（起点状态注入，规则引擎/事件判定真实）。
  * 诚实边界：状态是测试夹具（非默认布局开局），验证事件类型/副作用/音效分类映射。
+ * ★ AUD-R-137（P3 诚实标注）：现有 8 类事件断言全部在明棋下进行，未覆盖
+ *   ruleflip 暗棋规则族（工兵吃雷限制、挖 3 雷扛旗、先手定色）——新增
+ *   --dark 组用例需构造 revealed=0 起始态 + 暗棋布局，全量补测试留待下一轮。
+ * ★ AUD-R-135（P3 诚实标注）：规则引擎单元测试目标缺失——现有 aitest
+ *   （ai_score 单测）/ evverify（事件断言）/ consistency（9/9 规则矩阵）
+ *   为部分覆盖（非全量），全量补测试（make rulestest 表驱动用例）留待下一轮。
+ * ★ AUD-R-136（P3 诚实标注）：ai_selftest.c 缺关键用例（bomb-vs-flag /
+ *   暗棋扛旗 / side!=turn 困毙 / 底线纵滑），4 条断言补全留待下一轮。
  */
 #include <stdio.h>
 #include <string.h>

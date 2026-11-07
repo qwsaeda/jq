@@ -1,5 +1,5 @@
 #ifndef JQ_EVENT_TBL_FILL
-#define JQ_EVENT_TBL_FILL 1  /* §124y-154: 事件表 68B 回填默认启用 (纯掩码值非 scudo 指针, F_c0ed0 安全) */
+#define JQ_EVENT_TBL_FILL 1  /* §124y-154: 事件表 68B 回填默认启用 (纯掩码值非 scudo 指针, F_c0ed0 安全); §124y-155 对照实锤 0x23475 停留与回填无关 */
 #endif
 
 /* §124y-154: 事件表 17×17 @ .bss+0x4704 (stride 4B, 17-bit 掩码, ref 原版 so 进程 dump 真值)

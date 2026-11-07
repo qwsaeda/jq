@@ -1,6 +1,9 @@
 #ifndef RS_JUNQI_H
 #define RS_JUNQI_H
-#define RS_NARROW_BOARD 1   /* 12 行 × 5 列（原版 L79 棋维度确证；棋盘渲染 737×751 为贴图坐标系） */
+#define RS_NARROW_BOARD 1   /* 12 行 × 5 列（原版 L79 棋维度确证；棋盘渲染 737×751 为贴图坐标系）
+                               ★ AUD-R-117（P3 诚实标注）：名称与语义相反（叫 NARROW 实为 12×5 宽棋盘），
+                               且 grep 确认全仓无使用点（死宏）。修法（删除或改名为 JQ_BOARD_12X5
+                               并在棋盘尺寸切换处真正使用）留待下一轮。 */
 /*
  * junqi.h — 逆源码重写（R-route）核心定义
  * 依据：原版 libjunqi.so（1435156B，ELF32/ARM，军棋.apk lib/armeabi）逆向 +
@@ -18,6 +21,9 @@
 #define RANK_MINE    11   /* 0x0b */
 #define RANK_FLAG    12   /* 0x0c */
 #define RANK_TOP    12    /* 普通 rank 上限 9，特殊子 10-12 */
+/* ★ AUD-R-116/R-129（P3）：工兵 rank=9 具名常量（1=司令…9=工兵；地雷 rank 11 在
+   0x39e14 `from_row>3` 工兵特判/工兵拐弯/AI 评分三处关键判定中曾用裸 9，现具名化）。 */
+#define RANK_WORKER   9    /* 工兵 */
 #define RANK_COUNT  13    /* 计数表大小（0-12） */
 
 /* ★ AUD-R-002/003（P0）：对局模式（明棋布局 vs 暗棋翻棋） */
@@ -45,6 +51,10 @@
    bg_cell_img_center）与规则层 12×5 概念混放于规则头 junqi.h——touch.c/render.c
    各自复用 bg_row_cy。拆分到 render.h/board_geom.h 需同步 10+ 文件 #include，
    留待下一轮；本轮仅加 R-078 越界守卫。
+   ★ AUD-R-118（P3 诚实标注）：与 AUD-R-077 同源——junqi.h 被 layout.c/rules.c/
+   touch_state.c/ui_menu.c 等广泛 include，携带 720×1280 渲染常量使规则层编译
+   单元隐式依赖渲染资源规格。拆出 board_geom.h 需同步 10+ 文件 include，
+   行为 0 变化但跨文件重构量大，留待下一轮。
    棋盘格只占图像 y≈205-1195（非全高 12 等分）：col0 中心 x=78.5，列宽 140.5；
    row0-5 中心 y=222+r*71（行高 71），row6-11 中心 y=822+(r-6)*71
    （row5→6 铁路中线间隙 246，非等距）。图像 row0=顶部；设备格 row0=底部
@@ -146,12 +156,21 @@ typedef enum {
    原版格子 8 字节：[0]=col [1]=row [4]=rank；索引 = row*5+col（0x6ef54 确证 L79）。
    本重写用 4 字节 jq_cell 紧凑布局（等价语义，L79 记录的布局差异）。
    原版偏移：+0xa2/from 打包坐标、+0xa4/to、+0x48/侧、+0x4c/布局长度、
-   +0xb0/+0x6c/+0x50 各计数、+0x78 布局计数表[rank]（0x6a3b0 确证 §7）。 */
+   +0xb0/+0x6c/+0x50 各计数、+0x78 布局计数表[rank]（0x6a3b0 确证 §7）。
+   ★ AUD-R-122（P3 诚实标注）：上述原版偏移为参考注释（非一一对应）——本重写
+   用 4 字节 jq_cell 紧凑布局（L79 记录的布局差异），无任何字段与偏移直接对应。
+   勿以偏移注释推断字段已对齐；若需字段级映射表，留待下一轮补全。 */
 typedef struct {
     jq_cell   cells[N_CELLS];        /* 60 格，cells[row*5+col] */
     uint8_t   turn;                  /* 当前方（原版 +0xa8 相关） */
     jq_stage  stage;
-    int8_t    winner;                /* JQ_WIN_NONE 未定 / JQ_WIN_BLUE / JQ_WIN_RED / JQ_WIN_DRAW（0x30200 r3 语义，AUD-R-053） */
+    int8_t    winner;                /* JQ_WIN_NONE 未定 / JQ_WIN_BLUE / JQ_WIN_RED / JQ_WIN_DRAW（0x30200 r3 语义，AUD-R-053）
+                                       ★ AUD-R-115（P3 诚实标注）：winner 为 int8_t 可存 -1/0/1/2 全部取值，
+                                       但 jq_on_flag_capture(st, uint8_t) 入参为 uint8_t → 若调用方传 SIDE_BLUE(0)/
+                                       SIDE_RED(1) 无隐式窄化（0/1 在 int8_t 范围内）；uint8_t→int8_t 赋值
+                                       仅当值 >127 时符号翻转（SIDE_BLUE/RED=0/1 无此风险）。
+                                       改 int 类型需改 jq_state 布局 + save.c 序列化（跨文件），行为 0 变化，
+                                       留待下一轮。 */
     int       moves_since_eat;       /* 连续无吃子步数（和棋 70 步条件） */
     int       total_moves;           /* 总步数（和棋 1000 条件） */
     int       mines_cleared[2];      /* 暗棋（ruleflip）工兵挖雷计数
@@ -200,10 +219,13 @@ static inline int rank_norm(int v) {
 int  cell_index(int row, int col);
 int  cell_row(int idx);
 int  cell_col(int idx);
-bool is_camp(int row, int col);       /* 行营（安全岛，敌方不可入，非铁路） */
+bool is_camp(int row, int col);       /* 行营（安全岛：敌方不能**吃**行营中棋子，空行营可入，非铁路；★ AUD-R-105 修正头注释） */
 bool is_base(int row, int col);       /* 大本营（军旗所在，进后不可动 L17） */
 bool is_rail(int row, int col);       /* 铁路（col2 纵线 + row5/6 横线） */
-int  coord_cmp(const int8_t *a, const int8_t *b); /* 0x6ef54：[0]=col [1]=row，0=相同 */
+int  coord_cmp(const int8_t *a, const int8_t *b); /* 0x6ef54：[0]=col [1]=row，0=相同 1=不同
+                                                      ★ AUD-R-134（P3 诚实标注）：返回 0=相同（与 C 库 memcmp 语义相反），
+                                                      全仓无调用点（grep 确认，翻译体路径使用）。
+                                                      修法（改名 coord_equal() 或删除）留待下一轮。 */
 
 /* ---- 布局（0x2a340 加载 / 0x6a3a4 映射 / 0x6a3b0 校验，§3/§7）----
    ★ AUD-R-051（P2 诚实标注）：jq_state_init/jq_load_layout/jq_check_layout_cell/
@@ -228,17 +250,30 @@ void jq_load_layout(jq_state *st, const uint8_t layout[30]);
 void jq_dark_setup(jq_state *st, const uint8_t layout[30]);
 /* 0x2a228 单格校验：idx 0-59，raw 字节（红方翻开 +0xc 自动归一）。
    炸弹：idx<=34 报错；地雷：idx<=49 报错；军旗：仅 idx∈{56,58}。
+   ★ AUD-R-123（P3 诚实标注）：上述 idx 为**全盘 60 格绝对索引**（红半区
+   row7..row11 即 idx35..59）——蓝半区（idx0..34，row0..row5）由镜像规则
+   保证（蓝方布局 = 红方布局 row+6/col 翻转，jq_load_layout 逆映射），
+   校验仅走红半区。勿将 idx 误读为"半棋盘视角"相对索引。
    ★ AUD-R-021（P2 已修）：上述为**布局期**校验限制（非走子目标判定，
    走子路径不引用；rules.c 头注释已同步改写，依据 REVERSE_NOTES_01 §L59）。 */
 jq_layout_err jq_check_layout_cell(int idx, int raw);
-/* 0x6a3b0 全 60 格校验 + 计数表（军旗/地雷特判 rank-0xb<=1） */
+/* 0x6a3b0 全 60 格校验 + 计数表（★ AUD-R-124（P3 诚实标注）：实现走
+   jq_check_layout_cell() 的显式分支（炸弹 idx<=34 / 地雷 idx<=49 /
+   军旗 idx∈{56,58}），计数用 layout.c 局部 seen[] 数组——非原版
+   "rank-0xb<=1 特判"路径；count_tbl 未回填（AUD-R-041 同源）。 */
 jq_layout_err jq_validate_layout(const jq_state *st);
 void jq_refresh_movable_counts(jq_state *st);
 
 /* ★ AUD-R-081（P2 诚实标注）：三套规则实现并存——src_rs/rules.c（本仓）、
    src_jni_translated/jq_rs_rules.c（32 位翻译体镜像，修改须同步否则两套 so 分叉）、
    src/game_logic.c（手写路线）；一致性闸门 = make consistency（consistency_desktop.c
-   9/9 规则矩阵对照）+ evverify 167 + regress.py 50/50，修任何规则条款后必跑三闸。 */
+   9/9 规则矩阵对照）+ evverify 167 + regress.py 50/50，修任何规则条款后必跑三闸。
+   ★ AUD-R-138（P3 诚实标注）：src_rs/rules.c 与 src_jni_translated/jq_rs_rules.c
+   已产生分叉（翻译体无 ui_rule_cfg_get 开关、AI 评分缺暗棋判定）——分叉为预期
+   （§正向开发 vs §32位路线两套实现，非同步机制缺陷）；同步机制 = evverify 167/167
+   基准一致（若分叉影响基准需专项对齐，本轮分叉不影响 evverify 基准）。
+   在 AGENTS.md 明确同步义务（修 src_rs 规则条款后须检查翻译体是否需同步）
+   留待下一轮，本轮诚实标注分叉为预期。 */
 /* ---- 走子（0x39e14 目标类型判定 + 0x39f20 执行器 + 0x3a15c 交换，§5/§6）---- */
 bool jq_can_move(const jq_state *st, int from, int to);
 /* 执行走子。返回事件类型；失败返回 -1（不切 turn，L54）。 */
@@ -253,7 +288,12 @@ bool jq_side_stalemated(const jq_state *st, uint8_t side);
    实际悔棋由 jni_bridge.c g_undo 栈承担；bt_session UNDO 帧走 jq_bt_undo_available()。
    ★ AUD-R-088（P2 诚实标注）：无走子级部分回滚能力——悔棋粒度 = 整盘快照
    （对齐原版 undo 栈设计：Regret* 事件驱动整局回退，原版无部分回滚概念），
-   不做走子级部分回滚。 */
+   不做走子级部分回滚。
+   ★ AUD-R-113（P3 诚实标注）：jq_undo_snapshot/jq_undo_restore/jq_snapshots_left
+   三个 API 在头文件中公开但 jq_undo_snapshot/jq_snapshots_left 为空壳，
+   jq_undo_restore（*st = *snap）可真实工作。SPEC 应记录"悔棋由调用方栈实现
+   （jni_bridge g_undo 环形栈），引擎 API 为契约占位"，勿以三 API 可用为假设。
+   修法（实现快照栈或从头文件移除 + SPEC 注明）留待下一轮。 */
 void jq_undo_snapshot(const jq_state *st);          /* 占位（未接线，走 jni_bridge g_undo） */
 /* ★ AUD-R-050（P2 诚实标注）：整体状态恢复语义（*st = *snap 全字段覆盖，含
    cells/turn/stage/winner/计数字段）——对"悔一步"合适；调用方 bt_session.c:11
@@ -274,20 +314,40 @@ int ai_score(int src_rank_raw, int dst_rank_raw, int dst_revealed);  /* AI 贪�
 
 /* ---- 默认布局（SPAK data/lay/default.lay，L52 分布确证）---- */
 extern const uint8_t JQ_DEFAULT_LAY[30];
-/* 标准单方 25 子 rank 分布（1×1,2×1,3×2,4×2,5×2,6×2,7×3,8×3,9×3,10×2,11×3,12×1） */
+/* 标准单方 25 子 rank 分布（1×1,2×1,3×2,4×2,5×2,6×2,7×3,8×3,9×3,10×2,11×3,12×1）
+   ★ AUD-R-126（P3 诚实标注）：输出参数形式无返回值，调用方 layout.c:96 用作
+   期望值比较——勿误当作"校验函数"（本函数只填表，不校验布局合法性）。
+   修法（改为 const int* jq_standard_army_count(void) 返回静态表）留待下一轮。 */
 void jq_standard_army_count(int cnt[RANK_COUNT]);
 /* 从当前棋盘提取 30 字节布局（jq_load_layout 逆映射：蓝方半区 cells(5-lrow,lcol)→layout[lrow*5+lcol]，
    蓝 rank 原值（无 +0xc 编码）。★ P1 布局存档（datah_016/017/020）保存当前棋盘用。
    ★ AUD-R-048（P2 诚实标注）：只导出蓝方半区 30 字节，红方半区信息丢失——
    仅在"双方布局严格镜像"时成立；红方独有布局（联机同步/单机改布局/四国）
    无法用 30 字节还原真实局面。全量状态存档走 jq_save_game_*（整结构序列化），
-   本函数仅用于"导出可分享布局"场景，UI 需标注。 */
+   本函数仅用于"导出可分享布局"场景，UI 需标注。
+   ★ AUD-R-125（P3 诚实标注）：头注释"P1 布局存档（datah_016/017/020）保存当前
+   棋盘用"的表述有误导性——实际只导出蓝方半区 30 字节（AUD-R-048），红方
+   半区信息丢失。全量状态存档走 jq_save_game_*（整结构序列化）。 */
 void jq_extract_layout_30(const jq_state *st, uint8_t out[30]);
 
-/* ---- 事件名（原版 .rodata 0x120f14-0x120f50 明文字符串）---- */
-extern const char *JQ_EVENT_NAMES[7];   /* ★ AUD-R-061（P2）：扩容 6→7（补 EV_FLIP=Junqi.Flip，值 0-5 顺序不变） */
+/* ★ AUD-R-139（P3 诚实标注）：无"终局原因"字段——吃旗/困毙/和棋/认输共用
+   stage+winner，上层（音效/横幅/战况统计/复盘）无法区分"扛旗胜"与"困毙胜"
+   （AUD-R-121 同源：flags_captured 字段亦缺失）。修法（jq_state 增
+   uint8_t end_reason = FLAG/STALEMATE/DRAW/RESIGN，由终局函数写入）
+   需改 jq_state 布局 + save.c + jni_bridge 音效/横幅路径，行为 0 变化
+   但跨文件改动，留待下一轮。
+   ★ AUD-R-121（P3 诚实标注）：原版有 flags_captured[1-side]++（扛旗计数，
+   src/game_logic.c:231），src_rs jq_state 无对应字段。补 int flags_captured[2]
+   + 吃旗时递增需改 jq_state 布局 + save.c 序列化 + jni_bridge 战况统计，
+   行为 0 变化但跨文件改动，留待下一轮。 */
 
-/* ---- 存档（save.c，L74/L83/L89）---- */
+/* ---- 事件名（原版 .rodata 0x120f14-0x120f50 明文字符串）---- */
+extern const char *const JQ_EVENT_NAMES[7];   /* ★ AUD-R-127（P3 已修）：指针本身 const；★ AUD-R-061（P2）：扩容 6→7（补 EV_FLIP=Junqi.Flip，值 0-5 顺序不变） */
+
+/* ---- 存档（save.c，L74/L83/L89）
+   ★ AUD-R-120（P3 诚实标注）：存档 API（jq_save_*）与规则状态结构体混放于
+   规则头，分层不清（jq_save_game_write(const char*, const jq_state*) 让规则头
+   依赖文件 IO 语义）。修法（移到独立 save.h，save.c 已有实现）留待下一轮。 */
 typedef struct {
     uint32_t time;
     int      difficulty, level, mark;
@@ -300,4 +360,8 @@ int jq_save_game_read(const char *path, jq_state *st);
 
 #endif /* RS_JUNQI_H */
 
-/* ---- 渲染对象图 + 容器（③④ 逆源码，独立头文件，不在此 include 防循环）---- */
+/* ---- 渲染对象图 + 容器（③④ 逆源码，独立头文件，不在此 include 防循环）
+   ★ AUD-R-119（P3 诚实标注）：此注释为说明性注释（"不在此 include 防循环"），
+   实际渲染/容器头文件（render.h/containers.h）已在各实现文件直接 #include，
+   本注释仅记录"junqi.h 与渲染头文件不互相依赖"的设计约束，无代码可对应。
+   保留作设计约束记录（若将来拆 junqi.h 为规则头 + 渲染头，此处为触发点）。 */
