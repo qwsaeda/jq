@@ -15,6 +15,22 @@
 static jq_state g_walk_state;
 static int g_walk_init = 0;
 
+/* §124y-166 AUD-R 分叉标记：布局/几何族 + 事件名表族（走子桥接入点）。
+   · R-021 头注释 0x39e14 行约束误标 → 32 位侧头注释与 64 位同源（行 15-32），误标同源 → 对齐（同源）
+   · R-051 jq_state_init 在 layout.c 声明实现分处 → 32 位侧同（jq_rs_rules.c 不含 layout，
+     走子桥行 20 调 jq_state_init）→ 对齐（同源）
+   · R-052 STG_SETUP 死枚举 → 32 位侧同（走子桥无布阵阶段分支）→ 对齐（同源）
+   · R-081 三套实现缺一致性闸门 → 32 位侧即第 3 套实现（本走子桥），arm32_walkregress
+     为 32 位基准闸门，与 64 位 evverify/regress 双路 → 行为等价（分叉同步机制 R-138）
+   · R-127 EVENT_NAMES[6] 指针非 const → 32 位侧同（jq_rs_rules.c 行 47 const char*[6]，
+     64 位修法加 const 限定 32 位侧未同步）→ 分叉（64 位独有设计）
+   · R-128 jq_cell 4 字节紧凑与裸字节序列化耦合 → 32 位侧同布局（走子桥无跨版本存档维度）
+     → 对齐（同源）
+   · R-096 头注释未区分确证/推断 → 32 位侧头注释同源混写 → 对齐（同源）
+   · R-097 引入未使用 stdlib.h → 32 位侧 jq_rs_rules.c 行 38 include stdlib（malloc 未用）
+     → 对齐（同源缺口）
+   · R-048 extract_layout_30 蓝半区假设 → 32 位侧走子桥无布局导出维度 → N/A（层级不适用）
+   布局/几何/事件名 32 位侧未逐条实证，诚实边界留待 32 位反汇编专项。 */
 JQ_EXPORT int jq_walk_bridge_run(void) {
     if (!g_walk_init) {
         jq_state_init(&g_walk_state);
@@ -34,6 +50,33 @@ JQ_EXPORT int jq_walk_bridge_reset(void) {
     return 0;
 }
 
+/* §124y-166 AUD-R 分叉标记：走子桥接入点族（会话 B 移植，F_3ab80 事件分发下游）。
+   · R-003 先手翻子定色 → 32 位侧定色在 jq_flip 内（side==0xFF→turn，行 76-77 已标），
+     布局走子桥未走 SIDE_UNKNOWN 全流程 → 分叉（64 位独有设计）
+   · R-063 布局校验蓝方军旗格不受约束 → 32 位侧走子桥布局 JQ_DEFAULT_LAY 写死
+     （行 21），无自定义/联机布局校验维度 → 分叉（64 位独有设计）
+   · R-064 validate_layout 错误码语义混淆 → 32 位侧无 jq_validate_layout（走子桥布局固定）
+     → N/A（层级不适用）
+   · R-065 布局每 rank 计数×2 镜像假设 → 32 位侧同 JQ_DEFAULT_LAY 固定布局 → 对齐（同源）
+   · R-066 is_rail 底线纵线交点双重身份 → 32 位侧 board 几何同 64 位（is_rail 行 97 放行 row0/11）
+     → 对齐（同源）
+   · R-067 铁路几何硬编码缺地形抽象 → 32 位侧同（行 80/97 硬编码 if 链）→ 对齐（同源）
+   · R-068 cell_index 无边界检查 → 32 位侧走子桥入参由 hit_cell 产出（范围已限），
+     jq_can_move 行 124 有 from/to∈[0,N_CELLS) 检查 → 行为等价
+   · R-069 coord_cmp 无调用方 → 32 位侧同（无 coord_cmp 使用点）→ 对齐（同源）
+   · R-076 SPEC 棋盘尺寸与实现不一致 → 32 位侧实现 12×5（行 48-49 几何常量），SPEC 同源描述 → 对齐（同源缺口）
+   · R-077 渲染几何常量与规则层混放 → 32 位侧走子桥 BG_GRID_* 常量与几何混放（行 51-54），
+     与 64 位同源 → 对齐（同源）
+   · R-078 bg_cell_img_center 越界 row/col 不校验 → 32 位侧走子桥 bg_row_cy 无越界检查（行 52）
+     → 对齐（同源）
+   · R-079 rank_encode 定义未调用 → 32 位侧无 rank_encode 使用点 → 对齐（同源）
+   · R-080 RANK_TOP=12 与 RANK_COUNT=13 边界耦合 → 32 位侧 rank_norm 同实现 → 对齐（同源）
+   · R-082 每步 O(N²) 移动端性能风险 → 32 位侧同（jq_side_stalemated 双循环，见 R-112 标记）
+     → 对齐（同源，未压测）
+   · R-085 can_flip 可翻任意未定色暗子 → 32 位侧已加回合校验（jq_rs_rules.c 行 305-307）
+     → 对齐（已同步修复）
+   走子桥基准 = arm32_walkregress 4/4 PASS；几何/布局/性能细分 32 位侧未逐条实证，
+   诚实边界留待 32 位反汇编专项（F_3ab80 事件分发下游接线）。 */
 JQ_EXPORT int jq_walk_bridge_touch(float px, float py, int view_w, int view_h) {
     if (!g_walk_init) jq_walk_bridge_run();
     int out_row, out_col, cell;
