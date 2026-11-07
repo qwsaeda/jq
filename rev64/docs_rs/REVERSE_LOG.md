@@ -5728,3 +5728,48 @@ python3 /tmp/opencode/incremental_regress.py reset 0xADDR  # 改了某指令 →
 - .bss 316 scudo 指针槽（中间区 87% 非零，§124y-70/71）需 unidbg 补 C++ 对象图构造（F_c0ed0 析构器 + F_3a92c 事件表
   真 scudo 块 size/next 字段还原）才能端到端实证，当前翻译体 .bss 全 0 忠实兜底（非 0 = 已构造 → 死循环）
 - 本轮实锤 C++ 容器"非 0 = 已构造"语义在 .bss scudo 槽回填上的边界（两条路均不可行），避免后续重复踩坑
+
+## §124y-152 unidbg C++ 对象图回填实证（不可行，unicorn2 指令解码精度 + 内存模型双重阻塞）
+
+**★ 闭环事实（unidbg 跑通 12 init_array 部分 + C++ 构造链未完整 → .bss 非零率 0.2% vs MuMu 79.1%，C++ 对象图无法端到端实证）**：
+
+1. **unidbg 环境确认可运行（工具链完整）**：
+   - `/tmp/opencode/unidbg/`（classes/ + lib/ + native/ + rootdir/ 7 so + bl_fix.json/txt）
+   - `UniBlFix.java`（BL 修正表 + `__mmap2`/syscall hook + 12 init_array + 渲染器单例 + OnCreate/OnGraphCreate/OnUpdate + .bss 28680B dump）
+   - unidbg-android-0.9.9.jar + unicorn-1.0.15.jar + libunicorn.so（3.9MB，2026-03-05 构建）
+
+2. **bl_fix.json 重新生成（objdump 线性解码，24512 条）**：
+   - capstone 5.0.7 对 EABI5 ARMv5T 指令集报 `CS_ERR_DETAIL`（解码失败），改 objdump 线性解码
+   - 新表 24512 条（删 3401 误判 + 加 12609 漏判，比 capstone 原表 15304 条更准确）
+   - 备份 `.bak`（15304 条原表）
+
+3. **UniBlFix.java 修正（5 项）**：
+   - 编译错误：`break outside switch/loop` + `mem.pointer().write(int,byte[])` 签名（unidbg 只有 `write(byte[])`）
+   - syscall 垃圾防护：R7 读 nr>0x200 = 寄存器错位，静默跳过（防 12GB 日志死循环，`nr=0xe4fffe98 未实现` 刷屏根因）
+   - 全 .text ring hook 去掉：unicorn2 每条指令触发 → 12GB 日志，改定点 probe hook（每 probe 最多 4 次日志）
+   - BL 修正超 50 万次死循环防护（`fixes > 500000` 停止修正）
+   - init_array 奇数半字 |1 处理：`.init_array` 12 条指针全奇数半字（Thumb |1 标志），`callFunction(emu, base + (a & ~1) | 1)` 传奇数 VA → unicorn2 PC bit0=1 切 Thumb
+
+4. **运行实证（unidbg .bss 非零率 0.2% vs MuMu 79.1%）**：
+   - so 加载成功：base=0x1263a000，RLOAD 段 0x1263a000-0x1278f000 (size=0x155000, prot=5)，RW 段 0x1278f000-0x1279d000 (size=0xe000, prot=3)
+   - 12 init_array 部分完成：`0x3dae5`/`0x6ef21`/`0xafbd9`/`0xafc85`/`0xaffd5`/`0xb01fd`/`0xb06f1`/`0xb1d69`/`0xb222d`/`0x105e8d`/`0x10a58d` 11 条跑通，`0x11c10d` 报 `UC_ERR_INSN_INVALID`
+   - `0xb67dc` 报 `UC_ERR_READ_UNMAPPED`（unicorn2 内存模型里 so 段映射异常）
+   - **最终 .bss 非零率 = 50/28680 (0.2%)**，远低于 MuMu 原版 79.1%（22618/28680）
+   - **C++ 对象图未构造**：渲染器单例 0x162400=0，事件表 0x160584=0，scudo 槽 0x15be80=0
+
+5. **诚实边界固化（unidbg 补 C++ 对象图路径当前不可行）**：
+   - 根因：unicorn2 对 EABI5 ARMv5T 32 位 so 的指令解码精度不足（上下文相关 BL 错位 §124y-31 + 函数中间偏移 16 位指令按 4 字节对齐误解）
+   - `.init_array` 指针是 so 内奇数半字偏移（Thumb |1），unidbg 的 `callFunction` 在 so 函数中间偏移处起跳 → unicorn2 按 4 字节对齐解 16 位流 → 非法指令
+   - `.bss` 中间区 87% 非零的 scudo 块完整字段（size/next）需真机 32 位 so 进程的 frida 深度 dump，unidbg 无法端到端实证
+   - 这是 §84 历史阻塞（unidbg `.got` 零槽位 + 初始化例程反检测）的延续，**非翻译体 bug**
+
+6. **坑固化**：
+   - capstone 5.0.7 对 EABI5 ARMv5T 报 `CS_ERR_DETAIL`（解码失败）→ 用 objdump 替代
+   - unidbg syscall hook 读 R7 拿垃圾值（寄存器错位）→ nr>0x200 静默跳过（防日志爆炸）
+   - unidbg 全 .text ring hook 每条指令触发 → 12GB 日志 → 改定点 probe hook
+   - `.init_array` 奇数半字 = Thumb |1 标志（so 内偏移，非绝对 VA）→ `callFunction(emu, base + (a & ~1) | 1)`
+   - unicorn2 的 `UC_ERR_READ_UNMAPPED` 在 so 段内地址（0xb67dc）= 内存模型异常（.so 段映射到 unicorn2 后部分区域不可读）
+
+### 诚实边界
+- unidbg 补 C++ 对象图路径当前实证不可行（指令解码精度 + 内存模型双重阻塞），.bss 保持全 0 忠实兜底（§124y-151 SCUDO-FILL 对照实验同源）
+- .bss 中间区 87% 非零的 scudo 块完整字段 + 事件表 17 行事件码 + [0x44] 直接码运行时值需转向 frida 深度 dump（真机 32 位 so 进程），作为对比基准固化（非 unidbg）
