@@ -6166,3 +6166,65 @@ python3 /tmp/opencode/incremental_regress.py reset 0xADDR  # 改了某指令 →
   扩展区 0x55ff4-0x56200 另 25 bl（codes 42-66 区）, 需单独 objdump 查（thunk_code_map.py HI 截断）
 - "原版未实现" 判读需查扩展区: 0x55ff4-0x56200 区有 25 bl（非 "无 bl"）, §124y-159 误判已纠正
 - 4 个缺定义体 handler（0x33724/0x55d74/0x55fbc/0x9411c）= 收表缺口, 非崩溃风险（default 兜底 r=0）
+
+---
+
+## §124y-162 F_55d40 switch case 53-65 handler 映射错误实锤 + 0x55d40 区非 strided thunk 结构
+
+> **纠正 §124y-31 "case 53-65 = 复用已收 handler" 说法**：F_55d40 switch 的 case 53-65 handler 值
+> 与 0x55d40 区 67 bl objdump 序列**全部 MISMATCH**（case 53 应为 0x85594 而非 0x85798，
+> case 54 应为 0x55d74 而非 0x82d3c...）。§124y-31 补 case 53-65 时用了**错误的 handler 映射**。
+
+### 前置事实（§124y-30/31/159/161 已固化）
+- F_55d40 switch 已收 55 case（codes 0-41 + 53-65），24 handler 全有定义体
+- 0x55d40 区 73 thunk（0x12×73=0x2B4），objdump 提取 42 bl
+- §124y-161 扩展区 0x55ff4-0x56200 发现 25 bl（4 缺定义体 handler）
+
+### 本条实锤
+1. **F_55d40 switch case 53-65 全部 MISMATCH objdump 67bl 序列**:
+   - case 53: switch=0x85798 vs objdump=0x85594 ✗
+   - case 54: switch=0x82d3c vs objdump=0x55d74 ✗
+   - case 55: switch=0xb4edc vs objdump=0x94d80 ✗
+   - case 56-65: 全部 MISMATCH（13 个 case 全错）
+   - **根因**: §124y-31 补 case 53-65 时按 "复用 codes 0-41 的 handler 模式" 推断，
+     非 objdump 实锤。0x55d40 区 42 bl 只覆盖 code 0-41，code 53-65 在扩展区 0x55ff4-0x56200
+     （25 bl），其 handler 序列与 codes 0-41 完全不同
+
+2. **0x55d40 区非 strided thunk 结构**（"73 thunk × 0x12B" 模型有误）:
+   - 42 bl 地址间距高度不均（4~46B 混合），非每 0x12B 均匀分布
+   - 42 bl 分布在 **16 个函数**里（push 寄存器组 = 函数入口），非 73 个独立 thunk
+   - 函数 0x55d9c（4×bl F_85348）/ 0x55dc4（9 bl 复杂业务）/ 0x55e60+0x55e88（各 2 bl）
+   - "bl 序 = code 序" 假设（thunk_code_map.py）对 0x55d40-0x55ff4 区**不成立**
+     （42 bl 是 16 函数的内嵌 bl，非 42 个独立 code 转发 thunk）
+
+3. **F_55d40 真实 code 可达范围**（事件码 0..16，§124y-109）:
+   - F_3ab64 调 F_55d40(single, code)，code = MEM(evt+0x44) = 事件码 0..16
+   - 事件码 0..16 → F_55d40 case 0-16（17 case）实际可达
+   - case 17-41/53-65 = 事件码 17-41/53-65（**超出 17 事件码 0..16 范围，不可达**）
+   - 即 F_55d40 switch 的 case 53-65 **在运行时永不执行**（事件码 max=16）
+   - 该 13 case 的 handler 映射错误**不影响运行时行为**（.bss 全 0 兜底 disc=0 时 F_55d40 根本不调）
+
+4. **4 缺定义体 handler（§124y-161）的 code 可达性**:
+   - F_55fbc（code 44+46）/ F_55d74（code 54）/ F_9411c（code 58）/ F_33724（code 66）
+   - code 44/46/54/58/66 全部**超出事件码 0..16 范围，运行时不可达**
+   - 4 缺定义体 handler 的 default 兜底 r=0 = 忠实语义（该 code 范围永不触发）
+
+### 收表结论（修正 §124y-159/161）
+- **F_55d40 实际可达 case = 0-16（事件码 0..16，17 case）**:
+  - case 0-16 handler 映射与 objdump 42 bl 序列前 17 项一致（code 0-16）✅
+  - case 17-41/53-65 = 不可达（事件码超出 0..16），handler 映射错误**不影响运行时**
+- **4 缺定义体 handler（code 44/46/54/58/66）= 不可达**（事件码 max=16），非阻塞
+- **补全优先级**: 4 缺定义体 handler 补全**非必要**（运行时不可达 + default 兜底忠实）,
+  仅 case 0-16 的 17 handler 需收表完整（当前 17 case handler 全有定义体 ✅）
+
+### 坑固化
+- "bl 序 = code 序" 假设（thunk_code_map.py）对 0x55d40 区**不成立**: 42 bl 是 16 函数内嵌 bl
+  （非 42 独立 code 转发 thunk），bl 间距不均（4~46B），"73 thunk × 0x12B" 均匀模型有误
+- F_55d40 case 53-65 "复用已收 handler" 推断（§124y-31）**有误**，真实映射需 objdump 扩展区
+  0x55ff4-0x56200 的 25 bl 序列（与 codes 0-41 完全不同）; 但该 13 case 运行时不可达
+  （事件码 max=16），不影响行为
+- 事件码 0..16（17 事件码，§124y-109）是 F_55d40 的**真实 code 可达范围**;
+  case 17-72 = 编译期 switch 冗余（.text 0x55d40 区 73 thunk 的 code 0-72 展开），
+  运行时仅 0-16 可达（事件表 17 行 = 事件码 0..16，§124y-109 dump 实锤）
+- 4 缺定义体 handler（code 44/46/54/58/66）= 不可达 code，default 兜底 r=0 = 忠实语义，
+  补全**非必要**（诚实边界: 运行时永不触发 + .bss 全 0 兜底 disc=0 → F_55d40 根本不调）
