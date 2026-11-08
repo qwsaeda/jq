@@ -6695,3 +6695,18 @@ bash rev64/tools/arm32_walkregress.sh --dev emulator-5554   # 4 路径回归
 不包装成"棋子已出屏"。
 
 ---
+## §124y-170 F_3a92c .got 地址修复（AUD-1000 D5 深水区）
+
+**根因（2026-11-08 实证）：**
+
+- 原版 32 位 so `.data[0x15b644] = 0x00160584`（RELATIVE 重定位槽，存偏移量）
+- 运行时 `.got[0x15b644] = load_base + 0x160584`（绝对 .bss 事件表指针）
+- 翻译体 `MEM(0x15b644)` 返回偏移形式 `0x00160584`，旧代码直接作基址：
+  `r7 = MEM(r3+0x57c) = 0x00160584` → jqt_mem_addr 再当偏移 → shadow+0x00160584（错误地址）
+- 修复：`r7 = JQT_ABS_PTR(MEM(r3+0x57c))` → shadow+0x160584（正确 .bss 事件表地址）
+
+**验证**：编译 balance=0，arm32_walkregress 4/4 PASS + 0 崩溃，EVENT-TBL-FILL 289 字节回填正常。
+
+**诚实边界**：disc 实际能否非 0 取决于 .bss 事件表运行时真值（ref dump 全 0x00/0x01，
+高 nibble 恒 0 → disc 仍为 0）。本次修复消除的是地址错误导致的“恒 0”假象；
+真实事件表掩码值需原版 .bss 运行时 dump（redroid 32 位 so 进程 + 游戏事件触发）确认。
