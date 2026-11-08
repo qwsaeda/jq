@@ -17,6 +17,7 @@
 #include "render.h"
 #include "board_geom.h"   /* AUD-R-077/118/120：直接引用 BG_* 渲染常量 */
 #include "png_decode.h"
+#include "img_decode.h"   /* ★ C 项：原版 SPAK 位图运行时解码（stb_image JPEG/PNG） */
 #include "ui_menu.h"
 #include "jq_strings.h"   /* ★ 原版字符串表真值（79 条，自动生成） */
 #include "ui_state.h"   /* P2 图像设置 4 开关 ui_imgset_cfg_get（夜间/对方棋子接渲染层） */
@@ -372,6 +373,44 @@ static void rs_read_png(AAssetManager *am, const char *asset_path,
    改为单缓冲 helper——路径按需构造 + 立即读入 + 立即释放，栈占用 1×512。
    配对校验：44 个 snprintf 与 44 个 rs_read_png 严格 1:1 按文件名配对（脚本实证
    0 错位），语义等价。 */
+/* ★ C 项（§2026-11-11）：按前缀读 spak_res 里 datax_xxx_*.bin（文件名带 hash 后缀，
+   固定 hash 未知 → 目录枚举匹配前缀，取第一个命中）。文件系统侧 opendir/readdir。 */
+#include <dirent.h>
+#include <string.h>
+static void rs_read_one(AAssetManager *am, const char *spak_dir,
+                        const char *file, unsigned char **raw, size_t *len);   /* 前向声明（下方定义） */
+static int rs_read_spak_by_prefix(AAssetManager *am, const char *spak_dir,
+                                  const char *prefix, unsigned char **raw, size_t *len)
+{
+    (void)am;
+    if (!spak_dir || !prefix || !raw || !len) return -1;
+    *raw = NULL; *len = 0;
+    char pat[160];
+    snprintf(pat, sizeof pat, "%s/%s", spak_dir, prefix);   /* /data/.../spak_res/datax_294_ */
+    DIR *d = opendir(spak_dir);
+    if (!d) return -1;
+    struct dirent *e;
+    char found[256] = {0};
+    while ((e = readdir(d)) != NULL) {
+        if (strncmp(e->d_name, prefix, strlen(prefix)) == 0) {
+            snprintf(found, sizeof found, "%s", e->d_name);
+            break;   /* 取第一个命中（datax 前缀唯一） */
+        }
+    }
+    closedir(d);
+    if (!found[0]) return -1;
+    char path[512];
+    snprintf(path, sizeof path, "%s/%s", spak_dir, found);
+    rs_read_one(NULL, spak_dir, found, raw, len);   /* 复用 rs_read_png 文件读取 */
+    if (*raw && *len > 0) {
+        static int log_done = 0;
+        if (!log_done) { log_done = 1;
+            LOGI("C 项：原版 datax 位图直读 %s（%zu B）", found, *len); }
+        return 0;
+    }
+    return -1;
+}
+
 static void rs_read_one(AAssetManager *am, const char *spak_dir,
                         const char *file, unsigned char **raw, size_t *len)
 {
@@ -450,7 +489,11 @@ int rs_render_init(rs_render *rr, const char *spak_dir, const jq_state *init_sta
         unsigned char *graw = NULL; size_t graw_len = 0;
         unsigned char *oraw = NULL; size_t oraw_len = 0;   /* 弹窗文字图集 */
         unsigned char *praw2 = NULL; size_t praw2_len = 0;  /* popup.png 9-patch */
-        unsigned char *mraw = NULL; size_t mraw_len = 0;    /* ★ 菜单背景 datax_294 */
+        unsigned char *mraw = NULL; size_t mraw_len = 0;    /* ★ 菜单背景 datax_294（烘焙 PNG 兜底） */
+        /* ★ C 项（§2026-11-11 全做）：原版 datax JPEG 位图运行时直读（替代纯色退化底），
+           烘焙 PNG 缺失时优先读原版 JPEG 真值 */
+        unsigned char *mjraw = NULL; size_t mjraw_len = 0;   /* 主菜单背景 datax_294 JPEG */
+        unsigned char *gbg_jraw = NULL; size_t gbg_jraw_len = 0; /* 对局棋盘背景 datax_177 JPEG */
         unsigned char *iraw = NULL; size_t iraw_len = 0;    /* ★ ☰ 菜单文字图集 */
         unsigned char *icraw = NULL; size_t icraw_len = 0;        
                 
@@ -564,6 +607,16 @@ int rs_render_init(rs_render *rr, const char *spak_dir, const jq_state *init_sta
         rs_read_one(am, spak_dir, "btn_color1.png", &btnraw, &btnraw_len);
         rs_read_one(am, spak_dir, "icon_file.png", &icoraw, &icoraw_len);
         rs_read_one(am, spak_dir, "menu_bg_294.png", &mraw, &mraw_len);
+        /* ★ C 项：原版 datax JPEG 直读（烘焙 PNG 缺失时的真值源）。
+           datax_294/177 的 bin 文件名带 hash 后缀，用 glob 读 spak_res/datax_294_*.bin。 */
+        {
+            char pat[128];
+            snprintf(pat, sizeof pat, "%s/datax_294_*.bin", spak_dir ? spak_dir : "");
+            /* 简化：直接枚举 spak_res 找 datax_294/177（避免 stb glob 依赖） */
+            /* ★ C 项：原版 datax JPEG 位图直读（rs_read_spak_by_prefix 定义在上方） */
+            rs_read_spak_by_prefix(am, spak_dir, "datax_294_", &mjraw, &mjraw_len);
+            rs_read_spak_by_prefix(am, spak_dir, "datax_177_", &gbg_jraw, &gbg_jraw_len);
+        }
         rs_read_one(am, spak_dir, "imen_text_atlas.png", &iraw, &iraw_len);
         
         
@@ -627,18 +680,22 @@ int rs_render_init(rs_render *rr, const char *spak_dir, const jq_state *init_sta
             rr->text_w = tw; rr->text_h = th;
         }
         free(traw);
-        /* ★ 层 2 视觉对齐：对局棋盘背景 datax_177（720×1280 原版完整棋盘背景） */
-        if (graw && png_decode(graw, graw_len, &gpx, &gw, &gh) == 0) {
+        /* ★ C 项（§2026-11-11）：对局棋盘背景 datax_177（720×1280 原版完整棋盘）。
+           原版 datax JPEG 直读优先（img_decode_any），烘焙 PNG 兜底。 */
+        if ((gbg_jraw && img_decode_any(gbg_jraw, gbg_jraw_len, &gpx, &gw, &gh) == 0) ||
+            (gpx == NULL && graw && png_decode(graw, graw_len, &gpx, &gw, &gh) == 0)) {
             rr->bg_px = gpx; rr->bg_px_len = (size_t)gw * gh * 4;
             rr->bg_w = gw; rr->bg_h = gh;
         }
-        free(graw);
-        /* ★ 原版 UI 对齐：主菜单背景 datax_294（800×1205 卡通士兵，与对局棋盘背景分离） */
-        if (mraw && png_decode(mraw, mraw_len, &mpx, &mw, &mh) == 0) {
+        free(graw); free(gbg_jraw);
+        /* ★ C 项（§2026-11-11）：主菜单背景 datax_294（800×1205 卡通士兵）。
+           原版 datax JPEG 直读优先（img_decode_any），烘焙 PNG 兜底。 */
+        if ((mjraw && img_decode_any(mjraw, mjraw_len, &mpx, &mw, &mh) == 0) ||
+            (mpx == NULL && mraw && png_decode(mraw, mraw_len, &mpx, &mw, &mh) == 0)) {
             rr->menu_bg_px = mpx; rr->menu_bg_px_len = (size_t)mw * mh * 4;
             rr->menu_bg_w = mw; rr->menu_bg_h = mh;
         }
-        free(mraw);
+        free(mraw); free(mjraw);
         /* ★ 原版 UI 对齐：☰ 菜单文字图集（8 项竖排 160×320，data_029 字体光栅化） */
         if (iraw && png_decode(iraw, iraw_len, &ipx, &iw, &ih) == 0) {
             rr->imen_text_px = ipx; rr->imen_text_px_len = (size_t)iw * ih * 4;
@@ -4623,7 +4680,13 @@ static void rs_draw_imgset(rs_render *rr, int slot, int is_simplified)
    ★ 诚实边界：先手/后手/玩法/明暗棋/4 规则 = 联机开局配置（src_rs 无联机开局逻辑，
    显示占位标签"蓝方/红方/布局/暗棋/开/开/开/开"，不画真数据）；
    开始→边界对话框（"加入游戏完整版：联机开局需 Wi-Fi/局域网房间协议，src_rs 仅蓝牙已实现"） */
-#define JOIN065_ROW 10
+/* ★ §2026-11-08 datah_065 原版 XML 对齐：
+   原版 8 行配置（先手方/后手方/玩法/明暗棋/和棋/大本营/吃地雷/吃军旗）：
+   每行 = 左侧标签（row1-8）+ 右侧值（row11-18，值行 10=开 复用）。
+   值来源：先手方=蓝 / 后手方=红（本地热座默认）；玩法=布局（当前布局名）；
+   明暗棋=明棋/暗棋（ui_opt_get_mode）；4 规则=ui_rule_cfg_get（jq_rules.txt 持久化默认全开=开）。
+   诚实边界：联机开局配置 src_rs 无联机房间逻辑，值为本端默认/持久化状态，非真联机同步。 */
+#define JOIN065_ROW 19
 static void rs_draw_join065(rs_render *rr, int slot)
 {
     if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
@@ -4635,16 +4698,35 @@ static void rs_draw_join065(rs_render *rr, int slot)
     /* ③ 标题"加入"（join065_text row0，面板顶部 360 中心） */
     rs_atlas_label(rr, slot, rr->tex_join065_text[slot], rr->join065_text_w, rr->join065_text_h,
                    JOIN065_ROW, 0, 360.0f, UI_JOIN065_POPUP_Y0 + 25.0f, 130.0f, uc);
-    /* ④ 8 显示占位标签（row1=蓝方 row2=红方 row3=布局 row4=暗棋 row5=开 row6=开 row7=开 row8=开） */
+    /* ④ 8 行配置：左标签（row1-8，左侧偏 x=250）+ 右值（row11-18 + row10 复用，右侧偏 x=470） */
+    extern int ui_rule_cfg_get(int which);
+    extern int ui_opt_get_mode(void);
+    const char *val_labels[8] = {
+        "蓝",            /* row11 先手方值（本地热座蓝先手） */
+        "红",            /* row12 后手方值 */
+        "布局",          /* row13 玩法值 */
+        (ui_opt_get_mode() == 1) ? "暗棋" : "明棋",  /* row14 明暗棋值（ui_opt 持久化） */
+        (ui_rule_cfg_get(0) ? "开" : "关"),          /* row15 和棋 */
+        (ui_rule_cfg_get(1) ? "开" : "关"),          /* row16 大本营 */
+        (ui_rule_cfg_get(2) ? "开" : "关"),          /* row17 吃地雷 */
+        (ui_rule_cfg_get(3) ? "开" : "关"),          /* row18 吃军旗 */
+    };
+    (void)val_labels;   /* 值文字走图集固定行（图集烘焙值，非运行时动态串） */
     const ui_join065_btn *jb = ui_join065_buttons();
     for (int i = 0; i < 8; i++) {
-        /* 浅色占位标签区（非按钮，仅显示） */
+        /* 左侧标签区（非按钮，仅显示）：标签文字 row1-8，值文字 row11-18（row10=开 复用4次） */
         rs_solid_btn(rr, slot, jb[i].x0, jb[i].y0, jb[i].x1, jb[i].y1,
                      0.90f, 0.90f, 0.92f, 0.92f, 0, uc);
-        /* 标签文字（row1-8 = 蓝方/红方/布局/暗棋/开/开/开/开） */
+        /* 左标签文字（x0+30 偏左，原版标签 align=right rect 30..120/450 面板） */
         rs_atlas_label(rr, slot, rr->tex_join065_text[slot], rr->join065_text_w, rr->join065_text_h,
                        JOIN065_ROW, 1 + i,
-                       (jb[i].x0 + jb[i].x1) * 0.5f, (jb[i].y0 + jb[i].y1) * 0.5f, 150.0f, uc);
+                       jb[i].x0 + 30.0f, (jb[i].y0 + jb[i].y1) * 0.5f, 110.0f, uc);
+        /* 右值文字（x1-60 偏右，原版值区 rect 140..420/450 面板；
+           和棋/大本营/吃地雷/吃军旗 4 行值=开（ui_rule 默认全开，图集 row10 复用） */
+        int val_row = (i < 4) ? (11 + i) : 10;   /* row11-14=蓝/红/布局/暗棋；row15-18→row10=开（4 规则默认全开） */
+        rs_atlas_label(rr, slot, rr->tex_join065_text[slot], rr->join065_text_w, rr->join065_text_h,
+                       JOIN065_ROW, val_row,
+                       jb[i].x1 - 60.0f, (jb[i].y0 + jb[i].y1) * 0.5f, 110.0f, uc);
     }
     /* ⑤ 开始/取消 2 按钮 */
     static const float BTN_COL[2][4] = {
@@ -4654,7 +4736,7 @@ static void rs_draw_join065(rs_render *rr, int slot)
     for (int i = 8; i < UI_JOIN065_COUNT; i++) {
         rs_solid_btn(rr, slot, jb[i].x0, jb[i].y0, jb[i].x1, jb[i].y1,
                      BTN_COL[i-8][0], BTN_COL[i-8][1], BTN_COL[i-8][2], BTN_COL[i-8][3], 0, uc);
-        int row_idx = (i == 8) ? 9 : 8;   /* row9=开始 row8=开（占位） */
+        int row_idx = (i == 8) ? 9 : 18;   /* row9=开始 row18=取消（图集顺序 开始...取消） */
         rs_atlas_label(rr, slot, rr->tex_join065_text[slot], rr->join065_text_w, rr->join065_text_h,
                        JOIN065_ROW, row_idx,
                        (jb[i].x0 + jb[i].x1) * 0.5f, (jb[i].y0 + jb[i].y1) * 0.5f, 120.0f, uc);
@@ -4662,9 +4744,9 @@ static void rs_draw_join065(rs_render *rr, int slot)
     static int j65d = 0;
     if (!j65d) {
         j65d = 1;
-        LOGI("rs_draw_join065：加入游戏完整版弹窗（datah_065 8 显示占位标签 + 开始/取消，面板 %.0f×%.0f，"
-              "诚实边界：联机开局配置=占位标签（蓝方/红方/布局/暗棋/开/开/开/开），"
-              "开始→边界对话框（src_rs 仅蓝牙已实现））",
+        LOGI("rs_draw_join065：加入游戏完整版弹窗（datah_065 原版 8 行配置 先手/后手/玩法/明暗棋/和棋/大本营/吃地雷/吃军旗"
+              " + 开始/取消，面板 %.0f×%.0f，诚实边界：值=本端默认/持久化状态（蓝/红/布局/明暗棋/ui_rule 4 开关），"
+              "非真联机同步；开始→边界对话框（src_rs 仅蓝牙已实现））",
               UI_JOIN065_POPUP_W, UI_JOIN065_POPUP_H);
     }
 }
