@@ -30,8 +30,19 @@ uint8_t *g_jqt_scratch = 0;   /* 4KB 零页：越界（垃圾指针）读写落�
  *   JNI 对象），命中即直接解引用；未命中落零页不崩。设备上 /proc/self/maps 有 ~2000 条，
  *   256 上限不够（实测 n=256 满表漏掉 scudo 堆 → MISS）→ 扩到 4096 + 排序 + 二分。 */
 #define JQT_REAL_MAX 4096
-static struct { uint32_t lo, hi; } g_jqt_real_ranges[JQT_REAL_MAX];
-static int g_jqt_real_n = 0;
+/* AUD-1000 D1-#2 P0 修：双缓冲原子化。
+ * 旧代码直接写 g_jqt_real_ranges/g_jqt_real_n，frame-loop 线程 jqt_real_find
+ * 二分读并发时，重建瞬间表处于半填充态 → 指针解析错区。
+ * 改为双缓冲：写备用表，完成后原子切换指针（32 位平台指针/int 赋值原子）。 */
+static struct { uint32_t lo, hi; } g_jqt_real_buf_a[JQT_REAL_MAX];
+static struct { uint32_t lo, hi; } g_jqt_real_buf_b[JQT_REAL_MAX];
+static struct { uint32_t lo, hi; } *g_jqt_real_active = g_jqt_real_buf_a;
+static struct { uint32_t lo, hi; } *g_jqt_real_swp    = g_jqt_real_buf_b;
+static int g_jqt_real_n_active = 0;
+static int g_jqt_real_n_swp    = 0;
+/* 兼容旧引用：g_jqt_real_ranges/g_jqt_real_n 仍指向 active */
+#define g_jqt_real_ranges  g_jqt_real_active
+#define g_jqt_real_n       g_jqt_real_n_active
 
 static int jqt_range_cmp(const void *a, const void *b) {
     uint32_t la = ((const struct { uint32_t lo, hi; } *)a)->lo;
@@ -40,11 +51,12 @@ static int jqt_range_cmp(const void *a, const void *b) {
 }
 
 static void jqt_build_real_ranges(void) {
+    /* AUD-1000 D1-#2：写 swp 缓冲，完成后原子切换（不动 active 缓冲） */
     FILE *f = fopen("/proc/self/maps", "r");
     if (!f) return;
     char line[512];
-    g_jqt_real_n = 0;
-    while (fgets(line, sizeof(line), f) && g_jqt_real_n < JQT_REAL_MAX) {
+    g_jqt_real_n_swp = 0;
+    while (fgets(line, sizeof(line), f) && g_jqt_real_n_swp < JQT_REAL_MAX) {
         unsigned long lo, hi; char perm[8];
         if (sscanf(line, "%lx-%lx %4s", &lo, &hi, perm) == 3) {
             /* ★ §124ac：只收**可写**区（perm[1]=='w'）。旧逻辑只排除不可读（perm[0]=='-'），
@@ -64,14 +76,22 @@ static void jqt_build_real_ranges(void) {
               if (perm[1] == 'w' && hi > lo && !is_stack &&
                   !(lo >= (unsigned long)g_jqt_shadow && hi <= (unsigned long)g_jqt_shadow + JQT_MAP_HI) &&
                   !(lo >= (unsigned long)g_jqt_scratch && hi <= (unsigned long)g_jqt_scratch + 4096)) {
-                g_jqt_real_ranges[g_jqt_real_n].lo = (uint32_t)lo;
-                g_jqt_real_ranges[g_jqt_real_n].hi = (uint32_t)hi;
-                g_jqt_real_n++;
+                g_jqt_real_swp[g_jqt_real_n_swp].lo = (uint32_t)lo;
+                g_jqt_real_swp[g_jqt_real_n_swp].hi = (uint32_t)hi;
+                g_jqt_real_n_swp++;
             } }
         }
     }
     fclose(f);
-    qsort(g_jqt_real_ranges, g_jqt_real_n, sizeof(g_jqt_real_ranges[0]), jqt_range_cmp);
+    qsort(g_jqt_real_swp, g_jqt_real_n_swp, sizeof(g_jqt_real_swp[0]), jqt_range_cmp);
+    /* 原子切换：读者最多看到一个完整旧快照，不会看到半填充态 */
+    { struct { uint32_t lo, hi; } *t = g_jqt_real_active;
+      int tn = g_jqt_real_n_active;
+      g_jqt_real_active  = g_jqt_real_swp;
+      g_jqt_real_n_active = g_jqt_real_n_swp;
+      g_jqt_real_swp     = t;
+      g_jqt_real_n_swp   = tn;
+    }
 }
 
 /* 二分查真实映射区（排序后），命中返回 1 */
