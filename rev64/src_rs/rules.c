@@ -114,7 +114,10 @@ static bool rail_path_engineer(const jq_state *st, int fr, int fc, int tr, int t
             if (visited[nr][nc]) continue;
             if (nc != c && r != 5 && r != 6) continue;   /* 横向仅中线 */
             if (!is_rail(nr, nc)) continue;
-            if (nr == tr && nc == tc) return true;
+            /* ★ AUD-1000 B01-001（P0 已修）：目标判定并入 walkable——行营/大本营
+               空格非铁路占位 → 工兵 BFS 不可"滑行"进入（与 move_legal 条款一致）；
+               占位空格且非行营/大本营 → walkable 真 → 目标命中。 */
+            if (nr == tr && nc == tc) return walkable(st, nr, nc);
             if (!walkable(st, nr, nc)) continue;
             visited[nr][nc] = 1;
             if (tail >= 64) break;   /* AUD-A-0041：队列满保护（60 格棋盘恒不触发，纯防御） */
@@ -521,13 +524,17 @@ int jq_try_move(jq_state *st, int from, int to)
                保留数据供后续暗棋族使用，勿删除该字段）。 */
             st->mines_cleared[me]++;
             ev = EV_MINE;
+            /* ★ AUD-1000 B01-022（P1）：真挖雷（地雷消失）才清零无吃子计数 */
+            st->moves_since_eat = 0;
         } else {
-            /* 非工兵撞雷：地雷>其他所有棋，攻击子被炸 */
+            /* 非工兵撞雷：地雷>其他所有棋，攻击子被炸
+               ★ AUD-1000 B01-022（P1 已修）：EV_DEAD 送死（地雷未消失、无子被吃）
+               **不**清零 moves_since_eat——旧实现在 if/else 公共尾部清零，把"送死"
+               当"吃子活动"，70 步无吃子和棋进度被送死步误重置。 */
             memset(src, 0, sizeof(*src));
             st->pieces_left[me]--;
             ev = EV_DEAD;
         }
-        st->moves_since_eat = 0;
     } else {
         /* 普通吃子比较：rank 小=强（L52 确证） */
         if (sr < dr_) {              /* 大压小：src 吃 dst */
@@ -548,10 +555,15 @@ int jq_try_move(jq_state *st, int from, int to)
         }
         st->moves_since_eat = 0;
     }
-    st->turn = 1 - me;
-    st->total_moves++;
-    /* 走子后收口（和棋+困毙；AUD-R-008 对称，stalemate_after 与 jq_flip 共用） */
-    stalemate_after(st);
+    /* ★ AUD-1000 B01-003（P0 已修）：终局（stage=OVER，EV_BOMB/FLAG 撞旗判胜）
+       不再切 turn——旧实现终局快照 turn 指向胜方（1-me），战况统计/AI 误读
+       "胜方当前回合"。非终局路径行为 0 变化（stage!=OVER 才切）。 */
+    if (st->stage == STG_PLAY) {
+        st->turn = 1 - me;
+        st->total_moves++;
+        /* 走子后收口（和棋+困毙；AUD-R-008 对称，stalemate_after 与 jq_flip 共用） */
+        stalemate_after(st);
+    }
     return ev;
 }
 
@@ -580,7 +592,11 @@ bool jq_can_flip(const jq_state *st, int idx)
        装载路径（jq_dark_setup 写死 side 分区）下**不可达**（实测 0 个 0xFF 格）
        ——先手翻子定色（ruleflip）留待 AUD-R-003 落地后才成立，本分支为
        机制预留（与兄弟实现 game_logic.c 同款判定），非当前可用行为。 */
-    if (c->side == 0xFF) return true;
+    /* ★ AUD-1000 B01-013/014（P0 已修）：0xFF 未定色暗子**仅先手（蓝）回合可翻**——
+       旧实现 0xFF 恒可翻（无回合门），后手（红）回合可翻先手暗子并 jq_flip 定色
+       写 st->turn（RED）→ 先手暗子池被后手"抢定色"，先手翻子定色规则被绕过。
+       定色归翻子方，0xFF 定色仅先手（蓝）可触发。 */
+    if (c->side == 0xFF) return st->turn == SIDE_BLUE;
     /* ★ 回合校验：己方暗子（side==turn）可翻；敌方暗子（side!=turn）不可翻。
        缺失此校验 → 任意回合可翻任意方暗子，破坏暗棋回合交替。
        ★ AUD-R-085（P2）：回合门已确认——side==0xFF（未定色）分支在暗棋"先手
