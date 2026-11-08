@@ -399,7 +399,7 @@ static int rs_read_spak_by_prefix(AAssetManager *am, const char *spak_dir,
     }
     closedir(d);
     if (!found[0]) return -1;
-    char path[512];
+    char path[1024];   /* ★ B04-072（P1 已修）：同 rs_read_one path 上限 1024 */
     snprintf(path, sizeof path, "%s/%s", spak_dir, found);
     rs_read_one(NULL, spak_dir, found, raw, len);   /* 复用 rs_read_png 文件读取 */
     if (*raw && *len > 0) {
@@ -414,7 +414,11 @@ static int rs_read_spak_by_prefix(AAssetManager *am, const char *spak_dir,
 static void rs_read_one(AAssetManager *am, const char *spak_dir,
                         const char *file, unsigned char **raw, size_t *len)
 {
-    char path[512];
+    /* ★ AUD-1000 B04-072（P1 已修）：path 上限 512→1024——spak_dir（/data/local/tmp/spak_res
+       及 getFilesDir 长路径）+ '/' + 文件名（datah_XXX 位图名 ~40 字符）在
+       长 filesDir 设备（如 /storage/emulated/0/Android/data/... 256+ 字符）下
+       512 有截断风险；1024 覆盖 Android 路径上限（PATH_MAX=255 的 4 倍余量）。 */
+    char path[1024];
     snprintf(path, sizeof path, "%s/%s", spak_dir ? spak_dir : "", file);
     char asset[128];
     snprintf(asset, sizeof asset, "spak_res/%s", file);

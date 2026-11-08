@@ -1045,6 +1045,11 @@ int ai_score(int src_rank_raw, int dst_rank_raw, int dst_revealed)
        :88 rank_norm(d->rank)（int ✓），负数入参（如 -1 哨兵传 raw）走本拦截路径。
        旧实现 rank_norm(负数) 返回负数参与比较 = 未定义行为。 */
     if (src_rank_raw < 0 || dst_rank_raw < 0) return -2;
+    /* ★ AUD-1000 B01-029/033（P1 已修，rank 域统一入口）：src 越 rank 编码域
+       （>24=红方 raw+0xc 合法域上限）→ 脏值拒绝走空源哨兵 -2（非静默经
+       rank_norm 钳 RANK_TOP 后按军旗 -1 降级）。dst 同域守护：dst>24 脏值
+       走 has_dst 判真但 dr=rank_norm→RANK_TOP 哨兵（rank_of 语义一致）。 */
+    if (src_rank_raw > 24) return -2;
     int r = rank_norm(src_rank_raw);
     /* ★ AUD-1000 B01-029（P1 诚实标注，SPEC 定案后改行为）：ai_score 入参为
        裸 rank_norm（非 side 感知 rank_of）——蓝方 rank>12 脏值（13）被 rank_norm
