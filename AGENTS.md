@@ -23,6 +23,7 @@
 - `minSdk 4` / `targetSdk 19` / `installLocation=preferExternal`
 - 无源码，Java 侧只有 ~7 个类（`com.cnvcs.App`、`GLView`、`SiteView`、`AdLis`、`BtReceiver`、`TextDlg`、`InputDlg`），几百行 smali
 - 游戏核心逻辑在 native 层：`lib/armeabi/libjunqi.so`，**ELF32 / ARM / EABI5 / stripped**，依赖 `libstdc++.so`(32 位)、`libGLESv1_CM.so`（GL1 渲染），导出 15 个 `Java_com_cnvcs_App_On*` JNI 符号
+  （★ AUD-1000 B09-001 口径：原版 32 位 so 实锤 15 个 On*（nm -D）；**src_rs 64 位重写 14 个**（减 OnDestroy，verify_asset_chain 具名判据）——两处 14/15 非矛盾：15=原版 32 位导出，14=src_rs 64 位实现）
 - **`.text` 代码段是明文**（objdump 反汇编出真实 ARM/Thumb 指令 + JNI 符号名，熵 7.10 = 正常机器码）
 - **`.rodata` 字符串池也是明文**（非加密）：已知串 `Junqi.Move/updateUrl/statHost/com/baidu/mobads/AdView` 在**静态文件里即可见**；静态 `.rodata` 与运行时 dump 逐字节相同（0/118832 不同）→ **无运行时自解密**
   - 纠正：之前写"`.rodata` 加密、dlopen 自解密"是**错的**。唯一高熵点 0x138000(7.87) 在 `.rodata` 只读数据段内，是压缩/索引表（值非有效地址），**非加密代码**
@@ -76,7 +77,7 @@ java -cp /tmp/opencode/apksigner/apksig.jar:/tmp/opencode/apksigner SignV2 \
 
 ### 64 位 native 的诚实边界
 
-- 当前 arm64 `libjunqi.so`（`native64/junqi.cpp`，~97KB）是**简化重写版**（12×5 棋盘、颜色棋子、自动走子、GLES2 渲染，★ AUD-R-076 口径纠正：旧"10×9"系误读），**不是** 32 位 1.43MB/1435156B native 的汇编级逆向
+- 当前 arm64 `libjunqi.so`（`native64/junqi.cpp`，~97KB）是**简化重写版**（12×5 棋盘、颜色棋子、自动走子、GLES2 渲染，★ AUD-R-076 口径纠正：旧"10×9"系误读；**本行 12×5 即简化版棋盘口径**——38 子旧口径已被 B09-002/§124y-163 批次取代），**不是** 32 位 1.43MB/1435156B native 的汇编级逆向
 - 它能在 64 位设备"跑起来"，但玩法/规则/资源与原版不一致
 - 完整对齐（原版 50 子（每方 25）12×5 棋盘、地雷/炸弹/悔棋规则、蓝牙联机协议、SPAK 解密 key）需后续把 32 位 `.rodata` 明文逻辑移植进 arm64，工作量另计（★ AUD-R-076 口径：38 子为旧误读）
 - **不要在交付物里把"简化版"包装成"完整版"**
