@@ -841,8 +841,11 @@ bool jq_side_stalemated(const jq_state *st, uint8_t side)
     if (st->stage != STG_PLAY || st->winner >= 0) return false;
     /* AUD-1000 B01-012：增量缓存——stale_dirty==0 且 stale_cache 有效时直接读。
        stale_cache[s]==1：方 s 可行动（未困毙，返 false）；stale_cache[s]==0：困毙（返 true）。
-       走子/翻棋后 stale_dirty=1 失效，下次全扫并写回。 */
-    if (!st->stale_dirty) {
+       走子/翻棋后 stale_dirty=1 失效，下次全扫并写回。
+       ★ 构造态兜底：jq_state_init memset 全 0 → stale_dirty=0 + stale_cache 全 0，
+       若直接读缓存会把"从未写过的 0"误判为"困毙"。故缓存有效判据须 stale_cache
+       任一侧曾被写（==1 即有效），全 0 = 未初始化 → 走全扫。 */
+    if (!st->stale_dirty && (st->stale_cache[0] || st->stale_cache[1])) {
         if (st->stale_cache[side]) return false;
         else                        return true;
     }

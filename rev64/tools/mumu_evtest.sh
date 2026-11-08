@@ -268,17 +268,33 @@ case "$KIND" in
   *) log "未知事件: $KIND（flag|mine|restart|draw|resign|stalemate|close|pop）"; exit 2;;
 esac
 
-# ★ AUD-1000 B07-004（P1 时序竞争修正）：flag/mine 旧序 "setprop→logcat -c→am start"
-#   在 app 未运行时置 property——MuMu 系统服务 force-stop 后 3s 内自动拉起 app
-#   （或 property 持久化跨进程）时 OnCreate 读到**历史** property 值，时序竞争致
-#   假 FAIL。改为与 draw 系一致：am start→wait_proc→logcat -c→setprop。
-log "=== $KIND 事件测试（am start → logcat -c → setprop $PROP 1）==="
-adb -s $DEV shell am force-stop com.cnvcs.junqirs >/dev/null 2>&1; sleep 3
-adb -s $DEV shell am start -n com.cnvcs.junqirs/com.cnvcs.App >/dev/null 2>&1
-wait_proc 20 || { log "★ 进程未启动（20s 超时）"; exit 1; }
-sleep 2   # 让首帧/OnUpdate 链起稳
-adb -s $DEV logcat -c
-adb -s $DEV shell setprop $PROP 1
+# ★ AUD-1000 B07-004 时序修正 + 本轮回归修复：flag/mine/restart 钩子在 **OnCreate**
+#   读 property（jni_bridge OnCreate flagtest/minetest 段），时序须 **setprop 先行
+#   （force-stop 清进程后）→ logcat -c → am start**——app 起来时 OnCreate 读到 1。
+#   旧 B07-004 误改成 "am start→setprop"（与 draw/resign 的 OnUpdate 轮询钩子一致），
+#   但 OnCreate 钩子在 app 起来时已读完 prop，setprop 在后 → 钩子 0 命中（本轮实测
+#   flag/mine FAIL 根因）。修回 setprop 先行；draw/resign/stalemate/close/pop 系
+#   OnUpdate 每帧轮询 prop，保持 am start→setprop 现状（本分支不触达）。
+case "$PROP" in
+  jq.flagtest|jq.minetest|jq.native_layout|jq.walk_bridge|jq.game_test)
+    log "=== $KIND 事件测试（setprop $PROP 1 → logcat -c → am start，OnCreate 钩子）==="
+    adb -s $DEV shell am force-stop com.cnvcs.junqirs >/dev/null 2>&1; sleep 3
+    adb -s $DEV shell setprop $PROP 0; sleep 1
+    adb -s $DEV shell setprop $PROP 1
+    adb -s $DEV logcat -c
+    adb -s $DEV shell am start -n com.cnvcs.junqirs/com.cnvcs.App >/dev/null 2>&1
+    wait_proc 20 || { log "★ 进程未启动（20s 超时）"; exit 1; }
+    ;;
+  *)
+    log "=== $KIND 事件测试（am start → logcat -c → setprop $PROP 1，OnUpdate 轮询钩子）==="
+    adb -s $DEV shell am force-stop com.cnvcs.junqirs >/dev/null 2>&1; sleep 3
+    adb -s $DEV shell am start -n com.cnvcs.junqirs/com.cnvcs.App >/dev/null 2>&1
+    wait_proc 20 || { log "★ 进程未启动（20s 超时）"; exit 1; }
+    sleep 2   # 让首帧/OnUpdate 链起稳
+    adb -s $DEV logcat -c
+    adb -s $DEV shell setprop $PROP 1
+    ;;
+esac
 wait_log "$PAT" 40 || true   /* ★ P2-B13/B07-003：轮询到判据（B07-003 窗口 40s；超时由下方 if 判 FAIL） */
 wait_log "$SFX" 40 || true   /* 音效判据单独轮询 */
 

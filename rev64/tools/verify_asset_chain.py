@@ -127,7 +127,7 @@ def layer_dev(dev=DEV):
             ok = shell(f"test -s /data/local/tmp/spak_res/{ln} && echo ok || echo miss").strip() == "ok"
             check(ok, f"设备端 {ln}（render.c 引用，文件系统回退路径）")
     # 全量 .bin/.png 仅信息展示（32 位全量 883 .bin 不在 arm64 判据范围）
-    print(f"  信息: 设备端 spak_res .bin={nbin} .png={npng}（arm64 判据=44 引用全量在，全量为 32 位参考）")
+    print(f"  信息: 设备端 spak_res .bin={nbin} .png={npng}（arm64 判据=refs 清单全量在[58：44 PNG/位图+2 棋子 bin+14 WAV]，其余 907 个 .bin 为 32 位资产保全不进运行时）")
     # 关键渲染资源在设备端（rs_render_init 必读）
     for b in MUST_BIN:
         fn = b.split("/")[-1]

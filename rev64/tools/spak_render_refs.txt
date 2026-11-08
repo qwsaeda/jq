@@ -42,3 +42,17 @@ setentry_text_atlas.png
 settings_text_atlas.png
 uibat_text_atlas.png
 waysel_text_atlas.png
+data_junqi_bomb.wav
+data_junqi_dead.wav
+data_junqi_draw.wav
+data_junqi_eat.wav
+data_junqi_flag.wav
+data_junqi_flip.wav
+data_junqi_lose.wav
+data_junqi_move.wav
+data_junqi_over.wav
+data_junqi_select.wav
+data_junqi_start.wav
+data_junqi_win.wav
+data_ui_close.wav
+data_ui_pop.wav
