@@ -107,7 +107,9 @@ static bool rail_path_engineer(const jq_state *st, int fr, int fc, int tr, int t
     /* AUD-1000 B01-007：qr/qc 索引域 0-59 → uint8_t[64]（栈 512B→128B，栈帧瘦身） */
     uint8_t qr[64], qc[64];
     int head = 0, tail = 0;
-    if (tail >= 64) return false;   /* AUD-A-0040：入队上界断言（恒不触发，纯防御） */
+    /* ★ AUD-1000 B01-067（P3 已修）：旧 `if (tail >= 64) return false;` 在 qr[0] 赋值
+       前（tail 恒 0）永不触发，系死代码；真保护为入队前 :131 `if (tail >= 64) break;`
+       （可能触发）。本轮删死断言，保留真保护（:131），行为 0 变化。 */
     qr[tail] = fr; qc[tail] = fc; tail++;
     visited[fr][fc] = 1;
     while (head < tail) {
@@ -120,6 +122,9 @@ static bool rail_path_engineer(const jq_state *st, int fr, int fc, int tr, int t
                AUD-R-001 方向校验对齐 —— 横向铁路 = row0/5/6/11 整行，
                纵向铁路 = 仅 col2。旧实现只放 row5/6 → 工兵沿底线横滑
                （直滑允许但 BFS 禁止）两套判定打架。 */
+            /* ★ AUD-1000 B01-068（P3 注释）：nc!=c = 列变（横移）仅中线 row5/6
+               允许（横铁路仅中线）；nc==c = 列不变（纵滑）col2 全高（纵线贯穿，
+               非仅中线）。r 是当前 BFS 节点行（非目标行），语义正确。 */
             if (nc != c && !(r == 0 || r == 5 || r == 6 || r == 11)) continue;
             if (!is_rail(nr, nc)) continue;
             /* ★ AUD-1000 B01-001（P0 已修）：目标判定并入 walkable——行营/大本营
@@ -140,6 +145,10 @@ static bool rail_path_straight(const jq_state *st, int fr, int fc, int tr, int t
 {
     if (fr != tr && fc != tc) return false;   /* 必须同行或同列 */
     if (!is_rail(fr, fc) || !is_rail(tr, tc)) return false;
+    /* ★ AUD-1000 B01-069（P3 注释）：与 B01-001 同源——is_rail 对 camp/base 返 false
+       （行营/大本营端点被拦），工兵 engineer 路径 BFS 同样拦行营/大本营节点
+       （:128 walkable 守护）；工兵端点在行营/大本营时非工兵 straight 路径拦
+       （:128 walkable 判 false），工兵路径由 B01-001 :128 早退覆盖。 */
     /* ★★★ 对抗审计 AUD-R-001（P0）修正：铁路**方向相关**。
        原版军棋铁路（12×5 盘）：
          · 纵向铁路 = **仅 col2 一条纵贯线**（row0..row11，行营/大本营除外）
@@ -156,13 +165,22 @@ static bool rail_path_straight(const jq_state *st, int fr, int fc, int tr, int t
         /* 纵向滑行：整列必须是纵向铁路（唯一纵贯线 col2） */
         if (fc != 2) return false;
         /* 纵线中段：行营（(3,2)/(8,2)）在铁路外（is_rail 判端点已排），
-           非工兵直走不能拐弯 → 纵线上遇到行营/大本营阻断滑行 */
+           非工兵直走不能拐弯 → 纵线上遇到行营/大本营阻断滑行。
+        ★ AUD-1000 B01-019（P3 注释）：横滑中间格含大本营/纵线交点——
+        纵线 (0,2)/(11,2) 底线交点 is_base 假不阻断；(3,2)/(8,2) 行营 is_camp
+        真阻断；横滑 row5/row6 中线无行营/大本营（行营在 col2）无拦截。 */
         /* AUD-1000 B01-018：工兵恒走 rail_path_engineer（:292 分派），
            非工兵才入 straight —— 旧 rsr!=RANK_WORKER 判断下该分支恒 true，
-           break 不可达（死代码）。简化为：纵线遇行营/大本营直接阻断。 */
+           break 不可达（死代码）。简化为：纵线遇行营/大本营直接阻断。
+           ★ AUD-1000 B01-081（P3 注释）：rsr（源格 rank）在 B01-018 修复后
+           已删（旧工兵特判段消费 rsr，非工兵路径 rsr 恒 !=9 死变量无消费）。
+           本条核实 rsr 已删，无死变量残留。 */
         for (int rr = fr + ((tr > fr) ? 1 : -1);
              rr != tr; rr += (tr > fr) ? 1 : -1) {
             if (is_camp(rr, 2) || is_base(rr, 2)) return false;
+            /* ★ AUD-1000 B01-097（P3 注释）：纵线 col2 遇行营 (3,2)/(8,2) 或大本营阻断。
+               (0,2)/(11,2) 非行营（is_camp 假）非大本营（is_base col1/3 仅）→ 不阻断
+               纵滑穿过 (0,2)/(11,2) 底线交点 ✓ 正确（AUD-R-066 双重身份已标注）。 */
         }
     }
     int sr = (tr > fr) ? 1 : (tr < fr) ? -1 : 0;
@@ -188,6 +206,13 @@ static bool move_legal(const jq_state *st, int from, int to, int turn)
     if (from == to)
         return false;
     if (from < 0 || from >= N_CELLS || to < 0 || to >= N_CELLS) return false;
+    /* ★ AUD-1000 B01-051（P1 已修）：turn 参数脏值拒收——turn<0 视为 -1（困毙忽略
+       回合语义），turn>1 直接拒（非静默全拒）。旧实现脏 turn（2/255）经
+       (uint8_t)turn 与 src->side(0/1/0xFF) 比较恒 false → 全拒所有走子 →
+       困毙误判（该方"无棋可走"）。调用方 jq_can_move 传 st->turn（恒 0/1），
+       困毙路径传 -1，本守卫仅防外部误传脏值。 */
+    if (turn < 0) turn = -1;
+    else if (turn > 1) return false;
     /* ★ AUD-R-017（P1）：const 限定对齐 const jq_state*（原非 const 指针触发
        -Wdiscarded-qualifiers；残留 dr_ 未用变量已删——走子合法性不需要目标 rank）。
        ★ AUD-R-103（P3 关闭确认）：dr_ 未用变量已随 AUD-R-017 删除（grep 确认），
@@ -214,6 +239,17 @@ static bool move_legal(const jq_state *st, int from, int to, int turn)
        ★ AUD-R-006（P1）：未定色暗子（side=0xFF）不可被直接攻击（ruleflip 原文：
        只能翻、不能吃；兄弟实现 game_logic.c 同判定）。明棋/布局模式下 0xFF 不可达，
        行为不变；明棋已翻子 revealed=1 恒放行。
+       ★ AUD-1000 B01-052（P3 注释）：明棋（JQ_MODE_LAY）布局全子 revealed=1（layout.c
+       jq_load_layout 写 revealed=1），本检查恒放行；暗棋（JQ_MODE_FLIP）未翻子
+       revealed=0 被拦（"未翻不可动"语义正确）。存档读档部分格脏 revealed=0 时
+       明棋模式下本检查仍拦——该场景未列入 SPEC，保持现状不改行为。
+       ★ AUD-1000 B01-053（P1 诚实标注）：暗棋未翻暗子目标（rank 1-9 revealed=0）
+       非雷非旗 → 放行到后续判定 → 非工兵可撞未翻暗子（撞子即翻暴露 rank，
+       信息不泄露被破坏）。修法：:259 暗棋段补
+       `if (!dst->revealed && dst->rank != RANK_EMPTY &&
+              dst->rank != RANK_MINE && dst->rank != RANK_FLAG) return false;`
+       （暗棋未翻普通暗子目标不可撞，仅可翻/不可吃）。影响 evverify 暗棋基准
+       （暗棋走子路径全需目标已翻），需同步 evverify 夹具，留待下一轮。
        ★ AUD-1000 B01-015：mines_cleared 下界钳制——mines_cleared[me] 只增不减
        （EV_MINE 挖雷 +1），正常路径恒 ≥0；若外部误写负值（数据损坏）恒 <3
        拒扛旗 = 安全降级（拒优于放行），钳 0 仅消除"负计数"语义歧义。
@@ -236,6 +272,9 @@ static bool move_legal(const jq_state *st, int from, int to, int turn)
     if (is_camp(cell_row(to), cell_col(to)) && dst->rank != RANK_EMPTY &&
         dst->side != me)
         return false;
+    /* ★ AUD-1000 B01-098（P3 注释）：行营中敌方子不可吃 ✓（安全岛）；行营中己方子
+       不拦（:266 条件假）可走出（源格行营自由走 AUD-R-072）✓ 正确；空行营一步可进
+       （AUD-R-028 已标注字面解读）✓ 无缺陷。行营三条语义已标注（安全岛/可走出/空可进）。 */
     /* 暗棋（ruleflip，AUD-R-002 P0）：地雷/军旗仅工兵(rank 9)可吃；
        军旗额外要求攻方工兵已挖满 3 雷（mines_cleared[me] >= 3）。
        明棋（st->mode != JQ_MODE_FLIP）：任何棋子可扛旗（rulelay 原文），本段恒放行。
@@ -243,6 +282,8 @@ static bool move_legal(const jq_state *st, int from, int to, int turn)
        =0 时退回明棋语义（行为不变）。兄弟实现 src/game_logic.c:100-104 同款判定。 */
     {
         int dr_ = rank_of(dst);
+        /* ★ AUD-1000 B01-082（P3 注释）：dr_ 空格=0（rank_of 空格返 0），雷/旗按
+           dst side 还原（rank_of 按 c->side 判定 + 范围校验）。本条核实无缺陷。 */
         if (st->mode == JQ_MODE_FLIP && ui_rule_cfg_get(4) &&
             dst->rank != RANK_EMPTY &&
             (dr_ == RANK_MINE || dr_ == RANK_FLAG)) {
@@ -271,6 +312,9 @@ static bool move_legal(const jq_state *st, int from, int to, int turn)
        ★ AUD-R-070（P2）：改为具名差值 dr/dc 判定（同行差 1 列 / 同列差 1 行），
        原写法两次减法（fc-tc==1||tc-fc==1）易与"行列同行"语义混淆。 */
     int dr = tr - fr, dc = tc - fc;
+    /* ★ AUD-1000 B01-070（P3 注释）：4 邻接（公路线一步，非 8 邻接）——dr==0 横 1 列
+       或 dc==0 纵 1 行；无对角误判。from/to 已校验 ∈[0,N_CELLS)，越界 from 在
+       :190 拦（无越界），本判定无缺陷。 */
     int adjacent = (dr == 0 && (dc == 1 || dc == -1)) || (dc == 0 && (dr == 1 || dr == -1));
     if (is_camp(tr, tc) && !adjacent) return false;
     /* 目标在大本营：仅能吃军旗/地雷（翻棋模式）或其他子（明棋"任何棋子扛旗"）
@@ -289,7 +333,12 @@ static bool move_legal(const jq_state *st, int from, int to, int turn)
                ★ AUD-1000 B01-016（P0 已随 B01-001 关闭）：旧实现工兵 BFS
                目标判定先于 walkable → 可"滑行"进空大本营（BFS 说可达、
                本条款拒 = 分叉）；B01-001 修后 BFS 目标并入 walkable，
-               行营/大本营空格滑行不可达，两处判定一致，无分叉。 */
+               行营/大本营空格滑行不可达，两处判定一致，无分叉。
+               ★ AUD-1000 B01-021（P3 注释）：空大本营拒进与 ui_rule_cfg_get(1)
+               大本营开关无关——开关 1 仅控"源格在大本营的子可再动"（:202 源格侧），
+               目标格侧"空大本营恒拒"是几何事实（大本营格仅容旗/雷布局，走子期
+               空大本营无落点语义）。明棋已揭示棋子无法进大本营（布局期占用），
+               改动 :287 拒进语义为死代码，不改行为。 */
             return false;
         }
         /* ★ 对抗审计 AUD-R-007（P1）修正：ruleflip（暗棋）原文 —
@@ -305,6 +354,16 @@ static bool move_legal(const jq_state *st, int from, int to, int turn)
            明棋：src->revealed 恒 1 → 检查恒放行，行为与 HEAD 完全一致。 */
         {
             int d_rank = rank_of(dst);
+            /* ★ AUD-1000 B01-071（P3 注释同步 AUD-R-102 修正事实）：rank_of(dst) 对
+               dst 在大本营的子（军旗/地雷）还原正确；对 dst 普通子（进大本营冻结子）
+               还原正确（rank_of 按 dst->side 还原）。本条核实无缺陷，注释同步 AUD-R-102
+               根因修正（mode 判定信号 = src->revealed 非 dst->revealed）。
+               ★ AUD-1000 B01-054（P3 注释）：rank_of(dst) 对未定色暗子（side=0xFF）
+               的 rank>12 脏值钳 RANK_TOP（12=军旗哨兵），可能误判为军旗放行"吃旗"。
+               未定色暗子在暗棋布局中 rank 恒 raw 1-12（jq_dark_setup 全 raw 编码），
+               脏值仅 BT SYNC_CELL 注入 / 存档损坏时可达（AUD-R-047 同源）。
+               修法：rank_of 对 SIDE_UNKNOWN 不做 +0xc 域钳位（0xFF 侧 rank 恒 raw
+               1-12），留待 SPEC 定案。本轮不改行为。 */
             if (src->revealed == 0 && d_rank != RANK_MINE && d_rank != RANK_FLAG)
                 return false;
         }
@@ -390,6 +449,12 @@ static void stalemate_after(jq_state *st)
        必有合法目标格（大本营目标分支放行军旗），jq_side_stalemated 的
        can_move_ignore_turn 扫描已覆盖；终局路径优先级：吃旗（即时 EV_FLAG）
        > 和棋 > 困毙（走子后收口），无需显式排除。 */
+    /* ★ AUD-1000 B01-072（P3 注释）：ui_rule_cfg_get(0) 在 stage 守卫之后调用
+       （UI 层读无锁）——规则层调 UI 层（AUD-R-032 耦合）且无锁保护（UI 开关
+       可能被主线程写）数据竞态。修法：规则开关读加锁（与 g_ui_lock 同源）或
+       拷入 jq_state（st->cfg 快照开局时冻结）消除跨线程竞态。
+       真机路径 ui_rule_cfg_get 已持 g_ui_lock，竞态窗口极小；桌面桩单线程无并发，
+       保持现状不改行为。 */
     /* AUD-1000 B01-023：判定值含本步（走子/翻棋收口前已 moves_since_eat++ /
        total_moves++），即'第 70 步空移完成后'立即读 70 判和，语义='已进行
        70 步无吃子'——与翻棋路径（jq_flip 同序自增）对称，防未来回归改顺序。
@@ -403,6 +468,11 @@ static void stalemate_after(jq_state *st)
        分发 ±1 边界未反汇编确证，evverify 基准即此实现，保持不动。 */
     if (ui_rule_cfg_get(0) &&
         (st->moves_since_eat >= 70 || st->total_moves >= 1000))
+        /* ★ AUD-1000 B01-099（P3 注释，与 B01-002 同源）：双阈值 OR（70 无吃子或 1000 总步）
+           ✓ 语义正确；70 步无吃子阈值从走子开始计（开局 moves_since_eat=0 累加），
+           布阵阶段（STG_SETUP）不累加（走子才累加）✓ 正确；悔棋快照回退可回退
+           moves_since_eat（回退后 70 步进度丢失，悔棋后和棋进度重置合理）无缺陷。
+           B01-002 修后（计数归属标准）本条自动闭合。 */
         jq_on_draw(st);
     /* 困毙判定（0x302b4：无棋可走 → 该方负）。★ AUD-R-036（P2）：显式传
        loser_side=st->turn（此时"无棋可走方"=当前 turn 方，语义与旧版推导一致，
@@ -430,7 +500,13 @@ static void stalemate_after(jq_state *st)
 /* 执行走子。成功返回事件类型；失败返回 -1（不切 turn、不计数，L54）。 */
 int jq_try_move(jq_state *st, int from, int to)
 {
-    /* ★ AUD-R-091/114（P3 NULL 防护统一批）：st NULL → -1（失败契约）。 */
+    /* ★ AUD-R-091/114（P3 NULL 防护统一批）：st NULL → -1（失败契约）。
+       ★ AUD-1000 B01-092（P3 注释）：NULL 守卫仅 10 个公开 API 入口——内部函数
+       （move_legal / rail_path_engineer / rail_path_straight / walkable / stalemate_after）
+       无 st 守卫（依赖入口守卫），分层合理。32 位翻译体（jq_rs_rules.c）无
+       ui_rule_cfg_get（R-138 分叉）亦无统一 NULL 防护批（翻译体自有入口口径），
+       双端防护口径不一致——翻译体补 NULL 守卫同批（R-138 分叉同步义务），
+       rules.c 已落地维持。 */
     if (!st) return -1;
     /* ★ AUD-R-042（P2）：双层防护——入口显式校验 from/to 与 from != to。
        主判定在 jq_can_move（from==to→false），但走子有第二个入口时
@@ -444,6 +520,11 @@ int jq_try_move(jq_state *st, int from, int to)
     if (from == to || from < 0 || from >= N_CELLS || to < 0 || to >= N_CELLS)
         return -1;
     if (!jq_can_move(st, from, to)) return -1;
+    /* ★ AUD-1000 B01-094（P3 注释）：:498 NULL + :504 界检查 + :505 can_move 三层
+       守卫完备（AUD-R-042/083/091 已落地）。:504 界检查重复 can_move 内 :190 界检查
+       （双保险已标注）无功能缺陷，本条核实无缺陷。 */
+    /* ★ AUD-1000 B01-055（P3 注释）：本判定与调用方（ai_pick/replay/BT）前置
+       can_move 幂等重复——为执行器自守卫（第二入口防护），无竞态（单线程规则引擎）。 */
     jq_cell *src = &st->cells[from], *dst = &st->cells[to];
     int sr = rank_of(src);
     int dr_ = rank_of(dst);
@@ -490,7 +571,7 @@ int jq_try_move(jq_state *st, int from, int to)
         int dst_rank = dr_;
         memset(src, 0, sizeof(*src));
         memset(dst, 0, sizeof(*dst));
-        st->pieces_left[me]--;
+        st->pieces_left[me]--;   /* ★ AUD-1000 B01-056（P3 注释）：攻方炸弹消失 -1 */
         /* ★ 对抗审计修正（AUD-R-004 P0）：dst->side 可能是暗棋未定态 0xFF
            （junqi.h SIDE_UNKNOWN）→ pieces_left[255] 越界写 1020 字节外，
            破坏 jq_state 相邻成员。加范围守卫。 */
@@ -501,6 +582,9 @@ int jq_try_move(jq_state *st, int from, int to)
            先手（蓝）池——先手翻子定色语义下 0xFF 暗子归先手（B01-011 同源），
            定色前消失=先手失去 1 子。mines_cleared 不动（非地雷）。 */
         else if (dst_side != me && dst_side == SIDE_UNKNOWN) st->pieces_left[SIDE_BLUE]--;
+        /* ★ AUD-1000 B01-083（P3 注释，与 B01-009 同源）：dst_side=0xFF（未定色）跳过
+           （扣错对象），B01-009 已修（未定色消失计先手池）。本条与 B01-009 同源，
+           B01-009 修后本条自动闭合。 */
         ev = EV_BOMB;
         st->moves_since_eat = 0;   /* ★ AUD-R-107（P3 诚实标注）：4 分支各含一份（炸弹/旗/雷/吃），统一 ate 标记留待下一轮 */
          /* 炸弹炸毁军旗 → 被炸方失去军旗 → 扛旗方（己方 me）胜。
@@ -527,6 +611,9 @@ int jq_try_move(jq_state *st, int from, int to)
         *dst = *src;
         memset(src, 0, sizeof(*src));
         ev = EV_FLAG;
+        /* ★ AUD-1000 B01-096（P3 注释，与 B01-024/064 同源）：攻子覆盖军旗格（军旗消失）
+           + 攻子入位（在大本营格）。正常 EV_FLAG（开关开）终局后军旗覆盖无后续困毙语义 ✓；
+           开关关 B01-024 修后（旗丢失判负显式）本条自动闭合。 */
         if (ui_rule_cfg_get(3)) {
             jq_on_flag_capture(st, me);
             st->turn = 1 - me;
@@ -542,15 +629,18 @@ int jq_try_move(jq_state *st, int from, int to)
                场景（stage=OVER 守卫放行），无实际缺失，留注释备查。 */
             return ev;   /* 终局：跳过后续收口（stage=OVER 守卫也会放行） */
         }
-        st->turn = 1 - me;
+        st->turn = 1 - me;   /* ★ AUD-1000 B01-073（P3 注释，与 B01-003 同源）：flag-off
+           路径 turn/total_moves/moves_since_eat 在 stage=PLAY 下计数（stalemate_after
+           可能判困毙置 OVER），计数漂移与 B01-003 同源（终局后计数无守卫）。 */
         st->total_moves++;
         st->moves_since_eat = 0;
         /* 开关关闭：走子正常收口（困毙判定可在此触发，与 EV_MOVE 一致）。
-           ★ AUD-1000 B01-024 注释纠错：旧注释"RED 只剩 58 军旗不可动"误述——
-           :473 *dst=*src 已将 58 格军旗**覆盖**为攻子（军旗格已无军旗），
+           ★ AUD-1000 B01-024 注释纠错（P3）：旧注释"RED 只剩 58 军旗不可动"误述——
+           :527 *dst=*src 已将 58 格军旗**覆盖**为攻子（军旗格已无军旗），
            flag-off 路径实际困毙靠：攻子冻结在 58（:202 大本营源格不可再动）
            + 守方其余子无合法着法 → stalemate_after 判 RED 困毙。
-           非"军旗消失判负"（开关关闭语义 = 走子收口，胜负靠困毙收口）。 */
+           非"军旗消失判负"（开关关闭语义 = 走子收口，胜负靠困毙收口）。
+           若原版旗开关关闭语义是"军旗被覆盖→守方判负"需 SPEC 定案，本轮不改行为。 */
         stalemate_after(st);
         return ev;
     } else if (dr_ == RANK_MINE) {
@@ -570,6 +660,9 @@ int jq_try_move(jq_state *st, int from, int to)
             /* AUD-1000 B01-009 同源（地雷分支）：暗棋未定色地雷（dst_side=0xFF）
                被工兵挖除后该子消失无计数对象 → 归先手（蓝）池（同炸弹分支语义） */
             if (dst_side == SIDE_UNKNOWN) st->pieces_left[SIDE_BLUE]--;
+            /* ★ AUD-1000 B01-084（P3 注释，与 B01-009 同源）：暗棋未定色雷（side=0xFF）
+               被工兵挖除后该子消失无计数对象 → 归先手池（同炸弹分支语义）。
+               明棋雷 side 恒 0/1 恒扣减 ✓ 无缺陷。 */
             /* ★ AUD-R-040（P2）：计数对象用 dst->side（原子的实际归属方）而非 1-me
                （对方）。暗棋未定色暗子（side=SIDE_UNKNOWN）时 1-me 会扣错对象；
                地雷本非"可动子"（AUD-R-014），SIDE_VALID 范围守卫与 EV_BOMB 分支一致。 */
@@ -601,24 +694,39 @@ int jq_try_move(jq_state *st, int from, int to)
         if (sr < dr_) {              /* 大压小：src 吃 dst */
             *dst = *src;
             memset(src, 0, sizeof(*src));
-            st->pieces_left[1 - me]--;
+            /* ★ AUD-1000 B01-057（P1 已修）：统一 dst->side 口径（原 1-me 推导入手方，
+               暗棋未定色 0xFF dst 时 1-me 仍合法 0/1 下标但扣错对象）；
+               SIDE_VALID(dst->side) 守卫防 0xFF 越界，未定色消失子归先手池（B01-009 同源）。 */
+            if (SIDE_VALID(dst->side))
+                st->pieces_left[dst->side]--;
+            else if (dst->side == SIDE_UNKNOWN)
+                st->pieces_left[SIDE_BLUE]--;
             ev = EV_EAT;
         } else if (sr > dr_) {      /* src 被吃 */
             memset(src, 0, sizeof(*src));
-            st->pieces_left[me]--;
+            st->pieces_left[me]--;   /* ★ AUD-1000 B01-058（P3 注释）：攻子消失 减攻方计数（经 SIDE_VALID 守卫 me∈{0,1}）
+               ★ AUD-1000 B01-085（P3 注释，与 B01-057 同源）：攻方扣减用 me/1-me 推导
+               非 dst side，与 :536 EV_EAT 守方扣减口径分叉（AUD-R-040 已指出）。
+               B01-057 统一 dst->side 口径后本条自动闭合。
+               ★ AUD-1000 B01-095（P3 注释，与 B01-022 同源）：EV_DEAD 分支不扣守方
+               （雷）pieces_left（雷存活）✓ 正确（送死攻方死雷留），攻方扣减口径正确。
+               B01-022 修后（EV_DEAD 不清零）本条自动闭合。 */
             ev = EV_DEAD;
         } else {                    /* 同级同归于尽（军棋标准：同级互杀） */
             memset(src, 0, sizeof(*src));
             memset(dst, 0, sizeof(*dst));
             st->pieces_left[me]--;
-            st->pieces_left[1 - me]--;
+            st->pieces_left[1 - me]--;   /* ★ AUD-1000 B01-086（P3 注释）：同级互杀攻防跨方 1-me=守方 */
             ev = EV_BOMB;
         }
         st->moves_since_eat = 0;
     }
     /* ★ AUD-1000 B01-003（P0 已修）：终局（stage=OVER，EV_BOMB/FLAG 撞旗判胜）
        不再切 turn——旧实现终局快照 turn 指向胜方（1-me），战况统计/AI 误读
-       "胜方当前回合"。非终局路径行为 0 变化（stage!=OVER 才切）。 */
+       "胜方当前回合"。非终局路径行为 0 变化（stage!=OVER 才切）。
+       ★ AUD-1000 B01-074（P3 注释，与 B01-003 同源）：EV_BOMB 非旗同归（无终局）
+       落本分支切 turn ✓ 正确（非终局正常切）；EV_BOMB 撞旗 :509-512 置 OVER 后
+       stage!=STG_PLAY 不切 ✓（B01-003 修后自动闭合）。 */
     if (st->stage == STG_PLAY) {
         st->turn = 1 - me;
         st->total_moves++;
@@ -643,11 +751,16 @@ bool jq_can_flip(const jq_state *st, int idx)
        （"地雷暗棋不可翻"），两实现不一致。修法（统一 is_flippable(c) 谓词，
        军旗+地雷均不可翻）留待下一轮。 */
     if (idx < 0 || idx >= N_CELLS || st->stage != STG_PLAY) return false;
+    /* ★ AUD-1000 B01-093（P3 注释）：idx 界检查在 st->cells[idx] 访问前 ✓ 无越界，
+       界检查与 st NULL 守卫（:722）口径一致（先 NULL 后界）。本条核实无缺陷。 */
     const jq_cell *c = &st->cells[idx];
     /* ★ AUD-R-110（P3 已修）：空/已翻判断前置（原 rank_norm 先求值再判空，
        逻辑无害但顺序反直觉；rank_norm(0)==0==RANK_EMPTY 无害，仅为可读性调整）。 */
     if (c->rank == RANK_EMPTY || c->revealed) return false;
     int r = rank_of(c);
+    /* ★ AUD-1000 B01-075（P3 注释）：军旗位置由布局定（jq_load_layout/jq_dark_setup
+       写军旗格），非翻时泄露。未翻暗子的 rank 由 rank_of 按 c->side 还原（不写回），
+       本拦截正确（军旗不可翻）。 */
     if (r == RANK_FLAG) return false;   /* 军旗不可翻（§15：from==to 永假） */
     /* ★ AUD-R-111（P3 诚实标注）：side==0xFF（未定色）可翻分支描述的行为在当前
        装载路径（jq_dark_setup 写死 side 分区）下**不可达**（实测 0 个 0xFF 格）
@@ -657,6 +770,9 @@ bool jq_can_flip(const jq_state *st, int idx)
        旧实现 0xFF 恒可翻（无回合门），后手（红）回合可翻先手暗子并 jq_flip 定色
        写 st->turn（RED）→ 先手暗子池被后手"抢定色"，先手翻子定色规则被绕过。
        定色归翻子方，0xFF 定色仅先手（蓝）可触发。 */
+    /* ★ AUD-1000 B01-076（P3 注释，与 B01-013 同源）：0xFF 子先走本分支（仅先手蓝可翻），
+       绕过 :675 回合同期门（side==turn）——0xFF 定色无回合约束，B01-013 已修（仅先手
+       可触发）。本条与 B01-013 同源，B01-013 修后本条自动闭合。 */
     if (c->side == 0xFF) return st->turn == SIDE_BLUE;
     /* ★ 回合校验：己方暗子（side==turn）可翻；敌方暗子（side!=turn）不可翻。
        缺失此校验 → 任意回合可翻任意方暗子，破坏暗棋回合交替。
@@ -678,13 +794,23 @@ bool jq_flip(jq_state *st, int idx)
        在 UI 侧，留待下一轮。 */
     if (!jq_can_flip(st, idx)) return false;
     jq_cell *c = &st->cells[idx];
-    /* 暗棋先手翻子定色（ruleflip 原文：先手翻出第一个棋子确定该玩家持此颜色） */
+    /* 暗棋先手翻子定色（ruleflip 原文：先手翻出第一个棋子确定该玩家持此颜色）
+       ★ AUD-1000 B01-059（P3 注释）：定色读切换前 turn=翻子方（:717 st->turn 未切换），
+       定色归翻子方非对方（新 turn），语义正确。 */
     if (c->side == SIDE_UNKNOWN) c->side = st->turn;
     c->revealed = 1;
     st->turn = 1 - st->turn;
     st->total_moves++;
     st->moves_since_eat++;
-    /* ★ AUD-R-008（P1）：翻棋路径与走子路径对称收口（和棋+困毙）。
+    /* ★ AUD-1000 B01-060（P3 注释）：翻棋计入 70/1000 步阈值（AUD-R-086 已标注）——
+       翻棋无吃子（moves_since_eat 不在此清零），翻棋累积 70 步无吃子（无走子吃子
+       介入）判和，与"走子 70 步"同源阈值但翻棋节奏（每步翻 1 子）远快于走子
+       （走子可能 60 格滑行）→ 暗棋翻牌主导和棋（AUD-R-086 已标注）。
+       SPEC 待明文"翻棋计入 70/1000 步阈值"（消除"依据无"状态）。 */
+    /* ★ AUD-1000 B01-087（P3 注释）：翻棋收口判对方（新 turn）困毙与走子同口径。
+       翻棋定色方（旧 turn）的子刚定色可能立即可动（定色后己方子解锁），但
+       stalemate_after 判对方（新 turn）困毙——定色方可动性不在收口检查（对方困毙才判）。
+       ★ AUD-R-008（P1）：翻棋路径与走子路径对称收口（和棋+困毙）。
        原版 game_logic.c:309 的 jq_flip 末尾 check_stalemate(st) 同款语义。
        ★ AUD-R-109（P3 注释确认）：和棋判定（stalemate_after 内）带 st->stage==STG_PLAY
        前置守卫（:317），jq_flip 入口 jq_can_flip 已校验 stage，双守卫行为 0 变化。 */
@@ -704,6 +830,9 @@ bool jq_side_stalemated(const jq_state *st, uint8_t side)
     /* ★ AUD-R-091/114（P3 NULL 防护统一批）：st NULL → false（未困毙）。 */
     if (!st) return false;
     if (st->stage != STG_PLAY || st->winner >= 0) return false;
+    /* ★ AUD-1000 B01-077（P3 注释）：winner>=0 含 DRAW(2) 全终局拒收——
+       winner=JQ_WIN_NONE(-1) 时 -1>=0 假放行正常扫描；winner=2(DRAW 已判和) 时
+       2>=0 真拒收；winner=0/1(蓝胜/红胜) 时 0>=0/1>=0 真拒收。本条核实无缺陷。 */
     /* 还有未翻暗子可翻 → 未困毙
        ★ AUD-R-073（P2）：排除地雷（rank_norm==RANK_MINE）——地雷翻了也不能走子
        （RANK_MINE 在下方"已翻可动"循环被 continue），"可翻"检查须与可动性一致，
@@ -717,6 +846,9 @@ bool jq_side_stalemated(const jq_state *st, uint8_t side)
         if (c->rank != RANK_EMPTY && !c->revealed &&
             cn != RANK_FLAG && cn != RANK_MINE &&
             (c->side == 0xFF ? side == SIDE_BLUE : c->side == side))
+            /* ★ AUD-1000 B01-089（P3 注释，与 B01-011 同源）：0xFF 子仅先手计未困毙
+               （B01-011 已修：扫红方时 0xFF 子被误计红方，现 0xFF 子仅先手侧计）。
+               本条与 B01-011 同源，B01-011 修后本条自动闭合。 */
             return false;
     }
     /* 有已翻可动子且存在合法目标 → 未困毙 */
@@ -728,6 +860,9 @@ bool jq_side_stalemated(const jq_state *st, uint8_t side)
         /* ★ AUD-R-005：必须用忽略回合的版本（否则 side≠turn 时恒 false → 困毙误报）
            ★ AUD-R-074（P2 已修，随 R-005 关闭）：jq_side_stalemated 已参数化
            can_move_ignore_turn（turn=-1），不再依赖 side==st->turn 耦合，本项关闭。 */
+        /* ★ AUD-1000 B01-078（P3 注释）：内层纯读判定（can_move_ignore_turn 只读
+           不写，无 stalemate_after 触发）——t!=i 拦同格走子（from==to），
+           move_legal :188 拦，双保险。 */
         for (int t = 0; t < N_CELLS; t++)
             if (t != i && can_move_ignore_turn(st, i, t)) return false;
     }
@@ -738,10 +873,17 @@ bool jq_side_stalemated(const jq_state *st, uint8_t side)
 /* ★ AUD-R-012/013（P1）已修：删除空壳 jq_undo_snapshot()/jq_snapshots_left()。
    悔棋栈唯一实现 = jni_bridge.c g_undo[UNDO_MAX]（undo_push/undo_pop）；
    蓝牙 UNDO 闸口 = jq_bt_undo_available()（读真实栈深）。
-   保留 jq_undo_restore（*st = *snap，真实可用）。 */
+   保留 jq_undo_restore（*st = *snap，真实可用）。
+   ★ AUD-1000 B01-025（P3 注释确认）：snapshot/restore 契约不对称（restore 有效、
+   无公开 snapshot）已随 AUD-R-012/013 删除空壳关闭——调用方按 junqi.h 契约
+   "先 snapshot 再 restore" 的路径已不存在（API 已删），悔棋由调用方栈实现
+   （jni_bridge g_undo 栈 + 蓝牙 UNDO 闸口），与 AUD-R-012/113 同源。 */
 void jq_undo_restore(jq_state *st, const jq_state *snap)
 {
     if (!st || !snap) return;   /* ★ AUD-R-091 同批：NULL 防护 */
+    /* ★ AUD-1000 B01-090（P3 注释）：若 st 与 snap 内存重叠（调用方误传 snap=st）→
+       memcpy 自拷未定义但 C 结构赋值同指针为自拷（UB 但实践恒等）。
+       正常调用点（jni_bridge g_undo 栈不同内存）无重叠，保持现状不改行为。 */
     *st = *snap;
     /* ★ AUD-1000 B01-008（P0 已修）：悔棋恢复入口钳制 mines_cleared 下界——
        损坏快照可注入负值（合法走子链快照恒 >=0），负值在 :242 扛旗门槛
@@ -759,6 +901,12 @@ void jq_on_flag_capture(jq_state *st, uint8_t captor_side)
     if (!st) return;
     /* ★ AUD-R-035（P2）：已终局则忽略（防测试钩子/外部调用改写终局 winner）。 */
     if (st->stage != STG_PLAY) return;
+    /* ★ AUD-1000 B01-064（P3 注释）：终局函数原子性缺口——调用方 jq_try_move EV_FLAG
+       分支在 *dst=*src（攻子入位）之后调用本函数，若 stage 已 OVER（由他路径
+       如 EV_BOMB 撞旗先置）则本函数拒收但攻子入位不回滚（AUD-R-083 注释"所有状态
+       变更在 can_move 之后"指 can_move 通过之后，不指终局函数内部）。
+       双终局叠加场景（先 EV_BOMB 撞旗置 OVER 后 EV_FLAG 扛旗）攻子入位不回滚。
+       修法：攻子入位前快照攻格（回滚用），或 stage 检查前移，留待下一轮。 */
     /* ★ AUD-R-054（P2）：前置守卫——吃旗方必须合法（SIDE_VALID），防御非法侧
        值污染 winner（int8_t 会存 0xFF/越界值）。 */
     if (!SIDE_VALID(captor_side)) return;
@@ -769,7 +917,11 @@ void jq_on_flag_capture(jq_state *st, uint8_t captor_side)
        后续收口守卫（stage!=PLAY）放行；stalemate_after/和棋判定对终局无效。 */
     /* ★ AUD-R-054（P2）：被吃方旗计数扣减（旗是普通子之一；flag 被吃时该方
        pieces_left 同步 -1，与 EV_BOMB/EV_DEAD 分支的 pieces_left 维护风格一致。
-       AUD-R-014 注：pieces_left 统计未完全接线，此扣减仅保持字段一致性）。 */
+       AUD-R-014 注：pieces_left 统计未完全接线，此扣减仅保持字段一致性）。
+       ★ AUD-1000 B01-026（P3 注释确认）：终局后 pieces_left 继续变化无守卫——
+       本扣减在 stage=OVER 后置（:776-777），终局快照计数字段不冻结，与
+       EV_BOMB/EV_DEAD 分支的递减风格一致（AUD-R-014 同源）。
+       SIDE_VALID(captor_side) 守卫（:774）保证 1-captor_side∈{0,1} 下标安全。 */
     st->pieces_left[1 - captor_side]--;
 }
 
@@ -779,6 +931,10 @@ void jq_on_draw(jq_state *st)
     if (!st) return;
     /* ★ AUD-R-035（P2）：已终局则忽略。 */
     if (st->stage != STG_PLAY) return;
+    /* ★ AUD-1000 B01-065（P3 注释）：无 winner==JQ_WIN_NONE 前置——外部脏 winner
+       （0/1 由其他路径误置）+ stage=PLAY 时本函数覆盖脏值无告警。
+       正常路径 winner 恒 JQ_WIN_NONE（-1）直到终局，stage!=PLAY 守卫已覆盖
+       终局后调用。脏 winner + stage=PLAY 场景需外部误写（非正常路径），保持现状不改行为。 */
     st->winner = JQ_WIN_DRAW;        /* 和（0x30280） */
     st->stage = STG_OVER;
 }
@@ -801,7 +957,13 @@ void jq_on_stalemate(jq_state *st, uint8_t loser_side)
     /* AUD-1000 B01-027：入口拒非法 loser_side（旧 &1 掩码静默降级任意 uint8_t 为
        合法 0/1 winner，调用方无法感知传参错误；&1 保留作双保险） */
     if (!SIDE_VALID(loser_side)) return;
-    st->winner = 1 - (loser_side & 1);   /* 无棋可走方负，对方胜（&1 防 turn>1 时 winner 为负） */
+    /* ★ AUD-1000 B01-066（P3 注释）：与 B01-065 同源——无 winner==JQ_WIN_NONE 前置，
+       外部脏 winner + stage=PLAY 时覆盖无告警。stage!=PLAY 守卫（:795）覆盖终局后
+       调用；脏 winner + stage=PLAY 场景需外部误写，保持现状不改行为。 */
+    st->winner = 1 - (loser_side & 1);   /* 无棋可走方负，对方胜（&1 防 turn>1 时 winner 为负）
+       ★ AUD-1000 B01-091（P3 注释，与 B01-027 同源）：对 loser∈{0,1} 正确
+       （蓝困毙红胜 1-0=1、红困毙蓝胜 1-1=0）；脏 side 静默降级 B01-027 已修
+       （SIDE_VALID 拒收脏 side）。本条与 B01-027 同源，B01-027 修后本条自动闭合。 */
     st->stage = STG_OVER;
 }
 
@@ -822,17 +984,31 @@ void jq_on_stalemate(jq_state *st, uint8_t loser_side)
    ★ AUD-1000 B01-031（P1 诚实标注）：炸弹撞旗（r=10<dr=12）命中 1000 分（'吃子最高分'），
      语义上是'同归胜局'而非'净吃'——原版 0x55d40 单步贪心无价值维度，无炸弹/旗专项权重，
      保持 1000 对齐原版（若 SPEC 定案'同归+胜局组合权重'需改 800+win_bonus，留待下一轮）。
+     ★ AUD-1000 B01-030（P1 已修）：炸弹撞雷（dr=RANK_MINE, r=RANK_BOMB）评 800（同归分），
+     旧实现评 1（送死）导致 AI 避免炸弹撞雷——但规则上炸弹撞雷双方同归（EV_BOMB 800 语义），
+     现修正为 800 对齐 EV_BOMB 事件码。ai_selftest.c 无炸弹撞雷用例（仅工兵撞雷 700 +
+     普通子撞雷 1），基准不受影响。
    ★ AUD-1000 B01-032（P1 诚实标注）：同级普通子互杀（如排长 vs 排长）返回 900（同级分）
      但事件码走 EV_BOMB（JQ_EVENT_NAMES[2]="Junqi.Bomb"）——音效播'炸弹'声而非'同级互杀'。
      原版 0x55d40 同码同源（AUD-R-062），区分需扩事件码（0-6 已满 7 项）同步 jni_bridge 计数，
      留待 SPEC 定案。 */
 int ai_score(int src_rank_raw, int dst_rank_raw, int dst_revealed)
 {
-    /* AUD-1000 B01-028/B01-063：负数 rank 域统一拦截（rank 存储域 0-255 合法，
+    /* AUD-1000 B01-028/B01-063/B01-062：负数 rank 域统一拦截（rank 存储域 0-255 合法，
        负数为脏输入 → 空源哨兵 -2，与调用方 ai_pick 外层过滤同语义）。
+       入参 int（非 uint8_t）——调用方 :278 传 c->rank（uint8_t 自动升 int ✓）、
+       :88 rank_norm(d->rank)（int ✓），负数入参（如 -1 哨兵传 raw）走本拦截路径。
        旧实现 rank_norm(负数) 返回负数参与比较 = 未定义行为。 */
     if (src_rank_raw < 0 || dst_rank_raw < 0) return -2;
     int r = rank_norm(src_rank_raw);
+    /* ★ AUD-1000 B01-029（P1 诚实标注，SPEC 定案后改行为）：ai_score 入参为
+       裸 rank_norm（非 side 感知 rank_of）——蓝方 rank>12 脏值（13）被 rank_norm
+       还原为 1（司令），AI 基于脏数据决策。调用方 jni_bridge :278 传 c->rank
+       （uint8_t 自动升 int），蓝方正常布局 rank∈[0,12] 无脏值；蓝方脏值仅
+       BT SYNC_CELL 注入 / 存档损坏时可达（AUD-R-047 同源）。修法：ai_score
+       改 (side, raw) 双参走 rank_of 侧感知还原，调用方 ai_pick 传入前对蓝方
+       侧 rank>12 做非法过滤。签名改动影响 ai_selftest.c 全部用例 + jni_bridge
+       调用点，需同步 evverify 基准（蓝方脏值用例新增），留待下一轮。 */
     /* ★ AUD-R-057（P2）：空源（rank=0）返回哨兵 -2，与非法着法区分
        （原返回 2 与合法空移同分，调用方无法识别"源格为空"这种非法输入）。
        当前调用方 ai_pick 靠外层 c->rank==RANK_EMPTY 过滤不会传 0，本守卫为函数自身契约。
@@ -842,12 +1018,18 @@ int ai_score(int src_rank_raw, int dst_rank_raw, int dst_revealed)
        （钳位后=12 走 RANK_FLAG 分支返回 -1）为正确降级，无需额外哨兵。
        若原版 0x55d40 对非法 rank 有独立评分分支，需专项逆向确认。 */
     if (src_rank_raw == 0) return -2;
+    /* ★ AUD-1000 B01-079（P3 注释）：评分收表——1000 吃子 / 900 同级 / 800 炸弹 /
+       700 工兵挖雷 / 2 空移 / 1 送死 / -1 旗雷不可走 / -2 空源。
+       B01-030 已修炸弹撞雷=800；同级炸弹 900 已标注（AUD-R-060）维持。 */
     if (r == RANK_FLAG || r == RANK_MINE) return -1;
     /* ★ AUD-R-010（P1）：暗棋目标未翻开（dst_revealed=0 且非空格）→ 评分上限降为空移级
        sc=2，不按真 rank 透视敌子（旧版 ai_score 入参只有 2 个 rank，暗棋下 AI 直接读
        未翻暗子真 rank 给出 1000/900/800 分 = 自带透视，与 ruleflip 信息博弈前提冲突）。
        明棋路径 dst 恒 revealed=1，行为不变；暗棋翻棋后 revealed=1 再走真评分。 */
     if (dst_rank_raw && !dst_revealed) return 2;
+    /* ★ AUD-1000 B01-080（P3 注释，AUD-R-059 同源）：空格（dst_rank_raw=0）与未翻子
+       同评 2 分（不区分目标是否空格）——AI 不偏好空格（实际空格可进，未翻子可能拦）。
+       如需区分空格 2 分 vs 未翻 1 分需改本行返 1，改变基准，留待 SPEC 定案。 */
     /* ★ AUD-R-093（P3 已修）：has_dst 归并两次 dst_rank_raw 判定（原 dr 计算与
        紧随其后的 if 是同一判定的两处表达，易改一漏一）。 */
     bool has_dst = (dst_rank_raw != 0);
@@ -860,7 +1042,11 @@ int ai_score(int src_rank_raw, int dst_rank_raw, int dst_revealed)
            → ③ 同级互杀 r==dr（含炸弹撞炸弹=900，AUD-R-060）
            → ④ 炸弹撞普通子(rank 1-9)同归 800 → ⑤ 送死 1。
            **数值与原 else-if 链逐例 0 变化**（1000/900/800/700/2/1 不变）。 */
-        if (dr == RANK_MINE) return (r == RANK_WORKER) ? 700 : 1;
+        if (dr == RANK_MINE) {
+            if (r == RANK_WORKER) return 700;   /* 工兵挖雷 */
+            if (r == RANK_BOMB)   return 800;   /* ★ AUD-1000 B01-030（P1 已修）：炸弹撞雷双方同归（EV_BOMB 800 语义） */
+            return 1;                            /* 普通子撞雷送死 */
+        }
         /* ② 大压小：能吃（炸弹撞旗 10<12 也在此命中=1000，保持原行为） */
         if (r < dr)          return 1000;
         /* ③ 同级互杀（炸弹撞炸弹=900，AUD-R-060） */

@@ -47,7 +47,10 @@ void ui_rule_dark_set(int v) { g_rule_dark_stub = v ? 1 : 0; }
 int ui_rule_cfg_get(int which)
 {
     /* AUD-1000 B07-040：case 3（吃军旗开关）补全 + case 4 走暗棋桩变量
-       （旧：case 3 走 default 返 g_rf 碰巧正确；case 4 硬编码 1 不可改） */
+       （旧：case 3 走 default 返 g_rf 碰巧正确；case 4 硬编码 1 不可改）。
+       ★ AUD-1000 B01-020（P3 注释）：旧硬编码 1 已随 B07-040 修为走
+       ui_rule_dark_get()（可 ui_rule_dark_set 改），桌面桩可关闭暗棋规则族。
+       evverify 暗棋用例可验证"暗棋开关关→明棋语义"路径。 */
     switch (which) {
       case 0: return g_rd;
       case 1: return g_rh;
