@@ -290,16 +290,37 @@ int JQ_RS_DEF jq_try_move(jq_state *st, int from, int to)
         memset(src, 0, sizeof(*src));
         memset(dst, 0, sizeof(*dst));
         st->pieces_left[me]--;
-        if (dst->side != me) st->pieces_left[dst->side]--;
+        /* AUD-1000 B05-090（32 位侧 64 位同步修复）：dst->side=0xFF（暗棋未定色暗子）
+           时 pieces_left[255] 越界写 1020B（SIDE_VALID 守卫同 64 位 rules.c :478）。 */
+        if (dst->side != me && SIDE_VALID(dst->side)) st->pieces_left[dst->side]--;
         ev = EV_BOMB;
         st->moves_since_eat = 0;
     } else if (dr_ == RANK_FLAG) {
-        /* 吃旗胜：任何棋子都能扛军旗（0x30260 → Junqi.Flag） */
+        /* 吃旗胜：任何棋子都能扛军旗（0x30260 → Junqi.Flag）
+           AUD-1000 B05-093（32 位侧 64 位同步修复）：炸弹撞旗 → 同归双方消失，
+           扛旗方（me）胜；守卫 SIDE_VALID(dst->side) 同 64 位 rules.c。 */
+        if (sr == RANK_BOMB) {
+            int dst_side = dst->side;
+            memset(src, 0, sizeof(*src));
+            memset(dst, 0, sizeof(*dst));
+            st->pieces_left[me]--;
+            if (dst_side != me && SIDE_VALID(dst_side)) st->pieces_left[dst_side]--;
+            ev = EV_BOMB;
+            st->moves_since_eat = 0;
+            /* 炸弹炸旗 → 被炸方失去军旗 → 扛旗方胜
+               AUD-1000 B01-003 同源（32 位侧同步）：终局（stage=OVER）后不再切
+               turn，旧实现终局快照 turn 指向胜方（战况统计误读）。 */
+            if (SIDE_VALID(dst_side)) jq_on_flag_capture(st, me);
+            if (st->stage == STG_PLAY) st->turn = 1 - me;
+            st->total_moves++;
+            return ev;
+        }
         *dst = *src;
         memset(src, 0, sizeof(*src));
         ev = EV_FLAG;
         jq_on_flag_capture(st, me);
-        st->turn = 1 - me;
+        /* AUD-1000 B01-003 同源：终局后不再切 turn */
+        if (st->stage == STG_PLAY) st->turn = 1 - me;
         st->total_moves++;
         st->moves_since_eat = 0;
         return ev;

@@ -22,6 +22,10 @@
 
 #define SIDE_BLUE 0
 #define SIDE_RED  1
+/* AUD-1000 B05-090：side 范围守卫宏（与 64 位 junqi.h 同源）——
+   暗棋未定色 0xFF 作为 pieces_left[] 下标越界写 1020B，须范围守卫。 */
+#define SIDE_UNKNOWN 0xFF
+#define SIDE_VALID(s) ((s) == SIDE_BLUE || (s) == SIDE_RED)
 
 /* ---- 棋盘几何（原版 L68 十字铁路 / L79 12×5）----
    12 行 × 5 列；蓝方 row0-5（row0 底线含大本营 col1/3），红方 row6-11。

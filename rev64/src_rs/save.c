@@ -94,5 +94,11 @@ int jq_save_game_read(const char *path, jq_state *st)
     /* ★ AUD-R-049/041（P2）：整结构读取（与写侧同版 sizeof） */
     if (fread(st, 1, SJG_STATE_BYTES, f) != SJG_STATE_BYTES) { fclose(f); return 0; }
     fclose(f);
+    /* AUD-1000 B01-037：读档后 pieces_left 可为负（旧版游戏存档序列化了
+       增量递减未钳制的脏值），下界钳 0 防止负值进规则引擎/AI 评分。 */
+    for (int i = 0; i < 2; i++)
+        if (st->pieces_left[i] < 0) st->pieces_left[i] = 0;
+    for (int i = 0; i < 2; i++)
+        if (st->mines_cleared[i] < 0) st->mines_cleared[i] = 0;
     return 1;
 }

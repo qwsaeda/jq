@@ -672,7 +672,10 @@ int jq_try_move(jq_state *st, int from, int to)
                ★ AUD-R-015（P1）：mines_cleared 仅记录——"工兵挖 3 雷才能扛旗"
                胜负判定未接线（待暗棋规则族实现，见 AUD-R-002 修法；
                保留数据供后续暗棋族使用，勿删除该字段）。 */
-            st->mines_cleared[me]++;
+            /* AUD-1000 B01-036：mines_cleared 仅暗棋模式递增——明棋（mode=LAY）无
+               '挖 3 雷扛旗'语义，旧实现在明棋下也无意义递增（数据噪音，消费点
+               :287 暗棋门槛恒不触发但字段值漂移，存档序列化脏值）。 */
+            if (st->mode == JQ_MODE_FLIP) st->mines_cleared[me]++;
             /* AUD-1000 B01-008：挖雷攻方（工兵）消失也须 pieces_left[me]--，
                与 EV_DEAD 送死（:574 攻方--）计数对象对称。me 已经入口
                SIDE_VALID 守卫（恒 0/1），下标安全。 */

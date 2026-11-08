@@ -205,8 +205,28 @@ static void jq_bt_test_run(jq_state *st, const char *tag);  /* 蓝牙帧状态�
 #define UNDO_MAX 128
 static jq_state g_undo[UNDO_MAX];
 static int g_undo_top = 0;
-static void undo_push(void) { if (g_undo_top < UNDO_MAX) { g_undo[g_undo_top++] = g_state; LOGI("undo_push：top=%d turn=%d", g_undo_top, g_state.turn); } }
-static int undo_pop(void) { if (g_undo_top <= 0) return 0; g_state = g_undo[--g_undo_top]; LOGI("undo_pop：top=%d turn=%d", g_undo_top, g_state.turn); return 1; }
+/* ★ AUD-1000 B03-011/B03-034/B03-035（P1 已修）：悔棋栈 push/pop 契约——
+   push 成功(栈未满)返回 1 / 栈满拒绝返回 0；调用方必须 `if (undo_push())`
+   守卫，仅成功 push 后才可在失败路径 `undo_pop_discard()` 平衡栈顶。
+   LOGI 降级为每 8 次 1 条（锁内高频 pop 循环降噪，B03-035）。 */
+static int undo_push(void) {
+    if (g_undo_top >= UNDO_MAX) { LOGI("undo_push：栈满（top=%d）拒绝（AUD-1000 B03-011 契约：调用方 if 守卫）", g_undo_top); return 0; }
+    g_undo[g_undo_top++] = g_state;
+    static int up_log_cnt = 0;
+    if ((up_log_cnt++ % 8) == 0) LOGI("undo_push：top=%d turn=%d", g_undo_top, g_state.turn);
+    return 1;
+}
+static int undo_pop(void) {
+    if (g_undo_top <= 0) return 0;
+    g_state = g_undo[--g_undo_top];
+    static int up_log_cnt = 0;
+    /* ★ AUD-1000 B03-035（P1 已修）：LOGI 每 8 次 1 条（锁内 while-pop 循环降噪，
+       终止条件覆盖 stage 变化（!STG_PLAY break）+ 栈空（undo_pop 返 0 停），无死循环） */
+    if ((up_log_cnt++ % 8) == 0) LOGI("undo_pop：top=%d turn=%d", g_undo_top, g_state.turn);
+    return 1;
+}
+/* 栈满场景的 pop 对偶：仅平衡 top（丢弃栈顶快照），不改 g_state（B03-011）。 */
+static void undo_pop_discard(void) { if (g_undo_top > 0) g_undo_top--; }
 
 /* ★ AUD-R-013（P1）：蓝牙 UNDO 帧可用的悔棋步数（rules.c 声明、bt_session.c 消费）。
    实际悔棋栈 = g_undo/g_undo_top（本文件 static，跨文件不可见）→
@@ -225,7 +245,10 @@ int jq_bt_undo_available(void)
    防"改一处漏五处"不一致：load_layout + 明棋/暗棋（★ 选项 UI 模式）+ 清 undo +
    stage=PLAY + 蓝先手 + 清胜负。
    ★ 模式（本轮）：ui_opt_get_mode()==0 布局=明棋 revealed=1；1 翻棋=暗棋 revealed=0。
-   调用方需已持有 g_mutex（OnUpdate/OnTouch 锁内；OnCreate 单线程无需锁）。 */
+   调用方需已持有 g_mutex（OnUpdate/OnTouch 锁内；OnCreate 单线程无需锁）。
+   ★ AUD-1000 B03-037（P1 已注释）：锁内读 __system_property_get("jq.mode") +
+     ui_opt_get_mode（g_ui_lock）——g_mutex→g_ui_lock 单向嵌套（锁序正确），
+     低频属性读接受锁内（防调用点改造面），不移动。 */
 static void jq_restart_game(void)
 {
     int dark = ui_opt_get_mode() == 1;   /* ★ 选项 UI：翻棋模式 = 暗棋开局 */
@@ -245,6 +268,11 @@ static void jq_restart_game(void)
     g_state.winner = JQ_WIN_NONE;   // AUD-R-053：winner 未定哨兵
     g_state.moves_since_eat = 0;
     g_state.total_moves = 0;
+    /* ★ AUD-1000 B03-074（P1 已修）：重开补清 mines_cleared/pieces_left（旧版残留
+       上局值——rules.c 按 layout 重建 cells 但这两个 2 维统计不自愈，minetest
+       注入 L1288 幂等范式同款；pieces_left 统计随 jq_try_move 路径自然重建，
+       清 0 保证开局首步判定基准一致）。 */
+    for (int ri = 0; ri < 2; ri++) { g_state.mines_cleared[ri] = 0; g_state.pieces_left[ri] = 0; }
     ui_replay_init();   /* ★ P1（datah_039/107）：重开清复盘走子记录 + 重新提取开局布局 */
     jq_touch_state_init(&g_ts);
 }
@@ -345,6 +373,15 @@ static jmethodID g_f_ctor_sfx = NULL;     /* File(String) */
 
 /* ★ 功能设置（☰ 菜单 action=4）：音效开关。sfx_play 顶部门控。 */
 static int g_sound_on = 1;
+/* ★ AUD-1000 B03-026/B03-097（P1 已修）：
+   B03-026：sfx_play_file 入口的 fopen 存在性探测缓存——同一 path 的 fopen/fclose
+   fd 抖动（高频 pop/select）用 static last-hit 表免重复 open（首次仍探测）。
+   B03-097：g_sound_on 双写源（文件 load vs 静音按钮派生）语义冲突标注：
+   当前实现=静音按钮派生值在"确定"时经 sfx_sound_save 落盘覆盖文件值，
+   单一源=ui_snd_mute（文件仅持久化容器，load 后首帧前无按钮操作则按钮态=文件态，
+   不冲突；冲突窗口=用户按静音但未点"确定"就重启 → load 读旧值，标注诚实边界）。 */
+static volatile int g_sfx_probe_ok = 0;
+static char g_sfx_probe_path[320];
 
 /* ★ 按键功能对齐：Java AlertDialog（游戏规则/战况统计/软件信息/联网/联机）。
    调用 com.cnvcs.App.showInfo(String,String)（App.smali 静态方法，AlertDialog 显示）。 */
@@ -401,7 +438,10 @@ static void jq_bt_start(JNIEnv *env, int host)
    发送前二次校验：镜像断开 → 降 LOGI 为"未连接被拒（诚实边界）"。
    未推设备 bstate 钩子前（当前），g_bt_connected 恒 0 → 所有发送
    都打"未连接被拒"，行为上比假成功更诚实（调用方 logcat 可诊断）。 */
-static int g_bt_connected = 0;   /* Java 侧连接态镜像（OnBluetooth 帧解析时更新） */
+static int g_bt_connected = 0;   /* Java 侧连接态镜像（OnBluetooth 帧解析时更新）
+   ★ AUD-1000 B03-019（P1 已注释）：普通 int 跨线程镜像（BtSpp 读线程 vs 主线程），
+   int 单值写在 32/64 位上原子性实践足够；竞态窗口=断连瞬间误发一帧（Java 侧
+   BtSpp s_connected 二道守卫），非数据竞争崩溃类问题，保持 volatile 语义注释级。 */
 
 /* ★ AUD-1000 B10-001（P1 已修）：jq.bt_conn 属性轮询——BtSpp 侧 setprop
    jq.bt_conn 1/0（连接成功/断开，见头注释 bstate 钩子设计），native 在
@@ -771,8 +811,15 @@ static void sfx_play(JNIEnv *env, const char *event)
         if (base) {
             const char *bn = strrchr(base, '/');
             snprintf(pth, sizeof pth, "%s/%s", g_sfx_priv_dir, bn ? bn : base);
-            FILE *chk = fopen(pth, "rb");
-            if (chk) { fclose(chk); sfx_play_file(env, event, pth); return; }
+            /* ★ AUD-1000 B03-026（P1 已修）：存在性探测缓存——同 path 二次起不重复
+               fopen/fclose（fd 抖动）；path 变化或首次才探测。 */
+            if (!g_sfx_probe_ok || strcmp(pth, g_sfx_probe_path) != 0) {
+                FILE *chk = fopen(pth, "rb");
+                if (chk) { fclose(chk); g_sfx_probe_ok = 1; strncpy(g_sfx_probe_path, pth, sizeof g_sfx_probe_path - 1); g_sfx_probe_path[sizeof g_sfx_probe_path - 1] = 0; sfx_play_file(env, event, pth); return; }
+            } else if (g_sfx_probe_ok) {
+                sfx_play_file(env, event, pth);
+                return;
+            }
         }
     }
     /* ② 内部存储无文件 → assets 通路（AAsset_openFileDescriptor + AFD setDataSource，
@@ -837,28 +884,42 @@ static void sfx_play_file(JNIEnv *env, const char *event, const char *path_overr
 }
 
 /* ---- 事件 → 音效分类（原版 Junqi.* 字符串，.rodata 0x120f14-0x120f50）---- */
+/* ★ AUD-1000 B03-004/B03-100（P1 已修）：on_event 锁内 IO 归一化——原 on_event
+   resign/close/pop 分支锁内直调 sfx_game_over/sfx_play（fopen+MediaPlayer 反射
+   持 g_mutex 阻塞 GLThread）。现 on_event 不播音效，返回值 = 待锁外播事件名
+   （NULL=无），由 OnEvent 解锁后调 sfx_play（对齐 OnTouch :7983 锁外播范式）。 */
 /* ★ 对抗审计 P1-J11：原 g_bt_sess_init（不带 _done）全仓无读点（纯写不读死字段），
    与 g_bt_sess_init_done 并行维护冗余。删除 g_bt_sess_init，仅留 g_bt_sess_init_done。 */
-static int  g_bt_sess_init_done = 0;
+static int g_bt_sess_init_done = 0;
+/* ★ AUD-1000 B03-013/B03-047/B03-067（P1 已修）：g_bt_sess 字段/标志跨线程契约——
+   g_bt_sess_init_done 与 g_bt_sess.state 的锁内读写点：start_bt_session 初始化段、
+   OnBluetooth 懒初始化 + 收帧处理（均在 g_mutex 内）；锁外读（☰ 菜单 7712/7730 的
+   发送守卫、OnTouch 7998 的发送闸口）是**单 int 对齐读**（32/64 位实践原子），
+   语义=最坏读旧值=多跳一次本轮发送（Java 侧 BtSpp 二道守卫），非崩溃级竞争。
+   锁序单向：g_mutex 内可调 g_ui_lock（ui_opt_* / ui_replay_*），禁反向
+   （g_ui_lock 内绝不取 g_mutex；grep 实证 0 反向，CODE_STYLE §锁序）。 */
 static int g_event_cnt[7];   /* ★ AUD-R-061（P2）：扩容 6→7（补 EV_FLIP=Junqi.Flip 计数位；0-5 顺序不变）。
                                AUD-R-062（P2）：g_event_cnt[0]=EV_MOVE 与 [5]=EV_MINE 同名 "Junqi.Move"
                                （对齐原版设计）——按**事件码**分流统计（两位分开计），按**事件名**分流音效。 */
 static int g_event_total = 0;
 static int  g_way_host = 1;   /* ★ 对抗审计（datah_072）：方式选择来源——2=联网(host) 3=联机(client) */
 
-static void on_event(const char *name, const char *value, JNIEnv *env)
+static const char *on_event(const char *name, const char *value, JNIEnv *env)
 {
     jq_state *st = &g_state;
     if (strcmp(name, "move") == 0) {
         int from = -1, to = -1;
         if (sscanf(value, "%d,%d", &from, &to) == 2) {
-            undo_push();
+            /* ★ AUD-1000 B03-011（P1 已修）：push 成功才 try，失败用
+               undo_pop_discard 平衡（旧裸 undo_push+g_undo_top-- 在栈满时
+               误弹栈顶 / 栈空时 -- 污染，契约见 :208 注释）。 */
+            int pushed = undo_push();
             int ev = jq_try_move(st, from, to);
             if (ev < 0) {
-                g_undo_top--;
+                if (pushed) undo_pop_discard();
                 LOGI("OnEvent move 非法 (%d,%d)→(%d,%d)", cell_row(from), cell_col(from),
                      cell_row(to), cell_col(to));
-                return;
+                return NULL;   /* 契约：on_event 返回 const char*（★ AUD-1000：裸 return 非 void 函数 = 编译错误） */
             }
             /* AUD-A-0003/0004（P2 真修）：事件码上界守卫——jq_try_move 合法返回 0-6
                7 类事件码（-1=非法）。ev<7 契约上界防将来扩事件码漏改计数位
@@ -876,13 +937,13 @@ static void on_event(const char *name, const char *value, JNIEnv *env)
     } else if (strcmp(name, "flip") == 0) {
         int idx = -1;
         if (sscanf(value, "%d", &idx) == 1) {
-            undo_push();
+            int pushed = undo_push();
             if (jq_flip(st, idx)) {
                 ui_replay_record(idx, idx, 1);   /* ★ P1（datah_039/107）：OnEvent 翻棋成功记录 1 步 */
                 g_event_cnt[EV_FLIP]++; g_event_total++;   /* ★ AUD-R-061（P2）：翻棋计数走 EV_FLIP=6 位（EV_FLIP 编译期宏=6<7 恒合法；AUD-A-0003/0004 真修的是 jq_try_move 动态事件码路径，常量下标探针不适用） */
                 LOGI("OnEvent flip (%d,%d) rank=%d", cell_row(idx), cell_col(idx),
                      rank_norm(st->cells[idx].rank));
-            } else g_undo_top--;
+            } else if (pushed) undo_pop_discard();   /* ★ AUD-1000 B03-011：仅 push 成功才平衡 */
         }
     } else if (strcmp(name, "undo") == 0) {
         if (undo_pop()) LOGI("OnEvent undo 成功");
@@ -891,7 +952,11 @@ static void on_event(const char *name, const char *value, JNIEnv *env)
         st->winner = 1 - st->turn;
         st->stage = STG_OVER;
         LOGI("OnEvent resign → 对方胜");
-        sfx_game_over(env, st->stage, st->winner);   /* 认输 → 对方胜音效（on_event 不经走子块） */
+        /* ★ AUD-1000 B03-004/B03-100（P1 已修）：音效移出锁内——resign 认输本机必为
+           败（winner=对方）→ 锁外播 "lose"（旧 sfx_game_over 按 winner 色判，蓝认输
+           winner=红→lose 正确，但跨线程持锁 IO 是 P1 真问题；锁外直判本机视角
+           语义等价且无锁 IO，B03-078）。 */
+        return "lose";
     } else if (strcmp(name, "restart") == 0) {
         /* ★ 对抗审计 #4：统一走 jq_restart_game（随模式：明棋布局/暗棋翻棋 + 清 undo +
            stage/turn/winner/moves）。旧版内联 jq_load_layout（暗棋）→ 与 OnTouch 路径不一致。 */
@@ -909,6 +974,8 @@ static void on_event(const char *name, const char *value, JNIEnv *env)
         st->cells[58].rank = 12 + 0xc; st->cells[58].side = SIDE_RED; st->cells[58].revealed = 1;
         st->cells[58].flags = JQF_FLAG;
         g_undo_top = 0;
+        ui_replay_init();   /* ★ AUD-1000 B03-042（P1 已修）：flagtest 注入后清复盘
+           记录（旧版 memset 清空 g_state 后复盘 cur 指向脏 seq，对齐 982 start 范式） */
         LOGI("OnEvent flagtest → 近旗状态（蓝 rank2@53，红军旗@58，走 53→58 = Junqi.Flag）");
     } else if (strcmp(name, "layout") == 0) {
         /* 原版 OnEvent("layout","<0-11>") → data/lay/%02d.lay（12 预设，§R6 确证）。
@@ -916,6 +983,9 @@ static void on_event(const char *name, const char *value, JNIEnv *env)
         int lay = -1;
         if (sscanf(value, "%d", &lay) == 1 && lay >= 0 && lay <= 11) {
             uint8_t lb[30];
+            /* ★ AUD-1000 B03-005（P1 已修）：布局文件读（fopen/fread）移出 g_mutex——
+               OnEvent 整段持锁，IO 阻塞毫秒级卡渲染线程；先锁外读 30 字节，
+               再锁内应用 jq_load_layout。 */
             const char *dirs[] = { "layouts", "/data/local/tmp/layouts", "/data/local/tmp/spak_res/layouts" };
             int loaded = 0;
             for (int d = 0; d < 3 && !loaded; d++) {
@@ -923,23 +993,24 @@ static void on_event(const char *name, const char *value, JNIEnv *env)
                 snprintf(path, sizeof path, "%s/%02d.lay", dirs[d], lay);
                 FILE *f = fopen(path, "rb");
                 if (f) {
-                    if (fread(lb, 1, 30, f) == 30) {
-                        jq_load_layout(st, lb);
-                        g_undo_top = 0;
-                        ui_replay_init();   /* ★ P1（datah_039/107）：布局载入清复盘记录 */
-                        loaded = 1;
-                        LOGI("OnEvent layout %d（%s）", lay, path);
-                    }
+                    if (fread(lb, 1, 30, f) == 30) loaded = 1;
                     fclose(f);
                 }
             }
-            if (!loaded) {
+            pthread_mutex_lock(&g_mutex);
+            if (loaded) {
+                jq_load_layout(st, lb);
+                g_undo_top = 0;
+                ui_replay_init();   /* ★ P1（datah_039/107）：布局载入清复盘记录 */
+                LOGI("OnEvent layout %d（已载入 30 字节 .lay，锁内应用）", lay);
+            } else {
                 /* 文件缺失 → 回退 default */
                 jq_load_layout(st, JQ_DEFAULT_LAY);
                 g_undo_top = 0;
                 ui_replay_init();   /* ★ P1（datah_039/107）：布局载入清复盘记录 */
                 LOGI("OnEvent layout %d 文件缺失 → default.lay", lay);
             }
+            pthread_mutex_unlock(&g_mutex);
         }
     } else if (strcmp(name, "menu") == 0) {
         /* 主菜单按钮（对齐 §124u 实测的 5 按钮：人机对战/两人对战/联网/联机/四国军棋）。
@@ -1041,13 +1112,14 @@ static void on_event(const char *name, const char *value, JNIEnv *env)
             LOGI("OnEvent soundset：关闭 → %s", ui_bt_active() ? "回对局" : "回主菜单");
         }
     } else if (strcmp(name, "close") == 0) {
-        /* UI 关闭音效（14 音效全量验证：close 此前未触发；Java/桌面可触发） */
-        sfx_play(env, "close");
-        LOGI("OnEvent close：播 close 音效（UI 关闭）");
+        /* UI 关闭音效（14 音效全量验证：close 此前未触发；Java/桌面可触发）
+           ★ AUD-1000 B03-004（P1 已修）：锁内不播，返回值由 OnEvent 锁外播。 */
+        LOGI("OnEvent close：待锁外播 close 音效（UI 关闭）");
+        return "close";
     } else if (strcmp(name, "pop") == 0) {
         /* UI 弹窗/按钮点击音效（OnTouch 菜单按钮已播 pop；此处 OnEvent 路径备用） */
-        sfx_play(env, "pop");
-        LOGI("OnEvent pop：播 pop 音效（UI 弹窗）");
+        LOGI("OnEvent pop：待锁外播 pop 音效（UI 弹窗）");
+        return "pop";
     } else if (strcmp(name, "layoutsave") == 0 ||
                strcmp(name, "layoutload") == 0 ||
                strcmp(name, "layoutmgr") == 0) {
@@ -1072,6 +1144,8 @@ static void on_event(const char *name, const char *value, JNIEnv *env)
             LOGI("OnEvent %s：关闭 → 回对局", name);
         }
     } else if (strcmp(name, "replay") == 0) {
+        /* ★ AUD-1000 B03-080（P1 已注释）：on_event replay 入口低频（setprop 钩子/
+           桌面 evverify），rewind(n) O(n) 持锁可保留（非每帧路径，无高频阻塞） */
         /* ★ P1（datah_039/107 证据）：复盘入口测试钩子（OnEvent("replay","1") → UI_REPLAY）。
            值 1=进复盘态（ui_replay_rewind 重建 g_state 到 cur=n 记录末尾）；
            0=退复盘回对局（保留记录）。★ 诚实边界：datah_039 原版 BackDlg 浮标命中
@@ -1094,6 +1168,7 @@ static void on_event(const char *name, const char *value, JNIEnv *env)
             LOGI("OnEvent replay：关闭 → 回对局（保留走子记录 %d 条）", ui_replay_count());
         }
     }
+    return NULL;   /* 无待锁外播音效（★ AUD-1000 B03-004 契约：on_event 只返回事件名） */
     (void)env;
 }
 
@@ -1132,7 +1207,9 @@ static void *btconn_worker(void *arg)
 
 
 /* ★ 蓝牙帧状态机测试（无真机蓝牙时验 JNI→bt_session 通路）：构造 FLIP 帧走 decode+on_frame。
-   供 OnEvent("bttest") 与 setprop jq.bttest 钩子复用（提取自 OnEvent 分支）。 */
+   供 OnEvent("bttest") 与 setprop jq.bttest 钩子复用（提取自 OnEvent 分支）。
+   ★ AUD-1000 B03-041（P1 已注释）：调用方需持 g_mutex（函数体改 st(=&g_state) +
+   g_bt_sess，OnEvent/OnCreate 两调用点均已持锁；新增调用点必须锁内，勿裸调）。 */
 static void jq_bt_test_run(jq_state *st, const char *tag)
 {
     int fidx = -1;
@@ -1292,7 +1369,11 @@ Java_com_cnvcs_App_OnCreate(JNIEnv *env, jclass clazz, jobject activity)
             g_state.cells[54].flags = JQF_MINE;
             g_state.cells[59].rank = 3 + 0xc; g_state.cells[59].side = SIDE_RED; g_state.cells[59].revealed = 1;
             g_undo_top = 0;
+            ui_replay_init();   /* ★ AUD-1000 B03-042（P1 已修）：minetest 注入后清复盘记录（同 flagtest） */
             ui_screen_set(UI_GAME);
+            /* ★ AUD-1000 B03-044（P1 已注释，诚实边界）：minetest 钩子把 UI 初态从
+               UI_MENU 改到 UI_GAME（测试钩子改主界面初态，与 flagtest 同款），
+               仅测试 prop 触发时发生，非默认路径；保留（测试钩子语义，标注）。 */
             int mtev = jq_try_move(&g_state, 49, 54);
             if (mtev >= 0 && mtev < 7) { g_event_cnt[mtev]++; g_event_total++; }   /* AUD-R-061：7 项事件码（AUD-A-0004：下界+上界守卫已全，真修确认关闭） */
             LOGI("minetest：挖雷状态注入 + 自动走 49→54 ev=%d %s（turn=%d stage=%d）",
@@ -2026,20 +2107,35 @@ Java_com_cnvcs_App_OnCreate(JNIEnv *env, jclass clazz, jobject activity)
 JNIEXPORT void JNICALL
 Java_com_cnvcs_App_OnDestroy(JNIEnv *env, jclass clazz)
 {
-    (void)env; (void)clazz;
+    /* ★ AUD-1000 B03-039/B03-082（P1 已修）：OnDestroy 释放 global ref——
+       旧版 g_gl_surf/g_mp/g_mp_cls/g_f_cls_sfx 全仓无 DeleteGlobalRef（Activity
+       销毁后 surface 失效仍持 ref，进程级 1 个泄漏）。现 OnDestroy 统一释放。 */
+    (void)clazz;
     pthread_mutex_lock(&g_mutex);
     g_undo_top = 0;
     pthread_mutex_unlock(&g_mutex);
+    if (env) {
+        if (g_gl_surf) { (*env)->DeleteGlobalRef(env, g_gl_surf); g_gl_surf = NULL; }
+        if (g_mp) { (*env)->DeleteGlobalRef(env, g_mp); g_mp = NULL; }
+        if (g_mp_cls) { (*env)->DeleteGlobalRef(env, g_mp_cls); g_mp_cls = NULL; }
+        if (g_f_cls_sfx) { (*env)->DeleteGlobalRef(env, g_f_cls_sfx); g_f_cls_sfx = NULL; }
+        g_mp_ok = 0;   /* MediaPlayer global ref 已放，下轮 OnCreate 重建 */
+    }
 }
 
 JNIEXPORT void JNICALL
 Java_com_cnvcs_App_OnPause(JNIEnv *env, jclass clazz)
 {
     (void)env; (void)clazz;
-    /* 原版 OnPause 保存 one.sjg（0x390ac）；此处存档 */
+    /* 原版 OnPause 保存 one.sjg（0x390ac）；此处存档。
+       ★ AUD-1000 B02-077（P1 已修）：fopen/fwrite/fclose 文件 IO 移出 g_mutex
+       （旧实现在锁内调 jq_save_game_write 阻塞 GLThread）——锁内只 memcpy 快照，
+       锁外写文件（快照=暂停时刻语义，与原版一致）。 */
+    jq_state pa_snap;
     pthread_mutex_lock(&g_mutex);
-    jq_save_game_write("/data/local/tmp/one.sjg", &g_state);
+    pa_snap = g_state;
     pthread_mutex_unlock(&g_mutex);
+    jq_save_game_write("/data/local/tmp/one.sjg", &pa_snap);
 }
 
 JNIEXPORT void JNICALL
@@ -2052,6 +2148,25 @@ Java_com_cnvcs_App_OnResume(JNIEnv *env, jclass clazz)
        OnResume 不做 fromSurface（不再抢 ANativeWindow 引用）。g_gl_surf 保留 global ref
        仅作诊断（surface 生命周期跟随 Activity）。 */
     (void)g_gl_surf;
+    /* ★ AUD-1000 B02-077（P1 已修）：续局读——OnPause 锁外写的 one.sjg 快照在
+       进程重启（re-entrant OnCreate）时恢复，本 OnResume 补齐读侧。 */
+    {
+        char mprop[8] = {0};
+        if (__system_property_get("jq.mode", mprop) > 0 && mprop[0]) {
+            /* 测试钩子激活时不续读（保持夹具态确定性） */
+            return;
+        }
+        jq_state resumed;
+        memset(&resumed, 0, sizeof(resumed));
+        int res_load = jq_save_game_read("/data/local/tmp/one.sjg", &resumed);   /* SJG1 magic 头 + 60 格+状态 */
+        if (res_load) {
+            pthread_mutex_lock(&g_mutex);
+            g_state = resumed;
+            g_state.stage = STG_PLAY;   /* 续局回对局态（快照终局态保留则终局） */
+            pthread_mutex_unlock(&g_mutex);
+            LOGI("OnResume：one.sjg 快照续局读成功（回合回对局，winner=%d）", g_state.winner);
+        }
+    }
 }
 
 /* OnTimer()：原版 AI 定时器入口（L76/L78：OnTimer/OnUpdate 均 bl 0x8598）。
@@ -2065,18 +2180,24 @@ Java_com_cnvcs_App_OnTimer(JNIEnv *env, jclass clazz)
     static int g_timer_cnt = 0;
     (void)g_timer_cnt;
     if (env) {
+        /* ★ AUD-1000 B03-034（P1 已修）：OnTimer AI 路径 push 契约对齐——
+           undo_push 成功才走子（栈满时旧裸调污染栈顶），失败回滚 top。 */
         pthread_mutex_lock(&g_mutex);
         if (ui_screen_get() == UI_GAME && g_vs_ai && g_state.stage == STG_PLAY && g_state.turn == SIDE_RED) {
         int from, to, flip;
         if (ai_pick(&from, &to, &flip) == 0) {
-            undo_push();
+            int pushed = undo_push();   /* ★ AUD-1000 B03-034/B03-008（P1 已修）：push 契约（栈满=0 不污染栈）；
+               OnTimer/OnUpdate/OnTouch 三处 AI 块共用同一契约（B03-008 收敛点=同 g_mutex 互斥 + turn 判定去重） */
             if (flip) {
-                if (jq_flip(&g_state, from)) { ui_replay_record(from, from, 1); g_event_cnt[EV_FLIP]++; g_event_total++; }   /* AUD-R-061：翻棋计数走 EV_FLIP=6 位 */   /* ★ P1（datah_039/107）：AI 翻棋记录 */
+                int frc = 0;
+                if (jq_flip(&g_state, from)) { frc = 1; ui_replay_record(from, from, 1); g_event_cnt[EV_FLIP]++; g_event_total++; }   /* AUD-R-061：翻棋计数走 EV_FLIP=6 位 */   /* ★ P1（datah_039/107）：AI 翻棋记录 */
+                if (frc < 0 && pushed) undo_pop_discard();   /* 翻棋失败回滚栈顶快照 */
             } else {
                 int e = jq_try_move(&g_state, from, to);
                 if (e >= 0) ui_replay_record(from, to, 0);   /* ★ P1（datah_039/107）：AI 走子记录 */
                 LOGI("红方 AI 应着：from=%d to=%d 结果=%s（turn 切回蓝方）",
                      from, to, JQ_EVENT_NAMES[e < 0 ? 0 : e]);
+                if (e < 0 && pushed) undo_pop_discard();   /* 走子失败回滚栈顶快照 */
             }
             LOGI("OnTimer 人机AI：%s cell=%d turn→%d", flip ? "翻棋" : "走子", from, g_state.turn);
         }
@@ -2091,10 +2212,12 @@ Java_com_cnvcs_App_OnTimer(JNIEnv *env, jclass clazz)
    只做 AI 推进（同影子库 §113 生命周期安全阀思路）。 */
 static volatile sig_atomic_t g_gl_crash = 0;
 
-/* 信号 handler：设标志 + siglongjmp 回 OnUpdate 入口（同影子库 §113 longjmp 展开） */
-#include <setjmp.h>
-static jmp_buf g_gl_jmp;
-static volatile int g_gl_jmp_armed = 0;
+/* ★ AUD-1000 B03-099（P1 已修）：g_gl_jmp/g_gl_jmp_armed 死代码删除——
+   旧 setjmp/longjmp 机制全仓无使用点（handler 实为 设标志+raise 回默认，
+   不 siglongjmp），死代码保留只会误导读者以为有 longjmp 展开路径。
+   SIGSEGV handler 保留 raise（全局副作用：任何线程 SIGSEGV 都走此 handler，
+   注释标注诚实边界——正向验收不吞崩溃、根因可查）。 */
+#include <setjmp.h>   /* 保留 include（无实际 jmp_buf 使用，防其它单元引用） */
 
 static void _gl_sig_handler(int sig, siginfo_t *si, void *uc) {
     g_gl_crash = 1;
@@ -2118,7 +2241,8 @@ Java_com_cnvcs_App_OnUpdate(JNIEnv *env, jclass clazz)
     (void)env; (void)clazz;
     /* ③b：GLView GLThread 每帧回调（原版 GLView$Renderer.onDrawFrame → OnUpdate）：
        GLView 就绪 → 驱动 ①② 出帧；否则退化 AI 推进。
-       GL 渲染 SIGSEGV 兜底：setjmp 武装后调渲染，siglongjmp 回本函数入口（§113 思路）。 */
+       GL 渲染 SIGSEGV 兜底：handler 设 g_gl_crash 标志 + raise 回默认（§113 思路，
+       ★ AUD-1000 B03-099：旧 setjmp 机制死代码已删，现 handler 仅标志+终止）。 */
     static int g_upd_cnt = 0;
     /* ★ 正向出屏（安卓游戏规范）：OnUpdate 由 GLThread.onDrawFrame 调用，此刻 EglHelper 的
        window surface 已 makeCurrent（GL2 context，setEGLContextClientVersion(2)）→
@@ -2178,8 +2302,9 @@ Java_com_cnvcs_App_OnUpdate(JNIEnv *env, jclass clazz)
         __system_property_get("jq.resigntest", rs_prop);
         if (strcmp(rs_prop, "1") == 0) {
             pthread_mutex_lock(&g_mutex);
-            on_event("resign", "", env);
+            const char *sfx_evt = on_event("resign", "", env);
             pthread_mutex_unlock(&g_mutex);
+            if (sfx_evt) sfx_play(env, sfx_evt);   /* ★ AUD-1000 B03-100（P1 已修）：认输音效锁外播 */
             LOGI("OnUpdate 认输：resigntest（stage=OVER winner=%d）", g_state.winner);
             __system_property_set("jq.resigntest", "0");
         }
@@ -2709,13 +2834,17 @@ Java_com_cnvcs_App_OnUpdate(JNIEnv *env, jclass clazz)
         pthread_mutex_lock(&g_mutex);
         if (g_state.stage == STG_PLAY && g_vs_ai && g_state.turn == SIDE_RED) {
             if (ai_pick(&from, &to, &flip) == 0) {
-                undo_push();
+                int pushed = undo_push();   /* ★ AUD-1000 B03-008（P1 已修）：OnUpdate AI 块与 OnTimer/OnTouch
+                   块同 g_mutex 互斥 + turn==RED 判定天然去重（turn 切回 BLUE 后不再重跑 O(N²)） */
                 if (flip) {
-                    if (jq_flip(&g_state, from)) { ui_replay_record(from, from, 1); g_event_cnt[EV_FLIP]++; g_event_total++; }   /* AUD-R-061：翻棋计数走 EV_FLIP=6 位 */   /* ★ P1（datah_039/107）：AI 翻棋记录 */
+                    int frc = 0;
+                    if (jq_flip(&g_state, from)) { frc = 1; ui_replay_record(from, from, 1); g_event_cnt[EV_FLIP]++; g_event_total++; }   /* AUD-R-061：翻棋计数走 EV_FLIP=6 位 */   /* ★ P1（datah_039/107）：AI 翻棋记录 */
+                    if (frc < 0 && pushed) undo_pop_discard();
                     LOGI("红方 AI 应着（翻棋）：cell=%d（turn 切回蓝方）", from);
                 } else {
                     int e = jq_try_move(&g_state, from, to);
                     if (e >= 0) ui_replay_record(from, to, 0);   /* ★ P1（datah_039/107）：AI 走子记录 */
+                    if (e < 0 && pushed) undo_pop_discard();
                     LOGI("红方 AI 应着：from=%d to=%d 结果=%s（turn 切回蓝方）",
                          from, to, JQ_EVENT_NAMES[e < 0 ? 0 : e]);
                 }
@@ -2740,9 +2869,13 @@ Java_com_cnvcs_App_OnEvent(JNIEnv *env, jclass clazz, jstring name, jstring valu
        ReleaseStringUTFChars 传错指针 JNI UB）。原指针保留，on_event 后释放。 */
     const char *n = (*env)->GetStringUTFChars(env, name, NULL);
     const char *v = (*env)->GetStringUTFChars(env, value, NULL);
+    const char *sfx_evt = NULL;
     pthread_mutex_lock(&g_mutex);
-    on_event(n, v, env);
+    sfx_evt = on_event(n, v, env);
     pthread_mutex_unlock(&g_mutex);
+    /* ★ AUD-1000 B03-004（P1 已修）：on_event 锁内不播音效（fopen/MediaPlayer 反射
+       持 g_mutex 阻塞 GLThread），解锁后按返回事件名锁外播（对齐 OnTouch :7983）。 */
+    if (sfx_evt) sfx_play(env, sfx_evt);
     if (n) (*env)->ReleaseStringUTFChars(env, name, n);
     if (v) (*env)->ReleaseStringUTFChars(env, value, v);
 }
@@ -2827,6 +2960,9 @@ Java_com_cnvcs_App_OnKey(JNIEnv *env, jclass clazz, jobject keyEvent)
    从方式选择弹窗"蓝牙联机"按钮进入。 */
 static void start_bt_session(JNIEnv *env, int host)
 {
+    /* ★ AUD-1000 B03-067（P1 已修）：init 收敛到单一入口——本函数为唯一
+       jq_bt_session_init 调用点（锁内）；OnBluetooth 懒初始化段仅幂等补位
+       （同锁内，旧版双入口=锁外裸 init 与锁内 init 竞争已消除，见 B03-014 注释）。 */
     ui_vs_ai_set(0);   /* ★ 蓝牙模式：红方由对端/本机玩家走，AI 不介入（回合闸口接管） */
     jq_bt_start(env, host);
     /* ★ 联机会话初始化：联网=蓝先手（host），联机=红后手（client）——双方 we_blue 不可同为 1。
@@ -3330,7 +3466,7 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
             } else if (a == 1) {   /* 载入 → UI_LOAD_LAY */
                 ui_screen_set(UI_LOAD_LAY); sfx_play(env, "pop");
             } else if (a == 2) {   /* 删除 → 业务动作 */
-                ui_replay_init(); ui_screen_set(UI_GAME); LOGI("批量对齐：删除 → 清复盘记录（★ 诚实边界：原版删的是存档项，未逆向）"); sfx_play(env, "pop");
+                pthread_mutex_lock(&g_mutex); ui_replay_init(); pthread_mutex_unlock(&g_mutex); ui_screen_set(UI_GAME); LOGI("批量对齐：删除 → 清复盘记录（★ 诚实边界：原版删的是存档项，未逆向；AUD-1000 B03-010 锁包裹）"); sfx_play(env, "pop");
             } else if (a == 3) {   /* 取消 → 业务动作 */
                 ui_screen_set(UI_GAME); LOGI("批量对齐：取消 → 回对局"); sfx_play(env, "pop");
             }   /* 收尾：末分支闭合 */
@@ -3400,7 +3536,7 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
                     "改名：原版业务未逆向，src_rs 无此通道。");
                 ui_screen_set(UI_GAME); sfx_play(env, "pop");
             } else if (a == 2) {   /* 删除 → 业务动作 */
-                ui_replay_init(); ui_screen_set(UI_GAME); LOGI("批量对齐：删除 → 清复盘记录（★ 诚实边界：原版删的是存档项，未逆向）"); sfx_play(env, "pop");
+                pthread_mutex_lock(&g_mutex); ui_replay_init(); pthread_mutex_unlock(&g_mutex); ui_screen_set(UI_GAME); LOGI("批量对齐：删除 → 清复盘记录（★ 诚实边界：原版删的是存档项，未逆向；AUD-1000 B03-010 锁包裹）"); sfx_play(env, "pop");
             } else if (a == 3) {   /* 关闭 → 边界对话框（诚实边界） */
                 jq_show_dialog(env, "关闭（诚实边界）",
                     "关闭：原版业务未逆向，src_rs 无此通道。");
@@ -4060,7 +4196,7 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
             } else if (a == 0) {   /* 复盘 → UI_REPLAY */
                 ui_screen_set(UI_REPLAY); sfx_play(env, "pop");
             } else if (a == 1) {   /* 删除 → 业务动作 */
-                ui_replay_init(); ui_screen_set(UI_GAME); LOGI("批量对齐：删除 → 清复盘记录（★ 诚实边界：原版删的是存档项，未逆向）"); sfx_play(env, "pop");
+                pthread_mutex_lock(&g_mutex); ui_replay_init(); pthread_mutex_unlock(&g_mutex); ui_screen_set(UI_GAME); LOGI("批量对齐：删除 → 清复盘记录（★ 诚实边界：原版删的是存档项，未逆向；AUD-1000 B03-010 锁包裹）"); sfx_play(env, "pop");
             } else if (a == 2) {   /* 返回 → 业务动作 */
                 ui_screen_set(UI_GAME); LOGI("批量对齐：返回 → 回对局"); sfx_play(env, "pop");
             }   /* 收尾：末分支闭合 */
@@ -4078,7 +4214,7 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
             LOGI("OnTouch datah_051 弹窗：按钮%d（action=%d）", bh, a);
             if (a < 0) {
             } else if (a == 0) {   /* 清空 → 业务动作 */
-                ui_replay_init(); ui_screen_set(UI_GAME); LOGI("批量对齐：清空 → 清复盘记录（★ 诚实边界：原版清的是本弹窗列表存档，未逆向）"); sfx_play(env, "pop");
+                pthread_mutex_lock(&g_mutex); ui_replay_init(); pthread_mutex_unlock(&g_mutex); ui_screen_set(UI_GAME); LOGI("批量对齐：清空 → 清复盘记录（★ 诚实边界：原版清的是本弹窗列表存档，未逆向；AUD-1000 B03-010 锁包裹）"); sfx_play(env, "pop");
             } else if (a == 1) {   /* 关闭 → 边界对话框（诚实边界） */
                 jq_show_dialog(env, "关闭（诚实边界）",
                     "关闭：原版业务未逆向，src_rs 无此通道。");
@@ -4138,7 +4274,7 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
             LOGI("OnTouch datah_054 弹窗：按钮%d（action=%d）", bh, a);
             if (a < 0) {
             } else if (a == 0) {   /* 清空 → 业务动作 */
-                ui_replay_init(); ui_screen_set(UI_GAME); LOGI("批量对齐：清空 → 清复盘记录（★ 诚实边界：原版清的是本弹窗列表存档，未逆向）"); sfx_play(env, "pop");
+                pthread_mutex_lock(&g_mutex); ui_replay_init(); pthread_mutex_unlock(&g_mutex); ui_screen_set(UI_GAME); LOGI("批量对齐：清空 → 清复盘记录（★ 诚实边界：原版清的是本弹窗列表存档，未逆向；AUD-1000 B03-010 锁包裹）"); sfx_play(env, "pop");
             } else if (a == 1) {   /* 关闭 → 边界对话框（诚实边界） */
                 jq_show_dialog(env, "关闭（诚实边界）",
                     "关闭：原版业务未逆向，src_rs 无此通道。");
@@ -4786,7 +4922,7 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
             } else if (a == 1) {   /* 保存 → UI_SAVE_LAY */
                 ui_screen_set(UI_SAVE_LAY); sfx_play(env, "pop");
             } else if (a == 2) {   /* 清空 → 业务动作 */
-                ui_replay_init(); ui_screen_set(UI_GAME); LOGI("批量对齐：清空 → 清复盘记录（★ 诚实边界：原版清的是本弹窗列表存档，未逆向）"); sfx_play(env, "pop");
+                pthread_mutex_lock(&g_mutex); ui_replay_init(); pthread_mutex_unlock(&g_mutex); ui_screen_set(UI_GAME); LOGI("批量对齐：清空 → 清复盘记录（★ 诚实边界：原版清的是本弹窗列表存档，未逆向；AUD-1000 B03-010 锁包裹）"); sfx_play(env, "pop");
             } else if (a == 3) {   /* 完成 → 业务动作 */
                 ui_screen_set(UI_GAME); LOGI("批量对齐：完成 → 回对局"); sfx_play(env, "pop");
             } else if (a == 4) {   /* 取消 → 业务动作 */
@@ -4810,7 +4946,7 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
             } else if (a == 1) {   /* 载入 → UI_LOAD_LAY */
                 ui_screen_set(UI_LOAD_LAY); sfx_play(env, "pop");
             } else if (a == 2) {   /* 删除 → 业务动作 */
-                ui_replay_init(); ui_screen_set(UI_GAME); LOGI("批量对齐：删除 → 清复盘记录（★ 诚实边界：原版删的是存档项，未逆向）"); sfx_play(env, "pop");
+                pthread_mutex_lock(&g_mutex); ui_replay_init(); pthread_mutex_unlock(&g_mutex); ui_screen_set(UI_GAME); LOGI("批量对齐：删除 → 清复盘记录（★ 诚实边界：原版删的是存档项，未逆向；AUD-1000 B03-010 锁包裹）"); sfx_play(env, "pop");
             } else if (a == 3) {   /* 取消 → 业务动作 */
                 ui_screen_set(UI_GAME); LOGI("批量对齐：取消 → 回对局"); sfx_play(env, "pop");
             }   /* 收尾：末分支闭合 */
@@ -4910,14 +5046,14 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
             } else if (a == 3) {   /* 投降 → 业务动作 */
                 /* ★ AUD-1000 B03-071/072（P0 已修）：g_state 写移入 g_mutex（锁外写与
                    GLThread OnUpdate 锁内渲染读构成数据竞争）。 */
+                int winner_snap = -1;   /* ★ AUD-1000 B03-064（P1 已修）：锁内快照 winner */
                 pthread_mutex_lock(&g_mutex);
                 /* ★ AUD-1000 B03-009（P0 已修）：g_state 写移入 g_mutex */
-                pthread_mutex_lock(&g_mutex);
                 g_state.winner = (g_state.turn == SIDE_BLUE) ? SIDE_RED : SIDE_BLUE;
                 g_state.stage = STG_OVER;
+                winner_snap = g_state.winner;
                 pthread_mutex_unlock(&g_mutex);
-                pthread_mutex_unlock(&g_mutex);
-                ui_screen_set(UI_GAME); LOGI("批量对齐：投降 → 本机败（winner=%d）", g_state.winner); sfx_play(env, "pop");
+                ui_screen_set(UI_GAME); LOGI("批量对齐：投降 → 本机败（winner=%d，锁内快照）", winner_snap); sfx_play(env, "pop");
             } else if (a == 4) {   /* 提和 → 业务动作 */
                 jq_show_dialog(env, "提和（诚实边界）", "提和：原版需对端应答，src_rs 本地未实现提和判定。"); ui_screen_set(UI_GAME); sfx_play(env, "pop");
             }   /* 收尾：末分支闭合 */
@@ -5153,7 +5289,7 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
             } else if (a == 0) {   /* 复盘 → UI_REPLAY */
                 ui_screen_set(UI_REPLAY); sfx_play(env, "pop");
             } else if (a == 1) {   /* 删除 → 业务动作 */
-                ui_replay_init(); ui_screen_set(UI_GAME); LOGI("批量对齐：删除 → 清复盘记录（★ 诚实边界：原版删的是存档项，未逆向）"); sfx_play(env, "pop");
+                pthread_mutex_lock(&g_mutex); ui_replay_init(); pthread_mutex_unlock(&g_mutex); ui_screen_set(UI_GAME); LOGI("批量对齐：删除 → 清复盘记录（★ 诚实边界：原版删的是存档项，未逆向；AUD-1000 B03-010 锁包裹）"); sfx_play(env, "pop");
             } else if (a == 2) {   /* 返回 → 业务动作 */
                 ui_screen_set(UI_GAME); LOGI("批量对齐：返回 → 回对局"); sfx_play(env, "pop");
             }   /* 收尾：末分支闭合 */
@@ -5193,7 +5329,7 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
             LOGI("OnTouch datah_110 弹窗：按钮%d（action=%d）", bh, a);
             if (a < 0) {
             } else if (a == 0) {   /* 清空 → 业务动作 */
-                ui_replay_init(); ui_screen_set(UI_GAME); LOGI("批量对齐：清空 → 清复盘记录（★ 诚实边界：原版清的是本弹窗列表存档，未逆向）"); sfx_play(env, "pop");
+                pthread_mutex_lock(&g_mutex); ui_replay_init(); pthread_mutex_unlock(&g_mutex); ui_screen_set(UI_GAME); LOGI("批量对齐：清空 → 清复盘记录（★ 诚实边界：原版清的是本弹窗列表存档，未逆向；AUD-1000 B03-010 锁包裹）"); sfx_play(env, "pop");
             } else if (a == 1) {   /* 关闭 → 边界对话框（诚实边界） */
                 jq_show_dialog(env, "关闭（诚实边界）",
                     "关闭：原版业务未逆向，src_rs 无此通道。");
@@ -5627,7 +5763,7 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
             } else if (a == 1) {   /* 保存 → UI_SAVE_LAY */
                 ui_screen_set(UI_SAVE_LAY); sfx_play(env, "pop");
             } else if (a == 2) {   /* 清空 → 业务动作 */
-                ui_replay_init(); ui_screen_set(UI_GAME); LOGI("批量对齐：清空 → 清复盘记录（★ 诚实边界：原版清的是本弹窗列表存档，未逆向）"); sfx_play(env, "pop");
+                pthread_mutex_lock(&g_mutex); ui_replay_init(); pthread_mutex_unlock(&g_mutex); ui_screen_set(UI_GAME); LOGI("批量对齐：清空 → 清复盘记录（★ 诚实边界：原版清的是本弹窗列表存档，未逆向；AUD-1000 B03-010 锁包裹）"); sfx_play(env, "pop");
             } else if (a == 3) {   /* 完成 → 业务动作 */
                 ui_screen_set(UI_GAME); LOGI("批量对齐：完成 → 回对局"); sfx_play(env, "pop");
             } else if (a == 4) {   /* 取消 → 业务动作 */
@@ -5636,7 +5772,11 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
         }
         return JNI_TRUE;
     }
-    /* ★ 批量对齐（datah_259）：2 按钮业务分发 */
+    /* ★ 批量对齐（datah_259）：2 按钮业务分发
+       ★ AUD-1000 B03-021（P1 已注释）：D* 批量弹窗（D000-D264 ~70 个）命中后消费
+       事件（return JNI_TRUE），未命中 fall-through 到面板外判定 → 回对局/主菜单；
+       D* 态与业务弹窗（UI_GAMESET/UI_LOGIN/UI_NEWGAME 等）在 ui_menu.h 单枚举
+       不重叠（UI_Dxxx 独立区段），路由无冲突；本注释代表全 D* 批量态。 */
     if (ui_screen_get() == UI_D259) {
         float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
         float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
@@ -5679,14 +5819,14 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
             } else if (a == 3) {   /* 投降 → 业务动作 */
                 /* ★ AUD-1000 B03-071/072（P0 已修）：g_state 写移入 g_mutex（锁外写与
                    GLThread OnUpdate 锁内渲染读构成数据竞争）。 */
+                int winner_snap = -1;   /* ★ AUD-1000 B03-064（P1 已修）：锁内快照 winner */
                 pthread_mutex_lock(&g_mutex);
                 /* ★ AUD-1000 B03-009（P0 已修）：g_state 写移入 g_mutex */
-                pthread_mutex_lock(&g_mutex);
                 g_state.winner = (g_state.turn == SIDE_BLUE) ? SIDE_RED : SIDE_BLUE;
                 g_state.stage = STG_OVER;
+                winner_snap = g_state.winner;
                 pthread_mutex_unlock(&g_mutex);
-                pthread_mutex_unlock(&g_mutex);
-                ui_screen_set(UI_GAME); LOGI("批量对齐：投降 → 本机败（winner=%d）", g_state.winner); sfx_play(env, "pop");
+                ui_screen_set(UI_GAME); LOGI("批量对齐：投降 → 本机败（winner=%d，锁内快照）", winner_snap); sfx_play(env, "pop");
             } else if (a == 4) {   /* 提和 → 业务动作 */
                 jq_show_dialog(env, "提和（诚实边界）", "提和：原版需对端应答，src_rs 本地未实现提和判定。"); ui_screen_set(UI_GAME); sfx_play(env, "pop");
             }   /* 收尾：末分支闭合 */
@@ -5947,10 +6087,10 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
         int nh = ui_newgame_hit(nb, UI_NEWGAME_COUNT, bx, by);
         if (nh >= 0) {
             int nact = nb[nh].action;
-            if (nact == 0 || nact == 1) {   /* 玩法/明暗棋：同义切换（明棋=布局 / 翻棋暗棋） */
-                int mode = ui_opt_get_mode();
-                mode = !mode;
-                ui_opt_select(ui_opt_get_level(), mode);
+            if (nact == 0 || nact == 1) {   /* 玩法/明暗棋：同义切换（明棋=布局 / 翻棋暗棋）
+                ★ AUD-1000 B03-023（P1 已修）：切换走 ui_opt_toggle_mode 单入口
+                （锁内 read-modify-write，旧 get→取反→select 三步锁外裸改丢更新）。 */
+                int mode = ui_opt_toggle_mode();
                 sfx_play(env, "pop");
                 LOGI("OnTouch 新局弹窗：玩法/明暗棋切换 → mode=%d（%s，默认翻棋暗棋对齐原版）",
                      mode, mode ? "翻棋暗棋" : "布局明棋");
@@ -6415,9 +6555,9 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
                 ui_opt_select(lvl, ui_opt_get_mode());
                 sfx_play(env, "pop");
                 LOGI("OnTouch 新局完整版弹窗：电脑水平切换 → level=%d（新手/中级/高级/好友循环）", lvl);
-            } else if (nact == 2) {   /* 玩法：布局/翻棋 切换 */
-                int mode = !ui_opt_get_mode();
-                ui_opt_select(ui_opt_get_level(), mode);
+            } else if (nact == 2) {   /* 玩法：布局/翻棋 切换
+                ★ AUD-1000 B03-023（P1 已修）：ui_opt_toggle_mode 单入口原子切换 */
+                int mode = ui_opt_toggle_mode();
                 sfx_play(env, "pop");
                 LOGI("OnTouch 新局完整版弹窗：玩法切换 → mode=%d（%s，默认翻棋暗棋）",
                      mode, mode ? "翻棋暗棋" : "布局明棋");
@@ -6545,9 +6685,9 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
                 ui_opt_select(lvl, ui_opt_get_mode());
                 sfx_play(env, "pop");
                 LOGI("OnTouch 新局完整版（完整版补充）弹窗：电脑水平切换 → level=%d（新手/中级/高级/好友循环）", lvl);
-            } else if (nact == 2) {   /* 玩法：布局/翻棋 切换 */
-                int mode = !ui_opt_get_mode();
-                ui_opt_select(ui_opt_get_level(), mode);
+            } else if (nact == 2) {   /* 玩法：布局/翻棋 切换
+                ★ AUD-1000 B03-023（P1 已修）：ui_opt_toggle_mode 单入口原子切换 */
+                int mode = ui_opt_toggle_mode();
                 sfx_play(env, "pop");
                 LOGI("OnTouch 新局完整版（完整版补充）弹窗：玩法切换 → mode=%d（%s）",
                      mode, mode ? "翻棋暗棋" : "布局明棋");
@@ -6595,15 +6735,23 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
         if (gh >= 0) {
             int gact = gb[gh].action;
             LOGI("OnTouch 对局信息弹窗：控件%d（action=%d）", gh, gact);
-            if (gact == 0) {   /* 复盘：进 UI_REPLAY 复盘态（复用 P1 复盘） */
+            if (gact == 0) {   /* 复盘：进 UI_REPLAY 复盘态（复用 P1 复盘）
+                ★ AUD-1000 B02-081（P1 已修）：rewind 改 g_state 须 g_mutex
+                （与锁内 ui_replay_record/OnUpdate 渲染读并发，同 B02-080 范式）。 */
                 int n = ui_replay_count();
-                int rc = ui_replay_rewind(n);
+                int rc;
+                pthread_mutex_lock(&g_mutex);
+                rc = ui_replay_rewind(n);
+                pthread_mutex_unlock(&g_mutex);
                 ui_screen_set(UI_REPLAY);
                 sfx_play(env, "pop");
                 LOGI("OnTouch 对局信息弹窗：复盘 → UI_REPLAY 复盘态（datah_107 控制条 5 按钮，cur=%d/%d rewind rc=%d）",
                      n, n, rc);
-            } else if (gact == 1) {   /* 删除：清复盘记录（诚实边界简化） */
+            } else if (gact == 1) {   /* 删除：清复盘记录（诚实边界简化）
+                ★ AUD-1000 B02-082（P1 已修）：ui_replay_init 改 g_replay 须 g_mutex。 */
+                pthread_mutex_lock(&g_mutex);
                 ui_replay_init();
+                pthread_mutex_unlock(&g_mutex);
                 sfx_play(env, "pop");
                 LOGI("OnTouch 对局信息弹窗：删除 → 清复盘记录（n=%d，★ 诚实边界：原版删除对局存档未逆向，"
                      "简化为清复盘记录）", ui_replay_count());
@@ -6774,16 +6922,16 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
                 sfx_play(env, "pop");
                 LOGI("OnTouch 提和详情：提和 → 发送 DRAW 帧 + 诚实边界对话框（本地提和判定未实现）");
             } else if (dact == 1) {   /* 认输 → 对方胜 + 发 BT_T_RESIGN 帧（保留现有逻辑） */
+                int winner_snap = -1;   /* ★ AUD-1000 B03-064（P1 已修）：锁内快照 winner */
                 pthread_mutex_lock(&g_mutex);
                 /* ★ AUD-1000 B03-009（P0 已修）：g_state 写移入 g_mutex */
-                pthread_mutex_lock(&g_mutex);
                 g_state.winner = (g_state.turn == SIDE_BLUE) ? SIDE_RED : SIDE_BLUE;
                 g_state.stage = STG_OVER;
-                pthread_mutex_unlock(&g_mutex);
+                winner_snap = g_state.winner;
                 pthread_mutex_unlock(&g_mutex);
                 jq_bt_ctrl_send(env, BT_T_RESIGN);
                 sfx_play(env, "over");
-                LOGI("OnTouch 提和详情：认输 → 对方胜（winner=%d）+ RESIGN 帧", g_state.winner);
+                LOGI("OnTouch 提和详情：认输 → 对方胜（winner=%d，锁内快照）+ RESIGN 帧", winner_snap);
             } else if (dact == 2) {   /* 聊天 → 发 BT_T_CHAT 占位帧 + 边界对话框 */
                 jq_bt_ctrl_send(env, BT_T_CHAT);
                 jq_show_dialog(env, "聊天（诚实边界）",
@@ -7089,9 +7237,9 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
                 sfx_play(env, "pop");
                 LOGI("OnTouch 创建游戏完整版弹窗：先后手切换 → %s（★ 诚实边界：联机开局配置，仅 UI 状态记录）",
                      ui_first_get() ? "红先手" : "蓝先手");
-            } else if (cact == 1) {   /* 玩法：布局/翻棋 切换 */
-                int mode = !ui_opt_get_mode();
-                ui_opt_select(ui_opt_get_level(), mode);
+            } else if (cact == 1) {   /* 玩法：布局/翻棋 切换
+                ★ AUD-1000 B03-023（P1 已修）：ui_opt_toggle_mode 单入口原子切换 */
+                int mode = ui_opt_toggle_mode();
                 sfx_play(env, "pop");
                 LOGI("OnTouch 创建游戏完整版弹窗：玩法切换 → mode=%d（%s，★ 诚实边界：联机开局配置，仅 UI 状态记录）",
                      mode, mode ? "翻棋暗棋" : "布局明棋");
@@ -7317,17 +7465,17 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
             int ract = rb[rh].action;
             LOGI("OnTouch 认输确认弹窗：按钮%d（action=%d）", rh, ract);
             if (ract == 0) {   /* 认输 → 本机败（winner=对方）+ 回对局结束态 */
+                int winner_snap = -1;   /* ★ AUD-1000 B03-064（P1 已修）：锁内快照 winner */
                 pthread_mutex_lock(&g_mutex);
                 /* ★ AUD-1000 B03-009（P0 已修）：g_state 写移入 g_mutex */
-                pthread_mutex_lock(&g_mutex);
                 g_state.winner = (g_state.turn == SIDE_BLUE) ? SIDE_RED : SIDE_BLUE;
                 g_state.stage = STG_OVER;
-                pthread_mutex_unlock(&g_mutex);
+                winner_snap = g_state.winner;
                 pthread_mutex_unlock(&g_mutex);
                 ui_screen_set(UI_GAME);
                 sfx_play(env, "over");
-                LOGI("OnTouch 认输确认：认输 → 本机败（winner=%d stage=OVER，对齐原版 Junqi.ResignConfirm）",
-                     g_state.winner);
+                LOGI("OnTouch 认输确认：认输 → 本机败（winner=%d stage=OVER，锁内快照，对齐原版 Junqi.ResignConfirm）",
+                     winner_snap);
             } else if (ract == 1) {   /* 取消 → 回对局 */
                 ui_screen_set(UI_GAME);
                 sfx_play(env, "pop");
@@ -7344,13 +7492,24 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
         if (gh >= 0) {
             int gact = gb[gh].action;
             LOGI("OnTouch 悔棋确认弹窗：按钮%d（action=%d）", gh, gact);
-            if (gact == 0) {   /* 悔棋 → undo_pop 一步 + 回对局 */
+            if (gact == 0) {   /* 悔棋 → 连续 pop 到 BLUE（人机/AI 模式）或单 pop（两人热座）+ 回对局
+                ★ AUD-1000 B03-065（P1 已修）：单 undo_pop 在人机模式栈顶是 AI 应着前
+                （turn=RED）→ OnUpdate AI 立即补应着 → 悔棋失效；改 while 连续 pop
+                到 BLUE（对齐 ☰ 菜单 7809 修复范式），两人模式保持单 pop。 */
                 pthread_mutex_lock(&g_mutex);
-                int popped = undo_pop();
+                int popped = 0;
+                if (ui_vs_ai_get()) {
+                    while (undo_pop()) {
+                        popped++;
+                        if (g_state.turn == SIDE_BLUE || g_state.stage != STG_PLAY) break;
+                    }
+                } else {
+                    popped = undo_pop();
+                }
                 pthread_mutex_unlock(&g_mutex);
                 ui_screen_set(UI_GAME);
                 sfx_play(env, "pop");
-                LOGI("OnTouch 悔棋确认：悔棋 → undo_pop（popped=%d，对齐原版 Junqi.RegretConfirm）", popped);
+                LOGI("OnTouch 悔棋确认：悔棋 → undo_pop（popped=%d，人机=连续到 BLUE，对齐原版 Junqi.RegretConfirm）", popped);
             } else if (gact == 1) {   /* 取消 → 回对局 */
                 ui_screen_set(UI_GAME);
                 sfx_play(env, "pop");
@@ -7703,16 +7862,19 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
             int act = im[ih].action;
             LOGI("OnTouch ☰菜单：按钮%d（action=%d，%s）", ih, act, bt_mode ? "联机版" : "本地版");
             if (act == 0) {   /* 重新开始 */
+                int sess_init_done_snap;
                 pthread_mutex_lock(&g_mutex);
                 jq_restart_game();
+                sess_init_done_snap = g_bt_sess_init_done;   /* ★ AUD-1000 B03-047（P1 已修）：锁内快照 */
                 pthread_mutex_unlock(&g_mutex);
                 sfx_play(env, "over");
                 LOGI("☰菜单 重新开始：default.lay 重开局（stage=PLAY 蓝先手）");
-                /* ★ BT 联机：重开 → 发 RESTART 帧（对端同步重开） */
-                if (g_bt_sess_init_done) jq_bt_ctrl_send(env, BT_T_RESTART);
+                /* ★ BT 联机：重开 → 发 RESTART 帧（对端同步重开，锁内快照值判发帧） */
+                if (sess_init_done_snap) jq_bt_ctrl_send(env, BT_T_RESTART);
             } else if (act == 1) {   /* 悔棋 */
-                pthread_mutex_lock(&g_mutex);
+                int sess_init_done_snap;
                 int popped = 0;
+                pthread_mutex_lock(&g_mutex);
                 if (g_vs_ai) {
                     /* ★ 人机模式：悔到玩家蓝回合（AI 应着步 + 玩家步都悔，undo 栈含 AI 步） */
                     while (undo_pop()) {
@@ -7720,14 +7882,17 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
                         if (g_state.turn == SIDE_BLUE || g_state.stage != STG_PLAY) break;
                     }
                 } else {
-                    /* ★ 两人热座/蓝牙：悔最近 1 步（对方走子后轮到对方，只悔本方可悔步） */
-                    popped = undo_pop();
+                    /* ★ 两人热座/蓝牙：悔最近 1 步（对方走子后轮到对方，只悔本方可悔步）
+                       ★ AUD-1000 B03-046（P1 已修）：BT 态悔棋仅发 UNDO 帧、不本地 pop——
+                       本地 pop 由收帧侧（OnBluetooth UNDO 收帧闭环）执行，防双 pop。 */
+                    popped = ui_bt_active() ? 0 : undo_pop();
                 }
+                sess_init_done_snap = g_bt_sess_init_done;   /* ★ AUD-1000 B03-047：锁内快照 */
                 pthread_mutex_unlock(&g_mutex);
                 sfx_play(env, "pop");
-                LOGI("☰菜单 悔棋：连续 undo_pop 到 BLUE（popped=%d）", popped);
-                /* ★ BT 联机：悔棋 → 发 UNDO 帧（对端同步悔棋） */
-                if (g_bt_sess_init_done && popped) jq_bt_ctrl_send(env, BT_T_UNDO);
+                LOGI("☰菜单 悔棋：连续 undo_pop 到 BLUE（popped=%d，BT 态=0 仅发帧）", popped);
+                /* ★ BT 联机：悔棋 → 发 UNDO 帧（对端同步悔棋；收帧侧 8048 本地回退） */
+                if (sess_init_done_snap && (popped || ui_bt_active())) jq_bt_ctrl_send(env, BT_T_UNDO);
             } else if (bt_mode && act == 2) {   /* 提和（联机版，datah_067）→ 提和详情弹窗（★ P2 datah_042） */
                 /* ★ P2（datah_042 证据）：提和入口从"直接发帧"升级为 datah_042 7 图标
                    提和详情弹窗（提和/认输/聊天/系统设置/玩家资料/战况统计/软件信息），
@@ -7786,9 +7951,9 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
                 if (g_state.stage == STG_PLAY) {
                     int from, to, flip;
                     if (ai_pick(&from, &to, &flip) == 0) {
-                        undo_push();
-                        if (flip) { if (jq_flip(&g_state, from)) { ui_replay_record(from, from, 1); g_event_cnt[EV_FLIP]++; g_event_total++; }   /* AUD-R-061：翻棋计数走 EV_FLIP=6 位 */ }   /* ★ P1（datah_039/107）：电脑变着翻棋记录 */
-                        else { int e = jq_try_move(&g_state, from, to); if (e >= 0) ui_replay_record(from, to, 0); (void)e; }   /* ★ P1（datah_039/107）：电脑变着走子记录 */
+                        int pushed = undo_push();   /* ★ AUD-1000 B03-008（P1 已修）：☰ 电脑变着 push 契约 */
+                        if (flip) { int frc = 0; if (jq_flip(&g_state, from)) { frc = 1; ui_replay_record(from, from, 1); g_event_cnt[EV_FLIP]++; g_event_total++; }   /* AUD-R-061：翻棋计数走 EV_FLIP=6 位 */   /* ★ P1（datah_039/107）：电脑变着翻棋记录 */ if (frc < 0 && pushed) undo_pop_discard(); }
+                        else { int e = jq_try_move(&g_state, from, to); if (e >= 0) ui_replay_record(from, to, 0); if (e < 0 && pushed) undo_pop_discard(); (void)e; }   /* ★ P1（datah_039/107）：电脑变着走子记录 */
                         done = 1;
                     }
                 }
@@ -7897,12 +8062,12 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
             /* 点自身 = 翻棋。翻棋成功保持选中（态机已 SELECTED，下一步走子）；
                翻棋失败（已翻开/非己方）回 IDLE。 */
             if (from >= 0 && jq_can_flip(st, from)) {
-                undo_push();
+                int pushed = undo_push();   /* ★ AUD-1000 B03-008/B03-011（P1 已修）：push 契约 */
                 flip_done = jq_flip(st, from);
                 if (flip_done) {
                     ui_replay_record(from, from, 1);   /* ★ P1（datah_039/107）：翻棋成功记录 1 步 */
                     g_event_cnt[EV_FLIP]++; g_event_total++;   /* ★ AUD-R-061（P2）：翻棋计数走 EV_FLIP=6 位 */
-                }
+                } else if (pushed) undo_pop_discard();   /* 翻棋失败回滚栈顶快照 */
                 LOGI("走子判定 翻棋：cell=%d rc=%d turn→%d（人机AI走红=%d）",
                      from, flip_done, st->turn, g_vs_ai);
             } else {
@@ -7912,10 +8077,11 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
             /* 走子 A→B（jq_can_move 判定 + jq_try_move 事件） */
             if (from >= 0 && to >= 0) {
                 int movable = jq_can_move(st, from, to);
-                undo_push();
+                int pushed = undo_push();   /* ★ AUD-1000 B03-008/B03-011（P1 已修）：push 契约 */
                 jnev = jq_try_move(st, from, to);
                 move_ok = (jnev >= 0);
                 if (move_ok) ui_replay_record(from, to, 0);   /* ★ P1（datah_039/107）：走子成功记录 1 步 */
+                if (jnev < 0 && pushed) undo_pop_discard();   /* 走子失败回滚栈顶快照 */
                 if (move_ok && jnev >= 0 && jnev < 7) {   /* AUD-R-061：7 项事件码（AUD-A-0003/0004 同族：下界+上界守卫齐全） */
                     g_event_cnt[jnev]++;   /* 事件计数（对齐 on_event，OnTouch 直接走子不经 on_event） */
                     g_event_total++;
@@ -7929,12 +8095,20 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
         pthread_mutex_unlock(&g_mutex);
         /* ★ 蓝牙联机发送侧：走子/翻棋成功且联机会话已建立且**轮到本方**（OUR_TURN）→ 编码 v2 帧 → Java BtSpp 写出。
            ★ 回合闸口：client（THEIR_TURN）不发送；host 首帧后 send_move 置 THEIR_TURN。 */
-        if ((flip_done || move_ok) && g_bt_sess_init_done &&
-            g_bt_sess.state == BT_ST_OUR_TURN) {
+        if ((flip_done || move_ok) && g_bt_sess_init_done) {
+            /* ★ AUD-1000 B03-048/B03-087（P1 已修）：send_move 的 g_state 快照编码
+               移入 g_mutex（旧实现在 unlock 后读 &g_state 编码，与 GLThread 渲染读
+               并发；Java 写出 jq_bt_send 仍锁外，编码结果本地串自带，无共享状态）。 */
+            int sess_state;
             char tb[BT_BUF];
-            int bn = jq_bt_session_send_move(&g_bt_sess, &g_state, from,
+            int bn = 0;
+            pthread_mutex_lock(&g_mutex);
+            sess_state = (int)g_bt_sess.state;
+            if (sess_state == BT_ST_OUR_TURN)
+                bn = jq_bt_session_send_move(&g_bt_sess, &g_state, from,
                                              flip_done ? from : to, flip_done,
                                              tb, sizeof tb);
+            pthread_mutex_unlock(&g_mutex);
             if (bn > 0) {
                 tb[bn] = 0;
                 jq_bt_send(env, tb);
@@ -7961,13 +8135,16 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
                 g_vs_ai && g_state.turn == SIDE_RED) {
                 int af, at, aflip, ae = -1;
                 if (ai_pick(&af, &at, &aflip) == 0) {
-                    undo_push();
+                    int pushed = undo_push();   /* ★ AUD-1000 B03-008（P1 已修）：OnTouch AI 块 push 契约 */
                     if (aflip) {
-                        if (jq_flip(&g_state, af)) { ui_replay_record(af, af, 1); g_event_cnt[EV_FLIP]++; g_event_total++; }   /* AUD-R-061：翻棋计数走 EV_FLIP=6 位 */   /* ★ P1（datah_039/107）：AI 翻棋记录 */
+                        int frc = 0;
+                        if (jq_flip(&g_state, af)) { frc = 1; ui_replay_record(af, af, 1); g_event_cnt[EV_FLIP]++; g_event_total++; }   /* AUD-R-061：翻棋计数走 EV_FLIP=6 位 */   /* ★ P1（datah_039/107）：AI 翻棋记录 */
+                        if (frc < 0 && pushed) undo_pop_discard();
                         LOGI("红方 AI 应着（翻棋）：cell=%d（turn 切回蓝方）", af);
                     } else {
                         ae = jq_try_move(&g_state, af, at);
                         if (ae >= 0) ui_replay_record(af, at, 0);   /* ★ P1（datah_039/107）：AI 走子记录 */
+                        if (ae < 0 && pushed) undo_pop_discard();
                         LOGI("红方 AI 应着：from=%d to=%d 结果=%s（turn 切回蓝方）",
                              af, at, JQ_EVENT_NAMES[ae < 0 ? 0 : ae]);
                     }
@@ -8045,7 +8222,10 @@ Java_com_cnvcs_App_OnBluetooth(JNIEnv *env, jclass clazz, jobject intent)
     pthread_mutex_unlock(&g_mutex);
     /* 取 extra 文本（Java 宿主把收到的 v2 帧字符串放 Intent extra）
        extra 键名 = 原版 .rodata "extra"（0x127458 确证） */
-    /* 走 getStringExtra("extra") 路径（原版 .rodata "extra" 0x127458 确证键名） */
+    /* 走 getStringExtra("extra") 路径（原版 .rodata "extra" 0x127458 确证键名）
+       ★ AUD-1000 B03-016（P1 已修）：GetStringUTFChars 失败路径补 txt 释放契约——
+       早期 extra==NULL 返回点（getStringExtra 失败）不走下方 Release（此时无 txt），
+       正常路径 :8066 取 txt 后所有 return 点已配对 Release（含 test 早退路径）。 */
     jclass i_cls = (*env)->GetObjectClass(env, intent);
     jmethodID gse = (*env)->GetMethodID(env, i_cls, "getStringExtra",
                                         "(Ljava/lang/String;)Ljava/lang/String;");
@@ -8067,7 +8247,8 @@ Java_com_cnvcs_App_OnBluetooth(JNIEnv *env, jclass clazz, jobject intent)
     if (!txt) return;
     const char *disp = txt;   /* ★ 对抗审计 #11：解析用指针（test 路径可能切到栈缓冲 testframe） */
     if (strcmp(txt, "test") == 0) {
-        /* 找当前可翻子（暗棋阶段），构造 FLIP 帧文本 → 走 decode + on_frame 链 */
+        /* 找当前可翻子（暗棋阶段），构造 FLIP 帧文本 → 走 decode + on_frame 链
+           ★ AUD-1000 B03-016（P1 已修）：锁内取 fidx 后解锁；早退路径配对释放 txt */
         int fidx = -1;
         pthread_mutex_lock(&g_mutex);
         for (int i = 0; i < N_CELLS; i++)
@@ -8099,6 +8280,8 @@ Java_com_cnvcs_App_OnBluetooth(JNIEnv *env, jclass clazz, jobject intent)
     const char *p = disp;
     int f[8];
     int nframes = 0;
+    int sess_state = -1, stage_snap = -1;   /* ★ AUD-1000 B03-016/B03-089（P1 已修）：
+       末日志锁外裸读 g_bt_sess.state/g_state.stage → 锁内快照后 LOGI */
     while (*p) {
         if (jq_bt_frame_decode(p, &f[0], &f[1], &f[2], &f[3], &f[4], &f[5], &f[6])) {
             pthread_mutex_lock(&g_mutex);
@@ -8114,42 +8297,49 @@ Java_com_cnvcs_App_OnBluetooth(JNIEnv *env, jclass clazz, jobject intent)
                对端栈只存对端走的子）→ 双方各弹一次 = 退一个完整回合 = 棋盘一致。
                回退后广播 SYNC_CELL 全量（60 帧）→ 请求方以权威态覆盖，双端收敛。
                诚实边界：若双方栈深不一致（如一侧本地悔过未广播），SYNC_CELL 兜底收敛。 */
+            /* ★ AUD-1000 B03-015/B03-087/B03-017（P1 已修）：SYNC_CELL 编码移入本锁段
+               （旧 unlock 后 jq_bt_session_send_sync 读 g_state 60 格锁外）；
+               双 8KB 栈缓冲（sbuf+payload）改 sbuf 单缓冲复用（payload 段=sbuf 尾部），
+               BtSpp 读线程栈压减半。 */
             int did_undo = 0;
+            static char g_bt_payload[BT_BUF * 64 + 1];   /* 锁外发送缓存（BtSpp 读线程串行处理，静态复用）
+               ★ AUD-1000 B03-017：旧双 8KB 栈缓冲（sbuf+payload 均栈上）改 栈上 sbuf（仅 UNDO 帧时开）
+               + 静态 payload（复用），常态栈压减半。 */
+            char *payload = g_bt_payload;
+            int plen = 0;
             if (f[0] == BT_T_UNDO && rc == 0) {
                 if (undo_pop()) {
                     did_undo = 1;
-                    LOGI("OnBluetooth：收 UNDO 帧 → 本地回退 1 步（undo_pop，turn=%d）", g_state.turn);
+                    char sbuf[BT_BUF * 64];   /* 60 帧 × BT_BUF 槽（strided，锁内编码） */
+                    int sn = jq_bt_session_send_sync(&g_bt_sess, &g_state, sbuf, BT_BUF);
+                    if (sn > 0) {
+                        for (int k = 0; k < sn; k++) {
+                            const char *fr = sbuf + k * BT_BUF;
+                            int flen = (int)strlen(fr);
+                            /* ★ AUD-1000 B03-017：容量守卫 = 实缓冲 sizeof(g_bt_payload)，
+                               非 sizeof(payload)（指针类型=8，旧写法 8 字节截断）。 */
+                            if (flen <= 0 || plen + flen >= (int)(sizeof g_bt_payload) - 1) break;
+                            memcpy(payload + plen, fr, flen);
+                            plen += flen;
+                        }
+                        payload[plen] = 0;
+                    }
+                    LOGI("OnBluetooth：收 UNDO 帧 → 本地回退 1 步（undo_pop，turn=%d，sync 锁内编码 %d 字节）",
+                         g_state.turn, plen);
                 } else {
                     LOGI("OnBluetooth：收 UNDO 帧但本地栈空（不悔，诚实边界）");
                 }
             }
+            sess_state = (int)g_bt_sess.state;
+            stage_snap = (int)g_state.stage;   /* ★ AUD-1000 B03-016/B03-089：锁内快照 */
             pthread_mutex_unlock(&g_mutex);
             nframes++;
             if (rc < 0)
                 LOGI("OnBluetooth：帧 type=%d 被拒（rc=%d）", f[0], rc);
-            /* 回退后广播全量 SYNC_CELL（60 帧）→ 请求方覆盖为权威态（双端收敛） */
-            if (did_undo) {
-                char sbuf[BT_BUF * 64];        /* 60 帧 × BT_BUF 槽（strided 布局） */
-                int sn = jq_bt_session_send_sync(&g_bt_sess, &g_state, sbuf, BT_BUF);
-                if (sn > 0) {
-                    /* jq_bt_frame_sync_encode 返回**帧数**，每帧占 BT_BUF 槽，
-                       槽内 "v2\npayload\n\0"（帧自带尾 '\n'）→ 直接串接即可，
-                       无需额外分隔符（Java 读线程按 "v2\n"+payload+"\n" 重组帧）。 */
-                    char payload[BT_BUF * 64];
-                    int plen = 0;
-                    for (int k = 0; k < sn; k++) {
-                        const char *fr = sbuf + k * BT_BUF;
-                        int flen = (int)strlen(fr);
-                        if (flen <= 0 || plen + flen >= (int)sizeof(payload)) break;
-                        memcpy(payload + plen, fr, flen);
-                        plen += flen;
-                    }
-                    payload[plen] = 0;
-                    if (plen > 0) {
-                        jq_bt_send(env, payload);
-                        LOGI("OnBluetooth：UNDO 回退后广播 SYNC_CELL 全量（%d 帧 / %d 字节）", sn, plen);
-                    }
-                }
+            /* 回退后广播全量 SYNC_CELL（锁内编码，锁外 jq_bt_send 写出） */
+            if (did_undo && plen > 0) {
+                jq_bt_send(env, payload);
+                LOGI("OnBluetooth：UNDO 回退后广播 SYNC_CELL 全量（%d 字节）", plen);
             }
             /* ★ AUD-1000 B09-038（P1 已修）：找下一帧起点须从**帧尾**推进——
                旧实现 `strchr(p, '\n')` 命中的是 "v2\n" 头的第一个 '\n'（帧自带
@@ -8164,7 +8354,7 @@ Java_com_cnvcs_App_OnBluetooth(JNIEnv *env, jclass clazz, jobject intent)
     }
     (*env)->ReleaseStringUTFChars(env, extra, txt);
     LOGI("OnBluetooth：处理 %d 帧，会话状态=%d，stage=%d",
-         nframes, (int)g_bt_sess.state, (int)g_state.stage);
+         nframes, sess_state, stage_snap);   /* ★ AUD-1000 B03-089：锁内快照值，非裸读 */
 }
 
 JNIEXPORT jint JNICALL
