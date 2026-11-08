@@ -403,6 +403,18 @@ static void jq_bt_start(JNIEnv *env, int host)
    都打"未连接被拒"，行为上比假成功更诚实（调用方 logcat 可诊断）。 */
 static int g_bt_connected = 0;   /* Java 侧连接态镜像（OnBluetooth 帧解析时更新） */
 
+/* ★ AUD-1000 B10-001（P1 已修）：jq.bt_conn 属性轮询——BtSpp 侧 setprop
+   jq.bt_conn 1/0（连接成功/断开，见头注释 bstate 钩子设计），native 在
+   发送前同步镜像。旧实现 g_bt_connected 只置 1 永不置 0 → 断连诊断永久
+   失效（断连后发送仍"连接态"误报 + "未连接被拒"诚实边界日志失真）。
+   无属性环境（未推钩子）返回 -1 → 不覆盖推帧推定值。 */
+static int jq_bt_conn_prop(void)
+{
+    char v[8] = {0};
+    if (__system_property_get("jq.bt_conn", v) <= 0 || v[0] == 0) return -1;
+    return v[0] == '1' ? 1 : 0;
+}
+
 static void jq_bt_send(JNIEnv *env, const char *frame)
 {
     if (!env || !frame) return;
@@ -422,6 +434,10 @@ static void jq_bt_send(JNIEnv *env, const char *frame)
     }
     if ((*env)->ExceptionCheck(env)) (*env)->ExceptionClear(env);
     (*env)->DeleteLocalRef(env, cls);
+    /* ★ AUD-1000 B10-001（P1 已修）：发送前同步 jq.bt_conn 属性（1=连接 0=断开），
+       推帧推定值仅在无属性时保留（属性未推设备 → -1 → 不覆盖）。 */
+    int prop = jq_bt_conn_prop();
+    if (prop >= 0) g_bt_connected = prop;
     if (!g_bt_connected)
         LOGI("蓝牙联机发送：未连接被拒（g_bt_connected=0，Java 侧 s_connected=false，诚实边界）");
 }
@@ -568,7 +584,11 @@ static void sfx_play_asset(JNIEnv *env, const char *event)
 
 static void sfx_wav_ensure_private(JNIEnv *env, jobject activity)
 {
-    if (g_sfx_wrote) return;
+    /* ★ AUD-1000 B10-002（P1 已修）：完成判据改为 g_sfx_priv_dir 已就绪——
+       旧实现在函数入口置位 g_sfx_wrote=1，后续 JNI 失败路径（activity 空/
+       getFilesDir 异常/abspath 空）早退时标志已置位 → 失败永不重试。
+       g_sfx_wrote 仅作已尝试幂等标记，成功判据看 g_sfx_priv_dir。 */
+    if (g_sfx_wrote && g_sfx_priv_dir[0]) return;
     g_sfx_wrote = 1;
     /* ★ 只做内部目录 mkdirs（getFilesDir/jq_sfx）+ 设 g_sfx_priv_dir，不碰 AAssetManager_open。
        根因：AAssetManager_open（libandroid）真机有全局锁，主线程 OnCreate 与渲染线程竞争
@@ -8080,7 +8100,11 @@ Java_com_cnvcs_App_OnBluetooth(JNIEnv *env, jclass clazz, jobject intent)
                     }
                 }
             }
-            /* 找下一帧起点（跳过本帧的 '\n'） */
+            /* ★ AUD-1000 B09-038（P1 已修）：找下一帧起点须从**帧尾**推进——
+               旧实现 `strchr(p, '\n')` 命中的是 "v2\n" 头的第一个 '\n'（帧自带
+               尾 '\n'，decode 成功意味着 p 指向完整 "v2\n...\n"）→ p 永不前进，
+               UNDO 后 60 帧串接广播**仅首帧被处理**，后续 59 帧静默丢失（与
+               P0 帧丢帧同族残留）。修：前进到 p 起的首个 '\n' 之后。 */
             const char *nl = strchr(p, '\n');
             p = nl ? nl + 1 : p + 1;
         } else {
