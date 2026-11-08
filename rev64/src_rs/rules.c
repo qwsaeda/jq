@@ -85,7 +85,9 @@ static bool walkable(const jq_state *st, int row, int col)
    无运行时开销但降低可读性，与 board.c 风格不一致）。 */
 static const int8_t RAIL_DIRS[4][2] = {{1,0},{-1,0},{0,1},{0,-1}};
 
-/* 工兵沿铁路任意路径（可拐弯）：BFS，横向仅 row5/6 中线
+/* 工兵沿铁路任意路径（可拐弯）：BFS。
+   铁路拓扑唯一事实源 = board.c is_rail()：纵向仅 col2 一条纵贯线；
+   横向 = row0（蓝底线）/ row5 / row6（中线）/ row11（红底线）整行。
    ★ AUD-R-025（P2 已修）：入口起点越界自检（fr/fc 越界 → false，防 visited 越界写）；
    当前唯一调用方 jq_can_move 传已校验坐标，本守卫为双保险（函数 static 但无自检）。
    ★ AUD-R-026（P2 诚实标注 → 真修）：队列 qr/qc[64] > 60 格理论安全；visited 保证
@@ -112,7 +114,11 @@ static bool rail_path_engineer(const jq_state *st, int fr, int fc, int tr, int t
             int nr = r + RAIL_DIRS[k][0], nc = c + RAIL_DIRS[k][1];
             if (nr < 0 || nr >= BOARD_ROWS || nc < 0 || nc >= BOARD_COLS) continue;
             if (visited[nr][nc]) continue;
-            if (nc != c && r != 5 && r != 6) continue;   /* 横向仅中线 */
+            /* ★ AUD-R-024（P2 已修）：横向行集合与 rail_path_straight 的
+               AUD-R-001 方向校验对齐 —— 横向铁路 = row0/5/6/11 整行，
+               纵向铁路 = 仅 col2。旧实现只放 row5/6 → 工兵沿底线横滑
+               （直滑允许但 BFS 禁止）两套判定打架。 */
+            if (nc != c && !(r == 0 || r == 5 || r == 6 || r == 11)) continue;
             if (!is_rail(nr, nc)) continue;
             /* ★ AUD-1000 B01-001（P0 已修）：目标判定并入 walkable——行营/大本营
                空格非铁路占位 → 工兵 BFS 不可"滑行"进入（与 move_legal 条款一致）；
@@ -329,6 +335,15 @@ static bool can_move_ignore_turn(const jq_state *st, int from, int to)
     return move_legal(st, from, to, -1);
 }
 
+/* ★ AUD-R-014（P1）：公开的"忽略回合"合法性查询。
+   jq_can_move 强制 src->side == st->turn → 对**非当前回合方**统计可动子时
+   恒为 0（旧 jq_refresh_movable_counts 因此把另一方算成 0/1 个可动子）。 */
+bool jq_can_move_any(const jq_state *st, int from, int to)
+{
+    if (!st) return false;
+    return move_legal(st, from, to, -1);
+}
+
 /* ★ AUD-R-018（P1）：「杀光对方所有可动子」判据（rulelay L9/L16 三条胜负之一）。
    明棋（全员 revealed=1）下与困毙判定精确等价（可动子存在 ⇔ 不困毙），
    无需独立分支；暗棋（存在未翻暗子）下困毙逻辑先扫未翻子 → 不判负，
@@ -341,6 +356,10 @@ static bool can_move_ignore_turn(const jq_state *st, int from, int to)
 static void stalemate_after(jq_state *st)
 {
     if (st->stage != STG_PLAY) return;
+    /* ★ AUD-R-014（P1）：走子/翻棋后刷新双方可动子统计（原版 0x6b87c→0x6a3b0
+       "走子后刷新统计"）。同一处覆盖两条路径（jq_try_move / jq_flip），
+       避免增量维护漂移（旧实现只 -- 不刷新 → 计数可为负）。 */
+    jq_refresh_movable_counts(st);
     /* ★ AUD-R-033（P2 诚实标注）：total_moves 同时计入走子与翻棋（jq_flip :392
        total_moves++）——"1000 步"是否含翻棋无原版依据（70 步无吃子计翻棋有
        §L70 依据；1000 步无）。修法（拆 total_moves/total_turns 双字段或 SPEC
@@ -495,8 +514,11 @@ int jq_try_move(jq_state *st, int from, int to)
         st->total_moves++;
         st->moves_since_eat = 0;
         /* 开关关闭：走子正常收口（困毙判定可在此触发，与 EV_MOVE 一致）。
-           AUD-R-008 后行为：flag-off 后 stalemate_after 判定 RED 困毙（RED 只剩 58 军旗
-           不可动），winner=BLUE stage=OVER。evverify 夹具期望相应更新。 */
+           ★ AUD-1000 B01-024 注释纠错：旧注释"RED 只剩 58 军旗不可动"误述——
+           :473 *dst=*src 已将 58 格军旗**覆盖**为攻子（军旗格已无军旗），
+           flag-off 路径实际困毙靠：攻子冻结在 58（:202 大本营源格不可再动）
+           + 守方其余子无合法着法 → stalemate_after 判 RED 困毙。
+           非"军旗消失判负"（开关关闭语义 = 走子收口，胜负靠困毙收口）。 */
         stalemate_after(st);
         return ev;
     } else if (dr_ == RANK_MINE) {
@@ -671,27 +693,14 @@ bool jq_side_stalemated(const jq_state *st, uint8_t side)
 }
 
 /* ---------- 悔棋（本地快照；联机由 Regret* 事件驱动，L77） ---------- */
-/* ★ AUD-R-012（P1）：引擎内未实现快照栈（诚实标注）。
-   实际悔棋由 jni_bridge.c 的 g_undo[UNDO_MAX] 环形栈承担（undo_push/undo_pop，
-   走子/翻棋前整体拷贝 jq_state），原版 so 无内建悔棋栈。
-   本函数为头文件契约占位（"走子前调用"），当前空实现；
-   调用方应直接维护自身快照，勿依赖此 API。 */
-void jq_undo_snapshot(const jq_state *st)
-{
-    (void)st;
-}
-
+/* ★ AUD-R-012/013（P1）已修：删除空壳 jq_undo_snapshot()/jq_snapshots_left()。
+   悔棋栈唯一实现 = jni_bridge.c g_undo[UNDO_MAX]（undo_push/undo_pop）；
+   蓝牙 UNDO 闸口 = jq_bt_undo_available()（读真实栈深）。
+   保留 jq_undo_restore（*st = *snap，真实可用）。 */
 void jq_undo_restore(jq_state *st, const jq_state *snap)
 {
+    if (!st || !snap) return;   /* ★ AUD-R-091 同批：NULL 防护 */
     *st = *snap;
-}
-
-/* ★ AUD-R-013（P1）：引擎内无快照栈 → 恒 0（快照栈在调用方）。
-   蓝牙 UNDO 帧消费点改走 jni_bridge 暴露的 jq_bt_undo_available()。 */
-int jq_snapshots_left(const jq_state *st)
-{
-    (void)st;
-    return 0;   /* 快照栈在调用方（jni_bridge g_undo） */
 }
 
 int  jq_bt_undo_available(void);   /* bt_session.c BT_T_UNDO 分支用（jni_bridge.c 实现；bttest 桩在 bt_selftest.c） */

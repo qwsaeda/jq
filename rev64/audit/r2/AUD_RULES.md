@@ -190,6 +190,8 @@
 
 
 - 闭环：**✅ 已修**（AUD_LOOP 对抗审计批次：P0/P1 规则条款真修 + evverify 167/167 实证；修复痕迹见 rules.c/junqi.h 行内注释，本标记为文档侧闭环收口；32 位翻译体侧分叉状态见 rules_fork_check.py 矩阵）
+
+- 闭环：**✅ 本轮真修** — ★ 本轮真修：删除空壳 jq_undo_snapshot()（空实现）/ jq_snapshots_left()（恒 0）两个 API（声明与实现语义相反 → 任何按契约调用都静默失效）；保留真实可用的 jq_undo_restore()。悔棋栈唯一实现 = jni_bridge g_undo[UNDO_MAX]。
 ## AUD-R-013 [P1] `jq_snapshots_left()` 恒返回 0 → 蓝牙 UNDO 帧永远不生效（联机悔棋功能实为死代码）
 - 位置：`src_rs/rules.c:302-306`、消费点 `src_rs/bt_session.c:65-70`
 - 问题：`jq_snapshots_left()` 恒返回 0（`return 0; /* 快照栈在调用方 */`），而 `bt_session.c:67` 用它作为"是否可以恢复"的闸口 → 收到 `BT_T_UNDO` 帧时**永远不执行 `jq_undo_restore()`**，只把回合切回 OUR_TURN 并返回 0（假装成功）。对端收到"悔棋已生效"的语义，实际棋盘未变 → 联机双方状态发散。
@@ -201,6 +203,8 @@
 
 
 - 闭环：**✅ 已修**（AUD_LOOP 对抗审计批次：P0/P1 规则条款真修 + evverify 167/167 实证；修复痕迹见 rules.c/junqi.h 行内注释，本标记为文档侧闭环收口；32 位翻译体侧分叉状态见 rules_fork_check.py 矩阵）
+
+- 闭环：**✅ 本轮真修** — ★ 本轮真修：bt_session BT_T_UNDO 闸口已改走 jq_bt_undo_available()（读真实栈深 g_undo_top），不再调用恒 0 的 jq_snapshots_left（该 API 已删除）。
 ## AUD-R-014 [P1] `pieces_left[]` 全线不可信：刷新逻辑恒为 1，且 rules.c 持续对它做增减
 - 位置：`src_rs/rules.c:165-166, 190, 196, 205, 209, 214-215`（增减）+ 语义声明 `src_rs/junqi.h:112`；刷新实现 `src_rs/layout.c:127-143`
 - 问题：`pieces_left` 被 `junqi.h:112` 定义为"各方剩余可动子数（0x6a3b0 统计）"，但：
@@ -216,6 +220,8 @@
 
 
 - 闭环：**✅ 已修**（AUD_LOOP 对抗审计批次：P0/P1 规则条款真修 + evverify 167/167 实证；修复痕迹见 rules.c/junqi.h 行内注释，本标记为文档侧闭环收口；32 位翻译体侧分叉状态见 rules_fork_check.py 矩阵）
+
+- 闭环：**✅ 本轮真修** — ★ 本轮真修（layout.c）：① 累加器 bug `n=1;break;` + `if(!n)n++;` → 改真累加 n++；② 跨方统计 bug 用 jq_can_move()（回合门）→ 新增 jq_can_move_any() 忽略回合；③ stalemate_after 统一在走子/翻棋后刷新双方统计（对齐 0x6b87c→0x6a3b0）。evverify 新增 R-014 断言（双方 >=5）。
 ## AUD-R-015 [P1] `jq_state.mines_cleared[]` 只写不读：ruleflip 胜负条件完全未接线
 - 位置：`src_rs/junqi.h:111`（声明）、`src_rs/rules.c:191`（唯一写入点）
 - 问题：字段注释写明"暗棋（ruleflip）工兵挖雷计数"，`rules.c:191` 在工兵挖雷时 `mines_cleared[me]++`（实测：探针挖雷后 `mines_cleared[0] = 1`，写入路径通），但**全仓没有任何读取点**（`src_rs/` 内 grep 仅 `junqi.h:111` 声明、`rules.c:191` 写入、`save.c:67/102` 存取、`jni_bridge.c:1180` 清零）。于是"挖 3 雷才能扛旗"这条 ruleflip 胜利条件（见 AUD-R-002）无任何判定依据。
@@ -273,6 +279,8 @@
 
 
 - 闭环：**✅ 已修**（AUD_LOOP 对抗审计批次：P0/P1 规则条款真修 + evverify 167/167 实证；修复痕迹见 rules.c/junqi.h 行内注释，本标记为文档侧闭环收口；32 位翻译体侧分叉状态见 rules_fork_check.py 矩阵）
+
+- 闭环：**✅ 本轮真修** — ★ 本轮真修：rail_path_straight 已按方向校验（横向须整行 ∈{0,5,6,11}；纵向须 col2）。
 ## AUD-R-020 [P1] 「炸弹撞军旗」消灭了旗却无人获胜，且规则引擎不产生任何终局信号
 - 位置：`src_rs/rules.c:161-168`（EV_BOMB 分支）
 - 问题：EV_BOMB 分支在炸弹与军旗相遇时把两格清空 → 对方的旗被消灭，但**不判任何胜负**（`winner` 不变、`stage` 不变）。此后对方永远无法通过扛旗获胜，只能等困毙；若对方仍有可动子且不进入困毙，对局将无限继续。
@@ -286,6 +294,8 @@
 
 # 三、P2（约 60 条）
 
+
+- 闭环：**✅ 本轮真修** — ★ 本轮真修：炸弹撞军旗 → 双方消失 + 对方失去军旗 → 判扛旗方胜（dst_rank==RANK_FLAG 时 stage=OVER）；诚实边界见 rules.c 行内注释。
 ## AUD-R-021 [P2] `rules.c` 头注释描述的 0x39e14 行约束被误标为"走子目标类型判定"
 - 位置：`src_rs/rules.c:4-7`
 - 问题：注释写"炸弹(0xa): to_row!=0 合法；地雷(0xb): from_row>3 合法(仅工兵吃)；军旗(0xc): from_row∈{1,3,5} 特判"，把三个**布局期**限制写成"目标类型判定"，与 §15/§16 的实际语义（"非走子方向限制"）混淆，且实现里也未体现，易被后人误加到走子路径上。
@@ -310,6 +320,8 @@
 - 依据：`board.c:39`（`if (row == 5 || row == 6) return true;`）、`rules.c:62`、`rules.c:79`。
 - 修法：把"中线行集合""纵线列"提为 `board.c` 的具名常量/谓词（如 `is_mid_line(row)`、`is_main_rail_col(col)`），三处共用。
 
+
+- 闭环：**✅ 本轮真修** — ★ 本轮真修：工兵 BFS 横向行集合与 R-001 方向校验对齐（row0/5/6/11）。
 ## AUD-R-025 [P2] `rail_path_engineer()` 起点未做边界检查 → `visited[fr][fc]` 越界写
 - 位置：`src_rs/rules.c:54-55`（`qr[tail] = fr; qc[tail] = fc; tail++; visited[fr][fc] = 1;`）
 - 问题：`fr/fc` 直接写入 `visited[BOARD_ROWS][BOARD_COLS]` 与队列，未做 `0 <= fr < 12 && 0 <= fc < 5` 检查。当前唯一调用方 `jq_can_move()` 传的是已校验的 `from`，但函数是 `static` 且无自检，任何后续改动都可能引入越界写（栈缓冲区）。

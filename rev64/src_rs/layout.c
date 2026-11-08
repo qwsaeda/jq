@@ -195,6 +195,13 @@ void jq_dark_setup(jq_state *st, const uint8_t layout[30])
    勿用于判胜/UI 展示（需真实统计时改为累加器 + 走子后调用）。 */
 void jq_refresh_movable_counts(jq_state *st)
 {
+    /* ★ AUD-R-014（P1）修正两处真 bug：
+     ① 旧实现 `n = 1; break;` + `if (!n) n++;` 把 n 当布尔标志 →
+        **只要该方有子就恒为 1**（真实值约 20），且无走子的子反而把 n 置 1。
+     ② 旧实现用 jq_can_move()（强制 src->side == st->turn）→ 非当前回合方
+        被全部判"不可动"。改用 jq_can_move_any()（忽略回合）。
+     语义：pieces_left[s] = s 方**已翻开**、非旗非雷、存在至少一个合法目标的子数。 */
+    if (!st) return;
     for (int s = 0; s < 2; s++) {
         int n = 0;
         for (int i = 0; i < N_CELLS; i++) {
@@ -203,9 +210,9 @@ void jq_refresh_movable_counts(jq_state *st)
             int r = rank_norm(c->rank);
             if (r == RANK_FLAG || r == RANK_MINE) continue;
             if (!c->revealed) continue;
-            for (int t = 0; t < N_CELLS; t++)
-                if (t != i && jq_can_move(st, i, t)) { n = 1; break; }
-            if (!n) n++;
+            for (int t = 0; t < N_CELLS; t++) {
+                if (t != i && jq_can_move_any(st, i, t)) { n++; break; }
+            }
         }
         st->pieces_left[s] = n;
     }

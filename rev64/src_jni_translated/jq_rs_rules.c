@@ -151,6 +151,8 @@ static bool rail_path_straight(const jq_state *st, int fr, int fc, int tr, int t
      依赖调用侧==turn 前提；64 位已修 can_move_ignore_turn 参数化（turn=-1 任意侧
      可查），32 位未移植）→ 分叉（★ 对抗审计 P1 批2 B-2 纠正：原"等价"判读只在
      侧==turn 调用子集成立，API 契约不等价——32 位 side≠turn 时恒返回 true 困毙误报）
+   · AUD-R-024 工兵 BFS 横向行集合 → 32 位侧走子桥横向仅 row5/6，
+     64 位已与 R-001 方向校验对齐为 row0/5/6/11 整行 → 分叉（64 位独有设计）
    · AUD-R-006 暗棋信息不泄露 → 32 位侧走子桥布局写死 side 分区（"明棋藏脸"），
      暗棋信息遮蔽未实装 → 分叉（64 位独有设计）
      ★ 对抗审计 P0（批2 F-3 漏标）：32 位 jq_can_move 只拦 dst->side==me

@@ -149,9 +149,13 @@ static int run_rail_dir_and_side_guard(void)
         int pl0 = s2.pieces_left[0], pl1 = s2.pieces_left[1];
         /* 记录哨兵：pieces_left 之后的成员 */
         int mv = s2.moves_since_eat;
+        (void)pl0; (void)pl1;
         int rc = jq_try_move(&s2, a, b);
-        if (rc >= 0 && (s2.pieces_left[0] != pl0 || s2.pieces_left[1] != pl1)) {
-            printf("  R-004 side=0xFF 时 pieces_left 被误改（越界写）\n");
+        /* ★ AUD-R-014（P1）：走子后 stalemate_after 会**刷新** pieces_left（合法改写），
+           不能再断言"值不变"。改为断言①值在合法区间 ②后续成员未被越界写污染。 */
+        if (rc >= 0 && (s2.pieces_left[0] < 0 || s2.pieces_left[0] > N_CELLS ||
+                        s2.pieces_left[1] < 0 || s2.pieces_left[1] > N_CELLS)) {
+            printf("  R-004 side=0xFF 时 pieces_left 越界（=越界写迹象）\n");
             ok = 0;
         }
         if (rc >= 0 && s2.moves_since_eat != mv && s2.moves_since_eat < 0) {
@@ -159,7 +163,29 @@ static int run_rail_dir_and_side_guard(void)
             ok = 0;
         }
     }
-    printf("规则引擎回归（R-001 铁路方向 + R-004 side 守卫）%s\n", ok ? "PASS" : "FAIL");
+    /* ── AUD-R-014（P1）：可动子统计必须真实累加且双方都统计（旧实现恒 1 + 另一方 0） ── */
+    {
+        jq_state s3;
+        jq_load_layout(&s3, JQ_DEFAULT_LAY);
+        for (int i = 0; i < N_CELLS; i++)
+            if (s3.cells[i].rank) s3.cells[i].revealed = 1;
+        s3.stage = STG_PLAY;
+        s3.turn = SIDE_BLUE;
+        jq_refresh_movable_counts(&s3);
+        /* 明棋标准布局双方各有大量可动子（棋子 25/方，扣除旗/雷/无路可走） */
+        if (s3.pieces_left[0] < 5 || s3.pieces_left[1] < 5) {
+            printf("  R-014 可动子统计异常：blue=%d red=%d（期望均 >=5）\n",
+                   s3.pieces_left[0], s3.pieces_left[1]);
+            ok = 0;
+        }
+        /* 非当前回合方（红）也必须统计到（旧 jq_can_move 回合门 → 红恒 0） */
+        if (s3.pieces_left[0] == 0 || s3.pieces_left[1] == 0) {
+            printf("  R-014 一方可动子统计为 0（跨回合统计失效）\n");
+            ok = 0;
+        }
+    }
+    printf("规则引擎回归（R-001 铁路方向 + R-004 side 守卫 + R-014 可动子统计）%s\n",
+           ok ? "PASS" : "FAIL");
     return ok;
 }
 

@@ -267,6 +267,9 @@ void jq_refresh_movable_counts(jq_state *st);
    留待下一轮，本轮诚实标注分叉为预期。 */
 /* ---- 走子（0x39e14 目标类型判定 + 0x39f20 执行器 + 0x3a15c 交换，§5/§6）---- */
 bool jq_can_move(const jq_state *st, int from, int to);
+/* ★ AUD-R-014（P1）：忽略回合的合法性查询（可动子统计/困毙判定用）。
+   jq_can_move 强制 src->side == st->turn，另一方的统计会全 0 → 必须用本函数。 */
+bool jq_can_move_any(const jq_state *st, int from, int to);
 /* 执行走子。返回事件类型；失败返回 -1（不切 turn，L54）。 */
 int jq_try_move(jq_state *st, int from, int to);
 bool jq_can_flip(const jq_state *st, int idx);
@@ -275,25 +278,18 @@ bool jq_flip(jq_state *st, int idx);
 bool jq_side_stalemated(const jq_state *st, uint8_t side);
 
 /* ---- 悔棋（联机 Regret* 事件驱动，L77；本地快照恢复）----
-   ★ AUD-R-012（P1）：jq_undo_snapshot/jq_snapshots_left 引擎内未实现（空壳），
-   实际悔棋由 jni_bridge.c g_undo 栈承担；bt_session UNDO 帧走 jq_bt_undo_available()。
+   ★ AUD-R-012/013（P1）已修：引擎**不再暴露空壳快照 API**。
+     旧 jq_undo_snapshot()（空实现）/ jq_snapshots_left()（恒 0）已删除——
+     声明与实现语义相反，任何按契约调用的代码都会静默失效（蓝牙 UNDO 帧
+     曾因此永远不恢复棋盘）。
+     悔棋栈唯一实现 = jni_bridge.c 的 g_undo[UNDO_MAX] 环形栈（走子/翻棋前
+     整体拷贝 jq_state）；蓝牙 UNDO 闸口走 jq_bt_undo_available() 读真实栈深。
    ★ AUD-R-088（P2 诚实标注）：无走子级部分回滚能力——悔棋粒度 = 整盘快照
    （对齐原版 undo 栈设计：Regret* 事件驱动整局回退，原版无部分回滚概念），
-   不做走子级部分回滚。
-   ★ AUD-R-113（P3 诚实标注）：jq_undo_snapshot/jq_undo_restore/jq_snapshots_left
-   三个 API 在头文件中公开但 jq_undo_snapshot/jq_snapshots_left 为空壳，
-   jq_undo_restore（*st = *snap）可真实工作。SPEC 应记录"悔棋由调用方栈实现
-   （jni_bridge g_undo 环形栈），引擎 API 为契约占位"，勿以三 API 可用为假设。
-   修法（实现快照栈或从头文件移除 + SPEC 注明）留待下一轮。 */
-void jq_undo_snapshot(const jq_state *st);          /* 占位（未接线，走 jni_bridge g_undo） */
-/* ★ AUD-R-050（P2 诚实标注）：整体状态恢复语义（*st = *snap 全字段覆盖，含
-   cells/turn/stage/winner/计数字段）——对"悔一步"合适；调用方 bt_session.c:11
-   的 g_undo_snap 是**从未写入**的全局变量（UNDO 帧闸口未打开），一旦打开会
-   把整盘清零（AUD-R-013 同源）。修法（补写入点或删除 UNDO 分支）留待下一轮。
-   ★ AUD-R-049（P2 已修）：原 st->undo_depth 字段已删（全仓无使用者，且快照
-   恢复会回退调用方自行维护的栈深，与栈内容不一致）。 */
+   不做走子级部分回滚。 */
+/* 整体状态恢复（*st = *snap 全字段覆盖，含 cells/turn/stage/winner/计数字段）。
+   ★ AUD-R-050：调用方必须先写入真实快照，否则整盘被空状态覆盖。 */
 void jq_undo_restore(jq_state *st, const jq_state *snap);
-int  jq_snapshots_left(const jq_state *st);         /* 恒 0（快照栈在调用方） */
 
 /* ---------- 胜负（0x30200 分发 / 0x30260 旗 / 0x30280 和 / 0x302b4 困毙，§12/L53/L54）---- */
 void jq_on_flag_capture(jq_state *st, uint8_t captor_side);
