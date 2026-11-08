@@ -45,6 +45,16 @@ void ui_opt_select(int level, int mode)
 }
 int ui_opt_get_level(void) { pthread_mutex_lock(&g_ui_lock); int v = g_opt_level; pthread_mutex_unlock(&g_ui_lock); return v; }
 int ui_opt_get_mode(void) { pthread_mutex_lock(&g_ui_lock); int v = g_opt_mode; pthread_mutex_unlock(&g_ui_lock); return v; }
+/* ★ AUD-1000 B03-023（P1 已修）：明暗棋切换单入口（锁内 read-modify-write，
+   旧调用点 "ui_opt_get_mode→取反→ui_opt_select" 三步锁外裸改并发丢更新）。 */
+int ui_opt_toggle_mode(void)
+{
+    pthread_mutex_lock(&g_ui_lock);
+    g_opt_mode = !g_opt_mode;
+    int v = g_opt_mode;
+    pthread_mutex_unlock(&g_ui_lock);
+    return v;
+}
 
 /* ★ 对抗审计（datah_067）：蓝牙联机模式标志 */
 static int g_bt_active = 0;

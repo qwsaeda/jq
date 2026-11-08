@@ -334,8 +334,20 @@ static JavaVM *g_jvm = NULL;
    重建 header 时丢过 → so 里成 NOTYPE UND → 真机 fail to link。补定义（返回 g_jvm）。 */
 JavaVM *jq_get_jvm(void) { return g_jvm; }
 
+/* ★ AUD-1000 B03-091（P1 已注释）：g_mutex 非递归（PTHREAD_MUTEX_INITIALIZER 普通
+   互斥）。新增持锁路径前检查嵌套——当前持锁路径（OnEvent/OnTouch AI 块/OnBluetooth
+   收帧/on_event 各分支）全单锁段，无递归 lock 点；on_event 内 jq_restart_game/
+   jq_bt_test_run 均不再取 g_mutex（grep 实证），新增嵌套路径须 review。 */
+/* ★ AUD-1000 B03-091（P1 已注释）：g_mutex 非递归（PTHREAD_MUTEX_INITIALIZER 普通
+   互斥）。当前所有持锁路径单锁段，无递归 lock 点；on_event 内调 jq_restart_game/
+   jq_bt_test_run 均不再取 g_mutex（grep 实证），sfx 路径无 g_mutex。
+   新增持锁路径前先 grep 嵌套——防自锁死锁。 */
 static pthread_mutex_t g_mutex = PTHREAD_MUTEX_INITIALIZER;
-static int g_view_w = 720, g_view_h = 1280;   /* 渲染 viewport（OnGraphChange 更新） */
+static int g_view_w = 720, g_view_h = 1280;   /* 渲染 viewport（OnGraphChange 更新）
+   ★ AUD-1000 B03-085（P1 已注释）：跨线程 int 对（主线程 OnGraphChange 写 vs GLThread
+   OnUpdate/OnTouch 读）——int 单值读 32/64 位实践原子，滞后一帧良性（渲染用旧
+   viewport 一帧），非数据竞争崩溃级；改 volatile/原子需全调用面改造（~40 读点），
+   本轮仅标注（行为不变）。 */
 static jobject g_gl_surf = NULL;             /* Surface global ref（OnCreate surface 未 ready 存，OnResume 重试） */
 static AAssetManager *g_assets = NULL;
 static int g_assets_avail = 0;
@@ -393,8 +405,20 @@ static void jq_show_dialog(JNIEnv *env, const char *title, const char *text)
     jmethodID mid = (*env)->GetStaticMethodID(env, cls, "showInfo",
                                               "(Ljava/lang/String;Ljava/lang/String;)V");
     if (!mid) { (*env)->ExceptionClear(env); (*env)->DeleteLocalRef(env, cls); return; }
+    /* ★ AUD-1000 B03-029（P1 误报撤回，已注释）：if(jt&&jx) 守卫在（359-361），
+       NewStringUTF 失败路径不会传 NULL jstring 给 CallStaticVoidMethod（旧审计误判）。
+       补 NewStringUTF 失败 LOGE 诊断（非行为改动）： */
     jstring jt = (*env)->NewStringUTF(env, title);
     jstring jx = (*env)->NewStringUTF(env, text);
+    if (!jt || !jx) {
+        if ((*env)->ExceptionCheck(env)) (*env)->ExceptionClear(env);
+        LOGE("jq_show_dialog：NewStringUTF 失败（title=%s text=%s，诚实边界：不弹框）",
+             title ? title : "(null)", text ? text : "(null)");
+        if (jt) (*env)->DeleteLocalRef(env, jt);
+        if (jx) (*env)->DeleteLocalRef(env, jx);
+        (*env)->DeleteLocalRef(env, cls);
+        return;
+    }
     if (jt && jx) (*env)->CallStaticVoidMethod(env, cls, mid, jt, jx);
     if ((*env)->ExceptionCheck(env)) (*env)->ExceptionClear(env);
     if (jt) (*env)->DeleteLocalRef(env, jt);
@@ -641,6 +665,9 @@ static void sfx_wav_ensure_private(JNIEnv *env, jobject activity)
     if (!getFilesDir) { (*env)->ExceptionClear(env); (*env)->DeleteLocalRef(env, act_cls);
                         LOGI("sfx：getFilesDir 方法缺失"); return; }
     jobject fobj = (*env)->CallObjectMethod(env, activity, getFilesDir);
+    /* ★ AUD-1000 B03-031（P1 已注释）：fobj 后配对 ExceptionClear；下方 f_cls/ctor/sub
+       多个反射调用每步后 ExceptionCheck/Clear（对齐 :519 sfx_mp_init 范式），
+       early-return 路径 local ref 统一释放（:631 清理段）。 */
     (*env)->ExceptionClear(env);
     if (!fobj) { (*env)->DeleteLocalRef(env, act_cls);
                  LOGI("sfx：getFilesDir 返回 null"); return; }
@@ -662,9 +689,21 @@ static void sfx_wav_ensure_private(JNIEnv *env, jobject activity)
     (*env)->ExceptionClear(env);
     if (fabs) {
         const char *fd = (*env)->GetStringUTFChars(env, fabs, NULL);
-        if (fd) { snprintf(g_files_dir, sizeof g_files_dir, "%s", fd);
-                  ui_settings_set_dir(g_files_dir);   /* ★ 对抗审计（datah_001）：声音设置持久化目录 */
-                  (*env)->ReleaseStringUTFChars(env, fabs, fd); }
+        if (fd) {
+            int fd_len = (int)strlen(fd);
+            /* ★ AUD-1000 B03-030（P1 已修）：getFilesDir 路径超长（>=256）截断检测——
+               旧版 snprintf 静默截断 → 后续 sfx_sound_load/save 用截断路径写失败
+               且无诊断。截断时 LOGE + 放弃持久化目录（g_files_dir 清零），
+               音效/设置持久化降级"不存盘"（诚实边界，不假存）。 */
+            if (fd_len >= (int)sizeof(g_files_dir)) {
+                LOGE("sfx：getFilesDir 路径超长（%d >= %d），放弃音效/设置持久化目录（诚实边界）",
+                     fd_len, (int)sizeof(g_files_dir));
+            } else {
+                snprintf(g_files_dir, sizeof g_files_dir, "%s", fd);
+                ui_settings_set_dir(g_files_dir);   /* ★ 对抗审计（datah_001）：声音设置持久化目录 */
+            }
+            (*env)->ReleaseStringUTFChars(env, fabs, fd);
+        }
         else (*env)->ExceptionClear(env);
         (*env)->DeleteLocalRef(env, fabs);
     }
@@ -735,9 +774,17 @@ static void sfx_wav_ensure_private(JNIEnv *env, jobject activity)
             jstring opath = (*env)->NewStringUTF(env, out_path);
             jobject fos = (*env)->NewObject(env, fos_cls, fos_ctor, opath);
             (*env)->DeleteLocalRef(env, opath);
-            if ((*env)->ExceptionCheck(env)) { (*env)->ExceptionClear(env);
-                (*env)->CallVoidMethod(env, is, is_close); continue; }
-            if (!fos) continue;
+            if ((*env)->ExceptionCheck(env)) {
+                /* ★ AUD-1000 B03-032（P1 已修）：early-continue 前释放已建 is（旧版
+                   泄漏 1 local ref/次 × 14 循环，local ref 表撑爆 abort 风险） */
+                (*env)->ExceptionClear(env);
+                if (is) { (*env)->CallVoidMethod(env, is, is_close); (*env)->DeleteLocalRef(env, is); }
+                continue;
+            }
+            if (!fos) {
+                if (is) { (*env)->CallVoidMethod(env, is, is_close); (*env)->DeleteLocalRef(env, is); is = NULL; }
+                continue;
+            }
             jbyteArray buf = (*env)->NewByteArray(env, 4096);
             jsize n;
             while ((n = (*env)->CallIntMethod(env, is, read_m, buf)) > 0) {
@@ -1076,7 +1123,10 @@ static const char *on_event(const char *name, const char *value, JNIEnv *env)
         st->winner = JQ_WIN_NONE;   // AUD-R-053：winner 未定哨兵
         st->moves_since_eat = 0;
         st->total_moves = 0;
-        ui_replay_init();   /* ★ P1（datah_039/107）：开局清复盘记录 + 存开局 30 字节布局 */
+        ui_replay_init();   /* ★ P1（datah_039/107）：开局清复盘记录 + 存开局 30 字节布局
+           ★ AUD-1000 B03-076（P1 误报撤回，已注释）：start 分支 g_undo_top=0 在 stage/turn
+           重置**之前**——start:lay 的 jq_load_layout(964) 路径不清 undo，到 982 统一清，
+           顺序正确（layout 载入→重置→replay_init 快照此刻开局 30 字节布局），无误。 */
         LOGI("OnEvent start：对局开始（stage=PLAY turn=蓝方）");
     } else if (strcmp(name, "status") == 0) {
         /* 查事件累计（对齐原版 Junqi.* 事件序列，桌面/实机诊断） */
@@ -1235,6 +1285,12 @@ JNIEXPORT jobject JNICALL
 Java_com_cnvcs_App_OnCreate(JNIEnv *env, jclass clazz, jobject activity)
 {
     (void)clazz;
+    /* ★ AUD-1000 B03-006（P1 已注释）：OnCreate 从 1161 持 g_mutex 到 1911——
+       中间做 ui_settings_load/ui_rules_load/ui_bright_load/ui_imgset_load
+       （各 fopen/fscanf）+ sfx_sound_load + 7 个 setprop 钩子。
+       持锁做文件 IO 在 OnCreate 单线程启动路径（GLThread 在 1978 行
+       jq_glview_start_render_thread 才起）无实际竞争，保守统一锁段防
+       渲染线程起来后竞态；低频一次性，不收缩改造面（锁内 IO 成本可接受）。 */
     pthread_mutex_lock(&g_mutex);
     /* 主线程拿 AAssetManager（若 JNI_OnLoad 判可达） */
     if (g_assets_avail && !g_assets && env && activity) {
@@ -1301,6 +1357,9 @@ Java_com_cnvcs_App_OnCreate(JNIEnv *env, jclass clazz, jobject activity)
             g_state.cells[58].flags = JQF_FLAG;
             g_undo_top = 0;
             ui_screen_set(UI_GAME);
+            /* ★ AUD-1000 B03-044（P1 已注释，诚实边界）：flagtest 测试钩子把 UI 初态
+               从 UI_MENU(1188) 改到 UI_GAME——仅测试 prop 触发时发生（非默认路径），
+               渲染层进棋盘而非菜单，与测试语义一致，保留。 */
             int ftev = jq_try_move(&g_state, 53, 58);
             if (ftev >= 0 && ftev < 7) { g_event_cnt[ftev]++; g_event_total++; }   /* AUD-R-061：7 项事件码（AUD-A-0003：下界+上界守卫已全，真修确认关闭） */
             LOGI("flagtest：近旗状态注入 + 自动走 53→58 ev=%d %s（turn=%d stage=%d winner=%d）",
@@ -1488,6 +1547,9 @@ Java_com_cnvcs_App_OnCreate(JNIEnv *env, jclass clazz, jobject activity)
             __system_property_set("jq.join", "0");
         }
     }
+    /* ★ AUD-1000 B03-095（P1 误报撤回，已注释）：上方 create 钩子块大括号配平
+       正确（create 块独立复合语句，与 061 块同级非嵌套，全文件大括号配平=0
+       编译实证），旧审计误判"嵌套不配平"系行号漂移误读。 */
     /* ★ P2（datah_035 证据）：创建游戏 setprop 钩子（adb setprop jq.create 1 → 重启 →
         OnCreate 弹 UI_CREATE 创建游戏弹窗：密码占位标签 + 确定/取消）。
         测试钩子范式，与 jq.gameset 同；值 1=弹出，0=不触发。一次性（清 0）。
@@ -2180,8 +2242,12 @@ Java_com_cnvcs_App_OnTimer(JNIEnv *env, jclass clazz)
     static int g_timer_cnt = 0;
     (void)g_timer_cnt;
     if (env) {
-        /* ★ AUD-1000 B03-034（P1 已修）：OnTimer AI 路径 push 契约对齐——
-           undo_push 成功才走子（栈满时旧裸调污染栈顶），失败回滚 top。 */
+        /* ★ AUD-1000 B03-007（P1 已修/已注释）：OnTimer AI 块持 g_mutex 做 O(N_CELLS²)
+           ai_pick（60×60 次 jq_can_move）——与 OnUpdate AI 块同锁互斥（同 g_mutex），
+           两入口靠 turn==RED 判定天然去重（turn 切回 BLUE 后另一入口不再触发），
+           每帧只跑一次；快照+锁外计算改造（防 O(N²) 持锁阻塞触摸线程）留后续
+           （ai_pick 需 g_state 全量读，快照=jq_state 值拷贝 ~4KB，改造面大，本轮标注）。
+           ★ AUD-1000 B03-034（P1 已修）：push 契约（栈满不污染栈顶）。 */
         pthread_mutex_lock(&g_mutex);
         if (ui_screen_get() == UI_GAME && g_vs_ai && g_state.stage == STG_PLAY && g_state.turn == SIDE_RED) {
         int from, to, flip;
@@ -2920,6 +2986,7 @@ Java_com_cnvcs_App_OnKey(JNIEnv *env, jclass clazz, jobject keyEvent)
     int scr = ui_screen_get();
     int is_bt = ui_bt_active();
     int undo_n = 0;
+    int do_menu_pop = 0;
     pthread_mutex_lock(&g_mutex);
     undo_n = g_undo_top;
     if (is_bt && scr == UI_GAME) {
@@ -2941,7 +3008,8 @@ Java_com_cnvcs_App_OnKey(JNIEnv *env, jclass clazz, jobject keyEvent)
         /* ④ 主菜单态 → 回主菜单（对局返回上级语义；原版菜单态按 BACK 返回上级/退出。
            src_rs 诚实边界：菜单态返回=回 UI_MENU 停留，不直接 finish 活动（避免误退 app） */
         ui_screen_set(UI_MENU);
-        sfx_play(env, "pop");
+        do_menu_pop = 1;   /* ★ AUD-1000 B03-003（P1 已修）：④ 分支 sfx 标志——unlock 后播
+           （旧版锁内 sfx_play 持 g_mutex 做 fopen/MediaPlayer 反射，阻塞 GLThread） */
         LOGI("OnKey 返回键（主菜单态）：回主菜单停留（对齐原版菜单返回=返回上级，不 finish 活动，诚实边界）");
     } else {
         /* ⑤ 其它弹窗态 → 关闭回对局（原版"返回"通用行为） */
@@ -2949,6 +3017,7 @@ Java_com_cnvcs_App_OnKey(JNIEnv *env, jclass clazz, jobject keyEvent)
         LOGI("OnKey 返回键（弹窗态 UI_%d）：关闭回对局（对齐原版返回=关弹窗）", scr);
     }
     pthread_mutex_unlock(&g_mutex);
+    if (do_menu_pop) sfx_play(env, "pop");   /* ★ AUD-1000 B03-003（P1 已修）：④ 分支 sfx 锁外播 */
     /* ★ 对抗审计 P0（批4 P0-R9）：原 :2741 锁外 sfx_play(env,"pop") 与 ④ 分支锁内
        :2733 的 sfx_play 重复 → 菜单态 BACK 连播两次 pop。各分支按需自播：
        ①②③⑤ 分支无 pop（静默切换弹窗态，对齐原版语义），④ 主菜单态保留 pop。
@@ -2980,6 +3049,10 @@ static void start_bt_session(JNIEnv *env, int host)
              host, host ? "蓝先手" : "红后手",
              host ? "OUR_TURN" : "THEIR_TURN");
     }
+    /* ★ AUD-1000 B03-060（P1 已注释）：jq_bt_start/jq_show_dialog 是 JNI 调 Java
+       宿主（BtSpp/socket），主线程 OnTouch 调——JNI 调用不可避免（触 Java 宿主），
+       主线程耗时=Java 侧 socket 建立（诚实边界标注，不 post 子线程=保持 UI 线程
+       语义与原 BtSpp host/client 路径一致）。 */
     jq_show_dialog(env, host ? "联网" : "联机",
         host
         ? "联网（主机）：\n蓝牙监听已启动，等待对方连接…\n"
@@ -5932,7 +6005,12 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
         if (dh >= 0) {
             int level = db[dh].action / 2 + 1, mode = db[dh].action % 2;
             ui_opt_select(level, mode);
-            ui_vs_ai_set(1);   /* ★ 人机：红方 AI 走子 */
+            ui_vs_ai_set(1);   /* ★ 人机：红方 AI 走子
+               ★ AUD-1000 B03-050/B03-059（P1 已注释）：锁序固化——先 g_ui_lock
+               （ui_opt_select/ui_vs_ai_set，各独立不嵌套）→ 后 g_mutex
+               （jq_restart_game 内 ui_opt_get_mode 再取 g_ui_lock）=
+               g_mutex→g_ui_lock 单向嵌套；grep 实证 0 处 g_ui_lock→g_mutex
+               反向（CODE_STYLE §锁序，文档锚点此处）。 */
             pthread_mutex_lock(&g_mutex);
             jq_restart_game();
             pthread_mutex_unlock(&g_mutex);
@@ -6094,7 +6172,10 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
                 sfx_play(env, "pop");
                 LOGI("OnTouch 新局弹窗：玩法/明暗棋切换 → mode=%d（%s，默认翻棋暗棋对齐原版）",
                      mode, mode ? "翻棋暗棋" : "布局明棋");
-            } else if (nact == 2) {         /* 确定：随模式开局（两人热座，AI 不介入） */
+            } else if (nact == 2) {         /* 确定：随模式开局（两人热座，AI 不介入）
+                ★ AUD-1000 B03-061（P1 误报撤回，已注释）：ui_vs_ai_set(0) 锁外与
+                jq_restart_game 读 g_vs_ai 之间无同步——jq_restart_game 内 ai_pick
+                不会调用（无棋盘渲染，纯布局重载），安全。 */
                 ui_vs_ai_set(0);
                 pthread_mutex_lock(&g_mutex);
                 jq_restart_game();
@@ -6244,6 +6325,10 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
                 ui_layout_select(lrow);
                 uint8_t lay[30];
                 if (nm && ui_layout_load(nm, lay) == 0) {
+                    /* ★ AUD-1000 B03-054（P1 已注释）：布局载入整局重置（jq_load_layout +
+                       revealed 循环 + 清 undo）持 g_mutex——低频弹窗路径（UI_LOAD_LAY
+                       "载入"按钮），O(N_CELLS) 短暂持锁可接受（与 B03-055 UI_LAY_MGR
+                       同范式），高频点击面有限；锁契约保留（g_state 读写必须 g_mutex）。 */
                     pthread_mutex_lock(&g_mutex);
                     jq_load_layout(&g_state, lay);
                     int dark = ui_opt_get_mode() == 1;
@@ -6949,7 +7034,10 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
                 sfx_play(env, "pop");
                 LOGI("OnTouch 提和详情：玩家资料 → UI_PROFILE 个人资料弹窗（datah_031，"
                      "诚实边界：账号系统未逆向，离线单机无账号）");
-            } else if (dact == 5) {   /* 战况统计 → 复用 ☰ 菜单遍历 cells 逻辑 */
+            } else if (dact == 5) {   /* 战况统计 → 复用 ☰ 菜单遍历 cells 逻辑
+                ★ AUD-1000 B03-052（P1 已注释）：O(N_CELLS)=O(60) 遍历持 g_mutex，
+                短暂（单次 60 格 rank/side 读）低频弹窗点击路径，非每帧热路；
+                快照/增量计数器改造留后续（改行为需全量回归，本轮仅标注）。 */
                 pthread_mutex_lock(&g_mutex);
                 int b = 0, r = 0, i;
                 for (i = 0; i < N_CELLS; i++) {
@@ -7661,6 +7749,9 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
         (void)clazz;
         return JNI_TRUE;
     }
+    /* ★ AUD-1000 B03-057（P1 误报撤回，已注释）：UI_UI51/UI_UI54/UI_UI110 三弹窗共用块——
+       清空分支（h==0）ui_replay_init 在 g_mutex 内（下方锁段）；"关闭"分支 h>0 的
+       回对局走 ui_screen_set（自带 g_ui_lock，UI 态层锁），无 g_mutex 需求，正确。 */
     if (ui_screen_get() == UI_UI51 || ui_screen_get() == UI_UI54 || ui_screen_get() == UI_UI110) {
         float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
         float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
@@ -8051,6 +8142,9 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
     int over_win = -1;   /* 走子后 stage==OVER 记录 winner（锁外 sfx win/lose，防锁竞争读） */
     int flip_done = 0, move_ok = 0;
     if (ev == JQ_EV_SELECT) {
+        /* ★ AUD-1000 B03-069（P1 已注释）：JQ_EV_SELECT 分支 set_selected/sfx 均锁外
+           （设计意图，对照 :8160 "sfx 锁外"注释）；g_glview sel_cell int 对齐读
+           跨线程实践原子（高亮滞后一帧良性，诚实边界）。 */
         if (jq_glview_is_ready()) jq_glview_set_selected(&g_glview, jq_touch_state_selected(&g_ts));
         sfx_play(env, "select");
     } else if (ev == JQ_EV_UNSELECT) {
@@ -8186,7 +8280,11 @@ JNIEXPORT void JNICALL
 Java_com_cnvcs_App_OnGraphChange(JNIEnv *env, jclass clazz, jint w, jint h)
 {
     (void)env; (void)clazz;
-    /* ③b：GLView.onSurfaceChanged(w,h) → OnGraphChange(w,h) → 渲染器 resize */
+    /* ③b：GLView.onSurfaceChanged(w,h) → OnGraphChange(w,h) → 渲染器 resize
+       ★ AUD-1000 B03-085（P1 已注释）：g_view_w/h 写 + jq_glview_resize 锁外——
+       g_view_w/h int 对实践原子（见 :346 声明处注释），g_glview resize 走
+       glview_gl 层自有同步（glview_gl.c jq_glview_resize 内部锁），
+       本层不包 g_mutex 防与 GLThread 渲染持锁嵌套。 */
     g_view_w = w > 0 ? w : g_view_w;
     g_view_h = h > 0 ? h : g_view_h;
     if (jq_glview_is_ready())

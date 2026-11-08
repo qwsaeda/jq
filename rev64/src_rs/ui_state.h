@@ -12,6 +12,9 @@ int  ui_game_active(void);            /* 对局态（触摸走子放行） */
 void ui_opt_select(int level, int mode);  /* level 1-4（新手/中级/高级/好友）mode 0=布局明棋 1=翻棋暗棋 */
 int  ui_opt_get_level(void);              /* 返回 1-4 */
 int  ui_opt_get_mode(void);               /* 返回 0=明棋 1=暗棋 */
+/* ★ AUD-1000 B03-023（P1 已修）：明暗棋切换——锁内 read-modify-write（调用点
+   "get→取反→select" 三步锁外裸改在多线程下丢更新，改单入口原子切换）。 */
+int  ui_opt_toggle_mode(void);            /* 切换明暗棋，返回新模式（0=明棋 1=暗棋） */
 /* ★ 对抗审计（datah_067）：蓝牙联机模式标志——☰ 菜单联机版（datah_067：提和/认输/聊天）
    与本地版（datah_006：电脑变着/软件信息/退出）分流 */
 void ui_bt_set_active(int on);
