@@ -9772,14 +9772,16 @@ void rs_render_frame(rs_render *rr)
         glUniform1i(glGetUniformLocation(rr->prog_tex[slot], "uTex"), 0);
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, rr->tex_bg[slot]);
-        glGenBuffers(1, &rr->vbo_board[slot]);
+        /* AUD-1000 B04-043 P0 修：VBO 建一次持久化（旧：每帧 glGen/glDelete，
+           旧 ID 泄漏 + 60fps 反复分配驱动句柄开销）。首次建（vbo_board[slot]==0），
+           后续帧复用同 ID，仅 glBufferData 更新顶点数据（GL_DYNAMIC_DRAW 语义）。 */
+        if (rr->vbo_board[slot] == 0)
+            glGenBuffers(1, &rr->vbo_board[slot]);
         glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_board[slot]);
         glBufferData(GL_ARRAY_BUFFER, sizeof(bq), bq, GL_DYNAMIC_DRAW);
         rs_bind_vbo(rr->vbo_board[slot]);
         glDrawArrays(GL_TRIANGLES, 0, 6);
         rs_unbind_vbo();
-        glDeleteBuffers(1, &rr->vbo_board[slot]);
-        rr->vbo_board[slot] = 0;
     } else if (rr->tex_board[slot] && rr->vbo_board[slot] && rr->gl2_ok[slot]) {
         /* 退化：datah_188 裁剪铺满（bg 缺失） */
         glUseProgram(rr->prog_tex[slot]);

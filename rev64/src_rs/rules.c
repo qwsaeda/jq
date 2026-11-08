@@ -285,7 +285,11 @@ static bool move_legal(const jq_state *st, int from, int to, int turn)
        原版 0x39e14 大本营目标格路径后在 SPEC 定案。 */
     if (is_base(cell_row(to), cell_col(to))) {
         if (dst->rank == RANK_EMPTY) {
-            /* 大本营空格：只有对方军旗/地雷可走（布局），否则不可进 */
+            /* 大本营空格：只有对方军旗/地雷可走（布局），否则不可进。
+               ★ AUD-1000 B01-016（P0 已随 B01-001 关闭）：旧实现工兵 BFS
+               目标判定先于 walkable → 可"滑行"进空大本营（BFS 说可达、
+               本条款拒 = 分叉）；B01-001 修后 BFS 目标并入 walkable，
+               行营/大本营空格滑行不可达，两处判定一致，无分叉。 */
             return false;
         }
         /* ★ 对抗审计 AUD-R-007（P1）修正：ruleflip（暗棋）原文 —
@@ -388,7 +392,15 @@ static void stalemate_after(jq_state *st)
        > 和棋 > 困毙（走子后收口），无需显式排除。 */
     /* AUD-1000 B01-023：判定值含本步（走子/翻棋收口前已 moves_since_eat++ /
        total_moves++），即'第 70 步空移完成后'立即读 70 判和，语义='已进行
-       70 步无吃子'——与翻棋路径（jq_flip 同序自增）对称，防未来回归改顺序。 */
+       70 步无吃子'——与翻棋路径（jq_flip 同序自增）对称，防未来回归改顺序。
+       ★ AUD-1000 B01-002（P0 修）：吃子分支清零 moves_since_eat（:493/:522/:535/
+       :577/:605 五处）——清零发生在 stalemate_after 调用**之前**（EV_BOMB 分支
+       内 :493 清零后 :542 stalemate_after 读到 0 不判和 ✓）。和棋阈值判定对象
+       = '走子收口时刻的 moves_since_eat 值'，语义为'自上次吃子起累计空移步数'，
+       第 70 个空移完成后读到 70 → 判和（含本步，晚 1 步于'已进行 70 步'严格
+       字面量——与 AUD-R-075 'stalemate_after 判下一方'注释一致：turn 已切换，
+       判定的是'轮到对方走子前，该方已连续 70 步无吃子'）。原版 0x30200 和棋
+       分发 ±1 边界未反汇编确证，evverify 基准即此实现，保持不动。 */
     if (ui_rule_cfg_get(0) &&
         (st->moves_since_eat >= 70 || st->total_moves >= 1000))
         jq_on_draw(st);
@@ -731,6 +743,11 @@ void jq_undo_restore(jq_state *st, const jq_state *snap)
 {
     if (!st || !snap) return;   /* ★ AUD-R-091 同批：NULL 防护 */
     *st = *snap;
+    /* ★ AUD-1000 B01-008（P0 已修）：悔棋恢复入口钳制 mines_cleared 下界——
+       损坏快照可注入负值（合法走子链快照恒 >=0），负值在 :242 扛旗门槛
+       恒 <3 拒放行（方向安全），此处显式钳 0 消除语义歧义（负=数据损坏）。 */
+    for (int i = 0; i < 2; i++)
+        if (st->mines_cleared[i] < 0) st->mines_cleared[i] = 0;
 }
 
 int  jq_bt_undo_available(void);   /* bt_session.c BT_T_UNDO 分支用（jni_bridge.c 实现；bttest 桩在 bt_selftest.c） */

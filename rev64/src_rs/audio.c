@@ -113,8 +113,10 @@ void *jq_wav_load(const char *path, size_t *out_len, int *out_rate, int *out_bit
                format=p[8..9] ch=p[10..11] rate=p[12..13] brate=p[14..15]
                align=p[16..17] bits=p[18..19]（实测 move.wav bits=8 在 buf34=p22，
                即 p[18..19] 对应 buf30..31=brate；位深实际在 p[22..23]） */
+            /* AUD-1000 B04-086：fmt 块 csize<24 时 p[22..23] 越出 fmt 数据段
+               （可能读进下一块头部）——加 csize>=24 守卫，越界只写 rate 不写 bits */
             if (out_rate) *out_rate = (int)(p[12] | (p[13] << 8));
-            if (out_bits) *out_bits = (int)(p[22] | (p[23] << 8));
+            if (csize >= 24 && out_bits) *out_bits = (int)(p[22] | (p[23] << 8));
             (void)fmt_pos;
         } else if (strcmp(tag, "data") == 0) {
             data_pos = (int)(p - buf);
@@ -124,6 +126,13 @@ void *jq_wav_load(const char *path, size_t *out_len, int *out_rate, int *out_bit
         if ((csize & 1)) p++;   /* RIFF 块 2 字节对齐 */
     }
     if (data_pos < 0 || data_len == 0) { free(buf); if (out_len) *out_len = 0; return NULL; }
+    /* AUD-1000 B04-085 P0：恶意 data 块 csize 可超 buf 末尾（data_pos+8+data_len>buf+rd），
+       旧 memcpy(pcm, buf+data_pos+8, data_len) 越界读。修：截断到 buf 实际剩余。 */
+    {
+        size_t max_len = (size_t)(rd - (data_pos + 8));
+        if (data_len > max_len) data_len = (unsigned)max_len;
+    }
+    if (data_len == 0) { free(buf); if (out_len) *out_len = 0; return NULL; }
     /* 拷出 data 段 */
     void *pcm = malloc(data_len);
     if (!pcm) { free(buf); if (out_len) *out_len = 0; return NULL; }
