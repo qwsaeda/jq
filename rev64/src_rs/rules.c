@@ -104,7 +104,9 @@ static bool rail_path_engineer(const jq_state *st, int fr, int fc, int tr, int t
     /* ★ AUD-R-100（P3 已修）：visited int→uint8_t（240B→60B 栈），memset 一次清零。 */
     uint8_t visited[BOARD_ROWS][BOARD_COLS];
     memset(visited, 0, sizeof(visited));
-    int qr[64], qc[64], head = 0, tail = 0;
+    /* AUD-1000 B01-007：qr/qc 索引域 0-59 → uint8_t[64]（栈 512B→128B，栈帧瘦身） */
+    uint8_t qr[64], qc[64];
+    int head = 0, tail = 0;
     if (tail >= 64) return false;   /* AUD-A-0040：入队上界断言（恒不触发，纯防御） */
     qr[tail] = fr; qc[tail] = fc; tail++;
     visited[fr][fc] = 1;
@@ -545,6 +547,10 @@ int jq_try_move(jq_state *st, int from, int to)
                胜负判定未接线（待暗棋规则族实现，见 AUD-R-002 修法；
                保留数据供后续暗棋族使用，勿删除该字段）。 */
             st->mines_cleared[me]++;
+            /* AUD-1000 B01-008：挖雷攻方（工兵）消失也须 pieces_left[me]--，
+               与 EV_DEAD 送死（:574 攻方--）计数对象对称。me 已经入口
+               SIDE_VALID 守卫（恒 0/1），下标安全。 */
+            st->pieces_left[me]--;
             ev = EV_MINE;
             /* ★ AUD-1000 B01-022（P1）：真挖雷（地雷消失）才清零无吃子计数 */
             st->moves_since_eat = 0;
@@ -672,9 +678,12 @@ bool jq_side_stalemated(const jq_state *st, uint8_t side)
     for (int i = 0; i < N_CELLS; i++) {
         const jq_cell *c = &st->cells[i];
         int cn = rank_of(c);
+        /* AUD-1000 B01-011：0xFF 未定色暗子仅先手（蓝）可翻（jq_can_flip 门控），
+           红方困毙扫描时 0xFF 子不算"红方可翻"（否则红方永不能因只剩未定色暗子而困毙）。
+           旧实现 (c->side == 0xFF || c->side == side) 让 0xFF 子对双方都判"可翻"→红方恒不困毙。 */
         if (c->rank != RANK_EMPTY && !c->revealed &&
             cn != RANK_FLAG && cn != RANK_MINE &&
-            (c->side == 0xFF || c->side == side))
+            (c->side == 0xFF ? side == SIDE_BLUE : c->side == side))
             return false;
     }
     /* 有已翻可动子且存在合法目标 → 未困毙 */
@@ -768,6 +777,10 @@ void jq_on_stalemate(jq_state *st, uint8_t loser_side)
      move_legal 拦截兜底（非工兵扛旗被拒），不会误胜。 */
 int ai_score(int src_rank_raw, int dst_rank_raw, int dst_revealed)
 {
+    /* AUD-1000 B01-028/B01-063：负数 rank 域统一拦截（rank 存储域 0-255 合法，
+       负数为脏输入 → 空源哨兵 -2，与调用方 ai_pick 外层过滤同语义）。
+       旧实现 rank_norm(负数) 返回负数参与比较 = 未定义行为。 */
+    if (src_rank_raw < 0 || dst_rank_raw < 0) return -2;
     int r = rank_norm(src_rank_raw);
     /* ★ AUD-R-057（P2）：空源（rank=0）返回哨兵 -2，与非法着法区分
        （原返回 2 与合法空移同分，调用方无法识别"源格为空"这种非法输入）。
