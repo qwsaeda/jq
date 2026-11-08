@@ -115,6 +115,7 @@ typedef struct {
                                            （7 标签竖排：软件信息/版本/官网/反馈/关闭/
                                            1.6.8/cnvcs.com） */
     void *board_px; size_t board_px_len;   /* 解码后 RGBA（跨 context 共享，只解码一次） */
+    int board_w, board_h;                  /* AUD-1000 B04-050：解码实际宽高（不再 px_len 反推） */
     void *piece_px;  size_t piece_px_len;
     void *text_px;   size_t text_px_len;   /* 菜单文字图集 RGBA（5 label 竖排） */
     int text_w, text_h;                    /* 文字图集尺寸 */

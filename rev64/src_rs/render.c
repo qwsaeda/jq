@@ -171,6 +171,11 @@ static void rs_solid_btn(rs_render *rr, int slot, float x0, float y0, float x1, 
 #define PIECE_PNG_H 280
 #define PIECE_GRID_W 4
 #define PIECE_GRID_H 7
+/* AUD-1000 B04-055：背面格在 PIECE 图集 (col=0, row=6)（PIECE_GRID_H-1=6 为背面行）
+   实证：棋子图集 7 行——row0-2 蓝 12 子（rank1-12 → col0-3），row3-5 红，row6 背面。
+   暗棋未翻子画 (0,6) 与明棋 rank 无关联，固定常量防未来图集改版时错位。 */
+#define PIECE_BACK_ROW  (PIECE_GRID_H - 1)
+#define PIECE_BACK_COL  0
 #define BOARD_UV_X0 0.366f
 #define BOARD_UV_X1 0.631f
 
@@ -9733,6 +9738,10 @@ static void rs_gl_rebuild(rs_render *rr, int slot)
             LOGI("rs_gl_rebuild slot%d 纹理资源使用：%d/%d 上传成功（%d 张缺失→纯色退化，查设备端 spak_res）",
                  slot, n_upload, n_total, n_total - n_upload);
     }
+    /* AUD-1000 B04-051：gl_ok = 核心 3 对象全建诊断值（rs_render_frame 判 gl2_ok
+       + 各纹理指针判空实际出几何，gl_ok 无判读点 = 诊断/日志字段，不影响渲染行为）。
+       单纹理缺失时 gl_ok=0 但其他纹理照常出几何（如 piece 缺失 → 棋盘/菜单仍渲染），
+       与 rs_render_frame 实际判读路径（gl2_ok[slot] + tex_xxx[slot] 指针）一致。 */
     rr->gl_ok[slot] = rr->gl2_ok[slot] && rr->vbo_board[slot] && rr->tex_board[slot] && rr->tex_piece[slot];
 }
 
@@ -9893,7 +9902,9 @@ void rs_render_frame(rs_render *rr)
             int row = (rank - 1) / PIECE_GRID_W;
             if (c->side == SIDE_BLUE) row += 3;
             /* 暗棋未翻 → 画背面（row6），不暴露 rank；已翻 → 按 rank 映射正面 */
-            if (!c->revealed) { row = PIECE_GRID_H - 1; col = 0; }
+            /* AUD-1000 B04-055：暗棋未翻统一画背面（PIECE_BACK_COL/ROW 显式常量，
+               不依赖 rank 推断——蓝/红未翻子同背面，图集已确认 (0,6) 位置） */
+            if (!c->revealed) { row = PIECE_BACK_ROW; col = PIECE_BACK_COL; }
             int cr = cell_row(i), cc = cell_col(i);
             float ix, iy; bg_cell_img_center(cr, cc, &ix, &iy);
             /* bg_cell_img_center 返回格心 → 棋子 quad 以格左上为原点
