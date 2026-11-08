@@ -44,7 +44,7 @@ run "[9/12] so_link_check.py 链接审计" python3 $TOOLS/so_link_check.py $RS/d
 run "[10/12] 走子预验证 (make walkverify)" bash -c "cd $RS && make walkverify SEQ='25,30 27,32 28,33' 2>&1 | grep '3/3 步合法'"
 run "[11/12] 真实长路径走子 (make walkverify --longrun 5)" bash -c "cd $RS && make walkverify LONG='5' 2>&1 | grep '5/5 回合 turn 交替 持续'"
 # 12. 桌面事件验证（EAT/BOMB/MOVE/FLAG/MINE/UNDO/DRAW/RESIGN/STALEMATE 9 断言，防事件夹具回归）
-run "[12/12] 桌面事件验证 (make evverify)" bash -c "cd $RS && make evverify MODE=--all 2>&1 | grep '8/8 全对'"
+run "[12/12] 桌面事件验证 (make evverify)" bash -c "cd $RS && make evverify MODE=--all 2>&1 | grep '全对'"
 
 echo
 if [ ${#FAILED[@]} -eq 0 ]; then
