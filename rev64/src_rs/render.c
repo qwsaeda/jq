@@ -4723,7 +4723,12 @@ static void rs_draw_join065(rs_render *rr, int slot)
                        jb[i].x0 + 30.0f, (jb[i].y0 + jb[i].y1) * 0.5f, 110.0f, uc);
         /* 右值文字（x1-60 偏右，原版值区 rect 140..420/450 面板；
            和棋/大本营/吃地雷/吃军旗 4 行值=开（ui_rule 默认全开，图集 row10 复用） */
-        int val_row = (i < 4) ? (11 + i) : 10;   /* row11-14=蓝/红/布局/暗棋；row15-18→row10=开（4 规则默认全开） */
+        int val_row;
+        if (i == 0) val_row = ui_first_get() ? 12 : 11;   /* 先手方值：蓝/红（row11/12） */
+        else if (i == 1) val_row = 12;                     /* 后手方值=红（row12，本地热座固定红） */
+        else if (i == 2) val_row = ui_opt_get_mode() ? 13 : 11;  /* 玩法值：布局/翻棋（row13/14） */
+        else if (i == 3) val_row = ui_show_get() ? 14 : 13;      /* 明暗棋值：暗棋/明棋（row14/13） */
+        else { int cfg = ui_rule_cfg_get(i-4); val_row = cfg ? 10 : 15; }  /* 4 规则值：开/关（row10/15） */
         rs_atlas_label(rr, slot, rr->tex_join065_text[slot], rr->join065_text_w, rr->join065_text_h,
                        JOIN065_ROW, val_row,
                        jb[i].x1 - 60.0f, (jb[i].y0 + jb[i].y1) * 0.5f, 110.0f, uc);
@@ -4883,7 +4888,7 @@ static void rs_draw_rules070(rs_render *rr, int slot)
    按钮几何 ui_room060_buttons()（720×1280 基准）。
    ★ 诚实边界：联机房间需 Wi-Fi/局域网协议（src_rs 仅蓝牙已实现），
    开始/换桌→边界对话框；2 玩家显示区=占位标签（不画真数据，触摸 flaky 下房间列表无意义） */
-#define ROOM060_ROW 8
+#define ROOM060_ROW 12
 static void rs_draw_room060(rs_render *rr, int slot)
 {
     if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
@@ -4895,14 +4900,29 @@ static void rs_draw_room060(rs_render *rr, int slot)
     /* ③ 标题"房间"（room060_text row0，面板顶部 360 中心） */
     rs_atlas_label(rr, slot, rr->tex_room060_text[slot], rr->room060_text_w, rr->room060_text_h,
                    ROOM060_ROW, 0, 360.0f, UI_ROOM060_POPUP_Y0 + 25.0f, 130.0f, uc);
-    /* ④ 2 玩家占位标签（row1=蓝方 row2=红方，浅色矩形占位） */
+    /* ④ 2 玩家×4 字段（datah_060 原版 Player1/Ready1/Score1/Rate1 + Player2 同行）
+       值来源：联机房间需 Wi-Fi/局域网协议（src_rs 仅蓝牙已实现），
+       玩家名=占位"-"（无真数据），准备中=蓝/绿（静态），局分/胜率=占位"--"
+       诚实边界：房间列表真数据需联机房间协议（未逆向），此处仅静态占位 */
     rs_solid_btn(rr, slot, 180.0f, UI_ROOM060_POPUP_Y0 + 60.0f,
                  540.0f, UI_ROOM060_POPUP_Y0 + 180.0f,
                  0.90f, 0.90f, 0.92f, 0.92f, 0, uc);
+    /* 玩家1 行（row1=玩家1 标题 + 值列"-"） */
     rs_atlas_label(rr, slot, rr->tex_room060_text[slot], rr->room060_text_w, rr->room060_text_h,
                    ROOM060_ROW, 1, 250.0f, UI_ROOM060_POPUP_Y0 + 100.0f, 150.0f, uc);
+    /* 玩家2 行（row5=玩家2 标题） */
     rs_atlas_label(rr, slot, rr->tex_room060_text[slot], rr->room060_text_w, rr->room060_text_h,
-                   ROOM060_ROW, 2, 450.0f, UI_ROOM060_POPUP_Y0 + 140.0f, 150.0f, uc);
+                   ROOM060_ROW, 5, 250.0f, UI_ROOM060_POPUP_Y0 + 140.0f, 150.0f, uc);
+    /* 准备中/局分/胜率 4 字段占位标签（row2/3/4=玩家1 右侧，row6/7/8=玩家2 右侧，图集 12 行） */
+    static const int FIELD_ROW[2][3] = { {2,3,4}, {6,7,8} };   /* 准备中/局分/胜率 行号 */
+    for (int p = 0; p < 2; p++)
+        for (int f = 0; f < 3; f++) {
+            float fy = (p == 0) ? (UI_ROOM060_POPUP_Y0 + 100.0f + f * 40.0f)
+                                : (UI_ROOM060_POPUP_Y0 + 140.0f + f * 40.0f);
+            rs_atlas_label(rr, slot, rr->tex_room060_text[slot], rr->room060_text_w, rr->room060_text_h,
+                           ROOM060_ROW, FIELD_ROW[p][f],
+                           450.0f, fy, 90.0f, uc);
+        }
     /* ⑤ 3 按钮：开始（蓝）/ 换桌（橙）/ 离开（灰） */
     static const float BTN_COL[3][4] = {
         {0.20f, 0.45f, 0.90f, 0.9f},   /* 开始 蓝 */

@@ -7275,9 +7275,20 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
         if (jh >= 0) {
             int jact = jb[jh].action;
             LOGI("OnTouch 加入游戏完整版弹窗：控件%d（action=%d）", jh, jact);
-            if (jact >= 0 && jact <= 7) {   /* 8 显示项：占位标签（不实际处理，仅日志） */
-                LOGI("OnTouch 加入游戏完整版弹窗：显示项%d（占位标签，不实际处理，"
-                     "★ 诚实边界：联机开局配置 src_rs 无逻辑）", jact);
+            if (jact >= 0 && jact <= 7) {   /* 8 行配置：点值列循环切换状态
+                 ★ datah_065 原版对齐：行0 先手方(蓝/红) 行1 后手方(红/蓝)
+                 行2 玩法(布局/翻棋) 行3 明暗棋(明/暗) 行4-7 和棋/大本营/吃地雷/吃军旗(开/关)
+                 值=本端持久化状态（ui_first/ui_opt/ui_show/ui_rule），非真联机同步 */
+                if (jact == 0) ui_first_set(ui_first_get() ? 0 : 1);
+                else if (jact == 2) { int m = ui_opt_toggle_mode(); (void)m; }
+                else if (jact == 3) ui_show_set(ui_show_get() ? 0 : 1);
+                else if (jact == 4) ui_rule_draw_set(ui_rule_draw_get() ? 0 : 1);
+                else if (jact == 5) ui_rule_hq_set(ui_rule_hq_get() ? 0 : 1);
+                else if (jact == 6) ui_rule_mine_set(ui_rule_mine_get() ? 0 : 1);
+                else if (jact == 7) ui_rule_flag_set(ui_rule_flag_get() ? 0 : 1);
+                sfx_play(env, "pop");
+                LOGI("OnTouch 加入游戏完整版弹窗：行%d 值切换（★ 诚实边界：本端持久化状态，非联机同步）",
+                     jact);
             } else if (jact == 8) {   /* 开始 → 边界对话框 + 回主菜单 */
                 jq_show_dialog(env, "加入游戏完整版（诚实边界）",
                     "加入游戏完整版（诚实边界）：\n"

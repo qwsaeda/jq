@@ -170,6 +170,40 @@ void jqt_bss_dump(void){
         }
         __android_log_print(6,"junqi","BSS-DUMP: .bss 0x15be80-0x15bfec 非零槽共 %d 条（0=全零未构造区）", nz);
     }
+    /* ★ §124y-171 D5 事件表真值 dump：289B 区（shadow+0x160584 = .bss+0x4704，17行×17字段）
+       游戏事件触发后 .bss 事件表是否被填入 (事件码<<4)|标志 值（高 nibble 非0 = 事件码位图）
+       判据：与 MuMu 原版 so ref dump（§124y-154 jq_event_tbl_fill 真值 0x01 掩码）对照
+       → 若 redroid 32位 so 进程（非翻译体）dump 结果高 nibble 仍全 0 = disc=0 是原版真实行为（忠实兜底）
+       → 若高 nibble 非 0 = 事件码位图，提取 76 事件名映射 */
+    {
+        int nz2 = 0, hi2 = 0;
+        uint32_t tbl_val = MEM(0x15b644);   /* .got[0x15b644] = 0x00160584（REL 偏移） */
+        uint32_t tbl_base = JQT_ABS_PTR(tbl_val);  /* shadow+0x160584 */
+        __android_log_print(6,"junqi","EVT-TBL-DUMP: .got[0x15b644]=0x%08x → tbl_base=0x%08x（289B 区）",
+            tbl_val, tbl_base);
+        for (uint32_t off = 0; off < 289; off++) {
+            uint8_t b = MEMB(tbl_base + off);
+            if (b) nz2++;
+            if (b >> 4) hi2++;
+        }
+        __android_log_print(6,"junqi","EVT-TBL-DUMP: 289B 区 非0字节=%d 高nibble非0字节=%d（0=掩码区未填事件码，disc 恒 0 忠实兜底；>0=事件码位图，提取映射）",
+            nz2, hi2);
+        /* 逐行 17B 打印非 0 字节位置 + 值（用于事件码位图提取） */
+        for (uint32_t r = 0; r < 17; r++) {
+            char line[64];
+            int pos = 0;
+            snprintf(line, sizeof(line), "行%2d=", r);
+            for (uint32_t i = 0; i < 17; i++) {
+                uint8_t b = MEMB(tbl_base + r*17 + i);
+                if (b) {
+                    pos += snprintf(line+pos, sizeof(line)-pos, " %d:0x%02x", i, b);
+                    if (pos > (int)sizeof(line)-12) break;
+                }
+            }
+            if (pos > (int)strlen("行%2d=")+4)
+                __android_log_print(6,"junqi","EVT-TBL-DUMP: %s", line);
+        }
+    }
 }
 static void *jq_watchdog(void *arg) {
     /* ★ AUD-1000 B05-016（P1 R-138 诚实标注）：看门狗线程 pthread_detach
