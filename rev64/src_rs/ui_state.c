@@ -29,9 +29,11 @@ extern jq_state g_state;
 static int g_opt_level = 2;   /* 默认中级区（datah_041 中间档） */
 static int g_opt_mode = 1;    /* ★ 原版开局对齐：人机/两人均全背面暗棋（orig_human/orig_two3 截图自证）→ 默认暗棋（mode=1） */
 
-int ui_screen_get(void) { return g_ui; }
+int ui_screen_get(void) { pthread_mutex_lock(&g_ui_lock); int v = g_ui; pthread_mutex_unlock(&g_ui_lock); return v; }
+/* ★ AUD-1000 B02-001/002（P0 已修）：getter 与 setter 同锁（旧实现无锁读 g_ui，
+   与 ui_screen_set 持锁写构成数据竞争，GLThread/主线程并发可见中间态）。 */
 void ui_screen_set(int s) { pthread_mutex_lock(&g_ui_lock); g_ui = s; pthread_mutex_unlock(&g_ui_lock); }
-int ui_game_active(void) { return g_ui == UI_GAME; }
+int ui_game_active(void) { pthread_mutex_lock(&g_ui_lock); int v = (g_ui == UI_GAME); pthread_mutex_unlock(&g_ui_lock); return v; }
 
 /* ★ 选项 UI：选难度/模式（弹窗按钮命中后调，开局前） */
 void ui_opt_select(int level, int mode)
@@ -41,13 +43,13 @@ void ui_opt_select(int level, int mode)
     g_opt_mode = (mode == 1) ? 1 : 0;
     pthread_mutex_unlock(&g_ui_lock);
 }
-int ui_opt_get_level(void) { return g_opt_level; }
-int ui_opt_get_mode(void) { return g_opt_mode; }
+int ui_opt_get_level(void) { pthread_mutex_lock(&g_ui_lock); int v = g_opt_level; pthread_mutex_unlock(&g_ui_lock); return v; }
+int ui_opt_get_mode(void) { pthread_mutex_lock(&g_ui_lock); int v = g_opt_mode; pthread_mutex_unlock(&g_ui_lock); return v; }
 
 /* ★ 对抗审计（datah_067）：蓝牙联机模式标志 */
 static int g_bt_active = 0;
 void ui_bt_set_active(int on) { pthread_mutex_lock(&g_ui_lock); g_bt_active = on; pthread_mutex_unlock(&g_ui_lock); }
-int ui_bt_active(void) { return g_bt_active; }
+int ui_bt_active(void) { pthread_mutex_lock(&g_ui_lock); int v = g_bt_active; pthread_mutex_unlock(&g_ui_lock); return v; }
 
 /* ★ 对抗审计 P1（批4 P0-R8 / 批6 彻底锁化）：人机模式标志（g_vs_ai）移入 ui_state。
    原为 jni_bridge.c 的 static int g_vs_ai：写点分散在 OnTouch 各弹窗路径（**锁外**
@@ -64,27 +66,27 @@ static int g_snd_mute = 0;    /* 0=声音开 1=静音 */
 static int g_btn_sound = 1;   /* 0=关 1=开 */
 static int g_volume = 2;      /* 1=低 2=中 3=高 */
 static char g_set_dir[320] = {0};
-int ui_snd_mute_get(void) { return g_snd_mute; }
-void ui_snd_mute_set(int m) { g_snd_mute = m ? 1 : 0; }
-int ui_btn_sound_get(void) { return g_btn_sound; }
-void ui_btn_sound_set(int v) { g_btn_sound = v ? 1 : 0; }
-int ui_volume_get(void) { return g_volume; }
+int ui_snd_mute_get(void) { pthread_mutex_lock(&g_ui_lock); int v = g_snd_mute; pthread_mutex_unlock(&g_ui_lock); return v; }
+void ui_snd_mute_set(int m) { pthread_mutex_lock(&g_ui_lock); g_snd_mute = m ? 1 : 0; pthread_mutex_unlock(&g_ui_lock); }
+int ui_btn_sound_get(void) { pthread_mutex_lock(&g_ui_lock); int v = g_btn_sound; pthread_mutex_unlock(&g_ui_lock); return v; }
+void ui_btn_sound_set(int v) { pthread_mutex_lock(&g_ui_lock); g_btn_sound = v ? 1 : 0; pthread_mutex_unlock(&g_ui_lock); }
+int ui_volume_get(void) { pthread_mutex_lock(&g_ui_lock); int v = g_volume; pthread_mutex_unlock(&g_ui_lock); return v; }
 void ui_volume_set(int v) { g_volume = (v >= 1 && v <= 3) ? v : 2; }
 /* ★ P2（datah_061）：新局完整版（完整版补充）先后手/明暗棋 独立循环位。
    ui_first 0=蓝先手 1=红先手（默认 0）；ui_show 0=明 1=暗（默认 1，对齐原版暗棋默认）。
    ★ 诚实边界：先后手=蓝/红 切换简化（仅影响开局侧）。 */
 static int g_first = 0;   /* 先后手：0=蓝先手 1=红先手（默认 0） */
 static int g_show = 0;    /* 明暗棋：0=明 1=暗（默认 0 明棋，对齐 OnCreate 明棋开局，诚实边界） */
-int ui_first_get(void) { return g_first; }
-void ui_first_set(int v) { g_first = v ? 1 : 0; }
-int ui_show_get(void) { return g_show; }
-void ui_show_set(int v) { g_show = v ? 1 : 0; }
+int ui_first_get(void) { pthread_mutex_lock(&g_ui_lock); int v = g_first; pthread_mutex_unlock(&g_ui_lock); return v; }
+void ui_first_set(int v) { pthread_mutex_lock(&g_ui_lock); g_first = v ? 1 : 0; pthread_mutex_unlock(&g_ui_lock); }
+int ui_show_get(void) { pthread_mutex_lock(&g_ui_lock); int v = g_show; pthread_mutex_unlock(&g_ui_lock); return v; }
+void ui_show_set(int v) { pthread_mutex_lock(&g_ui_lock); g_show = v ? 1 : 0; pthread_mutex_unlock(&g_ui_lock); }
 /* ★ P2（datah_002）：亮度调节档位（0=低 1=中 2=高，默认 1）。
    ★ 诚实边界：原版滑条拖拽=触摸 flaky，简化为 3 档循环切换，不画真滑条；
    确定=持久化 jq_bright.txt（复用 g_set_dir 范式，单字段）。 */
 static int g_bright = 1;  /* 0=低 1=中 2=高（默认 1） */
-int ui_bright_get(void) { return g_bright; }
-void ui_bright_set(int v) { g_bright = (v >= 0 && v <= 2) ? v : 1; }
+int ui_bright_get(void) { pthread_mutex_lock(&g_ui_lock); int v = g_bright; pthread_mutex_unlock(&g_ui_lock); return v; }
+void ui_bright_set(int v) { pthread_mutex_lock(&g_ui_lock); g_bright = (v >= 0 && v <= 2) ? v : 1; pthread_mutex_unlock(&g_ui_lock); }
 void ui_bright_save(void)
 {
     if (!g_set_dir[0]) return;
@@ -146,16 +148,16 @@ static int g_rule_hq = 1;      /* 大本营：1=开（进大本营不可再动�
 static int g_rule_mine = 1;    /* 吃地雷：1=开（工兵可挖地雷） */
 static int g_rule_flag = 1;    /* 吃军旗：1=开（扛旗判胜） */
 static int g_rule_dark = 1; /* ★ AUD-R-002/003（P0）：暗棋开关：1=开（ruleflip 规则族生效） */
-int ui_rule_draw_get(void) { return g_rule_draw; }
-void ui_rule_draw_set(int v) { g_rule_draw = v ? 1 : 0; }
-int ui_rule_hq_get(void) { return g_rule_hq; }
-void ui_rule_hq_set(int v) { g_rule_hq = v ? 1 : 0; }
-int ui_rule_mine_get(void) { return g_rule_mine; }
-void ui_rule_mine_set(int v) { g_rule_mine = v ? 1 : 0; }
-int ui_rule_flag_get(void) { return g_rule_flag; }
-void ui_rule_flag_set(int v) { g_rule_flag = v ? 1 : 0; }
-int ui_rule_dark_get(void) { return g_rule_dark; }
-void ui_rule_dark_set(int v) { g_rule_dark = v ? 1 : 0; }
+int ui_rule_draw_get(void) { pthread_mutex_lock(&g_ui_lock); int v = g_rule_draw;; pthread_mutex_unlock(&g_ui_lock); return v; }
+void ui_rule_draw_set(int v) { pthread_mutex_lock(&g_ui_lock); g_rule_draw = v ? 1 : 0; pthread_mutex_unlock(&g_ui_lock); }
+int ui_rule_hq_get(void) { pthread_mutex_lock(&g_ui_lock); int v = g_rule_hq;; pthread_mutex_unlock(&g_ui_lock); return v; }
+void ui_rule_hq_set(int v) { pthread_mutex_lock(&g_ui_lock); g_rule_hq = v ? 1 : 0; pthread_mutex_unlock(&g_ui_lock); }
+int ui_rule_mine_get(void) { pthread_mutex_lock(&g_ui_lock); int v = g_rule_mine;; pthread_mutex_unlock(&g_ui_lock); return v; }
+void ui_rule_mine_set(int v) { pthread_mutex_lock(&g_ui_lock); g_rule_mine = v ? 1 : 0; pthread_mutex_unlock(&g_ui_lock); }
+int ui_rule_flag_get(void) { pthread_mutex_lock(&g_ui_lock); int v = g_rule_flag;; pthread_mutex_unlock(&g_ui_lock); return v; }
+void ui_rule_flag_set(int v) { pthread_mutex_lock(&g_ui_lock); g_rule_flag = v ? 1 : 0; pthread_mutex_unlock(&g_ui_lock); }
+int ui_rule_dark_get(void) { pthread_mutex_lock(&g_ui_lock); int v = g_rule_dark;; pthread_mutex_unlock(&g_ui_lock); return v; }
+void ui_rule_dark_set(int v) { pthread_mutex_lock(&g_ui_lock); g_rule_dark = v ? 1 : 0; pthread_mutex_unlock(&g_ui_lock); }
 int ui_rule_cfg_get(int which)
 {
     switch (which) {
@@ -204,14 +206,14 @@ static int g_img_trans = 1;    /* 界面动画：1=开 */
 static int g_img_piece = 1;    /* 棋子动画：1=开 */
 static int g_img_night = 0;    /* 夜间模式：0=关（默认） */
 static int g_img_opp = 1;      /* 对方棋子：1=开 */
-int ui_imgset_trans_get(void) { return g_img_trans; }
-void ui_imgset_trans_set(int v) { g_img_trans = v ? 1 : 0; }
-int ui_imgset_piece_get(void) { return g_img_piece; }
-void ui_imgset_piece_set(int v) { g_img_piece = v ? 1 : 0; }
-int ui_imgset_night_get(void) { return g_img_night; }
-void ui_imgset_night_set(int v) { g_img_night = v ? 1 : 0; }
-int ui_imgset_opp_get(void) { return g_img_opp; }
-void ui_imgset_opp_set(int v) { g_img_opp = v ? 1 : 0; }
+int ui_imgset_trans_get(void) { pthread_mutex_lock(&g_ui_lock); int v = g_img_trans;; pthread_mutex_unlock(&g_ui_lock); return v; }
+void ui_imgset_trans_set(int v) { pthread_mutex_lock(&g_ui_lock); g_img_trans = v ? 1 : 0; pthread_mutex_unlock(&g_ui_lock); }
+int ui_imgset_piece_get(void) { pthread_mutex_lock(&g_ui_lock); int v = g_img_piece;; pthread_mutex_unlock(&g_ui_lock); return v; }
+void ui_imgset_piece_set(int v) { pthread_mutex_lock(&g_ui_lock); g_img_piece = v ? 1 : 0; pthread_mutex_unlock(&g_ui_lock); }
+int ui_imgset_night_get(void) { pthread_mutex_lock(&g_ui_lock); int v = g_img_night;; pthread_mutex_unlock(&g_ui_lock); return v; }
+void ui_imgset_night_set(int v) { pthread_mutex_lock(&g_ui_lock); g_img_night = v ? 1 : 0; pthread_mutex_unlock(&g_ui_lock); }
+int ui_imgset_opp_get(void) { pthread_mutex_lock(&g_ui_lock); int v = g_img_opp;; pthread_mutex_unlock(&g_ui_lock); return v; }
+void ui_imgset_opp_set(int v) { pthread_mutex_lock(&g_ui_lock); g_img_opp = v ? 1 : 0; pthread_mutex_unlock(&g_ui_lock); }
 int ui_imgset_cfg_get(int which)
 {
     switch (which) {
@@ -274,33 +276,52 @@ void ui_on_menu_action(int action)
    开局/重开/布局载入 ui_replay_init。回放 = 初始布局 + 前 cur 步重走（确定性）。
    诚实边界：跳转简化为回开头/跳结尾；菜单简化为退复盘（不建复盘内子菜单）。
    调用方需已持有 g_mutex（jni_bridge OnTouch/OnEvent 锁内；读/写 g_state）。 */
+/* ★ AUD-1000 B02-013（P0 已修）：g_replay 无锁，render.c GLThread 锁外调
+   ui_replay_count/cur 与 g_mutex 内 ui_replay_record 写构成数据竞争。
+   修：g_replay 访问走 g_ui_lock（与 ui_state 其他字段同款）；g_state 读
+   （jq_replay_init 拷开局布局）仍由调用方 g_mutex 契约保证（头文件注释
+   "调用方需已持有 g_mutex"不变——锁序 g_mutex → g_ui_lock 单向，
+   持 g_mutex 调本 API 时再取 g_ui_lock 无逆序）。 */
 static jq_replay g_replay;
 static int g_replay_inited = 0;
 
 static void replay_ensure_inited(void)
 {
+    pthread_mutex_lock(&g_ui_lock);
     if (!g_replay_inited) { g_replay_inited = 1; jq_replay_init(&g_replay, &g_state); }
+    pthread_mutex_unlock(&g_ui_lock);
 }
 
 void ui_replay_init(void)
 {
+    pthread_mutex_lock(&g_ui_lock);
     jq_replay_init(&g_replay, &g_state);
     g_replay_inited = 1;
+    pthread_mutex_unlock(&g_ui_lock);
     LOGI("复盘回放：初始化（清记录 + 开局 30 字节布局提取，n=0 cur=0）");
 }
 void ui_replay_record(int from, int to, int is_flip)
 {
     replay_ensure_inited();
+    pthread_mutex_lock(&g_ui_lock);
     jq_replay_record(&g_replay, from, to, is_flip);
+    pthread_mutex_unlock(&g_ui_lock);
     LOGI("复盘记录：+%s from=%d to=%d（n=%d cur=%d）",
          is_flip ? "翻棋" : "走子", from, to, jq_replay_count(&g_replay), jq_replay_cur_get(&g_replay));
 }
-int  ui_replay_count(void) { replay_ensure_inited(); return jq_replay_count(&g_replay); }
-int  ui_replay_cur(void)   { replay_ensure_inited(); return jq_replay_cur_get(&g_replay); }
+int  ui_replay_count(void) { replay_ensure_inited(); pthread_mutex_lock(&g_ui_lock); int v = jq_replay_count(&g_replay); pthread_mutex_unlock(&g_ui_lock); return v; }
+int  ui_replay_cur(void)   { replay_ensure_inited(); pthread_mutex_lock(&g_ui_lock); int v = jq_replay_cur_get(&g_replay); pthread_mutex_unlock(&g_ui_lock); return v; }
 int  ui_replay_rewind(int cur)
 {
+    /* ★ AUD-1000 B02-026（P0 已修）：rewind 改 g_state + g_replay——g_replay 走
+       g_ui_lock；g_state 写须调用方持 g_mutex（头契约不变）。jni_bridge
+       OnUpdate UI_REPLAY 路径 :1851 等已持 g_mutex（UI_REPLAY 屏分支锁内），
+       UI_GAMEINFO 复盘按钮无锁调用点由 B02-080 单独核查。 */
     replay_ensure_inited();
-    int rc = jq_replay_rewind_to(&g_replay, &g_state, cur);
+    int rc;
+    pthread_mutex_lock(&g_ui_lock);
+    rc = jq_replay_rewind_to(&g_replay, &g_state, cur);
+    pthread_mutex_unlock(&g_ui_lock);
     LOGI("复盘回放：重放到 cur=%d/%d %s（g_state 已重建为初始布局+前 cur 步）",
          cur, jq_replay_count(&g_replay), rc == 0 ? "成功" : "越界/不一致");
     return rc;
@@ -376,20 +397,20 @@ int ui_layout_list(void)
     for (int i = 0; i < n && i < 8; i++) LOGI("  布局[%d] %s", i, ui_layout_name(i));
     return n;
 }
-int ui_layout_count(void) { return g_lay_count; }
+int ui_layout_count(void) { pthread_mutex_lock(&g_ui_lock); int v = g_lay_count; pthread_mutex_unlock(&g_ui_lock); return v; }
 const char *ui_layout_name(int i)
 {
     if (i < 0 || i >= g_lay_count) return 0;
     return g_lay_names[i];
 }
-int ui_layout_selected(void) { return g_lay_sel; }
+int ui_layout_selected(void) { pthread_mutex_lock(&g_ui_lock); int v = g_lay_sel; pthread_mutex_unlock(&g_ui_lock); return v; }
 void ui_layout_select(int i)
 {
     pthread_mutex_lock(&g_ui_lock);
     g_lay_sel = (i >= 0 && i < g_lay_count) ? i : 0;
     pthread_mutex_unlock(&g_ui_lock);
 }
-int ui_layout_selected_valid(void) { return g_lay_sel >= 0 && g_lay_sel < g_lay_count; }
+int ui_layout_selected_valid(void) { pthread_mutex_lock(&g_ui_lock); int v = (g_lay_sel >= 0 && g_lay_sel < g_lay_count); pthread_mutex_unlock(&g_ui_lock); return v; }
 
 int ui_layout_save(const uint8_t lay[30], const char *name)
 {

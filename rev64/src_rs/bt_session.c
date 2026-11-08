@@ -43,6 +43,11 @@ int jq_bt_session_on_frame(jq_bt_session *s, jq_state *st,
     if (!s || !st) return -1;
     s->last_type = f1;
 
+    /* ★ AUD-1000 B04-013（P1 已修）：DISCONNECTED 真终态闸口——认输/断连后
+       数据帧（MOVE/FLIP/UNDO/SYNC_CELL/SYNC）拒收；RESTART/RESIGN 放行。 */
+    if (s->state == BT_ST_DISCONNECTED &&
+        f1 != BT_T_RESTART && f1 != BT_T_RESIGN)
+        return -2;
     switch (f1) {
     case BT_T_MOVE: {
         if (!frame_coord_ok(f2, f3, f4, f5)) return -1;
@@ -88,13 +93,18 @@ int jq_bt_session_on_frame(jq_bt_session *s, jq_state *st,
            rank_norm 错误还原同源）。
            帧字段（bt_protocol.h 约定）：f2=idx, f3=rank, f4=side, f5=revealed
            （sync 编码 jq_bt_frame_sync_encode 每格一帧），故白名单过滤 f3/f4/f5。
-           rank∈{0..24}（蓝 0-12 / 红编码 13-24）、side∈{0,1,0xFF}，超域拒收。 */
+           rank∈{0..24}（蓝 0-12 / 红编码 13-24）、side∈{0,1,0xFF}，超域拒收。
+           ★ AUD-1000 B04-010（P0 已修）：旧白名单 f3∈[0,24] 与 f4（side）独立判定，
+             蓝方侧（f4=0/0xFF）rank>12 是脏域（蓝合法域 [0,12]，+0xc 编码仅红方），
+             rank_norm 钳位后与真军旗同值（B01-010/033/061 同源）。修：side 感知域
+             校验——蓝/未定侧 f3∈[0,12]，红侧 f3∈[0,24]，超域拒收。 */
         int idx = f2;
         if (idx < 0 || idx >= N_CELLS) return -1;
-        if (f3 < 0 || f3 > RANK_TOP + 0xc || (f4 != 0 && f4 != 1 && f4 != SIDE_UNKNOWN))
-            return -1;
-        s->peer_state.cells[idx].rank = f3;
-        s->peer_state.cells[idx].side = f4;
+        if (f4 != 0 && f4 != 1 && f4 != SIDE_UNKNOWN) return -1;
+        int rmax = (f4 == 1) ? RANK_TOP + 0xc : RANK_TOP;
+        if (f3 < 0 || f3 > rmax) return -1;
+        s->peer_state.cells[idx].rank = (uint8_t)f3;
+        s->peer_state.cells[idx].side = (uint8_t)f4;
         s->peer_state.cells[idx].revealed = f5 ? 1 : 0;
         return 0;
     }

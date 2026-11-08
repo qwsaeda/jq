@@ -1079,8 +1079,13 @@ static void on_event(const char *name, const char *value, JNIEnv *env)
         int on = 0;
         if (sscanf(value, "%d", &on) != 1) on = 1;
         if (on) {
-            int n = ui_replay_count();
-            int rc = ui_replay_rewind(n);   /* 重建到记录末尾（n=0 = 纯开局布局） */
+            /* ★ AUD-1000 B02-080（P0 已修）：rewind 改 g_state 必须 g_mutex 内
+               （旧实现锁外调用，与 GLThread OnUpdate 锁内渲染读 g_state 竞态）。 */
+            int n, rc;
+            pthread_mutex_lock(&g_mutex);
+            n = ui_replay_count();
+            rc = ui_replay_rewind(n);   /* 重建到记录末尾（n=0 = 纯开局布局） */
+            pthread_mutex_unlock(&g_mutex);
             ui_screen_set(UI_REPLAY);
             LOGI("OnEvent replay：→ UI_REPLAY 复盘回放态（datah_107 控制条 5 按钮，cur=%d/%d rewind rc=%d，入口 setprop 钩子范式；跳转简化回开头/跳结尾，菜单简化退复盘）",
                  n, n, rc);
@@ -8001,10 +8006,16 @@ Java_com_cnvcs_App_OnBluetooth(JNIEnv *env, jclass clazz, jobject intent)
 {
     if (!intent) return;
     /* 懒初始化：本方 = 蓝方（先手），对局 = 当前状态 */
+    /* ★ AUD-1000 B03-014（P0 已修）：懒初始化在 g_mutex 内——旧实现在锁外
+   jq_bt_session_init(&g_bt_sess, &g_state, 1) 改 g_bt_sess + 读 g_state，
+   与 GLThread OnUpdate 锁内渲染并发（数据竞争，同型坑 B03-001）。
+   每帧循环内 :8040 已持锁幂等补位，此处锁内初始化 + 置位。 */
+    pthread_mutex_lock(&g_mutex);
     if (!g_bt_sess_init_done) {
         jq_bt_session_init(&g_bt_sess, &g_state, 1);
         g_bt_sess_init_done = 1;
     }
+    pthread_mutex_unlock(&g_mutex);
     /* 取 extra 文本（Java 宿主把收到的 v2 帧字符串放 Intent extra）
        extra 键名 = 原版 .rodata "extra"（0x127458 确证） */
     /* 走 getStringExtra("extra") 路径（原版 .rodata "extra" 0x127458 确证键名） */
