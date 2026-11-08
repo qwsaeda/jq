@@ -67,15 +67,23 @@ int jq_bt_frame_decode(const char *buf, int *f1, int *f2, int *f3,
 int jq_bt_frame_sync_encode(char *buf, int cap_per_frame,
                            const jq_state *st, int start, int count)
 {
+    /* ★ AUD-1000 B04-001（P0 已修）：旧实现 `n++` 无条件自增（帧写入失败也计数）
+       + `memcpy(buf + n*cap, fb, len+1)` 在 cap_per_frame < 实际帧长时越界写
+       （写 len+1 字节到 cap 槽起点，len+1 > cap 越出槽边界踩后续槽）。
+       修：① cap_per_frame 不足时跳过该帧且**不**计入 n（返回帧数=成功帧数，
+       与 jni_bridge 消费循环 `k < sn` 的语义一致——n 即成功写入槽数）；
+       ② 写入前显式 len+1 <= cap_per_frame 守护（防御双保险）。 */
     int n = 0;
+    if (cap_per_frame < 4) return 0;   /* 最小帧长守护（"v2\n" 头 + 1 字符） */
     for (int i = start; i < start + count && i < N_CELLS; i++) {
         const jq_cell *c = &st->cells[i];
         char fb[64];
         int len = jq_bt_frame_encode(fb, sizeof fb, BT_T_SYNC_CELL,
                                      i, c->rank, c->side, c->revealed, 0, 0, 0);
-        if (len > 0 && cap_per_frame >= len)
+        if (len > 0 && len + 1 <= cap_per_frame) {
             memcpy(buf + n * cap_per_frame, fb, len + 1);
-        n++;
+            n++;
+        }
     }
     return n;
 }

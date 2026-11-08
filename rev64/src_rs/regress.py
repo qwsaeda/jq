@@ -43,7 +43,11 @@ def main():
         for k in tot: tot[k] += evs.get(k, 0)
 
     print(f"合法终局 {ok}/{args.games}；事件累计 {tot}")
-    assert ok >= args.games * 0.9, "通过率 <90%"
+    # ★ AUD-1000 B08-001（P0 已修）：旧判据 ok >= 90%（50 局 45 过即 PASS），
+    # 规则引擎回归（如吃子逻辑错致 10% 局非法终局）被容差吞掉 = 假绿。
+    # 规则引擎是确定性逻辑（同输入同输出），合法终局必须是 100%——
+    # 任何 1 局非法（winner 不在 0/1/2）即回归，不允许容差。
+    assert ok == args.games, f"合法终局 {ok}/{args.games}（规则引擎须 100%，任何非法局=回归）"
 
     print("\n=== 悔棋回归（20 局 × 中盘撤销 1 步）===")
     uok = 0

@@ -412,9 +412,28 @@ void ui_layout_select(int i)
 }
 int ui_layout_selected_valid(void) { pthread_mutex_lock(&g_ui_lock); int v = (g_lay_sel >= 0 && g_lay_sel < g_lay_count); pthread_mutex_unlock(&g_ui_lock); return v; }
 
+/* ★ AUD-1000 B02-031/032/033/034（P0 已修）：布局名白名单谓词——旧实现
+   name 直接拼路径，含 '/'/'..' 可路径注入（../ 越目录写/读/删 layouts 外
+   文件）。白名单：[A-Za-z0-9_-] 1-31 字符（.lay 扩展名由 lay_path 追加，
+   名体本身不带扩展；31 = UI_LAY_NAME 32 - 1 终止符）。 */
+static int lay_name_valid(const char *name)
+{
+    if (!name || !name[0]) return 0;
+    int n = (int)strlen(name);
+    if (n > 31) return 0;
+    for (int i = 0; i < n; i++) {
+        char c = name[i];
+        if (!(((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
+               (c >= '0' && c <= '9') || c == '_' || c == '-')))
+            return 0;
+    }
+    return 1;
+}
+
 int ui_layout_save(const uint8_t lay[30], const char *name)
 {
     if (!lay || !name || !name[0]) return -1;
+    if (!lay_name_valid(name)) { LOGI("布局保存：名称非法 %s（白名单 [A-Za-z0-9_-]）", name); return -1; }
     char pth[352];
     lay_path(name, pth, sizeof pth);
     FILE *f = fopen(pth, "wb");
@@ -434,6 +453,7 @@ int ui_layout_save(const uint8_t lay[30], const char *name)
 int ui_layout_load(const char *name, uint8_t out[30])
 {
     if (!name || !name[0] || !out) return -1;
+    if (!lay_name_valid(name)) { LOGI("布局载入：名称非法 %s（白名单 [A-Za-z0-9_-]）", name); return -1; }
     char pth[352];
     lay_path(name, pth, sizeof pth);
     FILE *f = fopen(pth, "rb");
@@ -448,6 +468,7 @@ int ui_layout_load(const char *name, uint8_t out[30])
 int ui_layout_delete(const char *name)
 {
     if (!name || !name[0]) return -1;
+    if (!lay_name_valid(name)) { LOGI("布局删除：名称非法 %s（白名单 [A-Za-z0-9_-]）", name); return -1; }
     char pth[352];
     lay_path(name, pth, sizeof pth);
     int rc = remove(pth);
@@ -463,6 +484,7 @@ int ui_layout_delete(const char *name)
 int ui_layout_rename(const char *old, const char *new)
 {
     if (!old || !old[0] || !new || !new[0]) return -1;
+    if (!lay_name_valid(old) || !lay_name_valid(new)) { LOGI("布局改名：名称非法（白名单 [A-Za-z0-9_-]）"); return -1; }
     char p1[352], p2[352];
     lay_path(old, p1, sizeof p1);
     lay_path(new, p2, sizeof p2);
