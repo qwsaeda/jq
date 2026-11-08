@@ -1133,8 +1133,7 @@ int rs_render_init(rs_render *rr, const char *spak_dir, const jq_state *init_sta
              chh,
              rr->about_text_px ? "OK" : "MISS",
              abw,
-             abh;);
-;
+             abh);
     }
     if (rr->egl_ctx)
         LOGI("render 初始化：GL2 context 就绪，GL 对象延迟到 GLThread 首帧建");
