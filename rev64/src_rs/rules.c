@@ -157,13 +157,12 @@ static bool rail_path_straight(const jq_state *st, int fr, int fc, int tr, int t
         if (fc != 2) return false;
         /* 纵线中段：行营（(3,2)/(8,2)）在铁路外（is_rail 判端点已排），
            非工兵直走不能拐弯 → 纵线上遇到行营/大本营阻断滑行 */
-        int rsr = rank_of(&st->cells[cell_index(fr, fc)]);
+        /* AUD-1000 B01-018：工兵恒走 rail_path_engineer（:292 分派），
+           非工兵才入 straight —— 旧 rsr!=RANK_WORKER 判断下该分支恒 true，
+           break 不可达（死代码）。简化为：纵线遇行营/大本营直接阻断。 */
         for (int rr = fr + ((tr > fr) ? 1 : -1);
              rr != tr; rr += (tr > fr) ? 1 : -1) {
-            if (is_camp(rr, 2) || is_base(rr, 2)) {
-                if (rsr != RANK_WORKER) return false;  /* 工兵(rank 9) BFS 拐弯绕行 */
-                break;
-            }
+            if (is_camp(rr, 2) || is_base(rr, 2)) return false;
         }
     }
     int sr = (tr > fr) ? 1 : (tr < fr) ? -1 : 0;
@@ -387,6 +386,9 @@ static void stalemate_after(jq_state *st)
        必有合法目标格（大本营目标分支放行军旗），jq_side_stalemated 的
        can_move_ignore_turn 扫描已覆盖；终局路径优先级：吃旗（即时 EV_FLAG）
        > 和棋 > 困毙（走子后收口），无需显式排除。 */
+    /* AUD-1000 B01-023：判定值含本步（走子/翻棋收口前已 moves_since_eat++ /
+       total_moves++），即'第 70 步空移完成后'立即读 70 判和，语义='已进行
+       70 步无吃子'——与翻棋路径（jq_flip 同序自增）对称，防未来回归改顺序。 */
     if (ui_rule_cfg_get(0) &&
         (st->moves_since_eat >= 70 || st->total_moves >= 1000))
         jq_on_draw(st);
@@ -779,6 +781,9 @@ void jq_on_stalemate(jq_state *st, uint8_t loser_side)
        与 JQ_WIN_BLUE/JQ_WIN_RED 常量域一致，外部误写时安全降级而非 UB。
        ★ AUD-R-114（P3 已修）：jq_on_flag_capture/jq_on_draw/jq_on_stalemate
        三终局函数入口统一加 st==NULL 守卫（本轮随 AUD-R-091 NULL 防护统一批落地）。 */
+    /* AUD-1000 B01-027：入口拒非法 loser_side（旧 &1 掩码静默降级任意 uint8_t 为
+       合法 0/1 winner，调用方无法感知传参错误；&1 保留作双保险） */
+    if (!SIDE_VALID(loser_side)) return;
     st->winner = 1 - (loser_side & 1);   /* 无棋可走方负，对方胜（&1 防 turn>1 时 winner 为负） */
     st->stage = STG_OVER;
 }

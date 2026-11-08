@@ -35,7 +35,10 @@
 /* ★ 对抗审计修正（AUD-R-004 P0）：暗棋「未定色」态的 side 值。
    junqi.h 原注释写「暗棋未定=0xFF」，但**无具名常量** → 代码里散落字面量 0xFF，
    且 pieces_left[2] 用 side 直接作下标 → side=0xFF 时越界写 1020 字节外
-   （破坏 jq_state 相邻成员）。现具名化并提供范围守卫宏。 */
+   （破坏 jq_state 相邻成员）。现具名化并提供范围守卫宏。
+   ★ AUD-1000 B01-035（注释回写）：旧越界缺陷已随 AUD-R-004 修复
+   （rules.c SIDE_VALID(dst_side) 守卫，:449/:516 拦截 0xFF 下标）；
+   本注释为历史缺陷记录，当前代码无越界写入路径。 */
 #define SIDE_UNKNOWN 0xFF
 #define SIDE_VALID(s) ((s) == SIDE_BLUE || (s) == SIDE_RED)
 
@@ -192,6 +195,9 @@ static inline int rank_of(const jq_cell *c) {
     if (c->rank > RANK_TOP) {
         if (c->side == SIDE_RED && c->rank <= RANK_TOP + 0xc)
             return (int)c->rank - 0xc;    /* 明棋红方 +0xc 编码还原 */
+        /* AUD-1000 B01-034：蓝方/未定色 rank>12 = 脏数据（蓝合法域 [0,12]）。
+           钳 RANK_TOP(12=军旗哨兵) 防 13-24 误还原，但调用方对 rank_of()==RANK_TOP
+           且 c->side==SIDE_BLUE 应识别为"非法 rank"而非"军旗"，避免蓝方司令被误判不可动。 */
         return RANK_TOP;                  /* 蓝/未定色域出现 >12 = 非法 → 哨兵 */
     }
     return (int)c->rank;
