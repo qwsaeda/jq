@@ -46,7 +46,16 @@ int ui_rule_dark_get(void) { return g_rule_dark_stub; }
 void ui_rule_dark_set(int v) { g_rule_dark_stub = v ? 1 : 0; }
 int ui_rule_cfg_get(int which)
 {
-    switch (which) { case 0: return g_rd; case 1: return g_rh; case 2: return g_rm; case 4: return 1; default: return g_rf; }
+    /* AUD-1000 B07-040：case 3（吃军旗开关）补全 + case 4 走暗棋桩变量
+       （旧：case 3 走 default 返 g_rf 碰巧正确；case 4 硬编码 1 不可改） */
+    switch (which) {
+      case 0: return g_rd;
+      case 1: return g_rh;
+      case 2: return g_rm;
+      case 3: return g_rf;            /* 吃军旗开关（ui_rule_flag_get/set 同域） */
+      case 4: return ui_rule_dark_get(); /* 暗棋开关（可 ui_rule_dark_set 改） */
+      default: return 0;
+    }
 }
 void ui_rules_load(void) {}
 void ui_rules_save(void) {}
