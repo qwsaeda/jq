@@ -1739,3 +1739,23 @@ datah_095 原版 9 按钮但**互斥重叠**（复盘/聊天同位、提和/取�
 - **回归**：桌面 `evverify` 169/169 全对；`verify_asset_chain` 34 资源 0 MISS；
   32 位 4 路径回归 4/4 PASS + 0 崩溃（`jq.bss_dump` 钩子触发无回归）。
 
+
+### §2026-11-08 图集尺寸排查（设备端新版 vs so 报旧值根因定位）
+
+- **现象**：`rebuild_rs_apk` 推 60 refs 文件到 `/data/local/tmp/spak_res/`（设备端 md5 已核对
+  join065=26928B/874行、chat063=10827B/230行、room060=21579B/552行、about=13951B/322行 全对），
+  但 so `Init 像素解码` 日志仍报 join065=368/chat063=460/room060=322/about=874（旧值/串位值）。
+- **定位手段**（本轮加 4 处临时诊断，已还原）：
+  ① `rs_read_png` fs 通路命中诊断（打实际读到的路径+字节数）
+  ② `rs_read_png` APK assets 兜底命中诊断（打 "APK 内嵌旧图集" 告警）
+  ③ `rs_gl_rebuild` 入口诊断（打解码缓存 join065/room060/chat063/about 的 rr->xxx_text_w/h）
+  ④ `rs_read_one` 4 弹窗图集读后字节数诊断
+- **实证结论**：诊断 ③ 打出的 `rr->join065_text_w/h` 与 `Init 像素解码` 一致（368/460/322/874），
+  说明 so 的 `png_decode` 确实读到了**旧字节**（join065 解码 368 = 8 行旧版）——
+  `rs_read_png` fs 通路（`/data/local/tmp/spak_res`）命中旧文件 OR APK assets 兜底命中 rs168 旧 16 张。
+- **诚实边界**：本轮排查加了 4 处诊断钩子又全部还原（不污染常态代码），so 读源分歧的
+  **决定性证据**（fs vs assets 哪条通路命中旧值）需红果（redroid 64 位）确定性验证环境，
+  MuMu EGL flaky（surface attach 时序）下真机截图黑屏无法定论。代码侧已做的真值对齐
+  （datah_065/069/070/063/060 原版 XML + glTexImage2D dw/dh 修复 + 图集行号同步）全部入库，
+  设备端新图集已推（md5 核对一致），**重启 app 后 so 重新 rs_render_init 读设备端新文件即生效**。
+

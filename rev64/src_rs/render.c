@@ -419,14 +419,6 @@ static void rs_read_one(AAssetManager *am, const char *spak_dir,
     char asset[128];
     snprintf(asset, sizeof asset, "spak_res/%s", file);
     rs_read_png(am, asset, path, raw, len);
-    /* ★ 诊断（图集尺寸排查）：无论成功/失败都打字节数（0=文件缺失 → 走纯色退化） */
-    {
-        static int diag_count = 0;
-        if (diag_count < 10 && (strstr(file, "join065") || strstr(file, "chat063") || strstr(file, "room060"))) {
-            diag_count++;
-            LOGI("rs_read_one: %s → %zu B path=%s（0=缺失）", file, *len, path);
-        }
-    }
 }
 
 static void load_texture(rs_render *rr, AAssetManager *am,
@@ -667,21 +659,9 @@ int rs_render_init(rs_render *rr, const char *spak_dir, const jq_state *init_sta
         rs_read_one(am, spak_dir, "drawdetail_text_atlas.png", &ddaw, &ddaw_len);
         rs_read_one(am, spak_dir, "setentry_text_atlas.png", &seaw, &seaw_len);
         rs_read_one(am, spak_dir, "imgset_text_atlas.png", &isaw, &isaw_len);
-        rs_read_one(am, spak_dir, "join065_text_atlas.png", &j65aw, &j65aw_len);
-        /* 诊断：j65aw 读后字节数（0=文件缺失） */
-        LOGI("diag j65aw after rs_read_one: {j65aw_len} = %zu B（设备端 /data/local/tmp/spak_res 实际字节数）", j65aw_len);
-        rs_read_one(am, spak_dir, "create069_text_atlas.png", &c69aw, &c69aw_len);
+        rs_read_one(am, spak_dir, "join065_text_atlas.png", &j65aw, &j65aw_len);        rs_read_one(am, spak_dir, "create069_text_atlas.png", &c69aw, &c69aw_len);
         rs_read_one(am, spak_dir, "rules070_text_atlas.png", &r70aw, &r70aw_len);
-        rs_read_one(am, spak_dir, "room060_text_atlas.png", &rmaw, &rmaw_len);
-        /* 诊断：rmaw 读后字节数（0=文件缺失） */
-        LOGI("diag rmaw after rs_read_one: {rmaw_len} = %zu B（设备端 /data/local/tmp/spak_res 实际字节数）", rmaw_len);
-        rs_read_one(am, spak_dir, "chat063_text_atlas.png", &chaw, &chaw_len);
-        /* 诊断：chaw 读后字节数（0=文件缺失） */
-        LOGI("diag chaw after rs_read_one: {chaw_len} = %zu B（设备端 /data/local/tmp/spak_res 实际字节数）", chaw_len);
-        rs_read_one(am, spak_dir, "about_text_atlas.png", &abaw, &abaw_len);
-        /* 诊断：abaw 读后字节数（0=文件缺失） */
-        LOGI("diag abaw after rs_read_one: {abaw_len} = %zu B（设备端 /data/local/tmp/spak_res 实际字节数）", abaw_len);
-        rs_read_one(am, spak_dir, "uibat_text_atlas.png", &uiaw, &uiaw_len);
+        rs_read_one(am, spak_dir, "room060_text_atlas.png", &rmaw, &rmaw_len);        rs_read_one(am, spak_dir, "chat063_text_atlas.png", &chaw, &chaw_len);        rs_read_one(am, spak_dir, "about_text_atlas.png", &abaw, &abaw_len);        rs_read_one(am, spak_dir, "uibat_text_atlas.png", &uiaw, &uiaw_len);
         if (braw && png_decode(braw, braw_len, &bpx, &bw, &bh) == 0) {
             rr->board_px = bpx; rr->board_px_len = (size_t)bw * bh * 4;
             rr->board_w = bw; rr->board_h = bh;   /* AUD-1000 B04-050：记录实际尺寸 */
@@ -973,7 +953,7 @@ int rs_render_init(rs_render *rr, const char *spak_dir, const jq_state *init_sta
             }
         }
         free(isaw);
-        /* ★ P2（datah_065）：加入游戏完整版文字图集（10 标签竖排 220×460） */
+        /* ★ P2（datah_065 原版 XML 对齐）：加入游戏完整版文字图集（19 标签竖排 220×874，8 行配置×2列+标题+开始/取消） */
         {
             unsigned char *j65_px = NULL;
             if (j65aw && png_decode(j65aw, j65aw_len, &j65_px, &j65w, &j65h) == 0) {
@@ -1000,7 +980,7 @@ int rs_render_init(rs_render *rr, const char *spak_dir, const jq_state *init_sta
             }
         }
         free(r70aw);
-        /* ★ P2（datah_060）：房间态文字图集（8 标签竖排 220×368） */
+        /* ★ P2（datah_060 原版 XML 对齐）：房间态文字图集（12 标签竖排 220×552，2玩家×4字段+标题+3按钮） */
         {
             unsigned char *rm_px = NULL;
             if (rmaw && png_decode(rmaw, rmaw_len, &rm_px, &rmw, &rmh) == 0) {
@@ -1009,7 +989,7 @@ int rs_render_init(rs_render *rr, const char *spak_dir, const jq_state *init_sta
             }
         }
         free(rmaw);
-        /* ★ P2（datah_063）：聊天完整版文字图集（8 标签竖排 220×368） */
+        /* ★ P2（datah_063 原版 XML 对齐）：聊天完整版文字图集（5 标签竖排 220×230，聊天/记录说明/发送/记录/关闭） */
         {
             unsigned char *ch_px = NULL;
             if (chaw && png_decode(chaw, chaw_len, &ch_px, &chw, &chh) == 0) {
@@ -9358,6 +9338,7 @@ static int now_is_glthread_ctx(rs_render *rr)
 static void rs_gl_rebuild(rs_render *rr, int slot)
 {
     if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
+
     /* ★ AUD-1000 B04-049（P0 已修）：切 context 重建前 glDelete 旧 context 的
        program/纹理/VBO（旧实现不删 → 同 context 内 rebuild 纹理泄漏随帧数增长；
        跨 context（window surface recreate）旧 context 对象本 context 不可见，
@@ -9743,7 +9724,7 @@ static void rs_gl_rebuild(rs_render *rr, int slot)
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     }
-    /* ★ P2（datah_065）：加入游戏完整版文字图集（10 标签竖排 220×460） */
+    /* ★ P2（datah_065 原版 XML 对齐）：加入游戏完整版文字图集（19 标签竖排 220×874，8 行配置×2列+标题+开始/取消） */
     if (rr->join065_text_px && rr->gl2_ok[slot] && rr->join065_text_w > 0 && rr->join065_text_h > 0) {
         glGenTextures(1, &rr->tex_join065_text[slot]);
         glBindTexture(GL_TEXTURE_2D, rr->tex_join065_text[slot]);
@@ -9770,7 +9751,7 @@ static void rs_gl_rebuild(rs_render *rr, int slot)
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     }
-    /* ★ P2（datah_060）：房间态文字图集（8 标签竖排 220×368） */
+    /* ★ P2（datah_060 原版 XML 对齐）：房间态文字图集（12 标签竖排 220×552，2玩家×4字段+标题+3按钮） */
     if (rr->room060_text_px && rr->gl2_ok[slot] && rr->room060_text_w > 0 && rr->room060_text_h > 0) {
         glGenTextures(1, &rr->tex_room060_text[slot]);
         glBindTexture(GL_TEXTURE_2D, rr->tex_room060_text[slot]);
@@ -9779,7 +9760,7 @@ static void rs_gl_rebuild(rs_render *rr, int slot)
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     }
-    /* ★ P2（datah_063）：聊天完整版文字图集（8 标签竖排 220×368） */
+    /* ★ P2（datah_063 原版 XML 对齐）：聊天完整版文字图集（5 标签竖排 220×230，聊天/记录说明/发送/记录/关闭） */
     if (rr->chat063_text_px && rr->gl2_ok[slot] && rr->chat063_text_w > 0 && rr->chat063_text_h > 0) {
         glGenTextures(1, &rr->tex_chat063_text[slot]);
         glBindTexture(GL_TEXTURE_2D, rr->tex_chat063_text[slot]);
