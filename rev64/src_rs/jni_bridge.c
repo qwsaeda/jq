@@ -520,7 +520,13 @@ static void jq_bt_ctrl_send(JNIEnv *env, int type)
         if (n >= BT_BUF) n = BT_BUF - 1;   /* 恒真断言（encode 契约保证 n<cap） */
         tb[n] = 0;
         jq_bt_send(env, tb);
-        LOGI("蓝牙联机控制帧：type=%d len=%d frame=%s", type, n, tb);
+        /* AUD-1000 B03-018（P2）：高频控制帧（悔棋/重开连点）只打 type+len，不格式化 BT_BUF 长串
+           （大字符串 snprintf 开销 + logcat 增长）。frame 内容排查可加 jq.bt_debug=1 门控日志。 */
+        static int bt_ctrl_log_n = 0;
+        if (bt_ctrl_log_n++ < 20)
+            LOGI("蓝牙联机控制帧：type=%d len=%d（前 20 条打日志）", type, n);
+        else
+            LOGI("蓝牙联机控制帧：type=%d len=%d", type, n);
     }
 }
 

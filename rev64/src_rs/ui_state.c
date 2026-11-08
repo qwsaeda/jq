@@ -445,7 +445,7 @@ int ui_layout_list(void)
         struct dirent *e;
         while ((e = readdir(d)) != NULL && n_local < UI_LAY_MAX) {
             size_t n = strlen(e->d_name);
-            if (n < 4 || n > UI_LAY_NAME + 4 - 1) continue;  /* *.lay 长度守护（B02-023：31 名+.lay=35 字节） */
+            if (n < 4 || n > 35) continue;  /* B02-023/024：31 名+.lay=35 字节守护（n>35 时 names_local[n-4] 越界写 UI_LAY_NAME=32） */
             if (strcmp(e->d_name + n - 4, ".lay") != 0) continue;
             snprintf(names_local[n_local], UI_LAY_NAME, "%s", e->d_name);
             names_local[n_local][n - 4] = 0;                   /* 去 .lay 扩展名 */

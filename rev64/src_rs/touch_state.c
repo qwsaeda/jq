@@ -95,7 +95,7 @@ int jq_touch_state_selected(const jq_touch_state *ts)
 int jq_touch_state_targets(const jq_state *st, const jq_touch_state *ts,
                           int *out_cells, int cap)
 {
-    if (ts->mode != JQ_TS_SELECTED || ts->sel < 0) return 0;
+    if (ts->mode != JQ_TS_SELECTED || ts->sel < 0 || ts->sel >= N_CELLS) return 0;  /* B02-090：sel 上界守护（越界 99 越界读 cells[99]） */
     int n = 0;
     int A = ts->sel;
     for (int t = 0; t < N_CELLS && n < cap; t++) {
