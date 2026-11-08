@@ -241,6 +241,78 @@ int main(void) {
         }
     }
 
+
+    /* =====================================================================
+     * §10. ★ AUD-1000 B09-016：BtSpp.sendFrame 双尾防护契约（Java 侧 P1 修复）
+     *   native 帧 = "v2\n...\n"（自带尾）；BtSpp.sendFrame 旧实现恒追加 "\n"
+     *   → 双尾空行污染对端缓冲。Java 修复 = `endsWith("\n") ? 直写 : +\n`。
+     *   本节模拟 Java 逻辑 + native 帧往返，断言双端契约闭合：
+     *     ① native 帧已含尾 '\n' → Java 不追加 → 对端重组 1 帧可解码
+     *     ② 非 native 来源的裸帧（无尾）→ Java 追加 → 重组仍可解码
+     * ===================================================================== */
+    printf("[§10] BtSpp.sendFrame 双尾防护（Java endsWith 模拟 ↔ native 帧）\n");
+    {
+        char fr[160];
+        int fn = jq_bt_frame_encode(fr, sizeof fr, BT_T_MOVE, 1, 2, 3, 4, 9, 0, 0);
+        CHECK(fn > 0, "§10 native 帧 encode（自带尾 '\\n'）");
+        CHECK(strstr(fr, "v2\n") != NULL && fr[fn - 1] == '\n',
+              "§10 native 帧含 v2\\n 头且尾字符=\\n");
+        /* ① Java endsWith("\n") 为真 → 直写（不追加）→ wire = frame */
+        char wire1[192];
+        int wl1 = 0;
+        if (fr[fn - 1] == '\n') {
+            /* endsWith 真：直写 */
+            memcpy(wire1, fr, fn); wl1 = fn;
+        } else {
+            memcpy(wire1, fr, fn); wl1 = fn; wire1[wl1++] = '\n';
+        }
+        wire1[wl1] = 0;
+        CHECK(wl1 == fn, "§10.1 含尾帧 Java 不追加（wire 长 = 帧长）");
+        {
+            const char *vs = strstr(wire1, "v2\n");
+            const char *pe = vs ? strchr(vs + 3, '\n') : NULL;
+            CHECK(vs && pe && (pe - vs) < 192, "§10.1 Java 重组出帧边界");
+            if (vs && pe) {
+                char rfr[160];
+                int rl = (int)(pe - vs);
+                if (rl > 0 && rl < 160) {
+                    memcpy(rfr, vs, rl); rfr[rl] = 0;
+                    int q[8];
+                    CHECK(jq_bt_frame_decode(rfr, &q[0], &q[1], &q[2], &q[3], &q[4], &q[5], &q[6]) == 1,
+                          "§10.1 直写帧可被 native decode（契约闭合）");
+                }
+            }
+        }
+        /* ② 裸帧（人为去尾）→ Java 追加 '\n' → 重组仍可解码 */
+        {
+            char bare[160];
+            int bl = fn > 0 ? fn - 1 : 0;   /* 去尾 */
+            memcpy(bare, fr, bl); bare[bl] = 0;
+            char wire2[192];
+            int wl2 = 0;
+            if (bl > 0 && bare[bl - 1] == '\n') {
+                memcpy(wire2, bare, bl); wl2 = bl;
+            } else {
+                memcpy(wire2, bare, bl); wl2 = bl; wire2[wl2++] = '\n';
+            }
+            wire2[wl2] = 0;
+            CHECK(wl2 == bl + 1, "§10.2 裸帧 Java 追加 '\\n'（wire 长 = 帧长+1）");
+            const char *vs = strstr(wire2, "v2\n");
+            const char *pe = vs ? strchr(vs + 3, '\n') : NULL;
+            CHECK(vs && pe, "§10.2 追加帧重组边界");
+            if (vs && pe) {
+                char rfr[160];
+                int rl = (int)(pe - vs);
+                if (rl > 0 && rl < 160) {
+                    memcpy(rfr, vs, rl); rfr[rl] = 0;
+                    int q[8];
+                    CHECK(jq_bt_frame_decode(rfr, &q[0], &q[1], &q[2], &q[3], &q[4], &q[5], &q[6]) == 1,
+                          "§10.2 追加帧可被 native decode（契约闭合）");
+                }
+            }
+        }
+    }
+
     printf(rc ? "== 结果: 有失败 ==\n" : "== 结果: 全部通过 ==\n");
     return rc;
 }

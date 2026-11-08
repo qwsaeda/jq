@@ -24,6 +24,9 @@ public class BtSpp {
             UUID.fromString("ce1404fe-0863-4278-86c2-c9c560f0e215");
     private static final String SERVICE = "junqi";
 
+    /* ★ AUD-1000 B09-018（P1 已修）：监听 socket 提为静态字段（旧版为
+       startHost 局部变量，disconnect 无法关闭监听端口） */
+    private static android.bluetooth.BluetoothServerSocket s_server;
     private static BluetoothSocket s_socket;
     private static OutputStream s_out;
     private static Thread s_readThread;
@@ -34,8 +37,8 @@ public class BtSpp {
         try {
             BluetoothAdapter a = BluetoothAdapter.getDefaultAdapter();
             if (a == null || !a.isEnabled()) { fail("BT 不可用或未使能"); return; }
-            final BluetoothServerSocket server =
-                    a.listenUsingRfcommWithServiceRecord(SERVICE, SPP_UUID);
+            s_server = a.listenUsingRfcommWithServiceRecord(SERVICE, SPP_UUID);  // 静态监听 socket（disconnect 可关）
+            final BluetoothServerSocket server = s_server;
             Log.i(TAG, "host：监听 " + SPP_UUID);
             Thread t = new Thread(new Runnable() {
                 public void run() {
@@ -127,12 +130,24 @@ public class BtSpp {
                                 App.OnBluetooth(it);
                             }
                         }
-                        /* 噪声保护：无 "v2\n" 头且缓冲过长 → 丢弃（防无限增长） */
+                        /* 噪声保护：无 "v2\n" 头且缓冲过长 → 丢弃（防无限增长）
+                           ★ AUD-1000 B09-013（P1 已修）：半帧悬挂绝对上限——payload
+                           尾 '\n' 未到时 buf 保留半帧等下次读，若对端只发半帧断连，
+                           缓冲随读无限增长。32KB 上限（单帧最大 = 60 格 SYNC_CELL
+                           串接 ~6KB，5 倍余量）。 */
                         if (buf.length() > 0 && buf.indexOf("v2\n") < 0 && buf.length() > 256) {
                             buf.setLength(0);
                         }
+                        if (buf.length() > 32768) {
+                            Log.w(TAG, "帧重组缓冲超 32KB（半帧悬挂增长）→ 清空");
+                            buf.setLength(0);
+                        }
                     }
-                } catch (Exception e) { /* 断开 */ }
+                } catch (Exception e) {
+                    /* ★ AUD-1000 B09-012（P1 已修）：读线程异常（含 IOException 断连）
+                       补日志归因（旧空 catch 吞掉所有异常，断连原因不可诊断）。 */
+                    Log.e(TAG, "读线程异常: " + e);
+                }
                 s_connected = false;
                 App.btState("disconnected");
             }
@@ -141,21 +156,36 @@ public class BtSpp {
         s_readThread.start();
     }
 
-    /** 写出帧（native 发送侧经 App.btSend → 此处）。 */
+    /** 写出帧（native 发送侧经 App.btSend → 此处）。
+        ★ AUD-1000 B09-016（P1 已修）：帧自带尾 '\n'（native jq_bt_frame_encode
+        产出 "v2\npayload\n" 两行格式，跨语言契约测试 bt_selftest §9 实证），
+        旧实现再追加 '\n' → 双尾（对端重组靠 payload 内首 '\n' 定界不受影响，
+        但帧尾多 1 空行污染对端缓冲 + 噪声保护 256B 阈值被双尾帧稀释）。
+        修：追加前判帧是否已含尾 '\n'，含则直写。 */
     public static void sendFrame(String frame) {
         try {
             if (!s_connected || s_out == null) { fail("sendFrame：未连接"); return; }
-            s_out.write((frame + "\n").getBytes("UTF-8"));
+            String out = frame.endsWith("\n") ? frame : frame + "\n";
+            s_out.write(out.getBytes("UTF-8"));
             s_out.flush();
             Log.i(TAG, "sendFrame: " + frame);
         } catch (Exception e) { fail("sendFrame 失败: " + e); }
     }
 
-    /** 断开（退出联机时调）。 */
+    /** 断开（退出联机时调）。
+        ★ AUD-1000 B09-018（P1 已修）：startHost 的 BluetoothServerSocket 在
+        Runnable 局部（accept 阻塞持有），旧 disconnect 只 close 已接受的
+        s_socket——监听 socket 永不关，重开 host 前旧监听占端口。提为静态
+        字段 s_server，disconnect 时先 close 监听（accept 线程 IOException
+        退出）+ interrupt 读线程（旧版读线程无 interrupt，socket close 后
+        仍阻塞在 in.read 直到超时）。 */
     public static void disconnect() {
         s_connected = false;
+        try { if (s_server != null) s_server.close(); } catch (Exception e) {}
+        s_server = null;
         try { if (s_socket != null) s_socket.close(); } catch (Exception e) {}
         s_socket = null; s_out = null;
+        if (s_readThread != null) s_readThread.interrupt();
         App.btState("disconnected");
     }
 
