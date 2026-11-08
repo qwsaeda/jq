@@ -82,6 +82,11 @@ int png_decode(const unsigned char *data, size_t len,
         } else if (memcmp(ctype, "IEND", 4) == 0) {
             break;
         }
+        /* ★ AUD-1000 B04-074/077（P0 已修）：clen 越界守护——旧实现
+           `pos + 8 + clen > len` 中 clen 为恶意 4B 大端值（如 0xFFFFFFF0）时
+           32 位加法回绕为小值 → 守护失效 → cdata/idat 越界读。
+           改用 size_t 比较（len/pos 本身 size_t，clen 提升后无回绕）。 */
+        if (clen > (unsigned)(len - pos - 8)) break;   /* chunk data+4B crc 超出输入 */
         pos += 12 + clen;
     }
 

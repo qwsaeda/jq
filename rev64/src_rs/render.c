@@ -603,7 +603,10 @@ int rs_render_init(rs_render *rr, const char *spak_dir, const jq_state *init_sta
         rs_read_one(am, spak_dir, "chat063_text_atlas.png", &chaw, &chaw_len);
         rs_read_one(am, spak_dir, "about_text_atlas.png", &abaw, &abaw_len);
         rs_read_one(am, spak_dir, "uibat_text_atlas.png", &uiaw, &uiaw_len);
-        if (braw && png_decode(braw, braw_len, &bpx, &bw, &bh) == 0) { rr->board_px = bpx; rr->board_px_len = (size_t)bw * bh * 4; }
+        if (braw && png_decode(braw, braw_len, &bpx, &bw, &bh) == 0) {
+            rr->board_px = bpx; rr->board_px_len = (size_t)bw * bh * 4;
+            rr->board_w = bw; rr->board_h = bh;   /* AUD-1000 B04-050：记录实际尺寸 */
+        }
         free(braw);
         if (praw && png_decode(praw, praw_len, &ppx, &pw, &ph) == 0) { rr->piece_px = ppx; rr->piece_px_len = (size_t)pw * ph * 4; }
         free(praw);
@@ -9233,6 +9236,24 @@ static int now_is_glthread_ctx(rs_render *rr)
 static void rs_gl_rebuild(rs_render *rr, int slot)
 {
     if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
+    /* ★ AUD-1000 B04-049（P0 已修）：切 context 重建前 glDelete 旧 context 的
+       program/纹理/VBO（旧实现不删 → 同 context 内 rebuild 纹理泄漏随帧数增长；
+       跨 context（window surface recreate）旧 context 对象本 context 不可见，
+       删除是 no-op 安全，同 context 重建才真回收）。删除后 ID 清零，
+       重建段重新 glGen 填回。诚实边界：Adreno 驱动跨 context delete 旧对象
+       曾崩（§批4 P0-R3 workaround 记录），若驱动 quirk 复现，把删除段
+       #if 0 注释掉回退（重建判据 (slot,cur) 配对已保证同 context 不重复 rebuild）。 */
+    if (rr->prog_tex[slot])    { glDeleteProgram(rr->prog_tex[slot]); rr->prog_tex[slot] = 0; }
+    if (rr->prog_solid[slot])  { glDeleteProgram(rr->prog_solid[slot]); rr->prog_solid[slot] = 0; }
+    if (rr->tex_board[slot])   { glDeleteTextures(1, &rr->tex_board[slot]); rr->tex_board[slot] = 0; }
+    if (rr->tex_piece[slot])   { glDeleteTextures(1, &rr->tex_piece[slot]); rr->tex_piece[slot] = 0; }
+    if (rr->tex_text[slot])    { glDeleteTextures(1, &rr->tex_text[slot]); rr->tex_text[slot] = 0; }
+    if (rr->tex_bg[slot])      { glDeleteTextures(1, &rr->tex_bg[slot]); rr->tex_bg[slot] = 0; }
+    if (rr->tex_menu_bg[slot]) { glDeleteTextures(1, &rr->tex_menu_bg[slot]); rr->tex_menu_bg[slot] = 0; }
+    if (rr->tex_imen_text[slot]) { glDeleteTextures(1, &rr->tex_imen_text[slot]); rr->tex_imen_text[slot] = 0; }
+    if (rr->vbo_board[slot])   { glDeleteBuffers(1, &rr->vbo_board[slot]); rr->vbo_board[slot] = 0; }
+    if (rr->vbo_piece[slot])   { glDeleteBuffers(1, &rr->vbo_piece[slot]); rr->vbo_piece[slot] = 0; }
+    if (rr->vbo_sel[slot])     { glDeleteBuffers(1, &rr->vbo_sel[slot]); rr->vbo_sel[slot] = 0; }
     /* GLSL program（当前 context） */
     int ok_t = rs_build_tex_prog(&rr->prog_tex[slot], NULL, NULL, NULL);
     int ok_s = rs_build_solid_prog(&rr->prog_solid[slot], NULL, NULL);
@@ -9247,12 +9268,15 @@ static void rs_gl_rebuild(rs_render *rr, int slot)
     else
         LOGE("GL slot%d：GLSL program 编译失败 → 几何不出帧（退化为清屏色）", slot);
     /* 纹理（每 context 上传，共享像素） */
+    /* AUD-1000 B04-050：用解码时记录的实际宽高（rr->board_w/h），不再从
+       board_px_len 反推（资源改尺寸时 px_len 与 BOARD_PNG_H 不整除 → bw 截断错误）。
+       board_w/h==0（未解码）时回退 BOARD_PNG_W/H 默认值。 */
     if (rr->board_px && rr->gl2_ok[slot]) {
-        int bw = (int)(rr->board_px_len > 0 ? rr->board_px_len / 4 / BOARD_PNG_H : BOARD_PNG_W);
-        if (bw <= 0) bw = BOARD_PNG_W;
+        int bw = rr->board_w > 0 ? rr->board_w : BOARD_PNG_W;
+        int bh = rr->board_h > 0 ? rr->board_h : BOARD_PNG_H;
         glGenTextures(1, &rr->tex_board[slot]);
         glBindTexture(GL_TEXTURE_2D, rr->tex_board[slot]);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, bw, BOARD_PNG_H, 0,
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, bw, bh, 0,
                      GL_RGBA, GL_UNSIGNED_BYTE, rr->board_px);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
@@ -9898,7 +9922,10 @@ void rs_render_frame(rs_render *rr)
                 sel_line[7] = (rs_v4f){x0, y0, 0, 0};
             }
         }
-        nverts &= ~2; nverts -= (nverts % 3);   /* ★ 取 3 的倍数（旧 &= ~2 只取偶数 → Mesa swrast 静默丢几何，实证修复） */
+        /* AUD-1000 B04-044：棋子 quad 恒 6 顶点（3 的倍数），旧 'nverts&=~2' 死代码删除
+           （&~2 对 6 的倍数是 no-op）。保留 3 倍数 clamp 防 Mesa swrast 静默丢几何
+           （实证修复注释：旧 &=~2 只取偶数 bug 场景下 %3 归正是必需的）。 */
+        nverts -= (nverts % 3);
         if (nverts > 0) {
             if (!piece_diag_done) {
                 LOGI("棋子首帧：nverts=%d vbo 前 glDrawArrays(GL_TRIANGLES,0,%d) 首个顶点 x0=%.1f y0=%.1f u0=%.3f v0=%.3f",
@@ -9910,15 +9937,19 @@ void rs_render_frame(rs_render *rr)
             glUniform1i(glGetUniformLocation(rr->prog_tex[slot], "uTex"), 0);
             glActiveTexture(GL_TEXTURE0);
             glBindTexture(GL_TEXTURE_2D, rr->tex_piece[slot]);
-            glGenBuffers(1, &rr->vbo_piece[slot]);
+            /* ★ AUD-1000 B04-044（P0 已修）：vbo_piece 建一次持久化（旧：每帧
+               glGen/glDelete，旧 ID 泄漏 + 60fps 驱动句柄开关，与 B04-043
+               vbo_board 同款修复；旧实现在 rebuild 切 context 时新 context 拿不到
+               旧 ID 的 VBO → 每帧重建 + 删 = 泄漏/竞态双坑）。首次建（==0），
+               后续复用同 ID，glBufferData GL_DYNAMIC_DRAW 更新顶点。 */
+            if (rr->vbo_piece[slot] == 0)
+                glGenBuffers(1, &rr->vbo_piece[slot]);
             glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_piece[slot]);
             glBufferData(GL_ARRAY_BUFFER, (GLsizeiptr)(nverts * sizeof(rs_v4f)),
                          piece_pool, GL_DYNAMIC_DRAW);
             rs_bind_vbo(rr->vbo_piece[slot]);
             glDrawArrays(GL_TRIANGLES, 0, nverts);
             rs_unbind_vbo();
-            glDeleteBuffers(1, &rr->vbo_piece[slot]);
-            rr->vbo_piece[slot] = 0;
         }
         /* 选中高亮线（纯色） */
         if (rr->sel_cell >= 0) {
