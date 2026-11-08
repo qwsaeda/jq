@@ -76,7 +76,7 @@ java -cp /tmp/opencode/apksigner/apksig.jar:/tmp/opencode/apksigner SignV2 \
 
 ### 64 位 native 的诚实边界
 
-- 当前 arm64 `libjunqi.so`（`native64/junqi.cpp`，~97KB）是**简化重写版**（10×9 棋盘、颜色棋子、自动走子、GLES2 渲染），**不是** 32 位 1.43MB/1435156B native 的汇编级逆向
+- 当前 arm64 `libjunqi.so`（`native64/junqi.cpp`，~97KB）是**简化重写版**（12×5 棋盘、颜色棋子、自动走子、GLES2 渲染，★ AUD-R-076 口径纠正：旧"10×9"系误读），**不是** 32 位 1.43MB/1435156B native 的汇编级逆向
 - 它能在 64 位设备"跑起来"，但玩法/规则/资源与原版不一致
 - 完整对齐（原版 50 子（每方 25）12×5 棋盘、地雷/炸弹/悔棋规则、蓝牙联机协议、SPAK 解密 key）需后续把 32 位 `.rodata` 明文逻辑移植进 arm64，工作量另计（★ AUD-R-076 口径：38 子为旧误读）
 - **不要在交付物里把"简化版"包装成"完整版"**
