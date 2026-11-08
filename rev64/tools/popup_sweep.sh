@@ -80,5 +80,5 @@ echo "════════════════════════�
 echo "弹窗 16 钩子终验: PASS=$PASS FAIL=$FAIL $FAILED"
 echo "★ 诚实边界: setprop 钩子触发（触摸 flaky），本脚本只验渲染+几何，业务走 evverify"
 echo "★ 几何 Δ=0 终验: python3 rev64/tools/layout_align_check.py --baseline"
-[ $FAIL -eq 0 ] && echo "ALL PASS" || echo "SOME FAIL"
+[ $FAIL -eq 0 ] && echo "ALL PASS" || { echo "SOME FAIL"; exit 1; }
 exit 0

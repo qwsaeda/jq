@@ -39,9 +39,14 @@ log() { echo "[rebuild_rs] $*"; }
 [ -f "$TOOLS/so_link_check.py" ] || { log "★ so_link_check.py 缺失（工具不在，链接审计无法执行）"; exit 1; }
 
 log "=== [1/5] 链接安全审计 ==="
-python3 $TOOLS/so_link_check.py $RS/dist/libjunqi_rs.so >/tmp/opencode/rebuild_link.log 2>&1
-if [ $? -eq 2 ]; then
+# AUD-1000 D2-#5 P0 修：缓存缺失（rc=1）必须 abort，禁止静默当 PASS
+# （旧：只查 rc=2，缓存缺失时 64 位门禁完全失效，设备跑旧 so）
+so_link_check_rc=0
+python3 $TOOLS/so_link_check.py $RS/dist/libjunqi_rs.so >/tmp/opencode/rebuild_link.log 2>&1 || so_link_check_rc=$?
+if [ $so_link_check_rc -eq 2 ]; then
   log "★ 链接审计 FAIL（UND MuMu 无法解析）"; tail -3 /tmp/opencode/rebuild_link.log; exit 1
+elif [ $so_link_check_rc -eq 1 ]; then
+  log "★ 链接审计缓存缺失（so_link_check rc=1，/tmp 缓存被清或首次构建）"; exit 1
 fi
 log "链接审计 PASS"
 
@@ -72,14 +77,20 @@ log "=== [4/5] v1+v2 签名 ==="
 #   （v2 块致 INSTALL_PARSE_FAILED）——若目标设备是 MuMu 且装机失败，
 #   临时改用 mumu_swap_so.sh 的 zip-surgery 路径（保留源 v1 条目）或
 #   `--v2-signing-enabled false` 纯 v1 签。本脚本默认双签（真机 64 位 OK）。
+# AUD-1000 D2-#4 P0 修：管道吞码（旧 `| tail -1` 后 `$?` 查 tail 退出码，
+# 签名失败静默继续，装机全挂且 so md5 对账仍通过）→ 直接查 apksigner 退出码
 apksigner sign --v1-signing-enabled true --v2-signing-enabled true \
   --ks /disk/workspaces/jq/junqi.keystore --ks-pass pass:junqi2026 \
   --ks-key-alias junqi --key-pass pass:junqi2026 rs_new_a.apk 2>&1 | tail -1
-[ $? -ne 0 ] && { log "★ 签名失败"; exit 1; }
+sign_rc=${PIPESTATUS[0]}
+[ $sign_rc -ne 0 ] && { log "★ 签名失败（apksigner rc=$sign_rc）"; exit 1; }
 cp rs_new_a.apk $OUT
 log "产物: $OUT ($(stat -c%s $OUT)B)"
 # 签名自检（★ 对抗审计 P2-A9：verify 失败必须 abort，原 grep 输出判据假绿）
-if ! apksigner verify --verbose $OUT 2>&1 | grep -q "Verified"; then
+# AUD-1000 D6-#20 P0 修：grep "Verified" 命中 "Verified: false" 也通过（判据恒真）
+# → 改 grep -qE "Verified using v[0-9] scheme .*: true"（须至少一个 v-scheme true）
+set -o pipefail
+if ! apksigner verify --verbose $OUT 2>&1 | grep -qE "Verified using v[0-9] scheme .*: true"; then
   log "★ 验签失败（v1/v2 任一无效）"; apksigner verify --verbose $OUT 2>&1 | head -8; exit 1
 fi
 apksigner verify --verbose $OUT 2>&1 | grep -E "v1|v2" | head -2

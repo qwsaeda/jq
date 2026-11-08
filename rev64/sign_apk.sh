@@ -10,11 +10,12 @@ APKSIGNER=/usr/bin/apksigner
 $APKSIGNER sign --ks $KEY --ks-key-alias junqi --ks-pass pass:junqi2026 --key-pass pass:junqi2026 \
   --v1-signing-enabled true --v2-signing-enabled true \
   --out $OUT $IN
-# ★ 对抗审计 P1-B14/P2-A9（假绿修正）：verify 失败必须 abort——
-#   原 grep "Verified|Number" 无输出时静默继续 → 签名实际失败仍报 OK。
-#   现 apksigner verify 非 0 退出码即 FAIL（v1/v2 任一无效）。
-if ! $APKSIGNER verify --verbose $OUT 2>&1 | tee /tmp/opencode/sign_verify.log | grep -q "Verified"; then
-  echo "✗ 验签失败（v1/v2 任一无效）："
+# ★ AUD-1000 D6-#20 P0 修：旧判据 grep -q "Verified" 命中 "Verified using v2 ...: false"
+#   也通过（判据恒真）。改法：apksigner verify 非 0 退出码直接 FAIL（pipefail 下
+#   管道任一环节失败即失败），再确认 grep 到至少一个 ": true"。
+set -o pipefail
+if ! $APKSIGNER verify --verbose $OUT 2>&1 | tee /tmp/opencode/sign_verify.log | grep -qE "Verified using v[0-9] scheme .*: true"; then
+  echo "✗ 验签失败（v1/v2 无 true 或 apksigner 非 0）："
   head -8 /tmp/opencode/sign_verify.log
   exit 1
 fi

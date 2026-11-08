@@ -148,14 +148,20 @@ for n in sos:
     print(f'    {n}: {\"STORE\" if c==0 else \"★压缩\"} {z.getinfo(n).file_size}B')
 " 2>/dev/null
   # so 哈希（arm64=src_rs / armeabi=orig / 桩 对账）
-  if unzip -p $apk lib/arm64-v8a/libjunqi.so 2>/dev/null | md5sum | grep -q "$(md5sum $SRC_RS | cut -d' ' -f1)"; then
+  local so_md5 stub_md5
+  so_md5=$(unzip -p $apk lib/arm64-v8a/libjunqi.so 2>/dev/null | md5sum 2>/dev/null | cut -d' ' -f1)
+  stub_md5=$( [ -f "$SRC_STUB" ] && md5sum $SRC_STUB | cut -d' ' -f1 || echo "" )
+  rs_md5=$(md5sum $SRC_RS | cut -d' ' -f1)
+  if [ "$so_md5" = "$rs_md5" ] && [ -n "$so_md5" ]; then
     echo "    arm64 so = src_rs ✓"
-  elif unzip -p $apk lib/arm64-v8a/libjunqi.so 2>/dev/null | md5sum | grep -q "$(md5sum $SRC_STUB | cut -d' ' -f1)"; then
+  elif [ "$so_md5" = "$stub_md5" ] && [ -n "$so_md5" ]; then
     echo "    arm64 so = 4.8KB 桩（阶段 1 预期）"
   elif [ "$(unzip -l $apk 2>/dev/null | grep -c 'lib/arm64-v8a')" = "0" ]; then
     echo "    arm64 目录无（预期）"
   else
-    echo "    arm64 so ≠ src_rs（异常）"
+    echo "    arm64 so ≠ src_rs（异常：so_md5=$so_md5 rs_md5=$rs_md5）"
+    # AUD-1000 D6-#17 P0 修：异常分支必须 return 1（旧 RC=0 假绿"verify-only 完成"）
+    return 1
   fi
 }
 

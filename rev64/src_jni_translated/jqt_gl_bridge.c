@@ -169,7 +169,14 @@ void jqt_gl_bridge(uint32_t clear_arg)
                                EGL_BLUE_SIZE,8,EGL_RENDERABLE_TYPE,EGL_OPENGL_ES2_BIT,EGL_NONE};
         EGLConfig cfg; EGLint cfg_n=0;
         eglChooseConfig(g_jq_gl_disp, attr, &cfg, 1, &cfg_n);
-        g_jq_gl_ctx = eglCreateContext(g_jq_gl_disp, cfg_n?&cfg:EGL_NO_SURFACE, EGL_NO_CONTEXT, NULL);
+        /* ★ AUD-1000 D4-#9 P0：share_context 修复。
+         * 旧代码传 EGL_NO_CONTEXT → frame loop 新建 context 与 GLThread 不共享 GL 对象
+         * （texID/program/buffer 跨 context 无效）→ "棋子出屏未实锤"根因之一。
+         * 修正：用 GLThread 当前 context（eglGetCurrentContext）做 share context，
+         * 新建 context 与其共享纹理/shader/缓冲区命名空间。 */
+        EGLContext glth_ctx = eglGetCurrentContext();
+        g_jq_gl_ctx = eglCreateContext(g_jq_gl_disp, cfg_n?&cfg:EGL_NO_SURFACE,
+                                       (glth_ctx != EGL_NO_CONTEXT) ? glth_ctx : EGL_NO_CONTEXT, NULL);
         if (g_jq_gl_ctx == EGL_NO_CONTEXT) {
             /* ★ eglCreateContext 失败（无 GPU/部分 EGL 支持，redroid 实证 新ctx=0x0）：
              *   回退到当前线程已有 context（GLThread cur_ctx，eglGetCurrentContext）。
