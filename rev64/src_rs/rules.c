@@ -912,7 +912,8 @@ bool jq_side_stalemated(const jq_state *st, uint8_t side)
 void jq_undo_restore(jq_state *st, const jq_state *snap)
 {
     if (!st || !snap) return;   /* ★ AUD-R-091 同批：NULL 防护 */
-    /* ★ AUD-1000 B01-090（P3 注释）：若 st 与 snap 内存重叠（调用方误传 snap=st）→
+    if (st == snap) return;     /* ★ AUD-1000 B01-090（P1 已修）：自拷拒收（防御性缺口，正常调用点 g_undo 栈不同内存无重叠） */
+    /* ★ 若 st 与 snap 内存重叠（非同指针但相邻）→
        memcpy 自拷未定义但 C 结构赋值同指针为自拷（UB 但实践恒等）。
        正常调用点（jni_bridge g_undo 栈不同内存）无重叠，保持现状不改行为。 */
     *st = *snap;
@@ -962,6 +963,9 @@ void jq_on_draw(jq_state *st)
     if (!st) return;
     /* ★ AUD-R-035（P2）：已终局则忽略。 */
     if (st->stage != STG_PLAY) return;
+    /* ★ AUD-1000 B01-065（P1 已修）：已有 winner 拒收（防止脏 winner 被和棋覆盖）。
+       与 B01-066 同源：jq_on_stalemate 同守卫。 */
+    if (st->winner != JQ_WIN_NONE) return;
     /* ★ AUD-1000 B01-065（P3 注释）：无 winner==JQ_WIN_NONE 前置——外部脏 winner
        （0/1 由其他路径误置）+ stage=PLAY 时本函数覆盖脏值无告警。
        正常路径 winner 恒 JQ_WIN_NONE（-1）直到终局，stage!=PLAY 守卫已覆盖
@@ -980,6 +984,8 @@ void jq_on_stalemate(jq_state *st, uint8_t loser_side)
      /* ★ AUD-R-091/114（P3 NULL 防护统一批）：st NULL → 忽略（三终局函数统一入口守卫）。 */
     if (!st) return;
     if (st->stage != STG_PLAY) return;
+    /* ★ AUD-1000 B01-066（P1 已修，与 B01-065 同源）：已有 winner 拒收。 */
+    if (st->winner != JQ_WIN_NONE) return;
     /* ★ AUD-R-140（P3 已修）：turn/loser_side 若被外部误写 >1，1-loser_side 为负
        （int8_t winner 与"未定"哨兵 -1 撞码）。用 & 1 取模确保 winner∈{0,1}
        与 JQ_WIN_BLUE/JQ_WIN_RED 常量域一致，外部误写时安全降级而非 UB。
