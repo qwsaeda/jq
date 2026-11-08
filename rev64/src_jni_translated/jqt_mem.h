@@ -69,4 +69,10 @@ void jqt_mem_rebuild(void);
 #define MEMB(addr) (*(uint8_t  *)(jqt_mem_addr((uint32_t)(addr))))
 #define MEMP(addr) (jqt_mem_addr((uint32_t)(addr)))
 
+/* ★ §124w-ALIGN-STATIC：GL 顶点缓冲区（真实 calloc 堆指针，GL 驱动可直接解引用）。
+ *   返回 0 = 未初始化。 */
+uint32_t jqt_gl_buf_pos(void);
+uint32_t jqt_gl_buf_col(void);
+uint32_t jqt_gl_buf_uv(void);
+
 #endif /* JQT_MEM_H */

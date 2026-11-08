@@ -214,6 +214,17 @@ static void jqt_build_scudo_objs(void) {
     }
 }
 
+/* ★ §124w-ALIGN-STATIC：GL 顶点缓冲区（真实 calloc 堆指针，GL 驱动可直接解引用）。
+ *   原版 dobj+8/12/16 存 _Znwj(malloc) 绝对堆指针；翻译体在 GLThread 转译层
+ *   malloc 返 0x3f800000 哨兵（scudo 堆 ABI 差异），calloc 则安全（jqt_build_empty_objs
+ *   实证 calloc 堆区在 jqt_build_real_ranges 快照内）。三块：
+ *   pos_buf = 18×2 float = 144B / col_buf = 18×4 float = 288B / uv_buf = 18×2 float = 144B */
+static uint8_t *g_jqt_pos_buf = 0, *g_jqt_col_buf = 0, *g_jqt_uv_buf = 0;
+
+uint32_t jqt_gl_buf_pos(void) { return (uint32_t)(uintptr_t)g_jqt_pos_buf; }
+uint32_t jqt_gl_buf_col(void) { return (uint32_t)(uintptr_t)g_jqt_col_buf; }
+uint32_t jqt_gl_buf_uv(void)  { return (uint32_t)(uintptr_t)g_jqt_uv_buf; }
+
 void jqt_mem_init(void) {
     if (g_jqt_shadow) return;
     uint32_t sz = jqt_img_size();
@@ -230,6 +241,10 @@ void jqt_mem_init(void) {
                                    MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
     if (g_jqt_shadow == MAP_FAILED) { g_jqt_shadow = (uint8_t *)calloc(1, JQT_MAP_HI); }
     /* ★ OBJ-FILL：先分配空对象（扩展堆区），再建真映射区表 → 表含堆区 */
+    /* §124w-ALIGN-STATIC：GL 顶点缓冲（真实 calloc 堆指针，GL 驱动可直接解引用） */
+    g_jqt_pos_buf = (uint8_t *)calloc(1, 18*2*4);   /* 144B */
+    g_jqt_col_buf = (uint8_t *)calloc(1, 18*4*4);   /* 288B */
+    g_jqt_uv_buf  = (uint8_t *)calloc(1, 18*2*4);   /* 144B */
     jqt_build_empty_objs();
     /* ★ §124y-150：先分配 316 scudo 槽自建堆对象（calloc 堆区需进真映射区表），再建表 */
     jqt_build_scudo_objs();
@@ -323,17 +338,19 @@ void jqt_mem_init(void) {
     { static int _sc=0; if (++_sc <= 4) __android_log_print(4, "junqi",
         "SCUDO-FILL: 回填 %u 槽 (首 0x%08x=0x%08x, dump 原值 0x%08x)",
         JQT_SCUDO_SLOT_N, jq_scudo_slot_tbl[0].va, g_jqt_scudo_objs[0], jq_scudo_slot_tbl[0].dump_val); }
-    /* §124y-154: EVENT-TBL-FILL 事件表 17×17 @ .bss+0x4704 (stride 4B, 17-bit 掩码, ref dump 真值)
-     * 与 scudo 槽 0 交集 (jq_scudo_slots.h 316 槽判定 = 高位 0xCF/0xCE/0xF3 且值>0x10000,
-     * 事件表 17 行值全 <0x10000 = 纯 uint32 掩码非指针) → F_c0ed0 析构器不深度遍历 (无子对象指针)。
-     * 对照 §124y-151 scudo 槽回填不可行 (非 0 指针 = 已构造容器), 纯掩码值安全。 */
+    /* §124y-166 修正: EVENT-TBL-FILL 事件掩码表 17 行 × 17 字段 = **289 字节** @ .bss+0x4704
+     * （F_3a92c 真实访问序 = 17B stride, 旧版 4B stride/68B 写错位置, 已纠正）
+     * 掩码字节语义 = (事件码 0..16) << 4 | 标志位（高 nibble = 事件码）
+     * 与 scudo 槽 0 交集（纯掩码值非指针）→ F_c0ed0 析构器不深度遍历（无子对象指针）。
+     * 对照 §124y-151 scudo 槽回填不可行（非 0 指针 = 已构造容器）, 纯掩码值安全。
+     * ★ §124y-166: 改为**字节级**回填（逐字节写, 避免 4B 写覆盖相邻字节）。 */
 #if JQ_EVENT_TBL_FILL
-    for (unsigned i = 0; i < JQ_EVENT_TBL_N; i++) {
-        *(uint32_t *)(g_jqt_shadow + jq_event_tbl_fill[i].va) = jq_event_tbl_fill[i].val;
+    for (unsigned i = 0; i < JQ_EVENT_TBL_BYTES; i++) {
+        *(uint8_t *)(g_jqt_shadow + JQ_EVENT_TBL_BASE + i) = jq_event_tbl_fill_bytes[i];
     }
     { static int _et=0; if (++_et <= 4) __android_log_print(4, "junqi",
-        "EVENT-TBL-FILL: 回填 %u 行 @ .bss+0x4704 (行3=0x%08x 行7=0x%08x 行17=0x%08x, ref dump 真值)",
-        JQ_EVENT_TBL_N, jq_event_tbl_fill[2].val, jq_event_tbl_fill[6].val, jq_event_tbl_fill[16].val); }
+        "EVENT-TBL-FILL: 回填 %u 字节 @ .bss+0x4704 (17行×17字段 stride=17B, §124y-166 字节级, ref dump 真值)",
+        JQ_EVENT_TBL_BYTES); }
 #endif
     /* ★ §sp28-SCALE-9c .bss 运行时构造态回填 = 实证失败（回退）：
      * MuMu 原版 32 位 so 进程 dd /proc/PID/mem dump .bss 28680B（79% 非零）memcpy 进

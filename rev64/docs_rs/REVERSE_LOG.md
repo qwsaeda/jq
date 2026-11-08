@@ -6651,3 +6651,47 @@ bash rev64/tools/arm32_walkregress.sh --dev emulator-5554   # 4 路径回归
 - `centerpx=[156,101,49,255]`（清屏色，棋盘纹理出屏 = 0x502 软错误不影响渲染）
 - 0x502 skip 逻辑生效（残留 0x502 时 board 不画，PIECE-DRAW 仍执行）
 - 棋子 12 顶点未真正写入（scudo 堆哨兵，诚实边界）
+
+### §124w-ALIGN 全做批次 2（calloc 真实堆指针方案 + 文件损坏修复 + 按批切换尝试与回滚）
+
+**背景**：§124w-ALIGN 全做批次的诚实边界"棋子 12 顶点未真正写入（scudo 堆哨兵 0x3f800000）"本轮攻掉，
+改用 **calloc 真实堆指针**替代 `_Znwj`(malloc) 堆块，12 顶点真正写入 + 双批绘制（F_9e760 批循环画两批）+
+文件误操作损坏修复。
+
+#### 1. 顶点缓冲方案演进（本轮定稿：calloc 真实堆指针）
+- `_Znwj(malloc)` 在 GLThread（redroid x86 + libtcb ARM32 转译层）返 `0x3f800000` 类哨兵（scudo 堆 ABI 差异）
+  → `JQT_VALID` 判非法 → DRAWOBJ-PCE 守护丢弃 → 12 顶点区全 0
+- **改用 calloc 真实堆指针**：`jqt_gl_buf_pos/col/uv` 在 `jqt_mem_init` 分配（18 顶点 pos/col/uv 数组
+  144/288/144B），堆区进 `jqt_build_real_ranges` 快照（calloc 堆区在 jqt_build_empty_objs 实证路径内），
+  `JQT_VALID`=1，GL 驱动可直接解引用
+- dobj/batch 用 .bss 偏移（0x15be90/0x15c010，`JQT_VALID` 恒 1，无堆快照风险）
+- 批次数=2（棋盘 batch[0] + 棋子 batch[1]），`F_9e760` 原生批循环画两批：
+  - `first=0 count=6 texID=1`（棋盘）+ `first=6 count=12 texID=2`（棋子），0 崩溃，进程存活
+- 每帧 re-arm（F_23eec 内 dobj_static .bss 区）：`MEM(dobj+4)=2` + 游标归零 + `jqt_mem_rebuild()` 后重设
+  dobj+8/12/16 = `JQT_ABS_PTR(jqt_gl_buf_*)`
+- 棋子顶点写 `npos+6*2*4 / ncol+6*4*4 / nuv+6*2*4`（12 顶点 × 分量），pp/cc/uu 源数组改 `static`
+  （GLThread 栈值不可靠），大小 72/144/72
+- attrib 指针按批切换对齐原版 F_9d434：L9e784/9a/b0 `glVertexAttribPointer` 用 `JQT_ABS_PTR(_ptv)`
+  （堆指针本身）+ `glDrawArrays(first, count)` 传批 first；`F_9d420/424/428` 返回归一化 attrib index 0/1/2
+  - **试过按批叠加 first 偏移方案（`_ptv + first*分量*4`）→ SIGSEGV fault 0x8c33f5d0（越界解引用），已回滚为基址 + 归一化 index**
+- VERTDIAG 棋子段（顶点 6-17）读取偏移 `6*2*4 / 6*4*4 / 6*2*4`
+
+**实锤（MuMu 翻译体 32 位 so 进程）**：
+- `VERT-FULL pos=[164,940, 276,940, 276,1080, 164,1080, 304,940, 416,940]`
+  + `VERT-UV uv=[0.00,0.14, 0.25,0.14, ...]` + `VERT-COL v0-v3=[1,1,1,1]`（不再是全 0）
+- `PIECE-TEX glTexImage2D err=0x0 texID=2`（212×280 图集上传成功）
+- `F_9e760 glDrawArrays first=0 count=6 err=0x0 texID=1` + `first=6 count=12 err=0x0 texID=2`，0 崩溃
+- 4 路径回归 4/4 PASS + 0 崩溃（arm32_walkregress.sh）
+
+#### 2. 文件损坏修复（本轮误操作）
+- jqt_vtbl.c 曾被误插整段文件头重复（73495..146988）+ F_2afa4 内误拼 F_23eec 孤儿段（81751..81831）
+  + 81751..EOF 重复 317 函数定义（8134 行）→ 全删，balance 恢复 0，编译通过
+- **坑固化：本会话早期多次 Python 误删（误插文件头/孤儿段/重复函数体），后续编辑务必先核对配平
+  `python3 -c "s=open('jqt_vtbl.c').read(); print(s.count('{')-s.count('}'))"` 再 build，
+  且用精确锚点（带缩进/完整行文本）而非行号盲删（行号多次失效实锤）**
+
+**诚实边界**：棋子 12 顶点已真正写入并双批绘制（err=0x0），但棋子 quad 出屏未实锤
+（`centerpx` 未观察到棋盘/棋子纹理色 = 0x502 周期回归 + GL 软驱动 quirk 未修本体）；
+不包装成"棋子已出屏"。
+
+---
