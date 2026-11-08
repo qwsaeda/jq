@@ -26,7 +26,9 @@ for f in $JTI/jqt_*.c; do
   esac
   { echo '#include <stdint.h>'; echo '#include <stdio.h>'; echo '#include <stdlib.h>'; echo '#include <string.h>'; echo '#include <sys/mman.h>'; } > $TMP/$b.c
   cat $f >> $TMP/$b.c
-  $CLANG -c -O0 -fPIC -fvisibility=hidden -w $TMP/$b.c -o $TMP/$b.o
+  # ★ AUD-1000 批9 顺手修：jqt_gl_bridge.c include "jqt_mem.h"（§124zz-8 起），
+  #   通用循环无 -I$JTI 找不到 → 补 JTI include 路径（其余文件无本地头不受影响）。
+  $CLANG -c -O0 -fPIC -fvisibility=hidden -w -I$JTI $TMP/$b.c -o $TMP/$b.o
 done
 # 单列（对齐 build_arm32_aligned [1/4] 排除项，jqt_mem.c 走 jqt_mem.h 上下文）
 $CLANG -c -O0 -fPIC -fvisibility=hidden -w -I$JTI $JTI/jqt_mem.c -o $TMP/jqt_mem.o

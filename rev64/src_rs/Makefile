@@ -20,10 +20,10 @@ dist/jq_run: $(SRCS_CORE) main.c junqi.h bt_protocol.h render.h render_stub.c
 # NDK arm64 共享库（真渲染：EGL + GL 状态机 + SPAK 纹理管线）
 so: dist/libjunqi_rs.so
 
-dist/libjunqi_rs.so: $(SRCS_CORE) jni_bridge.c bt_session.c junqi.h bt_protocol.h bt_session.h render.h gl2_probe_gl.h render.c render_obj.c containers.c render_scene.c glview_gl.c touch.c touch_state.c png_decode.c
+dist/libjunqi_rs.so: $(SRCS_CORE) jni_bridge.c bt_session.c junqi.h bt_protocol.h bt_session.h render.h gl2_probe_gl.h render.c render_obj.c containers.c render_scene.c glview_gl.c touch.c touch_state.c png_decode.c img_decode.c
 	@mkdir -p dist
 	$(NDK)/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android24-clang \
-		$(CFLAGS) -shared -fPIC -o $@ $(SRCS_CORE) jni_bridge.c bt_session.c render.c render_obj.c containers.c render_scene.c glview_gl.c touch.c touch_state.c ui_menu.c ui_state.c png_decode.c gl2_probe_gl.c -lm \
+		$(CFLAGS) -shared -fPIC -o $@ $(SRCS_CORE) jni_bridge.c bt_session.c render.c render_obj.c containers.c render_scene.c glview_gl.c touch.c touch_state.c ui_menu.c ui_state.c png_decode.c img_decode.c gl2_probe_gl.c -lm \
 		-llog -lz -lEGL -lGLESv1_CM -lGLESv2 -landroid
 	@echo "构建完成: $@"
 

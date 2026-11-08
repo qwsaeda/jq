@@ -56,3 +56,5 @@ data_junqi_start.wav
 data_junqi_win.wav
 data_ui_close.wav
 data_ui_pop.wav
+datax_294_d653a8c22d742b8d.bin
+datax_177_a94374ff3a9f01c9.bin

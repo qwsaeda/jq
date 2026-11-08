@@ -27,6 +27,12 @@ course_unidbg/videos/
 course_unidbg/assets/
 
 # === 自动生成的大头 / 数据 blob（不入库，可本地重建）===
+# ★ AUD-1000 B09-024（P1 可复现缺口标注）：以下 18 项排除 + frida-dump 二进制
+#   导致新 clone 缺任一即 arm32 翻译体/影子 so 无法编译；仓库内现有再生脚本
+#   gen_shadow.py（生成 /tmp 工作区 jq_img.bin）+ regen_vtbl.py（jqt_vtbl.c）
+#   为**分步**再生（非一键 18 项）。补齐选项：rev64/Makefile 'regen' 目标
+#   （从 军棋.apk 解 so → 生成 18 项 → 校验哈希）——本轮未落地（需 apk 在位
+#   + 全套工具链），此处标注缺口防新 clone 编译失败无提示。
 rev64/src_jni_translated/jq_board_px.h
 rev64/src_jni_translated/jq_texdata_board.h
 rev64/src_jni_translated/jqt_vtbl.c

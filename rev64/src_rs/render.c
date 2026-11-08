@@ -378,7 +378,7 @@ static void rs_read_png(AAssetManager *am, const char *asset_path,
 #include <dirent.h>
 #include <string.h>
 static void rs_read_one(AAssetManager *am, const char *spak_dir,
-                        const char *file, unsigned char **raw, size_t *len);   /* 前向声明（下方定义） */
+                        const char *file, unsigned char **raw, size_t *len);   /* fwd decl（下方定义） */
 static int rs_read_spak_by_prefix(AAssetManager *am, const char *spak_dir,
                                   const char *prefix, unsigned char **raw, size_t *len)
 {
@@ -668,11 +668,19 @@ int rs_render_init(rs_render *rr, const char *spak_dir, const jq_state *init_sta
         rs_read_one(am, spak_dir, "setentry_text_atlas.png", &seaw, &seaw_len);
         rs_read_one(am, spak_dir, "imgset_text_atlas.png", &isaw, &isaw_len);
         rs_read_one(am, spak_dir, "join065_text_atlas.png", &j65aw, &j65aw_len);
+        /* 诊断：j65aw 读后字节数（0=文件缺失） */
+        LOGI("diag j65aw after rs_read_one: {j65aw_len} = %zu B（设备端 /data/local/tmp/spak_res 实际字节数）", j65aw_len);
         rs_read_one(am, spak_dir, "create069_text_atlas.png", &c69aw, &c69aw_len);
         rs_read_one(am, spak_dir, "rules070_text_atlas.png", &r70aw, &r70aw_len);
         rs_read_one(am, spak_dir, "room060_text_atlas.png", &rmaw, &rmaw_len);
+        /* 诊断：rmaw 读后字节数（0=文件缺失） */
+        LOGI("diag rmaw after rs_read_one: {rmaw_len} = %zu B（设备端 /data/local/tmp/spak_res 实际字节数）", rmaw_len);
         rs_read_one(am, spak_dir, "chat063_text_atlas.png", &chaw, &chaw_len);
+        /* 诊断：chaw 读后字节数（0=文件缺失） */
+        LOGI("diag chaw after rs_read_one: {chaw_len} = %zu B（设备端 /data/local/tmp/spak_res 实际字节数）", chaw_len);
         rs_read_one(am, spak_dir, "about_text_atlas.png", &abaw, &abaw_len);
+        /* 诊断：abaw 读后字节数（0=文件缺失） */
+        LOGI("diag abaw after rs_read_one: {abaw_len} = %zu B（设备端 /data/local/tmp/spak_res 实际字节数）", abaw_len);
         rs_read_one(am, spak_dir, "uibat_text_atlas.png", &uiaw, &uiaw_len);
         if (braw && png_decode(braw, braw_len, &bpx, &bw, &bh) == 0) {
             rr->board_px = bpx; rr->board_px_len = (size_t)bw * bh * 4;
