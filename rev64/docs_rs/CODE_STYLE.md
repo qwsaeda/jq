@@ -59,3 +59,45 @@
 7. 触摸 ACTION_DOWN 过滤。
 8. 音效/重开/悔棋统一入口（sfx_for_move/sfx_game_over/jq_restart_game/undo 连续 pop）。
 9. rebuild 前先 make so（rs_cycle 一体）。
+
+## 9. 脚本/门禁防假绿（§2026-11-08 AUD-1000 三型假绿归纳）
+
+> 本轮 8 域对抗审计最大主题 = 假绿（校验失败却报 PASS / 产物坏却继续）。三型 + 判据：
+
+1. **管道吞码型**（最高发）：`cmd 2>&1 | tail -1` 后 `[ $? -ne 0 ]` 查的是 tail 退出码。
+   **判据/修法**：脚本头 `set -o pipefail`（或显式 `PIPESTATUS[0]`）；"校验+继续"步骤
+   必须断言被校验命令的退出码，展示分支（echo 异常）必须 `return 1`。
+   实证坑：rebuild_rs_apk.sh apksigner（签名失败假绿装机全挂）、pack_arm32.sh apktool b、mumu_bt_test.sh 包名错配。
+2. **判据恒真型**：grep 字符串含目标词的否定式也命中（`grep -q "Verified"` 命中 "Verified: false"）；
+   判据函数恒 `exit 0`（结果只打印）。**判据/修法**：grep 锚定值（`= true`/正则全串），
+   判据函数 FAIL 分支 `exit 1`。实证坑：sign_apk.sh verify、popup_sweep.sh 恒 exit 0、
+   build_phases.sh verify-only "so ≠ 基准"展示分支 RC=0。
+3. **静默降级型**：门禁依赖的缓存/基线文件缺失时退化放行（或反向误 FAIL）。
+   **判据/修法**：工具缓存缺失时退出码必须区分"缓存缺失"（=1）与"审计 PASS"（=0）/
+   "审计 FAIL"（=2），调用方对每种码分别处理，缺失禁止映射到 PASS。
+   实证坑：so_link_check.py 缓存缺失 return 1 被调用方只判 `-eq 2` → 门禁全失效；link_audit.py proven json 缺失双向误判。
+
+## 10. 忠实 ≠ 已实现（判功能看消费点返回值，不看崩溃计数）
+
+- 32 位翻译体 .bss 全 0 是有意忠实兜底（§124y-151/160），但兜底使成功路径被跳过
+  （如 F_3a92c disc 恒 0 → F_3ab64/F_55d40 不执行 = 事件业务分发死代码）。
+- **判据**：回归 PASS + 0 崩溃 ≠ 功能通；必须 grep 消费点日志（如 F_3ab64 ok=1、
+  DRAWOBJ-PCE 顶点写成功行）确认成功路径真的走到；"兜底没崩"只证明忠实，不证明实现。
+
+## 11. 回归判据防 flaky（固定 sleep → 轮询）
+
+- 固定 `sleep N` 后抓日志 = flaky 头号来源（慢机未就绪假 FAIL / 快机已过去假 PASS）。
+- **判据/修法**：`wait_log <grep 锚> [timeout]` 轮询（仓内 mumu_evtest.sh 已有 helper，
+  跨脚本复用时拷 helper 非跨源）；判据锚用**语义串**（函数名+结果词）非行号，
+  锚文案改动即全路径假红（arm32_walkregress 4 处中文全串锚 = 文案一改全灭）。
+- 设备/包名硬编码（emulator-5554 / com.cnvcs.junqi32 / junqirs / junqi 四包名）全部参数化，
+  默认值必须与头注释一致（mumu_regress.sh 默认 redroid 注释写 MuMu = 裸跑打错设备）。
+
+## 12. 多线程 GL/static 并发
+
+- static 计数器（限流 `_sd/_gd/_e0` 类）被 GLThread + frame-loop 双线程并发调（F_9d43c/F_9e760）
+  = 数据竞争；g_cur_fn volatile 非原子（1575 处跨线程写读）。
+- jqt_mem_rebuild "清零再填充" 非原子，rebuild 瞬间真映射区表半空 → 指针解析错区。
+  **判据/修法**：rebuild 用双缓冲（新表建成原子换指针）；跨线程计数器改原子（或接受非精确限流注释标注）。
+- EGL 多 context 必须 `eglCreateContext(..., share_ctx, ...)` 共享（NO_CONTEXT → 纹理/program
+  跨 context 无效，texID 泄漏 + 采样黑 = 棋子不出屏根因）。
