@@ -25,10 +25,12 @@ import subprocess
 import argparse
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-# APK 在顶层 /disk/workspaces/jq/dist/（build_phases.sh 产物），非 rev64/dist
-DIST = os.path.join(ROOT, "dist")
-if not os.path.exists(os.path.join(DIST, "phase2.apk")):
-    DIST = os.path.join(ROOT, "..", "dist")   # 回退顶层 dist
+# ★ AUD-1000 B07-043（P1 回退逻辑恒触发）：phase2/3.apk 在**顶层**
+#   /disk/workspaces/jq/dist/（build_phases.sh 产物，AGENTS.md"各阶段产物放
+#   /disk/workspaces/jq/dist/"），rev64/dist 只存 32 位产物（phase_chain_arm32.apk 等）
+#   恒无 phase2.apk → 旧回退逻辑每次触发且无告警。现直接指顶层 dist，去
+#   rev64/dist 回退耦合（rev64/dist 32 位产物不在本脚本判据范围）。
+DIST = os.path.join(ROOT, "..", "dist")   # 顶层 /disk/workspaces/jq/dist（build_phases 输出）
 DEV = "emulator-5554"
 
 # ① 渲染关键资源（rs_render_init 必读，缺失走纯色退化）
@@ -183,8 +185,21 @@ def layer_build():
     njni = len(re.findall(r"Java_com_cnvcs_App_", p.stdout))
     # ★ 对抗审计 P2-A8（P2-8）：14 来源注释——src_rs 64 位重写 14 个 JNI 入口
     #   （原版 32 位 15 个 Java_com_cnvcs_App_On*，src_rs 未实现 OnDestroy，缺 1 个）。
-    #   判据 >=14：14 全导出 = PASS；<14 = FAIL（缺入口）；15（全量）也 PASS。
-    check(njni >= 14, f"JNI 导出 {njni} 个（≥14；src_rs 14 入口 = 原版 15 − OnDestroy）")
+    # ★ AUD-1000 B07-044（P1 判据强度）：旧版只数 Java_com_cnvcs_App_ 前缀计数
+    #   （>=14 放行）——某入口改名（如 OnCreate→OnXxx）但总数仍 14 时判据 PASS
+    #   实为入口缺失（AGENTS.md 红线"不要修改 App.smali native 调用签名"）。
+    #   现改 14 个具名入口全在（缺失列名 FAIL），总数计数降为辅助展示。
+    JNI_EXPECTED = [
+        "OnCreate","OnUpdate","OnPause","OnResume","OnDestroy","OnKey",
+        "OnTouch","OnInput","OnEvent","OnResult","OnTimer","OnBluetooth",
+        "OnGraphCreate","OnGraphChange",
+    ]
+    missing = [n for n in JNI_EXPECTED
+               if f"Java_com_cnvcs_App_{n}" not in p.stdout]
+    check(len(missing) == 0,
+          "JNI 具名入口 14/14 全在（%s）" % (
+              "缺失: " + ", ".join(missing) if missing else "全在"))
+    check(njni >= 14, f"JNI 前缀计数 {njni} 个（辅助；src_rs 14 入口 = 原版 15 − OnDestroy）")
     # 资源加载符号存在（rs_render_init 引用 AAsset/fopen）
     p2 = subprocess.run(["grep", "-c", "rs_read_png", os.path.join(ROOT, "src_rs", "render.c")],
                         capture_output=True, text=True)

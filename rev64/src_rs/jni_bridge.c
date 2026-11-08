@@ -7995,13 +7995,12 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
                 (void)clazz;
                 return JNI_TRUE;
             } else if (bt_mode && act == 3) {   /* 认输（联机版，datah_067） */
-                pthread_mutex_lock(&g_mutex);
-                /* 认输 → 对方胜（本机当前 turn 方为认输方；双方可认输） */
-                /* ★ AUD-1000 B03-009（P0 已修）：g_state 写移入 g_mutex */
+                /* ★ 对抗审计（2026-11-11）：旧 B03-009 修复时误加"两层 g_mutex 加锁"
+                   （非递归 mutex 自嵌套 → 认输点击死锁）。现单层：一次 lock 包住
+                   g_state.winner/stage 写 + 一次 unlock。 */
                 pthread_mutex_lock(&g_mutex);
                 g_state.winner = (g_state.turn == SIDE_BLUE) ? SIDE_RED : SIDE_BLUE;
                 g_state.stage = STG_OVER;
-                pthread_mutex_unlock(&g_mutex);
                 pthread_mutex_unlock(&g_mutex);
                 jq_bt_ctrl_send(env, BT_T_RESIGN);
                 sfx_play(env, "over");

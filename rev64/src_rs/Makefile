@@ -39,6 +39,27 @@ clean:
 
 .PHONY: all desk so consistency clean
 
+# ★ AUD-1000 B08-037/B08-039（P1 已修，基准新鲜度门禁）：benchcheck 持续门禁——
+#   jq_consistency test_move_seq.txt 实际输出 vs test_expected.txt 文件基准 diff。
+#   旧版无此门禁：consistency_desktop selftest 只比内置 BENCH_EXPECT（双源，
+#   改 test_expected.txt 忘改内置 BENCH_EXPECT 或反之 → selftest PASS 但文件
+#   基准过期假绿，B07-041/042 连锁）。现纳入 src_rs_regress（[8.5/12] 位置，
+#   rules.c 任何改动后强制基准新鲜度校验，过期即 FAIL 非静默）。
+.PHONY: benchcheck
+benchcheck: consistency
+	@mkdir -p dist
+	@./dist/jq_consistency test_move_seq.txt > .bench_actual.txt
+	@if cmp -s .bench_actual.txt test_expected.txt; then \
+	    echo "  ✓ benchcheck：jq_consistency test_move_seq.txt 输出 == test_expected.txt（基准新鲜）"; \
+	    rm -f .bench_actual.txt; \
+	else \
+	    echo "  ★ benchcheck：test_expected.txt 基准过期（jq_consistency 输出已变）"; \
+	    echo "    修法：先确认 rules.c 改动行为是否符合预期，符合则 "; \
+	    echo "    ./dist/jq_consistency test_move_seq.txt > test_expected.txt（人工确认后更新基准）"; \
+	    diff .bench_actual.txt test_expected.txt | head -20; \
+	    rm -f .bench_actual.txt; exit 1; \
+	fi
+
 .PHONY: bttest
 bttest:
 	$(CC) $(CFLAGS) -DRS_NO_GL -o dist/jq_bttest \

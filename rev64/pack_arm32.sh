@@ -10,6 +10,10 @@
 # 步骤：lib/armeabi = 翻译体 so → apktool b → STORE → zipalign -f 4 → apksigner v1+v2
 # 用法: ./pack_arm32.sh [输入.so] [输出.apk]
 set -e
+# ★ AUD-1000 B06-054（P1 假绿三型-管道吞码）：加 pipefail——门禁（link_audit）之后的
+#   打包段 apktool b / store_compressed / zipalign 各 `2>&1 | tail -1` 吞上游失败码
+#   （tail 退 0）→ 打包失败静默继续到验证段，可能拿旧产物验签通过假绿。
+set -o pipefail
 SO=${1:-/disk/workspaces/jq/rev64/dist/libjunqi_arm32_aligned.so}
 OUT=${2:-/disk/workspaces/jq/rev64/dist/phase_chain_arm32.apk}
 APKROOT=/tmp/opencode/jq_apk

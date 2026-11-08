@@ -195,7 +195,11 @@ def probeA_undo_stack():
     m = re.search(r"#define\s+UNDO_MAX\s+(\d+)", t)
     if m:
         n = int(m.group(1))
-        if "undo_push" in t and re.search(r"g_undo_top\s*<\s*UNDO_MAX", t) is None:
+        # ★ 反噪（2026-11-11）：守卫可能写成 g_undo_top >= UNDO_MAX（>= 拒写），旧只认 "< UNDO_MAX" → 误报。
+        #   任一形态命中即视为有上界检查。
+        guarded = (re.search(r"g_undo_top\s*<\s*UNDO_MAX", t) is not None or
+                   re.search(r"g_undo_top\s*>=\s*UNDO_MAX", t) is not None)
+        if "undo_push" in t and not guarded:
             add("P1", "undo_push 未做 UNDO_MAX 上界检查", "src_rs/jni_bridge.c",
                 "g_undo_top 可越界写 g_undo[]", "栈溢出 → 内存破坏",
                 f"加 if (g_undo_top < {n}) 保护", "A-undo")

@@ -13,12 +13,26 @@ TMP=/tmp/jq64_aligned_build
 mkdir -p $TMP
 
 echo "[1/4] 编译 14 个 JNI 翻译体（aarch64）"
+# ★ AUD-1000 B07-028（P1 已修，ABI 链接分叉消除）：jqt_mem/jqt_jnibr/
+#   jqt_jni_calls_tbl/jqt_render_jni 单列编译（与 build_arm32_aligned.sh
+#   排除逻辑对齐）——旧版 [1/4] 全编译 jqt_*.c 聚合链，与 arm32 侧
+#   单列链接方式分叉（同一组源两 ABI 链接方式不同，跨 ABI 排查先
+#   排除链接分叉）。单列 = jqt_mem 带自身 include 上下文、jqt_jnibr
+#   带 SYSROOT jni.h、calls_tbl/render_jni 独立（与 arm32 脚本逐行同构）。
 for f in $JTI/jqt_*.c; do
   b=$(basename $f .c)
+  case "$b" in
+    jqt_mem|jqt_jnibr|jqt_jni_calls_tbl|jqt_render_jni) continue;;  # 单列编译（下方）
+  esac
   { echo '#include <stdint.h>'; echo '#include <stdio.h>'; echo '#include <stdlib.h>'; echo '#include <string.h>'; echo '#include <sys/mman.h>'; } > $TMP/$b.c
   cat $f >> $TMP/$b.c
   $CLANG -c -O0 -fPIC -fvisibility=hidden -w $TMP/$b.c -o $TMP/$b.o
 done
+# 单列（对齐 build_arm32_aligned [1/4] 排除项，jqt_mem.c 走 jqt_mem.h 上下文）
+$CLANG -c -O0 -fPIC -fvisibility=hidden -w -I$JTI $JTI/jqt_mem.c -o $TMP/jqt_mem.o
+$CLANG -c -O0 -fPIC -fvisibility=hidden -w -I$SYSROOT_INC -I$JTI $JTI/jqt_jnibr.c -o $TMP/jqt_jnibr.o
+$CLANG -c -O0 -fPIC -fvisibility=hidden -w -I$SYSROOT_INC -I$JTI $JTI/jqt_jni_calls_tbl.c -o $TMP/jqt_jni_calls_tbl.o
+$CLANG -c -O0 -fPIC -fvisibility=hidden -w -I$SYSROOT_INC -I$JTI $JTI/jqt_render_jni.c -o $TMP/jqt_render_jni.o
 
 echo "[2/4] 编译适配层 jni_aligned.c（含 .rodata 明文注入 + JNI 入口签名）"
 # jni_aligned.c 需 jni.h

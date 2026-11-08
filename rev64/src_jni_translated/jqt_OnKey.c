@@ -103,7 +103,14 @@ Lbde64: {uint32_t a_=r5,b_=0; r3=(a_+b_); Z=(r3==0); C=(r3<a_); N=((r3)>>31)&1; 
 Lbde66: r2=(0x128b08+r2);      /* add r2,pc → .rodata 偏移 (sig) */
 Lbde68: {uint32_t a_=r6,b_=0; r1=(a_+b_); Z=(r1==0); C=(r1<a_); N=((r1)>>31)&1; V=(((a_^r1)&(b_^r1))>>31)&1;}
 Lbde6a: {uint32_t a_=r4,b_=0; r0=(a_+b_); Z=(r0==0); C=(r0<a_); N=((r0)>>31)&1; V=(((a_^r0)&(b_^r0))>>31)&1;}
-Lbde6c: r0=jqt_jni_getmethodid(r0, r1, r2, r5); /* blx ip = GetMethodID (§124ak, 输入事件基类槽 42) */
+Lbde6c: r0=jqt_jni_getmethodid(r0, r1, r2, r5); /* blx ip = GetMethodID (§124ak, 输入事件基类槽 42)
+     ★ AUD-1000 B05-080（P1 R-138 诚实标注）：参数错位——r0=GetObjectClass
+       返回的 jclass 当 env 形参（形参 1）传，与 B05-077 同型 3 次
+       GetMethodID 调用（Lbde6c/Lbde8c/Lbdeac）全错位。jqt_jni_getmethodid
+       首参 env 收到 cls 句柄（高地址）非 env → 内部 (JNIEnv*)cls 调
+       用 JNI 函数表越界。现状 32 位设备 0x128xxx 区 GetMethodID 实锤
+       可用（4 路径回归），错位被真值兜住；统一 jqt_jni_getmethodid
+       形参/改传 (V32(env), r0, r2, r5) 属行为改动，R-138 只标注。 */
 Lbde6e: {uint32_t a_=r7,b_=0; r1=(a_+b_); Z=(r1==0); C=(r1<a_); N=((r1)>>31)&1; V=(((a_^r1)&(b_^r1))>>31)&1;}
 Lbde70: {uint32_t a_=r0,b_=0; r2=(a_+b_); Z=(r2==0); C=(r2<a_); N=((r2)>>31)&1; V=(((a_^r2)&(b_^r2))>>31)&1;}
 Lbde72: {uint32_t a_=r4,b_=0; r0=(a_+b_); Z=(r0==0); C=(r0<a_); N=((r0)>>31)&1; V=(((a_^r0)&(b_^r0))>>31)&1;}
@@ -138,7 +145,12 @@ Lbdec0: r3=MEM(MEM(r4)+92);  /* ldr r3,[r4+0]=vtable; ldr r3,[vtable+0x5c] 槽 2
 Lbdec2: r0=jqt_blx_dispatch(r3, r0,r1,r2,r3,r4,r5,r6,r7,r8,r9,r10,r11,sp); /* blx r3 (vtable 槽 23, §124y-137) */
 }
 Lbdec6: r3=MEM(0x16266c);     /* .bss 0x16266c 键码单例槽 (.bss 偏移 0x67EC, §124y-139 区) */
-Lbdeca: r2=MEM(r3+16);        /* ldr r2,[r3+16] = 键码常量槽 0 (MuMu 实锤=2) */
+Lbdeca: r2=MEM(r3+16);        /* ldr r2,[r3+16] = 键码常量槽 0 (MuMu 实锤=2)
+     ★ AUD-1000 B05-082（P1 R-138 诚实标注）：.bss 全 0（未构造）时
+       r3=MEM(0x16266c)=0 → r2=MEM(0+16)=0 → 键码 0 匹配 Lbdecc
+       （r9==0）恒真 → goto Lbdf18 误判匹配。加 r3=0（.bss 未构造）
+       时整段键码匹配跳过属行为改动（键码路径 .bss 构造依赖），
+       现状 MuMu/redroid 实跑键码槽有效（4 路径回归），R-138 只标注。 */
 Lbdecc: {uint32_t a_=r9,b_=r2; Z=(r9==b_); C=(r9<b_); N=((a_^b_)>>31)&1; V=(((a_^r9)&(b_^r9))>>31)&1;}
 if(Z==1){ goto Lbdf18; }       /* 键码匹配 → 进一步判定 */
 Lbded0: r3=MEM(0x16266c);     /* 重读 .bss 基址 */

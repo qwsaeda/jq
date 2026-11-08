@@ -13,13 +13,23 @@
 #define RS_REPLAY_H
 #include "junqi.h"
 
-#define N_REPLAY 512   /* 记录容量（和棋前 1000 步内够 512 条走子/翻棋） */
+/* ★ AUD-1000 B02-064（P1 已修）：记录容量 512 → 1100——旧 512 按"和棋前 1000 步"
+   注释但 1000 步 = 500 蓝 + 500 红（双方各 1000 总步阈值），单侧 1000 步走子
+   + 翻棋可超 512（长局复盘截断）。扩 1100（1000 + 100 余量），seq 内存
+   1100*2 + is_flip 1100*4 ≈ 7.6KB（jq_replay 栈变量由调用方持有，无压力）。 */
+#define N_REPLAY 1100
 
 typedef struct {
     uint8_t seq[N_REPLAY][2];  /* 每步 from_cell / to_cell（cell 索引 0-59；翻棋 from==to） */
     int     is_flip[N_REPLAY];  /* 0=走子 1=翻棋 */
     int     n;                  /* 已记录步数 */
     int     cur;                /* 回放游标（重放到前 cur 步的位置） */
+    /* ★ AUD-1000 B02-066/067（P1 已修）：开局快照字段——旧版 rewind 硬编码
+       turn=SIDE_BLUE（ui_first=1 红先手时重放第 1 步 turn 判定错误）+
+       硬编码 pieces_left=25/25（非 25 子开局偏差）。init 时快照，
+       rewind 用快照值。 */
+    uint8_t turn_init;          /* 开局 turn（ui_first=1 → RED 先手） */
+    uint8_t mode_init;          /* 开局 mode（LAY/FLIP 复盘语义） */
     jq_cell init_cells[N_CELLS];  /* 开局 60 格快照（rank/side/revealed/flags，重放基底） */
 } jq_replay;
 

@@ -21,6 +21,15 @@ for f in $JTI/jq_rs_rules.c $JTI/jq_rs_board.c $JTI/jq_rs_layout.c $JTI/jq_rs_to
 done
 for f in $JTI/jqt_*.c; do
   b=$(basename $f .c)
+  # ★ AUD-1000 B07-028（P1 已修，ABI 链接分叉消除）：arm64 build_aligned.sh
+  #   旧版 [1/4] 全编译 jqt_*.c（含 jqt_mem/jqt_jnibr/jqt_jni_calls_tbl/
+  #   jqt_render_jni）+ [4/4] 全链 $TMP/jqt_*.o——与 arm32 本脚本的
+  #   单列编译（jqt_mem 带 jqt_mem.h include 上下文 / jqt_jnibr 带
+  #   SYSROOT jni.h / calls_tbl+render_jni 独立）分叉，同一组源在
+  #   两 ABI 产物里链接方式不同（arm64 聚合链 vs arm32 单列链），
+  #   排查"arm32 过 arm64 挂"（或反之）时先排除链接分叉。现 arm64
+  #   侧对齐本脚本排除逻辑（build_aligned.sh 行 24 同步 case 排除，
+  #   此处 jqt_mem 单独补 SYSROOT_INC 一致性）。
   [ "$b" = "jqt_mem" ] && continue
   [ "$b" = "jqt_jnibr" ] && continue
   [ "$b" = "jqt_jni_calls_tbl" ] && continue

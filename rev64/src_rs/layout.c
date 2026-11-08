@@ -12,7 +12,12 @@
 #include "junqi.h"
 #include <string.h>
 
-/* 默认布局：SPAK data/lay/00.lay（=default.lay，L52 分布确证 25 子/方） */
+/* 默认布局：SPAK data/lay/00.lay（=default.lay，L52 分布确证 25 子/方）
+   ★ AUD-1000 B10-012（P1 诚实标注）：30 字节默认布局在 rev64/src_rs/layout.c
+   与 rev64/src_jni_translated/jq_rs_layout.c 各定义一份（当前逐字节相同），
+   改一处忘另一处 → 64/32 位开局布局分叉（分叉矩阵 R-138 未含此数据项）。
+   修法（抽共享头 jq_default_lay.h 单点定义 + rules_fork_check.py 增布局
+   数据一致性比对）留待下一轮；当前以本表为 64 位事实源。 */
 const uint8_t JQ_DEFAULT_LAY[30] = {
     3,7,6,5,8, 10,0,9,0,1,
     2,10,0,9,5, 4,0,6,0,7,
@@ -27,7 +32,10 @@ const uint8_t JQ_DEFAULT_LAY[30] = {
    宏边界（AUD-R-080 rank_norm 上界钳到 RANK_TOP=12 保证 r 恒合法）。 */
 void jq_standard_army_count(int cnt[RANK_COUNT])
 {
-    /* AUD-A-0005 探针降噪：常量下标 1-12 全部 < RANK_COUNT(13)，恒真断言（行为 0 变化） */
+    /* AUD-A-0005 探针降噪：常量下标 1-12 全部 < RANK_COUNT(13)，恒真断言（行为 0 变化）。
+       ★ AUD-1000 B01-038（P1 已注释，降 P3）：断言写法 `12 >= RANK_COUNT` 恒假
+       （12>=13 假→永不 return）——行为正确（下界守护），写法不规范为已知
+       探针噪声，本条核实无缺陷。 */
     if (12 >= RANK_COUNT) return;
     memset(cnt, 0, sizeof(int[RANK_COUNT]));
     cnt[1]=1; cnt[2]=1; cnt[3]=2; cnt[4]=2; cnt[5]=2; cnt[6]=2;
@@ -57,6 +65,14 @@ void jq_load_layout(jq_state *st, const uint8_t layout[30])
     for (int i = 0; i < 30; i++) {
         int v = layout[i];
         if (v == 0) continue;                 /* 行营空位 */
+        /* ★ AUD-1000 B01-039/040（P1 已修）：脏字节拦截（v>RANK_TOP）——
+           蓝方 rank=(uint8_t)v 脏 13-255 静默入棋盘 → rank_norm 钳位
+           与真军旗同值（B01-010/033 同源）；红方 rank=(uint8_t)(v+0xc)
+           脏 250+ 回绕成合法 rank（250+0xc=262%256=6 连长）。修：
+           装载即拒 v>12（蓝合法域），脏布局不污染规则引擎。
+           JQ_DEFAULT_LAY 恒 [0,12]，ui_layout_load 30 字节来自
+           自存档（extract 侧蓝 rank ∈[0,12]）恒不触发。 */
+        if (v > RANK_TOP) continue;           /* ★ B01-040：红方 rank=(uint8_t)(v+0xc) 脏 250+ 回绕防护（同 B01-039 装载即拒） */
         int lrow = i / 5, lcol = i % 5;
         /* 蓝方：棋盘 (5-lrow, lcol) */
         jq_cell *b = &st->cells[cell_index(5 - lrow, lcol)];
@@ -110,7 +126,10 @@ jq_layout_err jq_check_layout_cell(int idx, int raw)
        装载路径）理论上可出现"蓝旗不在蓝大本营"，引擎照样放行——对齐原版 0x2a228
        的不对称校验（原版蓝半区即无条件 LAYOUT_OK），补齐蓝半区对称校验留待下一轮。 */
     }
-    if (raw > RANK_TOP) raw -= 0xc;                    /* 红方还原 */
+    if (raw > RANK_TOP) raw -= 0xc;                    /* 红方还原
+       ★ AUD-1000 B01-041（P1 已注释，降 P3）：raw∈[13,24] 为合法红编码还原 1-12；
+       raw∈[25,255] 还原后 13-243 → 下行 ERR_RANGE 拦截，域闭合（两步组合拦截
+       全部脏域），本条核实无缺陷。 */
     if (raw > RANK_TOP || raw == 0) return ERR_RANGE;
     if (raw == RANK_BOMB && idx <= 0x22) return ERR_ZHA;
     if (raw == RANK_MINE && idx <= 0x31) return ERR_LEI;
@@ -133,7 +152,9 @@ jq_layout_err jq_validate_layout(const jq_state *st)
         /* ★ AUD-R-064（P2 诚实标注）：ERR_RANGE 复用于"分布不符"（UI 若按码映射
            文案会显示"字节非法"而非"子力分布不符"）——错误码语义混淆，修法（新增
            ERR_COUNT）需同步 UI 文案映射，留待下一轮。
-           ★ AUD-R-065（P2 诚实标注）：seen[r]==cnt[r]*2 假设全盘双方严格镜像
+           ★ AUD-R-065（P2 诚实标注）/ AUD-1000 B01-042（P1 已注释，降 P3）：
+           seen[r]==cnt[r]*2 假设全盘双方严格镜像（非镜像布局需独立分侧校验
+           路径或 SPEC 明文"jq_validate_layout 仅验标准镜像布局"）
            （25+25 子）——自定义/联机/四国非标准布局会被误报 ERR_RANGE，仅默认
            布局校验有效（jq_extract_layout_30 注释已承认该限制）。 */
         if (r >= 0 && r < RANK_COUNT) seen[r]++;
@@ -148,7 +169,12 @@ jq_layout_err jq_validate_layout(const jq_state *st)
 
 /* 从当前棋盘提取 30 字节布局（jq_load_layout 的逆映射，★ P1 布局存档用）：
    蓝方半区 cells(5-lrow, lcol)（lrow 0-5）→ layout[lrow*5+lcol]，蓝 rank 原值。
-   提取后 jq_validate_layout 校验（非标准分布布局仍提取成功，仅校验返回错误）。 */
+   提取后 jq_validate_layout 校验（非标准分布布局仍提取成功，仅校验返回错误）。
+   ★ AUD-1000 B01-043（P1 已注释，诚实边界）：extract 仅收蓝半区 BLUE 侧
+   （c->side==SIDE_BLUE 过滤）——红方半区信息全丢（AUD-R-048 已知）；
+   暗棋局 side=UNKNOWN(0xFF) 定色前 60 格全被过滤 → 提取出全 0 布局，
+   30 字节回载 jq_load_layout = 空棋盘。明棋镜像布局可用，暗棋开局需
+   30 字节布局直接走 jq_dark_setup 路径（勿经本函数 round-trip）。 */
 void jq_extract_layout_30(const jq_state *st, uint8_t out[30])
 {
     for (int i = 0; i < 30; i++) out[i] = 0;
@@ -173,13 +199,21 @@ void jq_extract_layout_30(const jq_state *st, uint8_t out[30])
      side 分区（"明棋藏脸"），本实现真正走 SIDE_UNKNOWN 先手翻子定色（原版 ruleflip 玩法）。
      红方 rank 不 +0xc（rank_norm 还原依赖 side==SIDE_RED 时才加 0xc，先手翻子定色前
      双方 side 均 UNKNOWN → 全用蓝方原值统一编码，定色后 move_legal 按 src->side 判归属）。
-     兄弟实现对齐需 game_logic.c 同步改（留待翻译体下一轮，R-138 分叉边界）。 */
+     兄弟实现对齐需 game_logic.c 同步改（留待翻译体下一轮，R-138 分叉边界）。
+   ★ AUD-1000 B01-044（P1 已注释，诚实边界）：本函数 = 满盘 60 子镜像装载
+   （30 字节 ×2），与 main.c 暗棋"50 枚随机 60 格"路径子数语义分叉
+   （60 子满盘 vs 50 子 10 格空）——SPEC 定案暗棋开局子数留待下一轮；
+   当前 64 位正向以本函数为准（30 字节布局 round-trip 语义闭合），
+   main.c 随机 50 子路径为 32 位对照范式（不改）。 */
 void jq_dark_setup(jq_state *st, const uint8_t layout[30])
 {
     jq_state_init(st);
     for (int i = 0; i < 30; i++) {
         int v = layout[i];
         if (v == 0) continue;                 /* 行营空位 */
+        /* ★ AUD-1000 B01-039/040（P1 已修，同 jq_load_layout 范式）：暗棋
+           装载亦拒 v>12 脏字节（防脏布局 rank 污染先手翻子定色路径）。 */
+        if (v > RANK_TOP) continue;
         int lrow = i / 5, lcol = i % 5;
         /* 双方同结构：蓝方 (5-lrow, lcol)；红方镜像 (6+lrow, 4-lcol)（与 jq_load_layout 同几何） */
         jq_cell *b = &st->cells[cell_index(5 - lrow, lcol)];
@@ -201,7 +235,10 @@ void jq_dark_setup(jq_state *st, const uint8_t layout[30])
    ★ AUD-R-014（P1）：n 累加逻辑诚实标注——原实现 n 当布尔标志用（n=1 即停），
    统计值恒 1（只要该方有可动子）；保留原语义不改动（调用方无消费者：
    困毙判定走 jq_side_stalemated 实时扫描，不读 pieces_left），
-   勿用于判胜/UI 展示（需真实统计时改为累加器 + 走子后调用）。 */
+   勿用于判胜/UI 展示（需真实统计时改为累加器 + 走子后调用）。
+   ★ AUD-1000 B01-045（P1 已注释，降 P3）：旧实现 `if (t!=i&&jq_can_move) {n=1;break;}`
+   + `if (!n) n++;` 有可动子恒 n=1（非真实可动子数）——已修（见函数体 n++ 累加
+   计数已翻转可动子），本条核实"恒 1/0"描述针对**旧**实现，现行为已准确。 */
 void jq_refresh_movable_counts(jq_state *st)
 {
     /* ★ AUD-R-014（P1）修正两处真 bug：

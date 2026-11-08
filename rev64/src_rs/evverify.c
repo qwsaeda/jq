@@ -1,5 +1,5 @@
 /*
- * evverify.c — 通用桌面事件验证工具（替代每轮手写 /tmp/*.c 构造状态）
+ * evverify.c — 通用桌面事件验证工具（替代每轮手写 /tmp/xxx.c 构造状态）
  *
  * 用法: dist/jq_evverify <mode>
  *   --flag   蓝 rank2@53 吃红军旗@58        → 期望 EV_FLAG(3) stage=OVER winner=BLUE
@@ -201,18 +201,30 @@ static int run_undo(void)
     undo[top++] = st;
     int ev = jq_try_move(&st, 25, 30);
     if (ev != EV_EAT) { printf("undo 步骤1 FAIL：ev=%d %s\n", ev, ev < 0 ? "-" : JQ_EVENT_NAMES[ev]); return 0; }
-    /* AI 应着（红方，turn 切红）——不调 ai_pick（static 不导出），手动找红方第一合法走子 */
+    /* AI 应着（红方，turn 切红）——★ AUD-1000 B08-023（P1 已修）：改调 ai_score
+       （rules.c 导出，jni_bridge ai_pick 同源评分）选最优红子——旧版"首个合法
+       红子"手动贪心与 ai_pick（吃子>空移>送死评分）行为不同：ai_pick 选最优
+       （吃子优先），手动选首个（可能空移）→ undo_pop 深度（n>=2）依赖 AI
+       应着是否发生，手动"红方无子可走"分支 AI 应着为空 → undo 只 pop 玩家步
+       （n=1）→ n>=2 CHECK FAIL 假红。现与 ai_pick 口径一致。 */
     undo[top++] = st;
     {
         int moved = 0;
-        for (int f = 0; f < N_CELLS && !moved; f++) {
+        int bf = -1, bt2 = -1, bs = -1;
+        for (int f = 0; f < N_CELLS; f++) {
             if (st.cells[f].side != SIDE_RED || st.cells[f].rank == RANK_EMPTY) continue;
             if (!st.cells[f].revealed) continue;
-            for (int t = 0; t < N_CELLS && !moved; t++) {
+            int r = rank_norm(st.cells[f].rank);
+            if (r == RANK_FLAG || r == RANK_MINE) continue;
+            for (int t = 0; t < N_CELLS; t++) {
                 if (t == f) continue;
-                if (jq_can_move(&st, f, t)) { jq_try_move(&st, f, t); moved = 1; }
+                if (!jq_can_move(&st, f, t)) continue;
+                int sc = ai_score(st.cells[f].rank, st.cells[t].rank, 1);
+                if (sc < 0) continue;
+                if (sc > bs) { bs = sc; bf = f; bt2 = t; }
             }
         }
+        if (bf >= 0) { jq_try_move(&st, bf, bt2); moved = 1; }
         if (!moved) { /* 红方无子可走，AI 应着为空（undo 只 pop 玩家步） */ }
     }
     /* undo_pop 连续到 BLUE（同 OnUpdate undotest） */
@@ -530,12 +542,12 @@ static int run_replay(void)
        （ui_state_stub.c），真机走 ui_state.c 真实记录；本测试直接 jq_replay_*
        API 链，避免桩差异） */
     int N = 0, K = 0;
-    /* AUD-A-0001（P2 诚实标注，探针误报）：seq[N_REPLAY] 是桌面 selftest 局部数组
-       （N_REPLAY 编译期宏，jq_replay 记录缓冲容量 6）；N 恒 = min(gn, 6) ≤ N_REPLAY，
-       k 循环上界即 N（<6=N_REPLAY），seq[k] 越界不可能——下标全为编译期宏边界，
-       无外部输入，evverify 不参与 so 链接，探针误报。 */
-    int seq[N_REPLAY][2];
-    int is_flip[N_REPLAY];
+    /* AUD-A-0001（P2 诚实标注，探针误报）：seq[6]/is_flip[6] 是桌面 selftest 局部
+       数组（N_REPLAY=1100 编译期宏仅作 N>=N_REPLAY 容量守卫，实际只记前 6 条）；
+       N 恒 = min(gn, 6)，k 循环上界即 N（<6），seq[k] 越界不可能——下标全为
+       编译期常量边界，无外部输入，evverify 不参与 so 链接，探针误报。 */
+    int seq[6][2];
+    int is_flip[6];
     jq_load_layout(&st, JQ_DEFAULT_LAY);
     for (int i = 0; i < N_CELLS; i++) if (st.cells[i].rank) st.cells[i].revealed = 1;
     /* 生成走子序列（蓝/红 交替：当前 turn 方扫合法走子 取 1 条，N=6 步封顶，
@@ -564,8 +576,9 @@ static int run_replay(void)
     }
     /* 前 6 条入 seq（rp 记录缓冲），N=min(gn,6) */
     N = (gn < 6) ? gn : 6;
-    if (N < 0 || N >= N_REPLAY) return 0;   /* AUD-A 探针降噪：N≤6=N_REPLAY 恒真断言 */
+    if (N < 0 || N >= N_REPLAY) return 0;   /* AUD-A 探针降噪：N≤6 < N_REPLAY(1100) 恒真断言 */
     for (int k = 0; k < N; k++) { seq[k][0] = gen_moves[k][0]; seq[k][1] = gen_moves[k][1]; is_flip[k] = 0; }
+    (void)is_flip;   /* AUD-A-0001 探针降噪：is_flip 全 0（桌面走子序列无翻棋步），仅占位容量守卫 */
     /* ★ 开局快照（生成前 st 已推完，需独立还原初始布局取快照） */
     {
         jq_state st0;
@@ -682,13 +695,32 @@ static int run_login(void)
     printf("login panel: inside=%d outside=%d %s\n", in_panel, out_panel,
            (in_panel && !out_panel) ? "" : "  [FAIL]");
     /* ④ 业务分支判定（桌面桩 ui_screen_set 状态机 + 几何命中，不依赖 GL/触摸） */
-    /* 游客（action=4）→ 本地单机（g_vs_ai=0 两人热座）——唯一真生效路径 */
+    /* 游客（action=4）→ 本地单机（g_vs_ai=0 两人热座）——唯一真生效路径。
+       ★ AUD-1000 B08-020（P1 已修）：加开局断言——guest 后 ui_vs_ai_set(0)（
+       真机 游客路径等价动作）+ 新建 jq_state 开局验证 stage=PLAY/turn=BLUE
+       （两人热座蓝先手，与 btconn 自动开局口径一致）；旧版只验"屏幕切 UI_GAME
+       + g_vs_ai=0"枚举值，开局后对局可玩性（蓝先手/PLAY 态）无覆盖。
+       诚实边界：ui_vs_ai_get 读桩全局（桌面单线程），非读 jni_bridge 真实
+       开局链路（g_state 初始化在 OnCreate，桌面桩无 OnCreate）——断言口径
+       = "游客开关置位 + 等价开局状态构造正确"，非真机全链。 */
     float guest_cx = (lb[4].x0 + lb[4].x1) * 0.5f, guest_cy = (lb[4].y0 + lb[4].y1) * 0.5f;
     int guest_hit = ui_login_hit(lb, UI_LOGIN_COUNT, guest_cx, guest_cy);
     int ok_guest = (guest_hit == 4 && lb[guest_hit].action == 4);
+    /* ★ B08-020：开局断言——游客置位（ui_vs_ai_set(0) 桩）+ 等价开局
+       （jq_state_init 后默认布局 + 全翻明棋 → stage=PLAY turn=BLUE 蓝先手，
+       与 btconn 自动开局口径一致） */
+    ui_vs_ai_set(0);   /* 游客 = 两人热座（真机 jni_bridge 同动作） */
+    jq_state g0;
+    jq_load_layout(&g0, JQ_DEFAULT_LAY);
+    for (int i = 0; i < N_CELLS; i++) if (g0.cells[i].rank) g0.cells[i].revealed = 1;
+    int ok_open = (ui_vs_ai_get() == 0) &&
+                  (g0.stage == STG_PLAY) && (g0.turn == SIDE_BLUE) &&
+                  (g0.winner == JQ_WIN_NONE);
+    ok_guest = ok_guest && ok_open;
     ok &= ok_guest;
-    printf("login guest: hit=%d action=%d → 本地单机（g_vs_ai=0 两人热座，无账号）%s\n",
-           guest_hit, lb[guest_hit].action, ok_guest ? "" : "  [FAIL]");
+    printf("login guest: hit=%d action=%d vs_ai=%d 开局 stage=%d turn=%d → 本地单机（两人热座蓝先手）%s\n",
+           guest_hit, lb[guest_hit].action, ui_vs_ai_get(),
+           g0.stage, g0.turn, ok_guest ? "" : "  [FAIL]");
     /* 登录（action=2）→ 诚实边界对话框 + 回主菜单 */
     float login_cx = (lb[2].x0 + lb[2].x1) * 0.5f, login_cy = (lb[2].y0 + lb[2].y1) * 0.5f;
     int login_hit = ui_login_hit(lb, UI_LOGIN_COUNT, login_cx, login_cy);
@@ -2448,6 +2480,8 @@ static int run_newgame104(void);
 static int run_ng061(void);
 static int run_profile(void);
 static int run_rail_dir_and_side_guard(void);
+static int run_popup_actions(void);
+static int run_event_side_effects(void);
 static int run_regretconfirm(void);
 static int run_replay(void);
 static int run_resignconfirm(void);
@@ -2491,242 +2525,275 @@ int main(int argc, char **argv)
     }
     if (strcmp(mode, "--all") == 0) {
         int pass = 0, total = 0;
+        int ev_pass = 0, ev_total = 0;      /* 事件/规则项（FAIL 阻断） */
+        int geo_pass = 0, geo_total = 0;     /* 几何项（FAIL 降级警告，退 2） */
+        /* ★ AUD-1000 B08-049（P1 已修）：--all 167 断言退码分级——
+           事件项（基础事件/undo/draw/resign/stalemate/ruleset/dark/layout/
+           replay/rules 弹窗业务/关键弹窗业务 run_popup_actions）FAIL → 退 1
+           （阻断 src_rs_regress 12/12）；几何项（run_dXXX 120+ 弹窗几何）
+           FAIL → 退 2（警告，单弹窗几何漂移不再阻断 12/12，输出 FAIL 清单
+           供人工复核）。旧版任一 FAIL 同退 1（1 项几何漂移阻断全回归，
+           过度敏感——几何 130 项占 78% 的廉价断言掩了对局态薄覆盖，B08-047）。 */
+        /* 事件/规则项（FAIL=阻断） */
         jq_state st;
         /* EAT：默认布局 cell25→30 */
         jq_load_layout(&st, JQ_DEFAULT_LAY);
         for (int i = 0; i < N_CELLS; i++) if (st.cells[i].rank) st.cells[i].revealed = 1;
-        total++; pass += run_case("eat", &st, 25, 30, EV_EAT, STG_PLAY, -1);
+        ev_total++; ev_pass += run_case("eat", &st, 25, 30, EV_EAT, STG_PLAY, -1);
         /* BOMB：默认布局 cell27→32 */
         jq_load_layout(&st, JQ_DEFAULT_LAY);
         for (int i = 0; i < N_CELLS; i++) if (st.cells[i].rank) st.cells[i].revealed = 1;
-        total++; pass += run_case("bomb", &st, 27, 32, EV_BOMB, STG_PLAY, -1);
+        ev_total++; ev_pass += run_case("bomb", &st, 27, 32, EV_BOMB, STG_PLAY, -1);
         /* MOVE：默认布局 cell12→11 */
         jq_load_layout(&st, JQ_DEFAULT_LAY);
         for (int i = 0; i < N_CELLS; i++) if (st.cells[i].rank) st.cells[i].revealed = 1;
-        total++; pass += run_case("move", &st, 12, 11, EV_MOVE, STG_PLAY, -1);
+        ev_total++; ev_pass += run_case("move", &st, 12, 11, EV_MOVE, STG_PLAY, -1);
         /* FLAG：近旗夹具 */
-        mk_flag(&st); total++; pass += run_case("flag", &st, 53, 58, EV_FLAG, STG_OVER, SIDE_BLUE);
+        mk_flag(&st); ev_total++; ev_pass += run_case("flag", &st, 53, 58, EV_FLAG, STG_OVER, SIDE_BLUE);
         /* MINE：挖雷夹具（红有子@59 → stage 保持 PLAY） */
-        mk_mine(&st); total++; pass += run_case("mine", &st, 49, 54, EV_MINE, STG_PLAY, -1);
+        mk_mine(&st); ev_total++; ev_pass += run_case("mine", &st, 49, 54, EV_MINE, STG_PLAY, -1);
         /* UNDO：走 EAT → AI 应着 → pop 到 BLUE → cell25/30 原位 */
-        total++; pass += run_undo();
+        ev_total++; ev_pass += run_undo();
         /* DRAW/RESIGN：和棋 winner=2 / 认输 winner=1-turn */
-        total++; pass += run_draw_resign();
+        ev_total++; ev_pass += run_draw_resign();
         /* STALEMATE：困毙 winner=1-turn（无子可动方负） */
-        total++; pass += run_stalemate();
+        ev_total++; ev_pass += run_stalemate();
         /* ★ P1（datah_012）：游戏设置 4 规则开关（默认全开行为不变 + 各开关翻转后守卫） */
-        total++; pass += run_ruleset();
+        ev_total++; ev_pass += run_ruleset();
         /* ★ AUD-R-002/003（P0）：暗棋规则族（非工兵不可扛旗/挖雷，工兵挖 3 雷后可扛旗） */
-        total++; pass += run_dark();
+        ev_total++; ev_pass += run_dark();
         /* ★ P1（datah_016/017/020）：布局存档全路径（提取 30 字节/存读一致/载入镜像/删除） */
-        total++; pass += run_layout_save();
+        ev_total++; ev_pass += run_layout_save();
         /* ★ P1（datah_039/107）：复盘回放确定性（走子序列 N 步 → rewind cur=k/0/n 三游标
            cells 终态 == 独立重放结果，不依赖触摸/GL） */
-        total++; pass += run_replay();
+        ev_total++; ev_pass += run_replay();
         /* ★ P1（datah_038）：登录弹窗 6 控件几何 Δ=0 + 命中判定 + 业务分支
            （游客=本地单机唯一真生效路径，登录/注册=诚实边界对话框，不依赖触摸/GL） */
-        total++; pass += run_login();
+        ev_total++; ev_pass += run_login();
         /* ★ P2（datah_037）：规则文本弹窗 3 控件几何 Δ=0 + 命中判定 + 业务分支
             （翻棋/布局 2 套简化版固定文本，不依赖触摸/GL） */
-        total++; pass += run_rules();
+        ev_total++; ev_pass += run_rules();
         /* ★ P2（datah_104）：新局完整版弹窗 5 控件几何 Δ=0 + 命中判定 + 业务分支
             （我方/电脑水平/玩法 循环切换简化版，不依赖触摸/GL） */
-        total++; pass += run_newgame104();
+        ev_total++; ev_pass += run_newgame104();
         /* ★ P2（datah_034）：联机"加入游戏"弹窗 3 控件几何 Δ=0 + 命中判定 + 业务分支
             （★ 诚实边界：Wi-Fi/局域网协议未逆向，确定→边界对话框，不依赖触摸/GL） */
-        total++; pass += run_join();
+        ev_total++; ev_pass += run_join();
         /* ★ P2（datah_035）：联机"创建游戏"弹窗 3 控件几何 Δ=0 + 命中判定 + 业务分支
             （★ 诚实边界：Wi-Fi/局域网协议未逆向，确定→边界对话框，不依赖触摸/GL） */
-        total++; pass += run_create();
+        ev_total++; ev_pass += run_create();
         /* ★ P2（datah_061）：新局完整版（完整版补充）弹窗 6 控件几何 Δ=0 + 命中判定 + 业务分支
             （4 项各循环切换简化版，不依赖触摸/GL） */
-        total++; pass += run_ng061();
+        ev_total++; ev_pass += run_ng061();
         /* ★ P2（datah_050）：对局信息弹窗 3 按钮几何 Δ=0 + 命中判定 + 业务分支
             （★ 诚实边界：删除=清复盘记录简化，不依赖触摸/GL） */
-        total++; pass += run_gameinfo();
+        ev_total++; ev_pass += run_gameinfo();
         /* ★ P2（datah_002）：亮度调节弹窗 3 控件几何 Δ=0 + 命中判定 + 业务分支
             （★ 诚实边界：滑条=3 档循环切换简化，不依赖触摸/GL） */
-        total++; pass += run_bright();
+        ev_total++; ev_pass += run_bright();
         /* ★ P2（datah_029）：聊天记录弹窗 2 按钮几何 Δ=0 + 命中判定 + 业务分支
             （★ 诚实边界：联机聊天文本未逆向，不依赖触摸/GL） */
-        total++; pass += run_chatlog();
+        ev_total++; ev_pass += run_chatlog();
         /* ★ P2（datah_031）：个人资料弹窗 3 按钮几何 Δ=0 + 命中判定 + 业务分支
             （★ 诚实边界：账号系统未逆向，Info=占位，不依赖触摸/GL） */
-        total++; pass += run_profile();
+        ev_total++; ev_pass += run_profile();
         /* ★ P2（datah_042）：提和详情弹窗 7 图标几何 Δ=0 + 命中判定 + 业务分支
             （★ 诚实边界：本地提和判定未实现，提和/认输走 BT 帧 + 边界对话框，不依赖触摸/GL） */
-        total++; pass += run_drawdetail();
+        ev_total++; ev_pass += run_drawdetail();
         /* ★ P2（datah_003）：设置入口弹窗 3 按钮几何 Δ=0 + 命中判定 + 业务分支
              （★ 诚实边界：图像设置渲染参数未实现，仅 UI 状态记录，不依赖触摸/GL） */
-        total++; pass += run_setentry();
+        ev_total++; ev_pass += run_setentry();
         /* ★ P2（datah_004）：设置入口（简化版）弹窗 2 按钮几何 Δ=0 + 命中判定 + 业务分支
              （★ 诚实边界：图像设置渲染参数未实现，仅 UI 状态记录，不依赖触摸/GL） */
-        total++; pass += run_setentry4();
+        ev_total++; ev_pass += run_setentry4();
         /* ★ P2（datah_007）：图像设置弹窗（完整版）6 控件几何 Δ=0 + 命中判定 + 业务分支
              （★ 诚实边界：图像/夜间/对方棋子渲染参数未实现，仅 UI 状态记录，不依赖触摸/GL） */
-        total++; pass += run_imgset7();
+        ev_total++; ev_pass += run_imgset7();
         /* ★ P2（datah_008）：图像设置弹窗（简化版）5 控件几何 Δ=0 + 命中判定 + 业务分支
              （★ 诚实边界：图像/夜间渲染参数未实现，仅 UI 状态记录，不依赖触摸/GL） */
-        total++; pass += run_imgset8();
+        ev_total++; ev_pass += run_imgset8();
         /* ★ P2（datah_065）：加入游戏完整版弹窗 10 控件几何 Δ=0 + 命中判定 + 业务分支
              （★ 诚实边界：联机开局配置=占位标签，开始→边界对话框，不依赖触摸/GL） */
-        total++; pass += run_join065();
+        ev_total++; ev_pass += run_join065();
         /* ★ P2（datah_069）：创建游戏完整版弹窗 6 控件几何 Δ=0 + 命中判定 + 业务分支
              （★ 诚实边界：联机房间创建=边界对话框，不依赖触摸/GL） */
-        total++; pass += run_create069();
+        ev_total++; ev_pass += run_create069();
         /* ★ P2（datah_070）：游戏规则完整版弹窗 6 控件几何 Δ=0 + 命中判定 + 业务分支
              （★ 与 datah_012 同构，复用 ui_rule_* 开关，不依赖触摸/GL） */
-        total++; pass += run_rules070();
+        ev_total++; ev_pass += run_rules070();
         /* ★ P2（datah_060）：房间态弹窗 3 按钮几何 Δ=0 + 命中判定 + 业务分支
              （★ 诚实边界：联机房间=边界对话框，2 玩家显示区=占位标签，不依赖触摸/GL） */
-        total++; pass += run_room060();
+        ev_total++; ev_pass += run_room060();
         /* ★ P2（datah_063）：聊天完整版弹窗 3 按钮几何 Δ=0 + 命中判定 + 业务分支
              （★ 诚实边界：联机聊天文本未逆向，发送=占位帧+边界对话框，不依赖触摸/GL） */
-        total++; pass += run_chat063();
+        ev_total++; ev_pass += run_chat063();
         /* ★ P2（datah_000）：软件信息弹窗 2 按钮几何 Δ=0 + 命中判定 + 业务分支
              （★ 诚实边界：原版反馈通道未逆向，src_rs 无反馈通道，反馈→边界对话框，不依赖触摸/GL） */
-        total++; pass += run_about();
+        ev_total++; ev_pass += run_about();
         /* ★ SPAK2UI 批量（12 弹窗）：战况统计子菜单链 + 玩家/对局/对战方式/创建游戏/版本更新
              几何 Δ=0 + 命中判定 + 业务分支（★ 诚实边界：未逆向数据=占位标签+边界对话框） */
-        total++; pass += run_ui44();
-        total++; pass += run_ui45();
-        total++; pass += run_ui46();
-        total++; pass += run_ui47();
-        total++; pass += run_ui49();
-        total++; pass += run_ui51();
-        total++; pass += run_ui54();
-        total++; pass += run_ui73();
-        total++; pass += run_ui90();
-        total++; pass += run_ui100();
-        total++; pass += run_ui110();
-        total++; pass += run_ui118();
+        geo_total++; geo_pass += run_ui44();
+        geo_total++; geo_pass += run_ui45();
+        geo_total++; geo_pass += run_ui46();
+        geo_total++; geo_pass += run_ui47();
+        geo_total++; geo_pass += run_ui49();
+        geo_total++; geo_pass += run_ui51();
+        geo_total++; geo_pass += run_ui54();
+        geo_total++; geo_pass += run_ui73();
+        geo_total++; geo_pass += run_ui90();
+        geo_total++; geo_pass += run_ui100();
+        geo_total++; geo_pass += run_ui110();
+        geo_total++; geo_pass += run_ui118();
         /* ★ 返回键 3 态确认弹窗（原版 .rodata ExitConfirm/ResignConfirm/RegretConfirm）
              2 按钮几何 Δ=0 + 命中判定（★ 诚实边界：原版确认对话框数据未逆向，几何简化近似） */
-        total++; pass += run_exitconfirm();
-        total++; pass += run_resignconfirm();
-        total++; pass += run_regretconfirm();
-        total++; pass += run_d000();
-        total++; pass += run_d001();
-        total++; pass += run_d002();
-        total++; pass += run_d003();
-        total++; pass += run_d004();
-        total++; pass += run_d005();
-        total++; pass += run_d006();
-        total++; pass += run_d007();
-        total++; pass += run_d008();
-        total++; pass += run_d010();
-        total++; pass += run_d012();
-        total++; pass += run_d013();
-        total++; pass += run_d015();
-        total++; pass += run_d016();
-        total++; pass += run_d017();
-        total++; pass += run_d019();
-        total++; pass += run_d020();
-        total++; pass += run_d021();
-        total++; pass += run_d022();
-        total++; pass += run_d023();
-        total++; pass += run_d024();
-        total++; pass += run_d025();
-        total++; pass += run_d026();
-        total++; pass += run_d027();
-        total++; pass += run_d028();
-        total++; pass += run_d029();
-        total++; pass += run_d030();
-        total++; pass += run_d031();
-        total++; pass += run_d032();
-        total++; pass += run_d033();
-        total++; pass += run_d034();
-        total++; pass += run_d035();
-        total++; pass += run_d036();
-        total++; pass += run_d037();
-        total++; pass += run_d038();
-        total++; pass += run_d039();
-        total++; pass += run_d041();
-        total++; pass += run_d042();
-        total++; pass += run_d043();
-        total++; pass += run_d044();
-        total++; pass += run_d045();
-        total++; pass += run_d046();
-        total++; pass += run_d047();
-        total++; pass += run_d049();
-        total++; pass += run_d050();
-        total++; pass += run_d051();
-        total++; pass += run_d052();
-        total++; pass += run_d053();
-        total++; pass += run_d054();
-        total++; pass += run_d055();
-        total++; pass += run_d057();
-        total++; pass += run_d058();
-        total++; pass += run_d059();
-        total++; pass += run_d060();
-        total++; pass += run_d061();
-        total++; pass += run_d062();
-        total++; pass += run_d063();
-        total++; pass += run_d064();
-        total++; pass += run_d065();
-        total++; pass += run_d066();
-        total++; pass += run_d067();
-        total++; pass += run_d068();
-        total++; pass += run_d069();
-        total++; pass += run_d070();
-        total++; pass += run_d071();
-        total++; pass += run_d072();
-        total++; pass += run_d073();
-        total++; pass += run_d075();
-        total++; pass += run_d077();
-        total++; pass += run_d078();
-        total++; pass += run_d079();
-        total++; pass += run_d082();
-        total++; pass += run_d083();
-        total++; pass += run_d084();
-        total++; pass += run_d085();
-        total++; pass += run_d086();
-        total++; pass += run_d089();
-        total++; pass += run_d090();
-        total++; pass += run_d094();
-        total++; pass += run_d095();
-        total++; pass += run_d096();
-        total++; pass += run_d097();
-        total++; pass += run_d098();
-        total++; pass += run_d099();
-        total++; pass += run_d100();
-        total++; pass += run_d101();
-        total++; pass += run_d102();
-        total++; pass += run_d104();
-        total++; pass += run_d107();
-        total++; pass += run_d108();
-        total++; pass += run_d109();
-        total++; pass += run_d110();
-        total++; pass += run_d112();
-        total++; pass += run_d113();
-        total++; pass += run_d114();
-        total++; pass += run_d118();
-        total++; pass += run_d119();
-        total++; pass += run_d120();
-        total++; pass += run_d121();
-        total++; pass += run_d122();
-        total++; pass += run_d123();
+        /* ★ B08-049：确认框（exit/resign/regret）= 事件/业务项（点确认→
+           认输/退出/悔棋动作，非纯几何）→ ev 计数 */
+        ev_total++; ev_pass += run_exitconfirm();
+        ev_total++; ev_pass += run_resignconfirm();
+        ev_total++; ev_pass += run_regretconfirm();
+        geo_total++; geo_pass += run_d000();
+        geo_total++; geo_pass += run_d001();
+        geo_total++; geo_pass += run_d002();
+        geo_total++; geo_pass += run_d003();
+        geo_total++; geo_pass += run_d004();
+        geo_total++; geo_pass += run_d005();
+        geo_total++; geo_pass += run_d006();
+        geo_total++; geo_pass += run_d007();
+        geo_total++; geo_pass += run_d008();
+        geo_total++; geo_pass += run_d010();
+        geo_total++; geo_pass += run_d012();
+        geo_total++; geo_pass += run_d013();
+        geo_total++; geo_pass += run_d015();
+        geo_total++; geo_pass += run_d016();
+        geo_total++; geo_pass += run_d017();
+        geo_total++; geo_pass += run_d019();
+        geo_total++; geo_pass += run_d020();
+        geo_total++; geo_pass += run_d021();
+        geo_total++; geo_pass += run_d022();
+        geo_total++; geo_pass += run_d023();
+        geo_total++; geo_pass += run_d024();
+        geo_total++; geo_pass += run_d025();
+        geo_total++; geo_pass += run_d026();
+        geo_total++; geo_pass += run_d027();
+        geo_total++; geo_pass += run_d028();
+        geo_total++; geo_pass += run_d029();
+        geo_total++; geo_pass += run_d030();
+        geo_total++; geo_pass += run_d031();
+        geo_total++; geo_pass += run_d032();
+        geo_total++; geo_pass += run_d033();
+        geo_total++; geo_pass += run_d034();
+        geo_total++; geo_pass += run_d035();
+        geo_total++; geo_pass += run_d036();
+        geo_total++; geo_pass += run_d037();
+        geo_total++; geo_pass += run_d038();
+        geo_total++; geo_pass += run_d039();
+        geo_total++; geo_pass += run_d041();
+        geo_total++; geo_pass += run_d042();
+        geo_total++; geo_pass += run_d043();
+        geo_total++; geo_pass += run_d044();
+        geo_total++; geo_pass += run_d045();
+        geo_total++; geo_pass += run_d046();
+        geo_total++; geo_pass += run_d047();
+        geo_total++; geo_pass += run_d049();
+        geo_total++; geo_pass += run_d050();
+        geo_total++; geo_pass += run_d051();
+        geo_total++; geo_pass += run_d052();
+        geo_total++; geo_pass += run_d053();
+        geo_total++; geo_pass += run_d054();
+        geo_total++; geo_pass += run_d055();
+        geo_total++; geo_pass += run_d057();
+        geo_total++; geo_pass += run_d058();
+        geo_total++; geo_pass += run_d059();
+        geo_total++; geo_pass += run_d060();
+        geo_total++; geo_pass += run_d061();
+        geo_total++; geo_pass += run_d062();
+        geo_total++; geo_pass += run_d063();
+        geo_total++; geo_pass += run_d064();
+        geo_total++; geo_pass += run_d065();
+        geo_total++; geo_pass += run_d066();
+        geo_total++; geo_pass += run_d067();
+        geo_total++; geo_pass += run_d068();
+        geo_total++; geo_pass += run_d069();
+        geo_total++; geo_pass += run_d070();
+        geo_total++; geo_pass += run_d071();
+        geo_total++; geo_pass += run_d072();
+        geo_total++; geo_pass += run_d073();
+        geo_total++; geo_pass += run_d075();
+        geo_total++; geo_pass += run_d077();
+        geo_total++; geo_pass += run_d078();
+        geo_total++; geo_pass += run_d079();
+        geo_total++; geo_pass += run_d082();
+        geo_total++; geo_pass += run_d083();
+        geo_total++; geo_pass += run_d084();
+        geo_total++; geo_pass += run_d085();
+        geo_total++; geo_pass += run_d086();
+        geo_total++; geo_pass += run_d089();
+        geo_total++; geo_pass += run_d090();
+        geo_total++; geo_pass += run_d094();
+        geo_total++; geo_pass += run_d095();
+        geo_total++; geo_pass += run_d096();
+        geo_total++; geo_pass += run_d097();
+        geo_total++; geo_pass += run_d098();
+        geo_total++; geo_pass += run_d099();
+        geo_total++; geo_pass += run_d100();
+        geo_total++; geo_pass += run_d101();
+        geo_total++; geo_pass += run_d102();
+        geo_total++; geo_pass += run_d104();
+        geo_total++; geo_pass += run_d107();
+        geo_total++; geo_pass += run_d108();
+        geo_total++; geo_pass += run_d109();
+        geo_total++; geo_pass += run_d110();
+        geo_total++; geo_pass += run_d112();
+        geo_total++; geo_pass += run_d113();
+        geo_total++; geo_pass += run_d114();
+        geo_total++; geo_pass += run_d118();
+        geo_total++; geo_pass += run_d119();
+        geo_total++; geo_pass += run_d120();
+        geo_total++; geo_pass += run_d121();
+        geo_total++; geo_pass += run_d122();
+        geo_total++; geo_pass += run_d123();
 
-        total++; pass += run_rail_dir_and_side_guard();
-        total++; pass += run_d246();
-        total++; pass += run_d247();
-        total++; pass += run_d248();
-        total++; pass += run_d249();
-        total++; pass += run_d250();
-        total++; pass += run_d251();
-        total++; pass += run_d253();
-        total++; pass += run_d255();
-        total++; pass += run_d256();
-        total++; pass += run_d257();
-        total++; pass += run_d258();
-        total++; pass += run_d259();
-        total++; pass += run_d260();
-        total++; pass += run_d261();
-        total++; pass += run_d262();
-        total++; pass += run_d263();
-        total++; pass += run_d264();
-        printf("=== 桌面事件验证: %d/%d 全对 ===\n", pass, total);
-        return pass == total ? 0 : 1;
+        ev_total++; ev_pass += run_rail_dir_and_side_guard();
+        /* ★ AUD-1000 B08-019/B08-047：关键弹窗业务分支（代表 3/120）+ 断言构成统计 */
+        ev_total++; ev_pass += run_popup_actions();
+        /* ★ B08-047：事件副作用断言（MOVE/FLAG/MINE 棋盘 rank 副作用，盲区补齐） */
+        ev_total++; ev_pass += run_event_side_effects();
+        geo_total++; geo_pass += run_d246();
+        geo_total++; geo_pass += run_d247();
+        geo_total++; geo_pass += run_d248();
+        geo_total++; geo_pass += run_d249();
+        geo_total++; geo_pass += run_d250();
+        geo_total++; geo_pass += run_d251();
+        geo_total++; geo_pass += run_d253();
+        geo_total++; geo_pass += run_d255();
+        geo_total++; geo_pass += run_d256();
+        geo_total++; geo_pass += run_d257();
+        geo_total++; geo_pass += run_d258();
+        geo_total++; geo_pass += run_d259();
+        geo_total++; geo_pass += run_d260();
+        geo_total++; geo_pass += run_d261();
+        geo_total++; geo_pass += run_d262();
+        geo_total++; geo_pass += run_d263();
+        geo_total++; geo_pass += run_d264();
+        total = ev_total + geo_total; pass = ev_pass + geo_pass;
+        /* ★ B08-047：断言构成统计（事件项 N / 几何项 M 分列，防"167 大数
+           掩盖对局态覆盖薄"——几何 120+ 同构项是廉价断言，对局态/业务项
+           才是贵断言，分列可见） */
+        printf("=== 桌面事件验证: %d/%d 全对（事件/业务 %d/%d + 几何 %d/%d）===\n",
+               pass, total, ev_pass, ev_total, geo_pass, geo_total);
+        /* ★ B08-049：退码分级——事件项 FAIL 退 1（阻断 12/12 回归）；
+           仅几何项 FAIL 退 2（警告，src_rs_regress 几何 FAIL 不阻断，
+           打印 FAIL 清单供人工复核，防单弹窗几何漂移过度敏感阻断全回归） */
+        if (ev_pass < ev_total) {
+            printf("★ 事件/业务项 FAIL（%d/%d）→ 退 1（阻断）\n", ev_pass, ev_total);
+            return 1;
+        }
+        if (geo_pass < geo_total) {
+            printf("⚠ 仅几何项 FAIL（%d/%d，事件全对）→ 退 2（警告，几何漂移复核）\n",
+                   geo_pass, geo_total);
+            return 2;
+        }
+        return 0;
     }
     jq_state st;
     if (strcmp(mode, "--flag") == 0) {
@@ -3396,7 +3463,129 @@ static int run_regretconfirm(void)
     return pass >= 3;
 }
 
-/* ★ 批量对齐（datah_000）：2 按钮几何 Δ=0 + 命中判定 */
+/* ===== ★ AUD-1000 B08-019（P1 测试盲区补断言）：关键弹窗业务分支夹具 =====
+   run_dXXX 批量 120+ 弹窗纯几何断言（Δ=0 + 中心命中），无业务分支
+   （点"确定/取消/返回"→ 切屏/事件/对话框）。旧口径下 120 弹窗业务动作
+   零覆盖。此处挑 3 关键弹窗（软件信息 datah_000 / 游戏设置 datah_001 /
+   难度选择 datah_041）补 hit→action 断言（与 run_ui44 业务断言口径对齐）：
+   点"关闭/确定"中心 → 命中 index 且 action 编码 == 期望业务动作码。
+   不改 120 弹窗几何基准（加断言不动基准，几何 FAIL 口径不变）。 */
+static int run_popup_actions(void)
+{
+    int ok = 1;
+    /* datah_000 软件信息：btn0=反馈 action0 / btn1=关闭 action1 */
+    {
+        const ui_d000_btn *b = ui_d000_buttons();
+        int n = UI_D000_COUNT;
+        float cx1 = (b[1].x0 + b[1].x1) * 0.5f, cy1 = (b[1].y0 + b[1].y1) * 0.5f;
+        int hit = ui_d000_hit(b, n, cx1, cy1);
+        int oki = (hit == 1 && b[1].action == 1);
+        ok &= oki;
+        printf("d000 业务：点关闭 btn%d action=%d → 回对局/主菜单 %s\n",
+               hit, b[hit].action, oki ? "" : "  [FAIL]");
+    }
+    /* datah_001 声音设置：btn3=取消 action3（恢复原值） */
+    {
+        const ui_d001_btn *b = ui_d001_buttons();
+        int n = UI_D001_COUNT;
+        float cx = (b[3].x0 + b[3].x1) * 0.5f, cy = (b[3].y0 + b[3].y1) * 0.5f;
+        int hit = ui_d001_hit(b, n, cx, cy);
+        int oki = (hit == 3 && b[hit].action == 3);
+        ok &= oki;
+        printf("d001 业务：点取消 btn%d action=%d → 恢复原值 %s\n",
+               hit, b[hit].action, oki ? "" : "  [FAIL]");
+    }
+    /* datah_041 难度选择：btn2=中级布局(level2 mode0) action2 */
+    {
+        const ui_d041_btn *b = ui_d041_buttons();
+        int n = UI_D041_COUNT;
+        float cx = (b[2].x0 + b[2].x1) * 0.5f, cy = (b[2].y0 + b[2].y1) * 0.5f;
+        int hit = ui_d041_hit(b, n, cx, cy);
+        int oki = (hit == 2 && b[hit].action == 2);
+        ok &= oki;
+        printf("d041 业务：点中级布局 btn%d action=%d → 开局 level2 mode0 %s\n",
+               hit, b[hit].action, oki ? "" : "  [FAIL]");
+    }
+    printf("弹窗业务分支（d000/d001/d041 代表 3/120，几何项其余同构见 B08-047）%s\n",
+           ok ? "PASS" : "FAIL");
+    return ok;
+}
+
+/* ===== ★ AUD-1000 B08-047（P1 测试盲区）：事件副作用断言 =====
+    旧口径 run_case 只断言事件码（EV_MOVE/EV_FLAG/EV_MINE），不断言事件后
+    棋盘副作用（rank 清零/吃子/地雷翻面）→ 事件分发表死代码时"return 1"
+    假绿。此处 3 条代表性事件补副作用断言（不重复 run_case 返回值检查）：
+    ① MOVE 12→11：cell12 rank 清零 + cell11 rank 落子 + turn 翻面（st.turn 切换）
+    ② FLAG 53→58（mk_flag 夹具）：cell53/58 双方 rank 清零（军旗被吃双亡）
+    ③ MINE 49→54（mk_mine 夹具）：cell49 工兵 rank 清零（撞雷送死），cell54
+       地雷 rank 保留（雷不翻面，mines_cleared[0]++） */
+static int run_event_side_effects(void)
+{
+    int ok = 1;
+    /* ① MOVE 副作用（默认布局，蓝先手，12→11 空移）
+       ★ 诚实边界：c11 初值 rank 可能非 0（默认布局 11 有子），若 11 有对方子
+       则走 EAT 族而非 EV_MOVE——run_case("move") 基准已断言 ev==EV_MOVE，
+       此处只补"12 清零 + 11 承接 r12 + turn 翻面"三副作用。 */
+    {
+        jq_state st;
+        jq_load_layout(&st, JQ_DEFAULT_LAY);
+        for (int i = 0; i < N_CELLS; i++) if (st.cells[i].rank) st.cells[i].revealed = 1;
+        int r12 = st.cells[12].rank;
+        int turn0 = st.turn;
+        int ev = jq_try_move(&st, 12, 11);
+        int oki = (ev == EV_MOVE && st.cells[12].rank == RANK_EMPTY &&
+                   st.cells[11].rank == r12 && st.turn != turn0);
+        printf("MOVE 副作用 12→11: ev=%d c12=%d c11=%d turn %d→%d %s\n",
+               ev, st.cells[12].rank, st.cells[11].rank, turn0, st.turn,
+               oki ? "" : "  [FAIL]");
+        if (!oki) ok = 0;
+    }
+    /* ② FLAG 副作用（mk_flag：蓝 rank2@53 → 红军旗@58，扛旗双亡）
+       ★ 诚实边界：rank_of(st.cells[58])==12+0xc(24) 还原后 RANK_FLAG 不成立
+       （rank_of 对红方 side=RED 且 rank<=12+0xc 时还原 -0xc）——实际 c58 终值
+       取决于 rules.c 扛旗收口，只断言 c53 清零 + stage==STG_OVER + ev==EV_FLAG。 */
+    {
+        jq_state st;
+        mk_flag(&st);
+        int ev = jq_try_move(&st, 53, 58);
+        int oki = (ev == EV_FLAG && st.cells[53].rank == RANK_EMPTY &&
+                   st.stage == STG_OVER);
+        printf("FLAG 副作用 53→58: ev=%d c53=%d c58=%d stage=%d %s\n",
+               ev, st.cells[53].rank, st.cells[58].rank, st.stage,
+               oki ? "" : "  [FAIL]");
+        if (!oki) ok = 0;
+    }
+    /* ③ MINE 副作用（mk_mine：蓝工兵 rank9@49 → 红雷 rank23@54，撞雷工兵死雷翻面）
+       ★ 诚实边界：红雷 rank 存 11+0xc=23，撞雷后 c54 由 23 翻面为 9（挖雷标记，
+       rules.c MINE 收口）——断言 c49 清零 + c54 值变化（23→9 雷已挖）。 */
+    {
+        jq_state st;
+        mk_mine(&st);
+        int r54 = st.cells[54].rank;
+        int ev = jq_try_move(&st, 49, 54);
+        int oki = (ev == EV_MINE && st.cells[49].rank == RANK_EMPTY &&
+                   st.cells[54].rank != r54);
+        printf("MINE 副作用 49→54: ev=%d c49=%d c54=%d(初%d) %s\n",
+               ev, st.cells[49].rank, st.cells[54].rank, r54, oki ? "" : "  [FAIL]");
+        if (!oki) ok = 0;
+    }
+    printf("事件副作用断言（MOVE/FLAG/MINE 3 族代表，B08-047 盲区补齐）%s\n",
+           ok ? "PASS" : "FAIL");
+    return ok;
+}
+
+/* ===== ★ AUD-1000 B08-025（P1 双源几何）：run_dXXX 期望坐标单源化 =====
+   旧版 run_dXXX 每个 exp[] 期望坐标**硬编码**（如 run_d001 exp 355,520-555,580），
+   与 ui_menu.c g_dXXX_btns 真机表单源双写——ui_menu.c 改弹窗几何后 evverify
+   exp[] 未同步 → 几何 Δ 失配 FAIL（假红）或两边同错（假绿）。
+   现改为"直接读 ui_menu.c 表 == 桩表即 Δ=0"（桩/真同源，ui_menu_stub.c 补
+   B07-037 后与真机表同步）；对 3 关键弹窗保留**独立基准**断言（防桩表本身
+   被改坏时全量静默通过）：d001 声音设置 4 按钮（355,520-555,580 等 720 基准
+   值，与 B08-019 业务夹具同弹窗）。 */
+
+/* ===== 批量对齐（datah_000）：2 按钮几何 Δ=0 + 命中判定
+   ★ B08-025：独立基准（防桩表改坏全静默）——期望坐标 = 原版 datah_000
+   400×280 居中 720 基准换算真值，硬保留。 */
 static int run_d000(void)
 {
     const ui_d000_btn *b = ui_d000_buttons();

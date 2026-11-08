@@ -59,7 +59,12 @@ Lbd878: r3=MEM(0x15b0c8);       /* ldr r3,[pc] → .got[0x15b488] = .bss 0x15be8
 Lbd87a: {uint32_t a_=r2,b_=0; r6=(a_+b_); Z=(r6==0); C=(r6<a_); N=((r6)>>31)&1; V=(((a_^r6)&(b_^r6))>>31)&1;}
 Lbd87c: r2=0x3c0;              /* ldr r2,[pc] = 表偏移索引 0x3c0/4=240 槽 */
 Lbd87e: r3=(0x15b0c8+r3);      /* add r3,pc → .got 基址 */
-Lbd880: r4=MEM(sp);            /* sp 偏移 (栈金丝雀区) */
+Lbd880: r4=MEM(sp);            /* sp 偏移 (栈金丝雀区)
+    ★ AUD-1000 B05-085（P1 R-138 诚实标注）：旧注释"sp=sp+r4 栈金丝雀
+      对齐"误读——C 编译栈无 ARM 金丝雀布局（GCC -fstack-protector
+      另处理），本行把 r4=MEM(sp)（.got 240 槽 scudo 指针值）当 sp
+      偏移加，属翻译体机械直译的伪金丝雀逻辑。删除属行为改动，
+      R-138 约定 32 位翻译体保留忠实直译（此段 4 路径回归实证不崩）。 */
 Lbd882: r5=MEM(r3+0x3c0);      /* ldr r5,[r3,#0x3c0] = .got 表 240 槽 (.bss 单例指针) */
 Lbd884: r2=0x400c;             /* ldr r2,[pc] = 第 2 偏移 (栈金丝雀 0x400c) */
 Lbd886: sp=sp+r4;              /* add sp,r4 (栈金丝雀对齐) */
@@ -107,7 +112,12 @@ Lbd8de: r2=MEM(r3);            /* ldr r2,[r3,#0] */
 Lbd8e0: r3=MEM(r5);            /* ldr r3,[r5,#0] = 原 scudo 块 [0] */
 Lbd8e2: {uint32_t a_=r2,b_=r3; Z=(r2==b_); C=(r2<b_); N=((a_^b_)>>31)&1; V=(((a_^r2)&(b_^r2))>>31)&1;}
 if(Z==0){ /* 栈金丝雀校验失败 → __stack_chk_fail */
-Lbd8f2: r0=0; goto RET;       /* blx __stack_chk_fail (存根, .bss 未构造忠实兜底) */
+Lbd8f2: r0=0; goto RET;       /* blx __stack_chk_fail (存根, .bss 未构造忠实兜底)
+     ★ AUD-1000 B05-088（P1 R-138 诚实标注）：__stack_chk_fail 是 noreturn
+       （abort），存根 r0=0 继续 RET **不忠实**（原版此处进程终止）。
+       现状走"金丝雀校验失败仍继续"忠实差异路径（.bss 未构造时 r2/r3
+       全 0 恒等 → 校验永不失败，本行不可达）；存根改 abort() 属行为
+       改动（可达即崩），R-138 只标注差异。 */
 }
 Lbd8ea: r4=MEM(sp+0); r5=MEM(sp+4); /* pop {r2, r3} + 恢复 */
 Lbd8ec: r8=r4; r9=r5;

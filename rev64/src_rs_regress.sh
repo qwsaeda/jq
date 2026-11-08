@@ -39,11 +39,20 @@ run "[5/12] src_rs_check.py 红线审计" python3 $TOOLS/src_rs_check.py
 run "[6/12] 布局 12 预设校验 (make laytest)" bash -c "cd $RS && make laytest 2>&1 | grep '12/12'"
 run "[7/12] 触摸命中 + 两步态机 (make touchtest)" bash -c "cd $RS && make touchtest 2>&1 | grep '全部通过'"
 run "[8/12] 完整对局自测 (make gametest，60 局全路径)" bash -c "cd $RS && make gametest 2>&1 | grep '全部通过'"
+# 8.5 基准新鲜度门禁（★ AUD-1000 B08-037/B08-039：test_expected.txt 过期即 FAIL，
+#   rules.c 改动后强制 jq_consistency 实际输出 == 文件基准，防内置 BENCH_EXPECT
+#   双源漂移假绿——旧版无门禁"基准过期无人拦"）
+run "[8.5/12] 基准新鲜度 (make benchcheck)" bash -c "cd $RS && make benchcheck 2>&1 | grep '✓ benchcheck'"
 run "[9/12] so_link_check.py 链接审计" python3 $TOOLS/so_link_check.py $RS/dist/libjunqi_rs.so
 # 10. 走子预验证工具（三件套之一，防新工具回归）
 run "[10/12] 走子预验证 (make walkverify)" bash -c "cd $RS && make walkverify SEQ='25,30 27,32 28,33' 2>&1 | grep '3/3 步合法'"
 run "[11/12] 真实长路径走子 (make walkverify --longrun 5)" bash -c "cd $RS && make walkverify LONG='5' 2>&1 | grep '5/5 回合 turn 交替 持续'"
-# 12. 桌面事件验证（EAT/BOMB/MOVE/FLAG/MINE/UNDO/DRAW/RESIGN/STALEMATE 9 断言，防事件夹具回归）
+# 12. 桌面事件验证（EAT/BOMB/MOVE/FLAG/MINE/UNDO/DRAW/RESIGN/STALEMATE 9 断言 + 120 弹窗几何 + 规则回归，防事件夹具回归）
+# ★ AUD-1000 B07-001/B08-049（P1 判据口径同步）：evverify 退码分级——事件项
+#   FAIL 退 1（阻断 12/12）；仅几何项 FAIL 退 2（警告，单弹窗几何漂移不再
+#   过度敏感阻断全回归）。判据仍 grep "全对"（169/169 全对），退 2 时
+#   "全对" 不出现（几何 FAIL 行）→ [12/12] FAIL 但日志可区分"事件阻断"
+#   与"几何警告"（stdout 含"退 2（警告"字样）。
 run "[12/12] 桌面事件验证 (make evverify)" bash -c "cd $RS && make evverify MODE=--all 2>&1 | grep '全对'"
 
 echo

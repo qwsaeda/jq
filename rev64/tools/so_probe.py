@@ -43,6 +43,36 @@ def rd32(va):
         f.seek(va)
         return struct.unpack('<I', f.read(4))[0]
 
+# ★ AUD-1000 B07-007（P1 段归属校验）：rd32 原假设"VA==文件偏移"（原版
+# /tmp/orig/libjunqi.so 成立），JQ_SO 切到 jqt 翻译体 so（动态段对齐后
+# VA≠偏移）时 vtable/slot/reloc 全静默读错 4 字节无告警。
+# 现按 readelf 段表校验（cmd_seg 同一公式）：落 NOBITS(.bss) 段（无文件内容，
+# 静态读=0 是假数据）或落段表外 → 告警（不静默）。原版固定基址 so 全落有
+# 文件段 → 行为不变。
+_SEG_WARNED = False
+def rd32_checked(va):
+    global _SEG_WARNED
+    v = rd32(va)
+    if not _SEG_WARNED:
+        try:
+            r = subprocess.run([READELF, '-S', SO], capture_output=True, text=True, timeout=30)
+            import re as _re
+            hit = False; in_bss = False
+            for line in r.stdout.split('\n'):
+                m = _re.match(r'^\s*(\[\d+\]\s+)?(\.\S+)\s+\S+\s+([0-9a-f]{6,8})\s+[0-9a-f]{6,8}\s+([0-9a-f]{6,8})', line)
+                if m:
+                    nm, va0, sz = m.group(2), int(m.group(3), 16), int(m.group(4), 16)
+                    if sz and va0 <= va < va0 + sz:
+                        hit = True; in_bss = (nm == '.bss'); break
+            if not hit:
+                print(f"⚠ 段归属: 0x{va:06x} 不落任何段（VA≠文件偏移 so，读值可能错位；建议 seg 子命令复核）")
+            elif in_bss:
+                print(f"⚠ 段归属: 0x{va:06x} ∈ .bss（NOBITS 无文件内容，静态读=0 非运行时真值，需 frida/redroid dump）")
+            _SEG_WARNED = True
+        except Exception:
+            pass
+    return v
+
 def rd_bytes(va, n):
     with open(SO, 'rb') as f:
         f.seek(va)
@@ -56,7 +86,7 @@ def cmd_vtable(addr, count=12):
     print(f"=== vtable 0x{vt:06x}（{count} 槽）===")
     for i in range(count):
         off = i * 4
-        v = rd32(vt + off)
+        v = rd32_checked(vt + off)
         tag = f"(F_{(v & ~1):05x})" if is_text_ptr(v) else ("NULL" if v == 0 else f"(0x{v:08x})")
         print(f"  [0x{off:02x}] = 0x{v:08x} {tag}")
     return 0
@@ -78,7 +108,7 @@ def cmd_func(addr, instrs=24):
 
 def cmd_slot(vt_addr, off):
     vt = hex2i(vt_addr); off_i = hex2i(off)
-    v = rd32(vt + off_i)
+    v = rd32_checked(vt + off_i)
     target = v & ~1
     print(f"=== vtable 0x{vt:06x} [0x{off_i:02x}] = 0x{v:08x} → F_{target:05x} ===")
     if is_text_ptr(v):
@@ -141,7 +171,7 @@ def cmd_reloc(va, rng=8):
         m = re.match(r'\s*([0-9a-f]+)\s+(R_ARM_\w+)\s+(.*)', line)
         if m and int(m.group(1), 16) == va_i:
             found.append((m.group(2), m.group(3)))
-    val = rd32(va_i)
+    val = rd32_checked(va_i)
     if found:
         print(f"=== 0x{va_i:06x} 重定位命中 {len(found)} 处（静态值=0x{val:08x}）===")
         for rtype, extra in found:
@@ -178,13 +208,13 @@ def cmd_seg(va, n=4):
           + ("  ★NOBITS 无静态值 (需 frida dump)" if in_bss else ""))
     if in_bss:
         print(f"     .bss 段偏移 = 0x{va - va0:04x}")
-    # 前后 n 槽静态值 (NOBITS 段跳过)
+    # 前后 n 槽静态值 (NOBITS 段跳过；★ AUD-1000 B07-007：读值带段归属告警)
     if not in_bss:
         print(f"  前后 {n} 槽静态值:")
         for i in range(-n, n + 1):
             off = va + i * 4
             if off >= 0:
-                print(f"     0x{off:06x} = 0x{rd32(off):08x}")
+                print(f"     0x{off:06x} = 0x{rd32_checked(off):08x}")
     return 0
 
 def cmd_strings(sub):
@@ -212,7 +242,7 @@ def cmd_audit(pool_addr, add_addr=None):
     pool = ldr 指令地址+4+K (从反汇编 @ 注释直接读, 非手算),
     可选 add = 后续 add rM,pc 指令地址, tgt = pool 值 + (add+4)."""
     pool = hex2i(pool_addr)
-    v = rd32(pool)
+    v = rd32_checked(pool)
     print(f"  pool[0x{pool:05x}] = 0x{v:08x}")
     # pool 值段归属
     import subprocess, re as _re

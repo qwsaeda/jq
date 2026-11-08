@@ -50,14 +50,18 @@ int jq_bt_frame_encode(char *buf, int cap, int type, int f1, int f2,
     return n;
 }
 
-/* 解析单步帧：跳过 "v2\n" 前缀，解析 7 字段。返回 1 成功，0 失败/非 v2 帧。 */
+/* 解析单步帧：校验 "v2\n" 前缀锚定 buf 首，解析 7 字段。返回 1 成功，0 失败。
+   ★ AUD-1000 B04-004/B09-039（P1 已修）：旧实现 strstr 找 'v2\n'——垃圾帧头
+   （'xxv2\n0,...\n'）中段内嵌串也命中，与 Java BtSpp 读线程"按 v2\n 头抽取
+   分帧、噪声前缀丢弃"语义不一致（native 接受带噪声前缀帧，Java 丢弃）。
+   修：首字节锚定 strncmp(buf, JQ_BT_VERSION "\n", 3)==0 才解析。
+   跨语言契约：Java 侧已分帧缓冲首必为 v2\n，native 只信任帧首。 */
 int jq_bt_frame_decode(const char *buf, int *f1, int *f2, int *f3,
                        int *f4, int *f5, int *f6, int *f7)
 {
     if (!buf) return 0;
-    const char *p = strstr(buf, JQ_BT_VERSION "\n");
-    if (!p) return 0;
-    p += strlen(JQ_BT_VERSION) + 1;
+    if (strncmp(buf, JQ_BT_VERSION "\n", 3) != 0) return 0;
+    const char *p = buf + strlen(JQ_BT_VERSION) + 1;
     return sscanf(p, "%d,%d,%d,%d,%d,%d,%d",
                   f1, f2, f3, f4, f5, f6, f7) == 7;
 }
@@ -88,10 +92,19 @@ int jq_bt_frame_sync_encode(char *buf, int cap_per_frame,
     return n;
 }
 
-/* 构造走子帧（type=BT_T_MOVE，坐标对 + 事件 rank/side） */
+/* 构造走子帧（type=BT_T_MOVE，坐标对 + 事件 rank/side）。
+   ★ AUD-1000 B04-003（P1 已修）：入口加 from/to 越界守卫（旧实现负/越界索引
+   直接 cell_col/cell_row + st->cells[to] 解引用越界读）。
+   ★ AUD-1000 B04-002（P1 诚实标注）：ev 参数（jq_event）被丢弃——encode 实参
+   f1..f6 固定 7 字段帧无事件槽（对齐原版 0x26f24 帧格式"类型,fc,fr,tc,tr,
+   rank,side"）。对端走子类型（move/eat/bomb）判别靠本地规则引擎重推
+   （jq_try_move 成功路径），不发帧内事件——跨语言契约注释，非缺陷。 */
 int jq_bt_move_frame(char *buf, int cap, const jq_state *st, int from, int to,
                      jq_event ev)
 {
+    (void)ev;
+    /* ★ B04-003（P1 已修）：from/to ∈[0,N_CELLS) 入口守卫（越界拒收返 -1） */
+    if (!st || from < 0 || from >= N_CELLS || to < 0 || to >= N_CELLS) return -1;
     int fc = cell_col(from), fr = cell_row(from);
     int tc = cell_col(to), tr = cell_row(to);
     return jq_bt_frame_encode(buf, cap, BT_T_MOVE,

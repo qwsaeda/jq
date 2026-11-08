@@ -115,6 +115,16 @@ int jq_glview_init(jq_glview *gv, const jq_state *st, const char *spak_dir, void
        （1.0 缩放）视觉不一致。现统一 720x1280（= BG 基准 + 实际 view）。
        注：渲染按 aPos.y = iy/BG_IMG_H*view_h 缩放（无裁剪），故原 1024 高度
        不会导致棋子"画到屏外"，仅是缩放比例差（子代理"屏外 256px"判读不成立）。 */
+    /* ★ AUD-1000 B04-097（P1 已标注，720×1280 固定 backing 缩放有意为之）：
+       PBuffer 尺寸固定 720×1280（= BG 基准），view 实际尺寸 resize 时**不**
+       eglDestroySurface+recreate PBuffer——① 720×1280 固定 backing 经
+       rs_render_frame 的 aPos/uViewWH 缩放管线按实际 view 等比缩放出帧
+       （aPos.y = iy/BG_IMG_H*view_h，无裁剪，B04 批4 已实证 1024 高度
+       不会画到屏外）；② resize 时重建 PBuffer surface 会打断渲染线程
+       current（makeCurrent 3002 + 首帧重建闪烁），收益（缩放比 1.0 精确）
+       小于代价。诚实边界：view≠720×1280 时 PBuffer 离屏 backing 与 view
+       非 1:1，出屏画面经 window 通路（EglHelper 按 view 尺寸 swap）不受
+       PBuffer 尺寸影响；PBuffer 仅作离屏保活，非出屏路径。 */
     {
         EGLint pa[] = { EGL_WIDTH, 720, EGL_HEIGHT, 1280, EGL_NONE };
         gv->surf = eglCreatePbufferSurface(gv->disp, g_cfg, pa);
@@ -265,9 +275,17 @@ static void *rs_render_thread_main(void *arg)
                     LOGI("渲染线程 makeCurrent window surface 成功 → 出屏主路激活（eglSwapBuffers 上屏）");
                 else
                     LOGI("渲染线程 makeCurrent PBuffer 兜底（window 未就绪，离屏保活）");
-            } else
+            } else {
+                /* ★ AUD-1000 B04-093（P1 已修）：makeCurrent 失败置
+                   g_gl_current=0（旧版保持旧值 1 → 下方 ④ 段误判有 current
+                   保活，实际 EGL 内部 current 已无/已变，PBuffer 保活判读错乱
+                   + glFinish 在无 current context 调 = GL error 风暴）。
+                   置 0 走下方 "无 current surface → 空转等 window attach" 路径。 */
+                g_gl_current = 0;
+                g_current_is_window = 0;
                 LOGE("渲染线程 eglMakeCurrent 失败 err=0x%x（surface=%s）→ 几何不出帧",
                      eglGetError(), target == g_win_surf ? "window" : "PBuffer");
+            }
         }
         if (!g_gl_current) {
             /* 无可用 surface（PBuffer 也缺）→ 空转等 window attach */
@@ -280,7 +298,9 @@ static void *rs_render_thread_main(void *arg)
         /* ④ PBuffer 兜底：不渲染（GL 对象归 GLThread/EglHelper window context 独占，
            渲染线程跨 context 调 rs_render_frame 会崩）。PBuffer 线程仅保活（surface 持有，
            防止 EGL 回收）+ 1Hz 心跳。画面出屏归 OnUpdate（GLThread window context）。 */
-        glFinish();
+        /* ★ AUD-1000 B04-094（P1 已修）：主循环顶 glFinish 已落定命令流，
+           PBuffer 分支旧版再 glFinish（同一帧同 context 两次，GPU 同步冗余
+           拖 1Hz 心跳节拍）→ 删兜底 else 的冗余 glFinish。 */
         if (g_current_is_window) {
             if (eglSwapBuffers(g_rr.egl_disp, g_win_surf)) {
                 if (!last_swap_ok_log || (frame_cnt % 600) == 0) {
@@ -291,8 +311,6 @@ static void *rs_render_thread_main(void *arg)
                 LOGE("渲染线程 帧 %d：eglSwapBuffers 失败 err=0x%x（window 出屏未上屏）",
                      frame_cnt, eglGetError());
             }
-        } else {
-            glFinish();   /* PBuffer 兜底：落定命令流（离屏；正向出屏走 window 通路，真机验收） */
         }
         frame_cnt++;
         /* ★ GLThread/EglHelper window 出帧已接管（OnUpdate 每帧 rs_render_frame）→

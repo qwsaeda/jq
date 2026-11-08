@@ -147,11 +147,20 @@ JQ_EXPORT int jq_walk_bridge_move(int from, int to) {
     return ev;
 }
 
-/* §124y-26：端到端终局（认输 + 状态校验，返回 0=完成） */
+/* §124y-26：端到端终局（认输 + 状态校验，返回 0=完成）
+   ★ AUD-1000 B05-037（P1 诚实标注）：本钩子只写 winner=1-turn，**不改**
+   stage=STG_OVER——后续 jq_try_move 仍按 STG_PLAY 跑（困毙/和棋判定
+   继续）。游戏测试钩子（jq.game_test）路径后续不再走子（走子桥 tick
+   已跑完 2 步 + 终局判据打印），stage 悬挂无实际影响；若钩子路径
+   后续新增走子帧，须补 st->stage=STG_OVER（与 64 位 src_rs 认输
+   钩子 jq_resigntest 同源口径：winner=1-turn + stage=OVER 成对写）。 */
 JQ_EXPORT int jq_game_test_finish(void) {
     if (!g_walk_init) return -1;
-    /* 认输（会话 B jni_bridge resign 逻辑：winner = 1 - turn） */
+    /* 认输（会话 B jni_bridge resign 逻辑：winner = 1 - turn）
+       ★ AUD-1000 B05-037（P1 已修）：补 stage=STG_OVER，与 64 位 src_rs
+       认输钩子 jq_resigntest 同源口径（winner=1-turn + stage=OVER 成对写）。 */
     g_walk_state.winner = 1 - g_walk_state.turn;
+    g_walk_state.stage = 2;   /* STG_OVER */
     __android_log_print(4, "junqi", "jq_game_test_finish: 认输 → winner=%d stage=%d total=%d",
                         g_walk_state.winner, (int)g_walk_state.stage, g_walk_state.total_moves);
     return 0;

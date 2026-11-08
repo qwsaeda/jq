@@ -13,6 +13,9 @@
 - 字符串锚点：`frida-dump/rodata_strings.txt`（1715 条，含 `Junqi.*` 事件名）。
 - 规则文本：SPAK 解包 `dist/spak_res/data_junqi_rule{lay,flip}.txt`（GBK 原文，权威规则）。
 - 布局：SPAK `data/lay/00..49.lay`（50 个 30 字节预设，`00.lay==default.lay`，L52 分布确证）。
+  ★ AUD-1000 B09-008 口径：SPAK 含 50 个布局预设，src_rs 实现 12 个（00-11，
+  make laytest 12/12 + OnEvent layout 只接受 0-11）——50 为资源全量口径，
+  12 为 src_rs 已实现口径（剩余 38 个未接入，诚实边界），非口径矛盾。
 
 ## 2. 逆向出的核心函数（控制流 + 常量 + 结构布局 + 业务名）
 

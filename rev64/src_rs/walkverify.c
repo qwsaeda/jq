@@ -8,6 +8,12 @@
  *
  * 对齐 jni_bridge ai_pick 契约（红方贪心：吃子>空移>送死），
  * 仅桌面预验证用（红方 AI 行为与真机 jni_bridge 一致，非逐字段逆向）。
+ * ★ AUD-1000 B08-027（P1 收窄诚实边界）：headless 走局/longrun 模式的双方
+ *   走子改调 ai_score（rules.c 导出，与 jni_bridge ai_pick 同源评分）——
+ *   旧版内联 3 档（吃 1000/空移 2/送死 1，丢同级 900/炸弹 800/挖雷 700 分支）
+ *   与真机 ai_pick 分叉（红方同级互杀/炸弹撞普通子/工兵挖雷路径不选）。
+ *   保留 headless 贪心语义（先吃子再空移再送死）：bs>=50 门槛只放行
+ *   吃子族（1000/900/800/700），空移 2 / 送死 1 落兜底分支。
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -16,7 +22,9 @@
 
 extern const uint8_t JQ_DEFAULT_LAY[30];
 
-/* 红方贪心 AI（对齐 jni_bridge ai_pick：吃子 sc=1000 > 空移 sc=2 > 送死 sc=1） */
+/* 红方贪心 AI（对齐 jni_bridge ai_pick：吃子 sc=1000 > 空移 sc=2 > 送死 sc=1）
+   ★ AUD-1000 B08-027：候选评分改调 ai_score（与 ai_pick 同源，含同级 900/
+   炸弹 800/挖雷 700 分支；revealed=1 明棋路径）。 */
 static int red_pick(jq_state *st, int *from, int *to)
 {
     uint8_t me = SIDE_RED;
@@ -30,15 +38,19 @@ static int red_pick(jq_state *st, int *from, int *to)
             if (t == i) continue;
             jq_cell *d = &st->cells[t];
             if (!jq_can_move(st, i, t)) continue;
-            int sc = d->rank ? (r < rank_norm(d->rank) ? 1000 : 1) : 2;
+            int sc = ai_score(c->rank, d->rank, 1);
+            if (sc < 0) continue;   /* -2 空源/-1 旗雷不可走（与 ai_pick 同守卫） */
             if (sc > bs) { bs = sc; bf = i; bt = t; }
         }
     }
+    if (bf >= 0 && bs >= 50) { *from = bf; *to = bt; return 0; }   /* 吃子族（≥50）优先 */
+    /* 无吃子 → 空移/送死兜底（bs 已含 2/1 分全候选最优，贪心同序） */
     if (bf >= 0) { *from = bf; *to = bt; return 0; }
     return -1;
 }
 
-/* 蓝方贪心 AI（longrun 模式：自动找蓝第一合法走子，turn 交替持续验证） */
+/* 蓝方贪心 AI（longrun 模式：自动找蓝第一合法走子，turn 交替持续验证）
+   ★ AUD-1000 B08-027：同 red_pick，改调 ai_score 同源评分 */
 static int blue_pick(jq_state *st, int *from, int *to)
 {
     uint8_t me = SIDE_BLUE;
@@ -52,10 +64,14 @@ static int blue_pick(jq_state *st, int *from, int *to)
             if (t == i) continue;
             jq_cell *d = &st->cells[t];
             if (!jq_can_move(st, i, t)) continue;
-            int sc = d->rank ? (r < rank_norm(d->rank) ? 1000 : 1) : 2;
+            /* ★ AUD-1000 B08-027：同源 ai_score（d->rank 传原始值，
+               ai_score 内 rank_norm 还原，与 ai_pick 调用点一致） */
+            int sc = ai_score(c->rank, d->rank, 1);
+            if (sc < 0) continue;
             if (sc > bs) { bs = sc; bf = i; bt = t; }
         }
     }
+    if (bf >= 0 && bs >= 50) { *from = bf; *to = bt; return 0; }
     if (bf >= 0) { *from = bf; *to = bt; return 0; }
     return -1;
 }

@@ -97,7 +97,13 @@ apksigner verify --verbose $OUT 2>&1 | grep -E "v1|v2" | head -2
 
 if [[ $INSTALL -eq 1 ]]; then
   log "=== [5/5] 装机 + so 哈希对账 ==="
-  adb -s $DEV install -r $OUT 2>&1 | tail -1
+  # ★ AUD-1000 B07-027（P1 假绿三型-管道吞码）：旧版 `adb install … | tail -1` 只看末行，
+  #   install 失败（INSTALL_FAILED_UPDATE_INCOMPATIBLE 签名不符/磁盘满）不判 → 继续
+  #   so 哈希对账（pm path 拿到旧 apk，旧 so 哈希恰好同本地时假过）。现先显式判
+  #   install 退出码（对账兜底前加主判据），失败 abort。
+  adb -s $DEV install -r $OUT
+  inst_rc=$?
+  [ $inst_rc -eq 0 ] || { log "★ install 失败 rc=$inst_rc（pm path 可能对账到旧 apk，中止防假过）"; exit 1; }
   APKPATH=$(adb -s $DEV shell pm path com.cnvcs.junqirs 2>/dev/null | tr -d '\r' | sed 's/package://')
   DEVHASH=$(adb -s $DEV shell "unzip -p $APKPATH lib/arm64-v8a/libjunqi.so | md5sum" 2>/dev/null | tr -d '\r' | cut -d' ' -f1)
   LOCHASH=$(md5sum $RS/dist/libjunqi_rs.so | cut -d' ' -f1)

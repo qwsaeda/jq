@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdint.h>   /* SIZE_MAX（B04-076 realloc 溢出防护） */
 #include <zlib.h>
 
 /* PNG 滤波器重建（每行前 1 字节 filter type） */
@@ -62,7 +63,11 @@ int png_decode(const unsigned char *data, size_t len,
         const unsigned char *cdata = data + pos + 8;
         if (pos + 8 + clen > len) break;
 
-        if (memcmp(ctype, "IHDR", 4) == 0 && clen >= 13) {
+        if (memcmp(ctype, "IHDR", 4) == 0 && clen == 13) {
+            /* ★ AUD-1000 B04-075（P1 已修）：IHDR 严格 == 13（PNG 规范 IHDR
+               恒 13 字节）——旧版 >= 13 收非标准超长 IHDR（畸形/恶意文件
+               14+ 字节日志字段错位解析，w/h 读到垃圾 → scanlen 巨值
+               耗尽堆/越界）。超长 IHDR 拒收走整文件 -1。 */
             w = ((unsigned)cdata[0] << 24) | ((unsigned)cdata[1] << 16) |
                 ((unsigned)cdata[2] << 8) | (unsigned)cdata[3];
             h = ((unsigned)cdata[4] << 24) | ((unsigned)cdata[5] << 16) |
@@ -72,7 +77,15 @@ int png_decode(const unsigned char *data, size_t len,
             interlace = cdata[12];
         } else if (memcmp(ctype, "IDAT", 4) == 0) {
             if (idat_len + clen > idat_cap) {
+                /* ★ AUD-1000 B04-076（P1 已修）：realloc 新容量 nc 溢出防护——
+                   旧版 nc = cap*2 : clen，clen 超大（恶意 4GB 级 clen）时
+                   cap*2 或 clen 本身超 SIZE_MAX → realloc 返回 NULL →
+                   误判"内存不足"拒收合法文件；且 cap*2 回绕到小值时
+                   nc<clen 直接 memcpy 越界写。现：nc 取 max(cap*2, clen)
+                   且 nc 溢出（nc < clen）时拒收整个文件（return -1），
+                   防超大 IDAT 耗尽堆/越界。 */
                 size_t nc = idat_cap ? idat_cap * 2 : clen;
+                if (nc < clen || nc > SIZE_MAX / 2) { free(idat); return -1; }
                 unsigned char *tmp = (unsigned char *)realloc(idat, nc);
                 if (!tmp) { free(idat); return -1; }
                 idat = tmp; idat_cap = nc;
@@ -103,6 +116,10 @@ int png_decode(const unsigned char *data, size_t len,
     }
     if (bitdepth != 8) { free(idat); return -1; }
 
+    /* ★ AUD-1000 B04-078（P1 已修）：w/h 上限校验——超大 PNG（恶意 w=h=65535
+       RGBA）scanlen ≈ 16GB 耗尽堆；w/h*4 超阈值直接拒收。阈值 32MP
+       （8192×4096 级，远超本仓最大资源 737×751/800×1205 的 50 倍）。 */
+    if ((size_t)w * h > 32 * 1024 * 1024) { free(idat); return -1; }
     int stride = (int)w * channels;
 
     /* zlib 解压扫描线（PNG 每行带 1 字节 filter 头 → 解压产物 = (w*ch+1)*h 字节；
@@ -112,6 +129,14 @@ int png_decode(const unsigned char *data, size_t len,
     if (!raw) { free(idat); return -1; }
     z_stream zs;
     memset(&zs, 0, sizeof(zs));
+    /* ★ AUD-1000 B04-079（P1 已修）：idat_len > UINT_MAX 时 (uInt) 截断 →
+       inflate 读半数据（avail_in 小值，Z_STREAM_END 永不达成 → 误判 -1
+       或解出半图）。本仓 PNG 全 < 2MB，超过 4GB 的"IDAT"必为畸形文件，
+       直接拒收（zlib 增量分段 inflate 对纹理用途无意义，不做）。
+       同理 scanlen 超 uInt 上限时 avail_out 截断 → 输出缓冲不够
+       inflate 写不进去（zlib 返 Z_OK 非 Z_STREAM_END 拒收），加防御。 */
+    if (idat_len > (size_t)UINT_MAX) { free(idat); return -1; }
+    if (scanlen > (size_t)UINT_MAX) { free(raw); free(idat); return -1; }
     if (inflateInit(&zs) != Z_OK) { free(raw); free(idat); return -1; }
     zs.next_in = idat; zs.avail_in = (uInt)idat_len;
     zs.next_out = raw; zs.avail_out = (uInt)scanlen;

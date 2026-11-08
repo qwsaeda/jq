@@ -218,13 +218,30 @@ def check_dispatch(src):
     """dispatch 表一致性检查（§109/§124aw 红线，机器化）：
        1. jqt_vtbl_n == len(fns) == len(offs)
        2. offs 必须严格升序（jq_call 用二分查找）
-       3. 每个 fns 条目在 src 里必须有函数体定义（否则 so 里成 undefined dynamic 符号
+       3. 每个 fns 条目在源码里必须有函数体定义（否则 so 里成 undefined dynamic 符号
           → MuMu 原生桥 fail to link）
        4. fns[i] 与 offs[i] 必须同址（表按地址一一对应）
-       返回 (ok, [问题描述])"""
+       返回 (ok, [问题描述])
+       ★ AUD-1000 B07-010：src=None → 自动定位（rev64/src_jni_translated 相对工具
+       根，多文件 jqt_vtbl.c + jqt_OnCreate_full.c 合并查函数体；表一致性用
+       jqt_vtbl.c 文本）。原硬编码 /disk 绝对路径已去。"""
     import re as _re
     problems = []
-    s = open(src).read()
+    if src is None:
+        base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # rev64/
+        jti = os.path.join(base, 'src_jni_translated')
+        dispatch_sources = []
+        for _f in ('jqt_vtbl.c', 'jqt_OnCreate_full.c'):
+            _p = os.path.join(jti, _f)
+            if os.path.exists(_p):
+                dispatch_sources.append(_p)
+        if not dispatch_sources:
+            return True, []  # 源码目录不在 → 跳过 dispatch 检查（非 FAIL）
+        all_src = '\n'.join(open(p).read() for p in dispatch_sources)
+        s = open(dispatch_sources[0]).read()  # 表在 jqt_vtbl.c
+    else:
+        s = open(src).read()
+        all_src = s
 
     def entries(name):
         i = s.index(name)
@@ -286,16 +303,30 @@ def check_dispatch(src):
     if mis:
         problems.append('fns/offs 同址错位 %d 处，例: %s' % (len(mis), mis[:3]))
 
-    # fns 条目必须有函数体定义
+    # fns 条目必须有函数体定义（★ AUD-1000 B07-010：跨文件合并查 all_src）
     nod = []
     for f in set(fns):
         if not f.startswith('F_'):
             continue
-        if not _re.search(r'uint32_t\s+' + _re.escape(f) + r'\s*\(', s):
+        if not _re.search(r'uint32_t\s+' + _re.escape(f) + r'\s*\(', all_src):
             nod.append(f)
     if nod:
-        problems.append('fns 条目缺函数体定义 %d 个 → so 里成 undefined dynamic 符号: %s'
+        problems.append('fns 条目缺函数体定义 %d 个（jqt_vtbl.c + jqt_OnCreate_full.c 合并查）→ so 里成 undefined dynamic 符号: %s'
                         % (len(nod), ', '.join(sorted(nod)[:8])))
+
+    # ★ AUD-1000 B06-001（P1 奇偶一致性）：dispatch 归一化 off&=~1 后二分查表，
+    #   offs 表含 6 个 Thumb 奇地址条目（0x23461/0x23475/0x23489/0x2349d/
+    #   0x9d43d/0x9d9e9）——奇值被 &~1 归一化后的偶值若不在表，对应函数经
+    #   blx 分派必 miss。判据：每个奇条目 &~1 后须与表内某偶值重合（本表
+    #   奇偶成对实证 → PASS）；缺对才 FAIL。同时输出奇值清单供人复核。
+    odd_entries = [o for o in vals if o & 1]
+    even_set = {v & ~1 for v in vals}
+    odd_missing = [v for v in odd_entries if (v & ~1) not in even_set]
+    if odd_missing:
+        problems.append('offs 表 Thumb 奇地址 0x%s 归一化(&~1)后无对应偶条目 → blx 分派必 miss'
+                        % '/0x'.join(format(v, 'x') for v in odd_missing))
+    elif odd_entries:
+        print('  (Thumb 奇地址 %d 条已与偶值成对，&~1 归一化一致)' % len(odd_entries))
 
     for p in problems:
         print('  ★ %s' % p)
@@ -324,9 +355,9 @@ def audit(path, baseline=None):
         print('=== 审计 %s ===' % path)
 
     disp_problems = []
-    src = '/disk/workspaces/jq/rev64/src_jni_translated/jqt_vtbl.c'
-    if os.path.exists(src):
-        _, disp_problems = check_dispatch(src)
+    # ★ AUD-1000 B07-010：去硬编码绝对路径，check_dispatch(None) 内按工具
+    #   相对路径定位多文件源码（jqt_vtbl.c + jqt_OnCreate_full.c）。
+    _, disp_problems = check_dispatch(None)
 
     try:
         und, dangling = resolve_so(so)

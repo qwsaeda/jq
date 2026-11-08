@@ -68,7 +68,27 @@ if [[ $DEVREGRESS -eq 1 ]]; then
   RC=$?
   grep -E "✓|✗|~|汇总" /tmp/opencode/rs_cycle_devregress.log | tail -14
   # ★ FLAKY/FAIL 均非全绿（rc=2 flaky / rc=1 fail）→ 中止，不静默
-  [ $RC -ne 0 ] && { log "★ 设备事件回归非全绿（rc=$RC，FLAKY 或 FAIL）"; exit $RC; }
+  # ★ AUD-1000 B07-003（P1 已修，flaky 处置细化）：rc=2（FLAKY，首跑瞬时时序
+  #   重跑过）改为**记录 flaky 项 + 标记继续构建**而非直接 exit——旧版
+  #   FLAKY 即中止使"真慢日志 20-25s 才出"的设备（MuMu 冷启 GLThread
+  #   attach 慢）在 so 已装机成功的场景下整条 rs_cycle 白跑（重新装机+
+  #   重回归）。现：rc=2 打印 flaky 项清单（grep '~' 行）→ 继续到
+  #   "✓ rs_cycle 完成（含 flaky 项，建议人工复核）"；rc=1（FAIL）仍
+  #   中止（真回归/双跑失败不可放过）。
+  case $RC in
+    0) : ;;
+    2)
+      FLAKY_ITEMS=$(grep -E "^  ~ " /tmp/opencode/rs_cycle_devregress.log | sed 's/^  ~ //')
+      log "⚠ 设备回归 FLAKY（rc=2，记录 flaky 项不中止构建）：$FLAKY_ITEMS"
+      log "  （B07-003：B07 批 wait_log 窗口 40s + fresh_log PID 新鲜度校验后，flaky 应为真瞬时时序；连续 2 次 flaky 同项 = 真回归嫌疑，人工复核）"
+      ;;
+    *)
+      log "★ 设备事件回归 FAIL（rc=$RC）"; exit $RC ;;
+  esac
+fi
+if [[ $DEVREGRESS -eq 1 && $RC -eq 2 ]]; then
+  log "✓ rs_cycle 完成（含 FLAKY 项，so 已装机；flaky 项建议人工复核后重跑 --device-regress）"
+  exit 0
 fi
 log "✓ rs_cycle 完成"
 exit 0

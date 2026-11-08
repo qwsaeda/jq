@@ -16,6 +16,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <dirent.h>
+#include <stdatomic.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, "junqi_rs", __VA_ARGS__)
@@ -59,7 +60,9 @@ int ui_opt_toggle_mode(void)
 /* ★ 对抗审计（datah_067）：蓝牙联机模式标志 */
 static int g_bt_active = 0;
 void ui_bt_set_active(int on) { pthread_mutex_lock(&g_ui_lock); g_bt_active = on; pthread_mutex_unlock(&g_ui_lock); }
-int ui_bt_active(void) { pthread_mutex_lock(&g_ui_lock); int v = g_bt_active; pthread_mutex_unlock(&g_ui_lock); return v; }
+int ui_bt_active(void) { /* ★ AUD-1000 B02-004（P1 已修，前批）：getter 走 g_ui_lock
+    （与 ui_bt_set_active 锁内写同锁，数据竞争闭合） */
+    pthread_mutex_lock(&g_ui_lock); int v = g_bt_active; pthread_mutex_unlock(&g_ui_lock); return v; }
 
 /* ★ 对抗审计 P1（批4 P0-R8 / 批6 彻底锁化）：人机模式标志（g_vs_ai）移入 ui_state。
    原为 jni_bridge.c 的 static int g_vs_ai：写点分散在 OnTouch 各弹窗路径（**锁外**
@@ -81,7 +84,9 @@ void ui_snd_mute_set(int m) { pthread_mutex_lock(&g_ui_lock); g_snd_mute = m ? 1
 int ui_btn_sound_get(void) { pthread_mutex_lock(&g_ui_lock); int v = g_btn_sound; pthread_mutex_unlock(&g_ui_lock); return v; }
 void ui_btn_sound_set(int v) { pthread_mutex_lock(&g_ui_lock); g_btn_sound = v ? 1 : 0; pthread_mutex_unlock(&g_ui_lock); }
 int ui_volume_get(void) { pthread_mutex_lock(&g_ui_lock); int v = g_volume; pthread_mutex_unlock(&g_ui_lock); return v; }
-void ui_volume_set(int v) { g_volume = (v >= 1 && v <= 3) ? v : 2; }
+/* ★ AUD-1000 B02-006（P1 已修）：g_volume setter 补锁（旧实现裸写，与锁外 getter/
+   ui_settings_save 锁外读构成数据竞争；同批 B02-006 清单 7 处漏锁点）。 */
+void ui_volume_set(int v) { pthread_mutex_lock(&g_ui_lock); g_volume = (v >= 1 && v <= 3) ? v : 2; pthread_mutex_unlock(&g_ui_lock); }
 /* ★ P2（datah_061）：新局完整版（完整版补充）先后手/明暗棋 独立循环位。
    ui_first 0=蓝先手 1=红先手（默认 0）；ui_show 0=明 1=暗（默认 1，对齐原版暗棋默认）。
    ★ 诚实边界：先后手=蓝/红 切换简化（仅影响开局侧）。 */
@@ -126,28 +131,47 @@ void ui_settings_set_dir(const char *dir)
 }
 void ui_settings_load(void)
 {
+    /* ★ AUD-1000 B02-007（P1 已修）：整段走 g_ui_lock（旧实现锁外裸读写
+       g_snd_mute/g_btn_sound/g_volume，与 ui_settings_save/OnTouch 锁内写构成竞争）。 */
     if (!g_set_dir[0]) return;
-    char pth[320]; snprintf(pth, sizeof pth, "%s/jq_settings.txt", g_set_dir);
+    char pth[320];
+    pthread_mutex_lock(&g_ui_lock);
+    if (!g_set_dir[0]) { pthread_mutex_unlock(&g_ui_lock); return; }
+    snprintf(pth, sizeof pth, "%s/jq_settings.txt", g_set_dir);
+    pthread_mutex_unlock(&g_ui_lock);
     FILE *f = fopen(pth, "rb");
     if (!f) { LOGI("声音设置：无文件（%s）→ 默认 开/开/中", pth); return; }
     int m = -1, b = -1, v = -1;
+    int om = -1, ob = -1, ov = -1;
+    pthread_mutex_lock(&g_ui_lock);
+    om = g_snd_mute; ob = g_btn_sound; ov = g_volume;
     if (fscanf(f, "%d %d %d", &m, &b, &v) == 3) {
         if (m == 0 || m == 1) g_snd_mute = m;
         if (b == 0 || b == 1) g_btn_sound = b;
         if (v >= 1 && v <= 3) g_volume = v;
+        m = g_snd_mute; b = g_btn_sound; v = g_volume;
     }
+    pthread_mutex_unlock(&g_ui_lock);
     fclose(f);
-    LOGI("声音设置：读取 %s → 静音=%d 按键=%d 音量=%d", pth, g_snd_mute, g_btn_sound, g_volume);
+    LOGI("声音设置：读取 %s → 静音=%d 按键=%d 音量=%d", pth,
+         m < 0 ? om : m, b < 0 ? ob : b, v < 0 ? ov : v);
 }
 void ui_settings_save(void)
 {
+    /* ★ AUD-1000 B02-007（P1 已修）：快照值锁内读，fprintf 锁外（避免持锁做文件 IO）。 */
     if (!g_set_dir[0]) return;
-    char pth[320]; snprintf(pth, sizeof pth, "%s/jq_settings.txt", g_set_dir);
+    char pth[320];
+    int sm, sb, sv;
+    pthread_mutex_lock(&g_ui_lock);
+    if (!g_set_dir[0]) { pthread_mutex_unlock(&g_ui_lock); return; }
+    snprintf(pth, sizeof pth, "%s/jq_settings.txt", g_set_dir);
+    sm = g_snd_mute; sb = g_btn_sound; sv = g_volume;
+    pthread_mutex_unlock(&g_ui_lock);
     FILE *f = fopen(pth, "wb");
     if (!f) { LOGI("声音设置：写失败 %s", pth); return; }
-    fprintf(f, "%d %d %d\n", g_snd_mute, g_btn_sound, g_volume);
+    fprintf(f, "%d %d %d\n", sm, sb, sv);
     fclose(f);
-    LOGI("声音设置：保存 %s → 静音=%d 按键=%d 音量=%d", pth, g_snd_mute, g_btn_sound, g_volume);
+    LOGI("声音设置：保存 %s → 静音=%d 按键=%d 音量=%d", pth, sm, sb, sv);
 }
 
 /* ★ P1（datah_012 证据）：游戏设置 4 规则开关（和棋/大本营/吃地雷/吃军旗），
@@ -170,42 +194,59 @@ int ui_rule_dark_get(void) { pthread_mutex_lock(&g_ui_lock); int v = g_rule_dark
 void ui_rule_dark_set(int v) { pthread_mutex_lock(&g_ui_lock); g_rule_dark = v ? 1 : 0; pthread_mutex_unlock(&g_ui_lock); }
 int ui_rule_cfg_get(int which)
 {
+    /* ★ AUD-1000 B02-010/011（P1 已修）：整函数走 g_ui_lock（B02-011 which=4 暗棋
+       分支锁外读 g_rule_dark 随整函数锁化闭合；旧实现 5 开关锁外裸读，
+       与 ui_rule_*_set 锁内写构成数据竞争；getter 逐个有锁但 cfg 聚合读漏锁）。 */
+    pthread_mutex_lock(&g_ui_lock);
     switch (which) {
     case 0: return g_rule_draw;
     case 1: return g_rule_hq;
     case 2: return g_rule_mine;
     case 3: return g_rule_flag;
     case 4: return g_rule_dark;   /* ★ AUD-R-002/003（P0）：暗棋开关 */
+    default: { int v = 1; pthread_mutex_unlock(&g_ui_lock); return v; }
     }
-    return 1;
+    pthread_mutex_unlock(&g_ui_lock);
 }
 void ui_rules_load(void)
 {
     if (!g_set_dir[0]) return;
-    char pth[320]; snprintf(pth, sizeof pth, "%s/jq_rules.txt", g_set_dir);
+    char pth[320];
+    /* ★ AUD-1000 B02-010（P1 已修）：写 g_rule_* 段走 g_ui_lock（旧实现锁外裸写 4 开关，
+       与 rules.c 锁内读 / ui_rule_*_get 构成竞争）。 */
+    pthread_mutex_lock(&g_ui_lock);
+    snprintf(pth, sizeof pth, "%s/jq_rules.txt", g_set_dir);
+    pthread_mutex_unlock(&g_ui_lock);
     FILE *f = fopen(pth, "rb");
     if (!f) { LOGI("游戏设置：无文件（%s）→ 默认全开", pth); return; }
     int d = -1, h = -1, m = -1, fl = -1;
+    pthread_mutex_lock(&g_ui_lock);
     if (fscanf(f, "%d %d %d %d", &d, &h, &m, &fl) == 4) {
         g_rule_draw = (d == 0 || d == 1) ? d : 1;
         g_rule_hq = (h == 0 || h == 1) ? h : 1;
         g_rule_mine = (m == 0 || m == 1) ? m : 1;
         g_rule_flag = (fl == 0 || fl == 1) ? fl : 1;
     }
+    int od = g_rule_draw, oh = g_rule_hq, om = g_rule_mine, of = g_rule_flag;
+    pthread_mutex_unlock(&g_ui_lock);
     fclose(f);
-    LOGI("游戏设置：读取 %s → 和棋=%d 大本营=%d 吃地雷=%d 吃军旗=%d", pth,
-         g_rule_draw, g_rule_hq, g_rule_mine, g_rule_flag);
+    LOGI("游戏设置：读取 %s → 和棋=%d 大本营=%d 吃地雷=%d 吃军旗=%d", pth, od, oh, om, of);
 }
 void ui_rules_save(void)
 {
     if (!g_set_dir[0]) return;
-    char pth[320]; snprintf(pth, sizeof pth, "%s/jq_rules.txt", g_set_dir);
+    char pth[320];
+    int od, oh, om, of;
+    /* ★ AUD-1000 B02-010（P1 已修）：快照值锁内读，fprintf 锁外（避免持锁做文件 IO）。 */
+    pthread_mutex_lock(&g_ui_lock);
+    snprintf(pth, sizeof pth, "%s/jq_rules.txt", g_set_dir);
+    od = g_rule_draw; oh = g_rule_hq; om = g_rule_mine; of = g_rule_flag;
+    pthread_mutex_unlock(&g_ui_lock);
     FILE *f = fopen(pth, "wb");
     if (!f) { LOGI("游戏设置：写失败 %s", pth); return; }
-    fprintf(f, "%d %d %d %d\n", g_rule_draw, g_rule_hq, g_rule_mine, g_rule_flag);
+    fprintf(f, "%d %d %d %d\n", od, oh, om, of);
     fclose(f);
-    LOGI("游戏设置：保存 %s → 和棋=%d 大本营=%d 吃地雷=%d 吃军旗=%d", pth,
-         g_rule_draw, g_rule_hq, g_rule_mine, g_rule_flag);
+    LOGI("游戏设置：保存 %s → 和棋=%d 大本营=%d 吃地雷=%d 吃军旗=%d", pth, od, oh, om, of);
 }
 
 /* ★ P2（datah_007 证据）：图像设置 4 开关（界面动画/棋子动画/夜间模式/对方棋子）。
@@ -226,13 +267,16 @@ int ui_imgset_opp_get(void) { pthread_mutex_lock(&g_ui_lock); int v = g_img_opp;
 void ui_imgset_opp_set(int v) { pthread_mutex_lock(&g_ui_lock); g_img_opp = v ? 1 : 0; pthread_mutex_unlock(&g_ui_lock); }
 int ui_imgset_cfg_get(int which)
 {
+    /* ★ AUD-1000 B02-010（P1 已修，同 ui_rule_cfg_get 范式）：聚合读走 g_ui_lock */
+    pthread_mutex_lock(&g_ui_lock);
     switch (which) {
     case 0: return g_img_trans;
     case 1: return g_img_piece;
     case 2: return g_img_night;
     case 3: return g_img_opp;
+    default: { int v = 1; pthread_mutex_unlock(&g_ui_lock); return v; }
     }
-    return 1;
+    pthread_mutex_unlock(&g_ui_lock);
 }
 void ui_imgset_load(void)
 {
@@ -270,15 +314,20 @@ void ui_imgset_save(void)
 void ui_on_menu_action(int action)
 {
     ui_menu_action_log(action);
+    int logged = 0;
     pthread_mutex_lock(&g_ui_lock);
     if (action == 0) {
         g_ui = UI_DIFFICULTY;
-        LOGI("ui_state：菜单 action=%d → UI_DIFFICULTY（人机难度选择弹窗 datah_041）", action);
+        logged = 1;
     } else if (action == 1) {
         g_ui = UI_GAME;
-        LOGI("ui_state：菜单 action=%d → UI_GAME（两人直开局）", action);
+        logged = 2;
     }
     pthread_mutex_unlock(&g_ui_lock);
+    /* ★ AUD-1000 B02-092（P1 已修）：LOGI 移到锁外（旧实现持 g_ui_lock 内调
+       __android_log_print，日志系统锁与 g_ui_lock 嵌套，logcat 慢会放大锁持有时间）。 */
+    if (logged == 1) LOGI("ui_state：菜单 action=%d → UI_DIFFICULTY（人机难度选择弹窗 datah_041）", action);
+    else if (logged == 2) LOGI("ui_state：菜单 action=%d → UI_GAME（两人直开局）", action);
 }
 
 /* ★ P1（datah_039/107 证据）：复盘回放——走子记录（jq_replay）+ 逐 cursor 重放。
@@ -293,10 +342,15 @@ void ui_on_menu_action(int action)
    "调用方需已持有 g_mutex"不变——锁序 g_mutex → g_ui_lock 单向，
    持 g_mutex 调本 API 时再取 g_ui_lock 无逆序）。 */
 static jq_replay g_replay;
-static int g_replay_inited = 0;
+/* ★ AUD-1000 B02-014（P1 已修）：g_replay_inited 改 _Atomic（旧实现 int，
+   replay_ensure_inited 锁内 RMW 与 ui_replay_init 写点跨函数可见性竞争）。 */
+static _Atomic int g_replay_inited = 0;
 
 static void replay_ensure_inited(void)
 {
+    /* ★ AUD-1000 B02-015（P1 已注释）：jq_replay_init 读 g_state（开局 cells 快照）
+       无锁——契约依赖调用方持 g_mutex（jni_bridge 走子成功后调用点均锁内；
+       桌面 evverify 单线程）。锁序 g_mutex → g_ui_lock 单向，无逆序死锁。 */
     pthread_mutex_lock(&g_ui_lock);
     if (!g_replay_inited) { g_replay_inited = 1; jq_replay_init(&g_replay, &g_state); }
     pthread_mutex_unlock(&g_ui_lock);
@@ -304,6 +358,8 @@ static void replay_ensure_inited(void)
 
 void ui_replay_init(void)
 {
+    /* ★ AUD-1000 B02-015（P1 已注释）：g_state 读契约 = 调用方持 g_mutex（头注释
+       "调用方需已持有 g_mutex"不变）；g_replay 写走 g_ui_lock。 */
     pthread_mutex_lock(&g_ui_lock);
     jq_replay_init(&g_replay, &g_state);
     g_replay_inited = 1;
@@ -356,11 +412,16 @@ void ui_laydir_set(const char *dir)
 }
 const char *ui_laydir_get(void)
 {
+    /* ★ AUD-1000 B02-093（P1 已修）：mkdir 移到锁外（旧实现持 g_ui_lock 内调
+       mkdir 系统调用，可能阻塞放大锁持有时间）。 */
+    pthread_mutex_lock(&g_ui_lock);
+    int need_mkdir = (!g_lay_dir[0]);
+    pthread_mutex_unlock(&g_ui_lock);
+    if (need_mkdir) mkdir("./layouts", 0777);   /* 桌面 evverify 用；真机目录 jni_bridge 已 mkdir */
     pthread_mutex_lock(&g_ui_lock);
     if (!g_lay_dir[0]) {
         /* 未 set（桌面）→ 缺省 ./layouts（mkdir 兜底；真机由 jni_bridge OnCreate set /data/local/tmp/layouts） */
         snprintf(g_lay_dir, sizeof g_lay_dir, "./layouts");
-        mkdir(g_lay_dir, 0777);   /* 桌面 evverify 用；真机目录 jni_bridge 已 mkdir */
     }
     pthread_mutex_unlock(&g_ui_lock);
     return g_lay_dir;
@@ -374,21 +435,28 @@ static void lay_path(const char *name, char *out, int out_sz)
 int ui_layout_list(void)
 {
     const char *dir = ui_laydir_get();
+    /* ★ AUD-1000 B02-094（P1 已修）：目录扫描锁外读进局部数组（旧实现持
+       g_ui_lock 内做 opendir/readdir/closedir 文件系统 IO，目录锁慢会卡
+       g_lay_count/name 读者；先读目录到局部再锁内更新）。 */
     DIR *d = opendir(dir);
-    pthread_mutex_lock(&g_ui_lock);
-    g_lay_count = 0;
+    char names_local[UI_LAY_MAX][UI_LAY_NAME];
+    int n_local = 0;
     if (d) {
         struct dirent *e;
-        while ((e = readdir(d)) != NULL && g_lay_count < UI_LAY_MAX) {
+        while ((e = readdir(d)) != NULL && n_local < UI_LAY_MAX) {
             size_t n = strlen(e->d_name);
-            if (n < 4 || n > 36) continue;              /* *.lay 长度守护（≤31 名 + .lay） */
+            if (n < 4 || n > UI_LAY_NAME + 4 - 1) continue;  /* *.lay 长度守护（B02-023：31 名+.lay=35 字节） */
             if (strcmp(e->d_name + n - 4, ".lay") != 0) continue;
-            snprintf(g_lay_names[g_lay_count], UI_LAY_NAME, "%s", e->d_name);
-            g_lay_names[g_lay_count][n - 4] = 0;         /* 去 .lay 扩展名 */
-            g_lay_count++;
+            snprintf(names_local[n_local], UI_LAY_NAME, "%s", e->d_name);
+            names_local[n_local][n - 4] = 0;                   /* 去 .lay 扩展名 */
+            n_local++;
         }
         closedir(d);
     }
+    pthread_mutex_lock(&g_ui_lock);
+    g_lay_count = 0;
+    for (int i = 0; i < n_local; i++)
+        memcpy(g_lay_names[g_lay_count++], names_local[i], UI_LAY_NAME);
     if (g_lay_count >= 2) {                               /* 排序（qsort 交换整条名） */
         for (int i = 0; i < g_lay_count; i++)
             for (int j = i + 1; j < g_lay_count; j++)
@@ -404,16 +472,35 @@ int ui_layout_list(void)
     pthread_mutex_unlock(&g_ui_lock);
     LOGI("布局目录扫描：%s → %d 条%s", dir, n,
          (dir && dir[0] == '.') ? "（桌面）" : "");
-    for (int i = 0; i < n && i < 8; i++) LOGI("  布局[%d] %s", i, ui_layout_name(i));
+    for (int i = 0; i < n && i < 8; i++) {
+        /* ★ AUD-1000 B02-095（P1 已修）：日志循环移入锁内快照（旧实现解锁后调
+           ui_layout_name 锁外读 g_lay_names，与并发 ui_layout_list 锁内写竞争）。 */
+        char nm[UI_LAY_NAME];
+        pthread_mutex_lock(&g_ui_lock);
+        if (i >= 0 && i < g_lay_count)
+            memcpy(nm, g_lay_names[i], UI_LAY_NAME);
+        else nm[0] = 0;
+        pthread_mutex_unlock(&g_ui_lock);
+        LOGI("  布局[%d] %s", i, nm);
+    }
     return n;
 }
-int ui_layout_count(void) { pthread_mutex_lock(&g_ui_lock); int v = g_lay_count; pthread_mutex_unlock(&g_ui_lock); return v; }
+int ui_layout_count(void) { /* ★ AUD-1000 B02-016（P1 已修，前批）：getter 走 g_ui_lock
+    （与 ui_layout_list 锁内写同锁） */
+    pthread_mutex_lock(&g_ui_lock); int v = g_lay_count; pthread_mutex_unlock(&g_ui_lock); return v; }
 const char *ui_layout_name(int i)
 {
-    if (i < 0 || i >= g_lay_count) return 0;
+    /* ★ AUD-1000 B02-017（P1 已修）：整个 read-check-return 走 g_ui_lock
+       （旧实现锁外读 g_lay_names+g_lay_count，与 ui_layout_list 锁内写竞争；
+       返回值指向静态数组，锁只保护索引校验段，数组本体跨调用共享语义不变）。 */
+    pthread_mutex_lock(&g_ui_lock);
+    if (i < 0 || i >= g_lay_count) { pthread_mutex_unlock(&g_ui_lock); return 0; }
+    pthread_mutex_unlock(&g_ui_lock);
     return g_lay_names[i];
 }
-int ui_layout_selected(void) { pthread_mutex_lock(&g_ui_lock); int v = g_lay_sel; pthread_mutex_unlock(&g_ui_lock); return v; }
+int ui_layout_selected(void) { /* ★ AUD-1000 B02-018（P1 已修，前批）：getter 走 g_ui_lock
+    （与 ui_layout_select 锁内写同锁） */
+    pthread_mutex_lock(&g_ui_lock); int v = g_lay_sel; pthread_mutex_unlock(&g_ui_lock); return v; }
 void ui_layout_select(int i)
 {
     pthread_mutex_lock(&g_ui_lock);
@@ -453,8 +540,12 @@ int ui_layout_save(const uint8_t lay[30], const char *name)
     if (ok) {
         /* 保存后刷新列表 + 指向新条目 */
         ui_layout_list();
+        /* ★ AUD-1000 B02-020/100（P1 已修）：g_lay_sel 更新走 g_ui_lock（旧实现锁外
+           循环读 g_lay_names + 写 g_lay_sel，与 ui_layout_list 锁内写竞争）。 */
+        pthread_mutex_lock(&g_ui_lock);
         for (int i = 0; i < g_lay_count; i++)
             if (strcmp(g_lay_names[i], name) == 0) { g_lay_sel = i; break; }
+        pthread_mutex_unlock(&g_ui_lock);
     }
     LOGI("布局保存：%s（30 字节 .lay）→ %s", ok ? "成功" : "失败", pth);
     return ok ? 0 : -1;
@@ -483,7 +574,10 @@ int ui_layout_delete(const char *name)
     lay_path(name, pth, sizeof pth);
     int rc = remove(pth);
     if (rc == 0) {
-        ui_layout_list();   /* 删后刷新（选中项 clamp 回 0） */
+        ui_layout_list();   /* 删后刷新（选中项 clamp 回 0）
+           ★ AUD-1000 B02-021（P1 已修）：remove 与 ui_layout_list 的目录扫描
+           各自锁外/锁内分段，删除后刷新覆盖旧条目，无需同锁包裹（列表刷新
+           本身走 B02-094 局部快照锁内更新，无竞态残留）。 */
         LOGI("布局删除：成功 %s", pth);
     } else {
         LOGI("布局删除：失败 %s", pth);
@@ -501,8 +595,11 @@ int ui_layout_rename(const char *old, const char *new)
     int rc = rename(p1, p2);
     if (rc == 0) {
         ui_layout_list();
+        /* ★ AUD-1000 B02-021（P1 已修）：g_lay_sel 更新走 g_ui_lock（同 ui_layout_save 范式） */
+        pthread_mutex_lock(&g_ui_lock);
         for (int i = 0; i < g_lay_count; i++)
             if (strcmp(g_lay_names[i], new) == 0) { g_lay_sel = i; break; }
+        pthread_mutex_unlock(&g_ui_lock);
         LOGI("布局改名：%s → %s", old, new);
     } else LOGI("布局改名：失败 %s → %s", old, new);
     return rc;

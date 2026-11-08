@@ -59,6 +59,13 @@ static void jqt_build_real_ranges(void) {
     while (fgets(line, sizeof(line), f) && g_jqt_real_n_swp < JQT_REAL_MAX) {
         unsigned long lo, hi; char perm[8];
         if (sscanf(line, "%lx-%lx %4s", &lo, &hi, perm) == 3) {
+            /* ★ AUD-1000 B05-001（P1 R-138 诚实标注）：JQT_REAL_MAX=4096 满表时
+               静默截断（循环条件直接结束，无 miss 日志/无扩容提示）——
+               设备 /proc/self/maps 有 ~1943 条（实测 real_n=1799），常态
+               未满；但 scudo 堆增长 + 多线程 mprotect 分片极端场景可能
+               逼近上限，漏收映射 → MEM 落零页读 0（与"真实堆指针未进
+               快照"同症状）。加"满表打一条 logcat"属行为改动（log 频率），
+               R-138 32 位翻译体只标注；扩容选项（2 路表/65536）留待专项。 */
             /* ★ §124ac：只收**可写**区（perm[1]=='w'）。旧逻辑只排除不可读（perm[0]=='-'），
              *   只读区（r--p，如 MuMu 0x39c0000 保留区）也进表 → jqt_mem_addr 返回只读地址 →
              *   str r0,[r1] SEGV_ACCERR（fault 0x39c039c，F_6e994+0x5bc）。写 MEM 必须可写区。
@@ -144,13 +151,26 @@ static int jqt_mincore_ok(uint32_t a) {
      * sizeof(unsigned long)=4 字节 → vec 需 4096*4=16384 字节（1 页驻留标志
      * 位数组），栈上只有 1 字节 → 越界写（v178e14 GLThread SIGSEGV，
      * fault 0xb42d000 恰 4KB 边界 = vec 页首）。
-     * 第 2 参改传 1（只查 1 页）+ vec 类型改 unsigned long（4 字节，1 页足量）。 */
+     * 第 2 参改传 1（只查 1 页）+ vec 类型改 unsigned long（4 字节，1 页足量）。
+     * AUD-1000 B05-004 诚实边界：vec&1==0（已映射但未驻留）时落零页，与
+     * "可访问"语义有差距——大页面 swap 场景原版会缺页调入读到真实值，
+     * 翻译体直接读 0（不崩，忠实兜底）。mincore 开销大，仅对命中真实映射
+     * 区表的地址调用（快路径影子偏移/影子区不查）。 */
     unsigned long vec = 0;
     void *pg = (void *)(uintptr_t)(a & ~0xffful);
     if (mincore(pg, 1, &vec) != 0) return 0;   /* 未映射/无效 → 落零页 */
     return (vec & 1) != 0;                      /* 页已驻留 */
 }
 uint32_t jqt_mem_addr(uint32_t a) {
+    /* ★ AUD-1000 B05-005（P1 R-138 诚实标注）：查序 = 先真实映射区表，
+       再影子偏移区（a < JQT_MAP_HI）。.text/.rodata 偏移（如 0x233e0+
+       区内）若数值恰好落在某真实匿名映射区（如 0x2xxxxx 区低 32 位
+       撞车）会被真实表抢占 → 影子语义丢失（读真实映射区而非影子镜像）。
+       现状：翻译体 so 加载基址高（0x7x/0x8x 段），偏移区 [0x233e0,
+       0x200000) 与设备 maps 低段无实测碰撞（real_n=1799 区表抽样
+       无 0x2xxxxx 可写区），行为零影响。根治选项（偏移区优先解 +
+       真实表只兜底 >=MAP_HI；或建表排除偏移区数值）属行为改动，
+       R-138 只标注。 */
     if (jqt_real_find(a)) {
         /* ★ §124ac：表命中但页可能已释放（scudo 快照过期）→ mincore 验证。
          *   未映射 → 落零页（F_75ce8 遍历垃圾 this 读 0 不崩）。 */
@@ -317,6 +337,14 @@ void jqt_mem_init(void) {
             {0x001625bcu, 0x3f800000u},
             {0x0016263cu, 0x3f800000u},
             {0x0016265cu, 0x3f800000u},
+            /* ★ AUD-1000 B05-011（P1 R-138 诚实标注）：以上 4 槽 = MuMu 原版
+               进程 scudo 堆哨兵值（0x3f800000 类，GLThread 转译层 _Znwj
+               返回 0x3f8000xx 实证）——该值在 MuMu 原版进程指向真实 scudo
+               堆对象，**跨进程到翻译体无效**：翻译体 _Znwj 走 malloc
+               （非 scudo），0x3f800000 无对应堆对象 → MEM 解引用这 4 槽
+               读到的地址落零页（jqt_mincore_ok 判未映射 → scratch 读 0），
+               忠实兜底（读 0 不崩），非可工作指针。映射为翻译体自建
+               calloc 对象基址属行为改动（需补对象图构造），R-138 只标注。 */
             {0x001626c0u, 0xfffffffeu},
             {0x00162924u, 0x0000002au},
         };
@@ -354,10 +382,12 @@ void jqt_mem_init(void) {
     { static int _sc=0; if (++_sc <= 4) __android_log_print(4, "junqi",
         "SCUDO-FILL: 回填 %u 槽 (首 0x%08x=0x%08x, dump 原值 0x%08x)",
         JQT_SCUDO_SLOT_N, jq_scudo_slot_tbl[0].va, g_jqt_scudo_objs[0], jq_scudo_slot_tbl[0].dump_val); }
-#endif
+#else
+    /* AUD-1000 B05-014：JQT_SCUDO_FILL=0 时旧代码无条件打"回填 N 槽"日志（误导排障），
+       现改为明确的"跳过"日志 */
     { static int _sc=0; if (++_sc <= 4) __android_log_print(4, "junqi",
-        "SCUDO-FILL: 回填 %u 槽 (首 0x%08x=0x%08x, dump 原值 0x%08x)",
-        JQT_SCUDO_SLOT_N, jq_scudo_slot_tbl[0].va, g_jqt_scudo_objs[0], jq_scudo_slot_tbl[0].dump_val); }
+        "SCUDO-FILL: 跳过（JQT_SCUDO_FILL=0，§124y-151 对照实验禁用）"); }
+#endif
     /* §124y-166 修正: EVENT-TBL-FILL 事件掩码表 17 行 × 17 字段 = **289 字节** @ .bss+0x4704
      * （F_3a92c 真实访问序 = 17B stride, 旧版 4B stride/68B 写错位置, 已纠正）
      * 掩码字节语义 = (事件码 0..16) << 4 | 标志位（高 nibble = 事件码）

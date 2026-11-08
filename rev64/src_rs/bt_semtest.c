@@ -96,10 +96,14 @@ int main(void)
 
         /* 回合闸口：消费后 state 翻转 → 再发同帧应拒收 rc=-2 */
         CHECK(sess.state == BT_ST_OUR_TURN, "MOVE 帧消费后 state=OUR_TURN");
+        /* ★ AUD-1000 B08-045（P1 已修）：负向重发帧 rank/side 用 0,0 的归因链
+           注释化——on_frame MOVE 分支闸口校验（state != THEIR_TURN → -2）先于
+           任何参数域校验，OUR_TURN 态下 0,0 参数不触发校验链即被闸口拒，
+           rc=-2 精确归因闸口（非"rank=0 非法"）。 */
         ret = jq_bt_session_on_frame(&sess, &st,
                     BT_T_MOVE, cell_col(mfrom), cell_row(mfrom),
                     cell_col(mto), cell_row(mto), 0, 0);
-        CHECK(ret == -2, "MOVE 帧闸口：OUR_TURN 拒收（rc=-2）");
+        CHECK(ret == -2, "MOVE 帧闸口：OUR_TURN 拒收（rc=-2，闸口先于参数校验）");
 
         /* 非法坐标扩展矩阵（frame_coord_ok 越界 → rc=-1，先于闸口校验） */
         struct { int tc, tr, fr, tc2; const char *msg; } bad[] = {
@@ -266,14 +270,25 @@ int main(void)
            ★ 对抗审计 P1-B5 修正：BT_T_SYNC 原 peer_state=*st（镜像本地，语义错——
            对端误发 type=3 会忽略对端数据还谎报成功）。修正后 = 重置为初始态，
            等待后续 SYNC_CELL 逐格填充。断言对齐修正后行为。 */
+        /* ★ AUD-1000 B04-036（P1 已修）：SYNC 头帧测试改用新 sess（CONNECTED 态）
+           ——旧实现复用 §4 回放后的 sess（peer_state 已被 60 帧填充），掩盖
+           "DISCONNECTED 下 SYNC 应被 B04-013 闸口拒收"的语义分叉。
+           修正后：新 sess CONNECTED 态 SYNC 头帧 rc=0 + peer_state 重置初始态，
+           另 DISCONNECTED 闸口对照（RESIGN 后 SYNC 拒收 rc=-2）。 */
         jq_state stm; fixture_play(&stm);
-        int ret = jq_bt_session_on_frame(&sess, &stm, BT_T_SYNC, 0, 0, 0, 0, 0, 0);
-        CHECK(ret == 0, "SYNC 头帧接受（rc=0）");
+        jq_bt_session sess_sync;
+        jq_bt_session_init(&sess_sync, &stm, 1);
+        int ret = jq_bt_session_on_frame(&sess_sync, &stm, BT_T_SYNC, 0, 0, 0, 0, 0, 0);
+        CHECK(ret == 0, "SYNC 头帧接受（CONNECTED 态，rc=0）");
         jq_state streset;
         jq_state_init(&streset);
-        CHECK(sess.peer_state.stage == streset.stage &&
-              memcmp(&sess.peer_state.cells, &streset.cells, sizeof(streset.cells)) == 0,
+        CHECK(sess_sync.peer_state.stage == streset.stage &&
+              memcmp(&sess_sync.peer_state.cells, &streset.cells, sizeof(streset.cells)) == 0,
               "SYNC 头帧：peer_state 重置为初始态（等待 SYNC_CELL 填充，不镜像本地 st）");
+        /* DISCONNECTED 闸口对照：RESIGN 后置 DISCONNECTED，再发 SYNC 应 rc=-2 */
+        jq_bt_session_on_frame(&sess_sync, &stm, BT_T_RESIGN, 0, 0, 0, 0, 0, 0);
+        ret = jq_bt_session_on_frame(&sess_sync, &stm, BT_T_SYNC, 0, 0, 0, 0, 0, 0);
+        CHECK(ret == -2, "DISCONNECTED 闸口：SYNC 数据帧拒收（rc=-2，B04-013 语义）");
     }
 
     /* =====================================================================
@@ -305,7 +320,13 @@ int main(void)
         /* UNDO：闸口语义（THEIR_TURN 且悔棋栈非空才消费→翻回合；栈空拒收 rc=-3；OUR_TURN 拒收）
            ★ 对抗审计 P1-B9 修正：jq_bt_undo_available 原恒 0 桩 → UNDO 帧永不消费
            （rc=-3）。测试桩改 1（模拟 jni_bridge 侧悔棋栈非空），验证闸口语义
-           "栈深>0 → 切回合，恢复动作由收帧侧 undo_pop + 广播执行（PENDING 缺口）"。 */
+           "栈深>0 → 切回合，恢复动作由收帧侧 undo_pop + 广播执行（PENDING 缺口）"。
+           ★ AUD-1000 B04-031/B08-029（P1 已注释，诚实边界）：g_bt_undo_avail 桩
+           与 jni_bridge 真实现（读 g_undo_top 悔棋栈深度）脱节——本测试只验
+           "闸口语义 + 桩置位消费"，不验"真悔棋栈非空时 UNDO 恢复动作"（桌面
+           不链接 jni_bridge，undo_pop 真实栈恢复由真机 btconn 回归覆盖）。
+           防误读断言：UNDO 消费后 stu 除回合外不变——恢复动作不在 bt_session
+           侧执行（下方 stu.total_moves 不变断言即此语义）。 */
         jq_state stu; fixture_play(&stu);
         jq_bt_session sessu;
         jq_bt_session_init(&sessu, &stu, 1);
@@ -351,6 +372,11 @@ int main(void)
               "V2\\n 大写前缀拒收");
         CHECK(jq_bt_frame_decode("hello\n0,1,2,3,4,5,6\n", g, g+1, g+2, g+3, g+4, g+5, g+6) == 0,
               "任意垃圾前缀拒收");
+        /* ★ AUD-1000 B09-039（P1 已修配套用例）：噪声前缀 + 内嵌 v2\n 帧拒绝
+           （旧 strstr 实现会命中内嵌 'v2\n' 接受；现首字节锚定后 buf[0]!=='v'
+           直接拒，与 Java BtSpp"按 v2\n 头抽取分帧"语义一致）。 */
+        CHECK(jq_bt_frame_decode("xxv2\n0,1,2,3,4,5,6\n", g, g+1, g+2, g+3, g+4, g+5, g+6) == 0,
+              "噪声前缀帧拒绝（'xxv2\\n...' 内嵌 v2\\n 不再命中，B09-039）");
         CHECK(jq_bt_frame_decode("v2\n", g, g+1, g+2, g+3, g+4, g+5, g+6) == 0,
               "v2\\n 后无字段拒收（sscanf 7 字段失败）");
         CHECK(jq_bt_frame_decode("v2\n0,1,2,3,4,5\n", g, g+1, g+2, g+3, g+4, g+5, g+6) == 0,
@@ -380,7 +406,11 @@ int main(void)
         sess.state = BT_ST_THEIR_TURN;
         int ret = jq_bt_session_on_frame(&sess, &st, BT_T_MOVE + 100, 0, 0, 0, 0, 0, 0);
         CHECK(ret == -1, "未知 type（越界）拒收（rc=-1）");
-        CHECK(sess.last_type == (int)(BT_T_MOVE + 100), "last_type 记录（会话诊断）");
+        /* ★ AUD-1000 B04-014（P1 已修）：last_type 仅合法 case 命中才记录——
+           旧断言"越界 type 也写 last_type"随修复反转：init 后 memset 清零，
+           越界帧不污染 last_type（诊断日志按 last_type 判"最后有效帧"不被
+           非法帧误导）。初值 0 = BT_T_MOVE（memset 0）保持。 */
+        CHECK(sess.last_type == 0, "越界 type 不污染 last_type（保持 init 初值 0）");
     }
 
     printf(rc ? "== bt_semtest 结果: 有失败（%d 条通过）==\n"

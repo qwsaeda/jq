@@ -204,7 +204,9 @@ typedef struct {
     void *btn_small_px; size_t btn_small_px_len;/* ★ 主菜单小按钮图集 RGBA（666×116，联网+联机+四国） */
     int btn_small_w, btn_small_h;
     int sel_cell;                /* 选中格（-1=无） */
-    int hl_cells[61]; int hl_n;  /* 可走格高亮（jq_touch_state_targets 结果） */
+    int hl_cells[61]; int hl_n;  /* 可走格高亮（jq_touch_state_targets 结果）
+       ★ AUD-1000 B04-045（容量确认）：61 池 = N_CELLS 60 满可走 + 1 余量
+       （高亮源格叠加可走格取并集仍 ≤60+1），N_CELLS 扩容时同步扩池。 */
     int dirty;                   /* 脏标记（走子后重绘） */
     /* VBO 路线（GLES2 + GLSL shader，绕开 GLES1 固定管线几何 no-op） */
     rs_glid_t vbo_board[2];      /* 棋盘 6 顶点 xy+st（每 context 一套） */

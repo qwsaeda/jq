@@ -301,37 +301,79 @@ def probe_thread_safety():
     #   现改为**数据流感知**：先解析每个函数的 doc comment，若声明「调用方需持锁」
     #   则跳过其函数体内的 g_state 写入；同时只报**无任何锁上下文**的写入。
     CALLER_LOCKS = ("需已持有 g_mutex", "调用方需", "持锁", "调用者需")
-    func_doc = {}          # 行号 -> 该行所属函数是否声明「调用方持锁」
-    cur_fn = None
-    doc_buf = []
+    # ★ 反噪（§2026-11-11 续）：旧 doc_buf 逐行判「startswith /* 或 *」→ 块注释续行
+    #   不以 * 开头（如「   调用方需已持有 g_mutex（...）」带缩进）即被清空，
+    #   读不到持锁声明 → jq_restart_game 的 g_state 写入误报。现改**真块注释状态机**
+    #   （与 probeA_ai_leak 的 _in_block_comment 同范式，文件级 in_comment 追踪）。
+    func_doc = {}          # 行号 -> (函数名, 是否声明「调用方持锁」)
+    # ① 单次前扫（O(n)）建立每行「是否处于 /*...*/ 块注释内」布尔表，
+    #   再收集「块注释内出现持锁关键词」的行集合。旧 O(n²) 逐行重放 → 改单次遍历。
+    in_block = [False] * (len(ls) + 1)   # 1-based：in_block[i] = 第 i 行是否全/部分在块注释内
+    in_c = False
+    for i, ln in enumerate(ls, 1):
+        m = 0
+        line_any = False
+        while m < len(ln):
+            if in_c:
+                if ln.startswith("*/", m):
+                    in_c = False; m += 2; continue
+                line_any = True; m += 1
+            else:
+                if ln.startswith("/*", m):
+                    in_c = True; m += 2; line_any = True; continue
+                m += 1
+        in_block[i] = line_any or in_c
+    locked_doc_lines = set()
+    for i in range(1, len(ls) + 1):
+        if in_block[i] and any(kw in ls[i - 1] for kw in CALLER_LOCKS):
+            locked_doc_lines.add(i)
+    # ② 函数定义行 → 标记「调用方持锁」= 该函数 doc 区（定义行前 1 起向上 12 行内）
+    #   任一行是块注释内的持锁声明。
+    #   ★ 反噪（2026-11-11）：fm 旧正则把**函数调用行**（jq_load_layout(&g_state..) /
+    #     if (dark) / else 后的调用）误判为函数定义 → g_state 写入向上找到"最近的伪函数"
+    #     （lock_decl=False）遮蔽真正的持锁定义（jq_restart_game:252）→ 误报。
+    #   现收紧为**真正的定义**：行尾带 { 或紧跟下一行 {，且以返回类型开头（不含 '(' 开头
+    #   的调用形态），并排除控制流/宏/调用行。
+    func_lock = {}
+    for i, ln in enumerate(ls, 1):
+        st = ln.lstrip()
+        # 排除控制流语句、宏调用、前缀运算符
+        if st.startswith(("if", "while", "for", "switch", "return", "else", "do",
+                          "}", ";", "(", ",", "//", "/*", "*", "case")):
+            continue
+        # 定义形态：static <type> name(...) {  或  <type> name(...)  尾带 {
+        mdef = re.match(r"^(?:static\s+)?(?:[A-Za-z_][\w]*(?:\s+|\*)+)\b([A-Za-z_]\w*)\s*\([^)]*\)\s*(\{|$)", ln)
+        if not mdef:
+            continue
+        if "(" in st and st.split("(")[0].lstrip().startswith(("jq_", "ui_", "sfx_", "LOGI", "LOGE")):
+            # 形如 "jq_xxx(a); " 的调用行（行内有分号结尾或单语句）排除
+            pass
+        fdef = i
+        lock_decl = any(j in locked_doc_lines for j in range(max(1, fdef - 12), fdef))
+        func_lock[fdef] = lock_decl
     for i, ln in enumerate(ls, 1):
         st = ln.strip()
-        if st.startswith("/*") or st.startswith("*"):
-            doc_buf.append(ln)
-            continue
-        fm = re.search(r"^static\s+[\w\s\*]+\b(\w+)\s*\(", ln)
-        if fm:
-            cur_fn = fm.group(1)
-            doc = "\n".join(doc_buf)
-            func_doc[i] = (cur_fn, any(k in doc for k in CALLER_LOCKS))
-            doc_buf = []
-            continue
-        doc_buf = []
         if "g_state" in ln and "=" in ln and not st.startswith("/*"):
+            # ★ 反噪（2026-11-11）：真写判据收紧——排除只读表达式（ternary 右值 / 条件 /
+            #   比较里的 g_state.<field> 读，如 "g_state.turn == SIDE_BLUE ? ..." / "if (g_state.x==y||...)")。
+            #   只保留真正的 g_state.<field> = 赋值（行内有 g_state.X 后紧跟 [^=] = ，或行内以 g_state 开头的写语句）。
+            if not re.search(r"g_state\.\w+\s*=(?!=)", ln):
+                continue
             # 找到本行所属函数（向上最近的函数定义）
             owner = None
             caller_locks = False
             for j in range(i - 1, max(0, i - 120), -1):
-                if j in func_doc:
-                    owner, caller_locks = func_doc[j]
+                if j in func_lock:
+                    owner = "fn"
+                    caller_locks = func_lock[j]
                     break
             if owner and caller_locks:
                 continue    # 声明了「调用方持锁」→ 函数体内不加锁是正确设计
-            # 该函数体内是否出现过 lock/unlock（自行加锁）
-            body = "\n".join(ls[i - 1:i + 80])
+            # ★ 反噪：锁检测同时往前看 80 行（lock 常写在 g_state 写语句的**前一行**，
+            #   旧版只往后看 80 行漏掉「先 lock 后写」范式 → 误报）。
+            body = "\n".join(ls[max(0, i - 81):i + 80])
             if "pthread_mutex_lock(&g_mutex)" in body:
                 continue
-            if re.search(r"g_state\.\w+\s*=", ln):
                 # AUD-A-0042（P3 真修）：旧版此处多传 1 个 "lock-discipline" 实参（8 参 vs
                 # add() 7 参）→ 探针运行时 TypeError 被 main() try/except 捕获记为
                 # "探针自身异常" 条目。删末尾多余实参修复。
@@ -351,7 +393,13 @@ def probe_recursive_lock():
     ls = lines_of(jb)
     depth = 0
     for i, ln in enumerate(ls, 1):
-        if "pthread_mutex_lock(&g_mutex)" in ln:
+        # ★ 反噪（2026-11-11）：跳过纯注释行（行内 lock/unlock 字样出现在 // 或 /* 注释里
+        #   不算真实加锁）——取行尾/行内注释前的代码部分再判。
+        code = ln
+        ci = code.find("//")
+        if ci >= 0:
+            code = code[:ci]
+        if "pthread_mutex_lock(&g_mutex)" in code:
             depth += 1
             if depth > 1:
                 add("deadlock", "P0",
@@ -360,7 +408,7 @@ def probe_recursive_lock():
                     "同一调用路径第二次 pthread_mutex_lock(&g_mutex)",
                     "g_mutex 由 pthread_mutex_init(&g_mutex, NULL) 创建（默认非递归）",
                     "把内层加锁改为不加锁（外层已持锁），或改用 PTHREAD_MUTEX_RECURSIVE")
-        if "pthread_mutex_unlock(&g_mutex)" in ln:
+        if "pthread_mutex_unlock(&g_mutex)" in code:
             depth = max(0, depth - 1)
 
 

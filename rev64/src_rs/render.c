@@ -394,7 +394,13 @@ static void load_texture(rs_render *rr, AAssetManager *am,
     unsigned char *rgba = NULL;
     int dw = 0, dh = 0;
     if (png_decode(buf, sz, &rgba, &dw, &dh) == 0) {
-        *dst = rgba; *dst_len = (size_t)w * h * 4;
+        /* ★ AUD-1000 B04-046（P1 已修）：*dst_len 用解码实际 dw/dh 而非调用方
+           传入的期望 w/h——资源改尺寸（棋盘 PNG 换图）时 w/h 期望值与实际
+           解码尺寸不符 → glTexImage2D 按 w×h 上传 dw×dh 像素（越读/越写
+           纹理行错位）。w/h 仅作纹理期望值（glTexImage2D 维度仍用调用方
+           传入 w/h 保持纹理布局稳定），dst_len 记实际像素量供后续
+           realloc/校验。 */
+        *dst = rgba; *dst_len = (size_t)dw * dh * 4;
         glGenTextures(1, tex);
         glBindTexture(GL_TEXTURE_2D, *tex);
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, w, h, 0,
@@ -9256,6 +9262,28 @@ static void rs_gl_rebuild(rs_render *rr, int slot)
     if (rr->tex_bg[slot])      { glDeleteTextures(1, &rr->tex_bg[slot]); rr->tex_bg[slot] = 0; }
     if (rr->tex_menu_bg[slot]) { glDeleteTextures(1, &rr->tex_menu_bg[slot]); rr->tex_menu_bg[slot] = 0; }
     if (rr->tex_imen_text[slot]) { glDeleteTextures(1, &rr->tex_imen_text[slot]); rr->tex_imen_text[slot] = 0; }
+    /* ★ AUD-1000 B04-054（P1 已修，同 rs_render_free 遍历范式）：旧版 rs_gl_rebuild
+       只删 5 类纹理（board/piece/text/bg/menu_bg/imen_text）+ 3 VBO + 2 program，
+       其余 38 类纹理（imen_icons/hamburger/btn 系/popup/各弹窗文字图集…）在
+       context 重建（onSurfaceCreated/slot 切换）时不删 → 同 context 重建随帧数
+       泄漏（与 rs_render_free 同源根因，rebuild 是高频路径，泄漏更快）。
+       现遍历与 rs_render_free 同一纹理数组全删。 */
+    {
+        rs_glid_t *texs[] = {
+            rr->tex_dlg_text, rr->tex_imen_icons, rr->tex_imen_orig,
+            rr->tex_hamburger, rr->tex_btn_big, rr->tex_btn_small,
+            rr->tex_popup, rr->tex_opt_text, rr->tex_waysel_text, rr->tex_btimen_text,
+            rr->tex_settings_text, rr->tex_nplayer_text, rr->tex_newgame_text, rr->tex_gameset_text,
+            rr->tex_layres_text, rr->tex_replay_text, rr->tex_login_text, rr->tex_rules_text,
+            rr->tex_ng104_text, rr->tex_join_text, rr->tex_ng061_text, rr->tex_gameinfo_text,
+            rr->tex_bright_text, rr->tex_chatlog_text, rr->tex_profile_text, rr->tex_drawdetail_text,
+            rr->tex_setentry_text, rr->tex_imgset_text, rr->tex_join065_text, rr->tex_create069_text,
+            rr->tex_rules070_text, rr->tex_room060_text, rr->tex_chat063_text, rr->tex_about_text,
+            rr->tex_uibat_text,
+        };
+        for (size_t k = 0; k < sizeof(texs)/sizeof(texs[0]); k++)
+            if (texs[k][slot]) { glDeleteTextures(1, &texs[k][slot]); texs[k][slot] = 0; }
+    }
     if (rr->vbo_board[slot])   { glDeleteBuffers(1, &rr->vbo_board[slot]); rr->vbo_board[slot] = 0; }
     if (rr->vbo_piece[slot])   { glDeleteBuffers(1, &rr->vbo_piece[slot]); rr->vbo_piece[slot] = 0; }
     if (rr->vbo_sel[slot])     { glDeleteBuffers(1, &rr->vbo_sel[slot]); rr->vbo_sel[slot] = 0; }
@@ -9742,6 +9770,13 @@ static void rs_gl_rebuild(rs_render *rr, int slot)
        + 各纹理指针判空实际出几何，gl_ok 无判读点 = 诊断/日志字段，不影响渲染行为）。
        单纹理缺失时 gl_ok=0 但其他纹理照常出几何（如 piece 缺失 → 棋盘/菜单仍渲染），
        与 rs_render_frame 实际判读路径（gl2_ok[slot] + tex_xxx[slot] 指针）一致。 */
+    /* ★ AUD-1000 B04-051（P1 判读说明）：gl_ok 仅诊断用途（rs_render_free 删除
+       判据 + 帧日志 gl_ok 打印）——单纹理缺失不置 gl_ok=0（B04-049 已改
+       gl2_ok 不随部分纹理缺失置 0，单纹理缺失走纯色退化非整 slot 不出几何）；
+       本行 gl_ok 要求 3 个核心对象（VBO+棋盘/棋子纹理）全建，是"几何出帧
+       就绪"的粗判据：棋盘/棋子纹理缺失时不出几何（退化为清屏色），属
+       有意行为（无棋盘纹理的几何无渲染意义），非缺陷。各对话框文字图集
+       缺失不影响 gl_ok（走纯色退化）。 */
     rr->gl_ok[slot] = rr->gl2_ok[slot] && rr->vbo_board[slot] && rr->tex_board[slot] && rr->tex_piece[slot];
 }
 

@@ -1,8 +1,16 @@
 #!/bin/bash
 # pack_phase.sh — 重打包三件套（apktool b → store_compressed → SignV2）
+# ★ AUD-1000 B07-030（P1 历史脚本标注）：本脚本产 'phase_hand.apk'（SignV2 = v1 单签），
+#   非 phase0-3 交付物；交付用 build_phases.sh + sign_apk.sh（v1+v2 双签，可装机）。
 # 用法: ./pack_phase.sh [输入.so] [输出.apk]
 # 依赖: /tmp/opencode/jq_apk（dec 目录）、store_compressed.py、apksigner
+# ★ AUD-1000 B06-051（P1 假绿三型-管道吞码）：加 set -o pipefail——旧版仅 set -e，
+#   下方 apktool b / store / SignV2 各段 `2>&1 | tail -1` 吞上游失败码（tail 退 0）
+#   → 重打包失败静默继续到签名/验证段，产出旧 APK 假绿。
+#   注：本脚本为**历史脚本**（B07-030 标注），交付物构建用 build_phases.sh + sign_apk.sh
+#   （v1+v2 双签）；本处保留 SignV2（v1 时代 CLI 旧名），勿误当可装交付 APK。
 set -e
+set -o pipefail
 SO=${1:-/disk/workspaces/jq/rev64/dist/libjunqi_arm64_hand.so}
 OUT=${2:-/disk/workspaces/jq/rev64/dist/phase_hand.apk}
 APKROOT=/tmp/opencode/jq_apk

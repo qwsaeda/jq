@@ -148,11 +148,11 @@ void jqt_gl_bridge_start_frame_loop(uint32_t clear_arg)
      * ★ §DRAWOBJ-SPAWN 修正：翻译体 GLThread 只跑 1 次 F_23eec（OnUpdate 从未被调，
      *   GLThread onDrawFrame 不触发），无双 swap 冲突 → 允许 GLThread 也 spawn
      *   （否则棋盘只画 1 次，无持续出帧循环）。 */
-    if (0 && eglGetCurrentSurface(EGL_DRAW) != EGL_NO_SURFACE &&
-        eglGetCurrentContext() != EGL_NO_CONTEXT) {
-        __android_log_print(6,"junqi","gl_bridge: 本线程已有 current（GLThread 主循环），不 spawn 抢 swap 线程");
-        return;
-    }
+    /* ★ AUD-1000 B05-061（P1 已修，删死分支）：旧版 "if (0 && eglGetCurrentSurface…)"
+       恒假死代码（§DRAWOBJ-SPAWN 注释改判据后遗留，编译告警）已删——
+       §124zz-5/§DRAWOBJ-SPAWN 结论：翻译体 GLThread 只跑 1 次 F_23eec
+       无双 swap 冲突，**允许** GLThread spawn（否则棋盘只画 1 次），
+       旧死分支"已有 current 不 spawn"判据已被推翻，直接落 spawn。 */
     if (pthread_create(&g_jq_gl_loop_tid, NULL, jqt_gl_frame_loop, (void*)(uintptr_t)clear_arg) == 0) {
         g_jq_gl_loop_started = 1;
         __android_log_print(4,"junqi","gl_bridge: 持续出帧循环已 spawn tid=%d surface=%p", (int)g_jq_gl_loop_tid, (void*)g_jq_gl_ws);

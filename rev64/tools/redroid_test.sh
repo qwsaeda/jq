@@ -83,9 +83,24 @@ fi
 #   miss 也假绿）。加业务判据——jq.test_game 钩子应产出 "TEST-GAME GS8" 诊断
 #   （§124y-13 gs[8] vtable 定位）或 F_a4234 事件日志；两者全无 = 钩子未触发
 #   （setprop 时序/so 未加载）→ FAIL。
-BUS=$(echo "$LOG" | grep -cE "TEST-GAME GS8|F_a4234:")
-if [ "$BUS" -eq 0 ]; then
+# ★ AUD-1000 B07-006（P1 假绿三型-判据无新鲜度校验）：BUS 行须属**本次进程**
+#   （PID 与 pidof 比对，对齐 verify_asset_chain P1-A6 模式）——redroid 容器
+#   logcat -c 无 -c 权限（非 root EACCES）时静默失败，历史进程 GS8 行残留
+#   让 BUS>=1 假 PASS（钩子本次未触发也过）。PID 列缺失/多 pid 时退化计数
+#   （不引入假红），仅"行存在且 PID 可解析且不匹配"才判历史残留。
+BUS=$(echo "$LOG" | grep -E "TEST-GAME GS8|F_a4234:")
+BUS_NEW=0; BUS_STALE=0
+for ln in $BUS; do :; done
+if [ -n "$BUS" ]; then
+  BUS_NEW=$(echo "$BUS" | awk -v pid="$PID" '$4 == pid' | wc -l)
+  BUS_STALE=$(echo "$BUS" | awk -v pid="$PID" '$4 != pid' | wc -l)
+fi
+if [ "$BUS_NEW" -eq 0 ] && [ "$BUS_STALE" -gt 0 ]; then
+  echo "✗ FAIL（业务判据 $BUS_STALE 条全属历史进程（pid≠$PID）——logcat -c 未生效，钩子本次未触发；redroid 需 --privileged 保证 logcat -c）"
+  exit 1
+fi
+if [ "$BUS_NEW" -eq 0 ]; then
   echo "✗ FAIL（进程存活但业务判据缺失：无 TEST-GAME GS8 / F_a4234 日志，钩子未触发）"
   exit 1
 fi
-echo "✓ PASS（进程存活，0 崩溃，业务判据命中 $BUS 条）"
+echo "✓ PASS（进程存活，0 崩溃，业务判据命中 $BUS_NEW 条（历史残留 $BUS_STALE 条不计））"

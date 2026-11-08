@@ -58,6 +58,13 @@ int main(void)
 
     /* 7. 旗/雷不可走：src 为军旗/地雷 → -1 */
     CHECK(ai_score(12, empty, 1) == -1, "军旗不可走 = -1");
+    /* ★ AUD-1000 B01-028/062/063（P1 已修）：负数入参域拦截——rank_norm(-1)
+       负值不触发上界钳 → 负数原值参与比较（行为未定义）。ai_score 入口
+       src/dst<0 判 -2（与空源哨兵同码）。ai_pick 调用面 rank_norm 恒 >=0
+       不可达，此处直调验证契约。 */
+    CHECK(ai_score(-1, 8, 1) == -2, "负 src rank = -2（空源哨兵）");
+    CHECK(ai_score(8, -1, 1) == -2, "负 dst rank = -2（空源哨兵）");
+
     CHECK(ai_score(11, empty, 1) == -1, "地雷不可走 = -1");
 
     /* 8. 蓝方视角（无 +0xc）：蓝 rank3 吃 红 rank8（存储 8+12=20）→ 1000 */

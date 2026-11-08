@@ -38,6 +38,17 @@ def parse_args(argv):
             print(f"未知参数: {a}", file=sys.stderr); sys.exit(2)
     return addrs, gen_stub, do_build
 
+def _offs_entries(body):
+    """★ AUD-1000 B07-013（P1 计数口径统一）：只按**行首完整条目**解析 offs 值
+    （与 align_vtbl_n 同口径，排除尾注释含 0x 地址 / 单行双值的多计）。
+    旧版 re.findall(r'0x([0-9a-f]+)', body) 在注释/双值行多计 → 插入位置错位。"""
+    vals = []
+    for ln in body.split('\n'):
+        m2 = re.match(r'^\s*0x([0-9a-f]{4,6})\s*,?\s*(?://.*)?$', ln)
+        if m2:
+            vals.append(int(m2.group(1), 16))
+    return vals
+
 def ensure_in_tables(s, off, fns_exists_check):
     """把 0xoff 插进 offs/fns 表（幂等）。fns_exists_check=0xoff 表示对应 F 函数名。"""
     changed = False
@@ -45,7 +56,7 @@ def ensure_in_tables(s, off, fns_exists_check):
     if not m:
         print("✗ 找不到 jqt_vtbl_offs[]", file=sys.stderr); sys.exit(1)
     offs_body = m.group(1)
-    addrs_in = [int(x,16) for x in re.findall(r'0x([0-9a-f]+)', offs_body)]
+    addrs_in = _offs_entries(offs_body)
     if off in addrs_in:
         print(f"  0x{off:05x} 已在 offs 表（跳过）")
     else:
@@ -112,7 +123,14 @@ def align_vtbl_n(s):
     m = re.search(r'const uint32_t jqt_vtbl_offs\[\] = \{(.*?)\};', s, re.S)
     if not m:
         return s, False
-    actual = len(re.findall(r'0x[0-9a-f]+', m.group(1)))
+    # ★ AUD-1000 B07-013（P1 计数虚高）：旧版 len(re.findall(r'0x[0-9a-f]+', body))
+    #   把尾注释里的 0x 地址 / 单行双值也计入 → jqt_vtbl_n 虚高 → jq_call 二分
+    #   越界读 fns 表外。现只匹配**行首完整条目**（4-6 位 hex + 可选逗号 + 行尾），
+    #   与 ensure_in_tables 插入格式（'    0x%05x,'）一致。
+    actual = 0
+    for ln in m.group(1).split('\n'):
+        if re.match(r'^\s*0x[0-9a-f]{4,6}\s*,?\s*(?://.*)?$', ln):
+            actual += 1
     m2 = re.search(r'const uint32_t jqt_vtbl_n = (\d+)u;', s)
     if not m2:
         print("  ⚠ 找不到 jqt_vtbl_n（需手动补）", file=sys.stderr)
@@ -128,7 +146,12 @@ def align_vtbl_n(s):
 def gen_stub(s, off):
     """生成简化翻译体 stub（幂等：若 F_off 已定义则跳过）。
     插入位置 = jqt_vtbl.c 中"最后一个顶层函数定义结束"前（用 brace 深度=0 的 } 定位），
-    避免插到函数体内部。"""
+    避免插到函数体内部。
+    ★ AUD-1000 B07-015（P1 锚点失配诊断）：fns 表锚点（'uint32_t (*const jqt_vtbl_fns[]'）
+    失配（clang-format 重排/换行漂移致 find 返回 -1）时，旧版静默追加文件末尾 →
+    fns[] 引用 F_xxx 先于 stub 定义 → C 隐式声明（C99 禁）→ 编译失败仅在
+    do_build 才暴露。现失配时报具体告警（非笼统"可能编译失败"），且
+    do_build 失败信息带"锚点失配"特征判别。"""
     fn_name = f'F_{off:05x}'
     # 检查是否已有完整定义（非 extern 声明）
     if re.search(rf'^uint32_t {fn_name}\(uint32_t _r0', s, re.M):
@@ -145,7 +168,9 @@ uint32_t {fn_name}(uint32_t _r0,uint32_t _r1,uint32_t _r2,uint32_t _r3,uint32_t 
     # 找 "uint32_t (*const jqt_vtbl_fns[])" 行，在其前插入 stub。
     fns_idx = s.find('uint32_t (*const jqt_vtbl_fns[]')
     if fns_idx < 0:
-        print("  ⚠ 找不到 jqt_vtbl_fns[] 定义，stub 追加文件末尾（可能 C 编译失败）", file=sys.stderr)
+        print(f"  ★ fns 表锚点失配：jqt_vtbl.c 找不到 'uint32_t (*const jqt_vtbl_fns[]'（行格式漂移？"
+              f"clang-format 重排换行/const 位置？）。stub 追加文件末尾 → F_{off:05x} 无前置定义，"
+              "C 隐式声明（C99 禁）→ 编译失败风险。请核对锚点后重跑 --build。", file=sys.stderr)
         s = s + '\n' + stub
         return s, True
     s = s[:fns_idx] + stub + s[fns_idx:]
@@ -159,6 +184,16 @@ def do_build():
                        capture_output=True, text=True)
     ok = 'OK:' in r.stdout
     print(r.stdout[-300:] if ok else r.stderr[-500:])
+    if not ok:
+        # ★ AUD-1000 B07-015（P1 诊断具体化）：fns 表锚点失配时 stub 被追加到
+        #   文件末尾 → F_xxx 引用先于定义 → C 隐式声明（C99 禁）编译失败。
+        #   报具体原因非笼统"编译失败"，便于定位是锚点漂移还是真语法错。
+        if re.search(r'implicit declaration of .?F_[0-9a-f]+', r.stderr) or \
+           re.search(r'conflicting types|incompatible', r.stderr):
+            print("  ★ 疑似 fns 表锚点失配（stub 插入 fns[] 声明之后 → F_xxx 无定义/隐式声明）：",
+                  "检查 jqt_vtbl.c 'uint32_t (*const jqt_vtbl_fns[]' 行是否还在（clang-format 重排漂移）", file=sys.stderr)
+        else:
+            print("  ★ 编译失败（非锚点特征，查上方 stderr）", file=sys.stderr)
     # 审计
     r2 = subprocess.run(['python3', os.path.join(WS, 'rev64/tools/link_audit.py'),
                          'audit', os.path.join(WS, 'rev64/dist/libjunqi_arm32_aligned.so')],

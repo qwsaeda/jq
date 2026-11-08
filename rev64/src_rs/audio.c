@@ -42,7 +42,10 @@ static const struct { const char *ev; const char *wav; } EV2WAV[] = {
 int jq_audio_init(jq_audio *au, const char *res_dir)
 {
     /* ★ 对抗审计（§2026-11-11）：重复 init 会 memset 掉旧 pcm 指针 → 泄漏
-       （每次设置变更/重进界面若再 init 一次就漏 9 个 WAV buffer）。先释放再清零。 */
+       （每次设置变更/重进界面若再 init 一次就漏 9 个 WAV buffer）。先释放再清零。
+       ★ AUD-1000 B04-089（P1 已修）：入口 NULL 守卫（jq_audio_play/free 同源
+       契约——au NULL → -1，调用方按失败处理；旧版缺守卫，play/free 有
+       但 init 无 → 三入口契约不一致）。 */
     if (!au) return -1;
     jq_audio_free(au);
     memset(au, 0, sizeof(*au));
@@ -113,10 +116,20 @@ void *jq_wav_load(const char *path, size_t *out_len, int *out_rate, int *out_bit
                format=p[8..9] ch=p[10..11] rate=p[12..13] brate=p[14..15]
                align=p[16..17] bits=p[18..19]（实测 move.wav bits=8 在 buf34=p22，
                即 p[18..19] 对应 buf30..31=brate；位深实际在 p[22..23]） */
-            /* AUD-1000 B04-086：fmt 块 csize<24 时 p[22..23] 越出 fmt 数据段
-               （可能读进下一块头部）——加 csize>=24 守卫，越界只写 rate 不写 bits */
-            if (out_rate) *out_rate = (int)(p[12] | (p[13] << 8));
-            if (csize >= 24 && out_bits) *out_bits = (int)(p[22] | (p[23] << 8));
+            /* AUD-1000 B04-086（P1 已修）：fmt 块 csize<24 时 p[22..23] 越出
+               fmt 数据段（可能读进下一块头部）——csize>=24 才写位深，
+               否则默认 16（WAV PCM 主流动 16-bit）；rate 同理 csize>=16
+               才读 p[12..13]，否则默认 22050（防 0/乱值驱动 AudioTrack 拒绝）。 */
+            if (csize >= 16) {
+                if (out_rate) *out_rate = (int)(p[12] | (p[13] << 8));
+            } else if (out_rate) {
+                *out_rate = 22050;
+            }
+            if (csize >= 24) {
+                if (out_bits) *out_bits = (int)(p[22] | (p[23] << 8));
+            } else if (out_bits) {
+                *out_bits = 16;
+            }
             (void)fmt_pos;
         } else if (strcmp(tag, "data") == 0) {
             data_pos = (int)(p - buf);

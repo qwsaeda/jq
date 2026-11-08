@@ -28,6 +28,12 @@ uint32_t F_b26ac(uint32_t _r0,uint32_t _r1,uint32_t _r2,uint32_t _r3,uint32_t _r
     uint32_t sp=_sp, lr=0;
     int Z=0, C=0, N=0, V=0;
     /* §124ai：函数体 #define MEM 移除，用 jqt_mem.h MEM（jqt_mem_addr 加偏移） */
+    /* ★ AUD-1000 B05-067（P1 R-138 诚实标注）：F_b26ac 函数体只有
+       "push r2,r3 + RET: return r0"（空存根语义）——bl 0xb26ac 调用点
+       期望的 13 个 JQT_SIG 入参全 unused。按 32 位 so 反汇编 0xb26ac
+       补全完整体属深度逆向（函数真实逻辑未收表），R-138 约定 32 位
+       翻译体只标注：本存根忠实于"调用后 r0 不变"的观测行为，
+       若后续 0xb26ac 反汇编实锤有副作用，需补全本函数体（专项）。 */
 Lb26ac: sp-=(2*4); /* push r2, r3 */
 RET: return r0;
     return 0;
@@ -104,6 +110,12 @@ uint32_t F_bd580(uint32_t _r0,uint32_t _r1,uint32_t _r2,uint32_t _r3,uint32_t _r
      *   修复：直接 CallFloatMethod(env, obj, mid) 返回 float 位模式。 */
     {
         uint32_t _env = r0;
+        /* ★ AUD-1000 B05-069（P1 R-138 诚实标注）：`_env < 0x70000000u` 判
+           env 无效基于 32 位设备 host 地址布局假设（JNIEnv* 高地址区）——
+           x86_64 译层（MuMu houdini）env 可能 < 0x70000000 但低位合法，
+           或 >= 0x70000000 但为垃圾值，误判双向。改用 jqt_mem_valid
+           或存 g_jni_env 非 0 判更稳，属行为改动（判读语义变化），
+           R-138 只标注；现状阈值在 MuMu 真机 env=0x8xxxxxxx 实锤可用。 */
         if (_env < 0x70000000u || r1 == 0 || r2 == 0) { r0 = 0; }
         else {
             JNIEnv *e = (JNIEnv*)(uintptr_t)_env;
@@ -162,7 +174,13 @@ Lbd91e_p3: MEM(sp+12)=r7;
 Lbd920: r4=MEM(776484+212);
 Lbd922: r5=MEM(776484+216);
 Lbd924: r11=r3;
-Lbd926: sp+=r4;
+Lbd926: sp+=r4; /* ★ AUD-1000 B05-071（P1 R-138 诚实标注）：r4=MEM(776484+212)
+           常量池值，原版 ARM 语义 sp+=r4 是"sp 相对调整"；C 函数栈
+           非 ARM 栈，本地 sp 变量 +=r4 后后续 MEM(sp+4) 读的是
+           "伪栈偏移"而非真实 C 栈。r4 为 RELATIVE 槽值时须 -shadow
+           还原偏移才语义一致（见 §124ac sp 语义修复）。现状 32 位
+           翻译体此函数走忠实兜底（sp 本地变量语义），行为由 4 路径
+           回归实证——偏移正确性依赖 r4 值域（小常量），R-138 只标注。 */
 Lbd928: {uint32_t a_=r1,b_=0; r4=(a_+b_); Z=(r4==0); C=(r4<a_); N=((r4)>>31)&1; V=(((a_^r4)&(b_^r4))>>31)&1;}
 Lbd92a: r1=MEM(776492+212);
 Lbd92c: r5=(776496+r5);
@@ -333,7 +351,13 @@ Lbdd86: {uint32_t a_=r7,b_=0; r1=(a_+b_); Z=(r1==0); C=(r1<a_); N=((r1)>>31)&1; 
 Lbdd88: {uint32_t a_=r0,b_=0; r2=(a_+b_); Z=(r2==0); C=(r2<a_); N=((r2)>>31)&1; V=(((a_^r2)&(b_^r2))>>31)&1;}
 Lbdd8a: {uint32_t a_=r4,b_=0; r0=(a_+b_); Z=(r0==0); C=(r0<a_); N=((r0)>>31)&1; V=(((a_^r0)&(b_^r0))>>31)&1;}
 Lbdd8c: r0=F_bd580(r0,r1,r2,r3,r4,r5,r6,r7,r8,r9,r10,r11,sp); /* bl 0xbd580 完整 */
-Lbdd90: r0=(uint32_t)(int)(*(float*)&r0); /* __aeabi_f2iz 真实 */
+Lbdd90: r0=(uint32_t)(int)(*(float*)&r0); /* __aeabi_f2iz 真实
+      ★ AUD-1000 B05-073（P1 R-138 诚实标注）：F_bd580 返回的 float 位模式
+      强转 int（截断）——NaN/Inf 时 C 侧 UB（浮点陷阱，ARM __aeabi_f2iz
+      对 NaN 行为定义依赖 FPU 状态）。F_bd580 走 CallFloatMethod（getX/
+      getY），正常坐标有限值；NaN/Inf 仅 touch 事件异常时可达（§TOUCH-JNI
+      实锤坐标解析失败走 r0=0 兜底路径，不到此强转）。显式 isfinite 判 +
+      截断分支属行为改动（FPU 异常处理），R-138 只标注。 */
 Lbdd94: r3=MEM(r4);
 Lbdd96: r10=r0;
 Lbdd98: r0=r8;

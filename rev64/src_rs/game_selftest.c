@@ -6,6 +6,14 @@
  *   2. 事件类型合法（move/eat/bomb/flag/dead/mine）
  *   3. 困毙（无棋可走判负）+ 和棋（70 步无吃子 / 总 1000 步）覆盖
  *   4. 悔棋不破坏对局流
+ * ★ AUD-1000 B08-043（P1 消除复制分叉）：ai_step 候选评分改调 ai_score
+ *   （rules.c 导出，jni_bridge ai_pick 同源）——旧手写 7 档贪心（吃 1000/
+ *   同级 900/炸弹 800/挖雷 700/吃不掉 50/空移 1/翻兜底）是 ai_pick 的
+ *   复制非引用：jni_bridge 改 ai_score 后 gametest 不同步 → 桌面 60 局与
+ *   真机行为分叉。B08-006 同源：50 分"吃不掉仍放行"=AI 主动送死（rank 大
+ *   撞 rank 小被反吃当"有吃子机会"），与 ai_score 送死 1 分语义矛盾，
+ *   win_red/win_blue 收束统计被送死污染。现同族门槛 bs>=50（1000/900/
+ *   800/700 全含；空移 2/送死 1 落兜底分支），消除 50 分档。
  * 编译: make gametest → dist/jq_gametest
  */
 #include <stdio.h>
@@ -26,7 +34,12 @@ static int ai_step(jq_state *as, uint8_t me, int *from, int *to)
 {
     /* 贪心：优先吃子（大压小/同级/炸弹/工兵挖雷），无吃子才空移，再无才翻。
        让对局收束到胜负（原版 0x30200 分发 / 0x30260 旗 / 0x30280 和 / 0x302b4 困毙）。
-       ★ 接受 jq_state* 参数（修全局 st 串味：独立局状态跑 ai_step 会误读全局 st）。 */
+       ★ 接受 jq_state* 参数（修全局 st 串味：独立局状态跑 ai_step 会误读全局 st）。
+       ★ AUD-1000 B08-043/B08-006（P1 已修）：候选评分改调 ai_score（rules.c 导出，
+       jni_bridge ai_pick 同源，rank_norm 内建）——消除旧手写 7 档复制分叉 +
+       旧 50 分"吃不掉放行"主动送死档。门槛 bs>=50 放行吃子族
+       （1000 大压小/900 同级/800 炸弹撞普通子/700 工兵挖雷），
+       空移 2/送死 1 落下方兜底分支（贪心不主动送死，与 ai_score 语义对齐）。 */
     int bf = -1, bt = -1, bs = -1;
     for (int i = 0; i < N_CELLS; i++) {
         jq_cell *c = &as->cells[i];
@@ -37,19 +50,14 @@ static int ai_step(jq_state *as, uint8_t me, int *from, int *to)
             if (t == i) continue;
             jq_cell *d = &as->cells[t];
             if (!jq_can_move(as, i, t)) continue;
-            int dr_ = d->rank ? rank_norm(d->rank) : 0;
-            int sc;
-            if (d->rank) {
-                if (r < dr_)        sc = 1000;   /* 大压小：能吃 */
-                else if (r == dr_)  sc = 900;    /* 同级互杀 */
-                else if (r == RANK_BOMB) sc = 800;
-                else if (r == 9 && dr_ == RANK_MINE) sc = 700; /* 工兵挖雷 */
-                else sc = 50;                     /* 吃不掉（会 DEAD），低分 */
-            } else sc = 1;                         /* 空移 */
+            /* ★ B08-043：同源 ai_score（c/d rank 传原始值，rank_norm 内建；
+               revealed=1 明棋全开路径）。 */
+            int sc = ai_score(c->rank, d->rank, 1);
+            if (sc < 0) continue;   /* -2 空源/-1 旗雷不可走（与 ai_pick 同守卫） */
             if (sc > bs) { bs = sc; bf = i; bt = t; }
         }
     }
-    if (bf >= 0 && bs >= 50) { *from = bf; *to = bt; return 0; }  /* 有吃子机会 */
+    if (bf >= 0 && bs >= 50) { *from = bf; *to = bt; return 0; }  /* 吃子族（≥50）优先 */
     /* 无吃子 → 翻（暗棋阶段）*/
     for (int i = 0; i < N_CELLS; i++) {
         jq_cell *c = &as->cells[i];
@@ -58,7 +66,8 @@ static int ai_step(jq_state *as, uint8_t me, int *from, int *to)
         if (r == RANK_FLAG || r == RANK_MINE) continue;
         if (jq_can_flip(as, i)) { *from = i; *to = i; return 0; }
     }
-    /* 再无 → 空移兜底（bf 是全局最优，含空移分 1） */
+    /* 再无 → 空移/送死兜底（bf 是吃子族失败后的全候选最优，含空移 2/送死 1；
+       ★ B08-006：兜底仅在有候选时走，不主动送死 = 与 ai_score 送死 1 分一致） */
     if (bf >= 0) { *from = bf; *to = bt; return 0; }
     return -1;
 }
@@ -67,6 +76,10 @@ int main(void) {
     int games = 60;
     printf("== 完整对局自测（蓝 vs 红 AI，%d 局）==\n", games);
     int win_red = 0, win_blue = 0, draws = 0, stalemates = 0;
+    int stale_guard = 0;   /* ★ AUD-1000 B08-007（P1 已修）：guard 5000 步截断局单独
+       统计（规则死循环诊断用），不混入 stalemates（旧版截断局 4 个统计都不 +1 →
+       总数 < games → CHECK FAIL，但无"哪局卡 5000 步"诊断信息）。 */
+    int guard_trunc_game = -1;   /* ★ B08-007：首个 guard 截断局号（诊断打印） */
     int total_moves = 0;
     for (int g = 0; g < games; g++) {
         jq_state_init(&st);
@@ -100,14 +113,24 @@ int main(void) {
                 break;
             }
         }
+        /* ★ AUD-1000 B08-007：guard 截断（stage 仍 PLAY）= 5000 步未收局，
+           规则引擎死循环嫌疑 → 单独统计 + 记录局号供诊断（不混入困毙）。 */
+        if (st.stage == STG_PLAY) {
+            stale_guard++;
+            if (guard_trunc_game < 0) guard_trunc_game = g;
+            printf("  局%d guard 5000 步截断（stage 仍 PLAY，未收束——规则死循环嫌疑，人工诊断）\n", g);
+        }
         CHECK(st.stage == STG_OVER || st.stage == STG_PLAY, "对局合法终局/进行中");
     }
-    printf("  统计: 红胜=%d 蓝胜=%d 和=%d 困毙=%d 总走子=%d\n",
-           win_red, win_blue, draws, stalemates, total_moves);
+    printf("  统计: 红胜=%d 蓝胜=%d 和=%d 困毙=%d guard截断=%d（首个局号=%d）总走子=%d\n",
+           win_red, win_blue, draws, stalemates, stale_guard, guard_trunc_game, total_moves);
     /* 合法终局 = 胜负(0/1) + 和(2) + 困毙（jq_on_stalemate 设 winner 0/1）
+       + guard 截断（B08-007 单独统计，不混入困毙）
        贪心吃子 AI 常把子吃光/扛旗 → 困毙/胜负，全困毙是正常对局收束，非失败 */
-    CHECK(win_red + win_blue + draws + stalemates == games, "全部对局合法收束（胜/和/困毙）");
-    printf("  困毙局数=%d（0x302b4 路径实证覆盖）\n", stalemates);
+    CHECK(win_red + win_blue + draws + stalemates + stale_guard == games,
+          "全部对局合法收束（胜/和/困毙/guard截断）");
+    printf("  困毙局数=%d（0x302b4 路径实证覆盖），guard 截断=%d（死循环诊断）\n",
+           stalemates, stale_guard);
 
     /* ② 触摸走子判定 + 规则事件覆盖（与真机触摸闭环同一套 jq_touch_state + jq_try_move）：
        模拟两步走子（选 cell A → 点 cell B）触发的 Junqi.Move/Bomb/Eat 事件。

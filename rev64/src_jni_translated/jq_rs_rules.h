@@ -124,6 +124,12 @@ static inline int rank_encode(uint8_t side, int rank) {
     return (side == SIDE_RED && rank != 0) ? rank + 0xc : rank;
 }
 static inline int rank_norm(int v) {
+    /* ★ AUD-1000 B05-092（P1 R-138 诚实标注，需标注项）：rank_norm 无上界
+       钳——v=25..255 脏值（uint8_t rank 域）还原成 13..243 越界 rank
+       （RANK_TOP=12），AI 评分/困毙判定消费越界 rank。64 位 src_rs
+       junqi.h rank_norm 已钳（v>RANK_TOP+0xc 返 RANK_TOP，AUD-R-080
+       落地）；32 位翻译体按 R-138 约定不移植该 C 修复（行为零变化，
+       脏值域 32 位布局正常 rank∈[0,24] 不越界）。 */
     return v > RANK_TOP ? v - 0xc : v;   /* 红方已翻开还原（0x6a3b0 §7） */
 }
 

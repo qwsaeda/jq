@@ -46,7 +46,11 @@ Lbdc7c_p1: MEM(sp+4)=r4;
 Lbdc7c_p2: MEM(sp+8)=r5;
 Lbdc7c_p3: MEM(sp+12)=r6;
 Lbdc7c_p4: MEM(sp+16)=r7;
-Lbdc7e: r3=MEM(r1);             /* .bss 根对象[0] (r1=env, §124y-97 根对象槽) */
+Lbdc7e: r3=MEM(r1);             /* .bss 根对象[0]
+    ★ AUD-1000 B05-075（P1 已修，注释矛盾纠正）：§124y-143 修正后 r1=0
+      （jni_aligned.c OnResume 传 (env,0,...)，.bss 根对象自填）——旧注释
+      "(r1=env)" 与实参 r1=0 矛盾。r1=0 时 MEM(0) 读 scratch 零页=0 →
+      下方 if(r1!=0) 守卫生效（跳过 GetObjectClass 虚调用），忠实兜底。 */
 if (r1 != 0) { /* 防御: .bss 未构造 → r1=0 → 忠实兜底 (跳过 GetObjectClass) */
 Lbdc80: {uint32_t a_=r1,b_=0; r4=(a_+b_); Z=(r4==0); C=(r4<a_); N=((r4)>>31)&1; V=(((a_^r4)&(b_^r4))>>31)&1;}
 Lbdc82: {uint32_t a_=r0,b_=0; r6=(a_+b_); Z=(r6==0); C=(r6<a_); N=((r6)>>31)&1; V=(((a_^r6)&(b_^r6))>>31)&1;}
@@ -76,7 +80,13 @@ if (r4 != 0) { /* 防御: CallVoidMethod 需 valid activity */
 Lbdca8: r0=F_77800(r0,r1,r2,r3,r4,r5,r6,r7,r8,r9,r10,r11,sp); /* bl 0x77800 CallVoidMethod */
 }
 Lbdcac: {uint32_t a_=r5,b_=0; Z=(r5==b_); C=(r5<a_); N=((r5)>>31)&1; V=(((a_^r5)&(b_^r5))>>31)&1;}
-if(Z==0){ /* r5!=0 (GetMethodID 成功) → 执行 vtable 槽 0x5c 虚调用 */
+if(Z==0){ /* r5!=0 (GetMethodID 成功) → 执行 vtable 槽 0x5c 虚调用
+     ★ AUD-1000 B05-078（P1 R-138 诚实标注）：r4=0 时 MEM(MEM(r4)+92)=
+     MEM(0+92) 双层解引用落零页=0 → jqt_blx_dispatch(0,...) miss 返 0
+     （忠实兜底不崩）。79 行 if(Z==0) 守卫判 r5 标志（GetMethodID 成功）
+     而非 r4——r4=0（.bss 未构造根对象）且 r5!=0 时仍进本行读
+     MEM(92)=0 兜底，行为实证 4 路径回归 0 崩溃；加 r4!=0 守卫属
+     行为改动（跳过虚调用路径），R-138 只标注。 */
 Lbdcb0: r3=MEM(MEM(r4)+92);   /* ldr r3,[r4+0]=vtable; ldr r3,[vtable+0x5c] 槽 23 */
 Lbdcb2: r0=jqt_blx_dispatch(r3, r0,r1,r2,r3,r4,r5,r6,r7,r8,r9,r10,r11,sp); /* blx r3 (vtable 槽 23, §124y-137) */
 }

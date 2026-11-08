@@ -4,7 +4,7 @@
 #   bash rev64/tools/pipeline_run.sh            # 跑能在本机跑通的段（段2回归+段3判据+回路C口径），输出流水线状态
 #   bash rev64/tools/pipeline_run.sh --seg2      # 只跑段 2（正向开发回归 12/12 + 桌面 8/8）
 #   bash rev64/tools/pipeline_run.sh --seg4check # 只跑段 4 前置检查（frida 工具在位 + 对象图缺口量化入口）
-# 设计原则：每段"一条命令 + 一组判据 + 一个诚实边界"，失败项列出不伪装；真机段(段3屏幕/出声)只报"待真机"不误判 PASS。
+  # 设计原则：每段一条命令 + 一组判据 + 一个诚实边界；失败项列出不伪装
 set -u
 WS=/disk/workspaces/jq
 TOOLS=$WS/rev64/tools
@@ -37,14 +37,18 @@ seg2() {
   echo "=== 段 2 正向开发（src_rs 一条命令全回归）==="
   local out
   out=$(bash $WS/rev64/src_rs_regress.sh 2>&1)
-  # 判据：末段"★ 全回归 PASS（12/12）"精确匹配（不模糊 grep FAIL，防误报）
+  # AUD-1000 B07-020：判据依赖 src_rs_regress 末段精确输出（防判据漂移连锁假红）
   if echo "$out" | grep -q "全回归 PASS（12/12）"; then
     ok "src_rs_regress 12/12 全 PASS（编译/蓝牙/走局/规则回归/红线/布局/触摸/gametest/链接/走子预验证×2/桌面事件）"
   else
-    bad "src_rs_regress 12/12 未全 PASS（跑 bash $WS/rev64/src_rs_regress.sh 看哪项挂）"
+    failitems=$(echo "$out" | grep -E "回归有.*FAIL:" | tail -1)
+    if [ -n "$failitems" ]; then
+      bad "src_rs_regress 12/12 未全 PASS：$failitems（B07-001 判据漂移连锁假红非真回归，口径 169/169）"
+    else
+      bad "src_rs_regress 12/12 未全 PASS（无 FAIL 项标签；跑 bash $WS/rev64/src_rs_regress.sh 看哪项挂；若 grep 全对 口径漂移属 B07-001 假红）"
+    fi
   fi
-  # ★ 对抗审计 P2-J9：grep 同时匹配 "全对/有失败"，再按结果分支（原只匹配 "全对"，
-  #   输出格式漂移会假红；现鲁棒）
+  # P2-J9：grep 同时匹配 全对/有失败，再按结果分支（鲁棒）
   local ev=$(cd $RS && make evverify MODE=--all 2>/dev/null | grep -oE '桌面事件验证: [0-9]+/[0-9]+( 全对| 有失败)')
   if [ -n "$ev" ] && echo "$ev" | grep -q "全对"; then ok "$ev（桌面事件面）"; else bad "evverify 桌面事件未跑通（${ev:-无输出}）"; fi
 }

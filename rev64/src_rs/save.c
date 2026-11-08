@@ -60,8 +60,9 @@ int jq_save_read(const char *path, jq_save_data *sd)
         else if (sscanf(line, "difficulty=%d", &a) == 1) sd->difficulty = a;
         else if (sscanf(line, "level=%d", &a) == 1) sd->level = a;
         else if (sscanf(line, "mark=%d", &a) == 1) sd->mark = a;
-        else if (sscanf(line, "resultEx=%d;%d;%d;%d", &a, &b, &c, &d) == 4)
+        else if (sscanf(line, "resultEx=%d;%d;%d;%d", &a, &b, &c, &d) == 4) {
             sd->resultEx[0]=a; sd->resultEx[1]=b; sd->resultEx[2]=c; sd->resultEx[3]=d;
+        }
     }
     fclose(f);
     return 1;
@@ -69,14 +70,26 @@ int jq_save_read(const char *path, jq_save_data *sd)
 
 /* ---- one.sjg 对局进度（二进制）：board 60 格 + 对局状态 ---- */
 #define SJG_MAGIC 0x534a4731  /* "SJG1" */
+/* ★ AUD-1000 B02-071/072/B10-016（P1 已修）：magic 区加 sizeof(jq_state) 双字段
+   校验（写侧 fwrite 两值均检返回值，盘满半写 remove 清档；读侧 magic+sizeof
+   双校验，不一致返 0 拒绝错位旧档）。one.sjg 为自有二进制格式无外部兼容
+   需求（AUD-R-049/041），旧档（无 sizeof 字段）读侧自然 magic 后短读/值不
+   匹配 → 拒读，行为安全。 */
 int jq_save_game_write(const char *path, const jq_state *st)
 {
     if (!path || !st) return 0;
     FILE *f = fopen(path, "wb");
     if (!f) return 0;
     uint32_t m = SJG_MAGIC;
-    fwrite(&m, 4, 1, f);
-    fwrite(st, 1, SJG_STATE_BYTES, f);   /* ★ AUD-R-049/041（P2）：整结构序列化 */
+    uint32_t sz = (uint32_t)SJG_STATE_BYTES;
+    /* ★ B10-016（P1 已修）：两 fwrite 返回值均检（盘满半写 magic 无 body 落盘
+       会被读侧 magic OK 但短读掩盖为"文件损坏"；修：写失败 remove 清档）。 */
+    if (fwrite(&m, 4, 1, f) != 1 || fwrite(&sz, 4, 1, f) != 1 ||
+        fwrite(st, 1, SJG_STATE_BYTES, f) != SJG_STATE_BYTES) {
+        fclose(f);
+        remove(path);
+        return 0;
+    }
     fclose(f);
     return 1;
 }
@@ -86,12 +99,16 @@ int jq_save_game_read(const char *path, jq_state *st)
     if (!path || !st) return 0;
     FILE *f = fopen(path, "rb");
     if (!f) return 0;
-    uint32_t m = 0;
-    if (fread(&m, 4, 1, f) != 1 || m != SJG_MAGIC) {
+    uint32_t m = 0, sz = 0;
+    /* ★ B02-071/072（P1 已修）：magic + sizeof 双字段校验（旧版单 magic 读新档
+       版本升级字段错位无感知）。旧档（无 sz 字段）fread sz 读到 st body 首 4 字节
+       必 != sizeof → 拒读（自有格式无兼容需求，安全）。 */
+    if (fread(&m, 4, 1, f) != 1 || m != SJG_MAGIC ||
+        fread(&sz, 4, 1, f) != 1 || sz != (uint32_t)SJG_STATE_BYTES) {
         fclose(f);
         return 0;
     }
-    /* ★ AUD-R-049/041（P2）：整结构读取（与写侧同版 sizeof） */
+    /* ★ AUD-R-049/041（P2）：整结构读取（与写侧同版 sizeof，已按 sz 校验） */
     if (fread(st, 1, SJG_STATE_BYTES, f) != SJG_STATE_BYTES) { fclose(f); return 0; }
     fclose(f);
     /* AUD-1000 B01-037：读档后 pieces_left 可为负（旧版游戏存档序列化了

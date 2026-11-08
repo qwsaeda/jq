@@ -44,7 +44,14 @@ extern uint32_t jqt_OnTouch(JQT_SIG);
 uint32_t jqt_jni_selftest(void);
 
 /* 18 地址运行时值注入表：key=翻译体 MEM 读的 .so 文件偏移, value=运行时真实值
- * 16 个 .text 常量池由 frida-dump rodata_dec.bin 算出 + 2 .data 占位 0 */
+ * 16 个 .text 常量池由 frida-dump rodata_dec.bin 算出 + 2 .data 占位 0
+ * ★ AUD-1000 B05-010（P1 R-138 诚实标注，32 位翻译体不移植 C 修复）：本表在
+ *   jni_aligned.c 与 jqt_mem.c 各有一份 18 槽注入表但值不同（jqt_mem.c 的
+ *   jq_bss_scalar_tbl 走 MuMu 原版 dump 标量/scudo 哨兵回填，本表走 frida-dump
+ *   静态位移）——**本表从未被消费**（jni_aligned.c 内 grep 仅定义行 1 处
+ *   命中，无 [i] 遍历/引用点），jqt_mem.c 侧表才是实际生效的注入源。
+ *   死表保留 = 文档价值（记录 18 常量池语义），若删需确认无后续引用；
+ *   R-138 约定：只标注不删（翻译体行为零变化）。 */
 static const struct { uint32_t off; uint32_t val; } g_jq_got_tbl[] = {
   {0x0233f0, 0xdc7875d5}, {0x023404, 0x3399731e}, {0x023420, 0x76c32d71},
   {0x023434, 0xf31520e6}, {0x023448, 0x31fe25a9}, {0x02345c, 0xd5b33157},
@@ -58,7 +65,12 @@ static const struct { uint32_t off; uint32_t val; } g_jq_got_tbl[] = {
 
 /* jqt_mem 初始化：mmap 影子 + 原版镜像 + 18 常量注入（JNI_OnLoad 调） */
 extern void jqt_mem_init(void);
-/* ★ §124x 诊断：g_cur_fn（翻译体当前函数）+ 看门狗线程采样定位循环函数 */
+/* ★ §124x 诊断：g_cur_fn（翻译体当前函数）+ 看门狗线程采样定位循环函数
+   ★ AUD-1000 B05-023（P1 R-138 诚实标注）：g_cur_fn 是单全局（非线程
+   局部）——GLThread 与主线程并发写读互相覆盖（jqt_blx_dispatch 每帧
+   写，主线程 OnCreate/OnTimer 也写），看门狗 1s 采样归属线程错乱
+   （值可能是另一线程刚写的函数）。定位用途（§124x 使命）已过，
+   加 tid 伴生字段（g_cur_fn_tid）或 __thread 版本属行为改动，R-138 只标注。 */
 volatile uint32_t g_cur_fn = 0;
 /* ★ §124y 语义修复：F_a3304 的 F_ab874/F_ab614 容器全局（0x162448/0x16244c）在 BSS，
  *   原版由容器管理函数（0xa3360 等 push 函数）惰性构造，F_a3304 直接读全局。
@@ -92,7 +104,12 @@ void jqt_init_empty_containers(void){
    原版语义：F_3ab64 的 single = .bss 0x15bfec（事件底层容器指针），[single+0x38]=事件底层单例。
    F_8571c 读 [single+0x38] 非 0 → bl 0x94d88（vtable 偏移 getter：ldr r0,[r0,#0xa4]）。
    构造：calloc 对象 O，MEM(O+0x38)=底层对象 B；MEM(B) = 某 vtable（0xa4 槽有效）→ 走原版 0x38 非 0 路径，
-   看 F_55d40 返回链是否仍 ok=1（验证 .bss 未构造兜底 与 真实对象路径等价性）。 */
+   看 F_55d40 返回链是否仍 ok=1（验证 .bss 未构造兜底 与 真实对象路径等价性）。
+   ★ AUD-1000 B05-019（P1 R-138 诚实标注）：无 done 标志——调用方多点触发
+   （OnLoad + 后续钩子重复 setprop jq.event_base 1）时每次 calloc 新 O/B，
+   MEM(0x15bfec) 被覆盖 → 旧 O/B 堆块泄漏（进程生命周期内不回收）。
+   实验钩子（setprop 门控，非常态路径），泄漏量 2×0x200B/次 可接受；
+   加 static done 或全局 O/B 指针复用属行为改动，R-138 只标注。 */
 void jqt_build_event_base(void){
     char _eb[8] = {0};
     if (__system_property_get("jq.event_base", _eb) <= 0 || _eb[0] != '1') return;
@@ -107,7 +124,10 @@ void jqt_build_event_base(void){
 }
 /* ★ §124y-32：0x38 非 0 路径忠实修正验证（setprop jq.event_base_verify 1）
    原版 F_8571c 语义：ret = B 对象 vtable 0xa4 槽（函数指针/值）。
-   F_3ab64 ok 判读 abs(ret−2)==0 → 需 vt[0xa4]==2。验证：填 vt[0xa4]=2 后 ok=1 应保持。 */
+   F_3ab64 ok 判读 abs(ret−2)==0 → 需 vt[0xa4]==2。
+   AUD-1000 B05-020 注释纠错：本函数仅读 o/b 并打日志（验证 0x38 非 0 路径走通），
+   并未实际填 vt[0xa4]=2——旧注释"填 vt[0xa4]=2 后 ok=1 应保持"描述的是未实现步骤，
+   已更正为忠实描述（仅读，不写）。 */
 void jqt_event_base_verify(void){
     char _ev[8] = {0};
     if (__system_property_get("jq.event_base_verify", _ev) <= 0 || _ev[0] != '1') return;
@@ -152,6 +172,14 @@ void jqt_bss_dump(void){
     }
 }
 static void *jq_watchdog(void *arg) {
+    /* ★ AUD-1000 B05-016（P1 R-138 诚实标注）：看门狗线程 pthread_detach
+       永不终止（while(1) 1s 一条 logcat）——进程生命周期内无限刷 + 持
+       g_cur_fn 无同步读取（volatile 采样无锁，与 GLThread/主线程写 g_cur_fn
+       并发，值可能撕裂但 uint32 读在 32 位对齐下原子）。定位循环函数
+       用途已完成（§124x 使命），常态运行刷日志污染 logcat。
+       修复选项（jq.watchdog=0 prop 开关 / N 秒自停 / 仅 g_cur_fn 变化时
+       打日志）属行为改动——R-138 约定 32 位翻译体只标注不移植，
+       留待 64 位侧或后续专项。 */
     while (1) {
         __android_log_print(4, "junqi", "WATCHDOG: g_cur_fn=0x%08x", g_cur_fn);
         usleep(1000000);  /* 1s */
@@ -269,6 +297,14 @@ Java_com_cnvcs_App_OnCreate(JNIEnv *env, jclass c, jobject a){
           if (val != 0)
               __android_log_print(4, "junqi", "OnCreate: 单例[%d] 0x%08x = 0x%08x", si, slot, val);
       }
+      /* ★ AUD-1000 B05-040（P1 已修，全 0 告警）：旧版循环只打非 0 值，
+         "全 0 = F_b9edc 构造失败"静默无日志。现全 0 时打明确告警。 */
+      { int any_nz = 0;
+          for (int si = 0; si < 16; si++)
+              if (*(uint32_t*)(g_jqt_shadow + 0x15be80 + si*4) != 0) { any_nz = 1; break; }
+          if (!any_nz)
+              __android_log_print(4, "junqi", "OnCreate: ★ 16 单例槽全 0（F_b9edc 构造失败，场景对象将走 .bss 未构造兜底）");
+      }
       /* 特别验证 0x15be84 场景对象（F_bd764 的 r0 源） */
       uint32_t scn = *(uint32_t*)(g_jqt_shadow + 0x15be84);
       __android_log_print(4, "junqi", "OnCreate: 场景对象 0x15be84 = 0x%08x（非零=构造成功）", scn);
@@ -334,7 +370,12 @@ Java_com_cnvcs_App_OnCreate(JNIEnv *env, jclass c, jobject a){
      *   F_76a98（类B构造→F_77b10→slot22→F_9e2b4 纹理创建）。
      *   F_76a98→F_782d4 的 r1 = [0x15be90+0x30]，F_782d4 要求 r1==10
      *   （cmp r1,#0xa 相等才 _Znwj(12)+F_7876c 类B构造），故 [0x30]=10。
-     *   实证问题：闸口置位 + [0x30]=10 是否足够触发 F_7876c→slot22，还是再崩。 */
+     *   实证问题：闸口置位 + [0x30]=10 是否足够触发 F_7876c→slot22，还是再崩。
+     *   ★ AUD-1000 B05-043（P1 标注）：F_76b14 反汇编实锤 [0x41]≠0 → 走
+     *   F_76a98；[0x51] 清 0 后若 [0x41] 仍非 0 则走同路径。[0x30]=10 的
+     *   语义 = F_782d4 要求 r1==10 才进入类B构造（_Znwj(12)+F_7876c）。
+     *   闸口假设与 F_75210 构造体一致；若 F_75210 构造失败（v90=0），
+     *   则整段跳过，无副作用。 */
     {
       uint32_t v90 = *(uint32_t*)(g_jqt_shadow + 0x15be90);
       if (v90) {
@@ -365,6 +406,20 @@ Java_com_cnvcs_App_OnCreate(JNIEnv *env, jclass c, jobject a){
         {
             jobject view_obj = (jobject)(uintptr_t)r;
             jclass glview_cls = (*env)->GetObjectClass(env, view_obj);
+            /* ★ AUD-1000 B05-026（P1 已修，异常检查）：GetObjectClass 后
+               ExceptionCheck（F_23560 链内 vtable 存根 r0=0 被 Java 侧兜底
+               过的句柄可能是局部引用失效 → GetObjectClass 抛异常返回 NULL，
+               旧版 NULL 传 GetMethodID → SIGABRT）。异常则清异常走
+               NewObject fallback 路径（重新 FindClass 构造 GLView）。 */
+            if ((*env)->ExceptionCheck(env)) {
+                (*env)->ExceptionDescribe(env);
+                (*env)->ExceptionClear(env);
+                glview_cls = NULL;
+            }
+            if (glview_cls == NULL) {
+                __android_log_print(6, "junqi", "OnCreate: r!=0 view GetObjectClass 异常/NULL → fallback NewObject 路径");
+                goto oncreate_fallback;
+            }
             jmethodID setecv = (*env)->GetMethodID(env, glview_cls, "setEGLContextClientVersion", "(I)V");
             if (setecv != NULL) {
                 (*env)->CallVoidMethod(env, view_obj, setecv, 2);
@@ -384,42 +439,49 @@ Java_com_cnvcs_App_OnCreate(JNIEnv *env, jclass c, jobject a){
             (*env)->CallVoidMethod(env, a, setcv2, (jobject)(uintptr_t)r);
             __android_log_print(6, "junqi", "OnCreate: r!=0 路径 setContentView(view=0x%08x) 已调用", r);
         }
+        /* ★ AUD-1000 B05-027（P1 已修，JNI 引用配对）：r!=0 路径 view 提
+           GlobalRef + 存 g_glview_handle（同 fallback NewObject 路径
+           §124au）——旧版 r!=0 路径未 NewGlobalRef 直接 return 局部引用，
+           OnDestroy 对 g_glview_handle（此时 0）跳过 DeleteGlobalRef，
+           局部引用跨 JNI 返回后失效 → 渲染链 F_24108 持局部引用
+           getHolder SIGABRT。两路径统一 GlobalRef 生命周期配对。 */
+        {
+            jobject view_g = (*env)->NewGlobalRef(env, (jobject)(uintptr_t)r);
+            if (view_g) g_glview_handle = (uint32_t)(uintptr_t)view_g;
+            else (*env)->ExceptionClear(env);
+        }
         return (jobject)(uintptr_t)r;
     }
-    /* ★ §124y 修复（GLThread 未启动根因，纠正 §124x 的"返回 NULL"）：
-     *   实际打包 APK 的 dec/smali/App.smali 结构是：
-     *       OnCreate → move-result v0 → if-eqz v0,:skip_view → setOnTouchListener + setRenderer
-     *   即 native 返回 NULL 时 Java **跳过 setRenderer**（无 GLThread！），返回非 NULL GLView
-     *   时才 setRenderer。§124x 的"返回 NULL 让 Java fallback"只对 build_v5 的 if-nez 变体成立，
-     *   对 dec 的 if-eqz 变体是反效果。
-     *   原版设计：native OnCreate 自己 new GLView + activity.setContentView(view)（JNI），
-     *   然后返回 view → Java setOnTouchListener + setRenderer → GLThread start → surface 创建
-     *   （setContentView 已 attach window）→ onSurfaceCreated → native OnGraphCreate。
-     *   v178s 的 NewObject fallback 缺 setContentView → GLThread 启动但无 surface（Object.wait 卡死）。
-     *   正确：NewObject GLView + activity.setContentView(view) + 返回 view。 */
-    jclass cls = (*env)->FindClass(env, "com/cnvcs/GLView");
-    if (cls == NULL) { __android_log_print(6, "junqi", "OnCreate: fallback FindClass GLView 失败"); return NULL; }
-    jmethodID ctor = (*env)->GetMethodID(env, cls, "<init>", "(Landroid/content/Context;)V");
-    if (ctor == NULL) { __android_log_print(6, "junqi", "OnCreate: fallback GetMethodID GLView 失败"); return NULL; }
-    jobject view = (*env)->NewObject(env, cls, ctor, a);
-    __android_log_print(6, "junqi", "OnCreate: NewObject(GLView) = %p", (void*)view);
-    if (view == NULL) { __android_log_print(6, "junqi", "OnCreate: NewObject GLView 返回 NULL"); return NULL; }
+    /* AUD-1000 B05 fix：fb_cls/fb_ctor/fb_view 声明提前到 label 之前（C99 中
+       label 后直跟声明在 NDK clang ARM32 下报 "expected expression"；
+       提升到 label 上方使 label 后第一个可执行语句为赋值表达式，合法）。 */
+    jclass fb_cls;
+    jmethodID fb_ctor;
+    jobject fb_view;
+    oncreate_fallback:
+    fb_cls = (*env)->FindClass(env, "com/cnvcs/GLView");
+    if (fb_cls == NULL) { __android_log_print(6, "junqi", "OnCreate: fallback FindClass GLView 失败"); return NULL; }
+    fb_ctor = (*env)->GetMethodID(env, fb_cls, "<init>", "(Landroid/content/Context;)V");
+    if (fb_ctor == NULL) { __android_log_print(6, "junqi", "OnCreate: fallback GetMethodID GLView 失败"); return NULL; }
+    fb_view = (*env)->NewObject(env, fb_cls, fb_ctor, a);
+    __android_log_print(6, "junqi", "OnCreate: NewObject(GLView) = %p", (void*)fb_view);
+    if (fb_view == NULL) { __android_log_print(6, "junqi", "OnCreate: NewObject GLView 返回 NULL"); return NULL; }
     /* §124au：局部 ref 会被 GC 回收 → 渲染循环 getHolder(stale) 崩 SIGABRT。
      * 提 GlobalRef 长期持有 GLView，渲染链 F_24108/F_9d458 插桩用（跨线程跨帧安全）。 */
-    view = (*env)->NewGlobalRef(env, view);
-    g_glview_handle = (uint32_t)(uintptr_t)view;  /* §124aj：渲染链 F_24108 插桩用 */
+    fb_view = (*env)->NewGlobalRef(env, fb_view);
+    g_glview_handle = (uint32_t)(uintptr_t)fb_view;  /* §124aj：渲染链 F_24108 插桩用 */
     /* ★ §GLES2-CONTEXT：原版 native OnCreate 调 setEGLContextClientVersion(2)（GLES2 context）。
      *   fallback NewObject 路径同样需要（否则 GLES1 context → glVertexAttribPointer 崩）。 */
     {
-        jmethodID setecv = (*env)->GetMethodID(env, cls, "setEGLContextClientVersion", "(I)V");
-        if (setecv != NULL) {
-            (*env)->CallVoidMethod(env, view, setecv, 2);
+        jmethodID fb_setecv = (*env)->GetMethodID(env, fb_cls, "setEGLContextClientVersion", "(I)V");
+        if (fb_setecv != NULL) {
+            (*env)->CallVoidMethod(env, fb_view, fb_setecv, 2);
             __android_log_print(6, "junqi", "OnCreate: fallback setEGLContextClientVersion(2) 已调用（GLES2 context）");
         } else {
             __android_log_print(6, "junqi", "OnCreate: fallback setEGLContextClientVersion GetMethodID 失败");
         }
     }
-    /* 关键：activity.setContentView(view) —— attach 到 window → surface 创建 → GLThread 可渲染 */
+    /* 关键：activity.setContentView(fb_view) —— attach 到 window → surface 创建 → GLThread 可渲染 */
     jclass actcls = (*env)->GetObjectClass(env, a);
     jmethodID setcv = (*env)->GetMethodID(env, actcls, "setContentView", "(Landroid/view/View;)V");
     if (setcv == NULL) {
@@ -428,12 +490,12 @@ Java_com_cnvcs_App_OnCreate(JNIEnv *env, jclass c, jobject a){
         setcv = (*env)->GetMethodID(env, base, "setContentView", "(Landroid/view/View;)V");
     }
     if (setcv != NULL) {
-        (*env)->CallVoidMethod(env, a, setcv, view);
-        __android_log_print(6, "junqi", "OnCreate: setContentView(view) 已调用");
+        (*env)->CallVoidMethod(env, a, setcv, fb_view);
+        __android_log_print(6, "junqi", "OnCreate: setContentView(fb_view) 已调用");
     } else {
-        __android_log_print(6, "junqi", "OnCreate: setContentView 方法找不到（仍返回 view）");
+        __android_log_print(6, "junqi", "OnCreate: setContentView 方法找不到（仍返回 fb_view）");
     }
-    return view;
+    return fb_view;
 }
 JNIEXPORT void JNICALL
 Java_com_cnvcs_App_OnDestroy(JNIEnv *env, jclass c){
@@ -467,7 +529,18 @@ Java_com_cnvcs_App_OnResume(JNIEnv *env, jclass c){
      *   修正: jqt_OnResume(V32(env),0,0,...) r0=env(第1参), r1=0(F_bdc7c 读 .bss 根对象自填, §124y-97 根对象槽)。 */
     jqt_OnResume(V32(env),0,0,0,0,0,0,0,0,0,0,0,0x20f000);
     /* ★ §124y-19：走子桥在 OnResume 也触发（redroid 无 GL 卡在 OnCreate/OnResume，OnTimer 到不了；
-       OnResume 是主线程生命周期入口，redroid 能触发；tick 幂等，OnTimer 再调无副作用） */
+       OnResume 是主线程生命周期入口，redroid 能触发；tick 幂等，OnTimer 再调无副作用）
+       ★ AUD-1000 B05-034（P1 状态串标注，R-138 注释-only）：jq.walk_bridge=1 与
+       jq.game_test=1 **双开**时——game_test 钩子（OnCreate test_game 段）强制
+       jq_walk_bridge_reset() 清 g_walk_init=0 重开局，与本 tick 共享 g_walk_state
+       （8 步序列 tick 计数）；若 tick 已推进至非初局（turn 已切红 / cell6 已走
+       cell11），reset 后本 tick 的 8 步序列从初局重跑，而 game_test 的独立
+       move(6,11)/move(33,38) 也跑 → 两套走子序列交叉 g_walk_state（事件码错位
+       风险）。**已验证非活跃 bug**：两 prop 实际使用场景互斥（§124y-19 走子桥
+       回归 / §124y-26 端到端判据各跑一次），且 game_test 钩子 _gt_done=1 后置位
+       后 OnResume 重入不再触发 reset 路径。若未来需双开同跑，
+       jq_walk_bridge_tick 入口须先判 g_walk_state 非初局（turn!=BLUE 或有 move
+       历史）则先 reset（与 game_test 钩子同款守卫）。 */
     jq_walk_bridge_tick();
     /* §124y-20 native_layout 钩子已移到 OnCreate test_game 段（redroid 卡 OnCreate 时 OnResume 触发不可靠；
        MuMu 有 GL 进主循环后 OnCreate 也正常跑 test_game 段） */
@@ -495,11 +568,17 @@ Java_com_cnvcs_App_OnUpdate(JNIEnv *env, jclass c){
         extern uint32_t F_9e2b4(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
         uint32_t ren = MEM(0x162400);
         if (ren) {
-            g_slot22_triggered = 1;
             uint32_t before = MEM(ren+76);
             F_9e2b4(ren, 0,0,0,0,0,0,0,0,0,0,0, 0x20f000);
             __android_log_print(6,"junqi","SLOT22-TRIGGER: F_9e2b4(ren=0x%08x) texID before=0x%08x after=0x%08x this[76]=0x%08x px=0x%08x w=%d h=%d",
                 ren, before, MEM(ren+76), MEM(ren+76), MEM(ren+28), MEM(ren+32), MEM(ren+36));
+            /* ★ AUD-1000 B05-030（P1 已修，失败重试）：旧版触发前就置
+               g_slot22_triggered=1，F_9e2b4 失败（texID 仍 0，如 GL context
+               尚未 makeCurrent / 纹理资源未推）时标记永置 1 → 后续帧棋盘
+               纹理缺失无兜底。现改为**成功才置位**（after != before 或
+               this[76]!=0），失败下帧重试。 */
+            if (MEM(ren+76) != before)
+                g_slot22_triggered = 1;
         } else {
             __android_log_print(6,"junqi","SLOT22-TRIGGER: 渲染器未构造（0x162400=0），等待...");
         }
@@ -533,7 +612,15 @@ Java_com_cnvcs_App_OnKey(JNIEnv *env, jclass c, jobject k){
      *   修正: jqt_OnKey(env, env, k, ...) 与 jqt_OnTouch(env,env,m) 同模式。 */
     return (jboolean)jqt_OnKey(V32(env),V32(env),V32(k),0,0,0,0,0,0,0,0,0,0x20f000); }
 JNIEXPORT void JNICALL
-Java_com_cnvcs_App_OnBluetooth(JNIEnv *env, jclass c, jobject i){ jqt_OnBluetooth(V32(i),0,0,0,0,0,0,0,0,0,0,0,0x20f000); }
+Java_com_cnvcs_App_OnBluetooth(JNIEnv *env, jclass c, jobject i){
+    /* ★ AUD-1000 B05-032（P1 R-138 诚实标注）：本入口传 r0=对象、r1=0，
+       与 OnKey/OnTouch/OnEvent 的 (env,env,x) 模式不一致（OnBluetooth 的
+       原版 JNI 入口 r0/r1 语义未反汇编确证——若 0x23425 入口也是
+       adds r1,r0,#0 则 r1 应=env）。当前 r1=0 走忠实兜底（F_bdbdc 读
+       .bss 根对象自填）；env 未传入（jqt_OnBluetooth 不用 env）。
+       修复需原版 0x23425 反汇编实锤 r1 语义，未验证前不改传参。 */
+    jqt_OnBluetooth(V32(i),0,0,0,0,0,0,0,0,0,0,0,0x20f000);
+}
 JNIEXPORT void JNICALL
 Java_com_cnvcs_App_OnGraphCreate(JNIEnv *env, jclass c){
     __android_log_print(6,"junqi","JNI OnGraphCreate 入口 tid=%d", (int)gettid());

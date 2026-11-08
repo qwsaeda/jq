@@ -1,12 +1,29 @@
-/* ui_menu_stub.c — 桌面 RS_NO_GL 桩（菜单按钮几何 + 命中，无 GL 渲染） */
+/* ui_menu_stub.c — 桌面 RS_NO_GL 桩（菜单按钮几何 + 命中，无 GL 渲染）
+   ★ AUD-1000 B02-097/B07-036/B08-034（P1 已修）：主菜单 5 按钮几何同步
+   ui_menu.c g_btns 真机表（orig_menu 真机截图实测 ×0.8，720×1280 基准）——
+   旧桩残留"横排 2+2+1 旧布局"（60,980 起 + action=3"四国军棋"），与真机表
+   （201.6,867.2 起 + action=3"联机"/action=4"四国军棋"）标签/动作分叉，
+   桌面"主菜单命中"断言坐标在桩/真机落不同按钮。现桩表 = 真机表逐字复制。
+   ★ AUD-1000 B07-037（P1 诚实标注）：桩缺 ui_imen_buttons/ui_diff_buttons/
+   ui_imen_bt_buttons/ui_way_buttons/ui_nplayer_buttons/ui_set_buttons 导出
+   （grep 确认 0 命中）——桌面 desk/evverify 构建（Makefile 链本桩不链
+   ui_menu.c）这些符号未定义；实测 make evverify/desk 成功 = 桌面链路只调
+   桩已有符号（ui_ui44/ui_ui90 等 SPAK2UI 桩），ui_diff/ui_way/ui_nplayer/
+   ui_imen 仅 jni_bridge.c/render.c（真机 so 链路）调用，桌面 0 引用故
+   链接通过。若桌面新增调用需补桩导出（几何复制 ui_menu.c 真机值），
+   诚实边界不包装成"桌面菜单弹窗可点"。
+   ★ AUD-1000 B08-035（P1 诚实标注）：gs/ll/sl/lm 4 布局桩表与 ui_menu.c
+   真机表逐字一致（2026-11 "菜单文字 160→134"批次 so af0e8ad4 仅改 ☰
+   菜单文字宽度，未改 4 布局弹窗几何）；真机表再改几何时须同步桩表，
+   编译期一致性断言机制留待下一轮。 */
 #include "ui_menu.h"
 const ui_btn *ui_menu_buttons(void) {
     static const ui_btn b[UI_BTN_COUNT] = {
-        { 60, 980, 350, 1070, "人机对战", 0 },
-        { 370, 980, 660, 1070, "两人对战", 1 },
-        { 60, 1090, 350, 1180, "联网对战", 2 },
-        { 370,1090, 660, 1180, "四国军棋", 3 },
-        { 180,1200, 540, 1280, "悔棋重开", 4 },
+        { 201.6f, 867.2f, 516.0f, 943.2f, "人机对战", 0 },
+        { 201.6f, 981.6f, 516.0f, 1057.6f, "两人对战", 1 },
+        { 172.0f, 1096.8f, 343.2f, 1183.2f, "联网", 2 },
+        { 375.2f, 1096.8f, 546.4f, 1183.2f, "联机", 3 },
+        { 581.6f, 1096.8f, 686.4f, 1183.2f, "四国军棋", 4 },
     };
     return b;
 }
@@ -1573,3 +1590,110 @@ static const ui_d264_btn g_d264_btns[UI_D264_COUNT] = {
 const ui_d264_btn *ui_d264_buttons(void) { return g_d264_btns; }
 int ui_d264_hit(const ui_d264_btn *b, int n, float x, float y)
 { for (int i = 0; i < n; i++) if (x>=b[i].x0 && x<=b[i].x1 && y>=b[i].y0 && y<=b[i].y1) return i; return -1; }
+/* ===== ★ AUD-1000 B07-037（P1 桩分叉修复）：补齐导出 ui_menu.c 真机表几何 =====
+   几何值逐字复制自 ui_menu.c（g_diff_btns/g_way_btns/g_set_btns/g_nplayer_btns/
+   g_imen_btns/g_bt_imen_btns/g_newgame_btns）——消除桌面桩与真机命中分叉。
+   桩内命名 _stub2 避免与上方 720 基准占位表冲突。 */
+static const ui_diff_btn diff_stub2[UI_DIFF_COUNT] = {
+    { 290.0f, 497.0f, 410.0f, 557.0f, 0 },  /* 新手 布局（level1 mode0） */
+    { 435.0f, 497.0f, 555.0f, 557.0f, 1 },  /* 新手 翻棋 */
+    { 290.0f, 572.0f, 410.0f, 632.0f, 2 },  /* 中级 布局 */
+    { 435.0f, 572.0f, 555.0f, 632.0f, 3 },  /* 中级 翻棋 */
+    { 290.0f, 647.0f, 410.0f, 707.0f, 4 },  /* 高级 布局 */
+    { 435.0f, 647.0f, 555.0f, 707.0f, 5 },  /* 高级 翻棋 */
+    { 290.0f, 722.0f, 410.0f, 782.0f, 6 },  /* 好友 布局 */
+    { 435.0f, 722.0f, 555.0f, 782.0f, 7 },  /* 好友 翻棋 */
+};
+const ui_diff_btn *ui_diff_buttons(void) { return diff_stub2; }
+int ui_diff_hit(const ui_diff_btn *b, int n, float x, float y)
+{ for (int i = 0; i < n; i++) if (x >= b[i].x0 && x <= b[i].x1 && y >= b[i].y0 && y <= b[i].y1) return i; return -1; }
+int ui_diff_popup_inside(float x, float y)
+{ return x >= UI_DIFF_POPUP_X0 && x <= UI_DIFF_POPUP_X0 + UI_DIFF_POPUP_W &&
+         y >= UI_DIFF_POPUP_Y0 && y <= UI_DIFF_POPUP_Y0 + UI_DIFF_POPUP_H; }
+
+static const ui_way_btn way_stub2[UI_WAYSEL_COUNT] = {
+    { 255.0f, 498.0f, 465.0f, 558.0f, 0 },  /* 蓝牙联机 */
+    { 255.0f, 572.0f, 465.0f, 632.0f, 1 },  /* Wi-Fi 联机 */
+    { 255.0f, 648.0f, 465.0f, 708.0f, 2 },  /* 个人资料 */
+    { 255.0f, 722.0f, 465.0f, 782.0f, 3 },  /* 返回 Back */
+};
+const ui_way_btn *ui_way_buttons(void) { return way_stub2; }
+int ui_way_hit(const ui_way_btn *b, int n, float x, float y)
+{ for (int i = 0; i < n; i++) if (x >= b[i].x0 && x <= b[i].x1 && y >= b[i].y0 && y <= b[i].y1) return i; return -1; }
+int ui_way_popup_inside(float x, float y)
+{ return x >= UI_WAYSEL_POPUP_X0 && x <= UI_WAYSEL_POPUP_X0 + UI_WAYSEL_POPUP_W &&
+         y >= UI_WAYSEL_POPUP_Y0 && y <= UI_WAYSEL_POPUP_Y0 + UI_WAYSEL_POPUP_H; }
+
+static const ui_set_btn set_stub2[UI_SETTINGS_COUNT] = {
+    { 355.0f, 520.0f, 555.0f, 580.0f, 0 },  /* 静音模式 开关 */
+    { 355.0f, 595.0f, 555.0f, 655.0f, 1 },  /* 按键声音 开关 */
+    { 255.0f, 677.0f, 562.0f, 725.0f, 2 },  /* 音量 滑条 */
+    { 165.0f, 750.0f, 345.0f, 810.0f, 3 },  /* 确定 */
+    { 375.0f, 750.0f, 555.0f, 810.0f, 4 },  /* 取消 */
+};
+const ui_set_btn *ui_set_buttons(void) { return set_stub2; }
+int ui_set_hit(const ui_set_btn *b, int n, float x, float y)
+{ for (int i = 0; i < n; i++) if (x >= b[i].x0 && x <= b[i].x1 && y >= b[i].y0 && y <= b[i].y1) return i; return -1; }
+int ui_set_popup_inside(float x, float y)
+{ return x >= UI_SETTINGS_POPUP_X0 && x <= UI_SETTINGS_POPUP_X0 + UI_SETTINGS_POPUP_W &&
+         y >= UI_SETTINGS_POPUP_Y0 && y <= UI_SETTINGS_POPUP_Y0 + UI_SETTINGS_POPUP_H; }
+
+static const ui_nplayer_btn nplayer_stub2[UI_NPLAYER_COUNT] = {
+    { 260.0f, 540.0f, 460.0f, 600.0f, 0 },  /* 2 人 */
+    { 260.0f, 610.0f, 460.0f, 670.0f, 1 },  /* 3 人 */
+    { 260.0f, 680.0f, 460.0f, 740.0f, 2 },  /* 4 人（默认：四国=4 人） */
+};
+const ui_nplayer_btn *ui_nplayer_buttons(void) { return nplayer_stub2; }
+int ui_nplayer_hit(const ui_nplayer_btn *b, int n, float x, float y)
+{ for (int i = 0; i < n; i++) if (x >= b[i].x0 && x <= b[i].x1 && y >= b[i].y0 && y <= b[i].y1) return i; return -1; }
+int ui_nplayer_popup_inside(float x, float y)
+{ return x >= UI_NPLAYER_POPUP_X0 && x <= UI_NPLAYER_POPUP_X0 + UI_NPLAYER_POPUP_W &&
+         y >= UI_NPLAYER_POPUP_Y0 && y <= UI_NPLAYER_POPUP_Y0 + UI_NPLAYER_POPUP_H; }
+
+static const ui_imen_btn imen_stub2[UI_IMENU_COUNT] = {
+    {  49.0f, 466.0f, 201.0f, 624.0f, 0 },  /* 重新开始 */
+    { 213.0f, 466.0f, 365.0f, 624.0f, 1 },  /* 悔棋 */
+    { 371.0f, 466.0f, 523.0f, 624.0f, 2 },  /* 电脑变着 */
+    { 530.0f, 466.0f, 682.0f, 624.0f, 3 },  /* 游戏规则 */
+    {  49.0f, 653.0f, 201.0f, 809.0f, 4 },  /* 功能设置 */
+    { 213.0f, 653.0f, 365.0f, 809.0f, 5 },  /* 战况统计 */
+    { 371.0f, 653.0f, 523.0f, 809.0f, 6 },  /* 软件信息 */
+    { 530.0f, 653.0f, 682.0f, 809.0f, 7 },  /* 退出程序 */
+};
+static const ui_imen_btn imen_bt_stub2[UI_IMENU_COUNT] = {
+    {  49.0f, 466.0f, 201.0f, 624.0f, 0 },  /* 重新开始 */
+    { 213.0f, 466.0f, 365.0f, 624.0f, 1 },  /* 悔棋 */
+    { 371.0f, 466.0f, 523.0f, 624.0f, 2 },  /* 提和 */
+    { 530.0f, 466.0f, 682.0f, 624.0f, 3 },  /* 认输 */
+    {  49.0f, 653.0f, 201.0f, 809.0f, 4 },  /* 聊天 */
+    { 213.0f, 653.0f, 365.0f, 809.0f, 5 },  /* 系统设置 */
+    { 371.0f, 653.0f, 523.0f, 809.0f, 6 },  /* 战况统计 */
+    { 530.0f, 653.0f, 682.0f, 809.0f, 7 },  /* 游戏规则 */
+};
+const ui_imen_btn *ui_imen_buttons(void) { return imen_stub2; }
+const ui_imen_btn *ui_imen_bt_buttons(void) { return imen_bt_stub2; }
+int ui_imen_hit(const ui_imen_btn *b, int n, float x, float y)
+{ for (int i = 0; i < n; i++) if (x >= b[i].x0 && x <= b[i].x1 && y >= b[i].y0 && y <= b[i].y1) return i; return -1; }
+int ui_imen_popup_inside(float x, float y)
+{ return x >= UI_IMENU_POPUP_X0 && x <= UI_IMENU_POPUP_X0 + UI_IMENU_POPUP_W &&
+         y >= UI_IMENU_POPUP_Y0 && y <= UI_IMENU_POPUP_Y0 + UI_IMENU_POPUP_H; }
+/* ☰/↩ 图标命中区（与 ui_menu.c 实现一致，中心 720×1280 基准） */
+void ui_imen_icon_rect(int which, float *x0, float *y0, float *x1, float *y1)
+{
+    float cx = (which == 0) ? 216.0f : 496.0f;
+    float cy = 720.0f, r = 35.0f;
+    *x0 = cx - r; *y0 = cy - r; *x1 = cx + r; *y1 = cy + r;
+}
+
+static const ui_newgame_btn newgame_stub2[UI_NEWGAME_COUNT] = {
+    { 355.0f, 557.0f, 555.0f, 617.0f, 0 },  /* 玩法 Lay */
+    { 355.0f, 632.0f, 555.0f, 692.0f, 1 },  /* 明暗棋 Show */
+    { 165.0f, 717.0f, 345.0f, 777.0f, 2 },  /* 确定 Ok */
+    { 375.0f, 717.0f, 555.0f, 777.0f, 3 },  /* 取消 Cancel */
+};
+const ui_newgame_btn *ui_newgame_buttons(void) { return newgame_stub2; }
+int ui_newgame_hit(const ui_newgame_btn *b, int n, float x, float y)
+{ for (int i = 0; i < n; i++) if (x >= b[i].x0 && x <= b[i].x1 && y >= b[i].y0 && y <= b[i].y1) return i; return -1; }
+int ui_newgame_popup_inside(float x, float y)
+{ return x >= UI_NEWGAME_POPUP_X0 && x <= UI_NEWGAME_POPUP_X0 + UI_NEWGAME_POPUP_W &&
+         y >= UI_NEWGAME_POPUP_Y0 && y <= UI_NEWGAME_POPUP_Y0 + UI_NEWGAME_POPUP_H; }

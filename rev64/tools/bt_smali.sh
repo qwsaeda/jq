@@ -84,8 +84,15 @@ if [ "${1:-}" = "--verify" ]; then
     for t in dec_dual dec_full; do
         n=$(ls "$RA/$t/smali/com/cnvcs/BtSpp"*.smali 2>/dev/null | wc -l)
         # ★ 校验对象应与注释语义一致：校验 BtSpp.smali 含最新逻辑（非 App.smali）。
-        m=$(grep -c "hostConnected\|clientConnected\|sendFrame" "$RA/$t/smali/com/cnvcs/BtSpp.smali" 2>/dev/null)
+        # ★ AUD-1000 B09-021（P1 假绿三型-判据恒弱）：旧 marker 'hostConnected\|
+        #   clientConnected' 是**驼峰**——smali 里 btState 实参是下划线字符串
+        #   'host_connected'/'client_connected'（App.btState 参数），驼峰 0 命中，
+        #   m 仅靠 'sendFrame' 单 marker 存活（改 BtSpp 帧重组逻辑后 verify 仍绿）。
+        #   marker 改下划线实参 + v2 帧头，对齐 smali 实际字符串。
+        m=$(grep -c "host_connected\|client_connected\|sendFrame\|v2\\\\n" "$RA/$t/smali/com/cnvcs/BtSpp.smali" 2>/dev/null)
         a=$(grep -c "btSend\|btHost\|btClient\|btState" "$RA/$t/smali/com/cnvcs/App.smali" 2>/dev/null)
+        [ "$m" -ge 2 ] || { echo "  ✗ [$t] BtSpp.smali 最新逻辑标记不足（m=$m < 2）"; exit 1; }
+        [ "$n" -ge 1 ] || { echo "  ✗ [$t] BtSpp.smali 缺失（n=$n）"; exit 1; }
         echo "  [$t] BtSpp.smali 存在=$n 最新逻辑标记=$m App bt 方法=$a"
     done
     echo "✓ --verify 完成（只校验，未重编）"

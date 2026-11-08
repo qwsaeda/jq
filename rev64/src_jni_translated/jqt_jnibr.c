@@ -47,6 +47,12 @@ void jqt_jni_setenv(void *env, void *activity){
     g_env = (JNIEnv *)env;
     if (g_env) (*g_env)->GetJavaVM(g_env, &g_vm);  /* ★ §124am：存 JavaVM 供 GetEnv */
     memset(g_cache, 0, sizeof(g_cache));
+    /* ★ AUD-1000 B05-047（P1 R-138 诚实标注）：memset 清 ok/cls_fail 标志
+       但 g_call_count/g_last_id **不清**——selftest 后 call_count 持续
+       累加（无功能影响），但"首条打日志"条件 g_call_count<=60 跨
+       selftest 偏移（selftest 消费掉前 60 条额度，真实帧日志窗口后移）。
+       诊断口径：看 jqt_jni_call #N 序号时注意 N 含 selftest 段。
+       清零属行为改动（改变日志窗口），R-138 只标注。 */
 }
 
 /* 从签名取返回值类型：sig 形如 "(II)V" 或 "()Landroid/view/ViewParent;"
@@ -84,6 +90,12 @@ static jmethodID resolve(int id){
         return 0;
     }
     g_cache[id].mid = mid;
+    /* ★ AUD-1000 B05-048（P1 R-138 诚实标注）：cache.cls 提 GlobalRef
+       旧版没做（存的是局部引用 cls）——§124am 修复后 jqt_jni_call 每次
+       重取 FindClass 已**弃用** cache.cls（行 161 起 FindClass 直取），
+       cache.cls 现为死字段（跨线程/跨帧后局部引用失效的隐患已不消费）。
+       resolve_only 的 selftest 循环判 miss_cls 用 cls_fail 标志而非
+       cache.cls，不受影响。删死字段/改 GlobalRef 属行为改动，R-138 只标注。 */
     g_cache[id].cls = cls;
     g_cache[id].ok = 1;
     return mid;
@@ -194,7 +206,16 @@ uint32_t jqt_jni_call(uint32_t jni_id, uint32_t n_args, const uint32_t *args){
             default:  res   = (*env)->CallStaticObjectMethodA(env, cls, mid, jv); break;
         }
     } else {
-        /* 实例：args[0]=this 句柄，实际参 = jv（parse_args 不含 this，因 sig 不含 this） */
+        /* 实例：args[0]=this 句柄，实际参 = jv（parse_args 不含 this，因 sig 不含 this）
+           ★ AUD-1000 B05-050（P1 已修，实例调用 args 非空校验）：n_args=0
+           时旧版读 args[0] 越界（args 指针可能 NULL/越界读）——非静态
+           非 <init> 实例调用必须有 this。加守卫：n_args==0 → 返回 0
+           （忠实兜底，同 env NULL 路径）。 */
+        if (n_args == 0) {
+            LOGE("%s.%s 实例调用缺 this（n_args=0）→ 忠实兜底返回 0", c->cls, c->name);
+            (*env)->DeleteLocalRef(env, cls);
+            return 0;
+        }
         jobject thisobj = (jobject)(uintptr_t)args[0];
         switch (rt) {
             case 'V': (*env)->CallVoidMethodA(env, thisobj, mid, jv); break;
@@ -241,7 +262,15 @@ uint32_t jqt_jni_getobjectclass(uint32_t env, uint32_t obj){
 
 /* ★ §124ak：F_bdd2c bdd60/bdd84 `blx r6/ip` = GetMethodID（JNIEnv functions[33]，offset 132/4）。
  *   特判真实调用。name/sig 是影子偏移（<MAP_HI），转真实地址用 extern g_jqt_shadow
- *   （不 include jqt_mem.h——§124ak 实测 include 引入 MuMu dlopen 偶发失败）。 */
+ *   （不 include jqt_mem.h——§124ak 实测 include 引入 MuMu dlopen 偶发失败）。
+ *   ★ AUD-1000 B05-054（P1 已修，JQT_ABS_PTR 语义）：off 可能已是绝对地址
+ *   （>=MAP_HI，如某调用方传 RELATIVE 重定位值/真实堆指针），旧版无条件
+ *   g_jqt_shadow+off 越界（off 0x7xxxxxxx + shadow 基址 → 远超映射区读
+ *   SIGSEGV）。现 JQT_ABS_PTR 语义（jqt_mem.h JQT_MAP_HI=0x10000000）：
+ *   off<MAP_HI → shadow+off（偏移）；off>=MAP_HI → 原样（已是绝对指针），
+ *   与 jqt_mem.h JQT_ABS_PTR 同口径。常量直用（不 include jqt_mem.h，
+ *   §124ak dlopen 偶发失败教训），与 JQT_MAP_HI 值同步（改 MAP_HI 需
+ *   本处同步，注释锚点防漂移）。 */
 extern uint8_t *g_jqt_shadow;
 uint32_t jqt_jni_getmethodid(uint32_t env, uint32_t cls, uint32_t name_off, uint32_t sig_off){
     JNIEnv *e = (JNIEnv *)(uintptr_t)env;
@@ -250,8 +279,12 @@ uint32_t jqt_jni_getmethodid(uint32_t env, uint32_t cls, uint32_t name_off, uint
         LOGE("GetMethodID: name/sig NULL (忠实兜底, 返回 0)");
         return 0;
     }
-    const char *name = (const char *)(uintptr_t)(g_jqt_shadow + name_off);
-    const char *sig  = (const char *)(uintptr_t)(g_jqt_shadow + sig_off);
+    /* ★ B05-054：JQT_ABS_PTR 语义（常量 0x10000000u = jqt_mem.h JQT_MAP_HI，
+       同步锚点见上方注释）——off 已是绝对地址（>=MAP_HI，RELATIVE 重定位
+       值/真实指针）时原样用，不 +shadow 越界。 */
+    #define JQ_BR_ABS(off) (((uint32_t)(off) < 0x10000000u) ? (uint32_t)(g_jqt_shadow + (off)) : (off))
+    const char *name = (const char *)(uintptr_t)JQ_BR_ABS(name_off);
+    const char *sig  = (const char *)(uintptr_t)JQ_BR_ABS(sig_off);
     jmethodID mid = (*e)->GetMethodID(e, (jclass)(uintptr_t)cls, name, sig);
     if (!mid && (*e)->ExceptionCheck(e)) (*e)->ExceptionClear(e);
     return (uint32_t)(uintptr_t)mid;
