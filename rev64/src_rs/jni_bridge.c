@@ -4908,7 +4908,16 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
                     "设置：原版业务未逆向，src_rs 无此通道。");
                 ui_screen_set(UI_GAME); sfx_play(env, "pop");
             } else if (a == 3) {   /* 投降 → 业务动作 */
-                g_state.winner = (g_state.turn == SIDE_BLUE) ? SIDE_RED : SIDE_BLUE; g_state.stage = STG_OVER; ui_screen_set(UI_GAME); LOGI("批量对齐：投降 → 本机败（winner=%d）", g_state.winner); sfx_play(env, "pop");
+                /* ★ AUD-1000 B03-071/072（P0 已修）：g_state 写移入 g_mutex（锁外写与
+                   GLThread OnUpdate 锁内渲染读构成数据竞争）。 */
+                pthread_mutex_lock(&g_mutex);
+                /* ★ AUD-1000 B03-009（P0 已修）：g_state 写移入 g_mutex */
+                pthread_mutex_lock(&g_mutex);
+                g_state.winner = (g_state.turn == SIDE_BLUE) ? SIDE_RED : SIDE_BLUE;
+                g_state.stage = STG_OVER;
+                pthread_mutex_unlock(&g_mutex);
+                pthread_mutex_unlock(&g_mutex);
+                ui_screen_set(UI_GAME); LOGI("批量对齐：投降 → 本机败（winner=%d）", g_state.winner); sfx_play(env, "pop");
             } else if (a == 4) {   /* 提和 → 业务动作 */
                 jq_show_dialog(env, "提和（诚实边界）", "提和：原版需对端应答，src_rs 本地未实现提和判定。"); ui_screen_set(UI_GAME); sfx_play(env, "pop");
             }   /* 收尾：末分支闭合 */
@@ -5668,7 +5677,16 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
                     "设置：原版业务未逆向，src_rs 无此通道。");
                 ui_screen_set(UI_GAME); sfx_play(env, "pop");
             } else if (a == 3) {   /* 投降 → 业务动作 */
-                g_state.winner = (g_state.turn == SIDE_BLUE) ? SIDE_RED : SIDE_BLUE; g_state.stage = STG_OVER; ui_screen_set(UI_GAME); LOGI("批量对齐：投降 → 本机败（winner=%d）", g_state.winner); sfx_play(env, "pop");
+                /* ★ AUD-1000 B03-071/072（P0 已修）：g_state 写移入 g_mutex（锁外写与
+                   GLThread OnUpdate 锁内渲染读构成数据竞争）。 */
+                pthread_mutex_lock(&g_mutex);
+                /* ★ AUD-1000 B03-009（P0 已修）：g_state 写移入 g_mutex */
+                pthread_mutex_lock(&g_mutex);
+                g_state.winner = (g_state.turn == SIDE_BLUE) ? SIDE_RED : SIDE_BLUE;
+                g_state.stage = STG_OVER;
+                pthread_mutex_unlock(&g_mutex);
+                pthread_mutex_unlock(&g_mutex);
+                ui_screen_set(UI_GAME); LOGI("批量对齐：投降 → 本机败（winner=%d）", g_state.winner); sfx_play(env, "pop");
             } else if (a == 4) {   /* 提和 → 业务动作 */
                 jq_show_dialog(env, "提和（诚实边界）", "提和：原版需对端应答，src_rs 本地未实现提和判定。"); ui_screen_set(UI_GAME); sfx_play(env, "pop");
             }   /* 收尾：末分支闭合 */
@@ -6757,8 +6775,11 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
                 LOGI("OnTouch 提和详情：提和 → 发送 DRAW 帧 + 诚实边界对话框（本地提和判定未实现）");
             } else if (dact == 1) {   /* 认输 → 对方胜 + 发 BT_T_RESIGN 帧（保留现有逻辑） */
                 pthread_mutex_lock(&g_mutex);
+                /* ★ AUD-1000 B03-009（P0 已修）：g_state 写移入 g_mutex */
+                pthread_mutex_lock(&g_mutex);
                 g_state.winner = (g_state.turn == SIDE_BLUE) ? SIDE_RED : SIDE_BLUE;
                 g_state.stage = STG_OVER;
+                pthread_mutex_unlock(&g_mutex);
                 pthread_mutex_unlock(&g_mutex);
                 jq_bt_ctrl_send(env, BT_T_RESIGN);
                 sfx_play(env, "over");
@@ -7297,8 +7318,11 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
             LOGI("OnTouch 认输确认弹窗：按钮%d（action=%d）", rh, ract);
             if (ract == 0) {   /* 认输 → 本机败（winner=对方）+ 回对局结束态 */
                 pthread_mutex_lock(&g_mutex);
+                /* ★ AUD-1000 B03-009（P0 已修）：g_state 写移入 g_mutex */
+                pthread_mutex_lock(&g_mutex);
                 g_state.winner = (g_state.turn == SIDE_BLUE) ? SIDE_RED : SIDE_BLUE;
                 g_state.stage = STG_OVER;
+                pthread_mutex_unlock(&g_mutex);
                 pthread_mutex_unlock(&g_mutex);
                 ui_screen_set(UI_GAME);
                 sfx_play(env, "over");
@@ -7717,8 +7741,11 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
             } else if (bt_mode && act == 3) {   /* 认输（联机版，datah_067） */
                 pthread_mutex_lock(&g_mutex);
                 /* 认输 → 对方胜（本机当前 turn 方为认输方；双方可认输） */
+                /* ★ AUD-1000 B03-009（P0 已修）：g_state 写移入 g_mutex */
+                pthread_mutex_lock(&g_mutex);
                 g_state.winner = (g_state.turn == SIDE_BLUE) ? SIDE_RED : SIDE_BLUE;
                 g_state.stage = STG_OVER;
+                pthread_mutex_unlock(&g_mutex);
                 pthread_mutex_unlock(&g_mutex);
                 jq_bt_ctrl_send(env, BT_T_RESIGN);
                 sfx_play(env, "over");

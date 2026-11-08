@@ -93,7 +93,15 @@ jq_layout_err jq_check_layout_cell(int idx, int raw)
 {
     if (idx < 0 || idx >= N_CELLS) return ERR_RANGE;
     if (raw == 0) return LAYOUT_OK;              /* 行营空位（default.lay 5 格） */
-    if (idx <= 0x1d) return LAYOUT_OK;                 /* 蓝半区
+    /* ★ AUD-1000 B01-004（P0 已修）：蓝半区不再无条件放行——旧实现 raw 原值直放，
+       蓝方脏 rank>12（合法域 [0,12]，+0xc 编码仅红方）静默进棋盘后经 rank_norm
+       钳为军旗同值（B01-010/033 同源）污染规则引擎。修：蓝半区 raw>RANK_TOP
+       判 ERR_RANGE（与红半区还原后越域拦截同源口径）；装载链路（jq_load_layout
+       蓝方字节 [0,12]）恒不触发，仅脏注入（BT SYNC_CELL 旧白名单前）可拦。
+       红半区逻辑不变。 */
+    if (idx <= 0x1d) {
+        if (raw > RANK_TOP) return ERR_RANGE;          /* 蓝方脏域 13-255 拒 */
+        return LAYOUT_OK;                             /* 蓝半区
        ★ AUD-R-063（P2 诚实标注）：蓝半区（idx 0-29 = row0-5）直接放行，蓝方军旗
        不受 0x38/0x3a 格约束——is_base 同时认 row0 col1/3（蓝大本营）与 row11
        col1/3（红大本营），但校验器只对红方半区做军旗格校验（0x2a228 原版指令
@@ -101,6 +109,7 @@ jq_layout_err jq_check_layout_cell(int idx, int raw)
        固定映射 (0,*) → 默认/暗棋开局蓝旗必在 row0）。自定义布局（0x2a228 之外的
        装载路径）理论上可出现"蓝旗不在蓝大本营"，引擎照样放行——对齐原版 0x2a228
        的不对称校验（原版蓝半区即无条件 LAYOUT_OK），补齐蓝半区对称校验留待下一轮。 */
+    }
     if (raw > RANK_TOP) raw -= 0xc;                    /* 红方还原 */
     if (raw > RANK_TOP || raw == 0) return ERR_RANGE;
     if (raw == RANK_BOMB && idx <= 0x22) return ERR_ZHA;
@@ -207,7 +216,8 @@ void jq_refresh_movable_counts(jq_state *st)
         for (int i = 0; i < N_CELLS; i++) {
             const jq_cell *c = &st->cells[i];
             if (c->rank == RANK_EMPTY || c->side != s) continue;
-            int r = rank_norm(c->rank);
+            int r = rank_of(c);   /* ★ AUD-1000 B01-005（P1 已修）：side 感知还原（裸
+               rank_norm 对蓝方脏 rank>12 钳位值误判"军旗"，与 AUD-R-047 同款） */
             if (r == RANK_FLAG || r == RANK_MINE) continue;
             if (!c->revealed) continue;
             for (int t = 0; t < N_CELLS; t++) {
