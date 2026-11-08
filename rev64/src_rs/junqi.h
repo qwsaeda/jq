@@ -157,6 +157,10 @@ typedef struct {
        的问题随字段删除关闭——本重写不再持有 count_tbl 字段，无映射争议；
        原版 +0x78 的 240 字节语义（60 格×4 字节按格 rank 表）属翻译体侧
        （jqt_vtbl.c 240 字节复制）关切，src_rs 侧无需对齐。 */
+    /* AUD-1000 B01-012：困毙增量缓存（落子/翻棋后置 dirty=1，jq_side_stalemated
+       只在 dirty 时重扫；stalemated[s] = 方 s 当前无合法着法（false=困毙不成立=有棋可走））*/
+    uint8_t   stale_dirty;           /* 1=缓存失效（走子/翻棋后），0=缓存有效 */
+    uint8_t   stale_cache[2];       /* [side]=该方是否已缓存"可行动"判定（true=有棋可走/可翻） */
     uint8_t   mode;                  /* ★ AUD-R-002/003（P0）：JQ_MODE_LAY=明棋 / JQ_MODE_FLIP=暗棋
                                         暗棋语义：未翻子 revealed=0、地雷/军旗仅工兵可吃、
                                         工兵挖满 3 雷方可扛旗（ruleflip 原文）。

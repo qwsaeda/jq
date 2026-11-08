@@ -736,6 +736,8 @@ int jq_try_move(jq_state *st, int from, int to)
         st->turn = 1 - me;
         st->total_moves++;
         /* 走子后收口（和棋+困毙；AUD-R-008 对称，stalemate_after 与 jq_flip 共用） */
+        /* AUD-1000 B01-012：走子后棋盘变化，困毙缓存失效（stalemate_after 内全扫时重填） */
+        st->stale_dirty = 1;
         stalemate_after(st);
     }
     return ev;
@@ -819,6 +821,8 @@ bool jq_flip(jq_state *st, int idx)
        原版 game_logic.c:309 的 jq_flip 末尾 check_stalemate(st) 同款语义。
        ★ AUD-R-109（P3 注释确认）：和棋判定（stalemate_after 内）带 st->stage==STG_PLAY
        前置守卫（:317），jq_flip 入口 jq_can_flip 已校验 stage，双守卫行为 0 变化。 */
+    /* AUD-1000 B01-012：翻棋后棋盘变化，困毙缓存失效 */
+    st->stale_dirty = 1;
     stalemate_after(st);
     return true;
 }
@@ -835,6 +839,13 @@ bool jq_side_stalemated(const jq_state *st, uint8_t side)
     /* ★ AUD-R-091/114（P3 NULL 防护统一批）：st NULL → false（未困毙）。 */
     if (!st) return false;
     if (st->stage != STG_PLAY || st->winner >= 0) return false;
+    /* AUD-1000 B01-012：增量缓存——stale_dirty==0 且 stale_cache 有效时直接读。
+       stale_cache[s]==1：方 s 可行动（未困毙，返 false）；stale_cache[s]==0：困毙（返 true）。
+       走子/翻棋后 stale_dirty=1 失效，下次全扫并写回。 */
+    if (!st->stale_dirty) {
+        if (st->stale_cache[side]) return false;
+        else                        return true;
+    }
     /* ★ AUD-1000 B01-077（P3 注释）：winner>=0 含 DRAW(2) 全终局拒收——
        winner=JQ_WIN_NONE(-1) 时 -1>=0 假放行正常扫描；winner=2(DRAW 已判和) 时
        2>=0 真拒收；winner=0/1(蓝胜/红胜) 时 0>=0/1>=0 真拒收。本条核实无缺陷。 */
@@ -850,11 +861,15 @@ bool jq_side_stalemated(const jq_state *st, uint8_t side)
            旧实现 (c->side == 0xFF || c->side == side) 让 0xFF 子对双方都判"可翻"→红方恒不困毙。 */
         if (c->rank != RANK_EMPTY && !c->revealed &&
             cn != RANK_FLAG && cn != RANK_MINE &&
-            (c->side == 0xFF ? side == SIDE_BLUE : c->side == side))
+            (c->side == 0xFF ? side == SIDE_BLUE : c->side == side)) {
             /* ★ AUD-1000 B01-089（P3 注释，与 B01-011 同源）：0xFF 子仅先手计未困毙
                （B01-011 已修：扫红方时 0xFF 子被误计红方，现 0xFF 子仅先手侧计）。
                本条与 B01-011 同源，B01-011 修后本条自动闭合。 */
+            /* AUD-1000 B01-012：写缓存（可翻暗子 → 未困毙） */
+            ((jq_state *)st)->stale_cache[side] = 1;
+            ((jq_state *)st)->stale_dirty = 0;
             return false;
+        }
     }
     /* 有已翻可动子且存在合法目标 → 未困毙 */
     for (int i = 0; i < N_CELLS; i++) {
@@ -869,8 +884,16 @@ bool jq_side_stalemated(const jq_state *st, uint8_t side)
            不写，无 stalemate_after 触发）——t!=i 拦同格走子（from==to），
            move_legal :188 拦，双保险。 */
         for (int t = 0; t < N_CELLS; t++)
-            if (t != i && can_move_ignore_turn(st, i, t)) return false;
+            if (t != i && can_move_ignore_turn(st, i, t)) {
+                /* AUD-1000 B01-012：写缓存（可动子有合法目标 → 未困毙） */
+                ((jq_state *)st)->stale_cache[side] = 1;
+                ((jq_state *)st)->stale_dirty = 0;
+                return false;
+            }
     }
+    /* AUD-1000 B01-012：全扫无可动/可翻 → 困毙，写缓存 */
+    ((jq_state *)st)->stale_cache[side] = 0;
+    ((jq_state *)st)->stale_dirty = 0;
     return true;
 }
 
