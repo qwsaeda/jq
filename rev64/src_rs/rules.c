@@ -258,6 +258,14 @@ static bool move_legal(const jq_state *st, int from, int to, int turn)
     uint8_t me = src->side;
     /* 目标被己方子占据 → 不可 */
     if (dst->rank != RANK_EMPTY && dst->side == me) return false;
+    /* ★ AUD-1000 B01-053（P1 已修）：暗棋未翻暗子目标不可撞（仅可翻/不可吃）。
+       原实现在此检查点缺失：暗棋下 rank 1-9 未翻子（revealed=0）可被普通子撞击
+       （信息泄露）。现补：暗棋模式下非雷非旗未翻目标拒走（只能走空格或已翻子格）。
+       工兵撞雷/扛旗路径不受影响（dr==MINE/FLAG 在 :280 段单独处理）。 */
+    if (st->mode == JQ_MODE_FLIP && ui_rule_cfg_get(4) &&
+        !dst->revealed && dst->rank != RANK_EMPTY &&
+        dst->rank != RANK_MINE && dst->rank != RANK_FLAG)
+        return false;
     /* 行营安全岛：敌方棋子不能吃行营中的棋子（rulelay 原文）；
        空行营可走（一步相邻，行营非铁路不可穿行滑行）
        ★ AUD-R-028（P2 诚实标注，需人工确认）：空行营允许敌方一步进入——
@@ -608,40 +616,40 @@ int jq_try_move(jq_state *st, int from, int to)
            诚实边界：开关关闭时旗被吃而局不终，后续胜负只能靠困毙/吃光可动子近似，
            与 rulelay L16 语义存在差距（原文该开关语义源自原版 4 开关 UI，具体关闭后
            行为未从 32 位 so 确证；此处保持"走子语义但终局不置"最小改动）。 */
-        *dst = *src;
-        memset(src, 0, sizeof(*src));
-        ev = EV_FLAG;
-        /* ★ AUD-1000 B01-096（P3 注释，与 B01-024/064 同源）：攻子覆盖军旗格（军旗消失）
-           + 攻子入位（在大本营格）。正常 EV_FLAG（开关开）终局后军旗覆盖无后续困毙语义 ✓；
-           开关关 B01-024 修后（旗丢失判负显式）本条自动闭合。 */
-        if (ui_rule_cfg_get(3)) {
-            jq_on_flag_capture(st, me);
-            st->turn = 1 - me;
-            st->total_moves++;
-            st->moves_since_eat = 0;
-            /* ★ AUD-R-037（P2 诚实标注）：吃旗终局后仍切 turn/计数 → 终局快照
-               的 turn 指向败方（战况统计 UI 显示"败方当前回合"含混）。修法
-               （终局后不改 turn，或 turn 语义改"最后行动方"同步 UI 文案）留待
-               下一轮；jni_bridge :6676 战况统计读 g_state.turn 的显示需同步。
-               ★ AUD-R-038（P2 诚实标注）：提前 return 跳过后续收口（和棋/困毙）——
-               终局时无所谓，但"关吃军旗开关局继续"路径走下方 stalemate_after，
-               本分支结构已保证该路径收口（AUD-R-008），提前 return 仅影响已终局
-               场景（stage=OVER 守卫放行），无实际缺失，留注释备查。 */
-            return ev;   /* 终局：跳过后续收口（stage=OVER 守卫也会放行） */
+        /* ★ AUD-1000 B01-064（P1 已修）：终局函数原子性——stage!=PLAY 时（双终局叠加
+           场景：EV_BOMB 撞旗先置 OVER 后 EV_FLAG 扛旗）攻子入位不回滚缺陷修复：
+           先快照 src/dst 到局部，jq_on_flag_capture 成功后再实际写格（原实现先写格
+           再调终局函数，stage 守卫拒收时攻子已入位不回滚）。 */
+        {
+            jq_cell src_snap;
+            src_snap = *src;
+            if (ui_rule_cfg_get(3)) {
+                /* ★ B01-064（P1 已修）：先调终局函数，成功后再写格（原子性）。
+                   若 jq_on_flag_capture 拒收（stage 已 OVER）则 src/dst 保持原样，
+                   攻子入位不回滚缺陷消除。turn/计数仅在成功时更新。 */
+                jq_on_flag_capture(st, me);
+                if (st->stage == STG_OVER) {   /* 终局成功（winner 已置） */
+                    *dst = src_snap;
+                    memset(src, 0, sizeof(*src));
+                    ev = EV_FLAG;
+                    st->turn = 1 - me;   /* ★ AUD-R-037 诚实标注：终局快照 turn 指向败方 */
+                    st->total_moves++;
+                    st->moves_since_eat = 0;
+                }
+            } else {
+                /* 开关关闭：走子正常收口，困毙判定可在此触发（与 EV_MOVE 一致）。
+                   ★ B01-024 注释纠错（P3）：攻子入 58 格军旗后军旗格已无军旗，
+                   flag-off 路径实际困毙靠攻子冻结 + 守方无合法着法。 */
+                *dst = src_snap;
+                memset(src, 0, sizeof(*src));
+                ev = EV_FLAG;
+                st->turn = 1 - me;
+                st->total_moves++;
+                st->moves_since_eat = 0;
+                stalemate_after(st);
+                return ev;
+            }
         }
-        st->turn = 1 - me;   /* ★ AUD-1000 B01-073（P3 注释，与 B01-003 同源）：flag-off
-           路径 turn/total_moves/moves_since_eat 在 stage=PLAY 下计数（stalemate_after
-           可能判困毙置 OVER），计数漂移与 B01-003 同源（终局后计数无守卫）。 */
-        st->total_moves++;
-        st->moves_since_eat = 0;
-        /* 开关关闭：走子正常收口（困毙判定可在此触发，与 EV_MOVE 一致）。
-           ★ AUD-1000 B01-024 注释纠错（P3）：旧注释"RED 只剩 58 军旗不可动"误述——
-           :527 *dst=*src 已将 58 格军旗**覆盖**为攻子（军旗格已无军旗），
-           flag-off 路径实际困毙靠：攻子冻结在 58（:202 大本营源格不可再动）
-           + 守方其余子无合法着法 → stalemate_after 判 RED 困毙。
-           非"军旗消失判负"（开关关闭语义 = 走子收口，胜负靠困毙收口）。
-           若原版旗开关关闭语义是"军旗被覆盖→守方判负"需 SPEC 定案，本轮不改行为。 */
-        stalemate_after(st);
         return ev;
     } else if (dr_ == RANK_MINE) {
         /* ★ AUD-R-031（P2 诚实标注）：吃地雷开关关（ui_rule_cfg_get(2)=0）时工兵

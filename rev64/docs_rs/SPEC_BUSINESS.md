@@ -27,6 +27,10 @@
 | 军旗 | 任何已翻子扛旗即胜（rank 12） | 0x39e14 `0xc`（`from_row∈{1,3,5}` 特判） |
 | 走子 | 铁路（十字 + 双方底线 row0/11）直线任意格；普通格一步 | `is_rail`（board.c） |
 | 翻棋 | 点未翻己方子 → 翻开（暗棋玩法）；明棋全子 revealed=1 | 0x39f20 from==to→翻棋 |
+| 暗棋未翻目标 | 暗棋（mode=FLIP && 开关 cfg(4)=1）下未翻普通暗子（rank 1-9 revealed=0）不可作为走子目标（仅可翻/不可撞），非雷非旗目标必须已翻才可吃 | B01-053 本轮落地，ruleflip 信息不泄露语义 |
+| 暗棋开局 | 暗棋开局=jq_dark_setup 镜像满盘 60 子（30 子 ×2 蓝红镜像，全 0xFF 未定色），非 50 子随机；main.c 50 子随机路径仅桌面参考不接线 | B01-044 SPEC 定案（原版 32位 0x39e14 实证行为） |
+| 规则开关跨线程 | ui_rule_cfg_get 整函数走 g_ui_lock（5 开关聚合读防竞态），规则层读 UI 开关无裸读 | B01-072 落地（ui_state.c 锁化） |
+| 终局原子性 | EV_FLAG 扛旗分支先快照 src，jq_on_flag_capture 成功后再写格+turn/计数；开关关闭路径先写格再 stalemate_after；双终局叠加（EV_BOMB 撞旗先 OVER）时攻子入位不回滚 | B01-064 重构落地（rules.c） |
 | 行营 | 安全岛：己方子可自由走出（行营非陷阱）；敌方不可吃行营内子；行营非铁路不可穿行 | rulelay「行营安全岛」，is_camp（board.c） |
 | 大本营 | 底线两角（蓝 row0 col1/3，红 row11 col1/3）：军旗落点；空大本营不可入（布局期军旗/地雷目标格） | is_base（board.c） |
 | 铁路 | 纵向 col2 贯穿；横向 row5/6 中线 + row0/row11 底线；工兵可拐弯滑行，其它子直线滑行 | is_rail + rail_path_*（board.c/rules.c） |
