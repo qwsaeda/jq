@@ -798,8 +798,8 @@ Java_com_cnvcs_App_OnTimer(JNIEnv *env, jclass c){
             int ev1 = jq_walk_bridge_move(6, 11);
             int ev2 = jq_walk_bridge_move(33, 38);
             const char *evn[] = {"Move","Eat","Bomb","Flag","Dead","Move"};
-            __android_log_print(6,"junqi","GAME-TEST: 走子 cell6→11=Junqi.%s cell33→38=Junqi.%s（事件）",
-                (ev1>=0&&ev1<6)?evn[ev1]:"Illegal", (ev2>=0&&ev2<6)?evn[ev2]:"Illegal");
+            __android_log_print(6,"junqi","GAME-TEST: 走子 cell6→11=Junqi.%s[ev1=%d] cell33→38=Junqi.%s[ev2=%d]（事件）",
+                (ev1>=0&&ev1<6)?evn[ev1]:"Illegal", ev1, (ev2>=0&&ev2<6)?evn[ev2]:"Illegal", ev2);
             /* 终局：认输（winner=1-turn） */
             extern int jq_game_test_finish(void);
             int fin = jq_game_test_finish();
