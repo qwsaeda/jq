@@ -481,6 +481,12 @@ int jq_try_move(jq_state *st, int from, int to)
            （junqi.h SIDE_UNKNOWN）→ pieces_left[255] 越界写 1020 字节外，
            破坏 jq_state 相邻成员。加范围守卫。 */
         if (dst_side != me && SIDE_VALID(dst_side)) st->pieces_left[dst_side]--;
+        /* AUD-1000 B01-009：暗棋未定色暗子（dst_side=0xFF）撞炸弹同归后该子从棋盘
+           消失但 pieces_left 无计数对象（pieces_left[2] 域外，SIDE_VALID 拒）。
+           旧行为=计数漂移（暗棋 50 子开局下总量偏 1）；修：0xFF 消失子计入
+           先手（蓝）池——先手翻子定色语义下 0xFF 暗子归先手（B01-011 同源），
+           定色前消失=先手失去 1 子。mines_cleared 不动（非地雷）。 */
+        else if (dst_side != me && dst_side == SIDE_UNKNOWN) st->pieces_left[SIDE_BLUE]--;
         ev = EV_BOMB;
         st->moves_since_eat = 0;   /* ★ AUD-R-107（P3 诚实标注）：4 分支各含一份（炸弹/旗/雷/吃），统一 ate 标记留待下一轮 */
          /* 炸弹炸毁军旗 → 被炸方失去军旗 → 扛旗方（己方 me）胜。
@@ -547,6 +553,9 @@ int jq_try_move(jq_state *st, int from, int to)
             int dst_side = dst->side;
             *dst = *src;
             memset(src, 0, sizeof(*src));
+            /* AUD-1000 B01-009 同源（地雷分支）：暗棋未定色地雷（dst_side=0xFF）
+               被工兵挖除后该子消失无计数对象 → 归先手（蓝）池（同炸弹分支语义） */
+            if (dst_side == SIDE_UNKNOWN) st->pieces_left[SIDE_BLUE]--;
             /* ★ AUD-R-040（P2）：计数对象用 dst->side（原子的实际归属方）而非 1-me
                （对方）。暗棋未定色暗子（side=SIDE_UNKNOWN）时 1-me 会扣错对象；
                地雷本非"可动子"（AUD-R-014），SIDE_VALID 范围守卫与 EV_BOMB 分支一致。 */
