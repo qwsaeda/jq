@@ -193,6 +193,16 @@ def probe_array_index():
             if re.search(r"\b%s\b\s*=\s*0\s*;" % re.escape(idx), body) and \
                re.search(r"\bfor\s*\(\s*\w+\s*=\s*0\s*;\s*\w+\s*<", body):
                 continue
+            # ★ 反噪（2026-11-11）：下标在函数体内**任意位置**有范围守卫（if/assert/continue/return
+            #   前置检查）→ 不算越界。旧只查紧邻，守卫写在循环外/函数头会漏。
+            if re.search(r"\b%s\s*(>=|>)\s*\d" % re.escape(idx), body) and \
+               re.search(r"\b%s\s*(<|<=)\s*" % re.escape(idx), body):
+                continue
+            # ★ 反噪：下标是**编译期常量/宏边界**循环变量（for i < N_CELLS / RANK_COUNT /
+            #   sizeof 等宏）→ 天然有界。
+            if re.search(r"for\s*\([^;]*\b%s\s*=[^;]*;[^;]*\b%s\s*<\s*(\w+|\d)" % (re.escape(idx), re.escape(idx)), body) \
+               and re.search(r"\b%s\s*(<|<=)\s*(\d|\w+(?:_COUNT|_MAX|_N)?|N_\w+|sizeof)" % re.escape(idx), body):
+                continue
             # 下标来源必须是参数或全局外部量
             if not re.search(r"\b%s\b" % re.escape(idx), body.split("\n")[0]) and \
                not re.search(r"\(\s*[^)]*\b%s\b[^)]*\)" % re.escape(idx), body[:600]):
@@ -688,9 +698,14 @@ def probe_dist_artifacts():
     newest_file = None
     # ★ 反噪：只有**参与 so 链接**的源文件才影响产物时效；
     #   桌面工具（main.c/walkverify.c/evverify.c 等）不进 so → 不比较。
+    # ★ 反噪（2026-11-11）：Makefile so 目标链接的是 ui_menu.c/ui_state.c（真实表），
+    #   ui_menu_stub.c/ui_state_stub.c/render_stub.c 只进桌面目标（jq_evverify 等）
+    #   不进 so → 改 stub 不动 so mtime，不应报"so 比源码旧"假红。
     SO_SRC_EXCLUDE = ("main.c", "walkverify.c", "evverify.c", "consistency_desktop.c",
                       "ai_selftest.c", "bt_selftest.c", "lay_selftest.c",
-                      "touch_selftest.c", "game_selftest.c", "gl2_probe_gl.c")
+                      "touch_selftest.c", "game_selftest.c", "gl2_probe_gl.c",
+                      "ui_menu_stub.c", "ui_state_stub.c", "render_stub.c",
+                      "rule_probe.c")
     for p in iter_c_files():
         if os.path.basename(p) in SO_SRC_EXCLUDE:
             continue

@@ -714,7 +714,7 @@ int ui_set_popup_inside(float x, float y); /* 点在弹窗面板内 */
    0=蓝牙联机 1=Wi-Fi 联机 2=个人资料 3=返回 */
 #define UI_WAYSEL_COUNT 4
 #define UI_WAYSEL_POPUP_X0 235.0f
-#define UI_WAYSEL_POPUP_Y0 478.0f
+#define UI_WAYSEL_POPUP_Y0 477.5f
 #define UI_WAYSEL_POPUP_W  250.0f
 #define UI_WAYSEL_POPUP_H  325.0f
 typedef struct {
@@ -1262,10 +1262,12 @@ int ui_setentry4_popup_inside(float x, float y);   /* 点在弹窗面板内 */
     ★ 诚实边界：图像/夜间模式/对方棋子 = 渲染层未实现（src_rs 无对应渲染参数），
     开关只是 UI 状态记录（不实际改渲染）。 */
 #define UI_IMGSET7_COUNT 6
+/* ★ 对抗审计（2026-11-11）：datah_008 面板 450×390 居中 origin=(135,445)；
+   旧宏误写 407.5/465（datah_012 面板 450×465 的值串号），已纠正。 */
 #define UI_IMGSET7_POPUP_X0 135.0f
-#define UI_IMGSET7_POPUP_Y0 407.5f
+#define UI_IMGSET7_POPUP_Y0 445.0f
 #define UI_IMGSET7_POPUP_W  450.0f
-#define UI_IMGSET7_POPUP_H  465.0f
+#define UI_IMGSET7_POPUP_H  390.0f
 typedef struct {
     float x0, y0, x1, y1;   /* 控件矩形（720×1280 基准） */
     int action;             /* 0=界面动画 1=棋子动画 2=夜间模式 3=对方棋子 4=确定 5=取消 */
@@ -2589,11 +2591,15 @@ int ui_about_popup_inside(float x, float y);   /* 点在弹窗面板内 */
    720 基准位置（不再居中偏移），按钮局部坐标 + (X0,Y0)。
    ★ 诚实边界：排行榜/玩家资料/我的对局存档/历史对局/联网对战/版本更新 通道未逆向，
    占位标签 + 边界对话框，不包装成"已实现" */
-/* ① datah_044 战况统计·消息/排行（固定位置 45,620，面板 180×175；
-   消息 Chat 20,20,160,80 → 65,640-205,700；排行 Rank 20,95,160,155 → 65,715-205,775） */
+/* ① datah_044 战况统计·消息/排行。★ 对抗审计（2026-11-11 全量弹窗审计 ui_align_audit）
+   修正：datah_044 是 style=Dialog 0,0,180,175（center=true 类，panel_origin=居中
+   (720-180)/2=270, (1280-175)/2=552.5）——旧注释误读为"固定位置 45,620"
+   （与 datah_045 的 BackDlg 45,620 混淆），按钮 225px 全错位。
+   消息 Chat 20,20,160,80 → 290,572-430,632；排行 Rank 20,95,160,155 → 290,648-430,708
+   （与 UI_D044 宏组一致；UI_D044 为 1:1 平移真值参照）。 */
 #define UI_UI44_COUNT 2
-#define UI_UI44_POPUP_X0 45.0f
-#define UI_UI44_POPUP_Y0 620.0f
+#define UI_UI44_POPUP_X0 270.0f
+#define UI_UI44_POPUP_Y0 552.5f
 #define UI_UI44_POPUP_W  180.0f
 #define UI_UI44_POPUP_H  175.0f
 typedef struct { float x0,y0,x1,y1; int action; } ui_ui44_btn;

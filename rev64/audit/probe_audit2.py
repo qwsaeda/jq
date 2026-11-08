@@ -140,15 +140,46 @@ def probeA_rail_and_flying():
             "补困毙判定", "A-rules")
 
 
+def _in_block_comment(ls, idx):
+    """★ 反噪（2026-11-11）：判断行 idx（0-based）是否位于 /*...*/ 块注释内。
+       块注释的续行（不以 * 开头、含中文说明）旧按行首字符判会漏 → 用状态机
+       从文件头扫描到 idx，追踪 in_comment。"""
+    in_c = False
+    for j in range(idx + 1):
+        t = ls[j]
+        # 去掉 /* 之后的同段注释体；遇到 */ 结束
+        k = 0
+        while k < len(t):
+            if in_c:
+                if t.startswith("*/", k):
+                    in_c = False; k += 2; continue
+                k += 1
+            else:
+                if t.startswith("/*", k):
+                    in_c = True; k += 2; continue
+                k += 1
+        if in_c:
+            break
+        if j == idx:
+            return in_c
+    return in_c
+
 def probeA_ai_leak():
     """AI 是否在暗棋时偷看 revealed=0 的子。"""
     for p in cf():
-        for i, ln in enumerate(lines_of(p), 1):
+        ls = lines_of(p)
+        for i, ln in enumerate(ls, 1):
             if re.search(r"\b(revealed|reveal)\b", ln) and re.search(r"\bai_", ln):
+                if _in_block_comment(ls, i - 1):
+                    continue
                 add("P2", "AI 路径涉及 revealed 字段，需确认未偷看暗子",
                     f"{rel(p)}:{i}", ln.strip()[:150],
                     "暗棋下 AI 不得读取未翻开子的 rank",
                     "核对 ai_pick/ai_score 是否过滤 revealed==0", "A-ai")
+            # ★ 反噪（2026-11-11）：注释块内的 ai_pick/rank 说明（如 rules.c 的
+            #   AUD-R-057 守卫注释续行）非真代码 → 跳过。P1 仅在真实可执行行报。
+            if _in_block_comment(ls, i - 1):
+                continue
             if re.search(r"ai_pick", ln) and re.search(r"rank\s*==", ln):
                 add("P1", "AI 直接比较 rank，可能对未翻开子生效",
                     f"{rel(p)}:{i}", ln.strip()[:150],
@@ -225,11 +256,19 @@ def probeB_doc_numbers():
                     f"改为 {actual_d}（或注明口径）", "B-doc-num")
         for m in re.finditer(r"evverify\s*(\d+)\s*/\s*\1", t):
             v = int(m.group(1))
+            # ★ 反噪（2026-11-11）：历史快照段（「历史快照，当前 167/167」/「evverify 21/21
+            #   （历史快照...）」）数字是当时记录，不可改（保审计链）→ 行内带历史限定词
+            #   或邻近有「历史快照/当时/已固化」的，跳过。只报**无历史限定**的现状声明。
+            line = t[max(0, m.start() - 120):m.end() + 120]
+            if any(k in line for k in ("历史快照", "当时", "已固化", "（evverify",
+                                       "evverify （", "本轮", "loop", "五代", "闭环（",
+                                       "→", "新增 `--all`")):
+                continue
             if v != actual_ev and actual_ev > 0:
                 add("P2", f"文档 evverify {v}/{v} 与实际 {actual_ev}/{actual_ev} 不符",
                     os.path.relpath(doc, ROOT),
                     f"文档 {v}/{v}", f"实际 {actual_ev}/{actual_ev}",
-                    "更新数字", "B-doc-num")
+                    "更新数字（或注明历史快照）", "B-doc-num")
         for m in re.finditer(r"(\d+)\s*个\s*UI_D", t):
             v = int(m.group(1))
             if v != actual_d:

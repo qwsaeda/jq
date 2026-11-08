@@ -41,6 +41,10 @@ static const struct { const char *ev; const char *wav; } EV2WAV[] = {
 
 int jq_audio_init(jq_audio *au, const char *res_dir)
 {
+    /* ★ 对抗审计（§2026-11-11）：重复 init 会 memset 掉旧 pcm 指针 → 泄漏
+       （每次设置变更/重进界面若再 init 一次就漏 9 个 WAV buffer）。先释放再清零。 */
+    if (!au) return -1;
+    jq_audio_free(au);
     memset(au, 0, sizeof(*au));
     au->res_dir = res_dir ? res_dir : "";
     /* 加载全部音效（SPAK 解包 WAV → PCM） */

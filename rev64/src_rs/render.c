@@ -10384,10 +10384,39 @@ void rs_render_resize(rs_render *rr, int w, int h)
 void rs_render_free(rs_render *rr)
 {
     for (int i = 0; i < 2; i++) {
-        if (rr->tex_board[i] && rr->gl_ok[i]) glDeleteTextures(1, &rr->tex_board[i]);
-        if (rr->tex_piece[i] && rr->gl_ok[i]) glDeleteTextures(1, &rr->tex_piece[i]);
         if (rr->prog_tex[i] && rr->gl_ok[i]) glDeleteProgram(rr->prog_tex[i]);
         if (rr->prog_solid[i] && rr->gl_ok[i]) glDeleteProgram(rr->prog_solid[i]);
+    }
+    /* ★ 对抗审计（§2026-11-11）：旧 rs_render_free 只删 tex_board/tex_piece 两个纹理，
+       其余 41 个纹理数组（text / bg / menu_bg / dlg_text / imen 系列 / 各弹窗文字图集…）
+       全部泄漏 —— glGenTextures 46 处 vs glDeleteTextures 仅 2 处。
+       每次 GL context 重建（onSurfaceCreated/slot 切换）都泄漏整套纹理，
+       长时间反复切前后台会耗尽 GPU 纹理。现统一遍历删除。 */
+    {
+        rs_glid_t *texs[] = {
+            rr->tex_board, rr->tex_piece, rr->tex_text, rr->tex_bg,
+            rr->tex_menu_bg, rr->tex_dlg_text, rr->tex_imen_text, rr->tex_imen_icons,
+            rr->tex_imen_orig, rr->tex_hamburger, rr->tex_btn_big, rr->tex_btn_small,
+            rr->tex_popup, rr->tex_opt_text, rr->tex_waysel_text, rr->tex_btimen_text,
+            rr->tex_settings_text, rr->tex_nplayer_text, rr->tex_newgame_text, rr->tex_gameset_text,
+            rr->tex_layres_text, rr->tex_replay_text, rr->tex_login_text, rr->tex_rules_text,
+            rr->tex_ng104_text, rr->tex_join_text, rr->tex_ng061_text, rr->tex_gameinfo_text,
+            rr->tex_bright_text, rr->tex_chatlog_text, rr->tex_profile_text, rr->tex_drawdetail_text,
+            rr->tex_setentry_text, rr->tex_imgset_text, rr->tex_join065_text, rr->tex_create069_text,
+            rr->tex_rules070_text, rr->tex_room060_text, rr->tex_chat063_text, rr->tex_about_text,
+            rr->tex_uibat_text,
+        };
+        for (size_t k = 0; k < sizeof(texs)/sizeof(texs[0]); k++)
+            for (int i = 0; i < 2; i++)
+                if (texs[k][i] && rr->gl_ok[i]) {
+                    glDeleteTextures(1, &texs[k][i]); texs[k][i] = 0;
+                }
+        rs_glid_t *vbos[] = { rr->vbo_board, rr->vbo_piece, rr->vbo_sel };
+        for (size_t k = 0; k < sizeof(vbos)/sizeof(vbos[0]); k++)
+            for (int i = 0; i < 2; i++)
+                if (vbos[k][i] && rr->gl_ok[i]) {
+                    glDeleteBuffers(1, &vbos[k][i]); vbos[k][i] = 0;
+                }
     }
     free(rr->board_px); rr->board_px = NULL;
     free(rr->piece_px); rr->piece_px = NULL;

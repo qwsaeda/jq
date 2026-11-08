@@ -146,9 +146,9 @@ int ui_create_popup_inside(float x, float y)
    一致性/evverify 链接；真机走 ui_menu.c 真实几何表）。
    诚实边界：4 项各循环切换当前值（对齐 datah_104 循环切换范式）。 */
 static const ui_ng061_btn n061_stub[UI_NG061_COUNT] = {
-    { 355.0f,483.0f,555.0f,543.0f,0 },{ 355.0f,558.0f,555.0f,618.0f,1 },
-    { 355.0f,633.0f,555.0f,693.0f,2 },{ 355.0f,708.0f,555.0f,768.0f,3 },
-    { 165.0f,793.0f,345.0f,853.0f,4 },{ 375.0f,793.0f,555.0f,853.0f,5 },
+    { 355.0f,482.0f,555.0f,542.0f,0 },{ 355.0f,558.0f,555.0f,618.0f,1 },
+    { 355.0f,632.0f,555.0f,692.0f,2 },{ 355.0f,708.0f,555.0f,768.0f,3 },
+    { 165.0f,792.0f,345.0f,852.0f,4 },{ 375.0f,792.0f,555.0f,852.0f,5 },
 };
 const ui_ng061_btn *ui_ng061_buttons(void) { return n061_stub; }
 int ui_ng061_hit(const ui_ng061_btn *b, int n, float x, float y)
@@ -245,9 +245,9 @@ int ui_setentry4_popup_inside(float x, float y)
 /* ★ P2（datah_007/008 证据）：图像设置 6/5 控件桩。
    诚实边界：图像/夜间模式渲染参数未实现，开关仅 UI 状态记录。 */
 static const ui_imgset7_btn i7_stub[UI_IMGSET7_COUNT] = {
-    { 355.0f,483.0f,555.0f,543.0f,0 },{ 355.0f,558.0f,555.0f,618.0f,1 },
-    { 355.0f,633.0f,555.0f,693.0f,2 },{ 355.0f,708.0f,555.0f,768.0f,3 },
-    { 165.0f,788.0f,345.0f,848.0f,4 },{ 375.0f,788.0f,555.0f,848.0f,5 },
+    { 355.0f,520.0f,555.0f,580.0f,0 },{ 355.0f,595.0f,555.0f,655.0f,1 },
+    { 355.0f,670.0f,555.0f,730.0f,2 },{ 355.0f,708.0f,555.0f,768.0f,3 },
+    { 165.0f,750.0f,345.0f,810.0f,4 },{ 375.0f,750.0f,555.0f,810.0f,5 },
 };
 const ui_imgset7_btn *ui_imgset7_buttons(void) { return i7_stub; }
 int ui_imgset7_hit(const ui_imgset7_btn *b, int n, float x, float y)
@@ -302,9 +302,9 @@ int ui_create069_popup_inside(float x, float y)
 /* ★ P2（datah_070 证据）：游戏规则完整版 6 控件桩。
    与 datah_012 同构，复用 ui_rule_*_get/set。 */
 static const ui_rules070_btn r70_stub[UI_RULES070_COUNT] = {
-    { 355.0f,483.0f,555.0f,543.0f,0 },{ 355.0f,558.0f,555.0f,618.0f,1 },
-    { 355.0f,633.0f,555.0f,693.0f,2 },{ 355.0f,708.0f,555.0f,768.0f,3 },
-    { 165.0f,793.0f,345.0f,853.0f,4 },{ 375.0f,793.0f,555.0f,853.0f,5 },
+    { 355.0f,482.0f,555.0f,542.0f,0 },{ 355.0f,558.0f,555.0f,618.0f,1 },
+    { 355.0f,632.0f,555.0f,692.0f,2 },{ 355.0f,708.0f,555.0f,768.0f,3 },
+    { 165.0f,792.0f,345.0f,852.0f,4 },{ 375.0f,792.0f,555.0f,852.0f,5 },
 };
 const ui_rules070_btn *ui_rules070_buttons(void) { return r70_stub; }
 int ui_rules070_hit(const ui_rules070_btn *b, int n, float x, float y)
@@ -357,8 +357,9 @@ int ui_about_popup_inside(float x, float y)
 
 /* ★ SPAK2UI 批量（12 弹窗）：战况统计子菜单链 + 玩家/对局/对战方式/创建游戏/版本更新。
    桌面桩与 ui_menu.c 真实几何表同步（诚实边界占位不包装成"已实现"）。 */
+/* ★ 对抗审计（2026-11-11）：datah_044 Dialog 居中 270,552.5（旧桩误用固定 45,620，已同步）。 */
 static const ui_ui44_btn ui44_stub[UI_UI44_COUNT] = {
-    { 65.0f,640.0f,205.0f,700.0f,0 },{ 65.0f,715.0f,205.0f,775.0f,1 },
+    { 290.0f,572.0f,430.0f,632.0f,0 },{ 290.0f,648.0f,430.0f,708.0f,1 },
 };
 const ui_ui44_btn *ui_ui44_buttons(void) { return ui44_stub; }
 int ui_ui44_hit(const ui_ui44_btn *b,int n,float x,float y)
@@ -693,7 +694,7 @@ int ui_d024_hit(const ui_d024_btn *b, int n, float x, float y)
 { for (int i = 0; i < n; i++) if (x>=b[i].x0 && x<=b[i].x1 && y>=b[i].y0 && y<=b[i].y1) return i; return -1; }
 /* ★ 批量对齐（datah_025）：1 按钮（720 基准，局部 1:1 平移） */
 static const ui_d025_btn g_d025_btns[UI_D025_COUNT] = {
-    { 270.0f, 665.0f, 450.0f, 725.0f, 0 },  /* 确定 */
+    { 165.0f, 665.0f, 345.0f, 725.0f, 0 },  /* 确定 Confirm（主按钮） */
 };
 const ui_d025_btn *ui_d025_buttons(void) { return g_d025_btns; }
 int ui_d025_hit(const ui_d025_btn *b, int n, float x, float y)

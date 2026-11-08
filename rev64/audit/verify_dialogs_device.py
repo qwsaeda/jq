@@ -199,14 +199,22 @@ def main():
     # ★ MuMu flaky 抖动专项：全量模式默认先重装 phase3.apk（消除 so 与 APK 不一致
     #   导致的"钩子未命中（so 可能是旧的）"假 FAIL）。--noinstall 跳过（快速重验）。
     if not a.list and not a.noinstall:
-        apk = os.path.join(ROOT, "dist", "phase3.apk")
-        if os.path.exists(apk):
+        # ★ 对抗审计（2026-11-11）：交付物在**仓库根 dist/**（build_phases.sh 产物目录），
+        #   旧脚本误用 rev64/dist/（不存在）→ 跳过重装 → 设备跑旧 so → "钩子未命中"假 FAIL。
+        apk = None
+        for cand in (os.path.normpath(os.path.join(ROOT, "..", "dist", "phase3.apk")),
+                     os.path.join(ROOT, "dist", "phase3.apk")):
+            if os.path.exists(cand):
+                apk = cand
+                break
+        if apk:
             print(f"★ 重装 {apk}（消除 so 与 APK 不一致的 flaky 假 FAIL）", flush=True)
             subprocess.run(["adb", "-s", DEV, "install", "-r", apk],
                            capture_output=True, timeout=120)
             time.sleep(2.0)
         else:
-            print(f"★ {apk} 不存在，跳过重装（用设备现有 so）", flush=True)
+            print("★ 仓库根 dist/ 与 rev64/dist/ 均无 phase3.apk，跳过重装（用设备现有 so）",
+                  flush=True)
 
     ids = []
     if a.list:

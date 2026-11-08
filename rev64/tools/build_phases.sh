@@ -27,6 +27,16 @@ SRC_RS=$WS/rev64/src_rs/dist/libjunqi_rs.so
 SRC_STUB=/tmp/opencode/junqi_stub_arm64.so
 DO_VERIFY=1
 
+# ★ 对抗审计（2026-11-11）假绿根治：build_phases 从不重编 so——若 src_rs 源码已改
+#   但 make so 没跑，交付物会打进**旧的** libjunqi_rs.so（APK 与设备跑的行为不一致，
+#   真机验收"钩子未命中/文案旧"全是假象）。现构建前强制重编 src_rs so。
+#   （幂等：源码无改动时 make 秒过；有改动则必刷新。）
+make_so_rs() {
+  echo "══════ 重编 src_rs arm64 so（防旧 so 打进交付物）══════"
+  ( cd $WS/rev64/src_rs && NDK=/tmp/opencode/android-ndk-r25b make so ) || {
+    echo "✗ src_rs so 编译失败（源码有改动，先修再构建）"; return 1; }
+}
+
 # 构建树 lib 布局（每阶段：树名 + lib/子目录→源 so）
 # phase0: dec_p0 仅 armeabi=orig
 # phase1: dec_p0 armeabi=orig + arm64-v8a=stub
@@ -148,13 +158,20 @@ for n in sos:
     print(f'    {n}: {\"STORE\" if c==0 else \"★压缩\"} {z.getinfo(n).file_size}B')
 " 2>/dev/null
   # so 哈希（arm64=src_rs / armeabi=orig / 桩 对账）
-  local so_md5 stub_md5
-  so_md5=$(unzip -p $apk lib/arm64-v8a/libjunqi.so 2>/dev/null | md5sum 2>/dev/null | cut -d' ' -f1)
+  # ★ 假红修复（§2026-11-11）：phase0/1 无 arm64 so 时 `unzip -p` 退出码 11
+  #   （no matching files）→ pipefail + set -e 直接中止构建（阶段 0 永远构建不完）。
+  #   同时空输入的 md5 是 d41d8cd9…，`-n` 判据恒真 → 会被当成"有 so"。
+  local so_md5 stub_md5 rs_md5
+  local EMPTY_MD5=d41d8cd98f00b204e9800998ecf8427e
+  set +e
+  so_md5=$(unzip -p $apk lib/arm64-v8a/libjunqi.so 2>/dev/null | md5sum | cut -d' ' -f1)
+  set -e
+  [ "$so_md5" = "$EMPTY_MD5" ] && so_md5=""
   stub_md5=$( [ -f "$SRC_STUB" ] && md5sum $SRC_STUB | cut -d' ' -f1 || echo "" )
-  rs_md5=$(md5sum $SRC_RS | cut -d' ' -f1)
-  if [ "$so_md5" = "$rs_md5" ] && [ -n "$so_md5" ]; then
+  rs_md5=$( [ -f "$SRC_RS" ] && md5sum $SRC_RS | cut -d' ' -f1 || echo "" )
+  if [ -n "$so_md5" ] && [ -n "$rs_md5" ] && [ "$so_md5" = "$rs_md5" ]; then
     echo "    arm64 so = src_rs ✓"
-  elif [ "$so_md5" = "$stub_md5" ] && [ -n "$so_md5" ]; then
+  elif [ -n "$so_md5" ] && [ "$so_md5" = "$stub_md5" ]; then
     echo "    arm64 so = 4.8KB 桩（阶段 1 预期）"
   elif [ "$(unzip -l $apk 2>/dev/null | grep -c 'lib/arm64-v8a')" = "0" ]; then
     echo "    arm64 目录无（预期）"
@@ -180,6 +197,8 @@ if [ $VERIFY_ONLY -eq 1 ]; then
   echo "✓ verify-only 完成"
   exit 0
 fi
+# 阶段 2/3 用 src_rs so → 构建前先重编（防旧 so 假绿）
+case $TARGET in all|phase2|phase3) make_so_rs || exit 1 ;; esac
 if [ "$TARGET" = "all" ]; then
   build_one phase0 phase0.apk
   build_one phase1 phase1.apk

@@ -101,3 +101,37 @@
   **判据/修法**：rebuild 用双缓冲（新表建成原子换指针）；跨线程计数器改原子（或接受非精确限流注释标注）。
 - EGL 多 context 必须 `eglCreateContext(..., share_ctx, ...)` 共享（NO_CONTEXT → 纹理/program
   跨 context 无效，texID 泄漏 + 采样黑 = 棋子不出屏根因）。
+
+## 13. 全量弹窗 UI 对齐审计 + 交付物 so 时效门禁（§2026-11-11 批次）
+
+背景：用户指出"功能设置没对齐 UI，类似问题很多"。全量审计（`audit/ui_align_audit.py`，
+单一真相源 `spak2ui.panel_origin`）扫 ui_menu.h 163 个弹窗宏组 × datah 原版 720 基准逐按钮
+配对（贪心 + 备用隐藏按钮 Ok/Ok2 语义），分三类台账 `audit/r2/UI_ALIGN_PROB.json`：
+需修（真误配/硬错位）/ 诚实边界占位（不修已标注）/ 非 datah 实测基准（不修）。
+
+★ 修根因（收口）：
+- UI_UI44：datah_044 是 Dialog 居中（panel_origin 270,552.5），旧误读为 BackDlg 固定 45,620
+  → 面板/按钮 225px 全错位（与 UI_D044 宏组 1:1 对齐）。
+- UI_IMGSET7：datah_008 面板 450×390 居中 origin=(135,445)，旧宏误用 datah_012 的 407.5/465
+  → 面板 H 75px + 按钮 37px 串号；Y0/H 已纠正，按钮按局部 rect 1:1 平移。
+- UI_D037/UI_D012/NG061 等：按 datah 原版真值逐表对齐（RULES 450→260 面板真值 / NG061 450×465 /
+  D012 450×465 origin 407.5），evverify 期望 + ui_menu_stub 三处同步。
+
+★ 门禁（防"旧 so 打进交付物"假绿，本轮实锤 2 次）：
+- 构建类脚本（build_phases）在阶段 2/3 构建前**强制 `make so` 重编**（`make_so_rs`），
+  否则 src_rs 源码改了但 so 没重编 → 交付物/APK 跑旧 so → 真机"钩子未命中/文案旧"全是假象。
+  判据：APK 内 `lib/arm64-v8a/libjunqi.so` md5 必须 == `src_rs/dist/libjunqi_rs.so` md5。
+- 验证脚本（verify_dialogs_device.py）的 APK 重装路径必须指向**仓库根 dist/**（build_phases 产物
+  目录），旧脚本误用 rev64/dist/（不存在）→ 跳过重装 → 设备跑旧 so → "钩子未命中"假 FAIL。
+  两处候选路径（根 dist/ + rev64/dist/）都找，谁存在装谁。
+- 探针 `artifact`（so 比源码旧）必须用**精确 os.path.getmtime**，`ui_menu_stub.c` 等桌面桩
+  不参与 so 链接 → 进 EXCLUDE（改 stub 不触发假红）。
+
+★ 探针反噪（A-ai / B-doc-num / array-index / geom-delta）：
+- A-ai：用 `_in_block_comment` 状态机判行是否在 /*...*/ 块内（续行不以 * 开头也判注释），
+  跳过 rules.c 的 AUD-R-057 守卫注释续行。
+- B-doc-num：历史快照/闭环叙述词（"历史快照/当时/已固化/本轮/loop/五代/→/新增 --all"）加入
+  跳过表，只报**无历史限定**的现状数字漂移。
+- array-index：函数体任意位置的 `idx >= a && idx < b` 守卫 / 编译期宏边界循环变量识别。
+- 判定不可信时先人工复核（本轮 17 条 array-index 逐条核：多数已有守卫或是测试代码，
+  非真越界）。

@@ -1189,7 +1189,20 @@ Java_com_cnvcs_App_OnCreate(JNIEnv *env, jclass clazz, jobject activity)
     ui_rules_load();            /* ★ P1（datah_012）：读 jq_rules.txt（和棋/大本营/地雷/扛旗 4 规则开关） */
     ui_bright_load();          /* ★ P2（datah_002）：读 jq_bright.txt（亮度档位 0低/1中/2高，缺文件默认中） */
     ui_imgset_load();          /* ★ P2（datah_007）：读 jq_imgset.txt（界面/棋子/夜间/对方 4 图像设置开关，缺文件默认值） */
-    LOGI("OnCreate：明棋开局（stage=PLAY 蓝先手 revealed=全翻开 50 子）+ UI 菜单就绪（OnEvent menu=0 进对局）");
+    /* ★ 对抗审计（2026-11-11）：旧日志写死"明棋开局"，实际 OnCreate 走 jq_restart_game
+       按 jq.mode/ui_opt_get_mode 分支——jq.mode=1 时是暗棋（jq_dark_setup，revealed=0），
+       文案误导。现读属性如实标注。 */
+    {
+        char mprop[8] = {0};
+        int dark = 0;
+        if (__system_property_get("jq.mode", mprop) > 0 && mprop[0])
+            dark = (mprop[0] == '1');
+        else
+            dark = (ui_opt_get_mode() == 1);
+        LOGI("OnCreate：%s开局（stage=PLAY 蓝先手 %s）+ UI 菜单就绪（OnEvent menu=0 进对局）",
+             dark ? "暗棋（翻棋 revealed=0）" : "明棋（revealed=全翻开 50 子）",
+             dark ? "暗子" : "明子");
+    }
     /* ★ flagtest 触发（adb setprop jq.flagtest 1 → 重启 → OnCreate 注入近旗状态 + 自动走一步 FLAG）。
        触摸注入 MuMu flaky 不达 native（环境限制）→ 走 OnCreate 自动触发路径；
        事件链路/规则引擎/音效真实（jq_try_move(53,58)=EV_FLAG 桌面已证），
