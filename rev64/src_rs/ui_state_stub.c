@@ -54,7 +54,7 @@ int ui_rule_cfg_get(int which)
       case 2: return g_rm;
       case 3: return g_rf;            /* 吃军旗开关（ui_rule_flag_get/set 同域） */
       case 4: return ui_rule_dark_get(); /* 暗棋开关（可 ui_rule_dark_set 改） */
-      default: return 0;
+      default: return 1;   /* 与 ui_state.c 真实实现一致（未知开关默认开） */
     }
 }
 void ui_rules_load(void) {}

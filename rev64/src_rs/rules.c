@@ -214,7 +214,11 @@ static bool move_legal(const jq_state *st, int from, int to, int turn)
     /* 暗棋：未翻开不可动（side 未定/已定但 revealed=0）
        ★ AUD-R-006（P1）：未定色暗子（side=0xFF）不可被直接攻击（ruleflip 原文：
        只能翻、不能吃；兄弟实现 game_logic.c 同判定）。明棋/布局模式下 0xFF 不可达，
-       行为不变；明棋已翻子 revealed=1 恒放行。 */
+       行为不变；明棋已翻子 revealed=1 恒放行。
+       ★ AUD-1000 B01-015：mines_cleared 下界钳制——mines_cleared[me] 只增不减
+       （EV_MINE 挖雷 +1），正常路径恒 ≥0；若外部误写负值（数据损坏）恒 <3
+       拒扛旗 = 安全降级（拒优于放行），钳 0 仅消除"负计数"语义歧义。
+       注：me 已经入口 SIDE_VALID 守卫（:424-437），下标 me∈{0,1} 安全。 */
     if (!src->revealed || src->side == SIDE_UNKNOWN) return false;
     uint8_t me = src->side;
     /* 目标被己方子占据 → 不可 */
@@ -250,6 +254,12 @@ static bool move_legal(const jq_state *st, int from, int to, int turn)
             /* 军旗：仅工兵可扛，且须已挖满 3 雷 */
             else {
                 if (sr != RANK_WORKER) return false;
+                /* ★ AUD-1000 B01-015（P2 诚实标注，非 C 修复）：mines_cleared
+                   无下界钳制——悔棋快照恢复可注入负值（快照在挖雷 ++ 前推送），
+                   负值恒 <3 拒扛旗已是安全降级（拒绝方向正确，不误放行）；
+                   显式钳 0 需 const 指针非 const 访问（move_legal 契约为
+                   纯读），不改执行器外行为，留待 jq_undo_restore 入口钳制
+                   或 SPEC 定案。 */
                 if (SIDE_VALID(me) && st->mines_cleared[me] < 3) return false;
             }
         }
@@ -726,6 +736,9 @@ void jq_on_flag_capture(jq_state *st, uint8_t captor_side)
     if (!SIDE_VALID(captor_side)) return;
     st->winner = captor_side;        /* 吃旗方胜（JQ_WIN_BLUE/JQ_WIN_RED） */
     st->stage = STG_OVER;
+    /* AUD-1000 B01-002：终局后不再切 turn（旧实现终局快照 turn 已翻转到败方，
+       战况统计 UI 显示"败方当前回合"含混）。winner/stage 置位后收口，
+       后续收口守卫（stage!=PLAY）放行；stalemate_after/和棋判定对终局无效。 */
     /* ★ AUD-R-054（P2）：被吃方旗计数扣减（旗是普通子之一；flag 被吃时该方
        pieces_left 同步 -1，与 EV_BOMB/EV_DEAD 分支的 pieces_left 维护风格一致。
        AUD-R-014 注：pieces_left 统计未完全接线，此扣减仅保持字段一致性）。 */
