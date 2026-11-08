@@ -78,7 +78,7 @@ java -cp /tmp/opencode/apksigner/apksig.jar:/tmp/opencode/apksigner SignV2 \
 
 - 当前 arm64 `libjunqi.so`（`native64/junqi.cpp`，~97KB）是**简化重写版**（10×9 棋盘、颜色棋子、自动走子、GLES2 渲染），**不是** 32 位 1.43MB/1435156B native 的汇编级逆向
 - 它能在 64 位设备"跑起来"，但玩法/规则/资源与原版不一致
-- 完整对齐（原版 38 子布局、地雷/炸弹/悔棋规则、蓝牙联机协议、SPAK 解密 key）需后续把 32 位 `.rodata` 明文逻辑移植进 arm64，工作量另计
+- 完整对齐（原版 50 子（每方 25）12×5 棋盘、地雷/炸弹/悔棋规则、蓝牙联机协议、SPAK 解密 key）需后续把 32 位 `.rodata` 明文逻辑移植进 arm64，工作量另计（★ AUD-R-076 口径：38 子为旧误读）
 - **不要在交付物里把"简化版"包装成"完整版"**
 
 ## 四个阶段
@@ -101,8 +101,10 @@ java -cp /tmp/opencode/apksigner/apksig.jar:/tmp/opencode/apksigner SignV2 \
 
 - 产物：`dist/phase2.apk`（v1+v2，`armeabi-v7a` + `arm64-v8a`，`minSdk 21` / `targetSdk 34`）
 - 改动：`armeabi` 升级为 `armeabi-v7a`（v7a 兼容 v5，32 位 native 原样复用）；arm64 用 NDK 编译**简化版**C++ 实现（`native64/junqi.cpp` → `lib/arm64-v8a/libjunqi.so`，~97KB，无 GL 依赖，仅 `liblog/libm/libandroid`）：
-  - 15 个 JNI 入口签名与 `smali/com/cnvcs/App.smali` 一致
-  - 军棋棋盘（10×9，38 子）+ 走子/吃子/炸弹/悔棋规则 + 简单 AI（blue 方）
+  - 14 个 JNI 入口签名与 `smali/com/cnvcs/App.smali` 一致
+    （★ 口径纠正：src_rs 64 位 so 实锤 14 个 On*（nm -D 复核，原版 32 位 15 个减 OnDestroy））
+  - 军棋棋盘（12×5=60 格，每方 25 子）+ 走子/吃子/炸弹/悔棋规则 + 简单 AI（blue 方）
+    （★ 口径纠正 AUD-R-076：10×9/38 子系旧误读，SPEC 定案 12×5 棋盘 50 子）
   - 事件名对齐 32 位 `.rodata` 明文（`Junqi.Move/Flip/Flag/Bomb/Eat/Dead` 等）
 - 注意：arm64 是**简化重写版**，非原版汇编级逆向；SPAK 解密 key 未提取，资源图占位；32 位设备走 v7a 能玩原版完整逻辑
 - 验收：64 位 only 设备能装，arm64 简化版可渲染可交互；32 位设备走 v7a 能装能玩原版

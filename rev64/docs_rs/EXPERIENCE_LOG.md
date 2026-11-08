@@ -1126,7 +1126,7 @@ fulltest 9/9（isolated 复跑全过；MINE/FLAG 偶发 FAIL 为 MuMu 重启+set
 - 现状（盘点）：主菜单"四国军棋"（action=4）经 `ui_on_menu_action` 与 0/1 同路 → **静默开 2 人局**（误导为四国可玩）。
 - 修复：
   - `ui_state.c` `ui_on_menu_action`：action 0/1 才切 UI_GAME（4=四国不切，OnTouch 显示边界）。
-  - `jni_bridge.c` OnTouch 菜单：`hit_action==4` → `jq_show_dialog("四国军棋", "src_rs 为 10×9 两人军棋规则重写，四国未实现……")`（与联网/联机边界一致），return JNI_TRUE 不落对局。
+  - `jni_bridge.c` OnTouch 菜单：`hit_action==4` → `jq_show_dialog("四国军棋", "src_rs 为 12×5 两人军棋规则重写，四国未实现……")`（与联网/联机边界一致），return JNI_TRUE 不落对局。
 - 验证（redroid emulator-5554）：`UI命中 x=634 y=1127 hit=4 action=4` → `OnTouch 菜单按钮4：四国军棋边界说明（诚实边界）`，无 `ui_state：菜单 action=4 → UI_GAME` 日志；对话框截图 rs_siguo.png。
 - so 新 hash **e5bc4fe4**；四交付物经 `build_phases.sh all` 重建 + 校验。
 
@@ -1672,7 +1672,7 @@ datah_095 原版 9 按钮但**互斥重叠**（复盘/聊天同位、提和/取�
   但兜底使 F_3a92c disc 恒 0 → 成功路径 F_3ab64/F_55d40 全被跳过 = 事件业务分发死代码。
   **教训：忠实 ≠ 已实现，"兜底没崩"不能当"功能通了"；判功能必须看消费点返回值，不是看崩溃计数。**
 - **文档一致性（D3 103 条，无 P0 但 P1 高）**：16 组跨文档数值矛盾（事件名 73/74/76、JNI 14/15、
-  棋盘 38 子 vs 50 子、asr4 四种语义、evverify 8/8→47/47→60/60→167/167 五代口径）+ 20 处 REVERSE_LOG
+  棋盘 38 子→50 子（AUD-R-076 纠正）、asr4 四种语义、evverify 8/8→47/47→60/60→167/167 五代口径）+ 20 处 REVERSE_LOG
   早期结论被后续 § 推翻未标作废 + 11 处死链。**固化：被推翻结论加"已被 §XXX 取代"头注；
   数值事实全仓单一口径（事件名 76 / JNI 14 / 棋盘 12×5 50 子）；路由表不塞全文。**
 - **固定 sleep 是 flaky 根因（D2 8 处 + 已有 §2026-11-08 轮询教训）**：本轮再扫出

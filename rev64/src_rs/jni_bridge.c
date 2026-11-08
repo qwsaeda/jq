@@ -6136,7 +6136,7 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
             int nact = nb[nh].action;   /* 0=2 人 1=3 人 2=4 人（默认） */
             jq_show_dialog(env, "四国军棋",
                 "四国军棋（诚实边界）：\n"
-                "src_rs 为 10×9 两人军棋规则重写，四国（4 方混战）\n"
+                "src_rs 为 12×5 两人军棋（50 子）规则重写，四国（4 方混战）\n"   /* AUD-R-076：旧文案"10×9"系误读 */
                 "未实现。原版四国棋盘/规则需另项逆向移植。\n"
                 "四国模式当前不可玩，请选择人机/两人对战。");
             LOGI("OnTouch 四国人数弹窗：选%d（action=%d 人数）→ 诚实边界对话框 → 回主菜单",

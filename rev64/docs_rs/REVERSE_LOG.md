@@ -1101,7 +1101,7 @@ python3 rev64/tools/dispatch_insert.py 0x3ab80 --gen-stub  # 收表
 | 会话 B 资产 | 会话 A 卡点 | 借鉴方式 |
 |---|---|---|
 | **UI 状态机**（ui_state.c/h UI_MENU↔UI_GAME） | gs[8] vtable 判断"游戏是否就绪"隐式、易误判 | 显式化 32 位版 UI 状态机：用 `g_jq_ui_state` 全局替代 `obj_vt==0x159950` 判断，状态切换点（菜单→开局）收进 dispatch 表 |
-| **jq_can_move/jq_try_move 桌面单测** | 32 位"游戏不推进"盲目碰 native 对象图 | **先桌面验证走子规则，再碰 native**：构造 32 位版 can_move/try_move 单测，验证 38 子布局+走子/吃子/悔棋，确认逻辑路径后再补对象图 |
+| **jq_can_move/jq_try_move 桌面单测** | 32 位"游戏不推进"盲目碰 native 对象图 | **先桌面验证走子规则，再碰 native**：构造 32 位版 can_move/try_move 单测，验证 50 子（12×5）布局+走子/吃子/悔棋，确认逻辑路径后再补对象图 |
 | **坐标→格子映射法** | 32 位 OnTouch 坐标解析后"谁消费坐标"链路未追踪 | 借会话 B 的 `x=0.366×900+(col+0.5)×47.7`、`y=1468−(row+0.5)×122.33` + `cell25=tap(353,927)/cell30=tap(353,805)/cell12=tap(448,1294)`，注入 32 位版 OnTouch 验证选子/走子事件链 |
 | **g_vs_ai 守卫（人机/两人/蓝牙 三模式）** | 32 位翻译体无 AI 介入控制概念 | 暂不适用（纯逆向），但可借鉴"三处 AI 块加 `g_vs_ai &&` 守卫"防 AI 误介入 |
 
@@ -1131,8 +1131,8 @@ python3 rev64/tools/dispatch_insert.py 0x3ab80 --gen-stub  # 收表
    （`Junqi.*` 73 条），确认两边事件名对齐
 
 **★ 诚实边界（借鉴的局限）**：
-- 会话 B 是**简化重写版**（10×9 棋盘 + 简单 AI + GLES2 渲染），会话 A 是**原版汇编级逆向**
-  （38 子布局 + 原版规则 + GL1 渲染）→ 借鉴的是**方法论/验证法**，非直接代码
+- 会话 B 是**简化重写版**（12×5 棋盘 + 简单 AI + GLES2 渲染，★ AUD-R-076 口径纠正：旧"10×9/38 子"系误读），会话 A 是**原版汇编级逆向**
+  （50 子（12×5）布局 + 原版规则 + GL1 渲染）→ 借鉴的是**方法论/验证法**，非直接代码
 - 真正"游戏可玩"（触摸→棋子交互）仍需 MuMu（有 GPU）+ 资源对象图重建，redroid 无 GPU 只验证对象图
 - 32 位翻译体的深层资源链（F_6f824 等）未收表 → 事件发送器完整翻译体暂缺
 
@@ -1158,7 +1158,7 @@ python3 rev64/tools/dispatch_insert.py 0x3ab80 --gen-stub  # 收表
 
 **★ 背景**：会话 B（src_rs 正向 64 位可玩军棋）的纯 C 走子规则引擎（rules.c/board.c/
 layout.c/touch.c，无 GL/JNI 依赖）可直接编进 32 位 so，作为 32 位翻译体"游戏逻辑不推进"的
-可机判驱动。这是 §124y-18 借鉴思路的落地——把会话 B 的 38 子布局 + 走子规则 + 事件名
+可机判驱动。这是 §124y-18 借鉴思路的落地——把会话 B 的 50 子（12×5）布局 + 走子规则 + 事件名
 移植进 32 位 so，让 32 位版走子事件可被会话 B 引擎驱动（不依赖未填充的 .pak 资源对象图）。
 
 **★ 移植 4 模块**（`rev64/src_jni_translated/jq_rs_*.c`，会话 B `rev64/src_rs/` 复制改名）：
@@ -1166,11 +1166,11 @@ layout.c/touch.c，无 GL/JNI 依赖）可直接编进 32 位 so，作为 32 位
 |---|---|---|
 | `jq_rs_rules.c` | 331 | 走子/吃子/翻棋/胜负（0x39e14/0x39f20/0x3a15c 逆源码）|
 | `jq_rs_board.c` | 53 | 棋盘几何（12×5，cell_index/行/列，行营/大本营/铁路）|
-| `jq_rs_layout.c` | 127 | 38 子布局（JQ_DEFAULT_LAY = SPAK data/lay/00.lay 实测）|
+| `jq_rs_layout.c` | 127 | 50 子（12×5）布局（JQ_DEFAULT_LAY = SPAK data/lay/00.lay 实测，★ AUD-R-076 口径纠正：旧 38 子系误读）|
 | `jq_rs_touch.c` | 81 | 触摸坐标→格子命中（jq_touch_hit_cell，datax_177 几何）|
 | `jq_rs_walkbridge.c` | — | 会话 B 引擎的 32 位 so 接入点（OnResume/OnTimer tick）|
 
-**★ 38 子布局基准**（JQ_DEFAULT_LAY，会话 B layout.c 实测）：
+**★ 50 子布局基准**（JQ_DEFAULT_LAY，会话 B layout.c 实测，★ AUD-R-076 口径纠正：旧"38 子"系误读）：
 ```
 3,7,6,5,8, 10,0,9,0,1,
 2,10,0,9,5, 4,0,6,0,7,
@@ -1188,7 +1188,7 @@ setprop jq.walk_bridge 1 → OnResume/OnTimer → jq_walk_bridge_tick()
   → jq_try_move(33,38) → Junqi.Move
 logcat:
   WALK-BRIDGE: setprop jq.walk_bridge=1 → 开局 + 走子
-  jq_walk_bridge: 开局完成（会话 B 38 子布局 JQ_DEFAULT_LAY）
+  jq_walk_bridge: 开局完成（会话 B 50 子（12×5）布局 JQ_DEFAULT_LAY）
   jq_walk_bridge_move: cell6→11 事件=Junqi.Move（会话 B 引擎驱动）
   jq_walk_bridge_move: cell33→38 事件=Junqi.Move（会话 B 引擎驱动）
   WALK-BRIDGE: 走子序列完成（会话 B 引擎驱动 32 位 so 走子事件）
@@ -1217,7 +1217,7 @@ logcat:
 **★ 诚实边界**：
 - 会话 B 引擎是**替代驱动**（纯逻辑走子），非 32 位翻译体原生走子（原生走子需 .pak 资源
   对象图填充 + F_6f824 等深层事件底层收表）
-- 会话 B 是简化重写版（10×9 棋盘 + 简单 AI），会话 A 是原版汇编级逆向（38 子 + 原版规则）
+- 会话 B 是简化重写版（12×5 棋盘 + 简单 AI，★ AUD-R-076 口径纠正：旧"10×9/38 子"系误读），会话 A 是原版汇编级逆向（50 子（12×5）+ 原版规则）
   → 借鉴的是走子规则引擎 + 验证法，非渲染/资源加载
 - 32 位 so 内嵌会话 B 引擎**可在 redroid 机判走子事件**（Junqi.Move/Eat/Bomb/Flag/Dead
   与会话 A .rodata 73 条同名），但**真机渲染的棋子位置/棋盘出屏**仍需 GL 路径（资源对象图）
@@ -1278,7 +1278,7 @@ NATIVE-LAYOUT: F_2a380 返回 0x00000000 state=0xe5596ed0（32 位原生布局�
 **★ 诚实边界**：
 - 32 位原生布局链跑通（布局加载 + 解析 + 单格映射 + 校验），但**原生走子事件**（触摸→格子→
   走子→Junqi.*）仍需 .pak 资源对象图填充 + F_6f824/F_340c4 深层事件底层收表
-- 离线布局源用会话 B JQ_DEFAULT_LAY（38 子），非 32 位原版 .pak 文件读（redroid 无资源）
+- 离线布局源用会话 B JQ_DEFAULT_LAY（50 子 12×5），非 32 位原版 .pak 文件读（redroid 无资源）
 - 这是 32 位**原生走子路径的基础**（布局基准），与会话 B 走子桥互为对照
 
 **★ 工具固化**：
