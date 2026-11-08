@@ -419,6 +419,14 @@ static void rs_read_one(AAssetManager *am, const char *spak_dir,
     char asset[128];
     snprintf(asset, sizeof asset, "spak_res/%s", file);
     rs_read_png(am, asset, path, raw, len);
+    /* ★ 诊断（图集尺寸排查）：无论成功/失败都打字节数（0=文件缺失 → 走纯色退化） */
+    {
+        static int diag_count = 0;
+        if (diag_count < 10 && (strstr(file, "join065") || strstr(file, "chat063") || strstr(file, "room060"))) {
+            diag_count++;
+            LOGI("rs_read_one: %s → %zu B path=%s（0=缺失）", file, *len, path);
+        }
+    }
 }
 
 static void load_texture(rs_render *rr, AAssetManager *am,
@@ -434,15 +442,14 @@ static void load_texture(rs_render *rr, AAssetManager *am,
     int dw = 0, dh = 0;
     if (png_decode(buf, sz, &rgba, &dw, &dh) == 0) {
         /* ★ AUD-1000 B04-046（P1 已修）：*dst_len 用解码实际 dw/dh 而非调用方
-           传入的期望 w/h——资源改尺寸（棋盘 PNG 换图）时 w/h 期望值与实际
-           解码尺寸不符 → glTexImage2D 按 w×h 上传 dw×dh 像素（越读/越写
-           纹理行错位）。w/h 仅作纹理期望值（glTexImage2D 维度仍用调用方
-           传入 w/h 保持纹理布局稳定），dst_len 记实际像素量供后续
-           realloc/校验。 */
+           传入的期望 w/h——资源改尺寸（弹窗图集 8行→5行 等）时 w/h 期望值
+           与实际解码尺寸不符 → glTexImage2D 按 w×h 上传 dw×dh 像素（越读/越写
+           纹理行错位，UV 采样全偏移）。现 glTexImage2D 直接用 dw/dh（解码实际值），
+           dst_len 记实际像素量。w/h 形参保留（调用方传 0 或旧值均无害，仅文档用途）。 */
         *dst = rgba; *dst_len = (size_t)dw * dh * 4;
         glGenTextures(1, tex);
         glBindTexture(GL_TEXTURE_2D, *tex);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, w, h, 0,
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, dw, dh, 0,
                      GL_RGBA, GL_UNSIGNED_BYTE, rgba);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
@@ -4953,7 +4960,7 @@ static void rs_draw_room060(rs_render *rr, int slot)
    按钮几何 ui_chat063_buttons()（720×1280 基准）。
    ★ 诚实边界：联机聊天文本未逆向（src_rs 蓝牙聊天是占位帧 BT_T_CHAT，无真实文本渲染），
    Msg 输入框简化为占位标签；发送→BT_T_CHAT 占位帧+边界对话框；记录→UI_CHATLOG（datah_029 已实现） */
-#define CHAT063_ROW 8
+#define CHAT063_ROW 5
 static void rs_draw_chat063(rs_render *rr, int slot)
 {
     if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
@@ -4969,16 +4976,10 @@ static void rs_draw_chat063(rs_render *rr, int slot)
     /* ④ 标题"聊天"（chat063_text row0，面板顶部 360 中心） */
     rs_atlas_label(rr, slot, rr->tex_chat063_text[slot], rr->chat063_text_w, rr->chat063_text_h,
                    CHAT063_ROW, 0, 360.0f, UI_CHAT063_POPUP_Y0 + 20.0f, 130.0f, uc);
-    /* ⑤ Msg 输入框内占位标签（row1=输入 row2=占位 row3=边界 row4=未逆向） */
+    /* ⑤ Msg 输入框内占位标签（row1=聊天记录说明，诚实边界：联机聊天文本未逆向，蓝牙聊天=占位帧 BT_T_CHAT） */
     if (rr->tex_chat063_text[slot] && rr->chat063_text_w > 0) {
         rs_atlas_label(rr, slot, rr->tex_chat063_text[slot], rr->chat063_text_w, rr->chat063_text_h,
-                       CHAT063_ROW, 1, 360.0f, UI_CHAT063_POPUP_Y0 + 80.0f, 150.0f, uc);   /* 输入 */
-        rs_atlas_label(rr, slot, rr->tex_chat063_text[slot], rr->chat063_text_w, rr->chat063_text_h,
-                       CHAT063_ROW, 2, 360.0f, UI_CHAT063_POPUP_Y0 + 130.0f, 150.0f, uc);  /* 占位 */
-        rs_atlas_label(rr, slot, rr->tex_chat063_text[slot], rr->chat063_text_w, rr->chat063_text_h,
-                       CHAT063_ROW, 3, 360.0f, UI_CHAT063_POPUP_Y0 + 180.0f, 150.0f, uc);  /* 边界 */
-        rs_atlas_label(rr, slot, rr->tex_chat063_text[slot], rr->chat063_text_w, rr->chat063_text_h,
-                       CHAT063_ROW, 4, 360.0f, UI_CHAT063_POPUP_Y0 + 230.0f, 150.0f, uc);  /* 未逆向 */
+                       CHAT063_ROW, 1, 360.0f, UI_CHAT063_POPUP_Y0 + 100.0f, 150.0f, uc);   /* 聊天记录说明 */
     }
     /* ⑥ 3 按钮：发送（蓝）/ 记录（橙）/ 关闭（灰） */
     static const float BTN_COL[3][4] = {
@@ -4990,7 +4991,7 @@ static void rs_draw_chat063(rs_render *rr, int slot)
     for (int i = 0; i < UI_CHAT063_COUNT; i++) {
         rs_solid_btn(rr, slot, c63[i].x0, c63[i].y0, c63[i].x1, c63[i].y1,
                      BTN_COL[i][0], BTN_COL[i][1], BTN_COL[i][2], BTN_COL[i][3], 0, uc);
-        int row_idx = 5 + i;   /* row5=发送 row6=记录 row7=关闭 */
+        int row_idx = 2 + i;   /* row2=发送 row3=记录 row4=关闭 */
         rs_atlas_label(rr, slot, rr->tex_chat063_text[slot], rr->chat063_text_w, rr->chat063_text_h,
                        CHAT063_ROW, row_idx,
                        (c63[i].x0 + c63[i].x1) * 0.5f, (c63[i].y0 + c63[i].y1) * 0.5f, 120.0f, uc);

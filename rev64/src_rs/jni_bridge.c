@@ -11,6 +11,7 @@
 #include <unistd.h>
 #include <limits.h>
 #include <sys/system_properties.h>   /* __system_property_get/set（flagtest 触发） */
+#include <dirent.h>                    /* opendir/readdir（SPAK_DIR 诊断） */
 #include "render.h"   /* rs_render_frame（GLThread 出屏主路） */
 #include "glview_gl.h"
 #include "touch_state.h"
@@ -2056,6 +2057,18 @@ Java_com_cnvcs_App_OnCreate(JNIEnv *env, jclass clazz, jobject activity)
        返回 Java GLView jobject（App.smali：非 null 则 setContentView + setRenderer，GLThread 每帧调 OnUpdate 出帧）；
        EGL 失败（无 GPU）→ 返回 NULL，Java 侧跳过 setContentView（空白界面，不崩）。 */
     #define SPAK_DIR "/data/local/tmp/spak_res"  /* 免 push：可改 app 私有目录；当前固定 tmp */
+    /* ⑤ 诊断：确认 so 实际读 spak_res 目录（设备端文件是否已推/目录是否存在） */
+    {
+        DIR *d = opendir(SPAK_DIR);
+        if (!d) {
+            LOGI("OnCreate SPAK_DIR 诊断: %s 不存在或不可读（设备端 spak_res 未推或路径错）", SPAK_DIR);
+        } else {
+            int n = 0; struct dirent *e;
+            while ((e = readdir(d)) != NULL) n++;
+            closedir(d);
+            LOGI("OnCreate SPAK_DIR 诊断: %s 存在，共 %d 条目（新推 60 refs 文件应在内）", SPAK_DIR, n);
+        }
+    }
     int glv_ok = (jq_glview_init(&g_glview, &g_state, SPAK_DIR, NULL, g_assets) == 0);
     if (glv_ok)
         LOGI("OnCreate：GLView EGL 上下文 + 渲染器就绪");

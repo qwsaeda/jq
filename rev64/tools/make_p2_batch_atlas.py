@@ -39,7 +39,7 @@ atlas_configs = {
     # chat063 (datah_063 聊天完整版): 8 标签
     # row0=聊天(标题) row1=输入 row2=占位 row3=边界 row4=未逆向
     # row5=发送 row6=记录 row7=关闭
-    "chat063_text_atlas": ["聊天", "输入", "边界", "未实现", "联机文本未逆向", "发送", "记录", "关闭"],
+    "chat063_text_atlas": ["聊天", "聊天记录（联机聊天文本未逆向，蓝牙聊天=占位帧）", "发送", "记录", "关闭"],
 }
 
 font = ImageFont.truetype(FONT, 38)
