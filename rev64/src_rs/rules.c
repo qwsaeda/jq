@@ -801,7 +801,14 @@ void jq_on_stalemate(jq_state *st, uint8_t loser_side)
      原版 ai_score 无此区分（0x55d40 实证），事件侧 EV_BOMB 同码同源。
    ★ AUD-R-058（P2 诚实标注）：暗棋扛旗前置条件（工兵 + 挖 3 雷）未进评分——需 st 状态
      查询（mines_cleared/mode），ai_score 签名改动大，留待下一轮；当前暗棋下 AI 靠
-     move_legal 拦截兜底（非工兵扛旗被拒），不会误胜。 */
+     move_legal 拦截兜底（非工兵扛旗被拒），不会误胜。
+   ★ AUD-1000 B01-031（P1 诚实标注）：炸弹撞旗（r=10<dr=12）命中 1000 分（'吃子最高分'），
+     语义上是'同归胜局'而非'净吃'——原版 0x55d40 单步贪心无价值维度，无炸弹/旗专项权重，
+     保持 1000 对齐原版（若 SPEC 定案'同归+胜局组合权重'需改 800+win_bonus，留待下一轮）。
+   ★ AUD-1000 B01-032（P1 诚实标注）：同级普通子互杀（如排长 vs 排长）返回 900（同级分）
+     但事件码走 EV_BOMB（JQ_EVENT_NAMES[2]="Junqi.Bomb"）——音效播'炸弹'声而非'同级互杀'。
+     原版 0x55d40 同码同源（AUD-R-062），区分需扩事件码（0-6 已满 7 项）同步 jni_bridge 计数，
+     留待 SPEC 定案。 */
 int ai_score(int src_rank_raw, int dst_rank_raw, int dst_revealed)
 {
     /* AUD-1000 B01-028/B01-063：负数 rank 域统一拦截（rank 存储域 0-255 合法，
