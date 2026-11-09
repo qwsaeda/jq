@@ -1863,3 +1863,66 @@ OnCreate 主线程被该钩子段拖住（转译层 property 读取 + 自动走 
   ③ 日志捕获必须**后台 `logcat > file` 实时**（`logcat -d` 前台抓 redroid 缓冲冲刷不到钩子段）
   ④ 红果主线程卡 EGL 软渲染段（`Failed to get gpu service` + mesa 无 GPU 阻塞），
      55code 最前段钩子在 EGL 段之前 → 红果也能触发（prop 清 0 实证），但 logcat 抓取需后台
+
+## §2026-11-10 AUD-1000 全量对齐批次：flag/mine/restart 回归 FAIL 根因闭环 + property 钩子双通道 + g_ui_lock 快读
+
+### 闭环事实
+- **9 项真机回归全 PASS**（flag/mine/restart/draw/resign/stalemate/close/pop/btconn，
+  MuMu 10.0.182.146:5555，PASS=9 FLAKY=0 FAIL=0）；资源 34=1 干净启动实锤。
+- **64 位基线全绿**：desk OK / evverify 170/170（事件 40 + 几何 130）/ 8 自测全 OK /
+  NDK so 可构建 / 32 位 build_aligned 7451056B OK。
+
+### flag/mine 回归 FAIL 根因链（g_ui_lock 热路径取锁死锁）
+- **现象**：flagtest=1 时主线程 `jq_try_move(53,58)` 永久卡 futex（State=S 60s+ 未释放），
+  futex 地址 = so 基址 + 0xb1a8c ≈ g_ui_lock-0x20（pthread 结构内偏移），
+  无任何其他线程等待同地址（渲染线程未起）→ 锁处于"locked but owner 消失"状态。
+- **根因**：B02-010/011 把 `ui_rule_cfg_get` 整函数走 g_ui_lock（锁化读侧），
+  stalemate_after → jq_side_stalemated O(N²) 全扫（60×60 move_legal，每次 3-5 次
+  ui_rule_cfg_get 取 g_ui_lock）≈14000 次 futex 操作，某异常路径把 g_ui_lock 永久
+  置 locked 后全调用方卡死。
+- **修法（commit c9d89e0）**：全 int getter/setter 改 aarch64 无锁快读
+  （ui_rule_cfg_get / ui_opt_get_level / ui_opt_get_mode / ui_imgset_cfg_get /
+  ui_replay_count / ui_replay_cur / ui_screen_get / ui_bt_active / ui_vs_ai_get /
+  ui_snd_mute_get / ui_btn_sound_get / ui_volume_get / ui_first_get / ui_show_get，
+  共 14 个函数），写侧（ui_rule_*_set / ui_opt_select / ui_imgset_*_set /
+  ui_replay_init/record/rewind / ui_laydir_set / ui_layout_list /
+  ui_settings_load/save）仍持 g_ui_lock。热路径消除 14000 次取锁（性能+死锁双根治）。
+
+### 6 项回归（restart/draw/resign/stalemate/close/pop）FAIL 根因链（GLThread 停帧 property 钩子全死）
+- **现象**：渲染线程"帧 N swap 成功"正常出屏（20fps 兜底），但"OnUpdate 帧"日志 0
+  → Java 侧 GLThread.onDrawFrame 未被调 → OnUpdate 内 property 钩子段（g_upd_cnt % 60）
+  永不触发 → jq.restartgame/jq.resigntest/jq.drawtest/jq.stalematetest/jq.closetest/
+  jq.poptest 全死。
+- **修法（commit 00733e0）**：OnUpdate 内联 property 钩子段拆为
+  `jq_glview_props_update(env)`（g_glview_props_lock 保护互斥），渲染线程
+  （glview_gl.c rs_render_thread_main）每帧调 + OnUpdate 每帧调，双通道幂等
+  （prop 读 1 → 执行 → 清 0，先执行者清 prop，后执行者读 0 跳过）。
+  env NULL 守卫（渲染线程 attach JVM 失败时仅规则钩子生效，sfx/on_event 跳过）。
+- **mumu_evtest.sh 判据更新**：draw/resign/stalemate 判据改匹配新 LOGI 串
+  （"OnUpdate 和棋：drawtest" / "OnUpdate 认输：resigntest" / "OnUpdate 困毙：stalematetest"）。
+
+### 坑清单（新增）
+- **坑 A（g_ui_lock 快读 vs 锁化取舍）**：B02-010/011 锁化读侧（ui_rule_cfg_get
+  整函数走 g_ui_lock）在 MuMu 真机被 stalemate O(N²) 全扫放大 14000 次取锁，
+  g_ui_lock 某异常路径永久置 locked 后全调用方 futex 卡死 60s+。
+  教训：**int 单字段 getter 锁化在热路径（O(N²)/每帧）是性能炸弹 + 死锁放大器，
+  必须改 aarch64 int 原子无锁快读，写侧保留锁内**（竞态降级为撕裂读最坏一步
+  走子偏差，远小于死锁危害）。多字段聚合读（ui_imgset_cfg_get 4 字段快照）
+  降级为逐字段快读快照（各 int 独立原子，跨字段一致性窗口极小）。
+- **坑 B（GLThread 停帧 property 钩子全死）**：MuMu GLThread surface attach flaky
+  停帧时 Java 侧 onDrawFrame 不被调 → OnUpdate 内 property 钩子全死。
+  教训：**property 钩子不能只挂 OnUpdate（GLThread 驱动）——必须双通道
+  （渲染线程 + OnUpdate），g_glview_props_lock 保护互斥 + prop 清 0 幂等。**
+  诊断特征："渲染线程 帧 N swap 成功"正常出屏 + "OnUpdate 帧"日志 0 =
+  GLThread 停帧，property 钩子全死。
+- **坑 C（draw 音效不依赖 jq_on_draw 成功）**：jq_on_draw 受 stage/winner 守卫
+  （AI 已走终局后拒收），`sfx_game_over` 按 winner 色判（winner=1 红胜 → lose
+  非 draw）。教训：**和棋音效直接 `sfx_play("draw")`，不依赖 jq_on_draw 成功
+  置 winner=JQ_WIN_DRAW**（测试钩子语义：触发即播，不要求规则判定成功）。
+
+### 提交记录
+- c9d89e0：全 int getter/setter 改无锁快读（14 个函数，ui_state.c）
+- 00733e0：property 钩子统一走 jq_glview_props_update（jni_bridge.c + glview_gl.c
+  + mumu_evtest.sh 判据更新）
+- 14394ca：工具假绿三处（bt_session 注释补齐 9 类枚举 + arm32_cycle 设备不可达
+  改 exit 1 + mumu_swap_so install rc 断言）
