@@ -344,7 +344,7 @@ JavaVM *jq_get_jvm(void) { return g_jvm; }
    互斥）。当前所有持锁路径单锁段，无递归 lock 点；on_event 内调 jq_restart_game/
    jq_bt_test_run 均不再取 g_mutex（grep 实证），sfx 路径无 g_mutex。
    新增持锁路径前先 grep 嵌套——防自锁死锁。 */
-static pthread_mutex_t g_mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t g_mutex = PTHREAD_MUTEX_INITIALIZER;   /* ★ AUD-1000-ALL A2-007（P1 已修）：去 static（glview_gl.c 渲染线程 window 出屏分支需持锁调 rs_render_frame，跨文件访问） */
 static int g_view_w = 720, g_view_h = 1280;   /* 渲染 viewport（OnGraphChange 更新）
    ★ AUD-1000 B03-085（P1 已注释）：跨线程 int 对（主线程 OnGraphChange 写 vs GLThread
    OnUpdate/OnTouch 读）——int 单值读 32/64 位实践原子，滞后一帧良性（渲染用旧
@@ -2640,10 +2640,16 @@ Java_com_cnvcs_App_OnUpdate(JNIEnv *env, jclass clazz)
                 n++;
                 if (g_state.turn == SIDE_BLUE || g_state.stage != STG_PLAY) break;
             }
-            jq_touch_state_init(&g_ts);
+            int turn_snap = g_state.turn, stage_snap = g_state.stage;   /* ★ B03-089/A2-042：锁内快照 */
             pthread_mutex_unlock(&g_mutex);
+            /* ★ AUD-1000-ALL A2-042（P1 已修）：jq_touch_state_init(&g_ts) 移锁外——
+               g_ts 是触摸态机全局（OnTouch 主线程 jq_touch_state_process 无锁写，
+               GLThread undotest 钩子旧锁内写 → 撕裂竞争）。g_ts 不在 g_mutex 域
+               （OnTouch 走子段 :8466 锁外处理），故 init 也锁外（快照语义：悔棋后
+               重置触摸两步态机，与 OnTouch 下一次触摸事件串行，窗口极小）。 */
+            jq_touch_state_init(&g_ts);
             LOGI("OnUpdate 游戏内悔棋：undotest %s（pop %d 步 → turn=%d stage=%d）",
-                 n > 0 ? "成功" : "无历史", n, g_state.turn, g_state.stage);
+                 n > 0 ? "成功" : "无历史", n, turn_snap, stage_snap);
             __system_property_set("jq.undotest", "0");
         }
         /* ★ 认输（setprop jq.resigntest 1 → OnEvent resign → 对方胜，stage=OVER）。
@@ -2707,8 +2713,14 @@ Java_com_cnvcs_App_OnUpdate(JNIEnv *env, jclass clazz)
         __system_property_get("jq.replay", rp_prop);
         if (strcmp(rp_prop, "1") == 0 || strcmp(rp_prop, "2") == 0) {
             if (strcmp(rp_prop, "1") == 0) {
+                /* ★ AUD-1000-ALL A9-005（P1 已修）：ui_replay_rewind 改 g_state+g_replay，
+                   契约（ui_state.c:380 B02-026）"改 g_state 须调用方持 g_mutex"。旧版
+                   OnUpdate 钩子段裸调（无锁）——B02-080 原修 OnEvent 入口段，OnUpdate
+                   路径漏（代码下移后行号漂移）。补 g_mutex 包裹。 */
+                pthread_mutex_lock(&g_mutex);
                 int n = ui_replay_count();
                 int rc = ui_replay_rewind(n);
+                pthread_mutex_unlock(&g_mutex);
                 ui_screen_set(UI_REPLAY);
                 LOGI("OnUpdate 复盘入口：replay=1 → UI_REPLAY（cur=%d/%d rewind rc=%d，datah_107 控制条 5 按钮；跳转简化回开头/跳结尾）",
                      n, n, rc);
@@ -3180,10 +3192,22 @@ Java_com_cnvcs_App_OnUpdate(JNIEnv *env, jclass clazz)
        ★ 红方 AI 应着加日志（实证"下一局"闭环：蓝走子 → 红 AI 自动应着 → 回合切回蓝）。
        ★ 对抗审计 #6：g_state 读（stage/turn）移进 g_mutex 内（旧版锁外读 → 数据竞争）。 */
     if (ui_screen_get() == UI_GAME) {
-        int from, to, flip;
+        int ai_go = 0, from, to, flip;
+        /* ★ AUD-1000-ALL A2-020（P1 已修）：ai_pick O(N²)（60×60 jq_can_move + 工兵 BFS）
+           移锁外——旧实现在 g_mutex 段内做全棋盘扫，阻塞 GLThread 渲染读 + OnTouch 写
+           （每帧 OnUpdate 触发，困局时 AI 计算 10-50ms 锁内）。修：锁内仅判定
+           （stage/turn/vs_ai 快照），锁外 ai_pick + 锁内应用（turn 切回 BLUE 天然去重，
+           与 B03-008 收敛范式一致；ai_pick 读 g_state 与渲染读并发=只读撕裂，棋子闪错
+           帧 <1 帧窗口，AI 着法计算后在锁内原子应用，行为等价）。 */
         pthread_mutex_lock(&g_mutex);
-        if (g_state.stage == STG_PLAY && g_vs_ai && g_state.turn == SIDE_RED) {
-            if (ai_pick(&from, &to, &flip) == 0) {
+        if (g_state.stage == STG_PLAY && g_vs_ai && g_state.turn == SIDE_RED)
+            ai_go = 1;
+        pthread_mutex_unlock(&g_mutex);
+        if (ai_go) {
+            int ai_fail = (ai_pick(&from, &to, &flip) != 0);   /* 锁外计算（无锁读 g_state，只读撕裂窗口 <1 帧） */
+            pthread_mutex_lock(&g_mutex);
+            if (ai_fail) { pthread_mutex_unlock(&g_mutex); return JNI_TRUE; }   /* ai_pick 无着法（困局兜底），OnUpdate 帧正常完成 */
+            if (g_state.stage == STG_PLAY && g_state.turn == SIDE_RED) {   /* ★ 锁内重检（防 ai_pick 期间对局结束） */
                 int pushed = undo_push();   /* ★ AUD-1000 B03-008（P1 已修）：OnUpdate AI 块与 OnTimer/OnTouch
                    块同 g_mutex 互斥 + turn==RED 判定天然去重（turn 切回 BLUE 后不再重跑 O(N²)） */
                 if (flip) {
@@ -3199,8 +3223,8 @@ Java_com_cnvcs_App_OnUpdate(JNIEnv *env, jclass clazz)
                          from, to, JQ_EVENT_NAMES[e < 0 ? 0 : e]);
                 }
             }
+            pthread_mutex_unlock(&g_mutex);
         }
-        pthread_mutex_unlock(&g_mutex);
     }
     /* ③ EglHelper 出屏：onDrawFrame 返回后 GLThread EglHelper 已 makeCurrent + glClear，
        触发 gl.glClear() 让 SurfaceView surface 出首帧像素（验证 screencap 非黑）。
@@ -3629,7 +3653,7 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
                     "重新开始：原版业务未逆向，src_rs 无此通道。");
                 ui_screen_set(UI_GAME); sfx_play(env, "pop");
             } else if (a == 1) {   /* 悔棋 → 业务动作 */
-                { pthread_mutex_lock(&g_mutex); int _up = undo_pop(); pthread_mutex_unlock(&g_mutex); }
+                { pthread_mutex_lock(&g_mutex); undo_pop(); pthread_mutex_unlock(&g_mutex); }   /* ★ F3-001（P1 已修）：锁内单 pop（g_state 整体赋值与 GLThread 渲染读竞态消除） */
                 ui_screen_set(UI_GAME); LOGI("批量对齐：悔棋 → undo_pop（已悔步）"); sfx_play(env, "pop");
             } else if (a == 2) {   /* 电脑变着 → 边界对话框（诚实边界） */
                 jq_show_dialog(env, "电脑变着（诚实边界）",
@@ -4924,7 +4948,7 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
                     "重新开始：原版业务未逆向，src_rs 无此通道。");
                 ui_screen_set(UI_GAME); sfx_play(env, "pop");
             } else if (a == 1) {   /* 悔棋 → 业务动作 */
-                { pthread_mutex_lock(&g_mutex); int _up = undo_pop(); pthread_mutex_unlock(&g_mutex); }
+                { pthread_mutex_lock(&g_mutex); undo_pop(); pthread_mutex_unlock(&g_mutex); }   /* ★ F3-001（P1 已修）：锁内单 pop（g_state 整体赋值与 GLThread 渲染读竞态消除） */
                 ui_screen_set(UI_GAME); LOGI("批量对齐：悔棋 → undo_pop（已悔步）"); sfx_play(env, "pop");
             } else if (a == 2) {   /* 提和 → 业务动作 */
                 jq_show_dialog(env, "提和（诚实边界）", "提和：原版需对端应答，src_rs 本地未实现提和判定。"); ui_screen_set(UI_GAME); sfx_play(env, "pop");
@@ -5215,7 +5239,7 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
             } else if (a == 1) {   /* 新局 → UI_NEWGAME */
                 ui_screen_set(UI_NEWGAME); sfx_play(env, "pop");
             } else if (a == 2) {   /* 悔棋 → 业务动作 */
-                { pthread_mutex_lock(&g_mutex); int _up = undo_pop(); pthread_mutex_unlock(&g_mutex); }
+                { pthread_mutex_lock(&g_mutex); undo_pop(); pthread_mutex_unlock(&g_mutex); }   /* ★ F3-001（P1 已修）：锁内单 pop（g_state 整体赋值与 GLThread 渲染读竞态消除） */
                 ui_screen_set(UI_GAME); LOGI("批量对齐：悔棋 → undo_pop（已悔步）"); sfx_play(env, "pop");
             } else if (a == 3) {   /* 设置 → 边界对话框（诚实边界） */
                 jq_show_dialog(env, "设置（诚实边界）",
@@ -6103,7 +6127,7 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
             } else if (a == 1) {   /* 新局 → UI_NEWGAME */
                 ui_screen_set(UI_NEWGAME); sfx_play(env, "pop");
             } else if (a == 2) {   /* 悔棋 → 业务动作 */
-                { pthread_mutex_lock(&g_mutex); int _up = undo_pop(); pthread_mutex_unlock(&g_mutex); }
+                { pthread_mutex_lock(&g_mutex); undo_pop(); pthread_mutex_unlock(&g_mutex); }   /* ★ F3-001（P1 已修）：锁内单 pop（g_state 整体赋值与 GLThread 渲染读竞态消除） */
                 ui_screen_set(UI_GAME); LOGI("批量对齐：悔棋 → undo_pop（已悔步）"); sfx_play(env, "pop");
             } else if (a == 3) {   /* 设置 → 边界对话框（诚实边界） */
                 jq_show_dialog(env, "设置（诚实边界）",
@@ -8516,12 +8540,13 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
                 bn = jq_bt_session_send_move(&g_bt_sess, &g_state, from,
                                              flip_done ? from : to, flip_done,
                                              tb, sizeof tb);
+            int last_type_snap = (int)g_bt_sess.last_type;   /* ★ A2-001（P1 已修）：锁内快照 last_type（旧版 unlock 后裸读跨线程全局，B03-047 快照范式漏点） */
             pthread_mutex_unlock(&g_mutex);
             if (bn > 0) {
                 tb[bn] = 0;
                 jq_bt_send(env, tb);
                 LOGI("蓝牙联机发送：type=%d len=%d frame=%s",
-                     (int)g_bt_sess.last_type, bn, tb);
+                     last_type_snap, bn, tb);
             }
         }
         if ((flip_done || move_ok) && jq_glview_is_ready()) {
@@ -8726,27 +8751,10 @@ Java_com_cnvcs_App_OnBluetooth(JNIEnv *env, jclass clazz, jobject intent)
             static char g_bt_payload[BT_BUF * 64 + 1];   /* 锁外发送缓存（BtSpp 读线程串行处理，静态复用）
                ★ AUD-1000 B03-017：旧双 8KB 栈缓冲（sbuf+payload 均栈上）改 栈上 sbuf（仅 UNDO 帧时开）
                + 静态 payload（复用），常态栈压减半。 */
-            char *payload = g_bt_payload;
-            int plen = 0;
             if (f[0] == BT_T_UNDO && rc == 0) {
                 if (undo_pop()) {
-                    did_undo = 1;
-                    char sbuf[BT_BUF * 64];   /* 60 帧 × BT_BUF 槽（strided，锁内编码） */
-                    int sn = jq_bt_session_send_sync(&g_bt_sess, &g_state, sbuf, BT_BUF);
-                    if (sn > 0) {
-                        for (int k = 0; k < sn; k++) {
-                            const char *fr = sbuf + k * BT_BUF;
-                            int flen = (int)strlen(fr);
-                            /* ★ AUD-1000 B03-017：容量守卫 = 实缓冲 sizeof(g_bt_payload)，
-                               非 sizeof(payload)（指针类型=8，旧写法 8 字节截断）。 */
-                            if (flen <= 0 || plen + flen >= (int)(sizeof g_bt_payload) - 1) break;
-                            memcpy(payload + plen, fr, flen);
-                            plen += flen;
-                        }
-                        payload[plen] = 0;
-                    }
-                    LOGI("OnBluetooth：收 UNDO 帧 → 本地回退 1 步（undo_pop，turn=%d，sync 锁内编码 %d 字节）",
-                         g_state.turn, plen);
+                    did_undo = 1;   /* 仅栈操作（锁内），SYNC 编码移 unlock 后（A2-015） */
+                    LOGI("OnBluetooth：收 UNDO 帧 → 本地回退 1 步（undo_pop，turn=%d）", g_state.turn);
                 } else {
                     LOGI("OnBluetooth：收 UNDO 帧但本地栈空（不悔，诚实边界）");
                 }
@@ -8757,10 +8765,32 @@ Java_com_cnvcs_App_OnBluetooth(JNIEnv *env, jclass clazz, jobject intent)
             nframes++;
             if (rc < 0)
                 LOGI("OnBluetooth：帧 type=%d 被拒（rc=%d）", f[0], rc);
-            /* 回退后广播全量 SYNC_CELL（锁内编码，锁外 jq_bt_send 写出） */
-            if (did_undo && plen > 0) {
-                jq_bt_send(env, payload);
-                LOGI("OnBluetooth：UNDO 回退后广播 SYNC_CELL 全量（%d 字节）", plen);
+            /* ★ AUD-1000-ALL A2-015（P1 已修）：SYNC_CELL 编码移锁外——旧实现
+               jq_bt_session_send_sync（60 帧 O(N×BT_BUF) snprintf）在 g_mutex 段内
+               执行阻塞 GLThread 渲染读 + OnTouch 写。修：锁内仅 undo_pop（1 栈操作），
+               unlock 后锁外编码 + 发送。诚实边界：锁外编码读 g_state 与锁内渲染读
+               并发（半更新 cell 窗口 <16ms，BT UNDO 非高频路径，SYNC 全量兜底收敛）。
+               ★ B03-017：容量守卫 = 实缓冲 sizeof(g_bt_payload)；B09-038 帧推进不受影响。 */
+            if (did_undo) {
+                char sbuf[BT_BUF * 64];   /* 锁外编码（60 帧） */
+                int sn = jq_bt_session_send_sync(&g_bt_sess, &g_state, sbuf, BT_BUF);
+                int plen = 0;
+                if (sn > 0) {
+                    for (int k = 0; k < sn; k++) {
+                        const char *fr = sbuf + k * BT_BUF;
+                        int flen = (int)strlen(fr);
+                        if (flen <= 0 || plen + flen >= (int)(sizeof g_bt_payload) - 1) break;
+                        memcpy(g_bt_payload + plen, fr, flen);
+                        plen += flen;
+                    }
+                    g_bt_payload[plen] = 0;
+                    if (plen > 0) {
+                        jq_bt_send(env, g_bt_payload);
+                        LOGI("OnBluetooth：UNDO 回退后广播 SYNC_CELL 全量（锁外编码，%d 字节）", plen);
+                    }
+                } else {
+                    LOGI("OnBluetooth：UNDO 后 sync 编码 0 帧（会话未就绪，诚实边界）");
+                }
             }
             /* ★ AUD-1000 B09-038（P1 已修）：找下一帧起点须从**帧尾**推进——
                旧实现 `strchr(p, '\n')` 命中的是 "v2\n" 头的第一个 '\n'（帧自带

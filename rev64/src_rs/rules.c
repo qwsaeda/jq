@@ -613,6 +613,11 @@ int jq_try_move(jq_state *st, int from, int to)
             st->winner = (int)me;         /* winner: 0=蓝胜 1=红胜；me=用炸弹的一方=胜方 */
             st->stage = STG_OVER;
         }
+        /* ★ AUD-1000-ALL A8-F8-001（P1 已修，32 位 B01-003 同源对齐）：终局（stage=OVER）
+           后不再切 turn——旧实现 64 位 EV_BOMB 撞旗无 stage 守卫恒切 turn（turn=败方），
+           32 位 jq_rs_rules.c 同段有 `if (st->stage == STG_PLAY) st->turn = 1-me` 守卫。
+           下方通用收口段（:748-761）已有 stage!=PLAY 跳过 turn 逻辑，本处显式标注
+           对齐点（防未来通用收口改动时漏掉）。 */
         /* ★ AUD-R-107（P3 诚实标注）：st->moves_since_eat=0 在 4 分支（炸弹/旗
            /地雷/普通吃子）中重复——统一"ate 标记"需改 4 分支局部变量，
            且 EV_FLAG 开关关闭路径（:410）也含计数=0 需保持同步。收益小
@@ -643,7 +648,13 @@ int jq_try_move(jq_state *st, int from, int to)
                     *dst = src_snap;
                     memset(src, 0, sizeof(*src));
                     ev = EV_FLAG;
-                    st->turn = 1 - me;   /* ★ AUD-R-037 诚实标注：终局快照 turn 指向败方 */
+                    /* ★ AUD-1000-ALL A8-F8-001（P1 已修，32 位 B01-003 同源对齐）：
+                       终局（stage=OVER）后不再切 turn——旧实现恒 `st->turn = 1-me`
+                       （AUD-R-037 标注"终局快照 turn 指向败方"=32 位 B01-003 修复前行为）。
+                       32 位 `if (st->stage == STG_PLAY) st->turn = 1-me` 守卫（终局不切），
+                       64 位对齐：stage=OVER 时保留走子前 turn（胜方），战况统计读 turn
+                       不再误指败方。turn 字段在终局后无业务消费（后续走子被 stage 拒），
+                       仅统计口径对齐。 */
                     st->total_moves++;
                     st->moves_since_eat = 0;
                 }

@@ -39,7 +39,7 @@ REUSE_UI = {  # 按钮文字 → 已有弹窗（点击直接切过去，复用�
  "回退":"UI_REPLAY","前进":"UI_REPLAY","跳转":"UI_REPLAY",
 }
 SPECIAL = {  # 按钮文字 → 特殊业务（直接动作）
- "悔棋":"undo_pop();ui_screen_set(UI_GAME); LOGI(\"批量对齐：悔棋 → undo_pop（已悔步）\");",
+ "悔棋":"{ pthread_mutex_lock(&g_mutex); undo_pop(); pthread_mutex_unlock(&g_mutex); }ui_screen_set(UI_GAME); LOGI(\"批量对齐：悔棋 → undo_pop（已悔步，★ F3-001 P1 已修：锁内单 pop，g_state 撕裂竞态消除）\");",   # AUD-1000-ALL F3-001（生成器源头修复）：旧模板裸 undo_pop() → 4 处 DNNN 弹窗无锁；改锁内单 pop,
  "清空":"ui_replay_init(); ui_screen_set(UI_GAME); LOGI(\"批量对齐：清空 → 清复盘记录（★ 诚实边界：原版清的是本弹窗列表存档，未逆向）\");",
  "删除":"ui_replay_init(); ui_screen_set(UI_GAME); LOGI(\"批量对齐：删除 → 清复盘记录（★ 诚实边界：原版删的是存档项，未逆向）\");",
  "完成":"ui_screen_set(UI_GAME); LOGI(\"批量对齐：完成 → 回对局\");",

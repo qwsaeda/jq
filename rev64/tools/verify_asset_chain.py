@@ -102,6 +102,14 @@ def layer_apk():
 
 def layer_dev(dev=DEV):
     print("\n=== ② 设备端 fs 层（/data/local/tmp/spak_res）===")
+    # ★ AUD-1000-ALL A5-F5-015（P1 已修）：设备离线检测——旧版 shell() 在设备离线时
+    #   adb 返空输出（非 0 rc），所有 test -s 全 miss → 误判 FAIL（实际应 PENDING，
+    #   非资源缺失）。修：先 get-state 检测，离线 → 全层标 PENDING 不 FAIL。
+    import subprocess as _sp
+    st = _sp.run(["adb", "-s", dev, "get-state"], capture_output=True, text=True, timeout=10)
+    if st.stdout.strip() != "device":
+        print(f"  ★ 设备 {dev} 离线（get-state={st.stdout.strip()!r}）——设备端检查全层 PENDING（非 FAIL）")
+        return
     def shell(cmd):
         p = subprocess.run(["adb", "-s", dev, "shell", cmd],
                            capture_output=True, text=True, timeout=30)

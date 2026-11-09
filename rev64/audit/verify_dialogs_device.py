@@ -104,10 +104,18 @@ def clear_all_props():
     #   缓存机制（非标准 Android），5 轮 + 间隔 sleep 提高清干净概率。
     import time
     for _round in range(5):
-        for p in ("closetest","drawtest","flagtest","minetest","poptest","resigntest",
-                  "stalematetest","restartgame","movetest","replay","backtest","imen",
-                  "login","btconn","bttest","game_test","native_event","native_layout",
-                  "walk_bridge","test_game"):
+        # ★ AUD-1000-ALL A11-D7-F11-01（P1 已修）：清单补全——旧版 20 项漏 16 项
+        #   （about/bright/chat/chatlog/create/drawdetail/gameinfo/gameset/imgset/join/
+        #    layoutload/layoutmgr/layoutsave/mode/newgame/profile/room/rules/setentry/ui/
+        #    undotest）+ 32 位钩子（game_test/native_event/native_layout/walk_bridge/test_game）
+        #   漏 0（已含）。grep jni_bridge.c __system_property_get 全量 38 项对齐。
+        for p in ("about","backtest","bright","bt_conn","btconn","bttest","chat","chatlog",
+                  "closetest","create","drawdetail","drawtest","flagtest","game_test",
+                  "gameinfo","gameset","imen","imgset","join","layoutload","layoutmgr",
+                  "layoutsave","login","minetest","mode","movetest","newgame","poptest",
+                  "profile","replay","resigntest","restartgame","room","rules","setentry",
+                  "stalematetest","undotest","ui","walk_bridge","native_event",
+                  "native_layout","test_game"):
             adb("shell", "setprop", f"jq.{p}", "0")
         adb("shell", "setprop", "jq.dlgbatch", "0")
         for i in range(0, 265):

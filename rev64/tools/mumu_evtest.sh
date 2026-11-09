@@ -111,7 +111,11 @@ case "$KIND" in
     sleep 3   # 让首帧/OnUpdate 链起稳
     echo "=== btconn 事件日志 ==="
     adb -s $DEV logcat -d 2>/dev/null | grep -iE "junqi_rs|junqi_bt" | grep -iE "host_connected|OnEvent menu 开局|ui_screen=1" | tail -4
-    if adb -s $DEV logcat -d 2>/dev/null | grep -qiE "OnEvent menu 开局 mode=1"; then
+    # ★ AUD-1000-ALL A12-D7-F12-009（P1 已修）：btconn/restart 判据 grep 加 PID 新鲜度
+    #   （fresh_log，B07-003 7 项范式）——旧版裸 grep logcat -d 全量（logcat -c 非 root
+    #   时历史残留 → 旧进程判据行误判 PASS）。修：判据行须含当前 PID。
+    BT_PID=$(adb -s $DEV shell pidof com.cnvcs.junqirs | tr -d '\r')
+    if adb -s $DEV logcat -d 2>/dev/null | grep -E "OnEvent menu 开局 mode=1" | grep -q "${BT_PID:-__pid__}"; then
       log "✓ 连接后两人对局自动开局（mode=1 蓝先手）"
     else
       log "★ 对局自动开局未出现"; exit 1

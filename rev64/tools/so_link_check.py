@@ -20,7 +20,11 @@ MUMU_LIBS = {
 LOCAL_MUMU = {
     'libGLESv1_CM': '/tmp/opencode/mumu_glesv1_cm.so',
     'libGLESv2':    '/tmp/opencode/mumu_x86_GLESv2.so',
-    'libc':         None,   # libc 不需要（UND 里的 libc 符号必然可解析）
+    # ★ AUD-1000-ALL A12-D7-F12-001（P1 已修）：libc 原硬编码 None → 空表（UND libc
+    #   符号永不参与解析判定，so_link_check PASS 只覆盖 GL/EGL，libc 类失守=静默降级
+    #   假绿）。修：走 adb pull（同 libEGL 路径），pull 失败仍空表但**打印告警**，
+    #   main() 末尾对 libc 空表显式标注"libc 未核验"（非静默 PASS）。
+    'libc':         '',   # 空串 = 走 MUMU_LIBS adb pull 路径
 }
 # MuMu 设备库路径（adb pull 用；libEGL 等没有本地缓存的走这里）
 DEV = '127.0.0.1:5555'
@@ -117,7 +121,15 @@ def main():
             print(f"    缺: {s}")
         return 2
     else:
-        print("★ PASS: 所有 GL/EGL UND 符号 MuMu 可解析（dlopen 链接安全）")
+        # ★ A12-D7-F12-001（P1 已修）：libc 空表时显式标注（非静默 PASS）
+        libc_syms = all_syms.get('libc', [])
+        if not libc_syms:
+            n_libc_und = sum(1 for x in und if not x.startswith(('gl','egl')))
+            print(f"★ PASS（GL/EGL）：所有 GL/EGL UND 符号可解析；"
+                  f"libc 类 UND {n_libc_und} 个未核验（libc 符号表缺失，pull 失败/缓存无）——"
+                  f"libc 侧失守，重跑 --update-syms 补全")
+        else:
+            print("★ PASS: 所有 UND 符号（GL/EGL + libc）MuMu 可解析（dlopen 链接安全）")
         return 0
 
 if __name__ == '__main__':

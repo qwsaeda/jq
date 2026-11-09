@@ -28,8 +28,13 @@ echo "=== [3/5] 打包 + 装 MuMu $DEV ==="
 bash $RS/../tools/mumu_swap_so.sh 2>&1 | grep -E "APK:|Success|FAIL" | head -3
 
 echo "=== [4/5] 进程存活 + 崩溃检查 ==="
+# ★ AUD-1000-ALL A5-F5-017（P1 已修）：包名修正——com.cnvcs.junqi（32 位原版包）
+#   vs 实际装的是 64 位 src_rs 包 com.cnvcs.junqirs（mumu_swap_so.sh 已改装 junqirs）。
+#   旧版 pidof 查 32 位包 → 永远空 → 假红 FAIL（so 实际正常运行）。
+#   修：查 junqirs（与 mumu_swap_so.sh PKG 口径一致）。
 sleep 8
-PID=$(adb -s $DEV shell pidof com.cnvcs.junqi | tr -d '\r')
+PID=$(adb -s $DEV shell pidof com.cnvcs.junqirs | tr -d '\r')
+# logcat 限定本次启动段（swap_so 已 logcat -c 清空，-d 内容=本次段）
 CRASH=$(adb -s $DEV logcat -d | grep -cE "Fatal signal|SIGSEGV" | tr -d ' ')
 echo "  pid=$PID crash_count=$CRASH"
 [ -n "$PID" ] && [ "$CRASH" = "0" ] && echo "  PASS: 进程存活无崩溃" || { echo "★ FAIL"; exit 1; }

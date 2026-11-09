@@ -88,6 +88,7 @@ def check_got():
 def main():
     print('=== 翻译体 vs 原版 自动校验 ===')
     print('原版 so: %s' % ORIG_SO)
+    any_fail = False
     for name, fn in [('A.add_pc', check_add_pc), ('B.rel', check_rel), ('C.got', check_got)]:
         status, bad = fn()
         print('[%s] %s' % (name, status))
@@ -96,7 +97,14 @@ def main():
                 print('    ', b)
         if bad and not verbose:
             print('    缺失/异常 %d 项（--verbose 看明细）' % len(bad))
+        if status != 'PASS':
+            any_fail = True
+    return any_fail
 
 
 if __name__ == '__main__':
-    main()
+    import sys
+    # ★ AUD-1000-ALL A5-F5-009（P1 已修）：verdict 恒 exit 0——旧版 main() 不返回退出码，
+    #   B.rel FAIL（RELATIVE 槽表校验失败）进程仍 exit 0 → CI 假绿。修：main 返 any_fail，
+    #   __main__ 按 any_fail sys.exit(1/0)。
+    sys.exit(0 if not main() else 1)

@@ -135,7 +135,21 @@ if [[ $INSTALL -eq 1 ]]; then
   refs=$WS/rev64/tools/spak_render_refs.txt
   srcdir=$WS/rev64/dist/spak_res
   if [ -f "$refs" ]; then
-    cp "$srcdir"/$(cat "$refs") /tmp/opencode/spak_res_push/ 2>/dev/null
+    # ★ AUD-1000-ALL A5-F5-002（P1 已修，根因补正）：旧 `cp "$srcdir"/$(cat "$refs")` 把
+    #   61 个文件名当多路径参数展开——"$srcdir"/前缀只对首项生效，其余 60 项裸文件名
+    #   在当前目录找 → 全部静默失败（2>/dev/null 吞错误），实际只推 /tmp 残留的 5 张。
+    #   修：逐文件 cp 循环（srcdir 前缀逐项生效）。
+    rm -rf /tmp/opencode/spak_res_push; mkdir -p /tmp/opencode/spak_res_push
+    ncpc=0
+    while IFS= read -r refline; do
+      [ -z "$refline" ] && continue
+      if cp "$srcdir/$refline" /tmp/opencode/spak_res_push/ 2>/dev/null; then
+        ncpc=$((ncpc+1))
+      else
+        log "★ refs 清单 $refline 在 $srcdir 缺失（cp 失败，跳过）"
+      fi
+    done < "$refs"
+    log "spak_res cp：$ncpc/$(grep -c . "$refs") 张入 /tmp/opencode/spak_res_push/"
     adb -s $DEV shell mkdir -p /data/local/tmp/spak_res >/dev/null 2>&1
     # ★ 单文件循环推送（目录 push 在部分设备只推部分文件，PNG 纹理漏推 → UI 全退化）。
     #   逐个 push 幂等，含 .bin + .png（菜单背景/按钮/☰ 图标/弹窗 纹理全量）。
@@ -145,7 +159,15 @@ if [[ $INSTALL -eq 1 ]]; then
     done
     NBIN=$(adb -s $DEV shell ls /data/local/tmp/spak_res/*.bin 2>/dev/null | wc -l)
     NPNG=$(adb -s $DEV shell ls /data/local/tmp/spak_res/*.png 2>/dev/null | wc -l)
-    log "✓ spak_res 推送完成（本次推 $npushed 张 / refs 清单 $(grep -c . "$refs")，设备端存量 $NBIN .bin / $NPNG .png）"
+    # ★ AUD-1000-ALL A5-F5-002（P1 已修）：cp/push 部分失败检测——旧版 npushed=0（全部
+    #   push 失败，如设备离线）仍报"✓ 推送完成"假绿。修：npushed < refs 清单数 → 显式
+    #   告警（非静默过），调用方按输出判。设备离线时 npushed=0 且 refs 数 >0 → 不 PASS。
+    NREFS=$(grep -c . "$refs")
+    if [ "$npushed" -lt "$NREFS" ]; then
+      log "★ spak_res 推送不完整（$npushed/$NREFS 张）——部分/全部 push 失败（设备离线？），设备端存量 $NBIN .bin / $NPNG .png（非全量，判读时注意）"
+    else
+      log "✓ spak_res 推送完成（本次推 $npushed 张 / refs 清单 $NREFS，设备端存量 $NBIN .bin / $NPNG .png）"
+    fi
   else
     log "⚠ spak_render_refs.txt 缺失（设备端存量复用：$(adb -s $DEV shell ls /data/local/tmp/spak_res/*.bin 2>/dev/null | wc -l) 个 .bin）"
   fi

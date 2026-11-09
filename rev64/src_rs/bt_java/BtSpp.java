@@ -84,9 +84,11 @@ public class BtSpp {
 
     private static void attach(BluetoothSocket s) {
         try {
-            s_socket = s;
-            s_out = s.getOutputStream();
-            s_connected = true;
+            synchronized (BtSpp.class) {
+                s_socket = s;
+                s_out = s.getOutputStream();
+                s_connected = true;   /* ★ AUD-1000-ALL A2-011（P1 已修）：共享字段写侧 synchronized（4 线程：accept/connect/读线程/sendFrame），旧版裸写与 sendFrame 读 s_connected/s_out TOCTOU 丢帧→双端棋盘发散 */
+            }
             startRead(s);
         } catch (Exception e) { fail("attach 失败: " + e); }
     }
@@ -148,7 +150,7 @@ public class BtSpp {
                        补日志归因（旧空 catch 吞掉所有异常，断连原因不可诊断）。 */
                     Log.e(TAG, "读线程异常: " + e);
                 }
-                s_connected = false;
+                synchronized (BtSpp.class) { s_connected = false; }   /* ★ A2-011：写侧同锁 */
                 App.btState("disconnected");
             }
         });
@@ -164,10 +166,12 @@ public class BtSpp {
         修：追加前判帧是否已含尾 '\n'，含则直写。 */
     public static void sendFrame(String frame) {
         try {
-            if (!s_connected || s_out == null) { fail("sendFrame：未连接"); return; }
-            String out = frame.endsWith("\n") ? frame : frame + "\n";
-            s_out.write(out.getBytes("UTF-8"));
-            s_out.flush();
+            synchronized (BtSpp.class) {
+                if (!s_connected || s_out == null) { fail("sendFrame：未连接"); return; }
+                String out = frame.endsWith("\n") ? frame : frame + "\n";
+                s_out.write(out.getBytes("UTF-8"));
+                s_out.flush();   /* ★ A2-011（P1 已修）：写侧同锁（防 disconnect 并发置 null） */
+            }
             Log.i(TAG, "sendFrame: " + frame);
         } catch (Exception e) { fail("sendFrame 失败: " + e); }
     }
@@ -180,11 +184,15 @@ public class BtSpp {
         退出）+ interrupt 读线程（旧版读线程无 interrupt，socket close 后
         仍阻塞在 in.read 直到超时）。 */
     public static void disconnect() {
-        s_connected = false;
+        synchronized (BtSpp.class) {   /* ★ A2-011（P1 已修）：disconnect 写侧同锁（防与 sendFrame/connect 并发读半置状态） */
+            s_connected = false;
+        }
         try { if (s_server != null) s_server.close(); } catch (Exception e) {}
         s_server = null;
-        try { if (s_socket != null) s_socket.close(); } catch (Exception e) {}
-        s_socket = null; s_out = null;
+        synchronized (BtSpp.class) {
+            try { if (s_socket != null) s_socket.close(); } catch (Exception e) {}
+            s_socket = null; s_out = null;
+        }
         if (s_readThread != null) s_readThread.interrupt();
         App.btState("disconnected");
     }

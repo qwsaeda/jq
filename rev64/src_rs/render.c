@@ -10784,13 +10784,17 @@ void rs_render_free(rs_render *rr)
         };
         for (size_t k = 0; k < sizeof(texs)/sizeof(texs[0]); k++)
             for (int i = 0; i < 2; i++)
-                if (texs[k][i] && rr->gl_ok[i]) {
+                /* ★ AUD-1000-ALL F3-002（P1 已修）：去掉 gl_ok[i] 门控——旧实现单纹理缺失
+                   slot（gl_ok=0）上其余 43+ 纹理/VBO 不删 → 反复 destroy/create 累积 GPU 纹理
+                   泄漏。texs[k][i] 非 0 即删（纹理 id 有效性与 gl_ok 无关）。 */
+                if (texs[k][i]) {
                     glDeleteTextures(1, &texs[k][i]); texs[k][i] = 0;
                 }
         rs_glid_t *vbos[] = { rr->vbo_board, rr->vbo_piece, rr->vbo_sel };
         for (size_t k = 0; k < sizeof(vbos)/sizeof(vbos[0]); k++)
             for (int i = 0; i < 2; i++)
-                if (vbos[k][i] && rr->gl_ok[i]) {
+                /* ★ F3-002（P1 已修）：同纹理，去 gl_ok 门控 */
+                if (vbos[k][i]) {
                     glDeleteBuffers(1, &vbos[k][i]); vbos[k][i] = 0;
                 }
     }

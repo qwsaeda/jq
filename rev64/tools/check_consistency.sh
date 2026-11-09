@@ -36,9 +36,27 @@ echo "  [dist so] 实测 $SOSZ B"
 grep -q "9/9" $COURSE/APPENDIX_C_REVERSE_ENGINEERING.md && echo "  [课程 ⑧] 9/9 口径 ✓" || { echo "  ★ 课程 C.3.4 ⑧ 缺 9/9 口径（应含 UI 关闭/弹窗音效）"; FAIL=1; }
 
 # 6. 课程 evverify 断言口径（实测 N 断言 ↔ 课程；N33 7→8 后随工具升级同步，现 44→47 UI 对齐验证）
-EVN=$(cd $WS/rev64/src_rs && make evverify MODE=--all 2>/dev/null | grep -oE '桌面事件验证: [0-9]+/[0-9]+' | head -1 | grep -oE '[0-9]+' | head -1)
-[ -z "$EVN" ] && EVN=47
-grep -q "$EVN 断言" $COURSE/APPENDIX_C_REVERSE_ENGINEERING.md && echo "  [课程 evverify] $EVN 断言 ✓" || { echo "  ★ 课程 C.3.4 ⑥ 缺 $EVN 断言口径（实测 $EVN，需同步课程⑥行）"; FAIL=1; }
+# ★ AUD-1000-ALL A5-F5-007（P1 已修）：EVN 三复合缺陷——(1) grep -oE '[0-9]+' 取第一个
+#   数字（"桌面事件验证: 170/170" → 170，非"170/170"的总断言口径）；(2) 硬编码 fallback
+#   47（evverify 断言数升级后 47 过期，缓存缺失/构建失败静默降级到 47 假绿）；(3) make
+#   管道吞码（make 失败 grep 空 → fallback 47 掩盖）。修：取 "N/N" 完整口径（分母=总断言
+#   数，防分子/分母不等误判），make rc 断言，fallback 改"未获取"显式 FAIL。
+EVRAW=$(cd $WS/rev64/src_rs && make evverify MODE=--all 2>&1)
+EVR=$?
+EVN=$(echo "$EVRAW" | grep -oE '桌面事件验证: [0-9]+/[0-9]+' | head -1)
+if [ $EVR -ne 0 ] || [ -z "$EVN" ]; then
+    echo "  ★ evverify 执行失败（rc=$EVR，输出无 '桌面事件验证 N/N'）——门禁不静默降级（★ A5-F5-007）"
+    FAIL=1
+fi
+EVN_TOTAL=$(echo "$EVN" | grep -oE '[0-9]+' | tail -1)   # 总断言数（分母）
+[ -z "$EVN_TOTAL" ] && EVN_TOTAL="未获取"
+EVN_ACTUAL=$(echo "$EVN" | grep -oE '[0-9]+' | head -1)   # 实际通过数（分子）
+if [ -n "$EVN" ] && [ "$EVN_ACTUAL" != "$EVN_TOTAL" ]; then
+    echo "  ★ evverify 分子≠分母（$EVN_ACTUAL/$EVN_TOTAL 未全过）——门禁 FAIL（★ A5-F5-007）"
+    FAIL=1
+fi
+# ★ A5-F5-007：课程口径对照用总断言数（EVN_TOTAL，非分子）
+[ "$EVN_TOTAL" = "未获取" ] || { grep -q "$EVN_TOTAL 断言" $COURSE/APPENDIX_C_REVERSE_ENGINEERING.md && echo "  [课程 evverify] $EVN_TOTAL 断言 ✓（实测 $EVN_ACTUAL/$EVN_TOTAL）" || { echo "  ★ 课程 C.3.4 ⑥ 缺 $EVN_TOTAL 断言口径（实测 $EVN_TOTAL，需同步课程⑥行）"; FAIL=1; }; }
 # 6b. 课程 ⑧ fulltest 口径与实测项数对照（漂移只提示不 FAIL——历史演进留痕需人定性，I8 模式 5 同类）
 FT=$(grep -cE 'run "(走子|FLAG|MINE|游戏内重开|和棋|认输|困毙|UI 关闭|UI 弹窗)' $WS/rev64/tools/mumu_fulltest.sh)
 grep -q "$FT/$FT" $COURSE/APPENDIX_C_REVERSE_ENGINEERING.md && echo "  [课程 ⑧ fulltest] $FT/$FT 口径 ✓" || echo "  [课程 ⑧] 实测 $FT 项（课程停旧口径 = 待 N25 判据同步，本轮人工定性）"

@@ -18,6 +18,8 @@
  */
 #include "glview_gl.h"
 #include "render.h"
+#include <pthread.h>
+extern pthread_mutex_t g_mutex;   /* ★ AUD-1000-ALL A2-007（P1 已修）：渲染线程 window 出屏持 g_mutex 短读（与 OnUpdate GLThread 路径统一锁契约，消棋子闪错帧竞态） */
 #include "junqi.h"
 #include <EGL/egl.h>
 #include <EGL/eglext.h>
@@ -351,7 +353,14 @@ static void *rs_render_thread_main(void *arg)
                    反映的是 swap 后新状态。 */
                 while (glGetError() != GL_NO_ERROR) {}
             }
+            /* ★ AUD-1000-ALL A2-007（P1 已修）：window 出屏读 g_state（rr->game->cells）
+               持 g_mutex 短读锁——旧实现渲染线程无锁读，与 OnTouch/OnEvent 写 g_state
+               竞态 → 棋子闪错帧（窗口出屏可观测路径）。与 OnUpdate GLThread 路径
+               （:2609 持锁 rs_render_frame）统一锁契约。PBuffer 兜底线程不持锁
+               （不上屏，撕裂不可见，诚实边界不变）。 */
+            pthread_mutex_lock(&g_mutex);
             rs_render_frame(&g_rr);
+            pthread_mutex_unlock(&g_mutex);
             if (eglSwapBuffers(g_rr.egl_disp, g_win_surf)) {
                 if (frame_cnt < 200 || (frame_cnt % 300) == 0) {
                     /* ★ 出图实证：swap 成功记 GLERR + 几何就绪 + 纹理状态

@@ -29,6 +29,11 @@ seg1() {
     local plt=$(readelf -rW "$so" 2>/dev/null | grep -c JUMP_SLOT)
     local dsym=$(readelf -sW "$so" 2>/dev/null | awk 'NR>2 && /:/{n++} END{print n}')
     echo "  [C.5b] dist so $so：PLT=$plt dynsym=$dsym（随版本演进）"
+  else
+    # ★ AUD-1000-ALL A5-F5-019（P1 已修）：32 位 so 缺失显式 PENDING（旧版静默跳过
+    #   C.5b 段 → "段 1 全 PASS" 假绿，实际 PLT/dynsym 门禁未执行）。
+    echo "  [C.5b] ★ PENDING：$so 缺失（32 位 so 未构建），PLT/dynsym 门禁未执行"
+    PENDING=1
   fi
 }
 
