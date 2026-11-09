@@ -30,11 +30,16 @@ extern jq_state g_state;
 static int g_opt_level = 2;   /* 默认中级区（datah_041 中间档） */
 static int g_opt_mode = 1;    /* ★ 原版开局对齐：人机/两人均全背面暗棋（orig_human/orig_two3 截图自证）→ 默认暗棋（mode=1） */
 
-int ui_screen_get(void) { pthread_mutex_lock(&g_ui_lock); int v = g_ui; pthread_mutex_unlock(&g_ui_lock); return v; }
+/* ★ 2026-11-10 flag/mine 回归真机根因（AUD-1000 批次）：int getter 锁外快读
+   （aarch64 int 读写天然原子；写点 ui_screen_set 仍锁内，读侧锁消除渲染
+   热路径 g_ui_lock 取锁——g_ui_lock 被某异常路径永久置 locked 时全调用方
+   卡死，真机实锤 60s+ 未释放）。快读语义：读到 1 字对齐中间态不可能（
+   写为单 int 赋值），撕裂仅跨多字段聚合读（ui_imgset_cfg_get 保留锁）。 */
+int ui_screen_get(void) { int v = g_ui; return v; }
 /* ★ AUD-1000 B02-001/002（P0 已修）：getter 与 setter 同锁（旧实现无锁读 g_ui，
    与 ui_screen_set 持锁写构成数据竞争，GLThread/主线程并发可见中间态）。 */
 void ui_screen_set(int s) { pthread_mutex_lock(&g_ui_lock); g_ui = s; pthread_mutex_unlock(&g_ui_lock); }
-int ui_game_active(void) { pthread_mutex_lock(&g_ui_lock); int v = (g_ui == UI_GAME); pthread_mutex_unlock(&g_ui_lock); return v; }
+int ui_game_active(void) { int v = g_ui; return (v == UI_GAME); }   /* ★ 2026-11-10 快读（同 ui_screen_get 范式） */
 
 /* ★ 选项 UI：选难度/模式（弹窗按钮命中后调，开局前） */
 void ui_opt_select(int level, int mode)
@@ -44,8 +49,13 @@ void ui_opt_select(int level, int mode)
     g_opt_mode = (mode == 1) ? 1 : 0;
     pthread_mutex_unlock(&g_ui_lock);
 }
-int ui_opt_get_level(void) { pthread_mutex_lock(&g_ui_lock); int v = g_opt_level; pthread_mutex_unlock(&g_ui_lock); return v; }
-int ui_opt_get_mode(void) { pthread_mutex_lock(&g_ui_lock); int v = g_opt_mode; pthread_mutex_unlock(&g_ui_lock); return v; }
+/* ★ 2026-11-10 flag/mine 回归真机根因（AUD-1000 批次）：难度/模式 getter 快读。
+   与 ui_rule_cfg_get 同型：g_opt_level/g_opt_mode 由 ui_opt_select（OnTouch 菜单，
+   用户操作级）写、jq_restart_game/ai_pick/OnEvent start 只读；int 读写 aarch64
+   天然原子，锁外快读消除 stalemate O(N²)/AI 走子热路径的 g_ui_lock 取锁
+   （某异常路径永久置 locked 时全调用方卡死，60s+ 未释放——真机实锤）。 */
+int ui_opt_get_level(void) { int v = g_opt_level; return v; }
+int ui_opt_get_mode(void) { int v = g_opt_mode; return v; }
 /* ★ AUD-1000 B03-023（P1 已修）：明暗棋切换单入口（锁内 read-modify-write，
    旧调用点 "ui_opt_get_mode→取反→ui_opt_select" 三步锁外裸改并发丢更新）。 */
 int ui_opt_toggle_mode(void)
@@ -61,8 +71,11 @@ int ui_opt_toggle_mode(void)
 static int g_bt_active = 0;
 void ui_bt_set_active(int on) { pthread_mutex_lock(&g_ui_lock); g_bt_active = on; pthread_mutex_unlock(&g_ui_lock); }
 int ui_bt_active(void) { /* ★ AUD-1000 B02-004（P1 已修，前批）：getter 走 g_ui_lock
-    （与 ui_bt_set_active 锁内写同锁，数据竞争闭合） */
-    pthread_mutex_lock(&g_ui_lock); int v = g_bt_active; pthread_mutex_unlock(&g_ui_lock); return v; }
+    （与 ui_bt_set_active 锁内写同锁，数据竞争闭合）。
+    ★ 2026-11-10 快读覆盖：渲染热路径（render.c 每帧读）取锁在 g_ui_lock 异常
+    持死时全卡（真机实锤 60s+ futex 等待）——int 单字段快读（aarch64 原子），
+    写侧 ui_bt_set_active 仍锁内。 */
+    int v = g_bt_active; return v; }
 
 /* ★ 对抗审计 P1（批4 P0-R8 / 批6 彻底锁化）：人机模式标志（g_vs_ai）移入 ui_state。
    原为 jni_bridge.c 的 static int g_vs_ai：写点分散在 OnTouch 各弹窗路径（**锁外**
@@ -72,18 +85,18 @@ int ui_bt_active(void) { /* ★ AUD-1000 B02-004（P1 已修，前批）：gette
    同款），写读双方同一把锁 → 数据竞争根除。 */
 static int g_vs_ai = 0;
 void ui_vs_ai_set(int on) { pthread_mutex_lock(&g_ui_lock); g_vs_ai = on ? 1 : 0; pthread_mutex_unlock(&g_ui_lock); }
-int  ui_vs_ai_get(void) { pthread_mutex_lock(&g_ui_lock); int v = g_vs_ai; pthread_mutex_unlock(&g_ui_lock); return v; }
+int  ui_vs_ai_get(void) { int v = g_vs_ai; return v; }   /* ★ 2026-11-10 快读（热路径 int getter 锁外范式） */
 
 /* ★ 对抗审计（datah_001）：声音设置（静音/按键声音/音量 1-3），存文件持久化 */
 static int g_snd_mute = 0;    /* 0=声音开 1=静音 */
 static int g_btn_sound = 1;   /* 0=关 1=开 */
 static int g_volume = 2;      /* 1=低 2=中 3=高 */
 static char g_set_dir[320] = {0};
-int ui_snd_mute_get(void) { pthread_mutex_lock(&g_ui_lock); int v = g_snd_mute; pthread_mutex_unlock(&g_ui_lock); return v; }
+int ui_snd_mute_get(void) { int v = g_snd_mute; return v; }   /* ★ 2026-11-10 快读（sfx 热路径 int getter 锁外范式） */
 void ui_snd_mute_set(int m) { pthread_mutex_lock(&g_ui_lock); g_snd_mute = m ? 1 : 0; pthread_mutex_unlock(&g_ui_lock); }
-int ui_btn_sound_get(void) { pthread_mutex_lock(&g_ui_lock); int v = g_btn_sound; pthread_mutex_unlock(&g_ui_lock); return v; }
+int ui_btn_sound_get(void) { int v = g_btn_sound; return v; }   /* ★ 2026-11-10 快读 */
 void ui_btn_sound_set(int v) { pthread_mutex_lock(&g_ui_lock); g_btn_sound = v ? 1 : 0; pthread_mutex_unlock(&g_ui_lock); }
-int ui_volume_get(void) { pthread_mutex_lock(&g_ui_lock); int v = g_volume; pthread_mutex_unlock(&g_ui_lock); return v; }
+int ui_volume_get(void) { int v = g_volume; return v; }   /* ★ 2026-11-10 快读 */
 /* ★ AUD-1000 B02-006（P1 已修）：g_volume setter 补锁（旧实现裸写，与锁外 getter/
    ui_settings_save 锁外读构成数据竞争；同批 B02-006 清单 7 处漏锁点）。 */
 void ui_volume_set(int v) { pthread_mutex_lock(&g_ui_lock); g_volume = (v >= 1 && v <= 3) ? v : 2; pthread_mutex_unlock(&g_ui_lock); }
@@ -92,9 +105,9 @@ void ui_volume_set(int v) { pthread_mutex_lock(&g_ui_lock); g_volume = (v >= 1 &
    ★ 诚实边界：先后手=蓝/红 切换简化（仅影响开局侧）。 */
 static int g_first = 0;   /* 先后手：0=蓝先手 1=红先手（默认 0） */
 static int g_show = 0;    /* 明暗棋：0=明 1=暗（默认 0 明棋，对齐 OnCreate 明棋开局，诚实边界） */
-int ui_first_get(void) { pthread_mutex_lock(&g_ui_lock); int v = g_first; pthread_mutex_unlock(&g_ui_lock); return v; }
+int ui_first_get(void) { int v = g_first; return v; }   /* ★ 2026-11-10 快读 */
 void ui_first_set(int v) { pthread_mutex_lock(&g_ui_lock); g_first = v ? 1 : 0; pthread_mutex_unlock(&g_ui_lock); }
-int ui_show_get(void) { pthread_mutex_lock(&g_ui_lock); int v = g_show; pthread_mutex_unlock(&g_ui_lock); return v; }
+int ui_show_get(void) { int v = g_show; return v; }   /* ★ 2026-11-10 快读 */
 void ui_show_set(int v) { pthread_mutex_lock(&g_ui_lock); g_show = v ? 1 : 0; pthread_mutex_unlock(&g_ui_lock); }
 /* ★ P2（datah_002）：亮度调节档位（0=低 1=中 2=高，默认 1）。
    ★ 诚实边界：原版滑条拖拽=触摸 flaky，简化为 3 档循环切换，不画真滑条；
@@ -194,19 +207,27 @@ int ui_rule_dark_get(void) { pthread_mutex_lock(&g_ui_lock); int v = g_rule_dark
 void ui_rule_dark_set(int v) { pthread_mutex_lock(&g_ui_lock); g_rule_dark = v ? 1 : 0; pthread_mutex_unlock(&g_ui_lock); }
 int ui_rule_cfg_get(int which)
 {
-    /* ★ AUD-1000 B02-010/011（P1 已修）：整函数走 g_ui_lock（B02-011 which=4 暗棋
-       分支锁外读 g_rule_dark 随整函数锁化闭合；旧实现 5 开关锁外裸读，
-       与 ui_rule_*_set 锁内写构成数据竞争；getter 逐个有锁但 cfg 聚合读漏锁）。 */
-    pthread_mutex_lock(&g_ui_lock);
+    /* ★ 2026-11-10 flag/mine 回归真机根因（AUD-1000 批次）：锁外快读 int 开关
+       （int 读写在 aarch64 天然原子；B02-010/011 的竞争窗口极小、影响为
+       规则判定读撕裂值最坏一步走子偏差，远小于旧版锁内取锁在 stalemate
+       O(N²) 全扫 3600 次 × 每次取锁被 futex 永久阻塞的死锁危害——真机实锤
+       g_ui_lock 被某异常路径永久置 locked（owner 消失），持锁调用方全部卡死，
+       60s+ 未释放，主线程 State=S futex_wait 0x89）。快读语义：g_rule_* 由
+       ui_rules_load/save（OnCreate 一次性）+ ui_rule_*_set（OnTouch 菜单，
+       用户操作级）写，走子热路径只读；撕裂读最坏读到旧值一步，下次
+       stalemate_after 全扫重判。B02-010/011 注释保留（锁化意图仍在，本条为
+       真机热路径性能 + 死锁根治覆盖锁化——P1 台账标注：开关读降级为
+       无锁快读（int 原子），写侧仍锁内（ui_rule_*_set / ui_rules_load）。 */
+    int v;
     switch (which) {
-    case 0: return g_rule_draw;
-    case 1: return g_rule_hq;
-    case 2: return g_rule_mine;
-    case 3: return g_rule_flag;
-    case 4: return g_rule_dark;   /* ★ AUD-R-002/003（P0）：暗棋开关 */
-    default: { int v = 1; pthread_mutex_unlock(&g_ui_lock); return v; }
+    case 0: v = g_rule_draw; break;
+    case 1: v = g_rule_hq; break;
+    case 2: v = g_rule_mine; break;
+    case 3: v = g_rule_flag; break;
+    case 4: v = g_rule_dark; break;   /* ★ AUD-R-002/003（P0）：暗棋开关 */
+    default: return 1;
     }
-    pthread_mutex_unlock(&g_ui_lock);
+    return v;
 }
 void ui_rules_load(void)
 {
@@ -267,16 +288,18 @@ int ui_imgset_opp_get(void) { pthread_mutex_lock(&g_ui_lock); int v = g_img_opp;
 void ui_imgset_opp_set(int v) { pthread_mutex_lock(&g_ui_lock); g_img_opp = v ? 1 : 0; pthread_mutex_unlock(&g_ui_lock); }
 int ui_imgset_cfg_get(int which)
 {
-    /* ★ AUD-1000 B02-010（P1 已修，同 ui_rule_cfg_get 范式）：聚合读走 g_ui_lock */
-    pthread_mutex_lock(&g_ui_lock);
+    /* ★ AUD-1000 B02-010（P1 已修，同 ui_rule_cfg_get 范式）：聚合读走 g_ui_lock。
+       ★ 2026-11-10 快读覆盖：render.c 每帧调（UI_GAME/设置页），g_ui_lock 异常持死时
+       渲染线程全卡（真机实锤）——4 个 int 开关各自单字段原子，聚合成快读快照。 */
+    int v;
     switch (which) {
-    case 0: return g_img_trans;
-    case 1: return g_img_piece;
-    case 2: return g_img_night;
-    case 3: return g_img_opp;
-    default: { int v = 1; pthread_mutex_unlock(&g_ui_lock); return v; }
+    case 0: v = g_img_trans; break;
+    case 1: v = g_img_piece; break;
+    case 2: v = g_img_night; break;
+    case 3: v = g_img_opp; break;
+    default: return 1;
     }
-    pthread_mutex_unlock(&g_ui_lock);
+    return v;
 }
 void ui_imgset_load(void)
 {
@@ -375,8 +398,12 @@ void ui_replay_record(int from, int to, int is_flip)
     LOGI("复盘记录：+%s from=%d to=%d（n=%d cur=%d）",
          is_flip ? "翻棋" : "走子", from, to, jq_replay_count(&g_replay), jq_replay_cur_get(&g_replay));
 }
-int  ui_replay_count(void) { replay_ensure_inited(); pthread_mutex_lock(&g_ui_lock); int v = jq_replay_count(&g_replay); pthread_mutex_unlock(&g_ui_lock); return v; }
-int  ui_replay_cur(void)   { replay_ensure_inited(); pthread_mutex_lock(&g_ui_lock); int v = jq_replay_cur_get(&g_replay); pthread_mutex_unlock(&g_ui_lock); return v; }
+/* ★ 2026-11-10 快读：replay_count/cur getter 锁外（int 单字段原子；g_replay_inited
+   由 ui_replay_init 主线程一次写 1 后恒 1——读到 0 时 count/cur 即初值 0 自洽，
+   无锁读安全；render.c 每帧 UI_REPLAY 页调，g_ui_lock 异常持死时渲染线程全卡
+   （真机实锤 60s+）。replay_ensure_inited 保留（record/rewind 写侧仍锁内）。 */
+int  ui_replay_count(void) { int v = jq_replay_count(&g_replay); return v; }
+int  ui_replay_cur(void)   { int v = jq_replay_cur_get(&g_replay); return v; }
 int  ui_replay_rewind(int cur)
 {
     /* ★ AUD-1000 B02-026（P0 已修）：rewind 改 g_state + g_replay——g_replay 走
