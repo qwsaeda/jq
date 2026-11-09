@@ -550,6 +550,21 @@ static const char *sfx_wav(const char *event)
     if (!strcmp(event, "select") ) return SFX_DIR "/data_junqi_select.wav";
     if (!strcmp(event, "close")  ) return SFX_DIR "/data_ui_close.wav";
     if (!strcmp(event, "pop")    ) return SFX_DIR "/data_ui_pop.wav";
+    /* ★ AUD-1000-ALL A7-05（P2 已修）：未知事件静默兜底 move.wav（无日志，未来新增事件名
+       未加表时误出声不可诊断）→ 加一次性 LOGI 标注（每事件名首次命中打一条，防刷屏）。 */
+    {
+        static char seen_unknown[16][32];
+        static int n_seen = 0;
+        int found = 0;
+        for (int i = 0; i < n_seen; i++)
+            if (strncmp(seen_unknown[i], event, 31) == 0) { found = 1; break; }
+        if (!found && n_seen < 16) {
+            strncpy(seen_unknown[n_seen], event, 31);
+            seen_unknown[n_seen][31] = 0;
+            n_seen++;
+            LOGI("sfx_wav：未知事件名 \"%s\" 兜底 move.wav（★ A7-05：需补 strcmp 表项）", event);
+        }
+    }
     return SFX_DIR "/data_junqi_move.wav";
 }
 

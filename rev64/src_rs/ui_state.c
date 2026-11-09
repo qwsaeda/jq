@@ -561,9 +561,22 @@ int ui_layout_save(const uint8_t lay[30], const char *name)
     char pth[352];
     lay_path(name, pth, sizeof pth);
     FILE *f = fopen(pth, "wb");
-    if (!f) { LOGI("布局保存：写失败 %s", pth); return -1; }
+    if (!f) {
+        /* ★ AUD-1000-ALL A7-04（P2 已修）：layouts 目录首中即 break 后不再探测——
+           真机目录 jni_bridge OnCreate 按 3 级回退（layouts / /data/local/tmp/layouts /
+           /data/local/tmp/spak_res/layouts）选定可写目录后 set 给 ui_laydir。此处写失败
+           = 该目录已失效（权限变更/存储满/被删），无自动切目录路径。
+           修：LOGE 显式告警（旧 LOGI 静默降级，布局保存失败无排查线索），
+           诚实边界：切目录重探测需 jni_bridge 侧 3 级回退重跑（低频弹窗路径，标注）。 */
+        LOGE("布局保存：写失败 %s（目录 %s 失效——权限/存储满/被删，切目录需重走 3 级回退，诚实边界）",
+             pth, g_lay_dir);
+        return -1;
+    }
     int ok = (fwrite(lay, 1, 30, f) == 30);
     fclose(f);
+    if (!ok) {
+        LOGE("布局保存：fwrite 30 字节写不全 %s（盘满/半写，★ A7-04 告警）", pth);
+    }
     if (ok) {
         /* 保存后刷新列表 + 指向新条目 */
         ui_layout_list();
