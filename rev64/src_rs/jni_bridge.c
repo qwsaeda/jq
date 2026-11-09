@@ -2520,6 +2520,41 @@ Java_com_cnvcs_App_OnUpdate(JNIEnv *env, jclass clazz)
             LOGI("OnUpdate 认输：resigntest（stage=OVER winner=%d）", g_state.winner);
             __system_property_set("jq.resigntest", "0");
         }
+        /* ★ 55code 全链实证钩子（setprop jq.55codetest 1 → 触发 on_event 全 11 分支
+           + 73 事件名计数分布输出，验证 evt55_dispatch 跨文件计数真实累加）。
+           一次性（清 0），仅诊断（改 stage 后回 UI_MENU，不污染业务态）。 */
+        char e55_prop[16] = {0};
+        __system_property_get("jq.55codetest", e55_prop);
+        if (strcmp(e55_prop, "1") == 0) {
+            pthread_mutex_lock(&g_mutex);
+            /* 触发 11 on_event 分支（每个走对应 73 名计数） */
+            on_event("regret_req", "", env);
+            on_event("resign_agree", "", env);
+            on_event("resign_disagree", "", env);
+            on_event("draw_req", "", env);
+            on_event("draw_agree", "", env);
+            on_event("draw_disagree", "", env);
+            on_event("join_game", "", env);
+            on_event("leave_game", "", env);
+            on_event("game_over", "", env);
+            on_event("resign_confirm", "", env);
+            on_event("resign", "", env);
+            /* 73 名分布（非零项） */
+            int nonzero = 0;
+            for (int i = 0; i < JQ_EVENT_NAME_COUNT; i++)
+                if (g_event_cnt[i]) {
+                    LOGI("55code-dist: %s = %d", jq_event_names_73[i], g_event_cnt[i]);
+                    nonzero++;
+                }
+            LOGI("55code-test: 11 分支触发完成，非零事件名 %d 项（total=%d）",
+                 nonzero, g_event_total);
+            /* 回 UI_MENU（leave_game 已置 stage=PLAY，game_over 不影响；resign_confirm 置 OVER，
+               此处统一清回主菜单，不污染后续业务态） */
+            g_state.stage = STG_PLAY; g_state.winner = JQ_WIN_NONE;
+            pthread_mutex_unlock(&g_mutex);
+            ui_screen_set(UI_MENU);
+            __system_property_set("jq.55codetest", "0");
+        }
         /* ★ 和棋（setprop jq.drawtest 1 → jq_on_draw → winner=2，stage=OVER）。
            on_event 无 draw 分支；直接调 jq_on_draw（rules.c，和棋判据 70 步/1000 步）。 */
         char dw_prop[16] = {0};
