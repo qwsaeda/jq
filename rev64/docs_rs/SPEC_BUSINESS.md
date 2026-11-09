@@ -115,6 +115,13 @@ UI_MENU（5 按钮：人机/两人/联网/联机/四国）
 | Junqi | start/over/select | 开局/重开/选中 | `sfx_play` 直接 |
 | UI 2 | close/pop | 弹窗关闭/按钮点击 | `sfx_play` 直接 |
 
+- **音效分流单一事实源（★ 本轮）**：`sfx_for_move(ev)` 7 事件码 → 原版 73 事件名
+  （`jq_event_names_73`）→ `jq_evt55_sfx_for_name`（`evt55_sfx.c` 集中式音效分类表）。
+  原版按事件名分流音效（§5.2），64 位 7 事件码映射到对应原版事件名后走同一分类表，
+  消除"改分类表漏改硬编码"双源不一致风险。
+- 诚实边界：`jq_evt55_sfx_for_name` 仅覆盖核心 7 类 + 胜负/和棋/投降 + 兜底 move；
+  账号/注册/联机类 44 名原版无独立业务 WAV（兜底 move，不造新音效）。
+
 - WAV 源三路径（优先级 ①>②>③）：① 内部存储 `getFilesDir/jq_sfx/`（OnCreate 反射落地，
   sfx_wav_ensure_private 14 WAV 拷贝，纯本地读免 AAsset 锁竞争 SIGSEGV）② APK
   `assets/jq_sfx/`（AAsset_openFileDescriptor 一次性拿 fd，g_assets 可达时）③ 文件
