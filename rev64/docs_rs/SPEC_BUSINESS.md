@@ -203,3 +203,9 @@ UI_MENU（5 按钮：人机/两人/联网/联机/四国）
 | on_event game_over | 16 | Junqi.GameOver |
 
 **诚实边界**：55 code 全链 = 事件分发对齐（code→handler 映射 + 73 名计数）；账号/联机/摆子类 53 code 业务逻辑未移植（简化版不实现服务器协议），简化版 ≠ 完整版。
+
+**§3.3 收尾（on_event 全分支 73 名计数对齐）**：
+- resign→code 24 分发；resign_confirm→name idx 19 计数（ResignConfirm 无独立 55code，兜底 24）
+- regret_agree/disagree→name idx 21/22 计数（同意/拒绝帧简化版不独立处理，仅计数对齐）
+- join_game/leave_game→name idx 50/58 计数（联机/离开，业务逻辑未移植，73 名计数对齐）
+- 3 死函数清理（sfx_for_event_name/event_count_by_name/ev_code_to_name 被 ev7_to_name_idx + jq_evt55_* 取代）
