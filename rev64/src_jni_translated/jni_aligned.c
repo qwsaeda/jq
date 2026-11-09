@@ -70,8 +70,12 @@ extern void jqt_mem_init(void);
    局部）——GLThread 与主线程并发写读互相覆盖（jqt_blx_dispatch 每帧
    写，主线程 OnCreate/OnTimer 也写），看门狗 1s 采样归属线程错乱
    （值可能是另一线程刚写的函数）。定位用途（§124x 使命）已过，
-   加 tid 伴生字段（g_cur_fn_tid）或 __thread 版本属行为改动，R-138 只标注。 */
+   ★ AUD-1000 B05-023（P1 已修）：加 g_cur_fn_tid 伴生字段（写者 tid，诊断用）。
+   看门狗日志读 g_cur_fn 时同读 g_cur_fn_tid 标归属线程（GLThread vs 主线程），
+   消除线程错乱归属。jqt_vtbl.c 写点不变（g_cur_fn 每帧写），
+   jni_aligned.c 看门狗/诊断读侧补 tid 伴生读（非行为改动，纯诊断增强）。 */
 volatile uint32_t g_cur_fn = 0;
+volatile uint32_t g_cur_fn_tid = 0;   /* B05-023：g_cur_fn 写者 tid（诊断伴生） */
 /* ★ §124y 语义修复：F_a3304 的 F_ab874/F_ab614 容器全局（0x162448/0x16244c）在 BSS，
  *   原版由容器管理函数（0xa3360 等 push 函数）惰性构造，F_a3304 直接读全局。
  *   翻译体未跑构造器 → 全局=0 → F_ab874 读 MEM(0+8)=垃圾 → 链表成环 spin。
@@ -111,8 +115,14 @@ void jqt_init_empty_containers(void){
    实验钩子（setprop 门控，非常态路径），泄漏量 2×0x200B/次 可接受；
    加 static done 或全局 O/B 指针复用属行为改动，R-138 只标注。 */
 void jqt_build_event_base(void){
+    /* ★ AUD-1000 B05-019（P1 已修）：幂等守卫——多点触发（OnLoad+后续钩子）时
+       重复 calloc 覆盖 MEM(0x15bfec)，旧 O/B 泄漏。加 static done：
+       首次调用后不再重建（O/B 指针保持，重复调用 no-op）。 */
+    static int _eb_done = 0;
+    if (_eb_done) return;
     char _eb[8] = {0};
     if (__system_property_get("jq.event_base", _eb) <= 0 || _eb[0] != '1') return;
+    _eb_done = 1;
     void *o = calloc(1, 0x200);   /* single 对象（O） */
     void *b = calloc(1, 0x200);   /* 底层单例（B） */
     MEM((uint32_t)o + 0x38) = (uint32_t)(uintptr_t)b;
@@ -215,7 +225,7 @@ static void *jq_watchdog(void *arg) {
        打日志）属行为改动——R-138 约定 32 位翻译体只标注不移植，
        留待 64 位侧或后续专项。 */
     while (1) {
-        __android_log_print(4, "junqi", "WATCHDOG: g_cur_fn=0x%08x", g_cur_fn);
+        __android_log_print(4, "junqi", "WATCHDOG: g_cur_fn=0x%08x tid=0x%08x", g_cur_fn, g_cur_fn_tid);
         usleep(1000000);  /* 1s */
     }
     return NULL;

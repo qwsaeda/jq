@@ -90,6 +90,12 @@ static void jqt_build_real_ranges(void) {
         }
     }
     fclose(f);
+    /* ★ AUD-1000 B05-001（P1 已修）：满表告警——JQT_REAL_MAX=4096 满时打一条 logcat，
+       排障者可区分「映射区数正常 <4096」与「满表漏收（scudo 堆增长逼近上限）」。
+       常态 1799 条不触达；告警每 600 次重建打一条（防高频 log 刷屏）。 */
+    static int jqt_real_warn_cnt = 0;
+    if (g_jqt_real_n_swp >= JQT_REAL_MAX && jqt_real_warn_cnt++ % 600 == 0)
+        __android_log_print(6, "junqi", "jqt_mem: JQT_REAL_MAX=%d 满表（漏收 /proc/self/maps 尾部映射，scudo 堆 MEM 可能落零页）", JQT_REAL_MAX);
     qsort(g_jqt_real_swp, g_jqt_real_n_swp, sizeof(g_jqt_real_swp[0]), jqt_range_cmp);
     /* 原子切换：读者最多看到一个完整旧快照，不会看到半填充态 */
     { struct { uint32_t lo, hi; } *t = g_jqt_real_active;
