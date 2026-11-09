@@ -1820,3 +1820,30 @@ OnCreate 主线程被该钩子段拖住（转译层 property 读取 + 自动走 
 - 1 个 `drawdetail_icons_atlas.png`（render.c 消费，旧 refs 漏列致真机 `drawdetail_icons=MISS`）→ 61
 - refs 条目必须是纯文件名（行内 `#` 注释会被 build_phases 的 `while read` 读进文件名 → 注入失败），
   注释只放独立行。
+
+## §2026-11-09 55code 全链实证 + 诊断钩子环境坑
+
+### 闭环事实
+- **55code 全链分发引擎（evt55_dispatch.c）真机实证**（redroid emulator-5554 + MuMu 10.0.182.146）：
+  ① 11 on_event 分支（regret_req/resign_agree/resign_disagree/draw_req/draw_agree/draw_disagree/
+     join_game/leave_game/game_over/resign_confirm/resign）全链走通，0 崩溃
+  ② 73 事件名计数真实累加：resign→idx18(Resign)、resign_confirm→idx19、regret_req→idx20(RegretReq)、
+     regret_agree→idx21、regret_disagree→idx22、draw_req→idx13、draw_agree→idx14、
+     draw_disagree→idx15、join_game→idx50、leave_game→idx58、game_over→idx11(GameOver)
+  ③ 全 11 分支触发后 73 名非零计数 = 11 项（与触发数 1:1 对应），账号/注册类 44 项恒 0（诚实边界）
+  ④ 分发后回 UI_MENU 不污染业务态，后续对局正常
+
+### 坑清单（新增）
+- **坑 1（红果 so 缓存）：`adb install -r` 不清 so 缓存**
+  红果（10.0.182.146:5555）`adb install -r` 后 so 哈希不变（系统缓存旧 so）→ 55codetest 钩子日志不出现。
+  **解法**：红果必须 `adb uninstall + am start` 重装（或 `pm install -r` + `am force-stop` 双保险），
+  或直接用 redroid（emulator-5554）做 64 位诊断（so 立即生效，无缓存）
+- **坑 2（redroid OnUpdate 不跑）：GLThread 在 redroid 不渲染 → OnUpdate 帧循环不触发**
+  55codetest 钩子原挂 OnUpdate 60 帧检测块（`g_upd_cnt % 60`）→ redroid 永远不触发。
+  **解法**：诊断钩子放 OnCreate（主线程必跑，redroid/MuMu 均可靠）；OnUpdate 钩子仅用于 MuMu 帧级场景
+- **坑 3（redroid ro.hardware 检测）：`sfx_mp_init` 检测 `ro.hardware` 含 "redroid" 跳过 MediaPlayer**
+  此检测在 redroid 容器正确工作（`hw=redroid` → g_mp=0 → sfx_play_file 短路 return），
+  但 MuMu 真机 `ro.hardware` 不含 "redroid" → 走正常 MediaPlayer 路径
+- **坑 4（7-code → 73-name 索引错位）：g_event_cnt 扩容后直接 `g_event_cnt[ev]` 写错位**
+  旧 7-code 索引（EV_FLIP=6）扩容到 73-name 后，`g_event_cnt[6]` 指向 name idx 6（Junqi.Win）而非 5（Junqi.Flip）。
+  **解法**：统一走 `ev7_to_name_idx()` 映射函数（code 0-4→name 0-4，code 5 MINE→name 0，code 6 FLIP→name 5）
