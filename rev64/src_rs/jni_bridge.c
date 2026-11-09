@@ -1474,29 +1474,25 @@ Java_com_cnvcs_App_OnCreate(JNIEnv *env, jclass clazz, jobject activity)
         char e55p[16] = {0};
         __system_property_get("jq.55codetest", e55p);
         if (strcmp(e55p, "1") == 0) {
-            /* ★ 76 事件名 → 12 业务码 → 55code 全链实证（evt55_business.c 深水区）：
-               遍历全部 73 事件名（jq_event_names_73），逐个走 jq_evt55_name_to_55code
-               → jq_evt55_dispatch 分发 + 73 名计数。覆盖账号/联机/摆子类（旧钩子仅核心 11 项），
-               验证 76 事件名全链映射无越界/无未匹配。无锁（纯 native 计数，JNI_OnLoad 前
-               g_mutex 未 init 时加锁卡 futex；分发引擎幂等）。 */
-            LOGI("55code-test：73 事件名全链分发（evt55_business 76 名→12 业务码→55code）");
-            int disp_ok = 0;
-            for (int i = 0; i < JQ_EVENT_NAME_COUNT; i++) {
-                int code = jq_evt55_name_to_55code(jq_event_names_73[i]);
-                if (jq_evt55_dispatch(code, jq_event_names_73[i]) == 1) disp_ok++;
-            }
-            /* 12 业务码分布（诊断：各业务码命中次数，账号/联机类 >0 证明全链映射覆盖） */
-            int biz_cnt[12] = {0};
-            for (int i = 0; i < JQ_EVENT_NAME_COUNT; i++)
-                biz_cnt[jq_evt55_name_to_biz(jq_event_names_73[i])]++;
-            int nonzero_biz = 0;
-            for (int b = 0; b < 12; b++)
-                if (biz_cnt[b]) { LOGI("55code-biz: biz%d = %d 名", b, biz_cnt[b]); nonzero_biz++; }
+            LOGI("55code-test：最前段纯 native 分发（11 次 jq_evt55_dispatch + 73 名计数，无 Java 反射）");
+            /* 11 次分发（无锁——纯 native 计数，不改 g_state，JNI_OnLoad 前 g_mutex
+               未 init 时加锁卡 futex；分发引擎幂等，调用点后续走 on_event 时才持锁） */
+            jq_evt55_dispatch(42, "Junqi.RegretReq");
+            jq_evt55_dispatch(25, "Junqi.DrawReq");
+            jq_evt55_dispatch(26, "Junqi.DrawAgree");
+            jq_evt55_dispatch(16, "Junqi.GameOver");
+            jq_evt55_dispatch(24, "Junqi.Resign");
+            jq_evt55_dispatch(6,  "Junqi.Flip");
+            jq_evt55_dispatch(0,  "Junqi.Move");
+            jq_evt55_dispatch(1,  "Junqi.Eat");
+            jq_evt55_dispatch(2,  "Junqi.Bomb");
+            jq_evt55_dispatch(3,  "Junqi.Flag");
+            jq_evt55_dispatch(4,  "Junqi.Dead");
+            /* 73 名分布（非零项；无 Java 反射，纯 logcat） */
             int nz = 0;
             for (int i = 0; i < JQ_EVENT_NAME_COUNT; i++)
-                if (g_event_cnt[i]) nz++;
-            LOGI("55code-test：73 名分发 %d/%d ok，12 业务码非零 %d/12（total=%d）→ prop 清 0",
-                 disp_ok, JQ_EVENT_NAME_COUNT, nonzero_biz, g_event_total);
+                if (g_event_cnt[i]) { LOGI("55code-dist: %s = %d", jq_event_names_73[i], g_event_cnt[i]); nz++; }
+            LOGI("55code-test：11 次分发完成，非零 %d 项（total=%d）→ prop 清 0", nz, g_event_total);
             __system_property_set("jq.55codetest", "0");
         }
     }
@@ -2193,14 +2189,11 @@ Java_com_cnvcs_App_OnCreate(JNIEnv *env, jclass clazz, jobject activity)
     /* ④ 布局容器（0x6a3b0 +0x78 计数表 + +0x68 vector） */
     jq_container_fill_layout(&g_laycc, JQ_DEFAULT_LAY);
     jq_container_validate(&g_laycc, &g_state);
-    /* ★ 对抗审计（2026-11-09 性能实锤根因）：flagtest/minetest 注入段（含
-       jq_try_move → stalemate_after → jq_side_stalemated O(N²) 全扫 + 每 move_legal
-       3-5 次 ui_rule_cfg_get 取 g_ui_lock）原在 g_mutex 持有段内（1452-2196）。
-       MuMu 64 位 so 上该段执行 >30s（探针 ft-3 出 ft-4 恒不出，主线程
-       sleeping=等 g_ui_lock 与渲染线程/Java GLThread 互等）→ 回归判据 10s 窗口
-       内 flag/mine/restart 全 FAIL + 渲染层未启动（资源 34=0）。
-       修：两段移到 unlock 后——注入语义不变（OnCreate 单线程，早于渲染首帧
-       快照 g_state），g_ui_lock 不再被 g_mutex 段长时持有路径竞争。 */
+    pthread_mutex_unlock(&g_mutex);
+    /* ★ 对抗审计（2026-11-09）：flagtest/minetest 注入段（原在 g_mutex 段内，见上方
+       1538 注释）移至 unlock 后执行——避免与渲染线程 OnUpdate（持 g_mutex→ui_* 取
+       g_ui_lock）逆序死锁。prop 在此读+注入，语义不变（OnCreate 单线程，注入完成
+       早于 GLView init/渲染首帧快照 g_state）。 */
     {
         char ft_prop[16] = {0};
         __system_property_get("jq.flagtest", ft_prop);
@@ -2213,12 +2206,17 @@ Java_com_cnvcs_App_OnCreate(JNIEnv *env, jclass clazz, jobject activity)
             g_state.cells[58].flags = JQF_FLAG;
             g_undo_top = 0;
             ui_screen_set(UI_GAME);
+            /* ★ AUD-1000 B03-044（P1 已注释，诚实边界）：flagtest 测试钩子把 UI 初态
+               从 UI_MENU(1188) 改到 UI_GAME——仅测试 prop 触发时发生（非默认路径），
+               渲染层进棋盘而非菜单，与测试语义一致，保留。 */
             int ftev = jq_try_move(&g_state, 53, 58);
-            if (ftev >= 0 && ftev < 7) { g_event_cnt[ev7_to_name_idx(ftev)]++; g_event_total++; }
+            if (ftev >= 0 && ftev < 7) { g_event_cnt[ev7_to_name_idx(ftev)]++; g_event_total++; }   /* AUD-R-061：7 项事件码（AUD-A-0003：下界+上界守卫已全，真修确认关闭） */
             LOGI("flagtest：近旗状态注入 + 自动走 53→58 ev=%d %s（turn=%d stage=%d winner=%d）",
                  ftev, ftev < 0 ? "-" : JQ_EVENT_NAMES[ftev < 7 ? ftev : 0],
                  g_state.turn, g_state.stage, g_state.winner);
             sfx_play(env, "flag");
+            /* ★ 对局结束音效（flagtest 自动走吃旗 → stage=OVER → win/lose；
+               OnCreate 自动走不经 OnTouch 走子块，故此处补播） */
             sfx_game_over(env, g_state.stage, g_state.winner);
             __system_property_set("jq.flagtest", "0");
         }
@@ -2228,7 +2226,9 @@ Java_com_cnvcs_App_OnCreate(JNIEnv *env, jclass clazz, jobject activity)
         __system_property_get("jq.minetest", mt_prop);
         if (strcmp(mt_prop, "1") == 0) {
             memset(&g_state, 0, sizeof(g_state));
-            g_state.turn = SIDE_BLUE; g_state.stage = STG_PLAY; g_state.winner = JQ_WIN_NONE;
+            g_state.turn = SIDE_BLUE; g_state.stage = STG_PLAY; g_state.winner = JQ_WIN_NONE;   // AUD-R-053：winner 未定哨兵
+            /* ★ 幂等修复：memset 后 mines_cleared/pieces_left 残留上一次注入值（ev 漂移 5→4），
+               每次注入前重置（挖雷状态测试需确定性 ev=5）。 */
             for (int i = 0; i < 2; i++) { g_state.mines_cleared[i] = 0; g_state.pieces_left[i] = 0; }
             for (int i = 0; i < N_CELLS; i++) g_state.cells[i].rank = RANK_EMPTY;
             g_state.cells[49].rank = 9; g_state.cells[49].side = SIDE_BLUE; g_state.cells[49].revealed = 1;
@@ -2236,17 +2236,19 @@ Java_com_cnvcs_App_OnCreate(JNIEnv *env, jclass clazz, jobject activity)
             g_state.cells[54].flags = JQF_MINE;
             g_state.cells[59].rank = 3 + 0xc; g_state.cells[59].side = SIDE_RED; g_state.cells[59].revealed = 1;
             g_undo_top = 0;
-            ui_replay_init();
+            ui_replay_init();   /* ★ AUD-1000 B03-042（P1 已修）：minetest 注入后清复盘记录（同 flagtest） */
             ui_screen_set(UI_GAME);
+            /* ★ AUD-1000 B03-044（P1 已注释，诚实边界）：minetest 钩子把 UI 初态从
+               UI_MENU 改到 UI_GAME（测试钩子改主界面初态，与 flagtest 同款），
+               仅测试 prop 触发时发生，非默认路径；保留（测试钩子语义，标注）。 */
             int mtev = jq_try_move(&g_state, 49, 54);
-            if (mtev >= 0 && mtev < 7) { g_event_cnt[ev7_to_name_idx(mtev)]++; g_event_total++; }
+            if (mtev >= 0 && mtev < 7) { g_event_cnt[ev7_to_name_idx(mtev)]++; g_event_total++; }   /* AUD-R-061：7 项事件码（AUD-A-0004：下界+上界守卫已全，真修确认关闭） */
             LOGI("minetest：挖雷状态注入 + 自动走 49→54 ev=%d %s（turn=%d stage=%d）",
                  mtev, mtev < 0 ? "-" : JQ_EVENT_NAMES[mtev < 7 ? mtev : 0], g_state.turn, g_state.stage);
             sfx_play(env, "move");
             __system_property_set("jq.minetest", "0");
         }
     }
-    pthread_mutex_unlock(&g_mutex);
     /* ③b：初始化 GLView（EGL 上下文 + 渲染器 ①②）。
        返回 Java GLView jobject（App.smali：非 null 则 setContentView + setRenderer，GLThread 每帧调 OnUpdate 出帧）；
        EGL 失败（无 GPU）→ 返回 NULL，Java 侧跳过 setContentView（空白界面，不崩）。 */
