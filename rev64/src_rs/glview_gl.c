@@ -142,7 +142,8 @@ int jq_glview_init(jq_glview *gv, const jq_state *st, const char *spak_dir, void
     /* ①② 渲染器接上（EGL 上下文复用本处建好的 disp/ctx；PBuffer 兜底 surface 传入，
        渲染线程 makeCurrent 它出帧；window 主路建好后切 window surface） */
     gv->rr = &g_rr;
-    if (rs_render_init(gv->rr, spak_dir, st, am, gv->disp, gv->surf, gv->ctx) != 0) {
+    int ri = rs_render_init(gv->rr, spak_dir, st, am, gv->disp, gv->surf, gv->ctx);
+    if (ri != 0) {
         LOGE("GLView：rs_render_init 失败");
         return -1;
     }
