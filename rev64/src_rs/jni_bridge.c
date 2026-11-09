@@ -386,7 +386,7 @@ static jclass g_f_cls_sfx = NULL;
 static jmethodID g_f_ctor_sfx = NULL;     /* File(String) */
 
 /* ★ 功能设置（☰ 菜单 action=4）：音效开关。sfx_play 顶部门控。 */
-static int g_sound_on = 1;
+static volatile int g_sound_on = 1;   /* ★ B03-025（P2 已修）：volatile——主线程写（:857 load / :6334 静音按钮）+ sfx_play 多线程读（GLThread OnUpdate 可触发音效路径），int 单字写 ARM 实践原子但 volatile 保证编译器不缓存/重排，跨线程可见性有语义依据 */
 /* ★ AUD-1000 B03-026/B03-097（P1 已修）：
    B03-026：sfx_play_file 入口的 fopen 存在性探测缓存——同一 path 的 fopen/fclose
    fd 抖动（高频 pop/select）用 static last-hit 表免重复 open（首次仍探测）。
@@ -1304,8 +1304,12 @@ static const char *on_event(const char *name, const char *value, JNIEnv *env)
     } else if (strcmp(name, "gameset") == 0) {
         /* ★ P1（datah_012）：游戏设置弹窗测试钩子（OnEvent("gameset","1") → UI_GAMESET）。
            值 0=关闭（恢复对局/主菜单）；与 jq.bttest 测试钩子同范式。 */
+        /* ★ B03-079（P2 已修）：非数字/空 value 默认开（on=1）→ 误判风险（误发 "gameset",""
+           判为开）。改精确匹配 "1"=开 / "0"=关 / 其余保持当前态（不切屏），测试钩子确定性。 */
         int on = 0;
-        if (sscanf(value, "%d", &on) != 1) on = 1;
+        if (strcmp(value, "1") == 0) on = 1;
+        else if (strcmp(value, "0") == 0) on = 0;
+        else { LOGI("OnEvent gameset：value=%s 非 0/1 → 保持当前态", value ? value : "(null)"); return NULL; }
         if (on) {
             ui_screen_set(UI_GAMESET);
             LOGI("OnEvent gameset：→ UI_GAMESET 游戏设置弹窗（datah_012 4 规则开关 + 确定/取消）");
@@ -2098,17 +2102,23 @@ Java_com_cnvcs_App_OnCreate(JNIEnv *env, jclass clazz, jobject activity)
         char bk_prop[16] = {0};
         __system_property_get("jq.backtest", bk_prop);
         LOGI("jq.backtest 钩子：prop=%s（读到的值，诚实边界诊断）", bk_prop[0] ? bk_prop : "(empty)");
-        if (strcmp(bk_prop, "1") == 0) {
-            ui_screen_set(UI_EXITCONFIRM);
-            LOGI("jq.backtest 钩子：→ UI_EXITCONFIRM 退出确认弹窗（模拟返回键 3 态，datah 简化近似）");
-            __system_property_set("jq.backtest", "0");
-        } else if (strcmp(bk_prop, "2") == 0) {
-            ui_screen_set(UI_RESIGNCONFIRM);
-            LOGI("jq.backtest 钩子：→ UI_RESIGNCONFIRM 认输确认弹窗（模拟联机版 BACK）");
-            __system_property_set("jq.backtest", "0");
-        } else if (strcmp(bk_prop, "3") == 0) {
-            ui_screen_set(UI_REGRETCONFIRM);
-            LOGI("jq.backtest 钩子：→ UI_REGRETCONFIRM 悔棋确认弹窗（模拟已悔步 BACK）");
+        int bk_on = 0;
+        if (strcmp(bk_prop, "1") == 0) bk_on = 1;
+        else if (strcmp(bk_prop, "2") == 0) bk_on = 2;
+        else if (strcmp(bk_prop, "3") == 0) bk_on = 3;
+        /* ★ B03-045（P2 已修）：统一出口清 0（旧版 else-if 链内各支自行清 0，多 prop
+           并发/旧值未清场景重复触发）——bk_on>0 即命中合法值，处理后一次性清 0。 */
+        if (bk_on > 0) {
+            if (bk_on == 1) {
+                ui_screen_set(UI_EXITCONFIRM);
+                LOGI("jq.backtest 钩子：→ UI_EXITCONFIRM 退出确认弹窗（模拟返回键 3 态，datah 简化近似）");
+            } else if (bk_on == 2) {
+                ui_screen_set(UI_RESIGNCONFIRM);
+                LOGI("jq.backtest 钩子：→ UI_RESIGNCONFIRM 认输确认弹窗（模拟联机版 BACK）");
+            } else {
+                ui_screen_set(UI_REGRETCONFIRM);
+                LOGI("jq.backtest 钩子：→ UI_REGRETCONFIRM 悔棋确认弹窗（模拟已悔步 BACK）");
+            }
             __system_property_set("jq.backtest", "0");
         }
     }
