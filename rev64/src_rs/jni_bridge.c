@@ -1535,37 +1535,14 @@ Java_com_cnvcs_App_OnCreate(JNIEnv *env, jclass clazz, jobject activity)
              dark ? "暗棋（翻棋 revealed=0）" : "明棋（revealed=全翻开 50 子）",
              dark ? "暗子" : "明子");
     }
-    /* ★ flagtest 触发（adb setprop jq.flagtest 1 → 重启 → OnCreate 注入近旗状态 + 自动走一步 FLAG）。
-       触摸注入 MuMu flaky 不达 native（环境限制）→ 走 OnCreate 自动触发路径；
-       事件链路/规则引擎/音效真实（jq_try_move(53,58)=EV_FLAG 桌面已证），
-       仅"走子由 OnCreate 自动触发"非触摸。一次性（setprop 清 0）。 */
-    {
-        char ft_prop[16] = {0};
-        __system_property_get("jq.flagtest", ft_prop);
-        if (strcmp(ft_prop, "1") == 0) {
-            memset(&g_state, 0, sizeof(g_state));
-            g_state.turn = SIDE_BLUE; g_state.stage = STG_PLAY; g_state.winner = JQ_WIN_NONE;   // AUD-R-053：winner 未定哨兵
-            for (int i = 0; i < N_CELLS; i++) g_state.cells[i].rank = RANK_EMPTY;
-            g_state.cells[53].rank = 2; g_state.cells[53].side = SIDE_BLUE; g_state.cells[53].revealed = 1;
-            g_state.cells[58].rank = 12 + 0xc; g_state.cells[58].side = SIDE_RED; g_state.cells[58].revealed = 1;
-            g_state.cells[58].flags = JQF_FLAG;
-            g_undo_top = 0;
-            ui_screen_set(UI_GAME);
-            /* ★ AUD-1000 B03-044（P1 已注释，诚实边界）：flagtest 测试钩子把 UI 初态
-               从 UI_MENU(1188) 改到 UI_GAME——仅测试 prop 触发时发生（非默认路径），
-               渲染层进棋盘而非菜单，与测试语义一致，保留。 */
-            int ftev = jq_try_move(&g_state, 53, 58);
-            if (ftev >= 0 && ftev < 7) { g_event_cnt[ev7_to_name_idx(ftev)]++; g_event_total++; }   /* AUD-R-061：7 项事件码（AUD-A-0003：下界+上界守卫已全，真修确认关闭） */
-            LOGI("flagtest：近旗状态注入 + 自动走 53→58 ev=%d %s（turn=%d stage=%d winner=%d）",
-                 ftev, ftev < 0 ? "-" : JQ_EVENT_NAMES[ftev < 7 ? ftev : 0],
-                 g_state.turn, g_state.stage, g_state.winner);
-            sfx_play(env, "flag");
-            /* ★ 对局结束音效（flagtest 自动走吃旗 → stage=OVER → win/lose；
-               OnCreate 自动走不经 OnTouch 走子块，故此处补播） */
-            sfx_game_over(env, g_state.stage, g_state.winner);
-            __system_property_set("jq.flagtest", "0");
-        }
-    }
+    /* ★ 对抗审计（2026-11-09 回归根因）：flagtest/minetest 注入段（ui_screen_set +
+       jq_try_move 内 ui_rule_cfg_get/ui_snd_mute_get 取 g_ui_lock）原在 g_mutex 持有段内
+       （1452-2248）。渲染线程（GLView 启动）OnUpdate 持 g_mutex 调 rs_render_frame →
+       ui_imgset_cfg_get/ui_replay_cur 取 g_ui_lock → g_mutex→g_ui_lock；钩子段反成
+       g_mutex（主线程持）→g_ui_lock（渲染线程持）逆序等待 → 死锁 → 渲染层永不启动
+       （资源 34=0）+ flag/mine/restart 全 FAIL。修：两段移到 unlock 后（g_state 已在
+       1452 前初始化，ui_* 独立锁，不依赖 g_mutex 保护期；hook 语义不变——注入发生在
+       GLView init/渲染线程首帧快照 g_state 前，渲染层进棋盘态与测试语义一致）。 */
     /* ★ btconn 测试钩子（adb setprop jq.btconn 1 → 重启 → 模拟 Java 蓝牙连接回调
        btState("host_connected") → 主线程 OnEvent menu 1 → 两人对局自动开局。
        验证 Java btState→runOnUiThread→App$BtStart→OnEvent 全链，无真机蓝牙时用）。 */
@@ -1606,33 +1583,16 @@ Java_com_cnvcs_App_OnCreate(JNIEnv *env, jclass clazz, jobject activity)
     }
     /* ★ minetest 触发（adb setprop jq.minetest 1 → 重启 → OnCreate 注入挖雷状态 + 自动走一步）。
        蓝工兵 rank9 @ cell49(row9,col4)，红雷 rank11 @ cell54(row10,col4)，红 rank3 @ cell59
-       （红有子 → 挖雷不结束对局，stage 保持 PLAY）。jq_try_move(49,54)=EV_MINE 桌面已证。 */
+       （红有子 → 挖雷不结束对局，stage 保持 PLAY）。jq_try_move(49,54)=EV_MINE 桌面已证。
+       ★ 对抗审计（2026-11-09）：本段（含 ui_replay_init/ui_screen_set/jq_try_move 取
+       g_ui_lock）已移到 g_mutex unlock 后（见下方 unlock 段后 flagtest/minetest 双段），
+       消除与渲染线程 OnUpdate（持 g_mutex→ui_* 取 g_ui_lock）的逆序死锁。 */
     {
         char mt_prop[16] = {0};
         __system_property_get("jq.minetest", mt_prop);
         if (strcmp(mt_prop, "1") == 0) {
-            memset(&g_state, 0, sizeof(g_state));
-            g_state.turn = SIDE_BLUE; g_state.stage = STG_PLAY; g_state.winner = JQ_WIN_NONE;   // AUD-R-053：winner 未定哨兵
-            /* ★ 幂等修复：memset 后 mines_cleared/pieces_left 残留上一次注入值（ev 漂移 5→4），
-               每次注入前重置（挖雷状态测试需确定性 ev=5）。 */
-            for (int i = 0; i < 2; i++) { g_state.mines_cleared[i] = 0; g_state.pieces_left[i] = 0; }
-            for (int i = 0; i < N_CELLS; i++) g_state.cells[i].rank = RANK_EMPTY;
-            g_state.cells[49].rank = 9; g_state.cells[49].side = SIDE_BLUE; g_state.cells[49].revealed = 1;
-            g_state.cells[54].rank = 11 + 0xc; g_state.cells[54].side = SIDE_RED; g_state.cells[54].revealed = 1;
-            g_state.cells[54].flags = JQF_MINE;
-            g_state.cells[59].rank = 3 + 0xc; g_state.cells[59].side = SIDE_RED; g_state.cells[59].revealed = 1;
-            g_undo_top = 0;
-            ui_replay_init();   /* ★ AUD-1000 B03-042（P1 已修）：minetest 注入后清复盘记录（同 flagtest） */
-            ui_screen_set(UI_GAME);
-            /* ★ AUD-1000 B03-044（P1 已注释，诚实边界）：minetest 钩子把 UI 初态从
-               UI_MENU 改到 UI_GAME（测试钩子改主界面初态，与 flagtest 同款），
-               仅测试 prop 触发时发生，非默认路径；保留（测试钩子语义，标注）。 */
-            int mtev = jq_try_move(&g_state, 49, 54);
-            if (mtev >= 0 && mtev < 7) { g_event_cnt[ev7_to_name_idx(mtev)]++; g_event_total++; }   /* AUD-R-061：7 项事件码（AUD-A-0004：下界+上界守卫已全，真修确认关闭） */
-            LOGI("minetest：挖雷状态注入 + 自动走 49→54 ev=%d %s（turn=%d stage=%d）",
-                 mtev, mtev < 0 ? "-" : JQ_EVENT_NAMES[mtev < 7 ? mtev : 0], g_state.turn, g_state.stage);
-            sfx_play(env, "move");
-            __system_property_set("jq.minetest", "0");
+            LOGI("minetest：注入延迟到 g_mutex unlock 后执行（避免 g_ui_lock 逆序死锁），prop=1 已读到");
+            __system_property_set("jq.minetest", "1");   /* 保持 1，unlock 后段再读再注入 */
         }
     }
     /* ★ P1（datah_012）：游戏设置 setprop 钩子（adb setprop jq.gameset 1 → 重启 → OnCreate 弹 UI_GAMESET）。
