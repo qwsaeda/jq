@@ -363,6 +363,7 @@ int  jq_evt55_name_to_code(const char *evname);            /* 事件名→code�
 const char *jq_evt55_code_to_evname_str(int code);          /* code→事件名（日志用） */
 int  jq_evt55_name_to_55code(const char *evname);          /* 76事件名→55code（原版全链，深水区） */
 int  jq_evt55_name_to_biz(const char *evname);             /* 76事件名→12业务码（诊断/统计） */
+const char *jq_evt55_sfx_for_name(const char *evname);     /* 76事件名→音效WAV名（原版音效分类对齐） */
 
 #endif /* RS_JUNQI_H */
 
