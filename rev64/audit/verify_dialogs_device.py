@@ -94,6 +94,18 @@ def detect_btn_rows(px, x_probe, y_from, y_to, w=720):
     return segs
 
 
+def clear_all_props():
+    """★ 触发前全量清 jq.* 残留（红果 property service 清不干净，随机残留 jq.dlgNNN
+       会导致非预期 datah 弹窗覆盖主菜单。先清全量再 set 目标）。"""
+    # dlgbatch + 全量 dlg000-264 + 测试钩子属性
+    for p in ("closetest","drawtest","flagtest","minetest","poptest","resigntest",
+              "stalematetest","restartgame","movetest","replay","backtest","imen","login","btconn","bttest"):
+        adb("shell", "setprop", f"jq.{p}", "0")
+    adb("shell", "setprop", "jq.dlgbatch", "0")
+    for i in range(0, 265):
+        adb("shell", "setprop", f"jq.dlg{i:03d}", "0")
+
+
 def verify_one(n, keep_shot=False, jitter=True):
     r = {"n": n, "ok": True, "issues": []}
     d = load_dialog(n)
@@ -113,13 +125,19 @@ def verify_one(n, keep_shot=False, jitter=True):
     #   加抖动消除固定时序碰撞）；渲染等待 4s + 随机 0~1s（冷启动首帧稳态）。
     adb("shell", "am", "force-stop", PKG)
     time.sleep(random.uniform(0.5, 1.5))
+    # ★ 红果残留根因修复（2026-11-09 实锤）：触发前全量清 jq.* 残留，
+    #   否则随机残留 jq.dlgMMM 会覆盖目标弹窗 → 白屏/非预期 datah。
+    clear_all_props()
     adb("shell", "setprop", "jq.dlgbatch", f"{n:03d}")
     adb("shell", "setprop", f"jq.dlg{n:03d}", "1")
     adb("logcat", "-c")
     adb("shell", "am", "start", "-n", f"{PKG}/com.cnvcs.App")
     # ★ 2026-11-11 window 出屏修复后：渲染线程 window surface attach 慢（fromSurface 轮询重试，
     #   1Hz 心跳节流），首帧出屏需 ~8s。4s 截图窗口不够 → 非黑 0% 假 FAIL。改 10s+抖动。
-    time.sleep(10.0 + (random.uniform(0.0, 2.0) if jitter else 0.0))
+    # ★ 红果转译层慢（2026-11-09 实锤）：fromSurface attach 需 ~90s，10s 窗口不够 → 白屏。
+    #   红果 90s+抖动 / MuMu 12s（旧值，快）。
+    wait = 90.0 if DEV.startswith("10.") else 12.0
+    time.sleep(wait + (random.uniform(0.0, 2.0) if jitter else 0.0))
 
     pid = adb("shell", "pidof", PKG).strip()
     if not pid:
