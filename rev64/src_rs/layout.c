@@ -11,6 +11,7 @@
  */
 #include "junqi.h"
 #include <string.h>
+#include "jq_default_lay.h"   /* ★ A4-13：JQ_DEFAULT_LAY 双端共享 */
 
 /* 默认布局：SPAK data/lay/00.lay（=default.lay，L52 分布确证 25 子/方）
    ★ AUD-1000 B10-012（P1 诚实标注）：30 字节默认布局在 rev64/src_rs/layout.c
@@ -18,11 +19,8 @@
    改一处忘另一处 → 64/32 位开局布局分叉（分叉矩阵 R-138 未含此数据项）。
    修法（抽共享头 jq_default_lay.h 单点定义 + rules_fork_check.py 增布局
    数据一致性比对）留待下一轮；当前以本表为 64 位事实源。 */
-const uint8_t JQ_DEFAULT_LAY[30] = {
-    3,7,6,5,8, 10,0,9,0,1,
-    2,10,0,9,5, 4,0,6,0,7,
-    8,3,4,9,11, 11,12,11,8,7
-};
+/* ★ A4-13（P1 已修）：JQ_DEFAULT_LAY 双端共享头（jq_default_lay.h 单点定义，
+   32 位 jq_rs_layout.c 同 include，改一处即双端同步，消开局布局双源分叉） */
 
 /* 标准单方 25 子 rank 分布（default.lay 实测，L52 决定性证据）。
    AUD-A-0005/0006（P2 诚实标注，探针误报）：cnt 是**调用方栈数组**（jq_standard_army_count

@@ -17,7 +17,8 @@ for f in $JTI/jq_rs_rules.c $JTI/jq_rs_board.c $JTI/jq_rs_layout.c $JTI/jq_rs_to
   [ -f "$f" ] || { echo "⚠ 缺会话 B 模块 $f"; continue; }
   b=$(basename $f .c)
   cp $f $TMP/$b.c
-  $CLANG -c -O0 -fPIC -fvisibility=hidden -w -I$SYSROOT_INC -I$JTI $TMP/$b.c -o $TMP/$b.o
+  # A4-13：+src_rs（jq_default_lay.h 双端共享头）
+  $CLANG -c -O0 -fPIC -fvisibility=hidden -w -I$SYSROOT_INC -I$JTI -I/disk/workspaces/jq/rev64/src_rs $TMP/$b.c -o $TMP/$b.o
 done
 for f in $JTI/jqt_*.c; do
   b=$(basename $f .c)

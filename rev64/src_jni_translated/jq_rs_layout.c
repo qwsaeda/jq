@@ -13,11 +13,10 @@
 #include <string.h>
 
 /* 默认布局：SPAK data/lay/00.lay（=default.lay，L52 分布确证 25 子/方） */
-const uint8_t JQ_DEFAULT_LAY[30] = {
-    3,7,6,5,8, 10,0,9,0,1,
-    2,10,0,9,5, 4,0,6,0,7,
-    8,3,4,9,11, 11,12,11,8,7
-};
+/* ★ AUD-1000-ALL A4-13（P1 已修）：JQ_DEFAULT_LAY 双端共享头（64 位 src_rs 同源
+   jq_default_lay.h 单点定义——旧版 32/64 位各独立一份，改一处忘另一处开局分叉）。
+   32 位翻译体经 -I 路径 include 64 位侧头（构建时 rev64/src_rs 在 include 路径）。 */
+#include "jq_default_lay.h"
 
 /* 标准单方 25 子 rank 分布（default.lay 实测，L52 决定性证据） */
 void jq_standard_army_count(int cnt[RANK_COUNT])
