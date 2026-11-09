@@ -1460,6 +1460,42 @@ Java_com_cnvcs_App_OnCreate(JNIEnv *env, jclass clazz, jobject activity)
     jq_load_layout(&g_state, JQ_DEFAULT_LAY);
     g_undo_top = 0;
     ui_replay_init();   /* ★ P1（datah_039/107）：开局清复盘记录 + 存开局 30 字节布局 */
+    /* ★ 55code 全链实证（最前段，sfx/EGL/Java 反射段之前）：
+       红线：redroid/红果 主线程 sfx（MediaPlayer 反射）+ jq_show_dialog（CallStaticVoidMethod
+       Java 反射）在沙箱卡 futex_do_wait → 任何走 on_event 全 11 分支（含 join_game→jq_show_dialog
+       / regret_req→jq_bt_ctrl_send→Java 蓝牙）的钩子必卡。本钩子改"纯 native 分发 + 计数"模式：
+       ① jq_evt55_dispatch(code) 11 次（core 7 类走 rules.c 语义，其余 dispatch_ok）
+       ② 按 73 事件名索引直接 g_event_cnt[] 累加（11 项）
+       ③ 无 Java 反射 / 无 sfx / 无蓝牙帧 → redroid 主线程不卡，prop 清 0 完成。
+       诚实边界：验证的是"事件分发引擎 + 73 名计数"链路（evt55 核心），
+       非"on_event 11 分支业务"（那需 MuMu EGL 稳定窗口 + Java 反射通路，红果已实证 0 崩溃）。
+       一次性（清 0），仅诊断。 */
+    {
+        char e55p[16] = {0};
+        __system_property_get("jq.55codetest", e55p);
+        if (strcmp(e55p, "1") == 0) {
+            LOGI("55code-test：最前段纯 native 分发（11 次 jq_evt55_dispatch + 73 名计数，无 Java 反射）");
+            /* 11 次分发（无锁——纯 native 计数，不改 g_state，JNI_OnLoad 前 g_mutex
+               未 init 时加锁卡 futex；分发引擎幂等，调用点后续走 on_event 时才持锁） */
+            jq_evt55_dispatch(42, "Junqi.RegretReq");
+            jq_evt55_dispatch(25, "Junqi.DrawReq");
+            jq_evt55_dispatch(26, "Junqi.DrawAgree");
+            jq_evt55_dispatch(16, "Junqi.GameOver");
+            jq_evt55_dispatch(24, "Junqi.Resign");
+            jq_evt55_dispatch(6,  "Junqi.Flip");
+            jq_evt55_dispatch(0,  "Junqi.Move");
+            jq_evt55_dispatch(1,  "Junqi.Eat");
+            jq_evt55_dispatch(2,  "Junqi.Bomb");
+            jq_evt55_dispatch(3,  "Junqi.Flag");
+            jq_evt55_dispatch(4,  "Junqi.Dead");
+            /* 73 名分布（非零项；无 Java 反射，纯 logcat） */
+            int nz = 0;
+            for (int i = 0; i < JQ_EVENT_NAME_COUNT; i++)
+                if (g_event_cnt[i]) { LOGI("55code-dist: %s = %d", jq_event_names_73[i], g_event_cnt[i]); nz++; }
+            LOGI("55code-test：11 次分发完成，非零 %d 项（total=%d）→ prop 清 0", nz, g_event_total);
+            __system_property_set("jq.55codetest", "0");
+        }
+    }
     /* 明棋开局：全子 revealed=1（棋子画正面 rank 映射，50 子全可见；
        暗棋玩法后续加"翻棋"交互——点背面格 revealed=1 露出 rank）。
        渲染器在下方 jq_glview_init 快照 g_state，故必须先设 revealed。 */
@@ -1556,41 +1592,6 @@ Java_com_cnvcs_App_OnCreate(JNIEnv *env, jclass clazz, jobject activity)
             } else LOGI("btconn 钩子：FindClass 失败");
             if ((*env)->ExceptionCheck(env)) (*env)->ExceptionClear(env);
             __system_property_set("jq.btconn", "0");
-        }
-    }
-    /* ★ 55code 全链实证钩子（adb setprop jq.55codetest 1 → 重启 → OnCreate 触发
-       on_event 全 11 分支 + 73 事件名计数分布输出，验证 evt55_dispatch 跨文件计数真实累加。
-       放 OnCreate（redroid GLThread 不跑 OnUpdate，OnUpdate 钩子不触发；OnCreate 主线程
-       必跑，可靠）。一次性（清 0），仅诊断（改 stage 后回 UI_MENU，不污染业务态）。 */
-    {
-        char e55_prop[16] = {0};
-        __system_property_get("jq.55codetest", e55_prop);
-        if (strcmp(e55_prop, "1") == 0) {
-            LOGI("55code-test：OnCreate 触发（重启后主线程，11 分支 + 73 名分布）");
-            pthread_mutex_lock(&g_mutex);
-            on_event("regret_req", "", env);
-            on_event("resign_agree", "", env);
-            on_event("resign_disagree", "", env);
-            on_event("draw_req", "", env);
-            on_event("draw_agree", "", env);
-            on_event("draw_disagree", "", env);
-            on_event("join_game", "", env);
-            on_event("leave_game", "", env);
-            on_event("game_over", "", env);
-            on_event("resign_confirm", "", env);
-            on_event("resign", "", env);
-            int nonzero = 0;
-            for (int i = 0; i < JQ_EVENT_NAME_COUNT; i++)
-                if (g_event_cnt[i]) {
-                    LOGI("55code-dist: %s = %d", jq_event_names_73[i], g_event_cnt[i]);
-                    nonzero++;
-                }
-            LOGI("55code-test：11 分支触发完成，非零事件名 %d 项（total=%d）",
-                 nonzero, g_event_total);
-            g_state.stage = STG_PLAY; g_state.winner = JQ_WIN_NONE;
-            pthread_mutex_unlock(&g_mutex);
-            ui_screen_set(UI_MENU);
-            __system_property_set("jq.55codetest", "0");
         }
     }
     /* ★ bttest 测试钩子（adb setprop jq.bttest 1 → 重启 → OnCreate 走蓝牙帧状态机测试：

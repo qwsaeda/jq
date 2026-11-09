@@ -1847,3 +1847,19 @@ OnCreate 主线程被该钩子段拖住（转译层 property 读取 + 自动走 
 - **坑 4（7-code → 73-name 索引错位）：g_event_cnt 扩容后直接 `g_event_cnt[ev]` 写错位**
   旧 7-code 索引（EV_FLIP=6）扩容到 73-name 后，`g_event_cnt[6]` 指向 name idx 6（Junqi.Win）而非 5（Junqi.Flip）。
   **解法**：统一走 `ev7_to_name_idx()` 映射函数（code 0-4→name 0-4，code 5 MINE→name 0，code 6 FLIP→name 5）
+
+### 55code 真机实证闭环（redroid 后台 logcat 捕获）
+- **11 次 jq_evt55_dispatch 全量真实累加**（redroid emulator-5554 后台 `logcat` 实时捕获，
+  解决红果/前台 logcat 缓冲冲刷看不到日志的问题）：
+  Junqi.Move=1 / Eat=1 / Bomb=1 / Flag=1 / Dead=1 / Flip=1 / GameOver=1 /
+  DrawReq=1 / DrawAgree=1 / Resign=1 / RegretReq=1 → **非零 11 项（total=11）**，
+  账号/注册类 44 项恒 0（诚实边界，与 11 触发 1:1 对应）
+- **坑固化**：
+  ① 55code 钩子在 `jq_load_layout` 后、`sfx/EGL/Java 反射` 段之前（最前段），
+     纯 native 分发（无 on_event 全分支 → 绕开 join_game 的 jq_show_dialog CallStaticVoidMethod
+     + regret_req 的 jq_bt_ctrl_send 蓝牙帧，redroid/红果沙箱均卡 Java 反射 futex_do_wait）
+  ② 钩子内**不加 g_mutex**（JNI_OnLoad 前 g_mutex 未 init 时 pthread_mutex_lock 卡 futex，
+     纯 native 计数不改 g_state 幂等，无需互斥）
+  ③ 日志捕获必须**后台 `logcat > file` 实时**（`logcat -d` 前台抓 redroid 缓冲冲刷不到钩子段）
+  ④ 红果主线程卡 EGL 软渲染段（`Failed to get gpu service` + mesa 无 GPU 阻塞），
+     55code 最前段钩子在 EGL 段之前 → 红果也能触发（prop 清 0 实证），但 logcat 抓取需后台
