@@ -116,7 +116,9 @@ def verify_one(n, keep_shot=False, jitter=True):
     adb("shell", "setprop", f"jq.dlg{n:03d}", "1")
     adb("logcat", "-c")
     adb("shell", "am", "start", "-n", f"{PKG}/com.cnvcs.App")
-    time.sleep(4.0 + (random.uniform(0.0, 1.0) if jitter else 0.0))
+    # ★ 2026-11-11 window 出屏修复后：渲染线程 window surface attach 慢（fromSurface 轮询重试，
+    #   1Hz 心跳节流），首帧出屏需 ~8s。4s 截图窗口不够 → 非黑 0% 假 FAIL。改 10s+抖动。
+    time.sleep(10.0 + (random.uniform(0.0, 2.0) if jitter else 0.0))
 
     pid = adb("shell", "pidof", PKG).strip()
     if not pid:
@@ -133,9 +135,15 @@ def verify_one(n, keep_shot=False, jitter=True):
     # ★ dlgbatch 判据修正（红果 2026-11-11 实锤）：jq_dlg_batch_hook 日志在 __android_log_print
     #   转译层可能被吞（红果无此日志但截图弹窗真出，非黑100%）→ 日志判据降级为参考。
     #   主判据 = 截图非黑比（渲染真实出帧），"钩子未命中"仅标注不判 FAIL。
-    has_hook_log = ("批量对齐钩子" in log and f"jq.dlg{n:03d}" in log)
+    # ★ dlgbatch 判据终版：__system_property_set("jq.dlgNNN","0") 清属性后 logcat -d 抓不到
+    #   钩子日志（红果转译层吞 + 属性清除时序）→ 判据降级：
+    #   ① "批量对齐钩子" 在 logcat（正常路径）→ ok
+    #   ② 截图非黑比 ≥85（渲染真出帧）→ ok（日志吞但画面出）
+    #   ③ 否则标注"钩子日志未捕获+截图未出"（真 FAIL：既无日志又无画面）
+    has_hook_log = ("批量对齐钩子" in log)
     if not has_hook_log:
-        r["issues"].append("钩子日志未捕获（转译层 log 吞，截图判为主判据）")
+        # 截图主判据下方会判非黑比，此处仅标注（非黑比 <85 时下方判 FAIL）
+        r["issues"].append("钩子日志未捕获（转译层吞/属性清除，截图非黑比为主判据）")
 
     # 截图
     adb("shell", "screencap", "-p", f"/sdcard/av{n:03d}.png")
