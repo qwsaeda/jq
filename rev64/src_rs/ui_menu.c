@@ -1470,16 +1470,18 @@ int ui_d000_hit(const ui_d000_btn *b, int n, float x, float y)
 static const ui_d001_btn g_d001_btns[UI_D001_COUNT] = {
     { 355.0f, 520.0f, 555.0f, 580.0f, 0 },  /* Sound */
     { 355.0f, 595.0f, 555.0f, 655.0f, 1 },  /* BtnSound */
-    { 165.0f, 750.0f, 345.0f, 810.0f, 2 },  /* 确定 */
-    { 375.0f, 750.0f, 555.0f, 810.0f, 3 },  /* 取消 */
+    { 255.0f, 677.0f, 562.0f, 725.0f, 2 },  /* ★ 音量滑条区（原版 Volume Slider 逐字节）→ 位置映射 1-3 */
+    { 165.0f, 750.0f, 345.0f, 810.0f, 3 },  /* 确定 */
+    { 375.0f, 750.0f, 555.0f, 810.0f, 4 },  /* 取消 */
 };
 const ui_d001_btn *ui_d001_buttons(void) { return g_d001_btns; }
 int ui_d001_hit(const ui_d001_btn *b, int n, float x, float y)
 { for (int i = 0; i < n; i++) if (x>=b[i].x0 && x<=b[i].x1 && y>=b[i].y0 && y<=b[i].y1) return i; return -1; }
 /* ★ 批量对齐（datah_002）：2 按钮（720 基准，局部 1:1 平移） */
 static const ui_d002_btn g_d002_btns[UI_D002_COUNT] = {
-    { 160.0f, 675.0f, 345.0f, 735.0f, 0 },  /* 确定 */
-    { 375.0f, 675.0f, 560.0f, 735.0f, 1 },  /* 取消 */
+    { 152.0f, 601.0f, 568.0f, 649.0f, 0 },  /* ★ 亮度滑条区（原版 Bright Slider 逐字节）→ 位置映射 0-2 */
+    { 160.0f, 675.0f, 345.0f, 735.0f, 1 },  /* 确定 */
+    { 375.0f, 675.0f, 560.0f, 735.0f, 2 },  /* 取消 */
 };
 const ui_d002_btn *ui_d002_buttons(void) { return g_d002_btns; }
 int ui_d002_hit(const ui_d002_btn *b, int n, float x, float y)

@@ -5221,8 +5221,51 @@ static void rs_draw_d000(rs_render *rr, int slot)
      2) 图集行高固定 40（bake_atlas 行距）→ v = (行号*40)/图集高；n_rows 不再传 cnt
      3) u1 = 字形像素宽/图集宽（旧版传 1.0 = 整行 416px 压进字宽）
    目标字高 30px（720 基准），宽按字形 bbox 比例等比缩放。 */
-static const int D001_pw[UI_D001_COUNT] = { 110,167,76,76 };
-static const int D001_ph[UI_D001_COUNT] = { 29,29,37,37 };
+/* ★ 正向对齐：d001 加音量滑条区（btn[2]），pw/ph 按维扩到 UI_D001_COUNT=5
+   （滑条行给 wpx=0 不画文字，画滑条轨道 + 拇指） */
+static const int D001_pw[UI_D001_COUNT] = { 110,167,0,76,76 };
+static const int D001_ph[UI_D001_COUNT] = { 29,29,0,37,37 };
+/* ★ 正向对齐：真滑条轨道 + 拇指（原版 Slider 控件，datah_001 音量 / datah_002 亮度）。
+   轨道=横向圆角条，拇指=轨道内按 frac∈[0,1] 定位的方块（当前档位）。 */
+static void rs_draw_slider_track(rs_render *rr, int slot, float bx0, float by0, float bx1, float by1, GLint uc, float frac)
+{
+    float vw = rr->view_w, vh = rr->view_h;
+    /* 轨道（滑条区中部，高 8px 横向） */
+    float ty = (by0 + by1) * 0.5f;
+    rs_v4f trk[6] = {
+        {bx0, ty - 4, 0, 0}, {bx1, ty - 4, 1, 0}, {bx0, ty + 4, 0, 1},
+        {bx0, ty + 4, 0, 1}, {bx1, ty - 4, 1, 0}, {bx1, ty + 4, 1, 1}
+    };
+    glUseProgram(rr->prog_solid[slot]);
+    glUniform2f(rr->uViewWH_solid[slot], (GLfloat)vw, (GLfloat)vh);
+    glUniform4f(uc, 0.35f, 0.40f, 0.50f, 0.9f);
+    glGenBuffers(1, &rr->vbo_sel[slot]);
+    glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(trk), trk, GL_DYNAMIC_DRAW);
+    rs_bind_vbo(rr->vbo_sel[slot]);
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+    rs_unbind_vbo();
+    glDeleteBuffers(1, &rr->vbo_sel[slot]);
+    rr->vbo_sel[slot] = 0;
+    /* 拇指（轨道内按 frac 定位，24px 方块） */
+    float kx = bx0 + (bx1 - bx0) * frac;
+    rs_v4f knob[6] = {
+        {kx - 12, ty - 14, 0, 0}, {kx + 12, ty - 14, 1, 0}, {kx - 12, ty + 14, 0, 1},
+        {kx - 12, ty + 14, 0, 1}, {kx + 12, ty - 14, 1, 0}, {kx + 12, ty + 14, 1, 1}
+    };
+    glUseProgram(rr->prog_solid[slot]);
+    glUniform2f(rr->uViewWH_solid[slot], (GLfloat)vw, (GLfloat)vh);
+    glUniform4f(uc, 0.95f, 0.95f, 1.0f, 0.95f);
+    glGenBuffers(1, &rr->vbo_sel[slot]);
+    glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(knob), knob, GL_DYNAMIC_DRAW);
+    rs_bind_vbo(rr->vbo_sel[slot]);
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+    rs_unbind_vbo();
+    glDeleteBuffers(1, &rr->vbo_sel[slot]);
+    rr->vbo_sel[slot] = 0;
+}
+
 static void rs_draw_d001(rs_render *rr, int slot)
 {
     if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
@@ -5232,15 +5275,20 @@ static void rs_draw_d001(rs_render *rr, int slot)
     for (int i = 0; i < UI_D001_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 2 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D001_pw[i], hpx = D001_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
-            float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
+            /* 文字图集行号：i<2 用 2+i（Sound/BtnSound），i=2 滑条不画文字，
+               i>=3（确定/取消）用 2+(i-1)=i+1（跳过滑条行 bake 顺序） */
+            int gr = (i < 2) ? (2 + i) : (i + 1);
+            float scale = 30.0f / (float)hpx;
             float tw = (float)wpx * scale, th = 30.0f;
             float u1 = ((float)wpx + 1.0f) / (float)rr->dlg_text_w;
             rs_atlas_label_wh(rr, slot, rr->tex_dlg_text[slot], rr->dlg_text_w, rr->dlg_text_h,
                               gr, (bb[i].x0 + bb[i].x1) * 0.5f, (bb[i].y0 + bb[i].y1) * 0.5f,
                               tw, th, 0.0f, u1, uc);
+        } else if (wpx == 0 && i == 2) {
+            /* ★ 正向对齐：音量滑条轨道 + 拇指（按 ui_volume_get 档位 1-3 定位） */
+            rs_draw_slider_track(rr, slot, bb[2].x0, bb[2].y0, bb[2].x1, bb[2].y1, uc, (float)(ui_volume_get() - 1) / 2.0f);
         }
     }
     if (!d001_diag) { d001_diag = 1;
@@ -5253,8 +5301,10 @@ static void rs_draw_d001(rs_render *rr, int slot)
      2) 图集行高固定 40（bake_atlas 行距）→ v = (行号*40)/图集高；n_rows 不再传 cnt
      3) u1 = 字形像素宽/图集宽（旧版传 1.0 = 整行 416px 压进字宽）
    目标字高 30px（720 基准），宽按字形 bbox 比例等比缩放。 */
-static const int D002_pw[UI_D002_COUNT] = { 76,76 };
-static const int D002_ph[UI_D002_COUNT] = { 37,37 };
+/* ★ 正向对齐：d002 加亮度滑条区（btn[0]），pw/ph 按维扩到 UI_D002_COUNT=3
+   （滑条行给 wpx=0 不画文字，画滑条轨道 + 拇指） */
+static const int D002_pw[UI_D002_COUNT] = { 0,76,76 };
+static const int D002_ph[UI_D002_COUNT] = { 0,37,37 };
 static void rs_draw_d002(rs_render *rr, int slot)
 {
     if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
@@ -5264,15 +5314,19 @@ static void rs_draw_d002(rs_render *rr, int slot)
     for (int i = 0; i < UI_D002_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 6 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D002_pw[i], hpx = D002_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
-            float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
+            /* 文字图集行号：i=0 滑条不画，i>=1（确定/取消）用 6+(i-1)=i+5 */
+            int gr = 5 + i;
+            float scale = 30.0f / (float)hpx;
             float tw = (float)wpx * scale, th = 30.0f;
             float u1 = ((float)wpx + 1.0f) / (float)rr->dlg_text_w;
             rs_atlas_label_wh(rr, slot, rr->tex_dlg_text[slot], rr->dlg_text_w, rr->dlg_text_h,
                               gr, (bb[i].x0 + bb[i].x1) * 0.5f, (bb[i].y0 + bb[i].y1) * 0.5f,
                               tw, th, 0.0f, u1, uc);
+        } else if (wpx == 0 && i == 0) {
+            /* ★ 正向对齐：亮度滑条轨道 + 拇指（按 ui_bright_get 档位 0-2 定位） */
+            rs_draw_slider_track(rr, slot, bb[0].x0, bb[0].y0, bb[0].x1, bb[0].y1, uc, (float)ui_bright_get() / 2.0f);
         }
     }
     if (!d002_diag) { d002_diag = 1;

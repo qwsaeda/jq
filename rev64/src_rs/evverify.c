@@ -3659,6 +3659,7 @@ static int run_d001(void)
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
     { "Sound", 355, 520, 555, 580 },
     { "BtnSound", 355, 595, 555, 655 },
+    { "音量滑条", 255, 677, 562, 725 },
     { "确定", 165, 750, 345, 810 },
     { "取消", 375, 750, 555, 810 },
     };
@@ -3675,7 +3676,7 @@ static int run_d001(void)
         int hit = ui_d001_hit(b, n, cx, cy);
         ok &= (hit == i);
     }
-    printf("datah_001（450×390 居中）：4 按钮几何 Δ=0 + 命中判定%s\n",
+    printf("datah_001（450×390 居中）：5 按钮几何 Δ=0 + 命中判定%s\n",
            ok ? "PASS" : "FAIL");
     return ok;
 }
@@ -3684,6 +3685,7 @@ static int run_d002(void)
 {
     const ui_d002_btn *b = ui_d002_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
+    { "亮度滑条", 152, 601, 568, 649 },
     { "确定", 160, 675, 345, 735 },
     { "取消", 375, 675, 560, 735 },
     };
@@ -3700,7 +3702,7 @@ static int run_d002(void)
         int hit = ui_d002_hit(b, n, cx, cy);
         ok &= (hit == i);
     }
-    printf("datah_002（460×240 居中）：2 按钮几何 Δ=0 + 命中判定%s\n",
+    printf("datah_002（460×240 居中）：3 按钮几何 Δ=0 + 命中判定%s\n",
            ok ? "PASS" : "FAIL");
     return ok;
 }

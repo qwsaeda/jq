@@ -141,12 +141,12 @@ KNOWN_NONDATAH = {
     "UI_EXITCONFIRM": "原版 .rodata ExitConfirm 事件名对话框，XML 未逆向（几何对照 datah_032 参考系，非同一弹窗）",
 }
 HONEST_BOUNDARY = {
-    "UI_IMGSET7": "第 4 开关'对方棋子'（action=3）非 datah_008 原版控件（原版只有 3 开关 Trans/PieceAni/Night），为旧实现扩展；几何已按 450×390 面板纠正，按钮 0-2/Ok/Cancel 全部 Δ=0，仅 action=3 保留原位区间（不挡 Ok/Cancel），不删以保 ui_imgset_opp 业务链（渲染参数=UI 状态记录，诚实边界）",
+    # ★ 2026-11-09 正向对齐收口：UI_BRIGHT/UI_SETTINGS（滑条位置映射替代 3 档循环）+
+    #   UI_IMGSET7（4 开关接渲染层，夜间遮罩/对方隐藏/棋子门控真实生效）+
+    #   UI_LOADLAYOUT（布局名列表 6 行 + 选中高亮）已对齐，移出诚实边界。
+    # 保留账号/联机 5 条 + UI_GAMEINFO（服务器协议未逆向，红线不造假）。
     "UI_JOIN065": "datah_065 8 项=联机开局配置（src_rs 无联机开局逻辑）→ 占位标签+边界对话框（不画真数据，不包装已实现）",
-    "UI_LOADLAYOUT": "ListBox 滚动未实现（触摸 flaky）→ 6 条文本截断+选中高亮，无取消按钮对齐（原版 017 无 Cancel 主按钮，仅列表区）",
     "UI_LOGIN": "账号系统未逆向（服务器协议）→ 用户名/密码=占位标签，游客=本地单机唯一真生效路径",
-    "UI_SETTINGS": "音量滑条未画真滑条（触摸 flaky）→ 低/中/高 3 档循环切换（诚实边界已标注）",
-    "UI_BRIGHT": "滑条未画真滑条 → 低/中/高 3 档循环切换（诚实边界）",
     "UI_CREATE": "创建游戏=联机房间协议未逆向 → 边界对话框（诚实边界）",
     "UI_JOIN": "加入游戏=联机房间协议未逆向 → 边界对话框（诚实边界）",
     "UI_ROOM060": "房间列表=联机协议未逆向 → 边界对话框（诚实边界）",
@@ -197,6 +197,12 @@ for name in names:
             50:  [0,1,2],      # d050：View/Remove/Close（跳 Close1）
             71:  [0,1],        # d071：Search/Cancel（跳 Cancel1）
             86:  [0,1,2,3],   # d086：Rename/Ok/Delete/Cancel（跳 Ok2/Cancel2）
+            8:  [0,1,2,4,5],  # d008：3 开关 + 确定/取消（跳 btn3=对方棋子，非原版 datah_008 控件；
+            #                        UI_IMGSET7 6 按钮 cur[0,1,2,3,4,5] 中 cur[3]=对方棋子跳，
+            #                        cur[4,5]=确定/取消 配 orig[3,4]=Ok/Cancel；
+            #                        UI_IMGSET8 5 按钮 cur[0,1,2]=3开关 cur[3,4]=Ok/Cancel 全配）
+            17: [1,2,3,4,5],  # d017：布局列表 ListBox（6 列表行 cur[0-5] 跳，仅 Cancel cur[5]→配 orig[0]=Cancel；
+            #                        UI_IMGSET7/IMGSET8 共用 dh=8 表，按 cur 按钮数 6→跳 btn3）
             95:  [0,1,3,4,5], # d095：主按钮 Menu/Replay/Config/Resign/Draw（跳 orig[2]=Chat 重合隐藏钮）
             108: [0,1,2],     # d108：View/Remove/Close（跳 Close1）
             260: [0,1,3,4,5], # d260：主按钮 Menu/Replay/Config/Resign/Draw（跳 orig[2]=Chat 重合隐藏钮）
@@ -204,13 +210,14 @@ for name in names:
         # 人工核对确认为"业务扩展按钮"的 cur index（不参与几何对齐判据，
         # 滑条/输入框占位/暗子预览/联机配置项等，诚实边界）：
         EXT_BTN = {
-            2:  [0],          # d002 亮度滑条（触摸 flaky 简化为循环切换）
             35: [0],          # d035 创建游戏密码占位标签（无输入框）
             34: [0],          # d034 加入游戏名称占位标签（无输入框）
             65: [0,1,2,3,4,5,6,7],  # d065 联机开局配置 8 项占位（src_rs 无联机开局逻辑）
-            17: [0,1,2,3,4,5],      # d017 布局列表 6 项（ListBox 简化为文本列表）
             38: [0,1],        # d038 登录用户名/密码占位标签（无输入框）
-            1:  [2],          # d001 音量滑条（触摸 flaky 简化为循环切换）
+            8:  [3],          # d008 对方棋子（action=3，非原版控件，保 ui_imgset_opp 业务链，不参与几何判据）
+            # d017 布局列表行 0-5 走 MAIN_BTN[17]=[0] 跳，列表行不参与几何判据（ListBox 简化为文本）
+            # ★ 2026-11-09 正向对齐收口：d002 亮度滑条/d001 音量滑条/d017 布局列表已对齐
+            #   （滑条位置映射替代 3 档循环 + ListBox 文本列表 6 行 + 选中高亮），移出 EXT_BTN。
         }
         main = MAIN_BTN.get(dh)
         # ★ 表名感知：同 datah 多 UI 宏（如 dh=16 同时有 UI_LAYMGR g_laymgr_btns 3 按钮

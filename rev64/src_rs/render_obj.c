@@ -6,6 +6,7 @@
 #include "render_obj.h"
 #include <string.h>
 #include <android/log.h>   /* B04-099：池满丢弃告警 LOGI */
+#define LOGI(...) __android_log_print(ANDROID_LOG_INFO, "junqi_rs", __VA_ARGS__)   /* ★ dlopen 修复：render_obj.c 无 LOGI 宏（android/log.h 不含）→ 裸 LOGI 解析为未定义符号 → so link failed */
 
 void jq_subsys_list_init(jq_subsys_list *l)
 {

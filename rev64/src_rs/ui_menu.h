@@ -1501,7 +1501,7 @@ typedef struct { float x0,y0,x1,y1; int action; } ui_d000_btn;
 const ui_d000_btn *ui_d000_buttons(void);
 int ui_d000_hit(const ui_d000_btn *b, int n, float x, float y);
 
-#define UI_D001_COUNT 4
+#define UI_D001_COUNT 5   /* ★ 正向对齐：加滑条区（原版 Slider 逐字节），action 重排 */
 #define UI_D001_POPUP_X0 135.0f
 #define UI_D001_POPUP_Y0 445.0f
 #define UI_D001_POPUP_W  450.0f
@@ -1510,7 +1510,7 @@ typedef struct { float x0,y0,x1,y1; int action; } ui_d001_btn;
 const ui_d001_btn *ui_d001_buttons(void);
 int ui_d001_hit(const ui_d001_btn *b, int n, float x, float y);
 
-#define UI_D002_COUNT 2
+#define UI_D002_COUNT 3   /* ★ 正向对齐：加滑条区（原版 Slider 逐字节），action 重排 */
 #define UI_D002_POPUP_X0 130.0f
 #define UI_D002_POPUP_Y0 520.0f
 #define UI_D002_POPUP_W  460.0f

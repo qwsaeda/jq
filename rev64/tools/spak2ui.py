@@ -139,9 +139,14 @@ def parse_dialog(path):
         info["center_off"] = (0.0, 0.0)
     # 按钮（style=Button/IconBtn，有 rect + 可选 name/text）
     btns = []
-    for bm in re.finditer(r'<Window\s+([^>]*style="(?:Button|IconBtn)"[^>]*)/?>', txt):
+    for bm in re.finditer(r'<Window\s+([^>]*style="(?:Button|IconBtn|Slider|ListBox)"[^>]*)/?>', txt):
         attrs = dict(re.findall(r'(\w+)="([^"]*)"', bm.group(1)))
         if "rect" not in attrs: continue
+        st = attrs.get("style","Button")
+        # ListBox（布局列表）= 滚动列表区，src_rs 简化为文本列表 → 解析器不产出可配对按钮，
+        # 跳过（否则 cur 列表行按钮 vs orig 空表 → 假"需修"）。Slider（滑条）解析为按钮区
+        # （几何可配对，滑条位置映射已实现）。
+        if st == "ListBox": continue
         p = [q.strip() for q in attrs["rect"].split(",")]
         num = lambda s: (int(float(s)) if s.lstrip('-').replace('.','',1).isdigit() else None)
         bx0,by0,bx1,by1 = (num(p[0]),num(p[1]),num(p[2]),num(p[3]))
@@ -149,7 +154,7 @@ def parse_dialog(path):
         if by1 is None and len(p)>3: by1 = by0 + int(p[3].strip('h'))
         btns.append({
             "name": attrs.get("name",""), "text": attrs.get("text",""),
-            "style": attrs.get("style","Button"),
+            "style": st,
             "x0":bx0,"y0":by0,"x1":bx1,"y1":by1,
         })
     info["buttons"] = btns

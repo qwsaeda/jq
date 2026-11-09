@@ -1,20 +1,11 @@
 {
- "need_fix": [],
- "honest": [
+ "need_fix": [
   {
-   "ui": "UI_BRIGHT",
-   "datah": 2,
-   "table": "g_bright_btns",
+   "ui": "UI_D008",
+   "datah": 8,
+   "table": "g_d008_btns",
    "issues": [
-    "btn0 cur(152.0,601.0,568.0,649.0) ≠ 配到 origNone(0,0,0,0) Δ=9999"
-   ]
-  },
-  {
-   "ui": "UI_CREATE",
-   "datah": 35,
-   "table": "g_create_btns",
-   "issues": [
-    "btn0 cur(250.0,602.5,470.0,647.5) ≠ 配到 origNone(0,0,0,0) Δ=9999"
+    "ext按钮165@750（业务扩展/占位，非几何缺陷，诚实边界）"
    ]
   },
   {
@@ -22,7 +13,34 @@
    "datah": 8,
    "table": "g_imgset7_btns",
    "issues": [
-    "btn3 cur(355.0,708.0,555.0,768.0) ≠ 配到 origNone(0,0,0,0) Δ=9999"
+    "btn165 配 orig4(375,750,555,810) Δ=210",
+    "ext按钮355@708（业务扩展/占位，非几何缺陷，诚实边界）"
+   ]
+  },
+  {
+   "ui": "UI_IMGSET8",
+   "datah": 8,
+   "table": "g_imgset8_btns",
+   "issues": [
+    "ext按钮165@750（业务扩展/占位，非几何缺陷，诚实边界）"
+   ]
+  },
+  {
+   "ui": "UI_LOADLAYOUT",
+   "datah": 17,
+   "table": "g_loadlayout_btns",
+   "issues": [
+    "btn180 配 orig0(280,828,440,888) Δ=381"
+   ]
+  }
+ ],
+ "honest": [
+  {
+   "ui": "UI_CREATE",
+   "datah": 35,
+   "table": "g_create_btns",
+   "issues": [
+    "btn0 cur(250.0,602.5,470.0,647.5) ≠ 配到 origNone(0,0,0,0) Δ=9999"
    ]
   },
   {
@@ -49,19 +67,6 @@
    ]
   },
   {
-   "ui": "UI_LOADLAYOUT",
-   "datah": 17,
-   "table": "g_loadlayout_btns",
-   "issues": [
-    "btn0 cur(180.0,447.0,540.0,507.0) ≠ 配到 origNone(0,0,0,0) Δ=9999",
-    "btn1 cur(180.0,507.0,540.0,567.0) ≠ 配到 origNone(0,0,0,0) Δ=9999",
-    "btn2 cur(180.0,567.0,540.0,627.0) ≠ 配到 origNone(0,0,0,0) Δ=9999",
-    "btn3 cur(180.0,627.0,540.0,687.0) ≠ 配到 origNone(0,0,0,0) Δ=9999",
-    "btn4 cur(180.0,687.0,540.0,747.0) ≠ 配到 origNone(0,0,0,0) Δ=9999",
-    "btn5 cur(180.0,747.0,540.0,807.0) ≠ 配到 origNone(0,0,0,0) Δ=9999"
-   ]
-  },
-  {
    "ui": "UI_LOGIN",
    "datah": 38,
    "table": "g_login_btns",
@@ -76,14 +81,6 @@
    "table": "g_room060_btns",
    "issues": [
     "btn2 cur(440.0,734.0,560.0,794.0) ≠ 配到 orig0(508,560,556,608) Δ=186"
-   ]
-  },
-  {
-   "ui": "UI_SETTINGS",
-   "datah": 1,
-   "table": "g_set_btns",
-   "issues": [
-    "btn2 cur(255.0,677.0,562.0,725.0) ≠ 配到 origNone(0,0,0,0) Δ=9999"
    ]
   }
  ],
