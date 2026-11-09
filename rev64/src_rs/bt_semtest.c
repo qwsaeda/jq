@@ -157,6 +157,12 @@ int main(void)
         CHECK(ret == -1, "FLIP fc=5 越界拒收（rc=-1，先于闸口校验）");
         ret = jq_bt_session_on_frame(&sess, &st, BT_T_FLIP, 0, 12, 0, 0, 0, 0);
         CHECK(ret == -1, "FLIP fr=12 越界拒收（rc=-1）");
+        /* ★ AUD-1000 B04-026（P2 补用例）：FLIP 负坐标拒收——旧用例仅验上越界
+           （fc=5/fr=12），未验下越界（负值）。frame_coord_ok 判 fc<0||fr<0 → -1。 */
+        ret = jq_bt_session_on_frame(&sess, &st, BT_T_FLIP, -1, 0, 0, 0, 0, 0);
+        CHECK(ret == -1, "FLIP fc=-1 负坐标拒收（rc=-1，B04-026 补）");
+        ret = jq_bt_session_on_frame(&sess, &st, BT_T_FLIP, 0, -1, 0, 0, 0, 0);
+        CHECK(ret == -1, "FLIP fr=-1 负坐标拒收（rc=-1，B04-026 补）");
 
         /* FLIP 回合闸口：第一次 FLIP 消费后 state=OUR_TURN → 再发拒收 rc=-2。
            越界帧 return -1 不改 state，此时 state 仍=OUR_TURN。 */
@@ -236,10 +242,11 @@ int main(void)
         jq_bt_session_init(&sess, &strecv, 1);
         int bad_frames = 0, bad_fields = 0;
         for (int i = 0; i < N_CELLS; i++) {
-            char frame[64];
-            /* sync_encode 按 cap_per_frame 步进拷贝（含 NUL） */
-            int len = snprintf(frame, sizeof frame, "%.*s", 63, sb + i * 64);
-            (void)len;
+            /* ★ B04-035（P2 已修）：回放直接用 sb+i*64（同步编码槽，每槽 64B 含 NUL），
+               免二次 snprintf 截断——旧版 %.*s 63 截断在 sync 帧实际 <40B 时掩盖越界
+               （63 宽于实际帧长，越界 1-4 字节不可见）；直接用编码槽，帧长与
+               cap_per_frame=64 一致，越界可见。 */
+            const char *frame = sb + i * 64;
             int g[7];
             if (jq_bt_frame_decode(frame, &g[0], &g[1], &g[2], &g[3], &g[4], &g[5], &g[6]) != 1) {
                 bad_frames++;
@@ -416,6 +423,14 @@ int main(void)
         sess.state = BT_ST_THEIR_TURN;
         int ret = jq_bt_session_on_frame(&sess, &st, BT_T_MOVE + 100, 0, 0, 0, 0, 0, 0);
         CHECK(ret == -1, "未知 type（越界）拒收（rc=-1）");
+        /* ★ AUD-1000 B04-040（P2 补用例）：type=8/9（DRAW/CHAT）帧协议已定义但
+           bt_session.c switch 未处理（default 拒收）——验证对端误发 DRAW/CHAT 帧
+           被拒（rc=-1），不静默消费。诚实边界：DRAW/CHAT 业务逻辑未移植（需
+           服务器协议），此处只验"帧协议完整拒收"非"业务处理"。 */
+        CHECK(jq_bt_session_on_frame(&sess, &st, 8, 0, 0, 0, 0, 0, 0) == -1,
+              "未知 type=8（DRAW，协议已定义未处理）拒收（rc=-1）");
+        CHECK(jq_bt_session_on_frame(&sess, &st, 9, 0, 0, 0, 0, 0, 0) == -1,
+              "未知 type=9（CHAT，协议已定义未处理）拒收（rc=-1）");
         /* ★ AUD-1000 B04-014（P1 已修）：last_type 仅合法 case 命中才记录——
            旧断言"越界 type 也写 last_type"随修复反转：init 后 memset 清零，
            越界帧不污染 last_type（诊断日志按 last_type 判"最后有效帧"不被
