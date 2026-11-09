@@ -371,12 +371,18 @@ def audit(path, baseline=None):
     if baseline:
         btmp = None
         bso = baseline
-        if baseline.endswith('.apk'):
-            btmp, _ = so_from_apk(baseline)
-            bso = btmp
-        bund, _ = resolve_so(bso)
-        proven = set(bund)          # 显式基线覆盖
-        os.unlink(btmp) if btmp else None
+        try:
+            if baseline.endswith('.apk'):
+                btmp, _ = so_from_apk(baseline)
+                bso = btmp
+            bund, _ = resolve_so(bso)
+            proven = set(bund)      # 显式基线覆盖
+        finally:
+            # ★ B06-094（P2 已修）：异常路径 btmp 泄漏——旧版 os.unlink(btmp) 在
+            #   resolve_so/proven 赋值后执行，若 so_from_apk/resolve_so 抛异常
+            #   则 btmp 不清理（/tmp 临时文件泄漏）。try/finally 保证异常路径
+            #   也 unlink（正常路径行为不变：btmp 非 None 才 unlink）。
+            os.unlink(btmp) if btmp else None
     proven_bases = {s.split('@')[0] for s in proven}
 
     print('\n--- .hash 风格（MuMu 32 位 linker 只支持 sysv）: %s' % hash_style(so))

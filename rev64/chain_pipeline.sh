@@ -14,12 +14,17 @@
 set -u
 WS=/disk/workspaces/jq
 JQ=$WS/rev64
-TMP=/tmp/opencode/chain
-mkdir -p $TMP
+# ★ B06-061（P2 已修，2026-11-09 自足化）：/tmp/opencode/chain → 仓库内 $JQ/dist/chain
+#   （/tmp 清空即断链）；unidbg 工作目录保留 /tmp/opencode/unidbg（Java 工具链需
+#   独立构建目录，非本脚本自足范围）。32 位 so 路径保留 /tmp/opencode/jq_apk/dec/
+#   （apktool 解码产物，非本脚本自足范围，缺时脚本明确报错）。
+CHAIN=$JQ/dist/chain
+mkdir -p $CHAIN
 SO=/tmp/opencode/jq_apk/dec/lib/armeabi/libjunqi.so
-TRACE=$TMP/oncreate_trace.txt
-TREE=$TMP/chain_tree.json
-PLAN=$TMP/chain_plan.json
+[ -f "$SO" ] || { echo "✗ 32 位 so 缺失（$SO）——需先 apktool 解码 APK 到 /tmp/opencode/jq_apk/dec/"; exit 1; }
+TRACE=$CHAIN/oncreate_trace.txt
+TREE=$CHAIN/chain_tree.json
+PLAN=$CHAIN/chain_plan.json
 
 cmd_extract() {
     echo "[chain.extract] 编译+跑 DiagJni53（A 原版 OnCreate 真实执行 → 指令轨迹）"
@@ -40,7 +45,7 @@ from capstone.arm import *
 import json
 d=open('/tmp/opencode/jq_apk/dec/lib/armeabi/libjunqi.so','rb').read()
 md=Cs(CS_ARCH_ARM, CS_MODE_THUMB)
-offs=[int(l.strip(),16) for l in open('/tmp/opencode/chain/oncreate_trace.txt')]
+offs=[int(l.strip(),16) for l in open('$CHAIN/oncreate_trace.txt')]
 uniq=sorted(set(offs))
 blmap={}
 for off in uniq:
@@ -63,9 +68,9 @@ for off in offs:
         else: typ='libc'
         tree.append({'src':off,'dst':tgt,'type':typ,'order':len(tree)})
 out={'entry':0x23560,'trace_len':len(offs),'uniq':len(uniq),'calls':tree}
-json.dump(out, open('/tmp/opencode/chain/chain_tree.json','w'), indent=1)
+json.dump(out, open('$CHAIN/chain_tree.json','w'), indent=1)
 print(f"  调用链树: {len(tree)} 个 bl/blx 目标（so={sum(1 for c in tree if c['type']=='so')}, plt={sum(1 for c in tree if c['type']=='plt')}, libc={sum(1 for c in tree if c['type']=='libc')}）")
-print(f"  已写 /tmp/opencode/chain/chain_tree.json")
+print(f"  已写 $CHAIN/chain_tree.json")
 PYEOF
 }
 
@@ -74,18 +79,18 @@ cmd_plan() {
     [ -f $TREE ] || { echo "  ✗ 先跑 extract"; exit 1; }
     python3 <<'PYEOF'
 import json
-t=json.load(open('/tmp/opencode/chain/chain_tree.json'))
+t=json.load(open('$CHAIN/chain_tree.json'))
 so=[c for c in t['calls'] if c['type']=='so']
 plt=[c for c in t['calls'] if c['type']=='plt']
 libc=[c for c in t['calls'] if c['type']=='libc']
 # so 内部需翻译（B 实现）；plt 已实现（_Znwj/_ZdlPv malloc/free）；libc 外部库
 plan={'to_translate':so,'plt_available':plt,'libc_external':libc,
       'note':'so=需 B 机械翻译实现; plt=已真实化(_Znwj/_ZdlPv)或需链接; libc=外部库无需实现'}
-json.dump(plan, open('/tmp/opencode/chain/chain_plan.json','w'), indent=1)
+json.dump(plan, open('$CHAIN/chain_plan.json','w'), indent=1)
 print(f"  B 需实现 so 内部函数: {len(so)} 个（0xb9edc 等）")
 print(f"  PLT（可链接/已真实化）: {len(plt)} 个")
 print(f"  libc（外部库，无需实现）: {len(libc)} 个")
-print(f"  已写 /tmp/opencode/chain/chain_plan.json")
+print(f"  已写 $CHAIN/chain_plan.json")
 print("  ★ 实现顺序：按调用链深度（0xb9edc→0x24250→0xbe47c 逐层）")
 PYEOF
 }
@@ -94,7 +99,7 @@ cmd_impl() {
     echo "[chain.impl] 生成 B 完整调用链 C（gen_chain_full.py：gen_c_file_full + 后处理）"
     [ -f $TREE ] || { echo "  ✗ 先跑 extract"; exit 1; }
     timeout 300 python3 /tmp/opencode/gen_chain_full.py 2>&1 | tail -6
-    cp /tmp/opencode/chain/jqt_OnCreate_full.c $JQ/rev64/src_jni_translated/jqt_OnCreate_full.c
+    cp $CHAIN/jqt_OnCreate_full.c $JQ/rev64/src_jni_translated/jqt_OnCreate_full.c
     echo "[chain.impl] 重编 arm64 so（828 函数完整调用链）"
     timeout 600 bash $JQ/rev64/build_arm64_mem.sh 2>&1 | tail -3
     echo "[chain.impl] 打包 phase_chain.apk"
