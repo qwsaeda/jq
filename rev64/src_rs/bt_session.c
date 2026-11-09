@@ -2,7 +2,10 @@
  * bt_session.c — 蓝牙联机帧状态机
  * 对齐原版 0xbe9cc 逻辑（收帧→校验→规则引擎→回合翻转→出帧）。
  * 7 字段行为级约定：f1=type, f2=fc, f3=fr, f4=tc, f5=tr, f6=rank, f7=side。
- * type 取值（jq_bt_type）：MOVE=0/FLIP=1/UNDO=2/SYNC=3/SYNC_CELL=4/RESTART=5/RESIGN=6。
+ * type 取值（jq_bt_type，权威定义在 bt_protocol.h）：MOVE=0/FLIP=1/UNDO=2/SYNC=3/
+ * SYNC_CELL=4/RESTART=5/RESIGN=6/DRAW=7/CHAT=8。★ AUD-1000-ALL A4-01（P1 已修）：
+ * 旧注释仅列 7 类（缺 DRAW/CHAT），与 .h 权威枚举（9 类）双源漂移；switch 未处理
+ * DRAW/CHAT（default 拒收，bt_semtest B04-040 验 type=8/9 拒收），注释补全对齐 .h。
  */
 #include "bt_session.h"
 #include "bt_protocol.h"

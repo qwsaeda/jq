@@ -47,8 +47,11 @@ if [ $VERIFY -eq 1 ]; then
   # 连接检查
   adb connect $DEV >/dev/null 2>&1
   if ! adb -s $DEV get-state >/dev/null 2>&1; then
-    echo "★ 设备不可达（$DEV）——跳过验证（产物已就绪）"
-    exit 0
+    # ★ AUD-1000-ALL A5-F5-005（P1 已修）：设备不可达改 exit 1（旧版 exit 0 静默降级，
+    #   断连被映射成 PASS，CI 假绿）。产物已就绪但验证未执行——门禁须区分
+    #   "未验（exit 1）"与"验过 PASS（exit 0）"，调用方按 rc 判。
+    echo "★ 设备不可达（$DEV）——验证未执行（exit 1，非 PASS；产物已就绪，设备恢复后重跑）"
+    exit 1
   fi
   # 用 mumu_verify.sh 但覆盖等待时间
   bash $WS/rev64/tools/mumu_verify.sh "$APK" "$DEV" 2>&1 | sed 's/sleep 12/sleep '"$WAIT"'/'

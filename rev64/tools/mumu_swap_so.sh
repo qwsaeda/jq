@@ -126,9 +126,13 @@ echo "APK: $OUT ($(stat -c%s "$OUT")B)（纯 v1 签名）"
 echo "=== [4/6] 安装 $DEV ==="
 adb -s $DEV uninstall $PKG >/dev/null 2>&1
 INSTALL_OUT=$(adb -s $DEV install -t "$OUT" 2>&1)
+INSTALL_RC=$?
 echo "$INSTALL_OUT" | grep -E "Success|Failure"
-if echo "$INSTALL_OUT" | grep -q "Failure"; then
-    echo "★ 装机失败（$INSTALL_OUT 末行）→ 中止（不启动、不截图，防止误判旧 APK 在跑）"
+# ★ AUD-1000-ALL A5-F5-003（P1 已修）：install rc 断言——旧版只 grep "Failure" 文本，
+#   设备离线（adb 连接断开）时 install 输出 "error: device offline"（非 Failure 字样）
+#   → grep 漏判静默继续（假绿"装机成功"实为设备不可达）。rc 非 0 或含 Failure/error 均中止。
+if [ $INSTALL_RC -ne 0 ] || echo "$INSTALL_OUT" | grep -qE "Failure|error: device|error: " ; then
+    echo "★ 装机失败（rc=$INSTALL_RC，离线/失败文本命中）→ 中止（不启动、不截图，防止误判旧 APK 在跑）"
     exit 1
 fi
 
