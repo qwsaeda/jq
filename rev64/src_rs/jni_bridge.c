@@ -3174,7 +3174,10 @@ Java_com_cnvcs_App_OnUpdate(JNIEnv *env, jclass clazz)
         }
     }
     /* ★ SPAK2UI 批量（12 弹窗）：OnUpdate 轮询钩子（同会话 setprop，值 1=进 / 2=退，
-       范式与 jq.login 同；不重启 app）。★ 诚实边界：未逆向数据=占位标签+边界对话框。 */
+       范式与 jq.login 同；不重启 app）。★ 诚实边界：未逆向数据=占位标签+边界对话框。
+       ★ AUD-1000-ALL A11-F11-14（P2 已修）：12 prop 每帧读（property service 高频读
+       1920 次/秒）→ 60 帧节流（1 次/秒，与 :2601 的 8 prop 段同范式；弹窗 setprop
+       触发延迟 <100ms 可接受，测试钩子非常态 UI 路径）。 */
     {
         static const struct { const char *prop; int scr_in; int scr_out; } uihooks[] = {
             { "jq.ui44",  UI_UI44,  UI_GAME },
@@ -3190,19 +3193,23 @@ Java_com_cnvcs_App_OnUpdate(JNIEnv *env, jclass clazz)
             { "jq.ui110", UI_UI110, UI_GAME },
             { "jq.ui118", UI_UI118, UI_GAME },
         };
-        for (size_t hi = 0; hi < sizeof(uihooks)/sizeof(uihooks[0]); hi++) {
-            char hp[24] = {0};
-            __system_property_get(uihooks[hi].prop, hp);
-            if (strcmp(hp, "1") == 0) {
-                ui_screen_set(uihooks[hi].scr_in);
-                LOGI("OnUpdate SPAK2UI 批量入口：%s=1 → UI_UI%d 弹窗（诚实边界：未逆向数据=占位）",
-                     uihooks[hi].prop, uihooks[hi].scr_in);
-                __system_property_set(uihooks[hi].prop, "0");
-            } else if (strcmp(hp, "2") == 0) {
-                ui_screen_set(uihooks[hi].scr_out);
-                LOGI("OnUpdate SPAK2UI 批量入口：%s=2 → 退弹窗回 %d",
-                     uihooks[hi].prop, uihooks[hi].scr_out);
-                __system_property_set(uihooks[hi].prop, "0");
+        /* ★ A11-F11-14（P2 已修）：60 帧节流（12 prop 高频读 → 1 次/秒；
+           return 会跳过后续段，改 do-while 0 内联守卫，不提前返回） */
+        if (g_upd_cnt % 60 == 0) {
+            for (size_t hi = 0; hi < sizeof(uihooks)/sizeof(uihooks[0]); hi++) {
+                char hp[24] = {0};
+                __system_property_get(uihooks[hi].prop, hp);
+                if (strcmp(hp, "1") == 0) {
+                    ui_screen_set(uihooks[hi].scr_in);
+                    LOGI("OnUpdate SPAK2UI 批量入口：%s=1 → UI_UI%d 弹窗（诚实边界：未逆向数据=占位）",
+                         uihooks[hi].prop, uihooks[hi].scr_in);
+                    __system_property_set(uihooks[hi].prop, "0");
+                } else if (strcmp(hp, "2") == 0) {
+                    ui_screen_set(uihooks[hi].scr_out);
+                    LOGI("OnUpdate SPAK2UI 批量入口：%s=2 → 退弹窗回 %d",
+                         uihooks[hi].prop, uihooks[hi].scr_out);
+                    __system_property_set(uihooks[hi].prop, "0");
+                }
             }
         }
     }
