@@ -147,7 +147,7 @@ verify_one() {
     phase2|phase3)
       local nspak=$(unzip -l $apk 2>/dev/null | grep -c "assets/spak_res/")
       local refs_n60=$(grep -vE "^\s*#|^\s*$" $WS/rev64/tools/spak_render_refs.txt | grep -c . || true)
-      echo "  [$phase] spak_res 条目=$nspak（预期 $refs_n60=refs 清单全量，60=44 PNG/位图+2 棋子 bin+14 WAV+2 原版 datax JPEG（C 项））"
+      echo "  [$phase] spak_res 条目=$nspak（预期 $refs_n60=refs 清单全量，61=44 PNG/位图+2 棋子 bin+14 WAV+2 原版 datax JPEG（C 项）+1 提和图标图集）"
       ;;
   esac
   python3 -c "

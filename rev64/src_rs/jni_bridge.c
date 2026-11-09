@@ -1504,16 +1504,13 @@ Java_com_cnvcs_App_OnCreate(JNIEnv *env, jclass clazz, jobject activity)
              dark ? "暗棋（翻棋 revealed=0）" : "明棋（revealed=全翻开 50 子）",
              dark ? "暗子" : "明子");
     }
-    LOGI("GLDIAG-earliest：UI 菜单就绪后执行流确认（即将进 flagtest 钩子段）");
     /* ★ flagtest 触发（adb setprop jq.flagtest 1 → 重启 → OnCreate 注入近旗状态 + 自动走一步 FLAG）。
        触摸注入 MuMu flaky 不达 native（环境限制）→ 走 OnCreate 自动触发路径；
        事件链路/规则引擎/音效真实（jq_try_move(53,58)=EV_FLAG 桌面已证），
        仅"走子由 OnCreate 自动触发"非触摸。一次性（setprop 清 0）。 */
     {
         char ft_prop[16] = {0};
-        LOGI("GLDIAG-flagtest-pre：__system_property_get(jq.flagtest) 前");
         __system_property_get("jq.flagtest", ft_prop);
-        LOGI("GLDIAG-flagtest-post：= %s", ft_prop);
         if (strcmp(ft_prop, "1") == 0) {
             memset(&g_state, 0, sizeof(g_state));
             g_state.turn = SIDE_BLUE; g_state.stage = STG_PLAY; g_state.winner = JQ_WIN_NONE;   // AUD-R-053：winner 未定哨兵
@@ -1635,9 +1632,7 @@ Java_com_cnvcs_App_OnCreate(JNIEnv *env, jclass clazz, jobject activity)
        真机写目录；桌面 evverify 用 tmp 目录 ui_laydir_set）。★ 必须在 ui_layout_list
        （setprop 钩子块）之前 set，否则首次扫描走 ui_laydir_get 缺省 ./layouts 桌面路径
        （实证 0 条），扫描不到真机 /data/local/tmp/layouts。 */
-    LOGI("GLDIAG-pre-laydir：即将 ui_laydir_set");
     ui_laydir_set("/data/local/tmp/layouts");
-    LOGI("GLDIAG-post-laydir：ui_laydir_set 完成");
     /* ★ P1（datah_016/017/020 证据）：布局存档 3 弹窗 setprop 钩子
        （adb setprop jq.layoutsave/layoutload/layoutmgr 1 → 重启 → OnCreate 弹对应弹窗）。
        测试钩子范式，与 jq.gameset 同；值 1=弹出，0=不触发。一次性（清 0）。 */
@@ -2120,9 +2115,7 @@ Java_com_cnvcs_App_OnCreate(JNIEnv *env, jclass clazz, jobject activity)
             __system_property_set("jq.backtest", "0");
         }
     }
-    LOGI("GLDIAG-pre-dlgbatch：即将 jq_dlg_batch_hook(OnCreate)");
     jq_dlg_batch_hook("OnCreate");
-    LOGI("GLDIAG-post-dlgbatch：jq_dlg_batch_hook 完成");
     /* ★ ☰ 菜单渲染验证钩子（adb setprop jq.imen 1 → OnCreate/OnUpdate 直接进
        UI_INGAME_MENU；触摸命中 flaky 时用 setprop 验渲染几何）。
        ★ 诚实边界：仅测试触发器，不改业务。 */
@@ -2207,7 +2200,6 @@ Java_com_cnvcs_App_OnCreate(JNIEnv *env, jclass clazz, jobject activity)
     }
 
     jq_touch_state_init(&g_ts);   /* ⑤b 态机初始化 */
-    LOGI("GLDIAG-⑤b touch_state_init 完成（到达 ③ 渲染对象图构造）");
     /* ③ 渲染对象图构造（对齐原版 0xba12c → 0xba034/0xc5d54/0xb7500） */
     jq_subsys_list_init(&g_subs);
     jq_subsys sgl, sgl2, srend, saud;
@@ -2219,20 +2211,15 @@ Java_com_cnvcs_App_OnCreate(JNIEnv *env, jclass clazz, jobject activity)
     jq_subsys_list_push(&g_subs, &sgl2);
     jq_subsys_list_push(&g_subs, &srend);
     jq_subsys_list_push(&g_subs, &saud);
-    LOGI("GLDIAG-③ 渲染对象图构造完成（4 子系 push 完成）");
     /* ④ 布局容器（0x6a3b0 +0x78 计数表 + +0x68 vector） */
     jq_container_fill_layout(&g_laycc, JQ_DEFAULT_LAY);
     jq_container_validate(&g_laycc, &g_state);
-    LOGI("GLDIAG-unlock 前（③ 渲染对象图 + ④ 布局容器完成，即将 unlock）");
     pthread_mutex_unlock(&g_mutex);
-    LOGI("GLDIAG-unlock 后（g_mutex 已释放，进入 ③b GLView init）");
     /* ③b：初始化 GLView（EGL 上下文 + 渲染器 ①②）。
        返回 Java GLView jobject（App.smali：非 null 则 setContentView + setRenderer，GLThread 每帧调 OnUpdate 出帧）；
        EGL 失败（无 GPU）→ 返回 NULL，Java 侧跳过 setContentView（空白界面，不崩）。 */
     #define SPAK_DIR "/data/local/tmp/spak_res"  /* 免 push：可改 app 私有目录；当前固定 tmp */
-    LOGI("GLDIAG③b 入口：jq_glview_init 即将调用（spak=%s env=%p act=%p）", SPAK_DIR, (void*)env, (void*)activity);
     int glv_ok = (jq_glview_init(&g_glview, &g_state, SPAK_DIR, NULL, g_assets) == 0);
-    LOGI("GLDIAG③b jq_glview_init 返回 %d", glv_ok);
     if (glv_ok)
         LOGI("OnCreate：GLView EGL 上下文 + 渲染器就绪");
     else
@@ -2294,9 +2281,7 @@ Java_com_cnvcs_App_OnCreate(JNIEnv *env, jclass clazz, jobject activity)
            绕开 Java GLThread 的 GL1 EglHelper 死结）。
            window surface：GLView extends SurfaceView → getHolder().getSurface() →
            ANativeWindow_fromSurface → 渲染线程 blit 出屏。 */
-        LOGI("GLDIAG③b 渲染线程启动前（jview=%p glv_ok=%d）", jview, glv_ok);
         jq_glview_start_render_thread();
-        LOGI("GLDIAG③b 渲染线程启动后");
         /* 拿 GLView 的 Surface（SurfaceView.getHolder().getSurface()）→ 主线程 fromSurface
            （JNI 调用需 attach 线程；渲染线程未 attach 不能调）。ANativeWindow* 存全局，
            渲染线程只做 EGL 合成 + swap（不碰 JNI）。
