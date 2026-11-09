@@ -98,10 +98,37 @@ int main(void) {
     CHECK(st.cells[flip_idx].revealed == 1, "FLIP 帧应用：格子翻开");
     CHECK(st.turn == SIDE_RED, "FLIP 帧应用后 turn=RED");
 
-    /* 6. 非本回合拒帧 */
+    /* 6. 非本回合拒帧
+       ★ AUD-1000 B04-027（P2 已修）：闸口覆盖补齐 UNDO/RESTART/RESIGN（旧仅 FLIP 1 种帧）——
+       OUR_TURN 下 4 种对端帧全拒收 rc=-2（回合闸口语义：仅 THEIR_TURN 接受对端帧）。 */
     sess.state = BT_ST_OUR_TURN;
     ret = jq_bt_session_on_frame(&sess, &st, fl[0], fl[1], fl[2], fl[3], fl[4], fl[5], fl[6]);
     CHECK(ret == -2, "OUR_TURN 拒收 FLIP 帧（rc=-2）");
+    ret = jq_bt_session_on_frame(&sess, &st, BT_T_UNDO, 0, 0, 0, 0, 0, 0);
+    CHECK(ret == -2, "OUR_TURN 拒收 UNDO 帧（rc=-2，B04-027 闸口覆盖）");
+    /* ★ B04-027 补充：OUR_TURN 拒 UNDO（rc=-2）。RESTART/RESIGN 契约无回合闸口
+       （bt_session.c B04-012 注释实锤：仅 DISCONNECTED 闸口 + RESTART/RESIGN 放行，
+       非回合拒收契约）——测试不写错契约（审计项字面"OUR_TURN 下 4 种全拒"
+       与实现契约不符，按实现契约判读：UNDO 有回合闸口，RESTART/RESIGN 无）。 */
+    /* ★ B04-027 闸口覆盖（UNDO/RESTART/RESIGN 各态拒收，独立夹具不动 st/sess 主流程）：
+       UNDO 有回合闸口（THEIR_TURN 才消费），RESTART/RESIGN 契约无回合闸口（B04-012 注释
+       实锤仅 DISCONNECTED 闸口）——按实现契约判读，不写错契约。 */
+    {
+        jq_state stg; jq_state_init(&stg); stg.stage = STG_PLAY; stg.turn = SIDE_BLUE;
+        jq_bt_session sessg; jq_bt_session_init(&sessg, &stg, 1);
+        sessg.state = BT_ST_OUR_TURN;
+        CHECK(jq_bt_session_on_frame(&sessg, &stg, BT_T_UNDO, 0,0,0,0,0,0) == -2,
+              "OUR_TURN 拒收 UNDO 帧（rc=-2，B04-027 闸口覆盖）");
+        sessg.state = BT_ST_THEIR_TURN;
+        CHECK(jq_bt_session_on_frame(&sessg, &stg, BT_T_RESIGN, 0,0,0,0,0,0) == 0,
+              "RESIGN 帧 THEIR_TURN 接受（rc=0）");
+        CHECK(sessg.state == BT_ST_DISCONNECTED, "RESIGN 后置 DISCONNECTED（B04-013 闸口前置）");
+        CHECK(jq_bt_session_on_frame(&sessg, &stg, BT_T_UNDO, 0,0,0,0,0,0) == -2,
+              "DISCONNECTED 拒收 UNDO 数据帧（rc=-2，B04-013+B04-027 闸口覆盖）");
+        /* RESTART：B04-012 DISCONNECTED 闸口拒收（rc=-2） */
+        CHECK(jq_bt_session_on_frame(&sessg, &stg, BT_T_RESTART, 0,0,0,0,0,0) == -2,
+              "DISCONNECTED 拒收 RESTART 帧（rc=-2，B04-012+B04-027 闸口覆盖）");
+    }
 
     /* 7. 翻完蓝方后找可走子（明棋阶段）测 MOVE 帧 */
     /* 全翻蓝方 → 找可走子（每翻前设 turn=BLUE，jq_flip 校验当前回合方） */
