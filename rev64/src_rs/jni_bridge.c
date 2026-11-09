@@ -2213,7 +2213,9 @@ Java_com_cnvcs_App_OnCreate(JNIEnv *env, jclass clazz, jobject activity)
     {
         char ft_prop[16] = {0};
         __system_property_get("jq.flagtest", ft_prop);
+        LOGI("GLDIAG-ft-prop: jq.flagtest=%s", ft_prop[0] ? ft_prop : "(empty)");
         if (strcmp(ft_prop, "1") == 0) {
+            LOGI("GLDIAG-ft-1: 注入分支进入（memset 前）");
             memset(&g_state, 0, sizeof(g_state));
             g_state.turn = SIDE_BLUE; g_state.stage = STG_PLAY; g_state.winner = JQ_WIN_NONE;   // AUD-R-053：winner 未定哨兵
             for (int i = 0; i < N_CELLS; i++) g_state.cells[i].rank = RANK_EMPTY;
@@ -2221,11 +2223,14 @@ Java_com_cnvcs_App_OnCreate(JNIEnv *env, jclass clazz, jobject activity)
             g_state.cells[58].rank = 12 + 0xc; g_state.cells[58].side = SIDE_RED; g_state.cells[58].revealed = 1;
             g_state.cells[58].flags = JQF_FLAG;
             g_undo_top = 0;
+            LOGI("GLDIAG-ft-2: memset 完成，ui_screen_set(UI_GAME) 前");
             ui_screen_set(UI_GAME);
             /* ★ AUD-1000 B03-044（P1 已注释，诚实边界）：flagtest 测试钩子把 UI 初态
                从 UI_MENU(1188) 改到 UI_GAME——仅测试 prop 触发时发生（非默认路径），
                渲染层进棋盘而非菜单，与测试语义一致，保留。 */
+            LOGI("GLDIAG-ft-3: ui_screen_set 完成，jq_try_move(53,58) 前");
             int ftev = jq_try_move(&g_state, 53, 58);
+            LOGI("GLDIAG-ft-4: jq_try_move 完成 ev=%d，sfx_play 前", ftev);
             if (ftev >= 0 && ftev < 7) { g_event_cnt[ev7_to_name_idx(ftev)]++; g_event_total++; }   /* AUD-R-061：7 项事件码（AUD-A-0003：下界+上界守卫已全，真修确认关闭） */
             LOGI("flagtest：近旗状态注入 + 自动走 53→58 ev=%d %s（turn=%d stage=%d winner=%d）",
                  ftev, ftev < 0 ? "-" : JQ_EVENT_NAMES[ftev < 7 ? ftev : 0],
@@ -2234,7 +2239,9 @@ Java_com_cnvcs_App_OnCreate(JNIEnv *env, jclass clazz, jobject activity)
             /* ★ 对局结束音效（flagtest 自动走吃旗 → stage=OVER → win/lose；
                OnCreate 自动走不经 OnTouch 走子块，故此处补播） */
             sfx_game_over(env, g_state.stage, g_state.winner);
+            LOGI("GLDIAG-ft-5: sfx 完成，__system_property_set 前");
             __system_property_set("jq.flagtest", "0");
+            LOGI("GLDIAG-ft-6: flagtest 注入段完成");
         }
     }
     {

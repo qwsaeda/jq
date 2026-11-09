@@ -95,15 +95,24 @@ def detect_btn_rows(px, x_probe, y_from, y_to, w=720):
 
 
 def clear_all_props():
-    """★ 触发前全量清 jq.* 残留（红果 property service 清不干净，随机残留 jq.dlgNNN
-       会导致非预期 datah 弹窗覆盖主菜单。先清全量再 set 目标）。"""
-    # dlgbatch + 全量 dlg000-264 + 测试钩子属性
-    for p in ("closetest","drawtest","flagtest","minetest","poptest","resigntest",
-              "stalematetest","restartgame","movetest","replay","backtest","imen","login","btconn","bttest"):
-        adb("shell", "setprop", f"jq.{p}", "0")
-    adb("shell", "setprop", "jq.dlgbatch", "0")
-    for i in range(0, 265):
-        adb("shell", "setprop", f"jq.dlg{i:03d}", "0")
+    """★ 触发前全量清 jq.* 残留（红果 property service 有缓存残留——2026-11-09 实锤：
+       jq.dlgNNN/flagtest/minetest 反复冒出，设备端 getprop 清后仍反复 [1]）。
+       连清 3 次兜底 property service 缓存 + 设备端 getprop 残留检查。"""
+    # dlgbatch + 全量 dlg000-264 + 测试钩子属性（含 game_test/native_event）
+    for _round in range(3):
+        for p in ("closetest","drawtest","flagtest","minetest","poptest","resigntest",
+                  "stalematetest","restartgame","movetest","replay","backtest","imen",
+                  "login","btconn","bttest","game_test","native_event"):
+            adb("shell", "setprop", f"jq.{p}", "0")
+        adb("shell", "setprop", "jq.dlgbatch", "0")
+        for i in range(0, 265):
+            adb("shell", "setprop", f"jq.dlg{i:03d}", "0")
+    # 设备端残留检查（清后 getprop 仍有 [1] 则告警，防残留污染验证）
+    residual = adb("shell", "sh", "-c",
+                   "getprop | grep 'jq.' | grep -vE '\\[0\\]|\\[empty\\]' || true").strip()
+    if residual:
+        lines = residual.splitlines()
+        print(f"  ⚠ clear_all_props 残留（property service 缓存，3 轮清后仍 {len(lines)} 条）：{lines[:3]}", flush=True)
 
 
 def verify_one(n, keep_shot=False, jitter=True):
@@ -134,9 +143,10 @@ def verify_one(n, keep_shot=False, jitter=True):
     adb("shell", "am", "start", "-n", f"{PKG}/com.cnvcs.App")
     # ★ 2026-11-11 window 出屏修复后：渲染线程 window surface attach 慢（fromSurface 轮询重试，
     #   1Hz 心跳节流），首帧出屏需 ~8s。4s 截图窗口不够 → 非黑 0% 假 FAIL。改 10s+抖动。
-    # ★ 红果转译层慢（2026-11-09 实锤）：fromSurface attach 需 ~90s，10s 窗口不够 → 白屏。
-    #   红果 90s+抖动 / MuMu 12s（旧值，快）。
-    wait = 90.0 if DEV.startswith("10.") else 12.0
+    # ★ 红果转译层慢（2026-11-09 实锤）：fromSurface attach 需 ~50-90s（fromSurface
+    #   第 2529 次重试才建 window surface），旧 90s 窗口不够 → 改 100s+抖动。
+    #   MuMu 12s（快）。
+    wait = 100.0 if DEV.startswith("10.") else 12.0
     time.sleep(wait + (random.uniform(0.0, 2.0) if jitter else 0.0))
 
     pid = adb("shell", "pidof", PKG).strip()
