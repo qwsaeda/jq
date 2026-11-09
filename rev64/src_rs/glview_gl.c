@@ -293,7 +293,7 @@ static void *rs_render_thread_main(void *arg)
         EGLSurface target = (g_win_surf != EGL_NO_SURFACE) ? g_win_surf
                           : (g_pbuf_ok ? g_rr.egl_surf : EGL_NO_SURFACE);
         if (target != EGL_NO_SURFACE && (!g_gl_current ||
-            (target == g_win_surf) != (EGLSurface)g_current_is_window)) {
+            g_current_is_window != ((g_win_surf != EGL_NO_SURFACE && target == g_win_surf) ? 1 : 0))) {
             if (eglMakeCurrent(g_rr.egl_disp, target, target, g_rr.egl_ctx)) {
                 g_gl_current = 1;
                 g_current_is_window = (target == g_win_surf);
