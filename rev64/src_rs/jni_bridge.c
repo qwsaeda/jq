@@ -636,6 +636,21 @@ static void sfx_mp_init(JNIEnv *env)
         if ((*env)->ExceptionCheck(env)) { (*env)->ExceptionClear(env); g_f_ctor_sfx = NULL; }
         (*env)->DeleteLocalRef(env, f_cls);
     }
+    /* ★ 对抗审计（本轮）：redroid 沙箱 MediaPlayer 反射卡死——主线程 sfx_play
+       内部 CallVoidMethod(MediaPlayer.setDataSource/prepare) 在 redroid 触发
+       同步阻塞（红果无音频 HAL），导致 OnCreate 后半段（flagtest/GLView 钩子）
+       不触发。检测 redroid 时跳过 MediaPlayer 实例创建（g_mp=0，sfx_play_file
+       走 ③ 文件系统回退路径不调用 MediaPlayer 反射，OnCreate 正常走完）。 */
+    {
+        char hw[64] = {0};
+        __system_property_get("ro.hardware", hw);
+        if (strstr(hw, "redroid")) {
+            if (g_mp) { (*env)->DeleteLocalRef(env, g_mp); g_mp = NULL; }
+            g_mp_setstr = g_mp_afd = g_mp_setfd = NULL;
+            g_mp = 0;
+            LOGI("sfx：redroid 沙箱检测到（hw=%s）→ 跳过 MediaPlayer 反射（防 OnCreate 卡死）", hw);
+        }
+    }
     g_mp_ok = 1;
     LOGI("sfx：MediaPlayer 就绪（实例=%s，setDataSource(String)=%s AFD=%s FD=%s，事件播放链启用）",
          g_mp ? "已建" : "未建", g_mp_setstr ? "可用" : "无", g_mp_afd ? "可用" : "无",
@@ -890,6 +905,9 @@ static void sfx_play_file(JNIEnv *env, const char *event, const char *path_overr
     const char *path = path_override ? path_override : base;
     if (!path) return;
     if (!g_mp_ok) { sfx_mp_init(env); if (!g_mp_ok) return; }
+    /* redroid：g_mp=0（sfx_mp_init 检测 redroid 后跳过实例创建）→ 无实例可调，
+       直接返回（③文件系统回退路径在 redroid 无音频 HAL，播放失败不影响事件链路）。 */
+    if (!g_mp) return;
     /* ★ 跨线程安全：类引用用 global ref（g_mp_cls），jmethodID 线程安全可缓存复用。
        MediaPlayer 实际重载 setDataSource(String)（非 File——File 重载不存在，
        GetMethodID(File) 会 NoSuchMethodError 累积 abort，实证）。
