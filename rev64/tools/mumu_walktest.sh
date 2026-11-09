@@ -84,10 +84,13 @@ done
 
 # 期望事件验证 + 日志 + 进程
 if [[ -n "$EXPECT" ]]; then
-  if adb -s $DEV logcat -d 2>/dev/null | grep -qi "$EXPECT"; then
-    log "✓ 期望事件 $EXPECT 出现"
+  # ★ AUD-1000-ALL A12-F12-011（P2 已修）：--expect 判据加 PID 新鲜度（B07-003 范式）——
+  #   旧版 grep 全量 logcat -d（logcat -c 非 root 时历史残留 → 旧进程判据行误判 PASS）。
+  WT_PID=$(adb -s $DEV shell "pidof $PKG" 2>/dev/null | tr -d '\r')
+  if adb -s $DEV logcat -d 2>/dev/null | grep -i "$EXPECT" | grep -q "${WT_PID:-__pid__}"; then
+    log "✓ 期望事件 $EXPECT 出现（PID $WT_PID 新鲜）"
   else
-    log "★ 期望事件 $EXPECT 未出现"; exit 1
+    log "★ 期望事件 $EXPECT 未出现（或判据行非当前进程 PID）"; exit 1
   fi
 fi
 # turn 交替持续验证（红 AI 应着 → "turn 切回蓝方" ≥ SEQ 步数）

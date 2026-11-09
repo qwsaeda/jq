@@ -319,6 +319,11 @@ static void rs_read_png(AAssetManager *am, const char *asset_path,
         fseek(f, 0, SEEK_SET);
         unsigned char *buf = malloc(sz > 0 ? sz : 1);
         if (fread(buf, 1, sz > 0 ? sz : 1, f) == (size_t)(sz > 0 ? sz : 1)) {
+            /* ★ AUD-1000 B04-047（P2 已修）：0 字节文件显式 LOGI（原静默走 asset 兜底
+               ——0 字节 fs 文件多为 push 残留/损坏，asset 兜底可能掩盖设备端资源未推
+               全的根因；诊断区分「0 字节 fs」与「fs 缺失→asset 兜底成功」。 */
+            if (sz == 0)
+                LOGI("rs_read_png：fs 0 字节（%s）→ asset 兜底", fs_path);
             fclose(f);
             *out = buf; *out_len = sz;
             return;
@@ -335,11 +340,17 @@ static void rs_read_png(AAssetManager *am, const char *asset_path,
     if (am) a = AAssetManager_open(am, asset_path, AASSET_MODE_BUFFER);
     if (a) {
         int64_t sz = AAsset_getLength(a);
+        /* ★ AUD-1000 B04-048（P2 已修）：AAsset_getLength 负值（AASSET 非 0/损坏）
+           防护——原 sz>0?sz:1 负值走 1 字节读（静默），现负值显式拒收走双路失败诊断。 */
+        if (sz < 0) { LOGI("rs_read_png：AAsset_getLength 负值（%s）→ 拒收", asset_path); AAsset_close(a); }
+        else {
         unsigned char *buf = malloc(sz > 0 ? sz : 1);
         int64_t rd = AAsset_read(a, buf, sz > 0 ? (size_t)sz : 1);
         AAsset_close(a);
-        if (rd == sz) { *out = buf; *out_len = sz; return; }
+        if (rd == sz) { *out = buf; *out_len = sz; AAsset_close(a); return; }
         free(buf);
+        }
+        AAsset_close(a);
     }
     /* 双路均无 → LOGI 诊断（资源缺失显式告警，便于真机/设备端资源对齐排查） */
     FILE *f = fopen(fs_path, "rb");
@@ -10230,6 +10241,17 @@ void rs_render_frame(rs_render *rr)
             if (!imgset_piece) continue;
             int rank = rank_of(c);
             if (rank < 1 || rank > 12) continue;
+            /* ★ AUD-1000 B04-057（P2 已修）：蓝方/未定色脏 rank(13-24) 经 rank_of 钳位
+               返 RANK_TOP(12=军旗) → 原 rank>12 判据拦截不住 → 非法子误画军旗位。
+               加 side 感知判据：蓝/未定色方（side 0/0xFF，rank 合法域 [1,12] 且蓝侧
+               实际 rank 存储原值）rank_of 返 12 但 c->rank>12（脏）拒画；红侧 +0xc
+               编码 c->rank∈[13,24] 经 rank_of 还原 [1,12] 合法放行。 */
+            if (rank == RANK_TOP && c->side != SIDE_RED && c->rank > RANK_TOP) continue;
+            /* ★ AUD-1000 B04-056（P2 已注释）：棋子图集 4×7（PIECE_GRID_W=4）——
+               红方 rank1-12 → row0-2（4×3），蓝方 rank1-12 → row3-5（4×3），
+               背面 row6（col0 固定，PIECE_BACK_ROW/COL）。rank→col=(rank-1)%4
+               row=(rank-1)/4，蓝方整体 row+3。图集源自 SPAK datah#183 212×280
+               （§124w-ALIGN 固化），布局不可改（与纹理顶点 1:1 对应）。 */
             int col = (rank - 1) % PIECE_GRID_W;
             int row = (rank - 1) / PIECE_GRID_W;
             if (c->side == SIDE_BLUE) row += 3;

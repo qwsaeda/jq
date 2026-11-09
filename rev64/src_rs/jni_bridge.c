@@ -191,7 +191,8 @@ jq_state g_state;                /* 对局全局状态（规则引擎） */
 jq_glview g_glview;             /* GLView 线程驱动 */
 jq_touch_state g_ts;            /* 触摸两步态机 */
 jq_bt_session g_bt_sess;        /* 蓝牙会话 */
-static void jq_bt_test_run(jq_state *st, const char *tag);  /* 蓝牙帧状态机测试（OnEvent bttest / setprop jq.bttest 复用） */
+static void jq_bt_test_run(jq_state *st, const char *tag);
+static volatile int g_mt_inject_pending = 0;   /* ★ A11-F11-04（P2 已修）：minetest 一次性注入标志（锁内段置位→unlock 后段消费，prop 清 0 防残留重复注入） */  /* 蓝牙帧状态机测试（OnEvent bttest / setprop jq.bttest 复用） */
 
 /* ★ 对局模式（用户指正"各按钮点击业务功能要对齐"）：人机 vs 两人热座区分。
    1=人机对战（红方回合由 AI 自动走子 ai_pick）；0=两人热座/蓝牙（红方由玩家/对端走）。
@@ -975,7 +976,7 @@ static void sfx_play_file(JNIEnv *env, const char *event, const char *path_overr
    （NULL=无），由 OnEvent 解锁后调 sfx_play（对齐 OnTouch :7983 锁外播范式）。 */
 /* ★ 对抗审计 P1-J11：原 g_bt_sess_init（不带 _done）全仓无读点（纯写不读死字段），
    与 g_bt_sess_init_done 并行维护冗余。删除 g_bt_sess_init，仅留 g_bt_sess_init_done。 */
-static int g_bt_sess_init_done = 0;
+static volatile int g_bt_sess_init_done = 0;   /* ★ AUD-1000-ALL A2-002/003/033（P2 已修）：volatile——BtSpp 读线程锁内写 1 + 主线程 OnTouch 锁外裸读（:8478 发送闸口）+ GLThread 读，int 单字写原子但 volatile 保证编译器不 hoist/缓存（蓝牙走子静默不发帧根因） */
 /* ★ AUD-1000 B03-013/B03-047/B03-067（P1 已修）：g_bt_sess 字段/标志跨线程契约——
    g_bt_sess_init_done 与 g_bt_sess.state 的锁内读写点：start_bt_session 初始化段、
    OnBluetooth 懒初始化 + 收帧处理（均在 g_mutex 内）；锁外读（☰ 菜单 7712/7730 的
@@ -1619,8 +1620,14 @@ Java_com_cnvcs_App_OnCreate(JNIEnv *env, jclass clazz, jobject activity)
         char mt_prop[16] = {0};
         __system_property_get("jq.minetest", mt_prop);
         if (strcmp(mt_prop, "1") == 0) {
-            LOGI("minetest：注入延迟到 g_mutex unlock 后执行（避免 g_ui_lock 逆序死锁），prop=1 已读到");
-            __system_property_set("jq.minetest", "1");   /* 保持 1，unlock 后段再读再注入 */
+            /* ★ AUD-1000-ALL A11-F11-04（P2 已修）：minetest 保持 1 崩溃残留重复注入——
+               旧实现锁内段读 1 后 set 1"保持"，unlock 后段再读 prop 注入。崩溃/重启
+               后 prop 仍 1 → 下轮 OnCreate 再次注入（残留重复注入，非一次性）。
+               修：锁内段即清 0，unlock 后段用 static 注入标志（g_mt_inject_pending）传递
+               语义，钩子严格一次性。 */
+            g_mt_inject_pending = 1;
+            __system_property_set("jq.minetest", "0");
+            LOGI("minetest：注入延迟到 g_mutex unlock 后执行（一次性标志，prop 已清 0）");
         }
     }
     /* ★ P1（datah_012）：游戏设置 setprop 钩子（adb setprop jq.gameset 1 → 重启 → OnCreate 弹 UI_GAMESET）。
@@ -2257,8 +2264,10 @@ Java_com_cnvcs_App_OnCreate(JNIEnv *env, jclass clazz, jobject activity)
     }
     {
         char mt_prop[16] = {0};
-        __system_property_get("jq.minetest", mt_prop);
-        if (strcmp(mt_prop, "1") == 0) {
+        /* ★ A11-F11-04（P2 已修）：改读一次性标志（锁内段已清 prop 0） */
+        int mt_go = g_mt_inject_pending;
+        g_mt_inject_pending = 0;
+        if (mt_go) {
             memset(&g_state, 0, sizeof(g_state));
             g_state.turn = SIDE_BLUE; g_state.stage = STG_PLAY; g_state.winner = JQ_WIN_NONE;   // AUD-R-053：winner 未定哨兵
             /* ★ 幂等修复：memset 后 mines_cleared/pieces_left 残留上一次注入值（ev 漂移 5→4），
@@ -2316,7 +2325,7 @@ Java_com_cnvcs_App_OnCreate(JNIEnv *env, jclass clazz, jobject activity)
                     ui_replay_record(f, t, 0);
                     okcnt++;
                     LOGI("movetest 自动走子 第%d步 (%d,%d)→(%d,%d) ev=%d %s（记录 n=%d）",
-                         k + 1, f, t, f, t, mv, JQ_EVENT_NAMES[mv], ui_replay_count());
+                         k + 1, f, t, f, t, mv, JQ_EVENT_NAMES[mv < 7 ? mv : 0], ui_replay_count());   /* ★ A3-F3-005（P2 已修）：mv<7 上界守卫（全仓 8 处同款，唯此漏） */
                 } else {
                     LOGI("movetest 自动走子 第%d步 (%d,%d) 非法（布局/回合不合法，停止）", k + 1, f, t);
                     break;

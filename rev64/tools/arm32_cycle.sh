@@ -54,7 +54,15 @@ if [ $VERIFY -eq 1 ]; then
     exit 1
   fi
   # 用 mumu_verify.sh 但覆盖等待时间
+  # ★ AUD-1000-ALL A5-F5-006（P2 已修）：`bash mumu_verify.sh 2>&1 | sed` 管道——上游
+  #   mumu_verify.sh 失败（装机/判据 FAIL exit 1）被 sed 吞码（管道 rc=sed 的 0），
+  #   外层 `bash arm32_cycle.sh` 误判 PASS。修：捕获 PIPESTATUS[0]（bash），显式传播 rc。
   bash $WS/rev64/tools/mumu_verify.sh "$APK" "$DEV" 2>&1 | sed 's/sleep 12/sleep '"$WAIT"'/'
+  VERIFY_RC=${PIPESTATUS[0]}
+  if [ $VERIFY_RC -ne 0 ]; then
+    echo "★ mumu_verify.sh 失败（rc=$VERIFY_RC）——验证 FAIL（非设备不可达，判据/装机段失败）"
+    exit 1
+  fi
 else
   echo "══════════ 产物就绪（未验证）══════════"
 fi

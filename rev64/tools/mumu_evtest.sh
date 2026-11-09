@@ -289,7 +289,15 @@ case "$PROP" in
     log "=== $KIND 事件测试（setprop $PROP 1 → logcat -c → am start，OnCreate 钩子）==="
     adb -s $DEV shell am force-stop com.cnvcs.junqirs >/dev/null 2>&1; sleep 3
     adb -s $DEV shell setprop $PROP 0; sleep 1
+    # ★ AUD-1000-ALL A12-F12-002/012（P2 已修）：setprop 1 后 getprop 轮询确认=1
+    #   （property service 写入有延迟窗口，旧版直接 am start 时 OnCreate 可能读到 0
+    #   → 钩子不命中假 FAIL）。轮询最长 3s（15×0.2s 间隔）。
     adb -s $DEV shell setprop $PROP 1
+    for _g in $(seq 1 15); do
+      GPV=$(adb -s $DEV shell getprop $PROP | tr -d '\r')
+      [ "$GPV" = "1" ] && break
+      sleep 0.2
+    done
     adb -s $DEV logcat -c
     adb -s $DEV shell am start -n com.cnvcs.junqirs/com.cnvcs.App >/dev/null 2>&1
     wait_proc 20 || { log "★ 进程未启动（20s 超时）"; exit 1; }

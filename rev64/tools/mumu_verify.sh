@@ -38,10 +38,16 @@ adb -s $DEV shell "su 0 pm install -r /data/local/tmp/verify.apk" 2>&1 | tr -d '
 echo "=== [3/6] 启动 ==="
 adb -s $DEV logcat -c >/dev/null 2>&1
 adb -s $DEV shell "am force-stop $PKG; am start -n $PKG/com.cnvcs.App" 2>&1 | tail -1
-sleep 12
+# ★ AUD-1000-ALL A12-F12-004（P2 已修）：固定 sleep 12 改轮询（MuMu 冷启首帧窗口 20-25s，
+#   固定 12s 截图全黑假红；轮询最长 30s，进程起来即走后续段）。
+for _w in $(seq 1 15); do
+  sleep 2
+  PID=$(adb -s $DEV shell "pidof $PKG" 2>/dev/null | tr -d '\r\n ')
+  [ -n "$PID" ] && break
+done
 
 echo "=== [4/6] 进程状态 ==="
-PID=$(adb -s $DEV shell "pidof $PKG" 2>/dev/null | tr -d '\r\n ')
+PID=$(adb -s $DEV shell "pidof $PKG" 2>/dev/null | tr -d '\r\n ')   /* 轮询段后重读（进程可能已起） */
 echo "  pid = ${PID:-<无，进程已死>}"
 
 echo "=== [5/6] 日志摘要 ==="
