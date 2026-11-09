@@ -8797,7 +8797,10 @@ Java_com_cnvcs_App_OnBluetooth(JNIEnv *env, jclass clazz, jobject intent)
                并发（半更新 cell 窗口 <16ms，BT UNDO 非高频路径，SYNC 全量兜底收敛）。
                ★ B03-017：容量守卫 = 实缓冲 sizeof(g_bt_payload)；B09-038 帧推进不受影响。 */
             if (did_undo) {
-                char sbuf[BT_BUF * 64];   /* 锁外编码（60 帧） */
+                /* ★ AUD-1000-ALL A10-D4-01（P2 已修）：sbuf 栈压 16KB（BtSpp 读线程栈）→ static 复用
+                   （同 g_bt_payload 范式，OnBluetooth 帧循环串行，static 安全） */
+                static char g_bt_sbuf[BT_BUF * 64];   /* 锁外编码（60 帧，static 复用免栈压） */
+                char *sbuf = g_bt_sbuf;
                 int sn = jq_bt_session_send_sync(&g_bt_sess, &g_state, sbuf, BT_BUF);
                 int plen = 0;
                 if (sn > 0) {

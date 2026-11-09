@@ -33,6 +33,9 @@
 int jq_bt_frame_encode(char *buf, int cap, int type, int f1, int f2,
                       int f3, int f4, int f5, int f6, int f7)
 {
+    (void)f7;   /* ★ AUD-1000-ALL A4-02（P2 已修）：f7 静默丢弃（帧 7 字段设计——f7=ev 事件码
+       不发帧内，对端靠本地规则引擎 jq_try_move 重推走子类型，跨语言契约 §B04 注释，
+       非缺陷。诚实边界：若未来帧协议扩展需 f7 字段，改 snprintf 7 数据位 + decode 同步。 */
     if (!buf || cap < 8) return -1;
     /* ★ 对抗审计 #3：原版帧 = v2\ntype,fc,fr,tc,tr,rank,side\n（7 字段，type 首字段）。
        旧版 snprintf 只用 f1..f7，丢 type → 帧类型丢失，decode 首字段当 fc 错位。
