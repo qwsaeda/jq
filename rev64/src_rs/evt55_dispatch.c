@@ -106,9 +106,9 @@ int jq_evt55_dispatch(int code, const char *evname)
         g_event_cnt[evname_idx]++;
         g_event_total++;
     }
-    /* 日志：handler 地址标识（32位 .text 地址，诊断用） */
-    extern void evt55_log_dispatch(int code, uint32_t handler_addr, int evname_idx);
-    evt55_log_dispatch(code, e55_handler_addr[code], evname_idx);
+    /* handler 地址（32位 .text 标识）：e55_handler_addr[code] 用于诊断日志
+       （evt55_log_dispatch 未实现，此处标记使用消除 unused 告警） */
+    (void)e55_handler_addr[code];
     return 1;
 }
 

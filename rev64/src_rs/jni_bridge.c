@@ -981,6 +981,18 @@ int g_event_cnt[JQ_EVENT_NAME_COUNT];   /* ★ 原版行为移植（本轮）：
                                AUD-R-062（P2）：g_event_cnt[0]=EV_MOVE 与 [5]=EV_MINE 同名 "Junqi.Move"
                                （对齐原版设计）——按**事件码**分流统计（两位分开计），按**事件名**分流音效。 */
 int g_event_total = 0;   /* ★ 原版行为移植：非 static（evt55_dispatch.c 跨文件计数） */
+
+/* ★ 原版行为移植（55 code 全链）：7 事件码 → 73 事件名索引映射（直接计数路径用）
+   7-code 索引 0-6 对应 73-name 索引 0,1,2,3,4,0(MINE 同名 Move),5(Flip)。
+   直接 g_event_cnt[ev] 写法在 7→73 扩容后错位（code 5/6 写到 name 0/5 而非 5/6），
+   统一走本映射函数。 */
+static int ev7_to_name_idx(int ev)
+{
+    if (ev >= 0 && ev < 5) return ev;   /* Move/Eat/Bomb/Flag/Dead → name idx 0-4 */
+    if (ev == 5) return 0;              /* EV_MINE → Junqi.Move (AUD-R-062 同名，name idx 0) */
+    if (ev == 6) return 5;              /* EV_FLIP → Junqi.Flip (name idx 5) */
+    return 0;   /* 越界兜底 */
+}
 static int  g_way_host = 1;   /* ★ 对抗审计（datah_072）：方式选择来源——2=联网(host) 3=联机(client) */
 
 static const char *on_event(const char *name, const char *value, JNIEnv *env)

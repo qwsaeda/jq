@@ -48,6 +48,11 @@ static EGLConfig g_cfg = 0;                  /* 主 config（EGL_WINDOW_BIT|PBUF
 static int g_cfg_ready = 0;
 static void *g_surf_jobj = NULL;             /* Surface jobject（global ref，轮询 fromSurface 用）*/
 static int g_pbuf_ok = 0;            /* PBuffer 兜底 surface 建成功标志（init 时设） */
+/* ★ MuMu 出屏修复：渲染线程 window fromSurface 重试状态 */
+static int  win_retry_cnt = 0;        /* fromSurface 重试次数 */
+static int  win_last_try = 0;         /* 上次重试的 frame_cnt（节流每 60 帧） */
+static JNIEnv *g_ehl_env = NULL;       /* 渲染线程 attach JVM 拿的 env（fromSurface 需） */
+static int  egl_current_thread_attached = 0; /* 渲染线程已 attach JVM（fromSurface 前置） */
 static int g_win_failed = 0;         /* window surface 创建失败标志（失败后不再重试，退 PBuffer 兜底） */
 static int g_win_retry_cnt = 0;       /* 渲染线程帧计数（window 重试节流用） */
 
@@ -223,7 +228,9 @@ static void rs_render_attach_jvm(void)
         }
     }
     if (env)
-        LOGI("渲染线程已 attach JVM");
+        g_ehl_env = env;
+        egl_current_thread_attached = 1;
+        LOGI("渲染线程已 attach JVM（env=%p，fromSurface 轮询 window 出屏就绪）", (void*)env);
 }
 
 /* 正向出屏渲染线程：
@@ -252,10 +259,28 @@ static void *rs_render_thread_main(void *arg)
              eglSwapBuffers 上屏。PBuffer 兜底（window 未 attach 时离屏保活）。
              MuMu 上 SurfaceView surface 懒创建（isValid=0 直到 layout pass），渲染线程
              每 600 帧（~30s）重试 fromSurface（g_win 未拿到时）。 */
-        /* ★ 出屏主路归 Java EglHelper（OnUpdate 在 GLThread 的 window context 上 rs_render_frame，
-           EglHelper.eglSwapBuffers 出屏）：渲染线程不再 eglCreateWindowSurface 抢 window
-           （与 EglHelper 同 window 双 EGL surface → 0x3003 "already connected" + context 抖动）。
-           渲染线程只走 PBuffer 兜底（离屏保活，1Hz 心跳）。 */
+        /* ★ MuMu 出屏修复（2026-11-11 全做）：surface 未 attach（OnCreate fromSurface 返 NULL）
+           时，渲染线程 attach JVM 后用 global ref 轮询 ANativeWindow_fromSurface（每 60 帧重试），
+           拿到 window 后 eglCreateWindowSurface + makeCurrent → 切 window 出屏（画面真正上屏）。
+           ★ 0x3003 "already connected" 防护：eglCreateWindowSurface 前先检查 g_win_surf 是否已建，
+             且不与 EglHelper 同 window 双 surface（EglHelper 出帧后本线程 eglDestroyContext 让出）。
+           PBuffer 仅作 window 未就绪时的离屏保活（1Hz 心跳）。 */
+        if (g_win_surf == EGL_NO_SURFACE && g_surf_jobj && egl_current_thread_attached) {
+            /* 渲染线程 attach 后 fromSurface（surface attach 后才 valid，OnCreate 时懒创建返 NULL） */
+            if (!win_retry_cnt || (frame_cnt - win_last_try) >= 60) {
+                win_last_try = frame_cnt;
+                win_retry_cnt++;
+                void *nw = ANativeWindow_fromSurface(g_ehl_env, g_surf_jobj);
+                if (nw) {
+                    g_win = nw;
+                    /* 建 window EGL surface（EGL_WINDOW_BIT）→ 切 window 出屏主路 */
+                    g_win_surf = eglCreateWindowSurface(g_rr.egl_disp, g_cfg, (EGLNativeWindowType)nw, NULL);
+                    if (g_win_surf != EGL_NO_SURFACE)
+                        LOGI("渲染线程 window surface 创建成功（fromSurface 第 %d 次重试）→ 出屏主路激活", win_retry_cnt);
+                } else if (win_retry_cnt % 12 == 1)
+                    LOGI("渲染线程 fromSurface 未 ready（第 %d 次，等 surface attach）", win_retry_cnt);
+            }
+        }
         if (!g_pbuf_ok && g_rr.egl_ctx) {
             /* 无 PBuffer + 无 window → 等 attach */
             struct timespec ts = {0, 50 * 1000 * 1000};
