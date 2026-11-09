@@ -30,6 +30,12 @@ extern pthread_mutex_t g_mutex;   /* ★ AUD-1000-ALL A2-007（P1 已修）：�
 #include <android/native_window.h>
 #include <android/native_window_jni.h>
 #include <jni.h>
+/* ★ 2026-11-10 flag/mine/restart 回归：渲染线程每帧消费 property 钩子
+   （原内联在 OnUpdate，GLThread 停帧时全死 → 6 项回归 FAIL）。g_ehl_env =
+   渲染线程 attach JVM 的 env（rs_render_attach_jvm 建，fromSurface 轮询段已在用）；
+   env 未建时传 NULL（jq_glview_props_update 内 sfx/on_event 需 env——NULL 时
+   仅规则钩子生效，音效/认输跳过，测试钩子可接受）。 */
+void jq_glview_props_update(JNIEnv *env);
 JavaVM *jq_get_jvm(void);
 #include <string.h>
 #include <stdlib.h>
@@ -377,6 +383,14 @@ static void *rs_render_thread_main(void *arg)
             }
         }
         frame_cnt++;
+        /* ★ 2026-11-10 flag/mine/restart 回归：每帧消费 property 钩子（restartgame/
+           undotest/resigntest/drawtest/stalematetest/closetest/poptest/replay/rules...）。
+           渲染线程 env = g_ehl_env（attach JVM 后有效；未 attach 传 NULL——jq_glview_props_update
+           内规则段（g_mutex+jq_*）无 env 依赖可执行，sfx/on_event 段 NULL env 下
+           (*env)->xxx 会崩→本线程 attach 失败时 g_ehl_env 保持 NULL，on_event/sfx 路径
+           需 env 非 NULL——见下方 NULL 守卫）。 */
+        if (g_ehl_env)
+            jq_glview_props_update(g_ehl_env);
         /* ★ 出图帧率（2026-11-09 修复）：window 出屏主路走 20fps（200ms 节拍，
            原版 60fps 由 Java GLThread/EglHelper 接管）；PBuffer 兜底降 1Hz 保活
            （不空转抢 CPU/GPU） */

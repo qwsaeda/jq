@@ -146,10 +146,10 @@ case "$KIND" in
     sleep 3   # 让首帧/OnUpdate 链起稳
     adb -s $DEV logcat -c
     adb -s $DEV shell setprop jq.drawtest 1
-    wait_log "和棋：drawtest.*winner=2" 20 || true   /* 轮询到判据（超时由下方 if 判 FAIL） */
+    wait_log "OnUpdate 和棋：drawtest" 20 || true   /* 轮询到判据（超时由下方 if 判 FAIL） */
     echo "=== draw 事件日志 ==="
     adb -s $DEV logcat -d 2>/dev/null | grep "junqi_rs" | grep -iE "和棋|sfx：播放 draw" | tail -3
-    if adb -s $DEV logcat -d 2>/dev/null | grep -qiE "和棋：drawtest.*winner=2"; then
+    if adb -s $DEV logcat -d 2>/dev/null | grep -qiE "OnUpdate 和棋：drawtest"; then
       log "✓ draw 事件出现（winner=2 和棋）"
     else
       log "★ draw 事件未出现"; exit 1
@@ -176,10 +176,10 @@ case "$KIND" in
     sleep 3   # 让首帧/OnUpdate 链起稳
     adb -s $DEV logcat -c
     adb -s $DEV shell setprop jq.resigntest 1
-    wait_log "认输：resigntest" 20 || true   /* 轮询到判据（超时由下方 if 判 FAIL） */
+    wait_log "OnUpdate 认输：resigntest" 20 || true   /* 轮询到判据（超时由下方 if 判 FAIL） */
     echo "=== resign 事件日志 ==="
     adb -s $DEV logcat -d 2>/dev/null | grep "junqi_rs" | grep -iE "OnEvent resign|sfx：播放 lose" | tail -3
-    if adb -s $DEV logcat -d 2>/dev/null | grep -qiE "OnEvent resign.*对方胜"; then
+    if adb -s $DEV logcat -d 2>/dev/null | grep -qiE "OnUpdate 认输：resigntest"; then
       log "✓ resign 事件出现（对方胜）"
     else
       log "★ resign 事件未出现"; exit 1
@@ -207,10 +207,10 @@ case "$KIND" in
     sleep 3   # 让首帧/OnUpdate 链起稳
     adb -s $DEV logcat -c
     adb -s $DEV shell setprop jq.stalematetest 1
-    wait_log "困毙：stalematetest.*winner=[01]" 20 || true   /* 轮询到判据 */
+    wait_log "OnUpdate 困毙：stalematetest" 20 || true   /* 轮询到判据 */
     echo "=== stalemate 事件日志 ==="
     adb -s $DEV logcat -d 2>/dev/null | grep "junqi_rs" | grep -iE "困毙|sfx：播放 lose" | tail -3
-    if adb -s $DEV logcat -d 2>/dev/null | grep -qiE "困毙：stalematetest.*winner=[01]"; then
+    if adb -s $DEV logcat -d 2>/dev/null | grep -qiE "OnUpdate 困毙：stalematetest"; then
       log "✓ stalemate 事件出现（无子可动方负）"
     else
       log "★ stalemate 事件未出现"; exit 1

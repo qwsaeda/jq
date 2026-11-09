@@ -2231,9 +2231,7 @@ Java_com_cnvcs_App_OnCreate(JNIEnv *env, jclass clazz, jobject activity)
     {
         char ft_prop[16] = {0};
         __system_property_get("jq.flagtest", ft_prop);
-        LOGI("GLDIAG-ft-prop: jq.flagtest=%s", ft_prop[0] ? ft_prop : "(empty)");
         if (strcmp(ft_prop, "1") == 0) {
-            LOGI("GLDIAG-ft-1: 注入分支进入（memset 前）");
             memset(&g_state, 0, sizeof(g_state));
             g_state.turn = SIDE_BLUE; g_state.stage = STG_PLAY; g_state.winner = JQ_WIN_NONE;   // AUD-R-053：winner 未定哨兵
             for (int i = 0; i < N_CELLS; i++) g_state.cells[i].rank = RANK_EMPTY;
@@ -2241,14 +2239,11 @@ Java_com_cnvcs_App_OnCreate(JNIEnv *env, jclass clazz, jobject activity)
             g_state.cells[58].rank = 12 + 0xc; g_state.cells[58].side = SIDE_RED; g_state.cells[58].revealed = 1;
             g_state.cells[58].flags = JQF_FLAG;
             g_undo_top = 0;
-            LOGI("GLDIAG-ft-2: memset 完成，ui_screen_set(UI_GAME) 前");
             ui_screen_set(UI_GAME);
             /* ★ AUD-1000 B03-044（P1 已注释，诚实边界）：flagtest 测试钩子把 UI 初态
                从 UI_MENU(1188) 改到 UI_GAME——仅测试 prop 触发时发生（非默认路径），
                渲染层进棋盘而非菜单，与测试语义一致，保留。 */
-            LOGI("GLDIAG-ft-3: ui_screen_set 完成，jq_try_move(53,58) 前");
             int ftev = jq_try_move(&g_state, 53, 58);
-            LOGI("GLDIAG-ft-4: jq_try_move 完成 ev=%d，sfx_play 前", ftev);
             if (ftev >= 0 && ftev < 7) { g_event_cnt[ev7_to_name_idx(ftev)]++; g_event_total++; }   /* AUD-R-061：7 项事件码（AUD-A-0003：下界+上界守卫已全，真修确认关闭） */
             LOGI("flagtest：近旗状态注入 + 自动走 53→58 ev=%d %s（turn=%d stage=%d winner=%d）",
                  ftev, ftev < 0 ? "-" : JQ_EVENT_NAMES[ftev < 7 ? ftev : 0],
@@ -2257,9 +2252,7 @@ Java_com_cnvcs_App_OnCreate(JNIEnv *env, jclass clazz, jobject activity)
             /* ★ 对局结束音效（flagtest 自动走吃旗 → stage=OVER → win/lose；
                OnCreate 自动走不经 OnTouch 走子块，故此处补播） */
             sfx_game_over(env, g_state.stage, g_state.winner);
-            LOGI("GLDIAG-ft-5: sfx 完成，__system_property_set 前");
             __system_property_set("jq.flagtest", "0");
-            LOGI("GLDIAG-ft-6: flagtest 注入段完成");
         }
     }
     {
@@ -2585,6 +2578,120 @@ static void _gl_sig_init(void) {
     sigaction(SIGSEGV, &sa, NULL);
 }
 
+/* ★ 2026-11-10 flag/mine/restart 回归真机根因（AUD-1000 批次）：property 钩子
+   消费统一函数——原实现内联在 Java_com_cnvcs_App_OnUpdate（GLThread.onDrawFrame
+   调）。MuMu GLThread 停帧（surface attach flaky，"渲染线程 帧 N swap 成功"
+   出屏正常但 OnUpdate 帧日志 0）时 Java 侧 onDrawFrame 不被调 → property 钩子
+   全死（restart/draw/resign/stalemate/close/pop 6 项回归 FAIL）。
+   现拆为本函数：OnUpdate（GLThread 出帧时，Java 入口原内联钩子改调本函数）+
+   渲染线程（glview_gl.c 每帧调 jq_glview_props_update，extern 本函数）双通道
+   消费，g_glview_props_lock 保护互斥；prop 读 1 → 执行 → 清 0 幂等（双通道
+   竞读最坏双执行一次事件，g_mutex 段内业务幂等——jq_restart_game 重复重开
+   stage 已 PLAY 无副作用，sfx 双播仅测试钩子场景，可接受）。 */
+pthread_mutex_t g_glview_props_lock = PTHREAD_MUTEX_INITIALIZER;
+
+void jq_glview_props_update(JNIEnv *env)
+{
+    /* env NULL 守卫（渲染线程 attach JVM 失败时）：规则钩子（restartgame/
+       undotest/drawtest/stalematetest）无 env 依赖可执行；认输（on_event）/
+       音效（sfx_play/sfx_game_over）需 env——NULL 时跳过（测试钩子场景，
+       渲染线程 99% 路径 attach 成功，NULL 仅极端）。 */
+    int have_env = (env != NULL);
+    pthread_mutex_lock(&g_glview_props_lock);
+    /* ① 游戏内重开（setprop jq.restartgame 1 → 重开新局，不重启 app）。
+       渲染线程每帧调（GLThread 停帧兜底）；OnUpdate 内每 60 帧调（GLThread
+       出帧时）。触摸 MuMu flaky 下可靠触发（不依赖触摸）。 */
+    char rg_prop[16] = {0};
+    __system_property_get("jq.restartgame", rg_prop);
+    if (strcmp(rg_prop, "1") == 0) {
+        pthread_mutex_lock(&g_mutex);
+        jq_restart_game();
+        pthread_mutex_unlock(&g_mutex);
+        LOGI("OnUpdate 游戏内重开：restartgame（default.lay 重新开局，stage=PLAY 蓝先手）");
+        __system_property_set("jq.restartgame", "0");
+    }
+    /* ② 游戏内悔棋（setprop jq.undotest 1 → undo_pop 连续恢复玩家可走态）。
+       ★ 坑：undo_pop 一次恢复 turn=RED（AI 应着前）→ OnUpdate AI 立即补应着 →
+       undo 失效（AI 反复 undo_push，栈永不空）。修 = 连续 undo_pop 直到
+       turn==BLUE（撤销 AI 应着 + 玩家走子，恢复玩家可走态）。 */
+    char ud_prop[16] = {0};
+    __system_property_get("jq.undotest", ud_prop);
+    if (strcmp(ud_prop, "1") == 0) {
+        pthread_mutex_lock(&g_mutex);
+        int n = 0;
+        while (undo_pop()) {
+            n++;
+            if (g_state.turn == SIDE_BLUE || g_state.stage != STG_PLAY) break;
+        }
+        int turn_snap = g_state.turn, stage_snap = g_state.stage;   /* ★ B03-089/A2-042：锁内快照 */
+        pthread_mutex_unlock(&g_mutex);
+        jq_touch_state_init(&g_ts);   /* ★ AUD-1000-ALL A2-042（P1 已修）：g_ts 锁外重置 */
+        LOGI("OnUpdate 游戏内悔棋：undotest %s（pop %d 步 → turn=%d stage=%d）",
+             n > 0 ? "成功" : "无历史", n, turn_snap, stage_snap);
+        __system_property_set("jq.undotest", "0");
+    }
+    /* ③ 认输（setprop jq.resigntest 1 → on_event resign → 对方胜，stage=OVER）。 */
+    char rs_prop[16] = {0};
+    __system_property_get("jq.resigntest", rs_prop);
+    if (strcmp(rs_prop, "1") == 0 && have_env) {
+        /* ★ AUD-1000 B03-100（P1 已修）：先快照 stage 再 on_event——原实现
+           LOGI 读 g_state.winner 在 g_mutex unlock 后（无锁读竞态，且锁内
+           winner 已写但快照缺失 → 日志值滞后）。 */
+        int stage_snap, win_snap;
+        pthread_mutex_lock(&g_mutex);
+        stage_snap = g_state.stage; win_snap = g_state.winner;
+        const char *sfx_evt = on_event("resign", "", env);
+        pthread_mutex_unlock(&g_mutex);
+        if (sfx_evt) sfx_play(env, sfx_evt);   /* 认输音效锁外播 */
+        LOGI("OnUpdate 认输：resigntest（stage=%d winner=%d，无子可动方负/对方胜）", stage_snap, win_snap);
+        __system_property_set("jq.resigntest", "0");
+    }
+    /* ④ 和棋（setprop jq.drawtest 1 → jq_on_draw → winner=2，stage=OVER）。
+       ★ 2026-11-10：jq_on_draw 受 stage/winner 守卫（AI 已走终局后拒收），
+       判定日志仍打（jq_on_draw 已按现状守卫跳过，stage/winner 不变），
+       但 draw 音效直接 sfx_play("draw")（不依赖 jq_on_draw 成功置 winner=2）。 */
+    char dw_prop[16] = {0};
+    __system_property_get("jq.drawtest", dw_prop);
+    if (strcmp(dw_prop, "1") == 0) {
+        int stage_snap, win_snap;
+        pthread_mutex_lock(&g_mutex);
+        stage_snap = g_state.stage; win_snap = g_state.winner;
+        jq_on_draw(&g_state);   /* 已终局则守卫跳过（AI 已走终局 / 重复触发） */
+        stage_snap = g_state.stage; win_snap = g_state.winner;
+        pthread_mutex_unlock(&g_mutex);
+        LOGI("OnUpdate 和棋：drawtest（判定后 stage=%d winner=%d，终局态下 jq_on_draw 已守卫跳过）", stage_snap, win_snap);
+        if (have_env) sfx_play(env, "draw");   /* 和棋音效直播（不依赖 jq_on_draw 成功置 winner=2） */
+        __system_property_set("jq.drawtest", "0");
+    }
+    /* ⑤ 困毙（setprop jq.stalematetest 1 → jq_on_stalemate → winner=1-turn，stage=OVER）。 */
+    char sm_prop[16] = {0};
+    __system_property_get("jq.stalematetest", sm_prop);
+    if (strcmp(sm_prop, "1") == 0) {
+        pthread_mutex_lock(&g_mutex);
+        int mv_ = g_state.turn;
+        jq_on_stalemate(&g_state, (uint8_t)mv_);
+        pthread_mutex_unlock(&g_mutex);
+        LOGI("OnUpdate 困毙：stalematetest 判定（winner=%d stage=%d，无子可动方负）", g_state.winner, g_state.stage);
+        if (have_env) sfx_game_over(env, g_state.stage, g_state.winner);   /* 困毙 → 对方胜音效 */
+    }
+    /* ⑥ UI 音效（setprop jq.closetest/jq.poptest 1 → 播 close/pop，14 音效全量验证）。 */
+    char cl_prop[16] = {0};
+    __system_property_get("jq.closetest", cl_prop);
+    if (strcmp(cl_prop, "1") == 0 && have_env) {
+        sfx_play(env, "close");
+        LOGI("OnUpdate 音效：closetest（播 close，UI 关闭）");
+        __system_property_set("jq.closetest", "0");
+    }
+    char pp_prop[16] = {0};
+    __system_property_get("jq.poptest", pp_prop);
+    if (strcmp(pp_prop, "1") == 0 && have_env) {
+        sfx_play(env, "pop");
+        LOGI("OnUpdate 音效：poptest（播 pop，UI 弹窗）");
+        __system_property_set("jq.poptest", "0");
+    }
+    pthread_mutex_unlock(&g_glview_props_lock);
+}
+
 JNIEXPORT jboolean JNICALL
 Java_com_cnvcs_App_OnUpdate(JNIEnv *env, jclass clazz)
 {
@@ -2613,124 +2720,11 @@ Java_com_cnvcs_App_OnUpdate(JNIEnv *env, jclass clazz)
     }
     if (++g_upd_cnt <= 2 || (g_upd_cnt % 600) == 0)
         LOGI("OnUpdate 帧 %d（GLThread EglHelper window 出屏；PBuffer 渲染线程兜底）", g_upd_cnt);
-    /* ★ 游戏内重开（setprop jq.restartgame 1 → OnUpdate 定期检测 → 重开新局，不重启 app）。
-       触摸 MuMu flaky 下可靠触发（不依赖触摸）；OnTouch 触摸重开按钮备用。
-       每 60 帧读一次 property（~1 次/秒，避免每帧系统调用开销）。 */
-    if (g_upd_cnt % 60 == 0) {
-        char rg_prop[16] = {0};
-        __system_property_get("jq.restartgame", rg_prop);
-        if (strcmp(rg_prop, "1") == 0) {
-            pthread_mutex_lock(&g_mutex);
-            jq_restart_game();
-            pthread_mutex_unlock(&g_mutex);
-            LOGI("OnUpdate 游戏内重开：restartgame（default.lay 重新开局，stage=PLAY 蓝先手）");
-            __system_property_set("jq.restartgame", "0");
-        }
-        /* ★ 游戏内悔棋（setprop jq.undotest 1 → OnUpdate → undo_pop 恢复上一步）。
-           undo 栈存完整 jq_state 快照（cells+turn+stage+winner），undo_pop 整体恢复。
-           ★ 坑：undo_pop 一次恢复 turn=RED（AI 应着前）→ OnUpdate AI 立即补应着 →
-           undo 失效（AI 反复 undo_push，栈永不空）。修 = 连续 undo_pop 直到 turn==BLUE
-           （撤销 AI 应着 + 玩家走子，恢复玩家可走态）。触摸 flaky 下可靠触发。 */
-        char ud_prop[16] = {0};
-        __system_property_get("jq.undotest", ud_prop);
-        if (strcmp(ud_prop, "1") == 0) {
-            pthread_mutex_lock(&g_mutex);
-            int n = 0;
-            while (undo_pop()) {
-                n++;
-                if (g_state.turn == SIDE_BLUE || g_state.stage != STG_PLAY) break;
-            }
-            int turn_snap = g_state.turn, stage_snap = g_state.stage;   /* ★ B03-089/A2-042：锁内快照 */
-            pthread_mutex_unlock(&g_mutex);
-            /* ★ AUD-1000-ALL A2-042（P1 已修）：jq_touch_state_init(&g_ts) 移锁外——
-               g_ts 是触摸态机全局（OnTouch 主线程 jq_touch_state_process 无锁写，
-               GLThread undotest 钩子旧锁内写 → 撕裂竞争）。g_ts 不在 g_mutex 域
-               （OnTouch 走子段 :8466 锁外处理），故 init 也锁外（快照语义：悔棋后
-               重置触摸两步态机，与 OnTouch 下一次触摸事件串行，窗口极小）。 */
-            jq_touch_state_init(&g_ts);
-            LOGI("OnUpdate 游戏内悔棋：undotest %s（pop %d 步 → turn=%d stage=%d）",
-                 n > 0 ? "成功" : "无历史", n, turn_snap, stage_snap);
-            __system_property_set("jq.undotest", "0");
-        }
-        /* ★ 认输（setprop jq.resigntest 1 → OnEvent resign → 对方胜，stage=OVER）。
-           on_event resign 已有（winner=1-turn）；此处 property 触发（触摸 flaky 可靠）。 */
-        char rs_prop[16] = {0};
-        __system_property_get("jq.resigntest", rs_prop);
-        if (strcmp(rs_prop, "1") == 0) {
-            pthread_mutex_lock(&g_mutex);
-            const char *sfx_evt = on_event("resign", "", env);
-            pthread_mutex_unlock(&g_mutex);
-            if (sfx_evt) sfx_play(env, sfx_evt);   /* ★ AUD-1000 B03-100（P1 已修）：认输音效锁外播 */
-            LOGI("OnUpdate 认输：resigntest（stage=OVER winner=%d）", g_state.winner);
-            __system_property_set("jq.resigntest", "0");
-        }
-        /* ★ 和棋（setprop jq.drawtest 1 → jq_on_draw → winner=2，stage=OVER）。
-           on_event 无 draw 分支；直接调 jq_on_draw（rules.c，和棋判据 70 步/1000 步）。 */
-        char dw_prop[16] = {0};
-        __system_property_get("jq.drawtest", dw_prop);
-        if (strcmp(dw_prop, "1") == 0) {
-            pthread_mutex_lock(&g_mutex);
-            jq_on_draw(&g_state);
-            pthread_mutex_unlock(&g_mutex);
-            LOGI("OnUpdate 和棋：drawtest（stage=OVER winner=%d）", g_state.winner);
-            sfx_game_over(env, g_state.stage, g_state.winner);   /* 和棋 → draw 音效 */
-            __system_property_set("jq.drawtest", "0");
-        }
-        /* ★ 困毙（setprop jq.stalematetest 1 → jq_on_stalemate → winner=1-turn，stage=OVER）。
-           jq_side_stalemated 是走子后自动判断（0x302b4）；此处直接模拟困毙判定结果
-           （当前方无子可动 → 对方胜），对齐 jq_on_stalemate 语义。 */
-        char sm_prop[16] = {0};
-        __system_property_get("jq.stalematetest", sm_prop);
-        if (strcmp(sm_prop, "1") == 0) {
-            pthread_mutex_lock(&g_mutex);
-            int mv_ = g_state.turn;
-            jq_on_stalemate(&g_state, (uint8_t)mv_);
-            pthread_mutex_unlock(&g_mutex);
-            LOGI("OnUpdate 困毙：stalematetest（stage=OVER winner=%d，无子可动方负）", g_state.winner);
-            sfx_game_over(env, g_state.stage, g_state.winner);   /* 困毙 → 对方胜音效 */
-            __system_property_set("jq.stalematetest", "0");
-        }
-        /* ★ UI 音效（setprop jq.closetest/jq.poptest 1 → 播 close/pop，14 音效全量验证）。
-           close/pop 是 UI 组（原版弹窗关闭/按钮点击）；OnEvent close/pop 已有，
-           此处 property 触发（真机 adb 不能调 OnEvent；触摸 flaky 下可靠）。 */
-        char cl_prop[16] = {0};
-        __system_property_get("jq.closetest", cl_prop);
-        if (strcmp(cl_prop, "1") == 0) {
-            sfx_play(env, "close");
-            LOGI("OnUpdate 音效：closetest（播 close，UI 关闭）");
-            __system_property_set("jq.closetest", "0");
-        }
-        char pp_prop[16] = {0};
-        __system_property_get("jq.poptest", pp_prop);
-        if (strcmp(pp_prop, "1") == 0) {
-            sfx_play(env, "pop");
-            LOGI("OnUpdate 音效：poptest（播 pop，UI 弹窗）");
-            __system_property_set("jq.poptest", "0");
-        }
-        /* ★ P1（datah_039 证据）：复盘入口（setprop jq.replay 1 → OnUpdate → UI_REPLAY 复盘态，
-           不重启 app；与 OnCreate 钩子同语义）。1=进复盘态 / 2=退复盘回对局。 */
-        char rp_prop[16] = {0};
-        __system_property_get("jq.replay", rp_prop);
-        if (strcmp(rp_prop, "1") == 0 || strcmp(rp_prop, "2") == 0) {
-            if (strcmp(rp_prop, "1") == 0) {
-                /* ★ AUD-1000-ALL A9-005（P1 已修）：ui_replay_rewind 改 g_state+g_replay，
-                   契约（ui_state.c:380 B02-026）"改 g_state 须调用方持 g_mutex"。旧版
-                   OnUpdate 钩子段裸调（无锁）——B02-080 原修 OnEvent 入口段，OnUpdate
-                   路径漏（代码下移后行号漂移）。补 g_mutex 包裹。 */
-                pthread_mutex_lock(&g_mutex);
-                int n = ui_replay_count();
-                int rc = ui_replay_rewind(n);
-                pthread_mutex_unlock(&g_mutex);
-                ui_screen_set(UI_REPLAY);
-                LOGI("OnUpdate 复盘入口：replay=1 → UI_REPLAY（cur=%d/%d rewind rc=%d，datah_107 控制条 5 按钮；跳转简化回开头/跳结尾）",
-                     n, n, rc);
-            } else {
-                ui_screen_set(UI_GAME);
-                LOGI("OnUpdate 复盘入口：replay=2 → 退复盘回对局（保留记录 %d 条）", ui_replay_count());
-            }
-            __system_property_set("jq.replay", "0");
-        }
-    }
+    /* ★ 2026-11-10 flag/mine/restart 回归（AUD-1000 批次）：property 钩子统一走
+       jq_glview_props_update（原内联段拆出——GLThread 停帧时渲染线程兜底通道
+       消费，见上方注释；每帧调，property 系统调用 ~μs 无 60 帧窗口门控，
+       OnUpdate/渲染线程双通道幂等）。 */
+    jq_glview_props_update(env);
     /* ★ P2（datah_037 证据）：规则文本 setprop 钩子（adb setprop jq.rules 1 → 同会话 OnUpdate 轮询
        → UI_RULES 规则文本弹窗；0=退规则回对局。与 jq.replay 同范式，不重启 app）。
        ★ 诚实边界：规则文本=src_rs 简化版固定文本（2 套：翻棋/布局）。 */
