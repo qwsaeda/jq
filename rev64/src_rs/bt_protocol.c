@@ -14,6 +14,9 @@
  *   SPP socket IO 由宿主（Java BluetoothSocket）承担。
  */
 #include "junqi.h"
+#include "bt_protocol.h"   /* ★ B04-006（P2 已修）：jq_bt_type 权威定义在 .h（含 DRAW/CHAT），
+   旧版 .c 内重复 typedef（缺 DRAW/CHAT）与 .h 不一致 → 双源漂移风险。删 .c 内枚举，
+   统一用 .h 的（bt_semtest B04-040 验 type=8/9 拒收依赖 .h 枚举完整）。 */
 #include <stdio.h>
 #include <string.h>
 #include <stdint.h>
@@ -21,16 +24,6 @@
 #define JQ_BT_UUID "ce1404fe-0863-4278-86c2-c9c560f0e215"
 #define JQ_BT_SERVICE "junqi"
 #define JQ_BT_VERSION "v2"
-
-typedef enum {
-    BT_T_MOVE = 0,
-    BT_T_FLIP,
-    BT_T_UNDO,
-    BT_T_SYNC,
-    BT_T_SYNC_CELL,
-    BT_T_RESTART,
-    BT_T_RESIGN,
-} jq_bt_type;
 
 /* 构造单步帧 "v2\n%d,%d,%d,%d,%d,%d,%d\n"（原版 0x26f24）。
    字段：type, fc, fr, tc, tr, rank, side。返回写入字节数（不含 NUL），<0 失败。
@@ -79,6 +72,11 @@ int jq_bt_frame_sync_encode(char *buf, int cap_per_frame,
        ② 写入前显式 len+1 <= cap_per_frame 守护（防御双保险）。 */
     int n = 0;
     if (cap_per_frame < 4) return 0;   /* 最小帧长守护（"v2\n" 头 + 1 字符） */
+    /* ★ B04-007（P2 已修）：负 start/count 入口守卫——旧版 for i=start;i<start+count
+       在 start<0 时 i 负索引越界读 st->cells[i]（UB）；count<0 时 start+count<start
+       循环 0 次（隐式 0 帧）。修：入口钳位 start>=0/count>=0，越界返 0（无帧可同步）。 */
+    if (start < 0 || count < 0) return 0;
+    if (start >= N_CELLS) return 0;
     for (int i = start; i < start + count && i < N_CELLS; i++) {
         const jq_cell *c = &st->cells[i];
         char fb[64];
