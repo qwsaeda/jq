@@ -560,16 +560,22 @@ static const char *sfx_wav(const char *event)
    诚实边界：账号/注册/联机类 73 事件名仅常量表对齐，业务逻辑未移植（SPEC §3.1 简化边界）。 */
 static const char *sfx_for_move(int ev)
 {
+    /* ★ 原版音效分流：7 事件码→原版 73 事件名（jq_event_names_73）→集中式音效分类表
+       （jq_evt55_sfx_for_name，evt55_sfx.c）。原版按事件名分流音效（SPEC §5），
+       64 位 7 事件码映射到对应原版事件名后走同一分类表，单一事实源。 */
+    const char *evname = "Junqi.Move";
     switch (ev) {
-    case EV_EAT:   return "eat";
-    case EV_BOMB:  return "bomb";
-    case EV_FLAG:  return "flag";
-    case EV_DEAD:  return "dead";
-    case EV_FLIP:  return "flip";
+    case EV_EAT:   evname = "Junqi.Eat";   break;
+    case EV_BOMB:  evname = "Junqi.Bomb";  break;
+    case EV_FLAG:  evname = "Junqi.Flag";  break;
+    case EV_DEAD:  evname = "Junqi.Dead";  break;
+    case EV_FLIP:  evname = "Junqi.Flip";  break;
     case EV_MOVE:
-    case EV_MINE:  return "move";   /* AUD-R-062：EV_MINE 与 EV_MOVE 共用 "Junqi.Move" 音效 */
-    default:       return "move";
+    case EV_MINE:  evname = "Junqi.Move";  break;  /* AUD-R-062：EV_MINE 与 EV_MOVE 共用 */
+    default:       evname = "Junqi.Move";  break;
     }
+    const char *sfx = jq_evt55_sfx_for_name(evname);
+    return sfx ? sfx : "move";   /* 兜底（evt55_sfx 永不返 NULL，双保险） */
 }
 
 /* 对局结束音效统一入口（走子后 stage==OVER → win/lose）。
