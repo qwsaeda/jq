@@ -1001,10 +1001,10 @@ static int g_bt_sess_init_done = 0;
    语义=最坏读旧值=多跳一次本轮发送（Java 侧 BtSpp 二道守卫），非崩溃级竞争。
    锁序单向：g_mutex 内可调 g_ui_lock（ui_opt_* / ui_replay_*），禁反向
    （g_ui_lock 内绝不取 g_mutex；grep 实证 0 反向，CODE_STYLE §锁序）。 */
-static int g_event_cnt[JQ_EVENT_NAME_COUNT];   /* ★ 原版行为移植（本轮）：7→73 事件名计数（对齐 jq_event_names_73 契约；简化版 7 事件码映射到对应名称索引） */   /* ★ AUD-R-061（P2）：扩容 6→7（补 EV_FLIP=Junqi.Flip 计数位；0-5 顺序不变）。
+int g_event_cnt[JQ_EVENT_NAME_COUNT];   /* ★ 原版行为移植（本轮）：7→73 事件名计数（对齐 jq_event_names_73 契约；简化版 7 事件码映射到对应名称索引） */   /* ★ AUD-R-061（P2）：扩容 6→7（补 EV_FLIP=Junqi.Flip 计数位；0-5 顺序不变）。
                                AUD-R-062（P2）：g_event_cnt[0]=EV_MOVE 与 [5]=EV_MINE 同名 "Junqi.Move"
                                （对齐原版设计）——按**事件码**分流统计（两位分开计），按**事件名**分流音效。 */
-static int g_event_total = 0;
+int g_event_total = 0;   /* ★ 原版行为移植：非 static（evt55_dispatch.c 跨文件计数） */
 /* ★ 原版行为移植（本轮）：原版 73 事件名计数——按事件名查索引累加。
    64位简化版 7 事件码（EV_MOVE..EV_FLIP）映射到 jq_event_names_73 对应名称索引；
    账号/注册/联机类事件名=诚实边界（业务逻辑未移植，计数恒 0，仅常量表对齐）。 */
@@ -1055,6 +1055,11 @@ static const char *on_event(const char *name, const char *value, JNIEnv *env)
                裸 total++，只保留 :809 守卫内的一次（与 OnTouch 直接走子 :7813、
                flip 分支 :822 口径统一为"每事件 +1"）。 */
             if (ev < 7) { g_event_cnt[ev < 7 ? ev : 0]++; g_event_total++; }
+            /* ★ 原版行为移植（55 code 全链分发，evt55_dispatch.c）：
+               7 事件码（EV_MOVE=0..EV_FLIP=6）→ 原版 55 code（code=ev，0-6 直接映射），
+               分发引擎确认成功 + 按 73 事件名索引计数（账号/联机类恒 0 不刷屏）。
+               诚实边界：g_state 变更已在 jq_try_move 内完成，evt55 仅做分发确认（幂等）。 */
+            jq_evt55_dispatch(ev, JQ_EVENT_NAMES[ev < 7 ? ev : 0]);
             ui_replay_record(from, to, 0);   /* ★ P1（datah_039/107）：OnEvent 走子成功记录 1 步 */
             LOGI("OnEvent move (%d,%d)→(%d,%d) %s（#%d 累计）", cell_row(from), cell_col(from),
                  cell_row(to), cell_col(to), JQ_EVENT_NAMES[ev < 7 ? ev : 0],
@@ -1067,6 +1072,7 @@ static const char *on_event(const char *name, const char *value, JNIEnv *env)
             if (jq_flip(st, idx)) {
                 ui_replay_record(idx, idx, 1);   /* ★ P1（datah_039/107）：OnEvent 翻棋成功记录 1 步 */
                 g_event_cnt[EV_FLIP]++; g_event_total++;   /* ★ AUD-R-061（P2）：翻棋计数走 EV_FLIP=6 位（EV_FLIP 编译期宏=6<7 恒合法；AUD-A-0003/0004 真修的是 jq_try_move 动态事件码路径，常量下标探针不适用） */
+                jq_evt55_dispatch(EV_FLIP, "Junqi.Flip");   /* ★ 原版行为移植：翻棋 → code 6（Junqi.Flip）分发确认 */
                 LOGI("OnEvent flip (%d,%d) rank=%d", cell_row(idx), cell_col(idx),
                      rank_norm(st->cells[idx].rank));
             } else if (pushed) undo_pop_discard();   /* ★ AUD-1000 B03-011：仅 push 成功才平衡 */
@@ -1090,7 +1096,8 @@ static const char *on_event(const char *name, const char *value, JNIEnv *env)
            src_rs 仅实现"请求发帧"，应答判定（RegretAgree/Disagree）未移植（需对端协议）。 */
         jq_bt_ctrl_send(env, BT_T_UNDO);
         sfx_play(env, "pop");
-        LOGI("OnEvent regret_req → 发 UNDO 帧（原版 Junqi.RegretReq，对端同步悔棋；诚实边界：本地不 pop 等收帧闭环）");
+        jq_evt55_dispatch(42, "Junqi.RegretReq");   /* ★ 55code 分发：code 42 = RegretReq */
+        LOGI("OnEvent regret_req → 发 UNDO 帧（原版 Junqi.RegretReq，code 42；诚实边界：本地不 pop 等收帧闭环）");
         return "resign";   /* 音效用 resign 兜底（原版无独立 regret WAV） */
     } else if (strcmp(name, "resign_agree") == 0) {
         /* 原版 Junqi.RegretAgree 悔棋同意——64位简化版：对端同意→收帧侧 undo_pop 闭环。 */
@@ -1104,7 +1111,8 @@ static const char *on_event(const char *name, const char *value, JNIEnv *env)
         /* 原版 Junqi.DrawReq 提和请求——64位简化版：发 DRAW 帧 + 诚实边界对话框。 */
         jq_bt_ctrl_send(env, BT_T_DRAW);
         sfx_play(env, "pop");
-        LOGI("OnEvent draw_req → 发 DRAW 帧（原版 Junqi.DrawReq，本地提和判定未实现，需对端应答）");
+        jq_evt55_dispatch(25, "Junqi.DrawReq");   /* ★ 55code 分发：code 25 = DrawReq */
+        LOGI("OnEvent draw_req → 发 DRAW 帧（原版 Junqi.DrawReq，code 25；本地提和判定未实现，需对端应答）");
         return "draw";
     } else if (strcmp(name, "draw_agree") == 0) {
         /* 原版 Junqi.DrawAgree 提和同意——64位简化版：对端同意→jq_on_draw 和棋。 */
@@ -1113,7 +1121,8 @@ static const char *on_event(const char *name, const char *value, JNIEnv *env)
         int dwin = g_state.winner;
         pthread_mutex_unlock(&g_mutex);
         sfx_play(env, "draw");
-        LOGI("OnEvent draw_agree → jq_on_draw 和棋（原版 Junqi.DrawAgree，winner=%d）", dwin);
+        jq_evt55_dispatch(26, "Junqi.DrawAgree");   /* ★ 55code 分发：code 26 = DrawAgree */
+        LOGI("OnEvent draw_agree → jq_on_draw 和棋（原版 Junqi.DrawAgree，code 26，winner=%d）", dwin);
         return "draw";
     } else if (strcmp(name, "draw_disagree") == 0) {
         /* 原版 Junqi.DrawDisagree 提和拒绝——64位简化版：对端拒绝，本地无操作。 */
@@ -1143,6 +1152,7 @@ static const char *on_event(const char *name, const char *value, JNIEnv *env)
         int go_win = g_state.winner;
         pthread_mutex_unlock(&g_mutex);
         LOGI("OnEvent game_over → stage=%d winner=%d（原版 Junqi.GameOver 终局确认）", go_stage, go_win);
+        jq_evt55_dispatch(16, "Junqi.GameOver");   /* ★ 55code 分发：code 16 = GameOver */
         if (go_stage == STG_OVER) {
             sfx_play(env, go_win == SIDE_BLUE ? "win" : go_win == SIDE_RED ? "lose" : "draw");
         }

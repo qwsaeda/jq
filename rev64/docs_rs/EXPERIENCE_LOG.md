@@ -1789,4 +1789,34 @@ datah_095 原版 9 按钮但**互斥重叠**（复盘/聊天同位、提和/取�
   3. 真机（MuMu）EGL flaky 下无法截图定论时，**转红果 64 位 so 跑资源读源+解码
      尺寸判据**（红果无 GPU 只出 PBuffer 离屏帧，主界面非黑 8.8% 出帧正常，
      弹窗出屏截图仍须 MuMu 执行，非阻塞诚实边界）。
+## 2026-11-11 GLDIAG 定位：残留测试属性卡死 OnCreate 致 GL 出屏链不启动
 
+**现象**：红果/MuMu 正向开发 so 跑起来后，`OnCreate` 日志止于"UI 菜单就绪"，其后
+`GLView EGL 上下文 + 渲染器就绪`、`OnUpdate 帧 N`、`渲染线程 makeCurrent` 日志全部不出现，
+GL 出屏链（Java GLThread.onDrawFrame → OnUpdate → rs_render_frame）从未激活，截图只有清屏灰。
+
+**误判纠正**：最初判"GLThread 出帧链在 MuMu 转译层从未激活，0x502 quirk 主因"——错。
+加 GLDIAG 诊断日志（jni_bridge.c ③b 入口/unlock 前后 + glview_gl.c EGL①②③④）后实锤：
+`__system_property_get("jq.flagtest")` 残留值 = "1"（之前测试 `setprop jq.flagtest 1` 未清），
+触发 flagtest 钩子（`jq_try_move(53,58)` 吃旗 → `stage=OVER` → `sfx_game_over`），
+OnCreate 主线程被该钩子段拖住（转译层 property 读取 + 自动走 + 音效慢），GL 出屏链根本没启动。
+
+**根治**：
+1. 每次真机验证前**清空所有 `jq.*` 测试属性**（`setprop jq.flagtest 0; setprop jq.mode 0; ...`），
+   或重启前用一条命令全清。残留 `flagtest=1` 是最隐蔽的卡点。
+2. GLDIAG 诊断日志保留 6 条低频（③b 入口/unlock 前后 + 渲染线程前后 + EGL①-④），
+   真机定位"卡在 EGL 哪一步"用，不删（低频不噪）。
+
+**C 项 SPAK 运行时直读（stb_image）落地实证**：
+- 内嵌 stb_image v2.30（public domain）进 64 位 so，运行时直读原版 datax_294/177 JPEG，
+  替代纯色退化底。真机日志实锤：`C 项：原版 datax 位图直读 datax_294…（180584 B）`。
+- `img_decode.c` 封装：`stbi_load_from_memory` 统一走 `img_decode_any`（JPEG 传 comp=0 会走
+  PNG 分支失败，必须走 `img_decode_any` 让 stb 自动识别格式）；`img_decode_free` 用 `free`
+  （stb v2.30 无 `stbi_free_image` 符号，是 `#define STBI_FREE(p) free(p)`，跨文件用 `free` 对齐）。
+
+**refs 资源清单补漏（44→61 演进）**：
+- 14 个 WAV 音效（`jq_sfx` 静默真 bug，已补）→ 58
+- 2 个原版 datax JPEG（C 项）→ 60
+- 1 个 `drawdetail_icons_atlas.png`（render.c 消费，旧 refs 漏列致真机 `drawdetail_icons=MISS`）→ 61
+- refs 条目必须是纯文件名（行内 `#` 注释会被 build_phases 的 `while read` 读进文件名 → 注入失败），
+  注释只放独立行。

@@ -30,7 +30,7 @@ from spak2ui import parse_dialog, panel_origin, to_720   # noqa: E402
 
 SPAK = "/tmp/opencode/spak_out"
 PKG = "com.cnvcs.junqirs"
-DEV = "emulator-5554"
+DEV = "10.0.182.146:5555"
 
 # 按钮底色（ui_solid_btn 0.22/0.28/0.42 alpha .85 混合后的典型值）
 BTN_RGB = (49, 65, 90)
@@ -130,8 +130,12 @@ def verify_one(n, keep_shot=False, jitter=True):
         if pat in log:
             r["ok"] = False
             r["issues"].append(f"崩溃迹象: {pat}")
-    if f"jq.dlg{n:03d}=1" not in log:
-        r["issues"].append("钩子未命中（so 可能是旧的）")
+    # ★ dlgbatch 判据修正（红果 2026-11-11 实锤）：jq_dlg_batch_hook 日志在 __android_log_print
+    #   转译层可能被吞（红果无此日志但截图弹窗真出，非黑100%）→ 日志判据降级为参考。
+    #   主判据 = 截图非黑比（渲染真实出帧），"钩子未命中"仅标注不判 FAIL。
+    has_hook_log = ("批量对齐钩子" in log and f"jq.dlg{n:03d}" in log)
+    if not has_hook_log:
+        r["issues"].append("钩子日志未捕获（转译层 log 吞，截图判为主判据）")
 
     # 截图
     adb("shell", "screencap", "-p", f"/sdcard/av{n:03d}.png")

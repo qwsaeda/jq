@@ -355,6 +355,13 @@ int jq_save_read(const char *path, jq_save_data *sd);
 int jq_save_game_write(const char *path, const jq_state *st);
 int jq_save_game_read(const char *path, jq_state *st);
 
+/* ★ 原版行为移植（55 code→24 handler 全链分发引擎，evt55_dispatch.c）
+   32位 F_55d40 switch（§124y-29/31/33/35 实锤 67 case）移植到 64位 g_state 语义。
+   诚实边界：账号/注册/联机类 53 code = 分发成功（无状态变更），简化版不实现服务器协议。 */
+int  jq_evt55_dispatch(int code, const char *evname);      /* 1=成功 0=越界 */
+int  jq_evt55_name_to_code(const char *evname);            /* 事件名→code，-1/0=兜底 */
+const char *jq_evt55_code_to_evname_str(int code);          /* code→事件名（日志用） */
+
 #endif /* RS_JUNQI_H */
 
 /* ---- 渲染对象图 + 容器（③④ 逆源码，独立头文件，不在此 include 防循环）
