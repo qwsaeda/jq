@@ -88,7 +88,13 @@ int jq_save_read(const char *path, jq_save_data *sd)
 int jq_save_game_write(const char *path, const jq_state *st)
 {
     if (!path || !st) return 0;
-    FILE *f = fopen(path, "wb");
+    /* ★ AUD-1000-ALL A2-024（P1 已修）：原子写——one.sjg 旧实现 fopen(path,"wb") 直写目标，
+       盘满/崩溃半写 → 残留 magic+sizeof 无 body 的残缺文件（读侧虽 magic 校验拒读，
+       但目标文件被破坏，下次正常写前读旧档会拿到损坏态）。改 tmp+rename：写 path.tmp
+       成功才 rename 原子替换，崩溃时目标文件要么是旧完整版、要么不存在。 */
+    char tmp[512];
+    snprintf(tmp, sizeof tmp, "%s.tmp", path);
+    FILE *f = fopen(tmp, "wb");
     if (!f) return 0;
     uint32_t m = SJG_MAGIC;
     uint32_t sz = (uint32_t)SJG_STATE_BYTES;
@@ -97,10 +103,14 @@ int jq_save_game_write(const char *path, const jq_state *st)
     if (fwrite(&m, 4, 1, f) != 1 || fwrite(&sz, 4, 1, f) != 1 ||
         fwrite(st, 1, SJG_STATE_BYTES, f) != SJG_STATE_BYTES) {
         fclose(f);
-        remove(path);
+        remove(tmp);   /* ★ A2-024：清临时文件（目标文件保持旧完整版） */
         return 0;
     }
     fclose(f);
+    if (rename(tmp, path) != 0) {   /* 原子替换 */
+        remove(tmp);
+        return 0;
+    }
     return 1;
 }
 

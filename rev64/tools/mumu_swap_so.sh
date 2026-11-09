@@ -181,9 +181,17 @@ adb -s $DEV logcat -c
 #   PKG=com.cnvcs.junqirs（64 位包）矛盾：装 64 位 so 后启动 32 位 app → so 永不加载，
 #   :179 pidof $PKG（junqirs）查不到进程 → 假红 FAIL。改 $PKG（junqirs）。
 #   主 activity = com.cnvcs.App（aapt dump badging launchable-activity 实证）。
+# ★ AUD-1000-ALL A5-F5-028/029（P1 已修）：启动前清 logcat（防 stale Fatal signal 误判）
+#   + sleep 10 改轮询 wait（MuMu 冷启首帧窗口 20-25s，固定 10s 截图全黑假红）。
+adb -s $DEV logcat -c 2>/dev/null || true
 adb -s $DEV shell am start -n "$PKG/com.cnvcs.App" >/dev/null 2>&1
-sleep 10
-PID=$(adb -s $DEV shell pidof $PKG | tr -d '\r')
+# 轮询进程存活（最长 30s，每 2s 一次，替代固定 sleep 10）
+PID=""
+for _w in $(seq 1 15); do
+  sleep 2
+  PID=$(adb -s $DEV shell pidof $PKG | tr -d '\r')
+  [ -n "$PID" ] && break
+done
 echo "pid=$PID"
 adb -s $DEV logcat -d | grep -E "junqi_rs|Fatal|SIGSEGV|UnsatisfiedLink" | grep -vE "chatty|ActivityTaskManager" | head -12
 
@@ -191,6 +199,7 @@ echo "=== [6/6] 截图 + 像素判定 ==="
 adb -s $DEV exec-out screencap -p > /tmp/opencode/verify.png 2>/dev/null
 python3 $TOOLS/shot_check.py /tmp/opencode/verify.png 2>/dev/null | grep -E "非黑|判定|中心" | head -5
 echo "=== 判定 ==="
+# ★ A5-F5-029：logcat -c 已清（启动前），-d 内容=本次启动段，stale Fatal 误判消除
 DLERR=$(adb -s $DEV logcat -d | grep -E "UnsatisfiedLinkError|failed to link" | head -1)
 SIGS=$(adb -s $DEV logcat -d | grep -cE "Fatal signal" | tr -d ' \r')
 if [ -n "$DLERR" ]; then

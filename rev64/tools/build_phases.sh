@@ -108,7 +108,16 @@ build_one() {
   bash $WS/rev64/sign_apk.sh $RA/${phase}_aligned.apk $RA/${phase}_signed.apk >/tmp/opencode/phase_${phase}_sign.log 2>&1 || { echo "✗ $phase 签名失败"; tail -8 /tmp/opencode/phase_${phase}_sign.log; return 1; }
   cp $RA/${phase}_signed.apk $WS/dist/$out
   echo "✓ $out 构建完成"
-  if [ $DO_VERIFY -eq 1 ]; then verify_one $phase $out; fi
+  if [ $DO_VERIFY -eq 1 ]; then
+    # ★ AUD-1000-ALL A5-F5-012（P1 已修）：verify_one FAIL 不再被 return 0 吞——旧版
+    #   ABI 计数/广告jar/so 哈希对账失败仍 "构建完成" 静默过（假绿），门禁全失效。
+    #   修：verify_one 失败 → return 1（阻断，与 apktool b/STORE/zipalign/sign 各段
+    #   的 || return 1 范式一致）。
+    if ! verify_one $phase $out; then
+      echo "✗ $out 校验失败（verify_one 门禁阻断）"
+      return 1
+    fi
+  fi
   return 0
 }
 

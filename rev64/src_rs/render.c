@@ -677,7 +677,7 @@ int rs_render_init(rs_render *rr, const char *spak_dir, const jq_state *init_sta
             rr->board_w = bw; rr->board_h = bh;   /* AUD-1000 B04-050：记录实际尺寸 */
         }
         free(braw);
-        if (praw && png_decode(praw, praw_len, &ppx, &pw, &ph) == 0) { rr->piece_px = ppx; rr->piece_px_len = (size_t)pw * ph * 4; }
+        if (praw && png_decode(praw, praw_len, &ppx, &pw, &ph) == 0) { rr->piece_px = ppx; rr->piece_px_len = (size_t)pw * ph * 4; rr->piece_w = pw; rr->piece_h = ph; }   /* ★ AUD-1000-ALL A7-01（P1 已修）：记录实际解码宽高（同 board B04-050 范式），消 PIECE_PNG_W/H 硬编码双源 */
         free(praw);
         /* ★ 层 2 视觉对齐：菜单按钮文字图集（原版字体 data_029 光栅化 5 label 竖排） */
         if (traw && png_decode(traw, traw_len, &tpx, &tw, &th) == 0) {
@@ -772,7 +772,8 @@ int rs_render_init(rs_render *rr, const char *spak_dir, const jq_state *init_sta
             rr->opt_text_w = ow; rr->opt_text_h = oh;
         }
         free(oraw);
-        /* ★ 选项 UI：popup.png 9-patch（24×24，9-patch 8,8,16,16） */
+        /* ★ 选项 UI：popup.png 9-patch（★ AUD-1000-ALL A7-02 注释纠正：实际资源 320×80 非 24×24，
+           glTexImage2D 走实际解码宽高 popup_w/h（:9691），9-patch 拉伸语义；旧注释 24×24 双源漂移已纠正） */
         if (praw2 && png_decode(praw2, praw2_len, &ppx2, &pw2, &ph2) == 0) {
             rr->popup_px = ppx2; rr->popup_px_len = (size_t)pw2 * ph2 * 4;
             rr->popup_w = pw2; rr->popup_h = ph2;
@@ -1668,13 +1669,18 @@ static void rs_draw_imen(rs_render *rr, int slot)
             /* 图集 160 宽里字形按字数自然占位（4 字占 ~150、2 字占 ~75，居中）：
                tw 固定 = 160 源宽 → 130 基准宽，则 4 字字形显示 122（原版实测 122）、
                2 字字形显示 61（原版实测 53，差 8 为原版字距差异，可接受）。 */
+            /* ★ AUD-1000-ALL A7-03（P1 已修）：btimen（160×320，8行×40px）用 imen 同范式
+               行高公式——旧实现 th=tw*(40/160) 按 220 宽基准图集（行高 46px）比例推标签
+               屏高，160 宽图集实际行高 40px → 标签纵向拉伸 1.375×。修：行高按 text_h
+               （实际解码高度 320）取 40/text_h 归一，v 坐标 i*40/text_h 与行高同源。 */
+            int row_h = text_h / UI_IMENU_COUNT;   /* 实际行高（320/8=40px，btimen/imen 同源） */
             (void)nchars;
             float tw = 130.0f * sx;
-            float th = tw * (40.0f / 160.0f);
+            float th = tw * ((float)row_h / (float)text_w);   /* 实际宽高比（40/160=0.25） */
             float tx0 = tcx - tw * 0.5f, ty0 = tcy - th * 0.5f;
-            float u0 = 0.0f, u1 = 1.0f;   /* 整源宽（文字 160px 宽图集，全宽） */
-            float v0 = (float)(i * 40) / text_h;
-            float v1 = (float)(i * 40 + 40) / text_h;
+            float u0 = 0.0f, u1 = 1.0f;   /* 整源宽（全宽采样） */
+            float v0 = (float)(i * row_h) / text_h;
+            float v1 = (float)(i * row_h + row_h) / text_h;
             rs_v4f tq[6] = {
                 {tx0, ty0, u0, v0}, {tx0 + tw, ty0, u1, v0}, {tx0, ty0 + th, u0, v1},
                 {tx0, ty0 + th, u0, v1}, {tx0 + tw, ty0, u1, v0}, {tx0 + tw, ty0 + th, u1, v1},
@@ -9595,7 +9601,11 @@ static void rs_gl_rebuild(rs_render *rr, int slot)
     if (rr->piece_px && rr->gl2_ok[slot]) {
         glGenTextures(1, &rr->tex_piece[slot]);
         glBindTexture(GL_TEXTURE_2D, rr->tex_piece[slot]);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, PIECE_PNG_W, PIECE_PNG_H, 0,
+        /* ★ A7-01（P1 已修）：实际解码宽高（piece_w/h，0 守护回退 PIECE_PNG_W/H 212×280），
+           与 board B04-046/050 同款"解码实际宽高"口径，消硬编码双源漂移 */
+        int pwx = rr->piece_w > 0 ? rr->piece_w : PIECE_PNG_W;
+        int pxy = rr->piece_h > 0 ? rr->piece_h : PIECE_PNG_H;
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, pwx, pxy, 0,
                      GL_RGBA, GL_UNSIGNED_BYTE, rr->piece_px);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);

@@ -71,7 +71,7 @@ int main(int argc, char **argv)
             undo_push(&st);
             int ev = jq_try_move(&st, a, b);
             if (ev < 0 || ev >= 6) {
-                g_undo_top--;
+                if (g_undo_top > 0) g_undo_top--;   /* ★ AUD-1000-ALL A3-F3-002（P1 已修）：g_undo_top-- 无守卫下溢，加 >0 守卫 */
                 printf("ILLEGAL\n");
                 if (do_expect_check) outpos += snprintf(outbuf+outpos, sizeof outbuf-outpos, "ILLEGAL\n");
             } else {
@@ -83,7 +83,7 @@ int main(int argc, char **argv)
         } else if (cmd[0] == 'f') {
             undo_push(&st);
             int ok = jq_flip(&st, a);
-            if (!ok) g_undo_top--;
+            if (!ok) { if (g_undo_top > 0) g_undo_top--; }   /* ★ AUD-1000-ALL A3-F3-003（P1 已修）：同 :74，加 >0 守卫 */
             o = ok ? "OK Flip" : "ILLEGAL";
             printf("%s\n", o);
             if (do_expect_check) outpos += snprintf(outbuf+outpos, sizeof outbuf-outpos, "%s\n", o);

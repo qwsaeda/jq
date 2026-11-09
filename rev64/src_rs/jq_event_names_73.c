@@ -75,7 +75,7 @@ const char *const jq_event_names_73[JQ_EVENT_NAME_COUNT] = {
     "Junqi.LeiError",  /* [69] */
     "Junqi.QiError",  /* [70] */
     "Junqi.Select",  /* [71] */
-    "Junqi.GameType",  /* [72] */
+    "Junqi.GameType%d",  /* [72] ★ AUD-1000-ALL A4-04（P1 已修）：原版 .rodata 73 名实为 "Junqi.GameType%d"（printf 格式串，%d 运行时填充模式号；frida-dump:37 实锤），旧常量表截断为 "Junqi.GameType" → strcmp 全等匹配对原版真名永不命中 */
 };
 
 /* [code][idx] = 名称下标，-1 结束；12 事件码 × 最多 16 名/码 */

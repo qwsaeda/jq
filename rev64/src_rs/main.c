@@ -254,7 +254,7 @@ int main(int argc, char **argv)
             if (ev < 0) {
                 printf("  非法走子 (%d,%d)→(%d,%d)\n",
                        cell_row(from), cell_col(from), cell_row(to), cell_col(to));
-                g_undo_top--;   /* 撤销本步快照 */
+                if (g_undo_top > 0) g_undo_top--;   /* ★ AUD-1000-ALL A3-F3-001（P1 已修）：g_undo_top-- 无守卫下溢（undo_push 栈满未入栈时裸减→负值 UB），加 >0 守卫 */
                 continue;
             }
             printf("  [%s] (%d,%d)→(%d,%d)  %s\n",

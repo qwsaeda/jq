@@ -117,6 +117,7 @@ typedef struct {
     void *board_px; size_t board_px_len;   /* 解码后 RGBA（跨 context 共享，只解码一次） */
     int board_w, board_h;                  /* AUD-1000 B04-050：解码实际宽高（不再 px_len 反推） */
     void *piece_px;  size_t piece_px_len;
+    int piece_w, piece_h;                   /* AUD-1000-ALL A7-01：解码实际宽高（同 board_w/h 范式） */
     void *text_px;   size_t text_px_len;   /* 菜单文字图集 RGBA（5 label 竖排） */
     int text_w, text_h;                    /* 文字图集尺寸 */
     void *bg_px;     size_t bg_px_len;     /* 对局棋盘背景 datax_177 RGBA（720×1280） */

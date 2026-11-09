@@ -1053,6 +1053,13 @@ static const char *on_event(const char *name, const char *value, JNIEnv *env)
         if (undo_pop()) LOGI("OnEvent undo 成功");
         else LOGI("OnEvent undo 无历史");
     } else if (strcmp(name, "resign") == 0) {
+        /* ★ AUD-1000-ALL A8-F8-005（P1 已修）：resign 钩子加 stage 守卫——旧实现
+           无守卫，终局后（stage=OVER）重复 resign 重写 winner/stage（脏态覆盖，
+           与 32 位 jq_game_test_finish 的 stage 门控分叉）。 */
+        if (st->stage == STG_OVER) {
+            LOGI("OnEvent resign → 已终局（stage=OVER winner=%d），忽略重复认输", st->winner);
+            return "lose";
+        }
         st->winner = 1 - st->turn;
         st->stage = STG_OVER;
         jq_evt55_dispatch(24, "Junqi.Resign");   /* ★ 55code 分发：code 24 = Resign */
@@ -1155,7 +1162,15 @@ static const char *on_event(const char *name, const char *value, JNIEnv *env)
         /* resign_confirm 无独立 55code（原版 F_55d40 switch 未含 ResignConfirm，
            诚实边界：73-name 索引 19=ResignConfirm 仅计数对齐，code 兜底 24=Resign） */
         extern int g_event_cnt[];
-        g_event_cnt[19]++; g_event_total++;   /* Junqi.ResignConfirm name idx 19 计数 */
+        /* ★ AUD-1000-ALL A2-048（P1 已修）：g_event_cnt[19] 硬编码下标→按 73 名表精确
+           查表（ResignConfirm 非 7 事件码，ev7_to_name_idx 不适用；防 73 表重排漂移，
+           与 B03-012 查表口径一致）。下标 = jq_event_names_73 中 "Junqi.ResignConfirm"
+           的位置（:25 = [19]）。 */
+        int _rc = -1;
+        for (int _i = 0; _i < JQ_EVENT_NAME_COUNT; _i++)
+            if (strcmp(jq_event_names_73[_i], "Junqi.ResignConfirm") == 0) { _rc = _i; break; }
+        if (_rc < 0) _rc = 19;   /* 兜底（73 表重排时安全回退到旧下标） */
+        g_event_cnt[_rc]++; g_event_total++;   /* Junqi.ResignConfirm name idx 计数（查表非硬编码） */
         LOGI("OnEvent resign_confirm → 认输确认（原版 Junqi.ResignConfirm name idx 19，code 兜底 24）");
         return "lose";
     } else if (strcmp(name, "restart") == 0) {
@@ -1418,8 +1433,11 @@ static void *btconn_worker(void *arg)
         }
     } else LOGI("btconn worker：GetStaticMethodID btState 失败");
     if ((*e)->ExceptionCheck(e)) (*e)->ExceptionClear(e);
-    (*vm)->DetachCurrentThread(vm);
+    /* ★ AUD-1000-ALL A1-F1-024（P1 已修）：DeleteGlobalRef 须先于 DetachCurrentThread
+       ——JNI 契约：Detach 后 env 指针失效，再调 DeleteGlobalRef(e,cls) 是 UB（B03-040
+       台账标 FIXED 但修复未落地，本轮补正顺序）。 */
     (*e)->DeleteGlobalRef(e, cls);
+    (*vm)->DetachCurrentThread(vm);
     return NULL;
 }
 
@@ -2523,7 +2541,7 @@ Java_com_cnvcs_App_OnTimer(JNIEnv *env, jclass clazz)
             if (flip) {
                 int frc = 0;
                 if (jq_flip(&g_state, from)) { frc = 1; ui_replay_record(from, from, 1); g_event_cnt[ev7_to_name_idx(EV_FLIP)]++; g_event_total++; }   /* AUD-R-061：翻棋计数走 EV_FLIP=6 位 */   /* ★ P1（datah_039/107）：AI 翻棋记录 */
-                if (frc < 0 && pushed) undo_pop_discard();   /* 翻棋失败回滚栈顶快照 */
+                if (!frc && pushed) undo_pop_discard();   /* ★ AUD-1000-ALL A9-001~004（P1 已修）：jq_flip bool 契约（成功 1/失败 0），frc<0 恒假死条件→翻棋失败脏快照不回滚；改 !frc（失败即回滚栈顶） */   /* 翻棋失败回滚栈顶快照 */
             } else {
                 int e = jq_try_move(&g_state, from, to);
                 if (e >= 0) ui_replay_record(from, to, 0);   /* ★ P1（datah_039/107）：AI 走子记录 */
@@ -3171,7 +3189,7 @@ Java_com_cnvcs_App_OnUpdate(JNIEnv *env, jclass clazz)
                 if (flip) {
                     int frc = 0;
                     if (jq_flip(&g_state, from)) { frc = 1; ui_replay_record(from, from, 1); g_event_cnt[ev7_to_name_idx(EV_FLIP)]++; g_event_total++; }   /* AUD-R-061：翻棋计数走 EV_FLIP=6 位 */   /* ★ P1（datah_039/107）：AI 翻棋记录 */
-                    if (frc < 0 && pushed) undo_pop_discard();
+                    if (!frc && pushed) undo_pop_discard();   /* ★ AUD-1000-ALL A9-001~004（P1 已修）：jq_flip bool 契约（成功 1/失败 0），frc<0 恒假死条件→翻棋失败脏快照不回滚；改 !frc（失败即回滚栈顶） */
                     LOGI("红方 AI 应着（翻棋）：cell=%d（turn 切回蓝方）", from);
                 } else {
                     int e = jq_try_move(&g_state, from, to);
@@ -3304,12 +3322,18 @@ static void start_bt_session(JNIEnv *env, int host)
        发送走子帧经 jq_bt_send；BT 模式走子由本机状态机放行。 */
     if (!g_bt_sess_init_done) {
         pthread_mutex_lock(&g_mutex);
-        jq_bt_session_init(&g_bt_sess, &g_state, host ? 1 : 0);
-        /* host 蓝先手=OUR_TURN（可发首帧）；client 红后手=THEIR_TURN（等 host 首帧）。
-           ★ 回合闸口：send_move 须 OUR_TURN，on_frame MOVE/FLIP 须 THEIR_TURN。 */
-        g_bt_sess.state = host ? BT_ST_OUR_TURN : BT_ST_THEIR_TURN;
+        /* ★ AUD-1000-ALL A1-F1-006（P1 已修）：init_done 置位移入 g_mutex 内——旧实现
+           check-then-set 非原子（锁外置 1），BtSpp 读线程懒 init 窗口内双线程同进
+           → 二次 jq_bt_session_init 翻 host 首帧闸口 + 双端死锁静默降级。锁内
+           double-check（enter 后复查）保证仅一线程 init。 */
+        if (!g_bt_sess_init_done) {
+            jq_bt_session_init(&g_bt_sess, &g_state, host ? 1 : 0);
+            /* host 蓝先手=OUR_TURN（可发首帧）；client 红后手=THEIR_TURN（等 host 首帧）。
+               ★ 回合闸口：send_move 须 OUR_TURN，on_frame MOVE/FLIP 须 THEIR_TURN。 */
+            g_bt_sess.state = host ? BT_ST_OUR_TURN : BT_ST_THEIR_TURN;
+            g_bt_sess_init_done = 1;   /* ★ 锁内置位（原子） */
+        }
         pthread_mutex_unlock(&g_mutex);
-        g_bt_sess_init_done = 1;
         ui_bt_set_active(1);   /* ★ 对抗审计（datah_067）：联机 ☰ 菜单分流 */
         LOGI("start_bt_session：蓝牙会话初始化（host=%d %s，%s）",
              host, host ? "蓝先手" : "红后手",
@@ -3605,7 +3629,8 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
                     "重新开始：原版业务未逆向，src_rs 无此通道。");
                 ui_screen_set(UI_GAME); sfx_play(env, "pop");
             } else if (a == 1) {   /* 悔棋 → 业务动作 */
-                undo_pop();ui_screen_set(UI_GAME); LOGI("批量对齐：悔棋 → undo_pop（已悔步）"); sfx_play(env, "pop");
+                { pthread_mutex_lock(&g_mutex); int _up = undo_pop(); pthread_mutex_unlock(&g_mutex); }
+                ui_screen_set(UI_GAME); LOGI("批量对齐：悔棋 → undo_pop（已悔步）"); sfx_play(env, "pop");
             } else if (a == 2) {   /* 电脑变着 → 边界对话框（诚实边界） */
                 jq_show_dialog(env, "电脑变着（诚实边界）",
                     "电脑变着：原版业务未逆向，src_rs 无此通道。");
@@ -4899,7 +4924,8 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
                     "重新开始：原版业务未逆向，src_rs 无此通道。");
                 ui_screen_set(UI_GAME); sfx_play(env, "pop");
             } else if (a == 1) {   /* 悔棋 → 业务动作 */
-                undo_pop();ui_screen_set(UI_GAME); LOGI("批量对齐：悔棋 → undo_pop（已悔步）"); sfx_play(env, "pop");
+                { pthread_mutex_lock(&g_mutex); int _up = undo_pop(); pthread_mutex_unlock(&g_mutex); }
+                ui_screen_set(UI_GAME); LOGI("批量对齐：悔棋 → undo_pop（已悔步）"); sfx_play(env, "pop");
             } else if (a == 2) {   /* 提和 → 业务动作 */
                 jq_show_dialog(env, "提和（诚实边界）", "提和：原版需对端应答，src_rs 本地未实现提和判定。"); ui_screen_set(UI_GAME); sfx_play(env, "pop");
             } else if (a == 3) {   /* 认输 → 边界对话框（诚实边界） */
@@ -5189,7 +5215,8 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
             } else if (a == 1) {   /* 新局 → UI_NEWGAME */
                 ui_screen_set(UI_NEWGAME); sfx_play(env, "pop");
             } else if (a == 2) {   /* 悔棋 → 业务动作 */
-                undo_pop();ui_screen_set(UI_GAME); LOGI("批量对齐：悔棋 → undo_pop（已悔步）"); sfx_play(env, "pop");
+                { pthread_mutex_lock(&g_mutex); int _up = undo_pop(); pthread_mutex_unlock(&g_mutex); }
+                ui_screen_set(UI_GAME); LOGI("批量对齐：悔棋 → undo_pop（已悔步）"); sfx_play(env, "pop");
             } else if (a == 3) {   /* 设置 → 边界对话框（诚实边界） */
                 jq_show_dialog(env, "设置（诚实边界）",
                     "设置：原版业务未逆向，src_rs 无此通道。");
@@ -6076,7 +6103,8 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
             } else if (a == 1) {   /* 新局 → UI_NEWGAME */
                 ui_screen_set(UI_NEWGAME); sfx_play(env, "pop");
             } else if (a == 2) {   /* 悔棋 → 业务动作 */
-                undo_pop();ui_screen_set(UI_GAME); LOGI("批量对齐：悔棋 → undo_pop（已悔步）"); sfx_play(env, "pop");
+                { pthread_mutex_lock(&g_mutex); int _up = undo_pop(); pthread_mutex_unlock(&g_mutex); }
+                ui_screen_set(UI_GAME); LOGI("批量对齐：悔棋 → undo_pop（已悔步）"); sfx_play(env, "pop");
             } else if (a == 3) {   /* 设置 → 边界对话框（诚实边界） */
                 jq_show_dialog(env, "设置（诚实边界）",
                     "设置：原版业务未逆向，src_rs 无此通道。");
@@ -8329,7 +8357,7 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
                     int from, to, flip;
                     if (ai_pick(&from, &to, &flip) == 0) {
                         int pushed = undo_push();   /* ★ AUD-1000 B03-008（P1 已修）：☰ 电脑变着 push 契约 */
-                        if (flip) { int frc = 0; if (jq_flip(&g_state, from)) { frc = 1; ui_replay_record(from, from, 1); g_event_cnt[ev7_to_name_idx(EV_FLIP)]++; g_event_total++; }   /* AUD-R-061：翻棋计数走 EV_FLIP=6 位 */   /* ★ P1（datah_039/107）：电脑变着翻棋记录 */ if (frc < 0 && pushed) undo_pop_discard(); }
+                        if (flip) { int frc = 0; if (jq_flip(&g_state, from)) { frc = 1; ui_replay_record(from, from, 1); g_event_cnt[ev7_to_name_idx(EV_FLIP)]++; g_event_total++; }   /* AUD-R-061：翻棋计数走 EV_FLIP=6 位 */   /* ★ P1（datah_039/107）：电脑变着翻棋记录 */ if (!frc && pushed) undo_pop_discard();   /* ★ AUD-1000-ALL A9-001~004（P1 已修）：jq_flip bool 契约（成功 1/失败 0），frc<0 恒假死条件→翻棋失败脏快照不回滚；改 !frc（失败即回滚栈顶） */ }
                         else { int e = jq_try_move(&g_state, from, to); if (e >= 0) ui_replay_record(from, to, 0); if (e < 0 && pushed) undo_pop_discard(); (void)e; }   /* ★ P1（datah_039/107）：电脑变着走子记录 */
                         done = 1;
                     }
@@ -8519,7 +8547,7 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
                     if (aflip) {
                         int frc = 0;
                         if (jq_flip(&g_state, af)) { frc = 1; ui_replay_record(af, af, 1); g_event_cnt[ev7_to_name_idx(EV_FLIP)]++; g_event_total++; }   /* AUD-R-061：翻棋计数走 EV_FLIP=6 位 */   /* ★ P1（datah_039/107）：AI 翻棋记录 */
-                        if (frc < 0 && pushed) undo_pop_discard();
+                        if (!frc && pushed) undo_pop_discard();   /* ★ AUD-1000-ALL A9-001~004（P1 已修）：jq_flip bool 契约（成功 1/失败 0），frc<0 恒假死条件→翻棋失败脏快照不回滚；改 !frc（失败即回滚栈顶） */
                         LOGI("红方 AI 应着（翻棋）：cell=%d（turn 切回蓝方）", af);
                     } else {
                         ae = jq_try_move(&g_state, af, at);
@@ -8669,7 +8697,16 @@ Java_com_cnvcs_App_OnBluetooth(JNIEnv *env, jclass clazz, jobject intent)
     while (*p) {
         if (jq_bt_frame_decode(p, &f[0], &f[1], &f[2], &f[3], &f[4], &f[5], &f[6])) {
             pthread_mutex_lock(&g_mutex);
-            if (!g_bt_sess_init_done) { jq_bt_session_init(&g_bt_sess, &g_state, 0); g_bt_sess_init_done = 1; }
+            if (!g_bt_sess_init_done) {
+                /* ★ AUD-1000-ALL A4-11（P1 已修）：we_blue 口径矛盾消除——入口段（:8631）
+                   懒 init we_blue=1（host 蓝先手），本收帧段旧 we_blue=0（client 红后手）。
+                   BtSpp 读线程收帧先于 Java start 回调时，host 设备被收帧段误 init 成
+                   client 语义（we_blue=0）→ RESIGN winner 判反。统一：收帧段懒 init
+                   沿用入口段 host 语义 we_blue=1（与 :8631 一致），host/client 区分
+                   由 Java 侧 start_bt_session(host?1:0) 显式覆盖（:3330 锁内 double-check）。 */
+                jq_bt_session_init(&g_bt_sess, &g_state, 1);
+                g_bt_sess_init_done = 1;
+            }
             int rc = jq_bt_session_on_frame(&g_bt_sess, &g_state,
                                             f[0], f[1], f[2], f[3],
                                             f[4], f[5], f[6]);
