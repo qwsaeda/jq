@@ -361,6 +361,8 @@ int jq_save_game_read(const char *path, jq_state *st);
 int  jq_evt55_dispatch(int code, const char *evname);      /* 1=成功 0=越界 */
 int  jq_evt55_name_to_code(const char *evname);            /* 事件名→code，-1/0=兜底 */
 const char *jq_evt55_code_to_evname_str(int code);          /* code→事件名（日志用） */
+int  jq_evt55_name_to_55code(const char *evname);          /* 76事件名→55code（原版全链，深水区） */
+int  jq_evt55_name_to_biz(const char *evname);             /* 76事件名→12业务码（诊断/统计） */
 
 #endif /* RS_JUNQI_H */
 

@@ -112,25 +112,12 @@ int jq_evt55_dispatch(int code, const char *evname)
     return 1;
 }
 
-/* 事件名 → 55 code 反查（on_event 分支用：事件名字符串 → code 值）
-   返回：code 值（0..66），-1=未匹配（调用点兜底 0=Move） */
+/* 事件名 → 55 code 反查（原版行为移植深水区：76 事件名全链，evt55_business.c）
+   返回：55 code 值（0..66），未匹配兜底 0（Junqi.Move）。
+   诚实边界：账号/注册/联机/摆子类 55code 区 = 分发成功无 g_state 变更（业务逻辑未移植）。 */
 int jq_evt55_name_to_code(const char *evname)
 {
-    if (!evname) return 0;
-    if (!strcmp(evname, "Junqi.Move"))           return 0;
-    if (!strcmp(evname, "Junqi.Eat"))            return 1;
-    if (!strcmp(evname, "Junqi.Bomb"))           return 2;
-    if (!strcmp(evname, "Junqi.Flag"))           return 3;
-    if (!strcmp(evname, "Junqi.Dead"))           return 4;
-    if (!strcmp(evname, "Junqi.Flip"))           return 6;
-    if (!strcmp(evname, "Junqi.GameOver"))       return 16;
-    if (!strcmp(evname, "Junqi.Resign"))         return 24;
-    if (!strcmp(evname, "Junqi.DrawReq"))        return 25;
-    if (!strcmp(evname, "Junqi.DrawAgree"))      return 26;
-    if (!strcmp(evname, "Junqi.DrawDisagree"))   return 27;
-    if (!strcmp(evname, "Junqi.RegretReq"))      return 42;
-    /* 其余 73 事件名 → 兜底 0（诚实边界：账号/联机类简化版不实现，code 兜底 0） */
-    return 0;
+    return jq_evt55_name_to_55code(evname);   /* evt55_business.c 76 事件名全链 */
 }
 
 /* code → 事件名字符串（日志用）+ 32位 handler .text 地址（诊断） */

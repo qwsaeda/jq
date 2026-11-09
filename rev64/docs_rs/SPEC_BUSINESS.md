@@ -209,3 +209,29 @@ UI_MENU（5 按钮：人机/两人/联网/联机/四国）
 - regret_agree/disagree→name idx 21/22 计数（同意/拒绝帧简化版不独立处理，仅计数对齐）
 - join_game/leave_game→name idx 50/58 计数（联机/离开，业务逻辑未移植，73 名计数对齐）
 - 3 死函数清理（sfx_for_event_name/event_count_by_name/ev_code_to_name 被 ev7_to_name_idx + jq_evt55_* 取代）
+
+### 3.4 76 事件名 → 12 业务码 → 55 code 全链（原版行为移植深水区落地）
+
+**`evt55_business.c`（本轮新增）**：
+- 76 事件名（Junqi.* 73 + Misc 3）→ 12 业务码（原版 `event_code_map.json` 12 大类）→ 55 code（原版 F_55d40 switch 实锤 representative code）
+- `jq_evt55_name_to_55code()`：事件名字符串 → 55 code（全链入口）
+- `jq_evt55_name_to_biz()`：事件名 → 12 业务码（诊断/统计）
+- `jq_evt55_name_to_code()` 改调 `jq_evt55_name_to_55code`（替代旧 11 项硬编码映射）
+
+**12 业务码 → 55 code 映射**（representative，诚实边界）：
+| 业务码 | 事件名族 | 55 code | 64 位 g_state 变更 |
+|---|---|---|---|
+| 0 走子/吃子 | Move/Eat/Dead | 0 | jq_try_move 已完成 |
+| 1 炸弹/旗 | Bomb/Flag | 2 | jq_try_move 已完成 |
+| 2 翻棋 | Flip | 6 | jq_flip 已完成 |
+| 3 胜负/终局 | GameOver/Over/Win/Lose/RedWin/BlueWin | 16 | jq_on_draw/jq_on_stalemate 已完成 |
+| 4 和棋 | Draw/DrawReq/Agree/Disagree/Confirm/Send | 25 | jq_on_draw 已完成 |
+| 5 投降 | Resign/ResignConfirm | 24 | winner 翻转已完成 |
+| 6 悔棋 | RegretReq/Agree/Disagree/Confirm/Send/Fail | 42 | undo_pop 已完成 |
+| 7 登录 | Input*/Login*/Email*/User*/Name*/Pwd*/New*/Ori*/Reg* | 34 | 诚实边界：无 g_state 变更 |
+| 8 注册 | RegExist/RegFail/RegOk 等 | 36 | 同上 |
+| 9 联机 | JoinGame/Ready/Start/Peer*/LeaveGame/Player*/Reconn*/Connect*/Exit* | 38 | 同上 |
+| 10 摆子/布局 | LayError/High*/Mid*/Zha*/Lei*/Qi* | 44 | 同上 |
+| 11 系统/杂项 | Select/GameType/Over | 46 | 同上 |
+
+**红线**：76 事件名全链 = 事件名→业务码→55code 分发对齐；账号/注册/联机/摆子类 53 code 业务逻辑未移植（无服务器协议 + 无 .bss C++ 事件单例），简化版 g_state 语义下 = 分发成功无状态变更，**不包装成完整版**。
