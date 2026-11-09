@@ -2150,12 +2150,11 @@ Java_com_cnvcs_App_OnCreate(JNIEnv *env, jclass clazz, jobject activity)
         __system_property_get("jq.replay", rp_prop);
         LOGI("jq.replay 钩子：属性=%s（%s）", rp_prop, strcmp(rp_prop, "1") == 0 ? "触发进复盘" : "未触发");
         if (strcmp(rp_prop, "1") == 0) {
-            int n = ui_replay_count();
-            int rc = ui_replay_rewind(n);   /* 重建到记录末尾（n=0 = 纯开局布局） */
-            ui_screen_set(UI_REPLAY);
-            LOGI("jq.replay 钩子：→ UI_REPLAY 复盘回放态（datah_107 控制条 5 按钮，cur=%d/%d rewind rc=%d；跳转简化回开头/跳结尾，菜单简化退复盘，入口 setprop 钩子）",
-                 n, n, rc);
-            __system_property_set("jq.replay", "0");
+            /* ★ 对抗审计（2026-11-09）：注入体延迟到 g_mutex unlock 后执行（见 unlock 后
+               jq.replay 段）——本段在 g_mutex 内调 ui_replay_count/rewind/screen_set 取
+               g_ui_lock，与渲染线程 OnUpdate（持 g_mutex→ui_* 取 g_ui_lock）逆序死锁。
+               此处仅读 prop + 标注，注入在 unlock 后段完成。 */
+            LOGI("jq.replay 钩子：prop=1 → 注入延迟到 g_mutex unlock 后执行（避免逆序死锁）");
         }
     }
     /* ★ P1（datah_039 走子记录实证钩子）：jq.movetest 1 → 重启 → OnCreate 明棋开局 +
@@ -2168,25 +2167,10 @@ Java_com_cnvcs_App_OnCreate(JNIEnv *env, jclass clazz, jobject activity)
         __system_property_get("jq.movetest", mv_prop);
         LOGI("jq.movetest 钩子：属性=%s（%s）", mv_prop, strcmp(mv_prop, "1") == 0 ? "触发自动走 3 步" : "未触发");
         if (strcmp(mv_prop, "1") == 0) {
-            static const int seq3[3][2] = { {6,11}, {30,25}, {5,6} };   /* 蓝/红 交替（turn 走子后翻转） */
-            int okcnt = 0;
-            for (int k = 0; k < 3; k++) {
-                int f = seq3[k][0], t = seq3[k][1];
-                int mv = jq_try_move(&g_state, f, t);
-                if (mv >= 0) {
-                    ui_replay_record(f, t, 0);   /* 走子成功记录 1 步（复盘序列 n++） */
-                    okcnt++;
-                    LOGI("movetest 自动走子 第%d步 (%d,%d)→(%d,%d) ev=%d %s（记录 n=%d）",
-                         k + 1, f, t, f, t, mv, JQ_EVENT_NAMES[mv], ui_replay_count());
-                } else {
-                    LOGI("movetest 自动走子 第%d步 (%d,%d) 非法（布局/回合不合法，停止）", k + 1, f, t);
-                    break;
-                }
-            }
-            sfx_play(env, "move");
-            LOGI("movetest：自动走子完成 %d/3 步（复盘走子记录 n=%d，jq.replay 钩子可进复盘 cur=%d/%d）",
-                 okcnt, ui_replay_count(), ui_replay_cur(), ui_replay_count());
-            __system_property_set("jq.movetest", "0");
+            /* ★ 对抗审计（2026-11-09）：注入体（jq_try_move/ui_replay_record 取 g_ui_lock）
+               延迟到 g_mutex unlock 后执行（见 unlock 后 jq.movetest 段）——本段在
+               g_mutex 内会逆序死锁。此处仅读 prop + 标注。 */
+            LOGI("jq.movetest 钩子：prop=1 → 注入延迟到 g_mutex unlock 后执行（避免逆序死锁）");
         }
     }
 
@@ -2206,10 +2190,110 @@ Java_com_cnvcs_App_OnCreate(JNIEnv *env, jclass clazz, jobject activity)
     jq_container_fill_layout(&g_laycc, JQ_DEFAULT_LAY);
     jq_container_validate(&g_laycc, &g_state);
     pthread_mutex_unlock(&g_mutex);
+    /* ★ 对抗审计（2026-11-09）：flagtest/minetest 注入段（原在 g_mutex 段内，见上方
+       1538 注释）移至 unlock 后执行——避免与渲染线程 OnUpdate（持 g_mutex→ui_* 取
+       g_ui_lock）逆序死锁。prop 在此读+注入，语义不变（OnCreate 单线程，注入完成
+       早于 GLView init/渲染首帧快照 g_state）。 */
+    {
+        char ft_prop[16] = {0};
+        __system_property_get("jq.flagtest", ft_prop);
+        if (strcmp(ft_prop, "1") == 0) {
+            memset(&g_state, 0, sizeof(g_state));
+            g_state.turn = SIDE_BLUE; g_state.stage = STG_PLAY; g_state.winner = JQ_WIN_NONE;   // AUD-R-053：winner 未定哨兵
+            for (int i = 0; i < N_CELLS; i++) g_state.cells[i].rank = RANK_EMPTY;
+            g_state.cells[53].rank = 2; g_state.cells[53].side = SIDE_BLUE; g_state.cells[53].revealed = 1;
+            g_state.cells[58].rank = 12 + 0xc; g_state.cells[58].side = SIDE_RED; g_state.cells[58].revealed = 1;
+            g_state.cells[58].flags = JQF_FLAG;
+            g_undo_top = 0;
+            ui_screen_set(UI_GAME);
+            /* ★ AUD-1000 B03-044（P1 已注释，诚实边界）：flagtest 测试钩子把 UI 初态
+               从 UI_MENU(1188) 改到 UI_GAME——仅测试 prop 触发时发生（非默认路径），
+               渲染层进棋盘而非菜单，与测试语义一致，保留。 */
+            int ftev = jq_try_move(&g_state, 53, 58);
+            if (ftev >= 0 && ftev < 7) { g_event_cnt[ev7_to_name_idx(ftev)]++; g_event_total++; }   /* AUD-R-061：7 项事件码（AUD-A-0003：下界+上界守卫已全，真修确认关闭） */
+            LOGI("flagtest：近旗状态注入 + 自动走 53→58 ev=%d %s（turn=%d stage=%d winner=%d）",
+                 ftev, ftev < 0 ? "-" : JQ_EVENT_NAMES[ftev < 7 ? ftev : 0],
+                 g_state.turn, g_state.stage, g_state.winner);
+            sfx_play(env, "flag");
+            /* ★ 对局结束音效（flagtest 自动走吃旗 → stage=OVER → win/lose；
+               OnCreate 自动走不经 OnTouch 走子块，故此处补播） */
+            sfx_game_over(env, g_state.stage, g_state.winner);
+            __system_property_set("jq.flagtest", "0");
+        }
+    }
+    {
+        char mt_prop[16] = {0};
+        __system_property_get("jq.minetest", mt_prop);
+        if (strcmp(mt_prop, "1") == 0) {
+            memset(&g_state, 0, sizeof(g_state));
+            g_state.turn = SIDE_BLUE; g_state.stage = STG_PLAY; g_state.winner = JQ_WIN_NONE;   // AUD-R-053：winner 未定哨兵
+            /* ★ 幂等修复：memset 后 mines_cleared/pieces_left 残留上一次注入值（ev 漂移 5→4），
+               每次注入前重置（挖雷状态测试需确定性 ev=5）。 */
+            for (int i = 0; i < 2; i++) { g_state.mines_cleared[i] = 0; g_state.pieces_left[i] = 0; }
+            for (int i = 0; i < N_CELLS; i++) g_state.cells[i].rank = RANK_EMPTY;
+            g_state.cells[49].rank = 9; g_state.cells[49].side = SIDE_BLUE; g_state.cells[49].revealed = 1;
+            g_state.cells[54].rank = 11 + 0xc; g_state.cells[54].side = SIDE_RED; g_state.cells[54].revealed = 1;
+            g_state.cells[54].flags = JQF_MINE;
+            g_state.cells[59].rank = 3 + 0xc; g_state.cells[59].side = SIDE_RED; g_state.cells[59].revealed = 1;
+            g_undo_top = 0;
+            ui_replay_init();   /* ★ AUD-1000 B03-042（P1 已修）：minetest 注入后清复盘记录（同 flagtest） */
+            ui_screen_set(UI_GAME);
+            /* ★ AUD-1000 B03-044（P1 已注释，诚实边界）：minetest 钩子把 UI 初态从
+               UI_MENU 改到 UI_GAME（测试钩子改主界面初态，与 flagtest 同款），
+               仅测试 prop 触发时发生，非默认路径；保留（测试钩子语义，标注）。 */
+            int mtev = jq_try_move(&g_state, 49, 54);
+            if (mtev >= 0 && mtev < 7) { g_event_cnt[ev7_to_name_idx(mtev)]++; g_event_total++; }   /* AUD-R-061：7 项事件码（AUD-A-0004：下界+上界守卫已全，真修确认关闭） */
+            LOGI("minetest：挖雷状态注入 + 自动走 49→54 ev=%d %s（turn=%d stage=%d）",
+                 mtev, mtev < 0 ? "-" : JQ_EVENT_NAMES[mtev < 7 ? mtev : 0], g_state.turn, g_state.stage);
+            sfx_play(env, "move");
+            __system_property_set("jq.minetest", "0");
+        }
+    }
     /* ③b：初始化 GLView（EGL 上下文 + 渲染器 ①②）。
        返回 Java GLView jobject（App.smali：非 null 则 setContentView + setRenderer，GLThread 每帧调 OnUpdate 出帧）；
        EGL 失败（无 GPU）→ 返回 NULL，Java 侧跳过 setContentView（空白界面，不崩）。 */
     #define SPAK_DIR "/data/local/tmp/spak_res"  /* 免 push：可改 app 私有目录；当前固定 tmp */
+    /* ★ 对抗审计（2026-11-09）：movetest/replay 注入段（原在 g_mutex 段内 2149-2190，
+       jq_try_move/ui_replay_record/ui_replay_rewind/ui_screen_set 取 g_ui_lock）移至
+       unlock 后执行——与 flagtest/minetest 同款逆序死锁消除。延迟占位保持 prop 读
+       （上方 2149-2190 段），注入逻辑在 GLView init 前执行（渲染首帧快照 g_state 前）。 */
+    {
+        char rp_prop[16] = {0};
+        __system_property_get("jq.replay", rp_prop);
+        if (strcmp(rp_prop, "1") == 0) {
+            int n = ui_replay_count();
+            int rc = ui_replay_rewind(n);
+            ui_screen_set(UI_REPLAY);
+            LOGI("jq.replay 钩子：→ UI_REPLAY 复盘回放态（unlock 后注入，cur=%d/%d rewind rc=%d）",
+                 n, n, rc);
+            __system_property_set("jq.replay", "0");
+        }
+    }
+    {
+        char mv_prop[16] = {0};
+        __system_property_get("jq.movetest", mv_prop);
+        if (strcmp(mv_prop, "1") == 0) {
+            static const int seq3[3][2] = { {6,11}, {30,25}, {5,6} };
+            int okcnt = 0;
+            for (int k = 0; k < 3; k++) {
+                int f = seq3[k][0], t = seq3[k][1];
+                int mv = jq_try_move(&g_state, f, t);
+                if (mv >= 0) {
+                    ui_replay_record(f, t, 0);
+                    okcnt++;
+                    LOGI("movetest 自动走子 第%d步 (%d,%d)→(%d,%d) ev=%d %s（记录 n=%d）",
+                         k + 1, f, t, f, t, mv, JQ_EVENT_NAMES[mv], ui_replay_count());
+                } else {
+                    LOGI("movetest 自动走子 第%d步 (%d,%d) 非法（布局/回合不合法，停止）", k + 1, f, t);
+                    break;
+                }
+            }
+            sfx_play(env, "move");
+            LOGI("movetest：自动走子完成 %d/3 步（unlock 后注入，复盘记录 n=%d）",
+                 okcnt, ui_replay_count());
+            __system_property_set("jq.movetest", "0");
+        }
+    }
     int glv_ok = (jq_glview_init(&g_glview, &g_state, SPAK_DIR, NULL, g_assets) == 0);
     if (glv_ok)
         LOGI("OnCreate：GLView EGL 上下文 + 渲染器就绪");

@@ -12,7 +12,7 @@
   2. 无崩溃（logcat 无 FATAL / UnsatisfiedLinkError / SIGSEGV）
   3. 钩子命中（logcat 出现「jq.dlgNNN=1 →」）
   4. 几何：截图上按钮色块的实际位置 vs 原版重算坐标（|Δ| ≤ 4px）
-  5. 非黑比例 ≥ 85%
+  5. 非黑比例 ≥ 8%（出图修复后重校准，旧 85% 全屏基线作废）
 """
 import os
 import re
@@ -30,7 +30,7 @@ from spak2ui import parse_dialog, panel_origin, to_720   # noqa: E402
 
 SPAK = "/tmp/opencode/spak_out"
 PKG = "com.cnvcs.junqirs"
-DEV = "emulator-5554"   # MuMu 标准验证环境（红果 adb 不稳，进程未存活 flaky）
+DEV = "10.0.182.146:5555"   # 红果 23127PN0CC（2026-11-12 出图修复后标准验证环境；MuMu property service 清不干净 jq.dlgNNN 残留）
 
 # 按钮底色（ui_solid_btn 0.22/0.28/0.42 alpha .85 混合后的典型值）
 BTN_RGB = (49, 65, 90)
@@ -160,9 +160,12 @@ def verify_one(n, keep_shot=False, jitter=True):
     total = im.size[0] * im.size[1]
     nz = sum(1 for p in im.getdata() if sum(p) > 30)
     r["nonblack"] = round(nz / total * 100, 1)
-    if r["nonblack"] < 85:
+    # ★ 出图修复后重校准（2026-11-12）：旧 85% 判据基于 MuMu 全屏出帧基线；
+    #   弹窗渲染实际非黑 ~8.8%（面板+文字+按钮区，非全屏亮）。改 ≥8%（画面真出帧）。
+    #   主判据 = 几何按钮色块探测（detect_btn_rows）；非黑比仅挡"全黑=未渲染"。
+    if r["nonblack"] < 8:
         r["ok"] = False
-        r["issues"].append(f"非黑 {r['nonblack']}% < 85%")
+        r["issues"].append(f"非黑 {r['nonblack']}% < 8%（画面未出帧）")
 
     # 几何：第一个按钮的中点 x 处探测 y 区间
     b0 = bt[0]

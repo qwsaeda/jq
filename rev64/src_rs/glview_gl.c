@@ -336,6 +336,13 @@ static void *rs_render_thread_main(void *arg)
                诚实边界：渲染线程读 g_state（rr->game->cells）不持 g_mutex（PBuffer 离屏分支
                本就如此，tear 不可见；window 出屏读 g_state 与 OnTouch/OnEvent 写竞态 →
                棋子闪错帧可能性，低频可接受——与 PBuffer 兜底线程同款诚实边界）。 */
+            {
+                static int ffirst = 0;
+                if (!ffirst) { ffirst = 1;
+                    LOGI("渲染线程 window 首帧：rs_render_frame 前 ui_screen=%d（UI_MENU=1188/UI_GAME=? 实际值，rs_render_frame 按其分发画面）",
+                         (int)(*(int*)&g_rr.game->stage));
+                }
+            }
             rs_render_frame(&g_rr);
             if (eglSwapBuffers(g_rr.egl_disp, g_win_surf)) {
                 if (!last_swap_ok_log || (frame_cnt % 600) == 0) {
