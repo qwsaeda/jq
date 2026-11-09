@@ -39,7 +39,8 @@ BTN_TOL = 12
 
 def sh(*args, timeout=120):
     return subprocess.run(["adb", "-s", DEV] + list(args),
-                          capture_output=True, text=True, timeout=timeout).stdout
+                          capture_output=True, text=True, timeout=timeout,
+                          encoding="utf-8", errors="replace").stdout
 
 
 def adb(*args, timeout=120):

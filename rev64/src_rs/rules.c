@@ -485,8 +485,19 @@ static void stalemate_after(jq_state *st)
     /* 困毙判定（0x302b4：无棋可走 → 该方负）。★ AUD-R-036（P2）：显式传
        loser_side=st->turn（此时"无棋可走方"=当前 turn 方，语义与旧版推导一致，
        不改变任何内部行为；仅消除外部调用点的 turn 依赖）。 */
+    /* ★ AUD-1000 B01-012（性能实锤，2026-11-09）：B01-012 缓存补丁漏写
+       stale_dirty=0——stalemate_after 的 jq_side_stalemated 全扫写 stale_cache
+       却不清 stale_dirty。后果：flagtest/minetest 注入段（jq_try_move 的
+       EV_FLAG 分支调 stalemate_after）走 B01-012 构造态兜底（缓存全 0 → 全扫），
+       全扫写 cache 但 dirty 仍 1 → 后续每次 stalemate_after（movetest 3 步、
+       渲染线程 OnUpdate 困毙判定、OnTouch 走子收口）都重走 O(N²) 全扫
+       （60×60 move_legal，每次 3-5 次 ui_rule_cfg_get 取 g_ui_lock）。
+       MuMu 64 位 so 上主线程单线程跑该段 >30s → 回归 10s 窗口全 FAIL +
+       渲染层未启动（资源 34=0）；桌面 evverify 毫秒级故前批未暴露。
+       修：stalemate_after 收口 stale_dirty=0（全扫完成后缓存有效，增量命中）。 */
     if (st->stage == STG_PLAY && jq_side_stalemated(st, st->turn))
         jq_on_stalemate(st, st->turn);
+    st->stale_dirty = 0;
 }
 
 /* ★ AUD-R-108（P3 诚实标注，不提取共用收尾）：审计项建议提取
