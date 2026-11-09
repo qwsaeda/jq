@@ -343,21 +343,31 @@ int main(void)
         ret = jq_bt_session_on_frame(&sessu, &stu, BT_T_UNDO, 0, 0, 0, 0, 0, 0);
         CHECK(ret == -2, "UNDO 闸口：OUR_TURN 拒收（rc=-2）");
 
-        /* RESTART：重开语义（st 重置 + state=OUR_TURN） */
+        /* RESTART：重开语义（st 重置 + state=OUR_TURN）
+           ★ AUD-1000 B04-012（P0 已修，b710498）：RESTART 加 DISCONNECTED 闸口——
+           仅对局进行中（CONNECTED：OUR_TURN/THEIR_TURN）接受。sessr 前面收 RESIGN
+           已置 DISCONNECTED（终态）→ RESTART 拒收 rc=-2（契约对齐修复后行为）。 */
         jq_state strr; fixture_play(&strr);
         CHECK(strr.stage == STG_PLAY && strr.winner == JQ_WIN_NONE,
               "RESTART 前置：对局进行中（新夹具 STG_PLAY）");
         int ret2 = jq_bt_session_on_frame(&sessr, &strr, BT_T_RESTART, 0, 0, 0, 0, 0, 0);
-        CHECK(ret2 == 0, "RESTART 帧接受（rc=0）");
-        CHECK(strr.stage == STG_PLAY, "RESTART 语义：stage 回 STG_PLAY");
-        CHECK(strr.winner == JQ_WIN_NONE, "RESTART 语义：winner 复位未定");
-        CHECK(strr.turn == SIDE_BLUE, "RESTART 语义：turn 复位蓝先手");
-        int empty = 0;
-        for (int i = 0; i < N_CELLS; i++) if (strr.cells[i].rank) empty = 1;
-        CHECK(empty == 0, "RESTART 语义：棋盘清空（jq_state_init）");
-        CHECK(sessr.state == BT_ST_OUR_TURN, "RESTART 语义：state=OUR_TURN（等本方输入）");
-        CHECK(strr.total_moves == 0 && strr.moves_since_eat == 0,
-              "RESTART 语义：计数复位 0");
+        CHECK(ret2 == -2, "RESTART 闸口：DISCONNECTED（RESIGN 终态后）拒收（rc=-2，B04-012）");
+        {
+            /* CONNECTED 态 RESTART 正例（新会话未断连，重开语义全链） */
+            jq_bt_session sess2; jq_state st2; fixture_play(&st2);
+            jq_bt_session_init(&sess2, &st2, 0);
+            int ret3 = jq_bt_session_on_frame(&sess2, &st2, BT_T_RESTART, 0, 0, 0, 0, 0, 0);
+            CHECK(ret3 == 0, "RESTART 帧接受（CONNECTED 态，rc=0）");
+            CHECK(st2.stage == STG_PLAY, "RESTART 语义：stage 回 STG_PLAY");
+            CHECK(st2.winner == JQ_WIN_NONE, "RESTART 语义：winner 复位未定");
+            CHECK(st2.turn == SIDE_BLUE, "RESTART 语义：turn 复位蓝先手");
+            int empty = 0;
+            for (int i = 0; i < N_CELLS; i++) if (st2.cells[i].rank) empty = 1;
+            CHECK(empty == 0, "RESTART 语义：棋盘清空（jq_state_init）");
+            CHECK(sess2.state == BT_ST_OUR_TURN, "RESTART 语义：state=OUR_TURN（等本方输入）");
+            CHECK(st2.total_moves == 0 && st2.moves_since_eat == 0,
+                  "RESTART 语义：计数复位 0");
+        }
     }
 
     /* =====================================================================
