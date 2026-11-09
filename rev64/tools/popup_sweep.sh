@@ -45,7 +45,15 @@ for h in "${HOOKS[@]}"; do
   if [ -n "$ONLY" ] && [[ ",$ONLY," != *",$tag,"* ]]; then continue; fi
   adb -s "$DEV" shell am force-stop "$PKG" >/dev/null 2>&1; sleep 0.6
   adb -s "$DEV" shell "setprop $prop 1" >/dev/null 2>&1
-  adb -s "$DEV" shell am start -n "$PKG/$PKG.App" >/dev/null 2>&1; sleep 2.8
+  adb -s "$DEV" shell am start -n "$PKG/$PKG.App" >/dev/null 2>&1
+  # ★ AUD-1000-ALL A12-F12-003（P2 已修）：固定 sleep 2.8 → 轮询弹窗出帧（wait_log 范式）——
+  #   MuMu 冷启首帧窗口 20-25s，固定 2.8s 时弹窗未出帧 → rs_draw 计数 0 假红 FAIL。
+  #   修：轮询 rs_draw 出帧日志（最长 15s，每 1s 一次），出帧即继续（判据非固定时长）。
+  for _w in $(seq 1 15); do
+    sleep 1
+    FR_NOW=$(adb -s "$DEV" logcat -d 2>/dev/null | grep -cE "rs_draw|rs_layres|rs_replay|rs_popup|RS_DRAW")
+    [ "${FR_NOW:-0}" -ge 1 ] && break
+  done
   # 抓弹窗出帧（通用 rs_draw 计数：弹窗渲染必出 GL 顶点日志，稳定；弹窗专属诊断日志是 if(!diag) 一次性，
   # am start 后 pid 变 logcat -d 抓不到旧 pid 诊断行，故用通用 rs_draw 计数 + 非黑比双证）
   frame=$(adb -s "$DEV" logcat -d 2>/dev/null | grep -cE "rs_draw|rs_layres|rs_replay|rs_popup|RS_DRAW")

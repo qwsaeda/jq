@@ -50,6 +50,11 @@ KNOWN_BAD = {
 }
 # ★ 已实测**能**在 MuMu 上解析的符号白名单（v178e5/e6/e7 实机加载成功证明）：
 #   覆盖 ARM 库缓存不全的符号（libGLESv1_CM 缓存可能缺失/版本，但实机可解析）。
+#   ★ AUD-1000-ALL A12-F12-006（P2 标注）：PROVEN_LOADABLE 是**缓存缺失时的静默兜底**
+#   （缓存不含某库 → 该库 UND 符号走白名单判 PASS，非"已验证可解析"，是"历史实证
+#   可解析"）。诚实边界：白名单外符号 + 缓存缺失 = FAIL（保守），白名单内符号
+#   + 缓存缺失 = PASS（乐观，依赖历史实证）。新增 MuMu 库/符号时应实测后补白名单，
+#   勿直接扩白名单未实测符号（假绿风险）。
 PROVEN_LOADABLE = {
     'eglGetError',
     'glDeleteTextures', 'glGenTextures', 'glPixelStorei',
