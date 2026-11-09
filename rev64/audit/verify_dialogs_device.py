@@ -98,15 +98,22 @@ def clear_all_props():
     """★ 触发前全量清 jq.* 残留（红果 property service 有缓存残留——2026-11-09 实锤：
        jq.dlgNNN/flagtest/minetest 反复冒出，设备端 getprop 清后仍反复 [1]）。
        连清 3 次兜底 property service 缓存 + 设备端 getprop 残留检查。"""
-    # dlgbatch + 全量 dlg000-264 + 测试钩子属性（含 game_test/native_event）
-    for _round in range(3):
+    # dlgbatch + 全量 dlg000-264 + 测试钩子属性（含 game_test/native_event/native_layout/walk_bridge）
+    # ★ 5 轮加固（2026-11-09 红果全量 113/118 实锤）：3 轮清后 property service 缓存
+    #   仍残留 1 条（jq.flagtest/jq.restartgame 反复冒出）——MuMu property service
+    #   缓存机制（非标准 Android），5 轮 + 间隔 sleep 提高清干净概率。
+    import time
+    for _round in range(5):
         for p in ("closetest","drawtest","flagtest","minetest","poptest","resigntest",
                   "stalematetest","restartgame","movetest","replay","backtest","imen",
-                  "login","btconn","bttest","game_test","native_event"):
+                  "login","btconn","bttest","game_test","native_event","native_layout",
+                  "walk_bridge","test_game"):
             adb("shell", "setprop", f"jq.{p}", "0")
         adb("shell", "setprop", "jq.dlgbatch", "0")
         for i in range(0, 265):
             adb("shell", "setprop", f"jq.dlg{i:03d}", "0")
+        if _round < 4:
+            time.sleep(1.0)   # 轮间间隔（property service 缓存刷新窗口）
     # 设备端残留检查（清后 getprop 仍有 [1] 则告警，防残留污染验证）
     residual = adb("shell", "sh", "-c",
                    "getprop | grep 'jq.' | grep -vE '\\[0\\]|\\[empty\\]' || true").strip()
