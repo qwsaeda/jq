@@ -11,6 +11,7 @@
 #include <unistd.h>
 #include <limits.h>
 #include <sys/system_properties.h>   /* __system_property_get/set（flagtest 触发） */
+#include "jq_event_names_73.h"   /* 原版 73 事件名常量表（32位 so .rodata 提取，64位契约对齐） */
 #include <dirent.h>                    /* opendir/readdir（SPAK_DIR 诊断） */
 #include "render.h"   /* rs_render_frame（GLThread 出屏主路） */
 #include "glview_gl.h"
@@ -553,6 +554,10 @@ static const char *sfx_wav(const char *event)
 
 /* 走子事件 → 对应音效名（原版 Junqi.* 分类：Move/Eat/Bomb/Flag/Dead）。
    ★ 走子后必须按事件播对应音效（吃子播 eat 非 move，实证 25→30 吃子统一播 move 是缺口）。 */
+/* 走子事件 → 对应音效名（原版 Junqi.* 分类，对齐 jq_event_names_73 契约）。
+   ★ 原版行为移植（本轮）：音效分流改走 jq_event_names_73 常量表——
+   64位简化版 7 事件码（EV_MOVE..EV_FLIP）→ 原版 73 事件名映射 → 音效 WAV 名。
+   诚实边界：账号/注册/联机类 73 事件名仅常量表对齐，业务逻辑未移植（SPEC §3.1 简化边界）。 */
 static const char *sfx_for_move(int ev)
 {
     switch (ev) {
@@ -560,9 +565,35 @@ static const char *sfx_for_move(int ev)
     case EV_BOMB:  return "bomb";
     case EV_FLAG:  return "flag";
     case EV_DEAD:  return "dead";
+    case EV_FLIP:  return "flip";
     case EV_MOVE:
+    case EV_MINE:  return "move";   /* AUD-R-062：EV_MINE 与 EV_MOVE 共用 "Junqi.Move" 音效 */
     default:       return "move";
     }
+}
+
+/* 原版 73 事件名 → 音效 WAV 名映射（jq_event_names_73 常量表驱动）。
+   64位简化版仅消费 7 事件码（EV_MOVE..EV_FLIP）= jq_event_code_names[0..2] 核心；
+   其余 66 名（账号/注册/联机/布局类）= 诚实边界（业务逻辑未移植，仅常量表对齐）。 */
+static const char *sfx_for_event_name(const char *evname)
+{
+    if (!evname) return "move";
+    for (int i = 0; i < JQ_EVENT_NAME_COUNT; i++) {
+        if (strcmp(evname, jq_event_names_73[i]) == 0) {
+            /* 按事件名首字段映射音效（Move/Flip→move，Eat→eat，Bomb→bomb，
+               Flag→flag，Dead→dead，其余→move 兜底） */
+            const char *suffix = strrchr(evname + 6, '.');  /* 跳过 "Junqi." */
+            if (!suffix) suffix = evname + 6;
+            if (!strcmp(suffix, "Move")) return "move";
+            if (!strcmp(suffix, "Eat"))   return "eat";
+            if (!strcmp(suffix, "Bomb"))  return "bomb";
+            if (!strcmp(suffix, "Flag"))  return "flag";
+            if (!strcmp(suffix, "Dead"))  return "dead";
+            if (!strcmp(suffix, "Flip"))  return "flip";
+            return "move";  /* 未知事件名兜底（账号/联机类无独立音效） */
+        }
+    }
+    return "move";
 }
 
 /* 对局结束音效统一入口（走子后 stage==OVER → win/lose）。
@@ -970,10 +1001,33 @@ static int g_bt_sess_init_done = 0;
    语义=最坏读旧值=多跳一次本轮发送（Java 侧 BtSpp 二道守卫），非崩溃级竞争。
    锁序单向：g_mutex 内可调 g_ui_lock（ui_opt_* / ui_replay_*），禁反向
    （g_ui_lock 内绝不取 g_mutex；grep 实证 0 反向，CODE_STYLE §锁序）。 */
-static int g_event_cnt[7];   /* ★ AUD-R-061（P2）：扩容 6→7（补 EV_FLIP=Junqi.Flip 计数位；0-5 顺序不变）。
+static int g_event_cnt[JQ_EVENT_NAME_COUNT];   /* ★ 原版行为移植（本轮）：7→73 事件名计数（对齐 jq_event_names_73 契约；简化版 7 事件码映射到对应名称索引） */   /* ★ AUD-R-061（P2）：扩容 6→7（补 EV_FLIP=Junqi.Flip 计数位；0-5 顺序不变）。
                                AUD-R-062（P2）：g_event_cnt[0]=EV_MOVE 与 [5]=EV_MINE 同名 "Junqi.Move"
                                （对齐原版设计）——按**事件码**分流统计（两位分开计），按**事件名**分流音效。 */
 static int g_event_total = 0;
+/* ★ 原版行为移植（本轮）：原版 73 事件名计数——按事件名查索引累加。
+   64位简化版 7 事件码（EV_MOVE..EV_FLIP）映射到 jq_event_names_73 对应名称索引；
+   账号/注册/联机类事件名=诚实边界（业务逻辑未移植，计数恒 0，仅常量表对齐）。 */
+static void event_count_by_name(const char *evname)
+{
+    if (!evname) return;
+    for (int i = 0; i < JQ_EVENT_NAME_COUNT; i++)
+        if (strcmp(evname, jq_event_names_73[i]) == 0) { g_event_cnt[i]++; g_event_total++; return; }
+}
+/* 64位 7 事件码 → 原版 73 事件名映射（核心 7 类） */
+static const char *ev_code_to_name(int ev)
+{
+    switch (ev) {
+    case EV_MOVE: return "Junqi.Move";
+    case EV_EAT:  return "Junqi.Eat";
+    case EV_BOMB: return "Junqi.Bomb";
+    case EV_FLAG: return "Junqi.Flag";
+    case EV_DEAD: return "Junqi.Dead";
+    case EV_MINE: return "Junqi.Move";   /* AUD-R-062：同名 */
+    case EV_FLIP: return "Junqi.Flip";
+    default:      return "Junqi.Move";
+    }
+}
 static int  g_way_host = 1;   /* ★ 对抗审计（datah_072）：方式选择来源——2=联网(host) 3=联机(client) */
 
 static const char *on_event(const char *name, const char *value, JNIEnv *env)
@@ -1028,6 +1082,80 @@ static const char *on_event(const char *name, const char *value, JNIEnv *env)
            败（winner=对方）→ 锁外播 "lose"（旧 sfx_game_over 按 winner 色判，蓝认输
            winner=红→lose 正确，但跨线程持锁 IO 是 P1 真问题；锁外直判本机视角
            语义等价且无锁 IO，B03-078）。 */
+        return "lose";
+    } else if (strcmp(name, "resign_req") == 0) {
+        /* ★ 原版行为移植（本轮）：RegretReq 悔棋请求（原版 Junqi.RegretReq 事件码 6 大类）
+           64位简化版：发 UNDO 帧（对端同步悔棋），本地不 pop（收帧侧闭环）。
+           诚实边界：原版 73 事件名 RegretReq/RegretAgree/RegretDisagree 全链，
+           src_rs 仅实现"请求发帧"，应答判定（RegretAgree/Disagree）未移植（需对端协议）。 */
+        jq_bt_ctrl_send(env, BT_T_UNDO);
+        sfx_play(env, "pop");
+        LOGI("OnEvent regret_req → 发 UNDO 帧（原版 Junqi.RegretReq，对端同步悔棋；诚实边界：本地不 pop 等收帧闭环）");
+        return "resign";   /* 音效用 resign 兜底（原版无独立 regret WAV） */
+    } else if (strcmp(name, "resign_agree") == 0) {
+        /* 原版 Junqi.RegretAgree 悔棋同意——64位简化版：对端同意→收帧侧 undo_pop 闭环。 */
+        LOGI("OnEvent regret_agree → 对端同意悔棋（原版 Junqi.RegretAgree，收帧侧 undo_pop；诚实边界：简化版不独立处理同意帧）");
+        return NULL;
+    } else if (strcmp(name, "resign_disagree") == 0) {
+        /* 原版 Junqi.RegretDisagree 悔棋拒绝——64位简化版：对端拒绝，本地无操作。 */
+        LOGI("OnEvent regret_disagree → 对端拒绝悔棋（原版 Junqi.RegretDisagree，诚实边界：简化版不独立处理拒绝帧）");
+        return NULL;
+    } else if (strcmp(name, "draw_req") == 0) {
+        /* 原版 Junqi.DrawReq 提和请求——64位简化版：发 DRAW 帧 + 诚实边界对话框。 */
+        jq_bt_ctrl_send(env, BT_T_DRAW);
+        sfx_play(env, "pop");
+        LOGI("OnEvent draw_req → 发 DRAW 帧（原版 Junqi.DrawReq，本地提和判定未实现，需对端应答）");
+        return "draw";
+    } else if (strcmp(name, "draw_agree") == 0) {
+        /* 原版 Junqi.DrawAgree 提和同意——64位简化版：对端同意→jq_on_draw 和棋。 */
+        pthread_mutex_lock(&g_mutex);
+        jq_on_draw(&g_state);
+        int dwin = g_state.winner;
+        pthread_mutex_unlock(&g_mutex);
+        sfx_play(env, "draw");
+        LOGI("OnEvent draw_agree → jq_on_draw 和棋（原版 Junqi.DrawAgree，winner=%d）", dwin);
+        return "draw";
+    } else if (strcmp(name, "draw_disagree") == 0) {
+        /* 原版 Junqi.DrawDisagree 提和拒绝——64位简化版：对端拒绝，本地无操作。 */
+        LOGI("OnEvent draw_disagree → 对端拒绝提和（原版 Junqi.DrawDisagree，诚实边界：简化版不独立处理拒绝帧）");
+        return NULL;
+    } else if (strcmp(name, "join_game") == 0) {
+        /* 原版 Junqi.JoinGame 加入游戏——64位简化版：边界对话框（联机协议未逆向）。 */
+        jq_show_dialog(env, "加入游戏（诚实边界）",
+            "联机加入游戏未逆向（原版需服务器协议），\nsrc_rs 离线单机不支持多人房间。");
+        sfx_play(env, "close");
+        LOGI("OnEvent join_game → 边界对话框（原版 Junqi.JoinGame，联机协议未逆向）");
+        return "close";
+    } else if (strcmp(name, "leave_game") == 0) {
+        /* 原版 Junqi.LeaveGame 离开游戏——64位简化版：退对局回主菜单。 */
+        pthread_mutex_lock(&g_mutex);
+        g_state.stage = STG_PLAY;
+        g_state.winner = JQ_WIN_NONE;
+        pthread_mutex_unlock(&g_mutex);
+        ui_screen_set(UI_MENU);
+        sfx_play(env, "close");
+        LOGI("OnEvent leave_game → 退对局回主菜单（原版 Junqi.LeaveGame）");
+        return "close";
+    } else if (strcmp(name, "game_over") == 0) {
+        /* 原版 Junqi.GameOver 对局结束——64位简化版：stage=OVER 已置时确认。 */
+        pthread_mutex_lock(&g_mutex);
+        int go_stage = g_state.stage;
+        int go_win = g_state.winner;
+        pthread_mutex_unlock(&g_mutex);
+        LOGI("OnEvent game_over → stage=%d winner=%d（原版 Junqi.GameOver 终局确认）", go_stage, go_win);
+        if (go_stage == STG_OVER) {
+            sfx_play(env, go_win == SIDE_BLUE ? "win" : go_win == SIDE_RED ? "lose" : "draw");
+        }
+        return NULL;
+    } else if (strcmp(name, "resign_confirm") == 0) {
+        /* 原版 Junqi.ResignConfirm 认输确认——64位简化版：本机败 + RESIGN 帧。 */
+        pthread_mutex_lock(&g_mutex);
+        g_state.winner = (g_state.turn == SIDE_BLUE) ? SIDE_RED : SIDE_BLUE;
+        g_state.stage = STG_OVER;
+        pthread_mutex_unlock(&g_mutex);
+        jq_bt_ctrl_send(env, BT_T_RESIGN);
+        sfx_play(env, "lose");
+        LOGI("OnEvent resign_confirm → 认输确认（原版 Junqi.ResignConfirm，本机败 + RESIGN 帧）");
         return "lose";
     } else if (strcmp(name, "restart") == 0) {
         /* ★ 对抗审计 #4：统一走 jq_restart_game（随模式：明棋布局/暗棋翻棋 + 清 undo +
@@ -1158,8 +1286,18 @@ static const char *on_event(const char *name, const char *value, JNIEnv *env)
         LOGI("OnEvent status：stage=%d turn=%d moves=%d events_total=%d [%s]",
              st->stage, st->turn, st->total_moves, g_event_total,
              "move/eat/bomb/flag/dead/mine=");
-        for (int i = 0; i < 7; i++)   /* ★ AUD-R-061（P2）：事件名 7 项（补 EV_FLIP） */
+        /* ★ 原版行为移植（本轮）：战况统计 7 事件码计数（简化版核心 7 类）
+           + 73 事件名全量分布（jq_event_names_73 契约对齐，账号/联机类=诚实边界计数恒 0） */
+        for (int i = 0; i < 7; i++)
             LOGI("  %s = %d", JQ_EVENT_NAMES[i], g_event_cnt[i]);
+        /* 73 事件名分布（仅显示非零项，账号/联机类恒 0 不刷屏） */
+        int nonzero = 0;
+        for (int i = 0; i < JQ_EVENT_NAME_COUNT; i++)
+            if (g_event_cnt[i]) {
+                LOGI("  %s = %d", jq_event_names_73[i], g_event_cnt[i]);
+                nonzero++;
+            }
+        if (nonzero == 0) LOGI("  （73 事件名全量：账号/注册/联机类=诚实边界，简化版计数恒 0）");
     } else if (strcmp(name, "bttest") == 0) {
         jq_bt_test_run(st, "OnEvent");
     } else if (strcmp(name, "gameset") == 0) {
@@ -1366,13 +1504,16 @@ Java_com_cnvcs_App_OnCreate(JNIEnv *env, jclass clazz, jobject activity)
              dark ? "暗棋（翻棋 revealed=0）" : "明棋（revealed=全翻开 50 子）",
              dark ? "暗子" : "明子");
     }
+    LOGI("GLDIAG-earliest：UI 菜单就绪后执行流确认（即将进 flagtest 钩子段）");
     /* ★ flagtest 触发（adb setprop jq.flagtest 1 → 重启 → OnCreate 注入近旗状态 + 自动走一步 FLAG）。
        触摸注入 MuMu flaky 不达 native（环境限制）→ 走 OnCreate 自动触发路径；
        事件链路/规则引擎/音效真实（jq_try_move(53,58)=EV_FLAG 桌面已证），
        仅"走子由 OnCreate 自动触发"非触摸。一次性（setprop 清 0）。 */
     {
         char ft_prop[16] = {0};
+        LOGI("GLDIAG-flagtest-pre：__system_property_get(jq.flagtest) 前");
         __system_property_get("jq.flagtest", ft_prop);
+        LOGI("GLDIAG-flagtest-post：= %s", ft_prop);
         if (strcmp(ft_prop, "1") == 0) {
             memset(&g_state, 0, sizeof(g_state));
             g_state.turn = SIDE_BLUE; g_state.stage = STG_PLAY; g_state.winner = JQ_WIN_NONE;   // AUD-R-053：winner 未定哨兵
@@ -1494,7 +1635,9 @@ Java_com_cnvcs_App_OnCreate(JNIEnv *env, jclass clazz, jobject activity)
        真机写目录；桌面 evverify 用 tmp 目录 ui_laydir_set）。★ 必须在 ui_layout_list
        （setprop 钩子块）之前 set，否则首次扫描走 ui_laydir_get 缺省 ./layouts 桌面路径
        （实证 0 条），扫描不到真机 /data/local/tmp/layouts。 */
+    LOGI("GLDIAG-pre-laydir：即将 ui_laydir_set");
     ui_laydir_set("/data/local/tmp/layouts");
+    LOGI("GLDIAG-post-laydir：ui_laydir_set 完成");
     /* ★ P1（datah_016/017/020 证据）：布局存档 3 弹窗 setprop 钩子
        （adb setprop jq.layoutsave/layoutload/layoutmgr 1 → 重启 → OnCreate 弹对应弹窗）。
        测试钩子范式，与 jq.gameset 同；值 1=弹出，0=不触发。一次性（清 0）。 */
@@ -1977,7 +2120,9 @@ Java_com_cnvcs_App_OnCreate(JNIEnv *env, jclass clazz, jobject activity)
             __system_property_set("jq.backtest", "0");
         }
     }
+    LOGI("GLDIAG-pre-dlgbatch：即将 jq_dlg_batch_hook(OnCreate)");
     jq_dlg_batch_hook("OnCreate");
+    LOGI("GLDIAG-post-dlgbatch：jq_dlg_batch_hook 完成");
     /* ★ ☰ 菜单渲染验证钩子（adb setprop jq.imen 1 → OnCreate/OnUpdate 直接进
        UI_INGAME_MENU；触摸命中 flaky 时用 setprop 验渲染几何）。
        ★ 诚实边界：仅测试触发器，不改业务。 */
@@ -2062,6 +2207,7 @@ Java_com_cnvcs_App_OnCreate(JNIEnv *env, jclass clazz, jobject activity)
     }
 
     jq_touch_state_init(&g_ts);   /* ⑤b 态机初始化 */
+    LOGI("GLDIAG-⑤b touch_state_init 完成（到达 ③ 渲染对象图构造）");
     /* ③ 渲染对象图构造（对齐原版 0xba12c → 0xba034/0xc5d54/0xb7500） */
     jq_subsys_list_init(&g_subs);
     jq_subsys sgl, sgl2, srend, saud;
@@ -2073,15 +2219,20 @@ Java_com_cnvcs_App_OnCreate(JNIEnv *env, jclass clazz, jobject activity)
     jq_subsys_list_push(&g_subs, &sgl2);
     jq_subsys_list_push(&g_subs, &srend);
     jq_subsys_list_push(&g_subs, &saud);
+    LOGI("GLDIAG-③ 渲染对象图构造完成（4 子系 push 完成）");
     /* ④ 布局容器（0x6a3b0 +0x78 计数表 + +0x68 vector） */
     jq_container_fill_layout(&g_laycc, JQ_DEFAULT_LAY);
     jq_container_validate(&g_laycc, &g_state);
+    LOGI("GLDIAG-unlock 前（③ 渲染对象图 + ④ 布局容器完成，即将 unlock）");
     pthread_mutex_unlock(&g_mutex);
+    LOGI("GLDIAG-unlock 后（g_mutex 已释放，进入 ③b GLView init）");
     /* ③b：初始化 GLView（EGL 上下文 + 渲染器 ①②）。
        返回 Java GLView jobject（App.smali：非 null 则 setContentView + setRenderer，GLThread 每帧调 OnUpdate 出帧）；
        EGL 失败（无 GPU）→ 返回 NULL，Java 侧跳过 setContentView（空白界面，不崩）。 */
     #define SPAK_DIR "/data/local/tmp/spak_res"  /* 免 push：可改 app 私有目录；当前固定 tmp */
+    LOGI("GLDIAG③b 入口：jq_glview_init 即将调用（spak=%s env=%p act=%p）", SPAK_DIR, (void*)env, (void*)activity);
     int glv_ok = (jq_glview_init(&g_glview, &g_state, SPAK_DIR, NULL, g_assets) == 0);
+    LOGI("GLDIAG③b jq_glview_init 返回 %d", glv_ok);
     if (glv_ok)
         LOGI("OnCreate：GLView EGL 上下文 + 渲染器就绪");
     else
@@ -2143,7 +2294,9 @@ Java_com_cnvcs_App_OnCreate(JNIEnv *env, jclass clazz, jobject activity)
            绕开 Java GLThread 的 GL1 EglHelper 死结）。
            window surface：GLView extends SurfaceView → getHolder().getSurface() →
            ANativeWindow_fromSurface → 渲染线程 blit 出屏。 */
+        LOGI("GLDIAG③b 渲染线程启动前（jview=%p glv_ok=%d）", jview, glv_ok);
         jq_glview_start_render_thread();
+        LOGI("GLDIAG③b 渲染线程启动后");
         /* 拿 GLView 的 Surface（SurfaceView.getHolder().getSurface()）→ 主线程 fromSurface
            （JNI 调用需 attach 线程；渲染线程未 attach 不能调）。ANativeWindow* 存全局，
            渲染线程只做 EGL 合成 + swap（不碰 JNI）。

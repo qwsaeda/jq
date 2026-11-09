@@ -149,3 +149,30 @@ UI_MENU（5 按钮：人机/两人/联网/联机/四国）
 - 7 字段帧语义为行为级约定（非原版 C++ 类布局逐字段逆向）。
 - "能玩"需真机 GPU 设备验收（MuMu GLES1 几何出帧受限，PBuffer 离屏已证、window surface 通路未通）。
 - 不包装成"完整版/可玩"——本规格描述已对齐实现，非独立设计稿。
+
+### 3.2 原版行为移植（本轮落地）
+
+**原版 73 事件名常量表（`jq_event_names_73.h/.c`）**：
+- 从 32 位 so `.rodata` 0x120xxx 区提取（frida-dump/rodata_strings.txt 实锤 73 个 Junqi.*）
+- 12 事件码（0-11）映射：走子/吃子(0) / 炸弹旗死(1) / 翻棋(2) / 胜负(3) / 和棋(4) / 投降(5) / 悔棋(6) / 登录(7) / 注册(8) / 联机(9) / 摆子布局(10) / 系统杂项(11)
+- code 12-16 预留（SPEC §3.1 口径 17 事件码，实测 73 名归 12 大类）
+
+**64 位 `on_event` 新增 11 分支（原版行为移植）**：
+| 事件名 | 64 位处理 | 原版语义 | 诚实边界 |
+|---|---|---|---|
+| regret_req | 发 UNDO 帧 | Junqi.RegretReq | 本地不 pop，等收帧闭环 |
+| regret_agree | 收帧侧 undo_pop | Junqi.RegretAgree | 简化版不独立处理同意帧 |
+| regret_disagree | 无操作 | Junqi.RegretDisagree | 同上 |
+| draw_req | 发 DRAW 帧 | Junqi.DrawReq | 本地提和判定未实现 |
+| draw_agree | jq_on_draw 和棋 | Junqi.DrawAgree | 需对端协议（简化版本地判定） |
+| draw_disagree | 无操作 | Junqi.DrawDisagree | 同上 |
+| join_game | 边界对话框 | Junqi.JoinGame | 联机服务器协议未逆向 |
+| leave_game | 退对局回主菜单 | Junqi.LeaveGame | — |
+| game_over | 终局确认 | Junqi.GameOver | — |
+| resign_confirm | 本机败+RESIGN 帧 | Junqi.ResignConfirm | — |
+
+**音效分流对齐**：`sfx_for_event_name()` 按 73 事件名首字段映射 WAV（Move/Eat/Bomb/Flag/Dead/Flip 6 类，其余兜底 move）；账号/联机类无独立音效（诚实边界）。
+
+**事件计数**：`g_event_cnt` 7→73（对齐 `jq_event_names_73` 契约）；战况统计 UI 显示 7 事件码核心计数 + 73 事件名非零分布（账号/联机类恒 0 不刷屏）。
+
+**红线（不包装）**：73 事件名 = 常量表对齐 + 核心 7 类行为移植；账号/注册/联机类 66 名 = 诚实边界（业务逻辑未移植，仅常量表对齐），简化版 ≠ 完整版。

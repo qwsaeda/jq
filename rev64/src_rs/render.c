@@ -2837,24 +2837,51 @@ static void rs_layres_preview(rs_render *rr, int slot, GLint uc)
         const char *nm = ui_layout_name(ui_layout_selected());
         if (nm && ui_layout_load(nm, lay) == 0) have = 1;
     }
-    /* 预览区 6 行 × 5 列，行 75→360（400 系）= 477→762（720 系），格 40×34（720 基准） */
+    /* 预览区 6 行 × 5 列，行 75→360（400 系）= 477→762（720 系），格 40×34（720 基准）。
+       ★ AUD-1000 B04 资源全替换（本轮）：有子格改用 SPAK datah_183 棋子图集真值
+       （tex_piece 4×7 网格，rank 1-12 → col0-3/row0-2 蓝，row3-5 红，row6 背面），
+       替换旧小方块占位。lay[r*5+c] 是原始 rank（蓝 1-12 / 红 13-24 编码），
+       蓝方 row=rank-1，红方 row=rank-1+3（与 rs_draw_board 棋子映射同范式）。 */
     for (int r = 0; r < 6; r++) {
         for (int c = 0; c < 5; c++) {
             float cx = (220.0f + c * 70.0f) * sx;
             float cy = (517.0f + r * 48.0f) * sy;
             float s = 40.0f * sx, sh = 34.0f * sy;
-            rs_v4f sq[6] = {
-                {cx, cy, 0, 0}, {cx + s, cy, 0, 0}, {cx, cy + sh, 0, 0},
-                {cx, cy + sh, 0, 0}, {cx + s, cy, 0, 0}, {cx + s, cy + sh, 0, 0},
-            };
-            glUseProgram(rr->prog_solid[slot]);
-            glUniform2f(rr->uViewWH_solid[slot], (GLfloat)rr->view_w, (GLfloat)rr->view_h);
             int filled = have && lay[r * 5 + c] != 0;
-            glUniform4f(uc,
-                        filled ? 0.35f : 0.30f,
-                        filled ? 0.55f : 0.30f,
-                        filled ? 0.95f : 0.32f,   /* 有子=蓝底；★ 诚实边界：真棋子图未画 */
-                        filled ? 0.9f : 0.55f);
+            int rank_raw = filled ? (int)lay[r * 5 + c] : 0;
+            int is_red = rank_raw > 12;
+            int rank = is_red ? (rank_raw - 0xc) : rank_raw;   /* 红方 +0xc 还原 */
+            int col = (rank - 1) % PIECE_GRID_W;
+            int row = (rank - 1) / PIECE_GRID_W + (is_red ? 3 : 0);
+            float tw = 1.0f / PIECE_GRID_W, th = 1.0f / PIECE_GRID_H;
+            float u0 = col * tw, v0 = row * th;
+            float u1 = u0 + tw, v1 = v0 + th;
+            rs_v4f sq[6];
+            if (filled && rr->tex_piece[slot] && rr->prog_tex[slot]) {
+                /* 真棋子图（SPAK datah_183 图集） */
+                sq[0] = (rs_v4f){cx, cy, u0, v0};
+                sq[1] = (rs_v4f){cx + s, cy, u1, v0};
+                sq[2] = (rs_v4f){cx, cy + sh, u0, v1};
+                sq[3] = (rs_v4f){cx, cy + sh, u0, v1};
+                sq[4] = (rs_v4f){cx + s, cy, u1, v0};
+                sq[5] = (rs_v4f){cx + s, cy + sh, u1, v1};
+                glUseProgram(rr->prog_tex[slot]);
+                glUniform2f(rr->uViewWH_tex[slot], (GLfloat)rr->view_w, (GLfloat)rr->view_h);
+                glUniform1i(glGetUniformLocation(rr->prog_tex[slot], "uTex"), 0);
+                glActiveTexture(GL_TEXTURE0);
+                glBindTexture(GL_TEXTURE_2D, rr->tex_piece[slot]);
+            } else {
+                /* 空格=深灰底（纯色，与旧占位空格一致） */
+                sq[0] = (rs_v4f){cx, cy, 0, 0};
+                sq[1] = (rs_v4f){cx + s, cy, 0, 0};
+                sq[2] = (rs_v4f){cx, cy + sh, 0, 0};
+                sq[3] = (rs_v4f){cx, cy + sh, 0, 0};
+                sq[4] = (rs_v4f){cx + s, cy, 0, 0};
+                sq[5] = (rs_v4f){cx + s, cy + sh, 0, 0};
+                glUseProgram(rr->prog_solid[slot]);
+                glUniform2f(rr->uViewWH_solid[slot], (GLfloat)rr->view_w, (GLfloat)rr->view_h);
+                glUniform4f(uc, 0.30f, 0.30f, 0.32f, 0.55f);
+            }
             glGenBuffers(1, &rr->vbo_sel[slot]);
             glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
             glBufferData(GL_ARRAY_BUFFER, sizeof(sq), sq, GL_DYNAMIC_DRAW);
@@ -2866,7 +2893,7 @@ static void rs_layres_preview(rs_render *rr, int slot, GLint uc)
         }
     }
     static int pdiag = 0;
-    if (!pdiag) { pdiag = 1; LOGI("rs_layres_preview：30 格棋子预览（小方块占位，选中=%s）",
+    if (!pdiag) { pdiag = 1; LOGI("rs_layres_preview：30 格棋子预览（SPAK 真棋子图 tex_piece，选中=%s）",
         ui_layout_selected_valid() ? ui_layout_name(ui_layout_selected()) : "无"); }
 }
 
