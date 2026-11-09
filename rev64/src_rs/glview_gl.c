@@ -328,10 +328,29 @@ static void *rs_render_thread_main(void *arg)
            PBuffer 分支旧版再 glFinish（同一帧同 context 两次，GPU 同步冗余
            拖 1Hz 心跳节拍）→ 删兜底 else 的冗余 glFinish。 */
         if (g_current_is_window) {
+            /* ★ 出图根因修复（2026-11-12）：渲染线程 window 出屏分支此前**只 eglSwapBuffers
+               不画几何**——rs_render_frame 只在 GLThread 调 OnUpdate 时画（GLThread 未出帧时
+               slot1 的 GL 对象/纹理未建，tex_bg[slot1]=0 → swap 上屏的是黑/清屏色 framebuffer）。
+               现 window 分支 swap 前调 rs_render_frame（在 window context 上建 slot1 GL 对象
+               + 传纹理 + 画几何），再 eglSwapBuffers 上屏 → 画面真出图。
+               诚实边界：渲染线程读 g_state（rr->game->cells）不持 g_mutex（PBuffer 离屏分支
+               本就如此，tear 不可见；window 出屏读 g_state 与 OnTouch/OnEvent 写竞态 →
+               棋子闪错帧可能性，低频可接受——与 PBuffer 兜底线程同款诚实边界）。 */
+            rs_render_frame(&g_rr);
             if (eglSwapBuffers(g_rr.egl_disp, g_win_surf)) {
                 if (!last_swap_ok_log || (frame_cnt % 600) == 0) {
                     last_swap_ok_log = 1;
-                    LOGI("渲染线程 帧 %d：eglSwapBuffers window 出屏成功（屏幕上应可见画面）", frame_cnt);
+                    /* ★ 诊断（2026-11-12 出图黑屏根因）：swap 成功但屏幕黑 = GL 几何未画出。
+                     glGetError 实锤软驱动 GL 错（0x502 GL_INVALID_OPERATION 自维持）+
+                     检查纹理是否真上传（tex_bg/tex_piece 非 0）+ 首帧 rs_render_frame 几何计数。 */
+                    {
+                        GLenum glerr = glGetError();
+                        int geom_ready = (g_rr.tex_bg[1] != 0) || (g_rr.board_px != 0);
+                        if (frame_cnt < 600 || (frame_cnt % 600) == 0)
+                            LOGI("渲染线程 帧 %d：swap成功 GLERR=0x%x 几何就绪=%d tex_bg1=%u board_px=%p（黑屏=几何未画）",
+                                 frame_cnt, (unsigned)glerr, geom_ready,
+                                 (unsigned)g_rr.tex_bg[1], (void*)g_rr.board_px);
+                    }
                 }
             } else {
                 LOGE("渲染线程 帧 %d：eglSwapBuffers 失败 err=0x%x（window 出屏未上屏）",
