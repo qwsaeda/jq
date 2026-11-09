@@ -40,7 +40,9 @@ void jq_egl_obj_init(jq_egl_obj *e)
 /* 0xc0ed0 语义：renderer 析构经 vtable[1]（+4 槽）派发 → 重写为直接函数指针 */
 void jq_renderer_dtor(jq_renderer *r)
 {
-    if (r && r->dtor) r->dtor(r);
+    if (!r) return;   /* ★ B04-100（P3 已修）：r NULL 早退——旧版 if(r&&r->dtor) 判空但
+       下方 r->ref=0 未判空（r NULL 时段错误 UB），两处判空不一致 */
+    if (r->dtor) r->dtor(r);
     r->ref = 0;
 }
 

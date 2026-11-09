@@ -49,6 +49,9 @@ setup_libs() {
   mkdir -p $tree/lib
   while [ $# -gt 0 ]; do
     local abi=$1 src=$2; shift 2
+    # ★ B06-068（P3 已修）：cp 前 [ -f $src ] 检查——SRC_ORIG/SRC_STUB/SRC_RS 缺失时
+    #   旧版 cp 失败（set -e 中止）但报错指向 cp 而非根因（so 路径不存在），排查误导。
+    [ -f "$src" ] || { echo "  ✗ setup_libs: so 源缺失 $src（abi=$abi）"; return 1; }
     mkdir -p $tree/lib/$abi
     cp $src $tree/lib/$abi/libjunqi.so
   done
