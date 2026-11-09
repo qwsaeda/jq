@@ -30,7 +30,7 @@ from spak2ui import parse_dialog, panel_origin, to_720   # noqa: E402
 
 SPAK = "/tmp/opencode/spak_out"
 PKG = "com.cnvcs.junqirs"
-DEV = "10.0.182.146:5555"
+DEV = "emulator-5554"   # MuMu 标准验证环境（红果 adb 不稳，进程未存活 flaky）
 
 # 按钮底色（ui_solid_btn 0.22/0.28/0.42 alpha .85 混合后的典型值）
 BTN_RGB = (49, 65, 90)
