@@ -36,6 +36,28 @@
 | 批次 3（17 项） | da6f15b | 渲染线程锁（A2-007）/ UNDO 锁外编码（A2-015）/ AI O(N²) 锁外（A2-020）/ g_ts 移锁外（A2-042）/ BtSpp synchronized（A2-011）/ rebuild_rs cp 根因 / check_consistency EVN / verify_translation exit / asset_chain 离线 PENDING / bt_test 包名 / pipeline PENDING / so_link libc / evtest PID / clear_all_props 43 项 / gen_dialog 源头 / rs_render_free 泄漏 / 终局 turn 对齐（A8-001） |
 | 批次 4（1 项） | 41fe4f2 | A4-13 JQ_DEFAULT_LAY 双端共享头（jq_default_lay.h 单点，32/64 位开局布局双源根治） |
 
+## P2 修复批次（117 条 → 已修 26 项 / 留 P3 压测驱动 47 项 / 诚实边界标注 44 项）
+| 批次 | commit | 项 |
+|---|---|---|
+| P2 批次 1（8 项） | 0ebaa1e | minetest 一次性标志 / g_bt_sess_init_done volatile / JQ_EVENT_NAMES[mv] 守卫 / arm32_cycle PIPESTATUS / mumu_verify 轮询 / walktest PID / evtest getprop 轮询 ×2 |
+| P2 批次 2（3 项） | 7b724b1 | 32 位钩子别名映射 / SPEC §4 文档漂移 / SPEC §5 audio.c 死模块标注 |
+| P2 批次 3（2 项） | deb8bc6 | sfx_wav 未知事件 LOGI / ui_layout_save 写失败 LOGE |
+| P2 批次 4（1 项） | 086f263 | uihooks 12 prop 60 帧节流 |
+| P2 批次 5（2 项） | 988e2ee | popup_sweep 轮询出帧 / link_audit 白名单诚实边界 |
+| P2 批次 6（2 项） | 46ec486 | bt_protocol f7 诚实边界 / UNDO 16KB 栈压改 static |
+
+## P2 保留标注项（诚实边界/性能类，留 P3 压测驱动）
+- A10-D1-01/02/03（3 条）：困毙全扫 O(N²) 缓存/双扫——B01-012 stale_dirty 已修主体，
+  对端 stale_cache 预刷 + 60×60 全扫优化=重构量大（jq_side_stalemated 改增量），留 P3。
+- A10-D3-01（1 条）：226 处 glGetUniformLocation 每帧重查——40+ uniform 逐个提缓存
+  到 rr->u* 字段，改动分散收益小，留 P3 压测驱动。
+- A10-D6-01/02（2 条）：OnEvent/OnTouch 锁内 on_event/jq_try_move（含 stalemate_after）
+  性能——写操作不能锁外，拆 stalemate_after 出锁需快照范式重构，留 P3。
+- A2-019/021/023/026/029/035（6 条）：低窗口竞态（ui_rule_cfg_get 规则层读 / g_gl_crash
+  原子读 / pthread_join 销毁顺序 / bt_session UNDO 切回合 / ui_state bright save /
+  replay_ensure_inited）——窗口极小 + 诊断日志非业务路径，P3 标注。
+- 余 ~33 条：文档漂移/诚实边界标注/工具判据宽于实际（非静默放行）类，P3 处理。
+
 ## P1 保留标注项（10 条，诚实边界非缺陷）
 - A8-F8-002/003/004（3 条）：困毙参数化/地雷+0xFF/BT UNDO 收帧 = 32 位真值基准（R-138：§124y-169 R-073 地雷实证差异 + R-013 UNDO 职责分离），保留标注不改判
 - A2-011（1 条代码已修 + 1 条真机验收边界）：BtSpp synchronized 已落地，端到端需真机 BT 硬件
