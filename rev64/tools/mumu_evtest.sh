@@ -284,8 +284,18 @@ esac
 #   但 OnCreate 钩子在 app 起来时已读完 prop，setprop 在后 → 钩子 0 命中（本轮实测
 #   flag/mine FAIL 根因）。修回 setprop 先行；draw/resign/stalemate/close/pop 系
 #   OnUpdate 每帧轮询 prop，保持 am start→setprop 现状（本分支不触达）。
+# ★ AUD-1000-ALL A11-F11-02（P2 已修）：32 位钩子别名映射——jq.native_layout/
+#   jq.walk_bridge/jq.game_test 是 32 位 so 钩子（64 位 src_rs so 不消费）。
+#   旧 case 直接命中 → setprop 后 64 位 so 不读该 prop → 判据永不命中假 FAIL。
+#   修：32 位别名映射到 64 位等价钩子（native_layout→flagtest / walk_bridge→minetest
+#   / game_test→movetest），保持工具跨 32/64 位可跑（32 位 so 测试走 arm32_walkregress）。
 case "$PROP" in
-  jq.flagtest|jq.minetest|jq.native_layout|jq.walk_bridge|jq.game_test)
+  jq.native_layout)   PROP=jq.flagtest ;;
+  jq.walk_bridge)     PROP=jq.minetest ;;
+  jq.game_test)       PROP=jq.movetest ;;
+esac
+case "$PROP" in
+  jq.flagtest|jq.minetest|jq.movetest)
     log "=== $KIND 事件测试（setprop $PROP 1 → logcat -c → am start，OnCreate 钩子）==="
     adb -s $DEV shell am force-stop com.cnvcs.junqirs >/dev/null 2>&1; sleep 3
     adb -s $DEV shell setprop $PROP 0; sleep 1

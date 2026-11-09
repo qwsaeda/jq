@@ -96,7 +96,10 @@
 
 ```
 UI_MENU（5 按钮：人机/两人/联网/联机/四国）
-  → 点按钮 action 0/4 → UI_GAME + 开局（jq_restart_game：default.lay + 明棋 + stage=PLAY 蓝先手）
+  → 点按钮 action 0/1/2/3 → UI_GAME + 开局（jq_restart_game：default.lay + 暗棋（g_opt_mode=1
+     默认，ui_state.c:31）+ stage=PLAY 蓝先手；明棋/暗棋可在功能设置 ☰ 切换）
+  → 点按钮 action 4（四国）→ UI_NPLAYER 人数选择弹窗（datah_089 2/3/4 人），
+     选人后显示诚实边界对话框（4 方规则未实现，不静默开 2 人局）
   → 对局：两步走子态机（点格 A 选中 → 点格 B 走子/翻棋）；可走格绿框高亮
   → 对局结束（stage=OVER）：胜负横幅（winner 蓝/红/和棋灰）+ "再来一局"按钮
   → 点"再来一局"/左上角重开按钮/restartgame → jq_restart_game（不重启 app）
@@ -107,6 +110,12 @@ UI_MENU（5 按钮：人机/两人/联网/联机/四国）
 - 悔棋：`undo_push`（完整 jq_state 快照）/`undo_pop`；**连续 pop 到 turn==BLUE**（撤销 AI 应着 + 玩家走子）。
 
 ## 5. 音效映射（14 WAV）
+
+> ★ AUD-1000-ALL A6-02（P2 标注）：`audio.c`（`jq_audio_init`/`jq_wav_load`/`jq_audio_play`
+>   14 WAV 表）为**未接线死模块**——全仓 0 调用点、Makefile 未纳入任何 target。
+>   实际音频通路 = `jni_bridge.c` `sfx_wav()` 14 项 strcmp 双源 + `sfx_for_move(ev)`
+>   事件码分流。本 §5 描述的是 **sfx_wav/sfx_for_move 实际通路**，audio.c 为
+>   早期设计残留（诚实边界：勿将 audio.c 当真通路）。
 
 | 组 | 音效 | 触发 | 入口 |
 |---|---|---|---|
