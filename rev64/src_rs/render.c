@@ -587,6 +587,9 @@ int rs_render_init(rs_render *rr, const char *spak_dir, const jq_state *init_sta
         int clw = 0, clh = 0;    /* ★ P2 datah_029 聊天记录文字图集尺寸 */
         int pfw = 0, pfh = 0;    /* ★ P2 datah_031 个人资料文字图集尺寸 */
         int ddw = 0, ddh = 0;    /* ★ P2 datah_042 提和详情文字图集尺寸 */
+        /* ★ B04-060/067：提和详情 7 图标真值图集（datax 108x108 烘焙 4x2） */
+        unsigned char *dciaw = NULL; size_t dciaw_len = 0;
+        unsigned char *dcix_px = NULL; int dciw = 0, dcih = 0;
         int sew = 0, sehh = 0;   /* ★ P2 datah_003/004 设置入口文字图集尺寸 */
         int isw = 0, ishh = 0;   /* ★ P2 datah_007/008 图像设置文字图集尺寸 */
         int j65w = 0, j65h = 0;  /* ★ P2 datah_065 加入游戏完整版文字图集尺寸 */
@@ -661,6 +664,9 @@ int rs_render_init(rs_render *rr, const char *spak_dir, const jq_state *init_sta
         rs_read_one(am, spak_dir, "chatlog_text_atlas.png", &claw, &claw_len);
         rs_read_one(am, spak_dir, "profile_text_atlas.png", &pfaw, &pfaw_len);
         rs_read_one(am, spak_dir, "drawdetail_text_atlas.png", &ddaw, &ddaw_len);
+        /* ★ AUD-1000 B04-060/067（P1 已修）：提和详情 7 图标真值图集（datax 组
+           108x108 原版图标烘焙 4x2 网格 432x216） */
+        rs_read_one(am, spak_dir, "drawdetail_icons_atlas.png", &dciaw, &dciaw_len);
         rs_read_one(am, spak_dir, "setentry_text_atlas.png", &seaw, &seaw_len);
         rs_read_one(am, spak_dir, "imgset_text_atlas.png", &isaw, &isaw_len);
         rs_read_one(am, spak_dir, "join065_text_atlas.png", &j65aw, &j65aw_len);        rs_read_one(am, spak_dir, "create069_text_atlas.png", &c69aw, &c69aw_len);
@@ -937,8 +943,14 @@ int rs_render_init(rs_render *rr, const char *spak_dir, const jq_state *init_sta
                 rr->drawdetail_text_px = dd_px; rr->drawdetail_text_px_len = (size_t)ddw * ddh * 4;
                 rr->drawdetail_text_w = ddw; rr->drawdetail_text_h = ddh;
             }
+            /* ★ B04-060/067：提和详情 7 图标真值图集解码（buffer 在下方统一 free） */
+            if (dciaw && png_decode(dciaw, dciaw_len, &dcix_px, &dciw, &dcih) == 0) {
+                rr->drawdetail_icons_px = dcix_px;
+                rr->drawdetail_icons_w = dciw; rr->drawdetail_icons_h = dcih;
+            }
         }
         free(ddaw);
+        free(dciaw);
         /* ★ P2（datah_003/004）：设置入口文字图集（7 标签竖排 220×322） */
         {
             unsigned char *se_px = NULL;
@@ -1023,7 +1035,7 @@ int rs_render_init(rs_render *rr, const char *spak_dir, const jq_state *init_sta
         }
         free(uiaw);
         rr->gl_px_loaded = 1;
-                LOGI("Init 像素解码：board=%s(%dx%d)piece=%s(%dx%d)text=%s(%dx%d)bg=%s(%dx%d)menu_bg=%s(%dx%d)popup=%s(%dx%d)opt_text=%s(%dx%d)imen_text=%s(%dx%d)imen_icons=%s(%dx%d)hamburger=%s(%dx%d)btn_big=%s(%dx%d)btn_small=%s(%dx%d)waysel_text=%s(%dx%d)btimen_text=%s(%dx%d)settings_text=%s(%dx%d)nplayer_text=%s(%dx%d)newgame_text=%s(%dx%d)gameset_text=%s(%dx%d)layres_text=%s(%dx%d)replay_text=%s(%dx%d)login_text=%s(%dx%d)rules_text=%s(%dx%d)ng104_text=%s(%dx%d)join_text=%s(%dx%d)ng061_text=%s(%dx%d)gameinfo_text=%s(%dx%d)bright_text=%s(%dx%d)chatlog_text=%s(%dx%d)profile_text=%s(%dx%d)drawdetail_text=%s(%dx%d)setentry_text=%s(%dx%d)imgset_text=%s(%dx%d)join065_text=%s(%dx%d)create069_text=%s(%dx%d)rules070_text=%s(%dx%d)room060_text=%s(%dx%d)chat063_text=%s(%dx%d)about_text=%s(%dx%d)",
+                LOGI("Init 像素解码：board=%s(%dx%d)piece=%s(%dx%d)text=%s(%dx%d)bg=%s(%dx%d)menu_bg=%s(%dx%d)popup=%s(%dx%d)opt_text=%s(%dx%d)imen_text=%s(%dx%d)imen_icons=%s(%dx%d)hamburger=%s(%dx%d)btn_big=%s(%dx%d)btn_small=%s(%dx%d)waysel_text=%s(%dx%d)btimen_text=%s(%dx%d)settings_text=%s(%dx%d)nplayer_text=%s(%dx%d)newgame_text=%s(%dx%d)gameset_text=%s(%dx%d)layres_text=%s(%dx%d)replay_text=%s(%dx%d)login_text=%s(%dx%d)rules_text=%s(%dx%d)ng104_text=%s(%dx%d)join_text=%s(%dx%d)ng061_text=%s(%dx%d)gameinfo_text=%s(%dx%d)bright_text=%s(%dx%d)chatlog_text=%s(%dx%d)profile_text=%s(%dx%d)drawdetail_text=%s(%dx%d)setentry_text=%s(%dx%d)imgset_text=%s(%dx%d)join065_text=%s(%dx%d)create069_text=%s(%dx%d)rules070_text=%s(%dx%d)room060_text=%s(%dx%d)chat063_text=%s(%dx%d)about_text=%s(%dx%d)drawdetail_icons=%s(%dx%d)",
              rr->board_px ? "OK" : "MISS",
              bw,
              bh,
@@ -1137,7 +1149,10 @@ int rs_render_init(rs_render *rr, const char *spak_dir, const jq_state *init_sta
              chh,
              rr->about_text_px ? "OK" : "MISS",
              abw,
-             abh);
+             abh,
+             rr->drawdetail_icons_px ? "OK" : "MISS",
+             dciw,
+             dcih);
     }
     if (rr->egl_ctx)
         LOGI("render 初始化：GL2 context 就绪，GL 对象延迟到 GLThread 首帧建");
@@ -4542,8 +4557,10 @@ static void rs_draw_drawdetail(rs_render *rr, int slot)
     rs_popup_shell(rr, slot, UI_DRAWDETAIL_POPUP_X0, UI_DRAWDETAIL_POPUP_Y0,
                    UI_DRAWDETAIL_POPUP_W, UI_DRAWDETAIL_POPUP_H, 0, uc);
     const ui_drawdetail_btn *db = ui_drawdetail_buttons();
-    static const int icon_map[DRAWDETAIL_ROW] = {2, 3, 4, 5, 0, 6, 1};
-    /* ③ 7 图标：☰ 菜单真实图标位图（imen_icons_atlas 8 槽 110×100 4×2）+
+    /* ★ AUD-1000 B04-060/067（P1 已修）：7 图标改用真值图集 drawdetail_icons_atlas
+       （datah_042 原版 /data/image/{draw,resign,chat,config,view,stat,about}.png
+       = datax 组 108x108 图标，烘焙 4x2 网格 432x216；槽序 = XML 序 i 直映射，
+       替换旧 ☰ 图集 8 槽占位映射 icon_map 诚实边界）+
        ④ 7 标签（drawdetail_text_atlas 竖排，按钮内 0.90 处，对齐 ☰ 菜单文字范式） */
     for (int i = 0; i < UI_DRAWDETAIL_COUNT; i++) {
         float bx0 = db[i].x0 * sx, by0 = db[i].y0 * sy;
@@ -4553,8 +4570,9 @@ static void rs_draw_drawdetail(rs_render *rr, int slot)
         float iw = 88.0f * sx, ih = 80.0f * sy;
         float icx0 = icx - iw * 0.5f, icx1 = icx + iw * 0.5f;
         float icy0 = icy - ih * 0.5f, icy1 = icy + ih * 0.5f;
-        if (rr->tex_imen_icons[slot] && rr->prog_tex[slot] && rr->imen_icons_w > 0 && rr->imen_icons_h > 0) {
-            int gi = icon_map[i];
+        if (rr->tex_drawdetail_icons[slot] && rr->prog_tex[slot] && rr->drawdetail_icons_w > 0 && rr->drawdetail_icons_h > 0) {
+            /* 真值图集槽序 = datah_042 XML 序（i 直映射 4x2 网格） */
+            int gi = i;
             float u0 = (float)(gi % 4) / 4.0f, v0 = (float)(gi / 4) / 2.0f;
             float u1 = u0 + 1.0f / 4.0f, v1 = v0 + 1.0f / 2.0f;
             rs_v4f iq[6] = {
@@ -4565,7 +4583,7 @@ static void rs_draw_drawdetail(rs_render *rr, int slot)
             glUniform2f(rr->uViewWH_tex[slot], (GLfloat)rr->view_w, (GLfloat)rr->view_h);
             glUniform1i(glGetUniformLocation(rr->prog_tex[slot], "uTex"), 0);
             glActiveTexture(GL_TEXTURE0);
-            glBindTexture(GL_TEXTURE_2D, rr->tex_imen_icons[slot]);
+            glBindTexture(GL_TEXTURE_2D, rr->tex_drawdetail_icons[slot]);
             glGenBuffers(1, &rr->vbo_sel[slot]);
             glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
             glBufferData(GL_ARRAY_BUFFER, sizeof(iq), iq, GL_DYNAMIC_DRAW);
@@ -9458,7 +9476,7 @@ static void rs_gl_rebuild(rs_render *rr, int slot)
             rr->tex_bright_text, rr->tex_chatlog_text, rr->tex_profile_text, rr->tex_drawdetail_text,
             rr->tex_setentry_text, rr->tex_imgset_text, rr->tex_join065_text, rr->tex_create069_text,
             rr->tex_rules070_text, rr->tex_room060_text, rr->tex_chat063_text, rr->tex_about_text,
-            rr->tex_uibat_text,
+            rr->tex_uibat_text, rr->tex_drawdetail_icons
         };
         for (size_t k = 0; k < sizeof(texs)/sizeof(texs[0]); k++)
             if (texs[k][slot]) { glDeleteTextures(1, &texs[k][slot]); texs[k][slot] = 0; }
@@ -9538,6 +9556,15 @@ static void rs_gl_rebuild(rs_render *rr, int slot)
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     }
     /* ★ 原版 UI 对齐：☰ 菜单图标图集（8 图标 110×100 4×2，原版裁剪） */
+    /* ★ AUD-1000 B04-060/067（P1 已修）：提和详情 7 图标真值图集纹理
+       （datax 组 108x108 原版图标，替换旧 ☰ 图集占位映射） */
+    if (rr->drawdetail_icons_px && rr->gl2_ok[slot] && rr->drawdetail_icons_w > 0 && rr->drawdetail_icons_h > 0) {
+        glGenTextures(1, &rr->tex_drawdetail_icons[slot]);
+        glBindTexture(GL_TEXTURE_2D, rr->tex_drawdetail_icons[slot]);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->drawdetail_icons_w, rr->drawdetail_icons_h, 0,
+                     GL_RGBA, GL_UNSIGNED_BYTE, rr->drawdetail_icons_px);
+        glGenerateMipmap(GL_TEXTURE_2D);
+    }
     if (rr->imen_icons_px && rr->gl2_ok[slot] && rr->imen_icons_w > 0 && rr->imen_icons_h > 0) {
         glGenTextures(1, &rr->tex_imen_icons[slot]);
         glBindTexture(GL_TEXTURE_2D, rr->tex_imen_icons[slot]);
@@ -10662,7 +10689,7 @@ void rs_render_free(rs_render *rr)
             rr->tex_bright_text, rr->tex_chatlog_text, rr->tex_profile_text, rr->tex_drawdetail_text,
             rr->tex_setentry_text, rr->tex_imgset_text, rr->tex_join065_text, rr->tex_create069_text,
             rr->tex_rules070_text, rr->tex_room060_text, rr->tex_chat063_text, rr->tex_about_text,
-            rr->tex_uibat_text,
+            rr->tex_uibat_text, rr->tex_drawdetail_icons
         };
         for (size_t k = 0; k < sizeof(texs)/sizeof(texs[0]); k++)
             for (int i = 0; i < 2; i++)
@@ -10695,6 +10722,7 @@ void rs_render_free(rs_render *rr)
             rr->setentry_text_px, rr->imgset_text_px, rr->join065_text_px,
             rr->create069_text_px, rr->rules070_text_px, rr->room060_text_px,
             rr->chat063_text_px, rr->about_text_px, rr->uibat_text_px,
+            rr->drawdetail_icons_px,
         };
         for (size_t k = 0; k < sizeof(px_list)/sizeof(px_list[0]); k++)
             free(px_list[k]);

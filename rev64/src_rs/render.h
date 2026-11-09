@@ -168,6 +168,11 @@ typedef struct {
     int profile_text_w, profile_text_h;      /* 个人资料文字图集尺寸 */
     void *drawdetail_text_px; size_t drawdetail_text_px_len; /* ★ P2（datah_042）：提和详情文字图集 RGBA（7 标签竖排 220×322） */
     int drawdetail_text_w, drawdetail_text_h; /* 提和详情文字图集尺寸 */
+    /* ★ AUD-1000 B04-060/067（P1 已修）：提和详情 7 图标真值图集（datah_042 原版
+       /data/image/{draw,resign,chat,config,view,stat,about}.png = datax 组 108x108，
+       烘焙 4x2 网格 432x216；替换旧 ☰ 图集 8 槽占位映射 icon_map）。 */
+    unsigned char *drawdetail_icons_px; rs_glid_t tex_drawdetail_icons[2];
+    int drawdetail_icons_w, drawdetail_icons_h;
     void *setentry_text_px; size_t setentry_text_px_len; /* ★ P2（datah_003/004）：设置入口文字图集 RGBA（7 标签竖排 220×322） */
     int setentry_text_w, setentry_text_h; /* 设置入口文字图集尺寸 */
     void *imgset_text_px; size_t imgset_text_px_len; /* ★ P2（datah_007/008）：图像设置文字图集 RGBA（10 标签竖排 220×460） */

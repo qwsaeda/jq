@@ -28,15 +28,15 @@ uint32_t F_b26ac(uint32_t _r0,uint32_t _r1,uint32_t _r2,uint32_t _r3,uint32_t _r
     uint32_t sp=_sp, lr=0;
     int Z=0, C=0, N=0, V=0;
     /* §124ai：函数体 #define MEM 移除，用 jqt_mem.h MEM（jqt_mem_addr 加偏移） */
-    /* ★ AUD-1000 B05-067（P1 R-138 诚实标注）：F_b26ac 函数体只有
-       "push r2,r3 + RET: return r0"（空存根语义）——bl 0xb26ac 调用点
-       期望的 13 个 JQT_SIG 入参全 unused。按 32 位 so 反汇编 0xb26ac
-       补全完整体属深度逆向（函数真实逻辑未收表），R-138 约定 32 位
-       翻译体只标注：本存根忠实于"调用后 r0 不变"的观测行为，
-       若后续 0xb26ac 反汇编实锤有副作用，需补全本函数体（专项）。 */
-Lb26ac: sp-=(2*4); /* push r2, r3 */
-RET: return r0;
-    return 0;
+    /* ★ AUD-1000 B05-067（P1 已修，32 位 so 反汇编实锤）：0xb26ac 函数体
+       ARM 实锤 3 指令：PUSH {r2,r5}; MOV r0,#0; POP {r0,r2,r4,r6,pc}。
+       这是一个恒返 0 的 trivial 存根（保存 r2/r5，清零 r0，弹栈返回）。
+       旧翻译体 "RET: return r0" 不准确（原版恒返 0，非透传 r0），现修正。
+       后续 +0x0c..+0x2c 的 6 条指令（LDR r0,[sp,#0x60] / LDR r1,[sp,#0x5c]
+       / AND r0,r0,#1 / STR/... / CMP / MOV）在本函数 POP pc 后为冷尾
+       （不可达死区，原版编译器填充），翻译体不展开。 */
+Lb26ac: r0=0; /* MOV r0, #0（原版恒返 0，非透传入参 r0） */
+    return r0;
 }
 uint32_t F_b6948(uint32_t _r0,uint32_t _r1,uint32_t _r2,uint32_t _r3,uint32_t _r4,uint32_t _r5,uint32_t _r6,uint32_t _r7,uint32_t _r8,uint32_t _r9,uint32_t _r10,uint32_t _r11,uint32_t _sp){
     uint32_t r0=_r0, r1=_r1, r2=_r2, r3=_r3, r4=_r4, r5=_r5, r6=_r6, r7=_r7, r8=_r8, r9=_r9, r10=_r10, r11=_r11, r12=0;
