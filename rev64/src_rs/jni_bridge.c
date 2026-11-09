@@ -1054,16 +1054,16 @@ static const char *on_event(const char *name, const char *value, JNIEnv *env)
                内已 total++ 后重复加 → 一次合法 move 事件被计 2 次。删掉重复的
                裸 total++，只保留 :809 守卫内的一次（与 OnTouch 直接走子 :7813、
                flip 分支 :822 口径统一为"每事件 +1"）。 */
-            if (ev < 7) { g_event_cnt[ev < 7 ? ev : 0]++; g_event_total++; }
             /* ★ 原版行为移植（55 code 全链分发，evt55_dispatch.c）：
                7 事件码（EV_MOVE=0..EV_FLIP=6）→ 原版 55 code（code=ev，0-6 直接映射），
-               分发引擎确认成功 + 按 73 事件名索引计数（账号/联机类恒 0 不刷屏）。
+               分发引擎确认成功 + 按 73 事件名索引计数（g_event_cnt 非 static，跨文件直接累加）。
                诚实边界：g_state 变更已在 jq_try_move 内完成，evt55 仅做分发确认（幂等）。 */
-            jq_evt55_dispatch(ev, JQ_EVENT_NAMES[ev < 7 ? ev : 0]);
+            if (ev >= 0 && ev < 7)
+                jq_evt55_dispatch(ev, JQ_EVENT_NAMES[ev]);
             ui_replay_record(from, to, 0);   /* ★ P1（datah_039/107）：OnEvent 走子成功记录 1 步 */
             LOGI("OnEvent move (%d,%d)→(%d,%d) %s（#%d 累计）", cell_row(from), cell_col(from),
                  cell_row(to), cell_col(to), JQ_EVENT_NAMES[ev < 7 ? ev : 0],
-                 g_event_cnt[ev < 7 ? ev : 0]);
+                 g_event_cnt[ev7_to_name_idx(ev < 7 ? ev : 0)]);
         }
     } else if (strcmp(name, "flip") == 0) {
         int idx = -1;
@@ -1071,8 +1071,9 @@ static const char *on_event(const char *name, const char *value, JNIEnv *env)
             int pushed = undo_push();
             if (jq_flip(st, idx)) {
                 ui_replay_record(idx, idx, 1);   /* ★ P1（datah_039/107）：OnEvent 翻棋成功记录 1 步 */
-                g_event_cnt[EV_FLIP]++; g_event_total++;   /* ★ AUD-R-061（P2）：翻棋计数走 EV_FLIP=6 位（EV_FLIP 编译期宏=6<7 恒合法；AUD-A-0003/0004 真修的是 jq_try_move 动态事件码路径，常量下标探针不适用） */
-                jq_evt55_dispatch(EV_FLIP, "Junqi.Flip");   /* ★ 原版行为移植：翻棋 → code 6（Junqi.Flip）分发确认 */
+                /* ★ 原版行为移植（55 code 分发）：翻棋 → code 6（Junqi.Flip），
+                   evt55_dispatch 内部按 73 事件名索引计数（g_event_cnt[Junqi.Flip=5]++）。 */
+                jq_evt55_dispatch(EV_FLIP, "Junqi.Flip");
                 LOGI("OnEvent flip (%d,%d) rank=%d", cell_row(idx), cell_col(idx),
                      rank_norm(st->cells[idx].rank));
             } else if (pushed) undo_pop_discard();   /* ★ AUD-1000 B03-011：仅 push 成功才平衡 */
@@ -1299,7 +1300,7 @@ static const char *on_event(const char *name, const char *value, JNIEnv *env)
         /* ★ 原版行为移植（本轮）：战况统计 7 事件码计数（简化版核心 7 类）
            + 73 事件名全量分布（jq_event_names_73 契约对齐，账号/联机类=诚实边界计数恒 0） */
         for (int i = 0; i < 7; i++)
-            LOGI("  %s = %d", JQ_EVENT_NAMES[i], g_event_cnt[i]);
+            LOGI("  %s = %d", JQ_EVENT_NAMES[i], g_event_cnt[ev7_to_name_idx(i)]);
         /* 73 事件名分布（仅显示非零项，账号/联机类恒 0 不刷屏） */
         int nonzero = 0;
         for (int i = 0; i < JQ_EVENT_NAME_COUNT; i++)
@@ -1534,7 +1535,7 @@ Java_com_cnvcs_App_OnCreate(JNIEnv *env, jclass clazz, jobject activity)
                从 UI_MENU(1188) 改到 UI_GAME——仅测试 prop 触发时发生（非默认路径），
                渲染层进棋盘而非菜单，与测试语义一致，保留。 */
             int ftev = jq_try_move(&g_state, 53, 58);
-            if (ftev >= 0 && ftev < 7) { g_event_cnt[ftev]++; g_event_total++; }   /* AUD-R-061：7 项事件码（AUD-A-0003：下界+上界守卫已全，真修确认关闭） */
+            if (ftev >= 0 && ftev < 7) { g_event_cnt[ev7_to_name_idx(ftev)]++; g_event_total++; }   /* AUD-R-061：7 项事件码（AUD-A-0003：下界+上界守卫已全，真修确认关闭） */
             LOGI("flagtest：近旗状态注入 + 自动走 53→58 ev=%d %s（turn=%d stage=%d winner=%d）",
                  ftev, ftev < 0 ? "-" : JQ_EVENT_NAMES[ftev < 7 ? ftev : 0],
                  g_state.turn, g_state.stage, g_state.winner);
@@ -1607,7 +1608,7 @@ Java_com_cnvcs_App_OnCreate(JNIEnv *env, jclass clazz, jobject activity)
                UI_MENU 改到 UI_GAME（测试钩子改主界面初态，与 flagtest 同款），
                仅测试 prop 触发时发生，非默认路径；保留（测试钩子语义，标注）。 */
             int mtev = jq_try_move(&g_state, 49, 54);
-            if (mtev >= 0 && mtev < 7) { g_event_cnt[mtev]++; g_event_total++; }   /* AUD-R-061：7 项事件码（AUD-A-0004：下界+上界守卫已全，真修确认关闭） */
+            if (mtev >= 0 && mtev < 7) { g_event_cnt[ev7_to_name_idx(mtev)]++; g_event_total++; }   /* AUD-R-061：7 项事件码（AUD-A-0004：下界+上界守卫已全，真修确认关闭） */
             LOGI("minetest：挖雷状态注入 + 自动走 49→54 ev=%d %s（turn=%d stage=%d）",
                  mtev, mtev < 0 ? "-" : JQ_EVENT_NAMES[mtev < 7 ? mtev : 0], g_state.turn, g_state.stage);
             sfx_play(env, "move");
@@ -2429,7 +2430,7 @@ Java_com_cnvcs_App_OnTimer(JNIEnv *env, jclass clazz)
                OnTimer/OnUpdate/OnTouch 三处 AI 块共用同一契约（B03-008 收敛点=同 g_mutex 互斥 + turn 判定去重） */
             if (flip) {
                 int frc = 0;
-                if (jq_flip(&g_state, from)) { frc = 1; ui_replay_record(from, from, 1); g_event_cnt[EV_FLIP]++; g_event_total++; }   /* AUD-R-061：翻棋计数走 EV_FLIP=6 位 */   /* ★ P1（datah_039/107）：AI 翻棋记录 */
+                if (jq_flip(&g_state, from)) { frc = 1; ui_replay_record(from, from, 1); g_event_cnt[ev7_to_name_idx(EV_FLIP)]++; g_event_total++; }   /* AUD-R-061：翻棋计数走 EV_FLIP=6 位 */   /* ★ P1（datah_039/107）：AI 翻棋记录 */
                 if (frc < 0 && pushed) undo_pop_discard();   /* 翻棋失败回滚栈顶快照 */
             } else {
                 int e = jq_try_move(&g_state, from, to);
@@ -3077,7 +3078,7 @@ Java_com_cnvcs_App_OnUpdate(JNIEnv *env, jclass clazz)
                    块同 g_mutex 互斥 + turn==RED 判定天然去重（turn 切回 BLUE 后不再重跑 O(N²)） */
                 if (flip) {
                     int frc = 0;
-                    if (jq_flip(&g_state, from)) { frc = 1; ui_replay_record(from, from, 1); g_event_cnt[EV_FLIP]++; g_event_total++; }   /* AUD-R-061：翻棋计数走 EV_FLIP=6 位 */   /* ★ P1（datah_039/107）：AI 翻棋记录 */
+                    if (jq_flip(&g_state, from)) { frc = 1; ui_replay_record(from, from, 1); g_event_cnt[ev7_to_name_idx(EV_FLIP)]++; g_event_total++; }   /* AUD-R-061：翻棋计数走 EV_FLIP=6 位 */   /* ★ P1（datah_039/107）：AI 翻棋记录 */
                     if (frc < 0 && pushed) undo_pop_discard();
                     LOGI("红方 AI 应着（翻棋）：cell=%d（turn 切回蓝方）", from);
                 } else {
@@ -8226,7 +8227,7 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
                     int from, to, flip;
                     if (ai_pick(&from, &to, &flip) == 0) {
                         int pushed = undo_push();   /* ★ AUD-1000 B03-008（P1 已修）：☰ 电脑变着 push 契约 */
-                        if (flip) { int frc = 0; if (jq_flip(&g_state, from)) { frc = 1; ui_replay_record(from, from, 1); g_event_cnt[EV_FLIP]++; g_event_total++; }   /* AUD-R-061：翻棋计数走 EV_FLIP=6 位 */   /* ★ P1（datah_039/107）：电脑变着翻棋记录 */ if (frc < 0 && pushed) undo_pop_discard(); }
+                        if (flip) { int frc = 0; if (jq_flip(&g_state, from)) { frc = 1; ui_replay_record(from, from, 1); g_event_cnt[ev7_to_name_idx(EV_FLIP)]++; g_event_total++; }   /* AUD-R-061：翻棋计数走 EV_FLIP=6 位 */   /* ★ P1（datah_039/107）：电脑变着翻棋记录 */ if (frc < 0 && pushed) undo_pop_discard(); }
                         else { int e = jq_try_move(&g_state, from, to); if (e >= 0) ui_replay_record(from, to, 0); if (e < 0 && pushed) undo_pop_discard(); (void)e; }   /* ★ P1（datah_039/107）：电脑变着走子记录 */
                         done = 1;
                     }
@@ -8343,7 +8344,7 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
                 flip_done = jq_flip(st, from);
                 if (flip_done) {
                     ui_replay_record(from, from, 1);   /* ★ P1（datah_039/107）：翻棋成功记录 1 步 */
-                    g_event_cnt[EV_FLIP]++; g_event_total++;   /* ★ AUD-R-061（P2）：翻棋计数走 EV_FLIP=6 位 */
+                    g_event_cnt[ev7_to_name_idx(EV_FLIP)]++; g_event_total++;   /* ★ AUD-R-061（P2）：翻棋计数走 EV_FLIP=6 位 */
                 } else if (pushed) undo_pop_discard();   /* 翻棋失败回滚栈顶快照 */
                 LOGI("走子判定 翻棋：cell=%d rc=%d turn→%d（人机AI走红=%d）",
                      from, flip_done, st->turn, g_vs_ai);
@@ -8360,13 +8361,13 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
                 if (move_ok) ui_replay_record(from, to, 0);   /* ★ P1（datah_039/107）：走子成功记录 1 步 */
                 if (jnev < 0 && pushed) undo_pop_discard();   /* 走子失败回滚栈顶快照 */
                 if (move_ok && jnev >= 0 && jnev < 7) {   /* AUD-R-061：7 项事件码（AUD-A-0003/0004 同族：下界+上界守卫齐全） */
-                    g_event_cnt[jnev]++;   /* 事件计数（对齐 on_event，OnTouch 直接走子不经 on_event） */
+                    g_event_cnt[ev7_to_name_idx(jnev < 0 ? 0 : jnev)]++;   /* ★ 原版行为移植：7-code→73-name 索引映射（OnTouch 直接走子不经 on_event） */
                     g_event_total++;
                 }
                 if (move_ok && st->stage == STG_OVER)
                     over_win = st->winner;   /* 对局结束（吃旗/无子可走等），锁外播 win/lose */
                 LOGI("走子判定：from=%d to=%d can_move=%d 结果=%s（事件累计 move=%d eat=%d）",
-                     from, to, movable, JQ_EVENT_NAMES[jnev < 0 ? 0 : jnev], g_event_cnt[0], g_event_cnt[1]);
+                     from, to, movable, JQ_EVENT_NAMES[jnev < 0 ? 0 : jnev], g_event_cnt[ev7_to_name_idx(0)], g_event_cnt[ev7_to_name_idx(1)]);
             }
         }
         pthread_mutex_unlock(&g_mutex);
@@ -8415,7 +8416,7 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
                     int pushed = undo_push();   /* ★ AUD-1000 B03-008（P1 已修）：OnTouch AI 块 push 契约 */
                     if (aflip) {
                         int frc = 0;
-                        if (jq_flip(&g_state, af)) { frc = 1; ui_replay_record(af, af, 1); g_event_cnt[EV_FLIP]++; g_event_total++; }   /* AUD-R-061：翻棋计数走 EV_FLIP=6 位 */   /* ★ P1（datah_039/107）：AI 翻棋记录 */
+                        if (jq_flip(&g_state, af)) { frc = 1; ui_replay_record(af, af, 1); g_event_cnt[ev7_to_name_idx(EV_FLIP)]++; g_event_total++; }   /* AUD-R-061：翻棋计数走 EV_FLIP=6 位 */   /* ★ P1（datah_039/107）：AI 翻棋记录 */
                         if (frc < 0 && pushed) undo_pop_discard();
                         LOGI("红方 AI 应着（翻棋）：cell=%d（turn 切回蓝方）", af);
                     } else {

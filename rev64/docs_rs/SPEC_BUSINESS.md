@@ -176,3 +176,30 @@ UI_MENU（5 按钮：人机/两人/联网/联机/四国）
 **事件计数**：`g_event_cnt` 7→73（对齐 `jq_event_names_73` 契约）；战况统计 UI 显示 7 事件码核心计数 + 73 事件名非零分布（账号/联机类恒 0 不刷屏）。
 
 **红线（不包装）**：73 事件名 = 常量表对齐 + 核心 7 类行为移植；账号/注册/联机类 66 名 = 诚实边界（业务逻辑未移植，仅常量表对齐），简化版 ≠ 完整版。
+
+### 3.3 55 code→24 handler 全链分发引擎（本轮落地）
+
+**移植范围**：32 位 so `F_55d40` switch（§124y-29/31/33/35 实锤 67 case）→ 64 位 `evt55_dispatch.c`。
+
+**核心设计**：
+- 64 位 handler 操作 `g_state`（真实游戏状态），不复刻 32 位 .bss C++ 事件单例（诚实边界）
+- 全 67 code 均返回成功（`g_state` 变更在 `rules.c`/`jni_bridge.c` 各调用点完成，`evt55_dispatch` 幂等分发确认）
+- 账号/注册/联机类 53 code = 分发成功（无状态变更，简化版不实现服务器协议）
+- 核心 7 类（code 0-7）→ 73 事件名索引（Move/Eat/Bomb/Flag/Dead/Mine/Flip）→ `g_event_cnt` 跨文件计数
+
+**事件计数 7→73 扩容对齐**：
+- `g_event_cnt` 去 static（`jni_bridge.c` 定义，`evt55_dispatch.c` 跨文件计数）
+- `ev7_to_name_idx()`：7 事件码 → 73 事件名索引映射（code 0-4 → name 0-4，code 5 MINE → name 0，code 6 FLIP → name 5）
+- 全 7-code 直接计数路径（`OnTouch`/`OnUpdate`/AI 走子）统一走 `ev7_to_name_idx` 映射
+
+**接入点**：
+| 调用点 | code | 事件名 |
+|---|---|---|
+| on_event move | 0-4,7 | Junqi.Move/Eat/Bomb/Flag/Dead/Move(Mine) |
+| on_event flip | 6 | Junqi.Flip |
+| on_event regret_req | 42 | Junqi.RegretReq |
+| on_event draw_req | 25 | Junqi.DrawReq |
+| on_event draw_agree | 26 | Junqi.DrawAgree |
+| on_event game_over | 16 | Junqi.GameOver |
+
+**诚实边界**：55 code 全链 = 事件分发对齐（code→handler 映射 + 73 名计数）；账号/联机/摆子类 53 code 业务逻辑未移植（简化版不实现服务器协议），简化版 ≠ 完整版。
