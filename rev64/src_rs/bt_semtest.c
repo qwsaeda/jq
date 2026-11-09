@@ -29,7 +29,7 @@
 int __android_log_print(int prio, const char *tag, const char *fmt, ...);
 #include <stdarg.h>
 int __android_log_print(int prio, const char *tag, const char *fmt, ...) {
-    (void)prio; (void)tag; (void)fmt; (void)((va_list){0}); return 0;
+    (void)prio; (void)tag; (void)fmt; return 0;   /* ★ B04-030：去 (void)((va_list){0}）无效表达式 */
 }
 
 /* ★ AUD-R-013：bt_semtest 无 jni_bridge 链接 → 悔棋栈桩（与 bt_selftest 同款，恒 0） */
@@ -314,7 +314,7 @@ int main(void)
         int ret = jq_bt_session_on_frame(&sess, &st, BT_T_RESIGN, 0, 0, 0, 0, 0, 0);
         CHECK(ret == 0, "RESIGN 帧接受（rc=0）");
         CHECK(st.stage == STG_OVER, "RESIGN 语义：stage=STG_OVER（终局）");
-        CHECK(st.winner == SIDE_BLUE, "RESIGN：we_blue=1 收 RESIGN → winner=BLUE（对端认输本端胜）");
+        CHECK(st.winner == JQ_WIN_BLUE, "RESIGN：we_blue=1 收 RESIGN → winner=JQ_WIN_BLUE（对端认输本端胜）");
         CHECK(sess.state == BT_ST_DISCONNECTED, "RESIGN 语义：会话断开");
 
         /* 镜像：we_blue=0（我是红方）收对端（蓝）RESIGN → 红胜 */
@@ -322,7 +322,7 @@ int main(void)
         jq_bt_session sessr;
         jq_bt_session_init(&sessr, &str, 0);
         jq_bt_session_on_frame(&sessr, &str, BT_T_RESIGN, 0, 0, 0, 0, 0, 0);
-        CHECK(str.winner == SIDE_RED, "RESIGN 镜像：we_blue=0 收 RESIGN → winner=RED（对端认输本端胜）");
+        CHECK(str.winner == JQ_WIN_RED, "RESIGN 镜像：we_blue=0 收 RESIGN → winner=JQ_WIN_RED（对端认输本端胜）");
 
         /* UNDO：闸口语义（THEIR_TURN 且悔棋栈非空才消费→翻回合；栈空拒收 rc=-3；OUR_TURN 拒收）
            ★ 对抗审计 P1-B9 修正：jq_bt_undo_available 原恒 0 桩 → UNDO 帧永不消费

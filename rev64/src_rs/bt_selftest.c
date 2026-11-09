@@ -205,7 +205,7 @@ int main(void) {
             char sb[60 * 64];
             int sn = jq_bt_frame_sync_encode(sb, 64, &st, 0, N_CELLS);
             /* 串接成连续载荷（帧自带尾 '\n'，直接拼接） */
-            static char multi[60 * 80];
+            char multi[60 * 80];   /* ★ B04-028：去 static（4800B 栈安全，免 BSS 常驻） */
             int ml = 0;
             for (int k = 0; k < sn; k++) {
                 const char *fr = sb + k * 64;
