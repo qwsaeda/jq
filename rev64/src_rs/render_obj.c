@@ -5,6 +5,7 @@
  */
 #include "render_obj.h"
 #include <string.h>
+#include <android/log.h>   /* B04-099：池满丢弃告警 LOGI */
 
 void jq_subsys_list_init(jq_subsys_list *l)
 {
@@ -14,7 +15,12 @@ void jq_subsys_list_init(jq_subsys_list *l)
 /* 0xba034/0xba080 语义：节点入链（+0x2c size / +0x30 end / +0x34 ptr / +0x38 cap） */
 void jq_subsys_list_push(jq_subsys_list *l, jq_subsys *s)
 {
-    if (l->n >= 8) return;
+    if (l->n >= 8) {
+        /* ★ B04-099（P2 已修）：池满丢弃告警（旧实现静默 return，第 9 个子系统
+           丢失无日志，渲染子图断裂难排查）。 */
+        LOGI("jq_subsys_list_push：nodes[8] 池满（第 %d 个子系统丢弃，s=%p）", l->n + 1, (void*)s);
+        return;
+    }
     jq_subsys_node *nd = &l->nodes[l->n++];
     nd->_raw._n.ptr = s;
     nd->next = NULL;

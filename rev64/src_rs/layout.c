@@ -118,14 +118,14 @@ jq_layout_err jq_check_layout_cell(int idx, int raw)
     if (idx <= 0x1d) {
         if (raw > RANK_TOP) return ERR_RANGE;          /* 蓝方脏域 13-255 拒 */
         return LAYOUT_OK;                             /* 蓝半区
-       ★ AUD-R-063（P2 诚实标注）：蓝半区（idx 0-29 = row0-5）直接放行，蓝方军旗
+       ★ AUD-R-063（P2 定案，2026-11-09 正向对齐收口）：蓝半区（idx 0-29）无条件 LAYOUT_OK——忠实对齐原版 0x2a228 不对称校验（蓝半区无军旗格约束）。
        不受 0x38/0x3a 格约束——is_base 同时认 row0 col1/3（蓝大本营）与 row11
        col1/3（红大本营），但校验器只对红方半区做军旗格校验（0x2a228 原版指令
        即如此，蓝半区由 30 字节布局装载链路 jq_load_layout 保证：layout 行5（蓝旗行）
        固定映射 (0,*) → 默认/暗棋开局蓝旗必在 row0）。自定义布局（0x2a228 之外的
        装载路径）理论上可出现"蓝旗不在蓝大本营"，引擎照样放行——对齐原版 0x2a228
        的不对称校验（原版蓝半区即无条件 LAYOUT_OK）。
-       ★ 2026-11-09 撤回对称校验尝试：曾给蓝半区加 idx∉{1,3}→ERR_QI 对称校验，
+       ★ 行为锁定：evverify run_layout_validate_sym（②蓝旗idx2单格放行/⑤红旗0x37 ERR_QI）防误改回对称校验。
        但布局编码 30 字节无 side 信息——军旗 rank（RANK_FLAG）在 30 字节编码中
        全局唯一（蓝方半区 0-29 与红方半区 30-59 共享编码空间），蓝方军旗在
        idx=1/3（蓝大本营）时 raw==RANK_FLAG，红方半区 0x38/0x3a 也允许

@@ -481,6 +481,45 @@ static int run_dark(void)
    改名/删除，不依赖触摸/文件系统 flaky——tmp 目录 + 直接调 save API + 校验字节）。
    对齐 jni_bridge UI_SAVE_LAY/UI_LOAD_LAY/UI_LAY_MGR 业务动作（ui_layout_* API 桩，
    ui_state_stub 桌面桩返回 -1 → 验证文件 API 语义本身）。 */
+static int run_layout_validate_sym(void)
+{
+    /* ★ AUD-R-063（P2 行为锁定，2026-11-09 正向对齐）：布局校验蓝/红军旗格
+       **不对称**（忠实对齐原版 0x2a228：蓝半区 idx<=0x1d 无条件 LAYOUT_OK，
+       红半区军旗格 0x38/0x3a 才合法）。本用例锁定原版行为，防误加"蓝半区
+       对称校验"（会误拦原版允许的自定义布局）。
+       原版 0x2a228 逐指令实锤（R-route §27）：idx<=29 蓝半区直接放行，
+       军旗 idx∈{56,58} 否则 QiError 仅对红半区生效。 */
+    int ok = 1;
+    /* ① 默认布局 → LAYOUT_OK（基线） */
+    jq_state s1;
+    jq_load_layout(&s1, JQ_DEFAULT_LAY);
+    int c1 = (jq_validate_layout(&s1) == LAYOUT_OK);
+    ok &= c1;
+    /* ② 蓝军旗 idx=2（蓝半区非大本营）→ 单格校验原版放行（蓝半区无条件 LAYOUT_OK，
+       隔离计数表：用 jq_check_layout_cell 单格，避免 seen[r]!=cnt[r]*2 的计数拦截干扰） */
+    int c2 = (jq_check_layout_cell(2, RANK_FLAG) == LAYOUT_OK);
+    ok &= c2;
+    /* ③ 蓝军旗 idx=1（蓝大本营）→ 单格校验 LAYOUT_OK */
+    int c3 = (jq_check_layout_cell(1, RANK_FLAG) == LAYOUT_OK);
+    ok &= c3;
+    /* ④ 默认布局（红军旗在 0x38 红大本营）→ LAYOUT_OK */
+    jq_state s4;
+    jq_load_layout(&s4, JQ_DEFAULT_LAY);
+    int c4 = (jq_validate_layout(&s4) == LAYOUT_OK);
+    ok &= c4;
+    /* ⑤ 红军旗单独放 0x37（非红大本营 0x38/0x3a）→ ERR_QI */
+    jq_state s5;
+    jq_load_layout(&s5, JQ_DEFAULT_LAY);
+    for (int i = 30; i < N_CELLS; i++)
+        if (s5.cells[i].rank == RANK_FLAG + 0xc) { s5.cells[i].rank = 0; s5.cells[i].flags = 0; }
+    s5.cells[0x37].rank = RANK_FLAG + 0xc; s5.cells[0x37].side = SIDE_RED; s5.cells[0x37].flags = JQF_FLAG;
+    int c5 = (jq_validate_layout(&s5) == ERR_QI);
+    ok &= c5;
+    printf("layout-sym: ①默认=%d ②蓝旗idx2=%d(放行) ③蓝旗idx1=%d ④红旗0x38=%d ⑤红旗0x37=%d(ERR_QI) %s\n",
+           c1, c2, c3, c4, c5, ok ? "" : "  [FAIL]");
+    return ok;
+}
+
 static int run_layout_save(void)
 {
     /* 桌面桩 ui_layout_save/load 返回 -1（不实际写文件）→ 直接调 jq_save_game_write
@@ -2474,6 +2513,7 @@ static int run_imgset7(void);
 static int run_imgset8(void);
 static int run_join(void);
 static int run_join065(void);
+static int run_layout_validate_sym(void);
 static int run_layout_save(void);
 static int run_login(void);
 static int run_newgame104(void);
@@ -2562,6 +2602,8 @@ int main(int argc, char **argv)
         ev_total++; ev_pass += run_ruleset();
         /* ★ AUD-R-002/003（P0）：暗棋规则族（非工兵不可扛旗/挖雷，工兵挖 3 雷后可扛旗） */
         ev_total++; ev_pass += run_dark();
+        /* ★ AUD-R-063（P2 行为锁定）：布局校验蓝/红军旗格不对称（忠实原版 0x2a228） */
+        ev_total++; ev_pass += run_layout_validate_sym();
         /* ★ P1（datah_016/017/020）：布局存档全路径（提取 30 字节/存读一致/载入镜像/删除） */
         ev_total++; ev_pass += run_layout_save();
         /* ★ P1（datah_039/107）：复盘回放确定性（走子序列 N 步 → rewind cur=k/0/n 三游标
