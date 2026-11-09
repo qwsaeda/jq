@@ -2356,7 +2356,12 @@ Java_com_cnvcs_App_OnCreate(JNIEnv *env, jclass clazz, jobject activity)
         jmethodID scv = (*env)->GetMethodID(env, act_cls, "setContentView", "(Landroid/view/View;)V");
         if (scv) {
             (*env)->CallVoidMethod(env, activity, scv, jview);
-            if ((*env)->ExceptionCheck(env)) (*env)->ExceptionClear(env);
+            if ((*env)->ExceptionCheck(env)) {
+                LOGE("GLDIAG：setContentView(GLView) 抛异常（attach 失败根因）→ ExceptionClear");
+                (*env)->ExceptionClear(env);
+            } else {
+                LOGI("GLDIAG：setContentView(GLView) 调用无异常（view 已 attach，surface 创建待 layout pass）");
+            }
             /* GLThread RENDERMODE_WHEN_DIRTY（默认）需要 requestRender 才出首帧；
                onAttachedToWindow 已起 GLThread，但没 requestRender → GLThread 停在 wait。 */
             jmethodID rr_m = (*env)->GetMethodID(env, glview_cls, "requestRender", "()V");
