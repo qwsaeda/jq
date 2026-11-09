@@ -92,6 +92,8 @@
   锚文案改动即全路径假红（arm32_walkregress 4 处中文全串锚 = 文案一改全灭）。
 - 设备/包名硬编码（emulator-5554 / com.cnvcs.junqi32 / junqirs / junqi 四包名）全部参数化，
   默认值必须与头注释一致（mumu_regress.sh 默认 redroid 注释写 MuMu = 裸跑打错设备）。
+  ★ redroid 已禁用（2026-11-09 容器/镜像已删）：emulator-5554 不再指向 redroid，
+  默认设备一律参数化为红果 10.0.182.146:5555（出图实证权威口径），勿硬编码旧 redroid 地址。
 
 ## 12. 多线程 GL/static 并发
 

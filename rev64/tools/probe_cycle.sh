@@ -1,5 +1,7 @@
 #!/bin/bash
 # probe_cycle.sh — "红果跑测试 + 对象图探查"一条龙（§124y-14 固化）
+# ★ 已禁用（2026-11-09）：依赖 redroid_test.sh（redroid 容器已删）→ gs8 抓取段失效，禁止执行。
+#   so_probe.py 静态查询段（dispatch/slot/vtable）仍可用：python3 rev64/tools/so_probe.py <sub>
 #
 # 背景：本轮反复手敲"redroid_test.sh 抓 gs8 日志 → so_probe.py dispatch/slot 对照"，
 # 两三步串起来。本脚本固化成一条命令：

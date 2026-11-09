@@ -1,5 +1,10 @@
 # 32 位逆向路线经验库（R6 / 翻译体 / 终局反思）
 
+> ⚠️ **redroid 路线已禁用（2026-11-09 用户指令）**：redroid 容器 `redroid_dump` + 镜像 `lingyan-face-check-service:android_tts_1210` 已删除，
+> 5555 端口释放，`rev64/tools/redroid_test.sh`（硬门禁 exit 3）/ `probe_cycle.sh` 禁止执行。
+> 本文档内所有 redroid 相关条目（§124y-158/164/168 等）**仅历史存档**，不可复现；确定性验证入口改红果 `10.0.182.146:5555`
+> （`rev64/audit/verify_dialogs_device.py`）。
+
 > 定位：32 位 native 逆向（R6 机械化对齐 / 翻译体 / unidbg / frida / MuMu）**经验库单一文档**。
 > 主笔记 `rev64/phases/REVERSE_NOTES.md`（§1-§121）；本文件 = 额外沉淀（红线 / 终局反思 / 量化）。
 > AGENTS.md 只做路由指向。

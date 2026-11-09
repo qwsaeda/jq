@@ -65,12 +65,11 @@ java -cp /tmp/opencode/apksigner/apksig.jar:/tmp/opencode/apksigner SignV2 \
 
 ### 拿 32 位 native 明文的正确路线（按性价比排序）
 
-1. **redroid / 真 Android 容器跑原版 32 位 so**（最终验证可行）：
-   - 容器：`registry.cn-hangzhou.aliyuncs.com/zywx/lingyan-face-check-service:android_tts_1210`（x86 宿主 + houdini 转译 ARM32，无需 KVM）
-   - 起容器：`docker run -d --privileged -p 5555:5555 <image>`，`adb connect localhost:5555`
-   - 触发：`am start` 让 so dlopen → `dd /proc/PID/mem` dump `.rodata`（静态即明文，dump 仅为确认）
-   - 产物：`frida-dump/rodata_dec.bin`（118KB）+ `rodata_strings.txt`（1715 条，含 `Junqi.Move/Flip/Flag/Bomb/Eat/Dead`、`data/config/*.xml`、`updateUrl/statHost/cfgHost`）
-   - 限制：redroid 无 GPU（GL 渲染不可用，app 进不了主界面）、64 位 native bridge 不完整（arm64 库 dlopen 失败）。只用于**提取数据**，不能验证"能玩"
+1. **redroid / 真 Android 容器跑原版 32 位 so**（★ 已禁用——2026-11-09 用户指令删除 redroid 镜像，容器 `redroid_dump` 已删、5555 端口释放、文档全量标注禁用；以下历史条目仅存档，**禁止再起容器**）：
+   - ~~容器：`registry.cn-hangzhou.aliyuncs.com/zywx/lingyan-face-check-service:android_tts_1210`（x86 宿主 + houdini 转译 ARM32，无需 KVM）~~（已删）
+   - ~~起容器：`docker run -d --privileged -p 5555:5555 <image>`，`adb connect localhost:5555`~~（已禁）
+   - 历史产物（静态文件保留，可继续用）：`frida-dump/rodata_dec.bin`（118KB）+ `rodata_strings.txt`（1715 条，含 `Junqi.Move/Flip/Flag/Bomb/Eat/Dead`、`data/config/*.xml`、`updateUrl/statHost/cfgHost`）
+   - 限制（禁用原因）：redroid 无 GPU（GL 渲染不可用，app 进不了主界面）、64 位 native bridge 不完整（arm64 库 dlopen 失败）。只用于**提取数据**，不能验证"能玩"；且容器常驻占用 5555 端口与 adb 设备表（与红果 10.0.182.146:5555 混淆，设备误打实锤 2 次）
 2. **unidbg/unicorn2 纯 x86 模拟 32 位 so**（**已验证可突破 init_array + 重定位，非死路**——见 REVERSE_NOTES §84）：12 个 init_array 全通、RELATIVE 5312 槽全重定位、PLT→GOT→符号映射 214/214、GLOB_DAT 6 符号从 docker 真 ARM libc 解析；依赖 libc/libstdc++/libm/libdl/libGLESv1_CM/libGLESv2 可加载。**★ PC off-by-2 已实证修复：切换 Unicorn2 后端**（dynarmic 对 Thumb `add rX,pc` 用 `(addr+4)&~3` mask，unicorn2 用 `(addr+4)` 不 mask，与真实 ARM 一致；DiagTracePC 实证 0xa37fc 存 0x159880=不 mask 值）。**★ JNIEnv/VM 补环境实证可行**（DiagJni：createDalvikVM + resolveClass + callStaticJniMethodObject，OnCreate 从空 env 入口即崩推进到 std::vector 数据与指令对齐点 0x43ed8）。**★ 本轮（§124）纠正**：checkpoint 的"BL off-by-2 -0xa"是**误读**（`F000 F800` 正确目标是 0x10000004 非 0x10000020，隔离环境 BL 全对）；但**加载 .so 后 BL 0x7965a 上下文相关错位到 0x6eaea**（非 0x43ed8，memset 循环，非函数入口）——**模拟器精度 bug**（unicorn2 上下文相关），**非翻译/逻辑 bug**。剩余阻塞 = **① 上下文相关 BL 解码 bug**（新，需 workaround）+ **② 数据与指令对齐对应缺口**（std::vector begin/end 未初始化，N44：业务数据 apk 静态可推，缺运行时内存对齐；原"C++ 对象图语义缺失"措辞已纠正）+ **③ 288MB PROT_NONE mmap**（unidbg mmap2 处理失败）。unidbg 强项（补环境/反检测/花指令/加密壳处理）正可用于攻克这些——**别轻易下"死路"结论**
 3. **反汇编直接看**：`.text` 和 `.rodata` 都是明文，`objdump` 可直接反汇编 `.text`、直接读 `.rodata` 字符串
 
@@ -164,11 +163,11 @@ java -cp /tmp/opencode/apksigner/apksig.jar:/tmp/opencode/apksigner SignV2 \
 | `rev64/tools/build_phases.sh` | **四阶段交付物一键构建+校验**（apktool b→STORE→zipalign→双签→dist/phaseX.apk→verify，幂等，资产全复用） | `bash rev64/tools/build_phases.sh all` / `phase2` / `--verify-only` |
 | `rev64/tools/bt_smali.sh` | **蓝牙 BtSpp.java→dex→smali→合并构建树**（javac+android-32+stub App→d8→baksmali→dec_dual/dec_full，幂等，--verify；**含 App.smali/BtStart 双树同步**） | `bash rev64/tools/bt_smali.sh` / `--verify` |
 | `rev64/tools/mumu_regress.sh` | **事件回归一键跑**（flag/mine/restart/draw/resign/stalemate/close/pop/btconn，首跑失败自动重跑一次容错时序，汇总 PASS/FAIL，--only 子集） | `bash rev64/tools/mumu_regress.sh --dev emulator-5554` / `--only flag,btconn` |
-| `rev64/tools/redroid_test.sh` | **redroid 测试钩子批量验证**（装机→清 prop→启→触发 jq.test_game=1→抓 GS8 诊断日志→判 miss/崩溃/存活，MuMu 宕机期间的确定性验证入口） | `bash rev64/tools/redroid_test.sh --no-install --wait 4` |
+| `rev64/tools/redroid_test.sh` | ~~redroid 测试钩子批量验证~~（**★ 已禁用 2026-11-09**：redroid 容器/镜像已删，脚本保留但仅历史记录，**禁止执行**；确定性验证入口改红果 10.0.182.146:5555） | ~~`bash rev64/tools/redroid_test.sh --no-install --wait 4`~~ |
 | `rev64/tools/so_probe.py` | **32 位 so 静态探查**（vtable 槽/函数反汇编/槽反汇编/dispatch 表查询/RELATIVE 重定位/字符串搜，把本轮高频手敲的 objdump+struct+grep 固化成 7 子命令（+seg 段归属校验防误判）） | `python3 rev64/tools/so_probe.py vtable 0x159c80` / `dispatch 0xad248` / `slot 0x159c80 0x28` / `seg 0x15b644`（段归属自动校验+NOBITS 标注，§124y-111 固化） |
 | `rev64/tools/dispatch_insert.py` | **dispatch 表批量插入**（offs/fns/jqt_vtbl_n 三处同步 + 可选 stub 生成，幂等，fns/offs 逐行对齐） | `python3 rev64/tools/dispatch_insert.py 0xad248 0x78890 --gen-stub` |
 | `rev64/tools/thunk_code_map.py` | **0x55d40 事件业务 thunk 区 code→handler 提取 + switch 生成**（§124y-31 固化：提取 42 code 全量映射 / 生成 F_55d40 switch case 体 / 查 24 handler 收表状态；坑固化：objdump 地址必须带 0x 前缀，否则 bad number 静默 0 提取） | `python3 rev64/tools/thunk_code_map.py` / `--gen-switch` / `--check` |
-| `rev64/tools/probe_cycle.sh` | **"红果测试+对象图探查"一条龙**（redroid_test.sh 抓 gs8 → so_probe.py 查 vtable 各槽是否收进 dispatch 表 → 汇总，一条命令定位"哪个游戏方法槽还没收表"） | `bash rev64/tools/probe_cycle.sh --no-install --slots 0x10,0x28,0x48` |
+| `rev64/tools/probe_cycle.sh` | **"红果测试+对象图探查"一条龙**（redroid_test.sh[已禁用] 抓 gs8 → so_probe.py 查 vtable 各槽是否收进 dispatch 表 → 汇总；redroid 删除后 gs8 抓取段失效，so_probe.py 静态查询段仍可用） | ~~`bash rev64/tools/probe_cycle.sh --no-install --slots 0x10,0x28,0x48`~~ |
 | `rev64/tools/layout_align_check.py` | **布局/按钮对齐可复现判据**（几何 Δ=0 + 截图按钮区非黑比，防"非黑%糊弄"。主菜单基准=orig_menu 真机×0.8，弹窗基准=datah 450/250/230 系换算。机读 `--json` / `--baseline` 只几何） | `python3 rev64/tools/layout_align_check.py --screenshot /tmp/xxx.png` / `--baseline` |
 | `rev64/docs_rs/PIPELINE.md` | 流水线设计文档（每段一条命令 + 一组判据 + 一个诚实边界 + 5 固化原则） | 读 |
 
