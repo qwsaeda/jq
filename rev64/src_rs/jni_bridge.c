@@ -6338,21 +6338,26 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
                 ui_btn_sound_set(!ui_btn_sound_get());
                 sfx_play(env, "pop");
                 LOGI("声音设置：按键声音 → %s", ui_btn_sound_get() ? "开" : "关");
-            } else if (sact == 2) {   /* 音量循环 低→中→高→低 */
-                int v = ui_volume_get(); ui_volume_set(v % 3 + 1);
+            } else if (sact == 2) {   /* 音量滑条（btn[2]）：点按位置 → 连续映射 1-3（原版 Slider 语义，
+               滑条区 x∈[255,562] 720 基准，按点击 x 位置映射 低/中/高，替代 3 档循环） */
+                int v;
+                if (bx >= sb[2].x0 && bx <= sb[2].x1) {
+                    float t = (bx - sb[2].x0) / (sb[2].x1 - sb[2].x0);
+                    v = (int)(t * 3.0f + 0.5f);
+                    if (v < 1) v = 1; if (v > 3) v = 3;
+                } else v = ui_volume_get();
+                ui_volume_set(v);
                 sfx_play(env, "pop");
-                LOGI("声音设置：音量 → %d", ui_volume_get());
-            } else if (sact == 3) {   /* 确定：保存 */
+                LOGI("声音设置：音量滑条位置映射 → 档位=%d（bx=%.0f 滑条区[%.0f,%.0f]）",
+                     v, bx, sb[2].x0, sb[2].x1);
+            } else if (sact == 3) {   /* 确定（btn[3]）：保存 */
                 ui_settings_save();
-                /* ★ 对抗审计 P0（P0-R10）：音效持久化写侧补 save 调用点——
-                   g_sound_on 当前值落盘 jq_sound_on.txt（原全仓 0 调用，死代码）。
-                   g_files_dir 未就绪（getFilesDir 反射失败）时 save 内部自检跳过。 */
                 sfx_sound_save();
                 sfx_play(env, "pop");
                 LOGI("声音设置：确定 → 保存 + 回对局");
                 ui_screen_set(UI_GAME);
-            } else if (sact == 4) {   /* 取消：不保存回对局 */
-                ui_settings_load();   /* ★ 重读磁盘恢复原值（取消不落盘） */
+            } else if (sact == 4) {   /* 取消（btn[4]）：不保存回对局 */
+                ui_settings_load();
                 sfx_play(env, "pop");
                 LOGI("声音设置：取消 → 恢复原值 + 回对局");
                 ui_screen_set(UI_GAME);
@@ -7113,13 +7118,18 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
         if (bh >= 0) {
             int bact = bb[bh].action;
             LOGI("OnTouch 亮度调节弹窗：控件%d（action=%d）", bh, bact);
-            if (bact == 0) {   /* 亮度：低/中/高 3 档循环切换（ui_bright_set） */
-                int v = ui_bright_get() + 1;
-                if (v > 2) v = 0;
+            if (bact == 0) {   /* 亮度滑条：点按位置 → 连续映射 0-2 档（原版 Slider 语义，
+               滑条区 x∈[152,568] 720 基准，按点击 x 位置映射低/中/高，替代 3 档循环） */
+                int v;
+                if (bx >= bb[0].x0 && bx <= bb[0].x1) {
+                    v = (int)((bx - bb[0].x0) / (bb[0].x1 - bb[0].x0) * 3.0f);
+                    if (v > 2) v = 2;
+                    if (v < 0) v = 0;
+                } else v = ui_bright_get();
                 ui_bright_set(v);
                 sfx_play(env, "pop");
-                LOGI("OnTouch 亮度调节弹窗：亮度切换 → 档位=%d（%s，★ 诚实边界：不画真滑条，3 档循环简化）",
-                     v, v == 0 ? "低" : (v == 1 ? "中" : "高"));
+                LOGI("OnTouch 亮度调节弹窗：滑条位置映射 → 档位=%d（%s，bx=%.0f 滑条区[%.0f,%.0f]）",
+                     v, v == 0 ? "低" : (v == 1 ? "中" : "高"), bx, bb[0].x0, bb[0].x1);
             } else if (bact == 1) {   /* 确定：持久化 + 回对局 */
                 ui_bright_save();
                 sfx_play(env, "pop");
