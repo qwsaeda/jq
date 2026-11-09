@@ -189,14 +189,17 @@ for name in names:
         #   键=datah 号，值=cur 按钮应配对的 orig index（按 cur 顺序）。未列出的走贪心兜底。
         # 原版 XML 主按钮 index（cur 应配对的主按钮，跳过位置重合的备用 Ok2/Cancel2/Close1）
         MAIN_BTN = {
-            16:  [0,1,2,3],   # d016/d016(laymgr)：Rename/Ok/Delete/Cancel（跳 Ok2/Cancel2）
+            16:  [1,2,3],    # d016(laymgr)：主按钮 Ok/Delete/Cancel（跳 orig[0]=Rename 笔形图标 + Ok2/Cancel2）
+            # UI_D016 宏组走 g_d016_btns（4 按钮，含 Rename 图标），同 datah_016 但 cur 表不同 →
+            # 主按钮 Ok/Delete/Cancel = orig[1,2,3]，Rename(orig[0]) 是图标业务按钮不参与几何判据
+            # （UI_D016 的 cur[0]=Rename(505,408) 应配 orig[0]=Rename(505,408)，逐字节一致）
             25:  [1],          # d025：Confirm（跳 Ok/Cancel 备用）
             50:  [0,1,2],      # d050：View/Remove/Close（跳 Close1）
             71:  [0,1],        # d071：Search/Cancel（跳 Cancel1）
             86:  [0,1,2,3],   # d086：Rename/Ok/Delete/Cancel（跳 Ok2/Cancel2）
-            95:  [0,1,2,3,4], # d095：5 个实现
+            95:  [0,1,3,4,5], # d095：主按钮 Menu/Replay/Config/Resign/Draw（跳 orig[2]=Chat 重合隐藏钮）
             108: [0,1,2],     # d108：View/Remove/Close（跳 Close1）
-            260: [0,1,2,3,4], # d260：5 个实现
+            260: [0,1,3,4,5], # d260：主按钮 Menu/Replay/Config/Resign/Draw（跳 orig[2]=Chat 重合隐藏钮）
         }
         # 人工核对确认为"业务扩展按钮"的 cur index（不参与几何对齐判据，
         # 滑条/输入框占位/暗子预览/联机配置项等，诚实边界）：
@@ -210,6 +213,12 @@ for name in names:
             1:  [2],          # d001 音量滑条（触摸 flaky 简化为循环切换）
         }
         main = MAIN_BTN.get(dh)
+        # ★ 表名感知：同 datah 多 UI 宏（如 dh=16 同时有 UI_LAYMGR g_laymgr_btns 3 按钮
+        #   和 UI_D016 g_d016_btns 4 按钮含 Rename）按 cur 按钮数区分配对规则：
+        #   3 按钮（laymgr）→ MAIN_BTN[16]=[1,2,3]（跳 Rename）
+        #   4 按钮（d016）  → 全配 [0,1,2,3]（Rename 逐字节=orig[0]，Ok/Delete/Cancel=orig[1,2,3]）
+        if main is not None and dh == 16 and tbl == "g_d016_btns" and len(cur) == 4:
+            main = [0,1,2,3]
         ext = EXT_BTN.get(dh, [])
         if main is not None:
             for k in range(min(len(cur), len(main))):
