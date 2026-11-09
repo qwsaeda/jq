@@ -148,8 +148,13 @@ def cmd_dispatch(addr):
         import bisect
         i = bisect.bisect_right(offs, off) - 1
         if i >= 0:
-            print(f"  下方 0x{offs[i]:05x}（F_{offs[i]:05x}），上方 0x{offs[i+1]:05x}")
-            print(f"  → 0x{off:05x} 在 0x{offs[i]:05x}-0x{offs[i+1]:05x} 函数体内（未单独收进表）")
+            # ★ B06-090（P2 已修）：i+1<len(offs) 守卫——off 大于表最大（bisect_right 返 len，i=len-1）
+            #   时 offs[i+1] 越界 IndexError（工具自身崩，探查中断）；越界分支打"位于表最大之上"
+            if i + 1 < len(offs):
+                print(f"  下方 0x{offs[i]:05x}（F_{offs[i]:05x}），上方 0x{offs[i+1]:05x}")
+                print(f"  → 0x{off:05x} 在 0x{offs[i]:05x}-0x{offs[i+1]:05x} 函数体内（未单独收进表）")
+            else:
+                print(f"  下方 0x{offs[i]:05x}（F_{offs[i]:05x}），位于表最大 0x{offs[-1]:05x} 之上（超 dispatch 区）")
         # 查是否在 jqt_blx_dispatch 的 if (off == 0x...) 特判里
         with open(JQT_VTBL) as f:
             src = f.read()

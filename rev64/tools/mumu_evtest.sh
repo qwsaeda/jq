@@ -116,7 +116,12 @@ case "$KIND" in
     else
       log "★ 对局自动开局未出现"; exit 1
     fi
-    if adb -s $DEV logcat -d 2>/dev/null | grep -qiE "FATAL|ClassNotFound"; then
+    # ★ B06-085（P2 已修）：FATAL 只收 AndroidRuntime:E 行（旧 grep -qiE 'FATAL|ClassNotFound'
+    #   对全量 logcat 误判——历史/其他 app 的 FATAL 行 + JNI 陷阱固有 ClassNotFound 噪声
+    #   （AGENTS.md 记录 native 线程 FindClass ClassNotFound 已知陷阱）误判 btconn 崩溃。
+    #   限定 tag=AndroidRuntime（崩溃必出 AndroidRuntime FATAL 行）+ ClassNotFound 限定 junqi 进程。 */
+    if adb -s $DEV logcat -d -s AndroidRuntime:E 2>/dev/null | grep -q "FATAL EXCEPTION" \
+       || adb -s $DEV logcat -d -s junqi_rs:E 2>/dev/null | grep -q "ClassNotFound"; then
       log "★ 崩溃"; exit 1
     fi
     if adb -s $DEV shell pidof com.cnvcs.junqirs >/dev/null 2>&1; then

@@ -34,7 +34,13 @@
 int jq_save_write(const char *path, const jq_save_data *sd)
 {
     if (!path || !sd) return 0;
-    FILE *f = fopen(path, "w");
+    /* ★ B02-074（P2 已修）：原子写——写临时文件 + rename 替换。旧实现直接 fopen(path,"w")
+       写到一半崩溃 → 读到残缺 key=value 文件（部分字段有值，部分缺失），无完整性校验。
+       临时文件写成功后 rename 原子替换，崩溃时目标文件要么是旧完整版本、要么不存在
+       （fopen 临时文件失败），不会留半写残缺文件。 */
+    char tmp[512];
+    snprintf(tmp, sizeof tmp, "%s.tmp", path);
+    FILE *f = fopen(tmp, "w");
     if (!f) return 0;
     fprintf(f, "time=%u\n", sd->time);
     fprintf(f, "difficulty=%d\n", sd->difficulty);
@@ -43,6 +49,10 @@ int jq_save_write(const char *path, const jq_save_data *sd)
     fprintf(f, "resultEx=%d;%d;%d;%d\n",
             sd->resultEx[0], sd->resultEx[1], sd->resultEx[2], sd->resultEx[3]);
     fclose(f);
+    if (rename(tmp, path) != 0) {
+        remove(tmp);
+        return 0;
+    }
     return 1;
 }
 
