@@ -138,6 +138,12 @@ int jq_bt_session_on_frame(jq_bt_session *s, jq_state *st,
         jq_state_init(&s->peer_state);
         return 0;
     case BT_T_RESTART:
+        /* ★ AUD-1000 B04-012（P0 已修）：RESTART 加 DISCONNECTED 闸口——旧实现
+           无 s->state 校验，对端在已认输/断连（DISCONNECTED）态发 RESTART 仍重置
+           本地棋盘（jq_state_init+强置 OUR_TURN），且 bt_semtest §5 用已 RESIGN 后
+           的 sessr 发 RESTART 也通过（掩盖无闸口）。修正：仅对局进行中
+           （CONNECTED 态：OUR_TURN/THEIR_TURN）接受 RESTART，DISCONNECTED 终态拒收。 */
+        if (s->state == BT_ST_DISCONNECTED) return -2;
         s->last_type = f1;   /* ★ B04-014（P1 已修）：仅合法 case 命中才记 last_type */
         jq_state_init(st);
         s->state = BT_ST_OUR_TURN;
