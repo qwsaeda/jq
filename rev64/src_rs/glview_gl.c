@@ -343,21 +343,24 @@ static void *rs_render_thread_main(void *arg)
                          (int)(*(int*)&g_rr.game->stage));
                 }
             }
+            {
+                /* ★ swap 前清 GL error queue（AUD-1000 B04 假绿根因 2）：
+                   rs_render_frame 内 glDrawElements/glDrawArrays 若触发软驱动 0x502
+                   （GL_INVALID_OPERATION 自维持），旧 error 残留会让下次 glGetError
+                   永远返 0x502 → 判读"几何未画"假象。swap 前清一次确保 glGetError
+                   反映的是 swap 后新状态。 */
+                while (glGetError() != GL_NO_ERROR) {}
+            }
             rs_render_frame(&g_rr);
             if (eglSwapBuffers(g_rr.egl_disp, g_win_surf)) {
-                if (!last_swap_ok_log || (frame_cnt % 600) == 0) {
-                    last_swap_ok_log = 1;
-                    /* ★ 诊断（2026-11-12 出图黑屏根因）：swap 成功但屏幕黑 = GL 几何未画出。
-                     glGetError 实锤软驱动 GL 错（0x502 GL_INVALID_OPERATION 自维持）+
-                     检查纹理是否真上传（tex_bg/tex_piece 非 0）+ 首帧 rs_render_frame 几何计数。 */
-                    {
-                        GLenum glerr = glGetError();
-                        int geom_ready = (g_rr.tex_bg[1] != 0) || (g_rr.board_px != 0);
-                        if (frame_cnt < 600 || (frame_cnt % 600) == 0)
-                            LOGI("渲染线程 帧 %d：swap成功 GLERR=0x%x 几何就绪=%d tex_bg1=%u board_px=%p（黑屏=几何未画）",
-                                 frame_cnt, (unsigned)glerr, geom_ready,
-                                 (unsigned)g_rr.tex_bg[1], (void*)g_rr.board_px);
-                    }
+                if (frame_cnt < 200 || (frame_cnt % 300) == 0) {
+                    /* ★ 出图实证：swap 成功记 GLERR + 几何就绪 + 纹理状态
+                       （frame_cnt<200 前 200 帧都记，防 1Hz 节拍下 600 帧节流漏证据） */
+                    GLenum glerr = glGetError();
+                    int geom_ready = (g_rr.tex_bg[1] != 0) || (g_rr.board_px != 0);
+                    LOGI("渲染线程 帧 %d：swap成功 GLERR=0x%x 几何就绪=%d tex_bg1=%u board_px=%p",
+                         frame_cnt, (unsigned)glerr, geom_ready,
+                         (unsigned)g_rr.tex_bg[1], (void*)g_rr.board_px);
                 }
             } else {
                 LOGE("渲染线程 帧 %d：eglSwapBuffers 失败 err=0x%x（window 出屏未上屏）",
@@ -365,9 +368,12 @@ static void *rs_render_thread_main(void *arg)
             }
         }
         frame_cnt++;
-        /* ★ GLThread/EglHelper window 出帧已接管（OnUpdate 每帧 rs_render_frame）→
-           PBuffer 线程降为兜底（1Hz 心跳，不空转抢 CPU/GPU） */
-        struct timespec ts = {0, 1000 * 1000 * 1000};
+        /* ★ 出图帧率（2026-11-09 修复）：window 出屏主路走 20fps（200ms 节拍，
+           原版 60fps 由 Java GLThread/EglHelper 接管）；PBuffer 兜底降 1Hz 保活
+           （不空转抢 CPU/GPU） */
+        struct timespec ts = g_current_is_window
+            ? (struct timespec){0, 200 * 1000 * 1000}
+            : (struct timespec){0, 1000 * 1000 * 1000};
         nanosleep(&ts, NULL);
     }
     if (g_rr.egl_disp && g_gl_current)
