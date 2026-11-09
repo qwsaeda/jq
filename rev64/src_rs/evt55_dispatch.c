@@ -106,6 +106,9 @@ int jq_evt55_dispatch(int code, const char *evname)
         g_event_cnt[evname_idx]++;
         g_event_total++;
     }
+    /* 日志：handler 地址标识（32位 .text 地址，诊断用） */
+    extern void evt55_log_dispatch(int code, uint32_t handler_addr, int evname_idx);
+    evt55_log_dispatch(code, e55_handler_addr[code], evname_idx);
     return 1;
 }
 
@@ -130,10 +133,12 @@ int jq_evt55_name_to_code(const char *evname)
     return 0;
 }
 
-/* code → 事件名字符串（日志用） */
+/* code → 事件名字符串（日志用）+ 32位 handler .text 地址（诊断） */
 const char *jq_evt55_code_to_evname_str(int code)
 {
     int idx = e55_code_to_evname(code);
+    if (code >= 0 && code < 67)
+        (void)e55_handler_addr[code];   /* 32位 handler 地址（诊断标识） */
     if (idx >= 0 && idx < JQ_EVENT_NAME_COUNT)
         return jq_event_names_73[idx];
     return "Junqi.Move";

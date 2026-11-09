@@ -572,30 +572,6 @@ static const char *sfx_for_move(int ev)
     }
 }
 
-/* 原版 73 事件名 → 音效 WAV 名映射（jq_event_names_73 常量表驱动）。
-   64位简化版仅消费 7 事件码（EV_MOVE..EV_FLIP）= jq_event_code_names[0..2] 核心；
-   其余 66 名（账号/注册/联机/布局类）= 诚实边界（业务逻辑未移植，仅常量表对齐）。 */
-static const char *sfx_for_event_name(const char *evname)
-{
-    if (!evname) return "move";
-    for (int i = 0; i < JQ_EVENT_NAME_COUNT; i++) {
-        if (strcmp(evname, jq_event_names_73[i]) == 0) {
-            /* 按事件名首字段映射音效（Move/Flip→move，Eat→eat，Bomb→bomb，
-               Flag→flag，Dead→dead，其余→move 兜底） */
-            const char *suffix = strrchr(evname + 6, '.');  /* 跳过 "Junqi." */
-            if (!suffix) suffix = evname + 6;
-            if (!strcmp(suffix, "Move")) return "move";
-            if (!strcmp(suffix, "Eat"))   return "eat";
-            if (!strcmp(suffix, "Bomb"))  return "bomb";
-            if (!strcmp(suffix, "Flag"))  return "flag";
-            if (!strcmp(suffix, "Dead"))  return "dead";
-            if (!strcmp(suffix, "Flip"))  return "flip";
-            return "move";  /* 未知事件名兜底（账号/联机类无独立音效） */
-        }
-    }
-    return "move";
-}
-
 /* 对局结束音效统一入口（走子后 stage==OVER → win/lose）。
    ★ 3 处调用统一（OnTouch 锁外 over_win / AI 锁内 g_state / OnCreate flagtest 锁内），
    防"改一处漏两处"不一致。winner 无效（-1/越界）不播。 */
@@ -1005,29 +981,6 @@ int g_event_cnt[JQ_EVENT_NAME_COUNT];   /* ★ 原版行为移植（本轮）：
                                AUD-R-062（P2）：g_event_cnt[0]=EV_MOVE 与 [5]=EV_MINE 同名 "Junqi.Move"
                                （对齐原版设计）——按**事件码**分流统计（两位分开计），按**事件名**分流音效。 */
 int g_event_total = 0;   /* ★ 原版行为移植：非 static（evt55_dispatch.c 跨文件计数） */
-/* ★ 原版行为移植（本轮）：原版 73 事件名计数——按事件名查索引累加。
-   64位简化版 7 事件码（EV_MOVE..EV_FLIP）映射到 jq_event_names_73 对应名称索引；
-   账号/注册/联机类事件名=诚实边界（业务逻辑未移植，计数恒 0，仅常量表对齐）。 */
-static void event_count_by_name(const char *evname)
-{
-    if (!evname) return;
-    for (int i = 0; i < JQ_EVENT_NAME_COUNT; i++)
-        if (strcmp(evname, jq_event_names_73[i]) == 0) { g_event_cnt[i]++; g_event_total++; return; }
-}
-/* 64位 7 事件码 → 原版 73 事件名映射（核心 7 类） */
-static const char *ev_code_to_name(int ev)
-{
-    switch (ev) {
-    case EV_MOVE: return "Junqi.Move";
-    case EV_EAT:  return "Junqi.Eat";
-    case EV_BOMB: return "Junqi.Bomb";
-    case EV_FLAG: return "Junqi.Flag";
-    case EV_DEAD: return "Junqi.Dead";
-    case EV_MINE: return "Junqi.Move";   /* AUD-R-062：同名 */
-    case EV_FLIP: return "Junqi.Flip";
-    default:      return "Junqi.Move";
-    }
-}
 static int  g_way_host = 1;   /* ★ 对抗审计（datah_072）：方式选择来源——2=联网(host) 3=联机(client) */
 
 static const char *on_event(const char *name, const char *value, JNIEnv *env)
@@ -1084,7 +1037,8 @@ static const char *on_event(const char *name, const char *value, JNIEnv *env)
     } else if (strcmp(name, "resign") == 0) {
         st->winner = 1 - st->turn;
         st->stage = STG_OVER;
-        LOGI("OnEvent resign → 对方胜");
+        jq_evt55_dispatch(24, "Junqi.Resign");   /* ★ 55code 分发：code 24 = Resign */
+        LOGI("OnEvent resign → 对方胜（code 24）");
         /* ★ AUD-1000 B03-004/B03-100（P1 已修）：音效移出锁内——resign 认输本机必为
            败（winner=对方）→ 锁外播 "lose"（旧 sfx_game_over 按 winner 色判，蓝认输
            winner=红→lose 正确，但跨线程持锁 IO 是 P1 真问题；锁外直判本机视角
@@ -1102,11 +1056,17 @@ static const char *on_event(const char *name, const char *value, JNIEnv *env)
         return "resign";   /* 音效用 resign 兜底（原版无独立 regret WAV） */
     } else if (strcmp(name, "resign_agree") == 0) {
         /* 原版 Junqi.RegretAgree 悔棋同意——64位简化版：对端同意→收帧侧 undo_pop 闭环。 */
-        LOGI("OnEvent regret_agree → 对端同意悔棋（原版 Junqi.RegretAgree，收帧侧 undo_pop；诚实边界：简化版不独立处理同意帧）");
+        extern int g_event_cnt[];
+        for (int _i = 0; _i < JQ_EVENT_NAME_COUNT; _i++)
+            if (!strcmp(jq_event_names_73[_i], "Junqi.RegretAgree")) { g_event_cnt[_i]++; g_event_total++; break; }
+        LOGI("OnEvent regret_agree → 对端同意悔棋（原版 Junqi.RegretAgree name idx 21，收帧侧 undo_pop；诚实边界：简化版不独立处理同意帧）");
         return NULL;
     } else if (strcmp(name, "resign_disagree") == 0) {
         /* 原版 Junqi.RegretDisagree 悔棋拒绝——64位简化版：对端拒绝，本地无操作。 */
-        LOGI("OnEvent regret_disagree → 对端拒绝悔棋（原版 Junqi.RegretDisagree，诚实边界：简化版不独立处理拒绝帧）");
+        extern int g_event_cnt[];
+        for (int _i = 0; _i < JQ_EVENT_NAME_COUNT; _i++)
+            if (!strcmp(jq_event_names_73[_i], "Junqi.RegretDisagree")) { g_event_cnt[_i]++; g_event_total++; break; }
+        LOGI("OnEvent regret_disagree → 对端拒绝悔棋（原版 Junqi.RegretDisagree name idx 22，诚实边界：简化版不独立处理拒绝帧）");
         return NULL;
     } else if (strcmp(name, "draw_req") == 0) {
         /* 原版 Junqi.DrawReq 提和请求——64位简化版：发 DRAW 帧 + 诚实边界对话框。 */
@@ -1134,7 +1094,10 @@ static const char *on_event(const char *name, const char *value, JNIEnv *env)
         jq_show_dialog(env, "加入游戏（诚实边界）",
             "联机加入游戏未逆向（原版需服务器协议），\nsrc_rs 离线单机不支持多人房间。");
         sfx_play(env, "close");
-        LOGI("OnEvent join_game → 边界对话框（原版 Junqi.JoinGame，联机协议未逆向）");
+        extern int g_event_cnt[];
+        for (int _i = 0; _i < JQ_EVENT_NAME_COUNT; _i++)
+            if (!strcmp(jq_event_names_73[_i], "Junqi.JoinGame")) { g_event_cnt[_i]++; g_event_total++; break; }
+        LOGI("OnEvent join_game → 边界对话框（原版 Junqi.JoinGame，73-name 计数对齐，联机协议未逆向）");
         return "close";
     } else if (strcmp(name, "leave_game") == 0) {
         /* 原版 Junqi.LeaveGame 离开游戏——64位简化版：退对局回主菜单。 */
@@ -1144,7 +1107,12 @@ static const char *on_event(const char *name, const char *value, JNIEnv *env)
         pthread_mutex_unlock(&g_mutex);
         ui_screen_set(UI_MENU);
         sfx_play(env, "close");
-        LOGI("OnEvent leave_game → 退对局回主菜单（原版 Junqi.LeaveGame）");
+        /* leave_game 无独立 55code（原版 F_55d40 switch 未含 LeaveGame，
+           诚实边界：73-name 索引直接计数对齐） */
+        extern int g_event_cnt[];
+        for (int _i = 0; _i < JQ_EVENT_NAME_COUNT; _i++)
+            if (!strcmp(jq_event_names_73[_i], "Junqi.LeaveGame")) { g_event_cnt[_i]++; g_event_total++; break; }
+        LOGI("OnEvent leave_game → 退对局回主菜单（原版 Junqi.LeaveGame，73-name 计数对齐）");
         return "close";
     } else if (strcmp(name, "game_over") == 0) {
         /* 原版 Junqi.GameOver 对局结束——64位简化版：stage=OVER 已置时确认。 */
@@ -1166,7 +1134,11 @@ static const char *on_event(const char *name, const char *value, JNIEnv *env)
         pthread_mutex_unlock(&g_mutex);
         jq_bt_ctrl_send(env, BT_T_RESIGN);
         sfx_play(env, "lose");
-        LOGI("OnEvent resign_confirm → 认输确认（原版 Junqi.ResignConfirm，本机败 + RESIGN 帧）");
+        /* resign_confirm 无独立 55code（原版 F_55d40 switch 未含 ResignConfirm，
+           诚实边界：73-name 索引 19=ResignConfirm 仅计数对齐，code 兜底 24=Resign） */
+        extern int g_event_cnt[];
+        g_event_cnt[19]++; g_event_total++;   /* Junqi.ResignConfirm name idx 19 计数 */
+        LOGI("OnEvent resign_confirm → 认输确认（原版 Junqi.ResignConfirm name idx 19，code 兜底 24）");
         return "lose";
     } else if (strcmp(name, "restart") == 0) {
         /* ★ 对抗审计 #4：统一走 jq_restart_game（随模式：明棋布局/暗棋翻棋 + 清 undo +
