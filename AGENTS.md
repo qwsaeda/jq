@@ -128,6 +128,8 @@ java -cp /tmp/opencode/apksigner/apksig.jar:/tmp/opencode/apksigner SignV2 \
 > **实锤（so `09664e7f` + MuMu pid 8769/8833/8928，2026-11-10 复验全 PASS）**：
 > ① 装 ✓ ② 进主界面 board=OK(737x751) ✓ ③ 下一局 movetest 3/3（Junqi.Move×2+Junqi.Dead×1）✓
 > ④ 退出 ✓ ⑤ 重进 pid 8928 + board=OK ✓ 全链崩溃=0。
+> **第二次全链复验（2026-11-10，MuMu pid 9015/9082/9166 + pid 9243/9308/9400，so `09664e7f`）**：
+> 两连跑五判据全 PASS（装 ✓ board=OK+swap ✓ movetest 3/3 ✓ 退出 ✓ 重进 pid 9166/9400 board=OK ✓，全链崩溃=0）。
 > 后续新增判据（完整 60 局对弈/AI 介入/蓝牙端到端/真实手点验收）未过时，按"未达成继续做"原则
 > 追加缺口与路线到本段，不许以"诚实边界"搪塞收尾。
 
