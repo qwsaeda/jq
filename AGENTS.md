@@ -148,6 +148,19 @@ java -cp /tmp/opencode/apksigner/apksig.jar:/tmp/opencode/apksigner SignV2 \
 > 继续做路线：① patch GLView$GLThread smali 强制 `onSurfaceChanged` 回调（从 `SurfaceHolder` 取实际宽高）
 > ② 或 native 侧 `rs_render_frame` 首帧用 `eglQuerySurface` 取实际 surface 尺寸更新 `view_w/h`（免 smali 改动）
 > ③ 实锤：`view=900x1600` 同步 + 截图铺满全屏（上下无黑边）+ 触摸走子出图。
+>
+> **★ 2026-11-10 小竖条根因已修（`da36d6bc`，10.0.182.146 实锤）**：
+> - 根因：GLView `onSurfaceChanged` 未回调 native `OnGraphChange`（smali 调用链断裂）→ `g_view_w/h` 停留默认 720×1280，
+>   而 10.0.182.146 `wm size`=900×1600 → `glViewport(0,0,720,1280)` 只画 720×1280 小竖条，上下黑边。
+> - 修：`glview_gl.c` 渲染线程 window surface 创建成功时 `eglQuerySurface(EGL_WIDTH/EGL_HEIGHT)` 取实际尺寸
+>   → 同步 `g_rr.view_w/h`；`jni_bridge.c` `OnTouch` 入口 `jq_glview_view_size()` 同步 `g_view_w/h`（触摸几何 = 渲染几何）。
+> - 实锤（10.0.182.146，pid 14463）：`eglQuerySurface 同步 720x1280 → 900x1600` + 截图 900×1600 全屏非黑 98.3%
+>   （顶 60px 黑 2% / 底 60px 黑 0% = 铺满）+ 进对局（菜单 btn1 448,1274 → 弹窗 → 确定 319,934 → 开局 stage=PLAY）
+>   + 走子（蓝 6→11 `view(274,1383)→base(219,1035) can_move=1 Junqi.Move`）+ 0 崩溃 + 重进不崩。
+> - 踩坑：`eglSwapBuffers 0x3000`（EGL_BAD_SURFACE）周期失败——ANativeWindow buffer 被系统回收后 surface 失效，
+>   加 3000 帧周期重建自愈（`be22bdb2` 起消除）。
+> - **口径**：小竖条/黑边 = 渲染布局未达成根因（`OnGraphChange` smali 链断裂 + view 默认值），`da36d6bc` 修复后铺满全屏。
+>   "能玩"5 判据（装/进主界面/下一局/退出/重进）在 10.0.182.146 全 PASS。后续新增判据未过按"未达成继续做"原则追加。
 
 - 验收链：装得上 → 进主界面 → 下一局（本地或蓝牙）→ 正常退出 → 重进不崩
 
