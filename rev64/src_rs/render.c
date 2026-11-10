@@ -4219,6 +4219,13 @@ static void rs_atlas_label(rs_render *rr, int slot, unsigned int tex, int tex_w,
     glUniform1i(glGetUniformLocation(rr->prog_tex[slot], "uTex"), 0);
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, tex);
+    {   /* ★ 诊断（atlas 黑底根因排查）：draw 前 blend 状态 + 槽号 + 纹理 ID */
+        static int al_logged = 0;
+        if (!al_logged) { al_logged = 1;
+            LOGI("ATLAS-DRAW: slot=%d tex=%u blend_en=%d texwh=%dx%d rows=%d", slot, tex,
+                 glIsEnabled(GL_BLEND), tex_w, tex_h, n_rows);
+        }
+    }
     glGenBuffers(1, &rr->vbo_sel[slot]);
     glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
     glBufferData(GL_ARRAY_BUFFER, sizeof(tq), tq, GL_DYNAMIC_DRAW);
@@ -10126,15 +10133,26 @@ void rs_render_frame(rs_render *rr)
     }
     /* GL2 context 由 jq_glview_init 建（client version=2）；EglHelper 跨线程 makeCurrent
        在 mesa 下受限，本函数只在 GLThread 内调（jq_glview_frame → OnUpdate）。 */
-    glViewport(0, 0, rr->view_w, rr->view_h);   /* 实际 view（真机 720×1280，MuMu 720×1024）；
-        ★ 对抗审计 P2-R4（批4）：PBuffer backing 已统一 720×1280（= BG_IMG_H 基准），
-        故 view_h < 1280 时（如 MuMu 1024）超出部分仍为清屏色，但渲染按
-        aPos.y = iy/BG_IMG_H*view_h 等比缩放（无裁剪错位），棋子不会被截断。 */
+    glViewport(0, 0, rr->view_w, rr->view_h);   /* 实际 view（真机 720×1280 / 10.0.182.146 900×1600 / MuMu 720×1024）；
+        ★ 2026-11-10 小竖条修复（用户"这界面你是怎么通过的"指正）：OnGraphChange(w,h) 同步
+        rr->view_w/h = 实际 surface 尺寸 → glViewport 铺满屏 + 顶点按 vw/vh 等比缩放（bg/棋子/菜单
+        全按 view_w/h 生成）→ 900×1600 屏不再 720×1280 小竖条+黑边。PBuffer backing 统一
+        BG_IMG_H 基准，view_h 超出部分按 aPos=vw/vh 顶点铺满（无拉伸变形，16:9 vs 9:16 宽高比差异
+        由等比缩放吸收，棋子/棋盘比例保持原版）。
+    */   /* ★ 2026-11-10 修：上行尾随注释缺闭合符，吞掉 glClearColor/glClear/glEnable(GL_BLEND)/
+            glBlendFunc 四条语句（blend 从未生效 → 所有 atlas 文字透明区画成不透明黑底，
+            用户截图"反馈/关闭 黑块"实证根因） */
     glClearColor(0.08f, 0.08f, 0.12f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    {   /* ★ 诊断（atlas 黑底 appBar 根因排查）：帧头 blend 状态实锤 */
+        static int bl_logged = 0;
+        if (!bl_logged) { bl_logged = 1;
+            LOGI("FRAME-BLEND: enabled=%d destRGB(0x%X)", glIsEnabled(GL_BLEND), (unsigned)rr->view_w);
+        }
+    }
 
     /* 棋盘背景（★ 层 2 视觉对齐：原版 datax_177 完整棋盘背景 720×1280 全图铺满；
        旧版 datah_188 UV 0.366-0.631 裁剪铺满（拉伸变形+无标题）） */

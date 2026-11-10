@@ -239,6 +239,15 @@ java -cp /tmp/opencode/apksigner/apksig.jar:/tmp/opencode/apksigner SignV2 \
 >   ③ 桌面图标刷新：`pm install-existing com.cnvcs.junqirs` + launcher 重启 ④ 实锤：用户桌面可见"新军棋"图标 + 点开全链走通。
 > - **本段判据未过前，"MuMu 玩不了"维持未达成口径**（出屏 PASS ≠ 用户视角能玩；用户找不到 app = 连玩的机会都没有）。
 >
+> **★ 2026-11-10 用户"所有UI你对比了，这就是结果"指正 → atlas 文字黑底根因修复（so `22bbc7ff`）**：
+> - 用户截图实锤：软件信息弹窗"反馈/关闭"按钮与标题文字下有**不透明黑块/黑条**。
+> - 根因（CODE_STYLE §15 第四型假绿：注释吞语句）：`rs_render_frame` 帧头 `glViewport`
+>   尾随注释缺闭合符，吞掉 `glEnable(GL_BLEND)/glBlendFunc` → **blend 从未生效**，
+>   atlas 文字透明区（0,0,0,0）画成不透明黑底。编译零告警、170/170 回归零发现（非黑比判据漏洞）。
+> - 修：补闭合符 + FRAME-BLEND/ATLAS-DRAW 诊断留档（draw 前 blend=1 实锤）；
+>   10.0.182.146 实测弹窗反馈蓝/关闭灰/标题/版本条全正常 + 主菜单 97.8% 非黑；phase3.apk 重打。
+> - 防复发固化：尾随 /* 禁止多行；渲染修复验收必须像素级（文字区底色非纯黑）。
+>
 > **★ 2026-11-10 根因实锤 + 达成（so `722dde6d`，10.0.182.146 pid 12375 全链 PASS）**：
 > 用户"MuMu"实指 **10.0.182.146:5555（红果 Xiaomi 23127PN0CC x86_64 真机）**，非 127.0.0.1:5556（redroid12 容器）——
 > 设备搞混。该机上旧 `com.cnvcs.junqirs` 装的是**旧 arsc（`application-label:'军棋'`，3 个 junqi 包全叫"军棋"，无"新军棋"）**
