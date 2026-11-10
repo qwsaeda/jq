@@ -183,6 +183,17 @@ java -cp /tmp/opencode/apksigner/apksig.jar:/tmp/opencode/apksigner SignV2 \
   - **教训固化（防复发）**：`setprop jq.mode 0` 只影响 OnCreate 首局，**弹窗"确定"开局走 `ui_opt_get_mode()`（默认 1 暗棋）不受属性钩子**——
     明棋验证必须走弹窗切换按钮（`view(455,587)`），不能用 `jq.mode` 属性（旧口径误导，本轮已纠正）。
   - 后续新增"能玩"判据未过时，按本段"未达成继续做"原则：先实锤根因（日志+几何对照），再修，修完 MuMu 全链复验才允许写"达成"。
+- **★ 2026-11-10 用户实测反馈"MuMu 玩不了"= 系统全屏提示栏拦截触摸（★ 已修 `b75c303`，复验 PASS）**：
+  - 用户侧现象：主菜单按钮点不到"两人对局"→ 进不了对局（本工作区 `input tap` 全链 PASS，用户手点被系统
+    "Viewing full screen / GOT IT" 顶部蓝条 + 全屏横幅压在 app 之上拦截）。
+  - 修复：`patch_hp_guard.sh` 追加 immersive 段（幂等）——API30+ 主动
+    `window.insetsController().hide(statusBars|navigationBars=0x3)` dismiss 系统提示栏。
+    踩坑 ① `const/4` 装不下 0x1e → `const/16` ② MuMu framework.jar 里 `WindowInsetsController` 是
+    **interface** 非 class → 必须 `invoke-interface` ③ targetSdk 31 要求 arsc 未压缩 4 字节对齐 → `zipalign_apk.py` 重打。
+  - 修复后全链复验（MuMu pid 8888/9049 实锤，so `722dde6d`）：① 装 + 进主界面（board=OK + 全屏非黑 99.2%）
+    ② 下一局（主菜单 → 两人对局弹窗 → 确定开局 stage=PLAY → 蓝方走子 `from=6 to=11 can_move=1 Junqi.Move`）
+    ③ 正常退出 0 崩溃 ④ 重进不崩（pid 9049 + board=OK）。全链崩溃 = 0。
+  - 结论：用户"玩不了"卡点根因 = 系统提示栏（非 so/非触摸几何/非走子规则），`b75c303` 修复后 64 位真机"能玩"全链达成。
 
 ## 红线（不要碰）
 
