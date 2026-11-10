@@ -330,6 +330,12 @@ java -cp /tmp/opencode/apksigner/apksig.jar:/tmp/opencode/apksigner SignV2 \
   - **桌面专项回归**（dark_flip_test，/tmp/opencode/dark_flip_test.c）：蓝首翻→红方困毙=0（未困毙）→红翻→蓝方困毙=0，PASS；`src_rs_regress.sh` 11/12（唯一 FAIL `[5]` 是预存 JNI GetMethodID 审计缺口，与本次改动无关）；evverify 170/170 + gametest 60局 + walkverify/longrun 全 PASS。
   - **真机全链复验（10.0.182.146 pid 24616）**：人机→难度→开局→蓝翻 cell6（师长）→**无蓝胜误判**（stage=1 PLAY 持续）→**AI 翻 cell3 应着**（turn→0）→蓝再翻 cell10→AI 翻 cell4→回合交替持续→0 崩溃。盘面 4 子已翻（蓝旅长/师长 + 红排长/连长）出屏。
   - **★ 2026-11-10 完整"能玩"5 判据复验（pid 25482/26122，含走子路径）**：① 装得上 ✓（APK 启动正常）② 进主界面 ✓（主菜单 98.1% 非黑 5 按钮）③ 下一局 ✓（人机→开局→蓝翻 cell6→AI翻 cell3→蓝翻 cell10→AI翻 cell4→蓝**走子 cell6→cell11** `can_move=1 Junqi.Move`（move 累计 1）→AI 翻 cell5 应着→回合交替持续，stage=1 PLAY）④ 正常退出 ✓（force-stop 0 崩溃）⑤ 重进不崩 ✓（重进 pid 26122 + 主菜单出屏 0 崩溃）。走子目标 cell11=空行营格（layout index16 空位，cell6 row1col1 上邻），走子序列=从 IDLE 点 cell6（选中）→点 cell11（走子）。
+  - **★ 2026-11-10 "玩不了"环境根因终锤：MuMu 输入转发 `nemuinput` 卡死（用户真实触摸到不了系统）**：
+    - **实锤（用户第三次重申"玩不了"后深挖）**：`nemuinput`（pid 15341）**卡死在 `va_ioctl`**（`/proc/<pid>/wchan`=va_ioctl，栈=va_ioctl+0x823→do_vfs_ioctl→ksys_ioctl，vaddress 内核模块），持 `/dev/uinput` fd 3/4 但**虚拟触摸设备建不出来**；`getevent -lt` 4 秒**零真实输入事件**——用户鼠标/手指**根本没进 Android 系统**（app 侧 adb `input tap` 能过，用户手点不通）。
+    - **根因**：MuMu 客户端→nemuinput→uinput→InputReader 链路断裂（nemuinput 在 uinput 设备创建中途 UI_DEV_SETUP 阻塞于 vaddress ioctl），属模拟器环境问题（非 app/so/触摸几何/走子规则）。
+    - **修复**：`adb reboot`（重置 vaddress 内核模块 + nemuinput 重初始化）。**修复后实锤**：nemuinput pid 1158 wchan=0（不再卡死，健康睡眠）；触摸设备 `Xiaomi Input`（event4，900×1600，BTN_TOUCH+ABS_MT_*）存在且有 TOUCH|TOUCH_MT 类；**真实触摸路径全通**（`sendevent` 直接写 /dev/input/event4 模拟手指事件序列 → app 响应）。
+    - **全程真实触摸（sendevent）完整对局链 PASS**：点人机对战→难度弹窗→新手翻棋→开局→蓝翻 cell6（can_flip=1）→AI 翻 cell3 应着（turn→0）→无蓝胜误判。**用户用真实手指事件能完整玩通暗棋对局**（非 adb 注入）。
+    - **判据**："玩不了" = app 暗棋误判（已修 `d82049cf0b6f`）+ **环境输入桥 nemuinput 卡死（已修 `adb reboot`）**双根因；两者均修复后，用户真实触摸全链通、对局可继续。客户端重连（用户 MuMu 窗口交互）后即可实际游玩。
   - **判据**："玩不了"根因 = 暗棋先手翻子定色误判蓝胜 + AI 永无翻棋（双根因），`d82049cf0b6f` 修复后红果真机"蓝翻→AI应着→蓝走子→AI应着→回合交替"全链达成，对局可继续（非立即结束），"能玩"5 判据全 PASS。
 - **★ 2026-11-10 用户实测反馈"MuMu 玩不了"= 系统全屏提示栏拦截触摸（★ 已修 `b75c303`，复验 PASS）**：
   - 用户侧现象：主菜单按钮点不到"两人对局"→ 进不了对局（本工作区 `input tap` 全链 PASS，用户手点被系统

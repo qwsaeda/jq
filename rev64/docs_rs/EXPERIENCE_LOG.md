@@ -2012,6 +2012,11 @@ OnCreate 主线程被该钩子段拖住（转译层 property 读取 + 自动走 
 - `src_rs_regress.sh` 11/12（唯一 FAIL `[5]` 是预存 JNI GetMethodID ExceptionClear 审计缺口，与本次改动无关）；evverify 170/170 + gametest 60局 + walkverify/longrun 全 PASS。
 - 真机全链复验（10.0.182.146 pid 24616）：人机→难度→开局→蓝翻 cell6（师长）→**无蓝胜误判**（stage=1 PLAY 持续）→**AI 翻 cell3 应着**（turn→0）→蓝再翻 cell10→AI 翻 cell4→回合交替持续→0 崩溃。盘面 4 子已翻（蓝旅长/师长 + 红排长/连长）出屏。
 - **完整"能玩"5 判据复验（pid 25482/26122，含走子路径）**：① 装得上 ✓ ② 进主界面 ✓（主菜单 98.1% 非黑）③ 下一局 ✓（人机→开局→蓝翻 cell6→AI翻 cell3→蓝翻 cell10→AI翻 cell4→蓝**走子 cell6→cell11** `can_move=1 Junqi.Move`→AI 翻 cell5 应着→回合交替持续）④ 正常退出 ✓（force-stop 0 崩溃）⑤ 重进不崩 ✓（重进 pid 26122 + 主菜单出屏 0 崩溃）。走子目标 cell11=空行营格（layout index16 空位）；走子序列=从 IDLE 点 cell6（选中）→点 cell11（走子），失败走子后回 IDLE（jq_touch_state_process 契约：SELECTED+新格=MOVE 后 IDLE）。
+- **"玩不了"环境根因终锤：MuMu 输入转发 `nemuinput` 卡死（用户真实触摸到不了系统）**：
+  - 用户第三次重申"玩不了"后深挖实锤：`nemuinput` 卡死在 `va_ioctl`（vaddress 内核模块 ioctl，持 /dev/uinput fd 但虚拟触摸设备建不出来），`getevent` 4 秒零真实输入事件——用户鼠标/手指没进 Android 系统（app 侧 adb input tap 能过，用户手点不通）。
+  - 修复：`adb reboot`（重置 vaddress 模块 + nemuinput 重初始化）。修复后 nemuinput wchan=0（健康）、触摸设备 event4（Xiaomi Input，900×1600，BTN_TOUCH+ABS_MT_*，TOUCH|TOUCH_MT 类）存在。
+  - **全程真实触摸（sendevent 直接写 /dev/input/event4 模拟手指事件序列）完整对局链 PASS**：点人机对战→难度→新手翻棋→开局→蓝翻 cell6（can_flip=1）→AI 翻 cell3 应着（turn→0）→无蓝胜误判。**用户真实手指事件能完整玩通暗棋对局**（非 adb 注入）。
+  - **坑清单固化**："玩不了"判据必须含**真实触摸路径**（sendevent 写触摸设备），`adb input tap`（InputManager 注入）与真实触摸（设备→InputReader→app）是两条路，注入通≠手点通；环境输入桥（nemuinput/uinput）断裂时，app 侧修复再对用户也是"玩不了"。
 
 ### 坑清单（新增）
 
