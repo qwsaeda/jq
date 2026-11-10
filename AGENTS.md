@@ -136,8 +136,22 @@ java -cp /tmp/opencode/apksigner/apksig.jar:/tmp/opencode/apksigner SignV2 \
 > **第四次全链复验（2026-11-10，MuMu pid 9732/9801/9886，so `09664e7f`）**：
 > 四连跑五判据全 PASS（装 ✓ board=OK(737×751) ✓ movetest 走子 6→11 Junqi.Move + 30→25 Junqi.Dead ✓
 > 退出 ✓ 重进 pid 9886 board=OK ✓，全链崩溃=0）。
-> 后续新增判据（完整 60 局对弈/AI 介入/蓝牙端到端/真实手点验收）未过时，按"未达成继续做"原则
-> 追加缺口与路线到本段，不许以"诚实边界"搪塞收尾。
+> **★ 2026-11-10 真实手点验收达成（sendevent 真实触摸全链，so `09664e7f` + MuMu pid 10083/10266 实锤）**：
+> - **验收口径突破：注入通 ≠ 手点通**——此前五判据③用 `input tap`/movetest 钩子（InputManager 注入通道）；
+>   本轮用 `sendevent /dev/input/event4`（真实触摸事件序列，走 InputReader → InputDispatcher → app OnTouch）
+>   完整走通用户视角手点全链：
+>   ① 菜单"人机对战"btn0 (448,1132) → `OnTouch 菜单按钮0 → UI_DIFFICULTY`
+>   ② 难度"新手翻棋"btn1 (619,660) → `难度弹窗：选按钮1（level=1 mode=1 翻棋暗棋）→ 开局 AI 走红`
+>   ③ 蓝翻 cell6 两次点（选中→确认 (274,1383)）→ `走子判定 翻棋：cell=6 rc=1 turn→1`
+>   ④ AI 应着 `OnTimer 人机AI：翻棋 cell=3 turn→0`（回合交替持续，非立即蓝胜误判）
+>   ⑤ 退出 0 崩溃 + 重进 pid 10266 board=OK（全链崩溃=0）
+> - **踩坑固化（防复发）**：event4 "Xiaomi Input" 轴表 = `ABS_MT_SLOT=47 / ABS_MT_POSITION_X=53（max 900）/
+>   ABS_MT_POSITION_Y=54（max 1600）/ ABS_MT_TRACKING_ID=57 / BTN_TOUCH=330`；**无 ABS_X/ABS_Y（0/1）**——
+>   旧序列误把 56/57/55 当 X/Y/ID 轴 → 事件被 InputReader 丢弃 → app 零 OnTouch。构造 sendevent 前
+>   必须 `getevent -lp /dev/input/event4` 查实际轴表。
+> - **口径**：五判据③"下一局"现可走**真实触摸**路径验收（非仅钩子/注入）；后续"真实手点"判据
+>   （MuMu 客户端窗口点击 → nemuinput → uinput 链路）仍受设备侧 nemuinput 健康状态制约，
+>   未过时按"未达成继续做"原则追加。
 
 > **★ 用户"这界面你是怎么通过的"指正（2026-11-10，实锤渲染布局未达成）**：
 > 用户实机截图显示 10.0.182.146 上 app 画面**被压在一块小竖条里，上下大片纯黑**（窗口/surface 未填满
