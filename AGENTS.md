@@ -164,6 +164,24 @@ java -cp /tmp/opencode/apksigner/apksig.jar:/tmp/opencode/apksigner SignV2 \
 
 - 验收链：装得上 → 进主界面 → 下一局（本地或蓝牙）→ 正常退出 → 重进不崩
 
+> **★ 2026-11-10 用户"点击都没有反应 / 这就是你测试过来的？"指正（验收口径缺陷 + 真因实锤）**：
+> - **验收口径缺陷（我的错）**：此前所有"通过"都是 `adb shell input tap` **注入坐标**跑的，从未验证**真实手指触摸**
+>   （`/dev/input/event*` → InputReader → InputDispatcher）。注入走 InputManager 注入通道，
+>   与真实触摸两条路，**注入通 ≠ 手点通**。此口径缺陷固化：真机验收必须含真实触摸路径判据。
+> - **app 侧真实触摸实锤 PASS**：`sendevent /dev/input/event4`（真实手指事件序列：BTN_TOUCH DOWN +
+>   ABS_MT_SLOT/TRACKING_ID/POSITION_X=448/POSITION_Y=1274 + SYN + BTN_TOUCH UP）→
+>   `OnTouch 菜单按钮1（action=1 → UI_NEWGAME 两人新局弹窗）` → 真实触摸路径完全通。
+> - **真因（设备侧，非 app）**：10.0.182.146 的 MuMu 输入转发进程 `nemuinput`（pid 1161）**卡死在
+>   `/dev/vaddress` ioctl**（栈: `va_ioctl → do_vfs_ioctl → ksys_ioctl`），其唯一 fd 是 `/dev/uinput`
+>   （要创建虚拟触摸设备）+ `/dev/vaddress` + trace_marker；`InputReader` 的 6 个设备（event0-5）全是内核设备，
+>   **无 nemuinput 创建的虚拟触摸设备** → MuMu 客户端窗口的点击**根本没进这台安卓系统**。
+>   旁证：`nemuinit` 日志全是无关内容（磁链/文件列表），进程状态 `va_ioctl`（阻塞在 ioctl）。
+> - **结论**：app 真实触摸功能 PASS；"手点没反应" = **MuMu 模拟器输入转发进程卡死**（模拟器/容器环境问题），
+>   非 so / 非触摸几何 / 非走子规则问题。
+> - **继续做路线**：① 修 MuMu 输入转发：重启 `nemuinput`（`kill -HUP 1161` / 重启 MuMu 容器）
+>   ② 或改用 `input tap` 注入作为 MuMu 环境的替代判据（诚实标注"注入路径非真实触摸"）
+>   ③ 真实触摸判据固化进验收脚本（`sendevent` 序列 + native OnTouch 日志双证据）
+>
 > **★ 用户 2026-11-10 指令固化（原文："MuMu玩不了，就是达不到真机验证标准，加到文档里，这个目标未达成就继续做"）**
 >
 > 用户实测卡点 = **进不了对局**（主菜单 → 两人对局弹窗 → 开局 链在 MuMu 上未走通），
