@@ -2011,6 +2011,7 @@ OnCreate 主线程被该钩子段拖住（转译层 property 读取 + 自动走 
 - 桌面专项 `dark_flip_test`（/tmp/opencode/dark_flip_test.c）：蓝首翻→红方困毙=0→红翻→蓝方困毙=0，PASS。
 - `src_rs_regress.sh` 11/12（唯一 FAIL `[5]` 是预存 JNI GetMethodID ExceptionClear 审计缺口，与本次改动无关）；evverify 170/170 + gametest 60局 + walkverify/longrun 全 PASS。
 - 真机全链复验（10.0.182.146 pid 24616）：人机→难度→开局→蓝翻 cell6（师长）→**无蓝胜误判**（stage=1 PLAY 持续）→**AI 翻 cell3 应着**（turn→0）→蓝再翻 cell10→AI 翻 cell4→回合交替持续→0 崩溃。盘面 4 子已翻（蓝旅长/师长 + 红排长/连长）出屏。
+- **完整"能玩"5 判据复验（pid 25482/26122，含走子路径）**：① 装得上 ✓ ② 进主界面 ✓（主菜单 98.1% 非黑）③ 下一局 ✓（人机→开局→蓝翻 cell6→AI翻 cell3→蓝翻 cell10→AI翻 cell4→蓝**走子 cell6→cell11** `can_move=1 Junqi.Move`→AI 翻 cell5 应着→回合交替持续）④ 正常退出 ✓（force-stop 0 崩溃）⑤ 重进不崩 ✓（重进 pid 26122 + 主菜单出屏 0 崩溃）。走子目标 cell11=空行营格（layout index16 空位）；走子序列=从 IDLE 点 cell6（选中）→点 cell11（走子），失败走子后回 IDLE（jq_touch_state_process 契约：SELECTED+新格=MOVE 后 IDLE）。
 
 ### 坑清单（新增）
 
