@@ -127,6 +127,27 @@ java -cp /tmp/opencode/apksigner/apksig.jar:/tmp/opencode/apksigner SignV2 \
 > ③ 系统通知栏 dismiss（`FLAG_FULLSCREEN` + `IMMERSIVE_STICKY` 双设）
 > ④ 实锤：截图画面铺满全屏（上下无黑边）+ 触摸进对局 + 走子出图
 > ⑤ 红果 10.0.182.146 权威口径复验通过才允许写"达成"。
+>
+> **★ 2026-11-10 根因实锤（`OnGraphChange` 未同步 view 基准 + 小竖条布局）**：
+> - 10.0.182.146 `wm size`=900×1600，app 窗口已 FULLSCREEN，但 `g_view_w/g_view_h` 硬编码 720×1280，
+>   `OnGraphChange(w,h)` 收到 GLView 实际 surface 尺寸（900×1600）后未同步到 `glViewport`/顶点生成，
+>   导致 `glViewport(0,0,720,1280)` 在 900×1600 屏上只画 720×1280 小竖条，上下/左右黑边。
+> - `rs_render_frame` 顶点生成 `aPos.y = iy/1280*view_h` 等比缩放，view_h<1280（如 MuMu 1024）时
+>   超出部分为清屏色，但 view_h=1600（真机）时棋子/棋盘被压缩到 720×1280 区，周围清屏色（黑）→ 小竖条。
+> - 修：`OnGraphChange` 把 `w/h` 同步到 `g_view_w/g_view_h`（已改 `08bb8a43`），但 `glViewport` 仍按
+>   720×1280 基准画几何（顶点 `aPos` 基于 720×1280 棋盘图），需改按实际 `view_w/view_h` 铺满屏。
+> - 踩坑固化：`OnGraphChange` 日志（`08bb8a43`）未触发 = GLView `onSurfaceChanged` 未调 native
+>   （可能 `s_native_ok=0` 守卫跳过 + 渲染线程未 attach）——需查 `s_native_ok` 初始化 + EglHelper 时序。
+>
+> **★ 2026-11-10 根因二实锤（`c090ddd0` 渲染线程 view 尺寸诊断日志）**：
+> 10.0.182.146 上 `view=720x1280`（默认值未同步）→ GLView `onSurfaceChanged` 未回调 native `OnGraphChange`
+> → `g_view_w/g_view_h` 停留 720×1280，而屏幕 900×1600 → 小竖条+黑边。
+> 根因链：App.smali `onSurfaceChanged` → `Lcom/cnvcs/App;->OnGraphChange(II)V`（native）调用链断裂
+> （可能 GLView$GLThread 主循环的 `mWidth/mHeight` 字段未从 SurfaceHolder 同步 → 传 0 → native 不触发 /
+> 或 EglHelper `resizeFromJava` 路径未走到 onSurfaceChanged）。
+> 继续做路线：① patch GLView$GLThread smali 强制 `onSurfaceChanged` 回调（从 `SurfaceHolder` 取实际宽高）
+> ② 或 native 侧 `rs_render_frame` 首帧用 `eglQuerySurface` 取实际 surface 尺寸更新 `view_w/h`（免 smali 改动）
+> ③ 实锤：`view=900x1600` 同步 + 截图铺满全屏（上下无黑边）+ 触摸走子出图。
 
 - 验收链：装得上 → 进主界面 → 下一局（本地或蓝牙）→ 正常退出 → 重进不崩
 
