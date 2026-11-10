@@ -323,7 +323,7 @@ static void rs_read_png(AAssetManager *am, const char *asset_path,
                ——0 字节 fs 文件多为 push 残留/损坏，asset 兜底可能掩盖设备端资源未推
                全的根因；诊断区分「0 字节 fs」与「fs 缺失→asset 兜底成功」。 */
             if (sz == 0)
-                LOGI("rs_read_png：fs 0 字节（%s）→ asset 兜底", fs_path);
+                LOGI("rs_read_png：fs 0 字节（%s）→ asset 兜底（B04-047 诊断区分）", fs_path);
             fclose(f);
             *out = buf; *out_len = sz;
             return;
@@ -332,6 +332,10 @@ static void rs_read_png(AAssetManager *am, const char *asset_path,
         fclose(f);
     }
     }
+    /* ★ AUD-1000 P2 批次（2026-11-10 dlopen 根治）：fs 全失败 fallthrough 到 asset
+       兜底（原旧实现 fs 段 return 后 asset 段在 if(!f) 后才走——重写后 fs 段自带
+       成功 return，失败自然落到下方 asset 段，双路全失败才走纯色退化。asset 段
+       内 AAsset* 4 函数 dlsym 解析（libandroid 直链，免 libz NEEDED）。 */
     /* AAsset 直接链接（正常 so 已验证可 dlopen；免 dlopen/dlsym 引入 libdl VERNEED）
        ★ 资源使用（apk 对齐）：asset_path 传 "spak_res/xxx" 时，APK assets 里
        assets/spak_res/xxx 可被 AAssetManager_open 命中（相对 APK 根）。当前
