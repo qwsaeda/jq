@@ -31,7 +31,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 #   恒无 phase2.apk → 旧回退逻辑每次触发且无告警。现直接指顶层 dist，去
 #   rev64/dist 回退耦合（rev64/dist 32 位产物不在本脚本判据范围）。
 DIST = os.path.join(ROOT, "..", "dist")   # 顶层 /disk/workspaces/jq/dist（build_phases 输出）
-DEV = "emulator-5554"
+DEV = "10.0.182.146:5555"   # ★ AUD-1000 B06-076（P2 已修）：默认 DEV 改红果 MuMu 标准验证环境（旧 emulator-5554 为 redroid 已禁用，设备离线 PENDING 检测 A5-F5-015 P1 已修，--dev 可覆盖）
 
 # ① 渲染关键资源（rs_render_init 必读，缺失走纯色退化）
 MUST_BIN = [
