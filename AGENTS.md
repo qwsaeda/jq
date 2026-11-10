@@ -138,6 +138,14 @@ java -cp /tmp/opencode/apksigner/apksig.jar:/tmp/opencode/apksigner SignV2 \
   - 棋盘触摸（cell 命中 `jq_touch_hit_cell`）→ `走子态机 ev=1/7` → `走子判定 Junqi.Move`
   - movetest 钩子（`setprop jq.movetest 1`）→ 明棋自动走 3 步（Junqi.Move×2 + Junqi.Dead×1，复盘记录 n=3）
   - flagtest 钩子（`setprop jq.flagtest 1`）→ 近旗注入 + 自动走 53→58 Junqi.Flag（turn=0 stage=2）
+- **未达成缺口（用户 2026-11-10 指令：达不到真机验证标准就继续做）**：
+  - 触摸走子**实际移动未发生**：2 轮真机实测（`input tap` 全链）——
+    ① 暗棋（默认 g_opt_mode=1 弹窗确定后 mode=1）：`from=12 to=2 can_move=0`（B01-053 暗棋未翻暗子目标不可撞，规则层拒绝，属忠实 32 位行为）
+    ② 明棋（`setprop jq.mode 0`）：`from=7 to=2 can_move=0`（点击坐标 cell 命中与规则层可走格不匹配——`jq_touch_hit_cell` 命中几何与 32 位走子桥（32 位实测 4/4 PASS）坐标系基准未实锤对齐）
+    ③ 最新实测（pid 2920）：弹窗后 `from=2 to=7 can_move=0` 仍无实际走子
+  - 即：**出屏/装/启动/退出/重进 全 PASS，但"能走一步子"这一核心玩法判据未达成**（can_move 全 0，无一次真实棋子位移）
+  - 继续做路线：① 明棋模式逐格扫描 60 格 `input tap` 找 1 个 can_move=1 的合法位移（对齐 `jq_touch_hit_cell` 几何与 BG_GRID 常量）② 对照 32 位 arm32_walkregress 走子坐标基准（datah_041 几何换算 900×1600 屏 vs 720×1280 view 映射系数）③ 必要时加 `jq.move_probe` 钩子（OnCreate 后逐格探 can_move=1 并注入走子，日志输出实际位移）实锤"能玩"
+  - 判据未过前，"能玩"维持**未达成**口径（出屏 PASS ≠ 能玩）
 
 ## 红线（不要碰）
 
