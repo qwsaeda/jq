@@ -122,11 +122,15 @@ java -cp /tmp/opencode/apksigner/apksig.jar:/tmp/opencode/apksigner SignV2 \
 > 用户实测卡点 = **进不了对局**（主菜单 → 两人对局弹窗 → 开局 链在 MuMu 上未走通），
 > 尽管本工作区 `input tap` 全链 + movetest 钩子 PASS。目标未达成 → 继续做，不许以"诚实边界"搪塞收尾。
 >
-> **已知根因（待修）**：MuMu 上系统"Viewing full screen / GOT IT"提示栏（顶部蓝色条 + 全屏
+> **已知根因（★ 已修 `b75c303`）**：MuMu 上系统"Viewing full screen / GOT IT"提示栏（顶部蓝色条 + 全屏
 > 系统横幅）压在 app 画面之上，拦截/遮挡主菜单按钮触摸 → 用户点不到"两人对局"进不了对局。
-> 修复方向：① 全屏 immersive 标志强化（`FLAG_FULLSCREEN` + `SYSTEM_UI_FLAG_IMMERSIVE_STICKY` 双设）
-> ② 首帧后主动 dismiss 系统全屏提示（`WindowInsetsController.hide` 或 setSystemUiVisibility
-> IMMERSIVE_STICKY 重设）③ 验证：提示栏消失后主菜单按钮可点、进对局链走通。
+> 修复（`patch_hp_guard.sh` 幂等固化 + dec_rs 64 位 树生效）：API30+ 主动
+> `window.insetsController().hide(statusBars|navigationBars=0x3)` dismiss 系统全屏提示栏。
+> 踩坑固化：① `const/4` 装不下 0x1e → `const/16` ② MuMu framework.jar 里
+> `WindowInsetsController` 是 **interface** 非 class → 必须 `invoke-interface`（`invoke-virtual` 触发
+> `IncompatibleClassChangeError`）③ targetSdk 31 要求 arsc 未压缩 4 字节对齐 → `zipalign_apk.py` 重打。
+> 验证（MuMu pid 8509 实锤）：顶部 80px 蓝条 0%（提示栏消失）+ 主菜单可点 → 弹窗 → 确定 → 开局
+> stage=PLAY → 蓝方走子 6→11 `can_move=1 Junqi.Move` 全链走通 + 0 崩溃。
 
 - 验收链：装得上 → 进主界面 → 下一局（本地或蓝牙）→ 正常退出 → 重进不崩
 - **全链达成判据**（MuMu x86_64 host + houdini 转译，pid 2651 实锤）：
