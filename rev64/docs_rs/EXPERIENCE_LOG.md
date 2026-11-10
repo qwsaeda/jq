@@ -2047,3 +2047,22 @@ OnCreate 主线程被该钩子段拖住（转译层 property 读取 + 自动走 
 - **rs_atlas_label_wh 前向声明**：rs_draw_settings（:2038）在 rs_atlas_label_wh（:4285）前，加 Title 调用需前向声明，否则 `static declaration follows non-static declaration` 编译错误。
 - **烘焙脚本需与 RS_ATLAS_ROW_H 匹配**：rs_atlas_label_wh 用 RS_ATLAS_ROW_H=40 行高，新图集（sound_text_atlas 行高 40）须匹配；不同行高图集（settings_text 46）不能用 rs_atlas_label_wh。
 - **推设备 fs 副本**：设备 /data/local/tmp/spak_res/ 优先于 APK assets，新增/改图集必须 push 到设备 fs（AGENTS.md 坑）。
+
+## ★ 2026-11-10 继续：系统排查"很多界面没对齐"真实路径 + "apk资源没利用完"诚实评估
+
+### 系统排查（代码级 + 真机验证）
+- **真实导航路径弹窗全验证**：主菜单/☰ 真实导航走 `rs_draw_*` 专用渲染（rs_draw_newgame/rs_draw_difficulty/rs_draw_about/rs_draw_settings/rs_draw_gameset/rs_draw_bright/rs_draw_login/rs_draw_waysel/rs_draw_exitconfirm 等），**普遍有 Title + TransLabel 标签**。rs_confirm_dialog（退出/认输/悔棋确认）画 Msg 文本，原版 datah_025 Title 无 text 属性（运行时填充），无独立可见 Title——属正常。
+- **dlgbatch 测试钩子路径（UI_DNNN/UI_UI*）缺 TransLabel 标签**：确认是**测试钩子路径非真实用户导航**（真实导航不引用 UI_DNNN，仅 jq.dlgNNN/jq.uiNNN setprop 钩子触发）。诚实标注，不包装成真实界面缺口。
+- **真机回归**：UI 改动后完整对局链 PASS（人机→难度→开局→蓝翻 cell6→AI 翻 cell3→turn 回蓝，0 崩溃），170/170 事件 + 12/12 布局 + 5/5 长路径走子 PASS。
+
+### apk 资源未利用完 诚实评估
+- 原版 272 个 datah_，src_rs 用 120，未用 152。未用中：
+  - **4 个 UI 提示弹窗**（datah_087 180×60 / datah_093 180×53 / datah_103 280×60，单 TransLabel Info 居中，popup.cfg 皮肤）——src_rs 用 jq_show_dialog（Java showInfo → 原生 AlertDialog）替代，语义等价。**未用 datah 皮肤**（原生对话框视觉与原版不同）。
+  - **1 个 UiConfig**（datah_117 StyleSet 样式表，非具体弹窗）。
+  - **~147 个图片/数据资源**（datah 含图片定义/配置，非 UI 弹窗）。
+- **诚实边界**：src_rs 已实现主要 UI 路径；提示弹窗用原生 AlertDialog 语义等价；未用多为数据/图片（无法直接利用为 UI）；**不包装成"全部利用"**。
+- **后续路线**（如需落地）：实现 datah_093/103 提示弹窗渲染（rs_popup_shell + popup.cfg 皮肤 + TransLabel），替换高频短提示（走子无效/布局保存成功等），建立原版皮肤提示弹窗范式。
+
+### 坑清单（新增）
+- **真实路径 vs 测试钩子路径区分**：UI_DNNN/UI_UI* 由 jq.dlgNNN/jq.uiNNN setprop 钩子触发，**非真实用户导航**。排查 UI 缺口必须走真实导航（input tap 主菜单/☰），不能只看 dlgbatch 钩子截图（会误判"缺标签"）。
+- **原版 Title 无 text 属性**（datah_025 等）：Title 文字由运行时字符串填充（Junqi.ExitConfirm 等），XML 无 text 不表示无标题。

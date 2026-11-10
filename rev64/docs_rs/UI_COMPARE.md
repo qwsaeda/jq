@@ -286,3 +286,8 @@ row_h/7 + Title 中心 382.5,512.5 + 标签 tx0=290-tw + 行号整体 +1（确�
 > ★ 2026-11-10 用户"很多界面都没有对齐"系统修复：**UI_COMPARE 旧判据只查按钮 rect，漏 Title/标签文字位置**——
 > 本轮补 4 界面文字位置比对（游戏设置/声音设置/新局/软件信息），全部 Δ≤3px；dlgbatch 测试钩子路径（UI_DNNN）
 > 缺 TransLabel 标签为**非真实路径**（真实主菜单/☰ 导航走 rs_draw_* 专用渲染含标签），诚实标注。
+> ★ 2026-11-10 继续：**真实导航路径弹窗全验证有 Title/标签**（rs_draw_newgame/difficulty/about/settings/gameset/
+> bright/login/waysel/exitconfirm 等，rs_confirm_dialog 画 Msg 文本）；dlgbatch/UI_UI* 确认是 setprop 测试钩子
+> 非真实用户导航；**apk 资源未利用完诚实评估**：未用 152 个 datah_ 中仅 4 个 UI 提示弹窗（087/093/103 单标签
+> Info，src_rs 用原生 AlertDialog 语义等价替代）+1 UiConfig（117 样式表）+~147 图片/数据资源（非 UI 弹窗），
+> 不包装成"全部利用"；提示弹窗 datah 皮肤渲染留作后续路线。
