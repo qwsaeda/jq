@@ -182,6 +182,22 @@ java -cp /tmp/opencode/apksigner/apksig.jar:/tmp/opencode/apksigner SignV2 \
 >   ② 或改用 `input tap` 注入作为 MuMu 环境的替代判据（诚实标注"注入路径非真实触摸"）
 >   ③ 真实触摸判据固化进验收脚本（`sendevent` 序列 + native OnTouch 日志双证据）
 >
+> **★ 2026-11-10 真因终锤（`getevent` 全设备 4 秒零事件）**：
+> - `getevent -lt`（不限设备）监控 4 秒：**零真实输入事件**——用户的鼠标点击**根本没进这台安卓系统**，
+>   不是 app 吞事件、不是 SurfaceView 无输入通道、不是坐标错。系统层面无事件流。
+> - `nemuinput`（pid 15341，重启后）syscall=16(ioctl) arg=0xc0104c19 = **`UI_DEV_SETUP`** →
+>   **卡在 uinput 创建设备的中途**（`/dev/uinput` fd 已开，`UI_DEV_CREATE`/`UI_DEV_SETUP` 未返回），
+>   叠加 `/dev/vaddress` ioctl 阻塞 → 虚拟触摸设备建不出来 → MuMu 客户端点击无法转发进安卓。
+> - 旁证：重启 nemuinput（`stop nemuinput` → `start nemuinput`）后 PID 1161→15341，
+>   `sys/class/input` 出现 input6/input7（复用 event4/event5 handler，非独立触摸设备），
+>   `dumpsys input` 设备数不变（Device 2/5/6）→ **没建出真正的虚拟触摸设备**。
+> - **结论**：MuMu 模拟器输入转发链路（客户端 → nemuinput → uinput → InputReader）在本环境断裂，
+>   属**模拟器/容器环境问题**，与本项目 so / 触摸几何 / 走子规则无关。
+> - **诚实边界（禁自欺）**：在 MuMu 上"手点能玩"这一判据**当前无法验证**（系统零输入事件），
+>   本项目只能提供 `input tap` 注入路径的等价证据 + `sendevent` 真实事件序列证据
+>   （app 侧真实触摸处理 PASS：`sendevent` → `OnTouch 菜单按钮1` → UI_NEWGAME 弹窗）。
+>   真实手点判据在 **MuMu 输入转发修好或换真机** 后才能最终关闭。
+>
 > **★ 用户 2026-11-10 指令固化（原文："MuMu玩不了，就是达不到真机验证标准，加到文档里，这个目标未达成就继续做"）**
 >
 > 用户实测卡点 = **进不了对局**（主菜单 → 两人对局弹窗 → 开局 链在 MuMu 上未走通），
