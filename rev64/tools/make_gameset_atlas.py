@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """
-make_gameset_atlas.py — 烘焙 gameset_text_atlas.png（datah_012 游戏设置 8 标签竖排）
-8 标签：和棋 / 大本营 / 吃地雷 / 吃军旗 / 开 / 关 / 确定 / 取消
+make_gameset_atlas.py — 烘焙 gameset_text_atlas.png（datah_012 游戏设置 9 标签竖排）
+★ 2026-11-10 用户指正"这个界面是对齐了？"→ 对齐 datah_012 XML（GBK 原文实锤）：
+  Title '游戏设置'（rect 55,10,440,50）+ 标签带冒号（和棋:/大本营:/吃地雷:/吃军旗:）
+  + 开/关 + 确定/取消 = 9 竖排行。旧版 8 行无标题无冒号 = 未对齐。
 用法：python3 tools/make_gameset_atlas.py
 """
 import os, sys
@@ -11,7 +13,7 @@ DST = "/disk/workspaces/jq/rev64/dist/spak_res"
 FONT = os.path.join(DST, "data_font_all.ttf")
 OUT = os.path.join(DST, "gameset_text_atlas.png")
 
-labels = ["和棋", "大本营", "吃地雷", "吃军旗", "开", "关", "确定", "取消"]
+labels = ["游戏设置", "和棋:", "大本营:", "吃地雷:", "吃军旗:", "开", "关", "确定", "取消"]
 row_h = 46
 W = 220
 H = row_h * len(labels)

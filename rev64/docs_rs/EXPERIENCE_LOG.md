@@ -1926,3 +1926,32 @@ OnCreate 主线程被该钩子段拖住（转译层 property 读取 + 自动走 
   + mumu_evtest.sh 判据更新）
 - 14394ca：工具假绿三处（bt_session 注释补齐 9 类枚举 + arm32_cycle 设备不可达
   改 exit 1 + mumu_swap_so install rc 断言）
+
+## ★ 2026-11-10 用户"这个界面是对齐了？/返回键点击无效"指正批次（so 2f8e5930）
+
+- **游戏设置弹窗对齐 datah_012**（用户截图实锤"标签错位/无标题/值条过大"）：
+  - 原版 datah_012 XML（GBK 实锤，`rev64/dist/spak_res/datah_012_e6e718fc63cfedd7.bin`）：
+    Title '游戏设置' rect 55,10,440,50 + 标签带冒号（和棋:/大本营:/吃地雷:/吃军旗:）
+    + 开/关 + 确定/取消 = **9 竖排行**；面板 450×465 居中。
+  - 旧实现：8 行无标题无冒号 + 手绘平坦深色矩形（未走弹窗皮肤）→ 用户指正"对齐了？"。
+  - 修：`make_gameset_atlas.py` 9 标签（标题+冒号）+ `rs_draw_gameset` 改 `rs_popup_shell`
+    （同一皮肤）+ 标题绘制（row0, 315,437.5）+ 行号 +1（值行 5/6、确定/取消 7/8）。
+  - 实锤：☰→功能设置真实路径开弹窗，标题/冒号标签/绿开关/确定取消 全对齐；开关点击
+    和棋→关（红）生效；取消→恢复+回对局。
+- **↩ 悔棋"点击无效"根因（不是 bug，是残留属性污染）**：
+  - 用户手点 ↩ 无反应实锤日志 `OnTouch ↩ 悔棋：无可悔（undo 栈空）`——undo 栈永远空
+    因**暗棋开局被 jq.mode=0 残留属性强制成明棋**（jq_restart_game 里
+    `__system_property_get("jq.mode")` 覆盖优先于弹窗 mode=1），明棋下无翻子、
+    can_flip=0，undo 栈空 → ↩ no-op。**违反"真机验收前三轮全清 jq.* 残留"规范（我的错）**。
+  - 修：全清 `jq.*` 属性 → 真暗棋下二段式翻子（can_flip=1, undo_push top=1）→ ↩
+    `undo_pop top=0 turn→0` 回蓝回合 → 再翻可行；截图子回背面。**全链 PASS**。
+  - 教训固化：属性残留是"验收假象"源头之一，验收前 `getprop | grep jq.` 全清 + 复验；
+    诊断日志 `can_flip` 仅对 `to==from` 判（首 tap to=-1 恒 0，误导）。
+- **fs 残留遮蔽 APK 资产（"改了没效果"新变体，实锤）**：
+  - 改 atlas（8→9 行）重打包 phase3.apk + 装机后，设备 Init 解码仍 `gameset_text=OK(220x368)`；
+    APK 内资产已 17884B(414) 但读到的还是 13182B(368)。
+  - 根因：`rs_read_png` **fs 优先**（`/data/local/tmp/spak_res/`），mumu_swap_so 早前推的
+    旧 8 行 atlas 留在设备 fs 路径，遮蔽 APK assets（fs 存在即胜出，无版本/哈希校验）。
+  - 修：`adb push` 新 atlas 到 `/data/local/tmp/spak_res/` 覆盖 → Init 解码 220x414 ✓。
+  - 教训固化：资源改动必须**同时推设备 fs 副本**（或清 `/data/local/tmp/spak_res/`）；
+    判据用 Init 解码尺寸（220x414）而非"apk 里有新文件"。

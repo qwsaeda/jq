@@ -150,6 +150,10 @@ static void rs_draw_bitmap(rs_render *rr, int slot, unsigned int tex, int tex_w,
                            float x0, float y0, float x1, float y1);
 static void rs_solid_btn(rs_render *rr, int slot, float x0, float y0, float x1, float y1,
                          float cr, float cg, float cb, float ca, int highlight, GLint uc);
+/* ★ 2026-11-10：gameset 弹窗改 rs_popup_shell（与其余弹窗同皮肤），前置声明 */
+static void rs_popup_shell(rs_render *rr, int slot,
+                           float px0, float py0, float pw, float ph,
+                           int use_menu_bg, GLint uc);
 #include <EGL/egl.h>
 #include <GLES2/gl2.h>
 #include <GLES2/gl2ext.h>
@@ -2523,62 +2527,11 @@ static void rs_draw_gameset(rs_render *rr, int slot)
     if (!rr->prog_solid[slot] || !rr->gl2_ok[slot]) return;
     float sx = (float)rr->view_w / 720.0f, sy = (float)rr->view_h / 1280.0f;
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
-    /* ⓪ 背景：对局棋盘背景（游戏设置弹窗从 ☰ 菜单弹出，背景为对局） */
-    if (rr->tex_bg[slot] && rr->prog_tex[slot]) {
-        float w = (float)rr->view_w, h = (float)rr->view_h;
-        rs_v4f bg[6] = {
-            {0, 0, 0, 0}, {w, 0, 1, 0}, {0, h, 0, 1},
-            {0, h, 0, 1}, {w, 0, 1, 0}, {w, h, 1, 1},
-        };
-        glUseProgram(rr->prog_tex[slot]);
-        glUniform2f(rr->uViewWH_tex[slot], (GLfloat)rr->view_w, (GLfloat)rr->view_h);
-        glUniform1i(glGetUniformLocation(rr->prog_tex[slot], "uTex"), 0);
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, rr->tex_bg[slot]);
-        glGenBuffers(1, &rr->vbo_sel[slot]);
-        glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
-        glBufferData(GL_ARRAY_BUFFER, sizeof(bg), bg, GL_DYNAMIC_DRAW);
-        rs_bind_vbo(rr->vbo_sel[slot]);
-        glDrawArrays(GL_TRIANGLES, 0, 6);
-        rs_unbind_vbo();
-        glDeleteBuffers(1, &rr->vbo_sel[slot]);
-        rr->vbo_sel[slot] = 0;
-    }
-    /* ① 全屏模态遮罩 */
-    rs_v4f mq[6] = {
-        {0, 0, 0, 0}, {(float)rr->view_w, 0, 0, 0}, {0, (float)rr->view_h, 0, 0},
-        {0, (float)rr->view_h, 0, 0}, {(float)rr->view_w, 0, 0, 0},
-        {(float)rr->view_w, (float)rr->view_h, 0, 0},
-    };
-    glUseProgram(rr->prog_solid[slot]);
-    glUniform2f(rr->uViewWH_solid[slot], (GLfloat)rr->view_w, (GLfloat)rr->view_h);
-    glUniform4f(uc, 0.0f, 0.0f, 0.0f, 0.35f);
-    glGenBuffers(1, &rr->vbo_sel[slot]);
-    glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(mq), mq, GL_DYNAMIC_DRAW);
-    rs_bind_vbo(rr->vbo_sel[slot]);
-    glDrawArrays(GL_TRIANGLES, 0, 6);
-    rs_unbind_vbo();
-    glDeleteBuffers(1, &rr->vbo_sel[slot]);
-    rr->vbo_sel[slot] = 0;
-    /* ② 面板：深色半透明矩形（datah_012 450×465 居中，720 基准 135,407.5-585,872.5） */
-    float px0 = UI_GAMESET_POPUP_X0 * sx, py0 = UI_GAMESET_POPUP_Y0 * sy;
-    float pw = UI_GAMESET_POPUP_W * sx, ph = UI_GAMESET_POPUP_H * sy;
-    rs_v4f pq[6] = {
-        {px0, py0, 0, 0}, {px0 + pw, py0, 0, 0}, {px0, py0 + ph, 0, 0},
-        {px0, py0 + ph, 0, 0}, {px0 + pw, py0, 0, 0}, {px0 + pw, py0 + ph, 0, 0},
-    };
-    glUseProgram(rr->prog_solid[slot]);
-    glUniform2f(rr->uViewWH_solid[slot], (GLfloat)rr->view_w, (GLfloat)rr->view_h);
-    glUniform4f(uc, 0.08f, 0.08f, 0.10f, 0.78f);
-    glGenBuffers(1, &rr->vbo_sel[slot]);
-    glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(pq), pq, GL_DYNAMIC_DRAW);
-    rs_bind_vbo(rr->vbo_sel[slot]);
-    glDrawArrays(GL_TRIANGLES, 0, 6);
-    rs_unbind_vbo();
-    glDeleteBuffers(1, &rr->vbo_sel[slot]);
-    rr->vbo_sel[slot] = 0;
+    /* ⓪①② 面板 shell（对局背景 + 遮罩 + 弹窗皮肤面板 450×465）——★ 2026-11-10 用户
+       指正"这个界面是对齐了？"→ 对齐 datah_012（本用 rs_popup_shell，与其余弹窗同一皮肤，
+       替换旧手绘平坦深色矩形） */
+    rs_popup_shell(rr, slot, UI_GAMESET_POPUP_X0, UI_GAMESET_POPUP_Y0,
+                   UI_GAMESET_POPUP_W, UI_GAMESET_POPUP_H, 0, uc);
     /* ③ 6 控件：4 开关（开=绿 / 关=灰红）+ 确定/取消（纯色） */
     static const float BTN_COL[6][4] = {
         {0.30f, 0.70f, 0.50f, 0.9f},   /* 和棋 开关 */
@@ -2614,18 +2567,20 @@ static void rs_draw_gameset(rs_render *rr, int slot)
         glDeleteBuffers(1, &rr->vbo_sel[slot]);
         rr->vbo_sel[slot] = 0;
     }
-    /* ④ 文字（gameset_text_atlas 8 行：row0=和棋 row1=大本营 row2=吃地雷 row3=吃军旗
-       row4=开 row5=关 row6=确定 row7=取消） */
+    /* ④ 文字（gameset_text_atlas 9 行：row0=游戏设置(标题) row1=和棋: row2=大本营:
+       row3=吃地雷: row4=吃军旗: row5=开 row6=关 row7=确定 row8=取消）
+       ★ 2026-11-10 用户指正"这个界面是对齐了？"→ datah_012 XML GBK 实锤：
+       标题'游戏设置' rect 55,10,440,50 + 标签带冒号。行号整体 +1（旧 8 行无标题不齐）。 */
     if (rr->tex_gameset_text[slot] && rr->prog_tex[slot] && rr->gameset_text_w > 0 && rr->gameset_text_h > 0) {
-        int row_h = rr->gameset_text_h / 8;   /* 每行 46px */
+        int row_h = rr->gameset_text_h / 9;   /* 每行 46px（9 行竖排） */
         float u0 = 0.0f, u1 = 1.0f;
-        /* 标签列：和棋:/大本营:/吃地雷:/吃军旗: 左侧 label（x 200-320，对齐原版 datah_012 标签位置） */
-        for (int r = 0; r < 4; r++) {
-            float tcy = (gb[r].y0 + gb[r].y1) * 0.5f * sy;
-            float tw = 100.0f * sx, th = tw * ((float)row_h / rr->gameset_text_w);
-            float tx0 = 195.0f * sx, ty0 = tcy - th * 0.5f;
-            float v0 = (float)(r * row_h) / rr->gameset_text_h;
-            float v1 = (float)(r * row_h + row_h) / rr->gameset_text_h;
+        /* 标题：游戏设置（row0，datah_012 rect 55,10,440,50 → 720 基准中心 (135+55+440)/2=315,
+           (407.5+10+50)/2=437.5，宽 285） */
+        {
+            float tcy = 437.5f * sy;
+            float tw = 190.0f * sx, th = tw * ((float)row_h / rr->gameset_text_w);
+            float tx0 = 315.0f * sx - tw * 0.5f, ty0 = tcy - th * 0.5f;
+            float v0 = 0.0f, v1 = (float)row_h / rr->gameset_text_h;
             rs_v4f tq[6] = {
                 {tx0, ty0, u0, v0}, {tx0 + tw, ty0, u1, v0}, {tx0, ty0 + th, u0, v1},
                 {tx0, ty0 + th, u0, v1}, {tx0 + tw, ty0, u1, v0}, {tx0 + tw, ty0 + th, u1, v1},
@@ -2644,9 +2599,35 @@ static void rs_draw_gameset(rs_render *rr, int slot)
             glDeleteBuffers(1, &rr->vbo_sel[slot]);
             rr->vbo_sel[slot] = 0;
         }
-        /* 值标签：开/关（row4/row5，按各开关当前状态） */
+        /* 标签列：和棋:/大本营:/吃地雷:/吃军旗:（row1-4，右侧对齐 rect 30,*,155,* → 720 基准
+           165-290；标签 x0=195 tw=110，右缘≈290 对齐原版） */
         for (int r = 0; r < 4; r++) {
-            int val_row = ui_rule_cfg_get(r) ? 4 : 5;
+            float tcy = (gb[r].y0 + gb[r].y1) * 0.5f * sy;
+            float tw = 110.0f * sx, th = tw * ((float)row_h / rr->gameset_text_w);
+            float tx0 = 195.0f * sx, ty0 = tcy - th * 0.5f;
+            float v0 = (float)((r + 1) * row_h) / rr->gameset_text_h;
+            float v1 = (float)((r + 1) * row_h + row_h) / rr->gameset_text_h;
+            rs_v4f tq[6] = {
+                {tx0, ty0, u0, v0}, {tx0 + tw, ty0, u1, v0}, {tx0, ty0 + th, u0, v1},
+                {tx0, ty0 + th, u0, v1}, {tx0 + tw, ty0, u1, v0}, {tx0 + tw, ty0 + th, u1, v1},
+            };
+            glUseProgram(rr->prog_tex[slot]);
+            glUniform2f(rr->uViewWH_tex[slot], (GLfloat)rr->view_w, (GLfloat)rr->view_h);
+            glUniform1i(glGetUniformLocation(rr->prog_tex[slot], "uTex"), 0);
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, rr->tex_gameset_text[slot]);
+            glGenBuffers(1, &rr->vbo_sel[slot]);
+            glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
+            glBufferData(GL_ARRAY_BUFFER, sizeof(tq), tq, GL_DYNAMIC_DRAW);
+            rs_bind_vbo(rr->vbo_sel[slot]);
+            glDrawArrays(GL_TRIANGLES, 0, 6);
+            rs_unbind_vbo();
+            glDeleteBuffers(1, &rr->vbo_sel[slot]);
+            rr->vbo_sel[slot] = 0;
+        }
+        /* 值标签：开/关（row5/row6，按各开关当前状态；★ 行号 +1：旧 row4/row5） */
+        for (int r = 0; r < 4; r++) {
+            int val_row = ui_rule_cfg_get(r) ? 5 : 6;
             float bx0 = gb[r].x0 * sx, by0 = gb[r].y0 * sy;
             float bx1 = gb[r].x1 * sx, by1 = gb[r].y1 * sy;
             float tw = 60.0f * sx, th = tw * ((float)row_h / rr->gameset_text_w);
@@ -2671,14 +2652,14 @@ static void rs_draw_gameset(rs_render *rr, int slot)
             glDeleteBuffers(1, &rr->vbo_sel[slot]);
             rr->vbo_sel[slot] = 0;
         }
-        /* 确定/取消（row6-7） */
+        /* 确定/取消（row7-8；★ 行号 +1：旧 row6-7 = (i+2) → 新 (i+3)） */
         for (int i = 4; i < UI_GAMESET_COUNT; i++) {
             float bx0 = gb[i].x0 * sx, by0 = gb[i].y0 * sy;
             float bx1 = gb[i].x1 * sx, by1 = gb[i].y1 * sy;
             float tw = 120.0f * sx, th = tw * ((float)row_h / rr->gameset_text_w);
             float tx0 = (bx0 + bx1) * 0.5f - tw * 0.5f, ty0 = (by0 + by1) * 0.5f - th * 0.5f;
-            float v0 = (float)((i + 2) * row_h) / rr->gameset_text_h;
-            float v1 = (float)((i + 2) * row_h + row_h) / rr->gameset_text_h;
+            float v0 = (float)((i + 3) * row_h) / rr->gameset_text_h;
+            float v1 = (float)((i + 3) * row_h + row_h) / rr->gameset_text_h;
             rs_v4f tq[6] = {
                 {tx0, ty0, u0, v0}, {tx0 + tw, ty0, u1, v0}, {tx0, ty0 + th, u0, v1},
                 {tx0, ty0 + th, u0, v1}, {tx0 + tw, ty0, u1, v0}, {tx0 + tw, ty0 + th, u1, v1},
