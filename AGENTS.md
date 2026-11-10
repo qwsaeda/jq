@@ -145,6 +145,18 @@ java -cp /tmp/opencode/apksigner/apksig.jar:/tmp/opencode/apksigner SignV2 \
 > **验收口径**："能玩" = 装得上 + 进主界面 + 下一局（走子 can_move=1 真实棋子位移）+ 正常退出 + 重进不崩，五判据同时满足。
 > **当前状态：64 位真机"能玩"已达成**（so `722dde6d` + immersive 修复 `b75c303` + 本轮复验）；
 > 后续新增判据（完整 60 局对弈 / AI 介入 / 蓝牙端到端 / 真实手点验收等）未过时，记录缺口到本段并继续做。
+>
+> **★ 2026-11-10 用户反馈"app 名字不是叫新军棋吗 MuMu 里就没有这个 app"（未达成卡点）**：
+> - 设备端实锤：`application-label:'新军棋'`（aapt badging 查 MuMu 设备端 base.apk），包名 `com.cnvcs.junqirs` v1.6.8。
+> - 本机 adb 连的 MuMu（`127.0.0.1:5556`，redroid12_x86_64 容器）：`pm list packages` 有 `com.cnvcs.junqirs`，
+>   so `722dde6d` 实锤，全链（装/出图 board=OK/进对局/蓝走子 6→11 Junqi.Move/退出/重进 0 崩溃）PASS。
+> - **用户视角 MuMu 桌面找不到 app 的可能根因（待实锤）**：① 用户看的是 MuMu 模拟器客户端 GUI（非 adb 容器 127.0.0.1:5556）
+>   ——两者是不同设备实例，adb 装的 apk 在客户端 GUI 桌面不可见；② MuMu 容器 launcher 图标未刷新（已发
+>   APPLICATION_LIST_CHANGED 广播）；③ 用户认的"新军棋"图标在 MuMu 桌面被折叠/未显示。
+> - **继续做路线（未达成不罢休）**：① 确认用户操作的 MuMu 实例（adb 容器 vs 客户端 GUI，`adb devices` 实锤）
+>   ② 若在客户端 GUI：把 apk 装到对应实例（`adb connect` 该实例端口 + `adb install dist/phase3.apk`）
+>   ③ 桌面图标刷新：`pm install-existing com.cnvcs.junqirs` + launcher 重启 ④ 实锤：用户桌面可见"新军棋"图标 + 点开全链走通。
+> - **本段判据未过前，"MuMu 玩不了"维持未达成口径**（出屏 PASS ≠ 用户视角能玩；用户找不到 app = 连玩的机会都没有）。
 
 - 验收链：装得上 → 进主界面 → 下一局（本地或蓝牙）→ 正常退出 → 重进不崩
 - **全链达成判据**（MuMu x86_64 host + houdini 转译，pid 2651 实锤）：
