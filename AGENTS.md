@@ -115,6 +115,18 @@ java -cp /tmp/opencode/apksigner/apksig.jar:/tmp/opencode/apksigner SignV2 \
 - 改动：删 `smali/com/baidu/*` 全量、删 `smali/com/cnvcs/AdLis.smali`、删 `assets/__xadsdk__remote__final__.jar`、manifest 去全部广告项（INTERNET/NETWORK/WIFI/PHONE/LOCATION 权限、baidu AppActivity、UMENG_APPKEY）
 - 验收：64 位设备断网能装、无广告浮层、无 baidu 类、无 ad jar、网络权限 0 项；32 位设备不在本阶段验收范围
 
+### 64 位真机"能玩"验收标准（★ 当前未达成，目标未达成就继续做）
+
+- 验收链：装得上 → 进主界面 → 下一局（本地或蓝牙）→ 正常退出 → 重进不崩
+- **当前未达成判据**：64 位 src_rs so 在 MuMu（x86_64 host + houdini 转译）上**棋子纹理不出屏**——PNG 解码全 MISS（board/piece/text/bg 全 0x0），走子交互 flagtest 钩子 PASS（Junqi.Flag turn=0 stage=2 + 渲染线程 swap + 0 崩溃），但纹理未加载 = 棋盘/棋子不可见 = "玩不了"
+- 根因（诚实边界）：MuMu 系统 libz.so 98KB 极简版（104432B arm64），inflate 导出异常（NDK 对照 inflateInit_ 有、inflate 无）；dlsym dlopen("libz.so") 成功但 inflateInit_/inflate 调用在 houdini 转译层返回非 Z_OK → 纹理 PNG 解码全失败 → 棋盘/棋子不渲染
+- hp 桥依赖：`libhp12_x86_64.so`（mumu-configs/shared_libs，当前缺失）+ `libhoudini.so` v12（/system/lib64/，在位接管）；hp 缺失时 arm64 so 经 houdini 转译仍可 dlopen + JNI_OnLoad + OnCreate 出屏（pid 30881 实证），但 PNG 解码在转译层异常
+- 已修（本轮）：
+  - 64 位 so NEEDED 去 libz + inflate 3 符号 dlsym 动态解析（`4f522c9`，根治 dlopen 失败）
+  - smali hp 容错：App.smali `<clinit>` loadLibrary try/catch UnsatisfiedLinkError → `s_native_ok` 标志；12 个 native 调用点 if-gtz 正向守卫（标签在 move-result 行后不破坏配对）（`c88a778` + 后续）
+  - **classes.dex 改 STORE**（`7cd2270`）：zipalign_apk.py STORE_EXT 漏 .dex → dex 保持 deflate（compress=8）→ MuMu dexopt 内存映射失败 "Invalid or truncated dex file" FATAL；修 STORE_EXT 加 .dex → dex 改 STORE + 4 字节对齐
+- 目标未达成就继续做：PNG 解码根因（libz inflate 在转译层异常）未修 → 棋子纹理不出屏 → "能玩"未达成
+
 ## 红线（不要碰）
 
 - 不要改动 `assets/data*.pak` 的 `doNotCompress` 标记（动了会破坏资源加载）
