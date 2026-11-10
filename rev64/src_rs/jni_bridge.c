@@ -8493,9 +8493,25 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
          winner=-1/moves——对局中破坏进行中的棋局；stage=OVER 时点棋盘上部绕过来一局
          按钮意外重开。原版无此行为，整块删除。 */
     int ev = jq_touch_state_process(&g_ts, x, y, g_view_w, g_view_h, &from, &to);
-    if (ev != 0)
+    if (ev != 0) {
         LOGI("OnTouch 走子态机：ev=%d（SELECT/UNSELECT/MOVE）from=%d to=%d（cell 索引）",
              ev, from, to);
+        /* ★ 走子坐标诊断（2026-11-10 未达成缺口攻坚）：打印 view→720×1280 基准映射
+           + 命中 cell + 可走性（can_move/can_flip），实锤触摸几何与规则层坐标对齐。
+           限前 10 次避免日志洪水。 */
+        static int g_touch_diag_cnt = 0;
+        if (++g_touch_diag_cnt <= 10) {
+            int dx = (int)(x / (float)g_view_w * 720.0f + 0.5f);
+            int dy = (int)(y / (float)g_view_h * 1280.0f + 0.5f);
+            pthread_mutex_lock(&g_mutex);
+            int cm = (from >= 0 && to >= 0 && to != from) ? jq_can_move(&g_state, from, to) : 0;
+            int cf = (from >= 0 && to == from) ? jq_can_flip(&g_state, from) : 0;
+            int turn = g_state.turn;
+            pthread_mutex_unlock(&g_mutex);
+            LOGI("OnTouch 走子诊断：view(%.0f,%.0f)→base(%d,%d) cell from=%d to=%d can_move=%d can_flip=%d turn=%d",
+                 x, y, dx, dy, from, to, cm, cf, turn);
+        }
+    }
     /* ★ 走子/翻棋的 g_state 读写 + jq_try_move/jq_flip 全部在 g_mutex 内（GLThread
        的 OnUpdate/AI 也持同一把锁读写 g_state → 免并发野指针 0x80b5dbe78 SIGSEGV）。
        sfx 在锁外调（不读 g_state，只读事件名 + MediaPlayer 全局 ref）。 */

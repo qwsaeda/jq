@@ -138,14 +138,16 @@ java -cp /tmp/opencode/apksigner/apksig.jar:/tmp/opencode/apksigner SignV2 \
   - 棋盘触摸（cell 命中 `jq_touch_hit_cell`）→ `走子态机 ev=1/7` → `走子判定 Junqi.Move`
   - movetest 钩子（`setprop jq.movetest 1`）→ 明棋自动走 3 步（Junqi.Move×2 + Junqi.Dead×1，复盘记录 n=3）
   - flagtest 钩子（`setprop jq.flagtest 1`）→ 近旗注入 + 自动走 53→58 Junqi.Flag（turn=0 stage=2）
-- **未达成缺口（用户 2026-11-10 指令：达不到真机验证标准就继续做）**：
-  - 触摸走子**实际移动未发生**：2 轮真机实测（`input tap` 全链）——
-    ① 暗棋（默认 g_opt_mode=1 弹窗确定后 mode=1）：`from=12 to=2 can_move=0`（B01-053 暗棋未翻暗子目标不可撞，规则层拒绝，属忠实 32 位行为）
-    ② 明棋（`setprop jq.mode 0`）：`from=7 to=2 can_move=0`（点击坐标 cell 命中与规则层可走格不匹配——`jq_touch_hit_cell` 命中几何与 32 位走子桥（32 位实测 4/4 PASS）坐标系基准未实锤对齐）
-    ③ 最新实测（pid 2920）：弹窗后 `from=2 to=7 can_move=0` 仍无实际走子
-  - 即：**出屏/装/启动/退出/重进 全 PASS，但"能走一步子"这一核心玩法判据未达成**（can_move 全 0，无一次真实棋子位移）
-  - 继续做路线：① 明棋模式逐格扫描 60 格 `input tap` 找 1 个 can_move=1 的合法位移（对齐 `jq_touch_hit_cell` 几何与 BG_GRID 常量）② 对照 32 位 arm32_walkregress 走子坐标基准（datah_041 几何换算 900×1600 屏 vs 720×1280 view 映射系数）③ 必要时加 `jq.move_probe` 钩子（OnCreate 后逐格探 can_move=1 并注入走子，日志输出实际位移）实锤"能玩"
-  - 判据未过前，"能玩"维持**未达成**口径（出屏 PASS ≠ 能玩）
+- **★ 触摸走子实锤达成（so `81780508`，MuMu 实测 2026-11-10）**：明棋模式真实触摸链 `input tap` 全通——
+  - ① `view(219,1106)` → cell 6 选中（ev=1）→ `view(219,1035)` → cell 11 `ev=7 from=6 to=11 can_move=1 结果=Junqi.Move`
+  - ② 红方热座 `view(79,577)` → cell 30 选中 → `view(79,822)` → cell 25 `ev=7 from=30 to=25 can_move=1 结果=Junqi.Dead`
+  - 根因定位：缺口①②③的 `can_move=0` 系**暗棋模式默认**（`g_opt_mode=1` 翻棋暗子目标不可撞 = B01-053 忠实 32 位行为），非几何错。
+    几何基准 720×1280：`base = view 坐标直接同值`（MuMu view=720×1280 与渲染基准一致），cell 中心公式
+    `x=78.5+col×140.5 / y=image_row≤5: 222+image_row×71 : 822+(image_row-6)×71`（image_row=11-device_row，row0=底）。
+    诊断锚点：`OnTouch 走子诊断` 日志（jni_bridge.c 限 10 次）+ 桌面 evverify 170/170 同源。
+  - 出屏验证：走子后截图 97.9% 非黑 / 30 色块（棋盘+棋子纹理出屏，非纯色退化）
+  - 红果回归：so `81780508` 装 `10.0.182.146` 主菜单 98.8% 非黑 / 84 色块 + 0 崩溃（出不退化）
+- 判据维持口径：**MuMu 64 位"能玩"= 出屏 + 真实触摸走子全达成（`81780508`）**；若后续新增判据未过，按"未达成继续做"原则追加本段缺口与路线。
 
 ## 红线（不要碰）
 
