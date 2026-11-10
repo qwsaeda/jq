@@ -114,6 +114,8 @@ typedef struct {
     rs_glid_t tex_about_text[2];   /* ★ P2（datah_000）：软件信息文字图集 220×322
                                            （7 标签竖排：软件信息/版本/官网/反馈/关闭/
                                            1.6.8/cnvcs.com） */
+    rs_glid_t tex_exit_text[2];    /* ★ 2026-11-10（datah_025）：ExitConfirm 文字图集 220×138
+                                           （3 标签竖排：真的要退出吗？/确定/取消） */
     void *board_px; size_t board_px_len;   /* 解码后 RGBA（跨 context 共享，只解码一次） */
     int board_w, board_h;                  /* AUD-1000 B04-050：解码实际宽高（不再 px_len 反推） */
     void *piece_px;  size_t piece_px_len;
@@ -190,6 +192,8 @@ typedef struct {
     int chat063_text_w, chat063_text_h; /* 聊天完整版文字图集尺寸 */
     void *about_text_px; size_t about_text_px_len; /* ★ P2（datah_000）：软件信息文字图集 RGBA（7 标签竖排 220×322） */
     int about_text_w, about_text_h; /* 软件信息文字图集尺寸 */
+    void *exit_text_px; size_t exit_text_px_len; /* ★ 2026-11-10（datah_025）：ExitConfirm 文字图集 RGBA（3 标签竖排 220×138） */
+    int exit_text_w, exit_text_h;   /* ExitConfirm 文字图集尺寸 */
     void *uibat_text_px; size_t uibat_text_px_len; /* ★ SPAK2UI 批量（12 弹窗）：战况统计子菜单链 + 玩家/对局/对战方式/
                                                         创建游戏/版本更新 共用文字图集（14 标签竖排 220×644） */
     int uibat_text_w, uibat_text_h; /* 12 弹窗共用文字图集尺寸 */

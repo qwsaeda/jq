@@ -584,6 +584,7 @@ int rs_render_init(rs_render *rr, const char *spak_dir, const jq_state *init_sta
         unsigned char *rmaw = NULL; size_t rmaw_len = 0;    /* ★ P2 datah_060 房间态文字图集 */
         unsigned char *chaw = NULL; size_t chaw_len = 0;    /* ★ P2 datah_063 聊天完整版文字图集 */
         unsigned char *abaw = NULL; size_t abaw_len = 0;    /* ★ P2 datah_000 软件信息文字图集 */
+        unsigned char *exaw = NULL; size_t exaw_len = 0;    /* ★ 2026-11-10 datah_025 ExitConfirm 文字图集 */
         unsigned char *uiaw = NULL; size_t uiaw_len = 0;    /* ★ SPAK2UI 批量（12 弹窗）共用文字图集 */
         unsigned char *bpx = NULL, *ppx = NULL, *tpx = NULL, *gpx = NULL;
         unsigned char *opx = NULL, *ppx2 = NULL, *mpx = NULL, *ipx = NULL, *icpx = NULL, *hbpx = NULL, *bbpx = NULL, *bspx = NULL;
@@ -615,6 +616,7 @@ int rs_render_init(rs_render *rr, const char *spak_dir, const jq_state *init_sta
         int chw = 0, chh = 0;    /* ★ P2 datah_063 聊天完整版文字图集尺寸 */
         int abw = 0, abh = 0;    /* ★ P2 datah_000 软件信息文字图集尺寸 */
         int uiw = 0, uih = 0;    /* ★ SPAK2UI 批量（12 弹窗）共用文字图集尺寸 */
+        int exw = 0, exh = 0;    /* ★ 2026-11-10 datah_025 ExitConfirm 文字图集尺寸 */
         unsigned char *panraw = NULL; size_t panraw_len = 0;   /* ★ 原版面板 9patch */
         unsigned char *btnraw = NULL; size_t btnraw_len = 0;   /* ★ 原版彩色按钮 */
         unsigned char *icoraw = NULL; size_t icoraw_len = 0;   /* ★ 原版图标 */
@@ -688,6 +690,7 @@ int rs_render_init(rs_render *rr, const char *spak_dir, const jq_state *init_sta
         rs_read_one(am, spak_dir, "join065_text_atlas.png", &j65aw, &j65aw_len);        rs_read_one(am, spak_dir, "create069_text_atlas.png", &c69aw, &c69aw_len);
         rs_read_one(am, spak_dir, "rules070_text_atlas.png", &r70aw, &r70aw_len);
         rs_read_one(am, spak_dir, "room060_text_atlas.png", &rmaw, &rmaw_len);        rs_read_one(am, spak_dir, "chat063_text_atlas.png", &chaw, &chaw_len);        rs_read_one(am, spak_dir, "about_text_atlas.png", &abaw, &abaw_len);        rs_read_one(am, spak_dir, "uibat_text_atlas.png", &uiaw, &uiaw_len);
+        rs_read_one(am, spak_dir, "exit_text_atlas.png", &exaw, &exaw_len);
         if (braw && png_decode(braw, braw_len, &bpx, &bw, &bh) == 0) {
             rr->board_px = bpx; rr->board_px_len = (size_t)bw * bh * 4;
             rr->board_w = bw; rr->board_h = bh;   /* AUD-1000 B04-050：记录实际尺寸 */
@@ -1041,6 +1044,15 @@ int rs_render_init(rs_render *rr, const char *spak_dir, const jq_state *init_sta
             }
         }
         free(abaw);
+        /* ★ 2026-11-10（datah_025）：ExitConfirm 文字图集（3 标签竖排 220×138） */
+        {
+            unsigned char *ex_px = NULL;
+            if (exaw && png_decode(exaw, exaw_len, &ex_px, &exw, &exh) == 0) {
+                rr->exit_text_px = ex_px; rr->exit_text_px_len = (size_t)exw * exh * 4;
+                rr->exit_text_w = exw; rr->exit_text_h = exh;
+            }
+        }
+        free(exaw);
         /* ★ SPAK2UI 批量（12 弹窗）：战况统计/玩家/对局/对战方式/创建游戏/版本更新 共用文字图集
            （14 标签竖排 220×644） */
         {
@@ -5140,27 +5152,111 @@ static void rs_draw_chat063(rs_render *rr, int slot)
    反馈按钮→诚实边界对话框，不包装成"已反馈"。 */
 #define ABOUT_ROW 7
 /* ★ 返回键 3 态确认弹窗渲染（原版 .rodata ExitConfirm/ResignConfirm/RegretConfirm）
-   720×1280 居中 400×280 面板，2 按钮（确认/取消），诚实边界：原版确认对话框数据未逆向，
-   几何简化近似（对齐原版 3 态行为）。用 rs_popup_shell + rs_solid_btn + 纯文本 label。 */
-static void rs_confirm_dialog(rs_render *rr, int slot, const char *title,
+   ★ 2026-11-10 用户指正：从"几何简化近似（无按钮无文本）"升级为 datah_025 精确对齐——
+   面板 450×220 居中（偏移 +135,+530）+ Msg 文本（row0-2，原版 Junqi.ExitConfirm=
+   '真的要退出吗？'/RegretConfirm/ResignConfirm）+ 确定/取消 2 按钮（蓝/灰）。
+   文字图集 exit_text_atlas.png 5 行（0=真的要退出吗？1=您真的要悔棋吗？2=您真的要认输吗？
+   3=确定 4=取消）。 */
+#define EXIT_ATLAS_ROWS 5
+static void rs_confirm_dialog(rs_render *rr, int slot, int msg_row,
+                              int btn0_row, int btn1_row,
                               const char *btn0, const char *btn1)
 {
-    (void)title; (void)btn0; (void)btn1;
-    /* ① 弹窗外壳（背景 + 遮罩 + 面板深色矩形 720 基准 160,500,400,280） */
+    (void)btn0; (void)btn1;
+    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
+    if (!rr->prog_solid[slot] || !rr->gl2_ok[slot]) return;
+    float sx = (float)rr->view_w / 720.0f, sy = (float)rr->view_h / 1280.0f;
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    /* ① 弹窗外壳（背景 + 遮罩 + 弹窗皮肤面板 450×220，datah_025） */
     rs_popup_shell(rr, slot, UI_EXITCONFIRM_POPUP_X0, UI_EXITCONFIRM_POPUP_Y0,
                    UI_EXITCONFIRM_POPUP_W, UI_EXITCONFIRM_POPUP_H, 0, uc);
+    /* ② Msg 文本（datah_025 Msg TransTextBox 30,80,420,120 → 165,610-555,650 720 基准，
+       中心 (360,630)） */
+    if (rr->tex_exit_text[slot] && rr->exit_text_w > 0 && rr->exit_text_h > 0) {
+        int row_h = rr->exit_text_h / EXIT_ATLAS_ROWS;
+        float tw = 240.0f * sx, th = tw * ((float)row_h / rr->exit_text_w);
+        float tx0 = 360.0f * sx - tw * 0.5f, ty0 = 630.0f * sy - th * 0.5f;
+        float v0 = (float)(msg_row * row_h) / rr->exit_text_h;
+        float v1 = (float)(msg_row * row_h + row_h) / rr->exit_text_h;
+        rs_v4f tq[6] = {
+            {tx0, ty0, 0, v0}, {tx0 + tw, ty0, 1, v0}, {tx0, ty0 + th, 0, v1},
+            {tx0, ty0 + th, 0, v1}, {tx0 + tw, ty0, 1, v0}, {tx0 + tw, ty0 + th, 1, v1},
+        };
+        glUseProgram(rr->prog_tex[slot]);
+        glUniform2f(rr->uViewWH_tex[slot], (GLfloat)rr->view_w, (GLfloat)rr->view_h);
+        glUniform1i(glGetUniformLocation(rr->prog_tex[slot], "uTex"), 0);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, rr->tex_exit_text[slot]);
+        glGenBuffers(1, &rr->vbo_sel[slot]);
+        glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(tq), tq, GL_DYNAMIC_DRAW);
+        rs_bind_vbo(rr->vbo_sel[slot]);
+        glDrawArrays(GL_TRIANGLES, 0, 6);
+        rs_unbind_vbo();
+        glDeleteBuffers(1, &rr->vbo_sel[slot]);
+        rr->vbo_sel[slot] = 0;
+    }
+    /* ③ 2 按钮（datah_025 确定 165,665-345,725 蓝 / 取消 375,665-555,725 灰） */
+    const ui_exitconfirm_btn *eb = ui_exitconfirm_buttons();
+    static const float EC_BTN_COL[2][4] = {
+        {0.20f, 0.45f, 0.90f, 0.9f},   /* 确定 蓝 */
+        {0.55f, 0.55f, 0.60f, 0.9f},   /* 取消 灰 */
+    };
+    for (int i = 0; i < UI_EXITCONFIRM_COUNT; i++) {
+        float bx0 = eb[i].x0 * sx, by0 = eb[i].y0 * sy;
+        float bx1 = eb[i].x1 * sx, by1 = eb[i].y1 * sy;
+        rs_v4f bq[6] = {
+            {bx0, by0, 0, 0}, {bx1, by0, 0, 0}, {bx0, by1, 0, 0},
+            {bx0, by1, 0, 0}, {bx1, by0, 0, 0}, {bx1, by1, 0, 0},
+        };
+        glUseProgram(rr->prog_solid[slot]);
+        glUniform2f(rr->uViewWH_solid[slot], (GLfloat)rr->view_w, (GLfloat)rr->view_h);
+        glUniform4f(uc, EC_BTN_COL[i][0], EC_BTN_COL[i][1], EC_BTN_COL[i][2], EC_BTN_COL[i][3]);
+        glGenBuffers(1, &rr->vbo_sel[slot]);
+        glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(bq), bq, GL_DYNAMIC_DRAW);
+        rs_bind_vbo(rr->vbo_sel[slot]);
+        glDrawArrays(GL_TRIANGLES, 0, 6);
+        rs_unbind_vbo();
+        glDeleteBuffers(1, &rr->vbo_sel[slot]);
+        rr->vbo_sel[slot] = 0;
+        /* 按钮文字（row3=确定 row4=取消） */
+        if (rr->tex_exit_text[slot] && rr->exit_text_w > 0) {
+            int row_h = rr->exit_text_h / EXIT_ATLAS_ROWS;
+            float tw = 90.0f * sx, th = tw * ((float)row_h / rr->exit_text_w);
+            float tx0 = (bx0 + bx1) * 0.5f - tw * 0.5f, ty0 = (by0 + by1) * 0.5f - th * 0.5f;
+            int brow = (i == 0) ? btn0_row : btn1_row;
+            float v0 = (float)(brow * row_h) / rr->exit_text_h;
+            float v1 = (float)(brow * row_h + row_h) / rr->exit_text_h;
+            rs_v4f tq[6] = {
+                {tx0, ty0, 0, v0}, {tx0 + tw, ty0, 1, v0}, {tx0, ty0 + th, 0, v1},
+                {tx0, ty0 + th, 0, v1}, {tx0 + tw, ty0, 1, v0}, {tx0 + tw, ty0 + th, 1, v1},
+            };
+            glUseProgram(rr->prog_tex[slot]);
+            glUniform2f(rr->uViewWH_tex[slot], (GLfloat)rr->view_w, (GLfloat)rr->view_h);
+            glUniform1i(glGetUniformLocation(rr->prog_tex[slot], "uTex"), 0);
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, rr->tex_exit_text[slot]);
+            glGenBuffers(1, &rr->vbo_sel[slot]);
+            glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
+            glBufferData(GL_ARRAY_BUFFER, sizeof(tq), tq, GL_DYNAMIC_DRAW);
+            rs_bind_vbo(rr->vbo_sel[slot]);
+            glDrawArrays(GL_TRIANGLES, 0, 6);
+            rs_unbind_vbo();
+            glDeleteBuffers(1, &rr->vbo_sel[slot]);
+            rr->vbo_sel[slot] = 0;
+        }
+    }
 }
 
 static void rs_draw_exitconfirm(rs_render *rr, int slot)
 {
     if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     /* ★ 原版字符串表真值（jq_strings.h JQ_STR_ExitConfirm = 真的要退出吗？） */
-    rs_confirm_dialog(rr, slot, JQ_STR_ExitConfirm, "退出", "继续");
+    rs_confirm_dialog(rr, slot, 0, 3, 4, "退出", "继续");
     if (!ecdiag) { ecdiag = 1;
-        LOGI("rs_draw_exitconfirm：退出确认弹窗（原版 .rodata Junqi.ExitConfirm，"
-             "400×280 面板 + 退出/继续 2 按钮，★ 诚实边界：原版确认对话框数据未逆向，"
-             "几何简化近似，返回键 3 态行为对齐）");
+        LOGI("rs_draw_exitconfirm：退出确认弹窗（datah_025 450×220 对齐：Msg'真的要退出吗？'"
+             "+ 确定/取消 2 按钮，原版 .rodata Junqi.ExitConfirm，返回键 3 态行为对齐）");
     }
 }
 
@@ -5168,11 +5264,10 @@ static void rs_draw_resignconfirm(rs_render *rr, int slot)
 {
     if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     /* ★ 原版字符串表真值（JQ_STR_ResignConfirm = 您真的要投降吗？） */
-    rs_confirm_dialog(rr, slot, JQ_STR_ResignConfirm, "认输", "取消");
+    rs_confirm_dialog(rr, slot, 2, 3, 4, "认输", "取消");
     if (!rcdiag) { rcdiag = 1;
-        LOGI("rs_draw_resignconfirm：认输确认弹窗（原版 .rodata Junqi.ResignConfirm，"
-             "400×280 面板 + 认输/取消 2 按钮，★ 诚实边界：原版确认对话框数据未逆向，"
-             "几何简化近似，联机版 BACK 键认输确认行为对齐）");
+        LOGI("rs_draw_resignconfirm：认输确认弹窗（datah_025 450×220 对齐：Msg'您真的要认输吗？'"
+             "+ 确定/取消 2 按钮，原版 .rodata Junqi.ResignConfirm，联机版 BACK 键认输确认行为对齐）");
     }
 }
 
@@ -5180,11 +5275,10 @@ static void rs_draw_regretconfirm(rs_render *rr, int slot)
 {
     if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     /* ★ 原版字符串表真值（JQ_STR_RegretConfirm = 您真的要悔棋吗？） */
-    rs_confirm_dialog(rr, slot, JQ_STR_RegretConfirm, "悔棋", "取消");
+    rs_confirm_dialog(rr, slot, 1, 3, 4, "悔棋", "取消");
     if (!gcdot) { gcdot = 1;
-        LOGI("rs_draw_regretconfirm：悔棋确认弹窗（原版 .rodata Junqi.RegretConfirm，"
-             "400×280 面板 + 悔棋/取消 2 按钮，★ 诚实边界：原版确认对话框数据未逆向，"
-             "几何简化近似，已悔步时 BACK 键悔棋确认行为对齐）");
+        LOGI("rs_draw_regretconfirm：悔棋确认弹窗（datah_025 450×220 对齐：Msg'您真的要悔棋吗？'"
+             "+ 确定/取消 2 按钮，原版 .rodata Junqi.RegretConfirm，已悔步时 BACK 键悔棋确认行为对齐）");
     }
 }
 
@@ -9980,6 +10074,15 @@ static void rs_gl_rebuild(rs_render *rr, int slot)
         glBindTexture(GL_TEXTURE_2D, rr->tex_about_text[slot]);
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->about_text_w, rr->about_text_h, 0,
                      GL_RGBA, GL_UNSIGNED_BYTE, rr->about_text_px);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    }
+    /* ★ 2026-11-10（datah_025）：ExitConfirm 文字图集（3 标签竖排 220×138） */
+    if (rr->exit_text_px && rr->gl2_ok[slot] && rr->exit_text_w > 0 && rr->exit_text_h > 0) {
+        glGenTextures(1, &rr->tex_exit_text[slot]);
+        glBindTexture(GL_TEXTURE_2D, rr->tex_exit_text[slot]);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->exit_text_w, rr->exit_text_h, 0,
+                     GL_RGBA, GL_UNSIGNED_BYTE, rr->exit_text_px);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     }

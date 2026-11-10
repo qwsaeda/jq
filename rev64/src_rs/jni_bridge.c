@@ -3313,6 +3313,15 @@ Java_com_cnvcs_App_OnKey(JNIEnv *env, jclass clazz, jobject keyEvent)
     }
     int keycode = (*env)->CallIntMethod(env, keyEvent, mid);
     if (keycode != 4) { LOGI("OnKey 非 BACK 键（keyCode=%d）交系统", keycode); return JNI_FALSE; }
+    /* ★ 2026-11-10 返回键双击（"点击无效"根因）：原版 App.smali onKeyUp 也调 OnKey，
+       一次按键 = down+up 两次 OnKey。原版 32 位 native OnKey 校验 getAction()==ACTION_DOWN
+       （只处理按下，不处理抬起）→ 单次 BACK = 弹窗开一次。src_rs 旧 OnKey 未校验 action，
+       down 开弹窗 + up 立即关弹窗 = 用户只见闪烁 = "点击无效"。
+       修：读 getAction()，非 ACTION_DOWN(0) 交系统（不处理）。 */
+    jmethodID amid = (*env)->GetMethodID(env, kcls, "getAction", "()I");
+    int action = 0;
+    if (amid != NULL) action = (*env)->CallIntMethod(env, keyEvent, amid);
+    if (action != 0) { return JNI_FALSE; }   /* 只处理 ACTION_DOWN */
     LOGI("OnKey 返回键（KEYCODE_BACK）触发（scr=%d）", ui_screen_get());
     int scr = ui_screen_get();
     int is_bt = ui_bt_active();
@@ -8292,23 +8301,15 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
             (void)clazz;
             return JNI_TRUE;
         }
-        ui_imen_icon_rect(1, &ix0, &iy0, &ix1, &iy1);   /* ↩ 悔棋 */
+        ui_imen_icon_rect(1, &ix0, &iy0, &ix1, &iy1);   /* ↩ 返回 */
         if (bx >= ix0 && bx <= ix1 && by >= iy0 && by <= iy1) {
-            /* ★ 对抗审计修复：连续 pop 到 BLUE（人机模式 undo 栈顶是 AI 应着前
-               turn=RED，一次 pop 恢复 RED 后 OnUpdate AI 立即补应着 → 悔棋失效）。 */
-            pthread_mutex_lock(&g_mutex);
-            int popped = 0;
-            while (undo_pop()) {
-                popped = 1;
-                if (g_state.turn == SIDE_BLUE || g_state.stage != STG_PLAY) break;
-            }
-            pthread_mutex_unlock(&g_mutex);
-            if (popped) {
-                LOGI("OnTouch ↩ 悔棋：连续 undo_pop 到 BLUE（撤销 AI 应着 + 蓝的走子）");
-                sfx_play(env, "pop");
-            } else {
-                LOGI("OnTouch ↩ 悔棋：无可悔（undo 栈空）");
-            }
+            /* ★ 2026-11-10 用户"返回键点击无效/这不是悔棋"指正（对齐原版）：
+               ↩（屏幕左上角返回图标）语义 = 返回/退出对局（Junqi.ExitConfirm
+               "真的要退出吗？"确认弹窗），**不是悔棋**。悔棋走 ☰ 菜单（RegretConfirm）。
+               旧实现把 ↩ 当悔棋（undo_pop 循环）＝原版语义错位，用户实锤纠正。 */
+            ui_screen_set(UI_EXITCONFIRM);
+            sfx_play(env, "pop");
+            LOGI("OnTouch ↩ 返回 → UI_EXITCONFIRM 退出确认弹窗（对齐原版 Junqi.ExitConfirm）");
             (void)clazz;
             return JNI_TRUE;
         }

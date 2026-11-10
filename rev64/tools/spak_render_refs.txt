@@ -10,6 +10,7 @@ datah_183_9e1b7fbc4dfc09c3.bin
 datah_188_21d95e03e7692e98.bin
 dlg_batch_text.png
 drawdetail_text_atlas.png
+exit_text_atlas.png
 gameinfo_text_atlas.png
 gameset_text_atlas.png
 icon_file.png

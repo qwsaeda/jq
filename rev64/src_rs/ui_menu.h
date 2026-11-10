@@ -2559,10 +2559,10 @@ int ui_d264_hit(const ui_d264_btn *b, int n, float x, float y);
 #define UI_EXITCONFIRM_COUNT 2
 #define UI_RESIGNCONFIRM_COUNT 2
 #define UI_REGRETCONFIRM_COUNT 2
-#define UI_EXITCONFIRM_POPUP_X0 160.0f
-#define UI_EXITCONFIRM_POPUP_Y0 500.0f
-#define UI_EXITCONFIRM_POPUP_W  400.0f
-#define UI_EXITCONFIRM_POPUP_H  280.0f
+#define UI_EXITCONFIRM_POPUP_X0 135.0f
+#define UI_EXITCONFIRM_POPUP_Y0 530.0f
+#define UI_EXITCONFIRM_POPUP_W  450.0f
+#define UI_EXITCONFIRM_POPUP_H  220.0f
 typedef struct { float x0,y0,x1,y1; int action; } ui_exitconfirm_btn;
 const ui_exitconfirm_btn *ui_exitconfirm_buttons(void);
 int ui_exitconfirm_hit(const ui_exitconfirm_btn *b, int n, float x, float y);

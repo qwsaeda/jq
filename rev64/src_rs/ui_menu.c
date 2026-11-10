@@ -1426,12 +1426,13 @@ int ui_ui118_popup_inside(float x, float y)
            y >= UI_UI118_POPUP_Y0 && y <= UI_UI118_POPUP_Y0 + UI_UI118_POPUP_H;
 }
 
-/* ★ 返回键 3 态确认弹窗按钮表（原版 .rodata ExitConfirm/ResignConfirm/RegretConfirm）
-   720×1280 居中 400×280 面板（偏移 +160,+500），2 按钮 720 基准。
-   ★ 诚实边界：原版确认对话框几何未逆向，简化近似（对齐原版 3 态行为） */
+/* ★ 返回键 3 态确认弹窗按钮表（原版 datah_025 对齐：450×220 居中（偏移 +135,+530），
+   确定 30,135,210,195 → 165,665,345,725；取消 240,135,420,195 → 375,665,555,725）
+   ★ 2026-11-10 用户"返回键点击无效/这不是悔棋"指正：几何从旧 400×280 近似
+   升级为 datah_025 精确（面板 + 按钮 + Msg 文本 + 确定/取消）。 */
 static const ui_exitconfirm_btn g_exitconfirm_btns[UI_EXITCONFIRM_COUNT] = {
-    { 180.0f, 690.0f, 340.0f, 750.0f, 0 },   /* 退出 */
-    { 380.0f, 690.0f, 540.0f, 750.0f, 1 },   /* 继续 */
+    { 165.0f, 665.0f, 345.0f, 725.0f, 0 },   /* 确定（退出对局） */
+    { 375.0f, 665.0f, 555.0f, 725.0f, 1 },   /* 取消（继续对局） */
 };
 const ui_exitconfirm_btn *ui_exitconfirm_buttons(void) { return g_exitconfirm_btns; }
 int ui_exitconfirm_hit(const ui_exitconfirm_btn *b, int n, float x, float y)
