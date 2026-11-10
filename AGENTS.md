@@ -131,6 +131,20 @@ java -cp /tmp/opencode/apksigner/apksig.jar:/tmp/opencode/apksigner SignV2 \
 > `IncompatibleClassChangeError`）③ targetSdk 31 要求 arsc 未压缩 4 字节对齐 → `zipalign_apk.py` 重打。
 > 验证（MuMu pid 8509 实锤）：顶部 80px 蓝条 0%（提示栏消失）+ 主菜单可点 → 弹窗 → 确定 → 开局
 > stage=PLAY → 蓝方走子 6→11 `can_move=1 Junqi.Move` 全链走通 + 0 崩溃。
+>
+> **★ 2026-11-10 全链复验（so `722dde6d` + MuMu pid 11034/11206，用户标准 5 判据全 PASS）**：
+> ① 装得上 ✓（64 位 APK 启动正常）② 进主界面 ✓（PNG 全 OK + 全屏非黑 99.2%）
+> ③ 下一局 ✓（菜单→弹窗切明棋→确定开局 stage=PLAY→蓝方走子 6→11 `can_move=1 Junqi.Move` 复盘 n=1）
+> ④ 正常退出 ✓（am force-stop 0 崩溃）⑤ 重进不崩 ✓（重进 pid=11206 + PNG 全 OK + 0 崩溃）。
+> **结论：64 位真机"能玩"验收全链达成，用户"玩不了"卡点（系统提示栏拦截触摸）已根治。**
+>
+> **★ 2026-11-10 64 位"能玩"验收口径（5 判据全复验，MuMu pid 11884/12032 全 PASS）**：
+> ① 装得上 ✓（64 位 APK 启动正常）② 进主界面 ✓（PNG 全 OK + 全屏非黑 99.2%）
+> ③ 下一局 ✓（菜单→弹窗切明棋→确定开局 stage=PLAY→蓝方走子 6→11 `can_move=1 Junqi.Move`，复盘 n=1）
+> ④ 正常退出 ✓（am force-stop 0 崩溃）⑤ 重进不崩 ✓（重进 pid=12032 + PNG 全 OK + 0 崩溃）。
+> **验收口径**："能玩" = 装得上 + 进主界面 + 下一局（走子 can_move=1 真实棋子位移）+ 正常退出 + 重进不崩，五判据同时满足。
+> **当前状态：64 位真机"能玩"已达成**（so `722dde6d` + immersive 修复 `b75c303` + 本轮复验）；
+> 后续新增判据（完整 60 局对弈 / AI 介入 / 蓝牙端到端 / 真实手点验收等）未过时，记录缺口到本段并继续做。
 
 - 验收链：装得上 → 进主界面 → 下一局（本地或蓝牙）→ 正常退出 → 重进不崩
 - **全链达成判据**（MuMu x86_64 host + houdini 转译，pid 2651 实锤）：
