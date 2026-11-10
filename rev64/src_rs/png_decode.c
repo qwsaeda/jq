@@ -10,7 +10,9 @@
 #include <string.h>
 #include <stdint.h>   /* SIZE_MAX（B04-076 realloc 溢出防护） */
 #include <zlib.h>
-#include <dlfcn.h>   /* ★ 64 位 dlopen 根治（2026-11-10）：inflate 3 符号 dlsym 动态解析（libz 免 NEEDED 直链）——
+#include <dlfcn.h>
+#include <android/log.h>   /* ★ 64 位真机 PNG 解码诊断日志（dlsym/inflate 失败点定位） */
+#define LOG_TAG "junqi_rs"   /* ★ 64 位 dlopen 根治（2026-11-10）：inflate 3 符号 dlsym 动态解析（libz 免 NEEDED 直链）——
    MuMu arm64 系统 libz 98KB 极简版 inflate 导出异常（NDK 对照 inflateInit_ 有、inflate 无），
    UND inflate 后 dlopen failed: failed to link。zlib.h 类型定义仍需（z_stream 结构体 +
    Z_OK/Z_FINISH 常量 + inflate 函数指针 typedef），3 个函数符号改 dlsym 运行时解析，
@@ -149,7 +151,7 @@ int png_decode(const unsigned char *data, size_t len,
     void *zdl = dlopen("libz.so", RTLD_NOW | RTLD_GLOBAL);
     if (!zdl) { free(raw); free(idat); return -1; }
     typedef int (*zinf_t)(z_stream *, int);
-    typedef int (*ziinit_t)(z_stream *);
+    typedef int (*ziinit_t)(z_stream *, const char *, int);   /* ★ inflateInit_ 3 参数（version + stream_size） */
     typedef int (*ziend_t)(z_stream *);
     zinf_t p_inflate = (zinf_t)dlsym(zdl, "inflate");
     ziinit_t p_inflateInit = (ziinit_t)dlsym(zdl, "inflateInit_");
@@ -157,7 +159,13 @@ int png_decode(const unsigned char *data, size_t len,
     if (!p_inflate || !p_inflateInit || !p_inflateEnd) {
         dlclose(zdl); free(raw); free(idat); return -1;
     }
-    if (p_inflateInit(&zs) != Z_OK) { dlclose(zdl); free(raw); free(idat); return -1; }
+    int zr_init = p_inflateInit(&zs, "1.2.11", (int)sizeof(z_stream));
+    if (zr_init != Z_OK) {
+        __android_log_print(ANDROID_LOG_INFO, LOG_TAG,
+          "PNG inflateInit_ zr=%d (Z_OK=0) w=%u h=%u ch=%d scanlen=%zu",
+          zr_init, (unsigned)w, (unsigned)h, channels, scanlen);
+        dlclose(zdl); free(raw); free(idat); return -1;
+    }
     zs.next_in = idat; zs.avail_in = (uInt)idat_len;
     zs.next_out = raw; zs.avail_out = (uInt)scanlen;
     int zr = p_inflate(&zs, Z_FINISH);
