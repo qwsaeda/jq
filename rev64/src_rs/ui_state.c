@@ -11,6 +11,11 @@
 #include "ui_state.h"
 #include "ui_menu.h"
 #include <android/log.h>
+/* ★ MuMu dlopen 修复（2026-11-10）：LOGE 裸用（布局保存写失败告警）——
+   本文件只 #define LOGI 没 LOGE，C 编译器把 LOGE( 当隐式外部函数声明
+   （K&R 兼容老代码风格）→ so 里出现 UND "LOGE" 符号 → MuMu 6.0 linker
+   严格拒绝（红果宽松放行）。补 define 根治。 */
+#define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, "junqi_rs", __VA_ARGS__)
 #include <pthread.h>
 #include <stdio.h>
 #include <string.h>

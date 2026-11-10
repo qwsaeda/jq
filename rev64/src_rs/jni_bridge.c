@@ -8586,9 +8586,20 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
            在 MuMu surface attach flaky 停帧时兜底不了 → 主线程直接推进）。
            OnUpdate 检查 turn==RED 时 AI 已把 turn 切回 BLUE → 不重复（同 g_mutex）。 */
         if (move_ok) {
+            /* ★ AUD-1000-ALL A10-D2-01（P2 已修）：OnTouch 走子块 ai_pick O(N²) 移锁外
+               （同 A2-020 OnUpdate 范式）——旧实现在 g_mutex 段内做 ai_pick（60×60
+               jq_can_move），阻塞 GLThread 渲染读 + 触摸线程。修：锁内判定快照
+               （stage/turn/vs_ai），锁外 ai_pick，锁内重检应用（turn 切回 BLUE 去重）。 */
+            int ai_go = 0;
             pthread_mutex_lock(&g_mutex);
             if (ui_screen_get() == UI_GAME && g_state.stage == STG_PLAY &&
-                g_vs_ai && g_state.turn == SIDE_RED) {
+                g_vs_ai && g_state.turn == SIDE_RED)
+                ai_go = 1;
+            pthread_mutex_unlock(&g_mutex);
+            if (ai_go) {
+                pthread_mutex_lock(&g_mutex);
+                if (ui_screen_get() == UI_GAME && g_state.stage == STG_PLAY &&
+                    g_vs_ai && g_state.turn == SIDE_RED) {   /* ★ 锁内重检（防 ai_pick 期间对局结束） */
                 int af, at, aflip, ae = -1;
                 if (ai_pick(&af, &at, &aflip) == 0) {
                     int pushed = undo_push();   /* ★ AUD-1000 B03-008（P1 已修）：OnTouch AI 块 push 契约 */
@@ -8611,8 +8622,9 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
                         sfx_stage = g_state.stage; sfx_win = g_state.winner;  /* 锁内读，锁外播 */
                     }
                 }
+                }
+                pthread_mutex_unlock(&g_mutex);
             }
-            pthread_mutex_unlock(&g_mutex);
             /* ★ 对抗审计 #6：音效挪锁外（sfx_play/sfx_game_over 不读 g_state，
                旧版锁内调与 GUIDELINE §3"sfx 锁外"矛盾） */
             if (sfx_done) {

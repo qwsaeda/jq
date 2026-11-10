@@ -24,7 +24,7 @@ dist/libjunqi_rs.so: $(SRCS_CORE) jni_bridge.c bt_session.c jq_event_names_73.c 
 	@mkdir -p dist
 	$(NDK)/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android24-clang \
 		$(CFLAGS) -shared -fPIC -o $@ $(SRCS_CORE) jni_bridge.c bt_session.c jq_event_names_73.c evt55_dispatch.c evt55_business.c evt55_sfx.c render.c render_obj.c containers.c render_scene.c glview_gl.c touch.c touch_state.c ui_menu.c ui_state.c png_decode.c img_decode.c gl2_probe_gl.c -lm \
-		-llog -lz -lEGL -lGLESv1_CM -lGLESv2 -landroid
+		-llog -lEGL -lGLESv1_CM -lGLESv2 -landroid -ldl   # ★ 64 位 dlopen 根治（2026-11-10）：去 -lz（inflate 3 符号 dlsym 动态解析，MuMu arm64 libz 极简版缺 inflate 导出，UND inflate 致 dlopen failed to link）+ 加 -ldl（dlopen/dlsym 符号）
 	@echo "构建完成: $@"
 
 # 一致测试（重写侧规则引擎基准序列）：./dist/jq_consistency selftest

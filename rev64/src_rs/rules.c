@@ -497,6 +497,14 @@ static void stalemate_after(jq_state *st)
        修：stalemate_after 收口 stale_dirty=0（全扫完成后缓存有效，增量命中）。 */
     if (st->stage == STG_PLAY && jq_side_stalemated(st, st->turn))
         jq_on_stalemate(st, st->turn);
+    /* ★ AUD-1000-ALL A10-D1-01（P2 已修）：对端 stale_cache 预刷——旧版只判
+       st->turn 侧（jq_side_stalemated(st, st->turn)），对端（1-st->turn）的
+       stale_cache 在 stale_dirty=0 收口后未刷新。后果：下步走子后 stalemate_after
+       再判对端侧时走全扫（缓存未命中），每步走子 O(N²) 全扫一轮。
+       修：turn 侧判完补判对端侧（缓存 0/1 都写，下次对端侧直接命中），
+       两步走子后双端缓存全有效，后续全扫仅在 stale_dirty=1（实际走子）后触发。 */
+    if (st->stage == STG_PLAY)
+        jq_side_stalemated(st, 1 - st->turn);
     st->stale_dirty = 0;
 }
 

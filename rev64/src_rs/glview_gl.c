@@ -364,6 +364,12 @@ static void *rs_render_thread_main(void *arg)
                竞态 → 棋子闪错帧（窗口出屏可观测路径）。与 OnUpdate GLThread 路径
                （:2609 持锁 rs_render_frame）统一锁契约。PBuffer 兜底线程不持锁
                （不上屏，撕裂不可见，诚实边界不变）。 */
+            /* ★ A2-007（P1 已修）+ 出图实证（2026-11-10）：渲染线程 window 出屏读
+               g_state 持 g_mutex 短锁（与 OnUpdate GLThread 路径 :2740 持锁契约统一，
+               防棋子闪错帧）。rs_render_frame 纯 GL 不回调 Java/不嵌套取 g_mutex
+               → 短锁无死锁（OnUpdate 持锁段最长 ms 级，本线程等待 <1 帧）。
+               诚实边界：持锁等待期间帧滞后（同 PBuffer 兜底线程不持锁口径一致，
+               不上屏撕裂不可见）。 */
             pthread_mutex_lock(&g_mutex);
             rs_render_frame(&g_rr);
             pthread_mutex_unlock(&g_mutex);

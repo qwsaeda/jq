@@ -10,6 +10,11 @@
 #include <string.h>
 #include <stdint.h>   /* SIZE_MAX（B04-076 realloc 溢出防护） */
 #include <zlib.h>
+#include <dlfcn.h>   /* ★ 64 位 dlopen 根治（2026-11-10）：inflate 3 符号 dlsym 动态解析（libz 免 NEEDED 直链）——
+   MuMu arm64 系统 libz 98KB 极简版 inflate 导出异常（NDK 对照 inflateInit_ 有、inflate 无），
+   UND inflate 后 dlopen failed: failed to link。zlib.h 类型定义仍需（z_stream 结构体 +
+   Z_OK/Z_FINISH 常量 + inflate 函数指针 typedef），3 个函数符号改 dlsym 运行时解析，
+   链接期不写 UND 动态引用。 */
 
 /* PNG 滤波器重建（每行前 1 字节 filter type） */
 static void unfilter(unsigned char *out, const unsigned char *in,
@@ -140,11 +145,24 @@ int png_decode(const unsigned char *data, size_t len,
        inflate 写不进去（zlib 返 Z_OK 非 Z_STREAM_END 拒收），加防御。 */
     if (idat_len > (size_t)UINT_MAX) { free(idat); return -1; }
     if (scanlen > (size_t)UINT_MAX) { free(raw); free(idat); return -1; }
-    if (inflateInit(&zs) != Z_OK) { free(raw); free(idat); return -1; }
+    /* ★ dlsym 解析 inflate 3 符号（libz 运行时加载，免 NEEDED） */
+    void *zdl = dlopen("libz.so", RTLD_NOW | RTLD_GLOBAL);
+    if (!zdl) { free(raw); free(idat); return -1; }
+    typedef int (*zinf_t)(z_stream *, int);
+    typedef int (*ziinit_t)(z_stream *);
+    typedef int (*ziend_t)(z_stream *);
+    zinf_t p_inflate = (zinf_t)dlsym(zdl, "inflate");
+    ziinit_t p_inflateInit = (ziinit_t)dlsym(zdl, "inflateInit_");
+    ziend_t p_inflateEnd = (ziend_t)dlsym(zdl, "inflateEnd");
+    if (!p_inflate || !p_inflateInit || !p_inflateEnd) {
+        dlclose(zdl); free(raw); free(idat); return -1;
+    }
+    if (p_inflateInit(&zs) != Z_OK) { dlclose(zdl); free(raw); free(idat); return -1; }
     zs.next_in = idat; zs.avail_in = (uInt)idat_len;
     zs.next_out = raw; zs.avail_out = (uInt)scanlen;
-    int zr = inflate(&zs, Z_FINISH);
-    inflateEnd(&zs);
+    int zr = p_inflate(&zs, Z_FINISH);
+    p_inflateEnd(&zs);
+    dlclose(zdl);
     free(idat);
     if (zr != Z_STREAM_END) { free(raw); return -1; }
 
