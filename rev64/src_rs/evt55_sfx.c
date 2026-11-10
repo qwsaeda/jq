@@ -1,7 +1,7 @@
 /* evt55_sfx.c — 原版 73 事件名 → 音效 WAV 名映射（64 位实现，替代旧死函数 sfx_for_event_name）
  *
  * 对齐原版 .rodata 音效分类：核心 7 类走独立 WAV（move/eat/bomb/flag/dead/flip），
- * 胜负/和棋/投降走 win/lose/draw，账号/联机/摆子类无独立 WAV → 兜底 select/close（诚实边界）。
+ * 胜负/和棋/投降走 win/lose/draw，账号/联机/摆子类无独立 WAV → 兜底 move（诚实边界，★ A6-01 注释纠正）。
  * 诚实边界：73 事件名中账号/注册/联机类 44 名音效=UI 通用音（原版无独立业务 WAV），不造新音效。
  */
 #include "junqi.h"

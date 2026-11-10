@@ -999,9 +999,7 @@ static volatile int g_bt_sess_init_done = 0;   /* ★ AUD-1000-ALL A2-002/003/03
    语义=最坏读旧值=多跳一次本轮发送（Java 侧 BtSpp 二道守卫），非崩溃级竞争。
    锁序单向：g_mutex 内可调 g_ui_lock（ui_opt_* / ui_replay_*），禁反向
    （g_ui_lock 内绝不取 g_mutex；grep 实证 0 反向，CODE_STYLE §锁序）。 */
-int g_event_cnt[JQ_EVENT_NAME_COUNT];   /* ★ 原版行为移植（本轮）：7→73 事件名计数（对齐 jq_event_names_73 契约；简化版 7 事件码映射到对应名称索引） */   /* ★ AUD-R-061（P2）：扩容 6→7（补 EV_FLIP=Junqi.Flip 计数位；0-5 顺序不变）。
-                               AUD-R-062（P2）：g_event_cnt[0]=EV_MOVE 与 [5]=EV_MINE 同名 "Junqi.Move"
-                               （对齐原版设计）——按**事件码**分流统计（两位分开计），按**事件名**分流音效。 */
+int g_event_cnt[JQ_EVENT_NAME_COUNT];   /* ★ 原版行为移植：73 事件名计数（对齐 jq_event_names_73 契约；7 事件码映射到对应名称索引；★ AUD-R-061（P2）：扩容 6→7 补 EV_FLIP=Junqi.Flip 计数位，0-5 顺序不变；★ AUD-R-062（P2）：g_event_cnt[0]=EV_MOVE 与 [5]=EV_MINE 同名 "Junqi.Move"（对齐原版设计）——按**事件码**分流统计（两位分开计），按**事件名**分流音效） */
 int g_event_total = 0;   /* ★ 原版行为移植：非 static（evt55_dispatch.c 跨文件计数） */
 
 /* ★ 原版行为移植（55 code 全链）：7 事件码 → 73 事件名索引映射（直接计数路径用）

@@ -15,13 +15,7 @@
    （无写入/读取点，jq_state 体量不小白占 BSS）。删除。
    UNDO 悔棋栈实际在 jni_bridge.c g_undo[]（jq_bt_undo_available 读 g_undo_top）。 */
 
-/* 坐标 → 索引（原版 0x6ef54：[0]=col [1]=row，cell_index(row,col)） */
-static int cell_of(int col, int row, int *out_idx)
-{
-    if (col < 0 || col >= 5 || row < 0 || row >= 12) return -1;
-    *out_idx = cell_index(row, col);
-    return *out_idx;
-}
+/* ★ AUD-1000-ALL A1-D4-001（P3 已修）：cell_of 死代码删除（全仓 0 调用点，frame_coord_ok/cell_index 为实际使用路径） */
 
 /* 校验帧坐标（原版 0x39f20 用 0x6ef54 坐标比较，非法坐标 return） */
 static int frame_coord_ok(int fc, int fr, int tc, int tr)

@@ -340,17 +340,19 @@ static void rs_read_png(AAssetManager *am, const char *asset_path,
     if (am) a = AAssetManager_open(am, asset_path, AASSET_MODE_BUFFER);
     if (a) {
         int64_t sz = AAsset_getLength(a);
-        /* ★ AUD-1000 B04-048（P2 已修）：AAsset_getLength 负值（AASSET 非 0/损坏）
-           防护——原 sz>0?sz:1 负值走 1 字节读（静默），现负值显式拒收走双路失败诊断。 */
-        if (sz < 0) { LOGI("rs_read_png：AAsset_getLength 负值（%s）→ 拒收", asset_path); AAsset_close(a); }
-        else {
-        unsigned char *buf = malloc(sz > 0 ? sz : 1);
-        int64_t rd = AAsset_read(a, buf, sz > 0 ? (size_t)sz : 1);
-        AAsset_close(a);
-        if (rd == sz) { *out = buf; *out_len = sz; AAsset_close(a); return; }
-        free(buf);
+        /* ★ AUD-1000 B04-048（P2 已修）：AAsset_getLength 负值（ASSET 损坏/异常）
+           防护——原 sz>0?sz:1 负值走 1 字节读（静默），现负值显式拒收走双路失败
+           诊断（不读、不 free、单次 close）。 */
+        if (sz < 0) {
+            LOGI("rs_read_png：AAsset_getLength 负值（%s）→ 拒收", asset_path);
+            AAsset_close(a);
+        } else {
+            unsigned char *buf = malloc(sz > 0 ? sz : 1);
+            int64_t rd = AAsset_read(a, buf, sz > 0 ? (size_t)sz : 1);
+            if (rd == sz) { *out = buf; *out_len = sz; }
+            else free(buf);
+            AAsset_close(a);   /* 单次 close（原双 close 修正） */
         }
-        AAsset_close(a);
     }
     /* 双路均无 → LOGI 诊断（资源缺失显式告警，便于真机/设备端资源对齐排查） */
     FILE *f = fopen(fs_path, "rb");

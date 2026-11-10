@@ -19,6 +19,9 @@ static void unfilter(unsigned char *out, const unsigned char *in,
     unsigned char *dst = out;
     for (int y = 0; y < h; y++) {
         int ft = *src++;
+        /* ★ AUD-1000 B04-081（P2 已修）：filter type 0-4 白名单（PNG 规范 5 类），
+           非 0-4（恶意/损坏）拒收——原 switch default 不拒按 None 处理（静默）。 */
+        if (ft < 0 || ft > 4) return;
         const unsigned char *prev = (y == 0) ? NULL : dst - stride;
         for (int x = 0; x < stride; x++) {
             int a = (x >= bpp) ? dst[x - bpp] : 0;      /* 左 */

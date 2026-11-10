@@ -2,8 +2,8 @@
 # mumu_regress.sh — 事件回归一键跑（批量，含 btconn）
 # 收敛反复手工 for 循环（flag/mine/restart/draw/resign/stalemate/close/pop/btconn）。
 # 用法:
-#   bash rev64/tools/mumu_regress.sh --dev emulator-5554
 #   bash rev64/tools/mumu_regress.sh --dev 10.0.182.146:5555 --only flag,btconn
+#   （默认 DEV=emulator-5554，红果 MuMu 标准验证环境=10.0.182.146:5555，★ A6-14 注释口径统一）
 set -u
 DEV=emulator-5554
 ONLY=""
