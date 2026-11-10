@@ -11,7 +11,7 @@ v1 签名）→ 本工具 → SignV1Only → MuMu 装 Success。
 """
 import sys, os, zipfile, struct, zlib
 
-STORE_EXT = ('.so', '.arsc', '.png', '.pak', '.jpg', '.mp3', '.ogg')
+STORE_EXT = ('.so', '.arsc', '.png', '.pak', '.jpg', '.mp3', '.ogg', '.dex')
 
 
 def main(inp, outp):
