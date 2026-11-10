@@ -323,6 +323,13 @@ java -cp /tmp/opencode/apksigner/apksig.jar:/tmp/opencode/apksigner SignV2 \
   - **教训固化（防复发）**：`setprop jq.mode 0` 只影响 OnCreate 首局，**弹窗"确定"开局走 `ui_opt_get_mode()`（默认 1 暗棋）不受属性钩子**——
     明棋验证必须走弹窗切换按钮（`view(455,587)`），不能用 `jq.mode` 属性（旧口径误导，本轮已纠正）。
   - 后续新增"能玩"判据未过时，按本段"未达成继续做"原则：先实锤根因（日志+几何对照），再修，修完 MuMu 全链复验才允许写"达成"。
+- **★ 2026-11-10 用户"MuMu玩不了"终锤：暗棋先手翻子定色误判蓝胜 + AI 永无翻棋（★ 已修，so `d82049cf0b6f` + 10.0.182.146 pid 24616 实锤）**：
+  - **用户视角卡点**：人机对战→新手翻棋→开局→蓝翻子（cell 6 师长）后**对局立即判蓝方胜结束**（`rs_draw_overlay winner=BLUE` + stage→2 OVER），AI 不应对，玩家无法继续 = "玩不了"。
+  - **根因①（jq_side_stalemated 误判红方困毙）**：`jq_dark_setup` 全 60 格 `side=SIDE_UNKNOWN(0xFF)`（先手翻子定色，layout.c:214 实锤），蓝首翻定蓝后红方**全 0xFF 未翻**；B01-011/089 旧修把 0xFF 子限成"仅先手蓝计可翻"→ 红方困毙扫描无任何可翻/可动子 → **红方立即困毙 → 蓝胜**（`jq_flip` 收口 `stalemate_after` 判对方困毙）。修：`jq_side_stalemated` 恢复 `(c->side == 0xFF || c->side == side)`（0xFF 双方可翻，翻归翻子方）；`jq_can_flip` 0xFF 分支改 `SIDE_VALID(st->turn)`（当前回合方可翻，保留回合门防"抢定色"）。
+  - **根因②（ai_pick 永无翻棋候选）**：`ai_pick` 翻棋循环 `if (c->rank == RANK_EMPTY || c->side != me || c->revealed) continue;`——暗棋全 0xFF 下 `c->side != me`（0xFF≠RED）恒 continue → AI 翻棋候选恒空 → 红方回合死锁（蓝首翻后 turn=RED 永无 AI 动作）。修：翻棋循环接受 `c->side == SIDE_UNKNOWN`（翻归 me）或 `c->side == me`。
+  - **桌面专项回归**（dark_flip_test，/tmp/opencode/dark_flip_test.c）：蓝首翻→红方困毙=0（未困毙）→红翻→蓝方困毙=0，PASS；`src_rs_regress.sh` 11/12（唯一 FAIL `[5]` 是预存 JNI GetMethodID 审计缺口，与本次改动无关）；evverify 170/170 + gametest 60局 + walkverify/longrun 全 PASS。
+  - **真机全链复验（10.0.182.146 pid 24616）**：人机→难度→开局→蓝翻 cell6（师长）→**无蓝胜误判**（stage=1 PLAY 持续）→**AI 翻 cell3 应着**（turn→0）→蓝再翻 cell10→AI 翻 cell4→回合交替持续→0 崩溃。盘面 4 子已翻（蓝旅长/师长 + 红排长/连长）出屏。
+  - **判据**："玩不了"根因 = 暗棋先手翻子定色误判蓝胜 + AI 永无翻棋（双根因），`d82049cf0b6f` 修复后红果真机"蓝翻→AI应着→回合交替"全链达成，对局可继续（非立即结束）。
 - **★ 2026-11-10 用户实测反馈"MuMu 玩不了"= 系统全屏提示栏拦截触摸（★ 已修 `b75c303`，复验 PASS）**：
   - 用户侧现象：主菜单按钮点不到"两人对局"→ 进不了对局（本工作区 `input tap` 全链 PASS，用户手点被系统
     "Viewing full screen / GOT IT" 顶部蓝条 + 全屏横幅压在 app 之上拦截）。

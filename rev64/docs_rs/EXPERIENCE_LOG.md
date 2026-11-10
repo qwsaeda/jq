@@ -1989,3 +1989,31 @@ OnCreate 主线程被该钩子段拖住（转译层 property 读取 + 自动走 
   - `jq.dlgNNN` 批量钩子需 `jq.dlgbatch` 先 armed（OnCreate/OnUpdate 读 `jq.dlgbatch` 门控），
     且 prop 残留会被 OnCreate 拾取（验收前全清 jq.* 残留）。
   - orig_two2.png 实为**主菜单**（非两人新局弹窗截图）——原版弹窗截图命名不可尽信，以 XML 为准。
+
+## ★ 2026-11-10 用户"MuMu玩不了"终锤：暗棋先手翻子定色误判蓝胜 + AI 永无翻棋（so d82049cf0b6f）
+
+### 闭环事实
+
+用户红果（10.0.182.146:5555）实测"人机对战→新手翻棋→开局→蓝翻子"后对局**立即判蓝方胜结束**（`rs_draw_overlay winner=BLUE` + stage→2 OVER），AI 不应对，玩家无法继续 = "玩不了"。双根因实锤：
+
+1. **jq_side_stalemated 误判红方困毙**：`jq_dark_setup`（layout.c:214）全 60 格 `side=SIDE_UNKNOWN(0xFF)`（先手翻子定色），蓝首翻定蓝后红方全 0xFF 未翻；B01-011/089 旧修把 0xFF 子限成"仅先手蓝计可翻"→ 红方困毙扫描无任何可翻/可动子 → 红方立即困毙 → 蓝胜（`jq_flip` 收口 `stalemate_after` 判对方困毙）。
+2. **ai_pick 永无翻棋候选**：`ai_pick` 翻棋循环 `c->side != me` 在暗棋全 0xFF 下恒 continue（0xFF≠RED）→ AI 翻棋候选恒空 → 红方回合死锁（蓝首翻后 turn=RED 永无 AI 动作）。
+
+### 修复
+
+- `jq_can_flip`（rules.c）：0xFF 分支 `return st->turn == SIDE_BLUE` → `return SIDE_VALID(st->turn)`（当前回合方可翻，保留回合门防"抢定色"；0xFF 翻归翻子方）。
+- `jq_side_stalemated`（rules.c）：`(c->side == 0xFF ? side == SIDE_BLUE : c->side == side)` → `(c->side == 0xFF || c->side == side)`（0xFF 双方可翻→未困毙）。
+- `ai_pick`（jni_bridge.c）：翻棋循环 `c->side != me` → `c->side != me && c->side != SIDE_UNKNOWN`（接受 0xFF，翻归 me）。
+- `OnTimer` 诊断保留降频至每 1000 次（100 秒）1 行。
+
+### 验证
+
+- 桌面专项 `dark_flip_test`（/tmp/opencode/dark_flip_test.c）：蓝首翻→红方困毙=0→红翻→蓝方困毙=0，PASS。
+- `src_rs_regress.sh` 11/12（唯一 FAIL `[5]` 是预存 JNI GetMethodID ExceptionClear 审计缺口，与本次改动无关）；evverify 170/170 + gametest 60局 + walkverify/longrun 全 PASS。
+- 真机全链复验（10.0.182.146 pid 24616）：人机→难度→开局→蓝翻 cell6（师长）→**无蓝胜误判**（stage=1 PLAY 持续）→**AI 翻 cell3 应着**（turn→0）→蓝再翻 cell10→AI 翻 cell4→回合交替持续→0 崩溃。盘面 4 子已翻（蓝旅长/师长 + 红排长/连长）出屏。
+
+### 坑清单（新增）
+
+- **B01-011/013/014/089 的"0xFF 仅先手蓝可翻"修法是本 bug 源**：它把"先手翻子定色"误读成"0xFF 子池归先手"，导致红方永无可翻子（暗棋全 0xFF 下红方回合无动作）。正确语义：0xFF 子双方均可翻，翻归翻子方（先手蓝首翻定蓝，此后红翻定红）。
+- **ai_pick 与 jq_can_flip 的 0xFF 判定必须同源**：jq_can_flip 改后 ai_pick 翻棋循环漏改会形成"规则层允许、AI 层不选"的不对称（红方回合 AI 卡死）。凡改 jq_can_flip 的 side 判定，同步审计 ai_pick/其他翻棋候选扫描。
+- **"玩不了"验收必须含 AI 应着判据**：用户视角"玩"= 玩家动作 → AI 响应 → 回合回玩家 的完整循环，仅验证"玩家能翻子"（can_flip=1）不够，须验证 AI 翻/走后 turn 切回玩家。

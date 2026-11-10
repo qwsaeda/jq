@@ -811,14 +811,13 @@ bool jq_can_flip(const jq_state *st, int idx)
        装载路径（jq_dark_setup 写死 side 分区）下**不可达**（实测 0 个 0xFF 格）
        ——先手翻子定色（ruleflip）留待 AUD-R-003 落地后才成立，本分支为
        机制预留（与兄弟实现 game_logic.c 同款判定），非当前可用行为。 */
-    /* ★ AUD-1000 B01-013/014（P0 已修）：0xFF 未定色暗子**仅先手（蓝）回合可翻**——
-       旧实现 0xFF 恒可翻（无回合门），后手（红）回合可翻先手暗子并 jq_flip 定色
-       写 st->turn（RED）→ 先手暗子池被后手"抢定色"，先手翻子定色规则被绕过。
-       定色归翻子方，0xFF 定色仅先手（蓝）可触发。 */
-    /* ★ AUD-1000 B01-076（P3 注释，与 B01-013 同源）：0xFF 子先走本分支（仅先手蓝可翻），
-       绕过 :675 回合同期门（side==turn）——0xFF 定色无回合约束，B01-013 已修（仅先手
-       可触发）。本条与 B01-013 同源，B01-013 修后本条自动闭合。 */
-    if (c->side == 0xFF) return st->turn == SIDE_BLUE;
+    /* ★ 2026-11-10 用户"MuMu玩不了"根因修复：0xFF 未定色暗子**当前回合方可翻**。
+       B01-013/014 旧修（0xFF 仅先手蓝可翻）在 jq_dark_setup 全 0xFF（先手翻子定色）
+       下使红方**永无可翻子**→ 蓝首翻后红方立即困毙 → 蓝胜误判（"玩不了"根因）。
+       正确语义（AUD-R-003 先手翻子定色）：双方未翻子全 0xFF，先手蓝首翻定蓝，
+       此后红回合翻 0xFF 子定红——每翻子归翻子方。回合门保留（SIDE_VALID 防脏
+       turn 越权），红方不再被"仅蓝可翻"封死。 */
+    if (c->side == 0xFF) return SIDE_VALID(st->turn);
     /* ★ 回合校验：己方暗子（side==turn）可翻；敌方暗子（side!=turn）不可翻。
        缺失此校验 → 任意回合可翻任意方暗子，破坏暗棋回合交替。
        ★ AUD-R-085（P2）：回合门已确认——side==0xFF（未定色）分支在暗棋"先手
@@ -897,15 +896,17 @@ bool jq_side_stalemated(const jq_state *st, uint8_t side)
     for (int i = 0; i < N_CELLS; i++) {
         const jq_cell *c = &st->cells[i];
         int cn = rank_of(c);
-        /* AUD-1000 B01-011：0xFF 未定色暗子仅先手（蓝）可翻（jq_can_flip 门控），
-           红方困毙扫描时 0xFF 子不算"红方可翻"（否则红方永不能因只剩未定色暗子而困毙）。
-           旧实现 (c->side == 0xFF || c->side == side) 让 0xFF 子对双方都判"可翻"→红方恒不困毙。 */
+        /* ★ 2026-11-10 用户"MuMu玩不了"根因修复（推翻 B01-011/089 旧修）：
+           0xFF 未定色暗子在先手翻子定色（jq_dark_setup 全 0xFF）下**双方均可翻**
+           （翻归翻子方）——困毙扫描时 0xFF 子对双方都计"可翻→未困毙"。
+           B01-011 旧修（0xFF 仅先手蓝计）在红方全 0xFF 时误判红方困毙（蓝首翻后
+           蓝胜，见 jq_can_flip 修复注释）；恢复 (c->side == 0xFF || c->side == side)
+           使红方有未翻子即未困毙（正确：红方确实能翻 0xFF 子）。 */
         if (c->rank != RANK_EMPTY && !c->revealed &&
             cn != RANK_FLAG && cn != RANK_MINE &&
-            (c->side == 0xFF ? side == SIDE_BLUE : c->side == side)) {
-            /* ★ AUD-1000 B01-089（P3 注释，与 B01-011 同源）：0xFF 子仅先手计未困毙
-               （B01-011 已修：扫红方时 0xFF 子被误计红方，现 0xFF 子仅先手侧计）。
-               本条与 B01-011 同源，B01-011 修后本条自动闭合。 */
+            (c->side == 0xFF || c->side == side)) {
+            /* ★ 2026-11-10 用户"MuMu玩不了"根因修复（与上注释同源）：0xFF 子双方计
+               未困毙（B01-089 旧修"仅先手侧计"已推翻，随 jq_can_flip 修复闭合）。 */
             /* AUD-1000 B01-012：写缓存（可翻暗子 → 未困毙） */
             ((jq_state *)st)->stale_cache[side] = 1;
             ((jq_state *)st)->stale_dirty = 0;

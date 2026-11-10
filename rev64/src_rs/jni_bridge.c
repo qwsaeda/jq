@@ -323,8 +323,13 @@ static int ai_pick(int *from, int *to, int *is_flip)
     /* 无走子 → 翻棋 */
     for (int i = 0; i < N_CELLS; i++) {
         jq_cell *c = &g_state.cells[i];
-        if (c->rank == RANK_EMPTY || c->side != me || c->revealed) continue;
+        if (c->rank == RANK_EMPTY || c->revealed) continue;
         if (c->rank == RANK_FLAG || c->rank == RANK_MINE) continue;
+        /* ★ 2026-11-10 用户"MuMu玩不了"根因修复：暗棋先手翻子定色（jq_dark_setup
+           全 0xFF）下未翻子 side 恒 SIDE_UNKNOWN，AI 翻棋候选须接受 0xFF（翻归 me）
+           或己方暗子（c->side==me）。旧 `c->side != me` 在暗棋全 0xFF 下恒 continue
+           → AI 永无翻棋 → 红方卡死（蓝首翻后 turn=RED 死锁）。 */
+        if (c->side != me && c->side != SIDE_UNKNOWN) continue;
         if (jq_can_flip(&g_state, i)) { *from = i; *to = i; *is_flip = 1; return 0; }
     }
     if (bf >= 0) { *from = bf; *to = bt; *is_flip = 0; return 0; }  /* 空移兜底 */
@@ -2539,7 +2544,13 @@ Java_com_cnvcs_App_OnTimer(JNIEnv *env, jclass clazz)
     /* 出屏主路归 Java EglHelper（OnUpdate 在 GLThread window context 上 rs_render_frame）：
        OnTimer 不再 fromSurface 重试。 */
     static int g_timer_cnt = 0;
-    (void)g_timer_cnt;
+    /* ★ 2026-11-10 用户"MuMu玩不了"诊断：确认 OnTimer 是否被 Java 侧周期性调用 +
+       AI 块条件值（ui_screen/g_vs_ai/stage/turn）——AI 应着未触发实锤定位。
+       ★ 根因修复后降频至每 1000 次（100 秒）1 行，保留低频钩子供后续排查。 */
+    if ((g_timer_cnt++ % 1000) == 0) {
+        LOGI("OnTimer 诊断：cnt=%d env=%p ui=%d vs_ai=%d stage=%d turn=%d undo=%d",
+             g_timer_cnt, (void*)env, ui_screen_get(), g_vs_ai, g_state.stage, g_state.turn, g_undo_top);
+    }
     if (env) {
         /* ★ AUD-1000 B03-007（P1 已修/已注释）：OnTimer AI 块持 g_mutex 做 O(N_CELLS²)
            ai_pick（60×60 次 jq_can_move）——与 OnUpdate AI 块同锁互斥（同 g_mutex），
