@@ -115,7 +115,20 @@ java -cp /tmp/opencode/apksigner/apksig.jar:/tmp/opencode/apksigner SignV2 \
 - 改动：删 `smali/com/baidu/*` 全量、删 `smali/com/cnvcs/AdLis.smali`、删 `assets/__xadsdk__remote__final__.jar`、manifest 去全部广告项（INTERNET/NETWORK/WIFI/PHONE/LOCATION 权限、baidu AppActivity、UMENG_APPKEY）
 - 验收：64 位设备断网能装、无广告浮层、无 baidu 类、无 ad jar、网络权限 0 项；32 位设备不在本阶段验收范围
 
-### 64 位真机"能玩"验收标准（★ 全链达成 `ad536fd`，MuMu 实锤）
+### 64 位真机"能玩"验收标准（★ 渲染布局未达成，用户"怎么通过的"指正 2026-11-10）
+
+> **★ 用户"这界面你是怎么通过的"指正（2026-11-10，实锤渲染布局未达成）**：
+> 用户实机截图显示 10.0.182.146 上 app 画面**被压在一块小竖条里，上下大片纯黑**（窗口/surface 未填满
+> 720×1280 屏），且顶部系统"M"通知栏未消除。我之前下"全链达成"结论是**假象**——
+> "走子 6→11 can_move=1"日志是无对局实际画面下的坐标碰打，未验证画面可交互。
+> **渲染布局"能玩"未达成，继续做，不许以诚实边界搪塞。**
+> 修复方向：① 查 `rs_render_init`/EGL surface 实际尺寸（`view_w/view_h` 应为 720×1280，非小竖条）
+> ② 查 GLView `onSizeChanged`/EglHelper `window` 分支 surface 创建尺寸
+> ③ 系统通知栏 dismiss（`FLAG_FULLSCREEN` + `IMMERSIVE_STICKY` 双设）
+> ④ 实锤：截图画面铺满全屏（上下无黑边）+ 触摸进对局 + 走子出图
+> ⑤ 红果 10.0.182.146 权威口径复验通过才允许写"达成"。
+
+- 验收链：装得上 → 进主界面 → 下一局（本地或蓝牙）→ 正常退出 → 重进不崩
 
 > **★ 用户 2026-11-10 指令固化（原文："MuMu玩不了，就是达不到真机验证标准，加到文档里，这个目标未达成就继续做"）**
 >
