@@ -2497,14 +2497,15 @@ static void rs_draw_newgame(rs_render *rr, int slot)
             glDeleteBuffers(1, &rr->vbo_sel[slot]);
             rr->vbo_sel[slot] = 0;
         }
-        /* 确定/取消（row4-5） */
+        /* 确定/取消（row4-5：newgame_text_atlas 行4=确定 行5=取消） */
         for (int i = 2; i < UI_NEWGAME_COUNT; i++) {
             float bx0 = nb[i].x0 * sx, by0 = nb[i].y0 * sy;
             float bx1 = nb[i].x1 * sx, by1 = nb[i].y1 * sy;
             float tw = 120.0f * sx, th = tw * ((float)row_h / rr->newgame_text_w);
             float tx0 = (bx0 + bx1) * 0.5f - tw * 0.5f, ty0 = (by0 + by1) * 0.5f - th * 0.5f;
-            float v0 = (float)(i * row_h) / rr->newgame_text_h;
-            float v1 = (float)(i * row_h + row_h) / rr->newgame_text_h;
+            int txt_row = i + 2;   /* ★ 2026-11-10 修复：i=2(确定)→row4, i=3(取消)→row5；旧用 i 直接当行号 → 确定显示'布局明棋'/取消显示'翻棋暗棋'（错位 2 行） */
+            float v0 = (float)(txt_row * row_h) / rr->newgame_text_h;
+            float v1 = (float)(txt_row * row_h + row_h) / rr->newgame_text_h;
             rs_v4f tq[6] = {
                 {tx0, ty0, u0, v0}, {tx0 + tw, ty0, u1, v0}, {tx0, ty0 + th, u0, v1},
                 {tx0, ty0 + th, u0, v1}, {tx0 + tw, ty0, u1, v0}, {tx0 + tw, ty0 + th, u1, v1},

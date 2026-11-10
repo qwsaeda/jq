@@ -12,7 +12,7 @@ DST = "/disk/workspaces/jq/rev64/dist/spak_res"
 FONT = os.path.join(DST, "data_font_all.ttf")
 OUT = os.path.join(DST, "rules_text_atlas.png")
 
-labels = ["规则", "翻棋", "布局", "工兵", "地雷", "炸弹", "夺旗", "边界"]
+labels = ["规则", "规则-翻棋", "规则-布局", "返回", "地雷", "炸弹", "夺旗", "边界"]
 row_h = 46
 W = 220
 H = row_h * len(labels)
