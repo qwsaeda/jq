@@ -118,13 +118,13 @@ java -cp /tmp/opencode/apksigner/apksig.jar:/tmp/opencode/apksigner SignV2 \
 ### 64 位真机"能玩"验收标准（★ 全链达成 `ad536fd`，MuMu 实锤）
 
 - 验收链：装得上 → 进主界面 → 下一局（本地或蓝牙）→ 正常退出 → 重进不崩
-- **全链达成判据**（MuMu x86_64 host + houdini 转译，pid 32199 实锤）：
+- **全链达成判据**（MuMu x86_64 host + houdini 转译，pid 2651 实锤）：
   - 装得上 ✓：64 位 APK 装机 Success（classes.dex 改 STORE 根治 dexopt 内存映射截断）
-  - 进主界面 ✓：PNG 全 OK（board=737×751 / piece=212×280 / text=136×214 / bg=720×1280 / menu_bg=800×1205），渲染线程 swap 成功 + 几何就绪=1 + board_px 非零
-  - 下一局 ✓：flagtest 走子钩子 PASS（Junqi.Flag turn=0 stage=2 winner=0 自动走 53→58）
-  - 正常退出 ✓：0 崩溃
-  - 重进不崩 ✓：多次重装重启 0 FATAL
-- PNG 解码根因（已修 `ad536fd`）：`inflateInit_` 是 3 参数函数（`z_stream*, const char* version, int stream_size`），旧 typedef 只声明 1 参数 → MuMu libz 极简版读垃圾参数 → 返 `Z_DATA_ERROR(-6)` → 全 PNG 解码失败 → 纹理全 MISS → 棋盘/棋子不可见。修：typedef 改 3 参数 + 传 `ZLIB_VERSION` + `sizeof(z_stream)`
+  - 进主界面 ✓：PNG 全 OK（board=737×751 / piece=212×280 / text=136×214 / bg=720×1280 / menu_bg=800×1205），渲染线程 swap 成功 + 几何就绪=1 + board_px 非零 + 棋盘区非黑 100%
+  - 下一局 ✓：触摸交互全链（菜单"两人对局"→ datah_062 弹窗"确定"→ 开局 stage=PLAY 蓝先手）+ movetest 走子 3/3 步（Junqi.Move×2 + Junqi.Dead×1 事件通路）
+  - 正常退出 ✓：am force-stop 0 崩溃
+  - 重进不崩 ✓：重进后 pid 存活 + PNG 全 OK + 0 FATAL
+- PNG 解码根因（已修 `ad536fd`）：`inflateInit_` 是 3 参数函数（`z_stream*, const char* version, int stream_size`），旧 typedef 只声明 1 参数 → MuMu libz 极简版读垃圾参数 → 返 `Z_DATA_ERROR(-6)` → 全 PNG 解码失败 → 纹理全 MISS → 棋盘/棋子不可见。修：typedef 改 3 参数 + 传 `"1.2.11"` + `sizeof(z_stream)`
 - dex 损坏根因（已修 `7cd2270`）：zipalign_apk.py STORE_EXT 漏 `.dex` → classes.dex 保持 deflate（compress=8）→ MuMu dexopt 内存映射失败 "Invalid or truncated dex file" FATAL。修：STORE_EXT 加 `.dex` → dex 改 STORE + 4 字节对齐
 - hp 桥依赖：`libhp12_x86_64.so`（mumu-configs/shared_libs，当前缺失）+ `libhoudini.so` v12（/system/lib64/，在位接管）；hp 缺失时 arm64 so 经 houdini 转译仍可 dlopen + JNI_OnLoad + OnCreate 出屏，PNG 解码经 inflateInit_ 3 参数修复后正常
 - 已修（本轮全链）：
@@ -132,6 +132,12 @@ java -cp /tmp/opencode/apksigner/apksig.jar:/tmp/opencode/apksigner SignV2 \
   - smali hp 容错：App.smali `<clinit>` loadLibrary try/catch + 12 个 native 调用点 if-gtz 正向守卫（`c88a778` + 后续）
   - classes.dex 改 STORE（`7cd2270`）
   - **inflateInit_ 3 参数签名修**（`ad536fd`，PNG 解码根因根治，"能玩"达成）
+- 走子交互（非 flagtest 钩子，真实触摸链）：
+  - 菜单 btn1（x=360 y=1020）→ `ui_state：菜单 action=1 → UI_GAME` → datah_062 弹窗
+  - 弹窗"确定"（x=255 y=747，165-345×717-777 命中区）→ `开局（stage=PLAY 蓝先手 明棋/暗棋）`
+  - 棋盘触摸（cell 命中 `jq_touch_hit_cell`）→ `走子态机 ev=1/7` → `走子判定 Junqi.Move`
+  - movetest 钩子（`setprop jq.movetest 1`）→ 明棋自动走 3 步（Junqi.Move×2 + Junqi.Dead×1，复盘记录 n=3）
+  - flagtest 钩子（`setprop jq.flagtest 1`）→ 近旗注入 + 自动走 53→58 Junqi.Flag（turn=0 stage=2）
 
 ## 红线（不要碰）
 
