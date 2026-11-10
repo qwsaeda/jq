@@ -348,6 +348,19 @@ java -cp /tmp/opencode/apksigner/apksig.jar:/tmp/opencode/apksigner SignV2 \
     ② 下一局（主菜单 → 两人对局弹窗 → 确定开局 stage=PLAY → 蓝方走子 `from=6 to=11 can_move=1 Junqi.Move`）
     ③ 正常退出 0 崩溃 ④ 重进不崩（pid 9049 + board=OK）。全链崩溃 = 0。
   - 结论：用户"玩不了"卡点根因 = 系统提示栏（非 so/非触摸几何/非走子规则），`b75c303` 修复后 64 位真机"能玩"全链达成。
+- **★ 64 位真机"能玩"验证标准（用户 2026-11-10 指令固化：达不到真机验证标准就继续做）**：
+  - **验收五判据**（MuMu 10.0.182.146 真机实测，缺一不可）：
+    ① 装得上：64 位 APK 装机 Success + `am start` 正常启动（pid 存活）
+    ② 进主界面：`Init 像素解码 board=OK` + 渲染线程 `swap成功 board_px 非零`（出屏）
+    ③ 下一局：`jq.movetest` 走子 3/3 步（Junqi.Move×2 + Junqi.Dead×1，复盘 n=3）或触摸走子 `can_move=1`
+    ④ 正常退出：`am force-stop` 0 崩溃
+    ⑤ 重进不崩：重启后 pid 存活 + board=OK + 全链 0 `Fatal signal`
+  - **当前状态：64 位真机"能玩"已达成**（so `09664e7f` + MuMu pid 6880/6945/7039 全 PASS，
+    2026-11-10 复验：装 ✓ 进主界面 ✓ 下一局 movetest 3/3 ✓ 退出 ✓ 重进 ✓，全链崩溃=0）
+  - **未达成就继续做**：后续新增判据（如完整 60 局对弈 / AI 介入 / 蓝牙端到端 / 真实手点验收）
+    未过时，按"未达成继续做"原则追加缺口与路线到本段，不许以"诚实边界"搪塞收尾。
+  - **验收命令**：`bash rev64/tools/mumu_regress.sh --dev 10.0.182.146:5555`（事件回归一键）
+    + `setprop jq.movetest 1` 走子钩子 + 截图非黑比（棋盘+棋子纹理出屏，非纯色退化）。
 
 ## 红线（不要碰）
 
