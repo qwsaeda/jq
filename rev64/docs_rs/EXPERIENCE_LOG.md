@@ -2023,3 +2023,27 @@ OnCreate 主线程被该钩子段拖住（转译层 property 读取 + 自动走 
 - **B01-011/013/014/089 的"0xFF 仅先手蓝可翻"修法是本 bug 源**：它把"先手翻子定色"误读成"0xFF 子池归先手"，导致红方永无可翻子（暗棋全 0xFF 下红方回合无动作）。正确语义：0xFF 子双方均可翻，翻归翻子方（先手蓝首翻定蓝，此后红翻定红）。
 - **ai_pick 与 jq_can_flip 的 0xFF 判定必须同源**：jq_can_flip 改后 ai_pick 翻棋循环漏改会形成"规则层允许、AI 层不选"的不对称（红方回合 AI 卡死）。凡改 jq_can_flip 的 side 判定，同步审计 ai_pick/其他翻棋候选扫描。
 - **"玩不了"验收必须含 AI 应着判据**：用户视角"玩"= 玩家动作 → AI 响应 → 回合回玩家 的完整循环，仅验证"玩家能翻子"（can_flip=1）不够，须验证 AI 翻/走后 turn 切回玩家。
+
+## ★ 2026-11-10 用户"游戏设置UI就没有对齐，很多界面都没有对齐，apk资源没有利用完"（UI 文字位置系统修复）
+
+### 根因（UI_COMPARE 判据漏洞）
+- **UI_COMPARE.md 旧判据只查按钮 rect（Δ≤0.5px），漏了 Title/标签文字位置**——用户看到"没对齐"的根因。
+- 系统性表现：弹窗渲染只画按钮（dlgbatch 共用图集），**缺弹窗内 TransLabel 标签/Title**；部分专用渲染（rs_draw_newgame）缺 Title + 标签未右对齐。
+
+### 修复（so 722dde6d+ 批次）
+1. **游戏设置（datah_012，用户点名）**：`render.c rs_draw_gameset` 标题中心 `315.0f→382.5f`（原版 Title rect 55,10,440,50 中心）+ 标签右对齐 `tx0=290-tw`；`make_gameset_atlas.py` 标签行右对齐。像素实锤：标题中心 478 vs 目标 478（Δ=0）、标签右缘 359 vs 362（Δ=3px）。
+2. **声音设置（datah_001，双路 UI_SETTINGS/UI_D001）**：烘焙 `sound_text_atlas.png`（声音设置/静音模式:/按键声音:/音量: 4 行，行高 40 匹配 RS_ATLAS_ROW_H），加 render.h `tex_sound_text` 字段 + render.c 加载/纹理创建/释放；`rs_draw_d001` + `rs_draw_settings` 补画 Title + 标签（settings 标签 x 200→175 对齐原版 align=left）。像素实锤：Title 中心 (478,592) vs (478,594)、标签左缘 222 vs 219（Δ=3px）。
+3. **新局（datah_062，主菜单两人对局真实路径）**：烘焙 `make_newgame_atlas.py`（7 行：加'新局' row0 + 标签右对齐）；`rs_draw_newgame` row_h/7 + Title 中心 382.5,512.5 + 标签 tx0=290-tw + 行号 +1（确定/取消 txt_row=i+3）。像素实锤：Title 中心 (478,640) vs (478,641)、标签右缘 359 vs 362（Δ=3px）。
+4. **软件信息（datah_000）**：`rs_draw_about` 已有 Title+Version+官网，验证真实路径正常（jq.about 钩子截图全对齐）。
+5. **人机难度（datah_041）**：真实路径 `rs_draw_difficulty` 已有区域标签（新手区/中级区/高级区/好友区），验证正常。
+
+### 诚实边界
+- **dlgbatch 测试钩子路径（UI_DNNN）缺 TransLabel 标签**：非真实路径。真实主菜单/☰ 导航走 `rs_draw_*` 专用渲染（rs_draw_newgame/rs_draw_difficulty/rs_draw_about/rs_draw_settings/rs_draw_gameset）含标签，已逐一验证。
+- **apk 资源未利用完**：原版 272 个 datah_，src_rs 用 120，未用 152。未用中仅 4 个是 UI 提示弹窗（datah_087/093/103 单标签 Info，原版反馈提示，src_rs 用 jq_show_dialog 原生对话框替代）+ 1 个 UiConfig（datah_117 样式表）；其余 ~147 个是**图片/数据资源**（datah 含图片定义）非 UI 弹窗。诚实标注：src_rs 已实现主要 UI 路径，未用多为数据/图片，提示弹窗用原生对话框替代（语义等价），不包装成"全部利用"。
+
+### 坑清单（新增）
+- **UI 对齐判据必须含文字位置**：仅查按钮 rect 会漏 Title/标签错位（用户像素级看到）。判据 = 按钮 rect Δ + 标题中心 Δ + 标签对齐边 Δ（右对齐=右缘，左对齐=左缘），全部 ≤3px。
+- **加 Title 行须同步所有行号引用**：rs_draw_* 里 row_h 除数、标签 row_idx、按钮行号、模式行号必须整体 +1，漏一处即文字错位（确定显示'布局明棋'）。
+- **rs_atlas_label_wh 前向声明**：rs_draw_settings（:2038）在 rs_atlas_label_wh（:4285）前，加 Title 调用需前向声明，否则 `static declaration follows non-static declaration` 编译错误。
+- **烘焙脚本需与 RS_ATLAS_ROW_H 匹配**：rs_atlas_label_wh 用 RS_ATLAS_ROW_H=40 行高，新图集（sound_text_atlas 行高 40）须匹配；不同行高图集（settings_text 46）不能用 rs_atlas_label_wh。
+- **推设备 fs 副本**：设备 /data/local/tmp/spak_res/ 优先于 APK assets，新增/改图集必须 push 到设备 fs（AGENTS.md 坑）。

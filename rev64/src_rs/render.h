@@ -62,6 +62,7 @@ typedef struct {
     rs_glid_t tex_waysel_text[2]; /* ★ 对抗审计（datah_072）：方式选择文字图集 220×184（4 标签竖排） */
     rs_glid_t tex_btimen_text[2]; /* ★ 对抗审计（datah_067）：联机 ☰ 菜单文字图集 160×320（8 项竖排） */
     rs_glid_t tex_settings_text[2]; /* ★ 对抗审计（datah_001）：声音设置文字图集 200×460（10 标签竖排） */
+    rs_glid_t tex_sound_text[2];    /* ★ 2026-11-10 用户"游戏设置UI没有对齐"：datah_001 标题+标签图集 220×160（4 行：声音设置/静音模式:/按键声音:/音量:，行高 40 匹配 RS_ATLAS_ROW_H） */
     rs_glid_t tex_nplayer_text[2];  /* ★ P0（datah_089）：四国人数选择文字图集 220×138（3 标签竖排） */
     rs_glid_t tex_newgame_text[2];  /* ★ P0（datah_062）：两人新局文字图集 220×276（6 标签竖排） */
     rs_glid_t tex_gameset_text[2];  /* ★ P1（datah_012）：游戏设置文字图集 220×368（8 标签竖排） */
@@ -141,6 +142,8 @@ typedef struct {
     int btimen_text_w, btimen_text_h;           /* 联机 ☰ 菜单文字图集尺寸 */
     void *settings_text_px; size_t settings_text_px_len; /* ★ 声音设置文字图集 RGBA（10 标签竖排 200×460） */
     int settings_text_w, settings_text_h;       /* 声音设置文字图集尺寸 */
+    void *sound_text_px; size_t sound_text_px_len; /* ★ datah_001 标题+标签图集 RGBA（4 行 220×160，行高 40） */
+    int sound_text_w, sound_text_h;             /* datah_001 标题+标签图集尺寸 */
     void *nplayer_text_px; size_t nplayer_text_px_len; /* ★ P0（datah_089）：四国人数选择文字图集 RGBA（3 标签竖排 220×138） */
     int nplayer_text_w, nplayer_text_h;          /* 四国人数选择文字图集尺寸 */
     void *newgame_text_px; size_t newgame_text_px_len; /* ★ P0（datah_062）：两人新局文字图集 RGBA（6 标签竖排 220×276） */

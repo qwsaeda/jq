@@ -561,6 +561,7 @@ int rs_render_init(rs_render *rr, const char *spak_dir, const jq_state *init_sta
         unsigned char *wsraw = NULL; size_t wsraw_len = 0;  /* ★ 方式选择文字图集 */
         unsigned char *bira = NULL; size_t bira_len = 0;    /* ★ 联机 ☰ 菜单文字图集 */
         unsigned char *straw = NULL; size_t straw_len = 0;  /* ★ 声音设置文字图集 */
+        unsigned char *sndraw = NULL; size_t sndraw_len = 0; /* ★ datah_001 标题+标签图集 */
         unsigned char *npaw = NULL; size_t npaw_len = 0;    /* ★ P0 datah_089 四国人数文字图集 */
         unsigned char *ngaw = NULL; size_t ngaw_len = 0;    /* ★ P0 datah_062 两人新局文字图集 */
         unsigned char *gsaw = NULL; size_t gsaw_len = 0;    /* ★ P1 datah_012 游戏设置文字图集 */
@@ -588,11 +589,11 @@ int rs_render_init(rs_render *rr, const char *spak_dir, const jq_state *init_sta
         unsigned char *uiaw = NULL; size_t uiaw_len = 0;    /* ★ SPAK2UI 批量（12 弹窗）共用文字图集 */
         unsigned char *bpx = NULL, *ppx = NULL, *tpx = NULL, *gpx = NULL;
         unsigned char *opx = NULL, *ppx2 = NULL, *mpx = NULL, *ipx = NULL, *icpx = NULL, *hbpx = NULL, *bbpx = NULL, *bspx = NULL;
-        unsigned char *wspx = NULL, *bipx = NULL, *stpx = NULL;
+        unsigned char *wspx = NULL, *bipx = NULL, *stpx = NULL, *sndpx = NULL;
         unsigned char *nppx = NULL, *ngpx = NULL, *gsp_x = NULL, *lrpx = NULL, *rp_px = NULL, *lp_px = NULL;
         int bw = 0, bh = 0, pw = 0, ph = 0, tw = 0, th = 0, gw = 0, gh = 0;
         int ow = 0, oh = 0, pw2 = 0, ph2 = 0, mw = 0, mh = 0, iw = 0, ih = 0, icw = 0, ich = 0;
-        int hbw = 0, hbh = 0, bbw = 0, bbh = 0, bsw = 0, bsh = 0, wsw = 0, wsh = 0, biw = 0, bih = 0, stw = 0, sth = 0;
+        int hbw = 0, hbh = 0, bbw = 0, bbh = 0, bsw = 0, bsh = 0, wsw = 0, wsh = 0, biw = 0, bih = 0, stw = 0, sth = 0, sndw = 0, sndh = 0;
         int npw = 0, nph = 0, ngw = 0, ngh = 0, gsw = 0, gsh = 0, lrw = 0, lrh = 0, rpw = 0, rph = 0;
         int lpw = 0, lph = 0;   /* ★ P1 datah_038 登录文字图集尺寸 */
         int ruw = 0, ruh = 0;   /* ★ P2 datah_037 规则文本文字图集尺寸 */
@@ -842,6 +843,14 @@ int rs_render_init(rs_render *rr, const char *spak_dir, const jq_state *init_sta
             rr->settings_text_w = stw; rr->settings_text_h = sth;
         }
         free(straw);
+        /* ★ 2026-11-10 用户"游戏设置UI没有对齐"：datah_001 标题+标签图集（4 行 220×160，
+           行高 40 匹配 RS_ATLAS_ROW_H；rs_draw_d001 补画 Title'声音设置'+3 标签） */
+        rs_read_one(am, spak_dir, "sound_text_atlas.png", &sndraw, &sndraw_len);
+        if (sndraw && png_decode(sndraw, sndraw_len, &sndpx, &sndw, &sndh) == 0) {
+            rr->sound_text_px = sndpx; rr->sound_text_px_len = (size_t)sndw * sndh * 4;
+            rr->sound_text_w = sndw; rr->sound_text_h = sndh;
+        }
+        free(sndraw);
         /* ★ P0（datah_089）：四国人数选择文字图集（3 标签竖排 220×138：2人/3人/4人） */
         if (npaw && png_decode(npaw, npaw_len, &nppx, &npw, &nph) == 0) {
             rr->nplayer_text_px = nppx; rr->nplayer_text_px_len = (size_t)npw * nph * 4;
@@ -1064,7 +1073,7 @@ int rs_render_init(rs_render *rr, const char *spak_dir, const jq_state *init_sta
         }
         free(uiaw);
         rr->gl_px_loaded = 1;
-                LOGI("Init 像素解码：board=%s(%dx%d)piece=%s(%dx%d)text=%s(%dx%d)bg=%s(%dx%d)menu_bg=%s(%dx%d)popup=%s(%dx%d)opt_text=%s(%dx%d)imen_text=%s(%dx%d)imen_icons=%s(%dx%d)hamburger=%s(%dx%d)btn_big=%s(%dx%d)btn_small=%s(%dx%d)waysel_text=%s(%dx%d)btimen_text=%s(%dx%d)settings_text=%s(%dx%d)nplayer_text=%s(%dx%d)newgame_text=%s(%dx%d)gameset_text=%s(%dx%d)layres_text=%s(%dx%d)replay_text=%s(%dx%d)login_text=%s(%dx%d)rules_text=%s(%dx%d)ng104_text=%s(%dx%d)join_text=%s(%dx%d)ng061_text=%s(%dx%d)gameinfo_text=%s(%dx%d)bright_text=%s(%dx%d)chatlog_text=%s(%dx%d)profile_text=%s(%dx%d)drawdetail_text=%s(%dx%d)setentry_text=%s(%dx%d)imgset_text=%s(%dx%d)join065_text=%s(%dx%d)create069_text=%s(%dx%d)rules070_text=%s(%dx%d)room060_text=%s(%dx%d)chat063_text=%s(%dx%d)about_text=%s(%dx%d)drawdetail_icons=%s(%dx%d)",
+                LOGI("Init 像素解码：board=%s(%dx%d)piece=%s(%dx%d)text=%s(%dx%d)bg=%s(%dx%d)menu_bg=%s(%dx%d)popup=%s(%dx%d)opt_text=%s(%dx%d)imen_text=%s(%dx%d)imen_icons=%s(%dx%d)hamburger=%s(%dx%d)btn_big=%s(%dx%d)btn_small=%s(%dx%d)waysel_text=%s(%dx%d)btimen_text=%s(%dx%d)settings_text=%s(%dx%d)sound_text=%s(%dx%d)nplayer_text=%s(%dx%d)newgame_text=%s(%dx%d)gameset_text=%s(%dx%d)layres_text=%s(%dx%d)replay_text=%s(%dx%d)login_text=%s(%dx%d)rules_text=%s(%dx%d)ng104_text=%s(%dx%d)join_text=%s(%dx%d)ng061_text=%s(%dx%d)gameinfo_text=%s(%dx%d)bright_text=%s(%dx%d)chatlog_text=%s(%dx%d)profile_text=%s(%dx%d)drawdetail_text=%s(%dx%d)setentry_text=%s(%dx%d)imgset_text=%s(%dx%d)join065_text=%s(%dx%d)create069_text=%s(%dx%d)rules070_text=%s(%dx%d)room060_text=%s(%dx%d)chat063_text=%s(%dx%d)about_text=%s(%dx%d)drawdetail_icons=%s(%dx%d)",
              rr->board_px ? "OK" : "MISS",
              bw,
              bh,
@@ -1110,6 +1119,9 @@ int rs_render_init(rs_render *rr, const char *spak_dir, const jq_state *init_sta
              rr->settings_text_px ? "OK" : "MISS",
              stw,
              sth,
+             rr->sound_text_px ? "OK" : "MISS",
+             sndw,
+             sndh,
              rr->nplayer_text_px ? "OK" : "MISS",
              npw,
              nph,
@@ -2023,6 +2035,9 @@ static void rs_draw_waysel(rs_render *rr, int slot)
 /* ★ 对抗审计（datah_001 证据）：声音设置弹窗渲染。
    面板深色半透明 + 5 按钮（静音模式/按键声音/音量/确定/取消）+ 文字图集。
    按钮几何 ui_set_buttons()（720×1280 基准）。 */
+static void rs_atlas_label_wh(rs_render *rr, int slot, unsigned int tex, int tex_w, int tex_h,
+                              int row_idx, float cx, float cy, float w, float h,
+                              float u0, float u1, GLint uc);
 static void rs_draw_settings(rs_render *rr, int slot)
 {
     if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
@@ -2114,15 +2129,21 @@ static void rs_draw_settings(rs_render *rr, int slot)
         rr->vbo_sel[slot] = 0;
     }
     /* ④ 文字：左列 label（静音模式/按键声音/音量，settings_text row0-2）+ 按钮内值
-       （开/关 row5-6，低/中/高 row7-9）+ 确定/取消（row3-4） */
+       （开/关 row5-6，低/中/高 row7-9）+ 确定/取消（row3-4）
+       ★ 2026-11-10 用户"很多界面都没有对齐"：rs_draw_settings 缺 Title'声音设置'，
+       补画（sound_text_atlas row0，中心 382.5,475 对齐 datah_001 Title rect）。 */
+    if (rr->tex_sound_text[slot] && rr->prog_tex[slot] && rr->sound_text_w > 0 && rr->sound_text_h > 0) {
+        rs_atlas_label_wh(rr, slot, rr->tex_sound_text[slot], rr->sound_text_w, rr->sound_text_h,
+                          0, 382.5f, 475.0f, 152.0f, 30.0f, 0.0f, 1.0f, uc);
+    }
     if (rr->tex_settings_text[slot] && rr->prog_tex[slot] && rr->settings_text_w > 0 && rr->settings_text_h > 0) {
         int row_h = rr->settings_text_h / 10;   /* 每行 46px */
         float u0 = 0.0f, u1 = 1.0f;
-        /* label 左列：x 200-290 */
+        /* label 左列：x 175-290（★ 2026-11-10 修复：旧 200 偏右，对齐原版 datah_001 标签 x0=175 align=left） */
         for (int r = 0; r < 3; r++) {
             float tcy = (sb[r].y0 + sb[r].y1) * 0.5f * sy;
             float tw = 90.0f * sx, th = tw * ((float)row_h / rr->settings_text_w);
-            float tx0 = 200.0f * sx, ty0 = tcy - th * 0.5f;
+            float tx0 = 175.0f * sx, ty0 = tcy - th * 0.5f;
             float v0 = (float)(r * row_h) / rr->settings_text_h;
             float v1 = (float)(r * row_h + row_h) / rr->settings_text_h;
             rs_v4f tq[6] = {
@@ -2442,15 +2463,14 @@ static void rs_draw_newgame(rs_render *rr, int slot)
     /* ④ 文字：标签列（玩法:/明暗棋: 2 项）+ 当前模式标签 + 确定/取消
        （newgame_text_atlas 6 行：row0=玩法 row1=明暗棋 row2=布局明棋 row3=翻棋暗棋 row4=确定 row5=取消） */
     if (rr->tex_newgame_text[slot] && rr->prog_tex[slot] && rr->newgame_text_w > 0 && rr->newgame_text_h > 0) {
-        int row_h = rr->newgame_text_h / 6;   /* 每行 46px（6 标签竖排） */
+        int row_h = rr->newgame_text_h / 7;   /* ★ 2026-11-10 修复：7 行（加 Title'新局' row0；旧 6 行无标题） */
         float u0 = 0.0f, u1 = 1.0f;
-        /* 标签列：玩法/明暗棋 左侧 label（x 165-290，对齐原版 datah_062 标签位置） */
-        for (int r = 0; r < 2; r++) {
-            float tcy = (nb[r].y0 + nb[r].y1) * 0.5f * sy;
-            float tw = 90.0f * sx, th = tw * ((float)row_h / rr->newgame_text_w);
-            float tx0 = 165.0f * sx, ty0 = tcy - th * 0.5f;
-            float v0 = (float)(r * row_h) / rr->newgame_text_h;
-            float v1 = (float)(r * row_h + row_h) / rr->newgame_text_h;
+        /* Title'新局'（row0，原版 datah_062 rect 55,10,440,50 → 中心 (382.5,512.5)） */
+        {
+            float tcy = 512.5f * sy;
+            float tw = 190.0f * sx, th = tw * ((float)row_h / rr->newgame_text_w);
+            float tx0 = 382.5f * sx - tw * 0.5f, ty0 = tcy - th * 0.5f;
+            float v0 = 0.0f, v1 = (float)row_h / rr->newgame_text_h;
             rs_v4f tq[6] = {
                 {tx0, ty0, u0, v0}, {tx0 + tw, ty0, u1, v0}, {tx0, ty0 + th, u0, v1},
                 {tx0, ty0 + th, u0, v1}, {tx0 + tw, ty0, u1, v0}, {tx0 + tw, ty0 + th, u1, v1},
@@ -2469,10 +2489,36 @@ static void rs_draw_newgame(rs_render *rr, int slot)
             glDeleteBuffers(1, &rr->vbo_sel[slot]);
             rr->vbo_sel[slot] = 0;
         }
-        /* 当前模式标签（玩法/明暗棋 按钮内，row2=布局明棋 row3=翻棋暗棋，按当前 ui_opt_get_mode() 高亮对应行） */
+        /* 标签列：玩法/明暗棋 右侧对齐（row1-2，原版 align=right rect 右缘 290；
+           ★ 2026-11-10 修复：旧 tx0=165 左对齐偏左 + 行号 0-1 无标题错位） */
+        for (int r = 0; r < 2; r++) {
+            float tcy = (nb[r].y0 + nb[r].y1) * 0.5f * sy;
+            float tw = 110.0f * sx, th = tw * ((float)row_h / rr->newgame_text_w);
+            float tx0 = 290.0f * sx - tw, ty0 = tcy - th * 0.5f;
+            float v0 = (float)((r + 1) * row_h) / rr->newgame_text_h;
+            float v1 = (float)((r + 1) * row_h + row_h) / rr->newgame_text_h;
+            rs_v4f tq[6] = {
+                {tx0, ty0, u0, v0}, {tx0 + tw, ty0, u1, v0}, {tx0, ty0 + th, u0, v1},
+                {tx0, ty0 + th, u0, v1}, {tx0 + tw, ty0, u1, v0}, {tx0 + tw, ty0 + th, u1, v1},
+            };
+            glUseProgram(rr->prog_tex[slot]);
+            glUniform2f(rr->uViewWH_tex[slot], (GLfloat)rr->view_w, (GLfloat)rr->view_h);
+            glUniform1i(glGetUniformLocation(rr->prog_tex[slot], "uTex"), 0);
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, rr->tex_newgame_text[slot]);
+            glGenBuffers(1, &rr->vbo_sel[slot]);
+            glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
+            glBufferData(GL_ARRAY_BUFFER, sizeof(tq), tq, GL_DYNAMIC_DRAW);
+            rs_bind_vbo(rr->vbo_sel[slot]);
+            glDrawArrays(GL_TRIANGLES, 0, 6);
+            rs_unbind_vbo();
+            glDeleteBuffers(1, &rr->vbo_sel[slot]);
+            rr->vbo_sel[slot] = 0;
+        }
+        /* 当前模式标签（玩法/明暗棋 按钮内，row3=布局明棋 row4=翻棋暗棋，按当前 ui_opt_get_mode() 高亮对应行） */
         for (int r = 0; r < 2; r++) {
             int mode = ui_opt_get_mode();
-            int row_idx = 2 + (mode ? 1 : 0);   /* 行 2=布局明棋 行 3=翻棋暗棋 */
+            int row_idx = 3 + (mode ? 1 : 0);   /* 行 3=布局明棋 行 4=翻棋暗棋 */
             float bx0 = nb[r].x0 * sx, by0 = nb[r].y0 * sy;
             float bx1 = nb[r].x1 * sx, by1 = nb[r].y1 * sy;
             float tw = 150.0f * sx, th = tw * ((float)row_h / rr->newgame_text_w);
@@ -2503,7 +2549,7 @@ static void rs_draw_newgame(rs_render *rr, int slot)
             float bx1 = nb[i].x1 * sx, by1 = nb[i].y1 * sy;
             float tw = 120.0f * sx, th = tw * ((float)row_h / rr->newgame_text_w);
             float tx0 = (bx0 + bx1) * 0.5f - tw * 0.5f, ty0 = (by0 + by1) * 0.5f - th * 0.5f;
-            int txt_row = i + 2;   /* ★ 2026-11-10 修复：i=2(确定)→row4, i=3(取消)→row5；旧用 i 直接当行号 → 确定显示'布局明棋'/取消显示'翻棋暗棋'（错位 2 行） */
+            int txt_row = i + 3;   /* ★ 2026-11-10 修复：加 Title 后行号+1，i=2(确定)→row5, i=3(取消)→row6 */
             float v0 = (float)(txt_row * row_h) / rr->newgame_text_h;
             float v1 = (float)(txt_row * row_h + row_h) / rr->newgame_text_h;
             rs_v4f tq[6] = {
@@ -2587,12 +2633,13 @@ static void rs_draw_gameset(rs_render *rr, int slot)
     if (rr->tex_gameset_text[slot] && rr->prog_tex[slot] && rr->gameset_text_w > 0 && rr->gameset_text_h > 0) {
         int row_h = rr->gameset_text_h / 9;   /* 每行 46px（9 行竖排） */
         float u0 = 0.0f, u1 = 1.0f;
-        /* 标题：游戏设置（row0，datah_012 rect 55,10,440,50 → 720 基准中心 (135+55+440)/2=315,
-           (407.5+10+50)/2=437.5，宽 285） */
+        /* 标题：游戏设置（row0，datah_012 rect 55,10,440,50 → 720 基准中心
+           (135+55+440)/2=382.5, (407.5+10+50)/2=437.5。★ 2026-11-10 用户"游戏设置UI没有
+           对齐"：旧 315 偏左 67.5px，改 382.5（原版 rect 中心）） */
         {
             float tcy = 437.5f * sy;
             float tw = 190.0f * sx, th = tw * ((float)row_h / rr->gameset_text_w);
-            float tx0 = 315.0f * sx - tw * 0.5f, ty0 = tcy - th * 0.5f;
+            float tx0 = 382.5f * sx - tw * 0.5f, ty0 = tcy - th * 0.5f;
             float v0 = 0.0f, v1 = (float)row_h / rr->gameset_text_h;
             rs_v4f tq[6] = {
                 {tx0, ty0, u0, v0}, {tx0 + tw, ty0, u1, v0}, {tx0, ty0 + th, u0, v1},
@@ -2613,11 +2660,12 @@ static void rs_draw_gameset(rs_render *rr, int slot)
             rr->vbo_sel[slot] = 0;
         }
         /* 标签列：和棋:/大本营:/吃地雷:/吃军旗:（row1-4，右侧对齐 rect 30,*,155,* → 720 基准
-           165-290；标签 x0=195 tw=110，右缘≈290 对齐原版） */
+           右缘 290。★ 2026-11-10 用户"游戏设置UI没有对齐"：旧 tx0=195 tw=110 居中在 [195,305]
+           右缘≈272 偏左 18px；改 tx0+tw=290（图集标签已右对齐到 W，渲染 box 右缘对齐 290）） */
         for (int r = 0; r < 4; r++) {
             float tcy = (gb[r].y0 + gb[r].y1) * 0.5f * sy;
             float tw = 110.0f * sx, th = tw * ((float)row_h / rr->gameset_text_w);
-            float tx0 = 195.0f * sx, ty0 = tcy - th * 0.5f;
+            float tx0 = 290.0f * sx - tw, ty0 = tcy - th * 0.5f;
             float v0 = (float)((r + 1) * row_h) / rr->gameset_text_h;
             float v1 = (float)((r + 1) * row_h + row_h) / rr->gameset_text_h;
             rs_v4f tq[6] = {
@@ -5392,8 +5440,29 @@ static void rs_draw_d001(rs_render *rr, int slot)
             rs_draw_slider_track(rr, slot, bb[2].x0, bb[2].y0, bb[2].x1, bb[2].y1, uc, (float)(ui_volume_get() - 1) / 2.0f);
         }
     }
+    /* ★ 2026-11-10 用户"游戏设置UI没有对齐，很多界面都没有对齐"指正：
+       rs_draw_d001（datah_001 声音设置）只画 Sound/BtnSound/确定/取消 按钮文字，
+       缺 Title'声音设置' + 标签 静音模式:/按键声音:/音量:。补画（sound_text_atlas 4 行，
+       行高 40 匹配 RS_ATLAS_ROW_H）。原版 datah_001 布局（720 基准，弹窗 Y0=445）：
+       Title rect 55,10,440,50 中心 (382.5,475)；标签 align=left：
+       静音模式: rect 40,90,180,120 → x0=175 y中心 527.5；
+       按键声音: rect 40,165,180,195 → x0=175 y 602.5；音量: rect 40,240,115,270 → x0=175 y 727.5。 */
+    if (rr->tex_sound_text[slot] && rr->prog_tex[slot] && rr->sound_text_w > 0 && rr->sound_text_h > 0) {
+        float title_w = 152.0f;   /* '声音设置' 38px 字体 720 基准宽（图集 row0 实测） */
+        rs_atlas_label_wh(rr, slot, rr->tex_sound_text[slot], rr->sound_text_w, rr->sound_text_h,
+                          0, 382.5f, 475.0f, title_w, 30.0f, 0.0f, 1.0f, uc);
+        /* 标签左对齐：x0=175，宽按行内容（图集行 1-3，u1 按实际字宽/图集宽） */
+        float lbl_w[3] = { 163.0f, 163.0f, 87.0f };   /* 静音模式:/按键声音:/音量: 38px 宽 */
+        float lbl_y[3] = { 527.5f, 602.5f, 727.5f };
+        for (int li = 0; li < 3; li++) {
+            float w = lbl_w[li];
+            float u1 = (w + 1.0f) / (float)rr->sound_text_w;
+            rs_atlas_label_wh(rr, slot, rr->tex_sound_text[slot], rr->sound_text_w, rr->sound_text_h,
+                              li + 1, 175.0f + w * 0.5f, lbl_y[li], w, 30.0f, 0.0f, u1, uc);
+        }
+    }
     if (!d001_diag) { d001_diag = 1;
-        LOGI("rs_draw_d001：datah_001 弹窗（450×390 面板 + 4 按钮，原版按钮文字）");
+        LOGI("rs_draw_d001：datah_001 弹窗（450×390 面板 + 4 按钮 + Title'声音设置' + 3 标签，原版按钮文字）");
     }
 }
 /* ★ 批量对齐（datah_002）：2 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
@@ -9871,6 +9940,15 @@ static void rs_gl_rebuild(rs_render *rr, int slot)
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     }
+    /* ★ 2026-11-10 用户"游戏设置UI没有对齐"：datah_001 标题+标签图集（4 行 220×160） */
+    if (rr->sound_text_px && rr->gl2_ok[slot] && rr->sound_text_w > 0 && rr->sound_text_h > 0) {
+        glGenTextures(1, &rr->tex_sound_text[slot]);
+        glBindTexture(GL_TEXTURE_2D, rr->tex_sound_text[slot]);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->sound_text_w, rr->sound_text_h, 0,
+                     GL_RGBA, GL_UNSIGNED_BYTE, rr->sound_text_px);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    }
     /* ★ P0（datah_089）：四国人数选择文字图集（3 标签竖排 220×138） */
     if (rr->nplayer_text_px && rr->gl2_ok[slot] && rr->nplayer_text_w > 0 && rr->nplayer_text_h > 0) {
         glGenTextures(1, &rr->tex_nplayer_text[slot]);
@@ -10135,6 +10213,7 @@ static void rs_gl_rebuild(rs_render *rr, int slot)
             { &rr->tex_waysel_text[slot], rr->waysel_text_px != 0 },
             { &rr->tex_btimen_text[slot], rr->btimen_text_px != 0 },
             { &rr->tex_settings_text[slot], rr->settings_text_px != 0 },
+            { &rr->tex_sound_text[slot], rr->sound_text_px != 0 },
             { &rr->tex_nplayer_text[slot], rr->nplayer_text_px != 0 },
             { &rr->tex_newgame_text[slot], rr->newgame_text_px != 0 },
             { &rr->tex_gameset_text[slot], rr->gameset_text_px != 0 },

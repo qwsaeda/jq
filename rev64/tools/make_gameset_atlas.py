@@ -24,7 +24,12 @@ dr = ImageDraw.Draw(im)
 for i, lbl in enumerate(labels):
     bbox = dr.textbbox((0, 0), lbl, font=font)
     tw = bbox[2] - bbox[0]; th = bbox[3] - bbox[1]
-    x = (W - tw) // 2
+    if 1 <= i <= 4:
+        # 标签（和棋:/大本营:/吃地雷:/吃军旗:）右对齐：原版 datah_012 align=right，
+        # 文字右缘对齐到 290（720 基准）。图集内右缘=W，渲染时 box 右缘对齐 290。
+        x = W - tw - bbox[0]
+    else:
+        x = (W - tw) // 2 - bbox[0]
     y = i * row_h + (row_h - th) // 2 - bbox[1]
     dr.text((x, y), lbl, font=font, fill=(255, 255, 255, 200))
 im.save(OUT)
