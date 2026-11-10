@@ -246,8 +246,8 @@ long ret = vm.getMemory().call(emulator, 0x233e1L, 0, jniEnv, objHash).singleVal
 **第 3 步卡在哪？** §124 的 3 项阻塞：① 上下文相关 BL 解码 bug（unicorn2 精度，
 加载 .so 后 BL 0x7965a 解码成 0x6eaea 而非真实目标 0x43ed8）② 数据与指令对齐对应缺口
 （std::vector begin/end/capacity 未初始化，0x43ed8）③ 288MB PROT_NONE mmap
-（unidbg mmap2 处理失败）。**Java 侧全接通后，瓶颈全在 native 对象图**，
-unidbg 路线走不通这 3 项 → 只能 redroid dump（第 8/9 章）。
+（unidbg mmap2 处理失败）。**Java 侧全接通后，瓶颈全在 native 数据与指令对齐（N44）**，
+unidbg 路线走不通这 3 项 → 早期只能 redroid dump（第 8/9 章）；**★ §124x-z 后 = 静态位移固化 `jqt_mem.c` `g_jq_got_tbl` 免 dump**。
 **"三步全通"的 4 个证据（红线 §R6）**：
 1. 找入口：14 个 `On*` 全按地址找到（`.dynsym` 保留）
 2. 奇地址对齐：14 入口全 `&~1` 对齐（0x233e1 等）

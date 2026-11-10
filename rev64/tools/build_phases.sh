@@ -103,7 +103,7 @@ build_one() {
   esac
   echo "════════ [$phase] apktool b $tree → STORE → zipalign → sign ════════"
   apktool b $tree -o $RA/${phase}_raw.apk >/tmp/opencode/phase_${phase}_apktool.log 2>&1 || { echo "✗ $phase apktool b 失败"; tail -8 /tmp/opencode/phase_${phase}_apktool.log; return 1; }
-  python3 /tmp/opencode/jq_apk/store_compressed.py $RA/${phase}_raw.apk $RA/${phase}_stored.apk >/tmp/opencode/phase_${phase}_store.log 2>&1 || { echo "✗ $phase STORE 失败"; tail -8 /tmp/opencode/phase_${phase}_store.log; return 1; }
+  python3 $WS/rev64/tools/store_compressed.py $RA/${phase}_raw.apk $RA/${phase}_stored.apk >/tmp/opencode/phase_${phase}_store.log 2>&1 || { echo "✗ $phase STORE 失败"; tail -8 /tmp/opencode/phase_${phase}_store.log; return 1; }
   $ZIPALIGN -f 4 $RA/${phase}_stored.apk $RA/${phase}_aligned.apk >/tmp/opencode/phase_${phase}_zipalign.log 2>&1 || { echo "✗ $phase zipalign 失败"; tail -8 /tmp/opencode/phase_${phase}_zipalign.log; return 1; }
   bash $WS/rev64/sign_apk.sh $RA/${phase}_aligned.apk $RA/${phase}_signed.apk >/tmp/opencode/phase_${phase}_sign.log 2>&1 || { echo "✗ $phase 签名失败"; tail -8 /tmp/opencode/phase_${phase}_sign.log; return 1; }
   cp $RA/${phase}_signed.apk $WS/dist/$out

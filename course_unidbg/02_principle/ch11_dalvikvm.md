@@ -265,8 +265,8 @@ C++ 对象图没补全"（§124 的 ② std::vector 0x43ed8 + ① 上下文相�
 ③ 288MB PROT_NONE mmap）。**Java 电话全接 ≠ 能玩**，瓶颈在 native 对象图。
 **"接通 ≠ 能玩"（诚实边界）**：DalvikVM 接通是"电话全接"（Java 侧应答），但
 军棋"能玩"还差 native 数据与指令对齐（N44）（§124 的 ②）。`OnCreate` 推进到 0x43ed8 卡住
-（std::vector 未初始化，N44 外层缺口），unidbg 补不了"数据与指令对齐"——只能 redroid 真跑（有 GPU）
-或 arm64 对齐版（红线 §R6）验证"能玩"。
+（std::vector 未初始化，N44 外层缺口），unidbg 补不了"数据与指令对齐"——**"能玩"判据门只能在真机**
+（redroid 真跑 32 位 so + GPU / 真机 arm64 对齐版，红线 §R6），unidbg 模拟路线做不了 GPU 渲染验收。
 ## 11.5 本章小结（一句话版）
 
 > `createDalvikVM` 4 步：解析 APK → 建 VM → 模拟类加载（军棋 ~7 类）→ 分配 JNIEnv/JavaVM。

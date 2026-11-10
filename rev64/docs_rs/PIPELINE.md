@@ -126,10 +126,22 @@
 | 触摸注入 | OnTouch→native 全链可达 | MuMu `input tap` 间歇 flaky（环境限制非代码 bug） |
 | 屏幕可见 | window surface 通路未通（Java SurfaceView 未真正创建） | **屏幕可见需真机 arm GPU 验收** |
 
+#### 3.2.1 MuMu 资源通路被系统权限挡死（2026-11-10 实锤，"玩不了"的确切根因）
+- **实证**：MuMu（`127.0.0.1:5556`，redroid12_x86_64 容器）装 phase3.apk 后 `JNI_OnLoad` 成功（so `c3192e57` LOGE 修复后 dlopen 通）、window surface 创建成功、GL slot0 编译成功，**但资源全 MISS**（board/piece/menu_bg 纯色块退化）：
+  - 通路 ① `/data/local/tmp/spak_res`：目录 `drwxrwx--x shell:shell`，app uid `u0_a71` 无 x 权限进入 → `fopen` 读不到（**红果 x86_64 上同目录权限宽松才读到 135 色块**）
+  - 通路 ② `/sdcard/spak_res`：属 `u0_a68:media_rw`（私有媒体区），app uid `u0_a71` 被 `MediaProvider: Permission to access file ... is denied` 拦（SELinux 媒体区隔离）
+- **结论**：MuMu 上 app 进程**两条资源通路都被系统权限机制挡死** → 无法读 SPAK 位图 → 画面纯色块，**达不到真机出图验证标准（"玩不了"= 画面退化的确切实锤，非 so 逻辑 bug）**
+- **修复方向（未落地）**：把 SPAK 资源打进 APK `assets/`（代码 `rs_read_one` 已有 AAsset 兜底通路 `asset_path="spak_res/xxx"`，`g_assets` 可达时命中），免设备端推目录。当前 `g_assets=NULL`（assets 管线未启用）→ 需启用 AAssetManager 资产管线
+
 > **思考发现 4（关键诚实边界）**：
 > "PBuffer 离屏出像素" ≠ "画到屏幕" ≠ "能玩"。
 > **段 3 的"能玩"判据只有真机 arm64/32 位 arm GPU 设备能下**，MuMu/redroid[已禁用 2026-11-09]/unidbg 都替代不了。
 > 流水线里段 3 是**判据门**，不是"跑通 MuMu 就通过"。
+>
+> **★ 2026-11-10 MuMu 真机验证未达成（实锤）**：MuMu 装 phase3.apk 后 so 加载/window surface/GL 编译全通，
+> 但 SPAK 资源两条通路（/data/local/tmp 无 x 权限 + /sdcard 媒体区 SELinux denied）均被系统权限挡死 →
+> 资源全 MISS → 画面纯色块，**达不到"进主界面→下一局"的出图判据**。修复需启用 APK assets 管线（g_assets 可达），
+> 当前目标未达成，继续攻坚。红果 x86_64（10.0.182.146）/data/local/tmp 权限宽松，出图已实证 135 色块（权威口径）。
 
 ---
 

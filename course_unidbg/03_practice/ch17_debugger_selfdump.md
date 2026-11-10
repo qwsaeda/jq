@@ -47,7 +47,7 @@ unidbg 是黑盒模拟，不像 IDA/Frida 那样能单步、下断点看寄存�
 - **大白话卡点**：你想让 so"把关键值喊出来"，但 so 没 printf、你也没法往里加。
 - **为什么卡**：so 是编译好的二进制，加不了打印语句。
 - **不解决会怎样**：想看 18 个 `.text` 常量池的值（15 个 `.text` + 2 个 `.data`
-  共 72B），静态读不出（dlopen 重定位后才填），动态 Hook 又卡 0x43ed8。
+  共 72B）的**房间真值**静态读不出（门牌号静态可读，房间真值 dlopen 重定位后才填，N45），动态 Hook 又卡 0x43ed8。
 
 **为什么"加不了 printf"？** so 是 strip 的（符号表删了、没源码），你在 unidbg 侧
 只能"外挂"（Hook 入口/Debugger 追踪），不能"内嵌"（改 so 加打印）。军棋红线
@@ -153,11 +153,11 @@ Debugger 能看到"它读到了 0x43ed8"，但读到的 begin/end 是未初始�
 1174/1174 PASS，红线 §122），Patch 会破坏原版指令流 + 要重签名。军棋优先用
 Debugger（追踪）+ Hook（入口打印），Patch 是最后手段（改 so 字节，破坏原版）。
 
-**为什么 Hook 函数适合"打印 18 个 `.text` 常量"？** 18 个常量池值只有 dlopen 后
-才填（`.so` 未重定位，`.got` 槽为零，静态文件读不出），Hook 在解包函数入口跑通后
+**为什么 Hook 函数适合"打印 18 个 `.text` 常量"？** 18 个常量池**房间真值**只有 dlopen 后
+才填（`.so` 未重定位，`.got` 槽为零，静态文件**房间真值**读不出，门牌号静态可读，N45），Hook 在解包函数入口跑通后
 读 18 地址 → 吐出来。军棋这条路走不通（`OnCreate` 卡 0x43ed8，跑不到解包点），
-退而用 redroid dump（工具三件套：`frida-dump/redroid_jni_dump.py` 精准读
-18 地址 + `redroid_dump_jni.sh` 一键触发 + `gen_runtime_table.py` JSON→C 注入表）。
+早期退而用 redroid dump（工具三件套：`frida-dump/redroid_jni_dump.py` 精准读
+18 地址 + `redroid_dump_jni.sh` 一键触发 + `gen_runtime_table.py` JSON→C 注入表）；**★ §124x-z 后 = 静态位移固化 `jqt_mem.c` `g_jq_got_tbl` 免 dump**。
 
 **3 条路径怎么选（大白话）**：
 - 定位崩点 → Debugger 单步（看哪条指令读错值）
@@ -170,7 +170,7 @@ Debugger（追踪）+ Hook（入口打印），Patch 是最后手段（改 so �
 |---|---|---|
 | **runTo** | 跑到 14 个 `On*` 入口（Thumb 奇地址先 `&~1`） | 单步穿越 §124 三项阻塞（0x43ed8 前后读未初始化值必崩，被安全阀兜成 0） |
 | **step / showRegs** | 看 r0-r12 + pc 定位"哪条指令读了 0x43ed8" | 靠单步"走通"拷贝构造点（崩在数据缺失，不在指令，单步再细也补不出 std::vector 运行时内存布局） |
-| **Hook 打印** | 14 入口入口/返回参数可打印（DiagJni 实证） | 打印 18 个 `.text` 常量（跑不到解包点，静态读不出，只能 redroid dump 72B） |
+| **Hook 打印** | 14 入口入口/返回参数可打印（DiagJni 实证） | 打印 18 个 `.text` 常量的**房间真值**（门牌号静态可读，房间真值跑不到解包点早期只能 redroid dump 72B；**★ §124x-z 后 = 静态固化 `jqt_mem.c` 免 dump**，N45） |
 | **自吐定位** | 定位 §124 的 ②（0x43ed8 std::vector 数据与指令对齐卡点） | 把定位当解决（定位 ≠ 修复，三项阻塞 unidbg 补不了） |
 
 ## 17.4 军棋实战验证：Debugger 定位 OnCreate 卡点

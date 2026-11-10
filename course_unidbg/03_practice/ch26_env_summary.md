@@ -136,7 +136,7 @@ OnTouch）共用同一套补环境框架。**没有统一规范，补环境就�
 2. **`.got` 未重定位** → 读零指针崩（`__cxa_atexit`），用 docker 真 ARM libc
    解析 6 GLOB_DAT 填
 3. **`libGLESv1_CM` 无真 GPU** → 挂桩（`glGetError` 等返回 0）
-4. **18 个 `.text` 运行时常量** → 静态读不出；早期需 redroid dump 72B 注入，**★ §124x-z 后 = 静态位移固化 `jqt_mem.c` `g_jq_got_tbl` 免 dump**
+4. **18 个 `.text` 运行时常量的"房间真值"** → 门牌号静态可读，房间真值静态读不出（N45）；早期需 redroid dump 72B 房间真值注入，**★ §124x-z 后 = 静态位移固化 `jqt_mem.c` `g_jq_got_tbl` 免 dump**
    （值来自真实 32 位库，不是 unidbg 算的）
 5. **停止条件（★新增，§124g）**：前三层补全 + vecfix/JunqiJni 能让
    `OnCreate` 推进到 ~90% = 补环境完成；最后 10%（全局未初始化）+

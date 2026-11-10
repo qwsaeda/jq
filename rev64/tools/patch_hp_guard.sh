@@ -123,3 +123,48 @@ PYEOF
   echo "  ✓ $tree App.smali hp 容错已打补丁"
 done
 echo "✓ patch_hp_guard 完成"
+
+# ★ 2026-11-10 追加：dec_full 树 App.smali 损坏行修复（move-result 行尾粘连 :skip_native
+#   + 6 方法缺 :skip_native 标签定义 → smali 编译 "label hasn't been placed yet" →
+#   dex 头全 0 → MuMu dexopt Invalid or truncated dex file FATAL）。
+#   幂等：仅当检测到损坏行/缺标签时修。
+for tree in "$RA/dec_full"; do
+  f="$tree/smali/com/cnvcs/App.smali"
+  [ -f "$f" ] || continue
+  python3 - "$f" << 'PYEOF'
+import sys
+f = sys.argv[1]
+lines = open(f).readlines()
+out = []
+fixed_merge = 0
+for l in lines:
+    s = l.rstrip('\n')
+    if s == '    move-result-object v0:skip_native':
+        s = '    move-result-object v0'
+        fixed_merge += 1
+    elif s == '    move-result v0:skip_native':
+        s = '    move-result v0'
+        fixed_merge += 1
+    out.append(s + '\n')
+# 插标签：if-eqz v0, :skip_native 所在方法内无 :skip_native 定义 → 行后插
+final = []
+i = 0
+fixed_label = 0
+while i < len(out):
+    final.append(out[i])
+    if out[i].strip() == 'if-eqz v0, :skip_native':
+        j = i + 1
+        has_label = False
+        while j < len(out) and not out[j].startswith('.end method'):
+            if out[j].strip().startswith(':skip_native'):
+                has_label = True
+                break
+            j += 1
+        if not has_label:
+            final.insert(len(final), ':skip_native\n')
+            fixed_label += 1
+    i += 1
+open(f, 'w').writelines(final)
+print(f'  ✓ {f}: 粘连行修 {fixed_merge} + 缺标签插 {fixed_label}')
+PYEOF
+done

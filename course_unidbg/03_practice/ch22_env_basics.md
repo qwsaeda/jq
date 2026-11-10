@@ -257,10 +257,10 @@ unidbg 填不出"这个 vector 有多少元素"（那是真实 C++ 运行时才�
 >
 > **本节难点**：
 > 1. frida-dump/redroid_jni_dump.py 读 18 地址 + redroid_dump_jni.sh 触发 + gen_runtime_table.py 注入
-> 2. 「redroid dump」是 18 常量唯一拿法
+> 2. 「redroid dump」是 18 常量**早期**拿法（**★ §124x-z 后 = 静态固化 `jqt_mem.c` 免 dump**）
 > 3. unidbg 注入后指令能跑，但 §124 仍卡
 
-军棋 18 个 `.text` 常量池（15 `.text` + 2 `.data`，共 72B，静态读不出，
+军棋 18 个 `.text` 常量池的**房间真值**（15 `.text` + 2 `.data`，共 72B；门牌号静态可读，房间真值静态读不出（N45），
 需 dlopen 后 dump）：
 ```
 redroid 容器跑原版 32 位 so → dlopen → dump 18 地址 72B
@@ -276,15 +276,15 @@ redroid 容器跑原版 32 位 so → dlopen → dump 18 地址 72B
 真值来自真实 32 位 libc 链接结果，不是 unidbg 能"算"的——unidbg 模拟的是
 "重定位执行"，但军棋 `.text` 内嵌常量池（`ldr rX,[pc,#N]` 读的密文/占位）
 在 unidbg 里读出来的就是静态文件值（零/密文），跟真机 dlopen 后填的真值
-对不上。唯一拿法：redroid（真 32 位 Android 容器，真 dlopen + 真重定位）
+对不上。**早期**拿法：redroid（真 32 位 Android 容器，真 dlopen + 真重定位）
 跑原版 so → dump 这 18 地址 72B → 注入 unidbg 适配层（`jq_load_runtime_values`），
-模拟时读到正确常量。**值来自真实 32 位库，不是 unidbg 算的**——这是
+模拟时读到正确常量；**★ §124x-z 后 = 静态位移固化 `jqt_mem.c` `g_jq_got_tbl`（免 dump，`jni_runtime_values.json` 已删）**。**值来自真实 32 位库，不是 unidbg 算的**——这是
 "unidbg 补环境"边界最典型的一例。
 **"redroid dump vs unidbg 模拟"分工（大白话）**：
-- unidbg：模拟 so 跑（但卡 C++ 对象图，18 常量池读不出）
+- unidbg：模拟 so 跑（但卡数据与指令对齐（N44），18 常量池**房间真值**读不出（门牌号静态可读，N45））
 - redroid：真跑原版 so（真 dlopen 填 `.text` 常量池）→ dump 出 18 值
 - 注入：把 dump 出的 72B 注入 unidbg 适配层 → unidbg 模拟时读到正确值
-"redroid 拿数据 + unidbg 注入"是军棋拿 18 常量的唯一路（unidbg 自己读不出）。
+"redroid 拿数据 + unidbg 注入"是军棋拿 18 常量**早期**路（unidbg 自己读不出**房间真值**，N45：门牌号静态可读，房间真值需 dlopen 才填对）；**★ §124x-z 后 = 静态位移固化 `jqt_mem.c` `g_jq_got_tbl`（免 dump，`jni_runtime_values.json` 已删）**。
 ## 22.4 逐环节"我们能干什么 / 不能干什么"
 
 | 环节 | 能干什么（✓） | 不能干什么（✗） |

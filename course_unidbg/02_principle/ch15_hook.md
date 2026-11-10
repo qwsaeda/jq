@@ -268,7 +268,7 @@ unidbg 的 Debugger 模块（基于 r0dbg 思路），四个"镜头"各拍一类
 > 军棋实证 DiagTracePC（PC off-by-2 修复）+ DiagJni（OnCreate 到 0x43ed8，
 > 卡在 §124 的 3 项阻塞：① 上下文相关 BL 解码 bug ② 数据与指令对齐未初始化
 > ③ 288MB PROT_NONE mmap）。
-> 军棋 18 个 `.text` 常量池静态读不出，需 redroid dump；Hook 优先、Patch 是最后手段
+> 军棋 18 个 `.text` 常量池的**房间真值**静态读不出（门牌号静态可读，N45），需 redroid dump 房间真值；Hook 优先、Patch 是最后手段
 > （军棋 `.text` 100% 对齐基本不 patch）。
 
 ---

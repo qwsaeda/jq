@@ -40,15 +40,16 @@ so 里有 12 个初始化函数（`.init_array`），跑 `OnCreate` 之前必须
 - **为什么卡**：`.init_array` 是 dlopen 时自动跑的一次性构造函数，unidbg 得逐个执行。
 - **不解决会怎样**：全局变量脏 → `OnCreate` 读到脏值 → 对象图错乱。
 
-### 痛点 4：填完号之后还有"18 个运行时地址"静态读不出
+### 痛点 4：填完号之后还有"18 个运行时地址"的**房间真值**静态读不出（门牌号静态可读，N45）
 
 军棋 14 个 JNI 入口"可运行"卡在**运行时 18 个地址**（15 `.text` 常量池 + 2 `.data`，
 共 72B）。这些值**仅 dlopen 重定位填**（`.so` 未重定位，`.got` 槽为零），
-**不是壳自解密**（已证 `.rodata` 静态即明文、无自解密例程）。静态 `.so` 读不出这 18 地址，
-拿法唯一：redroid 跑原版 → dlopen 后 dump 这 18 地址 72B 运行时值。
+**不是壳自解密**（已证 `.rodata` 静态即明文、无自解密例程）。
+**★ N45 精确化**：18 常量槽**静态读得出门牌号**（`.so` 文件偏移如 `0x0235c4` 槽存 `0x00138918`），**房间真值**（`0x138918` 处存 `0x96a779e4` = redroid 某次 dlopen 基址，非 .so 内偏移）**dlopen 重定位才填对**，所以**房间真值**静态读不出（门牌号静态可读，类比 `open("/data/img/1.png")`：路径=门牌号，像素=房间真值）。
+拿法（早期）：redroid 跑原版 → dlopen 后 dump 这 18 地址 72B 房间真值；**★ §124x-z 后 = 静态位移固化 `jqt_mem.c` `g_jq_got_tbl`（免 dump，`jni_runtime_values.json` 已删）**。
 
 - **大白话卡点**：电话簿填好了 3 类重定位（5312/214/6），但还有 18 个"号"是
-  "开机后才发"的（dlopen 重定位才填），静态文件里是占位符，读不出来。
+  "开机后才发"的（dlopen 重定位才填），静态文件里是占位符，**房间真值**读不出来（N45：门牌号静态可读，房间真值需 dlopen 才填对）。
 - **为什么卡**：这 18 个不是 3 类重定位能填的（RELATIVE/JUMP_SLOT/GLOB_DAT 都填过了），
   是 `.text` 常量池里的"密文占位"，要 dlopen 时运行时才解析。
 - **不解决会怎样**：`OnCreate` 内部 `ldr rX,[pc,#N]` 读不到 18 个值 → 依赖它们的逻辑全错。
@@ -256,15 +257,15 @@ so 的全局变量、单例对象、C++ 运行时（`libstdc++` 初始化）要�
 | **依赖库加载** | 7 个 `DT_NEEDED` 全解析（libc/libstdc++/libm/liblog/libdl + 2 GL 挂桩） | 加载 GL 真渲染（无真 GPU，挂桩返回 0） |
 | **RELATIVE 重定位** | 5312 槽全通（`addr += base`） | 读 18 个 `.text` 常量（RELATIVE 只填内部自引用，常量池需 dlopen 重定位） |
 | **PLT/GOT 重定位** | 214 PLT 槽 + 6 GLOB_DAT 全通（PLT→GOT→符号） | 填 `.got` 真值到静态文件（静态文件全 0，unidbg 只在内存里填） |
-| **跑 init_array** | 12 init_array + 1 preinit 全通（通水电） | 跑通 `OnCreate` 业务逻辑（卡在 §124 ② C++ 对象图 0x43ed8） |
-| **读 18 常量** | 早期 redroid dump 72B 注入（`jq_load_runtime_values`）；**★ §124x-z 后 = 静态位移固化 `jqt_mem.c` `g_jq_got_tbl`（免 dump）** | 从静态 `.so` 直接读（未重定位，读不出） |
+| **跑 init_array** | 12 init_array + 1 preinit 全通（通水电） | 跑通 `OnCreate` 业务逻辑（卡在 §124 ② 数据与指令对齐对应缺口（N44），std::vector 未初始化 0x43ed8） |
+| **读 18 常量**（N45：门牌号静态可读，房间真值需 dlopen 才填对） | 门牌号静态可读；早期 redroid dump 72B 房间真值注入；**★ §124x-z 后 = 静态位移固化 `jqt_mem.c` `g_jq_got_tbl`（免 dump）** | 从静态 `.so` 直接读**房间真值**（门牌号能读，房间真值未重定位是占位；unidbg 跑不通 0x43ed8） |
 
 **军棋实测对照**：
 - 依赖库加载 ✓（7 个全解析，2 GL 挂桩）
 - RELATIVE ✓（5312/5312 全通）
 - PLT/GOT ✓（214/214 + 6/6 全通）
 - init_array ✓（12+1 全跑完）
-- **✗ 读 18 常量**：静态 `.so` 读不出（未重定位）；早期需 redroid dump 72B 注入，**★ §124x-z 后 = 静态固化 `jqt_mem.c` `g_jq_got_tbl` 免 dump**
+- **✗ 读 18 常量房间真值**（N45：门牌号静态可读，房间真值需 dlopen 才填对）：静态 `.so` **房间真值**读不出（门牌号能读，房间真值未重定位是占位）；早期需 redroid dump 72B 注入，**★ §124x-z 后 = 静态固化 `jqt_mem.c` `g_jq_got_tbl` 免 dump**
   （`frida-dump/redroid_jni_dump.py` 三件套）
 
 ## 6.5 军棋 so 加载完整路径（实测全链路）

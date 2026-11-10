@@ -97,7 +97,7 @@ from unicorn.arm_const import *
 
 # 1. 创建 unicorn 实例：ARM 架构、小端（32 位 ARM 字节序）
 uc = Uc(UC_ARCH_ARM, UC_MODE_LITTLE_ENDIAN)
-# 2. 预留 2MB 虚拟内存给 so（放 1MB 的军棋 so + 栈 + 余量）
+# 2. 预留 2MB 虚拟内存给 so（放 **1.43MB/1435156B** 的军棋 so + 栈 + 余量）
 uc.mem_map(0x40000000, 0x200000)
 # 3. 把 so 文件内容写到 0x40000000（unidbg 会自动做，这里手动演示）
 #    真实用 unidbg 时这步被 loadLibrary 内部封装，你不用手写

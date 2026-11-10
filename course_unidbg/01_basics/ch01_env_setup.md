@@ -45,7 +45,7 @@ unidbg 模拟的两类场景：
 > **本节难点**：
 > 1. 四层模拟各自有对应物：CPU(指令翻译)/内存(mmap 段)/文件(open 映射宿主)/Java(DalvikVM 假 VM)，缺一层 so 就崩一层
 > 2. 「换 arm64 宿主没用」是高频误解：指令位宽在翻译层可变，但 ELF 数据位宽（.rodata/.got 字节）不变，反检测照样命中
-> 3. 军棋 1MB so + 7 依赖 + C++ 对象图复杂度远超书内样本，4 层全配齐只是「能加载」，离「能调用」还差 §124 三项阻塞
+> 3. 军棋 **1.43MB/1435156B** so + 7 依赖 + C++ 对象图复杂度远超书内样本，4 层全配齐只是「能加载」，离「能调用」还差 §124 三项阻塞
 
 ![unidbg 四层架构](assets/ch01_unidbg_architecture.png)
 
@@ -66,7 +66,7 @@ unidbg 模拟的两类场景：
 > **本节核心**：
 > 1. 4 步骨架：for32Bit() + AndroidResolver(23) + loadLibrary(so) + 调 OnCreate
 > 2. 军棋 loadLibrary 自动跑 12 个 init_array + 5312 RELATIVE + 214 PLT + 6 GLOB_DAT（红线 §R6 实测）
-> 3. 军棋无「写 so」环节，直接拿现成 libjunqi.so（1MB strip）调，跳过书内 NDK 编译
+> 3. 军棋无「写 so」环节，直接拿现成 libjunqi.so（**1.43MB/1435156B** strip）调，跳过书内 NDK 编译
 >
 > **本节难点**：
 > 1. AndroidResolver(23) 自带 5 个 32 位系统库，但军棋 7 依赖里的 2 个 GL 库（libGLESv1_CM/v2）无真 GPU 必须挂桩
@@ -242,7 +242,7 @@ unidbg 把军棋 ARM32 指令转译成宿主 ISA 执行（指令位宽变），�
 unidbg 的强项是"补环境 + 跑原始字节"：壳/花指令/VM 都是"跑原始字节时遇到什么就模拟什么"（第 4/9 章详讲），**因为不翻译，所以没有"翻译错位"风险**。你们做翻译，错位风险在翻译层；unidbg 不翻译，错位风险在模拟器精度层（§124）——**军棋是明文 so 非壳，比原书覆盖的加壳/花指令/VM 样本简单得多**，但 §124 三项阻塞（① BL bug ② 数据与指令对齐缺口（N44）③ 288MB mmap）仍卡住"能玩"。
 
 ```
-军棋 ARM32 指令(libjunqi.so 的 .text, 1MB 二进制)
+军棋 ARM32 指令(libjunqi.so 的 .text, **1.43MB/1435156B** 二进制)
    │
    ▼  unicorn2 后端(QEMU 用户态, C 库, Java 经 JNI 调)
    │
@@ -392,7 +392,7 @@ unidbg 的强项是"补环境 + 跑原始字节"：壳/花指令/VM 都是"跑�
 
 ### "Java 模拟"的 4 个本质（跟"真跑 ARM"的区别）
 ![Java 模拟三层原理（CPU/内存/系统调用）](assets/ch01_java_sim_principle.png)
-1. **不跑真 ARM 指令**——unicorn2 把军棋 ARM32 指令**动态翻译**成宿主 ISA 执行（军棋 1MB ARM 代码"虚拟执行"，比真机慢 10-100 倍）。
+1. **不跑真 ARM 指令**——unicorn2 把军棋 ARM32 指令**动态翻译**成宿主 ISA 执行（军棋 **1.43MB/1435156B** ARM 代码"虚拟执行"，比真机慢 10-100 倍）。
 2. **内存全在 Java 堆**——军棋 `.so` 的段、栈、堆、`.got` 全映射到 Java 的 `byte[]`/`Pointer`，不是真 Linux `mmap`。真内核的 `PROT_NONE`/`PROT_EXEC` 在 Java 堆里是"假的"（§124 的 ③ 288MB PROT_NONE mmap 处理失败 = unidbg 的 `mmap2` mock 没做对）。
 3. **系统调用全 mock**——军棋 ARM 代码发 `open("/data/.../ui.xml")`，QEMU 拦下来，unidbg Java 端决定"返回什么"（I/O 重定向是"Java 端 mock 文件路径"，不是真文件 IO）。
 4. **Java 侧全模拟**——`FindClass`/`GetMethodID` 用 `DalvikVM`（Java 写的假 Dalvik VM）应答，军棋 7 个 Java 类全在这个假 VM 里，so 调 Java 方法时是"假 VM 应答"，不是真 Dalvik。
@@ -685,7 +685,7 @@ unidbg **能还原数据层**（.rodata/.data/.got 全在内存里），但"还�
 军棋阶段 2 真做了（`rev64/src/junqi.cpp`，`libjunqi_arm64.so` ~97KB）：
 - 重新用 C++ 写一个简化版 64 位 so（10×9 棋盘 + 自动走子 + GLES2 渲染）
 - **结果**：能在 64 位设备"跑起来"，但玩法/规则/资源**与原版不一致**
-- **红线**：这是"简化重写版"，**不是** 32 位 1MB native 的汇编级逆向
+- **红线**：这是"简化重写版"，**不是** 32 位 **1.43MB/1435156B** native 的汇编级逆向
 - **结论**：重写版只能替代"能装"，不能替代"原版逻辑"（红线 §64 位 native 诚实边界）
 **为什么 unidbg 选"模拟"而非"翻译"**：
 1. **保真度**：unidbg 模拟的是**原版 32 位 `.so` 本身**（不重写），
@@ -793,7 +793,7 @@ unidbg（模拟）
 
 
 > **本节核心**：
-> 1. 军棋 1MB so vs 书内小样本：7 依赖 + C++ 对象图 + GL 无 GPU + 18 常量
+> 1. 军棋 **1.43MB/1435156B** so vs 书内小样本：7 依赖 + C++ 对象图 + GL 无 GPU + 18 常量
 > 2. 军棋 .text 明文（熵 7.10）+ .rodata 明文（0/118832 不同），非壳
 > 3. 军棋 14 入口签名不统一（int/jobject/jstring 混），逐个 marshal
 >
@@ -807,7 +807,7 @@ unidbg（模拟）
 | `.got` | 真 linker 填好 | **静态文件是零值**（未重定位） |
 | 依赖 | 常见 libc | **7 个依赖含 libGLESv1_CM**（无真 GPU） |
 | `.rodata` | 常规 | **明文 118KB**（静态即明文，无自解密，已 dump） |
-| `.text` 常量池 | 静态可读 | **18 个运行时地址需 dlopen 自解密**（静态读不出） |
+| `.text` 常量池 | 静态读得出**门牌号**（N45） | **18 个"房间真值"需 dlopen 重定位才填对**（静态读出的是门牌号占位，非房间真值） |
 ## 1.7 本章小结（一句话版）
 
 > unidbg = 在 x86 PC 上"搭一个 ARM 用户态房间"，让你能调用 so 函数。

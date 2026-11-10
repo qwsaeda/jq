@@ -29,10 +29,10 @@ so 一崩，你只知道"崩了"，不知道"崩在哪条指令、读的哪个�
 ### 痛点 3：找不到"密钥"在哪
 
 军棋有 18 个 `.text` 常量池地址（`ldr rX,[pc,#N]` 读密文），只有 dlopen 后才填值。
-静态读不出来——unidbg_FindKey 的"跑通再 hook 取值"思路对军棋**部分**适用
+**房间真值**静态读不出来（门牌号静态可读，N45）——unidbg_FindKey 的"跑通再 hook 取房间真值"思路对军棋**部分**适用
 （OnCreate 对象图没补全，仍卡住）。
 
-- **大白话卡点**：钥匙（18 个常量池值）挂在墙上但你够不着（静态读不出），
+- **大白话卡点**：钥匙的**房间真值**（18 个常量池）挂在墙上但你够不着（门牌号看得到，房间真值静态读不出，N45），
   得"跑起来把钥匙拿到手上再拍张照"（hook 取值）。
 - **为什么卡**：这 18 个值只在 dlopen 运行时填，静态文件是占位。
 - **不解决会怎样**：读不到 18 个值，依赖它们的逻辑全错。
@@ -53,9 +53,9 @@ so 一崩，你只知道"崩了"，不知道"崩在哪条指令、读的哪个�
 
 **军棋诚实边界**：第 3 层"主动取值"军棋**走不通**——因为 `OnCreate` 推进到
 `std::vector` 对象图 0x43ed8 就卡住（§124 纠正后 3 项阻塞：① 上下文相关 BL 解码 bug
-② 数据与指令对齐未初始化 ③ 288MB PROT_NONE mmap，红线 §R6 + §124），拿不到 18 地址的完整
-运行时上下文。所以军棋 18 地址唯一拿法仍是 **redroid 跑原版 so → dlopen 后 dump
-72 字节**（`frida-dump/redroid_jni_dump.py` 三件套）。
+② 数据与指令对齐对应缺口（N44，原"对象图"）③ 288MB PROT_NONE mmap，红线 §R6 + §124），拿不到 18 地址的完整
+运行时上下文。所以军棋 18 地址**早期**拿法 = **redroid 跑原版 so → dlopen 后 dump
+72 字节**（`frida-dump/redroid_jni_dump.py` 三件套）；**★ §124x-z 后 = 静态位移固化 `jqt_mem.c` `g_jq_got_tbl` 免 dump**。
 
 **预判追问："为什么 unidbg_FindKey 拿不到 18 常量，redroid 却能？"**
 unidbg_FindKey 思路是"跑通 so → hook 常量池地址 → 读运行时值"，但军棋 unidbg
@@ -172,23 +172,22 @@ hook 关键地址 → 读运行时值）。军棋 so 的"密钥"场景有两个�
    **无需 unidbg 搜索**（已提取，见第 19 章）。
 
 2. **18 个 `.text` 常量池**（`ldr rX,[pc,#N]` 读 0xbd10f… 密文）：
-   - 静态 `.so` 读不出（只有 dlopen 重定位后才填值，**不是壳自解密**——
-     `.rodata` 静态即明文已证）
+   - 静态 `.so` **房间真值**读不出（门牌号静态可读，房间真值只有 dlopen 重定位后才填对，**不是壳自解密**——`.rodata` 静态即明文已证；N45）
    - **unidbg_FindKey 思路**：跑通 dlopen → hook 常量池地址 → 取运行时值
    - **但军棋走不通**：`OnCreate` 对象图未补全（推进到 `std::vector` 0x43ed8 卡住，
      §124 纠正后 3 项阻塞：① 上下文相关 BL 解码 bug ② 数据与指令对齐未初始化
-     ③ 288MB PROT_NONE mmap）→ 仍需 **redroid 跑原版 dump 这 18 地址 72 字节**
+     ③ 288MB PROT_NONE mmap）→ 早期仍需 **redroid 跑原版 dump 这 18 地址 72 字节**
      （工具三件套 `redroid_jni_dump.py` + `redroid_dump_jni.sh` + `gen_runtime_table.py`，
-     红线 §R6）
+     红线 §R6）；**★ §124x-z 后 = 静态位移固化 `jqt_mem.c` `g_jq_got_tbl` 免 dump**
 
 **为什么 SPAK key 不用 FindKey、18 常量池却要用？** 前者在 `.rodata` 静态明文（直接 dump），
-后者是"只有运行时才填的值"（静态读不出）。FindKey 专攻"运行时才有的值"，
+后者是"只有 dlopen 重定位才填对的**房间真值**"（门牌号静态可读，房间真值静态读不出，N45）。FindKey 专攻"运行时才有的房间真值"，
 军棋后者拿不到 → 退而用 redroid dump。
 
 **"18 地址为什么是 72B"（大白话）**：
 15 个 `.text` 常量池（每个 4 字节 = 60B）+ 2 个 `.data`（每个 4 字节 = 8B）
-= 共 72B。这 18 个值"只有 dlopen 重定位才填"，静态 `.so` 读不出（占位符）。
-军棋"能跑"唯一拿法 = redroid 跑原版 so → dlopen → dump 这 18 地址 72B。
+= 共 72B。这 18 个值"只有 dlopen 重定位才填"，静态 `.so` **房间真值**读不出（门牌号静态可读，房间真值是占位符；N45）。
+军棋"能跑"早期拿法 = redroid 跑原版 so → dlopen → dump 这 18 地址 72B；**★ §124x-z 后 = 静态位移固化 `jqt_mem.c` `g_jq_got_tbl` 免 dump**。
 
 **"为什么 unidbg 拿不到这 18 地址"（大白话）**：
 unidbg 模拟 so，但 §124 的 ① 上下文相关 BL 解码 bug（unicorn2 精度）+
@@ -238,7 +237,7 @@ dump 出 72B 注入 unidbg 适配层（`jq_load_runtime_values`）→ 模拟时�
 > R0dbg = 追踪 + 拦截，能定位崩点、喂假数据骗过反检测（军棋 12 init_array 全通后用它排错）。
 > Unidbg_FindKey 的"跑通再 hook 取值"对军棋 18 个 `.text` 常量**走不通**
 > （OnCreate 卡 0x43ed8，§124 纠正后 3 项阻塞：① 上下文相关 BL 解码 bug
-> ② 数据与指令对齐未初始化 ③ 288MB PROT_NONE mmap），唯一拿法是 redroid dump。
+> ② 数据与指令对齐对应缺口（N44）③ 288MB PROT_NONE mmap），早期拿法是 redroid dump（**★ §124x-z 后 = 静态固化 `jqt_mem.c` 免 dump**）。
 > 军棋 PC off-by-2 已用 unicorn2 后端修复（DiagTracePC 实证 0xa37fc = 0x159880）。
 
 ---

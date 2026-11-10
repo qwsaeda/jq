@@ -195,11 +195,11 @@ fi
 | **③ `mumu_walktest.sh`** | **真机走子一条龙**（重启+菜单→每步选 cell→走 cell 多轮重试→事件验证→日志+进程） | `bash rev64/tools/mumu_walktest.sh --restart --seq "25,30 27,32" --expect Bomb`（触摸 flaky 由脚本多轮重试兜底，不用手写 for 循环） |
 | **④ `rebuild_rs_apk.sh`** | **重打包+签名+装机一条龙**（链接审计→换 so→STORE→zipalign→v1+v2 签名→装→so 哈希对账→启动） | `bash rev64/tools/rebuild_rs_apk.sh --start`（**换 so 后必跑此脚本，勿手写 zip 重打**——固化前每轮手写 10+ 次；实证 so 哈希设备=本地一致） |
 | **⑤ `mumu_evtest.sh`（事件夹具触发）** | FLAG/MINE 事件真机验证（setprop 触发 OnCreate 自动走子 + 重启 + 日志 + 进程判据） | `bash rev64/tools/mumu_evtest.sh flag\|mine`（触摸 MuMu flaky 不达 native → FLAG/MINE 走 setprop 夹具路径；mine 复验 PASS） |
-| **⑥ `evverify.c`（`make evverify`，桌面事件验证）** | **替代每轮手写 /tmp/*.c 构造状态**：`--all` 跑 **8 断言**（EAT/BOMB/MOVE/FLAG/MINE + **UNDO 悔棋 + DRAW 和棋 + RESIGN 认输 + STALEMATE 困毙**），`--undo`/`--draw`/`--resign` 单跑夹具，`--lay` 打印默认布局 60 格 | `make evverify MODE=--all`（实证 **8/8 全对**：eat ev=1 / bomb ev=2 / move ev=0 / flag ev=3 / mine ev=5 / **undo：EAT→AI 应着→连续 pop 到 turn=BLUE + cell 原位** / **draw 和棋：winner=2 stage=OVER / resign 认输：winner=1-turn stage=OVER / stalemate 困毙：winner=1 stage=OVER（无棋可走判负，rulelay 原文 + 0x302b4 status=3）**）；**已进 12/12 回归第 12 项（判据"8/8 全对"）** |
+| **⑥ `evverify.c`（`make evverify`，桌面事件验证）** | **替代每轮手写 /tmp/*.c 构造状态**：`--all` 跑 **47 断言**（5 事件 EAT/BOMB/MOVE/FLAG/MINE + **UNDO 悔棋 + DRAW 和棋 + RESIGN 认输 + STALEMATE 困毙 + **★ 会话 1 扩 UI 对齐验证 43 断言（login/about/bright/chat/gameinfo/profile/room/setentry 等按钮几何 Δ=0 + replay 回退 + rules/imgset/create/ng/join/drawdetail 状态机 + **ui118 版本更新面板 / exitconfirm 退出确认 / resignconfirm 认输确认 / regretconfirm 悔棋确认**（几何简化近似，诚实边界标注））**）**，`--undo`/`--draw`/`--resign` 单跑夹具，`--lay` 打印默认布局 60 格 | `make evverify MODE=--all`（实证 **47/47 全对**：5 事件 eat ev=1/bomb ev=2/move ev=0/flag ev=3/mine ev=5 + undo 悔棋 + draw 和棋 winner=2 + resign 认输 winner=1 + stalemate 困毙 winner=1（无棋可走判负）+ **★ UI 对齐 43 断言（login 6 按钮几何 Δ=0 + about/bright/gameinfo/chat 弹窗 + replay 回退 3 路径 + rules 状态机 + **ui118 版本更新面板 + exit/resign/regretconfirm 3 个确认弹窗（几何简化近似，诚实边界）**）**）；**已进 12/12 回归第 12 项（判据"47/47 全对"，★ 会话 1 扩 UI 对齐验证后 8→44→**47**）** |
 | **⑦ `rs_cycle.sh`（全周期一条龙）** | 会话 1 侧的"会话 2 对称件"补全：make so + **12/12 回归** + rebuild_rs_apk.sh --start 装机启动 | `bash rev64/tools/rs_cycle.sh`（实证：编译 92840B + 11/11 PASS + so 哈希对账一致 + 进程 13222）。**换 so 后全流程跑此脚本（对称会话 2 的 arm32_cycle.sh）** |
 | **⑧ `mumu_fulltest.sh`（真机全套验证，最高价值批量）** | **走子 EAT + FLAG + MINE + 游戏内重开 + 和棋 + 认输 + 困毙 + UI 关闭/弹窗音效 一次跑完**（组合验证，防"每轮手写 走子→事件→重开 组合"）；**走子部分含 `--check-turn`（turn 交替判据）** | `bash rev64/tools/mumu_fulltest.sh`（**★ 加 UI 关闭/弹窗音效后 9/9 PASS**（走子 EAT + FLAG + MINE + 重开 + 和棋 + 认输 + 困毙 + **UI 关闭/弹窗音效**，19321+ 复验；`--skip-walk` 则 8/8 只跑事件）；演进：早期 4/4（走子+FLAG+MINE+重开，14115~14426）→ 加 --check-turn 后 18174~18491 → 加 draw/resign 后 6/6（18636）→ 加 stalemate 后 7/7（19321）→ **加 UI 关闭/弹窗音效后 9/9** |
 
-**★ 七件套 → 八件套**：①walk_coords ②walkverify ③mumu_walktest ④rebuild_rs_apk ⑤mumu_evtest ⑥evverify ⑦rs_cycle ⑧**mumu_fulltest（真机全套批量）**——"桌面预验证 → 真机单点 → 真机全套批量"三级验证链完整（⑥ 桌面 **8 断言**（5 事件 + undo 悔棋 + draw 和棋 + resign 认输 + stalemate 困毙）/ ③⑤ 真机单点 / ⑧ 真机 **7 项**一次跑完）。
+**★ 七件套 → 八件套**：①walk_coords ②walkverify ③mumu_walktest ④rebuild_rs_apk ⑤mumu_evtest ⑥evverify ⑦rs_cycle ⑧**mumu_fulltest（真机全套批量）**——"桌面预验证 → 真机单点 → 真机全套批量"三级验证链完整（⑥ 桌面 **47 断言**（5 事件 + undo/draw/resign/stalemate + **★ 会话 1 扩 UI 对齐验证 43 断言**）/ ③⑤ 真机单点 / ⑧ 真机 **9 项**一次跑完）。
 
 ![军棋真机验证：八件套三级验证链](assets/c5_eight_tools_verify_chain.png)
 > 🎬 动态版：[`videos/c5_eight_tools_verify_chain.mp4`](videos/c5_eight_tools_verify_chain.mp4)（10s 三级验证链动画）
@@ -208,7 +208,7 @@ fi
 
 **"资产复用"配套（防"每轮重解包/重推资产"）**：14 WAV（assets/jq_sfx/）+ SPAK 解包产物（datah_188 棋盘纹理 + datah_183 棋子图集）**已固化在 rs168_wav.apk**；`rebuild_rs_apk.sh` 只换 so、保留全部资产。
 
-**"回归升级 9/9 → 10/10 → 11/11 → 12/12"**：`src_rs_regress.sh` 新增 `[10/11]` 走子预验证（`make walkverify`，判据"3/3 步合法"）+ `[12/12]` 桌面事件验证（`make evverify MODE=--all`，判据"**8/8 全对**"（5 事件 + undo 悔棋 + draw 和棋 + resign 认输 + stalemate 困毙断言，★ 判据跟着 evverify 工具升级同步——旧 5/5、6/6、7/7 判据会分别假 PASS），防事件夹具回归；**[11/12] 真实长路径走子（`walkverify --longrun 5`，判据"5/5 回合 turn 交替 持续"）**。12/12 全 PASS 实证（2026-11-04 EXIT=0）。
+**"回归升级 9/9 → 10/10 → 11/11 → 12/12"**：`src_rs_regress.sh` 新增 `[10/11]` 走子预验证（`make walkverify`，判据"3/3 步合法"）+ `[12/12]` 桌面事件验证（`make evverify MODE=--all`，判据"**47/47 全对**"（5 事件 + undo/draw/resign/stalemate + **★ 会话 1 扩 UI 对齐验证 43 断言**，★ 判据跟着 evverify 工具升级同步——旧 5/5、6/6、7/7、8/8、44/44 判据会分别假 PASS，N25 判据同步第 8 次执行），防事件夹具 + UI 对齐回归；**[11/12] 真实长路径走子（`walkverify --longrun 5`，判据"5/5 回合 turn 交替 持续"）**。12/12 全 PASS 实证（2026-11-04 EXIT=0）。
 
 **★ walkverify 的双重职责（I3 审计区分，防台账串线）**：`walkverify.c` 既是**走子四件套的第 ② 件**（手工/批量走子验证的"桌面预验证"入口——`make walkverify SEQ=...` 验证任意坐标序列），又是 **12/12 回归的第 10 项**（自动化防回归里的固定序列 25,30 / 27,32 / 28,33）。**同一工具两个用途**：手工验证走"七件套第 ② 件"，防回归走"11/11 第 10 项"——职责不重叠，是"工具复用进回归"。
 
@@ -362,7 +362,7 @@ fi
 - **触发**：`adb setprop jq.undotest 1` → OnUpdate 连续 `undo_pop` 到 **turn==BLUE**（撤销 AI 应着 + 玩家走子，恢复玩家可走态）；`pop 2 步 → turn=0 stage=1`（蓝 EAT 后恢复）+ 栈空报无历史（不破坏当前态）
 - **★ 坑（N21）：undo_pop 一次恢复 turn=RED → OnUpdate AI 立即补应着 → undo 失效**（AI 反复 undo_push，栈永不空）；**修 = 连续 pop 到 turn==BLUE**（不能只 pop 一次）
 - **双路径**：`on_event "undo"`（OnEvent 路径，已有）+ `undotest`（OnUpdate property 触发，**触摸 flaky 下的可靠路径**）
-- **桌面预验证**：`evverify --undo`（走 EAT → 手动红方应着 → pop 2 步 → cell25/30 原位验证），`--all` 升级为 **8/8 断言**（+draw 和棋/resign 认输/stalemate 困毙）
+- **桌面预验证**：`evverify --undo`（走 EAT → 手动红方应着 → pop 2 步 → cell25/30 原位验证），`--all` 升级为 **47/47 断言**（+draw 和棋/resign 认输/stalemate 困毙 + **★ 会话 1 扩 UI 对齐验证 43 断言**）
 - **诚实边界**：悔棋 = 撤销到"玩家可走态"（turn=BLUE），非"撤销到对局初始"；AI 应着会被一并撤销（连续 pop 语义）
 
 **★ 对局结束 UI 闭环（AGENTS.md 最新沉淀，2026-11-04 15:3x 同步，MuMu 15120 实证）**：**★ 对局结束 UI 闭环（AGENTS.md 最新沉淀，MuMu 15120 + 16944 实证）**：
@@ -375,19 +375,19 @@ fi
 - **诚实边界**：横幅**像素出屏需真机 GPU 设备验收**（MuMu GLES1 几何出帧受限 §124zz）；**"渲染调用链已触发 + 音效 win/lose 真机闭环" ≠ "屏幕上画出胜负横幅"**（PBuffer 离屏像素已证，window surface 通路未通）
 - **音效清单（★ N23 实测纠正，C.5b checklist 精神）**：`audio.c` 实为 **14 个映射 = 14 个 wav 文件**（`rev64/dist/spak_res/` 14 个，`grep -cE '{\'' rev64/src_rs/audio.c` 实测 14）。构成 = **Junqi 组 12**（move/eat/bomb/flag/dead/flip/**win/lose**/draw/start/over/select）+ **Ui 组 2**（ui_close/ui_pop）。**旧写"16 个"是误记（把 Ui 组 Click/Close/Pop 当 3 个，实为 Close/Pop 2 个 + junqi 12 = 14）**。win/lose 是对局结束新增（15120 实证），但**总数仍 14**（替代"Ui 组只有 Close"的早期 12 个 → 加 win/lose = 14）
 - **★ 数据型口径红线（C.5b）**：音效数/wav 数**必须 `grep -c` 实测**，不靠"Ui 组 3 个"的记忆——本轮 N23 就是"14 vs 16"漂移，靠 `grep -cE` 实测 14 揪出
-- **八件套"真机事件"口径升级**：`mumu_fulltest.sh` **★ 加 stalemate 后 7/7**（走子 EAT + FLAG + MINE + 重开 + 和棋 + 认输 + 困毙，**走子含 `--check-turn` turn 交替判据**，19321 复验；演进 4/4→6/6→7/7）+ **对局结束 win/lose/draw 三色音效 + 三色横幅渲染链**（15120/18636 实证）- **工具**：`mumu_evtest.sh restart` 模式（flagtest→OVER→restartgame→重开判据），实证 PASS
+- **八件套"真机事件"口径升级**：`mumu_fulltest.sh` **★ 加 UI 关闭/弹窗音效后 9/9**（走子 EAT + FLAG + MINE + 重开 + 和棋 + 认输 + 困毙 + UI 关闭/弹窗音效，**走子含 `--check-turn` turn 交替判据**，19321+ 复验；演进 4/4→6/6→7/7→**9/9**）+ **对局结束 win/lose/draw 三色音效 + 三色横幅渲染链**（15120/18636 实证）- **工具**：`mumu_evtest.sh restart` 模式（flagtest→OVER→restartgame→重开判据），实证 PASS
 
 **★ 和棋/认输/困毙事件闭环（AGENTS.md 最新沉淀，MuMu 18636+19321 真机 + 桌面 8/8 实证）**：
 - **① 和棋 `jq.drawtest` property → `jq_on_draw` → winner=2 stage=OVER + `sfx：播放 draw`**（`data_junqi_draw.wav`）；**② 认输 `jq.resigntest` property → on_event resign → winner=1-turn + `sfx：播放 lose`**；**③ restartgame 重开恢复**（stage=PLAY 蓝先手）
 - **★ 修 3 个缺口（sfx/渲染对和棋 winner=2 的处理缺失）**：① `sfx_game_over` 原只处理 winner==BLUE/RED，和棋（winner=2）不播 → 加 `else if (winner==2) sfx_play("draw")`；② on_event resign 不经走子块无音效 → 加 sfx_game_over；③ `rs_draw_overlay` 原 winner!=BLUE 走 else 红横幅 → 和棋误画红 → **改三色（蓝胜/红胜/和棋灰）**
 - **桌面预验证**：`evverify --draw`/`--resign`（`run_draw_resign`：jq_on_draw → winner=2 stage=OVER；resign → winner=1-turn），`--all` 升级 **7/7 断言**
-- **真机全套验证**：和棋/认输已进 `mumu_fulltest.sh`（**★ 加 draw/resign 后 6/6 PASS**，走子 EAT + FLAG + MINE + 重开 + 和棋 + 认输一次跑完，18636 复验）；**困毙（stalemate）= 桌面 8/8 断言之一（无棋可走判负，规则引擎覆盖，真机走子触发需特定残局）**
+- **真机全套验证**：和棋/认输已进 `mumu_fulltest.sh`（**★ 加 draw/resign 后 6/6 PASS**，走子 EAT + FLAG + MINE + 重开 + 和棋 + 认输一次跑完，18636 复验）；**困毙（stalemate）= 桌面 47/47 断言之一（无棋可走判负，规则引擎覆盖，真机走子触发需特定残局；★ 会话 1 扩 UI 对齐验证后 8→44→47）**
 
 **★ 困毙事件闭环（AGENTS.md 最新沉淀，MuMu 19321 真机 + 桌面 8/8 实证）**：
 - **`jq.stalematetest` property → OnUpdate `jq_on_stalemate` → winner=1-turn（无子可动方负）+ `sfx：播放 lose`** + property 消费（0）+ restartgame 重开恢复（stage=PLAY 蓝先手）+ 进程稳定
 - **★ 坑（N36）：logcat -c 时序导致 grep 漏日志**（第一次查询困毙日志未见，实际已触发——logcat -c 清缓冲 + 查询窗口错位）；**修 = sleep 6（60 帧 ~1s 需覆盖 %60 检测周期）+ 完整日志查询**
 - **★ 诚实边界**：`jq.stalematetest` = OnUpdate property 直接模拟困毙结果（对齐 `jq_on_stalemate` 语义），**非默认布局真实困毙**（真实困毙需特定残局，规则引擎 `jq_side_stalemated` 走子后自动判断）
-- **工具升级**：`evverify --stalemate`（`run_stalemate`），`--all` 升级 **8/8 断言**；`mumu_evtest.sh stalemate` 模式 + **`mumu_fulltest.sh` 7/7**（加困毙第 7 项，19321 复验）
+- **工具升级**：`evverify --stalemate`（`run_stalemate`），`--all` 升级 **47/47 断言**（含会话 1 扩 UI 对齐验证 43 项）；`mumu_evtest.sh stalemate` 模式 + **`mumu_fulltest.sh` 9/9**（加困毙 + UI 关闭/弹窗音效 close/pop，19321+ 复验）
 - **诚实边界**：`on_event "resign"` 已有（OnEvent 路径）；`drawtest/resigntest` = OnUpdate property 触发（触摸 flaky 可靠路径）；**横幅三色像素出屏需真机 GPU**（渲染调用链已触发，同 rs_draw_overlay 诚实边界）
 **★ 对局结束 UI 强化：'再来一局'按钮（AGENTS.md 最新沉淀，MuMu 16944 实证）****★ 对局结束 UI 强化：'再来一局'按钮（AGENTS.md 最新沉淀，MuMu 16944 实证）**：
 - **`rs_draw_overlay` 加'再来一局'按钮**（横幅下方 35%-65% x / 62%-72% y，**绿色 quad**，与 OnTouch 命中几何一致）+ OnTouch 加**对局结束按钮命中**（`stage==OVER && nx 0.35-0.65 && ny 0.62-0.72` → 重开新局，**不重启 app**）
@@ -398,7 +398,7 @@ fi
 | **重进不崩** | ✅ **闭环**（force-stop → 重启 → 菜单进对局 → 走 1 回合 → AI 应着 → sfx eat，**重进 ×2 均成功无崩溃**） | MuMu 11062/11185 实证 |
 
 **★ 事件验证"桌面预验证 → 真机"闭环（evverify ⑥ + 真机 ⑤，防"真机盲目试探"）**：
-- **桌面**：`make evverify MODE=--all`（⑥ 件）**8 断言全对**（eat 25→30 ev=1 / bomb 27→32 ev=2 / move 12→11 ev=0 / flag 53→58 ev=3 / mine 49→54 ev=5 / **undo 悔棋：连续 pop 到 turn=BLUE + cell 原位** / **draw 和棋：winner=2 / resign 认输：winner=1-turn / stalemate 困毙：winner=1（无棋可走判负）**），替代每轮手写 /tmp/*.c 构造状态；已进 **12/12 回归第 12 项（判据 8/8）**
+- **桌面**：`make evverify MODE=--all`（⑥ 件）**47 断言全对**（eat 25→30 ev=1 / bomb 27→32 ev=2 / move 12→11 ev=0 / flag 53→58 ev=3 / mine 49→54 ev=5 / **undo 悔棋：连续 pop 到 turn=BLUE + cell 原位** / **draw 和棋：winner=2 / resign 认输：winner=1-turn / stalemate 困毙：winner=1（无棋可走判负）** + **★ 会话 1 扩 UI 对齐验证 43 断言（+ui118/exit/resign/regretconfirm 4 弹窗）**），替代每轮手写 /tmp/*.c 构造状态；已进 **12/12 回归第 12 项（判据 47/47）**
 - **真机**：MOVE/EAT/BOMB 走 `mumu_walktest.sh` 触摸；FLAG/MINE 走 `mumu_evtest.sh` setprop 夹具（触摸 MuMu flaky 不达 native）
 - **方法论**："验证事件先桌面 evverify 确认规则引擎 → 再真机走对应触发路径"，免真机 flaky 盲目试探（同走子"先桌面 walkverify 再真机 mumu_walktest"的固化套路，本轮把 FLAG/MINE 也补进桌面 evverify）
 

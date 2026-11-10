@@ -44,18 +44,18 @@ so 加载后 Android 自动调 `JNI_OnLoad`，里面注册方法、建全局对�
 ### 痛点 3：18 个 `.text` 常量池是"只有开机后才填的号"
 
 军棋 so 里 `ldr rX,[pc,#N]` 读的 18 个地址（15 个 `.text` 常量池 + 2 个 `.data`，
-共 72B）只有 dlopen 重定位后才填值，静态文件读不出（不是壳自解密，`.rodata` 静态
+共 72B）只有 dlopen 重定位后才填值，静态文件**房间真值**读不出（门牌号静态可读，N45；不是壳自解密，`.rodata` 静态
 即明文已证，红线 §R6）。JNI 调用要读这些值时就卡住。
 
 - **大白话卡点**：这 18 个"号"是"开机后才发"的，静态文件里是占位符。
 - **为什么卡**：它们不在 3 类重定位里（RELATIVE/JUMP_SLOT/GLOB_DAT 都填过了），
   是运行时才解析的常量池值。
-- **不解决会怎样**：读不到 18 个值，依赖它们的逻辑全错，JNI 调用卡住。
+- **不解决会怎样**：读不到 18 个**房间真值**（N45：门牌号静态可读，房间真值需 dlopen 才填对），依赖它们的逻辑全错，JNI 调用卡住。
 
 **为什么 18 个常量池"只有开机才填"？** `ldr rX,[pc,#N]` 读的是".text 里的常量池"
 （编译时把常量放常量池、代码里用 `pc` 相对偏移读）。常量池值在 dlopen 重定位
 时填（linker 把相对偏移换算成绝对地址），静态文件是占位。军棋 18 个地址
-（15 `.text` + 2 `.data`，72B）属这类，静态读不出，只能 redroid dump（第 8/9 章）。
+（15 `.text` + 2 `.data`，72B）属这类——**静态读得出门牌号，读不出房间真值（N45）**，房间真值早期只能 redroid dump（第 8/9 章）；**★ §124x-z 后 = 静态位移固化 `jqt_mem.c` `g_jq_got_tbl` 免 dump**。
 
 ## 为什么这样做：把 JNI 交互拆成"注册→执行→应答"三阶段
 
@@ -206,13 +206,13 @@ long ret = vm.callStaticJniMethodObject(dm, "OnCreate", jniEnv, objHash);
 | **JNI 注册（JNI_OnLoad）** | 录 14 个 `On*` 静态方法 + 查 AdView（返 null 去广告） | 让 AdView 返真类（要初始化广告 → 广告浮层，去广告目标相反） |
 | **JNI 执行（14 入口被调）** | `callStaticJniMethodObject` 14 个入口全通（DiagJni 推进到 0x43ed8） | 突破 0x43ed8（§124 ② 数据与指令对齐对应缺口（N44），std::vector 未初始化） |
 | **JNI 应答（DalvikVM）** | `getJNIEnv`/`getJavaVM`/`callStaticJniMethod*` 全通；AdView 返 null | 补数据与指令对齐（Java 侧全接通后卡点转 native，§124 ②） |
-| **读 18 常量** | 早期 redroid dump 72B 注入（`jq_load_runtime_values` 适配层）；**★ §124x-z 后 = 静态位移固化 `jqt_mem.c` `g_jq_got_tbl`（免 dump，`jni_runtime_values.json` 已删）** | 从静态 `.so` 直接读（未重定位，读不出） |
+| **读 18 常量**（N45：门牌号静态可读，房间真值需 dlopen 才填对） | 门牌号静态可读（`.so` 偏移如 `0x0235c4`→`0x00138918`）；早期 redroid dump 72B 房间真值注入；**★ §124x-z 后 = 静态位移固化 `jqt_mem.c` `g_jq_got_tbl`（免 dump）** | 从静态 `.so` 直接读**房间真值**（门牌号能读，房间真值未重定位是占位；unidbg 跑不通 0x43ed8） |
 
 **军棋实测对照**：
 - JNI 注册 ✓（14 入口录好 + AdView 查 null）
 - JNI 执行 ✓（`OnCreate` 推进到 0x43ed8）
 - JNI 应答 ✓（DalvikVM 全接，getJNIEnv/getJavaVM 全通）
-- 读 18 常量 ⚠️（静态读不出；早期需 redroid dump 72B 注入，**★ §124x-z 后 = 静态固化 `jqt_mem.c` `g_jq_got_tbl` 免 dump**）
+- 读 18 常量"房间真值" ⚠️（静态读得出**门牌号**，读不出**房间真值**（N45）；早期需 redroid dump 72B 房间真值注入，**★ §124x-z 后 = 静态位移固化 `jqt_mem.c` `g_jq_got_tbl` 免 dump**）
 - **✗ 突破 0x43ed8**：§124 ② 数据与指令对齐对应缺口（N44）（JNI 层全通后卡点转 native）
 
 ## 13.4 军棋实战验证：JNI 三阶段全通但卡 native
@@ -331,7 +331,7 @@ MuMu 是"x86 PC + 真 GPU + 能 dlopen 32 位军棋"的现成环境（§124u-z �
 > 卡点不在 JNI 层（电话全接通），转 native 层 §124 的 3 项阻塞：
 > ① 上下文相关 BL 解码 bug（unicorn2 精度，BL 0x7965a 错位到 0x6eaea）
 > ② 数据与指令对齐对应缺口（N44）（std::vector 0x43ed8）③ 288MB PROT_NONE mmap。
-> 军棋 18 个 `.text` 常量池只有 dlopen 才填值（非壳自解密），unidbg 静态读不出，
+> 军棋 18 个 `.text` 常量池：静态读得出**门牌号**，**房间真值**只有 dlopen 重定位才填对（非壳自解密，N45），unidbg 读不出房间真值，
 > 需 redroid dump。
 > §124q 动态调用链被 BL bug 卡死时，**Frida Jnitrace 真机 trace 是替代路**（13.4b，
 > 绕开 unidbg 模拟器，真机跑 32 位 so 看 JNI 调用流）；详见 `frida-dump/FRIDA_NOTES.md`。
