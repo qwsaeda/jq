@@ -8498,9 +8498,9 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
              ev, from, to);
         /* ★ 走子坐标诊断（2026-11-10 未达成缺口攻坚）：打印 view→720×1280 基准映射
            + 命中 cell + 可走性（can_move/can_flip），实锤触摸几何与规则层坐标对齐。
-           限前 10 次避免日志洪水。 */
+           限前 50 次避免日志洪水（红方热座验证需多格试探）。 */
         static int g_touch_diag_cnt = 0;
-        if (++g_touch_diag_cnt <= 10) {
+        if (++g_touch_diag_cnt <= 50) {
             int dx = (int)(x / (float)g_view_w * 720.0f + 0.5f);
             int dy = (int)(y / (float)g_view_h * 1280.0f + 0.5f);
             pthread_mutex_lock(&g_mutex);
