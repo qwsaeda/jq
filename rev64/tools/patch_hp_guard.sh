@@ -168,3 +168,63 @@ open(f, 'w').writelines(final)
 print(f'  ✓ {f}: 粘连行修 {fixed_merge} + 缺标签插 {fixed_label}')
 PYEOF
 done
+
+# ============================================================================
+# ★ 2026-11-10 用户指正"MuMu 玩不了"修复固化：顶部系统"Viewing full screen / GOT IT"
+#   提示栏压在 app 画面之上拦截主菜单触摸 → 进不了对局。
+#   修复：App.smali onCreate 在 setSystemUiVisibility(0x1706) 后追加
+#   API30+ WindowInsetsController.hide(statusBars|navigationBars=0x3) 主动 dismiss。
+#   幂等：已含 getInsetsController 则跳过。
+# ============================================================================
+patch_immersive() {
+  local f="$1"
+  if grep -q "getInsetsController" "$f" 2>/dev/null; then
+    echo "  ✓ $f: immersive 段已在（跳过）"
+    return 0
+  fi
+  python3 - "$f" << 'PYEOF'
+import sys
+f = sys.argv[1]
+s = open(f).read()
+anchor = '    invoke-virtual {v0, v1}, Landroid/view/View;->setSystemUiVisibility(I)V\n'
+assert s.count(anchor) == 1, f"anchor count={s.count(anchor)}"
+immersive = '''    invoke-virtual {v0, v1}, Landroid/view/View;->setSystemUiVisibility(I)V
+
+    # ★ 2026-11-10 用户指正"MuMu 玩不了"修复：MuMu 顶部系统"Viewing full screen / GOT IT"
+    # 提示栏压在 app 画面之上拦截触摸（用户进不了对局）。API 30+ 主动
+    # WindowInsetsController.hide(statusBars|navigationBars) dismiss 系统全屏提示栏；
+    # API <30 维持 setSystemUiVisibility 旧路径（行为不变）。
+    # ★ 教训固化：MuMu framework.jar!classes3.dex 里 WindowInsetsController 是 interface
+    #   （非 class）→ hide 调用必须 invoke-interface（invoke-virtual 触发 IncompatibleClassChangeError）。
+    # API 30 门槛（const/16：0x1e 超 const/4 的 4bit 常量域）
+    const/16 v2, 0x1e
+    sget v3, Landroid/os/Build$VERSION;->SDK_INT:I
+    if-lt v3, v2, :cond_immersive_skip
+    # API 30+：window.insetsController().hide(statusBars | navigationBars = 0x3)
+    invoke-virtual {p0}, Landroid/app/Activity;->getWindow()Landroid/view/Window;
+    move-result-object v0
+    invoke-virtual {v0}, Landroid/view/Window;->getInsetsController()Landroid/view/WindowInsetsController;
+    move-result-object v0
+    if-eqz v0, :cond_immersive_skip
+    # WindowInsets.Type statusBars=0x1 | navigationBars=0x2 = 0x3
+    const/4 v1, 0x3
+    invoke-interface {v0, v1}, Landroid/view/WindowInsetsController;->hide(I)V
+    :cond_immersive_skip
+'''
+s = s.replace(anchor, immersive, 1)
+# .locals 扩展（v2/v3 需 .locals >= 4）
+import re
+m = re.search(r'\.method protected onCreate\(Landroid/os/Bundle;\)V\n    \.locals (\d+)', s)
+if m:
+    n = int(m.group(1))
+    if n < 4:
+        s = s[:m.start(1)] + '4' + s[m.end(1):]
+open(f, 'w').write(s)
+print(f"  ✓ {f}: immersive 段已插入（onCreate + .locals 4）")
+PYEOF
+}
+
+# 对所有存在的 smali 树应用 immersive 补丁（与 hp guard 同款幂等循环）
+for tree in /tmp/opencode/jq_apk/rs_a64/dec_rs/smali/com/cnvcs/App.smali; do
+  [ -f "$tree" ] && patch_immersive "$tree"
+done
