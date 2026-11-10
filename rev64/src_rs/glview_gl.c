@@ -213,6 +213,15 @@ void jq_glview_set_selected(jq_glview *gv, int cell)
 {
     if (gv && gv->rr) rs_render_set_selected(gv->rr, cell);
 }
+/* ★ 2026-11-10 小竖条修复：取渲染层 eglQuerySurface 同步的实际 view 尺寸
+   （JNI OnTouch 入口同步 g_view_w/h，触摸命中几何 = 渲染几何基准一致）。 */
+int jq_glview_view_size(int *w, int *h)
+{
+    if (w) *w = g_rr.view_w;
+    if (h) *h = g_rr.view_h;
+    return 0;
+}
+
 void jq_glview_dirty(jq_glview *gv)
 {
     if (gv && gv->rr) rs_render_dirty(gv->rr);
@@ -283,8 +292,26 @@ static void *rs_render_thread_main(void *arg)
                     g_win = nw;
                     /* 建 window EGL surface（EGL_WINDOW_BIT）→ 切 window 出屏主路 */
                     g_win_surf = eglCreateWindowSurface(g_rr.egl_disp, g_cfg, (EGLNativeWindowType)nw, NULL);
-                    if (g_win_surf != EGL_NO_SURFACE)
-                        LOGI("渲染线程 window surface 创建成功（fromSurface 第 %d 次重试）→ 出屏主路激活", win_retry_cnt);
+                    if (g_win_surf != EGL_NO_SURFACE) {
+                        /* ★ 2026-11-10 小竖条修复（根因二）：GLView onSurfaceChanged 未回调
+                           native OnGraphChange（调用链断裂）→ view 停留默认 720×1280，
+                           而真机 900×1600 → 小竖条+黑边。此处用 eglQuerySurface 取实际
+                           window surface 尺寸（EGL_WIDTH/EGL_HEIGHT）→ 同步 g_rr.view_w/h，
+                           免 smali 改动，铺满屏。 */
+                        EGLint sw = 0, sh = 0;
+                        if (eglQuerySurface(g_rr.egl_disp, g_win_surf, EGL_WIDTH, &sw) &&
+                            eglQuerySurface(g_rr.egl_disp, g_win_surf, EGL_HEIGHT, &sh)) {
+                            if (sw > 0 && sh > 0 && (sw != g_rr.view_w || sh != g_rr.view_h)) {
+                                LOGI("渲染线程 eglQuerySurface 同步 view 尺寸：%dx%d → %dx%d（铺满屏修小竖条黑边）",
+                                     g_rr.view_w, g_rr.view_h, sw, sh);
+                                g_rr.view_w = sw;
+                                g_rr.view_h = sh;
+                                g_rr.dirty = 1;
+                            }
+                        }
+                        LOGI("渲染线程 window surface 创建成功（fromSurface 第 %d 次重试）→ 出屏主路激活 view=%dx%d",
+                             win_retry_cnt, g_rr.view_w, g_rr.view_h);
+                    }
                 } else if (win_retry_cnt % 12 == 1)
                     LOGI("渲染线程 fromSurface 未 ready（第 %d 次，等 surface attach）", win_retry_cnt);
             }
@@ -384,8 +411,28 @@ static void *rs_render_thread_main(void *arg)
                          (unsigned)g_rr.tex_bg[1], (void*)g_rr.board_px);
                 }
             } else {
-                LOGE("渲染线程 帧 %d：eglSwapBuffers 失败 err=0x%x（window 出屏未上屏）",
-                     frame_cnt, eglGetError());
+                if (frame_cnt < 50 || frame_cnt % 1000 == 0)
+                    LOGE("渲染线程 帧 %d：eglSwapBuffers 失败 err=0x%x（window 出屏未上屏；0x3000=EGL_BAD_SURFACE 周期诊断）",
+                         frame_cnt, eglGetError());
+                /* ★ 0x3000 周期自愈：swap 连续失败（ANativeWindow buffer 被系统回收后失效）
+                   每 3000 帧尝试重建 window surface（fromSurface + eglCreateWindowSurface），
+                   免 app 重启。重建成功则后续帧恢复出屏。 */
+                if (frame_cnt % 3000 == 2999 && g_surf_jobj && egl_current_thread_attached) {
+                    static int g_swap_fail_streak = 0;
+                    g_swap_fail_streak++;
+                    if (g_swap_fail_streak >= 10) {   /* 连续 10 次失败才重建（防抖动） */
+                        LOGI("渲染线程 帧 %d：swap 0x3000 自愈——重建 window surface（连续 %d 次失败）",
+                             frame_cnt, g_swap_fail_streak);
+                        if (g_win_surf != EGL_NO_SURFACE)
+                            eglDestroySurface(g_rr.egl_disp, g_win_surf);
+                        g_win_surf = EGL_NO_SURFACE;
+                        g_gl_current = 0;
+                        g_swap_fail_streak = 0;
+                    }
+                } else {
+                    static int g_swap_fail_streak = 0;
+                    g_swap_fail_streak = 0;
+                }
             }
         }
         frame_cnt++;

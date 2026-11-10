@@ -3434,6 +3434,18 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
         LOGI("OnTouch 触摸 #%d（x=%.0f y=%.0f，view=%dx%d，ui=%s）",
              g_touch_cnt, x, y, g_view_w, g_view_h,
              ui_screen_get() == UI_MENU ? "MENU" : "GAME");
+    /* ★ 2026-11-10 小竖条修复：OnTouch 入口同步渲染层实际 view 尺寸（eglQuerySurface）→
+       g_view_w/h 与渲染几何基准一致（免 OnGraphChange smali 调用链断裂导致 720×1280 默认值）。 */
+    {
+        int rw = 0, rh = 0;
+        if (jq_glview_view_size(&rw, &rh) == 0 && rw > 0 && rh > 0) {
+            if (rw != g_view_w || rh != g_view_h) {
+                g_view_w = rw; g_view_h = rh;
+                if (jq_glview_is_ready())
+                    jq_glview_resize(&g_glview, rw, rh);
+            }
+        }
+    }
     /* UI 分流：菜单态点按钮 → 进对局（人机/重开），其它按钮占位日志。
        ★ 触摸坐标（MotionEvent.getX/getY）与渲染 viewport 坐标系不一致
          （MuMu input 注入坐标被缩放），故菜单命中用 720×1280 按钮几何
@@ -8666,6 +8678,10 @@ Java_com_cnvcs_App_OnGraphCreate(JNIEnv *env, jclass clazz)
         LOGI("OnGraphCreate：场景构造（stage=PLAY 布局已加载 棋子/棋盘纹理由渲染线程上传）");
     pthread_mutex_unlock(&g_mutex);
 }
+/* ★ 2026-11-10 小竖条修复：JNI 层 view 同步（渲染层 eglQuerySurface 取实际 surface 尺寸
+   → JNI g_view_w/h 同步，触摸命中几何 = 渲染几何基准一致）。 */
+int jq_glview_view_size(int *w, int *h);   /* fwd decl（glview_gl.c 实现） */
+
 JNIEXPORT void JNICALL
 Java_com_cnvcs_App_OnGraphChange(JNIEnv *env, jclass clazz, jint w, jint h)
 {
@@ -8679,6 +8695,8 @@ Java_com_cnvcs_App_OnGraphChange(JNIEnv *env, jclass clazz, jint w, jint h)
     g_view_h = h > 0 ? h : g_view_h;
     if (jq_glview_is_ready())
         jq_glview_resize(&g_glview, w, h);
+    LOGI("OnGraphChange：%dx%d → view 基准同步（glViewport 按实际 surface 尺寸铺满屏，修黑边）",
+         g_view_w, g_view_h);
 }
 
 /* OnResult(int req, int res, Intent data)：Activity 结果（对话框等）。桩。 */
