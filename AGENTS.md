@@ -133,6 +133,9 @@ java -cp /tmp/opencode/apksigner/apksig.jar:/tmp/opencode/apksigner SignV2 \
 > **第三次全链复验（2026-11-10，MuMu pid 9485/9554/9649，so `09664e7f`）**：
 > 三连跑五判据全 PASS（装 ✓ board=OK ✓ movetest 3/3（Junqi.Move×2+Junqi.Dead×1，复盘 n=3）✓ 退出 ✓
 > 重进 pid 9649 board=OK ✓，全链崩溃=0）。
+> **第四次全链复验（2026-11-10，MuMu pid 9732/9801/9886，so `09664e7f`）**：
+> 四连跑五判据全 PASS（装 ✓ board=OK(737×751) ✓ movetest 走子 6→11 Junqi.Move + 30→25 Junqi.Dead ✓
+> 退出 ✓ 重进 pid 9886 board=OK ✓，全链崩溃=0）。
 > 后续新增判据（完整 60 局对弈/AI 介入/蓝牙端到端/真实手点验收）未过时，按"未达成继续做"原则
 > 追加缺口与路线到本段，不许以"诚实边界"搪塞收尾。
 
