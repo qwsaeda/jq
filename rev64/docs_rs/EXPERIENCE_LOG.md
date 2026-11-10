@@ -1955,3 +1955,37 @@ OnCreate 主线程被该钩子段拖住（转译层 property 读取 + 自动走 
   - 修：`adb push` 新 atlas 到 `/data/local/tmp/spak_res/` 覆盖 → Init 解码 220x414 ✓。
   - 教训固化：资源改动必须**同时推设备 fs 副本**（或清 `/data/local/tmp/spak_res/`）；
     判据用 Init 解码尺寸（220x414）而非"apk 里有新文件"。
+
+## ★ 2026-11-10 用户"返回键点击无效/这不是悔棋"+"所有 UI 都和原版比对"指正批次（UI_COMPARE.md + so 47349074470f）
+
+- **↩ 语义错位根治（原版 ↩=返回/退出，不是悔棋）**：
+  - 原版 .rodata 实锤：`Junqi.ExitConfirm='真的要退出吗？'` / `RegretConfirm='您真的要悔棋吗？'` /
+    `ResignConfirm='您真的要认输吗？'`。原版 ↩（屏幕左上角返回图标）= 退出对局确认弹窗
+    （ExitConfirm），**悔棋走 ☰ 菜单（RegretConfirm）**——用户"这不是悔棋功能，你TM没有和原版对齐"实锤。
+  - 旧实现把 ↩ 当悔棋（undo_pop 循环）= 原版语义错位。修：`jni_bridge.c` UI_GAME ↩ 分支改
+    `ui_screen_set(UI_EXITCONFIRM)`。
+- **BACK 双击"点击无效"根因（★ 真凶）**：
+  - 原版 App.smali `onKeyUp` 也调 `OnKey`，一次按键 = down+up **两次 OnKey**。
+  - 原版 32 位 native OnKey 校验 `getAction()==ACTION_DOWN`（只处理按下）；src_rs 旧 OnKey
+    **未校验 action** → down 开弹窗 + up 立即关弹窗 = **用户只见闪烁 = "点击无效"根因**。
+  - 修：OnKey 读 `getAction()`，非 ACTION_DOWN 交系统。真机实锤：单次 BACK→开弹窗停留（无闪烁）。
+- **ExitConfirm 弹窗几何升级 datah_025**：旧 400×280 简化近似（无按钮无文本）→ datah_025
+  450×220 精确（Msg '真的要退出吗？' + 确定/取消 蓝/灰，偏移+135,+530，Δ=0）。文字图集
+  `make_exit_atlas.py`（5 行：真的要退出吗？/您真的要悔棋吗？/您真的要认输吗？/确定/取消）。
+- **3 处弹窗按钮文字行号错位根治**（比对实测发现）：
+  1. 两人新局（datah_062）：确定/取消文字用 i(2,3) 当行号 → 显示'布局明棋'/'翻棋暗棋'（错位 2 行）。
+     修：`txt_row=i+2`。
+  2. 游戏规则（datah_037）：按钮文字 翻棋/布局/工兵 → 应 规则-翻棋/规则-布局/返回（工兵≠返回）。
+     修：rules_text_atlas 行1-3 重烘焙。
+  3. 对局信息（datah_050）：标题 '信息' → '对局信息'。修：gameinfo_text_atlas 行0 重烘焙。
+- **UI_COMPARE.md 产出（用户核心要求）**：11 项 UI 逐项比对（主菜单/对局/☰菜单/新局/游戏设置/
+  软件信息/退出确认/游戏规则/对局信息/联网方式/人机难度，全部对齐），每项 = 原版参照
+  （orig_*.png 实测截图或 datah_*.bin XML 几何）+ 设备截图 + 几何 Δ 表 + 判定，比对图
+  `rev64/docs_rs/uicmp/*.png`。剩余待比对项（声音/图像/登录/四国/联机☰/聊天/房间等）标注"数据齐全/导航受限"。
+- **坑清单固化**：
+  - 原版 datah_*.bin XML 是**几何权威**（GBK 解码）；datah_037/050/062/072/041 按钮 Δ=0 实测。
+  - 弹窗按钮文字行号必须与图集行号一致（`txt_row=i+offset`，不能直接用按钮索引当行号）。
+  - 设备 fs 资源 `/data/local/tmp/spak_res/` 优先于 APK assets——atlas 改动必须同时推设备 fs。
+  - `jq.dlgNNN` 批量钩子需 `jq.dlgbatch` 先 armed（OnCreate/OnUpdate 读 `jq.dlgbatch` 门控），
+    且 prop 残留会被 OnCreate 拾取（验收前全清 jq.* 残留）。
+  - orig_two2.png 实为**主菜单**（非两人新局弹窗截图）——原版弹窗截图命名不可尽信，以 XML 为准。
