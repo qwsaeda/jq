@@ -157,6 +157,17 @@ java -cp /tmp/opencode/apksigner/apksig.jar:/tmp/opencode/apksigner SignV2 \
 >   ② 若在客户端 GUI：把 apk 装到对应实例（`adb connect` 该实例端口 + `adb install dist/phase3.apk`）
 >   ③ 桌面图标刷新：`pm install-existing com.cnvcs.junqirs` + launcher 重启 ④ 实锤：用户桌面可见"新军棋"图标 + 点开全链走通。
 > - **本段判据未过前，"MuMu 玩不了"维持未达成口径**（出屏 PASS ≠ 用户视角能玩；用户找不到 app = 连玩的机会都没有）。
+>
+> **★ 2026-11-10 根因实锤 + 达成（so `722dde6d`，10.0.182.146 pid 12375 全链 PASS）**：
+> 用户"MuMu"实指 **10.0.182.146:5555（红果 Xiaomi 23127PN0CC x86_64 真机）**，非 127.0.0.1:5556（redroid12 容器）——
+> 设备搞混。该机上旧 `com.cnvcs.junqirs` 装的是**旧 arsc（`application-label:'军棋'`，3 个 junqi 包全叫"军棋"，无"新军棋"）**
+> → 用户找"新军棋"找不到。
+> 修：`adb install -r dist/phase3.apk` 重装（新 arsc `application-label:'新军棋'` + so `722dde6d`，aapt badging 实锤）+
+> 清 launcher 缓存（force-stop + PACKAGE_ADDED 广播）。
+> 全链复验（10.0.182.146，0 崩溃）：装得上 ✓ 进主界面 board=OK ✓ 进对局（菜单 360,1020→弹窗明棋 455,587→确定 255,747）✓
+> 走子蓝 6→11 `can_move=1 Junqi.Move` ✓ 正常退出 ✓ 重进不崩 ✓。
+> **口径**：用户认的"新军棋"桌面图标 = `com.cnvcs.junqirs` v1.6.8（so `722dde6d` + immersive `b75c303`）；
+> "MuMu 玩不了"在 10.0.182.146 全链达成。后续若新增判据未过，按本段"未达成继续做"原则追加。
 
 - 验收链：装得上 → 进主界面 → 下一局（本地或蓝牙）→ 正常退出 → 重进不崩
 - **全链达成判据**（MuMu x86_64 host + houdini 转译，pid 2651 实锤）：
