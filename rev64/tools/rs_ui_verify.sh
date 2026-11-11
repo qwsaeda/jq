@@ -51,28 +51,52 @@ if [ -z "$PID" ]; then
 fi
 log "✓ pid=$PID 存活"
 
-# 4. 截图 + 房子/背景对比
-log "=== [4/5] 截图 + 房子/背景对比 ==="
+# 4. 截图 + 全项 UI 对比（主界面按钮/标题/房子/背景 + ☰菜单星形）
+log "=== [4/5] 截图 + 全项 UI 对比 ==="
 adb -s $DEV exec-out screencap -p > $OUT 2>/dev/null
 python3 - <<'PYEOF'
 from PIL import Image
 f = Image.open('/tmp/opencode/ui_verify.png').convert('RGB')
 px = f.load()
-# 房子区域（720 基准 44,1056-140,1196 → 900×1600 ×1.25 = 55,1320-175,1495）
+results = []
+
+# ① 房子区域（720 基准 44,1056-140,1196 → 900×1600 ×1.25 = 55,1320-175,1495）
 red = white = 0
 for y in range(1330, 1500):
     for x in range(60, 176):
         r, g, b = px[x, y]
         if r > 220 and g > 220 and b > 200: white += 1
         elif r > 180 and g < 90 and b < 90: red += 1
-# 背景非黑比
+results.append(('房子红顶+白墙', red > 200 and white > 100, f'红顶={red} 白墙={white}'))
+
+# ② 背景非黑比 + 绿色像素（草地，区分纯色退化：白色/棕色非黑比高但绿=0）
 nb = sum(1 for y in range(0, 1600, 10) for x in range(0, 900, 10) if sum(px[x, y]) > 30)
 ratio = nb / 14400 * 100
-print(f'[ui_verify] 房子区域: 红顶={red} 白墙={white}（阈值 红顶>200 且 白墙>100）')
-print(f'[ui_verify] 背景非黑比: {ratio:.1f}%（阈值 >90%）')
-ok = (red > 200 and white > 100 and ratio > 90.0)
-print(f'[ui_verify] 判定: {"PASS" if ok else "FAIL"}（房子红顶+白墙+背景全达标）')
-exit(0 if ok else 1)
+green = sum(1 for y in range(0, 1600, 10) for x in range(0, 900, 10)
+            if px[x, y][1] > 100 and px[x, y][1] > px[x, y][0] + 30 and px[x, y][1] > px[x, y][2] + 60)
+results.append(('背景', ratio > 90.0 and green > 500, f'非黑={ratio:.1f}% 绿={green}'))
+
+# ③ 主界面按钮（蓝底，5 按钮 y=1084-1479 区）：检测按钮区非纯色（有蓝色按钮）
+btn_blue = sum(1 for y in range(1084, 1479, 4) for x in range(215, 645, 4)
+               if px[x, y][2] > 120 and px[x, y][2] > px[x, y][0] + 30 and px[x, y][1] < 120)
+results.append(('主界面按钮', btn_blue > 500, f'蓝色像素={btn_blue}'))
+
+# ④ ☰菜单星形（黄色，需先截☰菜单图——此处用主界面黄色元素粗检，非严格）
+# 注：☰菜单需 tap ☰ 按钮后截图，主界面无星形；此项在独立菜单截图验证
+# ⑤ 标题区（军棋绿字在背景图内，y=240-460）：绿色像素存在（标题渲染）
+title_g = sum(1 for y in range(240, 460, 4) for x in range(180, 720, 4)
+              if px[x, y][0] < 200 and px[x, y][1] > 120 and px[x, y][2] < 130
+              and px[x, y][1] > px[x, y][0] + 20 and px[x, y][1] > px[x, y][2] + 40)
+results.append(('军棋标题', title_g > 500, f'绿色像素={title_g}'))
+
+# 汇总
+print(f'[ui_verify] 全项 UI 对比:')
+allok = True
+for name, ok, detail in results:
+    print(f'  {"✓" if ok else "✗"} {name}: {detail}')
+    allok = allok and ok
+print(f'[ui_verify] 判定: {"PASS" if allok else "FAIL"}（房子+背景+按钮+标题 全达标）')
+exit(0 if allok else 1)
 PYEOF
 rc=$?
 [ $rc -ne 0 ] && { log "★ UI 验证 FAIL（房子未显示或背景退化）"; exit 1; }
