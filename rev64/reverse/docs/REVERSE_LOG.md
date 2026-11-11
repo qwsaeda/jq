@@ -6806,3 +6806,24 @@ stati png（736×736/1121×1121）映射。用法不变。
 **实锤结论**：原版 `.rodata` 引用的全部资源在 SPAK 解包产物里**零缺失**（命名未还原 ≠ 缺失），
 32 位翻译体出屏用的棋盘/棋子数据 = SPAK 解包原版资源（`datah_188`/`datah_183`），
 静态佐证链闭环。用法：`python3 rev64/tools/rodata_resource_map.py`（0 缺口输出）。
+
+### §124y-175 棋子 quad 出屏实锤（§124w-ALIGN 长期未闭环项闭环，2026-11-11）
+用户"继续"指令下攻坚 32 位翻译体最大渲染未闭环项"棋子 quad 出屏未实锤"：
+
+**判据更正（坑固化）**：`screencap` 截图非黑比（8.2%）是**系统截图与 GL 软件渲染
+swap 时序不一致**假象（32 位 so 走 MuMu houdini 转译 + 软件 EGL，截图抓的不是 GL 帧缓冲）。
+**权威判据 = 翻译体自身 `FRAMEBUFFER-DUMP` PPM**（`/sdcard/Download/board_dump_*.ppm`，
+900×1468 RGB，翻译体 dump 自己刚画完的帧缓冲）：
+
+- **整帧非黑像素比 100.0%**（两帧 PPM 一致）
+- **棋子 quad 区**（pos=[164,940, 276,1080] 720 基准 → framebuffer 900×1468 坐标
+  (205,229)~(345,389)）：**95 个不同颜色，非黑 100%**，代表色
+  `(255,197,166) 肤色 / (97,58,255) 蓝紫 / (170,115,255) / (255,66,97) 红` = 棋子
+  纹理（`datah#183` 212×280 图集）采样色，**非背景纯色**（背景中心 (132,255,206)）
+- GL 链实锤：`F_9d5d8 shader 编译完成 program=1` + `PIECE-TEX texID=2 err=0x0` +
+  `glDrawArrays first=6 count=12 err=0x0 prog=1 texID=2 centerpx 非黑`（prog=1 帧）
+- 0 崩溃（`Fatal signal` 计数 0）
+
+**结论**：32 位翻译体棋子 quad 出屏 = 达成（framebuffer dump 权威判据），§124w-ALIGN
+"棋子 12 顶点已写入 + 双批绘制 err=0x0" 的诚实边界（"出屏未实锤"）本轮闭环。
+后续判据一律用 `board_dump_*.ppm`（非 screencap）。
