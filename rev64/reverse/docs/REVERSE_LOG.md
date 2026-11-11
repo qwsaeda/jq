@@ -7341,3 +7341,23 @@ rel_dyn + **jni_export**（新增，JNI 导出符号 14 个）。
 
 **口径**：映射表 = 手敲落盘基准（无生成器），可再生对照判据兜底防漂移；若需真生成器
 （从原版 so .rel.dyn 事件码常量 0..11 静态共置点自动提取），属后续攻坚项（当前 0 缺口基准成立，非阻塞）。
+
+### §124y-197 原版 .rel.plt/.got 符号解析槽判据脚本化 + 静态佐证扩到 14 项（2026-11-11）
+
+用户"光改光对比，经验不总结/不脚本化"批评的延续落实——把".got 真正零值 =
+6 GLOB_DAT + 214 JUMP_SLOT 符号解析槽"口径（§124y REL_RELOCATION_AUDIT）固化为
+可复跑静态判据（不依赖设备，设备离线期也能跑）：
+
+- **新工具** `rev64/tools/got_plt_check.py`：原版 so `.rel.plt` 段（VA 0x22310
+  size 0x6b0 = 214 槽）PLT 解析槽 + `.rel.dyn` 类型分布判据
+- **判据实锤**：.rel.plt 总槽数 214（JUMP_SLOT 口径）+ .rel.dyn 类型分布
+  {RELATIVE(23):5312, JUMP_SLOT内(21):6, GLOB_DAT类(2):7}（REL∩GD=∅，与
+  §124y-194 rel_dyn 同源）+ .got 段大小 0xaa4（符号解析槽落地区）
+- **口径固化**：`.got` 真正"零值"= 6 GLOB_DAT + 214 JUMP_SLOT 符号解析槽
+  （非 RELATIVE 槽，需 linker 符号解析，与 RELATIVE 重定位无关）——旧粗归因
+  "`.got` 零槽位未重定位"系两套机制混淆（AGENTS 已验证现状事实段同口径）
+- 并入 `arm32_static_evidence.sh` 第 14 项 `got_plt`（PASS=14 FAIL=0 全 PASS）
+
+**静态佐证批次化入口 14 项**（设备无关）：resource + event/urlkey/javacls + forkcheck +
+taxonomy + event_cover + event_codemap + bss_evt_tbl + rodata_static + text_static +
+rel_dyn + jni_export + **got_plt**（新增，.rel.plt/.got 符号解析槽）。
