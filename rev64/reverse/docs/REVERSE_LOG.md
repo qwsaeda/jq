@@ -7458,3 +7458,24 @@ NEEDED 依赖 7 个系统库"口径固化为可复跑静态判据（§124y-197 g
 taxonomy + event_cover + event_codemap + bss_evt_tbl + rodata_static + text_static +
 rel_dyn + jni_export + got_plt + trans_jni + trans_strpool + readelf_rel +
 got_map + **needed**（新增，NEEDED 依赖库清单）。
+
+### §124y-203 翻译体 so NEEDED 依赖面对照判据脚本化 + 静态佐证扩到 20 项（2026-11-11）
+
+用户"光改光对比，经验不总结/不脚本化"批评的延续落实——把"翻译体 so 依赖面
+⊆ 原版 7 系统库"口径固化为可复跑静态判据（§124y-202 needed 判据的翻译体侧对照，
+防翻译体 so 引入新外部依赖）：
+
+- **新工具** `rev64/tools/translated_needed_check.py`：翻译体 so
+  `rev64/dist/libjunqi_arm32_aligned.so` NEEDED（6 库）vs 原版 so NEEDED（7 库）对照
+- **判据实锤**：翻译体 6 NEEDED（libc/libm/liblog/libGLESv1_CM/libGLESv2/libdl）
+  ⊆ 原版 7 库，**引入新库 0 + libstdc++（32 位 C++ 运行时）已剥离**
+  （翻译体纯 C 依赖面，去 libstdc++ = 翻译体不再依赖 32 位 C++ 运行时，
+  装机面收窄）
+- **坑固化**：翻译体 so 重编后须重跑本判据（依赖面 ⊆ 原版 + 无 libstdc++），
+  防翻译体误链 libstdc++/引入新外部依赖漂移
+- 并入 `arm32_static_evidence.sh` 第 20 项 `trans_needed`（PASS=20 FAIL=0 全 PASS）
+
+**静态佐证批次化入口 20 项**（设备无关）：resource + event/urlkey/javacls + forkcheck +
+taxonomy + event_cover + event_codemap + bss_evt_tbl + rodata_static + text_static +
+rel_dyn + jni_export + got_plt + trans_jni + trans_strpool + readelf_rel +
+got_map + needed + **trans_needed**（新增，翻译体 NEEDED 依赖面对照）。
