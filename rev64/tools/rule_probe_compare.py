@@ -33,7 +33,7 @@ import sys
 import argparse
 
 WS = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-SRC = os.path.join(WS, "rev64", "src_rs")
+SRC = os.path.join(WS, "rev64", "forward", "src_rs")
 DEV = "10.0.182.146:5555"
 PKG32 = "com.cnvcs.junqi32"
 
