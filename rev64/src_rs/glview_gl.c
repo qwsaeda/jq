@@ -2,7 +2,7 @@
  * glview_gl.c — 出屏渲染驱动（正向开发，按安卓游戏规范）
  * 规范链：GLView(SurfaceView) 真 window surface → native EGL_WINDOW_BIT + GL2 context
  *   → 渲染线程 eglCreateWindowSurface(ANativeWindow) → 每帧 rs_render_frame + eglSwapBuffers 出屏。
- * 依据 smali（dec/smali/com/zxj/GLView*.smali + App.smali）：
+ * 依据 smali（dec/smali/com/qwsaeda/GLView*.smali + App.smali）：
  *   - App.smali：OnCreate(activity)==null → new GLView(context)；setContentView 由 native 补。
  *   - GLView.smali：GLThread + EglHelper（surfaceCreated → eglCreateWindowSurface → eglSwapBuffers）。
  * 出屏通路（按安卓游戏规范正向开发）：

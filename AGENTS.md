@@ -455,6 +455,18 @@ java -cp /tmp/opencode/apksigner/apksig.jar:/tmp/opencode/apksigner SignV2 \
 - 回答任何问题（能装吗/能玩吗/进度如何）：**只说"在阶段 X"**，不展开
 - 严格按上面 4 个阶段顺序推进，不做跳阶段
 
+### 包名规范（★ 用户 2026-11-11 固化，防抢活）
+
+- **逆向开发 app = `com.zxj.junqirs`（"逆军棋"）**——逆向工程产物（翻译/重写自原版 32 位），当前设备已装（so `d0342096`）
+- **正向开发 app = `com.qwsaeda.junqirs`（"新军棋"）**——正向开发产物（src_rs 演进），当前设备已装（so `82bfc803`）
+- **`rev64/src_rs` = 先逆向后正向的源码演进树**：逆向阶段 = `com.zxj`（逆军棋，已完成）；正向阶段 = `com.qwsaeda`（新军棋，当前）
+  - 演进链：`com.cnvcs.junqirs` → `com.zxj.junqirs`（逆向）→ `com.qwsaeda.junqirs`（正向）
+  - 全链改名 4 处（缺一即 UnsatisfiedLinkError / ClassNotFoundException）：① smali 类包 ② manifest `package` + 组件名 ③ native `FindClass` ④ **JNI 导出符号 `Java_com_<pkg>_App_*`**（漏改此处 = native 绑定不到 → UnsatisfiedLinkError）
+  - **不抢会话活**：逆向开发会话用 `com.zxj` 树时，正向会话**不得**改 `src_rs`/`dec_rs` 的包名；正向演进必须在逆向开发完成（验收全链 PASS）后按上述链推进
+- 构建树：`/tmp/opencode/jq_apk/rs_a64/dec_rs`（src_rs 的 apktool 解包树，包名随 src_rs 演进同步改）
+- 设备三包并存（互不覆盖）：`com.cnvcs.junqi`（原版对照）+ `com.zxj.junqirs`（逆向）+ `com.qwsaeda.junqirs`（正向）
+- 打包注意（targetSdk≥31）：`.so/.arsc/.png` 必须 STORE（不压缩）+ `resources.arsc` 4 字节对齐（`zipalign -f -p 4`）+ 重签（zipalign 破坏签名块）
+
 
 ## 文档路由表（AGENTS.md 只做路由，规范/经验在单一文档）
 
