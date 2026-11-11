@@ -41,6 +41,10 @@ def main():
         print("  %-8s %s" % (s, "✓ " + str(segs.get(s)) if s in segs else "✗ 缺失"))
     print("  .plt %s" % ("✓" if plt else "✗"))
     print("  .text 非空: %s / .rodata 非空: %s / .bss=NOBITS: %s" % (text_ok, ro_ok, bss_nobits))
+    # §124y-221 段布局差异口径：原版 so 无独立 .got.plt 段（32 位 ARM 惯例 .got 合并），
+    #   翻译体 so 有独立 .got.plt（NDK 编译惯例）——差异属预期（非汇编级移植）
+    has_got_plt = ".got.plt" in segs
+    print("  .got.plt 独立段（翻译体 NDK 惯例有；原版 32 位 so 无 = .got 合并含 PLT 槽）: %s" % ("在位（§124y-221 段布局差异口径）" if has_got_plt else "（翻译体无 .got.plt，复核）"))
     print("  （注：段 VA/size 与原版不同 = 翻译体独立编译，非汇编级移植口径，本判据只核存在性）")
     ok = (not missing) and text_ok and ro_ok and bss_nobits
     print("  判据: %s" % ("PASS（必备 4 段 + .plt 全在 + .text/.rodata 非空 + .bss=NOBITS）" if ok else "FAIL（缺 %s）" % missing))
