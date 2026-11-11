@@ -19,7 +19,7 @@
 import os, sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-BIN = os.path.join(ROOT, "rev64/dist/jq_event_tbl_fill_289B.bin")
+BIN = os.path.join(ROOT, "rev64/reverse/analysis/jq_event_tbl_fill_289B.bin")
 
 def main():
     if not os.path.exists(BIN):
