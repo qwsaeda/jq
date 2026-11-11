@@ -2105,3 +2105,41 @@ OnCreate 主线程被该钩子段拖住（转译层 property 读取 + 自动走 
   Title'声音设置'中心 (478,593) vs datah_001 rect(55,10,440,50)→(478,594)：**Δ=(0,1)px**；
   3 标签（静音模式:/按键声音:/音量:）左缘全部 x=222 vs 目标 219：**Δ=3px**（判据 ≤3px 对齐）。
   → 声音设置**渲染精确对齐**，但**导航不可达**（诚实边界，不包装）。
+
+## ★ 2026-11-11 主界面房子图标（tap→cnvcs.com 记录不跳转）实现踩坑全链
+### 差异实锤（用户"UI 对齐"指正 → 找原因找证据）
+- 原版主界面左下角**红顶白墙小房子**（900×1600 下 (60-165,1330-1485)，中心 (112,1408)），tap →
+  `android.intent.action.VIEW dat=http://www.cnvcs.com/`（logcat 实锤）。
+- **性质**：独立 UI 元素（**非背景图 datax_294 一部分**——datax_294 左下角采样=军帽小红旗非房子红顶，
+  背景图不含房子，房子是覆盖背景图的独立按钮）。
+- 正向 app 缺失房子（fw_main.png 实测左下角无房子）→ 差异判定 ❌ 未对齐。
+- **用户指令（2026-11-11）**：房子→cnvcs.com 功能**明确记录，不跳转**——正向 app 不实现官网跳转，
+  不包装成"已实现跳转"。
+
+### 修复（房子图标渲染）
+- 原版房子裁剪抠图（icon_house_cutout.png 120×175，透明背景，主体 98×106，红顶白墙+烟囱+棕门）
+  → `rev64/dist/spak_res/icon_house.png`（9837B）+ 设备 `/data/local/tmp/spak_res/`。
+- render.h 加 `tex_house[2]/house_px/house_w/h`；render.c rs_render_init 加载 icon_house.png（HOUSE load 日志）
+  + rs_gl_rebuild 建 tex_house 纹理 + rs_draw_house 独立函数渲染（720 基准 (44,1056)-(140,1196)）。
+
+### 坑清单（新增，★ 每坑都实锤）
+1. **★ 包名错配 → UnsatisfiedLinkError 启动崩溃**：src_rs 演进到 com.qwsaeda（JNI 导出
+   `Java_com_qwsaeda_App_*`、FindClass `com/qwsaeda`、dec_rs smali/manifest 全对齐），但
+   **rebuild_rs_apk.sh 源 APK 还是旧 rs168_wav.apk（com.cnvcs.junqirs）** → APK 包名 cnvcs + so 符号
+   qwsaeda 错配 → `No implementation found for com.cnvcs.App.OnCreate` 崩溃。
+   修：rebuild_rs_apk.sh [0/5] 新增 apktool b dec_rs（com.qwsaeda.junqirs）+ 包名校验 + 对账包名改 qwsaeda。
+2. **★ python 插入块错位（房子块插进 for 循环体）**：python 找"连续 `}` 对"插函数末尾，实际插在
+   **for 循环体内嵌套（depth 3）**非函数体顶层（depth 1），缩进错但编译通过（语义错）。
+   修：python 数括号平衡定位，重写 rs_draw_menu 末尾，房子块移函数体顶层。
+3. **★ 房子渲染破坏背景渲染（二分定位）**：房子渲染（prog_tex + vbo/局部 vbo + glDrawArrays）后
+   **背景渲染退化**（棕色/白色/黑色全屏，非黑比 100% 但纯色）。二分测试（注释房子）背景完全恢复
+   （标题/士兵/按钮正常）——房子渲染是唯一破坏源。**根因待定**（疑房子纹理 alpha/blend 或 GL 状态
+   污染，设备掉线未完成定位，诚实边界不包装成"已修复"）。
+4. **★ logcat 缓冲覆盖启动日志**：rs_draw_menu 每 200ms 打背景日志，房子加载日志（启动早期）被冲掉
+   → grep 无输出误判"未加载"。修：`logcat -c` 清后重启抓。
+
+### 工具脚本化（用户"不总结/不复用/不批量化/不脚本化"指正）
+- `rev64/tools/rs_ui_verify.sh`：build so → rebuild apk → start → 截图 → 房子红顶/白墙 + 背景非黑比
+  对比 → PASS/FAIL（判据：房子红顶>200 且白墙>100 且背景非黑>90% 且 0 崩溃）。
+- **复用**：build_rs.sh so（编译）/ rebuild_rs_apk.sh（打包装机+spak_res 推设备）/ 现有对比几何。
+- **踩坑总结**：本次 4 坑全部实锤入本段；房子渲染 GL 破坏未闭环前，rs_ui_verify.sh 判据 FAIL 即诚实告警。

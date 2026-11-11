@@ -1300,6 +1300,43 @@ static void rs_draw_overlay(rs_render *rr, int slot, int winner)
         winner == SIDE_BLUE ? "BLUE" : winner == SIDE_RED ? "RED" : "DRAW"); }
 }
 
+/* ★ 2026-11-11 主界面左下角房子图标（独立函数）。
+   原版 900×1600 裁剪框 (55,1320)-(175,1495) → 720 基准 (44,1056)-(140,1196)。
+   局部 VBO + 帧尾 GL 完整恢复：渲染后归零 program/纹理/attrib，防跨帧污染背景渲染。
+   tap→cnvcs.com 不跳转（用户 2026-11-11 指令：记录不跳转）。 */
+static void rs_draw_house(rs_render *rr, int slot, float sx, float sy, float yoff)
+{
+    if (slot < 0 || slot > 1) return;
+    if (!rr->tex_house[slot] || !rr->prog_tex[slot]) return;
+    float hx0 = 44.0f * sx, hy0 = 1056.0f * sy + yoff;
+    float hx1 = 140.0f * sx, hy1 = 1196.0f * sy + yoff;
+    rs_v4f hq[6] = {
+        {hx0, hy0, 0, 0}, {hx1, hy0, 1, 0}, {hx0, hy1, 0, 1},
+        {hx0, hy1, 0, 1}, {hx1, hy0, 1, 0}, {hx1, hy1, 1, 1},
+    };
+    glUseProgram(rr->prog_tex[slot]);
+    glUniform2f(rr->uViewWH_tex[slot], (GLfloat)rr->view_w, (GLfloat)rr->view_h);
+    glUniform1i(glGetUniformLocation(rr->prog_tex[slot], "uTex"), 0);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, rr->tex_house[slot]);
+    /* 透明纹理（抠图）正确混合：SRC_ALPHA 混合 + 渲染后关闭 blend */
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    GLuint hvbo = 0;
+    glGenBuffers(1, &hvbo);
+    glBindBuffer(GL_ARRAY_BUFFER, hvbo);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(hq), hq, GL_DYNAMIC_DRAW);
+    rs_bind_vbo(hvbo);
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+    rs_unbind_vbo();
+    glDeleteBuffers(1, &hvbo);
+    glDisable(GL_BLEND);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glFlush();
+    LOGI("rs_draw_house：tex_house=%u (%dx%d) 屏幕 (%.1f,%.1f)-(%.1f,%.1f)",
+         (unsigned)rr->tex_house[slot], rr->house_w, rr->house_h, hx0, hy0, hx1, hy1);
+}
+
 static void rs_draw_menu(rs_render *rr, int slot)
 {
     if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
@@ -1563,6 +1600,10 @@ static void rs_draw_menu(rs_render *rr, int slot)
             }
         }
     }
+    /* ★ 2026-11-11 主界面左下角房子图标（原版裁剪抠图 icon_house.png，tap→cnvcs.com 不跳转）。
+       独立函数 rs_draw_house：局部 VBO（不碰 rr->vbo_sel）+ 帧尾 GL 完整恢复
+       （glBindBuffer/glUseProgram/glBindTexture 归零）——防污染下一帧背景渲染。 */
+    rs_draw_house(rr, slot, sx, sy, yoff);
 }
 
 
@@ -9986,6 +10027,8 @@ static void rs_gl_rebuild(rs_render *rr, int slot)
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     }
     /* ★ 2026-11-11 主界面房子图标（原版裁剪抠图，tap→cnvcs.com 不跳转） */
+    LOGI("HOUSE rebuild: house_px=%s gl2_ok=%d w=%d h=%d",
+         rr->house_px ? "OK" : "NULL", rr->gl2_ok[slot], rr->house_w, rr->house_h);
     if (rr->house_px && rr->gl2_ok[slot] && rr->house_w > 0 && rr->house_h > 0) {
         glGenTextures(1, &rr->tex_house[slot]);
         glBindTexture(GL_TEXTURE_2D, rr->tex_house[slot]);
