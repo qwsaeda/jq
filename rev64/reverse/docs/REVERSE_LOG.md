@@ -7625,3 +7625,22 @@ got_map + needed + trans_needed + walk_8step + trans_seg + trans_handlers +
   解包器硬编码错），883 资源解包全乱但解包流程不报错（zlib 头破坏静默）——
   双源对照兜底防"解包器 key 漂移"假 PASS
 - 并入 `arm32_static_evidence.sh` `spak_key` 项（PASS=25 FAIL=0 全 PASS）
+
+### §124y-211 原版 so INIT_ARRAY 12 构造器清单判据脚本化 + 静态佐证扩到 26 项（2026-11-11）
+
+用户"光改光对比，经验不总结/不脚本化"批评的延续落实——把"原版 32 位 so
+INIT_ARRAY = 12 个构造器（INIT_ARRAYSZ=48 字节）"口径（§124y unidbg 课程 /
+init_array 11/12 实锤基准）固化为可复跑静态判据（不依赖设备，设备离线期也能跑）：
+
+- **新工具** `rev64/tools/init_array_check.py`：原版 so `.dynamic`
+  INIT_ARRAY VA=0x155000 / INIT_ARRAYSZ=48（= 12 个 4B 指针）构造器清单判据
+- **判据实锤**：12 指针全非0 + 全在 .text 段区间 + init[11]=0x11c10d 锚点
+  （§124y 实锤点：moneypunct<wchar_t>::do_negative_sign 函数中间偏移起跳 =
+  unicorn2 精度 bug 起跳处）
+- **坑固化**：32 位 so Thumb 构造器指针奇数化（低 bit=1），判读须 `p & ~1` 取
+  指令地址；INIT_ARRAYSZ 解析须正则取 "（INIT_ARRAYSZ） 48" 的数字字段
+  （初版 split('(')[1] 误取到 "INIT_ARRAYSZ" 文本）
+- 并入 `arm32_static_evidence.sh` 第 26 项 `init_array`（PASS=26 FAIL=0 全 PASS）
+
+**静态佐证批次化入口 26 项**（设备无关，§124y-190~211）：... + spak_key +
+**init_array**（新增，INIT_ARRAY 12 构造器清单）。
