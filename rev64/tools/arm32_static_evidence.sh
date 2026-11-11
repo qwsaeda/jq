@@ -16,6 +16,7 @@
 #   javacls    原版 .rodata 6 个 com/cnvcs/* JNI FindClass 类名实锤（§124y-181 续）
 #   forkcheck  32/64 位分叉矩阵 R-138 全量标记 0 未标记（§124y-166/182）
 #   taxonomy   原版 .rodata 76 事件名语义族谱（§124y-183，主链 11 + 其余 62 + Misc 3）
+#   event_cover 原版 .rodata 76 事件名 → 翻译体 g_jq_strings 覆盖度 0 缺口（§124y-184）
 set -u
 WS="$(cd "$(dirname "$0")/../.." && pwd)"
 ONLY=""
@@ -25,7 +26,7 @@ while [[ $# -gt 0 ]]; do
     *) echo "未知参数: $1"; exit 2;;
   esac
 done
-KINDS="resource event urlkey javacls forkcheck taxonomy"
+KINDS="resource event urlkey javacls forkcheck taxonomy event_cover"
 [ -n "$ONLY" ] && KINDS="$ONLY"
 
 PASS=0; FAIL=0; FAILED=""
@@ -77,6 +78,13 @@ for k in $KINDS; do
         run "$k" python3 "$WS/rev64/tools/rodata_event_taxonomy.py"
       else
         echo "  （rodata_event_taxonomy.py 不存在）"; PASS=$((PASS+1))
+      fi
+      ;;
+    event_cover)
+      if [ -f "$WS/rev64/tools/rodata_event_cover.py" ]; then
+        run "$k" python3 "$WS/rev64/tools/rodata_event_cover.py"
+      else
+        echo "  （rodata_event_cover.py 不存在）"; PASS=$((PASS+1))
       fi
       ;;
   esac

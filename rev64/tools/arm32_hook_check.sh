@@ -178,8 +178,28 @@ for k in $KINDS; do
         sleep 2
         adb -s "$DEV" shell "rm -f /sdcard/Download/board_dump_*.ppm" >/dev/null 2>&1
         adb -s "$DEV" shell "am start -n $PKG/com.cnvcs.App" >/dev/null 2>&1
-        sleep 16
-        ratio=$(frame_check_once)
+        # ★ §124y-180 方法论第 5 条（flaky 防）：dump 由翻译体 F_9d43c 帧尾生成，
+        #   固定 sleep 可能早于首帧 → 轮询等待（最多 40s，每 4s 查一次）
+        ratio="none"
+        for _w in 1 2 3 4 5 6 7 8 9 10; do
+          sleep 4
+          LATEST=$(adb -s "$DEV" shell "ls -t /sdcard/Download/board_dump_*.ppm 2>/dev/null | head -1" | tr -d '\r')
+          if [ -n "$LATEST" ]; then
+            ensure_dev >/dev/null 2>&1 || continue
+            adb -s "$DEV" pull "$LATEST" /tmp/opencode/arm32_fb_check.ppm >/dev/null 2>&1 || continue
+            ratio=$(python3 -c "
+from PIL import Image
+try:
+  im=Image.open('/tmp/opencode/arm32_fb_check.ppm').convert('RGB')
+  w,h=im.size; px=im.load()
+  nb=sum(1 for y in range(0,h,4) for x in range(0,w,4) if sum(px[x,y])>60)
+  print(100*nb//((w//4)*(h//4)))
+except Exception:
+  print('none')" 2>/dev/null)
+            [ -n "$ratio" ] && [ "$ratio" != "none" ] && [ "$ratio" -ge 30 ] && break
+            ratio="none"
+          fi
+        done
         if [ -n "$ratio" ] && [ "$ratio" != "none" ] && [ "$ratio" -ge 30 ]; then
           echo "  出屏轮次 $r: 非黑比 ${ratio}% ✓"; fbp=$((fbp+1))
         else
