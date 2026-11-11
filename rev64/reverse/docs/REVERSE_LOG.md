@@ -7043,3 +7043,20 @@ JNI 类名）全部映射到翻译体侧实体或实锤口径，0 缺口。
 **判据固化**：32 位逆向静态佐证 = 资源路径 44/44 + 主链 11 事件名 + URL 键 3 +
 JNI 类名 6 + 分叉矩阵 0 未标记，全 0 缺口。设备恢复后 `arm32_hook_check.sh --rounds 3`
 复验 4 项全钩子（出屏/命中几何/走子/事件表）。
+
+### §124y-183 原版 .rodata 76 事件名语义族谱（`rodata_event_taxonomy.py`，静态佐证）
+
+用户"继续"指令下，把 76 事件名（73 Junqi.* + 3 Misc.*）按语义族分类固化为可复跑判据
+（不依赖设备，设备重启窗口期可跑）：
+
+- `rev64/tools/rodata_event_taxonomy.py`：原版 so .rodata 明文 76 事件名全量提取 + 语义族
+  分类（正则，无臆测）
+- **族谱实锤**：
+  - 主链 11 条（走子桥实锤消费）：Move/Flip/Flag/Bomb/Eat/Dead/GameOver/Resign/Draw/BlueWin/RedWin
+  - 其余 62 条分 5 族：悔棋 6（Regret*）/ 对局控制 21（Draw*·Ready·Peer*·Reconn*）/
+    账号注册 26（User·Pwd·Email·Input·*Error）/ 联网广告 3（ConnectFail·GameType·JoinGame）/
+    其他 6（ExitFail·HighAreaFail·Lose）
+  - Misc. 3 条（Graph·RemoveAdFail·RemoveAdOk）= 广告拆除目标事件名（阶段 3 去广告佐证）
+- **逆向边界佐证（非臆测）**：账号/联网/聊天 62 条事件名全部来自原版 .rodata 明文 =
+  AGENTS"账号系统/联网对战未实现"边界的具体 .rodata 引用点，诚实边界口径固化
+- 并入 `arm32_static_evidence.sh` 第 6 项 `taxonomy`（PASS=6 FAIL=0 全 PASS）

@@ -14,7 +14,8 @@
 #   event      原版 .rodata 主链 11 事件名 → 翻译体实锤名命中（§124y-181）
 #   urlkey     原版 .rodata URL 键 3 条（cfgHost/statHost/updateUrl）实锤（更新通道边界引用点）
 #   javacls    原版 .rodata 6 个 com/cnvcs/* JNI FindClass 类名实锤（§124y-181 续）
-#   forkcheck  32/64 位分叉矩阵 R-138 全量标记 0 未标记（§124y-166）
+#   forkcheck  32/64 位分叉矩阵 R-138 全量标记 0 未标记（§124y-166/182）
+#   taxonomy   原版 .rodata 76 事件名语义族谱（§124y-183，主链 11 + 其余 62 + Misc 3）
 set -u
 WS="$(cd "$(dirname "$0")/../.." && pwd)"
 ONLY=""
@@ -24,7 +25,7 @@ while [[ $# -gt 0 ]]; do
     *) echo "未知参数: $1"; exit 2;;
   esac
 done
-KINDS="resource event urlkey javacls forkcheck"
+KINDS="resource event urlkey javacls forkcheck taxonomy"
 [ -n "$ONLY" ] && KINDS="$ONLY"
 
 PASS=0; FAIL=0; FAILED=""
@@ -70,6 +71,13 @@ for k in $KINDS; do
       ;;
     forkcheck)
       run "$k" check_fork
+      ;;
+    taxonomy)
+      if [ -f "$WS/rev64/tools/rodata_event_taxonomy.py" ]; then
+        run "$k" python3 "$WS/rev64/tools/rodata_event_taxonomy.py"
+      else
+        echo "  （rodata_event_taxonomy.py 不存在）"; PASS=$((PASS+1))
+      fi
       ;;
   esac
 done
