@@ -2152,3 +2152,38 @@ OnCreate 主线程被该钩子段拖住（转译层 property 读取 + 自动走 
 - **判据区分度验证**（用已有截图模拟脚本）：原版 PASS（房子+背景+按钮+标题 4 项全 ✓）/
   房子注释 FAIL（房子白墙=0，正确检测缺失）/ 白色退化 FAIL（背景绿=0+按钮=0+标题=0）。
 - **坑固化**：UI 验证判据必须**多色相**（非黑比+绿色+蓝色+标题色），单一"非黑比"对纯色退化失效。
+
+### ★ 坑③闭环（2026-11-11 设备恢复后实锤）
+- **房子渲染 GL 破坏已修复**（so 4d45e89a）：rs_draw_house 独立函数 + alpha blend
+  （GL_SRC_ALPHA/GL_ONE_MINUS_SRC_ALPHA）+ 渲染后 glDisable(GL_BLEND) + glFlush + 局部 VBO。
+- **设备实锤（10.0.182.146 pid 2776）**：全项 UI 验证 PASS——房子红顶=3985 白墙=2388（显示）
+  + 背景非黑=98.2% 绿=2051（正常）+ 按钮蓝=2386 + 标题绿=2200 + 0 崩溃。
+- **视觉对比**（cmp_house_pass.png）：右（正向）红顶白墙烟囱棕门齐全，背景草地正常，与原版左对齐。
+- **坑固化**：透明纹理渲染必须 alpha blend + 渲染后恢复 GL 状态（blend/buffer/useProgram），
+  否则污染下一帧背景渲染（棕色/白/黑退化实锤）。
+
+### ★ 五判据全链闭环（2026-11-11 设备恢复后完整实锤，so 4d45e89a/4d45e89a 干净版）
+- **① 装得上** ✓：rebuild Success（so 4d45e89a，apktool b dec_rs com.qwsaeda.junqirs + 包名校验）。
+- **② 进主界面** ✓：board=OK + 房子 tex_house=6 渲染 + 背景非黑 98.2% 绿 2051（非退化）。
+- **③ 下一局** ✓：两人对战→弹窗确定→开局（stage=PLAY mode=1 暗棋）→ 蓝翻 cell6（rc=1 turn→1）
+  → 红翻 cell31（rc=1 turn→0）→ 蓝走子 cell6→cell11（`can_move=1 Junqi.Move`，move=1）。
+- **④ 正常退出** ✓：force-stop 0 崩溃。
+- **⑤ 重进不崩** ✓：重进 pid 9610 + 渲染正常（米色背景）+ 全项 UI PASS + 0 崩溃。
+
+### ★ 踩坑：暗棋翻子后选中态残留（红翻需 3 次 tap）
+- **现象**：蓝翻 cell6 后（turn→1 红），tap 红方 cell31 两次翻棋失败（`from=31 to=-1 can_flip=0`），
+  第三次 tap 才成功翻棋（rc=1）。
+- **根因**（touch_state.c 标准军棋语义）：蓝翻 cell6 后**选中态保持**（cell6，下一步走子）；
+  tap cell31 第一次被当"蓝走子意图"（from=6 to=31，can_move=0 拒绝 + 选中态重置 IDLE）；
+  第二次 tap 才选中 cell31（from=31 SELECT）；第三次 tap 才确认翻棋（to==from=31 → jq_flip）。
+- **坑固化**：暗棋翻子后选中态残留是**标准军棋行为**（翻后选中，下一步走子），非 bug；
+  红方翻子需 **tap 目标格 3 次**（走子拒绝→选中→确认）或先 tap 空白取消选中再 tap 两次。
+
+### ★ jq_can_flip 反汇编确认（红翻 can_flip 矛盾的诚实结论）
+- **CELLDIAG 矛盾**（设备 can_flip=0 vs 桌面=1）经反汇编确认**是误读**：CELLDIAG 的 cf 用
+  `(from>=0 && to==from) ? jq_can_flip(...) : 0` 三元短路——红翻第二次 tap 时 to=-1≠from
+  → cf=0 是短路值，**非 jq_can_flip 返回 0**。
+- **反汇编实锤**（设备 so jq_can_flip @0x375d0）：side==0xFF 分支 `cmp turn,#2; cset lo`
+  = **SIDE_VALID(turn)=turn<2**（修复版，0xFF 当前回合可翻）；红方 cell31 side=255 turn=1 → 返回 1。
+- **诚实结论**：jq_can_flip 修复版（AUD-R-003 先手翻子定色）在设备 so 实锤工作（红翻 rc=1），
+  非旧版"0xFF 仅蓝可翻"。CELLDIAG can_flip=0 系诊断三元短路伪影，已移除诊断。
