@@ -7790,3 +7790,26 @@ init_array 11/12 实锤基准）固化为可复跑静态判据（不依赖设备
 
 **静态佐证批次化入口 32 项**（设备无关，§124y-190~218）：... + touch_int +
 **fb_ratio**（新增，出屏 30% 判读基准三源对照）。
+
+### §124y-219 32 位 4 路径走子回归判据锚点对照脚本 + 静态佐证扩到 33 项（2026-11-11）
+
+用户"光改光对比，经验不总结/不脚本化"批评的延续落实——把"4 路径走子回归
+（arm32_walkregress.sh）判据锚点 = 翻译体源码实锤日志串"口径（§124y-23 三条
+走子路径 + §124y-26 game_test）固化为可复跑对照判据（防判据漂移）：
+
+- **新工具** `rev64/tools/walkregress_anchors_check.py`：4 路径判据锚点双源
+  对照（翻译体源码 jq_rs_walkbridge.c/jqt_vtbl.c/jni_aligned.c + 回归脚本
+  arm32_walkregress.sh PATTERN）
+  - walk_bridge = "WALK-BRIDGE: 完整 8 步序列完成"（jq_rs_walkbridge.c）
+  - native_layout = "NATIVE-LAYOUT: F_2a380 返回"（原生布局加载链）
+  - native_event = "F_3ab80: 事件发送"（.bss 事件表 disc=0 忠实兜底，
+    判据带 .*disc= 正则本判据核前缀锚点即可）
+  - game_test = "GAME-TEST: 端到端完成"（§124y-26 端到端）
+- **判据实锤**：4 锚点源码+脚本双源全 PASS（判据锚点不漂移）
+- **坑固化**：native_event 判据 `F_3ab80: 事件发送.*disc=` 是正则（disc=0
+  忠实兜底 §124y-156），锚点对照核前缀 `F_3ab80: 事件发送` 即可（完整正则
+  在回归脚本，本判据防前缀漂移）
+- 并入 `arm32_static_evidence.sh` 第 33 项 `walkregress_anchors`（PASS=33 FAIL=0 全 PASS）
+
+**静态佐证批次化入口 33 项**（设备无关，§124y-190~219）：... + fb_ratio +
+**walkregress_anchors**（新增，4 路径走子回归判据锚点对照）。
