@@ -7248,3 +7248,20 @@ backtrace 实锤：
 
 **坑固化**：`arm32_hook_check.sh` 崩溃判读须区分 backtrace 归属（libart/libc = 转译层环境
 崩溃 vs libjunqi = 翻译体 so 回归）；转译层崩溃周期时判据结果标 PENDING（非 FAIL）。
+
+### §124y-192 原版 .rodata 明文 dump 逐字节一致性判据脚本化 + 静态佐证扩到 10 项（2026-11-11）
+
+用户"光改光对比，经验不总结/不脚本化"批评的延续落实——把"非加壳 so /
+.rodata 明文无自解密"口径固化为可复跑静态判据（不依赖设备，设备离线期也能跑）：
+
+- **新工具** `rev64/tools/rodata_static_check.py`：`frida-dump/rodata_dec.bin`
+  （118832B 运行时 dump）vs 原版 so `.rodata` 段（VA 0x120bf8 size 0x1d030）逐字节一致性
+- **判据实锤**：dump 大小=118832（=.rodata 段 0x1d030）+ 逐字节一致（MD5 相同
+  d9427dafdde8615eb54526f64848d6b7）+ 已知字符串池 4/4 可见
+  （Junqi.Move/updateUrl/statHost/data/config/）→ 非加壳 so 静态指纹口径成立
+- **口径固化**：静态 `.rodata` 与运行时 dump 逐字节相同（0/118832 不同）= 无运行时自解密，
+  `.rodata` 明文直接可见（AGENTS"已验证现状事实"判据的可复跑佐证）
+- 并入 `arm32_static_evidence.sh` 第 10 项 `rodata_static`（PASS=10 FAIL=0 全 PASS）
+
+**静态佐证批次化入口 10 项**（设备无关）：resource + event/urlkey/javacls + forkcheck +
+taxonomy + event_cover + event_codemap + bss_evt_tbl + **rodata_static**（新增，.rodata 明文）。
