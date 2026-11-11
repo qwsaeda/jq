@@ -501,11 +501,11 @@ java -cp /tmp/opencode/apksigner/apksig.jar:/tmp/opencode/apksigner SignV2 \
   （§124y-180 全钩子一键验收：game_test/walk_bridge/native_event/framebuffer 四项机判
   PASS/FAIL + 数值 + 0 崩溃；出屏 logcat 权威非黑比判读，`--rounds N` 连跑防抖动；
   旧入口 `arm32_walkregress.sh` 仍可用（4 路径走子回归），全钩子优先用 hook_check）。
-  静态佐证批次化入口：`bash rev64/tools/arm32_static_evidence.sh`（§124y-190~209 扩批，
-  **25 项全 PASS** 设备无关判据：resource + event/urlkey/javacls + forkcheck + taxonomy +
+  静态佐证批次化入口：`bash rev64/tools/arm32_static_evidence.sh`（§124y-190~211 扩批，
+  **26 项全 PASS** 设备无关判据：resource + event/urlkey/javacls + forkcheck + taxonomy +
   event_cover + event_codemap + bss_evt_tbl + rodata_static + text_static + rel_dyn +
   jni_export + got_plt + trans_jni + trans_strpool + readelf_rel + got_map + needed +
-  trans_needed + walk_8step + trans_seg + trans_handlers + hook_anchors + spak_key，
+  trans_needed + walk_8step + trans_seg + trans_handlers + hook_anchors + spak_key + init_array，
   判据全脚本化/批量化，防每轮手敲 setprop+logcat grep 漂移）。
   实锤（2026-11-11，10.0.182.146）：`com.cnvcs.junqi32`（phase_chain_arm32.apk）装机 Success +
   4 路径全 PASS（PASS=4 FAIL=0，全局崩溃=0）——逆向侧对齐基准成立。
