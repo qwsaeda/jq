@@ -408,7 +408,7 @@ static char g_sfx_probe_path[320];
 static void jq_show_dialog(JNIEnv *env, const char *title, const char *text)
 {
     if (!env || !title || !text) return;
-    jclass cls = (*env)->FindClass(env, "com/cnvcs/App");
+    jclass cls = (*env)->FindClass(env, "com/zxj/App");
     if (!cls) { (*env)->ExceptionClear(env); return; }
     jmethodID mid = (*env)->GetStaticMethodID(env, cls, "showInfo",
                                               "(Ljava/lang/String;Ljava/lang/String;)V");
@@ -439,7 +439,7 @@ static void jq_show_dialog(JNIEnv *env, const char *title, const char *text)
 static void jq_bt_start(JNIEnv *env, int host)
 {
     if (!env) return;
-    jclass cls = (*env)->FindClass(env, "com/cnvcs/App");
+    jclass cls = (*env)->FindClass(env, "com/zxj/App");
     if (!cls) { (*env)->ExceptionClear(env); return; }
     if (host) {
         jmethodID mid = (*env)->GetStaticMethodID(env, cls, "btHost", "()V");
@@ -490,7 +490,7 @@ static int jq_bt_conn_prop(void)
 static void jq_bt_send(JNIEnv *env, const char *frame)
 {
     if (!env || !frame) return;
-    jclass cls = (*env)->FindClass(env, "com/cnvcs/App");
+    jclass cls = (*env)->FindClass(env, "com/zxj/App");
     if (!cls) { (*env)->ExceptionClear(env); return; }
     jmethodID mid = (*env)->GetStaticMethodID(env, cls, "btSend",
                                               "(Ljava/lang/String;)V");
@@ -1432,7 +1432,7 @@ static const char *on_event(const char *name, const char *value, JNIEnv *env)
    真实场景：BtSpp accept/读线程调 App.btState → runOnUiThread post 主线程 → App$BtStart → OnEvent。 */
 static void *btconn_worker(void *arg)
 {
-    /* arg = 主线程已 FindClass+NewGlobalRef 的 com/cnvcs/App（native 线程 FindClass 用系统
+    /* arg = 主线程已 FindClass+NewGlobalRef 的 com/zxj/App（native 线程 FindClass 用系统
        classloader 会 ClassNotFoundException，故用缓存全局引用——JNI 已知陷阱）。 */
     jclass cls = (jclass)arg;
     if (!cls) return NULL;
@@ -1487,7 +1487,7 @@ static void jq_bt_test_run(jq_state *st, const char *tag)
     } else LOGI("%s bttest：无可翻子", tag);
 }
 JNIEXPORT jobject JNICALL
-Java_com_cnvcs_App_OnCreate(JNIEnv *env, jclass clazz, jobject activity)
+Java_com_zxj_App_OnCreate(JNIEnv *env, jclass clazz, jobject activity)
 {
     (void)clazz;
     /* ★ AUD-1000 B03-006（P1 已注释）：OnCreate 从 1161 持 g_mutex 到 1911——
@@ -1602,7 +1602,7 @@ Java_com_cnvcs_App_OnCreate(JNIEnv *env, jclass clazz, jobject activity)
                钩子从 OnCreate 主线程同步调会导致 runOnUiThread 立即执行 + 重入 OnEvent 死锁，
                故 spawn 后台线程（AttachCurrentThread）模拟 BtSpp 读/accept 线程。
                FindClass 须主线程做（native 线程 classloader 不同）→ NewGlobalRef 传 worker。 */
-            jclass acls = (*env)->FindClass(env, "com/cnvcs/App");
+            jclass acls = (*env)->FindClass(env, "com/zxj/App");
             if (acls) {
                 jclass gref = (jclass)(*env)->NewGlobalRef(env, acls);
                 (*env)->DeleteLocalRef(env, acls);
@@ -2363,7 +2363,7 @@ Java_com_cnvcs_App_OnCreate(JNIEnv *env, jclass clazz, jobject activity)
     if (!glv_ok || !env || !activity)
         return NULL;
     /* 创建 Java GLView（com.cnvcs.GLView）并返回给 App.smali 走 setContentView */
-    jclass glview_cls = (*env)->FindClass(env, "com/cnvcs/GLView");
+    jclass glview_cls = (*env)->FindClass(env, "com/zxj/GLView");
     if (!glview_cls) {
         if ((*env)->ExceptionCheck(env)) (*env)->ExceptionClear(env);
         LOGE("OnCreate：FindClass(GLView) 失败 → 返回 NULL");
@@ -2471,7 +2471,7 @@ Java_com_cnvcs_App_OnCreate(JNIEnv *env, jclass clazz, jobject activity)
 }
 
 JNIEXPORT void JNICALL
-Java_com_cnvcs_App_OnDestroy(JNIEnv *env, jclass clazz)
+Java_com_zxj_App_OnDestroy(JNIEnv *env, jclass clazz)
 {
     /* ★ AUD-1000 B03-039/B03-082（P1 已修）：OnDestroy 释放 global ref——
        旧版 g_gl_surf/g_mp/g_mp_cls/g_f_cls_sfx 全仓无 DeleteGlobalRef（Activity
@@ -2490,7 +2490,7 @@ Java_com_cnvcs_App_OnDestroy(JNIEnv *env, jclass clazz)
 }
 
 JNIEXPORT void JNICALL
-Java_com_cnvcs_App_OnPause(JNIEnv *env, jclass clazz)
+Java_com_zxj_App_OnPause(JNIEnv *env, jclass clazz)
 {
     (void)env; (void)clazz;
     /* 原版 OnPause 保存 one.sjg（0x390ac）；此处存档。
@@ -2505,7 +2505,7 @@ Java_com_cnvcs_App_OnPause(JNIEnv *env, jclass clazz)
 }
 
 JNIEXPORT void JNICALL
-Java_com_cnvcs_App_OnResume(JNIEnv *env, jclass clazz)
+Java_com_zxj_App_OnResume(JNIEnv *env, jclass clazz)
 {
     (void)clazz;
     /* OnResume：GLView surface 在 onResume 后才真正 ready → 重试 ANativeWindow_fromSurface
@@ -2538,7 +2538,7 @@ Java_com_cnvcs_App_OnResume(JNIEnv *env, jclass clazz)
 /* OnTimer()：原版 AI 定时器入口（L76/L78：OnTimer/OnUpdate 均 bl 0x8598）。
    人机模式：红方回合由 AI 走子（ai_pick）。 */
 JNIEXPORT void JNICALL
-Java_com_cnvcs_App_OnTimer(JNIEnv *env, jclass clazz)
+Java_com_zxj_App_OnTimer(JNIEnv *env, jclass clazz)
 {
     (void)clazz;
     /* 出屏主路归 Java EglHelper（OnUpdate 在 GLThread window context 上 rs_render_frame）：
@@ -2612,7 +2612,7 @@ static void _gl_sig_init(void) {
 }
 
 /* ★ 2026-11-10 flag/mine/restart 回归真机根因（AUD-1000 批次）：property 钩子
-   消费统一函数——原实现内联在 Java_com_cnvcs_App_OnUpdate（GLThread.onDrawFrame
+   消费统一函数——原实现内联在 Java_com_zxj_App_OnUpdate（GLThread.onDrawFrame
    调）。MuMu GLThread 停帧（surface attach flaky，"渲染线程 帧 N swap 成功"
    出屏正常但 OnUpdate 帧日志 0）时 Java 侧 onDrawFrame 不被调 → property 钩子
    全死（restart/draw/resign/stalemate/close/pop 6 项回归 FAIL）。
@@ -2726,7 +2726,7 @@ void jq_glview_props_update(JNIEnv *env)
 }
 
 JNIEXPORT jboolean JNICALL
-Java_com_cnvcs_App_OnUpdate(JNIEnv *env, jclass clazz)
+Java_com_zxj_App_OnUpdate(JNIEnv *env, jclass clazz)
 {
     (void)env; (void)clazz;
     /* ③b：GLView GLThread 每帧回调（原版 GLView$Renderer.onDrawFrame → OnUpdate）：
@@ -3269,7 +3269,7 @@ Java_com_cnvcs_App_OnUpdate(JNIEnv *env, jclass clazz)
 
 /* OnEvent(String name, String value)：事件派发（走子/翻棋/悔棋/认输/重开） */
 JNIEXPORT void JNICALL
-Java_com_cnvcs_App_OnEvent(JNIEnv *env, jclass clazz, jstring name, jstring value)
+Java_com_zxj_App_OnEvent(JNIEnv *env, jclass clazz, jstring name, jstring value)
 {
     (void)clazz;
     /* ★ 对抗审计 #1：GetStringUTFChars 返回 const char*，严禁 (char) 截断指针到 1 字节
@@ -3290,7 +3290,7 @@ Java_com_cnvcs_App_OnEvent(JNIEnv *env, jclass clazz, jstring name, jstring valu
 
 /* OnInput(String)：文本输入（原版登录/注册 20+ 事件，L77）——桩（UI 层）。 */
 JNIEXPORT void JNICALL
-Java_com_cnvcs_App_OnInput(JNIEnv *env, jclass clazz, jstring text)
+Java_com_zxj_App_OnInput(JNIEnv *env, jclass clazz, jstring text)
 {
     (void)env; (void)clazz; (void)text;
 }
@@ -3308,7 +3308,7 @@ JNIEXPORT jboolean JNICALL
    Junqi.ExitConfirm/ResignConfirm/RegretConfirm），几何/按钮为简化近似（对齐原版 3 态
    行为），不包装成"原版 datah 精确对齐"。返回键入口 = App.smali onKeyDown → native
    OnKey（原版 App.smali L202 已 wire，src_rs 沿用 native 签名 JNI 不变）。 */
-Java_com_cnvcs_App_OnKey(JNIEnv *env, jclass clazz, jobject keyEvent)
+Java_com_zxj_App_OnKey(JNIEnv *env, jclass clazz, jobject keyEvent)
 {
     (void)clazz;
     if (keyEvent == NULL) { LOGI("OnKey 返回键：keyEvent=NULL（诚实边界）"); return JNI_FALSE; }
@@ -3427,7 +3427,7 @@ static void start_bt_session(JNIEnv *env, int host)
    走子（type 7）需"已选中 + 再点目标格"两步；此处点同格=翻棋/走子意图，
    实际落子由帧驱动按 jq_can_move/jq_can_flip 判定（诚实：坐标→格几何为 ② 重建）。 */
 JNIEXPORT jboolean JNICALL
-Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
+Java_com_zxj_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
 {
     if (!env || !motionEvent) return JNI_FALSE;
     /* 原版 0xbdd2c 经 JNI 方法表调 MotionEvent.getX/getY（vtable 槽）；
@@ -8681,7 +8681,7 @@ Java_com_cnvcs_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
 /* OnGraphCreate()：GLView.onSurfaceCreated → 场景构造（对齐原版 0xbd764 OnGraphCreate
    构造链：渲染对象图 + 棋盘/棋子纹理上传 + 菜单布局）。 */
 JNIEXPORT void JNICALL
-Java_com_cnvcs_App_OnGraphCreate(JNIEnv *env, jclass clazz)
+Java_com_zxj_App_OnGraphCreate(JNIEnv *env, jclass clazz)
 {
     (void)env; (void)clazz;
     pthread_mutex_lock(&g_mutex);
@@ -8695,7 +8695,7 @@ Java_com_cnvcs_App_OnGraphCreate(JNIEnv *env, jclass clazz)
 int jq_glview_view_size(int *w, int *h);   /* fwd decl（glview_gl.c 实现） */
 
 JNIEXPORT void JNICALL
-Java_com_cnvcs_App_OnGraphChange(JNIEnv *env, jclass clazz, jint w, jint h)
+Java_com_zxj_App_OnGraphChange(JNIEnv *env, jclass clazz, jint w, jint h)
 {
     (void)env; (void)clazz;
     /* ③b：GLView.onSurfaceChanged(w,h) → OnGraphChange(w,h) → 渲染器 resize
@@ -8713,7 +8713,7 @@ Java_com_cnvcs_App_OnGraphChange(JNIEnv *env, jclass clazz, jint w, jint h)
 
 /* OnResult(int req, int res, Intent data)：Activity 结果（对话框等）。桩。 */
 JNIEXPORT void JNICALL
-Java_com_cnvcs_App_OnResult(JNIEnv *env, jclass clazz, jint req, jint res, jobject data)
+Java_com_zxj_App_OnResult(JNIEnv *env, jclass clazz, jint req, jint res, jobject data)
 {
     (void)env; (void)clazz; (void)req; (void)res; (void)data;
 }
@@ -8724,7 +8724,7 @@ Java_com_cnvcs_App_OnResult(JNIEnv *env, jclass clazz, jint req, jint res, jobje
    经 jq_bt_session 处理。无真机蓝牙验证（诚实边界）。 */
 
 JNIEXPORT void JNICALL
-Java_com_cnvcs_App_OnBluetooth(JNIEnv *env, jclass clazz, jobject intent)
+Java_com_zxj_App_OnBluetooth(JNIEnv *env, jclass clazz, jobject intent)
 {
     if (!intent) return;
     /* 懒初始化：本方 = 蓝方（先手），对局 = 当前状态 */

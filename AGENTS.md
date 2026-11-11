@@ -185,6 +185,16 @@ java -cp /tmp/opencode/apksigner/apksig.jar:/tmp/opencode/apksigner SignV2 \
 >   全链 5 判据复验 PASS（pid 4262/4343/4440，board=OK + movetest 3/3 + 0 崩溃）。
 > - 口径更新：设备端 app 标签 = **"逆军棋"**（包名仍 `com.cnvcs.junqirs` v1.6.8）；
 >   上段历史"新军棋"引用为当时口径（arsc 漂移旧值），以本段为准。
+>
+> **★ 2026-11-10 包名改「com.zxj.junqirs」（用户指令：com.cnvcs.junqirs → com.zxj.junqirs）**：
+> 全链改名 4 处（缺一即 UnsatisfiedLinkError / ClassNotFoundException）：
+> ① smali 类名 `com/cnvcs/*` → `com/zxj/*`（34 文件 + 内部引用，目录迁移）
+> ② manifest `package="com.zxj.junqirs"` + 组件名 `com.zxj.App` 等
+> ③ native `FindClass("com/zxj/App"/"com/zxj/GLView")`（jni_bridge.c / glview_gl.c）
+> ④ **JNI 导出符号 `Java_com_zxj_App_*`**（jni_bridge.c sed 全替，so 重编 d0342096→d034... 实锤 nm -D）——
+>   漏改此处 = 包名改后 native 自动绑定 `Java_com_zxj_App_OnCreate` 找不到 → UnsatisfiedLinkError（首版实锤踩坑）。
+> 装机 + 全链 5 判据 PASS（pid 4929/5007/5104，board=OK + movetest 3/3 + 0 崩溃）；旧包 com.cnvcs.junqirs 已卸。
+> **口径更新：包名 = `com.zxj.junqirs`（标签"逆军棋"），设备端 so `d0342096`。**
 
 > **★ 用户"这界面你是怎么通过的"指正（2026-11-10，实锤渲染布局未达成）**：
 > 用户实机截图显示 10.0.182.146 上 app 画面**被压在一块小竖条里，上下大片纯黑**（窗口/surface 未填满
