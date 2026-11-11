@@ -7187,3 +7187,18 @@ forkcheck + taxonomy + event_cover + **event_codemap**（新增）。
 **判据**（§124y-188 后）：32 位全钩子 = `bash rev64/tools/arm32_hook_check.sh --dev <dev> --rounds 3`
 （4 项 + 出屏 3 轮，轮询 45s/60s + 项间冷却 5s 防 flaky）；设备刚 reboot 冷启动偶发 FAIL 属
 判据时序（非 so 回归），单跑 4 项全 PASS 为准。
+
+### §124y-189 全钩子脚本设备掉线容错固化（32 位 so 拖 adbd + MuMu 重启循环已知项，2026-11-11）
+
+设备 10.0.182.146 32 位 so 拖 adbd + MuMu 重启循环期间，全钩子脚本串行 4 项时
+任一项"设备不可达"直接判 FAIL（污染判据结果——环境掉线 ≠ so 回归）。固化容错：
+
+- **设备掉线自动重连**：KINDS 循环里 `ensure_dev` 失败 → 等 30s 重连（最多 2 轮），
+  仍失败才判"设备不可达"FAIL（避免 1 次瞬断污染全 4 项）
+- **教训固化**：32 位 so 拖 adbd 掉线（No route 周期 5-15 分钟）+ MuMu 自身 reboot 循环
+  是已知环境项，非 so 回归——判据脚本须区分"环境掉线"与"so 判据 FAIL"，
+  掉线后自动重连 + 该项重跑，不直接判 FAIL
+
+**判据**（§124y-189 后）：32 位全钩子 = `bash rev64/tools/arm32_hook_check.sh --dev <dev> --rounds 3`
+（4 项 + 出屏 3 轮 + 轮询 45s/60s + 项间冷却 5s + 设备掉线 2 轮 30s 重连容错）。
+设备掉线期判据结果不作 so 回归依据，等设备稳定窗口复验。

@@ -146,7 +146,16 @@ wait_log() {
 PASS=0; FAIL=0; FAILED=""
 
 for k in $KINDS; do
-  ensure_dev || { echo "  ✗ $k（设备不可达）"; FAIL=$((FAIL+1)); FAILED="$FAILED $k"; continue; }
+  # ★ §124y-189 设备掉线容错（32 位 so 拖 adbd + MuMu 重启循环已知项）：
+  #   任一项"设备不可达"时自动重连 + 等待 30s（最多 2 轮），仍失败才判 FAIL。
+  #   避免环境掉线（非 so 回归）污染判据结果。
+  dev_ok=0
+  for _r in 1 2; do
+    ensure_dev && { dev_ok=1; break; }
+    echo "  [dev-retry] $k 设备不可达，30s 后重连（第 $_r 轮）..."
+    sleep 30
+  done
+  [ "$dev_ok" -eq 1 ] || { echo "  ✗ $k（设备不可达，2 轮重连仍失败）"; FAIL=$((FAIL+1)); FAILED="$FAILED $k"; continue; }
   # §124y-180 方法论第 5 条（flaky 防）：项间冷却 5s（32 位 so 转译冷启动抖动，
   # 串行 4 项时上一项 am force-stop 后 32 位 so 转译缓存未稳 → 下一项判据假 FAIL）
   [ "$k" != "$(echo $KINDS | awk '{print $1}')" ] && sleep 5
