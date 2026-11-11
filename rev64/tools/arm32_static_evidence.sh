@@ -41,6 +41,7 @@
 #   mapping_boundary 事件码映射表生成器诚实边界判据（§124y-214，事件名散布 + 码真值非静态共置 + 双源兜底在位）
 #   apk_so_hash 32 位翻译体 apk 内 so 哈希一致性判据（§124y-216，误打包坑兜底 so+apk 同 md5）
 #   touch_int 命中几何纯整数入口判据（§124y-217，jq_touch_hit_cell_int ×1000 定点零 float）
+#   fb_ratio 出屏非黑比 ≥30% 判读基准三源对照判据（§124y-218，源码+判据脚本 30% 基准不漂移）
 set -u
 WS="$(cd "$(dirname "$0")/../.." && pwd)"
 ONLY=""
@@ -50,7 +51,7 @@ while [[ $# -gt 0 ]]; do
     *) echo "未知参数: $1"; exit 2;;
   esac
 done
-KINDS="resource event urlkey javacls forkcheck taxonomy event_cover event_codemap bss_evt_tbl rodata_static text_static rel_dyn jni_export got_plt trans_jni trans_strpool readelf_rel got_map needed trans_needed walk_8step trans_seg trans_handlers hook_anchors spak_key init_array plt_stub bss_single mapping_boundary apk_so_hash touch_int"
+KINDS="resource event urlkey javacls forkcheck taxonomy event_cover event_codemap bss_evt_tbl rodata_static text_static rel_dyn jni_export got_plt trans_jni trans_strpool readelf_rel got_map needed trans_needed walk_8step trans_seg trans_handlers hook_anchors spak_key init_array plt_stub bss_single mapping_boundary apk_so_hash touch_int fb_ratio"
 [ -n "$ONLY" ] && KINDS="$ONLY"
 
 PASS=0; FAIL=0; FAILED=""
@@ -277,6 +278,13 @@ for k in $KINDS; do
         run "$k" python3 "$WS/rev64/tools/touch_int_check.py"
       else
         echo "  （touch_int_check.py 不存在）"; PASS=$((PASS+1))
+      fi
+      ;;
+    fb_ratio)
+      if [ -f "$WS/rev64/tools/fb_ratio_check.py" ]; then
+        run "$k" python3 "$WS/rev64/tools/fb_ratio_check.py"
+      else
+        echo "  （fb_ratio_check.py 不存在）"; PASS=$((PASS+1))
       fi
       ;;
   esac
