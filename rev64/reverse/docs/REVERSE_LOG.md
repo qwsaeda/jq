@@ -6752,3 +6752,16 @@ bash rev64/tools/arm32_walkregress.sh --dev emulator-5554   # 4 路径回归
 - 判断：`sg/*`/`junqi/*` 套图在 SPAK 解包里以 `data_XXX_*.bin` 形式存在（命名未还原路径），
   737×751 棋盘 + 212×280 棋子图集已内嵌 `jq_board_px.h`/`jq_piece_atlas.h`（出屏已用）；
   缺口 = 其余 sg 套图 + config XML 3 个 + click.wav 的**命名还原/对齐校验**（静态可做，非阻塞）。
+
+### §124y-172 资源静态映射工具固化（rodata_resource_map.py，2026-11-11）
+- 新增 `rev64/tools/rodata_resource_map.py`：原版 so `.rodata` 资源引用 ↔ SPAK 解包产物
+  静态映射（PNG 魔数 + IHDR 尺寸 / JPG 魔数特征索引）。
+- 实锤关键映射（尺寸特征精确命中）：
+  - `data/sg/board.png` = PNG **737×751** → `datah_188_21d95e03e7692e98.bin`
+  - `data/junqi/piece.png` = PNG **212×280** → `datah_183_9e1b7fbc4dfc09c3.bin`
+  - `data/sg/boardx.png` = PNG **1100×1121**（高分套）→ `datax_188_fcafc582bbbd0bc8.bin`
+  - `data/sg/piecex.png` = PNG **344×427**（高分套）→ `datax_183_4fb54a04a1e36e4b.bin`
+- 32 位翻译体 `jq_board_px.h`（737×751）/ `jq_piece_atlas.h`（212×280）内嵌数据
+  = SPAK 解包产物 `datah_188`/`datah_183`（出屏在用资源即原版资源，静态佐证闭环）。
+- 用法：`python3 rev64/tools/rodata_resource_map.py`（缺省读 /tmp/opencode/orig_so + spak_res，
+  --so/--res 可覆盖）。
