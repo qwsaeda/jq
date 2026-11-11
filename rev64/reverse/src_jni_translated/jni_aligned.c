@@ -799,11 +799,9 @@ Java_com_cnvcs_App_OnTimer(JNIEnv *env, jclass c){
             /* 设备端 view=900×1468（OnGraphChange 实测，非全面屏 1468 布局）
                walk_coords 公式：px=ix/720*900, py=iy/1280*1468。
                cell6=row1col1(ir10)→tap(274,1268); cell33=row6col3(ir5)→tap(625,662)。 */
-            /* §124y-26：端到端判据用走子桥 move 全链（纯 C 规则引擎，设备端已证 cell6→11 Junqi.Move 成功）。
-               触摸命中几何 jq_touch_hit_cell 在 32 位 so 设备端 0/60（libc 浮点行为差异，诚实边界），
-               不阻塞端到端"游戏可玩"主线。触摸注入坐标保留（命中 -1 也记录，便于后续 32 位 libc 适配）。 */
-            /* ★ §124y-176 二次根治：触摸注入改纯整数路径（float 传参在转译层全 0，
-               纯整数入口 60/60 实锤）。274×1000=274000 / 1268×1000=1268000。 */
+            /* §124y-176 二次根治：触摸注入纯整数路径（float 传参在转译层全 0，
+               纯整数入口 60/60 设备端实锤，前段"0/60 诚实边界"已关闭）。
+               274×1000=274000 / 1268×1000=1268000。 */
             extern int jq_walk_bridge_touch_int(long px1k, long py1k, int view_w, int view_h);
             int cell6 = jq_walk_bridge_touch_int(274000L, 1268000L, 900, 1468);
             __android_log_print(6,"junqi","GAME-TEST: 触摸 tap(274,1268) view900×1468 纯整数路径 → cell%d", cell6);
@@ -817,9 +815,9 @@ Java_com_cnvcs_App_OnTimer(JNIEnv *env, jclass c){
             extern int jq_game_test_finish(void);
             int fin = jq_game_test_finish();
             /* 端到端判据：2 步走子合法（Junqi.Move）+ 终局完成 = 游戏可玩
-               （触摸命中几何 32 位 libc 设备端 0/60 为诚实边界，主线走 move 全链） */
+               （§124y-176 二次根治后触摸命中几何 60/60 设备端实锤，纯整数路径） */
             int move_ok = (ev1 == 0 && ev2 == 0);  /* 0=Junqi.Move */
-            __android_log_print(6,"junqi","GAME-TEST: 端到端完成 走子=%s fin=%d（触摸命中几何 32 位 libc 边界，主线 move 全链）",
+            __android_log_print(6,"junqi","GAME-TEST: 端到端完成 走子=%s fin=%d（触摸命中几何 60/60 纯整数路径实锤）",
                 move_ok?"OK(2步Move)":"FAIL", fin);
             /* ★ §124y-168: 事件后 dump 掩码表（.bss+0x4704, 17 行 × 17 字段 = 289B）
                目的: 验证事件分发后掩码表是否被填入 (事件码<<4)|标志位（高 nibble = 事件码）

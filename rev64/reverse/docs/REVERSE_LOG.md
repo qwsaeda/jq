@@ -6880,3 +6880,24 @@ float 乘法（转译层失效 → `ix1k=0`）；② walkbridge probing 循环 `
 纯整数全链路（含入口参数 ×1000 定点）是唯一稳定路径。
 
 **§124y-26/176 前段"诚实边界：命中几何 0/60 未达成"关闭**——设备端 60/60 实锤达成。
+
+### §124y-177 .rodata 资源路径串 → SPAK 解包全量映射 0 缺口（工具 `rodata_path_map.py`，2026-11-11）
+
+用户"继续"指令下把 AGENTS 口径更新（SPAK 解密 key 已提取：32 字节明文 @ 原版
+`.rodata` VA 0x12a658 / 文件偏移 0x2e5268，算法 XOR(key[j%32])+zlib，R5 完整解包
+883 资源）落实为可复现判据：
+
+- 新工具 `rev64/tools/rodata_path_map.py`：原版 so `.rodata` 明文的资源路径串
+  （strings 提取，44 条 `data/*.{cfg,xml,txt,png,jpg,wav,cp,lay,ttf,pak}`）逐项映射到
+  SPAK 解包本地文件（`rev64/dist/spak_res/` 969 文件）。
+- 映射规则三层：① 命名资源（`data/junqi/ruleflip.txt` → `data_junqi_ruleflip.txt` 层级
+  下划线扁平化）② §124y-174 全量命名还原表 `NAMED_MAP`（数字资源 `datah/datax/datam_XXX`
+  按内容特征/尺寸/魔数实锤）③ 动态序号变体（`%02d/%d` 模板 → 缺省文件）。
+- 补缺：`data/config/image.xml` → `datah_014/datax_014/datam_013`（`<ImageConfig>`
+  内容特征，§124y-174 实锤）——config 6 XML 里 path/sound/string/uitag 在库，
+  font/ui/image 未单列（image 内容特征命中 datah_014 系）。
+- **判据实锤：44 条资源路径串全命中，0 缺口**（`判据: 0 缺口 PASS`）。
+
+逆向对齐佐证：原版 so 引用的每个资源路径都能落到 SPAK 解包实体（命名或数字资源
+内容特征），资源映射全量闭环。config XML 4/6 在库 + 其余 2 项内容特征实锤 =
+资源引用链 0 缺口。
