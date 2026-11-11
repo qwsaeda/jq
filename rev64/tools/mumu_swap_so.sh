@@ -58,6 +58,11 @@ echo "  [源 APK] $SRCAPK（包名已校验 = $PKG）"
 DECTREE=$WORK/dec_rs
 if [ -d "$DECTREE" ]; then
     cp $RS/dist/libjunqi_rs.so $DECTREE/lib/arm64-v8a/libjunqi.so
+    # ★ 2026-11-11 现代全面屏适配：App.smali 源在 src_rs（git 记录，含 displayCutout
+    #   SHORT_EDGES + 沉浸式），构建时同步到 dec_rs（防 dec_rs 重建丢 displayCutout）。
+    if [ -f "$RS/App.smali" ]; then
+        cp $RS/App.smali $DECTREE/smali/com/qwsaeda/App.smali
+    fi
     (cd $WORK && apktool b dec_rs -o raw_decrs.apk) >/tmp/opencode/mumu_apktool.log 2>&1
     if [ -f "$WORK/raw_decrs.apk" ]; then
         SRCAPK="raw_decrs.apk"
