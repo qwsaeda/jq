@@ -56,46 +56,45 @@ fi
 # /sdcard/Download/，pull 后本地判读。返回 0=非黑≥30，1=未达。echo 数值到 stdout）
 # ★ 判据用 logcat 权威（翻译体 dump 日志自带非黑比数值），file pull 仅作备查
 frame_check_once() {
-  local ratio
-  # 重连保活（adb 偶发掉线）
-  ensure_dev >/dev/null 2>&1
-  # 清 dump 文件 + 重启 app（翻译体自动生成新 dump）
+  # ★ §124y-185 出屏判读（设备文件权威 + 轮询等待新文件生成，防串轮/flaky）：
+  #   ① 记录本轮启动前的 dump 文件集（防旧文件误判）
+  #   ② 清 dump + 设 jq.game_test=1 + 重启 app
+  #   ③ 轮询等待【新的】dump 文件生成（最多 40s，每 4s 一次）
+  #   ④ pull 新文件 + PIL 判读非黑比（≥30% = 出屏达成，§124y-179）
+  local i before="" after="" f=""
+  ensure_dev >/dev/null 2>&1 || { echo "none"; return 1; }
+  before=$(adb -s "$DEV" shell "ls /sdcard/Download/board_dump_*.ppm 2>/dev/null" | tr -d '\r')
   adb -s "$DEV" shell "rm -f /sdcard/Download/board_dump_*.ppm; am force-stop $PKG" >/dev/null 2>&1
   sleep 2
-  adb -s "$DEV" shell "am start -n $PKG/com.cnvcs.App" >/dev/null 2>&1
+  adb -s "$DEV" shell "setprop jq.game_test 1; am start -n $PKG/com.cnvcs.App" >/dev/null 2>&1
   sleep 14
-  # 权威判据 = 翻译体 dump 日志非黑比（§124y-179）。
-  # 取【当前轮次启动后】最新一条 dump 日志（grep 时间序取最后一条非黑比值，
-  # 避免取到上一轮残留 0%）。
-  local LOG
-  LOG=$(adb -s "$DEV" logcat -d 2>/dev/null)
-  ratio=$(echo "$LOG" | grep -oE "FRAMEBUFFER-DUMP: .*非黑比=[0-9]+%" | grep -oE "[0-9]+%" | tail -1 | tr -d '%')
-  if [ -z "$ratio" ]; then
-    # 备查：file pull 判读
-    local LATEST
-    LATEST=$(adb -s "$DEV" shell "ls -t /sdcard/Download/board_dump_*.ppm 2>/dev/null | head -1" | tr -d '\r')
-    if [ -n "$LATEST" ]; then
-      local i
-      for i in 1 2 3; do
-        ensure_dev >/dev/null 2>&1 || break
-        adb -s "$DEV" pull "$LATEST" /tmp/opencode/arm32_fb_check.ppm >/dev/null 2>&1 && break
-        sleep 2
-      done
-      if [ -f /tmp/opencode/arm32_fb_check.ppm ]; then
-        ratio=$(python3 -c "
+  for i in 1 2 3 4 5 6 7 8; do
+    ensure_dev >/dev/null 2>&1 || break
+    after=$(adb -s "$DEV" shell "ls /sdcard/Download/board_dump_*.ppm 2>/dev/null" | tr -d '\r')
+    [ -n "$after" ] && break
+    sleep 4
+  done
+  adb -s "$DEV" shell "setprop jq.game_test 0" >/dev/null 2>&1
+  if [ -z "$after" ]; then echo "none"; return 1; fi
+  # 取最新 dump 文件 pull + PIL 判读
+  f=$(echo "$after" | tail -1)
+  for i in 1 2 3; do
+    ensure_dev >/dev/null 2>&1 || break
+    timeout 30 adb -s "$DEV" pull "$f" /tmp/opencode/arm32_fb_check.ppm >/dev/null 2>&1 && break
+    sleep 2
+  done
+  [ -f /tmp/opencode/arm32_fb_check.ppm ] || { echo "none"; return 1; }
+  local ratio
+  ratio=$(python3 -c "
 from PIL import Image
 try:
   im=Image.open('/tmp/opencode/arm32_fb_check.ppm').convert('RGB')
   w,h=im.size; px=im.load()
   nb=sum(1 for y in range(0,h,4) for x in range(0,w,4) if sum(px[x,y])>60)
   print(100*nb//((w//4)*(h//4)))
-except Exception as e:
+except Exception:
   print('none')" 2>/dev/null)
-      fi
-    fi
-    [ -z "$ratio" ] && ratio="none"
-  fi
-  echo "$ratio"
+  echo "${ratio:-none}"
   [ -n "$ratio" ] && [ "$ratio" != "none" ] && [ "$ratio" -ge 30 ]
 }
 
@@ -118,6 +117,21 @@ launch_hook() {
   adb -s "$DEV" logcat -d 2>/dev/null
 }
 
+# ★ §124y-180 方法论第 5 条（flaky 防）：轮询等待判据日志（固定 sleep 可能早于
+#   32 位 so 冷启动 OnCreate 钩子段 → 判据日志未出 → 假 FAIL）。最多 WAIT_SECS 秒。
+# 用法: wait_log <grep 模式> <max_seconds> → 返回 0=出现 1=超时
+wait_log() {
+  local pat="$1" max="$2" t=0
+  while [ "$t" -lt "$max" ]; do
+    if adb -s "$DEV" logcat -d 2>/dev/null | grep -q "$pat"; then
+      return 0
+    fi
+    sleep 3; t=$((t+3))
+    ensure_dev >/dev/null 2>&1 || return 1
+  done
+  return 1
+}
+
 PASS=0; FAIL=0; FAILED=""
 
 for k in $KINDS; do
@@ -126,6 +140,15 @@ for k in $KINDS; do
   case "$k" in
     game_test)
       LOG=$(launch_hook jq.game_test jq.game_test)
+      # ★ flaky 防：32 位 so 冷启动 OnCreate 钩子段时序不定，判据未命中先轮询等待（最多 30s）
+      for _w in "GAME-TEST: 端到端完成 走子=OK" "touch_int: tap1k(274000,1268000) → cell6" "EVT-TBL-DUMP.*非0字节=129"; do
+        if ! echo "$LOG" | grep -q "$_w"; then
+          if wait_log "$_w" 30; then
+            LOG=$(adb -s "$DEV" logcat -d 2>/dev/null)
+            break
+          fi
+        fi
+      done
       CRASH=$(echo "$LOG" | grep -c "Fatal signal" || true)
       ok=1
       echo "$LOG" | grep -q "GAME-TEST: 端到端完成 走子=OK" || { ok=0; echo "  ✗ 端到端未命中"; }
@@ -147,6 +170,7 @@ for k in $KINDS; do
       ;;
     walk_bridge)
       LOG=$(launch_hook jq.walk_bridge jq.walk_bridge)
+      echo "$LOG" | grep -q "WALK-BRIDGE: 完整 8 步序列完成" || wait_log "WALK-BRIDGE: 完整 8 步序列完成" 30 && LOG=$(adb -s "$DEV" logcat -d 2>/dev/null)
       CRASH=$(echo "$LOG" | grep -c "Fatal signal" || true)
       if echo "$LOG" | grep -q "WALK-BRIDGE: 完整 8 步序列完成" && [ "$CRASH" = "0" ]; then
         echo "  ✓ walk_bridge（8 步序列 + 0 崩溃）"; PASS=$((PASS+1))
@@ -163,6 +187,9 @@ for k in $KINDS; do
       adb -s "$DEV" shell "setprop jq.native_layout 1; setprop jq.native_event 1" >/dev/null 2>&1
       sleep 8
       LOG=$(adb -s "$DEV" logcat -b main -d 2>/dev/null)
+      if ! echo "$LOG" | grep -q "F_3ab80: 事件发送"; then
+        wait_log "F_3ab80: 事件发送" 30 && LOG=$(adb -s "$DEV" logcat -b main -d 2>/dev/null)
+      fi
       CRASH=$(echo "$LOG" | grep -c "Fatal signal" || true)
       if echo "$LOG" | grep -q "F_3ab80: 事件发送" && [ "$CRASH" = "0" ]; then
         echo "  ✓ native_event（F_3ab80 事件发送 + 0 崩溃）"; PASS=$((PASS+1))
