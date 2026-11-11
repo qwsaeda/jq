@@ -4742,13 +4742,8 @@ static void rs_draw_setentry(rs_render *rr, int slot, int is_simplified)
                            (sb[i].x0 + sb[i].x1) * 0.5f, (sb[i].y0 + sb[i].y1) * 0.5f, 120.0f, uc);
         }
     }
-    /* ④ 标题"设置"（setentry_text row0，面板顶部 360 中心） */
-    if (is_simplified)
-        rs_atlas_label(rr, slot, rr->tex_setentry_text[slot], rr->setentry_text_w, rr->setentry_text_h,
-                       SETENTRY_ROW, 0, 360.0f, UI_SETEXTTRY4_POPUP_Y0 + 25.0f, 130.0f, uc);
-    else
-        rs_atlas_label(rr, slot, rr->tex_setentry_text[slot], rr->setentry_text_w, rr->setentry_text_h,
-                       SETENTRY_ROW, 0, 360.0f, UI_SETEXTTRY_POPUP_Y0 + 25.0f, 130.0f, uc);
+    /* ④ 标题：原版 datah_003/004 设置入口弹窗**无标题**（只有图像设置/声音设置[/游戏设置] 3/2 按钮），
+       ★ 2026-11-11 用户"设置入口弹窗不是原版"指正——删旧标题"设置"（多余，原版无）。 */
     static int sed = 0;
     if (!sed) {
         sed = 1;
