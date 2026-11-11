@@ -7162,3 +7162,28 @@ pull + PIL 判读），判据仍 = 非黑比 ≥30%（§124y-179）。
 
 **静态佐证批次化入口 8 项**（设备无关）：resource + event/urlkey/javacls +
 forkcheck + taxonomy + event_cover + **event_codemap**（新增）。
+
+### §124y-188 全钩子脚本串行 flaky 教训固化 + 判据窗口/项间冷却修复（设备刚 reboot 转译冷启动 2-3 倍慢，2026-11-11）
+
+设备 10.0.182.182.146 经 MuMu 重启循环恢复后，全钩子脚本 `arm32_hook_check.sh --rounds 3`
+串行 4 项偶发 FAIL（0/4 或 1/4），但**逐单跑 4 项全 PASS + 手动单跑 walk_bridge 13s 命中 0 崩溃**
+（判据本身正常）。真因 = 判据时序对"设备刚 reboot + 32 位 so 经 houdini 转译冷启动"偏短：
+
+- **根因①（轮询窗口偏短）**：`launch_hook` sleep 30 + 轮询 3 轮（15s）对设备刚 boot
+  转译冷启动（慢 2-3 倍，GAME-TEST 段实测 ~37s 起）不够。修：sleep 30→45 + 轮询 3→6 轮（共 45s）
+- **根因②（串行项间无冷却）**：4 项串行跑，上一项 `am force-stop` 后 32 位 so 转译缓存未稳
+  → 下一项判据假 FAIL。修：KINDS 循环项间冷却 5s
+- **根因③（出屏 dump 轮询 40s 偏短）**：framebuffer 项 10 轮 4s=40s 对冷启动 dump 生成窗口
+  不够。修：10→15 轮（共 60s）
+- **bash 优先级 bug 修复**：walk_bridge 分支 `a || b && c` 链 → 改 if 块
+  （grep 命中时 LOG 不重读短路 bug，§124y-186 漏项）
+
+**教训固化（§124y-180 方法论第 5 条扩展）**：
+- 32 位 so 经 houdini 转译 + 设备刚 boot 时，判据窗口须按**正常冷启动 2-3 倍**放宽
+  （launch_hook 45s + wait_log 45s + framebuffer 60s + 项间冷却 5s）
+- 判据脚本串行 4 项时，**单跑全 PASS ≠ 串行全 PASS**（转译缓存抖动），须加项间冷却
+- 出屏判据 `none%` = dump 文件未生成/轮询窗口超时（非出屏未达成），放宽轮询窗口即可
+
+**判据**（§124y-188 后）：32 位全钩子 = `bash rev64/tools/arm32_hook_check.sh --dev <dev> --rounds 3`
+（4 项 + 出屏 3 轮，轮询 45s/60s + 项间冷却 5s 防 flaky）；设备刚 reboot 冷启动偶发 FAIL 属
+判据时序（非 so 回归），单跑 4 项全 PASS 为准。

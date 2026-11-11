@@ -115,12 +115,12 @@ launch_hook() {
   adb -s "$DEV" shell "am start -n $PKG/com.cnvcs.App" >/dev/null 2>&1
   # §124y-186 flaky 根治：32 位 so 冷启动 OnCreate/OnUpdate 钩子段出日志需 ~30-40s
   # （实测 GAME-TEST 在 start 后 ~37s），固定 sleep 18 读不到判据 → 假 FAIL。
-  # 改：sleep 30s 起步（覆盖 32 位 so 转译慢的出日志窗口），读到判据即返回。
-  sleep 30
+  # 改：sleep 45s 起步（设备刚 boot 转译冷启动 2-3 倍慢，§124y-180 教训），读到判据即返回。
+  sleep 45
   LOG=$(adb -s "$DEV" logcat -d 2>/dev/null)
   # 判据未出 → 再轮询等到 60s（每 5s 查一次）
   local i
-  for i in 1 2 3; do
+  for i in 1 2 3 4 5 6; do
     echo "$LOG" | grep -q "GAME-TEST: 端到端完成\|WALK-BRIDGE: 完整 8 步\|F_3ab80: 事件发送" && break
     sleep 5
     LOG=$(adb -s "$DEV" logcat -d 2>/dev/null)
@@ -147,6 +147,9 @@ PASS=0; FAIL=0; FAILED=""
 
 for k in $KINDS; do
   ensure_dev || { echo "  ✗ $k（设备不可达）"; FAIL=$((FAIL+1)); FAILED="$FAILED $k"; continue; }
+  # §124y-180 方法论第 5 条（flaky 防）：项间冷却 5s（32 位 so 转译冷启动抖动，
+  # 串行 4 项时上一项 am force-stop 后 32 位 so 转译缓存未稳 → 下一项判据假 FAIL）
+  [ "$k" != "$(echo $KINDS | awk '{print $1}')" ] && sleep 5
   echo "═══ $k ═══"
   case "$k" in
     game_test)
@@ -154,7 +157,7 @@ for k in $KINDS; do
       # ★ flaky 防：32 位 so 冷启动 OnCreate 钩子段时序不定，判据未命中先轮询等待（最多 30s）
       for _w in "GAME-TEST: 端到端完成 走子=OK" "touch_int: tap1k(274000,1268000) → cell6" "EVT-TBL-DUMP.*非0字节=129"; do
         if ! echo "$LOG" | grep -q "$_w"; then
-          if wait_log "$_w" 30; then
+          if wait_log "$_w" 45; then
             LOG=$(adb -s "$DEV" logcat -d 2>/dev/null)
             break
           fi
@@ -181,7 +184,10 @@ for k in $KINDS; do
       ;;
     walk_bridge)
       LOG=$(launch_hook jq.walk_bridge jq.walk_bridge)
-      echo "$LOG" | grep -q "WALK-BRIDGE: 完整 8 步序列完成" || wait_log "WALK-BRIDGE: 完整 8 步序列完成" 30 && LOG=$(adb -s "$DEV" logcat -d 2>/dev/null)
+      if ! echo "$LOG" | grep -q "WALK-BRIDGE: 完整 8 步序列完成"; then
+        wait_log "WALK-BRIDGE: 完整 8 步序列完成" 45
+        LOG=$(adb -s "$DEV" logcat -d 2>/dev/null)
+      fi
       CRASH=$(echo "$LOG" | grep -c "Fatal signal" || true)
       if echo "$LOG" | grep -q "WALK-BRIDGE: 完整 8 步序列完成" && [ "$CRASH" = "0" ]; then
         echo "  ✓ walk_bridge（8 步序列 + 0 崩溃）"; PASS=$((PASS+1))
@@ -217,9 +223,9 @@ for k in $KINDS; do
         adb -s "$DEV" shell "rm -f /sdcard/Download/board_dump_*.ppm" >/dev/null 2>&1
         adb -s "$DEV" shell "am start -n $PKG/com.cnvcs.App" >/dev/null 2>&1
         # ★ §124y-180 方法论第 5 条（flaky 防）：dump 由翻译体 F_9d43c 帧尾生成，
-        #   固定 sleep 可能早于首帧 → 轮询等待（最多 40s，每 4s 查一次）
+        #   固定 sleep 可能早于首帧 → 轮询等待（最多 60s，每 4s 查一次）
         ratio="none"
-        for _w in 1 2 3 4 5 6 7 8 9 10; do
+        for _w in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do
           sleep 4
           LATEST=$(adb -s "$DEV" shell "ls -t /sdcard/Download/board_dump_*.ppm 2>/dev/null | head -1" | tr -d '\r')
           if [ -n "$LATEST" ]; then
