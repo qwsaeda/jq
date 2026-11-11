@@ -7542,3 +7542,25 @@ taxonomy + event_cover + event_codemap + bss_evt_tbl + rodata_static + text_stat
 rel_dyn + jni_export + got_plt + trans_jni + trans_strpool + readelf_rel +
 got_map + needed + trans_needed + walk_8step + trans_seg +
 **trans_handlers**（新增，翻译体收表 handler 完整度）。
+
+### §124y-207 全钩子 4 项判据锚点对照脚本 + 静态佐证扩到 24 项（2026-11-11）
+
+用户"光改光对比，经验不总结/不脚本化"批评的延续落实——把"全钩子 4 项判据
+锚点"（§124y-178 全钩子基准）固化为可复跑静态对照判据（防判据漂移）：
+
+- **新工具** `rev64/tools/hook_anchors_check.py`：全钩子 4 项判据锚点双源对照
+  （翻译体源码 jni_aligned.c/jq_rs_walkbridge.c/jqt_vtbl.c + 判据脚本
+  arm32_hook_check.sh/arm32_walkregress.sh）
+- **判据实锤**：GAME-TEST/touch_int/EVT-TBL-DUMP/WALK-BRIDGE/F_3ab80 锚点
+  源码+脚本双源一致 → PASS
+- **★ 坑固化**：初版锚点 `走子=OK` 源码误判缺失——实锤 = 源码 GAME-TEST 日志
+  是 `走子=%s`（成功填 `OK(2步Move)`），脚本判据 `走子=OK` = **前缀子串匹配**
+  （非完整串），判据锚点须核源码实际日志格式（防"锚点错位/判据漂移"假 FAIL）；
+  touch_int 锚点在 `jq_rs_walkbridge.c` 非 `jni_aligned.c`
+- 并入 `arm32_static_evidence.sh` 第 24 项 `hook_anchors`（PASS=24 FAIL=0 全 PASS）
+
+**静态佐证批次化入口 24 项**（设备无关）：resource + event/urlkey/javacls + forkcheck +
+taxonomy + event_cover + event_codemap + bss_evt_tbl + rodata_static + text_static +
+rel_dyn + jni_export + got_plt + trans_jni + trans_strpool + readelf_rel +
+got_map + needed + trans_needed + walk_8step + trans_seg + trans_handlers +
+**hook_anchors**（新增，全钩子判据锚点双源对照）。

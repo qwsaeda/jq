@@ -1,4 +1,4 @@
-# 32 位静态佐证判据脚本索引（§124y-190~206 批次化，23 项全 PASS）
+# 32 位静态佐证判据脚本索引（§124y-190~207 批次化，24 项全 PASS）
 
 批次化入口：`bash rev64/tools/arm32_static_evidence.sh`（设备无关，离线可跑）
 
@@ -25,6 +25,7 @@
 | walk_8step | walk_bridge_8step_check.py | §124y-204 | 走子桥 8 步序列判据锚点三源对照（源码+双脚本） |
 | trans_seg | translated_seg_check.py | §124y-205 | 翻译体 so 段布局存在性（必备 4 段 + .plt + .bss=NOBITS） |
 | trans_handlers | translated_handlers_check.py | §124y-206 | 翻译体 17 关键函数全在（收表 handler 13 + 主链 4） |
+| hook_anchors | hook_anchors_check.py | §124y-207 | 全钩子 4 项判据锚点双源对照（源码+脚本一致防漂移） |
 
 **设备侧判据入口**（区分静态/设备）：
 - 全钩子 4 项：`bash rev64/tools/arm32_hook_check.sh --dev 10.0.182.146:5555 --rounds 3`
