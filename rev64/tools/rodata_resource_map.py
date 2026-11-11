@@ -46,19 +46,30 @@ def main():
         'data/sg/boardx.png': (1100, 1121),
         'data/sg/piecex.png': (344, 427),
     }
-    print('=== 原版 .rodata 资源引用 ↔ SPAK 解包产物（尺寸特征静态映射）===')
+    # ★ §124y-173 补：config XML 在 SPAK 解包里以 datah/datax/datam_XXX.bin 形式存在
+    #   （内容特征 = <?xml 头 + 对应 Config 类型），非 data_config_*.xml 命名
+    #   （data_config_{path,sound,string,uitag}.xml 是解包时按内容还原命名的，
+    #    font/image/ui 未还原命名 → 在 .bin 里）。
+    XML_FEATURE = {
+        'data/config/font.xml': ('FontConfig', ['datah_011', 'datax_011', 'datam_010']),
+        'data/config/image.xml': ('ImageConfig', ['datah_014', 'datax_014', 'datam_013']),
+        'data/config/ui.xml': ('UiConfig', ['datah_117', 'datax_117', 'datam_088']),
+    }
+    print('=== 原版 .rodata 资源引用 ↔ SPAK 解包产物（尺寸/内容特征静态映射）===')
     for p in paths:
         base = os.path.basename(p)
         if p in FEATURE:
             feat = FEATURE[p]
             hit = idx.get(feat, [])
             print(f'  {p} = PNG {feat[0]}x{feat[1]} → {hit}')
+        elif p in XML_FEATURE:
+            ctype, files = XML_FEATURE[p]
+            print(f'  {p} = {ctype} → {files}（SPAK .bin 内容特征命中）')
         elif base.endswith('.jpg') or p in ('data/720', 'data/800'):
-            # jpg 套图/分辨率套：按 JPG 魔数命中
             n = len(idx.get(('JPG',), []))
             print(f'  {p} = JPG（解包 {n} 个 JPG bin，datax_294 等）')
         else:
-            print(f'  {p} = （未做尺寸映射，按内容类型人工核对）')
+            print(f'  {p} = （未做映射，按内容类型人工核对）')
 
 if __name__ == '__main__':
     main()

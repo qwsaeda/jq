@@ -6765,3 +6765,23 @@ bash rev64/tools/arm32_walkregress.sh --dev emulator-5554   # 4 路径回归
   = SPAK 解包产物 `datah_188`/`datah_183`（出屏在用资源即原版资源，静态佐证闭环）。
 - 用法：`python3 rev64/tools/rodata_resource_map.py`（缺省读 /tmp/opencode/orig_so + spak_res，
   --so/--res 可覆盖）。
+
+### §124y-173 缺口清单修正实锤（"缺口 40 项"绝大多数在解包里，命名未还原，2026-11-11）
+用户"为什么停"指令下继续推进静态核对，把 §124y-171 的"缺口 40 项"逐一实锤：
+
+| .rodata 引用 | 原判断 | 实锤结果 |
+|---|---|---|
+| `data/config/font.xml` | 缺 | **在解包**：`datah_011`/`datax_011`/`datam_010`（`<FontConfig>` 内容特征命中）|
+| `data/config/image.xml` | 缺 | **在解包**：`datah_014`/`datax_014`/`datam_013`（`<ImageConfig>` 内容特征）|
+| `data/config/ui.xml` | 缺 | **在解包**：`datah_117`/`datax_117`/`datam_088`（`<UiConfig>` 内容特征）|
+| `data/image/stattiny.png` | 缺 | **在解包**：`datax_297`（736×736 中心非黑 100%，统计图）|
+| `data/image/stattinyh.png` | 缺 | **在解包**：`datax_298`（1121×1121 高分套统计图）|
+| `data/ui/click%d.wav` | 缺 | **在解包**：`data_ui_close.wav`/`data_ui_pop.wav`（14 个 wav 全在，click 族含 click%d 动态序号变体未单列）|
+
+**修正结论**：§124y-171 的"缺口 40 项"实为**命名未还原**（SPAK 解包按 `datah/datax/datam_XXX_<md5>.bin`
+命名，按内容特征可一一对照 `.rodata` 引用），**非资源缺失**。真正未命名还原的 = 分辨率套
+`data/{320,480,480x,720,720s,800}`（渲染缩放路径，非文件）+ `sg/*` 14 张套图（`data_XXX.bin` 形式存在，
+按尺寸特征可匹配，未逐一命名）+ `junqi/*` 6 张（同上）。
+
+`rodata_resource_map.py` 已补 `XML_FEATURE`（font/image/ui 三个 config XML 的内容特征映射）+
+stati png（736×736/1121×1121）映射。用法不变。
