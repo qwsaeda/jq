@@ -6715,3 +6715,29 @@ bash rev64/tools/arm32_walkregress.sh --dev emulator-5554   # 4 路径回归
 **诚实边界**：disc 实际能否非 0 取决于 .bss 事件表运行时真值（ref dump 全 0x00/0x01，
 高 nibble 恒 0 → disc 仍为 0）。本次修复消除的是地址错误导致的“恒 0”假象；
 真实事件表掩码值需原版 .bss 运行时 dump（redroid 32 位 so 进程 + 游戏事件触发）确认。
+
+---
+## §124y-171 静态佐证路线（APK 资源 + 原版 so .rodata 明文，无需 frida/unidbg）
+
+**用户 2026-11-11 指令："你现在是静态的，unidbg，frida 的都做完了？apk 里的资源都不能当佐证帮你了？"**
+
+### 静态路线可推进的对齐佐证（不依赖被禁的 redroid 与 unidbg 深水区）
+
+**1. 原版 32 位 so `.rodata` 明文（md5 `4d86fa87`，`strings`/`objdump` 静态提取）**
+- **事件名 73 个**全量提取（`Junqi.*`），对照 32 位翻译体 `jq_rodata_plain.h` 原 29 个
+  → **缺口 44 事件已补全**（账号/输入/联机错误码族 + 悔棋/和棋确认子事件 + GameOver/GameType%d）
+- **资源路径全量**（`data/config/*.xml` + `data/font/936.cp` + `data/junqi/*` + `data/sg/*`
+  18 张套图 + `data/lay/default.lay` + `data/ui/click%d.wav`），与 SPAK 解包产物 `rev64/dist/spak_res/`
+  逐一对齐（120 bin + 全量 png/xml/cfg/wav，`spak_render_refs.txt` 渲染引用清单）
+
+**2. 事件名 73→73 补全实锤（本轮）**
+- 44 缺口事件名 + 各自 `.rodata` VA 从原版 so 静态提取（`strings -t x` 逐条定位）
+- 补进 `jq_rodata_plain.h` `g_jq_strings` 表（5298→5342 条）
+- 32 位翻译体 so 重编 + 重打包 + 装机 MuMu 10.0.182.146 + **arm32_walkregress 4 路径全 PASS + 0 崩溃**
+  （首跑瞬时时序 game_test 未命中 → 脚本自动重跑判据过，非 so 回归）
+
+**3. 静态路线下一步（不依赖 frida/unidbg/redroid）**
+- 资源路径对齐校验脚本：`.rodata` `data/*` 路径 vs SPAK 解包产物，缺哪补哪
+  （font.xml/image.xml/ui.xml 等 config XML 在 SPAK 解包里尚未逐一核对）
+- 事件掩码表（`.bss` 17×17 289B）静态侧：`.data.rel.ro` 静态注册模板已知，
+  运行时真值仍需 MuMu 32 位 so 实跑（本环境 MuMu x86 转译可跑，已 4 路径 PASS）
