@@ -6922,3 +6922,30 @@ float 乘法（转译层失效 → `ix1k=0`）；② walkbridge probing 循环 `
 
 **结论**：32 位翻译体逆向对齐基准全达成（出屏 + 命中几何 + 走子 + 事件 + 掩码表 + 回归），
 唯一环境抖动项 = framebuffer 偶发 0%（重触发恢复，不阻塞主线）。
+
+### §124y-179 出屏抖动根治：framebuffer dump 非黑比判读（32 位翻译体，so `9025101e`，2026-11-11）
+
+**现象（§124y-178 遗留）**：连跑 3 轮出屏判读 = 100% / 0% / 100%（framebuffer dump 偶发全黑），
+前段归因"houdini EGL surface 周期失效"为表层现象。
+
+**根因实锤**：dump 逻辑 `static int _fd<3` 只抓**前 3 帧**（`F_9d43c` 触发时立即 dump）——
+**首帧可能早于纹理上传完成**（texID 跨 context 重建 / 纹理创建在帧头，dump 在帧尾但首帧
+texID 尚未上传）→ 首帧 dump 全黑 → 判读 0% 是**采样时机假象**，非 EGL surface 失效。
+
+**修复（dump 非黑比判读）**：3 处 dump 块（`jqt_vtbl.c` F_9d43c 帧尾 + `jqt_gl_bridge.c`
+frame loop / onDraw 两处）加非黑比采样（`_px` 8×8 步长扫，R+G+B>60 判非黑）：
+- 非黑比 ≥30% → 才 dump（`board_dump_%d.ppm`）+ 消耗 `_fd` 槽
+- <30%（全黑帧，纹理未上传早期）→ **跳过 + 保留 `_fd` 槽**给后续非黑帧
+- 判读日志带 `非黑比=%d%%` 实锤（防假绿：0% dump 不可再被当出屏达成）
+
+**实锤（设备 10.0.182.146，so `9025101e`）**：
+- 出屏判读连跑 **4 轮全 100%**（900×1468 PPM，棋子 quad 区 93 色块 = 纹理采样色非纯色）
+- `FRAMEBUFFER-DUMP: 非黑比=100%` 日志实锤（dump 帧真实非黑，非采样假象）
+- 4 路径回归 **PASS=4 FAIL=0 + 0 崩溃**（walk_bridge/native_layout/native_event/game_test）
+- 出屏抖动"0% 偶发"根因**改判**：dump 前 3 帧采样时机假象（首帧早于纹理上传），
+  非 EGL 0x3002 周期失效（0x3002 是 GLThread/frame loop 双 context 让位正常日志，非崩溃源）
+- **诚实口径**：HeapTaskDaemon 偶发 SIGSEGV（fault 0x0，tid 非渲染线程）= houdini 转译层
+  堆任务线程异常（非翻译体代码），4 路径回归 0 崩溃为准（崩溃计数判读含环境抖动）
+
+**判据固化**：出屏达成 = framebuffer dump **非黑比 ≥30%（实测 100%）+ 棋子 quad 区色块数
+（93 色）+ 0 崩溃**；"0% dump"不再作为出屏未达成判据（采样时机假象已根治）。

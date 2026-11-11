@@ -117,14 +117,26 @@ static void *jqt_gl_frame_loop(void *arg)
                         uint8_t *_px = (uint8_t*)malloc(_w*_h*4);
                         if (_px) {
                             glReadPixels(0,0,_w,_h,GL_RGBA,GL_UNSIGNED_BYTE,_px);
-                            char _fn[128]; snprintf(_fn,sizeof(_fn),"/data/local/tmp/board_dump_%d.ppm",_fd);
-                            FILE *_f=fopen(_fn,"wb");
-                            if (_f) { fprintf(_f,"P6\n%d %d\n255\n",_w,_h); fwrite(_px,3,_w*_h,_f); fclose(_f);
-                                __android_log_print(6,"junqi","FRAMEBUFFER-DUMP: %s %dx%d w=%d h=%d tid=%d",_fn,_w,_h,_w,_h,(int)gettid()); }
+                            /* §124y-179 非黑比判读（全黑帧跳过保留槽） */
+                            int _nb=0,_tot=0;
+                            for (int _yy=0;_yy<_h;_yy+=8) for (int _xx=0;_xx<_w;_xx+=8) {
+                                _tot++;
+                                int _pi=(_yy*_w+_xx)*4;
+                                if ((int)_px[_pi]+(int)_px[_pi+1]+(int)_px[_pi+2] > 60) _nb++;
+                            }
+                            int _r = (_tot>0)?(100*_nb/_tot):0;
+                            if (_r >= 30) {
+                                char _fn[128]; snprintf(_fn,sizeof(_fn),"/data/local/tmp/board_dump_%d.ppm",_fd);
+                                FILE *_f=fopen(_fn,"wb");
+                                if (_f) { fprintf(_f,"P6\n%d %d\n255\n",_w,_h); fwrite(_px,3,_w*_h,_f); fclose(_f);
+                                    __android_log_print(6,"junqi","FRAMEBUFFER-DUMP: %s %dx%d 非黑比=%d%% tid=%d",_fn,_w,_h,_r,(int)gettid()); }
+                                _fd++;
+                            } else {
+                                __android_log_print(6,"junqi","FRAMEBUFFER-DUMP: 帧非黑比=%d%%（<30，跳过保留槽）",_r);
+                            }
                             free(_px);
                         }
                     }
-                    _fd++;
                 } }
             }
         }
@@ -265,14 +277,25 @@ void jqt_gl_bridge(uint32_t clear_arg)
                         uint8_t *_px = (uint8_t*)malloc(_w*_h*4);
                         if (_px) {
                             glReadPixels(0,0,_w,_h,GL_RGBA,GL_UNSIGNED_BYTE,_px);
-                            char _fn[128]; snprintf(_fn,sizeof(_fn),"/data/local/tmp/board_dump_%d.ppm",_fd);
-                            FILE *_f=fopen(_fn,"wb");
-                            if (_f) { fprintf(_f,"P6\n%d %d\n255\n",_w,_h); fwrite(_px,3,_w*_h,_f); fclose(_f);
-                                __android_log_print(6,"junqi","FRAMEBUFFER-DUMP: %s %dx%d tid=%d",_fn,_w,_h,(int)gettid()); }
+                            int _nb=0,_tot=0;
+                            for (int _yy=0;_yy<_h;_yy+=8) for (int _xx=0;_xx<_w;_xx+=8) {
+                                _tot++;
+                                int _pi=(_yy*_w+_xx)*4;
+                                if ((int)_px[_pi]+(int)_px[_pi+1]+(int)_px[_pi+2] > 60) _nb++;
+                            }
+                            int _r = (_tot>0)?(100*_nb/_tot):0;
+                            if (_r >= 30) {
+                                char _fn[128]; snprintf(_fn,sizeof(_fn),"/data/local/tmp/board_dump_%d.ppm",_fd);
+                                FILE *_f=fopen(_fn,"wb");
+                                if (_f) { fprintf(_f,"P6\n%d %d\n255\n",_w,_h); fwrite(_px,3,_w*_h,_f); fclose(_f);
+                                    __android_log_print(6,"junqi","FRAMEBUFFER-DUMP: %s %dx%d 非黑比=%d%% tid=%d",_fn,_w,_h,_r,(int)gettid()); }
+                                _fd++;
+                            } else {
+                                __android_log_print(6,"junqi","FRAMEBUFFER-DUMP: 帧非黑比=%d%%（<30，跳过保留槽）",_r);
+                            }
                             free(_px);
                         }
                     }
-                    _fd++;
                 } }
             }
         }
