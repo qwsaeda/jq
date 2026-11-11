@@ -7521,3 +7521,24 @@ ELF 段布局（.text/.rodata/.data/.bss/.plt 全在 + .bss=NOBITS）"口径固�
 taxonomy + event_cover + event_codemap + bss_evt_tbl + rodata_static + text_static +
 rel_dyn + jni_export + got_plt + trans_jni + trans_strpool + readelf_rel +
 got_map + needed + trans_needed + walk_8step + **trans_seg**（新增，翻译体段布局存在性）。
+
+### §124y-206 翻译体 so 收表 handler 函数完整度判据脚本化 + 静态佐证扩到 23 项（2026-11-11）
+
+用户"光改光对比，经验不总结/不脚本化"批评的延续落实——把"翻译体 so 含
+24 handler 收表函数 + 事件分发主链"口径（§124y-29/30/31 收表实锤）固化为
+可复跑静态判据（防翻译体 so 函数漂移）：
+
+- **新工具** `rev64/tools/translated_handlers_check.py`：翻译体 so
+  `rev64/dist/libjunqi_arm32_aligned.so` nm 内部符号 17 关键函数对照
+  （收表 handler 13 个 F_8571c/F_55ba4/F_3deb0/F_853c0/F_3f8f4 + 扩展区
+  8 handler + 事件分发主链 4 个 F_3ab64/F_3ab80/F_3a92c/F_55d40）
+- **判据实锤**：收表 handler 13 个全在 + 主链 4 个全在 → PASS
+- **坑固化**：翻译体 so 重编后须重跑本判据（17 关键函数全在）+ 重打包 apk
+  装机（§124y-176 误打包坑：so+apk 哈希一致性验证），防收表函数漂移
+- 并入 `arm32_static_evidence.sh` 第 23 项 `trans_handlers`（PASS=23 FAIL=0 全 PASS）
+
+**静态佐证批次化入口 23 项**（设备无关）：resource + event/urlkey/javacls + forkcheck +
+taxonomy + event_cover + event_codemap + bss_evt_tbl + rodata_static + text_static +
+rel_dyn + jni_export + got_plt + trans_jni + trans_strpool + readelf_rel +
+got_map + needed + trans_needed + walk_8step + trans_seg +
+**trans_handlers**（新增，翻译体收表 handler 完整度）。

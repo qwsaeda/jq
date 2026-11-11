@@ -32,6 +32,7 @@
 #   trans_needed 翻译体 so NEEDED 依赖面对照判据（§124y-203，⊆ 原版 7 系统库 + libstdc++ 已剥离）
 #   walk_8step 走子桥 8 步序列判据锚点对照脚本（§124y-204，源码 8 步定义 + 双脚本锚点一致）
 #   trans_seg 翻译体 so 段布局存在性判据（§124y-205，必备 4 段 + .plt + .bss=NOBITS）
+#   trans_handlers 翻译体 so 收表 handler 函数完整度判据（§124y-206，17 关键函数全在）
 set -u
 WS="$(cd "$(dirname "$0")/../.." && pwd)"
 ONLY=""
@@ -41,7 +42,7 @@ while [[ $# -gt 0 ]]; do
     *) echo "未知参数: $1"; exit 2;;
   esac
 done
-KINDS="resource event urlkey javacls forkcheck taxonomy event_cover event_codemap bss_evt_tbl rodata_static text_static rel_dyn jni_export got_plt trans_jni trans_strpool readelf_rel got_map needed trans_needed walk_8step trans_seg"
+KINDS="resource event urlkey javacls forkcheck taxonomy event_cover event_codemap bss_evt_tbl rodata_static text_static rel_dyn jni_export got_plt trans_jni trans_strpool readelf_rel got_map needed trans_needed walk_8step trans_seg trans_handlers"
 [ -n "$ONLY" ] && KINDS="$ONLY"
 
 PASS=0; FAIL=0; FAILED=""
@@ -205,6 +206,13 @@ for k in $KINDS; do
         run "$k" python3 "$WS/rev64/tools/translated_seg_check.py"
       else
         echo "  （translated_seg_check.py 不存在）"; PASS=$((PASS+1))
+      fi
+      ;;
+    trans_handlers)
+      if [ -f "$WS/rev64/tools/translated_handlers_check.py" ]; then
+        run "$k" python3 "$WS/rev64/tools/translated_handlers_check.py"
+      else
+        echo "  （translated_handlers_check.py 不存在）"; PASS=$((PASS+1))
       fi
       ;;
   esac
