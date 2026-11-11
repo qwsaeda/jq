@@ -7431,7 +7431,7 @@ static const uint8_t g_jq_rodata_plain[118832] = {
 };
 
 struct jq_str { uint32_t va; const char *s; };
-static const struct jq_str g_jq_strings[5342] = {
+static const struct jq_str g_jq_strings[5345] = {
   {0x120bf8, "text"},
   {0x120c00, "Ok"},
   {0x120c04, "Cancel"},
@@ -7676,4 +7676,9 @@ static const struct jq_str g_jq_strings[5342] = {
   {0x1228f4, "Junqi.ResignConfirm"},
   {0x122bbc, "Junqi.UserCharError"},
   {0x122740, "Junqi.UserLenError"},
+  /* ★ §124y-183 事件名 76 全量补全：原版 .rodata 3 条 Misc.*（73 Junqi.* 已在，
+     本条补齐 = 76 事件名 0 缺口）。Misc.Graph%d 为模板串（graph 事件带序号）。 */
+  {0x121aec, "Misc.Graph%d"},
+  {0x1233fc, "Misc.RemoveAdFail"},
+  {0x123410, "Misc.RemoveAdOk"},
 };

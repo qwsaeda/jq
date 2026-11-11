@@ -7060,3 +7060,16 @@ JNI 类名 6 + 分叉矩阵 0 未标记，全 0 缺口。设备恢复后 `arm32_
 - **逆向边界佐证（非臆测）**：账号/联网/聊天 62 条事件名全部来自原版 .rodata 明文 =
   AGENTS"账号系统/联网对战未实现"边界的具体 .rodata 引用点，诚实边界口径固化
 - 并入 `arm32_static_evidence.sh` 第 6 项 `taxonomy`（PASS=6 FAIL=0 全 PASS）
+
+### §124y-183 补段：事件名 76 全量补全（g_jq_strings 5342→5345，缺口 3→0）
+
+`rodata_event_taxonomy.py` 覆盖度复验实锤翻译体 `jq_rodata_plain.h` `g_jq_strings`
+对原版 .rodata 76 事件名（73 Junqi.* + 3 Misc.*）只有 73 条——**3 条 Misc.* 缺口**：
+- `Misc.Graph%d`（0x121aec，模板串，graph 事件带序号）
+- `Misc.RemoveAdFail`（0x1233fc）/ `Misc.RemoveAdOk`（0x123410）（广告拆除目标事件名）
+
+补全（g_jq_strings 5342→5345）：3 条按原版 .rodata 文件偏移=VA（delta=0，
+"Cancel" 实锤）逐项入表。复验 76/76 覆盖 0 缺口。
+
+**口径**：`g_jq_strings` 76 事件名全量 = 原版 .rodata 事件名 0 缺口（§124y 44 条补全
+是 Junqi.* 增量，本条 = Misc.* 3 条收尾，事件名静态佐证全闭环）。
