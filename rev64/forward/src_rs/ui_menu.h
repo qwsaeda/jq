@@ -237,10 +237,10 @@ UI_REPLAY,     /* ★ P1（datah_039/107 证据）：复盘回放态——
                        面板 400×280（居中），2 按钮
                        文字/业务按原版 XML text + .rodata 事件名，边界项已标注 */
     UI_D001,   /* ★ 批量对齐（datah_001 证据）：声音设置
-                       面板 450×390（居中），4 按钮
+                       面板 450×390（居中），5 按钮
                        文字/业务按原版 XML text + .rodata 事件名，边界项已标注 */
     UI_D002,   /* ★ 批量对齐（datah_002 证据）：亮度
-                       面板 460×240（居中），2 按钮
+                       面板 460×240（居中），3 按钮
                        文字/业务按原版 XML text + .rodata 事件名，边界项已标注 */
     UI_D003,   /* ★ 批量对齐（datah_003 证据）：原版对话框
                        面板 260×270（居中），3 按钮
@@ -437,6 +437,9 @@ UI_REPLAY,     /* ★ P1（datah_039/107 证据）：复盘回放态——
     UI_D075,   /* ★ 批量对齐（datah_075 证据）：原版对话框
                        面板 340×45（固定位置），4 按钮
                        文字/业务按原版 XML text + .rodata 事件名，边界项已标注 */
+    UI_D076,   /* ★ 批量对齐（datah_076 证据）：原版对话框
+                       面板 460×88（居中），1 按钮
+                       文字/业务按原版 XML text + .rodata 事件名，边界项已标注 */
     UI_D077,   /* ★ 批量对齐（datah_077 证据）：原版对话框
                        面板 450×285（居中），6 按钮
                        文字/业务按原版 XML text + .rodata 事件名，边界项已标注 */
@@ -508,6 +511,9 @@ UI_REPLAY,     /* ★ P1（datah_039/107 证据）：复盘回放态——
                        文字/业务按原版 XML text + .rodata 事件名，边界项已标注 */
     UI_D110,   /* ★ 批量对齐（datah_110 证据）：历史对局
                        面板 450×610（居中），2 按钮
+                       文字/业务按原版 XML text + .rodata 事件名，边界项已标注 */
+    UI_D111,   /* ★ 批量对齐（datah_111 证据）：原版对话框
+                       面板 460×88（固定位置），1 按钮
                        文字/业务按原版 XML text + .rodata 事件名，边界项已标注 */
     UI_D112,   /* ★ 批量对齐（datah_112 证据）：原版对话框
                        面板 450×285（居中），5 按钮
@@ -1492,6 +1498,19 @@ int ui_chat063_popup_inside(float x, float y);   /* 点在弹窗面板内 */
 
 
 
+#define UI_D001_COUNT 5   /* ★ 正向对齐：加滑条区（原版 Slider 逐字节），action 重排 */
+#define UI_D002_COUNT 3   /* ★ 正向对齐：加滑条区（原版 Slider 逐字节），action 重排 */
+
+
+
+
+
+
+
+
+
+
+
 #define UI_D000_COUNT 2
 #define UI_D000_POPUP_X0 160.0f
 #define UI_D000_POPUP_Y0 500.0f
@@ -1501,7 +1520,7 @@ typedef struct { float x0,y0,x1,y1; int action; } ui_d000_btn;
 const ui_d000_btn *ui_d000_buttons(void);
 int ui_d000_hit(const ui_d000_btn *b, int n, float x, float y);
 
-#define UI_D001_COUNT 5   /* ★ 正向对齐：加滑条区（原版 Slider 逐字节），action 重排 */
+#define UI_D001_COUNT 5
 #define UI_D001_POPUP_X0 135.0f
 #define UI_D001_POPUP_Y0 445.0f
 #define UI_D001_POPUP_W  450.0f
@@ -1510,7 +1529,7 @@ typedef struct { float x0,y0,x1,y1; int action; } ui_d001_btn;
 const ui_d001_btn *ui_d001_buttons(void);
 int ui_d001_hit(const ui_d001_btn *b, int n, float x, float y);
 
-#define UI_D002_COUNT 3   /* ★ 正向对齐：加滑条区（原版 Slider 逐字节），action 重排 */
+#define UI_D002_COUNT 3
 #define UI_D002_POPUP_X0 130.0f
 #define UI_D002_POPUP_Y0 520.0f
 #define UI_D002_POPUP_W  460.0f
@@ -2104,6 +2123,15 @@ typedef struct { float x0,y0,x1,y1; int action; } ui_d075_btn;
 const ui_d075_btn *ui_d075_buttons(void);
 int ui_d075_hit(const ui_d075_btn *b, int n, float x, float y);
 
+#define UI_D076_COUNT 1
+#define UI_D076_POPUP_X0 130.0f
+#define UI_D076_POPUP_Y0 596.0f
+#define UI_D076_POPUP_W  460.0f
+#define UI_D076_POPUP_H  88.0f
+typedef struct { float x0,y0,x1,y1; int action; } ui_d076_btn;
+const ui_d076_btn *ui_d076_buttons(void);
+int ui_d076_hit(const ui_d076_btn *b, int n, float x, float y);
+
 #define UI_D077_COUNT 6
 #define UI_D077_POPUP_X0 135.0f
 #define UI_D077_POPUP_Y0 498.0f
@@ -2319,6 +2347,15 @@ int ui_d109_hit(const ui_d109_btn *b, int n, float x, float y);
 typedef struct { float x0,y0,x1,y1; int action; } ui_d110_btn;
 const ui_d110_btn *ui_d110_buttons(void);
 int ui_d110_hit(const ui_d110_btn *b, int n, float x, float y);
+
+#define UI_D111_COUNT 1
+#define UI_D111_POPUP_X0 10.0f
+#define UI_D111_POPUP_Y0 635.0f
+#define UI_D111_POPUP_W  460.0f
+#define UI_D111_POPUP_H  88.0f
+typedef struct { float x0,y0,x1,y1; int action; } ui_d111_btn;
+const ui_d111_btn *ui_d111_buttons(void);
+int ui_d111_hit(const ui_d111_btn *b, int n, float x, float y);
 
 #define UI_D112_COUNT 5
 #define UI_D112_POPUP_X0 135.0f

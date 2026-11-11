@@ -300,9 +300,11 @@ static void rs_draw_{tag.lower()}(rs_render *rr, int slot)
         # ── evverify
         exp=[f'    {{ "{it["text"] or it["name"]}", {it["x0"]}, {it["y0"]}, {it["x1"]}, {it["y1"]} }},'
              for it in b["items"]]
+        # ★ 2026-11-11 static 化修正：前向声明是 `static int run_dXXX(void);`，
+        #   若定义写成 non-static → C 编译错（static/non-static 冲突）。
         E[tag]=f"""
 /* ★ 批量对齐（datah_{n:03d}）：{cnt} 按钮几何 Δ=0 + 命中判定 */
-int run_{tag.lower()}(void)
+static int run_{tag.lower()}(void)
 {{
     const ui_{tag.lower()}_btn *b = ui_{tag.lower()}_buttons();
     static const struct {{ const char *lbl; int x0,y0,x1,y1; }} exp[] = {{
@@ -365,9 +367,32 @@ def insert(path, anchor, text, before=True):
 
 def clean():
     """删除本生成器插入的所有片段（模板迭代后重新生成用）。
-    只删带 ★ 批量对齐 / dlg_batch_text / jq_dlg_batch 标记的片段，不动其它代码。"""
+    只删带 ★ 批量对齐 / dlg_batch_text / jq_dlg_batch 标记的片段，不动其它代码。
+
+    ★ 2026-11-11 安全网（第三型误删根治）：clean 用正则删生成片段，正则可能**跨函数**
+      误删非生成代码（已实证：误删 rs_render_frame → so 留 UND → linker
+      "dlopen failed: failed to link" → 启动 UnsatisfiedLinkError）。
+      本版：**clean 前备份受影响文件 → clean 后校验关键函数清单 → 缺失即从备份恢复**
+      （宁可 clean 不彻底，也绝不静默破坏非生成代码；并明确打印警告）。
+    """
     import re as _re
     RS_ = RS
+    import clean_guard   # ★ 精确删除（括号配对）——防第三型跨函数误删
+    # ★ 关键函数清单（clean 后必须仍存在，否则回滚该文件）
+    PROTECT = {
+        f"{RS_}/render.c": ["void rs_render_frame(rs_render *rr)",
+                            "static void rs_draw_about(rs_render *rr, int slot)",
+                            "static void rs_popup_shell(rs_render *rr, int slot,"],
+        f"{RS_}/ui_menu.c": ["const ui_btn *ui_menu_buttons(void)"],
+        f"{RS_}/ui_menu.h": ["UI_ABOUT", "UI_GAMEINFO", "} ui_screen;"],
+        f"{RS_}/jni_bridge.c": ["Java_com_qwsaeda_App_OnCreate",
+                                "Java_com_qwsaeda_App_OnTouch"],
+        f"{RS_}/evverify.c": ["int main(int argc"],
+    }
+    _backup = {}
+    for _p in PROTECT:
+        try: _backup[_p] = open(_p, encoding="utf-8", errors="ignore").read()
+        except OSError: pass
     def sub(path, pat, repl="", flags=_re.S, label=""):
         try: s = open(path).read()
         except FileNotFoundError: return 0
@@ -400,9 +425,10 @@ def clean():
     tot += sub(f"{RS_}/render.c", r'(?:static int d\d{3}_diag = 0;\n)+')
     # ★ 对抗审计修正（§2026-11-11）：清理**共用** dlg_text 纹理上传块
     #   （旧版 clean 漏删 → 每跑一次生成器累积一份 → 25 份 glGenTextures 同纹理 → 纹理泄漏）
-    tot += sub(f"{RS_}/render.c",
-               '\n    if \\(rr->dlg_text_px && rr->gl2_ok\\[slot\\] && rr->dlg_text_w > 0 && rr->dlg_text_h > 0\\) \\{'
-               '[\\s\\S]*?\\n    \\}\\n')
+    #   ★ 2026-11-11 二次修正：旧正则非贪婪到"下一个 `\n    }\n`" → 块内无嵌套闭合时
+    #   一路吃到几百行后的其他块闭合 → **误删原版纹理加载块**（hamburger/btn_big/panel
+    #   等 PNG 解码 + free）→ 堆损坏（Scudo invalid chunk state）。
+    #   → **行级正则已删除**，改由下方迭代段的括号配对删除（remove_block_by_text）。
     # ★ 迭代清同行/跨行残留（旧版 p104/dlgraw 等 append 到同一行 → 单条正则删不完）
     import re as _re2
     for _round in range(30):
@@ -412,13 +438,54 @@ def clean():
         _rc=_re2.sub(r'rs_read_png\(am, "spak_res/dlg_batch_text\.png", p104, &dlgraw, &dlgraw_len\);', '', _rc)
         _rc=_re2.sub(r'unsigned char \*dlgraw = NULL; size_t dlgraw_len = 0;', '', _rc)
         _rc=_re2.sub(r'unsigned char \*dlgpx=NULL; int dlgw=0, dlgh=0;', '', _rc)
-        _rc=_re2.sub(r'if \(dlgraw && png_decode\(dlgraw, dlgraw_len, &dlgpx, &dlgw, &dlgh\) == 0\) \{[\s\S]*?free\(dlgraw\);', '', _rc)
-        _rc=_re2.sub(r'if \(rr->dlg_text_px && rr->gl2_ok\[slot\][\s\S]*?\n    \}\n(?=\n)', '', _rc)
+        # ★ 两个"跨块"正则改括号配对删除（防撕裂/误删）：
+        #   旧 iter_png：从 `if (dlgraw && png_decode(...) == 0) {` 一路吃到远处的
+        #   `free(dlgraw);` → 中间整段代码（rs_gl_rebuild 的纹理上传 for 循环）被删
+        #   → 残留 `if (texs[k][slot])     }` 拼接 → 编译错。
+        #   旧 iter_dlgtext：配对 '}' 已被前序删掉 → 一路吃到 rs_render_frame（删 28305 字符）。
+        for _i in range(8):
+            if not clean_guard.remove_block_by_text(
+                    f"{RS_}/render.c",
+                    r'if \(dlgraw && png_decode\('):
+                break
+        for _i in range(8):
+            if not clean_guard.remove_block_by_text(
+                    f"{RS_}/render.c",
+                    r'if \(rr->dlg_text_px && rr->gl2_ok\[slot\]'):
+                break
+        _rc=open(f"{RS_}/render.c").read()
         if _rc==_prev: break
         open(f"{RS_}/render.c","w").write(_rc); tot+=1
-    tot += sub(f"{RS_}/render.c",
-               r'(?:\n/\* ★ 批量对齐（datah_\d{3}）：\d+ 按钮 \+ 原版按钮文字.*?\n\}(?=static void rs_draw_about|\n/\* ★ 批量对齐))+',
-               "", _re.S)
+    # ★ 批量注释块删除统一交给下面的精确删除段（clean_guard.remove_comment_block
+    #   整块删）。**禁用行级正则**：只删注释首行会留半截注释裸露成代码
+    #   （编译错：render.c 'unexpected character <U+2605>'）。
+    # ★ 2026-11-11 误删修复（第三型：非贪婪大块正则跨函数删除）：
+    #   旧正则吃"批量注释块 → 直到下一个锚点的 }" → 当批量块后不是 rs_draw_about
+    #   （而是 rs_gl_rebuild 尾部 + rs_render_frame）时 → **误删 rs_render_frame**
+    #   → so 留 UND rs_render_frame → linker "dlopen failed: failed to link"
+    #   → 启动 UnsatisfiedLinkError。改为**按函数名 + 括号配对**精确删除
+    #   （clean_guard.remove_func，绝不跨越下一个函数边界）。
+    try:
+        import clean_guard
+        # ★ 从 render.c 自身提取批量函数名（不依赖 ui_menu.h——clean 已先删其枚举）
+        _rc0 = open(f"{RS_}/render.c", encoding="utf-8").read()
+        _ids = sorted(set(int(m) for m in _re.findall(r'static void rs_draw_d(\d{3})\(', _rc0)))
+        for _n in _ids:
+            clean_guard.remove_func(f"{RS_}/render.c", f"rs_draw_d{_n:03d}")
+            # 整块注释删除（★ 行级正则只删首行会留半截注释裸露成代码 → 编译错）
+            clean_guard.remove_comment_block(
+                f"{RS_}/render.c", rf'/\* ★ 批量对齐（datah_{_n:03d}）')
+        _rc = open(f"{RS_}/render.c", encoding="utf-8").read()
+        for _n in _ids:
+            _rc = _re.sub(rf'\nstatic const int D{_n:03d}_pw\[[^\]]*\][^;]*;', '', _rc)
+            _rc = _re.sub(rf'\nstatic const int D{_n:03d}_ph\[[^\]]*\][^;]*;', '', _rc)
+            _rc = _re.sub(rf'\n/\* ★ 批量对齐（datah_{_n:03d}）：[^\n]*\*/', '', _rc)
+        # 帧调度 case（行级精确）
+        _rc = _re.sub(r'\n        \} else if \(ui_screen_get\(\) == UI_D\d{3}\) \{\n            rs_draw_d\d{3}\(rr, slot\);', '', _rc)
+        open(f"{RS_}/render.c", "w", encoding="utf-8").write(_rc)
+        tot += len(_ids)
+    except Exception as _e:
+        print(f"    ★ 警告：clean_guard 精确删除失败（{_e}）——保留旧行为（诚实边界）")
     tot += sub(f"{RS_}/render.c",
                r'\n        \} else if \(ui_screen_get\(\) == UI_D\d{3}\) \{\n            rs_draw_d\d{3}\(rr, slot\);')
     # ── jni_bridge.c：钩子表+函数 / 钩子调用 / 业务分发
@@ -434,13 +501,29 @@ def clean():
                "", _re.S)
     # ── evverify.c：run_* + 注册行
     tot += sub(f"{RS_}/evverify.c", r'\n        total\+\+; pass \+= run_d\d{3}\(\);')
+    # ★ 2026-11-11 幂等/一致修复（批量前提）：旧版 clean 只删 `total++; pass +=` 格式，
+    #   历史遗留的 `geo_total++; geo_pass += run_dXXX();` 注册行残留 → 引用已删定义
+    #   → 链接错 undefined reference。同时删旧前向声明（重建时按生成器统一插 static 版）。
+    tot += sub(f"{RS_}/evverify.c", r'\n        geo_total\+\+; geo_pass \+= run_d\d{3}\(\);')
+    tot += sub(f"{RS_}/evverify.c", r'(?:^static int run_d\d{3}\(void\);\n)+', "", _re.M)
     tot += sub(f"{RS_}/evverify.c",
                r'\n/\* ★ 批量对齐（datah_\d{3}）：\d+ 按钮几何 Δ=0 \+ 命中判定 \*/.*?\n    return ok;\n\}',
                "", _re.S)
     # ── layout_align_check.py：DIALOGS 条目
     tot += sub(f"{ROOT}/rev64/tools/layout_align_check.py",
                r'\n    "datah_\d{3}_dlg": \([^)]*\),', "", _re.S)
+    # ★ 安全网校验（clean 后关键函数必须仍在；缺失 → 从备份恢复该文件 + 明确警告）
+    for _p, _keys in PROTECT.items():
+        if _p not in _backup: continue
+        try: _now = open(_p, encoding="utf-8", errors="ignore").read()
+        except OSError: continue
+        missing = [k for k in _keys if k not in _now]
+        if missing:
+            open(_p, "w", encoding="utf-8").write(_backup[_p])
+            print(f"    ★★ 安全网回滚 {os.path.basename(_p)}：clean 误删关键符号 {missing}"
+                  f"（已从备份恢复；★ 勿静默通过——该文件需手工精确清理后重跑）")
     print(f"--clean：删除 {tot} 处生成片段")
+    print(f"--clean 安全网：校验 {len(PROTECT)} 个文件的关键符号")
     return 0
 
 def main():
@@ -514,20 +597,28 @@ def main():
     # → 旧版生成后 jni_bridge 漏分发块，编译必炸，但当时被"其它弹窗正常"掩盖）。
     # 用锚点 "jq_dlg_batch_hook(\"OnUpdate\")" 之后的 return/收尾处不可靠 → 直接找
     # OnTouch 函数最后一段的 "return JNI_FALSE;" 前插入（追加式，幂等标记 ★ 批量对齐）。
-    jf="".join(J[k] for k in J)
-    # 在 "return JNI_FALSE;\n}   /* 结束 OnTouch" 前插；找不到则回退到 UI_ABOUT 锚点
+    # ★ 2026-11-11 幂等修复（批量前提）：旧版"已有批量对齐块就整体跳过"→
+    #   新弹窗分发块永不追加 → 弹窗能渲染但点击无响应（静默半成品）。
+    #   改为**逐块幂等**：每个 datah 的分发块独立 marker（★ 批量对齐（datah_NNN）），
+    #   已存在则跳过，缺失则插到 OnTouch 末尾 return JNI_FALSE 前（rfind=最后一处）。
     s_jb=open(jb).read()
     tail_anchor='    return JNI_FALSE;'
-    if "★ 批量对齐（datah_" in s_jb:
-        print(f"    (jni_bridge 已有批量对齐块，跳过分发追加)")
-    else:
+    added_j=[]
+    for k in J:
+        mk=f"★ 批量对齐（datah_{int(k[1:]):03d}）"
+        if mk in s_jb:
+            continue
         pos=s_jb.rfind(tail_anchor)   # ★ rfind（最后一处=OnTouch 末尾的 return）
         if pos>=0:
-            s_jb=s_jb[:pos] + jf + "\n" + s_jb[pos:]
-            open(jb,"w").write(s_jb)
-            print(f"    jni_bridge 分发追加于末处 return JNI_FALSE 前（{len(jf)} 字符）")
+            s_jb=s_jb[:pos] + J[k] + "\n" + s_jb[pos:]
+            added_j.append(k)
         else:
-            insert(jb,"    if (ui_screen_get() == UI_ABOUT) {", jf)
+            print(f"    ★ 警告：jni_bridge 锚点 {tail_anchor!r} 未找到，{k} 分发未接线（诚实边界）")
+    if added_j:
+        open(jb,"w").write(s_jb)
+        print(f"    jni_bridge 分发追加 {len(added_j)} 块（逐块幂等）: {added_j}")
+    else:
+        print("    jni_bridge 分发块已齐全（逐块幂等跳过）")
     # ★ setprop 钩子（表驱动，prop = jq.dlgNNN，1=进弹窗）
     hooks="\n".join(f'    {{ "jq.dlg{k[1:]}", UI_{k} }},' for k in J)
     hooktbl=f'''
@@ -557,19 +648,124 @@ void jq_dlg_batch_hook(const char *tag)
 }}
 '''
     insert(jb,'#include "ui_menu.h"', hooktbl)   # ★ 钩子表+函数定义放在 ui_menu.h 之后（枚举可见 + 调用点之前）
+    # ★ 2026-11-11 幂等修复（批量前提）：钩子表 insert() 按首行特征串判断，
+    #   表已存在 → 整表跳过 → **新弹窗的 prop 不进表**（钩子失效，无法真机验证）。
+    #   改为逐项幂等：缺哪个 prop 就把该行插到表尾（}; 之前）。
+    s_jb2=open(jb).read()
+    tbl_anchor='};\n#define DLG_BATCH_HOOK_N'
+    new_hooks=[]
+    for k in J:
+        prop=f'"jq.dlg{k[1:]}"'
+        if prop in s_jb2:
+            continue
+        new_hooks.append(f'    {{ "jq.dlg{k[1:]}", UI_{k} }},')
+    if new_hooks:
+        if tbl_anchor in s_jb2:
+            s_jb2=s_jb2.replace(tbl_anchor, "\n".join(new_hooks)+"\n"+tbl_anchor, 1)
+            open(jb,"w").write(s_jb2)
+            print(f"    setprop 钩子表新增 {len(new_hooks)} 项（逐项幂等）")
+        else:
+            print(f"    ★ 警告：钩子表锚点未找到，{len(new_hooks)} 项 prop 未入表（诚实边界）")
+    else:
+        print("    setprop 钩子表已齐全（逐项幂等跳过）")
     # OnCreate / OnUpdate 各插一次调用
     insert(jb,"    /* ★ ☰ 菜单渲染验证钩子（adb setprop jq.imen 1 → OnCreate/OnUpdate 直接进",
             '    jq_dlg_batch_hook("OnCreate");\n')
     insert(jb,"    /* ★ ☰ 菜单渲染验证钩子（同会话 OnUpdate 轮询 → UI_INGAME_MENU） */",
             '    jq_dlg_batch_hook("OnUpdate");\n')
     # evverify：run_* + 注册
-    ef="".join(E[k] for k in E)
-    open(ev,"a").write(ef)
-    reg="".join(f"        total++; pass += run_{k.lower()}();\n" for k in E)
-    insert(ev,'        printf("=== 桌面事件验证: %d/%d 全对 ===\\n", pass, total);', reg)
+    # ★ 2026-11-11 幂等修复（批量前提）：旧版 open(ev,"a").write(ef) 纯追加 →
+    #   重复跑追加重复 run_* 定义 → 编译重定义报错。改为逐块幂等（按函数名判存在）。
+    s_ev=open(ev).read()
+    added_ev=[]
+    for k in E:
+        fn=f"run_{k.lower()}"
+        # ★ 2026-11-11 幂等判定修正：旧版用子串 `int run_dXXX(void)` 判存在
+        #   → **前向声明**（`static int run_dXXX(void);`）也命中 → 定义被误跳过
+        #   → 链接错误 undefined reference。改为只认**函数体**（`{` 结尾）。
+        #   ★ 二次修正：fn 不含 `(void)`（否则模式里出现两个右括号 → 永不命中）。
+        if re.search(rf'^\s*(static\s+)?int\s+{re.escape(fn)}\s*\(\s*void\s*\)\s*\{{', s_ev, re.M):
+            continue
+        s_ev += E[k]
+        added_ev.append(k)
+    if added_ev:
+        open(ev,"w").write(s_ev)
+        print(f"    evverify 追加 {len(added_ev)} 个 run_* （逐块幂等）")
+    else:
+        print("    evverify run_* 已齐全（逐块幂等跳过）")
+    # ── evverify 注册行（几何组 geo_total/geo_pass）
+    # ★ 2026-11-11 锚点修正 + 归组修正：
+    #   旧版锚点是完整 printf 串 "=== 桌面事件验证: %d/%d 全对 ===" —— 历史 printf
+    #   格式已改为 "（事件/业务 %d/%d + 几何 %d/%d）" → 锚点失配 → 注册行**静默不插入**
+    #   → 120 个弹窗几何用例全部未跑（52/52 而非 170/170，静默漏判）。
+    #   修：按行定位 'printf("=== 桌面事件验证' 插入；且弹窗几何用例归**几何组**
+    #   （geo_total/geo_pass），与既有 12 个几何用例同组。
+    lines_ev=s_ev.split("\n")
+    idx=None
+    # ★ 插到**总数计算行之后**（`total = ev_total + geo_total; pass = ...`）：
+    #   原版插在 printf 前 → 总数在注册行之前算完 → 120 个几何用例**未计入总数**
+    #   → 汇总显示 52/52（真实 224），大数掩盖覆盖薄（CODE_STYLE §10 判据诚实化）。
+    for i,ln in enumerate(lines_ev):
+        if 'total = ev_total + geo_total' in ln:
+            idx=i          # ★ 插到总数计算行**之前**：注册行先跑（累加 geo_total），
+            break           #   总数计算才把 120 个几何用例计入（否则汇总漏算）
+    if idx is None:
+        for i,ln in enumerate(lines_ev):
+            if 'printf("=== 桌面事件验证' in ln:
+                idx=i; break
+    if idx is None:
+        print("    ★ 警告：未找到 evverify 汇总/printf 行，注册行未插入（诚实边界）")
+    else:
+        # ★ 2026-11-11 比较口径修正：捕获的是 "run_d000"，而 k.lower() 是 "d000"
+        #   → 永不相等 → 每次跑都重复插 120 行（几何 132 → 252 虚高）。
+        have={m.replace("run_","") for m in re.findall(r'geo_pass \+= (run_d\d+)\(\)', "\n".join(lines_ev))}
+        new_reg=[f"        geo_total++; geo_pass += run_{k.lower()}();" for k in E
+                 if k.lower() not in have]
+        if new_reg:
+            lines_ev[idx:idx]=new_reg
+            open(ev,"w").write("\n".join(lines_ev))
+            print(f"    evverify 注册行新增 {len(new_reg)} 个（几何组，插到总数计算行之前）")
+        else:
+            print("    evverify 注册行已齐全（逐个幂等跳过）")
+    # ★ 2026-11-11 前向声明（static，与定义一致）：run_* 定义在文件尾、调用在中部
+    #   → C99 需前向声明。逐个幂等（按声明行判存在，不按定义）。
+    s_ev2=open(ev).read()
+    added_fwd=[]
+    for k in E:
+        decl=f"static int run_{k.lower()}(void);"
+        if decl in s_ev2:
+            continue
+        added_fwd.append(decl)
+    if added_fwd:
+        # 插到已有前向声明区末尾（首个 `static int run_` 声明块之后）
+        m=re.search(r'^(?:static int run_[a-z0-9_]+\(void\);\n)+', s_ev2, re.M)
+        if m:
+            s_ev2=s_ev2[:m.end()]+"\n".join(added_fwd)+"\n"+s_ev2[m.end():]
+        else:
+            s_ev2=s_ev2.replace("int main(int argc",
+                                "\n".join(added_fwd)+"\nint main(int argc", 1)
+        open(ev,"w").write(s_ev2)
+        print(f"    evverify 前向声明新增 {len(added_fwd)} 个（static，逐个幂等）")
+    else:
+        print("    evverify 前向声明已齐全（逐个幂等跳过）")
     # layout_align_check DIALOGS
-    ltxt="".join(L[k] for k in L)
-    insert(la,"DIALOGS = {", ltxt)
+    # ★ 2026-11-11 幂等修复（批量前提）：旧版 insert() 只判首行特征串 →
+    #   同一批次第二个弹窗的 DIALOGS 项被误判"已存在"跳过。改为逐项幂等
+    #   （按 "datah_NNN_ui" key 判存在，缺则插到 DIALOGS = { 之后）。
+    s_la=open(la).read()
+    added_la=[]
+    for k in L:
+        key=f'"datah_{int(k[1:]):03d}_dlg"'
+        if key in s_la:
+            continue
+        if "DIALOGS = {" in s_la:
+            s_la=s_la.replace("DIALOGS = {", "DIALOGS = {\n"+L[k].rstrip(), 1)
+            added_la.append(k)
+    if added_la:
+        open(la,"w").write(s_la)
+        print(f"    layout_align_check DIALOGS 新增 {len(added_la)} 项（逐项幂等）")
+    else:
+        print("    layout_align_check DIALOGS 已齐全（逐项幂等跳过）")
     print(f"已插入：ui_menu.h/c/stub + render.h/c + jni_bridge.c + evverify.c + layout_align_check.py")
     print(f"弹窗 {len(batches)} 个：{[b['n'] for b in batches]}")
     return 0

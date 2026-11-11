@@ -91,6 +91,7 @@ static int d071_diag = 0;
 static int d072_diag = 0;
 static int d073_diag = 0;
 static int d075_diag = 0;
+static int d076_diag = 0;
 static int d077_diag = 0;
 static int d078_diag = 0;
 static int d079_diag = 0;
@@ -115,6 +116,7 @@ static int d107_diag = 0;
 static int d108_diag = 0;
 static int d109_diag = 0;
 static int d110_diag = 0;
+static int d111_diag = 0;
 static int d112_diag = 0;
 static int d113_diag = 0;
 static int d114_diag = 0;
@@ -794,134 +796,51 @@ int rs_render_init(rs_render *rr, const char *spak_dir, const jq_state *init_sta
         
         
         
+        if (dlgraw && png_decode(dlgraw, dlgraw_len, &dlgpx, &dlgw, &dlgh) == 0)         free(dlgraw);
         if (dlgraw && png_decode(dlgraw, dlgraw_len, &dlgpx, &dlgw, &dlgh) == 0) {
             rr->dlg_text_px = dlgpx; rr->dlg_text_px_len = (size_t)dlgw * dlgh * 4;
             rr->dlg_text_w = dlgw; rr->dlg_text_h = dlgh;
-            LOGI("批量对齐文字图集加载 OK：dlg_batch_text.png %dx%d（371 行）", dlgw, dlgh);
+            LOGI("批量对齐文字图集加载 OK：dlg_batch_text.png %dx%d（375 行）", dlgw, dlgh);
         }
         free(dlgraw);
         free(icraw); free(ioraw);
         /* ★ 原版 UI 对齐：☰/↩ 图标图集（128×64，orig_human 裁剪，棋盘中部） */
-        if (hbraw && png_decode(hbraw, hbraw_len, &hbpx, &hbw, &hbh) == 0) {
-            rr->hamburger_px = hbpx; rr->hamburger_px_len = (size_t)hbw * hbh * 4;
-            rr->hamburger_w = hbw; rr->hamburger_h = hbh;
-        }
-        free(hbraw);
+        if (hbraw && png_decode(hbraw, hbraw_len, &hbpx, &hbw, &hbh) == 0)         free(hbraw);
         /* ★ 原版 UI 对齐：主菜单按钮图集（orig_menu 裁剪，原版蓝色圆角按钮含文字/图标） */
-        if (bbraw && png_decode(bbraw, bbraw_len, &bbpx, &bbw, &bbh) == 0) {
-            rr->btn_big_px = bbpx; rr->btn_big_px_len = (size_t)bbw * bbh * 4;
-            rr->btn_big_w = bbw; rr->btn_big_h = bbh;
-        }
-        free(bbraw);
-        if (bsraw && png_decode(bsraw, bsraw_len, &bspx, &bsw, &bsh) == 0) {
-            rr->btn_small_px = bspx; rr->btn_small_px_len = (size_t)bsw * bsh * 4;
-            rr->btn_small_w = bsw; rr->btn_small_h = bsh;
-        }
-        free(bsraw);
+        if (bbraw && png_decode(bbraw, bbraw_len, &bbpx, &bbw, &bbh) == 0)         free(bbraw);
+        if (bsraw && png_decode(bsraw, bsraw_len, &bspx, &bsw, &bsh) == 0)         free(bsraw);
         /* ★ 选项 UI：弹窗文字图集（6 label 竖排 109×258） */
-        if (oraw && png_decode(oraw, oraw_len, &opx, &ow, &oh) == 0) {
-            rr->opt_text_px = opx; rr->opt_text_px_len = (size_t)ow * oh * 4;
-            rr->opt_text_w = ow; rr->opt_text_h = oh;
-        }
-        free(oraw);
+        if (oraw && png_decode(oraw, oraw_len, &opx, &ow, &oh) == 0)         free(oraw);
         /* ★ 选项 UI：popup.png 9-patch（★ AUD-1000-ALL A7-02 注释纠正：实际资源 320×80 非 24×24，
            glTexImage2D 走实际解码宽高 popup_w/h（:9691），9-patch 拉伸语义；旧注释 24×24 双源漂移已纠正） */
-        if (praw2 && png_decode(praw2, praw2_len, &ppx2, &pw2, &ph2) == 0) {
-            rr->popup_px = ppx2; rr->popup_px_len = (size_t)pw2 * ph2 * 4;
-            rr->popup_w = pw2; rr->popup_h = ph2;
-        }
-        free(praw2);
+        if (praw2 && png_decode(praw2, praw2_len, &ppx2, &pw2, &ph2) == 0)         free(praw2);
         /* ★ 原版 UI 位图真值（ch02 N45）：面板 9patch + 彩色按钮 */
-        {
-            unsigned char *panpx=NULL,*btnpx=NULL; int panw2=0,panh2=0,btnw2=0,btnh2=0;
-            if (panraw) {
-                LOGI("原版位图资源对齐（ch02 N45）：panel_circle.png 文件大小=%zu（读取后解码）", panraw_len);
-            } else {
-                LOGI("原版位图资源对齐（ch02 N45）：panel_circle.png 读取失败（spak_dir fs_path 无效）");
-            }
-            if (panraw && png_decode(panraw, panraw_len, &panpx, &panw2, &panh2) == 0) {
-                rr->panel_px = panpx; rr->panel_px_len = (size_t)panw2 * panh2 * 4;
-                rr->panel_w = panw2; rr->panel_h = panh2;
-                LOGI("原版位图资源对齐（ch02 N45）：面板 9patch 位图加载成功 %.0fx%.0f（datax_246）", panw2, panh2);
-            } else if (panraw) {
-                LOGI("原版位图资源对齐（ch02 N45）：面板 9patch 位图解码失败（诚实边界：面板位图不可用，深色矩形退化底）");
-            }
-            if (btnraw && png_decode(btnraw, btnraw_len, &btnpx, &btnw2, &btnh2) == 0) {
-                rr->panel_btn_px = btnpx; rr->panel_btn_px_len = (size_t)btnw2 * btnh2 * 4;
-                rr->panel_btn_w = btnw2; rr->panel_btn_h = btnh2;
-            }
-            unsigned char *iconpx=NULL; int iconw2=0,iconh2=0;
-            if (icoraw && png_decode(icoraw, icoraw_len, &iconpx, &iconw2, &iconh2) == 0) {
-                rr->panel_icon_px = iconpx; rr->panel_icon_px_len = (size_t)iconw2 * iconh2 * 4;
-                rr->panel_icon_w = iconw2; rr->panel_icon_h = iconh2;
-            }
-        }
-        free(panraw); free(btnraw); free(icoraw);
+                free(panraw); free(btnraw); free(icoraw);
         /* ★ 对抗审计（datah_072）：方式选择文字图集（4 标签竖排 220×184） */
-        if (wsraw && png_decode(wsraw, wsraw_len, &wspx, &wsw, &wsh) == 0) {
-            rr->waysel_text_px = wspx; rr->waysel_text_px_len = (size_t)wsw * wsh * 4;
-            rr->waysel_text_w = wsw; rr->waysel_text_h = wsh;
-        }
-        free(wsraw);
+        if (wsraw && png_decode(wsraw, wsraw_len, &wspx, &wsw, &wsh) == 0)         free(wsraw);
         /* ★ 对抗审计（datah_067）：联机 ☰ 菜单文字图集（8 项竖排 160×320） */
-        if (bira && png_decode(bira, bira_len, &bipx, &biw, &bih) == 0) {
-            rr->btimen_text_px = bipx; rr->btimen_text_px_len = (size_t)biw * bih * 4;
-            rr->btimen_text_w = biw; rr->btimen_text_h = bih;
-        }
-        free(bira);
+        if (bira && png_decode(bira, bira_len, &bipx, &biw, &bih) == 0)         free(bira);
         /* ★ 对抗审计（datah_001）：声音设置文字图集（10 标签竖排 200×460） */
-        if (straw && png_decode(straw, straw_len, &stpx, &stw, &sth) == 0) {
-            rr->settings_text_px = stpx; rr->settings_text_px_len = (size_t)stw * sth * 4;
-            rr->settings_text_w = stw; rr->settings_text_h = sth;
-        }
-        free(straw);
+        if (straw && png_decode(straw, straw_len, &stpx, &stw, &sth) == 0)         free(straw);
         /* ★ 2026-11-10 用户"游戏设置UI没有对齐"：datah_001 标题+标签图集（4 行 220×160，
            行高 40 匹配 RS_ATLAS_ROW_H；rs_draw_d001 补画 Title'声音设置'+3 标签） */
         rs_read_one(am, spak_dir, "sound_text_atlas.png", &sndraw, &sndraw_len);
-        if (sndraw && png_decode(sndraw, sndraw_len, &sndpx, &sndw, &sndh) == 0) {
-            rr->sound_text_px = sndpx; rr->sound_text_px_len = (size_t)sndw * sndh * 4;
-            rr->sound_text_w = sndw; rr->sound_text_h = sndh;
-        }
-        free(sndraw);
+        if (sndraw && png_decode(sndraw, sndraw_len, &sndpx, &sndw, &sndh) == 0)         free(sndraw);
         /* ★ P0（datah_089）：四国人数选择文字图集（3 标签竖排 220×138：2人/3人/4人） */
-        if (npaw && png_decode(npaw, npaw_len, &nppx, &npw, &nph) == 0) {
-            rr->nplayer_text_px = nppx; rr->nplayer_text_px_len = (size_t)npw * nph * 4;
-            rr->nplayer_text_w = npw; rr->nplayer_text_h = nph;
-        }
-        free(npaw);
+        if (npaw && png_decode(npaw, npaw_len, &nppx, &npw, &nph) == 0)         free(npaw);
         /* ★ P0（datah_062）：两人新局文字图集（6 标签竖排 220×276：玩法/布局明棋/翻棋暗棋/明暗棋/确定/取消） */
-        if (ngaw && png_decode(ngaw, ngaw_len, &ngpx, &ngw, &ngh) == 0) {
-            rr->newgame_text_px = ngpx; rr->newgame_text_px_len = (size_t)ngw * ngh * 4;
-            rr->newgame_text_w = ngw; rr->newgame_text_h = ngh;
-        }
-        free(ngaw);
+        if (ngaw && png_decode(ngaw, ngaw_len, &ngpx, &ngw, &ngh) == 0)         free(ngaw);
         /* ★ P1（datah_012）：游戏设置文字图集（8 标签竖排 220×368：和棋/大本营/吃地雷/吃军旗/开/关/确定/取消） */
-        if (gsaw && png_decode(gsaw, gsaw_len, &gsp_x, &gsw, &gsh) == 0) {
-            rr->gameset_text_px = gsp_x; rr->gameset_text_px_len = (size_t)gsw * gsh * 4;
-            rr->gameset_text_w = gsw; rr->gameset_text_h = gsh;
-        }
-        free(gsaw);
+        if (gsaw && png_decode(gsaw, gsaw_len, &gsp_x, &gsw, &gsh) == 0)         free(gsaw);
         /* ★ P1（datah_016/017/020）：布局存档文字图集（9 标签竖排 220×414：
            载入布局/保存布局/布局管理/取消/保存/改名/删除/关闭/载入） */
-        if (lrsw && png_decode(lrsw, lrsw_len, &lrpx, &lrw, &lrh) == 0) {
-            rr->layres_text_px = lrpx; rr->layres_text_px_len = (size_t)lrw * lrh * 4;
-            rr->layres_text_w = lrw; rr->layres_text_h = lrh;
-        }
-        free(lrsw);
+        if (lrsw && png_decode(lrsw, lrsw_len, &lrpx, &lrw, &lrh) == 0)         free(lrsw);
         /* ★ P1（datah_039/107）：复盘文字图集（8 标签竖排 220×368：
            复盘/菜单/回退/前进/跳转/返回/第N步/结束） */
-        if (rpaw && png_decode(rpaw, rpaw_len, &rp_px, &rpw, &rph) == 0) {
-            rr->replay_text_px = rp_px; rr->replay_text_px_len = (size_t)rpw * rph * 4;
-            rr->replay_text_w = rpw; rr->replay_text_h = rph;
-        }
-        free(rpaw);
+        if (rpaw && png_decode(rpaw, rpaw_len, &rp_px, &rpw, &rph) == 0)         free(rpaw);
         /* ★ P1（datah_038）：登录文字图集（8 标签竖排 220×368：
            登录/用户名/密码/注册/游客/返回/账户/边界） */
-        if (lpaw && png_decode(lpaw, lpaw_len, &lp_px, &lpw, &lph) == 0) {
-            rr->login_text_px = lp_px; rr->login_text_px_len = (size_t)lpw * lph * 4;
-            rr->login_text_w = lpw; rr->login_text_h = lph;
-        }
-        free(lpaw);
+        if (lpaw && png_decode(lpaw, lpaw_len, &lp_px, &lpw, &lph) == 0)         free(lpaw);
         /* ★ P2（datah_037）：规则文本文字图集（8 标签竖排 220×368：
            规则/翻棋/布局/工兵/地雷/炸弹/夺旗/边界） */
         {
@@ -5553,48 +5472,8 @@ static void rs_draw_regretconfirm(rs_render *rr, int slot)
 }
 
 
-/* ★ 批量对齐（datah_000）：2 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
-   ★ 文字不变形三要素（本轮 datah_095 文字被压成窄竖条实证后修正）：
-     1) 每按钮独立字形像素宽高（D000_pw/ph 数组，非块级常量——旧版 i 泄漏成常量）
-     2) 图集行高固定 40（bake_atlas 行距）→ v = (行号*40)/图集高；n_rows 不再传 cnt
-     3) u1 = 字形像素宽/图集宽（旧版传 1.0 = 整行 416px 压进字宽）
-   目标字高 30px（720 基准），宽按字形 bbox 比例等比缩放。 */
-static const int D000_pw[UI_D000_COUNT] = { 76,76 };
-static const int D000_ph[UI_D000_COUNT] = { 37,37 };
-static void rs_draw_d000(rs_render *rr, int slot)
-{
-    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
-    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
-    rs_popup_shell(rr, slot, UI_D000_POPUP_X0, UI_D000_POPUP_Y0, UI_D000_POPUP_W, UI_D000_POPUP_H, 0, uc);
-    const ui_d000_btn *bb = ui_d000_buttons();
-    for (int i = 0; i < UI_D000_COUNT; i++) {
-        rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
-                     0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 0 + i;   /* 共用图集行号（bake_atlas 顺序） */
-        int wpx = D000_pw[i], hpx = D000_ph[i];
-        if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
-            float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
-            float tw = (float)wpx * scale, th = 30.0f;
-            float u1 = ((float)wpx + 1.0f) / (float)rr->dlg_text_w;
-            rs_atlas_label_wh(rr, slot, rr->tex_dlg_text[slot], rr->dlg_text_w, rr->dlg_text_h,
-                              gr, (bb[i].x0 + bb[i].x1) * 0.5f, (bb[i].y0 + bb[i].y1) * 0.5f,
-                              tw, th, 0.0f, u1, uc);
-        }
-    }
-    if (!d000_diag) { d000_diag = 1;
-        LOGI("rs_draw_d000：datah_000 弹窗（400×280 面板 + 2 按钮，原版按钮文字）");
-    }
-}
-/* ★ 批量对齐（datah_001）：4 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
-   ★ 文字不变形三要素（本轮 datah_095 文字被压成窄竖条实证后修正）：
-     1) 每按钮独立字形像素宽高（D001_pw/ph 数组，非块级常量——旧版 i 泄漏成常量）
-     2) 图集行高固定 40（bake_atlas 行距）→ v = (行号*40)/图集高；n_rows 不再传 cnt
-     3) u1 = 字形像素宽/图集宽（旧版传 1.0 = 整行 416px 压进字宽）
-   目标字高 30px（720 基准），宽按字形 bbox 比例等比缩放。 */
 /* ★ 正向对齐：d001 加音量滑条区（btn[2]），pw/ph 按维扩到 UI_D001_COUNT=5
    （滑条行给 wpx=0 不画文字，画滑条轨道 + 拇指） */
-static const int D001_pw[UI_D001_COUNT] = { 110,167,0,76,76 };
-static const int D001_ph[UI_D001_COUNT] = { 29,29,0,37,37 };
 /* ★ 正向对齐：真滑条轨道 + 拇指（原版 Slider 控件，datah_001 音量 / datah_002 亮度）。
    轨道=横向圆角条，拇指=轨道内按 frac∈[0,1] 定位的方块（当前档位）。 */
 static void rs_draw_slider_track(rs_render *rr, int slot, float bx0, float by0, float bx1, float by1, GLint uc, float frac)
@@ -5635,93 +5514,100 @@ static void rs_draw_slider_track(rs_render *rr, int slot, float bx0, float by0, 
     glDeleteBuffers(1, &rr->vbo_sel[slot]);
     rr->vbo_sel[slot] = 0;
 }
+/* ★ 正向对齐：d002 加亮度滑条区（btn[0]），pw/ph 按维扩到 UI_D002_COUNT=3
+   （滑条行给 wpx=0 不画文字，画滑条轨道 + 拇指） */
 
+/* ★ 批量对齐（datah_000）：2 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
+   ★ 文字不变形三要素（本轮 datah_095 文字被压成窄竖条实证后修正）：
+     1) 每按钮独立字形像素宽高（D000_pw/ph 数组，非块级常量——旧版 i 泄漏成常量）
+     2) 图集行高固定 40（bake_atlas 行距）→ v = (行号*40)/图集高；n_rows 不再传 cnt
+     3) u1 = 字形像素宽/图集宽（旧版传 1.0 = 整行 416px 压进字宽）
+   目标字高 30px（720 基准），宽按字形 bbox 比例等比缩放。 */
+static const int D000_pw[UI_D000_COUNT] = { 76,76 };
+static const int D000_ph[UI_D000_COUNT] = { 37,37 };
+static void rs_draw_d000(rs_render *rr, int slot)
+{
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    rs_popup_shell(rr, slot, UI_D000_POPUP_X0, UI_D000_POPUP_Y0, UI_D000_POPUP_W, UI_D000_POPUP_H, 0, uc);
+    const ui_d000_btn *bb = ui_d000_buttons();
+    for (int i = 0; i < UI_D000_COUNT; i++) {
+        rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
+                     0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
+        int gr = 0 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int wpx = D000_pw[i], hpx = D000_ph[i];
+        if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
+            float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
+            float tw = (float)wpx * scale, th = 30.0f;
+            float u1 = ((float)wpx + 1.0f) / (float)rr->dlg_text_w;
+            rs_atlas_label_wh(rr, slot, rr->tex_dlg_text[slot], rr->dlg_text_w, rr->dlg_text_h,
+                              gr, (bb[i].x0 + bb[i].x1) * 0.5f, (bb[i].y0 + bb[i].y1) * 0.5f,
+                              tw, th, 0.0f, u1, uc);
+        }
+    }
+    if (!d000_diag) { d000_diag = 1;
+        LOGI("rs_draw_d000：datah_000 弹窗（400×280 面板 + 2 按钮，原版按钮文字）");
+    }
+}
+/* ★ 批量对齐（datah_001）：5 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
+   ★ 文字不变形三要素（本轮 datah_095 文字被压成窄竖条实证后修正）：
+     1) 每按钮独立字形像素宽高（D001_pw/ph 数组，非块级常量——旧版 i 泄漏成常量）
+     2) 图集行高固定 40（bake_atlas 行距）→ v = (行号*40)/图集高；n_rows 不再传 cnt
+     3) u1 = 字形像素宽/图集宽（旧版传 1.0 = 整行 416px 压进字宽）
+   目标字高 30px（720 基准），宽按字形 bbox 比例等比缩放。 */
+static const int D001_pw[UI_D001_COUNT] = { 110,167,129,76,76 };
+static const int D001_ph[UI_D001_COUNT] = { 29,29,29,37,37 };
 static void rs_draw_d001(rs_render *rr, int slot)
 {
-    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D001_POPUP_X0, UI_D001_POPUP_Y0, UI_D001_POPUP_W, UI_D001_POPUP_H, 0, uc);
     const ui_d001_btn *bb = ui_d001_buttons();
     for (int i = 0; i < UI_D001_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
+        int gr = 2 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D001_pw[i], hpx = D001_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
-            /* 文字图集行号：i<2 用 2+i（Sound/BtnSound），i=2 滑条不画文字，
-               i>=3（确定/取消）用 2+(i-1)=i+1（跳过滑条行 bake 顺序） */
-            int gr = (i < 2) ? (2 + i) : (i + 1);
-            float scale = 30.0f / (float)hpx;
+            float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
             float tw = (float)wpx * scale, th = 30.0f;
             float u1 = ((float)wpx + 1.0f) / (float)rr->dlg_text_w;
             rs_atlas_label_wh(rr, slot, rr->tex_dlg_text[slot], rr->dlg_text_w, rr->dlg_text_h,
                               gr, (bb[i].x0 + bb[i].x1) * 0.5f, (bb[i].y0 + bb[i].y1) * 0.5f,
                               tw, th, 0.0f, u1, uc);
-        } else if (wpx == 0 && i == 2) {
-            /* ★ 正向对齐：音量滑条轨道 + 拇指（按 ui_volume_get 档位 1-3 定位） */
-            rs_draw_slider_track(rr, slot, bb[2].x0, bb[2].y0, bb[2].x1, bb[2].y1, uc, (float)(ui_volume_get() - 1) / 2.0f);
-        }
-    }
-    /* ★ 2026-11-10 用户"游戏设置UI没有对齐，很多界面都没有对齐"指正：
-       rs_draw_d001（datah_001 声音设置）只画 Sound/BtnSound/确定/取消 按钮文字，
-       缺 Title'声音设置' + 标签 静音模式:/按键声音:/音量:。补画（sound_text_atlas 4 行，
-       行高 40 匹配 RS_ATLAS_ROW_H）。原版 datah_001 布局（720 基准，弹窗 Y0=445）：
-       Title rect 55,10,440,50 中心 (382.5,475)；标签 align=left：
-       静音模式: rect 40,90,180,120 → x0=175 y中心 527.5；
-       按键声音: rect 40,165,180,195 → x0=175 y 602.5；音量: rect 40,240,115,270 → x0=175 y 727.5。 */
-    if (rr->tex_sound_text[slot] && rr->prog_tex[slot] && rr->sound_text_w > 0 && rr->sound_text_h > 0) {
-        float title_w = 152.0f;   /* '声音设置' 38px 字体 720 基准宽（图集 row0 实测） */
-        rs_atlas_label_wh(rr, slot, rr->tex_sound_text[slot], rr->sound_text_w, rr->sound_text_h,
-                          0, 382.5f, 475.0f, title_w, 30.0f, 0.0f, 1.0f, uc);
-        /* 标签左对齐：x0=175，宽按行内容（图集行 1-3，u1 按实际字宽/图集宽） */
-        float lbl_w[3] = { 163.0f, 163.0f, 87.0f };   /* 静音模式:/按键声音:/音量: 38px 宽 */
-        float lbl_y[3] = { 527.5f, 602.5f, 727.5f };
-        for (int li = 0; li < 3; li++) {
-            float w = lbl_w[li];
-            float u1 = (w + 1.0f) / (float)rr->sound_text_w;
-            rs_atlas_label_wh(rr, slot, rr->tex_sound_text[slot], rr->sound_text_w, rr->sound_text_h,
-                              li + 1, 175.0f + w * 0.5f, lbl_y[li], w, 30.0f, 0.0f, u1, uc);
         }
     }
     if (!d001_diag) { d001_diag = 1;
-        LOGI("rs_draw_d001：datah_001 弹窗（450×390 面板 + 4 按钮 + Title'声音设置' + 3 标签，原版按钮文字）");
+        LOGI("rs_draw_d001：datah_001 弹窗（450×390 面板 + 5 按钮，原版按钮文字）");
     }
 }
-/* ★ 批量对齐（datah_002）：2 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
+/* ★ 批量对齐（datah_002）：3 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
    ★ 文字不变形三要素（本轮 datah_095 文字被压成窄竖条实证后修正）：
      1) 每按钮独立字形像素宽高（D002_pw/ph 数组，非块级常量——旧版 i 泄漏成常量）
      2) 图集行高固定 40（bake_atlas 行距）→ v = (行号*40)/图集高；n_rows 不再传 cnt
      3) u1 = 字形像素宽/图集宽（旧版传 1.0 = 整行 416px 压进字宽）
    目标字高 30px（720 基准），宽按字形 bbox 比例等比缩放。 */
-/* ★ 正向对齐：d002 加亮度滑条区（btn[0]），pw/ph 按维扩到 UI_D002_COUNT=3
-   （滑条行给 wpx=0 不画文字，画滑条轨道 + 拇指） */
-static const int D002_pw[UI_D002_COUNT] = { 0,76,76 };
-static const int D002_ph[UI_D002_COUNT] = { 0,37,37 };
+static const int D002_pw[UI_D002_COUNT] = { 100,76,76 };
+static const int D002_ph[UI_D002_COUNT] = { 34,37,37 };
 static void rs_draw_d002(rs_render *rr, int slot)
 {
-    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D002_POPUP_X0, UI_D002_POPUP_Y0, UI_D002_POPUP_W, UI_D002_POPUP_H, 0, uc);
     const ui_d002_btn *bb = ui_d002_buttons();
     for (int i = 0; i < UI_D002_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
+        int gr = 7 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D002_pw[i], hpx = D002_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
-            /* 文字图集行号：i=0 滑条不画，i>=1（确定/取消）用 6+(i-1)=i+5 */
-            int gr = 5 + i;
-            float scale = 30.0f / (float)hpx;
+            float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
             float tw = (float)wpx * scale, th = 30.0f;
             float u1 = ((float)wpx + 1.0f) / (float)rr->dlg_text_w;
             rs_atlas_label_wh(rr, slot, rr->tex_dlg_text[slot], rr->dlg_text_w, rr->dlg_text_h,
                               gr, (bb[i].x0 + bb[i].x1) * 0.5f, (bb[i].y0 + bb[i].y1) * 0.5f,
                               tw, th, 0.0f, u1, uc);
-        } else if (wpx == 0 && i == 0) {
-            /* ★ 正向对齐：亮度滑条轨道 + 拇指（按 ui_bright_get 档位 0-2 定位） */
-            rs_draw_slider_track(rr, slot, bb[0].x0, bb[0].y0, bb[0].x1, bb[0].y1, uc, (float)ui_bright_get() / 2.0f);
         }
     }
     if (!d002_diag) { d002_diag = 1;
-        LOGI("rs_draw_d002：datah_002 弹窗（460×240 面板 + 2 按钮，原版按钮文字）");
+        LOGI("rs_draw_d002：datah_002 弹窗（460×240 面板 + 3 按钮，原版按钮文字）");
     }
 }
 /* ★ 批量对齐（datah_003）：3 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
@@ -5734,14 +5620,13 @@ static const int D003_pw[UI_D003_COUNT] = { 152,152,152 };
 static const int D003_ph[UI_D003_COUNT] = { 37,37,38 };
 static void rs_draw_d003(rs_render *rr, int slot)
 {
-    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D003_POPUP_X0, UI_D003_POPUP_Y0, UI_D003_POPUP_W, UI_D003_POPUP_H, 0, uc);
     const ui_d003_btn *bb = ui_d003_buttons();
     for (int i = 0; i < UI_D003_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 8 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 10 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D003_pw[i], hpx = D003_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -5766,14 +5651,13 @@ static const int D004_pw[UI_D004_COUNT] = { 152,152 };
 static const int D004_ph[UI_D004_COUNT] = { 37,37 };
 static void rs_draw_d004(rs_render *rr, int slot)
 {
-    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D004_POPUP_X0, UI_D004_POPUP_Y0, UI_D004_POPUP_W, UI_D004_POPUP_H, 0, uc);
     const ui_d004_btn *bb = ui_d004_buttons();
     for (int i = 0; i < UI_D004_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 11 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 13 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D004_pw[i], hpx = D004_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -5798,14 +5682,13 @@ static const int D005_pw[UI_D005_COUNT] = { 95,84 };
 static const int D005_ph[UI_D005_COUNT] = { 28,29 };
 static void rs_draw_d005(rs_render *rr, int slot)
 {
-    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D005_POPUP_X0, UI_D005_POPUP_Y0, UI_D005_POPUP_W, UI_D005_POPUP_H, 0, uc);
     const ui_d005_btn *bb = ui_d005_buttons();
     for (int i = 0; i < UI_D005_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 13 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 15 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D005_pw[i], hpx = D005_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -5830,14 +5713,13 @@ static const int D006_pw[UI_D006_COUNT] = { 152,76,152,152,152,152,152,152 };
 static const int D006_ph[UI_D006_COUNT] = { 38,37,38,38,37,37,37,37 };
 static void rs_draw_d006(rs_render *rr, int slot)
 {
-    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D006_POPUP_X0, UI_D006_POPUP_Y0, UI_D006_POPUP_W, UI_D006_POPUP_H, 0, uc);
     const ui_d006_btn *bb = ui_d006_buttons();
     for (int i = 0; i < UI_D006_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 15 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 17 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D006_pw[i], hpx = D006_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -5862,14 +5744,13 @@ static const int D007_pw[UI_D007_COUNT] = { 97,150,89,152,76,76 };
 static const int D007_ph[UI_D007_COUNT] = { 28,29,34,34,37,37 };
 static void rs_draw_d007(rs_render *rr, int slot)
 {
-    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D007_POPUP_X0, UI_D007_POPUP_Y0, UI_D007_POPUP_W, UI_D007_POPUP_H, 0, uc);
     const ui_d007_btn *bb = ui_d007_buttons();
     for (int i = 0; i < UI_D007_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 23 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 25 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D007_pw[i], hpx = D007_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -5894,14 +5775,13 @@ static const int D008_pw[UI_D008_COUNT] = { 97,150,89,76,76 };
 static const int D008_ph[UI_D008_COUNT] = { 28,29,34,37,37 };
 static void rs_draw_d008(rs_render *rr, int slot)
 {
-    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D008_POPUP_X0, UI_D008_POPUP_Y0, UI_D008_POPUP_W, UI_D008_POPUP_H, 0, uc);
     const ui_d008_btn *bb = ui_d008_buttons();
     for (int i = 0; i < UI_D008_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 29 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 31 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D008_pw[i], hpx = D008_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -5926,14 +5806,13 @@ static const int D010_pw[UI_D010_COUNT] = { 76,76 };
 static const int D010_ph[UI_D010_COUNT] = { 37,37 };
 static void rs_draw_d010(rs_render *rr, int slot)
 {
-    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D010_POPUP_X0, UI_D010_POPUP_Y0, UI_D010_POPUP_W, UI_D010_POPUP_H, 0, uc);
     const ui_d010_btn *bb = ui_d010_buttons();
     for (int i = 0; i < UI_D010_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 34 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 36 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D010_pw[i], hpx = D010_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -5958,14 +5837,13 @@ static const int D012_pw[UI_D012_COUNT] = { 89,175,127,114,76,76 };
 static const int D012_ph[UI_D012_COUNT] = { 28,29,34,34,37,37 };
 static void rs_draw_d012(rs_render *rr, int slot)
 {
-    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D012_POPUP_X0, UI_D012_POPUP_Y0, UI_D012_POPUP_W, UI_D012_POPUP_H, 0, uc);
     const ui_d012_btn *bb = ui_d012_buttons();
     for (int i = 0; i < UI_D012_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 36 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 38 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D012_pw[i], hpx = D012_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -5990,14 +5868,13 @@ static const int D013_pw[UI_D013_COUNT] = { 21,21,21 };
 static const int D013_ph[UI_D013_COUNT] = { 28,27,27 };
 static void rs_draw_d013(rs_render *rr, int slot)
 {
-    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D013_POPUP_X0, UI_D013_POPUP_Y0, UI_D013_POPUP_W, UI_D013_POPUP_H, 0, uc);
     const ui_d013_btn *bb = ui_d013_buttons();
     for (int i = 0; i < UI_D013_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 42 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 44 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D013_pw[i], hpx = D013_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -6022,14 +5899,13 @@ static const int D015_pw[UI_D015_COUNT] = { 84 };
 static const int D015_ph[UI_D015_COUNT] = { 29 };
 static void rs_draw_d015(rs_render *rr, int slot)
 {
-    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D015_POPUP_X0, UI_D015_POPUP_Y0, UI_D015_POPUP_W, UI_D015_POPUP_H, 0, uc);
     const ui_d015_btn *bb = ui_d015_buttons();
     for (int i = 0; i < UI_D015_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 45 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 47 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D015_pw[i], hpx = D015_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -6054,14 +5930,13 @@ static const int D016_pw[UI_D016_COUNT] = { 143,76,76,76 };
 static const int D016_ph[UI_D016_COUNT] = { 28,37,37,37 };
 static void rs_draw_d016(rs_render *rr, int slot)
 {
-    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D016_POPUP_X0, UI_D016_POPUP_Y0, UI_D016_POPUP_W, UI_D016_POPUP_H, 0, uc);
     const ui_d016_btn *bb = ui_d016_buttons();
     for (int i = 0; i < UI_D016_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 46 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 48 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D016_pw[i], hpx = D016_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -6086,14 +5961,13 @@ static const int D017_pw[UI_D017_COUNT] = { 76 };
 static const int D017_ph[UI_D017_COUNT] = { 37 };
 static void rs_draw_d017(rs_render *rr, int slot)
 {
-    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D017_POPUP_X0, UI_D017_POPUP_Y0, UI_D017_POPUP_W, UI_D017_POPUP_H, 0, uc);
     const ui_d017_btn *bb = ui_d017_buttons();
     for (int i = 0; i < UI_D017_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 50 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 52 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D017_pw[i], hpx = D017_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -6118,14 +5992,13 @@ static const int D019_pw[UI_D019_COUNT] = { 152,152,152,152 };
 static const int D019_ph[UI_D019_COUNT] = { 37,37,37,37 };
 static void rs_draw_d019(rs_render *rr, int slot)
 {
-    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D019_POPUP_X0, UI_D019_POPUP_Y0, UI_D019_POPUP_W, UI_D019_POPUP_H, 0, uc);
     const ui_d019_btn *bb = ui_d019_buttons();
     for (int i = 0; i < UI_D019_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 51 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 53 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D019_pw[i], hpx = D019_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -6150,14 +6023,13 @@ static const int D020_pw[UI_D020_COUNT] = { 76,76,76,76 };
 static const int D020_ph[UI_D020_COUNT] = { 37,38,37,37 };
 static void rs_draw_d020(rs_render *rr, int slot)
 {
-    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D020_POPUP_X0, UI_D020_POPUP_Y0, UI_D020_POPUP_W, UI_D020_POPUP_H, 0, uc);
     const ui_d020_btn *bb = ui_d020_buttons();
     for (int i = 0; i < UI_D020_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 55 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 57 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D020_pw[i], hpx = D020_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -6182,14 +6054,13 @@ static const int D021_pw[UI_D021_COUNT] = { 21,21,21 };
 static const int D021_ph[UI_D021_COUNT] = { 28,27,27 };
 static void rs_draw_d021(rs_render *rr, int slot)
 {
-    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D021_POPUP_X0, UI_D021_POPUP_Y0, UI_D021_POPUP_W, UI_D021_POPUP_H, 0, uc);
     const ui_d021_btn *bb = ui_d021_buttons();
     for (int i = 0; i < UI_D021_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 59 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 61 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D021_pw[i], hpx = D021_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -6214,14 +6085,13 @@ static const int D022_pw[UI_D022_COUNT] = { 21,21,21,21,21 };
 static const int D022_ph[UI_D022_COUNT] = { 28,27,27,28,27 };
 static void rs_draw_d022(rs_render *rr, int slot)
 {
-    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D022_POPUP_X0, UI_D022_POPUP_Y0, UI_D022_POPUP_W, UI_D022_POPUP_H, 0, uc);
     const ui_d022_btn *bb = ui_d022_buttons();
     for (int i = 0; i < UI_D022_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 62 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 64 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D022_pw[i], hpx = D022_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -6246,14 +6116,13 @@ static const int D023_pw[UI_D023_COUNT] = { 152,152,76,76 };
 static const int D023_ph[UI_D023_COUNT] = { 37,37,37,37 };
 static void rs_draw_d023(rs_render *rr, int slot)
 {
-    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D023_POPUP_X0, UI_D023_POPUP_Y0, UI_D023_POPUP_W, UI_D023_POPUP_H, 0, uc);
     const ui_d023_btn *bb = ui_d023_buttons();
     for (int i = 0; i < UI_D023_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 67 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 69 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D023_pw[i], hpx = D023_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -6278,14 +6147,13 @@ static const int D024_pw[UI_D024_COUNT] = { 84 };
 static const int D024_ph[UI_D024_COUNT] = { 33 };
 static void rs_draw_d024(rs_render *rr, int slot)
 {
-    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D024_POPUP_X0, UI_D024_POPUP_Y0, UI_D024_POPUP_W, UI_D024_POPUP_H, 0, uc);
     const ui_d024_btn *bb = ui_d024_buttons();
     for (int i = 0; i < UI_D024_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 71 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 73 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D024_pw[i], hpx = D024_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -6310,14 +6178,13 @@ static const int D025_pw[UI_D025_COUNT] = { 76 };
 static const int D025_ph[UI_D025_COUNT] = { 37 };
 static void rs_draw_d025(rs_render *rr, int slot)
 {
-    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D025_POPUP_X0, UI_D025_POPUP_Y0, UI_D025_POPUP_W, UI_D025_POPUP_H, 0, uc);
     const ui_d025_btn *bb = ui_d025_buttons();
     for (int i = 0; i < UI_D025_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 72 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 74 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D025_pw[i], hpx = D025_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -6342,14 +6209,13 @@ static const int D026_pw[UI_D026_COUNT] = { 103,76,76 };
 static const int D026_ph[UI_D026_COUNT] = { 29,37,37 };
 static void rs_draw_d026(rs_render *rr, int slot)
 {
-    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D026_POPUP_X0, UI_D026_POPUP_Y0, UI_D026_POPUP_W, UI_D026_POPUP_H, 0, uc);
     const ui_d026_btn *bb = ui_d026_buttons();
     for (int i = 0; i < UI_D026_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 73 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 75 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D026_pw[i], hpx = D026_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -6374,14 +6240,13 @@ static const int D027_pw[UI_D027_COUNT] = { 76,76,114 };
 static const int D027_ph[UI_D027_COUNT] = { 37,38,38 };
 static void rs_draw_d027(rs_render *rr, int slot)
 {
-    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D027_POPUP_X0, UI_D027_POPUP_Y0, UI_D027_POPUP_W, UI_D027_POPUP_H, 0, uc);
     const ui_d027_btn *bb = ui_d027_buttons();
     for (int i = 0; i < UI_D027_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 76 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 78 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D027_pw[i], hpx = D027_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -6406,14 +6271,13 @@ static const int D028_pw[UI_D028_COUNT] = { 114,76,76 };
 static const int D028_ph[UI_D028_COUNT] = { 37,37,37 };
 static void rs_draw_d028(rs_render *rr, int slot)
 {
-    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D028_POPUP_X0, UI_D028_POPUP_Y0, UI_D028_POPUP_W, UI_D028_POPUP_H, 0, uc);
     const ui_d028_btn *bb = ui_d028_buttons();
     for (int i = 0; i < UI_D028_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 79 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 81 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D028_pw[i], hpx = D028_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -6438,14 +6302,13 @@ static const int D029_pw[UI_D029_COUNT] = { 76,76 };
 static const int D029_ph[UI_D029_COUNT] = { 37,37 };
 static void rs_draw_d029(rs_render *rr, int slot)
 {
-    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D029_POPUP_X0, UI_D029_POPUP_Y0, UI_D029_POPUP_W, UI_D029_POPUP_H, 0, uc);
     const ui_d029_btn *bb = ui_d029_buttons();
     for (int i = 0; i < UI_D029_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 82 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 84 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D029_pw[i], hpx = D029_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -6470,14 +6333,13 @@ static const int D030_pw[UI_D030_COUNT] = { 95,81 };
 static const int D030_ph[UI_D030_COUNT] = { 28,29 };
 static void rs_draw_d030(rs_render *rr, int slot)
 {
-    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D030_POPUP_X0, UI_D030_POPUP_Y0, UI_D030_POPUP_W, UI_D030_POPUP_H, 0, uc);
     const ui_d030_btn *bb = ui_d030_buttons();
     for (int i = 0; i < UI_D030_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 84 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 86 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D030_pw[i], hpx = D030_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -6502,14 +6364,13 @@ static const int D031_pw[UI_D031_COUNT] = { 76,76,76 };
 static const int D031_ph[UI_D031_COUNT] = { 38,38,37 };
 static void rs_draw_d031(rs_render *rr, int slot)
 {
-    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D031_POPUP_X0, UI_D031_POPUP_Y0, UI_D031_POPUP_W, UI_D031_POPUP_H, 0, uc);
     const ui_d031_btn *bb = ui_d031_buttons();
     for (int i = 0; i < UI_D031_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 86 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 88 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D031_pw[i], hpx = D031_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -6534,14 +6395,13 @@ static const int D032_pw[UI_D032_COUNT] = { 76,76,76,76 };
 static const int D032_ph[UI_D032_COUNT] = { 37,37,37,37 };
 static void rs_draw_d032(rs_render *rr, int slot)
 {
-    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D032_POPUP_X0, UI_D032_POPUP_Y0, UI_D032_POPUP_W, UI_D032_POPUP_H, 0, uc);
     const ui_d032_btn *bb = ui_d032_buttons();
     for (int i = 0; i < UI_D032_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 89 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 91 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D032_pw[i], hpx = D032_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -6566,14 +6426,13 @@ static const int D033_pw[UI_D033_COUNT] = { 76,76 };
 static const int D033_ph[UI_D033_COUNT] = { 37,37 };
 static void rs_draw_d033(rs_render *rr, int slot)
 {
-    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D033_POPUP_X0, UI_D033_POPUP_Y0, UI_D033_POPUP_W, UI_D033_POPUP_H, 0, uc);
     const ui_d033_btn *bb = ui_d033_buttons();
     for (int i = 0; i < UI_D033_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 93 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 95 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D033_pw[i], hpx = D033_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -6598,14 +6457,13 @@ static const int D034_pw[UI_D034_COUNT] = { 76,76 };
 static const int D034_ph[UI_D034_COUNT] = { 37,37 };
 static void rs_draw_d034(rs_render *rr, int slot)
 {
-    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D034_POPUP_X0, UI_D034_POPUP_Y0, UI_D034_POPUP_W, UI_D034_POPUP_H, 0, uc);
     const ui_d034_btn *bb = ui_d034_buttons();
     for (int i = 0; i < UI_D034_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 95 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 97 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D034_pw[i], hpx = D034_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -6630,14 +6488,13 @@ static const int D035_pw[UI_D035_COUNT] = { 76,76 };
 static const int D035_ph[UI_D035_COUNT] = { 37,37 };
 static void rs_draw_d035(rs_render *rr, int slot)
 {
-    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D035_POPUP_X0, UI_D035_POPUP_Y0, UI_D035_POPUP_W, UI_D035_POPUP_H, 0, uc);
     const ui_d035_btn *bb = ui_d035_buttons();
     for (int i = 0; i < UI_D035_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 97 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 99 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D035_pw[i], hpx = D035_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -6662,14 +6519,13 @@ static const int D036_pw[UI_D036_COUNT] = { 103,103,76,76 };
 static const int D036_ph[UI_D036_COUNT] = { 29,29,37,37 };
 static void rs_draw_d036(rs_render *rr, int slot)
 {
-    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D036_POPUP_X0, UI_D036_POPUP_Y0, UI_D036_POPUP_W, UI_D036_POPUP_H, 0, uc);
     const ui_d036_btn *bb = ui_d036_buttons();
     for (int i = 0; i < UI_D036_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 99 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 101 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D036_pw[i], hpx = D036_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -6694,14 +6550,13 @@ static const int D037_pw[UI_D037_COUNT] = { 186,186,76 };
 static const int D037_ph[UI_D037_COUNT] = { 37,37,37 };
 static void rs_draw_d037(rs_render *rr, int slot)
 {
-    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D037_POPUP_X0, UI_D037_POPUP_Y0, UI_D037_POPUP_W, UI_D037_POPUP_H, 0, uc);
     const ui_d037_btn *bb = ui_d037_buttons();
     for (int i = 0; i < UI_D037_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 103 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 105 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D037_pw[i], hpx = D037_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -6726,14 +6581,13 @@ static const int D038_pw[UI_D038_COUNT] = { 76,76,76,76 };
 static const int D038_ph[UI_D038_COUNT] = { 37,37,37,37 };
 static void rs_draw_d038(rs_render *rr, int slot)
 {
-    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D038_POPUP_X0, UI_D038_POPUP_Y0, UI_D038_POPUP_W, UI_D038_POPUP_H, 0, uc);
     const ui_d038_btn *bb = ui_d038_buttons();
     for (int i = 0; i < UI_D038_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 106 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 108 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D038_pw[i], hpx = D038_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -6758,14 +6612,13 @@ static const int D039_pw[UI_D039_COUNT] = { 76 };
 static const int D039_ph[UI_D039_COUNT] = { 37 };
 static void rs_draw_d039(rs_render *rr, int slot)
 {
-    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D039_POPUP_X0, UI_D039_POPUP_Y0, UI_D039_POPUP_W, UI_D039_POPUP_H, 0, uc);
     const ui_d039_btn *bb = ui_d039_buttons();
     for (int i = 0; i < UI_D039_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 110 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 112 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D039_pw[i], hpx = D039_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -6790,14 +6643,13 @@ static const int D041_pw[UI_D041_COUNT] = { 76,76,76,76,76,76,76,76 };
 static const int D041_ph[UI_D041_COUNT] = { 37,37,37,37,37,37,37,37 };
 static void rs_draw_d041(rs_render *rr, int slot)
 {
-    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D041_POPUP_X0, UI_D041_POPUP_Y0, UI_D041_POPUP_W, UI_D041_POPUP_H, 0, uc);
     const ui_d041_btn *bb = ui_d041_buttons();
     for (int i = 0; i < UI_D041_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 111 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 113 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D041_pw[i], hpx = D041_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -6822,14 +6674,13 @@ static const int D042_pw[UI_D042_COUNT] = { 76,76,76,152,152,152,152 };
 static const int D042_ph[UI_D042_COUNT] = { 37,37,37,37,38,37,37 };
 static void rs_draw_d042(rs_render *rr, int slot)
 {
-    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D042_POPUP_X0, UI_D042_POPUP_Y0, UI_D042_POPUP_W, UI_D042_POPUP_H, 0, uc);
     const ui_d042_btn *bb = ui_d042_buttons();
     for (int i = 0; i < UI_D042_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 119 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 121 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D042_pw[i], hpx = D042_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -6854,14 +6705,13 @@ static const int D043_pw[UI_D043_COUNT] = { 76,76 };
 static const int D043_ph[UI_D043_COUNT] = { 37,37 };
 static void rs_draw_d043(rs_render *rr, int slot)
 {
-    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D043_POPUP_X0, UI_D043_POPUP_Y0, UI_D043_POPUP_W, UI_D043_POPUP_H, 0, uc);
     const ui_d043_btn *bb = ui_d043_buttons();
     for (int i = 0; i < UI_D043_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 126 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 128 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D043_pw[i], hpx = D043_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -6886,14 +6736,13 @@ static const int D044_pw[UI_D044_COUNT] = { 76,76 };
 static const int D044_ph[UI_D044_COUNT] = { 37,37 };
 static void rs_draw_d044(rs_render *rr, int slot)
 {
-    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D044_POPUP_X0, UI_D044_POPUP_Y0, UI_D044_POPUP_W, UI_D044_POPUP_H, 0, uc);
     const ui_d044_btn *bb = ui_d044_buttons();
     for (int i = 0; i < UI_D044_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 128 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 130 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D044_pw[i], hpx = D044_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -6918,14 +6767,13 @@ static const int D045_pw[UI_D045_COUNT] = { 76 };
 static const int D045_ph[UI_D045_COUNT] = { 37 };
 static void rs_draw_d045(rs_render *rr, int slot)
 {
-    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D045_POPUP_X0, UI_D045_POPUP_Y0, UI_D045_POPUP_W, UI_D045_POPUP_H, 0, uc);
     const ui_d045_btn *bb = ui_d045_buttons();
     for (int i = 0; i < UI_D045_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 130 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 132 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D045_pw[i], hpx = D045_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -6950,14 +6798,13 @@ static const int D046_pw[UI_D046_COUNT] = { 76 };
 static const int D046_ph[UI_D046_COUNT] = { 37 };
 static void rs_draw_d046(rs_render *rr, int slot)
 {
-    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D046_POPUP_X0, UI_D046_POPUP_Y0, UI_D046_POPUP_W, UI_D046_POPUP_H, 0, uc);
     const ui_d046_btn *bb = ui_d046_buttons();
     for (int i = 0; i < UI_D046_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 131 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 133 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D046_pw[i], hpx = D046_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -6982,14 +6829,13 @@ static const int D047_pw[UI_D047_COUNT] = { 76 };
 static const int D047_ph[UI_D047_COUNT] = { 37 };
 static void rs_draw_d047(rs_render *rr, int slot)
 {
-    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D047_POPUP_X0, UI_D047_POPUP_Y0, UI_D047_POPUP_W, UI_D047_POPUP_H, 0, uc);
     const ui_d047_btn *bb = ui_d047_buttons();
     for (int i = 0; i < UI_D047_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 132 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 134 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D047_pw[i], hpx = D047_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -7014,14 +6860,13 @@ static const int D049_pw[UI_D049_COUNT] = { 76 };
 static const int D049_ph[UI_D049_COUNT] = { 37 };
 static void rs_draw_d049(rs_render *rr, int slot)
 {
-    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D049_POPUP_X0, UI_D049_POPUP_Y0, UI_D049_POPUP_W, UI_D049_POPUP_H, 0, uc);
     const ui_d049_btn *bb = ui_d049_buttons();
     for (int i = 0; i < UI_D049_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 133 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 135 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D049_pw[i], hpx = D049_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -7046,14 +6891,13 @@ static const int D050_pw[UI_D050_COUNT] = { 76,76,76 };
 static const int D050_ph[UI_D050_COUNT] = { 37,37,37 };
 static void rs_draw_d050(rs_render *rr, int slot)
 {
-    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D050_POPUP_X0, UI_D050_POPUP_Y0, UI_D050_POPUP_W, UI_D050_POPUP_H, 0, uc);
     const ui_d050_btn *bb = ui_d050_buttons();
     for (int i = 0; i < UI_D050_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 134 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 136 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D050_pw[i], hpx = D050_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -7078,14 +6922,13 @@ static const int D051_pw[UI_D051_COUNT] = { 76,76 };
 static const int D051_ph[UI_D051_COUNT] = { 37,37 };
 static void rs_draw_d051(rs_render *rr, int slot)
 {
-    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D051_POPUP_X0, UI_D051_POPUP_Y0, UI_D051_POPUP_W, UI_D051_POPUP_H, 0, uc);
     const ui_d051_btn *bb = ui_d051_buttons();
     for (int i = 0; i < UI_D051_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 137 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 139 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D051_pw[i], hpx = D051_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -7110,14 +6953,13 @@ static const int D052_pw[UI_D052_COUNT] = { 76,76 };
 static const int D052_ph[UI_D052_COUNT] = { 37,37 };
 static void rs_draw_d052(rs_render *rr, int slot)
 {
-    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D052_POPUP_X0, UI_D052_POPUP_Y0, UI_D052_POPUP_W, UI_D052_POPUP_H, 0, uc);
     const ui_d052_btn *bb = ui_d052_buttons();
     for (int i = 0; i < UI_D052_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 139 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 141 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D052_pw[i], hpx = D052_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -7142,14 +6984,13 @@ static const int D053_pw[UI_D053_COUNT] = { 76,76 };
 static const int D053_ph[UI_D053_COUNT] = { 37,37 };
 static void rs_draw_d053(rs_render *rr, int slot)
 {
-    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D053_POPUP_X0, UI_D053_POPUP_Y0, UI_D053_POPUP_W, UI_D053_POPUP_H, 0, uc);
     const ui_d053_btn *bb = ui_d053_buttons();
     for (int i = 0; i < UI_D053_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 141 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 143 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D053_pw[i], hpx = D053_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -7174,14 +7015,13 @@ static const int D054_pw[UI_D054_COUNT] = { 76,76 };
 static const int D054_ph[UI_D054_COUNT] = { 37,37 };
 static void rs_draw_d054(rs_render *rr, int slot)
 {
-    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D054_POPUP_X0, UI_D054_POPUP_Y0, UI_D054_POPUP_W, UI_D054_POPUP_H, 0, uc);
     const ui_d054_btn *bb = ui_d054_buttons();
     for (int i = 0; i < UI_D054_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 143 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 145 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D054_pw[i], hpx = D054_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -7206,14 +7046,13 @@ static const int D055_pw[UI_D055_COUNT] = { 76 };
 static const int D055_ph[UI_D055_COUNT] = { 37 };
 static void rs_draw_d055(rs_render *rr, int slot)
 {
-    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D055_POPUP_X0, UI_D055_POPUP_Y0, UI_D055_POPUP_W, UI_D055_POPUP_H, 0, uc);
     const ui_d055_btn *bb = ui_d055_buttons();
     for (int i = 0; i < UI_D055_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 145 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 147 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D055_pw[i], hpx = D055_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -7238,14 +7077,13 @@ static const int D057_pw[UI_D057_COUNT] = { 152,76 };
 static const int D057_ph[UI_D057_COUNT] = { 38,37 };
 static void rs_draw_d057(rs_render *rr, int slot)
 {
-    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D057_POPUP_X0, UI_D057_POPUP_Y0, UI_D057_POPUP_W, UI_D057_POPUP_H, 0, uc);
     const ui_d057_btn *bb = ui_d057_buttons();
     for (int i = 0; i < UI_D057_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 146 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 148 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D057_pw[i], hpx = D057_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -7270,14 +7108,13 @@ static const int D058_pw[UI_D058_COUNT] = { 76,76 };
 static const int D058_ph[UI_D058_COUNT] = { 37,37 };
 static void rs_draw_d058(rs_render *rr, int slot)
 {
-    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D058_POPUP_X0, UI_D058_POPUP_Y0, UI_D058_POPUP_W, UI_D058_POPUP_H, 0, uc);
     const ui_d058_btn *bb = ui_d058_buttons();
     for (int i = 0; i < UI_D058_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 148 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 150 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D058_pw[i], hpx = D058_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -7302,14 +7139,13 @@ static const int D059_pw[UI_D059_COUNT] = { 114,76,76 };
 static const int D059_ph[UI_D059_COUNT] = { 37,37,37 };
 static void rs_draw_d059(rs_render *rr, int slot)
 {
-    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D059_POPUP_X0, UI_D059_POPUP_Y0, UI_D059_POPUP_W, UI_D059_POPUP_H, 0, uc);
     const ui_d059_btn *bb = ui_d059_buttons();
     for (int i = 0; i < UI_D059_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 150 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 152 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D059_pw[i], hpx = D059_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -7334,14 +7170,13 @@ static const int D060_pw[UI_D060_COUNT] = { 103,103,76,76,76 };
 static const int D060_ph[UI_D060_COUNT] = { 29,29,37,37,37 };
 static void rs_draw_d060(rs_render *rr, int slot)
 {
-    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D060_POPUP_X0, UI_D060_POPUP_Y0, UI_D060_POPUP_W, UI_D060_POPUP_H, 0, uc);
     const ui_d060_btn *bb = ui_d060_buttons();
     for (int i = 0; i < UI_D060_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 153 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 155 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D060_pw[i], hpx = D060_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -7366,14 +7201,13 @@ static const int D061_pw[UI_D061_COUNT] = { 74,91,61,95,76,76 };
 static const int D061_ph[UI_D061_COUNT] = { 29,29,33,29,37,37 };
 static void rs_draw_d061(rs_render *rr, int slot)
 {
-    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D061_POPUP_X0, UI_D061_POPUP_Y0, UI_D061_POPUP_W, UI_D061_POPUP_H, 0, uc);
     const ui_d061_btn *bb = ui_d061_buttons();
     for (int i = 0; i < UI_D061_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 158 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 160 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D061_pw[i], hpx = D061_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -7398,14 +7232,13 @@ static const int D062_pw[UI_D062_COUNT] = { 61,95,76,76 };
 static const int D062_ph[UI_D062_COUNT] = { 33,29,37,37 };
 static void rs_draw_d062(rs_render *rr, int slot)
 {
-    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D062_POPUP_X0, UI_D062_POPUP_Y0, UI_D062_POPUP_W, UI_D062_POPUP_H, 0, uc);
     const ui_d062_btn *bb = ui_d062_buttons();
     for (int i = 0; i < UI_D062_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 164 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 166 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D062_pw[i], hpx = D062_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -7430,14 +7263,13 @@ static const int D063_pw[UI_D063_COUNT] = { 76,76,76 };
 static const int D063_ph[UI_D063_COUNT] = { 37,37,37 };
 static void rs_draw_d063(rs_render *rr, int slot)
 {
-    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D063_POPUP_X0, UI_D063_POPUP_Y0, UI_D063_POPUP_W, UI_D063_POPUP_H, 0, uc);
     const ui_d063_btn *bb = ui_d063_buttons();
     for (int i = 0; i < UI_D063_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 168 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 170 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D063_pw[i], hpx = D063_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -7462,14 +7294,13 @@ static const int D064_pw[UI_D064_COUNT] = { 95,81,84 };
 static const int D064_ph[UI_D064_COUNT] = { 28,29,29 };
 static void rs_draw_d064(rs_render *rr, int slot)
 {
-    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D064_POPUP_X0, UI_D064_POPUP_Y0, UI_D064_POPUP_W, UI_D064_POPUP_H, 0, uc);
     const ui_d064_btn *bb = ui_d064_buttons();
     for (int i = 0; i < UI_D064_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 171 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 173 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D064_pw[i], hpx = D064_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -7494,14 +7325,13 @@ static const int D065_pw[UI_D065_COUNT] = { 76,76 };
 static const int D065_ph[UI_D065_COUNT] = { 37,37 };
 static void rs_draw_d065(rs_render *rr, int slot)
 {
-    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D065_POPUP_X0, UI_D065_POPUP_Y0, UI_D065_POPUP_W, UI_D065_POPUP_H, 0, uc);
     const ui_d065_btn *bb = ui_d065_buttons();
     for (int i = 0; i < UI_D065_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 174 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 176 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D065_pw[i], hpx = D065_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -7526,14 +7356,13 @@ static const int D066_pw[UI_D066_COUNT] = { 152,152,76 };
 static const int D066_ph[UI_D066_COUNT] = { 38,38,37 };
 static void rs_draw_d066(rs_render *rr, int slot)
 {
-    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D066_POPUP_X0, UI_D066_POPUP_Y0, UI_D066_POPUP_W, UI_D066_POPUP_H, 0, uc);
     const ui_d066_btn *bb = ui_d066_buttons();
     for (int i = 0; i < UI_D066_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 176 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 178 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D066_pw[i], hpx = D066_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -7558,14 +7387,13 @@ static const int D067_pw[UI_D067_COUNT] = { 152,76,76,76,76,152,152,152 };
 static const int D067_ph[UI_D067_COUNT] = { 38,37,37,37,37,37,37,38 };
 static void rs_draw_d067(rs_render *rr, int slot)
 {
-    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D067_POPUP_X0, UI_D067_POPUP_Y0, UI_D067_POPUP_W, UI_D067_POPUP_H, 0, uc);
     const ui_d067_btn *bb = ui_d067_buttons();
     for (int i = 0; i < UI_D067_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 179 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 181 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D067_pw[i], hpx = D067_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -7590,14 +7418,13 @@ static const int D068_pw[UI_D068_COUNT] = { 76,114,76 };
 static const int D068_ph[UI_D068_COUNT] = { 37,37,37 };
 static void rs_draw_d068(rs_render *rr, int slot)
 {
-    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D068_POPUP_X0, UI_D068_POPUP_Y0, UI_D068_POPUP_W, UI_D068_POPUP_H, 0, uc);
     const ui_d068_btn *bb = ui_d068_buttons();
     for (int i = 0; i < UI_D068_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 187 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 189 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D068_pw[i], hpx = D068_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -7622,14 +7449,13 @@ static const int D069_pw[UI_D069_COUNT] = { 74,61,95,76,76,76 };
 static const int D069_ph[UI_D069_COUNT] = { 29,33,29,37,37,37 };
 static void rs_draw_d069(rs_render *rr, int slot)
 {
-    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D069_POPUP_X0, UI_D069_POPUP_Y0, UI_D069_POPUP_W, UI_D069_POPUP_H, 0, uc);
     const ui_d069_btn *bb = ui_d069_buttons();
     for (int i = 0; i < UI_D069_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 190 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 192 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D069_pw[i], hpx = D069_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -7654,14 +7480,13 @@ static const int D070_pw[UI_D070_COUNT] = { 89,175,127,114,76,76 };
 static const int D070_ph[UI_D070_COUNT] = { 28,29,34,34,37,37 };
 static void rs_draw_d070(rs_render *rr, int slot)
 {
-    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D070_POPUP_X0, UI_D070_POPUP_Y0, UI_D070_POPUP_W, UI_D070_POPUP_H, 0, uc);
     const ui_d070_btn *bb = ui_d070_buttons();
     for (int i = 0; i < UI_D070_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 196 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 198 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D070_pw[i], hpx = D070_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -7686,14 +7511,13 @@ static const int D071_pw[UI_D071_COUNT] = { 76,76 };
 static const int D071_ph[UI_D071_COUNT] = { 38,37 };
 static void rs_draw_d071(rs_render *rr, int slot)
 {
-    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D071_POPUP_X0, UI_D071_POPUP_Y0, UI_D071_POPUP_W, UI_D071_POPUP_H, 0, uc);
     const ui_d071_btn *bb = ui_d071_buttons();
     for (int i = 0; i < UI_D071_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 202 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 204 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D071_pw[i], hpx = D071_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -7718,14 +7542,13 @@ static const int D072_pw[UI_D072_COUNT] = { 152,175,152,76 };
 static const int D072_ph[UI_D072_COUNT] = { 37,37,37,37 };
 static void rs_draw_d072(rs_render *rr, int slot)
 {
-    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D072_POPUP_X0, UI_D072_POPUP_Y0, UI_D072_POPUP_W, UI_D072_POPUP_H, 0, uc);
     const ui_d072_btn *bb = ui_d072_buttons();
     for (int i = 0; i < UI_D072_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 204 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 206 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D072_pw[i], hpx = D072_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -7750,14 +7573,13 @@ static const int D073_pw[UI_D073_COUNT] = { 76,76 };
 static const int D073_ph[UI_D073_COUNT] = { 37,37 };
 static void rs_draw_d073(rs_render *rr, int slot)
 {
-    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D073_POPUP_X0, UI_D073_POPUP_Y0, UI_D073_POPUP_W, UI_D073_POPUP_H, 0, uc);
     const ui_d073_btn *bb = ui_d073_buttons();
     for (int i = 0; i < UI_D073_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 208 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 210 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D073_pw[i], hpx = D073_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -7782,14 +7604,13 @@ static const int D075_pw[UI_D075_COUNT] = { 78,79,95,84 };
 static const int D075_ph[UI_D075_COUNT] = { 28,28,28,29 };
 static void rs_draw_d075(rs_render *rr, int slot)
 {
-    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D075_POPUP_X0, UI_D075_POPUP_Y0, UI_D075_POPUP_W, UI_D075_POPUP_H, 0, uc);
     const ui_d075_btn *bb = ui_d075_buttons();
     for (int i = 0; i < UI_D075_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 210 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 212 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D075_pw[i], hpx = D075_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -7804,6 +7625,37 @@ static void rs_draw_d075(rs_render *rr, int slot)
         LOGI("rs_draw_d075：datah_075 弹窗（340×45 面板 + 4 按钮，原版按钮文字）");
     }
 }
+/* ★ 批量对齐（datah_076）：1 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
+   ★ 文字不变形三要素（本轮 datah_095 文字被压成窄竖条实证后修正）：
+     1) 每按钮独立字形像素宽高（D076_pw/ph 数组，非块级常量——旧版 i 泄漏成常量）
+     2) 图集行高固定 40（bake_atlas 行距）→ v = (行号*40)/图集高；n_rows 不再传 cnt
+     3) u1 = 字形像素宽/图集宽（旧版传 1.0 = 整行 416px 压进字宽）
+   目标字高 30px（720 基准），宽按字形 bbox 比例等比缩放。 */
+static const int D076_pw[UI_D076_COUNT] = { 93 };
+static const int D076_ph[UI_D076_COUNT] = { 28 };
+static void rs_draw_d076(rs_render *rr, int slot)
+{
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    rs_popup_shell(rr, slot, UI_D076_POPUP_X0, UI_D076_POPUP_Y0, UI_D076_POPUP_W, UI_D076_POPUP_H, 0, uc);
+    const ui_d076_btn *bb = ui_d076_buttons();
+    for (int i = 0; i < UI_D076_COUNT; i++) {
+        rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
+                     0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
+        int gr = 216 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int wpx = D076_pw[i], hpx = D076_ph[i];
+        if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
+            float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
+            float tw = (float)wpx * scale, th = 30.0f;
+            float u1 = ((float)wpx + 1.0f) / (float)rr->dlg_text_w;
+            rs_atlas_label_wh(rr, slot, rr->tex_dlg_text[slot], rr->dlg_text_w, rr->dlg_text_h,
+                              gr, (bb[i].x0 + bb[i].x1) * 0.5f, (bb[i].y0 + bb[i].y1) * 0.5f,
+                              tw, th, 0.0f, u1, uc);
+        }
+    }
+    if (!d076_diag) { d076_diag = 1;
+        LOGI("rs_draw_d076：datah_076 弹窗（460×88 面板 + 1 按钮，原版按钮文字）");
+    }
+}
 /* ★ 批量对齐（datah_077）：6 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
    ★ 文字不变形三要素（本轮 datah_095 文字被压成窄竖条实证后修正）：
      1) 每按钮独立字形像素宽高（D077_pw/ph 数组，非块级常量——旧版 i 泄漏成常量）
@@ -7814,14 +7666,13 @@ static const int D077_pw[UI_D077_COUNT] = { 76,76,152,152,152,152 };
 static const int D077_ph[UI_D077_COUNT] = { 35,37,38,37,37,37 };
 static void rs_draw_d077(rs_render *rr, int slot)
 {
-    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D077_POPUP_X0, UI_D077_POPUP_Y0, UI_D077_POPUP_W, UI_D077_POPUP_H, 0, uc);
     const ui_d077_btn *bb = ui_d077_buttons();
     for (int i = 0; i < UI_D077_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 214 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 217 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D077_pw[i], hpx = D077_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -7846,14 +7697,13 @@ static const int D078_pw[UI_D078_COUNT] = { 76,76,76 };
 static const int D078_ph[UI_D078_COUNT] = { 38,37,37 };
 static void rs_draw_d078(rs_render *rr, int slot)
 {
-    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D078_POPUP_X0, UI_D078_POPUP_Y0, UI_D078_POPUP_W, UI_D078_POPUP_H, 0, uc);
     const ui_d078_btn *bb = ui_d078_buttons();
     for (int i = 0; i < UI_D078_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 220 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 223 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D078_pw[i], hpx = D078_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -7878,14 +7728,13 @@ static const int D079_pw[UI_D079_COUNT] = { 76 };
 static const int D079_ph[UI_D079_COUNT] = { 37 };
 static void rs_draw_d079(rs_render *rr, int slot)
 {
-    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D079_POPUP_X0, UI_D079_POPUP_Y0, UI_D079_POPUP_W, UI_D079_POPUP_H, 0, uc);
     const ui_d079_btn *bb = ui_d079_buttons();
     for (int i = 0; i < UI_D079_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 223 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 226 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D079_pw[i], hpx = D079_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -7910,14 +7759,13 @@ static const int D082_pw[UI_D082_COUNT] = { 76,76,76,76,76 };
 static const int D082_ph[UI_D082_COUNT] = { 37,38,37,37,37 };
 static void rs_draw_d082(rs_render *rr, int slot)
 {
-    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D082_POPUP_X0, UI_D082_POPUP_Y0, UI_D082_POPUP_W, UI_D082_POPUP_H, 0, uc);
     const ui_d082_btn *bb = ui_d082_buttons();
     for (int i = 0; i < UI_D082_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 224 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 227 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D082_pw[i], hpx = D082_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -7942,14 +7790,13 @@ static const int D083_pw[UI_D083_COUNT] = { 152,152,152,152 };
 static const int D083_ph[UI_D083_COUNT] = { 38,37,37,37 };
 static void rs_draw_d083(rs_render *rr, int slot)
 {
-    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D083_POPUP_X0, UI_D083_POPUP_Y0, UI_D083_POPUP_W, UI_D083_POPUP_H, 0, uc);
     const ui_d083_btn *bb = ui_d083_buttons();
     for (int i = 0; i < UI_D083_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 229 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 232 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D083_pw[i], hpx = D083_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -7974,14 +7821,13 @@ static const int D084_pw[UI_D084_COUNT] = { 129,171,76,76 };
 static const int D084_ph[UI_D084_COUNT] = { 34,29,37,37 };
 static void rs_draw_d084(rs_render *rr, int slot)
 {
-    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D084_POPUP_X0, UI_D084_POPUP_Y0, UI_D084_POPUP_W, UI_D084_POPUP_H, 0, uc);
     const ui_d084_btn *bb = ui_d084_buttons();
     for (int i = 0; i < UI_D084_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 233 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 236 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D084_pw[i], hpx = D084_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -8006,14 +7852,13 @@ static const int D085_pw[UI_D085_COUNT] = { 76,76,76,76,76 };
 static const int D085_ph[UI_D085_COUNT] = { 37,37,37,37,37 };
 static void rs_draw_d085(rs_render *rr, int slot)
 {
-    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D085_POPUP_X0, UI_D085_POPUP_Y0, UI_D085_POPUP_W, UI_D085_POPUP_H, 0, uc);
     const ui_d085_btn *bb = ui_d085_buttons();
     for (int i = 0; i < UI_D085_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 237 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 240 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D085_pw[i], hpx = D085_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -8038,14 +7883,13 @@ static const int D086_pw[UI_D086_COUNT] = { 143,76,76,76 };
 static const int D086_ph[UI_D086_COUNT] = { 28,37,37,37 };
 static void rs_draw_d086(rs_render *rr, int slot)
 {
-    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D086_POPUP_X0, UI_D086_POPUP_Y0, UI_D086_POPUP_W, UI_D086_POPUP_H, 0, uc);
     const ui_d086_btn *bb = ui_d086_buttons();
     for (int i = 0; i < UI_D086_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 242 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 245 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D086_pw[i], hpx = D086_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -8070,14 +7914,13 @@ static const int D089_pw[UI_D089_COUNT] = { 21,21,21 };
 static const int D089_ph[UI_D089_COUNT] = { 27,28,27 };
 static void rs_draw_d089(rs_render *rr, int slot)
 {
-    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D089_POPUP_X0, UI_D089_POPUP_Y0, UI_D089_POPUP_W, UI_D089_POPUP_H, 0, uc);
     const ui_d089_btn *bb = ui_d089_buttons();
     for (int i = 0; i < UI_D089_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 246 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 249 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D089_pw[i], hpx = D089_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -8102,14 +7945,13 @@ static const int D090_pw[UI_D090_COUNT] = { 152,152 };
 static const int D090_ph[UI_D090_COUNT] = { 37,37 };
 static void rs_draw_d090(rs_render *rr, int slot)
 {
-    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D090_POPUP_X0, UI_D090_POPUP_Y0, UI_D090_POPUP_W, UI_D090_POPUP_H, 0, uc);
     const ui_d090_btn *bb = ui_d090_buttons();
     for (int i = 0; i < UI_D090_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 249 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 252 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D090_pw[i], hpx = D090_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -8134,14 +7976,13 @@ static const int D094_pw[UI_D094_COUNT] = { 129,171,81,76,76 };
 static const int D094_ph[UI_D094_COUNT] = { 34,29,29,37,37 };
 static void rs_draw_d094(rs_render *rr, int slot)
 {
-    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D094_POPUP_X0, UI_D094_POPUP_Y0, UI_D094_POPUP_W, UI_D094_POPUP_H, 0, uc);
     const ui_d094_btn *bb = ui_d094_buttons();
     for (int i = 0; i < UI_D094_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 251 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 254 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D094_pw[i], hpx = D094_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -8166,14 +8007,13 @@ static const int D095_pw[UI_D095_COUNT] = { 76,76,76,76,76 };
 static const int D095_ph[UI_D095_COUNT] = { 37,37,37,37,37 };
 static void rs_draw_d095(rs_render *rr, int slot)
 {
-    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D095_POPUP_X0, UI_D095_POPUP_Y0, UI_D095_POPUP_W, UI_D095_POPUP_H, 0, uc);
     const ui_d095_btn *bb = ui_d095_buttons();
     for (int i = 0; i < UI_D095_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 256 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 259 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D095_pw[i], hpx = D095_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -8198,14 +8038,13 @@ static const int D096_pw[UI_D096_COUNT] = { 76,76,76 };
 static const int D096_ph[UI_D096_COUNT] = { 38,38,37 };
 static void rs_draw_d096(rs_render *rr, int slot)
 {
-    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D096_POPUP_X0, UI_D096_POPUP_Y0, UI_D096_POPUP_W, UI_D096_POPUP_H, 0, uc);
     const ui_d096_btn *bb = ui_d096_buttons();
     for (int i = 0; i < UI_D096_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 261 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 264 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D096_pw[i], hpx = D096_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -8230,14 +8069,13 @@ static const int D097_pw[UI_D097_COUNT] = { 76,76,76,76 };
 static const int D097_ph[UI_D097_COUNT] = { 37,37,37,37 };
 static void rs_draw_d097(rs_render *rr, int slot)
 {
-    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D097_POPUP_X0, UI_D097_POPUP_Y0, UI_D097_POPUP_W, UI_D097_POPUP_H, 0, uc);
     const ui_d097_btn *bb = ui_d097_buttons();
     for (int i = 0; i < UI_D097_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 264 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 267 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D097_pw[i], hpx = D097_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -8262,14 +8100,13 @@ static const int D098_pw[UI_D098_COUNT] = { 76,76,76,76,76,76 };
 static const int D098_ph[UI_D098_COUNT] = { 37,36,37,36,37,36 };
 static void rs_draw_d098(rs_render *rr, int slot)
 {
-    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D098_POPUP_X0, UI_D098_POPUP_Y0, UI_D098_POPUP_W, UI_D098_POPUP_H, 0, uc);
     const ui_d098_btn *bb = ui_d098_buttons();
     for (int i = 0; i < UI_D098_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 268 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 271 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D098_pw[i], hpx = D098_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -8294,14 +8131,13 @@ static const int D099_pw[UI_D099_COUNT] = { 152,152,152,152 };
 static const int D099_ph[UI_D099_COUNT] = { 37,38,37,37 };
 static void rs_draw_d099(rs_render *rr, int slot)
 {
-    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D099_POPUP_X0, UI_D099_POPUP_Y0, UI_D099_POPUP_W, UI_D099_POPUP_H, 0, uc);
     const ui_d099_btn *bb = ui_d099_buttons();
     for (int i = 0; i < UI_D099_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 274 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 277 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D099_pw[i], hpx = D099_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -8326,14 +8162,13 @@ static const int D100_pw[UI_D100_COUNT] = { 76 };
 static const int D100_ph[UI_D100_COUNT] = { 37 };
 static void rs_draw_d100(rs_render *rr, int slot)
 {
-    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D100_POPUP_X0, UI_D100_POPUP_Y0, UI_D100_POPUP_W, UI_D100_POPUP_H, 0, uc);
     const ui_d100_btn *bb = ui_d100_buttons();
     for (int i = 0; i < UI_D100_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 278 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 281 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D100_pw[i], hpx = D100_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -8358,14 +8193,13 @@ static const int D101_pw[UI_D101_COUNT] = { 76,76,76,76 };
 static const int D101_ph[UI_D101_COUNT] = { 37,37,37,37 };
 static void rs_draw_d101(rs_render *rr, int slot)
 {
-    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D101_POPUP_X0, UI_D101_POPUP_Y0, UI_D101_POPUP_W, UI_D101_POPUP_H, 0, uc);
     const ui_d101_btn *bb = ui_d101_buttons();
     for (int i = 0; i < UI_D101_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 279 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 282 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D101_pw[i], hpx = D101_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -8390,14 +8224,13 @@ static const int D102_pw[UI_D102_COUNT] = { 76 };
 static const int D102_ph[UI_D102_COUNT] = { 37 };
 static void rs_draw_d102(rs_render *rr, int slot)
 {
-    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D102_POPUP_X0, UI_D102_POPUP_Y0, UI_D102_POPUP_W, UI_D102_POPUP_H, 0, uc);
     const ui_d102_btn *bb = ui_d102_buttons();
     for (int i = 0; i < UI_D102_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 283 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 286 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D102_pw[i], hpx = D102_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -8422,14 +8255,13 @@ static const int D104_pw[UI_D104_COUNT] = { 53,144,84,76,76 };
 static const int D104_ph[UI_D104_COUNT] = { 28,34,33,37,37 };
 static void rs_draw_d104(rs_render *rr, int slot)
 {
-    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D104_POPUP_X0, UI_D104_POPUP_Y0, UI_D104_POPUP_W, UI_D104_POPUP_H, 0, uc);
     const ui_d104_btn *bb = ui_d104_buttons();
     for (int i = 0; i < UI_D104_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 284 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 287 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D104_pw[i], hpx = D104_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -8454,14 +8286,13 @@ static const int D107_pw[UI_D107_COUNT] = { 76,76,76,76,76 };
 static const int D107_ph[UI_D107_COUNT] = { 37,37,37,37,37 };
 static void rs_draw_d107(rs_render *rr, int slot)
 {
-    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D107_POPUP_X0, UI_D107_POPUP_Y0, UI_D107_POPUP_W, UI_D107_POPUP_H, 0, uc);
     const ui_d107_btn *bb = ui_d107_buttons();
     for (int i = 0; i < UI_D107_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 289 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 292 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D107_pw[i], hpx = D107_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -8486,14 +8317,13 @@ static const int D108_pw[UI_D108_COUNT] = { 76,76,76 };
 static const int D108_ph[UI_D108_COUNT] = { 37,37,37 };
 static void rs_draw_d108(rs_render *rr, int slot)
 {
-    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D108_POPUP_X0, UI_D108_POPUP_Y0, UI_D108_POPUP_W, UI_D108_POPUP_H, 0, uc);
     const ui_d108_btn *bb = ui_d108_buttons();
     for (int i = 0; i < UI_D108_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 294 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 297 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D108_pw[i], hpx = D108_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -8518,14 +8348,13 @@ static const int D109_pw[UI_D109_COUNT] = { 76,76,76 };
 static const int D109_ph[UI_D109_COUNT] = { 35,37,37 };
 static void rs_draw_d109(rs_render *rr, int slot)
 {
-    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D109_POPUP_X0, UI_D109_POPUP_Y0, UI_D109_POPUP_W, UI_D109_POPUP_H, 0, uc);
     const ui_d109_btn *bb = ui_d109_buttons();
     for (int i = 0; i < UI_D109_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 297 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 300 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D109_pw[i], hpx = D109_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -8550,14 +8379,13 @@ static const int D110_pw[UI_D110_COUNT] = { 76,76 };
 static const int D110_ph[UI_D110_COUNT] = { 37,37 };
 static void rs_draw_d110(rs_render *rr, int slot)
 {
-    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D110_POPUP_X0, UI_D110_POPUP_Y0, UI_D110_POPUP_W, UI_D110_POPUP_H, 0, uc);
     const ui_d110_btn *bb = ui_d110_buttons();
     for (int i = 0; i < UI_D110_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 300 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 303 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D110_pw[i], hpx = D110_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -8572,6 +8400,37 @@ static void rs_draw_d110(rs_render *rr, int slot)
         LOGI("rs_draw_d110：datah_110 弹窗（450×610 面板 + 2 按钮，原版按钮文字）");
     }
 }
+/* ★ 批量对齐（datah_111）：1 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
+   ★ 文字不变形三要素（本轮 datah_095 文字被压成窄竖条实证后修正）：
+     1) 每按钮独立字形像素宽高（D111_pw/ph 数组，非块级常量——旧版 i 泄漏成常量）
+     2) 图集行高固定 40（bake_atlas 行距）→ v = (行号*40)/图集高；n_rows 不再传 cnt
+     3) u1 = 字形像素宽/图集宽（旧版传 1.0 = 整行 416px 压进字宽）
+   目标字高 30px（720 基准），宽按字形 bbox 比例等比缩放。 */
+static const int D111_pw[UI_D111_COUNT] = { 93 };
+static const int D111_ph[UI_D111_COUNT] = { 28 };
+static void rs_draw_d111(rs_render *rr, int slot)
+{
+    GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
+    rs_popup_shell(rr, slot, UI_D111_POPUP_X0, UI_D111_POPUP_Y0, UI_D111_POPUP_W, UI_D111_POPUP_H, 0, uc);
+    const ui_d111_btn *bb = ui_d111_buttons();
+    for (int i = 0; i < UI_D111_COUNT; i++) {
+        rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
+                     0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
+        int gr = 305 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int wpx = D111_pw[i], hpx = D111_ph[i];
+        if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
+            float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
+            float tw = (float)wpx * scale, th = 30.0f;
+            float u1 = ((float)wpx + 1.0f) / (float)rr->dlg_text_w;
+            rs_atlas_label_wh(rr, slot, rr->tex_dlg_text[slot], rr->dlg_text_w, rr->dlg_text_h,
+                              gr, (bb[i].x0 + bb[i].x1) * 0.5f, (bb[i].y0 + bb[i].y1) * 0.5f,
+                              tw, th, 0.0f, u1, uc);
+        }
+    }
+    if (!d111_diag) { d111_diag = 1;
+        LOGI("rs_draw_d111：datah_111 弹窗（460×88 面板 + 1 按钮，原版按钮文字）");
+    }
+}
 /* ★ 批量对齐（datah_112）：5 按钮 + 原版按钮文字（共用图集 dlg_batch_text.png）
    ★ 文字不变形三要素（本轮 datah_095 文字被压成窄竖条实证后修正）：
      1) 每按钮独立字形像素宽高（D112_pw/ph 数组，非块级常量——旧版 i 泄漏成常量）
@@ -8582,14 +8441,13 @@ static const int D112_pw[UI_D112_COUNT] = { 152,152,152,152,152 };
 static const int D112_ph[UI_D112_COUNT] = { 38,37,38,37,37 };
 static void rs_draw_d112(rs_render *rr, int slot)
 {
-    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D112_POPUP_X0, UI_D112_POPUP_Y0, UI_D112_POPUP_W, UI_D112_POPUP_H, 0, uc);
     const ui_d112_btn *bb = ui_d112_buttons();
     for (int i = 0; i < UI_D112_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 302 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 306 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D112_pw[i], hpx = D112_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -8614,14 +8472,13 @@ static const int D113_pw[UI_D113_COUNT] = { 21,21,21,21 };
 static const int D113_ph[UI_D113_COUNT] = { 28,27,27,28 };
 static void rs_draw_d113(rs_render *rr, int slot)
 {
-    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D113_POPUP_X0, UI_D113_POPUP_Y0, UI_D113_POPUP_W, UI_D113_POPUP_H, 0, uc);
     const ui_d113_btn *bb = ui_d113_buttons();
     for (int i = 0; i < UI_D113_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 307 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 311 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D113_pw[i], hpx = D113_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -8646,14 +8503,13 @@ static const int D114_pw[UI_D114_COUNT] = { 65 };
 static const int D114_ph[UI_D114_COUNT] = { 29 };
 static void rs_draw_d114(rs_render *rr, int slot)
 {
-    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D114_POPUP_X0, UI_D114_POPUP_Y0, UI_D114_POPUP_W, UI_D114_POPUP_H, 0, uc);
     const ui_d114_btn *bb = ui_d114_buttons();
     for (int i = 0; i < UI_D114_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 311 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 315 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D114_pw[i], hpx = D114_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -8678,14 +8534,13 @@ static const int D118_pw[UI_D118_COUNT] = { 76,76 };
 static const int D118_ph[UI_D118_COUNT] = { 38,37 };
 static void rs_draw_d118(rs_render *rr, int slot)
 {
-    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D118_POPUP_X0, UI_D118_POPUP_Y0, UI_D118_POPUP_W, UI_D118_POPUP_H, 0, uc);
     const ui_d118_btn *bb = ui_d118_buttons();
     for (int i = 0; i < UI_D118_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 312 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 316 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D118_pw[i], hpx = D118_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -8710,14 +8565,13 @@ static const int D119_pw[UI_D119_COUNT] = { 76,76 };
 static const int D119_ph[UI_D119_COUNT] = { 37,37 };
 static void rs_draw_d119(rs_render *rr, int slot)
 {
-    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D119_POPUP_X0, UI_D119_POPUP_Y0, UI_D119_POPUP_W, UI_D119_POPUP_H, 0, uc);
     const ui_d119_btn *bb = ui_d119_buttons();
     for (int i = 0; i < UI_D119_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 314 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 318 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D119_pw[i], hpx = D119_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -8742,14 +8596,13 @@ static const int D120_pw[UI_D120_COUNT] = { 152,152,76 };
 static const int D120_ph[UI_D120_COUNT] = { 37,38,37 };
 static void rs_draw_d120(rs_render *rr, int slot)
 {
-    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D120_POPUP_X0, UI_D120_POPUP_Y0, UI_D120_POPUP_W, UI_D120_POPUP_H, 0, uc);
     const ui_d120_btn *bb = ui_d120_buttons();
     for (int i = 0; i < UI_D120_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 316 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 320 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D120_pw[i], hpx = D120_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -8774,14 +8627,13 @@ static const int D121_pw[UI_D121_COUNT] = { 76,76 };
 static const int D121_ph[UI_D121_COUNT] = { 37,37 };
 static void rs_draw_d121(rs_render *rr, int slot)
 {
-    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D121_POPUP_X0, UI_D121_POPUP_Y0, UI_D121_POPUP_W, UI_D121_POPUP_H, 0, uc);
     const ui_d121_btn *bb = ui_d121_buttons();
     for (int i = 0; i < UI_D121_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 319 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 323 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D121_pw[i], hpx = D121_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -8806,14 +8658,13 @@ static const int D122_pw[UI_D122_COUNT] = { 76,76 };
 static const int D122_ph[UI_D122_COUNT] = { 37,37 };
 static void rs_draw_d122(rs_render *rr, int slot)
 {
-    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D122_POPUP_X0, UI_D122_POPUP_Y0, UI_D122_POPUP_W, UI_D122_POPUP_H, 0, uc);
     const ui_d122_btn *bb = ui_d122_buttons();
     for (int i = 0; i < UI_D122_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 321 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 325 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D122_pw[i], hpx = D122_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -8838,14 +8689,13 @@ static const int D123_pw[UI_D123_COUNT] = { 74 };
 static const int D123_ph[UI_D123_COUNT] = { 29 };
 static void rs_draw_d123(rs_render *rr, int slot)
 {
-    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D123_POPUP_X0, UI_D123_POPUP_Y0, UI_D123_POPUP_W, UI_D123_POPUP_H, 0, uc);
     const ui_d123_btn *bb = ui_d123_buttons();
     for (int i = 0; i < UI_D123_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 323 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 327 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D123_pw[i], hpx = D123_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -8870,14 +8720,13 @@ static const int D246_pw[UI_D246_COUNT] = { 95,84 };
 static const int D246_ph[UI_D246_COUNT] = { 28,29 };
 static void rs_draw_d246(rs_render *rr, int slot)
 {
-    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D246_POPUP_X0, UI_D246_POPUP_Y0, UI_D246_POPUP_W, UI_D246_POPUP_H, 0, uc);
     const ui_d246_btn *bb = ui_d246_buttons();
     for (int i = 0; i < UI_D246_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 324 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 328 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D246_pw[i], hpx = D246_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -8902,14 +8751,13 @@ static const int D247_pw[UI_D247_COUNT] = { 84 };
 static const int D247_ph[UI_D247_COUNT] = { 29 };
 static void rs_draw_d247(rs_render *rr, int slot)
 {
-    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D247_POPUP_X0, UI_D247_POPUP_Y0, UI_D247_POPUP_W, UI_D247_POPUP_H, 0, uc);
     const ui_d247_btn *bb = ui_d247_buttons();
     for (int i = 0; i < UI_D247_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 326 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 330 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D247_pw[i], hpx = D247_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -8934,14 +8782,13 @@ static const int D248_pw[UI_D248_COUNT] = { 152,152,76,76 };
 static const int D248_ph[UI_D248_COUNT] = { 37,37,37,37 };
 static void rs_draw_d248(rs_render *rr, int slot)
 {
-    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D248_POPUP_X0, UI_D248_POPUP_Y0, UI_D248_POPUP_W, UI_D248_POPUP_H, 0, uc);
     const ui_d248_btn *bb = ui_d248_buttons();
     for (int i = 0; i < UI_D248_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 327 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 331 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D248_pw[i], hpx = D248_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -8966,14 +8813,13 @@ static const int D249_pw[UI_D249_COUNT] = { 84 };
 static const int D249_ph[UI_D249_COUNT] = { 33 };
 static void rs_draw_d249(rs_render *rr, int slot)
 {
-    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D249_POPUP_X0, UI_D249_POPUP_Y0, UI_D249_POPUP_W, UI_D249_POPUP_H, 0, uc);
     const ui_d249_btn *bb = ui_d249_buttons();
     for (int i = 0; i < UI_D249_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 331 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 335 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D249_pw[i], hpx = D249_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -8998,14 +8844,13 @@ static const int D250_pw[UI_D250_COUNT] = { 95,81 };
 static const int D250_ph[UI_D250_COUNT] = { 28,29 };
 static void rs_draw_d250(rs_render *rr, int slot)
 {
-    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D250_POPUP_X0, UI_D250_POPUP_Y0, UI_D250_POPUP_W, UI_D250_POPUP_H, 0, uc);
     const ui_d250_btn *bb = ui_d250_buttons();
     for (int i = 0; i < UI_D250_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 332 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 336 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D250_pw[i], hpx = D250_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -9030,14 +8875,13 @@ static const int D251_pw[UI_D251_COUNT] = { 76 };
 static const int D251_ph[UI_D251_COUNT] = { 37 };
 static void rs_draw_d251(rs_render *rr, int slot)
 {
-    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D251_POPUP_X0, UI_D251_POPUP_Y0, UI_D251_POPUP_W, UI_D251_POPUP_H, 0, uc);
     const ui_d251_btn *bb = ui_d251_buttons();
     for (int i = 0; i < UI_D251_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 334 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 338 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D251_pw[i], hpx = D251_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -9062,14 +8906,13 @@ static const int D253_pw[UI_D253_COUNT] = { 76 };
 static const int D253_ph[UI_D253_COUNT] = { 37 };
 static void rs_draw_d253(rs_render *rr, int slot)
 {
-    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D253_POPUP_X0, UI_D253_POPUP_Y0, UI_D253_POPUP_W, UI_D253_POPUP_H, 0, uc);
     const ui_d253_btn *bb = ui_d253_buttons();
     for (int i = 0; i < UI_D253_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 335 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 339 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D253_pw[i], hpx = D253_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -9094,14 +8937,13 @@ static const int D255_pw[UI_D255_COUNT] = { 95,81,84 };
 static const int D255_ph[UI_D255_COUNT] = { 28,29,29 };
 static void rs_draw_d255(rs_render *rr, int slot)
 {
-    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D255_POPUP_X0, UI_D255_POPUP_Y0, UI_D255_POPUP_W, UI_D255_POPUP_H, 0, uc);
     const ui_d255_btn *bb = ui_d255_buttons();
     for (int i = 0; i < UI_D255_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 336 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 340 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D255_pw[i], hpx = D255_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -9126,14 +8968,13 @@ static const int D256_pw[UI_D256_COUNT] = { 78,79,95,84 };
 static const int D256_ph[UI_D256_COUNT] = { 28,28,28,29 };
 static void rs_draw_d256(rs_render *rr, int slot)
 {
-    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D256_POPUP_X0, UI_D256_POPUP_Y0, UI_D256_POPUP_W, UI_D256_POPUP_H, 0, uc);
     const ui_d256_btn *bb = ui_d256_buttons();
     for (int i = 0; i < UI_D256_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 339 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 343 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D256_pw[i], hpx = D256_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -9158,14 +8999,13 @@ static const int D257_pw[UI_D257_COUNT] = { 76,76,76,76,76 };
 static const int D257_ph[UI_D257_COUNT] = { 37,38,37,37,37 };
 static void rs_draw_d257(rs_render *rr, int slot)
 {
-    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D257_POPUP_X0, UI_D257_POPUP_Y0, UI_D257_POPUP_W, UI_D257_POPUP_H, 0, uc);
     const ui_d257_btn *bb = ui_d257_buttons();
     for (int i = 0; i < UI_D257_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 343 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 347 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D257_pw[i], hpx = D257_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -9190,14 +9030,13 @@ static const int D258_pw[UI_D258_COUNT] = { 76,76,76,76,76 };
 static const int D258_ph[UI_D258_COUNT] = { 37,37,37,37,37 };
 static void rs_draw_d258(rs_render *rr, int slot)
 {
-    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D258_POPUP_X0, UI_D258_POPUP_Y0, UI_D258_POPUP_W, UI_D258_POPUP_H, 0, uc);
     const ui_d258_btn *bb = ui_d258_buttons();
     for (int i = 0; i < UI_D258_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 348 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 352 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D258_pw[i], hpx = D258_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -9222,14 +9061,13 @@ static const int D259_pw[UI_D259_COUNT] = { 152,152 };
 static const int D259_ph[UI_D259_COUNT] = { 37,37 };
 static void rs_draw_d259(rs_render *rr, int slot)
 {
-    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D259_POPUP_X0, UI_D259_POPUP_Y0, UI_D259_POPUP_W, UI_D259_POPUP_H, 0, uc);
     const ui_d259_btn *bb = ui_d259_buttons();
     for (int i = 0; i < UI_D259_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 353 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 357 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D259_pw[i], hpx = D259_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -9254,14 +9092,13 @@ static const int D260_pw[UI_D260_COUNT] = { 76,76,76,76,76 };
 static const int D260_ph[UI_D260_COUNT] = { 37,37,37,37,37 };
 static void rs_draw_d260(rs_render *rr, int slot)
 {
-    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D260_POPUP_X0, UI_D260_POPUP_Y0, UI_D260_POPUP_W, UI_D260_POPUP_H, 0, uc);
     const ui_d260_btn *bb = ui_d260_buttons();
     for (int i = 0; i < UI_D260_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 355 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 359 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D260_pw[i], hpx = D260_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -9286,14 +9123,13 @@ static const int D261_pw[UI_D261_COUNT] = { 76 };
 static const int D261_ph[UI_D261_COUNT] = { 37 };
 static void rs_draw_d261(rs_render *rr, int slot)
 {
-    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D261_POPUP_X0, UI_D261_POPUP_Y0, UI_D261_POPUP_W, UI_D261_POPUP_H, 0, uc);
     const ui_d261_btn *bb = ui_d261_buttons();
     for (int i = 0; i < UI_D261_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 360 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 364 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D261_pw[i], hpx = D261_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -9318,14 +9154,13 @@ static const int D262_pw[UI_D262_COUNT] = { 76,76,76,76 };
 static const int D262_ph[UI_D262_COUNT] = { 37,37,37,37 };
 static void rs_draw_d262(rs_render *rr, int slot)
 {
-    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D262_POPUP_X0, UI_D262_POPUP_Y0, UI_D262_POPUP_W, UI_D262_POPUP_H, 0, uc);
     const ui_d262_btn *bb = ui_d262_buttons();
     for (int i = 0; i < UI_D262_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 361 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 365 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D262_pw[i], hpx = D262_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -9350,14 +9185,13 @@ static const int D263_pw[UI_D263_COUNT] = { 76,76,76,76,76 };
 static const int D263_ph[UI_D263_COUNT] = { 37,37,37,37,37 };
 static void rs_draw_d263(rs_render *rr, int slot)
 {
-    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D263_POPUP_X0, UI_D263_POPUP_Y0, UI_D263_POPUP_W, UI_D263_POPUP_H, 0, uc);
     const ui_d263_btn *bb = ui_d263_buttons();
     for (int i = 0; i < UI_D263_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 365 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 369 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D263_pw[i], hpx = D263_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -9382,14 +9216,13 @@ static const int D264_pw[UI_D264_COUNT] = { 65 };
 static const int D264_ph[UI_D264_COUNT] = { 29 };
 static void rs_draw_d264(rs_render *rr, int slot)
 {
-    if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D264_POPUP_X0, UI_D264_POPUP_Y0, UI_D264_POPUP_W, UI_D264_POPUP_H, 0, uc);
     const ui_d264_btn *bb = ui_d264_buttons();
     for (int i = 0; i < UI_D264_COUNT; i++) {
         rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
                      0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
-        int gr = 370 + i;   /* 共用图集行号（bake_atlas 顺序） */
+        int gr = 374 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D264_pw[i], hpx = D264_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
             float scale = 30.0f / (float)hpx;   /* 目标字高 30px（720 基准），宽等比 */
@@ -10098,7 +9931,7 @@ static void rs_gl_rebuild(rs_render *rr, int slot)
                      GL_RGBA, GL_UNSIGNED_BYTE, rr->popup_px);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    }    if (rr->dlg_text_px && rr->gl2_ok[slot] && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
+    }    if (rr->dlg_text_px && rr->gl2_ok[slot] && rr->dlg_text_w > 0 && rr->dlg_text_h > 0)     if (rr->dlg_text_px && rr->gl2_ok[slot] && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
         glGenTextures(1, &rr->tex_dlg_text[slot]);
         glBindTexture(GL_TEXTURE_2D, rr->tex_dlg_text[slot]);
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->dlg_text_w, rr->dlg_text_h, 0,
@@ -10107,321 +9940,40 @@ static void rs_gl_rebuild(rs_render *rr, int slot)
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     }
     /* ★ 原版 datax 图标真值图集（16 图标 4×4）纹理上传 */
-    if (rr->imen_orig_px && rr->gl2_ok[slot] && rr->imen_orig_w > 0 && rr->imen_orig_h > 0) {
-        glGenTextures(1, &rr->tex_imen_orig[slot]);
-        glBindTexture(GL_TEXTURE_2D, rr->tex_imen_orig[slot]);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->imen_orig_w, rr->imen_orig_h, 0,
-                     GL_RGBA, GL_UNSIGNED_BYTE, rr->imen_orig_px);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    }
-    /* ★ 原版 UI 位图真值（ch02 N45）：面板 9patch + 彩色按钮 纹理上传 */
-    if (rr->panel_px && rr->gl2_ok[slot] && rr->panel_w > 0 && rr->panel_h > 0) {
-        glGenTextures(1, &rr->tex_panel[slot]);
-        glBindTexture(GL_TEXTURE_2D, rr->tex_panel[slot]);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->panel_w, rr->panel_h, 0,
-                     GL_RGBA, GL_UNSIGNED_BYTE, rr->panel_px);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    }
-    if (rr->panel_btn_px && rr->gl2_ok[slot] && rr->panel_btn_w > 0 && rr->panel_btn_h > 0) {
-        glGenTextures(1, &rr->tex_panel_btn[slot]);
-        glBindTexture(GL_TEXTURE_2D, rr->tex_panel_btn[slot]);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->panel_btn_w, rr->panel_btn_h, 0,
-                     GL_RGBA, GL_UNSIGNED_BYTE, rr->panel_btn_px);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    }
-    if (rr->panel_icon_px && rr->gl2_ok[slot] && rr->panel_icon_w > 0 && rr->panel_icon_h > 0) {
-        glGenTextures(1, &rr->tex_panel_icon[slot]);
-        glBindTexture(GL_TEXTURE_2D, rr->tex_panel_icon[slot]);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->panel_icon_w, rr->panel_icon_h, 0,
-                     GL_RGBA, GL_UNSIGNED_BYTE, rr->panel_icon_px);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    }
-    /* ★ 选项 UI：弹窗文字图集（6 label 竖排 109×258） */
-    if (rr->opt_text_px && rr->gl2_ok[slot] && rr->opt_text_w > 0 && rr->opt_text_h > 0) {
-        glGenTextures(1, &rr->tex_opt_text[slot]);
-        glBindTexture(GL_TEXTURE_2D, rr->tex_opt_text[slot]);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->opt_text_w, rr->opt_text_h, 0,
-                     GL_RGBA, GL_UNSIGNED_BYTE, rr->opt_text_px);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    }
-    /* ★ 对抗审计（datah_072）：方式选择文字图集（4 标签竖排 220×184） */
-    if (rr->waysel_text_px && rr->gl2_ok[slot] && rr->waysel_text_w > 0 && rr->waysel_text_h > 0) {
-        glGenTextures(1, &rr->tex_waysel_text[slot]);
-        glBindTexture(GL_TEXTURE_2D, rr->tex_waysel_text[slot]);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->waysel_text_w, rr->waysel_text_h, 0,
-                     GL_RGBA, GL_UNSIGNED_BYTE, rr->waysel_text_px);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    }
-    /* ★ 对抗审计（datah_067）：联机 ☰ 菜单文字图集（8 项竖排 160×320） */
-    if (rr->btimen_text_px && rr->gl2_ok[slot] && rr->btimen_text_w > 0 && rr->btimen_text_h > 0) {
-        glGenTextures(1, &rr->tex_btimen_text[slot]);
-        glBindTexture(GL_TEXTURE_2D, rr->tex_btimen_text[slot]);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->btimen_text_w, rr->btimen_text_h, 0,
-                     GL_RGBA, GL_UNSIGNED_BYTE, rr->btimen_text_px);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    }
-    /* ★ 对抗审计（datah_001）：声音设置文字图集（10 标签竖排 200×460） */
-    if (rr->settings_text_px && rr->gl2_ok[slot] && rr->settings_text_w > 0 && rr->settings_text_h > 0) {
-        glGenTextures(1, &rr->tex_settings_text[slot]);
-        glBindTexture(GL_TEXTURE_2D, rr->tex_settings_text[slot]);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->settings_text_w, rr->settings_text_h, 0,
-                     GL_RGBA, GL_UNSIGNED_BYTE, rr->settings_text_px);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    }
-    /* ★ 2026-11-10 用户"游戏设置UI没有对齐"：datah_001 标题+标签图集（4 行 220×160） */
-    if (rr->sound_text_px && rr->gl2_ok[slot] && rr->sound_text_w > 0 && rr->sound_text_h > 0) {
-        glGenTextures(1, &rr->tex_sound_text[slot]);
-        glBindTexture(GL_TEXTURE_2D, rr->tex_sound_text[slot]);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->sound_text_w, rr->sound_text_h, 0,
-                     GL_RGBA, GL_UNSIGNED_BYTE, rr->sound_text_px);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    }
-    /* ★ P0（datah_089）：四国人数选择文字图集（3 标签竖排 220×138） */
-    if (rr->nplayer_text_px && rr->gl2_ok[slot] && rr->nplayer_text_w > 0 && rr->nplayer_text_h > 0) {
-        glGenTextures(1, &rr->tex_nplayer_text[slot]);
-        glBindTexture(GL_TEXTURE_2D, rr->tex_nplayer_text[slot]);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->nplayer_text_w, rr->nplayer_text_h, 0,
-                     GL_RGBA, GL_UNSIGNED_BYTE, rr->nplayer_text_px);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    }
-    /* ★ P0（datah_062）：两人新局文字图集（6 标签竖排 220×276） */
-    if (rr->newgame_text_px && rr->gl2_ok[slot] && rr->newgame_text_w > 0 && rr->newgame_text_h > 0) {
-        glGenTextures(1, &rr->tex_newgame_text[slot]);
-        glBindTexture(GL_TEXTURE_2D, rr->tex_newgame_text[slot]);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->newgame_text_w, rr->newgame_text_h, 0,
-                     GL_RGBA, GL_UNSIGNED_BYTE, rr->newgame_text_px);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    }
-    /* ★ P1（datah_012）：游戏设置文字图集（8 标签竖排 220×368） */
-    if (rr->gameset_text_px && rr->gl2_ok[slot] && rr->gameset_text_w > 0 && rr->gameset_text_h > 0) {
-        glGenTextures(1, &rr->tex_gameset_text[slot]);
-        glBindTexture(GL_TEXTURE_2D, rr->tex_gameset_text[slot]);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->gameset_text_w, rr->gameset_text_h, 0,
-                     GL_RGBA, GL_UNSIGNED_BYTE, rr->gameset_text_px);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    }
-    /* ★ P1（datah_016/017/020）：布局存档文字图集（9 标签竖排 220×414） */
-    if (rr->layres_text_px && rr->gl2_ok[slot] && rr->layres_text_w > 0 && rr->layres_text_h > 0) {
-        glGenTextures(1, &rr->tex_layres_text[slot]);
-        glBindTexture(GL_TEXTURE_2D, rr->tex_layres_text[slot]);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->layres_text_w, rr->layres_text_h, 0,
-                     GL_RGBA, GL_UNSIGNED_BYTE, rr->layres_text_px);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    }
-    /* ★ P1（datah_039/107）：复盘文字图集（8 标签竖排 220×368） */
-    if (rr->replay_text_px && rr->gl2_ok[slot] && rr->replay_text_w > 0 && rr->replay_text_h > 0) {
-        glGenTextures(1, &rr->tex_replay_text[slot]);
-        glBindTexture(GL_TEXTURE_2D, rr->tex_replay_text[slot]);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->replay_text_w, rr->replay_text_h, 0,
-                     GL_RGBA, GL_UNSIGNED_BYTE, rr->replay_text_px);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    }
-    /* ★ P1（datah_038）：登录文字图集（8 标签竖排 220×368） */
-    if (rr->login_text_px && rr->gl2_ok[slot] && rr->login_text_w > 0 && rr->login_text_h > 0) {
-        glGenTextures(1, &rr->tex_login_text[slot]);
-        glBindTexture(GL_TEXTURE_2D, rr->tex_login_text[slot]);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->login_text_w, rr->login_text_h, 0,
-                     GL_RGBA, GL_UNSIGNED_BYTE, rr->login_text_px);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    }
-    /* ★ P2（datah_037）：规则文本文字图集（8 标签竖排 220×368） */
-    if (rr->rules_text_px && rr->gl2_ok[slot] && rr->rules_text_w > 0 && rr->rules_text_h > 0) {
-        glGenTextures(1, &rr->tex_rules_text[slot]);
-        glBindTexture(GL_TEXTURE_2D, rr->tex_rules_text[slot]);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->rules_text_w, rr->rules_text_h, 0,
-                     GL_RGBA, GL_UNSIGNED_BYTE, rr->rules_text_px);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    }
-    /* ★ P2（datah_104）：新局完整版文字图集（10 标签竖排 220×460） */
-    if (rr->ng104_text_px && rr->gl2_ok[slot] && rr->ng104_text_w > 0 && rr->ng104_text_h > 0) {
-        glGenTextures(1, &rr->tex_ng104_text[slot]);
-        glBindTexture(GL_TEXTURE_2D, rr->tex_ng104_text[slot]);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->ng104_text_w, rr->ng104_text_h, 0,
-                     GL_RGBA, GL_UNSIGNED_BYTE, rr->ng104_text_px);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    }
-    /* ★ P2（datah_034/035）：加入/创建游戏文字图集（10 标签竖排 220×460） */
-    if (rr->join_text_px && rr->gl2_ok[slot] && rr->join_text_w > 0 && rr->join_text_h > 0) {
-        glGenTextures(1, &rr->tex_join_text[slot]);
-        glBindTexture(GL_TEXTURE_2D, rr->tex_join_text[slot]);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->join_text_w, rr->join_text_h, 0,
-                     GL_RGBA, GL_UNSIGNED_BYTE, rr->join_text_px);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    }
-    /* ★ P2（datah_061）：新局完整版（完整版补充）文字图集（10 标签竖排 220×460） */
-    if (rr->ng061_text_px && rr->gl2_ok[slot] && rr->ng061_text_w > 0 && rr->ng061_text_h > 0) {
-        glGenTextures(1, &rr->tex_ng061_text[slot]);
-        glBindTexture(GL_TEXTURE_2D, rr->tex_ng061_text[slot]);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->ng061_text_w, rr->ng061_text_h, 0,
-                     GL_RGBA, GL_UNSIGNED_BYTE, rr->ng061_text_px);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    }
-    /* ★ P2（datah_050）：对局信息文字图集（8 标签竖排 220×368） */
-    if (rr->gameinfo_text_px && rr->gl2_ok[slot] && rr->gameinfo_text_w > 0 && rr->gameinfo_text_h > 0) {
-        glGenTextures(1, &rr->tex_gameinfo_text[slot]);
-        glBindTexture(GL_TEXTURE_2D, rr->tex_gameinfo_text[slot]);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->gameinfo_text_w, rr->gameinfo_text_h, 0,
-                     GL_RGBA, GL_UNSIGNED_BYTE, rr->gameinfo_text_px);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    }
-    /* ★ P2（datah_002）：亮度调节文字图集（10 标签竖排 220×460） */
-    if (rr->bright_text_px && rr->gl2_ok[slot] && rr->bright_text_w > 0 && rr->bright_text_h > 0) {
-        glGenTextures(1, &rr->tex_bright_text[slot]);
-        glBindTexture(GL_TEXTURE_2D, rr->tex_bright_text[slot]);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->bright_text_w, rr->bright_text_h, 0,
-                     GL_RGBA, GL_UNSIGNED_BYTE, rr->bright_text_px);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    }
-    /* ★ P2（datah_029）：聊天记录文字图集（8 标签竖排 220×368） */
-    if (rr->chatlog_text_px && rr->gl2_ok[slot] && rr->chatlog_text_w > 0 && rr->chatlog_text_h > 0) {
-        glGenTextures(1, &rr->tex_chatlog_text[slot]);
-        glBindTexture(GL_TEXTURE_2D, rr->tex_chatlog_text[slot]);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->chatlog_text_w, rr->chatlog_text_h, 0,
-                     GL_RGBA, GL_UNSIGNED_BYTE, rr->chatlog_text_px);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    }
-    /* ★ P2（datah_031）：个人资料文字图集（10 标签竖排 220×460） */
-    if (rr->profile_text_px && rr->gl2_ok[slot] && rr->profile_text_w > 0 && rr->profile_text_h > 0) {
-        glGenTextures(1, &rr->tex_profile_text[slot]);
-        glBindTexture(GL_TEXTURE_2D, rr->tex_profile_text[slot]);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->profile_text_w, rr->profile_text_h, 0,
-                     GL_RGBA, GL_UNSIGNED_BYTE, rr->profile_text_px);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    }
-    /* ★ P2（datah_042）：提和详情文字图集（7 标签竖排 220×322） */
-    if (rr->drawdetail_text_px && rr->gl2_ok[slot] && rr->drawdetail_text_w > 0 && rr->drawdetail_text_h > 0) {
-        glGenTextures(1, &rr->tex_drawdetail_text[slot]);
-        glBindTexture(GL_TEXTURE_2D, rr->tex_drawdetail_text[slot]);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->drawdetail_text_w, rr->drawdetail_text_h, 0,
-                     GL_RGBA, GL_UNSIGNED_BYTE, rr->drawdetail_text_px);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    }
-    /* ★ P2（datah_003/004）：设置入口文字图集（7 标签竖排 220×322） */
-    if (rr->setentry_text_px && rr->gl2_ok[slot] && rr->setentry_text_w > 0 && rr->setentry_text_h > 0) {
-        glGenTextures(1, &rr->tex_setentry_text[slot]);
-        glBindTexture(GL_TEXTURE_2D, rr->tex_setentry_text[slot]);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->setentry_text_w, rr->setentry_text_h, 0,
-                     GL_RGBA, GL_UNSIGNED_BYTE, rr->setentry_text_px);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    }
-    /* ★ P2（datah_007/008）：图像设置文字图集（10 标签竖排 220×460） */
-    if (rr->imgset_text_px && rr->gl2_ok[slot] && rr->imgset_text_w > 0 && rr->imgset_text_h > 0) {
-        glGenTextures(1, &rr->tex_imgset_text[slot]);
-        glBindTexture(GL_TEXTURE_2D, rr->tex_imgset_text[slot]);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->imgset_text_w, rr->imgset_text_h, 0,
-                     GL_RGBA, GL_UNSIGNED_BYTE, rr->imgset_text_px);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    }
-    /* ★ P2（datah_065 原版 XML 对齐）：加入游戏完整版文字图集（19 标签竖排 220×874，8 行配置×2列+标题+开始/取消） */
-    if (rr->join065_text_px && rr->gl2_ok[slot] && rr->join065_text_w > 0 && rr->join065_text_h > 0) {
-        glGenTextures(1, &rr->tex_join065_text[slot]);
-        glBindTexture(GL_TEXTURE_2D, rr->tex_join065_text[slot]);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->join065_text_w, rr->join065_text_h, 0,
-                     GL_RGBA, GL_UNSIGNED_BYTE, rr->join065_text_px);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    }
-    /* ★ P2（datah_069）：创建游戏完整版文字图集（10 标签竖排 220×460） */
-    if (rr->create069_text_px && rr->gl2_ok[slot] && rr->create069_text_w > 0 && rr->create069_text_h > 0) {
-        glGenTextures(1, &rr->tex_create069_text[slot]);
-        glBindTexture(GL_TEXTURE_2D, rr->tex_create069_text[slot]);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->create069_text_w, rr->create069_text_h, 0,
-                     GL_RGBA, GL_UNSIGNED_BYTE, rr->create069_text_px);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    }
-    /* ★ P2（datah_070）：游戏规则完整版文字图集（10 标签竖排 220×460） */
-    if (rr->rules070_text_px && rr->gl2_ok[slot] && rr->rules070_text_w > 0 && rr->rules070_text_h > 0) {
-        glGenTextures(1, &rr->tex_rules070_text[slot]);
-        glBindTexture(GL_TEXTURE_2D, rr->tex_rules070_text[slot]);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->rules070_text_w, rr->rules070_text_h, 0,
-                     GL_RGBA, GL_UNSIGNED_BYTE, rr->rules070_text_px);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    }
-    /* ★ P2（datah_060 原版 XML 对齐）：房间态文字图集（12 标签竖排 220×552，2玩家×4字段+标题+3按钮） */
-    if (rr->room060_text_px && rr->gl2_ok[slot] && rr->room060_text_w > 0 && rr->room060_text_h > 0) {
-        glGenTextures(1, &rr->tex_room060_text[slot]);
-        glBindTexture(GL_TEXTURE_2D, rr->tex_room060_text[slot]);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->room060_text_w, rr->room060_text_h, 0,
-                     GL_RGBA, GL_UNSIGNED_BYTE, rr->room060_text_px);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    }
-    /* ★ P2（datah_063 原版 XML 对齐）：聊天完整版文字图集（5 标签竖排 220×230，聊天/记录说明/发送/记录/关闭） */
-    if (rr->chat063_text_px && rr->gl2_ok[slot] && rr->chat063_text_w > 0 && rr->chat063_text_h > 0) {
-        glGenTextures(1, &rr->tex_chat063_text[slot]);
-        glBindTexture(GL_TEXTURE_2D, rr->tex_chat063_text[slot]);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->chat063_text_w, rr->chat063_text_h, 0,
-                     GL_RGBA, GL_UNSIGNED_BYTE, rr->chat063_text_px);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    }
-    /* ★ P2（datah_000）：软件信息文字图集（7 标签竖排 220×322） */
-    if (rr->about_text_px && rr->gl2_ok[slot] && rr->about_text_w > 0 && rr->about_text_h > 0) {
-        glGenTextures(1, &rr->tex_about_text[slot]);
-        glBindTexture(GL_TEXTURE_2D, rr->tex_about_text[slot]);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->about_text_w, rr->about_text_h, 0,
-                     GL_RGBA, GL_UNSIGNED_BYTE, rr->about_text_px);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    }
-    /* ★ 2026-11-10（datah_025）：ExitConfirm 文字图集（3 标签竖排 220×138） */
-    if (rr->exit_text_px && rr->gl2_ok[slot] && rr->exit_text_w > 0 && rr->exit_text_h > 0) {
-        glGenTextures(1, &rr->tex_exit_text[slot]);
-        glBindTexture(GL_TEXTURE_2D, rr->tex_exit_text[slot]);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->exit_text_w, rr->exit_text_h, 0,
-                     GL_RGBA, GL_UNSIGNED_BYTE, rr->exit_text_px);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    }
-    /* ★ SPAK2UI 批量（12 弹窗）：战况统计/玩家/对局/对战方式/创建游戏/版本更新 共用
+    if (rr->imen_orig_px && rr->gl2_ok[slot] && rr->imen_orig_w > 0 && rr->imen_orig_h > 0)     /* ★ 原版 UI 位图真值（ch02 N45）：面板 9patch + 彩色按钮 纹理上传 */
+    if (rr->panel_px && rr->gl2_ok[slot] && rr->panel_w > 0 && rr->panel_h > 0)     if (rr->panel_btn_px && rr->gl2_ok[slot] && rr->panel_btn_w > 0 && rr->panel_btn_h > 0)     if (rr->panel_icon_px && rr->gl2_ok[slot] && rr->panel_icon_w > 0 && rr->panel_icon_h > 0)     /* ★ 选项 UI：弹窗文字图集（6 label 竖排 109×258） */
+    if (rr->opt_text_px && rr->gl2_ok[slot] && rr->opt_text_w > 0 && rr->opt_text_h > 0)     /* ★ 对抗审计（datah_072）：方式选择文字图集（4 标签竖排 220×184） */
+    if (rr->waysel_text_px && rr->gl2_ok[slot] && rr->waysel_text_w > 0 && rr->waysel_text_h > 0)     /* ★ 对抗审计（datah_067）：联机 ☰ 菜单文字图集（8 项竖排 160×320） */
+    if (rr->btimen_text_px && rr->gl2_ok[slot] && rr->btimen_text_w > 0 && rr->btimen_text_h > 0)     /* ★ 对抗审计（datah_001）：声音设置文字图集（10 标签竖排 200×460） */
+    if (rr->settings_text_px && rr->gl2_ok[slot] && rr->settings_text_w > 0 && rr->settings_text_h > 0)     /* ★ 2026-11-10 用户"游戏设置UI没有对齐"：datah_001 标题+标签图集（4 行 220×160） */
+    if (rr->sound_text_px && rr->gl2_ok[slot] && rr->sound_text_w > 0 && rr->sound_text_h > 0)     /* ★ P0（datah_089）：四国人数选择文字图集（3 标签竖排 220×138） */
+    if (rr->nplayer_text_px && rr->gl2_ok[slot] && rr->nplayer_text_w > 0 && rr->nplayer_text_h > 0)     /* ★ P0（datah_062）：两人新局文字图集（6 标签竖排 220×276） */
+    if (rr->newgame_text_px && rr->gl2_ok[slot] && rr->newgame_text_w > 0 && rr->newgame_text_h > 0)     /* ★ P1（datah_012）：游戏设置文字图集（8 标签竖排 220×368） */
+    if (rr->gameset_text_px && rr->gl2_ok[slot] && rr->gameset_text_w > 0 && rr->gameset_text_h > 0)     /* ★ P1（datah_016/017/020）：布局存档文字图集（9 标签竖排 220×414） */
+    if (rr->layres_text_px && rr->gl2_ok[slot] && rr->layres_text_w > 0 && rr->layres_text_h > 0)     /* ★ P1（datah_039/107）：复盘文字图集（8 标签竖排 220×368） */
+    if (rr->replay_text_px && rr->gl2_ok[slot] && rr->replay_text_w > 0 && rr->replay_text_h > 0)     /* ★ P1（datah_038）：登录文字图集（8 标签竖排 220×368） */
+    if (rr->login_text_px && rr->gl2_ok[slot] && rr->login_text_w > 0 && rr->login_text_h > 0)     /* ★ P2（datah_037）：规则文本文字图集（8 标签竖排 220×368） */
+    if (rr->rules_text_px && rr->gl2_ok[slot] && rr->rules_text_w > 0 && rr->rules_text_h > 0)     /* ★ P2（datah_104）：新局完整版文字图集（10 标签竖排 220×460） */
+    if (rr->ng104_text_px && rr->gl2_ok[slot] && rr->ng104_text_w > 0 && rr->ng104_text_h > 0)     /* ★ P2（datah_034/035）：加入/创建游戏文字图集（10 标签竖排 220×460） */
+    if (rr->join_text_px && rr->gl2_ok[slot] && rr->join_text_w > 0 && rr->join_text_h > 0)     /* ★ P2（datah_061）：新局完整版（完整版补充）文字图集（10 标签竖排 220×460） */
+    if (rr->ng061_text_px && rr->gl2_ok[slot] && rr->ng061_text_w > 0 && rr->ng061_text_h > 0)     /* ★ P2（datah_050）：对局信息文字图集（8 标签竖排 220×368） */
+    if (rr->gameinfo_text_px && rr->gl2_ok[slot] && rr->gameinfo_text_w > 0 && rr->gameinfo_text_h > 0)     /* ★ P2（datah_002）：亮度调节文字图集（10 标签竖排 220×460） */
+    if (rr->bright_text_px && rr->gl2_ok[slot] && rr->bright_text_w > 0 && rr->bright_text_h > 0)     /* ★ P2（datah_029）：聊天记录文字图集（8 标签竖排 220×368） */
+    if (rr->chatlog_text_px && rr->gl2_ok[slot] && rr->chatlog_text_w > 0 && rr->chatlog_text_h > 0)     /* ★ P2（datah_031）：个人资料文字图集（10 标签竖排 220×460） */
+    if (rr->profile_text_px && rr->gl2_ok[slot] && rr->profile_text_w > 0 && rr->profile_text_h > 0)     /* ★ P2（datah_042）：提和详情文字图集（7 标签竖排 220×322） */
+    if (rr->drawdetail_text_px && rr->gl2_ok[slot] && rr->drawdetail_text_w > 0 && rr->drawdetail_text_h > 0)     /* ★ P2（datah_003/004）：设置入口文字图集（7 标签竖排 220×322） */
+    if (rr->setentry_text_px && rr->gl2_ok[slot] && rr->setentry_text_w > 0 && rr->setentry_text_h > 0)     /* ★ P2（datah_007/008）：图像设置文字图集（10 标签竖排 220×460） */
+    if (rr->imgset_text_px && rr->gl2_ok[slot] && rr->imgset_text_w > 0 && rr->imgset_text_h > 0)     /* ★ P2（datah_065 原版 XML 对齐）：加入游戏完整版文字图集（19 标签竖排 220×874，8 行配置×2列+标题+开始/取消） */
+    if (rr->join065_text_px && rr->gl2_ok[slot] && rr->join065_text_w > 0 && rr->join065_text_h > 0)     /* ★ P2（datah_069）：创建游戏完整版文字图集（10 标签竖排 220×460） */
+    if (rr->create069_text_px && rr->gl2_ok[slot] && rr->create069_text_w > 0 && rr->create069_text_h > 0)     /* ★ P2（datah_070）：游戏规则完整版文字图集（10 标签竖排 220×460） */
+    if (rr->rules070_text_px && rr->gl2_ok[slot] && rr->rules070_text_w > 0 && rr->rules070_text_h > 0)     /* ★ P2（datah_060 原版 XML 对齐）：房间态文字图集（12 标签竖排 220×552，2玩家×4字段+标题+3按钮） */
+    if (rr->room060_text_px && rr->gl2_ok[slot] && rr->room060_text_w > 0 && rr->room060_text_h > 0)     /* ★ P2（datah_063 原版 XML 对齐）：聊天完整版文字图集（5 标签竖排 220×230，聊天/记录说明/发送/记录/关闭） */
+    if (rr->chat063_text_px && rr->gl2_ok[slot] && rr->chat063_text_w > 0 && rr->chat063_text_h > 0)     /* ★ P2（datah_000）：软件信息文字图集（7 标签竖排 220×322） */
+    if (rr->about_text_px && rr->gl2_ok[slot] && rr->about_text_w > 0 && rr->about_text_h > 0)     /* ★ 2026-11-10（datah_025）：ExitConfirm 文字图集（3 标签竖排 220×138） */
+    if (rr->exit_text_px && rr->gl2_ok[slot] && rr->exit_text_w > 0 && rr->exit_text_h > 0)     /* ★ SPAK2UI 批量（12 弹窗）：战况统计/玩家/对局/对战方式/创建游戏/版本更新 共用
        文字图集（14 标签竖排 220×644） */
-    if (rr->uibat_text_px && rr->gl2_ok[slot] && rr->uibat_text_w > 0 && rr->uibat_text_h > 0) {
-        glGenTextures(1, &rr->tex_uibat_text[slot]);
-        glBindTexture(GL_TEXTURE_2D, rr->tex_uibat_text[slot]);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->uibat_text_w, rr->uibat_text_h, 0,
-                     GL_RGBA, GL_UNSIGNED_BYTE, rr->uibat_text_px);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    }
-    /* 棋盘 VBO */
-    {
-        float w = (float)rr->view_w, h = (float)rr->view_h;
-        rs_v4f board[6] = {
-            {0, 0, BOARD_UV_X0, 0},  {w, 0, BOARD_UV_X1, 0},
-            {0, h, BOARD_UV_X0, 1},  {0, h, BOARD_UV_X0, 1},
-            {w, 0, BOARD_UV_X1, 0},  {w, h, BOARD_UV_X1, 1},
-        };
-        rs_make_vbo(&rr->vbo_board[slot], board, 6);
-    }
-    /* ★ 资源使用（apk 对齐）：纹理上传数统计（MISS>0 → 诊断哪张资源缺失走纯色退化）。
+    if (rr->uibat_text_px && rr->gl2_ok[slot] && rr->uibat_text_w > 0 && rr->uibat_text_h > 0)     /* 棋盘 VBO */
+        /* ★ 资源使用（apk 对齐）：纹理上传数统计（MISS>0 → 诊断哪张资源缺失走纯色退化）。
        统计 = 实际 glTexImage2D 成功的槽位 / 应上传的槽位总数。
        ★ 对抗审计 P1（批4 P0-R3）：原 slots_up 只列 16 槽，rs_gl_rebuild 实际
        glTexImage2D 52+ 槽（27 张对话框文字图集 + 4 张按钮/图标 + 16 基础）→
@@ -11023,6 +10575,8 @@ void rs_render_frame(rs_render *rr)
             rs_draw_d073(rr, slot);
         } else if (ui_screen_get() == UI_D075) {
             rs_draw_d075(rr, slot);
+        } else if (ui_screen_get() == UI_D076) {
+            rs_draw_d076(rr, slot);
         } else if (ui_screen_get() == UI_D077) {
             rs_draw_d077(rr, slot);
         } else if (ui_screen_get() == UI_D078) {
@@ -11071,6 +10625,8 @@ void rs_render_frame(rs_render *rr)
             rs_draw_d109(rr, slot);
         } else if (ui_screen_get() == UI_D110) {
             rs_draw_d110(rr, slot);
+        } else if (ui_screen_get() == UI_D111) {
+            rs_draw_d111(rr, slot);
         } else if (ui_screen_get() == UI_D112) {
             rs_draw_d112(rr, slot);
         } else if (ui_screen_get() == UI_D113) {

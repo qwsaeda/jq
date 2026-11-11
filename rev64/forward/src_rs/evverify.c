@@ -2377,15 +2377,6 @@ static int run_ui90(void);
 static int run_ui100(void);
 static int run_ui110(void);
 static int run_ui118(void);
-
-/* ★ AUD-A2 F-naming：桌面事件验证入口（run_exitconfirm/run_resignconfirm/run_regretconfirm +
- *    run_d000..run_d264，共 121 个）static 化（模块内非公开 API），前向声明 */
-static int run_about(void);
-static int run_bright(void);
-static int run_chat063(void);
-static int run_chatlog(void);
-static int run_create(void);
-static int run_create069(void);
 static int run_d000(void);
 static int run_d001(void);
 static int run_d002(void);
@@ -2454,6 +2445,7 @@ static int run_d071(void);
 static int run_d072(void);
 static int run_d073(void);
 static int run_d075(void);
+static int run_d076(void);
 static int run_d077(void);
 static int run_d078(void);
 static int run_d079(void);
@@ -2478,6 +2470,7 @@ static int run_d107(void);
 static int run_d108(void);
 static int run_d109(void);
 static int run_d110(void);
+static int run_d111(void);
 static int run_d112(void);
 static int run_d113(void);
 static int run_d114(void);
@@ -2504,6 +2497,15 @@ static int run_d261(void);
 static int run_d262(void);
 static int run_d263(void);
 static int run_d264(void);
+
+/* ★ AUD-A2 F-naming：桌面事件验证入口（run_exitconfirm/run_resignconfirm/run_regretconfirm +
+ *    run_d000..run_d264，共 121 个）static 化（模块内非公开 API），前向声明 */
+static int run_about(void);
+static int run_bright(void);
+static int run_chat063(void);
+static int run_chatlog(void);
+static int run_create(void);
+static int run_create069(void);
 static int run_dark(void);
 static int run_draw_resign(void);
 static int run_drawdetail(void);
@@ -2693,6 +2695,12 @@ int main(int argc, char **argv)
         ev_total++; ev_pass += run_exitconfirm();
         ev_total++; ev_pass += run_resignconfirm();
         ev_total++; ev_pass += run_regretconfirm();
+
+        ev_total++; ev_pass += run_rail_dir_and_side_guard();
+        /* ★ AUD-1000 B08-019/B08-047：关键弹窗业务分支（代表 3/120）+ 断言构成统计 */
+        ev_total++; ev_pass += run_popup_actions();
+        /* ★ B08-047：事件副作用断言（MOVE/FLAG/MINE 棋盘 rank 副作用，盲区补齐） */
+        ev_total++; ev_pass += run_event_side_effects();
         geo_total++; geo_pass += run_d000();
         geo_total++; geo_pass += run_d001();
         geo_total++; geo_pass += run_d002();
@@ -2761,6 +2769,7 @@ int main(int argc, char **argv)
         geo_total++; geo_pass += run_d072();
         geo_total++; geo_pass += run_d073();
         geo_total++; geo_pass += run_d075();
+        geo_total++; geo_pass += run_d076();
         geo_total++; geo_pass += run_d077();
         geo_total++; geo_pass += run_d078();
         geo_total++; geo_pass += run_d079();
@@ -2785,6 +2794,7 @@ int main(int argc, char **argv)
         geo_total++; geo_pass += run_d108();
         geo_total++; geo_pass += run_d109();
         geo_total++; geo_pass += run_d110();
+        geo_total++; geo_pass += run_d111();
         geo_total++; geo_pass += run_d112();
         geo_total++; geo_pass += run_d113();
         geo_total++; geo_pass += run_d114();
@@ -2794,12 +2804,6 @@ int main(int argc, char **argv)
         geo_total++; geo_pass += run_d121();
         geo_total++; geo_pass += run_d122();
         geo_total++; geo_pass += run_d123();
-
-        ev_total++; ev_pass += run_rail_dir_and_side_guard();
-        /* ★ AUD-1000 B08-019/B08-047：关键弹窗业务分支（代表 3/120）+ 断言构成统计 */
-        ev_total++; ev_pass += run_popup_actions();
-        /* ★ B08-047：事件副作用断言（MOVE/FLAG/MINE 棋盘 rank 副作用，盲区补齐） */
-        ev_total++; ev_pass += run_event_side_effects();
         geo_total++; geo_pass += run_d246();
         geo_total++; geo_pass += run_d247();
         geo_total++; geo_pass += run_d248();
@@ -3652,14 +3656,14 @@ static int run_d000(void)
            ok ? "PASS" : "FAIL");
     return ok;
 }
-/* ★ 批量对齐（datah_001）：4 按钮几何 Δ=0 + 命中判定 */
+/* ★ 批量对齐（datah_001）：5 按钮几何 Δ=0 + 命中判定 */
 static int run_d001(void)
 {
     const ui_d001_btn *b = ui_d001_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
     { "Sound", 355, 520, 555, 580 },
     { "BtnSound", 355, 595, 555, 655 },
-    { "音量滑条", 255, 677, 562, 725 },
+    { "Volume", 255, 677, 562, 725 },
     { "确定", 165, 750, 345, 810 },
     { "取消", 375, 750, 555, 810 },
     };
@@ -3680,12 +3684,12 @@ static int run_d001(void)
            ok ? "PASS" : "FAIL");
     return ok;
 }
-/* ★ 批量对齐（datah_002）：2 按钮几何 Δ=0 + 命中判定 */
+/* ★ 批量对齐（datah_002）：3 按钮几何 Δ=0 + 命中判定 */
 static int run_d002(void)
 {
     const ui_d002_btn *b = ui_d002_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
-    { "亮度滑条", 152, 601, 568, 649 },
+    { "Bright", 152, 601, 568, 649 },
     { "确定", 160, 675, 345, 735 },
     { "取消", 375, 675, 560, 735 },
     };
@@ -4189,7 +4193,7 @@ static int run_d025(void)
 {
     const ui_d025_btn *b = ui_d025_buttons();
     static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
-    { "确定", 165, 665, 345, 725 },
+    { "确定", 270, 665, 450, 725 },
     };
     int n = UI_D025_COUNT, ok = 1;
     for (int i = 0; i < n; i++) {
@@ -5407,6 +5411,30 @@ static int run_d075(void)
            ok ? "PASS" : "FAIL");
     return ok;
 }
+/* ★ 批量对齐（datah_076）：1 按钮几何 Δ=0 + 命中判定 */
+static int run_d076(void)
+{
+    const ui_d076_btn *b = ui_d076_buttons();
+    static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
+    { "Move", 205, 616, 575, 664 },
+    };
+    int n = UI_D076_COUNT, ok = 1;
+    for (int i = 0; i < n; i++) {
+        if (b[i].x0 != exp[i].x0 || b[i].y0 != exp[i].y0 ||
+            b[i].x1 != exp[i].x1 || b[i].y1 != exp[i].y1) {
+            ok = 0;
+            printf("  %s btn%d 几何不符 src(%.0f,%.0f)-(%.0f,%.0f) 期望(%d,%d)-(%d,%d)\n",
+                   exp[i].lbl, i, b[i].x0, b[i].y0, b[i].x1, b[i].y1,
+                   exp[i].x0, exp[i].y0, exp[i].x1, exp[i].y1);
+        }
+        float cx = (b[i].x0 + b[i].x1) * 0.5f, cy = (b[i].y0 + b[i].y1) * 0.5f;
+        int hit = ui_d076_hit(b, n, cx, cy);
+        ok &= (hit == i);
+    }
+    printf("datah_076（460×88 居中）：1 按钮几何 Δ=0 + 命中判定%s\n",
+           ok ? "PASS" : "FAIL");
+    return ok;
+}
 /* ★ 批量对齐（datah_077）：6 按钮几何 Δ=0 + 命中判定 */
 static int run_d077(void)
 {
@@ -6044,6 +6072,30 @@ static int run_d110(void)
         ok &= (hit == i);
     }
     printf("datah_110（450×610 居中）：2 按钮几何 Δ=0 + 命中判定%s\n",
+           ok ? "PASS" : "FAIL");
+    return ok;
+}
+/* ★ 批量对齐（datah_111）：1 按钮几何 Δ=0 + 命中判定 */
+static int run_d111(void)
+{
+    const ui_d111_btn *b = ui_d111_buttons();
+    static const struct { const char *lbl; int x0,y0,x1,y1; } exp[] = {
+    { "Move", 85, 655, 455, 703 },
+    };
+    int n = UI_D111_COUNT, ok = 1;
+    for (int i = 0; i < n; i++) {
+        if (b[i].x0 != exp[i].x0 || b[i].y0 != exp[i].y0 ||
+            b[i].x1 != exp[i].x1 || b[i].y1 != exp[i].y1) {
+            ok = 0;
+            printf("  %s btn%d 几何不符 src(%.0f,%.0f)-(%.0f,%.0f) 期望(%d,%d)-(%d,%d)\n",
+                   exp[i].lbl, i, b[i].x0, b[i].y0, b[i].x1, b[i].y1,
+                   exp[i].x0, exp[i].y0, exp[i].x1, exp[i].y1);
+        }
+        float cx = (b[i].x0 + b[i].x1) * 0.5f, cy = (b[i].y0 + b[i].y1) * 0.5f;
+        int hit = ui_d111_hit(b, n, cx, cy);
+        ok &= (hit == i);
+    }
+    printf("datah_111（460×88 固定）：1 按钮几何 Δ=0 + 命中判定%s\n",
            ok ? "PASS" : "FAIL");
     return ok;
 }

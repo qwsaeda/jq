@@ -1462,20 +1462,20 @@ static const ui_d000_btn g_d000_btns[UI_D000_COUNT] = {
 const ui_d000_btn *ui_d000_buttons(void) { return g_d000_btns; }
 int ui_d000_hit(const ui_d000_btn *b, int n, float x, float y)
 { for (int i = 0; i < n; i++) if (x>=b[i].x0 && x<=b[i].x1 && y>=b[i].y0 && y<=b[i].y1) return i; return -1; }
-/* ★ 批量对齐（datah_001）：4 按钮（720 基准，局部 1:1 平移） */
+/* ★ 批量对齐（datah_001）：5 按钮（720 基准，局部 1:1 平移） */
 static const ui_d001_btn g_d001_btns[UI_D001_COUNT] = {
     { 355.0f, 520.0f, 555.0f, 580.0f, 0 },  /* Sound */
     { 355.0f, 595.0f, 555.0f, 655.0f, 1 },  /* BtnSound */
-    { 255.0f, 677.0f, 562.0f, 725.0f, 2 },  /* ★ 音量滑条区（原版 Volume Slider 逐字节）→ 位置映射 1-3 */
+    { 255.0f, 677.0f, 562.0f, 725.0f, 2 },  /* Volume */
     { 165.0f, 750.0f, 345.0f, 810.0f, 3 },  /* 确定 */
     { 375.0f, 750.0f, 555.0f, 810.0f, 4 },  /* 取消 */
 };
 const ui_d001_btn *ui_d001_buttons(void) { return g_d001_btns; }
 int ui_d001_hit(const ui_d001_btn *b, int n, float x, float y)
 { for (int i = 0; i < n; i++) if (x>=b[i].x0 && x<=b[i].x1 && y>=b[i].y0 && y<=b[i].y1) return i; return -1; }
-/* ★ 批量对齐（datah_002）：2 按钮（720 基准，局部 1:1 平移） */
+/* ★ 批量对齐（datah_002）：3 按钮（720 基准，局部 1:1 平移） */
 static const ui_d002_btn g_d002_btns[UI_D002_COUNT] = {
-    { 152.0f, 601.0f, 568.0f, 649.0f, 0 },  /* ★ 亮度滑条区（原版 Bright Slider 逐字节）→ 位置映射 0-2 */
+    { 152.0f, 601.0f, 568.0f, 649.0f, 0 },  /* Bright */
     { 160.0f, 675.0f, 345.0f, 735.0f, 1 },  /* 确定 */
     { 375.0f, 675.0f, 560.0f, 735.0f, 2 },  /* 取消 */
 };
@@ -1656,7 +1656,7 @@ int ui_d024_hit(const ui_d024_btn *b, int n, float x, float y)
 { for (int i = 0; i < n; i++) if (x>=b[i].x0 && x<=b[i].x1 && y>=b[i].y0 && y<=b[i].y1) return i; return -1; }
 /* ★ 批量对齐（datah_025）：1 按钮（720 基准，局部 1:1 平移） */
 static const ui_d025_btn g_d025_btns[UI_D025_COUNT] = {
-    { 165.0f, 665.0f, 345.0f, 725.0f, 0 },  /* 确定 Confirm（165,665,345,725；原版 Ok 270,665 为备用宽按钮，★ 2026-11-11 审计） */
+    { 270.0f, 665.0f, 450.0f, 725.0f, 0 },  /* 确定 */
 };
 const ui_d025_btn *ui_d025_buttons(void) { return g_d025_btns; }
 int ui_d025_hit(const ui_d025_btn *b, int n, float x, float y)
@@ -1759,7 +1759,7 @@ int ui_d036_hit(const ui_d036_btn *b, int n, float x, float y)
 { for (int i = 0; i < n; i++) if (x>=b[i].x0 && x<=b[i].x1 && y>=b[i].y0 && y<=b[i].y1) return i; return -1; }
 /* ★ 批量对齐（datah_037）：3 按钮（720 基准，局部 1:1 平移） */
 static const ui_d037_btn g_d037_btns[UI_D037_COUNT] = {
-    { 255.0f, 530.0f, 465.0f, 590.0f, 0 },  /* 规则 - 翻棋（25,25,235,85+230,505） */
+    { 255.0f, 530.0f, 465.0f, 590.0f, 0 },  /* 规则 - 翻棋 */
     { 255.0f, 610.0f, 465.0f, 670.0f, 1 },  /* 规则 - 布局 */
     { 255.0f, 690.0f, 465.0f, 750.0f, 2 },  /* 返回 */
 };
@@ -2054,7 +2054,7 @@ int ui_d071_hit(const ui_d071_btn *b, int n, float x, float y)
 static const ui_d072_btn g_d072_btns[UI_D072_COUNT] = {
     { 255.0f, 498.0f, 465.0f, 558.0f, 0 },  /* 蓝牙联机 */
     { 255.0f, 572.0f, 465.0f, 632.0f, 1 },  /* Wi-Fi 联机 */
-    { 255.0f, 648.0f, 465.0f, 708.0f, 2 },  /* 个人资料（25,175,235,235+235,477.5） */
+    { 255.0f, 648.0f, 465.0f, 708.0f, 2 },  /* 个人资料 */
     { 255.0f, 722.0f, 465.0f, 782.0f, 3 },  /* 返回 */
 };
 const ui_d072_btn *ui_d072_buttons(void) { return g_d072_btns; }
@@ -2077,6 +2077,13 @@ static const ui_d075_btn g_d075_btns[UI_D075_COUNT] = {
 };
 const ui_d075_btn *ui_d075_buttons(void) { return g_d075_btns; }
 int ui_d075_hit(const ui_d075_btn *b, int n, float x, float y)
+{ for (int i = 0; i < n; i++) if (x>=b[i].x0 && x<=b[i].x1 && y>=b[i].y0 && y<=b[i].y1) return i; return -1; }
+/* ★ 批量对齐（datah_076）：1 按钮（720 基准，局部 1:1 平移） */
+static const ui_d076_btn g_d076_btns[UI_D076_COUNT] = {
+    { 205.0f, 616.0f, 575.0f, 664.0f, 0 },  /* Move */
+};
+const ui_d076_btn *ui_d076_buttons(void) { return g_d076_btns; }
+int ui_d076_hit(const ui_d076_btn *b, int n, float x, float y)
 { for (int i = 0; i < n; i++) if (x>=b[i].x0 && x<=b[i].x1 && y>=b[i].y0 && y<=b[i].y1) return i; return -1; }
 /* ★ 批量对齐（datah_077）：6 按钮（720 基准，局部 1:1 平移） */
 static const ui_d077_btn g_d077_btns[UI_D077_COUNT] = {
@@ -2309,6 +2316,13 @@ static const ui_d110_btn g_d110_btns[UI_D110_COUNT] = {
 };
 const ui_d110_btn *ui_d110_buttons(void) { return g_d110_btns; }
 int ui_d110_hit(const ui_d110_btn *b, int n, float x, float y)
+{ for (int i = 0; i < n; i++) if (x>=b[i].x0 && x<=b[i].x1 && y>=b[i].y0 && y<=b[i].y1) return i; return -1; }
+/* ★ 批量对齐（datah_111）：1 按钮（720 基准，局部 1:1 平移） */
+static const ui_d111_btn g_d111_btns[UI_D111_COUNT] = {
+    { 85.0f, 655.0f, 455.0f, 703.0f, 0 },  /* Move */
+};
+const ui_d111_btn *ui_d111_buttons(void) { return g_d111_btns; }
+int ui_d111_hit(const ui_d111_btn *b, int n, float x, float y)
 { for (int i = 0; i < n; i++) if (x>=b[i].x0 && x<=b[i].x1 && y>=b[i].y0 && y<=b[i].y1) return i; return -1; }
 /* ★ 批量对齐（datah_112）：5 按钮（720 基准，局部 1:1 平移） */
 static const ui_d112_btn g_d112_btns[UI_D112_COUNT] = {

@@ -238,11 +238,30 @@ def cmd_analyze(args):
     print(f"\n配置已生成: {out}（人审后 spak2ui.py gen 引用）")
     return 0
 
+def aligned_from_code():
+    """★ 2026-11-11 假数据纠正（§2026-11-11）：原 ALIGNED 是**手工维护的静态清单**，
+    与代码实际状态漂移 69 个（清单 49 vs 代码实际 118）——status 报"未对齐 223/71 个可批量补"
+    纯属清单过时，实际仅 2 个有按钮未对齐。改为**从 ui_menu.h 实际枚举推导**，
+    保证 status 输出 = 代码真值（不信手工清单）。
+    """
+    import glob
+    h = os.path.join(SRC, "ui_menu.h")
+    try:
+        txt = open(h, encoding="utf-8", errors="ignore").read()
+    except OSError:
+        return set(ALIGNED)
+    d = set(int(m) for m in re.findall(r'UI_D(\d{3})\b', txt))
+    u = set(int(m) for m in re.findall(r'UI_UI(\d+)\b', txt))
+    return d | u
+
+
 def cmd_status(args):
-    """④ 看已对齐进度 + 未对齐清单（按按钮数分布，优先补有按钮的）"""
+    """④ 看已对齐进度 + 未对齐清单（按按钮数分布，优先补有按钮的）
+    ★ 已对齐集 = 从 ui_menu.h 实际枚举推导（aligned_from_code），非手工清单。"""
     all_f = spak_files()
-    aligned = [n for n,_ in all_f if n in ALIGNED]
-    unaligned = [n for n,_ in all_f if n not in ALIGNED]
+    aligned_set = aligned_from_code()
+    aligned = [n for n,_ in all_f if n in aligned_set]
+    unaligned = [n for n,_ in all_f if n not in aligned_set]
     # 未对齐里按按钮数分档
     by_btn = {0:[],1:[],2:[],3:[],4:[],5:[]}
     for n in unaligned:
@@ -252,12 +271,13 @@ def cmd_status(args):
                 bc = len(info["buttons"])
                 by_btn[min(bc,5)].append(n); break
     print(f"原版 {len(all_f)} 个 datah，已对齐 {len(aligned)}，未对齐 {len(unaligned)}")
+    print(f"  （已对齐集 = ui_menu.h 实际枚举推导，非手工清单 ★ 假数据纠正）")
     print(f"\n未对齐按按钮数分档（脚本化批量补，优先 4+ 按钮高价值）：")
     for bc in [5,4,3,2,1,0]:
         if by_btn[bc]:
             print(f"  {bc} 按钮: {len(by_btn[bc])} 个 → {by_btn[bc][:20]}{'...' if len(by_btn[bc])>20 else ''}")
-    print(f"\n★ 153 个无按钮（纯展示/文本框/资源占位）不补（无交互业务，诚实边界）")
-    print(f"★ 可脚本化批量补的有按钮对话框约 {sum(len(by_btn[k]) for k in [1,2,3,4,5])} 个")
+    print(f"\n★ 无按钮（纯展示/文本框/资源占位）不补（无交互业务，诚实边界）")
+    print(f"★ 可脚本化批量补的有按钮对话框 {sum(len(by_btn[k]) for k in [1,2,3,4,5])} 个")
     return 0
 
 def cmd_gen(args):
@@ -463,8 +483,16 @@ def main():
     elif args.cmd == "status": cmd_status(args)
     elif args.cmd == "gen": cmd_gen(args)
     elif args.cmd == "auto":
-        # auto：gen 全链路（生成骨架 + 提示贴入 + 编译回归）
-        r = cmd_gen(args)
+        # ★ 2026-11-11 假绿修复：文档承诺"auto = 分析 + 生成 + 贴入 + 编译 + 回归（一条命令）"，
+        #   旧实现只转调 cmd_gen 且**丢弃 --apply**（贴入/回归从未跑）→ 骨架生成后无人接线。
+        #   现实现 = analyze 摘要 + gen --apply（贴入 5 源文件 + 编译 + evverify + 一致性）+ status 复核。
+        #   ★ 诚实边界：本工具的 apply 为**追加式**（非逐块幂等），同批重复跑会重定义——
+        #     生产级批量对齐（逐块幂等 + 括号配对 clean + 安全网）用 rev64/tools/gen_dialog_batch.py。
+        cmd_analyze(args)
+        args.apply = True
+        rc = cmd_gen(args)
+        print("\n=== auto：status 复核（对齐集 = ui_menu.h 实际枚举推导）===")
+        cmd_status(argparse.Namespace())
     return 0
 
 if __name__ == "__main__":
