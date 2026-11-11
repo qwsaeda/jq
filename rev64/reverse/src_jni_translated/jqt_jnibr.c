@@ -155,7 +155,15 @@ uint32_t jqt_jni_call(uint32_t jni_id, uint32_t n_args, const uint32_t *args){
     if (g_vm && (*g_vm)->GetEnv(g_vm, (void**)&env, JNI_VERSION_1_6) == JNI_OK && env) {
         /* 当前线程 env 已获取 */
     } else {
-        env = g_env;  /* 回退主线程 env（未 attach 线程） */
+        /* ★ 2026-11-11（继续对齐原版）：GetEnv 失败说明本线程未 attach 到 JVM。
+         *   旧版回退主线程 g_env（跨线程 stale JNIEnv → strlen SIGSEGV，
+         *   MuMu x86 houdini 转译层实测 HeapTaskDaemon/渲染线程崩）。
+         *   未 attach 线程改用 AttachCurrentThread 取本线程合法 env。 */
+        if (g_vm && (*g_vm)->AttachCurrentThread(g_vm, (void**)&env, 0) == JNI_OK && env) {
+            LOGI("jqt_jni_call: 本线程未 attach，AttachCurrentThread 成功");
+        } else {
+            env = g_env;  /* 兜底仍回退主线程 env（无 JVM 时保持旧行为） */
+        }
     }
     /* 调用计数 + 首条/每 256 条打 logcat（jqjni 标签，MuMu 验证通路用） */
     g_call_count++;
@@ -255,6 +263,20 @@ uint32_t jqt_jni_getobjectclass(uint32_t env, uint32_t obj){
         LOGE("GetObjectClass: obj NULL (忠实兜底, 返回 0)");
         return 0;
     }
+    /* ★ 2026-11-11（继续对齐原版）：GetEnv 失败回退主线程 env 是未 attach 线程的
+     *   stale JNIEnv → strlen(env->XXX) SIGSEGV（MuMu x86 houdini 转译层实测）。
+     *   未 attach 线程改为 AttachCurrentThread 取本线程合法 env，不再回退主线程 env。 */
+    if (!e && g_vm) {
+        JNIEnv *attached = NULL;
+        if ((*g_vm)->GetEnv(g_vm, (void **)&attached, JNI_VERSION_1_6) != JNI_OK) {
+            if ((*g_vm)->AttachCurrentThread(g_vm, (void **)&attached, 0) != JNI_OK || !attached) {
+                LOGE("GetEnv/Attach 失败（无合法 env，返回 0）");
+                return 0;
+            }
+        }
+        e = attached;
+    }
+    if (!e) { LOGE("GetObjectClass: env NULL"); return 0; }
     jclass cls = (*e)->GetObjectClass(e, (jobject)(uintptr_t)obj);
     if (!cls && (*e)->ExceptionCheck(e)) (*e)->ExceptionClear(e);
     return (uint32_t)(uintptr_t)cls;

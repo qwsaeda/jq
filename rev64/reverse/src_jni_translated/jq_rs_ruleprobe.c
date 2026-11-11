@@ -19,7 +19,7 @@
 #define PROBE_LOG(...) __android_log_print(4, "junqi", __VA_ARGS__)
 
 /* 共享探针源（32 位编译）：仅换头文件 + 日志宏，用例本体与 64 位逐字节同源 */
-#include "../src_rs/rule_probe_shared.inc"
+#include "../../forward/src_rs/rule_probe_shared.inc"
 
 /* 供属性钩子调用（jni_aligned.c / 走子桥 tick） */
 void jq_rule_probe_run(void);
