@@ -7438,3 +7438,23 @@ rel_dyn + jni_export + got_plt + trans_jni + trans_strpool + **readelf_rel**（�
 taxonomy + event_cover + event_codemap + bss_evt_tbl + rodata_static + text_static +
 rel_dyn + jni_export + got_plt + trans_jni + trans_strpool + readelf_rel +
 **got_map**（新增，.got/.plt 槽分析产物对照）。
+
+### §124y-202 原版 so NEEDED 依赖库清单判据脚本化 + 静态佐证扩到 19 项（2026-11-11）
+
+用户"光改光对比，经验不总结/不脚本化"批评的延续落实——把"原版 32 位 so
+NEEDED 依赖 7 个系统库"口径固化为可复跑静态判据（§124y-197 got_plt 补强，
+防依赖清单漂移）：
+
+- **新工具** `rev64/tools/needed_check.py`：原版 so `readelf -d` NEEDED 清单
+  判据（7 个系统库：libc/libstdc++/libm/liblog/libGLESv1_CM/libGLESv2/libdl
+  + SONAME=libjunqi.so）
+- **判据实锤**：7 NEEDED 全在 + SONAME=libjunqi.so → PASS
+- **坑固化**：原版 32 位 so 依赖 libstdc++（32 位）+ libGLESv1_CM（GL1 渲染），
+  与 64 位 src_rs（NDK 编译无 GL 依赖，仅 liblog/libm/libandroid）依赖面不同——
+  判据锁定原版 32 位依赖清单，防"64 位化时误删 32 位 so 依赖"漂移
+- 并入 `arm32_static_evidence.sh` 第 19 项 `needed`（PASS=19 FAIL=0 全 PASS）
+
+**静态佐证批次化入口 19 项**（设备无关）：resource + event/urlkey/javacls + forkcheck +
+taxonomy + event_cover + event_codemap + bss_evt_tbl + rodata_static + text_static +
+rel_dyn + jni_export + got_plt + trans_jni + trans_strpool + readelf_rel +
+got_map + **needed**（新增，NEEDED 依赖库清单）。
