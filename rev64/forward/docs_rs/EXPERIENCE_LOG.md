@@ -2187,3 +2187,83 @@ OnCreate 主线程被该钩子段拖住（转译层 property 读取 + 自动走 
   = **SIDE_VALID(turn)=turn<2**（修复版，0xFF 当前回合可翻）；红方 cell31 side=255 turn=1 → 返回 1。
 - **诚实结论**：jq_can_flip 修复版（AUD-R-003 先手翻子定色）在设备 so 实锤工作（红翻 rc=1），
   非旧版"0xFF 仅蓝可翻"。CELLDIAG can_flip=0 系诊断三元短路伪影，已移除诊断。
+
+## ★ 2026-11-11 "原版完整逻辑对齐"批量弹窗收尾 + 生成器三型误删根治（本轮全链）
+
+### 差距盘点（脚本化，不手数）
+- **spak2ui.py status 是手工维护清单，假数据**：报"已对齐 49 / 未对齐 223 / 71 个可批量补"，
+  实际代码里 UI_D 族早已 118 个（漂移 69）。真实差距必须**从 ui_menu.h 枚举推导**——
+  已修：`aligned_from_code()` 从枚举 UI_D(\d{3}) | UI_UI(\d+) 自动推导。
+- **盘点结论**：原版 272 个 datah，代码实际已对齐 118（+本轮 2 = 120），
+  **有按钮未对齐仅 2 个**（datah_076/111，本轮已补）；152 个无按钮（纯展示/文本框/
+  资源占位）不补（无交互业务，诚实边界）。`spak2ui.py status` 的"71 个可批量补"纯属清单过时。
+- 教训固化：**进度清单必须从代码真值推导**，手工清单必然漂移（本例漂移 69/49 ≈ 140%）。
+
+### 图集覆盖烘焙历史缺陷（一次性一致重建）
+- `dlg_batch_text.png` 旧设计"每批覆盖烘焙"——跑 2 个新弹窗 → 图集重烘成 2 行，
+  **原 120 弹窗的文字行号全部失效**（行号错位 → 文字错行/丢字）。
+- 修：clean + 全量 120 id 一次性重建 → 460×15000（375 行）一致图集。
+- 教训：**共用资源（图集/表/注册行）必须全量一致重建，禁止增量覆盖烘焙**。
+
+### clean 三型误删（本轮主坑，gen_dialog_batch.py 根治）
+| 型 | 误删对象 | 症状 | 修 |
+|---|---|---|---|
+| ① 跨函数正则 | rs_render_frame（帧渲染主函数） | so 留 UND → linker "dlopen failed: failed to link" → 启动 UnsatisfiedLinkError（loadLibrary 失败被 smali catch 吞掉，雪上加霜） | 括号配对删除（clean_guard.remove_func） |
+| ② 跨块正则 | 原版纹理加载块（hamburger/btn_big/panel PNG 解码+free） | Scudo "invalid chunk state" SIGABRT（free 非法指针/悬空） | clean_guard.remove_block_by_text |
+| ③ 行级注释正则 | 只删注释首行 | 半截注释裸露成代码 → 编译错 `unexpected character <U+2605>` | clean_guard.remove_comment_block（整块 /* → */） |
+
+- **根因共性**：clean 用非贪婪 `[\s\S]*?` + 弱锚点（如 `\n    }\n`）——当配对闭合符
+  已被前序步骤删掉时，非贪婪一路吃到**下一个**函数/块的闭合 → 大块误删
+  （实测一次删 28305 字符吃掉 rs_render_frame；一次 205654 字符）。
+- **修法三件套**（rev64/tools/clean_guard.py，本轮新增）：
+  1. `remove_func(name)`：函数名定位 + 括号配对（跳过字符串/字符/注释）到配对 `}`；
+  2. `remove_block_by_text(anchor_re)`：if 语句块从锚点**向后**找 `{` 配对删除
+     （★ 向后不是向前——`rfind('{',0,m.end())` 会找到外层 for 的 `{` 删范围过大）；
+  3. `remove_comment_block(marker_re)`：注释整块 `/*` → `*/` 删除。
+- **安全网（兜底）**：clean 前备份受影响文件 → clean 后校验关键符号清单
+  （rs_render_frame / rs_draw_about / rs_popup_shell / OnCreate / OnTouch / main），
+  缺失即**自动从备份回滚该文件** + 明确打印警告（宁可 clean 不彻底，绝不静默破坏非生成代码）。
+- **门禁校验**：clean 后 `git diff | grep '^-' 过滤批量标记` 应为空
+  （非批量删除门禁——本轮实测通过：仅批量 diag 变量被删）。
+- so 侧等价门禁：`nm -D --undefined-only` 过滤 `^(rs_|jq_|ui_|jqt_)` 应为空
+  （内部符号不得成 UND——空=OK，本轮实测通过）。
+
+### evverify 判据三处静默漂移（大数掩盖）
+- run_* 定义被 clean 删光后，**前向声明（`static int run_dXXX(void);`）仍命中旧幂等检测**
+  → 定义永不再生 → undefined reference。修：幂等检测只认**函数体**（`{` 结尾）。
+  坑：检测正则把 `(void)` 写进 fn 变量又拼 `\)` → 两个右括号永不命中（白改一轮）。
+- 定义 static 化（与前向声明一致，non-static + static 声明 = 编译错）。
+- **注册行插错位置 = 汇总数假小数**：插在 `total = ev_total + geo_total` **之后** →
+  总数先算完 → 汇总 52/52（真实 172）；插 printf 前 → 锚点失配（printf 格式已改版）
+  → 静默 0 注册。修：按行定位 `total = ev_total + geo_total` 插到其**之前** +
+  幂等比较口径统一（捕获 "run_d000" vs k.lower()="d000" 永不相等 → 每次重复插 120 行，
+  几何 132→252 虚高——比较前 strip "run_"）。
+- 教训：**回归汇总数 = 判据**，插桩位置/比较口径错 → 假小数/虚高，必须交叉验算
+  （`grep -c 定义数` vs `grep -c 注册行数` vs 汇总数 三方一致才可信）。
+
+### 诊断注入 smali 的坑（本轮两次自伤）
+- ① catch 块加日志：`invoke-virtual {v0, v2}, getMessage()` —— getMessage **无参**
+  却传 2 寄存器 → VerifyError（verifier 拒绝 <clinit>）→ 换一个崩溃；
+  ② `Log;->e(String,String,String)` 三参重载**不存在**（e 只有 (String,int)/(String,String)）
+  → NoSuchMethodError。正确 = `invoke-virtual {v0}, getMessage() + Log.e(v1, v0)`。
+- 教训：smali 诊断注入必须核对**方法真实签名/寄存器数**（.locals 同步扩），
+  注入失败会把真错掩盖成新错（本轮真错 dlopen failed 被 VerifyError 盖了两轮）。
+
+### hash-style 无关性排除（诚实记录）
+- 怀疑 .gnu.hash 与转译层不兼容 → 试 `--hash-style=sysv`（Makefile + touch 强制重编，
+  **改 Makefile 不触发重编**——依赖不含 Makefile，必须 touch 源文件）。
+- 实测无效（根因是误删），已回退 Makefile；但排除法有价值：hash 段非根因。
+
+### 真机验收状态（诚实边界）
+- 设备 10.0.182.146:5555 **No route to host**（ping 100% 丢包，本机无法恢复）——
+  本轮 so（697488B + UND 门禁空 + phase_rs_a64.apk v1+v2 已签）**未真机复验**，
+  不写"真机达成"；设备恢复后一键：
+  `bash rev64/tools/rs_logic_align.sh --dev 10.0.182.146:5555`
+  （7 判据：编译/evverify/一致性/regress/弹窗对齐/32-64 probe/真机 UI 全项）。
+- 桌面侧全 PASS（5/5）：编译 14 导出 / evverify 172/172 / 一致性 selftest /
+  regress.py 全过 / 弹窗对齐 120/272 有按钮未对齐=0。
+
+### 新工具（本轮入库）
+- `rev64/tools/rs_logic_align.sh`：原版完整逻辑对齐验收一条龙（7 判据汇总，
+  --desktop 桌面 / --dev 设备 / --skip-probe 跳 32-64 对比）。
+- `rev64/tools/clean_guard.py`：批量生成片段精确删除工具（括号配对三函数 + main CLI）。
