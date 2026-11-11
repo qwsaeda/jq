@@ -14,7 +14,7 @@
 | `lay_extract.py` | 从 SPAK 解包产物提取 12 预设布局（data 组 idx 47-58，00.lay=default 已逐字节证） | `python3 lay_extract.py` → `rev64/dist/layouts/00-11.lay` |
 | `so_strings.py` | 原版 32 位 so 字符串提取（带文件偏移，替代手写 `bytes.find` 循环） | `python3 so_strings.py <so> [关键词]`；`--rodata` 只看 .rodata 明文区（0x120bf8-0x13dc28）；`<so> 0xADDR` 按偏移读 |
 | `gl_probe.c` | MuMu 64 位 GL 出帧能力探测（清屏/client-state 几何/glDrawTexfOES 三路） | **注意：独立 64 位二进制跑不了 EGL（MuMu `eglInitialize` 只在 app 进程上下文可用）**。用途 = 参考实现 / 真机独立跑。编译：`aarch64 NDK clang -O2 gl_probe.c -o /tmp/opencode/gl_probe -lEGL -lGLESv1_CM -lGLESv2 -llog -lm` |
-| `src_rs/bt_selftest.c`（`make bttest`） | 蓝牙帧协议 + 状态机桌面自测（v2 帧往返/非法帧拒绝/FLIP/MOVE 应用/回合闸口/全盘同步），无真机蓝牙环境也能验逻辑 | `cd rev64/src_rs && make bttest` |
+| `src_rs/bt_selftest.c`（`make bttest`） | 蓝牙帧协议 + 状态机桌面自测（v2 帧往返/非法帧拒绝/FLIP/MOVE 应用/回合闸口/全盘同步），无真机蓝牙环境也能验逻辑 | `cd rev64/forward/src_rs && make bttest` |
 
 ## 原有工具（翻译体/影子路线）
 
@@ -36,7 +36,7 @@
 ## 回归命令（一条全跑）
 
 ```bash
-cd /disk/workspaces/jq/rev64/src_rs && make bttest && make desk && python3 regress.py --games 20
+cd /disk/workspaces/jq/rev64/forward/src_rs && make bttest && make desk && python3 regress.py --games 20
 python3 /disk/workspaces/jq/rev64/tools/src_rs_check.py
 ```
 

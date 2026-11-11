@@ -77,10 +77,10 @@
 **当前诚实边界**：
 - regress.py 判据是 ≥90%（非 100%），"60 局全合法"旧口径已厘清（regress 的 60 ≠ gametest 的 60）
 - **下轮目标**：
-  1. **读全详细笔记做轮次 2 审计**：`rev64/docs_rs/R-route_reversal.md`（89 行全读）+ `rev64/phases/REVERSE_NOTES_04_shadow_r6.md`（1649 行，轮次 1 只读了 AGENTS.md 摘要段，漏了详细笔记）——审计"摘要 vs 详细笔记"是否有第二层口径漂移
+  1. **读全详细笔记做轮次 2 审计**：`rev64/forward/docs_rs/R-route_reversal.md`（89 行全读）+ `rev64/reverse/phases/REVERSE_NOTES_04_shadow_r6.md`（1649 行，轮次 1 只读了 AGENTS.md 摘要段，漏了详细笔记）——审计"摘要 vs 详细笔记"是否有第二层口径漂移
   2. P2 收尾：C.3 补 `arm32_cycle.sh`（会话 2 一条龙）+ 走子四件套 vs 回归第 10 项职责区分（I3/D5）——**★ 已落 C.3.4（arm32_cycle 对称件 + walkverify 双重职责 + 审计自动化不对称段）**
   3. 第三类问题深化：课程"每轮必跑审计"vs 经验库执行记录——**★ 已闭环（N1）**：会话 2 翻译体侧 `link_audit.py` 已进 `pack_arm32.sh` 第 2.5 步（每轮 arm32_cycle 打包时跑，FAIL 中止），且修了 `link_audit.py` 自身假文件误放行 bug（对抗测试实证）。会话 1（11/11 第 5/9 项）/ 会话 2（pack_arm32 第 2.5 步）审计自动化覆盖现已对称
-  4. **轮次 2 新目标（读侧审计，本轮做）**：读全 `rev64/docs_rs/R-route_reversal.md`（89 行）+ `rev64/phases/REVERSE_NOTES_04_shadow_r6.md`（1649 行），审计"AGENTS.md 摘要段 vs 详细笔记"是否有第二层口径漂移——上轮只读了 AGENTS.md 沉淀段，漏了详细笔记
+  4. **轮次 2 新目标（读侧审计，本轮做）**：读全 `rev64/forward/docs_rs/R-route_reversal.md`（89 行）+ `rev64/reverse/phases/REVERSE_NOTES_04_shadow_r6.md`（1649 行），审计"AGENTS.md 摘要段 vs 详细笔记"是否有第二层口径漂移——上轮只读了 AGENTS.md 沉淀段，漏了详细笔记
   5. **同步会话 2 最新沉淀（AGENTS.md 2026-11-04 diff）**：`slot22chain` + `seed_funcs.json`（2157 函数起点，防 /tmp 丢失）+ `mumu_verify.sh` PKG 自动推导（防验错包）→ 已落 C.3.3"本轮新增工具"段
 
 **★ 轮次 1 闭环后新增发现（第三类审计实证，2026-11-04 核实）**：
@@ -222,7 +222,7 @@
 3. 项目侧：把 N9（GLES2 顶点属性）口径同步到 `APPENDIX_A` 的"GL 渲染管线 5 阶段"正文（表 + 注已修，5 阶段图可补一句"军棋原版走 GLES2 顶点属性"）
 
 **当前诚实边界**：
-- 本轮审计**只读了 AGENTS.md 沉淀段，没读 `rev64/docs_rs/R-route_reversal.md`**（R-route 反汇编证据）+ `REVERSE_NOTES_04_shadow_r6.md`（1649 行全量笔记）——下轮应读全，避免"只审计经验库摘要、漏了详细笔记里的发现"
+- 本轮审计**只读了 AGENTS.md 沉淀段，没读 `rev64/forward/docs_rs/R-route_reversal.md`**（R-route 反汇编证据）+ `REVERSE_NOTES_04_shadow_r6.md`（1649 行全量笔记）——下轮应读全，避免"只审计经验库摘要、漏了详细笔记里的发现"
 - 两条会话经验库**分散且编号冲突（E1）+ 口径漂移（D1）**，本轮只标记未修（修 AGENTS.md 要用户确认口径）
 - "对抗"强度自评：**L/D/I/E 四类 14 个问题里，课程内部 3 个（L1-L3）已修 1（L2）、标记 2；方向/方案 5 个（D1-D5）全部标记未修（要动 AGENTS.md）；实现 3 个（I1-I3）已落课程 2（I1/I2）、标记 1（I3）；经验库结构 2 个（E1/E2）标记未修**
 
@@ -308,7 +308,7 @@ grep -c run src_rs_regress.sh = 11/11 （AGENTS/课程已对齐）
 **本轮方法（C.5b 可执行 checklist 首次完整执行）**：按"数据型必读表"逐条实测核对课程 8 轮后的口径，不凭记忆——揪出 3 个真漂移（N23/N24/N25），全部修正。
 
 **N23（音效 16 → 14，★ 最实质的漂移）**：
-- **课程 C.5 写"音效 14→16"是错的**。实测：`grep -cE '{\'' rev64/src_rs/audio.c` = **14 映射**，`find rev64/dist/spak_res/*.wav` = **14 个文件**
+- **课程 C.5 写"音效 14→16"是错的**。实测：`grep -cE '{\'' rev64/forward/src_rs/audio.c` = **14 映射**，`find rev64/dist/spak_res/*.wav` = **14 个文件**
 - 构成 = **Junqi 组 12**（move/eat/bomb/flag/dead/flip/win/lose/draw/start/over/select）+ **Ui 组 2**（ui_close/ui_pop）
 - **根因**：把"Ui 组 Click/Close/Pop"误记成 3 个（实为 Close/Pop 2 个，无 Click）→ 14 写成 16
 - **修正**：课程 C.5 音效行改 14 + 加构成 + C.5b 红线（"音效数必须 grep -c 实测"）；AGENTS.md "14 个音效"加构成核对标注
@@ -809,7 +809,7 @@ grep -c run src_rs_regress.sh = 11/11 （AGENTS/课程已对齐）
 
 **本轮方法（用户"工程化/实战化/流水线化 + 总结思考发现"指令）**：
 
-**① 四段流水线文档化（`rev64/docs_rs/PIPELINE.md`，高价值）**：
+**① 四段流水线文档化（`rev64/forward/docs_rs/PIPELINE.md`，高价值）**：
 - `arm32 so→C 对齐→正向开发 src_rs→unidbg/frida 补差异` 固化成 4 段 + 3 回路，每段 = **一条命令 + 一组判据 + 一个诚实边界**
 - **5 条固化原则**（本轮总结的"流水线化"核心收益）：①每段一条命令/判据/边界 ②工具升级必同步判据（N25）③坑=脚本卡住非人记得 ④数据写前跑命令（C.5b）⑤诚实边界三件套不松动（段 3"能玩"只有真机 arm GPU 能判）
 - **5 条思考发现**（贯穿文档）：明文非壳前提 / 三级验证成本递增过滤网 / 12 坑工具化拦截 / MuMu 能力边界（PBuffer 离屏≠屏幕可见）/ 段 4 瓶颈=对象图数据非翻译
@@ -854,7 +854,7 @@ grep -c run src_rs_regress.sh = 11/11 （AGENTS/课程已对齐）
 
 **③ AGENTS.md 新 diff 吸收（git 仓库段，低价值 I7 格式）**：
 - 工作区规范/经验/路线代码已建 git 仓库 `qwsaeda/jq`（origin/main，排除二进制/大文件/PDF/课程素材，见 `.gitignore`）
-- 本轮新增：`rev64/docs_rs/PIPELINE.md` + `pipeline_run.sh` 已入 git 跟踪范围（docs_rs/tools 目录），**无需额外动作**（AGENTS.md 路由表已登记，git 仓库自然纳入）
+- 本轮新增：`rev64/forward/docs_rs/PIPELINE.md` + `pipeline_run.sh` 已入 git 跟踪范围（docs_rs/tools 目录），**无需额外动作**（AGENTS.md 路由表已登记，git 仓库自然纳入）
 - **诚实边界**：git 仓库 = 规范/经验/路线代码入库，**非交付物仓库**（二进制/课程素材排除），"能玩"真机验收边界不变
 
 **全量对抗复验**：

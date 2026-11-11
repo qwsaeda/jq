@@ -21,7 +21,7 @@ BT=$OP/batch_test.py
 RP2=$OP/run_pipeline2.py
 SO=$OP/jq_apk/dec/lib/armeabi/libjunqi.so
 DISASM=$OP/jq64_thumb.txt
-JTI=$ROOT/rev64/src_jni_translated
+JTI=$ROOT/rev64/reverse/src_jni_translated
 
 # 14 个原版 JNI 入口（.so 动态符号表拿到，对齐基准）
 JNI="0x233e1 0x233f5 0x23409 0x23425 0x23439 0x2344d 0x23461 0x23475 0x23489 0x2349d 0x234b1 0x234c5 0x23561 0x235d5"

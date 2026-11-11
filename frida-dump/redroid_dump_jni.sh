@@ -39,7 +39,7 @@ for x in v:
     rv=x.get('runtime_value')
     print('    0x%06x -> %s'%(x['off'], '0x%08x'%rv if rv is not None else 'FAIL'))
 "
-  echo "  → 喂给 rev64/src_jni_translated/jni_aligned.c 注入层，14 入口可运行"
+  echo "  → 喂给 rev64/reverse/src_jni_translated/jni_aligned.c 注入层，14 入口可运行"
 else
   echo "  [!] 未生成 jni_runtime_values.json（frida 未 attach 成功？）"
 fi

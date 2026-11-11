@@ -2,7 +2,7 @@
 # §sp28 回归回退：sp28（纹理上传闭包 F_9e2b4/F_9e0f0）在 MuMu GLThread SIGSEGV → 回 sp27 稳定态
 set -e
 echo "[1/4] 恢复 jqt_vtbl.c = sp27 已验证版"
-cp /tmp/opencode/chain/jqt_vtbl_sp27_verified.c rev64/src_jni_translated/jqt_vtbl.c
+cp /tmp/opencode/chain/jqt_vtbl_sp27_verified.c rev64/reverse/src_jni_translated/jqt_vtbl.c
 echo "[2/4] Lbf51c 豁免（幂等）"
 python3 rev64/tools/render_patch.py
 echo "[3/4] 编译 + 打包"

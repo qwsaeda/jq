@@ -8,7 +8,7 @@
 set -u
 WS=/disk/workspaces/jq
 TOOLS=$WS/rev64/tools
-RS=$WS/rev64/src_rs
+RS=$WS/rev64/forward/src_rs
 PASS=0; FAIL=0; PENDING=0
 ok()  { echo "  ✓ $1"; PASS=$((PASS+1)); }
 bad() { echo "  ★ $1"; FAIL=$((FAIL+1)); }
@@ -22,7 +22,7 @@ seg1() {
   for f in frida-dump/rodata_dec.bin frida-dump/rodata_strings.txt; do
     [ -f "$WS/$f" ] && ok "$f 在位" || bad "$f 缺失"
   done
-  [ -f "$WS/rev64/docs_rs/R-route_reversal.md" ] && ok "R-route_reversal.md（核心函数→规则/布局/常量证据链）" || bad "R-route_reversal.md 缺失"
+  [ -f "$WS/rev64/forward/docs_rs/R-route_reversal.md" ] && ok "R-route_reversal.md（核心函数→规则/布局/常量证据链）" || bad "R-route_reversal.md 缺失"
   # C.5b 实测（不凭记忆）
   local so=$WS/rev64/dist/libjunqi_arm32_aligned.so
   if [ -f "$so" ]; then
@@ -41,7 +41,7 @@ seg1() {
 seg2() {
   echo "=== 段 2 正向开发（src_rs 一条命令全回归）==="
   local out
-  out=$(bash $WS/rev64/src_rs_regress.sh 2>&1)
+  out=$(bash $WS/rev64/forward/src_rs_regress.sh 2>&1)
   # AUD-1000 B07-020：判据依赖 src_rs_regress 末段精确输出（防判据漂移连锁假红）
   if echo "$out" | grep -q "全回归 PASS（12/12）"; then
     ok "src_rs_regress 12/12 全 PASS（编译/蓝牙/走局/规则回归/红线/布局/触摸/gametest/链接/走子预验证×2/桌面事件）"
@@ -50,7 +50,7 @@ seg2() {
     if [ -n "$failitems" ]; then
       bad "src_rs_regress 12/12 未全 PASS：$failitems（B07-001 判据漂移连锁假红非真回归，口径 169/169）"
     else
-      bad "src_rs_regress 12/12 未全 PASS（无 FAIL 项标签；跑 bash $WS/rev64/src_rs_regress.sh 看哪项挂；若 grep 全对 口径漂移属 B07-001 假红）"
+      bad "src_rs_regress 12/12 未全 PASS（无 FAIL 项标签；跑 bash $WS/rev64/forward/src_rs_regress.sh 看哪项挂；若 grep 全对 口径漂移属 B07-001 假红）"
     fi
   fi
   # P2-J9：grep 同时匹配 全对/有失败，再按结果分支（鲁棒）

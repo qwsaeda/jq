@@ -7,7 +7,7 @@
 #   帧逻辑正确性由 bttest 桌面断言覆盖，MuMu 只验"链入+不崩"。
 set -u
 DEV=${1:-127.0.0.1:5555}
-RS=/disk/workspaces/jq/rev64/src_rs
+RS=/disk/workspaces/jq/rev64/forward/src_rs
 NDK=/tmp/opencode/android-ndk-r25b
 
 echo "=== [1/5] 桌面蓝牙自测（bttest）==="

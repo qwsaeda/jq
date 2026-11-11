@@ -370,7 +370,7 @@ MENU_BUTTONS = [
 MENU_SCALE = 0.8  # 900×1600 → 720×1280
 
 # src_rs 按钮表（720×1280 基准，ui_menu.c 对齐值）
-def load_src_rs_buttons(path="rev64/src_rs/ui_menu.c"):
+def load_src_rs_buttons(path="rev64/forward/src_rs/ui_menu.c"):
     """从 ui_menu.c 解析按钮表（g_btns/g_diff_btns/... 720×1280 基准）"""
     txt = open(path).read()
     tables = {}
@@ -475,7 +475,7 @@ def check_geometry(menu_src=None, verbose=True):
                 print(f"  主菜单 {lbl:4s} 原版({ox0:.0f},{oy0:.0f}) src({sx0:.0f},{sy0:.0f}) Δc=({dcx:+.1f},{dcy:+.1f}) {'✓' if ok else '✗'}")
             if not ok: failures.append(f"主菜单 {lbl} Δ=({dcx:+.1f},{dcy:+.1f})")
     # 弹窗（原版 720 换算 vs src_rs 按钮表 720 基准）
-    src = load_src_rs_buttons(src_rs_c_path or "rev64/src_rs/ui_menu.c")
+    src = load_src_rs_buttons(src_rs_c_path or "rev64/forward/src_rs/ui_menu.c")
     for dname in DIALOGS:
         if dname in ("datah_067_imen_bt","datah_006_imen"):
             continue   # ★ ☰ 菜单：基准已是 720 绝对值（实测），不走原版系→720 换算
@@ -828,7 +828,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--screenshot", help="真机截图路径（720×1280），做按钮区非黑探测")
     ap.add_argument("--baseline", action="store_true", help="只跑几何 Δ 检查（静默出结论，不打印逐行明细）")
-    ap.add_argument("--menu-src", default="rev64/src_rs/ui_menu.c", help="src_rs 按钮表文件")
+    ap.add_argument("--menu-src", default="rev64/forward/src_rs/ui_menu.c", help="src_rs 按钮表文件")
     ap.add_argument("--json", help="输出 JSON（机读）")
     ap.add_argument("--only", help="截图非黑探测只跑指定 DIALOGS 名（逗号分隔，如 datah_044_ui44）")
     ap.add_argument("-q", action="store_true", help="静默（只出 JSON/结论）")

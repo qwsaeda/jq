@@ -99,7 +99,7 @@ cmd_impl() {
     echo "[chain.impl] 生成 B 完整调用链 C（gen_chain_full.py：gen_c_file_full + 后处理）"
     [ -f $TREE ] || { echo "  ✗ 先跑 extract"; exit 1; }
     timeout 300 python3 /tmp/opencode/gen_chain_full.py 2>&1 | tail -6
-    cp $CHAIN/jqt_OnCreate_full.c $JQ/rev64/src_jni_translated/jqt_OnCreate_full.c
+    cp $CHAIN/jqt_OnCreate_full.c $JQ/rev64/reverse/src_jni_translated/jqt_OnCreate_full.c
     echo "[chain.impl] 重编 arm64 so（828 函数完整调用链）"
     timeout 600 bash $JQ/rev64/build_arm64_mem.sh 2>&1 | tail -3
     echo "[chain.impl] 打包 phase_chain.apk"

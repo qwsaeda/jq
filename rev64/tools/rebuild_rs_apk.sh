@@ -12,7 +12,7 @@
 # 判据: so 哈希设备=本地 一致（md5 对账），v1+v2 签名，STORE 未压缩
 set -u
 WS=/disk/workspaces/jq
-RS=/disk/workspaces/jq/rev64/src_rs
+RS=/disk/workspaces/jq/rev64/forward/src_rs
 TOOLS=/disk/workspaces/jq/rev64/tools
 WORK=/tmp/opencode/jq_apk/rs_a64
 SRCAPK=$WORK/rs168_wav.apk

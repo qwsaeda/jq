@@ -29,7 +29,7 @@ rules_fork_check.py — R-138 分叉检测脚本（src_rs 重写 vs src_jni_tran
       设计 / 32 位走子桥简化 / 行为等价）。
       "已标记" ≠ "已实证对齐"——只是降模糊度。
   6. ★ §124y-169（行为实证）：rule_probe_compare.py 用**逐字节同源**的规则行为
-      探针（rev64/src_rs/rule_probe_shared.inc，32/64 双端编译）让两端引擎跑
+      探针（rev64/forward/src_rs/rule_probe_shared.inc，32/64 双端编译）让两端引擎跑
       同一批棋盘位置 → diff 输出。**行为一致 = 该项已实证**；行为不一致 =
       **实证分歧**（分叉坐实，非判读推测）。
       实证覆盖项见 EVIDENCED_PROBE 映射表（探针用例 → AUD-R 项）。
@@ -41,19 +41,19 @@ import os
 
 WS = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 
-RS_RULES = "rev64/src_rs/rules.c"
-TR_RULES = "rev64/src_jni_translated/jq_rs_rules.c"
-TR_RULES_H = "rev64/src_jni_translated/jq_rs_rules.h"
-TR_WALK = "rev64/src_jni_translated/jq_rs_walkbridge.c"
-TR_TEST = "rev64/src_jni_translated/jq_rs_walkbridge_test.c"
+RS_RULES = "rev64/forward/src_rs/rules.c"
+TR_RULES = "rev64/reverse/src_jni_translated/jq_rs_rules.c"
+TR_RULES_H = "rev64/reverse/src_jni_translated/jq_rs_rules.h"
+TR_WALK = "rev64/reverse/src_jni_translated/jq_rs_walkbridge.c"
+TR_TEST = "rev64/reverse/src_jni_translated/jq_rs_walkbridge_test.c"
 ANCESTOR = "401a735"
 
 # 32 位侧的实证标记来源（§124y 事件表回填批次 + 走子桥回归脚本）
 TR_EVIDENCE_GLOBS = [
-    "rev64/src_jni_translated/jq_rs_rules.c",
-    "rev64/src_jni_translated/jq_rs_rules.h",
-    "rev64/src_jni_translated/jq_rs_walkbridge.c",
-    "rev64/src_jni_translated/jq_rs_walkbridge_test.c",
+    "rev64/reverse/src_jni_translated/jq_rs_rules.c",
+    "rev64/reverse/src_jni_translated/jq_rs_rules.h",
+    "rev64/reverse/src_jni_translated/jq_rs_walkbridge.c",
+    "rev64/reverse/src_jni_translated/jq_rs_walkbridge_test.c",
     "rev64/tools/arm32_walkregress.sh",
 ]
 
@@ -151,7 +151,7 @@ def git_log_tr():
     """401a735..HEAD 内改动过 src_jni_translated/ 的 commit（翻译体侧历史）。"""
     out = subprocess.run(
         ["git", "log", "--oneline", f"{ANCESTOR}..HEAD", "--",
-         "rev64/src_jni_translated/"],
+         "rev64/reverse/src_jni_translated/"],
         cwd=WS, capture_output=True, text=True,
     )
     return [ln for ln in out.stdout.splitlines() if ln.strip()]

@@ -12,7 +12,7 @@
 set -e
 CLANG=/tmp/opencode/android-ndk-r25b/toolchains/llvm/prebuilt/linux-x86_64/bin/armv7a-linux-androideabi19-clang
 GEN=/tmp/opencode/shadow
-SRC=/disk/workspaces/jq/rev64/src_shadow
+SRC=/disk/workspaces/jq/rev64/reverse/src_shadow
 OUT=${1:-/disk/workspaces/jq/rev64/dist/libjunqi_arm_shadow.so}
 TMP=/tmp/jq32_shadow_build
 rm -rf $TMP; mkdir -p $TMP

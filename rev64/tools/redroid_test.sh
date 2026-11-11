@@ -1,6 +1,6 @@
 #!/bin/bash
 # ★ 已禁用（2026-11-09 用户指令）：redroid 容器/镜像已删除，禁止执行本脚本。
-# 确定性验证入口改红果 10.0.182.146:5555（rev64/audit/verify_dialogs_device.py）。
+# 确定性验证入口改红果 10.0.182.146:5555（rev64/forward/audit/verify_dialogs_device.py）。
 # 以下仅历史存档（§124y-11 固化）。
 #
 # 背景：MuMu（10.0.182.146）宕机期间用 redroid（emulator-5554）做确定性验证。
@@ -24,7 +24,7 @@
 #   - F_a4234 / F_2afa4 关键日志
 
 # ★ 硬门禁（2026-11-09）：redroid 容器/镜像已删，本脚本禁止执行
-echo "★ redroid_test.sh 已禁用（redroid 容器/镜像 2026-11-09 删除）。确定性验证入口：红果 10.0.182.146:5555（rev64/audit/verify_dialogs_device.py）" >&2
+echo "★ redroid_test.sh 已禁用（redroid 容器/镜像 2026-11-09 删除）。确定性验证入口：红果 10.0.182.146:5555（rev64/forward/audit/verify_dialogs_device.py）" >&2
 exit 3
 set -u
 WS=/disk/workspaces/jq

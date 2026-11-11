@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>军棋 · 逆向工程路线</title>
+<meta name="description" content="军棋 APK 逆向工程四阶段路线：去广告、双 ABI、64 位原生、终态验收。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="./hallmark/index.css">
+</head>
+<body>
+<header class="container">
+  <nav class="nav" aria-label="主导航">
+    <span class="wordmark">军棋 reverse</span>
+    <a href="#route">阶段路线</a>
+  </nav>
+</header>
+
+<main>
+  <!-- hero: the one idea of the page; the signature (the route) is visible at 1280 x 800 -->
+  <section class="container hero" id="top" aria-label="概览">
+    <div class="hero">
+      <h1>军棋逆向，四阶段收官</h1>
+      <p class="lead">从去广告的 32 位交付，到 64 位简化原生，再到终态验收。路线固定，判据固定。</p>
+      <div class="actions">
+        <a class="btn primary" href="#route">看阶段路线</a>
+        <a class="btn ghost" href="#record">看闭环记录</a>
+      </div>
+      <p class="status">当前：阶段 3 · 产物 <code>dist/phase0–3.apk</code> 在位</p>
+    </div>
+  </section>
+
+  <!-- the signature figure: the route, 0–3, stage 3 lit -->
+  <section class="container" id="route" aria-label="阶段路线">
+    <h2>每个阶段一个交付物，一次验收</h2>
+    <div class="route">
+      <article class="stage">
+        <span class="stagecode num">0</span>
+        <h3>去广告，旧 ABI</h3>
+        <p>minSdk 提到 19，广告层拆除，armeabi 原样。32 位设备可装可玩。</p>
+        <p class="art"><code>phase0.apk</code></p>
+      </article>
+      <article class="stage">
+        <span class="stagecode num">1</span>
+        <h3>双 ABI 可装</h3>
+        <p>armeabi 与 arm64 双目录；64 位 only 设备装得上，arm64 是占位桩。</p>
+        <p class="art"><code>phase1.apk</code></p>
+      </article>
+      <article class="stage">
+        <span class="stagecode num">2</span>
+        <h3>真 64 位原生</h3>
+        <p>NDK 简化重写版 arm64 so；v7a 走原版逻辑，arm64 简化版可渲染可交互。</p>
+        <p class="art"><code>phase2.apk</code></p>
+      </article>
+      <article class="stage now">
+        <span class="stagecode num">3</span>
+        <h3>去广告终态</h3>
+        <p>面向 64 位设备全量去广告：无 baidu 类、无 ad jar、网络权限 0 项。</p>
+        <p class="art"><code>phase3.apk</code></p>
+      </article>
+    </div>
+  </section>
+
+  <!-- the acceptance gate -->
+  <section class="container" id="criteria" aria-label="验收判据">
+    <h2>验收只看四步</h2>
+    <p class="sub">每个阶段同一把尺子，走完才算过；任一步失败就停在该阶段。</p>
+    <ol class="crit">
+      <li><span class="n num">1</span><span class="t">装上</span></li>
+      <li><span class="n num">2</span><span class="t">进主界面</span></li>
+      <li><span class="n num">3</span><span class="t">下一局，本地或蓝牙</span></li>
+      <li><span class="n num">4</span><span class="t">正常退出，重进不崩</span></li>
+    </ol>
+  </section>
+
+  <!-- honest boundaries -->
+  <section class="container" id="boundaries" aria-label="诚实边界">
+    <h2>边界说清楚</h2>
+    <div class="bound">
+      <div class="item">
+        <h3>64 位原生是简化版</h3>
+        <p>arm64 so 是 NDK 简化重写（棋盘、走子、简单 AI），不是 32 位 1.43MB 原生的汇编级逆向。交付物里不把它说成完整版。</p>
+      </div>
+      <div class="item">
+        <h3>redroid 只提数据</h3>
+        <p>容器无 GPU，进不了主界面；64 位 native bridge 不完整。它只用于提取 .rodata 明文与验证初始化链，不用于验证可玩。</p>
+      </div>
+      <div class="item">
+        <h3>阶段 0 的 32 位 so 依赖广告 jar</h3>
+        <p>32 位原生的 baidu 引用是硬依赖，去广告只能删权限留 jar。阶段 3 的全量去广告只在 arm64 路线上成立。</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- closed-loop record -->
+  <section class="container" id="record" aria-label="闭环记录">
+    <h2>近期闭环</h2>
+    <div class="record">
+      <div class="row">
+        <span class="k">事件表</span>
+        <span class="v"><code>§124y-167</code> 事件表回填宏名错配（<code>JQ_</code> 与 <code>JQT_</code> 前缀不一）致整块从未编译；修正后 289 字节字节级回填首次生效。</span>
+      </div>
+      <div class="row">
+        <span class="k">掩码语义</span>
+        <span class="v"><code>§124y-166</code> RPI 计算 off-by-4 与指针字节误读纠正：事件掩码表为 17×17，高 4 位为事件码。</span>
+      </div>
+      <div class="row">
+        <span class="k">确定性实验</span>
+        <span class="v"><code>§124y-168</code> 新增 <code>EVT-TBL-DUMP</code> 钩子，游戏事件触发后 dump，与 MuMu 参考 dump 交叉验证，闭合诚实边界。</span>
+      </div>
+      <div class="row">
+        <span class="k">交付物</span>
+        <span class="v"><code>dist/phase0–3.apk</code> 四阶段构建产物在位；当前状态为阶段 3，双签 + STORE + 对齐校验通过。</span>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="container">
+  <div class="mast">
+    <span class="l">军棋 reverse</span>
+    <span class="s">逆向工程工作区<br>四阶段路线，验收判据统一<br>当前阶段 3</span>
+  </div>
+</footer>
+</body>
+</html>

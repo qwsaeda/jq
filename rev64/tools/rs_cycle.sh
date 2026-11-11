@@ -8,7 +8,7 @@
 #   bash rev64/tools/rs_cycle.sh --dev IP:PORT
 # 判据: 编译无 error + 10/10 全 PASS + so 哈希对账一致 + 启动进程存活
 set -u
-RS=/disk/workspaces/jq/rev64/src_rs
+RS=/disk/workspaces/jq/rev64/forward/src_rs
 TOOLS=/disk/workspaces/jq/rev64/tools
 DEV=${DEV:-10.0.182.146:5555}
 START=1
@@ -36,7 +36,7 @@ log "编译完成: $(stat -c%s dist/libjunqi_rs.so)B md5=$(md5sum dist/libjunqi_
 
 if [[ $REGRESS -eq 1 ]]; then
   log "=== [2/3] 12/12 全回归 ==="
-  bash /disk/workspaces/jq/rev64/src_rs_regress.sh >/tmp/opencode/rs_cycle_regress.log 2>&1
+  bash /disk/workspaces/jq/rev64/forward/src_rs_regress.sh >/tmp/opencode/rs_cycle_regress.log 2>&1
   if [ $? -ne 0 ]; then
     log "★ 回归有 FAIL"; grep -E "FAIL" /tmp/opencode/rs_cycle_regress.log | head -5; exit 1
   fi

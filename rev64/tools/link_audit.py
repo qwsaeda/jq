@@ -227,7 +227,7 @@ def check_dispatch(src):
           → MuMu 原生桥 fail to link）
        4. fns[i] 与 offs[i] 必须同址（表按地址一一对应）
        返回 (ok, [问题描述])
-       ★ AUD-1000 B07-010：src=None → 自动定位（rev64/src_jni_translated 相对工具
+       ★ AUD-1000 B07-010：src=None → 自动定位（rev64/reverse/src_jni_translated 相对工具
        根，多文件 jqt_vtbl.c + jqt_OnCreate_full.c 合并查函数体；表一致性用
        jqt_vtbl.c 文本）。原硬编码 /disk 绝对路径已去。"""
     import re as _re

@@ -100,7 +100,7 @@ for g, c in sorted(Counter(x['group'] for x in calls).items()):
     print(f"  {g:12s} {c:3d}")
 
 # 同时生成 C 侧表头 jqt_jni_calls.h
-hdr = '/disk/workspaces/jq/rev64/src_jni_translated/jqt_jni_calls.h'
+hdr = '/disk/workspaces/jq/rev64/reverse/src_jni_translated/jqt_jni_calls.h'
 with open(hdr, 'w') as f:
     f.write("/* 自动生成的 P0 so→Java JNI 调用表（gen_jni_calls.py v3）\n")
     f.write(" * id 对应 jqt_jni_calls.json。桥 jqt_jnibr.c 用 jq_jni_calls[id]。 */\n")
@@ -112,7 +112,7 @@ with open(hdr, 'w') as f:
 print(f"生成 {hdr}")
 
 # 生成 C 侧表定义 jqt_jni_calls_tbl.c（含 9 条签名修正：removeView→ViewGroup、makeText→4参）
-tbl = '/disk/workspaces/jq/rev64/src_jni_translated/jqt_jni_calls_tbl.c'
+tbl = '/disk/workspaces/jq/rev64/reverse/src_jni_translated/jqt_jni_calls_tbl.c'
 with open(tbl, 'w') as f:
     f.write("#include \"jqt_jnibr.h\"\n#include \"jqt_jni_calls.h\"\n\n")
     f.write("JqJniCall jq_jni_calls[JQJNINUM] = {\n")

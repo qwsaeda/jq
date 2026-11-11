@@ -5,7 +5,7 @@
 set -e
 CLANG=/tmp/opencode/android-ndk-r25b/toolchains/llvm/prebuilt/linux-x86_64/bin/armv7a-linux-androideabi24-clang
 SYSROOT_INC=/tmp/opencode/android-ndk-r25b/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/include
-JTI=/disk/workspaces/jq/rev64/src_jni_translated
+JTI=/disk/workspaces/jq/rev64/reverse/src_jni_translated
 OUT=${1:-/disk/workspaces/jq/rev64/dist/libjunqi_arm32_aligned.so}
 TMP=/tmp/jq32_aligned_build
 rm -rf $TMP; mkdir -p $TMP

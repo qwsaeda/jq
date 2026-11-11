@@ -12,14 +12,14 @@ FAIL=0
 echo "=== AGENTS.md ↔ 课程 数据口径核对（C.5b 改进 I3）==="
 
 # 1. 回归项数（src_rs_regress.sh 实测 ↔ EXPERIENCE_LOG.md ↔ 课程；AGENTS.md 已精简为路由，不再含回归口径）
-REGRESS=$(grep -c '^run "\[' $WS/rev64/src_rs_regress.sh)
+REGRESS=$(grep -c '^run "\[' $WS/rev64/forward/src_rs_regress.sh)
 echo "  [回归项] src_rs_regress.sh 实测 $REGRESS 项"
-grep -q "$REGRESS/$REGRESS" $WS/rev64/docs_rs/EXPERIENCE_LOG.md 2>/dev/null || { echo "  ★ EXPERIENCE_LOG.md 回归口径与实测 $REGRESS/$REGRESS 不符"; FAIL=1; }
+grep -q "$REGRESS/$REGRESS" $WS/rev64/forward/docs_rs/EXPERIENCE_LOG.md 2>/dev/null || { echo "  ★ EXPERIENCE_LOG.md 回归口径与实测 $REGRESS/$REGRESS 不符"; FAIL=1; }
 grep -q "$REGRESS/$REGRESS" $WS/course_unidbg/APPENDIX_C_REVERSE_ENGINEERING.md && echo "  [课程 回归] $REGRESS/$REGRESS 口径 ✓" || { echo "  ★ 课程缺 $REGRESS/$REGRESS 回归口径"; FAIL=1; }
 
 # 2. evverify 断言数（AGENTS.md "7 断言" ↔ 课程 "7 断言"）
 # ★ 对抗审计 P2-J10：原 2 次独立 make evverify（:21 + :23 各跑一次），改为单次实跑复用输出
-EVOUT=$(cd $WS/rev64/src_rs && make evverify MODE=--all 2>/dev/null)
+EVOUT=$(cd $WS/rev64/forward/src_rs && make evverify MODE=--all 2>/dev/null)
 EVASSERT=$(echo "$EVOUT" | grep -oE '[0-9]+/[0-9]+' | head -1)
 echo "  [evverify] 实测 $EVASSERT 断言"
 echo "  evverify 实测输出：$(echo "$EVOUT" | grep 全对)"
@@ -41,7 +41,7 @@ grep -q "9/9" $COURSE/APPENDIX_C_REVERSE_ENGINEERING.md && echo "  [课程 ⑧] 
 #   47（evverify 断言数升级后 47 过期，缓存缺失/构建失败静默降级到 47 假绿）；(3) make
 #   管道吞码（make 失败 grep 空 → fallback 47 掩盖）。修：取 "N/N" 完整口径（分母=总断言
 #   数，防分子/分母不等误判），make rc 断言，fallback 改"未获取"显式 FAIL。
-EVRAW=$(cd $WS/rev64/src_rs && make evverify MODE=--all 2>&1)
+EVRAW=$(cd $WS/rev64/forward/src_rs && make evverify MODE=--all 2>&1)
 EVR=$?
 EVN=$(echo "$EVRAW" | grep -oE '桌面事件验证: [0-9]+/[0-9]+' | head -1)
 if [ $EVR -ne 0 ] || [ -z "$EVN" ]; then

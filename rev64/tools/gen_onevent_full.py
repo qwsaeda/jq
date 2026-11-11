@@ -10,11 +10,11 @@
   3. 修复 blx 存根：vtable dispatch → jqt_blx_dispatch；
      0x233ac(__aeabi_f2iz) → (int)(float) 真实；0x22e60(__stack_chk_fail noreturn) → 存根
   4. 移除函数体 #define MEM（改用 jqt_mem.h 的 MEM，jqt_mem_addr 加 g_jqt_shadow 偏移）
-  5. 写 rev64/src_jni_translated/jqt_OnEvent_full.c
+  5. 写 rev64/reverse/src_jni_translated/jqt_OnEvent_full.c
 
 用法: python3 gen_onevent_full.py [--workdir /disk/workspaces/jq]
 环境依赖: /tmp/opencode/thumb2c_full.py（§124ai 三修复版）,
-          rev64/analysis/func_boundaries.txt（函数边界）
+          rev64/reverse/analysis/func_boundaries.txt（函数边界）
 """
 import re, sys, os, glob
 
@@ -23,8 +23,8 @@ ROOT = '/disk/workspaces/jq'
 if '--workdir' in sys.argv:
     ROOT = sys.argv[sys.argv.index('--workdir')+1]
 THUMB2C = '/tmp/opencode/thumb2c_full.py'
-BOUNDARIES = os.path.join(ROOT, 'rev64/analysis/func_boundaries.txt')
-JTI = os.path.join(ROOT, 'rev64/src_jni_translated')
+BOUNDARIES = os.path.join(ROOT, 'rev64/reverse/analysis/func_boundaries.txt')
+JTI = os.path.join(ROOT, 'rev64/reverse/src_jni_translated')
 
 def gen_chain(funcs, max_funcs=30):
     """用 thumb2c_full 生成完整调用链。返回 {addr: body}"""

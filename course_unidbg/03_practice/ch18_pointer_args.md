@@ -140,7 +140,7 @@ unidbg 调用前 `&~1` 对齐到偶指令（红线 §R6：JNI 入口是 Thumb �
 > 2. 「识别加密算法」军棋对应 SPAK（XOR(key[j%32]) + zlib inflate）
 > 3. 原书「识别 AES」军棋改成 SPAK（军棋实际算法，合理映射）
 
-军棋 32 位 so 的加密层（红线 §R6 + rev64/phases/R5_spak.md 确证）：
+军棋 32 位 so 的加密层（红线 §R6 + rev64/reverse/phases/R5_spak.md 确证）：
 - **SPAK key 32B**：`.rodata` VA `0x12a658`（静态明文，`frida-dump/rodata_dec.bin` 已 dump）
 - **算法 `XOR(key[j%32]) + zlib inflate`**（**纠正早期"魔改 Base64"推测**）
 - **9 包 883 条目**：data 121 / datah 272 / datam 189 / datax 301（不是"4 组"）

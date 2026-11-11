@@ -1,0 +1,160 @@
+/* Hallmark · shape: long-document (route + criteria + boundaries + record) · genre: modern-minimal · theme: custom · job: read-the-four-stage-route · idea: "the junqi reverse-engineering route, stage by stage, with the acceptance gate" · vibe: "terminal ink, single green signal, sparse"
+ * paper: oklch(19% 0.012 240) · accent: oklch(76% 0.16 158) · display: Space Grotesk · body: Inter · hero: left-aligned type at the top, the route figure is the next section · nav: edge-aligned, wordmark left, one anchor right · footer: single mast line · imagery: none · signature: the route itself, numbered 0–3 with stage 3 highlighted
+ * axes: ink-terminal/inter-mono/outlier-terminal · posture: left, single column · contrast: pass · fold: pass (hero stops at the upper half of 1280x800, no dead band) · v2.0.0 */
+/* Hallmark · pre-emit critique: P3 H4 E4 S4 R5 V4 · weakest: H, the route figure is below the fold at 1280x800; kept the hero as type only and made the route the first section, so the signature is one scroll away */
+/* Hallmark · answered F3 · h1 is one line and never wraps at the container, so balance is inert */
+/* Hallmark · answered F15 · one primary button recipe: .btn.primary; the ghost is its off state */
+/* Hallmark · answered F17 · no block is squeezed below the container's min at 1440 */
+/* Hallmark · answered F20 · the route grid is 4 up, 2 across and 1 down; no orphan row */
+/* Hallmark · answered F21 · h1 is the page title, h2 per section, h3 per item; no level skipped */
+/* Hallmark · answered F23 · lang, title and meta description are in the head */
+/* Hallmark · answered F25 · at 375 the content is one column with the same wording; nothing phone-only */
+/* Hallmark · hero-review: fix · in-thread (no subagent in this harness) · 3 findings · 3 resolved · dead band at 1280x800 resolved by dropping the hero min-height; signature one scroll away by design; control pair is primary + ghost */
+/* Hallmark · finish-review: fix · in-thread · 4 findings · 4 resolved 0 unresolved · gap: none */
+/* Hallmark · sweep: sloplint clean, 0 FAIL 0 REFLEX 0 WARN · finish-review: fix, in-thread, 5 findings, 5 resolved */
+/* Hallmark · refine: hero gains the status line (current stage, the product path), each stage names its apk artifact, criteria gains one sentence, print and active states added */
+@import url("./tokens.css");
+@import url("./base.css");
+
+h1, h2 { text-wrap: balance; }
+/* 1 · type — two voices: Inter for reading, a mono face for labels only */
+.label, .stagecode {
+  font-family: var(--font-outlier);
+  font-size: var(--text-sm);
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--color-muted);
+}
+h1 { font-size: var(--text-display); font-weight: 700; line-height: 1.05; letter-spacing: var(--tracking-display); }
+h2 { font-size: var(--text-section); font-weight: 650; line-height: 1.1; letter-spacing: var(--tracking-display); }
+h3 { font-size: var(--text-title); font-weight: 600; line-height: 1.2; }
+p { color: var(--color-ink-2); }
+
+/* 2 · page grid — one container, sections separated by hairline rules */
+main { display: grid; }
+section { padding-block: var(--section-gap); border-top: var(--rule-hair) solid var(--color-rule); }
+section:first-of-type { border-top: 0; padding-block: var(--section-gap-l) var(--section-gap); }
+section > .container > h2 { margin-block: var(--space-md) var(--space-lg); }
+
+/* 3 · the route — the signature: four numbered figures in a single row, stage 3 lit */
+.route {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--gap-columns);
+}
+.stage {
+  display: grid;
+  gap: var(--space-sm);
+  align-content: start;
+  padding-block: var(--space-lg);
+  border-top: var(--rule-hair) solid var(--color-rule);
+}
+.stage .stagecode { font-size: var(--text-2xl); font-weight: 700; color: var(--color-muted); }
+.stage h3 { margin: 0; }
+.stage p { font-size: var(--text-sm); }
+.stage .art { font-size: var(--text-xs); }
+.stage .art code { font-family: var(--font-outlier); font-size: inherit; color: var(--color-ink); }
+.stage.now { border-top-color: var(--color-accent); }
+.stage.now .stagecode { color: var(--color-accent); }
+.stage.now h3 { color: var(--color-ink); }
+
+/* 4 · criteria — the acceptance gate, four steps in a list, no cards */
+.crit { list-style: none; margin: 0; padding: 0; display: grid; gap: 0; }
+.crit li {
+  display: grid;
+  grid-template-columns: var(--space-xl) 1fr;
+  gap: var(--space-md);
+  padding-block: var(--space-md);
+  border-bottom: var(--rule-hair) solid var(--color-rule);
+}
+.crit li:first-child { border-top: var(--rule-hair) solid var(--color-rule); }
+.crit .n { font-family: var(--font-outlier); color: var(--color-muted); font-size: var(--text-sm); }
+.crit .t { color: var(--color-ink); font-size: var(--text-md); }
+#criteria .sub { font-size: var(--text-sm); color: var(--color-muted); margin-block: var(--space-md) var(--space-lg); }
+
+/* 5 · boundaries — the honest limits, three entries */
+.bound { display: grid; gap: var(--space-lg); }
+.bound .item { display: grid; gap: var(--space-xs); }
+.bound .item h3 { font-size: var(--text-md); color: var(--color-ink); font-weight: 600; }
+.bound .item p { font-size: var(--text-sm); }
+
+/* 6 · record — closed-loop facts, mono entries, no decoration */
+.record { display: grid; gap: var(--space-md); }
+.record .row {
+  display: grid;
+  grid-template-columns: 11ch 1fr;
+  gap: var(--space-md);
+  padding-block: var(--space-xs);
+}
+.record .row .k { font-family: var(--font-outlier); color: var(--color-muted); font-size: var(--text-sm); }
+.record .row .v { color: var(--color-ink-2); font-size: var(--text-sm); }
+.record .row .v code { font-family: var(--font-outlier); color: var(--color-ink); font-size: 0.92em; }
+
+/* 7 · nav */
+.nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-lg);
+  padding-block: var(--space-lg);
+}
+.nav .wordmark { font-family: var(--font-outlier); font-size: var(--text-sm); color: var(--color-ink); }
+.nav .wordmark b { color: var(--color-accent); font-weight: 600; }
+.nav a {
+  color: var(--color-ink);
+  font-size: var(--text-sm);
+  text-decoration: none;
+  padding: var(--space-2xs) 0;
+  border-bottom: var(--rule-hair) solid transparent;
+  transition: border-color var(--dur-micro) var(--ease-out);
+}
+.nav a:hover { border-bottom-color: var(--color-accent); }
+.nav a:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+
+/* 8 · footer */
+footer { border-top: var(--rule-hair) solid var(--color-rule); padding-block: var(--space-xl); margin-top: var(--section-gap); }
+footer .mast { display: grid; grid-template-columns: 1fr; gap: var(--space-xs); }
+footer .mast .l { font-family: var(--font-outlier); font-size: var(--text-sm); color: var(--color-ink); }
+footer .mast .s { display: grid; gap: var(--space-3xs); font-size: var(--text-sm); color: var(--color-muted); }
+
+/* 9 · hero specifics */
+.hero { display: grid; gap: var(--space-lg); }
+/* 12 · fold: at 1280 x 800 the hero content must sit in the upper half; the route below the fold is a separate section */
+.hero .lead { font-size: var(--text-lead); color: var(--color-ink-2); max-width: 46ch; }
+.hero .actions { display: flex; gap: var(--space-md); align-items: center; flex-wrap: wrap; }
+.hero .status { font-family: var(--font-outlier); font-size: var(--text-sm); color: var(--color-muted); margin-top: var(--space-xs); }
+.hero .status code { font-family: var(--font-outlier); color: var(--color-ink); font-size: inherit; }
+.btn {
+  display: inline-block;
+  font-size: var(--text-md);
+  padding: var(--space-sm) var(--space-lg);
+  border: var(--rule-hair) solid var(--color-ink-2);
+  border-radius: var(--radius-card);
+  color: var(--color-ink);
+  text-decoration: none;
+  transition: background-color var(--dur-micro) var(--ease-out), border-color var(--dur-micro) var(--ease-out);
+}
+.btn:hover { border-color: var(--color-ink); }
+.btn:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+.btn:active { background: var(--color-paper-3); }
+.btn.primary { background: var(--color-accent); color: var(--color-accent-ink); border-color: var(--color-accent); font-weight: 600; }
+.btn.primary:hover { background: color-mix(in oklab, var(--color-accent) 88%, var(--color-paper)); }
+.btn.primary:active { background: color-mix(in oklab, var(--color-accent) 78%, var(--color-paper)); }
+.btn.ghost { background: transparent; }
+.btn.ghost:active { background: var(--color-paper-2); }
+
+@media (max-width: 60rem) {
+  .route { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .crit li { grid-template-columns: 3ch 1fr; }
+  .record .row { grid-template-columns: 1fr; }
+}
+@media (max-width: 40rem) {
+  .route { grid-template-columns: 1fr; }
+}
+
+/* 13 · print */
+@media print {
+  .nav .wordmark { display: none; }
+  .stage.now { border-top-color: var(--color-ink); }
+  .btn { border: none; padding: 0; color: var(--color-ink); }
+}

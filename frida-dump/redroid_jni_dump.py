@@ -17,7 +17,7 @@ redroid/frida 精准 dump：14 JNI 入口运行时全局值（18 地址 × 4B = 
   或红roid：adb connect; am start -n com.cnvcs.junqi/.App & sleep; frida -U com.cnvcs.junqi -l redroid_jni_dump.py
 
 产物：OUT 目录下 jni_runtime_values.json（18 项 {off, runtime_value}）
-     → 喂给 rev64/src_jni_translated/jni_aligned.c 的注入层，14 入口可运行
+     → 喂给 rev64/reverse/src_jni_translated/jni_aligned.c 的注入层，14 入口可运行
 """
 import frida, json, os, time, sys
 

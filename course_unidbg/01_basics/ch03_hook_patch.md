@@ -130,7 +130,7 @@ vm.setJni(new Jni() {
 
 > **本节核心**：
 > 1. 军棋是逆向现成 so（libjunqi.so **1.43MB/1435156B** strip），不是写新 so（书内 NDK 场景不适用）
-> 2. 军棋 64 位简化重写版（rev64/src/junqi.cpp）才是 NDK r25b 编译（路线 B）
+> 2. 军棋 64 位简化重写版（rev64/reverse/src/junqi.cpp）才是 NDK r25b 编译（路线 B）
 > 3. 「脱离编译器」= 不用 NDK 写 so，直接调现成 so（军棋 32 位走这条路）
 >
 > **本节难点**：
@@ -138,7 +138,7 @@ vm.setJni(new Jni() {
 
 书里讲用 `clang --target=armv7a-linux-androideabi` 编译。
 军棋是**逆向现有 so**（`libjunqi.so` **1.43MB/1435156B** 已 strip），不是写新 so，所以这节跳过。
-但军棋 64 位简化重写版（`rev64/src/junqi.cpp`，NDK r25b）正是这么编译的（路线 B，红线 §64 位 native）。
+但军棋 64 位简化重写版（`rev64/reverse/src/junqi.cpp`，NDK r25b）正是这么编译的（路线 B，红线 §64 位 native）。
 ## 3.4 unidbg 的 Hook（军棋实战代码）
 
 

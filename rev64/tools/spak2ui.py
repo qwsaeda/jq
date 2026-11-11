@@ -30,7 +30,7 @@ import argparse, json, os, re, subprocess, sys
 
 WS = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 SPAK = "/tmp/opencode/spak_out"
-SRC = os.path.join(WS, "rev64/src_rs")
+SRC = os.path.join(WS, "rev64/forward/src_rs")
 TOOLS = os.path.join(WS, "rev64/tools")
 NDK = "/tmp/opencode/android-ndk-r25b"
 

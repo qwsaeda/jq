@@ -1,0 +1,143 @@
+[
+ {
+  "shape": "long-document",
+  "theme": "custom-terminal-ink",
+  "genre": "modern-minimal",
+  "job": "read-the-four-stage-route",
+  "hero": "left-type-status-line",
+  "signature": "four-stage-route-as-figure",
+  "nav": "edge-single-action",
+  "footer": "mast-single-line",
+  "imagery": "none",
+  "photos": null,
+  "axes": "ink-terminal/space-grotesk-inter/mono-outlier",
+  "posture": "left-single-column",
+  "entry": "refined: status line in hero, per-stage apk names, criteria sub-sentence, print+active states",
+  "fingerprint": "2f8a31",
+  "sections": [
+   "hero",
+   "route",
+   "criteria",
+   "boundaries",
+   "record",
+   "footer"
+  ],
+  "waived": [],
+  "prompt": "继续完善",
+  "date": "2026-11-07",
+  "mode": "build"
+ },
+ {
+  "shape": "long-document",
+  "theme": "custom-terminal-ink",
+  "genre": "modern-minimal",
+  "job": "read-the-four-stage-route",
+  "hero": "left-type-route-next",
+  "signature": "four-stage-route-as-figure",
+  "nav": "edge-single-action",
+  "footer": "mast-single-line",
+  "imagery": "none",
+  "photos": null,
+  "axes": "ink-terminal/space-grotesk-inter/mono-outlier",
+  "posture": "left-single-column",
+  "entry": "final sweep clean; display face Space Grotesk, body Inter, mono labels",
+  "fingerprint": "2f8a31",
+  "sections": [
+   "hero",
+   "route",
+   "criteria",
+   "boundaries",
+   "record",
+   "footer"
+  ],
+  "waived": [],
+  "prompt": "全做",
+  "date": "2026-11-07",
+  "mode": "build"
+ },
+ {
+  "shape": "long-document",
+  "theme": "custom-terminal-ink",
+  "genre": "modern-minimal",
+  "job": "read-the-four-stage-route",
+  "hero": "left-type-route-next",
+  "signature": "four-stage-route-as-figure",
+  "nav": "edge-single-action",
+  "footer": "mast-single-line",
+  "imagery": "none",
+  "photos": null,
+  "axes": "ink-terminal/inter-mono/outlier-terminal",
+  "posture": "left-single-column",
+  "entry": "route + criteria + boundaries + record; finish review 4 resolved",
+  "fingerprint": "2f8a31",
+  "sections": [
+   "hero",
+   "route",
+   "criteria",
+   "boundaries",
+   "record",
+   "footer"
+  ],
+  "waived": [
+   "1 display-face Inter (two families: Inter + mono outlier, terminal direction)"
+  ],
+  "prompt": "全做",
+  "date": "2026-11-07",
+  "mode": "build"
+ },
+ {
+  "shape": "long-document",
+  "theme": "custom-terminal-ink",
+  "genre": "modern-minimal",
+  "job": "read-the-four-stage-route",
+  "hero": "route-numbered",
+  "signature": "four-stage-route-as-figure",
+  "nav": "edge-single-action",
+  "footer": "mast-single-line",
+  "imagery": "none",
+  "photos": null,
+  "axes": "ink-terminal/inter-mono/outlier-terminal",
+  "posture": "left-single-column",
+  "entry": "route + criteria + boundaries + record",
+  "fingerprint": "2f8a31",
+  "sections": [
+   "hero",
+   "route",
+   "criteria",
+   "boundaries",
+   "record",
+   "footer"
+  ],
+  "waived": [
+   "1 display-face Inter (custom terminal direction)",
+   "1 display-family split (mono outlier carries label voice)"
+  ],
+  "prompt": "全做",
+  "date": "2026-11-07",
+  "mode": "build"
+ },
+ {
+  "shape": "long-document",
+  "theme": "custom-terminal-ink",
+  "genre": "modern-minimal",
+  "job": "read-the-four-stage-route",
+  "hero": "route-numbered",
+  "signature": "four-stage-route-as-figure",
+  "nav": "edge-single-action",
+  "footer": "mast-single-line",
+  "imagery": "none",
+  "photos": null,
+  "sections": [
+   "hero",
+   "route",
+   "criteria",
+   "boundaries",
+   "record",
+   "footer"
+  ],
+  "fingerprint": "2f8a31",
+  "prompt": "全做",
+  "date": "2026-11-07",
+  "mode": "build"
+ }
+]

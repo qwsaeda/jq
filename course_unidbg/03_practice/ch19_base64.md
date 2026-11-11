@@ -1,7 +1,7 @@
 # 第19章 unidbg 实战：SPAK 资源解密还原
 
 > 课程配套：《unidbg 逆向工程：原理与实践》陈佳林（机工社 2024）
-> 本地对照：军棋 32 位 so 的 SPAK 解密（rev64/phases/R5_spak.md 确证）
+> 本地对照：军棋 32 位 so 的 SPAK 解密（rev64/reverse/phases/R5_spak.md 确证）
 >
 > **原书标题**："魔改 Base64 还原"（书内样本是魔改 Base64 + 256 字节置换表）。
 > **军棋实际**：SPAK 打包（**`XOR(key[j%32]) + zlib inflate`**，key 32B 在 `.rodata`
@@ -108,7 +108,7 @@ unidbg 路线 Hook 不了 → 退而 redroid 跑原版 so（真 dlopen + 真重�
 
 ![军棋 SPAK 资源解密流程（`XOR(key[j%32]) + zlib`，key VA 0x12a658，9 包 883 条目）](assets/ch19_spak_flow.png)
 
-**SPAK 格式实际确证（rev64/phases/R5_spak.md + REVERSE_NOTES §85）**：
+**SPAK 格式实际确证（rev64/reverse/phases/R5_spak.md + REVERSE_NOTES §85）**：
 - **不是"魔改 Base64"**——实际算法是 **`XOR(key[j%32]) + zlib inflate`**（XOR 异或 + zlib 解压）
 - **key 32B**：`.rodata` VA `0x12a658`（明文态，`c2 cb e5 e7 ce 5c 4a c4 11 ca 6c 99 06 f4 76 f8 6d 4f cb b6 26 21 de 0e 6a 67 87 4c 93 f0 d5 23`）
 - **9 包 883 条目**（不是"4 组"）：data 121 / datah 272 / datam 189 / datax 301 = 883
@@ -126,7 +126,7 @@ SPAK key (32B, .rodata VA 0x12a658 静态明文)   ← 钥匙（墙上挂着，�
   → 棋盘 737×751 十字形（中央竖带 12行×5列，39×59/格）
 ```
 
-**9 包 883 条目对应什么？**（rev64/phases/R5_spak.md 实际确证）
+**9 包 883 条目对应什么？**（rev64/reverse/phases/R5_spak.md 实际确证）
 - **data 包**（121 条目）：按 `MD5(资源路径)` 寻址 —— `data/lay/00-11.lay`、`data/config/*.xml`、`data/font/*.ttf`、`data/junqi/*.wav`、`data/ui/*.cfg`
 - **datah 包**（272 条目）：按 UI 布局 XML 索引（**不是**路径 MD5，0 匹配确证）—— 含棋子图集 212×280
 - **datam 包**（189 条目）：同上，按 UI 布局 XML 索引

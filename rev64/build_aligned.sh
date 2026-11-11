@@ -1,13 +1,13 @@
 #!/bin/bash
 # build_aligned.sh — 编译"对齐原版"arm64 库（14 JNI 入口 = 32 位指令机械翻译体）
-# 与 build_arm64.sh 的区别：JNI 入口不用简化手写版 junqi_jni.c，而用 rev64/src_jni_translated
+# 与 build_arm64.sh 的区别：JNI 入口不用简化手写版 junqi_jni.c，而用 rev64/reverse/src_jni_translated
 # 里从原版 32 位 .so 机械翻译出的 14 个 jqt_*.c + jni_aligned.c 适配层 + .rodata 明文注入。
 # 用法: ./build_aligned.sh [输出.so]
 set -e
 CLANG=/tmp/opencode/android-ndk-r25b/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android24-clang
 SYSROOT_INC=/tmp/opencode/android-ndk-r25b/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/include
 SRC=/disk/workspaces/jq/rev64/src
-JTI=/disk/workspaces/jq/rev64/src_jni_translated
+JTI=/disk/workspaces/jq/rev64/reverse/src_jni_translated
 OUT=${1:-/disk/workspaces/jq/rev64/dist/libjunqi_arm64_aligned.so}
 TMP=/tmp/jq64_aligned_build
 mkdir -p $TMP

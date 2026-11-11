@@ -1,12 +1,12 @@
 #!/bin/bash
 # build_shadow_arm64.sh — 编译"影子运行时"arm64 库（2670+ 函数机械翻译体 + JNI 适配层）
-# 输入: /tmp/opencode/shadow（gen_shadow.py 产物）+ rev64/src_shadow（运行时）
+# 输入: /tmp/opencode/shadow（gen_shadow.py 产物）+ rev64/reverse/src_shadow（运行时）
 # 输出: rev64/dist/libjunqi_arm64_shadow.so
 # 用法: ./build_shadow_arm64.sh [输出.so]
 set -e
 CLANG=/tmp/opencode/android-ndk-r25b/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android24-clang
 GEN=/tmp/opencode/shadow
-SRC=/disk/workspaces/jq/rev64/src_shadow
+SRC=/disk/workspaces/jq/rev64/reverse/src_shadow
 OUT=${1:-/disk/workspaces/jq/rev64/dist/libjunqi_arm64_shadow.so}
 TMP=/tmp/jq64_shadow_build
 mkdir -p $TMP

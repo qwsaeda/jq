@@ -23,7 +23,7 @@ KEY_STORE=$WS/junqi.keystore
 ZIPALIGN=/disk/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/741/fs/opt/android/build-tools/36.0.0/zipalign
 [ -x "$ZIPALIGN" ] || ZIPALIGN=zipalign
 SRC_ORIG=/tmp/opencode/orig_libjunqi.so
-SRC_RS=$WS/rev64/src_rs/dist/libjunqi_rs.so
+SRC_RS=$WS/rev64/forward/src_rs/dist/libjunqi_rs.so
 SRC_STUB=/tmp/opencode/junqi_stub_arm64.so
 DO_VERIFY=1
 
@@ -33,7 +33,7 @@ DO_VERIFY=1
 #   （幂等：源码无改动时 make 秒过；有改动则必刷新。）
 make_so_rs() {
   echo "══════ 重编 src_rs arm64 so（防旧 so 打进交付物）══════"
-  ( cd $WS/rev64/src_rs && NDK=/tmp/opencode/android-ndk-r25b make so ) || {
+  ( cd $WS/rev64/forward/src_rs && NDK=/tmp/opencode/android-ndk-r25b make so ) || {
     echo "✗ src_rs so 编译失败（源码有改动，先修再构建）"; return 1; }
 }
 

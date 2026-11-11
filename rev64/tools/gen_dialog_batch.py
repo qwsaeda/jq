@@ -7,10 +7,10 @@
 
 产物:
   rev64/dist/spak_res/dlg_batch_text.png   共用文字图集（所有弹窗按钮文字竖排）
-  rev64/src_rs/ui_menu.h / ui_menu.c / ui_menu_stub.c   枚举 + 按钮表 + hit
-  rev64/src_rs/render.h / render.c                        纹理字段 + rs_draw_* + 帧调度
-  rev64/src_rs/jni_bridge.c                               OnTouch 分发 + setprop 钩子
-  rev64/src_rs/evverify.c                                 run_* 几何 Δ=0 + 命中
+  rev64/forward/src_rs/ui_menu.h / ui_menu.c / ui_menu_stub.c   枚举 + 按钮表 + hit
+  rev64/forward/src_rs/render.h / render.c                        纹理字段 + rs_draw_* + 帧调度
+  rev64/forward/src_rs/jni_bridge.c                               OnTouch 分发 + setprop 钩子
+  rev64/forward/src_rs/evverify.c                                 run_* 几何 Δ=0 + 命中
   rev64/tools/layout_align_check.py                       DIALOGS 几何
 
 几何规则（与既有已对齐弹窗一致）:
@@ -24,7 +24,7 @@ sys.path.insert(0,os.path.dirname(os.path.abspath(__file__)))
 from spak2ui import parse_dialog, to_720, panel_origin
 
 ROOT="/disk/workspaces/jq"
-RS=f"{ROOT}/rev64/src_rs"
+RS=f"{ROOT}/rev64/forward/src_rs"
 SPAK=f"{ROOT}/rev64/dist/spak_res"
 SPAK_OUT="/tmp/opencode/spak_out"
 ATLAS=f"{SPAK}/dlg_batch_text.png"

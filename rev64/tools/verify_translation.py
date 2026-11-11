@@ -14,8 +14,8 @@
 import re, subprocess, sys, struct
 
 ORIG_SO = '/tmp/opencode/orig_libjunqi.so'
-JQ_REL_H = 'rev64/src_jni_translated/jq_rel_data.h'
-JNI_ALIGNED_C = 'rev64/src_jni_translated/jni_aligned.c'
+JQ_REL_H = 'rev64/reverse/src_jni_translated/jq_rel_data.h'
+JNI_ALIGNED_C = 'rev64/reverse/src_jni_translated/jni_aligned.c'
 TEXT_OFF, TEXT_SZ = 0x233e0, 0x0fd814
 
 verbose = '--verbose' in sys.argv
@@ -67,7 +67,7 @@ def check_got():
     校验：16 个 .text 槽都在 JNI 入口区（0x233f0-0x23608），2 个占位值 0。
     ★ 注意：jni_aligned.c 的 g_jq_got_tbl（密文 18 槽）是**死代码**（旧表，§124x 前），
     不校验（避免误报）。真表在 jqt_mem.c。"""
-    txt = open('rev64/src_jni_translated/jqt_mem.c').read()
+    txt = open('rev64/reverse/src_jni_translated/jqt_mem.c').read()
     m = re.search(r'g_jqt_got_tbl\[\]\s*=\s*\{(.*?)\};', txt, re.S)
     if not m:
         return ('g_jqt_got_tbl: 未找到', [])

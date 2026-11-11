@@ -25,7 +25,7 @@
 import re, sys, os, subprocess
 
 WS = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-V  = os.path.join(WS, 'rev64/src_jni_translated/jqt_vtbl.c')
+V  = os.path.join(WS, 'rev64/reverse/src_jni_translated/jqt_vtbl.c')
 
 def parse_args(argv):
     addrs = []

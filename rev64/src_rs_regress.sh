@@ -1,11 +1,11 @@
 #!/bin/bash
 # src_rs_regress.sh — 源码重写路线一键全回归
-# 用法: bash rev64/src_rs_regress.sh [games]
+# 用法: bash rev64/forward/src_rs_regress.sh [games]
 # 跑完所有可机验的项：编译 / 蓝牙自测 / 桌面走局 / 规则回归 / 红线审计 / 链接审计
 # 全部 PASS 才退出 0；任何一项 FAIL 则标红汇总
 set -u
 GAMES=${1:-20}
-RS=/disk/workspaces/jq/rev64/src_rs
+RS=/disk/workspaces/jq/rev64/forward/src_rs
 TOOLS=/disk/workspaces/jq/rev64/tools
 FAILED=()
 

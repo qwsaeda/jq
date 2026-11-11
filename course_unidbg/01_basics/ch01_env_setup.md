@@ -190,7 +190,7 @@ unidbg 把军棋 ARM32 指令转译成宿主 ISA 执行（指令位宽变），�
 
 **unidbg 的"运行时动态翻译" vs 你们的"静态翻译工具"（关键区分）**：
 
-| 维度 | unidbg（unicorn2/dynarmic） | 你们 `rev64/src_shadow` 翻译工具 |
+| 维度 | unidbg（unicorn2/dynarmic） | 你们 `rev64/reverse/src_shadow` 翻译工具 |
 |---|---|---|
 | **翻译时机** | **运行时逐条译**：每条 ARM 指令执行前才译，译完即弃 | **静态批量译**：整个 `.text` 段一次翻成 C 源码，再编译成 so |
 | **翻译产物** | 不留存（指令流在内存里，跑完就没） | `jq_funcs_0-3.c` + `libjunqi_arm64_shadow.so`（14MB 静态文件） |
@@ -423,7 +423,7 @@ unidbg 的强项是"补环境 + 跑原始字节"：壳/花指令/VM 都是"跑�
 **追问：那把 unidbg（unicorn2）翻译的 aarch64 指令全存下来不就行了？**
 （你的思路：unicorn2 跑 32 位 so → 把翻译成的 aarch64 全存下来 → 存成静态 aarch64 so → 真机直接跑）
 
-**这条路军棋 R6 真做了（`rev64/src_shadow/`，14MB 影子库，6402 函数翻译体），结果：能跑不崩但游戏板黑屏**。4 个致命坑：
+**这条路军棋 R6 真做了（`rev64/reverse/src_shadow/`，14MB 影子库，6402 函数翻译体），结果：能跑不崩但游戏板黑屏**。4 个致命坑：
 
 | 坑 | 说明 | 后果 |
 |---|---|---|
@@ -553,7 +553,7 @@ vector 对象 (12B, 32 位布局):
 **两步做完，so 层 64 位升级齐了**（对象图布局 = 32 位原版 + 18 常量填真值）。**Java 层（JNI 入口签名 / DalvikVM 回调）另说**。
 
 **落地检查点（另一会话可执行验证）**：
-1. C 源码扫描：`grep -rn "std::vector\|std::string" rev64/src_shadow/` → 全换自定义 12B 布局类型
+1. C 源码扫描：`grep -rn "std::vector\|std::string" rev64/reverse/src_shadow/` → 全换自定义 12B 布局类型
 2. 指针位宽：确认全用 `int32_t*`/`uint32_t*`（4B），无裸 `int*`（64 位变 8B）
 3. 结构体加 `__attribute__((packed))` + `#pragma pack(4)`
 4. 18 常量注入：`gen_runtime_table.py` JSON→C 注入表接进 64 位翻译体（`jni_aligned.c` 的 `jq_load_runtime_values`）
@@ -562,7 +562,7 @@ vector 对象 (12B, 32 位布局):
 
 **诚实边界**：① unidbg 当裁判跑到 0x43ed8 崩（§124 ②），动态对比实际 = unicorn2 单函数回归 + redroid dump 18 常量，非 unidbg 整链比 ② 1174/1174 PASS 是"5 构造输入 + 单函数 + 指令语义"一致率，非任意输入/功能一致 ③ 军棋明文 so（非壳），反汇编直接可做。
 
-军棋 R6 阶段真做了（`rev64/src_shadow/`，产物 `libjunqi_arm64_shadow.so` 14MB）：
+军棋 R6 阶段真做了（`rev64/reverse/src_shadow/`，产物 `libjunqi_arm64_shadow.so` 14MB）：
 - 把原版 32 位 `.text` 逐条指令机械翻译成 arm64 C 代码（6402 函数翻译体）
 - 在 x86_64 harness 上跑，生命周期 OnCreate→OnDestroy 通过
 - **结果**：能跑不崩，但**游戏板没渲染（黑屏）**——因为 32 位 so 的 C++ 对象图
@@ -593,7 +593,7 @@ vector 还是 12B、指针还是 4B、vtable 还是 4B vptr，**跟原版 so 同
 
 **翻译体在老环境 dlopen 的 3 个编译级坑（§124u 实测，简讲 + 指向细节）**：
 
-> **注**：这 3 个坑是**"翻译体 C 代码怎么编译成 32 位 so + 怎么在老 32 位 Android 环境 dlopen"的 NDK/链接器知识**（不是"逆向"问题，跟 unidbg 模拟跑原版 so 无关）。军棋 §124u-z 翻译体路线踩了这 3 个坑才 dlopen 成功，**详细原理见 §124u-z 实战记录（`rev64/phases/REVERSE_NOTES_04_shadow_r6.md`），此处只列"坑名 + 一句话"**：
+> **注**：这 3 个坑是**"翻译体 C 代码怎么编译成 32 位 so + 怎么在老 32 位 Android 环境 dlopen"的 NDK/链接器知识**（不是"逆向"问题，跟 unidbg 模拟跑原版 so 无关）。军棋 §124u-z 翻译体路线踩了这 3 个坑才 dlopen 成功，**详细原理见 §124u-z 实战记录（`rev64/reverse/phases/REVERSE_NOTES_04_shadow_r6.md`），此处只列"坑名 + 一句话"**：
 
 | 坑 | 一句话 | 不修的后果 |
 |---|---|---|
@@ -675,14 +675,14 @@ unidbg **能还原数据层**（.rodata/.data/.got 全在内存里），但"还�
 
 > **本节核心**：
 > 1. binutils-32 交叉编译 32 位 so → 64 位（军棋阶段 2 简化重写）
-> 2. rev64/src/junqi.cpp ~97KB，14 个 JNI 入口（与原版 readelf 实测一致，见 1.4.3★ 手简版说明）+ 军棋棋盘 10×9 简化版
+> 2. rev64/reverse/src/junqi.cpp ~97KB，14 个 JNI 入口（与原版 readelf 实测一致，见 1.4.3★ 手简版说明）+ 军棋棋盘 10×9 简化版
 > 3. 不是原版汇编级逆向：玩法/规则/资源与原版不一致（红线 §64 位诚实边界）
 >
 > **本节难点**：
 > 1. 简化版无 GL 依赖（liblog/libm/libandroid），arm64 设备可渲染可交互
 > 2. 完整对齐需 32 位 .rodata 明文逻辑移植进 arm64（地雷/炸弹/悔棋规则/蓝牙/SPAK key），工作量另计
 
-军棋阶段 2 真做了（`rev64/src/junqi.cpp`，`libjunqi_arm64.so` ~97KB）：
+军棋阶段 2 真做了（`rev64/reverse/src/junqi.cpp`，`libjunqi_arm64.so` ~97KB）：
 - 重新用 C++ 写一个简化版 64 位 so（10×9 棋盘 + 自动走子 + GLES2 渲染）
 - **结果**：能在 64 位设备"跑起来"，但玩法/规则/资源**与原版不一致**
 - **红线**：这是"简化重写版"，**不是** 32 位 **1.43MB/1435156B** native 的汇编级逆向

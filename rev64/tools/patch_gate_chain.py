@@ -14,8 +14,8 @@
 """
 import re, sys
 
-V = 'rev64/src_jni_translated/jqt_vtbl.c'
-J = 'rev64/src_jni_translated/jni_aligned.c'
+V = 'rev64/reverse/src_jni_translated/jqt_vtbl.c'
+J = 'rev64/reverse/src_jni_translated/jni_aligned.c'
 
 def patch_vtbl():
     src = open(V).read()

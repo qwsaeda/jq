@@ -4,7 +4,7 @@
 # 默认: 编译 src_rs so → 打进 64 位 only APK（对齐+签名）→ 装 MuMu → 启动 → 截图
 # 判据: 看 logcat junqi_rs tag + verify.png（出帧验收）
 set -u
-OUT=${1:-/disk/workspaces/jq/rev64/src_rs/dist/phase_rs_a64.apk}
+OUT=${1:-/disk/workspaces/jq/rev64/forward/src_rs/dist/phase_rs_a64.apk}
 # ★ 坑固化（2026-11-06）：相对路径 OUT 在脚本 cd $WORK 后 cp 会静默失败（目录不存在）
 #   → OUT 永不更新 → 设备一直跑老 so（"改了没效果/钩子不触发"假象）。
 #   统一转绝对路径（相对路径按调用时 CWD 解析）。
@@ -13,7 +13,7 @@ case "$OUT" in
   *) OUT="$(cd "$(dirname "$OUT")" 2>/dev/null && pwd)/$(basename "$OUT")" ;;
 esac
 DEV=${2:-127.0.0.1:5555}
-RS=/disk/workspaces/jq/rev64/src_rs
+RS=/disk/workspaces/jq/rev64/forward/src_rs
 NDK=/tmp/opencode/android-ndk-r25b
 WORK=/tmp/opencode/jq_apk/rs_a64
 TOOLS=/disk/workspaces/jq/rev64/tools

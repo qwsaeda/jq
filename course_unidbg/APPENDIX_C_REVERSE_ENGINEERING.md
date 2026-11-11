@@ -373,7 +373,7 @@ fi
   - **音效 `sfx_game_over` 统一入口**（walk/吃子后 `stage==OVER` 自动播 **win/lose**）：`data_junqi_win.wav`/`data_junqi_lose.wav`；**3 处调用统一**（OnTouch 走子块锁外 / AI 应着块锁内 / OnCreate flagtest 块锁内）防"改一处漏两处"——**音效 win/lose 已真机闭环**
   - **`rs_draw_overlay` 胜负横幅**（render.c，GAME 态 `stage==OVER` 画中心横幅，winner 色：BLUE 蓝横幅/RED 红横幅）→ **渲染调用链已触发**（`rs_draw_overlay：胜负横幅（winner=BLUE）` 日志实证）
 - **诚实边界**：横幅**像素出屏需真机 GPU 设备验收**（MuMu GLES1 几何出帧受限 §124zz）；**"渲染调用链已触发 + 音效 win/lose 真机闭环" ≠ "屏幕上画出胜负横幅"**（PBuffer 离屏像素已证，window surface 通路未通）
-- **音效清单（★ N23 实测纠正，C.5b checklist 精神）**：`audio.c` 实为 **14 个映射 = 14 个 wav 文件**（`rev64/dist/spak_res/` 14 个，`grep -cE '{\'' rev64/src_rs/audio.c` 实测 14）。构成 = **Junqi 组 12**（move/eat/bomb/flag/dead/flip/**win/lose**/draw/start/over/select）+ **Ui 组 2**（ui_close/ui_pop）。**旧写"16 个"是误记（把 Ui 组 Click/Close/Pop 当 3 个，实为 Close/Pop 2 个 + junqi 12 = 14）**。win/lose 是对局结束新增（15120 实证），但**总数仍 14**（替代"Ui 组只有 Close"的早期 12 个 → 加 win/lose = 14）
+- **音效清单（★ N23 实测纠正，C.5b checklist 精神）**：`audio.c` 实为 **14 个映射 = 14 个 wav 文件**（`rev64/dist/spak_res/` 14 个，`grep -cE '{\'' rev64/forward/src_rs/audio.c` 实测 14）。构成 = **Junqi 组 12**（move/eat/bomb/flag/dead/flip/**win/lose**/draw/start/over/select）+ **Ui 组 2**（ui_close/ui_pop）。**旧写"16 个"是误记（把 Ui 组 Click/Close/Pop 当 3 个，实为 Close/Pop 2 个 + junqi 12 = 14）**。win/lose 是对局结束新增（15120 实证），但**总数仍 14**（替代"Ui 组只有 Close"的早期 12 个 → 加 win/lose = 14）
 - **★ 数据型口径红线（C.5b）**：音效数/wav 数**必须 `grep -c` 实测**，不靠"Ui 组 3 个"的记忆——本轮 N23 就是"14 vs 16"漂移，靠 `grep -cE` 实测 14 揪出
 - **八件套"真机事件"口径升级**：`mumu_fulltest.sh` **★ 加 UI 关闭/弹窗音效后 9/9**（走子 EAT + FLAG + MINE + 重开 + 和棋 + 认输 + 困毙 + UI 关闭/弹窗音效，**走子含 `--check-turn` turn 交替判据**，19321+ 复验；演进 4/4→6/6→7/7→**9/9**）+ **对局结束 win/lose/draw 三色音效 + 三色横幅渲染链**（15120/18636 实证）- **工具**：`mumu_evtest.sh restart` 模式（flagtest→OVER→restartgame→重开判据），实证 PASS
 
@@ -442,7 +442,7 @@ fi
 | **so 产物尺寸** | `stat -c%s <so>` | 翻译体 8171728B / src_rs 94824B（随版本演进，**写"~XX KB 随版本演进"不写死**） |
 | **APK 产物尺寸** | `stat -c%s <apk>` | 翻译体 14943767B / src_rs 资产版 ~6.9MB |
 | **行数口径** | `wc -l src_rs/*.c src_rs/*.h` | 5549 |
-| **回归项数** | `grep -c '^\s*run "' rev64/src_rs_regress.sh` | **11/11**（第 12 项 evverify） |
+| **回归项数** | `grep -c '^\s*run "' rev64/forward/src_rs_regress.sh` | **11/11**（第 12 项 evverify） |
 | **.bss/.data 槽值** | `dd if=/proc/PID/mem bs=1 skip=ADDR count=N` + `readelf -rW` | 读侧 57 槽（RPI 公式 `((addr+4)&~3)+disp`） |
 | **vtable 槽号** | `tex_pipeline.py vslot <十进制槽号>` | 纹理类 0x1595c0 slot[13]=清屏 / slot22/23=纹理创建/删除 |
 
@@ -470,8 +470,8 @@ grep -n "路线 A\|路线 B" course_unidbg/01_basics/ch01_env_setup.md          
 readelf -sW <so> | awk 'NR>2 && /:/{n++} END{print "dynsym=" n}'     # 符号数（原版 1479）
 readelf -rW  <so> | grep -c JUMP_SLOT                                  # PLT（军棋 214）
 stat -c%s <so>                                                          # so 尺寸（写"~XX 随版本演进"）
-wc -l rev64/src_rs/*.c rev64/src_rs/*.h | tail -1                       # 行数（5549）
-# 回归项数：grep -c '^\s*run "' rev64/src_rs_regress.sh                # 11/11
+wc -l rev64/forward/src_rs/*.c rev64/forward/src_rs/*.h | tail -1                       # 行数（5549）
+# 回归项数：grep -c '^\s*run "' rev64/forward/src_rs_regress.sh                # 11/11
 # 写进台账时格式：「实测值（命令 + 时刻）+ 若源自 /tmp 则标注『已固化进 dist/』」
 ```
 

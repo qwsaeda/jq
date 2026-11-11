@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """src_rs_check.py — src_rs 源码重写路线防回归审计
 用法: python3 src_rs_check.py
-检查 rev64/src_rs/ 下所有已知红线（本轮踩坑沉淀），一条命令出 PASS/FAIL：
+检查 rev64/forward/src_rs/ 下所有已知红线（本轮踩坑沉淀），一条命令出 PASS/FAIL：
   [1] Makefile 链接行含 -lEGL -lGLESv1_CM -lGLESv2 -landroid
   [2] glview_gl.c 用 PBUFFER_BIT config（WINDOW_BIT 配 PBuffer → 3002）
   [3] glview_gl.c 不预 eglMakeCurrent（跨线程 makeCurrent → 3002）
@@ -17,7 +17,7 @@
 """
 import os, sys, re, subprocess
 
-RS = '/disk/workspaces/jq/rev64/src_rs'
+RS = '/disk/workspaces/jq/rev64/forward/src_rs'
 TOOLS = '/disk/workspaces/jq/rev64/tools'
 results = []
 

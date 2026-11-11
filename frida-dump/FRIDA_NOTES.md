@@ -47,7 +47,7 @@ frida-dump/
 ```
 
 > **★ 路线演进（§124x-z 后，重要）**：早期"redroid dump → `jni_runtime_values.json` → JSON→C 注入"路线**已废弃**。
-> 18 个地址值现**静态固化在 `rev64/src_jni_translated/jqt_mem.c` 的 `g_jq_got_tbl`**（静态位移，非 redroid 绝对值，
+> 18 个地址值现**静态固化在 `rev64/reverse/src_jni_translated/jqt_mem.c` 的 `g_jq_got_tbl`**（静态位移，非 redroid 绝对值，
 > 不同进程基址通用），**无需运行时 dump**。`jni_runtime_values.json` 文件已删。
 > 下面的 2.2 流程 + 工具三件套**保留作备查**（万一要重 dump / 换基址仍适用），但**当前干活会话直接用 `jqt_mem.c` 固化值，别找/生成 json**。
 
@@ -73,13 +73,13 @@ frida-dump/
 **喂注入层**（`gen_runtime_table.py`）：
 ```
 jni_runtime_values.json → 生成 g_jq_runtime[JQ_GLOB_COUNT] C 表
-→ 替换 rev64/src_jni_translated/jni_aligned.c 占位表
+→ 替换 rev64/reverse/src_jni_translated/jni_aligned.c 占位表
 → bash rev64/build_aligned.sh 重编 → 14 入口读运行时值可运行
 ```
 
 **AGENTS.md 红线对应**：这 18 地址"**仅 dlopen 重定位填**（.so 未重定位，.got 槽为零），
 不是壳自解密（.rodata 静态即明文、无自解密例程）"。**★ 当前路线（§124x-z 后）：18 值已静态固化在
-`rev64/src_jni_translated/jqt_mem.c` 的 `g_jq_got_tbl`（静态位移，非 redroid 绝对值，不同进程基址通用），
+`rev64/reverse/src_jni_translated/jqt_mem.c` 的 `g_jq_got_tbl`（静态位移，非 redroid 绝对值，不同进程基址通用），
 无需运行时 dump；`jni_runtime_values.json` 已删**。上面的 redroid dump 72B 是早期路线，保留备查。
 
 ### 2.3 三个 dump 脚本的差异（按需选）

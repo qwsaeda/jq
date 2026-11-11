@@ -13,7 +13,7 @@
      - F_9d3d4 渲染器单例访问器完整体（sp27 版：_Znwj(136)+F_9d988 构造 + vtable ABS(0x1595c0) + 存 0x162400 槽）
      - 重复定义自动去重（sp27 regen 的 F_b5eec 类，max_funcs BFS 截断产生）
   3. brace 完整性检查（全函数 depth 归 0）
-  4. 写 rev64/src_jni_translated/jqt_vtbl.c
+  4. 写 rev64/reverse/src_jni_translated/jqt_vtbl.c
   5. build: 编译 so + 打包 APK + 安装 MuMu + 启动
 背景（§sp27 沉淀）：13→14 参数批量迁移 regex 误伤 52 处断裂行 → 编译失败。
 根因 = gen 工具链 13/14 参数不统一。手工 sed 式迁移不可靠，回归单点注入（本工具固化）。
@@ -22,7 +22,7 @@ import re, sys, os, subprocess, glob, json
 
 CHAIN = '/tmp/opencode/chain/jqt_vtbl.c'
 SP27 = '/tmp/opencode/chain/jqt_vtbl_sp27.c'
-OUT = 'rev64/src_jni_translated/jqt_vtbl.c'
+OUT = 'rev64/reverse/src_jni_translated/jqt_vtbl.c'
 VARIANT = sys.argv[1] if len(sys.argv) > 1 else 'chain'
 DO_BUILD = 'build' in sys.argv
 
@@ -267,7 +267,7 @@ def main():
     #   → 链接 duplicate symbol。策略：保留 jqt_vtbl.c 版（gen 翻译体，最新），
     #   删其他文件里的同名 F_xxx 完整体（depth 归 0 定位函数尾）。
     import glob as _glob
-    other_files = sorted(_glob.glob('rev64/src_jni_translated/jqt_*.c'))
+    other_files = sorted(_glob.glob('rev64/reverse/src_jni_translated/jqt_*.c'))
     other_files = [f for f in other_files if f.split('/')[-1] not in ('jqt_vtbl.c', 'jqt_mem.c', 'jqt_jnibr.c')]
     vtbl_fns = set(re.findall(r'uint32_t F_([0-9a-f]+)\(uint32_t _r0,', src))
     removed_total = 0

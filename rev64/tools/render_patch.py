@@ -12,7 +12,7 @@
 """
 import re, sys
 
-PATH = 'rev64/src_jni_translated/jqt_OnRender_full.c'
+PATH = 'rev64/reverse/src_jni_translated/jqt_OnRender_full.c'
 
 # ============ 补丁 1: Lbf51c vtable 检查豁免 ============
 LB51C_OLD = ("if (!(r5 >= 0xa0000000u && r5 < 0xf0000000u) || "

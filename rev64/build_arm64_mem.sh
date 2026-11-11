@@ -5,7 +5,7 @@
 set -e
 CLANG=/tmp/opencode/android-ndk-r25b/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android24-clang
 SYSROOT_INC=/tmp/opencode/android-ndk-r25b/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/include
-JTI=/disk/workspaces/jq/rev64/src_jni_translated
+JTI=/disk/workspaces/jq/rev64/reverse/src_jni_translated
 OUT=${1:-/disk/workspaces/jq/rev64/dist/libjunqi_arm64_mem.so}
 TMP=/tmp/jq64_mem_build
 rm -rf $TMP; mkdir -p $TMP

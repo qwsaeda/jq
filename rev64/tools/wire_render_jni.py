@@ -23,7 +23,7 @@
 import re
 
 # 读 jqt_vtbl.c 找 F_24108 定义
-P = '/disk/workspaces/jq/rev64/src_jni_translated/jqt_vtbl.c'
+P = '/disk/workspaces/jq/rev64/reverse/src_jni_translated/jqt_vtbl.c'
 s = open(P).read()
 
 # 找 F_24108 函数体（从 uint32_t F_24108( 到匹配的 })

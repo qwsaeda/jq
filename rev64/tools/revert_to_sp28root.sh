@@ -5,8 +5,8 @@
 # 比 sp27 更靠前（字段填对不崩、纹理创建函数已就位），回退目标 = 当前已验证稳定态。
 set -e
 echo "[1/4] 恢复 jqt_vtbl.c = sp28-ROOT 已验证版（含填字段 + F_9e204）"
-cp /tmp/opencode/chain/jqt_vtbl_sp28root_verified.c rev64/src_jni_translated/jqt_vtbl.c
-cp /tmp/opencode/chain/jqt_OnRender_sp28root.c rev64/src_jni_translated/jqt_OnRender_full.c
+cp /tmp/opencode/chain/jqt_vtbl_sp28root_verified.c rev64/reverse/src_jni_translated/jqt_vtbl.c
+cp /tmp/opencode/chain/jqt_OnRender_sp28root.c rev64/reverse/src_jni_translated/jqt_OnRender_full.c
 echo "[2/4] Lbf51c 豁免（幂等）"
 python3 rev64/tools/render_patch.py
 echo "[3/4] 编译 + 打包"

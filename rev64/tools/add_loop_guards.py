@@ -26,7 +26,7 @@ VALVE_MARK = 'VALVE'
 
 def find_func_file(func):
     """在 src_jni_translated/*.c 里找函数所在文件"""
-    for path in glob.glob('/disk/workspaces/jq/rev64/src_jni_translated/*.c'):
+    for path in glob.glob('/disk/workspaces/jq/rev64/reverse/src_jni_translated/*.c'):
         src = open(path).read()
         if re.search(r'^uint32_t %s\(uint32_t _r0' % func, src, re.M):
             return path
@@ -196,7 +196,7 @@ def main():
         return 0
     elif mode == '--auto':
         # 自动扫描: 找所有无阀循环头较多的函数（调用链相关）
-        for path in glob.glob('/disk/workspaces/jq/rev64/src_jni_translated/*.c'):
+        for path in glob.glob('/disk/workspaces/jq/rev64/reverse/src_jni_translated/*.c'):
             src = open(path).read()
             for m in re.finditer(r'^uint32_t (F_[0-9a-f]+)\(uint32_t _r0', src, re.M):
                 fn = m.group(1)

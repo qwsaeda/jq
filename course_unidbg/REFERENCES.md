@@ -36,7 +36,7 @@
 | 10-15（源码解析） | 原书 10-15 | **① unidbg 代码库**（AndroidEmulator/DalvikVM/Memory/Hook 源码目录） | 军棋第 10-15 章的"源码解析"应对着 unidbg 源码读 |
 | 16-26（实战/补环境） | 原书 16-26 | ⑤ 社区实战文（快手/绿洲/微博案例）+ ② UnidbgBook Chap16-26 | 军棋把样本映射成军棋 32 位 so |
 | 27-31（反检测/部署） | 原书 27-31 | ⑤ 社区反检测文 + ① unidbg 代码库（xHook/InlineHook 实现） | 军棋 32 位 so 反检测 8 维度 |
-| 军棋独有（§124q 调用链判据） | **原书无** | 军棋 `rev64/phases/REVERSE_NOTES_04_shadow_r6.md` §124q | 军棋做 32→64 影子运行时时自创，原书"补环境跑原版"场景无"对齐判据"需求 |
+| 军棋独有（§124q 调用链判据） | **原书无** | 军棋 `rev64/reverse/phases/REVERSE_NOTES_04_shadow_r6.md` §124q | 军棋做 32→64 影子运行时时自创，原书"补环境跑原版"场景无"对齐判据"需求 |
 
 ## 关键提醒（军棋课程 vs 原书/一手来源）
 
@@ -49,11 +49,11 @@
 
 | 数据 | 来源 | 课程落点 |
 |---|---|---|
-| 14 个 JNI 入口（readelf 实测） | `rev64/phases/` + readelf | 全课程（1.5/12/23/29/30） |
+| 14 个 JNI 入口（readelf 实测） | `rev64/reverse/phases/` + readelf | 全课程（1.5/12/23/29/30） |
 | 7 个 DT_NEEDED（含 liblog） | readelf | 第 4/6/8/10 章 |
-| SPAK = XOR(key[j%32])+zlib，key VA 0x12a658 | `rev64/phases/R5_spak.md` | 第 18/19 章 |
-| 军棋棋盘 60 格 38 子 + 走子判定 0x39e14 | `rev64/phases/R3_rules.md` + REVERSE_NOTES | 第 20 章 |
-| §124 三项阻塞 + OnCreate 90% 里程碑 | `rev64/phases/REVERSE_NOTES_04_shadow_r6.md` | 第 3/10/25/26 章 |
+| SPAK = XOR(key[j%32])+zlib，key VA 0x12a658 | `rev64/reverse/phases/R5_spak.md` | 第 18/19 章 |
+| 军棋棋盘 60 格 38 子 + 走子判定 0x39e14 | `rev64/reverse/phases/R3_rules.md` + REVERSE_NOTES | 第 20 章 |
+| §124 三项阻塞 + OnCreate 90% 里程碑 | `rev64/reverse/phases/REVERSE_NOTES_04_shadow_r6.md` | 第 3/10/25/26 章 |
 | §124q 调用链判据 + OnCreate 12 目标 | 同上 §124q | 第 5 章 5.4.1 |
 | 影子库 14MB 黑屏（对象图错位） | `rev64/dist/` | 第 1 章 1.4.3 |
 

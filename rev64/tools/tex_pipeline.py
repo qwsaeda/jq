@@ -604,7 +604,7 @@ def scenechain(root=0x242f4, orig=ORIG):
     return callees
 
 
-def closure(root, orig=ORIG, src_dir='/disk/workspaces/jq/rev64/src_jni_translated',
+def closure(root, orig=ORIG, src_dir='/disk/workspaces/jq/rev64/reverse/src_jni_translated',
             maxn=4000):
     """从 root 出发的**调用闭包**（只跟 bl/blx 直接分支），并对比翻译体里
     "已完整翻译 / 仅存根 / 完全没有" 的分布 → 明确"还差多少函数才能跑通"。
@@ -817,7 +817,7 @@ def i2f_sites(fix=False):
         n = 0
         stub = 'r0=0; /* blx 0x232c8 存根 */'
         real = '{ float _f=(float)(int32_t)r0; r0=*(uint32_t*)&_f; } /* blx 0x232c8 __aeabi_i2f 真实 */'
-        for f in sorted(glob.glob('/disk/workspaces/jq/rev64/src_jni_translated/*.c')):
+        for f in sorted(glob.glob('/disk/workspaces/jq/rev64/reverse/src_jni_translated/*.c')):
             t = open(f).read()
             c = t.count(stub)
             if c:
@@ -1040,7 +1040,7 @@ def batchlog(*funcs):
     """批量给 jqt_vtbl.c 里的多个函数加入口插桩日志（§〇d 三连插桩模式机械化）。
     幂等：已有 ENTRY 日志/已有插桩注释的函数跳过。
     用法：python3 tex_pipeline.py batchlog 0x77840 0x77b10 0x23738"""
-    f = '/disk/workspaces/jq/rev64/src_jni_translated/jqt_vtbl.c'
+    f = '/disk/workspaces/jq/rev64/reverse/src_jni_translated/jqt_vtbl.c'
     src = open(f).read()
     lines = src.split('\n')
     done, skipped = [], []
@@ -1175,7 +1175,7 @@ def dispatchfix():
     # 对照翻译体存根状态
     import glob
     trans = {}
-    for f in sorted(glob.glob('/disk/workspaces/jq/rev64/src_jni_translated/*.c')):
+    for f in sorted(glob.glob('/disk/workspaces/jq/rev64/reverse/src_jni_translated/*.c')):
         for line in open(f):
             m2 = re.match(r'\s*L([0-9a-f]+): ', line)
             if m2 and 'blx dispatch' in line or (m2 and 'jqt_blx_dispatch' in line):
@@ -1196,7 +1196,7 @@ def vtabswrite_check():
     用法：python3 tex_pipeline.py vtabswrite"""
     import glob
     bad = []
-    for f in sorted(glob.glob('/disk/workspaces/jq/rev64/src_jni_translated/*.c')):
+    for f in sorted(glob.glob('/disk/workspaces/jq/rev64/reverse/src_jni_translated/*.c')):
         s = open(f).read()
         for m in re.finditer(r'MEM\((\w+)\+0\)\s*=\s*(0x1[56][0-9a-f]{3})\b', s):
             reg, val = m.group(1), m.group(2)

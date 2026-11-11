@@ -5,7 +5,7 @@
 import sys, json, os
 
 J = sys.argv[1] if len(sys.argv)>1 else '/disk/workspaces/jq/frida-dump/jni_runtime_values.json'
-C = '/disk/workspaces/jq/rev64/src_jni_translated/jni_aligned.c'
+C = '/disk/workspaces/jq/rev64/reverse/src_jni_translated/jni_aligned.c'
 
 vals = json.load(open(J))
 print('读 %d 个运行时地址值' % len(vals))

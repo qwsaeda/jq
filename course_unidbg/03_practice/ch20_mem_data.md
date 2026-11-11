@@ -167,7 +167,7 @@ OnEvent("layout", "0".."11")
 两个方向**房间真值**都断，早期只能 redroid dump；**★ §124x-z 后 = 静态位移固化 `jqt_mem.c` `g_jq_got_tbl` 免 dump**。
 ## 20.4 军棋棋盘数据（60 格 + 38 子 + 走子等级，R3/REVERSE_NOTES 实测）
 ![军棋 60 格棋盘 + 38 子等级表（rank 40 司令 → rank 32 工兵 + 雷/旗/炸弹）](assets/ch20_piece_rank.png)
-军棋 so 的棋盘 / 棋子 / 走子规则数据（`rev64/phases/R3_rules.md` + `REVERSE_NOTES.md` 实测，
+军棋 so 的棋盘 / 棋子 / 走子规则数据（`rev64/reverse/phases/R3_rules.md` + `REVERSE_NOTES.md` 实测，
 课程里补全"军棋到底是个什么棋盘游戏"的数据层）：
 
 ### 20.4.1 棋盘几何（60 格，每格 12 字节结构体）
@@ -253,7 +253,7 @@ OnEvent("layout", "0".."11")
 - Hook `0x39e14`（走子判定）看 `(from, to, target_rank)` 三元组 → 还原"这步走得合不合法"
 - Hook `0x3a15c`（走子执行）看吃子结果 → 还原"吃没吃、谁死"
 - 棋盘 60 格 `board` 数组在 `.data`/堆（`one.sjg` 存档的 60 格），动态 trace 看运行时布局
-**诚实边界**：走子等级 / 规则是 R3 阶段"按标准军棋对齐"的实现（`rev64/src/junqi.cpp` 简化版），
+**诚实边界**：走子等级 / 规则是 R3 阶段"按标准军棋对齐"的实现（`rev64/reverse/src/junqi.cpp` 简化版），
 **不是原版汇编级逆向**（红线 §64 位 native 诚实边界）。原版走子判定 0x39e14 只判目标类型，
 铁路路径在调用者 0x6ef54（坐标比较 + 路径滑行，REVERSE_NOTES §16）。
 ## 20.5 动态验证（unidbg 交叉验证军棋"非壳"结论）
