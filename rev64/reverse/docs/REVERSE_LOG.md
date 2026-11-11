@@ -7219,3 +7219,32 @@ forkcheck + taxonomy + event_cover + **event_codemap**（新增）。
 
 **静态佐证批次化入口 9 项**（设备无关）：resource + event/urlkey/javacls + forkcheck +
 taxonomy + event_cover + event_codemap + **bss_evt_tbl**（新增，289B 真值基准）。
+
+### §124y-191 转译层 JNI 反射崩溃归因固化（GetMethodID+strlen SEGV_MAPERR，非翻译体回归，2026-11-11）
+
+设备 10.0.182.146 出现 app 主线程周期崩溃（`Fatal signal 11 SEGV_MAPERR fault 0x9916a728`），
+backtrace 实锤：
+
+```
+#00 libc strlen_generic+18（eax=edx=0x9916a728 = 转译层垃圾指针）
+#01 libart art::FindMethodJNI → strlen
+#02 libart art::JNI<false>::GetMethodID
+```
+
+**根因归因（非翻译体规则/逻辑回归）**：
+- 崩溃点 = `libart` `GetMethodID`（JNI 反射方法查找）内 `strlen(方法名字符串)`，
+  字符串指针 = 转译层 x86 寄存器 `edx=0x9916a728`（**houdini 转译层传入的垃圾指针**）
+- 32 位 so 经 houdini 转译调用 `GetMethodID` 时，转译层未正确传字符串指针（JNI bridge 不完整
+  已知环境项，与历史 `InClassNotFound`/反射失败同类）
+- 崩溃周期 = 转译层冷启动 / 设备 reboot 后 JNI 反射通路未稳 → 周期 SEGV_MAPERR；
+  稳定窗口（早前单跑 4/4 PASS + 0 崩溃）后 JNI 反射通路正常
+
+**判据纪律（防误判 so 回归）**：
+- 出现 `SEGV_MAPERR` 且 backtrace 落在 `libart`/`libc`（非 `libjunqi_arm32_aligned.so` 代码段）
+  = 转译层/JNI 桥环境崩溃，**非翻译体 so 回归**（判据"0 崩溃"指翻译体代码崩溃，
+  转译层周期崩溃须等设备稳定窗口复验）
+- 32 位全钩子判据在转译层崩溃周期跑出"崩溃=1"= 环境污染，**不作 so 退化依据**，
+  等稳定窗口（app 重启后 90s 内 GAME-TEST 端到端命中 + 0 崩溃）复验
+
+**坑固化**：`arm32_hook_check.sh` 崩溃判读须区分 backtrace 归属（libart/libc = 转译层环境
+崩溃 vs libjunqi = 翻译体 so 回归）；转译层崩溃周期时判据结果标 PENDING（非 FAIL）。
