@@ -178,6 +178,13 @@ java -cp /tmp/opencode/apksigner/apksig.jar:/tmp/opencode/apksigner SignV2 \
 > - **继续做路线（未达成不罢休）**：① 等 vaddress 内核模块 / MuMu 客户端输入桥修好后重跑上述判据
 >   ② 或在用户侧用 MuMu 客户端"多开"新实例 / 升级 MuMu 客户端后再验 ③ 换真机（非 MuMu）做
 >   最终"手点能玩"实锤——在设备侧链路修复前，以 sendevent 真实触摸事件序列作为 app 侧等价判据。
+>
+> **★ 2026-11-10 应用改名「逆军棋」（用户指令：逆向开发的 app 叫"逆军棋"）**：
+> - `dec_rs/res/values/strings.xml` `app_name` 由"军棋"改"逆军棋"，apktool 重编 arsc + 当前 so
+>   `6a1a1139` 注入 + STORE/zipalign/双签 → 装机 10.0.182.146 `application-label:'逆军棋'` 实锤，
+>   全链 5 判据复验 PASS（pid 4262/4343/4440，board=OK + movetest 3/3 + 0 崩溃）。
+> - 口径更新：设备端 app 标签 = **"逆军棋"**（包名仍 `com.cnvcs.junqirs` v1.6.8）；
+>   上段历史"新军棋"引用为当时口径（arsc 漂移旧值），以本段为准。
 
 > **★ 用户"这界面你是怎么通过的"指正（2026-11-10，实锤渲染布局未达成）**：
 > 用户实机截图显示 10.0.182.146 上 app 画面**被压在一块小竖条里，上下大片纯黑**（窗口/surface 未填满
@@ -290,7 +297,7 @@ java -cp /tmp/opencode/apksigner/apksig.jar:/tmp/opencode/apksigner SignV2 \
 > 后续新增判据（完整 60 局对弈 / AI 介入 / 蓝牙端到端 / 真实手点验收等）未过时，记录缺口到本段并继续做。
 >
 > **★ 2026-11-10 用户反馈"app 名字不是叫新军棋吗 MuMu 里就没有这个 app"（未达成卡点）**：
-> - 设备端实锤：`application-label:'新军棋'`（aapt badging 查 MuMu 设备端 base.apk），包名 `com.cnvcs.junqirs` v1.6.8。
+> - 设备端实锤：`application-label:'逆军棋'`（aapt badging 查 MuMu 设备端 base.apk），包名 `com.cnvcs.junqirs` v1.6.8。
 > - 本机 adb 连的 MuMu（`127.0.0.1:5556`，redroid12_x86_64 容器）：`pm list packages` 有 `com.cnvcs.junqirs`，
 >   so `722dde6d` 实锤，全链（装/出图 board=OK/进对局/蓝走子 6→11 Junqi.Move/退出/重进 0 崩溃）PASS。
 > - **用户视角 MuMu 桌面找不到 app 的可能根因（待实锤）**：① 用户看的是 MuMu 模拟器客户端 GUI（非 adb 容器 127.0.0.1:5556）
@@ -327,7 +334,7 @@ java -cp /tmp/opencode/apksigner/apksig.jar:/tmp/opencode/apksigner SignV2 \
 > 用户"MuMu"实指 **10.0.182.146:5555（红果 Xiaomi 23127PN0CC x86_64 真机）**，非 127.0.0.1:5556（redroid12 容器）——
 > 设备搞混。该机上旧 `com.cnvcs.junqirs` 装的是**旧 arsc（`application-label:'军棋'`，3 个 junqi 包全叫"军棋"，无"新军棋"）**
 > → 用户找"新军棋"找不到。
-> 修：`adb install -r dist/phase3.apk` 重装（新 arsc `application-label:'新军棋'` + so `722dde6d`，aapt badging 实锤）+
+> 修：`adb install -r dist/phase3.apk` 重装（新 arsc `application-label:'逆军棋'` + so `722dde6d`，aapt badging 实锤）+
 > 清 launcher 缓存（force-stop + PACKAGE_ADDED 广播）。
 > 全链复验（10.0.182.146，0 崩溃）：装得上 ✓ 进主界面 board=OK ✓ 进对局（菜单 360,1020→弹窗明棋 455,587→确定 255,747）✓
 > 走子蓝 6→11 `can_move=1 Junqi.Move` ✓ 正常退出 ✓ 重进不崩 ✓。
