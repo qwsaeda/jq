@@ -7073,3 +7073,28 @@ JNI 类名 6 + 分叉矩阵 0 未标记，全 0 缺口。设备恢复后 `arm32_
 
 **口径**：`g_jq_strings` 76 事件名全量 = 原版 .rodata 事件名 0 缺口（§124y 44 条补全
 是 Junqi.* 增量，本条 = Misc.* 3 条收尾，事件名静态佐证全闭环）。
+
+### §124y-184 静态佐证批次化入口 7 项 + 事件名覆盖度判据脚本化（`rodata_event_cover.py`，2026-11-11）
+
+用户"光改光对比，一点经验是不总结，不复用，不批量化，不脚本化"批评的直接落实——
+把散落在对话里的每轮手敲判据全部固化为可复跑脚本，32 位逆向验收从此"一条命令出判据"：
+
+**工具 1（新）`rodata_event_cover.py`**：原版 .rodata 76 事件名（73 Junqi.* + 3 Misc.*）
+→ 翻译体 `jq_rodata_plain.h` `g_jq_strings` 覆盖度 0 缺口判据（76/76 PASS）。
+- **坑固化**：token 提取须含 `%d` 后缀（`Junqi.GameType%d` / `Misc.Graph%d` 为模板串，
+  初版 `[A-Za-z]+` 漏 %d → 假缺口 2 条）；`--fix` 模式自动补缺口（按 .rodata 文件偏移=VA 实锤值）。
+- 与 `rodata_event_taxonomy.py`（语义族谱，§124y-183）分工：taxonomy 证"事件名有哪些"，
+  cover 证"翻译体是否全收"。
+
+**工具 2 `arm32_static_evidence.sh` 扩到 7 项**（PASS=7 FAIL=0）：
+resource（44 资源 0 缺口）+ event/urlkey/javacls（§124y-181）+ forkcheck（分叉矩阵 0 未标记）
++ taxonomy（76 族谱）+ **event_cover（76 覆盖度）**。
+
+**工具 3 `arm32_hook_check.sh` framebuffer 分支改轮询等待**（方法论第 5 条 flaky 防）：
+固定 sleep 16s 可能早于翻译体 F_9d43c 首帧 dump → 改轮询最多 40s（每 4s 查一次文件 +
+pull + PIL 判读），判据仍 = 非黑比 ≥30%（§124y-179）。
+
+**当前 32 位逆向验收标准动作（固化，防复发手敲）**：
+- 静态（设备无关）：`bash rev64/tools/arm32_static_evidence.sh`（7 项）
+- 设备（全钩子）：`bash rev64/tools/arm32_hook_check.sh --dev 10.0.182.146:5555 --rounds 3`（4 项）
+- 走子回归：`bash rev64/tools/arm32_walkregress.sh --dev ... --no-install`（4 路径）
