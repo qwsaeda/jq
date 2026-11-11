@@ -7361,3 +7361,23 @@ rel_dyn + **jni_export**（新增，JNI 导出符号 14 个）。
 **静态佐证批次化入口 14 项**（设备无关）：resource + event/urlkey/javacls + forkcheck +
 taxonomy + event_cover + event_codemap + bss_evt_tbl + rodata_static + text_static +
 rel_dyn + jni_export + **got_plt**（新增，.rel.plt/.got 符号解析槽）。
+
+### §124y-198 32 位翻译体 so JNI 导出符号对照判据脚本化 + 静态佐证扩到 15 项（2026-11-11）
+
+用户"光改光对比，经验不总结/不脚本化"批评的延续落实——把"翻译体 so 导出
+JNI 符号 = 原版 32 位 so 14 个 On* 逐名一致"口径固化为可复跑静态判据
+（不依赖设备，防翻译体 so 符号漂移）：
+
+- **新工具** `rev64/tools/translated_jni_check.py`：翻译体 so
+  `rev64/dist/libjunqi_arm32_aligned.so` nm -D 导出 `Java_com_cnvcs_App_*`
+  14 个 On* 符号 vs 原版 32 位 so（§124y-195 B09-001 口径 14）逐名对照
+- **判据实锤**：翻译体 14 On* = 原版 14 On* **逐名对称差 0**（JNI 导出 32/32 位
+  同源对齐，OnBluetooth/OnCreate/OnDestroy/OnEvent/OnGraphChange/OnGraphCreate/
+  OnInput/OnKey/OnPause/OnResult/OnResume/OnTimer/OnTouch/OnUpdate）
+- **坑固化**：翻译体 so 重编后须重跑本判据（符号逐名一致 0 差异）+ 重打包 apk
+  装机（§124y-176 误打包坑：so+apk 哈希一致性验证），防 so 漂移/误打包
+- 并入 `arm32_static_evidence.sh` 第 15 项 `trans_jni`（PASS=15 FAIL=0 全 PASS）
+
+**静态佐证批次化入口 15 项**（设备无关）：resource + event/urlkey/javacls + forkcheck +
+taxonomy + event_cover + event_codemap + bss_evt_tbl + rodata_static + text_static +
+rel_dyn + jni_export + got_plt + **trans_jni**（新增，翻译体 JNI 导出对照）。

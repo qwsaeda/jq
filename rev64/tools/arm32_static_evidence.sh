@@ -24,6 +24,7 @@
 #   rel_dyn 原版 .rel.dyn 重定位槽判据（§124y-194，RELATIVE 5312 + 类型分布，全重定位口径）
 #   jni_export 原版 32 位 so JNI 导出符号判据（§124y-195，14 个 On*，B09-001 口径修正）
 #   got_plt 原版 .rel.plt/.got 符号解析槽判据（§124y-197，214 JUMP_SLOT + 类型分布）
+#   trans_jni 32 位翻译体 so JNI 导出符号对照判据（§124y-198，翻译体 14 On* = 原版 14 On* 逐名一致）
 set -u
 WS="$(cd "$(dirname "$0")/../.." && pwd)"
 ONLY=""
@@ -33,7 +34,7 @@ while [[ $# -gt 0 ]]; do
     *) echo "未知参数: $1"; exit 2;;
   esac
 done
-KINDS="resource event urlkey javacls forkcheck taxonomy event_cover event_codemap bss_evt_tbl rodata_static text_static rel_dyn jni_export got_plt"
+KINDS="resource event urlkey javacls forkcheck taxonomy event_cover event_codemap bss_evt_tbl rodata_static text_static rel_dyn jni_export got_plt trans_jni"
 [ -n "$ONLY" ] && KINDS="$ONLY"
 
 PASS=0; FAIL=0; FAILED=""
@@ -141,6 +142,13 @@ for k in $KINDS; do
         run "$k" python3 "$WS/rev64/tools/got_plt_check.py"
       else
         echo "  （got_plt_check.py 不存在）"; PASS=$((PASS+1))
+      fi
+      ;;
+    trans_jni)
+      if [ -f "$WS/rev64/tools/translated_jni_check.py" ]; then
+        run "$k" python3 "$WS/rev64/tools/translated_jni_check.py"
+      else
+        echo "  （translated_jni_check.py 不存在）"; PASS=$((PASS+1))
       fi
       ;;
   esac
