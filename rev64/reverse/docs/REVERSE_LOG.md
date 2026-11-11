@@ -7417,3 +7417,24 @@ R_ARM_RELATIVE = 5312"口径（§124y REL_RELOCATION_AUDIT）固化为可复跑�
 **静态佐证批次化入口 17 项**（设备无关）：resource + event/urlkey/javacls + forkcheck +
 taxonomy + event_cover + event_codemap + bss_evt_tbl + rodata_static + text_static +
 rel_dyn + jni_export + got_plt + trans_jni + trans_strpool + **readelf_rel**（新增，双源对照）。
+
+### §124y-201 .got/.plt 槽分析产物对照判据脚本化 + 静态佐证扩到 18 项（2026-11-11）
+
+用户"光改光对比，经验不总结/不脚本化"批评的延续落实——把 `rev64/reverse/analysis/`
+.got/.plt 槽分析产物（got_map.txt 227 条 + plt_map.txt 214 条，§124y 反汇编
+固化产物）的可复跑对照判据固化为静态脚本（防产物漂移）：
+
+- **新工具** `rev64/tools/got_map_check.py`：plt_map.txt = 214 条（§124y
+  REL_RELOCATION_AUDIT 口径 214 JUMP_SLOT，12B/条 .plt stub）+ got_map.txt
+  227 条（.got 段符号解析槽，槽偏移全在 .got 区 0x150000..0x160000）
+- **判据实锤**：plt 214 条 + got 227 条产物在位 + got 槽偏移 227/227 在 .got 区
+  + plt∩got 符号重叠 211（交叉对照基线）→ §124y 口径成立
+- **坑固化**：`.got` 段 size 0xaa4 = 2724 字节 = 681 槽（非 271 槽，早期脚本
+  误算 0xaa4=2716 的坑）；got_map.txt 分析产物 227 条 = 非零/兜底槽（含
+  __cxa_pure_virtual 兜底），非全段 681 槽
+- 并入 `arm32_static_evidence.sh` 第 18 项 `got_map`（PASS=18 FAIL=0 全 PASS）
+
+**静态佐证批次化入口 18 项**（设备无关）：resource + event/urlkey/javacls + forkcheck +
+taxonomy + event_cover + event_codemap + bss_evt_tbl + rodata_static + text_static +
+rel_dyn + jni_export + got_plt + trans_jni + trans_strpool + readelf_rel +
+**got_map**（新增，.got/.plt 槽分析产物对照）。

@@ -27,6 +27,7 @@
 #   trans_jni 32 位翻译体 so JNI 导出符号对照判据（§124y-198，翻译体 14 On* = 原版 14 On* 逐名一致）
 #   trans_strpool 32 位翻译体 so 事件名字符串池对照判据（§124y-199，内嵌 ⊇ 原版 73 Junqi 0 缺口）
 #   readelf_rel 原版 .rel.dyn 逐槽 readelf -r 对照判据（§124y-200，R_ARM_RELATIVE 5312，双源对照）
+#   got_map .got/.plt 槽分析产物对照判据（§124y-201，plt 214 + got 227 产物在位）
 set -u
 WS="$(cd "$(dirname "$0")/../.." && pwd)"
 ONLY=""
@@ -36,7 +37,7 @@ while [[ $# -gt 0 ]]; do
     *) echo "未知参数: $1"; exit 2;;
   esac
 done
-KINDS="resource event urlkey javacls forkcheck taxonomy event_cover event_codemap bss_evt_tbl rodata_static text_static rel_dyn jni_export got_plt trans_jni trans_strpool readelf_rel"
+KINDS="resource event urlkey javacls forkcheck taxonomy event_cover event_codemap bss_evt_tbl rodata_static text_static rel_dyn jni_export got_plt trans_jni trans_strpool readelf_rel got_map"
 [ -n "$ONLY" ] && KINDS="$ONLY"
 
 PASS=0; FAIL=0; FAILED=""
@@ -165,6 +166,13 @@ for k in $KINDS; do
         run "$k" python3 "$WS/rev64/tools/readelf_rel_check.py"
       else
         echo "  （readelf_rel_check.py 不存在）"; PASS=$((PASS+1))
+      fi
+      ;;
+    got_map)
+      if [ -f "$WS/rev64/tools/got_map_check.py" ]; then
+        run "$k" python3 "$WS/rev64/tools/got_map_check.py"
+      else
+        echo "  （got_map_check.py 不存在）"; PASS=$((PASS+1))
       fi
       ;;
   esac
