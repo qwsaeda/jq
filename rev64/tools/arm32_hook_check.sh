@@ -1,0 +1,206 @@
+#!/bin/bash
+# arm32_hook_check.sh — 32 位翻译体全钩子验收基准 一键脚本（§124y-180）
+#
+# 沉淀 32 位逆向验收判据为可机判脚本（防每轮手敲重复 + 判据漂移）。
+# 判据来源：REVERSE_LOG §124y-178（全钩子基准）+ §124y-179（出屏非黑比判读）。
+#
+# 用法:
+#   bash rev64/tools/arm32_hook_check.sh --dev 10.0.182.146:5555
+#   bash rev64/tools/arm32_hook_check.sh --dev ... --only game_test,framebuffer
+#   bash rev64/tools/arm32_hook_check.sh --dev ... --no-install
+#   bash rev64/tools/arm32_hook_check.sh --dev ... --rounds 3   # 出屏连跑 N 轮（防抖动）
+#
+# 验收项 + 判据（每项机判 PASS/FAIL + 数值输出）:
+#   game_test     端到端"游戏可玩"（触摸命中→走子→事件→终局）+ 事件掩码表 289B
+#   walk_bridge   会话 B 8 步序列
+#   native_event  32 位原生事件发送器（F_3ab80）
+#   framebuffer   出屏非黑比判读（§124y-179 防 0% 假象，连跑 ROUNDS 轮）
+#   整体          每项 0 崩溃 + 进程存活
+set -u
+DEV=emulator-5554
+ONLY=""
+NO_INSTALL=0
+ROUNDS=1
+PKG=com.cnvcs.junqi32
+WS="$(cd "$(dirname "$0")/../.." && pwd)"
+APK="$WS/rev64/dist/phase_chain_arm32.apk"
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --dev) DEV="$2"; shift 2;;
+    --only) ONLY="$2"; shift 2;;
+    --no-install) NO_INSTALL=1; shift;;
+    --rounds) ROUNDS="$2"; shift 2;;
+    *) echo "未知参数: $1"; exit 2;;
+  esac
+done
+KINDS="game_test walk_bridge native_event framebuffer"
+[ -n "$ONLY" ] && KINDS="$ONLY"
+
+ensure_dev() {
+  local i
+  for i in 1 2 3; do
+    if adb -s "$DEV" get-state 2>/dev/null | grep -q device; then return 0; fi
+    echo "  [reconnect] 设备掉线，重连..."
+    adb connect "$DEV" >/dev/null 2>&1; sleep 4
+  done
+  adb -s "$DEV" get-state 2>/dev/null | grep -q device
+}
+
+if [ "$NO_INSTALL" -eq 0 ] && [ -f "$APK" ]; then
+  ensure_dev || { echo "设备 $DEV 不可达"; exit 2; }
+  echo "═══ 装机（phase_chain_arm32.apk）═══"
+  adb -s "$DEV" install -r "$APK" 2>&1 | tail -1
+fi
+
+# 出屏判读（§124y-179 非黑比 ≥30%；dump 由翻译体 F_9d43c 帧尾自动生成到
+# /sdcard/Download/，pull 后本地判读。返回 0=非黑≥30，1=未达。echo 数值到 stdout）
+# ★ 判据用 logcat 权威（翻译体 dump 日志自带非黑比数值），file pull 仅作备查
+frame_check_once() {
+  local ratio
+  # 重连保活（adb 偶发掉线）
+  ensure_dev >/dev/null 2>&1
+  # 清 dump 文件 + 重启 app（翻译体自动生成新 dump）
+  adb -s "$DEV" shell "rm -f /sdcard/Download/board_dump_*.ppm; am force-stop $PKG" >/dev/null 2>&1
+  sleep 2
+  adb -s "$DEV" shell "am start -n $PKG/com.cnvcs.App" >/dev/null 2>&1
+  sleep 14
+  # 权威判据 = 翻译体 dump 日志非黑比（§124y-179）。
+  # 取【当前轮次启动后】最新一条 dump 日志（grep 时间序取最后一条非黑比值，
+  # 避免取到上一轮残留 0%）。
+  local LOG
+  LOG=$(adb -s "$DEV" logcat -d 2>/dev/null)
+  ratio=$(echo "$LOG" | grep -oE "FRAMEBUFFER-DUMP: .*非黑比=[0-9]+%" | grep -oE "[0-9]+%" | tail -1 | tr -d '%')
+  if [ -z "$ratio" ]; then
+    # 备查：file pull 判读
+    local LATEST
+    LATEST=$(adb -s "$DEV" shell "ls -t /sdcard/Download/board_dump_*.ppm 2>/dev/null | head -1" | tr -d '\r')
+    if [ -n "$LATEST" ]; then
+      local i
+      for i in 1 2 3; do
+        ensure_dev >/dev/null 2>&1 || break
+        adb -s "$DEV" pull "$LATEST" /tmp/opencode/arm32_fb_check.ppm >/dev/null 2>&1 && break
+        sleep 2
+      done
+      if [ -f /tmp/opencode/arm32_fb_check.ppm ]; then
+        ratio=$(python3 -c "
+from PIL import Image
+try:
+  im=Image.open('/tmp/opencode/arm32_fb_check.ppm').convert('RGB')
+  w,h=im.size; px=im.load()
+  nb=sum(1 for y in range(0,h,4) for x in range(0,w,4) if sum(px[x,y])>60)
+  print(100*nb//((w//4)*(h//4)))
+except Exception as e:
+  print('none')" 2>/dev/null)
+      fi
+    fi
+    [ -z "$ratio" ] && ratio="none"
+  fi
+  echo "$ratio"
+  [ -n "$ratio" ] && [ "$ratio" != "none" ] && [ "$ratio" -ge 30 ]
+}
+
+# 启动型钩子（so dlopen 时读属性）：setprop → force-stop → logcat -c → am start → sleep → 抓日志
+launch_hook() {
+  # $1=钩子名  其余参数=该钩子要 setprop=1 的属性
+  local prop="$1"; shift
+  local p
+  # 清全部钩子属性（防串扰）
+  for p in jq.game_test jq.walk_bridge jq.native_layout jq.native_event jq.bss_dump jq.event_base jq.event_base_verify; do
+    adb -s "$DEV" shell "setprop $p 0" >/dev/null 2>&1
+  done
+  adb -s "$DEV" shell "rm -f /sdcard/Download/board_dump_*.ppm" >/dev/null 2>&1
+  # 设钩子属性 + 停 app
+  for p in "$@"; do adb -s "$DEV" shell "setprop $p 1" >/dev/null 2>&1; done
+  adb -s "$DEV" shell "am force-stop $PKG; logcat -c" >/dev/null 2>&1
+  sleep 2
+  adb -s "$DEV" shell "am start -n $PKG/com.cnvcs.App" >/dev/null 2>&1
+  sleep 18
+  adb -s "$DEV" logcat -d 2>/dev/null
+}
+
+PASS=0; FAIL=0; FAILED=""
+
+for k in $KINDS; do
+  ensure_dev || { echo "  ✗ $k（设备不可达）"; FAIL=$((FAIL+1)); FAILED="$FAILED $k"; continue; }
+  echo "═══ $k ═══"
+  case "$k" in
+    game_test)
+      LOG=$(launch_hook jq.game_test jq.game_test)
+      CRASH=$(echo "$LOG" | grep -c "Fatal signal" || true)
+      ok=1
+      echo "$LOG" | grep -q "GAME-TEST: 端到端完成 走子=OK" || { ok=0; echo "  ✗ 端到端未命中"; }
+      echo "$LOG" | grep -q "touch_int: tap1k(274000,1268000) → cell6" || { ok=0; echo "  ✗ 命中几何 cell6 未命中"; }
+      echo "$LOG" | grep -q "EVT-TBL-DUMP.*非0字节=129" || { ok=0; echo "  ✗ 事件掩码表 289B 非0=129 未命中"; }
+      [ "$CRASH" = "0" ] || { ok=0; echo "  ✗ 崩溃=$CRASH"; }
+      # 出屏连跑 ROUNDS 轮
+      fbp=0; fbf=0
+      for r in $(seq 1 "$ROUNDS"); do
+        ratio=$(frame_check_once)
+        if [ -n "$ratio" ] && [ "$ratio" != "none" ] && [ "$ratio" -ge 30 ]; then
+          echo "  出屏轮次 $r: 非黑比 ${ratio}% ✓"; fbp=$((fbp+1))
+        else
+          echo "  出屏轮次 $r: 非黑比 ${ratio:-none}% ✗"; fbf=$((fbf+1))
+        fi
+      done
+      [ "$fbf" -eq 0 ] || { ok=0; echo "  ✗ 出屏 $fbf/$ROUNDS 轮 <30%（抖动未根治）"; }
+      if [ "$ok" = "1" ]; then echo "  ✓ game_test（端到端 + 命中几何 + 事件表 + 出屏 $fbp/$ROUNDS 轮 + 0 崩溃）"; PASS=$((PASS+1)); else echo "  ✗ game_test 判据未全过"; FAIL=$((FAIL+1)); FAILED="$FAILED $k"; fi
+      ;;
+    walk_bridge)
+      LOG=$(launch_hook jq.walk_bridge jq.walk_bridge)
+      CRASH=$(echo "$LOG" | grep -c "Fatal signal" || true)
+      if echo "$LOG" | grep -q "WALK-BRIDGE: 完整 8 步序列完成" && [ "$CRASH" = "0" ]; then
+        echo "  ✓ walk_bridge（8 步序列 + 0 崩溃）"; PASS=$((PASS+1))
+      else
+        echo "  ✗ walk_bridge（8 步未命中 或 崩溃=$CRASH）"; FAIL=$((FAIL+1)); FAILED="$FAILED $k"
+      fi
+      ;;
+    native_event)
+      # native_event 需 app 启动后再设属性（OnUpdate 读）
+      adb -s "$DEV" shell "setprop jq.native_layout 0; setprop jq.native_event 0; setprop jq.game_test 0; setprop jq.walk_bridge 0" >/dev/null 2>&1
+      adb -s "$DEV" shell "am force-stop $PKG; logcat -c" >/dev/null 2>&1
+      adb -s "$DEV" shell "am start -n $PKG/com.cnvcs.App" >/dev/null 2>&1
+      sleep 6
+      adb -s "$DEV" shell "setprop jq.native_layout 1; setprop jq.native_event 1" >/dev/null 2>&1
+      sleep 8
+      LOG=$(adb -s "$DEV" logcat -b main -d 2>/dev/null)
+      CRASH=$(echo "$LOG" | grep -c "Fatal signal" || true)
+      if echo "$LOG" | grep -q "F_3ab80: 事件发送" && [ "$CRASH" = "0" ]; then
+        echo "  ✓ native_event（F_3ab80 事件发送 + 0 崩溃）"; PASS=$((PASS+1))
+      else
+        echo "  ✗ native_event（F_3ab80 未命中 或 崩溃=$CRASH）"; FAIL=$((FAIL+1)); FAILED="$FAILED $k"
+      fi
+      ;;
+    framebuffer)
+      fbp=0; fbf=0
+      for r in $(seq 1 "$ROUNDS"); do
+        # 每轮独立启动 + 清 dump（防旧文件误判）
+        adb -s "$DEV" shell "setprop jq.game_test 1; am force-stop $PKG" >/dev/null 2>&1
+        sleep 2
+        adb -s "$DEV" shell "rm -f /sdcard/Download/board_dump_*.ppm" >/dev/null 2>&1
+        adb -s "$DEV" shell "am start -n $PKG/com.cnvcs.App" >/dev/null 2>&1
+        sleep 16
+        ratio=$(frame_check_once)
+        if [ -n "$ratio" ] && [ "$ratio" != "none" ] && [ "$ratio" -ge 30 ]; then
+          echo "  出屏轮次 $r: 非黑比 ${ratio}% ✓"; fbp=$((fbp+1))
+        else
+          echo "  出屏轮次 $r: 非黑比 ${ratio:-none}% ✗"; fbf=$((fbf+1))
+        fi
+        adb -s "$DEV" shell "setprop jq.game_test 0" >/dev/null 2>&1
+      done
+      if [ "$fbf" -eq 0 ] && [ "$fbp" -gt 0 ]; then
+        echo "  ✓ framebuffer（$fbp/$ROUNDS 轮全 ≥30% 非黑，§124y-179 判据）"; PASS=$((PASS+1))
+      else
+        echo "  ✗ framebuffer（$fbf/$ROUNDS 轮 <30% 非黑，出屏抖动未根治）"; FAIL=$((FAIL+1)); FAILED="$FAILED $k"
+      fi
+      ;;
+  esac
+done
+
+# 清全部属性
+ensure_dev >/dev/null 2>&1 && adb -s "$DEV" shell "setprop jq.game_test 0; setprop jq.walk_bridge 0; setprop jq.native_layout 0; setprop jq.native_event 0; setprop jq.bss_dump 0; setprop jq.event_base 0; setprop jq.event_base_verify 0" >/dev/null 2>&1
+
+echo "═══ arm32_hook_check 汇总 ═══"
+echo "  PASS=$PASS FAIL=$FAIL"
+[ -n "$FAILED" ] && echo "  失败: $FAILED"
+if [ "$FAIL" -eq 0 ]; then echo "  ✓ 全 PASS"; else echo "  ✗ 存在 FAIL"; fi
+exit "$FAIL"

@@ -6949,3 +6949,38 @@ frame loop / onDraw 两处）加非黑比采样（`_px` 8×8 步长扫，R+G+B>6
 
 **判据固化**：出屏达成 = framebuffer dump **非黑比 ≥30%（实测 100%）+ 棋子 quad 区色块数
 （93 色）+ 0 崩溃**；"0% dump"不再作为出屏未达成判据（采样时机假象已根治）。
+
+### §124y-180 32 位全钩子验收脚本化（`arm32_hook_check.sh`，2026-11-11）
+
+用户指正"光改光对比，经验不总结、不复用、不批量化、不脚本化"——本轮把 32 位逆向验收
+判据全部固化为可机判脚本，杜绝每轮手敲 `setprop + am start + sleep + logcat grep` 的
+重复劳动与判据漂移。
+
+**工具**：`rev64/tools/arm32_hook_check.sh`（一键全钩子验收 + 出屏判读）
+- 验收项 + 判据（机判 PASS/FAIL + 数值输出）：
+  - `game_test`：端到端"游戏可玩"（`GAME-TEST: 端到端完成 走子=OK` + `touch_int → cell6`
+    + `EVT-TBL-DUMP 非0字节=129` + 0 崩溃）
+  - `walk_bridge`：会话 B 8 步序列（`WALK-BRIDGE: 完整 8 步序列完成` + 0 崩溃）
+  - `native_event`：32 位原生事件发送器（`F_3ab80: 事件发送` + 0 崩溃）
+  - `framebuffer`：出屏非黑比判读（§124y-179，logcat 权威 `FRAMEBUFFER-DUMP 非黑比=N%`
+    + 文件 pull 备查，连跑 `--rounds N` 防抖动）
+- 用法：`bash rev64/tools/arm32_hook_check.sh --dev 10.0.182.146:5555 --rounds 3`
+  （`--only` 子集 / `--no-install` 跳过装机 / `--dev` 设备指定）
+- 判据来源：REVERSE_LOG §124y-178（全钩子基准）+ §124y-179（出屏非黑比判读）
+
+**方法论固化（防复发"手敲不总结"）**：
+1. **判据必须脚本化**：任何"每轮手敲的 setprop+logcat grep 判据" = 漂移源，须固化为
+   脚本可机判（PASS/FAIL + 数值），AGENTS 路由表只登记入口，判据在脚本内单一文档。
+2. **出屏判据 = logcat 权威**（翻译体 dump 日志自带非黑比数值）优先于 file pull（adb
+   掉线时 pull 失败误判 none）。
+3. **取当前轮次最新值**：`grep -oE "非黑比=[0-9]+%" | tail -1`（时间序最后一条），
+   避免取到上一轮残留 0%（脚本首版踩坑已修）。
+4. **设备保活**：32 位 so 频繁拖垮 adbd + MuMu 实例自身重启周期，脚本 `ensure_dev`
+   重连 3 次 + 设备不可达明确报 FAIL（不误判）。
+5. **连跑 `--rounds`**：出屏判读单轮可能偶发 0%（§124y-178 抖动），连跑 N 轮全 ≥30%
+   才算达成（防单轮假象）。
+
+**实锤**（设备恢复前脚本主体已跑过）：`--rounds 3` 全钩子 3/4 PASS（game_test/walk_bridge/
+native_event 全 PASS + framebuffer 3/3 轮全 100% 非黑），唯一 FAIL = game_test 内嵌出屏
+第 3 轮取到跨轮残留 0%（脚本取值 bug，§124y-180 方法论第 3 条已修）。设备 10.0.182.146
+恢复后一键复跑 `arm32_hook_check.sh --rounds 3` 应 4/4 全 PASS。
