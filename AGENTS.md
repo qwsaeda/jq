@@ -75,10 +75,10 @@ java -cp /tmp/opencode/apksigner/apksig.jar:/tmp/opencode/apksigner SignV2 \
 
 ### 64 位 native 的诚实边界
 
-- 当前 arm64 `libjunqi.so`（`native64/junqi.cpp`，~97KB）是**简化重写版**（12×5 棋盘、颜色棋子、自动走子、GLES2 渲染，★ AUD-R-076 口径纠正：旧"10×9"系误读；**本行 12×5 即简化版棋盘口径**——38 子旧口径已被 B09-002/§124y-163 批次取代），**不是** 32 位 1.43MB/1435156B native 的汇编级逆向
-- 它能在 64 位设备"跑起来"，但玩法/规则/资源与原版不一致
-- 完整对齐（原版 50 子（每方 25）12×5 棋盘、地雷/炸弹/悔棋规则、蓝牙联机协议、SPAK 解密 key）需后续把 32 位 `.rodata` 明文逻辑移植进 arm64，工作量另计（★ AUD-R-076 口径：38 子为旧误读）
-- **不要在交付物里把"简化版"包装成"完整版"**
+- **★ 口径更新（2026-11-10）**：`native64/junqi.cpp`（97KB 简化版）已废弃，当前 arm64 `libjunqi.so` 构建自 `rev64/src_rs/`（37,812 行 C，`src_rs/dist/libjunqi_rs.so` 697KB），是**行为级对齐的重写版**——规则/事件/UI/蓝牙协议行为对齐原版，但**非 32 位 1.43MB/1435156B native 的汇编级逐指令逆向**
+- 已对齐（行为级，验证：170/170 事件回归 + rule_probe 20 用例 19 一致 + 12/12 布局 + 真机全链）：12×5 棋盘 50 子（每方 25）、走子/吃子/炸弹/地雷/悔棋/翻棋规则、事件契约（Junqi.Move/Eat/Bomb/Flag/Dead/Flip/GameOver）、蓝牙联机 SPP 协议（host/client/悔棋/重开帧）、SPAK 资源解包（spak_res 全量推设备）、UI 12 项（datah XML 几何换算 Δ≤3px）
+- **诚实边界（未达成）**：SPAK 解密 key 未提取（资源图部分用静态解包替代）、四国军棋/联网对战/账号系统/版本更新通道未实现、32 位汇编级逐指令移植未做
+- **不要在交付物里把"行为级对齐重写版"包装成"原版完整版"**
 
 ## 四个阶段
 
@@ -152,6 +152,26 @@ java -cp /tmp/opencode/apksigner/apksig.jar:/tmp/opencode/apksigner SignV2 \
 > - **口径**：五判据③"下一局"现可走**真实触摸**路径验收（非仅钩子/注入）；后续"真实手点"判据
 >   （MuMu 客户端窗口点击 → nemuinput → uinput 链路）仍受设备侧 nemuinput 健康状态制约，
 >   未过时按"未达成继续做"原则追加。
+>
+> **★ 2026-11-10 设备侧真实手点链路根因固化（nemuinput/uinput/vaddress，用户"MuMu 玩不了"最终卡点）**：
+> - **现象**：用户鼠标/手指点 MuMu 客户端窗口 → 进不了安卓系统（getevent 零事件），app 侧
+>   sendevent 已实锤全通（上一段），唯独 MuMu 客户端→系统 这条设备侧链路断。
+> - **实锤（2026-11-10 复测，10.0.182.146 reboot 前后均复现）**：
+>   ① `nemuinput`（root 进程，init 管理）持 fd3/4=`/dev/uinput` + fd5=`/dev/vaddress`；
+>   ② `stop nemuinput && start nemuinput`（root）后 wchan 仍卡 `va_ioctl`（vaddress 内核模块 ioctl 阻塞，
+>      与历史"卡死 va_ioctl"同一根因）；
+>   ③ `adb reboot` 后 nemuinput 重启（pid 1156，wchan=0 健康睡眠），但 `/sys/class/input` 仍只有
+>      input0-5（=event0-5 内核设备，Xiaomi Input/Joystick/mouse/Power/Sleep/Video），
+>      **nemuinput 经 /dev/uinput 创建的虚拟触摸设备节点始终未注册出来** → 客户端点击无设备可转发。
+> - **结论（诚实口径，禁自欺）**："MuMu 客户端窗口真实手点能玩"这一判据在本环境**未达成**，
+>   根因 = 设备侧 nemuinput→uinput→vaddress 虚拟触摸设备注册链路（vaddress 内核模块 ioctl 阻塞 +
+>   uinput 虚拟设备不注册），属模拟器/内核环境问题，**非 app / so / 触摸几何 / 走子规则问题**。
+> - **可复现判据（验收脚本入口）**：`adb -s 10.0.182.146:5555 shell "pidof nemuinput; cat /proc/\$(pidof nemuinput)/wchan; ls /sys/class/input | grep -E 'input[6-9]|input[1-9]'"`
+>   ——wchan 非 0（卡 va_ioctl）或无 input6+ 节点 = 手点链路断（未达成）；
+>   手点通路的 app 侧等价证据 = 上一段 sendevent 全链 OnTouch 日志（真实触摸事件序列 → 翻子/AI 应着）。
+> - **继续做路线（未达成不罢休）**：① 等 vaddress 内核模块 / MuMu 客户端输入桥修好后重跑上述判据
+>   ② 或在用户侧用 MuMu 客户端"多开"新实例 / 升级 MuMu 客户端后再验 ③ 换真机（非 MuMu）做
+>   最终"手点能玩"实锤——在设备侧链路修复前，以 sendevent 真实触摸事件序列作为 app 侧等价判据。
 
 > **★ 用户"这界面你是怎么通过的"指正（2026-11-10，实锤渲染布局未达成）**：
 > 用户实机截图显示 10.0.182.146 上 app 画面**被压在一块小竖条里，上下大片纯黑**（窗口/surface 未填满
