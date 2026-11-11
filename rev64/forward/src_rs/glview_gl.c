@@ -166,9 +166,31 @@ int jq_glview_init(jq_glview *gv, const jq_state *st, const char *spak_dir, void
     return 0;
 }
 
+/* ★ 2026-11-11 ANativeWindow 引用生命周期修复（崩溃根因）：
+   ANativeWindow_fromSurface() 每调一次 acquire 一份引用（内部 incStrong），调用者必须
+   ANativeWindow_release() 配对（decStrong）。旧代码从 Surface getSurface()/渲染线程
+   fromSurface 拿的引用**从不 release** → 底层 ANativeWindow refcount 被抬高，当 Surface
+   被系统销毁（窗口切换/20:9 wm size 频繁变更）时 over-release → 崩溃堆栈
+   "ANativeWindow_fromSurface+69 → RefBase::decStrong → abort"（decStrong too many times）。
+   ★ 修复契约：fromSurface 引用只作 eglCreateWindowSurface 的输入（EGL 内部自己 connect
+   acquire 一份持有），创建成功/失败后**立即 release**——代码不长期持有 ANativeWindow，
+   杜绝 refcount 过放 + 过期指针操作。 */
+static void rs_release_win(void)
+{
+    if (g_win) {
+        ANativeWindow_release(g_win);
+        g_win = NULL;
+    }
+}
+
 /* 设 window 出屏目标（JNI 传 ANativeWindow*）：渲染线程据此建 window EGL surface + swap 出屏 */
 void jq_glview_set_window(void *native_window, EGLDisplay disp)
 {
+    (void)disp;
+    /* ★ 覆盖前先释放旧引用（主线程 OnCreate/OnResume 可能多次 set_window，旧 g_win 引用
+       不 release 会泄漏 + refcount 紊乱）。新引用仅由渲染线程消费（eglCreateWindowSurface
+       输入，建后立即 rs_release_win 释放）。 */
+    rs_release_win();
     g_win = (ANativeWindow *)native_window;
     /* 主线程只存 window 指针；window EGL surface 由渲染线程建（EGL 上下文属渲染线程，
        主线程建 surface 会 3002 EGL_BAD_ACCESS——MuMu mesa 限制，§124 红线）。 */
@@ -282,39 +304,54 @@ static void *rs_render_thread_main(void *arg)
            ★ 0x3003 "already connected" 防护：eglCreateWindowSurface 前先检查 g_win_surf 是否已建，
              且不与 EglHelper 同 window 双 surface（EglHelper 出帧后本线程 eglDestroyContext 让出）。
            PBuffer 仅作 window 未就绪时的离屏保活（1Hz 心跳）。 */
-        if (g_win_surf == EGL_NO_SURFACE && g_surf_jobj && egl_current_thread_attached) {
-            /* 渲染线程 attach 后 fromSurface（surface attach 后才 valid，OnCreate 时懒创建返 NULL） */
-            if (!win_retry_cnt || (frame_cnt - win_last_try) >= 60) {
+        if (g_win_surf == EGL_NO_SURFACE && egl_current_thread_attached) {
+            /* ★ 2026-11-11 g_win 优先消费（主线程 OnCreate fromSurface 成功传入）；
+               g_win 为 NULL（主线程未拿到 / surface 懒创建）才 fromSurface 轮询
+               （g_surf_jobj 兜底，MuMu surface 懒创建场景，每 60 帧重试）。
+               统一所有权：g_win 只作 eglCreateWindowSurface 输入，建后立即 rs_release_win
+               释放（不长期持有 ANativeWindow，杜绝 decStrong too many times 崩溃）。 */
+            ANativeWindow *nw = g_win;
+            int from_retry = 0;
+            if (!nw && g_surf_jobj && (!win_retry_cnt || (frame_cnt - win_last_try) >= 60)) {
                 win_last_try = frame_cnt;
                 win_retry_cnt++;
-                void *nw = ANativeWindow_fromSurface(g_ehl_env, g_surf_jobj);
-                if (nw) {
-                    g_win = nw;
-                    /* 建 window EGL surface（EGL_WINDOW_BIT）→ 切 window 出屏主路 */
-                    g_win_surf = eglCreateWindowSurface(g_rr.egl_disp, g_cfg, (EGLNativeWindowType)nw, NULL);
-                    if (g_win_surf != EGL_NO_SURFACE) {
-                        /* ★ 2026-11-10 小竖条修复（根因二）：GLView onSurfaceChanged 未回调
-                           native OnGraphChange（调用链断裂）→ view 停留默认 720×1280，
-                           而真机 900×1600 → 小竖条+黑边。此处用 eglQuerySurface 取实际
-                           window surface 尺寸（EGL_WIDTH/EGL_HEIGHT）→ 同步 g_rr.view_w/h，
-                           免 smali 改动，铺满屏。 */
-                        EGLint sw = 0, sh = 0;
-                        if (eglQuerySurface(g_rr.egl_disp, g_win_surf, EGL_WIDTH, &sw) &&
-                            eglQuerySurface(g_rr.egl_disp, g_win_surf, EGL_HEIGHT, &sh)) {
-                            if (sw > 0 && sh > 0 && (sw != g_rr.view_w || sh != g_rr.view_h)) {
-                                LOGI("渲染线程 eglQuerySurface 同步 view 尺寸：%dx%d → %dx%d（铺满屏修小竖条黑边）",
-                                     g_rr.view_w, g_rr.view_h, sw, sh);
-                                g_rr.view_w = sw;
-                                g_rr.view_h = sh;
-                                g_rr.dirty = 1;
-                            }
-                        }
-                        LOGI("渲染线程 window surface 创建成功（fromSurface 第 %d 次重试）→ 出屏主路激活 view=%dx%d",
-                             win_retry_cnt, g_rr.view_w, g_rr.view_h);
-                    }
-                } else if (win_retry_cnt % 12 == 1)
-                    LOGI("渲染线程 fromSurface 未 ready（第 %d 次，等 surface attach）", win_retry_cnt);
+                nw = ANativeWindow_fromSurface(g_ehl_env, g_surf_jobj);
+                from_retry = 1;
             }
+            if (nw) {
+                if (from_retry)
+                    g_win = nw;   /* 轮询拿的归 g_win 统一释放 */
+                /* 建 window EGL surface（EGL_WINDOW_BIT）→ 切 window 出屏主路 */
+                g_win_surf = eglCreateWindowSurface(g_rr.egl_disp, g_cfg, (EGLNativeWindowType)nw, NULL);
+                if (g_win_surf != EGL_NO_SURFACE) {
+                    /* ★ 2026-11-10 小竖条修复（根因二）：GLView onSurfaceChanged 未回调
+                       native OnGraphChange（调用链断裂）→ view 停留默认 720×1280，
+                       而真机 900×1600 → 小竖条+黑边。此处用 eglQuerySurface 取实际
+                       window surface 尺寸（EGL_WIDTH/EGL_HEIGHT）→ 同步 g_rr.view_w/h，
+                       免 smali 改动，铺满屏。 */
+                    EGLint sw = 0, sh = 0;
+                    if (eglQuerySurface(g_rr.egl_disp, g_win_surf, EGL_WIDTH, &sw) &&
+                        eglQuerySurface(g_rr.egl_disp, g_win_surf, EGL_HEIGHT, &sh)) {
+                        if (sw > 0 && sh > 0 && (sw != g_rr.view_w || sh != g_rr.view_h)) {
+                            LOGI("渲染线程 eglQuerySurface 同步 view 尺寸：%dx%d → %dx%d（铺满屏修小竖条黑边）",
+                                 g_rr.view_w, g_rr.view_h, sw, sh);
+                            g_rr.view_w = sw;
+                            g_rr.view_h = sh;
+                            g_rr.dirty = 1;
+                        }
+                    }
+                    LOGI("渲染线程 window surface 创建成功（%s）→ 出屏主路激活 view=%dx%d",
+                         from_retry ? "fromSurface 轮询" : "主线程 set_window", g_rr.view_w, g_rr.view_h);
+                } else {
+                    LOGE("渲染线程 eglCreateWindowSurface 失败 err=0x%x（%s 引用随即释放，下轮重试）",
+                         eglGetError(), from_retry ? "fromSurface" : "set_window");
+                }
+                /* ★ ANativeWindow 引用生命周期修复：fromSurface 引用只作 EGL 输入
+                   （EGL 内部 connect 自己 acquire 持有），创建成功/失败后立即释放——
+                   不长期持有 ANativeWindow，杜绝 decStrong too many times 崩溃。 */
+                rs_release_win();
+            } else if (win_retry_cnt % 12 == 1)
+                LOGI("渲染线程 fromSurface 未 ready（第 %d 次，等 surface attach）", win_retry_cnt);
         }
         if (!g_pbuf_ok && g_rr.egl_ctx) {
             /* 无 PBuffer + 无 window → 等 attach */
