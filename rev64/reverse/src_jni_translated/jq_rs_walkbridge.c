@@ -100,10 +100,12 @@ JQ_EXPORT int jq_walk_bridge_touch(float px, float py, int view_w, int view_h) {
                 int prow = i / 5, pcol = i % 5;
                 if (prow >= 12 || pcol >= 5) continue;
                 int pir = 11 - prow;
-                float pix = BG_GRID_COL0_CX + pcol * BG_GRID_COL_W;
-                float piy = bg_row_cy(pir);
-                float ppx = pix / BG_IMG_W * (float)view_w;
-                float ppy = piy / BG_IMG_H * (float)view_h;
+                /* ★ §124y-176：probing 坐标换算改整数定点（32 位 houdini 转译下
+                   float 除法 pix/BG_IMG_W*view_w 失效 → 全 0 → 逐格扫描 0/60） */
+                long pix1k = 78500L + pcol * 140500L;   /* BG_GRID_COL0_CX*1000 + pcol*COL_W*1000 */
+                long piy1k = pir < 6 ? 222000L + pir * 71000L : 822000L + (pir - 6) * 71000L;
+                float ppx = (float)((pix1k * view_w) / 720000L);
+                float ppy = (float)((piy1k * view_h) / 1280000L);
                 if (jq_touch_hit_cell(ppx, ppy, view_w, view_h, &out_row, &out_col) == i) probe_ok++;
             }
             __android_log_print(4, "junqi", "JQ-WBT-PROBE: view=%dx%d 逐格扫描命中 %d/60（设备端命中几何自检）",

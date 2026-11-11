@@ -30,30 +30,45 @@
 int jq_touch_hit_cell(float px, float py, int view_w, int view_h,
                       int *out_row, int *out_col)
 {
-    /* ★ 层 2 视觉对齐：datax_177 棋盘格命中（与 render.c 棋子 BG_GRID 同几何）。
-       视图坐标（顶左原点 y 下）→ 图像像素 → 最近格中心（半格距离判界）→
-       设备行（row0=底，image_row=11-设备row）。 */
-    float img_x = px / (float)view_w * BG_IMG_W;
-    float img_y = py / (float)view_h * BG_IMG_H;
-    /* §124y-26：lroundf 在 32 位 so（动态符号 U lroundf@LIBC）设备 libc 下行为与
-       桌面 x86 不同（命中 0/60 vs 桌面 60/60）。用 (int)(v+0.5f) 整数舍入，
-       对命中几何的全正值域（col/image_row 均 >=0）与 lroundf 等价，绕开 ABI 差异 */
-    int col = (int)((img_x - BG_GRID_COL0_CX) / BG_GRID_COL_W + 0.5f);
-    if (col < 0 || col >= BOARD_COLS) { __android_log_print(4,"junqi","HITDBG: col越界 img_x=%.2f col=%d → -1", img_x, col); return -1; }
-    float cx = BG_GRID_COL0_CX + col * BG_GRID_COL_W;
-    float col_gap = (img_x >= cx) ? (img_x - cx) : (cx - img_x);  /* §124y-26：fabsf→算术绝对值，绕开 libc fabsf */
-    if (col_gap > BG_GRID_COL_W * 0.5f) { __android_log_print(4,"junqi","HITDBG: col_gap越界 img_x=%.2f cx=%.2f gap=%.2f → -1", img_x, cx, col_gap); return -1; }
-    /* 最近图像行（row5/6 铁路中线间隙：中点 699.5=(577+822)/2，间隙内命中空白） */
-    float mid = (bg_row_cy(5) + bg_row_cy(6)) * 0.5f;
+    /* ★ §124y-176 命中几何 0/60 根治（2026-11-11，用户"继续"指令）：
+       旧 float 路径 img_x = px/(float)view_w*BG_IMG_W 在 32 位 so 经 MuMu
+       houdini（x86_64 宿主转译 ARM32）的 VFP vdiv.f32/vmul.f32 行为异常 → 设备端
+       60 格 probing 全 img_x=0/0.00 → 命中 0/60（HITDBG 实锤，桌面 x86 60/60）。
+       修 = 整数定点（×1000 缩放，BG 常量 78.5→78500 / 140.5→140500 /
+       222→222000 / 71→71000 / 822→822000 / 720→720000 / 1280→1280000，全 ×1000 定点），
+       绕开 32 位浮点乘法/除法（long 整数运算在转译层稳定）。
+       ★ 2026-11-11 二次实锤：float→double (px*1000.0) 在设备端同样失效（0.0），
+       改 long double 乘法：(long double)px * 1000.0L（80-bit extended 不依赖 VFP）。
+       判据：JQ-WBT-PROBE 逐格扫描 60/60（设备端）。 */
+    long ix1k = (long)((long double)px * 1000.0L);   /* px 已 ≤view_w，×1000 不溢出 */
+    long iy1k = (long)((long double)py * 1000.0L);
+    long vw = view_w ? view_w : 1, vh = view_h ? view_h : 1;
+    /* img_x ×1000 = px*1000 * 720000 / (view_w*1000) /1000 → 定点：
+       img_x_1k = ix1k * 720 / vw （因 BG_IMG_W=720，×1000 约去一个 1000）*/
+    long img_x1k = ix1k * 720L / vw;             /* = img_x * 1000（px/view*720 *1000）*/
+    long img_y1k = iy1k * 1280L / vh;            /* = img_y * 1000 */
+    /* BG_GRID_COL0_CX=78.5 → 78500 (×1000)；COL_W=140.5 → 140500 */
+    long col0cx_1k = 78500L, colw_1k = 140500L;
+    long row0cy_1k = 222000L, rowh_1k = 71000L, row6cy_1k = 822000L;
+    /* 整数版"最近列"：col = round((img_x - col0cx)/colw) = (img_x1k-col0cx_1k + colw_1k/2) / colw_1k */
+    int col = (int)((img_x1k - col0cx_1k + colw_1k / 2) / colw_1k);
+    if (col < 0 || col >= BOARD_COLS) { __android_log_print(4,"junqi","HITDBG: col越界 img_x1k=%ld col=%d → -1", img_x1k, col); return -1; }
+    long cx1k = col0cx_1k + (long)col * colw_1k;
+    long diff = img_x1k - cx1k; if (diff < 0) diff = -diff;
+    long col_gap1k = diff;
+    if (col_gap1k > colw_1k / 2) { __android_log_print(4,"junqi","HITDBG: col_gap越界 img_x1k=%ld cx1k=%ld gap1k=%ld → -1", img_x1k, cx1k, col_gap1k); return -1; }
+    /* row5/6 铁路中线 699.5 → 699500 (×1000) */
+    long mid1k = 699500L;
     int image_row;
-    if (img_y < mid)
-        image_row = (int)((img_y - BG_GRID_ROW0_CY) / BG_GRID_ROW_H + 0.5f);
+    if (img_y1k < mid1k)
+        image_row = (int)((img_y1k - row0cy_1k + rowh_1k / 2) / rowh_1k);
     else
-        image_row = 6 + (int)((img_y - BG_GRID_ROW6_CY) / BG_GRID_ROW_H + 0.5f);
-    if (image_row < 0 || image_row >= BOARD_ROWS) { __android_log_print(4,"junqi","HITDBG: image_row越界 img_y=%.2f ir=%d → -1", img_y, image_row); return -1; }
-    float cy = bg_row_cy(image_row);
-    float row_gap = (img_y >= cy) ? (img_y - cy) : (cy - img_y);  /* §124y-26：fabsf→算术绝对值 */
-    if (row_gap > BG_GRID_ROW_H * 0.5f) { __android_log_print(4,"junqi","HITDBG: row_gap越界 img_y=%.2f cy=%.2f gap=%.2f → -1", img_y, cy, row_gap); return -1; }
+        image_row = 6 + (int)((img_y1k - row6cy_1k + rowh_1k / 2) / rowh_1k);
+    if (image_row < 0 || image_row >= BOARD_ROWS) { __android_log_print(4,"junqi","HITDBG: image_row越界 img_y1k=%ld ir=%d → -1", img_y1k, image_row); return -1; }
+    long cy1k = (image_row < 6) ? row0cy_1k + (long)image_row * rowh_1k
+                                 : row6cy_1k + (long)(image_row - 6) * rowh_1k;
+    long rdiff = img_y1k - cy1k; if (rdiff < 0) rdiff = -rdiff;
+    if (rdiff > rowh_1k / 2) { __android_log_print(4,"junqi","HITDBG: row_gap越界 img_y1k=%ld cy1k=%ld gap1k=%ld → -1", img_y1k, cy1k, rdiff); return -1; }
     int row = BOARD_ROWS - 1 - image_row;   /* 设备行（row0=底，蓝/人） */
     if (out_row) *out_row = row;
     if (out_col) *out_col = col;
