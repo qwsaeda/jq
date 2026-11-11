@@ -7143,3 +7143,22 @@ pull + PIL 判读），判据仍 = 非黑比 ≥30%（§124y-179）。
 
 **判据固化**：32 位 so 设备全钩子 = `bash rev64/tools/arm32_hook_check.sh --dev 10.0.182.146:5555 --rounds 3`
 （4 项 + 出屏 3 轮，轮询等判据防 flaky）；前段 0/4 假 FAIL 属判据时序误读，非 so 退化。
+
+### §124y-187 .bss 事件表 asr4 映射判据脚本化（`event_code_map_check.py`，静态佐证 8 项）
+
+用户"光改光对比，经验不总结/不脚本化"批评的延续落实——把 `.bss` 事件表 asr4
+映射（§124y-163/185 诚实边界）固化为可复跑静态判据（不依赖设备，设备离线期也能跑）：
+
+- 新工具 `rev64/tools/event_code_map_check.py`：原版 .rodata 76 事件名 vs
+  `rev64/dist/event_code_map.json`（73 事件名 → 12 事件码映射表）覆盖度判据
+- **判据实锤**：Junqi 主链 73 条 0 缺口 PASS；Misc.* 3 条（Graph%d/RemoveAdFail/
+  RemoveAdOk）= 广告拆除目标事件名（不计入主链判据，§124y-183 族谱已分类）
+- **口径差异固化（防漂移）**：映射表 12 事件码（0..11）= .rodata 可提取子集；
+  翻译体 §124y-109 口径 17 事件码（0..16）中 12..16 = 需 .bss 运行时填 asr4
+  才能提取（§124y-163/185 disc=0 忠实边界，不可静态提取）
+- **坑固化**：模板串 %d token（Junqi.GameType%d / Misc.Graph%d）按基础名入表，
+  判据提取须含 `[A-Za-z0-9%]+`（§124y-184 同坑，防假缺口）
+- 并入 `arm32_static_evidence.sh` 第 8 项 `event_codemap`（PASS=8 FAIL=0 全 PASS）
+
+**静态佐证批次化入口 8 项**（设备无关）：resource + event/urlkey/javacls +
+forkcheck + taxonomy + event_cover + **event_codemap**（新增）。
