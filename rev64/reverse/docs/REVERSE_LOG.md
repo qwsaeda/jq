@@ -7284,3 +7284,21 @@ taxonomy + event_cover + event_codemap + bss_evt_tbl + **rodata_static**（新�
 
 **静态佐证批次化入口 11 项**（设备无关）：resource + event/urlkey/javacls + forkcheck +
 taxonomy + event_cover + event_codemap + bss_evt_tbl + rodata_static + **text_static**（新增，.text 明文）。
+
+### §124y-194 原版 .rel.dyn 重定位槽判据脚本化 + 静态佐证扩到 12 项（2026-11-11）
+
+用户"光改光对比，经验不总结/不脚本化"批评的延续落实——把"RELATIVE 5312 槽全重定位"
+口径（§124y REL_RELOCATION_AUDIT）固化为可复跑静态判据（不依赖设备，设备离线期也能跑）：
+
+- **新工具** `rev64/tools/rel_dyn_check.py`：原版 so `.rel.dyn` 段（VA 0x17ca8
+  size 0xa668 = 5325 槽，8B/槽 Elf32_Rela）重定位槽判据
+- **判据实锤**：总槽数 5325 + R_ARM_RELATIVE(23) 槽数 5312（§124y 口径）+
+  类型分布 {RELATIVE(23):5312, JUMP_SLOT(21):6, GLOB_DAT(2):7}（REL∩GD=∅ 已实锤）
+- **★ 坑固化（防复发）**：32 位 ARM `R_ARM_RELATIVE` type = **23 非 2**
+  （初版判据误用 type=2 算出 RELATIVE=0 → 口径漂移）；type 2=7 槽 = GLOB_DAT 类，
+  与 RELATIVE 5312 槽独立（§124y-124 REL_RELOCATION_AUDIT "REL∩GD=∅" 判据佐证）
+- 并入 `arm32_static_evidence.sh` 第 12 项 `rel_dyn`（PASS=12 FAIL=0 全 PASS）
+
+**静态佐证批次化入口 12 项**（设备无关）：resource + event/urlkey/javacls + forkcheck +
+taxonomy + event_cover + event_codemap + bss_evt_tbl + rodata_static + text_static +
+**rel_dyn**（新增，.rel.dyn 重定位槽）。
