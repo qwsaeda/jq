@@ -7003,3 +7003,17 @@ native_event 全 PASS + framebuffer 3/3 轮全 100% 非黑），唯一 FAIL = ga
 
 **判据实锤**：原版 .rodata 资源路径串 44/44 命中 0 缺口 + 主链 11 事件名 11/11 命中 +
 URL 键 3 条实锤 = **0 缺口 PASS**（资源映射 + 事件名 + 更新通道边界引用点全闭环）。
+
+### §124y-181 续：JNI 类名 com/cnvcs/* 引用点佐证（`rodata_path_map.py`，2026-11-11）
+
+补 JNI 引用链静态佐证（§124y-181 判据扩展）：
+
+- 原版 so `.rodata` 明文实锤的 6 个 `com/cnvcs/*` JNI FindClass 类名全量提取 + 逐条打印：
+  `AdLis / BtReceiver / GLView / InputDlg / SiteView / TextDlg`（6/6 实锤）
+- **口径实锤（诚实，禁自欺）**：`com/cnvcs/App` 原版 .rodata **无此串**（App 的 native 方法
+  经 JNI 自动绑定机制（`RegisterNatives`/符号名 `Java_com_cnvcs_App_*`）而非 `FindClass("com/cnvcs/App")`
+  显式引用 → 非缺失）——原版 JNI 类名引用点实锤 = 6 类（非 7）。
+- 判据 0 缺口 PASS（资源 44/44 + 主链 11 事件名 + URL 键 3 + JNI 类名 6 全实锤）。
+
+**逆向对齐佐证全量闭环**：原版 so .rodata 明文的 4 类引用串（资源路径 / 事件名 / URL 键 /
+JNI 类名）全部映射到翻译体侧实体或实锤口径，0 缺口。

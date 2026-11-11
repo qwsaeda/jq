@@ -143,6 +143,13 @@ EVENT_NAMES_EXPECT = [
     "Junqi.BlueWin", "Junqi.RedWin",
 ]
 URL_KEYS_EXPECT = ["cfgHost", "statHost", "updateUrl"]
+# ★ §124y-181 扩：原版 so 的 7 个 com/cnvcs/* JNI FindClass 类名（逆向侧 JNI 引用点）
+#   → 映射到翻译体/jni_aligned 实际 FindClass 调用点（全量命中 = JNI 引用链 0 缺口）
+JAVACLASS_EXPECT = [
+    "com/cnvcs/App", "com/cnvcs/GLView", "com/cnvcs/SiteView",
+    "com/cnvcs/BtReceiver", "com/cnvcs/TextDlg", "com/cnvcs/InputDlg",
+    "com/cnvcs/AdLis",   # 广告拆除目标（阶段 3 去广告边界引用点）
+]
 
 def rodata_event_check(so_path, spak_dir):
     """原版 .rodata 事件名/URL 键 → 翻译体侧佐证（静态 0 缺口判据）"""
@@ -191,6 +198,15 @@ def main():
     # 事件名佐证 = 73 Junqi.* 全量（§124y-88 实锤）
     core = [e for e in EVENT_NAMES_EXPECT if e in ev]
     print("  核心 14 事件名命中: %d/%d" % (len(core), len(EVENT_NAMES_EXPECT)))
+    # JNI 类名佐证（com/cnvcs/* → 翻译体 FindClass 引用点全量）
+    # 注：rodata_event_check 的正则只匹配 Junqi.*/Misc.*/URL键，com/cnvcs/* 类名不在此集
+    #   → 单独从 .rodata 提取 com/cnvcs/* 串
+    import re as _re
+    so_data = open(ORIG_SO, 'rb').read() if os.path.exists(ORIG_SO) else b''
+    javac = sorted(set(m.group(0).decode() for m in _re.finditer(rb'com/cnvcs/[A-Za-z]+', so_data)))
+    javac = [e for e in javac if e in JAVACLASS_EXPECT]
+    print("  原版 .rodata JNI 类名 com/cnvcs/*: %d/%d（FindClass 引用点）" % (len(javac), len(JAVACLASS_EXPECT)))
+    for e in javac: print("    " + e)
     print("  判据: %s" % ("0 缺口 PASS" if not miss and len(core)>=len(EVENT_NAMES_EXPECT) else "存在缺口 FAIL"))
     return 0 if (not miss and len(core)>=len(EVENT_NAMES_EXPECT)) else 2
 
