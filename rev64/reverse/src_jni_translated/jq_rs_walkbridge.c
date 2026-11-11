@@ -19,6 +19,19 @@ extern int jq_touch_hit_cell_int(long px1k, long py1k, int view_w, int view_h,
 static jq_state g_walk_state;
 static int g_walk_init = 0;
 
+/* §124y-182 AUD-R 分叉标记：rank_norm side 感知还原（R-047，补全分叉矩阵最后一项）。
+   · AUD-R-047 rank_norm 依赖"值>12 即红方编码"隐式约定，不校验 side → 64 位 src_rs
+     junqi.h 已改 rank_of(const jq_cell*) side 感知还原（11 处调用点替换）+ 上界钳
+     （AUD-R-080）；32 位翻译体 rank_norm(int v) 保持原版 0x6a3b0 语义
+     （v>RANK_TOP 则 -0xc），无 side 参数。
+   · 32 位侧行为影响 = 无（走子桥布局 JQ_DEFAULT_LAY 明棋定色，蓝方 rank 原值 /
+     红方 rank+0xc，rank_norm 还原正确；布局 0xFF 定色场景走子桥未实装——
+     暗棋维度 = 64 位独有设计，已标 R-003/R-006 分叉）→ **对齐（同源）**。
+   · 64 位修复针对"脏 rank 越界 / 0xFF 未定色暗子误判军旗"，32 位走子桥布局
+     正常 rank∈[0,24] 不越界 + 无 0xFF 场景 → 该修复在 32 位侧无消费点，不移植
+     （R-138 约定：64 位独有设计 32 位侧只标注不移植，行为零变化）。
+   · 判读 = 对齐（同源），非分叉。 */
+
 /* §124y-166 AUD-R 分叉标记：布局/几何族 + 事件名表族（走子桥接入点）。
    · R-021 头注释 0x39e14 行约束误标 → 64 位 rules.c 头注释已改"布局期校验限制"
      措辞（AUD-R-021 P2 已修），32 位头注释（jq_rs_rules.c 文件头"0x39e14
