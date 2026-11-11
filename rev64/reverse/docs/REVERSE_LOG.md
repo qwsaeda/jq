@@ -6901,3 +6901,24 @@ float 乘法（转译层失效 → `ix1k=0`）；② walkbridge probing 循环 `
 逆向对齐佐证：原版 so 引用的每个资源路径都能落到 SPAK 解包实体（命名或数字资源
 内容特征），资源映射全量闭环。config XML 4/6 在库 + 其余 2 项内容特征实锤 =
 资源引用链 0 缺口。
+
+### §124y-178 32 位翻译体全验收基准复验（出屏 100% + 命中几何 60/60 + 全钩子 + 4 路径，so `e9935d35`，2026-11-11）
+
+用户"继续"指令下 32 位翻译体（`com.cnvcs.junqi32`）全验收基准复验（设备 10.0.182.146，
+纯整数版 so `e9935d35`）：
+
+- **出屏（framebuffer dump 权威判据）**：整帧非黑比 **100%**（900×1468 PPM，
+  `board_dump_0.ppm` 3.96MB），`F_bf4d0` 渲染器单例回退 `0xce8f51d0`（非 0）+
+  双纹理上传 dispatch（`fp(r11)=1` 强制 + `sl(r10)=1` 第二纹理）+ `Lbf5ba vtable=0x001595c0`。
+  注：出屏有环境抖动（偶发一轮 0.0% 全黑，重触发后 100% 稳定）——归因 houdini 转译层
+  GLThread EGL surface 周期失效（`eglSwapBuffers 0x3000`），非翻译体渲染 bug。
+- **命中几何**：`JQ-WBT-PROBE 60/60`（纯整数入口，§124y-176 二次根治实锤）+
+  `jq_walk_bridge_touch_int tap1k(274000,1268000) → cell6 rank=3 side=0`（真实格子命中）
+- **game_test 端到端**：触摸命中 cell6 → 走子 6→11/33→38 Junqi.Move×2 → 终局 fin=0
+- **事件掩码表**：`EVT-TBL-DUMP 289B 非0字节=129`（= §124y-168 原版 so ref dump 真值，
+  disc=0 忠实语义再确认）
+- **4 路径回归**：`arm32_walkregress.sh --no-install` **PASS=4 FAIL=0 + 0 崩溃**
+  （walk_bridge/native_layout/native_event/game_test）
+
+**结论**：32 位翻译体逆向对齐基准全达成（出屏 + 命中几何 + 走子 + 事件 + 掩码表 + 回归），
+唯一环境抖动项 = framebuffer 偶发 0%（重触发恢复，不阻塞主线）。
