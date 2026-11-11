@@ -6741,3 +6741,14 @@ bash rev64/tools/arm32_walkregress.sh --dev emulator-5554   # 4 路径回归
   （font.xml/image.xml/ui.xml 等 config XML 在 SPAK 解包里尚未逐一核对）
 - 事件掩码表（`.bss` 17×17 289B）静态侧：`.data.rel.ro` 静态注册模板已知，
   运行时真值仍需 MuMu 32 位 so 实跑（本环境 MuMu x86 转译可跑，已 4 路径 PASS）
+
+### §124y-171 补：资源路径对齐校验实锤（静态，2026-11-11）
+- `.rodata` 引用资源 54 项 vs SPAK 解包产物命名 31 项对齐，**缺口 40 项**：
+  - 分辨率套 `data/{320,480,480x,720,720s,800}`（渲染缩放路径，非文件）
+  - `data/config/{font,image,ui}.xml` 3 个（path/sound/string/uitag 已在解包）
+  - `data/junqi/{back,border,label,main,mark,piece}.{jpg,png}` + `data/junqi/scene.cfg`
+  - `data/sg/*` 14 张套图（board/piece/border/mark/track/word + x 变体 + sidecomp/sidedisc/scene.cfg）
+  - `data/image/stattiny{,h}.png` + `data/lay/NN.lay` + `data/ui/click%d.wav`
+- 判断：`sg/*`/`junqi/*` 套图在 SPAK 解包里以 `data_XXX_*.bin` 形式存在（命名未还原路径），
+  737×751 棋盘 + 212×280 棋子图集已内嵌 `jq_board_px.h`/`jq_piece_atlas.h`（出屏已用）；
+  缺口 = 其余 sg 套图 + config XML 3 个 + click.wav 的**命名还原/对齐校验**（静态可做，非阻塞）。
