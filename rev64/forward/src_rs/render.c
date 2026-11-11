@@ -733,6 +733,24 @@ int rs_render_init(rs_render *rr, const char *spak_dir, const jq_state *init_sta
             rr->menu_bg_w = mw; rr->menu_bg_h = mh;
         }
         free(mraw); free(mjraw);
+        /* ★ 2026-11-11 主界面房子图标（原版裁剪抠图 icon_house.png，tap→cnvcs.com 不跳转） */
+        {
+            unsigned char *hraw = NULL; size_t hraw_len = 0;
+            rs_read_one(am, spak_dir, "icon_house.png", &hraw, &hraw_len);
+            if (hraw) {
+                unsigned char *hpx = NULL; int hw = 0, hh = 0;
+                if (png_decode(hraw, hraw_len, &hpx, &hw, &hh) == 0) {
+                    rr->house_px = hpx; rr->house_px_len = (size_t)hw * hh * 4;
+                    rr->house_w = hw; rr->house_h = hh;
+                    LOGI("房子图标加载 OK：icon_house.png %dx%d（%zuB）", hw, hh, hraw_len);
+                } else {
+                    LOGI("房子图标解码 FAIL：icon_house.png（诚实边界：主界面无房子图标）", hraw_len);
+                }
+            } else {
+                LOGI("房子图标读取 FAIL：icon_house.png 未找到（spak_res 缺文件？）");
+            }
+            free(hraw);
+        }
         /* ★ 原版 UI 对齐：☰ 菜单文字图集（8 项竖排 160×320，data_029 字体光栅化） */
         if (iraw && png_decode(iraw, iraw_len, &ipx, &iw, &ih) == 0) {
             rr->imen_text_px = ipx; rr->imen_text_px_len = (size_t)iw * ih * 4;
@@ -9962,6 +9980,15 @@ static void rs_gl_rebuild(rs_render *rr, int slot)
         glBindTexture(GL_TEXTURE_2D, rr->tex_menu_bg[slot]);
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->menu_bg_w, rr->menu_bg_h, 0,
                      GL_RGBA, GL_UNSIGNED_BYTE, rr->menu_bg_px);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    }
+    /* ★ 2026-11-11 主界面房子图标（原版裁剪抠图，tap→cnvcs.com 不跳转） */
+    if (rr->house_px && rr->gl2_ok[slot] && rr->house_w > 0 && rr->house_h > 0) {
+        glGenTextures(1, &rr->tex_house[slot]);
+        glBindTexture(GL_TEXTURE_2D, rr->tex_house[slot]);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->house_w, rr->house_h, 0,
+                     GL_RGBA, GL_UNSIGNED_BYTE, rr->house_px);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     }

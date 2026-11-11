@@ -57,6 +57,7 @@ typedef struct {
     rs_glid_t tex_hamburger[2]; /* ★ ☰/↩ 图标图集 128×64（orig_human 裁剪） */
     rs_glid_t tex_btn_big[2];   /* ★ 主菜单大按钮图集 802×118（人机+两人，orig_menu 裁剪） */
     rs_glid_t tex_btn_small[2]; /* ★ 主菜单小按钮图集 666×116（联网+联机+四国，orig_menu 裁剪） */
+    rs_glid_t tex_house[2];     /* ★ 2026-11-11 主界面左下角房子图标（原版裁剪抠图，tap→cnvcs.com 不跳转） */
     rs_glid_t tex_popup[2];     /* ★ 选项 UI：popup.png 24×24 9-patch(8,8,16,16) 弹窗背景 */
     rs_glid_t tex_opt_text[2];  /* ★ 选项 UI：弹窗文字图集 109×258（6 标签竖排） */
     rs_glid_t tex_waysel_text[2]; /* ★ 对抗审计（datah_072）：方式选择文字图集 220×184（4 标签竖排） */
@@ -127,6 +128,8 @@ typedef struct {
     int bg_w, bg_h;                        /* 背景尺寸 */
     void *menu_bg_px; size_t menu_bg_px_len;   /* ★ 主菜单背景 datax_294 RGBA（800×1205） */
     int menu_bg_w, menu_bg_h;                  /* 主菜单背景尺寸 */
+    void *house_px; size_t house_px_len;       /* ★ 2026-11-11 主界面房子图标 RGBA（原版裁剪抠图 120×175，透明背景） */
+    int house_w, house_h;                      /* 房子图标尺寸 */
     void *popup_px;  size_t popup_px_len;  /* ★ 弹窗背景 popup.png RGBA（24×24 9-patch） */
     int popup_w, popup_h;                  /* 弹窗背景尺寸 */
     /* ★ 原版 UI 位图真值（ch02 N45 门牌号→房间真值）：面板 9patch + 彩色按钮 + 图标 */
