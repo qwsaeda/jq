@@ -509,7 +509,7 @@ java -cp /tmp/opencode/apksigner/apksig.jar:/tmp/opencode/apksigner SignV2 \
   判据全脚本化/批量化，防每轮手敲 setprop+logcat grep 漂移）。
   **双端总入口（§124y-215）**：`bash rev64/tools/arm32_verify_all.sh`（静态 33 项 + 设备 4 项
   一键跑；设备不可达自动降级 PENDING 非 FAIL §124y-189 口径；`--dev <addr>` / `--static-only`）。
-  判据脚本索引（23 项明细 + 设备侧入口 + 坑清单）：`rev64/tools/STATIC_EVIDENCE_INDEX.md`。
+  判据脚本索引（33 项明细 + 设备侧入口 + 坑清单）：`rev64/tools/STATIC_EVIDENCE_INDEX.md`。
   实锤（2026-11-11，10.0.182.146）：`com.cnvcs.junqi32`（phase_chain_arm32.apk）装机 Success +
   4 路径全 PASS（PASS=4 FAIL=0，全局崩溃=0）——逆向侧对齐基准成立。
 
