@@ -7381,3 +7381,21 @@ JNI 符号 = 原版 32 位 so 14 个 On* 逐名一致"口径固化为可复跑�
 **静态佐证批次化入口 15 项**（设备无关）：resource + event/urlkey/javacls + forkcheck +
 taxonomy + event_cover + event_codemap + bss_evt_tbl + rodata_static + text_static +
 rel_dyn + jni_export + got_plt + **trans_jni**（新增，翻译体 JNI 导出对照）。
+
+### §124y-199 32 位翻译体 so 事件名字符串池对照判据脚本化 + 静态佐证扩到 16 项（2026-11-11）
+
+用户"光改光对比，经验不总结/不脚本化"批评的延续落实——把"翻译体 so 内嵌
+事件名字符串池 ⊇ 原版 .rodata 76 事件名"口径固化为可复跑静态判据（防字符串漂移）：
+
+- **新工具** `rev64/tools/translated_strpool_check.py`：翻译体 so
+  `rev64/dist/libjunqi_arm32_aligned.so` 内嵌事件名（jq_rodata_plain.h
+  g_jq_strings 76 条编译进 so）vs 原版 .rodata 76 事件名（§124y-183 族谱）对照
+- **判据实锤**：翻译体 so 内嵌事件名 77（g_jq_strings 76 条口径）⊇ 原版 73 Junqi
+  主链 **0 缺口**（Misc 3 条不入主链判据，§124y-183 族谱已分类）
+- **坑固化**：32 位翻译体 so 重编后须重跑本判据（事件名 0 缺口）+ 重打包 apk
+  装机（§124y-176 误打包坑：so+apk 哈希一致性验证），防字符串池漂移
+- 并入 `arm32_static_evidence.sh` 第 16 项 `trans_strpool`（PASS=16 FAIL=0 全 PASS）
+
+**静态佐证批次化入口 16 项**（设备无关）：resource + event/urlkey/javacls + forkcheck +
+taxonomy + event_cover + event_codemap + bss_evt_tbl + rodata_static + text_static +
+rel_dyn + jni_export + got_plt + trans_jni + **trans_strpool**（新增，翻译体事件名对照）。
