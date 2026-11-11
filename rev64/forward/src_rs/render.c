@@ -1277,22 +1277,109 @@ static void rs_draw_menu(rs_render *rr, int slot)
         return;
     }
     const ui_btn *btns = ui_menu_buttons();
-    /* 按钮几何 720×1280 基准 → 按实际 view 缩放 */
-    float sx = (float)rr->view_w / 720.0f, sy = (float)rr->view_h / 1280.0f;
+    /* ★ 2026-11-11 现代全面屏适配（用户"安卓设计都是全面屏"指正）：
+       旧独立 sx/sy（view_w/720, view_h/1280）在非 16:9 屏（20:9/19.5:9）拉伸变形
+       （sy/sx 达 1.25）。改等比缩放（按宽高较小者）+ 垂直居中偏移防拉伸。 */
+    float s_uni = (float)rr->view_w / 720.0f;
+    float sy_ratio = (float)rr->view_h / (float)rr->view_w * (720.0f / 1280.0f);
+    if (sy_ratio < 1.0f) s_uni = (float)rr->view_h / 1280.0f;  /* 屏更高→按宽；屏更矮→按高 */
+    float sx = s_uni, sy = s_uni;
+    float yoff = ((float)rr->view_h - 1280.0f * s_uni) * 0.5f;  /* 垂直居中偏移（上下留白） */
     static int menu_diag_done = 0;
     /* ① 全屏背景（★ 原版 UI 对齐：主菜单背景 datax_294 卡通士兵 800×1205；
-       缺失退化深蓝底） */
+       缺失退化深蓝底）
+       ★ 2026-11-11 用户"改名后重新和原版对比"：双红旗锚点解算实锤原版背景 =
+       menu_bg_294 **显示 827×1492 于 (49,127)**（Sx=1.03, Sy=1.24 非等比，
+       900×1600 屏垂直拉伸适配），非铺满全屏宽、非原始尺寸居中。
+       旧版拉伸到 view 全屏（士兵图 1.57 倍大偏下，差异 58.3%）。
+       修：中央背景图显示 827×1492 于 (49,127) + 顶/底边缘窄带拉伸。 */
     if (rr->tex_menu_bg[slot] && rr->prog_tex[slot]) {
         float w = (float)rr->view_w, h = (float)rr->view_h;
-        rs_v4f quad[6] = {
-            {0, 0, 0, 0}, {w, 0, 1, 0}, {0, h, 0, 1},
-            {0, h, 0, 1}, {w, 0, 1, 0}, {w, h, 1, 1},
-        };
+        float bw = (float)rr->menu_bg_w, bh = (float)rr->menu_bg_h;  /* 800×1205 */
+        if (bw < 1.0f) { bw = 800.0f; bh = 1205.0f; }
+        /* 原版几何（900×1600 基准）：背景图 827×1492 @(49,127)（红旗双点解算）
+           ★ 2026-11-11 多锚点回归微调：帽/旗R 全吻合，旗L y 偏上 14px → y0 127→141 */
+        float bgw = 827.0f * (w / 900.0f);       /* 显示宽（按屏宽缩放） */
+        float bgh = 1492.0f * (h / 1600.0f);     /* 显示高（按屏高缩放） */
+        float x0 = 49.0f * (w / 900.0f), y0 = 141.0f * (h / 1600.0f);
+        float x1 = x0 + bgw, y1 = y0 + bgh;
+        if (!menu_diag_done)
+            LOGI("rs_draw_menu 背景：view=%.0fx%.0f menu_bg=%.0fx%.0f disp=%.0fx%.0f @(%.0f,%.0f)",
+                 w, h, bw, bh, bgw, bgh, x0, y0);
         glUseProgram(rr->prog_tex[slot]);
         glUniform2f(rr->uViewWH_tex[slot], (GLfloat)rr->view_w, (GLfloat)rr->view_h);
         glUniform1i(glGetUniformLocation(rr->prog_tex[slot], "uTex"), 0);
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, rr->tex_menu_bg[slot]);
+        /* 顶条带 (0,0)-(w,y0)：背景图顶部边缘蓝天（UV 0,0→1,E） */
+        {
+            const float E = 0.02f;
+            rs_v4f q[6] = {
+                {0, 0, 0, 0}, {w, 0, 1, 0}, {0, y0, 0, E},
+                {0, y0, 0, E}, {w, 0, 1, 0}, {w, y0, 1, E},
+            };
+            glGenBuffers(1, &rr->vbo_sel[slot]);
+            glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
+            glBufferData(GL_ARRAY_BUFFER, sizeof(q), q, GL_DYNAMIC_DRAW);
+            rs_bind_vbo(rr->vbo_sel[slot]);
+            glDrawArrays(GL_TRIANGLES, 0, 6);
+            rs_unbind_vbo();
+            glDeleteBuffers(1, &rr->vbo_sel[slot]);
+            rr->vbo_sel[slot] = 0;
+        }
+        /* 底条带 (0,y1)-(w,h)：背景图底部边缘草地（UV 0,1-E→1,1） */
+        {
+            const float E = 0.02f;
+            rs_v4f q[6] = {
+                {0, y1, 0, 1 - E}, {w, y1, 1, 1 - E}, {0, h, 0, 1},
+                {0, h, 0, 1}, {w, y1, 1, 1 - E}, {w, h, 1, 1},
+            };
+            glGenBuffers(1, &rr->vbo_sel[slot]);
+            glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
+            glBufferData(GL_ARRAY_BUFFER, sizeof(q), q, GL_DYNAMIC_DRAW);
+            rs_bind_vbo(rr->vbo_sel[slot]);
+            glDrawArrays(GL_TRIANGLES, 0, 6);
+            rs_unbind_vbo();
+            glDeleteBuffers(1, &rr->vbo_sel[slot]);
+            rr->vbo_sel[slot] = 0;
+        }
+        /* 左条带 (0,y0)-(x0,y1)：背景图左边缘（UV 0,0→E,1） */
+        {
+            const float E = 0.02f;
+            rs_v4f q[6] = {
+                {0, y0, 0, 0}, {x0, y0, E, 0}, {0, y1, 0, 1},
+                {0, y1, 0, 1}, {x0, y0, E, 0}, {x0, y1, E, 1},
+            };
+            glGenBuffers(1, &rr->vbo_sel[slot]);
+            glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
+            glBufferData(GL_ARRAY_BUFFER, sizeof(q), q, GL_DYNAMIC_DRAW);
+            rs_bind_vbo(rr->vbo_sel[slot]);
+            glDrawArrays(GL_TRIANGLES, 0, 6);
+            rs_unbind_vbo();
+            glDeleteBuffers(1, &rr->vbo_sel[slot]);
+            rr->vbo_sel[slot] = 0;
+        }
+        /* 右条带 (x1,y0)-(w,y1)：背景图右边缘（UV 1-E,0→1,1） */
+        {
+            const float E = 0.02f;
+            rs_v4f q[6] = {
+                {x1, y0, 1 - E, 0}, {w, y0, 1, 0}, {x1, y1, 1 - E, 1},
+                {x1, y1, 1 - E, 1}, {w, y0, 1, 0}, {w, y1, 1, 1},
+            };
+            glGenBuffers(1, &rr->vbo_sel[slot]);
+            glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
+            glBufferData(GL_ARRAY_BUFFER, sizeof(q), q, GL_DYNAMIC_DRAW);
+            rs_bind_vbo(rr->vbo_sel[slot]);
+            glDrawArrays(GL_TRIANGLES, 0, 6);
+            rs_unbind_vbo();
+            glDeleteBuffers(1, &rr->vbo_sel[slot]);
+            rr->vbo_sel[slot] = 0;
+        }
+        /* 中央背景图 827×1492 @(49,127)（UV 0,0→1,1 全图） */
+        rs_v4f quad[6] = {
+            {x0, y0, 0, 0}, {x1, y0, 1, 0}, {x0, y1, 0, 1},
+            {x0, y1, 0, 1}, {x1, y0, 1, 0}, {x1, y1, 1, 1},
+        };
         glGenBuffers(1, &rr->vbo_sel[slot]);
         glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
         glBufferData(GL_ARRAY_BUFFER, sizeof(quad), quad, GL_DYNAMIC_DRAW);
@@ -1334,10 +1421,10 @@ static void rs_draw_menu(rs_render *rr, int slot)
        与数组大小严格一致，下标无外部输入。探针把循环体内访问当越界风险，误报。 */
     for (int i = 0; i < UI_BTN_COUNT; i++) {
         float x0 = btns[i].x0 * sx, x1 = btns[i].x1 * sx;
-        float y0 = btns[i].y0 * sy, y1 = btns[i].y1 * sy;
+        float y0 = btns[i].y0 * sy + yoff, y1 = btns[i].y1 * sy + yoff;
         if (!menu_diag_done)
-            LOGI("rs_draw_menu 首帧：btn%d 顶点 x0=%.1f y0=%.1f x1=%.1f y1=%.1f（view=%dx%d）",
-                 i, x0, y0, x1, y1, rr->view_w, rr->view_h);
+            LOGI("rs_draw_menu 首帧：btn%d 顶点 x0=%.1f y0=%.1f x1=%.1f y1=%.1f（view=%dx%d s=%.3f yoff=%.0f）",
+                 i, x0, y0, x1, y1, rr->view_w, rr->view_h, s_uni, yoff);
         /* 位图路径：选择 atlas + UV 子矩形 */
         rs_glid_t btex = 0; float u0 = 0, v0 = 0, u1 = 0, v1 = 0;
         /* ★ 对抗审计 P1（批4 P1-R3）：UV 比例改用 PNG 解码宽度（rr->btn_big_w /
