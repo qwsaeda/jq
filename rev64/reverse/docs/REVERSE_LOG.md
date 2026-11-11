@@ -7499,3 +7499,25 @@ got_map + needed + **trans_needed**（新增，翻译体 NEEDED 依赖面对照�
 taxonomy + event_cover + event_codemap + bss_evt_tbl + rodata_static + text_static +
 rel_dyn + jni_export + got_plt + trans_jni + trans_strpool + readelf_rel +
 got_map + needed + trans_needed + **walk_8step**（新增，走子桥 8 步判据锚点对照）。
+
+### §124y-205 翻译体 so 段布局存在性判据脚本化 + 静态佐证扩到 22 项（2026-11-11）
+
+用户"光改光对比，经验不总结/不脚本化"批评的延续落实——把"翻译体 so 含完整
+ELF 段布局（.text/.rodata/.data/.bss/.plt 全在 + .bss=NOBITS）"口径固化为
+可复跑静态判据（防翻译体 so 段布局漂移/链接错）：
+
+- **新工具** `rev64/tools/translated_seg_check.py`：翻译体 so
+  `rev64/dist/libjunqi_arm32_aligned.so` readelf -SW 段布局存在性判据
+- **判据实锤**：必备 4 段（.text/.rodata/.data/.bss）+ .plt 全在 +
+  .text/.rodata 非空 + .bss=NOBITS（运行时零初始化，C 静态存储惯例）→ PASS
+- **★ 坑固化**：`readelf -SW` 列解析 NOBITS 在 **type 列**（非 flags/size 列），
+  初版误把 size 当 NOBITS 判读 → FAIL（段布局实际正确）；修正：segs[name]=(type,offset,size)，
+  .bss NOBITS 判 `segs[".bss"][0]=="NOBITS"` + .text/.rodata 非空判 size 列
+- **口径边界**：翻译体 so 段 VA/size 与原版不同（独立 NDK 编译，非汇编级逐指令
+  移植），本判据只核"段布局存在性 + 类型正确"，不核 VA/size 逐值对齐
+- 并入 `arm32_static_evidence.sh` 第 22 项 `trans_seg`（PASS=22 FAIL=0 全 PASS）
+
+**静态佐证批次化入口 22 项**（设备无关）：resource + event/urlkey/javacls + forkcheck +
+taxonomy + event_cover + event_codemap + bss_evt_tbl + rodata_static + text_static +
+rel_dyn + jni_export + got_plt + trans_jni + trans_strpool + readelf_rel +
+got_map + needed + trans_needed + walk_8step + **trans_seg**（新增，翻译体段布局存在性）。
