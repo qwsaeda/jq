@@ -7202,3 +7202,20 @@ forkcheck + taxonomy + event_cover + **event_codemap**（新增）。
 **判据**（§124y-189 后）：32 位全钩子 = `bash rev64/tools/arm32_hook_check.sh --dev <dev> --rounds 3`
 （4 项 + 出屏 3 轮 + 轮询 45s/60s + 项间冷却 5s + 设备掉线 2 轮 30s 重连容错）。
 设备掉线期判据结果不作 so 回归依据，等设备稳定窗口复验。
+
+### §124y-190 .bss 事件表 289B 真值基准判据脚本化 + 静态佐证扩到 9 项（2026-11-11）
+
+用户"光改光对比，经验不总结/不脚本化"批评的延续落实——把 `.bss` 事件表 289B
+真值基准（§124y-168/185 实锤）固化为可复跑静态判据（不依赖设备，设备离线期也能跑）：
+
+- **真值基准落盘**：`rev64/dist/jq_event_tbl_fill_289B.bin`（从 32 位翻译体 so 提取
+  `jq_event_tbl_fill_bytes` 289 字节，非0字节=129 与 MuMu 原版 so ref dump 逐字节一致）
+- **新工具** `rev64/tools/bss_evt_tbl_check.py`：289B 文件存在 + 大小=289 + 非0字节=129
+  + 高 nibble 非0 字节=0（asr4 掩码区未填事件码，disc=0 忠实语义）+ 17 行×17 字段结构校验
+- **判据实锤**：PASS（非0=129 + 高nibble=0，忠实语义）
+- **坑固化**：32 位 so VA 0x0001ae4c = .data 段文件偏移（load base 0，VA==file offset），
+  提取 289B 回填表须按 VA 直接读 so 二进制
+- 并入 `arm32_static_evidence.sh` 第 9 项 `bss_evt_tbl`（PASS=9 FAIL=0 全 PASS）
+
+**静态佐证批次化入口 9 项**（设备无关）：resource + event/urlkey/javacls + forkcheck +
+taxonomy + event_cover + event_codemap + **bss_evt_tbl**（新增，289B 真值基准）。

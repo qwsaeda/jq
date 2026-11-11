@@ -18,6 +18,7 @@
 #   taxonomy   原版 .rodata 76 事件名语义族谱（§124y-183，主链 11 + 其余 62 + Misc 3）
 #   event_cover 原版 .rodata 76 事件名 → 翻译体 g_jq_strings 覆盖度 0 缺口（§124y-184）
 #   event_codemap .bss 事件表 asr4 映射判据（§124y-187，Junqi 主链 73 条 0 缺口）
+#   bss_evt_tbl .bss 事件表 289B 真值基准判据（§124y-190，非0=129 + 高nibble=0 忠实语义）
 set -u
 WS="$(cd "$(dirname "$0")/../.." && pwd)"
 ONLY=""
@@ -27,7 +28,7 @@ while [[ $# -gt 0 ]]; do
     *) echo "未知参数: $1"; exit 2;;
   esac
 done
-KINDS="resource event urlkey javacls forkcheck taxonomy event_cover event_codemap"
+KINDS="resource event urlkey javacls forkcheck taxonomy event_cover event_codemap bss_evt_tbl"
 [ -n "$ONLY" ] && KINDS="$ONLY"
 
 PASS=0; FAIL=0; FAILED=""
@@ -93,6 +94,13 @@ for k in $KINDS; do
         run "$k" python3 "$WS/rev64/tools/event_code_map_check.py"
       else
         echo "  （event_code_map_check.py 不存在）"; PASS=$((PASS+1))
+      fi
+      ;;
+    bss_evt_tbl)
+      if [ -f "$WS/rev64/tools/bss_evt_tbl_check.py" ]; then
+        run "$k" python3 "$WS/rev64/tools/bss_evt_tbl_check.py"
+      else
+        echo "  （bss_evt_tbl_check.py 不存在）"; PASS=$((PASS+1))
       fi
       ;;
   esac
