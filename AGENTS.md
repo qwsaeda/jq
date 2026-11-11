@@ -50,7 +50,7 @@ dist/                       四阶段交付物（phase0-3.apk）
 
 - `minSdk 4` / `targetSdk 19` / `installLocation=preferExternal`
 - 无源码，Java 侧只有 ~7 个类（`com.cnvcs.App`、`GLView`、`SiteView`、`AdLis`、`BtReceiver`、`TextDlg`、`InputDlg`），几百行 smali
-- 游戏核心逻辑在 native 层：`lib/armeabi/libjunqi.so`，**ELF32 / ARM / EABI5 / stripped**，依赖 `libstdc++.so`(32 位)、`libGLESv1_CM.so`（GL1 渲染），导出 15 个 `Java_com_cnvcs_App_On*` JNI 符号（★ AUD-1000 B09-001 口径：★ B09-001 口径修正（§124y-195 实锤）：`nm -D` 实锤原版 32 位 so = **14 个** `Java_com_cnvcs_App_*` 符号（旧"15 个"系误口径已纠正）；src_rs 64 位重写 14 个 = 原版 32 位 14 个**完全一致**（JNI 导出符号 32/64 位同源对齐））
+- 游戏核心逻辑在 native 层：`lib/armeabi/libjunqi.so`，**ELF32 / ARM / EABI5 / stripped**，依赖 `libstdc++.so`(32 位)、`libGLESv1_CM.so`（GL1 渲染），导出 14 个 `Java_com_cnvcs_App_*` JNI 符号（★ B09-001 口径修正（§124y-195 实锤）：`nm -D` 实锤原版 32 位 so = **14 个**（旧"15 个"系误口径已纠正）；src_rs 64 位重写 14 个 = 原版 32 位 14 个**完全一致**（JNI 导出符号 32/64 位同源对齐））
 - **`.text` 代码段是明文**（objdump 反汇编出真实 ARM/Thumb 指令 + JNI 符号名，熵 7.10 = 正常机器码）
 - **`.rodata` 字符串池也是明文**（非加密）：已知串 `Junqi.Move/updateUrl/statHost/com/baidu/mobads/AdView` 在**静态文件里即可见**；静态 `.rodata` 与运行时 dump 逐字节相同（0/118832 不同）→ **无运行时自解密**
   - 纠正：之前写"`.rodata` 加密、dlopen 自解密"是**错的**。唯一高熵点 0x138000(7.87) 在 `.rodata` 只读数据段内，是压缩/索引表（值非有效地址），**非加密代码**
@@ -129,7 +129,7 @@ java -cp /tmp/opencode/apksigner/apksig.jar:/tmp/opencode/apksigner SignV2 \
 - 产物：`dist/phase2.apk`（v1+v2，`armeabi-v7a` + `arm64-v8a`，`minSdk 21` / `targetSdk 34`）
 - 改动：`armeabi` 升级为 `armeabi-v7a`（v7a 兼容 v5，32 位 native 原样复用）；arm64 用 NDK 编译**简化版**C++ 实现（`native64/junqi.cpp` → `lib/arm64-v8a/libjunqi.so`，~97KB，无 GL 依赖，仅 `liblog/libm/libandroid`）：
   - 14 个 JNI 入口签名与 `smali/com/cnvcs/App.smali` 一致
-    （★ 口径纠正：src_rs 64 位 so 实锤 14 个 On*（nm -D 复核，原版 32 位 15 个减 OnDestroy））
+    （★ B09-001 口径修正 §124y-195：`nm -D` 实锤原版 32 位 so = 14 个，src_rs 64 位重写 14 个完全一致，旧"15 个"误口径已纠正）
   - 军棋棋盘（12×5=60 格，每方 25 子）+ 走子/吃子/炸弹/悔棋规则 + 简单 AI（blue 方）
     （★ 口径纠正 AUD-R-076：10×9/38 子系旧误读，SPEC 定案 12×5 棋盘 50 子）
   - 事件名对齐 32 位 `.rodata` 明文（`Junqi.Move/Flip/Flag/Bomb/Eat/Dead` 等）
