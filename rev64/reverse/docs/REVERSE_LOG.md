@@ -7564,3 +7564,24 @@ taxonomy + event_cover + event_codemap + bss_evt_tbl + rodata_static + text_stat
 rel_dyn + jni_export + got_plt + trans_jni + trans_strpool + readelf_rel +
 got_map + needed + trans_needed + walk_8step + trans_seg + trans_handlers +
 **hook_anchors**（新增，全钩子判据锚点双源对照）。
+
+### §124y-208 翻译体 so 14 On* 入口 T 符号函数体实锤判据（trans_jni 项增强，静态佐证 24 项，2026-11-11）
+
+用户"光改光对比，经验不总结/不脚本化"批评的延续落实——把"翻译体 so 14 On*
+入口 = 代码段真实函数体（T 符号），非空 stub/未定义"口径固化进
+`translated_jni_check.py`（trans_jni 项增强，防翻译体 so JNI 入口退化为空 stub）：
+
+- **判据增强**：`translated_jni_check.py` 新增 `nm_T_syms()`——翻译体 so
+  `rev64/dist/libjunqi_arm32_aligned.so` nm 普通符号表 T 型 On* 入口
+  （代码段真实函数体，非 U 未定义 / 非空 stub）
+- **判据实锤**：翻译体 14 On* 入口 T 符号 = 14 个（OnBluetooth/OnCreate/
+  OnDestroy/OnEvent/OnGraphChange/OnGraphCreate/OnInput/OnKey/OnPause/
+  OnResult/OnResume/OnTimer/OnTouch/OnUpdate，全在 .text 代码段）
+- **坑固化**：nm -D（动态符号）只看导出可见性，**不看函数体是否真实**（
+  空 stub / weak 实现也会出现在 nm -D）；须 nm 普通符号表 T 型（text 段真实
+  函数）才实锤"14 On* 入口非空 stub"。翻译体 so 重编后须重跑本判据
+  （14 T 符号全在）+ 重打包 apk 装机（误打包坑）
+- 并入 `arm32_static_evidence.sh` `trans_jni` 项（PASS=24 FAIL=0 全 PASS）
+
+**静态佐证批次化入口 24 项**（设备无关，§124y-190~208）：trans_jni 项现含
+"14 On* 逐名一致 + 14 T 符号函数体实锤"双判据。
