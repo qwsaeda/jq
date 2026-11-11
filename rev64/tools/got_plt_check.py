@@ -11,11 +11,11 @@
 判据输出：
 1. .rel.plt 总槽数 = 214（= 0x6b0/8）
 2. .rel.dyn 类型分布 {23:5312, 21:6, 2:7}（REL∩GD=∅ 口径，§124y-194 同源）
-3. .got 段大小 0xaa4（= 429 字节，符号解析槽落地区）
+3. .got 段大小 0xaa4（= 2724 字节 = 681 槽，符号解析槽落地区；§124y-201 已纠 429 误值）
 
 用法：python3 rev64/tools/got_plt_check.py
 """
-import os, struct, sys
+import os, struct, subprocess, sys
 from collections import Counter
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -35,9 +35,15 @@ def main():
     print("═══ §124y-197 原版 .rel.plt/.got 符号解析槽判据 ═══")
     print("  .rel.plt 总槽数: %d（§124y 口径 = 214 JUMP_SLOT，PLT 符号解析槽）→ %s" % (plt_n, "PASS" if plt_n==214 else "FAIL"))
     print("  .rel.dyn 类型分布: RELATIVE(23)=%d JUMP_SLOT内(21)=%d GLOB_DAT类(2)=%d" % (types.get(23,0), types.get(21,0), types.get(2,0)))
-    print("  .got 段大小: 0xaa4（= 429 字节，符号解析槽落地区）")
+    print("  .got 段大小: 0xaa4（= 2724 字节 = 681 槽，符号解析槽落地区）")
     print("  （§124y 口径：.got 真正零值 = 6 GLOB_DAT + 214 JUMP_SLOT 符号解析槽，非 RELATIVE 槽，需 linker 符号解析）")
-    ok = (plt_n==214) and (types.get(23,0)==5312) and (types.get(21,0)==6) and (types.get(2,0)==7)
+    # 原版 so 无独立 .got.plt 段（32 位 ARM 惯例：.got 合并含 PLT 槽，.rel.plt 214 槽指向 .got 区）
+    # 翻译体 so 有独立 .got.plt（NDK 编译惯例）——原版口径 = 无 .got.plt 独立段
+    sw = subprocess.run(["readelf","-SW",ORIG_SO], capture_output=True, text=True).stdout
+    has_got_plt_seg = ".got.plt" in sw
+    no_got_plt = not has_got_plt_seg
+    print("  原版 so 无独立 .got.plt 段（32 位 ARM 惯例，.got 合并含 PLT 槽）: %s" % ("PASS" if no_got_plt else "FAIL"))
+    ok = (plt_n==214) and (types.get(23,0)==5312) and (types.get(21,0)==6) and (types.get(2,0)==7) and no_got_plt
     print("  判据: %s" % ("PASS（214 JUMP_SLOT + RELATIVE 5312 + 类型分布，全符号解析槽口径成立）" if ok else "FAIL"))
     return 0 if ok else 2
 
