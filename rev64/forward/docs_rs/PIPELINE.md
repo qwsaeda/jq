@@ -209,7 +209,7 @@
 | 段 1 逆向提取 | ✅ 完成（明文 + 1715 串 + 214 PLT + 1479 dynsym + 5312 RELATIVE 全固化） | `frida-dump/` + `R-route_reversal.md` |
 | 段 2 正向开发 | ✅ 行为级全闭环（12/12 回归 + 桌面 168/168 + 真机 9/9，14 JNI 签名一致） | `src_rs_regress.sh` + `mumu_fulltest.sh` |
 | 段 3 真机验收 | ⚠️ MuMu 出帧/音效/触摸已证，**屏幕可见 + 出声 + 蓝牙 = 真机 arm GPU 待验收** | `mumu_fulltest` 9/9 + GLES2 PBuffer 离屏像素 |
-| 段 4 差异补齐 | ⚠️ 三墙卡对象图（unidbg）/ 跨进程指针不可回填（frida）/ gate-set 写侧突破 1 层但场景对象图未填充（翻译体） | `REVERSE_LOG.md` 终局反思 |
+| 段 4 差异补齐 | ⚠️ 三墙卡对象图（unidbg）/ 跨进程指针不可回填（frida）/ gate-set 写侧突破 1 层但场景对象图未填充（翻译体） | `../../reverse/docs/REVERSE_LOG.md` 终局反思 |
 | 回路 C 口径 | ✅ 双脚本全绿（check_consistency EXIT=0 + course_sync_scan 0 残留） | `rev64/tools/` |
 
 **"能玩"下一步唯一剩路 = 真机 arm64/32 位 arm GPU 设备验收 + 段 4 场景对象图数据工程**。

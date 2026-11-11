@@ -620,7 +620,7 @@ F_25b92，用原版 so ground truth 把 stray 块移回属主函数）；② 重
 | `jqt_vtbl.c` | F_23eec 六段全链日志（F_afc44/F_23c58/F_32f8c/F_76664/F_28d00/F_27bf8 前后）+ jqt_gl_bridge 调（§GLBRIDGE-F23EEC）+ F_a6620/F_a373c ENTRY 日志+阀 | ✅ 已落地 |
 | `jqt_gl_bridge.c` | jqt_gl_frame_loop eglMakeCurrent 错误日志 + jqt_gl_bridge eglCreateContext 回退 GLThread cur_ctx + 首帧 init 诊断日志 | ✅ 已落地 |
 | `rev64/dist/phase_chain_arm32.apk` | 含全部改进（15037975B，v1+v2 签名） | ✅ 已构建 |
-| `rev64/forward/docs_rs/REVERSE_LOG.md` | §124y-2/3/4/5（帧循环稳态 + F_23eec 全链 + 黑屏根因 + 反思循环） | ✅ 已更新 |
+| `REVERSE_LOG.md` | §124y-2/3/4/5（帧循环稳态 + F_23eec 全链 + 黑屏根因 + 反思循环） | ✅ 已更新 |
 
 ### 本轮反思与改进（§124y-6 经验库循环——MuMu 双 swap 修复 + 棋盘纹理卡点）
 
@@ -686,7 +686,7 @@ F_25b92，用原版 so ground truth 把 stray 块移回属主函数）；② 重
 | `jqt_vtbl.c` | F_9e204 glTexImage2D 参数栈对齐：height=MEM(sp)=751、format=MEM(sp+8)→GL_RGB、type=MEM(sp+12)、pixels=MEM(sp+16)=jq_board_px（修复 r4/r8/r6/r7 错位） | ✅ 已落地 |
 | `jqt_vtbl.c` | glDrawArrays 诊断（prog/tex/texID/vp/err/centerpx）+ F_9e204 glTexImage2D err 诊断 + glGetError 跟踪 | ✅ 已落地 |
 | `rev64/dist/phase_chain_arm32.apk` | 含全部改进（15042071B，v1+v2 签名） | ✅ 已构建 |
-| `rev64/forward/docs_rs/REVERSE_LOG.md` | §124y-6（反思/闭环事实/坑清单/方法论/下一轮/改进清单） | ✅ 已更新 |
+| `REVERSE_LOG.md` | §124y-6（反思/闭环事实/坑清单/方法论/下一轮/改进清单） | ✅ 已更新 |
 
 
 
