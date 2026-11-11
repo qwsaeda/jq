@@ -7265,3 +7265,22 @@ backtrace 实锤：
 
 **静态佐证批次化入口 10 项**（设备无关）：resource + event/urlkey/javacls + forkcheck +
 taxonomy + event_cover + event_codemap + bss_evt_tbl + **rodata_static**（新增，.rodata 明文）。
+
+### §124y-193 原版 .text 段明文判据脚本化 + 静态佐证扩到 11 项（2026-11-11）
+
+用户"光改光对比，经验不总结/不脚本化"批评的延续落实——把"非加壳 so /
+.text 代码段明文无加密"口径固化为可复跑静态判据（与 §124y-192 .rodata 明文判据
+成对，组成"非加壳 so"完整静态指纹，不依赖设备，设备离线期也能跑）：
+
+- **新工具** `rev64/tools/text_static_check.py`：原版 so `.text` 段（VA 0x233e0
+  size 0xfd814 = 1038356B）明文判据
+- **判据实锤**：熵 7.10（正常机器码 6.5-7.5 区间；加密壳代码段熵 ≥7.9）+
+  前 16B 非 0 字节 15/16（非全 0 占位 = 非加密壳）+ JNI 导出符号
+  `Java_com_cnvcs_App_On*` 在 .dynsym 明文可见（原版 32 位 so 15 个 On* 符号佐证）
+  → 非加壳 so / .text 明文无加密口径成立
+- **成对指纹**：§124y-192（.rodata 明文逐字节一致）+ §124y-193（.text 明文熵）
+  = "非加壳 so"完整静态判据（代码段 + 数据段双明文，无运行时自解密）
+- 并入 `arm32_static_evidence.sh` 第 11 项 `text_static`（PASS=11 FAIL=0 全 PASS）
+
+**静态佐证批次化入口 11 项**（设备无关）：resource + event/urlkey/javacls + forkcheck +
+taxonomy + event_cover + event_codemap + bss_evt_tbl + rodata_static + **text_static**（新增，.text 明文）。

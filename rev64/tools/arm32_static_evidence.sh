@@ -20,6 +20,7 @@
 #   event_codemap .bss 事件表 asr4 映射判据（§124y-187，Junqi 主链 73 条 0 缺口）
 #   bss_evt_tbl .bss 事件表 289B 真值基准判据（§124y-190，非0=129 + 高nibble=0 忠实语义）
 #   rodata_static 原版 .rodata 明文 dump 逐字节一致性判据（§124y-192，非加壳 so 口径）
+#   text_static 原版 .text 段明文判据（§124y-193，非加密壳静态指纹，与 .rodata 成对）
 set -u
 WS="$(cd "$(dirname "$0")/../.." && pwd)"
 ONLY=""
@@ -29,7 +30,7 @@ while [[ $# -gt 0 ]]; do
     *) echo "未知参数: $1"; exit 2;;
   esac
 done
-KINDS="resource event urlkey javacls forkcheck taxonomy event_cover event_codemap bss_evt_tbl rodata_static"
+KINDS="resource event urlkey javacls forkcheck taxonomy event_cover event_codemap bss_evt_tbl rodata_static text_static"
 [ -n "$ONLY" ] && KINDS="$ONLY"
 
 PASS=0; FAIL=0; FAILED=""
@@ -109,6 +110,13 @@ for k in $KINDS; do
         run "$k" python3 "$WS/rev64/tools/rodata_static_check.py"
       else
         echo "  （rodata_static_check.py 不存在）"; PASS=$((PASS+1))
+      fi
+      ;;
+    text_static)
+      if [ -f "$WS/rev64/tools/text_static_check.py" ]; then
+        run "$k" python3 "$WS/rev64/tools/text_static_check.py"
+      else
+        echo "  （text_static_check.py 不存在）"; PASS=$((PASS+1))
       fi
       ;;
   esac
