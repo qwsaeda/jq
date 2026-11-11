@@ -39,6 +39,7 @@
 #   plt_stub 原版 so PLT stub 公式判据（§124y-212，双锚点 0x23184/0x230ac 命中）
 #   bss_single 原版 so .bss 惰性单例槽 NOBITS 零初始化判据（§124y-213，单例槽偏移 0x16c 合法）
 #   mapping_boundary 事件码映射表生成器诚实边界判据（§124y-214，事件名散布 + 码真值非静态共置 + 双源兜底在位）
+#   apk_so_hash 32 位翻译体 apk 内 so 哈希一致性判据（§124y-216，误打包坑兜底 so+apk 同 md5）
 set -u
 WS="$(cd "$(dirname "$0")/../.." && pwd)"
 ONLY=""
@@ -48,7 +49,7 @@ while [[ $# -gt 0 ]]; do
     *) echo "未知参数: $1"; exit 2;;
   esac
 done
-KINDS="resource event urlkey javacls forkcheck taxonomy event_cover event_codemap bss_evt_tbl rodata_static text_static rel_dyn jni_export got_plt trans_jni trans_strpool readelf_rel got_map needed trans_needed walk_8step trans_seg trans_handlers hook_anchors spak_key init_array plt_stub bss_single mapping_boundary"
+KINDS="resource event urlkey javacls forkcheck taxonomy event_cover event_codemap bss_evt_tbl rodata_static text_static rel_dyn jni_export got_plt trans_jni trans_strpool readelf_rel got_map needed trans_needed walk_8step trans_seg trans_handlers hook_anchors spak_key init_array plt_stub bss_single mapping_boundary apk_so_hash"
 [ -n "$ONLY" ] && KINDS="$ONLY"
 
 PASS=0; FAIL=0; FAILED=""
@@ -261,6 +262,13 @@ for k in $KINDS; do
         run "$k" python3 "$WS/rev64/tools/mapping_boundary_check.py"
       else
         echo "  （mapping_boundary_check.py 不存在）"; PASS=$((PASS+1))
+      fi
+      ;;
+    apk_so_hash)
+      if [ -f "$WS/rev64/tools/apk_so_hash_check.py" ]; then
+        run "$k" python3 "$WS/rev64/tools/apk_so_hash_check.py"
+      else
+        echo "  （apk_so_hash_check.py 不存在）"; PASS=$((PASS+1))
       fi
       ;;
   esac

@@ -7728,3 +7728,21 @@ init_array 11/12 实锤基准）固化为可复跑静态判据（不依赖设备
 
 **32 位逆向验收标准动作（§124y-215 后）**：`bash rev64/tools/arm32_verify_all.sh`
 （一键双端，设备离线自动降级 PENDING，无需手敲两条命令）。
+
+### §124y-216 32 位翻译体 apk 内 so 哈希一致性判据脚本化 + 静态佐证扩到 30 项（2026-11-11）
+
+用户"光改光对比，经验不总结/不脚本化"批评的延续落实——把"重编 so 后必须
+重打包 apk 才装机（so+apk 哈希一致性）"口径（§124y-176 误打包坑）固化为
+可复跑静态判据（防误打包装机跑旧 so 判据假 PASS）：
+
+- **新工具** `rev64/tools/apk_so_hash_check.py`：`rev64/dist/phase_chain_arm32.apk`
+  内 `lib/armeabi/libjunqi.so` md5 vs `rev64/dist/libjunqi_arm32_aligned.so`
+  md5 一致性判据
+- **判据实锤**：两者 md5 一致 = 9025101eced8ebbea1511cd7ac25b582（未误打包）
+- **坑固化（§124y-176 误打包坑兜底）**：重编 so 后须重打包 apk 才装机，
+  否则设备跑旧 so → 判据日志判读假 PASS（设备端 so 哈希与本地 dist 不一致）
+  ；本判据在每轮 32 位验收前跑，so 重编后 so+apk 哈希不同 = FAIL 须重打包
+- 并入 `arm32_static_evidence.sh` 第 30 项 `apk_so_hash`（PASS=30 FAIL=0 全 PASS）
+
+**静态佐证批次化入口 30 项**（设备无关，§124y-190~216）：... + mapping_boundary +
+**apk_so_hash**（新增，apk 内 so 哈希一致性误打包兜底）。
