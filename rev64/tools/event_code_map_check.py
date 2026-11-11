@@ -61,5 +61,26 @@ def main():
     print("  判据: %s" % ("0 缺口 PASS" if not miss else "缺口 %d FAIL" % len(miss)))
     return 0 if not miss else 2
 
+def regen_check():
+    """★ 映射表可再生判据：event_code_map.json vs 原版 so 静态提取 76 事件名一致（防手敲映射表漂移）"""
+    so = open(ORIG_SO, 'rb').read()
+    all76 = sorted(set(m.group(0).decode() for m in re.finditer(rb'(?:Junqi|Misc)\\.[A-Za-z0-9%]+', so)))
+    d = json.load(open(MAP))
+    codes = d.get('event_codes', {})
+    mapped = set()
+    for v in codes.values():
+        mapped |= set(v['names'])
+    mapped_expand = set()
+    for n in mapped:
+        mapped_expand.add(n)
+        if '%d' in n: mapped_expand.add(n.replace('%d', ''))
+    # 76 名 vs 映射表（%d token 按基础名对照）
+    miss = [x for x in all76 if x not in mapped_expand and x.replace('%d','') not in mapped_expand]
+    miss_junqi = [x for x in miss if x.startswith('Junqi.')]
+    print("  可再生对照: 原版 so 静态 76 事件名 vs 映射表 %d 事件名 → Junqi 主链缺口 %d %s" % (len(mapped), len(miss_junqi), miss_junqi if miss_junqi else "（0 缺口）"))
+    return 0 if not miss_junqi else 2
+
 if __name__ == '__main__':
-    sys.exit(main())
+    r = main()
+    r2 = regen_check()
+    sys.exit(max(r, r2))

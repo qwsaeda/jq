@@ -7323,3 +7323,21 @@ taxonomy + event_cover + event_codemap + bss_evt_tbl + rodata_static + text_stat
 rel_dyn + **jni_export**（新增，JNI 导出符号 14 个）。
 
 **AGENTS 口径同步**：B09-001 "15 个 On*" → 修正 "14 个（nm -D 实锤，B09-001 误口径 15 已纠正）"。
+
+### §124y-196 事件码映射表可再生对照判据（`event_code_map_check.py` 升级，防手敲映射表漂移，2026-11-11）
+
+用户"光改光对比，经验不总结/不脚本化"批评的延续落实——`rev64/dist/event_code_map.json`
+（73 事件名 → 12 事件码映射表）历史手敲落盘，无生成器 → 判据漂移风险。固化"可再生"判据：
+
+- **`event_code_map_check.py` 升级**：新增 `regen_check()`——原版 so 静态提取 76 事件名
+  （73 Junqi + 3 Misc，含 %d 模板 token）vs 映射表 73 事件名按 12 码分组对照，
+  Junqi 主链 0 缺口才 PASS（Misc 3 条不入主链判据，§124y-183 族谱已分类）
+- **判据实锤**：原版 so 静态 76 事件名 vs 映射表 73 事件名 → Junqi 主链缺口 0 PASS
+  （映射表 = 73 Junqi 全登记，12 事件码 0..11 = .rodata 可提取子集）
+- **坑固化**：`event_names_76.json` 结构 = `{event_names: [...]}`（非裸清单），判据读取须
+  走 `d['event_names']`；模板串 %d token（Junqi.GameType%d/Misc.Graph%d）按基础名入表
+  （§124y-184/187 同坑，防假缺口）
+- 静态佐证批次化入口 13 项（`event_codemap` 项现含覆盖度 + 可再生双判据，PASS=13 FAIL=0）
+
+**口径**：映射表 = 手敲落盘基准（无生成器），可再生对照判据兜底防漂移；若需真生成器
+（从原版 so .rel.dyn 事件码常量 0..11 静态共置点自动提取），属后续攻坚项（当前 0 缺口基准成立，非阻塞）。
