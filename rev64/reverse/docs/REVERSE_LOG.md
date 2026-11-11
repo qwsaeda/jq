@@ -7399,3 +7399,21 @@ rel_dyn + jni_export + got_plt + **trans_jni**（新增，翻译体 JNI 导出�
 **静态佐证批次化入口 16 项**（设备无关）：resource + event/urlkey/javacls + forkcheck +
 taxonomy + event_cover + event_codemap + bss_evt_tbl + rodata_static + text_static +
 rel_dyn + jni_export + got_plt + trans_jni + **trans_strpool**（新增，翻译体事件名对照）。
+
+### §124y-200 原版 .rel.dyn 逐槽 readelf -r 对照判据脚本化 + 静态佐证扩到 17 项（2026-11-11）
+
+用户"光改光对比，经验不总结/不脚本化"批评的延续落实——把"readelf -r 逐槽解析
+R_ARM_RELATIVE = 5312"口径（§124y REL_RELOCATION_AUDIT）固化为可复跑静态判据，
+与 §124y-194 自解析 struct 判据**双源对照**（防两套解析器口径漂移）：
+
+- **新工具** `rev64/tools/readelf_rel_check.py`：`readelf -r` 逐槽解析
+  R_ARM_RELATIVE 行数 = 5312（§124y 口径）
+- **判据实锤**：readelf -r R_ARM_RELATIVE 行数 5312（与 §124y-194 自解析
+  struct type23=5312 双源一致，全重定位口径成立）
+- **坑固化**：重定位槽数两套解析（readelf -r 逐行 vs 自解析 struct）须双源对照
+  （口径一致才可信，单源有解析器 bug 风险——§124y-194 初版误用 type=2 即此坑）
+- 并入 `arm32_static_evidence.sh` 第 17 项 `readelf_rel`（PASS=17 FAIL=0 全 PASS）
+
+**静态佐证批次化入口 17 项**（设备无关）：resource + event/urlkey/javacls + forkcheck +
+taxonomy + event_cover + event_codemap + bss_evt_tbl + rodata_static + text_static +
+rel_dyn + jni_export + got_plt + trans_jni + trans_strpool + **readelf_rel**（新增，双源对照）。
