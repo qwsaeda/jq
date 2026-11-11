@@ -802,8 +802,11 @@ Java_com_cnvcs_App_OnTimer(JNIEnv *env, jclass c){
             /* §124y-26：端到端判据用走子桥 move 全链（纯 C 规则引擎，设备端已证 cell6→11 Junqi.Move 成功）。
                触摸命中几何 jq_touch_hit_cell 在 32 位 so 设备端 0/60（libc 浮点行为差异，诚实边界），
                不阻塞端到端"游戏可玩"主线。触摸注入坐标保留（命中 -1 也记录，便于后续 32 位 libc 适配）。 */
-            int cell6 = jq_walk_bridge_touch(274.0f, 1268.0f, 900, 1468);
-            __android_log_print(6,"junqi","GAME-TEST: 触摸 tap(274,1268) view900×1468 → cell%d（命中几何设备端 0/60 诚实边界，主线走 move 全链）", cell6);
+            /* ★ §124y-176 二次根治：触摸注入改纯整数路径（float 传参在转译层全 0，
+               纯整数入口 60/60 实锤）。274×1000=274000 / 1268×1000=1268000。 */
+            extern int jq_walk_bridge_touch_int(long px1k, long py1k, int view_w, int view_h);
+            int cell6 = jq_walk_bridge_touch_int(274000L, 1268000L, 900, 1468);
+            __android_log_print(6,"junqi","GAME-TEST: 触摸 tap(274,1268) view900×1468 纯整数路径 → cell%d", cell6);
             /* 走子（会话 B 基准 m6,11 / m33,38） */
             int ev1 = jq_walk_bridge_move(6, 11);
             int ev2 = jq_walk_bridge_move(33, 38);

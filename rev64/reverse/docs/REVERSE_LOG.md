@@ -6847,3 +6847,36 @@ swap 时序不一致**假象（32 位 so 走 MuMu houdini 转译 + 软件 EGL，
 的 `long` 除/乘法在转译层仍失效，根因更深（houdini 转译 32 位整数路径也异常，非单纯 VFP）。
 游戏主线 game_test（move 全链 + 翻子 + 终局）继续 PASS + 0 崩溃。命中几何 60/60 设备端
 实锤 = 后续攻坚项（需 32 位 so 真机 ARM 环境或转译层适配，非阻塞主线）。
+
+### §124y-176 补段：命中几何 0/60 二次根治——纯整数入口实锤 60/60（so `e9935d35`，2026-11-11）
+
+上一段"整数定点修复"实锤发现 3 个根因缺口，本轮全修：
+
+**缺口 1（误打包，根因）**：上段重编 so `30d48607` 后 **apk 未重打包**（apk 内 so 仍是旧 float
+版 `dec4574f`），装机跑的旧版，HITDBG 仍 float 日志。本轮修正打包流程（so+apk 哈希一致性
+验证 `apk so md5 == dist so md5` 才装机）。
+
+**缺口 2（float 中转残留）**：① `jq_touch_hit_cell` 整数版首行 `(long)(px*1000.0f)` 仍走
+float 乘法（转译层失效 → `ix1k=0`）；② walkbridge probing 循环 `(float)((pix1k*view_w)/720000L)`
+长整转 float 中转（同样失效）。修复 = 全链路纯整数：
+- `jq_rs_touch.h` 新增 `jq_touch_hit_cell_int(long px1k, long py1k, int, int, int*, int*)` 纯整数入口
+  （view 像素 ×1000 定点，内部 `img_x1k = px1k*720/view_w` 全 long 运算，零 float）
+- `jq_touch_hit_cell`（float 版）改为 ×1000 定点转换后**委托** `_int` 版（单一实现，防漂移）
+- `jq_rs_walkbridge.c` probing 循环 `ppx1k = pix1k*view_w/720L` 直接调 `_int` 入口
+- 新增 `jq_walk_bridge_touch_int`（走子桥纯整数入口），`jni_aligned.c` game_test 触摸注入
+  切纯整数路径（`274000/1268000` ×1000 定点）
+
+**实锤（设备 10.0.182.146，so `e9935d35`）**：
+- 桌面 gcc 单测纯整数入口 **60/60**（900×1468 / 720×1280 双基准）
+- 设备端 `JQ-WBT-PROBE: view=900x1468 逐格扫描命中 60/60`（so `11d5be7c` 起实锤，`e9935d35` 复验）
+- 设备端 `jq_walk_bridge_touch_int: tap1k(274000,1268000) → cell6 rank=3 side=0`
+  （真实格子命中 + 棋子 rank/side 正确，非碰打）
+- game_test 端到端重跑：触摸命中 cell6 + 走子 6→11/33→38 Junqi.Move×2 + 终局，0 崩溃
+- 4 路径回归 PASS=4 + 0 崩溃（native_event 首轮瞬时时序，单条重验 `F_3ab80 事件发送 disc=0` 命中）
+
+**根因定性（终版）**：MuMu houdini（x86_64 宿主转译 ARM32）下，32 位 so 内 **VFP 浮点运算
+（vdiv/vmul）与 float↔long 类型转换全部失效**（结果全 0），long 纯整数算术正常。命中几何
+0/60 非"libc 浮点差异"亦非"VFP 除法异常"单点，而是**转译层浮点通路整体缺失**——
+纯整数全链路（含入口参数 ×1000 定点）是唯一稳定路径。
+
+**§124y-26/176 前段"诚实边界：命中几何 0/60 未达成"关闭**——设备端 60/60 实锤达成。

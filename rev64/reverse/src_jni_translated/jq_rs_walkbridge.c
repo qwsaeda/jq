@@ -9,6 +9,10 @@
 #include <sys/system_properties.h>
 #include "jq_rs_rules.h"
 #include "jq_rs_walkbridge.h"
+
+/* ★ §124y-176 二次根治：纯整数命中几何入口（全链路无 float） */
+extern int jq_touch_hit_cell_int(long px1k, long py1k, int view_w, int view_h,
+                          int *out_row, int *out_col);
 #define JQ_EXPORT __attribute__((visibility("default")))
 
 
@@ -104,9 +108,11 @@ JQ_EXPORT int jq_walk_bridge_touch(float px, float py, int view_w, int view_h) {
                    float 除法 pix/BG_IMG_W*view_w 失效 → 全 0 → 逐格扫描 0/60） */
                 long pix1k = 78500L + pcol * 140500L;   /* BG_GRID_COL0_CX*1000 + pcol*COL_W*1000 */
                 long piy1k = pir < 6 ? 222000L + pir * 71000L : 822000L + (pir - 6) * 71000L;
-                float ppx = (float)((pix1k * view_w) / 720000L);
-                float ppy = (float)((piy1k * view_h) / 1280000L);
-                if (jq_touch_hit_cell(ppx, ppy, view_w, view_h, &out_row, &out_col) == i) probe_ok++;
+                /* ★ §124y-176 二次根治（本轮）：probing 坐标全整数（view 像素 ×1000 定点），
+                   不经过 float 中转（float 路径在 32 位 so 设备端全 0，HITDBG 实锤）。 */
+                long ppx1k = pix1k * view_w / 720L;
+                long ppy1k = piy1k * view_h / 1280L;
+                if (jq_touch_hit_cell_int(ppx1k, ppy1k, view_w, view_h, &out_row, &out_col) == i) probe_ok++;
             }
             __android_log_print(4, "junqi", "JQ-WBT-PROBE: view=%dx%d 逐格扫描命中 %d/60（设备端命中几何自检）",
                                 view_w, view_h, probe_ok);
@@ -119,6 +125,22 @@ JQ_EXPORT int jq_walk_bridge_touch(float px, float py, int view_w, int view_h) {
     const jq_cell *c = &g_walk_state.cells[cell];
     __android_log_print(4, "junqi", "jq_walk_bridge_touch: tap(%.0f,%.0f) → cell%d rank=%d side=%d",
                         px, py, cell, c->rank, c->side);
+    return cell;
+}
+
+/* ★ §124y-176 二次根治：纯整数走子桥触摸入口（view 像素 ×1000 定点，全链路无 float）。
+   game_test 钩子用（float 传参在转译层全 0，纯整数入口 60/60 实锤）。 */
+JQ_EXPORT int jq_walk_bridge_touch_int(long px1k, long py1k, int view_w, int view_h) {
+    if (!g_walk_init) jq_walk_bridge_run();
+    int out_row, out_col;
+    int cell = jq_touch_hit_cell_int(px1k, py1k, view_w, view_h, &out_row, &out_col);
+    if (cell < 0) {
+        __android_log_print(4, "junqi", "jq_walk_bridge_touch_int: tap1k(%ld,%ld) 未命中格", px1k, py1k);
+        return -1;
+    }
+    const jq_cell *c = &g_walk_state.cells[cell];
+    __android_log_print(4, "junqi", "jq_walk_bridge_touch_int: tap1k(%ld,%ld) → cell%d rank=%d side=%d",
+                        px1k, py1k, cell, c->rank, c->side);
     return cell;
 }
 
