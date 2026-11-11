@@ -2267,3 +2267,53 @@ OnCreate 主线程被该钩子段拖住（转译层 property 读取 + 自动走 
 - `rev64/tools/rs_logic_align.sh`：原版完整逻辑对齐验收一条龙（7 判据汇总，
   --desktop 桌面 / --dev 设备 / --skip-probe 跳 32-64 对比）。
 - `rev64/tools/clean_guard.py`：批量生成片段精确删除工具（括号配对三函数 + main CLI）。
+
+## 2026-11-11 真机 SIGABRT 根治：换数据激活潜伏 bug + 撕裂区蓝本拼接修复
+
+### 根因链（double-free 激活路径，防复发核心）
+- **换数据激活潜伏 bug**：HEAD（昨日 so 4d45e89a）带病运行正常——设备 fs 当时无
+  `dlg_batch_text.png` → `rs_read_one` 失败 `dlgraw=NULL` → 三重处理全短路；
+  本轮 rebuild_rs_apk 推新图集（460×15000）到设备 → 激活 double-free。
+  **教训：装机推新资源 = 改变代码执行路径，"之前能跑"不等于代码健康。**
+- 具体形态（generator 残留脏代码）：
+  `if (Xraw && png_decode(...)==0) free(Xraw);` 单行成功即 free
+  → 紧跟同条件 if 块二次 decode（悬垂指针）→ 块外 `free(Xraw)` 第三次 = Scudo invalid chunk state。
+- **同族撕裂区比预期大**：不止 double-free 一处——①加载区 18 个 atlas 残缺形态
+  （decode 后 raw free 但 `rr->X_px` 从未存入 = 纹理永不上传 + px 内存泄漏）；
+  ②上传区 34 个 `glTexImage2D` 上传体被撕成 `if (cond)     /* 注释 */` 链
+  （条件嵌套到末尾语句，纹理全部不上传）；③棋盘 VBO 构造块整段丢失
+  （`rs_make_vbo(&rr->vbo_board[slot])` 缺失 = 棋盘 quad 永不构造）。
+
+### 修复方法论（蓝本拼接，禁手写重造）
+- 找最近一个**完好版本**（`git show <好commit>:path`，本轮 6e045b8）→ diff 定位撕裂区
+  → python 整段替换（自底向上防行号漂移）→ 复 diff 验证剩余 hunk 全为合法演化。
+- **撕裂 vs 合法演化的仲裁判据**：手写区残缺=撕裂（还原）；生成器模板产物差异
+  （如 slot 守卫被去、gr 行号漂移）=合法再生（与当前图集/生成器配套，**不动**）。
+  仲裁依据 = 对照 gen_dialog_batch.py 当前模板产出形态。
+- **括号配平不可作编译前判据**：好版基线本身 -1/-357（注释含 ASCII 括号/字符串字面量），
+  只可比对"与好版的差值"，真判据 = 编译 + UND 门禁。
+
+### 残留碎片清理（拼接后必查）
+- 整段替换边界差 1-3 行会留碎片（本轮上传区尾部 3 行：uibat torn if + 注释头重复）。
+  拼接后必须复 diff + grep 撕裂特征模式
+  （`png_decode(...)==0)  +free(` 单行 / `px && rr->gl2_ok[slot]...)  +/*` 链）直到空。
+
+### 开局音效对齐（Junqi.Start → data_junqi_start.wav）
+- 原版 .rodata 实锤 `Junqi.Start`（0x120ec8）+ 资源 `data_junqi_start.wav`；旧代码 10 处
+  开局路径用 "over" 充当占位音（假对齐）。本轮 16 处 `sfx_play(env,"start")` 统一
+  （jq_restart_game 全调用点 + over→start 替换），**3 处真认输/终局 over 保留**（8643/9195/9630）。
+- OnCreate 内联开局是后台预开局（渲染主菜单，非用户动作）——**不播 start**（WAV 落地
+  sfx_wav_ensure_private 在其后，且启动即出声非原版行为）；用户开局路径（菜单/难度/新局/
+  载入布局/重开/restartgame 钩子）16 处全覆盖。
+- 真机实锤：`sfx：播放 start（.../data_junqi_start.wav）`（restartgame 钩子 + 难度弹窗开局双路径）。
+- **判据纪律：音效验证必须真机 logcat "sfx：播放 <event>" 实锤，静态 grep 代码 ≠ 播放过。**
+
+### 验收闭环（2026-11-11 rs_logic_align 7/7 PASS）
+- 编译 14 导出 + UND 空 + evverify 172/172（事件/业务 40 + 几何 132）+ regress 全过 +
+  弹窗 120/272（有按钮 0 缺口）+ 32/64 分歧 2（R-073 已知）+ 真机 UI 全项
+  （房子红顶 3985 / 白墙 2388 / 背景 98.2% 非黑 / 蓝按钮 2386 / 绿标题 2200）。
+- 真机对局冒烟：人机 btn0(448,1132) → 难度 btn1(619,660) 翻棋暗棋开局 start 音 →
+  cell6(274,1383) 两击翻子 flip 音 → AI 翻 cell3 应着 turn→0 → 回合交替持续。
+- 退出/重进 0 崩溃（正向 app 侧；设备 buffer 内 1 条 Fatal 系 com.cnvcs.junqi32
+  逆向侧进程，非正向）。
+- 提交：2fe2e0e（render.c +468/-62 + jni_bridge.c 26 行）。
