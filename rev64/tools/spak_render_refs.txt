@@ -60,3 +60,4 @@ data_ui_pop.wav
 datax_294_d653a8c22d742b8d.bin
 datax_177_a94374ff3a9f01c9.bin
 drawdetail_icons_atlas.png
+icon_house.png

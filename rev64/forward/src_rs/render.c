@@ -737,6 +737,8 @@ int rs_render_init(rs_render *rr, const char *spak_dir, const jq_state *init_sta
         {
             unsigned char *hraw = NULL; size_t hraw_len = 0;
             rs_read_one(am, spak_dir, "icon_house.png", &hraw, &hraw_len);
+            LOGI("HOUSE load: spak_dir=%s hraw=%s len=%zu", spak_dir ? spak_dir : "(null)",
+                 hraw ? "OK" : "NULL", hraw_len);
             if (hraw) {
                 unsigned char *hpx = NULL; int hw = 0, hh = 0;
                 if (png_decode(hraw, hraw_len, &hpx, &hw, &hh) == 0) {
@@ -11241,6 +11243,7 @@ void rs_render_free(rs_render *rr)
         rr->drawdetail_text_px = rr->setentry_text_px = rr->imgset_text_px = rr->join065_text_px = NULL;
         rr->create069_text_px = rr->rules070_text_px = rr->room060_text_px = rr->chat063_text_px = NULL;
         rr->about_text_px = rr->uibat_text_px = NULL;
+        rr->house_px = NULL;
     }
     free(rr->spak_dir); rr->spak_dir = NULL;
     /* ★ 对抗审计 P0（批4 P0-R1）：EGL 所有权归 jq_glview（glview_gl.c），本函数

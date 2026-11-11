@@ -1,4 +1,15 @@
-/* jq_rel_data.h — 原版 .so 数据段 + RELATIVE 重定位目标（自动生成） */
+/* jq_rel_data.h — 原版 .so 数据区段 blob + R_ARM_RELATIVE 重定位目标（自动生成）
+ * blob = 0x155000-0x15be80 共 28288B，实为 5 段拼合（段名见 gen_shadow.py IMG 布局）：
+ *   .init_array (0x155000-0x155030, 12 指针) + .data.rel.ro (0x155030-0x15afe0)
+ *   + .dynamic (0x15afe0-0x15b0c8) + .got (0x15b0c8-0x15bb6c, 681 槽) + .data (0x15bb6c-0x15be80)
+ * 重定位语义（REL_RELOCATION_AUDIT 2026-11-11 核对，零代码偏差）：
+ *   1. blob 先 memcpy 原始值到 shadow+JQ_DATA_VA，再对 5312 槽 jq_rel_tbl[i] += g_jqt_shadow
+ *      （R_ARM_RELATIVE = 加载基址 B + 槽内静态值 S，加一次得 B+S，不依赖运行地址 P）
+ *   2. 5312 槽与原版 readelf -rW 的 R_ARM_RELATIVE 条目逐一精确匹配（tbl−orig=∅, orig−tbl=∅）
+ *   3. .got[0/1/2/3]（PLTGOT/dynamic/link_map/resolver/.plt 起点）不在 5312 REL 表内，
+ *      linker 不对它们做 RELATIVE（dlopen 固定初始化），blob 保留原始值即忠实
+ *   4. .bss 从 img_end=0x15be80 清零（NOBITS，blob 不含），忠实 dlopen 零初始化
+ */
 #ifndef JQ_REL_DATA_H
 #define JQ_REL_DATA_H
 #include <stdint.h>

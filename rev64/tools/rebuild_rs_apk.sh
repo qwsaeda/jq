@@ -1,9 +1,11 @@
 #!/bin/bash
 # rebuild_rs_apk.sh — src_rs（64 位正向开发）换 so 一条龙
 # 固化：每轮手写 10+ 次的 "cp so → zip 重打(STORE) → zipalign → sign → install → 对账"。
-# 源 APK: /tmp/opencode/jq_apk/rs_a64/rs168_wav.apk（含 14 WAV assets + 正确包名 com.cnvcs.junqirs）。
+# 源 APK: 从 dec_rs 构建树 apktool b 生成（com.qwsaeda.junqirs，★ 2026-11-11 包名演进修复：
+#   旧 rs168_wav.apk 是 com.cnvcs.junqirs 旧包名，与 so Java_com_qwsaeda_App_* 错配 →
+#   UnsatisfiedLinkError 启动崩溃。dec_rs 已演进 qwsaeda（smali/manifest/FindClass 对齐）。
 #   ★ 诚实边界（对抗审计 P3-A6）：spak_res 推送段已改为从 rev64/dist/spak_res/
-#   44 张（spak_render_refs.txt 清单）取，不再依赖源 APK 的 spak_res（rs168 仅 16 张旧裁剪）。
+#   63 张（spak_render_refs.txt 清单）取，不再依赖源 APK 的 spak_res。
 # 用法:
 #   bash rev64/tools/rebuild_rs_apk.sh              # 换 so → 打包 → 签名 → 装 → 对账（不启动）
 #   bash rev64/tools/rebuild_rs_apk.sh --start      # 追加启动 app
@@ -15,7 +17,7 @@ WS=/disk/workspaces/jq
 RS=/disk/workspaces/jq/rev64/forward/src_rs
 TOOLS=/disk/workspaces/jq/rev64/tools
 WORK=/tmp/opencode/jq_apk/rs_a64
-SRCAPK=$WORK/rs168_wav.apk
+SRCAPK=$WORK/rs_dec.apk
 OUT=$RS/dist/phase_rs_a64.apk
 DEV=${DEV:-10.0.182.146:5555}
 START=0
@@ -32,11 +34,21 @@ done
 log() { echo "[rebuild_rs] $*"; }
 
 # 前置检查
-[ -f "$SRCAPK" ] || { log "★ 源 APK 不存在: $SRCAPK（需 rs168_wav.apk，含 14 WAV）"; exit 1; }
+[ -d "$WORK/dec_rs" ] || { log "★ dec_rs 构建树缺失: $WORK/dec_rs（需 apktool d 解包，包名 com.qwsaeda.junqirs）"; exit 1; }
+[ -f "$WORK/dec_rs/AndroidManifest.xml" ] || { log "★ dec_rs/AndroidManifest.xml 缺失"; exit 1; }
 [ -f "$RS/dist/libjunqi_rs.so" ] || { log "★ so 不存在，先 make so"; exit 1; }
 [ -f "$TOOLS/spak_render_refs.txt" ] || { log "★ spak_render_refs.txt 缺失"; exit 1; }
 [ -d "$WS/rev64/dist/spak_res" ] || { log "★ rev64/dist/spak_res 全量源缺失"; exit 1; }
 [ -f "$TOOLS/so_link_check.py" ] || { log "★ so_link_check.py 缺失（工具不在，链接审计无法执行）"; exit 1; }
+
+log "=== [0/5] 构建源 APK（dec_rs → com.qwsaeda.junqirs）==="
+rm -f "$SRCAPK"
+cd "$WORK/dec_rs"
+apktool b . -o "$SRCAPK" 2>&1 | tail -2
+[ -f "$SRCAPK" ] || { log "★ apktool b dec_rs 失败"; exit 1; }
+PKG=$(aapt dump badging "$SRCAPK" 2>/dev/null | grep "^package:" | grep -o "name='[^']*'" | head -1 | cut -d"'" -f2)
+[ "$PKG" = "com.qwsaeda.junqirs" ] || { log "★ 源 APK 包名错误: $PKG（需 com.qwsaeda.junqirs）"; exit 1; }
+log "源 APK 包名 = $PKG（✓ qwsaeda 对齐 so 符号）"
 
 log "=== [1/5] 链接安全审计 ==="
 # AUD-1000 D2-#5 P0 修：缓存缺失（rc=1）必须 abort，禁止静默当 PASS
@@ -104,7 +116,7 @@ if [[ $INSTALL -eq 1 ]]; then
   adb -s $DEV install -r $OUT
   inst_rc=$?
   [ $inst_rc -eq 0 ] || { log "★ install 失败 rc=$inst_rc（pm path 可能对账到旧 apk，中止防假过）"; exit 1; }
-  APKPATH=$(adb -s $DEV shell pm path com.cnvcs.junqirs 2>/dev/null | tr -d '\r' | sed 's/package://')
+  APKPATH=$(adb -s $DEV shell pm path com.qwsaeda.junqirs 2>/dev/null | tr -d '\r' | sed 's/package://')
   DEVHASH=$(adb -s $DEV shell "unzip -p $APKPATH lib/arm64-v8a/libjunqi.so | md5sum" 2>/dev/null | tr -d '\r' | cut -d' ' -f1)
   LOCHASH=$(md5sum $RS/dist/libjunqi_rs.so | cut -d' ' -f1)
   if [ "$DEVHASH" = "$LOCHASH" ]; then
@@ -114,10 +126,10 @@ if [[ $INSTALL -eq 1 ]]; then
   fi
   if [[ $START -eq 1 ]]; then
     log "启动 app"
-    adb -s $DEV shell am force-stop com.cnvcs.junqirs >/dev/null 2>&1; sleep 2
-    adb -s $DEV shell am start -n com.cnvcs.junqirs/com.cnvcs.App >/dev/null 2>&1
+    adb -s $DEV shell am force-stop com.qwsaeda.junqirs >/dev/null 2>&1; sleep 2
+    adb -s $DEV shell am start -n com.qwsaeda.junqirs/com.qwsaeda.App >/dev/null 2>&1
     sleep 8
-    log "进程: $(adb -s $DEV shell pidof com.cnvcs.junqirs || echo 无)"
+    log "进程: $(adb -s $DEV shell pidof com.qwsaeda.junqirs || echo 无)"
   fi
   # 资产复用：推 spak_res（APK assets → 设备文件系统优先路径，幂等。
   #   渲染 rs_read_png 文件系统优先（免 AAsset 锁竞争），缺失才 fallback assets；
