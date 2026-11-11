@@ -6785,3 +6785,24 @@ bash rev64/tools/arm32_walkregress.sh --dev emulator-5554   # 4 路径回归
 
 `rodata_resource_map.py` 已补 `XML_FEATURE`（font/image/ui 三个 config XML 的内容特征映射）+
 stati png（736×736/1121×1121）映射。用法不变。
+
+### §124y-174 全量命名还原清零（原版 .rodata 资源引用 ↔ SPAK 解包产物，2026-11-11）
+用户"继续"指令下把 §124y-173 剩余 18 项"未映射"全量命名还原进
+`rodata_resource_map.py`（IMG_FEATURE 表），**原版 so `.rodata` 54 项资源引用 ↔ SPAK 解包
+产物映射 0 缺口**：
+
+- **config XML 7 项**：font/image/ui（SPAK `.bin` 内容特征命中 `<FontConfig>`/`<ImageConfig>`/
+  `<UiConfig>`）+ path/sound/string/uitag（已命名还原 `data_config_*.xml`）
+- **sg/junqi 套图 26 项**：board/boardx（737×751/1100×1121 尺寸特征）+ piece/piecex
+  （212×280/344×427）+ border/label/mark（datah_185/187/189-193）+ track/word（datah_201-204）
+  + sidecomp/sidedisc（datam_157 144×189 对比面板 / datam_159 260×51 横幅）
+- **统计图**：stati/ping → datax_297/298（736×736/1121×1121，中心非黑 100%）
+- **音效**：click%d.wav → data_ui_close/pop.wav（14 个 wav 全在）
+- **字模/布局/cfg**：936.cp → data_font_936.cp；default.lay → data_lay_default.lay；
+  base.cfg → data_base.cfg；ad/inter.cfg → data_ad_ad.cfg
+- **分辨率套**：data/{320,480,480x,720,720s,800} = 渲染缩放路径（非文件，JPG bin 族
+  datax_294 等 22 个）
+
+**实锤结论**：原版 `.rodata` 引用的全部资源在 SPAK 解包产物里**零缺失**（命名未还原 ≠ 缺失），
+32 位翻译体出屏用的棋盘/棋子数据 = SPAK 解包原版资源（`datah_188`/`datah_183`），
+静态佐证链闭环。用法：`python3 rev64/tools/rodata_resource_map.py`（0 缺口输出）。
