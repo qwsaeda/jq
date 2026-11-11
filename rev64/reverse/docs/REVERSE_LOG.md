@@ -7479,3 +7479,23 @@ got_map + **needed**（新增，NEEDED 依赖库清单）。
 taxonomy + event_cover + event_codemap + bss_evt_tbl + rodata_static + text_static +
 rel_dyn + jni_export + got_plt + trans_jni + trans_strpool + readelf_rel +
 got_map + needed + **trans_needed**（新增，翻译体 NEEDED 依赖面对照）。
+
+### §124y-204 走子桥 8 步序列判据锚点对照脚本 + 静态佐证扩到 21 项（2026-11-11）
+
+用户"光改光对比，经验不总结/不脚本化"批评的延续落实——把"walk_bridge 8 步序列
+判据锚点"（§124y-161 test_move_seq 基准）固化为可复跑静态对照判据（防判据漂移）：
+
+- **新工具** `rev64/tools/walk_bridge_8step_check.py`：走子桥 8 步序列判据锚点
+  三源对照（源码 jq_rs_walkbridge.c 8 步定义 + arm32_hook_check.sh /
+  arm32_walkregress.sh 双脚本判据锚点 "WALK-BRIDGE: 完整 8 步序列完成"）
+- **判据实锤**：源码 8 步定义（f6 f33 + jq_walk_bridge_move(12,13)/(10,11) ILLEGAL
+  + undo + 认输）+ 双脚本判据锚点一致 → PASS
+- **★ 坑固化**：初版判据 token 过严（裸 m6/m11 字符串），实锤 = 源码 8 步序列
+  用 `jq_walk_bridge_move(12, 13)` 等 C 调用（非裸 m6/m11 字符串）→ 判据 token
+  须匹配源码实际 C 调用形式（防假 FAIL）
+- 并入 `arm32_static_evidence.sh` 第 21 项 `walk_8step`（PASS=21 FAIL=0 全 PASS）
+
+**静态佐证批次化入口 21 项**（设备无关）：resource + event/urlkey/javacls + forkcheck +
+taxonomy + event_cover + event_codemap + bss_evt_tbl + rodata_static + text_static +
+rel_dyn + jni_export + got_plt + trans_jni + trans_strpool + readelf_rel +
+got_map + needed + trans_needed + **walk_8step**（新增，走子桥 8 步判据锚点对照）。
