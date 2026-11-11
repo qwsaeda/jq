@@ -494,6 +494,13 @@ java -cp /tmp/opencode/apksigner/apksig.jar:/tmp/opencode/apksigner SignV2 \
 - 构建树：`/tmp/opencode/jq_apk/rs_a64/dec_rs`（src_rs 的 apktool 解包树，包名随 src_rs 演进同步改）
 - 设备三包并存（互不覆盖）：`com.cnvcs.junqi`（原版对照）+ `com.zxj.junqirs`（逆向）+ `com.qwsaeda.junqirs`（正向）
 - 打包注意（targetSdk≥31）：`.so/.arsc/.png` 必须 STORE（不压缩）+ `resources.arsc` 4 字节对齐（`zipalign -f -p 4`）+ 重签（zipalign 破坏签名块）
+- **本会话归属（★ 2026-11-11 用户指令：逆向会话按逆向继续对齐）**：本会话 = **逆向驱动**，
+  只做 `com.zxj.junqirs`（逆向 app）+ `rev64/reverse/*` + 32 位翻译体回归（`arm32_walkregress.sh`）；
+  `com.qwsaeda`（正向）/ `rev64/forward/*` 由正向会话推进，**本会话不动**（不抢活）。
+  逆向对齐验收入口：`bash rev64/tools/arm32_walkregress.sh --dev 10.0.182.146:5555`（4 路径
+  walk_bridge/native_layout/native_event/game_test，判据 = 各路径 logcat 特征 + 0 崩溃）。
+  实锤（2026-11-11，10.0.182.146）：`com.cnvcs.junqi32`（phase_chain_arm32.apk）装机 Success +
+  4 路径全 PASS（PASS=4 FAIL=0，全局崩溃=0）——逆向侧对齐基准成立。
 
 
 ## 文档路由表（AGENTS.md 只做路由，规范/经验在单一文档）
