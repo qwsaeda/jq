@@ -1,4 +1,4 @@
-# 32 位静态佐证判据脚本索引（§124y-190~218 批次化，32 项全 PASS）
+# 32 位静态佐证判据脚本索引（§124y-190~219 批次化，33 项全 PASS）
 
 批次化入口：`bash rev64/tools/arm32_static_evidence.sh`（设备无关，离线可跑）
 
@@ -34,6 +34,7 @@
 | apk_so_hash | apk_so_hash_check.py | §124y-216 | 32 位翻译体 apk 内 so 哈希一致性（误打包坑 §124y-176 兜底，so+apk 同 md5） |
 | touch_int | touch_int_check.py | §124y-217 | 命中几何纯整数入口（jq_touch_hit_cell_int ×1000 定点，零 float 防回退） |
 | fb_ratio | fb_ratio_check.py | §124y-218 | 出屏非黑比 ≥30% 判读基准三源对照（源码 <30 跳过槽 + 判据脚本 -ge 30 不漂移） |
+| walkregress_anchors | walkregress_anchors_check.py | §124y-219 | 4 路径走子回归判据锚点双源对照（源码 + arm32_walkregress.sh PATTERN 不漂移） |
 
 **设备侧判据入口**（区分静态/设备）：
 - 全钩子 4 项：`bash rev64/tools/arm32_hook_check.sh --dev 10.0.182.146:5555 --rounds 3`
