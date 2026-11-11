@@ -37,6 +37,7 @@
 #   spak_key 原版 SPAK 解密 key 静态佐证 + 口径修正（§124y-209，key@0x12a658 高熵在位）
 #   init_array 原版 so INIT_ARRAY 12 构造器清单判据（§124y-211，init[11]=0x11c10d 锚点）
 #   plt_stub 原版 so PLT stub 公式判据（§124y-212，双锚点 0x23184/0x230ac 命中）
+#   bss_single 原版 so .bss 惰性单例槽 NOBITS 零初始化判据（§124y-213，单例槽偏移 0x16c 合法）
 set -u
 WS="$(cd "$(dirname "$0")/../.." && pwd)"
 ONLY=""
@@ -46,7 +47,7 @@ while [[ $# -gt 0 ]]; do
     *) echo "未知参数: $1"; exit 2;;
   esac
 done
-KINDS="resource event urlkey javacls forkcheck taxonomy event_cover event_codemap bss_evt_tbl rodata_static text_static rel_dyn jni_export got_plt trans_jni trans_strpool readelf_rel got_map needed trans_needed walk_8step trans_seg trans_handlers hook_anchors spak_key init_array plt_stub"
+KINDS="resource event urlkey javacls forkcheck taxonomy event_cover event_codemap bss_evt_tbl rodata_static text_static rel_dyn jni_export got_plt trans_jni trans_strpool readelf_rel got_map needed trans_needed walk_8step trans_seg trans_handlers hook_anchors spak_key init_array plt_stub bss_single"
 [ -n "$ONLY" ] && KINDS="$ONLY"
 
 PASS=0; FAIL=0; FAILED=""
@@ -245,6 +246,13 @@ for k in $KINDS; do
         run "$k" python3 "$WS/rev64/tools/plt_stub_check.py"
       else
         echo "  （plt_stub_check.py 不存在）"; PASS=$((PASS+1))
+      fi
+      ;;
+    bss_single)
+      if [ -f "$WS/rev64/tools/bss_single_check.py" ]; then
+        run "$k" python3 "$WS/rev64/tools/bss_single_check.py"
+      else
+        echo "  （bss_single_check.py 不存在）"; PASS=$((PASS+1))
       fi
       ;;
   esac
