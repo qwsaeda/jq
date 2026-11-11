@@ -113,8 +113,19 @@ launch_hook() {
   adb -s "$DEV" shell "am force-stop $PKG; logcat -c" >/dev/null 2>&1
   sleep 2
   adb -s "$DEV" shell "am start -n $PKG/com.cnvcs.App" >/dev/null 2>&1
-  sleep 18
-  adb -s "$DEV" logcat -d 2>/dev/null
+  # §124y-186 flaky 根治：32 位 so 冷启动 OnCreate/OnUpdate 钩子段出日志需 ~30-40s
+  # （实测 GAME-TEST 在 start 后 ~37s），固定 sleep 18 读不到判据 → 假 FAIL。
+  # 改：sleep 30s 起步（覆盖 32 位 so 转译慢的出日志窗口），读到判据即返回。
+  sleep 30
+  LOG=$(adb -s "$DEV" logcat -d 2>/dev/null)
+  # 判据未出 → 再轮询等到 60s（每 5s 查一次）
+  local i
+  for i in 1 2 3; do
+    echo "$LOG" | grep -q "GAME-TEST: 端到端完成\|WALK-BRIDGE: 完整 8 步\|F_3ab80: 事件发送" && break
+    sleep 5
+    LOG=$(adb -s "$DEV" logcat -d 2>/dev/null)
+  done
+  echo "$LOG"
 }
 
 # ★ §124y-180 方法论第 5 条（flaky 防）：轮询等待判据日志（固定 sleep 可能早于

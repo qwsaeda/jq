@@ -7124,3 +7124,22 @@ pull + PIL 判读），判据仍 = 非黑比 ≥30%（§124y-179）。
 **环境口径**：本轮设备 adbd 被 32 位 so 转译拖慢（logcat 读到系统日志 15 条 / pidof 超时），
 非翻译体回归（崩溃 0）；全钩子脚本 `arm32_hook_check.sh` 判据 flaky 已加轮询等待
 （§124y-180 方法论第 5 条），待设备 adbd 恢复窗口复跑 4/4。
+
+### §124y-186 设备全钩子 flaky 根治（`arm32_hook_check.sh` launch_hook 轮询等判据，2026-11-11）
+
+前段设备全钩子反复 0/4 PASS 非回归（手动单钩子全命中 + 0 崩溃），真因 = **`launch_hook`
+固定 `sleep 18` 读不到 32 位 so 冷启动出日志窗口**：
+
+- **根因实锤**：32 位 so 经 houdini 转译，`GAME-TEST: 端到端完成` 段在 `am start` 后
+  **~37s** 才出（实测 17:43:37 vs start 17:43:00），固定 sleep 18 在判据日志出之前就读
+  logcat → 全 4 项假 FAIL（出屏 dump 也早于首帧 F_9d43c → none）。
+- **修复**：`launch_hook` 固定 `sleep 18` → `sleep 30`（覆盖 32 位 so 转译慢的出日志窗口）
+  + 判据未出时**轮询等待**（每 5s 重读 logcat，最多 3 轮 = 共 ~45s），读到判据即返回。
+  与 §124y-180 方法论第 5 条（flaky 防：固定 sleep→轮询 wait_log）一致，本次补到主判据
+  （game_test/walk_bridge/native_event 共用 launch_hook）。
+- **实锤**（设备 10.0.182.146，so 9025101e）：`arm32_hook_check.sh --rounds 3` →
+  **PASS=4 FAIL=0 全 PASS**（game_test 出屏 3/3 轮 100% + walk_bridge 8 步 + native_event
+  F_3ab80 + framebuffer 3/3 轮 100% 非黑，全链 0 崩溃）。
+
+**判据固化**：32 位 so 设备全钩子 = `bash rev64/tools/arm32_hook_check.sh --dev 10.0.182.146:5555 --rounds 3`
+（4 项 + 出屏 3 轮，轮询等判据防 flaky）；前段 0/4 假 FAIL 属判据时序误读，非 so 退化。
