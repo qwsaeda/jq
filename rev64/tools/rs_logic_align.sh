@@ -63,6 +63,18 @@ else
   bad "一致性 selftest" "FAIL"
 fi
 
+log "=== [3b/7] 完整 60 局自动对弈（蓝 vs 红 AI，合法终局不崩）==="
+if (cd $RS && make gametest >/dev/null 2>&1 && timeout 900 ./dist/jq_gametest >/tmp/opencode/_align_gt.log 2>&1); then
+  n60=$(grep -c "ok: 对局合法终局" /tmp/opencode/_align_gt.log)
+  if [ "$n60" -ge 60 ] && grep -q "全部通过" /tmp/opencode/_align_gt.log; then
+    ok "60 局对弈" "60/60 合法终局 + 触摸/AI 回合交替全过"
+  else
+    bad "60 局对弈" "合法终局仅 $n60/60 或结论非全部通过"
+  fi
+else
+  bad "60 局对弈" "FAIL（超时/崩溃）"
+fi
+
 log "=== [4/7] regress.py（走子/吃子/炸弹事件覆盖）==="
 if (cd $RS && python3 regress.py >/tmp/opencode/_align_rg.log 2>&1); then
   ok "regress.py" "$(grep -oE '全部验收通过|覆盖: True' /tmp/opencode/_align_rg.log | tail -1)"
