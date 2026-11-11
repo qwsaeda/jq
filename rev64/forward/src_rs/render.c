@@ -796,51 +796,134 @@ int rs_render_init(rs_render *rr, const char *spak_dir, const jq_state *init_sta
         
         
         
-        if (dlgraw && png_decode(dlgraw, dlgraw_len, &dlgpx, &dlgw, &dlgh) == 0)         free(dlgraw);
         if (dlgraw && png_decode(dlgraw, dlgraw_len, &dlgpx, &dlgw, &dlgh) == 0) {
             rr->dlg_text_px = dlgpx; rr->dlg_text_px_len = (size_t)dlgw * dlgh * 4;
             rr->dlg_text_w = dlgw; rr->dlg_text_h = dlgh;
-            LOGI("批量对齐文字图集加载 OK：dlg_batch_text.png %dx%d（375 行）", dlgw, dlgh);
+            LOGI("批量对齐文字图集加载 OK：dlg_batch_text.png %dx%d（371 行）", dlgw, dlgh);
         }
         free(dlgraw);
         free(icraw); free(ioraw);
         /* ★ 原版 UI 对齐：☰/↩ 图标图集（128×64，orig_human 裁剪，棋盘中部） */
-        if (hbraw && png_decode(hbraw, hbraw_len, &hbpx, &hbw, &hbh) == 0)         free(hbraw);
+        if (hbraw && png_decode(hbraw, hbraw_len, &hbpx, &hbw, &hbh) == 0) {
+            rr->hamburger_px = hbpx; rr->hamburger_px_len = (size_t)hbw * hbh * 4;
+            rr->hamburger_w = hbw; rr->hamburger_h = hbh;
+        }
+        free(hbraw);
         /* ★ 原版 UI 对齐：主菜单按钮图集（orig_menu 裁剪，原版蓝色圆角按钮含文字/图标） */
-        if (bbraw && png_decode(bbraw, bbraw_len, &bbpx, &bbw, &bbh) == 0)         free(bbraw);
-        if (bsraw && png_decode(bsraw, bsraw_len, &bspx, &bsw, &bsh) == 0)         free(bsraw);
+        if (bbraw && png_decode(bbraw, bbraw_len, &bbpx, &bbw, &bbh) == 0) {
+            rr->btn_big_px = bbpx; rr->btn_big_px_len = (size_t)bbw * bbh * 4;
+            rr->btn_big_w = bbw; rr->btn_big_h = bbh;
+        }
+        free(bbraw);
+        if (bsraw && png_decode(bsraw, bsraw_len, &bspx, &bsw, &bsh) == 0) {
+            rr->btn_small_px = bspx; rr->btn_small_px_len = (size_t)bsw * bsh * 4;
+            rr->btn_small_w = bsw; rr->btn_small_h = bsh;
+        }
+        free(bsraw);
         /* ★ 选项 UI：弹窗文字图集（6 label 竖排 109×258） */
-        if (oraw && png_decode(oraw, oraw_len, &opx, &ow, &oh) == 0)         free(oraw);
+        if (oraw && png_decode(oraw, oraw_len, &opx, &ow, &oh) == 0) {
+            rr->opt_text_px = opx; rr->opt_text_px_len = (size_t)ow * oh * 4;
+            rr->opt_text_w = ow; rr->opt_text_h = oh;
+        }
+        free(oraw);
         /* ★ 选项 UI：popup.png 9-patch（★ AUD-1000-ALL A7-02 注释纠正：实际资源 320×80 非 24×24，
            glTexImage2D 走实际解码宽高 popup_w/h（:9691），9-patch 拉伸语义；旧注释 24×24 双源漂移已纠正） */
-        if (praw2 && png_decode(praw2, praw2_len, &ppx2, &pw2, &ph2) == 0)         free(praw2);
+        if (praw2 && png_decode(praw2, praw2_len, &ppx2, &pw2, &ph2) == 0) {
+            rr->popup_px = ppx2; rr->popup_px_len = (size_t)pw2 * ph2 * 4;
+            rr->popup_w = pw2; rr->popup_h = ph2;
+        }
+        free(praw2);
         /* ★ 原版 UI 位图真值（ch02 N45）：面板 9patch + 彩色按钮 */
-                free(panraw); free(btnraw); free(icoraw);
+        {
+            unsigned char *panpx=NULL,*btnpx=NULL; int panw2=0,panh2=0,btnw2=0,btnh2=0;
+            if (panraw) {
+                LOGI("原版位图资源对齐（ch02 N45）：panel_circle.png 文件大小=%zu（读取后解码）", panraw_len);
+            } else {
+                LOGI("原版位图资源对齐（ch02 N45）：panel_circle.png 读取失败（spak_dir fs_path 无效）");
+            }
+            if (panraw && png_decode(panraw, panraw_len, &panpx, &panw2, &panh2) == 0) {
+                rr->panel_px = panpx; rr->panel_px_len = (size_t)panw2 * panh2 * 4;
+                rr->panel_w = panw2; rr->panel_h = panh2;
+                LOGI("原版位图资源对齐（ch02 N45）：面板 9patch 位图加载成功 %.0fx%.0f（datax_246）", panw2, panh2);
+            } else if (panraw) {
+                LOGI("原版位图资源对齐（ch02 N45）：面板 9patch 位图解码失败（诚实边界：面板位图不可用，深色矩形退化底）");
+            }
+            if (btnraw && png_decode(btnraw, btnraw_len, &btnpx, &btnw2, &btnh2) == 0) {
+                rr->panel_btn_px = btnpx; rr->panel_btn_px_len = (size_t)btnw2 * btnh2 * 4;
+                rr->panel_btn_w = btnw2; rr->panel_btn_h = btnh2;
+            }
+            unsigned char *iconpx=NULL; int iconw2=0,iconh2=0;
+            if (icoraw && png_decode(icoraw, icoraw_len, &iconpx, &iconw2, &iconh2) == 0) {
+                rr->panel_icon_px = iconpx; rr->panel_icon_px_len = (size_t)iconw2 * iconh2 * 4;
+                rr->panel_icon_w = iconw2; rr->panel_icon_h = iconh2;
+            }
+        }
+        free(panraw); free(btnraw); free(icoraw);
         /* ★ 对抗审计（datah_072）：方式选择文字图集（4 标签竖排 220×184） */
-        if (wsraw && png_decode(wsraw, wsraw_len, &wspx, &wsw, &wsh) == 0)         free(wsraw);
+        if (wsraw && png_decode(wsraw, wsraw_len, &wspx, &wsw, &wsh) == 0) {
+            rr->waysel_text_px = wspx; rr->waysel_text_px_len = (size_t)wsw * wsh * 4;
+            rr->waysel_text_w = wsw; rr->waysel_text_h = wsh;
+        }
+        free(wsraw);
         /* ★ 对抗审计（datah_067）：联机 ☰ 菜单文字图集（8 项竖排 160×320） */
-        if (bira && png_decode(bira, bira_len, &bipx, &biw, &bih) == 0)         free(bira);
+        if (bira && png_decode(bira, bira_len, &bipx, &biw, &bih) == 0) {
+            rr->btimen_text_px = bipx; rr->btimen_text_px_len = (size_t)biw * bih * 4;
+            rr->btimen_text_w = biw; rr->btimen_text_h = bih;
+        }
+        free(bira);
         /* ★ 对抗审计（datah_001）：声音设置文字图集（10 标签竖排 200×460） */
-        if (straw && png_decode(straw, straw_len, &stpx, &stw, &sth) == 0)         free(straw);
+        if (straw && png_decode(straw, straw_len, &stpx, &stw, &sth) == 0) {
+            rr->settings_text_px = stpx; rr->settings_text_px_len = (size_t)stw * sth * 4;
+            rr->settings_text_w = stw; rr->settings_text_h = sth;
+        }
+        free(straw);
         /* ★ 2026-11-10 用户"游戏设置UI没有对齐"：datah_001 标题+标签图集（4 行 220×160，
            行高 40 匹配 RS_ATLAS_ROW_H；rs_draw_d001 补画 Title'声音设置'+3 标签） */
         rs_read_one(am, spak_dir, "sound_text_atlas.png", &sndraw, &sndraw_len);
-        if (sndraw && png_decode(sndraw, sndraw_len, &sndpx, &sndw, &sndh) == 0)         free(sndraw);
+        if (sndraw && png_decode(sndraw, sndraw_len, &sndpx, &sndw, &sndh) == 0) {
+            rr->sound_text_px = sndpx; rr->sound_text_px_len = (size_t)sndw * sndh * 4;
+            rr->sound_text_w = sndw; rr->sound_text_h = sndh;
+        }
+        free(sndraw);
         /* ★ P0（datah_089）：四国人数选择文字图集（3 标签竖排 220×138：2人/3人/4人） */
-        if (npaw && png_decode(npaw, npaw_len, &nppx, &npw, &nph) == 0)         free(npaw);
+        if (npaw && png_decode(npaw, npaw_len, &nppx, &npw, &nph) == 0) {
+            rr->nplayer_text_px = nppx; rr->nplayer_text_px_len = (size_t)npw * nph * 4;
+            rr->nplayer_text_w = npw; rr->nplayer_text_h = nph;
+        }
+        free(npaw);
         /* ★ P0（datah_062）：两人新局文字图集（6 标签竖排 220×276：玩法/布局明棋/翻棋暗棋/明暗棋/确定/取消） */
-        if (ngaw && png_decode(ngaw, ngaw_len, &ngpx, &ngw, &ngh) == 0)         free(ngaw);
+        if (ngaw && png_decode(ngaw, ngaw_len, &ngpx, &ngw, &ngh) == 0) {
+            rr->newgame_text_px = ngpx; rr->newgame_text_px_len = (size_t)ngw * ngh * 4;
+            rr->newgame_text_w = ngw; rr->newgame_text_h = ngh;
+        }
+        free(ngaw);
         /* ★ P1（datah_012）：游戏设置文字图集（8 标签竖排 220×368：和棋/大本营/吃地雷/吃军旗/开/关/确定/取消） */
-        if (gsaw && png_decode(gsaw, gsaw_len, &gsp_x, &gsw, &gsh) == 0)         free(gsaw);
+        if (gsaw && png_decode(gsaw, gsaw_len, &gsp_x, &gsw, &gsh) == 0) {
+            rr->gameset_text_px = gsp_x; rr->gameset_text_px_len = (size_t)gsw * gsh * 4;
+            rr->gameset_text_w = gsw; rr->gameset_text_h = gsh;
+        }
+        free(gsaw);
         /* ★ P1（datah_016/017/020）：布局存档文字图集（9 标签竖排 220×414：
            载入布局/保存布局/布局管理/取消/保存/改名/删除/关闭/载入） */
-        if (lrsw && png_decode(lrsw, lrsw_len, &lrpx, &lrw, &lrh) == 0)         free(lrsw);
+        if (lrsw && png_decode(lrsw, lrsw_len, &lrpx, &lrw, &lrh) == 0) {
+            rr->layres_text_px = lrpx; rr->layres_text_px_len = (size_t)lrw * lrh * 4;
+            rr->layres_text_w = lrw; rr->layres_text_h = lrh;
+        }
+        free(lrsw);
         /* ★ P1（datah_039/107）：复盘文字图集（8 标签竖排 220×368：
            复盘/菜单/回退/前进/跳转/返回/第N步/结束） */
-        if (rpaw && png_decode(rpaw, rpaw_len, &rp_px, &rpw, &rph) == 0)         free(rpaw);
+        if (rpaw && png_decode(rpaw, rpaw_len, &rp_px, &rpw, &rph) == 0) {
+            rr->replay_text_px = rp_px; rr->replay_text_px_len = (size_t)rpw * rph * 4;
+            rr->replay_text_w = rpw; rr->replay_text_h = rph;
+        }
+        free(rpaw);
         /* ★ P1（datah_038）：登录文字图集（8 标签竖排 220×368：
            登录/用户名/密码/注册/游客/返回/账户/边界） */
-        if (lpaw && png_decode(lpaw, lpaw_len, &lp_px, &lpw, &lph) == 0)         free(lpaw);
+        if (lpaw && png_decode(lpaw, lpaw_len, &lp_px, &lpw, &lph) == 0) {
+            rr->login_text_px = lp_px; rr->login_text_px_len = (size_t)lpw * lph * 4;
+            rr->login_text_w = lpw; rr->login_text_h = lph;
+        }
+        free(lpaw);
         /* ★ P2（datah_037）：规则文本文字图集（8 标签竖排 220×368：
            规则/翻棋/布局/工兵/地雷/炸弹/夺旗/边界） */
         {
@@ -9931,7 +10014,7 @@ static void rs_gl_rebuild(rs_render *rr, int slot)
                      GL_RGBA, GL_UNSIGNED_BYTE, rr->popup_px);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    }    if (rr->dlg_text_px && rr->gl2_ok[slot] && rr->dlg_text_w > 0 && rr->dlg_text_h > 0)     if (rr->dlg_text_px && rr->gl2_ok[slot] && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
+    }    if (rr->dlg_text_px && rr->gl2_ok[slot] && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
         glGenTextures(1, &rr->tex_dlg_text[slot]);
         glBindTexture(GL_TEXTURE_2D, rr->tex_dlg_text[slot]);
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->dlg_text_w, rr->dlg_text_h, 0,
@@ -9940,40 +10023,321 @@ static void rs_gl_rebuild(rs_render *rr, int slot)
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     }
     /* ★ 原版 datax 图标真值图集（16 图标 4×4）纹理上传 */
-    if (rr->imen_orig_px && rr->gl2_ok[slot] && rr->imen_orig_w > 0 && rr->imen_orig_h > 0)     /* ★ 原版 UI 位图真值（ch02 N45）：面板 9patch + 彩色按钮 纹理上传 */
-    if (rr->panel_px && rr->gl2_ok[slot] && rr->panel_w > 0 && rr->panel_h > 0)     if (rr->panel_btn_px && rr->gl2_ok[slot] && rr->panel_btn_w > 0 && rr->panel_btn_h > 0)     if (rr->panel_icon_px && rr->gl2_ok[slot] && rr->panel_icon_w > 0 && rr->panel_icon_h > 0)     /* ★ 选项 UI：弹窗文字图集（6 label 竖排 109×258） */
-    if (rr->opt_text_px && rr->gl2_ok[slot] && rr->opt_text_w > 0 && rr->opt_text_h > 0)     /* ★ 对抗审计（datah_072）：方式选择文字图集（4 标签竖排 220×184） */
-    if (rr->waysel_text_px && rr->gl2_ok[slot] && rr->waysel_text_w > 0 && rr->waysel_text_h > 0)     /* ★ 对抗审计（datah_067）：联机 ☰ 菜单文字图集（8 项竖排 160×320） */
-    if (rr->btimen_text_px && rr->gl2_ok[slot] && rr->btimen_text_w > 0 && rr->btimen_text_h > 0)     /* ★ 对抗审计（datah_001）：声音设置文字图集（10 标签竖排 200×460） */
-    if (rr->settings_text_px && rr->gl2_ok[slot] && rr->settings_text_w > 0 && rr->settings_text_h > 0)     /* ★ 2026-11-10 用户"游戏设置UI没有对齐"：datah_001 标题+标签图集（4 行 220×160） */
-    if (rr->sound_text_px && rr->gl2_ok[slot] && rr->sound_text_w > 0 && rr->sound_text_h > 0)     /* ★ P0（datah_089）：四国人数选择文字图集（3 标签竖排 220×138） */
-    if (rr->nplayer_text_px && rr->gl2_ok[slot] && rr->nplayer_text_w > 0 && rr->nplayer_text_h > 0)     /* ★ P0（datah_062）：两人新局文字图集（6 标签竖排 220×276） */
-    if (rr->newgame_text_px && rr->gl2_ok[slot] && rr->newgame_text_w > 0 && rr->newgame_text_h > 0)     /* ★ P1（datah_012）：游戏设置文字图集（8 标签竖排 220×368） */
-    if (rr->gameset_text_px && rr->gl2_ok[slot] && rr->gameset_text_w > 0 && rr->gameset_text_h > 0)     /* ★ P1（datah_016/017/020）：布局存档文字图集（9 标签竖排 220×414） */
-    if (rr->layres_text_px && rr->gl2_ok[slot] && rr->layres_text_w > 0 && rr->layres_text_h > 0)     /* ★ P1（datah_039/107）：复盘文字图集（8 标签竖排 220×368） */
-    if (rr->replay_text_px && rr->gl2_ok[slot] && rr->replay_text_w > 0 && rr->replay_text_h > 0)     /* ★ P1（datah_038）：登录文字图集（8 标签竖排 220×368） */
-    if (rr->login_text_px && rr->gl2_ok[slot] && rr->login_text_w > 0 && rr->login_text_h > 0)     /* ★ P2（datah_037）：规则文本文字图集（8 标签竖排 220×368） */
-    if (rr->rules_text_px && rr->gl2_ok[slot] && rr->rules_text_w > 0 && rr->rules_text_h > 0)     /* ★ P2（datah_104）：新局完整版文字图集（10 标签竖排 220×460） */
-    if (rr->ng104_text_px && rr->gl2_ok[slot] && rr->ng104_text_w > 0 && rr->ng104_text_h > 0)     /* ★ P2（datah_034/035）：加入/创建游戏文字图集（10 标签竖排 220×460） */
-    if (rr->join_text_px && rr->gl2_ok[slot] && rr->join_text_w > 0 && rr->join_text_h > 0)     /* ★ P2（datah_061）：新局完整版（完整版补充）文字图集（10 标签竖排 220×460） */
-    if (rr->ng061_text_px && rr->gl2_ok[slot] && rr->ng061_text_w > 0 && rr->ng061_text_h > 0)     /* ★ P2（datah_050）：对局信息文字图集（8 标签竖排 220×368） */
-    if (rr->gameinfo_text_px && rr->gl2_ok[slot] && rr->gameinfo_text_w > 0 && rr->gameinfo_text_h > 0)     /* ★ P2（datah_002）：亮度调节文字图集（10 标签竖排 220×460） */
-    if (rr->bright_text_px && rr->gl2_ok[slot] && rr->bright_text_w > 0 && rr->bright_text_h > 0)     /* ★ P2（datah_029）：聊天记录文字图集（8 标签竖排 220×368） */
-    if (rr->chatlog_text_px && rr->gl2_ok[slot] && rr->chatlog_text_w > 0 && rr->chatlog_text_h > 0)     /* ★ P2（datah_031）：个人资料文字图集（10 标签竖排 220×460） */
-    if (rr->profile_text_px && rr->gl2_ok[slot] && rr->profile_text_w > 0 && rr->profile_text_h > 0)     /* ★ P2（datah_042）：提和详情文字图集（7 标签竖排 220×322） */
-    if (rr->drawdetail_text_px && rr->gl2_ok[slot] && rr->drawdetail_text_w > 0 && rr->drawdetail_text_h > 0)     /* ★ P2（datah_003/004）：设置入口文字图集（7 标签竖排 220×322） */
-    if (rr->setentry_text_px && rr->gl2_ok[slot] && rr->setentry_text_w > 0 && rr->setentry_text_h > 0)     /* ★ P2（datah_007/008）：图像设置文字图集（10 标签竖排 220×460） */
-    if (rr->imgset_text_px && rr->gl2_ok[slot] && rr->imgset_text_w > 0 && rr->imgset_text_h > 0)     /* ★ P2（datah_065 原版 XML 对齐）：加入游戏完整版文字图集（19 标签竖排 220×874，8 行配置×2列+标题+开始/取消） */
-    if (rr->join065_text_px && rr->gl2_ok[slot] && rr->join065_text_w > 0 && rr->join065_text_h > 0)     /* ★ P2（datah_069）：创建游戏完整版文字图集（10 标签竖排 220×460） */
-    if (rr->create069_text_px && rr->gl2_ok[slot] && rr->create069_text_w > 0 && rr->create069_text_h > 0)     /* ★ P2（datah_070）：游戏规则完整版文字图集（10 标签竖排 220×460） */
-    if (rr->rules070_text_px && rr->gl2_ok[slot] && rr->rules070_text_w > 0 && rr->rules070_text_h > 0)     /* ★ P2（datah_060 原版 XML 对齐）：房间态文字图集（12 标签竖排 220×552，2玩家×4字段+标题+3按钮） */
-    if (rr->room060_text_px && rr->gl2_ok[slot] && rr->room060_text_w > 0 && rr->room060_text_h > 0)     /* ★ P2（datah_063 原版 XML 对齐）：聊天完整版文字图集（5 标签竖排 220×230，聊天/记录说明/发送/记录/关闭） */
-    if (rr->chat063_text_px && rr->gl2_ok[slot] && rr->chat063_text_w > 0 && rr->chat063_text_h > 0)     /* ★ P2（datah_000）：软件信息文字图集（7 标签竖排 220×322） */
-    if (rr->about_text_px && rr->gl2_ok[slot] && rr->about_text_w > 0 && rr->about_text_h > 0)     /* ★ 2026-11-10（datah_025）：ExitConfirm 文字图集（3 标签竖排 220×138） */
-    if (rr->exit_text_px && rr->gl2_ok[slot] && rr->exit_text_w > 0 && rr->exit_text_h > 0)     /* ★ SPAK2UI 批量（12 弹窗）：战况统计/玩家/对局/对战方式/创建游戏/版本更新 共用
+    if (rr->imen_orig_px && rr->gl2_ok[slot] && rr->imen_orig_w > 0 && rr->imen_orig_h > 0) {
+        glGenTextures(1, &rr->tex_imen_orig[slot]);
+        glBindTexture(GL_TEXTURE_2D, rr->tex_imen_orig[slot]);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->imen_orig_w, rr->imen_orig_h, 0,
+                     GL_RGBA, GL_UNSIGNED_BYTE, rr->imen_orig_px);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    }
+    /* ★ 原版 UI 位图真值（ch02 N45）：面板 9patch + 彩色按钮 纹理上传 */
+    if (rr->panel_px && rr->gl2_ok[slot] && rr->panel_w > 0 && rr->panel_h > 0) {
+        glGenTextures(1, &rr->tex_panel[slot]);
+        glBindTexture(GL_TEXTURE_2D, rr->tex_panel[slot]);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->panel_w, rr->panel_h, 0,
+                     GL_RGBA, GL_UNSIGNED_BYTE, rr->panel_px);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    }
+    if (rr->panel_btn_px && rr->gl2_ok[slot] && rr->panel_btn_w > 0 && rr->panel_btn_h > 0) {
+        glGenTextures(1, &rr->tex_panel_btn[slot]);
+        glBindTexture(GL_TEXTURE_2D, rr->tex_panel_btn[slot]);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->panel_btn_w, rr->panel_btn_h, 0,
+                     GL_RGBA, GL_UNSIGNED_BYTE, rr->panel_btn_px);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    }
+    if (rr->panel_icon_px && rr->gl2_ok[slot] && rr->panel_icon_w > 0 && rr->panel_icon_h > 0) {
+        glGenTextures(1, &rr->tex_panel_icon[slot]);
+        glBindTexture(GL_TEXTURE_2D, rr->tex_panel_icon[slot]);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->panel_icon_w, rr->panel_icon_h, 0,
+                     GL_RGBA, GL_UNSIGNED_BYTE, rr->panel_icon_px);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    }
+    /* ★ 选项 UI：弹窗文字图集（6 label 竖排 109×258） */
+    if (rr->opt_text_px && rr->gl2_ok[slot] && rr->opt_text_w > 0 && rr->opt_text_h > 0) {
+        glGenTextures(1, &rr->tex_opt_text[slot]);
+        glBindTexture(GL_TEXTURE_2D, rr->tex_opt_text[slot]);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->opt_text_w, rr->opt_text_h, 0,
+                     GL_RGBA, GL_UNSIGNED_BYTE, rr->opt_text_px);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    }
+    /* ★ 对抗审计（datah_072）：方式选择文字图集（4 标签竖排 220×184） */
+    if (rr->waysel_text_px && rr->gl2_ok[slot] && rr->waysel_text_w > 0 && rr->waysel_text_h > 0) {
+        glGenTextures(1, &rr->tex_waysel_text[slot]);
+        glBindTexture(GL_TEXTURE_2D, rr->tex_waysel_text[slot]);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->waysel_text_w, rr->waysel_text_h, 0,
+                     GL_RGBA, GL_UNSIGNED_BYTE, rr->waysel_text_px);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    }
+    /* ★ 对抗审计（datah_067）：联机 ☰ 菜单文字图集（8 项竖排 160×320） */
+    if (rr->btimen_text_px && rr->gl2_ok[slot] && rr->btimen_text_w > 0 && rr->btimen_text_h > 0) {
+        glGenTextures(1, &rr->tex_btimen_text[slot]);
+        glBindTexture(GL_TEXTURE_2D, rr->tex_btimen_text[slot]);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->btimen_text_w, rr->btimen_text_h, 0,
+                     GL_RGBA, GL_UNSIGNED_BYTE, rr->btimen_text_px);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    }
+    /* ★ 对抗审计（datah_001）：声音设置文字图集（10 标签竖排 200×460） */
+    if (rr->settings_text_px && rr->gl2_ok[slot] && rr->settings_text_w > 0 && rr->settings_text_h > 0) {
+        glGenTextures(1, &rr->tex_settings_text[slot]);
+        glBindTexture(GL_TEXTURE_2D, rr->tex_settings_text[slot]);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->settings_text_w, rr->settings_text_h, 0,
+                     GL_RGBA, GL_UNSIGNED_BYTE, rr->settings_text_px);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    }
+    /* ★ 2026-11-10 用户"游戏设置UI没有对齐"：datah_001 标题+标签图集（4 行 220×160） */
+    if (rr->sound_text_px && rr->gl2_ok[slot] && rr->sound_text_w > 0 && rr->sound_text_h > 0) {
+        glGenTextures(1, &rr->tex_sound_text[slot]);
+        glBindTexture(GL_TEXTURE_2D, rr->tex_sound_text[slot]);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->sound_text_w, rr->sound_text_h, 0,
+                     GL_RGBA, GL_UNSIGNED_BYTE, rr->sound_text_px);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    }
+    /* ★ P0（datah_089）：四国人数选择文字图集（3 标签竖排 220×138） */
+    if (rr->nplayer_text_px && rr->gl2_ok[slot] && rr->nplayer_text_w > 0 && rr->nplayer_text_h > 0) {
+        glGenTextures(1, &rr->tex_nplayer_text[slot]);
+        glBindTexture(GL_TEXTURE_2D, rr->tex_nplayer_text[slot]);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->nplayer_text_w, rr->nplayer_text_h, 0,
+                     GL_RGBA, GL_UNSIGNED_BYTE, rr->nplayer_text_px);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    }
+    /* ★ P0（datah_062）：两人新局文字图集（6 标签竖排 220×276） */
+    if (rr->newgame_text_px && rr->gl2_ok[slot] && rr->newgame_text_w > 0 && rr->newgame_text_h > 0) {
+        glGenTextures(1, &rr->tex_newgame_text[slot]);
+        glBindTexture(GL_TEXTURE_2D, rr->tex_newgame_text[slot]);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->newgame_text_w, rr->newgame_text_h, 0,
+                     GL_RGBA, GL_UNSIGNED_BYTE, rr->newgame_text_px);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    }
+    /* ★ P1（datah_012）：游戏设置文字图集（8 标签竖排 220×368） */
+    if (rr->gameset_text_px && rr->gl2_ok[slot] && rr->gameset_text_w > 0 && rr->gameset_text_h > 0) {
+        glGenTextures(1, &rr->tex_gameset_text[slot]);
+        glBindTexture(GL_TEXTURE_2D, rr->tex_gameset_text[slot]);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->gameset_text_w, rr->gameset_text_h, 0,
+                     GL_RGBA, GL_UNSIGNED_BYTE, rr->gameset_text_px);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    }
+    /* ★ P1（datah_016/017/020）：布局存档文字图集（9 标签竖排 220×414） */
+    if (rr->layres_text_px && rr->gl2_ok[slot] && rr->layres_text_w > 0 && rr->layres_text_h > 0) {
+        glGenTextures(1, &rr->tex_layres_text[slot]);
+        glBindTexture(GL_TEXTURE_2D, rr->tex_layres_text[slot]);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->layres_text_w, rr->layres_text_h, 0,
+                     GL_RGBA, GL_UNSIGNED_BYTE, rr->layres_text_px);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    }
+    /* ★ P1（datah_039/107）：复盘文字图集（8 标签竖排 220×368） */
+    if (rr->replay_text_px && rr->gl2_ok[slot] && rr->replay_text_w > 0 && rr->replay_text_h > 0) {
+        glGenTextures(1, &rr->tex_replay_text[slot]);
+        glBindTexture(GL_TEXTURE_2D, rr->tex_replay_text[slot]);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->replay_text_w, rr->replay_text_h, 0,
+                     GL_RGBA, GL_UNSIGNED_BYTE, rr->replay_text_px);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    }
+    /* ★ P1（datah_038）：登录文字图集（8 标签竖排 220×368） */
+    if (rr->login_text_px && rr->gl2_ok[slot] && rr->login_text_w > 0 && rr->login_text_h > 0) {
+        glGenTextures(1, &rr->tex_login_text[slot]);
+        glBindTexture(GL_TEXTURE_2D, rr->tex_login_text[slot]);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->login_text_w, rr->login_text_h, 0,
+                     GL_RGBA, GL_UNSIGNED_BYTE, rr->login_text_px);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    }
+    /* ★ P2（datah_037）：规则文本文字图集（8 标签竖排 220×368） */
+    if (rr->rules_text_px && rr->gl2_ok[slot] && rr->rules_text_w > 0 && rr->rules_text_h > 0) {
+        glGenTextures(1, &rr->tex_rules_text[slot]);
+        glBindTexture(GL_TEXTURE_2D, rr->tex_rules_text[slot]);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->rules_text_w, rr->rules_text_h, 0,
+                     GL_RGBA, GL_UNSIGNED_BYTE, rr->rules_text_px);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    }
+    /* ★ P2（datah_104）：新局完整版文字图集（10 标签竖排 220×460） */
+    if (rr->ng104_text_px && rr->gl2_ok[slot] && rr->ng104_text_w > 0 && rr->ng104_text_h > 0) {
+        glGenTextures(1, &rr->tex_ng104_text[slot]);
+        glBindTexture(GL_TEXTURE_2D, rr->tex_ng104_text[slot]);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->ng104_text_w, rr->ng104_text_h, 0,
+                     GL_RGBA, GL_UNSIGNED_BYTE, rr->ng104_text_px);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    }
+    /* ★ P2（datah_034/035）：加入/创建游戏文字图集（10 标签竖排 220×460） */
+    if (rr->join_text_px && rr->gl2_ok[slot] && rr->join_text_w > 0 && rr->join_text_h > 0) {
+        glGenTextures(1, &rr->tex_join_text[slot]);
+        glBindTexture(GL_TEXTURE_2D, rr->tex_join_text[slot]);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->join_text_w, rr->join_text_h, 0,
+                     GL_RGBA, GL_UNSIGNED_BYTE, rr->join_text_px);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    }
+    /* ★ P2（datah_061）：新局完整版（完整版补充）文字图集（10 标签竖排 220×460） */
+    if (rr->ng061_text_px && rr->gl2_ok[slot] && rr->ng061_text_w > 0 && rr->ng061_text_h > 0) {
+        glGenTextures(1, &rr->tex_ng061_text[slot]);
+        glBindTexture(GL_TEXTURE_2D, rr->tex_ng061_text[slot]);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->ng061_text_w, rr->ng061_text_h, 0,
+                     GL_RGBA, GL_UNSIGNED_BYTE, rr->ng061_text_px);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    }
+    /* ★ P2（datah_050）：对局信息文字图集（8 标签竖排 220×368） */
+    if (rr->gameinfo_text_px && rr->gl2_ok[slot] && rr->gameinfo_text_w > 0 && rr->gameinfo_text_h > 0) {
+        glGenTextures(1, &rr->tex_gameinfo_text[slot]);
+        glBindTexture(GL_TEXTURE_2D, rr->tex_gameinfo_text[slot]);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->gameinfo_text_w, rr->gameinfo_text_h, 0,
+                     GL_RGBA, GL_UNSIGNED_BYTE, rr->gameinfo_text_px);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    }
+    /* ★ P2（datah_002）：亮度调节文字图集（10 标签竖排 220×460） */
+    if (rr->bright_text_px && rr->gl2_ok[slot] && rr->bright_text_w > 0 && rr->bright_text_h > 0) {
+        glGenTextures(1, &rr->tex_bright_text[slot]);
+        glBindTexture(GL_TEXTURE_2D, rr->tex_bright_text[slot]);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->bright_text_w, rr->bright_text_h, 0,
+                     GL_RGBA, GL_UNSIGNED_BYTE, rr->bright_text_px);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    }
+    /* ★ P2（datah_029）：聊天记录文字图集（8 标签竖排 220×368） */
+    if (rr->chatlog_text_px && rr->gl2_ok[slot] && rr->chatlog_text_w > 0 && rr->chatlog_text_h > 0) {
+        glGenTextures(1, &rr->tex_chatlog_text[slot]);
+        glBindTexture(GL_TEXTURE_2D, rr->tex_chatlog_text[slot]);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->chatlog_text_w, rr->chatlog_text_h, 0,
+                     GL_RGBA, GL_UNSIGNED_BYTE, rr->chatlog_text_px);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    }
+    /* ★ P2（datah_031）：个人资料文字图集（10 标签竖排 220×460） */
+    if (rr->profile_text_px && rr->gl2_ok[slot] && rr->profile_text_w > 0 && rr->profile_text_h > 0) {
+        glGenTextures(1, &rr->tex_profile_text[slot]);
+        glBindTexture(GL_TEXTURE_2D, rr->tex_profile_text[slot]);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->profile_text_w, rr->profile_text_h, 0,
+                     GL_RGBA, GL_UNSIGNED_BYTE, rr->profile_text_px);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    }
+    /* ★ P2（datah_042）：提和详情文字图集（7 标签竖排 220×322） */
+    if (rr->drawdetail_text_px && rr->gl2_ok[slot] && rr->drawdetail_text_w > 0 && rr->drawdetail_text_h > 0) {
+        glGenTextures(1, &rr->tex_drawdetail_text[slot]);
+        glBindTexture(GL_TEXTURE_2D, rr->tex_drawdetail_text[slot]);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->drawdetail_text_w, rr->drawdetail_text_h, 0,
+                     GL_RGBA, GL_UNSIGNED_BYTE, rr->drawdetail_text_px);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    }
+    /* ★ P2（datah_003/004）：设置入口文字图集（7 标签竖排 220×322） */
+    if (rr->setentry_text_px && rr->gl2_ok[slot] && rr->setentry_text_w > 0 && rr->setentry_text_h > 0) {
+        glGenTextures(1, &rr->tex_setentry_text[slot]);
+        glBindTexture(GL_TEXTURE_2D, rr->tex_setentry_text[slot]);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->setentry_text_w, rr->setentry_text_h, 0,
+                     GL_RGBA, GL_UNSIGNED_BYTE, rr->setentry_text_px);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    }
+    /* ★ P2（datah_007/008）：图像设置文字图集（10 标签竖排 220×460） */
+    if (rr->imgset_text_px && rr->gl2_ok[slot] && rr->imgset_text_w > 0 && rr->imgset_text_h > 0) {
+        glGenTextures(1, &rr->tex_imgset_text[slot]);
+        glBindTexture(GL_TEXTURE_2D, rr->tex_imgset_text[slot]);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->imgset_text_w, rr->imgset_text_h, 0,
+                     GL_RGBA, GL_UNSIGNED_BYTE, rr->imgset_text_px);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    }
+    /* ★ P2（datah_065 原版 XML 对齐）：加入游戏完整版文字图集（19 标签竖排 220×874，8 行配置×2列+标题+开始/取消） */
+    if (rr->join065_text_px && rr->gl2_ok[slot] && rr->join065_text_w > 0 && rr->join065_text_h > 0) {
+        glGenTextures(1, &rr->tex_join065_text[slot]);
+        glBindTexture(GL_TEXTURE_2D, rr->tex_join065_text[slot]);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->join065_text_w, rr->join065_text_h, 0,
+                     GL_RGBA, GL_UNSIGNED_BYTE, rr->join065_text_px);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    }
+    /* ★ P2（datah_069）：创建游戏完整版文字图集（10 标签竖排 220×460） */
+    if (rr->create069_text_px && rr->gl2_ok[slot] && rr->create069_text_w > 0 && rr->create069_text_h > 0) {
+        glGenTextures(1, &rr->tex_create069_text[slot]);
+        glBindTexture(GL_TEXTURE_2D, rr->tex_create069_text[slot]);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->create069_text_w, rr->create069_text_h, 0,
+                     GL_RGBA, GL_UNSIGNED_BYTE, rr->create069_text_px);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    }
+    /* ★ P2（datah_070）：游戏规则完整版文字图集（10 标签竖排 220×460） */
+    if (rr->rules070_text_px && rr->gl2_ok[slot] && rr->rules070_text_w > 0 && rr->rules070_text_h > 0) {
+        glGenTextures(1, &rr->tex_rules070_text[slot]);
+        glBindTexture(GL_TEXTURE_2D, rr->tex_rules070_text[slot]);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->rules070_text_w, rr->rules070_text_h, 0,
+                     GL_RGBA, GL_UNSIGNED_BYTE, rr->rules070_text_px);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    }
+    /* ★ P2（datah_060 原版 XML 对齐）：房间态文字图集（12 标签竖排 220×552，2玩家×4字段+标题+3按钮） */
+    if (rr->room060_text_px && rr->gl2_ok[slot] && rr->room060_text_w > 0 && rr->room060_text_h > 0) {
+        glGenTextures(1, &rr->tex_room060_text[slot]);
+        glBindTexture(GL_TEXTURE_2D, rr->tex_room060_text[slot]);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->room060_text_w, rr->room060_text_h, 0,
+                     GL_RGBA, GL_UNSIGNED_BYTE, rr->room060_text_px);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    }
+    /* ★ P2（datah_063 原版 XML 对齐）：聊天完整版文字图集（5 标签竖排 220×230，聊天/记录说明/发送/记录/关闭） */
+    if (rr->chat063_text_px && rr->gl2_ok[slot] && rr->chat063_text_w > 0 && rr->chat063_text_h > 0) {
+        glGenTextures(1, &rr->tex_chat063_text[slot]);
+        glBindTexture(GL_TEXTURE_2D, rr->tex_chat063_text[slot]);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->chat063_text_w, rr->chat063_text_h, 0,
+                     GL_RGBA, GL_UNSIGNED_BYTE, rr->chat063_text_px);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    }
+    /* ★ P2（datah_000）：软件信息文字图集（7 标签竖排 220×322） */
+    if (rr->about_text_px && rr->gl2_ok[slot] && rr->about_text_w > 0 && rr->about_text_h > 0) {
+        glGenTextures(1, &rr->tex_about_text[slot]);
+        glBindTexture(GL_TEXTURE_2D, rr->tex_about_text[slot]);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->about_text_w, rr->about_text_h, 0,
+                     GL_RGBA, GL_UNSIGNED_BYTE, rr->about_text_px);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    }
+    /* ★ 2026-11-10（datah_025）：ExitConfirm 文字图集（3 标签竖排 220×138） */
+    if (rr->exit_text_px && rr->gl2_ok[slot] && rr->exit_text_w > 0 && rr->exit_text_h > 0) {
+        glGenTextures(1, &rr->tex_exit_text[slot]);
+        glBindTexture(GL_TEXTURE_2D, rr->tex_exit_text[slot]);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->exit_text_w, rr->exit_text_h, 0,
+                     GL_RGBA, GL_UNSIGNED_BYTE, rr->exit_text_px);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    }
+    /* ★ SPAK2UI 批量（12 弹窗）：战况统计/玩家/对局/对战方式/创建游戏/版本更新 共用
        文字图集（14 标签竖排 220×644） */
-    if (rr->uibat_text_px && rr->gl2_ok[slot] && rr->uibat_text_w > 0 && rr->uibat_text_h > 0)     /* 棋盘 VBO */
-        /* ★ 资源使用（apk 对齐）：纹理上传数统计（MISS>0 → 诊断哪张资源缺失走纯色退化）。
+    if (rr->uibat_text_px && rr->gl2_ok[slot] && rr->uibat_text_w > 0 && rr->uibat_text_h > 0) {
+        glGenTextures(1, &rr->tex_uibat_text[slot]);
+        glBindTexture(GL_TEXTURE_2D, rr->tex_uibat_text[slot]);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->uibat_text_w, rr->uibat_text_h, 0,
+                     GL_RGBA, GL_UNSIGNED_BYTE, rr->uibat_text_px);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    }
+    /* 棋盘 VBO */
+    {
+        float w = (float)rr->view_w, h = (float)rr->view_h;
+        rs_v4f board[6] = {
+            {0, 0, BOARD_UV_X0, 0},  {w, 0, BOARD_UV_X1, 0},
+            {0, h, BOARD_UV_X0, 1},  {0, h, BOARD_UV_X0, 1},
+            {w, 0, BOARD_UV_X1, 0},  {w, h, BOARD_UV_X1, 1},
+        };
+        rs_make_vbo(&rr->vbo_board[slot], board, 6);
+    }
+    /* ★ 资源使用（apk 对齐）：纹理上传数统计（MISS>0 → 诊断哪张资源缺失走纯色退化）。
        统计 = 实际 glTexImage2D 成功的槽位 / 应上传的槽位总数。
        ★ 对抗审计 P1（批4 P0-R3）：原 slots_up 只列 16 槽，rs_gl_rebuild 实际
        glTexImage2D 52+ 槽（27 张对话框文字图集 + 4 张按钮/图标 + 16 基础）→

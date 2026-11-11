@@ -1198,6 +1198,7 @@ static const char *on_event(const char *name, const char *value, JNIEnv *env)
         /* ★ 对抗审计 #4：统一走 jq_restart_game（随模式：明棋布局/暗棋翻棋 + 清 undo +
            stage/turn/winner/moves）。旧版内联 jq_load_layout（暗棋）→ 与 OnTouch 路径不一致。 */
         jq_restart_game();
+        sfx_play(env, "start");   /* ★ 原版对齐：开局音效 Junqi.Start → data_junqi_start.wav（SPEC §5） */
         LOGI("OnEvent restart（jq_restart_game：default.lay 随模式 mode=%d，stage=PLAY 蓝先手）",
              ui_opt_get_mode());
     } else if (strcmp(name, "flagtest") == 0) {
@@ -1262,6 +1263,7 @@ static const char *on_event(const char *name, const char *value, JNIEnv *env)
                ★ 按钮业务对齐：mode 0=人机（AI 走红），mode 1=两人热座，mode 4=四国（AI 不介入）。 */
             ui_vs_ai_set((mode == 0));
             jq_restart_game();
+            sfx_play(env, "start");   /* ★ 原版对齐：开局音效 Junqi.Start → data_junqi_start.wav（SPEC §5） */
             LOGI("OnEvent menu 开局 mode=%d（%s，jq_restart_game：随模式 mode=%d stage=PLAY 蓝先手）",
                  mode, g_vs_ai ? "人机AI走红" : "两人热座", ui_opt_get_mode());
             ui_screen_set(UI_GAME);   /* 对局态：AI 介入 + 触摸走子放行 */
@@ -1301,10 +1303,12 @@ static const char *on_event(const char *name, const char *value, JNIEnv *env)
             } else {
                 if (f) fclose(f);
                 jq_restart_game();
+                sfx_play(env, "start");   /* ★ 原版对齐：开局音效 Junqi.Start → data_junqi_start.wav（SPEC §5） */
                 LOGI("OnEvent start：布局 %d 缺失 → default.lay（随模式 mode=%d）", lay, ui_opt_get_mode());
             }
         } else {
             jq_restart_game();
+            sfx_play(env, "start");   /* ★ 原版对齐：开局音效 Junqi.Start → data_junqi_start.wav（SPEC §5） */
             LOGI("OnEvent start：default.lay（随模式 mode=%d 蓝先手）", ui_opt_get_mode());
         }
         g_undo_top = 0;
@@ -2642,6 +2646,7 @@ void jq_glview_props_update(JNIEnv *env)
         pthread_mutex_lock(&g_mutex);
         jq_restart_game();
         pthread_mutex_unlock(&g_mutex);
+        sfx_play(env, "start");   /* ★ 原版对齐：开局音效 Junqi.Start → data_junqi_start.wav（SPEC §5） */
         LOGI("OnUpdate 游戏内重开：restartgame（default.lay 重新开局，stage=PLAY 蓝先手）");
         __system_property_set("jq.restartgame", "0");
     }
@@ -7619,8 +7624,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
             pthread_mutex_lock(&g_mutex);
             jq_restart_game();
             pthread_mutex_unlock(&g_mutex);
+            sfx_play(env, "start");   /* ★ 原版对齐：开局音效 Junqi.Start → data_junqi_start.wav（SPEC §5） */
             ui_screen_set(UI_GAME);
-            sfx_play(env, "over");
             LOGI("OnTouch 难度弹窗：选按钮%d（level=%d mode=%d %s）→ 开局 AI 走红",
                  dh, level, mode, mode ? "翻棋暗棋" : "布局明棋");
             (void)clazz;
@@ -7790,8 +7795,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
                 pthread_mutex_lock(&g_mutex);
                 jq_restart_game();
                 pthread_mutex_unlock(&g_mutex);
+                sfx_play(env, "start");   /* ★ 原版对齐：开局音效 Junqi.Start → data_junqi_start.wav（SPEC §5） */
                 ui_screen_set(UI_GAME);
-                sfx_play(env, "over");
                 LOGI("OnTouch 新局弹窗：确定 → 开局（stage=PLAY 蓝先手，mode=%d %s，两人热座 AI 不介入）",
                      ui_opt_get_mode(), ui_opt_get_mode() ? "翻棋暗棋" : "布局明棋");
             } else if (nact == 3) {         /* 取消：回主菜单 */
@@ -7846,8 +7851,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
                 pthread_mutex_lock(&g_mutex);
                 jq_restart_game();
                 pthread_mutex_unlock(&g_mutex);
+                sfx_play(env, "start");   /* ★ 原版对齐：开局音效 Junqi.Start → data_junqi_start.wav（SPEC §5） */
                 ui_screen_set(UI_GAME);
-                sfx_play(env, "over");
                 LOGI("OnTouch 登录弹窗：游客 → 本地单机模式（g_vs_ai=0 两人热座开局，无账号，"
                      "★ 诚实边界：唯一真生效路径，登录/注册 服务器协议未逆向）");
             } else if (lact == 5) {   /* 返回 → 回主菜单 */
@@ -7951,7 +7956,7 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
                     g_state.winner = JQ_WIN_NONE;   // AUD-R-053：winner 未定哨兵
                     pthread_mutex_unlock(&g_mutex);
                     ui_screen_set(UI_GAME);
-                    sfx_play(env, "over");
+                    sfx_play(env, "start");   /* ★ 原版对齐：开局音效 Junqi.Start → data_junqi_start.wav */
                     LOGI("载入布局：载入 %s 到棋盘（30 字节 .lay，随模式 mode=%d，清 undo，蓝先手）",
                          nm, ui_opt_get_mode());
                     (void)clazz;
@@ -8081,7 +8086,7 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
                     g_state.winner = JQ_WIN_NONE;   // AUD-R-053：winner 未定哨兵
                     pthread_mutex_unlock(&g_mutex);
                     ui_screen_set(UI_GAME);
-                    sfx_play(env, "over");
+                    sfx_play(env, "start");   /* ★ 原版对齐：开局音效 Junqi.Start → data_junqi_start.wav */
                     LOGI("布局管理：载入 %s 到棋盘（30 字节 .lay，清 undo，蓝先手）", nm);
                     (void)clazz;
                     return JNI_TRUE;
@@ -8261,8 +8266,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
                 pthread_mutex_lock(&g_mutex);
                 jq_restart_game();
                 pthread_mutex_unlock(&g_mutex);
+                sfx_play(env, "start");   /* ★ 原版对齐：开局音效 Junqi.Start → data_junqi_start.wav（SPEC §5） */
                 ui_screen_set(UI_GAME);
-                sfx_play(env, "over");
                 LOGI("OnTouch 新局完整版弹窗：确定 → 开局（stage=PLAY 蓝先手，level=%d mode=%d，两人热座 AI 不介入）",
                      ui_opt_get_level(), ui_opt_get_mode());
             } else if (nact == 4) {   /* 取消：回主菜单 */
@@ -8396,8 +8401,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
                 pthread_mutex_lock(&g_mutex);
                 jq_restart_game();
                 pthread_mutex_unlock(&g_mutex);
+                sfx_play(env, "start");   /* ★ 原版对齐：开局音效 Junqi.Start → data_junqi_start.wav（SPEC §5） */
                 ui_screen_set(UI_GAME);
-                sfx_play(env, "over");
                 LOGI("OnTouch 新局完整版（完整版补充）弹窗：确定 → 开局（stage=PLAY，level=%d mode=%d first=%d show=%d，"
                      "两人热座 AI 不介入，★ 诚实边界：先后手/明暗棋 各循环切换简化版）",
                      ui_opt_get_level(), ui_opt_get_mode(), ui_first_get(), ui_show_get());
@@ -9425,6 +9430,7 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
                 pthread_mutex_lock(&g_mutex);
                 jq_restart_game();
                 pthread_mutex_unlock(&g_mutex);
+                sfx_play(env, "start");   /* ★ 原版对齐：开局音效 Junqi.Start → data_junqi_start.wav（SPEC §5） */
                 ui_screen_set(UI_GAME);
                 LOGI("OnTouch 创建游戏弹窗：开始 → 本地开局（jq_restart_game，"
                       "★ 诚实边界：联机创建游戏未逆向，开始=本地开局简化）");
@@ -9576,7 +9582,7 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
                 jq_restart_game();
                 sess_init_done_snap = g_bt_sess_init_done;   /* ★ AUD-1000 B03-047（P1 已修）：锁内快照 */
                 pthread_mutex_unlock(&g_mutex);
-                sfx_play(env, "over");
+                sfx_play(env, "start");   /* ★ 原版对齐：开局音效 Junqi.Start → data_junqi_start.wav（SPEC §5） */
                 LOGI("☰菜单 重新开始：default.lay 重开局（stage=PLAY 蓝先手）");
                 /* ★ BT 联机：重开 → 发 RESTART 帧（对端同步重开，锁内快照值判发帧） */
                 if (sess_init_done_snap) jq_bt_ctrl_send(env, BT_T_RESTART);
@@ -9728,7 +9734,7 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
         pthread_mutex_unlock(&g_mutex);
         if (over) {
             LOGI("OnTouch 对局结束再来一局：按钮（default.lay 重新开局，stage=PLAY 蓝先手）");
-            sfx_play(env, "over");
+            sfx_play(env, "start");   /* ★ 原版对齐：开局音效 Junqi.Start → data_junqi_start.wav */
             (void)clazz;
             return JNI_TRUE;
         }
@@ -9739,8 +9745,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
         pthread_mutex_lock(&g_mutex);
         jq_restart_game();
         pthread_mutex_unlock(&g_mutex);
+        sfx_play(env, "start");   /* ★ 原版对齐：开局音效 Junqi.Start → data_junqi_start.wav（SPEC §5） */
         LOGI("OnTouch 游戏内重开：左上角重开按钮（default.lay 重新开局，stage=PLAY 蓝先手）");
-        sfx_play(env, "over");
         (void)clazz;
         return JNI_TRUE;
     }
