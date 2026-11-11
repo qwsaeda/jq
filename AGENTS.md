@@ -497,8 +497,10 @@ java -cp /tmp/opencode/apksigner/apksig.jar:/tmp/opencode/apksigner SignV2 \
 - **本会话归属（★ 2026-11-11 用户指令：逆向会话按逆向继续对齐）**：本会话 = **逆向驱动**，
   只做 `com.zxj.junqirs`（逆向 app）+ `rev64/reverse/*` + 32 位翻译体回归（`arm32_walkregress.sh`）；
   `com.qwsaeda`（正向）/ `rev64/forward/*` 由正向会话推进，**本会话不动**（不抢活）。
-  逆向对齐验收入口：`bash rev64/tools/arm32_walkregress.sh --dev 10.0.182.146:5555`（4 路径
-  walk_bridge/native_layout/native_event/game_test，判据 = 各路径 logcat 特征 + 0 崩溃）。
+  逆向对齐验收入口：`bash rev64/tools/arm32_hook_check.sh --dev 10.0.182.146:5555 --rounds 3`
+  （§124y-180 全钩子一键验收：game_test/walk_bridge/native_event/framebuffer 四项机判
+  PASS/FAIL + 数值 + 0 崩溃；出屏 logcat 权威非黑比判读，`--rounds N` 连跑防抖动；
+  旧入口 `arm32_walkregress.sh` 仍可用（4 路径走子回归），全钩子优先用 hook_check）。
   实锤（2026-11-11，10.0.182.146）：`com.cnvcs.junqi32`（phase_chain_arm32.apk）装机 Success +
   4 路径全 PASS（PASS=4 FAIL=0，全局崩溃=0）——逆向侧对齐基准成立。
 

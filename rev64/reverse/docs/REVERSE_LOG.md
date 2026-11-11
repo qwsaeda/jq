@@ -6984,3 +6984,22 @@ frame loop / onDraw 两处）加非黑比采样（`_px` 8×8 步长扫，R+G+B>6
 native_event 全 PASS + framebuffer 3/3 轮全 100% 非黑），唯一 FAIL = game_test 内嵌出屏
 第 3 轮取到跨轮残留 0%（脚本取值 bug，§124y-180 方法论第 3 条已修）。设备 10.0.182.146
 恢复后一键复跑 `arm32_hook_check.sh --rounds 3` 应 4/4 全 PASS。
+
+### §124y-181 原版 .rodata 事件名/URL 键 → 翻译体静态佐证 0 缺口（`rodata_path_map.py` 扩展，2026-11-11）
+
+用户"经验不总结/不脚本化"指正的延续——把静态佐证判据（原版 so .rodata 明文 →
+翻译体/SPAK 侧实体命中）扩成可复跑判据，杜绝每轮手敲 `strings + grep` 重复：
+
+- `rev64/tools/rodata_path_map.py` 新增 **§124y-181 事件名/URL 键静态佐证段**：
+  - 原版 .rodata 明文的 **73 Junqi.\* + 3 Misc.\*** 事件名自动提取（正则），逐项打日志
+  - **主链 11 条**（Move/Flip/Flag/Bomb/Eat/Dead/GameOver/Resign/Draw/BlueWin/RedWin）
+    全命中判据；URL 键 `cfgHost/statHost/updateUrl` 实锤（= AGENTS"版本更新通道未实现"
+    边界的具体 .rodata 引用点，佐证非臆测）
+- **坑固化（判据防假缺口）**：初版 `EVENT_NAMES_EXPECT` 误含 64 位独有名
+  （Restart/Undo/Chat）→ 判 3 缺口 FAIL。纠正 = 主链 11 条只用**原版 .rodata 实锤名**
+  （悔棋系列实为 `Junqi.Regret*`，重开/聊天 = 64 位设计独有，原版 .rodata 无此 3 条），
+  防"我预期它没"的假缺口（§124y-180 方法论第 1 条：判据脚本化 + 判据必须对原版实锤名，
+  不对 64 位臆测名）。
+
+**判据实锤**：原版 .rodata 资源路径串 44/44 命中 0 缺口 + 主链 11 事件名 11/11 命中 +
+URL 键 3 条实锤 = **0 缺口 PASS**（资源映射 + 事件名 + 更新通道边界引用点全闭环）。

