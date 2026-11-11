@@ -146,6 +146,18 @@ static int panbdiag = 0;   /* 面板/按钮/图标位图渲染诊断 */
 static int ecdiag = 0;   /* 退出确认诊断 */
 static int rcdiag = 0;   /* 认输确认诊断 */
 static int gcdot = 0;    /* 悔棋确认诊断 */
+/* ★ 2026-11-11 现代全面屏等比缩放（用户"安卓设计都是全面屏"指正）：
+   旧独立 sx/sy（view_w/720, view_h/1280）在非 16:9 屏（20:9/19.5:9）拉伸变形
+   （sy/sx 达 1.25，按钮/棋盘横压 25%）。改等比缩放 s=min(view_w/720, view_h/1280)
+   + 垂直居中偏移 yoff=(view_h-1280*s)/2。主菜单已验证：16:9 无回归（s=1.25,yoff=0），
+   20:9 无拉伸（s=1.5,yoff=240）。所有 UI 绘制（弹窗/棋盘/棋子/☰菜单）统一走此缩放。 */
+static void rs_ui_scale(rs_render *rr, float *s, float *yoff)
+{
+    float sw = (float)rr->view_w / 720.0f;
+    float sh = (float)rr->view_h / 1280.0f;
+    *s = sw < sh ? sw : sh;
+    *yoff = ((float)rr->view_h - 1280.0f * (*s)) * 0.5f;
+}
 static void rs_draw_bitmap(rs_render *rr, int slot, unsigned int tex, int tex_w, int tex_h,
                            float x0, float y0, float x1, float y1);
 static void rs_solid_btn(rs_render *rr, int slot, float x0, float y0, float x1, float y1,
@@ -1226,7 +1238,7 @@ static void rs_draw_overlay(rs_render *rr, int slot, int winner)
        横幅/按钮像素出屏需真机 GPU 设备验收；音效 win/lose 已真机闭环。 */
     if (!rr->prog_solid[slot] || !rr->gl2_ok[slot]) return;
     float sx = (float)rr->view_w, sy = (float)rr->view_h;
-    /* 胜负横幅（中心 20%-80% x，42%-58% y） */
+    /* 胜负横幅（中心 20%-80% x，42%-58% y，全屏比例定位自适应任意宽高比） */
     float x0 = 0.20f * sx, x1 = 0.80f * sx, y0 = 0.42f * sy, y1 = 0.58f * sy;
     rs_v4f quad[6] = {
         {x0, y0, 0, 0}, {x1, y0, 0, 0}, {x0, y1, 0, 0},
@@ -1548,18 +1560,21 @@ static void rs_draw_highlights(rs_render *rr, int slot)
     }
     rr->hl_n = nhl;
     if (nhl == 0) return;
-    /* ★ 层 2：可走格高亮与棋子同几何（datax_177 BG_GRID，aPos.y=0=屏幕顶） */
+    /* ★ 层 2：可走格高亮与棋子同几何（datax_177 BG_GRID，aPos.y=0=屏幕顶）
+       ★ 2026-11-11 现代全面屏等比（与棋盘/棋子同几何，16:9 无回归） */
     float vw = (float)rr->view_w, vh = (float)rr->view_h;
-    float cell_w = BG_GRID_COL_W / BG_IMG_W * vw;
-    float cell_h = BG_GRID_ROW_H / BG_IMG_H * vh;
+    float hl_s = (float)rr->view_w / 720.0f;
+    float hl_by0 = ((float)rr->view_h - 1280.0f * hl_s) * 0.5f;
+    float cell_w = BG_GRID_COL_W * hl_s;
+    float cell_h = BG_GRID_ROW_H * hl_s;
     static rs_v4f hl_pool[64 * 8];
     int nverts = 0;
     for (int k = 0; k < nhl; k++) {
         int i = rr->hl_cells[k];
         int cr = cell_row(i), cc = cell_col(i);
         float ix, iy; bg_cell_img_center(cr, cc, &ix, &iy);
-        float x0 = (ix - BG_GRID_COL_W * 0.5f) / BG_IMG_W * vw;
-        float y0 = (iy - BG_GRID_ROW_H * 0.5f) / BG_IMG_H * vh;
+        float x0 = (ix - BG_GRID_COL_W * 0.5f) * hl_s;
+        float y0 = hl_by0 + (iy - BG_GRID_ROW_H * 0.5f) * hl_s;
         /* 目标格绿框 8 顶点（4 边线） */
         hl_pool[nverts++] = (rs_v4f){x0, y0, 0, 0};
         hl_pool[nverts++] = (rs_v4f){x0 + cell_w, y0, 0, 0};
@@ -1596,13 +1611,15 @@ static void rs_draw_imen_icons(rs_render *rr, int slot)
 {
     if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     if (!rr->prog_tex[slot] || !rr->gl2_ok[slot]) return;
-    float sx = (float)rr->view_w / 720.0f, sy = (float)rr->view_h / 1280.0f;
+    float sx, sy, yoff;
+    rs_ui_scale(rr, &sx, &yoff);
+    sy = sx;
     for (int which = 0; which < 2; which++) {
         float x0, y0, x1, y1;
         ui_imen_icon_rect(which, &x0, &y0, &x1, &y1);
         /* ★ 真实图标尺寸（720 基准）：☰ 42×38、↩ 44×46（原版实测 52×47/55×57 ×0.8）；
            以 icon_rect 中心对齐（命中区 70×70 含余量） */
-        float icx = (x0 + x1) * 0.5f * sx, icy = (y0 + y1) * 0.5f * sy;
+        float icx = (x0 + x1) * 0.5f * sx, icy = (y0 + y1) * 0.5f * sy + yoff;
         float iw = (which == 0 ? 42.0f : 44.0f) * sx;
         float ih = (which == 0 ? 38.0f : 46.0f) * sy;
         float px0 = icx - iw * 0.5f, py0 = icy - ih * 0.5f, px1 = icx + iw * 0.5f, py1 = icy + ih * 0.5f;
@@ -1639,7 +1656,9 @@ static void rs_draw_imen(rs_render *rr, int slot)
 {
     if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     if (!rr->prog_solid[slot] || !rr->gl2_ok[slot]) return;
-    float sx = (float)rr->view_w / 720.0f, sy = (float)rr->view_h / 1280.0f;
+    float sx, sy, yoff;
+    rs_ui_scale(rr, &sx, &yoff);
+    sy = sx;
     /* ① 全屏模态遮罩（半透明黑，聚焦菜单） */
     rs_v4f mq[6] = {
         {0, 0, 0, 0}, {(float)rr->view_w, 0, 0, 0}, {0, (float)rr->view_h, 0, 0},
@@ -1659,7 +1678,7 @@ static void rs_draw_imen(rs_render *rr, int slot)
     glDeleteBuffers(1, &rr->vbo_sel[slot]);
     rr->vbo_sel[slot] = 0;
     /* ② 面板：深色半透明矩形（popup 450×285 center 720 基准） */
-    float px0 = UI_IMENU_POPUP_X0 * sx, py0 = UI_IMENU_POPUP_Y0 * sy;
+    float px0 = UI_IMENU_POPUP_X0 * sx, py0 = UI_IMENU_POPUP_Y0 * sy + yoff;
     float pw = UI_IMENU_POPUP_W * sx, ph = UI_IMENU_POPUP_H * sy;
     rs_v4f pq[6] = {
         {px0, py0, 0, 0}, {px0 + pw, py0, 0, 0}, {px0, py0 + ph, 0, 0},
@@ -1714,11 +1733,11 @@ static void rs_draw_imen(rs_render *rr, int slot)
     static const float IMEN_ICON_Y[2] = { 516.0f, 703.0f };
     static const float IMEN_TEXT_Y[2] = { 594.0f, 779.0f };
     for (int i = 0; i < UI_IMENU_COUNT; i++) {
-        float bx0 = im[i].x0 * sx, by0 = im[i].y0 * sy;
-        float bx1 = im[i].x1 * sx, by1 = im[i].y1 * sy;
+        float bx0 = im[i].x0 * sx, by0 = im[i].y0 * sy + yoff;
+        float bx1 = im[i].x1 * sx, by1 = im[i].y1 * sy + yoff;
         (void)by0; (void)by1;
         float icx = IMEN_COL_X[i % 4] * sx;
-        float icy = IMEN_ICON_Y[i / 4] * sy;
+        float icy = IMEN_ICON_Y[i / 4] * sy + yoff;
         float iw = 96.0f * sx, ih = 96.0f * sy;
         float icx0 = icx - iw * 0.5f, icx1 = icx + iw * 0.5f;
         float icy0 = icy - ih * 0.5f, icy1 = icy + ih * 0.5f;
@@ -1792,7 +1811,7 @@ static void rs_draw_imen(rs_render *rr, int slot)
             int nchars = 0;
             while (lbl[nchars]) nchars++;          /* 汉字按 1 计（UTF-8 每字 3 字节） */
             float tcx = IMEN_COL_X[i % 4] * sx;
-            float tcy = IMEN_TEXT_Y[i / 4] * sy;
+            float tcy = IMEN_TEXT_Y[i / 4] * sy + yoff;
             /* 图集 160 宽里字形按字数自然占位（4 字占 ~150、2 字占 ~75，居中）：
                tw 固定 = 160 源宽 → 130 基准宽，则 4 字字形显示 122（原版实测 122）、
                2 字字形显示 61（原版实测 53，差 8 为原版字距差异，可接受）。 */
@@ -1839,7 +1858,9 @@ static void rs_draw_difficulty(rs_render *rr, int slot)
 {
     if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     if (!rr->prog_solid[slot] || !rr->gl2_ok[slot]) return;
-    float sx = (float)rr->view_w / 720.0f, sy = (float)rr->view_h / 1280.0f;
+    float sx, sy, yoff;
+    rs_ui_scale(rr, &sx, &yoff);
+    sy = sx;
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     /* ⓪ 背景：主菜单背景 datax_294（对抗审计：难度弹窗是主菜单上的模态框，
        非棋盘——原版 datah_041 从主菜单弹，背景应为主菜单） */
@@ -1881,7 +1902,7 @@ static void rs_draw_difficulty(rs_render *rr, int slot)
     glDeleteBuffers(1, &rr->vbo_sel[slot]);
     rr->vbo_sel[slot] = 0;
     /* ② 面板：深色半透明矩形（datah_041 450×335 缩放 720 基准） */
-    float px0 = UI_DIFF_POPUP_X0 * sx, py0 = UI_DIFF_POPUP_Y0 * sy;
+    float px0 = UI_DIFF_POPUP_X0 * sx, py0 = UI_DIFF_POPUP_Y0 * sy + yoff;
     float pw = UI_DIFF_POPUP_W * sx, ph = UI_DIFF_POPUP_H * sy;
     rs_v4f pq[6] = {
         {px0, py0, 0, 0}, {px0 + pw, py0, 0, 0}, {px0, py0 + ph, 0, 0},
@@ -1907,8 +1928,8 @@ static void rs_draw_difficulty(rs_render *rr, int slot)
     int cur_level = ui_opt_get_level(), cur_mode = ui_opt_get_mode();
     for (int i = 0; i < UI_DIFF_COUNT; i++) {
         int level = db[i].action / 2 + 1, mode = db[i].action % 2;
-        float bx0 = db[i].x0 * sx, by0 = db[i].y0 * sy;
-        float bx1 = db[i].x1 * sx, by1 = db[i].y1 * sy;
+        float bx0 = db[i].x0 * sx, by0 = db[i].y0 * sy + yoff;
+        float bx1 = db[i].x1 * sx, by1 = db[i].y1 * sy + yoff;
         /* 当前选中项亮边（金色），未选中普通 */
         int sel = (level == cur_level && mode == cur_mode);
         float cr = sel ? 1.0f : BTN_COL[mode][0], cg = sel ? 0.85f : BTN_COL[mode][1],
@@ -1937,7 +1958,7 @@ static void rs_draw_difficulty(rs_render *rr, int slot)
         for (int r = 0; r < 4; r++) {
             int row_idx = r;   /* row0-3 = 新手/中级/高级/好友区 */
             /* ★ 原版 datah_041 区域标签列 x=30-150（450 系）→ 720 屏幕 x=165-285（+135 偏移） */
-            float tcy = (db[r * 2].y0 + db[r * 2].y1) * 0.5f * sy;
+            float tcy = (db[r * 2].y0 + db[r * 2].y1) * 0.5f * sy + yoff;
             float tw = 120.0f * sx, th = tw * ((float)row_h / rr->opt_text_w);
             float tx0 = 165.0f * sx, ty0 = tcy - th * 0.5f;
             float v0 = (float)(row_idx * row_h) / rr->opt_text_h;
@@ -1964,8 +1985,8 @@ static void rs_draw_difficulty(rs_render *rr, int slot)
         for (int i = 0; i < UI_DIFF_COUNT; i++) {
             int mode = db[i].action % 2;
             int row_idx = 4 + mode;   /* row4=布局 row5=翻棋 */
-            float bx0 = db[i].x0 * sx, by0 = db[i].y0 * sy;
-            float bx1 = db[i].x1 * sx, by1 = db[i].y1 * sy;
+            float bx0 = db[i].x0 * sx, by0 = db[i].y0 * sy + yoff;
+            float bx1 = db[i].x1 * sx, by1 = db[i].y1 * sy + yoff;
             float tw = 80.0f * sx, th = tw * ((float)row_h / rr->opt_text_w);
             float tx0 = (bx0 + bx1) * 0.5f - tw * 0.5f, ty0 = (by0 + by1) * 0.5f - th * 0.5f;
             float v0 = (float)(row_idx * row_h) / rr->opt_text_h;
@@ -2000,7 +2021,9 @@ static void rs_draw_waysel(rs_render *rr, int slot)
 {
     if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     if (!rr->prog_solid[slot] || !rr->gl2_ok[slot]) return;
-    float sx = (float)rr->view_w / 720.0f, sy = (float)rr->view_h / 1280.0f;
+    float sx, sy, yoff;
+    rs_ui_scale(rr, &sx, &yoff);
+    sy = sx;
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     /* ⓪ 背景：主菜单背景（方式选择弹窗是主菜单上的模态框） */
     if (rr->tex_menu_bg[slot] && rr->prog_tex[slot]) {
@@ -2041,7 +2064,7 @@ static void rs_draw_waysel(rs_render *rr, int slot)
     glDeleteBuffers(1, &rr->vbo_sel[slot]);
     rr->vbo_sel[slot] = 0;
     /* ② 面板：深色半透明矩形 */
-    float px0 = UI_WAYSEL_POPUP_X0 * sx, py0 = UI_WAYSEL_POPUP_Y0 * sy;
+    float px0 = UI_WAYSEL_POPUP_X0 * sx, py0 = UI_WAYSEL_POPUP_Y0 * sy + yoff;
     float pw = UI_WAYSEL_POPUP_W * sx, ph = UI_WAYSEL_POPUP_H * sy;
     rs_v4f pq[6] = {
         {px0, py0, 0, 0}, {px0 + pw, py0, 0, 0}, {px0, py0 + ph, 0, 0},
@@ -2067,8 +2090,8 @@ static void rs_draw_waysel(rs_render *rr, int slot)
     };
     const ui_way_btn *wb = ui_way_buttons();
     for (int i = 0; i < UI_WAYSEL_COUNT; i++) {
-        float bx0 = wb[i].x0 * sx, by0 = wb[i].y0 * sy;
-        float bx1 = wb[i].x1 * sx, by1 = wb[i].y1 * sy;
+        float bx0 = wb[i].x0 * sx, by0 = wb[i].y0 * sy + yoff;
+        float bx1 = wb[i].x1 * sx, by1 = wb[i].y1 * sy + yoff;
         rs_v4f bq[6] = {
             {bx0, by0, 0, 0}, {bx1, by0, 0, 0}, {bx0, by1, 0, 0},
             {bx0, by1, 0, 0}, {bx1, by0, 0, 0}, {bx1, by1, 0, 0},
@@ -2089,8 +2112,8 @@ static void rs_draw_waysel(rs_render *rr, int slot)
     if (rr->tex_waysel_text[slot] && rr->prog_tex[slot] && rr->waysel_text_w > 0 && rr->waysel_text_h > 0) {
         int row_h = rr->waysel_text_h / UI_WAYSEL_COUNT;   /* 每行 46px */
         for (int i = 0; i < UI_WAYSEL_COUNT; i++) {
-            float bx0 = wb[i].x0 * sx, by0 = wb[i].y0 * sy;
-            float bx1 = wb[i].x1 * sx, by1 = wb[i].y1 * sy;
+            float bx0 = wb[i].x0 * sx, by0 = wb[i].y0 * sy + yoff;
+            float bx1 = wb[i].x1 * sx, by1 = wb[i].y1 * sy + yoff;
             float tw = 150.0f * sx, th = tw * ((float)row_h / rr->waysel_text_w);
             float tx0 = (bx0 + bx1) * 0.5f - tw * 0.5f, ty0 = (by0 + by1) * 0.5f - th * 0.5f;
             float u0 = 0.0f, u1 = 1.0f;
@@ -2129,7 +2152,9 @@ static void rs_draw_settings(rs_render *rr, int slot)
 {
     if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     if (!rr->prog_solid[slot] || !rr->gl2_ok[slot]) return;
-    float sx = (float)rr->view_w / 720.0f, sy = (float)rr->view_h / 1280.0f;
+    float sx, sy, yoff;
+    rs_ui_scale(rr, &sx, &yoff);
+    sy = sx;
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     /* ⓪ 背景：对局棋盘背景（设置弹窗从 ☰ 菜单弹出，背景为对局） */
     if (rr->tex_bg[slot] && rr->prog_tex[slot]) {
@@ -2170,7 +2195,7 @@ static void rs_draw_settings(rs_render *rr, int slot)
     glDeleteBuffers(1, &rr->vbo_sel[slot]);
     rr->vbo_sel[slot] = 0;
     /* ② 面板：深色半透明矩形 */
-    float px0 = UI_SETTINGS_POPUP_X0 * sx, py0 = UI_SETTINGS_POPUP_Y0 * sy;
+    float px0 = UI_SETTINGS_POPUP_X0 * sx, py0 = UI_SETTINGS_POPUP_Y0 * sy + yoff;
     float pw = UI_SETTINGS_POPUP_W * sx, ph = UI_SETTINGS_POPUP_H * sy;
     rs_v4f pq[6] = {
         {px0, py0, 0, 0}, {px0 + pw, py0, 0, 0}, {px0, py0 + ph, 0, 0},
@@ -2197,8 +2222,8 @@ static void rs_draw_settings(rs_render *rr, int slot)
     };
     const ui_set_btn *sb = ui_set_buttons();
     for (int i = 0; i < UI_SETTINGS_COUNT; i++) {
-        float bx0 = sb[i].x0 * sx, by0 = sb[i].y0 * sy;
-        float bx1 = sb[i].x1 * sx, by1 = sb[i].y1 * sy;
+        float bx0 = sb[i].x0 * sx, by0 = sb[i].y0 * sy + yoff;
+        float bx1 = sb[i].x1 * sx, by1 = sb[i].y1 * sy + yoff;
         rs_v4f bq[6] = {
             {bx0, by0, 0, 0}, {bx1, by0, 0, 0}, {bx0, by1, 0, 0},
             {bx0, by1, 0, 0}, {bx1, by0, 0, 0}, {bx1, by1, 0, 0},
@@ -2228,7 +2253,7 @@ static void rs_draw_settings(rs_render *rr, int slot)
         float u0 = 0.0f, u1 = 1.0f;
         /* label 左列：x 175-290（★ 2026-11-10 修复：旧 200 偏右，对齐原版 datah_001 标签 x0=175 align=left） */
         for (int r = 0; r < 3; r++) {
-            float tcy = (sb[r].y0 + sb[r].y1) * 0.5f * sy;
+            float tcy = (sb[r].y0 + sb[r].y1) * 0.5f * sy + yoff;
             float tw = 90.0f * sx, th = tw * ((float)row_h / rr->settings_text_w);
             float tx0 = 175.0f * sx, ty0 = tcy - th * 0.5f;
             float v0 = (float)(r * row_h) / rr->settings_text_h;
@@ -2256,8 +2281,8 @@ static void rs_draw_settings(rs_render *rr, int slot)
         if (ui_snd_mute_get()) val_rows[0] = 6;   /* 静音=关显示 */
         if (!ui_btn_sound_get()) val_rows[1] = 6; /* 按键声音=关 */
         for (int r = 0; r < 3; r++) {
-            float bx0 = sb[r].x0 * sx, by0 = sb[r].y0 * sy;
-            float bx1 = sb[r].x1 * sx, by1 = sb[r].y1 * sy;
+            float bx0 = sb[r].x0 * sx, by0 = sb[r].y0 * sy + yoff;
+            float bx1 = sb[r].x1 * sx, by1 = sb[r].y1 * sy + yoff;
             float tw = 60.0f * sx, th = tw * ((float)row_h / rr->settings_text_w);
             float tx0 = (bx0 + bx1) * 0.5f - tw * 0.5f, ty0 = (by0 + by1) * 0.5f - th * 0.5f;
             float v0 = (float)(val_rows[r] * row_h) / rr->settings_text_h;
@@ -2282,8 +2307,8 @@ static void rs_draw_settings(rs_render *rr, int slot)
         }
         /* 确定/取消（row3-4） */
         for (int i = 3; i < 5; i++) {
-            float bx0 = sb[i].x0 * sx, by0 = sb[i].y0 * sy;
-            float bx1 = sb[i].x1 * sx, by1 = sb[i].y1 * sy;
+            float bx0 = sb[i].x0 * sx, by0 = sb[i].y0 * sy + yoff;
+            float bx1 = sb[i].x1 * sx, by1 = sb[i].y1 * sy + yoff;
             float tw = 120.0f * sx, th = tw * ((float)row_h / rr->settings_text_w);
             float tx0 = (bx0 + bx1) * 0.5f - tw * 0.5f, ty0 = (by0 + by1) * 0.5f - th * 0.5f;
             float v0 = (float)(i * row_h) / rr->settings_text_h;
@@ -2318,7 +2343,9 @@ static void rs_draw_nplayer(rs_render *rr, int slot)
 {
     if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     if (!rr->prog_solid[slot] || !rr->gl2_ok[slot]) return;
-    float sx = (float)rr->view_w / 720.0f, sy = (float)rr->view_h / 1280.0f;
+    float sx, sy, yoff;
+    rs_ui_scale(rr, &sx, &yoff);
+    sy = sx;
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     /* ⓪ 背景：主菜单背景（四国人数选择弹窗是主菜单上的模态框） */
     if (rr->tex_menu_bg[slot] && rr->prog_tex[slot]) {
@@ -2359,7 +2386,7 @@ static void rs_draw_nplayer(rs_render *rr, int slot)
     glDeleteBuffers(1, &rr->vbo_sel[slot]);
     rr->vbo_sel[slot] = 0;
     /* ② 面板：深色半透明矩形（datah_089 230×230 居中，720 基准 245,525-475,755） */
-    float px0 = UI_NPLAYER_POPUP_X0 * sx, py0 = UI_NPLAYER_POPUP_Y0 * sy;
+    float px0 = UI_NPLAYER_POPUP_X0 * sx, py0 = UI_NPLAYER_POPUP_Y0 * sy + yoff;
     float pw = UI_NPLAYER_POPUP_W * sx, ph = UI_NPLAYER_POPUP_H * sy;
     rs_v4f pq[6] = {
         {px0, py0, 0, 0}, {px0 + pw, py0, 0, 0}, {px0, py0 + ph, 0, 0},
@@ -2384,8 +2411,8 @@ static void rs_draw_nplayer(rs_render *rr, int slot)
     };
     const ui_nplayer_btn *nb = ui_nplayer_buttons();
     for (int i = 0; i < UI_NPLAYER_COUNT; i++) {
-        float bx0 = nb[i].x0 * sx, by0 = nb[i].y0 * sy;
-        float bx1 = nb[i].x1 * sx, by1 = nb[i].y1 * sy;
+        float bx0 = nb[i].x0 * sx, by0 = nb[i].y0 * sy + yoff;
+        float bx1 = nb[i].x1 * sx, by1 = nb[i].y1 * sy + yoff;
         rs_v4f bq[6] = {
             {bx0, by0, 0, 0}, {bx1, by0, 0, 0}, {bx0, by1, 0, 0},
             {bx0, by1, 0, 0}, {bx1, by0, 0, 0}, {bx1, by1, 0, 0},
@@ -2406,8 +2433,8 @@ static void rs_draw_nplayer(rs_render *rr, int slot)
     if (rr->tex_nplayer_text[slot] && rr->prog_tex[slot] && rr->nplayer_text_w > 0 && rr->nplayer_text_h > 0) {
         int row_h = rr->nplayer_text_h / UI_NPLAYER_COUNT;   /* 每行 46px */
         for (int i = 0; i < UI_NPLAYER_COUNT; i++) {
-            float bx0 = nb[i].x0 * sx, by0 = nb[i].y0 * sy;
-            float bx1 = nb[i].x1 * sx, by1 = nb[i].y1 * sy;
+            float bx0 = nb[i].x0 * sx, by0 = nb[i].y0 * sy + yoff;
+            float bx1 = nb[i].x1 * sx, by1 = nb[i].y1 * sy + yoff;
             float tw = 150.0f * sx, th = tw * ((float)row_h / rr->nplayer_text_w);
             float tx0 = (bx0 + bx1) * 0.5f - tw * 0.5f, ty0 = (by0 + by1) * 0.5f - th * 0.5f;
             float u0 = 0.0f, u1 = 1.0f;
@@ -2443,7 +2470,9 @@ static void rs_draw_newgame(rs_render *rr, int slot)
 {
     if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     if (!rr->prog_solid[slot] || !rr->gl2_ok[slot]) return;
-    float sx = (float)rr->view_w / 720.0f, sy = (float)rr->view_h / 1280.0f;
+    float sx, sy, yoff;
+    rs_ui_scale(rr, &sx, &yoff);
+    sy = sx;
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     /* ⓪ 背景：主菜单背景（新局弹窗是主菜单上的模态框） */
     if (rr->tex_menu_bg[slot] && rr->prog_tex[slot]) {
@@ -2484,7 +2513,7 @@ static void rs_draw_newgame(rs_render *rr, int slot)
     glDeleteBuffers(1, &rr->vbo_sel[slot]);
     rr->vbo_sel[slot] = 0;
     /* ② 面板：深色半透明矩形（datah_062 450×315 居中，720 基准 135,482.5-585,797.5） */
-    float px0 = UI_NEWGAME_POPUP_X0 * sx, py0 = UI_NEWGAME_POPUP_Y0 * sy;
+    float px0 = UI_NEWGAME_POPUP_X0 * sx, py0 = UI_NEWGAME_POPUP_Y0 * sy + yoff;
     float pw = UI_NEWGAME_POPUP_W * sx, ph = UI_NEWGAME_POPUP_H * sy;
     rs_v4f pq[6] = {
         {px0, py0, 0, 0}, {px0 + pw, py0, 0, 0}, {px0, py0 + ph, 0, 0},
@@ -2512,8 +2541,8 @@ static void rs_draw_newgame(rs_render *rr, int slot)
     const ui_newgame_btn *nb = ui_newgame_buttons();
     int cur_mode = ui_opt_get_mode();   /* 0=布局明棋 1=翻棋暗棋 */
     for (int i = 0; i < UI_NEWGAME_COUNT; i++) {
-        float bx0 = nb[i].x0 * sx, by0 = nb[i].y0 * sy;
-        float bx1 = nb[i].x1 * sx, by1 = nb[i].y1 * sy;
+        float bx0 = nb[i].x0 * sx, by0 = nb[i].y0 * sy + yoff;
+        float bx1 = nb[i].x1 * sx, by1 = nb[i].y1 * sy + yoff;
         rs_v4f bq[6] = {
             {bx0, by0, 0, 0}, {bx1, by0, 0, 0}, {bx0, by1, 0, 0},
             {bx0, by1, 0, 0}, {bx1, by0, 0, 0}, {bx1, by1, 0, 0},
@@ -2554,7 +2583,7 @@ static void rs_draw_newgame(rs_render *rr, int slot)
         float u0 = 0.0f, u1 = 1.0f;
         /* Title'新局'（row0，原版 datah_062 rect 55,10,440,50 → 中心 (382.5,512.5)） */
         {
-            float tcy = 512.5f * sy;
+            float tcy = 512.5f * sy + yoff;
             float tw = 190.0f * sx, th = tw * ((float)row_h / rr->newgame_text_w);
             float tx0 = 382.5f * sx - tw * 0.5f, ty0 = tcy - th * 0.5f;
             float v0 = 0.0f, v1 = (float)row_h / rr->newgame_text_h;
@@ -2579,7 +2608,7 @@ static void rs_draw_newgame(rs_render *rr, int slot)
         /* 标签列：玩法/明暗棋 右侧对齐（row1-2，原版 align=right rect 右缘 290；
            ★ 2026-11-10 修复：旧 tx0=165 左对齐偏左 + 行号 0-1 无标题错位） */
         for (int r = 0; r < 2; r++) {
-            float tcy = (nb[r].y0 + nb[r].y1) * 0.5f * sy;
+            float tcy = (nb[r].y0 + nb[r].y1) * 0.5f * sy + yoff;
             float tw = 110.0f * sx, th = tw * ((float)row_h / rr->newgame_text_w);
             float tx0 = 290.0f * sx - tw, ty0 = tcy - th * 0.5f;
             float v0 = (float)((r + 1) * row_h) / rr->newgame_text_h;
@@ -2606,8 +2635,8 @@ static void rs_draw_newgame(rs_render *rr, int slot)
         for (int r = 0; r < 2; r++) {
             int mode = ui_opt_get_mode();
             int row_idx = 3 + (mode ? 1 : 0);   /* 行 3=布局明棋 行 4=翻棋暗棋 */
-            float bx0 = nb[r].x0 * sx, by0 = nb[r].y0 * sy;
-            float bx1 = nb[r].x1 * sx, by1 = nb[r].y1 * sy;
+            float bx0 = nb[r].x0 * sx, by0 = nb[r].y0 * sy + yoff;
+            float bx1 = nb[r].x1 * sx, by1 = nb[r].y1 * sy + yoff;
             float tw = 150.0f * sx, th = tw * ((float)row_h / rr->newgame_text_w);
             float tx0 = (bx0 + bx1) * 0.5f - tw * 0.5f, ty0 = (by0 + by1) * 0.5f - th * 0.5f;
             float v0 = (float)(row_idx * row_h) / rr->newgame_text_h;
@@ -2632,8 +2661,8 @@ static void rs_draw_newgame(rs_render *rr, int slot)
         }
         /* 确定/取消（row4-5：newgame_text_atlas 行4=确定 行5=取消） */
         for (int i = 2; i < UI_NEWGAME_COUNT; i++) {
-            float bx0 = nb[i].x0 * sx, by0 = nb[i].y0 * sy;
-            float bx1 = nb[i].x1 * sx, by1 = nb[i].y1 * sy;
+            float bx0 = nb[i].x0 * sx, by0 = nb[i].y0 * sy + yoff;
+            float bx1 = nb[i].x1 * sx, by1 = nb[i].y1 * sy + yoff;
             float tw = 120.0f * sx, th = tw * ((float)row_h / rr->newgame_text_w);
             float tx0 = (bx0 + bx1) * 0.5f - tw * 0.5f, ty0 = (by0 + by1) * 0.5f - th * 0.5f;
             int txt_row = i + 3;   /* ★ 2026-11-10 修复：加 Title 后行号+1，i=2(确定)→row5, i=3(取消)→row6 */
@@ -2671,7 +2700,9 @@ static void rs_draw_gameset(rs_render *rr, int slot)
 {
     if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     if (!rr->prog_solid[slot] || !rr->gl2_ok[slot]) return;
-    float sx = (float)rr->view_w / 720.0f, sy = (float)rr->view_h / 1280.0f;
+    float sx, sy, yoff;
+    rs_ui_scale(rr, &sx, &yoff);
+    sy = sx;
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     /* ⓪①② 面板 shell（对局背景 + 遮罩 + 弹窗皮肤面板 450×465）——★ 2026-11-10 用户
        指正"这个界面是对齐了？"→ 对齐 datah_012（本用 rs_popup_shell，与其余弹窗同一皮肤，
@@ -2689,8 +2720,8 @@ static void rs_draw_gameset(rs_render *rr, int slot)
     };
     const ui_gameset_btn *gb = ui_gameset_buttons();
     for (int i = 0; i < UI_GAMESET_COUNT; i++) {
-        float bx0 = gb[i].x0 * sx, by0 = gb[i].y0 * sy;
-        float bx1 = gb[i].x1 * sx, by1 = gb[i].y1 * sy;
+        float bx0 = gb[i].x0 * sx, by0 = gb[i].y0 * sy + yoff;
+        float bx1 = gb[i].x1 * sx, by1 = gb[i].y1 * sy + yoff;
         rs_v4f bq[6] = {
             {bx0, by0, 0, 0}, {bx1, by0, 0, 0}, {bx0, by1, 0, 0},
             {bx0, by1, 0, 0}, {bx1, by0, 0, 0}, {bx1, by1, 0, 0},
@@ -2724,7 +2755,7 @@ static void rs_draw_gameset(rs_render *rr, int slot)
            (135+55+440)/2=382.5, (407.5+10+50)/2=437.5。★ 2026-11-10 用户"游戏设置UI没有
            对齐"：旧 315 偏左 67.5px，改 382.5（原版 rect 中心）） */
         {
-            float tcy = 437.5f * sy;
+            float tcy = 437.5f * sy + yoff;
             float tw = 190.0f * sx, th = tw * ((float)row_h / rr->gameset_text_w);
             float tx0 = 382.5f * sx - tw * 0.5f, ty0 = tcy - th * 0.5f;
             float v0 = 0.0f, v1 = (float)row_h / rr->gameset_text_h;
@@ -2750,7 +2781,7 @@ static void rs_draw_gameset(rs_render *rr, int slot)
            右缘 290。★ 2026-11-10 用户"游戏设置UI没有对齐"：旧 tx0=195 tw=110 居中在 [195,305]
            右缘≈272 偏左 18px；改 tx0+tw=290（图集标签已右对齐到 W，渲染 box 右缘对齐 290）） */
         for (int r = 0; r < 4; r++) {
-            float tcy = (gb[r].y0 + gb[r].y1) * 0.5f * sy;
+            float tcy = (gb[r].y0 + gb[r].y1) * 0.5f * sy + yoff;
             float tw = 110.0f * sx, th = tw * ((float)row_h / rr->gameset_text_w);
             float tx0 = 290.0f * sx - tw, ty0 = tcy - th * 0.5f;
             float v0 = (float)((r + 1) * row_h) / rr->gameset_text_h;
@@ -2776,8 +2807,8 @@ static void rs_draw_gameset(rs_render *rr, int slot)
         /* 值标签：开/关（row5/row6，按各开关当前状态；★ 行号 +1：旧 row4/row5） */
         for (int r = 0; r < 4; r++) {
             int val_row = ui_rule_cfg_get(r) ? 5 : 6;
-            float bx0 = gb[r].x0 * sx, by0 = gb[r].y0 * sy;
-            float bx1 = gb[r].x1 * sx, by1 = gb[r].y1 * sy;
+            float bx0 = gb[r].x0 * sx, by0 = gb[r].y0 * sy + yoff;
+            float bx1 = gb[r].x1 * sx, by1 = gb[r].y1 * sy + yoff;
             float tw = 60.0f * sx, th = tw * ((float)row_h / rr->gameset_text_w);
             float tx0 = (bx0 + bx1) * 0.5f - tw * 0.5f, ty0 = (by0 + by1) * 0.5f - th * 0.5f;
             float v0 = (float)(val_row * row_h) / rr->gameset_text_h;
@@ -2802,8 +2833,8 @@ static void rs_draw_gameset(rs_render *rr, int slot)
         }
         /* 确定/取消（row7-8；★ 行号 +1：旧 row6-7 = (i+2) → 新 (i+3)） */
         for (int i = 4; i < UI_GAMESET_COUNT; i++) {
-            float bx0 = gb[i].x0 * sx, by0 = gb[i].y0 * sy;
-            float bx1 = gb[i].x1 * sx, by1 = gb[i].y1 * sy;
+            float bx0 = gb[i].x0 * sx, by0 = gb[i].y0 * sy + yoff;
+            float bx1 = gb[i].x1 * sx, by1 = gb[i].y1 * sy + yoff;
             float tw = 120.0f * sx, th = tw * ((float)row_h / rr->gameset_text_w);
             float tx0 = (bx0 + bx1) * 0.5f - tw * 0.5f, ty0 = (by0 + by1) * 0.5f - th * 0.5f;
             float v0 = (float)((i + 3) * row_h) / rr->gameset_text_h;
@@ -2843,7 +2874,9 @@ static void rs_layres_panel(rs_render *rr, int slot, int ui, GLint uc)
         px0 = UI_SAVELAYOUT_POPUP_X0, py0 = UI_SAVELAYOUT_POPUP_Y0, pw = UI_SAVELAYOUT_POPUP_W, ph = UI_SAVELAYOUT_POPUP_H;
     else
         px0 = UI_LAYMGR_POPUP_X0, py0 = UI_LAYMGR_POPUP_Y0, pw = UI_LAYMGR_POPUP_W, ph = UI_LAYMGR_POPUP_H;
-    float sx = (float)rr->view_w / 720.0f, sy = (float)rr->view_h / 1280.0f;
+    float sx, sy, yoff;
+    rs_ui_scale(rr, &sx, &yoff);
+    sy = sx;
     /* ⓪ 背景：对局棋盘背景（布局存档弹窗从 ☰/对局弹出，背景为对局） */
     if (rr->tex_bg[slot] && rr->prog_tex[slot]) {
         float w = (float)rr->view_w, h = (float)rr->view_h;
@@ -2883,7 +2916,7 @@ static void rs_layres_panel(rs_render *rr, int slot, int ui, GLint uc)
     glDeleteBuffers(1, &rr->vbo_sel[slot]);
     rr->vbo_sel[slot] = 0;
     /* ② 面板：深色半透明矩形 */
-    float X0 = px0 * sx, Y0 = py0 * sy;
+    float X0 = px0 * sx, Y0 = py0 * sy + yoff;
     float W = pw * sx, H = ph * sy;
     rs_v4f pq[6] = {
         {X0, Y0, 0, 0}, {X0 + W, Y0, 0, 0}, {X0, Y0 + H, 0, 0},
@@ -2913,7 +2946,9 @@ static void rs_layres_text(rs_render *rr, int slot, float x, float y, float w,
     if (!rr->tex_layres_text[slot] || !rr->prog_tex[slot] ||
         rr->layres_text_w <= 0 || rr->layres_text_h <= 0) return;
     int row_h = rr->layres_text_h / LAYRES_ROW;
-    float sx = (float)rr->view_w / 720.0f, sy = (float)rr->view_h / 1280.0f;
+    float sx, sy, yoff;
+    rs_ui_scale(rr, &sx, &yoff);
+    sy = sx;
     float tw = w * sx, th = h * sy;
     float u0 = 0.0f, u1 = 1.0f;
     float v0 = (float)(row * row_h) / rr->layres_text_h;
@@ -2944,11 +2979,13 @@ static void rs_layres_list_rows(rs_render *rr, int slot, int sel, GLint uc)
 {
     if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     const ui_loadlayout_btn *lb = ui_loadlayout_buttons();   /* 前 6 项 = 列表行 */
-    float sx = (float)rr->view_w / 720.0f, sy = (float)rr->view_h / 1280.0f;
+    float sx, sy, yoff;
+    rs_ui_scale(rr, &sx, &yoff);
+    sy = sx;
     int n = ui_layout_count() > 6 ? 6 : ui_layout_count();
     for (int i = 0; i < 6; i++) {
-        float bx0 = lb[i].x0 * sx, by0 = lb[i].y0 * sy;
-        float bx1 = lb[i].x1 * sx, by1 = lb[i].y1 * sy;
+        float bx0 = lb[i].x0 * sx, by0 = lb[i].y0 * sy + yoff;
+        float bx1 = lb[i].x1 * sx, by1 = lb[i].y1 * sy + yoff;
         int active = (i < n);
         int is_sel = active && (i == ui_layout_selected());
         rs_v4f bq[6] = {
@@ -2977,7 +3014,9 @@ static void rs_layres_list_rows(rs_render *rr, int slot, int sel, GLint uc)
 static void rs_layres_preview(rs_render *rr, int slot, GLint uc)
 {
     if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
-    float sx = (float)rr->view_w / 720.0f, sy = (float)rr->view_h / 1280.0f;
+    float sx, sy, yoff;
+    rs_ui_scale(rr, &sx, &yoff);
+    sy = sx;
     uint8_t lay[30];
     int have = 0;
     if (ui_layout_selected_valid()) {
@@ -2992,7 +3031,7 @@ static void rs_layres_preview(rs_render *rr, int slot, GLint uc)
     for (int r = 0; r < 6; r++) {
         for (int c = 0; c < 5; c++) {
             float cx = (220.0f + c * 70.0f) * sx;
-            float cy = (517.0f + r * 48.0f) * sy;
+            float cy = (517.0f + r * 48.0f) * sy + yoff;
             float s = 40.0f * sx, sh = 34.0f * sy;
             int filled = have && lay[r * 5 + c] != 0;
             int rank_raw = filled ? (int)lay[r * 5 + c] : 0;
@@ -3290,7 +3329,9 @@ static void rs_replay_text(rs_render *rr, int slot, float x, float y, float w,
     if (!rr->tex_replay_text[slot] || !rr->prog_tex[slot] ||
         rr->replay_text_w <= 0 || rr->replay_text_h <= 0) return;
     int row_h = rr->replay_text_h / REPLAY_ROW;
-    float sx = (float)rr->view_w / 720.0f, sy = (float)rr->view_h / 1280.0f;
+    float sx, sy, yoff;
+    rs_ui_scale(rr, &sx, &yoff);
+    sy = sx;
     float tw = w * sx, th = h * sy;
     float u0 = 0.0f, u1 = 1.0f;
     float v0 = (float)(row * row_h) / rr->replay_text_h;
@@ -3320,9 +3361,11 @@ static void rs_replay_pieces(rs_render *rr, int slot, GLint uc)
 {
     if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     if (!rr->prog_solid[slot] || !rr->gl2_ok[slot] || !rr->game) return;
-    float sx = (float)rr->view_w / 720.0f, sy = (float)rr->view_h / 1280.0f;
+    float sx, sy, yoff;
+    rs_ui_scale(rr, &sx, &yoff);
+    sy = sx;
     /* 棋盘主体格区（720 基准）：中心 60 格 6 列 × 10 行，每格 70×88 */
-    float x0 = 190.0f * sx, y0 = 340.0f * sy;
+    float x0 = 190.0f * sx, y0 = 340.0f * sy + yoff;
     float cw = 70.0f * sx, ch = 88.0f * sy;
     for (int i = 0; i < N_CELLS; i++) {
         const jq_cell *c = &rr->game->cells[i];
@@ -3364,7 +3407,9 @@ static void rs_login_text(rs_render *rr, int slot, float x, float y, float w,
     if (!rr->tex_login_text[slot] || !rr->prog_tex[slot] ||
         rr->login_text_w <= 0 || rr->login_text_h <= 0) return;
     int row_h = rr->login_text_h / LOGIN_ROW;
-    float sx = (float)rr->view_w / 720.0f, sy = (float)rr->view_h / 1280.0f;
+    float sx, sy, yoff;
+    rs_ui_scale(rr, &sx, &yoff);
+    sy = sx;
     float tw = w * sx, th = h * sy;
     float u0 = 0.0f, u1 = 1.0f;
     float v0 = (float)(row * row_h) / rr->login_text_h;
@@ -3392,7 +3437,9 @@ static void rs_draw_login(rs_render *rr, int slot)
 {
     if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     if (!rr->prog_solid[slot] || !rr->gl2_ok[slot]) return;
-    float sx = (float)rr->view_w / 720.0f, sy = (float)rr->view_h / 1280.0f;
+    float sx, sy, yoff;
+    rs_ui_scale(rr, &sx, &yoff);
+    sy = sx;
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     /* ⓪ 背景：主菜单背景（登录弹窗是主菜单上的模态框，datah_072 方式弹窗"个人资料"弹出） */
     if (rr->tex_menu_bg[slot] && rr->prog_tex[slot]) {
@@ -3433,7 +3480,7 @@ static void rs_draw_login(rs_render *rr, int slot)
     glDeleteBuffers(1, &rr->vbo_sel[slot]);
     rr->vbo_sel[slot] = 0;
     /* ② 面板：深色半透明矩形（datah_038 432×285 居中，720 基准 144,497.5-576,782.5） */
-    float px0 = UI_LOGIN_POPUP_X0 * sx, py0 = UI_LOGIN_POPUP_Y0 * sy;
+    float px0 = UI_LOGIN_POPUP_X0 * sx, py0 = UI_LOGIN_POPUP_Y0 * sy + yoff;
     float pw = UI_LOGIN_POPUP_W * sx, ph = UI_LOGIN_POPUP_H * sy;
     rs_v4f pq[6] = {
         {px0, py0, 0, 0}, {px0 + pw, py0, 0, 0}, {px0, py0 + ph, 0, 0},
@@ -3455,8 +3502,8 @@ static void rs_draw_login(rs_render *rr, int slot)
     /* ④ 用户名/密码 占位 EditLabel（矩形浅色底 + 占位文字，★ 诚实边界：不画真输入框） */
     const ui_login_btn *lb = ui_login_buttons();
     for (int i = 0; i < 2; i++) {
-        float bx0 = lb[i].x0 * sx, by0 = lb[i].y0 * sy;
-        float bx1 = lb[i].x1 * sx, by1 = lb[i].y1 * sy;
+        float bx0 = lb[i].x0 * sx, by0 = lb[i].y0 * sy + yoff;
+        float bx1 = lb[i].x1 * sx, by1 = lb[i].y1 * sy + yoff;
         rs_v4f eq[6] = {
             {bx0, by0, 0, 0}, {bx1, by0, 0, 0}, {bx0, by1, 0, 0},
             {bx0, by1, 0, 0}, {bx1, by0, 0, 0}, {bx1, by1, 0, 0},
@@ -3510,8 +3557,8 @@ static void rs_draw_login(rs_render *rr, int slot)
        BTN_COL 定维 [UI_LOGIN_COUNT-2]（4 按钮色表），i-2∈[0,4) 恒合法；
        探针不识别 `i 非 0 起 + 减法下标` 的边界，误报。 */
     for (int i = 2; i < UI_LOGIN_COUNT; i++) {
-        float bx0 = lb[i].x0 * sx, by0 = lb[i].y0 * sy;
-        float bx1 = lb[i].x1 * sx, by1 = lb[i].y1 * sy;
+        float bx0 = lb[i].x0 * sx, by0 = lb[i].y0 * sy + yoff;
+        float bx1 = lb[i].x1 * sx, by1 = lb[i].y1 * sy + yoff;
         rs_v4f bq[6] = {
             {bx0, by0, 0, 0}, {bx1, by0, 0, 0}, {bx0, by1, 0, 0},
             {bx0, by1, 0, 0}, {bx1, by0, 0, 0}, {bx1, by1, 0, 0},
@@ -3577,7 +3624,9 @@ static void rs_rules_text(rs_render *rr, int slot, float x, float y, float w,
     if (!rr->tex_rules_text[slot] || !rr->prog_tex[slot] ||
         rr->rules_text_w <= 0 || rr->rules_text_h <= 0) return;
     int row_h = rr->rules_text_h / RULES_ROW;
-    float sx = (float)rr->view_w / 720.0f, sy = (float)rr->view_h / 1280.0f;
+    float sx, sy, yoff;
+    rs_ui_scale(rr, &sx, &yoff);
+    sy = sx;
     float tw = w * sx, th = h * sy;
     float u0 = 0.0f, u1 = 1.0f;
     float v0 = (float)(row * row_h) / rr->rules_text_h;
@@ -3605,7 +3654,9 @@ static void rs_draw_rules(rs_render *rr, int slot)
 {
     if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     if (!rr->prog_solid[slot] || !rr->gl2_ok[slot]) return;
-    float sx = (float)rr->view_w / 720.0f, sy = (float)rr->view_h / 1280.0f;
+    float sx, sy, yoff;
+    rs_ui_scale(rr, &sx, &yoff);
+    sy = sx;
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     /* ⓪ 背景：主菜单背景（规则文本弹窗是主菜单上的模态框） */
     if (rr->tex_menu_bg[slot] && rr->prog_tex[slot]) {
@@ -3646,7 +3697,7 @@ static void rs_draw_rules(rs_render *rr, int slot)
     glDeleteBuffers(1, &rr->vbo_sel[slot]);
     rr->vbo_sel[slot] = 0;
     /* ② 面板：深色半透明矩形（datah_037 260×270 居中，720 基准 230,505-490,775） */
-    float px0 = UI_RULES_POPUP_X0 * sx, py0 = UI_RULES_POPUP_Y0 * sy;
+    float px0 = UI_RULES_POPUP_X0 * sx, py0 = UI_RULES_POPUP_Y0 * sy + yoff;
     float pw = UI_RULES_POPUP_W * sx, ph = UI_RULES_POPUP_H * sy;
     rs_v4f pq[6] = {
         {px0, py0, 0, 0}, {px0 + pw, py0, 0, 0}, {px0, py0 + ph, 0, 0},
@@ -3673,8 +3724,8 @@ static void rs_draw_rules(rs_render *rr, int slot)
     };
     const ui_rules_btn *rb = ui_rules_buttons();
     for (int i = 0; i < UI_RULES_COUNT; i++) {
-        float bx0 = rb[i].x0 * sx, by0 = rb[i].y0 * sy;
-        float bx1 = rb[i].x1 * sx, by1 = rb[i].y1 * sy;
+        float bx0 = rb[i].x0 * sx, by0 = rb[i].y0 * sy + yoff;
+        float bx1 = rb[i].x1 * sx, by1 = rb[i].y1 * sy + yoff;
         rs_v4f bq[6] = {
             {bx0, by0, 0, 0}, {bx1, by0, 0, 0}, {bx0, by1, 0, 0},
             {bx0, by1, 0, 0}, {bx1, by0, 0, 0}, {bx1, by1, 0, 0},
@@ -3740,7 +3791,9 @@ static void rs_ng104_text(rs_render *rr, int slot, float x, float y, float w,
     if (!rr->tex_ng104_text[slot] || !rr->prog_tex[slot] ||
         rr->ng104_text_w <= 0 || rr->ng104_text_h <= 0) return;
     int row_h = rr->ng104_text_h / NG104_ROW;
-    float sx = (float)rr->view_w / 720.0f, sy = (float)rr->view_h / 1280.0f;
+    float sx, sy, yoff;
+    rs_ui_scale(rr, &sx, &yoff);
+    sy = sx;
     float tw = w * sx, th = h * sy;
     float u0 = 0.0f, u1 = 1.0f;
     float v0 = (float)(row * row_h) / rr->ng104_text_h;
@@ -3768,7 +3821,9 @@ static void rs_draw_newgame104(rs_render *rr, int slot)
 {
     if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     if (!rr->prog_solid[slot] || !rr->gl2_ok[slot]) return;
-    float sx = (float)rr->view_w / 720.0f, sy = (float)rr->view_h / 1280.0f;
+    float sx, sy, yoff;
+    rs_ui_scale(rr, &sx, &yoff);
+    sy = sx;
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     /* ⓪ 背景：主菜单背景（新局完整版弹窗是主菜单上的模态框） */
     if (rr->tex_menu_bg[slot] && rr->prog_tex[slot]) {
@@ -3809,7 +3864,7 @@ static void rs_draw_newgame104(rs_render *rr, int slot)
     glDeleteBuffers(1, &rr->vbo_sel[slot]);
     rr->vbo_sel[slot] = 0;
     /* ② 面板：深色半透明矩形（datah_104 450×390 居中，720 基准 135,445-585,835） */
-    float px0 = UI_NEWGAME104_POPUP_X0 * sx, py0 = UI_NEWGAME104_POPUP_Y0 * sy;
+    float px0 = UI_NEWGAME104_POPUP_X0 * sx, py0 = UI_NEWGAME104_POPUP_Y0 * sy + yoff;
     float pw = UI_NEWGAME104_POPUP_W * sx, ph = UI_NEWGAME104_POPUP_H * sy;
     rs_v4f pq[6] = {
         {px0, py0, 0, 0}, {px0 + pw, py0, 0, 0}, {px0, py0 + ph, 0, 0},
@@ -3838,8 +3893,8 @@ static void rs_draw_newgame104(rs_render *rr, int slot)
     };
     const ui_newgame104_btn *nb = ui_newgame104_buttons();
     for (int i = 0; i < UI_NEWGAME104_COUNT; i++) {
-        float bx0 = nb[i].x0 * sx, by0 = nb[i].y0 * sy;
-        float bx1 = nb[i].x1 * sx, by1 = nb[i].y1 * sy;
+        float bx0 = nb[i].x0 * sx, by0 = nb[i].y0 * sy + yoff;
+        float bx1 = nb[i].x1 * sx, by1 = nb[i].y1 * sy + yoff;
         rs_v4f bq[6] = {
             {bx0, by0, 0, 0}, {bx1, by0, 0, 0}, {bx0, by1, 0, 0},
             {bx0, by1, 0, 0}, {bx1, by0, 0, 0}, {bx1, by1, 0, 0},
@@ -3882,7 +3937,7 @@ static void rs_draw_newgame104(rs_render *rr, int slot)
         /* 标签列：我方/电脑水平/玩法 左侧 label（x 165-290，对齐原版 datah_104 标签位置） */
         for (int r = 0; r < 3; r++) {
             int label_row = 1 + r;   /* row1=我方 row2=电脑 row3=玩法 */
-            float tcy = (nb[r].y0 + nb[r].y1) * 0.5f * sy;
+            float tcy = (nb[r].y0 + nb[r].y1) * 0.5f * sy + yoff;
             float tw = 90.0f * sx, th = tw * ((float)row_h / rr->ng104_text_w);
             float tx0 = 165.0f * sx, ty0 = tcy - th * 0.5f;
             float v0 = (float)(label_row * row_h) / rr->ng104_text_h;
@@ -3913,8 +3968,8 @@ static void rs_draw_newgame104(rs_render *rr, int slot)
         if (cur_level == 3) val_rows[1] = 8;   /* 高级 */
         for (int r = 0; r < 3; r++) {
             int row_idx = val_rows[r];
-            float bx0 = nb[r].x0 * sx, by0 = nb[r].y0 * sy;
-            float bx1 = nb[r].x1 * sx, by1 = nb[r].y1 * sy;
+            float bx0 = nb[r].x0 * sx, by0 = nb[r].y0 * sy + yoff;
+            float bx1 = nb[r].x1 * sx, by1 = nb[r].y1 * sy + yoff;
             float tw = 150.0f * sx, th = tw * ((float)row_h / rr->ng104_text_w);
             float tx0 = (bx0 + bx1) * 0.5f - tw * 0.5f, ty0 = (by0 + by1) * 0.5f - th * 0.5f;
             float v0 = (float)(row_idx * row_h) / rr->ng104_text_h;
@@ -3940,8 +3995,8 @@ static void rs_draw_newgame104(rs_render *rr, int slot)
         /* 确定/取消（row9=确定 row4=蓝方 占位，★ 诚实边界：取消文字用 row4 蓝方占位） */
         for (int i = 3; i < UI_NEWGAME104_COUNT; i++) {
             int row_idx = (i == 3) ? 9 : 4;   /* 确定=row9，取消=row4 蓝方占位 */
-            float bx0 = nb[i].x0 * sx, by0 = nb[i].y0 * sy;
-            float bx1 = nb[i].x1 * sx, by1 = nb[i].y1 * sy;
+            float bx0 = nb[i].x0 * sx, by0 = nb[i].y0 * sy + yoff;
+            float bx1 = nb[i].x1 * sx, by1 = nb[i].y1 * sy + yoff;
             float tw = 120.0f * sx, th = tw * ((float)row_h / rr->ng104_text_w);
             float tx0 = (bx0 + bx1) * 0.5f - tw * 0.5f, ty0 = (by0 + by1) * 0.5f - th * 0.5f;
             float v0 = (float)(row_idx * row_h) / rr->ng104_text_h;
@@ -3987,7 +4042,9 @@ static void rs_join_text(rs_render *rr, int slot, float x, float y, float w,
     if (!rr->tex_join_text[slot] || !rr->prog_tex[slot] ||
         rr->join_text_w <= 0 || rr->join_text_h <= 0) return;
     int row_h = rr->join_text_h / JOIN_ROW;
-    float sx = (float)rr->view_w / 720.0f, sy = (float)rr->view_h / 1280.0f;
+    float sx, sy, yoff;
+    rs_ui_scale(rr, &sx, &yoff);
+    sy = sx;
     float tw = w * sx, th = h * sy;
     float u0 = 0.0f, u1 = 1.0f;
     float v0 = (float)(row * row_h) / rr->join_text_h;
@@ -4015,7 +4072,9 @@ static void rs_draw_join(rs_render *rr, int slot, int is_create)
 {
     if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     if (!rr->prog_solid[slot] || !rr->gl2_ok[slot]) return;
-    float sx = (float)rr->view_w / 720.0f, sy = (float)rr->view_h / 1280.0f;
+    float sx, sy, yoff;
+    rs_ui_scale(rr, &sx, &yoff);
+    sy = sx;
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     /* ⓪ 背景：主菜单背景（加入/创建弹窗是主菜单上的模态框） */
     if (rr->tex_menu_bg[slot] && rr->prog_tex[slot]) {
@@ -4056,7 +4115,7 @@ static void rs_draw_join(rs_render *rr, int slot, int is_create)
     glDeleteBuffers(1, &rr->vbo_sel[slot]);
     rr->vbo_sel[slot] = 0;
     /* ② 面板：深色半透明矩形（datah_034/035 420×235 居中，720 基准 150,522.5-570,757.5） */
-    float px0 = UI_JOIN_POPUP_X0 * sx, py0 = UI_JOIN_POPUP_Y0 * sy;
+    float px0 = UI_JOIN_POPUP_X0 * sx, py0 = UI_JOIN_POPUP_Y0 * sy + yoff;
     float pw = UI_JOIN_POPUP_W * sx, ph = UI_JOIN_POPUP_H * sy;
     rs_v4f pq[6] = {
         {px0, py0, 0, 0}, {px0 + pw, py0, 0, 0}, {px0, py0 + ph, 0, 0},
@@ -4086,8 +4145,8 @@ static void rs_draw_join(rs_render *rr, int slot, int is_create)
     } else {
         ex0 = jb[0].x0; ey0 = jb[0].y0; ex1 = jb[0].x1; ey1 = jb[0].y1; eact = jb[0].action;
     }
-    float bx0 = ex0 * sx, by0 = ey0 * sy;
-    float bx1 = ex1 * sx, by1 = ey1 * sy;
+    float bx0 = ex0 * sx, by0 = ey0 * sy + yoff;
+    float bx1 = ex1 * sx, by1 = ey1 * sy + yoff;
     rs_v4f eq[6] = {
         {bx0, by0, 0, 0}, {bx1, by0, 0, 0}, {bx0, by1, 0, 0},
         {bx0, by1, 0, 0}, {bx1, by0, 0, 0}, {bx1, by1, 0, 0},
@@ -4137,9 +4196,9 @@ static void rs_draw_join(rs_render *rr, int slot, int is_create)
     };
     for (int i = 1; i < UI_JOIN_COUNT; i++) {
         float ox0 = (is_create ? cb[i].x0 : jb[i].x0) * sx;
-        float oy0 = (is_create ? cb[i].y0 : jb[i].y0) * sy;
+        float oy0 = (is_create ? cb[i].y0 : jb[i].y0) * sy + yoff;
         float ox1 = (is_create ? cb[i].x1 : jb[i].x1) * sx;
-        float oy1 = (is_create ? cb[i].y1 : jb[i].y1) * sy;
+        float oy1 = (is_create ? cb[i].y1 : jb[i].y1) * sy + yoff;
         int bidx = i - 1;   /* 0=确定 1=取消 */
         rs_v4f bq[6] = {
             {ox0, oy0, 0, 0}, {ox1, oy0, 0, 0}, {ox0, oy1, 0, 0},
@@ -4198,7 +4257,11 @@ static void rs_popup_shell(rs_render *rr, int slot,
                            float px0, float py0, float pw, float ph,
                            int use_menu_bg, GLint uc)
 {
-    float sx = (float)rr->view_w / 720.0f, sy = (float)rr->view_h / 1280.0f;
+    /* ★ 2026-11-11 现代全面屏等比缩放：旧独立 sx/sy 在非 16:9 屏拉伸弹窗面板，
+       改等比 + 垂直居中（弹窗面板在 720×1280 基准坐标，等比缩放保持比例）。 */
+    float sx, sy, yoff;
+    rs_ui_scale(rr, &sx, &yoff);
+    sy = sx;
     /* ⓪ 背景：主菜单背景（use_menu_bg=1）或对局棋盘背景（use_menu_bg=0，复用 tex_bg） */
     if (rr->prog_tex[slot] &&
         (use_menu_bg ? rr->tex_menu_bg[slot] : rr->tex_bg[slot])) {
@@ -4238,9 +4301,9 @@ static void rs_popup_shell(rs_render *rr, int slot,
     rs_unbind_vbo();
     glDeleteBuffers(1, &rr->vbo_sel[slot]);
     rr->vbo_sel[slot] = 0;
-    /* ② 面板：深色半透明矩形（720 基准 px0,py0,pw,ph）
+    /* ② 面板：深色半透明矩形（720 基准 px0,py0,pw,ph；等比缩放 + 垂直居中）
        ★ 原版 UI 位图真值（ch02 N45）：面板位图存在时叠加 9patch 缩放（深色底保留） */
-    float p0x = px0 * sx, p0y = py0 * sy;
+    float p0x = px0 * sx, p0y = py0 * sy + yoff;
     float pw2 = pw * sx, ph2 = ph * sy;
     rs_v4f pq[6] = {
         {p0x, p0y, 0, 0}, {p0x + pw2, p0y, 0, 0}, {p0x, p0y + ph2, 0, 0},
@@ -4261,10 +4324,13 @@ static void rs_popup_shell(rs_render *rr, int slot,
 static void rs_solid_btn(rs_render *rr, int slot, float x0, float y0, float x1, float y1,
                          float cr, float cg, float cb, float ca, int highlight, GLint uc)
 {
-    float sx = (float)rr->view_w / 720.0f, sy = (float)rr->view_h / 1280.0f;
+    /* ★ 2026-11-11 现代全面屏等比缩放（弹窗按钮，720 基准坐标 + 垂直居中） */
+    float sx, sy, yoff;
+    rs_ui_scale(rr, &sx, &yoff);
+    sy = sx;
     rs_v4f bq[6] = {
-        {x0 * sx, y0 * sy, 0, 0}, {x1 * sx, y0 * sy, 0, 0}, {x0 * sx, y1 * sy, 0, 0},
-        {x0 * sx, y1 * sy, 0, 0}, {x1 * sx, y0 * sy, 0, 0}, {x1 * sx, y1 * sy, 0, 0},
+        {x0 * sx, y0 * sy + yoff, 0, 0}, {x1 * sx, y0 * sy + yoff, 0, 0}, {x0 * sx, y1 * sy + yoff, 0, 0},
+        {x0 * sx, y1 * sy + yoff, 0, 0}, {x1 * sx, y0 * sy + yoff, 0, 0}, {x1 * sx, y1 * sy + yoff, 0, 0},
     };
     glUseProgram(rr->prog_solid[slot]);
     glUniform2f(rr->uViewWH_solid[slot], (GLfloat)rr->view_w, (GLfloat)rr->view_h);
@@ -4281,11 +4347,11 @@ static void rs_solid_btn(rs_render *rr, int slot, float x0, float y0, float x1, 
        用途未从原版确认；此前逐按钮拉伸铺满 → 每个窄按钮都变彩条（datah_095 实证渲染错误）。
        语义确认前不接入，按钮保持纯色 + 金色描边。 */
     if (highlight) {
-        /* 金色高亮描边（按钮外围 4px 720 基准） */
+        /* 金色高亮描边（按钮外围 4px 720 基准，等比 + 垂直居中） */
         rs_v4f oq[6] = {
-            {x0 * sx - 4*sx, y0 * sy - 4*sy, 0, 0}, {x1 * sx + 4*sx, y0 * sy - 4*sy, 0, 0},
-            {x0 * sx - 4*sx, y1 * sy + 4*sy, 0, 0}, {x0 * sx - 4*sx, y1 * sy + 4*sy, 0, 0},
-            {x1 * sx + 4*sx, y0 * sy - 4*sy, 0, 0}, {x1 * sx + 4*sx, y1 * sy + 4*sy, 0, 0},
+            {x0 * sx - 4*sx, y0 * sy - 4*sy + yoff, 0, 0}, {x1 * sx + 4*sx, y0 * sy - 4*sy + yoff, 0, 0},
+            {x0 * sx - 4*sx, y1 * sy + 4*sy + yoff, 0, 0}, {x0 * sx - 4*sx, y1 * sy + 4*sy + yoff, 0, 0},
+            {x1 * sx + 4*sx, y0 * sy - 4*sy + yoff, 0, 0}, {x1 * sx + 4*sx, y1 * sy + 4*sy + yoff, 0, 0},
         };
         glUniform4f(uc, 1.0f, 0.85f, 0.2f, 0.15f);
         glGenBuffers(1, &rr->vbo_sel[slot]);
@@ -4306,8 +4372,10 @@ void rs_draw_bitmap(rs_render *rr, int slot, unsigned int tex, int tex_w, int te
                            float x0, float y0, float x1, float y1)
 {
     if (tex == 0 || tex_w <= 0 || tex_h <= 0) return;
-    float sx = (float)rr->view_w / 720.0f, sy = (float)rr->view_h / 1280.0f;
-    float ax0 = x0 * sx, ay0 = y0 * sy, ax1 = x1 * sx, ay1 = y1 * sy;
+    float sx, sy, yoff;
+    rs_ui_scale(rr, &sx, &yoff);
+    sy = sx;
+    float ax0 = x0 * sx, ay0 = y0 * sy + yoff, ax1 = x1 * sx, ay1 = y1 * sy + yoff;
     rs_v4f q[6] = {
         {ax0, ay0, 0.0f, 0.0f}, {ax1, ay0, 1.0f, 0.0f}, {ax0, ay1, 0.0f, 1.0f},
         {ax0, ay1, 0.0f, 1.0f}, {ax1, ay0, 1.0f, 0.0f}, {ax1, ay1, 1.0f, 1.0f},
@@ -4332,10 +4400,12 @@ static void rs_atlas_label(rs_render *rr, int slot, unsigned int tex, int tex_w,
 {
     (void)uc;
     if (tex_w <= 0 || tex_h <= 0) return;
-    float sx = (float)rr->view_w / 720.0f, sy = (float)rr->view_h / 1280.0f;
+    float sx, sy, yoff;
+    rs_ui_scale(rr, &sx, &yoff);
+    sy = sx;
     int row_h = tex_h / n_rows;
     float tw = w * sx, th = tw * ((float)row_h / (float)tex_w);
-    float tx0 = cx * sx - tw * 0.5f, ty0 = cy * sy - th * 0.5f;
+    float tx0 = cx * sx - tw * 0.5f, ty0 = cy * sy + yoff - th * 0.5f;
     float u0 = 0.0f, u1 = 1.0f;
     float v0 = (float)(row_idx * row_h) / (float)tex_h;
     float v1 = (float)(row_idx * row_h + row_h) / (float)tex_h;
@@ -4379,12 +4449,14 @@ static void rs_atlas_label_wh(rs_render *rr, int slot, unsigned int tex, int tex
     (void)uc;
     if (tex_w <= 0 || tex_h <= 0 || w <= 0.0f || h <= 0.0f) return;
     if (u1 <= u0) return;
-    float sx = (float)rr->view_w / 720.0f, sy = (float)rr->view_h / 1280.0f;
+    float sx, sy, yoff;
+    rs_ui_scale(rr, &sx, &yoff);
+    sy = sx;
     float v0 = (float)(row_idx * RS_ATLAS_ROW_H) / (float)tex_h;
     float v1 = (float)(row_idx * RS_ATLAS_ROW_H + RS_ATLAS_ROW_H) / (float)tex_h;
     if (v1 > 1.0f) v1 = 1.0f;
     float tw = w * sx, th = h * sy;
-    float tx0 = cx * sx - tw * 0.5f, ty0 = cy * sy - th * 0.5f;
+    float tx0 = cx * sx - tw * 0.5f, ty0 = cy * sy + yoff - th * 0.5f;
     rs_v4f tq[6] = {
         {tx0, ty0, u0, v0}, {tx0 + tw, ty0, u1, v0}, {tx0, ty0 + th, u0, v1},
         {tx0, ty0 + th, u0, v1}, {tx0 + tw, ty0, u1, v0}, {tx0 + tw, ty0 + th, u1, v1},
@@ -4482,7 +4554,9 @@ static void rs_draw_gameinfo(rs_render *rr, int slot)
 {
     if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     if (!rr->prog_solid[slot] || !rr->gl2_ok[slot]) return;
-    float sx = (float)rr->view_w / 720.0f, sy = (float)rr->view_h / 1280.0f;
+    float sx, sy, yoff;
+    rs_ui_scale(rr, &sx, &yoff);
+    sy = sx;
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     /* ⓪①② 面板 shell（棋盘背景 + 遮罩 + 深色面板 420×380 居中） */
     rs_popup_shell(rr, slot, UI_GAMEINFO_POPUP_X0, UI_GAMEINFO_POPUP_Y0,
@@ -4732,7 +4806,9 @@ static void rs_draw_drawdetail(rs_render *rr, int slot)
 {
     if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     if (!rr->prog_solid[slot] || !rr->gl2_ok[slot]) return;
-    float sx = (float)rr->view_w / 720.0f, sy = (float)rr->view_h / 1280.0f;
+    float sx, sy, yoff;
+    rs_ui_scale(rr, &sx, &yoff);
+    sy = sx;
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     /* ⓪①② 面板 shell（棋盘背景 + 遮罩 + 深色面板 450×285 居中） */
     rs_popup_shell(rr, slot, UI_DRAWDETAIL_POPUP_X0, UI_DRAWDETAIL_POPUP_Y0,
@@ -4744,8 +4820,8 @@ static void rs_draw_drawdetail(rs_render *rr, int slot)
        替换旧 ☰ 图集 8 槽占位映射 icon_map 诚实边界）+
        ④ 7 标签（drawdetail_text_atlas 竖排，按钮内 0.90 处，对齐 ☰ 菜单文字范式） */
     for (int i = 0; i < UI_DRAWDETAIL_COUNT; i++) {
-        float bx0 = db[i].x0 * sx, by0 = db[i].y0 * sy;
-        float bx1 = db[i].x1 * sx, by1 = db[i].y1 * sy;
+        float bx0 = db[i].x0 * sx, by0 = db[i].y0 * sy + yoff;
+        float bx1 = db[i].x1 * sx, by1 = db[i].y1 * sy + yoff;
         float icx = (bx0 + bx1) * 0.5f;
         float icy = by0 + (by1 - by0) * 0.30f;
         float iw = 88.0f * sx, ih = 80.0f * sy;
@@ -5296,7 +5372,9 @@ static void rs_confirm_dialog(rs_render *rr, int slot, int msg_row,
     (void)btn0; (void)btn1;
     if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     if (!rr->prog_solid[slot] || !rr->gl2_ok[slot]) return;
-    float sx = (float)rr->view_w / 720.0f, sy = (float)rr->view_h / 1280.0f;
+    float sx, sy, yoff;
+    rs_ui_scale(rr, &sx, &yoff);
+    sy = sx;
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     /* ① 弹窗外壳（背景 + 遮罩 + 弹窗皮肤面板 450×220，datah_025） */
     rs_popup_shell(rr, slot, UI_EXITCONFIRM_POPUP_X0, UI_EXITCONFIRM_POPUP_Y0,
@@ -5306,7 +5384,7 @@ static void rs_confirm_dialog(rs_render *rr, int slot, int msg_row,
     if (rr->tex_exit_text[slot] && rr->exit_text_w > 0 && rr->exit_text_h > 0) {
         int row_h = rr->exit_text_h / EXIT_ATLAS_ROWS;
         float tw = 240.0f * sx, th = tw * ((float)row_h / rr->exit_text_w);
-        float tx0 = 360.0f * sx - tw * 0.5f, ty0 = 630.0f * sy - th * 0.5f;
+        float tx0 = 360.0f * sx - tw * 0.5f, ty0 = 630.0f * sy + yoff - th * 0.5f;
         float v0 = (float)(msg_row * row_h) / rr->exit_text_h;
         float v1 = (float)(msg_row * row_h + row_h) / rr->exit_text_h;
         rs_v4f tq[6] = {
@@ -5334,8 +5412,8 @@ static void rs_confirm_dialog(rs_render *rr, int slot, int msg_row,
         {0.55f, 0.55f, 0.60f, 0.9f},   /* 取消 灰 */
     };
     for (int i = 0; i < UI_EXITCONFIRM_COUNT; i++) {
-        float bx0 = eb[i].x0 * sx, by0 = eb[i].y0 * sy;
-        float bx1 = eb[i].x1 * sx, by1 = eb[i].y1 * sy;
+        float bx0 = eb[i].x0 * sx, by0 = eb[i].y0 * sy + yoff;
+        float bx1 = eb[i].x1 * sx, by1 = eb[i].y1 * sy + yoff;
         rs_v4f bq[6] = {
             {bx0, by0, 0, 0}, {bx1, by0, 0, 0}, {bx0, by1, 0, 0},
             {bx0, by1, 0, 0}, {bx1, by0, 0, 0}, {bx1, by1, 0, 0},
@@ -9267,7 +9345,9 @@ static void rs_draw_d264(rs_render *rr, int slot)
 }static void rs_draw_about(rs_render *rr, int slot)
 {
     if (!rr->prog_solid[slot] || !rr->gl2_ok[slot]) return;
-    float sx = (float)rr->view_w / 720.0f, sy = (float)rr->view_h / 1280.0f;
+    float sx, sy, yoff;
+    rs_ui_scale(rr, &sx, &yoff);
+    sy = sx;
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     /* ⓪①② 面板 shell（棋盘背景 + 遮罩 + 深色面板 400×280 居中） */
     rs_popup_shell(rr, slot, UI_ABOUT_POPUP_X0, UI_ABOUT_POPUP_Y0,
@@ -9656,7 +9736,9 @@ static void rs_draw_replay(rs_render *rr, int slot)
 {
     if (slot < 0 || slot > 1) return;   /* AUD-A-0016~0039：slot 越界守卫（gl2_ok[2]） */
     if (!rr->prog_solid[slot] || !rr->gl2_ok[slot]) return;
-    float sx = (float)rr->view_w / 720.0f, sy = (float)rr->view_h / 1280.0f;
+    float sx, sy, yoff;
+    rs_ui_scale(rr, &sx, &yoff);
+    sy = sx;
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     /* ⓪ 背景：对局棋盘背景（复盘态画当前回放位置棋盘，复用 tex_bg 全图铺满） */
     if (rr->tex_bg[slot] && rr->prog_tex[slot]) {
@@ -9714,8 +9796,8 @@ static void rs_draw_replay(rs_render *rr, int slot)
            （编译期宏=5）定维，循环上界即宏值，i 恒 <5，无外部输入下标。 */
         for (int i = 0; i < UI_REPLAY_CTRL_COUNT; i++) {
             if (i < 0 || i >= UI_REPLAY_CTRL_COUNT) continue;   /* AUD-A-0022 探针降噪：边界断言（恒真） */
-            float bx0 = rb[i].x0 * sx, by0 = rb[i].y0 * sy;
-            float bx1 = rb[i].x1 * sx, by1 = rb[i].y1 * sy;
+            float bx0 = rb[i].x0 * sx, by0 = rb[i].y0 * sy + yoff;
+            float bx1 = rb[i].x1 * sx, by1 = rb[i].y1 * sy + yoff;
             rs_v4f bq[6] = {
                 {bx0, by0, 0, 0}, {bx1, by0, 0, 0}, {bx0, by1, 0, 0},
                 {bx0, by1, 0, 0}, {bx1, by0, 0, 0}, {bx1, by1, 0, 0},
@@ -10401,12 +10483,19 @@ void rs_render_frame(rs_render *rr)
     }
 
     /* 棋盘背景（★ 层 2 视觉对齐：原版 datax_177 完整棋盘背景 720×1280 全图铺满；
-       旧版 datah_188 UV 0.366-0.631 裁剪铺满（拉伸变形+无标题）） */
+       旧版 datah_188 UV 0.366-0.631 裁剪铺满（拉伸变形+无标题））
+       ★ 2026-11-11 现代全面屏等比缩放（用户"安卓设计都是全面屏"）：旧铺满全屏
+       {0,0}-{w,h} UV 全图在非 16:9 屏（20:9）拉伸棋盘变形。改按宽等比
+       s=vw/720 + 上下条带（棋盘图顶/底边缘 UV clamp 延伸，无黑边）。
+       16:9（900×1600）s=1.25,by0=0 → 铺满全屏（与原版一致，无回归）。 */
+    float bg_s = (float)rr->view_w / 720.0f;   /* 按宽等比（保棋盘比例） */
+    float bg_by0 = ((float)rr->view_h - 1280.0f * bg_s) * 0.5f;
+    float bg_by1 = bg_by0 + 1280.0f * bg_s;
     if (rr->tex_bg[slot] && rr->gl2_ok[slot]) {
         float w = (float)rr->view_w, h = (float)rr->view_h;
         rs_v4f bq[6] = {
-            {0, 0, 0, 0}, {w, 0, 1, 0}, {0, h, 0, 1},
-            {0, h, 0, 1}, {w, 0, 1, 0}, {w, h, 1, 1},
+            {0, bg_by0, 0, 0}, {w, bg_by0, 1, 0}, {0, bg_by1, 0, 1},
+            {0, bg_by1, 0, 1}, {w, bg_by0, 1, 0}, {w, bg_by1, 1, 1},
         };
         glUseProgram(rr->prog_tex[slot]);
         glUniform2f(rr->uViewWH_tex[slot], (GLfloat)rr->view_w, (GLfloat)rr->view_h);
@@ -10443,9 +10532,15 @@ void rs_render_frame(rs_render *rr)
            ★ 顶点 shader ndc.y=-ndc.y → aPos.y=0=屏幕顶、view_h=屏幕底
            （旧注释"底=0"是错的，曾致棋子翻侧）。bg 正向 v=0=图顶 →
            图顶(iy=0)→aPos.y=0→屏幕顶，图底(iy=1280)→aPos.y=view_h→屏幕底。 */
+        /* ★ 2026-11-11 现代全面屏等比（用户"安卓设计都是全面屏"）：旧独立缩放
+           cell_w=BG_GRID_COL_W/BG_IMG_W*vw（按屏宽）+ cell_h=BG_GRID_ROW_H/BG_IMG_H*vh
+           （按屏高）在非 16:9 屏拉伸棋子。改等比 bg_s=vw/720 + bg_by0 垂直居中，
+           与棋盘背景 quad 同几何（16:9 s=1.25,by0=0 → 与原版一致，无回归）。 */
         float vw = (float)rr->view_w, vh = (float)rr->view_h;
-        float cell_w = BG_GRID_COL_W / BG_IMG_W * vw;
-        float cell_h = BG_GRID_ROW_H / BG_IMG_H * vh;
+        float bg_s = (float)rr->view_w / 720.0f;   /* 棋盘等比（按宽，保比例） */
+        float bg_by0 = ((float)rr->view_h - 1280.0f * bg_s) * 0.5f;
+        float cell_w = BG_GRID_COL_W * bg_s;
+        float cell_h = BG_GRID_ROW_H * bg_s;
         /* ★ 原版 UI 对齐（用户指正"棋子间隙"）：棋子不铺满格——原版实测
            （orig_human.png 900×1600）：棋子宽 103px/列距 175px=0.5886，
            棋子高 71px/行距 87px=0.816。用 0.59×0.82 比例，以格中心对齐
@@ -10528,8 +10623,8 @@ void rs_render_frame(rs_render *rr)
                （aPos.y=0=屏幕顶，shader ndc.y=-ndc.y；bg 正向 v=0=图顶，
                图像 iy 直接映射 aPos.y=iy/BG_IMG_H*view_h，图底→屏幕底）
                ★ 棋子缩到 piece_w×piece_h（格中心对齐，留间隙对齐原版） */
-            float x0 = (ix - BG_GRID_COL_W * 0.5f) / BG_IMG_W * vw + (cell_w - piece_w) * 0.5f;
-            float y0 = (iy - BG_GRID_ROW_H * 0.5f) / BG_IMG_H * vh + (cell_h - piece_h) * 0.5f;
+            float x0 = (ix - BG_GRID_COL_W * 0.5f) * bg_s + (cell_w - piece_w) * 0.5f;
+            float y0 = bg_by0 + (iy - BG_GRID_ROW_H * 0.5f) * bg_s + (cell_h - piece_h) * 0.5f;
             float tw = 1.0f / PIECE_GRID_W, th = 1.0f / PIECE_GRID_H;
             float u0 = col * tw, v0 = row * th;
             piece_pool[nverts++] = (rs_v4f){x0, y0, u0, v0};
@@ -11015,9 +11110,11 @@ void rs_render_frame(rs_render *rr)
         static int mdiag = 0;
         if (!mdiag || (mdiag % 120 == 0)) {
             const ui_btn *btns = ui_menu_buttons();
-            float sx = (float)rr->view_w / 720.0f, sy = (float)rr->view_h / 1280.0f;
+            float sx, sy, yoff;
+    rs_ui_scale(rr, &sx, &yoff);
+    sy = sx;
             float cx = (btns[0].x0 + btns[0].x1) * 0.5f * sx;
-            float cy = (btns[0].y0 + btns[0].y1) * 0.5f * sy;
+            float cy = (btns[0].y0 + btns[0].y1) * 0.5f * sy + yoff;
             /* glReadPixels 原点在左下 → 按钮 y（GL 向上）= cy 直接可用 */
             unsigned char px[4] = {0};
             glReadPixels((int)cx, (int)cy, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, px);

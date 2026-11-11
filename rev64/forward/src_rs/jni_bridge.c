@@ -3466,6 +3466,16 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
             }
         }
     }
+    /* ★ 2026-11-11 现代全面屏等比缩放（渲染 rs_ui_scale 已改等比 + yoff，触摸命中必须同几何）：
+       旧独立缩放（x/g_view_w*720, y/g_view_h*1280）在非 16:9 屏（20:9/19.5:9）拉伸错位。
+       16:9（900×1600）s=1.25,yoff=0 → 与旧数学相同（无回归）；20:9 s=1.5,yoff=240。 */
+    float g_touch_s = (float)g_view_w / 720.0f;
+    {
+        float sh = (float)g_view_h / 1280.0f;
+        if (sh < g_touch_s) g_touch_s = sh;
+    }
+    if (g_touch_s <= 0.0f) g_touch_s = 1.0f;   /* view 未同步时安全值（bx/by=0 守卫兜底） */
+    float g_touch_yoff = ((float)g_view_h - 1280.0f * g_touch_s) * 0.5f;
     /* UI 分流：菜单态点按钮 → 进对局（人机/重开），其它按钮占位日志。
        ★ 触摸坐标（MotionEvent.getX/getY）与渲染 viewport 坐标系不一致
          （MuMu input 注入坐标被缩放），故菜单命中用 720×1280 按钮几何
@@ -3478,16 +3488,22 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
            基准坐标 720×1280 同布局，rs_draw_menu 用 sx/sy 缩放画到实际 view，
            触摸 x/y 在实际 view 坐标系 → 归一化后直接命中同一套相对矩形。 */
         /* 命中：触摸坐标归一化 [0,1]²（x/view_w、y/view_h）vs g_btns 720×1280 基准归一化，
-           与渲染 rs_draw_menu 的 sx/sy 缩放同一套相对几何（MuMu 触摸坐标系不同 → 归一化解耦）。 */
+           与渲染 rs_draw_menu 的 sx/sy 缩放同一套相对几何（MuMu 触摸坐标系不同 → 归一化解耦）。
+           ★ 2026-11-11 现代全面屏：渲染已改等比（rs_ui_scale s + yoff），触摸命中必须同几何，
+           否则 20:9 屏触摸错位（旧独立 g_view_w/720, g_view_h/1280 在非 16:9 拉伸）。 */
         const ui_btn *btns = ui_menu_buttons();
         float nx = g_view_w > 0 ? x / (float)g_view_w : 0;
         float ny = g_view_h > 0 ? y / (float)g_view_h : 0;
+        /* ★ 等比缩放（与 rs_ui_scale 同公式）：s=min(w/720,h/1280)，yoff 垂直居中 */
+        float ms = (float)g_view_w / 720.0f;
+        float msh = (float)g_view_h / 1280.0f;
+        if (msh < ms) ms = msh;
+        float myoff = ((float)g_view_h - 1280.0f * ms) * 0.5f;
         int hit = -1, hit_action = -1;
         for (int i = 0; i < UI_BTN_COUNT; i++) {
-            /* ★ 按钮几何 720×1280 基准 → 实际 view 像素（与 rs_draw_menu sx/sy 缩放同几何）：
-               MotionEvent x/y 已是 view 像素（顶左原点）→ 按钮矩形转 view 像素直接比较 */
-            float b0 = btns[i].x0 * g_view_w / 720.0f, b1 = btns[i].x1 * g_view_w / 720.0f;
-            float c0 = btns[i].y0 * g_view_h / 1280.0f, c1 = btns[i].y1 * g_view_h / 1280.0f;
+            /* ★ 按钮几何 720×1280 基准 → 等比缩放 + 垂直居中（与 rs_draw_menu 同几何） */
+            float b0 = btns[i].x0 * ms, b1 = btns[i].x1 * ms;
+            float c0 = btns[i].y0 * ms + myoff, c1 = btns[i].y1 * ms + myoff;
             if (x >= b0 && x <= b1 && y >= c0 && y <= c1) { hit = i; hit_action = btns[i].action; }
         }
         LOGI("UI命中：x=%.0f y=%.0f nx=%.3f ny=%.3f hit=%d action=%d",
@@ -3559,8 +3575,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
 
     /* ★ 批量对齐（datah_000）：2 按钮业务分发 */
     if (ui_screen_get() == UI_D000) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_d000_btn *bb = ui_d000_buttons();
         int bh = ui_d000_hit(bb, UI_D000_COUNT, bx, by);
         if (bh >= 0) {
@@ -3581,8 +3597,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
     }
     /* ★ 批量对齐（datah_001）：4 按钮业务分发 */
     if (ui_screen_get() == UI_D001) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_d001_btn *bb = ui_d001_buttons();
         int bh = ui_d001_hit(bb, UI_D001_COUNT, bx, by);
         if (bh >= 0) {
@@ -3607,8 +3623,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
     }
     /* ★ 批量对齐（datah_002）：2 按钮业务分发 */
     if (ui_screen_get() == UI_D002) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_d002_btn *bb = ui_d002_buttons();
         int bh = ui_d002_hit(bb, UI_D002_COUNT, bx, by);
         if (bh >= 0) {
@@ -3625,8 +3641,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
     }
     /* ★ 批量对齐（datah_003）：3 按钮业务分发 */
     if (ui_screen_get() == UI_D003) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_d003_btn *bb = ui_d003_buttons();
         int bh = ui_d003_hit(bb, UI_D003_COUNT, bx, by);
         if (bh >= 0) {
@@ -3651,8 +3667,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
     }
     /* ★ 批量对齐（datah_004）：2 按钮业务分发 */
     if (ui_screen_get() == UI_D004) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_d004_btn *bb = ui_d004_buttons();
         int bh = ui_d004_hit(bb, UI_D004_COUNT, bx, by);
         if (bh >= 0) {
@@ -3673,8 +3689,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
     }
     /* ★ 批量对齐（datah_005）：2 按钮业务分发 */
     if (ui_screen_get() == UI_D005) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_d005_btn *bb = ui_d005_buttons();
         int bh = ui_d005_hit(bb, UI_D005_COUNT, bx, by);
         if (bh >= 0) {
@@ -3695,8 +3711,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
     }
     /* ★ 批量对齐（datah_006）：8 按钮业务分发 */
     if (ui_screen_get() == UI_D006) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_d006_btn *bb = ui_d006_buttons();
         int bh = ui_d006_hit(bb, UI_D006_COUNT, bx, by);
         if (bh >= 0) {
@@ -3734,8 +3750,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
     }
     /* ★ 批量对齐（datah_007）：6 按钮业务分发 */
     if (ui_screen_get() == UI_D007) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_d007_btn *bb = ui_d007_buttons();
         int bh = ui_d007_hit(bb, UI_D007_COUNT, bx, by);
         if (bh >= 0) {
@@ -3768,8 +3784,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
     }
     /* ★ 批量对齐（datah_008）：5 按钮业务分发 */
     if (ui_screen_get() == UI_D008) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_d008_btn *bb = ui_d008_buttons();
         int bh = ui_d008_hit(bb, UI_D008_COUNT, bx, by);
         if (bh >= 0) {
@@ -3798,8 +3814,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
     }
     /* ★ 批量对齐（datah_010）：2 按钮业务分发 */
     if (ui_screen_get() == UI_D010) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_d010_btn *bb = ui_d010_buttons();
         int bh = ui_d010_hit(bb, UI_D010_COUNT, bx, by);
         if (bh >= 0) {
@@ -3818,8 +3834,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
     }
     /* ★ 批量对齐（datah_012）：6 按钮业务分发 */
     if (ui_screen_get() == UI_D012) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_d012_btn *bb = ui_d012_buttons();
         int bh = ui_d012_hit(bb, UI_D012_COUNT, bx, by);
         if (bh >= 0) {
@@ -3852,8 +3868,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
     }
     /* ★ 批量对齐（datah_013）：3 按钮业务分发 */
     if (ui_screen_get() == UI_D013) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_d013_btn *bb = ui_d013_buttons();
         int bh = ui_d013_hit(bb, UI_D013_COUNT, bx, by);
         if (bh >= 0) {
@@ -3878,8 +3894,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
     }
     /* ★ 批量对齐（datah_015）：1 按钮业务分发 */
     if (ui_screen_get() == UI_D015) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_d015_btn *bb = ui_d015_buttons();
         int bh = ui_d015_hit(bb, UI_D015_COUNT, bx, by);
         if (bh >= 0) {
@@ -3896,8 +3912,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
     }
     /* ★ 批量对齐（datah_016）：4 按钮业务分发 */
     if (ui_screen_get() == UI_D016) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_d016_btn *bb = ui_d016_buttons();
         int bh = ui_d016_hit(bb, UI_D016_COUNT, bx, by);
         if (bh >= 0) {
@@ -3918,8 +3934,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
     }
     /* ★ 批量对齐（datah_017）：1 按钮业务分发 */
     if (ui_screen_get() == UI_D017) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_d017_btn *bb = ui_d017_buttons();
         int bh = ui_d017_hit(bb, UI_D017_COUNT, bx, by);
         if (bh >= 0) {
@@ -3934,8 +3950,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
     }
     /* ★ 批量对齐（datah_019）：4 按钮业务分发 */
     if (ui_screen_get() == UI_D019) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_d019_btn *bb = ui_d019_buttons();
         int bh = ui_d019_hit(bb, UI_D019_COUNT, bx, by);
         if (bh >= 0) {
@@ -3964,8 +3980,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
     }
     /* ★ 批量对齐（datah_020）：4 按钮业务分发 */
     if (ui_screen_get() == UI_D020) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_d020_btn *bb = ui_d020_buttons();
         int bh = ui_d020_hit(bb, UI_D020_COUNT, bx, by);
         if (bh >= 0) {
@@ -3990,8 +4006,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
     }
     /* ★ 批量对齐（datah_021）：3 按钮业务分发 */
     if (ui_screen_get() == UI_D021) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_d021_btn *bb = ui_d021_buttons();
         int bh = ui_d021_hit(bb, UI_D021_COUNT, bx, by);
         if (bh >= 0) {
@@ -4016,8 +4032,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
     }
     /* ★ 批量对齐（datah_022）：5 按钮业务分发 */
     if (ui_screen_get() == UI_D022) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_d022_btn *bb = ui_d022_buttons();
         int bh = ui_d022_hit(bb, UI_D022_COUNT, bx, by);
         if (bh >= 0) {
@@ -4050,8 +4066,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
     }
     /* ★ 批量对齐（datah_023）：4 按钮业务分发 */
     if (ui_screen_get() == UI_D023) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_d023_btn *bb = ui_d023_buttons();
         int bh = ui_d023_hit(bb, UI_D023_COUNT, bx, by);
         if (bh >= 0) {
@@ -4080,8 +4096,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
     }
     /* ★ 批量对齐（datah_024）：1 按钮业务分发 */
     if (ui_screen_get() == UI_D024) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_d024_btn *bb = ui_d024_buttons();
         int bh = ui_d024_hit(bb, UI_D024_COUNT, bx, by);
         if (bh >= 0) {
@@ -4098,8 +4114,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
     }
     /* ★ 批量对齐（datah_025）：1 按钮业务分发 */
     if (ui_screen_get() == UI_D025) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_d025_btn *bb = ui_d025_buttons();
         int bh = ui_d025_hit(bb, UI_D025_COUNT, bx, by);
         if (bh >= 0) {
@@ -4114,8 +4130,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
     }
     /* ★ 批量对齐（datah_026）：3 按钮业务分发 */
     if (ui_screen_get() == UI_D026) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_d026_btn *bb = ui_d026_buttons();
         int bh = ui_d026_hit(bb, UI_D026_COUNT, bx, by);
         if (bh >= 0) {
@@ -4136,8 +4152,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
     }
     /* ★ 批量对齐（datah_027）：3 按钮业务分发 */
     if (ui_screen_get() == UI_D027) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_d027_btn *bb = ui_d027_buttons();
         int bh = ui_d027_hit(bb, UI_D027_COUNT, bx, by);
         if (bh >= 0) {
@@ -4162,8 +4178,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
     }
     /* ★ 批量对齐（datah_028）：3 按钮业务分发 */
     if (ui_screen_get() == UI_D028) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_d028_btn *bb = ui_d028_buttons();
         int bh = ui_d028_hit(bb, UI_D028_COUNT, bx, by);
         if (bh >= 0) {
@@ -4188,8 +4204,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
     }
     /* ★ 批量对齐（datah_029）：2 按钮业务分发 */
     if (ui_screen_get() == UI_D029) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_d029_btn *bb = ui_d029_buttons();
         int bh = ui_d029_hit(bb, UI_D029_COUNT, bx, by);
         if (bh >= 0) {
@@ -4210,8 +4226,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
     }
     /* ★ 批量对齐（datah_030）：2 按钮业务分发 */
     if (ui_screen_get() == UI_D030) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_d030_btn *bb = ui_d030_buttons();
         int bh = ui_d030_hit(bb, UI_D030_COUNT, bx, by);
         if (bh >= 0) {
@@ -4230,8 +4246,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
     }
     /* ★ 批量对齐（datah_031）：3 按钮业务分发 */
     if (ui_screen_get() == UI_D031) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_d031_btn *bb = ui_d031_buttons();
         int bh = ui_d031_hit(bb, UI_D031_COUNT, bx, by);
         if (bh >= 0) {
@@ -4254,8 +4270,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
     }
     /* ★ 批量对齐（datah_032）：4 按钮业务分发 */
     if (ui_screen_get() == UI_D032) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_d032_btn *bb = ui_d032_buttons();
         int bh = ui_d032_hit(bb, UI_D032_COUNT, bx, by);
         if (bh >= 0) {
@@ -4284,8 +4300,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
     }
     /* ★ 批量对齐（datah_033）：2 按钮业务分发 */
     if (ui_screen_get() == UI_D033) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_d033_btn *bb = ui_d033_buttons();
         int bh = ui_d033_hit(bb, UI_D033_COUNT, bx, by);
         if (bh >= 0) {
@@ -4304,8 +4320,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
     }
     /* ★ 批量对齐（datah_034）：2 按钮业务分发 */
     if (ui_screen_get() == UI_D034) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_d034_btn *bb = ui_d034_buttons();
         int bh = ui_d034_hit(bb, UI_D034_COUNT, bx, by);
         if (bh >= 0) {
@@ -4322,8 +4338,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
     }
     /* ★ 批量对齐（datah_035）：2 按钮业务分发 */
     if (ui_screen_get() == UI_D035) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_d035_btn *bb = ui_d035_buttons();
         int bh = ui_d035_hit(bb, UI_D035_COUNT, bx, by);
         if (bh >= 0) {
@@ -4340,8 +4356,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
     }
     /* ★ 批量对齐（datah_036）：4 按钮业务分发 */
     if (ui_screen_get() == UI_D036) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_d036_btn *bb = ui_d036_buttons();
         int bh = ui_d036_hit(bb, UI_D036_COUNT, bx, by);
         if (bh >= 0) {
@@ -4368,8 +4384,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
     }
     /* ★ 批量对齐（datah_037）：3 按钮业务分发 */
     if (ui_screen_get() == UI_D037) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_d037_btn *bb = ui_d037_buttons();
         int bh = ui_d037_hit(bb, UI_D037_COUNT, bx, by);
         if (bh >= 0) {
@@ -4392,8 +4408,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
     }
     /* ★ 批量对齐（datah_038）：4 按钮业务分发 */
     if (ui_screen_get() == UI_D038) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_d038_btn *bb = ui_d038_buttons();
         int bh = ui_d038_hit(bb, UI_D038_COUNT, bx, by);
         if (bh >= 0) {
@@ -4420,8 +4436,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
     }
     /* ★ 批量对齐（datah_039）：1 按钮业务分发 */
     if (ui_screen_get() == UI_D039) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_d039_btn *bb = ui_d039_buttons();
         int bh = ui_d039_hit(bb, UI_D039_COUNT, bx, by);
         if (bh >= 0) {
@@ -4436,8 +4452,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
     }
     /* ★ 批量对齐（datah_041）：8 按钮业务分发 */
     if (ui_screen_get() == UI_D041) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_d041_btn *bb = ui_d041_buttons();
         int bh = ui_d041_hit(bb, UI_D041_COUNT, bx, by);
         if (bh >= 0) {
@@ -4482,8 +4498,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
     }
     /* ★ 批量对齐（datah_042）：7 按钮业务分发 */
     if (ui_screen_get() == UI_D042) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_d042_btn *bb = ui_d042_buttons();
         int bh = ui_d042_hit(bb, UI_D042_COUNT, bx, by);
         if (bh >= 0) {
@@ -4518,8 +4534,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
     }
     /* ★ 批量对齐（datah_043）：2 按钮业务分发 */
     if (ui_screen_get() == UI_D043) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_d043_btn *bb = ui_d043_buttons();
         int bh = ui_d043_hit(bb, UI_D043_COUNT, bx, by);
         if (bh >= 0) {
@@ -4536,8 +4552,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
     }
     /* ★ 批量对齐（datah_044）：2 按钮业务分发 */
     if (ui_screen_get() == UI_D044) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_d044_btn *bb = ui_d044_buttons();
         int bh = ui_d044_hit(bb, UI_D044_COUNT, bx, by);
         if (bh >= 0) {
@@ -4558,8 +4574,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
     }
     /* ★ 批量对齐（datah_045）：1 按钮业务分发 */
     if (ui_screen_get() == UI_D045) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_d045_btn *bb = ui_d045_buttons();
         int bh = ui_d045_hit(bb, UI_D045_COUNT, bx, by);
         if (bh >= 0) {
@@ -4576,8 +4592,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
     }
     /* ★ 批量对齐（datah_046）：1 按钮业务分发 */
     if (ui_screen_get() == UI_D046) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_d046_btn *bb = ui_d046_buttons();
         int bh = ui_d046_hit(bb, UI_D046_COUNT, bx, by);
         if (bh >= 0) {
@@ -4592,8 +4608,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
     }
     /* ★ 批量对齐（datah_047）：1 按钮业务分发 */
     if (ui_screen_get() == UI_D047) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_d047_btn *bb = ui_d047_buttons();
         int bh = ui_d047_hit(bb, UI_D047_COUNT, bx, by);
         if (bh >= 0) {
@@ -4610,8 +4626,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
     }
     /* ★ 批量对齐（datah_049）：1 按钮业务分发 */
     if (ui_screen_get() == UI_D049) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_d049_btn *bb = ui_d049_buttons();
         int bh = ui_d049_hit(bb, UI_D049_COUNT, bx, by);
         if (bh >= 0) {
@@ -4628,8 +4644,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
     }
     /* ★ 批量对齐（datah_050）：3 按钮业务分发 */
     if (ui_screen_get() == UI_D050) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_d050_btn *bb = ui_d050_buttons();
         int bh = ui_d050_hit(bb, UI_D050_COUNT, bx, by);
         if (bh >= 0) {
@@ -4648,8 +4664,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
     }
     /* ★ 批量对齐（datah_051）：2 按钮业务分发 */
     if (ui_screen_get() == UI_D051) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_d051_btn *bb = ui_d051_buttons();
         int bh = ui_d051_hit(bb, UI_D051_COUNT, bx, by);
         if (bh >= 0) {
@@ -4668,8 +4684,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
     }
     /* ★ 批量对齐（datah_052）：2 按钮业务分发 */
     if (ui_screen_get() == UI_D052) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_d052_btn *bb = ui_d052_buttons();
         int bh = ui_d052_hit(bb, UI_D052_COUNT, bx, by);
         if (bh >= 0) {
@@ -4688,8 +4704,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
     }
     /* ★ 批量对齐（datah_053）：2 按钮业务分发 */
     if (ui_screen_get() == UI_D053) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_d053_btn *bb = ui_d053_buttons();
         int bh = ui_d053_hit(bb, UI_D053_COUNT, bx, by);
         if (bh >= 0) {
@@ -4708,8 +4724,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
     }
     /* ★ 批量对齐（datah_054）：2 按钮业务分发 */
     if (ui_screen_get() == UI_D054) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_d054_btn *bb = ui_d054_buttons();
         int bh = ui_d054_hit(bb, UI_D054_COUNT, bx, by);
         if (bh >= 0) {
@@ -4728,8 +4744,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
     }
     /* ★ 批量对齐（datah_055）：1 按钮业务分发 */
     if (ui_screen_get() == UI_D055) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_d055_btn *bb = ui_d055_buttons();
         int bh = ui_d055_hit(bb, UI_D055_COUNT, bx, by);
         if (bh >= 0) {
@@ -4744,8 +4760,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
     }
     /* ★ 批量对齐（datah_057）：2 按钮业务分发 */
     if (ui_screen_get() == UI_D057) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_d057_btn *bb = ui_d057_buttons();
         int bh = ui_d057_hit(bb, UI_D057_COUNT, bx, by);
         if (bh >= 0) {
@@ -4764,8 +4780,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
     }
     /* ★ 批量对齐（datah_058）：2 按钮业务分发 */
     if (ui_screen_get() == UI_D058) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_d058_btn *bb = ui_d058_buttons();
         int bh = ui_d058_hit(bb, UI_D058_COUNT, bx, by);
         if (bh >= 0) {
@@ -4782,8 +4798,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
     }
     /* ★ 批量对齐（datah_059）：3 按钮业务分发 */
     if (ui_screen_get() == UI_D059) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_d059_btn *bb = ui_d059_buttons();
         int bh = ui_d059_hit(bb, UI_D059_COUNT, bx, by);
         if (bh >= 0) {
@@ -4804,8 +4820,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
     }
     /* ★ 批量对齐（datah_060）：5 按钮业务分发 */
     if (ui_screen_get() == UI_D060) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_d060_btn *bb = ui_d060_buttons();
         int bh = ui_d060_hit(bb, UI_D060_COUNT, bx, by);
         if (bh >= 0) {
@@ -4836,8 +4852,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
     }
     /* ★ 批量对齐（datah_061）：6 按钮业务分发 */
     if (ui_screen_get() == UI_D061) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_d061_btn *bb = ui_d061_buttons();
         int bh = ui_d061_hit(bb, UI_D061_COUNT, bx, by);
         if (bh >= 0) {
@@ -4870,8 +4886,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
     }
     /* ★ 批量对齐（datah_062）：4 按钮业务分发 */
     if (ui_screen_get() == UI_D062) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_d062_btn *bb = ui_d062_buttons();
         int bh = ui_d062_hit(bb, UI_D062_COUNT, bx, by);
         if (bh >= 0) {
@@ -4896,8 +4912,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
     }
     /* ★ 批量对齐（datah_063）：3 按钮业务分发 */
     if (ui_screen_get() == UI_D063) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_d063_btn *bb = ui_d063_buttons();
         int bh = ui_d063_hit(bb, UI_D063_COUNT, bx, by);
         if (bh >= 0) {
@@ -4922,8 +4938,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
     }
     /* ★ 批量对齐（datah_064）：3 按钮业务分发 */
     if (ui_screen_get() == UI_D064) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_d064_btn *bb = ui_d064_buttons();
         int bh = ui_d064_hit(bb, UI_D064_COUNT, bx, by);
         if (bh >= 0) {
@@ -4946,8 +4962,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
     }
     /* ★ 批量对齐（datah_065）：2 按钮业务分发 */
     if (ui_screen_get() == UI_D065) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_d065_btn *bb = ui_d065_buttons();
         int bh = ui_d065_hit(bb, UI_D065_COUNT, bx, by);
         if (bh >= 0) {
@@ -4966,8 +4982,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
     }
     /* ★ 批量对齐（datah_066）：3 按钮业务分发 */
     if (ui_screen_get() == UI_D066) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_d066_btn *bb = ui_d066_buttons();
         int bh = ui_d066_hit(bb, UI_D066_COUNT, bx, by);
         if (bh >= 0) {
@@ -4990,8 +5006,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
     }
     /* ★ 批量对齐（datah_067）：8 按钮业务分发 */
     if (ui_screen_get() == UI_D067) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_d067_btn *bb = ui_d067_buttons();
         int bh = ui_d067_hit(bb, UI_D067_COUNT, bx, by);
         if (bh >= 0) {
@@ -5029,8 +5045,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
     }
     /* ★ 批量对齐（datah_068）：3 按钮业务分发 */
     if (ui_screen_get() == UI_D068) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_d068_btn *bb = ui_d068_buttons();
         int bh = ui_d068_hit(bb, UI_D068_COUNT, bx, by);
         if (bh >= 0) {
@@ -5051,8 +5067,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
     }
     /* ★ 批量对齐（datah_069）：6 按钮业务分发 */
     if (ui_screen_get() == UI_D069) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_d069_btn *bb = ui_d069_buttons();
         int bh = ui_d069_hit(bb, UI_D069_COUNT, bx, by);
         if (bh >= 0) {
@@ -5085,8 +5101,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
     }
     /* ★ 批量对齐（datah_070）：6 按钮业务分发 */
     if (ui_screen_get() == UI_D070) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_d070_btn *bb = ui_d070_buttons();
         int bh = ui_d070_hit(bb, UI_D070_COUNT, bx, by);
         if (bh >= 0) {
@@ -5119,8 +5135,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
     }
     /* ★ 批量对齐（datah_071）：2 按钮业务分发 */
     if (ui_screen_get() == UI_D071) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_d071_btn *bb = ui_d071_buttons();
         int bh = ui_d071_hit(bb, UI_D071_COUNT, bx, by);
         if (bh >= 0) {
@@ -5139,8 +5155,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
     }
     /* ★ 批量对齐（datah_072）：4 按钮业务分发 */
     if (ui_screen_get() == UI_D072) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_d072_btn *bb = ui_d072_buttons();
         int bh = ui_d072_hit(bb, UI_D072_COUNT, bx, by);
         if (bh >= 0) {
@@ -5167,8 +5183,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
     }
     /* ★ 批量对齐（datah_073）：2 按钮业务分发 */
     if (ui_screen_get() == UI_D073) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_d073_btn *bb = ui_d073_buttons();
         int bh = ui_d073_hit(bb, UI_D073_COUNT, bx, by);
         if (bh >= 0) {
@@ -5187,8 +5203,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
     }
     /* ★ 批量对齐（datah_075）：4 按钮业务分发 */
     if (ui_screen_get() == UI_D075) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_d075_btn *bb = ui_d075_buttons();
         int bh = ui_d075_hit(bb, UI_D075_COUNT, bx, by);
         if (bh >= 0) {
@@ -5217,8 +5233,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
     }
     /* ★ 批量对齐（datah_077）：6 按钮业务分发 */
     if (ui_screen_get() == UI_D077) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_d077_btn *bb = ui_d077_buttons();
         int bh = ui_d077_hit(bb, UI_D077_COUNT, bx, by);
         if (bh >= 0) {
@@ -5243,8 +5259,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
     }
     /* ★ 批量对齐（datah_078）：3 按钮业务分发 */
     if (ui_screen_get() == UI_D078) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_d078_btn *bb = ui_d078_buttons();
         int bh = ui_d078_hit(bb, UI_D078_COUNT, bx, by);
         if (bh >= 0) {
@@ -5265,8 +5281,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
     }
     /* ★ 批量对齐（datah_079）：1 按钮业务分发 */
     if (ui_screen_get() == UI_D079) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_d079_btn *bb = ui_d079_buttons();
         int bh = ui_d079_hit(bb, UI_D079_COUNT, bx, by);
         if (bh >= 0) {
@@ -5281,8 +5297,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
     }
     /* ★ 批量对齐（datah_082）：5 按钮业务分发 */
     if (ui_screen_get() == UI_D082) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_d082_btn *bb = ui_d082_buttons();
         int bh = ui_d082_hit(bb, UI_D082_COUNT, bx, by);
         if (bh >= 0) {
@@ -5308,8 +5324,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
     }
     /* ★ 批量对齐（datah_083）：4 按钮业务分发 */
     if (ui_screen_get() == UI_D083) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_d083_btn *bb = ui_d083_buttons();
         int bh = ui_d083_hit(bb, UI_D083_COUNT, bx, by);
         if (bh >= 0) {
@@ -5332,8 +5348,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
     }
     /* ★ 批量对齐（datah_084）：4 按钮业务分发 */
     if (ui_screen_get() == UI_D084) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_d084_btn *bb = ui_d084_buttons();
         int bh = ui_d084_hit(bb, UI_D084_COUNT, bx, by);
         if (bh >= 0) {
@@ -5354,8 +5370,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
     }
     /* ★ 批量对齐（datah_085）：5 按钮业务分发 */
     if (ui_screen_get() == UI_D085) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_d085_btn *bb = ui_d085_buttons();
         int bh = ui_d085_hit(bb, UI_D085_COUNT, bx, by);
         if (bh >= 0) {
@@ -5378,8 +5394,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
     }
     /* ★ 批量对齐（datah_086）：4 按钮业务分发 */
     if (ui_screen_get() == UI_D086) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_d086_btn *bb = ui_d086_buttons();
         int bh = ui_d086_hit(bb, UI_D086_COUNT, bx, by);
         if (bh >= 0) {
@@ -5400,8 +5416,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
     }
     /* ★ 批量对齐（datah_089）：3 按钮业务分发 */
     if (ui_screen_get() == UI_D089) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_d089_btn *bb = ui_d089_buttons();
         int bh = ui_d089_hit(bb, UI_D089_COUNT, bx, by);
         if (bh >= 0) {
@@ -5426,8 +5442,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
     }
     /* ★ 批量对齐（datah_090）：2 按钮业务分发 */
     if (ui_screen_get() == UI_D090) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_d090_btn *bb = ui_d090_buttons();
         int bh = ui_d090_hit(bb, UI_D090_COUNT, bx, by);
         if (bh >= 0) {
@@ -5448,8 +5464,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
     }
     /* ★ 批量对齐（datah_094）：5 按钮业务分发 */
     if (ui_screen_get() == UI_D094) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_d094_btn *bb = ui_d094_buttons();
         int bh = ui_d094_hit(bb, UI_D094_COUNT, bx, by);
         if (bh >= 0) {
@@ -5472,8 +5488,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
     }
     /* ★ 批量对齐（datah_095）：5 按钮业务分发 */
     if (ui_screen_get() == UI_D095) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_d095_btn *bb = ui_d095_buttons();
         int bh = ui_d095_hit(bb, UI_D095_COUNT, bx, by);
         if (bh >= 0) {
@@ -5507,8 +5523,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
     }
     /* ★ 批量对齐（datah_096）：3 按钮业务分发 */
     if (ui_screen_get() == UI_D096) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_d096_btn *bb = ui_d096_buttons();
         int bh = ui_d096_hit(bb, UI_D096_COUNT, bx, by);
         if (bh >= 0) {
@@ -5531,8 +5547,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
     }
     /* ★ 批量对齐（datah_097）：4 按钮业务分发 */
     if (ui_screen_get() == UI_D097) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_d097_btn *bb = ui_d097_buttons();
         int bh = ui_d097_hit(bb, UI_D097_COUNT, bx, by);
         if (bh >= 0) {
@@ -5561,8 +5577,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
     }
     /* ★ 批量对齐（datah_098）：6 按钮业务分发 */
     if (ui_screen_get() == UI_D098) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_d098_btn *bb = ui_d098_buttons();
         int bh = ui_d098_hit(bb, UI_D098_COUNT, bx, by);
         if (bh >= 0) {
@@ -5587,8 +5603,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
     }
     /* ★ 批量对齐（datah_099）：4 按钮业务分发 */
     if (ui_screen_get() == UI_D099) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_d099_btn *bb = ui_d099_buttons();
         int bh = ui_d099_hit(bb, UI_D099_COUNT, bx, by);
         if (bh >= 0) {
@@ -5609,8 +5625,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
     }
     /* ★ 批量对齐（datah_100）：1 按钮业务分发 */
     if (ui_screen_get() == UI_D100) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_d100_btn *bb = ui_d100_buttons();
         int bh = ui_d100_hit(bb, UI_D100_COUNT, bx, by);
         if (bh >= 0) {
@@ -5627,8 +5643,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
     }
     /* ★ 批量对齐（datah_101）：4 按钮业务分发 */
     if (ui_screen_get() == UI_D101) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_d101_btn *bb = ui_d101_buttons();
         int bh = ui_d101_hit(bb, UI_D101_COUNT, bx, by);
         if (bh >= 0) {
@@ -5653,8 +5669,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
     }
     /* ★ 批量对齐（datah_102）：1 按钮业务分发 */
     if (ui_screen_get() == UI_D102) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_d102_btn *bb = ui_d102_buttons();
         int bh = ui_d102_hit(bb, UI_D102_COUNT, bx, by);
         if (bh >= 0) {
@@ -5669,8 +5685,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
     }
     /* ★ 批量对齐（datah_104）：5 按钮业务分发 */
     if (ui_screen_get() == UI_D104) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_d104_btn *bb = ui_d104_buttons();
         int bh = ui_d104_hit(bb, UI_D104_COUNT, bx, by);
         if (bh >= 0) {
@@ -5699,8 +5715,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
     }
     /* ★ 批量对齐（datah_107）：5 按钮业务分发 */
     if (ui_screen_get() == UI_D107) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_d107_btn *bb = ui_d107_buttons();
         int bh = ui_d107_hit(bb, UI_D107_COUNT, bx, by);
         if (bh >= 0) {
@@ -5723,8 +5739,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
     }
     /* ★ 批量对齐（datah_108）：3 按钮业务分发 */
     if (ui_screen_get() == UI_D108) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_d108_btn *bb = ui_d108_buttons();
         int bh = ui_d108_hit(bb, UI_D108_COUNT, bx, by);
         if (bh >= 0) {
@@ -5743,8 +5759,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
     }
     /* ★ 批量对齐（datah_109）：3 按钮业务分发 */
     if (ui_screen_get() == UI_D109) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_d109_btn *bb = ui_d109_buttons();
         int bh = ui_d109_hit(bb, UI_D109_COUNT, bx, by);
         if (bh >= 0) {
@@ -5765,8 +5781,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
     }
     /* ★ 批量对齐（datah_110）：2 按钮业务分发 */
     if (ui_screen_get() == UI_D110) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_d110_btn *bb = ui_d110_buttons();
         int bh = ui_d110_hit(bb, UI_D110_COUNT, bx, by);
         if (bh >= 0) {
@@ -5785,8 +5801,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
     }
     /* ★ 批量对齐（datah_112）：5 按钮业务分发 */
     if (ui_screen_get() == UI_D112) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_d112_btn *bb = ui_d112_buttons();
         int bh = ui_d112_hit(bb, UI_D112_COUNT, bx, by);
         if (bh >= 0) {
@@ -5809,8 +5825,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
     }
     /* ★ 批量对齐（datah_113）：4 按钮业务分发 */
     if (ui_screen_get() == UI_D113) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_d113_btn *bb = ui_d113_buttons();
         int bh = ui_d113_hit(bb, UI_D113_COUNT, bx, by);
         if (bh >= 0) {
@@ -5839,8 +5855,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
     }
     /* ★ 批量对齐（datah_114）：1 按钮业务分发 */
     if (ui_screen_get() == UI_D114) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_d114_btn *bb = ui_d114_buttons();
         int bh = ui_d114_hit(bb, UI_D114_COUNT, bx, by);
         if (bh >= 0) {
@@ -5857,8 +5873,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
     }
     /* ★ 批量对齐（datah_118）：2 按钮业务分发 */
     if (ui_screen_get() == UI_D118) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_d118_btn *bb = ui_d118_buttons();
         int bh = ui_d118_hit(bb, UI_D118_COUNT, bx, by);
         if (bh >= 0) {
@@ -5877,8 +5893,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
     }
     /* ★ 批量对齐（datah_119）：2 按钮业务分发 */
     if (ui_screen_get() == UI_D119) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_d119_btn *bb = ui_d119_buttons();
         int bh = ui_d119_hit(bb, UI_D119_COUNT, bx, by);
         if (bh >= 0) {
@@ -5895,8 +5911,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
     }
     /* ★ 批量对齐（datah_120）：3 按钮业务分发 */
     if (ui_screen_get() == UI_D120) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_d120_btn *bb = ui_d120_buttons();
         int bh = ui_d120_hit(bb, UI_D120_COUNT, bx, by);
         if (bh >= 0) {
@@ -5919,8 +5935,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
     }
     /* ★ 批量对齐（datah_121）：2 按钮业务分发 */
     if (ui_screen_get() == UI_D121) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_d121_btn *bb = ui_d121_buttons();
         int bh = ui_d121_hit(bb, UI_D121_COUNT, bx, by);
         if (bh >= 0) {
@@ -5937,8 +5953,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
     }
     /* ★ 批量对齐（datah_122）：2 按钮业务分发 */
     if (ui_screen_get() == UI_D122) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_d122_btn *bb = ui_d122_buttons();
         int bh = ui_d122_hit(bb, UI_D122_COUNT, bx, by);
         if (bh >= 0) {
@@ -5955,8 +5971,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
     }
     /* ★ 批量对齐（datah_123）：1 按钮业务分发 */
     if (ui_screen_get() == UI_D123) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_d123_btn *bb = ui_d123_buttons();
         int bh = ui_d123_hit(bb, UI_D123_COUNT, bx, by);
         if (bh >= 0) {
@@ -5973,8 +5989,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
     }
     /* ★ 批量对齐（datah_246）：2 按钮业务分发 */
     if (ui_screen_get() == UI_D246) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_d246_btn *bb = ui_d246_buttons();
         int bh = ui_d246_hit(bb, UI_D246_COUNT, bx, by);
         if (bh >= 0) {
@@ -5995,8 +6011,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
     }
     /* ★ 批量对齐（datah_247）：1 按钮业务分发 */
     if (ui_screen_get() == UI_D247) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_d247_btn *bb = ui_d247_buttons();
         int bh = ui_d247_hit(bb, UI_D247_COUNT, bx, by);
         if (bh >= 0) {
@@ -6013,8 +6029,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
     }
     /* ★ 批量对齐（datah_248）：4 按钮业务分发 */
     if (ui_screen_get() == UI_D248) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_d248_btn *bb = ui_d248_buttons();
         int bh = ui_d248_hit(bb, UI_D248_COUNT, bx, by);
         if (bh >= 0) {
@@ -6043,8 +6059,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
     }
     /* ★ 批量对齐（datah_249）：1 按钮业务分发 */
     if (ui_screen_get() == UI_D249) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_d249_btn *bb = ui_d249_buttons();
         int bh = ui_d249_hit(bb, UI_D249_COUNT, bx, by);
         if (bh >= 0) {
@@ -6061,8 +6077,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
     }
     /* ★ 批量对齐（datah_250）：2 按钮业务分发 */
     if (ui_screen_get() == UI_D250) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_d250_btn *bb = ui_d250_buttons();
         int bh = ui_d250_hit(bb, UI_D250_COUNT, bx, by);
         if (bh >= 0) {
@@ -6081,8 +6097,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
     }
     /* ★ 批量对齐（datah_251）：1 按钮业务分发 */
     if (ui_screen_get() == UI_D251) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_d251_btn *bb = ui_d251_buttons();
         int bh = ui_d251_hit(bb, UI_D251_COUNT, bx, by);
         if (bh >= 0) {
@@ -6097,8 +6113,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
     }
     /* ★ 批量对齐（datah_253）：1 按钮业务分发 */
     if (ui_screen_get() == UI_D253) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_d253_btn *bb = ui_d253_buttons();
         int bh = ui_d253_hit(bb, UI_D253_COUNT, bx, by);
         if (bh >= 0) {
@@ -6115,8 +6131,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
     }
     /* ★ 批量对齐（datah_255）：3 按钮业务分发 */
     if (ui_screen_get() == UI_D255) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_d255_btn *bb = ui_d255_buttons();
         int bh = ui_d255_hit(bb, UI_D255_COUNT, bx, by);
         if (bh >= 0) {
@@ -6139,8 +6155,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
     }
     /* ★ 批量对齐（datah_256）：4 按钮业务分发 */
     if (ui_screen_get() == UI_D256) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_d256_btn *bb = ui_d256_buttons();
         int bh = ui_d256_hit(bb, UI_D256_COUNT, bx, by);
         if (bh >= 0) {
@@ -6169,8 +6185,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
     }
     /* ★ 批量对齐（datah_257）：5 按钮业务分发 */
     if (ui_screen_get() == UI_D257) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_d257_btn *bb = ui_d257_buttons();
         int bh = ui_d257_hit(bb, UI_D257_COUNT, bx, by);
         if (bh >= 0) {
@@ -6196,8 +6212,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
     }
     /* ★ 批量对齐（datah_258）：5 按钮业务分发 */
     if (ui_screen_get() == UI_D258) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_d258_btn *bb = ui_d258_buttons();
         int bh = ui_d258_hit(bb, UI_D258_COUNT, bx, by);
         if (bh >= 0) {
@@ -6224,8 +6240,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
        D* 态与业务弹窗（UI_GAMESET/UI_LOGIN/UI_NEWGAME 等）在 ui_menu.h 单枚举
        不重叠（UI_Dxxx 独立区段），路由无冲突；本注释代表全 D* 批量态。 */
     if (ui_screen_get() == UI_D259) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_d259_btn *bb = ui_d259_buttons();
         int bh = ui_d259_hit(bb, UI_D259_COUNT, bx, by);
         if (bh >= 0) {
@@ -6246,8 +6262,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
     }
     /* ★ 批量对齐（datah_260）：5 按钮业务分发 */
     if (ui_screen_get() == UI_D260) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_d260_btn *bb = ui_d260_buttons();
         int bh = ui_d260_hit(bb, UI_D260_COUNT, bx, by);
         if (bh >= 0) {
@@ -6281,8 +6297,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
     }
     /* ★ 批量对齐（datah_261）：1 按钮业务分发 */
     if (ui_screen_get() == UI_D261) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_d261_btn *bb = ui_d261_buttons();
         int bh = ui_d261_hit(bb, UI_D261_COUNT, bx, by);
         if (bh >= 0) {
@@ -6299,8 +6315,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
     }
     /* ★ 批量对齐（datah_262）：4 按钮业务分发 */
     if (ui_screen_get() == UI_D262) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_d262_btn *bb = ui_d262_buttons();
         int bh = ui_d262_hit(bb, UI_D262_COUNT, bx, by);
         if (bh >= 0) {
@@ -6325,8 +6341,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
     }
     /* ★ 批量对齐（datah_263）：5 按钮业务分发 */
     if (ui_screen_get() == UI_D263) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_d263_btn *bb = ui_d263_buttons();
         int bh = ui_d263_hit(bb, UI_D263_COUNT, bx, by);
         if (bh >= 0) {
@@ -6349,8 +6365,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
     }
     /* ★ 批量对齐（datah_264）：1 按钮业务分发 */
     if (ui_screen_get() == UI_D264) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_d264_btn *bb = ui_d264_buttons();
         int bh = ui_d264_hit(bb, UI_D264_COUNT, bx, by);
         if (bh >= 0) {
@@ -6371,8 +6387,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
        点 8 按钮（布局/翻棋 × 新手/中级/高级/好友区）→ ui_opt_select(level,mode)
        + g_vs_ai=1 + jq_restart_game → UI_GAME；点面板外 → 回主菜单。 */
     if (ui_screen_get() == UI_DIFFICULTY) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_diff_btn *db = ui_diff_buttons();
         int dh = ui_diff_hit(db, UI_DIFF_COUNT, bx, by);
         if (dh >= 0) {
@@ -6407,8 +6423,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
        点"Wi-Fi 联机"/"个人资料"→ 诚实边界对话框；点"返回"→ 主菜单；
        点面板外 → 回主菜单。 */
     if (ui_screen_get() == UI_WAYSEL) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_way_btn *wb = ui_way_buttons();
         int wh = ui_way_hit(wb, UI_WAYSEL_COUNT, bx, by);
         if (wh >= 0) {
@@ -6448,8 +6464,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
        点 确定 → ui_settings_save + 回对局；点 取消 → 回对局（不保存）；
        点面板外 → 回对局（不保存）。 */
     if (ui_screen_get() == UI_SETTINGS) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_set_btn *sb = ui_set_buttons();
         int sh = ui_set_hit(sb, UI_SETTINGS_COUNT, bx, by);
         if (sh >= 0) {
@@ -6506,8 +6522,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
        点 2/3/4 人 → 诚实边界对话框（4 方规则未实现）→ 回主菜单；
        点面板外 → 回主菜单。★ 诚实边界：不假装四国可玩。 */
     if (ui_screen_get() == UI_NPLAYER) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_nplayer_btn *nb = ui_nplayer_buttons();
         int nh = ui_nplayer_hit(nb, UI_NPLAYER_COUNT, bx, by);
         if (nh >= 0) {
@@ -6537,8 +6553,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
        点 确定 → ui_opt_select(mode) + jq_restart_game（随模式开局，两人热座 AI 不介入）；
        点 取消 → 回主菜单；点面板外 → 回主菜单。 */
     if (ui_screen_get() == UI_NEWGAME) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_newgame_btn *nb = ui_newgame_buttons();
         int nh = ui_newgame_hit(nb, UI_NEWGAME_COUNT, bx, by);
         if (nh >= 0) {
@@ -6586,8 +6602,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
        ★ 诚实边界：原版登录=账号系统（登录/注册 需服务器协议，src_rs 未逆向，
        Junqi.* 登录/注册 20+ 事件未实现）；游客=本地单机唯一真生效路径。 */
     if (ui_screen_get() == UI_LOGIN) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_login_btn *lb = ui_login_buttons();
         int lh = ui_login_hit(lb, UI_LOGIN_COUNT, bx, by);
         if (lh >= 0) {
@@ -6639,8 +6655,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
        点 确定 → ui_rules_save + 应用到规则引擎 + 回对局；点 取消 → ui_rules_load 恢复原值 + 回对局；
        点面板外 → 恢复原值 + 回对局。★ 诚实边界：4 开关默认全开（对齐原版默认）。 */
     if (ui_screen_get() == UI_GAMESET) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_gameset_btn *gb = ui_gameset_buttons();
         int gh = ui_gameset_hit(gb, UI_GAMESET_COUNT, bx, by);
         if (gh >= 0) {
@@ -6691,8 +6707,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
        点列表项（0-5）→ 选中并载入该布局到棋盘 + 清 undo + 回对局；
        点 取消 / 面板外 → 回对局（不载入）。★ 诚实边界：ListBox 滚动未实现（6 条截断）。 */
     if (ui_screen_get() == UI_LOAD_LAY) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_loadlayout_btn *lb = ui_loadlayout_buttons();
         int lh = ui_loadlayout_hit(lb, UI_LOADLAYOUT_COUNT, bx, by);
         if (lh >= 0) {
@@ -6747,8 +6763,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
        点列表区（同 017 ListBox 行）→ 选中该条目（供改名/删除操作）。★ 诚实边界：
        改名=自动编号（无文本输入框）。 */
     if (ui_screen_get() == UI_SAVE_LAY) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_savelayout_btn *sb = ui_savelayout_buttons();
         int sh = ui_savelayout_hit(sb, UI_SAVELAYOUT_COUNT, bx, by);
         if (sh >= 0) {
@@ -6826,8 +6842,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
        点 载入 → 选中布局应用到棋盘 + 清 undo + 回对局；点 删除 → 删选中项文件；
        点 取消 / 面板外 → 回对局。30 格预览区 = 小方块占位（★ 诚实边界）。 */
     if (ui_screen_get() == UI_LAY_MGR) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_laymgr_btn *mb = ui_laymgr_buttons();
         int mh = ui_laymgr_hit(mb, UI_LAYMGR_COUNT, bx, by);
         if (mh >= 0) {
@@ -6888,8 +6904,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
        ★ 诚实边界：原版 datah_039 入口浮标命中 flaky，复盘态入口走 setprop jq.replay 钩子；
        本控制条按钮命中走触摸路径（与 gameset 同范式，flaky 时业务逻辑桌面 evverify 实证）。 */
     if (ui_screen_get() == UI_REPLAY) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_replay_btn *rb = ui_replay_ctrl_buttons();
         int rh = ui_replay_ctrl_hit(rb, UI_REPLAY_CTRL_COUNT, bx, by);
         if (rh >= 0) {
@@ -6952,8 +6968,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
         （明棋：自由布阵，军旗在大本营，地雷后两行，炸弹前线）；点 返回 → 回对局。
         点面板外 → 回对局。★ 诚实边界：规则文本=src_rs 简化版固定文本（2 套）。 */
     if (ui_screen_get() == UI_RULES) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_rules_btn *rb = ui_rules_buttons();
         int rh = ui_rules_hit(rb, UI_RULES_COUNT, bx, by);
         if (rh >= 0) {
@@ -6999,8 +7015,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
         点 取消 → 回主菜单；点面板外 → 回主菜单。
         ★ 诚实边界：3 项各循环切换当前值（对齐 datah_001 音量循环范式）。 */
     if (ui_screen_get() == UI_NEWGAME104) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_newgame104_btn *nb = ui_newgame104_buttons();
         int nh = ui_newgame104_hit(nb, UI_NEWGAME104_COUNT, bx, by);
         if (nh >= 0) {
@@ -7054,8 +7070,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
         点 取消 → 回主菜单；点面板外 → 回主菜单。
         ★ 诚实边界：原版加入=局域网/Wi-Fi 联机协议（未逆向），src_rs 仅蓝牙 SPP。 */
     if (ui_screen_get() == UI_JOIN) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_join_btn *jb = ui_join_buttons();
         int jh = ui_join_hit(jb, UI_JOIN_COUNT, bx, by);
         if (jh >= 0) {
@@ -7091,8 +7107,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
         点 取消 → 回主菜单；点面板外 → 回主菜单。
         ★ 诚实边界：原版创建=Wi-Fi/局域网协议（未逆向），src_rs 仅蓝牙 SPP。 */
     if (ui_screen_get() == UI_CREATE) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_create_btn *cb = ui_create_buttons();
         int ch = ui_create_hit(cb, UI_CREATE_COUNT, bx, by);
         if (ch >= 0) {
@@ -7130,8 +7146,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
         点 取消 → 回主菜单；点面板外 → 回主菜单。
         ★ 诚实边界：4 项各循环切换当前值（对齐 datah_104 循环切换范式）。 */
     if (ui_screen_get() == UI_NG061) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_ng061_btn *nb = ui_ng061_buttons();
         int nh = ui_ng061_hit(nb, UI_NG061_COUNT, bx, by);
         if (nh >= 0) {
@@ -7191,8 +7207,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
         点 返回 → 回对局；点面板外 → 回对局。
         Info 文本=☰ 战况统计复用（渲染层占位标签 + LOGI 实际值）。 */
     if (ui_screen_get() == UI_GAMEINFO) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_gameinfo_btn *gb = ui_gameinfo_buttons();
         int gh = ui_gameinfo_hit(gb, UI_GAMEINFO_COUNT, bx, by);
         if (gh >= 0) {
@@ -7240,8 +7256,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
         点 取消 → ui_bright_load 恢复原值 + 回对局；点面板外 → 回对局。
         ★ 诚实边界：原版滑条拖拽=触摸 flaky，简化为 3 档循环切换（对齐 datah_001 音量循环范式）。 */
     if (ui_screen_get() == UI_BRIGHT) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_bright_btn *bb = ui_bright_buttons();
         int bh = ui_bright_hit(bb, UI_BRIGHT_COUNT, bx, by);
         if (bh >= 0) {
@@ -7286,8 +7302,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
         点 关闭 → 回对局；点面板外 → 回对局。
         Msg 文本框=诚实边界占位（渲染层占位标签 + LOGI）。 */
     if (ui_screen_get() == UI_CHATLOG) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_chatlog_btn *cb = ui_chatlog_buttons();
         int ch = ui_chatlog_hit(cb, UI_CHATLOG_COUNT, bx, by);
         if (ch >= 0) {
@@ -7322,8 +7338,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
         Info 文本框=诚实边界占位（渲染层占位标签 + LOGI）。
         现有 datah_072 方式弹窗"个人资料"→UI_LOGIN 不破坏，031 作为登录后资料查看补充（独立态）。 */
     if (ui_screen_get() == UI_PROFILE) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_profile_btn *pb = ui_profile_buttons();
         int ph = ui_profile_hit(pb, UI_PROFILE_COUNT, bx, by);
         if (ph >= 0) {
@@ -7374,8 +7390,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
         ★ 诚实边界：本地提和判定未实现（src_rs 离线单机无对端），联机提和/认输走
         BT 帧 + 边界对话框，不包装成"已提和判定"。 */
     if (ui_screen_get() == UI_DRAWDETAIL) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_drawdetail_btn *db = ui_drawdetail_buttons();
         int dh = ui_drawdetail_hit(db, UI_DRAWDETAIL_COUNT, bx, by);
         if (dh >= 0) {
@@ -7462,8 +7478,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
         ★ 诚实边界：图像设置渲染参数未实现（src_rs 无对应渲染参数），
         开关只是 UI 状态记录（不实际改渲染）。 */
     if (ui_screen_get() == UI_SETEXTTRY) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_setentry_btn *sb = ui_setentry_buttons();
         int sh = ui_setentry_hit(sb, UI_SETEXTTRY_COUNT, bx, by);
         if (sh >= 0) {
@@ -7501,8 +7517,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
         业务：datah_004 是 datah_003 的简化版（联机态/蓝牙态设置入口，无游戏设置项）。
         ★ 诚实边界：图像设置渲染参数未实现，开关只是 UI 状态记录。 */
     if (ui_screen_get() == UI_SETEXTTRY4) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_setentry4_btn *s4 = ui_setentry4_buttons();
         int s4h = ui_setentry4_hit(s4, UI_SETEXTTRY4_COUNT, bx, by);
         if (s4h >= 0) {
@@ -7537,8 +7553,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
         ★ 诚实边界：图像/夜间模式/对方棋子 = 渲染层未实现（src_rs 无对应渲染参数），
         开关只是 UI 状态记录（不实际改渲染）。 */
     if (ui_screen_get() == UI_IMGSET7) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_imgset7_btn *ib = ui_imgset7_buttons();
         int ih = ui_imgset7_hit(ib, UI_IMGSET7_COUNT, bx, by);
         if (ih >= 0) {
@@ -7597,8 +7613,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
         ★ 诚实边界：图像/夜间模式 = 渲染层未实现（src_rs 无对应渲染参数），
         开关只是 UI 状态记录（不实际改渲染）。 */
     if (ui_screen_get() == UI_IMGSET8) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_imgset8_btn *i8 = ui_imgset8_buttons();
         int i8h = ui_imgset8_hit(i8, UI_IMGSET8_COUNT, bx, by);
         if (i8h >= 0) {
@@ -7651,8 +7667,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
         点 取消 → 回主菜单；点面板外 → 回主菜单。
         ★ 诚实边界：先手/后手/玩法/明暗棋/4 规则 = 联机开局配置（src_rs 无联机开局逻辑）。 */
     if (ui_screen_get() == UI_JOIN065) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_join065_btn *jb = ui_join065_buttons();
         int jh = ui_join065_hit(jb, UI_JOIN065_COUNT, bx, by);
         if (jh >= 0) {
@@ -7707,8 +7723,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
         ★ 诚实边界：先后手/玩法/明暗棋 = 联机开局配置（src_rs 无联机房间创建逻辑，
         循环切换仅 UI 状态记录） */
     if (ui_screen_get() == UI_CREATE069) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_create069_btn *cb = ui_create069_buttons();
         int ch = ui_create069_hit(cb, UI_CREATE069_COUNT, bx, by);
         if (ch >= 0) {
@@ -7767,8 +7783,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
         ★ 与 datah_012 区分：012 是本地 ☰ 菜单"功能设置"→UI_GAMESET，
         070 是联机"游戏规则"弹窗（datah_069 创建游戏"游戏规则"按钮切此弹窗）。 */
     if (ui_screen_get() == UI_RULES070) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_rules070_btn *r70 = ui_rules070_buttons();
         int r70h = ui_rules070_hit(r70, UI_RULES070_COUNT, bx, by);
         if (r70h >= 0) {
@@ -7829,8 +7845,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
         ★ 诚实边界：联机房间需 Wi-Fi/局域网协议（src_rs 仅蓝牙已实现），
         2 玩家显示区 = 占位标签（不画真数据） */
     if (ui_screen_get() == UI_ROOM060) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_room060_btn *rm = ui_room060_buttons();
         int rmh = ui_room060_hit(rm, UI_ROOM060_COUNT, bx, by);
         if (rmh >= 0) {
@@ -7875,8 +7891,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
         点 关闭 → 回对局；点面板外 → 回对局。
         ★ 诚实边界：联机聊天文本未逆向（src_rs 蓝牙聊天是占位帧 BT_T_CHAT） */
     if (ui_screen_get() == UI_CHAT063) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_chat063_btn *c63 = ui_chat063_buttons();
         int c63h = ui_chat063_hit(c63, UI_CHAT063_COUNT, bx, by);
         if (c63h >= 0) {
@@ -7919,8 +7935,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
         不包装成"已反馈" */
     /* ★ 返回键 3 态确认弹窗命中分发（原版 .rodata ExitConfirm/ResignConfirm/RegretConfirm） */
     if (ui_screen_get() == UI_EXITCONFIRM) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_exitconfirm_btn *eb = ui_exitconfirm_buttons();
         int eh = ui_exitconfirm_hit(eb, UI_EXITCONFIRM_COUNT, bx, by);
         if (eh >= 0) {
@@ -7939,8 +7955,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
         return JNI_TRUE;
     }
     if (ui_screen_get() == UI_RESIGNCONFIRM) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_resignconfirm_btn *rb = ui_resignconfirm_buttons();
         int rh = ui_resignconfirm_hit(rb, UI_RESIGNCONFIRM_COUNT, bx, by);
         if (rh >= 0) {
@@ -7967,8 +7983,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
         return JNI_TRUE;
     }
     if (ui_screen_get() == UI_REGRETCONFIRM) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_regretconfirm_btn *gb = ui_regretconfirm_buttons();
         int gh = ui_regretconfirm_hit(gb, UI_REGRETCONFIRM_COUNT, bx, by);
         if (gh >= 0) {
@@ -8001,8 +8017,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
         return JNI_TRUE;
     }
     if (ui_screen_get() == UI_ABOUT) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_about_btn *ab = ui_about_buttons();
         int abh = ui_about_hit(ab, UI_ABOUT_COUNT, bx, by);
         if (abh >= 0) {
@@ -8036,8 +8052,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
        命中分发范式与 UI_ABOUT 同：按钮命中 → 业务（边界对话框/切弹窗/清复盘/回对局）；
        点面板外 → 回对局。★ 诚实边界：未逆向数据=占位标签+边界对话框，不包装成"已实现" */
     if (ui_screen_get() == UI_UI44) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_ui44_btn *b44 = ui_ui44_buttons();
         int h44 = ui_ui44_hit(b44, UI_UI44_COUNT, bx, by);
         if (h44 >= 0) {
@@ -8060,8 +8076,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
         return JNI_TRUE;
     }
     if (ui_screen_get() == UI_UI45) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_ui45_btn *b45 = ui_ui45_buttons();
         int h45 = ui_ui45_hit(b45, UI_UI45_COUNT, bx, by);
         if (h45 >= 0) {
@@ -8084,8 +8100,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
         return JNI_TRUE;
     }
     if (ui_screen_get() == UI_UI46) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_ui46_btn *b46 = ui_ui46_buttons();
         int h46 = ui_ui46_hit(b46, UI_UI46_COUNT, bx, by);
         if (h46 >= 0) {
@@ -8104,8 +8120,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
         return JNI_TRUE;
     }
     if (ui_screen_get() == UI_UI47) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_ui47_btn *b47 = ui_ui47_buttons();
         int h47 = ui_ui47_hit(b47, UI_UI47_COUNT, bx, by);
         if (h47 >= 0) {
@@ -8124,8 +8140,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
         return JNI_TRUE;
     }
     if (ui_screen_get() == UI_UI49) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_ui49_btn *b49 = ui_ui49_buttons();
         int h49 = ui_ui49_hit(b49, UI_UI49_COUNT, bx, by);
         if (h49 >= 0) {
@@ -8147,8 +8163,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
        清空分支（h==0）ui_replay_init 在 g_mutex 内（下方锁段）；"关闭"分支 h>0 的
        回对局走 ui_screen_set（自带 g_ui_lock，UI 态层锁），无 g_mutex 需求，正确。 */
     if (ui_screen_get() == UI_UI51 || ui_screen_get() == UI_UI54 || ui_screen_get() == UI_UI110) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         int scr = ui_screen_get();
         const ui_ui51_btn *b51 = ui_ui51_buttons();
         const ui_ui54_btn *b54 = ui_ui54_buttons();
@@ -8184,8 +8200,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
         return JNI_TRUE;
     }
     if (ui_screen_get() == UI_UI73) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_ui73_btn *b73 = ui_ui73_buttons();
         int h73 = ui_ui73_hit(b73, UI_UI73_COUNT, bx, by);
         if (h73 >= 0) {
@@ -8213,8 +8229,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
         return JNI_TRUE;
     }
     if (ui_screen_get() == UI_UI90) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_ui90_btn *b90 = ui_ui90_buttons();
         int h90 = ui_ui90_hit(b90, UI_UI90_COUNT, bx, by);
         if (h90 >= 0) {
@@ -8242,8 +8258,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
         return JNI_TRUE;
     }
     if (ui_screen_get() == UI_UI100) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_ui100_btn *b100 = ui_ui100_buttons();
         int h100 = ui_ui100_hit(b100, UI_UI100_COUNT, bx, by);
         if (h100 >= 0) {
@@ -8266,8 +8282,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
         return JNI_TRUE;
     }
     if (ui_screen_get() == UI_UI118) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_ui118_btn *b118 = ui_ui118_buttons();
         int h118 = ui_ui118_hit(b118, UI_UI118_COUNT, bx, by);
         if (h118 >= 0) {
@@ -8301,8 +8317,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
          图标不可再截获菜单按钮（"退出程序"中心落在 ↩ 图标、"功能设置"中心落在 ☰ 图标，
          无守卫会误触发悔棋/重开菜单，所见与所点不一致）。 */
     if (ui_screen_get() == UI_GAME) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         float ix0, iy0, ix1, iy1;
         ui_imen_icon_rect(0, &ix0, &iy0, &ix1, &iy1);   /* ☰ */
         if (bx >= ix0 && bx <= ix1 && by >= iy0 && by <= iy1) {
@@ -8330,8 +8346,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
        ★ 对抗审计（datah_067）：蓝牙联机 ☰ 菜单 = New/Regret/提和/认输/聊天/Config/Stat/Rule
        （无电脑变着/软件信息/退出）；本地菜单 = datah_006（电脑变着/软件信息/退出）。 */
     if (ui_screen_get() == UI_INGAME_MENU) {
-        float bx = g_view_w > 0 ? x / (float)g_view_w * 720.0f : 0;
-        float by = g_view_h > 0 ? y / (float)g_view_h * 1280.0f : 0;
+        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         int bt_mode = ui_bt_active();
         const ui_imen_btn *im = bt_mode ? ui_imen_bt_buttons() : ui_imen_buttons();
         int ih = ui_imen_hit(im, UI_IMENU_COUNT, bx, by);
@@ -8525,8 +8541,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
            限前 50 次避免日志洪水（红方热座验证需多格试探）。 */
         static int g_touch_diag_cnt = 0;
         if (++g_touch_diag_cnt <= 50) {
-            int dx = (int)(x / (float)g_view_w * 720.0f + 0.5f);
-            int dy = (int)(y / (float)g_view_h * 1280.0f + 0.5f);
+            int dx = (int)(x / g_touch_s + 0.5f);
+            int dy = (int)((y - g_touch_yoff) / g_touch_s + 0.5f);
             pthread_mutex_lock(&g_mutex);
             int cm = (from >= 0 && to >= 0 && to != from) ? jq_can_move(&g_state, from, to) : 0;
             int cf = (from >= 0 && to == from) ? jq_can_flip(&g_state, from) : 0;

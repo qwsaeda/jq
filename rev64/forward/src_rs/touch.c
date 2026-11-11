@@ -31,9 +31,14 @@ int jq_touch_hit_cell(float px, float py, int view_w, int view_h,
 {
     /* ★ 层 2 视觉对齐：datax_177 棋盘格命中（与 render.c 棋子 BG_GRID 同几何）。
        视图坐标（顶左原点 y 下）→ 图像像素 → 最近格中心（半格距离判界）→
-       设备行（row0=底，image_row=11-设备row）。 */
-    float img_x = px / (float)view_w * BG_IMG_W;
-    float img_y = py / (float)view_h * BG_IMG_H;
+       设备行（row0=底，image_row=11-设备row）。
+       ★ 2026-11-11 现代全面屏等比（与渲染棋盘 bg_s=vw/720 + bg_by0 同几何）：
+       旧 img_x=px/view_w*BG_IMG_W 独立缩放在非 16:9 屏（20:9）拉伸错位。
+       16:9 s=1.25,by0=0 → 与原版一致（无回归）。 */
+    float bs = (float)view_w / 720.0f;   /* 棋盘等比（按宽，保比例） */
+    float bby0 = ((float)view_h - 1280.0f * bs) * 0.5f;
+    float img_x = px / bs;
+    float img_y = (py - bby0) / bs;
     int col = (int)lroundf((img_x - BG_GRID_COL0_CX) / BG_GRID_COL_W);
     if (col < 0 || col >= BOARD_COLS) return -1;
     float cx = BG_GRID_COL0_CX + col * BG_GRID_COL_W;
