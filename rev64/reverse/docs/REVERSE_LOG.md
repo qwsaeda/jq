@@ -7611,3 +7611,17 @@ got_map + needed + trans_needed + walk_8step + trans_seg + trans_handlers +
 
 **静态佐证批次化入口 25 项**（设备无关，§124y-190~209）：... + hook_anchors +
 **spak_key**（新增，SPAK 解密 key 静态佐证 + 文件偏移口径修正）。
+
+### §124y-210 SPAK key 双源对照补强（spak_unpack.py SPAK_KEY 一致，防解包器 key 漂移，2026-11-11）
+
+用户"光改光对比，经验不总结/不脚本化"批评的延续落实——把"spak_unpack.py
+解包器 key = 原版 so 0x12a658 提取 key"双源对照固化进 `spak_key_check.py`
+（§124y-209 基础上补强，防解包器 key 漂移）：
+
+- **判据补强**：`spak_key_check.py` 新增双源对照——原版 so 0x12a658 提取 key
+  vs `spak_unpack.py` `SPAK_KEY` hex（`c2cbe5e7...d523`）一致
+- **判据实锤**：双源一致 PASS（解包器 key = 原版 .rodata 提取 key，防漂移）
+- **坑固化**：SPAK 解包器 key 若与原版 .rodata 提取 key 漂移（手敲改 key /
+  解包器硬编码错），883 资源解包全乱但解包流程不报错（zlib 头破坏静默）——
+  双源对照兜底防"解包器 key 漂移"假 PASS
+- 并入 `arm32_static_evidence.sh` `spak_key` 项（PASS=25 FAIL=0 全 PASS）
