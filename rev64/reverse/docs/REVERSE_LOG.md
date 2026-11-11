@@ -7585,3 +7585,29 @@ got_map + needed + trans_needed + walk_8step + trans_seg + trans_handlers +
 
 **静态佐证批次化入口 24 项**（设备无关，§124y-190~208）：trans_jni 项现含
 "14 On* 逐名一致 + 14 T 符号函数体实锤"双判据。
+
+### §124y-209 原版 SPAK 解密 key 静态佐证判据 + 文件偏移口径修正（静态佐证扩到 25 项，2026-11-11）
+
+用户"光改光对比，经验不总结/不脚本化"批评的延续落实——把"SPAK 解密 key 32
+字节明文在位"口径固化为可复跑静态判据（不依赖设备），并**实锤修正文件偏移
+误口径**：
+
+- **★ 口径修正实锤**：AGENTS/REVERSE_LOG 旧口径"SPAK key 32 字节明文 @ 原版
+  .rodata VA 0x12a658 / 文件偏移 0x2e5268"中 **文件偏移 0x2e5268 系误值
+  （该处全 0/32 字节）**。实锤：原版 32 位 so（load base 0，VA=文件偏移）
+  key 实际 @ **VA=文件偏移 0x12a658**（.rodata 段内），32 字节全非0 +
+  唯一 31/32（高熵在位）：
+  `c2cbe5e7ce5c4ac411ca6c9906f476f86d4fcbb62621de0e6a67874c93f0d523`
+- **新工具** `rev64/tools/spak_key_check.py`：key @ 0x12a658 高熵在位判据
+  （32 字节全非0 + 唯一 ≥16）+ 旧口径 0x2e5268 全 0 误值佐证 + 与固化解包
+  key 基准一致
+- **判据实锤**：key 高熵在位 + 解包基准一致 + 旧口径误值已纠正 → PASS
+- **坑固化**：32 位 so load base 0 时 **VA = 文件偏移**（.rodata 段直接
+  按 VA 读 so 二进制），旧口径把 VA 误当成 .data 段相对偏移（0x2e5268 =
+  0x12a658 + 0x155000? 系把 load base / 段映射搞混）；判据提取 key 须按
+  VA=文件偏移直读
+- AGENTS SPAK key 口径同步修正（文件偏移 0x2e5268 → 0x12a658）
+- 并入 `arm32_static_evidence.sh` 第 25 项 `spak_key`（PASS=25 FAIL=0 全 PASS）
+
+**静态佐证批次化入口 25 项**（设备无关，§124y-190~209）：... + hook_anchors +
+**spak_key**（新增，SPAK 解密 key 静态佐证 + 文件偏移口径修正）。

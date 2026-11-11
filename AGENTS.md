@@ -105,7 +105,7 @@ java -cp /tmp/opencode/apksigner/apksig.jar:/tmp/opencode/apksigner SignV2 \
 
 - **★ 口径更新（2026-11-10）**：`native64/junqi.cpp`（97KB 简化版）已废弃，当前 arm64 `libjunqi.so` 构建自 `rev64/forward/src_rs/`（37,812 行 C，`src_rs/dist/libjunqi_rs.so` 697KB），是**行为级对齐的重写版**——规则/事件/UI/蓝牙协议行为对齐原版，但**非 32 位 1.43MB/1435156B native 的汇编级逐指令逆向**
 - 已对齐（行为级，验证：170/170 事件回归 + rule_probe 20 用例 19 一致 + 12/12 布局 + 真机全链）：12×5 棋盘 50 子（每方 25）、走子/吃子/炸弹/地雷/悔棋/翻棋规则、事件契约（Junqi.Move/Eat/Bomb/Flag/Dead/Flip/GameOver）、蓝牙联机 SPP 协议（host/client/悔棋/重开帧）、SPAK 资源解包（spak_res 全量推设备）、UI 12 项（datah XML 几何换算 Δ≤3px）
-- **诚实边界（未达成）**：★ 口径更新（2026-11-11）：SPAK 解密 key **已提取**（32 字节明文 @ 原版 `.rodata` VA 0x12a658 / 文件偏移 0x2e5268，算法 = XOR(key[j%32]) + zlib，反汇编 `cc636: ldr r6,[pc,#36]` + `cc63c: add r6,pc` 定位；R5 完整解包 883 资源 = 408 XML / 310 PNG / 22 JPG / 18 WAV / 3 TTF，工具 `rev64/tools/spak_unpack.py` + 产物 `rev64/dist/spak_res/` 全量在库，C 加载器 `src/spak_load.c` 已编译链接；资源图部分用静态解包推设备（spak_res 全量推 10.0.182.146 实锤出屏）。旧口径"SPAK 解密 key 未提取"为残留过时文本（本段 2026-11-11 纠正）；真正未达成 = 四国军棋/联网对战/账号系统/版本更新通道未实现、32 位汇编级逐指令移植未做
+- **诚实边界（未达成）**：★ 口径更新（2026-11-11）：SPAK 解密 key **已提取**（32 字节明文 @ 原版 `.rodata` VA 0x12a658 / **文件偏移 0x12a658**（★ §124y-209 口径修正：32 位 so load base 0 时 VA=文件偏移，旧口径"文件偏移 0x2e5268"系误值该处全 0），算法 = XOR(key[j%32]) + zlib，反汇编 `cc636: ldr r6,[pc,#36]` + `cc63c: add r6,pc` 定位；R5 完整解包 883 资源 = 408 XML / 310 PNG / 22 JPG / 18 WAV / 3 TTF，工具 `rev64/tools/spak_unpack.py` + 产物 `rev64/dist/spak_res/` 全量在库，C 加载器 `src/spak_load.c` 已编译链接；资源图部分用静态解包推设备（spak_res 全量推 10.0.182.146 实锤出屏）。旧口径"SPAK 解密 key 未提取"为残留过时文本（本段 2026-11-11 纠正）；真正未达成 = 四国军棋/联网对战/账号系统/版本更新通道未实现、32 位汇编级逐指令移植未做
 - **不要在交付物里把"行为级对齐重写版"包装成"原版完整版"**
 
 ## 四个阶段
