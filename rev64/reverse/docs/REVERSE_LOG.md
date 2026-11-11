@@ -7644,3 +7644,21 @@ init_array 11/12 实锤基准）固化为可复跑静态判据（不依赖设备
 
 **静态佐证批次化入口 26 项**（设备无关，§124y-190~211）：... + spak_key +
 **init_array**（新增，INIT_ARRAY 12 构造器清单）。
+
+### §124y-212 原版 so PLT stub 公式判据脚本化 + 静态佐证扩到 27 项（2026-11-11）
+
+用户"光改光对比，经验不总结/不脚本化"批评的延续落实——把"PLT stub 公式 =
+0x229d4 + 12B/条 × n，214 条"口径（§124y PLT stub 公式机械化实锤）固化为
+可复跑静态判据（不依赖设备，设备离线期也能跑）：
+
+- **新工具** `rev64/tools/plt_stub_check.py`：原版 so `.plt` 段（VA 0x229c0
+  size 0xa1c）stub 公式双锚点判据
+- **判据实锤**：glVertexAttribPointer(idx=164) → stub 0x23184 +
+  glDrawArrays(idx=146) → stub 0x230ac（§124y 实锤值双命中）+ 双锚点
+  在 .plt 段区间（0x229c0..0x233dc）→ PASS
+- **坑固化**：PLT stub 12 字节/条（非 16 字节，早期 16 字节误读坑），
+  任意 GL 函数 PLT stub 地址 = 0x229d4 + 12*idx 机械求得（双锚点验证通过）
+- 并入 `arm32_static_evidence.sh` 第 27 项 `plt_stub`（PASS=27 FAIL=0 全 PASS）
+
+**静态佐证批次化入口 27 项**（设备无关，§124y-190~212）：... + init_array +
+**plt_stub**（新增，PLT stub 公式双锚点）。

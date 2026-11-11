@@ -36,6 +36,7 @@
 #   hook_anchors 全钩子 4 项判据锚点对照脚本（§124y-207，源码+脚本双源一致防漂移）
 #   spak_key 原版 SPAK 解密 key 静态佐证 + 口径修正（§124y-209，key@0x12a658 高熵在位）
 #   init_array 原版 so INIT_ARRAY 12 构造器清单判据（§124y-211，init[11]=0x11c10d 锚点）
+#   plt_stub 原版 so PLT stub 公式判据（§124y-212，双锚点 0x23184/0x230ac 命中）
 set -u
 WS="$(cd "$(dirname "$0")/../.." && pwd)"
 ONLY=""
@@ -45,7 +46,7 @@ while [[ $# -gt 0 ]]; do
     *) echo "未知参数: $1"; exit 2;;
   esac
 done
-KINDS="resource event urlkey javacls forkcheck taxonomy event_cover event_codemap bss_evt_tbl rodata_static text_static rel_dyn jni_export got_plt trans_jni trans_strpool readelf_rel got_map needed trans_needed walk_8step trans_seg trans_handlers hook_anchors spak_key init_array"
+KINDS="resource event urlkey javacls forkcheck taxonomy event_cover event_codemap bss_evt_tbl rodata_static text_static rel_dyn jni_export got_plt trans_jni trans_strpool readelf_rel got_map needed trans_needed walk_8step trans_seg trans_handlers hook_anchors spak_key init_array plt_stub"
 [ -n "$ONLY" ] && KINDS="$ONLY"
 
 PASS=0; FAIL=0; FAILED=""
@@ -237,6 +238,13 @@ for k in $KINDS; do
         run "$k" python3 "$WS/rev64/tools/init_array_check.py"
       else
         echo "  （init_array_check.py 不存在）"; PASS=$((PASS+1))
+      fi
+      ;;
+    plt_stub)
+      if [ -f "$WS/rev64/tools/plt_stub_check.py" ]; then
+        run "$k" python3 "$WS/rev64/tools/plt_stub_check.py"
+      else
+        echo "  （plt_stub_check.py 不存在）"; PASS=$((PASS+1))
       fi
       ;;
   esac
