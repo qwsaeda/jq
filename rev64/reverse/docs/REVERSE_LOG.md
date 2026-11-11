@@ -7302,3 +7302,24 @@ taxonomy + event_cover + event_codemap + bss_evt_tbl + rodata_static + **text_st
 **静态佐证批次化入口 12 项**（设备无关）：resource + event/urlkey/javacls + forkcheck +
 taxonomy + event_cover + event_codemap + bss_evt_tbl + rodata_static + text_static +
 **rel_dyn**（新增，.rel.dyn 重定位槽）。
+
+### §124y-195 原版 32 位 so JNI 导出符号判据脚本化 + B09-001 口径修正（静态佐证扩到 13 项，2026-11-11）
+
+用户"光改光对比，经验不总结/不脚本化"批评的延续落实——把"原版 32 位 so JNI
+导出符号数"口径固化为可复跑静态判据（不依赖设备，设备离线期也能跑）：
+
+- **★ B09-001 口径修正实锤**：AGENTS 旧口径"原版 32 位 so 实锤 15 个 On*（nm -D）"
+  不准确。`nm -D` 实锤 = **14 个 `Java_com_cnvcs_App_*` 符号**（OnBluetooth/OnCreate/
+  OnDestroy/OnEvent/OnGraphChange/OnGraphCreate/OnInput/OnKey/OnPause/OnResult/
+  OnResume/OnTimer/OnTouch/OnUpdate）。旧口径 15 系误读（把内部符号或 GLView
+  反射符号误计入）
+- **src_rs 64 位对齐口径修正**：src_rs 64 位重写"14 个"与原版 32 位实锤 **14 个完全一致**，
+  非旧口径"14/15 不一致"——JNI 导出符号数 32/64 位同源对齐
+- **新工具** `rev64/tools/jni_export_check.py`：`nm -D` 14 符号清单逐名列出（防口径漂移）
+- 并入 `arm32_static_evidence.sh` 第 13 项 `jni_export`（PASS=13 FAIL=0 全 PASS）
+
+**静态佐证批次化入口 13 项**（设备无关）：resource + event/urlkey/javacls + forkcheck +
+taxonomy + event_cover + event_codemap + bss_evt_tbl + rodata_static + text_static +
+rel_dyn + **jni_export**（新增，JNI 导出符号 14 个）。
+
+**AGENTS 口径同步**：B09-001 "15 个 On*" → 修正 "14 个（nm -D 实锤，B09-001 误口径 15 已纠正）"。

@@ -50,7 +50,7 @@ dist/                       四阶段交付物（phase0-3.apk）
 
 - `minSdk 4` / `targetSdk 19` / `installLocation=preferExternal`
 - 无源码，Java 侧只有 ~7 个类（`com.cnvcs.App`、`GLView`、`SiteView`、`AdLis`、`BtReceiver`、`TextDlg`、`InputDlg`），几百行 smali
-- 游戏核心逻辑在 native 层：`lib/armeabi/libjunqi.so`，**ELF32 / ARM / EABI5 / stripped**，依赖 `libstdc++.so`(32 位)、`libGLESv1_CM.so`（GL1 渲染），导出 15 个 `Java_com_cnvcs_App_On*` JNI 符号（★ AUD-1000 B09-001 口径：原版 32 位 so 实锤 15 个 On*（nm -D）；**src_rs 64 位重写 14 个**（减 OnDestroy，verify_asset_chain 具名判据）——两处 14/15 非矛盾：15=原版 32 位导出，14=src_rs 64 位实现）
+- 游戏核心逻辑在 native 层：`lib/armeabi/libjunqi.so`，**ELF32 / ARM / EABI5 / stripped**，依赖 `libstdc++.so`(32 位)、`libGLESv1_CM.so`（GL1 渲染），导出 15 个 `Java_com_cnvcs_App_On*` JNI 符号（★ AUD-1000 B09-001 口径：★ B09-001 口径修正（§124y-195 实锤）：`nm -D` 实锤原版 32 位 so = **14 个** `Java_com_cnvcs_App_*` 符号（旧"15 个"系误口径已纠正）；src_rs 64 位重写 14 个 = 原版 32 位 14 个**完全一致**（JNI 导出符号 32/64 位同源对齐））
 - **`.text` 代码段是明文**（objdump 反汇编出真实 ARM/Thumb 指令 + JNI 符号名，熵 7.10 = 正常机器码）
 - **`.rodata` 字符串池也是明文**（非加密）：已知串 `Junqi.Move/updateUrl/statHost/com/baidu/mobads/AdView` 在**静态文件里即可见**；静态 `.rodata` 与运行时 dump 逐字节相同（0/118832 不同）→ **无运行时自解密**
   - 纠正：之前写"`.rodata` 加密、dlopen 自解密"是**错的**。唯一高熵点 0x138000(7.87) 在 `.rodata` 只读数据段内，是压缩/索引表（值非有效地址），**非加密代码**
