@@ -163,6 +163,12 @@ java -cp /tmp/opencode/apksigner/apksig.jar:/tmp/opencode/apksigner SignV2 \
 >   ③ `adb reboot` 后 nemuinput 重启（pid 1156，wchan=0 健康睡眠），但 `/sys/class/input` 仍只有
 >      input0-5（=event0-5 内核设备，Xiaomi Input/Joystick/mouse/Power/Sleep/Video），
 >      **nemuinput 经 /dev/uinput 创建的虚拟触摸设备节点始终未注册出来** → 客户端点击无设备可转发。
+> - **补强实锤（stop/start nemuinput 触发重新注册，pid 3556）**：`stop nemuinput && start nemuinput`（root）后
+>   wchan 仍卡 `va_ioctl`，但 `/sys/class/input` 新出现 **input6（Xiaomi Input）/ input7（Xiaomi Joystick）**
+>   ——nemuinput 的 uinput 虚拟设备节点**确实创建**了（绑 `/sys/devices/virtual/input/`），
+>   **但 `/dev/input` 无对应 event6/event7 字符节点** = uinput `UI_DEV_CREATE` ioctl 因 vaddress 阻塞未完成，
+>   InputReader 扫不到 event 节点 → 客户端点击仍无设备可转发。坐实根因 = vaddress 内核模块 ioctl 层卡死
+>   （非 nemuinit 用户态逻辑、非 app/so）。
 > - **结论（诚实口径，禁自欺）**："MuMu 客户端窗口真实手点能玩"这一判据在本环境**未达成**，
 >   根因 = 设备侧 nemuinput→uinput→vaddress 虚拟触摸设备注册链路（vaddress 内核模块 ioctl 阻塞 +
 >   uinput 虚拟设备不注册），属模拟器/内核环境问题，**非 app / so / 触摸几何 / 走子规则问题**。
