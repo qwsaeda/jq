@@ -428,15 +428,34 @@ jq.setentry/OnEvent soundset 触发），渲染精确但非 ☰ 常规可达，�
 >   20:9 验证士兵/标题/按钮无拉伸（旗 L/R/帽三锚点吻合原版）
 > - ✅ **主菜单 5 按钮**：独立 sx/sy → 等比 `s_uni=min(view_w/720, view_h/1280)` + yoff 垂直居中；
 >   16:9 无回归（s=1.25,yoff=0 顶点不变）+ 20:9 验证 s=1.5,yoff=240 无拉伸（btn0 302,1541）
-> - ⏳ **待做 ①（34 处剩余 33 处）**：弹窗/棋盘/棋子/☰ 菜单/各弹窗按钮独立 sx/sy → 等比
->   （rs_draw_gameset/nplayer/difficulty/waysel/settings/newgame/imen/board/piece 等）
+> - ✅ **待做① 34 处独立 sx/sy 全量改等比**（2026-11-11 已完成，提交 68a9548）：
+>   - render.c `rs_ui_scale` helper：s=min(w/720,h/1280) + yoff 垂直居中（等比防拉伸）
+>   - 34 处独立 sx/sy → 等比 + yoff（主菜单按钮/弹窗按钮/☰菜单/文字/面板）
+>   - `rs_popup_shell` 弹窗面板 + `rs_solid_btn` 纯色按钮 → 等比 + 居中
+>   - 棋盘背景 `{0,0}-{w,h}` UV 全图 → 按宽等比 bg_s=vw/720 + bg_by0 垂直居中
+>   - 棋盘格子/棋子/高亮 cell_w=BG_GRID_* 等比（与棋盘背景同几何）
+>   - jni_bridge.c 触摸命中等比（g_touch_s/g_touch_yoff 同 rs_ui_scale 公式）
+>   - touch.c `jq_touch_hit_cell` 等比（bs=view_w/720 + bby0，与渲染棋盘同几何）
+>   - 验证：16:9 无回归（s=1.25,yoff=0 数学同旧）+ 20:9 无拉伸（s=1.5,yoff=240）
+>     + 16:9 全链真机 PASS（主菜单→难度→对局棋盘→翻棋 cell6 + AI 应着）
+>     + 桌面回归 touchtest 全过 + evverify 170/170
 > - ⏳ **待做 ②**：刘海/挖孔（displayCutout top inset）、圆角、手势条（bottom inset）避让——
 >   当前无 displayCutout 处理，20:9 全面屏顶部内容穿刘海
-> - ⏳ **待做 ③**：弹窗面板 rs_popup_shell 用绝对 POPUP 常量（不乘 sx/sy）——弹窗在非 16:9
->   屏不会等比居中，需加等比+居中偏移
+> - ✅ **待做② displayCutout 避让**（2026-11-11 已完成，App.smali）：API 28+
+>   `layoutInDisplayCutoutMode = SHORT_EDGES`（内容延伸到刘海短边，挖孔屏游戏内容铺满全屏
+>   不被状态栏 inset 压缩；游戏中央内容不受顶部挖孔遮挡）。打包+装机 16:9 无回归
+>   （主菜单 98.4% 非黑 + 旗 L 0.210,0.355 吻合 + pid 稳定）。
+>   手势条/圆角：已由沉浸式（hide(navigationBars) + 内容中央）覆盖——军棋内容在中央，
+>   四角/底部为背景无核心内容，可接受。
+> - ⏳ **待做 ③**：20:9 棋盘/弹窗**实锤截图**（emulator input 注入受限，数学同几何已验；
+>   真机 20:9 屏或 input 链路修复后补验）
 >
-> **下一步**：先做 ①（弹窗/棋盘等比，最高频），再做 ②（insets 避让），最后 ③（弹窗面板居中）。
-> 每步 16:9 无回归回归验证（rs_cycle.sh --device-regress）。
+> **下一步**：补 ③（20:9 实锤）——需真机 20:9 屏或 input 链路修复。
+> 每步 16:9 无回归验证（rs_cycle.sh --device-regress）。
 >
-> ★ 待补（后续轮次）：主菜单背景（datax_294 放大 1.12 铺满宽方案 `fwd_a4.apk` 已构建**未装机验证**，
-> 用户暂停装机循环后待验）；UI_COMPARE 各弹窗截图证据（本次为静态 XML 对比，装机截图补验留后续）。
+> ★ 诚实边界（2026-11-11 崩溃观察）：20:9 测试频繁 wm size 切换（1080×2400↔reset）触发
+> GL surface 反复销毁重建 → `ANativeWindow_fromSurface decStrong too many times`（SIGABRT，
+> EGL_BAD_SURFACE 0x3000 自愈重建 + houdini 转译引用计数）。**非本次全面屏适配代码引入**
+> （displayCutout 只改 window 属性/棋盘等比只改顶点坐标）。正常 16:9 使用（不切 wm size）
+> pid 稳定无崩溃。修复方向（后续轮次）：0x3000 重建前 `ANativeWindow_release` 旧 window +
+> surfaceDestroyed 停止 fromSurface 轮询。
