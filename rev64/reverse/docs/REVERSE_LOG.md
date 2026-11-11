@@ -7813,3 +7813,36 @@ init_array 11/12 实锤基准）固化为可复跑静态判据（不依赖设备
 
 **静态佐证批次化入口 33 项**（设备无关，§124y-190~219）：... + fb_ratio +
 **walkregress_anchors**（新增，4 路径走子回归判据锚点对照）。
+
+### §124y-220 32 位侧离线收口全闭环状态固化（静态 33 项 + 分叉矩阵 0 + 双端总入口，2026-11-11）
+
+设备 10.0.182.146 持续 No route（MuMu 实例重启循环 + 32 位 so 拖 adbd 已知
+环境项，非翻译体 so 回归）期间，用户"继续"指令下把 32 位侧可离线推进项全量
+收口，固化当前闭环状态（防后续会话不知 32 位侧收口到哪）：
+
+**已闭环（32 位侧离线收口全清单）**：
+- **静态佐证 33 项全 PASS**（§124y-190~219 扩批，设备无关可复跑）：
+  resource/event/urlkey/javacls + forkcheck + taxonomy + event_cover +
+  event_codemap + bss_evt_tbl + rodata_static + text_static + rel_dyn +
+  jni_export + got_plt + trans_jni + trans_strpool + readelf_rel + got_map +
+  needed + trans_needed + walk_8step + trans_seg + trans_handlers +
+  hook_anchors + spak_key + init_array + plt_stub + bss_single +
+  mapping_boundary + apk_so_hash + touch_int + fb_ratio + walkregress_anchors
+- **3 处口径修正实锤**：
+  - B09-001 15→14（原版 so nm -D 实锤 14 个 On*，AGENTS 同步 §124y-195）
+  - SPAK key 文件偏移 0x2e5268 误值 → 0x12a658（VA=文件偏移 §124y-209）
+  - .bss 单例槽偏移 0xc 手算误 → 0x16c（§124y-213 坑固化）
+- **分叉矩阵 0 未标记**（rules_fork_check.py 已标记 87 + 行为实证 16 + 分歧 1）
+- **设备 flaky 根治**（§124y-188/189）：判据窗口放宽 45s/60s + 项间冷却 5s +
+  掉线 2 轮 30s 重连容错；转译层 JNI 反射崩溃归因（§124y-191 libart/libc
+  非 so 代码段 = 环境崩溃）
+- **双端总入口**（§124y-215）：`arm32_verify_all.sh`（静态 33 项 + 设备 4 项
+  一键跑，设备 No route 自动降级 PENDING 非 FAIL）
+- **git 全推 origin/main**（本段固化时 dc605c9，本地 0 领先）+ forward 0 误改
+
+**未闭环（等设备恢复窗口）**：
+- 设备 4 项全钩子（game_test/walk_bridge/native_event/framebuffer）= 待
+  10.0.182.146 MuMu 重启循环结束后 `bash rev64/tools/arm32_verify_all.sh`
+  一键复验（flaky 已根治，设备 No route 自动 PENDING 降级）
+- 判读口径：静态 33 项 PASS + 设备 PENDING = 32 位逆向离线侧收口全闭环，
+  设备侧不作 so 回归依据（环境掉线 §124y-189 口径）
