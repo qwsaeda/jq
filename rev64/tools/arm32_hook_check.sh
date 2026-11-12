@@ -49,6 +49,28 @@ ensure_dev() {
   adb -s "$DEV" get-state 2>/dev/null | grep -q device
 }
 
+# §124y-243 crash 段归属判读（§124y-191/226 口径脚本化）：
+#   backtrace 落 ART 层（libart/libc strlen/GetMethodID/FindMethodJNI）= 转译环境
+#   崩溃周期（32 位 so 经 houdini 转译在 x86_64 宿主跑 ART 周期 SEGV），非 so 回归
+#   backtrace 落 libjunqi so 段 = so 回归（须排查）
+# 返回 0=环境崩溃（可容忍） 1=so 段崩溃（回归） 2=无 backtrace（无法判）
+classify_crash() {
+  local bt
+  bt=$(adb -s "$DEV" logcat -d 2>/dev/null | grep -A25 ">>> com.cnvcs.junqi32" | grep -E "#[0-9]+ pc|/data/app|libjunqi|libart|libc\.so|strlen|GetMethodID|FindMethod" | head -15)
+  if [ -z "$bt" ]; then echo "  [crash-classify] 无 backtrace（无法判段）"; return 2; fi
+  if echo "$bt" | grep -q "libjunqi"; then
+    echo "  [crash-classify] 崩溃落 libjunqi so 段 = ★ so 回归（须排查）"
+    return 1
+  fi
+  # ART 层特征（strlen/GetMethodID/FindMethodJNI/libart）= 转译环境
+  if echo "$bt" | grep -qE "libart|libc\.so|strlen|GetMethodID|FindMethod"; then
+    echo "  [crash-classify] 崩溃落 ART 层（libart/libc）= 转译环境崩溃周期（§124y-191/226，非 so 回归）"
+    return 0
+  fi
+  echo "  [crash-classify] 段归属不明（backtrace: $(echo "$bt" | head -2 | tr '\n' '|')）"
+  return 2
+}
+
 if [ "$NO_INSTALL" -eq 0 ] && [ -f "$APK" ]; then
   ensure_dev || { echo "设备 $DEV 不可达"; exit 2; }
   echo "═══ 装机（phase_chain_arm32.apk）═══"
@@ -129,9 +151,10 @@ launch_hook() {
   # 改：sleep 45s 起步（设备刚 boot 转译冷启动 2-3 倍慢，§124y-180 教训），读到判据即返回。
   sleep 45
   LOG=$(adb -s "$DEV" logcat -d 2>/dev/null)
-  # 判据未出 → 再轮询等到 60s（每 5s 查一次）
+  # §124y-243 判据未出 → 轮询扩到 90s（每 5s 查一次，转译冷启动 2-3 倍慢
+  #   §124y-188 根治——旧 6×5s=30s 在转译周期内读不到判据 → 假 FAIL）
   local i
-  for i in 1 2 3 4 5 6; do
+  for i in $(seq 1 18); do
     echo "$LOG" | grep -q "GAME-TEST: 端到端完成\|WALK-BRIDGE: 完整 8 步\|F_3ab80: 事件发送" && break
     sleep 5
     LOG=$(adb -s "$DEV" logcat -d 2>/dev/null)

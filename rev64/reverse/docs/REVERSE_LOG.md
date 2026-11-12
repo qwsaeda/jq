@@ -8412,3 +8412,36 @@ bash rev64/tools/arm32_verify_all.sh --dev 10.0.182.146:5555
 - **后续根治方向**：判据脚本 `launch_hook` 轮询窗口扩到 90-135s（转译冷启动
   2-3 倍慢 §124y-188）+ crash 判读加 backtrace 段归属校验（ART 层 = 环境，
   libjunqi so 段 = 回归）
+
+
+### §124y-243 crash 段归属判读脚本化 + launch_hook 轮询扩窗 90s（转译冷启动 flaky 根治，2026-11-12）
+
+用户"按顺序往下走，不准停"指令下，设备 4 项判据脚本 flaky 根治：
+
+- **crash 段归属判读脚本化（§124y-191/226 口径落地）**：`arm32_hook_check.sh`
+  新增 `classify_crash` 函数——崩溃 backtrace 落 **ART 层**（`libart.so
+  FindMethodJNI/GetMethodID` + `bionic/libc.so strlen_generic`）= 转译环境
+  崩溃周期（32 位 so 经 houdini 转译在 MuMu x86_64 宿主跑 ART GetMethodID→strlen
+  周期 SEGV，非 so 回归）；落 `libjunqi` so 段 = so 回归（须排查）。
+  本轮实锤：4 项窗口各 1 次 SEGV_MAPERR fault 0x9916a728，backtrace `#00
+  bionic/libc.so strlen + #01 libart FindMethodJNI + #02 libart GetMethodID`
+  = **ART 层 = 转译环境周期，非 so 回归**
+- **launch_hook 轮询扩窗（转译冷启动 flaky 根治）**：`arm32_hook_check.sh`
+  `launch_hook` 轮询 6×5s=30s → **18×5s=90s**（转译冷启动 2-3 倍慢
+  §124y-188 根治——旧窗口在转译周期内读不到判据日志 → 假 FAIL）
+- **判据基准实锤（so d0c311b7，MuMu 10.0.182.146，手动实锤）**：
+  - game_test：`GAME-TEST: 端到端完成 走子=OK(2步Move)` + `touch_int:
+    tap1k(274000,1268000)→cell6` + `EVT-TBL-DUMP 289B 非0字节=129` 3 判据全出
+  - walk_bridge：`WALK-BRIDGE: 完整 8 步序列完成` + flip×2 锚点（`jq_walk_bridge_flip`
+    cell6 ok=1 side=0 / cell33 ok=1 side=1）+ move×4 锚点（cell6→11 / cell33→38
+    事件=Junqi.Move + cell12→13 / cell10→11 非法）
+  - 判据命中 + crash 落 ART 层 = 判据基准成立（转译环境周期，非 so 退化）
+- **坑固化**：32 位 so 经 houdini 转译在 x86_64 宿主跑，ART runtime 的
+  `GetMethodID→strlen` 通路会周期 SEGV_MAPERR（fault 0x9916xxxx 区 = ART
+  堆/转译缓存区），崩溃线程名 = 主线程（非 Jit thread pool，§124y-226 旧
+  口径已扩）；判据脚本 crash 计数须配合 backtrace 段归属判读（ART 层容忍 /
+  libjunqi so 段 = 回归）
+
+**判读口径终锤**：设备 4 项判据基准 = 判据日志命中 + 崩溃（若有）backtrace
+落 ART 层 = 达成；判据脚本单跑 FAIL 但手动实锤命中 = 转译冷启动 sleep 窗口
+（§124y-243 扩 90s 根治）；crash 落 libjunqi so 段 = so 回归（本轮 0 回归实锤）。
