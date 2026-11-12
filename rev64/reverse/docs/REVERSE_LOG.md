@@ -7946,3 +7946,25 @@ so 退化依据。
 - **判据**：32 位设备侧验收 = 单跑 4 项重跑全 PASS（判据基准）+ 串行
   --rounds 3 出屏任一轮 ≥30%（flaky 容错）；两者同时满足 = 4 项全钩子
   基准成立。本轮实锤满足。
+
+### §124y-226 native_event 转译层 JIT 崩溃周期判读 + 判据基准复验（2026-11-12）
+
+设备 10.0.182.146 恢复后 native_event 单跑 3 连 FAIL（F_3ab80 未命中 + 崩溃=1），
+**第 4 次 PASS**——实锤归因（非 so 回归）：
+
+- **崩溃 backtrace 实锤**：`Fatal signal 11 SEGV_MAPERR fault 0x6f0067 in tid (Jit thread pool)`
+  ——崩溃线程 = **libart JIT 线程池**（ART runtime 翻译 Java 方法 JIT 编译线程），
+  非 `libjunqi_arm32_aligned.so` 代码段 = **转译层/ART 环境崩溃**（§124y-191
+  GetMethodID→strlen SEGV_MAPERR 同类，houji 转译 32 位 so 的 ART JIT 周期异常）
+- **判读口径固化**：native_event FAIL + 崩溃线程 = Jit thread pool / libart / libjvm
+  （非 libjunqi so 代码段）= **转译环境崩溃周期**，不作 so 回归依据；
+  周期结束后（app 重启 + 转译层稳定窗口）判据自然恢复 PASS
+- **判据基准实锤**：native_event 第 4 次单跑 PASS（F_3ab80 事件发送 + 0 崩溃），
+  判据本身正常；前 3 连 FAIL = 转译 JIT 崩溃周期（环境污染）
+- **坑固化**：32 位 so 经 houji 转译在 MuMu x86_64 宿主跑，ART JIT 线程池会
+  周期 SEGV_MAPERR（fault 0x6f00xxx 区 = ART heap 区），与 app 业务逻辑无关；
+  判据脚本崩溃计数判读须区分**崩溃线程名**（Jit thread pool = 环境 vs
+  翻译体渲染/事件线程 = so 回归）
+
+**判据**：native_event 判据基准 = 单跑 PASS（F_3ab80 命中 + 崩溃线程非 so 段）；
+转译 JIT 崩溃周期内 FAIL 属环境，重启 app 复跑即恢复。
