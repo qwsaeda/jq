@@ -7897,3 +7897,29 @@ walkregress_anchors + **trans_abi**（新增，翻译体 ABI 一致性 + 重定�
 - **坑固化**：基准 JSON 放 `reverse/analysis/`（dist/ 被 gitignore，
   放 dist/ 会像 §124y-190 289B 一样入不了库）
 - 并入 `arm32_static_evidence.sh` `jni_export` 项（PASS=34 FAIL=0 全 PASS）
+
+### §124y-224 game_test 判据③ 时序容错 + framebuffer 轮询 92s + 设备 4 项复验（2026-11-12）
+
+设备 10.0.182.146 经 17 小时 MuMu 重启循环后恢复，用户"继续"指令下复验设备
+4 项全钩子，实锤 2 处判据时序缺陷 + 修复：
+
+- **★ 判据锚点错位实锤（game_test 判据③）**：`EVT-TBL-DUMP: 289B 区 非0字节=129`
+  （jq.bss_dump 钩子 L199 行）与 `EVT-TBL-DUMP(after game_test): 289B 区 非0字节=129`
+  （game_test 钩子 L840 行）是**两行不同日志**——脚本判据③ grep
+  `EVT-TBL-DUMP.*非0字节=129` 在 game_test 窗口内命中的是 after 行，但
+  launch_hook 读到 "GAME-TEST: 端到端完成" 即 break，after dump 行（完成
+  后 ~30ms 出）可能刚出未进 LOG 快照 → 假 FAIL。修：判据③ 未命中时再等
+  5s 重读 LOG（时序容错），实锤 game_test 单跑 3/3 轮 PASS
+- **framebuffer dump 轮询窗口 60s → 92s**（串行 4 项时转译冷启动 2-3 倍慢，
+  §124y-188 方法论第 5 条扩展），实锤 framebuffer 单跑 PASS（100% 非黑比）
+- **设备 4 项复验实锤**（10.0.182.146，so 9025101e）：
+  - 单跑 4/4 全 PASS（game_test 出屏 3/3 轮 100% + walk_bridge 8 步 0 崩溃 +
+    native_event F_3ab80 + framebuffer 100%）
+  - 串行 --rounds 3 偶发 1 项 FAIL = 转译缓存抖动（§124y-188 已知项，
+    单跑为准）
+  - 转译层 JNI 反射崩溃（SEGV_MAPERR 0x9916a728，libart GetMethodID→strlen）
+    = 环境周期崩溃非 so 回归（§124y-191 口径）
+
+**判据固化**：设备 4 项复验 = 单跑 4 项（判据本身正常性）+ 串行 --rounds 3
+（转译缓存抖动容错）双口径；单跑全 PASS = 判据基准成立，串行偶发 FAIL 不作
+so 退化依据。

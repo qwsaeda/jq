@@ -172,6 +172,13 @@ for k in $KINDS; do
           fi
         fi
       done
+      # §124y-224 时序容错：after game_test 的 289B dump 行在 GAME-TEST 完成后 ~30ms 出，
+      #   launch_hook 读到 GAME-TEST 即 break，判据③ LOG 快照可能未含 after dump 行 →
+      #   ③ 未命中时再等 5s 重读 LOG（防"判据锚点错位"假 FAIL）
+      if ! echo "$LOG" | grep -q "EVT-TBL-DUMP.*非0字节=129"; then
+        sleep 5
+        LOG=$(adb -s "$DEV" logcat -d 2>/dev/null)
+      fi
       CRASH=$(echo "$LOG" | grep -c "Fatal signal" || true)
       ok=1
       echo "$LOG" | grep -q "GAME-TEST: 端到端完成 走子=OK" || { ok=0; echo "  ✗ 端到端未命中"; }
@@ -232,9 +239,9 @@ for k in $KINDS; do
         adb -s "$DEV" shell "rm -f /sdcard/Download/board_dump_*.ppm" >/dev/null 2>&1
         adb -s "$DEV" shell "am start -n $PKG/com.cnvcs.App" >/dev/null 2>&1
         # ★ §124y-180 方法论第 5 条（flaky 防）：dump 由翻译体 F_9d43c 帧尾生成，
-        #   固定 sleep 可能早于首帧 → 轮询等待（最多 60s，每 4s 查一次）
+        #   固定 sleep 可能早于首帧 → 轮询等待（最多 92s，每 4s 查一次；串行转译冷启动 2-3 倍慢 §124y-188）
         ratio="none"
-        for _w in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do
+        for _w in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23; do
           sleep 4
           LATEST=$(adb -s "$DEV" shell "ls -t /sdcard/Download/board_dump_*.ppm 2>/dev/null | head -1" | tr -d '\r')
           if [ -n "$LATEST" ]; then
