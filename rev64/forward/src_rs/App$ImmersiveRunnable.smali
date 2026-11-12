@@ -35,6 +35,11 @@
     #   （滑出临时显示，松手不点即自动隐藏；API32+ framework 是 interface，invoke-interface）
     const/4 v2, 0x1
     invoke-interface {v1, v2}, Landroid/view/WindowInsetsController;->setSystemBarsBehavior(I)V
+    # ★ 官方 Android 15 系统栏外观（第 7 轮）：isAppearanceLightStatusBars=false
+    #   游戏深色 UI → 状态栏图标浅色（官方按内容动态设；API30+ invoke-virtual，
+    #   返回 WindowInsetsController 自身用于链式）。appearance=0(LIGHT_BARS_NONE) flags=0
+    const/4 v2, 0x0
+    invoke-interface {v1, v2, v2}, Landroid/view/WindowInsetsController;->setSystemBarsAppearance(II)V
     # ② 官方 edge-to-edge 第一原则（setDecorFitsSystemWindows(false)，官方内容延伸到系统栏下）
     iget-object v1, p0, Lcom/qwsaeda/App$ImmersiveRunnable;->a:Lcom/qwsaeda/App;
     invoke-virtual {v1}, Landroid/app/Activity;->getWindow()Landroid/view/Window;
