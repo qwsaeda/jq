@@ -10426,6 +10426,12 @@ void rs_render_frame(rs_render *rr)
        s=vw/720 + 上下条带（棋盘图顶/底边缘 UV clamp 延伸，无黑边）。
        16:9（900×1600）s=1.25,by0=0 → 铺满全屏（与原版一致，无回归）。 */
     float bg_s = (float)rr->view_w / 720.0f;   /* 按宽等比（保棋盘比例） */
+    float bg_h_px = 1280.0f * bg_s;
+    /* ★ 2026-11-12 正向修正（用户"首屏拉伸+翻棋黑边"）：按宽等比在瘦高屏
+       （Magic9 1236×2664，ratio 0.464 < 基准 0.562）→ 1280×bg_s < vh → 上下黑边。
+       改**按高铺满全屏**（瘦高屏 bg 高=vh，左右棋盘边缘延伸）——任何宽高比不留黑边。 */
+    if (bg_h_px < (float)rr->view_h)
+        bg_s = (float)rr->view_h / 1280.0f;   /* 按高铺满 */
     float bg_by0 = ((float)rr->view_h - 1280.0f * bg_s) * 0.5f;
     float bg_by1 = bg_by0 + 1280.0f * bg_s;
     if (rr->tex_bg[slot] && rr->gl2_ok[slot]) {
@@ -10475,6 +10481,9 @@ void rs_render_frame(rs_render *rr)
            与棋盘背景 quad 同几何（16:9 s=1.25,by0=0 → 与原版一致，无回归）。 */
         float vw = (float)rr->view_w, vh = (float)rr->view_h;
         float bg_s = (float)rr->view_w / 720.0f;   /* 棋盘等比（按宽，保比例） */
+        /* ★ 2026-11-12 正向修正（与棋盘背景同几何）：瘦高屏（Magic9）按高铺满，
+           棋子/棋盘格同按高缩放，与背景 quad 严格对齐（否则格与背景错位）。 */
+        if (1280.0f * bg_s < vh) bg_s = vh / 1280.0f;
         float bg_by0 = ((float)rr->view_h - 1280.0f * bg_s) * 0.5f;
         float cell_w = BG_GRID_COL_W * bg_s;
         float cell_h = BG_GRID_ROW_H * bg_s;

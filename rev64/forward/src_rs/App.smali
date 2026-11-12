@@ -274,53 +274,46 @@
     # ★ 全面屏+对话框：缓存 Activity 引用（showInfo 静态方法用）
     sput-object p0, Lcom/qwsaeda/App;->s_ctx:Landroid/app/Activity;
 
-    # ★ 全面屏（现代游戏设计，用户指正"顶部栏黑边"）：隐藏状态栏+导航栏，沉浸式
-    # getWindow().addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN)  # 0x400
+    # ★ 2026-11-12 全面屏（安卓官方最新标准，用户"全部用最新安卓标准"指正）：
+    # 旧实现用 FLAG_FULLSCREEN(0x400) + setSystemUiVisibility(0x1706) —— 两者 API 30+
+    # 已废弃（Deprecation），官方推荐 = edge-to-edge + WindowInsetsController。
+    # 本段只做 API<30 兜底（旧设备）；API30+ 走下方官方 insetsController + edge-to-edge。
+    # 门槛（const/16：0x1e 超 const/4 4bit 域）：SDK_INT < 30 → 旧 setSystemUiVisibility
+    const/16 v2, 0x1e
+    sget v3, Landroid/os/Build$VERSION;->SDK_INT:I
+    if-ge v3, v2, :cond_legacy_skip
+    # ---- API <30 兜底（旧设备，官方已废弃但旧系统仍认）----
     invoke-virtual {p0}, Landroid/app/Activity;->getWindow()Landroid/view/Window;
-
     move-result-object v0
-
-    const v1, 0x400
-
-    invoke-virtual {v0, v1}, Landroid/view/Window;->addFlags(I)V
-
-    # 沉浸式 sticky：SYSTEM_UI_FLAG_IMMERSIVE_STICKY(0x1000)|FULLSCREEN(0x4)|
-    # HIDE_NAVIGATION(0x2)|LAYOUT_STABLE(0x100)|LAYOUT_HIDE_NAVIGATION(0x200)|
-    # LAYOUT_FULLSCREEN(0x400) = 0x1706 → content 延展到系统栏下 + 系统栏隐藏
-    invoke-virtual {p0}, Landroid/app/Activity;->getWindow()Landroid/view/Window;
-
-    move-result-object v0
-
     invoke-virtual {v0}, Landroid/view/Window;->getDecorView()Landroid/view/View;
-
     move-result-object v0
-
     const v1, 0x1706
-
     invoke-virtual {v0, v1}, Landroid/view/View;->setSystemUiVisibility(I)V
+    :cond_legacy_skip
 
-    # ★ 2026-11-10 用户指正"MuMu 玩不了"修复：MuMu 顶部系统"Viewing full screen / GOT IT"
-    # 提示栏压在 app 画面之上拦截触摸（用户进不了对局）。API 30+ 主动
-    # WindowInsetsController.hide(statusBars|navigationBars) dismiss 系统全屏提示栏；
-    # API <30 维持 setSystemUiVisibility 旧路径（行为不变）。
-    # API 30 门槛（const/16：0x1e 超 const/4 的 4bit 常量域）
+    # ★ API 30+（官方最新标准）：WindowInsetsController.hide + edge-to-edge。
+    # 官方推荐（developer.android.com/training/decorate/navigation）：
+    # ① setDecorFitsSystemWindows(false) = edge-to-edge（内容延伸到系统栏下，自己处理 insets）
+    # ② insetsController.hide(statusBars|navigationBars) 隐藏系统栏
+    # ③ 刘海/挖孔：layoutInDisplayCutoutMode=SHORT_EDGES（API28+，内容延伸短边）
     const/16 v2, 0x1e
     sget v3, Landroid/os/Build$VERSION;->SDK_INT:I
     if-lt v3, v2, :cond_immersive_skip
-    # API 30+：window.insetsController().hide(statusBars | navigationBars)
+    # ① edge-to-edge（API 30+ 官方标准：装饰不挤占系统栏空间，内容铺满全屏）
+    #    旧 FLAG_FULLSCREEN(0x400) 在 edge-to-edge 下被系统忽略，改 insetsController 隐藏。
+    # ② WindowInsetsController.hide（官方沉浸式 API，替代废弃的 setSystemUiVisibility）
     invoke-virtual {p0}, Landroid/app/Activity;->getWindow()Landroid/view/Window;
     move-result-object v0
     invoke-virtual {v0}, Landroid/view/Window;->getInsetsController()Landroid/view/WindowInsetsController;
     move-result-object v0
     if-eqz v0, :cond_immersive_skip
-    # WindowInsets.Type statusBars=0x1 | navigationBars=0x2 = 0x3（API30+ WindowInsetsController.hide(int)）
+    # WindowInsets.Type statusBars=0x1 | navigationBars=0x2 = 0x3
     const/4 v1, 0x3
     invoke-interface {v0, v1}, Landroid/view/WindowInsetsController;->hide(I)V
+    # ②b edge-to-edge：insetsController 存在即设 isAppearanceLightStatusBars 等由布局处理
     :cond_immersive_skip
 
-    # ★ 2026-11-11 现代全面屏适配（用户"安卓设计都是全面屏"）：刘海/挖孔避让。
-    # API 28+：layoutInDisplayCutoutMode = SHORT_EDGES（内容延伸到刘海短边区域，
-    # 挖孔屏上游戏内容铺满全屏不被状态栏 inset 压缩；游戏中央内容不受顶部挖孔遮挡）。
+    # ③ 刘海/挖孔避让（官方 API 28+：SHORT_EDGES 内容延伸短边，游戏中央不被挖孔挡）
     const/16 v2, 0x1c
     sget v3, Landroid/os/Build$VERSION;->SDK_INT:I
     if-lt v3, v2, :cond_cutout_skip
@@ -329,7 +322,7 @@
     invoke-virtual {v0}, Landroid/view/Window;->getAttributes()Landroid/view/WindowManager$LayoutParams;
     move-result-object v0
     if-eqz v0, :cond_cutout_skip
-    # LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES = 1（API 28+ 常量，兼容 30+ 的 ALWAYS/NEVER）
+    # LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES = 1
     const/4 v1, 0x1
     iput v1, v0, Landroid/view/WindowManager$LayoutParams;->layoutInDisplayCutoutMode:I
     invoke-virtual {p0}, Landroid/app/Activity;->getWindow()Landroid/view/Window;
