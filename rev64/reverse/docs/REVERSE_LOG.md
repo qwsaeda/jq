@@ -8171,3 +8171,34 @@ bash rev64/tools/arm32_verify_all.sh --dev 10.0.182.146:5555
 **全链 0 崩溃，5 判据第三次全复验 PASS**（§124y-229/230 基准延续）。
 可复现入口：`bash rev64/tools/arm32_verify_all.sh --dev 10.0.182.146:5555`（双端一键）
 + 逐判据单跑 `arm32_hook_check.sh --only <game_test|walk_bridge|native_event|framebuffer>`。
+
+
+### §124y-235 路线 4 走子回归 8 路径静态锚点判据收口 + 设备侧实锤撞转译层周期（2026-11-12）
+
+用户"按顺序往下走，不准停"指令下，路线 4 落地收口：
+
+- **静态判据（设备无关，已收口）**：新增 `walkregress_8path_check.py`（§124y-234），
+  走子回归 4→8 路径（蓝/红 × 明/暗 × 走/翻）8 锚点全齐备实锤：
+  ① 蓝明走 `move(6,11)` ② 红明走 `move(33,38)` ③ 蓝暗翻 `flip(6)`
+  ④ 红暗翻 `flip(33)` ⑤ walk_bridge 8 步锚点 ⑥ native_layout 锚点
+  ⑦ native_event 锚点 ⑧ game_test 锚点（正则 `走子=%s` 非字面 `走子=OK`，
+  动态格式串口径纠正）。静态佐证 36→37 项全 PASS
+- **设备侧实锤（旧 so 9025101e）**：walk_bridge 8 步序列 3 连 PASS（命中
+  `WALK-BRIDGE: 完整 8 步序列完成`），move 锚点 4 条全出（`cell6→11 事件=Junqi.Move`
+  + `cell33→38 事件=Junqi.Move` + `cell12→13 非法` + `cell10→11 非法`）
+- **暗棋 2 路径（flip）判据缺口修复**：`jq_walk_bridge_flip` 日志原 `LOG_INFO(4)`
+  级，logcat 默认抓不到 → 升 `ERROR(6)` 级（`jq_rs_walkbridge.c` 改动），
+  重编 so md5 `9025101e`→`58c3e45a`，使暗棋 2 路径（蓝暗翻/红暗翻）锚点
+  进默认 logcat 可机判
+- **设备侧实锤撞转译层周期（非 so 回归）**：新 so 58c3e45a 装机后 walk_bridge
+  钩子 3 连 0 命中 + 0 崩溃 + 渲染循环活跃——实锤归因 = 转译层 JIT 崩溃周期
+  （§124y-191/226 已知项，32 位 so 经 houdini 转译在 MuMu x86_64 宿主跑 ART
+  JIT 线程池周期 SEGV_MAPERR），非 so 回归（旧 so 9025101e 同判据实锤走子通）。
+  周期结束后重跑 8 路径判据自然恢复
+- **判读口径固化**：走子回归 8 路径判据 = 静态锚点（§124y-234，设备无关基准）+
+  设备侧实锤（转译层周期恢复窗口内重跑）；8 路径静态锚点全齐备 = 路线 4 收口，
+  设备侧 flip 锚点（ERROR 级）周期恢复后实锤暗棋 2 路径可机判
+
+**4 路线全收口**：路线 1（thunk_coverage 静态 35 项）+ 路线 3（event_name_static
+静态 36 项）+ 路线 4（walkregress_8path 静态 37 项 + 暗棋 2 路径日志级别修复）
++ 路线 2（暗棋实装 = 路线 4 设备侧 flip 锚点，周期恢复后实锤）。

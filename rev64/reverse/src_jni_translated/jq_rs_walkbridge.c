@@ -167,7 +167,7 @@ JQ_EXPORT int jq_walk_bridge_flip(int cell) {
     if (!g_walk_init) jq_walk_bridge_run();
     int ok = jq_can_flip(&g_walk_state, cell) ? jq_flip(&g_walk_state, cell) : 0;
     const jq_cell *c = &g_walk_state.cells[cell];
-    __android_log_print(4, "junqi", "jq_walk_bridge_flip: cell%d 翻子 ok=%d rank=%d side=%d revealed=%d",
+    __android_log_print(6, "junqi", "jq_walk_bridge_flip: cell%d 翻子 ok=%d rank=%d side=%d revealed=%d",
                         cell, ok, c->rank, c->side, c->revealed);
     return ok;
 }
