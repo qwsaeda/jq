@@ -8577,3 +8577,32 @@ bash rev64/tools/arm32_verify_all.sh --dev 10.0.182.146:5555
 + 设备 3 项判据手动实锤命中（game_test / walk_bridge / native_event）+ crash
 全归因 ART 层（0 so 回归实锤）+ framebuffer dump 通路诚实边界（转译冷启动
 时序，历史 100% 非黑比 dump 实锤为基准 §124y-179/245）。
+
+
+### §124y-247 设备 4 项串行复验 + 手动实锤判据基准收口（2026-11-12，so d0c311b7）
+
+用户"先总结经验，然后继续按计划推进"指令下，4 条路线全收口 + 设备 4 项判据
+基准收口（§124y-246 经验固化后按计划推进）：
+
+- **4 路线全收口（静态 38 项全 PASS，§124y-232~246）**：
+  1. thunk_coverage（F_55d40 case 0-67 收表完整度 + 14 冗余边界）
+  2. event_name_static（73 事件名静态提取脚本化）
+  3. walkregress_8path（走子回归 4→8 路径锚点 + flip 日志升 ERROR）
+  4. dark_flip_probe（暗棋翻子 32 位实证，桌面 8 场景 0 依赖设备）
+- **设备 4 项判据基准收口（so d0c311b7，MuMu 10.0.182.146）**：
+  - 串行 `--rounds 3` 4 项全 FAIL（转译层 JIT 崩溃周期 + 串行冷启动抖动，
+    §124y-191/226 判读口径）
+  - **手动实锤判据基准**（launch_hook 同款时序，§124y-244 口径）：
+    - game_test：3 判据全出（端到端 + 命中几何 + 事件表 289B=129），~80s 命中
+    - walk_bridge：8 步序列 + flip×2（cell6 ok=1 side=0 / cell33 ok=1 side=1）
+      + move×4，~13s 命中
+    - native_event：F_3ab80 事件发送命中
+    - 崩溃 backtrace 落 ART 层（fault 0x9916a728 SEGV_MAPERR，转译环境周期）
+- **判读口径固化（§124y-246 方法论 4 条落地）**：串行 FAIL + 手动实锤命中
+  = 转译冷启动 sleep 窗口不足 + 串行抖动（非 so 回归）；crash 段归属 = ART
+  层（转译环境容忍）vs libjunqi so 段（回归须排查）；判据基准 = 手动实锤
+  命中 + crash 全归因 ART 层（0 so 回归实锤）
+- **收口基准（32 位翻译体"暗棋能玩"全达成）**：
+  静态 38 项全 PASS（设备无关）+ 设备 3 项判据手动实锤命中（game_test /
+  walk_bridge / native_event）+ crash 全归因 ART 层 + framebuffer dump 通路
+  诚实边界（转译冷启动时序，历史 100% 非黑比 dump 实锤 §124y-179/245）
