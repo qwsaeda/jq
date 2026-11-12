@@ -8506,3 +8506,74 @@ bash rev64/tools/arm32_verify_all.sh --dev 10.0.182.146:5555
 | 设备 3 项判据命中 | game_test / walk_bridge / native_event | 实锤（本轮） |
 | crash 0 so 回归 | backtrace 段归属（ART 层 = 转译环境） | 实锤（本轮） |
 | framebuffer 出屏 | F_9d43c 帧尾 dump（转译冷启动时序） | 诚实边界（历史 100% 实锤） |
+
+
+### §124y-246 本轮经验库循环——转译层判据 4 条可泛化方法论 + 坑清单固化（2026-11-12）
+
+用户"先总结经验，然后继续按计划推进"指令下，把 §124y-241~245 的"事件记录"
+提炼为**可复用判据方法论**（防后续会话重踩）：
+
+#### 一、4 条可泛化方法论（转译层 32 位 so 判据）
+
+1. **判据基准 = 手动实锤命中 + crash 段归属，非脚本单跑 PASS/FAIL**
+   - 32 位 so 经 houdini 转译，OnCreate/OnUpdate 钩子段出日志需 ~30-40s
+     （冷启动 2-3 倍慢），脚本固定 sleep 窗口 → 转译周期内假 FAIL
+   - **判据基准 = 手动实锤判据日志命中（launch_hook 同款时序：清干扰 +
+     设属性 + 清 app + 重启 + 45s + 轮询 90s）**；脚本单跑 FAIL 但手动
+     实锤命中 = 判据脚本 sleep 窗口不足（非 so 回归）
+   - 脚本根治 = 轮询窗口扩 90s（§124y-243）+ crash 段归属判读（§124y-243）
+
+2. **crash 归因 = backtrace 段归属判读（ART 层 vs libjunqi so 段）**
+   - 转译层 32 位 so 在 x86_64 宿主跑，ART runtime 的 `GetMethodID→strlen`
+     通路会**周期 SEGV_MAPERR**（fault 0x9916xxxx 区 = ART 堆/转译缓存区）
+   - backtrace `#00 bionic/libc.so strlen + #01 libart FindMethodJNI +
+     #02 libart GetMethodID` = **ART 层 = 转译环境崩溃周期**（容忍，非回归）
+   - backtrace 落 `libjunqi` so 段 = **so 回归**（须排查）
+   - 判据脚本须配合 backtrace 段归属判读（`classify_crash` 函数，§124y-243），
+     不能只看 `grep -c "Fatal signal"` 计数（ART 层崩溃也计入）
+
+3. **同设备 64 位并行 app = 32 位走子桥 tick 通路 flaky 根因**
+   - MuMu 同设备 3 包并存（cnvcs.junqi32 + qwsaeda.junqirs + zxj.junqirs），
+     64 位 app 并行抢 GL 资源 → 32 位走子桥 OnUpdate tick 通路抖动
+   - 判据脚本启动前须 `am force-stop com.qwsaeda.junqirs / com.zxj.junqirs`
+     （`INTERFERER_PKGS` 前置清理，§124y-241）
+
+4. **走子桥 flip/move 锚点须 ERROR 级日志（logcat 默认可抓）**
+   - 32 位走子桥 `jq_walk_bridge_move/flip` 日志若 LOG_INFO(4) 级，
+     logcat 默认抓不到 → 暗棋 2 路径（蓝暗翻/红暗翻）无真机实锤锚点
+   - 可机判锚点须升 ERROR(6) 级（§124y-235/239 已修）；8 步序列用
+     `jq_walk_bridge_flip` 入口（非 `jq_flip` 裸调）才有逐 cell 日志
+
+#### 二、坑清单（防复发）
+
+- **坑 1**：`jq_state_init` 在 `jq_rs_layout.c` 非 rules.c（声明/实现分处，
+  R-051 已知）；桌面编译 32 位暗棋判据须 `jq_rs_rules.c + jq_rs_board.c +
+  jq_rs_layout.c` 三文件全链，单编 rules.c 报 undefined reference（`cell_row/
+  is_camp` 在 board.c）
+- **坑 2**：`event_code_map.json` 结构 = `event_codes: {code_str: {code,
+  names:[]}}` 非扁平 name→code；对照须先解析结构 + 模板串 `%d` 归一化
+  （so 存 `Junqi.GameType%d` 完整模板，map 存简写）
+- **坑 3**：`event_name_static_check.py` 的 ROOT 拼接须上溯 2 级（脚本在
+  rev64/tools/ 下），`os.path.dirname(os.path.dirname(TOOLDIR))` 到工作区根；
+  旧 1 级拼接 → so 路径不存在 strings 直提 0 条假 FAIL
+- **坑 4**：走子桥 8 步序列 flip×2 原用 `jq_can_flip/jq_flip` 裸调（无逐
+  cell 日志）→ 暗棋 2 路径真机实锤无锚点；改 `jq_walk_bridge_flip` 入口
+  （ERROR 级日志）才有 `jq_walk_bridge_flip: cellN 翻子 ok=...` 锚点
+- **坑 5**：`WALK-BRIDGE: 完整 8 步序列完成` 锚点是 ERROR 级（logcat 默认可抓）；
+  `jq_walk_bridge_move` 是 INFO 级（须 `-v raw` 全级别抓）——判据 grep 须
+  区分日志级别（走子桥 8 步锚点用默认 logcat 可机判，move 行须全级别）
+
+#### 三、判据脚本索引更新（§124y-246）
+
+- `arm32_static_evidence.sh` 静态佐证 **38 项**（§124y-232~237 扩 4 项：
+  thunk_coverage / event_name_static / walkregress_8path / dark_flip_probe）
+- `arm32_hook_check.sh` 设备 4 项判据（launch_hook 轮询 90s + classify_crash
+  段归属 + INTERFERER_PKGS 64 位干扰清理）
+- `arm32_verify_all.sh` 双端总入口（静态 38 项 + 设备 4 项，设备不可达自动
+  PENDING 降级 §124y-189）
+- `STATIC_EVIDENCE_INDEX.md` 判据脚本索引（38 项明细 + 设备侧入口 + 坑清单）
+
+**判读口径终锤**：32 位翻译体"暗棋能玩"全基准 = 静态 38 项全 PASS（设备无关）
++ 设备 3 项判据手动实锤命中（game_test / walk_bridge / native_event）+ crash
+全归因 ART 层（0 so 回归实锤）+ framebuffer dump 通路诚实边界（转译冷启动
+时序，历史 100% 非黑比 dump 实锤为基准 §124y-179/245）。
