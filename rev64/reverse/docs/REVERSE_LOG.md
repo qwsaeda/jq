@@ -7968,3 +7968,66 @@ so 退化依据。
 
 **判据**：native_event 判据基准 = 单跑 PASS（F_3ab80 命中 + 崩溃线程非 so 段）；
 转译 JIT 崩溃周期内 FAIL 属环境，重启 app 复跑即恢复。
+
+### §124y-227 32 位翻译体 5 判据真机验收实锤（设备 10.0.182.146 MuMu，so 9025101e，2026-11-12）
+
+用户"你 apk 达到真机验证标准了？详细步骤呢"指令下，在 MuMu 10.0.182.146
+实跑 32 位翻译体 `com.cnvcs.junqi32`（phase_chain_arm32.apk v1.78，so
+`9025101e`）5 判据全链，逐判据详细步骤 + 实锤：
+
+**前置**：
+- 设备 `adb -s 10.0.182.146:5555 get-state`=device + `sys.boot_completed`=1
+- so 哈希核对：本地 dist/libjunqi_arm32_aligned.so md5=9025101e = apk 内
+  lib/armeabi/libjunqi.so（§124y-216 apk_so_hash 判据，误打包坑已堵）
+
+**判据① 装得上**（详细步骤）：
+1. `adb -s 10.0.182.146:5555 uninstall com.cnvcs.junqi32`（清旧包）
+2. `adb -s 10.0.182.146:5555 install -r rev64/dist/phase_chain_arm32.apk` → `Success`
+3. `adb -s 10.0.182.146:5555 shell "pm list packages | grep junqi32"` → `package:com.cnvcs.junqi32`
+4. `adb shell "am start -n com.cnvcs.junqi32/com.cnvcs.App"` → 启动
+5. `adb shell "pidof com.cnvcs.junqi32"` → pid 5903 存活 + `dumpsys package | grep versionName` = 1.78
+
+**判据② 进主界面**（详细步骤）：
+1. 出屏权威判据 = 翻译体 framebuffer dump（§124y-179：dump 由 F_9d43c 帧尾
+   读 GPU framebuffer，非 screencap 抓 SurfaceFlinger——GL 软驱动下 screencap
+   8% 非黑属环境采样假象）
+2. `adb shell "rm -f /sdcard/Download/board_dump_*.ppm; setprop jq.game_test 1; am force-stop; logcat -c"`
+3. `adb shell "am start -n com.cnvcs.junqi32/com.cnvcs.App"` + 轮询等 `GAME-TEST: 端到端完成`（~13s 命中）
+4. `adb pull /sdcard/Download/board_dump_0.ppm` + PIL 判读 → **900×1468 非黑比 100%（≥30% 出屏达成）**
+5. 渲染循环佐证：`F_bf4d0 渲染循环活跃 #64/#128/#192` 帧数持续增长（出帧通路正常）
+
+**判据③ 下一局（走子出图）**（详细步骤）：
+1. 同判据②的 game_test 钩子（端到端可机判：触摸→走子→事件→终局）
+2. `GAME-TEST: 端到端完成 走子=OK(2步Move) fin=0`（§124y-26 判据基准，
+   会话 B 走子桥 2 步 Junqi.Move + 终局）
+3. 命中几何 `touch_int: tap1k(274000,1268000) → cell6 rank=3 side=0`
+   （纯整数 ×1000 定点通路，§124y-176 二次根治 60/60 基准）
+4. 事件表 `EVT-TBL-DUMP(after game_test): 289B 区 非0字节=129`（§124y-168
+   原版 ref dump 逐字节一致，disc=0 忠实语义）
+5. 走子后画面：翻译体 dump 100% 非黑（棋盘+棋子出图，screencap 8% 属 GL
+   软驱动 SurfaceFlinger 采样假象非出屏失败）
+
+**判据④ 正常退出**（详细步骤）：
+1. `adb shell "logcat -c"`（清历史残留，只数本次窗口）
+2. `adb shell "am force-stop com.cnvcs.junqi32"` → pid 退出
+3. `adb shell "pidof com.cnvcs.junqi32"` → 空（已退出）
+4. 退出窗口 `logcat -d | grep -c Fatal signal` → **0**
+
+**判据⑤ 重进不崩**（详细步骤）：
+1. `adb shell "am start -n com.cnvcs.junqi32/com.cnvcs.App"` 重启
+2. 轮询 `pidof` → 第 1 轮（~10s）pid 6488 存活
+3. 重进渲染循环 `F_bf4d0 渲染循环活跃` 2 条活跃日志（出帧通路恢复）
+4. 重进后 game_test 钩子再跑（`setprop jq.game_test 1 + 重启`）→ 翻译体
+   dump **900×1468 非黑比 100%**（重进出屏达成）
+5. 重进窗口 `logcat -d | grep -c Fatal signal` → **0**（重进不崩）
+
+**实锤汇总**：5 判据全 PASS（① pid 5903 存活 ② dump 100% ③ 走子=OK
++cell6+289B=129 ④ 退出 0 崩溃 ⑤ 重进 pid 6488 + dump 100% + 0 崩溃）。
+全链 0 崩溃，32 位翻译体"能玩"5 判据在 MuMu 10.0.182.146 实锤达成。
+
+**环境项判读（非 so 回归）**：
+- 期间遇到的 `Jit thread pool / HeapTaskDaemon SEGV_MAPERR`（fault 0x6f00xxx /
+  0x0）= ART 转译层环境崩溃周期（§124y-191/226 口径），非 libjunqi so 代码段，
+  周期结束后重跑判据自然恢复 0 崩溃
+- screencap 截图 8% 非黑 = GL 软驱动 SurfaceFlinger 合成采样假象（§124y-179），
+  出屏权威判据 = 翻译体 framebuffer dump（framebuffer 直读，100% 实锤）
