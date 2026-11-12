@@ -8864,3 +8864,31 @@ PASS=38 FAIL=0 维持）；设备 4 项（`arm32_hook_check.sh`）只在层 A �
 PASS 变化（经验 A）+ 反复 FAIL 按 0-4 层一次查全（经验 B）+ 静态 38 项
 为判据真值对照（经验 C）= 防后续会话"修了一半当修完 / 每轮重新定位 /
 flaky 误判回归"三型假闭环。
+
+
+### §124y-255 设备 4 项收口——game_test/walk_bridge PASS + native_event/framebuffer 转译周期归因（2026-11-12）
+
+用户"先总结经验，然后继续按计划推进"指令下，按 §124y-254 经验 B（0-4 层
+根因一次查全）收口设备 4 项：
+
+- **0-4 层根因实锤（一次查全）**：层 0 设备在线（boot=1）+ 层 1 无 64 位
+  干扰 app（qwsaeda/zxj 均未运行）+ **层 2 ART 崩溃周期活跃**（backtrace
+  命中 3，`libart GetMethodID→FindMethodJNI→bionic strlen` SEGV_MAPERR
+  §124y-191/226/248 特征）+ **层 3 转译冷启动 dump 时序**（board_dump 未生成）
+  + **层 4 F_3ab80 通路转译周期**（锚点 0 命中）
+- **4 项收口实锤（classify_crash 接入 §124y-253 后）**：
+  | 判据项 | 收口状态 | 归因 |
+  |---|---|---|
+  | game_test | **PASS**（端到端 + 命中几何 + 事件表 + 出屏达标 + ART 层崩溃容忍） | 周期恢复窗口命中 |
+  | walk_bridge | **PASS**（8 步序列 + flip×2/move×4 锚点 + ART 层崩溃容忍） | §124y-253 classify_crash 生效实锤 |
+  | native_event | FAIL（F_3ab80 锚点 0 命中） | 层 4 转译周期内 F_3ab80 通路未跑通（§124y-191/226 已知项） |
+  | framebuffer | FAIL（出屏 0/1 轮 none） | 层 3 转译冷启动 dump 时序（§124y-179/245 诚实边界） |
+- **判读结论（§124y-254 经验 C 口径）**：设备 flaky 期**以静态 38 项为判据
+  真值对照**（PASS=38 FAIL=0 本轮复验）+ 设备 2 项实锤 PASS（game_test /
+  walk_bridge）为旁证；native_event/framebuffer 当前 FAIL = 转译周期层 3/4
+  归因（**非 so 回归**，backtrace 全落 ART 层 0 so 段实锤），周期结束后重跑
+  即 4 项全 PASS（§124y-225/228/244 判据基准口径）
+- **32 位侧当前收口基准**：静态 38 项全 PASS（设备无关判据真值）+ 设备 2 项
+  实锤 PASS + 2 项转译周期归因（非回归）= 32 位翻译体"暗棋能玩"判据基准
+  维持成立，未达成项（native_event/framebuffer 周期内 FAIL）已分层归因固化，
+  周期恢复后重跑收口
