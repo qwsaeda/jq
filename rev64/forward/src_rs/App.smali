@@ -296,21 +296,22 @@
     # ① setDecorFitsSystemWindows(false) = edge-to-edge（内容延伸到系统栏下，自己处理 insets）
     # ② insetsController.hide(statusBars|navigationBars) 隐藏系统栏
     # ③ 刘海/挖孔：layoutInDisplayCutoutMode=SHORT_EDGES（API28+，内容延伸短边）
+    # ★ 时序修正（本轮崩溃根因）：WindowInsetsController / DecorView 必须在 window attach
+    #   后才能取，onCreate 早期 getInsetsController() 对未 attach DecorView NPE。
+    #   官方正解 = 整段 post 到主线程（view 树就绪后）执行。
     const/16 v2, 0x1e
     sget v3, Landroid/os/Build$VERSION;->SDK_INT:I
     if-lt v3, v2, :cond_immersive_skip
-    # ① edge-to-edge（API 30+ 官方标准：装饰不挤占系统栏空间，内容铺满全屏）
-    #    旧 FLAG_FULLSCREEN(0x400) 在 edge-to-edge 下被系统忽略，改 insetsController 隐藏。
-    # ② WindowInsetsController.hide（官方沉浸式 API，替代废弃的 setSystemUiVisibility）
+    # 构造 Runnable：run() 里做 ②②b（API30+），主线程保证 window 已 attach
+    new-instance v0, Lcom/qwsaeda/App$ImmersiveRunnable;
+    invoke-direct {v0, p0}, Lcom/qwsaeda/App$ImmersiveRunnable;-><init>(Lcom/qwsaeda/App;)V
+    # 主线程 handler post（m_handler 在 App 里，主线程）
     invoke-virtual {p0}, Landroid/app/Activity;->getWindow()Landroid/view/Window;
-    move-result-object v0
-    invoke-virtual {v0}, Landroid/view/Window;->getInsetsController()Landroid/view/WindowInsetsController;
-    move-result-object v0
-    if-eqz v0, :cond_immersive_skip
-    # WindowInsets.Type statusBars=0x1 | navigationBars=0x2 = 0x3
-    const/4 v1, 0x3
-    invoke-interface {v0, v1}, Landroid/view/WindowInsetsController;->hide(I)V
-    # ②b edge-to-edge：insetsController 存在即设 isAppearanceLightStatusBars 等由布局处理
+    move-result-object v1
+    invoke-virtual {v1}, Landroid/view/Window;->getDecorView()Landroid/view/View;
+    move-result-object v1
+    if-eqz v1, :cond_immersive_skip
+    invoke-virtual {v1, v0}, Landroid/view/View;->post(Ljava/lang/Runnable;)Z
     :cond_immersive_skip
 
     # ③ 刘海/挖孔避让（官方 API 28+：SHORT_EDGES 内容延伸短边，游戏中央不被挖孔挡）
