@@ -8202,3 +8202,33 @@ bash rev64/tools/arm32_verify_all.sh --dev 10.0.182.146:5555
 **4 路线全收口**：路线 1（thunk_coverage 静态 35 项）+ 路线 3（event_name_static
 静态 36 项）+ 路线 4（walkregress_8path 静态 37 项 + 暗棋 2 路径日志级别修复）
 + 路线 2（暗棋实装 = 路线 4 设备侧 flip 锚点，周期恢复后实锤）。
+
+
+### §124y-236 路线 2 暗棋翻子规则 32 位实证判据收口（静态 38 项，桌面 8 场景全 PASS）
+
+用户"按顺序往下走，不准停"指令下，路线 2（暗棋翻子 32 位实装）落地收口：
+
+- **现状纠正**：§124y-7030 旧口径"0xFF 定色场景走子桥未实装（暗棋维度 = 64 位
+  独有设计）"已过时——32 位翻译体 `jq_rs_rules.c` 的 `jq_can_flip` 实含
+  暗棋 revealed 校验 + 0xFF 未定子可翻（先手定色）+ 回合门（己方暗子可翻、
+  敌方不可翻）+ 军旗/空格/终局不可翻，与 64 位行为对齐
+- **路线 2 收口**：新增 `dark_flip_probe_check.py`（桌面级判据，0 依赖设备），
+  gcc 编译 32 位 `jq_rs_rules.c` + `jq_rs_board.c` + `jq_rs_layout.c` + 临时
+  main，构造暗棋 state（side=0xFF revealed=0 混布）跑 8 场景机判：
+  - S1 先手蓝 flip cell6 → 定色 BLUE + revealed=1 + turn 切红 PASS
+  - S2 已翻不可再翻（revealed=1）PASS
+  - S3 红回合翻 0xFF 未定子 cell33 → 定色 RED PASS
+  - S4 翻敌方已定色暗子 cell12（side≠turn）→ 不可翻 PASS
+  - S5 军旗 RANK_FLAG 不可翻 PASS
+  - S6 空格 RANK_EMPTY 不可翻 PASS
+  - S7 终局 STG_OVER 不可翻 PASS
+  - S8 和棋累加 moves_since_eat=70 触发 jq_on_draw PASS
+- **8/8 PASS**（32 位暗棋翻子规则行为实证，非仅注释分叉矩阵标注）
+- **坑固化**：① `jq_state_init` 在 `jq_rs_layout.c` 非 rules.c（声明/实现分处，
+  R-051 已知）② `cell_row/is_camp/is_base` 在 `jq_rs_board.c` ③ 桌面编译须三文件
+  全链（rules+board+layout），单编 rules.c 报 undefined reference
+- **静态佐证 37→38 项全 PASS**（设备无关）
+
+**路线 2 收口口径**：暗棋翻子规则 32 位实证 = 桌面 8 场景 0 依赖设备全 PASS
+（jq_can_flip/jq_flip 行为闭环）；设备侧实锤（真机暗棋对局翻子出图）仍走
+走子桥 8 路径（§124y-235）转译周期恢复窗口内补。

@@ -1,4 +1,4 @@
-# 32 位静态佐证判据脚本索引（§124y-190~234 批次化，37 项全 PASS）
+# 32 位静态佐证判据脚本索引（§124y-190~236 批次化，38 项全 PASS）
 
 批次化入口：`bash rev64/tools/arm32_static_evidence.sh`（设备无关，离线可跑）
 
@@ -39,6 +39,7 @@
 | thunk_coverage | thunk_coverage_check.py | §124y-232 | F_55d40 switch case→handler 收表完整度（case 0-41 真实可达全收表 + case 42-67 扩展区 18 个 + 14 冗余 .rodata 边界忠实） |
 | event_name_static | event_name_static_check.py | §124y-233 | 原版 32 位 so .rodata 73 Junqi.* 事件名静态提取（strings 直提 73 + frida-dump 二手机 73/73 对照 + event_code_map.json 12 码子集 + 模板串 %d 归一化口径） |
 | walkregress_8path | walkregress_8path_check.py | §124y-234 | 走子回归 8 路径锚点对照（蓝/红 × 明/暗 × 走/翻：move(6,11)/move(33,38)/flip(6)/flip(33) + walk_bridge/native_layout/native_event/game_test 8 锚点齐备，静态判 32 位翻译体锚点防漂移） |
+| dark_flip_probe | dark_flip_probe_check.py | §124y-236 | 暗棋翻子规则 32 位实证判据（桌面级 8 场景：先手定色 / 已翻不可再翻 / 敌方可翻门 / 军旗不可翻 / 空格不可翻 / 终局不可翻 / 和棋累加，gcc 编译 jq_rs_rules.c+board+layout 跑 0 依赖设备） |
 
 **设备侧判据入口**（区分静态/设备）：
 - 全钩子 4 项：`bash rev64/tools/arm32_hook_check.sh --dev 10.0.182.146:5555 --rounds 3`
