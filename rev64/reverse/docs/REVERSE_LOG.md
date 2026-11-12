@@ -8384,3 +8384,31 @@ bash rev64/tools/arm32_verify_all.sh --dev 10.0.182.146:5555
   - 后续脚本根治：`launch_hook` sleep 18 → 轮询等判据日志（最多 90s，每 5s
     查一次），转译冷启动 flaky 根治（§124y-180 方法论第 5 条已有 wait_log，
     未接入 launch_hook）
+
+
+### §124y-242 设备 4 项手动实锤判据基准 + crash 归因 ART 层（转译环境，非 so 回归，2026-11-12）
+
+用户"按顺序往下走，不准停"指令下，设备 4 项判据基准 + crash 归因实锤：
+
+- **手动实锤 4 项判据全命中（so d0c311b7，MuMu 10.0.182.146）**：
+  - game_test：`GAME-TEST: 端到端完成 走子=OK(2步Move)` + `touch_int: tap1k(274000,1268000)→cell6`
+    + `EVT-TBL-DUMP 289B 非0字节=129` 3 判据全出
+  - walk_bridge：`WALK-BRIDGE: 完整 8 步序列完成` + flip 锚点 2 条（`jq_walk_bridge_flip`
+    暗棋 2 路径）+ move×4 锚点
+  - native_event：`F_3ab80: 事件发送` 2 条
+  - framebuffer：dump 未生成（转译冷启动 dump 时序，§124y-179 权威判据需 dump 通路）
+- **★ crash 归因实锤（非 so 回归，§124y-191/226 同类）**：
+  4 项窗口各 1 次 `Fatal signal 11 SEGV_MAPERR fault 0x9916a728`，backtrace 实锤
+  崩溃在 **ART 层**（`#00 bionic/libc.so strlen_generic` + `#01 libart.so
+  FindMethodJNI` + `#02 libart.so GetMethodID`）——**非 `libjunqi_arm32_aligned.so`
+  代码段**，归因 = 转译环境（32 位 so 经 houdini 转译在 MuMu x86_64 宿主跑 ART
+  GetMethodID→strlen 周期 SEGV，§124y-191 已知项）
+- **判读口径固化**：
+  - 判据命中 + crash 线程在 ART 层（libart/libc strlen/GetMethodID）= **转译环境
+    崩溃周期**，非 so 回归（so 回归 = crash 落在 libjunqi so 段）
+  - 判据基准 = 手动实锤 4 项命中（game_test 3/3 + walk_bridge 8 步 + native_event
+    F_3ab80）+ crash 归因 ART 层；判据脚本单跑 FAIL = 转译冷启动 sleep 窗口不足
+    （§124y-186/188 已知 flaky，launch_hook sleep 45 + 轮询 6×5s 在转译周期内仍不够）
+- **后续根治方向**：判据脚本 `launch_hook` 轮询窗口扩到 90-135s（转译冷启动
+  2-3 倍慢 §124y-188）+ crash 判读加 backtrace 段归属校验（ART 层 = 环境，
+  libjunqi so 段 = 回归）
