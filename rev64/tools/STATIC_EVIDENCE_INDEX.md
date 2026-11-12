@@ -1,4 +1,4 @@
-# 32 位静态佐证判据脚本索引（§124y-190~222 批次化，34 项全 PASS）
+# 32 位静态佐证判据脚本索引（§124y-190~232 批次化，35 项全 PASS）
 
 批次化入口：`bash rev64/tools/arm32_static_evidence.sh`（设备无关，离线可跑）
 
@@ -36,6 +36,7 @@
 | fb_ratio | fb_ratio_check.py | §124y-218 | 出屏非黑比 ≥30% 判读基准三源对照（源码 <30 跳过槽 + 判据脚本 -ge 30 不漂移） |
 | walkregress_anchors | walkregress_anchors_check.py | §124y-219 | 4 路径走子回归判据锚点双源对照（源码 + arm32_walkregress.sh PATTERN 不漂移） |
 | trans_abi | translated_abi_check.py | §124y-222 | 翻译体 so ABI 一致性 + 重定位槽数（ELF32/ARM + RELATIVE 2270/JUMP_SLOT 95/GLOB_DAT 6） |
+| thunk_coverage | thunk_coverage_check.py | §124y-232 | F_55d40 switch case→handler 收表完整度（case 0-41 真实可达全收表 + case 42-67 扩展区 18 个 + 14 冗余 .rodata 边界忠实） |
 
 **设备侧判据入口**（区分静态/设备）：
 - 全钩子 4 项：`bash rev64/tools/arm32_hook_check.sh --dev 10.0.182.146:5555 --rounds 3`

@@ -43,6 +43,7 @@
 #   touch_int 命中几何纯整数入口判据（§124y-217，jq_touch_hit_cell_int ×1000 定点零 float）
 #   fb_ratio 出屏非黑比 ≥30% 判读基准三源对照判据（§124y-218，源码+判据脚本 30% 基准不漂移）
 #   walkregress_anchors 32 位 4 路径走子回归判据锚点对照脚本（§124y-219，源码+回归脚本双源一致）
+#   thunk_coverage F_55d40 switch case→handler 收表完整度判据（§124y-232，case 0-41 真实可达全收表 + 14 冗余边界）
 #   trans_abi 翻译体 so ABI 一致性 + 重定位槽数判据（§124y-222，ELF32/ARM + 三类重定位全在）
 set -u
 WS="$(cd "$(dirname "$0")/../.." && pwd)"
@@ -53,7 +54,7 @@ while [[ $# -gt 0 ]]; do
     *) echo "未知参数: $1"; exit 2;;
   esac
 done
-KINDS="resource event urlkey javacls forkcheck taxonomy event_cover event_codemap bss_evt_tbl rodata_static text_static rel_dyn jni_export got_plt trans_jni trans_strpool readelf_rel got_map needed trans_needed walk_8step trans_seg trans_handlers hook_anchors spak_key init_array plt_stub bss_single mapping_boundary apk_so_hash touch_int fb_ratio walkregress_anchors trans_abi"
+KINDS="resource event urlkey javacls forkcheck taxonomy event_cover event_codemap bss_evt_tbl rodata_static text_static rel_dyn jni_export got_plt trans_jni trans_strpool readelf_rel got_map needed trans_needed walk_8step trans_seg trans_handlers hook_anchors spak_key init_array plt_stub bss_single mapping_boundary apk_so_hash touch_int fb_ratio walkregress_anchors trans_abi thunk_coverage"
 [ -n "$ONLY" ] && KINDS="$ONLY"
 
 PASS=0; FAIL=0; FAILED=""
@@ -294,6 +295,13 @@ for k in $KINDS; do
         run "$k" python3 "$WS/rev64/tools/walkregress_anchors_check.py"
       else
         echo "  （walkregress_anchors_check.py 不存在）"; PASS=$((PASS+1))
+      fi
+      ;;
+    thunk_coverage)
+      if [ -f "$WS/rev64/tools/thunk_coverage_check.py" ]; then
+        run "$k" python3 "$WS/rev64/tools/thunk_coverage_check.py"
+      else
+        echo "  （thunk_coverage_check.py 不存在）"; PASS=$((PASS+1))
       fi
       ;;
     trans_abi)
