@@ -1050,7 +1050,10 @@ int ui_rules070_popup_inside(float x, float y)
 static const ui_room060_btn g_room060_btns[UI_ROOM060_COUNT] = {
     { 160.0f, 734.0f, 280.0f, 794.0f, 0 },
     { 300.0f, 734.0f, 420.0f, 794.0f, 1 },
-    { 440.0f, 734.0f, 560.0f, 794.0f, 2 },};
+    { 440.0f, 734.0f, 560.0f, 794.0f, 2 },
+    { 508.0f, 560.0f, 558.0f, 620.0f, 3 },  /* 原版 datah_060 关闭图标 View1（720 基准 Δ=0） */
+    { 508.0f, 650.0f, 558.0f, 710.0f, 4 },  /* 原版 datah_060 关闭图标 View2（720 基准 Δ=0） */
+};
 
 const ui_room060_btn *ui_room060_buttons(void) { return g_room060_btns; }
 

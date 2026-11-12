@@ -1419,7 +1419,7 @@ int ui_rules070_popup_inside(float x, float y);   /* 点在弹窗面板内 */
     2=离开（→ 回主菜单）
     入口：setprop jq.room060 测试钩子（OnCreate + OnUpdate 双路，值 1=进 / 0=退）。
     ★ 诚实边界：2 玩家显示区 = 占位标签（不画真数据，触摸 flaky 下房间列表无意义） */
-#define UI_ROOM060_COUNT 3
+#define UI_ROOM060_COUNT 5
 #define UI_ROOM060_POPUP_X0 135.0f
 #define UI_ROOM060_POPUP_Y0 464.0f
 #define UI_ROOM060_POPUP_W  450.0f
@@ -1611,8 +1611,8 @@ const ui_d012_btn *ui_d012_buttons(void);
 int ui_d012_hit(const ui_d012_btn *b, int n, float x, float y);
 
 #define UI_D013_COUNT 3
-#define UI_D013_POPUP_X0 0.0f
-#define UI_D013_POPUP_Y0 0.0f
+#define UI_D013_POPUP_X0 245.0f
+#define UI_D013_POPUP_Y0 525.0f
 #define UI_D013_POPUP_W  230.0f
 #define UI_D013_POPUP_H  230.0f
 typedef struct { float x0,y0,x1,y1; int action; } ui_d013_btn;
@@ -1665,8 +1665,8 @@ const ui_d020_btn *ui_d020_buttons(void);
 int ui_d020_hit(const ui_d020_btn *b, int n, float x, float y);
 
 #define UI_D021_COUNT 3
-#define UI_D021_POPUP_X0 0.0f
-#define UI_D021_POPUP_Y0 0.0f
+#define UI_D021_POPUP_X0 245.0f
+#define UI_D021_POPUP_Y0 525.0f
 #define UI_D021_POPUP_W  230.0f
 #define UI_D021_POPUP_H  230.0f
 typedef struct { float x0,y0,x1,y1; int action; } ui_d021_btn;
@@ -1674,8 +1674,8 @@ const ui_d021_btn *ui_d021_buttons(void);
 int ui_d021_hit(const ui_d021_btn *b, int n, float x, float y);
 
 #define UI_D022_COUNT 5
-#define UI_D022_POPUP_X0 0.0f
-#define UI_D022_POPUP_Y0 0.0f
+#define UI_D022_POPUP_X0 245.0f
+#define UI_D022_POPUP_Y0 455.0f
 #define UI_D022_POPUP_W  230.0f
 #define UI_D022_POPUP_H  370.0f
 typedef struct { float x0,y0,x1,y1; int action; } ui_d022_btn;
@@ -1719,8 +1719,8 @@ const ui_d026_btn *ui_d026_buttons(void);
 int ui_d026_hit(const ui_d026_btn *b, int n, float x, float y);
 
 #define UI_D027_COUNT 3
-#define UI_D027_POPUP_X0 0.0f
-#define UI_D027_POPUP_Y0 0.0f
+#define UI_D027_POPUP_X0 245.0f
+#define UI_D027_POPUP_Y0 525.0f
 #define UI_D027_POPUP_W  230.0f
 #define UI_D027_POPUP_H  230.0f
 typedef struct { float x0,y0,x1,y1; int action; } ui_d027_btn;
@@ -2205,8 +2205,8 @@ const ui_d086_btn *ui_d086_buttons(void);
 int ui_d086_hit(const ui_d086_btn *b, int n, float x, float y);
 
 #define UI_D089_COUNT 3
-#define UI_D089_POPUP_X0 0.0f
-#define UI_D089_POPUP_Y0 0.0f
+#define UI_D089_POPUP_X0 245.0f
+#define UI_D089_POPUP_Y0 525.0f
 #define UI_D089_POPUP_W  230.0f
 #define UI_D089_POPUP_H  230.0f
 typedef struct { float x0,y0,x1,y1; int action; } ui_d089_btn;
@@ -2367,8 +2367,8 @@ const ui_d112_btn *ui_d112_buttons(void);
 int ui_d112_hit(const ui_d112_btn *b, int n, float x, float y);
 
 #define UI_D113_COUNT 4
-#define UI_D113_POPUP_X0 0.0f
-#define UI_D113_POPUP_Y0 0.0f
+#define UI_D113_POPUP_X0 245.0f
+#define UI_D113_POPUP_Y0 490.0f
 #define UI_D113_POPUP_W  230.0f
 #define UI_D113_POPUP_H  300.0f
 typedef struct { float x0,y0,x1,y1; int action; } ui_d113_btn;

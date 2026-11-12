@@ -32,7 +32,21 @@ for f in sorted(glob.glob(RES+'/datah_*.bin')):
     nb=re.findall(r'style="Button"\s+rect="([^"]+)"', d)
     if not nb: continue
     pm=re.search(r'style="(?:Dialog|BackDlg)"\s+rect="([^"]+)"', d)
-    center=re.search(r'style="(?:Dialog|BackDlg)"[^>]*center="true"', d)
+    # center 属性在面板 tag 内（Dialog/BackDlg 行）：用 PanelStyle 行捕获
+    # 原版弹窗定位惯例：center="true" 显式居中 / 无 rect=默认 450×335 居中 /
+    # rect 以 0,0 起（0,0,W,H）= 居中弹窗（原版 450/230/420 系 Dialog 均 0,0 起）/
+    # rect 绝对坐标（115,540 / 388,698）= 绝对定位（非居中）。
+    pm_raw=pm.group(1) if pm else ''
+    # 居中判定：center="true" 显式 / 无 rect（默认 450×335 居中）/
+    # 0,0 起且 W≥180 且 H≥150（弹窗惯例；排除绝对定位小面板 120×75/60×60）
+    is_00=re.match(r'0,0,', pm_raw) is not None
+    big_ok=False
+    if is_00 and pm_raw:
+        rr2=__import__('re').match(r'0,0,(\d+),(\d+)', pm_raw)
+        if rr2:
+            wv,hv=int(rr2.group(1)),int(rr2.group(2))
+            if wv>=450 or hv>=230: big_ok=True  # 弹窗尺寸（450/460/420/430 宽 或 230+ 高）
+    center=re.search(r'style="(?:Dialog|BackDlg)"[^/]*center="true"', d) or (pm is None) or (is_00 and big_ok)
     # 面板 720 基准偏移
     if center or not pm:
         # center=true（或无 rect）：面板居中 720×1280。
@@ -53,7 +67,7 @@ for f in sorted(glob.glob(RES+'/datah_*.bin')):
         br=parse_rect(b)
         if br:
             btns.append([br[0]+ox,br[1]+oy,br[2]+ox,br[3]+oy])
-    data[str(n)]={'pw':pw,'ph':ph,'ox':ox,'oy':oy,'btns':btns}
+    data[str(n)]={'pw':pw,'ph':ph,'ox':ox,'oy':oy,'btns':btns,'center':bool(center)}
 json.dump(data,open('/tmp/opencode/ui_truth.json','w'))
 # 核面板宏
 h=open(WS+'/rev64/forward/src_rs/ui_menu.h',encoding='utf-8').read()
