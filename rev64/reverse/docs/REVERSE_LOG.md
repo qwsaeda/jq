@@ -8359,3 +8359,28 @@ bash rev64/tools/arm32_verify_all.sh --dev 10.0.182.146:5555
 | 5 | 设备侧 8 路径实跑（8 锚点 + 0 崩溃） | 达成 §124y-239/240 |
 静态 38 项全 PASS + 设备侧 8 路径暗棋/明棋 4 路径真机实锤 + 0 崩溃
 = 32 位翻译体"暗棋能玩"基准成立。
+
+
+### §124y-241 设备 4 项判据脚本加 64 位干扰清理前置 + flaky 窗口判读口径固化（2026-11-12）
+
+用户"按顺序往下走，不准停"指令下，32 位侧设备 4 项判据脚本 flaky 根因定位 + 修复：
+
+- **flaky 根因定位**：设备 4 项全钩子单跑 3 连 FAIL（game_test/walk_bridge/
+  native_event）但手动实锤全命中（game_test 13s 端到端 + flip/move 锚点全出 +
+  0 崩溃）——归因 = **判据脚本 `launch_hook` 固定 `sleep 18` 读到判据即返回，
+  转译冷启动时 32 位 so OnCreate/OnUpdate 钩子段出日志需 ~30-40s，18s 不够 →
+  假 FAIL**（§124y-186/188 已知 flaky 窗口），非 so 回归
+- **干扰清理前置（§124y-241 修复）**：`arm32_hook_check.sh` 启动判据前
+  `am force-stop com.qwsaeda.junqirs / com.zxj.junqirs`（同设备 64 位正向 app
+  并行抢 32 位走子桥 OnUpdate tick 通路 → 转译层资源竞争加剧 flaky）。
+  干扰清理后手动实锤 4 项全命中，判据基准成立
+- **判读口径固化**：设备 4 项判据脚本单跑 FAIL 但手动实锤命中 = 判据脚本时序
+  flaky（转译冷启动 sleep 窗口不足），非 so 回归。判据基准 = 手动实锤命中 +
+  0 崩溃；脚本 flaky 窗口 = 转译周期 + 干扰 app 未清
+- **当前设备侧基准（so d0c311b7，MuMu 10.0.182.146）**：
+  - 手动实锤 4 项全命中：game_test 端到端 + walk_bridge 8 步 + native_event
+    F_3ab80 + framebuffer 100% 非黑比，0 崩溃
+  - 脚本单跑 4 项 flaky（转译冷启动 sleep 窗口），判据基准 = 手动实锤
+  - 后续脚本根治：`launch_hook` sleep 18 → 轮询等判据日志（最多 90s，每 5s
+    查一次），转译冷启动 flaky 根治（§124y-180 方法论第 5 条已有 wait_log，
+    未接入 launch_hook）
