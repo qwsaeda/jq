@@ -325,79 +325,28 @@ static int rs_make_vbo(rs_glid_t *vbo, const rs_v4f *verts, int n)
 static void rs_read_png(AAssetManager *am, const char *asset_path,
                         const char *fs_path, unsigned char **out, size_t *out_len)
 {
-    /* ★ 文件系统优先（/data/local/tmp/spak_res 是稳定路径，免 AAssetManager 内部
-       pthread_mutex_lock 竞争——真机 libandroid 的 AAssetManager_open 在 render 线程
-       与 AAsset 全局锁竞争 → SIGSEGV SI_KERNEL fault 0x0，实证崩溃栈 AAssetManager_open+54）。
-       文件系统失败再试 assets。 */
-    {
+    /* ★ 2026-11-12 正向规范（去硬代码 + 免 AAsset 锁竞争）：fs 唯一主路。
+       资源由主线程 OnCreate 预读落地 getFilesDir/spak_res（spak_res_stage_private
+       Java 反射读 assets，sfx 同款已验证），渲染线程走 fs 读私有目录（稳定无锁，
+       不直接调 AAssetManager_open——libandroid 全局锁竞争 SIGSEGV，崩溃栈实证
+       AAssetManager_open+54 pthread_mutex_lock 崩）。am/asset_path 参数保留签名
+       （调用方仍传）但渲染线程不碰 AAsset（线程安全）。 */
     FILE *f = fopen(fs_path, "rb");
     if (f) {
         fseek(f, 0, SEEK_END);
         long sz = ftell(f);
         fseek(f, 0, SEEK_SET);
         unsigned char *buf = malloc(sz > 0 ? sz : 1);
-        if (fread(buf, 1, sz > 0 ? sz : 1, f) == (size_t)(sz > 0 ? sz : 1)) {
-            /* ★ AUD-1000 B04-047（P2 已修）：0 字节文件显式 LOGI（原静默走 asset 兜底，
-               0 字节 fs 文件多为 push 残留/损坏，诊断区分「0 字节 fs」与「fs 缺失→asset」。 */
-            if (sz == 0)
-                LOGI("rs_read_png：fs 0 字节（%s）→ asset 兜底", fs_path);
-            fclose(f);
-            *out = buf; *out_len = sz;
-            return;
-        }
-        free(buf);
+        size_t rd = fread(buf, 1, sz > 0 ? (size_t)sz : 1, f);
         fclose(f);
-    }
-    }
-    /* AAsset 直接链接（正常 so 已验证可 dlopen；免 dlopen/dlsym 引入 libdl VERNEED）
-       ★ 资源使用（apk 对齐）：asset_path 传 "spak_res/xxx" 时，APK assets 里
-       assets/spak_res/xxx 可被 AAssetManager_open 命中（相对 APK 根）。当前
-       g_assets=NULL（文件系统回退），此通路为设备端未推 spak_res 时的 APK 兜底。 */
-    AAsset *a = NULL;
-    if (am) a = AAssetManager_open(am, asset_path, AASSET_MODE_BUFFER);
-    if (a) {
-        int64_t sz = AAsset_getLength(a);
-        /* ★ AUD-1000 B04-048（P2 已修）：AAsset_getLength 负值（ASSET 损坏/异常）
-           防护——原 sz>0?sz:1 负值走 1 字节读（静默），现负值显式拒收；close 单次
-           （原 return 路径双 close 修正）。 */
-        if (sz < 0) {
-            LOGI("rs_read_png：AAsset_getLength 负值（%s）→ 拒收", asset_path);
-            AAsset_close(a);
-        } else {
-            unsigned char *buf = malloc(sz > 0 ? sz : 1);
-            int64_t rd = AAsset_read(a, buf, sz > 0 ? (size_t)sz : 1);
-            if (rd == sz) { *out = buf; *out_len = sz; }
-            else free(buf);
-            AAsset_close(a);
-        }
-    }
-    /* 双路均无 → LOGI 诊断（资源缺失显式告警，便于真机/设备端资源对齐排查） */
-    FILE *f = fopen(fs_path, "rb");
-    if (!f) {
-        LOGI("纹理缺失（fs+asset 均无）fs=%s asset=%s（设备端 spak_res 未推或 apk assets 缺失，走纯色退化）",
-             fs_path ? fs_path : "(null)", asset_path ? asset_path : "(null)");
-        return;
-    }
-    fseek(f, 0, SEEK_END);
-    long sz = ftell(f);
-    fseek(f, 0, SEEK_SET);
-    /* ★ 对抗审计 P0（批3 P2-A7 / 批4 P0-R2）：ftell 失败（-1）→ 负 sz 会 malloc(1)
-       后 *out_len=负值（转 size_t 巨值）→ png_decode 越界读。负值/零显式回退 1 字节
-       安全路径（仅保指针非 NULL，png_decode 对 1 字节必失败走纯色退化，不崩）。 */
-    if (sz < 0) sz = 0;
-    unsigned char *buf = malloc(sz > 0 ? sz : 1);
-    size_t rd = fread(buf, 1, sz > 0 ? sz : 1, f);
-    fclose(f);
-    if (rd == 0) {
+        if (rd > 0) { *out = buf; *out_len = rd; return; }
         free(buf);
-        LOGI("纹理读取失败（fread 0 字节）fs=%s（走纯色退化）", fs_path ? fs_path : "(null)");
-        *out = NULL; *out_len = 0;
-        return;
     }
-    if (rd != (size_t)sz) sz = (long)rd;   /* 短读截断（部分读也尽量用） */
-    *out = buf; *out_len = sz;
+    /* fs 缺失（预读未落地此文件 / assets 无）→ 诊断纯色退化。am/asset 仅日志用。 */
+    LOGI("纹理缺失（fs 无）fs=%s asset=%s（预读未落地或 assets 无，走纯色退化）",
+         fs_path ? fs_path : "(null)", asset_path ? asset_path : "(null)");
+    *out = NULL; *out_len = 0;
 }
-
 /* ★ 对抗审计 P2-R2（栈帧瘦身）：rs_render_init 原用 44 个 char[512] 路径缓冲
    （p1..p39 + p100..p104）= 22KB 栈帧（主线程 OnCreate 同步调用，JNI 帧叠加）。
    改为单缓冲 helper——路径按需构造 + 立即读入 + 立即释放，栈占用 1×512。

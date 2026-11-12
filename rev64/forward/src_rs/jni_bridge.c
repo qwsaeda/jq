@@ -11,6 +11,7 @@
 #include <unistd.h>
 #include <limits.h>
 #include <sys/system_properties.h>   /* __system_property_get/set（flagtest 触发） */
+#include <sys/stat.h>                /* stat()（spak_dir 私有目录兜底判存在，2026-11-12 Magic9） */
 #include "jq_event_names_73.h"   /* 原版 73 事件名常量表（32位 so .rodata 提取，64位契约对齐） */
 #include <dirent.h>                    /* opendir/readdir（SPAK_DIR 诊断） */
 #include "render.h"   /* rs_render_frame（GLThread 出屏主路） */
@@ -377,6 +378,8 @@ static void (*g_aasset_close)(AAsset *);
      · assets/jq_sfx/ = APK 内 assets（②优先级，AAsset 可达时）
    sfx_wav() 返回的 SFX_DIR 路径在 ① 分支只被当作"文件名来源"（strrchr 取 '/' 后段），
    非直接打开路径；③ 分支才直接使用。勿误读为双轨冗余。 */
+/* ★ 2026-11-12 正向规范：SFX_DIR 仅作文件名来源（sfx_wav 拼 basename），实际路径由 sfx_play
+   ① 分支用 g_sfx_priv_dir（getFilesDir/jq_sfx，主线程反射落地）优先，/data/local/tmp 降为开发兜底。 */
 #define SFX_DIR "/data/local/tmp/jq_sfx"
 static int g_sfx_wrote = 0;
 static char g_sfx_priv_dir[256];   /* ① 内部存储 getFilesDir/jq_sfx（OnCreate 落地） */
@@ -605,6 +608,7 @@ static const char *sfx_for_move(int ev)
    ★ 3 处调用统一（OnTouch 锁外 over_win / AI 锁内 g_state / OnCreate flagtest 锁内），
    防"改一处漏两处"不一致。winner 无效（-1/越界）不播。 */
 static void sfx_play(JNIEnv *env, const char *event);   /* 前置声明（audio.h 非 static，此处 static 定义在 382） */
+static void spak_res_stage_private(JNIEnv *env, jobject activity, int log_miss);   /* ★ 2026-11-12 正向：预读 spak_res 落私有目录（OnCreate 1591 调，定义在 2564 前向声明） */
 static void sfx_game_over(JNIEnv *env, int stage, int winner)
 {
     if (stage != STG_OVER) return;
@@ -930,8 +934,20 @@ static void sfx_play(JNIEnv *env, const char *event)
     /* ② 内部存储无文件 → assets 通路（AAsset_openFileDescriptor + AFD setDataSource，
        一次性拿 fd 不持流，锁竞争窗口小） */
     if (g_assets && g_aam_open) { sfx_play_asset(env, event); return; }
-    /* ③ 文件系统回退（/sdcard push，MuMu/桌面） */
-    sfx_play_file(env, event, NULL);
+    /* ③ 文件系统回退（★ 2026-11-12 正向规范：getFilesDir/jq_sfx 私有目录优先，
+       /data/local/tmp 降为开发缓存兜底——不写死外部 tmp 路径，真机不推 fs 也能播。
+       g_files_dir 已由 sfx_wav_ensure_private OnCreate 设好（jq_sfx 同级目录）。 */
+    {
+        char fbp[320];
+        if (g_files_dir[0]) {
+            const char *base = sfx_wav(event);
+            const char *bn = base ? strrchr(base, '/') : NULL;
+            snprintf(fbp, sizeof fbp, "%s/jq_sfx/%s", g_files_dir, bn ? (bn + 1) : "data_junqi_move.wav");
+            FILE *chk = fopen(fbp, "rb");
+            if (chk) { fclose(chk); sfx_play_file(env, event, fbp); return; }
+        }
+        sfx_play_file(env, event, NULL);   /* 最后兜底 SFX_DIR（/data/local/tmp 开发缓存） */
+    }
 }
 
 static void sfx_play_file(JNIEnv *env, const char *event, const char *path_override)
@@ -1224,9 +1240,12 @@ static const char *on_event(const char *name, const char *value, JNIEnv *env)
             /* ★ AUD-1000 B03-005（P1 已修）：布局文件读（fopen/fread）移出 g_mutex——
                OnEvent 整段持锁，IO 阻塞毫秒级卡渲染线程；先锁外读 30 字节，
                再锁内应用 jq_load_layout。 */
-            const char *dirs[] = { "layouts", "/data/local/tmp/layouts", "/data/local/tmp/spak_res/layouts" };
+            /* ★ 2026-11-12 正向规范：布局存档私有目录优先（getFilesDir/layouts），/data/local/tmp 降为开发缓存兜底 */
+            const char *laydir = (g_files_dir[0]) ? g_files_dir : "/data/local/tmp";
+            char laydir_buf[300]; snprintf(laydir_buf,sizeof laydir_buf,"%s/layouts",laydir);
+            const char *dirs[] = { "layouts", laydir_buf, "/data/local/tmp/layouts", "/data/local/tmp/spak_res/layouts" };
             int loaded = 0;
-            for (int d = 0; d < 3 && !loaded; d++) {
+            for (int d = 0; d < 4 && !loaded; d++) {
                 char path[256];
                 snprintf(path, sizeof path, "%s/%02d.lay", dirs[d], lay);
                 FILE *f = fopen(path, "rb");
@@ -1287,7 +1306,7 @@ static const char *on_event(const char *name, const char *value, JNIEnv *env)
         }
         if (lay >= 0) {
             char lp[128];
-            snprintf(lp, sizeof lp, "/data/local/tmp/layouts/%02d.lay", lay);
+            { const char *ld = g_files_dir[0]?g_files_dir:"/data/local/tmp"; snprintf(lp, sizeof lp, "%s/layouts/%02d.lay", ld, lay); }
             uint8_t lb[30];
             FILE *f = fopen(lp, "rb");
             if (f && fread(lb, 1, 30, f) == 30) {
@@ -1505,10 +1524,25 @@ Java_com_qwsaeda_App_OnCreate(JNIEnv *env, jclass clazz, jobject activity)
     pthread_mutex_lock(&g_mutex);
     /* 主线程拿 AAssetManager（若 JNI_OnLoad 判可达） */
     if (g_assets_avail && !g_assets && env && activity) {
-        /* AAssetManager 走文件系统回退（正常 so 已验证：不直接链接 AAssetManager_fromJava，
-           MuMu/真机转译层 libandroid 不导出该符号 → fail to link；用 AAsset_read 流式读
-           需 AAssetManager，但转译层可达性存疑 → 全走 /data/local/tmp/spak_res 文件系统）。 */
-        LOGI("OnCreate：AAsset 管线走文件系统回退（spak_res 目录）");
+        /* ★ 2026-11-12 荣耀 Magic9 真机修复（P0）：反射 getAssets() 取 AAssetManager
+           实例填 g_assets（渲染层 rs_render_init(am=g_assets) → rs_read_png 读
+           apk assets/spak_res 969 张）。返回类型 = android.content.res.AssetManager
+           （C 侧 AAssetManager* 同布局，指针复用）——非 android.content.AssetManager。
+           每步 ExceptionCheck+Clear 防 pending exception 堆积 SIGABRT。 */
+        jclass act_cls = (*env)->GetObjectClass(env, activity);
+        jmethodID getAssets = (*env)->GetMethodID(env, act_cls, "getAssets",
+                                                  "()Landroid/content/res/AssetManager;");
+        if ((*env)->ExceptionCheck(env)) { (*env)->ExceptionClear(env); getAssets = NULL; }
+        jobject am_obj = getAssets ? (*env)->CallObjectMethod(env, activity, getAssets) : NULL;
+        if ((*env)->ExceptionCheck(env)) { (*env)->ExceptionClear(env); am_obj = NULL; }
+        if (am_obj) {
+            g_assets = (AAssetManager *)am_obj;
+            LOGI("OnCreate：AAsset 管线就绪（getAssets() 取 AssetManager=%p，apk assets 可读）", g_assets);
+        } else {
+            LOGI("OnCreate：getAssets() 失败（回退 fs 路径 spak_res）");
+        }
+        if (am_obj) (*env)->DeleteLocalRef(env, am_obj);
+        (*env)->DeleteLocalRef(env, act_cls);
     }
     jq_load_layout(&g_state, JQ_DEFAULT_LAY);
     g_undo_top = 0;
@@ -1569,6 +1603,10 @@ Java_com_qwsaeda_App_OnCreate(JNIEnv *env, jclass clazz, jobject activity)
     sfx_mp_init(env);            /* MediaPlayer 引用缓存（OnTouch 事件播放用） */
     sfx_wav_ensure_private(env, activity);   /* WAV 落地内部存储 getFilesDir/jq_sfx（OnCreate 单线程一次性，
        事件播放纯 MediaPlayer File 路径，免 AAssetManager_open 多线程锁竞争 SIGSEGV） */
+    /* ★ 2026-11-12 正向规范（去硬代码）：预读 spak_res 48 张落 getFilesDir/spak_res
+       （渲染线程走 fs 读私有目录，免 AAsset 锁竞争 SIGSEGV；真机不推 /data/local/tmp
+       也能出图）。必须在 setContentView(GLView) 前（渲染线程未启动）跑。 */
+    spak_res_stage_private(env, activity, 0);
     sfx_sound_load();            /* ★ 音效持久化：读 jq_sound_on.txt（☰ 功能设置 4 上次状态） */
     ui_settings_load();          /* ★ 对抗审计（datah_001）：读 jq_settings.txt（静音/按键/音量） */
     ui_rules_load();            /* ★ P1（datah_012）：读 jq_rules.txt（和棋/大本营/地雷/扛旗 4 规则开关） */
@@ -1682,7 +1720,8 @@ Java_com_qwsaeda_App_OnCreate(JNIEnv *env, jclass clazz, jobject activity)
        真机写目录；桌面 evverify 用 tmp 目录 ui_laydir_set）。★ 必须在 ui_layout_list
        （setprop 钩子块）之前 set，否则首次扫描走 ui_laydir_get 缺省 ./layouts 桌面路径
        （实证 0 条），扫描不到真机 /data/local/tmp/layouts。 */
-    ui_laydir_set("/data/local/tmp/layouts");
+    /* ★ 2026-11-12 正向规范：布局存档写目录私有优先（getFilesDir/layouts） */
+    { char _ld[300]; snprintf(_ld,sizeof _ld,"%s/layouts", g_files_dir[0]?g_files_dir:"/data/local/tmp"); ui_laydir_set(_ld); }
     /* ★ P1（datah_016/017/020 证据）：布局存档 3 弹窗 setprop 钩子
        （adb setprop jq.layoutsave/layoutload/layoutmgr 1 → 重启 → OnCreate 弹对应弹窗）。
        测试钩子范式，与 jq.gameset 同；值 1=弹出，0=不触发。一次性（清 0）。 */
@@ -2319,7 +2358,31 @@ Java_com_qwsaeda_App_OnCreate(JNIEnv *env, jclass clazz, jobject activity)
     /* ③b：初始化 GLView（EGL 上下文 + 渲染器 ①②）。
        返回 Java GLView jobject（App.smali：非 null 则 setContentView + setRenderer，GLThread 每帧调 OnUpdate 出帧）；
        EGL 失败（无 GPU）→ 返回 NULL，Java 侧跳过 setContentView（空白界面，不崩）。 */
-    #define SPAK_DIR "/data/local/tmp/spak_res"  /* 免 push：可改 app 私有目录；当前固定 tmp */
+    /* ★ 2026-11-12 正向规范（去硬代码）：spak_dir 自适应（不写死 /data/local/tmp）。
+       优先级：① 主线程预读落地的 getFilesDir/spak_res（正向资源内嵌范式，真机/不推 fs 也能出图）
+       ② /data/local/tmp/spak_res（开发 push 加速缓存）。渲染线程走 fs 读私有目录，
+       不直接调 AAsset（免 libandroid 全局锁竞争 SIGSEGV）。 */
+    #define SPAK_DIR_DEV "/data/local/tmp/spak_res"
+    static char g_spak_dir_buf[512];
+    const char *SPAK_DIR;
+    {
+        char priv[512];
+        snprintf(priv, sizeof priv, "%s/spak_res",
+                 g_files_dir[0] ? g_files_dir : "/data/user/0/com.qwsaeda.junqirs/files");
+        struct stat st;
+        if (stat(priv, &st) == 0) {
+            /* 主线程预读私有目录（正向规范主路：APK 资源内嵌 + 私有目录落地） */
+            snprintf(g_spak_dir_buf, sizeof g_spak_dir_buf, "%s", priv);
+            SPAK_DIR = g_spak_dir_buf;
+            LOGI("OnCreate：spak_res 走 app 私有目录 %s（主线程预读落地，渲染线程 fs 读）", SPAK_DIR);
+        } else if (stat(SPAK_DIR_DEV, &st) == 0) {
+            SPAK_DIR = SPAK_DIR_DEV;
+            LOGI("OnCreate：spak_res 走 /data/local/tmp（开发 push 缓存）");
+        } else {
+            SPAK_DIR = SPAK_DIR_DEV;   /* 兜底仍用 dev（预读落地后此分支不应命中） */
+            LOGI("OnCreate：spak_res 无可用目录（预读未落地 + tmp 不存在，走纯色退化）");
+        }
+    }
     /* ★ 对抗审计（2026-11-09）：movetest/replay 注入段（原在 g_mutex 段内 2149-2190，
        jq_try_move/ui_replay_record/ui_replay_rewind/ui_screen_set 取 g_ui_lock）移至
        unlock 后执行——与 flagtest/minetest 同款逆序死锁消除。延迟占位保持 prop 读
@@ -2507,19 +2570,165 @@ Java_com_qwsaeda_App_OnPause(JNIEnv *env, jclass clazz)
     pthread_mutex_lock(&g_mutex);
     pa_snap = g_state;
     pthread_mutex_unlock(&g_mutex);
-    jq_save_game_write("/data/local/tmp/one.sjg", &pa_snap);
+    { char _sjg[300]; snprintf(_sjg,sizeof _sjg,"%s/one.sjg", g_files_dir[0]?g_files_dir:"/data/local/tmp"); jq_save_game_write(_sjg, &pa_snap); }
 }
 
+/* ★ 2026-11-12 正向规范（去硬代码）：主线程预读 assets 落 app 私有目录 spak_res。
+   渲染线程不直接调 AAsset（libandroid 全局锁竞争 SIGSEGV——崩溃栈实证
+   AAssetManager_open+54 pthread_mutex_lock 崩，渲染线程与 OnCreate 主线程竞争）。
+   正解 = OnCreate 单线程早期（渲染线程未启动前）把 48 张资源从 APK assets 预读到
+   getFilesDir/spak_res/，渲染线程走 fs 读私有目录（稳定无锁）。MuMu/真机不推 /data/
+   local/tmp 也能出图（assets 内嵌 + 私有目录落地，不依赖外部 fs）。 */
+static void spak_res_stage_private(JNIEnv *env, jobject activity, int log_miss)
+{
+    if (!env || !activity) return;
+    /* getFilesDir/spak_res 目录 */
+    char pdir[512];
+    if (g_files_dir[0]) {
+        snprintf(pdir, sizeof pdir, "%s/spak_res", g_files_dir);
+    } else {
+        /* 反射取 getFilesDir（同 sfx_wav_ensure_private 范式） */
+        jclass act_cls = (*env)->GetObjectClass(env, activity);
+        jmethodID getFilesDir = (*env)->GetMethodID(env, act_cls, "getFilesDir",
+                                                    "()Ljava/io/File;");
+        jobject fobj = getFilesDir ? (*env)->CallObjectMethod(env, activity, getFilesDir) : NULL;
+        if ((*env)->ExceptionCheck(env)) { (*env)->ExceptionClear(env); fobj = NULL; }
+        if (fobj) {
+            jclass f_cls = (*env)->GetObjectClass(env, fobj);
+            jmethodID abs = (*env)->GetMethodID(env, f_cls, "getAbsolutePath", "()Ljava/lang/String;");
+            jstring js = (*env)->CallObjectMethod(env, fobj, abs);
+            const char *s = (*env)->GetStringUTFChars(env, js, NULL);
+            if (s) { snprintf(g_files_dir, sizeof g_files_dir, "%s", s);
+                     (*env)->ReleaseStringUTFChars(env, js, s); }
+        }
+        if (act_cls) (*env)->DeleteLocalRef(env, act_cls);
+        if (!g_files_dir[0]) return;
+        snprintf(pdir, sizeof pdir, "%s/spak_res", g_files_dir);
+    }
+    /* mkdirs getFilesDir/spak_res 子目录（★ 2026-11-12 正向：对 new File(root,"spak_res") 调
+       mkdirs，旧实现对 root 调 mkdirs 只确保根存在，子目录 spak_res 未建 → FileOutputStream
+       写失败 → 预读 0/48。sfx 段范式：new File(getFilesDir,"jq_sfx").mkdirs()。 */
+    {
+        jclass act_cls = (*env)->GetObjectClass(env, activity);
+        jmethodID getFilesDir = (*env)->GetMethodID(env, act_cls, "getFilesDir",
+                                                    "()Ljava/io/File;");
+        jobject fobj = getFilesDir ? (*env)->CallObjectMethod(env, activity, getFilesDir) : NULL;
+        if ((*env)->ExceptionCheck(env)) { (*env)->ExceptionClear(env); fobj = NULL; }
+        if (fobj) {
+            jclass f_cls = (*env)->GetObjectClass(env, fobj);
+            jmethodID f_ctor = (*env)->GetMethodID(env, f_cls, "<init>",
+                                                  "(Ljava/io/File;Ljava/lang/String;)V");
+            jobject subdir = f_ctor ? (*env)->NewObject(env, f_cls, f_ctor, fobj,
+                                          (*env)->NewStringUTF(env, "spak_res")) : NULL;
+            jmethodID mkdirs = (*env)->GetMethodID(env, f_cls, "mkdirs", "()Z");
+            if (subdir) (*env)->CallBooleanMethod(env, subdir, mkdirs);
+            if ((*env)->ExceptionCheck(env)) (*env)->ExceptionClear(env);
+            if (subdir) (*env)->DeleteLocalRef(env, subdir);
+        }
+        if (fobj) (*env)->DeleteLocalRef(env, fobj);
+        (*env)->DeleteLocalRef(env, act_cls);
+    }
+    /* Java 反射读 assets（getAssets().open() + InputStream.read）—— 不走 AAsset C API
+       （g_assets 是 jobject 非 C 指针，强转 SIGSEGV；转译层 AAssetManager_fromJava 不可达）。
+       sfx_wav_ensure_private 同范式已验证（WAV 14/14 落地成功）。 */
+    jclass act_cls = (*env)->GetObjectClass(env, activity);
+    jmethodID getAssets = (*env)->GetMethodID(env, act_cls, "getAssets",
+                    "()Landroid/content/res/AssetManager;");
+    if ((*env)->ExceptionCheck(env)) { (*env)->ExceptionClear(env); getAssets = NULL; }
+    jobject am = getAssets ? (*env)->CallObjectMethod(env, activity, getAssets) : NULL;
+    if ((*env)->ExceptionCheck(env)) { (*env)->ExceptionClear(env); am = NULL; }
+    if (!am) { LOGI("spak_res 预读：getAssets 失败 → 不落地（走纯色退化）");
+               if (act_cls) (*env)->DeleteLocalRef(env, act_cls); return; }
+    jclass am_cls = (*env)->GetObjectClass(env, am);
+    jmethodID open_m = (*env)->GetMethodID(env, am_cls, "open",
+                    "(Ljava/lang/String;)Ljava/io/InputStream;");
+    if ((*env)->ExceptionCheck(env)) { (*env)->ExceptionClear(env); open_m = NULL; }
+    jclass is_cls = (*env)->FindClass(env, "java/io/InputStream");
+    jmethodID read_m = is_cls ? (*env)->GetMethodID(env, is_cls, "read", "([B)I") : NULL;
+    jmethodID is_close = is_cls ? (*env)->GetMethodID(env, is_cls, "close", "()V") : NULL;
+    jclass fos_cls = (*env)->FindClass(env, "java/io/FileOutputStream");
+    jmethodID fos_ctor = fos_cls ? (*env)->GetMethodID(env, fos_cls, "<init>", "(Ljava/lang/String;)V") : NULL;
+    jmethodID fos_write = fos_cls ? (*env)->GetMethodID(env, fos_cls, "write", "([BII)V") : NULL;
+    jmethodID fos_close = fos_cls ? (*env)->GetMethodID(env, fos_cls, "close", "()V") : NULL;
+    if ((*env)->ExceptionCheck(env)) (*env)->ExceptionClear(env);
+    static const char *res_list[] = {
+        "datah_188_21d95e03e7692e98.bin","datah_183_9e1b7fbc4dfc09c3.bin",
+        "menu_text_atlas.png","bg_menu_720.png","popup_text_atlas.png","popup.png",
+        "panel_circle.png","btn_color1.png","icon_file.png","menu_bg_294.png",
+        "imen_text_atlas.png","dlg_batch_text.png","imen_icons_atlas.png",
+        "imen_orig_icons.png","imen_hamburger_atlas.png","menu_btn_big.png",
+        "menu_btn_small.png","waysel_text_atlas.png","btimen_text_atlas.png",
+        "settings_text_atlas.png","sound_text_atlas.png","nplayer_text_atlas.png",
+        "newgame_text_atlas.png","gameset_text_atlas.png","layres_text_atlas.png",
+        "replay_text_atlas.png","login_text_atlas.png","rules_text_atlas.png",
+        "ng104_text_atlas.png","join_text_atlas.png","ng061_text_atlas.png",
+        "gameinfo_text_atlas.png","bright_text_atlas.png","chatlog_text_atlas.png",
+        "profile_text_atlas.png","drawdetail_text_atlas.png","drawdetail_icons_atlas.png",
+        "setentry_text_atlas.png","imgset_text_atlas.png","join065_text_atlas.png",
+        "create069_text_atlas.png","rules070_text_atlas.png","room060_text_atlas.png",
+        "chat063_text_atlas.png","about_text_atlas.png","uibat_text_atlas.png",
+        "icon_house.png",
+        NULL
+    };
+    char asset_path[128], out_path[512];
+    int copied = 0, miss = 0;
+    if (open_m && read_m && fos_ctor) {
+        for (int i = 0; res_list[i]; i++) {
+            snprintf(asset_path, sizeof asset_path, "spak_res/%s", res_list[i]);
+            snprintf(out_path, sizeof out_path, "%s/%s", pdir, res_list[i]);
+            FILE *of = fopen(out_path, "rb");
+            if (of) { fclose(of); copied++; continue; }   /* 已落地 → 跳过 */
+            jstring aname = (*env)->NewStringUTF(env, asset_path);
+            jobject is = (*env)->CallObjectMethod(env, am, open_m, aname);
+            (*env)->DeleteLocalRef(env, aname);
+            if ((*env)->ExceptionCheck(env)) { (*env)->ExceptionClear(env); is = NULL; }
+            if (!is) {
+                miss++; if (log_miss) LOGI("spak_res 预读 MISS %s（assets 无）", res_list[i]);
+                continue;
+            }
+            jstring opath = (*env)->NewStringUTF(env, out_path);
+            jobject fos = (*env)->NewObject(env, fos_cls, fos_ctor, opath);
+            (*env)->DeleteLocalRef(env, opath);
+            if ((*env)->ExceptionCheck(env)) {
+                (*env)->ExceptionClear(env);
+                if (is) { (*env)->CallVoidMethod(env, is, is_close); (*env)->DeleteLocalRef(env, is); }
+                miss++; continue;
+            }
+            if (!fos) {
+                if (is) { (*env)->CallVoidMethod(env, is, is_close); (*env)->DeleteLocalRef(env, is); }
+                miss++; continue;
+            }
+            jbyteArray buf = (*env)->NewByteArray(env, 65536);
+            jsize n;
+            int ok = 1;
+            while ((n = (*env)->CallIntMethod(env, is, read_m, buf)) > 0) {
+                (*env)->CallVoidMethod(env, fos, fos_write, buf, 0, n);
+                if ((*env)->ExceptionCheck(env)) { (*env)->ExceptionClear(env); ok = 0; break; }
+            }
+            (*env)->CallVoidMethod(env, is, is_close);
+            (*env)->CallVoidMethod(env, fos, fos_close);
+            if ((*env)->ExceptionCheck(env)) (*env)->ExceptionClear(env);
+            (*env)->DeleteLocalRef(env, buf);
+            (*env)->DeleteLocalRef(env, is);
+            (*env)->DeleteLocalRef(env, fos);
+            if (ok) copied++; else miss++;
+        }
+    }
+    LOGI("spak_res 预读：getFilesDir/spak_res 落地 %d/48（Java 反射读 assets，免 AAsset C API 锁竞争，缺失 %d 走纯色退化）",
+         copied, miss);
+    if (am_cls) (*env)->DeleteLocalRef(env, am_cls);
+    if (am) (*env)->DeleteLocalRef(env, am);
+    (*env)->DeleteLocalRef(env, act_cls);
+    if (is_cls) (*env)->DeleteLocalRef(env, is_cls);
+    if (fos_cls) (*env)->DeleteLocalRef(env, fos_cls);
+}
+
+/* 资源 fs 路径：getFilesDir/spak_res（主线程预读落地，渲染线程 fs 读无锁） */
+/* ★ 2026-11-12 正向规范（去硬代码）：续局读——OnResume 补读 one.sjg 快照。 */
 JNIEXPORT void JNICALL
 Java_com_qwsaeda_App_OnResume(JNIEnv *env, jclass clazz)
 {
     (void)clazz;
-    /* OnResume：GLView surface 在 onResume 后才真正 ready → 重试 ANativeWindow_fromSurface
-       （OnCreate 时 surface 未创建，fromSurface 返 NULL）。成功即建 window EGL surface 出屏。 */
-    /* 出屏主路归 Java EglHelper（window surface + eglSwapBuffers 已由 GLThread 持有）：
-       OnResume 不做 fromSurface（不再抢 ANativeWindow 引用）。g_gl_surf 保留 global ref
-       仅作诊断（surface 生命周期跟随 Activity）。 */
-    (void)g_gl_surf;
     /* ★ AUD-1000 B02-077（P1 已修）：续局读——OnPause 锁外写的 one.sjg 快照在
        进程重启（re-entrant OnCreate）时恢复，本 OnResume 补齐读侧。 */
     {
@@ -2530,7 +2739,8 @@ Java_com_qwsaeda_App_OnResume(JNIEnv *env, jclass clazz)
         }
         jq_state resumed;
         memset(&resumed, 0, sizeof(resumed));
-        int res_load = jq_save_game_read("/data/local/tmp/one.sjg", &resumed);   /* SJG1 magic 头 + 60 格+状态 */
+        char _sjg_r[300]; snprintf(_sjg_r,sizeof _sjg_r,"%s/one.sjg", g_files_dir[0]?g_files_dir:"/data/local/tmp");
+        int res_load = jq_save_game_read(_sjg_r, &resumed);   /* SJG1 magic 头 + 60 格+状态（★ 2026-11-12 正向：私有目录优先） */
         if (res_load) {
             pthread_mutex_lock(&g_mutex);
             g_state = resumed;
@@ -10136,17 +10346,34 @@ JNI_OnLoad(JavaVM *vm, void *reserved)
     (void)reserved;
     g_jvm = vm;
     LOGI("JNI_OnLoad：逆源码重写版 libjunqi（14 On* 入口 + 规则引擎）");
-    /* assets 管线：AAssetManager 在真机可达（小米 libandroid.so 导出 AAssetManager_fromJava），
-       MuMu 64 位转译体裁剪该符号 → 走文件系统回退（/data/local/tmp/spak_res）。
-       WAV 音效打包进 assets/jq_sfx/（AAssetManager 读，免外部存储 SELinux 限制）。 */
-    /* AAsset 管线走文件系统回退（正常 so 已验证：AAssetManager_fromJava 等 libandroid
-       符号在设备转译层不可达 → 不直接链接；WAV/纹理全从 /data/local/tmp/spak_res 读）。 */
-    g_assets_avail = 0;
-    g_aam_open = NULL;
-    g_aasset_len = NULL;
-    g_aasset_read = NULL;
-    g_aasset_close = NULL;
-    g_assets = NULL;
-    LOGI("JNI_OnLoad：assets 管线未启用（文件系统回退 spak_res）");
+    /* ★ 2026-11-12 荣耀 Magic9 真机修复（P0 根因）：开 AAsset 管线读 apk assets。
+       旧实现 g_assets=NULL 硬关闭 → rs_read_png(am=NULL) 走 fs 兜底 → 真机 /data/local/
+       tmp/spak_res 不存在 + 私有目录未创建 → 969 张 spak_res 全 MISS → 纯色退化黑屏。
+       现 dlopen("libandroid.so") + dlsym AAssetManager_open/AAsset_getLength/AAsset_read/
+       AAsset_close（免直接链接，MuMu 转译层裁剪该符号时 dlsym 失败优雅回退 fs 路径）。
+       AAssetManager 实例由 OnCreate 主线程反射 getAssets() 取（非 JNI_OnLoad，因 JNI_OnLoad
+       无 env/activity）。 */
+    {
+        void *libandroid = dlopen("libandroid.so", RTLD_NOW | RTLD_GLOBAL);
+        if (libandroid) {
+            g_aam_open = (AAsset *(*)(AAssetManager *, const char *, int))
+                        dlsym(libandroid, "AAssetManager_open");
+            g_aasset_len = (long (*)(AAsset *))dlsym(libandroid, "AAsset_getLength");
+            g_aasset_read = (long (*)(AAsset *, void *, long))dlsym(libandroid, "AAsset_read");
+            g_aasset_close = (void (*)(AAsset *))dlsym(libandroid, "AAsset_close");
+            if (g_aam_open && g_aasset_len && g_aasset_read && g_aasset_close) {
+                g_assets_avail = 1;
+                LOGI("JNI_OnLoad：AAsset 管线 dlsym 就绪（apk assets 可读，dlopen libandroid.so）");
+            } else {
+                g_assets_avail = 0;
+                LOGI("JNI_OnLoad：AAsset dlsym 部分缺失（回退 fs 路径 spak_res）");
+            }
+            /* 不 dlclose（libandroid 常驻，符号全局可用） */
+        } else {
+            g_assets_avail = 0;
+            LOGI("JNI_OnLoad：dlopen libandroid.so 失败（MuMu 转译层裁剪，回退 fs 路径）");
+        }
+    }
+    g_assets = NULL;   /* 由 OnCreate 主线程反射 getAssets() 填（AAssetManager 实例） */
     return JNI_VERSION_1_2;
 }

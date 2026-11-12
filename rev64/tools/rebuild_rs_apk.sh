@@ -62,20 +62,56 @@ elif [ $so_link_check_rc -eq 1 ]; then
 fi
 log "链接审计 PASS"
 
-log "=== [2/5] 换 so 进 APK（STORE 未压缩）==="
+log "=== [2/5] 换 so + 全量资源进 APK（STORE 未压缩）==="
+# ★ 2026-11-12 荣耀 Magic9 真机修复（P0）：apk assets 补全 spak_res 全量 969 张。
+#   旧实现只从 dec_rs 源 APK 取（assets/spak_res/ 仅 2 张 datah）→ 真机 fs 路径
+#   /data/local/tmp/spak_res/ 不存在时走 apk assets 兜底 → 48 张纹理全 MISS → 纯色
+#   退化 + 真机（无 fs 推）全黑。现把 rev64/dist/spak_res/ 全量 969 张入 assets。
 cp $RS/dist/libjunqi_rs.so $WORK/lib/arm64-v8a/libjunqi.so
 cd $WORK
+# 先清 dec_rs 源 apk 里旧的 spak_res（仅 2 张），再注入全量 969 张
+rm -rf assets/spak_res
+mkdir -p assets/spak_res
+cp -f $WS/rev64/dist/spak_res/* assets/spak_res/ 2>/dev/null || true
+NSPAK=$(ls assets/spak_res/ 2>/dev/null | wc -l)
+log "assets/spak_res 注入 $NSPAK 张（全量源 rev64/dist/spak_res/）"
 python3 - "$SRCAPK" <<'PYEOF'
-import zipfile, sys, hashlib
+import zipfile, sys, hashlib, os
 src = sys.argv[1]
 zin = zipfile.ZipFile(src)
-new = open('lib/arm64-v8a/libjunqi.so','rb').read()
+new_so = open('lib/arm64-v8a/libjunqi.so','rb').read()
 STORE = ('.so','.arsc','.png','.pak','.jpg','.mp3','.ogg')
+# 收集 apk 里已有 entries + 新增 spak_res
+existing = {}
+for i in zin.infolist():
+    existing[i.filename] = i
+# 新增/覆盖 assets/spak_res/*
+new_assets = {}
+if os.path.isdir('assets/spak_res'):
+    for root, dirs, files in os.walk('assets/spak_res'):
+        for f in files:
+            fp = os.path.join(root, f)
+            rel = fp.replace('\\', '/')   # 相对 apk 根路径
+            new_assets[rel] = fp
+# 写新 apk
 with zipfile.ZipFile('rs_new.apk','w') as z:
     for i in zin.infolist():
-        d = new if i.filename=='lib/arm64-v8a/libjunqi.so' else zin.read(i.filename)
-        z.writestr(i, d, compress_type=zipfile.ZIP_STORED if i.filename.lower().endswith(STORE) else zipfile.ZIP_DEFLATED)
-print(f'so md5={hashlib.md5(new).hexdigest()} ({len(new)}B)')
+        if i.filename == 'lib/arm64-v8a/libjunqi.so':
+            d = new_so
+        elif i.filename in new_assets:
+            d = open(new_assets[i.filename],'rb').read()
+        else:
+            d = zin.read(i)
+        ct = zipfile.ZIP_STORED if i.filename.lower().endswith(STORE) else zipfile.ZIP_DEFLATED
+        z.writestr(i, d, compress_type=ct)
+    # 新增（不在原 apk 的 assets/spak_res/*）
+    for fn, fp in new_assets.items():
+        if fn not in existing:
+            inf = zipfile.ZipInfo(fn)
+            inf.compress_type = zipfile.ZIP_STORED
+            with open(fp,'rb') as fsrc:
+                z.writestr(inf, fsrc.read(), compress_type=zipfile.ZIP_STORED)
+print(f'so md5={hashlib.md5(new_so).hexdigest()} ({len(new_so)}B), assets/spak_res 新增/覆盖 {len(new_assets)} 张')
 PYEOF
 [ $? -ne 0 ] && { log "★ zip 重打失败"; exit 1; }
 

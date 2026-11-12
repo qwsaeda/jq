@@ -312,11 +312,33 @@ static void *rs_render_thread_main(void *arg)
                释放（不长期持有 ANativeWindow，杜绝 decStrong too many times 崩溃）。 */
             ANativeWindow *nw = g_win;
             int from_retry = 0;
-            if (!nw && g_surf_jobj && (!win_retry_cnt || (frame_cnt - win_last_try) >= 60)) {
-                win_last_try = frame_cnt;
-                win_retry_cnt++;
-                nw = ANativeWindow_fromSurface(g_ehl_env, g_surf_jobj);
-                from_retry = 1;
+            /* ★ 2026-11-12 正向规范（去硬代码）：fromSurface 自适应指数退避轮询。
+               系统 surface attach 时机不定（荣耀 6s / 红果 1-2s / MuMu <1s），固定 60 帧
+               节流假设失配。现退避间隔随 win_retry_cnt 指数增长：
+               前 60 次 = 每 60 帧（1s，快速探测）；之后 2^k 帧退避（2s/4s/8s...封顶 120 帧
+               = 2s@20fps），既不错过 attach 窗口（每 ~2s 重查一次），也不空转抢 CPU/GPU。
+               旧实现 600 帧死循环全走 PBuffer 不上屏（荣耀 6s 延迟 600 帧=10s 内 attach
+               完成但节流已错过）已根治。 */
+            int from_retry_due = 0;
+            if (!nw && g_surf_jobj) {
+                int interval;
+                if (win_retry_cnt < 60)
+                    interval = 60;   /* 前 1s 快速探测（每 60 帧） */
+                else {
+                    int k = win_retry_cnt - 60;
+                    int iv = 120;
+                    while (k > 0 && iv > 120) { iv /= 2; k--; }   /* 2^k 帧封顶 120（2s） */
+                    interval = iv;
+                }
+                if (frame_cnt - win_last_try >= interval) {
+                    from_retry_due = 1;
+                }
+                if (from_retry_due) {
+                    win_last_try = frame_cnt;
+                    win_retry_cnt++;
+                    nw = ANativeWindow_fromSurface(g_ehl_env, g_surf_jobj);
+                    from_retry = 1;
+                }
             }
             if (nw) {
                 if (from_retry)
@@ -451,25 +473,22 @@ static void *rs_render_thread_main(void *arg)
                 if (frame_cnt < 50 || frame_cnt % 1000 == 0)
                     LOGE("渲染线程 帧 %d：eglSwapBuffers 失败 err=0x%x（window 出屏未上屏；0x3000=EGL_BAD_SURFACE 周期诊断）",
                          frame_cnt, eglGetError());
-                /* ★ 0x3000 周期自愈：swap 连续失败（ANativeWindow buffer 被系统回收后失效）
-                   每 3000 帧尝试重建 window surface（fromSurface + eglCreateWindowSurface），
-                   免 app 重启。重建成功则后续帧恢复出屏。 */
-                if (frame_cnt % 3000 == 2999 && g_surf_jobj && egl_current_thread_attached) {
-                    static int g_swap_fail_streak = 0;
-                    g_swap_fail_streak++;
-                    if (g_swap_fail_streak >= 10) {   /* 连续 10 次失败才重建（防抖动） */
-                        LOGI("渲染线程 帧 %d：swap 0x3000 自愈——重建 window surface（连续 %d 次失败）",
-                             frame_cnt, g_swap_fail_streak);
-                        if (g_win_surf != EGL_NO_SURFACE)
-                            eglDestroySurface(g_rr.egl_disp, g_win_surf);
-                        g_win_surf = EGL_NO_SURFACE;
-                        g_gl_current = 0;
-                        g_swap_fail_streak = 0;
-                    }
-                } else {
-                    static int g_swap_fail_streak = 0;
-                    g_swap_fail_streak = 0;
-                }
+                 /* ★ 2026-11-12 荣耀 Magic9 真机修复（P1）：swap 失败时 3 秒节流主动重建
+                    window surface（旧 3000 帧周期 = 60s 太慢，Adreno 真机 buffer 被系统
+                    回收后 60s 黑屏才自愈）。180 帧（20fps）= 3s，比 3000 帧快 20 倍。 */
+                 static int g_last_swap_fail_rebuild = 0;
+                 if (frame_cnt - g_last_swap_fail_rebuild >= 180) {
+                     g_last_swap_fail_rebuild = frame_cnt;
+                     if (g_surf_jobj && egl_current_thread_attached) {
+                         LOGI("渲染线程 帧 %d：swap 失败 → 主动重建 window surface（3s 节流）",
+                              frame_cnt);
+                         if (g_win_surf != EGL_NO_SURFACE)
+                             eglDestroySurface(g_rr.egl_disp, g_win_surf);
+                         g_win_surf = EGL_NO_SURFACE;
+                         g_gl_current = 0;
+                         /* 下一轮循环顶 fromSurface 轮询会重新 attach + 建 surface */
+                     }
+                 }
             }
         }
         frame_cnt++;
