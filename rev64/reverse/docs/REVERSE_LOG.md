@@ -8135,3 +8135,21 @@ done
 # 双端总入口（静态 + 设备，设备不可达自动 PENDING 降级）
 bash rev64/tools/arm32_verify_all.sh --dev 10.0.182.146:5555
 ```
+
+
+### §124y-230 5 判据真机验收第二次全复验实锤（设备 10.0.182.146，so 9025101e，2026-11-12）
+
+用户"详细步骤呢"二次指令下，MuMu 10.0.182.146 实跑 32 位翻译体
+`com.cnvcs.junqi32`（v1.78，so 9025101e）5 判据逐条全复验，全 PASS：
+
+| 判据 | 详细步骤 | 实锤 |
+|---|---|---|
+| ① 装得上 | uninstall + install -r + am start + pidof + versionName | pid 4029 存活，v1.78 |
+| ② 进主界面 | 清 dump + jq.game_test=1 重启 + 轮询 game_test 判据 + 拉翻译体 dump | 900×1468 非黑比 100% |
+| ③ 下一局 | game_test 端到端 3 条机判日志 + 窗口崩溃 | 走子=OK(2步Move) + cell6 + 289B=129 + 0 崩溃 |
+| ④ 正常退出 | logcat -c + am force-stop + pid 空 + 窗口崩溃 | pid 退出 + 0 崩溃 |
+| ⑤ 重进不崩 | am start + 轮询 pid + 带 jq.game_test 重启再触发 dump + 窗口崩溃 | pid 4294 + dump 100% + 0 崩溃 |
+
+**全链 0 崩溃，5 判据第二次全复验 PASS**（§124y-229 基准 + 本轮 4294 pid 复验）。
+可复现入口：`bash rev64/tools/arm32_verify_all.sh --dev 10.0.182.146:5555`（双端一键）+
+逐判据单跑 `arm32_hook_check.sh --only game_test/walk_bridge/native_event/framebuffer`。
