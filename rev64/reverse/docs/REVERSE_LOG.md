@@ -8606,3 +8606,47 @@ bash rev64/tools/arm32_verify_all.sh --dev 10.0.182.146:5555
   静态 38 项全 PASS（设备无关）+ 设备 3 项判据手动实锤命中（game_test /
   walk_bridge / native_event）+ crash 全归因 ART 层 + framebuffer dump 通路
   诚实边界（转译冷启动时序，历史 100% 非黑比 dump 实锤 §124y-179/245）
+
+
+### §124y-248 本轮"5 路线 + 判据根治"复盘——3 条未提炼教训补进经验库（2026-11-12）
+
+用户"先总结经验，然后继续按计划推进"指令下，复盘 §124y-232~247 本轮 9 次提交，
+提炼 §124y-246 4 方法论 + 5 坑之外的 3 条**未固化教训**（防后续会话重踩）：
+
+#### 教训 1：判据脚本扩窗≠根治，flaky 根因须分层定位
+- **本轮踩坑**：§124y-243 把 launch_hook 轮询从 30s 扩到 90s 以为根治 flaky，
+  但 §124y-245/247 串行复验仍 4 项全 FAIL——扩窗没治本。
+- **真因分层**（flaky 三层根因，须逐层定位而非一味扩窗）：
+  ① **转译冷启动层**（32 位 so 经 houdini 转译，OnCreate/OnUpdate 钩子段出日志
+     需 ~30-40s，冷启动 2-3 倍慢）→ 扩窗可缓解（§124y-188）
+  ② **同设备 64 位并行 app 干扰层**（qwsaeda/zxj 抢 GL 资源抖动 32 位走子桥
+     tick 通路）→ 须前置 force-stop（§124y-241，扩窗治不了）
+  ③ **转译层 JIT 崩溃周期层**（ART GetMethodID→strlen 周期 SEGV_MAPERR）
+     → 周期内扩窗再大也 FAIL（§124y-191/226），须等周期恢复窗口
+- **判读口径固化**：判据脚本 FAIL 时**先分层定位根因**（查 ② 干扰 app 在跑否
+  + ③ 崩溃 backtrace 段归属 + ① 冷启动窗口），**不一味扩窗**——扩窗只治
+  ①，治不了 ②③。串行 4 项全 FAIL 但手动单跑命中 = ②③ 层（非 ① 窗口不足）
+
+#### 教训 2：so 重编须同步重打 apk 装机，否则判据跑旧 so（误打包坑 32 位变体）
+- **本轮踩坑**：§124y-235 改 flip 日志级别重编 so（58c3e45a）后，设备仍装
+  旧 so 跑判据 → flip 锚点日志未出（跑的是旧 so 的 LOG_INFO 级日志）。
+- **根因**：`build_arm32_aligned.sh` 只重编 so，`pack_arm32.sh` 才重打 apk；
+  改翻译体源码后须两步（build + pack）+ 重装设备，否则判据跑旧 so 误判。
+- **判读口径固化**：改 `src_jni_translated/*.c` 后须 `build_arm32_aligned.sh
+  && pack_arm32.sh && adb install` 三步齐（so md5 核对 apk 内 = dist = 设备端，
+  §124y-216 误打包坑 32 位变体），判据实锤前核对三方 so 哈希一致
+
+#### 教训 3：日志级别须匹配判据抓取通道（INFO 级 logcat 默认抓不到）
+- **本轮踩坑**：走子桥 `jq_walk_bridge_move/flip` 初版 LOG_INFO(4) 级，
+  判据脚本 `logcat -d`（默认 WARNING+）抓不到 → 暗棋 2 路径无真机锚点
+  （§124y-234 静态锚点 8/8 齐备但设备实锤缺 flip 行）。
+- **根因**：`logcat -d` 默认级别 WARNING，LOG_INFO(4) 行被过滤；判据可机判
+  锚点须 LOG_ERROR(6) 级（默认抓）或判据脚本用 `logcat -d -v raw` 全级别。
+- **判读口径固化**：可机判锚点日志统一 LOG_ERROR(6)（默认 logcat 可抓）；
+  辅助诊断行可用 LOG_INFO(4)（须 `-v raw` 全级别抓）——判据锚点与诊断行
+  分级（§124y-235/239 flip 锚点升 ERROR 已修）
+
+**判读总口径（§124y-248 终锤）**：
+- flaky 定位三层（转译冷启动 / 并行 app 干扰 / JIT 崩溃周期），不一味扩窗
+- so 重编三步齐（build + pack + install + 三方哈希核对）防误打包
+- 判据锚点日志 ERROR 级（默认抓）/ 诊断行 INFO 级（-v raw 抓）分级
