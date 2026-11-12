@@ -236,8 +236,12 @@ JQ_EXPORT void jq_walk_bridge_tick(void) {
         jq_walk_bridge_run();
         /* 会话 B 完整走子序列（test_move_seq.txt）：
            f6 f33 m6→11 m33→38 m12→13(ILLEGAL) u(undo) m10→11(ILLEGAL) q0(认输) */
-        if (jq_can_flip(&g_walk_state, 6))  jq_flip(&g_walk_state, 6);
-        if (jq_can_flip(&g_walk_state, 33)) jq_flip(&g_walk_state, 33);
+        /* §124y-239 flip 锚点可机判（走子桥 8 步序列用 jq_walk_bridge_flip 入口
+           而非 jq_flip 裸调——ERROR 级日志进默认 logcat，暗棋 2 路径蓝暗翻/红暗翻
+           真机实锤锚点。语义不变：jq_walk_bridge_flip 内 jq_can_flip/jq_flip 同源。 */
+        int f1 = jq_walk_bridge_flip(6);
+        int f2 = jq_walk_bridge_flip(33);
+        __android_log_print(6, "junqi", "WALK-BRIDGE: flip(6)=%d flip(33)=%d（暗棋 2 路径锚点可机判）", f1, f2);
         jq_walk_bridge_move(6, 11);
         jq_walk_bridge_move(33, 38);
         jq_walk_bridge_move(12, 13);   /* 期望 ILLEGAL */

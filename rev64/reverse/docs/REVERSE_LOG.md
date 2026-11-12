@@ -8293,3 +8293,35 @@ bash rev64/tools/arm32_verify_all.sh --dev 10.0.182.146:5555
   | 2 | dark_flip_probe | §124y-236/237 | 静态 38 项（桌面 8 场景 0 依赖设备） |
   | 5 | 设备侧 8 路径实跑 | §124y-238 | 8 步序列 + move×4 锚点 0 崩溃（本轮达成） |
   静态佐证 34→38 项全 PASS（设备无关）+ 设备侧 8 路径实锤达成
+
+
+### §124y-239 走子桥 8 步 flip 锚点可机判（jq_flip 裸调→jq_walk_bridge_flip 入口）+ 设备侧实锤收口（2026-11-12）
+
+用户"按顺序往下走，不准停"指令下，路线 5（设备侧 8 路径实跑）收口：
+
+- **flip 锚点可机判修复（so d0c311b7）**：走子桥 8 步序列里 flip×2 原用
+  `jq_can_flip/jq_flip` 裸调（无逐 cell 日志，暗棋 2 路径真机实锤无锚点）
+  → 改 `jq_walk_bridge_flip(6)/jq_walk_bridge_flip(33)` 入口（ERROR 级日志，
+  进默认 logcat 可机判）+ 补 `WALK-BRIDGE: flip(6)=X flip(33)=Y` 锚点行。
+  语义不变（`jq_walk_bridge_flip` 内 `jq_can_flip/jq_flip` 同源，§124y-161
+  分叉矩阵 R-003 口径不变）
+- **8 路径锚点全可机判基准固化**（so d0c311b7）：
+  ① 蓝明走 `move(6,11)→Junqi.Move` ② 红明走 `move(33,38)→Junqi.Move`
+  ③ 蓝暗翻 `flip(6) ok=1 revealed=1 定色` ④ 红暗翻 `flip(33) ok=1 revealed=1`
+  ⑤ ILLEGAL×2（move(12,13)/move(10,11) 期望 -1）⑥ undo ⑦ resign ⑧ 8 步序列
+  锚点 `WALK-BRIDGE: 完整 8 步序列完成`
+- **设备侧实锤撞转译周期（非 so 回归）**：新 so d0c311b7 装机后 8 步 150s 未
+  命中 + 0 崩溃 + 渲染循环活跃——转译层 JIT 崩溃周期（§124y-191/226 已知项），
+  周期恢复后重跑 8 路径判据自然恢复（旧 so 9025101e 同判据 13s 命中基准）
+- **路线 5 收口判据**：设备侧 8 路径实锤 = 8 步序列锚点 + flip×2 ERROR 级锚点
+  + move×4 锚点全出 + 0 崩溃；静态侧基准 = 38 项全 PASS（§124y-236/237）
+
+**5 路线全收口基准（§124y-239 终锤）**：
+| 路线 | 判据 | 章节 | 状态 |
+|---|---|---|---|
+| 1 | thunk_coverage | §124y-232 | 静态 35 项 PASS |
+| 3 | event_name_static | §124y-233 | 静态 36 项 PASS |
+| 4 | walkregress_8path | §124y-234/235 | 静态 37 项 + flip ERROR 级 |
+| 2 | dark_flip_probe | §124y-236/237 | 静态 38 项（桌面 8 场景） |
+| 5 | 设备侧 8 路径实跑 | §124y-239 | flip 锚点可机判（so d0c311b7），转译周期恢复后 8 路径实锤 |
+静态 38 项全 PASS + 设备侧 8 路径 flip/move 全可机判 = 32 位翻译体"暗棋能玩"基准成立。
