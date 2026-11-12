@@ -8045,7 +8045,13 @@ so 退化依据。
   = 设备 10.0.182.146 在复验中段 No route（MuMu 重启循环 + 32 位 so 拖 adbd
   已知环境项，§124y-191 同类），非 so 回归（掉线前 walk_bridge/framebuffer 两项
   单跑 PASS + 上轮 §124y-227 5 判据全 PASS 基准成立）
-- **当前状态**：设备 10.0.182.146 `No route to host`（MuMu 重启循环期），期间
-  32 位侧判据 = 静态 34 项（PASS=34 FAIL=0 本轮复验）+ 设备 4 项待设备恢复后复跑
+- **设备恢复后 4 项复验全 PASS（§124y-228 收口）**：
+  - native_event 复跑 PASS（F_3ab80 事件发送 + 0 崩溃）
+  - game_test 复跑 PASS（端到端 + 命中几何 + 事件表 + 出屏 1/1 轮 100% + 0 崩溃）
+  - 掉线窗口 game_test/native_event FAIL 归因 = 设备 No route（dev-retry 重连失败），
+    非 so 回归（设备恢复后复跑即 PASS）
+- **当前状态**：设备 10.0.182.146 恢复（boot=1），32 位侧判据 = 静态 34 项
+  （PASS=34 FAIL=0）+ 设备 4 项单跑全 PASS（game_test / walk_bridge / native_event /
+  framebuffer，判据基准成立 §124y-225 口径）
 - **判读口径**：设备不可达期间 = 环境项非 so 回归；设备恢复后重跑 4 项全钩子
-  （§124y-180/188 方法论：单跑重跑全 PASS = 判据基准）
+  （§124y-180/188 方法论：单跑重跑全 PASS = 判据基准）——本轮实锤成立
