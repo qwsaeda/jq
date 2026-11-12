@@ -8153,3 +8153,21 @@ bash rev64/tools/arm32_verify_all.sh --dev 10.0.182.146:5555
 **全链 0 崩溃，5 判据第二次全复验 PASS**（§124y-229 基准 + 本轮 4294 pid 复验）。
 可复现入口：`bash rev64/tools/arm32_verify_all.sh --dev 10.0.182.146:5555`（双端一键）+
 逐判据单跑 `arm32_hook_check.sh --only game_test/walk_bridge/native_event/framebuffer`。
+
+
+### §124y-231 5 判据真机验收第三次全复验实锤（设备 10.0.182.146，so 9025101e，2026-11-12）
+
+用户"详细步骤呢"第三次指令下，MuMu 10.0.182.146 实跑 32 位翻译体
+`com.cnvcs.junqi32`（v1.78，so 9025101e）5 判据逐条第三次全复验，全 PASS：
+
+| 判据 | 实锤 |
+|---|---|
+| ① 装得上 | uninstall+install Success，pid 4467 存活，v1.78 |
+| ② 进主界面 | 翻译体 dump 900×1468 非黑比 100%（出屏日志 start 后 ~23s 命中），0 崩溃 |
+| ③ 下一局 | GAME-TEST 端到端 走子=OK(2步Move) + cell6 + 289B=129，0 崩溃 |
+| ④ 正常退出 | force-stop 后 pid 空（已退出），0 崩溃 |
+| ⑤ 重进不崩 | 重进 pid 4668 存活 + 重进后 dump 100% + pid 4732 + 0 崩溃 |
+
+**全链 0 崩溃，5 判据第三次全复验 PASS**（§124y-229/230 基准延续）。
+可复现入口：`bash rev64/tools/arm32_verify_all.sh --dev 10.0.182.146:5555`（双端一键）
++ 逐判据单跑 `arm32_hook_check.sh --only <game_test|walk_bridge|native_event|framebuffer>`。
