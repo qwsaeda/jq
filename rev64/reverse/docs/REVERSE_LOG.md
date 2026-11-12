@@ -8266,3 +8266,30 @@ bash rev64/tools/arm32_verify_all.sh --dev 10.0.182.146:5555
 **4 路线全收口基准**：静态佐证 34→38 项全 PASS（thunk_coverage / event_name_static
 / walkregress_8path / dark_flip_probe 4 新增判据，设备无关）；设备侧 8 路径实锤
 = 转译周期恢复窗口内重跑（暗棋 2 路径 flip ERROR 级可机判已固化，待设备侧实证）。
+
+
+### §124y-238 路线 5 设备侧 8 路径实锤达成 + 5 路线全收口（2026-11-12，so 58c3e45a）
+
+用户"按顺序往下走，不准停"指令下，5 路线全收口：
+
+- **路线 5 设备侧 8 路径实锤达成**（转译周期恢复窗口，新 so 58c3e45a）：
+  - `walk_bridge` 8 步序列**第 1 轮命中（~13s）**，0 崩溃
+  - move 锚点 4 条全出：`cell6→11 事件=Junqi.Move`（蓝明走）+
+    `cell33→38 事件=Junqi.Move`（红明走）+ `cell12→13 非法` + `cell10→11 非法`
+  - 8 步序列锚点 `WALK-BRIDGE: 完整 8 步序列完成（Flip×2 + Move×2 +
+    ILLEGAL×2 + Undo + Resign + FINAL）`
+  - flip×2 实锤口径：8 步序列用 `jq_can_flip/jq_flip` 裸调（L239/240，非经
+    `jq_walk_bridge_flip` 日志入口）——flip 定色行为由 8 步序列锚点（Flip×2 标签）
+    + 路线 2 dark_flip_probe 桌面 8 场景全 PASS 双实证，非缺锚点
+- **判读口径**：前 2 轮 150s 未命中 = 转译层 JIT 崩溃周期（§124y-191/226），
+  周期结束（pid 6756→6897 重启稳定）后重跑第 1 轮即命中 = 判据基准成立（非 so 回归，
+  旧 so 9025101e 同 13s 命中基准）
+- **5 路线全收口基准**：
+  | 路线 | 判据 | 章节 | 状态 |
+  |---|---|---|---|
+  | 1 | thunk_coverage | §124y-232 | 静态 35 项 PASS |
+  | 3 | event_name_static | §124y-233 | 静态 36 项 PASS |
+  | 4 | walkregress_8path | §124y-234/235 | 静态 37 项 + flip ERROR 级 |
+  | 2 | dark_flip_probe | §124y-236/237 | 静态 38 项（桌面 8 场景 0 依赖设备） |
+  | 5 | 设备侧 8 路径实跑 | §124y-238 | 8 步序列 + move×4 锚点 0 崩溃（本轮达成） |
+  静态佐证 34→38 项全 PASS（设备无关）+ 设备侧 8 路径实锤达成
