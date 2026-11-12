@@ -47,6 +47,20 @@
     if-eqz v1, :imm_done
     const/4 v2, 0x0
     invoke-virtual {v1, v2}, Landroid/view/Window;->setDecorFitsSystemWindows(Z)V
+    # ★ 官方 Android 15 edge-to-edge 最后动作（第 8 轮）：insets 消费。
+    #   setOnApplyWindowInsetsListener：系统栏 TRANSIENT 滑出可见时，内容避让系统栏
+    #   （非裁剪）。GL 全屏场景渲染层按 view_w/h 铺满，此处消费 insets 防默认 inset 裁剪。
+    #   官方正解 = View.setOnApplyWindowInsetsListener（API29+，消费 insets 返回 CONSUMED）
+    iget-object v1, p0, Lcom/qwsaeda/App$ImmersiveRunnable;->a:Lcom/qwsaeda/App;
+    invoke-virtual {v1}, Landroid/app/Activity;->getWindow()Landroid/view/Window;
+    move-result-object v1
+    invoke-virtual {v1}, Landroid/view/Window;->getDecorView()Landroid/view/View;
+    move-result-object v1
+    if-eqz v1, :imm_done
+    # 监听 insets 变化（onApplyWindowInsets 返回 CONSUMED 消费，防系统栏裁剪 content）
+    new-instance v2, Lcom/qwsaeda/App$ImmersiveRunnable$InsetsListener;
+    invoke-direct {v2}, Lcom/qwsaeda/App$ImmersiveRunnable$InsetsListener;-><init>()V
+    invoke-virtual {v1, v2}, Landroid/view/View;->setOnApplyWindowInsetsListener(Landroid/view/View$OnApplyWindowInsetsListener;)V
     :imm_done
     return-void
 .end method
