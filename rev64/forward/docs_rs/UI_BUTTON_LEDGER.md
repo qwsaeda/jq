@@ -189,3 +189,15 @@
 - **主菜单 5 按钮**：无 XML 定义（datax_294 纯位图），基准 = orig_menu 真机截图 ×0.8
 - **渲染几何**：rs_solid_btn/rs_popup_shell 同源 rs_ui_scale（等比+垂直居中），表值对→画面对
 - **判据**：红果主菜单下部 100% 非黑 + 0 崩溃 + rs_logic_align 8/8
+
+## 弹窗原版按钮全量补齐（2026-11-12，用户第 4 轮"都是自开发没对齐"指正）
+- **根因**：上轮只核"实值按钮 vs 原版按钮 Δ=0"，漏 3 类：
+  ① 原版多按钮实值少（laymgr 3 vs 原版 5、gameinfo 3 vs 原版 4）
+  ② 实值多占位控件（set 5 vs 原版 4，多一个音量滑条）
+  ③ 占位控件注释未标注"简化占位/原版未逆向"
+- **修**：laymgr 3→5（补原版 btn3/btn4 Δ=0）+ gameinfo 3→4（补原版 btn3 Δ=0）
+  + set 5→4（删音量滑条，jni_bridge.c 音量档逻辑去掉 + 确定/取消 action 重编号，
+  render.c rs_draw_settings 音量滑条绘制段删除 + label/值标签 3→2 行）
+  + login/join/create/bright/join065 占位控件注释全标注"简化占位，原版账号系统/房间列表未逆向"
+- **全量核对**：具名 22 弹窗原版按钮全 OK（86 按钮 Δ=0，0 偏）
+- **判据**：红果 146 编译 14 导出 + 0 崩溃 + rs_ui_verify 全 PASS + rs_logic_align 8/8
