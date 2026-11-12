@@ -8764,3 +8764,29 @@ PASS=38 FAIL=0 维持）；设备 4 项（`arm32_hook_check.sh`）只在层 A �
   转译周期恢复窗口内多次实锤 8 步序列 + flip×2/move×4 锚点全出）；4 项全钩子
   串行 `--rounds 3` 在转译层崩溃周期内 flaky（§124y-250 判读口径），周期结束
   后重跑收口
+
+
+### §124y-252 本轮经验固化——转译周期 3 项单跑反复 FAIL 的"窗口"特征 + 判读 SOP（2026-11-12）
+
+用户"先总结经验"指令下，把本轮 32 位侧反复遇到的"设备 4 项单跑 FAIL 但
+非 so 回归"现象固化为可复判 SOP：
+
+- **★ 窗口特征实锤**：转译层 JIT/ART 崩溃周期内，game_test / walk_bridge /
+  native_event 三项单跑**反复 FAIL**（每项 3 连 FAIL），但 **framebuffer 偶发
+  PASS**（出屏 dump 通路独立于走子钩子）。这不是 4 项全 flaky，是**3 项
+  走子钩子共用 `jq_walk_bridge_tick`/`F_3ab80` 通路**，周期内该通路被 ART
+  反射崩溃（§124y-248 经验 2 特征：GetMethodID→FindMethodJNI→strlen SEGV）
+  拖累，framebuffer（纯渲染 dump）通路独立故偶发 PASS
+- **判读 SOP（防误判 so 回归）**：
+  1. 单跑 3 项（game_test/walk_bridge/native_event）全 FAIL + framebuffer 偶发
+     PASS → **先查 backtrace 段归属**（§124y-243 classify_crash）
+  2. backtrace 落 `libart`/`bionic`（GetMethodID/strlen 链）= 转译层周期
+     （§124y-191/226/248 已知项）→ **不作 so 回归依据**，等周期结束重跑
+  3. backtrace 落 `libjunqi` so 段 = so 回归（须排查，本轮 0 实锤）
+  4. 周期结束后重跑 3 项单跑，全 PASS = 判据基准恢复（§124y-225/228/244 口径）
+- **坑固化**：勿因"3 项反复 FAIL"误判为 so 回归/判据坏——**周期内 3 项走子
+  钩子共用通路 + 渲染独立**的结构特征（framebuffer 偶发 PASS 是周期内的
+  旁证），须 backtrace 段归属定论
+- **本轮基准**：静态 38 项全 PASS（设备无关，`arm32_static_evidence.sh`
+  PASS=38 FAIL=0）；设备 3 项走子钩子处周期内 flaky，framebuffer 偶发 PASS
+  = 判读基准成立（转译层周期 §124y-248 已知项，非 so 回归）
