@@ -47,3 +47,13 @@
 - 翻译体 so 重编后须重跑 trans_jni/trans_strpool/trans_seg/trans_handlers + 重打包 apk 装机（误打包坑）
 - 设备刚 reboot 转译冷启动 2-3 倍慢，判据窗口按正常 2-3 倍放宽（§124y-188）
 - 转译层 JNI 反射崩溃（libart GetMethodID→strlen SEGV_MAPERR）= 环境非 so 回归（§124y-191）
+- SPAK key 旧口径"文件偏移 0x2e5268"系误值（该处全 0）；实锤 32 位 so load base 0 时
+  VA=文件偏移，key @ 0x12a658（§124y-209）
+- .bss 单例槽偏移手算 0xc 误，实为 0x16c（§124y-213）；判据按实际相减防手算漂移
+- 0x15af08 静态模板区 = Thumb 指针表（非 asr4 纯字节区），"asr4 全 0"假设不成立
+  → 改"无 0..11 小常量共置"判读（§124y-214/166）
+- python print 字符串含 "30%" 字面量与 % 格式化冲突 → 判据脚本含 % 须用字符串拼接（§124y-218）
+- .got 段 0xaa4 = 2724 字节 = 681 槽（旧 429 误值）；原版 32 位 so **无独立 .got.plt 段**
+  （.got 合并含 PLT 槽），翻译体 so 有独立 .got.plt（NDK 惯例）——对照须分段核（§124y-221）
+- 翻译体 RELATIVE 2270 槽 < 原版 5312（代码量差异属预期），判核 ABI 一致 + 类型全在
+  非逐值对齐（§124y-222）
