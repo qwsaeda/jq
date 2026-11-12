@@ -8232,3 +8232,37 @@ bash rev64/tools/arm32_verify_all.sh --dev 10.0.182.146:5555
 **路线 2 收口口径**：暗棋翻子规则 32 位实证 = 桌面 8 场景 0 依赖设备全 PASS
 （jq_can_flip/jq_flip 行为闭环）；设备侧实锤（真机暗棋对局翻子出图）仍走
 走子桥 8 路径（§124y-235）转译周期恢复窗口内补。
+
+
+### §124y-237 4 路线全收口 + 设备侧 8 路径转译周期实锤（2026-11-12）
+
+用户"按顺序往下走，不准停"指令下，32 位侧 4 路线全收口 + 设备侧 8 路径实锤
+撞转译层周期：
+
+- **路线 1**（thunk_coverage，§124y-232，静态 35 项）：F_55d40 case 0-67 收表
+  完整度——case 0-41 真实可达 handler 全收表达义体 + 14 冗余 .rodata 边界
+  （so_probe 逐地址校验）+ case 42-67 扩展区 18 个
+- **路线 3**（event_name_static，§124y-233，静态 36 项）：73 事件名静态提取
+  脚本化（strings 直提 + frida-dump 二手机 73/73 对照 + 12 码子集 + 模板串
+  %d 归一化口径）
+- **路线 4**（walkregress_8path，§124y-234，静态 37 项）：走子回归 4→8 路径
+  锚点对照（蓝/红×明/暗×走/翻 8 锚点齐备）+ 暗棋 2 路径 flip 日志 LOG_INFO(4)
+  →ERROR(6)（重编 so 9025101e→58c3e45a）使 flip(6)/flip(33) 锚点进默认
+  logcat 可机判
+- **路线 2**（dark_flip_probe，§124y-236，静态 38 项）：暗棋翻子规则 32 位
+  实证判据（桌面级 8 场景 0 依赖设备全 PASS：先手定色/已翻不可再翻/敌方不可
+  翻/军旗/空格/终局/和棋累加），gcc 编译 jq_rs_rules.c+board+layout 三文件
+  全链
+- **设备侧 8 路径实锤（转译周期）**：新 so 58c3e45a 装机后 walk_bridge 8 步
+  序列多轮 0 命中 + 0 崩溃 + 渲染循环活跃（pid 6174）——实锤归因 = 转译层
+  JIT 崩溃周期（§124y-191/226 已知项，32 位 so 经 houdini 转译在 MuMu
+  x86_64 宿主跑 ART JIT 线程池周期异常），非 so 回归（旧 so 9025101e 同
+  判据 13s 命中过走子通 + move 锚点 4 条全出）。周期结束后重跑 8 路径判据
+  自然恢复，设备侧 8 路径实锤（暗棋 flip 锚点 ERROR 级）作下一步收口
+- **坑固化**：① `jq_state_init` 在 `jq_rs_layout.c` 非 rules.c（声明/实现分
+  处，R-051 已知）② `cell_row/is_camp/is_base` 在 `jq_rs_board.c` ③ 桌面编译
+  须三文件全链（rules+board+layout），单编 rules.c 报 undefined reference
+
+**4 路线全收口基准**：静态佐证 34→38 项全 PASS（thunk_coverage / event_name_static
+/ walkregress_8path / dark_flip_probe 4 新增判据，设备无关）；设备侧 8 路径实锤
+= 转译周期恢复窗口内重跑（暗棋 2 路径 flip ERROR 级可机判已固化，待设备侧实证）。
