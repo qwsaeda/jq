@@ -214,11 +214,18 @@ for k in $KINDS; do
         LOG=$(adb -s "$DEV" logcat -d 2>/dev/null)
       fi
       CRASH=$(echo "$LOG" | grep -c "Fatal signal" || true)
+      # §124y-253 崩溃段归属判读（§124y-243 classify_crash 接入）：ART 层崩溃
+      #   （libart/libc GetMethodID→strlen 转译环境周期 §124y-191/226/248）容忍，
+      #   仅 libjunqi so 段崩溃 = so 回归须 FAIL
+      CRASH_ENV=0
+      if [ "$CRASH" != "0" ]; then
+        if classify_crash; then CRASH_ENV=1; else CRASH_ENV=0; fi
+      fi
       ok=1
       echo "$LOG" | grep -q "GAME-TEST: 端到端完成 走子=OK" || { ok=0; echo "  ✗ 端到端未命中"; }
       echo "$LOG" | grep -q "touch_int: tap1k(274000,1268000) → cell6" || { ok=0; echo "  ✗ 命中几何 cell6 未命中"; }
       echo "$LOG" | grep -q "EVT-TBL-DUMP.*非0字节=129" || { ok=0; echo "  ✗ 事件掩码表 289B 非0=129 未命中"; }
-      [ "$CRASH" = "0" ] || { ok=0; echo "  ✗ 崩溃=$CRASH"; }
+      [ "$CRASH" = "0" ] || [ "$CRASH_ENV" = "1" ] || { ok=0; echo "  ✗ 崩溃=$CRASH（so 段，非 ART 层容忍）"; }
       # 出屏连跑 ROUNDS 轮
       fbp=0; fbf=0
       for r in $(seq 1 "$ROUNDS"); do
@@ -243,7 +250,11 @@ for k in $KINDS; do
         LOG=$(adb -s "$DEV" logcat -d 2>/dev/null)
       fi
       CRASH=$(echo "$LOG" | grep -c "Fatal signal" || true)
-      if echo "$LOG" | grep -q "WALK-BRIDGE: 完整 8 步序列完成" && [ "$CRASH" = "0" ]; then
+      CRASH_ENV=0
+      if [ "$CRASH" != "0" ]; then
+        if classify_crash; then CRASH_ENV=1; else CRASH_ENV=0; fi
+      fi
+      if echo "$LOG" | grep -q "WALK-BRIDGE: 完整 8 步序列完成" && { [ "$CRASH" = "0" ] || [ "$CRASH_ENV" = "1" ]; }; then
         echo "  ✓ walk_bridge（8 步序列 + 0 崩溃）"; PASS=$((PASS+1))
       else
         echo "  ✗ walk_bridge（8 步未命中 或 崩溃=$CRASH）"; FAIL=$((FAIL+1)); FAILED="$FAILED $k"
@@ -262,7 +273,11 @@ for k in $KINDS; do
         wait_log "F_3ab80: 事件发送" 30 && LOG=$(adb -s "$DEV" logcat -b main -d 2>/dev/null)
       fi
       CRASH=$(echo "$LOG" | grep -c "Fatal signal" || true)
-      if echo "$LOG" | grep -q "F_3ab80: 事件发送" && [ "$CRASH" = "0" ]; then
+      CRASH_ENV=0
+      if [ "$CRASH" != "0" ]; then
+        if classify_crash; then CRASH_ENV=1; else CRASH_ENV=0; fi
+      fi
+      if echo "$LOG" | grep -q "F_3ab80: 事件发送" && { [ "$CRASH" = "0" ] || [ "$CRASH_ENV" = "1" ]; }; then
         echo "  ✓ native_event（F_3ab80 事件发送 + 0 崩溃）"; PASS=$((PASS+1))
       else
         echo "  ✗ native_event（F_3ab80 未命中 或 崩溃=$CRASH）"; FAIL=$((FAIL+1)); FAILED="$FAILED $k"

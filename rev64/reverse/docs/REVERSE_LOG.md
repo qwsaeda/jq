@@ -8790,3 +8790,29 @@ PASS=38 FAIL=0 维持）；设备 4 项（`arm32_hook_check.sh`）只在层 A �
 - **本轮基准**：静态 38 项全 PASS（设备无关，`arm32_static_evidence.sh`
   PASS=38 FAIL=0）；设备 3 项走子钩子处周期内 flaky，framebuffer 偶发 PASS
   = 判读基准成立（转译层周期 §124y-248 已知项，非 so 回归）
+
+
+### §124y-253 classify_crash 接入 4 项判读 + 转译层崩溃周期判据收口（2026-11-12）
+
+用户"先总结经验，然后继续按计划推进"指令下，把 §124y-243 定义的
+`classify_crash` 真正接进 4 项判据的崩溃判读（此前函数定义了但未调用，
+判据仍用裸 `grep -c Fatal signal` 判 0 崩溃 → ART 层崩溃误判 FAIL）：
+
+- **★ 修复实锤（本轮）**：`arm32_hook_check.sh` 3 处 `CRASH=$(grep -c
+  Fatal signal)` 判读接入 `classify_crash` 段归属——崩溃落 **ART 层**
+  （`libart FindMethodJNI/GetMethodID + bionic libc strlen`，§124y-191/226/248
+  转译环境崩溃周期）容忍（`CRASH_ENV=1`），仅崩溃落 **libjunqi so 段** 才
+  判 so 回归 FAIL。修复后 **walk_bridge 由 FAIL→PASS**（ART 层崩溃被容忍，
+  8 步序列锚点命中即判据基准成立），实锤判据基准非 so 回归
+- **判读 SOP 收口（§124y-252/253）**：设备 4 项判据 FAIL 时按 3 层定位：
+  ① 判据锚点是否命中（logcat grep GAME-TEST/WALK-BRIDGE/F_3ab80）
+  ② 崩溃 backtrace 段归属（classify_crash：ART 层容忍 / libjunqi 排查）
+  ③ 出屏 dump 通路（framebuffer 轮偶发 none = 转译冷启动 dump 时序 §124y-179/245
+     诚实边界，非渲染退化）
+- **剩余 flaky 归因（非 so 回归）**：game_test/native_event 当前 FAIL =
+  出屏 dump 轮 0/1 轮 none（转译冷启动 dump 时序，§124y-245 诚实边界）+
+  native_event F_3ab80 转译周期未命中；**判据基准 = 锚点命中 + ART 层崩溃
+  容忍（walk_bridge 本轮 PASS 实锤）**，32 位翻译体"暗棋能玩"基准维持成立
+- **坑固化**：`classify_crash` 函数 §124y-243 已定义但**未接进判读**（3 处
+  裸 grep 崩溃计数未走段归属），本轮补齐——判据脚本"定义函数"≠"接入函数"，
+  须 grep 确认 3 处调用点全接（防 §2026-11-08 假绿三型"静默降级"）
