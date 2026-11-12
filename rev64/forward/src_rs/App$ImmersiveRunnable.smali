@@ -12,8 +12,13 @@
 .end method
 
 .method public run()V
-    .registers 4
+    .registers 6
     # 主线程（window attach 后）：API30+ 官方 WindowInsetsController.hide + edge-to-edge
+    # ★ 2026-11-12 官方 Android 15 标准（第 6 轮）：系统栏行为策略（setSystemBarsBehavior）。
+    #   旧：hide(statusBars|navBars) 后系统栏永久隐藏，用户无法滑出（非官方推荐）。
+    #   官方 Android 15（developer.android.com/develop/behavior-changes/15）：
+    #   沉浸 = hide + SYSTEM_BAR_BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE（滑动手势临时显示，
+    #   松手不动即自动隐藏，官方沉浸式游戏标准行为）。
     const/16 v0, 0x1e
     sget v1, Landroid/os/Build$VERSION;->SDK_INT:I
     if-lt v1, v0, :imm_done
@@ -26,11 +31,15 @@
     # WindowInsets.Type statusBars=0x1 | navigationBars=0x2 = 0x3
     const/4 v2, 0x3
     invoke-interface {v1, v2}, Landroid/view/WindowInsetsController;->hide(I)V
+    # ★ 官方 Android 15 系统栏行为：BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE=1
+    #   （滑出临时显示，松手不点即自动隐藏；API32+ framework 是 interface，invoke-interface）
+    const/4 v2, 0x1
+    invoke-interface {v1, v2}, Landroid/view/WindowInsetsController;->setSystemBarsBehavior(I)V
+    # ② 官方 edge-to-edge 第一原则（setDecorFitsSystemWindows(false)，官方内容延伸到系统栏下）
     iget-object v1, p0, Lcom/qwsaeda/App$ImmersiveRunnable;->a:Lcom/qwsaeda/App;
     invoke-virtual {v1}, Landroid/app/Activity;->getWindow()Landroid/view/Window;
     move-result-object v1
     if-eqz v1, :imm_done
-    # ② 官方 edge-to-edge 第一原则（WindowCompat.setDecorFitsSystemWindows(window,false) 的 window 级 API）
     const/4 v2, 0x0
     invoke-virtual {v1, v2}, Landroid/view/Window;->setDecorFitsSystemWindows(Z)V
     :imm_done
