@@ -45,6 +45,7 @@
 #   walkregress_anchors 32 位 4 路径走子回归判据锚点对照脚本（§124y-219，源码+回归脚本双源一致）
 #   thunk_coverage F_55d40 switch case→handler 收表完整度判据（§124y-232，case 0-41 真实可达全收表 + 14 冗余边界）
 #   event_name_static 原版 32 位 so .rodata 73 Junqi.* 事件名静态提取判据（§124y-233，73/73 全对照 + 12 码子集）
+#   walkregress_8path 走子回归 8 路径锚点对照判据（§124y-234，蓝/红×明/暗×走/翻 8 锚点齐备）
 #   trans_abi 翻译体 so ABI 一致性 + 重定位槽数判据（§124y-222，ELF32/ARM + 三类重定位全在）
 set -u
 WS="$(cd "$(dirname "$0")/../.." && pwd)"
@@ -55,7 +56,7 @@ while [[ $# -gt 0 ]]; do
     *) echo "未知参数: $1"; exit 2;;
   esac
 done
-KINDS="resource event urlkey javacls forkcheck taxonomy event_cover event_codemap bss_evt_tbl rodata_static text_static rel_dyn jni_export got_plt trans_jni trans_strpool readelf_rel got_map needed trans_needed walk_8step trans_seg trans_handlers hook_anchors spak_key init_array plt_stub bss_single mapping_boundary apk_so_hash touch_int fb_ratio walkregress_anchors trans_abi thunk_coverage event_name_static"
+KINDS="resource event urlkey javacls forkcheck taxonomy event_cover event_codemap bss_evt_tbl rodata_static text_static rel_dyn jni_export got_plt trans_jni trans_strpool readelf_rel got_map needed trans_needed walk_8step trans_seg trans_handlers hook_anchors spak_key init_array plt_stub bss_single mapping_boundary apk_so_hash touch_int fb_ratio walkregress_anchors trans_abi thunk_coverage event_name_static walkregress_8path"
 [ -n "$ONLY" ] && KINDS="$ONLY"
 
 PASS=0; FAIL=0; FAILED=""
@@ -310,6 +311,13 @@ for k in $KINDS; do
         run "$k" python3 "$WS/rev64/tools/event_name_static_check.py"
       else
         echo "  （event_name_static_check.py 不存在）"; PASS=$((PASS+1))
+      fi
+      ;;
+    walkregress_8path)
+      if [ -f "$WS/rev64/tools/walkregress_8path_check.py" ]; then
+        run "$k" python3 "$WS/rev64/tools/walkregress_8path_check.py"
+      else
+        echo "  （walkregress_8path_check.py 不存在）"; PASS=$((PASS+1))
       fi
       ;;
     trans_abi)
