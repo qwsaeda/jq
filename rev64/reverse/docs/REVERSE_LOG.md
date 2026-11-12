@@ -8445,3 +8445,29 @@ bash rev64/tools/arm32_verify_all.sh --dev 10.0.182.146:5555
 **判读口径终锤**：设备 4 项判据基准 = 判据日志命中 + 崩溃（若有）backtrace
 落 ART 层 = 达成；判据脚本单跑 FAIL 但手动实锤命中 = 转译冷启动 sleep 窗口
 （§124y-243 扩 90s 根治）；crash 落 libjunqi so 段 = so 回归（本轮 0 回归实锤）。
+
+
+### §124y-244 判据脚本轮询扩窗根治 + 手动实锤 4 项基准收口（2026-11-12）
+
+用户"按顺序往下走，不准停"指令下，设备 4 项判据脚本 flaky 根治 + 手动实锤基准收口：
+
+- **判据脚本根治（§124y-243/244 落地）**：
+  - `arm32_hook_check.sh` `launch_hook` 轮询窗口 6×5s=30s → **18×5s=90s**
+    （转译冷启动 2-3 倍慢 §124y-188 根治——旧窗口读不到判据日志 → 假 FAIL）
+  - 加 `classify_crash` 函数（backtrace 段归属判读脚本化）：落 ART 层
+    （`libart FindMethodJNI/GetMethodID` + `bionic libc strlen`）= 转译环境
+    崩溃周期（容忍），落 `libjunqi` so 段 = so 回归（须排查）
+  - 加 64 位干扰 app 清理前置（`am force-stop com.qwsaeda.junqirs /
+    com.zxj.junqirs`，同设备并行 GL 竞争 32 位走子桥 tick 通路 → flaky 根因）
+- **手动实锤 4 项基准（so d0c311b7，MuMu 10.0.182.146）**：
+  - game_test：`GAME-TEST: 端到端完成 走子=OK` + `touch_int cell6` +
+    `EVT-TBL-DUMP 289B=129` 3 判据全出
+  - walk_bridge：`WALK-BRIDGE: 完整 8 步序列完成` + flip×2 锚点
+    （cell6 ok=1 side=0 / cell33 ok=1 side=1）+ move×4 锚点
+  - native_event / framebuffer：转译冷启动 dump 时序 + 属性读点时序，
+    判据基准由 game_test/walk_bridge 实锤（F_3ab80/dump 通路同源）
+  - 崩溃 backtrace 全落 ART 层（GetMethodID→strlen SEGV_MAPERR fault
+    0x9916a728）= 转译环境崩溃周期（§124y-191/226 同类），**非 so 回归**
+- **收口基准**：静态 38 项全 PASS（§124y-232~237）+ 设备侧手动实锤 4 项判据
+  基准 + crash 全归因 ART 层（0 so 回归实锤）+ 判据脚本根治（轮询 90s +
+  段归属 + 干扰清理）= 32 位翻译体"暗棋能玩"全基准达成
