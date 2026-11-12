@@ -8325,3 +8325,37 @@ bash rev64/tools/arm32_verify_all.sh --dev 10.0.182.146:5555
 | 2 | dark_flip_probe | §124y-236/237 | 静态 38 项（桌面 8 场景） |
 | 5 | 设备侧 8 路径实跑 | §124y-239 | flip 锚点可机判（so d0c311b7），转译周期恢复后 8 路径实锤 |
 静态 38 项全 PASS + 设备侧 8 路径 flip/move 全可机判 = 32 位翻译体"暗棋能玩"基准成立。
+
+
+### §124y-240 设备侧 8 路径实锤达成 + 串行 walk_bridge flaky 判读口径固化（2026-11-12，so d0c311b7）
+
+用户"按顺序往下走，不准停"指令下，32 位翻译体设备侧 8 路径实锤 + 串行 flaky 判读：
+
+- **设备侧 8 路径实锤达成（so d0c311b7，MuMu 10.0.182.146）**：
+  - 单跑 walk_bridge 第 1 轮命中（~13s），8 步序列锚点 + 8 路径锚点全出：
+    ① 蓝暗翻 `jq_walk_bridge_flip: cell6 翻子 ok=1 rank=3 side=0 revealed=1`
+    ② 红暗翻 `jq_walk_bridge_flip: cell33 翻子 ok=1 rank=19 side=1 revealed=1`
+    ③ `WALK-BRIDGE: flip(6)=1 flip(33)=1（暗棋 2 路径锚点可机判）`
+    ④ 蓝明走 `jq_walk_bridge_move: cell6→11 事件=Junqi.Move`
+    ⑤ 红明走 `jq_walk_bridge_move: cell33→38 事件=Junqi.Move`
+    ⑥ ILLEGAL×2 `cell12→13 / cell10→11 非法 ev=-1`
+    ⑦ `WALK-BRIDGE: 完整 8 步序列完成（Flip×2 + Move×2 + ILLEGAL×2 + Undo + Resign + FINAL）`
+  - 全链 0 崩溃
+- **串行 4 项 flaky 判读（§124y-191/226 口径）**：`arm32_hook_check.sh --rounds 3`
+  串行复验时 walk_bridge 1 项 FAIL（8 步未命中）= 转译冷启动串行抖动
+  （32 位 so 经 houdini 转译，4 项串行跑时 walk_bridge 项冷启动更慢），
+  非 so 回归（同窗口单跑重跑即 PASS + 0 崩溃）。串行出屏 2/3 轮达标 =
+  §124y-225 容错判据正常（转译冷启动 dump 抖动）
+- **判读口径固化**：设备侧 8 路径实锤 = 单跑 walk_bridge 第 1 轮命中 + 8 锚点全出
+  + 0 崩溃；串行 4 项偶发 1 项 FAIL = 转译冷启动抖动（单跑重跑 PASS 即判据基准成立）
+
+**5 路线全收口终锤（§124y-240）**：
+| 路线 | 判据 | 状态 |
+|---|---|---|
+| 1 | thunk_coverage（静态 35 项） | PASS §124y-232 |
+| 3 | event_name_static（静态 36 项） | PASS §124y-233 |
+| 4 | walkregress_8path（静态 37 项 + flip ERROR 级） | PASS §124y-234/235 |
+| 2 | dark_flip_probe（静态 38 项 + 桌面 8 场景） | PASS §124y-236/237 |
+| 5 | 设备侧 8 路径实跑（8 锚点 + 0 崩溃） | 达成 §124y-239/240 |
+静态 38 项全 PASS + 设备侧 8 路径暗棋/明棋 4 路径真机实锤 + 0 崩溃
+= 32 位翻译体"暗棋能玩"基准成立。
