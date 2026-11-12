@@ -7864,3 +7864,21 @@ init_array 11/12 实锤基准）固化为可复跑静态判据（不依赖设备
   + .got 段 0xaa4=2724 字节 + 原版无 .got.plt 独立段 → 全 PASS
 - **坑固化**：32 位 so 与 NDK 编译 so 的 .got/.got.plt 段布局不同（原版合并
   .got，翻译体独立 .got.plt），对照判据须分别核段存在性，防混淆
+
+### §124y-222 翻译体 so ABI 一致性 + 重定位槽数判据脚本化 + 静态佐证扩到 34 项（2026-11-12）
+
+用户"光改光对比，经验不总结/不脚本化"批评的延续落实（新一天离线窗口）——
+把"32 位翻译体 so = ELF32/ARM（与原版同 ABI）+ 重定位槽数基准"固化为
+可复跑静态判据（防翻译体 so ABI 漂移/误链 64 位）：
+
+- **新工具** `rev64/tools/translated_abi_check.py`：翻译体 so
+  `rev64/dist/libjunqi_arm32_aligned.so` ABI + 重定位槽数判据
+- **判据实锤**：ELF32 + Machine=ARM（与原版同 ABI，非误链 64 位）+
+  重定位类型分布 RELATIVE=2270 / JUMP_SLOT=95 / GLOB_DAT=6（三类全在）
+- **口径固化**：翻译体代码量 < 原版（RELATIVE 2270 vs 原版 5312，§124y-194
+  口径），槽数不同属预期——判核"类型全在 + ABI 一致"，非逐值对齐
+  （32 位 so 走 v7a 兼容，ABI 须保持 ELF32/ARM）
+- 并入 `arm32_static_evidence.sh` 第 34 项 `trans_abi`（PASS=34 FAIL=0 全 PASS）
+
+**静态佐证批次化入口 34 项**（设备无关，§124y-190~222）：... +
+walkregress_anchors + **trans_abi**（新增，翻译体 ABI 一致性 + 重定位槽数）。
