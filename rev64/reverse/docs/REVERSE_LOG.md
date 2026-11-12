@@ -8694,3 +8694,52 @@ bash rev64/tools/arm32_verify_all.sh --dev 10.0.182.146:5555
 未固化教训（flaky 分层定位 / so 重编三步齐 + 三方哈希 / 日志级别匹配抓取通道）
 = 转译层 32 位 so 判据方法论完整闭环。后续判据脚本设计/排 flaky/实锤判据前
 先查 §124y-246/248 方法论 + 坑清单 + 教训清单。
+
+
+### §124y-248 本轮会话经验总结（判据脚本 flaky 根因分层 + 转译层崩溃特征实锤，2026-11-12）
+
+用户"先总结经验，然后继续按计划推进"指令下，复盘 §124y-228~247 的 10 轮
+"继续"指令闭环，沉淀 4 条可复用经验（防后续会话重踩）：
+
+#### 经验 1：判据脚本单跑 FAIL ≠ so 回归，须先分层定位根因
+本轮 10 轮里"单跑 4 项"反复 FAIL（§124y-228/244/245/247 均遇），根因不唯一，
+**固定顺序分层排查**（已实锤 3 层）：
+- **层 A 设备掉线**：`[dev-retry] 设备不可达` = MuMu 重启循环 / 32 位 so 拖
+  adbd（§124y-189/228），期间全 adb 失败，静态 38 项降级为准
+- **层 B 64 位并行 app 干扰**：`com.qwsaeda.junqirs` / `com.zxj.junqirs`
+  同机跑（正向会话产物）抢 GL/转译资源 → 32 位 so 走子桥 tick 通路抖动
+  （§124y-241 已固化 INTERFERER_PKGS 前置清理）
+- **层 C 转译层 ART 反射崩溃周期**：`GetMethodID→FindMethodJNI→strlen` 周期
+  SEGV（§124y-248 本轮实锤特征，见经验 2），周期内 3 项单跑反复 FAIL 但
+  **手动间隔重跑总能在某窗口命中**（§124y-226/244 判读口径）
+- 排查顺序：A（get-state + boot_completed）→ B（pidof qwsaeda/zxj）
+  → C（近窗口 Fatal signal backtrace）
+
+#### 经验 2：转译层 ART 反射崩溃特征 = 恒定 fault 地址 + 特定 backtrace
+本轮实锤的**稳定特征**（非随机 flaky，是周期）：
+- **fault addr 恒定 0x9916a728**（多次崩溃同一地址 = ART 反射缓存区固定
+  指针，转译层周期异常非随机）
+- **backtrace 恒为** `#00 bionic/libc.so strlen + #01 libart.so
+  FindMethodJNI + #02 libart.so GetMethodID`（32 位 so 经 houdini 转译在
+  x86_64 宿主跑 JNI 反射调用链的周期 SEGV_MAPERR）
+- **线程 = 主线程（tid=pid）**，非 Jit thread pool（§124y-226 旧口径是
+  Jit/HeapTaskDaemon，本轮实锤主线程反射调用链也同周期，口径扩到"主线程
+  GetMethodID 链"）
+- **判读**：崩溃落 `libart/bionic`（非 libjunqi so 段）= 转译环境周期，
+  重跑周期结束窗口即恢复（§124y-191/226 判读口径扩充），**不作 so 回归依据**；
+  so 回归 = backtrace 落 `libjunqi_arm32_aligned.so` 段（本轮 0 实锤）
+
+#### 经验 3：判据基准 = 单跑重跑 PASS + crash 段归属，非单跑首跑 PASS
+§124y-225/244 口径本轮再实锤：判据脚本单跑首跑 FAIL（层 C 周期内）不代表
+判据坏，**重跑/手动实锤命中即判据基准成立**；crash 计数须配合 backtrace
+段归属判读（`grep -c Fatal signal` 只计数不够，须查 #00 段 = libart 容忍 /
+libjunqi 排查）。
+
+#### 经验 4：设备在线窗口内优先跑静态 38 项 + 设备 4 项，掉线期只跑静态
+静态 38 项（`arm32_static_evidence.sh`）设备无关，任何窗口都该先跑（本轮
+PASS=38 FAIL=0 维持）；设备 4 项（`arm32_hook_check.sh`）只在层 A 排除后
+跑，且首跑 FAIL 先分层定位（经验 1）再判 flaky 还是回归。
+
+**待推进（转译周期窗口依赖，非阻塞）**：设备 4 项串行 --rounds 3 全 PASS
+（当前周期内 3 项 flaky，按经验 3 重跑收口即可）；双端总入口
+`arm32_verify_all.sh` 一键（设备 PENDING 降级口径 §124y-189/215 已固化）。
