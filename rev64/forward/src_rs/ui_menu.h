@@ -1746,10 +1746,10 @@ const ui_d029_btn *ui_d029_buttons(void);
 int ui_d029_hit(const ui_d029_btn *b, int n, float x, float y);
 
 #define UI_D030_COUNT 2
-#define UI_D030_POPUP_X0 135.0f
-#define UI_D030_POPUP_Y0 472.5f
-#define UI_D030_POPUP_W  450.0f
-#define UI_D030_POPUP_H  335.0f
+#define UI_D030_POPUP_X0 85.0f
+#define UI_D030_POPUP_Y0 415.0f
+#define UI_D030_POPUP_W 124.0f
+#define UI_D030_POPUP_H 460.0f
 typedef struct { float x0,y0,x1,y1; int action; } ui_d030_btn;
 const ui_d030_btn *ui_d030_buttons(void);
 int ui_d030_hit(const ui_d030_btn *b, int n, float x, float y);
@@ -2439,19 +2439,19 @@ const ui_d123_btn *ui_d123_buttons(void);
 int ui_d123_hit(const ui_d123_btn *b, int n, float x, float y);
 
 #define UI_D246_COUNT 2
-#define UI_D246_POPUP_X0 135.0f
-#define UI_D246_POPUP_Y0 472.5f
-#define UI_D246_POPUP_W  450.0f
-#define UI_D246_POPUP_H  335.0f
+#define UI_D246_POPUP_X0 113.0f
+#define UI_D246_POPUP_Y0 442.0f
+#define UI_D246_POPUP_W 370.0f
+#define UI_D246_POPUP_H 45.0f
 typedef struct { float x0,y0,x1,y1; int action; } ui_d246_btn;
 const ui_d246_btn *ui_d246_buttons(void);
 int ui_d246_hit(const ui_d246_btn *b, int n, float x, float y);
 
 #define UI_D247_COUNT 1
-#define UI_D247_POPUP_X0 135.0f
-#define UI_D247_POPUP_Y0 472.5f
-#define UI_D247_POPUP_W  450.0f
-#define UI_D247_POPUP_H  335.0f
+#define UI_D247_POPUP_X0 113.0f
+#define UI_D247_POPUP_Y0 442.0f
+#define UI_D247_POPUP_W 370.0f
+#define UI_D247_POPUP_H 45.0f
 typedef struct { float x0,y0,x1,y1; int action; } ui_d247_btn;
 const ui_d247_btn *ui_d247_buttons(void);
 int ui_d247_hit(const ui_d247_btn *b, int n, float x, float y);
@@ -2502,10 +2502,10 @@ const ui_d253_btn *ui_d253_buttons(void);
 int ui_d253_hit(const ui_d253_btn *b, int n, float x, float y);
 
 #define UI_D255_COUNT 3
-#define UI_D255_POPUP_X0 135.0f
-#define UI_D255_POPUP_Y0 472.5f
-#define UI_D255_POPUP_W  450.0f
-#define UI_D255_POPUP_H  335.0f
+#define UI_D255_POPUP_X0 85.0f
+#define UI_D255_POPUP_Y0 442.0f
+#define UI_D255_POPUP_W 370.0f
+#define UI_D255_POPUP_H 45.0f
 typedef struct { float x0,y0,x1,y1; int action; } ui_d255_btn;
 const ui_d255_btn *ui_d255_buttons(void);
 int ui_d255_hit(const ui_d255_btn *b, int n, float x, float y);

@@ -13,13 +13,23 @@ import re,json,sys,os,glob
 WS=os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 RES=WS+'/rev64/dist/spak_res'
 def parse_rect(tok):
-    """rect token → (x0,y0,x1,y1) 面板局部，或 None"""
+    """rect token → (x0,y0,x1,y1) 面板局部，或 None。
+    支持 3 种原版语法：
+      ① 4 值  0,0,450,335        → (x0,y0,x1,y1)
+      ② 全 w,h  x,y,w257,h45      → x,y,x+w,y+h
+      ③ 混合  x,y,wW,hH（如 85,415,w124,460 / 113,442,370,h45）
+               x,y 是 4 值起点坐标，W/H 带 w/h 前缀是宽高"""
     t=tok.strip()
     m=re.match(r'(-?\d+),(-?\d+),(-?\d+),(-?\d+)',t)
     if m: return list(map(int,m.groups()))
     m=re.match(r'(\d+),(\d+),w(\d+),h(\d+)',t)
     if m:
         x,y,w,h=map(int,m.groups()); return [x,y,x+w,y+h]
+    # ③ 混合：x,y 4 值坐标 + wW/hH 宽高
+    m=re.match(r'(\d+),(\d+),w?(\d+),h?(\d+)',t)
+    if m:
+        x,y,w,h=map(int,m.groups()); return [x,y,x+w,y+h]
+    m=re.match(r'c(-?\d+),c(-?\d+),c(\d+),c(\d+)',t)
     m=re.match(r'c(-?\d+),c(-?\d+),c(\d+),c(\d+)',t)
     if m:
         x0,y0,x1,y1=map(int,m.groups())
