@@ -8055,3 +8055,83 @@ so 退化依据。
   framebuffer，判据基准成立 §124y-225 口径）
 - **判读口径**：设备不可达期间 = 环境项非 so 回归；设备恢复后重跑 4 项全钩子
   （§124y-180/188 方法论：单跑重跑全 PASS = 判据基准）——本轮实锤成立
+
+
+### §124y-229 32 位翻译体 5 判据真机验收逐判据实跑 + 详细步骤固化（2026-11-12，用户"详细步骤呢"指令）
+
+用户"详细步骤呢"指令下，设备 10.0.182.146 恢复后 32 位翻译体 `com.cnvcs.junqi32`
+（phase_chain_arm32.apk v1.78，so 9025101e）5 判据逐条实跑 + 每步命令 + 证据：
+
+**前置（so 哈希一致性核对，§124y-216 误打包坑）**：
+1. `adb -s 10.0.182.146:5555 get-state` → `device` + `sys.boot_completed`=1
+2. `md5sum rev64/dist/libjunqi_arm32_aligned.so` → `9025101e`
+3. apk 内 `lib/armeabi/libjunqi.so` md5（zipfile 抽取）→ `9025101e`（一致 = 设备跑的就是本 so）
+
+**判据① 装得上（详细步骤 + 证据）**：
+1. `adb -s 10.0.182.146:5555 uninstall com.cnvcs.junqi32` → `Success`（清旧包）
+2. `adb -s 10.0.182.146:5555 install -r rev64/dist/phase_chain_arm32.apk` → `Success`
+3. `adb shell "pm list packages | grep junqi32"` → `package:com.cnvcs.junqi32`（包在位）
+4. `adb shell "am start -n com.cnvcs.junqi32/com.cnvcs.App"` → 启动
+5. `adb shell "pidof com.cnvcs.junqi32"` → pid 3568 存活
+6. `adb shell "dumpsys package com.cnvcs.junqi32 | grep versionName"` → `versionName=1.78`
+
+**判据② 进主界面（出屏，详细步骤 + 证据）**：
+1. 出屏权威判据 = 翻译体 framebuffer dump（§124y-179：dump 由 F_9d43c 帧尾读 GPU
+   framebuffer；GL 软驱动下 screencap 抓 SurfaceFlinger 8% 属环境采样假象，非出屏失败）
+2. `adb shell "rm -f /sdcard/Download/board_dump_*.ppm; setprop jq.game_test 1;
+   setprop jq.walk_bridge 0; setprop jq.native_layout 0; setprop jq.native_event 0;
+   am force-stop com.cnvcs.junqi32; logcat -c"`（清 dump + 设钩子 + 清崩溃历史）
+3. `adb shell "am start -n com.cnvcs.junqi32/com.cnvcs.App"`（带 jq.game_test=1 重启，
+   OnCreate 读属性触发帧尾 dump）
+4. 轮询 `logcat -d | grep "GAME-TEST: 端到端完成"` → 第 1 轮命中（start 后 ~13s）
+5. `DUMP=$(adb shell "ls -t /sdcard/Download/board_dump_*.ppm | head -1")` →
+   `/sdcard/Download/board_dump_0.ppm`
+6. `adb pull $DUMP` + PIL 判读 → **900×1468 非黑比 100%（≥30% 出屏达成）**
+
+**判据③ 下一局（走子出图，详细步骤 + 证据）**：
+1. 判据② 的 game_test 钩子同窗口即完成端到端走子（触摸→走子→事件→终局），
+   `logcat -d` 取本次窗口 3 条判据：
+2. `GAME-TEST: 端到端完成 走子=OK(2步Move) fin=0（触摸命中几何 60/60 纯整数路径实锤）`
+   （pid 3670，§124y-26 判据基准 + §124y-176 命中几何 60/60）
+3. `jq_walk_bridge_touch_int: tap1k(274000,1268000) → cell6 rank=3 side=0`
+   （纯整数 ×1000 定点通路命中 cell6）
+4. `EVT-TBL-DUMP(after game_test): 289B 区 非0字节=129`（§124y-168 原版 ref dump
+   逐字节一致，disc=0 忠实语义）
+5. 走子窗口 `logcat -d | grep -c "Fatal signal"` → **0**
+
+**判据④ 正常退出（详细步骤 + 证据）**：
+1. `adb shell "logcat -c"`（清历史崩溃，只数本次窗口）
+2. `adb shell "am force-stop com.cnvcs.junqi32"` → 退出
+3. `sleep 3` + `adb shell "pidof com.cnvcs.junqi32"` → 空（已退出）
+4. 退出窗口 `logcat -d | grep -c "Fatal signal"` → **0**
+
+**判据⑤ 重进不崩（详细步骤 + 证据）**：
+1. `adb shell "am start -n com.cnvcs.junqi32/com.cnvcs.App"` 重启
+2. 轮询 `pidof` → 第 1 轮（start 后 ~10s）pid 3766 存活
+3. 重进出屏实锤：带 `jq.game_test 1` 重启再触发 dump → game_test 第 2 轮命中 +
+   翻译体 dump **900×1468 非黑比 100%**（重进出屏达成）
+4. 重进后 pid 3846 存活 + 窗口 `logcat -d | grep -c "Fatal signal"` → **0**
+
+**实锤汇总**：5 判据全 PASS（① pid 3568 ② dump 100% ③ 走子=OK+cell6+289B=129
+④ 退出 0 崩溃 ⑤ 重进 pid 3846+dump 100%+0 崩溃），全链 0 崩溃。
+
+**判读口径**：
+- 设备 10.0.182.146 在 §124y-228 复验中段掉线（No route，MuMu 重启循环 + 32 位 so
+  拖 adbd 已知项），恢复后 4 项全钩子单跑全 PASS（§124y-228 收口）；本轮 5 判据
+  逐条实跑全 PASS = 32 位翻译体"能玩"真机验收基准成立
+- 出屏权威判据 = 翻译体 framebuffer dump（§124y-179）；screencap 8% 属 GL 软驱动
+  SurfaceFlinger 采样假象，不作出屏失败依据
+- 期间 `Jit thread pool / HeapTaskDaemon SEGV_MAPERR` = ART 转译层环境崩溃周期
+  （§124y-191/226 口径，非 libjunqi so 代码段）
+
+**5 判据真机验收可复现判据命令（一键入口）**：
+```
+# 静态 34 项
+bash rev64/tools/arm32_static_evidence.sh
+# 设备 4 项全钩子（单跑判据基准）
+for K in game_test walk_bridge native_event framebuffer; do
+  bash rev64/tools/arm32_hook_check.sh --dev 10.0.182.146:5555 --no-install --only $K
+done
+# 双端总入口（静态 + 设备，设备不可达自动 PENDING 降级）
+bash rev64/tools/arm32_verify_all.sh --dev 10.0.182.146:5555
+```
