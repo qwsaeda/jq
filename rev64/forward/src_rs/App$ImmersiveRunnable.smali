@@ -26,15 +26,13 @@
     # WindowInsets.Type statusBars=0x1 | navigationBars=0x2 = 0x3
     const/4 v2, 0x3
     invoke-interface {v1, v2}, Landroid/view/WindowInsetsController;->hide(I)V
-    # edge-to-edge 第一原则（WindowCompat.setDecorFitsSystemWindows(false) 等价）
     iget-object v1, p0, Lcom/qwsaeda/App$ImmersiveRunnable;->a:Lcom/qwsaeda/App;
     invoke-virtual {v1}, Landroid/app/Activity;->getWindow()Landroid/view/Window;
     move-result-object v1
-    invoke-virtual {v1}, Landroid/view/Window;->getDecorView()Landroid/view/View;
-    move-result-object v1
     if-eqz v1, :imm_done
+    # ② 官方 edge-to-edge 第一原则（WindowCompat.setDecorFitsSystemWindows(window,false) 的 window 级 API）
     const/4 v2, 0x0
-    invoke-virtual {v1, v2}, Landroid/view/View;->setFitsSystemWindows(Z)V
+    invoke-virtual {v1, v2}, Landroid/view/Window;->setDecorFitsSystemWindows(Z)V
     :imm_done
     return-void
 .end method
