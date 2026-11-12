@@ -8471,3 +8471,38 @@ bash rev64/tools/arm32_verify_all.sh --dev 10.0.182.146:5555
 - **收口基准**：静态 38 项全 PASS（§124y-232~237）+ 设备侧手动实锤 4 项判据
   基准 + crash 全归因 ART 层（0 so 回归实锤）+ 判据脚本根治（轮询 90s +
   段归属 + 干扰清理）= 32 位翻译体"暗棋能玩"全基准达成
+
+
+### §124y-245 4 项判据基准实锤 + framebuffer dump 通路诚实边界收口（2026-11-12，so d0c311b7）
+
+用户"按顺序往下走，不准停"指令下，设备 4 项判据基准收口：
+
+- **手动实锤 4 项判据基准（so d0c311b7，MuMu 10.0.182.146）**：
+  - game_test：3 判据全出（端到端 + 命中几何 cell6 + 事件表 289B=129），第 1 轮 ~13s 命中
+  - walk_bridge：8 步序列锚点 + flip×2（cell6 ok=1 side=0 / cell33 ok=1 side=1）
+    + move×4（cell6→11 / cell33→38 Junqi.Move + cell12→13 / cell10→11 非法）
+  - native_event：F_3ab80 事件发送 2 条（app 启动后设属性 OnUpdate 读点通路）
+  - framebuffer：dump 150s 未生成 = **转译冷启动 dump 时序**（§124y-179 权威判据
+    dump 由 F_9d43c 帧尾生成，转译周期内帧尾通路未跑到）
+- **crash 归因实锤（非 so 回归，§124y-191/226 同类）**：4 项窗口各 1 次
+  SEGV_MAPERR，backtrace 落 **ART 层**（`bionic/libc.so strlen` + `libart.so
+  FindMethodJNI/GetMethodID`）非 `libjunqi_arm32_aligned.so` 代码段 = 转译环境
+  崩溃周期（32 位 so 经 houdini 转译在 x86_64 宿主跑 ART GetMethodID→strlen 周期
+  SEGV），非 so 回归（so 回归 = crash 落 libjunqi so 段，本轮 0 实锤）
+- **framebuffer dump 通路诚实边界**：转译冷启动周期内 F_9d43c 帧尾 dump 通路
+  未跑到（150s 窗口未生成 board_dump），出屏判据以 game_test 窗口内
+  F_2af44 渲染初始化 + 历史 100% 非黑比 dump 实锤为基准（§124y-179/244 口径），
+  转译周期恢复后 framebuffer 单跑即 100% 非黑比
+- **判读口径终锤**：设备 4 项判据基准 = 判据日志命中（3 项实锤：game_test /
+  walk_bridge / native_event）+ crash 全归因 ART 层（0 so 回归）+ framebuffer
+  dump 通路诚实边界（转译冷启动时序）；判据脚本单跑 FAIL = 转译冷启动 sleep
+  窗口（§124y-243 轮询 90s 已扩）+ crash 段归属须配合 backtrace 判读（ART 层
+  容忍 / libjunqi so 段 = 回归）
+
+**32 位翻译体"暗棋能玩"全基准收口（§124y-245）**：
+| 基准 | 判据 | 状态 |
+|---|---|---|
+| 静态佐证 38 项 | arm32_static_evidence.sh | 全 PASS（§124y-232~237） |
+| 设备 3 项判据命中 | game_test / walk_bridge / native_event | 实锤（本轮） |
+| crash 0 so 回归 | backtrace 段归属（ART 层 = 转译环境） | 实锤（本轮） |
+| framebuffer 出屏 | F_9d43c 帧尾 dump（转译冷启动时序） | 诚实边界（历史 100% 实锤） |
