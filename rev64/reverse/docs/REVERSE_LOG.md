@@ -8031,3 +8031,21 @@ so 退化依据。
   周期结束后重跑判据自然恢复 0 崩溃
 - screencap 截图 8% 非黑 = GL 软驱动 SurfaceFlinger 合成采样假象（§124y-179），
   出屏权威判据 = 翻译体 framebuffer dump（framebuffer 直读，100% 实锤）
+
+### §124y-228 设备 4 项复验中段设备掉线 + 静态 34 项基准维持（2026-11-12）
+
+设备 10.0.182.146 在"继续"指令第 3 轮下复验 32 位设备 4 项，中段设备掉线：
+
+- **复验记录（本轮）**：
+  - walk_bridge → PASS（8 步 0 崩溃）
+  - framebuffer → PASS（100% 非黑比）
+  - game_test → 首轮 FAIL + 重跑 FAIL（dev-retry 2 轮重连失败 = 设备中段掉线）
+  - native_event → 首轮 FAIL + 重跑 FAIL（同上，设备掉线窗口）
+- **归因**：game_test/native_event FAIL 时脚本输出 `[dev-retry] 设备不可达，30s 后重连`
+  = 设备 10.0.182.146 在复验中段 No route（MuMu 重启循环 + 32 位 so 拖 adbd
+  已知环境项，§124y-191 同类），非 so 回归（掉线前 walk_bridge/framebuffer 两项
+  单跑 PASS + 上轮 §124y-227 5 判据全 PASS 基准成立）
+- **当前状态**：设备 10.0.182.146 `No route to host`（MuMu 重启循环期），期间
+  32 位侧判据 = 静态 34 项（PASS=34 FAIL=0 本轮复验）+ 设备 4 项待设备恢复后复跑
+- **判读口径**：设备不可达期间 = 环境项非 so 回归；设备恢复后重跑 4 项全钩子
+  （§124y-180/188 方法论：单跑重跑全 PASS = 判据基准）
