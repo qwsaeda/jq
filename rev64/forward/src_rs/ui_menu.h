@@ -1557,10 +1557,10 @@ const ui_d004_btn *ui_d004_buttons(void);
 int ui_d004_hit(const ui_d004_btn *b, int n, float x, float y);
 
 #define UI_D005_COUNT 2
-#define UI_D005_POPUP_X0 113.0f
-#define UI_D005_POPUP_Y0 415.0f
-#define UI_D005_POPUP_W  257.0f
-#define UI_D005_POPUP_H  45.0f
+#define UI_D005_POPUP_X0 231.5f
+#define UI_D005_POPUP_Y0 617.5f
+#define UI_D005_POPUP_W  257f
+#define UI_D005_POPUP_H  45f
 typedef struct { float x0,y0,x1,y1; int action; } ui_d005_btn;
 const ui_d005_btn *ui_d005_buttons(void);
 int ui_d005_hit(const ui_d005_btn *b, int n, float x, float y);
@@ -1620,10 +1620,10 @@ const ui_d013_btn *ui_d013_buttons(void);
 int ui_d013_hit(const ui_d013_btn *b, int n, float x, float y);
 
 #define UI_D015_COUNT 1
-#define UI_D015_POPUP_X0 113.0f
-#define UI_D015_POPUP_Y0 415.0f
-#define UI_D015_POPUP_W  257.0f
-#define UI_D015_POPUP_H  45.0f
+#define UI_D015_POPUP_X0 231.5f
+#define UI_D015_POPUP_Y0 617.5f
+#define UI_D015_POPUP_W  257f
+#define UI_D015_POPUP_H  45f
 typedef struct { float x0,y0,x1,y1; int action; } ui_d015_btn;
 const ui_d015_btn *ui_d015_buttons(void);
 int ui_d015_hit(const ui_d015_btn *b, int n, float x, float y);
@@ -1683,19 +1683,19 @@ const ui_d022_btn *ui_d022_buttons(void);
 int ui_d022_hit(const ui_d022_btn *b, int n, float x, float y);
 
 #define UI_D023_COUNT 4
-#define UI_D023_POPUP_X0 115.0f
-#define UI_D023_POPUP_Y0 540.0f
-#define UI_D023_POPUP_W  250.0f
-#define UI_D023_POPUP_H  210.0f
+#define UI_D023_POPUP_X0 235.0f
+#define UI_D023_POPUP_Y0 535.0f
+#define UI_D023_POPUP_W  250f
+#define UI_D023_POPUP_H  210f
 typedef struct { float x0,y0,x1,y1; int action; } ui_d023_btn;
 const ui_d023_btn *ui_d023_buttons(void);
 int ui_d023_hit(const ui_d023_btn *b, int n, float x, float y);
 
 #define UI_D024_COUNT 1
-#define UI_D024_POPUP_X0 388.0f
-#define UI_D024_POPUP_Y0 698.0f
-#define UI_D024_POPUP_W  70.0f
-#define UI_D024_POPUP_H  64.0f
+#define UI_D024_POPUP_X0 325.0f
+#define UI_D024_POPUP_Y0 608.0f
+#define UI_D024_POPUP_W  70f
+#define UI_D024_POPUP_H  64f
 typedef struct { float x0,y0,x1,y1; int action; } ui_d024_btn;
 const ui_d024_btn *ui_d024_buttons(void);
 int ui_d024_hit(const ui_d024_btn *b, int n, float x, float y);
@@ -1746,10 +1746,10 @@ const ui_d029_btn *ui_d029_buttons(void);
 int ui_d029_hit(const ui_d029_btn *b, int n, float x, float y);
 
 #define UI_D030_COUNT 2
-#define UI_D030_POPUP_X0 85.0f
-#define UI_D030_POPUP_Y0 415.0f
-#define UI_D030_POPUP_W  124.0f
-#define UI_D030_POPUP_H  460.0f
+#define UI_D030_POPUP_X0 135.0f
+#define UI_D030_POPUP_Y0 472.5f
+#define UI_D030_POPUP_W  450f
+#define UI_D030_POPUP_H  335f
 typedef struct { float x0,y0,x1,y1; int action; } ui_d030_btn;
 const ui_d030_btn *ui_d030_buttons(void);
 int ui_d030_hit(const ui_d030_btn *b, int n, float x, float y);
@@ -1764,10 +1764,10 @@ const ui_d031_btn *ui_d031_buttons(void);
 int ui_d031_hit(const ui_d031_btn *b, int n, float x, float y);
 
 #define UI_D032_COUNT 4
-#define UI_D032_POPUP_X0 15.0f
-#define UI_D032_POPUP_Y0 110.0f
-#define UI_D032_POPUP_W  390.0f
-#define UI_D032_POPUP_H  60.0f
+#define UI_D032_POPUP_X0 165.0f
+#define UI_D032_POPUP_Y0 610.0f
+#define UI_D032_POPUP_W  390f
+#define UI_D032_POPUP_H  60f
 typedef struct { float x0,y0,x1,y1; int action; } ui_d032_btn;
 const ui_d032_btn *ui_d032_buttons(void);
 int ui_d032_hit(const ui_d032_btn *b, int n, float x, float y);
@@ -1827,10 +1827,10 @@ const ui_d038_btn *ui_d038_buttons(void);
 int ui_d038_hit(const ui_d038_btn *b, int n, float x, float y);
 
 #define UI_D039_COUNT 1
-#define UI_D039_POPUP_X0 27.0f
-#define UI_D039_POPUP_Y0 650.0f
-#define UI_D039_POPUP_W  120.0f
-#define UI_D039_POPUP_H  90.0f
+#define UI_D039_POPUP_X0 300.0f
+#define UI_D039_POPUP_Y0 595.0f
+#define UI_D039_POPUP_W  120f
+#define UI_D039_POPUP_H  90f
 typedef struct { float x0,y0,x1,y1; int action; } ui_d039_btn;
 const ui_d039_btn *ui_d039_buttons(void);
 int ui_d039_hit(const ui_d039_btn *b, int n, float x, float y);
@@ -1872,10 +1872,10 @@ const ui_d044_btn *ui_d044_buttons(void);
 int ui_d044_hit(const ui_d044_btn *b, int n, float x, float y);
 
 #define UI_D045_COUNT 1
-#define UI_D045_POPUP_X0 45.0f
-#define UI_D045_POPUP_Y0 620.0f
-#define UI_D045_POPUP_W  390.0f
-#define UI_D045_POPUP_H  135.0f
+#define UI_D045_POPUP_X0 165.0f
+#define UI_D045_POPUP_Y0 572.5f
+#define UI_D045_POPUP_W  390f
+#define UI_D045_POPUP_H  135f
 typedef struct { float x0,y0,x1,y1; int action; } ui_d045_btn;
 const ui_d045_btn *ui_d045_buttons(void);
 int ui_d045_hit(const ui_d045_btn *b, int n, float x, float y);
@@ -2025,10 +2025,10 @@ const ui_d063_btn *ui_d063_buttons(void);
 int ui_d063_hit(const ui_d063_btn *b, int n, float x, float y);
 
 #define UI_D064_COUNT 3
-#define UI_D064_POPUP_X0 85.0f
-#define UI_D064_POPUP_Y0 415.0f
-#define UI_D064_POPUP_W  285.0f
-#define UI_D064_POPUP_H  45.0f
+#define UI_D064_POPUP_X0 217.5f
+#define UI_D064_POPUP_Y0 617.5f
+#define UI_D064_POPUP_W  285f
+#define UI_D064_POPUP_H  45f
 typedef struct { float x0,y0,x1,y1; int action; } ui_d064_btn;
 const ui_d064_btn *ui_d064_buttons(void);
 int ui_d064_hit(const ui_d064_btn *b, int n, float x, float y);
@@ -2115,10 +2115,10 @@ const ui_d073_btn *ui_d073_buttons(void);
 int ui_d073_hit(const ui_d073_btn *b, int n, float x, float y);
 
 #define UI_D075_COUNT 4
-#define UI_D075_POPUP_X0 60.0f
-#define UI_D075_POPUP_Y0 415.0f
-#define UI_D075_POPUP_W  340.0f
-#define UI_D075_POPUP_H  45.0f
+#define UI_D075_POPUP_X0 190.0f
+#define UI_D075_POPUP_Y0 617.5f
+#define UI_D075_POPUP_W  340f
+#define UI_D075_POPUP_H  45f
 typedef struct { float x0,y0,x1,y1; int action; } ui_d075_btn;
 const ui_d075_btn *ui_d075_buttons(void);
 int ui_d075_hit(const ui_d075_btn *b, int n, float x, float y);
@@ -2151,19 +2151,19 @@ const ui_d078_btn *ui_d078_buttons(void);
 int ui_d078_hit(const ui_d078_btn *b, int n, float x, float y);
 
 #define UI_D079_COUNT 1
-#define UI_D079_POPUP_X0 140.0f
-#define UI_D079_POPUP_Y0 365.0f
-#define UI_D079_POPUP_W  220.0f
-#define UI_D079_POPUP_H  340.0f
+#define UI_D079_POPUP_X0 135.0f
+#define UI_D079_POPUP_Y0 472.5f
+#define UI_D079_POPUP_W  450f
+#define UI_D079_POPUP_H  335f
 typedef struct { float x0,y0,x1,y1; int action; } ui_d079_btn;
 const ui_d079_btn *ui_d079_buttons(void);
 int ui_d079_hit(const ui_d079_btn *b, int n, float x, float y);
 
 #define UI_D082_COUNT 5
-#define UI_D082_POPUP_X0 10.0f
-#define UI_D082_POPUP_Y0 705.0f
-#define UI_D082_POPUP_W  460.0f
-#define UI_D082_POPUP_H  60.0f
+#define UI_D082_POPUP_X0 130.0f
+#define UI_D082_POPUP_Y0 610.0f
+#define UI_D082_POPUP_W  460f
+#define UI_D082_POPUP_H  60f
 typedef struct { float x0,y0,x1,y1; int action; } ui_d082_btn;
 const ui_d082_btn *ui_d082_buttons(void);
 int ui_d082_hit(const ui_d082_btn *b, int n, float x, float y);
@@ -2187,10 +2187,10 @@ const ui_d084_btn *ui_d084_buttons(void);
 int ui_d084_hit(const ui_d084_btn *b, int n, float x, float y);
 
 #define UI_D085_COUNT 5
-#define UI_D085_POPUP_X0 10.0f
-#define UI_D085_POPUP_Y0 705.0f
-#define UI_D085_POPUP_W  460.0f
-#define UI_D085_POPUP_H  60.0f
+#define UI_D085_POPUP_X0 130.0f
+#define UI_D085_POPUP_Y0 610.0f
+#define UI_D085_POPUP_W  460f
+#define UI_D085_POPUP_H  60f
 typedef struct { float x0,y0,x1,y1; int action; } ui_d085_btn;
 const ui_d085_btn *ui_d085_buttons(void);
 int ui_d085_hit(const ui_d085_btn *b, int n, float x, float y);
@@ -2214,10 +2214,10 @@ const ui_d089_btn *ui_d089_buttons(void);
 int ui_d089_hit(const ui_d089_btn *b, int n, float x, float y);
 
 #define UI_D090_COUNT 2
-#define UI_D090_POPUP_X0 135.0f
-#define UI_D090_POPUP_Y0 570.0f
-#define UI_D090_POPUP_W  210.0f
-#define UI_D090_POPUP_H  150.0f
+#define UI_D090_POPUP_X0 255.0f
+#define UI_D090_POPUP_Y0 565.0f
+#define UI_D090_POPUP_W  210f
+#define UI_D090_POPUP_H  150f
 typedef struct { float x0,y0,x1,y1; int action; } ui_d090_btn;
 const ui_d090_btn *ui_d090_buttons(void);
 int ui_d090_hit(const ui_d090_btn *b, int n, float x, float y);
@@ -2232,10 +2232,10 @@ const ui_d094_btn *ui_d094_buttons(void);
 int ui_d094_hit(const ui_d094_btn *b, int n, float x, float y);
 
 #define UI_D095_COUNT 5
-#define UI_D095_POPUP_X0 10.0f
-#define UI_D095_POPUP_Y0 705.0f
-#define UI_D095_POPUP_W  460.0f
-#define UI_D095_POPUP_H  60.0f
+#define UI_D095_POPUP_X0 130.0f
+#define UI_D095_POPUP_Y0 610.0f
+#define UI_D095_POPUP_W  460f
+#define UI_D095_POPUP_H  60f
 typedef struct { float x0,y0,x1,y1; int action; } ui_d095_btn;
 const ui_d095_btn *ui_d095_buttons(void);
 int ui_d095_hit(const ui_d095_btn *b, int n, float x, float y);
@@ -2250,10 +2250,10 @@ const ui_d096_btn *ui_d096_buttons(void);
 int ui_d096_hit(const ui_d096_btn *b, int n, float x, float y);
 
 #define UI_D097_COUNT 4
-#define UI_D097_POPUP_X0 15.0f
-#define UI_D097_POPUP_Y0 110.0f
-#define UI_D097_POPUP_W  390.0f
-#define UI_D097_POPUP_H  60.0f
+#define UI_D097_POPUP_X0 165.0f
+#define UI_D097_POPUP_Y0 610.0f
+#define UI_D097_POPUP_W  390f
+#define UI_D097_POPUP_H  60f
 typedef struct { float x0,y0,x1,y1; int action; } ui_d097_btn;
 const ui_d097_btn *ui_d097_buttons(void);
 int ui_d097_hit(const ui_d097_btn *b, int n, float x, float y);
@@ -2277,19 +2277,19 @@ const ui_d099_btn *ui_d099_buttons(void);
 int ui_d099_hit(const ui_d099_btn *b, int n, float x, float y);
 
 #define UI_D100_COUNT 1
-#define UI_D100_POPUP_X0 45.0f
-#define UI_D100_POPUP_Y0 620.0f
-#define UI_D100_POPUP_W  390.0f
-#define UI_D100_POPUP_H  135.0f
+#define UI_D100_POPUP_X0 165.0f
+#define UI_D100_POPUP_Y0 572.5f
+#define UI_D100_POPUP_W  390f
+#define UI_D100_POPUP_H  135f
 typedef struct { float x0,y0,x1,y1; int action; } ui_d100_btn;
 const ui_d100_btn *ui_d100_buttons(void);
 int ui_d100_hit(const ui_d100_btn *b, int n, float x, float y);
 
 #define UI_D101_COUNT 4
-#define UI_D101_POPUP_X0 10.0f
-#define UI_D101_POPUP_Y0 705.0f
-#define UI_D101_POPUP_W  460.0f
-#define UI_D101_POPUP_H  60.0f
+#define UI_D101_POPUP_X0 130.0f
+#define UI_D101_POPUP_Y0 610.0f
+#define UI_D101_POPUP_W  460f
+#define UI_D101_POPUP_H  60f
 typedef struct { float x0,y0,x1,y1; int action; } ui_d101_btn;
 const ui_d101_btn *ui_d101_buttons(void);
 int ui_d101_hit(const ui_d101_btn *b, int n, float x, float y);
@@ -2313,10 +2313,10 @@ const ui_d104_btn *ui_d104_buttons(void);
 int ui_d104_hit(const ui_d104_btn *b, int n, float x, float y);
 
 #define UI_D107_COUNT 5
-#define UI_D107_POPUP_X0 10.0f
-#define UI_D107_POPUP_Y0 705.0f
-#define UI_D107_POPUP_W  460.0f
-#define UI_D107_POPUP_H  60.0f
+#define UI_D107_POPUP_X0 130.0f
+#define UI_D107_POPUP_Y0 610.0f
+#define UI_D107_POPUP_W  460f
+#define UI_D107_POPUP_H  60f
 typedef struct { float x0,y0,x1,y1; int action; } ui_d107_btn;
 const ui_d107_btn *ui_d107_buttons(void);
 int ui_d107_hit(const ui_d107_btn *b, int n, float x, float y);
@@ -2376,10 +2376,10 @@ const ui_d113_btn *ui_d113_buttons(void);
 int ui_d113_hit(const ui_d113_btn *b, int n, float x, float y);
 
 #define UI_D114_COUNT 1
-#define UI_D114_POPUP_X0 30.0f
-#define UI_D114_POPUP_Y0 700.0f
-#define UI_D114_POPUP_W  60.0f
-#define UI_D114_POPUP_H  60.0f
+#define UI_D114_POPUP_X0 330.0f
+#define UI_D114_POPUP_Y0 610.0f
+#define UI_D114_POPUP_W  60f
+#define UI_D114_POPUP_H  60f
 typedef struct { float x0,y0,x1,y1; int action; } ui_d114_btn;
 const ui_d114_btn *ui_d114_buttons(void);
 int ui_d114_hit(const ui_d114_btn *b, int n, float x, float y);
@@ -2439,154 +2439,154 @@ const ui_d123_btn *ui_d123_buttons(void);
 int ui_d123_hit(const ui_d123_btn *b, int n, float x, float y);
 
 #define UI_D246_COUNT 2
-#define UI_D246_POPUP_X0 113.0f
-#define UI_D246_POPUP_Y0 442.0f
-#define UI_D246_POPUP_W  370.0f
-#define UI_D246_POPUP_H  45.0f
+#define UI_D246_POPUP_X0 135.0f
+#define UI_D246_POPUP_Y0 472.5f
+#define UI_D246_POPUP_W  450f
+#define UI_D246_POPUP_H  335f
 typedef struct { float x0,y0,x1,y1; int action; } ui_d246_btn;
 const ui_d246_btn *ui_d246_buttons(void);
 int ui_d246_hit(const ui_d246_btn *b, int n, float x, float y);
 
 #define UI_D247_COUNT 1
-#define UI_D247_POPUP_X0 113.0f
-#define UI_D247_POPUP_Y0 442.0f
-#define UI_D247_POPUP_W  370.0f
-#define UI_D247_POPUP_H  45.0f
+#define UI_D247_POPUP_X0 135.0f
+#define UI_D247_POPUP_Y0 472.5f
+#define UI_D247_POPUP_W  450f
+#define UI_D247_POPUP_H  335f
 typedef struct { float x0,y0,x1,y1; int action; } ui_d247_btn;
 const ui_d247_btn *ui_d247_buttons(void);
 int ui_d247_hit(const ui_d247_btn *b, int n, float x, float y);
 
 #define UI_D248_COUNT 4
-#define UI_D248_POPUP_X0 115.0f
-#define UI_D248_POPUP_Y0 575.0f
-#define UI_D248_POPUP_W  255.0f
-#define UI_D248_POPUP_H  210.0f
+#define UI_D248_POPUP_X0 232.5f
+#define UI_D248_POPUP_Y0 535.0f
+#define UI_D248_POPUP_W  255f
+#define UI_D248_POPUP_H  210f
 typedef struct { float x0,y0,x1,y1; int action; } ui_d248_btn;
 const ui_d248_btn *ui_d248_buttons(void);
 int ui_d248_hit(const ui_d248_btn *b, int n, float x, float y);
 
 #define UI_D249_COUNT 1
-#define UI_D249_POPUP_X0 388.0f
-#define UI_D249_POPUP_Y0 731.0f
-#define UI_D249_POPUP_W  70.0f
-#define UI_D249_POPUP_H  64.0f
+#define UI_D249_POPUP_X0 325.0f
+#define UI_D249_POPUP_Y0 608.0f
+#define UI_D249_POPUP_W  70f
+#define UI_D249_POPUP_H  64f
 typedef struct { float x0,y0,x1,y1; int action; } ui_d249_btn;
 const ui_d249_btn *ui_d249_buttons(void);
 int ui_d249_hit(const ui_d249_btn *b, int n, float x, float y);
 
 #define UI_D250_COUNT 2
-#define UI_D250_POPUP_X0 85.0f
-#define UI_D250_POPUP_Y0 442.0f
-#define UI_D250_POPUP_W  124.0f
-#define UI_D250_POPUP_H  45.0f
+#define UI_D250_POPUP_X0 298.0f
+#define UI_D250_POPUP_Y0 617.5f
+#define UI_D250_POPUP_W  124f
+#define UI_D250_POPUP_H  45f
 typedef struct { float x0,y0,x1,y1; int action; } ui_d250_btn;
 const ui_d250_btn *ui_d250_buttons(void);
 int ui_d250_hit(const ui_d250_btn *b, int n, float x, float y);
 
 #define UI_D251_COUNT 1
-#define UI_D251_POPUP_X0 27.0f
-#define UI_D251_POPUP_Y0 690.0f
-#define UI_D251_POPUP_W  120.0f
-#define UI_D251_POPUP_H  90.0f
+#define UI_D251_POPUP_X0 300.0f
+#define UI_D251_POPUP_Y0 595.0f
+#define UI_D251_POPUP_W  120f
+#define UI_D251_POPUP_H  90f
 typedef struct { float x0,y0,x1,y1; int action; } ui_d251_btn;
 const ui_d251_btn *ui_d251_buttons(void);
 int ui_d251_hit(const ui_d251_btn *b, int n, float x, float y);
 
 #define UI_D253_COUNT 1
-#define UI_D253_POPUP_X0 45.0f
-#define UI_D253_POPUP_Y0 660.0f
-#define UI_D253_POPUP_W  390.0f
-#define UI_D253_POPUP_H  135.0f
+#define UI_D253_POPUP_X0 165.0f
+#define UI_D253_POPUP_Y0 572.5f
+#define UI_D253_POPUP_W  390f
+#define UI_D253_POPUP_H  135f
 typedef struct { float x0,y0,x1,y1; int action; } ui_d253_btn;
 const ui_d253_btn *ui_d253_buttons(void);
 int ui_d253_hit(const ui_d253_btn *b, int n, float x, float y);
 
 #define UI_D255_COUNT 3
-#define UI_D255_POPUP_X0 85.0f
-#define UI_D255_POPUP_Y0 442.0f
-#define UI_D255_POPUP_W  370.0f
-#define UI_D255_POPUP_H  45.0f
+#define UI_D255_POPUP_X0 135.0f
+#define UI_D255_POPUP_Y0 472.5f
+#define UI_D255_POPUP_W  450f
+#define UI_D255_POPUP_H  335f
 typedef struct { float x0,y0,x1,y1; int action; } ui_d255_btn;
 const ui_d255_btn *ui_d255_buttons(void);
 int ui_d255_hit(const ui_d255_btn *b, int n, float x, float y);
 
 #define UI_D256_COUNT 4
-#define UI_D256_POPUP_X0 60.0f
-#define UI_D256_POPUP_Y0 442.0f
-#define UI_D256_POPUP_W  340.0f
-#define UI_D256_POPUP_H  45.0f
+#define UI_D256_POPUP_X0 190.0f
+#define UI_D256_POPUP_Y0 617.5f
+#define UI_D256_POPUP_W  340f
+#define UI_D256_POPUP_H  45f
 typedef struct { float x0,y0,x1,y1; int action; } ui_d256_btn;
 const ui_d256_btn *ui_d256_buttons(void);
 int ui_d256_hit(const ui_d256_btn *b, int n, float x, float y);
 
 #define UI_D257_COUNT 5
-#define UI_D257_POPUP_X0 10.0f
-#define UI_D257_POPUP_Y0 750.0f
-#define UI_D257_POPUP_W  460.0f
-#define UI_D257_POPUP_H  60.0f
+#define UI_D257_POPUP_X0 130.0f
+#define UI_D257_POPUP_Y0 610.0f
+#define UI_D257_POPUP_W  460f
+#define UI_D257_POPUP_H  60f
 typedef struct { float x0,y0,x1,y1; int action; } ui_d257_btn;
 const ui_d257_btn *ui_d257_buttons(void);
 int ui_d257_hit(const ui_d257_btn *b, int n, float x, float y);
 
 #define UI_D258_COUNT 5
-#define UI_D258_POPUP_X0 10.0f
-#define UI_D258_POPUP_Y0 750.0f
-#define UI_D258_POPUP_W  460.0f
-#define UI_D258_POPUP_H  60.0f
+#define UI_D258_POPUP_X0 130.0f
+#define UI_D258_POPUP_Y0 610.0f
+#define UI_D258_POPUP_W  460f
+#define UI_D258_POPUP_H  60f
 typedef struct { float x0,y0,x1,y1; int action; } ui_d258_btn;
 const ui_d258_btn *ui_d258_buttons(void);
 int ui_d258_hit(const ui_d258_btn *b, int n, float x, float y);
 
 #define UI_D259_COUNT 2
-#define UI_D259_POPUP_X0 135.0f
-#define UI_D259_POPUP_Y0 610.0f
-#define UI_D259_POPUP_W  210.0f
-#define UI_D259_POPUP_H  150.0f
+#define UI_D259_POPUP_X0 255.0f
+#define UI_D259_POPUP_Y0 565.0f
+#define UI_D259_POPUP_W  210f
+#define UI_D259_POPUP_H  150f
 typedef struct { float x0,y0,x1,y1; int action; } ui_d259_btn;
 const ui_d259_btn *ui_d259_buttons(void);
 int ui_d259_hit(const ui_d259_btn *b, int n, float x, float y);
 
 #define UI_D260_COUNT 5
-#define UI_D260_POPUP_X0 10.0f
-#define UI_D260_POPUP_Y0 750.0f
-#define UI_D260_POPUP_W  460.0f
-#define UI_D260_POPUP_H  60.0f
+#define UI_D260_POPUP_X0 130.0f
+#define UI_D260_POPUP_Y0 610.0f
+#define UI_D260_POPUP_W  460f
+#define UI_D260_POPUP_H  60f
 typedef struct { float x0,y0,x1,y1; int action; } ui_d260_btn;
 const ui_d260_btn *ui_d260_buttons(void);
 int ui_d260_hit(const ui_d260_btn *b, int n, float x, float y);
 
 #define UI_D261_COUNT 1
-#define UI_D261_POPUP_X0 45.0f
-#define UI_D261_POPUP_Y0 670.0f
-#define UI_D261_POPUP_W  390.0f
-#define UI_D261_POPUP_H  135.0f
+#define UI_D261_POPUP_X0 165.0f
+#define UI_D261_POPUP_Y0 572.5f
+#define UI_D261_POPUP_W  390f
+#define UI_D261_POPUP_H  135f
 typedef struct { float x0,y0,x1,y1; int action; } ui_d261_btn;
 const ui_d261_btn *ui_d261_buttons(void);
 int ui_d261_hit(const ui_d261_btn *b, int n, float x, float y);
 
 #define UI_D262_COUNT 4
-#define UI_D262_POPUP_X0 10.0f
-#define UI_D262_POPUP_Y0 750.0f
-#define UI_D262_POPUP_W  460.0f
-#define UI_D262_POPUP_H  60.0f
+#define UI_D262_POPUP_X0 130.0f
+#define UI_D262_POPUP_Y0 610.0f
+#define UI_D262_POPUP_W  460f
+#define UI_D262_POPUP_H  60f
 typedef struct { float x0,y0,x1,y1; int action; } ui_d262_btn;
 const ui_d262_btn *ui_d262_buttons(void);
 int ui_d262_hit(const ui_d262_btn *b, int n, float x, float y);
 
 #define UI_D263_COUNT 5
-#define UI_D263_POPUP_X0 10.0f
-#define UI_D263_POPUP_Y0 750.0f
-#define UI_D263_POPUP_W  460.0f
-#define UI_D263_POPUP_H  60.0f
+#define UI_D263_POPUP_X0 130.0f
+#define UI_D263_POPUP_Y0 610.0f
+#define UI_D263_POPUP_W  460f
+#define UI_D263_POPUP_H  60f
 typedef struct { float x0,y0,x1,y1; int action; } ui_d263_btn;
 const ui_d263_btn *ui_d263_buttons(void);
 int ui_d263_hit(const ui_d263_btn *b, int n, float x, float y);
 
 #define UI_D264_COUNT 1
-#define UI_D264_POPUP_X0 30.0f
-#define UI_D264_POPUP_Y0 735.0f
-#define UI_D264_POPUP_W  60.0f
-#define UI_D264_POPUP_H  65.0f
+#define UI_D264_POPUP_X0 330.0f
+#define UI_D264_POPUP_Y0 607.5f
+#define UI_D264_POPUP_W  60f
+#define UI_D264_POPUP_H  65f
 typedef struct { float x0,y0,x1,y1; int action; } ui_d264_btn;
 const ui_d264_btn *ui_d264_buttons(void);
 int ui_d264_hit(const ui_d264_btn *b, int n, float x, float y);
