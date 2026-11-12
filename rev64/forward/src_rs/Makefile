@@ -18,13 +18,20 @@ dist/jq_run: $(SRCS_CORE) main.c junqi.h bt_protocol.h render.h render_stub.c
 	@echo "构建完成: $@"
 
 # NDK arm64 共享库（真渲染：EGL + GL 状态机 + SPAK 纹理管线）
+# ★ 2026-11-12 官方 Android 15 标准（targetSdk 35）：16KB 内存页对齐。
+#   Android 15 起 16KB 页大小设备（Pixel 等）上，未做 16KB 对齐的 .so 无法
+#   mmap 加载（dlopen failed）。官方方案 = 链接器 -Wl,-z,max-page-size=16384
+#   （让 LOAD 段对齐 16KB，同时 4KB 页设备兼容——ELF p_align=0x4000 在 4KB
+#   内核下自动按 4KB 页对齐，无副作用）。NDK r25b clang 支持（无需 r28）。
+#   验证判据：readelf -lW 的 LOAD 段 Align=0x4000（旧 0x1000）。
 so: dist/libjunqi_rs.so
 
 dist/libjunqi_rs.so: $(SRCS_CORE) jni_bridge.c bt_session.c jq_event_names_73.c evt55_dispatch.c evt55_business.c evt55_sfx.c junqi.h bt_protocol.h bt_session.h render.h gl2_probe_gl.h render.c render_obj.c containers.c render_scene.c glview_gl.c touch.c touch_state.c png_decode.c img_decode.c jq_event_names_73.h
 	@mkdir -p dist
 	$(NDK)/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android24-clang \
 		$(CFLAGS) -shared -fPIC -o $@ $(SRCS_CORE) jni_bridge.c bt_session.c jq_event_names_73.c evt55_dispatch.c evt55_business.c evt55_sfx.c render.c render_obj.c containers.c render_scene.c glview_gl.c touch.c touch_state.c ui_menu.c ui_state.c png_decode.c img_decode.c gl2_probe_gl.c -lm \
-		-llog -lEGL -lGLESv1_CM -lGLESv2 -landroid -ldl   # ★ 64 位 dlopen 根治（2026-11-10）：去 -lz（inflate 3 符号 dlsym 动态解析，MuMu arm64 libz 极简版缺 inflate 导出，UND inflate 致 dlopen failed to link）+ 加 -ldl（dlopen/dlsym 符号）
+		-llog -lEGL -lGLESv1_CM -lGLESv2 -landroid -ldl   # ★ 64 位 dlopen 根治（2026-11-10）：去 -lz（inflate 3 符号 dlsym 动态解析，MuMu arm64 libz 极简版缺 inflate 导出，UND inflate 致 dlopen failed to link）+ 加 -ldl（dlopen/dlsym 符号） \
+		-Wl,-z,max-page-size=16384   # ★ 官方 Android 15（targetSdk35）16KB 页对齐（4KB 设备兼容）
 	@echo "构建完成: $@"
 
 # 一致测试（重写侧规则引擎基准序列）：./dist/jq_consistency selftest
