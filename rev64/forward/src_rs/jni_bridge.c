@@ -7915,25 +7915,13 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
                 ui_btn_sound_set(!ui_btn_sound_get());
                 sfx_play(env, "pop");
                 LOGI("声音设置：按键声音 → %s", ui_btn_sound_get() ? "开" : "关");
-            } else if (sact == 2) {   /* 音量滑条（btn[2]）：点按位置 → 连续映射 1-3（原版 Slider 语义，
-               滑条区 x∈[255,562] 720 基准，按点击 x 位置映射 低/中/高，替代 3 档循环） */
-                int v;
-                if (bx >= sb[2].x0 && bx <= sb[2].x1) {
-                    float t = (bx - sb[2].x0) / (sb[2].x1 - sb[2].x0);
-                    v = (int)(t * 3.0f + 0.5f);
-                    if (v < 1) v = 1; if (v > 3) v = 3;
-                } else v = ui_volume_get();
-                ui_volume_set(v);
-                sfx_play(env, "pop");
-                LOGI("声音设置：音量滑条位置映射 → 档位=%d（bx=%.0f 滑条区[%.0f,%.0f]）",
-                     v, bx, sb[2].x0, sb[2].x1);
-            } else if (sact == 3) {   /* 确定（btn[3]）：保存 */
+            } else if (sact == 2) {   /* 确定（原版 datah_001 btn2 真值，音量档由 2 开关决定）：保存 */
                 ui_settings_save();
                 sfx_sound_save();
                 sfx_play(env, "pop");
                 LOGI("声音设置：确定 → 保存 + 回对局");
                 ui_screen_set(UI_GAME);
-            } else if (sact == 4) {   /* 取消（btn[4]）：不保存回对局 */
+            } else if (sact == 3) {   /* 取消（原版 btn3 真值）：不保存回对局 */
                 ui_settings_load();
                 sfx_play(env, "pop");
                 LOGI("声音设置：取消 → 恢复原值 + 回对局");

@@ -701,7 +701,7 @@ UI_REPLAY,     /* ★ P1（datah_039/107 证据）：复盘回放态——
 /* ★ 声音设置弹窗（对抗审计 datah_001 证据：静音模式/按键声音/音量/确定/取消）。
    几何 720×1280 基准（datah_001 450×390 居中 ×1.2）。action：
    0=静音模式切换 1=按键声音切换 2=音量循环 3=确定 4=取消 */
-#define UI_SETTINGS_COUNT 5
+#define UI_SETTINGS_COUNT 4
 #define UI_SETTINGS_POPUP_X0 135.0f
 #define UI_SETTINGS_POPUP_Y0 445.0f
 #define UI_SETTINGS_POPUP_W  450.0f
@@ -897,7 +897,7 @@ int ui_savelayout_popup_inside(float x, float y);      /* 点在弹窗面板内 
    面板 400×475 居中（偏移+160,+402.5，720 基准 160,402-560,877）。
    ★ 诚实边界： 30 格 PiecePic 真棋子图未画（小方块占位，有子=蓝/红方块）；
    原版 Ok2/Cancel2 重叠备用显示按钮未实现。 */
-#define UI_LAYMGR_COUNT 3
+#define UI_LAYMGR_COUNT 5
 #define UI_LAYMGR_POPUP_X0 160.0f
 #define UI_LAYMGR_POPUP_Y0 402.5f
 #define UI_LAYMGR_POPUP_W  400.0f
@@ -1093,7 +1093,7 @@ int ui_ng061_popup_inside(float x, float y);  /* 点在弹窗面板内 */
    诚实边界：原版删除对局存档未逆向）2=返回（回对局）。
    入口：setprop jq.gameinfo 测试钩子。★ 诚实边界：Info 文本=☰ 战况统计复用，
    删除=清复盘记录简化。 */
-#define UI_GAMEINFO_COUNT 3
+#define UI_GAMEINFO_COUNT 4
 #define UI_GAMEINFO_POPUP_X0 150.0f
 #define UI_GAMEINFO_POPUP_Y0 450.0f
 #define UI_GAMEINFO_POPUP_W  420.0f

@@ -2155,7 +2155,7 @@ static void rs_draw_waysel(rs_render *rr, int slot)
 }
 
 /* ★ 对抗审计（datah_001 证据）：声音设置弹窗渲染。
-   面板深色半透明 + 5 按钮（静音模式/按键声音/音量/确定/取消）+ 文字图集。
+   面板深色半透明 + 4 按钮（静音模式/按键声音/确定/取消，原版 datah_001 真值）+ 文字图集。
    按钮几何 ui_set_buttons()（720×1280 基准）。 */
 static void rs_atlas_label_wh(rs_render *rr, int slot, unsigned int tex, int tex_w, int tex_h,
                               int row_idx, float cx, float cy, float w, float h,
@@ -2224,11 +2224,11 @@ static void rs_draw_settings(rs_render *rr, int slot)
     rs_unbind_vbo();
     glDeleteBuffers(1, &rr->vbo_sel[slot]);
     rr->vbo_sel[slot] = 0;
-    /* ③ 5 按钮：2 开关 + 音量 + 确定/取消 */
+    /* ③ 4 按钮：2 开关 + 确定/取消（原版 datah_001 真值，音量滑条已删） */
     static const float BTN_COL[5][4] = {
         {0.55f, 0.55f, 0.60f, 0.9f},   /* 静音模式 灰 */
         {0.55f, 0.55f, 0.60f, 0.9f},   /* 按键声音 灰 */
-        {0.55f, 0.55f, 0.60f, 0.9f},   /* 音量 灰 */
+        /* 音量 灰已删（datah_001 原版无滑条） */
         {0.20f, 0.45f, 0.90f, 0.9f},   /* 确定 蓝 */
         {0.55f, 0.55f, 0.60f, 0.9f},   /* 取消 灰 */
     };
@@ -2263,8 +2263,9 @@ static void rs_draw_settings(rs_render *rr, int slot)
     if (rr->tex_settings_text[slot] && rr->prog_tex[slot] && rr->settings_text_w > 0 && rr->settings_text_h > 0) {
         int row_h = rr->settings_text_h / 10;   /* 每行 46px */
         float u0 = 0.0f, u1 = 1.0f;
-        /* label 左列：x 175-290（★ 2026-11-10 修复：旧 200 偏右，对齐原版 datah_001 标签 x0=175 align=left） */
-        for (int r = 0; r < 3; r++) {
+        /* label 左列：x 175-290（★ 2026-11-10 修复：旧 200 偏右，对齐原版 datah_001 标签 x0=175 align=left）
+           ★ 2026-11-12 音量滑条删除后 label 仅 2 行（静音模式/按键声音） */
+        for (int r = 0; r < 2; r++) {
             float tcy = (sb[r].y0 + sb[r].y1) * 0.5f * sy + yoff;
             float tw = 90.0f * sx, th = tw * ((float)row_h / rr->settings_text_w);
             float tx0 = 175.0f * sx, ty0 = tcy - th * 0.5f;
@@ -2288,11 +2289,11 @@ static void rs_draw_settings(rs_render *rr, int slot)
             glDeleteBuffers(1, &rr->vbo_sel[slot]);
             rr->vbo_sel[slot] = 0;
         }
-        /* 值标签（开关开/关，音量低/中/高） */
-        int val_rows[3] = {5 + 0, 5 + 1, 7 + (ui_volume_get() - 1)};  /* 静音row5开/6关, 按键row5/6, 音量row7-9 */
+        /* 值标签（开关开/关；★ 2026-11-12 音量滑条删除后仅 2 行） */
+        int val_rows[2] = {5 + 0, 5 + 1};  /* 静音row5开/6关, 按键row5/6 */
         if (ui_snd_mute_get()) val_rows[0] = 6;   /* 静音=关显示 */
         if (!ui_btn_sound_get()) val_rows[1] = 6; /* 按键声音=关 */
-        for (int r = 0; r < 3; r++) {
+        for (int r = 0; r < 2; r++) {
             float bx0 = sb[r].x0 * sx, by0 = sb[r].y0 * sy + yoff;
             float bx1 = sb[r].x1 * sx, by1 = sb[r].y1 * sy + yoff;
             float tw = 60.0f * sx, th = tw * ((float)row_h / rr->settings_text_w);
