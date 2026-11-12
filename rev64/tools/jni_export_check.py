@@ -12,10 +12,11 @@
 
 用法：python3 rev64/tools/jni_export_check.py
 """
-import os, re, subprocess, sys
+import json, os, re, subprocess, sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 ORIG_SO = "/tmp/opencode/orig_so/lib/armeabi/libjunqi.so"
+REF = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "rev64/reverse/analysis/jni_export_syms_14.json")
 
 def main():
     if not os.path.exists(ORIG_SO):
@@ -23,12 +24,20 @@ def main():
     out = subprocess.run(["nm","-D",ORIG_SO], capture_output=True, text=True).stdout
     syms = sorted(set(re.findall(r'Java_[A-Za-z_0-9]+', out)))
     app = [s for s in syms if s.startswith("Java_com_cnvcs_App_")]
+    # §124y-223 双源对照：nm -D 现跑 vs 14 符号基准清单（防判据漂移）
+    ref_match = None
+    if os.path.exists(REF):
+        ref = json.load(open(REF)).get("symbols", [])
+        ref_match = (sorted(app) == sorted(ref)) and (len(ref) == 14)
     print("═══ §124y-195 原版 32 位 so JNI 导出符号判据 ═══")
     print("  Java_* 导出符号: %d 个（B09-001 实锤口径 = 14，旧误口径 15 已纠正）" % len(app))
     for s in app:
         print("    %s" % s)
-    print("  判据: %s" % ("PASS（14 个 Java_com_cnvcs_App_*，src_rs 64 位 14 个完全一致）" if len(app)==14 else "FAIL（实锤 %d ≠ 14）" % len(app)))
-    return 0 if len(app)==14 else 2
+    if ref_match is not None:
+        print("  双源对照 14 符号基准 jni_export_syms_14.json: %s" % ("PASS（基准一致）" if ref_match else "FAIL（基准漂移）"))
+    ok = (len(app)==14) and (ref_match in (True, None))
+    print("  判据: %s" % ("PASS（14 个 Java_com_cnvcs_App_* + 基准清单一致，src_rs 64 位 14 个完全一致）" if ok else "FAIL（实锤 %d ≠ 14 或基准漂移）" % len(app)))
+    return 0 if ok else 2
 
 if __name__ == '__main__':
     sys.exit(main())

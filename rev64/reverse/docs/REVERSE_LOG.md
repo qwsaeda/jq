@@ -7882,3 +7882,18 @@ init_array 11/12 实锤基准）固化为可复跑静态判据（不依赖设备
 
 **静态佐证批次化入口 34 项**（设备无关，§124y-190~222）：... +
 walkregress_anchors + **trans_abi**（新增，翻译体 ABI 一致性 + 重定位槽数）。
+
+### §124y-223 原版 14 On* 导出符号基准清单落盘 + 双源对照判据（jni_export 增强，静态佐证 34 项，2026-11-12）
+
+用户"光改光对比，经验不总结/不脚本化"批评的延续落实——把"原版 32 位 so 14
+个 On* 导出符号"基准清单落盘成可复跑对照判据（防 nm -D 现跑漂移）：
+
+- **基准落盘**：`rev64/reverse/analysis/jni_export_syms_14.json`（14 个
+  `Java_com_cnvcs_App_*` 符号清单 + B09-001 §124y-195 口径 14）
+  （dist/ 被 .gitignore 排除，基准入 reverse/analysis/ 非排除目录）
+- **判据增强**：`jni_export_check.py` 加双源对照——`nm -D` 现跑 14 符号
+  vs 基准 JSON 清单逐名一致（基准缺失时按现跑 14 判，基准漂移 FAIL）
+- **判据实锤**：现跑 14 符号 = 基准 14 符号逐名一致 PASS
+- **坑固化**：基准 JSON 放 `reverse/analysis/`（dist/ 被 gitignore，
+  放 dist/ 会像 §124y-190 289B 一样入不了库）
+- 并入 `arm32_static_evidence.sh` `jni_export` 项（PASS=34 FAIL=0 全 PASS）
