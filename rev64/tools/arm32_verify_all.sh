@@ -1,13 +1,13 @@
 #!/bin/bash
-# §124y-215 32 位逆向验收双端总入口（设备 4 项 + 静态 33 项，一键跑）
+# §124y-215 32 位逆向验收双端总入口（设备 4 项 + 静态 34 项，一键跑）
 #
 # 用法：
 #   bash rev64/tools/arm32_verify_all.sh                       # 默认 10.0.182.146:5555
 #   bash rev64/tools/arm32_verify_all.sh --dev 10.0.182.146:5555
-#   bash rev64/tools/arm32_verify_all.sh --static-only         # 设备离线期只跑静态 33 项
+#   bash rev64/tools/arm32_verify_all.sh --static-only         # 设备离线期只跑静态 34 项
 #
 # 双端口径：
-#   静态 = arm32_static_evidence.sh（33 项全 PASS，设备无关，离线可跑）
+#   静态 = arm32_static_evidence.sh（34 项全 PASS，设备无关，离线可跑）
 #   设备 = arm32_hook_check.sh --rounds 3（game_test/walk_bridge/native_event/
 #          framebuffer 4 项，flaky 已根治 §124y-188/189 + 掉线容错）
 # 设备不可达时自动降级 = 静态 PASS + 设备 PENDING（§124y-189 口径：
@@ -27,8 +27,8 @@ done
 
 echo "═══ 32 位逆向验收双端总入口（§124y-215）═══"
 
-# 静态 33 项（设备无关，永远先跑）
-echo "── 静态佐证（33 项，设备无关）──"
+# 静态 34 项（设备无关，永远先跑）
+echo "── 静态佐证（34 项，设备无关）──"
 STATIC_OUT=$(bash "$WS/rev64/tools/arm32_static_evidence.sh" 2>&1)
 echo "$STATIC_OUT" | grep -E "PASS=|FAIL=" | tail -1
 STATIC_PASS=0; STATIC_FAIL=0
@@ -50,7 +50,7 @@ else
 fi
 
 echo "═══ 双端总入口汇总 ═══"
-echo "  静态 33 项: $( [ "$STATIC_PASS" = 1 ] && echo PASS || echo "FAIL（$STATIC_FAIL）" )"
+echo "  静态 34 项: $( [ "$STATIC_PASS" = 1 ] && echo PASS || echo "FAIL（$STATIC_FAIL）" )"
 echo "  设备 4 项:  $DEV_STATUS"
 case "$DEV_STATUS" in
   PENDING) echo "  总判读: 静态 PASS + 设备 PENDING（环境掉线非 so 回归，等设备稳定窗口复验）";;

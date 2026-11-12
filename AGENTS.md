@@ -501,15 +501,15 @@ java -cp /tmp/opencode/apksigner/apksig.jar:/tmp/opencode/apksigner SignV2 \
   （§124y-180 全钩子一键验收：game_test/walk_bridge/native_event/framebuffer 四项机判
   PASS/FAIL + 数值 + 0 崩溃；出屏 logcat 权威非黑比判读，`--rounds N` 连跑防抖动；
   旧入口 `arm32_walkregress.sh` 仍可用（4 路径走子回归），全钩子优先用 hook_check）。
-  静态佐证批次化入口：`bash rev64/tools/arm32_static_evidence.sh`（§124y-190~219 扩批，
-  **33 项全 PASS** 设备无关判据：resource + event/urlkey/javacls + forkcheck + taxonomy +
+  静态佐证批次化入口：`bash rev64/tools/arm32_static_evidence.sh`（§124y-190~222 扩批，
+  **34 项全 PASS** 设备无关判据：resource + event/urlkey/javacls + forkcheck + taxonomy +
   event_cover + event_codemap + bss_evt_tbl + rodata_static + text_static + rel_dyn +
   jni_export + got_plt + trans_jni + trans_strpool + readelf_rel + got_map + needed +
-  trans_needed + walk_8step + trans_seg + trans_handlers + hook_anchors + spak_key + init_array + plt_stub + bss_single + mapping_boundary + apk_so_hash + touch_int + fb_ratio + walkregress_anchors，
+  trans_needed + walk_8step + trans_seg + trans_handlers + hook_anchors + spak_key + init_array + plt_stub + bss_single + mapping_boundary + apk_so_hash + touch_int + fb_ratio + walkregress_anchors + trans_abi，
   判据全脚本化/批量化，防每轮手敲 setprop+logcat grep 漂移）。
-  **双端总入口（§124y-215）**：`bash rev64/tools/arm32_verify_all.sh`（静态 33 项 + 设备 4 项
+  **双端总入口（§124y-215）**：`bash rev64/tools/arm32_verify_all.sh`（静态 34 项 + 设备 4 项
   一键跑；设备不可达自动降级 PENDING 非 FAIL §124y-189 口径；`--dev <addr>` / `--static-only`）。
-  判据脚本索引（33 项明细 + 设备侧入口 + 坑清单）：`rev64/tools/STATIC_EVIDENCE_INDEX.md`。
+  判据脚本索引（34 项明细 + 设备侧入口 + 坑清单）：`rev64/tools/STATIC_EVIDENCE_INDEX.md`。
   实锤（2026-11-11，10.0.182.146）：`com.cnvcs.junqi32`（phase_chain_arm32.apk）装机 Success +
   4 路径全 PASS（PASS=4 FAIL=0，全局崩溃=0）——逆向侧对齐基准成立。
 
