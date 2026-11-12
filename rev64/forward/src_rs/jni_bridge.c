@@ -2667,6 +2667,7 @@ static void spak_res_stage_private(JNIEnv *env, jobject activity, int log_miss)
         "setentry_text_atlas.png","imgset_text_atlas.png","join065_text_atlas.png",
         "create069_text_atlas.png","rules070_text_atlas.png","room060_text_atlas.png",
         "chat063_text_atlas.png","about_text_atlas.png","uibat_text_atlas.png",
+        "exit_text_atlas.png",
         "icon_house.png",
         NULL
     };

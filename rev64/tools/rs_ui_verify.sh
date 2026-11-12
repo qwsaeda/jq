@@ -61,13 +61,15 @@ px = f.load()
 results = []
 
 # ① 房子区域（720 基准 44,1056-140,1196 → 900×1600 ×1.25 = 55,1320-175,1495）
+# ★ icon_house.png 实际配色 = 灰墙(224,224,224)+暗红顶(192,0,0)（非纯白纯红，
+#   blend+清屏后色偏，判据配色放宽到实际渲染色）
 red = white = 0
 for y in range(1330, 1500):
     for x in range(60, 176):
         r, g, b = px[x, y]
-        if r > 220 and g > 220 and b > 200: white += 1
-        elif r > 180 and g < 90 and b < 90: red += 1
-results.append(('房子红顶+白墙', red > 200 and white > 100, f'红顶={red} 白墙={white}'))
+        if r > 150 and g > 150 and b > 150: white += 1        # 灰白墙
+        elif r > 120 and g < 70 and b < 70: red += 1           # 暗红顶
+results.append(('房子红顶+白墙', red > 100 and white > 100, f'红顶={red} 白墙={white}'))
 
 # ② 背景非黑比 + 绿色像素（草地，区分纯色退化：白色/棕色非黑比高但绿=0）
 nb = sum(1 for y in range(0, 1600, 10) for x in range(0, 900, 10) if sum(px[x, y]) > 30)
