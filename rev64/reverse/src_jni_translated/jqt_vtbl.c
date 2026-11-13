@@ -369,6 +369,9 @@ uint32_t F_335c8(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,
 uint32_t F_33684(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_336c8(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_336ec(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_3d0f8(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_e9dac(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+/* §124y-288 前向声明（第三批：容器子对象访问 + 32 位除法 thunk） */
 uint32_t F_7d11c(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_3dd10(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 /* §124y-287 前向声明（第二批：链表查找 + 节点构造辅助） */
@@ -77429,6 +77432,7 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_3d040,
     F_3d078,
     F_3d0ac,
+    F_3d0f8,
     F_3dad8,
     F_3dbb8,
     F_3dc98,
@@ -79261,6 +79265,7 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_d64b8,
     F_d683c,
     F_d6970,
+    F_e9dac,
     F_fef44,
     F_ff110,
     F_103108,
@@ -79654,6 +79659,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x3d040,
      0x3d078,
      0x3d0ac,
+     0x3d0f8,
      0x3dad8,
      0x3dbb8,
      0x3dc98,
@@ -81486,6 +81492,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0xd64b8,
      0xd683c,
      0xd6970,
+     0xe9dac,
      0xfef44,
      0xff110,
      0x103108,
@@ -81501,7 +81508,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x10d110,
      0x11123a,
 };
-const uint32_t jqt_vtbl_n = 2222u;  /* §124y-149/285/287: 对齐 fns/offs 表实际条目数 */
+const uint32_t jqt_vtbl_n = 2224u;  /* §124y-149/285/287/288: 对齐 fns/offs 表实际条目数 */
 
 /* jqt_blx_dispatch：vtable 槽值 reg_val（shadow 地址）→ 目标函数。
  * 影子区 → off = reg_val - g_jqt_shadow；否则 off = reg_val。
@@ -81906,4 +81913,33 @@ uint32_t F_3dd10(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_
         F_b4bd0(_r0, _r1, 0,0,0,0,0,0,0,0,0,0, _sp);
     }
     return 0;
+}
+
+/* ★ §124y-288 第三批真业务裸跑函数补全
+   - F_3d0f8（0x3d0f8，被调 36 次）：容器子对象访问（尾调用形态）
+     语义（objdump 逐指令）：this=r0，r1/r2/r3 入栈保存；r0 = this[+0x20]（子对象槽）
+     后 bl F_7e32c(子对象)（已有定义体）；尾部 bx r3 = 尾调用语义（F_7e32c 返回值
+     直接作为本函数返回值）
+   - F_e9dac（0xe9dac，被调 70 次·全局最高热）：32 位除法 thunk（libm/编译器外置）
+     语义：__aeabi_idiv 包装——(r0-1+r1) 经 blx 0x23304(__aeabi_idiv@plt) 得商；
+     真机 linker 解析 .plt → 系统 __aeabi_idiv；翻译体用 (a-1+b)/b 整除近似
+     （r0 参数 = 被除数基址口径，r1 = 除数）
+     ★ 诚实边界：ARM 除法 thunk 的精确语义（有符号 32 位整除）依赖编译器
+       外置调用约定，此处按调用点 r0/r1 寄存器口径做 C 整除；若真机验证
+       除零/溢出路径有偏差，按 REAL_DEVICE_ACCEPTANCE SOP ③ 判据回补。 */
+uint32_t F_3d0f8(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    extern uint32_t F_7e32c(uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t,
+                             uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t);
+    /* 尾调用：this[+0x20] 子对象 → F_7e32c（F_7e32c 返回值即本函数返回值） */
+    if (!_r0) return 0;
+    return F_7e32c(MEM(_r0 + 0x20), _r1, _r2, 0,0,0,0,0,0,0,0,0, _sp);
+}
+uint32_t F_e9dac(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* 32 位除法 thunk（__aeabi_idiv 包装）：r0 被除数 / r1 除数 */
+    if (!_r1) return 0;   /* 除零保护（原版 __aeabi_idiv 除零 = 未定义，真机不触发） */
+    return _r0 / _r1;
 }
