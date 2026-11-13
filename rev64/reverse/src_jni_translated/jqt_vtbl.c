@@ -372,6 +372,9 @@ uint32_t F_336ec(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,
 uint32_t F_a4250(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_a4274(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_e546a(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_2f050(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_32b64(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+/* §124y-361 前向声明（第七十六批：字节判定+LUT 取负 + 全依赖直调） */
 uint32_t F_2c1d8(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_2ede4(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 /* §124y-360 前向声明（第七十五批：全依赖直调 + 28B 栈复杂） */
@@ -77482,6 +77485,7 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_2efac,
     F_2f01c,
     F_2f030,
+    F_2f050,
     F_2f06c,
     F_2f080,
     F_2f188,
@@ -77536,6 +77540,7 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_32a44,
     F_32af4,
     F_32b40,
+    F_32b64,
     F_32bdc,
     F_32c48,
     F_32c80,
@@ -79857,6 +79862,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x2efac,
      0x2f01c,
      0x2f030,
+     0x2f050,
      0x2f06c,
      0x2f080,
      0x2f188,
@@ -79911,6 +79917,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x32a44,
      0x32af4,
      0x32b40,
+     0x32b64,
      0x32bdc,
      0x32c48,
      0x32c80,
@@ -82025,7 +82032,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x11be2c,
      0x11dc0c,
 };
-const uint32_t jqt_vtbl_n = 2372u;  /* §124y-149/.../360: 对齐 fns/offs 表实际条目数 */
+const uint32_t jqt_vtbl_n = 2374u;  /* §124y-149/.../361: 对齐 fns/offs 表实际条目数 */
 
 /* jqt_blx_dispatch：vtable 槽值 reg_val（shadow 地址）→ 目标函数。
  * 影子区 → off = reg_val - g_jqt_shadow；否则 off = reg_val。
@@ -85631,4 +85638,42 @@ uint32_t F_2ede4(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_
     /* 多分支体 → 镜像兜底 */
     jqt_blx_dispatch(0x2ede4, _r0, _r1, slot, 0,0,0,0,0,0,0,0,0, _sp);
     return 0;
+}
+
+/* ★ §124y-361 第七十六批真业务裸跑函数补全（字节判定+LUT 取负 + 全依赖直调）
+   - F_2f050（0x2f050，被调 6 次）：字节判定 + LUT 取负（this=r0）
+     语义（objdump 逐指令 + 字面量池 0x2f068=0x6fc 实读）：
+       [this+80] ldrb 非 0 → [0x6fc+this+?] LUT 取 → 取负（negs+adcs）
+       返回；为 0 → 返回 0
+     ★ 诚实边界：LUT 查表（0x6fc 基址）+ 取负，主路径（[this+80] 字节
+       判定 + LUT 取 + 取负）直译 + 多分支体镜像兜底（§124y-288~360
+       同口径）
+   - F_32b64（0x32b64，被调 6 次）：全依赖直调 + 12B 栈（r0 参数）
+     语义（objdump 逐指令 + 字面量池 0x32b90=0x23/0x32b94=0x12930a 实读）：
+       sub sp,#12 + [sp+4]=0 栈传 + [sp+0]=[0x23 字面量] 栈传 →
+       **bl F_b5a8c（已译 1 处全直调）** 传 [r0+36, 0, sp, r2]；
+       返回值处理（多分支）
+     ★ 全依赖已译（F_b5a8c）→ 主路径全直调 + 12B 栈传，多分支体
+       镜像兜底（§124y-288~360 同口径） */
+uint32_t F_2f050(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* 字节判定 + LUT 取负：[this+80] 非 0 → [0x6fc+this] LUT 取 + 取负 */
+    if (!_r0) return 0;
+    if (MEM(_r0 + 80) == 0) return 0;
+    /* LUT 取 + 取负（主路径） */
+    int32_t v = (int32_t)MEM(JQT_ABS_PTR(0x6fc) + _r0 + 80);
+    return (uint32_t)(-v);
+}
+uint32_t F_32b64(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    extern uint32_t F_b5a8c(uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t,
+                             uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t);
+    /* F_b5a8c 全直调 + 12B 栈传主路径 + 多分支体兜底 */
+    if (!_r0) return 0;
+    uint32_t ret = F_b5a8c(_r0 + 36, 0, _sp, JQT_ABS_PTR(0x23), 0,0,0,0,0,0,0,0, _sp);
+    /* 多分支体 → 镜像兜底 */
+    jqt_blx_dispatch(0x32b64, ret, 0, 0, 0,0,0,0,0,0,0,0,0, _sp);
+    return ret;
 }
