@@ -372,6 +372,9 @@ uint32_t F_336ec(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,
 uint32_t F_a4250(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_a4274(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_e546a(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_116c68(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_116d5c(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+/* §124y-345 前向声明（第六十批：货币符号处理同族） */
 uint32_t F_103b1e(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_103f00(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 /* §124y-344 前向声明（第五十九批：中段栈区写 + 中段槽位写） */
@@ -79568,6 +79571,8 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_1079a0,
     F_10d110,
     F_11123a,
+    F_116c68,
+    F_116d5c,
     F_11be2c,
 };
 const uint32_t jqt_vtbl_offs[] = {
@@ -81911,9 +81916,11 @@ const uint32_t jqt_vtbl_offs[] = {
      0x1079a0,
      0x10d110,
      0x11123a,
+     0x116c68,
+     0x116d5c,
      0x11be2c,
 };
-const uint32_t jqt_vtbl_n = 2340u;  /* §124y-149/.../344: 对齐 fns/offs 表实际条目数 */
+const uint32_t jqt_vtbl_n = 2342u;  /* §124y-149/.../345: 对齐 fns/offs 表实际条目数 */
 
 /* jqt_blx_dispatch：vtable 槽值 reg_val（shadow 地址）→ 目标函数。
  * 影子区 → off = reg_val - g_jqt_shadow；否则 off = reg_val。
@@ -84935,5 +84942,57 @@ uint32_t F_103f00(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32
     MEM(_r7 + 0) = 29;   /* 事件码 0x1d */
     /* 跳板 bl 0x1038bc（§124y-323 F_1038bc 已翻）→ 镜像兜底 */
     jqt_blx_dispatch(0x1038bc, _r0, _r1, _r2, 0,0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+
+/* ★ §124y-345 第六十批真业务裸跑函数补全（货币符号处理同族）
+   - F_116c68（0x116c68，被调 8 次）：货币符号处理（this=r0，r1/r2）
+     语义（objdump 逐指令）：bl F_118d0c（未译→**镜像兜底**）传
+       [r2, r1]；返回值 > 4 → [this+0/1/2/3]=2/3/0/4（字节写）；
+       bl F_118d18（未译→镜像兜底）传 r2；返回值 > 4 →
+       [r1+0/1]=2/3（字节写）
+     ★ 诚实边界：F_118d0c/F_118d18 未译 → 主路径（[this+0..3] 字节
+       写 + [r1+0/1] 字节写）直译 + 依赖镜像兜底（§124y-288~344 同口径）
+   - F_116d5c（0x116d5c，被调 8 次）：货币符号处理（同族兄弟）
+     语义（objdump 逐指令）：bl F_118d0c（未译→镜像兜底）传
+       [r2, r1]；返回值 > 4 → [this+0/1]=2/3（字节写）；
+       bl F_118d18（未译→镜像兜底）
+     同族（与 F_116c68 同 F_118d0c/F_118d18 依赖，槽偏移不同） */
+uint32_t F_116c68(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* 货币符号处理：F_118d0c/F_118d18（未译）镜像兜底 + 字节写主路径 */
+    if (!_r0) return 0;
+    /* F_118d0c（未译）→ 镜像兜底 */
+    uint32_t ret1 = jqt_blx_dispatch(0x118d0c, _r2, _r1, 0, 0,0,0,0,0,0,0,0,0, _sp);
+    if (ret1 > 4) {
+        MEM(_r0 + 0) = 2;
+        MEM(_r0 + 1) = 3;
+        MEM(_r0 + 2) = 0;
+        MEM(_r0 + 3) = 4;
+    }
+    /* F_118d18（未译）→ 镜像兜底 */
+    uint32_t ret2 = jqt_blx_dispatch(0x118d18, _r2, 0, 0, 0,0,0,0,0,0,0,0,0, _sp);
+    if (ret2 > 4) {
+        MEM(_r1 + 0) = 2;
+        MEM(_r1 + 1) = 3;
+    }
+    return 0;
+}
+uint32_t F_116d5c(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* 货币符号处理（同族）：F_118d0c/F_118d18（未译）镜像兜底 + 字节写 */
+    if (!_r0) return 0;
+    uint32_t ret1 = jqt_blx_dispatch(0x118d0c, _r2, _r1, 0, 0,0,0,0,0,0,0,0,0, _sp);
+    if (ret1 > 4) {
+        MEM(_r0 + 0) = 2;
+        MEM(_r0 + 1) = 3;
+    }
+    uint32_t ret2 = jqt_blx_dispatch(0x118d18, _r2, 0, 0, 0,0,0,0,0,0,0,0,0, _sp);
+    if (ret2 > 4) {
+        MEM(_r1 + 0) = 2;
+        MEM(_r1 + 1) = 3;
+    }
     return 0;
 }
