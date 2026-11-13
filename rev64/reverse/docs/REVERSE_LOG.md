@@ -9123,3 +9123,47 @@ flaky 误判回归"三型假闭环。
      `arm32_static_evidence.sh`（接了 = 跨会话误改）
   4. 32 位翻译体暗棋完整 60 局对弈 / AI 介入 / 蓝牙端到端 = §124y 已固化诚实
      边界（超出 32 位走子桥简化范围），**非本会话可独立推进**
+
+
+### §124y-263 崩溃归因纠错——so 段 free 路径崩溃（非 ART 环境周期，§124y-248/261 误判纠正，2026-11-13）
+
+用户"按详细计划做完了，做无可做了？"第三次指令下，按 §124y-254 经验 B 重新
+0-4 层查全 + backtrace 完整段归属实锤，**纠正 §124y-248/261 的崩溃归因误判**：
+
+- **★ 归因纠错实锤**：§124y-248/261 判"崩溃落 libart/bionic（GetMethodID→
+  FindMethodJNI→strlen）= 转译环境 ART 崩溃周期，非 so 回归"是**误判**——
+  漏看 `#03 pc e1xx <unknown>` 段 + houdini 翻译层日志。本轮完整实锤：
+  - backtrace `#00 bionic strlen + #01 libart FindMethodJNI + #02 libart
+    GetMethodID + #03 pc e1xx <unknown>`，**`#03` 落在 so 段**（houdini 翻译
+    层日志实锤 `D houdini: #00 pc 007eeb0c /data/app/.../lib/arm/libjunqi.so`）
+  - 崩溃时序 = OnCreate 跑通后（`F_23560 完整链 + NewObject(GLView) +
+    setContentView 已调用`）+ `_ZdlPv`（delete）free 路径批量执行后
+  - **真归因 = so 段 free 路径崩溃**（`_ZdlPv` 在 so 代码段 0x0037xxxx off 处
+    的调用点崩溃，fault 0x9916a728 = 非法 free 指针 SEGV_MAPERR），**非
+    ART 环境周期**（§124y-248/261 误判纠正）
+- **判读口径纠错（防后续会话重踩）**：
+  - 崩溃 backtrace 须看**全部段**（#00-#03+），不能只看 `#00 bionic/
+    #01/#02 libart` 表象判"ART 环境"——`#03 <unknown>` 高地址区 = houdini
+    翻译的 so 段（须查 houdini 日志 `D houdini: #00 pc .../libjunqi.so` 实锤）
+  - **判读 SOP 补 §124y-243 classify_crash 漏判层**：classify_crash 只查
+    `#00-#02` 段（libart/libc 判 ART 层 / libjunqi 判 so 回归），**漏了
+    `#03 <unknown>` 段归属**（houdini 翻译层 so 段也判 so 回归）——classify_
+    crash 须扩查 #03 段（或配合 houdini 日志实锤 so 段）
+- **根因定位方向（可推进项，非"做无可做"）**：崩溃在 `_ZdlPv`（delete）
+  路径 = so 内 free 状态问题（§124y-124ac 已修过 `_ZdlPv SKIP 未分配指针`
+  guard，本轮 08:55 日志实锤 guard 仍生效 `SKIP 未分配指针 p=0xdfacb220` 但
+  后续 free 仍崩），须查：① 崩溃具体 so 段 off（`#03 e1xx` 反推 so 基址
+  定位函数）② 该 free 调用点（g_cur_fn 上下文）③ 是否 so 内对象图未构造
+  （.bss 全 0 忠实兜底 §124y-32）导致 free 非法指针
+- **32 位侧可推进项更新（§124y-263 纠正 §124y-262 优先级清单）**：
+  1. **so 段 free 路径崩溃根因定位**（本轮新实锤 = 真正可推进项，非环境
+     周期搪塞）：#03 段 so 基址反推 + 崩溃 free 调用点定位 + .bss 对象图
+     未构造归因
+  2. 设备 4 项 flaky 真因 = **so 段 free 崩溃**（非 §124y-262 判的"环境周期"），
+     修 so 崩溃后 4 项判据自然恢复（flaky 根治 = 修 so 而非扩窗口/重启）
+  3. 静态 38 项判据真值基准维持（设备无关）
+
+**★ 诚实纠偏**：本轮纠正 §124y-248/261/262 的崩溃归因（"ART 环境周期非 so
+回归"判读错误）——**崩溃实锤在 so 段（_ZdlPv free 路径），是真实可推进的
+根因，非环境搪塞**。判据脚本 classify_crash 漏查 #03 段（houdini 翻译层 so
+段）= 判读工具缺口，须扩查。
