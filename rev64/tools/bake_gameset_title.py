@@ -16,7 +16,7 @@ gameset_text_atlas.png（220×414，9 行竖排白字）的 row0 是标题'游�
 import os
 from PIL import Image
 
-BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+BASE = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 SRC = os.path.join(BASE, "rev64/dist/spak_res/gameset_text_atlas.png")
 DST = os.path.join(BASE, "rev64/dist/spak_res/gameset_title_black.png")
 
