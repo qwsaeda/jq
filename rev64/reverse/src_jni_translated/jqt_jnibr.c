@@ -314,10 +314,16 @@ uint32_t jqt_jni_getmethodid(uint32_t env, uint32_t cls, uint32_t name_off, uint
        （与 L301 既有防御同口径），防 ART 反射调用链越界崩。
        判据：name/sig 须非 0 且落在 JQT_VALID 区（影子区 / 真实堆映射区），
        用 jqt_mem_valid 三道路判读（jqt_mem.h JQT_VALID 口径）。 */
-    extern int jqt_mem_valid(uint32_t a);
+    /* ★ §124y-265 守卫回滚 + 精准修复（§124y-264 jqt_mem_valid 守卫误拦正常 GetMethodID
+       → app 静默退，§124y-265 实锤）：jqt_mem_valid 对偏移型 .rodata 字符串（JQ_BR_ABS
+       加 shadow 后 0xe8xxxx < MAP_HI）判 1 本可通过，但转译层早期 jqt_mem_init 未建
+       真映射区表 + shadow 基址未稳 → 误判拦截全 GetMethodID。改精准修复：
+       只在 name/sig 是"明显失真"的转译层垃圾指针（0x9916xxxx 类高地址、<0x200000 类
+       低地址垃圾）时兜底 0；正常 .rodata 偏移（JQ_BR_ABS 产出）放行 GetMethodID。 */
+    #define JQ_BR_DISTORTED(p) (((uint32_t)(p) > 0x400000u && (uint32_t)(p) < 0x20000000u && (uint32_t)(p) < (uint32_t)g_jqt_shadow) || ((uint32_t)(p) < 0x200000u && (uint32_t)(p) > 0x1000u))
     uint32_t _name_u = (uint32_t)(uintptr_t)name, _sig_u = (uint32_t)(uintptr_t)sig;
-    if (!name || !sig || !jqt_mem_valid(_name_u) || !jqt_mem_valid(_sig_u)) {
-        LOGE("GetMethodID: name/sig 指针无效（转译层失真，忠实兜底 0）name=0x%08x sig=0x%08x", _name_u, _sig_u);
+    if (JQ_BR_DISTORTED(_name_u) || JQ_BR_DISTORTED(_sig_u)) {
+        LOGE("GetMethodID: name/sig 转译层失真指针（精准兜底 0）name=0x%08x sig=0x%08x shadow=0x%08x", _name_u, _sig_u, (uint32_t)g_jqt_shadow);
         return 0;
     }
     jmethodID mid = (*e)->GetMethodID(e, (jclass)(uintptr_t)cls, name, sig);

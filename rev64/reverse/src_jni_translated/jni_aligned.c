@@ -570,6 +570,12 @@ Java_com_cnvcs_App_OnUpdate(JNIEnv *env, jclass c){
         jqt_jni_selftest();
     }
     __android_log_print(6,"junqi","JNI OnUpdate 被调 tid=%d", (int)gettid());
+    /* ★ §124y-266 走子桥 tick 每帧读属性根治（§124y-265 竞态实锤）：
+       旧 tick 只在 OnResume/OnTimer 读 jq.walk_bridge 属性，OnUpdate 每帧跑
+       609 次却不读属性 → 属性设 1 后若不重启/不进前台，8 步永不触发。
+       加 OnUpdate 入口每帧调 jq_walk_bridge_tick（内部 done=1 幂等守卫，
+       属性未设时 tick 读 val=0 无副作用，设 1 后首帧即触发 8 步序列）。 */
+    jq_walk_bridge_tick();
     /* ★ §SLOT22-TRIGGER（本轮）：一次性 slot22（F_9e2b4 纹理创建）触发。
      *   背景：sp28-SCALE-8 手动直调 F_9e2b4 曾因 jqt_mem.h include 缺失 → dlopen fail
      *   （已修，include 加回）。三条件现在都满足：

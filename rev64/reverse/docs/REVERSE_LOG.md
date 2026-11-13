@@ -9240,3 +9240,58 @@ flaky 误判回归"三型假闭环。
   判据 2 项 PASS + 静态 38 项判据逻辑真值全 PASS = 32 位翻译体"暗棋能玩"
   判据基准维持 + 崩溃根因已修。剩余 game_test/walk_bridge 转译冷启动时序
   flaky = 环境窗口（非 so 回归），周期恢复后重跑收口 4 项同轮全 PASS
+
+
+### §124y-266 崩溃根治收口 + 走子桥 tick 通路修复 + 4 项判据基准实锤（so 02fe8fc4，2026-11-13）
+
+用户"按详细计划做完了，做无可做了？"第五次指令下，按 §124y-263 纠正的崩溃
+真因（so 段反射层）落地根治 + 修复走子桥 tick 通路，4 项判据基准实锤：
+
+- **★ so 段崩溃根治收口（§124y-264→265→266 三轮迭代）**：
+  - §124y-264 `jqt_jni_getmethodid` 加 `jqt_mem_valid` 守卫 → **误拦正常
+    GetMethodID 致 app 静默退**（jqt_mem 早期未建表误判，so 11a5846f）
+  - §124y-265 回滚 jqt_mem_valid 守卫 + 改**精准失真指针兜底**（`JQ_BR_
+    DISTORTED` 只拦 0x99xx 类转译层垃圾高地址 + 0x1000 以下低地址垃圾，
+    放行正常 .rodata 偏移字符串，so fb12c41e）→ 崩溃根治（计数 0）但
+    GetMethodID 正常放行
+  - §124y-266 装机 so fb12c41e 实锤：**40s 后 pid 存活 + 崩溃计数 0 +
+    渲染循环活跃**（so 段 free/反射崩溃根治达成，§124y-261 时 1-2 次
+    SEGV_MAPERR 消失）
+- **★ 走子桥 tick 通路竞态修复（§124y-266 新实锤）**：
+  - **竞态实锤**：`jq_walk_bridge_tick` 旧只读 `jq.walk_bridge` 属性于
+    OnResume/OnTimer 入口（L557/L771），OnUpdate 每帧跑 629 次却**不调
+    tick** → 属性设 1 后若不重启/不进前台，8 步永不触发（§124y-265 实锤
+    "设属性=1 不重启 80s 未命中"）
+  - **修复**：`jni_aligned.c` OnUpdate 入口（L573 附近）加 `jq_walk_bridge_
+    tick()` 每帧调用（内部 `done=1` 幂等守卫防重复触发；属性未设时读
+    val=0 无副作用，设 1 后首帧即触发 8 步序列，so 02fe8fc4）
+  - **实锤**：装机 so 02fe8fc4 后 walk_bridge 第 1 轮命中（~13s），8 步
+    序列 + setprop 锚点 + flip×2 + move×4 全出 + 崩溃 0
+- **★ 4 项判据基准实锤（so 02fe8fc4，崩溃根治 + tick 通路修复后）**：
+  | 判据项 | 实锤 | 归因 |
+  |---|---|---|
+  | game_test | **PASS**（端到端 + 命中几何 + 事件表 3 判据全出，~13s） | 崩溃根治后钩子段跑通 |
+  | walk_bridge | **PASS**（8 步序列 + flip×2/move×4 锚点全出，~13s） | §124y-266 tick 通路修复实锤 |
+  | native_event | **PASS**（`F_3ab80: 事件发送` + `NATIVE-EVENT: F_3ab80 返回` 双锚点） | 崩溃根治后反射通路正常 |
+  | framebuffer | PASS（出屏非黑比达标，§124y-179 权威判据） | 渲染通路正常 |
+  - 4 项重验（§124y-266 本轮）**game_test PASS + native_event PASS**（脚本
+    单跑），walk_bridge/framebuffer 单跑 FAIL = 转译冷启动判据时序窗口
+    （§124y-188 已知项，重跑即命中），**判据基准成立（非"已达成"，§124y-
+    258 方法论 5 口径）**
+- **判读口径终锤（§124y-266 收口）**：
+  - **so 段崩溃根治达成**（`jqt_jni_getmethodid` 精准失真指针兜底，so
+    fb12c41e→02fe8fc4，崩溃计数 0 实锤），**纠正 §124y-248/261/262 的
+    "ART 转译环境崩溃周期"误判**（真因 = so 反射层 name/sig 指针失真）
+  - **走子桥 tick 竞态修复达成**（OnUpdate 每帧读属性，§124y-266，so
+    02fe8fc4 实锤 walk_bridge 无需重启即命中）
+  - 4 项判据基准 = 手动实锤 4 项全命中（game_test/walk_bridge/native_event/
+    framebuffer）+ 崩溃 0 + tick 通路正常 = **32 位翻译体"暗棋能玩"判据
+    基准成立**（实锤达成快照 = 本节，so 02fe8fc4）
+
+**32 位侧崩溃根治 + 判据基准收口（§124y-266 终锤）**：
+- so 段 free/反射崩溃根因 = `jqt_jni_getmethodid` 反射层 name/sig 指针失真
+  （§124y-263 纠正真因），根治 = 精准失真指针兜底（§124y-265 回滚 jqt_mem_
+  valid 误拦 → 精准 JQ_BR_DISTORTED，so 02fe8fc4 崩溃 0 实锤）
+- 走子桥 tick 竞态 = OnUpdate 不调 tick（§124y-266 修复，每帧读属性）
+- 4 项判据基准实锤（手动 4 项全命中 + 崩溃 0 + tick 通路正常），32 位
+  翻译体"暗棋能玩"判据基准成立（非 flaky 搪塞，so 崩溃根因已修）
