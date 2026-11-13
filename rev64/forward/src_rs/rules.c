@@ -495,8 +495,22 @@ static void stalemate_after(jq_state *st)
        MuMu 64 位 so 上主线程单线程跑该段 >30s → 回归 10s 窗口全 FAIL +
        渲染层未启动（资源 34=0）；桌面 evverify 毫秒级故前批未暴露。
        修：stalemate_after 收口 stale_dirty=0（全扫完成后缓存有效，增量命中）。 */
-    if (st->stage == STG_PLAY && jq_side_stalemated(st, st->turn))
+    /* ★ 2026-11-13（原版 0x302f0 阶段1 实证，R-073 后续）：双方困毙
+       （无可动/可翻子）→ Draw。原版 0x302f0 位图 sp[16]==0 && sp[17]==0 →
+       winner=3 Draw（0x303d2 beq 0x303a8）；旧 64 位只判当前方困毙→负，
+       缺"双方无行动→Draw"（rule_probe C4/C4b 分歧：双方只剩地雷/军旗）。
+       ★ 注意 jq_side_stalemated 增量缓存（stale_cache）：必须先强制双方全扫
+       （stale_dirty=1）——否则对端读旧缓存（未扫描值 0）误判"困毙"，导致
+       后续 turn 侧 stalemate 误报（回归 moves=0 根因，2026-11-13 实锤）。 */
+    st->stale_dirty = 1;
+    bool s0_stale = jq_side_stalemated(st, 0);
+    st->stale_dirty = 1;   /* 强制 side1 也全扫（side0 全扫后 stale_dirty=0） */
+    bool s1_stale = jq_side_stalemated(st, 1);
+    if (st->stage == STG_PLAY && s0_stale && s1_stale) {
+        jq_on_draw(st);
+    } else if (st->stage == STG_PLAY && jq_side_stalemated(st, st->turn)) {
         jq_on_stalemate(st, st->turn);
+    }
     /* ★ AUD-1000-ALL A10-D1-01（P2 已修）：对端 stale_cache 预刷——旧版只判
        st->turn 侧（jq_side_stalemated(st, st->turn)），对端（1-st->turn）的
        stale_cache 在 stale_dirty=0 收口后未刷新。后果：下步走子后 stalemate_after

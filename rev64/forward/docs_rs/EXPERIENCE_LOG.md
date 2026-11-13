@@ -1690,6 +1690,28 @@ datah_095 原版 9 按钮但**互斥重叠**（复盘/聊天同位、提和/取�
     - **规则核心对齐达成**：困毙排地雷（R-073）+ 和棋 70/1000 + 无行动→负 + 吃旗胜
       （0x30260）四项 vs 原版一致。0x303f0-0x3042e 移动计数子函数（0x6b87c/0x6b248）
       非规则核心（6B 结构写入，辅助统计），不深挖。
+  - **★ 64 位"双方困毙→Draw"修复（2026-11-13，本会话正向驱动）**：
+    原版 0x302f0 阶段1 "双方无普通子→Draw"（sp[16]==0 && sp[17]==0 → winner=3，
+    0x303d2）；旧 64 位 stalemate_after 只判当前方困毙→负，缺"双方无行动→Draw"
+    （rule_probe C4/C4b 分歧：双方只剩地雷/军旗，原版 Draw vs 64 位困毙→负）。
+    修：rules.c stalemate_after 加 `jq_side_stalemated(0) && jq_side_stalemated(1)
+    → jq_on_draw`（在单侧困毙→负之前），走子后走子方刚行动，双方困毙仅
+    走子方走完最后一步（双方只剩地雷/军旗）时发生 → 等价"双方无普通子→Draw"。
+    - **★ 踩坑（回归 moves=0 根因实锤）**：jq_side_stalemated 增量缓存
+      （stale_cache[2]/stale_dirty）门失效——`jq_side_stalemated(st,0)` 全扫
+      side0 写 stale_cache[0]=1 + stale_dirty=0 后，缓存判据
+      `!stale_dirty && (stale_cache[0]||stale_cache[1])` 判"有效"，导致
+      `jq_side_stalemated(st,1)` 读**未扫描**的 stale_cache[1]=0 → 误判 side1
+      困毙 → 后续 turn 侧 stalemate 误报（假负，规则回归 moves=0：AI 一步
+      未走全局立即收口）。修：stalemate_after 双侧判定前**强制 stale_dirty=1**
+      （每侧一次，防对端读旧缓存），双端全扫后才进 turn 侧判定。
+      教训固化：增量缓存"任一侧写 1 即判有效"的判据对"另一侧从未扫描"场景
+      不安全；跨侧调用必须先失效缓存（stale_dirty=1）。
+    - **验证（桌面级）**：`draw_test`（双方 bomb 互毁→只剩双旗→winner=DRAW
+      stage=OVER PASS）+ `draw_test2` 单侧对照（红只剩旗→红负 winner=BLUE
+      非 Draw PASS）；回归全绿（[2/12]bttest/[4/12]规则 20 局 moves=880/
+      [8/12]gametest 60 局/[10/12][11/12]walkverify/[12/12]evverify 171/172，
+      唯一 FAIL=[5/12]src_rs_check GetMethodID 预存缺口非本次）。
 - **固化经验 ⑪**：机械重构前先用脚本证明等价性（配对 1:1）；**脚本顶层禁用 local**；
   固定 sleep → 轮询；日志判据用 PID 而非行号/位置启发式；标记块用语义锚点不用行号。
 
