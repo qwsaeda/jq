@@ -373,6 +373,9 @@ uint32_t F_a4250(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,
 uint32_t F_a4274(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_e546a(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_abc48(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_7775c(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_79a5c(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+/* §124y-538 前向声明（第一百八十三批：虚调用 + 栈帧复杂） */
 uint32_t F_7669c(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_76eac(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 /* §124y-537 前向声明（第一百八十二批：280B 大栈复杂 + 双槽取差值） */
@@ -78864,6 +78867,7 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_77384,
     F_77398,
     F_7773c,
+    F_7775c,
     F_77778,
     F_7777c,
     F_7778c,
@@ -78919,6 +78923,7 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_798fc,
     F_79a1c,
     F_79a3c,
+    F_79a5c,
     F_79c74,
     F_79cec,
     F_79d00,
@@ -81592,6 +81597,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x77384,
      0x77398,
      0x7773c,
+     0x7775c,
      0x77778,
      0x7777c,
      0x7778c,
@@ -81647,6 +81653,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x798fc,
      0x79a1c,
      0x79a3c,
+     0x79a5c,
      0x79c74,
      0x79cec,
      0x79d00,
@@ -83261,7 +83268,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x11ef8c,
      0x11f20c,
 };
-const uint32_t jqt_vtbl_n = 2725u;  /* §124y-149/.../537: 对齐 fns/offs 表实际条目数 */
+const uint32_t jqt_vtbl_n = 2727u;  /* §124y-149/.../538: 对齐 fns/offs 表实际条目数 */
 
 /* jqt_blx_dispatch：vtable 槽值 reg_val（shadow 地址）→ 目标函数。
  * 影子区 → off = reg_val - g_jqt_shadow；否则 off = reg_val。
@@ -92839,5 +92846,43 @@ uint32_t F_76eac(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_
     int32_t d48 = _r2 - v48;
     int32_t d44 = _r1 - v44;
     jqt_blx_dispatch(0x76eac, _r0, _r1, _r2, d48, d44,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+
+/* ★ §124y-538 第一百八十三批真业务裸跑函数补全（虚调用 + 栈帧复杂）
+   - F_7775c（0x7775c，被调 3 次）：[this+4] 取 + 虚调用
+     语义（objdump 逐指令）：[this+4] ldr 取 → 非 0 判定 →
+       [v+0] 取 → [v+4] 取 → **blx [v+4]（虚调用→镜像兜底）** +
+       [this+4] 0 写
+     ★ 诚实边界：虚调用 + [this+4] 取 + 非 0 判定 + 0 写，主路径
+       （[this+4] 取 + 判定）直译 + 虚调用镜像兜底
+       （§124y-288~537 同口径，同 0xe1bcc 虚调用模式）
+   - F_79a5c（0x79a5c，被调 3 次）：栈帧复杂（this=r0，r2）
+     语义（objdump 逐指令 + 字面量池 0x79bcc/0x79bd0/0x79bd4 实读）：
+       [字面量池×3] 取 + 多参数寄存器传 → 多分支
+     ★ 诚实边界：栈帧 + 字面量池 + 多参数 + 多分支，主路径
+       （[字面量池] 取 + [sp+4] 栈传）直译 + 多分支体镜像兜底
+       （§124y-288~537 同口径，同 0x619bc 栈帧模式） */
+uint32_t F_7775c(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* [this+4] 取 + 非 0 判定 + 虚调用（镜像兜底） + [this+4] 0 写 */
+    if (!_r0) return 0;
+    uint32_t v4 = MEM(_r0 + 4);
+    if (v4 != 0) {
+        uint32_t v0 = MEM(v4 + 0);
+        uint32_t vfunc = MEM(v4 + 4);
+        jqt_blx_dispatch(0x7775c, _r0, _r1, _r2, vfunc, 0,0,0,0,0,0,0,0, _sp);
+    }
+    MEM(_r0 + 4) = 0;
+    return 0;
+}
+uint32_t F_79a5c(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* 栈帧复杂：[字面量池] 取 + [sp+4] 栈传主路径 + 多分支体兜底 */
+    if (!_r0) return 0;
+    uint32_t v0 = MEM(JQT_ABS_PTR(0x79bcc));
+    jqt_blx_dispatch(0x79a5c, _r0, _r1, _r2, v0, 0,0,0,0,0,0,0,0, _sp);
     return 0;
 }
