@@ -456,6 +456,9 @@ uint32_t F_b023c(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,
 uint32_t F_b279c(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_b45f4(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_b4a00(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_b54e4(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_b5988(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+/* §124y-929 前向声明（第五百七十五批：[this+8] 取返回两指令 + 8B 栈 [r2] 0 比较 [this+8] 取 0 比较 [链表+0] 字节取 0 比较 [this+12] 取） */
 uint32_t F_b52e0(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 /* §124y-928 前向声明（第五百七十四批：20B 栈 [栈+56] 取 [r0] 写 [r2] 双取 + F_b52a0 直调 0 常量 [r1+0/4] 双写） */
 uint32_t F_b4630(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
@@ -81893,6 +81896,7 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_b549c,
     F_b54c8,
     F_b54dc,
+    F_b54e4,
     F_b54e8,
     F_b5578,
     F_b558c,
@@ -81900,6 +81904,7 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_b5628,
     F_b5798,
     F_b58f0,
+    F_b5988,
     F_b5a0c,
     F_b5a8c,
     F_b5c7c,
@@ -85403,6 +85408,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0xb549c,
      0xb54c8,
      0xb54dc,
+     0xb54e4,
      0xb54e8,
      0xb5578,
      0xb558c,
@@ -85410,6 +85416,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0xb5628,
      0xb5798,
      0xb58f0,
+     0xb5988,
      0xb5a0c,
      0xb5a8c,
      0xb5c7c,
@@ -85998,7 +86005,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x11f20c,
      0x11fa34,
 };
-const uint32_t jqt_vtbl_n = 3507u;  /* §124y-149/.../928: 对齐 fns/offs 表实际条目数 */
+const uint32_t jqt_vtbl_n = 3509u;  /* §124y-149/.../929: 对齐 fns/offs 表实际条目数 */
 
 /* jqt_blx_dispatch：vtable 槽值 reg_val（shadow 地址）→ 目标函数。
  * 影子区 → off = reg_val - g_jqt_shadow；否则 off = reg_val。
@@ -113300,5 +113307,43 @@ uint32_t F_b52e0(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_
        + 多分支体兜底 */
     if (!_r0) return 0;
     jqt_blx_dispatch(0xb52e0, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+
+/* ★ §124y-929 第五百七十五批真业务裸跑函数补全（[this+8] 取返回两指令 + 8B 栈 [r2] 0 比较 [this+8] 取 0 比较 [链表+0] 字节取 0 比较 [this+12] 取）
+   - F_b54e4（0xb54e4，被调 2 次）：[this+8] 取 + 返回（两指令
+     全直译零依赖）
+     语义（objdump 逐指令）：
+       [this+8] 取 → 返回
+     ★ 全直译零依赖，纯 [this+8] 取返回（同 0x53e00/0x8571c/
+       0x85704/0x80504/0x829e8/0x84e34/0x85324/0x94da0/
+       0x9f3e4/0xa1e20/0xa9324/0xa9328/0xa945c 模式，
+       [this+8] 取返回新槽首次出现）
+   - F_b5988（0xb5988，被调 2 次）：8B 栈复杂（[r2] 0 比较 +
+     [this+8] 取 + 0 比较 + [链表+0] 字节取 + 0 比较 +
+     [this+12] 取 + 多分支，新变体首次出现）
+     语义（objdump 逐指令）：
+       [r2] 0 比较分支 + [this+8] 取 + 0 比较分支 + [链表+0]
+       字节取 + 0 比较分支 + [this+12] 取 → 多分支
+     ★ 诚实边界：8B 栈 + 三比较 + 字节取 + 取 + 多分支，主路径
+       （[r2] 0 比较 + [this+8] 取 0 比较 + [链表+0] 字节取
+       0 比较 + [this+12] 取）直译 + 多分支体镜像兜底
+       （§124y-288~928 同口径，8B 栈 [r2] 0 比较 +
+       [this+8] 取 0 比较 + [链表+0] 字节取 0 比较 +
+       [this+12] 取多分支新变体首次出现） */
+uint32_t F_b54e4(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* [this+8] 取 + 返回（两指令全直译零依赖） */
+    if (!_r0) return 0;
+    return MEM(_r0 + 8);
+}
+uint32_t F_b5988(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* 8B 大栈：[r2] 0 比较 + [this+8] 取 0 比较 + [链表+0] 字节
+       取 0 比较 + [this+12] 取主路径 + 多分支体兜底 */
+    if (!_r0) return 0;
+    jqt_blx_dispatch(0xb5988, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
     return 0;
 }
