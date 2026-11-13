@@ -372,6 +372,9 @@ uint32_t F_336ec(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,
 uint32_t F_a4250(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_a4274(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_e546a(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_7b28c(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_80250(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+/* §124y-336 前向声明（第五十一批：主路径+兜底 + 析构系统调用） */
 uint32_t F_6c274(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_722c4(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 /* §124y-335 前向声明（第五十批：复杂多分支 LUT + 92B 栈多分支） */
@@ -78119,6 +78122,7 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_7b0d0,
     F_7b110,
     F_7b240,
+    F_7b28c,
     F_7b4c4,
     F_7b4f8,
     F_7b618,
@@ -78253,6 +78257,7 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_7f918,
     F_7f9c0,
     F_7f9d4,
+    F_80250,
     F_80508,
     F_80528,
     F_80bc4,
@@ -80444,6 +80449,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x7b0d0,
      0x7b110,
      0x7b240,
+     0x7b28c,
      0x7b4c4,
      0x7b4f8,
      0x7b618,
@@ -80578,6 +80584,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x7f918,
      0x7f9c0,
      0x7f9d4,
+     0x80250,
      0x80508,
      0x80528,
      0x80bc4,
@@ -81850,7 +81857,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x11123a,
      0x11be2c,
 };
-const uint32_t jqt_vtbl_n = 2322u;  /* §124y-149/.../335: 对齐 fns/offs 表实际条目数 */
+const uint32_t jqt_vtbl_n = 2324u;  /* §124y-149/.../336: 对齐 fns/offs 表实际条目数 */
 
 /* jqt_blx_dispatch：vtable 槽值 reg_val（shadow 地址）→ 目标函数。
  * 影子区 → off = reg_val - g_jqt_shadow；否则 off = reg_val。
@@ -84498,5 +84505,52 @@ uint32_t F_722c4(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_
     /* [this+0x318] 字节取 → 多分支体 → 镜像兜底 */
     uint32_t byte = MEM(_r0 + 0x318);
     jqt_blx_dispatch(0x722c4, _r0, _r1, _r2, byte,0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+
+/* ★ §124y-336 第五十一批真业务裸跑函数补全（主路径+兜底 + 析构系统调用）
+   - F_7b28c（0x7b28c，被调 8 次）：[this+32] 区（this=r0）
+     语义（objdump 逐指令）：[this+32] 非 0 → **bl F_7b27c（未译→镜像
+       兜底）** + [this+36]=0x181 写 + [this+32] 取 →
+       **bl F_7e028（未译→镜像兜底）**；[this+32] 为 0 → pop 返回
+     ★ 诚实边界：F_7b27c/F_7e028 未译 → 主路径（[this+32] 非 0 判定
+       + [this+36] 写 0x181）直译 + 依赖镜像兜底（§124y-288~335 同口径）
+   - F_80250（0x80250，被调 8 次）：析构（this=r0）
+     语义（objdump 逐指令）：[this+44] 非 0 → **blx _ZdaPv@plt
+       （.plt 系统调用→镜像兜底）** + [this+44]=0；[this+16] 非 0 →
+       _ZdaPv + [this+16]=0；[this+12] +1 非 0 → **blx close@plt
+       （.plt 系统调用→镜像兜底）**
+     ★ 诚实边界：_ZdaPv/close .plt 系统调用 → 镜像兜底；
+       主路径（[this+44/16/12] 非 0 判定 + 槽位清零）直译 */
+uint32_t F_7b28c(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* [this+32] 非 0 → F_7b27c/F_7e028（未译）镜像兜底 + [this+36]=0x181 写 */
+    if (!_r0) return 0;
+    if (MEM(_r0 + 32) != 0) {
+        jqt_blx_dispatch(0x7b27c, _r0, 0, 0, 0,0,0,0,0,0,0,0,0, _sp);
+        MEM(_r0 + 36) = 0x181;
+        jqt_blx_dispatch(0x7e028, MEM(_r0 + 32), 0, 0, 0,0,0,0,0,0,0,0,0, _sp);
+    }
+    return 0;
+}
+uint32_t F_80250(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* 析构：[this+44/16] 非 0 → _ZdaPv（.plt 兜底）+ 槽位清零 +
+       [this+12] 非 0 → close（.plt 兜底） */
+    if (!_r0) return 0;
+    if (MEM(_r0 + 44) != 0) {
+        jqt_blx_dispatch(0x22aac, MEM(_r0 + 44), 0, 0, 0,0,0,0,0,0,0,0,0, _sp);
+        MEM(_r0 + 44) = 0;
+    }
+    if (MEM(_r0 + 16) != 0) {
+        jqt_blx_dispatch(0x22aac, MEM(_r0 + 16), 0, 0, 0,0,0,0,0,0,0,0,0, _sp);
+        MEM(_r0 + 16) = 0;
+    }
+    uint32_t fd = MEM(_r0 + 12) + 1;
+    if (fd != 0) {
+        jqt_blx_dispatch(0x22f44, fd - 1, 0, 0, 0,0,0,0,0,0,0,0,0, _sp);
+    }
     return 0;
 }
