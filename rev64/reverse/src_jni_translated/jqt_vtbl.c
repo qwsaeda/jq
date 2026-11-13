@@ -372,6 +372,9 @@ uint32_t F_336ec(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,
 uint32_t F_a4250(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_a4274(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_e546a(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_2ebd8(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_2f400(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+/* §124y-419 前向声明（第一百三十四批：双槽比较全直调 + 字面量池全直调） */
 uint32_t F_2ea0c(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_2eb00(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 /* §124y-418 前向声明（第一百三十三批：双槽取取负 + [this+28] 取依赖兜底） */
@@ -77670,6 +77673,7 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_2eb00,
     F_2eb0c,
     F_2eb28,
+    F_2ebd8,
     F_2ede4,
     F_2ef48,
     F_2ef5c,
@@ -77685,6 +77689,7 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_2f080,
     F_2f188,
     F_2f19c,
+    F_2f400,
     F_2fb28,
     F_2fb3c,
     F_2fd70,
@@ -80160,6 +80165,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x2eb00,
      0x2eb0c,
      0x2eb28,
+     0x2ebd8,
      0x2ede4,
      0x2ef48,
      0x2ef5c,
@@ -80175,6 +80181,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x2f080,
      0x2f188,
      0x2f19c,
+     0x2f400,
      0x2fb28,
      0x2fb3c,
      0x2fd70,
@@ -82428,7 +82435,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x11dc0c,
      0x11dde0,
 };
-const uint32_t jqt_vtbl_n = 2487u;  /* §124y-149/.../418: 对齐 fns/offs 表实际条目数 */
+const uint32_t jqt_vtbl_n = 2489u;  /* §124y-149/.../419: 对齐 fns/offs 表实际条目数 */
 
 /* jqt_blx_dispatch：vtable 槽值 reg_val（shadow 地址）→ 目标函数。
  * 影子区 → off = reg_val - g_jqt_shadow；否则 off = reg_val。
@@ -87984,5 +87991,44 @@ uint32_t F_2eb00(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_
     if (!_r0) return 0;
     uint32_t v28 = MEM(_r0 + 28);
     jqt_blx_dispatch(0x7cdcc, v28, 0, 0, 0, 0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+
+/* ★ §124y-419 第一百三十四批真业务裸跑函数补全（双槽比较全直调 + 字面量池全直调）
+   - F_2ebd8（0x2ebd8，被调 4 次）：双槽比较 + 全依赖直调（this=r0，r1/r2）
+     语义（objdump 逐指令 + 字面量池 0x2ebfc 实读）：
+       [this+20] 取 + [this+16] 取 → 相等跳 0x2ebf2（返回）；
+       不等 → **bl F_b43d4（已译 1 处全直调）** 传 [r1, r2, [this+20]]
+     ★ 全依赖已译（F_b43d4）→ 主路径（[this+20/16] 双槽比较 +
+       F_b43d4 全直调），零兜底
+   - F_2f400（0x2f400，被调 4 次）：字面量池 + 全依赖直调（this=r0）
+     语义（objdump 逐指令 + 字面量池 0x2f41c/0x2f420 实读）：
+       [字面量池] 双槽取 → **bl F_2eab4（未译→镜像兜底）** +
+       **bl F_32b64（已译 1 处全直调）** 传 this
+     ★ 诚实边界：F_2eab4 未译 → 主路径（字面量池双槽取 +
+       F_32b64 全直调）直译 + F_2eab4 镜像兜底
+       （§124y-288~418 同口径） */
+uint32_t F_2ebd8(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    extern uint32_t F_b43d4(uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t,
+                             uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t);
+    /* 双槽比较 + F_b43d4 全直调，零兜底 */
+    if (!_r0) return 0;
+    uint32_t v20 = MEM(_r0 + 20);
+    uint32_t v16 = MEM(_r0 + 16);
+    if (v20 == v16) return 0;
+    F_b43d4(_r1, _r2, v20, 0, 0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+uint32_t F_2f400(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    extern uint32_t F_32b64(uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t,
+                             uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t);
+    /* 字面量池双槽取 + F_2eab4（未译）兜底 + F_32b64 全直调 */
+    if (!_r0) return 0;
+    jqt_blx_dispatch(0x2eab4, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
+    F_32b64(_r0, 0, 0, 0, 0,0,0,0,0,0,0,0, _sp);
     return 0;
 }
