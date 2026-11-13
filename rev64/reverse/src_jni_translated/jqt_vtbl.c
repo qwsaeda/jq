@@ -369,6 +369,10 @@ uint32_t F_335c8(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,
 uint32_t F_33684(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_336c8(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_336ec(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_a37e4(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_a37fc(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_9f730(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+/* §124y-290 前向声明（第五批：vtable 调用 + 对象销毁，译完可去 F_a450c 兜底） */
 uint32_t F_d1d44(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_a450c(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 /* §124y-289 前向声明（第四批：位插入 + 对象初始化） */
@@ -78494,6 +78498,7 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_9f520,
     F_9f524,
     F_9f6dc,
+    F_9f730,
     F_9f768,
     F_9f778,
     F_9f77c,
@@ -78552,8 +78557,10 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_a3724,
     F_a373c,
     F_a376c,
+    F_a37e4,
     F_a37f0,
     F_a37f8,
+    F_a37fc,
     F_a381c,
     F_a39d4,
     F_a39e0,
@@ -80723,6 +80730,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x9f520,
      0x9f524,
      0x9f6dc,
+     0x9f730,
      0x9f768,
      0x9f778,
      0x9f77c,
@@ -80781,8 +80789,10 @@ const uint32_t jqt_vtbl_offs[] = {
      0xa3724,
      0xa373c,
      0xa376c,
+     0xa37e4,
      0xa37f0,
      0xa37f8,
+     0xa37fc,
      0xa381c,
      0xa39d4,
      0xa39e0,
@@ -81515,7 +81525,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x10d110,
      0x11123a,
 };
-const uint32_t jqt_vtbl_n = 2226u;  /* §124y-149/285/287/288/289: 对齐 fns/offs 表实际条目数 */
+const uint32_t jqt_vtbl_n = 2229u;  /* §124y-149/285/287/288/289/290: 对齐 fns/offs 表实际条目数 */
 
 /* jqt_blx_dispatch：vtable 槽值 reg_val（shadow 地址）→ 目标函数。
  * 影子区 → off = reg_val - g_jqt_shadow；否则 off = reg_val。
@@ -82016,14 +82026,59 @@ uint32_t F_a450c(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_
                  uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
                  uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
     /* 对象初始化（this=r0）：this[+0]=类型槽 0xb5432+8，调 F_a37e4/F_a37fc。
-       依赖 0xa37e4/0xa37fc 未译 → jqt_blx_dispatch 镜像兜底（命中真执行）。 */
+       ★ §124y-290：F_a37e4/F_a37fc 已翻译（vtable 虚调用 + 对象销毁）→
+       改直调（替代 §124y-289 的镜像兜底，语义确定性↑）。 */
+    extern uint32_t F_a37e4(uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t,
+                             uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t);
+    extern uint32_t F_a37fc(uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t,
+                             uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t);
     if (!_r0) return 0;
     MEM(_r0 + 0) = JQT_ABS_PTR(0xb5432) + 8;
     /* 字面量 0xb79e6 → 全局槽 */
     uint32_t g = MEM(JQT_ABS_PTR(0xb79e6));
     uint32_t c = MEM(_r0 + 8);
-    (void)g; (void)c;
-    jqt_blx_dispatch(0xa37e4, g, c, 0,0,0,0,0,0,0,0,0,0, _sp);
-    jqt_blx_dispatch(0xa37fc, _r0, 0,0,0,0,0,0,0,0,0,0,0, _sp);
+    F_a37e4(g, c, 0,0,0,0,0,0,0,0,0,0, _sp);
+    F_a37fc(_r0, 0,0,0,0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+
+/* ★ §124y-290 第五批真业务裸跑函数补全（依赖项：译完可去 F_a450c 镜像兜底）
+   - F_9f730（被 a37e4 调用）：vtable 虚调用取函数——r1=对象指针，
+     非空则取 [obj+0](vtable) → [vt+4]（第 2 槽）blx；r1=0 返 0
+   - F_a37e4（0xa37e4，被调 35 次）：对象销毁辅助（this=r0）
+     语义：this = this[+0]（子对象槽）→ bl F_9f730(this)（虚调用销毁）
+   - F_a37fc（0xa37fc，被调 45 次）：对象销毁（this=r0）
+     语义：this[+0]=类型槽 0xb6072+8（字面量池 0xa3818 实读），
+     if this[+4] 非空 → 虚调用 [obj+0]→[vt+4]（blx）；无返回值
+     ★ 译完此批 → F_a450c 的两处 jqt_blx_dispatch(0xa37e4/0xa37fc)
+       改直调（语义确定性↑，去镜像依赖） */
+uint32_t F_9f730(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* vtable 虚调用：r1=对象指针 → [obj+0] vtable → [vt+4] 第 2 槽 blx */
+    if (!_r1) return 0;
+    uint32_t obj = MEM(_r1 + 0);
+    uint32_t fn = MEM(obj + 4);
+    return jqt_blx_dispatch(fn, _r1, 0,0,0,0,0,0,0,0,0,0,0, _sp);
+}
+uint32_t F_a37e4(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* 对象销毁辅助：this = this[+0] 子对象槽 → 虚调用销毁（F_9f730） */
+    if (!_r0) return 0;
+    return F_9f730(MEM(_r0 + 0), 0, 0,0,0,0,0,0,0,0,0,0, _sp);
+}
+uint32_t F_a37fc(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* 对象销毁：this[+0]=类型槽 0xb6072+8；this[+4] 非空 → 虚调用销毁 */
+    if (!_r0) return 0;
+    MEM(_r0 + 0) = JQT_ABS_PTR(0xb6072) + 8;
+    uint32_t obj = MEM(_r0 + 4);
+    if (obj) {
+        uint32_t vt = MEM(obj + 0);
+        uint32_t fn = MEM(vt + 4);
+        jqt_blx_dispatch(fn, obj, 0,0,0,0,0,0,0,0,0,0,0, _sp);
+    }
     return 0;
 }
