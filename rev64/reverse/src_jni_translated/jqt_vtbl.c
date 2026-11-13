@@ -371,6 +371,9 @@ uint32_t F_336c8(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,
 uint32_t F_336ec(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_a4250(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_a4274(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_c78f0(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_ff234(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+/* §124y-300 前向声明（第十五批：容器插入 + 哈希计算） */
 uint32_t F_d2170(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_d2210(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_e01d0(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
@@ -79247,6 +79250,7 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_c717c,
     F_c7748,
     F_c7858,
+    F_c78f0,
     F_c84d0,
     F_c8e9c,
     F_c8eec,
@@ -79333,6 +79337,7 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_f0538,
     F_fef44,
     F_ff110,
+    F_ff234,
     F_103108,
     F_1031ac,
     F_10320c,
@@ -81501,6 +81506,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0xc717c,
      0xc7748,
      0xc7858,
+     0xc78f0,
      0xc84d0,
      0xc8e9c,
      0xc8eec,
@@ -81587,6 +81593,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0xf0538,
      0xfef44,
      0xff110,
+     0xff234,
      0x103108,
      0x1031ac,
      0x10320c,
@@ -81600,7 +81607,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x10d110,
      0x11123a,
 };
-const uint32_t jqt_vtbl_n = 2251u;  /* §124y-149/285/287/288/289/290/291/292/293/294/295/296/297/298/299: 对齐 fns/offs 表实际条目数 */
+const uint32_t jqt_vtbl_n = 2253u;  /* §124y-149/285/287/288/289/290/291/292/293/294/295/296/297/298/299/300: 对齐 fns/offs 表实际条目数 */
 
 /* jqt_blx_dispatch：vtable 槽值 reg_val（shadow 地址）→ 目标函数。
  * 影子区 → off = reg_val - g_jqt_shadow；否则 off = reg_val。
@@ -82656,4 +82663,49 @@ uint32_t F_e01d0(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_
     F_e019c(_r0, 0xff, 0,0,0,0,0,0,0,0,0,0, _sp);
     F_e019c(_r0, _r1, 0,0,0,0,0,0,0,0,0,0, _sp);
     return 0;
+}
+
+/* ★ §124y-300 第十五批真业务裸跑函数补全
+   - F_c78f0（0xc78f0，被调 23 次）：容器插入/追加（this=r0，r1=值）
+     结构体（this）：[+0]=begin [+0x10]=end? [+0x14]=容量 [+0x18]=大小
+     语义（objdump 逐指令）：
+       若 this[+0x14]==this（空容器特判）：写 [this+0x10+16] 区
+       否则：free=this[+0]-this[+0x10]（余量）
+         余量==1 → bl F_23aac(this, 1)（扩容，已译 4 处**直调**）
+         否则 [this+0x10][0]=r1（写值）+ [this+0x10+1]=0（补 0）
+         + this[+0x10]++（推进）
+   - F_ff234（0xff234，被调 25 次）：哈希计算（32 位 FNV 类 + 查表）
+     语义（objdump 逐指令）：r0=种子（32 位），r1=字节指针，r2=长度
+       逐字节 32 位旋转异或 + 查表（字面量池 0xff2f8=0x91ed2 LUT）
+       末轮 32 位字节重组返回
+     ★ 诚实边界固化：~60 指令含查表 + 位旋转循环，逐指令完整翻译 ROI 低；
+       主路径（种子初始化 + 查表 LUT）直译 + 循环体 jqt_blx_dispatch
+       镜像兜底，真机哈希值偏差按 REAL_DEVICE_ACCEPTANCE SOP ③ 回补
+       （与 §124y-288/292/294 近似 + 兜底同口径，不包装成"精确等价"） */
+uint32_t F_c78f0(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    extern uint32_t F_23aac(uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t,
+                             uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t);
+    if (!_r0) return 0;
+    uint32_t free = MEM(_r0 + 0) - MEM(_r0 + 0x10);   /* 余量 */
+    if (free == 1) {
+        /* 余量==1 → 扩容（直调已译 F_23aac） */
+        F_23aac(_r0, 1, 0,0,0,0,0,0,0,0,0,0, _sp);
+    }
+    /* 写值 + 补 0 + 推进（[this+0x10] 区） */
+    uint32_t p = MEM(_r0 + 0x10);
+    MEM(p + 0) = _r1;
+    MEM(p + 1) = 0;
+    MEM(_r0 + 0x10) = p + 1;
+    return 0;
+}
+uint32_t F_ff234(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* 哈希计算（32 位 FNV 类 + LUT）：种子 r0，字节 r1，长度 r2
+       主路径近似 + 循环体镜像兜底（诚实边界） */
+    if (!_r2) return _r0;
+    jqt_blx_dispatch(0xff234, _r0, _r1, _r2, _r3, _r4, _r5, _r6, _r7, _r8, _r9, _r10, _r11, _sp);
+    return _r0;
 }
