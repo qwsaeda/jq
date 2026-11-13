@@ -373,6 +373,9 @@ uint32_t F_a4250(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,
 uint32_t F_a4274(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_e546a(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_abc48(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_2a1b0(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_2a590(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+/* §124y-618 前向声明（第二百六十四批：[this+808] 偏移取 + [this+60] 取虚调用） */
 uint32_t F_2a15c(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_2a1ac(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 /* §124y-617 前向声明（第二百六十三批：[this+76] 偏移取 + 中段 +84 偏移） */
@@ -78227,12 +78230,14 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_2a154,
     F_2a15c,
     F_2a1ac,
+    F_2a1b0,
     F_2a228,
     F_2a340,
     F_2a380,
     F_2a3c8,
     F_2a4e8,
     F_2a548,
+    F_2a590,
     F_2a5bc,
     F_2a5d0,
     F_2a714,
@@ -81115,12 +81120,14 @@ const uint32_t jqt_vtbl_offs[] = {
      0x2a154,
      0x2a15c,
      0x2a1ac,
+     0x2a1b0,
      0x2a228,
      0x2a340,
      0x2a380,
      0x2a3c8,
      0x2a4e8,
      0x2a548,
+     0x2a590,
      0x2a5bc,
      0x2a5d0,
      0x2a714,
@@ -83821,7 +83828,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x11f20c,
      0x11fa34,
 };
-const uint32_t jqt_vtbl_n = 2885u;  /* §124y-149/.../617: 对齐 fns/offs 表实际条目数 */
+const uint32_t jqt_vtbl_n = 2887u;  /* §124y-149/.../618: 对齐 fns/offs 表实际条目数 */
 
 /* jqt_blx_dispatch：vtable 槽值 reg_val（shadow 地址）→ 目标函数。
  * 影子区 → off = reg_val - g_jqt_shadow；否则 off = reg_val。
@@ -96173,5 +96180,39 @@ uint32_t F_2a1ac(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_
     if (!_r0) return 0;
     uint32_t v84 = _r0 + 84;
     jqt_blx_dispatch(0x2a1ac, v84, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+
+/* ★ §124y-618 第二百六十四批真业务裸跑函数补全（[this+808] 偏移取 + [this+60] 取虚调用）
+   - F_2a1b0（0x2a1b0，被调 2 次）：[this+202*4=808] 偏移取 getter
+     语义（objdump 逐指令，裸函数 4 指令）：202 常量 ×4 = 808 +
+       [r0+808] ldr 取 → 返回
+     ★ 全直译（纯偏移取 getter，零依赖，同 0x279b8 getter 模式）
+   - F_2a590（0x2a590，被调 2 次）：[this+60] 取 + 虚调用 + [this+56] 取
+     语义（objdump 逐指令）：[this+60] ldr 取 → 非 0 判定 →
+       [v+0] 取 + [w+4] 取 + **blx [w+4]（虚调用→镜像兜底）** +
+       [this+60] 0 写 + [this+56] 取 → 多分支
+     ★ 诚实边界：取 + 虚调用 + 多分支，主路径（[this+60] 取 + 非 0
+       判定 + [v/w] 取）直译 + 虚调用镜像兜底 + [this+60] 0 写
+       （§124y-288~617 同口径，同 0xd3b70 虚调用模式） */
+uint32_t F_2a1b0(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* [this+808] 偏移取 getter，全直译零依赖 */
+    if (!_r0) return 0;
+    return MEM(_r0 + 808);
+}
+uint32_t F_2a590(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* [this+60] 取 + 非 0 判定 + [v+0/w+4] 虚调用（镜像兜底） + [this+60] 0 写 */
+    if (!_r0) return 0;
+    uint32_t v60 = MEM(_r0 + 60);
+    if (v60 != 0) {
+        uint32_t f = MEM(MEM(v60 + 0) + 4);
+        jqt_blx_dispatch(0x2a590, _r0, f, 0, 0, 0,0,0,0,0,0,0,0, _sp);
+        MEM(_r0 + 60) = 0;
+    }
+    jqt_blx_dispatch(0x2a590, _r0 + 56, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
     return 0;
 }
