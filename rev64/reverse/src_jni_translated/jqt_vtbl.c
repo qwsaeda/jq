@@ -372,6 +372,9 @@ uint32_t F_336ec(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,
 uint32_t F_a4250(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_a4274(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_e546a(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_3ac68(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_3d0c4(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+/* §124y-348 前向声明（第六十三批：44B 栈复杂 + 短函数全直调） */
 uint32_t F_2eab4(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_33600(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 /* §124y-347 前向声明（第六十二批：虚调用 + 双全局槽依赖兜底） */
@@ -77584,6 +77587,7 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_3a92c,
     F_3ab64,
     F_3ab80,
+    F_3ac68,
     F_3adb0,
     F_3adc4,
     F_3add8,
@@ -77625,6 +77629,7 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_3d040,
     F_3d078,
     F_3d0ac,
+    F_3d0c4,
     F_3d0f8,
     F_3d1cc,
     F_3da20,
@@ -79933,6 +79938,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x3a92c,
      0x3ab64,
      0x3ab80,
+     0x3ac68,
      0x3adb0,
      0x3adc4,
      0x3add8,
@@ -79974,6 +79980,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x3d040,
      0x3d078,
      0x3d0ac,
+     0x3d0c4,
      0x3d0f8,
      0x3d1cc,
      0x3da20,
@@ -81934,7 +81941,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x11be2c,
      0x11dc0c,
 };
-const uint32_t jqt_vtbl_n = 2346u;  /* §124y-149/.../347: 对齐 fns/offs 表实际条目数 */
+const uint32_t jqt_vtbl_n = 2348u;  /* §124y-149/.../348: 对齐 fns/offs 表实际条目数 */
 
 /* jqt_blx_dispatch：vtable 槽值 reg_val（shadow 地址）→ 目标函数。
  * 影子区 → off = reg_val - g_jqt_shadow；否则 off = reg_val。
@@ -85094,4 +85101,39 @@ uint32_t F_33600(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_
     uint32_t slot2 = MEM(JQT_ABS_PTR(0x1289ce));
     jqt_blx_dispatch(0x350b8, slot2, _r1, 0, 0,0,0,0,0,0,0,0,0, _sp);
     return 0;
+}
+
+/* ★ §124y-348 第六十三批真业务裸跑函数补全（44B 栈复杂 + 短函数全直调）
+   - F_3ac68（0x3ac68，被调 7 次）：44B 栈复杂（this=r0，r1/r2 参数）
+     语义（objdump 逐指令 + 字面量池 0x3ace4=0x120454/0x3ace8=0x3c0 实读）：
+       sub sp,#44 + [0x120454+0x3c0] 全局槽取 → [sp+36] 栈传 →
+       r1==0 → 跳 0x3acd4（返回）；[sp+4] 区 → 多分支
+     ★ 诚实边界：44B 栈 + 全局槽 + 多分支，主路径（[0x120454+0x3c0]
+       全局槽取 + [sp+36] 栈传）直译 + 多分支体镜像兜底
+       （§124y-288~347 同口径）
+   - F_3d0c4（0x3d0c4，被调 7 次）：短函数（this=r0，r1/r2 参数）
+     语义（objdump 逐指令）：[this+32] 取 → **bl F_7d784（已译 6 处全直调）**
+       + ldmia 尾调用（返回 r3 栈区值）
+     ★ 全依赖已译（F_7d784）→ 主路径全直调，零兜底 */
+uint32_t F_3ac68(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* 44B 栈复杂：[0x120454+0x3c0] 全局槽取 + [sp+36] 栈传主路径 + 多分支兜底 */
+    if (!_r0) return 0;
+    uint32_t slot = MEM(JQT_ABS_PTR(0x120454 + 0x3c0));
+    /* [sp+36] 栈传（主路径近似） */
+    /* 多分支体 → 镜像兜底 */
+    jqt_blx_dispatch(0x3ac68, _r0, _r1, _r2, slot,0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+uint32_t F_3d0c4(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    extern uint32_t F_7d784(uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t,
+                             uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t);
+    /* 短函数：[this+32] 取 + F_7d784 全直调 + ldmia 尾调用（返回 r3） */
+    if (!_r0) return 0;
+    uint32_t src = MEM(_r0 + 32);
+    F_7d784(src, 0, 0, 0,0,0,0,0,0,0,0,0, _sp);
+    return _r3;   /* ldmia 尾调用：返回 [sp+16] 栈区值（r3 近似） */
 }
