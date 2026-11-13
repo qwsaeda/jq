@@ -374,6 +374,9 @@ uint32_t F_a4274(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,
 uint32_t F_e546a(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_abc48(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_3d65c(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_45974(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_45c2c(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+/* §124y-692 前向声明（第三百三十八批：[this+0/48] 写直调第十七次实例化 + bx lr 空壳） */
 uint32_t F_4573c(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_458d8(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 /* §124y-691 前向声明（第三百三十七批：16B 栈字面量池依赖偏移写 36 第四次实例化 + [this+16/20] 双取差值第二十七次实例化） */
@@ -79006,8 +79009,10 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_4573c,
     F_457a8,
     F_458d8,
+    F_45974,
     F_459a8,
     F_459bc,
+    F_45c2c,
     F_45d40,
     F_461c8,
     F_462cc,
@@ -82042,8 +82047,10 @@ const uint32_t jqt_vtbl_offs[] = {
      0x4573c,
      0x457a8,
      0x458d8,
+     0x45974,
      0x459a8,
      0x459bc,
+     0x45c2c,
      0x45d40,
      0x461c8,
      0x462cc,
@@ -84339,7 +84346,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x11f20c,
      0x11fa34,
 };
-const uint32_t jqt_vtbl_n = 3033u;  /* §124y-149/.../691: 对齐 fns/offs 表实际条目数 */
+const uint32_t jqt_vtbl_n = 3035u;  /* §124y-149/.../692: 对齐 fns/offs 表实际条目数 */
 
 /* jqt_blx_dispatch：vtable 槽值 reg_val（shadow 地址）→ 目标函数。
  * 影子区 → off = reg_val - g_jqt_shadow；否则 off = reg_val。
@@ -99681,5 +99688,47 @@ uint32_t F_458d8(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_
     uint32_t diff1 = _r1 - lit;
     uint32_t diff2 = v16 - v20;
     jqt_blx_dispatch(0x458d8, _r0, _r1, diff1, diff2, 0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+
+/* ★ §124y-692 第三百三十八批真业务裸跑函数补全（[this+0/48] 写直调第十七次实例化 + bx lr 空壳）
+   - F_45974（0x45974，被调 2 次）：F_85858 依赖 + [this+0/48] 写 +
+     F_458d8 直调（同 0x3e978/0x3ee64/0x3f0c0/0x3f424/0x3f8c0/
+     0x40734/0x40924/0x40c8c/0x4165c/0x41984/0x42738/0x42d18/
+     0x42ebc/0x431dc/0x43520/0x44750/0x45394 模式第十七次实例化）
+     语义（objdump 逐指令 + 字面量池 0x4599c/0x459a0 实读）：
+       **bl F_85858（未译→镜像兜底）** + [this+0] 字面量池 8 偏移
+       写 + [this+48] +32 偏移写 + **bl F_458d8（§691 已译→直调）**
+     ★ 诚实边界：依赖 + 双写 + 直调，主路径（[this+0/48] 写 +
+       F_458d8 直调）直译 + F_85858 镜像兜底
+       （§124y-288~691 同口径，同 0x3e978/0x3ee64/0x3f0c0/0x3f424/
+       0x3f8c0/0x40734/0x40924/0x40c8c/0x4165c/0x41984/0x42738/
+       0x42d18/0x42ebc/0x431dc/0x43520/0x44750/0x45394 直调 +
+       0xdb608 偏移写模式第十七次实例化）
+   - F_45c2c（0x45c2c，被调 2 次）：bx lr 空壳（2-3B 空壳坑
+     §124y-333/339 再次命中）
+     语义（objdump 逐指令）：`4770 bx lr` 裸函数 = 空壳返回 0
+     （无寄存器保存/计算/内存访问，域矩阵 BL 目标 2-3 字节
+       bx lr 空壳；真实逻辑由调用者上下文决定，非独立语义函数）
+     ★ 诚实边界：bx lr 空壳 → 定义体 = 空壳返回 0（忠实 3 字节
+       语义），真实逻辑由镜像兜底
+       （§124y-288~691 同口径，同 0xaf94c/0x29504/0x2bcf0/
+       0x3d65c 空壳模式） */
+uint32_t F_45974(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* F_85858（未译）镜像兜底 + [this+0/48] 写 + F_458d8 直调 */
+    if (!_r0) return 0;
+    jqt_blx_dispatch(0x85858, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
+    uint32_t lit = MEM(JQT_ABS_PTR(0x4599c));
+    MEM(_r0 + 0) = lit + 8;
+    MEM(_r0 + 48) = lit + 32;
+    F_458d8(_r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+uint32_t F_45c2c(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* bx lr 空壳：忠实 3 字节语义 = 返回 0（同 0xaf94c/0x29504/0x2bcf0/0x3d65c 空壳模式） */
     return 0;
 }
