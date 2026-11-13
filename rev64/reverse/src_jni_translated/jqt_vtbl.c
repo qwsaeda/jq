@@ -371,6 +371,9 @@ uint32_t F_336c8(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,
 uint32_t F_336ec(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_a4250(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_a4274(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_edc18(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_edbe0(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+/* §124y-305 前向声明（第二十批：位图游程编码 + 字节读辅助） */
 uint32_t F_897d0(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 /* §124y-304 前向声明（第十九批：事件构造主链·被调最高剩余） */
 uint32_t F_3da20(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
@@ -79354,6 +79357,8 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_e9dac,
     F_e9e0c,
     F_e9f9c,
+    F_edbe0,
+    F_edc18,
     F_f0538,
     F_fef44,
     F_ff110,
@@ -81618,6 +81623,8 @@ const uint32_t jqt_vtbl_offs[] = {
      0xe9dac,
      0xe9e0c,
      0xe9f9c,
+     0xedbe0,
+     0xedc18,
      0xf0538,
      0xfef44,
      0xff110,
@@ -81635,7 +81642,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x10d110,
      0x11123a,
 };
-const uint32_t jqt_vtbl_n = 2261u;  /* §124y-149/.../304: 对齐 fns/offs 表实际条目数 */
+const uint32_t jqt_vtbl_n = 2263u;  /* §124y-149/.../305: 对齐 fns/offs 表实际条目数 */
 
 /* jqt_blx_dispatch：vtable 槽值 reg_val（shadow 地址）→ 目标函数。
  * 影子区 → off = reg_val - g_jqt_shadow；否则 off = reg_val。
@@ -82948,5 +82955,51 @@ uint32_t F_897d0(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_
     /* 末段 0x898ee：F_8264c 兜底 + F_c2300 直调（0x89924 全局槽） */
     jqt_blx_dispatch(0x8264c, a12, 0,0,0,0,0,0,0,0,0,0,0, _sp);
     F_c2300(JQT_ABS_PTR(0x89924), 0, 0, 0,0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+
+/* ★ §124y-305 第二十批真业务裸跑函数补全
+   - F_edc18（0xedc18，被调 29 次）：位图游程编码（rle 解/压）
+     结构体（this=r0）：[+0x18]=游程对象（[+12]=游程指针 [+16]=长度
+     [+20]=位置）；字面量池 0xedd54=0x7dc（LUT 索引基址）
+     语义（objdump 逐指令）：
+       游程空（[this+0x18]=0）→ bl F_edbe0(this) 取字节（未译，兜底）
+       非空 → 游程推进循环：[r4+0x0c] 左移 8 OR 0 + 位置 +=8；
+       位置<0 → 位置 +=9；[r4+0x10]=0x8000；LUT 查表（0x7dc 基址）
+       解码 [r6+r7] 字节 → (val<<24>>24 符号) 写回
+     ★ 诚实边界：游程编码 LUT 查表 + 多循环，主路径直译 + LUT 解码体
+       镜像兜底（§124y-288/292/294/300/303 近似 + 兜底同口径）
+   - F_edbe0（0xedbe0）：字节读辅助（被 F_edc18 调用）——
+     取 this 当前字节并推进，未独立翻译（被调次数未进裸跑 top）→
+     占位定义 + 镜像兜底 */
+uint32_t F_edc18(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* 位图游程编码主路径 + LUT 解码体镜像兜底（诚实边界） */
+    if (!_r0) return 0;
+    uint32_t run = MEM(_r0 + 0x18);
+    if (!run) {
+        /* 游程空 → F_edbe0 读字节（未译，镜像兜底） */
+        jqt_blx_dispatch(0xedbe0, _r0, _r1, _r2, 0,0,0,0,0,0,0,0,0, _sp);
+        return 0;
+    }
+    /* 游程推进主路径：[run+0x0c]<<8 OR 0 + 位置 +=8 */
+    uint32_t val = (MEM(run + 0x0c) << 8) | 0;
+    MEM(run + 0x0c) = val;
+    int32_t pos = (int32_t)(MEM(run + 0x14) + 8);
+    MEM(run + 0x14) = (uint32_t)pos;
+    if (pos < 0) {
+        pos += 9;
+        MEM(run + 0x14) = (uint32_t)pos;
+    }
+    /* LUT 解码体（0x7dc 基址查表 + 字节重组）→ 镜像兜底 */
+    jqt_blx_dispatch(0xedc18, _r0, _r1, _r2, 0,0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+uint32_t F_edbe0(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* 字节读辅助（被 F_edc18 调用，未独立深译）→ 镜像兜底 */
+    jqt_blx_dispatch(0xedbe0, _r0, _r1, _r2, _r3, _r4, _r5, _r6, _r7, _r8, _r9, _r10, _r11, _sp);
     return 0;
 }
