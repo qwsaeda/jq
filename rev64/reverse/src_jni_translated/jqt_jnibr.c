@@ -307,6 +307,19 @@ uint32_t jqt_jni_getmethodid(uint32_t env, uint32_t cls, uint32_t name_off, uint
     #define JQ_BR_ABS(off) (((uint32_t)(off) < 0x10000000u) ? (uint32_t)(g_jqt_shadow + (off)) : (off))
     const char *name = (const char *)(uintptr_t)JQ_BR_ABS(name_off);
     const char *sig  = (const char *)(uintptr_t)JQ_BR_ABS(sig_off);
+    /* ★ §124y-264 崩溃根治（so 段反射层 SEGV）：GetMethodID 前校验 name/sig 指针
+       可安全 strlen（ART FindMethodJNI 内 strlen(name/sig)，转译层失真指针指向
+       非映射区 0x9916xxxx → 越界 SEGV_MAPERR，§124y-263 实锤 backtrace #03 落
+       houdini 翻译 so 段 jqt_jni_getmethodid+0x130）。无效指针走忠实兜底返 0
+       （与 L301 既有防御同口径），防 ART 反射调用链越界崩。
+       判据：name/sig 须非 0 且落在 JQT_VALID 区（影子区 / 真实堆映射区），
+       用 jqt_mem_valid 三道路判读（jqt_mem.h JQT_VALID 口径）。 */
+    extern int jqt_mem_valid(uint32_t a);
+    uint32_t _name_u = (uint32_t)(uintptr_t)name, _sig_u = (uint32_t)(uintptr_t)sig;
+    if (!name || !sig || !jqt_mem_valid(_name_u) || !jqt_mem_valid(_sig_u)) {
+        LOGE("GetMethodID: name/sig 指针无效（转译层失真，忠实兜底 0）name=0x%08x sig=0x%08x", _name_u, _sig_u);
+        return 0;
+    }
     jmethodID mid = (*e)->GetMethodID(e, (jclass)(uintptr_t)cls, name, sig);
     if (!mid && (*e)->ExceptionCheck(e)) (*e)->ExceptionClear(e);
     return (uint32_t)(uintptr_t)mid;

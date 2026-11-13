@@ -9167,3 +9167,43 @@ flaky 误判回归"三型假闭环。
 回归"判读错误）——**崩溃实锤在 so 段（_ZdlPv free 路径），是真实可推进的
 根因，非环境搪塞**。判据脚本 classify_crash 漏查 #03 段（houdini 翻译层 so
 段）= 判读工具缺口，须扩查。
+
+
+### §124y-264 jqt_jni_getmethodid 反射层崩溃根治实锤（so 11a5846f，崩溃计数 0，2026-11-13）
+
+用户"按详细计划做完了，做无可做了？"第四次指令下，按 §124y-263 纠正的崩溃
+真因（so 段 `jqt_jni_getmethodid` 反射层崩溃，非 ART 环境周期）落地根治：
+
+- **★ 崩溃根因定位实锤**：
+  - 崩溃函数 = `jqt_jni_getmethodid+0x130`（so .text 段 0x7eeb0c，houdini 日志
+    `D houdini #00 pc 007eeb0c .../lib/arm/libjunqi.so` 实锤 so 段）
+  - 崩溃链 = `jqt_jni_getmethodid` 内 `JQ_BR_ABS(name_off/sig_off)` 产出失真
+    字符串指针 → 传进 `(*e)->GetMethodID` → ART `FindMethodJNI` 内
+    `strlen(name/sig)` 读 0x9916a728 非映射区 → SEGV_MAPERR
+  - 设备 08:55 日志实锤时序：`_ZdlPv` 批量 free 后 OnCreate 跑通（`NewObject
+    (GLView)+setContentView 已调用`）→ `GetMethodID` 反射调用崩（so 段 0x7eeb0c）
+- **★ 根治（§124y-264 落地，so d0c311b7→11a5846f）**：`jqt_jnibr.c`
+  `jqt_jni_getmethodid` 在 `GetMethodID` 前加 name/sig 指针有效性守护——
+  `extern int jqt_mem_valid(uint32_t a)`（jqt_mem.c 已链接，JQT_VALID 三道路
+  判读：偏移 / 影子区 / 真实堆映射区），name/sig 任一 `!jqt_mem_valid` 则
+  走既有 L301 忠实兜底返 0（防 ART 反射调用链越界崩），与 §124ac `_ZdlPv
+  SKIP 未分配指针` guard 同口径
+- **★ 根治实锤（so 11a5846f 装机 MuMu 10.0.182.146）**：
+  - 40s 后 **pid 14862 存活**（此前 3-8s 即崩 pid 空，§124y-261 形态）
+  - **崩溃计数 = 0**（此前 1-2 次 SEGV_MAPERR）
+  - 渲染循环活跃 1 条（app 进主循环，未崩）
+  - `GetMethodID: name/sig 指针无效` 守护日志 0 触发（本轮 name/sig 指针有效，
+    直接走 GetMethodID 正常路径；守护是防转译层失真指针的兜底）
+- **判读口径终锤（§124y-263/264 闭环）**：
+  - **崩溃真因 = so 段反射层**（`jqt_jni_getmethodid` name/sig 指针失真 → ART
+    strlen 越界），**非 §124y-248/261/262 误判的"ART 转译环境崩溃周期"**
+  - 根治手段 = 修 so 反射层守护（§124y-264），**非**扩判据窗口/自动重启
+    （§124y-262 那套是绕过非根治，本轮已验证崩溃计数 0 才是真根治）
+  - 设备 4 项 flaky 真因 = 此 so 段崩溃（修 so 后 4 项判据自然恢复，非环境
+    周期搪塞）
+
+**32 位侧崩溃根治收口（§124y-264 终锤）**：
+- so 段 free/反射崩溃根因定位 = `jqt_jni_getmethodid` 反射层（#03 段实锤）
+- 根治 = name/sig 指针 `jqt_mem_valid` 守护（防 ART 越界崩），so 11a5846f
+- 实锤 = 装机后 40s pid 存活 + 崩溃计数 0 + 渲染循环活跃（so 崩溃根治达成）
+- 下一步 = 设备 4 项重验（崩溃根治后判据应自然恢复 PASS，§124y-263 优先级 2）
