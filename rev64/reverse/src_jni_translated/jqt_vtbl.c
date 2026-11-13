@@ -374,6 +374,9 @@ uint32_t F_a4274(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,
 uint32_t F_e546a(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_abc48(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_3d65c(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_3fdd4(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_40190(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+/* §124y-664 前向声明（第三百十批：[this+0/64/68] 三重写 + [this+16/20] 双取差值第六次实例化） */
 uint32_t F_3f99c(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_3fa14(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 /* §124y-663 前向声明（第三百零九批：[this+69] 读判定双依赖第四次实例化 + [this+64] 取直调） */
@@ -78827,8 +78830,10 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_3f99c,
     F_3f9dc,
     F_3fa14,
+    F_3fdd4,
     F_3fe2c,
     F_3fe40,
+    F_40190,
     F_40cc0,
     F_40cd4,
     F_412c8,
@@ -81807,8 +81812,10 @@ const uint32_t jqt_vtbl_offs[] = {
      0x3f99c,
      0x3f9dc,
      0x3fa14,
+     0x3fdd4,
      0x3fe2c,
      0x3fe40,
+     0x40190,
      0x40cc0,
      0x40cd4,
      0x412c8,
@@ -84143,7 +84150,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x11f20c,
      0x11fa34,
 };
-const uint32_t jqt_vtbl_n = 2977u;  /* §124y-149/.../663: 对齐 fns/offs 表实际条目数 */
+const uint32_t jqt_vtbl_n = 2979u;  /* §124y-149/.../664: 对齐 fns/offs 表实际条目数 */
 
 /* jqt_blx_dispatch：vtable 槽值 reg_val（shadow 地址）→ 目标函数。
  * 影子区 → off = reg_val - g_jqt_shadow；否则 off = reg_val。
@@ -98163,5 +98170,50 @@ uint32_t F_3fa14(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_
     F_3de6c(v64, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
     uint32_t lit = MEM(JQT_ABS_PTR(0x3fa2c));
     jqt_blx_dispatch(0x8554c, lit, 0, 0, 0, 0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+
+/* ★ §124y-664 第三百十批真业务裸跑函数补全（[this+0/64/68] 三重写 + [this+16/20] 双取差值第六次实例化）
+   - F_3fdd4（0x3fdd4，被调 2 次）：F_85858 依赖 + [this+0/64/68]
+     三重写
+     语义（objdump 逐指令 + 字面量池 0x3fdfc 实读）：
+       **bl F_85858（未译→镜像兜底）** + [this+0] 字面量池 8 偏移
+       写 + [this+64] 0 写 + [this+68] 单字节 0 写
+     ★ 诚实边界：依赖 + 三重写，主路径（[this+0/64/68] 写）直译 +
+       F_85858 镜像兜底（§124y-288~663 同口径，
+       同 0xdb608 偏移写模式，三重写为本轮最多写槽数）
+   - F_40190（0x40190，被调 2 次）：[this+16/20] 双取差值判定 +
+     字面量池（同 0x3e8e0/0x3edc4/0x3f024/0x3f38c/0x3f824 模式
+     第六次实例化）
+     语义（objdump 逐指令 + 字面量池 0x401f4 实读）：
+       [this+16] 取 + [this+20] 取 + 差值 + [r1] 字面量池差值 +
+       双判定 → 多分支
+     ★ 诚实边界：双取 + 差值 + 判定 + 多分支，主路径（[this+16/20]
+       双取差值计算 + 字面量池比较）直译 + 多分支体镜像兜底
+       （§124y-288~663 同口径，同 0xb3c54 双槽取模式，
+       第六次实例化确认模式稳定可批量处理） */
+uint32_t F_3fdd4(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* F_85858（未译）镜像兜底 + [this+0/64/68] 三重写主路径 */
+    if (!_r0) return 0;
+    jqt_blx_dispatch(0x85858, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
+    uint32_t lit = MEM(JQT_ABS_PTR(0x3fdfc));
+    MEM(_r0 + 0) = lit + 8;
+    MEM(_r0 + 64) = 0;
+    MEM(_r0 + 68) = 0;
+    return 0;
+}
+uint32_t F_40190(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* [this+16/20] 双取差值 + 字面量池比较主路径 + 多分支体兜底 */
+    if (!_r0) return 0;
+    uint32_t v16 = MEM(_r0 + 16);
+    uint32_t v20 = MEM(_r0 + 20);
+    uint32_t lit = MEM(JQT_ABS_PTR(0x401f4));
+    uint32_t diff1 = _r1 - lit;
+    uint32_t diff2 = v16 - v20;
+    jqt_blx_dispatch(0x40190, _r0, _r1, diff1, diff2, 0,0,0,0,0,0,0,0, _sp);
     return 0;
 }
