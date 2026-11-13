@@ -372,6 +372,9 @@ uint32_t F_336ec(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,
 uint32_t F_a4250(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_a4274(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_e546a(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_d207c(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_dc37c(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+/* §124y-342 前向声明（第五十七批：getter + 多分支槽位比较） */
 uint32_t F_b2d84(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_b37cc(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 /* §124y-341 前向声明（第五十六批：全依赖直调 + 全依赖直调） */
@@ -79467,6 +79470,7 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_d203c,
     F_d204c,
     F_d2070,
+    F_d207c,
     F_d2080,
     F_d209c,
     F_d2150,
@@ -79518,6 +79522,7 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_d683c,
     F_d6880,
     F_d6970,
+    F_dc37c,
     F_dc584,
     F_e019c,
     F_e01d0,
@@ -81804,6 +81809,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0xd203c,
      0xd204c,
      0xd2070,
+     0xd207c,
      0xd2080,
      0xd209c,
      0xd2150,
@@ -81855,6 +81861,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0xd683c,
      0xd6880,
      0xd6970,
+     0xdc37c,
      0xdc584,
      0xe019c,
      0xe01d0,
@@ -81892,7 +81899,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x11123a,
      0x11be2c,
 };
-const uint32_t jqt_vtbl_n = 2334u;  /* §124y-149/.../341: 对齐 fns/offs 表实际条目数 */
+const uint32_t jqt_vtbl_n = 2336u;  /* §124y-149/.../342: 对齐 fns/offs 表实际条目数 */
 
 /* jqt_blx_dispatch：vtable 槽值 reg_val（shadow 地址）→ 目标函数。
  * 影子区 → off = reg_val - g_jqt_shadow；否则 off = reg_val。
@@ -84789,6 +84796,44 @@ uint32_t F_b37cc(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_
     if (ret == 0) {
         F_b2bf4(_r0, _r2, JQT_ABS_PTR(0x743a2), 0,0,0,0,0,0,0,0,0, _sp);
         F_b3694(_r0, _r2, 0, 0,0,0,0,0,0,0,0,0, _sp);
+    }
+    return 0;
+}
+
+/* ★ §124y-342 第五十七批真业务裸跑函数补全（getter + 多分支槽位比较）
+   - F_d207c（0xd207c，被调 8 次）：getter（this=r0）
+     语义（objdump 逐指令，裸函数 2 指令）：[this+8] ldr → bx lr
+     同族兄弟（0xd2080 = 已译 F_d2080）
+     ★ 全直译（纯槽位读，零依赖）
+   - F_dc37c（0xdc37c，被调 8 次）：多分支（this=r0，r1/r2 参数）
+     语义（objdump 逐指令）：[this+20] vs r2 比较（> 跳 0xdc392）；
+       [this+24] vs r2 比较（< 跳 0xdc3be）；
+       0xdc392 区：[this+36] 取 → r6=1 → 多分支（0xdc3e0/0xdc3be）
+     ★ 诚实边界：多分支（3 槽比较 + 跳转），主路径（[this+20/24] 比较）
+       直译 + 多分支体镜像兜底（§124y-288~341 同口径） */
+uint32_t F_d207c(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* getter：[this+8] 取，全直译零依赖 */
+    if (!_r0) return 0;
+    return MEM(_r0 + 8);
+}
+uint32_t F_dc37c(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* 多分支：[this+20/24] 槽位比较主路径 + 多分支体兜底 */
+    if (!_r0) return 0;
+    uint32_t v20 = MEM(_r0 + 20);
+    uint32_t v24 = MEM(_r0 + 24);
+    if (v20 > _r2) {
+        /* 0xdc392 区 → 多分支体 → 镜像兜底 */
+        jqt_blx_dispatch(0xdc37c, _r0, _r1, _r2, 0,0,0,0,0,0,0,0,0, _sp);
+        return 0;
+    }
+    if (_r2 < v24) {
+        /* 0xdc3be 区 → 多分支体 → 镜像兜底 */
+        jqt_blx_dispatch(0xdc37c, _r0, _r1, _r2, 0,0,0,0,0,0,0,0,0, _sp);
+        return 0;
     }
     return 0;
 }
