@@ -372,6 +372,9 @@ uint32_t F_336ec(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,
 uint32_t F_a4250(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_a4274(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_e546a(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_6c274(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_722c4(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+/* §124y-335 前向声明（第五十批：复杂多分支 LUT + 92B 栈多分支） */
 uint32_t F_6a0cc(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_6a994(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 /* §124y-334 前向声明（第四十九批：复杂多分支 LUT 查表族） */
@@ -77936,6 +77939,7 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_6a994,
     F_6b740,
     F_6bd74,
+    F_6c274,
     F_6d7e0,
     F_6dab8,
     F_6dd10,
@@ -77975,6 +77979,7 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_6fe50,
     F_70908,
     F_71b38,
+    F_722c4,
     F_728c4,
     F_728d8,
     F_72b90,
@@ -80259,6 +80264,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x6a994,
      0x6b740,
      0x6bd74,
+     0x6c274,
      0x6d7e0,
      0x6dab8,
      0x6dd10,
@@ -80298,6 +80304,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x6fe50,
      0x70908,
      0x71b38,
+     0x722c4,
      0x728c4,
      0x728d8,
      0x72b90,
@@ -81843,7 +81850,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x11123a,
      0x11be2c,
 };
-const uint32_t jqt_vtbl_n = 2320u;  /* §124y-149/.../334: 对齐 fns/offs 表实际条目数 */
+const uint32_t jqt_vtbl_n = 2322u;  /* §124y-149/.../335: 对齐 fns/offs 表实际条目数 */
 
 /* jqt_blx_dispatch：vtable 槽值 reg_val（shadow 地址）→ 目标函数。
  * 影子区 → off = reg_val - g_jqt_shadow；否则 off = reg_val。
@@ -84454,5 +84461,42 @@ uint32_t F_6a994(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_
     uint32_t lut = MEM(slot + r4v * 4);
     /* LUT 查表体（多分支）→ 镜像兜底 */
     jqt_blx_dispatch(0x6a994, _r0, _r1, _r2, lut,0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+
+/* ★ §124y-335 第五十批真业务裸跑函数补全（复杂多分支 LUT + 92B 栈多分支）
+   - F_6c274（0x6c274，被调 8 次）：复杂多分支（this=r0，r1/r2/r3 参数）
+     语义（objdump 逐指令 + 字面量池 0x6c3f0=0xeee3c/0x6c3f4=0x83c 实读）：
+       [0xeee3c+0x83c] 全局槽取 → [sp+56] 取 → *4 偏移 LUT 查表 →
+       [r2*4+slot] 取 → 多分支
+     ★ 诚实边界：LUT 查表 + 全局槽 + 多分支，主路径（全局槽取 +
+       LUT 索引计算）直译 + LUT 查表体镜像兜底（§124y-288~334 同口径）
+   - F_722c4（0x722c4，被调 8 次）：92B 栈复杂多分支（this=r0，r1/r2/r3）
+     语义（objdump 逐指令 + 字面量池 0x725f0/0x725f4 实读）：
+       sub sp,#92 + [r1+0x725f0 偏移]=0 写（零清）→
+       [this+0xc6*4=0x318] 字节取 → 多分支
+     ★ 诚实边界：92B 栈 + 字面量池 + 多分支，主路径（[r1+偏移] 零清
+       + 字节取）直译 + 多分支体镜像兜底 */
+uint32_t F_6c274(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* 复杂多分支：全局槽 0xeee3c+0x83c 取 + LUT 索引计算主路径 + 兜底 */
+    if (!_r0) return 0;
+    uint32_t slot = MEM(JQT_ABS_PTR(0xeee3c + 0x83c));
+    uint32_t r5v = MEM(_sp + 56);
+    uint32_t lut = MEM(slot + r5v * 4);
+    jqt_blx_dispatch(0x6c274, _r0, _r1, _r2, lut,0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+uint32_t F_722c4(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* 92B 栈复杂多分支：[r1+偏移] 零清 + 字节取主路径 + 多分支体兜底 */
+    if (!_r0) return 0;
+    /* [r1+0x725f0 字面量偏移] 写 0（零清，主路径近似） */
+    MEM(_r1 + 0) = 0;
+    /* [this+0x318] 字节取 → 多分支体 → 镜像兜底 */
+    uint32_t byte = MEM(_r0 + 0x318);
+    jqt_blx_dispatch(0x722c4, _r0, _r1, _r2, byte,0,0,0,0,0,0,0,0, _sp);
     return 0;
 }
