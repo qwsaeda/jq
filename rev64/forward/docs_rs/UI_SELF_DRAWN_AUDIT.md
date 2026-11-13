@@ -86,13 +86,30 @@
 | ui44-118（datah 面板） | solid | 1-4 |
 | datah 批量 d* | solid | 120 弹窗 123 处 |
 
-## 修复路线（未做，后续）
+## 修复路线（★ 2026-11-13 已完成 1-7，后续 8）
 
-1. 主要弹窗按钮 → btn_color2 9patch（绿/蓝块，按按钮语义选色）
-2. datah 批量 d* → btn_color2（或 sbtn/btn1 小按钮皮肤）
-3. 弹窗面板 → 米色渐变（datax_188 三色，功能设置已用）
-4. 标题黑字（Title color=black，功能设置已烘焙 gameset_title_black.png）
-5. 逐弹窗区分"按钮"vs"遮罩"（内联 quad 里遮罩保留、按钮改皮肤）
+1. ✅ **主要弹窗按钮 → btn.png 9patch**（★ 2026-11-13：主流程弹窗 10+ 全改：
+   声音设置 datah_001 / 新局 datah_062 / 联机方式 datah_072 / 四国人数 datah_089 /
+   人机新局 datah_104 / 登录 datah_038 / 游戏规则 datah_037 / ☰ 菜单 datah_006/067 /
+   布局管理 datah_016/021 / 保存布局 datah_020 / 加入创建 datah_034/035）
+2. ✅ **次级弹窗按钮 → btn.png 9patch**（★ 2026-11-13：新局补充 datah_061 / 对局信息
+   datah_050 / 亮度 datah_002 / 聊天记录 datah_029 / 个人资料 datah_031 / 聊天 datah_063 /
+   游戏规则完整版 datah_070 / 房间 datah_060 / 加入完整版 datah_065 / 创建完整版 datah_069 /
+   软件信息 datah_000）
+3. ✅ **弹窗面板 → rs_popup_shell**（★ 2026-11-13：背景+遮罩+米色渐变面板，替换旧深色
+   半透明面板 0.08,0.08,0.10f 残留清零；原版 Dialog/BackDlg style→dlg.cfg 权威证实，
+   但 dlg.png 位图未定位（诚实边界，面板程序化近似保留））
+4. ✅ **对局控制条文字按钮 d257-d261 → btn.png 9patch**（★ 2026-11-13：datah_257/258/
+   259/260/261，替换旧深蓝纯色 0.22,0.28,0.42,0.85；d255/d256 是 icon 按钮
+   （menu/chat/back/prev/next 位图），待接 icon 位图（诚实边界））
+5. ✅ **标题黑字**（★ 2026-11-13：原版 Title color=black 权威（UiConfig+各 datah XML），
+   批量改 10 个标题图集脚本（newgame/ng104/login/layres/join/sound/about/ng061/bright/
+   chatlog）row0 黑字 (0,0,0,255)，row1+ 按钮文字白（UiConfig Button color=white）；
+   重烘焙验证 row0 黑 ✓ row1 白 ✓）
+6. ✅ **逐弹窗区分"按钮"vs"遮罩"**（所有弹窗按钮已 btn.png，遮罩保留 rs_popup_shell）
+7. ✅ **标题黑字烘焙**（gameset_title_black.png 此前已做 + 本轮 10 弹窗批量）
+8. **dlg.png 定位**（★ 2026-11-13 采样推翻 datah_187=网格背景非面板；datax_188/datah_188/
+   datax_187=棋盘背景（737×751=board）非 dlg.png；dlg.png 位图 SPAK 未定位，诚实边界）
 
 ## 判定标准（防再"胡搞"）
 
@@ -116,10 +133,14 @@
 3. **我用 datax_195 当功能设置按钮皮肤 = 错误资源**（不满足 btn.cfg 9-patch，且 4 色条
    非单按钮皮肤；datax_195 可能被原版代码直接索引用于主菜单/特定大按钮，非 XML style=Button）。
    **★ 已修**：功能设置 6 按钮改用 btn.png 正常态 9-patch（jq_btn_skin.h + rs_draw_gameset）。
-4. **弹窗皮肤 dlg.png 候选 = datah_187**（480×490 米金渐变，9-patch 兼容）：
-   dlg.cfg=datah_215 `dlg.png,8,55,16,59` / datax_215 `dlg.png,8,83,16,87`；
-   ★ 诚实边界：datah_187 与 dlg.png 对应未 100% 实锤（SPAK 无显式名字表），作候选待验证。
-   旧用 datax_188 米色**自绘近似**（非原版位图）。
+4. **弹窗皮肤 dlg.png**：UiConfig datah_117 `<Style name="Dialog" type="Dialog"
+   image="dlg.cfg"/>` **权威证实原版弹窗面板 = dlg.png**（dlg.cfg=datah_215
+   `dlg.png,8,55,16,59` / datax_215 `dlg.png,8,83,16,87`）。位图候选 datah_187（480×490）
+   **★ 2026-11-13 采样推翻**（含绿色装饰块/网格背景，非纯 9-patch 圆角面板）；
+   datax_188/datah_188/datax_187 = 棋盘背景（737×751=board），非 dlg.png。
+   **★ 诚实边界：dlg.png 位图 SPAK 未定位**，rs_popup_shell 程序化米色渐变近似保留
+   （采样自棋盘背景 datax_188，非原版面板；待 dlg.png 真值定位后替换 9-patch）。
+   旧用 datax_188 米色**自绘近似**（非原版位图，本轮确认其实际是棋盘背景渐变）。
 5. **标题黑字是烘焙**（gameset_text_atlas row0 转黑），非原版资源。
 
 **结论（★ 2026-11-13 修正）**：原版按钮皮肤 btn.png **已定位**（datah_207/208/209 三态，
@@ -130,4 +151,5 @@ GL2 纯色四边形路径（0x9e3e4 glDrawArrays(5,0,4)）是**非按钮**控件
 
 **真对齐路径（★ 已突破）**：SPAK cfg 内容（btn.cfg=`btn.png,8,29,16,30`）→ 按 9-patch
 尺寸匹配定位位图（btn.png=datah_207/208/209）→ 烘焙 → 渲染 9-patch 拉伸。剩余：
-dlg.png 确认（datah_187 候选）+ 主要弹窗按钮逐一改 btn.png 9-patch。
+**dlg.png 定位**（UiConfig 权威证实 Dialog→dlg.cfg，但位图 SPAK 未定位，诚实边界）+
+d255/d256 icon 按钮接 icon 位图（诚实边界）。
