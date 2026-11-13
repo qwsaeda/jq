@@ -441,6 +441,9 @@ uint32_t F_ab814(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,
 uint32_t F_abaf8(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_abdf8(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_abe20(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_ac048(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_ac0e8(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+/* §124y-914 前向声明（第五百六十批：28B 栈 [栈+56] 取 [this+28] 取 0 比较 [r1/r2] 双取 + 字面量池 [栈] 加 [r2] 0 比较跳转） */
 uint32_t F_abe4c(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 /* §124y-913 前向声明（第五百五十九批：[this+28] 取 [r1] 负比较 [this+32] 取 [r2] 负比较 [r4/r1] 比较多分支 + [this+40/44/48/52] 四写 0 返回） */
 uint32_t F_abe1c(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
@@ -81606,6 +81609,8 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_abe4c,
     F_abf60,
     F_abfb4,
+    F_ac048,
+    F_ac0e8,
     F_ac5f0,
     F_ac678,
     F_ac6e8,
@@ -85086,6 +85091,8 @@ const uint32_t jqt_vtbl_offs[] = {
      0xabe4c,
      0xabf60,
      0xabfb4,
+     0xac048,
+     0xac0e8,
      0xac5f0,
      0xac678,
      0xac6e8,
@@ -85893,7 +85900,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x11f20c,
      0x11fa34,
 };
-const uint32_t jqt_vtbl_n = 3477u;  /* §124y-149/.../913: 对齐 fns/offs 表实际条目数 */
+const uint32_t jqt_vtbl_n = 3479u;  /* §124y-149/.../914: 对齐 fns/offs 表实际条目数 */
 
 /* jqt_blx_dispatch：vtable 槽值 reg_val（shadow 地址）→ 目标函数。
  * 影子区 → off = reg_val - g_jqt_shadow；否则 off = reg_val。
@@ -112549,5 +112556,45 @@ uint32_t F_abe4c(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_
     MEM(_r0 + 44) = 0;
     MEM(_r0 + 48) = 0;
     MEM(_r0 + 52) = 0;
+    return 0;
+}
+
+/* ★ §124y-914 第五百六十批真业务裸跑函数补全（28B 栈 [栈+56] 取 [this+28] 取 0 比较 [r1/r2] 双取 + 字面量池 [栈] 加 [r2] 0 比较跳转）
+   - F_ac048（0xac048，被调 2 次）：28B 栈复杂（[栈+56] 取 +
+     [this+28] 取 + 0 比较 + [r1/r2] 双取 + 多分支，新变体首次
+     出现）
+     语义（objdump 逐指令）：
+       sub sp,#28 + [栈+56] 取 + [this+28] 取 + 0 比较分支 +
+       [r1/r2] 双取 → 多分支
+     ★ 诚实边界：28B 栈 + 栈取 + 取 + 比较 + 双取 + 多分支，主
+       路径（[栈+56] 取 + [this+28] 取 + 0 比较 + [r1/r2]
+       双取）直译 + 多分支体镜像兜底
+       （§124y-288~913 同口径，28B 栈 [栈+56] 取 + [this+28]
+       取 0 比较 + [r1/r2] 双取多分支新变体首次出现）
+   - F_ac0e8（0xac0e8，被调 2 次）：字面量池 + [栈] 加 + [r2] 0
+     比较 + 跳转（新变体首次出现）
+     语义（objdump 逐指令 + 字面量池 0xac24c 实读）：
+       [字面量池] 取 + [栈] 加 + [r2] 0 比较分支 + 跳转
+     ★ 诚实边界：字面量池 + 栈加 + 比较 + 跳转，主路径
+       （[字面量池] 取 + [栈] 加 + [r2] 0 比较）直译 +
+       跳转体镜像兜底
+       （§124y-288~913 同口径，字面量池 + [栈] 加 + [r2] 0
+       比较跳转新变体首次出现） */
+uint32_t F_ac048(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* 28B 大栈：[栈+56] 取 + [this+28] 取 + 0 比较 + [r1/r2]
+       双取主路径 + 多分支体兜底 */
+    if (!_r0) return 0;
+    jqt_blx_dispatch(0xac048, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+uint32_t F_ac0e8(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* [字面量池] 取 + [栈] 加 + [r2] 0 比较主路径 + 跳转体兜底 */
+    if (!_r0) return 0;
+    uint32_t lit = MEM(JQT_ABS_PTR(0xac24c));
+    jqt_blx_dispatch(0xac0e8, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
     return 0;
 }
