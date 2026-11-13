@@ -372,6 +372,9 @@ uint32_t F_336ec(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,
 uint32_t F_a4250(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_a4274(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_e546a(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_11a410(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_11dc0c(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+/* §124y-346 前向声明（第六十一批：文件流构造 + 字符扫描） */
 uint32_t F_116c68(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_116d5c(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 /* §124y-345 前向声明（第六十批：货币符号处理同族） */
@@ -79573,7 +79576,9 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_11123a,
     F_116c68,
     F_116d5c,
+    F_11a410,
     F_11be2c,
+    F_11dc0c,
 };
 const uint32_t jqt_vtbl_offs[] = {
     0x23408,
@@ -81918,9 +81923,11 @@ const uint32_t jqt_vtbl_offs[] = {
      0x11123a,
      0x116c68,
      0x116d5c,
+     0x11a410,
      0x11be2c,
+     0x11dc0c,
 };
-const uint32_t jqt_vtbl_n = 2342u;  /* §124y-149/.../345: 对齐 fns/offs 表实际条目数 */
+const uint32_t jqt_vtbl_n = 2344u;  /* §124y-149/.../346: 对齐 fns/offs 表实际条目数 */
 
 /* jqt_blx_dispatch：vtable 槽值 reg_val（shadow 地址）→ 目标函数。
  * 影子区 → off = reg_val - g_jqt_shadow；否则 off = reg_val。
@@ -84995,4 +85002,51 @@ uint32_t F_116d5c(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32
         MEM(_r1 + 1) = 3;
     }
     return 0;
+}
+
+/* ★ §124y-346 第六十一批真业务裸跑函数补全（文件流构造 + 字符扫描）
+   - F_11a410（0x11a410，被调 8 次）：文件流构造（this=r0，r1 参数）
+     语义（objdump 逐指令）：blx _Znwj@plt（.plt 系统调用，124 字节）
+       → **bl F_11a218（未译→镜像兜底）**（filebuf 构造）+
+       [this+14] ldrsh 取 + this+32 区 → **bl F_120508（未译→镜像
+       兜底）**（_M_open）
+     ★ 诚实边界：_Znwj .plt + F_11a218/F_120508 未译 → 主路径
+       （124 字节分配 + 构造调用）直译 + 依赖镜像兜底
+       （§124y-288~345 同口径）
+   - F_11dc0c（0x11dc0c，被调 8 次）：字符扫描（r0 指针）
+     语义（objdump 逐指令）：**bl F_118da0（未译→镜像兜底）**
+       （d_fmt 取格式）→ [r0+0] 字节取 → =='%'(0x25) →
+       [r0+1] 字节取非 '%' → r0++（循环扫描非 '%' 字符）
+     ★ 诚实边界：F_118da0 未译 → 主路径（[%] 字符循环扫描）直译
+       + F_118da0 镜像兜底 */
+uint32_t F_11a410(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* 文件流构造：_Znwj（.plt 兜底）+ F_11a218/F_120508（未译）镜像兜底 */
+    if (!_r0) return 0;
+    /* _Znwj(124)（.plt 系统调用）→ 镜像兜底 */
+    uint32_t buf = jqt_blx_dispatch(0x232f8, 124, 0, 0, 0,0,0,0,0,0,0,0,0, _sp);
+    /* F_11a218（未译）→ 镜像兜底（filebuf 构造） */
+    jqt_blx_dispatch(0x11a218, buf, 0, 0, 0,0,0,0,0,0,0,0,0, _sp);
+    /* [this+14] ldrsh 取 + F_120508（未译）→ 镜像兜底（_M_open） */
+    int16_t off = (int16_t)(MEM(_r0 + 14) & 0xffff);
+    jqt_blx_dispatch(0x120508, buf + 32, _r1, off, 0,0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+uint32_t F_11dc0c(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* 字符扫描：F_118da0（未译）镜像兜底 + [%] 循环扫描主路径 */
+    if (!_r0) return 0;
+    /* F_118da0（未译）→ 镜像兜底（d_fmt 取格式） */
+    uint32_t fmt = jqt_blx_dispatch(0x118da0, 0, 0, 0, 0,0,0,0,0,0,0,0,0, _sp);
+    /* [%] 字符循环扫描（主路径） */
+    uint32_t p = _r0;
+    if (MEM(p + 0) == 0x25) {   /* '%' 首字符 */
+        p++;
+        while (MEM(p + 0) != 0 && MEM(p + 0) != 0x25) {
+            p++;
+        }
+    }
+    return p;
 }
