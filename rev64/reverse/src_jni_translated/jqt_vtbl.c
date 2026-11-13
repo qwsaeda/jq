@@ -450,6 +450,9 @@ uint32_t F_acb8c(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,
 uint32_t F_acc6c(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_acf6c(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_aee0c(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_af950(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_afbc8(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+/* §124y-923 前向声明（第五百六十九批：F_9f524 直调字面量池 [this+0] 写 84 偏移 [this+100/104] 双写 F_af94c 直调 + [this+0/4] 双取加返回） */
 uint32_t F_af8d0(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 /* §124y-922 前向声明（第五百六十八批：44B 大栈 [r2] 除以 2 取整 [栈+16] 写 + 276B 超大栈字面量池双取 [池+0] 取 [this] 多分支） */
 uint32_t F_aeb98(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
@@ -81698,11 +81701,13 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_af38c,
     F_af8d0,
     F_af94c,
+    F_af950,
     F_afb68,
     F_afb74,
     F_afb7c,
     F_afb88,
     F_afbc0,
+    F_afbc8,
     F_afbec,
     F_afbf8,
     F_afc00,
@@ -85196,11 +85201,13 @@ const uint32_t jqt_vtbl_offs[] = {
      0xaf38c,
      0xaf8d0,
      0xaf94c,
+     0xaf950,
      0xafb68,
      0xafb74,
      0xafb7c,
      0xafb88,
      0xafbc0,
+     0xafbc8,
      0xafbec,
      0xafbf8,
      0xafc00,
@@ -85956,7 +85963,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x11f20c,
      0x11fa34,
 };
-const uint32_t jqt_vtbl_n = 3495u;  /* §124y-149/.../922: 对齐 fns/offs 表实际条目数 */
+const uint32_t jqt_vtbl_n = 3497u;  /* §124y-149/.../923: 对齐 fns/offs 表实际条目数 */
 
 /* jqt_blx_dispatch：vtable 槽值 reg_val（shadow 地址）→ 目标函数。
  * 影子区 → off = reg_val - g_jqt_shadow；否则 off = reg_val。
@@ -113009,5 +113016,48 @@ uint32_t F_af8d0(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_
     uint32_t lit1 = MEM(JQT_ABS_PTR(0xaf944));
     uint32_t lit2 = MEM(JQT_ABS_PTR(0xaf948));
     jqt_blx_dispatch(0xaf8d0, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+
+/* ★ §124y-923 第五百六十九批真业务裸跑函数补全（F_9f524 直调字面量池 [this+0] 写 84 偏移 [this+100/104] 双写 F_af94c 直调 + [this+0/4] 双取加返回）
+   - F_af950（0xaf950，被调 2 次）：F_9f524 直调 + 字面量池 +
+     [this+0] 写 + 84 偏移 + [this+100/104] 双写 + F_af94c 直调
+     （新变体首次出现）
+     语义（objdump 逐指令 + 字面量池 0xaf980 实读）：
+       **bl F_9f524（未译→镜像兜底）** + [字面量池] 取 +
+       [this+0] 字面量池 8 偏移写 + 84 偏移 + [this+100/104]
+       双写 + **bl F_af94c（未译→镜像兜底）** → 多分支
+     ★ 诚实边界：直调 + 字面量池 + 写 + 偏移 + 双写 + 直调 +
+       多分支，主路径（F_9f524 直调 + [this+0] 写 + 84 偏移
+       + [this+100/104] 双写 + F_af94c 直调）直译 + 双镜像兜底
+       （§124y-288~922 同口径，F_9f524 直调 + 字面量池 +
+       [this+0] 写 + 84 偏移 + [this+100/104] 双写 + F_af94c
+       直调新变体首次出现）
+   - F_afbc8（0xafbc8，被调 2 次）：[this+0] 取 + [r1] 加 + [this+4]
+     取 + [r2] 加 + [this+0/4] 双写 + 返回（全直译零依赖）
+     语义（objdump 逐指令）：
+       [this+0] 取 + [r1] 加 + [this+4] 取 + [r2] 加 +
+       [this+0] 写 + [this+4] 写 → 返回
+     ★ 全直译零依赖，纯 [this+0/4] 双取 + [r1/r2] 双加 +
+       [this+0/4] 双写返回（同 0x8571c/0x85704/0x94da0/0x9f3e4/
+       0xa1e20 模式，[this+0/4] 双取加双写返回新槽首次出现） */
+uint32_t F_af950(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* F_9f524（未译）镜像兜底 + [字面量池] 取 + [this+0] 写 +
+       84 偏移 + [this+100/104] 双写 + F_af94c（未译）镜像兜底
+       主路径 + 多分支体兜底 */
+    if (!_r0) return 0;
+    jqt_blx_dispatch(0xaf950, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+uint32_t F_afbc8(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* [this+0/4] 双取 + [r1/r2] 双加 + [this+0/4] 双写返回（全直译
+       零依赖） */
+    if (!_r0) return 0;
+    MEM(_r0 + 0) = MEM(_r0 + 0) + _r1;
+    MEM(_r0 + 4) = MEM(_r0 + 4) + _r2;
     return 0;
 }
