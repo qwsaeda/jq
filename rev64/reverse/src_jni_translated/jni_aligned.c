@@ -29,6 +29,7 @@ extern uint32_t jqt_OnUpdate(JQT_SIG);
 extern uint32_t F_23475(JQT_SIG);   /* OnUpdate 完整链 */
 /* ★ §124y-267 game_test 钩子前向声明（OnUpdate 每帧调用，定义在下方） */
 static void jq_game_test_hook(void);
+static void jq_native_event_hook(void);
 extern uint32_t F_2349d(JQT_SIG);   /* OnGraphCreate 完整链 */
 extern uint32_t F_23489(JQT_SIG);   /* OnGraphChange 完整链 */
 extern uint32_t F_23461(JQT_SIG);   /* OnTimer 完整链 */
@@ -583,6 +584,7 @@ Java_com_cnvcs_App_OnUpdate(JNIEnv *env, jclass c){
        OnUpdate 543 次）→ 属性读点时机竞态致判据 flaky。钩子内 _gt_done 用 CAS
        原子化（OnTimer 主线程 + OnUpdate GLThread 双入口只允许一方进入）。 */
     jq_game_test_hook();
+    jq_native_event_hook();
     /* ★ §SLOT22-TRIGGER（本轮）：一次性 slot22（F_9e2b4 纹理创建）触发。
      *   背景：sp28-SCALE-8 手动直调 F_9e2b4 曾因 jqt_mem.h include 缺失 → dlopen fail
      *   （已修，include 加回）。三条件现在都满足：
@@ -763,6 +765,67 @@ static void jq_game_test_hook(void)
     }
 }
 
+/* ★ §124y-271 native_layout/native_event 钩子（提取为独立函数，OnTimer 主线程 +
+   OnUpdate GLThread 双入口调用——§124y-267 同款竞态修复：钩子原只在 OnTimer 读
+   jq.native_layout 属性（OnTimer 181 次 vs OnUpdate 543 次）→ 属性读点时机竞态致
+   native_event 判据 flaky。OnUpdate 每帧调用 + done 标志 CAS 原子化。 */
+static void jq_native_event_hook(void)
+{
+    {
+        static volatile int _nl_done = 0;
+        char _nl[8] = {0};
+        /* ★ §124y-271 原子化 done 标志（OnTimer 主线程 + OnUpdate GLThread 双入口
+           并发只允许一方进入），属性检查在前、CAS 在后（§124y-269 同款修正）。 */
+        /* ★ §124y-273 诊断（限 3 次）：打印属性读值 + 调用线程，判定
+           "属性读不到（32 位转译层运行期可见性）" vs "调用路径没跑到" */
+        {
+            static int _nldbg = 0;
+            if (_nldbg < 3) {
+                _nldbg++;
+                int _r = __system_property_get("jq.native_layout", _nl);
+                __android_log_print(6, "junqi", "NATIVE-HOOK-DBG: prop_read=%d val='%s' tid=%d done=%d",
+                                    _r, (_r > 0) ? _nl : "(null)", (int)gettid(), _nl_done);
+            }
+        }
+        if (__system_property_get("jq.native_layout", _nl) > 0 && _nl[0] == '1' &&
+            __sync_bool_compare_and_swap(&_nl_done, 0, 1)) {
+            /* _nl_done 已由 CAS 置 1 */
+            __android_log_print(6,"junqi","NATIVE-LAYOUT: setprop jq.native_layout=1 → 32 位原生布局链");
+            extern uint32_t F_2a380(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+            extern void *_Znwj(unsigned int);
+            uint32_t stobj = (uint32_t)_Znwj(0x200);
+            MEM(stobj) = JQT_ABS_PTR(0x159950);   /* 游戏状态 vtable */
+            for (int i = 0; i < 64; i++) MEM(stobj + i*4) = (i==0) ? MEM(stobj) : 0;
+            uint32_t ret = F_2a380(stobj, 0, 0,0,0,0,0,0,0,0,0,0, 0x20f000);
+            __android_log_print(6,"junqi","NATIVE-LAYOUT: F_2a380 返回 0x%08x state=0x%08x（32 位原生布局链跑通）", ret, stobj);
+            /* ★ §124y-21：32 位原生事件发送器（F_3ab80）对照——构造事件对象 + 调 F_3ab80
+               （32 位原生 Junqi.* 事件链：F_33790/F_3376c/F_336ec + F_3a92c 分发 + F_33684 发送）
+               与会话 B 走子桥事件互为对照（32 位原生 vs 会话 B 替代驱动） */
+            extern uint32_t F_3ab80(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+            /* ★ §124y-22：构造**真实事件对象**（非全零）——填 .rodata Junqi.Move 事件名指针
+               + 事件码 + 走子 cell 参数，让 32 位原生事件链 F_3a92c 分发读到真实事件字段
+               （F_3a92c 反汇编：evt+0x35 类型标记 + evt+0x44 事件码 + evt+0x48 事件名首字节）
+               32 位 .rodata Junqi.Move @ 0x120f20（.rodata 73 条 Junqi.* 明文之一） */
+            uint32_t evtobj = (uint32_t)_Znwj(0x100);
+            MEM(evtobj) = JQT_ABS_PTR(0x159950);
+            for (int i = 0; i < 64; i++) MEM(evtobj + i*4) = (i==0) ? MEM(evtobj) : 0;
+            /* 真实事件对象字段（F_3a92c 读这些）：
+               evt+0x44 = 事件码（走子=0，F_3a92c ldr r5,[r0,#68] 对比事件码）
+               evt+0x48 = 事件名指针首字节（Junqi.Move @ .rodata 0x120f20，绝对指针 = g_jqt_shadow+0x120f20）
+               evt+0x35 = 类型标记（F_3a92c ldrb [r0,#53]，非零才进事件表遍历） */
+            /* §124y-27：F_3a92c 匹配读 [evt+r6+r3+0x48] 的**字节**（非指针）——事件名首字节 'J'=0x4A>>4=4=事件码
+               事件表 outer[0] inner[8] @0x15af10=0x41(asr4=4)，evt+0x44=4 + evt[0x50]='J' 使 (0x4A>>4)==4 匹配成功 */
+            MEMB(evtobj + 0x35) = 1;                          /* 类型标记（非零进事件表遍历） */
+            MEM(evtobj + 0x44) = 4;                           /* 事件码 Junqi.Move=4（'J'>>4） */
+            MEMB(evtobj + 0x48 + 8) = 0x4A;                   /* 'J' 事件名首字节（outer[0] inner[8] 位） */
+            __android_log_print(6,"junqi","NATIVE-EVENT: §124y-27 事件对象 evt+0x35=%d evt+0x44=%d evt[0x50]=0x%02x('J'事件名字节，disc 非零路径)",
+                (int)MEM(evtobj+0x35), MEM(evtobj+0x44), MEMB(evtobj+0x48+8));
+            uint32_t evret = F_3ab80(evtobj, 0,0,0,0,0,0,0,0,0,0,0, 0x20f000);
+            __android_log_print(6,"junqi","NATIVE-EVENT: F_3ab80 返回 0x%08x evt=0x%08x（32 位原生事件链，真实事件对象）", evret, evtobj);
+        }
+    }
+}
+
 JNIEXPORT void JNICALL
 Java_com_cnvcs_App_OnTimer(JNIEnv *env, jclass c){
     /* ★ 桥自检触发点（首次，OnTimer 主线程每 100ms 稳定入口）。
@@ -830,45 +893,7 @@ Java_com_cnvcs_App_OnTimer(JNIEnv *env, jclass c){
     }
     /* ★ §124y-20：32 位原生布局加载链（OnCreate 测试钩子，redroid 可触发）
        setprop jq.native_layout 1 → F_2a380 布局入口（32 位原生布局链，离线 JQ_DEFAULT_LAY） */
-    {
-        static int _nl_done = 0;
-        char _nl[8] = {0};
-        if (!_nl_done && __system_property_get("jq.native_layout", _nl) > 0 && _nl[0] == '1') {
-            _nl_done = 1;
-            __android_log_print(6,"junqi","NATIVE-LAYOUT: setprop jq.native_layout=1 → 32 位原生布局链");
-            extern uint32_t F_2a380(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
-            extern void *_Znwj(unsigned int);
-            uint32_t stobj = (uint32_t)_Znwj(0x200);
-            MEM(stobj) = JQT_ABS_PTR(0x159950);   /* 游戏状态 vtable */
-            for (int i = 0; i < 64; i++) MEM(stobj + i*4) = (i==0) ? MEM(stobj) : 0;
-            uint32_t ret = F_2a380(stobj, 0, 0,0,0,0,0,0,0,0,0,0, 0x20f000);
-            __android_log_print(6,"junqi","NATIVE-LAYOUT: F_2a380 返回 0x%08x state=0x%08x（32 位原生布局链跑通）", ret, stobj);
-            /* ★ §124y-21：32 位原生事件发送器（F_3ab80）对照——构造事件对象 + 调 F_3ab80
-               （32 位原生 Junqi.* 事件链：F_33790/F_3376c/F_336ec + F_3a92c 分发 + F_33684 发送）
-               与会话 B 走子桥事件互为对照（32 位原生 vs 会话 B 替代驱动） */
-            extern uint32_t F_3ab80(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
-            /* ★ §124y-22：构造**真实事件对象**（非全零）——填 .rodata Junqi.Move 事件名指针
-               + 事件码 + 走子 cell 参数，让 32 位原生事件链 F_3a92c 分发读到真实事件字段
-               （F_3a92c 反汇编：evt+0x35 类型标记 + evt+0x44 事件码 + evt+0x48 事件名首字节）
-               32 位 .rodata Junqi.Move @ 0x120f20（.rodata 73 条 Junqi.* 明文之一） */
-            uint32_t evtobj = (uint32_t)_Znwj(0x100);
-            MEM(evtobj) = JQT_ABS_PTR(0x159950);
-            for (int i = 0; i < 64; i++) MEM(evtobj + i*4) = (i==0) ? MEM(evtobj) : 0;
-            /* 真实事件对象字段（F_3a92c 读这些）：
-               evt+0x44 = 事件码（走子=0，F_3a92c ldr r5,[r0,#68] 对比事件码）
-               evt+0x48 = 事件名指针首字节（Junqi.Move @ .rodata 0x120f20，绝对指针 = g_jqt_shadow+0x120f20）
-               evt+0x35 = 类型标记（F_3a92c ldrb [r0,#53]，非零才进事件表遍历） */
-            /* §124y-27：F_3a92c 匹配读 [evt+r6+r3+0x48] 的**字节**（非指针）——事件名首字节 'J'=0x4A>>4=4=事件码
-               事件表 outer[0] inner[8] @0x15af10=0x41(asr4=4)，evt+0x44=4 + evt[0x50]='J' 使 (0x4A>>4)==4 匹配成功 */
-            MEMB(evtobj + 0x35) = 1;                          /* 类型标记（非零进事件表遍历） */
-            MEM(evtobj + 0x44) = 4;                           /* 事件码 Junqi.Move=4（'J'>>4） */
-            MEMB(evtobj + 0x48 + 8) = 0x4A;                   /* 'J' 事件名首字节（outer[0] inner[8] 位） */
-            __android_log_print(6,"junqi","NATIVE-EVENT: §124y-27 事件对象 evt+0x35=%d evt+0x44=%d evt[0x50]=0x%02x('J'事件名字节，disc 非零路径)",
-                (int)MEM(evtobj+0x35), MEM(evtobj+0x44), MEMB(evtobj+0x48+8));
-            uint32_t evret = F_3ab80(evtobj, 0,0,0,0,0,0,0,0,0,0,0, 0x20f000);
-            __android_log_print(6,"junqi","NATIVE-EVENT: F_3ab80 返回 0x%08x evt=0x%08x（32 位原生事件链，真实事件对象）", evret, evtobj);
-        }
-    }
+    jq_native_event_hook();
     /* ★ §124y-19：会话 B 规则引擎走子桥（setprop jq.walk_bridge 1 → 开局 + 走子 + 打 Junqi.* 事件）
        直接调 jq_walk_bridge_tick（jq_rs_walkbridge.c，已 visibility default） */
     jq_walk_bridge_tick();

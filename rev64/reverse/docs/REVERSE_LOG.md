@@ -9347,3 +9347,48 @@ flaky 误判回归"三型假闭环。
 - **剩余项（§124y-270 收口）**：native_event 判据 flaky（首跑 PASS/FAIL 交替，
   §124y-260 flaky 窗口迁移口径）= 下一个可推进项（按 game_test 同款
   LOG 并集判读 + 钩子每帧读属性模式对齐）；其余 3 项同轮 PASS + 崩溃 0 达成
+
+
+### §124y-271~277 native_event flaky 专项根治——进程复用 + 前台抢占 + 脚本中断 三坑连环（so c6d0c572，2026-11-13）
+
+用户指定"native_event 判据 flaky = 下一个可推进项，按 game_test 同款模式对齐"
+指令下，native_event flaky 专项根治（**7 轮连环排障**，每个都是独立真实缺陷）：
+
+- **① §124y-271 钩子对称化**：native_layout/native_event 钩子原只在 OnTimer 读
+  `jq.native_layout` 属性（OnTimer 181 次 vs OnUpdate 543 次）→ 提取为独立函数
+  `jq_native_event_hook()`，OnTimer + OnUpdate **双入口**调用 + `_nl_done` CAS
+  原子化（属性检查在前、CAS 在后，§124y-269 同款修正）
+- **② §124y-272 属性前置**：32 位 so 经 houdini 转译后 `__system_property_get`
+  对**运行期新设**属性不可见 → 脚本改"**启动前**设属性"（与 walk_bridge/game_test
+  的 launch_hook 前置模式一致），实测属性前置时第 1 轮命中
+- **③ §124y-273 钩子属性读值诊断**（限 3 次）：`NATIVE-HOOK-DBG: prop_read=1
+  val='1' done=0` 实锤属性可见性 + 调用线程
+- **④ §124y-274 前台守护 `ensure_fg()`**：实锤同设备**正向会话 64 位 app**
+  （`com.qwsaeda.junqirs`）抢前台 → 32 位 app 退后台 → **GL 线程暂停 →
+  OnUpdate 停 → 挂在 OnUpdate/OnTimer 的钩子全哑**（实锤 OnUpdate 被调 0 次 +
+  钩子 0 日志 + `topResumedActivity=com.qwsaeda.junqirs`）→ 判据脚本加
+  `ensure_fg`（清干扰 + 拉起本 app + 校验前台确实是本包）
+- **⑤ §124y-275 脚本 `local` 误用**：顶层脚本（非函数）用 `local _ni` → bash 报
+  `local: can only be used in a function` **中断整个 native_event 分支** →
+  轮询循环从未执行 → 判据恒 FAIL（实锤判后 logcat 无任何锚点）
+- **⑥ §124y-276 so 重编三步齐 + 三方哈希核对**：实锤设备端 so 为 12:45 旧版
+  （本地 dist 已是新版）→ §124y-248 教训"改 so 必 build+pack+install + 三方
+  哈希核对"落实（dist=apk=设备端）
+- **⑦ §124y-277 ★ 真根因：进程复用**：`am force-stop $PKG` 后直接 `am start`
+  **会复用旧进程** → 钩子静态标志（`_nl_done`/`_gt_done`/`_nldbg`）残留为 1 →
+  钩子**永久哑**（实锤：判后 logcat 无 OnCreate/钩子任何日志）→ `ensure_fg` 加
+  **等 pid 真正消失**（最多 10s 轮询）再 `am start`
+- **★ 根治实锤**：§124y-277 后 **native_event 单跑 3 连全 PASS**
+  （此前 3 连 FAIL），全链崩溃计数 0
+- **剩余项**：4 项**同轮串行**仍有 1-2 项 flaky（game_test/framebuffer PASS，
+  walk_bridge/native_event 偶发 FAIL）= 下一轮推进项（串行场景下正向前台 app
+  可能再次抢占 + 转译冷启动叠加）
+- **★ 教训固化（本轮 7 坑的共同模式）**：
+  1. **判据 flaky 逐项拆解到"可观测信号"**：属性读值诊断 + 生命周期计数 +
+     前台 Activity + pid 复用检查——四件套定位，别猜
+  2. **进程复用是最隐蔽的 flaky 源**：force-stop 后必须确认 pid 消失再 start
+     （静态标志残留 = 钩子永久哑，表现为"属性设了但钩子不响"）
+  3. **同设备跨会话 app 抢前台**是 GL 型 app 的判据杀手（后台 → GL 线程暂停
+     → 每帧钩子全哑），判据脚本必须做前台守护
+  4. **顶层脚本禁 `local`**（bash 报错会静默中断分支，表现为"判据恒 FAIL"）
+  5. **改 so 必三步齐 + 三方哈希核对**（§124y-248 教训复现：设备跑旧 so）

@@ -160,7 +160,7 @@ launch_hook() {
   done
   adb -s "$DEV" shell "am force-stop $PKG; logcat -c" >/dev/null 2>&1
   sleep 2
-  adb -s "$DEV" shell "am start -n $PKG/com.cnvcs.App" >/dev/null 2>&1
+  ensure_fg   # §124y-274 前台守护（防正向 64 位 app 抢前台 → GL 暂停 → 钩子哑）
   # §124y-186 flaky 根治：32 位 so 冷启动 OnCreate/OnUpdate 钩子段出日志需 ~30-40s
   # （实测 GAME-TEST 在 start 后 ~37s），固定 sleep 18 读不到判据 → 假 FAIL。
   # 改：sleep 45s 起步（设备刚 boot 转译冷启动 2-3 倍慢，§124y-180 教训），读到判据即返回。
@@ -191,6 +191,38 @@ launch_hook() {
     LOG=$(adb -s "$DEV" logcat -d 2>/dev/null)
   done
   echo "$LOG"
+}
+
+# ★ §124y-274 前台守护：同设备正向会话 64 位 app（com.qwsaeda.junqirs / com.zxj.junqirs）
+#   会抢前台 → 32 位 app 退到后台 → GL 线程暂停 → OnUpdate/OnTimer 停 → 挂在
+#   OnUpdate/OnTimer 的判据钩子（game_test/walk_bridge/native_event）全哑（实锤：
+#   本轮 OnUpdate 被调 0 次 + 钩子 0 日志 + topResumedActivity=com.qwsaeda.junqirs）。
+#   本函数：清干扰 app → 拉起本 app → 校验前台确实是本包（不否则重试 3 次）。
+ensure_fg() {
+  local _i _top _pid _w
+  for _i in 1 2 3; do
+    for _ip in $INTERFERER_PKGS; do
+      timeout 10 adb -s "$DEV" shell "am force-stop $_ip" >/dev/null 2>&1
+    done
+    # ★ §124y-277 强制重启（防进程复用 → 钩子静态标志 _nl_done/_gt_done 残留 → 钩子哑）：
+    #   force-stop 后**等 pid 真正消失**再 am start（旧版直接 am start 会复用旧进程，
+    #   实锤：判后 logcat 无 OnCreate/钩子任何日志 + 静态标志已是 1）。
+    timeout 10 adb -s "$DEV" shell "am force-stop $PKG" >/dev/null 2>&1
+    for _w in 1 2 3 4 5 6 7 8 9 10; do
+      _pid=$(timeout 10 adb -s "$DEV" shell "pidof $PKG" 2>/dev/null | tr -d '\r')
+      [ -z "$_pid" ] && break
+      sleep 1
+    done
+    timeout 20 adb -s "$DEV" shell "am start -n $PKG/com.cnvcs.App" >/dev/null 2>&1
+    sleep 3
+    _top=$(timeout 10 adb -s "$DEV" shell "dumpsys activity activities 2>/dev/null | grep -m1 ResumedActivity" 2>/dev/null | tr -d '\r')
+    case "$_top" in
+      *"$PKG"*) return 0 ;;   # 前台已是本包
+      *) sleep 2 ;;
+    esac
+  done
+  echo "  [ensure-fg] 警告：前台未确认为 $PKG（$_top）"
+  return 0
 }
 
 # ★ §124y-180 方法论第 5 条（flaky 防）：轮询等待判据日志（固定 sleep 可能早于
@@ -310,16 +342,28 @@ $LOG2"
       ;;
     native_event)
       # native_event 需 app 启动后再设属性（OnUpdate 读）
+      # ★ §124y-272 属性前置（32 位转译层特性实测）：原版"启动后设属性"→ 钩子
+      #   150s 不触发（属性在 app 启动后由 setprop 设入，32 位 so 经 houdini 转译后
+      #   __system_property_get 读不到运行期新设值）；改"启动前设属性"→ 第 1 轮
+      #   即命中（NATIVE-LAYOUT/NATIVE-EVENT/F_3ab80 锚点全出，§124y-271 实测）。
+      #   与 walk_bridge/game_test 的 launch_hook 前置设属性模式一致。
       adb -s "$DEV" shell "setprop jq.native_layout 0; setprop jq.native_event 0; setprop jq.game_test 0; setprop jq.walk_bridge 0" >/dev/null 2>&1
-      adb -s "$DEV" shell "am force-stop $PKG; logcat -c" >/dev/null 2>&1
-      adb -s "$DEV" shell "am start -n $PKG/com.cnvcs.App" >/dev/null 2>&1
-      sleep 6
       adb -s "$DEV" shell "setprop jq.native_layout 1; setprop jq.native_event 1" >/dev/null 2>&1
-      sleep 8
-      LOG=$(adb -s "$DEV" logcat -b main -d 2>/dev/null)
-      if ! echo "$LOG" | grep -q "F_3ab80: 事件发送"; then
-        wait_log "F_3ab80: 事件发送" 30 && LOG=$(adb -s "$DEV" logcat -b main -d 2>/dev/null)
-      fi
+      adb -s "$DEV" shell "am force-stop $PKG; logcat -c" >/dev/null 2>&1
+      ensure_fg   # §124y-274 前台守护
+      # ★ §124y-271 判读扩窗 + 全 buffer 读（转译冷启动钩子段出日志慢，§124y-188）：
+      #   旧版 sleep 8 + wait_log 30 不足（钩子改 OnUpdate 每帧读后触发更稳，但仍需窗口）
+      sleep 10
+      LOG=$(adb -s "$DEV" logcat -d 2>/dev/null)
+      # ★ §124y-275 修：顶层脚本（非函数）不可用 local → bash 报
+      #   "local: can only be used in a function" 中断整个 native_event 分支
+      #   → 轮询循环从未执行 → 判据恒 FAIL（实锤判后 logcat 无锚点）。
+      _ni=0
+      for _ni in $(seq 1 18); do
+        echo "$LOG" | grep -q "F_3ab80: 事件发送" && break
+        sleep 5
+        LOG=$(adb -s "$DEV" logcat -d 2>/dev/null)
+      done
       CRASH=$(echo "$LOG" | grep -c "Fatal signal" || true)
       CRASH_ENV=0
       if [ "$CRASH" != "0" ]; then
