@@ -55,19 +55,34 @@ ensure_dev() {
 #   backtrace 落 libjunqi so 段 = so 回归（须排查）
 # 返回 0=环境崩溃（可容忍） 1=so 段崩溃（回归） 2=无 backtrace（无法判）
 classify_crash() {
-  local bt
-  bt=$(adb -s "$DEV" logcat -d 2>/dev/null | grep -A25 ">>> com.cnvcs.junqi32" | grep -E "#[0-9]+ pc|/data/app|libjunqi|libart|libc\.so|strlen|GetMethodID|FindMethod" | head -15)
+  # §124y-264 扩查 #03+ 段（§124y-263 纠错：旧版只查 #00-#02 漏 #03 <unknown> =
+  #   houdini 翻译的 so 段 → 误判 ART 环境周期。32 位 so 经 houdini 转译，
+  #   backtrace #03+ <unknown> 高地址区（e1xx）= 翻译层 so 段，须配
+  #   houdini 日志 'D houdini #00 pc XXXX /data/app/.../libjunqi.so' 实锤。）
+  local bt hd
+  bt=$(adb -s "$DEV" logcat -d -b all 2>/dev/null | grep -A25 ">>> com.cnvcs.junqi32" | grep -E "#[0-9]+ pc|/data/app|libjunqi|libart|libc\.so|strlen|GetMethodID|FindMethod" | head -20)
   if [ -z "$bt" ]; then echo "  [crash-classify] 无 backtrace（无法判段）"; return 2; fi
   if echo "$bt" | grep -q "libjunqi"; then
     echo "  [crash-classify] 崩溃落 libjunqi so 段 = ★ so 回归（须排查）"
     return 1
   fi
-  # ART 层特征（strlen/GetMethodID/FindMethodJNI/libart）= 转译环境
+  # §124y-264 查 #03+ <unknown> 段（houdini 翻译 so 段特征）：配 houdini 日志实锤
+  if echo "$bt" | grep -qE "#0[3-9] pc [0-9a-f]+ <unknown>|#[1-9][0-9] pc [0-9a-f]+ <unknown>"; then
+    hd=$(adb -s "$DEV" shell "logcat -d -b all" 2>/dev/null | grep "houdini.*#00 pc.*libjunqi.so" | tail -1)
+    if [ -n "$hd" ]; then
+      echo "  [crash-classify] #03+ <unknown> 段 + houdini 实锤 so 段（$hd）= ★ so 段崩溃（§124y-263/264，须排查，非 ART 环境）"
+      return 1
+    fi
+    # #03+ <unknown> 无 houdini so 实锤 = 段归属仍不明
+    echo "  [crash-classify] #03+ <unknown> 段无 houdini so 实锤（段归属待查）"
+    return 2
+  fi
+  # ART 层特征（#00-#02 全 libart/libc + 无 #03+ <unknown>）= 转译环境
   if echo "$bt" | grep -qE "libart|libc\.so|strlen|GetMethodID|FindMethod"; then
-    echo "  [crash-classify] 崩溃落 ART 层（libart/libc）= 转译环境崩溃周期（§124y-191/226，非 so 回归）"
+    echo "  [crash-classify] 崩溃 #00-#02 落 ART 层（libart/libc）+ 无 #03+ so 段 = 转译环境崩溃周期（§124y-191/226，非 so 回归）"
     return 0
   fi
-  echo "  [crash-classify] 段归属不明（backtrace: $(echo "$bt" | head -2 | tr '\n' '|')）"
+  echo "  [crash-classify] 段归属不明（backtrace: $(echo "$bt" | head -3 | tr '\n' '|')）"
   return 2
 }
 
@@ -238,10 +253,11 @@ for k in $KINDS; do
         if classify_crash; then CRASH_ENV=1; else CRASH_ENV=0; fi
       fi
       ok=1
-      echo "$LOG" | grep -q "GAME-TEST: 端到端完成 走子=OK" || { ok=0; echo "  ✗ 端到端未命中"; }
-      echo "$LOG" | grep -q "touch_int: tap1k(274000,1268000) → cell6" || { ok=0; echo "  ✗ 命中几何 cell6 未命中"; }
-      echo "$LOG" | grep -q "EVT-TBL-DUMP.*非0字节=129" || { ok=0; echo "  ✗ 事件掩码表 289B 非0=129 未命中"; }
-      [ "$CRASH" = "0" ] || [ "$CRASH_ENV" = "1" ] || { ok=0; echo "  ✗ 崩溃=$CRASH（so 段，非 ART 层容忍）"; }
+      # ★ §124y-267 锚点判读移到出屏检查之后 + 重读 LOG 合并判读：
+      #   frame_check_once() 会**重启 app**（带 jq.game_test=1）→ 新实例 ~7s 即出
+      #   GAME-TEST 锚点（§124y-266 实测触发延迟 4-7s），但旧版在出屏检查**之前**
+      #   判读锚点且此后不再重读 LOG → 出屏检查跑完锚点其实已命中，脚本却判 FAIL
+      #   （瞬时漏读类 flaky）。改：出屏检查后重读 LOG，与原 LOG 合并判读。
       # 出屏连跑 ROUNDS 轮
       fbp=0; fbf=0
       for r in $(seq 1 "$ROUNDS"); do
@@ -252,6 +268,22 @@ for k in $KINDS; do
           echo "  出屏轮次 $r: 非黑比 ${ratio:-none}% ✗"; fbf=$((fbf+1))
         fi
       done
+      # 出屏检查后重读 LOG（★ §124y-270 合并判读修正：§124y-267 把 LOG 直接替换成
+      #   LOG2，但 frame_check_once 在 ~10s 返回（早于 GAME-TEST 触发 13s）→ LOG2 尚无
+      #   锚点 → 判读丢掉了 launch_hook 里已命中的 LOG1 → 假 FAIL。改为两段并集判读）
+      LOG2=$(adb -s "$DEV" logcat -d 2>/dev/null)
+      LOGALL="$LOG
+$LOG2"
+      # 崩溃计数合并（原窗口 + 出屏窗口）
+      CRASH=$(echo "$LOGALL" | grep -c "Fatal signal" || true)
+      CRASH_ENV=0
+      if [ "$CRASH" != "0" ]; then
+        if classify_crash; then CRASH_ENV=1; else CRASH_ENV=0; fi
+      fi
+      echo "$LOGALL" | grep -q "GAME-TEST: 端到端完成 走子=OK" || { ok=0; echo "  ✗ 端到端未命中"; }
+      echo "$LOGALL" | grep -q "touch_int: tap1k(274000,1268000) → cell6" || { ok=0; echo "  ✗ 命中几何 cell6 未命中"; }
+      echo "$LOGALL" | grep -q "EVT-TBL-DUMP.*非0字节=129" || { ok=0; echo "  ✗ 事件掩码表 289B 非0=129 未命中"; }
+      [ "$CRASH" = "0" ] || [ "$CRASH_ENV" = "1" ] || { ok=0; echo "  ✗ 崩溃=$CRASH（so 段，非 ART 层容忍）"; }
       # §124y-225 出屏容错判据（转译冷启动 flaky 防误判 so 回归）：
       #   达标轮数 fbp >= ROUNDS/2 即达成（任一轮 ≥30% = 出屏通路正常）；
       #   全轮 <30%（fbp=0）才判出屏未达成（so 渲染退化）。

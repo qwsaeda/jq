@@ -294,6 +294,29 @@ uint32_t jqt_jni_getobjectclass(uint32_t env, uint32_t obj){
  *   §124ak dlopen 偶发失败教训），与 JQT_MAP_HI 值同步（改 MAP_HI 需
  *   本处同步，注释锚点防漂移）。 */
 extern uint8_t *g_jqt_shadow;
+/* ★ §124y-268 有界安全字符串拷贝（镜像区限长 memchr）：
+   源指针须落在影子镜像区 [shadow+0x233e0, shadow+0x15be80)（原版 .text/.rodata/
+   .data 文件内容区，§124x 镜像布局）；用 memchr 在该范围内找 NUL，物理不越界
+   （镜像区是单次 mmap 的连续 RW 区）。拷贝失败（越界/无 NUL/超长）返 0。 */
+static int jq_br_safe_copy(char *dst, unsigned cap, uint32_t p) {
+    if (!g_jqt_shadow || !dst || cap < 2) return 0;
+    uint32_t lo = (uint32_t)(uintptr_t)g_jqt_shadow + 0x233e0u;
+    uint32_t hi = (uint32_t)(uintptr_t)g_jqt_shadow + 0x15be80u;
+    if (p < lo || p >= hi) return 0;
+    uint32_t n = hi - p;
+    if (n > cap - 1) n = cap - 1;
+    /* 手写有界扫描（不用 memchr：新增 UND 符号会触发 MuMu ARM libc 链接审计门禁
+       §124y-268 实锤 memchr 无法被 MuMu 缓存库解析 → 打包中止；手写扫描零新 UND） */
+    const uint8_t *src = (const uint8_t *)(uintptr_t)p;
+    unsigned len = 0;
+    while (len < n && src[len] != 0) len++;   /* 限长，不越界（镜像区连续 RW） */
+    if (len >= n) return 0;                    /* 未找到 NUL → 失真指针，兜底 */
+    if (len >= cap) return 0;
+    memcpy(dst, (const void *)(uintptr_t)p, len);
+    dst[len] = 0;
+    return 1;
+}
+
 uint32_t jqt_jni_getmethodid(uint32_t env, uint32_t cls, uint32_t name_off, uint32_t sig_off){
     JNIEnv *e = (JNIEnv *)(uintptr_t)env;
     if (!e || !cls) { LOGE("GetMethodID: env/cls NULL"); return 0; }
@@ -314,19 +337,27 @@ uint32_t jqt_jni_getmethodid(uint32_t env, uint32_t cls, uint32_t name_off, uint
        （与 L301 既有防御同口径），防 ART 反射调用链越界崩。
        判据：name/sig 须非 0 且落在 JQT_VALID 区（影子区 / 真实堆映射区），
        用 jqt_mem_valid 三道路判读（jqt_mem.h JQT_VALID 口径）。 */
-    /* ★ §124y-265 守卫回滚 + 精准修复（§124y-264 jqt_mem_valid 守卫误拦正常 GetMethodID
-       → app 静默退，§124y-265 实锤）：jqt_mem_valid 对偏移型 .rodata 字符串（JQ_BR_ABS
-       加 shadow 后 0xe8xxxx < MAP_HI）判 1 本可通过，但转译层早期 jqt_mem_init 未建
-       真映射区表 + shadow 基址未稳 → 误判拦截全 GetMethodID。改精准修复：
-       只在 name/sig 是"明显失真"的转译层垃圾指针（0x9916xxxx 类高地址、<0x200000 类
-       低地址垃圾）时兜底 0；正常 .rodata 偏移（JQ_BR_ABS 产出）放行 GetMethodID。 */
-    #define JQ_BR_DISTORTED(p) (((uint32_t)(p) > 0x400000u && (uint32_t)(p) < 0x20000000u && (uint32_t)(p) < (uint32_t)g_jqt_shadow) || ((uint32_t)(p) < 0x200000u && (uint32_t)(p) > 0x1000u))
-    uint32_t _name_u = (uint32_t)(uintptr_t)name, _sig_u = (uint32_t)(uintptr_t)sig;
-    if (JQ_BR_DISTORTED(_name_u) || JQ_BR_DISTORTED(_sig_u)) {
-        LOGE("GetMethodID: name/sig 转译层失真指针（精准兜底 0）name=0x%08x sig=0x%08x shadow=0x%08x", _name_u, _sig_u, (uint32_t)g_jqt_shadow);
+    /* ★ §124y-268 根治（有界安全拷贝，物理保证 ART strlen 不越界）：
+       崩溃真因 = 转译层 PC 相对字面量偏移失真 → name/sig 落到镜像区无 NUL 终止的
+       位置 → ART FindMethodJNI 内 strlen(name/sig) 越界读 0x9916xxxx → SEGV_MAPERR
+       （§124y-263/266 实锤 backtrace #03 落 houdini 翻译 so 段
+       jqt_jni_getmethodid，ARM 侧 pc 0x7eeb0c）。§124y-264 的 jqt_mem_valid
+       守卫误拦正常 GetMethodID（app 静默退），§124y-265 的 JQ_BR_DISTORTED 启发
+       式又漏掉本路径 → 本轮改**物理有界**：把 name/sig 从镜像区用 memchr 限长
+       拷进本地栈缓冲（memchr 搜索范围严格限于 [shadow+IMG_LO, shadow+IMG_END)
+       镜像区内，镜像区是单次 mmap 的 RW 连续区 → memchr 物理不会越界），
+       拷贝失败（越界/无 NUL）走忠实兜底返 0。ART strlen 只读本地缓冲，
+       长度 ≤255 → 绝不越界。 */
+    #define JQ_BR_IMG_LO 0x233e0u
+    #define JQ_BR_IMG_HI 0x15be80u
+    char name_buf[256], sig_buf[256];
+    if (!jq_br_safe_copy(name_buf, sizeof(name_buf), (uint32_t)(uintptr_t)name) ||
+        !jq_br_safe_copy(sig_buf, sizeof(sig_buf), (uint32_t)(uintptr_t)sig)) {
+        LOGE("GetMethodID: name/sig 镜像区拷贝失败（忠实兜底 0）name=0x%08x sig=0x%08x shadow=0x%08x",
+             (uint32_t)(uintptr_t)name, (uint32_t)(uintptr_t)sig, (uint32_t)g_jqt_shadow);
         return 0;
     }
-    jmethodID mid = (*e)->GetMethodID(e, (jclass)(uintptr_t)cls, name, sig);
+    jmethodID mid = (*e)->GetMethodID(e, (jclass)(uintptr_t)cls, name_buf, sig_buf);
     if (!mid && (*e)->ExceptionCheck(e)) (*e)->ExceptionClear(e);
     return (uint32_t)(uintptr_t)mid;
 }

@@ -27,6 +27,8 @@ extern uint32_t jqt_OnUpdate(JQT_SIG);
 /* ★ §124x：渲染入口完整调用链（gen_render_full.py 生成，jqt_OnRender_full.c）——
  *   替代 6 标签小存根（bl 0xbd5a0/0xbd74c/0xbd764/0xbe930 存根 r0=0），让 native 渲染逻辑执行 */
 extern uint32_t F_23475(JQT_SIG);   /* OnUpdate 完整链 */
+/* ★ §124y-267 game_test 钩子前向声明（OnUpdate 每帧调用，定义在下方） */
+static void jq_game_test_hook(void);
 extern uint32_t F_2349d(JQT_SIG);   /* OnGraphCreate 完整链 */
 extern uint32_t F_23489(JQT_SIG);   /* OnGraphChange 完整链 */
 extern uint32_t F_23461(JQT_SIG);   /* OnTimer 完整链 */
@@ -576,6 +578,11 @@ Java_com_cnvcs_App_OnUpdate(JNIEnv *env, jclass c){
        加 OnUpdate 入口每帧调 jq_walk_bridge_tick（内部 done=1 幂等守卫，
        属性未设时 tick 读 val=0 无副作用，设 1 后首帧即触发 8 步序列）。 */
     jq_walk_bridge_tick();
+    /* ★ §124y-267 game_test 钩子 OnUpdate 每帧调用（对称化 §124y-266 walk_bridge
+       修复）：game_test 原只在 OnTimer 读 jq.game_test 属性（OnTimer 181 次 vs
+       OnUpdate 543 次）→ 属性读点时机竞态致判据 flaky。钩子内 _gt_done 用 CAS
+       原子化（OnTimer 主线程 + OnUpdate GLThread 双入口只允许一方进入）。 */
+    jq_game_test_hook();
     /* ★ §SLOT22-TRIGGER（本轮）：一次性 slot22（F_9e2b4 纹理创建）触发。
      *   背景：sp28-SCALE-8 手动直调 F_9e2b4 曾因 jqt_mem.h include 缺失 → dlopen fail
      *   （已修，include 加回）。三条件现在都满足：
@@ -666,6 +673,96 @@ Java_com_cnvcs_App_OnGraphChange(JNIEnv *env, jclass c, jint w, jint h){
     __android_log_print(6,"junqi","JNI OnGraphChange 被调 w=%d h=%d tid=%d", w, h, (int)gettid());
     F_23489((uint32_t)w,(uint32_t)h,0,0,0,0,0,0,0,0,0,0,0x20f000);
 }
+/* ★ §124y-267 game_test 端到端钩子（提取为独立函数，OnTimer 主线程 + OnUpdate GLThread
+   双入口调用——§124y-266 实锤 game_test 钩子原只在 OnTimer 读 jq.game_test 属性，
+   OnTimer 调用频率（181 次）远低于 OnUpdate（543 次）→ 属性读点时机竞态致判据 flaky。
+   OnUpdate 每帧调用 + done 标志原子化（CAS）防双入口并发进入钩子体。 */
+static void jq_game_test_hook(void)
+{
+    {
+        static volatile int _gt_done = 0;
+        char _gt[8] = {0};
+        /* ★ §124y-267 原子化 done 标志（OnTimer 主线程 + OnUpdate GLThread 双入口
+           并发触发时只允许一方进入钩子体，防 g_walk_state 数据竞争 §124y AUD-1000
+           B05-034 同型） */
+        /* ★ §124y-269 修正 CAS 顺序 bug（§124y-267 引入）：CAS 必须在属性检查**之后**
+           ——旧版 CAS 先置 done=1 再查属性 → 钩子首次调用（属性=0）即消耗标志，
+           后续属性设 1 也永不触发（game_test 判据 FAIL 实锤）。正确顺序：
+           先读属性确认='1'，再 CAS 抢锁（防双入口并发进入钩子体）。 */
+        if (__system_property_get("jq.game_test", _gt) > 0 && _gt[0] == '1' &&
+            __sync_bool_compare_and_swap(&_gt_done, 0, 1)) {
+            /* _gt_done 已由 CAS 置 1 */
+            __android_log_print(6,"junqi","GAME-TEST: setprop jq.game_test=1 → 端到端游戏可玩判据（触摸→走子→事件→终局）");
+            extern int  jq_walk_bridge_touch(float,float,int,int);
+            extern int  jq_walk_bridge_move(int,int);
+            extern int  jq_walk_bridge_reset(void);
+            /* §124y-26：game_test 独立开局（强制 reset）——walk_bridge 8 步序列已消耗
+               共享 static g_walk_state（cell6 已走 cell11，turn 已切红），不 reset 则
+               game_test 的 move(6,11) 非法。reset 后独立走子序列。 */
+            jq_walk_bridge_reset();
+            /* 暗棋模式：move 前需先翻源子（会话 B test_move_seq 基准 f6/f33） */
+            extern int jq_walk_bridge_flip(int);
+            jq_walk_bridge_flip(6);   /* Flip cell6 → 定蓝方 */
+            jq_walk_bridge_flip(33);  /* Flip cell33 → 定红方 */
+            /* 端到端判据（触摸→命中格→走子→Junqi.* 事件→终局）：
+               会话 B 命中几何（设备行 row*5+col 体系，view=图 720×1280 1:1）。
+               bg_cell_img_center(row,col)：image_row=11-row；img_x=78.5+col*140.5；
+               img_y=222+image_row*71（image_row<6）/ 822+(image_row-6)*71（≥6）。
+               会话 B test_move_seq 基准：f6 f33 m6,11 m33,38 m12,13 u m10,11 q0
+               触摸注入 2 个源格 → 走子 2 步 → 终局，全程可机判（命中 cell 值 + 事件名）。 */
+            /* 设备端 view=900×1468（OnGraphChange 实测，非全面屏 1468 布局）
+               walk_coords 公式：px=ix/720*900, py=iy/1280*1468。
+               cell6=row1col1(ir10)→tap(274,1268); cell33=row6col3(ir5)→tap(625,662)。 */
+            /* §124y-176 二次根治：触摸注入纯整数路径（float 传参在转译层全 0，
+               纯整数入口 60/60 设备端实锤，前段"0/60 诚实边界"已关闭）。
+               274×1000=274000 / 1268×1000=1268000。 */
+            extern int jq_walk_bridge_touch_int(long px1k, long py1k, int view_w, int view_h);
+            int cell6 = jq_walk_bridge_touch_int(274000L, 1268000L, 900, 1468);
+            __android_log_print(6,"junqi","GAME-TEST: 触摸 tap(274,1268) view900×1468 纯整数路径 → cell%d", cell6);
+            /* 走子（会话 B 基准 m6,11 / m33,38） */
+            int ev1 = jq_walk_bridge_move(6, 11);
+            int ev2 = jq_walk_bridge_move(33, 38);
+            const char *evn[] = {"Move","Eat","Bomb","Flag","Dead","Move"};
+            __android_log_print(6,"junqi","GAME-TEST: 走子 cell6→11=Junqi.%s[ev1=%d] cell33→38=Junqi.%s[ev2=%d]（事件）",
+                (ev1>=0&&ev1<6)?evn[ev1]:"Illegal", ev1, (ev2>=0&&ev2<6)?evn[ev2]:"Illegal", ev2);
+            /* 终局：认输（winner=1-turn） */
+            extern int jq_game_test_finish(void);
+            int fin = jq_game_test_finish();
+            /* 端到端判据：2 步走子合法（Junqi.Move）+ 终局完成 = 游戏可玩
+               （§124y-176 二次根治后触摸命中几何 60/60 设备端实锤，纯整数路径） */
+            int move_ok = (ev1 == 0 && ev2 == 0);  /* 0=Junqi.Move */
+            __android_log_print(6,"junqi","GAME-TEST: 端到端完成 走子=%s fin=%d（触摸命中几何 60/60 纯整数路径实锤）",
+                move_ok?"OK(2步Move)":"FAIL", fin);
+            /* ★ §124y-168: 事件后 dump 掩码表（.bss+0x4704, 17 行 × 17 字段 = 289B）
+               目的: 验证事件分发后掩码表是否被填入 (事件码<<4)|标志位（高 nibble = 事件码）
+               → 若高 nibble 出现非 0 值 = 事件匹配可通, disc=1; 若仍全 0x01 = 忠实兜底 */
+            {
+                int hi = 0, nz = 0;
+                uint32_t rows[17];
+                for (int r = 0; r < 17; r++) {
+                    uint32_t va = 0x160584u + (uint32_t)r * 17u;
+                    uint32_t h = 0;
+                    for (int i = 0; i < 17; i++) {
+                        uint8_t b = (uint8_t)MEM(va + (uint32_t)i);
+                        if (b) nz++;
+                        if (b >> 4) { hi++; h |= (1u << (b >> 4)); }
+                    }
+                    rows[r] = h;
+                }
+                uint32_t allmask = 0;
+                for (int r = 0; r < 17; r++) allmask |= rows[r];
+                __android_log_print(6,"junqi","EVT-TBL-DUMP(after game_test): 289B 区 非0字节=%d 高nibble非0字节=%d 事件码位图=%08x（bit n = 事件码 n 出现过）",
+                    nz, hi, allmask);
+                for (int r = 0; r < 17; r++) {
+                    if (rows[r]) {
+                        __android_log_print(6,"junqi","EVT-TBL-DUMP: 行%2d 事件码位图=0x%08x", r, rows[r]);
+                    }
+                }
+            }
+        }
+    }
+}
+
 JNIEXPORT void JNICALL
 Java_com_cnvcs_App_OnTimer(JNIEnv *env, jclass c){
     /* ★ 桥自检触发点（首次，OnTimer 主线程每 100ms 稳定入口）。
@@ -779,80 +876,7 @@ Java_com_cnvcs_App_OnTimer(JNIEnv *env, jclass c){
        开局 + 触摸坐标注入（jq_touch_hit_cell 命中格）+ 走子 + Junqi.* 事件 + 终局。
        这是 AGENTS 阶段 2 验收的真判据（触摸→走子→事件→终局，可机判），
        不依赖 32 位 .pak 资源对象图（会话 B 走子桥 + 触摸命中几何，纯逻辑）。 */
-    {
-        static int _gt_done = 0;
-        char _gt[8] = {0};
-        if (!_gt_done && __system_property_get("jq.game_test", _gt) > 0 && _gt[0] == '1') {
-            _gt_done = 1;
-            __android_log_print(6,"junqi","GAME-TEST: setprop jq.game_test=1 → 端到端游戏可玩判据（触摸→走子→事件→终局）");
-            extern int  jq_walk_bridge_touch(float,float,int,int);
-            extern int  jq_walk_bridge_move(int,int);
-            extern int  jq_walk_bridge_reset(void);
-            /* §124y-26：game_test 独立开局（强制 reset）——walk_bridge 8 步序列已消耗
-               共享 static g_walk_state（cell6 已走 cell11，turn 已切红），不 reset 则
-               game_test 的 move(6,11) 非法。reset 后独立走子序列。 */
-            jq_walk_bridge_reset();
-            /* 暗棋模式：move 前需先翻源子（会话 B test_move_seq 基准 f6/f33） */
-            extern int jq_walk_bridge_flip(int);
-            jq_walk_bridge_flip(6);   /* Flip cell6 → 定蓝方 */
-            jq_walk_bridge_flip(33);  /* Flip cell33 → 定红方 */
-            /* 端到端判据（触摸→命中格→走子→Junqi.* 事件→终局）：
-               会话 B 命中几何（设备行 row*5+col 体系，view=图 720×1280 1:1）。
-               bg_cell_img_center(row,col)：image_row=11-row；img_x=78.5+col*140.5；
-               img_y=222+image_row*71（image_row<6）/ 822+(image_row-6)*71（≥6）。
-               会话 B test_move_seq 基准：f6 f33 m6,11 m33,38 m12,13 u m10,11 q0
-               触摸注入 2 个源格 → 走子 2 步 → 终局，全程可机判（命中 cell 值 + 事件名）。 */
-            /* 设备端 view=900×1468（OnGraphChange 实测，非全面屏 1468 布局）
-               walk_coords 公式：px=ix/720*900, py=iy/1280*1468。
-               cell6=row1col1(ir10)→tap(274,1268); cell33=row6col3(ir5)→tap(625,662)。 */
-            /* §124y-176 二次根治：触摸注入纯整数路径（float 传参在转译层全 0，
-               纯整数入口 60/60 设备端实锤，前段"0/60 诚实边界"已关闭）。
-               274×1000=274000 / 1268×1000=1268000。 */
-            extern int jq_walk_bridge_touch_int(long px1k, long py1k, int view_w, int view_h);
-            int cell6 = jq_walk_bridge_touch_int(274000L, 1268000L, 900, 1468);
-            __android_log_print(6,"junqi","GAME-TEST: 触摸 tap(274,1268) view900×1468 纯整数路径 → cell%d", cell6);
-            /* 走子（会话 B 基准 m6,11 / m33,38） */
-            int ev1 = jq_walk_bridge_move(6, 11);
-            int ev2 = jq_walk_bridge_move(33, 38);
-            const char *evn[] = {"Move","Eat","Bomb","Flag","Dead","Move"};
-            __android_log_print(6,"junqi","GAME-TEST: 走子 cell6→11=Junqi.%s[ev1=%d] cell33→38=Junqi.%s[ev2=%d]（事件）",
-                (ev1>=0&&ev1<6)?evn[ev1]:"Illegal", ev1, (ev2>=0&&ev2<6)?evn[ev2]:"Illegal", ev2);
-            /* 终局：认输（winner=1-turn） */
-            extern int jq_game_test_finish(void);
-            int fin = jq_game_test_finish();
-            /* 端到端判据：2 步走子合法（Junqi.Move）+ 终局完成 = 游戏可玩
-               （§124y-176 二次根治后触摸命中几何 60/60 设备端实锤，纯整数路径） */
-            int move_ok = (ev1 == 0 && ev2 == 0);  /* 0=Junqi.Move */
-            __android_log_print(6,"junqi","GAME-TEST: 端到端完成 走子=%s fin=%d（触摸命中几何 60/60 纯整数路径实锤）",
-                move_ok?"OK(2步Move)":"FAIL", fin);
-            /* ★ §124y-168: 事件后 dump 掩码表（.bss+0x4704, 17 行 × 17 字段 = 289B）
-               目的: 验证事件分发后掩码表是否被填入 (事件码<<4)|标志位（高 nibble = 事件码）
-               → 若高 nibble 出现非 0 值 = 事件匹配可通, disc=1; 若仍全 0x01 = 忠实兜底 */
-            {
-                int hi = 0, nz = 0;
-                uint32_t rows[17];
-                for (int r = 0; r < 17; r++) {
-                    uint32_t va = 0x160584u + (uint32_t)r * 17u;
-                    uint32_t h = 0;
-                    for (int i = 0; i < 17; i++) {
-                        uint8_t b = (uint8_t)MEM(va + (uint32_t)i);
-                        if (b) nz++;
-                        if (b >> 4) { hi++; h |= (1u << (b >> 4)); }
-                    }
-                    rows[r] = h;
-                }
-                uint32_t allmask = 0;
-                for (int r = 0; r < 17; r++) allmask |= rows[r];
-                __android_log_print(6,"junqi","EVT-TBL-DUMP(after game_test): 289B 区 非0字节=%d 高nibble非0字节=%d 事件码位图=%08x（bit n = 事件码 n 出现过）",
-                    nz, hi, allmask);
-                for (int r = 0; r < 17; r++) {
-                    if (rows[r]) {
-                        __android_log_print(6,"junqi","EVT-TBL-DUMP: 行%2d 事件码位图=0x%08x", r, rows[r]);
-                    }
-                }
-            }
-        }
-    }
+    jq_game_test_hook();
     __android_log_print(6,"junqi","JNI OnTimer 被调 tid=%d", (int)gettid());
     F_23461(0,0,0,0,0,0,0,0,0,0,0,0,0x20f000);
 }
