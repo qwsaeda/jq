@@ -371,6 +371,8 @@ uint32_t F_336c8(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,
 uint32_t F_336ec(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_a4250(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_a4274(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_897d0(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+/* §124y-304 前向声明（第十九批：事件构造主链·被调最高剩余） */
 uint32_t F_3da20(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_70908(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 /* §124y-303 前向声明（第十八批：位向量赋值 + 日期字符串解析） */
@@ -78250,6 +78252,7 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_89290,
     F_894ac,
     F_89614,
+    F_897d0,
     F_89928,
     F_8992c,
     F_89b4c,
@@ -80513,6 +80516,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x89290,
      0x894ac,
      0x89614,
+     0x897d0,
      0x89928,
      0x8992c,
      0x89b4c,
@@ -81631,7 +81635,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x10d110,
      0x11123a,
 };
-const uint32_t jqt_vtbl_n = 2260u;  /* §124y-149/285/287/288/289/290/291/292/293/294/295/296/297/298/299/300/301/302/303: 对齐 fns/offs 表实际条目数 */
+const uint32_t jqt_vtbl_n = 2261u;  /* §124y-149/.../304: 对齐 fns/offs 表实际条目数 */
 
 /* jqt_blx_dispatch：vtable 槽值 reg_val（shadow 地址）→ 目标函数。
  * 影子区 → off = reg_val - g_jqt_shadow；否则 off = reg_val。
@@ -82867,5 +82871,82 @@ uint32_t F_70908(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_
     (void)JQT_ABS_PTR(0xf1524);
     /* 分支体（4 路 r9/r0 与 10/11/12 比较）→ 镜像兜底 */
     jqt_blx_dispatch(0x70908, _r0, _r1, _r2, _r3, _r4, _r5, _r6, _r7, _r8, _r9, _r10, _r11, _sp);
+    return 0;
+}
+
+/* ★ §124y-304 第十九批真业务裸跑函数补全
+   - F_897d0（0x897d0，被调 35 次·剩余最高热）：事件构造主链
+     语义（objdump 逐指令，~90 指令 7 个 bl 依赖）：
+       栈传参（this=r0 基址 + sp[12/16/20/604] 区参数）
+       ① bl F_b9714（字面量 0x8990c/0x89910 全局槽 + 栈参数构造）
+       ② bl F_b4db4（字面量 0x89918 槽）
+       ③ 条件分支：非零 → bl F_afc98 + F_b549c + F_b54dc（三连）
+       ④ bl F_b51cc × 2（r2=256/32 常量分支）
+       ⑤ bl F_8264c（sp[4] 取栈参数）
+       ⑥ bl F_b9648（字面量 0x89920 索引 + r1=sp[12]）
+       ⑦ bl F_afcc8（字面量 0x89924 槽）→ 非空则 F_afd18(sp[0..20])
+          + 收尾 blx [r7+0x14]；否则栈空收尾 blx [r7+8]
+       末段 0x898ee：bl F_8264c + F_c2300（0x89924 全局槽，r2=0）
+     依赖译置：F_b9714/F_b4db4/F_afc98/F_b549c/F_b54dc/F_b51cc/F_b9648/
+       F_afd18/F_c2300 已译（**直调**）；F_b52e0/F_8264c/F_afcc8 未译
+       → jqt_blx_dispatch 镜像兜底
+     ★ 诚实边界：7 依赖中 3 个未译走兜底 + 多分支（③⑦），本函数按
+       主路径直调已译依赖 + 未译依赖兜底翻译；真机验证事件构造路径
+       偏差按 REAL_DEVICE_ACCEPTANCE SOP ③ 判据回补 */
+uint32_t F_897d0(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    extern uint32_t F_b9714(uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t,
+                             uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t);
+    extern uint32_t F_b4db4(uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t,
+                             uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t);
+    extern uint32_t F_afc98(uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t,
+                             uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t);
+    extern uint32_t F_b549c(uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t,
+                             uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t);
+    extern uint32_t F_b54dc(uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t,
+                             uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t);
+    extern uint32_t F_b51cc(uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t,
+                             uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t);
+    extern uint32_t F_b9648(uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t,
+                             uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t);
+    extern uint32_t F_afd18(uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t,
+                             uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t);
+    extern uint32_t F_c2300(uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t,
+                             uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t);
+    if (!_sp) return 0;
+    /* 栈参数区（原版 sub sp, #264，sp[12/16/20] 入参 + sp[604] 保存值） */
+    uint32_t a12 = MEM(_sp + 12);
+    uint32_t a16 = MEM(_sp + 16);
+    uint32_t a20 = MEM(_sp + 20);
+    uint32_t a604 = MEM(_sp + 604);
+    /* ① 字面量 0x8990c/0x89910 全局槽构造（直调已译 F_b9714） */
+    F_b9714(JQT_ABS_PTR(0x8990c), a12, 0, 0,0,0,0,0,0,0,0,0, _sp);
+    /* ② 字面量 0x89918 槽（直调已译 F_b4db4） */
+    F_b4db4(JQT_ABS_PTR(0x89918), a12, a16, 0,0,0,0,0,0,0,0,0, _sp);
+    /* ③ 条件三连（直调已译 F_afc98/F_b549c/F_b54dc） */
+    F_afc98(a12, a16, 0, 0,0,0,0,0,0,0,0,0, _sp);
+    F_b549c(a12, a16, 0, 0,0,0,0,0,0,0,0,0, _sp);
+    F_b54dc(a12, a16, a20, 0,0,0,0,0,0,0,0,0, _sp);
+    /* ④ 常量分支（r2=256 已译直调 / r2=32 未译 F_b52e0 兜底） */
+    F_b51cc(a12, JQT_ABS_PTR(0x89920), 256, 0,0,0,0,0,0,0,0,0, _sp);
+    jqt_blx_dispatch(0xb52e0, a12, 32, 0,0,0,0,0,0,0,0,0,0, _sp);
+    /* ⑤ 栈参数推进（未译 F_8264c 兜底） */
+    jqt_blx_dispatch(0x8264c, a12, 0,0,0,0,0,0,0,0,0,0,0, _sp);
+    /* ⑥ 索引查（直调已译 F_b9648） */
+    F_b9648(JQT_ABS_PTR(0x89920), a12, a16, 0,0,0,0,0,0,0,0,0, _sp);
+    /* ⑦ 事件主体（未译 F_afcc8 兜底）+ 收尾 */
+    uint32_t r = jqt_blx_dispatch(0xafcc8, a12, 0,0,0,0,0,0,0,0,0,0,0, _sp);
+    if (r) {
+        /* 非空：F_afd18(sp[0..20]) 直调 + 收尾 blx [r7+0x14]（镜像兜底） */
+        F_afd18(a12, a16, a20, 0,0,0,0,0,0,0,0,0, _sp);
+        jqt_blx_dispatch(0x898a6, _sp + 60, 0,0,0,0,0,0,0,0,0,0,0, _sp);
+    } else {
+        /* 空收尾 blx [r7+8]（镜像兜底） */
+        jqt_blx_dispatch(0x897d0, a12, 0,0,0,0,0,0,0,0,0,0,0, _sp);   /* 空收尾 blx [r7+8] 镜像兜底 */
+    }
+    /* 末段 0x898ee：F_8264c 兜底 + F_c2300 直调（0x89924 全局槽） */
+    jqt_blx_dispatch(0x8264c, a12, 0,0,0,0,0,0,0,0,0,0,0, _sp);
+    F_c2300(JQT_ABS_PTR(0x89924), 0, 0, 0,0,0,0,0,0,0,0,0, _sp);
     return 0;
 }
