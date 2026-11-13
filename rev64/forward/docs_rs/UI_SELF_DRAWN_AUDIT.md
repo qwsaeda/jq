@@ -36,15 +36,17 @@
 
 **合计：~230 处纯色矩形自绘按钮，仅 1 弹窗（功能设置）用真原版皮肤。**
 
-## 修复路线（已做 1，后续继续）
+## 修复路线（已做 2，后续继续）
 
 1. ✅ **功能设置按钮 → btn.png 三态 9patch**（★ 2026-11-13：jq_btn_skin.h 烘焙 +
    render.c rs_draw_btn9patch 改不对称(8/29/16/30) + rs_draw_gameset 用正常态）
-2. 主要弹窗按钮 → btn.png 9patch（正常态蓝渐变，按按钮语义）
-3. datah 批量 d* → btn.png（或 sbtn/btn1 小按钮皮肤）
-4. 弹窗面板 → dlg.png（datah_187 候选，需先验证）
-5. 标题黑字（Title color=black，功能设置已烘焙 gameset_title_black.png）
-6. 逐弹窗区分"按钮"vs"遮罩"（内联 quad 里遮罩保留、按钮改皮肤）
+2. ✅ **难度弹窗（datah_041）→ btn.png 9patch + rs_popup_shell 面板**（★ 2026-11-13：
+   8 按钮布局/翻棋用正常态/选中=按下态，面板改统一弹窗皮肤（原版 BackDlg popup.cfg））
+3. 主要弹窗按钮（新局/联机/声音/四国等）→ btn.png 9patch（正常态蓝渐变，按按钮语义）
+4. datah 批量 d* → btn.png（或 sbtn/btn1 小按钮皮肤）
+5. 弹窗面板 → dlg.png（datah_187 候选，需先验证）
+6. 标题黑字（Title color=black，功能设置已烘焙 gameset_title_black.png）
+7. 逐弹窗区分"按钮"vs"遮罩"（内联 quad 里遮罩保留、按钮改皮肤）
 
 ## 主要弹窗明细（纯色自绘，待对齐）
 
