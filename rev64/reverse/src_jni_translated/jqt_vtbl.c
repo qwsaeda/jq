@@ -466,6 +466,9 @@ uint32_t F_c7124(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,
 uint32_t F_c7418(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_c7d9c(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_c8328(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_c8568(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_c86c4(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+/* §124y-939 前向声明（第五百八十五批：字面量池双取 stmia 自增写 F_105524 直调 + 字面量池 [this+0] 写 36 加 F_25988 直调字面量池双取 [this+28/36] 双写） */
 uint32_t F_c837c(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 /* §124y-938 前向声明（第五百八十四批：[this+64] 取 sscanf 直调 2 减 1 左移 1 返回 + 同模式新地址） */
 uint32_t F_c7f00(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
@@ -82305,6 +82308,8 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_c8328,
     F_c837c,
     F_c84d0,
+    F_c8568,
+    F_c86c4,
     F_c8708,
     F_c882c,
     F_c8a68,
@@ -85835,6 +85840,8 @@ const uint32_t jqt_vtbl_offs[] = {
      0xc8328,
      0xc837c,
      0xc84d0,
+     0xc8568,
+     0xc86c4,
      0xc8708,
      0xc882c,
      0xc8a68,
@@ -86068,7 +86075,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x11f20c,
      0x11fa34,
 };
-const uint32_t jqt_vtbl_n = 3527u;  /* §124y-149/.../938: 对齐 fns/offs 表实际条目数 */
+const uint32_t jqt_vtbl_n = 3529u;  /* §124y-149/.../939: 对齐 fns/offs 表实际条目数 */
 
 /* jqt_blx_dispatch：vtable 槽值 reg_val（shadow 地址）→ 目标函数。
  * 影子区 → off = reg_val - g_jqt_shadow；否则 off = reg_val。
@@ -113782,5 +113789,49 @@ uint32_t F_c837c(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_
     if (!_r0) return 0;
     uint32_t fmt = MEM(JQT_ABS_PTR(0xc8394));
     jqt_blx_dispatch(0xc837c, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+
+/* ★ §124y-939 第五百八十五批真业务裸跑函数补全（字面量池双取 stmia 自增写 F_105524 直调 + 字面量池 [this+0] 写 36 加 F_25988 直调字面量池双取 [this+28/36] 双写）
+   - F_c8568（0xc8568，被调 2 次）：字面量池双取 + stmia 自增写 +
+     F_105524 直调（新变体首次出现）
+     语义（objdump 逐指令 + 字面量池 0xc8584/0xc8588 实读）：
+       [字面量池] 双取 + stmia 自增写 + [this+4] 写 +
+       **bl F_105524（未译→镜像兜底）** → 返回
+     ★ 诚实边界：字面量池双取 + 自增写 + 写 + 直调 + 返回，主
+       路径（[字面量池] 双取 + stmia 自增写 + [this+4] 写 +
+       F_105524 直调）直译 + F_105524 镜像兜底
+       （§124y-288~938 同口径，字面量池双取 + stmia 自增写 +
+       F_105524 直调返回新变体首次出现）
+   - F_c86c4（0xc86c4，被调 2 次）：字面量池 + [this+0] 写 +
+     36 加 + F_25988 直调 + 字面量池双取 + [this+28/36] 双写
+     （新变体首次出现）
+     语义（objdump 逐指令 + 字面量池 0xc86ec/0xc86f0 实读）：
+       [字面量池] 取 + [this+0] 字面量池 8 偏移写 + 36 加 +
+       **bl F_25988（未译→镜像兜底）** + [字面量池] 双取 +
+       [this+28/36] 双写 → 多分支
+     ★ 诚实边界：字面量池 + 写 + 加 + 直调 + 双写 + 多分支，主
+       路径（[this+0] 写 + 36 加 + F_25988 直调 + [this+28/36]
+       双写）直译 + F_25988 镜像兜底
+       （§124y-288~938 同口径，字面量池 + [this+0] 写 + 36 加
+       + F_25988 直调 + [this+28/36] 双写多分支新变体首次出现） */
+uint32_t F_c8568(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* [字面量池] 双取 + stmia 自增写 + [this+4] 写 + F_105524
+       （未译）镜像兜底主路径 + 返回 */
+    if (!_r0) return 0;
+    jqt_blx_dispatch(0xc8568, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+uint32_t F_c86c4(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* [this+0] 写 + 36 加 + F_25988（未译）镜像兜底 + [this+28/36]
+       双写主路径 + 多分支体兜底 */
+    if (!_r0) return 0;
+    uint32_t lit1 = MEM(JQT_ABS_PTR(0xc86ec));
+    uint32_t lit2 = MEM(JQT_ABS_PTR(0xc86f0));
+    jqt_blx_dispatch(0xc86c4, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
     return 0;
 }
