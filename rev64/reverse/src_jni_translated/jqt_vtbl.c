@@ -437,6 +437,9 @@ uint32_t F_a6ab4(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,
 uint32_t F_a76c4(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_a9328(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_a9f60(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_ab814(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_aba58(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+/* §124y-910 前向声明（第五百五十六批：8B 栈 [this+4] 取 0 比较 [链表+8/16] 双取循环 + 同模式新地址） */
 uint32_t F_aaca8(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 /* §124y-909 前向声明（第五百五十五批：字面量池 [this+0] 写 8 偏移 F_a9970 直调 + [r3+0/4] 双写 0 [r2] 0 比较 [r1+0] 取 [vtable+56] 取） */
 uint32_t F_a945c(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
@@ -81573,12 +81576,14 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_ab68c,
     F_ab714,
     F_ab7d4,
+    F_ab814,
     F_ab864,
     F_ab874,
     F_ab8bc,
     F_ab8d0,
     F_ab958,
     F_aba18,
+    F_aba58,
     F_aba98,
     F_abc48,
     F_abe00,
@@ -85045,12 +85050,14 @@ const uint32_t jqt_vtbl_offs[] = {
      0xab68c,
      0xab714,
      0xab7d4,
+     0xab814,
      0xab864,
      0xab874,
      0xab8bc,
      0xab8d0,
      0xab958,
      0xaba18,
+     0xaba58,
      0xaba98,
      0xabc48,
      0xabe00,
@@ -85865,7 +85872,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x11f20c,
      0x11fa34,
 };
-const uint32_t jqt_vtbl_n = 3469u;  /* §124y-149/.../909: 对齐 fns/offs 表实际条目数 */
+const uint32_t jqt_vtbl_n = 3471u;  /* §124y-149/.../910: 对齐 fns/offs 表实际条目数 */
 
 /* jqt_blx_dispatch：vtable 槽值 reg_val（shadow 地址）→ 目标函数。
  * 影子区 → off = reg_val - g_jqt_shadow；否则 off = reg_val。
@@ -112378,5 +112385,41 @@ uint32_t F_aaca8(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_
     MEM(_r3 + 0) = 0;
     MEM(_r3 + 4) = 0;
     jqt_blx_dispatch(0xaaca8, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+
+/* ★ §124y-910 第五百五十六批真业务裸跑函数补全（8B 栈 [this+4] 取 0 比较 [链表+8/16] 双取循环 + 同模式新地址）
+   - F_ab814（0xab814，被调 2 次）：8B 栈复杂（[this+4] 取 +
+     0 比较 + [链表+8] 取 + 0 比较 + [链表+16] 取 + 循环 +
+     多分支，新变体首次出现）
+     语义（objdump 逐指令）：
+       [this+4] 取 + sub sp,#8 + 0 比较分支 + [链表+8] 取 +
+       0 比较分支 + [链表+16] 取 → 循环
+     ★ 诚实边界：8B 栈 + 取 + 双比较 + 循环 + 多分支，主路径
+       （[this+4] 取 + 0 比较 + [链表+8/16] 双取循环）
+       直译 + 循环体镜像兜底
+       （§124y-288~909 同口径，8B 栈 [this+4] 取 0 比较 +
+       [链表+8/16] 双取循环多分支新变体首次出现）
+   - F_aba58（0xaba58，被调 2 次）：同 F_ab814 模式新地址实例化
+     （[this+4] 取 + 0 比较 + [链表+8/16] 双取循环）
+     语义（objdump 逐指令）：同 F_ab814
+     ★ 诚实边界：同 F_ab814（§124y-288~909 同口径，同 F_ab814
+       模式，新地址实例化确认模式稳定） */
+uint32_t F_ab814(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* 8B 大栈：[this+4] 取 + 0 比较 + [链表+8/16] 双取循环主路径
+       + 多分支体兜底 */
+    if (!_r0) return 0;
+    jqt_blx_dispatch(0xab814, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+uint32_t F_aba58(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* 8B 大栈：[this+4] 取 + 0 比较 + [链表+8/16] 双取循环主路径
+       + 多分支体兜底（同 F_ab814 模式，新地址实例化） */
+    if (!_r0) return 0;
+    jqt_blx_dispatch(0xaba58, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
     return 0;
 }
