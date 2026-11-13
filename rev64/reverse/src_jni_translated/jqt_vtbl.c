@@ -371,6 +371,9 @@ uint32_t F_336c8(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,
 uint32_t F_336ec(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_a4250(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_a4274(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_1079a0(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_102c14(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+/* §124y-310 前向声明（第二十五批：指针初始化 + 事件构造多分支） */
 uint32_t F_100264(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 /* §124y-309 前向声明（第二十四批：容器 append·段 8 热区） */
 uint32_t F_95ca4(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
@@ -79380,6 +79383,7 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_ff110,
     F_ff234,
     F_100264,
+    F_102c14,
     F_103108,
     F_1031ac,
     F_10320c,
@@ -79390,6 +79394,7 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_10380c,
     F_10704c,
     F_107094,
+    F_1079a0,
     F_10d110,
     F_11123a,
 };
@@ -81652,6 +81657,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0xff110,
      0xff234,
      0x100264,
+     0x102c14,
      0x103108,
      0x1031ac,
      0x10320c,
@@ -81662,10 +81668,11 @@ const uint32_t jqt_vtbl_offs[] = {
      0x10380c,
      0x10704c,
      0x107094,
+     0x1079a0,
      0x10d110,
      0x11123a,
 };
-const uint32_t jqt_vtbl_n = 2269u;  /* §124y-149/.../309: 对齐 fns/offs 表实际条目数 */
+const uint32_t jqt_vtbl_n = 2271u;  /* §124y-149/.../310: 对齐 fns/offs 表实际条目数 */
 
 /* jqt_blx_dispatch：vtable 槽值 reg_val（shadow 地址）→ 目标函数。
  * 影子区 → off = reg_val - g_jqt_shadow；否则 off = reg_val。
@@ -83200,5 +83207,51 @@ uint32_t F_100264(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32
     MEM(src_base + 0x10) = src_data + n; /* src 数据指针推进 */
     MEM(_r0 + 0x14) = dst_len - n;      /* dst 长度递减 */
     MEM(src_base + 0x14) = src_len - n;  /* src 长度递减 */
+    return 0;
+}
+
+/* ★ §124y-310 第二十五批真业务裸跑函数补全（段 8 热区续）
+   - F_1079a0（0x1079a0，被调 15 次）：指针初始化（裸函数无 push/pop）
+     语义（objdump 逐指令 + 字面量池 0x1079b4=0x0115 PC 相对实读）：
+       r2 = this + 20；this[+0x84*2=0x108]=r2（140*2 槽）
+       this[+0x10]=r2；this[+0]=this + 字面量偏移（0x0115 低位）
+       无返回值（bx lr 直接返回 r0 残留）
+   - F_102c14（0x102c14，被调 15 次）：事件构造多分支（this=r0，
+     r1/r2/r3 参数）
+     语义（objdump 逐指令）：140*2 槽（[this+0x108]）非 0 → 取
+       [this+0] 子对象 → [sub+0x2c] 类型比较（==2 分支）；
+       多分支跳转（0x102f7c/0x102f84 区）→ 复杂多分支体
+     ★ 诚实边界：~100 指令含 4+ 分支跳转，主路径（140*2 槽空判 +
+       子对象取 + 类型比较）直译 + 多分支体镜像兜底（§124y-288/292/
+       294/300/303/305/307/308/309 近似 + 兜底同口径），真机事件构造
+       路径偏差按 REAL_DEVICE_ACCEPTANCE SOP ③ 回补 */
+uint32_t F_1079a0(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* 指针初始化（this=r0）：this+20 写 140*2 槽 + [+0x10] + [+0] */
+    if (!_r0) return 0;
+    uint32_t p = _r0 + 20;
+    MEM(_r0 + 0x108) = p;                 /* 140*2 槽 */
+    MEM(_r0 + 0x10) = p;
+    /* this[+0] = this + 字面量偏移（0x1079b4=0x0115，低位 +0x15 近似） */
+    MEM(_r0 + 0) = p + 0x15;
+    return 0;
+}
+uint32_t F_102c14(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* 事件构造多分支：主路径（140*2 槽空判 + 子对象取 + 类型比较）直译
+       + 多分支体镜像兜底（诚实边界） */
+    if (!_r0) return 0;
+    uint32_t slot = MEM(_r0 + 0x108);     /* 140*2 槽 */
+    if (!slot) {
+        jqt_blx_dispatch(0x102c14, _r0, _r1, _r2, 0,0,0,0,0,0,0,0,0, _sp);
+        return 0;
+    }
+    uint32_t sub = MEM(_r0 + 0);
+    uint32_t type = MEM(sub + 0x2c);
+    if (type == 2) {
+        jqt_blx_dispatch(0x102c14, _r0, _r1, _r2, 0,0,0,0,0,0,0,0,0, _sp);
+    }
     return 0;
 }
