@@ -258,14 +258,14 @@ static bool move_legal(const jq_state *st, int from, int to, int turn)
     uint8_t me = src->side;
     /* 目标被己方子占据 → 不可 */
     if (dst->rank != RANK_EMPTY && dst->side == me) return false;
-    /* ★ AUD-1000 B01-053（P1 已修）：暗棋未翻暗子目标不可撞（仅可翻/不可吃）。
-       原实现在此检查点缺失：暗棋下 rank 1-9 未翻子（revealed=0）可被普通子撞击
-       （信息泄露）。现补：暗棋模式下非雷非旗未翻目标拒走（只能走空格或已翻子格）。
-       工兵撞雷/扛旗路径不受影响（dr==MINE/FLAG 在 :280 段单独处理）。 */
-    if (st->mode == JQ_MODE_FLIP && ui_rule_cfg_get(4) &&
-        !dst->revealed && dst->rank != RANK_EMPTY &&
-        dst->rank != RANK_MINE && dst->rank != RANK_FLAG)
-        return false;
+    /* ★ 2026-11-13（原版 0x6a45c 实证，用户"翻棋后可走路线少"指正）：暗棋未翻
+       暗子目标**可撞**（原版允许翻出子走/吃到未翻暗子，0x6a45c 目标 cell+4(side)
+       ==0 才拒，0xFF 未翻走吃子比较）。旧 B01-053（AUD-1000 加的"防信息泄露"）
+       拦"暗棋未翻普通暗子目标不可撞"→ 翻出子只能走空格/已翻子格，可走路线
+       显著少于原版（用户指正）。移除该限制：翻出子可撞未翻暗子（执行器
+       jq_try_move else 分支已支持：源强吃/同级同归/源弱被吃，B01-057/B01-009
+       处理 0xFF）。工兵撞雷/扛旗路径在下方 :280 段单独处理（不受影响）。 */
+    /* （B01-053 移除：未翻暗子目标可撞，对齐原版 0x6a45c） */
     /* 行营安全岛：敌方棋子不能吃行营中的棋子（rulelay 原文）；
        空行营可走（一步相邻，行营非铁路不可穿行滑行）
        ★ AUD-R-028（P2 诚实标注，需人工确认）：空行营允许敌方一步进入——
@@ -432,6 +432,33 @@ bool jq_can_move_any(const jq_state *st, int from, int to)
    "杀光可动子"的即时判负未独立实现。★ 诚实边界：当前靠困毙近似覆盖，
    完整实现依赖 AUD-R-002/003（暗棋规则族 + 先手翻子定色）落地后补。 */
 
+/* ---------- 普通子存在性（0x302f0 阶段1：sp[16]/sp[17]） ---------- */
+/* ★ 2026-11-13（原版 0x302f0 阶段1 实证，R-073 后续）：原版"双方无普通子→Draw /
+   一方无普通子→对方胜"用**存在性**（sp[16]=蓝普通子、sp[17]=红普通子位图，
+   rank>12 分区，rank==11 地雷跳过，rank 1-10 含炸弹计普通子），非 movability
+   （可动子）。旧 64 位实现用"双方困毙（movability）→Draw"是错误近似：BLUE 攻子
+   入大本营不可再动但仍算有普通子 → flag-off/mine-off 被误判 Draw（winner=2）。
+   本函数返回 side 方是否**仍有普通子**（非空非地雷非军旗，含炸弹）。
+   暗棋未翻暗子（side=SIDE_UNKNOWN）：不能归属任一方 → 视为"有潜在普通子"
+   （返回 true）——防止暗棋开局（全 0xFF）/有未翻子时误判"双方无普通子→Draw"
+   （未翻子可能属于任一方，存在性不确定，宁可续局）。明棋（revealed=1）下
+   side 已定（0/1）→ 精确分区。64 位暗棋红方 rank 不 +0xc（jq_dark_setup 统一
+   蓝原值），故按 c->side 分区（非原版 rank>12 分区，64 位暗棋设计差异）。 */
+static bool side_has_normal(const jq_state *st, int side)
+{
+    for (int i = 0; i < N_CELLS; i++) {
+        const jq_cell *c = &st->cells[i];
+        if (c->rank == RANK_EMPTY) continue;
+        if (c->side == SIDE_UNKNOWN) return true;   /* 未翻暗子：潜在普通子，续局 */
+        if (c->side != side) continue;
+        uint8_t r = c->rank;
+        if (side == SIDE_RED && r > 12) r -= 0xc;   /* 明棋红方 rank+0xc 编码 → 归一化 */
+        if (r == RANK_MINE || r == RANK_FLAG) continue;
+        return true;   /* rank 1-10 含炸弹 = 普通子 */
+    }
+    return false;
+}
+
 /* ---------- 走子执行（0x39f20 + 0x3a15c 语义） ---------- */
 /* ★ AUD-R-008（P1）：走子/翻棋共用的终局收口（顺序对齐原 jq_try_move：先和棋后困毙）。
    stage 已 OVER（吃旗/炸旗终局）时双守卫自动放行，不动终局 winner。 */
@@ -495,18 +522,21 @@ static void stalemate_after(jq_state *st)
        MuMu 64 位 so 上主线程单线程跑该段 >30s → 回归 10s 窗口全 FAIL +
        渲染层未启动（资源 34=0）；桌面 evverify 毫秒级故前批未暴露。
        修：stalemate_after 收口 stale_dirty=0（全扫完成后缓存有效，增量命中）。 */
-    /* ★ 2026-11-13（原版 0x302f0 阶段1 实证，R-073 后续）：双方困毙
-       （无可动/可翻子）→ Draw。原版 0x302f0 位图 sp[16]==0 && sp[17]==0 →
-       winner=3 Draw（0x303d2 beq 0x303a8）；旧 64 位只判当前方困毙→负，
-       缺"双方无行动→Draw"（rule_probe C4/C4b 分歧：双方只剩地雷/军旗）。
-       ★ 注意 jq_side_stalemated 增量缓存（stale_cache）：必须先强制双方全扫
-       （stale_dirty=1）——否则对端读旧缓存（未扫描值 0）误判"困毙"，导致
-       后续 turn 侧 stalemate 误报（回归 moves=0 根因，2026-11-13 实锤）。 */
-    st->stale_dirty = 1;
-    bool s0_stale = jq_side_stalemated(st, 0);
-    st->stale_dirty = 1;   /* 强制 side1 也全扫（side0 全扫后 stale_dirty=0） */
-    bool s1_stale = jq_side_stalemated(st, 1);
-    if (st->stage == STG_PLAY && s0_stale && s1_stale) {
+    /* ★ 2026-11-13（原版 0x302f0 阶段1 实证，R-073 后续）：双方无普通子
+       （存在性）→ Draw。原版 0x302f0 位图 sp[16]==0 && sp[17]==0 → winner=3
+       Draw（0x303d2 beq 0x303a8）。旧 64 位"双方困毙（movability）→Draw"是
+       错误近似：BLUE 攻子入大本营不可再动但仍算有普通子 → flag-off/mine-off
+       被误判 Draw（winner=2 而非 BLUE）。按原版存在性：flag-off 蓝有普通子
+       （rank2）→ 不 Draw → 走单侧困毙（RED 无子）→ BLUE 胜 ✓；mine-off 红有
+       普通子（rank3）→ 不 Draw → RED 困毙 → BLUE 胜 ✓。
+       ★ 诚实边界：原版"一方无普通子→对方胜"（0x30430/0x30438 的
+       !sp[20]||!sp[16]→winner=1）未在 64 位独立实现——flag-off/mine-off 走
+       单侧困毙路径产出相同 winner（RED 无子=困毙=无普通子，殊途同归）；
+       该分支独立实现需先确认原版 0x301f0 分发 flag 字段（state+1778）的
+       Win/Lose 方向映射（winner 字段编码），留待下一轮专项（0x30430 已实证
+       是"蓝无军旗/普通子→winner=1"，映射到 64 位 JQ_WIN_BLUE=0 需方向确认）。 */
+    st->stale_dirty = 1;   /* ★ 强制全扫：走子后棋盘变化，缓存须失效（2026-11-13 教训） */
+    if (st->stage == STG_PLAY && !side_has_normal(st, 0) && !side_has_normal(st, 1)) {
         jq_on_draw(st);
     } else if (st->stage == STG_PLAY && jq_side_stalemated(st, st->turn)) {
         jq_on_stalemate(st, st->turn);
