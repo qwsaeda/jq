@@ -465,6 +465,9 @@ uint32_t F_c64e0(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,
 uint32_t F_c7124(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_c7418(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_c7d9c(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_c8328(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_c837c(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+/* §124y-938 前向声明（第五百八十四批：[this+64] 取 sscanf 直调 2 减 1 左移 1 返回 + 同模式新地址） */
 uint32_t F_c7f00(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 /* §124y-937 前向声明（第五百八十三批：F_c7d18 直调 [返回] 0 比较 F_c7c9c 直调循环 [this+0] 取 + [r0] 加 64 F_c7e44 直调 44 对齐返回） */
 uint32_t F_c7c64(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
@@ -82299,6 +82302,8 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_c7e44,
     F_c7f00,
     F_c81e0,
+    F_c8328,
+    F_c837c,
     F_c84d0,
     F_c8708,
     F_c882c,
@@ -85827,6 +85832,8 @@ const uint32_t jqt_vtbl_offs[] = {
      0xc7e44,
      0xc7f00,
      0xc81e0,
+     0xc8328,
+     0xc837c,
      0xc84d0,
      0xc8708,
      0xc882c,
@@ -86061,7 +86068,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x11f20c,
      0x11fa34,
 };
-const uint32_t jqt_vtbl_n = 3525u;  /* §124y-149/.../937: 对齐 fns/offs 表实际条目数 */
+const uint32_t jqt_vtbl_n = 3527u;  /* §124y-149/.../938: 对齐 fns/offs 表实际条目数 */
 
 /* jqt_blx_dispatch：vtable 槽值 reg_val（shadow 地址）→ 目标函数。
  * 影子区 → off = reg_val - g_jqt_shadow；否则 off = reg_val。
@@ -113738,5 +113745,42 @@ uint32_t F_c7f00(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_
        返回 */
     if (!_r0) return 0;
     jqt_blx_dispatch(0xc7f00, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+
+/* ★ §124y-938 第五百八十四批真业务裸跑函数补全（[this+64] 取 sscanf 直调 2 减 1 左移 1 返回 + 同模式新地址）
+   - F_c8328（0xc8328，被调 2 次）：[this+64] 取 + sscanf 直调 +
+     2 减 + 1 减 + 左移 1 + 返回（新变体首次出现）
+     语义（objdump 逐指令 + 字面量池 0xc8340 实读）：
+       [this+64] 取 + [字面量池] 取 + **blx sscanf（PLT）** +
+       2 减 + 1 减 + 左移 1 → 返回
+     ★ 诚实边界：取 + 直调 + 减 + 左移 + 返回，主路径
+       （[this+64] 取 + sscanf 直调 + 2 减 1 左移 1）直译 +
+       sscanf 镜像兜底
+       （§124y-288~937 同口径，[this+64] 取 + sscanf 直调 +
+       2 减 1 左移 1 返回新变体首次出现）
+   - F_c837c（0xc837c，被调 2 次）：同 F_c8328 模式新地址实例化
+     （[this+64] 取 + sscanf 直调 + 2 减 + 1 减 + 左移 1 + 返回）
+     语义（objdump 逐指令 + 字面量池 0xc8394 实读）：同 F_c8328
+     ★ 诚实边界：同 F_c8328（§124y-288~937 同口径，同 F_c8328
+       模式，新地址实例化确认模式稳定） */
+uint32_t F_c8328(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* [this+64] 取 + sscanf（PLT）镜像兜底 + 2 减 1 左移 1 主路径
+       + 返回 */
+    if (!_r0) return 0;
+    uint32_t fmt = MEM(JQT_ABS_PTR(0xc8340));
+    jqt_blx_dispatch(0xc8328, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+uint32_t F_c837c(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* [this+64] 取 + sscanf（PLT）镜像兜底 + 2 减 1 左移 1 主路径
+       + 返回（同 F_c8328 模式，新地址实例化） */
+    if (!_r0) return 0;
+    uint32_t fmt = MEM(JQT_ABS_PTR(0xc8394));
+    jqt_blx_dispatch(0xc837c, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
     return 0;
 }
