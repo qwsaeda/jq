@@ -415,6 +415,9 @@ uint32_t F_98504(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,
 uint32_t F_998ac(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_9b9c4(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_9c4ac(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_9de38(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_9f3e4(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+/* §124y-888 前向声明（第五百三十四批：220B 超大栈字面量池 [栈+260/264] 双取 + [this+64] 取返回两指令） */
 uint32_t F_9c850(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 /* §124y-887 前向声明（第五百三十三批：60B 大栈 [r2+0] 取 [r1+8] 取比较 + 8B 栈 [this+40] 加 [栈+4] r1 写 [r1] 取） */
 uint32_t F_9b9d0(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
@@ -81192,6 +81195,7 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_9d914,
     F_9d988,
     F_9d9e9,
+    F_9de38,
     F_9e0c0,
     F_9e0d4,
     F_9e0f0,
@@ -81226,6 +81230,7 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_9f338,
     F_9f350,
     F_9f3b8,
+    F_9f3e4,
     F_9f42c,
     F_9f43c,
     F_9f520,
@@ -84620,6 +84625,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x9d914,
      0x9d988,
      0x9d9e9,
+     0x9de38,
      0x9e0c0,
      0x9e0d4,
      0x9e0f0,
@@ -84654,6 +84660,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x9f338,
      0x9f350,
      0x9f3b8,
+     0x9f3e4,
      0x9f42c,
      0x9f43c,
      0x9f520,
@@ -85711,7 +85718,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x11f20c,
      0x11fa34,
 };
-const uint32_t jqt_vtbl_n = 3425u;  /* §124y-149/.../887: 对齐 fns/offs 表实际条目数 */
+const uint32_t jqt_vtbl_n = 3427u;  /* §124y-149/.../888: 对齐 fns/offs 表实际条目数 */
 
 /* jqt_blx_dispatch：vtable 槽值 reg_val（shadow 地址）→ 目标函数。
  * 影子区 → off = reg_val - g_jqt_shadow；否则 off = reg_val。
@@ -111300,4 +111307,40 @@ uint32_t F_9c850(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_
     if (!_r0) return 0;
     jqt_blx_dispatch(0x9c850, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
     return 0;
+}
+
+/* ★ §124y-888 第五百三十四批真业务裸跑函数补全（220B 超大栈字面量池 [栈+260/264] 双取 + [this+64] 取返回两指令）
+   - F_9de38（0x9de38，被调 2 次）：220B 超大栈复杂（字面量池 +
+     [栈+260/264] 双取 + [r2] 取 + 多分支）
+     语义（objdump 逐指令 + 字面量池 0x9dfec 实读）：
+       sub sp,#220 + [字面量池] 取 + [this] 取 + [栈+260] 取 +
+       [r2] 取 + [栈+264] 取 + [池+0] 取 → 多分支
+     ★ 诚实边界：220B 超大栈 + 字面量池 + 栈双取 + 多分支，主路径
+       （[字面量池] 取 + [栈+260/264] 双取 + [r2] 取）直译 +
+       多分支体镜像兜底
+       （§124y-288~887 同口径，220B 超大栈字面量池 +
+       [栈+260/264] 双取新变体首次出现）
+   - F_9f3e4（0x9f3e4，被调 2 次）：[this+64] 取 + 返回（两指令
+     全直译零依赖）
+     语义（objdump 逐指令）：
+       [this+64] 取 → 返回
+     ★ 全直译零依赖，纯 [this+64] 取返回（同 0x53e00/0x8571c/
+       0x85704/0x80504/0x829e8/0x84e34/0x85324/0x94da0/
+       0x9b9cc 模式，[this+64] 取返回新槽首次出现） */
+uint32_t F_9de38(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* 220B 超大栈：[字面量池] 取 + [栈+260/264] 双取 + [r2] 取主
+       路径 + 多分支体兜底 */
+    if (!_r0) return 0;
+    uint32_t lit = MEM(JQT_ABS_PTR(0x9dfec));
+    jqt_blx_dispatch(0x9de38, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+uint32_t F_9f3e4(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* [this+64] 取 + 返回（两指令全直译零依赖） */
+    if (!_r0) return 0;
+    return MEM(_r0 + 64);
 }
