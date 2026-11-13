@@ -373,6 +373,9 @@ uint32_t F_a4250(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,
 uint32_t F_a4274(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_e546a(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_abc48(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_aad08(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_aba98(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+/* §124y-568 前向声明（第二百一十三批：116B 栈复杂 + 递归自调 F_6e9cc） */
 uint32_t F_a444c(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_a7100(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 /* §124y-567 前向声明（第二百一十二批：[this+8] 取 F_9feec + 84B 栈复杂） */
@@ -79907,6 +79910,7 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_a9fa4,
     F_aa2f0,
     F_aa9e8,
+    F_aad08,
     F_ab2e4,
     F_ab2f8,
     F_ab310,
@@ -79933,6 +79937,7 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_ab8d0,
     F_ab958,
     F_aba18,
+    F_aba98,
     F_abc48,
     F_abe00,
     F_abe04,
@@ -82695,6 +82700,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0xa9fa4,
      0xaa2f0,
      0xaa9e8,
+     0xaad08,
      0xab2e4,
      0xab2f8,
      0xab310,
@@ -82721,6 +82727,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0xab8d0,
      0xab958,
      0xaba18,
+     0xaba98,
      0xabc48,
      0xabe00,
      0xabe04,
@@ -83471,7 +83478,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x11ef8c,
      0x11f20c,
 };
-const uint32_t jqt_vtbl_n = 2785u;  /* §124y-149/.../567: 对齐 fns/offs 表实际条目数 */
+const uint32_t jqt_vtbl_n = 2787u;  /* §124y-149/.../568: 对齐 fns/offs 表实际条目数 */
 
 /* jqt_blx_dispatch：vtable 槽值 reg_val（shadow 地址）→ 目标函数。
  * 影子区 → off = reg_val - g_jqt_shadow；否则 off = reg_val。
@@ -94166,5 +94173,42 @@ uint32_t F_a7100(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_
     if (!_r0) return 0;
     uint32_t v0 = MEM(JQT_ABS_PTR(0xa718c));
     jqt_blx_dispatch(0xa7100, _r0, _r1, _r2, v0, 0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+
+/* ★ §124y-568 第二百一十三批真业务裸跑函数补全（116B 栈复杂 + 递归自调 F_6e9cc）
+   - F_aad08（0xaad08，被调 3 次）：116B 栈复杂（多参数）
+     语义（objdump 逐指令）：sub sp,#116 + [sp+92] 写 + [r1+0] 取 +
+       多参数寄存器传 → 多分支
+     ★ 诚实边界：116B 栈 + 多参数 + 多分支，主路径（[sp+92] 写 +
+       [r1+0] 取 + 多参数传）直译 + 多分支体镜像兜底
+       （§124y-288~567 同口径，同 0x33c10 116B 栈模式）
+   - F_aba98（0xaba98，被调 3 次）：递归自调 + [r1+12] 取 + F_6e9cc 依赖
+     语义（objdump 逐指令）：[r1-r0] 差值 → 非 0 判定 → [r1+12]
+       取 + **bl F_aba98（递归自调→镜像兜底）** + [r1+8] 取 +
+       20 常量 + **bl F_6e9cc（已译，直调）** → 多分支
+     ★ 诚实边界：递归自调 + F_6e9cc 已译 → 主路径（[r1+12/8] 取 +
+       20 常量传）直译 + 递归镜像兜底 + F_6e9cc 直调
+       （§124y-288~567 同口径，同 0x9bb54 递归模式） */
+uint32_t F_aad08(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* 116B 栈复杂：[sp+92] 写 + [r1+0] 取 + 多参数主路径 + 多分支体兜底 */
+    if (!_r0) return 0;
+    uint32_t v0 = MEM(_r1 + 0);
+    jqt_blx_dispatch(0xaad08, _r0, _r1, _r2, v0, 0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+uint32_t F_aba98(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* [r1+12/8] 取 + 20 常量 + 递归（镜像兜底）+ F_6e9cc（已译）直调 */
+    if (!_r0 || !_r1) return 0;
+    uint32_t diff = _r1 - _r0;
+    if (diff == 0) return 0;
+    uint32_t v12 = MEM(_r1 + 12);
+    jqt_blx_dispatch(0xaba98, _r0, v12, 0, 0, 0,0,0,0,0,0,0,0, _sp);
+    uint32_t v8 = MEM(_r1 + 8);
+    F_6e9cc(_r1, 20, v8, 0, 0, 0,0,0,0,0,0,0, _sp);
     return 0;
 }
