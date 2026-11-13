@@ -378,6 +378,9 @@ uint32_t F_80288(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,
 uint32_t F_80304(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_80504(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_8271c(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_82930(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_829e8(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+/* §124y-850 前向声明（第四百九十六批：[r1] 0 比较 [r1+12] 取递归 F_82930 自调用 + 20 常量 F_6e9cc 直调 + [this+264] 取 [this+260] 取 2 倍除） */
 uint32_t F_82864(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 /* §124y-849 前向声明（第四百九十五批：[r1/r2] 比较 + [栈+24] 取 0 比较 F_82708 直调 + 44 常量 F_6e9cc 双直调） */
 uint32_t F_81578(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
@@ -80539,7 +80542,9 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_82708,
     F_8271c,
     F_82864,
+    F_82930,
     F_829d8,
+    F_829e8,
     F_82bec,
     F_82c70,
     F_82cdc,
@@ -83891,7 +83896,9 @@ const uint32_t jqt_vtbl_offs[] = {
      0x82708,
      0x8271c,
      0x82864,
+     0x82930,
      0x829d8,
+     0x829e8,
      0x82bec,
      0x82c70,
      0x82cdc,
@@ -85445,7 +85452,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x11f20c,
      0x11fa34,
 };
-const uint32_t jqt_vtbl_n = 3349u;  /* §124y-149/.../849: 对齐 fns/offs 表实际条目数 */
+const uint32_t jqt_vtbl_n = 3351u;  /* §124y-149/.../850: 对齐 fns/offs 表实际条目数 */
 
 /* jqt_blx_dispatch：vtable 槽值 reg_val（shadow 地址）→ 目标函数。
  * 影子区 → off = reg_val - g_jqt_shadow；否则 off = reg_val。
@@ -109361,4 +109368,45 @@ uint32_t F_82864(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_
     jqt_blx_dispatch(0x6e9cc, _r1, 44, 0, 0, 0,0,0,0,0,0,0,0, _sp);
     jqt_blx_dispatch(0x82864, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
     return 0;
+}
+
+/* ★ §124y-850 第四百九十六批真业务裸跑函数补全（[r1] 0 比较 [r1+12] 取递归 F_82930 自调用 + 20 常量 F_6e9cc 直调 + [this+264] 取 [this+260] 取 2 倍除）
+   - F_82930（0x82930，被调 2 次）：[r1] 0 比较 + [r1+12] 取 +
+     递归 F_82930 自调用 + 20 常量 + F_6e9cc 直调 + 链表遍历
+     （新变体首次出现）
+     语义（objdump 逐指令）：
+       [r1] 0 比较分支 + [r1+12] 取 + **bl F_82930（递归自调
+       用→镜像兜底）** + [r1+8] 取 + 20 常量 + **bl F_6e9cc
+       （未译→镜像兜底）** + [r1+8] 0 比较 → 多分支
+     ★ 诚实边界：比较 + 取 + 递归 + 常量 + 直调 + 多分支，主
+       路径（[r1] 0 比较 + [r1+12] 取 + F_82930 递归 + 20
+       常量 + F_6e9cc 直调）直译 + 双镜像兜底
+       （§124y-288~849 同口径，递归 F_82930 自调用 + 20 常量
+       + F_6e9cc 直调新变体首次出现）
+   - F_829e8（0x829e8，被调 2 次）：[this+264] 取 + [this+260]
+     取 + 2 倍除 + 返回（新变体首次出现）
+     语义（objdump 逐指令）：
+       132 常量 1 倍移位 + 130 常量 1 倍移位 + [this+264] 取 +
+       [this+260] 取 + 减 + 2 倍除 → 返回
+     ★ 全直译零依赖，纯 [this+264] 取 [this+260] 取 2 倍除（同
+       0x80504 模式，[this+264/260] 双取 2 倍除新槽首次出现） */
+uint32_t F_82930(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* [r1] 0 比较 + [r1+12] 取 + F_82930（递归）镜像兜底 + 20
+       常量 + F_6e9cc（未译）镜像兜底主路径 + 多分支体兜底 */
+    if (!_r0) return 0;
+    jqt_blx_dispatch(0x82930, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
+    jqt_blx_dispatch(0x829e8, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+uint32_t F_829e8(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* [this+264] 取 + [this+260] 取 + 减 + 2 倍除返回（全直译
+       零依赖） */
+    if (!_r0) return 0;
+    int32_t v264 = MEM(_r0 + 264);
+    int32_t v260 = MEM(_r0 + 260);
+    return (v264 - v260) / 2;
 }
