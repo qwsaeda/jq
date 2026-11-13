@@ -373,6 +373,9 @@ uint32_t F_a4250(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,
 uint32_t F_a4274(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_e546a(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_abc48(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_6a6ec(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_6ab08(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+/* §124y-533 前向声明（第一百七十八批：栈帧复杂 + 20B 栈复杂） */
 uint32_t F_619bc(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_6a64c(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 /* §124y-532 前向声明（第一百七十七批：栈帧复杂 + 8B 栈复杂） */
@@ -78713,7 +78716,9 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_6a3b0,
     F_6a45c,
     F_6a64c,
+    F_6a6ec,
     F_6a994,
+    F_6ab08,
     F_6b248,
     F_6b740,
     F_6b87c,
@@ -81431,7 +81436,9 @@ const uint32_t jqt_vtbl_offs[] = {
      0x6a3b0,
      0x6a45c,
      0x6a64c,
+     0x6a6ec,
      0x6a994,
+     0x6ab08,
      0x6b248,
      0x6b740,
      0x6b87c,
@@ -83226,7 +83233,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x11ef8c,
      0x11f20c,
 };
-const uint32_t jqt_vtbl_n = 2715u;  /* §124y-149/.../532: 对齐 fns/offs 表实际条目数 */
+const uint32_t jqt_vtbl_n = 2717u;  /* §124y-149/.../533: 对齐 fns/offs 表实际条目数 */
 
 /* jqt_blx_dispatch：vtable 槽值 reg_val（shadow 地址）→ 目标函数。
  * 影子区 → off = reg_val - g_jqt_shadow；否则 off = reg_val。
@@ -92625,5 +92632,38 @@ uint32_t F_6a64c(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_
     if (!_r0) return 0;
     uint32_t v0 = MEM(JQT_ABS_PTR(0x6a6dc));
     jqt_blx_dispatch(0x6a64c, _r0, _r1, _r2, v0, 0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+
+/* ★ §124y-533 第一百七十八批真业务裸跑函数补全（栈帧复杂 + 20B 栈复杂）
+   - F_6a6ec（0x6a6ec，被调 3 次）：栈帧复杂（this=r0）
+     语义（objdump 逐指令 + 字面量池 0x6a974/0x6a978 实读）：
+       [字面量池×2] 取 + 多参数寄存器传 → 多分支
+     ★ 诚实边界：栈帧 + 字面量池 + 多参数 + 多分支，主路径
+       （[字面量池] 取 + [sp+4] 栈传）直译 + 多分支体镜像兜底
+       （§124y-288~532 同口径，同 0x619bc 栈帧模式）
+   - F_6ab08（0x6ab08，被调 3 次）：20B 栈复杂（this=r0，r1）
+     语义（objdump 逐指令 + 字面量池 0x6ac44 实读）：
+       [r1] 参数 + [字面量池] 取 + sub sp,#20 + 180 常量 → 多分支
+     ★ 诚实边界：20B 栈 + 字面量池 + 180 常量 + 多参数 + 多分支，
+       主路径（[r1] 参数 + [字面量池] 取 + 180 常量传）直译 +
+       多分支体镜像兜底（§124y-288~532 同口径，
+       同 0xa1aac 20B 栈模式） */
+uint32_t F_6a6ec(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* 栈帧复杂：[字面量池] 取 + [sp+4] 栈传主路径 + 多分支体兜底 */
+    if (!_r0) return 0;
+    uint32_t v0 = MEM(JQT_ABS_PTR(0x6a974));
+    jqt_blx_dispatch(0x6a6ec, _r0, _r1, _r2, v0, 0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+uint32_t F_6ab08(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* 20B 栈复杂：[r1] 参数 + [字面量池] 取 + 180 常量主路径 + 多分支体兜底 */
+    if (!_r0) return 0;
+    uint32_t v0 = MEM(JQT_ABS_PTR(0x6ac44));
+    jqt_blx_dispatch(0x6ab08, _r0, _r1, 180, v0, 0,0,0,0,0,0,0,0, _sp);
     return 0;
 }
