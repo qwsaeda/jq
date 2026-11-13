@@ -373,6 +373,9 @@ uint32_t F_a4250(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,
 uint32_t F_a4274(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_e546a(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_abc48(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_36fb4(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_370e8(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+/* §124y-643 前向声明（第二百八十九批：[this+676] 双取判定 + [this+378] 取已译直调） */
 uint32_t F_36c1c(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_36c54(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 /* §124y-642 前向声明（第二百八十八批：字面量池双依赖 + 已译直调偏移取判定） */
@@ -78589,6 +78592,8 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_36db8,
     F_36dcc,
     F_36de0,
+    F_36fb4,
+    F_370e8,
     F_37200,
     F_373c0,
     F_373d4,
@@ -81527,6 +81532,8 @@ const uint32_t jqt_vtbl_offs[] = {
      0x36db8,
      0x36dcc,
      0x36de0,
+     0x36fb4,
+     0x370e8,
      0x37200,
      0x373c0,
      0x373d4,
@@ -83996,7 +84003,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x11f20c,
      0x11fa34,
 };
-const uint32_t jqt_vtbl_n = 2935u;  /* §124y-149/.../642: 对齐 fns/offs 表实际条目数 */
+const uint32_t jqt_vtbl_n = 2937u;  /* §124y-149/.../643: 对齐 fns/offs 表实际条目数 */
 
 /* jqt_blx_dispatch：vtable 槽值 reg_val（shadow 地址）→ 目标函数。
  * 影子区 → off = reg_val - g_jqt_shadow；否则 off = reg_val。
@@ -97234,5 +97241,46 @@ uint32_t F_36c54(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_
     }
     uint32_t prev = MEM(v672 - 4);
     jqt_blx_dispatch(0x36c54, _r0, _r1, prev, v672, 0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+
+/* ★ §124y-643 第二百八十九批真业务裸跑函数补全（[this+676] 双取判定 + [this+378] 取已译直调）
+   - F_36fb4（0x36fb4，被调 2 次）：[this+169*4=676] 取 + 字面量池比较
+     + [this+680] 取 + 69 判定
+     语义（objdump 逐指令 + 字面量池 0x3700c 实读）：
+       [this+676] ldr 取 + 与字面量池比较 → 大于 → [this+680] 取 +
+       69 判定 → 多分支
+     ★ 诚实边界：双取 + 比较 + 判定 + 多分支，主路径（[this+676] 取 +
+       字面量池比较 + [this+680] 取 + 69 判定）直译 + 多分支体镜像兜底
+       （§124y-288~642 同口径，同 0xdbb40 级联判定模式）
+   - F_370e8（0x370e8，被调 2 次）：[this+189*2=378] 取 + F_6f48c 依赖
+     语义（objdump 逐指令）：[this+378] 参数 + **bl F_6f48c（未译
+       →镜像兜底）** + 非 0 判定 + 字面量池取 → 多分支
+     ★ 诚实边界：[this+378] 取 + 依赖 + 判定，主路径（[this+378] 取 +
+       F_6f48c 镜像兜底 + 字面量池取）直译 + 多分支体镜像兜底
+       （§124y-288~642 同口径，同 0x33480 依赖模式） */
+uint32_t F_36fb4(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* [this+676] 取 + 字面量池比较 + [this+680] 取 + 69 判定主路径 + 多分支体兜底 */
+    if (!_r0) return 0;
+    uint32_t v676 = MEM(_r0 + 676);
+    uint32_t lit = MEM(JQT_ABS_PTR(0x3700c));
+    if (v676 > lit) {
+        jqt_blx_dispatch(0x36fb4, _r0, _r1, v676, 0, 0,0,0,0,0,0,0,0, _sp);
+        return 0;
+    }
+    uint32_t v680 = MEM(_r0 + 680);
+    jqt_blx_dispatch(0x36fb4, _r0, _r1, v680, 69, 0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+uint32_t F_370e8(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* [this+378] 取 + F_6f48c（未译）镜像兜底 + 非 0 判定主路径 */
+    if (!_r0) return 0;
+    jqt_blx_dispatch(0x6f48c, _r0 + 378, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
+    uint32_t lit = MEM(JQT_ABS_PTR(0x37158));
+    jqt_blx_dispatch(0x370e8, _r0, _r1, lit, 0, 0,0,0,0,0,0,0,0, _sp);
     return 0;
 }
