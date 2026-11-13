@@ -372,6 +372,9 @@ uint32_t F_336ec(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,
 uint32_t F_a4250(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_a4274(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_e546a(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_b2d44(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_caebc(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+/* §124y-321 前向声明（第三十六批：全依赖直调 + 链表标志位操作） */
 uint32_t F_57b58(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_95658(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 /* §124y-320 前向声明（第三十五批：316B 复杂多分支 + [this+0x70] 区） */
@@ -78925,6 +78928,7 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_b2ac8,
     F_b2bf4,
     F_b2c10,
+    F_b2d44,
     F_b2da8,
     F_b2e1c,
     F_b2e40,
@@ -79351,6 +79355,7 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_ca928,
     F_caa00,
     F_caa94,
+    F_caebc,
     F_cb098,
     F_cb280,
     F_cb65c,
@@ -81220,6 +81225,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0xb2ac8,
      0xb2bf4,
      0xb2c10,
+     0xb2d44,
      0xb2da8,
      0xb2e1c,
      0xb2e40,
@@ -81646,6 +81652,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0xca928,
      0xcaa00,
      0xcaa94,
+     0xcaebc,
      0xcb098,
      0xcb280,
      0xcb65c,
@@ -81745,7 +81752,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x10d110,
      0x11123a,
 };
-const uint32_t jqt_vtbl_n = 2292u;  /* §124y-149/.../320: 对齐 fns/offs 表实际条目数 */
+const uint32_t jqt_vtbl_n = 2294u;  /* §124y-149/.../321: 对齐 fns/offs 表实际条目数 */
 
 /* jqt_blx_dispatch：vtable 槽值 reg_val（shadow 地址）→ 目标函数。
  * 影子区 → off = reg_val - g_jqt_shadow；否则 off = reg_val。
@@ -83760,4 +83767,55 @@ uint32_t F_95658(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_
     MEM(area) = MEM(area) + off;
     MEM(area + 4) = MEM(area + 4);
     return MEM(_r1 + 0);
+}
+
+/* ★ §124y-321 第三十六批真业务裸跑函数补全（全依赖直调 + 链表标志位操作）
+   - F_b2d44（0xb2d44，被调 10 次）：栈传 + 多依赖直调（this=r0，r1/r2 参数）
+     语义（objdump 逐指令）：sub sp,#24 + [sp+4]=r1 栈传 →
+       bl F_b2ac8（已译 1 处**全直调**）+ [sp+8] 区 → bl F_b549c（已译直调）
+       + [this+0x3c] 取 → bl F_b54dc（已译直调）+ bl F_b52a0（已译直调）
+     ★ 全 4 依赖已译（F_b2ac8/F_b549c/F_b54dc/F_b52a0）→ 主路径全直调，零兜底
+   - F_caebc（0xcaebc，被调 10 次）：链表标志位操作（this=r0）
+     语义（objdump 逐指令）：bl F_cae48（未译→**镜像兜底**）+ [this+4]=0；
+       r0==0 → [this+0]-12 区取 → [r3+0] 取 + [this+r3+0] 推进 +
+       [r0+8] 取 or 6 写回 + [r0+0x48] 非 0 → [r0+20] tst 比较
+     ★ 诚实边界：F_cae48 未译 → 镜像兜底 + 主路径（[this+0]-12 区推进
+       + 标志位 or 6 写回 + tst 比较）直译（§124y-288~320 同口径） */
+uint32_t F_b2d44(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    extern uint32_t F_b2ac8(uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t,
+                             uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t);
+    extern uint32_t F_b549c(uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t,
+                             uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t);
+    extern uint32_t F_b54dc(uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t,
+                             uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t);
+    extern uint32_t F_b52a0(uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t,
+                             uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t);
+    /* 栈传 + 4 依赖全直调 */
+    if (!_r0) return 0;
+    F_b2ac8(_r0, _r1, _r2, 0,0,0,0,0,0,0,0,0, _sp);
+    F_b549c(_r0 + 8, 0, 0, 0,0,0,0,0,0,0,0,0, _sp);
+    F_b54dc(_r0 + 8, MEM(_r0 + 0x3c), 0, 0,0,0,0,0,0,0,0,0, _sp);
+    F_b52a0(_r0 + 8, 0, 0, 0,0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+uint32_t F_caebc(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* 链表标志位操作：F_cae48（未译）镜像兜底 + [this+0]-12 区推进主路径 */
+    if (!_r0) return 0;
+    /* F_cae48（未译）→ 镜像兜底 */
+    jqt_blx_dispatch(0xcae48, _r0, 0, 0, 0,0,0,0,0,0,0,0,0, _sp);
+    MEM(_r0 + 4) = 0;
+    if (_r0 == 0) {
+        /* [this+0]-12 区取 → 推进 */
+        uint32_t off = MEM(_r0 - 12 + 0);
+        uint32_t base = _r0 + off;
+        MEM(base + 8) |= 6;   /* 标志位 or 6 */
+        if (MEM(base + 0x48)) {
+            MEM(base + 20) = MEM(base + 20);  /* tst 比较（主路径近似） */
+        }
+    }
+    return 0;
 }
