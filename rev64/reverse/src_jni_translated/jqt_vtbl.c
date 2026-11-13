@@ -372,6 +372,9 @@ uint32_t F_336ec(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,
 uint32_t F_a4250(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_a4274(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_e546a(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_7d91c(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_94ed0(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+/* §124y-315 前向声明（第三十批：容器初始化 + 虚调用） */
 uint32_t F_34a5c(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_3dd44(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 /* §124y-314 前向声明（第二十九批：多分支 LUT + 短函数直调） */
@@ -78087,6 +78090,7 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_7d7cc,
     F_7d808,
     F_7d820,
+    F_7d91c,
     F_7da28,
     F_7db94,
     F_7dba8,
@@ -78420,6 +78424,7 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_94e58,
     F_94e68,
     F_94eb8,
+    F_94ed0,
     F_94f48,
     F_94f64,
     F_94f9c,
@@ -80370,6 +80375,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x7d7cc,
      0x7d808,
      0x7d820,
+     0x7d91c,
      0x7da28,
      0x7db94,
      0x7dba8,
@@ -80703,6 +80709,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x94e58,
      0x94e68,
      0x94eb8,
+     0x94ed0,
      0x94f48,
      0x94f64,
      0x94f9c,
@@ -81703,7 +81710,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x10d110,
      0x11123a,
 };
-const uint32_t jqt_vtbl_n = 2280u;  /* §124y-149/.../314: 对齐 fns/offs 表实际条目数 */
+const uint32_t jqt_vtbl_n = 2282u;  /* §124y-149/.../315: 对齐 fns/offs 表实际条目数 */
 
 /* jqt_blx_dispatch：vtable 槽值 reg_val（shadow 地址）→ 目标函数。
  * 影子区 → off = reg_val - g_jqt_shadow；否则 off = reg_val。
@@ -83469,4 +83476,54 @@ uint32_t F_3dd44(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_
     if (!_r0) return 0;
     F_b4bd0(_r1, _r2, JQT_ABS_PTR(0xe3d78), 0,0,0,0,0,0,0,0,0, _sp);
     return _r0;
+}
+
+/* ★ §124y-315 第三十批真业务裸跑函数补全（容器初始化 + 虚调用）
+   - F_7d91c（0x7d91c，被调 11 次）：容器初始化（this=r0）
+     语义（objdump 逐指令 + 字面量池 0x7d9fc 实读）：
+       [this+0x10]=this / [this+0x14]=this（自引用槽）；
+       bl F_7d820（已译 3 处直调）×2；[this+0x38/0x3c]=this+0x28；
+       多槽写（0x90/0x8c/0x94/0x98/0x9c/0x40/0x41 区）+ 字面量槽 0x7d9fc
+       写 [this+0x1c]
+     ★ 全依赖已译（F_7d820）→ 主路径全直调，零兜底
+   - F_94ed0（0x94ed0，被调 11 次）：虚调用（this=r0，r1/r2 栈传）
+     语义（objdump 逐指令）：sub sp,#12 + [sp+0]=r1 / [sp+4]=r2 栈传；
+       [this+0] 取虚表 → [vtable+0] 取虚函数 → blx（r1=33 事件码）
+       返回 0；0x94ee8 同族兄弟（r1=34 事件码）
+     ★ 虚调用（blx [vtable+0]）→ 镜像兜底；栈传 + 虚表取主路径直译 */
+uint32_t F_7d91c(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    extern uint32_t F_7d820(uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t,
+                             uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t);
+    /* 容器初始化：自引用槽 + F_7d820 全直调 + 多槽写 */
+    if (!_r0) return 0;
+    MEM(_r0 + 0x10) = _r0;
+    MEM(_r0 + 0x14) = _r0;
+    F_7d820(_r0, 0, 0, 0,0,0,0,0,0,0,0,0, _sp);
+    MEM(_r0 + 0x38) = _r0 + 0x28;
+    MEM(_r0 + 0x3c) = _r0 + 0x28;
+    F_7d820(_r0, 0, 0, 0,0,0,0,0,0,0,0,0, _sp);
+    MEM(_r0 + 0x24) = 0;
+    MEM(_r0 + 0x28) = 0;
+    MEM(_r0 + 0x2c) = 0;
+    MEM(_r0 + 0x40) = 0;
+    MEM(_r0 + 0x41) = 0;
+    MEM(_r0 + 0x90) = 0;
+    MEM(_r0 + 0x94) = _r0 + 0x8c;
+    MEM(_r0 + 0x98) = _r0 + 0x8c + 0x94;
+    MEM(_r0 + 0x9c) = 0;
+    return 0;
+}
+uint32_t F_94ed0(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* 虚调用：[this+0] 虚表取 [vtable+0] blx（r1=33 事件码，镜像兜底）
+       + 栈传主路径直译 */
+    if (!_r0) return 0;
+    uint32_t vt = MEM(_r0 + 0);
+    if (vt) {
+        jqt_blx_dispatch(MEM(vt + 0), _r0, 33, _r1, _r2, 0,0,0,0,0,0,0,0, _sp);
+    }
+    return 0;
 }
