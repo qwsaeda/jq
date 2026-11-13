@@ -373,6 +373,9 @@ uint32_t F_a4250(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,
 uint32_t F_a4274(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_e546a(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_abc48(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_27a30(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_27a44(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+/* §124y-609 前向声明（第二百五十五批：[this+101] 单字节读 + [this+102] 单字节读） */
 uint32_t F_27a08(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_27a1c(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 /* §124y-608 前向声明（第二百五十四批：[this+99] 单字节读 + [this+100] 单字节读） */
@@ -78128,6 +78131,8 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_279f4,
     F_27a08,
     F_27a1c,
+    F_27a30,
+    F_27a44,
     F_27a58,
     F_27a6c,
     F_27a94,
@@ -80998,6 +81003,8 @@ const uint32_t jqt_vtbl_offs[] = {
      0x279f4,
      0x27a08,
      0x27a1c,
+     0x27a30,
+     0x27a44,
      0x27a58,
      0x27a6c,
      0x27a94,
@@ -83758,7 +83765,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x11f20c,
      0x11fa34,
 };
-const uint32_t jqt_vtbl_n = 2867u;  /* §124y-149/.../608: 对齐 fns/offs 表实际条目数 */
+const uint32_t jqt_vtbl_n = 2869u;  /* §124y-149/.../609: 对齐 fns/offs 表实际条目数 */
 
 /* jqt_blx_dispatch：vtable 槽值 reg_val（shadow 地址）→ 目标函数。
  * 影子区 → off = reg_val - g_jqt_shadow；否则 off = reg_val。
@@ -95871,4 +95878,28 @@ uint32_t F_27a1c(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_
     /* [this+100] 单字节读 getter，全直译零依赖 */
     if (!_r0) return 0;
     return MEM(_r0 + 100) & 0xff;
+}
+
+/* ★ §124y-609 第二百五十五批真业务裸跑函数补全（[this+101] 单字节读 + [this+102] 单字节读）
+   - F_27a30（0x27a30，被调 2 次）：[this+101] 单字节读 getter
+     语义（objdump 逐指令，裸函数 3 指令）：101 常量 + [r0+101]
+       ldrb 取 → 返回
+     ★ 全直译（纯单字节读 getter，零依赖，同 0x252a0 getter 模式）
+   - F_27a44（0x27a44，被调 2 次）：[this+102] 单字节读 getter
+     语义（objdump 逐指令，裸函数 3 指令）：102 常量 + [r0+102]
+       ldrb 取 → 返回
+     ★ 全直译（纯单字节读 getter，零依赖，同 0x252a0 getter 模式） */
+uint32_t F_27a30(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* [this+101] 单字节读 getter，全直译零依赖 */
+    if (!_r0) return 0;
+    return MEM(_r0 + 101) & 0xff;
+}
+uint32_t F_27a44(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* [this+102] 单字节读 getter，全直译零依赖 */
+    if (!_r0) return 0;
+    return MEM(_r0 + 102) & 0xff;
 }
