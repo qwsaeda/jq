@@ -9,23 +9,42 @@
 
 - 原版在 MuMu/红果**从未运行**（EM_ARM 32 位 so 无法在 x86_64 加载），此前"截图对照"全作废。
 - 唯一权威 = `军棋.apk` SPAK 资源（spak_unpack 883）+ 原版 32 位 so 静态分析。
-- **按钮皮肤 = btn_color2（datax_195，244×61，4 块渐变圆角：橙/紫/绿/蓝 块 61×61）**。
-  原版按钮 = 渐变圆角立体皮肤（顶高光→主体→底暗）。
-- **弹窗皮肤 dlg.png SPAK 不可得**（诚实边界）：dlg.cfg=datah_215 `dlg.png,8,55,16,59`
-  （datax_215 `dlg.png,8,83,16,87`）但 dlg.png 位图不在 883 资源；data/sg/border.png 等
-  运行时文件系统资源 APK 无。引擎程序化绘制或运行时加载 fallback。
-  **弹窗浅底黑字**（datah_012 Title color=black 证实）。
+- **按钮皮肤 = btn.png（★ 2026-11-13 逆向实锤，纠正旧 btn_color2 误判）**：
+  - btn.cfg = datah_205 `btn.png,8,29,16,30`（9-patch left8 top29 right16 bottom30）
+  - btn.png 三态 = datah_207/208/209（24×64 RGBA）：正常态中心 RGB(33,130,202) 蓝渐变 /
+    按下 (42,138,210) / 禁用 (170,170,170) 灰
+  - 旧"btn_color2（datax_195 244×61 4 色块）是按钮皮肤"**错误**：datax_195 实为另一资源
+    （功能设置按钮 = Button style→btn.cfg→btn.png 蓝渐变，非 4 色块）
+  - 高分版：datax_205 btn.cfg(8,44,16,45) + datax_207/208/209 btn.png(24×95)；btn1.cfg=datah_206
+    (8,31,16,32) + btn1.png=datah_210/211/212(24×60)
+  - 产物：`rev64/forward/src_rs/jq_btn_skin.h`（三态 RGBA 内嵌 C 数组，烘焙 bake_btn_skin.py）
+- **弹窗皮肤 dlg.png 候选 = datah_187（480×490 米金渐变面板）**：
+  - dlg.cfg = datah_215 `dlg.png,8,55,16,59`（datax_215 `dlg.png,8,83,16,87`）
+  - datah_187 = 480×490，4 角 TL(231,216,192)米 → BR(91,77,55)暗棕，中心(207,180,132)米金，
+    9-patch 兼容（宽≥24 高≥114）——对话框面板皮肤方向
+  - ★ 诚实边界：datah_187 与 dlg.png 对应未 100% 实锤（SPAK 无显式名字表），作候选待验证
+  - **弹窗浅底黑字**（datah_012 Title color=black 证实）。
 
 ## 盘点结果（纯色自绘按钮）
 
 | 类别 | 数量 | 纯色自绘 | 原版皮肤 |
 |---|---|---|---|
-| 功能设置（rs_draw_gameset） | 1 | 0 | ✅ btn_color2 9patch + 米色面板 + 黑字标题 |
+| 功能设置（rs_draw_gameset） | 1 | 0 | ✅ **btn.png 三态 9patch**（★ 2026-11-13，纠正旧 btn_color2 误判）+ 米色面板 + 黑字标题 |
 | 主要弹窗（非 d*/ui* 批量） | ~40 | 内联纯色 quad ~90 处 + rs_solid_btn ~25 | 0 |
 | datah 批量 d* 弹窗 | 120 | 123 处 rs_solid_btn | 0 |
 | ui* 批量（datah 面板） | 9 | 20 处 rs_solid_btn | 0 |
 
 **合计：~230 处纯色矩形自绘按钮，仅 1 弹窗（功能设置）用真原版皮肤。**
+
+## 修复路线（已做 1，后续继续）
+
+1. ✅ **功能设置按钮 → btn.png 三态 9patch**（★ 2026-11-13：jq_btn_skin.h 烘焙 +
+   render.c rs_draw_btn9patch 改不对称(8/29/16/30) + rs_draw_gameset 用正常态）
+2. 主要弹窗按钮 → btn.png 9patch（正常态蓝渐变，按按钮语义）
+3. datah 批量 d* → btn.png（或 sbtn/btn1 小按钮皮肤）
+4. 弹窗面板 → dlg.png（datah_187 候选，需先验证）
+5. 标题黑字（Title color=black，功能设置已烘焙 gameset_title_black.png）
+6. 逐弹窗区分"按钮"vs"遮罩"（内联 quad 里遮罩保留、按钮改皮肤）
 
 ## 主要弹窗明细（纯色自绘，待对齐）
 
@@ -71,22 +90,25 @@
    之前会话把 datax_194/195 手动命名为 btn_color1/2.png。原版按钮皮肤**不是** btn_color1/2。
 2. **原版按钮皮肤 = btn.png**（UiConfig datah_117 Button→btn.cfg；btn.cfg=datah_205
    `btn.png,8,29,16,30` / datax_205 `btn.png,8,44,16,45`，9-patch top44+bottom45=89）。
-   **btn.png 位图 SPAK 不可得**：datax 组高 89-170 无单色渐变按钮（108×108=棋子、
-   168×106=T 形占位、620×119=战斗横幅）。datax_195(244×61) 高 61 < 89 **不满足
-   btn.cfg 9-patch 约束** → **datax_195 ≠ btn.png**。
+   **★ 2026-11-13 实锤推翻旧"btn.png 位图 SPAK 不可得"**：btn.png 三态 =
+   **datah_207/208/209**（24×64 RGBA，正常态中心 RGB(33,130,202) 蓝渐变 / 按下(42,138,210) /
+   禁用(170,170,170)灰），完美匹配 9-patch 宽 24=left8+right16；btn1.png = datah_210/211/212。
+   datax_195(244×61) 高 61 < 89 **不满足 btn.cfg 9-patch 约束** → **datax_195 ≠ btn.png**。
 3. **我用 datax_195 当功能设置按钮皮肤 = 错误资源**（不满足 btn.cfg 9-patch，且 4 色条
    非单按钮皮肤；datax_195 可能被原版代码直接索引用于主菜单/特定大按钮，非 XML style=Button）。
-4. **弹窗皮肤 dlg.png 不可得**：dlg.cfg=datah_215 `dlg.png,8,55,16,59` / datax_215
-   `dlg.png,8,83,16,87`，但 dlg.png 位图不在 883 资源。我用 datax_188 米色**自绘近似**
-   （非原版位图）。
+   **★ 已修**：功能设置 6 按钮改用 btn.png 正常态 9-patch（jq_btn_skin.h + rs_draw_gameset）。
+4. **弹窗皮肤 dlg.png 候选 = datah_187**（480×490 米金渐变，9-patch 兼容）：
+   dlg.cfg=datah_215 `dlg.png,8,55,16,59` / datax_215 `dlg.png,8,83,16,87`；
+   ★ 诚实边界：datah_187 与 dlg.png 对应未 100% 实锤（SPAK 无显式名字表），作候选待验证。
+   旧用 datax_188 米色**自绘近似**（非原版位图）。
 5. **标题黑字是烘焙**（gameset_text_atlas row0 转黑），非原版资源。
 
-**结论**：原版按钮/弹窗皮肤位图（btn.png/dlg.png）**在 SPAK 中不存在**（或无法定位），
-原版引擎可能**程序化绘制**（so 代码画渐变）或从 /data/sg/ 运行时加载（APK 无→fallback）。
-此前"功能设置对齐"（btn_color2+米色面板）用的是**误命名/自绘近似**，**非原版真实皮肤**
-——用户"UI 完全自己写的"判定成立。
+**结论（★ 2026-11-13 修正）**：原版按钮皮肤 btn.png **已定位**（datah_207/208/209 三态，
+9-patch 8/29/16/30），已烘焙 jq_btn_skin.h + 功能设置改用。dlg.png 候选 datah_187（待验证）。
+旧"btn.png/dlg.png SPAK 不可得"是**误判**（SPAK 无文件名映射，btn.cfg/dlg.cfg 内容引用名，
+位图按 9-patch 尺寸匹配定位成功）。原版引擎用**位图 9-patch 拉伸**（非纯程序化绘制）——
+GL2 纯色四边形路径（0x9e3e4 glDrawArrays(5,0,4)）是**非按钮**控件 fallback/选中框。
 
-**真对齐唯一可靠路径（未做）**：反汇编原版 32 位 so 找 UiBaseBtn/UiDialog 绘制函数，
-提取引擎程序化绘制的**真实颜色/渐变/几何**（GL1 固定管线 glColor4f 调用点 + 立即数）。
-so 依赖 libGLESv1_CM（GL1），绘制用固定管线颜色，可从指令序列还原。若引擎确用位图，
-则需在 SPAK/APK/运行时文件系统继续定位 btn.png/dlg.png。
+**真对齐路径（★ 已突破）**：SPAK cfg 内容（btn.cfg=`btn.png,8,29,16,30`）→ 按 9-patch
+尺寸匹配定位位图（btn.png=datah_207/208/209）→ 烘焙 → 渲染 9-patch 拉伸。剩余：
+dlg.png 确认（datah_187 候选）+ 主要弹窗按钮逐一改 btn.png 9-patch。

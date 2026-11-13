@@ -21,6 +21,7 @@
 #include "ui_menu.h"
 #include "jq_strings.h"   /* ★ 原版字符串表真值（79 条，自动生成） */
 #include "ui_state.h"   /* P2 图像设置 4 开关 ui_imgset_cfg_get（夜间/对方棋子接渲染层） */
+#include "jq_btn_skin.h"   /* ★ 2026-11-13 原版按钮皮肤 btn.png 三态（datah_207/208/209，9-patch 8/29/16/30） */
 
 /* ★ 原版 UI 位图真值（ch02 N45）前向声明 */
 static int d000_diag = 0;
@@ -2726,30 +2727,34 @@ static void rs_draw_newgame(rs_render *rr, int slot)
     if (!ngdiag) { ngdiag = 1; LOGI("rs_draw_newgame：两人新局弹窗（datah_062 玩法/明暗棋+确定/取消，面板 %.0f×%.0f，两人热座 AI 不介入）", UI_NEWGAME_POPUP_W, UI_NEWGAME_POPUP_H); }
 }
 
-/* ★ 原版彩色按钮条 btn_color2（datax_195）9-patch 绘制。
-   tex 244×61 内 4 块（橙 0-61/紫 61-122/绿 122-183/蓝 183-244），块 61×61。
-   按块 UV 子区域（u0,u1）9-patch 拉伸到按钮 rect（720 基准 x0,y0,x1,y1）。
-   9-patch 边 8px（块内圆角，角不缩放、边中拉伸）。原版按钮 = 渐变圆角立体皮肤。 */
+/* ★ 原版按钮皮肤 9-patch 绘制（★ 2026-11-13 逆向实锤纠正）。
+   ★ 旧实锤（datax_195 4 色块）错误：btn.cfg=btn.png,8,29,16,30（datah_205）——
+   按钮皮肤 = btn.png 三态 24×64（datah_207/208/209，蓝渐变 RGBA33,130,202），
+   datax_195(244×61) 非按钮皮肤。本函数全图 UV 0-1 + 不对称 9-patch(bl,bt,br,bb)
+   拉伸到按钮 rect（720 基准 x0,y0,x1,y1）。角不缩放、边中拉伸。 */
 static void rs_draw_btn9patch(rs_render *rr, int slot,
                               float x0, float y0, float x1, float y1,
-                              float u0, float u1, GLuint tex)
+                              GLuint tex, int tex_w, int tex_h,
+                              float bl, float bt, float br, float bb)
 {
     float sx, sy, yoff;
     rs_ui_scale(rr, &sx, &yoff);
     sy = sx;
     float X0 = x0 * sx, X1 = x1 * sx, Y0 = y0 * sy + yoff, Y1 = y1 * sy + yoff;
-    float eb = 8.0f * sx;        /* 屏幕角边（720 基准 8px → 屏幕） */
-    float eu = 8.0f / 244.0f;    /* 块内水平 8px（全图 244 宽归一） */
-    float ev = 8.0f / 61.0f;     /* 块内垂直 8px（全图 61 高归一） */
-    float v0 = 0.0f, v1 = 1.0f;
-    /* 保证角边不越界（按钮太小时收缩） */
-    if (X1 - X0 < 2 * eb) eb = (X1 - X0) * 0.5f;
-    float ys0 = Y0, ye0 = Y0 + eb, ys1 = Y1 - eb, ye1 = Y1;
-    if (ye0 > ys1) { ys0 = Y0; ye0 = (Y0 + Y1) * 0.5f; ys1 = ye0; ye1 = Y1; }
-    float xs[3] = { X0, X0 + eb, X1 - eb }, xe[3] = { X0 + eb, X1 - eb, X1 };
-    float ys[3] = { ys0, ye0, ys1 }, ye[3] = { ye0, ys1, ye1 };
-    float us[3] = { u0, u0 + eu, u1 - eu }, ue[3] = { u0 + eu, u1 - eu, u1 };
-    float vs[3] = { v0, v0 + ev, v1 - ev }, ve[3] = { v0 + ev, v1 - ev, v1 };
+    /* 屏幕 9-patch 边（720 基准 px → 屏幕） */
+    float el = bl * sx, et = bt * sx, er = br * sx, eb = bb * sx;
+    /* UV 归一化边（全图 tex_w×tex_h） */
+    float u_l = (tex_w > 0) ? (float)bl / tex_w : 0.05f;
+    float u_r = (tex_w > 0) ? (float)br / tex_w : 0.1f;
+    float v_t = (tex_h > 0) ? (float)bt / tex_h : 0.4f;
+    float v_b = (tex_h > 0) ? (float)bb / tex_h : 0.4f;
+    /* 角边不越界收缩（按钮太小时） */
+    if (X1 - X0 < el + er) { el = (X1 - X0) * 0.5f; er = el; }
+    if (Y1 - Y0 < et + eb) { et = (Y1 - Y0) * 0.5f; eb = et; }
+    float xs[3] = { X0, X0 + el, X1 - er }, xe[3] = { X0 + el, X1 - er, X1 };
+    float ys[3] = { Y0, Y0 + et, Y1 - eb }, ye[3] = { Y0 + et, Y1 - eb, Y1 };
+    float us[3] = { 0, u_l, 1 - u_r }, ue[3] = { u_l, 1 - u_r, 1 };
+    float vs[3] = { 0, v_t, 1 - v_b }, ve[3] = { v_t, 1 - v_b, 1 };
     rs_v4f q[54]; int n = 0;
     for (int iy = 0; iy < 3; iy++) {
         for (int ix = 0; ix < 3; ix++) {
@@ -2858,15 +2863,19 @@ static void rs_draw_gameset(rs_render *rr, int slot)
         {0.157f, 0.408f, 0.627f, 0.95f}, /* 取消：蓝块（原版 4 色条无灰，取消同蓝） */
     };
     const ui_gameset_btn *gb = ui_gameset_buttons();
-    int has_skin = (rr->tex_btn_color2[slot] && rr->btn_color2_w > 0 && rr->btn_color2_h > 0);
+    /* ★ 2026-11-13 逆向实锤纠正：功能设置 6 按钮皮肤 = btn.png（btn.cfg=btn.png,8,29,16,30），
+       datah_207 正常态蓝渐变 RGBA33,130,202，非旧 datax_195 4 色块（实为另一资源）。
+       用真实 btn.png 9-patch 三态替换 btn_color2 米色近似（用户"UI 完全自己写的"指正核心）。 */
+    int has_skin = (rr->tex_btn_skin[0][slot]);
     for (int i = 0; i < UI_GAMESET_COUNT; i++) {
         float bx0 = gb[i].x0 * sx, by0 = gb[i].y0 * sy + yoff;
         float bx1 = gb[i].x1 * sx, by1 = gb[i].y1 * sy + yoff;
         if (has_skin) {
-            float u0 = (i < 4) ? 0.5f : 0.75f;   /* 开关=绿块 / 确定取消=蓝块 */
-            float u1 = (i < 4) ? 0.75f : 1.0f;
             rs_draw_btn9patch(rr, slot, gb[i].x0, gb[i].y0, gb[i].x1, gb[i].y1,
-                              u0, u1, rr->tex_btn_color2[slot]);
+                              rr->tex_btn_skin[0][slot],
+                              jq_btn_normal_w, jq_btn_normal_h,
+                              JQ_BTN_9PATCH_L, JQ_BTN_9PATCH_T,
+                              JQ_BTN_9PATCH_R, JQ_BTN_9PATCH_B);
             continue;
         }
         /* 退化：纹理未加载 → 纯色（原版主体色） */
@@ -9989,6 +9998,9 @@ static void rs_gl_rebuild(rs_render *rr, int slot)
         };
         for (size_t k = 0; k < sizeof(texs)/sizeof(texs[0]); k++)
             if (texs[k][slot]) { glDeleteTextures(1, &texs[k][slot]); texs[k][slot] = 0; }
+        /* ★ 2026-11-13 原版按钮皮肤三态（jq_btn_skin.h 内嵌，同重建范式） */
+        for (int b = 0; b < 3; b++)
+            if (rr->tex_btn_skin[b][slot]) { glDeleteTextures(1, &rr->tex_btn_skin[b][slot]); rr->tex_btn_skin[b][slot] = 0; }
     }
     if (rr->vbo_board[slot])   { glDeleteBuffers(1, &rr->vbo_board[slot]); rr->vbo_board[slot] = 0; }
     if (rr->vbo_piece[slot])   { glDeleteBuffers(1, &rr->vbo_piece[slot]); rr->vbo_piece[slot] = 0; }
@@ -10175,6 +10187,24 @@ static void rs_gl_rebuild(rs_render *rr, int slot)
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
         LOGI("tex_btn_color2[%d]=%u 创建 w=%d h=%d px=%p", slot, rr->tex_btn_color2[slot], rr->btn_color2_w, rr->btn_color2_h, rr->btn_color2_px);
+    }
+    /* ★ 2026-11-13 原版按钮皮肤 btn.png 三态（jq_btn_skin.h 内嵌，24×64 RGBA，9-patch 8/29/16/30）。
+       纠正：btn.cfg=btn.png（蓝渐变），非 datax_195 4 色块。功能设置 6 按钮改用此皮肤。 */
+    {
+        const unsigned char *states[3] = { jq_btn_normal_px, jq_btn_press_px, jq_btn_disable_px };
+        const int sw[3] = { jq_btn_normal_w, jq_btn_press_w, jq_btn_disable_w };
+        const int sh[3] = { jq_btn_normal_h, jq_btn_press_h, jq_btn_disable_h };
+        for (int b = 0; b < 3; b++) {
+            glGenTextures(1, &rr->tex_btn_skin[b][slot]);
+            glBindTexture(GL_TEXTURE_2D, rr->tex_btn_skin[b][slot]);
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, sw[b], sh[b], 0,
+                         GL_RGBA, GL_UNSIGNED_BYTE, states[b]);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        }
+        LOGI("tex_btn_skin[%d]: normal=%u press=%u disable=%u (%dx%d 9patch 8/29/16/30)",
+             slot, rr->tex_btn_skin[0][slot], rr->tex_btn_skin[1][slot],
+             rr->tex_btn_skin[2][slot], jq_btn_normal_w, jq_btn_normal_h);
     }
     /* ★ 原版 Title color=black：游戏设置标题黑字版纹理 */
     if (rr->gameset_title_px && rr->gl2_ok[slot] && rr->gameset_title_w > 0 && rr->gameset_title_h > 0) {
@@ -11302,7 +11332,8 @@ void rs_render_free(rs_render *rr)
             rr->tex_bright_text, rr->tex_chatlog_text, rr->tex_profile_text, rr->tex_drawdetail_text,
             rr->tex_setentry_text, rr->tex_imgset_text, rr->tex_join065_text, rr->tex_create069_text,
             rr->tex_rules070_text, rr->tex_room060_text, rr->tex_chat063_text, rr->tex_about_text,
-            rr->tex_uibat_text, rr->tex_drawdetail_icons
+            rr->tex_uibat_text, rr->tex_drawdetail_icons,
+            rr->tex_btn_skin[0], rr->tex_btn_skin[1], rr->tex_btn_skin[2]   /* ★ 2026-11-13 按钮皮肤三态 */
         };
         for (size_t k = 0; k < sizeof(texs)/sizeof(texs[0]); k++)
             for (int i = 0; i < 2; i++)

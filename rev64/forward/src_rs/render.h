@@ -139,6 +139,9 @@ typedef struct {
     void *btn_color2_px; size_t btn_color2_px_len; int btn_color2_w, btn_color2_h; /* ★ 原版彩色按钮条 btn_color2（datax_195 244×61，4 块渐变圆角：橙/紫/绿/蓝，块 61×61） */
     unsigned int tex_panel[2]; unsigned int tex_panel_btn[2]; unsigned int tex_panel_icon[2];
     unsigned int tex_btn_color2[2];   /* ★ 原版彩色按钮条纹理（datax_195，功能设置按钮 9-patch 用） */
+    /* ★ 2026-11-13 原版按钮皮肤 btn.png 三态（datah_207/208/209，24×64 RGBA，9-patch 8/29/16/30）。
+       纠正：btn.cfg=btn.png（蓝渐变），非 datax_195 4 色块。jq_btn_skin.h 内嵌位图。 */
+    unsigned int tex_btn_skin[3][2];  /* [0]=正常态 [1]=按下 [2]=禁用，×2 slot */
     void *gameset_title_px; size_t gameset_title_px_len; int gameset_title_w, gameset_title_h; /* ★ 原版 Title color=black：游戏设置标题黑字版（row0 转黑） */
     unsigned int tex_gameset_title[2];
     void *opt_text_px; size_t opt_text_px_len;  /* ★ 弹窗文字图集 RGBA（6 label 竖排） */
