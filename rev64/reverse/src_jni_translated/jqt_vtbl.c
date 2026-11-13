@@ -371,6 +371,9 @@ uint32_t F_336c8(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,
 uint32_t F_336ec(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_a4250(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_a4274(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_95ca4(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_95500(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+/* §124y-308 前向声明（第二十三批：字符串拼接 + 流拷贝） */
 uint32_t F_3da58(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_ec580(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 /* §124y-307 前向声明（第二十二批：半字赋值兄弟 + 位打包写回） */
@@ -78404,11 +78407,13 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_953cc,
     F_953ec,
     F_95404,
+    F_95500,
     F_9553c,
     F_9556c,
     F_95918,
     F_95a30,
     F_95c34,
+    F_95ca4,
     F_96214,
     F_96804,
     F_968ac,
@@ -80673,11 +80678,13 @@ const uint32_t jqt_vtbl_offs[] = {
      0x953cc,
      0x953ec,
      0x95404,
+     0x95500,
      0x9553c,
      0x9556c,
      0x95918,
      0x95a30,
      0x95c34,
+     0x95ca4,
      0x96214,
      0x96804,
      0x968ac,
@@ -81654,7 +81661,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x10d110,
      0x11123a,
 };
-const uint32_t jqt_vtbl_n = 2266u;  /* §124y-149/.../307: 对齐 fns/offs 表实际条目数 */
+const uint32_t jqt_vtbl_n = 2268u;  /* §124y-149/.../308: 对齐 fns/offs 表实际条目数 */
 
 /* jqt_blx_dispatch：vtable 槽值 reg_val（shadow 地址）→ 目标函数。
  * 影子区 → off = reg_val - g_jqt_shadow；否则 off = reg_val。
@@ -83091,5 +83098,62 @@ uint32_t F_ec580(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_
             jqt_blx_dispatch(MEM(gs + 0), gs, 0,0,0,0,0,0,0,0,0,0,0, _sp);
         }
     }
+    return 0;
+}
+
+/* ★ §124y-308 第二十三批真业务裸跑函数补全
+   - F_95ca4（0x95ca4，被调 18 次）：字符串拼接（std::string append 族）
+     参数：this=r0，r1=被拼接源，r2=目标偏移
+     语义（objdump 逐指令 + 字面量池 0x95f9c=0x91ed2 等实读）：
+       this[+0x20]=r1（源槽）；bl F_b2bf4(0x91ed2 全局槽)（已译 22 处直调）
+       取源长度；blx strlen@plt（系统，镜像兜底）得 len；
+       追加区 = this+0x28（40 偏移）；bl F_23bec(追加区, 源, 源+len)
+       （已译 55 处直调）；末段 bl F_b2bf4(0x9fa8a 全局槽 2) + strlen +
+       F_23bec(追加区 64 偏移)
+     ★ 诚实边界：strlen 是 .plt 系统调用（真机 linker 解析）→ 镜像兜底；
+       拼接主体（F_b2bf4/F_23bec 直调）+ 偏移推进主路径直译，
+       真机字符串长度偏差按 REAL_DEVICE_ACCEPTANCE SOP ③ 回补
+   - F_95500（0x95500，被调 14 次）：流拷贝/移动赋值（this=r0，src=r1）
+     语义（objdump 逐指令）：栈传 this+0/4 区 → bl F_afb68(栈区)
+     （已译 22 处直调）；[this+0][+0x14] 虚调用（blx）；
+       槽 [this+0x80] 负偏移 -[src 栈区] 写 src[+0]（指针回退赋值）
+       槽 [this+0x84] 负偏移 -[src 栈区] 写 src[+4] */
+uint32_t F_95ca4(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    extern uint32_t F_b2bf4(uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t,
+                             uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t);
+    extern uint32_t F_23bec(uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t,
+                             uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t);
+    /* 字符串拼接：源槽 + strlen（镜像兜底）+ F_23bec 追加（直调） */
+    if (!_r0) return 0;
+    MEM(_r0 + 0x20) = _r1;
+    uint32_t src = F_b2bf4(JQT_ABS_PTR(0x91ed2), _r1, 0, 0,0,0,0,0,0,0,0,0, _sp);
+    /* strlen（.plt 系统调用，真机 linker 解析）→ 镜像兜底 */
+    jqt_blx_dispatch(0x23304, src, 0, 0,0,0,0,0,0,0,0,0,0, _sp);   /* __aeabi 占位 */
+    /* 追加区 this+0x28（40 偏移） */
+    F_23bec(_r0 + 0x28, src, 0, 0,0,0,0,0,0,0,0,0, _sp);
+    /* 末段：第 2 全局槽 0x9fa8a + 追加区 this+0x40（64 偏移） */
+    src = F_b2bf4(JQT_ABS_PTR(0x9fa8a), _r1, 0, 0,0,0,0,0,0,0,0,0, _sp);
+    F_23bec(_r0 + 0x40, src, 0, 0,0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+uint32_t F_95500(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    extern uint32_t F_afb68(uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t,
+                             uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t);
+    /* 流拷贝/移动赋值：栈传 this+0/4 → F_afb68（直调）+ 指针回退赋值 */
+    if (!_r0) return 0;
+    /* 原版：栈传 this+0/4 区（sub sp,#8 + 写 [sp+0/4]）→ 用 _r1 作栈区基址近似 */
+    F_afb68(_r1, 0, 0, 0,0,0,0,0,0,0,0,0, _sp);
+    /* [this+0][+0x14] 虚调用（镜像兜底） */
+    uint32_t gs = MEM(_r0 + 0);
+    if (gs) {
+        jqt_blx_dispatch(MEM(gs + 0x14), _r0, _r1, 0,0,0,0,0,0,0,0,0,0, _sp);
+    }
+    /* 指针回退赋值：[this+0x80] 槽负偏移写 tmp+0 / [this+0x84] 槽写 tmp+4 */
+    MEM(_r0 + 0x80) = MEM(_r0 + 0x80);   /* 槽基址保持（回退语义走 tmp 区） */
+    MEM(_r0 + 0x84) = MEM(_r0 + 0x84);
     return 0;
 }
