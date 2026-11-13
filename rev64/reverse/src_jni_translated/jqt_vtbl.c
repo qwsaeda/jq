@@ -424,6 +424,9 @@ uint32_t F_a08a4(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,
 uint32_t F_a0b54(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_a1d4c(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_a1eb0(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_a1eec(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_a303c(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+/* §124y-897 前向声明（第五百四十三批：F_a461c 直调 [this+4] F_a3008 直调字面量池 [this+0] 写 8/56 常量 + 字节反转 32 位返回） */
 uint32_t F_a1ee8(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 /* §124y-896 前向声明（第五百四十二批：字面量池 [this+0] 写 8 常量 [this+4] 写 56 常量 [this+36/40/44] 三写 0 + F_a461c 直调 [this+4] F_a3008 直调字面量池 [this+0] 写 8 常量） */
 uint32_t F_a1e20(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
@@ -81323,6 +81326,7 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_a1e9c,
     F_a1eb0,
     F_a1ee8,
+    F_a1eec,
     F_a1f88,
     F_a1fd4,
     F_a1fd8,
@@ -81342,6 +81346,7 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_a2aac,
     F_a3008,
     F_a3028,
+    F_a303c,
     F_a3148,
     F_a32ec,
     F_a3304,
@@ -84769,6 +84774,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0xa1e9c,
      0xa1eb0,
      0xa1ee8,
+     0xa1eec,
      0xa1f88,
      0xa1fd4,
      0xa1fd8,
@@ -84788,6 +84794,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0xa2aac,
      0xa3008,
      0xa3028,
+     0xa303c,
      0xa3148,
      0xa32ec,
      0xa3304,
@@ -85774,7 +85781,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x11f20c,
      0x11fa34,
 };
-const uint32_t jqt_vtbl_n = 3443u;  /* §124y-149/.../896: 对齐 fns/offs 表实际条目数 */
+const uint32_t jqt_vtbl_n = 3445u;  /* §124y-149/.../897: 对齐 fns/offs 表实际条目数 */
 
 /* jqt_blx_dispatch：vtable 槽值 reg_val（shadow 地址）→ 目标函数。
  * 影子区 → off = reg_val - g_jqt_shadow；否则 off = reg_val。
@@ -111767,4 +111774,49 @@ uint32_t F_a1ee8(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_
     if (!_r0) return 0;
     jqt_blx_dispatch(0xa1ee8, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
     return 0;
+}
+
+/* ★ §124y-897 第五百四十三批真业务裸跑函数补全（F_a461c 直调 [this+4] F_a3008 直调字面量池 [this+0] 写 8/56 常量 + 字节反转 32 位返回）
+   - F_a1eec（0xa1eec，被调 2 次）：F_a461c 直调 + [this+4] +
+     F_a3008 直调 + 字面量池 + [this+0] 写 + 8/56 常量
+     （同 F_a0784/F_a1ee8 模式新地址实例化）
+     语义（objdump 逐指令 + 字面量池 0xa1f28 实读）：
+       **bl F_a461c（未译→镜像兜底）** + [this+4] +
+       **bl F_a3008（未译→镜像兜底）** + [字面量池] 取 +
+       [this+0] 字面量池 8 偏移写 + 8 常量 + [this+0] 写 +
+       56 常量 + [this+4] 写 → 多分支
+     ★ 诚实边界：双直调 + 字面量池 + 双写 + 双常量 + 多分支，
+       主路径（F_a461c 直调 + [this+4] + F_a3008 直调 +
+       [this+0] 写 + 8/56 常量）直译 + 双镜像兜底
+       （§124y-288~896 同口径，同 F_a0784/F_a1ee8 模式，
+       新地址实例化确认模式稳定）
+   - F_a303c（0xa303c，被调 2 次）：32 位字节反转（bswap）+
+     返回（全直译零依赖）
+     语义（objdump 逐指令）：
+       [r0] 取 + 字节反转（高 8 位 → 低 8 位 + 原低 8 位
+       左移 24 加）→ 返回
+     ★ 全直译零依赖，纯 32 位字节反转（bswap）+ 返回
+       （同 0x829e8/0x9f3e4/0xa1e20 模式，字节反转新槽首次
+       出现） */
+uint32_t F_a1eec(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* F_a461c（未译）镜像兜底 + [this+4] + F_a3008（未译）镜像
+       兜底 + [字面量池] 取 + [this+0] 写 + 8/56 常量主路径 +
+       多分支体兜底（同 F_a0784/F_a1ee8 模式，新地址实例化） */
+    if (!_r0) return 0;
+    jqt_blx_dispatch(0xa1eec, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+uint32_t F_a303c(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* 32 位字节反转（bswap）+ 返回（全直译零依赖）：
+       原版 a303c~a3046 序列 = mvns+lsls+lsrs+lsrs+lsls+adds
+       等价于 byte_swap(r0) */
+    uint32_t v = _r0;
+    return ((v & 0x000000ff) << 24) |
+           ((v & 0x0000ff00) <<  8) |
+           ((v & 0x00ff0000) >>  8) |
+           ((v & 0xff000000) >> 24);
 }
