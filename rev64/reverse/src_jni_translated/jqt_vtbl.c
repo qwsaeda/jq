@@ -373,6 +373,9 @@ uint32_t F_a4250(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,
 uint32_t F_a4274(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_e546a(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_abc48(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_57cf8(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_59840(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+/* §124y-528 前向声明（第一百七十三批：字面量池依赖 ×3 + 12B 栈双槽取依赖） */
 uint32_t F_55588(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_55e3c(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 /* §124y-527 前向声明（第一百七十二批：判定 F_8554c + 循环 F_55dc4） */
@@ -78480,6 +78483,7 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_57110,
     F_576f8,
     F_57b58,
+    F_57cf8,
     F_57d64,
     F_57e9c,
     F_57eb0,
@@ -78488,6 +78492,7 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_5894c,
     F_58960,
     F_59510,
+    F_59840,
     F_5985c,
     F_59ccc,
     F_59ce0,
@@ -81188,6 +81193,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x57110,
      0x576f8,
      0x57b58,
+     0x57cf8,
      0x57d64,
      0x57e9c,
      0x57eb0,
@@ -81196,6 +81202,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x5894c,
      0x58960,
      0x59510,
+     0x59840,
      0x5985c,
      0x59ccc,
      0x59ce0,
@@ -83191,7 +83198,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x11ef8c,
      0x11f20c,
 };
-const uint32_t jqt_vtbl_n = 2705u;  /* §124y-149/.../527: 对齐 fns/offs 表实际条目数 */
+const uint32_t jqt_vtbl_n = 2707u;  /* §124y-149/.../528: 对齐 fns/offs 表实际条目数 */
 
 /* jqt_blx_dispatch：vtable 槽值 reg_val（shadow 地址）→ 目标函数。
  * 影子区 → off = reg_val - g_jqt_shadow；否则 off = reg_val。
@@ -92413,5 +92420,50 @@ uint32_t F_55e3c(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_
     jqt_blx_dispatch(0x55dc4, _r0, 0, 0, 0, 0,0,0,0,0,0,0,0, _sp);
     jqt_blx_dispatch(0x55dc4, _r0, 1, 0, 0, 0,0,0,0,0,0,0,0, _sp);
     jqt_blx_dispatch(0x55dc4, _r0, 2, 0, 0, 0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+
+/* ★ §124y-528 第一百七十三批真业务裸跑函数补全（字面量池依赖 ×3 + 12B 栈双槽取依赖）
+   - F_57cf8（0x57cf8，被调 3 次）：字面量池 + F_85594/F_8a1f8/
+     F_8a2b0 依赖 ×3（this=r0）
+     语义（objdump 逐指令 + 字面量池 0x57d34 实读）：
+       [字面量池] 取 → **bl F_85594（未译→镜像兜底）** +
+       **bl F_8a1f8（未译→镜像兜底）** + **bl F_8a2b0（未译→
+       镜像兜底）**
+     ★ 诚实边界：F_85594/F_8a1f8/F_8a2b0 未译 → 主路径（[字面量池]
+       取 + [this] 参数传）直译 + 依赖镜像兜底
+       （§124y-288~527 同口径，同 0x41d78 字面量池模式）
+   - F_59840（0x59840，被调 3 次）：12B 栈复杂 + 双槽取 + F_43d0c
+     依赖（this=r0）
+     语义（objdump 逐指令）：[this+72] ldr 取 + [this+76] ldr 取 +
+       sub sp,#12 + [this+68] 0 写 → 双槽比较 → 不等 → [this+72]
+       参数 + **bl F_43d0c（未译→镜像兜底）**
+     ★ 诚实边界：F_43d0c 未译 → 主路径（[this+72/76] 双槽取 +
+       比较判定 + [this+68] 0 写）直译 + F_43d0c 镜像兜底
+       （§124y-288~527 同口径，同 0x82c70 双槽取模式） */
+uint32_t F_57cf8(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* 字面量池 + F_85594/F_8a1f8/F_8a2b0（未译）镜像兜底 ×3 */
+    if (!_r0) return 0;
+    uint32_t v = MEM(JQT_ABS_PTR(0x57d34));
+    jqt_blx_dispatch(0x85594, v, 0, 0, 0, 0,0,0,0,0,0,0,0, _sp);
+    jqt_blx_dispatch(0x8a1f8, _r0, 0, 0, 0, 0,0,0,0,0,0,0,0, _sp);
+    jqt_blx_dispatch(0x8a2b0, _r0, _r0, 1, 0, 0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+uint32_t F_59840(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* [this+72/76] 双槽取 + 比较判定 + F_43d0c（未译）镜像兜底 */
+    if (!_r0) return 0;
+    uint32_t v72 = MEM(_r0 + 72);
+    uint32_t v76 = MEM(_r0 + 76);
+    MEM(_r0 + 68) = 0;
+    if (v72 == v76) {
+        jqt_blx_dispatch(0x59840, _r0, _r1, _r2, v72, 0,0,0,0,0,0,0,0, _sp);
+        return 0;
+    }
+    jqt_blx_dispatch(0x43d0c, _r0 + 72, 0, 0, 0, 0,0,0,0,0,0,0,0, _sp);
     return 0;
 }
