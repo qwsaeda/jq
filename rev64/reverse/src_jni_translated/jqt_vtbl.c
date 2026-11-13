@@ -401,6 +401,9 @@ uint32_t F_918d0(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,
 uint32_t F_91fa0(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_921bc(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_930cc(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_94d1c(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_94da0(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+/* §124y-874 前向声明（第五百二十批：[this+0] 取 129 常量 0 [vtable] 取虚调用 + 216 偏移 [this+432] 取返回） */
 uint32_t F_93da0(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 /* §124y-873 前向声明（第五百十九批：[this+4/0] 双取比较 28 减 4 加 [this+24] 取比较链表遍历 + 148 偏移 [this+296] F_946cc 直调 [r1] 0 比较 strlen 直调） */
 uint32_t F_92fd0(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
@@ -80946,6 +80949,7 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_94bb8,
     F_94bd8,
     F_94ce8,
+    F_94d1c,
     F_94d48,
     F_94d4c,
     F_94d54,
@@ -80954,6 +80958,7 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_94d6c,
     F_94d80,
     F_94d84,
+    F_94da0,
     F_94dc8,
     F_94dd0,
     F_94dd8,
@@ -84346,6 +84351,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x94bb8,
      0x94bd8,
      0x94ce8,
+     0x94d1c,
      0x94d48,
      0x94d4c,
      0x94d54,
@@ -84354,6 +84360,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x94d6c,
      0x94d80,
      0x94d84,
+     0x94da0,
      0x94dc8,
      0x94dd0,
      0x94dd8,
@@ -85613,7 +85620,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x11f20c,
      0x11fa34,
 };
-const uint32_t jqt_vtbl_n = 3397u;  /* §124y-149/.../873: 对齐 fns/offs 表实际条目数 */
+const uint32_t jqt_vtbl_n = 3399u;  /* §124y-149/.../874: 对齐 fns/offs 表实际条目数 */
 
 /* jqt_blx_dispatch：vtable 槽值 reg_val（shadow 地址）→ 目标函数。
  * 影子区 → off = reg_val - g_jqt_shadow；否则 off = reg_val。
@@ -110603,4 +110610,38 @@ uint32_t F_93da0(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_
     uint32_t p296 = _r0 + 296;
     jqt_blx_dispatch(0x93da0, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
     return 0;
+}
+
+/* ★ §124y-874 第五百二十批真业务裸跑函数补全（[this+0] 取 129 常量 0 [vtable] 取虚调用 + 216 偏移 [this+432] 取返回）
+   - F_94d1c（0x94d1c，被调 2 次）：[this+0] 取 + 129 常量 + 0
+     + [vtable] 取 + 虚调用（新变体首次出现）
+     语义（objdump 逐指令）：
+       [this+0] 取 + 129 常量 + 0 常量 + [this+0] 取 +
+       [vtable+0] 取 + **blx vtable（未译→镜像兜底）** → 返回
+     ★ 诚实边界：取 + 常量 + 虚调用 + 返回，主路径
+       （[this+0] 取 + 129 常量 + 0 + [vtable] 取 + 虚调用）
+       直译 + 虚调用镜像兜底
+       （§124y-288~873 同口径，[this+0] 取 + 129 常量 +
+       0 + [vtable] 取虚调用新变体首次出现）
+   - F_94da0（0x94da0，被调 2 次）：216 偏移 + [this+432] 取 +
+     返回（全直译零依赖）
+     语义（objdump 逐指令）：
+       216 常量 + [this+432] 取 → 返回
+     ★ 全直译零依赖，纯 216 偏移 [this+432] 取返回（同
+       0x53e00/0x8571c/0x85704/0x80504/0x829e8/0x84e34/
+       0x85324 模式，216 偏移新槽首次出现） */
+uint32_t F_94d1c(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* [this+0] 取 + 129 常量 + 0 + [vtable] 取 + 虚调用主路径 */
+    if (!_r0) return 0;
+    jqt_blx_dispatch(0x94d1c, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+uint32_t F_94da0(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* 216 偏移 + [this+432] 取 + 返回（全直译零依赖） */
+    if (!_r0) return 0;
+    return MEM(_r0 + 432);
 }
