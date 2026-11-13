@@ -373,6 +373,9 @@ uint32_t F_a4250(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,
 uint32_t F_a4274(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_e546a(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_abc48(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_7669c(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_76eac(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+/* §124y-537 前向声明（第一百八十二批：280B 大栈复杂 + 双槽取差值） */
 uint32_t F_6f404(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_71304(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 /* §124y-536 前向声明（第一百八十一批：20B 栈复杂 + 栈帧复杂） */
@@ -78833,6 +78836,7 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_7659c,
     F_7664c,
     F_76664,
+    F_7669c,
     F_767f0,
     F_76810,
     F_7687c,
@@ -78844,6 +78848,7 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_76b14,
     F_76b88,
     F_76b90,
+    F_76eac,
     F_76ee8,
     F_76efc,
     F_76f80,
@@ -81559,6 +81564,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x7659c,
      0x7664c,
      0x76664,
+     0x7669c,
      0x767f0,
      0x76810,
      0x7687c,
@@ -81570,6 +81576,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x76b14,
      0x76b88,
      0x76b90,
+     0x76eac,
      0x76ee8,
      0x76efc,
      0x76f80,
@@ -83254,7 +83261,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x11ef8c,
      0x11f20c,
 };
-const uint32_t jqt_vtbl_n = 2723u;  /* §124y-149/.../536: 对齐 fns/offs 表实际条目数 */
+const uint32_t jqt_vtbl_n = 2725u;  /* §124y-149/.../537: 对齐 fns/offs 表实际条目数 */
 
 /* jqt_blx_dispatch：vtable 槽值 reg_val（shadow 地址）→ 目标函数。
  * 影子区 → off = reg_val - g_jqt_shadow；否则 off = reg_val。
@@ -92795,5 +92802,42 @@ uint32_t F_71304(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_
     int32_t v0 = MEM(_r1 + 0);
     uint32_t prod = (uint32_t)(v1 * 5);
     jqt_blx_dispatch(0x71304, _r0, _r1, prod, 0, 0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+
+/* ★ §124y-537 第一百八十二批真业务裸跑函数补全（280B 大栈复杂 + 双槽取差值）
+   - F_7669c（0x7669c，被调 3 次）：280B 大栈复杂（this=r0，r1）
+     语义（objdump 逐指令 + 字面量池 0x7679c/0x767a0 实读）：
+       [字面量池×2] 取 + sub sp,#280 + [v+0] 取 → 多分支
+     ★ 诚实边界：280B 大栈 + 字面量池 + 多参数 + 多分支，主路径
+       （[字面量池] 取 + [v+0] 取）直译 + 多分支体镜像兜底
+       （§124y-288~536 同口径，同 0x6df8c 280B 大栈模式）
+   - F_76eac（0x76eac，被调 3 次）：双槽取 + 差值 + 多分支
+     语义（objdump 逐指令）：[this+48] 取 + [this+44] 取 + [r2-r48]
+       差值 + [r1-r44] 差值 + [this+68] 取 → 多分支
+     ★ 诚实边界：双槽取 + 差值 + 多分支，主路径（[this+44/48/68]
+       双槽取 + 差值计算）直译 + 多分支体镜像兜底
+       （§124y-288~536 同口径，同 0x53060 双槽取模式） */
+uint32_t F_7669c(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* 280B 大栈复杂：[字面量池] 取 + [v+0] 取主路径 + 多分支体兜底 */
+    if (!_r0) return 0;
+    uint32_t v0 = MEM(JQT_ABS_PTR(0x7679c));
+    uint32_t v1 = MEM(v0 + 0);
+    jqt_blx_dispatch(0x7669c, _r0, _r1, _r2, v1, 0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+uint32_t F_76eac(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* [this+44/48/68] 双槽取 + 差值计算主路径 + 多分支体兜底 */
+    if (!_r0) return 0;
+    uint32_t v48 = MEM(_r0 + 48);
+    uint32_t v44 = MEM(_r0 + 44);
+    uint32_t v68 = MEM(_r0 + 68);
+    int32_t d48 = _r2 - v48;
+    int32_t d44 = _r1 - v44;
+    jqt_blx_dispatch(0x76eac, _r0, _r1, _r2, d48, d44,0,0,0,0,0,0,0, _sp);
     return 0;
 }
