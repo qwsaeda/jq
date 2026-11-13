@@ -61,3 +61,32 @@
 - 按钮必须有原版皮肤（btn_color2/btn.cfg 系），禁纯色矩形自绘（除非原版程序化绘制 fallback）。
 - 面板浅底黑字（原版 Dialog color=black 标题），禁深色半透明自绘（除非原版 fallback）。
 - 每次改动 → 真机像素级采样（非"非黑比"糊弄）+ 原版 SPAK 几何 Δ 对照。
+
+## ★ 2026-11-13 深层原因（用户"找深层原因"指令，hg_funcset.png 实锤）
+
+**用户 hg_funcset.png = 旧版**（深色半透明面板 + 纯色矩形绿(76,178,127)/蓝(51,115,229)/灰取消），
+正是指正的问题。**深层原因链（非表面修复）**：
+
+1. **btn_color1/2 是误命名**：spak_unpack.py 按 `组_索引_hash.bin` 命名**无文件名映射**，
+   之前会话把 datax_194/195 手动命名为 btn_color1/2.png。原版按钮皮肤**不是** btn_color1/2。
+2. **原版按钮皮肤 = btn.png**（UiConfig datah_117 Button→btn.cfg；btn.cfg=datah_205
+   `btn.png,8,29,16,30` / datax_205 `btn.png,8,44,16,45`，9-patch top44+bottom45=89）。
+   **btn.png 位图 SPAK 不可得**：datax 组高 89-170 无单色渐变按钮（108×108=棋子、
+   168×106=T 形占位、620×119=战斗横幅）。datax_195(244×61) 高 61 < 89 **不满足
+   btn.cfg 9-patch 约束** → **datax_195 ≠ btn.png**。
+3. **我用 datax_195 当功能设置按钮皮肤 = 错误资源**（不满足 btn.cfg 9-patch，且 4 色条
+   非单按钮皮肤；datax_195 可能被原版代码直接索引用于主菜单/特定大按钮，非 XML style=Button）。
+4. **弹窗皮肤 dlg.png 不可得**：dlg.cfg=datah_215 `dlg.png,8,55,16,59` / datax_215
+   `dlg.png,8,83,16,87`，但 dlg.png 位图不在 883 资源。我用 datax_188 米色**自绘近似**
+   （非原版位图）。
+5. **标题黑字是烘焙**（gameset_text_atlas row0 转黑），非原版资源。
+
+**结论**：原版按钮/弹窗皮肤位图（btn.png/dlg.png）**在 SPAK 中不存在**（或无法定位），
+原版引擎可能**程序化绘制**（so 代码画渐变）或从 /data/sg/ 运行时加载（APK 无→fallback）。
+此前"功能设置对齐"（btn_color2+米色面板）用的是**误命名/自绘近似**，**非原版真实皮肤**
+——用户"UI 完全自己写的"判定成立。
+
+**真对齐唯一可靠路径（未做）**：反汇编原版 32 位 so 找 UiBaseBtn/UiDialog 绘制函数，
+提取引擎程序化绘制的**真实颜色/渐变/几何**（GL1 固定管线 glColor4f 调用点 + 立即数）。
+so 依赖 libGLESv1_CM（GL1），绘制用固定管线颜色，可从指令序列还原。若引擎确用位图，
+则需在 SPAK/APK/运行时文件系统继续定位 btn.png/dlg.png。
