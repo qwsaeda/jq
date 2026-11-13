@@ -371,6 +371,9 @@ uint32_t F_336c8(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,
 uint32_t F_336ec(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_a4250(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_a4274(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_3da58(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_ec580(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+/* §124y-307 前向声明（第二十二批：半字赋值兄弟 + 位打包写回） */
 uint32_t F_85514(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_85530(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 /* §124y-306 前向声明（第二十一批：F_854f8 同族兄弟 getter 批量补全） */
@@ -77494,6 +77497,7 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_3d0ac,
     F_3d0f8,
     F_3da20,
+    F_3da58,
     F_3dad8,
     F_3dbb8,
     F_3dc98,
@@ -79361,6 +79365,7 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_e9dac,
     F_e9e0c,
     F_e9f9c,
+    F_ec580,
     F_edbe0,
     F_edc18,
     F_f0538,
@@ -79761,6 +79766,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x3d0ac,
      0x3d0f8,
      0x3da20,
+     0x3da58,
      0x3dad8,
      0x3dbb8,
      0x3dc98,
@@ -81628,6 +81634,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0xe9dac,
      0xe9e0c,
      0xe9f9c,
+     0xec580,
      0xedbe0,
      0xedc18,
      0xf0538,
@@ -81647,7 +81654,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x10d110,
      0x11123a,
 };
-const uint32_t jqt_vtbl_n = 2264u;  /* §124y-149/.../306: 对齐 fns/offs 表实际条目数 */
+const uint32_t jqt_vtbl_n = 2266u;  /* §124y-149/.../307: 对齐 fns/offs 表实际条目数 */
 
 /* jqt_blx_dispatch：vtable 槽值 reg_val（shadow 地址）→ 目标函数。
  * 影子区 → off = reg_val - g_jqt_shadow；否则 off = reg_val。
@@ -83012,6 +83019,9 @@ uint32_t F_edbe0(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_
 /* ★ §124y-306 F_85514（0x85514，+0x34 槽第 13 槽）：F_854f8 同族兄弟 getter
    obj=this[+0x38]→F_82d3c（已译直调）→[o+0]→[vt+0x34] blx（r1=r2）；
    F_85530（+0x2c 槽第 11 槽）已有定义体（§124y-306 前批），本批只补 F_85514 */
+uint32_t F_3da58(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_ec580(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+/* §124y-307 前向声明（第二十二批：半字赋值兄弟 + 位打包写回） */
 uint32_t F_85514(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
                  uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
                  uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
@@ -83024,4 +83034,62 @@ uint32_t F_85514(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_
     if (!o) return 0;
     uint32_t fn = MEM(o + 0x34);   /* [o+0]→[vt+0x34]（第 13 槽） */
     return jqt_blx_dispatch(fn, o, _r2, 0,0,0,0,0,0,0,0,0,0, _sp);
+}
+
+
+/* ★ §124y-307 第二十二批真业务裸跑函数补全
+   - F_3da58（0x3da58，被调 14 次）：位向量半字赋值（F_3da20 兄弟）
+     语义（objdump 逐指令 + 字面量池 0x3da8c=0x11e5fe 全局槽实读）：
+       sign=(n>>31); q=(n+sign)&3-sign（取模 4）；half=n>>2（半字）
+       base=[0x11e5fe]（全局槽）
+       vec[+0]=base+q*4（数据指针）；vec[+8]=base+q*4+长度（尾指针）
+       vec[+4]=容量*half（半字容量）；vec[+12]=vec[+4]+容量（尾指针）
+     与 §124y-303 F_3da20 差异：取模后 /2（半字）+ 全局槽 0x11e5fe
+     （vs F_3da20 的 0x11e638）
+   - F_ec580（0xec580，被调 16 次）：位打包写回（rle 解码收尾）
+     结构体（this=r0）：[+0x70]=写游程 [+0x74]=容量
+     语义（objdump 逐指令）：r3=202*2 槽（[this+0x78] 区）取子对象；
+       非空 → 位打包循环（[r4+0x10] 读 32 位 + >>16 重组 + 逐位 OR）
+       + [r4+0x70/0x74] 游程推进；末段 [this+0x78] 子对象 [this+0x78+0x14]
+       =41（状态字）+ 虚调用 [this+0x78]→[vt+0]
+     ★ 诚实边界：位打包循环 ~30 指令，主路径（游程读 + 状态字写入）
+       直译 + 逐位 OR 循环体镜像兜底（§124y-288/292/294/300/303/305
+       近似 + 兜底同口径，真机位打包偏差按 SOP ③ 回补） */
+uint32_t F_3da58(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* 位向量半字赋值：n=_r0（位值），vec=_r1 */
+    if (!_r1) return 0;
+    int32_t n = (int32_t)_r0;
+    int32_t sign = n >> 31;
+    int32_t q = (n + sign) & 3;
+    q -= sign;
+    int32_t half = n >> 2;             /* 半字 */
+    uint32_t base = MEM(JQT_ABS_PTR(0x11e5fe));   /* 全局槽（字面量池实读） */
+    uint32_t data_off = base + (uint32_t)q * 4;
+    MEM(_r1 + 0) = data_off;                          /* 数据指针 */
+    MEM(_r1 + 8) = data_off + MEM(base + 0);          /* 尾指针 */
+    uint32_t cap = MEM(base + 4);
+    MEM(_r1 + 4) = cap * (uint32_t)half;              /* 半字容量 */
+    MEM(_r1 + 0xc) = MEM(_r1 + 4) + cap;              /* 尾指针 */
+    return 0;
+}
+uint32_t F_ec580(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* 位打包写回主路径 + 逐位 OR 循环体镜像兜底（诚实边界） */
+    if (!_r0) return 0;
+    uint32_t sub = MEM(_r0 + 0x78);   /* 202*2 槽子对象 */
+    if (sub) {
+        uint32_t w = MEM(sub + 0x10);
+        (void)w;                        /* 位打包循环 → 镜像兜底 */
+        jqt_blx_dispatch(0xec580, _r0, _r1, _r2, 0,0,0,0,0,0,0,0,0, _sp);
+        /* 末段：[this+0x78] 子对象 [+0x14]=41（状态字） */
+        uint32_t gs = MEM(_r0 + 0x78);
+        if (gs) {
+            MEM(gs + 0x14) = 41;
+            jqt_blx_dispatch(MEM(gs + 0), gs, 0,0,0,0,0,0,0,0,0,0,0, _sp);
+        }
+    }
+    return 0;
 }
