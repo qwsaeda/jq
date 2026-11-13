@@ -369,6 +369,11 @@ uint32_t F_335c8(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,
 uint32_t F_33684(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_336c8(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_336ec(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_a4250(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_a4274(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_8a2c0(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_8a2d0(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+/* §124y-298 前向声明（第十三批：同族兄弟批量补全） */
 uint32_t F_a4234(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_e9e0c(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 /* §124y-297 前向声明（第十二批：虚调用 thunk + 栈顶压入栈参数变体） */
@@ -78235,6 +78240,8 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_8a290,
     F_8a2a0,
     F_8a2b0,
+    F_8a2c0,
+    F_8a2d0,
     F_8a41c,
     F_8a42c,
     F_8a450,
@@ -78600,6 +78607,8 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_a3b1c,
     F_a4124,
     F_a4234,
+    F_a4250,
+    F_a4274,
     F_a450c,
     F_a4544,
     F_a456c,
@@ -80482,6 +80491,8 @@ const uint32_t jqt_vtbl_offs[] = {
      0x8a290,
      0x8a2a0,
      0x8a2b0,
+     0x8a2c0,
+     0x8a2d0,
      0x8a41c,
      0x8a42c,
      0x8a450,
@@ -80847,6 +80858,8 @@ const uint32_t jqt_vtbl_offs[] = {
      0xa3b1c,
      0xa4124,
      0xa4234,
+     0xa4250,
+     0xa4274,
      0xa450c,
      0xa4544,
      0xa456c,
@@ -81577,7 +81590,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x10d110,
      0x11123a,
 };
-const uint32_t jqt_vtbl_n = 2244u;  /* §124y-149/285/287/288/289/290/291/292/293/294/295/296/297: 对齐 fns/offs 表实际条目数 */
+const uint32_t jqt_vtbl_n = 2248u;  /* §124y-149/285/287/288/289/290/291/292/293/294/295/296/297/298: 对齐 fns/offs 表实际条目数 */
 
 /* jqt_blx_dispatch：vtable 槽值 reg_val（shadow 地址）→ 目标函数。
  * 影子区 → off = reg_val - g_jqt_shadow；否则 off = reg_val。
@@ -82525,5 +82538,54 @@ uint32_t F_e9e0c(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_
             }
         }
     }
+    return 0;
+}
+
+/* ★ §124y-298 第十三批真业务裸跑函数补全（同族兄弟批量补全）
+   同族 = 同一模式不同槽偏移/不同 getter，§124y-297 已译主入口，本批清兄弟：
+   - F_a4250（0xa4250）：虚调用 thunk（4 栈参数，[vt+28] 第 7 槽）
+     与 §124y-297 F_a4234（[vt+24] 第 6 槽 3 参数）同模式，槽偏移+4/参数+1
+   - F_a4274（0xa4274）：虚调用 thunk（5 栈参数，[vt+32] 第 8 槽）
+     同模式再 +4 槽/+1 参数
+   - F_8a2c0（0x8a2c0）：对象 getter（[this+0x198] 槽 → bl F_97fa8）
+     与 §124y-296 F_8a2b0（[this+0x198] → F_97fcc）同槽不同 getter
+   - F_8a2d0（0x8a2d0）：对象 getter（[this+0x198] 槽 → bl F_97f84）
+     同槽第 3 个 getter 变体 */
+uint32_t F_a4250(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* 虚调用 thunk（4 栈参数，[vt+28] 第 7 槽） */
+    if (!_r0) return 0;
+    uint32_t sub = MEM(_r0 + 8);
+    if (!sub) return 0;
+    uint32_t vt = MEM(sub + 0);
+    uint32_t fn = MEM(vt + 28);
+    return jqt_blx_dispatch(fn, _r0, _r1, _r2, _r3, _r4, _r5, _r6, _r7, _r8, _r9, _r10, _r11, _sp);
+}
+uint32_t F_a4274(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* 虚调用 thunk（5 栈参数，[vt+32] 第 8 槽） */
+    if (!_r0) return 0;
+    uint32_t sub = MEM(_r0 + 8);
+    if (!sub) return 0;
+    uint32_t vt = MEM(sub + 0);
+    uint32_t fn = MEM(vt + 32);
+    return jqt_blx_dispatch(fn, _r0, _r1, _r2, _r3, _r4, _r5, _r6, _r7, _r8, _r9, _r10, _r11, _sp);
+}
+uint32_t F_8a2c0(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* 对象 getter：[this+0x198] 槽 → bl F_97fa8（未译，镜像兜底，§124y-268 不引新 UND） */
+    if (!_r0) return 0;
+    jqt_blx_dispatch(0x97fa8, MEM(_r0 + 0x198), 0, 0,0,0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+uint32_t F_8a2d0(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* 对象 getter：[this+0x198] 槽 → bl F_97f84（未译，镜像兜底，§124y-268 不引新 UND） */
+    if (!_r0) return 0;
+    jqt_blx_dispatch(0x97f84, MEM(_r0 + 0x198), 0, 0,0,0,0,0,0,0,0,0,0, _sp);
     return 0;
 }
