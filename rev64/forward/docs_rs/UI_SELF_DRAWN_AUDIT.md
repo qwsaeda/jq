@@ -49,12 +49,17 @@
    datah_020、加入/创建 datah_034/035——全部替换旧纯色矩形（蓝/绿/紫/红/灰
    彩色区分）+ 深色半透明面板（原版 Button 同款 btn.png 蓝渐变 + Dialog/BackDlg
    弹窗皮肤）。深色面板（0.08,0.08,0.10f）残留清零）
-4. datah 批量 d* → btn.png（或 sbtn/btn1 小按钮皮肤；次级弹窗：ng061/gameinfo/
-   bright/chatlog/profile/drawdetail/setentry/imgset/join065/create069/rules070/
-   room060/chat063）
-5. 弹窗面板 → dlg.png（datah_187 候选，需先验证）
-6. 标题黑字（Title color=black，功能设置已烘焙 gameset_title_black.png）
-7. 逐弹窗区分"按钮"vs"遮罩"（内联 quad 里遮罩保留、按钮改皮肤）
+4. ✅ **次级弹窗按钮全改 btn.png**（★ 2026-11-13 批量：新局补充 datah_061、
+   对局信息 datah_050、亮度 datah_002、聊天记录 datah_029、个人资料 datah_031、
+   聊天 datah_063、游戏规则完整版 datah_070、房间 datah_060、加入完整版
+   datah_065、创建完整版 datah_069、软件信息 datah_000——全部替换旧纯色矩形
+   （蓝/紫/橙/灰彩色区分 + 金色高亮描边），原版 Button 同款 btn.png 蓝渐变；
+   面板均已 rs_popup_shell）
+5. 对局控制条（d255-d261，datah_255-261 BackDlg 控制条 icon/按钮）→ btn.png/icon
+   （次要对局内按钮，待做）
+6. 弹窗面板 → dlg.png（datah_187 候选，需先验证）
+7. 标题黑字（Title color=black，功能设置已烘焙 gameset_title_black.png）
+8. 逐弹窗区分"按钮"vs"遮罩"（内联 quad 里遮罩保留、按钮改皮肤）
 
 ## 主要弹窗明细（纯色自绘，待对齐）
 

@@ -4246,20 +4246,39 @@ static void rs_draw_ng061(rs_render *rr, int slot)
     /* ③ 标题"新局"（ng061_text row0，面板顶部 360,445 720 基准中心） */
     rs_atlas_label(rr, slot, rr->tex_ng061_text[slot], rr->ng061_text_w, rr->ng061_text_h,
                    NG061_ROW, 0, 360.0f, 445.0f, 150.0f, uc);
-    /* ④ 6 控件：4 选择（紫）+ 确定（蓝）/ 取消（灰）；4 选择按钮金色高亮描边 */
-    static const float BTN_COL[6][4] = {
-        {0.45f, 0.30f, 0.75f, 0.9f},   /* 先后手 紫 */
-        {0.45f, 0.30f, 0.75f, 0.9f},   /* 电脑水平 紫 */
-        {0.45f, 0.30f, 0.75f, 0.9f},   /* 玩法 紫 */
-        {0.45f, 0.30f, 0.75f, 0.9f},   /* 明暗棋 紫 */
-        {0.20f, 0.45f, 0.90f, 0.9f},   /* 确定 蓝 */
-        {0.55f, 0.55f, 0.60f, 0.9f},   /* 取消 灰 */
-    };
+    /* ④ 6 控件：4 选择（先后手/电脑水平/玩法/明暗棋）+ 确定/取消。
+       ★ 2026-11-13 逆向实锤纠正：原版 datah_061 Button style→btn.cfg→btn.png
+       蓝渐变 9-patch（datah_207 正常态），替换旧纯色（4 选择 紫/确定 蓝/取消 灰）
+       + 金色选中高亮（原版无此样式）。4 选择当前值用按下态（稍亮）区分。 */
     const ui_ng061_btn *nb = ui_ng061_buttons();
-    for (int i = 0; i < UI_NG061_COUNT; i++)
-        rs_solid_btn(rr, slot, nb[i].x0, nb[i].y0, nb[i].x1, nb[i].y1,
-                     BTN_COL[i][0], BTN_COL[i][1], BTN_COL[i][2], BTN_COL[i][3],
-                     i < 4, uc);
+    int cur_level = ui_opt_get_level(), cur_mode = ui_opt_get_mode();
+    int has_skin = (rr->tex_btn_skin[0][slot] && rr->prog_tex[slot]);
+    for (int i = 0; i < UI_NG061_COUNT; i++) {
+        /* 4 选择当前值：电脑水平=当前等级、玩法=当前模式、明暗棋=当前 show（按下态区分） */
+        int sel = 0;
+        if (i == 1) sel = (cur_level >= 2 && cur_level <= 3);
+        else if (i == 2) sel = (cur_mode == 1);
+        if (has_skin) {
+            rs_draw_btn9patch(rr, slot, nb[i].x0, nb[i].y0, nb[i].x1, nb[i].y1,
+                              rr->tex_btn_skin[sel ? 1 : 0][slot],
+                              jq_btn_normal_w, jq_btn_normal_h,
+                              JQ_BTN_9PATCH_L, JQ_BTN_9PATCH_T,
+                              JQ_BTN_9PATCH_R, JQ_BTN_9PATCH_B);
+        } else {
+            /* 退化：纹理未加载 → 纯色（旧实现） */
+            static const float BTN_COL[6][4] = {
+                {0.45f, 0.30f, 0.75f, 0.9f},   /* 先后手 紫 */
+                {0.45f, 0.30f, 0.75f, 0.9f},   /* 电脑水平 紫 */
+                {0.45f, 0.30f, 0.75f, 0.9f},   /* 玩法 紫 */
+                {0.45f, 0.30f, 0.75f, 0.9f},   /* 明暗棋 紫 */
+                {0.20f, 0.45f, 0.90f, 0.9f},   /* 确定 蓝 */
+                {0.55f, 0.55f, 0.60f, 0.9f},   /* 取消 灰 */
+            };
+            rs_solid_btn(rr, slot, nb[i].x0, nb[i].y0, nb[i].x1, nb[i].y1,
+                         BTN_COL[i][0], BTN_COL[i][1], BTN_COL[i][2], BTN_COL[i][3],
+                         i < 4, uc);
+        }
+    }
     /* ⑤ 文字：4 标签列（先后手/电脑水平/玩法/明暗棋 row1-4 左侧 x=227）+
         当前值标签（按钮内，按 ui_opt_get_level/mode + 先后手/明暗棋 当前循环位） */
     if (rr->tex_ng061_text[slot] && rr->ng061_text_w > 0) {
@@ -4347,16 +4366,28 @@ static void rs_draw_gameinfo(rs_render *rr, int slot)
                  b, r, n, cur, n);
         }
     }
-    /* ⑥ 3 按钮：复盘（蓝）/ 删除（橙）/ 返回（灰）+ 文字 */
-    static const float BTN_COL[3][4] = {
-        {0.20f, 0.45f, 0.90f, 0.9f},   /* 复盘 蓝 */
-        {0.85f, 0.40f, 0.20f, 0.9f},   /* 删除 橙 */
-        {0.55f, 0.55f, 0.60f, 0.9f},   /* 返回 灰 */
-    };
+    /* ⑥ 3 按钮：复盘/删除/返回。
+       ★ 2026-11-13 逆向实锤纠正：原版 Button style→btn.cfg→btn.png 蓝渐变
+       9-patch（datah_207 正常态），替换旧纯色（复盘蓝/删除橙/返回灰）。 */
     const ui_gameinfo_btn *gb = ui_gameinfo_buttons();
+    int has_skin = (rr->tex_btn_skin[0][slot] && rr->prog_tex[slot]);
     for (int i = 0; i < UI_GAMEINFO_COUNT; i++) {
-        rs_solid_btn(rr, slot, gb[i].x0, gb[i].y0, gb[i].x1, gb[i].y1,
-                     BTN_COL[i][0], BTN_COL[i][1], BTN_COL[i][2], BTN_COL[i][3], 0, uc);
+        if (has_skin) {
+            rs_draw_btn9patch(rr, slot, gb[i].x0, gb[i].y0, gb[i].x1, gb[i].y1,
+                              rr->tex_btn_skin[0][slot],
+                              jq_btn_normal_w, jq_btn_normal_h,
+                              JQ_BTN_9PATCH_L, JQ_BTN_9PATCH_T,
+                              JQ_BTN_9PATCH_R, JQ_BTN_9PATCH_B);
+        } else {
+            /* 退化：纹理未加载 → 纯色（旧实现） */
+            static const float BTN_COL[3][4] = {
+                {0.20f, 0.45f, 0.90f, 0.9f},   /* 复盘 蓝 */
+                {0.85f, 0.40f, 0.20f, 0.9f},   /* 删除 橙 */
+                {0.55f, 0.55f, 0.60f, 0.9f},   /* 返回 灰 */
+            };
+            rs_solid_btn(rr, slot, gb[i].x0, gb[i].y0, gb[i].x1, gb[i].y1,
+                         BTN_COL[i][0], BTN_COL[i][1], BTN_COL[i][2], BTN_COL[i][3], 0, uc);
+        }
         rs_atlas_label(rr, slot, rr->tex_gameinfo_text[slot], rr->gameinfo_text_w, rr->gameinfo_text_h,
                        GAMEINFO_ROW, 5 + i,
                        (gb[i].x0 + gb[i].x1) * 0.5f, (gb[i].y0 + gb[i].y1) * 0.5f, 120.0f, uc);
@@ -4409,14 +4440,23 @@ static void rs_draw_bright(rs_render *rr, int slot)
     /* ⑤ 滑条标签"滑条"（row1，滑条区上方 360,585 720 基准中心） */
     rs_atlas_label(rr, slot, rr->tex_bright_text[slot], rr->bright_text_w, rr->bright_text_h,
                    BRIGHT_ROW, 1, 360.0f, 585.0f, 90.0f, uc);
-    /* ⑥ 确定/取消 2 按钮：确定（蓝）/ 取消（灰）+ 文字 */
-    static const float BTN_COL[2][4] = {
-        {0.20f, 0.45f, 0.90f, 0.9f},   /* 确定 蓝 */
-        {0.55f, 0.55f, 0.60f, 0.9f},   /* 取消 灰 */
-    };
+    /* ⑥ 确定/取消 2 按钮：确定/取消（★ 2026-11-13 → btn.png 9patch，替换旧纯色）。 */
+    int has_skin = (rr->tex_btn_skin[0][slot] && rr->prog_tex[slot]);
     for (int i = 1; i < UI_BRIGHT_COUNT; i++) {
-        rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
-                     BTN_COL[i - 1][0], BTN_COL[i - 1][1], BTN_COL[i - 1][2], BTN_COL[i - 1][3], 0, uc);
+        if (has_skin) {
+            rs_draw_btn9patch(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
+                              rr->tex_btn_skin[0][slot],
+                              jq_btn_normal_w, jq_btn_normal_h,
+                              JQ_BTN_9PATCH_L, JQ_BTN_9PATCH_T,
+                              JQ_BTN_9PATCH_R, JQ_BTN_9PATCH_B);
+        } else {
+            static const float BTN_COL[2][4] = {
+                {0.20f, 0.45f, 0.90f, 0.9f},   /* 确定 蓝 */
+                {0.55f, 0.55f, 0.60f, 0.9f},   /* 取消 灰 */
+            };
+            rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
+                         BTN_COL[i - 1][0], BTN_COL[i - 1][1], BTN_COL[i - 1][2], BTN_COL[i - 1][3], 0, uc);
+        }
         int row_idx = (i == 1) ? 5 : 6;   /* row5=确定 row6=取消 */
         rs_atlas_label(rr, slot, rr->tex_bright_text[slot], rr->bright_text_w, rr->bright_text_h,
                        BRIGHT_ROW, row_idx,
@@ -4464,15 +4504,27 @@ static void rs_draw_chatlog(rs_render *rr, int slot)
         rs_atlas_label(rr, slot, rr->tex_chatlog_text[slot], rr->chatlog_text_w, rr->chatlog_text_h,
                        CHATLOG_ROW, 5, 360.0f, 720.0f, 150.0f, uc);   /* 未逆向 */
     }
-    /* ⑥ 2 按钮：清除（橙）/ 关闭（灰） */
-    static const float BTN_COL[2][4] = {
-        {0.85f, 0.40f, 0.20f, 0.9f},   /* 清除 橙 */
-        {0.55f, 0.55f, 0.60f, 0.9f},   /* 关闭 灰 */
-    };
+    /* ⑥ 2 按钮：清除/关闭。
+       ★ 2026-11-13 逆向实锤纠正：原版 Button style→btn.cfg→btn.png 蓝渐变
+       9-patch（datah_207 正常态），替换旧纯色（清除橙/关闭灰）。 */
     const ui_chatlog_btn *cb = ui_chatlog_buttons();
+    int has_skin = (rr->tex_btn_skin[0][slot] && rr->prog_tex[slot]);
     for (int i = 0; i < UI_CHATLOG_COUNT; i++) {
-        rs_solid_btn(rr, slot, cb[i].x0, cb[i].y0, cb[i].x1, cb[i].y1,
-                     BTN_COL[i][0], BTN_COL[i][1], BTN_COL[i][2], BTN_COL[i][3], 0, uc);
+        if (has_skin) {
+            rs_draw_btn9patch(rr, slot, cb[i].x0, cb[i].y0, cb[i].x1, cb[i].y1,
+                              rr->tex_btn_skin[0][slot],
+                              jq_btn_normal_w, jq_btn_normal_h,
+                              JQ_BTN_9PATCH_L, JQ_BTN_9PATCH_T,
+                              JQ_BTN_9PATCH_R, JQ_BTN_9PATCH_B);
+        } else {
+            /* 退化：纹理未加载 → 纯色（旧实现） */
+            static const float BTN_COL[2][4] = {
+                {0.85f, 0.40f, 0.20f, 0.9f},   /* 清除 橙 */
+                {0.55f, 0.55f, 0.60f, 0.9f},   /* 关闭 灰 */
+            };
+            rs_solid_btn(rr, slot, cb[i].x0, cb[i].y0, cb[i].x1, cb[i].y1,
+                         BTN_COL[i][0], BTN_COL[i][1], BTN_COL[i][2], BTN_COL[i][3], 0, uc);
+        }
         int row_idx = (i == 0) ? 6 : 7;   /* row6=清除 row7=关闭 */
         rs_atlas_label(rr, slot, rr->tex_chatlog_text[slot], rr->chatlog_text_w, rr->chatlog_text_h,
                        CHATLOG_ROW, row_idx,
@@ -4522,16 +4574,28 @@ static void rs_draw_profile(rs_render *rr, int slot)
         rs_atlas_label(rr, slot, rr->tex_profile_text[slot], rr->profile_text_w, rr->profile_text_h,
                        PROFILE_ROW, 6, 360.0f, 740.0f, 150.0f, uc);   /* 未逆向 */
     }
-    /* ⑥ 3 按钮：修改（橙）/ 帮助（蓝）/ 返回（灰） */
-    static const float BTN_COL[3][4] = {
-        {0.85f, 0.40f, 0.20f, 0.9f},   /* 修改 橙 */
-        {0.20f, 0.45f, 0.90f, 0.9f},   /* 帮助 蓝 */
-        {0.55f, 0.55f, 0.60f, 0.9f},   /* 返回 灰 */
-    };
+    /* ⑥ 3 按钮：修改/帮助/返回。
+       ★ 2026-11-13 逆向实锤纠正：原版 Button style→btn.cfg→btn.png 蓝渐变
+       9-patch（datah_207 正常态），替换旧纯色（修改橙/帮助蓝/返回灰）。 */
     const ui_profile_btn *pb = ui_profile_buttons();
+    int has_skin = (rr->tex_btn_skin[0][slot] && rr->prog_tex[slot]);
     for (int i = 0; i < UI_PROFILE_COUNT; i++) {
-        rs_solid_btn(rr, slot, pb[i].x0, pb[i].y0, pb[i].x1, pb[i].y1,
-                     BTN_COL[i][0], BTN_COL[i][1], BTN_COL[i][2], BTN_COL[i][3], 0, uc);
+        if (has_skin) {
+            rs_draw_btn9patch(rr, slot, pb[i].x0, pb[i].y0, pb[i].x1, pb[i].y1,
+                              rr->tex_btn_skin[0][slot],
+                              jq_btn_normal_w, jq_btn_normal_h,
+                              JQ_BTN_9PATCH_L, JQ_BTN_9PATCH_T,
+                              JQ_BTN_9PATCH_R, JQ_BTN_9PATCH_B);
+        } else {
+            /* 退化：纹理未加载 → 纯色（旧实现） */
+            static const float BTN_COL[3][4] = {
+                {0.85f, 0.40f, 0.20f, 0.9f},   /* 修改 橙 */
+                {0.20f, 0.45f, 0.90f, 0.9f},   /* 帮助 蓝 */
+                {0.55f, 0.55f, 0.60f, 0.9f},   /* 返回 灰 */
+            };
+            rs_solid_btn(rr, slot, pb[i].x0, pb[i].y0, pb[i].x1, pb[i].y1,
+                         BTN_COL[i][0], BTN_COL[i][1], BTN_COL[i][2], BTN_COL[i][3], 0, uc);
+        }
         int row_idx = 7 + i;   /* row7=修改 row8=帮助 row9=返回 */
         rs_atlas_label(rr, slot, rr->tex_profile_text[slot], rr->profile_text_w, rr->profile_text_h,
                        PROFILE_ROW, row_idx,
@@ -4639,12 +4703,23 @@ static void rs_draw_setentry(rs_render *rr, int slot, int is_simplified)
     else
         rs_popup_shell(rr, slot, UI_SETEXTTRY_POPUP_X0, UI_SETEXTTRY_POPUP_Y0,
                        UI_SETEXTTRY_POPUP_W, UI_SETEXTTRY_POPUP_H, 1, uc);
-    /* ③ 按钮 + 文字 */
+    /* ③ 按钮 + 文字。
+       ★ 2026-11-13 逆向实锤纠正：原版 datah_003/004 设置入口按钮全部 Button
+       style→btn.cfg→btn.png 蓝渐变 9-patch（datah_207 正常态），替换旧纯色紫。 */
+    int has_skin = (rr->tex_btn_skin[0][slot] && rr->prog_tex[slot]);
     if (is_simplified) {
         const ui_setentry4_btn *sb = ui_setentry4_buttons();
         for (int i = 0; i < UI_SETEXTTRY4_COUNT; i++) {
-            rs_solid_btn(rr, slot, sb[i].x0, sb[i].y0, sb[i].x1, sb[i].y1,
-                         0.45f, 0.30f, 0.75f, 0.9f, 0, uc);
+            if (has_skin) {
+                rs_draw_btn9patch(rr, slot, sb[i].x0, sb[i].y0, sb[i].x1, sb[i].y1,
+                                  rr->tex_btn_skin[0][slot],
+                                  jq_btn_normal_w, jq_btn_normal_h,
+                                  JQ_BTN_9PATCH_L, JQ_BTN_9PATCH_T,
+                                  JQ_BTN_9PATCH_R, JQ_BTN_9PATCH_B);
+            } else {
+                rs_solid_btn(rr, slot, sb[i].x0, sb[i].y0, sb[i].x1, sb[i].y1,
+                             0.45f, 0.30f, 0.75f, 0.9f, 0, uc);
+            }
             rs_atlas_label(rr, slot, rr->tex_setentry_text[slot], rr->setentry_text_w, rr->setentry_text_h,
                            SETENTRY_ROW, 1 + i,
                            (sb[i].x0 + sb[i].x1) * 0.5f, (sb[i].y0 + sb[i].y1) * 0.5f, 120.0f, uc);
@@ -4652,8 +4727,16 @@ static void rs_draw_setentry(rs_render *rr, int slot, int is_simplified)
     } else {
         const ui_setentry_btn *sb = ui_setentry_buttons();
         for (int i = 0; i < UI_SETEXTTRY_COUNT; i++) {
-            rs_solid_btn(rr, slot, sb[i].x0, sb[i].y0, sb[i].x1, sb[i].y1,
-                         0.45f, 0.30f, 0.75f, 0.9f, 0, uc);
+            if (has_skin) {
+                rs_draw_btn9patch(rr, slot, sb[i].x0, sb[i].y0, sb[i].x1, sb[i].y1,
+                                  rr->tex_btn_skin[0][slot],
+                                  jq_btn_normal_w, jq_btn_normal_h,
+                                  JQ_BTN_9PATCH_L, JQ_BTN_9PATCH_T,
+                                  JQ_BTN_9PATCH_R, JQ_BTN_9PATCH_B);
+            } else {
+                rs_solid_btn(rr, slot, sb[i].x0, sb[i].y0, sb[i].x1, sb[i].y1,
+                             0.45f, 0.30f, 0.75f, 0.9f, 0, uc);
+            }
             rs_atlas_label(rr, slot, rr->tex_setentry_text[slot], rr->setentry_text_w, rr->setentry_text_h,
                            SETENTRY_ROW, 1 + i,
                            (sb[i].x0 + sb[i].x1) * 0.5f, (sb[i].y0 + sb[i].y1) * 0.5f, 120.0f, uc);
@@ -4698,12 +4781,25 @@ static void rs_draw_imgset(rs_render *rr, int slot, int is_simplified)
     else
         rs_atlas_label(rr, slot, rr->tex_imgset_text[slot], rr->imgset_text_w, rr->imgset_text_h,
                        IMGSET_ROW, 0, 360.0f, UI_IMGSET7_POPUP_Y0 + 25.0f, 130.0f, uc);
-    /* ④ 开关按钮（各循环切换 开/关，金色高亮描边）+ 标签 */
+    /* ④ 开关按钮（各循环切换 开/关，当前值按下态）+ 标签。
+       ★ 2026-11-13 逆向实锤纠正：原版 datah_007/008 开关/确定/取消 Button style→
+       btn.cfg→btn.png 蓝渐变 9-patch（datah_207 正常态/208 按下），替换旧纯色紫
+       （高亮描边）+ 确定蓝/取消灰。 */
+    int has_skin = (rr->tex_btn_skin[0][slot] && rr->prog_tex[slot]);
     if (is_simplified) {
         const ui_imgset8_btn *ib = ui_imgset8_buttons();
         for (int i = 0; i < 3; i++) {
-            rs_solid_btn(rr, slot, ib[i].x0, ib[i].y0, ib[i].x1, ib[i].y1,
-                         0.45f, 0.30f, 0.75f, 0.9f, 1, uc);
+            int on = (i == 0) ? ui_imgset_trans_get() : (i == 1 ? ui_imgset_piece_get() : ui_imgset_night_get());
+            if (has_skin) {
+                rs_draw_btn9patch(rr, slot, ib[i].x0, ib[i].y0, ib[i].x1, ib[i].y1,
+                                  rr->tex_btn_skin[on ? 1 : 0][slot],
+                                  jq_btn_normal_w, jq_btn_normal_h,
+                                  JQ_BTN_9PATCH_L, JQ_BTN_9PATCH_T,
+                                  JQ_BTN_9PATCH_R, JQ_BTN_9PATCH_B);
+            } else {
+                rs_solid_btn(rr, slot, ib[i].x0, ib[i].y0, ib[i].x1, ib[i].y1,
+                             0.45f, 0.30f, 0.75f, 0.9f, 1, uc);
+            }
             /* 标签列（row1=界面 row2=棋子 row3=夜间） */
             rs_atlas_label(rr, slot, rr->tex_imgset_text[slot], rr->imgset_text_w, rr->imgset_text_h,
                            IMGSET_ROW, 1 + i, 227.0f,
@@ -4717,14 +4813,22 @@ static void rs_draw_imgset(rs_render *rr, int slot, int is_simplified)
                            IMGSET_ROW, vrow,
                            (ib[i].x0 + ib[i].x1) * 0.5f, (ib[i].y0 + ib[i].y1) * 0.5f, 150.0f, uc);
         }
-        /* ⑤ 确定/取消 2 按钮 */
-        static const float BTN_COL[2][4] = {
-            {0.20f, 0.45f, 0.90f, 0.9f},   /* 确定 蓝 */
-            {0.55f, 0.55f, 0.60f, 0.9f},   /* 取消 灰 */
-        };
+        /* ⑤ 确定/取消 2 按钮（★ 2026-11-13 → btn.png 9patch，替换旧纯色） */
         for (int i = 3; i < UI_IMGSET8_COUNT; i++) {
-            rs_solid_btn(rr, slot, ib[i].x0, ib[i].y0, ib[i].x1, ib[i].y1,
-                         BTN_COL[i-3][0], BTN_COL[i-3][1], BTN_COL[i-3][2], BTN_COL[i-3][3], 0, uc);
+            if (has_skin) {
+                rs_draw_btn9patch(rr, slot, ib[i].x0, ib[i].y0, ib[i].x1, ib[i].y1,
+                                  rr->tex_btn_skin[0][slot],
+                                  jq_btn_normal_w, jq_btn_normal_h,
+                                  JQ_BTN_9PATCH_L, JQ_BTN_9PATCH_T,
+                                  JQ_BTN_9PATCH_R, JQ_BTN_9PATCH_B);
+            } else {
+                static const float BTN_COL[2][4] = {
+                    {0.20f, 0.45f, 0.90f, 0.9f},   /* 确定 蓝 */
+                    {0.55f, 0.55f, 0.60f, 0.9f},   /* 取消 灰 */
+                };
+                rs_solid_btn(rr, slot, ib[i].x0, ib[i].y0, ib[i].x1, ib[i].y1,
+                             BTN_COL[i-3][0], BTN_COL[i-3][1], BTN_COL[i-3][2], BTN_COL[i-3][3], 0, uc);
+            }
             if (i == 3) {   /* 确定按钮：row9=确定 */
                 rs_atlas_label(rr, slot, rr->tex_imgset_text[slot], rr->imgset_text_w, rr->imgset_text_h,
                                IMGSET_ROW, 9,
@@ -4735,8 +4839,17 @@ static void rs_draw_imgset(rs_render *rr, int slot, int is_simplified)
     } else {
         const ui_imgset7_btn *ib = ui_imgset7_buttons();
         for (int i = 0; i < 4; i++) {
-            rs_solid_btn(rr, slot, ib[i].x0, ib[i].y0, ib[i].x1, ib[i].y1,
-                         0.45f, 0.30f, 0.75f, 0.9f, 1, uc);
+            int on = (i == 0) ? ui_imgset_trans_get() : (i == 1 ? ui_imgset_piece_get() : (i == 2 ? ui_imgset_night_get() : ui_imgset_opp_get()));
+            if (has_skin) {
+                rs_draw_btn9patch(rr, slot, ib[i].x0, ib[i].y0, ib[i].x1, ib[i].y1,
+                                  rr->tex_btn_skin[on ? 1 : 0][slot],
+                                  jq_btn_normal_w, jq_btn_normal_h,
+                                  JQ_BTN_9PATCH_L, JQ_BTN_9PATCH_T,
+                                  JQ_BTN_9PATCH_R, JQ_BTN_9PATCH_B);
+            } else {
+                rs_solid_btn(rr, slot, ib[i].x0, ib[i].y0, ib[i].x1, ib[i].y1,
+                             0.45f, 0.30f, 0.75f, 0.9f, 1, uc);
+            }
             /* 标签列（row1=界面 row2=棋子 row3=夜间 row4=对方） */
             rs_atlas_label(rr, slot, rr->tex_imgset_text[slot], rr->imgset_text_w, rr->imgset_text_h,
                            IMGSET_ROW, 1 + i, 227.0f,
@@ -4757,8 +4870,16 @@ static void rs_draw_imgset(rs_render *rr, int slot, int is_simplified)
             {0.55f, 0.55f, 0.60f, 0.9f},   /* 取消 灰 */
         };
         for (int i = 4; i < UI_IMGSET7_COUNT; i++) {
-            rs_solid_btn(rr, slot, ib[i].x0, ib[i].y0, ib[i].x1, ib[i].y1,
-                         BTN_COL[i-4][0], BTN_COL[i-4][1], BTN_COL[i-4][2], BTN_COL[i-4][3], 0, uc);
+            if (has_skin) {
+                rs_draw_btn9patch(rr, slot, ib[i].x0, ib[i].y0, ib[i].x1, ib[i].y1,
+                                  rr->tex_btn_skin[0][slot],
+                                  jq_btn_normal_w, jq_btn_normal_h,
+                                  JQ_BTN_9PATCH_L, JQ_BTN_9PATCH_T,
+                                  JQ_BTN_9PATCH_R, JQ_BTN_9PATCH_B);
+            } else {
+                rs_solid_btn(rr, slot, ib[i].x0, ib[i].y0, ib[i].x1, ib[i].y1,
+                             BTN_COL[i-4][0], BTN_COL[i-4][1], BTN_COL[i-4][2], BTN_COL[i-4][3], 0, uc);
+            }
             int row_idx = (i == 4) ? 9 : 10;   /* row9=确定 row10=取消 */
             rs_atlas_label(rr, slot, rr->tex_imgset_text[slot], rr->imgset_text_w, rr->imgset_text_h,
                            IMGSET_ROW, row_idx,
@@ -4839,14 +4960,23 @@ static void rs_draw_join065(rs_render *rr, int slot)
                        JOIN065_ROW, val_row,
                        jb[i].x1 - 60.0f, (jb[i].y0 + jb[i].y1) * 0.5f, 110.0f, uc);
     }
-    /* ⑤ 开始/取消 2 按钮 */
-    static const float BTN_COL[2][4] = {
-        {0.20f, 0.45f, 0.90f, 0.9f},   /* 开始 蓝 */
-        {0.55f, 0.55f, 0.60f, 0.9f},   /* 取消 灰 */
-    };
+    /* ⑤ 开始/取消 2 按钮（★ 2026-11-13 → btn.png 9patch，替换旧纯色）。 */
+    int has_skin = (rr->tex_btn_skin[0][slot] && rr->prog_tex[slot]);
     for (int i = 8; i < UI_JOIN065_COUNT; i++) {
-        rs_solid_btn(rr, slot, jb[i].x0, jb[i].y0, jb[i].x1, jb[i].y1,
-                     BTN_COL[i-8][0], BTN_COL[i-8][1], BTN_COL[i-8][2], BTN_COL[i-8][3], 0, uc);
+        if (has_skin) {
+            rs_draw_btn9patch(rr, slot, jb[i].x0, jb[i].y0, jb[i].x1, jb[i].y1,
+                              rr->tex_btn_skin[0][slot],
+                              jq_btn_normal_w, jq_btn_normal_h,
+                              JQ_BTN_9PATCH_L, JQ_BTN_9PATCH_T,
+                              JQ_BTN_9PATCH_R, JQ_BTN_9PATCH_B);
+        } else {
+            static const float BTN_COL[2][4] = {
+                {0.20f, 0.45f, 0.90f, 0.9f},   /* 开始 蓝 */
+                {0.55f, 0.55f, 0.60f, 0.9f},   /* 取消 灰 */
+            };
+            rs_solid_btn(rr, slot, jb[i].x0, jb[i].y0, jb[i].x1, jb[i].y1,
+                         BTN_COL[i-8][0], BTN_COL[i-8][1], BTN_COL[i-8][2], BTN_COL[i-8][3], 0, uc);
+        }
         int row_idx = (i == 8) ? 9 : 18;   /* row9=开始 row18=取消（图集顺序 开始...取消） */
         rs_atlas_label(rr, slot, rr->tex_join065_text[slot], rr->join065_text_w, rr->join065_text_h,
                        JOIN065_ROW, row_idx,
@@ -4881,11 +5011,24 @@ static void rs_draw_create069(rs_render *rr, int slot)
     /* ③ 标题"创建"（create069_text row0，面板顶部 360 中心） */
     rs_atlas_label(rr, slot, rr->tex_create069_text[slot], rr->create069_text_w, rr->create069_text_h,
                    CREATE069_ROW, 0, 360.0f, UI_CREATE069_POPUP_Y0 + 25.0f, 130.0f, uc);
-    /* ④ 4 选择按钮（先后手/玩法/明暗棋/游戏规则，金色高亮描边）+ 标签 */
+    /* ④ 4 选择按钮（先后手/玩法/明暗棋/游戏规则，当前值按下态）+ 标签 */
     const ui_create069_btn *cb = ui_create069_buttons();
+    int has_skin = (rr->tex_btn_skin[0][slot] && rr->prog_tex[slot]);
     for (int i = 0; i < 4; i++) {
-        rs_solid_btn(rr, slot, cb[i].x0, cb[i].y0, cb[i].x1, cb[i].y1,
-                     0.45f, 0.30f, 0.75f, 0.9f, 1, uc);
+        /* ★ 2026-11-13 逆向实锤纠正：原版 datah_069 选择/确定/取消 Button style→
+           btn.cfg→btn.png 蓝渐变 9-patch（datah_207 正常态/208 按下），替换旧纯色紫
+           （高亮描边）+ 确定蓝/取消灰。 */
+        int sel = (i == 0 && ui_first_get()) || (i == 1 && ui_opt_get_mode()) || (i == 2 && ui_show_get());
+        if (has_skin) {
+            rs_draw_btn9patch(rr, slot, cb[i].x0, cb[i].y0, cb[i].x1, cb[i].y1,
+                              rr->tex_btn_skin[sel ? 1 : 0][slot],
+                              jq_btn_normal_w, jq_btn_normal_h,
+                              JQ_BTN_9PATCH_L, JQ_BTN_9PATCH_T,
+                              JQ_BTN_9PATCH_R, JQ_BTN_9PATCH_B);
+        } else {
+            rs_solid_btn(rr, slot, cb[i].x0, cb[i].y0, cb[i].x1, cb[i].y1,
+                         0.45f, 0.30f, 0.75f, 0.9f, 1, uc);
+        }
         /* 标签列（row1=先后手 row2=玩法 row3=明暗棋 row4=规则） */
         rs_atlas_label(rr, slot, rr->tex_create069_text[slot], rr->create069_text_w, rr->create069_text_h,
                        CREATE069_ROW, 1 + i, 227.0f,
@@ -4900,14 +5043,22 @@ static void rs_draw_create069(rs_render *rr, int slot)
                        CREATE069_ROW, vrow,
                        (cb[i].x0 + cb[i].x1) * 0.5f, (cb[i].y0 + cb[i].y1) * 0.5f, 150.0f, uc);
     }
-    /* ⑤ 确定/取消 2 按钮 */
-    static const float BTN_COL[2][4] = {
-        {0.20f, 0.45f, 0.90f, 0.9f},   /* 确定 蓝 */
-        {0.55f, 0.55f, 0.60f, 0.9f},   /* 取消 灰 */
-    };
+    /* ⑤ 确定/取消 2 按钮（★ 2026-11-13 → btn.png 9patch，替换旧纯色） */
     for (int i = 4; i < UI_CREATE069_COUNT; i++) {
-        rs_solid_btn(rr, slot, cb[i].x0, cb[i].y0, cb[i].x1, cb[i].y1,
-                     BTN_COL[i-4][0], BTN_COL[i-4][1], BTN_COL[i-4][2], BTN_COL[i-4][3], 0, uc);
+        if (has_skin) {
+            rs_draw_btn9patch(rr, slot, cb[i].x0, cb[i].y0, cb[i].x1, cb[i].y1,
+                              rr->tex_btn_skin[0][slot],
+                              jq_btn_normal_w, jq_btn_normal_h,
+                              JQ_BTN_9PATCH_L, JQ_BTN_9PATCH_T,
+                              JQ_BTN_9PATCH_R, JQ_BTN_9PATCH_B);
+        } else {
+            static const float BTN_COL[2][4] = {
+                {0.20f, 0.45f, 0.90f, 0.9f},   /* 确定 蓝 */
+                {0.55f, 0.55f, 0.60f, 0.9f},   /* 取消 灰 */
+            };
+            rs_solid_btn(rr, slot, cb[i].x0, cb[i].y0, cb[i].x1, cb[i].y1,
+                         BTN_COL[i-4][0], BTN_COL[i-4][1], BTN_COL[i-4][2], BTN_COL[i-4][3], 0, uc);
+        }
         int row_idx = (i == 4) ? 9 : 10;   /* row9=确定 row10=取消 */
         rs_atlas_label(rr, slot, rr->tex_create069_text[slot], rr->create069_text_w, rr->create069_text_h,
                        CREATE069_ROW, row_idx,
@@ -4945,34 +5096,54 @@ static void rs_draw_rules070(rs_render *rr, int slot)
     /* ③ 标题"规则"（rules070_text row0，面板顶部 360 中心） */
     rs_atlas_label(rr, slot, rr->tex_rules070_text[slot], rr->rules070_text_w, rr->rules070_text_h,
                    RULES070_ROW, 0, 360.0f, UI_RULES070_POPUP_Y0 + 25.0f, 130.0f, uc);
-    /* ④ 4 规则开关（各循环切换 开/关，金色高亮描边）+ 标签 */
+    /* ④ 4 规则开关（各循环切换 开/关，当前值按下态）+ 标签。
+       ★ 2026-11-13 逆向实锤纠正：原版 datah_070 开关/确定/取消 Button style→
+       btn.cfg→btn.png 蓝渐变 9-patch（datah_207 正常态/208 按下），替换旧纯色紫
+       （高亮描边）+ 确定蓝/取消灰。 */
     const ui_rules070_btn *rb = ui_rules070_buttons();
+    int has_skin = (rr->tex_btn_skin[0][slot] && rr->prog_tex[slot]);
     for (int i = 0; i < 4; i++) {
-        rs_solid_btn(rr, slot, rb[i].x0, rb[i].y0, rb[i].x1, rb[i].y1,
-                     0.45f, 0.30f, 0.75f, 0.9f, 1, uc);
-        /* 标签列（row1=和棋 row2=大本营 row3=吃雷 row4=吃旗） */
-        rs_atlas_label(rr, slot, rr->tex_rules070_text[slot], rr->rules070_text_w, rr->rules070_text_h,
-                       RULES070_ROW, 1 + i, 227.0f,
-                       (rb[i].y0 + rb[i].y1) * 0.5f, 90.0f, uc);
-        /* 当前值标签（row5=开 row6=关，按 ui_rule_*_get） */
         int cur;
         if (i == 0) cur = ui_rule_draw_get();
         else if (i == 1) cur = ui_rule_hq_get();
         else if (i == 2) cur = ui_rule_mine_get();
         else cur = ui_rule_flag_get();
+        if (has_skin) {
+            rs_draw_btn9patch(rr, slot, rb[i].x0, rb[i].y0, rb[i].x1, rb[i].y1,
+                              rr->tex_btn_skin[cur ? 1 : 0][slot],
+                              jq_btn_normal_w, jq_btn_normal_h,
+                              JQ_BTN_9PATCH_L, JQ_BTN_9PATCH_T,
+                              JQ_BTN_9PATCH_R, JQ_BTN_9PATCH_B);
+        } else {
+            rs_solid_btn(rr, slot, rb[i].x0, rb[i].y0, rb[i].x1, rb[i].y1,
+                         0.45f, 0.30f, 0.75f, 0.9f, 1, uc);
+        }
+        /* 标签列（row1=和棋 row2=大本营 row3=吃雷 row4=吃旗） */
+        rs_atlas_label(rr, slot, rr->tex_rules070_text[slot], rr->rules070_text_w, rr->rules070_text_h,
+                       RULES070_ROW, 1 + i, 227.0f,
+                       (rb[i].y0 + rb[i].y1) * 0.5f, 90.0f, uc);
+        /* 当前值标签（row5=开 row6=关，按 ui_rule_*_get） */
         int vrow = cur ? 5 : 6;
         rs_atlas_label(rr, slot, rr->tex_rules070_text[slot], rr->rules070_text_w, rr->rules070_text_h,
                        RULES070_ROW, vrow,
                        (rb[i].x0 + rb[i].x1) * 0.5f, (rb[i].y0 + rb[i].y1) * 0.5f, 150.0f, uc);
     }
-    /* ⑤ 确定/取消 2 按钮 */
-    static const float BTN_COL[2][4] = {
-        {0.20f, 0.45f, 0.90f, 0.9f},   /* 确定 蓝 */
-        {0.55f, 0.55f, 0.60f, 0.9f},   /* 取消 灰 */
-    };
+    /* ⑤ 确定/取消 2 按钮（★ 2026-11-13 → btn.png 9patch，替换旧纯色） */
     for (int i = 4; i < UI_RULES070_COUNT; i++) {
-        rs_solid_btn(rr, slot, rb[i].x0, rb[i].y0, rb[i].x1, rb[i].y1,
-                     BTN_COL[i-4][0], BTN_COL[i-4][1], BTN_COL[i-4][2], BTN_COL[i-4][3], 0, uc);
+        if (has_skin) {
+            rs_draw_btn9patch(rr, slot, rb[i].x0, rb[i].y0, rb[i].x1, rb[i].y1,
+                              rr->tex_btn_skin[0][slot],
+                              jq_btn_normal_w, jq_btn_normal_h,
+                              JQ_BTN_9PATCH_L, JQ_BTN_9PATCH_T,
+                              JQ_BTN_9PATCH_R, JQ_BTN_9PATCH_B);
+        } else {
+            static const float BTN_COL[2][4] = {
+                {0.20f, 0.45f, 0.90f, 0.9f},   /* 确定 蓝 */
+                {0.55f, 0.55f, 0.60f, 0.9f},   /* 取消 灰 */
+            };
+            rs_solid_btn(rr, slot, rb[i].x0, rb[i].y0, rb[i].x1, rb[i].y1,
+                         BTN_COL[i-4][0], BTN_COL[i-4][1], BTN_COL[i-4][2], BTN_COL[i-4][3], 0, uc);
+        }
         int row_idx = (i == 4) ? 9 : 10;   /* row9=确定 row10=取消 */
         rs_atlas_label(rr, slot, rr->tex_rules070_text[slot], rr->rules070_text_w, rr->rules070_text_h,
                        RULES070_ROW, row_idx,
@@ -5029,16 +5200,28 @@ static void rs_draw_room060(rs_render *rr, int slot)
                            ROOM060_ROW, FIELD_ROW[p][f],
                            450.0f, fy, 90.0f, uc);
         }
-    /* ⑤ 3 按钮：开始（蓝）/ 换桌（橙）/ 离开（灰） */
-    static const float BTN_COL[3][4] = {
-        {0.20f, 0.45f, 0.90f, 0.9f},   /* 开始 蓝 */
-        {0.85f, 0.40f, 0.20f, 0.9f},   /* 换桌 橙 */
-        {0.55f, 0.55f, 0.60f, 0.9f},   /* 离开 灰 */
-    };
+    /* ⑤ 3 按钮：开始/换桌/离开。
+       ★ 2026-11-13 逆向实锤纠正：原版 Button style→btn.cfg→btn.png 蓝渐变
+       9-patch（datah_207 正常态），替换旧纯色（开始蓝/换桌橙/离开灰）。 */
     const ui_room060_btn *rm = ui_room060_buttons();
+    int has_skin = (rr->tex_btn_skin[0][slot] && rr->prog_tex[slot]);
     for (int i = 0; i < UI_ROOM060_COUNT; i++) {
-        rs_solid_btn(rr, slot, rm[i].x0, rm[i].y0, rm[i].x1, rm[i].y1,
-                     BTN_COL[i][0], BTN_COL[i][1], BTN_COL[i][2], BTN_COL[i][3], 0, uc);
+        if (has_skin) {
+            rs_draw_btn9patch(rr, slot, rm[i].x0, rm[i].y0, rm[i].x1, rm[i].y1,
+                              rr->tex_btn_skin[0][slot],
+                              jq_btn_normal_w, jq_btn_normal_h,
+                              JQ_BTN_9PATCH_L, JQ_BTN_9PATCH_T,
+                              JQ_BTN_9PATCH_R, JQ_BTN_9PATCH_B);
+        } else {
+            /* 退化：纹理未加载 → 纯色（旧实现） */
+            static const float BTN_COL[3][4] = {
+                {0.20f, 0.45f, 0.90f, 0.9f},   /* 开始 蓝 */
+                {0.85f, 0.40f, 0.20f, 0.9f},   /* 换桌 橙 */
+                {0.55f, 0.55f, 0.60f, 0.9f},   /* 离开 灰 */
+            };
+            rs_solid_btn(rr, slot, rm[i].x0, rm[i].y0, rm[i].x1, rm[i].y1,
+                         BTN_COL[i][0], BTN_COL[i][1], BTN_COL[i][2], BTN_COL[i][3], 0, uc);
+        }
         int row_idx = 3 + i;   /* row3=开始 row4=换桌 row5=离开 */
         rs_atlas_label(rr, slot, rr->tex_room060_text[slot], rr->room060_text_w, rr->room060_text_h,
                        ROOM060_ROW, row_idx,
@@ -5080,16 +5263,28 @@ static void rs_draw_chat063(rs_render *rr, int slot)
         rs_atlas_label(rr, slot, rr->tex_chat063_text[slot], rr->chat063_text_w, rr->chat063_text_h,
                        CHAT063_ROW, 1, 360.0f, UI_CHAT063_POPUP_Y0 + 100.0f, 150.0f, uc);   /* 聊天记录说明 */
     }
-    /* ⑥ 3 按钮：发送（蓝）/ 记录（橙）/ 关闭（灰） */
-    static const float BTN_COL[3][4] = {
-        {0.20f, 0.45f, 0.90f, 0.9f},   /* 发送 蓝 */
-        {0.85f, 0.40f, 0.20f, 0.9f},   /* 记录 橙 */
-        {0.55f, 0.55f, 0.60f, 0.9f},   /* 关闭 灰 */
-    };
+    /* ⑥ 3 按钮：发送/记录/关闭。
+       ★ 2026-11-13 逆向实锤纠正：原版 Button style→btn.cfg→btn.png 蓝渐变
+       9-patch（datah_207 正常态），替换旧纯色（发送蓝/记录橙/关闭灰）。 */
     const ui_chat063_btn *c63 = ui_chat063_buttons();
+    int has_skin = (rr->tex_btn_skin[0][slot] && rr->prog_tex[slot]);
     for (int i = 0; i < UI_CHAT063_COUNT; i++) {
-        rs_solid_btn(rr, slot, c63[i].x0, c63[i].y0, c63[i].x1, c63[i].y1,
-                     BTN_COL[i][0], BTN_COL[i][1], BTN_COL[i][2], BTN_COL[i][3], 0, uc);
+        if (has_skin) {
+            rs_draw_btn9patch(rr, slot, c63[i].x0, c63[i].y0, c63[i].x1, c63[i].y1,
+                              rr->tex_btn_skin[0][slot],
+                              jq_btn_normal_w, jq_btn_normal_h,
+                              JQ_BTN_9PATCH_L, JQ_BTN_9PATCH_T,
+                              JQ_BTN_9PATCH_R, JQ_BTN_9PATCH_B);
+        } else {
+            /* 退化：纹理未加载 → 纯色（旧实现） */
+            static const float BTN_COL[3][4] = {
+                {0.20f, 0.45f, 0.90f, 0.9f},   /* 发送 蓝 */
+                {0.85f, 0.40f, 0.20f, 0.9f},   /* 记录 橙 */
+                {0.55f, 0.55f, 0.60f, 0.9f},   /* 关闭 灰 */
+            };
+            rs_solid_btn(rr, slot, c63[i].x0, c63[i].y0, c63[i].x1, c63[i].y1,
+                         BTN_COL[i][0], BTN_COL[i][1], BTN_COL[i][2], BTN_COL[i][3], 0, uc);
+        }
         int row_idx = 2 + i;   /* row2=发送 row3=记录 row4=关闭 */
         rs_atlas_label(rr, slot, rr->tex_chat063_text[slot], rr->chat063_text_w, rr->chat063_text_h,
                        CHAT063_ROW, row_idx,
@@ -9042,14 +9237,26 @@ static void rs_draw_d264(rs_render *rr, int slot)
         }
     }
     /* ⑦ 2 按钮：反馈（蓝）/ 关闭（灰）+ 文字 */
-    static const float BTN_COL[2][4] = {
-        {0.20f, 0.45f, 0.90f, 0.9f},   /* 反馈 蓝 */
-        {0.55f, 0.55f, 0.60f, 0.9f},   /* 关闭 灰 */
-    };
+    /* 反馈/关闭 2 按钮。
+       ★ 2026-11-13 逆向实锤纠正：原版 datah_000 反馈/关闭 Button style→btn.cfg→
+       btn.png 蓝渐变 9-patch（datah_207 正常态），替换旧纯色（反馈蓝/关闭灰）。 */
     const ui_about_btn *ab = ui_about_buttons();
+    int has_skin = (rr->tex_btn_skin[0][slot] && rr->prog_tex[slot]);
     for (int i = 0; i < UI_ABOUT_COUNT; i++) {
-        rs_solid_btn(rr, slot, ab[i].x0, ab[i].y0, ab[i].x1, ab[i].y1,
-                     BTN_COL[i][0], BTN_COL[i][1], BTN_COL[i][2], BTN_COL[i][3], 0, uc);
+        if (has_skin) {
+            rs_draw_btn9patch(rr, slot, ab[i].x0, ab[i].y0, ab[i].x1, ab[i].y1,
+                              rr->tex_btn_skin[0][slot],
+                              jq_btn_normal_w, jq_btn_normal_h,
+                              JQ_BTN_9PATCH_L, JQ_BTN_9PATCH_T,
+                              JQ_BTN_9PATCH_R, JQ_BTN_9PATCH_B);
+        } else {
+            static const float BTN_COL[2][4] = {
+                {0.20f, 0.45f, 0.90f, 0.9f},   /* 反馈 蓝 */
+                {0.55f, 0.55f, 0.60f, 0.9f},   /* 关闭 灰 */
+            };
+            rs_solid_btn(rr, slot, ab[i].x0, ab[i].y0, ab[i].x1, ab[i].y1,
+                         BTN_COL[i][0], BTN_COL[i][1], BTN_COL[i][2], BTN_COL[i][3], 0, uc);
+        }
         int row_idx = 3 + i;   /* row3=反馈 row4=关闭 */
         rs_atlas_label(rr, slot, rr->tex_about_text[slot], rr->about_text_w, rr->about_text_h,
                        ABOUT_ROW, row_idx,
