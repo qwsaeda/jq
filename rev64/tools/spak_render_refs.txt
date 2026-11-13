@@ -3,6 +3,8 @@ bg_menu_720.png
 bright_text_atlas.png
 btimen_text_atlas.png
 btn_color1.png
+btn_color2.png
+gameset_title_black.png
 chat063_text_atlas.png
 chatlog_text_atlas.png
 create069_text_atlas.png

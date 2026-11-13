@@ -136,7 +136,11 @@ typedef struct {
     void *panel_px;  size_t panel_px_len;  int panel_w, panel_h;         /* 面板 9patch（datax_246 圆形） */
     void *panel_btn_px; size_t panel_btn_px_len; int panel_btn_w, panel_btn_h; /* 彩色按钮（datax_194） */
     void *panel_icon_px; size_t panel_icon_px_len; int panel_icon_w, panel_icon_h; /* 图标（datax_138） */
+    void *btn_color2_px; size_t btn_color2_px_len; int btn_color2_w, btn_color2_h; /* ★ 原版彩色按钮条 btn_color2（datax_195 244×61，4 块渐变圆角：橙/紫/绿/蓝，块 61×61） */
     unsigned int tex_panel[2]; unsigned int tex_panel_btn[2]; unsigned int tex_panel_icon[2];
+    unsigned int tex_btn_color2[2];   /* ★ 原版彩色按钮条纹理（datax_195，功能设置按钮 9-patch 用） */
+    void *gameset_title_px; size_t gameset_title_px_len; int gameset_title_w, gameset_title_h; /* ★ 原版 Title color=black：游戏设置标题黑字版（row0 转黑） */
+    unsigned int tex_gameset_title[2];
     void *opt_text_px; size_t opt_text_px_len;  /* ★ 弹窗文字图集 RGBA（6 label 竖排） */
     int opt_text_w, opt_text_h;                 /* 弹窗文字图集尺寸 */
     void *waysel_text_px; size_t waysel_text_px_len; /* ★ 方式选择文字图集 RGBA（4 标签竖排 220×184） */

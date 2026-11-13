@@ -2669,6 +2669,8 @@ static void spak_res_stage_private(JNIEnv *env, jobject activity, int log_miss)
         "chat063_text_atlas.png","about_text_atlas.png","uibat_text_atlas.png",
         "exit_text_atlas.png",
         "icon_house.png",
+        "btn_color2.png",
+        "gameset_title_black.png",
         NULL
     };
     char asset_path[128], out_path[512];

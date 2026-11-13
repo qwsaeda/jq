@@ -584,6 +584,8 @@ int rs_render_init(rs_render *rr, const char *spak_dir, const jq_state *init_sta
         unsigned char *panraw = NULL; size_t panraw_len = 0;   /* ★ 原版面板 9patch */
         unsigned char *btnraw = NULL; size_t btnraw_len = 0;   /* ★ 原版彩色按钮 */
         unsigned char *icoraw = NULL; size_t icoraw_len = 0;   /* ★ 原版图标 */
+        unsigned char *bc2raw = NULL; size_t bc2raw_len = 0;   /* ★ 原版彩色按钮条 btn_color2（datax_195） */
+        unsigned char *gstraw = NULL; size_t gstraw_len = 0;   /* ★ 原版 Title color=black：游戏设置标题黑字版 */
         int panw=0, panh=0, btnw=0, btnh=0;
         rs_read_one(am, spak_dir, "datah_188_21d95e03e7692e98.bin", &braw, &braw_len);
         rs_read_one(am, spak_dir, "datah_183_9e1b7fbc4dfc09c3.bin", &praw, &praw_len);
@@ -593,6 +595,8 @@ int rs_render_init(rs_render *rr, const char *spak_dir, const jq_state *init_sta
         rs_read_one(am, spak_dir, "popup.png", &praw2, &praw2_len);
         rs_read_one(am, spak_dir, "panel_circle.png", &panraw, &panraw_len);
         rs_read_one(am, spak_dir, "btn_color1.png", &btnraw, &btnraw_len);
+        rs_read_one(am, spak_dir, "btn_color2.png", &bc2raw, &bc2raw_len);
+        rs_read_one(am, spak_dir, "gameset_title_black.png", &gstraw, &gstraw_len);
         rs_read_one(am, spak_dir, "icon_file.png", &icoraw, &icoraw_len);
         rs_read_one(am, spak_dir, "menu_bg_294.png", &mraw, &mraw_len);
         /* ★ C 项：原版 datax JPEG 直读（烘焙 PNG 缺失时的真值源）。
@@ -785,6 +789,8 @@ int rs_render_init(rs_render *rr, const char *spak_dir, const jq_state *init_sta
         /* ★ 原版 UI 位图真值（ch02 N45）：面板 9patch + 彩色按钮 */
         {
             unsigned char *panpx=NULL,*btnpx=NULL; int panw2=0,panh2=0,btnw2=0,btnh2=0;
+            unsigned char *bc2px=NULL; int bc2w=0,bc2h=0;
+            unsigned char *gstpx=NULL; int gstw=0,gsth=0;
             if (panraw) {
                 LOGI("原版位图资源对齐（ch02 N45）：panel_circle.png 文件大小=%zu（读取后解码）", panraw_len);
             } else {
@@ -806,8 +812,24 @@ int rs_render_init(rs_render *rr, const char *spak_dir, const jq_state *init_sta
                 rr->panel_icon_px = iconpx; rr->panel_icon_px_len = (size_t)iconw2 * iconh2 * 4;
                 rr->panel_icon_w = iconw2; rr->panel_icon_h = iconh2;
             }
+            /* ★ 原版彩色按钮条 btn_color2（datax_195 244×61，4 块渐变圆角：橙/紫/绿/蓝，块 61×61）。
+               panel_btn（btn_color1 datax_194）是 4 个 40px 硬边色段（rs_solid_btn 撤下），
+               btn_color2 是 4 块 61×61 渐变圆角按钮（功能设置 4 开关=绿块 / 确定取消=蓝块）。 */
+            if (bc2raw && png_decode(bc2raw, bc2raw_len, &bc2px, &bc2w, &bc2h) == 0) {
+                rr->btn_color2_px = bc2px; rr->btn_color2_px_len = (size_t)bc2w * bc2h * 4;
+                rr->btn_color2_w = bc2w; rr->btn_color2_h = bc2h;
+                LOGI("原版彩色按钮条 btn_color2（datax_195）加载 %dx%d", bc2w, bc2h);
+            } else if (bc2raw) {
+                LOGI("原版彩色按钮条 btn_color2（datax_195）解码失败");
+            }
+            /* ★ 原版 Title color=black：游戏设置标题黑字版（gameset_text_atlas row0 转黑） */
+            if (gstraw && png_decode(gstraw, gstraw_len, &gstpx, &gstw, &gsth) == 0) {
+                rr->gameset_title_px = gstpx; rr->gameset_title_px_len = (size_t)gstw * gsth * 4;
+                rr->gameset_title_w = gstw; rr->gameset_title_h = gsth;
+                LOGI("游戏设置标题黑字版（原版 Title color=black）加载 %dx%d", gstw, gsth);
+            }
         }
-        free(panraw); free(btnraw); free(icoraw);
+        free(panraw); free(btnraw); free(icoraw); free(bc2raw); free(gstraw);
         /* ★ 对抗审计（datah_072）：方式选择文字图集（4 标签竖排 220×184） */
         if (wsraw && png_decode(wsraw, wsraw_len, &wspx, &wsw, &wsh) == 0) {
             rr->waysel_text_px = wspx; rr->waysel_text_px_len = (size_t)wsw * wsh * 4;
@@ -2704,6 +2726,108 @@ static void rs_draw_newgame(rs_render *rr, int slot)
     if (!ngdiag) { ngdiag = 1; LOGI("rs_draw_newgame：两人新局弹窗（datah_062 玩法/明暗棋+确定/取消，面板 %.0f×%.0f，两人热座 AI 不介入）", UI_NEWGAME_POPUP_W, UI_NEWGAME_POPUP_H); }
 }
 
+/* ★ 原版彩色按钮条 btn_color2（datax_195）9-patch 绘制。
+   tex 244×61 内 4 块（橙 0-61/紫 61-122/绿 122-183/蓝 183-244），块 61×61。
+   按块 UV 子区域（u0,u1）9-patch 拉伸到按钮 rect（720 基准 x0,y0,x1,y1）。
+   9-patch 边 8px（块内圆角，角不缩放、边中拉伸）。原版按钮 = 渐变圆角立体皮肤。 */
+static void rs_draw_btn9patch(rs_render *rr, int slot,
+                              float x0, float y0, float x1, float y1,
+                              float u0, float u1, GLuint tex)
+{
+    float sx, sy, yoff;
+    rs_ui_scale(rr, &sx, &yoff);
+    sy = sx;
+    float X0 = x0 * sx, X1 = x1 * sx, Y0 = y0 * sy + yoff, Y1 = y1 * sy + yoff;
+    float eb = 8.0f * sx;        /* 屏幕角边（720 基准 8px → 屏幕） */
+    float eu = 8.0f / 244.0f;    /* 块内水平 8px（全图 244 宽归一） */
+    float ev = 8.0f / 61.0f;     /* 块内垂直 8px（全图 61 高归一） */
+    float v0 = 0.0f, v1 = 1.0f;
+    /* 保证角边不越界（按钮太小时收缩） */
+    if (X1 - X0 < 2 * eb) eb = (X1 - X0) * 0.5f;
+    float ys0 = Y0, ye0 = Y0 + eb, ys1 = Y1 - eb, ye1 = Y1;
+    if (ye0 > ys1) { ys0 = Y0; ye0 = (Y0 + Y1) * 0.5f; ys1 = ye0; ye1 = Y1; }
+    float xs[3] = { X0, X0 + eb, X1 - eb }, xe[3] = { X0 + eb, X1 - eb, X1 };
+    float ys[3] = { ys0, ye0, ys1 }, ye[3] = { ye0, ys1, ye1 };
+    float us[3] = { u0, u0 + eu, u1 - eu }, ue[3] = { u0 + eu, u1 - eu, u1 };
+    float vs[3] = { v0, v0 + ev, v1 - ev }, ve[3] = { v0 + ev, v1 - ev, v1 };
+    rs_v4f q[54]; int n = 0;
+    for (int iy = 0; iy < 3; iy++) {
+        for (int ix = 0; ix < 3; ix++) {
+            q[n++] = (rs_v4f){ xs[ix], ys[iy], us[ix], vs[iy] };
+            q[n++] = (rs_v4f){ xe[ix], ys[iy], ue[ix], vs[iy] };
+            q[n++] = (rs_v4f){ xs[ix], ye[iy], us[ix], ve[iy] };
+            q[n++] = (rs_v4f){ xs[ix], ye[iy], us[ix], ve[iy] };
+            q[n++] = (rs_v4f){ xe[ix], ys[iy], ue[ix], vs[iy] };
+            q[n++] = (rs_v4f){ xe[ix], ye[iy], ue[ix], ve[iy] };
+        }
+    }
+    glUseProgram(rr->prog_tex[slot]);
+    glUniform2f(rr->uViewWH_tex[slot], (GLfloat)rr->view_w, (GLfloat)rr->view_h);
+    glUniform1i(glGetUniformLocation(rr->prog_tex[slot], "uTex"), 0);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, tex);
+    glGenBuffers(1, &rr->vbo_sel[slot]);
+    glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(q), q, GL_DYNAMIC_DRAW);
+    rs_bind_vbo(rr->vbo_sel[slot]);
+    glDrawArrays(GL_TRIANGLES, 0, n);
+    rs_unbind_vbo();
+    glDeleteBuffers(1, &rr->vbo_sel[slot]);
+    rr->vbo_sel[slot] = 0;
+}
+
+/* ★ 弹窗皮肤 9-patch（popup.png，原版 Dialog/BackDlg 皮肤方向：米色/黄绿/橙渐变立体。
+   全图 UV 0-1，9-patch 角 border px。替换 rs_popup_shell 深色矩形自绘（用户指正"UI 自己写的"）。 */
+static void rs_draw_panel9patch(rs_render *rr, int slot,
+                                float x0, float y0, float x1, float y1, GLuint tex,
+                                int tex_w, int tex_h, int border)
+{
+    float sx, sy, yoff;
+    rs_ui_scale(rr, &sx, &yoff);
+    sy = sx;
+    float X0 = x0 * sx, X1 = x1 * sx, Y0 = y0 * sy + yoff, Y1 = y1 * sy + yoff;
+    float eb = border * sx;
+    float eu = (tex_w > 0) ? (float)border / tex_w : 0.02f;
+    float ev = (tex_h > 0) ? (float)border / tex_h : 0.1f;
+    if (X1 - X0 < 2 * eb) eb = (X1 - X0) * 0.5f;
+    float ys0 = Y0, ye0 = Y0 + eb, ys1 = Y1 - eb, ye1 = Y1;
+    if (ye0 > ys1) { ys0 = Y0; ye0 = (Y0 + Y1) * 0.5f; ys1 = ye0; ye1 = Y1; }
+    float xs[3] = { X0, X0 + eb, X1 - eb }, xe[3] = { X0 + eb, X1 - eb, X1 };
+    float ys[3] = { ys0, ye0, ys1 }, ye[3] = { ye0, ys1, ye1 };
+    float us[3] = { 0, eu, 1 - eu }, ue[3] = { eu, 1 - eu, 1 };
+    float vs[3] = { 0, ev, 1 - ev }, ve[3] = { ev, 1 - ev, 1 };
+    rs_v4f q[54]; int n = 0;
+    for (int iy = 0; iy < 3; iy++) {
+        for (int ix = 0; ix < 3; ix++) {
+            q[n++] = (rs_v4f){ xs[ix], ys[iy], us[ix], vs[iy] };
+            q[n++] = (rs_v4f){ xe[ix], ys[iy], ue[ix], vs[iy] };
+            q[n++] = (rs_v4f){ xs[ix], ye[iy], us[ix], ve[iy] };
+            q[n++] = (rs_v4f){ xs[ix], ye[iy], us[ix], ve[iy] };
+            q[n++] = (rs_v4f){ xe[ix], ys[iy], ue[ix], vs[iy] };
+            q[n++] = (rs_v4f){ xe[ix], ye[iy], ue[ix], ve[iy] };
+        }
+    }
+    glUseProgram(rr->prog_tex[slot]);
+    glUniform2f(rr->uViewWH_tex[slot], (GLfloat)rr->view_w, (GLfloat)rr->view_h);
+    glUniform1i(glGetUniformLocation(rr->prog_tex[slot], "uTex"), 0);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, tex);
+    static int panel_diag = 0;
+    if (!panel_diag) { panel_diag = 1;
+        LOGI("panel9patch diag: tex=%u w=%d h=%d border=%d | tex_popup=%u tex_btn_color2=%u popup_px=%p btn2_px=%p",
+             tex, tex_w, tex_h, border, rr->tex_popup[slot], rr->tex_btn_color2[slot],
+             rr->popup_px, rr->btn_color2_px);
+    }
+    glGenBuffers(1, &rr->vbo_sel[slot]);
+    glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(q), q, GL_DYNAMIC_DRAW);
+    rs_bind_vbo(rr->vbo_sel[slot]);
+    glDrawArrays(GL_TRIANGLES, 0, n);
+    rs_unbind_vbo();
+    glDeleteBuffers(1, &rr->vbo_sel[slot]);
+    rr->vbo_sel[slot] = 0;
+}
+
 /* ★ P1（datah_012 证据）：游戏设置弹窗渲染。
    对局棋盘背景 + 面板深色半透明 + 6 控件（4 规则开关 + 确定/取消）+ 文字图集。
    按钮几何 ui_gameset_buttons()（720×1280 基准）。4 开关各显示当前"开/关"状态
@@ -2722,32 +2846,37 @@ static void rs_draw_gameset(rs_render *rr, int slot)
        替换旧手绘平坦深色矩形） */
     rs_popup_shell(rr, slot, UI_GAMESET_POPUP_X0, UI_GAMESET_POPUP_Y0,
                    UI_GAMESET_POPUP_W, UI_GAMESET_POPUP_H, 0, uc);
-    /* ③ 6 控件：4 开关（开=绿 / 关=灰红）+ 确定/取消（纯色） */
+    /* ③ 6 控件：4 开关（绿块）+ 确定/取消（蓝块）——★ 原版 btn_color2（datax_195）
+       渐变圆角皮肤，替换旧纯色矩形（用户指正"UI 自己写的"核心：纯色扁平+颜色错）。
+       btn_color2 4 块 UV：橙[0,0.25] 紫[0.25,0.5] 绿[0.5,0.75] 蓝[0.75,1.0]。 */
     static const float BTN_COL[6][4] = {
-        {0.30f, 0.70f, 0.50f, 0.9f},   /* 和棋 开关 */
-        {0.30f, 0.70f, 0.50f, 0.9f},   /* 大本营 开关 */
-        {0.30f, 0.70f, 0.50f, 0.9f},   /* 吃地雷 开关 */
-        {0.30f, 0.70f, 0.50f, 0.9f},   /* 吃军旗 开关 */
-        {0.20f, 0.45f, 0.90f, 0.9f},   /* 确定 蓝 */
-        {0.55f, 0.55f, 0.60f, 0.9f},   /* 取消 灰 */
+        {0.439f, 0.612f, 0.0f, 0.95f},   /* 和棋 开关：原版绿块主体 (112,156,0) */
+        {0.439f, 0.612f, 0.0f, 0.95f},   /* 大本营 开关 */
+        {0.439f, 0.612f, 0.0f, 0.95f},   /* 吃地雷 开关 */
+        {0.439f, 0.612f, 0.0f, 0.95f},   /* 吃军旗 开关 */
+        {0.157f, 0.408f, 0.627f, 0.95f}, /* 确定：原版蓝块主体 (40,104,160) */
+        {0.157f, 0.408f, 0.627f, 0.95f}, /* 取消：蓝块（原版 4 色条无灰，取消同蓝） */
     };
     const ui_gameset_btn *gb = ui_gameset_buttons();
+    int has_skin = (rr->tex_btn_color2[slot] && rr->btn_color2_w > 0 && rr->btn_color2_h > 0);
     for (int i = 0; i < UI_GAMESET_COUNT; i++) {
         float bx0 = gb[i].x0 * sx, by0 = gb[i].y0 * sy + yoff;
         float bx1 = gb[i].x1 * sx, by1 = gb[i].y1 * sy + yoff;
+        if (has_skin) {
+            float u0 = (i < 4) ? 0.5f : 0.75f;   /* 开关=绿块 / 确定取消=蓝块 */
+            float u1 = (i < 4) ? 0.75f : 1.0f;
+            rs_draw_btn9patch(rr, slot, gb[i].x0, gb[i].y0, gb[i].x1, gb[i].y1,
+                              u0, u1, rr->tex_btn_color2[slot]);
+            continue;
+        }
+        /* 退化：纹理未加载 → 纯色（原版主体色） */
         rs_v4f bq[6] = {
             {bx0, by0, 0, 0}, {bx1, by0, 0, 0}, {bx0, by1, 0, 0},
             {bx0, by1, 0, 0}, {bx1, by0, 0, 0}, {bx1, by1, 0, 0},
         };
         glUseProgram(rr->prog_solid[slot]);
         glUniform2f(rr->uViewWH_solid[slot], (GLfloat)rr->view_w, (GLfloat)rr->view_h);
-        /* 4 开关：开=绿色 / 关=红灰（状态可视化）；确定/取消纯色 */
-        if (i < 4)
-            glUniform4f(uc, ui_rule_cfg_get(i) ? BTN_COL[i][0] : 0.85f,
-                        ui_rule_cfg_get(i) ? BTN_COL[i][1] : 0.35f,
-                        ui_rule_cfg_get(i) ? BTN_COL[i][2] : 0.35f, 0.9f);
-        else
-            glUniform4f(uc, BTN_COL[i][0], BTN_COL[i][1], BTN_COL[i][2], BTN_COL[i][3]);
+        glUniform4f(uc, BTN_COL[i][0], BTN_COL[i][1], BTN_COL[i][2], BTN_COL[i][3]);
         glGenBuffers(1, &rr->vbo_sel[slot]);
         glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
         glBufferData(GL_ARRAY_BUFFER, sizeof(bq), bq, GL_DYNAMIC_DRAW);
@@ -2766,12 +2895,15 @@ static void rs_draw_gameset(rs_render *rr, int slot)
         float u0 = 0.0f, u1 = 1.0f;
         /* 标题：游戏设置（row0，datah_012 rect 55,10,440,50 → 720 基准中心
            (135+55+440)/2=382.5, (407.5+10+50)/2=437.5。★ 2026-11-10 用户"游戏设置UI没有
-           对齐"：旧 315 偏左 67.5px，改 382.5（原版 rect 中心）） */
+           对齐"：旧 315 偏左 67.5px，改 382.5（原版 rect 中心））
+           ★ 原版 Title color=black：优先用黑字版（gameset_title_black.png），白字版退化。 */
         {
             float tcy = 437.5f * sy + yoff;
             float tw = 190.0f * sx, th = tw * ((float)row_h / rr->gameset_text_w);
             float tx0 = 382.5f * sx - tw * 0.5f, ty0 = tcy - th * 0.5f;
-            float v0 = 0.0f, v1 = (float)row_h / rr->gameset_text_h;
+            float v0 = 0.0f;
+            GLuint title_tex = rr->tex_gameset_title[slot];
+            float v1 = title_tex ? 1.0f : (float)row_h / rr->gameset_text_h;  /* 黑字版整张 / 白字版 row0 */
             rs_v4f tq[6] = {
                 {tx0, ty0, u0, v0}, {tx0 + tw, ty0, u1, v0}, {tx0, ty0 + th, u0, v1},
                 {tx0, ty0 + th, u0, v1}, {tx0 + tw, ty0, u1, v0}, {tx0 + tw, ty0 + th, u1, v1},
@@ -2780,7 +2912,10 @@ static void rs_draw_gameset(rs_render *rr, int slot)
             glUniform2f(rr->uViewWH_tex[slot], (GLfloat)rr->view_w, (GLfloat)rr->view_h);
             glUniform1i(glGetUniformLocation(rr->prog_tex[slot], "uTex"), 0);
             glActiveTexture(GL_TEXTURE0);
-            glBindTexture(GL_TEXTURE_2D, rr->tex_gameset_text[slot]);
+            if (title_tex)
+                glBindTexture(GL_TEXTURE_2D, title_tex);
+            else
+                glBindTexture(GL_TEXTURE_2D, rr->tex_gameset_text[slot]);
             glGenBuffers(1, &rr->vbo_sel[slot]);
             glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
             glBufferData(GL_ARRAY_BUFFER, sizeof(tq), tq, GL_DYNAMIC_DRAW);
@@ -4314,18 +4449,48 @@ static void rs_popup_shell(rs_render *rr, int slot,
     rs_unbind_vbo();
     glDeleteBuffers(1, &rr->vbo_sel[slot]);
     rr->vbo_sel[slot] = 0;
-    /* ② 面板：深色半透明矩形（720 基准 px0,py0,pw,ph；等比缩放 + 垂直居中）
-       ★ 原版 UI 位图真值（ch02 N45）：面板位图存在时叠加 9patch 缩放（深色底保留） */
+    /* ② 面板：原版弹窗浅色渐变面板（★ 用户指正"UI 自己写的"+popup.png 伪资源（4 色条=btn_color2
+       拉伸）已弃用。dlg.png 原版弹窗皮肤位图 SPAK 不可得（诚实边界：引擎程序化绘制或 /data/sg/
+       运行时加载），用原版资源真实色做近似——datax_188 米色渐变采样：顶(228,212,183)/
+       中(207,180,132)/底(176,151,113)，不透明浅色面板 + 深色细边框。datah_012 Title color=black
+       证实原版弹窗浅底黑字（深色半透明旧实现与黑字标题矛盾）。 */
     float p0x = px0 * sx, p0y = py0 * sy + yoff;
     float pw2 = pw * sx, ph2 = ph * sy;
-    rs_v4f pq[6] = {
-        {p0x, p0y, 0, 0}, {p0x + pw2, p0y, 0, 0}, {p0x, p0y + ph2, 0, 0},
-        {p0x, p0y + ph2, 0, 0}, {p0x + pw2, p0y, 0, 0}, {p0x + pw2, p0y + ph2, 0, 0},
+    glUseProgram(rr->prog_solid[slot]);
+    glUniform2f(rr->uViewWH_solid[slot], (GLfloat)rr->view_w, (GLfloat)rr->view_h);
+    /* 顶亮 / 中 / 底暗 三条带（原版米色渐变近似） */
+    static const float PNL_TOP[3] = {0.894f, 0.831f, 0.718f};   /* 228,212,183 */
+    static const float PNL_MID[3] = {0.812f, 0.706f, 0.522f};   /* 207,180,132 */
+    static const float PNL_BOT[3] = {0.690f, 0.592f, 0.443f};   /* 176,151,113 */
+    struct { float f0, f1; const float *c; } bands[3] = {
+        {0.0f, 0.15f, PNL_TOP}, {0.15f, 0.85f, PNL_MID}, {0.85f, 1.0f, PNL_BOT},
     };
-    glUniform4f(uc, 0.08f, 0.08f, 0.10f, 0.78f);
+    for (int b = 0; b < 3; b++) {
+        float by0 = p0y + ph2 * bands[b].f0, by1 = p0y + ph2 * bands[b].f1;
+        rs_v4f bq[6] = {
+            {p0x, by0, 0, 0}, {p0x + pw2, by0, 0, 0}, {p0x, by1, 0, 0},
+            {p0x, by1, 0, 0}, {p0x + pw2, by0, 0, 0}, {p0x + pw2, by1, 0, 0},
+        };
+        glUniform4f(uc, bands[b].c[0], bands[b].c[1], bands[b].c[2], 1.0f);
+        glGenBuffers(1, &rr->vbo_sel[slot]);
+        glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(bq), bq, GL_DYNAMIC_DRAW);
+        rs_bind_vbo(rr->vbo_sel[slot]);
+        glDrawArrays(GL_TRIANGLES, 0, 6);
+        rs_unbind_vbo();
+        glDeleteBuffers(1, &rr->vbo_sel[slot]);
+        rr->vbo_sel[slot] = 0;
+    }
+    /* 深色细边框（2px，面板轮廓） */
+    float bd = 2.0f * sx;
+    rs_v4f bq[6] = {
+        {p0x, p0y, 0, 0}, {p0x + pw2, p0y, 0, 0}, {p0x, p0y + bd, 0, 0},
+        {p0x, p0y + bd, 0, 0}, {p0x + pw2, p0y, 0, 0}, {p0x + pw2, p0y + bd, 0, 0},
+    };
+    glUniform4f(uc, 0.35f, 0.28f, 0.18f, 1.0f);
     glGenBuffers(1, &rr->vbo_sel[slot]);
     glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(pq), pq, GL_DYNAMIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(bq), bq, GL_DYNAMIC_DRAW);
     rs_bind_vbo(rr->vbo_sel[slot]);
     glDrawArrays(GL_TRIANGLES, 0, 6);
     rs_unbind_vbo();
@@ -9966,6 +10131,7 @@ static void rs_gl_rebuild(rs_render *rr, int slot)
                      GL_RGBA, GL_UNSIGNED_BYTE, rr->popup_px);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        LOGI("tex_popup[%d]=%u 创建 w=%d h=%d px=%p", slot, rr->tex_popup[slot], rr->popup_w, rr->popup_h, rr->popup_px);
     }    if (rr->dlg_text_px && rr->gl2_ok[slot] && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
         glGenTextures(1, &rr->tex_dlg_text[slot]);
         glBindTexture(GL_TEXTURE_2D, rr->tex_dlg_text[slot]);
@@ -9997,6 +10163,25 @@ static void rs_gl_rebuild(rs_render *rr, int slot)
         glBindTexture(GL_TEXTURE_2D, rr->tex_panel_btn[slot]);
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->panel_btn_w, rr->panel_btn_h, 0,
                      GL_RGBA, GL_UNSIGNED_BYTE, rr->panel_btn_px);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    }
+    /* ★ 原版彩色按钮条 btn_color2（datax_195）：功能设置按钮 9-patch 纹理 */
+    if (rr->btn_color2_px && rr->gl2_ok[slot] && rr->btn_color2_w > 0 && rr->btn_color2_h > 0) {
+        glGenTextures(1, &rr->tex_btn_color2[slot]);
+        glBindTexture(GL_TEXTURE_2D, rr->tex_btn_color2[slot]);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->btn_color2_w, rr->btn_color2_h, 0,
+                     GL_RGBA, GL_UNSIGNED_BYTE, rr->btn_color2_px);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        LOGI("tex_btn_color2[%d]=%u 创建 w=%d h=%d px=%p", slot, rr->tex_btn_color2[slot], rr->btn_color2_w, rr->btn_color2_h, rr->btn_color2_px);
+    }
+    /* ★ 原版 Title color=black：游戏设置标题黑字版纹理 */
+    if (rr->gameset_title_px && rr->gl2_ok[slot] && rr->gameset_title_w > 0 && rr->gameset_title_h > 0) {
+        glGenTextures(1, &rr->tex_gameset_title[slot]);
+        glBindTexture(GL_TEXTURE_2D, rr->tex_gameset_title[slot]);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rr->gameset_title_w, rr->gameset_title_h, 0,
+                     GL_RGBA, GL_UNSIGNED_BYTE, rr->gameset_title_px);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     }
@@ -10312,6 +10497,8 @@ static void rs_gl_rebuild(rs_render *rr, int slot)
             { &rr->tex_imen_orig[slot], rr->imen_orig_px != 0 },
             { &rr->tex_panel[slot], rr->panel_px != 0 },
             { &rr->tex_panel_btn[slot], rr->panel_btn_px != 0 },
+            { &rr->tex_btn_color2[slot], rr->btn_color2_px != 0 },
+            { &rr->tex_gameset_title[slot], rr->gameset_title_px != 0 },
             { &rr->tex_panel_icon[slot], rr->panel_icon_px != 0 },
             { &rr->tex_opt_text[slot], rr->opt_text_px != 0 },
             { &rr->tex_waysel_text[slot], rr->waysel_text_px != 0 },
@@ -11142,7 +11329,7 @@ void rs_render_free(rs_render *rr)
             rr->text_px, rr->bg_px, rr->menu_bg_px, rr->popup_px, rr->opt_text_px,
             rr->dlg_text_px, rr->imen_text_px, rr->imen_icons_px, rr->imen_orig_px,
             rr->hamburger_px, rr->btn_big_px, rr->btn_small_px, rr->panel_px,
-            rr->panel_btn_px, rr->panel_icon_px,
+            rr->panel_btn_px, rr->panel_icon_px, rr->btn_color2_px, rr->gameset_title_px,
             rr->waysel_text_px, rr->btimen_text_px, rr->settings_text_px,
             rr->nplayer_text_px, rr->newgame_text_px, rr->gameset_text_px,
             rr->layres_text_px, rr->replay_text_px, rr->login_text_px,
@@ -11159,7 +11346,7 @@ void rs_render_free(rs_render *rr)
         rr->text_px = rr->bg_px = rr->menu_bg_px = rr->popup_px = rr->opt_text_px = NULL;
         rr->dlg_text_px = rr->imen_text_px = rr->imen_icons_px = rr->imen_orig_px = NULL;
         rr->hamburger_px = rr->btn_big_px = rr->btn_small_px = rr->panel_px = NULL;
-        rr->panel_btn_px = rr->panel_icon_px = rr->waysel_text_px = rr->btimen_text_px = NULL;
+        rr->panel_btn_px = rr->panel_icon_px = rr->btn_color2_px = rr->gameset_title_px = rr->waysel_text_px = rr->btimen_text_px = NULL;
         rr->settings_text_px = rr->nplayer_text_px = rr->newgame_text_px = NULL;
         rr->gameset_text_px = rr->layres_text_px = rr->replay_text_px = rr->login_text_px = NULL;
         rr->rules_text_px = rr->ng104_text_px = rr->join_text_px = rr->ng061_text_px = NULL;
