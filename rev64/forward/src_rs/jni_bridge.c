@@ -3797,7 +3797,7 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
        D* 态与业务弹窗（UI_GAMESET/UI_LOGIN/UI_NEWGAME 等）在 ui_menu.h 单枚举
        不重叠（UI_Dxxx 独立区段），路由无冲突；本注释代表全 D* 批量态。 */
     if (ui_screen_get() == UI_D259) {
-        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float bx = g_view_w > 0 ? (x - (g_view_w - 720.0f * g_touch_s) * 0.5f) / g_touch_s : 0;
         float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_d259_btn *bb = ui_d259_buttons();
         int bh = ui_d259_hit(bb, UI_D259_COUNT, bx, by);
@@ -7819,7 +7819,7 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
        点 8 按钮（布局/翻棋 × 新手/中级/高级/好友区）→ ui_opt_select(level,mode)
        + g_vs_ai=1 + jq_restart_game → UI_GAME；点面板外 → 回主菜单。 */
     if (ui_screen_get() == UI_DIFFICULTY) {
-        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float bx = g_view_w > 0 ? (x - (g_view_w - 720.0f * g_touch_s) * 0.5f) / g_touch_s : 0;
         float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_diff_btn *db = ui_diff_buttons();
         int dh = ui_diff_hit(db, UI_DIFF_COUNT, bx, by);
@@ -7855,7 +7855,7 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
        点"Wi-Fi 联机"/"个人资料"→ 诚实边界对话框；点"返回"→ 主菜单；
        点面板外 → 回主菜单。 */
     if (ui_screen_get() == UI_WAYSEL) {
-        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float bx = g_view_w > 0 ? (x - (g_view_w - 720.0f * g_touch_s) * 0.5f) / g_touch_s : 0;
         float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_way_btn *wb = ui_way_buttons();
         int wh = ui_way_hit(wb, UI_WAYSEL_COUNT, bx, by);
@@ -7896,7 +7896,7 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
        点 确定 → ui_settings_save + 回对局；点 取消 → 回对局（不保存）；
        点面板外 → 回对局（不保存）。 */
     if (ui_screen_get() == UI_SETTINGS) {
-        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float bx = g_view_w > 0 ? (x - (g_view_w - 720.0f * g_touch_s) * 0.5f) / g_touch_s : 0;
         float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_set_btn *sb = ui_set_buttons();
         int sh = ui_set_hit(sb, UI_SETTINGS_COUNT, bx, by);
@@ -7942,7 +7942,7 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
        点 2/3/4 人 → 诚实边界对话框（4 方规则未实现）→ 回主菜单；
        点面板外 → 回主菜单。★ 诚实边界：不假装四国可玩。 */
     if (ui_screen_get() == UI_NPLAYER) {
-        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float bx = g_view_w > 0 ? (x - (g_view_w - 720.0f * g_touch_s) * 0.5f) / g_touch_s : 0;
         float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_nplayer_btn *nb = ui_nplayer_buttons();
         int nh = ui_nplayer_hit(nb, UI_NPLAYER_COUNT, bx, by);
@@ -7973,7 +7973,7 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
        点 确定 → ui_opt_select(mode) + jq_restart_game（随模式开局，两人热座 AI 不介入）；
        点 取消 → 回主菜单；点面板外 → 回主菜单。 */
     if (ui_screen_get() == UI_NEWGAME) {
-        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float bx = g_view_w > 0 ? (x - (g_view_w - 720.0f * g_touch_s) * 0.5f) / g_touch_s : 0;
         float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_newgame_btn *nb = ui_newgame_buttons();
         int nh = ui_newgame_hit(nb, UI_NEWGAME_COUNT, bx, by);
@@ -8022,7 +8022,7 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
        ★ 诚实边界：原版登录=账号系统（登录/注册 需服务器协议，src_rs 未逆向，
        Junqi.* 登录/注册 20+ 事件未实现）；游客=本地单机唯一真生效路径。 */
     if (ui_screen_get() == UI_LOGIN) {
-        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float bx = g_view_w > 0 ? (x - (g_view_w - 720.0f * g_touch_s) * 0.5f) / g_touch_s : 0;
         float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_login_btn *lb = ui_login_buttons();
         int lh = ui_login_hit(lb, UI_LOGIN_COUNT, bx, by);
@@ -8075,7 +8075,7 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
        点 确定 → ui_rules_save + 应用到规则引擎 + 回对局；点 取消 → ui_rules_load 恢复原值 + 回对局；
        点面板外 → 恢复原值 + 回对局。★ 诚实边界：4 开关默认全开（对齐原版默认）。 */
     if (ui_screen_get() == UI_GAMESET) {
-        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float bx = g_view_w > 0 ? (x - (g_view_w - 720.0f * g_touch_s) * 0.5f) / g_touch_s : 0;
         float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_gameset_btn *gb = ui_gameset_buttons();
         int gh = ui_gameset_hit(gb, UI_GAMESET_COUNT, bx, by);
@@ -8127,7 +8127,7 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
        点列表项（0-5）→ 选中并载入该布局到棋盘 + 清 undo + 回对局；
        点 取消 / 面板外 → 回对局（不载入）。★ 诚实边界：ListBox 滚动未实现（6 条截断）。 */
     if (ui_screen_get() == UI_LOAD_LAY) {
-        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float bx = g_view_w > 0 ? (x - (g_view_w - 720.0f * g_touch_s) * 0.5f) / g_touch_s : 0;
         float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_loadlayout_btn *lb = ui_loadlayout_buttons();
         int lh = ui_loadlayout_hit(lb, UI_LOADLAYOUT_COUNT, bx, by);
@@ -8183,7 +8183,7 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
        点列表区（同 017 ListBox 行）→ 选中该条目（供改名/删除操作）。★ 诚实边界：
        改名=自动编号（无文本输入框）。 */
     if (ui_screen_get() == UI_SAVE_LAY) {
-        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float bx = g_view_w > 0 ? (x - (g_view_w - 720.0f * g_touch_s) * 0.5f) / g_touch_s : 0;
         float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_savelayout_btn *sb = ui_savelayout_buttons();
         int sh = ui_savelayout_hit(sb, UI_SAVELAYOUT_COUNT, bx, by);
@@ -8262,7 +8262,7 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
        点 载入 → 选中布局应用到棋盘 + 清 undo + 回对局；点 删除 → 删选中项文件；
        点 取消 / 面板外 → 回对局。30 格预览区 = 小方块占位（★ 诚实边界）。 */
     if (ui_screen_get() == UI_LAY_MGR) {
-        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float bx = g_view_w > 0 ? (x - (g_view_w - 720.0f * g_touch_s) * 0.5f) / g_touch_s : 0;
         float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_laymgr_btn *mb = ui_laymgr_buttons();
         int mh = ui_laymgr_hit(mb, UI_LAYMGR_COUNT, bx, by);
@@ -8324,7 +8324,7 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
        ★ 诚实边界：原版 datah_039 入口浮标命中 flaky，复盘态入口走 setprop jq.replay 钩子；
        本控制条按钮命中走触摸路径（与 gameset 同范式，flaky 时业务逻辑桌面 evverify 实证）。 */
     if (ui_screen_get() == UI_REPLAY) {
-        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float bx = g_view_w > 0 ? (x - (g_view_w - 720.0f * g_touch_s) * 0.5f) / g_touch_s : 0;
         float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_replay_btn *rb = ui_replay_ctrl_buttons();
         int rh = ui_replay_ctrl_hit(rb, UI_REPLAY_CTRL_COUNT, bx, by);
@@ -8388,7 +8388,7 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
         （明棋：自由布阵，军旗在大本营，地雷后两行，炸弹前线）；点 返回 → 回对局。
         点面板外 → 回对局。★ 诚实边界：规则文本=src_rs 简化版固定文本（2 套）。 */
     if (ui_screen_get() == UI_RULES) {
-        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float bx = g_view_w > 0 ? (x - (g_view_w - 720.0f * g_touch_s) * 0.5f) / g_touch_s : 0;
         float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_rules_btn *rb = ui_rules_buttons();
         int rh = ui_rules_hit(rb, UI_RULES_COUNT, bx, by);
@@ -8435,7 +8435,7 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
         点 取消 → 回主菜单；点面板外 → 回主菜单。
         ★ 诚实边界：3 项各循环切换当前值（对齐 datah_001 音量循环范式）。 */
     if (ui_screen_get() == UI_NEWGAME104) {
-        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float bx = g_view_w > 0 ? (x - (g_view_w - 720.0f * g_touch_s) * 0.5f) / g_touch_s : 0;
         float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_newgame104_btn *nb = ui_newgame104_buttons();
         int nh = ui_newgame104_hit(nb, UI_NEWGAME104_COUNT, bx, by);
@@ -8490,7 +8490,7 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
         点 取消 → 回主菜单；点面板外 → 回主菜单。
         ★ 诚实边界：原版加入=局域网/Wi-Fi 联机协议（未逆向），src_rs 仅蓝牙 SPP。 */
     if (ui_screen_get() == UI_JOIN) {
-        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float bx = g_view_w > 0 ? (x - (g_view_w - 720.0f * g_touch_s) * 0.5f) / g_touch_s : 0;
         float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_join_btn *jb = ui_join_buttons();
         int jh = ui_join_hit(jb, UI_JOIN_COUNT, bx, by);
@@ -8527,7 +8527,7 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
         点 取消 → 回主菜单；点面板外 → 回主菜单。
         ★ 诚实边界：原版创建=Wi-Fi/局域网协议（未逆向），src_rs 仅蓝牙 SPP。 */
     if (ui_screen_get() == UI_CREATE) {
-        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float bx = g_view_w > 0 ? (x - (g_view_w - 720.0f * g_touch_s) * 0.5f) / g_touch_s : 0;
         float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_create_btn *cb = ui_create_buttons();
         int ch = ui_create_hit(cb, UI_CREATE_COUNT, bx, by);
@@ -8566,7 +8566,7 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
         点 取消 → 回主菜单；点面板外 → 回主菜单。
         ★ 诚实边界：4 项各循环切换当前值（对齐 datah_104 循环切换范式）。 */
     if (ui_screen_get() == UI_NG061) {
-        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float bx = g_view_w > 0 ? (x - (g_view_w - 720.0f * g_touch_s) * 0.5f) / g_touch_s : 0;
         float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_ng061_btn *nb = ui_ng061_buttons();
         int nh = ui_ng061_hit(nb, UI_NG061_COUNT, bx, by);
@@ -8627,7 +8627,7 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
         点 返回 → 回对局；点面板外 → 回对局。
         Info 文本=☰ 战况统计复用（渲染层占位标签 + LOGI 实际值）。 */
     if (ui_screen_get() == UI_GAMEINFO) {
-        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float bx = g_view_w > 0 ? (x - (g_view_w - 720.0f * g_touch_s) * 0.5f) / g_touch_s : 0;
         float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_gameinfo_btn *gb = ui_gameinfo_buttons();
         int gh = ui_gameinfo_hit(gb, UI_GAMEINFO_COUNT, bx, by);
@@ -8676,7 +8676,7 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
         点 取消 → ui_bright_load 恢复原值 + 回对局；点面板外 → 回对局。
         ★ 诚实边界：原版滑条拖拽=触摸 flaky，简化为 3 档循环切换（对齐 datah_001 音量循环范式）。 */
     if (ui_screen_get() == UI_BRIGHT) {
-        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float bx = g_view_w > 0 ? (x - (g_view_w - 720.0f * g_touch_s) * 0.5f) / g_touch_s : 0;
         float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_bright_btn *bb = ui_bright_buttons();
         int bh = ui_bright_hit(bb, UI_BRIGHT_COUNT, bx, by);
@@ -8722,7 +8722,7 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
         点 关闭 → 回对局；点面板外 → 回对局。
         Msg 文本框=诚实边界占位（渲染层占位标签 + LOGI）。 */
     if (ui_screen_get() == UI_CHATLOG) {
-        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float bx = g_view_w > 0 ? (x - (g_view_w - 720.0f * g_touch_s) * 0.5f) / g_touch_s : 0;
         float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_chatlog_btn *cb = ui_chatlog_buttons();
         int ch = ui_chatlog_hit(cb, UI_CHATLOG_COUNT, bx, by);
@@ -8758,7 +8758,7 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
         Info 文本框=诚实边界占位（渲染层占位标签 + LOGI）。
         现有 datah_072 方式弹窗"个人资料"→UI_LOGIN 不破坏，031 作为登录后资料查看补充（独立态）。 */
     if (ui_screen_get() == UI_PROFILE) {
-        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float bx = g_view_w > 0 ? (x - (g_view_w - 720.0f * g_touch_s) * 0.5f) / g_touch_s : 0;
         float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_profile_btn *pb = ui_profile_buttons();
         int ph = ui_profile_hit(pb, UI_PROFILE_COUNT, bx, by);
@@ -8810,7 +8810,7 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
         ★ 诚实边界：本地提和判定未实现（src_rs 离线单机无对端），联机提和/认输走
         BT 帧 + 边界对话框，不包装成"已提和判定"。 */
     if (ui_screen_get() == UI_DRAWDETAIL) {
-        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float bx = g_view_w > 0 ? (x - (g_view_w - 720.0f * g_touch_s) * 0.5f) / g_touch_s : 0;
         float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_drawdetail_btn *db = ui_drawdetail_buttons();
         int dh = ui_drawdetail_hit(db, UI_DRAWDETAIL_COUNT, bx, by);
@@ -8898,7 +8898,7 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
         ★ 诚实边界：图像设置渲染参数未实现（src_rs 无对应渲染参数），
         开关只是 UI 状态记录（不实际改渲染）。 */
     if (ui_screen_get() == UI_SETEXTTRY) {
-        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float bx = g_view_w > 0 ? (x - (g_view_w - 720.0f * g_touch_s) * 0.5f) / g_touch_s : 0;
         float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_setentry_btn *sb = ui_setentry_buttons();
         int sh = ui_setentry_hit(sb, UI_SETEXTTRY_COUNT, bx, by);
@@ -8937,7 +8937,7 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
         业务：datah_004 是 datah_003 的简化版（联机态/蓝牙态设置入口，无游戏设置项）。
         ★ 诚实边界：图像设置渲染参数未实现，开关只是 UI 状态记录。 */
     if (ui_screen_get() == UI_SETEXTTRY4) {
-        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float bx = g_view_w > 0 ? (x - (g_view_w - 720.0f * g_touch_s) * 0.5f) / g_touch_s : 0;
         float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_setentry4_btn *s4 = ui_setentry4_buttons();
         int s4h = ui_setentry4_hit(s4, UI_SETEXTTRY4_COUNT, bx, by);
@@ -8973,7 +8973,7 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
         ★ 诚实边界：图像/夜间模式/对方棋子 = 渲染层未实现（src_rs 无对应渲染参数），
         开关只是 UI 状态记录（不实际改渲染）。 */
     if (ui_screen_get() == UI_IMGSET7) {
-        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float bx = g_view_w > 0 ? (x - (g_view_w - 720.0f * g_touch_s) * 0.5f) / g_touch_s : 0;
         float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_imgset7_btn *ib = ui_imgset7_buttons();
         int ih = ui_imgset7_hit(ib, UI_IMGSET7_COUNT, bx, by);
@@ -9033,7 +9033,7 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
         ★ 诚实边界：图像/夜间模式 = 渲染层未实现（src_rs 无对应渲染参数），
         开关只是 UI 状态记录（不实际改渲染）。 */
     if (ui_screen_get() == UI_IMGSET8) {
-        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float bx = g_view_w > 0 ? (x - (g_view_w - 720.0f * g_touch_s) * 0.5f) / g_touch_s : 0;
         float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_imgset8_btn *i8 = ui_imgset8_buttons();
         int i8h = ui_imgset8_hit(i8, UI_IMGSET8_COUNT, bx, by);
@@ -9087,7 +9087,7 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
         点 取消 → 回主菜单；点面板外 → 回主菜单。
         ★ 诚实边界：先手/后手/玩法/明暗棋/4 规则 = 联机开局配置（src_rs 无联机开局逻辑）。 */
     if (ui_screen_get() == UI_JOIN065) {
-        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float bx = g_view_w > 0 ? (x - (g_view_w - 720.0f * g_touch_s) * 0.5f) / g_touch_s : 0;
         float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_join065_btn *jb = ui_join065_buttons();
         int jh = ui_join065_hit(jb, UI_JOIN065_COUNT, bx, by);
@@ -9143,7 +9143,7 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
         ★ 诚实边界：先后手/玩法/明暗棋 = 联机开局配置（src_rs 无联机房间创建逻辑，
         循环切换仅 UI 状态记录） */
     if (ui_screen_get() == UI_CREATE069) {
-        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float bx = g_view_w > 0 ? (x - (g_view_w - 720.0f * g_touch_s) * 0.5f) / g_touch_s : 0;
         float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_create069_btn *cb = ui_create069_buttons();
         int ch = ui_create069_hit(cb, UI_CREATE069_COUNT, bx, by);
@@ -9203,7 +9203,7 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
         ★ 与 datah_012 区分：012 是本地 ☰ 菜单"功能设置"→UI_GAMESET，
         070 是联机"游戏规则"弹窗（datah_069 创建游戏"游戏规则"按钮切此弹窗）。 */
     if (ui_screen_get() == UI_RULES070) {
-        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float bx = g_view_w > 0 ? (x - (g_view_w - 720.0f * g_touch_s) * 0.5f) / g_touch_s : 0;
         float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_rules070_btn *r70 = ui_rules070_buttons();
         int r70h = ui_rules070_hit(r70, UI_RULES070_COUNT, bx, by);
@@ -9265,7 +9265,7 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
         ★ 诚实边界：联机房间需 Wi-Fi/局域网协议（src_rs 仅蓝牙已实现），
         2 玩家显示区 = 占位标签（不画真数据） */
     if (ui_screen_get() == UI_ROOM060) {
-        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float bx = g_view_w > 0 ? (x - (g_view_w - 720.0f * g_touch_s) * 0.5f) / g_touch_s : 0;
         float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_room060_btn *rm = ui_room060_buttons();
         int rmh = ui_room060_hit(rm, UI_ROOM060_COUNT, bx, by);
@@ -9311,7 +9311,7 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
         点 关闭 → 回对局；点面板外 → 回对局。
         ★ 诚实边界：联机聊天文本未逆向（src_rs 蓝牙聊天是占位帧 BT_T_CHAT） */
     if (ui_screen_get() == UI_CHAT063) {
-        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float bx = g_view_w > 0 ? (x - (g_view_w - 720.0f * g_touch_s) * 0.5f) / g_touch_s : 0;
         float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_chat063_btn *c63 = ui_chat063_buttons();
         int c63h = ui_chat063_hit(c63, UI_CHAT063_COUNT, bx, by);
@@ -9355,7 +9355,7 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
         不包装成"已反馈" */
     /* ★ 返回键 3 态确认弹窗命中分发（原版 .rodata ExitConfirm/ResignConfirm/RegretConfirm） */
     if (ui_screen_get() == UI_EXITCONFIRM) {
-        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float bx = g_view_w > 0 ? (x - (g_view_w - 720.0f * g_touch_s) * 0.5f) / g_touch_s : 0;
         float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_exitconfirm_btn *eb = ui_exitconfirm_buttons();
         int eh = ui_exitconfirm_hit(eb, UI_EXITCONFIRM_COUNT, bx, by);
@@ -9375,7 +9375,7 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
         return JNI_TRUE;
     }
     if (ui_screen_get() == UI_RESIGNCONFIRM) {
-        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float bx = g_view_w > 0 ? (x - (g_view_w - 720.0f * g_touch_s) * 0.5f) / g_touch_s : 0;
         float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_resignconfirm_btn *rb = ui_resignconfirm_buttons();
         int rh = ui_resignconfirm_hit(rb, UI_RESIGNCONFIRM_COUNT, bx, by);
@@ -9403,7 +9403,7 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
         return JNI_TRUE;
     }
     if (ui_screen_get() == UI_REGRETCONFIRM) {
-        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float bx = g_view_w > 0 ? (x - (g_view_w - 720.0f * g_touch_s) * 0.5f) / g_touch_s : 0;
         float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_regretconfirm_btn *gb = ui_regretconfirm_buttons();
         int gh = ui_regretconfirm_hit(gb, UI_REGRETCONFIRM_COUNT, bx, by);
@@ -9437,7 +9437,7 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
         return JNI_TRUE;
     }
     if (ui_screen_get() == UI_ABOUT) {
-        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float bx = g_view_w > 0 ? (x - (g_view_w - 720.0f * g_touch_s) * 0.5f) / g_touch_s : 0;
         float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_about_btn *ab = ui_about_buttons();
         int abh = ui_about_hit(ab, UI_ABOUT_COUNT, bx, by);
@@ -9472,7 +9472,7 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
        命中分发范式与 UI_ABOUT 同：按钮命中 → 业务（边界对话框/切弹窗/清复盘/回对局）；
        点面板外 → 回对局。★ 诚实边界：未逆向数据=占位标签+边界对话框，不包装成"已实现" */
     if (ui_screen_get() == UI_UI44) {
-        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float bx = g_view_w > 0 ? (x - (g_view_w - 720.0f * g_touch_s) * 0.5f) / g_touch_s : 0;
         float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_ui44_btn *b44 = ui_ui44_buttons();
         int h44 = ui_ui44_hit(b44, UI_UI44_COUNT, bx, by);
@@ -9496,7 +9496,7 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
         return JNI_TRUE;
     }
     if (ui_screen_get() == UI_UI45) {
-        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float bx = g_view_w > 0 ? (x - (g_view_w - 720.0f * g_touch_s) * 0.5f) / g_touch_s : 0;
         float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_ui45_btn *b45 = ui_ui45_buttons();
         int h45 = ui_ui45_hit(b45, UI_UI45_COUNT, bx, by);
@@ -9520,7 +9520,7 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
         return JNI_TRUE;
     }
     if (ui_screen_get() == UI_UI46) {
-        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float bx = g_view_w > 0 ? (x - (g_view_w - 720.0f * g_touch_s) * 0.5f) / g_touch_s : 0;
         float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_ui46_btn *b46 = ui_ui46_buttons();
         int h46 = ui_ui46_hit(b46, UI_UI46_COUNT, bx, by);
@@ -9540,7 +9540,7 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
         return JNI_TRUE;
     }
     if (ui_screen_get() == UI_UI47) {
-        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float bx = g_view_w > 0 ? (x - (g_view_w - 720.0f * g_touch_s) * 0.5f) / g_touch_s : 0;
         float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_ui47_btn *b47 = ui_ui47_buttons();
         int h47 = ui_ui47_hit(b47, UI_UI47_COUNT, bx, by);
@@ -9560,7 +9560,7 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
         return JNI_TRUE;
     }
     if (ui_screen_get() == UI_UI49) {
-        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float bx = g_view_w > 0 ? (x - (g_view_w - 720.0f * g_touch_s) * 0.5f) / g_touch_s : 0;
         float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_ui49_btn *b49 = ui_ui49_buttons();
         int h49 = ui_ui49_hit(b49, UI_UI49_COUNT, bx, by);
@@ -9583,7 +9583,7 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
        清空分支（h==0）ui_replay_init 在 g_mutex 内（下方锁段）；"关闭"分支 h>0 的
        回对局走 ui_screen_set（自带 g_ui_lock，UI 态层锁），无 g_mutex 需求，正确。 */
     if (ui_screen_get() == UI_UI51 || ui_screen_get() == UI_UI54 || ui_screen_get() == UI_UI110) {
-        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float bx = g_view_w > 0 ? (x - (g_view_w - 720.0f * g_touch_s) * 0.5f) / g_touch_s : 0;
         float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         int scr = ui_screen_get();
         const ui_ui51_btn *b51 = ui_ui51_buttons();
@@ -9620,7 +9620,7 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
         return JNI_TRUE;
     }
     if (ui_screen_get() == UI_UI73) {
-        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float bx = g_view_w > 0 ? (x - (g_view_w - 720.0f * g_touch_s) * 0.5f) / g_touch_s : 0;
         float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_ui73_btn *b73 = ui_ui73_buttons();
         int h73 = ui_ui73_hit(b73, UI_UI73_COUNT, bx, by);
@@ -9650,7 +9650,7 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
         return JNI_TRUE;
     }
     if (ui_screen_get() == UI_UI90) {
-        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float bx = g_view_w > 0 ? (x - (g_view_w - 720.0f * g_touch_s) * 0.5f) / g_touch_s : 0;
         float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_ui90_btn *b90 = ui_ui90_buttons();
         int h90 = ui_ui90_hit(b90, UI_UI90_COUNT, bx, by);
@@ -9679,7 +9679,7 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
         return JNI_TRUE;
     }
     if (ui_screen_get() == UI_UI100) {
-        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float bx = g_view_w > 0 ? (x - (g_view_w - 720.0f * g_touch_s) * 0.5f) / g_touch_s : 0;
         float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_ui100_btn *b100 = ui_ui100_buttons();
         int h100 = ui_ui100_hit(b100, UI_UI100_COUNT, bx, by);
@@ -9703,7 +9703,7 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
         return JNI_TRUE;
     }
     if (ui_screen_get() == UI_UI118) {
-        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float bx = g_view_w > 0 ? (x - (g_view_w - 720.0f * g_touch_s) * 0.5f) / g_touch_s : 0;
         float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         const ui_ui118_btn *b118 = ui_ui118_buttons();
         int h118 = ui_ui118_hit(b118, UI_UI118_COUNT, bx, by);
@@ -9738,7 +9738,7 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
          图标不可再截获菜单按钮（"退出程序"中心落在 ↩ 图标、"功能设置"中心落在 ☰ 图标，
          无守卫会误触发悔棋/重开菜单，所见与所点不一致）。 */
     if (ui_screen_get() == UI_GAME) {
-        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float bx = g_view_w > 0 ? (x - (g_view_w - 720.0f * g_touch_s) * 0.5f) / g_touch_s : 0;
         float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         float ix0, iy0, ix1, iy1;
         ui_imen_icon_rect(0, &ix0, &iy0, &ix1, &iy1);   /* ☰ */
@@ -9767,7 +9767,7 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
        ★ 对抗审计（datah_067）：蓝牙联机 ☰ 菜单 = New/Regret/提和/认输/聊天/Config/Stat/Rule
        （无电脑变着/软件信息/退出）；本地菜单 = datah_006（电脑变着/软件信息/退出）。 */
     if (ui_screen_get() == UI_INGAME_MENU) {
-        float bx = g_view_w > 0 ? x / g_touch_s : 0;
+        float bx = g_view_w > 0 ? (x - (g_view_w - 720.0f * g_touch_s) * 0.5f) / g_touch_s : 0;
         float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
         int bt_mode = ui_bt_active();
         const ui_imen_btn *im = bt_mode ? ui_imen_bt_buttons() : ui_imen_buttons();
