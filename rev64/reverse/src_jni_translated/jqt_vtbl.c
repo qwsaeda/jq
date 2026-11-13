@@ -371,6 +371,9 @@ uint32_t F_336c8(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,
 uint32_t F_336ec(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_a4250(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_a4274(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_85514(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_85530(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+/* §124y-306 前向声明（第二十一批：F_854f8 同族兄弟 getter 批量补全） */
 uint32_t F_edc18(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_edbe0(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 /* §124y-305 前向声明（第二十批：位图游程编码 + 字节读辅助） */
@@ -78217,6 +78220,7 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_8548c,
     F_854a8,
     F_854f8,
+    F_85514,
     F_85530,
     F_8554c,
     F_85568,
@@ -80483,6 +80487,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x8548c,
      0x854a8,
      0x854f8,
+     0x85514,
      0x85530,
      0x8554c,
      0x85568,
@@ -81642,7 +81647,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x10d110,
      0x11123a,
 };
-const uint32_t jqt_vtbl_n = 2263u;  /* §124y-149/.../305: 对齐 fns/offs 表实际条目数 */
+const uint32_t jqt_vtbl_n = 2264u;  /* §124y-149/.../306: 对齐 fns/offs 表实际条目数 */
 
 /* jqt_blx_dispatch：vtable 槽值 reg_val（shadow 地址）→ 目标函数。
  * 影子区 → off = reg_val - g_jqt_shadow；否则 off = reg_val。
@@ -83002,4 +83007,21 @@ uint32_t F_edbe0(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_
     /* 字节读辅助（被 F_edc18 调用，未独立深译）→ 镜像兜底 */
     jqt_blx_dispatch(0xedbe0, _r0, _r1, _r2, _r3, _r4, _r5, _r6, _r7, _r8, _r9, _r10, _r11, _sp);
     return 0;
+}
+
+/* ★ §124y-306 F_85514（0x85514，+0x34 槽第 13 槽）：F_854f8 同族兄弟 getter
+   obj=this[+0x38]→F_82d3c（已译直调）→[o+0]→[vt+0x34] blx（r1=r2）；
+   F_85530（+0x2c 槽第 11 槽）已有定义体（§124y-306 前批），本批只补 F_85514 */
+uint32_t F_85514(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    extern uint32_t F_82d3c(uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t,
+                             uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t);
+    if (!_r0) return 0;
+    uint32_t obj = MEM(_r0 + 0x38);
+    if (!obj) return 0;
+    uint32_t o = F_82d3c(obj, _r2, 0,0,0,0,0,0,0,0,0,0, _sp);
+    if (!o) return 0;
+    uint32_t fn = MEM(o + 0x34);   /* [o+0]→[vt+0x34]（第 13 槽） */
+    return jqt_blx_dispatch(fn, o, _r2, 0,0,0,0,0,0,0,0,0,0, _sp);
 }
