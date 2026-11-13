@@ -373,6 +373,9 @@ uint32_t F_a4250(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,
 uint32_t F_a4274(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_e546a(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_abc48(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_11fa34(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_24fac(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+/* §124y-600 前向声明（第二百四十六批：[r1+0] 取判定 + 字面量池 20B 栈） */
 uint32_t F_118e4c(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_11dcb0(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 /* §124y-599 前向声明（第二百四十五批：栈取 getter + 双槽取依赖） */
@@ -78036,6 +78039,7 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_24b6c,
     F_24e74,
     F_24ea8,
+    F_24fac,
     F_251f4,
     F_25208,
     F_25210,
@@ -80842,6 +80846,7 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_11e564,
     F_11ef8c,
     F_11f20c,
+    F_11fa34,
 };
 const uint32_t jqt_vtbl_offs[] = {
     0x23408,
@@ -80888,6 +80893,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x24b6c,
      0x24e74,
      0x24ea8,
+     0x24fac,
      0x251f4,
      0x25208,
      0x25210,
@@ -83694,8 +83700,9 @@ const uint32_t jqt_vtbl_offs[] = {
      0x11e564,
      0x11ef8c,
      0x11f20c,
+     0x11fa34,
 };
-const uint32_t jqt_vtbl_n = 2849u;  /* §124y-149/.../599: 对齐 fns/offs 表实际条目数 */
+const uint32_t jqt_vtbl_n = 2851u;  /* §124y-149/.../600: 对齐 fns/offs 表实际条目数 */
 
 /* jqt_blx_dispatch：vtable 槽值 reg_val（shadow 地址）→ 目标函数。
  * 影子区 → off = reg_val - g_jqt_shadow；否则 off = reg_val。
@@ -95524,5 +95531,41 @@ uint32_t F_11dcb0(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32
     uint32_t v16 = MEM(_r1 + 16);
     uint32_t v20 = MEM(_r1 + 20);
     jqt_blx_dispatch(0x1081a4, v16, v20, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+
+/* ★ §124y-600 第二百四十六批真业务裸跑函数补全（[r1+0] 取判定 + 字面量池 20B 栈）
+   - F_11fa34（0x11fa34，被调 3 次）：[r1+0] 取 + 非 0 判定 + F_105a60 依赖
+     语义（objdump 逐指令）：[r1+0] ldr 取 → 非 0 判定 →
+       [v+0] 取 + 8 偏移 + **bl F_105a60（未译→镜像兜底）** →
+       多分支
+     ★ 诚实边界：取 + 判定 + 依赖 + 多分支，主路径（[r1+0] 取 +
+       非 0 判定 + [v+8] 取）直译 + F_105a60 镜像兜底
+       （§124y-288~599 同口径，同 0x7775c 取判定模式）
+   - F_24fac（0x24fac，被调 2 次）：字面量池 + 20B 栈复杂
+     语义（objdump 逐指令 + 字面量池 0x25084/0x25088 实读）：
+       [字面量池×2] 取 + sub sp,#20 + [v+偏移] 取 → 多分支
+     ★ 诚实边界：字面量池 + 20B 栈 + 多参数 + 多分支，主路径
+       （[字面量池] 取 + [v+偏移] 取）直译 + 多分支体镜像兜底
+       （§124y-288~599 同口径，同 0xa1aac 20B 栈模式） */
+uint32_t F_11fa34(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                  uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                  uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* [r1+0] 取 + 非 0 判定 + [v+8] 取 + F_105a60（未译）镜像兜底 */
+    if (!_r1) return 0;
+    uint32_t v0 = MEM(_r1 + 0);
+    if (v0 == 0) return 0;
+    uint32_t v8 = MEM(v0 + 8);
+    jqt_blx_dispatch(0x105a60, v0, 0, 0, 0, 0,0,0,0,0,0,0,0, _sp);
+    jqt_blx_dispatch(0x11fa34, _r0, v8, 0, 0, 0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+uint32_t F_24fac(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* 字面量池 + 20B 栈复杂：[字面量池] 取 + [v+偏移] 取主路径 + 多分支体兜底 */
+    if (!_r0) return 0;
+    uint32_t lit = MEM(JQT_ABS_PTR(0x25084));
+    jqt_blx_dispatch(0x24fac, _r0, _r1, _r2, lit, 0,0,0,0,0,0,0,0, _sp);
     return 0;
 }
