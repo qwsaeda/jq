@@ -501,15 +501,24 @@ java -cp /tmp/opencode/apksigner/apksig.jar:/tmp/opencode/apksigner SignV2 \
   （§124y-180 全钩子一键验收：game_test/walk_bridge/native_event/framebuffer 四项机判
   PASS/FAIL + 数值 + 0 崩溃；出屏 logcat 权威非黑比判读，`--rounds N` 连跑防抖动；
   旧入口 `arm32_walkregress.sh` 仍可用（4 路径走子回归），全钩子优先用 hook_check）。
-  静态佐证批次化入口：`bash rev64/tools/arm32_static_evidence.sh`（§124y-190~236 扩批，
-  **38 项全 PASS** 设备无关判据（§124y-232~236 扩 4 项：resource + event/urlkey/javacls + forkcheck + taxonomy +
+  静态佐证批次化入口：`bash rev64/tools/arm32_static_evidence.sh`（§124y-190~282 扩批，
+  **39 项全 PASS** 设备无关判据（含 §124y-280~282 translation_coverage 覆盖度量化基线：
+  原版 .text 0.99MB / 镜像覆盖 124.3% / 翻译体 F_ 语义函数 2219 / 事件链 57 case 0 悬空
+  = 离线量化"离真机可跑还差多少"）（§124y-232~236 扩 4 项：resource + event/urlkey/javacls + forkcheck + taxonomy +
   event_cover + event_codemap + bss_evt_tbl + rodata_static + text_static + rel_dyn +
   jni_export + got_plt + trans_jni + trans_strpool + readelf_rel + got_map + needed +
   trans_needed + walk_8step + trans_seg + trans_handlers + hook_anchors + spak_key + init_array + plt_stub + bss_single + mapping_boundary + apk_so_hash + touch_int + fb_ratio + walkregress_anchors + trans_abi，
   判据全脚本化/批量化，防每轮手敲 setprop+logcat grep 漂移）。
   **双端总入口（§124y-215）**：`bash rev64/tools/arm32_verify_all.sh`（静态 38 项 + 设备 4 项
   一键跑；设备不可达自动降级 PENDING 非 FAIL §124y-189 口径；`--dev <addr>` / `--static-only`）。
-  判据脚本索引（38 项明细 + 设备侧入口 + 坑清单）：`rev64/tools/STATIC_EVIDENCE_INDEX.md`。
+  判据脚本索引（39 项明细 + 设备侧入口 + 坑清单）：`rev64/tools/STATIC_EVIDENCE_INDEX.md`。
+  **★ 32 位真机验收 SOP（§124y-279）**：`rev64/reverse/docs/REAL_DEVICE_ACCEPTANCE.md`
+  ——真机（32 位 ARM 原生）5 判据逐步命令 + so 三方哈希核对 + 模拟器↔真机差异清单。
+  **★ 模拟器口径（§124y-279 用户指令）**：**模拟器（MuMu 10.0.182.146）结论不可外推
+  真机**——§124y-248~278 全部「转译层故障」（ART 反射崩溃周期 fault 0x9916a728 /
+  `__system_property_get` 运行期不可见 / houdini PC 相对偏移失真 / 前台抢占致 GL 暂停）
+  在真机不存在，仅作模拟器环境史存档，**不作真机缺陷依据、不作逆向进度依据**；
+  32 位侧验收基准 = **真机**，模拟器仅作冒烟（不崩 + 不误判）。
   **设备 4 项判据脚本（§124y-241~246 根治）**：`arm32_hook_check.sh` 含 launch_hook 轮询
   90s（转译冷启动 §124y-188）+ classify_crash backtrace 段归属判读（ART 层=转译环境容忍 /
   libjunqi so 段=回归 §124y-243）+ 64 位干扰 app 清理前置（qwsaeda/zxj 并行 GL 竞争
