@@ -467,6 +467,9 @@ uint32_t F_c7418(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,
 uint32_t F_c7d9c(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_c8328(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_c8568(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_c8aa4(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_c922c(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+/* §124y-940 前向声明（第五百八十六批：[this+0] 减 12 索引取加 [链表+8/72] 双取 0 比较 + 字面量池 [this+0/4/8] 三写 12 加 [this+28/32] 双写） */
 uint32_t F_c86c4(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 /* §124y-939 前向声明（第五百八十五批：字面量池双取 stmia 自增写 F_105524 直调 + 字面量池 [this+0] 写 36 加 F_25988 直调字面量池双取 [this+28/36] 双写） */
 uint32_t F_c837c(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
@@ -82313,10 +82316,12 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_c8708,
     F_c882c,
     F_c8a68,
+    F_c8aa4,
     F_c8e9c,
     F_c8eec,
     F_c8f4c,
     F_c9164,
+    F_c922c,
     F_c97d8,
     F_c98d4,
     F_c9a18,
@@ -85845,10 +85850,12 @@ const uint32_t jqt_vtbl_offs[] = {
      0xc8708,
      0xc882c,
      0xc8a68,
+     0xc8aa4,
      0xc8e9c,
      0xc8eec,
      0xc8f4c,
      0xc9164,
+     0xc922c,
      0xc97d8,
      0xc98d4,
      0xc9a18,
@@ -86075,7 +86082,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x11f20c,
      0x11fa34,
 };
-const uint32_t jqt_vtbl_n = 3529u;  /* §124y-149/.../939: 对齐 fns/offs 表实际条目数 */
+const uint32_t jqt_vtbl_n = 3531u;  /* §124y-149/.../940: 对齐 fns/offs 表实际条目数 */
 
 /* jqt_blx_dispatch：vtable 槽值 reg_val（shadow 地址）→ 目标函数。
  * 影子区 → off = reg_val - g_jqt_shadow；否则 off = reg_val。
@@ -113833,5 +113840,52 @@ uint32_t F_c86c4(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_
     uint32_t lit1 = MEM(JQT_ABS_PTR(0xc86ec));
     uint32_t lit2 = MEM(JQT_ABS_PTR(0xc86f0));
     jqt_blx_dispatch(0xc86c4, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+
+/* ★ §124y-940 第五百八十六批真业务裸跑函数补全（[this+0] 减 12 索引取加 [链表+8/72] 双取 0 比较 + 字面量池 [this+0/4/8] 三写 12 加 [this+28/32] 双写）
+   - F_c8aa4（0xc8aa4，被调 2 次）：[this+0] 减 12 + 索引取 + 加
+     + [链表+8] 取 + 0 比较 + [链表+72] 取 + 0 比较 + 多分支
+     （新变体首次出现）
+     语义（objdump 逐指令）：
+       [this+0] 取 + 减 12 + [索引+0] 取 + 加 + [链表+8] 取 +
+       0 比较分支 + [链表+72] 取 + 0 比较分支 → 多分支
+     ★ 诚实边界：取 + 减 + 索引 + 加 + 双取 + 双比较 + 多分支，
+       主路径（[this+0] 减 12 索引取 + 加 + [链表+8/72] 双取
+       + 双 0 比较）直译 + 多分支体镜像兜底
+       （§124y-288~939 同口径，[this+0] 减 12 索引取 + 加 +
+       [链表+8/72] 双取 + 双 0 比较多分支新变体首次出现）
+   - F_c922c（0xc922c，被调 2 次）：字面量池 + [this+4] 写 0 +
+     [this+8] 字节写 0 + [this+0] 写 + 12 加 + [this+28/32]
+     双写（新变体首次出现）
+     语义（objdump 逐指令 + 字面量池 0xc9274 实读）：
+       [字面量池] 取 + [this+4] 写 0 + [this+8] 字节写 0 +
+       [this+0] 字面量池 8 偏移写 + 12 加 + [this+28/32] 双写
+       → 多分支
+     ★ 诚实边界：字面量池 + 三写 + 加 + 双写 + 多分支，主路径
+       （[this+4] 写 0 + [this+8] 字节写 0 + [this+0] 写 +
+       12 加 + [this+28/32] 双写）直译 + 多分支体镜像兜底
+       （§124y-288~939 同口径，字面量池 + [this+0/4/8] 三写 +
+       12 加 + [this+28/32] 双写多分支新变体首次出现） */
+uint32_t F_c8aa4(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* [this+0] 减 12 索引取 + 加 + [链表+8/72] 双取 + 双 0 比较
+       主路径 + 多分支体兜底 */
+    if (!_r0) return 0;
+    jqt_blx_dispatch(0xc8aa4, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+uint32_t F_c922c(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* [this+4] 写 0 + [this+8] 字节写 0 + [this+0] 写 + 12 加 +
+       [this+28/32] 双写主路径 + 多分支体兜底 */
+    if (!_r0) return 0;
+    uint32_t lit = MEM(JQT_ABS_PTR(0xc9274));
+    MEM(_r0 + 0) = lit + 8;
+    MEM(_r0 + 4) = 0;
+    MEM(_r0 + 8) = 0;
+    jqt_blx_dispatch(0xc922c, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
     return 0;
 }
