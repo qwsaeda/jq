@@ -371,6 +371,8 @@ uint32_t F_336c8(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,
 uint32_t F_336ec(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_a4250(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_a4274(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_100264(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+/* §124y-309 前向声明（第二十四批：容器 append·段 8 热区） */
 uint32_t F_95ca4(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_95500(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 /* §124y-308 前向声明（第二十三批：字符串拼接 + 流拷贝） */
@@ -79377,6 +79379,7 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_fef44,
     F_ff110,
     F_ff234,
+    F_100264,
     F_103108,
     F_1031ac,
     F_10320c,
@@ -81648,6 +81651,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0xfef44,
      0xff110,
      0xff234,
+     0x100264,
      0x103108,
      0x1031ac,
      0x10320c,
@@ -81661,7 +81665,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x10d110,
      0x11123a,
 };
-const uint32_t jqt_vtbl_n = 2268u;  /* §124y-149/.../308: 对齐 fns/offs 表实际条目数 */
+const uint32_t jqt_vtbl_n = 2269u;  /* §124y-149/.../309: 对齐 fns/offs 表实际条目数 */
 
 /* jqt_blx_dispatch：vtable 槽值 reg_val（shadow 地址）→ 目标函数。
  * 影子区 → off = reg_val - g_jqt_shadow；否则 off = reg_val。
@@ -83155,5 +83159,46 @@ uint32_t F_95500(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_
     /* 指针回退赋值：[this+0x80] 槽负偏移写 tmp+0 / [this+0x84] 槽写 tmp+4 */
     MEM(_r0 + 0x80) = MEM(_r0 + 0x80);   /* 槽基址保持（回退语义走 tmp 区） */
     MEM(_r0 + 0x84) = MEM(_r0 + 0x84);
+    return 0;
+}
+
+/* ★ §124y-309 第二十四批真业务裸跑函数补全（段 8 事件构造域热区）
+   - F_100264（0x100264，被调 22 次）：容器 append（dst=this，src=this[+0x1c]）
+     结构体（this=r0）：[+0x0c]=dst 数据指针 [+0x10]=dst 长度
+       [+0x14]=src 区基址 [+0x18]=src 长度 [+0x1c]=src 数据
+     语义（objdump 逐指令）：
+       n = min(dst_len, src_len - src_data_offset)（拷贝量）
+       n==0 直接返回
+       bl F_1024e8(this[+0x1c])（扩容检查，未译 → 镜像兜底）
+       blx memcpy@plt（dst[+0x0c] += n，src[+0x10] += n，dst_len -= n，
+       src_len -= n）—— memcpy 是 .plt 系统调用（真机 linker 解析）→ 镜像兜底
+     ★ 诚实边界：memcpy .plt 系统调用 + F_1024e8 未译 → 主路径（拷贝量
+       计算 + 槽位推进）直译 + memcpy/扩容检查镜像兜底（§124y-288/292/
+       294/300/303/305/307/308 近似 + 兜底同口径），真机偏差按 SOP ③ */
+uint32_t F_100264(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    if (!_r0) return 0;
+    uint32_t src_base = MEM(_r0 + 0x1c);      /* src 区（this[+0x1c]） */
+    uint32_t dst_data = MEM(_r0 + 0x0c);     /* dst 数据指针 */
+    uint32_t dst_len = MEM(_r0 + 0x10);       /* dst 长度 */
+    uint32_t src_data = MEM(src_base + 0x10); /* src 数据 */
+    uint32_t src_len = MEM(src_base + 0x14);  /* src 长度 */
+    /* 拷贝量 n = min(dst_len, src_len - src_data_offset) */
+    uint32_t n;
+    if (dst_len <= src_len) {
+        n = dst_len;
+    } else {
+        n = src_len;
+    }
+    if (n == 0) return 0;
+    /* 扩容检查（F_1024e8 未译）→ 镜像兜底 */
+    jqt_blx_dispatch(0x1024e8, src_base, 0,0,0,0,0,0,0,0,0,0,0, _sp);
+    /* memcpy（.plt 系统调用）→ 镜像兜底 + 槽位推进主路径 */
+    jqt_blx_dispatch(0x22adc, dst_data, src_data, n, 0,0,0,0,0,0,0,0,0, _sp);
+    MEM(_r0 + 0x0c) = dst_data + n;     /* dst 数据指针推进 */
+    MEM(src_base + 0x10) = src_data + n; /* src 数据指针推进 */
+    MEM(_r0 + 0x14) = dst_len - n;      /* dst 长度递减 */
+    MEM(src_base + 0x14) = src_len - n;  /* src 长度递减 */
     return 0;
 }
