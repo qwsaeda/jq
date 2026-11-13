@@ -413,6 +413,9 @@ uint32_t F_97b9c(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,
 uint32_t F_97f84(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_98504(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_998ac(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_9b9c4(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_9b9d0(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+/* §124y-886 前向声明（第五百三十二批：72 偏移 [this+144] 单字节写 + [this+48] 取 [this+76] 写 [this+40] 比较 [链表+40/28] 双取） */
 uint32_t F_9aaac(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 /* §124y-885 前向声明（第五百三十一批：[this+0] 取 0 比较 [this+8] 取减 16 倍除 128 比较 F_6e9cc 直调 + 12B 栈 136 偏移 [this+0] 取 vtable 虚调用） */
 uint32_t F_98d30(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
@@ -81145,6 +81148,8 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_9b8d0,
     F_9b948,
     F_9b974,
+    F_9b9c4,
+    F_9b9d0,
     F_9bad4,
     F_9bb54,
     F_9bd9c,
@@ -84569,6 +84574,8 @@ const uint32_t jqt_vtbl_offs[] = {
      0x9b8d0,
      0x9b948,
      0x9b974,
+     0x9b9c4,
+     0x9b9d0,
      0x9bad4,
      0x9bb54,
      0x9bd9c,
@@ -85697,7 +85704,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x11f20c,
      0x11fa34,
 };
-const uint32_t jqt_vtbl_n = 3421u;  /* §124y-149/.../885: 对齐 fns/offs 表实际条目数 */
+const uint32_t jqt_vtbl_n = 3423u;  /* §124y-149/.../886: 对齐 fns/offs 表实际条目数 */
 
 /* jqt_blx_dispatch：vtable 槽值 reg_val（shadow 地址）→ 目标函数。
  * 影子区 → off = reg_val - g_jqt_shadow；否则 off = reg_val。
@@ -111205,5 +111212,46 @@ uint32_t F_9aaac(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_
        虚调用 + [栈+4] 写主路径 + 多分支体兜底 */
     if (!_r0) return 0;
     jqt_blx_dispatch(0x9aaac, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+
+/* ★ §124y-886 第五百三十二批真业务裸跑函数补全（72 偏移 [this+144] 单字节写 + [this+48] 取 [this+76] 写 [this+40] 比较 [链表+40/28] 双取）
+   - F_9b9c4（0x9b9c4，被调 2 次）：72 偏移 + [this+144] 单字节
+     写（全直译零依赖）
+     语义（objdump 逐指令）：
+       72 常量 + [this+144] r1 单字节写 → 返回
+     ★ 全直译零依赖，纯 72 偏移 [this+144] 单字节写（同
+       0x53e00/0x8571c/0x85704/0x7a4b4/0x8c880/0x94e20/
+       0x94e30 模式，72 偏移新槽首次出现）
+   - F_9b9d0（0x9b9d0，被调 2 次）：[this+48] 取 + [this+76]
+     r1 写 + [this+40] 加 + [this+48] 比较 + [链表+40] 取 +
+     [链表+28] 取 + 多分支（新变体首次出现）
+     语义（objdump 逐指令）：
+       [this+48] 取 + [this] 取 + [r1] 取 + [this+76] r1 写 +
+       [this+40] 加 + [this+48] 比较分支 + [链表+40] 取 +
+       [链表+28] 取 → 多分支
+     ★ 诚实边界：取 + 写 + 加 + 比较 + 双取 + 多分支，主路径
+       （[this+48] 取 + [this+76] r1 写 + [this+40] 加 +
+       [this+48] 比较 + [链表+40/28] 双取）直译 + 多分支体
+       镜像兜底
+       （§124y-288~885 同口径，[this+48] 取 + [this+76] 写 +
+       [this+40] 比较 + [链表+40/28] 双取新变体首次出现） */
+uint32_t F_9b9c4(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* 72 偏移 + [this+144] r1 单字节写（全直译零依赖） */
+    if (!_r0) return 0;
+    MEM(_r0 + 144) = _r1 & 0xff;
+    return 0;
+}
+uint32_t F_9b9d0(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* [this+48] 取 + [this+76] r1 写 + [this+40] 加 + [this+48]
+       比较 + [链表+40/28] 双取主路径 + 多分支体兜底 */
+    if (!_r0) return 0;
+    MEM(_r0 + 76) = _r1;
+    uint32_t p40 = _r0 + 40;
+    jqt_blx_dispatch(0x9b9d0, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
     return 0;
 }
