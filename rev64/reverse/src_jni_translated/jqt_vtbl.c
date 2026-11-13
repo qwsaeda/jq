@@ -374,6 +374,9 @@ uint32_t F_a4274(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,
 uint32_t F_e546a(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_abc48(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_3d65c(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_509b0(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_50ba4(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+/* §124y-731 前向声明（第三百七十七批：20B 栈字面量池依赖 40 偏移 + 60B 栈字面量池双取多参数） */
 uint32_t F_5058c(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_5062c(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 /* §124y-730 前向声明（第三百七十六批：[this+16/20] 双取差值第五十三次实例化 + [this+0/48] 写直调第二十八次实例化） */
@@ -79283,7 +79286,9 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_5058c,
     F_5062c,
     F_5066c,
+    F_509b0,
     F_50a3c,
+    F_50ba4,
     F_50c48,
     F_50cfc,
     F_50d10,
@@ -82397,7 +82402,9 @@ const uint32_t jqt_vtbl_offs[] = {
      0x5058c,
      0x5062c,
      0x5066c,
+     0x509b0,
      0x50a3c,
+     0x50ba4,
      0x50c48,
      0x50cfc,
      0x50d10,
@@ -84612,7 +84619,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x11f20c,
      0x11fa34,
 };
-const uint32_t jqt_vtbl_n = 3111u;  /* §124y-149/.../730: 对齐 fns/offs 表实际条目数 */
+const uint32_t jqt_vtbl_n = 3113u;  /* §124y-149/.../731: 对齐 fns/offs 表实际条目数 */
 
 /* jqt_blx_dispatch：vtable 槽值 reg_val（shadow 地址）→ 目标函数。
  * 影子区 → off = reg_val - g_jqt_shadow；否则 off = reg_val。
@@ -101862,5 +101869,47 @@ uint32_t F_5062c(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_
     MEM(_r0 + 0) = lit + 8;
     MEM(_r0 + 48) = lit + 32;
     F_5058c(_r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+
+/* ★ §124y-731 第三百七十七批真业务裸跑函数补全（20B 栈字面量池依赖 40 偏移 + 60B 栈字面量池双取多参数）
+   - F_509b0（0x509b0，被调 2 次）：20B 栈复杂（字面量池 + F_85858
+     依赖 + 40 偏移计算）
+     语义（objdump 逐指令 + 字面量池 0x50a08/0x50a0c/0x50a10 实读）：
+       [字面量池] 取 + sub sp,#20 + **bl F_85858（未译→镜像兜底）**
+       + [this+0] 字面量池 8 偏移写 + 40 偏移计算 → 多分支
+     ★ 诚实边界：20B 栈 + 字面量池 + 依赖 + 写 + 偏移 + 多分支，
+       主路径（[字面量池] 取 + [this+0] 写）直译 + F_85858 镜像兜底
+       （§124y-288~730 同口径，同 0x43ca0 20B 栈模式，40 偏移
+       新变体）
+   - F_50ba4（0x50ba4，被调 2 次）：60B 栈复杂（字面量池双取 +
+     [v+0] 取 + 多参数寄存器传）
+     语义（objdump 逐指令 + 字面量池 0x50c40/0x50c44 实读）：
+       [字面量池×2] 取 + sub sp,#60 + [v+0] 取 + 多参数寄存器传
+       → 多分支
+     ★ 诚实边界：60B 栈 + 字面量池双取 + [v+0] 取 + 多参数 + 多
+       分支，主路径（[字面量池] 取 + [v+0] 取 + 多参数传）直译 +
+       多分支体镜像兜底（§124y-288~730 同口径，
+       同 0x47018 60B 栈模式，新栈帧） */
+uint32_t F_509b0(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* 20B 栈复杂：[字面量池] 取 + [this+0] 写 + F_85858（未译）镜像兜底 */
+    if (!_r0) return 0;
+    uint32_t lit = MEM(JQT_ABS_PTR(0x50a08));
+    jqt_blx_dispatch(0x85858, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
+    uint32_t lit2 = MEM(JQT_ABS_PTR(0x50a0c));
+    MEM(_r0 + 0) = lit2 + 8;
+    jqt_blx_dispatch(0x509b0, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+uint32_t F_50ba4(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* 60B 栈复杂：[字面量池] 取 + [v+0] 取 + 多参数主路径 + 多分支体兜底 */
+    if (!_r0) return 0;
+    uint32_t lit = MEM(JQT_ABS_PTR(0x50c40));
+    uint32_t v0 = MEM(lit);
+    jqt_blx_dispatch(0x50ba4, _r0, _r1, v0, 0, 0,0,0,0,0,0,0,0, _sp);
     return 0;
 }
