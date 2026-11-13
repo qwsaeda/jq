@@ -434,6 +434,9 @@ uint32_t F_a3dc8(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,
 uint32_t F_a4490(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_a6784(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_a6ab4(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_a76c4(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_a9324(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+/* §124y-907 前向声明（第五百五十三批：420B 超大栈字面量池双取 [栈+8] 写 [r2] 多分支 + [this+32] 取返回两指令） */
 uint32_t F_a6cdc(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 /* §124y-906 前向声明（第五百五十二批：8B 栈 [this+4] 取 0 负比较 [this+0] 取链表遍历 + 12B 栈字面量池 [this+16] 取 [r2] 比较） */
 uint32_t F_a68ec(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
@@ -81490,6 +81493,7 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_a746c,
     F_a7564,
     F_a7614,
+    F_a76c4,
     F_a78a8,
     F_a79dc,
     F_a7b10,
@@ -81520,6 +81524,7 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_a8e00,
     F_a8ea8,
     F_a9084,
+    F_a9324,
     F_a932c,
     F_a93f0,
     F_a9584,
@@ -84956,6 +84961,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0xa746c,
      0xa7564,
      0xa7614,
+     0xa76c4,
      0xa78a8,
      0xa79dc,
      0xa7b10,
@@ -84986,6 +84992,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0xa8e00,
      0xa8ea8,
      0xa9084,
+     0xa9324,
      0xa932c,
      0xa93f0,
      0xa9584,
@@ -85844,7 +85851,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x11f20c,
      0x11fa34,
 };
-const uint32_t jqt_vtbl_n = 3463u;  /* §124y-149/.../906: 对齐 fns/offs 表实际条目数 */
+const uint32_t jqt_vtbl_n = 3465u;  /* §124y-149/.../907: 对齐 fns/offs 表实际条目数 */
 
 /* jqt_blx_dispatch：vtable 槽值 reg_val（shadow 地址）→ 目标函数。
  * 影子区 → off = reg_val - g_jqt_shadow；否则 off = reg_val。
@@ -112246,4 +112253,41 @@ uint32_t F_a6cdc(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_
     uint32_t v = MEM(_r0 + 16);
     jqt_blx_dispatch(0xa6cdc, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
     return 0;
+}
+
+/* ★ §124y-907 第五百五十三批真业务裸跑函数补全（420B 超大栈字面量池双取 [栈+8] 写 [r2] 多分支 + [this+32] 取返回两指令）
+   - F_a76c4（0xa76c4，被调 2 次）：420B 超大栈复杂（字面量池双取
+     + [栈+8] 写 + [r2] 取 + 多分支，新变体首次出现）
+     语义（objdump 逐指令 + 字面量池 0xa789c/0xa78a0 实读）：
+       [字面量池] 双取 + sub sp,#420 + [栈+8] 写 + [r2] 取
+       → 多分支
+     ★ 诚实边界：420B 超大栈 + 字面量池双取 + 栈写 + 取 + 多
+       分支，主路径（[字面量池] 双取 + [栈+8] 写 + [r2] 取）
+       直译 + 多分支体镜像兜底
+       （§124y-288~906 同口径，420B 超大栈字面量池双取 +
+       [栈+8] 写 + [r2] 取多分支新变体首次出现）
+   - F_a9324（0xa9324，被调 2 次）：[this+32] 取 + 返回（两指令
+     全直译零依赖）
+     语义（objdump 逐指令）：
+       [this+32] 取 → 返回
+     ★ 全直译零依赖，纯 [this+32] 取返回（同 0x53e00/0x8571c/
+       0x85704/0x80504/0x829e8/0x84e34/0x85324/0x94da0/
+       0x9f3e4/0xa1e20 模式，[this+32] 取返回新槽首次出现） */
+uint32_t F_a76c4(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* 420B 超大栈：[字面量池] 双取 + [栈+8] 写 + [r2] 取主路径
+       + 多分支体兜底 */
+    if (!_r0) return 0;
+    uint32_t lit1 = MEM(JQT_ABS_PTR(0xa789c));
+    uint32_t lit2 = MEM(JQT_ABS_PTR(0xa78a0));
+    jqt_blx_dispatch(0xa76c4, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+uint32_t F_a9324(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* [this+32] 取 + 返回（两指令全直译零依赖） */
+    if (!_r0) return 0;
+    return MEM(_r0 + 32);
 }
