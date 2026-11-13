@@ -30,6 +30,7 @@ for i, lbl in enumerate(labels):
     else:
         x = (W - tw) // 2 - bbox[0]
     y = i * row_h + (row_h - th) // 2 - bbox[1]
-    dr.text((x, y), lbl, font=font, fill=(255, 255, 255, 200))
+    fill = (0, 0, 0, 255) if i == 0 else (255, 255, 255, 200)  # row0 title black, others white
+    dr.text((x, y), lbl, font=font, fill=fill)
 im.save(OUT)
 print(f"Wrote {OUT} {W}x{H}")
