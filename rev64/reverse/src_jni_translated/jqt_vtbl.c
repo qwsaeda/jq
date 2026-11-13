@@ -374,6 +374,9 @@ uint32_t F_a4274(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,
 uint32_t F_e546a(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_abc48(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_3d65c(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_68850(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_6897c(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+/* §124y-821 前向声明（第四百六十七批：40B 栈字面量池依赖 36 偏移 + F_8554c 直调双次 [this+92/116] 取） */
 uint32_t F_68314(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_68728(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 /* §124y-820 前向声明（第四百六十六批：[this+0/48] 写直调第六十三次实例化 + [this+16/20] 双取差值第一百一十四次实例化） */
@@ -80001,6 +80004,8 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_68354,
     F_684d0,
     F_68728,
+    F_68850,
+    F_6897c,
     F_68a8c,
     F_68e64,
     F_68e78,
@@ -83295,6 +83300,8 @@ const uint32_t jqt_vtbl_offs[] = {
      0x68354,
      0x684d0,
      0x68728,
+     0x68850,
+     0x6897c,
      0x68a8c,
      0x68e64,
      0x68e78,
@@ -85242,7 +85249,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x11f20c,
      0x11fa34,
 };
-const uint32_t jqt_vtbl_n = 3291u;  /* §124y-149/.../820: 对齐 fns/offs 表实际条目数 */
+const uint32_t jqt_vtbl_n = 3293u;  /* §124y-149/.../821: 对齐 fns/offs 表实际条目数 */
 
 /* jqt_blx_dispatch：vtable 槽值 reg_val（shadow 地址）→ 目标函数。
  * 影子区 → off = reg_val - g_jqt_shadow；否则 off = reg_val。
@@ -107758,5 +107765,58 @@ uint32_t F_68728(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_
     uint32_t diff1 = _r1 - lit;
     uint32_t diff2 = v16 - v20;
     jqt_blx_dispatch(0x68728, _r0, _r1, diff1, diff2, 0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+
+/* ★ §124y-821 第四百六十七批真业务裸跑函数补全（40B 栈字面量池依赖 36 偏移 + F_8554c 直调双次 [this+92/116] 取）
+   - F_68850（0x68850，被调 2 次）：40B 栈复杂（字面量池 + F_85858
+     依赖 + 36 偏移计算）
+     语义（objdump 逐指令 + 字面量池 0x688e4/0x688e8/0x688ec
+     实读）：
+       [字面量池] 取 + sub sp,#40 + **bl F_85858（未译→镜像兜
+       底）** + [this+0] 字面量池 8 偏移写 + 36 偏移计算 → 多分
+       支
+     ★ 诚实边界：40B 栈 + 字面量池 + 依赖 + 写 + 偏移 + 多分支，
+       主路径（[字面量池] 取 + [this+0] 写）直译 + F_85858 镜像
+       兜底
+       （§124y-288~820 同口径，同 0x47364 40B 栈模式，36 偏移
+       新变体）
+   - F_6897c（0x6897c，被调 2 次）：字面量池 + F_8554c 直调双次
+     + [this+92/116] 取（新变体首次出现）
+     语义（objdump 逐指令 + 字面量池 0x68998/0x6899c 实读）：
+       [字面量池] 取 + [this+92] 取 + **bl F_8554c（未译→镜像兜
+       底）** + [字面量池] 取 + [this+116] 取 + **bl F_8554c
+       （未译→镜像兜底）**
+     ★ 诚实边界：字面量池 + 双直调 + 双取 + 多分支，主路径（[字面
+       量池] 取 + [this+92/116] 取 + F_8554c 直调双次）直译 +
+       F_8554c 镜像兜底
+       （§124y-288~820 同口径，F_8554c 直调双次 + [this+92/116]
+       取新变体首次出现） */
+uint32_t F_68850(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* 40B 栈复杂：[字面量池] 取 + [this+0] 写 + F_85858（未译）
+       镜像兜底主路径 */
+    if (!_r0) return 0;
+    uint32_t lit = MEM(JQT_ABS_PTR(0x688e4));
+    jqt_blx_dispatch(0x85858, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
+    uint32_t lit2 = MEM(JQT_ABS_PTR(0x688e8));
+    MEM(_r0 + 0) = lit2 + 8;
+    jqt_blx_dispatch(0x68850, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+uint32_t F_6897c(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* [字面量池] 取 + [this+92/116] 取 + F_8554c（未译）镜像兜底
+       双直调主路径 */
+    if (!_r0) return 0;
+    uint32_t lit = MEM(JQT_ABS_PTR(0x68998));
+    uint32_t v92 = MEM(_r0 + 92);
+    jqt_blx_dispatch(0x8554c, _r0, lit, v92, 0, 0,0,0,0,0,0,0,0, _sp);
+    uint32_t lit2 = MEM(JQT_ABS_PTR(0x6899c));
+    uint32_t v116 = MEM(_r0 + 116);
+    jqt_blx_dispatch(0x8554c, _r0, lit2, v116, 0, 0,0,0,0,0,0,0,0, _sp);
+    jqt_blx_dispatch(0x6897c, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
     return 0;
 }
