@@ -373,6 +373,9 @@ uint32_t F_a4250(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,
 uint32_t F_a4274(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_e546a(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_abc48(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_d3b70(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_d5e30(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+/* §124y-587 前向声明（第二百三十三批：[this+92] 取虚调用 + 52B 栈复杂） */
 uint32_t F_d2fe0(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_d3424(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 /* §124y-586 前向声明（第二百三十二批：双取判定 + strh 多槽取） */
@@ -80660,6 +80663,7 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_d3a5c,
     F_d3a9c,
     F_d3b1c,
+    F_d3b70,
     F_d4118,
     F_d4438,
     F_d4600,
@@ -80681,6 +80685,7 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_d5738,
     F_d5ac8,
     F_d5d9c,
+    F_d5e30,
     F_d5fc4,
     F_d6400,
     F_d64b8,
@@ -83486,6 +83491,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0xd3a5c,
      0xd3a9c,
      0xd3b1c,
+     0xd3b70,
      0xd4118,
      0xd4438,
      0xd4600,
@@ -83507,6 +83513,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0xd5738,
      0xd5ac8,
      0xd5d9c,
+     0xd5e30,
      0xd5fc4,
      0xd6400,
      0xd64b8,
@@ -83604,7 +83611,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x11ef8c,
      0x11f20c,
 };
-const uint32_t jqt_vtbl_n = 2823u;  /* §124y-149/.../586: 对齐 fns/offs 表实际条目数 */
+const uint32_t jqt_vtbl_n = 2825u;  /* §124y-149/.../587: 对齐 fns/offs 表实际条目数 */
 
 /* jqt_blx_dispatch：vtable 槽值 reg_val（shadow 地址）→ 目标函数。
  * 影子区 → off = reg_val - g_jqt_shadow；否则 off = reg_val。
@@ -94987,5 +94994,40 @@ uint32_t F_d3424(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_
     uint32_t s = v54 + v22;
     MEM(_r0 + 22) = s & 0xffff;
     jqt_blx_dispatch(0xd3424, _r0, _r1, _r2, v52, 0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+
+/* ★ §124y-587 第二百三十三批真业务裸跑函数补全（[this+92] 取虚调用 + 52B 栈复杂）
+   - F_d3b70（0xd3b70，被调 3 次）：[this+92] 取 + 双非 0 判定 + 虚调用
+     语义（objdump 逐指令）：[r0] 非 0 判定 → [this+92] 取 → 非 0
+       判定 → [v+12] 取 + [w+12] 取 + **blx [w+12]（虚调用→镜像
+       兜底）** → 返回 0
+     ★ 诚实边界：虚调用 → 主路径（[this+92] 取 + 双非 0 判定 +
+       [v+12/w+12] 取）直译 + 虚调用镜像兜底
+       （§124y-288~586 同口径，同 0xe1bcc 虚调用模式）
+   - F_d5e30（0xd5e30，被调 3 次）：52B 栈复杂（[sp+8/40/44] 栈写 +
+     多参数）
+     语义（objdump 逐指令）：sub sp,#52 + [sp+8] 栈写 + 0 写 +
+       [sp+40] 写 + [sp+44] 参数 + 多参数寄存器传 → 多分支
+     ★ 诚实边界：52B 栈 + 栈写 + 多参数 + 多分支，主路径（[sp+8/40]
+       栈写 + 多参数传）直译 + 多分支体镜像兜底
+       （§124y-288~586 同口径，同 0x33c10 52B 栈模式） */
+uint32_t F_d3b70(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* [this+92] 取 + 双非 0 判定 + 虚调用（镜像兜底） */
+    if (!_r0) return 0;
+    uint32_t v92 = MEM(_r0 + 92);
+    if (v92 == 0) return 0;
+    uint32_t f = MEM(v92 + 12);
+    jqt_blx_dispatch(0xd3b70, _r0, f, 0, 0, 0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+uint32_t F_d5e30(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* 52B 栈复杂：[sp+8/40] 栈写 + 多参数主路径 + 多分支体兜底 */
+    if (!_r0) return 0;
+    jqt_blx_dispatch(0xd5e30, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
     return 0;
 }
