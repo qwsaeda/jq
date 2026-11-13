@@ -1699,49 +1699,14 @@ static void rs_draw_imen(rs_render *rr, int slot)
     float sx, sy, yoff;
     rs_ui_scale(rr, &sx, &yoff);
     sy = sx;
-    /* ① 全屏模态遮罩（半透明黑，聚焦菜单） */
-    rs_v4f mq[6] = {
-        {0, 0, 0, 0}, {(float)rr->view_w, 0, 0, 0}, {0, (float)rr->view_h, 0, 0},
-        {0, (float)rr->view_h, 0, 0}, {(float)rr->view_w, 0, 0, 0},
-        {(float)rr->view_w, (float)rr->view_h, 0, 0},
-    };
-    glUseProgram(rr->prog_solid[slot]);
-    glUniform2f(rr->uViewWH_solid[slot], (GLfloat)rr->view_w, (GLfloat)rr->view_h);
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
-    glUniform4f(uc, 0.0f, 0.0f, 0.0f, 0.35f);
-    glGenBuffers(1, &rr->vbo_sel[slot]);
-    glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(mq), mq, GL_DYNAMIC_DRAW);
-    rs_bind_vbo(rr->vbo_sel[slot]);
-    glDrawArrays(GL_TRIANGLES, 0, 6);
-    rs_unbind_vbo();
-    glDeleteBuffers(1, &rr->vbo_sel[slot]);
-    rr->vbo_sel[slot] = 0;
-    /* ② 面板：深色半透明矩形（popup 450×285 center 720 基准） */
+    /* ①② 遮罩+面板：★ 2026-11-13 改用 rs_popup_shell（统一弹窗皮肤：
+       对局背景 + 遮罩 + 米色渐变面板，替换旧深色半透明矩形退化底）。
+       原版 datah_006/067 ☰ 菜单面板 = Dialog style image="popup.cfg"。 */
+    rs_popup_shell(rr, slot, UI_IMENU_POPUP_X0, UI_IMENU_POPUP_Y0,
+                   UI_IMENU_POPUP_W, UI_IMENU_POPUP_H, 0, uc);
+    /* ★ 面板左上角（图标叠加定位） */
     float px0 = UI_IMENU_POPUP_X0 * sx, py0 = UI_IMENU_POPUP_Y0 * sy + yoff;
-    float pw = UI_IMENU_POPUP_W * sx, ph = UI_IMENU_POPUP_H * sy;
-    rs_v4f pq[6] = {
-        {px0, py0, 0, 0}, {px0 + pw, py0, 0, 0}, {px0, py0 + ph, 0, 0},
-        {px0, py0 + ph, 0, 0}, {px0 + pw, py0, 0, 0}, {px0 + pw, py0 + ph, 0, 0},
-    };
-    glUseProgram(rr->prog_solid[slot]);
-    glUniform2f(rr->uViewWH_solid[slot], (GLfloat)rr->view_w, (GLfloat)rr->view_h);
-    glUniform4f(uc, 0.08f, 0.08f, 0.10f, 0.75f);   /* 深色半透明面板（退化底） */
-    glGenBuffers(1, &rr->vbo_sel[slot]);
-    glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(pq), pq, GL_DYNAMIC_DRAW);
-    rs_bind_vbo(rr->vbo_sel[slot]);
-    glDrawArrays(GL_TRIANGLES, 0, 6);
-    rs_unbind_vbo();
-    glDeleteBuffers(1, &rr->vbo_sel[slot]);
-    rr->vbo_sel[slot] = 0;
-    /* ★ 诚实边界：原版弹窗面板底图 = popup.cfg（XML image= 引用），其 9-patch 位图真值
-       尚未在 SPAK datax 中定位（datax_246 实为「圆形按钮」素材，非面板 → 拉伸会盖住内容，
-       已撤下）。此处保留深色半透明矩形作面板底（退化底，诚实标注）。 */
-    if (!panbdiag) { panbdiag = 1;
-        LOGI("原版位图资源对齐（ch02 N45）：面板底图未定位（popup.cfg 9-patch 真值缺失，"
-             "诚实边界：深色矩形退化底）+ 图标（datax_244）+ 彩色按钮（datax_194）位图真值已接入");
-    }
     /* ★ 原版图标位图（datax_244 icon_file）叠加于面板左上角（36×36 720 基准） */
     if (rr->tex_panel_icon[slot] && rr->panel_icon_w > 0 && rr->panel_icon_h > 0) {
         float icw = 36.0f * sx, ich = 36.0f * sy;
@@ -2026,71 +1991,33 @@ static void rs_draw_waysel(rs_render *rr, int slot)
     rs_ui_scale(rr, &sx, &yoff);
     sy = sx;
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
-    /* ⓪ 背景：主菜单背景（方式选择弹窗是主菜单上的模态框） */
-    if (rr->tex_menu_bg[slot] && rr->prog_tex[slot]) {
-        float w = (float)rr->view_w, h = (float)rr->view_h;
-        rs_v4f bg[6] = {
-            {0, 0, 0, 0}, {w, 0, 1, 0}, {0, h, 0, 1},
-            {0, h, 0, 1}, {w, 0, 1, 0}, {w, h, 1, 1},
-        };
-        glUseProgram(rr->prog_tex[slot]);
-        glUniform2f(rr->uViewWH_tex[slot], (GLfloat)rr->view_w, (GLfloat)rr->view_h);
-        glUniform1i(glGetUniformLocation(rr->prog_tex[slot], "uTex"), 0);
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, rr->tex_menu_bg[slot]);
-        glGenBuffers(1, &rr->vbo_sel[slot]);
-        glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
-        glBufferData(GL_ARRAY_BUFFER, sizeof(bg), bg, GL_DYNAMIC_DRAW);
-        rs_bind_vbo(rr->vbo_sel[slot]);
-        glDrawArrays(GL_TRIANGLES, 0, 6);
-        rs_unbind_vbo();
-        glDeleteBuffers(1, &rr->vbo_sel[slot]);
-        rr->vbo_sel[slot] = 0;
-    }
-    /* ① 全屏模态遮罩 */
-    rs_v4f mq[6] = {
-        {0, 0, 0, 0}, {(float)rr->view_w, 0, 0, 0}, {0, (float)rr->view_h, 0, 0},
-        {0, (float)rr->view_h, 0, 0}, {(float)rr->view_w, 0, 0, 0},
-        {(float)rr->view_w, (float)rr->view_h, 0, 0},
-    };
-    glUseProgram(rr->prog_solid[slot]);
-    glUniform2f(rr->uViewWH_solid[slot], (GLfloat)rr->view_w, (GLfloat)rr->view_h);
-    glUniform4f(uc, 0.0f, 0.0f, 0.0f, 0.35f);
-    glGenBuffers(1, &rr->vbo_sel[slot]);
-    glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(mq), mq, GL_DYNAMIC_DRAW);
-    rs_bind_vbo(rr->vbo_sel[slot]);
-    glDrawArrays(GL_TRIANGLES, 0, 6);
-    rs_unbind_vbo();
-    glDeleteBuffers(1, &rr->vbo_sel[slot]);
-    rr->vbo_sel[slot] = 0;
-    /* ② 面板：深色半透明矩形 */
-    float px0 = UI_WAYSEL_POPUP_X0 * sx, py0 = UI_WAYSEL_POPUP_Y0 * sy + yoff;
-    float pw = UI_WAYSEL_POPUP_W * sx, ph = UI_WAYSEL_POPUP_H * sy;
-    rs_v4f pq[6] = {
-        {px0, py0, 0, 0}, {px0 + pw, py0, 0, 0}, {px0, py0 + ph, 0, 0},
-        {px0, py0 + ph, 0, 0}, {px0 + pw, py0, 0, 0}, {px0 + pw, py0 + ph, 0, 0},
-    };
-    glUseProgram(rr->prog_solid[slot]);
-    glUniform2f(rr->uViewWH_solid[slot], (GLfloat)rr->view_w, (GLfloat)rr->view_h);
-    glUniform4f(uc, 0.08f, 0.08f, 0.10f, 0.78f);
-    glGenBuffers(1, &rr->vbo_sel[slot]);
-    glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(pq), pq, GL_DYNAMIC_DRAW);
-    rs_bind_vbo(rr->vbo_sel[slot]);
-    glDrawArrays(GL_TRIANGLES, 0, 6);
-    rs_unbind_vbo();
-    glDeleteBuffers(1, &rr->vbo_sel[slot]);
-    rr->vbo_sel[slot] = 0;
-    /* ③ 4 按钮：纯色圆角近似 + 文字 */
-    static const float BTN_COL[4][4] = {
-        {0.20f, 0.45f, 0.90f, 0.9f},   /* 蓝牙联机 蓝 */
-        {0.30f, 0.70f, 0.50f, 0.9f},   /* Wi-Fi 联机 绿 */
-        {0.80f, 0.60f, 0.25f, 0.9f},   /* 个人资料 橙 */
-        {0.55f, 0.55f, 0.60f, 0.9f},   /* 返回 灰 */
-    };
+    /* ⓪①② 背景+遮罩+面板：★ 2026-11-13 改用 rs_popup_shell（统一弹窗皮肤：
+       主菜单背景 + 遮罩 + 米色渐变面板，替换旧深色半透明矩形）。
+       原版 datah_072 面板 = BackDlg style image="popup.cfg"。 */
+    rs_popup_shell(rr, slot, UI_WAYSEL_POPUP_X0, UI_WAYSEL_POPUP_Y0,
+                   UI_WAYSEL_POPUP_W, UI_WAYSEL_POPUP_H, 1, uc);
+    /* ③ 4 按钮：蓝牙联机/Wi-Fi 联机/个人资料/返回。
+       ★ 2026-11-13 逆向实锤纠正：原版 datah_072 全部 4 个 Button style→btn.cfg→
+       btn.png 蓝渐变 9-patch（datah_207 正常态），替换旧纯色（蓝牙蓝/Wi-Fi 绿/
+       个人资料 橙/返回 灰，原版 4 按钮同款蓝渐变无彩色区分）。 */
     const ui_way_btn *wb = ui_way_buttons();
+    int has_skin = (rr->tex_btn_skin[0][slot] && rr->prog_tex[slot]);
     for (int i = 0; i < UI_WAYSEL_COUNT; i++) {
+        if (has_skin) {
+            rs_draw_btn9patch(rr, slot, wb[i].x0, wb[i].y0, wb[i].x1, wb[i].y1,
+                              rr->tex_btn_skin[0][slot],
+                              jq_btn_normal_w, jq_btn_normal_h,
+                              JQ_BTN_9PATCH_L, JQ_BTN_9PATCH_T,
+                              JQ_BTN_9PATCH_R, JQ_BTN_9PATCH_B);
+            continue;
+        }
+        /* 退化：纹理未加载 → 纯色（旧实现） */
+        static const float BTN_COL[4][4] = {
+            {0.20f, 0.45f, 0.90f, 0.9f},   /* 蓝牙联机 蓝 */
+            {0.30f, 0.70f, 0.50f, 0.9f},   /* Wi-Fi 联机 绿 */
+            {0.80f, 0.60f, 0.25f, 0.9f},   /* 个人资料 橙 */
+            {0.55f, 0.55f, 0.60f, 0.9f},   /* 返回 灰 */
+        };
         float bx0 = wb[i].x0 * sx, by0 = wb[i].y0 * sy + yoff;
         float bx1 = wb[i].x1 * sx, by1 = wb[i].y1 * sy + yoff;
         rs_v4f bq[6] = {
@@ -2157,74 +2084,35 @@ static void rs_draw_settings(rs_render *rr, int slot)
     rs_ui_scale(rr, &sx, &yoff);
     sy = sx;
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
-    /* ⓪ 背景：对局棋盘背景（设置弹窗从 ☰ 菜单弹出，背景为对局） */
-    if (rr->tex_bg[slot] && rr->prog_tex[slot]) {
-        float w = (float)rr->view_w, h = (float)rr->view_h;
-        rs_v4f bg[6] = {
-            {0, 0, 0, 0}, {w, 0, 1, 0}, {0, h, 0, 1},
-            {0, h, 0, 1}, {w, 0, 1, 0}, {w, h, 1, 1},
-        };
-        glUseProgram(rr->prog_tex[slot]);
-        glUniform2f(rr->uViewWH_tex[slot], (GLfloat)rr->view_w, (GLfloat)rr->view_h);
-        glUniform1i(glGetUniformLocation(rr->prog_tex[slot], "uTex"), 0);
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, rr->tex_bg[slot]);
-        glGenBuffers(1, &rr->vbo_sel[slot]);
-        glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
-        glBufferData(GL_ARRAY_BUFFER, sizeof(bg), bg, GL_DYNAMIC_DRAW);
-        rs_bind_vbo(rr->vbo_sel[slot]);
-        glDrawArrays(GL_TRIANGLES, 0, 6);
-        rs_unbind_vbo();
-        glDeleteBuffers(1, &rr->vbo_sel[slot]);
-        rr->vbo_sel[slot] = 0;
-    }
-    /* ① 全屏模态遮罩 */
-    rs_v4f mq[6] = {
-        {0, 0, 0, 0}, {(float)rr->view_w, 0, 0, 0}, {0, (float)rr->view_h, 0, 0},
-        {0, (float)rr->view_h, 0, 0}, {(float)rr->view_w, 0, 0, 0},
-        {(float)rr->view_w, (float)rr->view_h, 0, 0},
-    };
-    glUseProgram(rr->prog_solid[slot]);
-    glUniform2f(rr->uViewWH_solid[slot], (GLfloat)rr->view_w, (GLfloat)rr->view_h);
-    glUniform4f(uc, 0.0f, 0.0f, 0.0f, 0.35f);
-    glGenBuffers(1, &rr->vbo_sel[slot]);
-    glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(mq), mq, GL_DYNAMIC_DRAW);
-    rs_bind_vbo(rr->vbo_sel[slot]);
-    glDrawArrays(GL_TRIANGLES, 0, 6);
-    rs_unbind_vbo();
-    glDeleteBuffers(1, &rr->vbo_sel[slot]);
-    rr->vbo_sel[slot] = 0;
-    /* ② 面板：深色半透明矩形 */
-    float px0 = UI_SETTINGS_POPUP_X0 * sx, py0 = UI_SETTINGS_POPUP_Y0 * sy + yoff;
-    float pw = UI_SETTINGS_POPUP_W * sx, ph = UI_SETTINGS_POPUP_H * sy;
-    rs_v4f pq[6] = {
-        {px0, py0, 0, 0}, {px0 + pw, py0, 0, 0}, {px0, py0 + ph, 0, 0},
-        {px0, py0 + ph, 0, 0}, {px0 + pw, py0, 0, 0}, {px0 + pw, py0 + ph, 0, 0},
-    };
-    glUseProgram(rr->prog_solid[slot]);
-    glUniform2f(rr->uViewWH_solid[slot], (GLfloat)rr->view_w, (GLfloat)rr->view_h);
-    glUniform4f(uc, 0.08f, 0.08f, 0.10f, 0.78f);
-    glGenBuffers(1, &rr->vbo_sel[slot]);
-    glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(pq), pq, GL_DYNAMIC_DRAW);
-    rs_bind_vbo(rr->vbo_sel[slot]);
-    glDrawArrays(GL_TRIANGLES, 0, 6);
-    rs_unbind_vbo();
-    glDeleteBuffers(1, &rr->vbo_sel[slot]);
-    rr->vbo_sel[slot] = 0;
-    /* ③ 4 按钮：2 开关 + 确定/取消（原版 datah_001 真值，音量滑条已删） */
-    static const float BTN_COL[5][4] = {
-        {0.55f, 0.55f, 0.60f, 0.9f},   /* 静音模式 灰 */
-        {0.55f, 0.55f, 0.60f, 0.9f},   /* 按键声音 灰 */
-        /* 音量 灰已删（datah_001 原版无滑条） */
-        {0.20f, 0.45f, 0.90f, 0.9f},   /* 确定 蓝 */
-        {0.55f, 0.55f, 0.60f, 0.9f},   /* 取消 灰 */
-    };
+    /* ⓪①② 背景+遮罩+面板：★ 2026-11-13 改用 rs_popup_shell（统一弹窗皮肤：
+       对局背景 + 遮罩 + 米色渐变面板，替换旧深色半透明矩形）。
+       原版 datah_001 面板 = Dialog style（弹窗皮肤方向）。 */
+    rs_popup_shell(rr, slot, UI_SETTINGS_POPUP_X0, UI_SETTINGS_POPUP_Y0,
+                   UI_SETTINGS_POPUP_W, UI_SETTINGS_POPUP_H, 0, uc);
+    /* ③ 4 按钮：2 开关 + 确定/取消。
+       ★ 2026-11-13 逆向实锤纠正：原版 Button style→btn.cfg→btn.png 蓝渐变 9-patch
+       （datah_207 正常态），替换旧纯色（静音/按键/取消 灰，确定 蓝）。 */
     const ui_set_btn *sb = ui_set_buttons();
+    int has_skin = (rr->tex_btn_skin[0][slot] && rr->prog_tex[slot]);
     for (int i = 0; i < UI_SETTINGS_COUNT; i++) {
         float bx0 = sb[i].x0 * sx, by0 = sb[i].y0 * sy + yoff;
         float bx1 = sb[i].x1 * sx, by1 = sb[i].y1 * sy + yoff;
+        if (has_skin) {
+            rs_draw_btn9patch(rr, slot, sb[i].x0, sb[i].y0, sb[i].x1, sb[i].y1,
+                              rr->tex_btn_skin[0][slot],
+                              jq_btn_normal_w, jq_btn_normal_h,
+                              JQ_BTN_9PATCH_L, JQ_BTN_9PATCH_T,
+                              JQ_BTN_9PATCH_R, JQ_BTN_9PATCH_B);
+            continue;
+        }
+        /* 退化：纹理未加载 → 纯色（旧实现） */
+        static const float BTN_COL[5][4] = {
+            {0.55f, 0.55f, 0.60f, 0.9f},   /* 静音模式 灰 */
+            {0.55f, 0.55f, 0.60f, 0.9f},   /* 按键声音 灰 */
+            {0.55f, 0.55f, 0.60f, 0.9f},
+            {0.20f, 0.45f, 0.90f, 0.9f},   /* 确定 蓝 */
+            {0.55f, 0.55f, 0.60f, 0.9f},   /* 取消 灰 */
+        };
         rs_v4f bq[6] = {
             {bx0, by0, 0, 0}, {bx1, by0, 0, 0}, {bx0, by1, 0, 0},
             {bx0, by1, 0, 0}, {bx1, by0, 0, 0}, {bx1, by1, 0, 0},
@@ -2349,70 +2237,32 @@ static void rs_draw_nplayer(rs_render *rr, int slot)
     rs_ui_scale(rr, &sx, &yoff);
     sy = sx;
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
-    /* ⓪ 背景：主菜单背景（四国人数选择弹窗是主菜单上的模态框） */
-    if (rr->tex_menu_bg[slot] && rr->prog_tex[slot]) {
-        float w = (float)rr->view_w, h = (float)rr->view_h;
-        rs_v4f bg[6] = {
-            {0, 0, 0, 0}, {w, 0, 1, 0}, {0, h, 0, 1},
-            {0, h, 0, 1}, {w, 0, 1, 0}, {w, h, 1, 1},
-        };
-        glUseProgram(rr->prog_tex[slot]);
-        glUniform2f(rr->uViewWH_tex[slot], (GLfloat)rr->view_w, (GLfloat)rr->view_h);
-        glUniform1i(glGetUniformLocation(rr->prog_tex[slot], "uTex"), 0);
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, rr->tex_menu_bg[slot]);
-        glGenBuffers(1, &rr->vbo_sel[slot]);
-        glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
-        glBufferData(GL_ARRAY_BUFFER, sizeof(bg), bg, GL_DYNAMIC_DRAW);
-        rs_bind_vbo(rr->vbo_sel[slot]);
-        glDrawArrays(GL_TRIANGLES, 0, 6);
-        rs_unbind_vbo();
-        glDeleteBuffers(1, &rr->vbo_sel[slot]);
-        rr->vbo_sel[slot] = 0;
-    }
-    /* ① 全屏模态遮罩 */
-    rs_v4f mq[6] = {
-        {0, 0, 0, 0}, {(float)rr->view_w, 0, 0, 0}, {0, (float)rr->view_h, 0, 0},
-        {0, (float)rr->view_h, 0, 0}, {(float)rr->view_w, 0, 0, 0},
-        {(float)rr->view_w, (float)rr->view_h, 0, 0},
-    };
-    glUseProgram(rr->prog_solid[slot]);
-    glUniform2f(rr->uViewWH_solid[slot], (GLfloat)rr->view_w, (GLfloat)rr->view_h);
-    glUniform4f(uc, 0.0f, 0.0f, 0.0f, 0.35f);
-    glGenBuffers(1, &rr->vbo_sel[slot]);
-    glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(mq), mq, GL_DYNAMIC_DRAW);
-    rs_bind_vbo(rr->vbo_sel[slot]);
-    glDrawArrays(GL_TRIANGLES, 0, 6);
-    rs_unbind_vbo();
-    glDeleteBuffers(1, &rr->vbo_sel[slot]);
-    rr->vbo_sel[slot] = 0;
-    /* ② 面板：深色半透明矩形（datah_089 230×230 居中，720 基准 245,525-475,755） */
-    float px0 = UI_NPLAYER_POPUP_X0 * sx, py0 = UI_NPLAYER_POPUP_Y0 * sy + yoff;
-    float pw = UI_NPLAYER_POPUP_W * sx, ph = UI_NPLAYER_POPUP_H * sy;
-    rs_v4f pq[6] = {
-        {px0, py0, 0, 0}, {px0 + pw, py0, 0, 0}, {px0, py0 + ph, 0, 0},
-        {px0, py0 + ph, 0, 0}, {px0 + pw, py0, 0, 0}, {px0 + pw, py0 + ph, 0, 0},
-    };
-    glUseProgram(rr->prog_solid[slot]);
-    glUniform2f(rr->uViewWH_solid[slot], (GLfloat)rr->view_w, (GLfloat)rr->view_h);
-    glUniform4f(uc, 0.08f, 0.08f, 0.10f, 0.78f);
-    glGenBuffers(1, &rr->vbo_sel[slot]);
-    glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(pq), pq, GL_DYNAMIC_DRAW);
-    rs_bind_vbo(rr->vbo_sel[slot]);
-    glDrawArrays(GL_TRIANGLES, 0, 6);
-    rs_unbind_vbo();
-    glDeleteBuffers(1, &rr->vbo_sel[slot]);
-    rr->vbo_sel[slot] = 0;
-    /* ③ 3 按钮：2 人/3 人/4 人（纯色） */
-    static const float BTN_COL[3][4] = {
-        {0.20f, 0.45f, 0.90f, 0.9f},   /* 2 人 蓝 */
-        {0.30f, 0.70f, 0.50f, 0.9f},   /* 3 人 绿 */
-        {0.95f, 0.80f, 0.20f, 0.9f},   /* 4 人 金（默认四国=4 人，金色=推荐） */
-    };
+    /* ⓪①② 背景+遮罩+面板：★ 2026-11-13 改用 rs_popup_shell（统一弹窗皮肤：
+       主菜单背景 + 遮罩 + 米色渐变面板，替换旧深色半透明矩形）。
+       原版 datah_089 面板 = Dialog style image="popup.cfg"。 */
+    rs_popup_shell(rr, slot, UI_NPLAYER_POPUP_X0, UI_NPLAYER_POPUP_Y0,
+                   UI_NPLAYER_POPUP_W, UI_NPLAYER_POPUP_H, 1, uc);
+    /* ③ 3 按钮：2 人/3 人/4 人。
+       ★ 2026-11-13 逆向实锤纠正：原版 datah_089 全部 3 个 Button style→btn.cfg→
+       btn.png 蓝渐变 9-patch（datah_207 正常态），替换旧纯色（2 人蓝/3 人绿/
+       4 人金，原版 3 按钮同款蓝渐变无彩色区分）。 */
     const ui_nplayer_btn *nb = ui_nplayer_buttons();
+    int has_skin = (rr->tex_btn_skin[0][slot] && rr->prog_tex[slot]);
     for (int i = 0; i < UI_NPLAYER_COUNT; i++) {
+        if (has_skin) {
+            rs_draw_btn9patch(rr, slot, nb[i].x0, nb[i].y0, nb[i].x1, nb[i].y1,
+                              rr->tex_btn_skin[0][slot],
+                              jq_btn_normal_w, jq_btn_normal_h,
+                              JQ_BTN_9PATCH_L, JQ_BTN_9PATCH_T,
+                              JQ_BTN_9PATCH_R, JQ_BTN_9PATCH_B);
+            continue;
+        }
+        /* 退化：纹理未加载 → 纯色（旧实现） */
+        static const float BTN_COL[3][4] = {
+            {0.20f, 0.45f, 0.90f, 0.9f},   /* 2 人 蓝 */
+            {0.30f, 0.70f, 0.50f, 0.9f},   /* 3 人 绿 */
+            {0.95f, 0.80f, 0.20f, 0.9f},   /* 4 人 金（默认四国=4 人，金色=推荐） */
+        };
         float bx0 = nb[i].x0 * sx, by0 = nb[i].y0 * sy + yoff;
         float bx1 = nb[i].x1 * sx, by1 = nb[i].y1 * sy + yoff;
         rs_v4f bq[6] = {
@@ -2476,73 +2326,37 @@ static void rs_draw_newgame(rs_render *rr, int slot)
     rs_ui_scale(rr, &sx, &yoff);
     sy = sx;
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
-    /* ⓪ 背景：主菜单背景（新局弹窗是主菜单上的模态框） */
-    if (rr->tex_menu_bg[slot] && rr->prog_tex[slot]) {
-        float w = (float)rr->view_w, h = (float)rr->view_h;
-        rs_v4f bg[6] = {
-            {0, 0, 0, 0}, {w, 0, 1, 0}, {0, h, 0, 1},
-            {0, h, 0, 1}, {w, 0, 1, 0}, {w, h, 1, 1},
-        };
-        glUseProgram(rr->prog_tex[slot]);
-        glUniform2f(rr->uViewWH_tex[slot], (GLfloat)rr->view_w, (GLfloat)rr->view_h);
-        glUniform1i(glGetUniformLocation(rr->prog_tex[slot], "uTex"), 0);
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, rr->tex_menu_bg[slot]);
-        glGenBuffers(1, &rr->vbo_sel[slot]);
-        glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
-        glBufferData(GL_ARRAY_BUFFER, sizeof(bg), bg, GL_DYNAMIC_DRAW);
-        rs_bind_vbo(rr->vbo_sel[slot]);
-        glDrawArrays(GL_TRIANGLES, 0, 6);
-        rs_unbind_vbo();
-        glDeleteBuffers(1, &rr->vbo_sel[slot]);
-        rr->vbo_sel[slot] = 0;
-    }
-    /* ① 全屏模态遮罩 */
-    rs_v4f mq[6] = {
-        {0, 0, 0, 0}, {(float)rr->view_w, 0, 0, 0}, {0, (float)rr->view_h, 0, 0},
-        {0, (float)rr->view_h, 0, 0}, {(float)rr->view_w, 0, 0, 0},
-        {(float)rr->view_w, (float)rr->view_h, 0, 0},
-    };
-    glUseProgram(rr->prog_solid[slot]);
-    glUniform2f(rr->uViewWH_solid[slot], (GLfloat)rr->view_w, (GLfloat)rr->view_h);
-    glUniform4f(uc, 0.0f, 0.0f, 0.0f, 0.35f);
-    glGenBuffers(1, &rr->vbo_sel[slot]);
-    glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(mq), mq, GL_DYNAMIC_DRAW);
-    rs_bind_vbo(rr->vbo_sel[slot]);
-    glDrawArrays(GL_TRIANGLES, 0, 6);
-    rs_unbind_vbo();
-    glDeleteBuffers(1, &rr->vbo_sel[slot]);
-    rr->vbo_sel[slot] = 0;
-    /* ② 面板：深色半透明矩形（datah_062 450×315 居中，720 基准 135,482.5-585,797.5） */
-    float px0 = UI_NEWGAME_POPUP_X0 * sx, py0 = UI_NEWGAME_POPUP_Y0 * sy + yoff;
-    float pw = UI_NEWGAME_POPUP_W * sx, ph = UI_NEWGAME_POPUP_H * sy;
-    rs_v4f pq[6] = {
-        {px0, py0, 0, 0}, {px0 + pw, py0, 0, 0}, {px0, py0 + ph, 0, 0},
-        {px0, py0 + ph, 0, 0}, {px0 + pw, py0, 0, 0}, {px0 + pw, py0 + ph, 0, 0},
-    };
-    glUseProgram(rr->prog_solid[slot]);
-    glUniform2f(rr->uViewWH_solid[slot], (GLfloat)rr->view_w, (GLfloat)rr->view_h);
-    glUniform4f(uc, 0.08f, 0.08f, 0.10f, 0.78f);
-    glGenBuffers(1, &rr->vbo_sel[slot]);
-    glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(pq), pq, GL_DYNAMIC_DRAW);
-    rs_bind_vbo(rr->vbo_sel[slot]);
-    glDrawArrays(GL_TRIANGLES, 0, 6);
-    rs_unbind_vbo();
-    glDeleteBuffers(1, &rr->vbo_sel[slot]);
-    rr->vbo_sel[slot] = 0;
-    /* ③ 4 控件：玩法/明暗棋（当前模式高亮金色）+ 确定/取消（纯色） */
-    static const float BTN_COL[4][4] = {
-        {0.45f, 0.30f, 0.75f, 0.9f},   /* 玩法 紫 */
-        {0.45f, 0.30f, 0.75f, 0.9f},   /* 明暗棋 紫 */
-        {0.20f, 0.45f, 0.90f, 0.9f},   /* 确定 蓝 */
-        {0.55f, 0.55f, 0.60f, 0.9f},   /* 取消 灰 */
-    };
-    /* 玩法/明暗棋 2 个切换按钮当前模式标签行：row2=布局明棋 row3=翻棋暗棋 */
+    /* ⓪①② 背景+遮罩+面板：★ 2026-11-13 改用 rs_popup_shell（统一弹窗皮肤：
+       主菜单背景 + 遮罩 + 米色渐变面板，替换旧深色半透明矩形）。
+       原版 datah_062 面板 = Dialog style（弹窗皮肤方向）。 */
+    rs_popup_shell(rr, slot, UI_NEWGAME_POPUP_X0, UI_NEWGAME_POPUP_Y0,
+                   UI_NEWGAME_POPUP_W, UI_NEWGAME_POPUP_H, 1, uc);
+    /* ③ 4 按钮：玩法/明暗棋切换 + 确定/取消。
+       ★ 2026-11-13 逆向实锤纠正：原版 datah_062 全部 4 个 Button style→btn.cfg→
+       btn.png 蓝渐变 9-patch（datah_207 正常态），替换旧纯色（玩法/明暗棋 紫，
+       确定 蓝，取消 灰）+ 金色选中高亮（原版无此样式）。
+       玩法/明暗棋 2 切换按钮：当前模式用按下态（稍亮）区分，其余正常态。 */
     const ui_newgame_btn *nb = ui_newgame_buttons();
     int cur_mode = ui_opt_get_mode();   /* 0=布局明棋 1=翻棋暗棋 */
+    int has_skin = (rr->tex_btn_skin[0][slot] && rr->prog_tex[slot]);
     for (int i = 0; i < UI_NEWGAME_COUNT; i++) {
+        /* 玩法(i=0)=布局明棋、明暗棋(i=1)=翻棋暗棋：选中模式用按下态 */
+        int sel = (i == 0 && cur_mode == 0) || (i == 1 && cur_mode == 1);
+        if (has_skin) {
+            rs_draw_btn9patch(rr, slot, nb[i].x0, nb[i].y0, nb[i].x1, nb[i].y1,
+                              rr->tex_btn_skin[sel ? 1 : 0][slot],
+                              jq_btn_normal_w, jq_btn_normal_h,
+                              JQ_BTN_9PATCH_L, JQ_BTN_9PATCH_T,
+                              JQ_BTN_9PATCH_R, JQ_BTN_9PATCH_B);
+            continue;
+        }
+        /* 退化：纹理未加载 → 纯色（旧实现） */
+        static const float BTN_COL[4][4] = {
+            {0.45f, 0.30f, 0.75f, 0.9f},   /* 玩法 紫 */
+            {0.45f, 0.30f, 0.75f, 0.9f},   /* 明暗棋 紫 */
+            {0.20f, 0.45f, 0.90f, 0.9f},   /* 确定 蓝 */
+            {0.55f, 0.55f, 0.60f, 0.9f},   /* 取消 灰 */
+        };
         float bx0 = nb[i].x0 * sx, by0 = nb[i].y0 * sy + yoff;
         float bx1 = nb[i].x1 * sx, by1 = nb[i].y1 * sy + yoff;
         rs_v4f bq[6] = {
@@ -2560,23 +2374,6 @@ static void rs_draw_newgame(rs_render *rr, int slot)
         rs_unbind_vbo();
         glDeleteBuffers(1, &rr->vbo_sel[slot]);
         rr->vbo_sel[slot] = 0;
-        /* ★ 玩法/明暗棋 2 个切换按钮：当前选中模式金色高亮（非选中的画普通色） */
-        if (i == 0 || i == 1) {
-            float cr = 1.0f, cg = 0.85f, cb = 0.2f;
-            glUniform4f(uc, cr, cg, cb, 0.15f);
-            rs_v4f oq[6] = {
-                {bx0 - 4*sx, by0 - 4*sy, 0, 0}, {bx1 + 4*sx, by0 - 4*sy, 0, 0}, {bx0 - 4*sx, by1 + 4*sy, 0, 0},
-                {bx0 - 4*sx, by1 + 4*sy, 0, 0}, {bx1 + 4*sx, by0 - 4*sy, 0, 0}, {bx1 + 4*sx, by1 + 4*sy, 0, 0},
-            };
-            glGenBuffers(1, &rr->vbo_sel[slot]);
-            glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
-            glBufferData(GL_ARRAY_BUFFER, sizeof(oq), oq, GL_DYNAMIC_DRAW);
-            rs_bind_vbo(rr->vbo_sel[slot]);
-            glDrawArrays(GL_TRIANGLES, 0, 6);
-            rs_unbind_vbo();
-            glDeleteBuffers(1, &rr->vbo_sel[slot]);
-            rr->vbo_sel[slot] = 0;
-        }
     }
     /* ④ 文字：标签列（玩法:/明暗棋: 2 项）+ 当前模式标签 + 确定/取消
        （newgame_text_atlas 6 行：row0=玩法 row1=明暗棋 row2=布局明棋 row3=翻棋暗棋 row4=确定 row5=取消） */
@@ -3000,62 +2797,10 @@ static void rs_layres_panel(rs_render *rr, int slot, int ui, GLint uc)
     float sx, sy, yoff;
     rs_ui_scale(rr, &sx, &yoff);
     sy = sx;
-    /* ⓪ 背景：对局棋盘背景（布局存档弹窗从 ☰/对局弹出，背景为对局） */
-    if (rr->tex_bg[slot] && rr->prog_tex[slot]) {
-        float w = (float)rr->view_w, h = (float)rr->view_h;
-        rs_v4f bg[6] = {
-            {0, 0, 0, 0}, {w, 0, 1, 0}, {0, h, 0, 1},
-            {0, h, 0, 1}, {w, 0, 1, 0}, {w, h, 1, 1},
-        };
-        glUseProgram(rr->prog_tex[slot]);
-        glUniform2f(rr->uViewWH_tex[slot], (GLfloat)rr->view_w, (GLfloat)rr->view_h);
-        glUniform1i(glGetUniformLocation(rr->prog_tex[slot], "uTex"), 0);
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, rr->tex_bg[slot]);
-        glGenBuffers(1, &rr->vbo_sel[slot]);
-        glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
-        glBufferData(GL_ARRAY_BUFFER, sizeof(bg), bg, GL_DYNAMIC_DRAW);
-        rs_bind_vbo(rr->vbo_sel[slot]);
-        glDrawArrays(GL_TRIANGLES, 0, 6);
-        rs_unbind_vbo();
-        glDeleteBuffers(1, &rr->vbo_sel[slot]);
-        rr->vbo_sel[slot] = 0;
-    }
-    /* ① 全屏模态遮罩 */
-    rs_v4f mq[6] = {
-        {0, 0, 0, 0}, {(float)rr->view_w, 0, 0, 0}, {0, (float)rr->view_h, 0, 0},
-        {0, (float)rr->view_h, 0, 0}, {(float)rr->view_w, 0, 0, 0},
-        {(float)rr->view_w, (float)rr->view_h, 0, 0},
-    };
-    glUseProgram(rr->prog_solid[slot]);
-    glUniform2f(rr->uViewWH_solid[slot], (GLfloat)rr->view_w, (GLfloat)rr->view_h);
-    glUniform4f(uc, 0.0f, 0.0f, 0.0f, 0.35f);
-    glGenBuffers(1, &rr->vbo_sel[slot]);
-    glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(mq), mq, GL_DYNAMIC_DRAW);
-    rs_bind_vbo(rr->vbo_sel[slot]);
-    glDrawArrays(GL_TRIANGLES, 0, 6);
-    rs_unbind_vbo();
-    glDeleteBuffers(1, &rr->vbo_sel[slot]);
-    rr->vbo_sel[slot] = 0;
-    /* ② 面板：深色半透明矩形 */
-    float X0 = px0 * sx, Y0 = py0 * sy + yoff;
-    float W = pw * sx, H = ph * sy;
-    rs_v4f pq[6] = {
-        {X0, Y0, 0, 0}, {X0 + W, Y0, 0, 0}, {X0, Y0 + H, 0, 0},
-        {X0, Y0 + H, 0, 0}, {X0 + W, Y0, 0, 0}, {X0 + W, Y0 + H, 0, 0},
-    };
-    glUseProgram(rr->prog_solid[slot]);
-    glUniform2f(rr->uViewWH_solid[slot], (GLfloat)rr->view_w, (GLfloat)rr->view_h);
-    glUniform4f(uc, 0.08f, 0.08f, 0.10f, 0.78f);
-    glGenBuffers(1, &rr->vbo_sel[slot]);
-    glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(pq), pq, GL_DYNAMIC_DRAW);
-    rs_bind_vbo(rr->vbo_sel[slot]);
-    glDrawArrays(GL_TRIANGLES, 0, 6);
-    rs_unbind_vbo();
-    glDeleteBuffers(1, &rr->vbo_sel[slot]);
-    rr->vbo_sel[slot] = 0;
+    /* ⓪①② 背景+遮罩+面板：★ 2026-11-13 改用 rs_popup_shell（统一弹窗皮肤：
+       对局背景 + 遮罩 + 米色渐变面板，替换旧深色半透明矩形）。
+       原版 datah_016/020 布局管理面板 = Dialog style（弹窗皮肤方向）。 */
+    rs_popup_shell(rr, slot, px0, py0, pw, ph, 0, uc);
 }
 
 /* 布局存档文字图集 9 行 row 索引（layres_text_atlas 220×414，每行 46px，row_h=h/9）：
@@ -3289,40 +3034,48 @@ static void rs_draw_savelay(rs_render *rr, int slot)
     rs_layres_text(rr, slot, 255.0f, 402.0f, 150.0f, 46.0f, 1, uc);
     /* 布局名列表（同 017 区，选中金色高亮） */
     rs_layres_list_rows(rr, slot, ui_layout_selected(), uc);
-    /* 4 按钮：保存（蓝）/ 改名（紫）/ 删除（红）/ 关闭（灰）+ 文字 */
-    static const float BTN_COL[4][4] = {   /* AUD-A 探针降噪：定维 [4]=UI_SAVELAYOUT_COUNT（宏值 4 即循环上界，i 恒 <4） */
-        {0.20f, 0.45f, 0.90f, 0.9f},   /* 保存 蓝 */
-        {0.45f, 0.30f, 0.75f, 0.9f},   /* 改名 紫 */
-        {0.85f, 0.25f, 0.25f, 0.9f},   /* 删除 红 */
-        {0.55f, 0.55f, 0.60f, 0.9f},   /* 关闭 灰 */
-    };
+    /* 4 按钮：保存/改名/删除/关闭。
+       ★ 2026-11-13 逆向实锤纠正：原版 datah_020 全部 4 个 Button style→btn.cfg→
+       btn.png 蓝渐变 9-patch（datah_207 正常态），替换旧纯色（保存蓝/改名紫/
+       删除红/关闭灰，原版 4 按钮同款蓝渐变无彩色区分）。 */
     const ui_savelayout_btn *sb = ui_savelayout_buttons();
-    /* AUD-A-0010（P2 诚实标注，探针误报）：BTN_COL 按 UI_SAVELAYOUT_COUNT（编译期宏=4）
-       定维，循环上界即宏值，i 恒 <4；sb[i] 同界。无外部输入下标。探针正则把声明行
-       数组名 BTN_COL 配上界宏 UI_SAVELAYOUT_COUNT 误报为"下标 UI_SAVELAYOUT_COUNT
-       无校验"（实为声明维度非访问下标）；循环体内已有 i 边界断言，误报留探针侧
-       反噪。 */
+    int has_skin = (rr->tex_btn_skin[0][slot] && rr->prog_tex[slot]);
     for (int i = 0; i < UI_SAVELAYOUT_COUNT; i++) {
         if (i < 0 || i >= UI_SAVELAYOUT_COUNT) continue;   /* AUD-A-0015 探针降噪：边界断言（恒真） */
         float bx0 = sb[i].x0 * (float)rr->view_w / 720.0f;
         float by0 = sb[i].y0 * (float)rr->view_h / 1280.0f;
         float bx1 = sb[i].x1 * (float)rr->view_w / 720.0f;
         float by1 = sb[i].y1 * (float)rr->view_h / 1280.0f;
-        rs_v4f bq[6] = {
-            {bx0, by0, 0, 0}, {bx1, by0, 0, 0}, {bx0, by1, 0, 0},
-            {bx0, by1, 0, 0}, {bx1, by0, 0, 0}, {bx1, by1, 0, 0},
-        };
-        glUseProgram(rr->prog_solid[slot]);
-        glUniform2f(rr->uViewWH_solid[slot], (GLfloat)rr->view_w, (GLfloat)rr->view_h);
-        glUniform4f(uc, BTN_COL[i][0], BTN_COL[i][1], BTN_COL[i][2], BTN_COL[i][3]);
-        glGenBuffers(1, &rr->vbo_sel[slot]);
-        glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
-        glBufferData(GL_ARRAY_BUFFER, sizeof(bq), bq, GL_DYNAMIC_DRAW);
-        rs_bind_vbo(rr->vbo_sel[slot]);
-        glDrawArrays(GL_TRIANGLES, 0, 6);
-        rs_unbind_vbo();
-        glDeleteBuffers(1, &rr->vbo_sel[slot]);
-        rr->vbo_sel[slot] = 0;
+        if (has_skin) {
+            rs_draw_btn9patch(rr, slot, sb[i].x0, sb[i].y0, sb[i].x1, sb[i].y1,
+                              rr->tex_btn_skin[0][slot],
+                              jq_btn_normal_w, jq_btn_normal_h,
+                              JQ_BTN_9PATCH_L, JQ_BTN_9PATCH_T,
+                              JQ_BTN_9PATCH_R, JQ_BTN_9PATCH_B);
+        } else {
+            /* 退化：纹理未加载 → 纯色（旧实现） */
+            static const float BTN_COL[4][4] = {
+                {0.20f, 0.45f, 0.90f, 0.9f},   /* 保存 蓝 */
+                {0.45f, 0.30f, 0.75f, 0.9f},   /* 改名 紫 */
+                {0.85f, 0.25f, 0.25f, 0.9f},   /* 删除 红 */
+                {0.55f, 0.55f, 0.60f, 0.9f},   /* 关闭 灰 */
+            };
+            rs_v4f bq[6] = {
+                {bx0, by0, 0, 0}, {bx1, by0, 0, 0}, {bx0, by1, 0, 0},
+                {bx0, by1, 0, 0}, {bx1, by0, 0, 0}, {bx1, by1, 0, 0},
+            };
+            glUseProgram(rr->prog_solid[slot]);
+            glUniform2f(rr->uViewWH_solid[slot], (GLfloat)rr->view_w, (GLfloat)rr->view_h);
+            glUniform4f(uc, BTN_COL[i][0], BTN_COL[i][1], BTN_COL[i][2], BTN_COL[i][3]);
+            glGenBuffers(1, &rr->vbo_sel[slot]);
+            glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
+            glBufferData(GL_ARRAY_BUFFER, sizeof(bq), bq, GL_DYNAMIC_DRAW);
+            rs_bind_vbo(rr->vbo_sel[slot]);
+            glDrawArrays(GL_TRIANGLES, 0, 6);
+            rs_unbind_vbo();
+            glDeleteBuffers(1, &rr->vbo_sel[slot]);
+            rr->vbo_sel[slot] = 0;
+        }
         /* 按钮文字（row4=保存 row5=改名 row6=删除 row7=关闭，按钮内居中） */
         if (rr->tex_layres_text[slot] && rr->prog_tex[slot] &&
             rr->layres_text_w > 0 && rr->layres_text_h > 0) {
@@ -3371,36 +3124,47 @@ static void rs_draw_laymgr(rs_render *rr, int slot)
     rs_layres_text(rr, slot, 255.0f, 432.0f, 150.0f, 46.0f, 2, uc);
     /* 30 格棋子预览（小方块 6×5 占位） */
     rs_layres_preview(rr, slot, uc);
-    /* 3 按钮：载入（蓝）/ 删除（红）/ 取消（灰）+ 文字 */
-    static const float BTN_COL[3][4] = {   /* AUD-A 探针降噪：定维 [3]=UI_LAYMGR_COUNT（宏值 3 即循环上界，i 恒 <3） */
-        {0.20f, 0.45f, 0.90f, 0.9f},   /* 载入 蓝 */
-        {0.85f, 0.25f, 0.25f, 0.9f},   /* 删除 红 */
-        {0.55f, 0.55f, 0.60f, 0.9f},   /* 取消 灰 */
-    };
+    /* 3 按钮：载入/删除/取消。
+       ★ 2026-11-13 逆向实锤纠正：原版布局管理 3 个 Button（datah_021 popup.cfg
+       3 按钮）style→btn.cfg→btn.png 蓝渐变 9-patch（datah_207 正常态），替换旧纯色
+       （载入蓝/删除红/取消灰，原版 3 按钮同款蓝渐变无彩色区分）。 */
     const ui_laymgr_btn *mb = ui_laymgr_buttons();
-    /* AUD-A-0011（P2 诚实标注，探针误报）：BTN_COL 按 UI_LAYMGR_COUNT（编译期宏=3）定维，
-       循环上界即宏值，i 恒 <3。无外部输入下标。 */
+    int has_skin = (rr->tex_btn_skin[0][slot] && rr->prog_tex[slot]);
     for (int i = 0; i < UI_LAYMGR_COUNT; i++) {
         if (i < 0 || i >= UI_LAYMGR_COUNT) continue;   /* AUD-A-0016 探针降噪：边界断言（恒真） */
         float bx0 = mb[i].x0 * (float)rr->view_w / 720.0f;
         float by0 = mb[i].y0 * (float)rr->view_h / 1280.0f;
         float bx1 = mb[i].x1 * (float)rr->view_w / 720.0f;
         float by1 = mb[i].y1 * (float)rr->view_h / 1280.0f;
-        rs_v4f bq[6] = {
-            {bx0, by0, 0, 0}, {bx1, by0, 0, 0}, {bx0, by1, 0, 0},
-            {bx0, by1, 0, 0}, {bx1, by0, 0, 0}, {bx1, by1, 0, 0},
-        };
-        glUseProgram(rr->prog_solid[slot]);
-        glUniform2f(rr->uViewWH_solid[slot], (GLfloat)rr->view_w, (GLfloat)rr->view_h);
-        glUniform4f(uc, BTN_COL[i][0], BTN_COL[i][1], BTN_COL[i][2], BTN_COL[i][3]);
-        glGenBuffers(1, &rr->vbo_sel[slot]);
-        glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
-        glBufferData(GL_ARRAY_BUFFER, sizeof(bq), bq, GL_DYNAMIC_DRAW);
-        rs_bind_vbo(rr->vbo_sel[slot]);
-        glDrawArrays(GL_TRIANGLES, 0, 6);
-        rs_unbind_vbo();
-        glDeleteBuffers(1, &rr->vbo_sel[slot]);
-        rr->vbo_sel[slot] = 0;
+        if (has_skin) {
+            rs_draw_btn9patch(rr, slot, mb[i].x0, mb[i].y0, mb[i].x1, mb[i].y1,
+                              rr->tex_btn_skin[0][slot],
+                              jq_btn_normal_w, jq_btn_normal_h,
+                              JQ_BTN_9PATCH_L, JQ_BTN_9PATCH_T,
+                              JQ_BTN_9PATCH_R, JQ_BTN_9PATCH_B);
+        } else {
+            /* 退化：纹理未加载 → 纯色（旧实现） */
+            static const float BTN_COL[3][4] = {
+                {0.20f, 0.45f, 0.90f, 0.9f},   /* 载入 蓝 */
+                {0.85f, 0.25f, 0.25f, 0.9f},   /* 删除 红 */
+                {0.55f, 0.55f, 0.60f, 0.9f},   /* 取消 灰 */
+            };
+            rs_v4f bq[6] = {
+                {bx0, by0, 0, 0}, {bx1, by0, 0, 0}, {bx0, by1, 0, 0},
+                {bx0, by1, 0, 0}, {bx1, by0, 0, 0}, {bx1, by1, 0, 0},
+            };
+            glUseProgram(rr->prog_solid[slot]);
+            glUniform2f(rr->uViewWH_solid[slot], (GLfloat)rr->view_w, (GLfloat)rr->view_h);
+            glUniform4f(uc, BTN_COL[i][0], BTN_COL[i][1], BTN_COL[i][2], BTN_COL[i][3]);
+            glGenBuffers(1, &rr->vbo_sel[slot]);
+            glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
+            glBufferData(GL_ARRAY_BUFFER, sizeof(bq), bq, GL_DYNAMIC_DRAW);
+            rs_bind_vbo(rr->vbo_sel[slot]);
+            glDrawArrays(GL_TRIANGLES, 0, 6);
+            rs_unbind_vbo();
+            glDeleteBuffers(1, &rr->vbo_sel[slot]);
+            rr->vbo_sel[slot] = 0;
+        }
         /* 按钮文字（row8=载入 row6=删除 row3=取消，按钮内居中） */
         if (rr->tex_layres_text[slot] && rr->prog_tex[slot] &&
             rr->layres_text_w > 0 && rr->layres_text_h > 0) {
@@ -3564,62 +3328,11 @@ static void rs_draw_login(rs_render *rr, int slot)
     rs_ui_scale(rr, &sx, &yoff);
     sy = sx;
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
-    /* ⓪ 背景：主菜单背景（登录弹窗是主菜单上的模态框，datah_072 方式弹窗"个人资料"弹出） */
-    if (rr->tex_menu_bg[slot] && rr->prog_tex[slot]) {
-        float w = (float)rr->view_w, h = (float)rr->view_h;
-        rs_v4f bg[6] = {
-            {0, 0, 0, 0}, {w, 0, 1, 0}, {0, h, 0, 1},
-            {0, h, 0, 1}, {w, 0, 1, 0}, {w, h, 1, 1},
-        };
-        glUseProgram(rr->prog_tex[slot]);
-        glUniform2f(rr->uViewWH_tex[slot], (GLfloat)rr->view_w, (GLfloat)rr->view_h);
-        glUniform1i(glGetUniformLocation(rr->prog_tex[slot], "uTex"), 0);
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, rr->tex_menu_bg[slot]);
-        glGenBuffers(1, &rr->vbo_sel[slot]);
-        glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
-        glBufferData(GL_ARRAY_BUFFER, sizeof(bg), bg, GL_DYNAMIC_DRAW);
-        rs_bind_vbo(rr->vbo_sel[slot]);
-        glDrawArrays(GL_TRIANGLES, 0, 6);
-        rs_unbind_vbo();
-        glDeleteBuffers(1, &rr->vbo_sel[slot]);
-        rr->vbo_sel[slot] = 0;
-    }
-    /* ① 全屏模态遮罩（半透明黑，聚焦弹窗） */
-    rs_v4f mq[6] = {
-        {0, 0, 0, 0}, {(float)rr->view_w, 0, 0, 0}, {0, (float)rr->view_h, 0, 0},
-        {0, (float)rr->view_h, 0, 0}, {(float)rr->view_w, 0, 0, 0},
-        {(float)rr->view_w, (float)rr->view_h, 0, 0},
-    };
-    glUseProgram(rr->prog_solid[slot]);
-    glUniform2f(rr->uViewWH_solid[slot], (GLfloat)rr->view_w, (GLfloat)rr->view_h);
-    glUniform4f(uc, 0.0f, 0.0f, 0.0f, 0.35f);
-    glGenBuffers(1, &rr->vbo_sel[slot]);
-    glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(mq), mq, GL_DYNAMIC_DRAW);
-    rs_bind_vbo(rr->vbo_sel[slot]);
-    glDrawArrays(GL_TRIANGLES, 0, 6);
-    rs_unbind_vbo();
-    glDeleteBuffers(1, &rr->vbo_sel[slot]);
-    rr->vbo_sel[slot] = 0;
-    /* ② 面板：深色半透明矩形（datah_038 432×285 居中，720 基准 144,497.5-576,782.5） */
-    float px0 = UI_LOGIN_POPUP_X0 * sx, py0 = UI_LOGIN_POPUP_Y0 * sy + yoff;
-    float pw = UI_LOGIN_POPUP_W * sx, ph = UI_LOGIN_POPUP_H * sy;
-    rs_v4f pq[6] = {
-        {px0, py0, 0, 0}, {px0 + pw, py0, 0, 0}, {px0, py0 + ph, 0, 0},
-        {px0, py0 + ph, 0, 0}, {px0 + pw, py0, 0, 0}, {px0 + pw, py0 + ph, 0, 0},
-    };
-    glUseProgram(rr->prog_solid[slot]);
-    glUniform2f(rr->uViewWH_solid[slot], (GLfloat)rr->view_w, (GLfloat)rr->view_h);
-    glUniform4f(uc, 0.08f, 0.08f, 0.10f, 0.78f);
-    glGenBuffers(1, &rr->vbo_sel[slot]);
-    glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(pq), pq, GL_DYNAMIC_DRAW);
-    rs_bind_vbo(rr->vbo_sel[slot]);
-    glDrawArrays(GL_TRIANGLES, 0, 6);
-    rs_unbind_vbo();
-    glDeleteBuffers(1, &rr->vbo_sel[slot]);
-    rr->vbo_sel[slot] = 0;
+    /* ⓪①② 背景+遮罩+面板：★ 2026-11-13 改用 rs_popup_shell（统一弹窗皮肤：
+       主菜单背景 + 遮罩 + 米色渐变面板，替换旧深色半透明矩形）。
+       原版 datah_038 面板 = Dialog style（弹窗皮肤方向）。 */
+    rs_popup_shell(rr, slot, UI_LOGIN_POPUP_X0, UI_LOGIN_POPUP_Y0,
+                   UI_LOGIN_POPUP_W, UI_LOGIN_POPUP_H, 1, uc);
     /* ③ 标题"登录"（login_text row0，面板顶部 285,512-435,558 720 基准区） */
     rs_login_text(rr, slot, 285.0f, 512.0f, 150.0f, 46.0f, 0, uc);
     /* ④ 用户名/密码 占位 EditLabel（矩形浅色底 + 占位文字，★ 诚实边界：不画真输入框） */
@@ -3669,34 +3382,44 @@ static void rs_draw_login(rs_render *rr, int slot)
             rr->vbo_sel[slot] = 0;
         }
     }
-    /* ⑤ 4 按钮：登录（蓝）/ 注册（绿）/ 游客（金）/ 返回（灰）纯色 */
-    static const float BTN_COL[4][4] = {
-        {0.20f, 0.45f, 0.90f, 0.9f},   /* 登录 蓝 */
-        {0.30f, 0.70f, 0.50f, 0.9f},   /* 注册 绿 */
-        {0.95f, 0.80f, 0.20f, 0.9f},   /* 游客 金（本地单机唯一真生效路径） */
-        {0.55f, 0.55f, 0.60f, 0.9f},   /* 返回 灰 */
-    };
-    /* AUD-A-0021/0022（P2 诚实标注，探针误报）：循环 i∈[2, UI_LOGIN_COUNT)，
-       BTN_COL 定维 [UI_LOGIN_COUNT-2]（4 按钮色表），i-2∈[0,4) 恒合法；
-       探针不识别 `i 非 0 起 + 减法下标` 的边界，误报。 */
+    /* ⑤ 4 按钮：登录/注册/游客/返回。
+       ★ 2026-11-13 逆向实锤纠正：原版 datah_038 全部 4 个 Button style→btn.cfg→
+       btn.png 蓝渐变 9-patch（datah_207 正常态），替换旧纯色（登录蓝/注册绿/
+       游客金/返回灰，原版 4 按钮同款蓝渐变无彩色区分）。 */
+    int has_skin = (rr->tex_btn_skin[0][slot] && rr->prog_tex[slot]);
     for (int i = 2; i < UI_LOGIN_COUNT; i++) {
         float bx0 = lb[i].x0 * sx, by0 = lb[i].y0 * sy + yoff;
         float bx1 = lb[i].x1 * sx, by1 = lb[i].y1 * sy + yoff;
-        rs_v4f bq[6] = {
-            {bx0, by0, 0, 0}, {bx1, by0, 0, 0}, {bx0, by1, 0, 0},
-            {bx0, by1, 0, 0}, {bx1, by0, 0, 0}, {bx1, by1, 0, 0},
-        };
-        glUseProgram(rr->prog_solid[slot]);
-        glUniform2f(rr->uViewWH_solid[slot], (GLfloat)rr->view_w, (GLfloat)rr->view_h);
-        glUniform4f(uc, BTN_COL[i - 2][0], BTN_COL[i - 2][1], BTN_COL[i - 2][2], BTN_COL[i - 2][3]);
-        glGenBuffers(1, &rr->vbo_sel[slot]);
-        glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
-        glBufferData(GL_ARRAY_BUFFER, sizeof(bq), bq, GL_DYNAMIC_DRAW);
-        rs_bind_vbo(rr->vbo_sel[slot]);
-        glDrawArrays(GL_TRIANGLES, 0, 6);
-        rs_unbind_vbo();
-        glDeleteBuffers(1, &rr->vbo_sel[slot]);
-        rr->vbo_sel[slot] = 0;
+        if (has_skin) {
+            rs_draw_btn9patch(rr, slot, lb[i].x0, lb[i].y0, lb[i].x1, lb[i].y1,
+                              rr->tex_btn_skin[0][slot],
+                              jq_btn_normal_w, jq_btn_normal_h,
+                              JQ_BTN_9PATCH_L, JQ_BTN_9PATCH_T,
+                              JQ_BTN_9PATCH_R, JQ_BTN_9PATCH_B);
+        } else {
+            /* 退化：纹理未加载 → 纯色（旧实现） */
+            static const float BTN_COL[4][4] = {
+                {0.20f, 0.45f, 0.90f, 0.9f},   /* 登录 蓝 */
+                {0.30f, 0.70f, 0.50f, 0.9f},   /* 注册 绿 */
+                {0.95f, 0.80f, 0.20f, 0.9f},   /* 游客 金（本地单机唯一真生效路径） */
+                {0.55f, 0.55f, 0.60f, 0.9f},   /* 返回 灰 */
+            };
+            rs_v4f bq[6] = {
+                {bx0, by0, 0, 0}, {bx1, by0, 0, 0}, {bx0, by1, 0, 0},
+                {bx0, by1, 0, 0}, {bx1, by0, 0, 0}, {bx1, by1, 0, 0},
+            };
+            glUseProgram(rr->prog_solid[slot]);
+            glUniform2f(rr->uViewWH_solid[slot], (GLfloat)rr->view_w, (GLfloat)rr->view_h);
+            glUniform4f(uc, BTN_COL[i - 2][0], BTN_COL[i - 2][1], BTN_COL[i - 2][2], BTN_COL[i - 2][3]);
+            glGenBuffers(1, &rr->vbo_sel[slot]);
+            glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
+            glBufferData(GL_ARRAY_BUFFER, sizeof(bq), bq, GL_DYNAMIC_DRAW);
+            rs_bind_vbo(rr->vbo_sel[slot]);
+            glDrawArrays(GL_TRIANGLES, 0, 6);
+            rs_unbind_vbo();
+            glDeleteBuffers(1, &rr->vbo_sel[slot]);
+            rr->vbo_sel[slot] = 0;
+        }
         /* 按钮文字（row3=注册 row4=游客 row5=返回；登录文字 row1 已画在用户名框，
            登录按钮文字用 row6"账户"占位——★ 诚实边界：登录/注册 未逆向服务器协议） */
         int row_idx = (i == 2) ? 6 : (i == 3 ? 3 : (i == 4 ? 4 : 5));
@@ -3781,89 +3504,51 @@ static void rs_draw_rules(rs_render *rr, int slot)
     rs_ui_scale(rr, &sx, &yoff);
     sy = sx;
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
-    /* ⓪ 背景：主菜单背景（规则文本弹窗是主菜单上的模态框） */
-    if (rr->tex_menu_bg[slot] && rr->prog_tex[slot]) {
-        float w = (float)rr->view_w, h = (float)rr->view_h;
-        rs_v4f bg[6] = {
-            {0, 0, 0, 0}, {w, 0, 1, 0}, {0, h, 0, 1},
-            {0, h, 0, 1}, {w, 0, 1, 0}, {w, h, 1, 1},
-        };
-        glUseProgram(rr->prog_tex[slot]);
-        glUniform2f(rr->uViewWH_tex[slot], (GLfloat)rr->view_w, (GLfloat)rr->view_h);
-        glUniform1i(glGetUniformLocation(rr->prog_tex[slot], "uTex"), 0);
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, rr->tex_menu_bg[slot]);
-        glGenBuffers(1, &rr->vbo_sel[slot]);
-        glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
-        glBufferData(GL_ARRAY_BUFFER, sizeof(bg), bg, GL_DYNAMIC_DRAW);
-        rs_bind_vbo(rr->vbo_sel[slot]);
-        glDrawArrays(GL_TRIANGLES, 0, 6);
-        rs_unbind_vbo();
-        glDeleteBuffers(1, &rr->vbo_sel[slot]);
-        rr->vbo_sel[slot] = 0;
-    }
-    /* ① 全屏模态遮罩 */
-    rs_v4f mq[6] = {
-        {0, 0, 0, 0}, {(float)rr->view_w, 0, 0, 0}, {0, (float)rr->view_h, 0, 0},
-        {0, (float)rr->view_h, 0, 0}, {(float)rr->view_w, 0, 0, 0},
-        {(float)rr->view_w, (float)rr->view_h, 0, 0},
-    };
-    glUseProgram(rr->prog_solid[slot]);
-    glUniform2f(rr->uViewWH_solid[slot], (GLfloat)rr->view_w, (GLfloat)rr->view_h);
-    glUniform4f(uc, 0.0f, 0.0f, 0.0f, 0.35f);
-    glGenBuffers(1, &rr->vbo_sel[slot]);
-    glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(mq), mq, GL_DYNAMIC_DRAW);
-    rs_bind_vbo(rr->vbo_sel[slot]);
-    glDrawArrays(GL_TRIANGLES, 0, 6);
-    rs_unbind_vbo();
-    glDeleteBuffers(1, &rr->vbo_sel[slot]);
-    rr->vbo_sel[slot] = 0;
-    /* ② 面板：深色半透明矩形（datah_037 260×270 居中，720 基准 230,505-490,775） */
-    float px0 = UI_RULES_POPUP_X0 * sx, py0 = UI_RULES_POPUP_Y0 * sy + yoff;
-    float pw = UI_RULES_POPUP_W * sx, ph = UI_RULES_POPUP_H * sy;
-    rs_v4f pq[6] = {
-        {px0, py0, 0, 0}, {px0 + pw, py0, 0, 0}, {px0, py0 + ph, 0, 0},
-        {px0, py0 + ph, 0, 0}, {px0 + pw, py0, 0, 0}, {px0 + pw, py0 + ph, 0, 0},
-    };
-    glUseProgram(rr->prog_solid[slot]);
-    glUniform2f(rr->uViewWH_solid[slot], (GLfloat)rr->view_w, (GLfloat)rr->view_h);
-    glUniform4f(uc, 0.08f, 0.08f, 0.10f, 0.78f);
-    glGenBuffers(1, &rr->vbo_sel[slot]);
-    glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(pq), pq, GL_DYNAMIC_DRAW);
-    rs_bind_vbo(rr->vbo_sel[slot]);
-    glDrawArrays(GL_TRIANGLES, 0, 6);
-    rs_unbind_vbo();
-    glDeleteBuffers(1, &rr->vbo_sel[slot]);
-    rr->vbo_sel[slot] = 0;
+    /* ⓪①② 背景+遮罩+面板：★ 2026-11-13 改用 rs_popup_shell（统一弹窗皮肤：
+       主菜单背景 + 遮罩 + 米色渐变面板，替换旧深色半透明矩形）。
+       原版 datah_037 面板 = Dialog style image="popup.cfg"。 */
+    rs_popup_shell(rr, slot, UI_RULES_POPUP_X0, UI_RULES_POPUP_Y0,
+                   UI_RULES_POPUP_W, UI_RULES_POPUP_H, 1, uc);
     /* ③ 标题"规则"（rules_text row0，面板顶部 310,520-440,566 720 基准区） */
     rs_rules_text(rr, slot, 310.0f, 520.0f, 130.0f, 46.0f, 0, uc);
-    /* ④ 3 按钮：规则-翻棋（紫）/ 规则-布局（蓝）/ 返回（灰）纯色 */
-    static const float BTN_COL[3][4] = {
-        {0.45f, 0.30f, 0.75f, 0.9f},   /* 规则-翻棋 紫 */
-        {0.20f, 0.45f, 0.90f, 0.9f},   /* 规则-布局 蓝 */
-        {0.55f, 0.55f, 0.60f, 0.9f},   /* 返回 灰 */
-    };
+    /* ④ 3 按钮：规则-翻棋/规则-布局/返回。
+       ★ 2026-11-13 逆向实锤纠正：原版 datah_037 全部 3 个 Button style→btn.cfg→
+       btn.png 蓝渐变 9-patch（datah_207 正常态），替换旧纯色（翻棋紫/布局蓝/
+       返回灰，原版 3 按钮同款蓝渐变无彩色区分）。 */
     const ui_rules_btn *rb = ui_rules_buttons();
+    int has_skin = (rr->tex_btn_skin[0][slot] && rr->prog_tex[slot]);
     for (int i = 0; i < UI_RULES_COUNT; i++) {
         float bx0 = rb[i].x0 * sx, by0 = rb[i].y0 * sy + yoff;
         float bx1 = rb[i].x1 * sx, by1 = rb[i].y1 * sy + yoff;
-        rs_v4f bq[6] = {
-            {bx0, by0, 0, 0}, {bx1, by0, 0, 0}, {bx0, by1, 0, 0},
-            {bx0, by1, 0, 0}, {bx1, by0, 0, 0}, {bx1, by1, 0, 0},
-        };
-        glUseProgram(rr->prog_solid[slot]);
-        glUniform2f(rr->uViewWH_solid[slot], (GLfloat)rr->view_w, (GLfloat)rr->view_h);
-        glUniform4f(uc, BTN_COL[i][0], BTN_COL[i][1], BTN_COL[i][2], BTN_COL[i][3]);
-        glGenBuffers(1, &rr->vbo_sel[slot]);
-        glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
-        glBufferData(GL_ARRAY_BUFFER, sizeof(bq), bq, GL_DYNAMIC_DRAW);
-        rs_bind_vbo(rr->vbo_sel[slot]);
-        glDrawArrays(GL_TRIANGLES, 0, 6);
-        rs_unbind_vbo();
-        glDeleteBuffers(1, &rr->vbo_sel[slot]);
-        rr->vbo_sel[slot] = 0;
+        if (has_skin) {
+            rs_draw_btn9patch(rr, slot, rb[i].x0, rb[i].y0, rb[i].x1, rb[i].y1,
+                              rr->tex_btn_skin[0][slot],
+                              jq_btn_normal_w, jq_btn_normal_h,
+                              JQ_BTN_9PATCH_L, JQ_BTN_9PATCH_T,
+                              JQ_BTN_9PATCH_R, JQ_BTN_9PATCH_B);
+        } else {
+            /* 退化：纹理未加载 → 纯色（旧实现） */
+            static const float BTN_COL[3][4] = {
+                {0.45f, 0.30f, 0.75f, 0.9f},   /* 规则-翻棋 紫 */
+                {0.20f, 0.45f, 0.90f, 0.9f},   /* 规则-布局 蓝 */
+                {0.55f, 0.55f, 0.60f, 0.9f},   /* 返回 灰 */
+            };
+            rs_v4f bq[6] = {
+                {bx0, by0, 0, 0}, {bx1, by0, 0, 0}, {bx0, by1, 0, 0},
+                {bx0, by1, 0, 0}, {bx1, by0, 0, 0}, {bx1, by1, 0, 0},
+            };
+            glUseProgram(rr->prog_solid[slot]);
+            glUniform2f(rr->uViewWH_solid[slot], (GLfloat)rr->view_w, (GLfloat)rr->view_h);
+            glUniform4f(uc, BTN_COL[i][0], BTN_COL[i][1], BTN_COL[i][2], BTN_COL[i][3]);
+            glGenBuffers(1, &rr->vbo_sel[slot]);
+            glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
+            glBufferData(GL_ARRAY_BUFFER, sizeof(bq), bq, GL_DYNAMIC_DRAW);
+            rs_bind_vbo(rr->vbo_sel[slot]);
+            glDrawArrays(GL_TRIANGLES, 0, 6);
+            rs_unbind_vbo();
+            glDeleteBuffers(1, &rr->vbo_sel[slot]);
+            rr->vbo_sel[slot] = 0;
+        }
         /* 按钮文字（row1=翻棋 row2=布局 row3=工兵 占位，按钮内居中；★ 诚实边界：
            规则文本简化版，row3 工兵标签占位） */
         int row_idx = (i == 0) ? 1 : (i == 1 ? 2 : 3);
@@ -3948,74 +3633,42 @@ static void rs_draw_newgame104(rs_render *rr, int slot)
     rs_ui_scale(rr, &sx, &yoff);
     sy = sx;
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
-    /* ⓪ 背景：主菜单背景（新局完整版弹窗是主菜单上的模态框） */
-    if (rr->tex_menu_bg[slot] && rr->prog_tex[slot]) {
-        float w = (float)rr->view_w, h = (float)rr->view_h;
-        rs_v4f bg[6] = {
-            {0, 0, 0, 0}, {w, 0, 1, 0}, {0, h, 0, 1},
-            {0, h, 0, 1}, {w, 0, 1, 0}, {w, h, 1, 1},
-        };
-        glUseProgram(rr->prog_tex[slot]);
-        glUniform2f(rr->uViewWH_tex[slot], (GLfloat)rr->view_w, (GLfloat)rr->view_h);
-        glUniform1i(glGetUniformLocation(rr->prog_tex[slot], "uTex"), 0);
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, rr->tex_menu_bg[slot]);
-        glGenBuffers(1, &rr->vbo_sel[slot]);
-        glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
-        glBufferData(GL_ARRAY_BUFFER, sizeof(bg), bg, GL_DYNAMIC_DRAW);
-        rs_bind_vbo(rr->vbo_sel[slot]);
-        glDrawArrays(GL_TRIANGLES, 0, 6);
-        rs_unbind_vbo();
-        glDeleteBuffers(1, &rr->vbo_sel[slot]);
-        rr->vbo_sel[slot] = 0;
-    }
-    /* ① 全屏模态遮罩 */
-    rs_v4f mq[6] = {
-        {0, 0, 0, 0}, {(float)rr->view_w, 0, 0, 0}, {0, (float)rr->view_h, 0, 0},
-        {0, (float)rr->view_h, 0, 0}, {(float)rr->view_w, 0, 0, 0},
-        {(float)rr->view_w, (float)rr->view_h, 0, 0},
-    };
-    glUseProgram(rr->prog_solid[slot]);
-    glUniform2f(rr->uViewWH_solid[slot], (GLfloat)rr->view_w, (GLfloat)rr->view_h);
-    glUniform4f(uc, 0.0f, 0.0f, 0.0f, 0.35f);
-    glGenBuffers(1, &rr->vbo_sel[slot]);
-    glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(mq), mq, GL_DYNAMIC_DRAW);
-    rs_bind_vbo(rr->vbo_sel[slot]);
-    glDrawArrays(GL_TRIANGLES, 0, 6);
-    rs_unbind_vbo();
-    glDeleteBuffers(1, &rr->vbo_sel[slot]);
-    rr->vbo_sel[slot] = 0;
-    /* ② 面板：深色半透明矩形（datah_104 450×390 居中，720 基准 135,445-585,835） */
-    float px0 = UI_NEWGAME104_POPUP_X0 * sx, py0 = UI_NEWGAME104_POPUP_Y0 * sy + yoff;
-    float pw = UI_NEWGAME104_POPUP_W * sx, ph = UI_NEWGAME104_POPUP_H * sy;
-    rs_v4f pq[6] = {
-        {px0, py0, 0, 0}, {px0 + pw, py0, 0, 0}, {px0, py0 + ph, 0, 0},
-        {px0, py0 + ph, 0, 0}, {px0 + pw, py0, 0, 0}, {px0 + pw, py0 + ph, 0, 0},
-    };
-    glUseProgram(rr->prog_solid[slot]);
-    glUniform2f(rr->uViewWH_solid[slot], (GLfloat)rr->view_w, (GLfloat)rr->view_h);
-    glUniform4f(uc, 0.08f, 0.08f, 0.10f, 0.78f);
-    glGenBuffers(1, &rr->vbo_sel[slot]);
-    glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(pq), pq, GL_DYNAMIC_DRAW);
-    rs_bind_vbo(rr->vbo_sel[slot]);
-    glDrawArrays(GL_TRIANGLES, 0, 6);
-    rs_unbind_vbo();
-    glDeleteBuffers(1, &rr->vbo_sel[slot]);
-    rr->vbo_sel[slot] = 0;
+    /* ⓪①② 背景+遮罩+面板：★ 2026-11-13 改用 rs_popup_shell（统一弹窗皮肤：
+       主菜单背景 + 遮罩 + 米色渐变面板，替换旧深色半透明矩形）。
+       原版 datah_104 面板 = Dialog style（弹窗皮肤方向）。 */
+    rs_popup_shell(rr, slot, UI_NEWGAME104_POPUP_X0, UI_NEWGAME104_POPUP_Y0,
+                   UI_NEWGAME104_POPUP_W, UI_NEWGAME104_POPUP_H, 1, uc);
     /* ③ 标题"新局"（ng104_text row0，面板顶部 285,460-435,506 720 基准区） */
     rs_ng104_text(rr, slot, 285.0f, 460.0f, 150.0f, 46.0f, 0, uc);
-    /* ④ 5 控件：我方/电脑水平/玩法（当前值高亮金色）+ 确定/取消（纯色） */
-    static const float BTN_COL[5][4] = {
-        {0.45f, 0.30f, 0.75f, 0.9f},   /* 我方 紫 */
-        {0.45f, 0.30f, 0.75f, 0.9f},   /* 电脑水平 紫 */
-        {0.45f, 0.30f, 0.75f, 0.9f},   /* 玩法 紫 */
-        {0.20f, 0.45f, 0.90f, 0.9f},   /* 确定 蓝 */
-        {0.55f, 0.55f, 0.60f, 0.9f},   /* 取消 灰 */
-    };
+    /* ④ 5 控件：我方/电脑水平/玩法（当前值高亮金色）+ 确定/取消。
+       ★ 2026-11-13 逆向实锤纠正：原版 datah_104 全部 5 个 Button style→btn.cfg→
+       btn.png 蓝渐变 9-patch（datah_207 正常态），替换旧纯色（3 选择 紫/确定 蓝/
+       取消 灰）+ 金色选中高亮（原版无此样式）。
+       3 选择按钮当前值用按下态（稍亮）区分，其余正常态。 */
     const ui_newgame104_btn *nb = ui_newgame104_buttons();
+    int cur_level = ui_opt_get_level(), cur_mode = ui_opt_get_mode();
+    int has_skin = (rr->tex_btn_skin[0][slot] && rr->prog_tex[slot]);
     for (int i = 0; i < UI_NEWGAME104_COUNT; i++) {
+        /* 3 选择按钮：我方=蓝方(0)、电脑水平=当前等级、玩法=当前模式（按下态区分） */
+        int sel = 0;
+        if (i == 1) sel = (cur_level == 2 || cur_level == 3);  /* 中级/高级 选中 */
+        else if (i == 2) sel = (cur_mode == 1);                /* 翻棋暗棋 选中 */
+        if (has_skin) {
+            rs_draw_btn9patch(rr, slot, nb[i].x0, nb[i].y0, nb[i].x1, nb[i].y1,
+                              rr->tex_btn_skin[sel ? 1 : 0][slot],
+                              jq_btn_normal_w, jq_btn_normal_h,
+                              JQ_BTN_9PATCH_L, JQ_BTN_9PATCH_T,
+                              JQ_BTN_9PATCH_R, JQ_BTN_9PATCH_B);
+            continue;
+        }
+        /* 退化：纹理未加载 → 纯色（旧实现） */
+        static const float BTN_COL[5][4] = {
+            {0.45f, 0.30f, 0.75f, 0.9f},   /* 我方 紫 */
+            {0.45f, 0.30f, 0.75f, 0.9f},   /* 电脑水平 紫 */
+            {0.45f, 0.30f, 0.75f, 0.9f},   /* 玩法 紫 */
+            {0.20f, 0.45f, 0.90f, 0.9f},   /* 确定 蓝 */
+            {0.55f, 0.55f, 0.60f, 0.9f},   /* 取消 灰 */
+        };
         float bx0 = nb[i].x0 * sx, by0 = nb[i].y0 * sy + yoff;
         float bx1 = nb[i].x1 * sx, by1 = nb[i].y1 * sy + yoff;
         rs_v4f bq[6] = {
@@ -4033,23 +3686,6 @@ static void rs_draw_newgame104(rs_render *rr, int slot)
         rs_unbind_vbo();
         glDeleteBuffers(1, &rr->vbo_sel[slot]);
         rr->vbo_sel[slot] = 0;
-        /* 3 选择按钮：当前值金色高亮（非选中的画普通色） */
-        if (i < 3) {
-            float cr = 1.0f, cg = 0.85f, cb = 0.2f;
-            glUniform4f(uc, cr, cg, cb, 0.15f);
-            rs_v4f oq[6] = {
-                {bx0 - 4*sx, by0 - 4*sy, 0, 0}, {bx1 + 4*sx, by0 - 4*sy, 0, 0}, {bx0 - 4*sx, by1 + 4*sy, 0, 0},
-                {bx0 - 4*sx, by1 + 4*sy, 0, 0}, {bx1 + 4*sx, by0 - 4*sy, 0, 0}, {bx1 + 4*sx, by1 + 4*sy, 0, 0},
-            };
-            glGenBuffers(1, &rr->vbo_sel[slot]);
-            glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
-            glBufferData(GL_ARRAY_BUFFER, sizeof(oq), oq, GL_DYNAMIC_DRAW);
-            rs_bind_vbo(rr->vbo_sel[slot]);
-            glDrawArrays(GL_TRIANGLES, 0, 6);
-            rs_unbind_vbo();
-            glDeleteBuffers(1, &rr->vbo_sel[slot]);
-            rr->vbo_sel[slot] = 0;
-        }
     }
     /* ⑤ 文字：标签列（我方:/电脑水平:/玩法: 3 项）+ 当前值标签 + 确定/取消
        （ng104_text_atlas 10 行：row0=新局 row1=我方 row2=电脑 row3=玩法
@@ -4199,62 +3835,11 @@ static void rs_draw_join(rs_render *rr, int slot, int is_create)
     rs_ui_scale(rr, &sx, &yoff);
     sy = sx;
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
-    /* ⓪ 背景：主菜单背景（加入/创建弹窗是主菜单上的模态框） */
-    if (rr->tex_menu_bg[slot] && rr->prog_tex[slot]) {
-        float w = (float)rr->view_w, h = (float)rr->view_h;
-        rs_v4f bg[6] = {
-            {0, 0, 0, 0}, {w, 0, 1, 0}, {0, h, 0, 1},
-            {0, h, 0, 1}, {w, 0, 1, 0}, {w, h, 1, 1},
-        };
-        glUseProgram(rr->prog_tex[slot]);
-        glUniform2f(rr->uViewWH_tex[slot], (GLfloat)rr->view_w, (GLfloat)rr->view_h);
-        glUniform1i(glGetUniformLocation(rr->prog_tex[slot], "uTex"), 0);
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, rr->tex_menu_bg[slot]);
-        glGenBuffers(1, &rr->vbo_sel[slot]);
-        glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
-        glBufferData(GL_ARRAY_BUFFER, sizeof(bg), bg, GL_DYNAMIC_DRAW);
-        rs_bind_vbo(rr->vbo_sel[slot]);
-        glDrawArrays(GL_TRIANGLES, 0, 6);
-        rs_unbind_vbo();
-        glDeleteBuffers(1, &rr->vbo_sel[slot]);
-        rr->vbo_sel[slot] = 0;
-    }
-    /* ① 全屏模态遮罩 */
-    rs_v4f mq[6] = {
-        {0, 0, 0, 0}, {(float)rr->view_w, 0, 0, 0}, {0, (float)rr->view_h, 0, 0},
-        {0, (float)rr->view_h, 0, 0}, {(float)rr->view_w, 0, 0, 0},
-        {(float)rr->view_w, (float)rr->view_h, 0, 0},
-    };
-    glUseProgram(rr->prog_solid[slot]);
-    glUniform2f(rr->uViewWH_solid[slot], (GLfloat)rr->view_w, (GLfloat)rr->view_h);
-    glUniform4f(uc, 0.0f, 0.0f, 0.0f, 0.35f);
-    glGenBuffers(1, &rr->vbo_sel[slot]);
-    glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(mq), mq, GL_DYNAMIC_DRAW);
-    rs_bind_vbo(rr->vbo_sel[slot]);
-    glDrawArrays(GL_TRIANGLES, 0, 6);
-    rs_unbind_vbo();
-    glDeleteBuffers(1, &rr->vbo_sel[slot]);
-    rr->vbo_sel[slot] = 0;
-    /* ② 面板：深色半透明矩形（datah_034/035 420×235 居中，720 基准 150,522.5-570,757.5） */
-    float px0 = UI_JOIN_POPUP_X0 * sx, py0 = UI_JOIN_POPUP_Y0 * sy + yoff;
-    float pw = UI_JOIN_POPUP_W * sx, ph = UI_JOIN_POPUP_H * sy;
-    rs_v4f pq[6] = {
-        {px0, py0, 0, 0}, {px0 + pw, py0, 0, 0}, {px0, py0 + ph, 0, 0},
-        {px0, py0 + ph, 0, 0}, {px0 + pw, py0, 0, 0}, {px0 + pw, py0 + ph, 0, 0},
-    };
-    glUseProgram(rr->prog_solid[slot]);
-    glUniform2f(rr->uViewWH_solid[slot], (GLfloat)rr->view_w, (GLfloat)rr->view_h);
-    glUniform4f(uc, 0.08f, 0.08f, 0.10f, 0.78f);
-    glGenBuffers(1, &rr->vbo_sel[slot]);
-    glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(pq), pq, GL_DYNAMIC_DRAW);
-    rs_bind_vbo(rr->vbo_sel[slot]);
-    glDrawArrays(GL_TRIANGLES, 0, 6);
-    rs_unbind_vbo();
-    glDeleteBuffers(1, &rr->vbo_sel[slot]);
-    rr->vbo_sel[slot] = 0;
+    /* ⓪①② 背景+遮罩+面板：★ 2026-11-13 改用 rs_popup_shell（统一弹窗皮肤：
+       主菜单背景 + 遮罩 + 米色渐变面板，替换旧深色半透明矩形）。
+       原版 datah_034/035 面板 = Dialog style（弹窗皮肤方向）。 */
+    rs_popup_shell(rr, slot, UI_JOIN_POPUP_X0, UI_JOIN_POPUP_Y0,
+                   UI_JOIN_POPUP_W, UI_JOIN_POPUP_H, 1, uc);
     /* ③ 标题"加入"/"创建"（join_text row0=加入 row1=创建，面板顶部 310,537-440,583 720 基准区） */
     int title_row = is_create ? 1 : 0;
     rs_join_text(rr, slot, 310.0f, 537.0f, 130.0f, 46.0f, title_row, uc);
@@ -4313,31 +3898,47 @@ static void rs_draw_join(rs_render *rr, int slot, int is_create)
         rr->vbo_sel[slot] = 0;
     }
     /* ⑤ 确定/取消 2 按钮：确定（蓝）/ 取消（灰）纯色 + 文字 */
-    static const float BTN_COL[2][4] = {
-        {0.20f, 0.45f, 0.90f, 0.9f},   /* 确定 蓝 */
-        {0.55f, 0.55f, 0.60f, 0.9f},   /* 取消 灰 */
-    };
+    int has_skin = (rr->tex_btn_skin[0][slot] && rr->prog_tex[slot]);
     for (int i = 1; i < UI_JOIN_COUNT; i++) {
         float ox0 = (is_create ? cb[i].x0 : jb[i].x0) * sx;
         float oy0 = (is_create ? cb[i].y0 : jb[i].y0) * sy + yoff;
         float ox1 = (is_create ? cb[i].x1 : jb[i].x1) * sx;
         float oy1 = (is_create ? cb[i].y1 : jb[i].y1) * sy + yoff;
         int bidx = i - 1;   /* 0=确定 1=取消 */
-        rs_v4f bq[6] = {
-            {ox0, oy0, 0, 0}, {ox1, oy0, 0, 0}, {ox0, oy1, 0, 0},
-            {ox0, oy1, 0, 0}, {ox1, oy0, 0, 0}, {ox1, oy1, 0, 0},
-        };
-        glUseProgram(rr->prog_solid[slot]);
-        glUniform2f(rr->uViewWH_solid[slot], (GLfloat)rr->view_w, (GLfloat)rr->view_h);
-        glUniform4f(uc, BTN_COL[bidx][0], BTN_COL[bidx][1], BTN_COL[bidx][2], BTN_COL[bidx][3]);
-        glGenBuffers(1, &rr->vbo_sel[slot]);
-        glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
-        glBufferData(GL_ARRAY_BUFFER, sizeof(bq), bq, GL_DYNAMIC_DRAW);
-        rs_bind_vbo(rr->vbo_sel[slot]);
-        glDrawArrays(GL_TRIANGLES, 0, 6);
-        rs_unbind_vbo();
-        glDeleteBuffers(1, &rr->vbo_sel[slot]);
-        rr->vbo_sel[slot] = 0;
+        if (has_skin) {
+            /* ★ 2026-11-13 逆向实锤纠正：原版 datah_034/035 确定/取消 Button style→
+               btn.cfg→btn.png 蓝渐变 9-patch（datah_207 正常态），替换旧纯色（确定蓝/取消灰）。 */
+            rs_draw_btn9patch(rr, slot,
+                              is_create ? cb[i].x0 : jb[i].x0,
+                              is_create ? cb[i].y0 : jb[i].y0,
+                              is_create ? cb[i].x1 : jb[i].x1,
+                              is_create ? cb[i].y1 : jb[i].y1,
+                              rr->tex_btn_skin[0][slot],
+                              jq_btn_normal_w, jq_btn_normal_h,
+                              JQ_BTN_9PATCH_L, JQ_BTN_9PATCH_T,
+                              JQ_BTN_9PATCH_R, JQ_BTN_9PATCH_B);
+        } else {
+            /* 退化：纹理未加载 → 纯色（旧实现） */
+            static const float BTN_COL[2][4] = {
+                {0.20f, 0.45f, 0.90f, 0.9f},   /* 确定 蓝 */
+                {0.55f, 0.55f, 0.60f, 0.9f},   /* 取消 灰 */
+            };
+            rs_v4f bq[6] = {
+                {ox0, oy0, 0, 0}, {ox1, oy0, 0, 0}, {ox0, oy1, 0, 0},
+                {ox0, oy1, 0, 0}, {ox1, oy0, 0, 0}, {ox1, oy1, 0, 0},
+            };
+            glUseProgram(rr->prog_solid[slot]);
+            glUniform2f(rr->uViewWH_solid[slot], (GLfloat)rr->view_w, (GLfloat)rr->view_h);
+            glUniform4f(uc, BTN_COL[bidx][0], BTN_COL[bidx][1], BTN_COL[bidx][2], BTN_COL[bidx][3]);
+            glGenBuffers(1, &rr->vbo_sel[slot]);
+            glBindBuffer(GL_ARRAY_BUFFER, rr->vbo_sel[slot]);
+            glBufferData(GL_ARRAY_BUFFER, sizeof(bq), bq, GL_DYNAMIC_DRAW);
+            rs_bind_vbo(rr->vbo_sel[slot]);
+            glDrawArrays(GL_TRIANGLES, 0, 6);
+            rs_unbind_vbo();
+            glDeleteBuffers(1, &rr->vbo_sel[slot]);
+            rr->vbo_sel[slot] = 0;
+        }
         /* 按钮文字（row4=确定 row5=取消，按钮内居中；★ 诚实边界：确定=边界对话框） */
         int row_idx = (bidx == 0) ? 4 : 5;
         float tw2 = 60.0f * sx, th2 = tw2 * ((float)(rr->join_text_h / JOIN_ROW) / rr->join_text_w);

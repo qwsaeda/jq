@@ -36,14 +36,22 @@
 
 **合计：~230 处纯色矩形自绘按钮，仅 1 弹窗（功能设置）用真原版皮肤。**
 
-## 修复路线（已做 2，后续继续）
+## 修复路线（已做 3，后续继续）
 
 1. ✅ **功能设置按钮 → btn.png 三态 9patch**（★ 2026-11-13：jq_btn_skin.h 烘焙 +
    render.c rs_draw_btn9patch 改不对称(8/29/16/30) + rs_draw_gameset 用正常态）
 2. ✅ **难度弹窗（datah_041）→ btn.png 9patch + rs_popup_shell 面板**（★ 2026-11-13：
    8 按钮布局/翻棋用正常态/选中=按下态，面板改统一弹窗皮肤（原版 BackDlg popup.cfg））
-3. 主要弹窗按钮（新局/联机/声音/四国等）→ btn.png 9patch（正常态蓝渐变，按按钮语义）
-4. datah 批量 d* → btn.png（或 sbtn/btn1 小按钮皮肤）
+3. ✅ **主要弹窗按钮全改 btn.png + 面板全改 rs_popup_shell**（★ 2026-11-13 批量：
+   声音设置 datah_001、新局 datah_062、联机方式 datah_072、四国人数 datah_089、
+   人机新局 datah_104、登录 datah_038、游戏规则 datah_037、☰ 菜单 datah_006/067
+   （面板 shell，图标 IconBtn 已真实位图）、布局管理 datah_016/021、保存布局
+   datah_020、加入/创建 datah_034/035——全部替换旧纯色矩形（蓝/绿/紫/红/灰
+   彩色区分）+ 深色半透明面板（原版 Button 同款 btn.png 蓝渐变 + Dialog/BackDlg
+   弹窗皮肤）。深色面板（0.08,0.08,0.10f）残留清零）
+4. datah 批量 d* → btn.png（或 sbtn/btn1 小按钮皮肤；次级弹窗：ng061/gameinfo/
+   bright/chatlog/profile/drawdetail/setentry/imgset/join065/create069/rules070/
+   room060/chat063）
 5. 弹窗面板 → dlg.png（datah_187 候选，需先验证）
 6. 标题黑字（Title color=black，功能设置已烘焙 gameset_title_black.png）
 7. 逐弹窗区分"按钮"vs"遮罩"（内联 quad 里遮罩保留、按钮改皮肤）
