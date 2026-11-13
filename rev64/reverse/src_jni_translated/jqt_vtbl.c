@@ -373,6 +373,9 @@ uint32_t F_a4250(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,
 uint32_t F_a4274(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_e546a(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_abc48(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_a29f4(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_a3a54(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+/* §124y-565 前向声明（第二百一十批：12B 栈 52 常量 + [this+4] 取 F_acbc0） */
 uint32_t F_a19f0(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_a2620(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 /* §124y-564 前向声明（第二百零九批：12B 栈 24 常量 + 84B 栈复杂） */
@@ -79748,6 +79751,7 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_a2520,
     F_a2620,
     F_a27b0,
+    F_a29f4,
     F_a2a2c,
     F_a2aac,
     F_a3008,
@@ -79776,6 +79780,7 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_a39d4,
     F_a39e0,
     F_a3a48,
+    F_a3a54,
     F_a3a6c,
     F_a3a8c,
     F_a3ab0,
@@ -82530,6 +82535,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0xa2520,
      0xa2620,
      0xa27b0,
+     0xa29f4,
      0xa2a2c,
      0xa2aac,
      0xa3008,
@@ -82558,6 +82564,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0xa39d4,
      0xa39e0,
      0xa3a48,
+     0xa3a54,
      0xa3a6c,
      0xa3a8c,
      0xa3ab0,
@@ -83450,7 +83457,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x11ef8c,
      0x11f20c,
 };
-const uint32_t jqt_vtbl_n = 2779u;  /* §124y-149/.../564: 对齐 fns/offs 表实际条目数 */
+const uint32_t jqt_vtbl_n = 2781u;  /* §124y-149/.../565: 对齐 fns/offs 表实际条目数 */
 
 /* jqt_blx_dispatch：vtable 槽值 reg_val（shadow 地址）→ 目标函数。
  * 影子区 → off = reg_val - g_jqt_shadow；否则 off = reg_val。
@@ -94036,5 +94043,41 @@ uint32_t F_a2620(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_
     if (!_r0) return 0;
     uint32_t v0 = MEM(JQT_ABS_PTR(0xa2744));
     jqt_blx_dispatch(0xa2620, _r0, _r1, _r2, v0, 0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+
+/* ★ §124y-565 第二百一十批真业务裸跑函数补全（12B 栈 52 常量 + [this+4] 取 F_acbc0）
+   - F_a29f4（0xa29f4，被调 3 次）：12B 栈复杂（52 常量 + F_6eb64 依赖
+     + [v+32/36] 写）
+     语义（objdump 逐指令）：sub sp,#12 + 52 常量 + [sp+4] 栈传 +
+       **bl F_6eb64（未译→镜像兜底）** + [v+32/36] 写 → 多分支
+     同族兄弟（0x93464/0x9c134/0xa0e78 = 同模式）
+     ★ 诚实边界：F_6eb64 未译 → 主路径（52 常量 + [v+32/36] 写）
+       直译 + F_6eb64 镜像兜底（§124y-288~564 同口径，
+       同 0x93464 12B 栈模式）
+   - F_a3a54（0xa3a54，被调 3 次）：[this+4] 取 + F_acbc0 依赖
+     语义（objdump 逐指令）：[this+4] ldr 取 →
+       **bl F_acbc0（未译→镜像兜底）** → 返回
+     同族兄弟（0xa3a60 = [this+4] 取 + F_acfc4 依赖）
+     ★ 诚实边界：F_acbc0 未译 → 主路径（[this+4] 取）直译 +
+       F_acbc0 镜像兜底（§124y-288~564 同口径，同 0x2b9a4 模式） */
+uint32_t F_a29f4(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* 12B 栈复杂：52 常量 + [v+32/36] 写 + F_6eb64（未译）镜像兜底 */
+    uint32_t v = jqt_blx_dispatch(0x6eb64, 52, _r1, 0, 0, 0,0,0,0,0,0,0,0, _sp);
+    if (v) {
+        MEM(v + 32) = v + 16;
+        MEM(v + 36) = v + 16;
+    }
+    return 0;
+}
+uint32_t F_a3a54(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* [this+4] 取 + F_acbc0（未译）镜像兜底 */
+    if (!_r0) return 0;
+    uint32_t v4 = MEM(_r0 + 4);
+    jqt_blx_dispatch(0xacbc0, v4, 0, 0, 0, 0,0,0,0,0,0,0,0, _sp);
     return 0;
 }
