@@ -454,6 +454,9 @@ uint32_t F_af950(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,
 uint32_t F_afcc8(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_b023c(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_b279c(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_b45f4(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_b4630(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+/* §124y-927 前向声明（第五百七十三批：8B 栈 [栈+6] 半字写 [栈+7] 字节取取反绝对值返回 + 半字取 0 比较双字循环取长返回） */
 uint32_t F_b3df4(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 /* §124y-926 前向声明（第五百七十二批：[r3+0] 字节取 [r1/r2] 比较 92/44 常比较多分支 + [this+12] 加 3 [this+8] 比较 [this+0] 索引取 [this+12] 加 4 写返回） */
 uint32_t F_b224c(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
@@ -81848,6 +81851,8 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_b4504,
     F_b4538,
     F_b4598,
+    F_b45f4,
+    F_b4630,
     F_b464c,
     F_b46d0,
     F_b4760,
@@ -85354,6 +85359,8 @@ const uint32_t jqt_vtbl_offs[] = {
      0xb4504,
      0xb4538,
      0xb4598,
+     0xb45f4,
+     0xb4630,
      0xb464c,
      0xb46d0,
      0xb4760,
@@ -85984,7 +85991,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x11f20c,
      0x11fa34,
 };
-const uint32_t jqt_vtbl_n = 3503u;  /* §124y-149/.../926: 对齐 fns/offs 表实际条目数 */
+const uint32_t jqt_vtbl_n = 3505u;  /* §124y-149/.../927: 对齐 fns/offs 表实际条目数 */
 
 /* jqt_blx_dispatch：vtable 槽值 reg_val（shadow 地址）→ 目标函数。
  * 影子区 → off = reg_val - g_jqt_shadow；否则 off = reg_val。
@@ -113202,4 +113209,49 @@ uint32_t F_b3df4(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_
     if (!_r0) return 0;
     jqt_blx_dispatch(0xb3df4, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
     return 0;
+}
+
+/* ★ §124y-927 第五百七十三批真业务裸跑函数补全（8B 栈 [栈+6] 半字写 [栈+7] 字节取取反绝对值返回 + 半字取 0 比较双字循环取长返回）
+   - F_b45f4（0xb45f4，被调 2 次）：8B 栈复杂（[栈+6] 半字写 +
+     [栈+7] 字节取 + 取反 + 绝对值 + 返回，新变体首次出现）
+     语义（objdump 逐指令）：
+       sub sp,#8 + [栈+6] 半字写 + [栈+7] 字节取 + 取反 +
+       绝对值 → 返回
+     ★ 诚实边界：8B 栈 + 半字写 + 字节取 + 取反 + 绝对值 +
+       返回，主路径（[栈+6] 半字写 + [栈+7] 字节取 + 取反 +
+       绝对值）直译 + 返回
+       （§124y-288~926 同口径，8B 栈 [栈+6] 半字写 + [栈+7]
+       字节取取反绝对值返回新变体首次出现）
+   - F_b4630（0xb4630，被调 2 次）：半字取 + 0 比较 + 双字循环
+     + 取长 + 右移 1 + 返回（全直译零依赖）
+     语义（objdump 逐指令）：
+       [r0+0] 半字取 + 0 比较分支 + [r0+2] 半字取 + 0 比较
+       循环 + 取长 + 右移 1 → 返回
+     ★ 全直译零依赖，纯半字取 + 0 比较 + 双字循环 + 取长 +
+       右移 1 返回（同 0x8571c/0x85704/0x94da0/0x9f3e4/
+       0xa1e20 模式，半字取 + 0 比较 + 双字循环取长返回新槽
+       首次出现） */
+uint32_t F_b45f4(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* 8B 大栈：[栈+6] 半字写 + [栈+7] 字节取 + 取反 + 绝对值
+       主路径 + 返回 */
+    if (!_r0) return 0;
+    int16_t h = (int16_t)_r0;
+    MEM(_sp + 6) = h & 0xffff;
+    int8_t b = (int8_t)((MEM(_sp + 7)) & 0xff);
+    return (uint32_t)((b < 0) ? -b : b);
+}
+uint32_t F_b4630(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* [r0+0] 半字取 + 0 比较 + 双字循环 + 取长 + 右移 1 返回（全
+       直译零依赖） */
+    if (!_r0) return 0;
+    uint32_t p = _r0;
+    uint32_t base = _r0;
+    while ((MEM(p + 0) & 0xffff) != 0) {
+        p += 2;
+    }
+    return (p - base) >> 1;
 }
