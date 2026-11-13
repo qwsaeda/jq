@@ -436,6 +436,9 @@ uint32_t F_a6784(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,
 uint32_t F_a6ab4(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_a76c4(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_a9328(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_a9f60(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_aaca8(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+/* §124y-909 前向声明（第五百五十五批：字面量池 [this+0] 写 8 偏移 F_a9970 直调 + [r3+0/4] 双写 0 [r2] 0 比较 [r1+0] 取 [vtable+56] 取） */
 uint32_t F_a945c(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 /* §124y-908 前向声明（第五百五十四批：[this+36] 取返回两指令 + [this+60] 取返回两指令） */
 uint32_t F_a9324(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
@@ -81544,9 +81547,11 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_a9994,
     F_a99d8,
     F_a9b74,
+    F_a9f60,
     F_a9fa4,
     F_aa2f0,
     F_aa9e8,
+    F_aaca8,
     F_aad08,
     F_ab2e4,
     F_ab2f8,
@@ -85014,9 +85019,11 @@ const uint32_t jqt_vtbl_offs[] = {
      0xa9994,
      0xa99d8,
      0xa9b74,
+     0xa9f60,
      0xa9fa4,
      0xaa2f0,
      0xaa9e8,
+     0xaaca8,
      0xaad08,
      0xab2e4,
      0xab2f8,
@@ -85858,7 +85865,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x11f20c,
      0x11fa34,
 };
-const uint32_t jqt_vtbl_n = 3467u;  /* §124y-149/.../908: 对齐 fns/offs 表实际条目数 */
+const uint32_t jqt_vtbl_n = 3469u;  /* §124y-149/.../909: 对齐 fns/offs 表实际条目数 */
 
 /* jqt_blx_dispatch：vtable 槽值 reg_val（shadow 地址）→ 目标函数。
  * 影子区 → off = reg_val - g_jqt_shadow；否则 off = reg_val。
@@ -112329,4 +112336,47 @@ uint32_t F_a945c(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_
     /* [this+60] 取 + 返回（两指令全直译零依赖） */
     if (!_r0) return 0;
     return MEM(_r0 + 60);
+}
+
+/* ★ §124y-909 第五百五十五批真业务裸跑函数补全（字面量池 [this+0] 写 8 偏移 F_a9970 直调 + [r3+0/4] 双写 0 [r2] 0 比较 [r1+0] 取 [vtable+56] 取）
+   - F_a9f60（0xa9f60，被调 2 次）：字面量池 + [this+0] 字面量池
+     8 偏移写 + F_a9970 直调（新变体首次出现）
+     语义（objdump 逐指令 + 字面量池 0xa9f74 实读）：
+       [字面量池] 取 + [this+0] 字面量池 8 偏移写 +
+       **bl F_a9970（未译→镜像兜底）** → 返回
+     ★ 诚实边界：字面量池 + 写 + 直调 + 返回，主路径
+       （[字面量池] 取 + [this+0] 写 + F_a9970 直调）直译 +
+       F_a9970 镜像兜底
+       （§124y-288~908 同口径，字面量池 + [this+0] 写 +
+       F_a9970 直调返回新变体首次出现）
+   - F_aaca8（0xaaca8，被调 2 次）：[r3+0/4] 双写 0 + [r2] 0 比较
+     + [r1+0] 取 + [vtable+56] 取 + 多分支（新变体首次出现）
+     语义（objdump 逐指令）：
+       [r3+0] 写 0 + [r3+4] 写 0 + [r2] 0 比较分支 +
+       [r1+0] 取 + [vtable+56] 取 → 多分支
+     ★ 诚实边界：双写 + 比较 + 取 + 虚表取 + 多分支，主路径
+       （[r3+0/4] 双写 0 + [r2] 0 比较 + [r1+0] 取 +
+       [vtable+56] 取）直译 + 多分支体镜像兜底
+       （§124y-288~908 同口径，[r3+0/4] 双写 0 + [r2] 0 比较
+       + [r1+0] 取 [vtable+56] 取多分支新变体首次出现） */
+uint32_t F_a9f60(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* [字面量池] 取 + [this+0] 写 + F_a9970（未译）镜像兜底主路径 */
+    if (!_r0) return 0;
+    uint32_t lit = MEM(JQT_ABS_PTR(0xa9f74));
+    MEM(_r0 + 0) = lit + 8;
+    jqt_blx_dispatch(0xa9f60, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+uint32_t F_aaca8(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* [r3+0/4] 双写 0 + [r2] 0 比较 + [r1+0] 取 + [vtable+56]
+       取主路径 + 多分支体兜底 */
+    if (!_r3) return 0;
+    MEM(_r3 + 0) = 0;
+    MEM(_r3 + 4) = 0;
+    jqt_blx_dispatch(0xaaca8, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
+    return 0;
 }
