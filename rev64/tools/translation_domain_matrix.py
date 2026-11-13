@@ -65,15 +65,73 @@ def load_stub_set():
                 s.add(m.group(1))
     return s
 
+def load_plt_symbols():
+    """§124y-284 .plt 符号表（地址 → 符号名）：BL 到 .plt 的目标 = 系统调用
+       （libc/libstdc++/GL），由 linker 在真机解析，翻译体已 dlopen 全量外部依赖，
+       真机可跑 —— **不计入"真机风险区"**。原版 so 的 .plt 符号在 .dynsym 里是
+       LOCAL/UND 口径（readelf -s 直接按值段过滤取不到）→ 改从 objdump 反汇编
+       标签动态取（objdump -d 已把 .plt 段内每个 stub 标签输出）。"""
+    out = subprocess.run([OBJDUMP, '-d', ORIG_SO], capture_output=True, text=True).stdout
+    plt = set()
+    for m in re.finditer(r'^(0[0-9a-f]{5,6}) <[A-Za-z0-9_]+>', out, re.M):
+        a = int(m.group(1), 16)
+        if 0x22900 <= a < 0x233e0:
+            plt.add(m.group(1).lstrip('0'))
+    return plt
+
+
+def load_libc_syms():
+    """§124y-284 libstdc++/glibc 内部符号（.text 尾部 C++ runtime 区 + glibc locale
+       数据段 0x11xxxx）：这些靠镜像 + linker 真机执行（非游戏业务语义），裸跑它们
+       真机可跑，不计入"真机风险区"。判定：objdump 标签名匹配 _Z/_NSt/operator/
+       new/delete/locale 前缀（C++ mangled 名），或地址落在 ≥0x1100000（glibc 映射区）。
+       返回地址集合（hex 字符串口径与 BL 目标一致）。"""
+    out = subprocess.run([OBJDUMP, '-d', ORIG_SO], capture_output=True, text=True).stdout
+    tags = re.findall(r'^([0-9a-f]{7,8}) <(.+)>:', out, re.M)
+    LIB = re.compile(r'^_Z|^operator|^__glibc|^_glibc|^__c|^new$|^delete$')
+    libc_addrs = set()
+    for a, name in tags:
+        nm = name.split('@')[0]
+        # 原版 so .text 里大量匿名业务函数，objdump 把标签锚定到"之前最近的导出
+        #   符号"（Java_com_cnvcs_App_OnDestroy / Pthread_alloc::reallocate）→ 误标。
+        #   §124y-284：只有 C++ mangled 名（_Z 前缀）+ glibc 段外地址（≥0x1100000）
+        #   才是 libstdc++/glibc 区；导出 JNI/线程符号名不参与判定。
+        ai = int(a, 16)
+        if ai >= 0x1100000 or LIB.match(nm):
+            libc_addrs.add(a.lstrip('0'))
+    return libc_addrs
+
+
+def biz_in_img(bl, f_defs, plt, libc, lo=0x233e0, hi=0x15435c):
+    """§124y-284 真业务裸跑 = BL 目标落在原版 .text 可执行段 [0x233e0, 0x15435c)
+       内（R E LOAD 段 0x0-0x15435c，.text 自 0x233e0 起）、非 .plt 系统调用、
+       非 libstdc++/glibc 内部、且无 F_ 翻译实现。这才是"真机上会因缺语义
+       实现而崩"的真实风险函数（可译 ROI 最高的一批）。
+
+       注意：原版 so 段布局 = LOAD R E (0x0-0x15435c) + LOAD RW (0x155000-0x15be80)，
+       可执行区上界 = 0x15435c（非 .text 单段 0x120bf4——0x120bf4-0x15435c 是
+       .rodata，同样属 R E 段可被 BL 命中）。"""
+    out = []
+    for a in bl:
+        ai = int(a, 16)
+        if not (lo <= ai < hi):
+            continue
+        if a in plt or a in libc:
+            continue
+        if a in f_defs:
+            continue
+        out.append(a)
+    return out
+
 def orig_bl_targets():
     out = subprocess.run([OBJDUMP, '-d', ORIG_SO], capture_output=True, text=True).stdout
     bl = set()
     for m in re.finditer(r'\bblx?\s+([0-9a-f]+) <', out):
         bl.add(m.group(1))
-    # ★ §124y-283 清洗：只保留落在原版 .text/.plt 合理段内的 BL 目标。
-    #   原版 so 地址空间：.plt ≈ 0x22900，.text = 0x233e0-0x120bf4，
-    #   .rodata/.data 之后无代码。> 0x130000 的"BL 目标"是 objdump 对
-    #   Thumb 边界/重定位槽的误读伪影（如 0xff235bed），剔除以免污染段分布。
+    # ★ §124y-283/284 清洗：> 0x130000 的是 objdump 对 Thumb 边界/重定位槽的
+    #   误读伪影，剔除。.plt 段（0x22900-0x233df）保留——BL 到 .plt = 系统调用
+    #   （libc/libstdc++/GL），由 linker 在真机解析，翻译体已 dlopen 全量外部依赖，
+    #   真机可跑，不计入"真机风险区"（在输出里单独列为 SYSCALL 层）。
     return {a for a in bl if int(a, 16) < 0x130000}
 
 def orig_func_syms():
@@ -109,11 +167,18 @@ def main():
     print('翻译体 F_ 语义实现: %d（含 stub/vtable 全文件计数）' % len(f_defs))
     print('')
 
-    # 对每个 BL 目标，判定语义状态
-    SEM = VT = ST = RW = 0
+    # 对每个 BL 目标，判定语义状态（.plt 段 = SYSCALL，非风险）
+    # §124y-284：.plt 段（0x22900-0x233df）地址判定（不依赖 objdump 标签——
+    #   stripped so 大量 PLT stub 无标签，地址段判定更稳）
+    plt = load_plt_symbols()
+    libc = load_libc_syms()
+    SEM = VT = ST = RW = SY = 0
     raw_list = []
     for a in sorted(bl, key=lambda x: int(x, 16)):
-        if a in f_defs:
+        _ai = int(a, 16)
+        if a in plt or (0x22900 <= _ai < 0x233e0):
+            SY += 1
+        elif a in f_defs:
             SEM += 1
         elif a in vtbl:
             VT += 1
@@ -124,15 +189,19 @@ def main():
             raw_list.append(a)
 
     tot = len(bl)
-    print('── 按语义状态分层（原版被调函数 %d 个）──' % tot)
-    print('  SEMANTIC（有 F_ 翻译实现）: %4d  %5.1f%%' % (SEM, 100.0*SEM/tot))
-    print('  VTABLE  （vtable 收表内）  : %4d  %5.1f%%' % (VT, 100.0*VT/tot))
-    print('  STUB    （自动 stub 区）   : %4d  %5.1f%%' % (ST, 100.0*ST/tot))
-    print('  RAW     （镜像裸跑·真机风险）: %4d  %5.1f%%' % (RW, 100.0*RW/tot))
+    biz = tot - SY   # 业务函数（排除系统调用）
+    print('── 按语义状态分层（原版被调函数 %d 个，其中系统调用 .plt %d）──' % (tot, SY))
+    print('  SYSCALL （.plt 系统调用，linker 真机解析）: %4d  %5.1f%%' % (SY, 100.0*SY/tot))
+    print('  SEMANTIC（有 F_ 翻译实现）: %4d  %5.1f%%' % (SEM, 100.0*SEM/biz))
+    print('  VTABLE  （vtable 收表内）  : %4d  %5.1f%%' % (VT, 100.0*VT/biz))
+    print('  STUB    （自动 stub 区）   : %4d  %5.1f%%' % (ST, 100.0*ST/biz))
+    print('  RAW     （镜像裸跑·含 libstdc++/glibc 区）: %4d  %5.1f%%' % (RW, 100.0*RW/biz))
     print('')
-    print('  ★ 语义实现率（SEMANTIC+VTABLE）= %.1f%%（真机可确定性执行）' % (100.0*(SEM+VT)/tot))
-    print('  ★ 裸跑率（RAW）= %.1f%%（依赖镜像+运行时重定位，真机风险区）' % (100.0*RW/tot))
-    print('')
+    print('  ★ 语义实现率（SEMANTIC+VTABLE，业务口径）= %.1f%%（真机可确定性执行）' % (100.0*(SEM+VT)/biz))
+    print('  ★ 裸跑率（RAW，业务口径）= %.1f%%（依赖镜像+运行时重定位，真机风险区）' % (100.0*RW/biz))
+    # §124y-284 真业务裸跑（可译 ROI 最高的批次）
+    biz_raw = biz_in_img(bl, f_defs, plt, libc)
+    print('  ★ 真业务裸跑（镜像区间内·非 libstdc++/glibc·可译）= %d 个（真机风险核心）' % len(biz_raw))
 
     # 按功能域归因（翻译体文件 → 域）
     DOMAIN_FILE = {
@@ -158,12 +227,18 @@ def main():
         print('  %-24s %-26s %d' % (fn, dom, n))
     print('')
 
-    # 高风险裸跑清单（前 20 个，按地址）
-    print('── 高风险裸跑函数（RAW，前 20）──')
-    for a in raw_list[:20]:
-        print('  0x%s' % a)
-    if len(raw_list) > 20:
-        print('  … 共 %d 个（完整清单见 --json）' % len(raw_list))
+    # 高风险裸跑清单（真业务按调用度 top 20）
+    from collections import Counter as _Counter
+    outd = subprocess.run([OBJDUMP, '-d', ORIG_SO], capture_output=True, text=True).stdout
+    calls = _Counter()
+    for m in re.finditer(r'\bblx?\s+([0-9a-f]+) <', outd):
+        a = m.group(1)
+        if int(a, 16) < 0x130000:
+            calls[a] += 1
+    biz_raw_sorted = sorted(biz_raw, key=lambda x: (-calls.get(x, 0), int(x, 16)))
+    print('── 真业务裸跑 top20（按调用度，可译 ROI 排序）──')
+    for a in biz_raw_sorted[:20]:
+        print('  0x%-8s 被调 %d 次' % (a, calls.get(a, 0)))
     print('')
 
     # 判据
@@ -202,7 +277,7 @@ def main():
     if out_json:
         data = {
             'bl_total': tot, 'semantic': SEM, 'vtable': VT, 'stub': ST, 'raw': RW,
-            'raw_list': ['0x%s' % a for a in raw_list],
+            'biz_raw_top': ['0x%s (被调 %d)' % (a, calls.get(a, 0)) for a in biz_raw_sorted[:20]],
             'by_file': byfile, 'domain_file': DOMAIN_FILE,
             'event_cases': len(cases), 'event_dangling': dangling,
             'mirror_cov': cov, 'orig_func_syms': len(funcs),
