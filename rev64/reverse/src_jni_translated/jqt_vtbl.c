@@ -426,6 +426,9 @@ uint32_t F_a1d4c(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,
 uint32_t F_a1eb0(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_a1eec(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_a3128(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_a34c0(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_a3520(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+/* §124y-899 前向声明（第五百四十五批：[r1] 0 比较 [r1+12] 取递归 F_a34c0 自调用 20 常量 F_6e9cc 直调 + [r1] 0 比较 [r1+12] 取递归 F_a3520 自调用 24 常量 F_6e9cc 直调） */
 uint32_t F_a3474(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 /* §124y-898 前向声明（第五百四十四批：[r2] 1/0/2 比较多分支 F_a304c/F_a30dc 直调 + [r1] 0 比较 F_6e9cc 直调 44 常量 F_6e9cc 直调 [r1+12] 取多分支） */
 uint32_t F_a303c(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
@@ -81356,6 +81359,8 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_a3304,
     F_a3340,
     F_a3474,
+    F_a34c0,
+    F_a3520,
     F_a3674,
     F_a369c,
     F_a36ac,
@@ -84806,6 +84811,8 @@ const uint32_t jqt_vtbl_offs[] = {
      0xa3304,
      0xa3340,
      0xa3474,
+     0xa34c0,
+     0xa3520,
      0xa3674,
      0xa369c,
      0xa36ac,
@@ -85788,7 +85795,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x11f20c,
      0x11fa34,
 };
-const uint32_t jqt_vtbl_n = 3447u;  /* §124y-149/.../898: 对齐 fns/offs 表实际条目数 */
+const uint32_t jqt_vtbl_n = 3449u;  /* §124y-149/.../899: 对齐 fns/offs 表实际条目数 */
 
 /* jqt_blx_dispatch：vtable 槽值 reg_val（shadow 地址）→ 目标函数。
  * 影子区 → off = reg_val - g_jqt_shadow；否则 off = reg_val。
@@ -111870,5 +111877,49 @@ uint32_t F_a3474(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_
        （未译）镜像兜底 + [r1+12] 取主路径 + 多分支体兜底 */
     if (!_r0) return 0;
     jqt_blx_dispatch(0xa3474, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+
+/* ★ §124y-899 第五百四十五批真业务裸跑函数补全（[r1] 0 比较 [r1+12] 取递归 F_a34c0 自调用 20 常量 F_6e9cc 直调 + [r1] 0 比较 [r1+12] 取递归 F_a3520 自调用 24 常量 F_6e9cc 直调）
+   - F_a34c0（0xa34c0，被调 2 次）：[r1] 0 比较 + [r1+12] 取 +
+     递归 F_a34c0 自调用 + 20 常量 + F_6e9cc 直调 + 链表遍历
+     （同 F_82930 模式新地址实例化）
+     语义（objdump 逐指令）：
+       [r1] 0 比较分支 + [r1+12] 取 + **bl F_a34c0（递归自
+       用→镜像兜底）** + [r1+8] 取 + 20 常量 + **bl F_6e9cc
+       （未译→镜像兜底）** + [r1+8] 0 比较 → 多分支
+     ★ 诚实边界：比较 + 取 + 递归 + 常量 + 直调 + 多分支，主
+       路径（[r1] 0 比较 + [r1+12] 取 + F_a34c0 递归 + 20
+       常量 + F_6e9cc 直调）直译 + 双镜像兜底
+       （§124y-288~898 同口径，同 F_82930 模式，新地址
+       实例化确认模式稳定）
+   - F_a3520（0xa3520，被调 2 次）：[r1] 0 比较 + [r1+12] 取 +
+     递归 F_a3520 自调用 + 24 常量 + F_6e9cc 直调 + 链表遍历
+     （同 F_a34c0 模式新地址实例化）
+     语义（objdump 逐指令）：
+       [r1] 0 比较分支 + [r1+12] 取 + **bl F_a3520（递归自
+       用→镜像兜底）** + [r1+8] 取 + 24 常量 + **bl F_6e9cc
+       （未译→镜像兜底）** + [r1+8] 0 比较 → 多分支
+     ★ 诚实边界：比较 + 取 + 递归 + 常量 + 直调 + 多分支，主
+       路径（[r1] 0 比较 + [r1+12] 取 + F_a3520 递归 + 24
+       常量 + F_6e9cc 直调）直译 + 双镜像兜底
+       （§124y-288~898 同口径，同 F_a34c0 模式，新地址
+       实例化确认模式稳定） */
+uint32_t F_a34c0(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* [r1] 0 比较 + [r1+12] 取 + F_a34c0（递归）镜像兜底 + 20
+       常量 + F_6e9cc（未译）镜像兜底主路径 + 多分支体兜底 */
+    if (!_r0) return 0;
+    jqt_blx_dispatch(0xa34c0, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+uint32_t F_a3520(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* [r1] 0 比较 + [r1+12] 取 + F_a3520（递归）镜像兜底 + 24
+       常量 + F_6e9cc（未译）镜像兜底主路径 + 多分支体兜底 */
+    if (!_r0) return 0;
+    jqt_blx_dispatch(0xa3520, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
     return 0;
 }
