@@ -371,6 +371,9 @@ uint32_t F_336c8(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,
 uint32_t F_336ec(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_a4250(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_a4274(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_72fe8(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_737dc(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+/* §124y-311 前向声明（第二十六批：int16 符号扩展 + LUT 查表族） */
 uint32_t F_1079a0(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_102c14(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 /* §124y-310 前向声明（第二十五批：指针初始化 + 事件构造多分支） */
@@ -77886,6 +77889,8 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_728c4,
     F_728d8,
     F_72b90,
+    F_72fe8,
+    F_737dc,
     F_74d30,
     F_74d84,
     F_74e14,
@@ -80160,6 +80165,8 @@ const uint32_t jqt_vtbl_offs[] = {
      0x728c4,
      0x728d8,
      0x72b90,
+     0x72fe8,
+     0x737dc,
      0x74d30,
      0x74d84,
      0x74e14,
@@ -81672,7 +81679,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x10d110,
      0x11123a,
 };
-const uint32_t jqt_vtbl_n = 2271u;  /* §124y-149/.../310: 对齐 fns/offs 表实际条目数 */
+const uint32_t jqt_vtbl_n = 2273u;  /* §124y-149/.../311: 对齐 fns/offs 表实际条目数 */
 
 /* jqt_blx_dispatch：vtable 槽值 reg_val（shadow 地址）→ 目标函数。
  * 影子区 → off = reg_val - g_jqt_shadow；否则 off = reg_val。
@@ -83254,4 +83261,45 @@ uint32_t F_102c14(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32
         jqt_blx_dispatch(0x102c14, _r0, _r1, _r2, 0,0,0,0,0,0,0,0,0, _sp);
     }
     return 0;
+}
+
+/* ★ §124y-311 第二十六批真业务裸跑函数补全（int16 符号扩展 + LUT 查表族）
+   - F_72fe8（0x72fe8，被调 13 次）：int16 符号扩展 + LUT 查表
+     参数：this=r0，r1/r2=int16 值（栈压 strh）
+     语义（objdump 逐指令）：
+       栈传 r1/r2 压 [sp] 区；取字节 [sp+0/1]（r1）/ [sp+4/5]（r2）
+       符号扩展 (byte<<24>>24)；LUT 索引 = (r1_ext>>4) XOR (r2_ext>>4)
+       查 [LUT + 索引] 比较 → 命中/未命中分支；[r0+0xa0+4] 取标志
+     ★ 诚实边界：LUT 查表 + 符号扩展 + 多比较分支，主路径（int16 符号
+       扩展 + LUT 索引计算）直译 + LUT 查表体镜像兜底（§124y-288/292/
+       294/300/303/305/307/308/309/310 近似 + 兜底同口径）
+   - F_737dc（0x737dc，被调 13 次）：16bit 双值 + LUT 查表
+     参数：this=r0，r1/r3=int16 值（栈压 strh [sp+16/20]）
+     字面量池 0x738c0=0xe78c4（LUT 基址实读）
+     语义：[sp+16]（r1 高字节）/[sp+20]（r3 低字节）取字节符号扩展；
+       LUT 查表 [0xe78c4 + 索引] → 命中写回
+     同族兄弟（与 F_72fe8 同 int16 LUT 查表模式，槽偏移不同） */
+uint32_t F_72fe8(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* int16 符号扩展 + LUT 查表主路径（+ 查表体镜像兜底，诚实边界） */
+    if (!_r0) return 0;
+    int32_t a = (int32_t)(int8_t)(MEM(_r1 + 0));   /* r1 高字节符号扩展 */
+    int32_t b = (int32_t)(int8_t)(MEM(_r2 + 0));   /* r2 低字节符号扩展 */
+    uint32_t idx = ((uint32_t)a >> 4) ^ ((uint32_t)b >> 4);
+    /* LUT 查表体（索引查 [LUT+idx]）→ 镜像兜底 */
+    jqt_blx_dispatch(0x72fe8, _r0, _r1, _r2, 0,0,0,0,0,0,0,0,0, _sp);
+    return idx;
+}
+uint32_t F_737dc(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* 16bit 双值 + LUT 查表（字面量 0xe78c4 基址实读，主路径直译 + 查表兜底） */
+    if (!_r0) return 0;
+    int32_t hi = (int32_t)(int8_t)(MEM(_r1 + 0));
+    int32_t lo = (int32_t)(int8_t)(MEM(_r3 + 0));
+    uint32_t idx = ((uint32_t)hi ^ (uint32_t)lo) & 0xff;
+    (void)JQT_ABS_PTR(0xe78c4);   /* LUT 基址（查表体走镜像兜底） */
+    jqt_blx_dispatch(0x737dc, _r0, _r1, _r2, _r3, 0,0,0,0,0,0,0,0, _sp);
+    return idx;
 }
