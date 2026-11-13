@@ -373,6 +373,9 @@ uint32_t F_a4250(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,
 uint32_t F_a4274(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_e546a(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_abc48(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_8aae4(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_8bb68(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+/* §124y-545 前向声明（第一百九十批：[this+308] 取依赖 ×2 + 判定 F_6e9cc/delete） */
 uint32_t F_846a8(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_867ec(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 /* §124y-544 前向声明（第一百八十九批：[this+304] 取依赖 ×2 + 栈帧差值乘） */
@@ -79273,6 +79276,7 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_8a8d0,
     F_8a930,
     F_8aacc,
+    F_8aae4,
     F_8ab18,
     F_8ab34,
     F_8abc8,
@@ -79292,6 +79296,7 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_8b6a0,
     F_8b768,
     F_8bb1c,
+    F_8bb68,
     F_8bc10,
     F_8c43c,
     F_8c4b0,
@@ -82015,6 +82020,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x8a8d0,
      0x8a930,
      0x8aacc,
+     0x8aae4,
      0x8ab18,
      0x8ab34,
      0x8abc8,
@@ -82034,6 +82040,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x8b6a0,
      0x8b768,
      0x8bb1c,
+     0x8bb68,
      0x8bc10,
      0x8c43c,
      0x8c4b0,
@@ -83310,7 +83317,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x11ef8c,
      0x11f20c,
 };
-const uint32_t jqt_vtbl_n = 2739u;  /* §124y-149/.../544: 对齐 fns/offs 表实际条目数 */
+const uint32_t jqt_vtbl_n = 2741u;  /* §124y-149/.../545: 对齐 fns/offs 表实际条目数 */
 
 /* jqt_blx_dispatch：vtable 槽值 reg_val（shadow 地址）→ 目标函数。
  * 影子区 → off = reg_val - g_jqt_shadow；否则 off = reg_val。
@@ -93162,5 +93169,48 @@ uint32_t F_867ec(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_
     uint32_t v0 = MEM(JQT_ABS_PTR(0x86834));
     uint32_t prod = (uint32_t)(q * (int32_t)v0);
     jqt_blx_dispatch(0x867ec, _r0, _r1, _r2, prod, 0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+
+/* ★ §124y-545 第一百九十批真业务裸跑函数补全（[this+308] 取依赖 ×2 + 判定 F_6e9cc/delete）
+   - F_8aae4（0x8aae4，被调 3 次）：[this+308] 取 + F_99a80/F_8a930
+     依赖 ×2
+     语义（objdump 逐指令）：[this+154*2=308] ldr 取 →
+       **bl F_99a80（未译→镜像兜底）** + [this] 参数 +
+       **bl F_8a930（未译→镜像兜底）** → 返回
+     ★ 诚实边界：F_99a80/F_8a930 未译 → 主路径（[this+308] 取 +
+       [this] 参数传）直译 + 依赖镜像兜底
+       （§124y-288~544 同口径，同 0x846a8 取依赖模式）
+   - F_8bb68（0x8bb68，被调 3 次）：r1 判定 + F_6e9cc 依赖 +
+     operator delete
+     语义（objdump 逐指令）：[r0-r1] 差值 → 非 0 判定 + 128 判定 →
+       **bl F_6e9cc（已译，直调）** 或 **blx operator delete@plt
+       （.plt 兜底）** → 返回
+     同族兄弟（0x82d24 = 同模式）
+     ★ 诚实边界：F_6e9cc 已译直调 + operator delete .plt → 主路径
+       （差值 + 128 判定）直译 + 双路兜底（§124y-288~544 同口径，
+       同 0x82d24 判定模式） */
+uint32_t F_8aae4(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* [this+308] 取 + F_99a80/F_8a930（未译）镜像兜底 ×2 */
+    if (!_r0) return 0;
+    uint32_t v308 = MEM(_r0 + 308);
+    jqt_blx_dispatch(0x99a80, v308, 0, 0, 0, 0,0,0,0,0,0,0,0, _sp);
+    jqt_blx_dispatch(0x8a930, _r0, 0, 0, 0, 0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+uint32_t F_8bb68(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* [r0-r1] 差值 + 128 判定 + F_6e9cc（已译）直调 / operator delete（.plt 兜底） */
+    int32_t diff = _r0 - _r1;
+    if (diff == 0) return 0;
+    uint32_t r2x4 = _r2 << 2;
+    if (r2x4 > 128) {
+        jqt_blx_dispatch(0x22bfc, _r0, 0, 0, 0, 0,0,0,0,0,0,0,0, _sp);
+        return 0;
+    }
+    F_6e9cc(_r0, _r1, _r2, 0, 0, 0,0,0,0,0,0,0, _sp);
     return 0;
 }
