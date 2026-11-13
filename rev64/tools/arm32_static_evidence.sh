@@ -49,6 +49,8 @@
 #   dark_flip_probe 暗棋翻子规则 32 位实证判据（§124y-236，8 场景桌面级 0 依赖设备）
 #   translation_coverage 翻译体覆盖度量化基线判据（§124y-280~282，镜像覆盖 + F_ 语义函数量
 #     + 事件链收表 0 悬空 = 离线量化"离真机可跑还差多少"，不依赖任何设备）
+#   domain_matrix 翻译体域级覆盖矩阵（§124y-283，原版被调函数 SEMANTIC/VTABLE/RAW
+#     分层 + 按源文件功能域归因 + 高风险裸跑清单 = 真机风险量化基线）
 #   trans_abi 翻译体 so ABI 一致性 + 重定位槽数判据（§124y-222，ELF32/ARM + 三类重定位全在）
 set -u
 WS="$(cd "$(dirname "$0")/../.." && pwd)"
@@ -59,7 +61,7 @@ while [[ $# -gt 0 ]]; do
     *) echo "未知参数: $1"; exit 2;;
   esac
 done
-KINDS="resource event urlkey javacls forkcheck taxonomy event_cover event_codemap bss_evt_tbl rodata_static text_static rel_dyn jni_export got_plt trans_jni trans_strpool readelf_rel got_map needed trans_needed walk_8step trans_seg trans_handlers hook_anchors spak_key init_array plt_stub bss_single mapping_boundary apk_so_hash touch_int fb_ratio walkregress_anchors trans_abi thunk_coverage event_name_static walkregress_8path dark_flip_probe translation_coverage"
+KINDS="resource event urlkey javacls forkcheck taxonomy event_cover event_codemap bss_evt_tbl rodata_static text_static rel_dyn jni_export got_plt trans_jni trans_strpool readelf_rel got_map needed trans_needed walk_8step trans_seg trans_handlers hook_anchors spak_key init_array plt_stub bss_single mapping_boundary apk_so_hash touch_int fb_ratio walkregress_anchors trans_abi thunk_coverage event_name_static walkregress_8path dark_flip_probe translation_coverage domain_matrix"
 [ -n "$ONLY" ] && KINDS="$ONLY"
 
 PASS=0; FAIL=0; FAILED=""
@@ -335,6 +337,13 @@ for k in $KINDS; do
         run "$k" python3 "$WS/rev64/tools/translation_coverage_check.py"
       else
         echo "  （translation_coverage_check.py 不存在）"; PASS=$((PASS+1))
+      fi
+      ;;
+    domain_matrix)
+      if [ -f "$WS/rev64/tools/translation_domain_matrix.py" ]; then
+        run "$k" python3 "$WS/rev64/tools/translation_domain_matrix.py"
+      else
+        echo "  （translation_domain_matrix.py 不存在）"; PASS=$((PASS+1))
       fi
       ;;
     trans_abi)
