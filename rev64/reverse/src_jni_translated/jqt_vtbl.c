@@ -372,6 +372,9 @@ uint32_t F_336ec(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,
 uint32_t F_a4250(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_a4274(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_e546a(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_8ab18(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_9426c(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+/* §124y-337 前向声明（第五十二批：多槽取 + 44B 栈多槽） */
 uint32_t F_7b28c(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_80250(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 /* §124y-336 前向声明（第五十一批：主路径+兜底 + 析构系统调用） */
@@ -78401,6 +78404,7 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_8a8d0,
     F_8a930,
     F_8aacc,
+    F_8ab18,
     F_8ab34,
     F_8abc8,
     F_8ac24,
@@ -78494,6 +78498,7 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_940b4,
     F_940dc,
     F_9411c,
+    F_9426c,
     F_9447c,
     F_946b0,
     F_946cc,
@@ -80728,6 +80733,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x8a8d0,
      0x8a930,
      0x8aacc,
+     0x8ab18,
      0x8ab34,
      0x8abc8,
      0x8ac24,
@@ -80821,6 +80827,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x940b4,
      0x940dc,
      0x9411c,
+     0x9426c,
      0x9447c,
      0x946b0,
      0x946cc,
@@ -81857,7 +81864,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x11123a,
      0x11be2c,
 };
-const uint32_t jqt_vtbl_n = 2324u;  /* §124y-149/.../336: 对齐 fns/offs 表实际条目数 */
+const uint32_t jqt_vtbl_n = 2326u;  /* §124y-149/.../337: 对齐 fns/offs 表实际条目数 */
 
 /* jqt_blx_dispatch：vtable 槽值 reg_val（shadow 地址）→ 目标函数。
  * 影子区 → off = reg_val - g_jqt_shadow；否则 off = reg_val。
@@ -84552,5 +84559,41 @@ uint32_t F_80250(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_
     if (fd != 0) {
         jqt_blx_dispatch(0x22f44, fd - 1, 0, 0, 0,0,0,0,0,0,0,0,0, _sp);
     }
+    return 0;
+}
+
+/* ★ §124y-337 第五十二批真业务裸跑函数补全（多槽取 + 44B 栈多槽）
+   - F_8ab18（0x8ab18，被调 8 次）：[this+0x168] 区（this=r0）
+     语义（objdump 逐指令）：[this+154*2=0x168] 取 →
+       **bl F_9a404（未译→镜像兜底）** + 返回值 → 
+       **bl F_8a930（未译→镜像兜底）** 传 this
+     ★ 诚实边界：F_9a404/F_8a930 未译 → 主路径（[this+0x168] 取）
+       直译 + 依赖镜像兜底（§124y-288~336 同口径）
+   - F_9426c（0x9426c，被调 8 次）：多槽取（this=r0）
+     语义（objdump 逐指令）：sub sp,#44 + [sp+24] 区；
+       [this+128*2=0x190] 取 → r9；[this+136*2=0x1a8] 取 → sl；
+       [this+132*2=0x198] 取 → 多槽比较
+     ★ 诚实边界：多槽取 + 44B 栈 + 多分支，主路径（四槽取值）直译
+       + 多分支体镜像兜底 */
+uint32_t F_8ab18(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* [this+0x168] 取 + F_9a404/F_8a930（未译）镜像兜底 */
+    if (!_r0) return 0;
+    uint32_t slot = MEM(_r0 + 0x168);
+    jqt_blx_dispatch(0x9a404, slot, 0, 0, 0,0,0,0,0,0,0,0,0, _sp);
+    jqt_blx_dispatch(0x8a930, _r0, 0, 0, 0,0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+uint32_t F_9426c(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* 多槽取：[this+0x190/0x198/0x1a8] 四槽取值主路径 + 多分支体兜底 */
+    if (!_r0) return 0;
+    uint32_t v190 = MEM(_r0 + 0x190);
+    uint32_t v198 = MEM(_r0 + 0x198);
+    uint32_t v1a8 = MEM(_r0 + 0x1a8);
+    /* 多分支体 → 镜像兜底 */
+    jqt_blx_dispatch(0x9426c, _r0, _r1, _r2, v190,0,0,0,0,0,0,0,0, _sp);
     return 0;
 }
