@@ -372,6 +372,9 @@ uint32_t F_336ec(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,
 uint32_t F_a4250(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_a4274(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_e546a(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_69c08(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_6f010(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+/* §124y-350 前向声明（第六十五批：字节比较 + 字面量 LUT） */
 uint32_t F_3d9e8(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_56580(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 /* §124y-349 前向声明（第六十四批：整数除法 + 全依赖直调） */
@@ -77981,6 +77984,7 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_69660,
     F_69734,
     F_69748,
+    F_69c08,
     F_6a0cc,
     F_6a3a4,
     F_6a3b0,
@@ -78011,6 +78015,7 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_6ef78,
     F_6ef9c,
     F_6efd4,
+    F_6f010,
     F_6f154,
     F_6f1ac,
     F_6f274,
@@ -80334,6 +80339,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x69660,
      0x69734,
      0x69748,
+     0x69c08,
      0x6a0cc,
      0x6a3a4,
      0x6a3b0,
@@ -80364,6 +80370,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x6ef78,
      0x6ef9c,
      0x6efd4,
+     0x6f010,
      0x6f154,
      0x6f1ac,
      0x6f274,
@@ -81948,7 +81955,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x11be2c,
      0x11dc0c,
 };
-const uint32_t jqt_vtbl_n = 2350u;  /* §124y-149/.../349: 对齐 fns/offs 表实际条目数 */
+const uint32_t jqt_vtbl_n = 2352u;  /* §124y-149/.../350: 对齐 fns/offs 表实际条目数 */
 
 /* jqt_blx_dispatch：vtable 槽值 reg_val（shadow 地址）→ 目标函数。
  * 影子区 → off = reg_val - g_jqt_shadow；否则 off = reg_val。
@@ -85186,4 +85193,33 @@ uint32_t F_56580(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_
     /* 字面量三槽取值（多分支体）→ 镜像兜底 */
     jqt_blx_dispatch(0x56580, _r0, _r1, _r2, 0,0,0,0,0,0,0,0,0, _sp);
     return 0;
+}
+
+/* ★ §124y-350 第六十五批真业务裸跑函数补全（字节比较 + 字面量 LUT）
+   - F_69c08（0x69c08，被调 7 次）：字节比较（this=r0，src=r1）
+     语义（objdump 逐指令）：[this+0] ldrsb vs [src+0] ldrsb 相等 →
+       返回 1；不等 → 返回 0
+     ★ 全直译（纯字节比较，零依赖）
+   - F_6f010（0x6f010，被调 7 次）：字面量 LUT（r0 索引）
+     语义（objdump 逐指令 + 字面量池 0x6f024 实读）：r0<=3 →
+       [0x6f024+r0*4] LUT 查表取 → 返回；r0>3 → 直接返回 [0x6f024] 槽
+     ★ 诚实边界：LUT 查表（4 项），主路径（LUT 索引计算）直译 +
+       LUT 查表体镜像兜底（§124y-288~349 同口径） */
+uint32_t F_69c08(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* 字节比较：[this+0] ldrsb vs [src+0] ldrsb，全直译零依赖 */
+    if (!_r0 || !_r1) return 0;
+    return (MEM(_r0 + 0) == MEM(_r1 + 0)) ? 1 : 0;
+}
+uint32_t F_6f010(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* 字面量 LUT：[0x6f024+r0*4] 查表主路径 + 查表体兜底 */
+    /* LUT 基址 0x6f024（字面量池实读） */
+    uint32_t lut_base = JQT_ABS_PTR(0x6f024);
+    if (_r0 <= 3) {
+        return MEM(lut_base + _r0 * 4);
+    }
+    return MEM(lut_base);
 }
