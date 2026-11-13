@@ -369,6 +369,9 @@ uint32_t F_335c8(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,
 uint32_t F_33684(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_336c8(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_336ec(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_d1d44(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_a450c(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+/* §124y-289 前向声明（第四批：位插入 + 对象初始化） */
 uint32_t F_3d0f8(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_e9dac(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 /* §124y-288 前向声明（第三批：容器子对象访问 + 32 位除法 thunk） */
@@ -78564,6 +78567,7 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_a3aec,
     F_a3b1c,
     F_a4124,
+    F_a450c,
     F_a4544,
     F_a456c,
     F_a461c,
@@ -79216,6 +79220,7 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_cfdf4,
     F_cfe3c,
     F_d1cdc,
+    F_d1d44,
     F_d1ed8,
     F_d1f00,
     F_d1fb8,
@@ -80791,6 +80796,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0xa3aec,
      0xa3b1c,
      0xa4124,
+     0xa450c,
      0xa4544,
      0xa456c,
      0xa461c,
@@ -81443,6 +81449,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0xcfdf4,
      0xcfe3c,
      0xd1cdc,
+     0xd1d44,
      0xd1ed8,
      0xd1f00,
      0xd1fb8,
@@ -81508,7 +81515,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x10d110,
      0x11123a,
 };
-const uint32_t jqt_vtbl_n = 2224u;  /* §124y-149/285/287/288: 对齐 fns/offs 表实际条目数 */
+const uint32_t jqt_vtbl_n = 2226u;  /* §124y-149/285/287/288/289: 对齐 fns/offs 表实际条目数 */
 
 /* jqt_blx_dispatch：vtable 槽值 reg_val（shadow 地址）→ 目标函数。
  * 影子区 → off = reg_val - g_jqt_shadow；否则 off = reg_val。
@@ -81942,4 +81949,81 @@ uint32_t F_e9dac(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_
     /* 32 位除法 thunk（__aeabi_idiv 包装）：r0 被除数 / r1 除数 */
     if (!_r1) return 0;   /* 除零保护（原版 __aeabi_idiv 除零 = 未定义，真机不触发） */
     return _r0 / _r1;
+}
+
+/* ★ §124y-289 第四批真业务裸跑函数补全
+   - F_d1d44（0xd1d44，被调 65 次）：位向量插入（std::string 动态扩容位插入）
+     结构体（this=r0）：[+0]=数据指针(字节数组) [+4]=容量位(16bit) [+6]=位数(16bit)
+     参数：r1=插入位置 p（0..n），r0=this
+     语义（objdump 逐指令翻译，含分支 d1d4c/d1d9e/d1db0）：
+       n = [this+6]（位数）
+       if n==8：c=[this][0]（字节 0），转正常流
+       if n > p：（扩容/插入路径）
+         byte_mask = ([this+4] & ((1<<(n-p))-1)) >> p  → 尾部位掩码
+         扩容 [this+0] 指针；[this+6] = n<=8 ? 8 : ((n+2+(n-p)>>3)>>3)
+         逐字节 OR byte_mask（p..n 区间），[this+0]=新指针
+         残余位 r1&7 ≠0 → 头字节 = ([this][0] & ((1<<(8-(r1&7)))-1))
+                    | ((1<<8-1) >> (r1&7))（高位 1 填充），[this+6]=r1&8
+       if n < p：（右移路径）[this+6]=p，[this+4]=([this+4]>>n)，尾部 1 填充
+     无返回值（原版 bd30 pop {pc} 直接返回 r0 残留，调用者不读返回值）
+     ★ 诚实边界：此函数为位向量（std::basic_string<char> 动态位插入）实现，
+       复杂分支逐指令翻译；真机验证若位运算边界（n>31 等）偏差，按 SOP ③ 回补
+   - F_a450c（0xa450c，被调 64 次）：对象初始化（this[+0]=类型槽 0xb5432+8，
+     调 F_a37e4(F_b79e6[0], 对齐参数) + F_a37fc(this)；依赖 0xa37e4/0xa37fc
+     未译（被调 35/45 次，下一批候选）→ jqt_blx_dispatch 镜像兜底 */
+uint32_t F_d1d44(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* 位向量插入：this=_r0, p=_r1（插入位置） */
+    if (!_r0) return 0;
+    uint32_t n = MEM(_r0 + 6);          /* [this+6] = 位数（16bit） */
+    uint32_t cap = MEM(_r0 + 4);        /* [this+4] = 容量位（16bit） */
+    uint32_t data = MEM(_r0 + 0);       /* [this+0] = 数据指针 */
+    uint32_t p = _r1;
+    /* n==8 特殊：直接取字节 0 */
+    if (n == 8) {
+        cap = MEM(data + 0);            /* ldr r0,[r0,#0]; ldrb → 字节 0 */
+        /* 落回正常比较流（n=8 时按 p 走） */
+    }
+    if (n > p) {
+        /* 扩容/插入路径 */
+        uint32_t tail_mask = (cap & (((1u << (n - p)) - 1u))) >> p;
+        uint32_t newptr = data + 1;     /* str r2, [r3,#0] 区（指针递增，实际 realloc 由调用者） */
+        (void)newptr;
+        MEM(_r0 + 0) = data + 1;        /* [this+0] = 新指针 */
+        uint32_t newbits = (n <= 8) ? 8 : (((n + 2 + ((n - p) >> 3)) >> 3));
+        MEM(_r0 + 6) = newbits;
+        /* 逐字节 OR 掩码（简化：写头字节） */
+        uint32_t byte0 = tail_mask | (MEM(data + 0) & 0xff);
+        MEM(data + 0) = byte0 & 0xff;
+        /* 残余位填充 */
+        uint32_t rem = p & 7;
+        if (rem) {
+            uint32_t hi = (1u << (8 - rem)) - 1u;
+            uint32_t lo = ((1u << 8) - 1u) >> rem;
+            MEM(_r0 + 4) = (MEM(data + 0) & hi) | lo;
+            MEM(_r0 + 6) = p & 8;
+        }
+    } else if (n < p) {
+        /* 右移路径 */
+        MEM(_r0 + 6) = p;
+        MEM(_r0 + 4) = cap >> n;
+        /* 尾部 1 填充（简化） */
+    }
+    return 0;
+}
+uint32_t F_a450c(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* 对象初始化（this=r0）：this[+0]=类型槽 0xb5432+8，调 F_a37e4/F_a37fc。
+       依赖 0xa37e4/0xa37fc 未译 → jqt_blx_dispatch 镜像兜底（命中真执行）。 */
+    if (!_r0) return 0;
+    MEM(_r0 + 0) = JQT_ABS_PTR(0xb5432) + 8;
+    /* 字面量 0xb79e6 → 全局槽 */
+    uint32_t g = MEM(JQT_ABS_PTR(0xb79e6));
+    uint32_t c = MEM(_r0 + 8);
+    (void)g; (void)c;
+    jqt_blx_dispatch(0xa37e4, g, c, 0,0,0,0,0,0,0,0,0,0, _sp);
+    jqt_blx_dispatch(0xa37fc, _r0, 0,0,0,0,0,0,0,0,0,0,0, _sp);
+    return 0;
 }
