@@ -8970,10 +8970,19 @@ static void rs_draw_d257(rs_render *rr, int slot)
 {
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D257_POPUP_X0, UI_D257_POPUP_Y0, UI_D257_POPUP_W, UI_D257_POPUP_H, 0, uc);
+    int has_skin = (rr->tex_btn_skin[0][slot] && rr->prog_tex[slot]);
     const ui_d257_btn *bb = ui_d257_buttons();
     for (int i = 0; i < UI_D257_COUNT; i++) {
-        rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
-                     0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
+        if (has_skin) {
+            rs_draw_btn9patch(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
+                              rr->tex_btn_skin[0][slot],
+                              jq_btn_normal_w, jq_btn_normal_h,
+                              JQ_BTN_9PATCH_L, JQ_BTN_9PATCH_T,
+                              JQ_BTN_9PATCH_R, JQ_BTN_9PATCH_B);
+        } else {
+            rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
+                         0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
+        }
         int gr = 347 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D257_pw[i], hpx = D257_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
@@ -9001,10 +9010,19 @@ static void rs_draw_d258(rs_render *rr, int slot)
 {
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D258_POPUP_X0, UI_D258_POPUP_Y0, UI_D258_POPUP_W, UI_D258_POPUP_H, 0, uc);
+    int has_skin = (rr->tex_btn_skin[0][slot] && rr->prog_tex[slot]);
     const ui_d258_btn *bb = ui_d258_buttons();
     for (int i = 0; i < UI_D258_COUNT; i++) {
-        rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
-                     0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
+        if (has_skin) {
+            rs_draw_btn9patch(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
+                              rr->tex_btn_skin[0][slot],
+                              jq_btn_normal_w, jq_btn_normal_h,
+                              JQ_BTN_9PATCH_L, JQ_BTN_9PATCH_T,
+                              JQ_BTN_9PATCH_R, JQ_BTN_9PATCH_B);
+        } else {
+            rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
+                         0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
+        }
         int gr = 352 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D258_pw[i], hpx = D258_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
@@ -9032,10 +9050,19 @@ static void rs_draw_d259(rs_render *rr, int slot)
 {
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D259_POPUP_X0, UI_D259_POPUP_Y0, UI_D259_POPUP_W, UI_D259_POPUP_H, 0, uc);
+    int has_skin = (rr->tex_btn_skin[0][slot] && rr->prog_tex[slot]);
     const ui_d259_btn *bb = ui_d259_buttons();
     for (int i = 0; i < UI_D259_COUNT; i++) {
-        rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
-                     0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
+        if (has_skin) {
+            rs_draw_btn9patch(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
+                              rr->tex_btn_skin[0][slot],
+                              jq_btn_normal_w, jq_btn_normal_h,
+                              JQ_BTN_9PATCH_L, JQ_BTN_9PATCH_T,
+                              JQ_BTN_9PATCH_R, JQ_BTN_9PATCH_B);
+        } else {
+            rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
+                         0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
+        }
         int gr = 357 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D259_pw[i], hpx = D259_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
@@ -9063,10 +9090,19 @@ static void rs_draw_d260(rs_render *rr, int slot)
 {
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D260_POPUP_X0, UI_D260_POPUP_Y0, UI_D260_POPUP_W, UI_D260_POPUP_H, 0, uc);
+    int has_skin = (rr->tex_btn_skin[0][slot] && rr->prog_tex[slot]);
     const ui_d260_btn *bb = ui_d260_buttons();
     for (int i = 0; i < UI_D260_COUNT; i++) {
-        rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
-                     0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
+        if (has_skin) {
+            rs_draw_btn9patch(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
+                              rr->tex_btn_skin[0][slot],
+                              jq_btn_normal_w, jq_btn_normal_h,
+                              JQ_BTN_9PATCH_L, JQ_BTN_9PATCH_T,
+                              JQ_BTN_9PATCH_R, JQ_BTN_9PATCH_B);
+        } else {
+            rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
+                         0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
+        }
         int gr = 359 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D260_pw[i], hpx = D260_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {
@@ -9094,10 +9130,19 @@ static void rs_draw_d261(rs_render *rr, int slot)
 {
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_D261_POPUP_X0, UI_D261_POPUP_Y0, UI_D261_POPUP_W, UI_D261_POPUP_H, 0, uc);
+    int has_skin = (rr->tex_btn_skin[0][slot] && rr->prog_tex[slot]);
     const ui_d261_btn *bb = ui_d261_buttons();
     for (int i = 0; i < UI_D261_COUNT; i++) {
-        rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
-                     0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
+        if (has_skin) {
+            rs_draw_btn9patch(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
+                              rr->tex_btn_skin[0][slot],
+                              jq_btn_normal_w, jq_btn_normal_h,
+                              JQ_BTN_9PATCH_L, JQ_BTN_9PATCH_T,
+                              JQ_BTN_9PATCH_R, JQ_BTN_9PATCH_B);
+        } else {
+            rs_solid_btn(rr, slot, bb[i].x0, bb[i].y0, bb[i].x1, bb[i].y1,
+                         0.22f, 0.28f, 0.42f, 0.85f, 0, uc);
+        }
         int gr = 364 + i;   /* 共用图集行号（bake_atlas 顺序） */
         int wpx = D261_pw[i], hpx = D261_ph[i];
         if (wpx > 0 && hpx > 0 && rr->dlg_text_w > 0 && rr->dlg_text_h > 0) {

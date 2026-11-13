@@ -55,8 +55,12 @@
    datah_065、创建完整版 datah_069、软件信息 datah_000——全部替换旧纯色矩形
    （蓝/紫/橙/灰彩色区分 + 金色高亮描边），原版 Button 同款 btn.png 蓝渐变；
    面板均已 rs_popup_shell）
-5. 对局控制条（d255-d261，datah_255-261 BackDlg 控制条 icon/按钮）→ btn.png/icon
-   （次要对局内按钮，待做）
+5. ✅ **对局控制条文字按钮（d257-d261，datah_257-260/261 BackDlg 控制条）→ btn.png**
+   （★ 2026-11-13：d257（菜单/新局/悔棋/设置/复盘/返回）、d258（载入/保存/清空/完成/
+   取消）、d259（人机/联网）、d260（菜单/复盘/聊天/设置/投降/提和/取消托管/离开/返回）、
+   d261（src_rs 补充返回）全部改 btn.png 9patch，替换旧深蓝纯色 0.22,0.28,0.42,0.85；
+   d255/d256（datah_255/256）是 icon 按钮（menu/chat/back/prev/next 位图，非 btn.png），
+   待接 icon 位图（诚实边界））
 6. 弹窗面板 → dlg.png（datah_187 候选，需先验证）
 7. 标题黑字（Title color=black，功能设置已烘焙 gameset_title_black.png）
 8. 逐弹窗区分"按钮"vs"遮罩"（内联 quad 里遮罩保留、按钮改皮肤）
