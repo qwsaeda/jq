@@ -9058,3 +9058,32 @@ flaky 误判回归"三型假闭环。
   （静态 38 项全 PASS + 本轮 game_test PASS 旁证 + 崩溃全归因 ART 层 0 so
   段实锤），非"已达成"；实锤达成 = 4 项同轮全 PASS（§124y-238/240/247 历史
   快照成立），当前周期内 flaky 窗口迁移，周期稳定后重跑收口 4 项全 PASS
+
+
+### §124y-261 设备 4 项脚本 flaky + 手动实锤判据基准维持收口（2026-11-13，so d0c311b7）
+
+用户"继续"指令下（新一天窗口），按 §124y-258 方法论 2 SOP 收口：
+
+- **0-4 层根因实锤（§124y-254 经验 B 一次查全）**：
+  - 层 0 设备在线（boot=1）✓
+  - 层 1 无 64 位干扰（qwsaeda/zxj 均未运行）✓
+  - **层 2 ART 崩溃周期活跃**：app 启动即崩 `Fatal signal 11 SEGV_MAPERR
+    fault 0x9916a728`（§124y-191/226/248 特征），backtrace 全落 ART 层
+    （`bionic libc strlen → libart FindMethodJNI → libart GetMethodID`），
+    **非 libjunqi so 段 = 转译环境崩溃周期非 so 回归**
+  - 层 3 dump 未生成 / 层 4 F_3ab80 0 命中（转译冷启动时序）
+- **★ 层 2 新实锤：ART 崩溃周期可前置到 app 启动即崩**（§124y-259 时崩溃
+  在钩子段，本轮 08:23:59 崩溃在 `am start` 后首帧反射调用链 = dlopen 后
+  首帧 GetMethodID→strlen SEGV，比"钩子段未出日志"更靠前，转译层崩溃周期
+  漂移特征）
+- **设备 4 项脚本单跑 4 项全 FAIL（flaky）**：脚本 launch_hook 轮询窗口在
+  ART 崩溃周期内读不到判据日志（app 启动即崩 pid 空 → 钩子段无从跑）
+- **手动实锤判据基准维持（§124y-244 口径）**：周期窗口内手动重跑
+  walk_bridge 第 1 轮命中（~13s），8 步序列 + flip×2（cell6/cell33 翻子）
+  + move×4（cell6→11 / cell33→38 Junqi.Move + 2 非法）锚点全出，1 次 ART
+  层崩溃容忍 = 判据基准成立（非 so 回归）
+- **判读结论（§124y-258 方法论 5 判据真值分层口径）**：flaky 期报**判据
+  基准维持**（静态 38 项全 PASS 判据逻辑真值 + 手动 walk_bridge PASS 旁证
+  + 崩溃全归因 ART 层 0 so 段实锤），非"已达成"；实锤达成快照 =
+  §124y-238/240/247/260（so 9025101e/d0c311b7 多轮 4 项/单项 PASS 记录），
+  当前 ART 崩溃周期内 flaky，周期稳定后重跑 4 项同轮全 PASS 收口
