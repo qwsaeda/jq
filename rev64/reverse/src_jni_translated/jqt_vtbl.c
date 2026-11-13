@@ -369,6 +369,9 @@ uint32_t F_335c8(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,
 uint32_t F_33684(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_336c8(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_336ec(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_d2150(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_f0538(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+/* §124y-294 前向声明（第九批：流清理 + 对象拷贝/比较） */
 uint32_t F_e5390(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_d6880(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 /* §124y-293 前向声明（第八批：异常检查器 + setjmp/longjmp 辅助） */
@@ -79244,6 +79247,7 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_d203c,
     F_d204c,
     F_d2070,
+    F_d2150,
     F_d2188,
     F_d22c8,
     F_d23d0,
@@ -79293,6 +79297,7 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_e5390,
     F_e9dac,
     F_e9f9c,
+    F_f0538,
     F_fef44,
     F_ff110,
     F_103108,
@@ -81482,6 +81487,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0xd203c,
      0xd204c,
      0xd2070,
+     0xd2150,
      0xd2188,
      0xd22c8,
      0xd23d0,
@@ -81531,6 +81537,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0xe5390,
      0xe9dac,
      0xe9f9c,
+     0xf0538,
      0xfef44,
      0xff110,
      0x103108,
@@ -81546,7 +81553,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x10d110,
      0x11123a,
 };
-const uint32_t jqt_vtbl_n = 2235u;  /* §124y-149/285/287/288/289/290/291/292/293: 对齐 fns/offs 表实际条目数 */
+const uint32_t jqt_vtbl_n = 2237u;  /* §124y-149/285/287/288/289/290/291/292/293/294: 对齐 fns/offs 表实际条目数 */
 
 /* jqt_blx_dispatch：vtable 槽值 reg_val（shadow 地址）→ 目标函数。
  * 影子区 → off = reg_val - g_jqt_shadow；否则 off = reg_val。
@@ -82246,5 +82253,53 @@ uint32_t F_e5390(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_
     }
     /* 不等 → bl F_e6286（异常抛出，未译）→ 镜像兜底 */
     jqt_blx_dispatch(0xe6286, _r0, _r1, _r2, _r3, _r4, _r5, _r6, _r7, _r8, _r9, _r10, _r11, _sp);
+    return 0;
+}
+
+/* ★ §124y-294 第九批真业务裸跑函数补全
+   - F_d2150（0xd2150，被调 27 次）：流清理/重置（this=r0）
+     语义（objdump 逐指令）：if this[+0x14]（缓冲指针）非空：
+       bl F_d1f00(this[+0x1c], this[+0])（已有定义体 36 处，**直调**）
+       释放 + this[+0]=0；this[+0x20]=this[+0x24]=0（清空读位置/长度）
+       无返回值（调用者不读 r0）
+   - F_f0538（0xf0538，被调 27 次）：对象拷贝/比较（this=r0，r1=值，r2=大小）
+     语义（objdump 逐指令）：基=this[+0x10]（类型槽）；
+       若 0xCA*2 槽为空 且 r2>0x18（24 字节）：this[+0..+0x0c]=
+       (this[+0], this[+4], r1, r2) 四槽拷贝 + 返回 1（拷贝成功）；
+       否则走 [基+0x18] 子比较路径（多分支 → 主路径近似 + 镜像兜底收尾）
+     ★ 诚实边界：0xf0538 完整体 ~40 指令含子比较多分支，主路径
+       （>24 字节四槽拷贝）直译 + 收尾 jqt_blx_dispatch 镜像兜底，
+       真机偏差按 REAL_DEVICE_ACCEPTANCE SOP ③ 判据回补（§124y-288/292 同口径） */
+uint32_t F_d2150(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    extern uint32_t F_d1f00(uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t,
+                             uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t);
+    /* 流清理/重置：this[+0x14] 非空 → F_d1f00 释放 + 清槽 */
+    if (!_r0) return 0;
+    if (MEM(_r0 + 0x14)) {
+        F_d1f00(MEM(_r0 + 0x1c), MEM(_r0 + 0), 0,0,0,0,0,0,0,0,0,0, _sp);
+        MEM(_r0 + 0) = 0;
+    }
+    MEM(_r0 + 0x20) = 0;   /* 读位置清 0 */
+    MEM(_r0 + 0x24) = 0;   /* 长度清 0 */
+    return 0;
+}
+uint32_t F_f0538(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* 对象拷贝/比较（主路径 >24 字节四槽拷贝 + 镜像兜底收尾） */
+    if (!_r0) return 0;
+    uint32_t base = MEM(_r0 + 0x10);
+    if (!base && _r2 > 0x18) {
+        /* 主路径：this[+0..+0x0c] = (a, b, r1, r2) 四槽拷贝 */
+        MEM(_r0 + 0) = MEM(_r0 + 0);    /* a 保持 */
+        MEM(_r0 + 4) = MEM(_r0 + 4);    /* b 保持 */
+        MEM(_r0 + 8) = _r1;
+        MEM(_r0 + 0xc) = _r2;
+        return 1;                        /* 拷贝成功 */
+    }
+    /* 子比较多分支 → 镜像兜底（命中真执行） */
+    jqt_blx_dispatch(0xf0538, _r0, _r1, _r2, _r3, _r4, _r5, _r6, _r7, _r8, _r9, _r10, _r11, _sp);
     return 0;
 }
