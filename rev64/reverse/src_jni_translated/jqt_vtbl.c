@@ -372,6 +372,9 @@ uint32_t F_336ec(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,
 uint32_t F_a4250(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_a4274(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_e546a(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_e1c68(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_e9dd8(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+/* §124y-355 前向声明（第七十批：类型判定 + 栈传偏移计算） */
 uint32_t F_c7e44(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_d1d00(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 /* §124y-354 前向声明（第六十九批：双槽比较 + 半字比较） */
@@ -79579,10 +79582,12 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_e019c,
     F_e01d0,
     F_e01e8,
+    F_e1c68,
     F_e51a0,
     F_e5390,
     F_e546a,
     F_e9dac,
+    F_e9dd8,
     F_e9e0c,
     F_e9f9c,
     F_ec4d4,
@@ -81942,10 +81947,12 @@ const uint32_t jqt_vtbl_offs[] = {
      0xe019c,
      0xe01d0,
      0xe01e8,
+     0xe1c68,
      0xe51a0,
      0xe5390,
      0xe546a,
      0xe9dac,
+     0xe9dd8,
      0xe9e0c,
      0xe9f9c,
      0xec4d4,
@@ -81983,7 +81990,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x11be2c,
      0x11dc0c,
 };
-const uint32_t jqt_vtbl_n = 2360u;  /* §124y-149/.../354: 对齐 fns/offs 表实际条目数 */
+const uint32_t jqt_vtbl_n = 2362u;  /* §124y-149/.../355: 对齐 fns/offs 表实际条目数 */
 
 /* jqt_blx_dispatch：vtable 槽值 reg_val（shadow 地址）→ 目标函数。
  * 影子区 → off = reg_val - g_jqt_shadow；否则 off = reg_val。
@@ -85391,4 +85398,47 @@ uint32_t F_d1d00(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_
         return MEM(_r0 + 0);
     }
     return MEM(_r0 + 0) + 1;
+}
+
+/* ★ §124y-355 第七十批真业务裸跑函数补全（类型判定 + 栈传偏移计算）
+   - F_e1c68（0xe1c68，被调 7 次）：类型判定（this=r0，r1 参数）
+     语义（objdump 逐指令）：[this+20] 取 → ==100(0x64) → 跳 0xe1c86
+       （返回）；!=100 → [this+0] 虚表取 → [sub+20]=21 类型写 +
+       [this+20] 取 → 多分支
+     ★ 诚实边界：类型判定 + 虚表取 + 多分支，主路径（[this+20] vs 100
+       判定 + [sub+20]=21 类型写）直译 + 多分支体镜像兜底
+       （§124y-288~354 同口径）
+   - F_e9dd8（0xe9dd8，被调 7 次）：栈传偏移计算（r0-r3 参数）
+     语义（objdump 逐指令）：[sp+24/28] 栈区取 → r5==0 → 跳 0xe9e04
+       （返回）；非 0 → r1*4+r0 / r3*4+r0 偏移计算 → 多分支
+     ★ 诚实边界：栈传 + 偏移计算 + 多分支，主路径（[sp+24/28] 取
+       + r1*4+r0 偏移）直译 + 多分支体镜像兜底 */
+uint32_t F_e1c68(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* 类型判定：[this+20] vs 100 判定 + [sub+20]=21 类型写主路径 */
+    if (!_r0) return 0;
+    uint32_t v20 = MEM(_r0 + 20);
+    if (v20 == 100) return 0;
+    /* [this+0] 虚表取 → [sub+20]=21 类型写 */
+    uint32_t sub = MEM(_r0 + 0);
+    if (sub) {
+        MEM(sub + 20) = 21;
+    }
+    /* 多分支体 → 镜像兜底 */
+    jqt_blx_dispatch(0xe1c68, _r0, _r1, v20, 0,0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+uint32_t F_e9dd8(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* 栈传偏移计算：[sp+24/28] 取 + r1*4+r0 偏移主路径 + 多分支体兜底 */
+    uint32_t r24 = MEM(_sp + 24);
+    uint32_t r28 = MEM(_sp + 28);
+    if (r24 == 0) return 0;
+    /* r1*4+r0 偏移计算（主路径） */
+    uint32_t off1 = _r0 + _r1 * 4;
+    /* 多分支体 → 镜像兜底 */
+    jqt_blx_dispatch(0xe9dd8, off1, r28, 0, 0,0,0,0,0,0,0,0,0, _sp);
+    return 0;
 }
