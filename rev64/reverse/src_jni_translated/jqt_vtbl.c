@@ -369,6 +369,9 @@ uint32_t F_335c8(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,
 uint32_t F_33684(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_336c8(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_336ec(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_a4234(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_e9e0c(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+/* §124y-297 前向声明（第十二批：虚调用 thunk + 栈顶压入栈参数变体） */
 uint32_t F_d4600(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_8a2b0(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 /* §124y-296 前向声明（第十一批：状态重置 + 对象 getter 三胞胎） */
@@ -78596,6 +78599,7 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_a3aec,
     F_a3b1c,
     F_a4124,
+    F_a4234,
     F_a450c,
     F_a4544,
     F_a456c,
@@ -79308,6 +79312,7 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_e01e8,
     F_e5390,
     F_e9dac,
+    F_e9e0c,
     F_e9f9c,
     F_f0538,
     F_fef44,
@@ -80841,6 +80846,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0xa3aec,
      0xa3b1c,
      0xa4124,
+     0xa4234,
      0xa450c,
      0xa4544,
      0xa456c,
@@ -81553,6 +81559,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0xe01e8,
      0xe5390,
      0xe9dac,
+     0xe9e0c,
      0xe9f9c,
      0xf0538,
      0xfef44,
@@ -81570,7 +81577,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x10d110,
      0x11123a,
 };
-const uint32_t jqt_vtbl_n = 2242u;  /* §124y-149/285/287/288/289/290/291/292/293/294/295/296: 对齐 fns/offs 表实际条目数 */
+const uint32_t jqt_vtbl_n = 2244u;  /* §124y-149/285/287/288/289/290/291/292/293/294/295/296/297: 对齐 fns/offs 表实际条目数 */
 
 /* jqt_blx_dispatch：vtable 槽值 reg_val（shadow 地址）→ 目标函数。
  * 影子区 → off = reg_val - g_jqt_shadow；否则 off = reg_val。
@@ -82467,4 +82474,56 @@ uint32_t F_8a2b0(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_
     if (!_r0) return 0;
     uint32_t obj = MEM(_r0 + 0x198);
     return F_97fcc(obj, 0, 0,0,0,0,0,0,0,0,0,0, _sp);
+}
+
+/* ★ §124y-297 第十二批真业务裸跑函数补全
+   - F_a4234（0xa4234，被调 24 次）：虚调用 thunk（3 栈参数变体）
+     语义（objdump 逐指令）：sub=this[+8]；vt=sub[+0]（vtable）；
+       栈参数 a=[sp+32]/b=[sp+36]/c=[sp+40] 压到 [sp+0..+8]；
+       blx [vt+24]（第 6 槽，r0=this，r1..r3=栈参数）
+     同族兄弟 0xa4250（[vt+28] 第 7 槽，4 栈参数）/0xa4274（同 0xa4250）
+       为同一虚调用 thunk 模式（槽偏移/参数数不同）
+   - F_e9e0c（0xe9e0c，被调 24 次）：栈顶压入字节（栈参数变体）
+     语义（objdump 逐指令）：与 §124y-291 F_e019c 同构但 this=r1（栈传）：
+       stk=this[+0x18]，top=[stk+0]；[top][0]=r0（压入字节）；
+       [stk+0]++（栈顶推进）；size=[stk+4]--；size==0 → blx [stk+0x0c]
+       （栈空收尾，返 0 → [this+0][+0x14]=25 + 虚调用 [this+0]→[vt+0]）
+       ★ 本函数 = F_e019c 的 r1 变体（§124y-291 翻的是 0xe019c 寄存器传
+       版本，0xe9e0c 是栈参数入口）——直译 + 栈空收尾镜像兜底 */
+uint32_t F_a4234(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* 虚调用 thunk（3 栈参数）：sub=this[+8] → [vt+24] 第 6 槽 blx */
+    if (!_r0) return 0;
+    uint32_t sub = MEM(_r0 + 8);
+    if (!sub) return 0;
+    uint32_t vt = MEM(sub + 0);
+    uint32_t fn = MEM(vt + 24);
+    return jqt_blx_dispatch(fn, _r0, _r1, _r2, _r3, _r4, _r5, _r6, _r7, _r8, _r9, _r10, _r11, _sp);
+}
+uint32_t F_e9e0c(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* 栈顶压入字节（栈参数变体，this=_r1）：与 §124y-291 F_e019c 同构 */
+    if (!_r1) return 0;
+    uint32_t stk = MEM(_r1 + 0x18);
+    if (!stk) return 0;
+    uint32_t top = MEM(stk + 0);
+    MEM(top + 0) = _r0;                 /* 压入字节 */
+    MEM(stk + 0) = top + 1;            /* 栈顶推进 */
+    uint32_t size = MEM(stk + 4) - 1;  /* size-- */
+    MEM(stk + 4) = size;
+    if (size == 0) {
+        uint32_t fn = MEM(stk + 0x0c);
+        uint32_t r = jqt_blx_dispatch(fn, _r1, 0,0,0,0,0,0,0,0,0,0,0, _sp);
+        if (r == 0) {
+            uint32_t gs = MEM(_r1 + 0);
+            if (gs) {
+                MEM(gs + 0x14) = 25;
+                uint32_t vt = MEM(gs + 0);
+                jqt_blx_dispatch(MEM(vt + 0), gs, 0,0,0,0,0,0,0,0,0,0,0, _sp);
+            }
+        }
+    }
+    return 0;
 }
