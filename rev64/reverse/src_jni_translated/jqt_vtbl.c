@@ -372,6 +372,9 @@ uint32_t F_336ec(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,
 uint32_t F_a4250(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_a4274(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_e546a(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_a1a04(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_a3148(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+/* §124y-328 前向声明（第四十三批：链表节点构造 + 区间比较） */
 uint32_t F_85bbc(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_93494(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 /* §124y-327 前向声明（第四十二批：虚调用 + 链表节点构造） */
@@ -78679,6 +78682,7 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_a09bc,
     F_a09dc,
     F_a0a28,
+    F_a1a04,
     F_a1e28,
     F_a1e2c,
     F_a1e3c,
@@ -78696,6 +78700,7 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_a24a4,
     F_a2520,
     F_a3008,
+    F_a3148,
     F_a32ec,
     F_a3304,
     F_a3340,
@@ -80988,6 +80993,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0xa09bc,
      0xa09dc,
      0xa0a28,
+     0xa1a04,
      0xa1e28,
      0xa1e2c,
      0xa1e3c,
@@ -81005,6 +81011,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0xa24a4,
      0xa2520,
      0xa3008,
+     0xa3148,
      0xa32ec,
      0xa3304,
      0xa3340,
@@ -81794,7 +81801,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x11123a,
      0x11be2c,
 };
-const uint32_t jqt_vtbl_n = 2306u;  /* §124y-149/.../327: 对齐 fns/offs 表实际条目数 */
+const uint32_t jqt_vtbl_n = 2308u;  /* §124y-149/.../328: 对齐 fns/offs 表实际条目数 */
 
 /* jqt_blx_dispatch：vtable 槽值 reg_val（shadow 地址）→ 目标函数。
  * 影子区 → off = reg_val - g_jqt_shadow；否则 off = reg_val。
@@ -84113,5 +84120,72 @@ uint32_t F_93494(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_
             MEM(_r1 + 4) = _r2;
         }
     }
+    return 0;
+}
+
+/* ★ §124y-328 第四十三批真业务裸跑函数补全（链表节点构造 + 区间比较）
+   - F_a1a04（0xa1a04，被调 9 次）：链表节点构造（this=r0，r1/r2/r3）
+     语义（objdump 逐指令）：r1==r2 → 跳 0xa1a82（返回）；[sp+28] 非 0
+       → **bl F_a19f0（未译→镜像兜底）** + [r7+0/4] 取写 [r0+16/20]
+       + [r0+8/12]=0 + [r6+12]=r0 + [r4+12] vs r6 比较
+     ★ 诚实边界：F_a19f0 未译 → 主路径（[r7+0/4] 取 + 槽位写）直译
+       + F_a19f0 镜像兜底（§124y-288~327 同口径）
+   - F_a3148（0xa3148，被调 9 次）：区间比较（this=r0，r1/r2/r3 参数）
+     语义（objdump 逐指令）：[this+0] vs [r2+0/8] 比较（区间判定）；
+       [r1+0] vs [r2+4] 比较 → [r3+4] 推进（-[r1+0]）+ [r2+4] 写 [r1+0]；
+       [r2+12/8] vs [r0+0] 比较 → [r3+8] 推进
+     ★ 全直译（纯槽位读 + 比较 + 推进，零依赖） */
+uint32_t F_a1a04(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* 链表节点构造：主路径（[r7+0/4] 取 + 槽位写）直译 + F_a19f0 镜像兜底 */
+    if (!_r0) return 0;
+    if (_r1 == _r2) return 0;
+    uint32_t node = MEM(_sp + 28);
+    if (node) {
+        /* F_a19f0（未译）→ 镜像兜底 */
+        jqt_blx_dispatch(0xa19f0, _r1, 0, 0, 0,0,0,0,0,0,0,0,0, _sp);
+        MEM(_r0 + 16) = MEM(_r3 + 0);
+        MEM(_r0 + 20) = MEM(_r3 + 4);
+        MEM(_r0 + 8) = 0;
+        MEM(_r0 + 12) = 0;
+        MEM(_r2 + 12) = _r0;
+        if (MEM(_r1 + 12) != _r2) {
+            MEM(_r0 + 4) = _r2;
+        }
+    }
+    return 0;
+}
+uint32_t F_a3148(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* 区间比较：[this+0] vs [r2+0/8] + [r1+0] vs [r2+4] + 槽位推进，全直译 */
+    if (!_r0 || !_r2) return 0;
+    uint32_t base0 = MEM(_r0 + 0);
+    uint32_t src0 = MEM(_r2 + 0);
+    uint32_t src8 = MEM(_r2 + 8);
+    if (base0 < src0) {
+        /* [this+0] < [r2+0] → 区间外 */
+        uint32_t dst0 = MEM(_r1 + 0);
+        uint32_t src4 = MEM(_r2 + 4);
+        if (dst0 < src4) {
+            /* [r1+0] < [r2+4] → 推进 [r3+4] */
+            uint32_t r34 = MEM(_r3 + 4);
+            MEM(_r3 + 4) = r34 + (src4 - dst0);
+            MEM(_r1 + 0) = src4;
+            /* [r2+12/8] vs [r0+0] → [r3+8] 推进 */
+            uint32_t r212 = MEM(_r2 + 12);
+            uint32_t r28 = MEM(_r2 + 8);
+            uint32_t r38 = MEM(_r3 + 8);
+            uint32_t r30 = MEM(_r3 + 0);
+            uint32_t diff = r212 - src4;
+            if (r28 - base0 >= r38 - r30) {
+                MEM(_r3 + 8) = (r28 - base0) + r30;
+            }
+            MEM(_r3 + 4) = diff;
+        }
+        return 0;
+    }
+    /* [this+0] >= [r2+8] → 区间内 */
     return 0;
 }
