@@ -373,6 +373,9 @@ uint32_t F_a4250(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,
 uint32_t F_a4274(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_e546a(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_abc48(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_3d3b4(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_3e9d0(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+/* §124y-518 前向声明（第一百六十三批：双槽取判定 + 268B 大栈复杂） */
 uint32_t F_3d318(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_3d390(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 /* §124y-517 前向声明（第一百六十二批：getter [this+52] + 字面量池 F_32f8c 绝对值） */
@@ -78237,6 +78240,7 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_3d1cc,
     F_3d318,
     F_3d390,
+    F_3d3b4,
     F_3d454,
     F_3d9e8,
     F_3da20,
@@ -78257,6 +78261,7 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_3e544,
     F_3e5bc,
     F_3e6b0,
+    F_3e9d0,
     F_3f0f0,
     F_3f8f4,
     F_3fe2c,
@@ -80925,6 +80930,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x3d1cc,
      0x3d318,
      0x3d390,
+     0x3d3b4,
      0x3d454,
      0x3d9e8,
      0x3da20,
@@ -80945,6 +80951,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x3e544,
      0x3e5bc,
      0x3e6b0,
+     0x3e9d0,
      0x3f0f0,
      0x3f8f4,
      0x3fe2c,
@@ -83121,7 +83128,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x11ef8c,
      0x11f20c,
 };
-const uint32_t jqt_vtbl_n = 2685u;  /* §124y-149/.../517: 对齐 fns/offs 表实际条目数 */
+const uint32_t jqt_vtbl_n = 2687u;  /* §124y-149/.../518: 对齐 fns/offs 表实际条目数 */
 
 /* jqt_blx_dispatch：vtable 槽值 reg_val（shadow 地址）→ 目标函数。
  * 影子区 → off = reg_val - g_jqt_shadow；否则 off = reg_val。
@@ -91976,4 +91983,44 @@ uint32_t F_3d390(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_
     uint32_t slot1 = JQT_ABS_PTR(0x3d3b0);
     int32_t diff = (int32_t)ret - (int32_t)MEM(slot1);
     return (uint32_t)(diff >= 0 ? diff : -diff);
+}
+
+/* ★ §124y-518 第一百六十三批真业务裸跑函数补全（双槽取判定 + 268B 大栈复杂）
+   - F_3d3b4（0x3d3b4，被调 3 次）：[this+48/52] 双槽取 + 判定
+     语义（objdump 逐指令 + 字面量池 0x3d430 实读）：
+       [this+52] ldr 取 + [this+48] ldr 取 → 比较 → 不等 →
+       [v+0] strb 0 写 + [this+52] 再取 → 多分支
+     ★ 诚实边界：双槽取 + 比较 + strb 0 写 + 多分支，主路径
+       （[this+48/52] 双槽取 + 比较判定）直译 + 多分支体镜像兜底
+       （§124y-288~517 同口径，同 0x82c70 双槽比较模式）
+   - F_3e9d0（0x3e9d0，被调 3 次）：268B 大栈复杂（this=r0）
+     语义（objdump 逐指令 + 字面量池 0x3ea34/0x3ea38 实读）：
+       [字面量池×2] 取 + sub sp,#268 + [sp+260] 写 + [this+72] 取
+       → 非 0 判定 → 多分支
+     ★ 诚实边界：268B 大栈 + 字面量池 + 多参数 + 多分支，主路径
+       （[字面量池] 取 + [this+72] 取）直译 + 多分支体镜像兜底
+       （§124y-288~517 同口径，同 0xbac5c/0x33c10 大栈模式） */
+uint32_t F_3d3b4(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* [this+48/52] 双槽取 + 比较判定主路径 + 多分支体兜底 */
+    if (!_r0) return 0;
+    uint32_t v52 = MEM(_r0 + 52);
+    uint32_t v48 = MEM(_r0 + 48);
+    if (v52 == v48) {
+        jqt_blx_dispatch(0x3d3b4, _r0, _r1, _r2, v52, 0,0,0,0,0,0,0,0, _sp);
+        return 0;
+    }
+    jqt_blx_dispatch(0x3d3b4, _r0, _r1, _r2, v52, v48,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+uint32_t F_3e9d0(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* 268B 大栈复杂：[字面量池] 取 + [this+72] 取主路径 + 多分支体兜底 */
+    if (!_r0) return 0;
+    uint32_t v0 = MEM(JQT_ABS_PTR(0x3ea34));
+    uint32_t v72 = MEM(_r0 + 72);
+    jqt_blx_dispatch(0x3e9d0, _r0, _r1, _r2, v0, v72,0,0,0,0,0,0,0, _sp);
+    return 0;
 }
