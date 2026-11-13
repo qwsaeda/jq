@@ -372,6 +372,9 @@ uint32_t F_336ec(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,
 uint32_t F_a4250(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_a4274(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_e546a(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_8a38c(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_8bb1c(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+/* §124y-373 前向声明（第八十八批：虚调用 + 双槽取位移） */
 uint32_t F_866ac(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_8a0cc(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 /* §124y-372 前向声明（第八十七批：双槽取 LUT + 虚调用） */
@@ -78541,6 +78544,7 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_8a2b0,
     F_8a2c0,
     F_8a2d0,
+    F_8a38c,
     F_8a41c,
     F_8a42c,
     F_8a450,
@@ -78567,6 +78571,7 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_8b68c,
     F_8b6a0,
     F_8b768,
+    F_8bb1c,
     F_8bc10,
     F_8c43c,
     F_8c4b0,
@@ -80940,6 +80945,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x8a2b0,
      0x8a2c0,
      0x8a2d0,
+     0x8a38c,
      0x8a41c,
      0x8a42c,
      0x8a450,
@@ -80966,6 +80972,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x8b68c,
      0x8b6a0,
      0x8b768,
+     0x8bb1c,
      0x8bc10,
      0x8c43c,
      0x8c4b0,
@@ -82109,7 +82116,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x11be2c,
      0x11dc0c,
 };
-const uint32_t jqt_vtbl_n = 2396u;  /* §124y-149/.../372: 对齐 fns/offs 表实际条目数 */
+const uint32_t jqt_vtbl_n = 2398u;  /* §124y-149/.../373: 对齐 fns/offs 表实际条目数 */
 
 /* jqt_blx_dispatch：vtable 槽值 reg_val（shadow 地址）→ 目标函数。
  * 影子区 → off = reg_val - g_jqt_shadow；否则 off = reg_val。
@@ -86126,6 +86133,47 @@ uint32_t F_8a0cc(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_
         if (vt) {
             jqt_blx_dispatch(MEM(vt + 0x1aa), sub, 0, 0, 0, 0,0,0,0,0,0,0,0, _sp);
         }
+    }
+    return 0;
+}
+
+/* ★ §124y-373 第八十八批真业务裸跑函数补全（虚调用 + 双槽取位移）
+   - F_8a38c（0x8a38c，被调 6 次）：虚调用（this=r0，r1 参数）
+     语义（objdump 逐指令）：[this+154*2=0x190] 取 → [sub+0] 虚表取
+       → **[vtable+216*2=0x1b0] blx 虚调用**（同族 0x8a0cc = [vtable+0x1aa]）
+     ★ 诚实边界：虚调用（blx [vtable+0x1b0]）→ 镜像兜底；主路径
+       （[this+0x190] 取 + [sub+0] 虚表取）直译（§124y-288~372 同口径）
+   - F_8bb1c（0x8bb1c，被调 6 次）：双槽取 + 位移（this=r0）
+     语义（objdump 逐指令）：[this+132*2=0x168] 取 + [this+130*2=0x164]
+       取 → 差 /4 位移（asrs #2）→ vs 0 比较 → 多分支
+     ★ 诚实边界：双槽取 + 位移 + 多分支，主路径（[this+0x168/0x164]
+       双槽取 + 差 /4 位移）直译 + 多分支体镜像兜底 */
+uint32_t F_8a38c(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* 虚调用：[this+0x190] 取 + [sub+0] 虚表 → [vtable+0x1b0] blx（镜像兜底） */
+    if (!_r0) return 0;
+    uint32_t sub = MEM(_r0 + 0x190);
+    if (sub) {
+        uint32_t vt = MEM(sub + 0);
+        if (vt) {
+            jqt_blx_dispatch(MEM(vt + 0x1b0), sub, _r1, 0, 0, 0,0,0,0,0,0,0,0, _sp);
+        }
+    }
+    return 0;
+}
+uint32_t F_8bb1c(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* 双槽取 + 位移：[this+0x168/0x164] 双槽取 + 差 /4 位移主路径 */
+    if (!_r0) return 0;
+    uint32_t v168 = MEM(_r0 + 0x168);
+    uint32_t v164 = MEM(_r0 + 0x164);
+    int32_t diff = (int32_t)(v168 - v164) / 4;
+    if (diff == 0) {
+        /* 多分支体 → 镜像兜底 */
+        jqt_blx_dispatch(0x8bb1c, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
+        return 0;
     }
     return 0;
 }
