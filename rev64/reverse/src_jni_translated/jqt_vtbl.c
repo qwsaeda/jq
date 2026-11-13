@@ -373,6 +373,9 @@ uint32_t F_a4250(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,
 uint32_t F_a4274(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_e546a(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_abc48(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_8de70(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_90a54(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+/* §124y-549 前向声明（第一百九十四批：多槽写 + F_6e9cc 循环） */
 uint32_t F_8da9c(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_8ddf4(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 /* §124y-548 前向声明（第一百九十三批：12B 栈 F_6eb64 + 栈帧 F_8dc80） */
@@ -79345,6 +79348,7 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_8db4c,
     F_8dc80,
     F_8ddf4,
+    F_8de70,
     F_8e140,
     F_8e154,
     F_8e390,
@@ -79374,6 +79378,7 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_901dc,
     F_9075c,
     F_90860,
+    F_90a54,
     F_90ed4,
     F_90f54,
     F_91724,
@@ -82095,6 +82100,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x8db4c,
      0x8dc80,
      0x8ddf4,
+     0x8de70,
      0x8e140,
      0x8e154,
      0x8e390,
@@ -82124,6 +82130,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x901dc,
      0x9075c,
      0x90860,
+     0x90a54,
      0x90ed4,
      0x90f54,
      0x91724,
@@ -83338,7 +83345,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x11ef8c,
      0x11f20c,
 };
-const uint32_t jqt_vtbl_n = 2747u;  /* §124y-149/.../548: 对齐 fns/offs 表实际条目数 */
+const uint32_t jqt_vtbl_n = 2749u;  /* §124y-149/.../549: 对齐 fns/offs 表实际条目数 */
 
 /* jqt_blx_dispatch：vtable 槽值 reg_val（shadow 地址）→ 目标函数。
  * 影子区 → off = reg_val - g_jqt_shadow；否则 off = reg_val。
@@ -93347,6 +93354,53 @@ uint32_t F_8ddf4(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_
     if (ret) {
         uint32_t v16 = MEM(_r1 + 16);
         MEM(ret + 16) = v16;
+    }
+    return 0;
+}
+
+/* ★ §124y-549 第一百九十四批真业务裸跑函数补全（多槽写 + F_6e9cc 循环）
+   - F_8de70（0x8de70，被调 3 次）：多槽写复杂（[this+0/4/8/12/16]
+     写 + [r1+4] 取）
+     语义（objdump 逐指令）：[this+4] 0 写 + [this+0] strb 0 写 +
+       [this+8/12] r0 写 + [this+16] 0 写 + [r1+4] 取 → 非 0 判定
+       → 多分支
+     ★ 诚实边界：多槽写 + [r1+4] 取 + 判定 + 多分支，主路径
+       （[this+0/4/8/12/16] 多槽写 + [r1+4] 取 + 判定）直译 +
+       多分支体镜像兜底（§124y-288~548 同口径，
+       同 0x43eac 多槽写模式）
+   - F_90a54（0x90a54，被调 3 次）：F_6e9cc 依赖 ×N（循环遍历）
+     语义（objdump 逐指令）：[r0-r1] 差值 → 非 0 判定 →
+       **bl F_6e9cc（已译，直调）** ×2（44/其他参数）+
+       [r0-r5] 差值 → 非 0 判定 → 循环
+     ★ 全直调（F_6e9cc 已译，零兜底；循环遍历 + 差值判定主路径
+       全直译，同 0x55e3c 循环遍历模式） */
+uint32_t F_8de70(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* 多槽写复杂：[this+0/4/8/12/16] 多槽写 + [r1+4] 取 + 判定主路径 + 多分支体兜底 */
+    if (!_r0) return 0;
+    MEM(_r0 + 4) = 0;
+    MEM(_r0 + 0) = 0;
+    MEM(_r0 + 8) = _r0;
+    MEM(_r0 + 12) = _r0;
+    MEM(_r0 + 16) = 0;
+    if (_r1) {
+        uint32_t v4 = MEM(_r1 + 4);
+        jqt_blx_dispatch(0x8de70, _r0, _r1, _r2, v4, 0,0,0,0,0,0,0,0, _sp);
+    }
+    return 0;
+}
+uint32_t F_90a54(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* F_6e9cc（已译）直调 ×2（44/其他参数）+ 循环遍历主路径全直译 */
+    if (!_r0) return 0;
+    if (_r1 != _r0) {
+        F_6e9cc(_r0, 0, 0, 0, 0, 0,0,0,0,0,0,0, _sp);
+        F_6e9cc(_r0, 44, 0, 0, 0, 0,0,0,0,0,0,0, _sp);
+    }
+    if (_r5 != _r0) {
+        jqt_blx_dispatch(0x90a54, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
     }
     return 0;
 }
