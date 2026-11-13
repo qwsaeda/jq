@@ -9349,7 +9349,8 @@ static void rs_draw_ui44(rs_render *rr, int slot)
     GLint uc = glGetUniformLocation(rr->prog_solid[slot], "uColor");
     rs_popup_shell(rr, slot, UI_UI44_POPUP_X0, UI_UI44_POPUP_Y0,
                    UI_UI44_POPUP_W, UI_UI44_POPUP_H, 0, uc);
-    rs_uibat_title(rr, slot, 0, 360.0f, UI_UI44_POPUP_Y0 + 18.0f, uc);   /* 战况统计 */
+    /* ★ datah_044 XML 真值：面板内仅 消息/排行 2 按钮，无标题 Window（原版引擎画 XML 控件，
+       旧版额外画"战况统计"标题 = 自开发痕迹，删） */
     const ui_ui44_btn *b = ui_ui44_buttons();
     static const float BTN_COL[2][4] = {
         {0.20f, 0.45f, 0.90f, 0.9f}, {0.55f, 0.55f, 0.60f, 0.9f} };
@@ -9362,8 +9363,9 @@ static void rs_draw_ui44(rs_render *rr, int slot)
     }
     static int d44 = 0;
     if (!d44) { d44 = 1;
-        LOGI("rs_draw_ui44：战况统计·消息/排行弹窗出帧（datah_044 固定位置 45,620 面板 %.0f×%.0f，"
-              "2 按钮，uibat 图集 %s，★ 诚实边界：排行榜/消息数据未逆向→边界对话框）",
+        LOGI("rs_draw_ui44：战况统计·消息/排行弹窗出帧（datah_044 Dialog 居中 270,552.5 面板 %.0f×%.0f，"
+              "2 按钮，uibat 图集 %s，★ 诚实边界：排行榜/消息数据未逆向→边界对话框；"
+              "★ XML 实锤 Dialog 居中，旧 45,620 系 datah_045 张冠李戴）",
               UI_UI44_POPUP_W, UI_UI44_POPUP_H,
               (rr->tex_uibat_text[slot] && rr->uibat_text_w > 0) ? "OK" : "MISS");
     }
