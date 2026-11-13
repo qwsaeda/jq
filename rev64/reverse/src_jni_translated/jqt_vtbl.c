@@ -374,6 +374,9 @@ uint32_t F_a4274(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,
 uint32_t F_e546a(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_abc48(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_3d65c(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_58bf0(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_58bf4(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+/* §124y-771 前向声明（第四百一十七批：[this+68] 单字写 setter 第六槽 + 12B 栈 r1 16 位拆分双字节写） */
 uint32_t F_58b2c(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_58bc4(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 /* §124y-770 前向声明（第四百一十六批：[this+16/20] 双取差值第八十三次实例化 + [this+0/48] 写直调第四十五次实例化） */
@@ -79558,6 +79561,8 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_58960,
     F_58b2c,
     F_58bc4,
+    F_58bf0,
+    F_58bf4,
     F_59510,
     F_59840,
     F_5985c,
@@ -82752,6 +82757,8 @@ const uint32_t jqt_vtbl_offs[] = {
      0x58960,
      0x58b2c,
      0x58bc4,
+     0x58bf0,
+     0x58bf4,
      0x59510,
      0x59840,
      0x5985c,
@@ -84892,7 +84899,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x11f20c,
      0x11fa34,
 };
-const uint32_t jqt_vtbl_n = 3191u;  /* §124y-149/.../770: 对齐 fns/offs 表实际条目数 */
+const uint32_t jqt_vtbl_n = 3193u;  /* §124y-149/.../771: 对齐 fns/offs 表实际条目数 */
 
 /* jqt_blx_dispatch：vtable 槽值 reg_val（shadow 地址）→ 目标函数。
  * 影子区 → off = reg_val - g_jqt_shadow；否则 off = reg_val。
@@ -104389,5 +104396,44 @@ uint32_t F_58bc4(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_
     MEM(_r0 + 0) = lit + 8;
     MEM(_r0 + 48) = lit + 32;
     F_58b2c(_r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+
+/* ★ §124y-771 第四百一十七批真业务裸跑函数补全（[this+68] 单字写 setter 第六槽 + 12B 栈 r1 16 位拆分双字节写）
+   - F_58bf0（0x58bf0，被调 2 次）：[this+68] 单字写 setter
+     语义（objdump 逐指令，裸函数 2 指令）：
+       [r0+68] 取 + [r1] 写 → bx lr
+     ★ 全直译（纯单字写 setter，零依赖，同 0x56080 单槽写模式，
+       [this+68] 单字写第六槽 0x3f450/0x48c0c/0x51918/0x55024/
+       0x56080/0x58bf0 确认单槽写模式可扩展）
+   - F_58bf4（0x58bf4，被调 2 次）：12B 栈复杂（r1 16 位拆分 +
+     [this+72/73] 双字节写）
+     语义（objdump 逐指令 + 72/73 常量实读）：
+       sub sp,#12 + [栈] r1 16 位写 + [栈+0] 低字节读 + [栈+1]
+       高字节读 + [this+73] 高字节写 + [this+72] 低字节写 →
+       多分支
+     ★ 诚实边界：12B 栈 + r1 16 位拆分 + 双字节写 + 多分支，
+       主路径（r1 16 位拆分 + [this+72/73] 双字节写）直译 +
+       多分支体镜像兜底
+       （§124y-288~770 同口径，同 0x33638 12B 栈模式，
+       r1 16 位拆分新变体首次出现） */
+uint32_t F_58bf0(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* [this+68] 单字写 setter，全直译零依赖 */
+    if (!_r0) return 0;
+    MEM(_r0 + 68) = _r1;
+    return 0;
+}
+uint32_t F_58bf4(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* r1 16 位拆分 + [this+72/73] 双字节写主路径 + 多分支体兜底 */
+    if (!_r0) return 0;
+    uint32_t low = _r1 & 0xff;
+    uint32_t high = (_r1 >> 8) & 0xff;
+    MEM(_r0 + 73) = high;
+    MEM(_r0 + 72) = low;
+    jqt_blx_dispatch(0x58bf4, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
     return 0;
 }
