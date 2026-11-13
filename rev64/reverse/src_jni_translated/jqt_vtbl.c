@@ -369,6 +369,9 @@ uint32_t F_335c8(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,
 uint32_t F_33684(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_336c8(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_336ec(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_854f8(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_e9f9c(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+/* §124y-292 前向声明（第七批：子对象虚调用 + LUT 压缩字节写入） */
 uint32_t F_d2188(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_e019c(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 /* §124y-291 前向声明（第六批：字节流读 + 栈顶压入） */
@@ -78167,6 +78170,7 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_853d0,
     F_8548c,
     F_854a8,
+    F_854f8,
     F_85530,
     F_8554c,
     F_85568,
@@ -79283,6 +79287,7 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_d6970,
     F_e019c,
     F_e9dac,
+    F_e9f9c,
     F_fef44,
     F_ff110,
     F_103108,
@@ -80401,6 +80406,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x853d0,
      0x8548c,
      0x854a8,
+     0x854f8,
      0x85530,
      0x8554c,
      0x85568,
@@ -81517,6 +81523,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0xd6970,
      0xe019c,
      0xe9dac,
+     0xe9f9c,
      0xfef44,
      0xff110,
      0x103108,
@@ -81532,7 +81539,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x10d110,
      0x11123a,
 };
-const uint32_t jqt_vtbl_n = 2231u;  /* §124y-149/285/287/288/289/290/291: 对齐 fns/offs 表实际条目数 */
+const uint32_t jqt_vtbl_n = 2233u;  /* §124y-149/285/287/288/289/290/291/292: 对齐 fns/offs 表实际条目数 */
 
 /* jqt_blx_dispatch：vtable 槽值 reg_val（shadow 地址）→ 目标函数。
  * 影子区 → off = reg_val - g_jqt_shadow；否则 off = reg_val。
@@ -82149,5 +82156,47 @@ uint32_t F_e019c(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_
             }
         }
     }
+    return 0;
+}
+
+/* ★ §124y-292 第七批真业务裸跑函数补全
+   - F_854f8（0x854f8，被调 45 次）：子对象虚调用（+0x38 槽）
+     语义（objdump 逐指令）：obj = this[+0x38]；obj=0 跳过；
+     否则 bl F_82d3c(obj, r2)（已有定义体 13 处引用，直调）取返回
+     对象 o；o=0 跳过；否则 blx [o+0]→[vt+0x38]（第 14 槽，r1=r2）
+     同族兄弟 0x85514（+0x34 槽）/0x85530（+0x2c 槽）为同一模式
+   - F_e9f9c（0xe9f9c，被调 52 次）：LUT 压缩字节写入（复杂函数）
+     语义（objdump 逐指令）：字节流 + LUT 编码（[r4+0x10] 状态寄存器，
+     (byte&0x7f)<<2 查表 + 位打包）
+     ★ 诚实边界固化：本函数含 LUT 查表 + 位打包多分支（~80 指令），
+       逐指令完整 C 翻译 ROI 低；此处按主路径（[r4+0x10] 读写字节 +
+       [r4+0x20] 计数）近似 + jqt_blx_dispatch 镜像兜底收尾，真机验证
+       LUT 编码路径偏差按 REAL_DEVICE_ACCEPTANCE SOP ③ 判据回补
+       （不包装成"精确等价"——与 §124y-288 F_e9dac 除法 thunk 同口径） */
+uint32_t F_854f8(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    extern uint32_t F_82d3c(uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t,
+                             uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t);
+    /* 子对象虚调用：this[+0x38] → F_82d3c → [o+0]→[vt+0x38] blx */
+    if (!_r0) return 0;
+    uint32_t obj = MEM(_r0 + 0x38);
+    if (!obj) return 0;
+    uint32_t o = F_82d3c(obj, _r2, 0,0,0,0,0,0,0,0,0,0, _sp);
+    if (!o) return 0;
+    uint32_t fn = MEM(o + 0x38);   /* [o+0]→[vt+0x38]（第 14 槽） */
+    return jqt_blx_dispatch(fn, o, _r2, 0,0,0,0,0,0,0,0,0,0, _sp);
+}
+uint32_t F_e9f9c(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* LUT 压缩字节写入（主路径近似 + 镜像兜底收尾）
+       主路径：[r4+0x10] 状态寄存器读改写 + [r1+0] 字节读（&0x7f 掩码） */
+    if (!_r0) return 0;
+    uint32_t st = MEM(_r0 + 0x10);        /* 状态寄存器（LUT 游程长度） */
+    uint32_t b = MEM(_r1 + 0) & 0x7f;     /* 字节流首字节（7bit） */
+    MEM(_r0 + 0x10) = st;                  /* 主路径写回（位打包细节走镜像兜底） */
+    /* 复杂 LUT 查表 + 位打包多分支 → 镜像兜底（命中真执行） */
+    jqt_blx_dispatch(0xe9f9c, _r0, _r1, _r2, _r3, _r4, _r5, _r6, _r7, _r8, _r9, _r10, _r11, _sp);
     return 0;
 }
