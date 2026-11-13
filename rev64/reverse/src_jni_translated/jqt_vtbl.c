@@ -372,6 +372,9 @@ uint32_t F_336ec(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,
 uint32_t F_a4250(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_a4274(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_e546a(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_34a5c(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_3dd44(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+/* §124y-314 前向声明（第二十九批：多分支 LUT + 短函数直调） */
 uint32_t F_54174(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_a4794(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 /* §124y-313 前向声明（第二十八批：容器初始化 + 字符比较） */
@@ -77417,6 +77420,7 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_343a0,
     F_34714,
     F_34918,
+    F_34a5c,
     F_35310,
     F_35314,
     F_353f0,
@@ -77520,6 +77524,7 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_3dbb8,
     F_3dc98,
     F_3dd10,
+    F_3dd44,
     F_3dd60,
     F_3deb0,
     F_3e0dc,
@@ -79698,6 +79703,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x343a0,
      0x34714,
      0x34918,
+     0x34a5c,
      0x35310,
      0x35314,
      0x353f0,
@@ -79801,6 +79807,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x3dbb8,
      0x3dc98,
      0x3dd10,
+     0x3dd44,
      0x3dd60,
      0x3deb0,
      0x3e0dc,
@@ -81696,7 +81703,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x10d110,
      0x11123a,
 };
-const uint32_t jqt_vtbl_n = 2278u;  /* §124y-149/.../313: 对齐 fns/offs 表实际条目数 */
+const uint32_t jqt_vtbl_n = 2280u;  /* §124y-149/.../314: 对齐 fns/offs 表实际条目数 */
 
 /* jqt_blx_dispatch：vtable 槽值 reg_val（shadow 地址）→ 目标函数。
  * 影子区 → off = reg_val - g_jqt_shadow；否则 off = reg_val。
@@ -83422,4 +83429,44 @@ uint32_t F_a4794(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_
         if (_r2) MEM(_r2 + 0) = 1;
     }
     return 0;
+}
+
+/* ★ §124y-314 第二十九批真业务裸跑函数补全（多分支 LUT + 短函数直调）
+   - F_34a5c（0x34a5c，被调 11 次）：多分支 LUT 查表（this=r0，r1/r2=int16）
+     语义（objdump 逐指令 + 字面量池 0x34b18=0x12664c 实读）：
+       栈传 r1 压 strh [sp+4]；取字节 [sp+4/5]（r1 高/低字节）；
+       LUT 槽 [this+0xd2*4=0x348] 取标志 → cmp 1/3/0 三分支；
+       非 1/3/0 → bl F_27a6c（已译 1 处直调，全局槽 0x12664c 取）
+       取 [this+0x38] 槽 → LUT 查表 [0x34b20 字面量] + [sp+4/5] 写回
+     ★ 诚实边界：多分支 LUT 查表 + 全局槽取，主路径（分支判定 +
+       F_27a6c 直调）直译 + LUT 查表体镜像兜底（§124y-288~313 同口径）
+   - F_3dd44（0x3dd44，被调 11 次）：短函数（this=r0，r1/r2 参数）
+     语义（objdump 逐指令 + 字面量池 0x3dd5c=0xe3d78 实读）：
+       全局槽 0xe3d78 取 → bl F_b4bd0（已译 48 处**全直调**）
+       返回 this（r0）
+     ★ 全依赖已译（F_b4bd0）→ 主路径全直调，零兜底 */
+uint32_t F_34a5c(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    extern uint32_t F_27a6c(uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t,
+                             uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t);
+    /* 多分支 LUT 查表：分支判定主路径 + F_27a6c 直调 + LUT 查表体兜底 */
+    if (!_r0) return 0;
+    uint32_t flag = MEM(JQT_ABS_PTR(0x12664c));   /* LUT 标志槽 */
+    if (flag != 1 && flag != 3 && flag != 0) {
+        F_27a6c(_r0, _r1, _r2, 0,0,0,0,0,0,0,0,0, _sp);
+    }
+    /* [this+0x38] 槽 + LUT 查表体 → 镜像兜底 */
+    jqt_blx_dispatch(0x34a5c, _r0, _r1, _r2, 0,0,0,0,0,0,0,0,0, _sp);
+    return MEM(_r0 + 0);
+}
+uint32_t F_3dd44(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    extern uint32_t F_b4bd0(uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t,
+                             uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t);
+    /* 短函数：全局槽 0xe3d78 取 + F_b4bd0 全直调，返回 this */
+    if (!_r0) return 0;
+    F_b4bd0(_r1, _r2, JQT_ABS_PTR(0xe3d78), 0,0,0,0,0,0,0,0,0, _sp);
+    return _r0;
 }
