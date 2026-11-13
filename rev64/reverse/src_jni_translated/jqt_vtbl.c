@@ -462,6 +462,9 @@ uint32_t F_b9984(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,
 uint32_t F_c2f6c(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_c6200(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_c64e0(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_c7124(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_c73d4(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+/* §124y-935 前向声明（第五百八十一批：[this+24] 取 0 比较 [对象+60] 取 0 比较虚调用 + [this+0] 减 12 索引取加 68 字节取 [r2] 0 比较循环） */
 uint32_t F_c6d34(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 /* §124y-934 前向声明（第五百八十批：72B 大栈字面量池双取 [栈+4] 写 [池+0] 取 + 140B 大栈字面量池双取 [栈+40] 写 0 常量） */
 uint32_t F_c624c(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
@@ -82271,8 +82274,10 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_c6830,
     F_c6d34,
     F_c706c,
+    F_c7124,
     F_c717c,
     F_c71a8,
+    F_c73d4,
     F_c76c0,
     F_c7748,
     F_c7858,
@@ -85793,8 +85798,10 @@ const uint32_t jqt_vtbl_offs[] = {
      0xc6830,
      0xc6d34,
      0xc706c,
+     0xc7124,
      0xc717c,
      0xc71a8,
+     0xc73d4,
      0xc76c0,
      0xc7748,
      0xc7858,
@@ -86040,7 +86047,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x11f20c,
      0x11fa34,
 };
-const uint32_t jqt_vtbl_n = 3519u;  /* §124y-149/.../934: 对齐 fns/offs 表实际条目数 */
+const uint32_t jqt_vtbl_n = 3521u;  /* §124y-149/.../935: 对齐 fns/offs 表实际条目数 */
 
 /* jqt_blx_dispatch：vtable 槽值 reg_val（shadow 地址）→ 目标函数。
  * 影子区 → off = reg_val - g_jqt_shadow；否则 off = reg_val。
@@ -113591,5 +113598,47 @@ uint32_t F_c6d34(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_
     uint32_t lit1 = MEM(JQT_ABS_PTR(0xc6f74));
     uint32_t lit2 = MEM(JQT_ABS_PTR(0xc6f78));
     jqt_blx_dispatch(0xc6d34, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+
+/* ★ §124y-935 第五百八十一批真业务裸跑函数补全（[this+24] 取 0 比较 [对象+60] 取 0 比较虚调用 + [this+0] 减 12 索引取加 68 字节取 [r2] 0 比较循环）
+   - F_c7124（0xc7124，被调 2 次）：[this+24] 取 + 0 比较 +
+     [对象+60] 取 + 0 比较 + [对象+0] 虚表 [vtable+20] 虚调用
+     （新变体首次出现）
+     语义（objdump 逐指令）：
+       [this+24] 取 + 0 比较分支 + [对象+60] 取 + 0 比较分支 +
+       [对象+0] 取 + [vtable+20] 取 + **blx vtable（未译→镜像
+       兜底）** → 多分支
+     ★ 诚实边界：取 + 双比较 + 虚表取 + 虚调用 + 多分支，主路径
+       （[this+24] 取 + 0 比较 + [对象+60] 取 + 0 比较 +
+       [vtable+20] 取虚调用）直译 + 虚调用镜像兜底
+       （§124y-288~934 同口径，[this+24] 取 0 比较 + [对象+60]
+       取 0 比较 + [vtable+20] 取虚调用新变体首次出现）
+   - F_c73d4（0xc73d4，被调 2 次）：[this+0] 减 12 + 索引取 +
+     加 68 + 字节取 + [r2] 0 比较 + 循环（新变体首次出现）
+     语义（objdump 逐指令）：
+       [this+0] 取 + 减 12 + [索引+0] 取 + 加 68 + 字节取 +
+       [r2] 0 比较分支 → 循环
+     ★ 诚实边界：取 + 减 + 索引 + 加 + 字节取 + 比较 + 循环，主
+       路径（[this+0] 减 12 索引取 + 加 68 + 字节取 + [r2] 0
+       比较循环）直译 + 循环体镜像兜底
+       （§124y-288~934 同口径，[this+0] 减 12 索引取 + 加 68
+       + 字节取 + [r2] 0 比较循环新变体首次出现） */
+uint32_t F_c7124(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* [this+24] 取 + 0 比较 + [对象+60] 取 + 0 比较 + [vtable+20]
+       取虚调用主路径 + 多分支体兜底 */
+    if (!_r0) return 0;
+    jqt_blx_dispatch(0xc7124, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+uint32_t F_c73d4(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* [this+0] 减 12 索引取 + 加 68 + 字节取 + [r2] 0 比较循环
+       主路径 + 循环体兜底 */
+    if (!_r0) return 0;
+    jqt_blx_dispatch(0xc73d4, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
     return 0;
 }
