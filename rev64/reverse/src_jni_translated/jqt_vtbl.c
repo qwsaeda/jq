@@ -371,6 +371,10 @@ uint32_t F_336c8(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,
 uint32_t F_336ec(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_a4250(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_a4274(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_d2170(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_d2210(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_e01d0(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+/* §124y-299 前向声明（第十四批：字节流读 1/4 字节 + 双压栈补全） */
 uint32_t F_8a2c0(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_8a2d0(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 /* §124y-298 前向声明（第十三批：同族兄弟批量补全） */
@@ -79271,7 +79275,9 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_d2070,
     F_d209c,
     F_d2150,
+    F_d2170,
     F_d2188,
+    F_d2210,
     F_d22c8,
     F_d23d0,
     F_d2500,
@@ -79318,6 +79324,7 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_d6880,
     F_d6970,
     F_e019c,
+    F_e01d0,
     F_e01e8,
     F_e5390,
     F_e9dac,
@@ -81522,7 +81529,9 @@ const uint32_t jqt_vtbl_offs[] = {
      0xd2070,
      0xd209c,
      0xd2150,
+     0xd2170,
      0xd2188,
+     0xd2210,
      0xd22c8,
      0xd23d0,
      0xd2500,
@@ -81569,6 +81578,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0xd6880,
      0xd6970,
      0xe019c,
+     0xe01d0,
      0xe01e8,
      0xe5390,
      0xe9dac,
@@ -81590,7 +81600,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x10d110,
      0x11123a,
 };
-const uint32_t jqt_vtbl_n = 2248u;  /* §124y-149/285/287/288/289/290/291/292/293/294/295/296/297/298: 对齐 fns/offs 表实际条目数 */
+const uint32_t jqt_vtbl_n = 2251u;  /* §124y-149/285/287/288/289/290/291/292/293/294/295/296/297/298/299: 对齐 fns/offs 表实际条目数 */
 
 /* jqt_blx_dispatch：vtable 槽值 reg_val（shadow 地址）→ 目标函数。
  * 影子区 → off = reg_val - g_jqt_shadow；否则 off = reg_val。
@@ -82587,5 +82597,63 @@ uint32_t F_8a2d0(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_
     /* 对象 getter：[this+0x198] 槽 → bl F_97f84（未译，镜像兜底，§124y-268 不引新 UND） */
     if (!_r0) return 0;
     jqt_blx_dispatch(0x97f84, MEM(_r0 + 0x198), 0, 0,0,0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+
+/* ★ §124y-299 第十四批真业务裸跑函数补全（字节流读族 + 双压栈）
+   - F_d2170（0xd2170，被调 15 次）：字节流读 1 字节（有符号）
+     结构体（this=r0）：[+0x20]=读位置，[+0x24]=长度
+     语义：pos=this[+0x20]，len=this[+0x24]；v=0
+       if len > pos：v=(int8)[pos]；pos++
+       返回 (int8)v 符号扩展（lsls24/asrs24 口径）
+   - F_d2210（0xd2210，被调 15 次）：字节流读 4 字节合成（有符号 32 位）
+     语义：pos=this[+0x20]，len=this[+0x24]；v=0
+       if len > pos+3：pos+=4，v = [pos-4]<<24 | [pos-3]<<8 | [pos-2] | [pos-1]
+       返回 v（无符号 32 位读，原版 bx lr 直接返 r0）
+     ★ 同族：0xd2188（读 2 字节，§124y-291 已译）/0xd2170（读 1）/
+       0xd2210（读 4）= 字节流读族按 N 字节分版
+   - F_e01d0（0xe01d0，被调 15 次）：双字节压栈补全（this=r0，r1=值）
+     语义：bl F_e019c(this, 0xff)（压 0xff 哨兵）+ bl F_e019c(this, r1)
+     （已译 §124y-291，**直调**）；无返回值 */
+uint32_t F_d2170(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* 字节流读 1 字节有符号（this=r0） */
+    if (!_r0) return 0;
+    uint32_t pos = MEM(_r0 + 0x20);
+    uint32_t len = MEM(_r0 + 0x24);
+    int32_t v = 0;
+    if (len > pos) {
+        v = (int32_t)(int8_t)MEM(pos + 0);
+        pos += 1;
+        MEM(_r0 + 0x20) = pos;
+    }
+    return (uint32_t)v;
+}
+uint32_t F_d2210(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* 字节流读 4 字节合成（this=r0） */
+    if (!_r0) return 0;
+    uint32_t pos = MEM(_r0 + 0x20);
+    uint32_t len = MEM(_r0 + 0x24);
+    uint32_t v = 0;
+    if (len > pos + 3) {
+        pos += 4;
+        MEM(_r0 + 0x20) = pos;
+        v = (uint32_t)((MEM(pos - 4) << 24) | (MEM(pos - 3) << 16) |
+                        (MEM(pos - 2) << 8) | MEM(pos - 1));
+    }
+    return v;
+}
+uint32_t F_e01d0(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    extern uint32_t F_e019c(uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t,
+                             uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t);
+    /* 双字节压栈补全：先压 0xff 哨兵 + 再压 r1（直调已译 F_e019c） */
+    if (!_r0) return 0;
+    F_e019c(_r0, 0xff, 0,0,0,0,0,0,0,0,0,0, _sp);
+    F_e019c(_r0, _r1, 0,0,0,0,0,0,0,0,0,0, _sp);
     return 0;
 }
