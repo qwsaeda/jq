@@ -1712,6 +1712,51 @@ datah_095 原版 9 按钮但**互斥重叠**（复盘/聊天同位、提和/取�
       非 Draw PASS）；回归全绿（[2/12]bttest/[4/12]规则 20 局 moves=880/
       [8/12]gametest 60 局/[10/12][11/12]walkverify/[12/12]evverify 171/172，
       唯一 FAIL=[5/12]src_rs_check GetMethodID 预存缺口非本次）。
+  - **★ 2026-11-13 修正：双方困毙→Draw 是错误近似，改精确"双方无普通子→Draw"**
+    （dfdd7ba 推送，用户"翻棋后可走路线少"指正同一轮）：
+    07569c7 的"双方困毙（movability）→Draw"把"无行动"当"无普通子"，BLUE 攻子
+    入大本营不可再动但仍算有普通子 → flag-off/mine-off 被误判 Draw（winner=2
+    而非 BLUE，evverify 2 项 FAIL）。原版 0x302f0 阶段1 用**存在性**（sp[16]/
+    sp[17] = 蓝/红普通子位图，rank>12 分区，rank==11 地雷跳过，rank 1-10 含
+    炸弹计普通子），非 movability。
+    修：rules.c 加 `side_has_normal(st,side)`（按 c->side 分区；0xFF 未翻暗子
+    视为"有潜在普通子"返回 true——防暗棋开局/有未翻子误判 Draw；明棋红方
+    rank+0xc 编码归一化）+ stalemate_after 改
+    `!side_has_normal(0) && !side_has_normal(1) → jq_on_draw`（0x303d2）+
+    保留单侧困毙→负（0x302b4）。
+    验证：evverify 172/172 全对（flag-off/mine-off winner=BLUE 恢复）+
+    draw_exist_test PASS（①双方仅旗/雷→Draw ②蓝有普通子炸光红→BLUE
+    ③flag-off 蓝攻旗→BLUE）+ dark_flip_test PASS + flip_draw_guard PASS
+    （暗棋 0xFF 未翻子不误判 Draw）+ regress.py 全通过。
+    - **★ 诚实边界（原版"一方无普通子→对方胜"未独立实现）**：原版 0x30430/
+      0x30438（`!sp[20]||!sp[16]→winner=1` / `!sp[21]||!sp[17]→winner=2`）在
+      64 位未独立实现——flag-off/mine-off 走单侧困毙路径产出相同 winner
+      （RED 无子=困毙=无普通子，殊途同归）。独立实现需先确认原版 0x301f0
+      分发 flag 字段（state+1778）Win/Lose 方向映射（winner 字段编码：
+      0x30430 已实证是"蓝无军旗/普通子→winner=1"，映射到 64 位 JQ_WIN_BLUE=0
+      需方向确认），留待下一轮专项。
+  - **★ 2026-11-13 翻棋走子范围对齐原版（dfdd7ba 推送，用户"翻棋后棋子可走
+    路线很少"指正）**：
+    用户指正：暗棋模式翻出子可走范围显著少于原版。
+    根因 = B01-053（AUD-1000 加的"防信息泄露"）：move_legal 拦"暗棋未翻普通
+    暗子目标不可撞"→ 翻出子只能走空格/已翻子格。原版 0x6a45c（单格走子生成）
+    实证：目标 `cell+4(side)==0` 才拒（0x6a478，只拦蓝方），`side==0xFF` 未翻
+    暗子**继续走吃子比较**（0x6a544→0x6a492：源强吃/同级同归/源弱被吃）→ 原版
+    允许翻出子撞未翻暗子。
+    修：移除 move_legal B01-053 限制（执行器 jq_try_move else 分支已支持 0xFF：
+    源强吃/同级同归/源弱被吃，B01-057/B01-009 处理）。
+    验证：flip_eat_test can_move 0→1（师长 4→未翻暗子 3）+ flip_rail_test
+    （开阔棋盘翻出师长 @(5,2) 滑行 7 格）+ flip_eat_exec_test（源强吃/同级同归
+    ✓）+ evverify 172/172。
+    - **★ 执行器源弱撞未翻暗子 dst 未翻开（诚实边界）**：flip_eat_exec_test
+      源弱（师长4）撞暗子（rank3）→ src 消失、dst 保留（revealed 仍 0）。
+      32 位翻译体（原版忠实翻译）同行为（memset(src) 仅源消失，不翻 dst）→
+      非 64 位独有分叉，与翻译体一致；原版是否翻 dst 需真机 32 位 so 运行时
+      实证（0x3a15c 反汇编未定论，C++ 对象图复杂），留待专项。
+    - **★ 教训固化（翻棋走子范围判据）**：翻棋玩法撞未翻暗子 = 翻出 + 比较
+      （非"不可撞"），任何"未翻暗子目标不可撞"限制都偏离原版——原版走子生成
+      只拦 side==0（蓝方），0xFF 未翻走吃子比较。B01-053 是 AUD-1000 基于
+      "信息泄露"假设的过度防御，与原版矛盾，已撤销。
 - **固化经验 ⑪**：机械重构前先用脚本证明等价性（配对 1:1）；**脚本顶层禁用 local**；
   固定 sleep → 轮询；日志判据用 PID 而非行号/位置启发式；标记块用语义锚点不用行号。
 
