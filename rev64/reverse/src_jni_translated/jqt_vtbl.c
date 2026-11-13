@@ -372,6 +372,9 @@ uint32_t F_336ec(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,
 uint32_t F_a4250(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_a4274(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_e546a(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_33904(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_33edc(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+/* §124y-420 前向声明（第一百三十五批：r1 判定依赖兜底 + [this+252] 取虚调用） */
 uint32_t F_2ebd8(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_2f400(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 /* §124y-419 前向声明（第一百三十四批：双槽比较全直调 + 字面量池全直调） */
@@ -77766,7 +77769,9 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_337e8,
     F_33848,
     F_33878,
+    F_33904,
     F_33998,
+    F_33edc,
     F_33fa4,
     F_33fac,
     F_33fb4,
@@ -80258,7 +80263,9 @@ const uint32_t jqt_vtbl_offs[] = {
      0x337e8,
      0x33848,
      0x33878,
+     0x33904,
      0x33998,
+     0x33edc,
      0x33fa4,
      0x33fac,
      0x33fb4,
@@ -82435,7 +82442,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x11dc0c,
      0x11dde0,
 };
-const uint32_t jqt_vtbl_n = 2489u;  /* §124y-149/.../419: 对齐 fns/offs 表实际条目数 */
+const uint32_t jqt_vtbl_n = 2491u;  /* §124y-149/.../420: 对齐 fns/offs 表实际条目数 */
 
 /* jqt_blx_dispatch：vtable 槽值 reg_val（shadow 地址）→ 目标函数。
  * 影子区 → off = reg_val - g_jqt_shadow；否则 off = reg_val。
@@ -88030,5 +88037,51 @@ uint32_t F_2f400(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_
     if (!_r0) return 0;
     jqt_blx_dispatch(0x2eab4, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
     F_32b64(_r0, 0, 0, 0, 0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+
+/* ★ §124y-420 第一百三十五批真业务裸跑函数补全（r1 判定依赖兜底 + [this+252] 取虚调用）
+   - F_33904（0x33904，被调 4 次）：r1 判定 + 依赖（this=r0，r1/r2/r3）
+     语义（objdump 逐指令 + 字面量池 0x3392c/0x33930 实读）：
+       r1 != 0 → 跳 0x3391a（字面量池另一槽取）；
+       r1 == 0 → [0x3392c] 字面量池取 → **bl F_33f58（未译→
+       镜像兜底）** 传 [[0x3392c], r2, r3]
+     ★ 诚实边界：F_33f58 未译 → 主路径（r1 判定 + 字面量池取）
+       直译 + F_33f58 镜像兜底（§124y-288~419 同口径）
+   - F_33edc（0x33edc，被调 4 次）：[this+252] 取 + 虚调用（this=r0）
+     语义（objdump 逐指令）：[this+252] 取（虚表指针）→ 非 0 →
+       [v+0] 取 + [v+4] 取 → **blx 虚调用** → [this+252]=0 写；
+       为 0 → [this+252]=0 写
+     ★ 诚实边界：虚调用（blx [v+4]）→ 镜像兜底；主路径
+       （[this+252] 非 0 判定 + [v+0/4] 虚表取 + [this+252]=0 写）
+       直译（§124y-288~419 同口径） */
+uint32_t F_33904(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* r1 判定 + F_33f58（未译）镜像兜底 */
+    if (!_r0) return 0;
+    if (_r1 != 0) {
+        /* r1 != 0 路径（0x3391a 区）→ 镜像兜底 */
+        jqt_blx_dispatch(0x33904, _r0, _r1, _r2, _r3, 0,0,0,0,0,0,0,0, _sp);
+        return 0;
+    }
+    uint32_t slot = MEM(JQT_ABS_PTR(0x3392c));
+    jqt_blx_dispatch(0x33f58, slot, _r2, _r3, 0, 0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+uint32_t F_33edc(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* [this+252] 取 + 虚调用主路径 + 虚调用镜像兜底 */
+    if (!_r0) return 0;
+    uint32_t v252 = MEM(_r0 + 252);
+    if (v252 != 0) {
+        uint32_t vt0 = MEM(v252 + 0);
+        uint32_t fn = MEM(vt0 + 4);
+        if (fn) {
+            jqt_blx_dispatch(fn, 0, 0, 0, 0, 0,0,0,0,0,0,0,0, _sp);
+        }
+    }
+    MEM(_r0 + 252) = 0;
     return 0;
 }
