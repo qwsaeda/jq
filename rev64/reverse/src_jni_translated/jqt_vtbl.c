@@ -374,6 +374,9 @@ uint32_t F_a4274(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,
 uint32_t F_e546a(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_abc48(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_3d65c(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_5f6e8(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_5f728(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+/* §124y-802 前向声明（第四百四十八批：[this+0/48] 写直调第五十六次实例化 + vtable 偏移 244 getter） */
 uint32_t F_5f3f4(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_5f648(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 /* §124y-801 前向声明（第四百四十七批：vtable 偏移 getter 68 偏移新槽 + [this+16/20] 双取差值第一百零二次实例化） */
@@ -79755,6 +79758,8 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_5f3f4,
     F_5f3fc,
     F_5f648,
+    F_5f6e8,
+    F_5f728,
     F_5f864,
     F_5f874,
     F_5f884,
@@ -83011,6 +83016,8 @@ const uint32_t jqt_vtbl_offs[] = {
      0x5f3f4,
      0x5f3fc,
      0x5f648,
+     0x5f6e8,
+     0x5f728,
      0x5f864,
      0x5f874,
      0x5f884,
@@ -85109,7 +85116,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x11f20c,
      0x11fa34,
 };
-const uint32_t jqt_vtbl_n = 3253u;  /* §124y-149/.../801: 对齐 fns/offs 表实际条目数 */
+const uint32_t jqt_vtbl_n = 3255u;  /* §124y-149/.../802: 对齐 fns/offs 表实际条目数 */
 
 /* jqt_blx_dispatch：vtable 槽值 reg_val（shadow 地址）→ 目标函数。
  * 影子区 → off = reg_val - g_jqt_shadow；否则 off = reg_val。
@@ -106399,4 +106406,57 @@ uint32_t F_5f648(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_
     uint32_t diff2 = v16 - v20;
     jqt_blx_dispatch(0x5f648, _r0, _r1, diff1, diff2, 0,0,0,0,0,0,0,0, _sp);
     return 0;
+}
+
+/* ★ §124y-802 第四百四十八批真业务裸跑函数补全（[this+0/48] 写直调第五十六次实例化 + vtable 偏移 244 getter）
+   - F_5f6e8（0x5f6e8，被调 2 次）：F_85858 依赖 + [this+0/48] 写 +
+     F_5f648 直调（同 0x3e978/0x3ee64/0x3f0c0/0x3f424/0x3f8c0/
+     0x40734/0x40924/0x40c8c/0x4165c/0x41984/0x42738/0x42d18/
+     0x42ebc/0x431dc/0x43520/0x44750/0x45394/0x45974/0x46a08/
+     0x481ec/0x48be0/0x49124/0x4971c/0x4983c/0x4ada4/0x4d360/
+     0x4e3f4/0x50354/0x5062c/0x518ec/0x51f88/0x52750/0x52bf4/
+     0x534f0/0x54aa8/0x54d38/0x552e4/0x554ec/0x56054/0x568d8/
+     0x56b94/0x56e38/0x570c8/0x57a80/0x57ccc/0x58bc4/0x59100/
+     0x594d4/0x5a0b4/0x5a850/0x5af38/0x5b048/0x5be04/0x5c594/
+     0x5ca24/0x5e63c 模式第五十六次实例化）
+     语义（objdump 逐指令 + 字面量池 0x5f714/0x5f718 实读）：
+       **bl F_85858（未译→镜像兜底）** + [this+0] 字面量池 8 偏移
+       写 + [this+48] +32 偏移写 + **bl F_5f648（本批已译→直调）**
+     ★ 诚实边界：依赖 + 双写 + 直调，主路径（[this+0/48] 写 +
+       F_5f648 直调）直译 + F_85858 镜像兜底
+       （§124y-288~801 同口径，同 0x3e978/0x3ee64/0x3f0c0/0x3f424/
+       0x3f8c0/0x40734/0x40924/0x40c8c/0x4165c/0x41984/0x42738/
+       0x42d18/0x42ebc/0x431dc/0x43520/0x44750/0x45394/0x45974/
+       0x46a08/0x481ec/0x48be0/0x49124/0x4971c/0x4983c/0x4ada4/
+       0x4d360/0x4e3f4/0x50354/0x5062c/0x518ec/0x51f88/0x52750/
+       0x52bf4/0x534f0/0x54aa8/0x54d38/0x552e4/0x554ec/0x56054/
+       0x568d8/0x56b94/0x56e38/0x570c8/0x57a80/0x57ccc/0x58bc4/
+       0x59100/0x594d4/0x5a0b4/0x5a850/0x5af38/0x5b048/0x5be04/
+       0x5c594/0x5ca24/0x5e63c 直调 + 0xdb608 偏移写模式
+       第五十六次实例化）
+   - F_5f728（0x5f728，被调 2 次）：vtable 偏移 getter（[this+244]
+     取）——同 0x8571c（[this+64] 取）/0x85704（[this+68] 取）/
+     0x53e00（[this+24] 取）模式，244 偏移新槽
+     语义（objdump 逐指令）：
+       [this+244] 取 → 返回
+     ★ 全直译零依赖，纯 vtable 偏移 getter（同 0x8571c/0x85704/
+       0x53e00 模式确认，244 偏移新槽首次出现） */
+uint32_t F_5f6e8(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* F_85858（未译）镜像兜底 + [this+0/48] 写 + F_5f648 直调 */
+    if (!_r0) return 0;
+    jqt_blx_dispatch(0x85858, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
+    uint32_t lit = MEM(JQT_ABS_PTR(0x5f714));
+    MEM(_r0 + 0) = lit + 8;
+    MEM(_r0 + 48) = lit + 32;
+    F_5f648(_r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+uint32_t F_5f728(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* vtable 偏移 getter：[this+244] 取（同 0x8571c/0x85704/0x53e00
+       模式全直译零依赖） */
+    return MEM(_r0 + 244);
 }
