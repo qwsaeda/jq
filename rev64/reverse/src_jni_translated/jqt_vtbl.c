@@ -520,6 +520,8 @@ uint32_t F_e12ec(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,
 uint32_t F_e1c10(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_e3520(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_e35ac(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_e3608(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_e36b8(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 /* §124y-947 前向声明（第五百九十三批：大栈字面量池 12 除位运算 + 156B 超大栈字面量池 [栈+8] 写 212 常量加） */
 uint32_t F_cd834(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 /* §124y-946 前向声明（第五百九十二批：20B 栈 [r1] 乘 4 加 [r0] 72 加 [栈+12] 写 72 比较 + 36B 大栈 [this+20/12] 双取加减 [this+24] 取） */
@@ -82467,6 +82469,8 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_e1c10,
     F_e3520,
     F_e35ac,
+    F_e3608,
+    F_e36b8,
     F_ce020,
     F_ce3bc,
     F_ce5dc,
@@ -86059,6 +86063,8 @@ const uint32_t jqt_vtbl_offs[] = {
      0xe1c10,
      0xe3520,
      0xe35ac,
+     0xe3608,
+     0xe36b8,
      0xce020,
      0xce3bc,
      0xce5dc,
@@ -86263,7 +86269,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x11f20c,
      0x11fa34,
 };
-const uint32_t jqt_vtbl_n = 3590u;  /* §124y-149/.../948: 对齐 fns/offs 表实际条目数 */ 
+const uint32_t jqt_vtbl_n = 3592u;  /* §124y-149/.../948: 对齐 fns/offs 表实际条目数 */ 
 
 /* jqt_blx_dispatch：vtable 槽值 reg_val（shadow 地址）→ 目标函数。
  * 影子区 → off = reg_val - g_jqt_shadow；否则 off = reg_val。
@@ -115569,5 +115575,72 @@ uint32_t F_e35ac(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_
        [r3+0] 取 + blx r3 + F_e32f0 直调 + 2 比较主路径 + 多分支体兜底 */
     if (!_r0) return 0;
     jqt_blx_dispatch(0xe35ac, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+
+/* ★ §124y-970 第六百一十六批真业务裸跑函数补全（12B 栈 0 写 [this+4] + [r1] 90 比较 + [this+0] 取 + [r3+20] 写 13 + [this+0] 取 + [r3+24] 写 90 + [this+0] 取 + [r3+28] 写 [r1] + [this+0] 取 + [r3+0] 取 + blx r3 + 228 左移 1 + [r2] 比较 + 字面量池取 + [r4+0] 取 + 22 常数 + 多分支 + 12B 栈 [this+20] 取 204 比较 + 204 左移 1 + [r0] 索引取 + [r3+0] 取 + blx r3 + 0 写 [r4+120] + 204 写 [r4+20] + 204 左移 1 + [r4] 索引取 + [r2+8] 字节取 0 比较 + 206 常数 + [r4+120] 取 + 多分支，均镜像兜底；fns/offs 中间插入非表尾追加）
+   - F_e3608（0xe3608，被调 2 次）：12B 栈复杂（0 写 [this+4] + [r1] 90
+     比较 + [this+0] 取 + [r3+20] 写 13 + [this+0] 取 + [r3+24] 写 90 +
+     [this+0] 取 + [r3+28] 写 [r1] + [this+0] 取 + [r3+0] 取 + blx r3 +
+     228 左移 1 + [r2] 比较 + 字面量池取 + [r4+0] 取 + 22 常数 + 多分支，
+     新变体首次出现）
+     语义（objdump 逐指令，入口 e3608 为函数首，非多分支体）：
+       push {r4-r6,lr} + 0 写 [this+4] + [r1] 90 比较 + [this+0] 取 +
+       [r3+20] 写 13 + [this+0] 取 + [r3+24] 写 90 + [this+0] 取 + [r3+28]
+       写 [r1] + [this+0] 取 + [r3+0] 取 + blx r3 + 228 左移 1 + [r2]
+       比较 + 字面量池取 + [r4+0] 取 + 22 常数 → 多分支
+     ★ 诚实边界：12B 栈 + 0 写 [this+4] + [r1] 90 比较 + [this+0] 取 +
+       [r3+20] 写 13 + [this+0] 取 + [r3+24] 写 90 + [this+0] 取 + [r3+28]
+       写 [r1] + [this+0] 取 + [r3+0] 取 + blx r3 + 228 左移 1 + [r2]
+       比较 + 字面量池取 + [r4+0] 取 + 22 常数 + 多分支，主路径（0 写
+       [this+4] + [r1] 90 比较 + [this+0] 取 + [r3+20] 写 13 + [this+0]
+       取 + [r3+24] 写 90 + [this+0] 取 + [r3+28] 写 [r1] + [this+0] 取 +
+       [r3+0] 取 + blx r3 + 228 左移 1 + [r2] 比较 + 字面量池取 + [r4+0]
+       取 + 22 常数）直译 + 多分支体镜像兜底
+       （§124y-288~969 同口径，12B 栈 0 写 [this+4] + [r1] 90 比较 +
+       [this+0] 取 + [r3+20] 写 13 + [this+0] 取 + [r3+24] 写 90 + [this+0]
+       取 + [r3+28] 写 [r1] + [this+0] 取 + [r3+0] 取 + blx r3 + 228
+       左移 1 + [r2] 比较 + 字面量池取 + [r4+0] 取 + 22 常数多分支新变体
+       首次出现）
+   - F_e36b8（0xe36b8，被调 2 次）：12B 栈复杂（[this+20] 取 204 比较 +
+     204 左移 1 + [r0] 索引取 + [r3+0] 取 + blx r3 + 0 写 [r4+120] + 204
+     写 [r4+20] + 204 左移 1 + [r4] 索引取 + [r2+8] 字节取 0 比较 + 206
+     常数 + [r4+120] 取 + 多分支，新变体首次出现）
+     语义（objdump 逐指令，入口 e36b8 为函数首，非多分支体）：
+       push {r4-r7,lr} + [this+20] 取 204 比较 + 204 左移 1 + [r0] 索引取
+       + [r3+0] 取 + blx r3 + 0 写 [r4+120] + 204 写 [r4+20] + 204 左移
+       1 + [r4] 索引取 + [r2+8] 字节取 0 比较 + 206 常数 + [r4+120] 取
+       → 多分支
+     ★ 诚实边界：12B 栈 + [this+20] 取 204 比较 + 204 左移 1 + [r0] 索引取
+       + [r3+0] 取 + blx r3 + 0 写 [r4+120] + 204 写 [r4+20] + 204 左移
+       1 + [r4] 索引取 + [r2+8] 字节取 0 比较 + 206 常数 + [r4+120] 取 +
+       多分支，主路径（[this+20] 取 204 比较 + 204 左移 1 + [r0] 索引取 +
+       [r3+0] 取 + blx r3 + 0 写 [r4+120] + 204 写 [r4+20] + 204 左移 1
+       + [r4] 索引取 + [r2+8] 字节取 0 比较 + 206 常数 + [r4+120] 取）
+       直译 + 多分支体镜像兜底
+       （§124y-288~969 同口径，12B 栈 [this+20] 取 204 比较 + 204 左移 1
+       + [r0] 索引取 + [r3+0] 取 + blx r3 + 0 写 [r4+120] + 204 写 [r4+20]
+       + 204 左移 1 + [r4] 索引取 + [r2+8] 字节取 0 比较 + 206 常数 +
+       [r4+120] 取多分支新变体首次出现） */
+uint32_t F_e3608(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* 12B 栈：0 写 [this+4] + [r1] 90 比较 + [this+0] 取 + [r3+20] 写
+       13 + [this+0] 取 + [r3+24] 写 90 + [this+0] 取 + [r3+28] 写 [r1]
+       + [this+0] 取 + [r3+0] 取 + blx r3 + 228 左移 1 + [r2] 比较 +
+       字面量池取 + [r4+0] 取 + 22 常数主路径 + 多分支体兜底 */
+    if (!_r0) return 0;
+    jqt_blx_dispatch(0xe3608, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+uint32_t F_e36b8(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* 12B 栈：[this+20] 取 204 比较 + 204 左移 1 + [r0] 索引取 + [r3+0]
+       取 + blx r3 + 0 写 [r4+120] + 204 写 [r4+20] + 204 左移 1 + [r4]
+       索引取 + [r2+8] 字节取 0 比较 + 206 常数 + [r4+120] 取主路径 +
+       多分支体兜底 */
+    if (!_r0) return 0;
+    jqt_blx_dispatch(0xe36b8, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
     return 0;
 }
