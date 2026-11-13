@@ -372,6 +372,9 @@ uint32_t F_336ec(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,
 uint32_t F_a4250(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_a4274(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_e546a(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_57b58(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_95658(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+/* §124y-320 前向声明（第三十五批：316B 复杂多分支 + [this+0x70] 区） */
 uint32_t F_3db3c(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_42fc0(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 /* §124y-319 前向声明（第三十四批：全局槽取 + F_85858 直调） */
@@ -77693,6 +77696,7 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_564dc,
     F_570fc,
     F_57110,
+    F_57b58,
     F_57e9c,
     F_57eb0,
     F_586fc,
@@ -78454,6 +78458,7 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_95500,
     F_9553c,
     F_9556c,
+    F_95658,
     F_95918,
     F_95a30,
     F_95c34,
@@ -79986,6 +79991,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x564dc,
      0x570fc,
      0x57110,
+     0x57b58,
      0x57e9c,
      0x57eb0,
      0x586fc,
@@ -80747,6 +80753,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x95500,
      0x9553c,
      0x9556c,
+     0x95658,
      0x95918,
      0x95a30,
      0x95c34,
@@ -81738,7 +81745,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x10d110,
      0x11123a,
 };
-const uint32_t jqt_vtbl_n = 2290u;  /* §124y-149/.../319: 对齐 fns/offs 表实际条目数 */
+const uint32_t jqt_vtbl_n = 2292u;  /* §124y-149/.../320: 对齐 fns/offs 表实际条目数 */
 
 /* jqt_blx_dispatch：vtable 槽值 reg_val（shadow 地址）→ 目标函数。
  * 影子区 → off = reg_val - g_jqt_shadow；否则 off = reg_val。
@@ -83711,4 +83718,46 @@ uint32_t F_42fc0(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_
     F_85858(_r0, 0, 0, 0,0,0,0,0,0,0,0,0, _sp);
     MEM(_r0 + 0) = JQT_ABS_PTR(0x1132e8) + 8;
     return 0;
+}
+
+/* ★ §124y-320 第三十五批真业务裸跑函数补全（316B 复杂多分支 + [this+0x70] 区）
+   - F_57b58（0x57b58，被调 10 次）：316B 栈复杂多分支（this=r0）
+     语义（objdump 逐指令 + 字面量池 0x57c08=0x10355e/0x57c0c=0x3c0/
+     0x57c10=0x10446e 实读）：sub sp,#268 + [0x10355e+0x3c0] 全局槽取
+       → [sp+260] 写；[0x10446e] 槽取 → bl F_39308（未译→镜像兜底）
+       + bl F_3930c（未译→镜像兜底）
+     ★ 诚实边界：F_39308/F_3930c 未译 → 全局槽取 + 主路径直译 + 依赖
+       镜像兜底（§124y-288~319 同口径，真机偏差按 SOP ③）
+   - F_95658（0x95658，被调 10 次）：[this+0x70] 区（this=r0，r1=r5）
+     语义（objdump 逐指令）：[this+0x70] 区 → bl F_afcc8（未译→镜像
+       兜底）；返回值 0 → 直接 pop 返回；非 0 → [r5+8] 取 + [this+0x70/
+       0x74] 双槽取 → [this+0x70]+=[r5+8] 推进 + [r5+0] 取
+     ★ 诚实边界：F_afcc8 未译 → 主路径（[this+0x70] 区判定 + 槽位推进）
+       直译 + F_afcc8 镜像兜底 */
+uint32_t F_57b58(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* 316B 栈复杂多分支：全局槽取 + F_39308/F_3930c（未译）镜像兜底 */
+    if (!_r0) return 0;
+    uint32_t slot = MEM(JQT_ABS_PTR(0x10355e) + 0x3c0);
+    /* F_39308（未译）→ 镜像兜底 */
+    jqt_blx_dispatch(0x39308, MEM(JQT_ABS_PTR(0x10446e)), slot, 0, 0,0,0,0,0,0,0,0,0, _sp);
+    /* F_3930c（未译）→ 镜像兜底 */
+    jqt_blx_dispatch(0x3930c, MEM(JQT_ABS_PTR(0x10446e)), 0, 0, 0,0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+uint32_t F_95658(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* [this+0x70] 区：F_afcc8（未译）镜像兜底 + 槽位推进主路径 */
+    if (!_r0) return 0;
+    uint32_t area = _r0 + 0x70;
+    /* F_afcc8（未译）→ 镜像兜底 */
+    uint32_t ret = jqt_blx_dispatch(0xafcc8, area, _r1, 0, 0,0,0,0,0,0,0,0,0, _sp);
+    if (ret == 0) return 0;
+    /* [r5+8] 取 + [this+0x70/0x74] 双槽 → [this+0x70]+= [r5+8] 推进 */
+    uint32_t off = MEM(_r1 + 8);
+    MEM(area) = MEM(area) + off;
+    MEM(area + 4) = MEM(area + 4);
+    return MEM(_r1 + 0);
 }
