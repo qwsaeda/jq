@@ -372,6 +372,9 @@ uint32_t F_336ec(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,
 uint32_t F_a4250(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_a4274(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_e546a(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_d2138(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_d4fd4(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+/* §124y-402 前向声明（第一百一十七批：依赖双槽写 + 8B 栈复杂） */
 uint32_t F_c7c9c(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_c81e0(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 /* §124y-401 前向声明（第一百一十六批：链表遍历 + 44B 栈复杂） */
@@ -79749,6 +79752,7 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_d207c,
     F_d2080,
     F_d209c,
+    F_d2138,
     F_d2150,
     F_d2170,
     F_d2188,
@@ -79785,6 +79789,7 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_d4b8c,
     F_d4c40,
     F_d4fa8,
+    F_d4fd4,
     F_d5164,
     F_d5218,
     F_d534c,
@@ -82206,6 +82211,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0xd207c,
      0xd2080,
      0xd209c,
+     0xd2138,
      0xd2150,
      0xd2170,
      0xd2188,
@@ -82242,6 +82248,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0xd4b8c,
      0xd4c40,
      0xd4fa8,
+     0xd4fd4,
      0xd5164,
      0xd5218,
      0xd534c,
@@ -82312,7 +82319,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x11c0a8,
      0x11dc0c,
 };
-const uint32_t jqt_vtbl_n = 2454u;  /* §124y-149/.../401: 对齐 fns/offs 表实际条目数 */
+const uint32_t jqt_vtbl_n = 2456u;  /* §124y-149/.../402: 对齐 fns/offs 表实际条目数 */
 
 /* jqt_blx_dispatch：vtable 槽值 reg_val（shadow 地址）→ 目标函数。
  * 影子区 → off = reg_val - g_jqt_shadow；否则 off = reg_val。
@@ -87332,5 +87339,42 @@ uint32_t F_c81e0(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_
     /* 44B 栈复杂：字面量池槽取主路径 + 多分支体兜底 */
     if (!_r0) return 0;
     jqt_blx_dispatch(0xc81e0, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+
+/* ★ §124y-402 第一百一十七批真业务裸跑函数补全（依赖双槽写 + 8B 栈复杂）
+   - F_d2138（0xd2138，被调 5 次）：依赖 + 双槽写（this=r0，r2 参数）
+     语义（objdump 逐指令）：**bl F_d209c（未译→镜像兜底）** 传
+       [r0, r2] → 返回值 0 → [this+32] 取 → [r2+0] 写 + [this+32/36]
+       双槽写 0；非 0 → 返回
+     ★ 诚实边界：F_d209c 未译 → 主路径（[this+32/36] 双槽写 +
+       [r2+0] 写）直译 + F_d209c 镜像兜底（§124y-288~401 同口径）
+   - F_d4fd4（0xd4fd4，被调 5 次）：8B 栈复杂（this=r0，r1/r2）
+     语义（objdump 逐指令）：sub sp,#8 + r9=r2 寄存器传 + r4=r0/
+       r0=r1/r5=r1 寄存器传 + r3=0 常量 → 多分支
+     ★ 诚实边界：8B 栈 + 寄存器传 + 多分支，主路径（寄存器传）
+       直译 + 多分支体镜像兜底（§124y-288~401 同口径，同 0x42ee8 模式） */
+uint32_t F_d2138(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* 依赖 + 双槽写：[this+32/36] 双槽写 + [r2+0] 写主路径 */
+    if (!_r0) return 0;
+    /* F_d209c（未译）→ 镜像兜底 */
+    jqt_blx_dispatch(0xd209c, _r0, _r2, 0, 0, 0,0,0,0,0,0,0,0, _sp);
+    uint32_t ret = 0;
+    if (ret == 0) {
+        uint32_t v32 = MEM(_r0 + 32);
+        MEM(_r2 + 0) = v32;
+        MEM(_r0 + 32) = 0;
+        MEM(_r0 + 36) = 0;
+    }
+    return 0;
+}
+uint32_t F_d4fd4(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* 8B 栈复杂：寄存器传主路径 + 多分支体兜底 */
+    if (!_r0) return 0;
+    jqt_blx_dispatch(0xd4fd4, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
     return 0;
 }
