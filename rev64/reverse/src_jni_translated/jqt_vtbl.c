@@ -372,6 +372,9 @@ uint32_t F_336ec(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,
 uint32_t F_a4250(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_a4274(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_e546a(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_afd34(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_b83ac(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+/* §124y-316 前向声明（第三十一批：区间比较 + 4 字节反转） */
 uint32_t F_7d91c(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_94ed0(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 /* §124y-315 前向声明（第三十批：容器初始化 + 虚调用） */
@@ -78851,6 +78854,7 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_afd18,
     F_afd24,
     F_afd2c,
+    F_afd34,
     F_afd88,
     F_afda8,
     F_afdb0,
@@ -79064,6 +79068,7 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_b8010,
     F_b80e8,
     F_b82a4,
+    F_b83ac,
     F_b83d8,
     F_b8408,
     F_b8454,
@@ -81136,6 +81141,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0xafd18,
      0xafd24,
      0xafd2c,
+     0xafd34,
      0xafd88,
      0xafda8,
      0xafdb0,
@@ -81349,6 +81355,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0xb8010,
      0xb80e8,
      0xb82a4,
+     0xb83ac,
      0xb83d8,
      0xb8408,
      0xb8454,
@@ -81710,7 +81717,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x10d110,
      0x11123a,
 };
-const uint32_t jqt_vtbl_n = 2282u;  /* §124y-149/.../315: 对齐 fns/offs 表实际条目数 */
+const uint32_t jqt_vtbl_n = 2284u;  /* §124y-149/.../316: 对齐 fns/offs 表实际条目数 */
 
 /* jqt_blx_dispatch：vtable 槽值 reg_val（shadow 地址）→ 目标函数。
  * 影子区 → off = reg_val - g_jqt_shadow；否则 off = reg_val。
@@ -83526,4 +83533,44 @@ uint32_t F_94ed0(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_
         jqt_blx_dispatch(MEM(vt + 0), _r0, 33, _r1, _r2, 0,0,0,0,0,0,0,0, _sp);
     }
     return 0;
+}
+
+/* ★ §124y-316 第三十一批真业务裸跑函数补全（区间比较 + 4 字节反转）
+   - F_afd34（0xafd34，被调 11 次）：区间比较（this=r0，r1/r2 边界值）
+     语义（objdump 逐指令，裸函数无 push/pop）：
+       [this+0] > r1 → 返回 0；[this+8] < r1 → 走 [this+4/12] 比较；
+       [this+4] > r2 → 返回 0；[this+12] < r2 → 返回 1；否则返回 0
+       （双区间判定：[this+0/8] 区 vs r1 + [this+4/12] 区 vs r2）
+     ★ 全直译（纯槽位读 + 比较 + 返回，零依赖）
+   - F_b83ac（0xb83ac，被调 11 次）：4 字节反转（src=r0，栈传 [sp+4..7]）
+     语义（objdump 逐指令）：sub sp,#16 + [sp+4]=src；取 [sp+4/5/6/7]
+       字节 → [sp+12/13/14/15] 写（字节序反转：byte3→byte0，byte2→byte1，
+       byte1→byte2，byte0→byte3）；返回 [sp+12]（4 字节反转值）
+     ★ 全直译（纯字节搬移，零依赖） */
+uint32_t F_afd34(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* 区间比较：双区间判定（[this+0/8] vs r1 + [this+4/12] vs r2）全直译 */
+    if (!_r0) return 0;
+    if (MEM(_r0 + 0) > _r1) return 0;
+    if (MEM(_r0 + 8) < _r1) {
+        if (MEM(_r0 + 4) > _r2) return 0;
+        if (MEM(_r0 + 12) < _r2) return 1;
+        return 0;
+    }
+    return 0;
+}
+uint32_t F_b83ac(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* 4 字节反转：[sp+4/5/6/7] → [sp+12/13/14/15]（byte3→0，byte2→1，
+       byte1→2，byte0→3），返回反转值。全直译（纯字节搬移） */
+    if (!_r0) return 0;
+    uint32_t v = _r0;
+    /* 字节反转：byte3→byte0，byte2→byte1，byte1→byte2，byte0→byte3 */
+    uint32_t rev = ((v & 0x000000ff) << 24) |
+                   ((v & 0x0000ff00) << 8)  |
+                   ((v & 0x00ff0000) >> 8)  |
+                   ((v & 0xff000000) >> 24);
+    return rev;
 }
