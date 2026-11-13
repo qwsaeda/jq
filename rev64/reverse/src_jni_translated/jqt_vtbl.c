@@ -369,6 +369,9 @@ uint32_t F_335c8(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,
 uint32_t F_33684(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_336c8(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_336ec(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_d2188(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_e019c(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+/* §124y-291 前向声明（第六批：字节流读 + 栈顶压入） */
 uint32_t F_a37e4(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_a37fc(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_9f730(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
@@ -79234,6 +79237,7 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_d203c,
     F_d204c,
     F_d2070,
+    F_d2188,
     F_d22c8,
     F_d23d0,
     F_d2500,
@@ -79277,6 +79281,7 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_d64b8,
     F_d683c,
     F_d6970,
+    F_e019c,
     F_e9dac,
     F_fef44,
     F_ff110,
@@ -81466,6 +81471,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0xd203c,
      0xd204c,
      0xd2070,
+     0xd2188,
      0xd22c8,
      0xd23d0,
      0xd2500,
@@ -81509,6 +81515,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0xd64b8,
      0xd683c,
      0xd6970,
+     0xe019c,
      0xe9dac,
      0xfef44,
      0xff110,
@@ -81525,7 +81532,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x10d110,
      0x11123a,
 };
-const uint32_t jqt_vtbl_n = 2229u;  /* §124y-149/285/287/288/289/290: 对齐 fns/offs 表实际条目数 */
+const uint32_t jqt_vtbl_n = 2231u;  /* §124y-149/285/287/288/289/290/291: 对齐 fns/offs 表实际条目数 */
 
 /* jqt_blx_dispatch：vtable 槽值 reg_val（shadow 地址）→ 目标函数。
  * 影子区 → off = reg_val - g_jqt_shadow；否则 off = reg_val。
@@ -82079,6 +82086,68 @@ uint32_t F_a37fc(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_
         uint32_t vt = MEM(obj + 0);
         uint32_t fn = MEM(vt + 4);
         jqt_blx_dispatch(fn, obj, 0,0,0,0,0,0,0,0,0,0,0, _sp);
+    }
+    return 0;
+}
+
+/* ★ §124y-291 第六批真业务裸跑函数补全
+   - F_d2188（0xd2188，被调 61 次）：字节流读 2 字节合成（有符号）
+     结构体（this=r0）：[+0x20]=读位置指针，[+0x24]=流长度
+     语义（objdump 逐指令）：pos=this[+0x20]，len=this[+0x24]
+       v=0；if len > pos+1：取 [pos+1]（ldrb）| [pos]（高字节），
+       合成有符号 16bit 小端 → pos+=2
+       else：pos 不变
+       返回 (int16_t)v（asr 16 符号扩展）
+   - F_e019c（0xe019c，被调 56 次）：栈顶压入字节（带虚调用收尾）
+     结构体（this=r0）：[+0x18]=栈对象
+     语义（objdump 逐指令）：stk=this[+0x18]，top=[stk+0]
+       [top][0] = r1（压入字节）；[stk+0]++（栈顶推进）
+       size=[stk+4]--；if size==0 → blx [stk+0x0c]（栈空收尾，
+       若返 0 → 取 [this+0][+0x14]=25 + 虚调用 [this+0]→[vt+0]）
+       ★ 无返回值（原版 pop {pc} 直接返回 r0 残留，调用者 e01d6/e01ee
+       按 void 处理，本 C 体返回 0 对齐） */
+uint32_t F_d2188(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* 字节流读 2 字节合成有符号 16bit（this=r0） */
+    if (!_r0) return 0;
+    uint32_t pos = MEM(_r0 + 0x20);
+    uint32_t len = MEM(_r0 + 0x24);
+    int16_t v = 0;
+    if (len > pos + 1) {
+        uint32_t hi = MEM(pos + 1);          /* ldrb [pos+1] */
+        uint32_t lo = MEM(pos + 0);          /* ldrb [pos] */
+        v = (int16_t)((hi << 8) | lo);       /* 有符号 16bit 小端合成 */
+        pos += 2;
+        MEM(_r0 + 0x20) = pos;
+    }
+    return (uint32_t)v;
+}
+uint32_t F_e019c(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* 栈顶压入字节（this=r0, r1=字节值） */
+    if (!_r0) return 0;
+    uint32_t stk = MEM(_r0 + 0x18);
+    if (!stk) return 0;
+    uint32_t top = MEM(stk + 0);             /* 栈顶指针 */
+    MEM(top + 0) = _r1;                       /* 压入字节 */
+    MEM(stk + 0) = top + 1;                   /* 栈顶推进 */
+    uint32_t size = MEM(stk + 4) - 1;        /* size-- */
+    MEM(stk + 4) = size;
+    if (size == 0) {
+        /* 栈空收尾：blx [stk+0x0c] */
+        uint32_t fn = MEM(stk + 0x0c);
+        uint32_t r = jqt_blx_dispatch(fn, _r0, 0,0,0,0,0,0,0,0,0,0,0, _sp);
+        if (r == 0) {
+            /* 返 0 → [this+0][+0x14]=25 + 虚调用 [this+0]→[vt+0] */
+            uint32_t gs = MEM(_r0 + 0);
+            if (gs) {
+                MEM(gs + 0x14) = 25;
+                uint32_t vt = MEM(gs + 0);
+                jqt_blx_dispatch(MEM(vt + 0), gs, 0,0,0,0,0,0,0,0,0,0,0, _sp);
+            }
+        }
     }
     return 0;
 }
