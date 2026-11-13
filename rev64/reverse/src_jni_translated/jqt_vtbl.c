@@ -410,6 +410,9 @@ uint32_t F_95708(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,
 uint32_t F_96f60(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_970e0(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_97b9c(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_97f84(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_97fa8(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+/* §124y-883 前向声明（第五百二十九批：[r1] 0 负比较 [this+368/372] 双取 16 倍除 0 返回 + [r1] 0 负比较 [this+368/372] 双取 16 倍除 0 返回） */
 uint32_t F_97f3c(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 /* §124y-882 前向声明（第五百二十八批：76B 大栈字面量池双取 [池+0] 取 [r1] 取 + [r1] 0 负比较 [this+368/372] 双取 16 倍除 0 返回） */
 uint32_t F_97a84(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
@@ -81056,6 +81059,8 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_97efc,
     F_97f10,
     F_97f3c,
+    F_97f84,
+    F_97fa8,
     F_97fcc,
     F_9801c,
     F_98068,
@@ -84474,6 +84479,8 @@ const uint32_t jqt_vtbl_offs[] = {
      0x97efc,
      0x97f10,
      0x97f3c,
+     0x97f84,
+     0x97fa8,
      0x97fcc,
      0x9801c,
      0x98068,
@@ -85676,7 +85683,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x11f20c,
      0x11fa34,
 };
-const uint32_t jqt_vtbl_n = 3415u;  /* §124y-149/.../882: 对齐 fns/offs 表实际条目数 */
+const uint32_t jqt_vtbl_n = 3417u;  /* §124y-149/.../883: 对齐 fns/offs 表实际条目数 */
 
 /* jqt_blx_dispatch：vtable 槽值 reg_val（shadow 地址）→ 目标函数。
  * 影子区 → off = reg_val - g_jqt_shadow；否则 off = reg_val。
@@ -111042,5 +111049,55 @@ uint32_t F_97f3c(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_
     int32_t mid = (v372 - v368) / 16;
     if ((int32_t)_r1 <= mid) return 0;
     jqt_blx_dispatch(0x97f3c, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+
+/* ★ §124y-883 第五百二十九批真业务裸跑函数补全（[r1] 0 负比较 [this+368/372] 双取 16 倍除 0 返回 + [r1] 0 负比较 [this+368/372] 双取 16 倍除 0 返回）
+   - F_97f84（0x97f84，被调 2 次）：[r1] 0 负比较 + [this+368]
+     取 + [this+372] 取 + 减 + 16 倍除 + [r1] 比较 + 0 返回
+     （同 F_97f3c 模式新地址实例化）
+     语义（objdump 逐指令）：
+       [r1] 0 负比较分支 + 184/186 常量 1 倍移位 + [this+368]
+       取 + [this+372] 取 + 减 + 16 倍除 + [r1] 比较分支 →
+       0 返回
+     ★ 全直译零依赖，纯 [r1] 0 负比较 + [this+368/372] 双取
+       16 倍除 0 返回（同 0x829e8/0x829fc/0x97f3c 模式，
+       新地址实例化确认模式稳定）
+   - F_97fa8（0x97fa8，被调 2 次）：[r1] 0 负比较 + [this+368]
+     取 + [this+372] 取 + 减 + 16 倍除 + [r1] 比较 + 0 返回
+     （同 F_97f3c 模式新地址实例化）
+     语义（objdump 逐指令）：
+       [r1] 0 负比较分支 + 184/186 常量 1 倍移位 + [this+368]
+       取 + [this+372] 取 + 减 + 16 倍除 + [r1] 比较分支 →
+       0 返回
+     ★ 全直译零依赖，纯 [r1] 0 负比较 + [this+368/372] 双取
+       16 倍除 0 返回（同 0x829e8/0x829fc/0x97f3c/0x97f84
+       模式，新地址实例化确认模式稳定） */
+uint32_t F_97f84(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* [r1] 0 负比较 + [this+368/372] 双取 16 倍除 + 0 返回（全
+       直译零依赖，同 F_97f3c 模式，新地址实例化） */
+    if (!_r0) return 0;
+    if ((int32_t)_r1 < 0) return 0;
+    int32_t v368 = MEM(_r0 + 368);
+    int32_t v372 = MEM(_r0 + 372);
+    int32_t mid = (v372 - v368) / 16;
+    if ((int32_t)_r1 <= mid) return 0;
+    jqt_blx_dispatch(0x97f84, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+uint32_t F_97fa8(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* [r1] 0 负比较 + [this+368/372] 双取 16 倍除 + 0 返回（全
+       直译零依赖，同 F_97f3c 模式，新地址实例化） */
+    if (!_r0) return 0;
+    if ((int32_t)_r1 < 0) return 0;
+    int32_t v368 = MEM(_r0 + 368);
+    int32_t v372 = MEM(_r0 + 372);
+    int32_t mid = (v372 - v368) / 16;
+    if ((int32_t)_r1 <= mid) return 0;
+    jqt_blx_dispatch(0x97fa8, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
     return 0;
 }
