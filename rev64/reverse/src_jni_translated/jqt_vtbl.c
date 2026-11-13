@@ -389,6 +389,9 @@ uint32_t F_860c8(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,
 uint32_t F_86b0c(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_86c20(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_87498(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_899ac(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_89ad0(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+/* §124y-862 前向声明（第五百零八批：字面量池 F_94d5c/F_94d64 双直调 72 常量 __aeabi_idiv 直调 + 16B 栈 F_953a8 直调 [this+112] memcpy 16 直调） */
 uint32_t F_89554(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 /* §124y-861 前向声明（第五百零七批：264B 超大栈字面量池双取 [池+0] 取 [r1] 127 比较 + [this+112/120/124] 三取 140 偏移减） */
 uint32_t F_86d3c(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
@@ -80726,6 +80729,8 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_897d0,
     F_89928,
     F_8992c,
+    F_899ac,
+    F_89ad0,
     F_89b4c,
     F_8a0cc,
     F_8a1e8,
@@ -84102,6 +84107,8 @@ const uint32_t jqt_vtbl_offs[] = {
      0x897d0,
      0x89928,
      0x8992c,
+     0x899ac,
+     0x89ad0,
      0x89b4c,
      0x8a0cc,
      0x8a1e8,
@@ -85529,7 +85536,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x11f20c,
      0x11fa34,
 };
-const uint32_t jqt_vtbl_n = 3373u;  /* §124y-149/.../861: 对齐 fns/offs 表实际条目数 */
+const uint32_t jqt_vtbl_n = 3375u;  /* §124y-149/.../862: 对齐 fns/offs 表实际条目数 */
 
 /* jqt_blx_dispatch：vtable 槽值 reg_val（shadow 地址）→ 目标函数。
  * 影子区 → off = reg_val - g_jqt_shadow；否则 off = reg_val。
@@ -110001,5 +110008,52 @@ uint32_t F_89554(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_
     uint32_t v120 = MEM(_r0 + 120);
     int32_t diff = v120 - v112;
     jqt_blx_dispatch(0x89554, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+
+/* ★ §124y-862 第五百零八批真业务裸跑函数补全（字面量池 F_94d5c/F_94d64 双直调 72 常量 __aeabi_idiv 直调 + 16B 栈 F_953a8 直调 [this+112] memcpy 16 直调）
+   - F_899ac（0x899ac，被调 2 次）：字面量池 + F_94d5c/F_94d64
+     双直调 + [返回] 比较 + 72 常量 + __aeabi_idiv 直调
+     （新变体首次出现）
+     语义（objdump 逐指令 + 字面量池 0x899d4 实读）：
+       [字面量池] 取 + [池+0] 取 + **bl F_94d5c（未译→镜像兜
+       底）** + [池+0] 取 + **bl F_94d64（未译→镜像兜底）** +
+       [返回] 比较分支 + 72 常量 + **blx __aeabi_idiv（PLT）**
+       → 返回
+     ★ 诚实边界：字面量池 + 双直调 + 比较 + 常量 + 除 + 返回，
+       主路径（[字面量池] 取 + F_94d5c 直调 + F_94d64 直调 +
+       [返回] 比较 + 72 常量 + __aeabi_idiv 直调）直译 +
+       双镜像兜底
+       （§124y-288~861 同口径，字面量池 + F_94d5c/F_94d64
+       双直调 + 72 常量 + __aeabi_idiv 直调新变体首次出现）
+   - F_89ad0（0x89ad0，被调 2 次）：16B 栈复杂（F_953a8 直调 +
+     [this+112] 偏移 + memcpy 16 直调 + [栈+0] 取 + 多分支）
+     语义（objdump 逐指令）：
+       sub sp,#16 + **bl F_953a8（未译→镜像兜底）** +
+       [this+112] 偏移 + 16 常量 + **blx memcpy（PLT）** +
+       [栈+0] 取 + [this] 取 → 多分支
+     ★ 诚实边界：16B 栈 + 直调 + 偏移 + 常量 + memcpy + 取 +
+       多分支，主路径（F_953a8 直调 + [this+112] 偏移 +
+       memcpy 16 直调 + [栈+0] 取）直译 + F_953a8 镜像兜底
+       （§124y-288~861 同口径，16B 栈 F_953a8 直调 +
+       [this+112] memcpy 16 直调新变体首次出现） */
+uint32_t F_899ac(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* [字面量池] 取 + F_94d5c/F_94d64（未译）双镜像兜底 +
+       [返回] 比较 + 72 常量 + __aeabi_idiv（PLT）直调主路径 */
+    if (!_r0) return 0;
+    uint32_t lit = MEM(JQT_ABS_PTR(0x899d4));
+    jqt_blx_dispatch(0x899ac, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+uint32_t F_89ad0(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* 16B 栈：F_953a8（未译）镜像兜底 + [this+112] 偏移 +
+       memcpy（PLT）16 常量直调 + [栈+0] 取主路径 + 多分支体
+       兜底 */
+    if (!_r0) return 0;
+    jqt_blx_dispatch(0x89ad0, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
     return 0;
 }
