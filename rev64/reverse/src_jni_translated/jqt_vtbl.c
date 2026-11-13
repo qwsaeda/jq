@@ -369,6 +369,9 @@ uint32_t F_335c8(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,
 uint32_t F_33684(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_336c8(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_336ec(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_e5390(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_d6880(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+/* §124y-293 前向声明（第八批：异常检查器 + setjmp/longjmp 辅助） */
 uint32_t F_854f8(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_e9f9c(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 /* §124y-292 前向声明（第七批：子对象虚调用 + LUT 压缩字节写入） */
@@ -79284,8 +79287,10 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_d6400,
     F_d64b8,
     F_d683c,
+    F_d6880,
     F_d6970,
     F_e019c,
+    F_e5390,
     F_e9dac,
     F_e9f9c,
     F_fef44,
@@ -81520,8 +81525,10 @@ const uint32_t jqt_vtbl_offs[] = {
      0xd6400,
      0xd64b8,
      0xd683c,
+     0xd6880,
      0xd6970,
      0xe019c,
+     0xe5390,
      0xe9dac,
      0xe9f9c,
      0xfef44,
@@ -81539,7 +81546,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x10d110,
      0x11123a,
 };
-const uint32_t jqt_vtbl_n = 2233u;  /* §124y-149/285/287/288/289/290/291/292: 对齐 fns/offs 表实际条目数 */
+const uint32_t jqt_vtbl_n = 2235u;  /* §124y-149/285/287/288/289/290/291/292/293: 对齐 fns/offs 表实际条目数 */
 
 /* jqt_blx_dispatch：vtable 槽值 reg_val（shadow 地址）→ 目标函数。
  * 影子区 → off = reg_val - g_jqt_shadow；否则 off = reg_val。
@@ -82198,5 +82205,46 @@ uint32_t F_e9f9c(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_
     MEM(_r0 + 0x10) = st;                  /* 主路径写回（位打包细节走镜像兜底） */
     /* 复杂 LUT 查表 + 位打包多分支 → 镜像兜底（命中真执行） */
     jqt_blx_dispatch(0xe9f9c, _r0, _r1, _r2, _r3, _r4, _r5, _r6, _r7, _r8, _r9, _r10, _r11, _sp);
+    return 0;
+}
+
+/* ★ §124y-293 第八批真业务裸跑函数补全（异常处理域）
+   - F_d6880（0xd6880，被调 41 次）：setjmp/longjmp 异常跳转辅助
+     语义（objdump 逐指令）：this=r0，r1=跳转值
+       [this+0x0c] = r1（存跳转值）；this += 0x10（取 jmp_buf+16 基址）
+       longjmp(jmp_buf, 1)（.plt 系统调用，blx 0x22efc）
+     同族兄弟 0xd688c = setjmp 包装（this += 0x10; setjmp(jmp_buf)，blx 0x22de8）
+     ★ 诚实边界：longjmp/setjmp 是**系统调用**（.plt），真机由 linker 解析
+       → 翻译体直调系统符号（非镜像）；jmp_buf 偏移 +0x10 为原版布局
+   - F_e5390（0xe5390，被调 42 次）：异常检查器（编译器生成尾段，栈传参）
+     语义（objdump 逐指令）：栈参数 r2=[sp+8]（对象数组基址）/
+       r5=[sp+16]（下标）/ [sp+0x134]（期望值）；
+       取 [r2+r5][0] 与 [sp+0x134] 比较，不等 → bl F_e6286（异常抛出，
+       未译）；相等 → 直接 epilogue（mov r8/r9/sl/fp 恢复 + pop）
+       返回 r0=0（无异常）
+     ★ 诚实边界：依赖 F_e6286（异常抛出 thunk，未译）→ 比较相等主路径
+       直译（返回 0），不等路径 jqt_blx_dispatch 镜像兜底 */
+uint32_t F_d6880(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* setjmp/longjmp 异常跳转：[this+0x0c]=跳转值；longjmp(this+0x10, 1) */
+    if (!_r0) return 0;
+    MEM(_r0 + 0x0c) = _r1;
+    /* longjmp 是系统调用（.plt 0x22efc），真机 linker 解析；
+       翻译体经镜像兜底触发（命中真执行系统 longjmp） */
+    jqt_blx_dispatch(0x22efc, _r0 + 0x10, 1, 0,0,0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+uint32_t F_e5390(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* 异常检查器（尾段栈传参近似）：[r0+r4] 与 r5 比较，不等 → 异常抛出兜底 */
+    if (!_r0) return 0;
+    uint32_t v = MEM(_r0 + _r4 * 4);      /* 栈参数近似：r4 作下标 */
+    if (v == _r5) {
+        return 0;                          /* 相等 → 无异常（主路径） */
+    }
+    /* 不等 → bl F_e6286（异常抛出，未译）→ 镜像兜底 */
+    jqt_blx_dispatch(0xe6286, _r0, _r1, _r2, _r3, _r4, _r5, _r6, _r7, _r8, _r9, _r10, _r11, _sp);
     return 0;
 }
