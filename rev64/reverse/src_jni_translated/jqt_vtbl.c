@@ -372,6 +372,9 @@ uint32_t F_336ec(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,
 uint32_t F_a4250(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_a4274(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_e546a(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_3abec(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_3e1c4(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+/* §124y-362 前向声明（第七十七批：F_b5a8c 全直调 + 字面量池 LUT） */
 uint32_t F_2f050(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_32b64(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 /* §124y-361 前向声明（第七十六批：字节判定+LUT 取负 + 全依赖直调） */
@@ -77634,6 +77637,7 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_3a92c,
     F_3ab64,
     F_3ab80,
+    F_3abec,
     F_3ac68,
     F_3adb0,
     F_3adc4,
@@ -77691,6 +77695,7 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_3dd60,
     F_3deb0,
     F_3e0dc,
+    F_3e1c4,
     F_3e5bc,
     F_3f8f4,
     F_3fe2c,
@@ -80011,6 +80016,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x3a92c,
      0x3ab64,
      0x3ab80,
+     0x3abec,
      0x3ac68,
      0x3adb0,
      0x3adc4,
@@ -80068,6 +80074,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x3dd60,
      0x3deb0,
      0x3e0dc,
+     0x3e1c4,
      0x3e5bc,
      0x3f8f4,
      0x3fe2c,
@@ -82032,7 +82039,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x11be2c,
      0x11dc0c,
 };
-const uint32_t jqt_vtbl_n = 2374u;  /* §124y-149/.../361: 对齐 fns/offs 表实际条目数 */
+const uint32_t jqt_vtbl_n = 2376u;  /* §124y-149/.../362: 对齐 fns/offs 表实际条目数 */
 
 /* jqt_blx_dispatch：vtable 槽值 reg_val（shadow 地址）→ 目标函数。
  * 影子区 → off = reg_val - g_jqt_shadow；否则 off = reg_val。
@@ -85676,4 +85683,36 @@ uint32_t F_32b64(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_
     /* 多分支体 → 镜像兜底 */
     jqt_blx_dispatch(0x32b64, ret, 0, 0, 0,0,0,0,0,0,0,0,0, _sp);
     return ret;
+}
+
+/* ★ §124y-362 第七十七批真业务裸跑函数补全（F_b5a8c 全直调 + 字面量池 LUT）
+   - F_3abec（0x3abec，被调 6 次）：F_b5a8c 全直调 + 8B 栈（this=r0）
+     语义（objdump 逐指令 + 字面量池 0x3ac54=0x43b 实读）：
+       sub sp,#8 + [sp+0]=0x43b 字面量栈传 + [sp+4]=0 栈传 →
+       **bl F_b5a8c（已译 1 处全直调）** 传 [r0+36, 0, sp, 0x43b 槽]
+     ★ 全依赖已译（F_b5a8c）→ 主路径全直调 + 8B 栈传，零兜底
+       （同 §124y-361 F_32b64 同模式）
+   - F_3e1c4（0x3e1c4，被调 6 次）：字面量池 LUT（r0 参数）
+     语义（objdump 逐指令 + 字面量池 0x3e278=0x11cef6/0x3e27c=0x3c0/
+     0x3e280=0xfffffbe8/0x3e284=0x414 实读）：
+       [0x11cef6+0x3c0] LUT 槽取 → 多分支
+     ★ 诚实边界：字面量池 LUT + 多分支，主路径（[0x11cef6+0x3c0]
+       LUT 槽取）直译 + 多分支体镜像兜底（§124y-288~361 同口径） */
+uint32_t F_3abec(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    extern uint32_t F_b5a8c(uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t,
+                             uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t);
+    /* F_b5a8c 全直调 + 8B 栈传主路径，零兜底 */
+    if (!_r0) return 0;
+    return F_b5a8c(_r0 + 36, 0, _sp, JQT_ABS_PTR(0x43b), 0,0,0,0,0,0,0,0, _sp);
+}
+uint32_t F_3e1c4(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* 字面量池 LUT：[0x11cef6+0x3c0] 槽取主路径 + 多分支体兜底 */
+    uint32_t slot = MEM(JQT_ABS_PTR(0x11cef6 + 0x3c0));
+    /* 多分支体 → 镜像兜底 */
+    jqt_blx_dispatch(0x3e1c4, _r0, _r1, _r2, slot, 0,0,0,0,0,0,0,0, _sp);
+    return 0;
 }
