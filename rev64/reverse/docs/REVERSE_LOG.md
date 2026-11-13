@@ -9087,3 +9087,39 @@ flaky 误判回归"三型假闭环。
   + 崩溃全归因 ART 层 0 so 段实锤），非"已达成"；实锤达成快照 =
   §124y-238/240/247/260（so 9025101e/d0c311b7 多轮 4 项/单项 PASS 记录），
   当前 ART 崩溃周期内 flaky，周期稳定后重跑 4 项同轮全 PASS 收口
+
+
+### §124y-262 launch_hook pid 存活校验 + 崩溃自动重启（ART 崩溃前置形态根治，2026-11-13）
+
+用户"按详细计划做完了，做无可做了？"指正下（实锤 4 项 flaky 非"做无可做"，
+仍剩可推进项），按优先级落地项 1（设备 4 项 flaky 根治）：
+
+- **★ 新实锤形态（§124y-261 延伸）**：ART 崩溃周期可**前置到 app 启动即崩**
+  （`am start` 后首帧反射调用链 `GetMethodID→strlen` SEGV_MAPERR fault
+  0x9916a728，pid 起不来）——此前 §124y-259 时崩溃在钩子段（app 已起），
+  本轮 08:23:59 崩溃在 dlopen 后首帧，比"钩子段未出日志"更靠前
+- **根因**：`launch_hook` 里 `am force-stop; logcat -c; am start; sleep 45` 后
+  app 已崩死（pid 空）→ 32 位 so 钩子段（jq_walk_bridge_tick / F_3ab80 读属性
+  触发）无从跑 → 判据锚点全 0 → 脚本单跑 4 项全 FAIL（flaky）
+- **根治（§124y-262 落地）**：`arm32_hook_check.sh` `launch_hook` 轮询段
+  **每轮校验 pid 存活**（`pidof $PKG`），app 崩死（pid 空）且未重启过 2 次
+  → **保留 jq.* 属性重启 app**（32 位 so 重新 dlopen 读到属性跑钩子段）+
+  `sleep 30` 转译冷启动窗口；crash 计数仍计入（段归属由 classify_crash 判读，
+  ART 层容忍 §124y-243/253）
+- **坑固化（§124y-254 经验 A 防"修一半当修完"）**：崩溃自动重启只治
+  "app 崩死 pid 空"这一层，**未治**转译冷启动 sleep 窗口不足（层 ① 仍需
+  §124y-186/243 90s 轮询）+ ART 崩溃周期本身（周期内 2 次重启也可能撞回周期，
+  须等周期恢复窗口 §124y-191/226）；本轮实锤 4 项重验 = walk_bridge PASS
+  + game_test/native_event/framebuffer FAIL（周期仍活跃，flaky 窗口迁移
+  §124y-260 口径），**判据基准维持非已达成**
+- **32 位侧可推进项优先级清单（§124y-262 固化，防"做无可做"误判）**：
+  1. 设备 4 项 flaky 根治 = launch_hook pid 存活校验 + 崩溃自动重启（§124y-262
+     本轮落地，根治"app 崩死 pid 空"层）
+  2. 设备 4 项 4 项同轮全 PASS 实锤达成快照（§124y-238/240/247/260 判据，
+     待 ART 崩溃周期恢复窗口重跑收口，环境依赖非阻塞）
+  3. 静态判据 5 未接入脚本（shot/so_link/src_rs/glview_smali/layout_align）
+     = **正向 64 位会话范围**（RS=forward/src_rs / lib64 arm64 / datah 按钮表），
+     按 AGENTS.md 红线"本会话只做 32 位逆向，不抢 forward 活"，**本会话不接入**
+     `arm32_static_evidence.sh`（接了 = 跨会话误改）
+  4. 32 位翻译体暗棋完整 60 局对弈 / AI 介入 / 蓝牙端到端 = §124y 已固化诚实
+     边界（超出 32 位走子桥简化范围），**非本会话可独立推进**

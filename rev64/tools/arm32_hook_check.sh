@@ -153,10 +153,26 @@ launch_hook() {
   LOG=$(adb -s "$DEV" logcat -d 2>/dev/null)
   # §124y-243 判据未出 → 轮询扩到 90s（每 5s 查一次，转译冷启动 2-3 倍慢
   #   §124y-188 根治——旧 6×5s=30s 在转译周期内读不到判据 → 假 FAIL）
-  local i
+  # §124y-262 ART 崩溃前置到启动即崩形态根治（§124y-261 实锤）：app 在 am start
+  #   后崩溃（ART 反射周期 fault 0x9916a728，pid 空）→ 钩子段无从跑 → 判据锚点
+  #   全 0。轮询段每轮校验 pid 存活，崩溃则保留属性重启 app（最多 2 次），
+  #   让 32 位 so 重新 dlopen 读到属性跑钩子段（crash 计数仍计入，段归属由
+  #   classify_crash 判读，ART 层容忍）。
+  local i _pid _restarted=0
   for i in $(seq 1 18); do
-    echo "$LOG" | grep -q "GAME-TEST: 端到端完成\|WALK-BRIDGE: 完整 8 步\|F_3ab80: 事件发送" && break
-    sleep 5
+    if echo "$LOG" | grep -q "GAME-TEST: 端到端完成\|WALK-BRIDGE: 完整 8 步\|F_3ab80: 事件发送"; then break; fi
+    # pid 存活校验：app 崩死（pid 空）且未重启过 → 保留属性重启（ART 崩溃周期重 dlopen 读属性）
+    _pid=$(adb -s "$DEV" shell "pidof $PKG" 2>/dev/null | tr -d '\r')
+    if [ -z "$_pid" ] && [ "$_restarted" -lt 2 ]; then
+      _restarted=$((_restarted+1))
+      echo "  [auto-restart] app 崩溃（pid 空，第 $_restarted 次），保留属性重启"
+      timeout 10 adb -s "$DEV" shell "am force-stop $PKG" >/dev/null 2>&1
+      sleep 2
+      timeout 10 adb -s "$DEV" shell "am start -n $PKG/com.cnvcs.App" >/dev/null 2>&1
+      sleep 30   # 转译冷启动 dlopen + 钩子段 ~30s
+    else
+      sleep 5
+    fi
     LOG=$(adb -s "$DEV" logcat -d 2>/dev/null)
   done
   echo "$LOG"
