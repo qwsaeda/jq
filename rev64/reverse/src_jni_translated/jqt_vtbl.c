@@ -372,6 +372,9 @@ uint32_t F_336ec(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,
 uint32_t F_a4250(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_a4274(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_e546a(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_337e8(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_36a64(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+/* §124y-384 前向声明（第九十九批：全依赖直调 ×2） */
 uint32_t F_29d78(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_301f0(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 /* §124y-383 前向声明（第九十八批：偏移计算 + 字面量池多分支） */
@@ -77632,6 +77635,7 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_33724,
     F_3376c,
     F_33790,
+    F_337e8,
     F_33848,
     F_33878,
     F_33998,
@@ -77657,6 +77661,7 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_35ed4,
     F_36700,
     F_36960,
+    F_36a64,
     F_36da4,
     F_36db8,
     F_36dcc,
@@ -80053,6 +80058,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x33724,
      0x3376c,
      0x33790,
+     0x337e8,
      0x33848,
      0x33878,
      0x33998,
@@ -80078,6 +80084,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x35ed4,
      0x36700,
      0x36960,
+     0x36a64,
      0x36da4,
      0x36db8,
      0x36dcc,
@@ -82186,7 +82193,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x11c0a8,
      0x11dc0c,
 };
-const uint32_t jqt_vtbl_n = 2418u;  /* §124y-149/.../383: 对齐 fns/offs 表实际条目数 */
+const uint32_t jqt_vtbl_n = 2420u;  /* §124y-149/.../384: 对齐 fns/offs 表实际条目数 */
 
 /* jqt_blx_dispatch：vtable 槽值 reg_val（shadow 地址）→ 目标函数。
  * 影子区 → off = reg_val - g_jqt_shadow；否则 off = reg_val。
@@ -86587,5 +86594,39 @@ uint32_t F_301f0(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_
     /* 字面量池 LUT + 多分支：LUT 槽取 + 字节判定主路径 + 多分支体兜底 */
     if (!_r0) return 0;
     jqt_blx_dispatch(0x301f0, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+
+/* ★ §124y-384 第九十九批真业务裸跑函数补全（全依赖直调 ×2）
+   - F_337e8（0x337e8，被调 5 次）：字面量池 + 全依赖直调（this=r0）
+     语义（objdump 逐指令 + 字面量池 0x337f8=0x1287f4 实读）：
+       [0x1287f4] 全局槽取 → **bl F_355c4（已译 2 处全直调）**
+     ★ 全依赖已译（F_355c4）→ 主路径全直调，零兜底
+   - F_36a64（0x36a64，被调 5 次）：字面量池 + 全依赖直调（this=r0）
+     语义（objdump 逐指令 + 字面量池 0x36ab4=0x125440/0x36ab8=0x413
+       实读）：
+       [0x125440] 全局槽取 → **bl F_335c8（已译 2 处全直调）** +
+       [0x413] 字面量偏移 + this+36 区 → 多分支
+     ★ 全依赖已译（F_335c8）→ 主路径全直调 + 字面量偏移，多分支体
+       镜像兜底（§124y-288~383 同口径） */
+uint32_t F_337e8(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    extern uint32_t F_355c4(uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t,
+                             uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t);
+    /* [0x1287f4] 全局槽取 + F_355c4 全直调，零兜底 */
+    if (!_r0) return 0;
+    return F_355c4(MEM(JQT_ABS_PTR(0x1287f4)), 0, 0, 0, 0,0,0,0,0,0,0,0, _sp);
+}
+uint32_t F_36a64(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    extern uint32_t F_335c8(uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t,
+                             uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t);
+    /* [0x125440] 全局槽取 + F_335c8 全直调 + 多分支体兜底 */
+    if (!_r0) return 0;
+    uint32_t ret = F_335c8(MEM(JQT_ABS_PTR(0x125440)), _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
+    /* 多分支体 → 镜像兜底 */
+    jqt_blx_dispatch(0x36a64, _r0, _r1, _r2, ret, 0,0,0,0,0,0,0,0, _sp);
     return 0;
 }
