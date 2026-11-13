@@ -371,6 +371,10 @@ uint32_t F_336c8(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,
 uint32_t F_336ec(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_a4250(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_a4274(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_afdf8(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_855d8(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_9553c(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+/* §124y-301 前向声明（第十六批：4 槽指针推进 + 子对象虚调用 + 流构造） */
 uint32_t F_c78f0(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_ff234(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 /* §124y-300 前向声明（第十五批：容器插入 + 哈希计算） */
@@ -78204,6 +78208,7 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_85568,
     F_85594,
     F_855c4,
+    F_855d8,
     F_85648,
     F_85704,
     F_8571c,
@@ -78376,6 +78381,7 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_953cc,
     F_953ec,
     F_95404,
+    F_9553c,
     F_9556c,
     F_95918,
     F_95a30,
@@ -78790,6 +78796,7 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_afd88,
     F_afda8,
     F_afdb0,
+    F_afdf8,
     F_afe74,
     F_afec0,
     F_aff60,
@@ -80460,6 +80467,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x85568,
      0x85594,
      0x855c4,
+     0x855d8,
      0x85648,
      0x85704,
      0x8571c,
@@ -80632,6 +80640,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x953cc,
      0x953ec,
      0x95404,
+     0x9553c,
      0x9556c,
      0x95918,
      0x95a30,
@@ -81046,6 +81055,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0xafd88,
      0xafda8,
      0xafdb0,
+     0xafdf8,
      0xafe74,
      0xafec0,
      0xaff60,
@@ -81607,7 +81617,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x10d110,
      0x11123a,
 };
-const uint32_t jqt_vtbl_n = 2253u;  /* §124y-149/285/287/288/289/290/291/292/293/294/295/296/297/298/299/300: 对齐 fns/offs 表实际条目数 */
+const uint32_t jqt_vtbl_n = 2256u;  /* §124y-149/285/287/288/289/290/291/292/293/294/295/296/297/298/299/300/301: 对齐 fns/offs 表实际条目数 */
 
 /* jqt_blx_dispatch：vtable 槽值 reg_val（shadow 地址）→ 目标函数。
  * 影子区 → off = reg_val - g_jqt_shadow；否则 off = reg_val。
@@ -82708,4 +82718,61 @@ uint32_t F_ff234(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_
     if (!_r2) return _r0;
     jqt_blx_dispatch(0xff234, _r0, _r1, _r2, _r3, _r4, _r5, _r6, _r7, _r8, _r9, _r10, _r11, _sp);
     return _r0;
+}
+
+/* ★ §124y-301 第十六批真业务裸跑函数补全（3 个全直译，依赖已译直调）
+   - F_afdf8（0xafdf8，被调 20 次）：4 槽指针推进（this=r0，r1/r2=增量）
+     语义（objdump 逐指令，无 push/pop 裸函数）：
+       this[+0]+=r1；this[+8]+=r1；this[+4]+=r2；this[+12]+=r2；无返回
+     同族兄弟 0xafe14（this[+0]-=r1；this[+8]+=r1；this[+4]-=r2；
+     this[+12]-=r2）为回退版本
+   - F_855d8（0x855d8，被调 17 次）：子对象虚调用（+0x38 槽，取属性）
+     语义：obj=this[+0x38]；obj=0 返 0；bl F_82d3c(obj)（已译 §124y-292
+     直调）取 o；o=0 返 0；bl F_94dd0(o)（已译 7 处直调）；返回
+     同族 F_854f8（§124y-292，+0x38 槽第 14 槽 blx）/0x85514/0x85530
+   - F_9553c（0x9553c，被调 17 次）：流构造/初始化（this=r0，r1=参数）
+     语义：取 this[+0x70/0x74/0x78/0x7c] 四槽，差值压栈；
+       bl F_afd18(栈参, 0, 0)（已译 9 处直调）；
+       收尾 blx [this[+0]+0x18]（虚调用取子对象） */
+uint32_t F_afdf8(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* 4 槽指针推进：this[+0/8]+=r1，this[+4/12]+=r2 */
+    if (!_r0) return 0;
+    MEM(_r0 + 0) = MEM(_r0 + 0) + _r1;
+    MEM(_r0 + 8) = MEM(_r0 + 8) + _r1;
+    MEM(_r0 + 4) = MEM(_r0 + 4) + _r2;
+    MEM(_r0 + 0xc) = MEM(_r0 + 0xc) + _r2;
+    return 0;
+}
+uint32_t F_855d8(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    extern uint32_t F_82d3c(uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t,
+                             uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t);
+    extern uint32_t F_94dd0(uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t,
+                             uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t);
+    /* 子对象虚调用（+0x38 槽取属性）：F_82d3c → F_94dd0（全直调） */
+    if (!_r0) return 0;
+    uint32_t obj = MEM(_r0 + 0x38);
+    if (!obj) return 0;
+    uint32_t o = F_82d3c(obj, 0, 0,0,0,0,0,0,0,0,0,0, _sp);
+    if (!o) return 0;
+    return F_94dd0(o, 0, 0,0,0,0,0,0,0,0,0,0, _sp);
+}
+uint32_t F_9553c(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    extern uint32_t F_afd18(uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t,
+                             uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t);
+    /* 流构造/初始化：四槽差值 + F_afd18（直调）+ 虚调用收尾 */
+    if (!_r0) return 0;
+    uint32_t d = (MEM(_r0 + 0x78) - MEM(_r0 + 0x70)) + (MEM(_r0 + 0x7c) - MEM(_r0 + 0x74));
+    F_afd18(_r1, 0, 0, 0,0,0,0,0,0,0,0,0, _sp);
+    /* 收尾虚调用：[this[+0]+0x18] blx */
+    uint32_t gs = MEM(_r0 + 0);
+    if (gs) {
+        jqt_blx_dispatch(MEM(gs + 0x18), gs, 0, 0,0,0,0,0,0,0,0,0,0, _sp);
+    }
+    return 0;
 }
