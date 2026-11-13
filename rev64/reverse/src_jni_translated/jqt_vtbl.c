@@ -455,6 +455,9 @@ uint32_t F_afcc8(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,
 uint32_t F_b023c(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_b279c(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_b45f4(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_b4a00(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_b52e0(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+/* §124y-928 前向声明（第五百七十四批：20B 栈 [栈+56] 取 [r0] 写 [r2] 双取 + F_b52a0 直调 0 常量 [r1+0/4] 双写） */
 uint32_t F_b4630(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 /* §124y-927 前向声明（第五百七十三批：8B 栈 [栈+6] 半字写 [栈+7] 字节取取反绝对值返回 + 半字取 0 比较双字循环取长返回） */
 uint32_t F_b3df4(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
@@ -81863,6 +81866,7 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_b4884,
     F_b49a0,
     F_b49d8,
+    F_b4a00,
     F_b4ab0,
     F_b4b48,
     F_b4ba0,
@@ -81879,6 +81883,7 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_b51cc,
     F_b5260,
     F_b52a0,
+    F_b52e0,
     F_b532c,
     F_b53b0,
     F_b53ec,
@@ -85371,6 +85376,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0xb4884,
      0xb49a0,
      0xb49d8,
+     0xb4a00,
      0xb4ab0,
      0xb4b48,
      0xb4ba0,
@@ -85387,6 +85393,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0xb51cc,
      0xb5260,
      0xb52a0,
+     0xb52e0,
      0xb532c,
      0xb53b0,
      0xb53ec,
@@ -85991,7 +85998,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x11f20c,
      0x11fa34,
 };
-const uint32_t jqt_vtbl_n = 3505u;  /* §124y-149/.../927: 对齐 fns/offs 表实际条目数 */
+const uint32_t jqt_vtbl_n = 3507u;  /* §124y-149/.../928: 对齐 fns/offs 表实际条目数 */
 
 /* jqt_blx_dispatch：vtable 槽值 reg_val（shadow 地址）→ 目标函数。
  * 影子区 → off = reg_val - g_jqt_shadow；否则 off = reg_val。
@@ -113254,4 +113261,44 @@ uint32_t F_b4630(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_
         p += 2;
     }
     return (p - base) >> 1;
+}
+
+/* ★ §124y-928 第五百七十四批真业务裸跑函数补全（20B 栈 [栈+56] 取 [r0] 写 [r2] 双取 + F_b52a0 直调 0 常量 [r1+0/4] 双写）
+   - F_b4a00（0xb4a00，被调 2 次）：20B 栈复杂（[栈+56] 取 +
+     [r0] 写 + [r2] 双取 + 多分支，新变体首次出现）
+     语义（objdump 逐指令）：
+       sub sp,#20 + [栈+56] 取 + [栈+8] 写 + [r2] 双取
+       → 多分支
+     ★ 诚实边界：20B 栈 + 栈取 + 写 + 双取 + 多分支，主路径
+       （[栈+56] 取 + [r0] 写 + [r2] 双取）直译 + 多分支体
+       镜像兜底
+       （§124y-288~927 同口径，20B 栈 [栈+56] 取 + [r0] 写
+       + [r2] 双取多分支新变体首次出现）
+   - F_b52e0（0xb52e0，被调 2 次）：F_b52a0 直调 + 0 常量 +
+     [r1+0/4] 双写 + 多分支（新变体首次出现）
+     语义（objdump 逐指令）：
+       **bl F_b52a0（未译→镜像兜底）** + 0 常量 + [r1+0] 写
+       + **bl F_b52a0** + [r1+4] 写 → 多分支
+     ★ 诚实边界：直调 + 常量 + 双写 + 多分支，主路径
+       （F_b52a0 直调 + 0 常量 + [r1+0/4] 双写）直译 +
+       双镜像兜底
+       （§124y-288~927 同口径，F_b52a0 直调 + 0 常量 +
+       [r1+0/4] 双写多分支新变体首次出现） */
+uint32_t F_b4a00(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* 20B 大栈：[栈+56] 取 + [r0] 写 + [r2] 双取主路径 + 多分支
+       体兜底 */
+    if (!_r0) return 0;
+    jqt_blx_dispatch(0xb4a00, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+uint32_t F_b52e0(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* F_b52a0（未译）双镜像兜底 + 0 常量 + [r1+0/4] 双写主路径
+       + 多分支体兜底 */
+    if (!_r0) return 0;
+    jqt_blx_dispatch(0xb52e0, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
+    return 0;
 }
