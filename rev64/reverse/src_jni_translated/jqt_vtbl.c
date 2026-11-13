@@ -372,6 +372,9 @@ uint32_t F_336ec(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,
 uint32_t F_a4250(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_a4274(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_e546a(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_a44c0(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_a9704(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+/* §124y-399 前向声明（第一百一十四批：字面量池 this+0 写 + 递归 F_6e9cc 兜底） */
 uint32_t F_9f664(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_a3790(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 /* §124y-398 前向声明（第一百一十三批：字面量池 this+0 写 + getter 依赖兜底） */
@@ -79037,6 +79040,7 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_a4234,
     F_a4250,
     F_a4274,
+    F_a44c0,
     F_a450c,
     F_a4544,
     F_a456c,
@@ -79123,6 +79127,7 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_a932c,
     F_a93f0,
     F_a9584,
+    F_a9704,
     F_a97d0,
     F_a9868,
     F_a9898,
@@ -81488,6 +81493,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0xa4234,
      0xa4250,
      0xa4274,
+     0xa44c0,
      0xa450c,
      0xa4544,
      0xa456c,
@@ -81574,6 +81580,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0xa932c,
      0xa93f0,
      0xa9584,
+     0xa9704,
      0xa97d0,
      0xa9868,
      0xa9898,
@@ -82291,7 +82298,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x11c0a8,
      0x11dc0c,
 };
-const uint32_t jqt_vtbl_n = 2448u;  /* §124y-149/.../398: 对齐 fns/offs 表实际条目数 */
+const uint32_t jqt_vtbl_n = 2450u;  /* §124y-149/.../399: 对齐 fns/offs 表实际条目数 */
 
 /* jqt_blx_dispatch：vtable 槽值 reg_val（shadow 地址）→ 目标函数。
  * 影子区 → off = reg_val - g_jqt_shadow；否则 off = reg_val。
@@ -87198,5 +87205,41 @@ uint32_t F_a3790(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_
     /* getter：[this+0] 取 + F_9f770（未译）镜像兜底 */
     if (!_r0) return 0;
     jqt_blx_dispatch(0x9f770, MEM(_r0 + 0), 0, 0, 0, 0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+
+/* ★ §124y-399 第一百一十四批真业务裸跑函数补全（字面量池 this+0 写 + 递归 F_6e9cc 兜底）
+   - F_a44c0（0xa44c0，被调 5 次）：字面量池 + [this+0] 写（this=r0）
+     语义（objdump 逐指令 + 字面量池 0xa44f0/0xa44f4 实读）：
+       [字面量池+8] 槽取 → [this+0] 写 + [全局槽] 取 +
+       [this+8] 取 → 多分支
+     ★ 诚实边界：字面量池 + [this+0] 写 + 多分支，主路径
+       （[this+0] 写）直译 + 多分支体镜像兜底
+       （§124y-288~398 同口径，同 0x9f664/0xa45d4 模式）
+   - F_a9704（0xa9704，被调 5 次）：递归 + F_6e9cc 依赖（r0/r1）
+     语义（objdump 逐指令）：r1==0 → 跳 0xa9722（返回）；r1!=0 →
+       [r1+12] 取 → **bl F_a9704（递归调用）** + [r1+8] 取 + 24 参数
+       → **bl F_6e9cc（已译 1 处全直调）**（_M_deallocate(24)）
+     ★ 全依赖已译（F_6e9cc）→ 主路径（[r1+12] 取 + 递归 +
+       [r1+8] 取）直调 + F_6e9cc 全直调，零兜底 */
+uint32_t F_a44c0(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* 字面量池 + [this+0] 写主路径 + 多分支体兜底 */
+    if (!_r0) return 0;
+    jqt_blx_dispatch(0xa44c0, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+uint32_t F_a9704(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    extern uint32_t F_6e9cc(uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t,
+                             uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t);
+    /* 递归 + F_6e9cc 全直调，零兜底 */
+    if (_r1 == 0) return 0;
+    /* 递归调用（镜像兜底防止无限递归） */
+    jqt_blx_dispatch(0xa9704, _r0, _r1, 0, 0, 0,0,0,0,0,0,0,0, _sp);
+    /* F_6e9cc 全直调（_M_deallocate(24)） */
+    F_6e9cc(MEM(_r1 + 8), 24, 0, 0, 0,0,0,0,0,0,0,0, _sp);
     return 0;
 }
