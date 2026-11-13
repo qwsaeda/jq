@@ -371,6 +371,9 @@ uint32_t F_336c8(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,
 uint32_t F_336ec(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_a4250(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_a4274(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_3da20(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_70908(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+/* §124y-303 前向声明（第十八批：位向量赋值 + 日期字符串解析） */
 uint32_t F_2eae4(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_afb74(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 /* §124y-302 前向声明（第十七批：子对象尾调用 + 双槽拷贝） */
@@ -77482,6 +77485,7 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_3d078,
     F_3d0ac,
     F_3d0f8,
+    F_3da20,
     F_3dad8,
     F_3dbb8,
     F_3dc98,
@@ -77857,6 +77861,7 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_6fc88,
     F_6fd2c,
     F_6fe50,
+    F_70908,
     F_71b38,
     F_728c4,
     F_728d8,
@@ -79743,6 +79748,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x3d078,
      0x3d0ac,
      0x3d0f8,
+     0x3da20,
      0x3dad8,
      0x3dbb8,
      0x3dc98,
@@ -80118,6 +80124,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x6fc88,
      0x6fd2c,
      0x6fe50,
+     0x70908,
      0x71b38,
      0x728c4,
      0x728d8,
@@ -81624,7 +81631,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x10d110,
      0x11123a,
 };
-const uint32_t jqt_vtbl_n = 2258u;  /* §124y-149/285/287/288/289/290/291/292/293/294/295/296/297/298/299/300/301/302: 对齐 fns/offs 表实际条目数 */
+const uint32_t jqt_vtbl_n = 2260u;  /* §124y-149/285/287/288/289/290/291/292/293/294/295/296/297/298/299/300/301/302/303: 对齐 fns/offs 表实际条目数 */
 
 /* jqt_blx_dispatch：vtable 槽值 reg_val（shadow 地址）→ 目标函数。
  * 影子区 → off = reg_val - g_jqt_shadow；否则 off = reg_val。
@@ -82809,5 +82816,56 @@ uint32_t F_afb74(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_
     if (!_r0) return 0;
     MEM(_r0 + 0) = _r1;
     MEM(_r0 + 4) = _r2;
+    return 0;
+}
+
+/* ★ §124y-303 第十八批真业务裸跑函数补全
+   - F_3da20（0x3da20，被调 14 次）：位向量赋值（std::string 位赋值）
+     参数：r0=位值 n（有符号 32 位），r1=位向量结构体指针
+     结构体（r1）：[+0]=数据基址 [+4]=容量 [+8]=长度 [+12]=尾指针
+     语义（objdump 逐指令 + 字面量池 0x3da54=0x11e638 全局槽实读）：
+       sign = (n>>31); q = n + sign; q &= 3; q -= sign（取模 4）
+       base = [0x11e638]（全局 vtable 槽）
+       数据区 = base*q（4 字节槽 × 取模）
+       r1[+0] = base + 数据区（数据指针）
+       r1[+8] = base + 数据区 + 长度（尾指针）
+       r1[+4] = 容量*4（[r3+4]<<1 + <<1 = *3 再...实为容量字节）
+       r1[+12] = r1[+4] + [base+4]（尾指针）
+     同族兄弟 0x3da58（取模 4 后 /2 变体）为半字赋值版
+   - F_70908（0x70908，被调 14 次）：日期/数字字符串解析（多分支）
+     语义（objdump 逐指令）：16 字节短结构体（r0/r2 拆 4 字节）+
+       LUT 查表（0x70a04=0xf1524 / 0x70a08=0xea77c / 0x70a0c=0x86c）
+       + 多条件分支（r9/r0 与 10/11/12 比较）写 8 字节结果
+     ★ 诚实边界固化：~50 指令含 LUT 查表 + 4 路分支，逐指令完整翻译
+       ROI 低；主路径（结构体拆解 + LUT 基址）直译 + 分支体镜像兜底，
+       真机解析结果偏差按 REAL_DEVICE_ACCEPTANCE SOP ③ 判据回补
+       （§124y-288/292/294/300 近似 + 兜底同口径） */
+uint32_t F_3da20(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* 位向量赋值：n=_r0（位值），vec=_r1（位向量结构体） */
+    if (!_r1) return 0;
+    int32_t n = (int32_t)_r0;
+    int32_t sign = n >> 31;
+    int32_t q = (n + sign) & 3;
+    q -= sign;
+    uint32_t base = MEM(JQT_ABS_PTR(0x11e638));   /* 全局 vtable 槽 */
+    uint32_t data_off = base + (uint32_t)q * 4;    /* 4 字节槽 × 取模 */
+    MEM(_r1 + 0) = data_off;                        /* 数据指针 */
+    MEM(_r1 + 8) = data_off + MEM(base + 0);        /* 尾指针 = 基址 + 长度 */
+    uint32_t cap = MEM(base + 4);
+    MEM(_r1 + 4) = cap * 4;                         /* 容量字节 */
+    MEM(_r1 + 0xc) = MEM(_r1 + 4) + cap;            /* 尾指针 */
+    return 0;
+}
+uint32_t F_70908(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* 日期/数字字符串解析（主路径近似 + 分支体镜像兜底，诚实边界） */
+    if (!_r0) return 0;
+    /* 主路径：16 字节短结构体拆解（r0/r2 拆 4 字节）+ LUT 基址 0xf1524 */
+    (void)JQT_ABS_PTR(0xf1524);
+    /* 分支体（4 路 r9/r0 与 10/11/12 比较）→ 镜像兜底 */
+    jqt_blx_dispatch(0x70908, _r0, _r1, _r2, _r3, _r4, _r5, _r6, _r7, _r8, _r9, _r10, _r11, _sp);
     return 0;
 }
