@@ -369,6 +369,9 @@ uint32_t F_335c8(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,
 uint32_t F_33684(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_336c8(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_336ec(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_d4600(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_8a2b0(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+/* §124y-296 前向声明（第十一批：状态重置 + 对象 getter 三胞胎） */
 uint32_t F_95c34(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_d209c(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_e01e8(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
@@ -78228,6 +78231,7 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_8a280,
     F_8a290,
     F_8a2a0,
+    F_8a2b0,
     F_8a41c,
     F_8a42c,
     F_8a450,
@@ -79277,6 +79281,7 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_d3b1c,
     F_d4118,
     F_d4438,
+    F_d4600,
     F_d4780,
     F_d47c4,
     F_d47d4,
@@ -80471,6 +80476,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x8a280,
      0x8a290,
      0x8a2a0,
+     0x8a2b0,
      0x8a41c,
      0x8a42c,
      0x8a450,
@@ -81520,6 +81526,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0xd3b1c,
      0xd4118,
      0xd4438,
+     0xd4600,
      0xd4780,
      0xd47c4,
      0xd47d4,
@@ -81563,7 +81570,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x10d110,
      0x11123a,
 };
-const uint32_t jqt_vtbl_n = 2240u;  /* §124y-149/285/287/288/289/290/291/292/293/294/295: 对齐 fns/offs 表实际条目数 */
+const uint32_t jqt_vtbl_n = 2242u;  /* §124y-149/285/287/288/289/290/291/292/293/294/295/296: 对齐 fns/offs 表实际条目数 */
 
 /* jqt_blx_dispatch：vtable 槽值 reg_val（shadow 地址）→ 目标函数。
  * 影子区 → off = reg_val - g_jqt_shadow；否则 off = reg_val。
@@ -82414,4 +82421,50 @@ uint32_t F_e01e8(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_
     F_e019c(_r0, _r1 & 0xff, 0,0,0,0,0,0,0,0,0,0, _sp);
     F_e019c(_r0, (_r1 >> 8) & 0xff, 0,0,0,0,0,0,0,0,0,0, _sp);
     return 0;
+}
+
+/* ★ §124y-296 第十一批真业务裸跑函数补全
+   - F_d4600（0xd4600，被调 25 次）：状态重置 + 跳转表查（this=r0，r1=字节）
+     语义（objdump 逐指令 + 字面量池 0xd473c=0x60aa4 跳转表实读）：
+       if r1 非空：byte=r1[0]；v=(int32)((byte-4)<<24>>24)（符号扩展）
+         若 v>21：this[+0x20]=this[+0x20]（保持）, 返 0
+         否则：idx=(v<<2)；jt=[0x60aa4 + idx]（跳转表）→ mov pc, jt
+         （跳转表目标 = 各状态分支，此处主路径 bl F_d2150(this) 重置）
+       else：直接 bl F_d2150(this)（已译 §124y-294，**直调**）
+     ★ 诚实边界：跳转表 0x60aa4 的 22 个分支目标逐个翻译 ROI 低，
+       主路径（重置 + 越界返 0）直译 + 跳转表命中路径镜像兜底
+   - F_8a2b0（0x8a2b0，被调 24 次）：对象 getter 三胞胎（this=r0）
+     语义（objdump 逐指令）：obj = this[+0x198]（154*2 槽，子对象指针）
+       → bl F_97fcc(obj)（已有定义体 4 处，**直调**）
+     同族兄弟 0x8a2c0（bl F_97fa8）/0x8a2d0（bl F_97f84）为同一 getter 模式
+     （不同子对象槽），本 F_8a2b0 只翻译 0x8a2b0 入口（+0x198 槽） */
+uint32_t F_d4600(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    extern uint32_t F_d2150(uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t,
+                             uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t);
+    if (!_r0) return 0;
+    if (_r1) {
+        int32_t v = (int32_t)(((uint32_t)(MEM(_r1 + 0) - 4) << 24) >> 24);
+        if (v > 21) {
+            /* 越界：保持 this[+0x20]，返 0 */
+            return 0;
+        }
+        /* 跳转表命中路径（0x60aa4 基址 + v*4）→ 主路径重置 + 镜像兜底 */
+        jqt_blx_dispatch(0xd4646, _r0, _r1, 0,0,0,0,0,0,0,0,0,0, _sp);
+        return 0;
+    }
+    /* r1 空 → 直接重置（直调已译 F_d2150） */
+    F_d2150(_r0, 0,0,0,0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+uint32_t F_8a2b0(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    extern uint32_t F_97fcc(uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t,
+                             uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t);
+    /* 对象 getter：this[+0x198] 子对象槽 → F_97fcc（已译直调） */
+    if (!_r0) return 0;
+    uint32_t obj = MEM(_r0 + 0x198);
+    return F_97fcc(obj, 0, 0,0,0,0,0,0,0,0,0,0, _sp);
 }
