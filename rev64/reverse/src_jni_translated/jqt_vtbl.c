@@ -371,6 +371,9 @@ uint32_t F_336c8(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,
 uint32_t F_336ec(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_a4250(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_a4274(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_2eae4(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_afb74(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+/* §124y-302 前向声明（第十七批：子对象尾调用 + 双槽拷贝） */
 uint32_t F_afdf8(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_855d8(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_9553c(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
@@ -77282,6 +77285,7 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_2db04,
     F_2ea8c,
     F_2eacc,
+    F_2eae4,
     F_2eb0c,
     F_2eb28,
     F_2ef48,
@@ -78781,6 +78785,7 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_aea5c,
     F_aea78,
     F_afb68,
+    F_afb74,
     F_afb7c,
     F_afbc0,
     F_afbec,
@@ -79541,6 +79546,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x2db04,
      0x2ea8c,
      0x2eacc,
+     0x2eae4,
      0x2eb0c,
      0x2eb28,
      0x2ef48,
@@ -81040,6 +81046,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0xaea5c,
      0xaea78,
      0xafb68,
+     0xafb74,
      0xafb7c,
      0xafbc0,
      0xafbec,
@@ -81617,7 +81624,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x10d110,
      0x11123a,
 };
-const uint32_t jqt_vtbl_n = 2256u;  /* §124y-149/285/287/288/289/290/291/292/293/294/295/296/297/298/299/300/301: 对齐 fns/offs 表实际条目数 */
+const uint32_t jqt_vtbl_n = 2258u;  /* §124y-149/285/287/288/289/290/291/292/293/294/295/296/297/298/299/300/301/302: 对齐 fns/offs 表实际条目数 */
 
 /* jqt_blx_dispatch：vtable 槽值 reg_val（shadow 地址）→ 目标函数。
  * 影子区 → off = reg_val - g_jqt_shadow；否则 off = reg_val。
@@ -82774,5 +82781,33 @@ uint32_t F_9553c(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_
     if (gs) {
         jqt_blx_dispatch(MEM(gs + 0x18), gs, 0, 0,0,0,0,0,0,0,0,0,0, _sp);
     }
+    return 0;
+}
+
+/* ★ §124y-302 第十七批真业务裸跑函数补全
+   - F_2eae4（0x2eae4，被调 15 次）：子对象尾调用（栈参数变体）
+     语义（objdump 逐指令）：this[+0x1c] 取子对象槽（栈传参 ldmia
+     压 [sp+4]）；bl F_7cd84(this[+0x1c], 栈参数)（已译 3 处**直调**）；
+       尾部 bx r3 = 尾调用语义（F_7cd84 返回值直接作为本函数返回值）
+     同族兄弟 0x2eb00（bl F_7cdcc，+0x1c 槽另一 getter）为同模式
+   - F_afb74（0xafb74，被调 15 次）：双槽拷贝（dst=r0，src=r1/r2）
+     语义（objdump 逐指令）：dst[+0]=r1；dst[+4]=r2；无返回值
+     同族兄弟 0xafb7c（dst[+0]=src[+0]；dst[+4]=src[+4]）为指针源版 */
+uint32_t F_2eae4(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    extern uint32_t F_7cd84(uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t,
+                             uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t);
+    /* 子对象尾调用：this[+0x1c] → F_7cd84（已译直调，尾调用语义） */
+    if (!_r0) return 0;
+    return F_7cd84(MEM(_r0 + 0x1c), _r1, _r2, 0,0,0,0,0,0,0,0,0, _sp);
+}
+uint32_t F_afb74(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* 双槽拷贝：dst[+0]=r1，dst[+4]=r2 */
+    if (!_r0) return 0;
+    MEM(_r0 + 0) = _r1;
+    MEM(_r0 + 4) = _r2;
     return 0;
 }
