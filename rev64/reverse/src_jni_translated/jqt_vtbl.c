@@ -373,6 +373,9 @@ uint32_t F_a4250(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,
 uint32_t F_a4274(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_e546a(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_abc48(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_ae1dc(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_aec54(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+/* §124y-570 前向声明（第二百一十五批：[this+32] 取 F_a43e0 + strh 位运算） */
 uint32_t F_abe08(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_ac5f0(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 /* §124y-569 前向声明（第二百一十四批：getter [this+36] + 双槽取乘积） */
@@ -79977,6 +79980,7 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_ae0e8,
     F_ae104,
     F_ae184,
+    F_ae1dc,
     F_ae1f0,
     F_ae208,
     F_ae240,
@@ -79987,6 +79991,7 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_ae7cc,
     F_aea5c,
     F_aea78,
+    F_aec54,
     F_af38c,
     F_afb68,
     F_afb74,
@@ -82769,6 +82774,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0xae0e8,
      0xae104,
      0xae184,
+     0xae1dc,
      0xae1f0,
      0xae208,
      0xae240,
@@ -82779,6 +82785,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0xae7cc,
      0xaea5c,
      0xaea78,
+     0xaec54,
      0xaf38c,
      0xafb68,
      0xafb74,
@@ -83485,7 +83492,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x11ef8c,
      0x11f20c,
 };
-const uint32_t jqt_vtbl_n = 2789u;  /* §124y-149/.../569: 对齐 fns/offs 表实际条目数 */
+const uint32_t jqt_vtbl_n = 2791u;  /* §124y-149/.../570: 对齐 fns/offs 表实际条目数 */
 
 /* jqt_blx_dispatch：vtable 槽值 reg_val（shadow 地址）→ 目标函数。
  * 影子区 → off = reg_val - g_jqt_shadow；否则 off = reg_val。
@@ -94253,5 +94260,45 @@ uint32_t F_ac5f0(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_
     uint32_t v32 = MEM(_r0 + 32);
     uint32_t prod = v36 * v32;
     jqt_blx_dispatch(0xac5f0, _r0, _r1, _r2, prod, 0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+
+/* ★ §124y-570 第二百一十五批真业务裸跑函数补全（[this+32] 取 F_a43e0 + strh 位运算）
+   - F_ae1dc（0xae1dc，被调 3 次）：[this+32] 取 + F_a43e0 依赖
+     语义（objdump 逐指令）：[this+32] ldr 取 → 非 0 判定 →
+       **bl F_a43e0（已译，直调）** → 返回 0/取值
+     同族兄弟（0xae1f0 = 1 常量 + 多分支）
+     ★ 全直调（F_a43e0 已译 §566，零兜底；[this+32] 取 + 判定主路径
+       全直译，同 0x7b27c 直调模式）
+   - F_aec54（0xaec54，被调 3 次）：strh 取 + 位运算 + [r1+3] strb 写
+     语义（objdump 逐指令）：[this+0] strh 取 + -1 常量 + [r1+3]
+       strb -1 写 + lsl/lsr/or 位运算 → 多分支
+     ★ 诚实边界：strh 取 + 位运算 + 多分支，主路径（[this+0] strh
+       取 + [r1+3] strb 写 + 位运算）直译 + 多分支体镜像兜底
+       （§124y-288~569 同口径，同 0x43ed8 位运算模式） */
+uint32_t F_ae1dc(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* [this+32] 取 + 非 0 判定 + F_a43e0（已译）直调 */
+    if (!_r0) return 0;
+    uint32_t v32 = MEM(_r0 + 32);
+    if (v32 != 0) {
+        return F_a43e0(v32, 0, 0, 0, 0, 0,0,0,0,0,0,0, _sp);
+    }
+    return 0;
+}
+uint32_t F_aec54(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* [this+0] strh 取 + [r1+3] strb -1 写 + 位运算主路径 + 多分支体兜底 */
+    if (!_r0 || !_r1) return 0;
+    uint32_t v0 = MEM(_r0 + 0) & 0xffff;
+    MEM(_r1 + 3) = 0xff;
+    uint32_t l27 = (v0 << 27) & 0xffffffff;
+    uint32_t r5 = v0 >> 5;
+    uint32_t r24 = l27 >> 24;
+    uint32_t r29 = l27 >> 29;
+    uint32_t o = r24 | r29;
+    jqt_blx_dispatch(0xaec54, _r0, _r1, _r2, o, 0,0,0,0,0,0,0,0, _sp);
     return 0;
 }
