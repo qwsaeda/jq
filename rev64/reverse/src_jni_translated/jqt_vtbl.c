@@ -373,6 +373,9 @@ uint32_t F_a4250(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,
 uint32_t F_a4274(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_e546a(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_abc48(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_7a00c(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_7b27c(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+/* §124y-539 前向声明（第一百八十四批：12B 栈双槽取 + [this+32] 取 F_7e01c） */
 uint32_t F_7775c(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_79a5c(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 /* §124y-538 前向声明（第一百八十三批：虚调用 + 栈帧复杂） */
@@ -78930,6 +78933,7 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_79dc0,
     F_79e4c,
     F_79fa0,
+    F_7a00c,
     F_7a4b8,
     F_7a4c4,
     F_7a528,
@@ -78942,6 +78946,7 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_7b0d0,
     F_7b110,
     F_7b240,
+    F_7b27c,
     F_7b28c,
     F_7b4c4,
     F_7b4f8,
@@ -81660,6 +81665,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x79dc0,
      0x79e4c,
      0x79fa0,
+     0x7a00c,
      0x7a4b8,
      0x7a4c4,
      0x7a528,
@@ -81672,6 +81678,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x7b0d0,
      0x7b110,
      0x7b240,
+     0x7b27c,
      0x7b28c,
      0x7b4c4,
      0x7b4f8,
@@ -83268,7 +83275,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x11ef8c,
      0x11f20c,
 };
-const uint32_t jqt_vtbl_n = 2727u;  /* §124y-149/.../538: 对齐 fns/offs 表实际条目数 */
+const uint32_t jqt_vtbl_n = 2729u;  /* §124y-149/.../539: 对齐 fns/offs 表实际条目数 */
 
 /* jqt_blx_dispatch：vtable 槽值 reg_val（shadow 地址）→ 目标函数。
  * 影子区 → off = reg_val - g_jqt_shadow；否则 off = reg_val。
@@ -92884,5 +92891,46 @@ uint32_t F_79a5c(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_
     if (!_r0) return 0;
     uint32_t v0 = MEM(JQT_ABS_PTR(0x79bcc));
     jqt_blx_dispatch(0x79a5c, _r0, _r1, _r2, v0, 0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+
+/* ★ §124y-539 第一百八十四批真业务裸跑函数补全（12B 栈双槽取 + [this+32] 取 F_7e01c）
+   - F_7a00c（0x7a00c，被调 3 次）：12B 栈复杂（[this+0/4] 双槽取 +
+     除 8）
+     语义（objdump 逐指令）：[this+0] 取 + [this+4] 取 + sub 差值 +
+       asr 3（除 8）+ 非 0 判定 → 多分支
+     ★ 诚实边界：12B 栈 + 双槽取 + 除 8 + 判定 + 多分支，主路径
+       （[this+0/4] 双槽取 + 差值除 8）直译 + 多分支体镜像兜底
+       （§124y-288~538 同口径，同 0x27a94 双槽取模式）
+   - F_7b27c（0x7b27c，被调 3 次）：[this+32] 取 + F_7e01c 依赖
+     语义（objdump 逐指令）：[this+32] ldr 取 → 非 0 判定 →
+       **bl F_7e01c（已译，直调）** → 返回
+     同族兄弟（0x7b28c = [this+32] 取 + 非 0 判定 + 多分支）
+     ★ 全直调（F_7e01c 已译，零兜底，同 0x43f30 双槽取模式） */
+uint32_t F_7a00c(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* 12B 栈复杂：[this+0/4] 双槽取 + 差值除 8 主路径 + 多分支体兜底 */
+    if (!_r0) return 0;
+    uint32_t v0 = MEM(_r0 + 0);
+    uint32_t v4 = MEM(_r0 + 4);
+    int32_t diff = (int32_t)v4 - (int32_t)v0;
+    int32_t q = diff >> 3;
+    if (q == 0) {
+        jqt_blx_dispatch(0x7a00c, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
+        return 0;
+    }
+    jqt_blx_dispatch(0x7a00c, _r0, _r1, _r2, q, 0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+uint32_t F_7b27c(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* [this+32] 取 + 非 0 判定 + F_7e01c（已译）直调 */
+    if (!_r0) return 0;
+    uint32_t v32 = MEM(_r0 + 32);
+    if (v32 != 0) {
+        return F_7e01c(v32, 0, 0, 0, 0, 0,0,0,0,0,0,0, _sp);
+    }
     return 0;
 }
