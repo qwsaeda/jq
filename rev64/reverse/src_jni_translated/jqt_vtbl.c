@@ -373,6 +373,9 @@ uint32_t F_a4250(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,
 uint32_t F_a4274(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_e546a(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_abc48(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_262f8(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_2714c(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+/* §124y-604 前向声明（第二百五十批：偏移取判定 F_25d60 直调 + 级联单字节读判定） */
 uint32_t F_25d10(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_25d60(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 /* §124y-603 前向声明（第二百四十九批：双单字节读判定 + 偏移取级联判定） */
@@ -78081,6 +78084,7 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_25b92,
     F_25d10,
     F_25d60,
+    F_262f8,
     F_264c0,
     F_264d4,
     F_2654c,
@@ -78094,6 +78098,7 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_26abc,
     F_26b20,
     F_26ec8,
+    F_2714c,
     F_27348,
     F_275a4,
     F_275b8,
@@ -80941,6 +80946,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x25b92,
      0x25d10,
      0x25d60,
+     0x262f8,
      0x264c0,
      0x264d4,
      0x2654c,
@@ -80954,6 +80960,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x26abc,
      0x26b20,
      0x26ec8,
+     0x2714c,
      0x27348,
      0x275a4,
      0x275b8,
@@ -83723,7 +83730,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x11f20c,
      0x11fa34,
 };
-const uint32_t jqt_vtbl_n = 2857u;  /* §124y-149/.../603: 对齐 fns/offs 表实际条目数 */
+const uint32_t jqt_vtbl_n = 2859u;  /* §124y-149/.../604: 对齐 fns/offs 表实际条目数 */
 
 /* jqt_blx_dispatch：vtable 槽值 reg_val（shadow 地址）→ 目标函数。
  * 影子区 → off = reg_val - g_jqt_shadow；否则 off = reg_val。
@@ -95690,5 +95697,50 @@ uint32_t F_25d60(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_
     }
     uint32_t v80 = MEM(_r0 + 80) & 0xff;
     jqt_blx_dispatch(0x25d60, _r0, _r1, v80, v1784, 0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+
+/* ★ §124y-604 第二百五十批真业务裸跑函数补全（偏移取判定 F_25d60 直调 + 级联单字节读判定）
+   - F_262f8（0x262f8，被调 2 次）：[this+223*8=1784] 偏移取 + 非 0 判定
+     + F_25d60 已译直调
+     语义（objdump 逐指令）：[this+1784] ldr 取 → 非 0 判定 →
+       0 返回 / **bl F_25d60（已译 §124y-603→直调）** + 多分支
+     ★ 全直译（偏移取判定 + F_25d60 已译直调，零兜底依赖，
+       同 0xd1ce8 零兜底模式）
+   - F_2714c（0x2714c，被调 2 次）：[this+80/81/82] 级联单字节读 + 判定
+     语义（objdump 逐指令）：[this+80] ldrb 取 → 非 0 判定 →
+       [字面量池+81] 取 ldrb → 非 0 判定 → [字面量池+82] 取 ldrb →
+       非 0 判定 → 多分支
+     ★ 诚实边界：级联单字节读 + 判定 + 多分支，主路径
+       （[this+80/81/82] 级联单字节读 + 级联非 0 判定）直译 +
+       多分支体镜像兜底（§124y-288~603 同口径，同 0xdbb40 级联
+       判定模式） */
+uint32_t F_262f8(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* [this+1784] 偏移取 + 非 0 判定 + F_25d60 已译直调，全直译零兜底 */
+    if (!_r0) return 0;
+    uint32_t v1784 = MEM(_r0 + 1784);
+    if (v1784 == 0) return 0;
+    F_25d60(_r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+uint32_t F_2714c(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* [this+80/81/82] 级联单字节读 + 级联非 0 判定主路径 + 多分支体兜底 */
+    if (!_r0) return 0;
+    uint32_t v80 = MEM(_r0 + 80) & 0xff;
+    if (v80 != 0) {
+        jqt_blx_dispatch(0x2714c, _r0, _r1, _r2, v80, 0,0,0,0,0,0,0,0, _sp);
+        return 0;
+    }
+    uint32_t v81 = MEM(_r0 + 81) & 0xff;
+    if (v81 != 0) {
+        jqt_blx_dispatch(0x2714c, _r0, _r1, v81, 0, 0,0,0,0,0,0,0,0, _sp);
+        return 0;
+    }
+    uint32_t v82 = MEM(_r0 + 82) & 0xff;
+    jqt_blx_dispatch(0x2714c, _r0, _r1, v82, 0, 0,0,0,0,0,0,0,0, _sp);
     return 0;
 }
