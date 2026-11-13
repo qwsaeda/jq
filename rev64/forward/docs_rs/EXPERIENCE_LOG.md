@@ -1669,6 +1669,27 @@ datah_095 原版 9 按钮但**互斥重叠**（复盘/聊天同位、提和/取�
     需 §124y 反汇编 flag 语义），双方无行动 → winner=3 → `Junqi.Draw`（0x120e40
     .rodata 实证）；64 位困毙路径 = `jq_side_stalemated(st, turn) → jq_on_stalemate`
     （当前方困毙→负），终局映射细节留待后续核对（非 R-073 分歧点）。
+  - **★ 0x302f0 完整终局解码（2026-11-13 续，规则核心对齐确认）**：反汇编完整解码
+    0x302f0 终局逻辑 + `0x301f0` 分发字符串（python Thumb ldr literal 精确算）：
+    - **和棋 70 步无吃子**：`0x3036a-0x3039e` 遍历移动历史（6B/条，state+off 数组），
+      统计自上次吃子起连续空移步数 r1>69 → 检查 state+89 非0 → winner=3 Draw。
+      64 位 `rules.c:478 (moves_since_eat>=70 || total_moves>=1000) → jq_on_draw`
+      （rules.c:999 winner=JQ_WIN_DRAW）**一致**。
+    - **和棋总 1000 步**：`0x303c0-0x303c4 cmp r3,#999 bgt winner=3`（r3=state+1784
+      移动索引）→ Draw。64 位 `total_moves>=1000` **一致**。
+    - **双方无行动 → Draw**：`0x303c6-0x303d2` sp[16]==0 && sp[17]==0 → winner=3。
+    - **一方无行动/无军旗 → 对方胜**：`0x303d4-0x303ee` 红方（sp[20]==0 无军旗 ||
+      sp[16]==0 无行动）→ winner=1（`0x30430`）；蓝方（sp[21]==0 || sp[17]==0）→
+      winner=2（`0x30438`）。64 位 `jq_side_stalemated → jq_on_stalemate`（困毙方负）
+      **一致**。
+    - **分发映射**（`0x301f0`）：winner=1/2 → `0x30236`"Junqi.Win"（0x120e34）/
+      `0x3023c`"Junqi.Lose"（0x120e6c）；winner=3 → `0x3020a/0x30218`"Junqi.Draw"
+      （0x120e40）；flag=state+1778（`0x301fa ldrb r2,[r0,#0x6f2]`）决定 Win/Lose
+      方向（flag!=0: winner=1→Win/winner=2→Lose；flag==0 反向）。winner 字段=
+      state+1788（`0x6fc`），移动索引=state+1784（`0x6f8`，0x30464 移动历史索引++）。
+    - **规则核心对齐达成**：困毙排地雷（R-073）+ 和棋 70/1000 + 无行动→负 + 吃旗胜
+      （0x30260）四项 vs 原版一致。0x303f0-0x3042e 移动计数子函数（0x6b87c/0x6b248）
+      非规则核心（6B 结构写入，辅助统计），不深挖。
 - **固化经验 ⑪**：机械重构前先用脚本证明等价性（配对 1:1）；**脚本顶层禁用 local**；
   固定 sleep → 轮询；日志判据用 PID 而非行号/位置启发式；标记块用语义锚点不用行号。
 
