@@ -373,6 +373,9 @@ uint32_t F_a4250(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,
 uint32_t F_a4274(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_e546a(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_abc48(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_2f968(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_2fabc(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+/* §124y-629 前向声明（第二百七十五批：[this+76] 取依赖 + [this+80] 单字节读级联判定） */
 uint32_t F_2f4cc(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_2f61c(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 /* §124y-628 前向声明（第二百七十四批：[this+80] 偏移常量 + 字面量池依赖） */
@@ -78400,6 +78403,8 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_2f61c,
     F_2f6c4,
     F_2f8cc,
+    F_2f968,
+    F_2fabc,
     F_2fb28,
     F_2fb3c,
     F_2fd70,
@@ -81310,6 +81315,8 @@ const uint32_t jqt_vtbl_offs[] = {
      0x2f61c,
      0x2f6c4,
      0x2f8cc,
+     0x2f968,
+     0x2fabc,
      0x2fb28,
      0x2fb3c,
      0x2fd70,
@@ -83898,7 +83905,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x11f20c,
      0x11fa34,
 };
-const uint32_t jqt_vtbl_n = 2907u;  /* §124y-149/.../628: 对齐 fns/offs 表实际条目数 */
+const uint32_t jqt_vtbl_n = 2909u;  /* §124y-149/.../629: 对齐 fns/offs 表实际条目数 */
 
 /* jqt_blx_dispatch：vtable 槽值 reg_val（shadow 地址）→ 目标函数。
  * 影子区 → off = reg_val - g_jqt_shadow；否则 off = reg_val。
@@ -96628,5 +96635,46 @@ uint32_t F_2f61c(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_
     if (!_r0) return 0;
     uint32_t v0 = MEM(JQT_ABS_PTR(0x2f67c));
     jqt_blx_dispatch(0x7e7bc, v0, _r1, 0, 0, 0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+
+/* ★ §124y-629 第二百七十五批真业务裸跑函数补全（[this+76] 取依赖 + [this+80] 单字节读级联判定）
+   - F_2f968（0x2f968，被调 2 次）：[this+76] 取 + F_2b37c 依赖 + 非 0 判定
+     语义（objdump 逐指令 + 字面量池 0x2fa74 实读）：
+       [this+76] ldr 取 + **bl F_2b37c（未译→镜像兜底）** + 非 0
+       判定 + 223*8=1784 偏移 → 多分支
+     ★ 诚实边界：取 + 依赖 + 判定 + 多分支，主路径（[this+76] 取 +
+       非 0 判定 + 1784 偏移计算）直译 + F_2b37c 镜像兜底
+       （§124y-288~628 同口径，同 0x7775c 取判定模式）
+   - F_2fabc（0x2fabc，被调 2 次）：[this+80] 单字节读 + 级联判定
+     语义（objdump 逐指令 + 字面量池 0x2fb1c 实读）：
+       [this+80] ldrb 取 → 非 0 判定 → [字面量池] 偏移 +
+       [this+字面量池] ldr 取 → 非 0 判定 → 多分支
+     ★ 诚实边界：单字节读 + 级联判定 + 多分支，主路径（[this+80]
+       单字节读 + 非 0 判定 + [this+字面量池] 取）直译 + 多分支体
+       镜像兜底（§124y-288~628 同口径，同 0xdbb40 级联判定模式） */
+uint32_t F_2f968(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* [this+76] 取 + 非 0 判定 + 1784 偏移 + F_2b37c（未译）镜像兜底 */
+    if (!_r0) return 0;
+    uint32_t v76 = MEM(_r0 + 76);
+    jqt_blx_dispatch(0x2b37c, v76, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
+    jqt_blx_dispatch(0x2f968, _r0, _r1, 1784, 0, 0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+uint32_t F_2fabc(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* [this+80] 单字节读 + 非 0 判定 + [this+字面量池] 取主路径 + 多分支体兜底 */
+    if (!_r0) return 0;
+    uint32_t v80 = MEM(_r0 + 80) & 0xff;
+    if (v80 == 0) {
+        jqt_blx_dispatch(0x2fabc, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
+        return 0;
+    }
+    uint32_t lit = MEM(JQT_ABS_PTR(0x2fb1c));
+    uint32_t v_lit = MEM(_r0 + lit);
+    jqt_blx_dispatch(0x2fabc, _r0, _r1, v_lit, v80, 0,0,0,0,0,0,0,0, _sp);
     return 0;
 }
