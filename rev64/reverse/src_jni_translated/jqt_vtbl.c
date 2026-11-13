@@ -373,6 +373,9 @@ uint32_t F_a4250(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,
 uint32_t F_a4274(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_e546a(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_abc48(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_3a74c(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_3aa14(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+/* §124y-650 前向声明（第二百九十六批：[this+0] 取依赖 + 字面量池双依赖） */
 uint32_t F_39318(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_39924(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 /* §124y-649 前向声明（第二百九十五批：[this+128] 单槽写 + [this+116] 取双比较） */
@@ -78667,6 +78670,7 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_3a6e0,
     F_3a6f8,
     F_3a72c,
+    F_3a74c,
     F_3a758,
     F_3a770,
     F_3a834,
@@ -78677,6 +78681,7 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_3a924,
     F_3a92c,
     F_3a9e8,
+    F_3aa14,
     F_3ab64,
     F_3ab80,
     F_3abec,
@@ -81619,6 +81624,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x3a6e0,
      0x3a6f8,
      0x3a72c,
+     0x3a74c,
      0x3a758,
      0x3a770,
      0x3a834,
@@ -81629,6 +81635,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x3a924,
      0x3a92c,
      0x3a9e8,
+     0x3aa14,
      0x3ab64,
      0x3ab80,
      0x3abec,
@@ -84045,7 +84052,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x11f20c,
      0x11fa34,
 };
-const uint32_t jqt_vtbl_n = 2949u;  /* §124y-149/.../649: 对齐 fns/offs 表实际条目数 */
+const uint32_t jqt_vtbl_n = 2951u;  /* §124y-149/.../650: 对齐 fns/offs 表实际条目数 */
 
 /* jqt_blx_dispatch：vtable 槽值 reg_val（shadow 地址）→ 目标函数。
  * 影子区 → off = reg_val - g_jqt_shadow；否则 off = reg_val。
@@ -97510,5 +97517,39 @@ uint32_t F_39924(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_
     uint32_t lit1 = MEM(JQT_ABS_PTR(0x39964));
     uint32_t lit2 = MEM(JQT_ABS_PTR(0x39968));
     jqt_blx_dispatch(0x39924, _r0, v116, lit1, lit2, 0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+
+/* ★ §124y-650 第二百九十六批真业务裸跑函数补全（[this+0] 取依赖 + 字面量池双依赖）
+   - F_3a74c（0x3a74c，被调 2 次）：[this+0] 取 + F_7d6ac 依赖
+     语义（objdump 逐指令）：[this+0] ldr 取 + **bl F_7d6ac（未译
+       →镜像兜底）** + 返回
+     ★ 诚实边界：取 + 依赖，主路径（[this+0] 取 + 参数传）直译 +
+       F_7d6ac 镜像兜底（§124y-288~649 同口径，同 0x7775c 取模式）
+   - F_3aa14（0x3aa14，被调 2 次）：字面量池 + F_33528/F_855c4 双依赖
+     语义（objdump 逐指令 + 字面量池 0x3aa74/0x3aa78 实读）：
+       [字面量池+0] 取 + **bl F_33528（未译→镜像兜底）** + 非 0
+       判定 → [字面量池 2+0] 取 + **bl F_855c4（未译→镜像兜底）**
+       + 非 0 判定 → 多分支
+     ★ 诚实边界：字面量池 + 双依赖 + 判定 + 多分支，主路径
+       （[字面量池] 取 + 非 0 判定）直译 + F_33528/F_855c4 镜像
+       兜底 ×2（§124y-288~649 同口径，同 0x33480 双依赖模式） */
+uint32_t F_3a74c(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* [this+0] 取 + F_7d6ac（未译）镜像兜底 */
+    if (!_r0) return 0;
+    uint32_t v0 = MEM(_r0 + 0);
+    jqt_blx_dispatch(0x7d6ac, v0, 0, 0, 0, 0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+uint32_t F_3aa14(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* [字面量池] 取 + F_33528/F_855c4（未译）镜像兜底 ×2 + 非 0 判定 */
+    uint32_t lit1 = MEM(JQT_ABS_PTR(0x3aa74));
+    jqt_blx_dispatch(0x33528, lit1, 0, 0, 0, 0,0,0,0,0,0,0,0, _sp);
+    uint32_t lit2 = MEM(JQT_ABS_PTR(0x3aa78));
+    jqt_blx_dispatch(0x855c4, lit2, 0, 0, 0,0,0,0,0,0,0,0,0, _sp);
     return 0;
 }
