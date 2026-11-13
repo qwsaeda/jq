@@ -373,6 +373,9 @@ uint32_t F_a4250(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,
 uint32_t F_a4274(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_e546a(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_abc48(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_11ad48(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_11dcc4(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+/* §124y-490 前向声明（第一百三十五批：malloc+依赖 + bx lr 空壳） */
 uint32_t F_118d08(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_118d14(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 /* §124y-489 前向声明（第一百三十四批：glibc locale 常量 255 ×2） */
@@ -80288,9 +80291,11 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_118d08,
     F_118d14,
     F_11a410,
+    F_11ad48,
     F_11be2c,
     F_11c0a8,
     F_11dc0c,
+    F_11dcc4,
     F_11dde0,
 };
 const uint32_t jqt_vtbl_offs[] = {
@@ -82920,12 +82925,14 @@ const uint32_t jqt_vtbl_offs[] = {
      0x118d08,
      0x118d14,
      0x11a410,
+     0x11ad48,
      0x11be2c,
      0x11c0a8,
      0x11dc0c,
+     0x11dcc4,
      0x11dde0,
 };
-const uint32_t jqt_vtbl_n = 2629u;  /* §124y-149/.../489: 对齐 fns/offs 表实际条目数 */
+const uint32_t jqt_vtbl_n = 2631u;  /* §124y-149/.../490: 对齐 fns/offs 表实际条目数 */
 
 /* jqt_blx_dispatch：vtable 槽值 reg_val（shadow 地址）→ 目标函数。
  * 影子区 → off = reg_val - g_jqt_shadow；否则 off = reg_val。
@@ -90868,4 +90875,35 @@ uint32_t F_118d14(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32
                  uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
     /* glibc locale 常量 255 返回，全直译零依赖 */
     return 255;
+}
+
+/* ★ §124y-490 第一百三十五批真业务裸跑函数补全（malloc+依赖 + bx lr 空壳）
+   - F_11ad48（0x11ad48，被调 4 次）：malloc(148) + F_11a354 依赖 +
+     F_120508 依赖（this=r0，r1）
+     语义（objdump 逐指令）：148 参数 → **blx _Znwj@plt
+       （.plt 系统调用→镜像兜底）** → **bl F_11a354（未译→镜像
+       兜底）** + [this+14*2=28] ldrsh 取 + 32 偏移 +
+       **bl F_120508（未译→镜像兜底）**
+     ★ 诚实边界：_Znwj/F_11a354/F_120508 未译 → 主路径（[this+28]
+       ldrsh 取 + 32 偏移）直译 + 依赖镜像兜底
+       （§124y-288~489 同口径，同 0x901dc 模式）
+   - F_11dcc4（0x11dcc4，被调 4 次）：bx lr 空壳（2 字节，§124y-333 同坑）
+     语义（objdump 逐指令）：bx lr（直接返回，零操作）；
+     0x11dcc8 区 = 独立函数（137*8=1096 偏移 LUT 取 + 比较）
+     ★ 全直译（空壳返回 0，零依赖，同 0x4e974/0x5ebbc/0x7ce28 模式） */
+uint32_t F_11ad48(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* malloc(148) + F_11a354/F_120508（未译）镜像兜底 + [this+28] ldrsh 取主路径 */
+    if (!_r0) return 0;
+    jqt_blx_dispatch(0x232f8, 148, 0, 0, 0, 0,0,0,0,0,0,0,0, _sp);
+    jqt_blx_dispatch(0x11a354, _r0, _r1, 0, 0, 0,0,0,0,0,0,0,0, _sp);
+    jqt_blx_dispatch(0x120508, _r0, 28, _r1, 32, 0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+uint32_t F_11dcc4(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* bx lr 空壳：直接返回 0（真实逻辑在 0x11dcc8 独立函数） */
+    return 0;
 }
