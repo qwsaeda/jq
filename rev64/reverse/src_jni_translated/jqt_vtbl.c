@@ -373,6 +373,9 @@ uint32_t F_a4250(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,
 uint32_t F_a4274(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_e546a(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_abc48(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_104626(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_118cd0(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+/* §124y-487 前向声明（第一百三十二批：F_103c76 依赖 + glibc locale 常量） */
 uint32_t F_f16e4(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_ffb98(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 /* §124y-486 前向声明（第一百三十一批：栈帧复杂 + 判定+取主路径） */
@@ -80259,6 +80262,7 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_103b1e,
     F_103c76,
     F_103f00,
+    F_104626,
     F_1047e0,
     F_10704c,
     F_107094,
@@ -80271,6 +80275,7 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_116c68,
     F_116d5c,
     F_1189e8,
+    F_118cd0,
     F_118d04,
     F_11a410,
     F_11be2c,
@@ -82885,6 +82890,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x103b1e,
      0x103c76,
      0x103f00,
+     0x104626,
      0x1047e0,
      0x10704c,
      0x107094,
@@ -82897,6 +82903,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x116c68,
      0x116d5c,
      0x1189e8,
+     0x118cd0,
      0x118d04,
      0x11a410,
      0x11be2c,
@@ -82904,7 +82911,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x11dc0c,
      0x11dde0,
 };
-const uint32_t jqt_vtbl_n = 2623u;  /* §124y-149/.../486: 对齐 fns/offs 表实际条目数 */
+const uint32_t jqt_vtbl_n = 2625u;  /* §124y-149/.../487: 对齐 fns/offs 表实际条目数 */
 
 /* jqt_blx_dispatch：vtable 槽值 reg_val（shadow 地址）→ 目标函数。
  * 影子区 → off = reg_val - g_jqt_shadow；否则 off = reg_val。
@@ -90766,4 +90773,35 @@ uint32_t F_ffb98(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_
     uint32_t v4 = MEM(v28 + 4);
     jqt_blx_dispatch(0xffb98, _r0, _r1, _r2, v4, 0,0,0,0,0,0,0,0, _sp);
     return 0;
+}
+
+/* ★ §124y-487 第一百三十二批真业务裸跑函数补全（F_103c76 依赖 + glibc locale 常量）
+   - F_104626（0x104626，被调 4 次）：寄存器搬运 + F_103c76 依赖
+     语义（objdump 逐指令，函数中段特征）：寄存器搬运（r2/r3/r5/r8/
+       r9/sl/r6/r7）→ **bl F_103c76（未译→镜像兜底）** → [r7+32]
+       取 → 非 0 判定
+     ★ 诚实边界：F_103c76 未译 → 主路径（[r7+32] 取 + 非 0 判定）
+       直译 + F_103c76 镜像兜底（§124y-288~486 同口径）
+   - F_118cd0（0x118cd0，被调 4 次）：glibc locale 常量返回
+     语义（objdump 逐指令，裸函数 2 指令）：movs r0,#46 → bx lr
+     同族兄弟（0x118cd4 = movs r0,#44；0x118cd8 = 字面量池取）
+     ★ 全直译（纯常量返回，零依赖，glibc locale 旧快照残留，
+       不计入真业务裸跑分母） */
+uint32_t F_104626(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* F_103c76（未译）镜像兜底 + [r7+32] 取主路径 */
+    if (!_r7) return 0;
+    jqt_blx_dispatch(0x103c76, _r0, _r1, _r2, _r3, _r4, _r5, _r6, _r7, _r8, _r9, _r10, _r11, _sp);
+    uint32_t v32 = MEM(_r7 + 32);
+    if (v32 == 0) {
+        jqt_blx_dispatch(0x104626, _r0, _r1, _r2, v32, 0,0,0,0,0,0,0,0, _sp);
+    }
+    return 0;
+}
+uint32_t F_118cd0(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* glibc locale 常量返回：movs r0,#46 → bx lr，全直译零依赖 */
+    return 46;
 }
