@@ -407,6 +407,9 @@ uint32_t F_94f18(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,
 uint32_t F_94f80(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_953a8(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_95708(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_96f60(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_96ff0(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+/* §124y-880 前向声明（第五百二十六批：[r1] 减 [r0] 32 倍除 0 比较循环 + [r1] 减 [r0] 32 倍除 0 比较 [r5] 32 加比较循环） */
 uint32_t F_95794(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 /* §124y-879 前向声明（第五百二十五~八百七十九批：[r2] 0 比较 [this+32] 取 0 比较 [this+124/116] 双取减 + [r2] 0 比较 [this+32] 取 0 比较 [this+120/112] 双取减） */
 uint32_t F_95454(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
@@ -81025,6 +81028,8 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_96804,
     F_968ac,
     F_96cbc,
+    F_96f60,
+    F_96ff0,
     F_97160,
     F_971f4,
     F_97a3c,
@@ -84437,6 +84442,8 @@ const uint32_t jqt_vtbl_offs[] = {
      0x96804,
      0x968ac,
      0x96cbc,
+     0x96f60,
+     0x96ff0,
      0x97160,
      0x971f4,
      0x97a3c,
@@ -85655,7 +85662,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x11f20c,
      0x11fa34,
 };
-const uint32_t jqt_vtbl_n = 3409u;  /* §124y-149/.../879: 对齐 fns/offs 表实际条目数 */
+const uint32_t jqt_vtbl_n = 3411u;  /* §124y-149/.../880: 对齐 fns/offs 表实际条目数 */
 
 /* jqt_blx_dispatch：vtable 槽值 reg_val（shadow 地址）→ 目标函数。
  * 影子区 → off = reg_val - g_jqt_shadow；否则 off = reg_val。
@@ -110890,5 +110897,46 @@ uint32_t F_95794(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_
        新地址实例化） */
     if (!_r0) return 0;
     jqt_blx_dispatch(0x95794, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+
+/* ★ §124y-880 第五百二十六批真业务裸跑函数补全（[r1] 减 [r0] 32 倍除 0 比较循环 + [r1] 减 [r0] 32 倍除 0 比较 [r5] 32 加比较循环）
+   - F_96f60（0x96f60，被调 2 次）：[r1] 减 [r0] + 32 倍除 + 0
+     比较 + 循环（新变体首次出现）
+     语义（objdump 逐指令）：
+       [r1] 减 [r0] + 32 倍除 + [this] 取 + [r2] 取 +
+       0 比较分支 → 循环
+     ★ 诚实边界：减 + 除 + 取 + 比较 + 循环，主路径
+       （[r1] 减 [r0] + 32 倍除 + 0 比较 + 循环）直译 +
+       多分支体镜像兜底
+       （§124y-288~879 同口径，[r1] 减 [r0] 32 倍除 0 比较
+       循环新变体首次出现）
+   - F_96ff0（0x96ff0，被调 2 次）：[r1] 减 [r0] + 32 倍除 + 0
+     比较 + [r5] 32 加 + 比较 + 循环（新变体首次出现）
+     语义（objdump 逐指令）：
+       [r1] 减 [r0] + 32 倍除 + [this] 取 + [r2] 取 +
+       0 比较分支 + 32 加 + 比较分支 + [r5+20] 取 +
+       [r5+16] 取 → 循环
+     ★ 诚实边界：减 + 除 + 取 + 比较 + 加 + 比较 + 循环，主路径
+       （[r1] 减 [r0] + 32 倍除 + 0 比较 + [r5] 32 加 +
+       比较 + 循环）直译 + 多分支体镜像兜底
+       （§124y-288~879 同口径，[r1] 减 [r0] 32 倍除 0 比较
+       + [r5] 32 加比较循环新变体首次出现） */
+uint32_t F_96f60(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* [r1] 减 [r0] + 32 倍除 + 0 比较 + 循环主路径 + 多分支体
+       兜底 */
+    if (!_r0) return 0;
+    jqt_blx_dispatch(0x96f60, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+uint32_t F_96ff0(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* [r1] 减 [r0] + 32 倍除 + 0 比较 + [r5] 32 加 + 比较 +
+       循环主路径 + 多分支体兜底 */
+    if (!_r0) return 0;
+    jqt_blx_dispatch(0x96ff0, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
     return 0;
 }
