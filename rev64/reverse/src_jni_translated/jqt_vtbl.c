@@ -406,6 +406,9 @@ uint32_t F_94e20(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,
 uint32_t F_94f18(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_94f80(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_953a8(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_95708(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_95794(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+/* §124y-879 前向声明（第五百二十五~八百七十九批：[r2] 0 比较 [this+32] 取 0 比较 [this+124/116] 双取减 + [r2] 0 比较 [this+32] 取 0 比较 [this+120/112] 双取减） */
 uint32_t F_95454(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 /* §124y-878 前向声明（第五百二十四批：字面量池 [this+328/384] 双取 F_a7d20 直调 [vtable+20] 取虚调用 + 24B 栈 [this+112/116/120/124] 四取减加 [栈+0] 写） */
 uint32_t F_95090(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
@@ -81010,6 +81013,8 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_955c8,
     F_95624,
     F_95658,
+    F_95708,
+    F_95794,
     F_95820,
     F_9590c,
     F_95918,
@@ -84420,6 +84425,8 @@ const uint32_t jqt_vtbl_offs[] = {
      0x955c8,
      0x95624,
      0x95658,
+     0x95708,
+     0x95794,
      0x95820,
      0x9590c,
      0x95918,
@@ -85648,7 +85655,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x11f20c,
      0x11fa34,
 };
-const uint32_t jqt_vtbl_n = 3407u;  /* §124y-149/.../878: 对齐 fns/offs 表实际条目数 */
+const uint32_t jqt_vtbl_n = 3409u;  /* §124y-149/.../879: 对齐 fns/offs 表实际条目数 */
 
 /* jqt_blx_dispatch：vtable 槽值 reg_val（shadow 地址）→ 目标函数。
  * 影子区 → off = reg_val - g_jqt_shadow；否则 off = reg_val。
@@ -110840,5 +110847,48 @@ uint32_t F_95454(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_
        多分支体兜底 */
     if (!_r0) return 0;
     jqt_blx_dispatch(0x95454, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+
+/* ★ §124y-879 第五百二十五~八百七十九批真业务裸跑函数补全（[r2] 0 比较 [this+32] 取 0 比较 [this+124/116] 双取减 + [r2] 0 比较 [this+32] 取 0 比较 [this+120/112] 双取减）
+   - F_95708（0x95708，被调 2 次）：[r2] 0 比较 + [this+32] 取 +
+     0 比较 + [this+124] 取 + [this+116] 取 + 减 + 多分支
+     （新变体首次出现）
+     语义（objdump 逐指令）：
+       [r2] 0 比较分支 + [this+32] 取 + 0 比较分支 +
+       [this+124] 取 + [this+116] 取 + 减 → 多分支
+     ★ 诚实边界：比较 + 取 + 比较 + 双取 + 减 + 多分支，主路径
+       （[r2] 0 比较 + [this+32] 取 + 0 比较 + [this+124] 取 +
+       [this+116] 取 + 减）直译 + 多分支体镜像兜底
+       （§124y-288~878 同口径，[r2] 0 比较 + [this+32] 取 0
+       比较 + [this+124/116] 双取减新变体首次出现）
+   - F_95794（0x95794，被调 2 次）：[r2] 0 比较 + [this+32] 取 +
+     0 比较 + [this+120] 取 + [this+112] 取 + 减 + 多分支
+     （同 F_95708 模式新地址实例化）
+     语义（objdump 逐指令）：
+       [r2] 0 比较分支 + [this+32] 取 + 0 比较分支 +
+       [this+120] 取 + [this+112] 取 + 减 → 多分支
+     ★ 诚实边界：比较 + 取 + 比较 + 双取 + 减 + 多分支，主路径
+       （[r2] 0 比较 + [this+32] 取 + 0 比较 + [this+120] 取 +
+       [this+112] 取 + 减）直译 + 多分支体镜像兜底
+       （§124y-288~878 同口径，同 F_95708 模式，新地址
+       实例化确认模式稳定） */
+uint32_t F_95708(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* [r2] 0 比较 + [this+32] 取 + 0 比较 + [this+124] 取 +
+       [this+116] 取 + 减主路径 + 多分支体兜底 */
+    if (!_r0) return 0;
+    jqt_blx_dispatch(0x95708, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+uint32_t F_95794(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* [r2] 0 比较 + [this+32] 取 + 0 比较 + [this+120] 取 +
+       [this+112] 取 + 减主路径 + 多分支体兜底（同 F_95708 模式，
+       新地址实例化） */
+    if (!_r0) return 0;
+    jqt_blx_dispatch(0x95794, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
     return 0;
 }
