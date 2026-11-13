@@ -372,6 +372,9 @@ uint32_t F_336ec(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,
 uint32_t F_a4250(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_a4274(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_e546a(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_b3e10(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_b49a0(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+/* §124y-377 前向声明（第九十二批：字符串插入 + strlen 指针比较） */
 uint32_t F_afbf8(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_b2a74(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 /* §124y-376 前向声明（第九十一批：双槽写 + 44B 栈复杂） */
@@ -79215,6 +79218,7 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_b3d98,
     F_b3db0,
     F_b3dcc,
+    F_b3e10,
     F_b3ecc,
     F_b3f04,
     F_b4040,
@@ -79238,6 +79242,7 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_b483c,
     F_b4854,
     F_b4884,
+    F_b49a0,
     F_b49d8,
     F_b4ab0,
     F_b4b48,
@@ -81622,6 +81627,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0xb3d98,
      0xb3db0,
      0xb3dcc,
+     0xb3e10,
      0xb3ecc,
      0xb3f04,
      0xb4040,
@@ -81645,6 +81651,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0xb483c,
      0xb4854,
      0xb4884,
+     0xb49a0,
      0xb49d8,
      0xb4ab0,
      0xb4b48,
@@ -82137,7 +82144,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x11be2c,
      0x11dc0c,
 };
-const uint32_t jqt_vtbl_n = 2404u;  /* §124y-149/.../376: 对齐 fns/offs 表实际条目数 */
+const uint32_t jqt_vtbl_n = 2406u;  /* §124y-149/.../377: 对齐 fns/offs 表实际条目数 */
 
 /* jqt_blx_dispatch：vtable 槽值 reg_val（shadow 地址）→ 目标函数。
  * 影子区 → off = reg_val - g_jqt_shadow；否则 off = reg_val。
@@ -86295,5 +86302,50 @@ uint32_t F_b2a74(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_
     if (!_r0) return 0;
     uint32_t slot = MEM(JQT_ABS_PTR(0xa8648 + 0x3c0));
     jqt_blx_dispatch(0xb2a74, _r0, _r1, _r2, slot, 0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+
+/* ★ §124y-377 第九十二批真业务裸跑函数补全（字符串插入 + strlen 指针比较）
+   - F_b3e10（0xb3e10，被调 6 次）：字符串插入（this=r0，r1 参数）
+     语义（objdump 逐指令）：[this+12] 取（数据指针）+ [this+4] 取
+       （长度）→ 数据指针+3 vs 长度 比较（>= 跳 0xb3e34）；
+       不等 → [this+0] 取（虚表）→ [vtable+数据指针] 写 r1 +
+       [this+12] 取 → 多分支
+     ★ 诚实边界：字符串插入（数据/长度双槽 + 虚表写），主路径
+       （[this+12/4] 双槽取 + 长度比较）直译 + 多分支体镜像兜底
+       （§124y-288~376 同口径）
+   - F_b49a0（0xb49a0，被调 6 次）：strlen + 指针比较（r0/r1 参数）
+     语义（objdump 逐指令）：**blx strlen@plt（.plt 系统调用→镜像
+       兜底）** 传 r1 → [r0+strlen] vs [r0+r1] 指针比较（> 跳返回）；
+       非 > → r6=127（0x7f 填充）→ 多分支
+     ★ 诚实边界：strlen .plt + 指针比较 + 127 填充，主路径
+       （指针比较 + 0x7f 填充）直译 + strlen 镜像兜底
+       （§124y-288~376 同口径） */
+uint32_t F_b3e10(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* 字符串插入：[this+12/4] 双槽取 + 长度比较主路径 + 多分支体兜底 */
+    if (!_r0) return 0;
+    uint32_t data = MEM(_r0 + 12);
+    uint32_t len = MEM(_r0 + 4);
+    if (data + 3 >= len) {
+        jqt_blx_dispatch(0xb3e10, _r0, _r1, _r2, data, 0,0,0,0,0,0,0,0, _sp);
+        return 0;
+    }
+    /* 虚表写 + 多分支体 → 镜像兜底 */
+    jqt_blx_dispatch(0xb3e10, _r0, _r1, _r2, data, 0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+uint32_t F_b49a0(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* strlen（.plt）镜像兜底 + 指针比较 + 0x7f 填充主路径 */
+    /* strlen(r1) → 镜像兜底 */
+    uint32_t slen = jqt_blx_dispatch(0x22c80, _r1, 0, 0, 0, 0,0,0,0,0,0,0,0, _sp);
+    uint32_t ptr1 = _r0 + slen;
+    uint32_t ptr2 = _r0 + _r1;
+    if (ptr1 > ptr2) return ptr2;
+    /* 0x7f 填充 + 多分支体 → 镜像兜底 */
+    jqt_blx_dispatch(0xb49a0, _r0, _r1, 127, 0, 0,0,0,0,0,0,0,0, _sp);
     return 0;
 }
