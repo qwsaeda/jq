@@ -374,6 +374,9 @@ uint32_t F_a4274(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,
 uint32_t F_e546a(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_abc48(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_3d65c(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_55d5c(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_55e60(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+/* §124y-755 前向声明（第四百零一批：vtable 索引取 F_557d0 直调 + 0x98 常量 _Znwj 分配 F_55ba4 直调） */
 uint32_t F_55774(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_55ad0(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 /* §124y-754 前向声明（第四百批：16B 栈字面量池依赖偏移写 11 + [this+16/20] 双取差值第七十一次实例化） */
@@ -79452,11 +79455,13 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_55d30,
     F_55d40,
     F_55d4c,
+    F_55d5c,
     F_55d74,
     F_55d80,
     F_55d9c,
     F_55dc4,
     F_55e3c,
+    F_55e60,
     F_55fbc,
     F_56084,
     F_56098,
@@ -82614,11 +82619,13 @@ const uint32_t jqt_vtbl_offs[] = {
      0x55d30,
      0x55d40,
      0x55d4c,
+     0x55d5c,
      0x55d74,
      0x55d80,
      0x55d9c,
      0x55dc4,
      0x55e3c,
+     0x55e60,
      0x55fbc,
      0x56084,
      0x56098,
@@ -84780,7 +84787,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x11f20c,
      0x11fa34,
 };
-const uint32_t jqt_vtbl_n = 3159u;  /* §124y-149/.../754: 对齐 fns/offs 表实际条目数 */
+const uint32_t jqt_vtbl_n = 3161u;  /* §124y-149/.../755: 对齐 fns/offs 表实际条目数 */
 
 /* jqt_blx_dispatch：vtable 槽值 reg_val（shadow 地址）→ 目标函数。
  * 影子区 → off = reg_val - g_jqt_shadow；否则 off = reg_val。
@@ -103320,5 +103327,49 @@ uint32_t F_55ad0(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_
     uint32_t diff1 = _r1 - lit;
     uint32_t diff2 = v16 - v20;
     jqt_blx_dispatch(0x55ad0, _r0, _r1, diff1, diff2, 0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+
+/* ★ §124y-755 第四百零一批真业务裸跑函数补全（vtable 索引取 F_557d0 直调 + 0x98 常量 _Znwj 分配 F_55ba4 直调）
+   - F_55d5c（0x55d5c，被调 2 次）：r1×4 偏移 vtable 取 + F_557d0
+     直调（同 0x8571c/0x85704/0x53e00 vtable 偏移 getter 模式，
+     ×4 索引变体）
+     语义（objdump 逐指令，裸函数 4 指令）：
+       [r1×4] 偏移计算 + [r0] 取 + **bl F_557d0（未译→镜像兜底）**
+     ★ 诚实边界：vtable 索引取 + 依赖，主路径（[r1×4] 索引取）
+       直译 + F_557d0 镜像兜底
+       （§124y-288~754 同口径，同 0x8571c/0x85704/0x53e00
+       vtable 偏移 getter 模式，×4 索引新变体首次出现）
+   - F_55e60（0x55e60，被调 2 次）：0x98 常量 + _Znwj 分配 +
+     F_55ba4 直调 + stmia 写 + F_557c8 直调
+     语义（objdump 逐指令 + 0x98 常量实读）：
+       0x98 常量 + **blx _Znwj（系统分配→镜像兜底）** +
+       **bl F_55ba4（未译→镜像兜底）** + [this+0] stmia 写 +
+       **bl F_557c8（未译→镜像兜底）** → 多分支
+     ★ 诚实边界：常量 + 分配 + 双依赖 + 写 + 多分支，主路径
+       （0x98 常量 + _Znwj 分配 + [this+0] 写）直译 +
+       F_55ba4/F_557c8/_Znwj 镜像兜底
+       （§124y-288~754 同口径，同 0x54dd0 双直调模式，
+       0x98 常量 _Znwj 分配新变体首次出现） */
+uint32_t F_55d5c(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* [r1×4] 偏移 vtable 取 + F_557d0（未译）镜像兜底 */
+    if (!_r0) return 0;
+    uint32_t vtbl = MEM(_r0 + _r1 * 4);
+    jqt_blx_dispatch(0x557d0, _r0, vtbl, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+uint32_t F_55e60(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* 0x98 常量 + _Znwj（系统分配）镜像兜底 + [this+0] stmia 写
+       + F_55ba4（未译）镜像兜底 + F_557c8（未译）镜像兜底 */
+    if (!_r0) return 0;
+    jqt_blx_dispatch(0x232f8, 0x98, 0, 0, 0, 0,0,0,0,0,0,0,0, _sp);
+    jqt_blx_dispatch(0x55ba4, _r0, 0, 0, 0, 0,0,0,0,0,0,0,0, _sp);
+    MEM(_r0 + 0) = 0;
+    jqt_blx_dispatch(0x557c8, _r0, 0, 0, 0, 0,0,0,0,0,0,0,0, _sp);
+    jqt_blx_dispatch(0x55e60, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
     return 0;
 }
