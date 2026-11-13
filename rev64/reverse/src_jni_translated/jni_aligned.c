@@ -300,6 +300,17 @@ JNIEXPORT jobject JNICALL
 Java_com_cnvcs_App_OnCreate(JNIEnv *env, jclass c, jobject a){
     /* ★ 步骤1：入口日志（确认 OnCreate 被调用） */
     __android_log_print(4, "junqi", "OnCreate: 入口 env=%p activity=%p", (void*)env, (void*)a);
+    /* ★ §124y-278 判据钩子在 OnCreate 触发（不依赖 GL 链）：
+       钩子原挂在 OnResume/OnTimer/OnUpdate —— 同设备正向会话 64 位 app 抢前台时
+       本 app 退后台 → **GL 线程暂停 → OnUpdate/OnTimer 停 → 每帧钩子全哑**
+       （§124y-274 实锤：OnUpdate 被调 0 次 + 钩子 0 日志 + 前台=com.qwsaeda.junqirs）。
+       OnCreate 是 app 启动必调入口（不依赖 GL/前台）→ 在此触发 3 个判据钩子，
+       钩子体本身是纯逻辑（走子桥状态机 / 32 位原生布局+事件链），与 GL 无关。
+       各钩子内 done 标志幂等（_gt_done/_nl_done + tick 内 done），OnCreate 先触发
+       后 OnResume/OnTimer/OnUpdate 再调不会重复执行。 */
+    jq_walk_bridge_tick();
+    jq_game_test_hook();
+    jq_native_event_hook();
     /* ★ 调用链对齐（用户方法论 §124q）：走 F_23560 完整调用链版——原版 OnCreate 的
      *   bl/blx 立即数（0xb9edc 分配→0x24250 构造→0xbe47c vtable）真实执行 F_xxx，
      *   调用链对齐 A 原版动态调用链（0xb9edc→0x24250→0xbe47c）。
