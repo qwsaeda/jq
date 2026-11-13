@@ -439,6 +439,9 @@ uint32_t F_a9328(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,
 uint32_t F_a9f60(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_ab814(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_abaf8(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_abdf8(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_abe1c(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+/* §124y-912 前向声明（第五百五十八批：[this+28] 取取反绝对值返回 + [r0] 加 40 常量返回两指令） */
 uint32_t F_abdf4(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 /* §124y-911 前向声明（第五百五十七批：52B 大栈 [栈+40] 写 [栈+88/92] 双取 [r0+0/8] 双取 + [this+24] 取返回两指令） */
 uint32_t F_aba58(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
@@ -81591,9 +81594,11 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_abaf8,
     F_abc48,
     F_abdf4,
+    F_abdf8,
     F_abe00,
     F_abe04,
     F_abe08,
+    F_abe1c,
     F_abf60,
     F_abfb4,
     F_ac5f0,
@@ -85067,9 +85072,11 @@ const uint32_t jqt_vtbl_offs[] = {
      0xabaf8,
      0xabc48,
      0xabdf4,
+     0xabdf8,
      0xabe00,
      0xabe04,
      0xabe08,
+     0xabe1c,
      0xabf60,
      0xabfb4,
      0xac5f0,
@@ -85879,7 +85886,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x11f20c,
      0x11fa34,
 };
-const uint32_t jqt_vtbl_n = 3473u;  /* §124y-149/.../911: 对齐 fns/offs 表实际条目数 */
+const uint32_t jqt_vtbl_n = 3475u;  /* §124y-149/.../912: 对齐 fns/offs 表实际条目数 */
 
 /* jqt_blx_dispatch：vtable 槽值 reg_val（shadow 地址）→ 目标函数。
  * 影子区 → off = reg_val - g_jqt_shadow；否则 off = reg_val。
@@ -112465,4 +112472,34 @@ uint32_t F_abdf4(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_
     /* [this+24] 取 + 返回（两指令全直译零依赖） */
     if (!_r0) return 0;
     return MEM(_r0 + 24);
+}
+
+/* ★ §124y-912 第五百五十八批真业务裸跑函数补全（[this+28] 取取反绝对值返回 + [r0] 加 40 常量返回两指令）
+   - F_abdf8（0xabdf8，被调 2 次）：[this+28] 取 + 取反 +
+     绝对值（neg+adc 序列）+ 返回（全直译零依赖）
+     语义（objdump 逐指令）：
+       [this+28] 取 + negs r0 + adcs r0（= 绝对值运算）→ 返回
+     ★ 全直译零依赖，纯 [this+28] 取 + 绝对值 + 返回
+       （同 0x8571c/0x85704/0x94da0/0x9f3e4/0xa1e20 模式，
+       [this+28] 取绝对值新槽首次出现）
+   - F_abe1c（0xabe1c，被调 2 次）：[r0] 加 40 常量 + 返回（两指令
+     全直译零依赖）
+     语义（objdump 逐指令）：
+       [r0] 加 40 → 返回
+     ★ 全直译零依赖，纯 r0 加 40 常量返回（同 0x8571c/0x85704/
+       0x94da0/0x9f3e4/0xa1e20 模式，r0 加 40 常量返回新槽
+       首次出现） */
+uint32_t F_abdf8(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* [this+28] 取 + 绝对值 + 返回（全直译零依赖） */
+    if (!_r0) return 0;
+    int32_t v = (int32_t)MEM(_r0 + 28);
+    return (uint32_t)((v < 0) ? -v : v);
+}
+uint32_t F_abe1c(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* r0 加 40 常量 + 返回（全直译零依赖） */
+    return _r0 + 40;
 }
