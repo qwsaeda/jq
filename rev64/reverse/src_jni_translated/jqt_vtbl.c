@@ -373,6 +373,9 @@ uint32_t F_a4250(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,
 uint32_t F_a4274(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_e546a(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_abc48(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_7d6b4(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_7d6dc(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+/* §124y-540 前向声明（第一百八十五批：[this+72/96] 写取 delete + [this+68/84] 写取 delete） */
 uint32_t F_7a00c(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_7b27c(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 /* §124y-539 前向声明（第一百八十四批：12B 栈双槽取 + [this+32] 取 F_7e01c） */
@@ -78998,6 +79001,8 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_7d69c,
     F_7d6a4,
     F_7d6ac,
+    F_7d6b4,
+    F_7d6dc,
     F_7d704,
     F_7d784,
     F_7d7b4,
@@ -81730,6 +81735,8 @@ const uint32_t jqt_vtbl_offs[] = {
      0x7d69c,
      0x7d6a4,
      0x7d6ac,
+     0x7d6b4,
+     0x7d6dc,
      0x7d704,
      0x7d784,
      0x7d7b4,
@@ -83275,7 +83282,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x11ef8c,
      0x11f20c,
 };
-const uint32_t jqt_vtbl_n = 2729u;  /* §124y-149/.../539: 对齐 fns/offs 表实际条目数 */
+const uint32_t jqt_vtbl_n = 2731u;  /* §124y-149/.../540: 对齐 fns/offs 表实际条目数 */
 
 /* jqt_blx_dispatch：vtable 槽值 reg_val（shadow 地址）→ 目标函数。
  * 影子区 → off = reg_val - g_jqt_shadow；否则 off = reg_val。
@@ -92933,4 +92940,50 @@ uint32_t F_7b27c(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_
         return F_7e01c(v32, 0, 0, 0, 0, 0,0,0,0,0,0,0, _sp);
     }
     return 0;
+}
+
+/* ★ §124y-540 第一百八十五批真业务裸跑函数补全（[this+72/96] 写取 delete + [this+68/84] 写取 delete）
+   - F_7d6b4（0x7d6b4，被调 3 次）：[this+72] 写 + [this+96] 取 +
+     operator delete 依赖
+     语义（objdump 逐指令）：[this+72] r1 str 写 + [this+96] ldr
+       取 → 非 0 判定 → **blx operator delete@plt（.plt 系统调用→
+       镜像兜底）** + [this+96] 0 写 + [r1] 返回
+     ★ 诚实边界：operator delete .plt → 主路径（[this+72] r1 写 +
+       [this+96] 取 + 非 0 判定 + [this+96] 0 写）直译 + operator
+       delete 镜像兜底（§124y-288~539 同口径，
+       同 0xb5628 strlen .plt 模式）
+   - F_7d6dc（0x7d6dc，被调 3 次）：[this+68] 写 + [this+84] 取 +
+     operator delete 依赖
+     语义（objdump 逐指令）：[this+68] r1 str 写 + [this+84] ldr
+       取 → 非 0 判定 → **blx operator delete@plt（.plt 系统调用→
+       镜像兜底）** + [this+84] 0 写 + [r1] 返回
+     ★ 诚实边界：operator delete .plt → 主路径（[this+68] r1 写 +
+       [this+84] 取 + 非 0 判定 + [this+84] 0 写）直译 + operator
+       delete 镜像兜底（§124y-288~539 同口径，
+       同 0x7d6b4 双槽写取模式） */
+uint32_t F_7d6b4(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* [this+72] r1 写 + [this+96] 取 + 非 0 判定 + operator delete（.plt 兜底） + [this+96] 0 写 */
+    if (!_r0) return 0;
+    MEM(_r0 + 72) = _r1;
+    uint32_t v96 = MEM(_r0 + 96);
+    if (v96 != 0) {
+        jqt_blx_dispatch(0x22aac, v96, 0, 0, 0, 0,0,0,0,0,0,0,0, _sp);
+        MEM(_r0 + 96) = 0;
+    }
+    return _r1;
+}
+uint32_t F_7d6dc(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* [this+68] r1 写 + [this+84] 取 + 非 0 判定 + operator delete（.plt 兜底） + [this+84] 0 写 */
+    if (!_r0) return 0;
+    MEM(_r0 + 68) = _r1;
+    uint32_t v84 = MEM(_r0 + 84);
+    if (v84 != 0) {
+        jqt_blx_dispatch(0x22aac, v84, 0, 0, 0, 0,0,0,0,0,0,0,0, _sp);
+        MEM(_r0 + 84) = 0;
+    }
+    return _r1;
 }

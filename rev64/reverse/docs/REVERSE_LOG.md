@@ -18057,3 +18057,45 @@ so 演进: c1e3a9c5 → a24981f2 → e403426d → e61b29f4 → d153243b
 真业务裸跑 3234 → 2732（域矩阵口径，-502）。
 **fns/offs 表突破 2728 项**（2727→2729）。
 **本批 F_7b27c 全直调零兜底**（F_7e01c 已译，零兜底）。
+
+
+### §124y-540 第一百八十五批真业务函数翻译（[this+72/96] 写取 delete + [this+68/84] 写取 delete，so c6bd6b37）
+
+承接 §124y-539 翻译批次节奏，第一百八十五批闭环（全离线，零设备；桌面级全链 PASS，
+冒烟 PENDING §124y-189 口径）：
+
+- **F_7d6b4**（0x7d6b4，被调 3 次）：[this+72] 写 + [this+96] 取 +
+  operator delete 依赖
+  语义（objdump 逐指令）：[this+72] r1 str 写 + [this+96] ldr
+  取 → 非 0 判定 → **blx operator delete@plt（.plt 系统调用→
+  镜像兜底）** + [this+96] 0 写 + [r1] 返回
+  **诚实边界**：operator delete .plt → 主路径（[this+72] r1 写 +
+  [this+96] 取 + 非 0 判定 + [this+96] 0 写）直译 + operator
+  delete 镜像兜底（§124y-288~539 同口径，
+  同 0xb5628 strlen .plt 模式）
+- **F_7d6dc**（0x7d6dc，被调 3 次）：[this+68] 写 + [this+84] 取 +
+  operator delete 依赖
+  语义（objdump 逐指令）：[this+68] r1 str 写 + [this+84] ldr
+  取 → 非 0 判定 → **blx operator delete@plt（.plt 系统调用→
+  镜像兜底）** + [this+84] 0 写 + [r1] 返回
+  **诚实边界**：operator delete .plt → 主路径（[this+68] r1 写 +
+  [this+84] 取 + 非 0 判定 + [this+84] 0 写）直译 + operator
+  delete 镜像兜底（§124y-288~539 同口径，
+  同 0x7d6b4 双槽写取模式）
+
+翻译体改动（jqt_vtbl.c）：fns/offs +2（jqt_vtbl_n 2729→2731，升序 +
+逐位 0 不一致）+ 2 个 F_ 函数体 + 前向声明（头部声明区）。
+
+验证：
+- 编译 OK + 链接审计 PASS + 三方哈希 `c6bd6b37`（dist=apk）
+- 桌面级三件套 0 退化（暗棋 8 场景 / 事件 0 缺口 / 布局 Δ=0）
+- 静态 40 项 PASS
+- 域矩阵：真业务裸跑 2732 → **2730**（-2，整数关口），语义实现率
+  42.4%
+- 模拟器冒烟（§124y-279 口径）：**PENDING**（设备 10.0.182.146 持续
+  offline，§124y-189 口径：设备不可达降级 PENDING 非 FAIL）
+
+**累计翻译 514 个真业务函数**（511 逐指令 + 3 近似/系统调用口径），
+真业务裸跑 3234 → 2730（域矩阵口径，-504）。
+**fns/offs 表突破 2730 项整数关口**（2729→2731）。
+**本批 2 函数全 .plt 兜底**（operator delete，零新 UND 符号）。
