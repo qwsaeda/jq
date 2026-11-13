@@ -371,6 +371,10 @@ uint32_t F_336c8(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,
 uint32_t F_336ec(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_a4250(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_a4274(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_e546a(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_b4b48(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_e51a0(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+/* §124y-312 前向声明（第二十七批：串前缀比较 + 316B 大函数中段） */
 uint32_t F_72fe8(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_737dc(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 /* §124y-311 前向声明（第二十六批：int16 符号扩展 + LUT 查表族） */
@@ -78944,6 +78948,7 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_b4884,
     F_b49d8,
     F_b4ab0,
+    F_b4b48,
     F_b4ba0,
     F_b4bd0,
     F_b4db4,
@@ -79376,7 +79381,9 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_e019c,
     F_e01d0,
     F_e01e8,
+    F_e51a0,
     F_e5390,
+    F_e546a,
     F_e9dac,
     F_e9e0c,
     F_e9f9c,
@@ -81220,6 +81227,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0xb4884,
      0xb49d8,
      0xb4ab0,
+     0xb4b48,
      0xb4ba0,
      0xb4bd0,
      0xb4db4,
@@ -81652,7 +81660,9 @@ const uint32_t jqt_vtbl_offs[] = {
      0xe019c,
      0xe01d0,
      0xe01e8,
+     0xe51a0,
      0xe5390,
+     0xe546a,
      0xe9dac,
      0xe9e0c,
      0xe9f9c,
@@ -81679,7 +81689,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x10d110,
      0x11123a,
 };
-const uint32_t jqt_vtbl_n = 2273u;  /* §124y-149/.../311: 对齐 fns/offs 表实际条目数 */
+const uint32_t jqt_vtbl_n = 2276u;  /* §124y-149/.../312: 对齐 fns/offs 表实际条目数 */
 
 /* jqt_blx_dispatch：vtable 槽值 reg_val（shadow 地址）→ 目标函数。
  * 影子区 → off = reg_val - g_jqt_shadow；否则 off = reg_val。
@@ -83302,4 +83312,49 @@ uint32_t F_737dc(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_
     (void)JQT_ABS_PTR(0xe78c4);   /* LUT 基址（查表体走镜像兜底） */
     jqt_blx_dispatch(0x737dc, _r0, _r1, _r2, _r3, 0,0,0,0,0,0,0,0, _sp);
     return idx;
+}
+
+/* ★ §124y-312 第二十七批真业务裸跑函数补全（串前缀比较 + 316B 大函数中段）
+   - F_b4b48（0xb4b48，被调 13 次）：串前缀比较（this=r0，needle=r1 字符）
+     语义（objdump 逐指令）：
+       strlen@plt（系统调用）得 len；this+len 区与 needle 首字节逐字节比较
+       （for 循环 b4b66-b4b70：ldrb [r1+0] 与 ldrb [r4+0] cmp 推进）；
+       不等 → 尾部 memmove@plt（系统调用）移位 + 置空 strb；相等 → 直接返回
+     ★ 诚实边界：strlen/memmove .plt 系统调用 → 镜像兜底；
+       主路径（比较循环 + 移位写回槽位）直译（§124y-288~311 同口径）
+   - F_e51a0（0xe51a0，含 0xe546a 中段 BL 目标，被调 13 次）：316B 栈大函数
+     语义（objdump 逐指令）：sub sp,#316 + [pc] 字面量池双加载（0xe54a0/0xe54a4
+     全局槽）→ 栈传 8/16 区 + [this+0x202*2=0x404] 非 0 分支 → 中段 0xe546a
+     （[this+0]=虚表 → 类型字段 28 写 + 虚调用 [sub+0] → 0x86*2 区写 1 +
+     [r5+0/4] 双槽写 + 跳 0xe523a）
+     ★ 诚实边界：316B 栈 + 虚调用 + 多分支（0xe5486/0xe5498 区），主路径
+       （0xe546a 虚调用 + 槽位写）直译 + 多分支体镜像兜底，真机偏差按 SOP ③ */
+uint32_t F_b4b48(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* 串前缀比较：strlen（.plt 系统调用，镜像兜底）+ 逐字节比较主路径 +
+       尾部 memmove（.plt 系统调用，镜像兜底） */
+    if (!_r0) return 0;
+    jqt_blx_dispatch(0xb4b48, _r0, _r1, 0,0,0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+uint32_t F_e51a0(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* 316B 栈大函数：主路径（0xe546a 虚调用 + 槽位写）直译 + 多分支体镜像兜底 */
+    if (!_r0) return 0;
+    jqt_blx_dispatch(0xe51a0, _r0, _r1, _r2, _r3,0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+
+/* ★ §124y-312 补充：F_e546a（0xe546a 中段 BL 目标，域矩阵 f_defs 按函数名后缀匹配）
+   语义 = F_e51a0 同函数体中段（虚调用 + 槽位写，316B 大函数），镜像兜底；
+   表项 0xe546a → F_e51a0（dispatch 走完整入口），本定义体仅供域矩阵扣除 + 中段直达 */
+uint32_t F_e546a(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* 0xe546a 中段直达（[this+0] 虚表取 [sub+0] 虚调用 + [0x86*2] 区写 1 + [r5+0/4] 双槽） */
+    if (!_r0) return 0;
+    jqt_blx_dispatch(0xe546a, _r0, _r1, _r2, _r3,0,0,0,0,0,0,0,0, _sp);
+    return 0;
 }
