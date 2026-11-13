@@ -381,6 +381,9 @@ uint32_t F_8271c(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,
 uint32_t F_82930(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_83d70(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_84684(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_84e34(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_85324(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+/* §124y-854 前向声明（第五百批：[this+60] 取返回两指令 + [this+56] 取返回两指令） */
 uint32_t F_84910(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 /* §124y-853 前向声明（第四百九十九批：152 偏移 F_84e30 直调 F_afcb4 直调 [this+112/116] 双取 + 字面量池 [this+0] 写 F_8c8b4 直调 this 比较） */
 uint32_t F_83dc8(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
@@ -80614,6 +80617,7 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_84b94,
     F_84dd8,
     F_84e24,
+    F_84e34,
     F_84e38,
     F_84e40,
     F_84e58,
@@ -80624,6 +80628,7 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_85188,
     F_851b0,
     F_8522c,
+    F_85324,
     F_85338,
     F_85348,
     F_85390,
@@ -83974,6 +83979,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x84b94,
      0x84dd8,
      0x84e24,
+     0x84e34,
      0x84e38,
      0x84e40,
      0x84e58,
@@ -83984,6 +83990,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x85188,
      0x851b0,
      0x8522c,
+     0x85324,
      0x85338,
      0x85348,
      0x85390,
@@ -85473,7 +85480,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x11f20c,
      0x11fa34,
 };
-const uint32_t jqt_vtbl_n = 3357u;  /* §124y-149/.../853: 对齐 fns/offs 表实际条目数 */
+const uint32_t jqt_vtbl_n = 3359u;  /* §124y-149/.../854: 对齐 fns/offs 表实际条目数 */
 
 /* jqt_blx_dispatch：vtable 槽值 reg_val（shadow 地址）→ 目标函数。
  * 影子区 → off = reg_val - g_jqt_shadow；否则 off = reg_val。
@@ -109575,4 +109582,34 @@ uint32_t F_84910(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_
     MEM(_r0 + 0) = lit + 8;
     jqt_blx_dispatch(0x84910, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
     return 0;
+}
+
+/* ★ §124y-854 第五百批真业务裸跑函数补全（[this+60] 取返回两指令 + [this+56] 取返回两指令）
+   - F_84e34（0x84e34，被调 2 次）：[this+60] 取 + 返回（两指令
+     全直译零依赖）
+     语义（objdump 逐指令）：
+       [this+60] 取 → 返回
+     ★ 全直译零依赖，纯 [this+60] 取返回（同 0x53e00/0x8571c/
+       0x85704/0x80504/0x829e8 模式，[this+60] 取返回新槽
+       首次出现）
+   - F_85324（0x85324，被调 2 次）：[this+56] 取 + 返回（两指令
+     全直译零依赖）
+     语义（objdump 逐指令）：
+       [this+56] 取 → 返回
+     ★ 全直译零依赖，纯 [this+56] 取返回（同 0x53e00/0x8571c/
+       0x85704/0x80504/0x829e8 模式，[this+56] 取返回新槽
+       首次出现） */
+uint32_t F_84e34(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* [this+60] 取 + 返回（两指令全直译零依赖） */
+    if (!_r0) return 0;
+    return MEM(_r0 + 60);
+}
+uint32_t F_85324(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* [this+56] 取 + 返回（两指令全直译零依赖） */
+    if (!_r0) return 0;
+    return MEM(_r0 + 56);
 }
