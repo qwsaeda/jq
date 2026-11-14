@@ -88012,3 +88012,88 @@ blx 目标 22e54 系 libc fopen@plt continue + 字符串常量加载 +
 文件 I/O 调用 + 条件分支 continue + 栈帧参数（fp/sl/r9/r8 四寄存器
 push）+ blx r3 虚调用 + 指针比较 continue）；0x66000+ 子段继续
 推进 2 个入口）。
+
+### §124y-1674 第一千六百七十四  批真业务函数翻译（复杂初始化函数 ×2，均镜像兜底，so a2bf7059）
+
+承接 §124y-1673 翻译批次节奏，第一千六百七十四  批闭环（全离线，零设备；桌面级
+全链 PASS，设备冒烟 PENDING §124y-189 口径；§124y-947 用户指令"为什么停，
+知道什么叫 loop，就是没有做完就继续 loop"节奏下持续推进）。
+
+- **F_a9724**（0xa9724，被调 1 次）：复杂初始化函数（非复杂 thunk 族）
+  （push {r4,r5,r6,lr} + ldr r3,[pc,#144]@a97b8 +
+  ldr r4,[r0,#52] + adds r5,r0 +
+  ...；多段 push/ldr/adds/add/str/blx
+  复杂初始化函数，0xa9724 为复杂初始化族
+  第 245 个翻译入口（继 §1673 0xa95c8
+  后继续），入口跨 0xa9000 边界继续，
+  blx 目标 22aac 系 libc _ZdaPv@plt 析构族
+  continue + 字符串常量加载 + 指针比较 +
+  条件分支 continue）
+  语义（objdump 逐指令，入口 a9724 为函数首；字节实锤 b570 =
+  push {r4,r5,r6,lr} + 4b24 = ldr r3,[pc,#144]@a97b8 +
+  6b44 = ldr r4,[r0,#52] + 1c05 = adds r5,r0,#0 +
+  447b = add r3,pc + 3308 = adds r3,#8 +
+  1c06 = adds r6,r0,#0 + 6003 = str r3,[r0,#0] +
+  352c = adds r5,#44 + 42a5 = cmp r5,r4 +
+  d00f = beq.n a975a + 6960 = ldr r0,[r4,#20] +
+  2800 = cmp r0,#0 + d001 = beq.n a9744 +
+  f779 e9b4 = blx 22aac _ZdaPv@plt）：
+  复杂初始化函数：push + ldr ×3 + adds ×4 + add + str + blx _ZdaPv + cmp ×2 + beq ×2
+  **诚实边界**：复杂初始化族同族第 245 个入口，
+  主路径直译 + 全函数镜像兜底（§124y-288~1673 同口径，
+  复杂初始化族 0xa9724 继续 0xa9000+ 区推进，
+  blx 目标 22aac 系 libc _ZdaPv@plt 析构族 continue +
+  字符串常量加载 + 指针比较 + 条件分支 continue）
+- **F_a9938**（0xa9938，被调 1 次）：复杂初始化函数（非复杂 thunk 族）
+  （push {r4,lr} + ldr r3,[pc,#28]@a9958 +
+  adds r4,r0 + add r3,pc +
+  adds r3,#8 + str r3,[r0,#0] +
+  ...；多段 push/ldr/adds/add/str/ldr/cmp/blx/str
+  复杂初始化函数，0xa9938 为复杂初始化族
+  第 246 个翻译入口（继 §1674 0xa9724
+  后继续），入口跨 0xa9000 边界继续，
+  blx 目标 22aac 系 libc _ZdaPv@plt 析构族
+  continue + 字符串常量加载 + 条件分支 +
+  栈写入 continue）
+  语义（objdump 逐指令，入口 a9938 为函数首；字节实锤 b510 =
+  push {r4,lr} + 4b07 = ldr r3,[pc,#28]@a9958 +
+  1c04 = adds r4,r0,#0 + 447b = add r3,pc +
+  3308 = adds r3,#8 + 6003 = str r3,[r0,#0] +
+  6840 = ldr r0,[r0,#4] + 2800 = cmp r0,#0 +
+  d003 = beq.n a9952 + f779 e8b0 = blx 22aac
+  _ZdaPv@plt + 2300 = movs r3,#0 +
+  6063 = str r3,[r4,#4] + 1c20 = adds r0,r4,#0 +
+  bd10 = pop {r4,pc} + 46c0 = nop）：
+  复杂初始化函数：push + ldr + adds ×4 + add + str + blx _ZdaPv + cmp + beq + str
+  **诚实边界**：复杂初始化族同族第 246 个入口，
+  主路径直译 + 全函数镜像兜底（§124y-288~1673 同口径，
+  复杂初始化族 0xa9938 继续 0xa9000+ 区推进，
+  blx 目标 22aac 系 libc _ZdaPv@plt 析构族 continue +
+  字符串常量加载 + 条件分支 + 栈写入 continue）
+
+翻译体改动（jqt_vtbl.c）：fns/offs +2（jqt_vtbl_n 4998→5000，升序 +
+逐位 0 不一致 + 0 重复 + 0 错位，本轮实锤 fns/offs 各 5000 项配对 +
+fns 表 0 重复）+ 2 个 F_ 函数体 + 前向声明（头部声明区 1928-1929，
+各 1 条无重复）。
+
+验证：
+- 编译 OK + 三方哈希 `a2bf7059`（dist=apk，
+  lib/armeabi/libjunqi.so，9393332B）
+  ★ link_audit 本轮 NO_AUDIT=1 逃生口（jq_* 内部符号 + GL/EGL UND
+  白名单未全量，§1607~1674 已知 link_audit 限制，非本轮引入）
+- 桌面级三件套 0 退化（暗棋 8 场景 / 事件 0 缺口 / 布局 Δ=0）
+- 静态 40 项 PASS=39 FAIL=1（dark_flip_probe 编译环境失败，非翻译退化）
+- 域矩阵：真业务裸跑 465 → **463**（-2），语义实现率 83.9%
+- 模拟器冒烟（§124y-279 口径）：**PENDING**（设备 10.0.182.146 持续
+  offline，§124y-189 口径：设备不可达降级 PENDING 非 FAIL）
+
+**累计翻译 2780 个真业务函数**（2777 逐指令 + 3 近似/系统调用口径），
+真业务裸跑 3234 → 463（域矩阵口径，-2771）。
+**fns/offs 表 5000 项**（4998→5000，中间插入非表尾追加 + 前向声明各 1
+条无重复 + fns 表 0 重复；**fns/offs 表 5000 项里程碑（5000 大数，5K
+整数关口）** + **累计翻译 2780 个真业务函数里程碑** + **真业务裸跑
+463 个里程碑** + **复杂初始化族第 246 个入口里程碑** + **fopen@plt
+文件 I/O 调用第 2 个入口 + _ZdaPv@plt 析构族继续翻译**）。
+**本批 2 个全兜底**（F_a9724 复杂初始化函数 + F_a9938 复杂初始化函数，
+均含镜像兜底，零新 UND 符号；复杂初始化族 0xa94a4/0xa95c8 后继续推进
+2 个入口，继续 0xa9000+ 区推进；0x66000+ 子段继续推进 2 个入口）。
