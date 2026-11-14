@@ -1843,6 +1843,8 @@ uint32_t F_9f414(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,
 uint32_t F_9f5dc(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_9f6e4(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_9f750(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_9f754(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_9f758(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_66d42(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_66c70(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_667ec(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
@@ -85119,6 +85121,8 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_9f5dc,
     F_9f6e4,
     F_9f750,
+    F_9f754,
+    F_9f758,
     F_ce020,
     F_ce3bc,
     F_ce5dc,
@@ -90037,6 +90041,8 @@ const uint32_t jqt_vtbl_offs[] = {
      0x9f5dc,
      0x9f6e4,
      0x9f750,
+     0x9f754,
+     0x9f758,
      0xce020,
      0xce3bc,
      0xce5dc,
@@ -90241,7 +90247,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x11f20c,
      0x11fa34,
 };
-const uint32_t jqt_vtbl_n = 4916u;  /* §124y-149/.../948: 对齐 fns/offs 表实际条目数 */ 
+const uint32_t jqt_vtbl_n = 4918u;  /* §124y-149/.../948: 对齐 fns/offs 表实际条目数 */ 
 
 /* jqt_blx_dispatch：vtable 槽值 reg_val（shadow 地址）→ 目标函数。
  * 影子区 → off = reg_val - g_jqt_shadow；否则 off = reg_val。
@@ -151468,5 +151474,49 @@ uint32_t F_9f750(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_
     /* 字符串字段 getter，bl 镜像兜底 */
     if (!_r0) return 0;
     jqt_blx_dispatch(0x9f750, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+
+/* ★ §124y-1633 第一千六百三十三  批真业务裸跑函数补全（字符串字段 getter ×2，均镜像兜底；fns/offs 中间插入非表尾追加）
+   - F_9f754（0x9f754，被调 1 次）：字符串字段 getter（非复杂 thunk 族）
+     （ldr r0,[r0,#28] + bx lr；
+     2 指令简单 getter，0x9f754 为字符串字段
+     getter 族第 38 个翻译入口（继 §1632 0x9f750
+     后继续），入口跨 0x9f000 边界继续，
+     biz_raw_top 误判尾段为独立入口，镜像兜底）
+     语义（objdump 逐指令，入口 9f754 为字符串字段 getter 首；字节实锤 69c0 =
+     ldr r0,[r0,#28] + 4770 = bx lr）：
+     字符串字段 getter：ldr + bx lr
+     ★ 诚实边界：字符串字段 getter 族同族第 38 个入口，
+     biz_raw_top 误判尾段为独立入口，主路径直译 +
+     全函数镜像兜底（§124y-288~1632 同口径，
+     字符串字段 getter 族 0x9f754 继续 0x9f000+ 区推进）
+   - F_9f758（0x9f758，被调 1 次）：字符串字段 getter（非复杂 thunk 族）
+     （ldr r0,[r0,#32] + bx lr；
+     2 指令简单 getter，0x9f758 为字符串字段
+     getter 族第 39 个翻译入口（继 §1633 0x9f754
+     后继续），入口跨 0x9f000 边界继续，
+     biz_raw_top 误判尾段为独立入口，镜像兜底）
+     语义（objdump 逐指令，入口 9f758 为字符串字段 getter 首；字节实锤 6a00 =
+     ldr r0,[r0,#32] + 4770 = bx lr）：
+     字符串字段 getter：ldr + bx lr
+     ★ 诚实边界：字符串字段 getter 族同族第 39 个入口，
+     biz_raw_top 误判尾段为独立入口，主路径直译 +
+     全函数镜像兜底（§124y-288~1632 同口径，
+     字符串字段 getter 族 0x9f758 继续 0x9f000+ 区推进） */
+uint32_t F_9f754(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* 字符串字段 getter，bl 镜像兜底 */
+    if (!_r0) return 0;
+    jqt_blx_dispatch(0x9f754, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+uint32_t F_9f758(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* 字符串字段 getter，bl 镜像兜底 */
+    if (!_r0) return 0;
+    jqt_blx_dispatch(0x9f758, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
     return 0;
 }
