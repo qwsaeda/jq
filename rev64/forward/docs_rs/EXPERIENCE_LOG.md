@@ -3045,3 +3045,40 @@ jq_rs_rules.c 注释定论。
   "1000 步是否含翻棋无原版依据"）维持 AUD-R-033 诚实标注（未独立实证 1000 步
   暗棋场景，因 70 步无吃子阈值先于 1000 步触发，1000 步独立场景需 1000 步无吃子
   构造，价值低）。
+
+### 35. 吃子分支 moves_since_eat 清零 + EV_DEAD 送死不清零实证 + 验证方案扩到 20 项（2026-11-14）
+- **吃子分支清零路径独立覆盖**（dark_eat_reset_count_test，5 场景）：补
+  `dark_flip_draw_count_test`（翻棋不计数+走子累加）之外的"吃子活动清零 70 步
+  进度"完整分支链：
+  ① 暗棋吃子（蓝 rank1 强吃红 rank9 弱）→ `EV_EAT` + `moves_since_eat=0` +
+     交换器语义（蓝 1 落 39，源格 44 清空）✓；
+  ①b 暗棋送死（蓝 rank9 弱撞红 rank1 强）→ `EV_DEAD` + 攻方消失 + `moves_since_eat=0`
+     （暗棋送死有子被吃=吃子活动，清零正确）✓；
+  ② 暗棋炸弹（蓝 BOMB 撞红 rank3）→ `EV_BOMB` + 同归（双方消失）+ 清零 ✓；
+  ③ 暗棋挖雷（蓝工兵挖红雷）→ `EV_MINE` + `mines_cleared[BLUE]++` + 清零 ✓；
+  ④ 明棋 EV_DEAD 送死（蓝 rank2 撞红雷，雷不消失）→ **不清零** `moves_since_eat`
+     （保持 69，§B01-022 P1 修复的关键例外：送死=无子被吃，不重置 70 步进度）✓。
+- **对照 64 位实现**（rules.c jq_try_move 4 分支清零 + 1 例外，§675/726/737/784/830）：
+  `EV_EAT/EV_BOMB/EV_FLAG/EV_MINE` 各含 `moves_since_eat=0`（吃子活动重置进度）；
+  `EV_DEAD 送死（撞雷雷未消失）**不**清零`（§B01-022 P1 已修，旧实现 if/else
+  公共尾部清零把送死当吃子误重置，修后送死分支保持进度）。暗棋吃子/送死 vs
+  明棋送死清零行为差异（暗棋有子被吃清零 / 明棋雷不消失不清零）行为级 0 分叉。
+- **★ rank 编码口径实证（§796-798 L52 确证，本轮首用例固化进 dark_align）**：
+  **rank 小=强**（rank1 最强，rank10 最弱）——`sr < dr_` = 大压小（EV_EAT 攻方吃
+  被吃方），`sr > dr_` = 攻方被吃（EV_DEAD）。首轮用例误用"蓝 rank5 吃红 rank2"
+  当吃子（实为 rank5 弱攻 rank2 强=送死 EV_DEAD），诊断修正为蓝 rank1 攻红 rank9。
+  踩坑固化：暗棋/明棋吃子构造必须 rank 强子攻弱子（数值小攻数值大）才 EV_EAT。
+- **★ 交换器语义（§3 测试桩判据陷阱既有口径，本轮 ① 复现）**：`jq_try_move`
+  吃子走 `*dst=*src`（攻子整格复制到目标格）+ `memset(src,0)`（源格清空）——
+  攻子"进入"目标格（39 的 rank 变蓝 1 的 rank），非"红 9 单独消失"。断言目标
+  格须按 `st.cells[39].rank==蓝rank`（非 RANK_EMPTY），已修正。
+- **dark_eat_reset_count_test 复用进 dark_align**：dark_align_regress.sh
+  19→**20 项** PASS（规则原文 33 + 19 用例）。
+- **对齐验证方案三层"总结复用"终态（本轮复用确认）**：① make evverify
+  172/172 + 三件套（event_code 0 缺口 / layout 几何 Δ=0）/ ②
+  `dark_align_regress.sh` **20/20**（桌面 0 退化门禁）/ ③
+  `mumu_align_smoke.sh --dev 127.0.0.1:5556` **2/2 + 0 崩溃**（redroid 冒烟口径）。
+- **诚实边界**：本轮未改 rules.c 行为（4 分支清零 + EV_DEAD 送死不清零均为
+  §B01-022 已修既成事实，纯补验证用例防回归），so 无需重建；同级互杀
+  （rank 相等+标志相等 ev=EV_EAT，§798 实证对齐原版）未独立用例覆盖（低频
+  场景，rank 分布下同级碰撞概率低，价值低）。
