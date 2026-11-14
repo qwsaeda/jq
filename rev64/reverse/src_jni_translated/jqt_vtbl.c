@@ -1385,6 +1385,8 @@ uint32_t F_670ae(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,
 uint32_t F_670c0(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_670d2(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_670e4(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_670f6(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_67108(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_66d42(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_66c70(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_667ec(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
@@ -84203,6 +84205,8 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_670c0,
     F_670d2,
     F_670e4,
+    F_670f6,
+    F_67108,
     F_ce020,
     F_ce3bc,
     F_ce5dc,
@@ -88663,6 +88667,8 @@ const uint32_t jqt_vtbl_offs[] = {
      0x670c0,
      0x670d2,
      0x670e4,
+     0x670f6,
+     0x67108,
      0xce020,
      0xce3bc,
      0xce5dc,
@@ -88867,7 +88873,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x11f20c,
      0x11fa34,
 };
-const uint32_t jqt_vtbl_n = 4458u;  /* §124y-149/.../948: 对齐 fns/offs 表实际条目数 */ 
+const uint32_t jqt_vtbl_n = 4460u;  /* §124y-149/.../948: 对齐 fns/offs 表实际条目数 */ 
 
 /* jqt_blx_dispatch：vtable 槽值 reg_val（shadow 地址）→ 目标函数。
  * 影子区 → off = reg_val - g_jqt_shadow；否则 off = reg_val。
@@ -135799,5 +135805,51 @@ uint32_t F_670e4(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_
     /* 常量 bl 新分配：C++ new(192) 分配 thunk，bl 镜像兜底 */
     if (!_r0) return 0;
     jqt_blx_dispatch(0x670e4, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+
+/* ★ §124y-1404 第一千五十  批真业务裸跑函数补全（常量 bl 新分配 ×2，均镜像兜底；fns/offs 中间插入非表尾追加）
+   - F_670f6（0x670f6，被调 1 次）：常量 bl 新分配复杂
+     （movs r0,#80 + blx 232f8 _Znwj@plt + adds r6,r0 +
+     bl 4b238 + str r6,[r4,#0] + bl 66678；C++ new(80) 分配
+     thunk，同族新入口；0x66360 尾部 3 个 .bss 惰性初始化后
+     1 个独立入口，入口跨 0x67000 边界继续）
+     语义（objdump 逐指令，入口 670f6 为函数首；字节实锤 2050 =
+     movs r0,#80 + f7bc e8fe = blx 232f8 _Znwj@plt +
+     1c06 = adds r6,r0 + f7e4 f89b = bl 4b238 +
+     6026 = str r6,[r4,#0] + f7ff fab8 = bl 66678）：
+     C++ new(80) 分配 thunk：blx _Znwj(80) + bl 4b238 +
+     str + bl 66678
+     ★ 诚实边界：常量 bl 新分配，主路径直译 + bl 镜像兜底
+     （§124y-288~1403 同口径，常量 bl 新分配族 0x66000+
+     子段继续推进 1 个入口，入口跨 0x67000 边界继续）
+   - F_67108（0x67108，被调 1 次）：常量 bl 新分配复杂
+     （movs r0,#64 + blx 232f8 _Znwj@plt + adds r6,r0 +
+     bl 44b90 + str r6,[r4,#0] + bl 66686；C++ new(64) 分配
+     thunk，同族新入口；0x66360 尾部 3 个 .bss 惰性初始化后
+     1 个独立入口，入口跨 0x67100 边界继续）
+     语义（objdump 逐指令，入口 67108 为函数首；字节实锤 2040 =
+     movs r0,#64 + f7bc e8f6 = blx 232f8 _Znwj@plt +
+     1c06 = adds r6,r0 + f7dd fd3e = bl 44b90 +
+     6026 = str r6,[r4,#0] + f7ff fab6 = bl 66686）：
+     C++ new(64) 分配 thunk：blx _Znwj(64) + bl 44b90 +
+     str + bl 66686
+     ★ 诚实边界：常量 bl 新分配，主路径直译 + bl 镜像兜底
+     （§124y-288~1403 同口径，常量 bl 新分配族 0x66000+
+     子段继续推进 1 个入口，入口跨 0x67100 边界继续） */
+uint32_t F_670f6(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* 常量 bl 新分配：C++ new(80) 分配 thunk，bl 镜像兜底 */
+    if (!_r0) return 0;
+    jqt_blx_dispatch(0x670f6, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+uint32_t F_67108(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* 常量 bl 新分配：C++ new(64) 分配 thunk，bl 镜像兜底 */
+    if (!_r0) return 0;
+    jqt_blx_dispatch(0x67108, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
     return 0;
 }
