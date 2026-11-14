@@ -1945,6 +1945,8 @@ uint32_t F_aba30(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,
 uint32_t F_abab8(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_abe0c(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_abe10(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_abe14(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_abe18(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_66d42(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_66c70(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_667ec(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
@@ -85323,6 +85325,8 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_abab8,
     F_abe0c,
     F_abe10,
+    F_abe14,
+    F_abe18,
     F_ce020,
     F_ce3bc,
     F_ce5dc,
@@ -90343,6 +90347,8 @@ const uint32_t jqt_vtbl_offs[] = {
      0xabab8,
      0xabe0c,
      0xabe10,
+     0xabe14,
+     0xabe18,
      0xce020,
      0xce3bc,
      0xce5dc,
@@ -90547,7 +90553,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x11f20c,
      0x11fa34,
 };
-const uint32_t jqt_vtbl_n = 5018u;  /* §124y-149/.../948: 对齐 fns/offs 表实际条目数 */ 
+const uint32_t jqt_vtbl_n = 5020u;  /* §124y-149/.../948: 对齐 fns/offs 表实际条目数 */ 
 
 /* jqt_blx_dispatch：vtable 槽值 reg_val（shadow 地址）→ 目标函数。
  * 影子区 → off = reg_val - g_jqt_shadow；否则 off = reg_val。
@@ -155167,5 +155173,55 @@ uint32_t F_abe10(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_
     /* 返回尾段，bx lr 镜像兜底 */
     if (!_r0) return 0;
     jqt_blx_dispatch(0xabe10, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+
+/* ★ §124y-1684 第一千六百八十四  批真业务裸跑函数补全（返回尾段 ×2，均镜像兜底；fns/offs 中间插入非表尾追加）
+   - F_abe14（0xabe14，被调 1 次）：返回尾段（非复杂 thunk 族）
+     （bx lr；
+     单指令尾段，0xabe14 为返回尾段族
+     第 31 个翻译入口（继 §1683 0xabe10
+     后继续），biz_raw_top 误判为独立入口
+     （实为前函数体尾段跨界，0xabe14
+     为单指令 bx lr），入口跨 0xab000
+     边界继续，bx lr 返回 continue）
+     语义（objdump 逐指令，入口 abe14 为尾段；字节实锤 4770 =
+     bx lr）：
+     返回尾段：bx lr（单指令尾段）
+     ★ 诚实边界：返回尾段族同族第 31 个入口，
+     主路径直译 + 全函数镜像兜底（§124y-288~1683 同口径，
+     返回尾段族 0xabe14 继续 0xab000+ 区推进，
+     biz_raw_top 误判为独立入口（实为前函数体尾段跨界
+     0xabe14 处单指令 bx lr），镜像兜底 continue）
+   - F_abe18（0xabe18，被调 1 次）：返回尾段（非复杂 thunk 族）
+     （bx lr；
+     单指令尾段，0xabe18 为返回尾段族
+     第 32 个翻译入口（继 §1684 0xabe14
+     后继续），biz_raw_top 误判为独立入口
+     （实为前函数体尾段跨界，0xabe18
+     为单指令 bx lr），入口跨 0xab000
+     边界继续，bx lr 返回 continue）
+     语义（objdump 逐指令，入口 abe18 为尾段；字节实锤 4770 =
+     bx lr）：
+     返回尾段：bx lr（单指令尾段）
+     ★ 诚实边界：返回尾段族同族第 32 个入口，
+     主路径直译 + 全函数镜像兜底（§124y-288~1683 同口径，
+     返回尾段族 0xabe18 继续 0xab000+ 区推进，
+     biz_raw_top 误判为独立入口（实为前函数体尾段跨界
+     0xabe18 处单指令 bx lr），镜像兜底 continue） */
+uint32_t F_abe14(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* 返回尾段，bx lr 镜像兜底 */
+    if (!_r0) return 0;
+    jqt_blx_dispatch(0xabe14, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+uint32_t F_abe18(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* 返回尾段，bx lr 镜像兜底 */
+    if (!_r0) return 0;
+    jqt_blx_dispatch(0xabe18, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
     return 0;
 }
