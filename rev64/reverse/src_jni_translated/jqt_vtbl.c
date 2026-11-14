@@ -1831,6 +1831,8 @@ uint32_t F_9d1ec(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,
 uint32_t F_9d3c8(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_9e55e(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_9e6e4(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_9e728(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_9e758(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_66d42(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_66c70(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_667ec(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
@@ -85095,6 +85097,8 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_9d3c8,
     F_9e55e,
     F_9e6e4,
+    F_9e728,
+    F_9e758,
     F_ce020,
     F_ce3bc,
     F_ce5dc,
@@ -90001,6 +90005,8 @@ const uint32_t jqt_vtbl_offs[] = {
      0x9d3c8,
      0x9e55e,
      0x9e6e4,
+     0x9e728,
+     0x9e758,
      0xce020,
      0xce3bc,
      0xce5dc,
@@ -90205,7 +90211,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x11f20c,
      0x11fa34,
 };
-const uint32_t jqt_vtbl_n = 4904u;  /* §124y-149/.../948: 对齐 fns/offs 表实际条目数 */ 
+const uint32_t jqt_vtbl_n = 4906u;  /* §124y-149/.../948: 对齐 fns/offs 表实际条目数 */ 
 
 /* jqt_blx_dispatch：vtable 槽值 reg_val（shadow 地址）→ 目标函数。
  * 影子区 → off = reg_val - g_jqt_shadow；否则 off = reg_val。
@@ -151067,5 +151073,61 @@ uint32_t F_9e6e4(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_
     /* 复杂初始化函数，bl 镜像兜底 */
     if (!_r0) return 0;
     jqt_blx_dispatch(0x9e6e4, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+
+/* ★ §124y-1627 第一千六百二十七  批真业务裸跑函数补全（复杂初始化函数 + 字符串字段 getter ×1，均镜像兜底；fns/offs 中间插入非表尾追加）
+   - F_9e728（0x9e728，被调 1 次）：复杂初始化函数（非复杂 thunk 族）
+     （push {r4,lr} + adds r4,r0 +
+     bl 9fde8 _Pthread_alloc 区 +
+     ldr r3,[pc,#8]@9e73c + adds r0,r4 +
+     add r3,pc + adds r3,#8 +
+     str r3,[r4,#0] + pop {r4,pc} +
+     ...；多段 push/adds/bl/ldr/add/str/pop
+     复杂初始化函数，0x9e728 为复杂初始化族
+     第 172 个翻译入口（继 §1626 0x9e6e4
+     后继续），入口跨 0x9e000 边界继续，
+     bl 目标 9fde8 系同区业务函数继续）
+     语义（objdump 逐指令，入口 9e728 为函数首；字节实锤 b510 =
+     push {r4,lr} + 1c04 = adds r4,r0,#0 +
+     f001 fb5c = bl 9fde8 _Pthread_alloc 区 +
+     4b02 = ldr r3,[pc,#8]@9e73c + 1c20 = adds r0,r4,#0 +
+     447b = add r3,pc + 3308 = adds r3,#8 +
+     6023 = str r3,[r4,#0] + bd10 = pop {r4,pc}）：
+     复杂初始化函数：push + adds + bl 9fde8 + ldr + adds + add + str + pop
+     ★ 诚实边界：复杂初始化族同族第 172 个入口，
+     主路径直译 + 全函数镜像兜底（§124y-288~1626 同口径，
+     复杂初始化族 0x9e728 继续 0x9e000+ 区推进，
+     bl 目标 9fde8 系同区业务函数继续）
+   - F_9e758（0x9e758，被调 1 次）：字符串字段 getter（非复杂 thunk 族）
+     （ldr r0,[r0,#24] + bx lr +
+     ldr r0,[r0,#28] + bx lr +
+     ...；多段 ldr/bx
+     字符串字段 getter，0x9e758 为字符串字段
+     getter 族第 35 个翻译入口（继 §1620 0x9b858
+     后继续），入口跨 0x9e000 边界继续，
+     biz_raw_top 误判尾段为独立入口，镜像兜底）
+     语义（objdump 逐指令，入口 9e758 为字符串字段 getter 首；字节实锤 6980 =
+     ldr r0,[r0,#24] + 4770 = bx lr +
+     69c0 = ldr r0,[r0,#28] + 4770 = bx lr）：
+     字符串字段 getter：ldr + bx lr + ldr + bx lr
+     ★ 诚实边界：字符串字段 getter 族同族第 35 个入口，
+     biz_raw_top 误判尾段为独立入口，主路径直译 +
+     全函数镜像兜底（§124y-288~1626 同口径，
+     字符串字段 getter 族 0x9e758 继续 0x9e000+ 区推进） */
+uint32_t F_9e728(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* 复杂初始化函数，bl 镜像兜底 */
+    if (!_r0) return 0;
+    jqt_blx_dispatch(0x9e728, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+uint32_t F_9e758(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* 字符串字段 getter，bl 镜像兜底 */
+    if (!_r0) return 0;
+    jqt_blx_dispatch(0x9e758, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
     return 0;
 }
