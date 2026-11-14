@@ -61,6 +61,7 @@ run_one flip_eat_test
 run_one flip_rail_test
 run_one flip_draw_guard
 run_one draw_exist_test
+run_one eat_dir_test
 
 echo ""
 echo "=== 合计 PASS=$pass FAIL=$fail MISS=$pending ==="

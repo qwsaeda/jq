@@ -2821,3 +2821,18 @@ jq_rs_rules.c 注释定论。
   rank>12 拦截兜底——口径一致，无对齐缺口。
 - **冒烟脚本鲁棒性修**：mumu_align_smoke.sh 轮询出屏（wait_screen 30s，
   redroid 转译冷启动慢，旧固定 sleep 8 偶发未出屏误判 FAIL）→ 复跑 2/2 PASS。
+
+### 25. 吃子方向三实证 + 验证方案复用扩充（2026-11-14）
+- **吃子方向（rank 小=强，司令1最强）执行器逐分支实证**（eat_dir_test）：
+  ① 司令(rank1)吃军长(rank2) 大压小 → ev=EV_EAT + 司令留红格空 ✓；
+  ② 军长(rank2)撞司令(rank1) 小撞大 → ev=EV_DEAD + 军长死司令留 ✓；
+  ③ 同级团长(rank5)互撞 → ev=EV_EAT 两格空（§17 三层口径：AI 900/执行器
+  EV_EAT/音效 Eat）✓。规则原文「司令>军长>师长>...>工兵」全实证。
+- **eat_dir_test 复用进 dark_align**：dark_align_regress.sh 现 **11/11 PASS**
+  （规则原文 33 项 + 10 暗棋/吃子用例 0 退化门禁）。
+- **冒烟脚本加固（flaky 根治）**：mumu_align_smoke.sh 翻子段加"确认进入
+  暗棋开局（翻棋暗棋日志）再翻子，未进重 tap btn1"（转译冷启动时序抖动
+  根因），复跑 2/2 PASS。
+- **对齐验证方案"总结复用"闭环**：三层全固化（① make evverify 172 +
+  三件套 / ② dark_align_regress.sh 11/11 / ③ mumu_align_smoke.sh 2/2+0
+  崩溃），改一次规则层→跑跑②③即 0 退化门禁，跨轮/跨会话直接复用。

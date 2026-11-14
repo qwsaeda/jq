@@ -59,7 +59,15 @@ if [ "$ONLY" = "all" ] || [ "$ONLY" = "flip" ]; then
   $ADB shell "am force-stop $PKG; logcat -c" >/dev/null 2>&1
   $ADB shell "am start -n $ACT" >/dev/null 2>&1
   wait_screen || { echo "  [超时] 主界面未出屏 → 本段 PENDING"; }
-  tap 332 837; tap 458 488; sleep 3   # 难度弹窗 btn1 新手翻棋
+  tap 332 837; tap 458 488
+  # 鲁棒：确认进入暗棋开局（"翻棋暗棋"），未进则重 tap btn1（转译冷启动时序抖动）
+  local opened=0
+  for i in $(seq 1 10); do
+    sleep 1
+    log 60 | grep -q "翻棋暗棋" && { opened=1; break; }
+    log 60 | grep -q "难度弹窗：选" && { log 60 | grep -q "翻棋暗棋" && { opened=1; break; }; }
+  done
+  if [ $opened -eq 0 ]; then tap 458 488; sleep 3; fi
   tap 203 1023; tap 203 1023; sleep 4
   out=$(log 200 | grep -E "走子判定 翻棋|can_flip=1|人机AI：翻棋|turn→")
   echo "$out" | tail -5
