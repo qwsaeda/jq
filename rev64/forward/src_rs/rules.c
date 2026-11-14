@@ -912,20 +912,17 @@ bool jq_flip(jq_state *st, int idx)
     if (c->side == SIDE_UNKNOWN) c->side = st->turn;
     c->revealed = 1;
     st->turn = 1 - st->turn;
-    st->total_moves++;
-    st->moves_since_eat++;
-    /* ★ AUD-1000 B01-060（P3 注释）：翻棋计入 70/1000 步阈值（AUD-R-086 已标注）——
-       翻棋无吃子（moves_since_eat 不在此清零），翻棋累积 70 步无吃子（无走子吃子
-       介入）判和，与"走子 70 步"同源阈值但翻棋节奏（每步翻 1 子）远快于走子
-       （走子可能 60 格滑行）→ 暗棋翻牌主导和棋（AUD-R-086 已标注）。
-       SPEC 待明文"翻棋计入 70/1000 步阈值"（消除"依据无"状态）。 */
-    /* ★ AUD-1000 B01-087（P3 注释）：翻棋收口判对方（新 turn）困毙与走子同口径。
-       翻棋定色方（旧 turn）的子刚定色可能立即可动（定色后己方子解锁），但
-       stalemate_after 判对方（新 turn）困毙——定色方可动性不在收口检查（对方困毙才判）。
-       ★ AUD-R-008（P1）：翻棋路径与走子路径对称收口（和棋+困毙）。
-       原版 game_logic.c:309 的 jq_flip 末尾 check_stalemate(st) 同款语义。
-       ★ AUD-R-109（P3 注释确认）：和棋判定（stalemate_after 内）带 st->stage==STG_PLAY
-       前置守卫（:317），jq_flip 入口 jq_can_flip 已校验 stage，双守卫行为 0 变化。 */
+    /* ★ 2026-11-14 原版 0x302f0 实证（AUD-R-086/033 P2 关闭）：翻棋**不消耗**
+       70/1000 步和棋进度——原版 70 步扫描（0x3036a-0x3039e）只读 6B 走子记录
+       （state+0x6f4 区，翻棋执行 0x39f20 区**不写**该记录），"连续 70 步没有
+       吃子"的"步"= 走子，翻牌非走子。旧 64 位翻棋 moves_since_eat++/
+       total_moves++ 使暗棋翻牌主导和棋（70 张无吃子即判和，远快于走子节奏）
+       → 与原版分叉。修：翻棋不计数（moves_since_eat/total_moves 均不动），
+       规则原文「连续 70 步没有吃子，判和；双方总步数达到 1000 步，判和」的
+       "步"= 走子，与原版口径一致。
+       ★ AUD-1000 B01-087：翻棋收口（stalemate_after）判对方困毙与走子同口径，
+       和棋判定读走子计数（翻棋不入计——已对齐原版）。
+       ★ AUD-R-008（P1）：翻棋路径与走子路径对称收口（和棋+困毙）。 */
     /* AUD-1000 B01-012：翻棋后棋盘变化，困毙缓存失效 */
     st->stale_dirty = 1;
     stalemate_after(st);
