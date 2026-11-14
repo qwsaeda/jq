@@ -2918,8 +2918,9 @@ jq_rs_rules.c 注释定论。
 - **对齐验证方案三层"总结复用"终态（本轮复用确认）**：① make evverify
   172/172 + 三件套（event_code_map_check 0 缺口 / layout_align_check 几何 Δ=0）/
   ② `dark_align_regress.sh` **15/15**（桌面 0 退化门禁，0 设备依赖）/
-  ③ `mumu_align_smoke.sh`（设备层，本轮纯测试用例改动未改规则引擎 so，
-  规则行为不变故 ③ 非必须——规则改动才需重装+冒烟）。
+  ③ `mumu_align_smoke.sh --dev 127.0.0.1:5556` **2/2 PASS + 0 崩溃**（明棋
+  走子 can_move=1 + 暗棋翻子 can_flip=1，redroid 冒烟口径，§124y-279 非红果
+  权威）。本轮虽未改 so（纯测试用例改动），仍三层全跑确认 0 退化。
 - **诚实边界**：本轮**未改规则引擎代码**（rules.c 行为级对齐 0 改动），仅
   补测试用例期望（④）+ 加 dark_bomb_test 进 dark_align + 文档定案——
   64 位 so 无需重建，"对齐"= 测试覆盖补全 + 口径定案固化，非行为修正。
