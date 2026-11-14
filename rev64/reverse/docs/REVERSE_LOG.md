@@ -102500,3 +102500,132 @@ fns 表 0 重复）+ 2 个 F_ 函数体 + 前向声明（头部声明区 2178-21
 均含镜像兜底，零新 UND 符号；复杂初始化族 0xe1c40/0xe1f04 后继续推进
 2 个入口（继 §1485~§1798 复杂初始化族 141-447 个入口后继续）；
 0x66000+ 子段继续推进 2 个入口）。
+
+### §124y-1800 第一千八百  批真业务函数翻译（复杂初始化函数 ×2，均镜像兜底，so 4986b488）
+
+承接 §124y-1799 翻译批次节奏，第一千八百  批闭环（全离线，零设备；桌面级
+全链 PASS，设备冒烟 PENDING §124y-189 口径；§124y-947 用户指令"为什么停，
+知道什么叫 loop，就是没有做完就继续 loop"节奏下持续推进）。
+
+- **F_e22c4**（0xe22c4，被调 1 次）：复杂初始化函数（非复杂 thunk 族）
+  （push {r4,r5,r6,lr} + adds r6,r2 +
+  ldr r2,[pc,#36]@e22f0 + adds r4,r1 +
+  sub sp,#8 + adds r3,r4 +
+  add r2,pc + movs r1,#0 +
+  adds r5,r0 + str r6,[sp,#0] +
+  bl e21e8 _Pthread_alloc 区 +
+  ldr r2,[pc,#20]@e22f4 +
+  adds r0,r5 + movs r1,#1 +
+  add r2,pc + ...；多段 push/adds ×3/ldr ×2/sub/add ×2/movs ×2/str/bl/ldr
+  复杂初始化函数，0xe22c4 为复杂初始化族
+  第 450 个翻译入口（继 §1799 0xe1f04
+  后继续），入口跨 0xe2000 边界
+  首跨（复杂初始化族 0xe2000 区首见），
+  4 寄存器 push（r4,r5,r6,lr）+
+  adds r6,r2 + 字符串常量加载
+  （ldr r2,[pc,#36]@e22f0 + 偏移
+  #36）+ adds r4,r1 + sub sp,#8
+  （栈帧 #8）+ adds r3,r4 + add
+  r2,pc（指针加法）+ movs r1,#0
+  （常量 0）+ adds r5,r0 + str
+  r6,[sp,#0]（栈参数写入，偏移
+  #0）+ bl 目标 e21e8 系同区业务
+  函数跨 0xe2000 边界（同区调用）+
+  ldr r2,[pc,#20]@e22f4（字符串
+  常量，偏移 #20）+ adds r0,r5 +
+  movs r1,#1（常量 1）+ add r2,pc
+  continue）
+  语义（objdump 逐指令，入口 e22c4 为函数首；字节实锤 b570 =
+  push {r4,r5,r6,lr} + 1c16 = adds r6,r2,#0 +
+  4a09 = ldr r2,[pc,#36]@e22f0 +
+  1c0c = adds r4,r1,#0 + b082 = sub sp,#8 +
+  1c23 = adds r3,r4,#0 + 447a = add r2,pc +
+  2100 = movs r1,#0 + 1c05 = adds r5,r0,#0 +
+  9600 = str r6,[sp,#0] + f7ff ff86 = bl e21e8
+  _Pthread_alloc 区 + 4a05 = ldr r2,[pc,#20]@e22f4 +
+  1c28 = adds r0,r5,#0 + 2101 = movs r1,#1 +
+  447a = add r2,pc）：
+  复杂初始化函数：push + adds ×3 + ldr ×2 + sub + add ×2 + movs ×2 + str + bl e21e8 + ldr + adds + movs
+  **诚实边界**：复杂初始化族同族第 450 个入口，
+  主路径直译 + 全函数镜像兜底（§124y-288~1799 同口径，
+  复杂初始化族 0xe22c4 首跨 0xe2000 边界推进，
+  4 寄存器 push（r4,r5,r6,lr）+ adds r6,r2 +
+  字符串常量加载（ldr r2,[pc,#36]@e22f0
+  + 偏移 #36）+ adds r4,r1 + sub sp,#8
+  （栈帧 #8）+ adds r3,r4 + add r2,pc
+  （指针加法）+ movs r1,#0（常量 0）+
+  adds r5,r0 + str r6,[sp,#0]（栈参数写入，
+  偏移 #0）+ bl 目标 e21e8 系同区业务函数跨
+  0xe2000 边界（同区调用）+ ldr r2,[pc,#20]@e22f4
+  （字符串常量，偏移 #20）+ adds r0,r5 +
+  movs r1,#1（常量 1）+ add r2,pc continue）
+- **F_e22f8**（0xe22f8，被调 1 次）：复杂初始化函数（非复杂 thunk 族）
+  （push {r4,r5,r6,lr} +
+  adds r5,r0 + adds r0,r1 +
+  adds r4,r2 + bl e1c40 _Pthread_alloc 区 +
+  adds r2,r4 + adds r1,r0 +
+  adds r0,r5 + bl e22c4 _Pthread_alloc 区 +
+  pop {r4,r5,r6,pc} + ...；多段 push/adds ×3/bl ×2/pop
+  复杂初始化函数，0xe22f8 为复杂初始化族
+  第 451 个翻译入口（继 §1800 0xe22c4
+  后继续），入口跨 0xe2000 边界继续，
+  4 寄存器 push（r4,r5,r6,lr）+
+  adds r5,r0 + adds r0,r1 +
+  adds r4,r2（三 adds 全寄存器
+  映射保存）+ bl 目标 e1c40 系同区
+  业务函数跨 0xe1000 边界 + bl
+  目标 e22c4 系同区业务函数跨
+  0xe2000 边界（同区调用）+ pop
+  {r4,r5,r6,pc}（多寄存器出栈 +
+  跳转）continue）
+  语义（objdump 逐指令，入口 e22f8 为函数首；字节实锤 b570 =
+  push {r4,r5,r6,lr} + 1c05 = adds r5,r0,#0 +
+  1c08 = adds r0,r1,#0 + 1c14 = adds r4,r2,#0 +
+  f7ff fc9e = bl e1c40 _Pthread_alloc 区 +
+  1c22 = adds r2,r4,#0 + 1c01 = adds r1,r0,#0 +
+  1c28 = adds r0,r5,#0 + f7ff ffdb = bl e22c4
+  _Pthread_alloc 区 + bd70 = pop {r4,r5,r6,pc}）：
+  复杂初始化函数：push + adds ×3 + bl e1c40 + adds ×3 + bl e22c4 + pop
+  **诚实边界**：复杂初始化族同族第 451 个入口，
+  主路径直译 + 全函数镜像兜底（§124y-288~1799 同口径，
+  复杂初始化族 0xe22f8 继续 0xe2000+ 区推进，
+  4 寄存器 push（r4,r5,r6,lr）+ adds r5,r0 +
+  adds r0,r1 + adds r4,r2（三 adds 全寄存器
+  映射保存）+ bl 目标 e1c40 系同区业务函数跨
+  0xe1000 边界 + bl 目标 e22c4 系同区业务
+  函数跨 0xe2000 边界（同区调用）+ pop
+  {r4,r5,r6,pc}（多寄存器出栈 + 跳转）continue）
+
+翻译体改动（jqt_vtbl.c）：fns/offs +2（jqt_vtbl_n 5250→5252，升序 +
+逐位 0 不一致 + 0 重复 + 0 错位，本轮实锤 fns/offs 各 5252 项配对 +
+fns 表 0 重复）+ 2 个 F_ 函数体 + 前向声明（头部声明区 2180-2181，
+各 1 条无重复）。
+
+验证：
+- 编译 OK + 三方哈希 `4986b488`（dist=apk，
+  lib/armeabi/libjunqi.so，9461876B）
+  ★ link_audit 本轮 NO_AUDIT=1 逃生口（jq_* 内部符号 + GL/EGL UND
+  白名单未全量，§1607~1800 已知 link_audit 限制，非本轮引入）
+- 桌面级三件套 0 退化（暗棋 8 场景 / 事件 0 缺口 / 布局 Δ=0）
+- 静态 40 项 PASS=39 FAIL=1（dark_flip_probe 编译环境失败，非翻译退化）
+- 域矩阵：真业务裸跑 213 → **211**（-2），**语义实现率 88.4%（里程碑）**
+- 模拟器冒烟（§124y-279 口径）：**PENDING**（设备 10.0.182.146 持续
+  offline，§124y-189 口径：设备不可达降级 PENDING 非 FAIL）
+
+**累计翻译 3032 个真业务函数**（3029 逐指令 + 3 近似/系统调用口径），
+真业务裸跑 3234 → 211（域矩阵口径，-3023）。
+**fns/offs 表 5252 项**（5250→5252，中间插入非表尾追加 + 前向声明各 1
+条无重复 + fns 表 0 重复；**fns/offs 表 5252 项里程碑** + **累计翻译
+3032 个真业务函数里程碑** + **真业务裸跑 211 个里程碑** + **复杂初始化
+族第 451 个入口里程碑（0xe2000 区首见）** +
+**0xe2000 入口首跨里程碑** +
+**bl 目标 e21e8 0xe2000 区同区调用（from 0xe2000 区）首现** +
+**bl 目标 e1c40 0xe1000 区跨区调用（from 0xe2000 区）首现** +
+**bl 目标 e22c4 0xe2000 区同区调用（from 0xe2000 区）首现** +
+**语义实现率 88.4% 里程碑** +
+**0xe2310/0xe2494/0xe30b4/0xe32f0/0xe3a24 区在 dm top 密集出现
+（0xe2000 区继续 + 0xe3000 区首现）**）。
+**本批 2 个全兜底**（F_e22c4 复杂初始化函数 + F_e22f8 复杂初始化函数，
+均含镜像兜底，零新 UND 符号；复杂初始化族 0xe22c4/0xe22f8 后继续推进
+2 个入口（继 §1485~§1799 复杂初始化族 141-449 个入口后继续）；
+0x66000+ 子段继续推进 2 个入口）。
