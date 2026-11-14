@@ -457,7 +457,14 @@ bool jq_side_stalemated(const jq_state *st, uint8_t side)
        （32 位 1.43MB 原版是否也如此需 §124y 反汇编实证原版 0x302b4 困毙段，
        32 位翻译体此处忠实会话 B 移植未对齐 64 位 AUD-R-073 口径）。
        影响面：仅暗棋困毙判定（明棋地雷恒 revealed=1 不触发；32 位走子桥基准
-       arm32_walkregress 4/4 PASS 不消费此差异）。 */
+       arm32_walkregress 4/4 PASS 不消费此差异）。
+       ★ 2026-11-14 正向会话定论（原版 0x302f0 反汇编实证，见 64 位
+       src_rs/rules.c jq_side_stalemated 注释 + EXPERIENCE_LOG 2026-11-14 节）：
+       原版困毙扫描 0x30320 `cmp r1,#11 beq` = **排地雷**（可翻判定），可动判定
+       0x30348 排军旗+地雷——原版与 64 位 AUD-R-073 口径一致。本 32 位翻译体
+       "翻扫描未排地雷"= **不忠实原版的真缺陷（非模型假设差异）**，逆向会话
+       应补 `rank_norm != RANK_MINE` 到翻扫描（军旗保持不排除，原版 0x30350
+       未翻军旗计入可翻）。 */
     /* 还有未翻暗子可翻 → 未困毙 */
     for (int i = 0; i < N_CELLS; i++) {
         const jq_cell *c = &st->cells[i];
