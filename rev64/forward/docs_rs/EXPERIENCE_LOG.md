@@ -2745,3 +2745,20 @@ jq_rs_rules.c 注释定论。
 - 暗棋两大终局路径（和棋 Draw / 杀光能移动子判负）桌面全覆盖，与
   0x302f0 阶段1"双方无普通子→Draw"（0x303d2）+ 单侧困毙"一方无行动→
   对方胜"（0x30430/0x30438）口径一致。
+
+### 21. 暗棋扛旗终局路径实证（2026-11-14，dark_flag_test）
+- **工兵挖满 3 雷扛旗 → 蓝胜**：`can_move(50→55)=1`（工兵 rank9 +
+  mines_cleared[BLUE]=3）→ `jq_try_move ev=3（EV_FLAG）stage=OVER
+  winner=0（BLUE）` ✓ 规则原文「一方用工兵挖掉对方三颗地雷后再用工兵
+  扛走对方军旗，也能获得胜利」实证。
+- **两条负对照**：
+  · 挖 2 雷 `can_move=0`（未挖满 3 雷不能扛旗，mines_cleared[me]<3 拦截
+    ✓ rules.c:317 AUD-R-015 门槛）；
+  · 非工兵（普通 rank5）`can_move=0`（暗棋仅工兵扛旗，move_legal 暗棋段
+    `dr_==RANK_FLAG → sr!=RANK_WORKER 拒` ✓）。
+- 暗棋三大终局路径桌面全覆盖：**和棋 Draw（§20）/ 杀光能移动子判负
+  （§20）/ 工兵挖 3 雷扛旗胜（§21）**，与 0x302f0 阶段1/单侧困毙 +
+  扛旗 EV_FLAG 终局（0x30260 Junqi.Flag 分发）口径一致。
+- **EV_FLAG 事件码**：ev=3 = EV_FLAG（"Junqi.Flag"，音效 flag.wav）——
+  与 §8"原版 0x31ee8 吃旗发 Move 事件名"分叉入档一致（64 位 EV_FLAG
+  独立码优于原版 Move 复用，SPEC §3 7 事件契约维持）。
