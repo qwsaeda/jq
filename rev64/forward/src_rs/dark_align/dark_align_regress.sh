@@ -73,6 +73,7 @@ run_one dark_flip_draw_count_test
 run_one dark_eat_reset_count_test
 run_one dark_undo_count_test
 run_one dark_rule_switch_test
+run_one dark_tongji_flip_test
 
 echo ""
 echo "=== 合计 PASS=$pass FAIL=$fail MISS=$pending ==="
