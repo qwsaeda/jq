@@ -280,6 +280,21 @@ static bool move_legal(const jq_state *st, int from, int to, int turn)
     if (is_camp(cell_row(to), cell_col(to)) && dst->rank != RANK_EMPTY &&
         dst->side != me)
         return false;
+    /* ★ 2026-11-14 规则原文实证（ruleflip 明文，暗棋独有）：
+       「行营、大本营是个安全岛，进入以后，敌方棋子不能吃其中的棋子；
+         大本营的地雷、军旗可以吃。」
+       → 暗棋下**大本营也是安全岛**：敌方不能吃大本营中的普通子，仅雷/旗例外
+       （雷/旗走下方专属分支：雷=仅工兵、旗=仅工兵且已挖满 3 雷）。
+       明棋（rulelay）无此条款——明棋军旗必须"任何棋子都能扛"
+       （rulelay 吃子规则），若明棋也把大本营设成安全岛，军旗将无法被吃 →
+       故本段仅对暗棋生效（st->mode==JQ_MODE_FLIP && 暗棋开关开）。
+       开关语义同军旗/地雷判定（ui_rule_cfg_get(4)：=0 退回明棋语义）。 */
+    if (st->mode == JQ_MODE_FLIP && ui_rule_cfg_get(4) &&
+        is_base(cell_row(to), cell_col(to)) &&
+        dst->rank != RANK_EMPTY && dst->side != me) {
+        int dbr = rank_of(dst);
+        if (dbr != RANK_MINE && dbr != RANK_FLAG) return false;  /* 大本营安全岛（雷/旗除外） */
+    }
     /* ★ AUD-1000 B01-098（P3 注释）：行营中敌方子不可吃 ✓（安全岛）；行营中己方子
        不拦（:266 条件假）可走出（源格行营自由走 AUD-R-072）✓ 正确；空行营一步可进
        （AUD-R-028 已标注字面解读）✓ 无缺陷。行营三条语义已标注（安全岛/可走出/空可进）。 */
@@ -835,10 +850,12 @@ bool jq_can_flip(const jq_state *st, int idx)
        别的 rank）。rank 写入点（layout.c 装载 / BT SYNC_CELL 注入）均不在此
        函数防护——修法（can_flip 加 rank_norm∈[1,RANK_TOP] 校验 + flags 由 rank
        派生）留待下一轮。
-       ★ AUD-R-045（P2 诚实标注）：可翻白名单只排军旗（地雷可翻但翻后不可动，
-       困毙判定 :397 同白名单）——兄弟实现 game_logic.c:158-163 把地雷也排外
-       （"地雷暗棋不可翻"），两实现不一致。修法（统一 is_flippable(c) 谓词，
-       军旗+地雷均不可翻）留待下一轮。 */
+       ★ AUD-R-045（P2 已闭合，2026-11-14 规则原文实证）：可翻白名单只排军旗
+       （地雷可翻——规则原文 data_junqi_ruleflip.txt「地雷和军旗只有工兵能吃」
+       只限制"吃"，未限制"翻"；标准暗棋地雷可翻、军旗不可翻）。
+       jq_side_stalemated 可翻扫描已同步为只排军旗（旧版排地雷 → 仅剩未翻地雷
+       的一方被误判困毙，已修）。兄弟实现 game_logic.c:158-163 仍排地雷
+       （同源缺陷，不在本会话范围）。 */
     if (idx < 0 || idx >= N_CELLS || st->stage != STG_PLAY) return false;
     /* ★ AUD-1000 B01-093（P3 注释）：idx 界检查在 st->cells[idx] 访问前 ✓ 无越界，
        界检查与 st NULL 守卫（:722）口径一致（先 NULL 后界）。本条核实无缺陷。 */
@@ -934,9 +951,15 @@ bool jq_side_stalemated(const jq_state *st, uint8_t side)
        winner=JQ_WIN_NONE(-1) 时 -1>=0 假放行正常扫描；winner=2(DRAW 已判和) 时
        2>=0 真拒收；winner=0/1(蓝胜/红胜) 时 0>=0/1>=0 真拒收。本条核实无缺陷。 */
     /* 还有未翻暗子可翻 → 未困毙
-       ★ AUD-R-073（P2）：排除地雷（rank_norm==RANK_MINE）——地雷翻了也不能走子
-       （RANK_MINE 在下方"已翻可动"循环被 continue），"可翻"检查须与可动性一致，
-       否则暗地雷会被误算"可翻 → 未困毙"（与 AUD-R-045 同源，兄弟实现 game_logic.c:162 同款排除）。 */
+       ★ 2026-11-14 规则原文实证修复（推翻 AUD-R-073）：可翻白名单必须与
+       jq_can_flip 完全一致——jq_can_flip 只排军旗（RANK_FLAG），**地雷可翻**
+       （规则原文 data_junqi_ruleflip.txt：「地雷和军旗只有工兵能吃」只限制"吃"，
+       未限制"翻"；标准暗棋地雷可翻、军旗不可翻）。
+       AUD-R-073 旧依据"地雷翻了也不能走子，故不算可行动"是推断而非原文——
+       翻子本身即合法行动（回合消耗），原版判负判据是"无棋可走"而非"翻完仍不能走"。
+       旧实现排除地雷 → 仅剩未翻地雷的一方被误判困毙判负（rule_text_conformance
+       「仅剩未翻地雷 → 未困毙」用例 FAIL 根因）。
+       兄弟实现 game_logic.c:162 同款排除亦属同源缺陷（不在本会话范围）。 */
     for (int i = 0; i < N_CELLS; i++) {
         const jq_cell *c = &st->cells[i];
         int cn = rank_of(c);
@@ -947,7 +970,7 @@ bool jq_side_stalemated(const jq_state *st, uint8_t side)
            蓝胜，见 jq_can_flip 修复注释）；恢复 (c->side == 0xFF || c->side == side)
            使红方有未翻子即未困毙（正确：红方确实能翻 0xFF 子）。 */
         if (c->rank != RANK_EMPTY && !c->revealed &&
-            cn != RANK_FLAG && cn != RANK_MINE &&
+            cn != RANK_FLAG &&
             (c->side == 0xFF || c->side == side)) {
             /* ★ 2026-11-10 用户"MuMu玩不了"根因修复（与上注释同源）：0xFF 子双方计
                未困毙（B01-089 旧修"仅先手侧计"已推翻，随 jq_can_flip 修复闭合）。 */

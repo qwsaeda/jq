@@ -327,7 +327,10 @@ static int ai_pick(int *from, int *to, int *is_flip)
     for (int i = 0; i < N_CELLS; i++) {
         jq_cell *c = &g_state.cells[i];
         if (c->rank == RANK_EMPTY || c->revealed) continue;
-        if (c->rank == RANK_FLAG || c->rank == RANK_MINE) continue;
+        /* ★ 2026-11-14 规则原文实证：只排军旗（地雷可翻，与 jq_can_flip /
+           jq_side_stalemated 白名单一致）。旧版排地雷 → AI 手握可翻地雷却返回 -1
+           （无候选 → 卡住/空转）。 */
+        if (c->rank == RANK_FLAG) continue;
         /* ★ 2026-11-10 用户"MuMu玩不了"根因修复：暗棋先手翻子定色（jq_dark_setup
            全 0xFF）下未翻子 side 恒 SIDE_UNKNOWN，AI 翻棋候选须接受 0xFF（翻归 me）
            或己方暗子（c->side==me）。旧 `c->side != me` 在暗棋全 0xFF 下恒 continue
