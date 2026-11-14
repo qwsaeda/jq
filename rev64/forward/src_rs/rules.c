@@ -850,12 +850,13 @@ bool jq_can_flip(const jq_state *st, int idx)
        别的 rank）。rank 写入点（layout.c 装载 / BT SYNC_CELL 注入）均不在此
        函数防护——修法（can_flip 加 rank_norm∈[1,RANK_TOP] 校验 + flags 由 rank
        派生）留待下一轮。
-       ★ AUD-R-045（P2 已闭合，2026-11-14 规则原文实证）：可翻白名单只排军旗
-       （地雷可翻——规则原文 data_junqi_ruleflip.txt「地雷和军旗只有工兵能吃」
-       只限制"吃"，未限制"翻"；标准暗棋地雷可翻、军旗不可翻）。
-       jq_side_stalemated 可翻扫描已同步为只排军旗（旧版排地雷 → 仅剩未翻地雷
-       的一方被误判困毙，已修）。兄弟实现 game_logic.c:158-163 仍排地雷
-       （同源缺陷，不在本会话范围）。 */
+       ★ AUD-R-045（P2 诚实标注，2026-11-14 口径精确化）：可翻白名单只排军旗
+       （地雷**可翻**——0x39e14 翻棋判定实证「地雷 from>3 合法」，翻雷是合法
+       动作）；而 jq_side_stalemated 的困毙"可翻"扫描按原版 0x30320 **排除地雷**
+       （仅翻出地雷=不能走，不计可行动）——两 API 白名单差异是原版设计
+       （翻=动作合法 / 困毙可行动=翻完须能走），非不一致 bug。
+       兄弟实现 game_logic.c:158-163 把地雷也排外（"地雷暗棋不可翻"），与
+       jq_can_flip 不一致（兄弟实现缺陷，不在本会话范围）。 */
     if (idx < 0 || idx >= N_CELLS || st->stage != STG_PLAY) return false;
     /* ★ AUD-1000 B01-093（P3 注释）：idx 界检查在 st->cells[idx] 访问前 ✓ 无越界，
        界检查与 st NULL 守卫（:722）口径一致（先 NULL 后界）。本条核实无缺陷。 */
@@ -951,15 +952,23 @@ bool jq_side_stalemated(const jq_state *st, uint8_t side)
        winner=JQ_WIN_NONE(-1) 时 -1>=0 假放行正常扫描；winner=2(DRAW 已判和) 时
        2>=0 真拒收；winner=0/1(蓝胜/红胜) 时 0>=0/1>=0 真拒收。本条核实无缺陷。 */
     /* 还有未翻暗子可翻 → 未困毙
-       ★ 2026-11-14 规则原文实证修复（推翻 AUD-R-073）：可翻白名单必须与
-       jq_can_flip 完全一致——jq_can_flip 只排军旗（RANK_FLAG），**地雷可翻**
-       （规则原文 data_junqi_ruleflip.txt：「地雷和军旗只有工兵能吃」只限制"吃"，
-       未限制"翻"；标准暗棋地雷可翻、军旗不可翻）。
-       AUD-R-073 旧依据"地雷翻了也不能走子，故不算可行动"是推断而非原文——
-       翻子本身即合法行动（回合消耗），原版判负判据是"无棋可走"而非"翻完仍不能走"。
-       旧实现排除地雷 → 仅剩未翻地雷的一方被误判困毙判负（rule_text_conformance
-       「仅剩未翻地雷 → 未困毙」用例 FAIL 根因）。
-       兄弟实现 game_logic.c:162 同款排除亦属同源缺陷（不在本会话范围）。 */
+       ★ 2026-11-14 原版 0x302f0 反汇编精确对齐（推翻 AUD-R-073 旧注释 + 回调
+       同日首轮"完全对齐 jq_can_flip"过度修复）：
+       原版 0x30320-0x3035e 扫描段两条白名单**本就不一致**（原版自身行为）：
+       · 可翻判定（0x30320）：`cmp r1,#11 / beq` → **仅排地雷**（RANK_MINE），
+         未翻军旗**计入**可翻（0x30350-0x3035a 计 1 分支）；
+       · 可动判定（0x30348-0x3035e）：`rank_norm == FLAG || rank_norm == MINE →
+         continue` → **军旗+地雷均不计**。
+       旧 AUD-R-073 注释把"可翻=排雷+旗"写进翻扫描属注释失实（代码实际只排雷，
+       翻扫描行为本身与原版一致）；本日首轮误改"翻扫描完全对齐 jq_can_flip
+       （只排旗，允许翻雷计入）"过度——原版翻扫描确实排除地雷，需回调。
+       结论（精确口径）：
+       ① 困毙"可翻"扫描 = 未翻 + **仅排地雷** + (0xFF || side) → 与原版 0x30320 一致；
+       ② jq_can_flip（交互翻子 API）保持"只排军旗"不变——翻地雷是**合法翻子
+         动作**（0x39e14 翻棋判定实证「地雷 from>3 合法」，REVERSE_NOTES_01 §15），
+         仅困毙扫描不计可行动（翻了也不能走）——两 API 白名单差异 = 原版设计
+         （翻=动作合法，困毙可行动=翻完须能走），非 bug；
+       ③ ai_pick 翻棋候选保持允许翻雷（有翻雷权须实际行使，否则 AI 卡死）。 */
     for (int i = 0; i < N_CELLS; i++) {
         const jq_cell *c = &st->cells[i];
         int cn = rank_of(c);
@@ -969,8 +978,10 @@ bool jq_side_stalemated(const jq_state *st, uint8_t side)
            B01-011 旧修（0xFF 仅先手蓝计）在红方全 0xFF 时误判红方困毙（蓝首翻后
            蓝胜，见 jq_can_flip 修复注释）；恢复 (c->side == 0xFF || c->side == side)
            使红方有未翻子即未困毙（正确：红方确实能翻 0xFF 子）。 */
+        /* ★ 2026-11-14：翻扫描排除地雷（原版 0x30320 cmp r1,#11 beq 实证）；
+           军旗不排除（原版 0x30350 计 1，未翻军旗方不计困毙）。 */
         if (c->rank != RANK_EMPTY && !c->revealed &&
-            cn != RANK_FLAG &&
+            cn != RANK_MINE &&
             (c->side == 0xFF || c->side == side)) {
             /* ★ 2026-11-10 用户"MuMu玩不了"根因修复（与上注释同源）：0xFF 子双方计
                未困毙（B01-089 旧修"仅先手侧计"已推翻，随 jq_can_flip 修复闭合）。 */
