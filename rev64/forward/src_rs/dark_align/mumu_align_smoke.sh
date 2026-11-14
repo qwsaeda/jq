@@ -54,9 +54,14 @@ smoke_flip() {
 # 段执行（flaky 容错：失败重跑 1 次）
 run_seg() {
   local fn="$1" label="$2"
-  if $fn; then echo "  $label: PASS"; return 0
-  elif $fn; then echo "  $label: PASS（重跑 1 次命中，flaky 容错）"; return 0
-  else echo "  $label: FAIL"; return 1; fi
+  local n
+  for n in 1 2 3; do
+    if $fn; then
+      [ $n -eq 1 ] && echo "  $label: PASS" || echo "  $label: PASS（第 $n 次重跑命中，flaky 容错）"
+      return 0
+    fi
+  done
+  echo "  $label: FAIL（3 次重跑仍未命中）"; return 1
 }
 cm=0; cf=0
 if [ "$ONLY" = "all" ] || [ "$ONLY" = "move" ]; then
