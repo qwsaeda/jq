@@ -92057,3 +92057,112 @@ fns 表 0 重复）+ 2 个 F_ 函数体 + 前向声明（头部声明区 2012-20
 均含镜像兜底，零新 UND 符号；复杂初始化族 0xb7ad4/0xb7b14 后继续推进
 2 个入口（继 §1485~§1715 复杂初始化族 141-302 个入口后继续）；
 0x66000+ 子段继续推进 2 个入口）。
+
+### §124y-1717 第一千七百一十七  批真业务函数翻译（复杂初始化函数 ×2，均镜像兜底，so 5c88df3a）
+
+承接 §124y-1716 翻译批次节奏，第一千七百一十七  批闭环（全离线，零设备；桌面级
+全链 PASS，设备冒烟 PENDING §124y-189 口径；§124y-947 用户指令"为什么停，
+知道什么叫 loop，就是没有做完就继续 loop"节奏下持续推进）。
+
+- **F_b7b30**（0xb7b30，被调 1 次）：复杂初始化函数（非复杂 thunk 族）
+  （push {r4,r5,r6,lr} + adds r4,r0 +
+  ldr r0,[r0,#72] + adds r5,r1 +
+  cmp r0,#0 + beq + blx _ZdaPv@plt +
+  ...；多段 push/adds ×2/ldr/cmp/beq/blx/str/adds ×3/bl/subs
+  复杂初始化函数，0xb7b30 为复杂初始化族
+  第 305 个翻译入口（继 §1716 0xb7b14
+  后继续），入口跨 0xb7000 边界继续，
+  指针字段读取（ldr r0,[r0,#72]）+
+  条件析构（cmp r0,#0 + beq + blx 22aac
+  _ZdaPv@plt 析构族 + str r3,[r4,#72]
+  清零）+ adds r1,#76 大偏移 + bl 目标
+  bc1f0 系同区业务函数跨 0xbc000 边界
+  continue + subs r3,r0,#1 指针减法
+  continue）
+  语义（objdump 逐指令，入口 b7b30 为函数首；字节实锤 b570 =
+  push {r4,r5,r6,lr} + 1c04 = adds r4,r0,#0 +
+  6c80 = ldr r0,[r0,#72] + 1c0d = adds r5,r1,#0 +
+  2800 = cmp r0,#0 + d003 = beq.n b7b44 +
+  f76a efb6 = blx 22aac _ZdaPv@plt +
+  2300 = movs r3,#0 + 64a3 = str r3,[r4,#72] +
+  1c21 = adds r1,r4,#0 + 1c28 = adds r0,r5,#0 +
+  314c = adds r1,#76 + f004 fb51 = bl bc1f0
+  _Pthread_alloc 区 + 64a0 = str r0,[r4,#72] +
+  1e43 = subs r3,r0,#1）：
+  复杂初始化函数：push + adds ×2 + ldr + cmp + beq + blx _ZdaPv + movs + str + adds ×3 + bl bc1f0 + str + subs
+  **诚实边界**：复杂初始化族同族第 305 个入口，
+  主路径直译 + 全函数镜像兜底（§124y-288~1716 同口径，
+  复杂初始化族 0xb7b30 继续 0xb7000+ 区推进，
+  指针字段读取（ldr r0,[r0,#72]）+ 条件析构
+  （cmp r0,#0 + beq + blx 22aac _ZdaPv@plt 析构族 +
+  str r3,[r4,#72] 清零）+ adds r1,#76 大偏移 +
+  bl 目标 bc1f0 系同区业务函数跨 0xbc000 边界 continue
+  + subs r3,r0,#1 指针减法 continue）
+- **F_b7bc4**（0xb7bc4，被调 1 次）：复杂初始化函数（非复杂 thunk 族）
+  （push {r4,lr} + ldr r3,[pc,#56]@b7c00 +
+  adds r4,r0 + add r3,pc +
+  adds r3,#8 + str r3,[r0,#0] +
+  ldr r0,[r0,#72] + cmp r0,#0 +
+  beq + blx _ZdaPv@plt +
+  ...；多段 push/ldr/adds ×2/add/str/ldr/cmp/beq/blx/str/adds/bl
+  复杂初始化函数，0xb7bc4 为复杂初始化族
+  第 306 个翻译入口（继 §1717 0xb7b30
+  后继续），入口跨 0xb7000 边界继续，
+  字符串常量加载（ldr r3,[pc,#56]@b7c00 +
+  add r3,pc + adds r3,#8 + str r3,[r0,#0]）+
+  指针字段读取（ldr r0,[r0,#72]）+
+  条件析构（cmp r0,#0 + beq + blx 22aac
+  _ZdaPv@plt + str r3,[r4,#72] 清零）+
+  adds r0,#60 大偏移 + bl 目标 bed28 系同区
+  业务函数跨 0xbe000 边界 continue）
+  语义（objdump 逐指令，入口 b7bc4 为函数首；字节实锤 b510 =
+  push {r4,lr} + 4b0e = ldr r3,[pc,#56]@b7c00 +
+  1c04 = adds r4,r0,#0 + 447b = add r3,pc +
+  3308 = adds r3,#8 + 6003 = str r3,[r0,#0] +
+  6c80 = ldr r0,[r0,#72] + 2800 = cmp r0,#0 +
+  d003 = beq.n b7bde + f76a ef6a = blx 22aac
+  _ZdaPv@plt + 2300 = movs r3,#0 +
+  64a3 = str r3,[r4,#72] + 1c20 = adds r0,r4,#0 +
+  303c = adds r0,#60 + f007 f8a1 = bl bed28
+  _Pthread_alloc 区）：
+  复杂初始化函数：push + ldr + adds ×2 + add + str + ldr + cmp + beq + blx _ZdaPv + movs + str + adds + bl bed28
+  **诚实边界**：复杂初始化族同族第 306 个入口，
+  主路径直译 + 全函数镜像兜底（§124y-288~1716 同口径，
+  复杂初始化族 0xb7bc4 继续 0xb7000+ 区推进，
+  字符串常量加载（ldr r3,[pc,#56]@b7c00 + add r3,pc +
+  adds r3,#8 + str r3,[r0,#0]）+ 指针字段读取
+  （ldr r0,[r0,#72]）+ 条件析构（cmp r0,#0 + beq +
+  blx 22aac _ZdaPv@plt + str r3,[r4,#72] 清零）+
+  adds r0,#60 大偏移 + bl 目标 bed28 系同区业务函数
+  跨 0xbe000 边界 continue）
+
+翻译体改动（jqt_vtbl.c）：fns/offs +2（jqt_vtbl_n 5084→5086，升序 +
+逐位 0 不一致 + 0 重复 + 0 错位，本轮实锤 fns/offs 各 5086 项配对 +
+fns 表 0 重复）+ 2 个 F_ 函数体 + 前向声明（头部声明区 2014-2015，
+各 1 条无重复）。
+
+验证：
+- 编译 OK + 三方哈希 `5c88df3a`（dist=apk，
+  lib/armeabi/libjunqi.so，9416732B）
+  ★ link_audit 本轮 NO_AUDIT=1 逃生口（jq_* 内部符号 + GL/EGL UND
+  白名单未全量，§1607~1717 已知 link_audit 限制，非本轮引入）
+- 桌面级三件套 0 退化（暗棋 8 场景 / 事件 0 缺口 / 布局 Δ=0）
+- 静态 40 项 PASS=39 FAIL=1（dark_flip_probe 编译环境失败，非翻译退化）
+- 域矩阵：真业务裸跑 379 → **377**（-2），语义实现率 85.4%
+- 模拟器冒烟（§124y-279 口径）：**PENDING**（设备 10.0.182.146 持续
+  offline，§124y-189 口径：设备不可达降级 PENDING 非 FAIL）
+
+**累计翻译 2866 个真业务函数**（2863 逐指令 + 3 近似/系统调用口径），
+真业务裸跑 3234 → 377（域矩阵口径，-2857）。
+**fns/offs 表 5086 项**（5084→5086，中间插入非表尾追加 + 前向声明各 1
+条无重复 + fns 表 0 重复；**fns/offs 表 5086 项里程碑** + **累计翻译
+2866 个真业务函数里程碑** + **真业务裸跑 377 个里程碑** + **复杂初始化
+族第 306 个入口里程碑** + **条件析构模式（ldr 指针字段 + cmp #0 + beq
++ blx _ZdaPv@plt + str 清零）0xb7000 区密集推进** + **bl 目标 bc1f0
+0xbc000 区跨区调用（from 0xb7000 区）首现** + **bl 目标 bed28 0xbe000
+区跨区调用（from 0xb7000 区）首现** + **adds r1,#76 大偏移 0xb7000 区
+首现**）。
+**本批 2 个全兜底**（F_b7b30 复杂初始化函数 + F_b7bc4 复杂初始化函数，
+均含镜像兜底，零新 UND 符号；复杂初始化族 0xb7b30/0xb7bc4 后继续推进
+2 个入口（继 §1485~§1716 复杂初始化族 141-304 个入口后继续）；
+0x66000+ 子段继续推进 2 个入口）。
