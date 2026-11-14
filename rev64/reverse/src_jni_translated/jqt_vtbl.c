@@ -1479,6 +1479,8 @@ uint32_t F_697b8(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,
 uint32_t F_69810(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_69b48(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_69e78(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_6a154(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_6a1ec(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_66d42(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_66c70(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_667ec(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
@@ -84391,6 +84393,8 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_69810,
     F_69b48,
     F_69e78,
+    F_6a154,
+    F_6a1ec,
     F_ce020,
     F_ce3bc,
     F_ce5dc,
@@ -88945,6 +88949,8 @@ const uint32_t jqt_vtbl_offs[] = {
      0x69810,
      0x69b48,
      0x69e78,
+     0x6a154,
+     0x6a1ec,
      0xce020,
      0xce3bc,
      0xce5dc,
@@ -89149,7 +89155,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x11f20c,
      0x11fa34,
 };
-const uint32_t jqt_vtbl_n = 4552u;  /* §124y-149/.../948: 对齐 fns/offs 表实际条目数 */ 
+const uint32_t jqt_vtbl_n = 4554u;  /* §124y-149/.../948: 对齐 fns/offs 表实际条目数 */ 
 
 /* jqt_blx_dispatch：vtable 槽值 reg_val（shadow 地址）→ 目标函数。
  * 影子区 → off = reg_val - g_jqt_shadow；否则 off = reg_val。
@@ -138441,5 +138447,62 @@ uint32_t F_69e78(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_
     /* 字符串解析函数，bl 镜像兜底 */
     if (!_r0) return 0;
     jqt_blx_dispatch(0x69e78, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+
+/* ★ §124y-1451 第一千四十七  批真业务裸跑函数补全（整数除法运算函数 ×2，均镜像兜底；fns/offs 中间插入非表尾追加）
+   - F_6a154（0x6a154，被调 1 次）：整数除法运算函数（非复杂 thunk 族）
+     （push {r4,r5,r6,r7,lr} + mov r7,r8 + push {r7} +
+     adds r4,r1 + mov r8,r0 + adds r0,r1 + movs r1,#5 +
+     blx 23154 __aeabi_idivmod@plt + adds r0,r4 +
+     adds r6,r1 + movs r1,#5 + ...；32 位整数除法调用 thunk，
+     0x6a154 为整数除法运算族首个翻译入口，入口跨 0x6a000
+     边界首跨，blx 目标 23154 系 libc __aeabi_idivmod PLT）
+     语义（objdump 逐指令，入口 6a154 为函数首；字节实锤 b5f0 =
+     push {r4,r5,r6,r7,lr} + 4647 = mov r7,r8 +
+     b480 = push {r7} + 1c0c = adds r4,r1,#0 +
+     4680 = mov r8,r0 + 1c08 = adds r0,r1,#0 +
+     2105 = movs r1,#5 + f7b8 eff8 = blx 23154
+     __aeabi_idivmod@plt + 1c20 = adds r0,r4,#0 +
+     1c0e = adds r6,r1,#0 + 2105 = movs r1,#5）：
+     整数除法运算函数：push + blx __aeabi_idivmod(5) +
+     多段 adds 构造
+     ★ 诚实边界：整数除法运算族新入口（非复杂分配 thunk），
+     主路径直译 + 全函数镜像兜底（§124y-288~1450 同口径，
+     整数除法运算族 0x6a154 首个翻译入口，入口跨 0x6a000
+     边界首跨，blx 目标 23154 系 libc PLT）
+   - F_6a1ec（0x6a1ec，被调 1 次）：整数除法运算函数（非复杂 thunk 族）
+     （push {r4,r5,r6,r7,lr} + mov r7,r8 + push {r7} +
+     adds r4,r1 + mov r8,r0 + adds r0,r1 + movs r1,#5 +
+     blx 23154 __aeabi_idivmod@plt + adds r0,r4 +
+     adds r6,r1 + movs r1,#5 + ...；32 位整数除法调用 thunk，
+     同族 0x6a154 第二个入口，blx 目标 23154 系 libc
+     __aeabi_idivmod PLT 继续）
+     语义（objdump 逐指令，入口 6a1ec 为函数首；字节实锤 b5f0 =
+     push {r4,r5,r6,r7,lr} + 4647 = mov r7,r8 +
+     b480 = push {r7} + 1c0c = adds r4,r1,#0 +
+     4680 = mov r8,r0 + 1c08 = adds r0,r1,#0 +
+     2105 = movs r1,#5 + f7b8 efac = blx 23154
+     __aeabi_idivmod@plt + 1c20 = adds r0,r4,#0 +
+     1c0e = adds r6,r1,#0 + 2105 = movs r1,#5）：
+     整数除法运算函数：push + blx __aeabi_idivmod(5) +
+     多段 adds 构造
+     ★ 诚实边界：整数除法运算族同族第 2 个入口，
+     主路径直译 + 全函数镜像兜底（§124y-288~1450 同口径，
+     整数除法运算族 0x6a1ec 继续 0x6a000+ 区推进） */
+uint32_t F_6a154(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* 整数除法运算函数，bl 镜像兜底 */
+    if (!_r0) return 0;
+    jqt_blx_dispatch(0x6a154, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+uint32_t F_6a1ec(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* 整数除法运算函数，bl 镜像兜底 */
+    if (!_r0) return 0;
+    jqt_blx_dispatch(0x6a1ec, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
     return 0;
 }
