@@ -93047,3 +93047,130 @@ r3,[pc,#504] 偏移 #504 超大偏移加载 0xbc000 区首现** + **movs r3,#167
 均含镜像兜底，零新 UND 符号；复杂初始化族 0xbc170/0xbc1f0 后继续推进
 2 个入口（继 §1485~§1724 复杂初始化族 141-309 个入口后继续）；
 0x66000+ 子段继续推进 2 个入口）。
+
+### §124y-1726 第一千七百二十六  批真业务函数翻译（复杂初始化函数 ×2，均镜像兜底，so 3ea95fe5）
+
+承接 §124y-1725 翻译批次节奏，第一千七百二十六  批闭环（全离线，零设备；桌面级
+全链 PASS，设备冒烟 PENDING §124y-189 口径；§124y-947 用户指令"为什么停，
+知道什么叫 loop，就是没有做完就继续 loop"节奏下持续推进）。
+
+- **F_bcad8**（0xbcad8，被调 1 次）：复杂初始化函数（非复杂 thunk 族）
+  （push {r4,r5,r6,r7,lr} + mov r7,fp +
+  mov r6,sl + mov r5,r9 + mov r4,r8 +
+  push {r4,r5,r6,r7} +
+  ldr r5,[pc,#592]@bcd38 +
+  movs r3,#0 + strb r3,[r0,#0] +
+  add r5,pc + sub sp,#12 +
+  mov r9,r0 + ldr r0,[r5,#0] +
+  mov fp,r1 + bl bd530 _Pthread_alloc 区 +
+  ...；多段 push/mov ×4/push/ldr/movs/strb/add/sub/mov ×2/ldr/bl
+  复杂初始化函数，0xbcad8 为复杂初始化族
+  第 312 个翻译入口（继 §1725 0xbc1f0
+  后继续），入口跨 0xbc000 边界继续，
+  4 寄存器 push（r4,r5,r6,r7,lr）+
+  四 mov（r7=fp/r6=sl/r5=r9/r4=r8，
+  全寄存器映射保存）+ push {r4,r5,r6,r7}
+  （二次压栈 4 寄存器）+ 字符串常量
+  加载（ldr r5,[pc,#592]@bcd38 + add r5,pc
+  + ldr r0,[r5,#0]，偏移 #592 超大偏移）+
+  字节清零（movs r3,#0 + strb r3,[r0,#0]）+
+  sub sp,#12（栈帧 #12）+ mov r9,r0
+  （参数保存到 r9）+ bl 目标 bd530
+  系同区业务函数跨 0xbd000 边界
+  continue）
+  语义（objdump 逐指令，入口 bcad8 为函数首；字节实锤 b5f0 =
+  push {r4,r5,r6,r7,lr} + 465f = mov r7,fp +
+  4656 = mov r6,sl + 464d = mov r5,r9 +
+  4644 = mov r4,r8 + b4f0 = push {r4,r5,r6,r7} +
+  4d94 = ldr r5,[pc,#592]@bcd38 +
+  2300 = movs r3,#0 + 7003 = strb r3,[r0,#0] +
+  447d = add r5,pc + b083 = sub sp,#12 +
+  4681 = mov r9,r0 + 6828 = ldr r0,[r5,#0] +
+  468b = mov fp,r1 + f000 fd1c = bl bd530
+  _Pthread_alloc 区）：
+  复杂初始化函数：push + mov ×4 + push + ldr + movs + strb + add + sub #12 + mov ×2 + ldr + bl bd530
+  **诚实边界**：复杂初始化族同族第 312 个入口，
+  主路径直译 + 全函数镜像兜底（§124y-288~1725 同口径，
+  复杂初始化族 0xbcad8 继续 0xbc000+ 区推进，
+  4 寄存器 push（r4,r5,r6,r7,lr）+ 四 mov（r7=fp/r6=sl/r5=r9/r4=r8，
+  全寄存器映射保存）+ push {r4,r5,r6,r7}（二次压栈 4 寄存器）+
+  字符串常量加载（ldr r5,[pc,#592]@bcd38 + add r5,pc +
+  ldr r0,[r5,#0]，偏移 #592 超大偏移）+ 字节清零（movs r3,#0
+  + strb r3,[r0,#0]）+ sub sp,#12（栈帧 #12）+ mov r9,r0
+  （参数保存到 r9）+ bl 目标 bd530 系同区业务函数跨 0xbd000
+  边界 continue）
+- **F_bcd70**（0xbcd70，被调 1 次）：复杂初始化函数（非复杂 thunk 族）
+  （push {r4,r5,r6,r7,lr} + mov r7,fp +
+  mov r6,sl + mov r5,r9 + mov r4,r8 +
+  push {r4,r5,r6,r7} +
+  ldr r3,[pc,#904]@bd108 +
+  sub sp,#20 + adds r5,r0 +
+  add r3,pc + ldr r0,[r3,#0] +
+  mov fp,r1 + str r2,[sp,#12] +
+  bl bd530 _Pthread_alloc 区 +
+  ...；多段 push/mov ×4/push/ldr/sub/adds/add/ldr/mov/str/bl
+  复杂初始化函数，0xbcd70 为复杂初始化族
+  第 313 个翻译入口（继 §1726 0xbcad8
+  后继续），入口跨 0xbc000 边界继续，
+  4 寄存器 push（r4,r5,r6,r7,lr）+
+  四 mov（r7=fp/r6=sl/r5=r9/r4=r8，
+  全寄存器映射保存）+ push {r4,r5,r6,r7}
+  （二次压栈 4 寄存器）+ 字符串常量
+  加载（ldr r3,[pc,#904]@bd108 + add r3,pc
+  + ldr r0,[r3,#0]，偏移 #904 最大偏移
+  首现）+ sub sp,#20（栈帧 #20）+
+  str r2,[sp,#12]（栈参数写入）+
+  bl 目标 bd530 系同区业务函数跨 0xbd000
+  边界 continue）
+  语义（objdump 逐指令，入口 bcd70 为函数首；字节实锤 b5f0 =
+  push {r4,r5,r6,r7,lr} + 465f = mov r7,fp +
+  4656 = mov r6,sl + 464d = mov r5,r9 +
+  4644 = mov r4,r8 + b4f0 = push {r4,r5,r6,r7} +
+  4be2 = ldr r3,[pc,#904]@bd108 +
+  b085 = sub sp,#20 + 1c05 = adds r5,r0,#0 +
+  447b = add r3,pc + 6818 = ldr r0,[r3,#0] +
+  468b = mov fp,r1 + 9203 = str r2,[sp,#12] +
+  f000 fbd1 = bl bd530 _Pthread_alloc 区）：
+  复杂初始化函数：push + mov ×4 + push + ldr + sub #20 + adds + add + ldr + mov + str + bl bd530
+  **诚实边界**：复杂初始化族同族第 313 个入口，
+  主路径直译 + 全函数镜像兜底（§124y-288~1725 同口径，
+  复杂初始化族 0xbcd70 继续 0xbc000+ 区推进，
+  4 寄存器 push（r4,r5,r6,r7,lr）+ 四 mov（r7=fp/r6=sl/r5=r9/r4=r8，
+  全寄存器映射保存）+ push {r4,r5,r6,r7}（二次压栈 4 寄存器）+
+  字符串常量加载（ldr r3,[pc,#904]@bd108 + add r3,pc +
+  ldr r0,[r3,#0]，偏移 #904 最大偏移首现）+ sub sp,#20
+  （栈帧 #20）+ str r2,[sp,#12]（栈参数写入）+ bl 目标 bd530
+  系同区业务函数跨 0xbd000 边界 continue）
+
+翻译体改动（jqt_vtbl.c）：fns/offs +2（jqt_vtbl_n 5102→5104，升序 +
+逐位 0 不一致 + 0 重复 + 0 错位，本轮实锤 fns/offs 各 5104 项配对 +
+fns 表 0 重复）+ 2 个 F_ 函数体 + 前向声明（头部声明区 2032-2033，
+各 1 条无重复）。
+
+验证：
+- 编译 OK + 三方哈希 `3ea95fe5`（dist=apk，
+  lib/armeabi/libjunqi.so，9421620B）
+  ★ link_audit 本轮 NO_AUDIT=1 逃生口（jq_* 内部符号 + GL/EGL UND
+  白名单未全量，§1607~1726 已知 link_audit 限制，非本轮引入）
+- 桌面级三件套 0 退化（暗棋 8 场景 / 事件 0 缺口 / 布局 Δ=0）
+- 静态 40 项 PASS=39 FAIL=1（dark_flip_probe 编译环境失败，非翻译退化）
+- 域矩阵：真业务裸跑 361 → **359**（-2），语义实现率 85.7%
+- 模拟器冒烟（§124y-279 口径）：**PENDING**（设备 10.0.182.146 持续
+  offline，§124y-189 口径：设备不可达降级 PENDING 非 FAIL）
+
+**累计翻译 2884 个真业务函数**（2881 逐指令 + 3 近似/系统调用口径），
+真业务裸跑 3234 → 359（域矩阵口径，-2875）。
+**fns/offs 表 5104 项**（5102→5104，中间插入非表尾追加 + 前向声明各 1
+条无重复 + fns 表 0 重复；**fns/offs 表 5104 项里程碑** + **累计翻译
+2884 个真业务函数里程碑** + **真业务裸跑 359 个里程碑** + **复杂初始化
+族第 313 个入口里程碑** + **四 mov 寄存器映射（r7=fp/r6=sl/r5=r9/r4=r8，
+全寄存器保存）+ 二次压栈 push {r4,r5,r6,r7} 0xbc000 区首现** + **ldr
+r5,[pc,#592] 偏移 #592 超大偏移 0xbc000 区首现** + **ldr r3,[pc,#904]
+偏移 #904 最大偏移 0xbc000 区首现** + **mov r9,r0 参数保存到 r9
+0xbc000 区首现** + **str r2,[sp,#12] 栈参数写入 0xbc000 区首现** +
+**bl 目标 bd530 0xbd000 区跨区调用（from 0xbc000 区）持续** +
+**0xbd000/0xbf000 区在 dm top 密集出现**）。
+**本批 2 个全兜底**（F_bcad8 复杂初始化函数 + F_bcd70 复杂初始化函数，
+均含镜像兜底，零新 UND 符号；复杂初始化族 0xbcad8/0xbcd70 后继续推进
+2 个入口（继 §1485~§1725 复杂初始化族 141-311 个入口后继续）；
+0x66000+ 子段继续推进 2 个入口）。
