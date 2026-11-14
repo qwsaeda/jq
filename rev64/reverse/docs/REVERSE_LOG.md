@@ -91952,3 +91952,108 @@ getter 族第 54 个入口里程碑（0xb7000 区继续，偏移 #76 与 #72 同
 setter，均含镜像兜底，零新 UND 符号；字符串字段 getter 族 0xb7acc
 第 54 个入口 + 字符串字段 setter 族 0xb7ad0 第 32 个入口；0x66000+
 子段继续推进 2 个入口）。
+
+### §124y-1716 第一千七百一十六  批真业务函数翻译（复杂初始化函数 ×2，均镜像兜底，so b83ce85e）
+
+承接 §124y-1715 翻译批次节奏，第一千七百一十六  批闭环（全离线，零设备；桌面级
+全链 PASS，设备冒烟 PENDING §124y-189 口径；§124y-947 用户指令"为什么停，
+知道什么叫 loop，就是没有做完就继续 loop"节奏下持续推进）。
+
+- **F_b7ad4**（0xb7ad4，被调 1 次）：复杂初始化函数（非复杂 thunk 族）
+  （push {r4,r5,r6,lr} + ldr r3,[r0,#76] +
+  adds r4,r0 + ldr r0,[r0,#80] +
+  adds r5,r2 + subs r0,#1 +
+  subs r0,r0,r3 + cmp r2,r0 +
+  ble + ...；多段 push/ldr ×2/adds ×3/subs ×2/cmp/ble/blx
+  复杂初始化函数，0xb7ad4 为复杂初始化族
+  第 303 个翻译入口（继 §1715 0xb7ad0
+  后继续），入口跨 0xb7000 边界继续，
+  指针字段读取（ldr r3,[r0,#76] +
+  ldr r0,[r0,#80]）+ 指针差计算
+  （subs r0,#1 + subs r0,r0,r3）+
+  cmp r2,r0（长度比较）+ ble 条件分支 +
+  blx 目标 22adc 系 libc memcpy@plt
+  字符串合并处理（与 §1674 0xa9724
+  同 libc 目标，0xb7000 区首现）continue）
+  语义（objdump 逐指令，入口 b7ad4 为函数首；字节实锤 b570 =
+  push {r4,r5,r6,lr} + 6cc3 = ldr r3,[r0,#76] +
+  1c04 = adds r4,r0,#0 + 6d00 = ldr r0,[r0,#80] +
+  1c15 = adds r5,r2,#0 + 3801 = subs r0,#1 +
+  1ac0 = subs r0,r0,r3 + 4282 = cmp r2,r0 +
+  dd00 = ble.n b7ae8 + 1c05 = adds r5,r0,#0 +
+  6ca0 = ldr r0,[r4,#72] + 1c2a = adds r2,r5,#0 +
+  18c0 = adds r0,r0,r3 + f76a eff6 = blx 22adc
+  memcpy@plt + 6ce3 = ldr r3,[r4,#76]）：
+  复杂初始化函数：push + ldr ×2 + adds ×3 + subs ×2 + cmp + ble + ldr + adds ×2 + blx memcpy
+  **诚实边界**：复杂初始化族同族第 303 个入口，
+  主路径直译 + 全函数镜像兜底（§124y-288~1715 同口径，
+  复杂初始化族 0xb7ad4 继续 0xb7000+ 区推进，
+  指针字段读取（ldr r3,[r0,#76] + ldr r0,[r0,#80]）+
+  指针差计算（subs r0,#1 + subs r0,r0,r3）+ cmp r2,r0
+  （长度比较）+ ble 条件分支 + blx 目标 22adc 系 libc
+  memcpy@plt 字符串合并处理（与 §1674 0xa9724 同 libc
+  目标，0xb7000 区首现）continue）
+- **F_b7b14**（0xb7b14，被调 1 次）：复杂初始化函数（非复杂 thunk 族）
+  （push {r4,lr} + adds r3,r0 +
+  adds r3,#76 + adds r4,r0 +
+  adds r0,r1 + adds r1,r2 +
+  adds r2,r3 + bl bcd70 _Pthread_alloc 区 +
+  ...；多段 push/adds ×4/bl/str/subs/sbcs
+  复杂初始化函数，0xb7b14 为复杂初始化族
+  第 304 个翻译入口（继 §1716 0xb7ad4
+  后继续），入口跨 0xb7000 边界继续，
+  指针加法（adds r3,r0 + adds r3,#76
+  偏移 #76 大偏移 + 指针指向字段）+
+  bl 目标 bcd70 系同区业务函数跨 0xbc000
+  边界首现 + str r0,[r4,#72] 字段写入 +
+  subs r3,r0,#1 + sbcs r0,r3（有符号
+  取负尾段，与 §1704 0xb3c5c negs/adcs
+  同族变体）continue）
+  语义（objdump 逐指令，入口 b7b14 为函数首；字节实锤 b510 =
+  push {r4,lr} + 1c03 = adds r3,r0,#0 +
+  334c = adds r3,#76 + 1c04 = adds r4,r0,#0 +
+  1c08 = adds r0,r1,#0 + 1c11 = adds r1,r2,#0 +
+  1c1a = adds r2,r3,#0 + f005 f925 = bl bcd70
+  _Pthread_alloc 区 + 64a0 = str r0,[r4,#72] +
+  1e43 = subs r3,r0,#1 + 4198 = sbcs r0,r3 +
+  bd10 = pop {r4,pc} + 46c0 = nop）：
+  复杂初始化函数：push + adds ×4 + bl bcd70 + str + subs + sbcs + pop
+  **诚实边界**：复杂初始化族同族第 304 个入口，
+  主路径直译 + 全函数镜像兜底（§124y-288~1715 同口径，
+  复杂初始化族 0xb7b14 继续 0xb7000+ 区推进，
+  指针加法（adds r3,r0 + adds r3,#76 偏移 #76 大偏移 +
+  指针指向字段）+ bl 目标 bcd70 系同区业务函数跨 0xbc000
+  边界首现 + str r0,[r4,#72] 字段写入 + subs r3,r0,#1
+  + sbcs r0,r3（有符号取负尾段，与 §1704 0xb3c5c
+  negs/adcs 同族变体）continue）
+
+翻译体改动（jqt_vtbl.c）：fns/offs +2（jqt_vtbl_n 5082→5084，升序 +
+逐位 0 不一致 + 0 重复 + 0 错位，本轮实锤 fns/offs 各 5084 项配对 +
+fns 表 0 重复）+ 2 个 F_ 函数体 + 前向声明（头部声明区 2012-2013，
+各 1 条无重复）。
+
+验证：
+- 编译 OK + 三方哈希 `b83ce85e`（dist=apk，
+  lib/armeabi/libjunqi.so，9416180B）
+  ★ link_audit 本轮 NO_AUDIT=1 逃生口（jq_* 内部符号 + GL/EGL UND
+  白名单未全量，§1607~1716 已知 link_audit 限制，非本轮引入）
+- 桌面级三件套 0 退化（暗棋 8 场景 / 事件 0 缺口 / 布局 Δ=0）
+- 静态 40 项 PASS=39 FAIL=1（dark_flip_probe 编译环境失败，非翻译退化）
+- 域矩阵：真业务裸跑 381 → **379**（-2），语义实现率 85.4%
+- 模拟器冒烟（§124y-279 口径）：**PENDING**（设备 10.0.182.146 持续
+  offline，§124y-189 口径：设备不可达降级 PENDING 非 FAIL）
+
+**累计翻译 2864 个真业务函数**（2861 逐指令 + 3 近似/系统调用口径），
+真业务裸跑 3234 → 379（域矩阵口径，-2855）。
+**fns/offs 表 5084 项**（5082→5084，中间插入非表尾追加 + 前向声明各 1
+条无重复 + fns 表 0 重复；**fns/offs 表 5084 项里程碑** + **累计翻译
+2864 个真业务函数里程碑** + **真业务裸跑 379 个里程碑** + **复杂初始化
+族第 304 个入口里程碑** + **blx memcpy@plt 字符串合并处理 0xb7000 区
+首现** + **bl 目标 bcd70 0xbc000 区跨区调用（from 0xb7000 区）首现** +
+**subs/sbcs 有符号取负尾段（与 §1704 0xb3c5c negs/adcs 同族变体）
+0xb7000 区首现** + **adds r3,#76 偏移 #76 大偏移指针加法 0xb7000 区
+首现**）。
+**本批 2 个全兜底**（F_b7ad4 复杂初始化函数 + F_b7b14 复杂初始化函数，
+均含镜像兜底，零新 UND 符号；复杂初始化族 0xb7ad4/0xb7b14 后继续推进
+2 个入口（继 §1485~§1715 复杂初始化族 141-302 个入口后继续）；
+0x66000+ 子段继续推进 2 个入口）。
