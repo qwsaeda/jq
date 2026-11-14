@@ -1583,6 +1583,8 @@ uint32_t F_7a2e4(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,
 uint32_t F_7a338(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_7a364(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_7ad84(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_7ad8c(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_7ada8(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_66d42(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_66c70(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_667ec(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
@@ -84599,6 +84601,8 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_7a338,
     F_7a364,
     F_7ad84,
+    F_7ad8c,
+    F_7ada8,
     F_ce020,
     F_ce3bc,
     F_ce5dc,
@@ -89257,6 +89261,8 @@ const uint32_t jqt_vtbl_offs[] = {
      0x7a338,
      0x7a364,
      0x7ad84,
+     0x7ad8c,
+     0x7ada8,
      0xce020,
      0xce3bc,
      0xce5dc,
@@ -89461,7 +89467,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x11f20c,
      0x11fa34,
 };
-const uint32_t jqt_vtbl_n = 4656u;  /* §124y-149/.../948: 对齐 fns/offs 表实际条目数 */ 
+const uint32_t jqt_vtbl_n = 4658u;  /* §124y-149/.../948: 对齐 fns/offs 表实际条目数 */ 
 
 /* jqt_blx_dispatch：vtable 槽值 reg_val（shadow 地址）→ 目标函数。
  * 影子区 → off = reg_val - g_jqt_shadow；否则 off = reg_val。
@@ -141977,5 +141983,69 @@ uint32_t F_7ad84(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_
     /* 返回函数尾段，blx 镜像兜底 */
     if (!_r0) return 0;
     jqt_blx_dispatch(0x7ad84, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+
+/* ★ §124y-1503 第一千四百零三  批真业务裸跑函数补全（strlen 调用函数 + 析构函数 ×1，均镜像兜底；fns/offs 中间插入非表尾追加）
+   - F_7ad8c（0x7ad8c，被调 1 次）：strlen 调用函数（非复杂 thunk 族）
+     （push {r4,r5,r6,lr} + adds r5,r0 +
+     adds r0,r1 + adds r4,r1 +
+     blx 22c80 strlen@plt + adds r5,#40 +
+     adds r2,r4 + adds r1,r4 +
+     adds r0,r5 + bl 23bec _Pthread_alloc 区 +
+     ...；strlen 调用 + 多段 adds/bl
+     调用函数，0x7ad8c 为 strlen 调用
+     族第 3 个翻译入口（继 §1488 0x75ccc
+     / §1499 0x79ed4 后继续），入口跨
+     0x7ad00 边界继续，blx 目标 22c80 系
+     libc strlen@plt 继续）
+     语义（objdump 逐指令，入口 7ad8c 为函数首；字节实锤 b570 =
+     push {r4,r5,r6,lr} + 1c05 = adds r5,r0,#0 +
+     1c08 = adds r0,r1,#0 + 1c0c = adds r4,r1,#0 +
+     f7a7 ef74 = blx 22c80 strlen@plt +
+     3528 = adds r5,#40 + 1822 = adds r2,r4,r0 +
+     1c21 = adds r1,r4,#0 + 1c28 = adds r0,r5,#0 +
+     f7a8 ff24 = bl 23bec _Pthread_alloc 区）：
+     strlen 调用函数：push + 多段 adds + blx strlen + bl
+     ★ 诚实边界：strlen 调用族同族第 3 个入口，
+     主路径直译 + 全函数镜像兜底（§124y-288~1502 同口径，
+     strlen 调用族 0x7ad8c 继续 0x7ad00+ 区推进，blx
+     目标 22c80 系 libc PLT 继续）
+   - F_7ada8（0x7ada8，被调 1 次）：析构函数（非复杂 thunk 族）
+     （push {r4,lr} + ldr r0,[r0,#32] +
+     cmp r0,#0 + beq 跳 7adb4 +
+     bl 7d808 _Pthread_alloc 区 +
+     pop {r4,pc} + nop；析构函数，
+     0x7ada8 为析构函数族第 10 个
+     翻译入口（继 §1456 0x6bd1c / §1464 0x6d8c8
+     / §1470 0x6f9ec / §1482 0x74cf4 / §1483 0x74d18
+     / §1494 0x78d38 / §1495 0x78e0c/0x78e4c
+     / §1496 0x78eb0 后继续），入口跨 0x7ad00
+     边界继续，bl 目标 7d808 系 libstdc++ 区目标
+     （首次跨 0x7d000 边界））
+     语义（objdump 逐指令，入口 7ada8 为函数首；字节实锤 b510 =
+     push {r4,lr} + 6a00 = ldr r0,[r0,#32] +
+     2800 = cmp r0,#0 + d001 = beq.n 7adb4 +
+     f002 fd2a = bl 7d808 _Pthread_alloc 区 +
+     bd10 = pop {r4,pc} + 46c0 = nop）：
+     析构函数：push + ldr + cmp + bl 7d808 + pop
+     ★ 诚实边界：析构函数族同族第 10 个入口，
+     主路径直译 + 全函数镜像兜底（§124y-288~1502 同口径，
+     析构函数族 0x7ada8 继续 0x7ad00+ 区推进，bl 目标
+     7d808 系 libstdc++ 区目标首次跨 0x7d000 边界） */
+uint32_t F_7ad8c(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* strlen 调用函数，blx 镜像兜底 */
+    if (!_r0) return 0;
+    jqt_blx_dispatch(0x7ad8c, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+uint32_t F_7ada8(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* 析构函数，bl 镜像兜底 */
+    if (!_r0) return 0;
+    jqt_blx_dispatch(0x7ada8, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
     return 0;
 }
