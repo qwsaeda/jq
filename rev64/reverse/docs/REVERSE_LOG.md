@@ -102329,3 +102329,32 @@ fns 表 0 重复）+ 2 个 F_ 函数体 + 前向声明（头部声明区 2176-21
 均含镜像兜底，零新 UND 符号；复杂初始化族 0xe0124/0xe0f3c 后继续推进
 2 个入口（继 §1485~§1797 复杂初始化族 141-445 个入口后继续）；
 0x66000+ 子段继续推进 2 个入口）。
+
+### 炸弹同归④双炸弹无旗定案（2026-11-14 正向会话）
+
+**定案**：双炸弹无旗（蓝炸弹 cell28 rank 10 + 红炸弹 cell33 rank 10，无旗无普通子）
+→ `jq_try_move` EV_BOMB 双格清空 → `stalemate_after` → `side_has_normal(0)=false`
+（蓝方无 rank 1-10 棋子，炸弹已消失）且 `side_has_normal(1)=false`（红方同理）
+→ 双方无普通子 → `jq_on_draw` → `stage=STG_OVER, winner=JQ_WIN_DRAW(2)`。
+
+**原版对照**（0x302f0，REVERSE_LOG §79643 实锤）：
+- 0x302f0 在 70/1000 步和棋检查后，检查 `sp[16]==0 && sp[17]==0`（双方无普通子位图）
+  → 0x303d2 `beq` 0x303a8 → winner=3（Draw）
+- 原版普通子 = rank 1-10 含炸弹（RANK_BOMB=10），排除 RANK_MINE(11)/RANK_FLAG(12)
+  （sp[16]/sp[17] 位图按 rank 分区，rank>12 域排除地雷/军旗）
+- 双炸弹无旗：蓝炸弹(rank 10) + 红炸弹(rank 10) → 双格清空 → 双方无 rank 1-10 棋子
+  → `sp[16]=sp[17]=0` → 原版判 Draw（winner=3）
+
+**64 位行为正确**：`side_has_normal` 将 rank 1-10 含炸弹计为普通子（与原版一致），
+双炸弹消失后双方无普通子 → Draw。旧用例④期望 `stage=PLAY 无旗不判胜` 是错误期望
+（误以为"无旗"就不判终局，实际"双方无普通子"判 Draw 与旗无关）。
+
+**修复**：`dark_align/dark_bomb_test.c` 用例④期望改为
+`ev==EV_BOMB && 双格空 && stage==STG_OVER && winner==JQ_WIN_DRAW`；
+`dark_align_regress.sh` 加入 `dark_bomb_test`（15/15 PASS）。
+
+**验证**：
+- `dark_align_regress.sh` 15/15 PASS（含新 dark_bomb_test）
+- `make evverify` 172/172 PASS
+- 三件套：event_code_map_check PASS / layout_align_check PASS /
+  dark_flip_probe_check 预存编译失败（jq_rs_layout.c 缺 jq_can_move 等定义，与本轮无关）
