@@ -1773,6 +1773,8 @@ uint32_t F_94ee8(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,
 uint32_t F_94f00(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_95020(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_95058(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_95376(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_95384(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_66d42(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_66c70(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_667ec(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
@@ -84979,6 +84981,8 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_94f00,
     F_95020,
     F_95058,
+    F_95376,
+    F_95384,
     F_ce020,
     F_ce3bc,
     F_ce5dc,
@@ -89827,6 +89831,8 @@ const uint32_t jqt_vtbl_offs[] = {
      0x94f00,
      0x95020,
      0x95058,
+     0x95376,
+     0x95384,
      0xce020,
      0xce3bc,
      0xce5dc,
@@ -90031,7 +90037,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x11f20c,
      0x11fa34,
 };
-const uint32_t jqt_vtbl_n = 4846u;  /* §124y-149/.../948: 对齐 fns/offs 表实际条目数 */ 
+const uint32_t jqt_vtbl_n = 4848u;  /* §124y-149/.../948: 对齐 fns/offs 表实际条目数 */ 
 
 /* jqt_blx_dispatch：vtable 槽值 reg_val（shadow 地址）→ 目标函数。
  * 影子区 → off = reg_val - g_jqt_shadow；否则 off = reg_val。
@@ -149057,5 +149063,56 @@ uint32_t F_95058(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_
     /* call-function，bl 镜像兜底 */
     if (!_r0) return 0;
     jqt_blx_dispatch(0x95058, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+
+/* ★ §124y-1598 第一千五百九十八  批真业务裸跑函数补全（返回尾段函数 + call-function ×1，均镜像兜底；fns/offs 中间插入非表尾追加）
+   - F_95376（0x95376，被调 1 次）：返回尾段函数（非复杂 thunk 族）
+     （nop + ldr r2,[r7,#72] +
+     movs r4,r1 + ldr r0,[r4,#72] +
+     movs r4,r1 + ldr r6,[r0,#60] +
+     ...；多段 nop/ldr/movs
+     返回尾段函数，0x95376 为返回尾段族
+     第 24 个翻译入口（继 §1592 0x946bc
+     后继续），入口跨 0x95000 边界首跨，
+     biz_raw_top 误判尾段为独立入口，镜像兜底）
+     语义（objdump 逐指令，入口 95376 为返回尾段首；字节实锤 46c0 =
+     nop + 6cba = ldr r2,[r7,#72] +
+     000c = movs r4,r1 + 6ca0 = ldr r0,[r4,#72] +
+     000c = movs r4,r1 + 6bc6 = ldr r6,[r0,#60]）：
+     返回尾段函数：nop + ldr + movs + ldr + movs + ldr
+     ★ 诚实边界：返回尾段族同族第 24 个入口，
+     biz_raw_top 误判尾段为独立入口，主路径直译 +
+     全函数镜像兜底（§124y-288~1597 同口径，
+     返回尾段族 0x95376 首跨 0x95000 边界推进）
+   - F_95384（0x95384，被调 1 次）：call-function（非复杂 thunk 族）
+     （push {r4,lr} + bl 95234 _Pthread_alloc 区 +
+     pop {r4,pc} + ...；多段 push/bl/pop
+     call-function，0x95384 为 call-function 族
+     第 33 个翻译入口（继 §1597 0x95058
+     后继续），入口跨 0x95000 边界继续，
+     bl 目标 95234 系同区业务函数）
+     语义（objdump 逐指令，入口 95384 为函数首；字节实锤 b510 =
+     push {r4,lr} + f7ff ff55 = bl 95234 _Pthread_alloc 区 +
+     bd10 = pop {r4,pc}）：
+     call-function：push + bl 95234 + pop
+     ★ 诚实边界：call-function 族同族第 33 个入口，
+     主路径直译 + 全函数镜像兜底（§124y-288~1597 同口径，
+     call-function 族 0x95384 继续 0x95000+ 区推进，
+     bl 目标 95234 系同区业务函数） */
+uint32_t F_95376(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* 返回尾段函数，bl 镜像兜底 */
+    if (!_r0) return 0;
+    jqt_blx_dispatch(0x95376, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+uint32_t F_95384(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* call-function，bl 镜像兜底 */
+    if (!_r0) return 0;
+    jqt_blx_dispatch(0x95384, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
     return 0;
 }
