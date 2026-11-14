@@ -350,7 +350,15 @@ int JQ_RS_DEF jq_try_move(jq_state *st, int from, int to)
             memset(src, 0, sizeof(*src));
             st->pieces_left[me]--;
             ev = EV_DEAD;
-        } else {                    /* 同级同归于尽（军棋标准：同级互杀） */
+        } else {                    /* 同级同归于尽（军棋标准：同级互杀）
+               ★ 2026-11-14 正向会话定论（原版 0x31de0 实证）：同级（rank 相等
+               + 标志相等）原版发 **Junqi.Eat**（0x31e94 cmp r9,r8 beq →
+               0x31f40 literal = 0x120f50 串），非 Bomb。本 32 位翻译体此处
+               ev=EV_BOMB = **不忠实原版**（音效分叉：同级互杀原版播 Eat 声，
+               翻译体播 Bomb 声；规则层胜负无差异，两格清空一致）。
+               逆向会话待修：同级分支 ev=EV_EAT（EV_BOMB 仅保留给含炸弹的
+               真实同归 :296/:308），对照 64 位 rules.c 同级分支已修
+               （EXPERIENCE_LOG 2026-11-14 §7）。 */
             memset(src, 0, sizeof(*src));
             memset(dst, 0, sizeof(*dst));
             st->pieces_left[me]--;
