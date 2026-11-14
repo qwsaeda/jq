@@ -47,7 +47,14 @@ if [ "$ONLY" = "all" ] || [ "$ONLY" = "move" ]; then
   $ADB shell "am start -n $ACT" >/dev/null 2>&1
   wait_screen || { echo "  [超时] 主界面未出屏（30s，转译冷启动？）→ 本段 PENDING"; }
   # 菜单人机 btn0(332,837) → 难度弹窗 btn2 中级布局明棋(324,558)
-  tap 332 837; tap 324 558; sleep 3
+  tap 332 837; tap 324 558
+  # 鲁棒：确认进入明棋开局（"布局明棋"），未进重 tap btn2（转译冷启动时序抖动，同翻子段）
+  local opened=0
+  for i in $(seq 1 10); do
+    sleep 1
+    if log 60 | grep -q "布局明棋"; then opened=1; break; fi
+  done
+  if [ $opened -eq 0 ]; then tap 324 558; sleep 3; fi
   tap 78 774; tap 78 529; sleep 3
   out=$(log 200 | grep -E "走子判定|can_move=1|AI 应着")
   echo "$out" | tail -4

@@ -2836,3 +2836,19 @@ jq_rs_rules.c 注释定论。
 - **对齐验证方案"总结复用"闭环**：三层全固化（① make evverify 172 +
   三件套 / ② dark_align_regress.sh 11/11 / ③ mumu_align_smoke.sh 2/2+0
   崩溃），改一次规则层→跑跑②③即 0 退化门禁，跨轮/跨会话直接复用。
+
+### 26. 铁路滑行阻断实证 + 验证方案 flaky 根治 + 扩到 12 项（2026-11-14）
+- **铁路滑行"中间有子阻断"四条实证**（rail_block_test，rulelay"铁路上没有
+  障碍时"）：① 非工兵纵线直走 (4,2)→(7,2)（row5/6 无行营）can=1 ✓；
+  ② 中间 (5,2) 有子挡 → can=0 阻断 ✓；③ 工兵可拐弯 (4,2)→(5,4) can=1 ✓；
+  ④ 非工兵不可拐弯（直走）can=0 ✓。与 board.c rail_path_straight/engineer
+  （AUD-R-001 P0 方向相关校验）+ walkable 空判一致。
+- **rail_block_test 复用进 dark_align**：dark_align_regress.sh 11→**12 项**
+  PASS（规则原文 33 + 11 暗棋/吃子/铁路用例）。
+- **验证方案 flaky 根治（明棋段对称加固）**：mumu_align_smoke.sh 明棋段
+  加"确认布局明棋日志再走子 + 未进重 tap btn2"（同翻子段旧缺陷），
+  **连续 3 次全 PASS**（明棋 2/2 + 暗棋 2/2 + 0 崩溃）——转译冷启动时序
+  抖动根治，验证方案稳定可复用。
+- **对齐验证方案"总结复用"终态**：① make evverify 172 + 三件套 / ②
+  dark_align_regress.sh **12/12** / ③ mumu_align_smoke.sh **2/2+0 崩溃
+  （连跑 3 次稳）**；改规则层→跑②③即 0 退化门禁，跨轮/跨会话直接复用。
