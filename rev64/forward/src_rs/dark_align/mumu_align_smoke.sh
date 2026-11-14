@@ -31,12 +31,21 @@ fi
 
 log() { timeout 20 $ADB shell "logcat -d -t $1" 2>/dev/null; }
 tap() { $ADB shell "input tap $1 $2" >/dev/null 2>&1; sleep 2; }
+# 鲁棒：app 重启后轮询出屏（rs_draw_menu 首帧）最多 30s（redroid 转译冷启动慢）
+wait_screen() {
+  for i in $(seq 1 30); do
+    if log 200 | grep -q "rs_draw_menu 首帧"; then return 0; fi
+    sleep 1
+  done
+  return 1
+}
 
 check_move=0; check_flip=0
 if [ "$ONLY" = "all" ] || [ "$ONLY" = "move" ]; then
   echo "-- 明棋走子（cell25→cell30，默认布局唯一合法目标）--"
   $ADB shell "am force-stop $PKG; logcat -c" >/dev/null 2>&1
-  $ADB shell "am start -n $ACT" >/dev/null 2>&1; sleep 8
+  $ADB shell "am start -n $ACT" >/dev/null 2>&1
+  wait_screen || { echo "  [超时] 主界面未出屏（30s，转译冷启动？）→ 本段 PENDING"; }
   # 菜单人机 btn0(332,837) → 难度弹窗 btn2 中级布局明棋(324,558)
   tap 332 837; tap 324 558; sleep 3
   tap 78 774; tap 78 529; sleep 3
@@ -48,7 +57,8 @@ fi
 if [ "$ONLY" = "all" ] || [ "$ONLY" = "flip" ]; then
   echo "-- 暗棋翻子（cell6 两击 + AI 应着翻棋）--"
   $ADB shell "am force-stop $PKG; logcat -c" >/dev/null 2>&1
-  $ADB shell "am start -n $ACT" >/dev/null 2>&1; sleep 8
+  $ADB shell "am start -n $ACT" >/dev/null 2>&1
+  wait_screen || { echo "  [超时] 主界面未出屏 → 本段 PENDING"; }
   tap 332 837; tap 458 488; sleep 3   # 难度弹窗 btn1 新手翻棋
   tap 203 1023; tap 203 1023; sleep 4
   out=$(log 200 | grep -E "走子判定 翻棋|can_flip=1|人机AI：翻棋|turn→")
