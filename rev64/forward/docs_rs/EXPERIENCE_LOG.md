@@ -2952,3 +2952,28 @@ jq_rs_rules.c 注释定论。
   本用例走 64 位 `jq_on_flag_capture`/`jq_side_stalemated` 已实现路径（行为级
   对齐），**不包装成 0x30430 方向已实证**——"一方无普通子→对方胜"的 64 位
   `draw_exist_test` ② 场景走困毙路径产出相同 winner（殊途同归，§26 已定案）。
+
+### 32. 暗棋挖雷→扛旗胜负完整链实证 + 验证方案扩到 17 项（2026-11-14）
+- **暗棋（ruleflip）挖雷→扛棋门槛行为级完整链**（dark_mine_flag_test），补
+  `rule_text_conformance` 仅覆盖 can_move 层的缺口（未挖满 3 雷拒 / 放行是
+  can_move 判定，缺"走子执行器层 + 胜负定案"完整链）：
+  ① 工兵挖雷 46→51 → EV_MINE(5) + `mines_cleared[BLUE]++` + 工兵进雷格
+     （cell46 空 / cell51 工兵，`*dst=*src` 交换 0x3a15c，§3 测试桩判据陷阱
+     "工兵挖雷后工兵进目标格"）✓；
+  ② 非工兵暗棋扛旗被拒（rank2 攻旗，即使 `mines_cleared=3` 也拒）→ can=0 ✓
+     （暗棋目标旗**仅工兵**可扛，门槛先于挖雷数）；
+  ③ 工兵未挖满 3 雷扛旗被拒（`mines_cleared=2`）→ can=0 ✓；
+  ④ 工兵挖满 3 雷扛旗 51→56 → EV_FLAG(3) + stage=OVER + 蓝胜 ✓。
+- **对照原版**（ruleflip 原文 "工兵挖 3 雷后才能扛军旗" + "地雷仅工兵可吃"）：
+  64 位 `move_local` 暗棋段（rules.c:307-328）行为级对齐——目标雷仅工兵可吃
+  （EV_MINE 递增 mines_cleared）+ 目标旗仅工兵且 `mines_cleared>=3` 可扛
+  （EV_FLAG 扛旗方胜），四场景 0 分叉。
+- **几何口径固化**：col1 纵线蓝工兵 cell46(row9col1) 攻红雷 cell51(row10col1)
+  相邻合法；扛旗目标=红大本营军旗 cell56(row11col1)；工兵须先挖满 3 雷。
+- **dark_mine_flag_test 复用进 dark_align**：dark_align_regress.sh 16→**17 项**
+  PASS（规则原文 33 + 16 用例）。
+- **对齐验证方案三层"总结复用"终态（本轮复用确认）**：① make evverify
+  172/172 + 三件套（event_code 0 缺口 / layout 几何 Δ=0）/ ②
+  `dark_align_regress.sh` **17/17**（桌面 0 退化门禁）/ ③
+  `mumu_align_smoke.sh --dev 127.0.0.1:5556` **2/2 + 0 崩溃**（redroid 冒烟口径）。
+  本轮纯测试用例新增（未改 rules.c 行为，so 无需重建），三层全跑确认 0 退化。
