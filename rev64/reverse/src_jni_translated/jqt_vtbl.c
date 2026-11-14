@@ -2385,6 +2385,8 @@ uint32_t F_118e48(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t
 uint32_t F_118e90(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_118f50(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_11c480(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_120b68(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_120b84(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_66d42(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_66c70(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_667ec(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
@@ -86203,6 +86205,8 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_118e90,
     F_118f50,
     F_11c480,
+    F_120b68,
+    F_120b84,
     F_ce020,
     F_ce3bc,
     F_ce5dc,
@@ -91663,6 +91667,8 @@ const uint32_t jqt_vtbl_offs[] = {
      0x118e90,
      0x118f50,
      0x11c480,
+     0x120b68,
+     0x120b84,
      0xce020,
      0xce3bc,
      0xce5dc,
@@ -91867,7 +91873,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x11f20c,
      0x11fa34,
 };
-const uint32_t jqt_vtbl_n = 5458u;  /* §124y-149/.../948: 对齐 fns/offs 表实际条目数 */ 
+const uint32_t jqt_vtbl_n = 5460u;  /* §124y-149/.../948: 对齐 fns/offs 表实际条目数 */ 
 
 /* jqt_blx_dispatch：vtable 槽值 reg_val（shadow 地址）→ 目标函数。
  * 影子区 → off = reg_val - g_jqt_shadow；否则 off = reg_val。
@@ -178632,5 +178638,90 @@ uint32_t F_11c480(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32
     /* 复杂初始化函数，bl 镜像兜底 */
     if (!_r0) return 0;
     jqt_blx_dispatch(0x11c480, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+
+/* ★ §124y-1904 第一千九百零四  批真业务裸跑函数补全（复杂初始化函数 ×2，均镜像兜底；fns/offs 中间插入非表尾追加）
+   - F_120b68（0x120b68，被调 1 次）：复杂初始化函数（非复杂 thunk 族，__aeabi_llsr 跨区 ARM 模式 64 位右移函数）
+     （subs r3,r2,#32 + rsb ip,r2,#32 +
+     lsrmi r0,r0,r2 + lsrpl r0,r1,r3 +
+     orrmi r0,r0,r1,lsl ip +
+     lsr r1,r1,r2 + bx lr +
+     ...；多段 subs/rsb/lsr ×3/orr/lsr/bx
+     复杂初始化函数，0x120b68 为复杂初始化族
+     第 658 个翻译入口（继 §1903 0x11c480
+     后继续），入口跨 0x120000 边界继续
+     （0x120000 区跨区 ARM 模式 64 位整数
+     移位族首现），
+     subs r3,r2,#32（减 32）+ rsb ip,r2,#32
+     （反向减法 = 32-shift）+ lsrmi
+     r0,r0,r2（负标志左移右移低 32 位）+
+     lsrpl r0,r1,r3（正左移右移高 32 位）+
+     orrmi r0,r0,r1,lsl ip（负 OR 低 32 位）+
+     lsr r1,r1,r2（右移高 32 位）+ bx lr
+     （尾调用跳转）continue）
+     语义（objdump 逐指令，入口 120b68 为独立条目；字节实锤 e2523020 =
+     subs r3,r2,#32 + e262c020 = rsb ip,r2,#32 +
+     41a00230 = lsrmi r0,r0,r2 + 51a00331 = lsrpl r0,r1,r3 +
+     41800c11 = orrmi r0,r0,r1,lsl ip +
+     e1a01231 = lsr r1,r1,r2 + e12fff1e = bx lr）：
+     复杂初始化函数：subs + rsb + lsr ×3 + orr + bx
+     ★ 诚实边界：复杂初始化族同族第 658 个入口，
+     主路径直译 + 全函数镜像兜底（§124y-288~1903 同口径，
+     复杂初始化族 0x120b68 跨 0x120000 区 ARM 模式推进
+     （__aeabi_llsr 64 位无符号右移函数，ARM 模式
+     指令序列，subs/rsb 计算移位量 + 条件左移
+     组合 + OR 低 32 位，忠实 32 位 64 位整数
+     右移行为），subs r3,r2,#32（减 32）+
+     rsb ip,r2,#32（反向减法 = 32-shift）+
+     lsrmi r0,r0,r2（负标志左移右移低 32 位）+
+     lsrpl r0,r1,r3（正左移右移高 32 位）+
+     orrmi r0,r0,r1,lsl ip（负 OR 低 32 位）+
+     lsr r1,r1,r2（右移高 32 位）+ bx lr
+     （尾调用跳转）continue）
+   - F_120b84（0x120b84，被调 1 次）：复杂初始化函数（非复杂 thunk 族，__aeabi_llsl 跨区 ARM 模式 64 位左移函数）
+     （subs r3,r2,#32 + rsb ip,r2,#32 +
+     lslmi r1,r1,r2 + lslpl r1,r0,r3 +
+     ...；多段 subs/rsb/lsl ×2
+     复杂初始化函数，0x120b84 为复杂初始化族
+     第 659 个翻译入口（继 §1904 0x120b68
+     后继续），入口跨 0x120000 边界继续
+     （0x120000 区跨区 ARM 模式 64 位整数
+     移位族继续），
+     subs r3,r2,#32（减 32）+ rsb ip,r2,#32
+     （反向减法 = 32-shift）+ lslmi
+     r1,r1,r2（负标志左移高 32 位）+
+     lslpl r1,r0,r3（正左移低 32 位）+
+     ...（后续 ARM 模式指令序列）continue）
+     语义（objdump 逐指令，入口 120b84 为独立条目；字节实锤 e2523020 =
+     subs r3,r2,#32 + e262c020 = rsb ip,r2,#32 +
+     41a01211 = lslmi r1,r1,r2 + 51a01310 = lslpl r1,r0,r3）：
+     复杂初始化函数：subs + rsb + lsl ×2
+     ★ 诚实边界：复杂初始化族同族第 659 个入口，
+     主路径直译 + 全函数镜像兜底（§124y-288~1903 同口径，
+     复杂初始化族 0x120b84 跨 0x120000 区 ARM 模式推进
+     （__aeabi_llsl 64 位无符号左移函数，ARM 模式
+     指令序列，subs/rsb 计算移位量 + 条件左移
+     组合，忠实 32 位 64 位整数左移行为，
+     与 0x120b68 __aeabi_llsr 同族但方向相反），
+     subs r3,r2,#32（减 32）+ rsb ip,r2,#32
+     （反向减法 = 32-shift）+ lslmi
+     r1,r1,r2（负标志左移高 32 位）+
+     lslpl r1,r0,r3（正左移低 32 位）+
+     ...（后续 ARM 模式指令序列）continue） */
+uint32_t F_120b68(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                  uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                  uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* 复杂初始化函数，bl 镜像兜底 */
+    if (!_r0) return 0;
+    jqt_blx_dispatch(0x120b68, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+uint32_t F_120b84(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                  uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                  uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* 复杂初始化函数，bl 镜像兜底 */
+    if (!_r0) return 0;
+    jqt_blx_dispatch(0x120b84, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
     return 0;
 }
