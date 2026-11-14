@@ -2762,3 +2762,20 @@ jq_rs_rules.c 注释定论。
 - **EV_FLAG 事件码**：ev=3 = EV_FLAG（"Junqi.Flag"，音效 flag.wav）——
   与 §8"原版 0x31ee8 吃旗发 Move 事件名"分叉入档一致（64 位 EV_FLAG
   独立码优于原版 Move 复用，SPEC §3 7 事件契约维持）。
+
+### 22. 暗棋挖雷全链桌面实证（2026-11-14，dark_mine_test）
+- **工兵挖雷**：蓝工兵 cell44(r4c4) → cell39(r3c4 相邻，红地雷)：
+  `can_move=1` → `ev=5（EV_MINE）` + `mines_cleared[蓝]=1`（挖雷计数++）
+  + cell44 空 / cell39=工兵（**工兵进目标格、雷消失**，0x3a15c 交换语义
+  同 §工兵挖雷进目标格）✓ 规则原文「地雷小于工兵」实证。
+- **非工兵撞雷送死**：普通子 rank5 撞红地雷 → `ev=4（EV_DEAD）`
+  + cell44 空 / cell39=地雷（**攻方死、雷留**，"地雷大于所有其他棋"
+  ✓）+ moves_since_eat 不清零（B01-022 送死不重置 70 步进度，§B01-022
+  定案口径一致）。
+- **cell 索引陷阱（防复发）**：cell idx=row*5+col，cell49=row9col4
+  （**非** cell44=r4c4 相邻——row9 隔 5 行）；相邻判定须按 row/col
+  差（44=r4c4 相邻 = 39(r3c4)/43(r4c3)），用例写 44→49 属索引误
+  （can_move=0 规则层正确拒，非逻辑 bug）。
+- 暗棋地雷语义双路径（工兵挖雷 EV_MINE / 非工兵送死 EV_DEAD）与
+  §扛旗门槛（mines_cleared 累计）联动：挖雷 ++ → 凑满 3 → 扛旗放行
+  （dark_flag_test §21）全链闭环。
