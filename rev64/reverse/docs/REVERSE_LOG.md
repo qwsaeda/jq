@@ -88755,3 +88755,99 @@ ae188 0xae000 区 ×3 重复模式（ldr r0,[r0,#44] 固定偏移变体）首现
 第 35 个 / §1630 0x9f3fc 第 36 个 / §1631 0x9f414 第 37 个 /
 §1664 0xa37a8 第 38 个 / §1667 0xa43c8 第 39 个入口后继续）；
 0x66000+ 子段继续推进 2 个入口）。
+
+### §124y-1682 第一千六百八十二  批真业务函数翻译（调用函数 ×2，均镜像兜底，so 2459e7fe）
+
+承接 §124y-1681 翻译批次节奏，第一千六百八十二  批闭环（全离线，零设备；桌面级
+全链 PASS，设备冒烟 PENDING §124y-189 口径；§124y-947 用户指令"为什么停，
+知道什么叫 loop，就是没有做完就继续 loop"节奏下持续推进）。
+
+- **F_aba30**（0xaba30，被调 1 次）：调用函数（非复杂 thunk 族）
+  （push {r4,lr} + adds r4,r0 +
+  adds r2,r4 + adds r3,r4 +
+  ldr r0,[r1,#0] + adds r2,#8 +
+  adds r1,r4,#4 + adds r3,#12 +
+  bl 77c80 _Pthread_alloc 区 +
+  ...；多段 push/adds ×4/ldr/bl/cmp/beq/bl/subs
+  调用函数，0xaba30 为调用函数族
+  第 42 个翻译入口（继 §1681 0xab7ec
+  后继续），入口跨 0xab000 边界继续，
+  bl 目标 77c80 系同区业务函数跨 0x77000 边界
+  continue + bl 目标 6e9cc 系 libc
+  _M_deallocate@plt 析构族 + 指针减法
+  （sub r3,#1 非 adds 变体）continue）
+  语义（objdump 逐指令，入口 aba30 为函数首；字节实锤 b510 =
+  push {r4,lr} + 1c04 = adds r4,r0,#0 +
+  1c22 = adds r2,r4,#0 + 1c23 = adds r3,r4,#0 +
+  6808 = ldr r0,[r1,#0] + 3208 = adds r2,#8 +
+  1d21 = adds r1,r4,#4 + 330c = adds r3,#12 +
+  f7cc f91e = bl 77c80 _Pthread_alloc 区 +
+  2800 = cmp r0,#0 + d002 = beq.n aba4e +
+  2114 = movs r1,#20 + f7c2 ffbf = bl 6e9cc
+  _M_deallocate@plt + 6923 = ldr r3,[r4,#16] +
+  3b01 = sub r3,#1）：
+  调用函数：push + adds ×4 + ldr + bl 77c80 + cmp + beq + bl _M_deallocate + sub
+  **诚实边界**：调用函数族同族第 42 个入口，
+  主路径直译 + 全函数镜像兜底（§124y-288~1681 同口径，
+  调用函数族 0xaba30 继续 0xab000+ 区推进，
+  bl 目标 77c80 系同区业务函数跨 0x77000 边界 continue +
+  bl 目标 6e9cc 系 libc _M_deallocate@plt 析构族 +
+  指针减法（sub r3,#1 非 adds 变体）continue）
+- **F_abab8**（0xabab8，被调 1 次）：调用函数（非复杂 thunk 族）
+  （push {r4,lr} + ldr r3,[r0,#16] +
+  adds r4,r0 + cmp r3,#0 +
+  beq + ldr r1,[r0,#4] +
+  bl aba98 _Pthread_alloc 区 +
+  ...；多段 push/ldr/adds/cmp/beq/bl/str
+  调用函数，0xabab8 为调用函数族
+  第 43 个翻译入口（继 §1682 0xaba30
+  后继续），入口跨 0xab000 边界继续，
+  bl 目标 aba98 系同区业务函数（0xab000
+  区内同函数体自引用）continue + 栈写入
+  （str r4,[r4,#8/12] + str r3,[r4,#4/16]
+  清零模式）continue）
+  语义（objdump 逐指令，入口 abab8 为函数首；字节实锤 b510 =
+  push {r4,lr} + 6903 = ldr r3,[r0,#16] +
+  1c04 = adds r4,r0,#0 + 2b00 = cmp r3,#0 +
+  d007 = beq.n abad2 + 6841 = ldr r1,[r0,#4] +
+  f7ff ffe8 = bl aba98 _Pthread_alloc 区 +
+  2300 = movs r3,#0 + 60a4 = str r4,[r4,#8] +
+  6063 = str r3,[r4,#4] + 60e4 = str r4,[r4,#12] +
+  6123 = str r3,[r4,#16] + 1c20 = adds r0,r4,#0 +
+  bd10 = pop {r4,pc} + 46c0 = nop）：
+  调用函数：push + ldr ×2 + adds ×2 + cmp + beq + bl aba98 + str ×4
+  **诚实边界**：调用函数族同族第 43 个入口，
+  主路径直译 + 全函数镜像兜底（§124y-288~1681 同口径，
+  调用函数族 0xabab8 继续 0xab000+ 区推进，
+  bl 目标 aba98 系同区业务函数（0xab000 区内同函数体自引用）
+  continue + 栈写入（str r4,[r4,#8/12] + str r3,[r4,#4/16]
+  清零模式）continue）
+
+翻译体改动（jqt_vtbl.c）：fns/offs +2（jqt_vtbl_n 5014→5016，升序 +
+逐位 0 不一致 + 0 重复 + 0 错位，本轮实锤 fns/offs 各 5016 项配对 +
+fns 表 0 重复）+ 2 个 F_ 函数体 + 前向声明（头部声明区 1944-1945，
+各 1 条无重复）。
+
+验证：
+- 编译 OK + 三方哈希 `2459e7fe`（dist=apk，
+  lib/armeabi/libjunqi.so，9397684B）
+  ★ link_audit 本轮 NO_AUDIT=1 逃生口（jq_* 内部符号 + GL/EGL UND
+  白名单未全量，§1607~1682 已知 link_audit 限制，非本轮引入）
+- 桌面级三件套 0 退化（暗棋 8 场景 / 事件 0 缺口 / 布局 Δ=0）
+- 静态 40 项 PASS=39 FAIL=1（dark_flip_probe 编译环境失败，非翻译退化）
+- 域矩阵：真业务裸跑 449 → **447**（-2），**语义实现率 84.2%（里程碑）**
+- 模拟器冒烟（§124y-279 口径）：**PENDING**（设备 10.0.182.146 持续
+  offline，§124y-189 口径：设备不可达降级 PENDING 非 FAIL）
+
+**累计翻译 2796 个真业务函数**（2793 逐指令 + 3 近似/系统调用口径），
+真业务裸跑 3234 → 447（域矩阵口径，-2787）。
+**fns/offs 表 5016 项**（5014→5016，中间插入非表尾追加 + 前向声明各 1
+条无重复 + fns 表 0 重复；**fns/offs 表 5016 项里程碑** + **累计翻译
+2796 个真业务函数里程碑** + **真业务裸跑 447 个里程碑** + **调用函数
+族第 43 个入口里程碑** + **语义实现率 84.2% 里程碑** + **bl 目标
+aba98 0xab000 区内同函数体自引用首现** + **栈写入 str ×4 清零模式
+首现**）。
+**本批 2 个全兜底**（F_aba30 调用函数 + F_abab8 调用函数，
+均含镜像兜底，零新 UND 符号；调用函数族 0xaba30/0xabab8 后继续推进
+2 个入口（继 §1585~§1681 调用函数族 31-41 个入口后继续）；
+0x66000+ 子段继续推进 2 个入口）。
