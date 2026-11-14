@@ -86797,3 +86797,28 @@ fns 表 0 重复）+ 2 个 F_ 函数体 + 前向声明（头部声明区 1910-19
 continue + bl 目标 9f3e4 系同区业务函数跨 0x9f000 边界 +
 有符号比较分支（ble）+ 链表遍历 continue）；0x66000+ 子段继续
 推进 2 个入口）。
+
+### §124y-373 走子/翻棋分发点 0x39fa4 + 坐标缓冲 0xa2/0xa4 定案（2026-11-14 交叉会话）
+
+**0x39fa4 = 走子 vs 翻棋分发点**（0x39f20 主循环内）：
+- `0x39fa4 bl 0x6ef54`（坐标比较，§L51 实锤 [0]=col [1]=row，返 0=相同）
+  → `cmp r0,#0 / bne 0x39fcc`：
+  · **坐标不同（from≠to）→ 0x39fcc 走子路径**：读 `state+0xa2/0xa4`
+    （当前移动 from/to 坐标 16 位打包，§L52 实锤 0x39d58 存储点）→
+    `strb [r4+0xa2]` + `strb [r4+0xa4]`（写回坐标缓冲，供 0x3a15c
+    执行器 `ldrb [r2,#0]/[r2,#1]` 读 from/to 索引）；
+  · **坐标相同（from==to）→ 0x39fe0 翻棋路径**：`state+0xa2+0xa4`
+    区（162/164 = 0xa2/0xa4）作为翻棋坐标源，`bl 0x6ef54` 二次比较
+    （翻棋目标 vs 当前坐标）→ 0x3a0aa 走子校验入口。
+- **坐标缓冲 0xa2/0xa4（162/164）定案**：当前移动 from/to 16 位打包
+  （from<<8|to，§L52 0x39d58 存储），走子执行器 0x3a15c `ldrb [r2,#0]
+  =from / [r2,#1]=to` 同源读点；翻棋（from==to）两字节同值。
+- **对照 64 位**：jq_flip（rules.c:912 `c->side=turn 定色 + revealed=1`，
+  9366a4d 已修不消耗 70/1000）+ jq_touch_state_process 翻棋意图
+  （to==from 同格）= 原版 from==to 翻棋分发同源；坐标缓冲 64 位走
+  触摸态机 ts->sel/target（无 0xa2/0xa4 16 位打包，语义等价非逐字节）。
+
+**翻棋定色口径**：原版 from==to 路径不改变 rank（翻子=暴露 revealed
+状态，rank 保持布局原值）→ 64 位 `jq_flip c->side=SIDE_UNKNOWN 时
+= st->turn`（定色归翻子方）+ `revealed=1` 同源（§124y-152 翻子定色
+实锤，蓝首翻定蓝/红应着翻红）。
