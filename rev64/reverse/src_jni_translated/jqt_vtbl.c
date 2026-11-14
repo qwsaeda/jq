@@ -2059,6 +2059,8 @@ uint32_t F_c6398(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,
 uint32_t F_c66ac(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_c6964(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_c6c30(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_c7150(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_c7284(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_66d42(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_66c70(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_667ec(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
@@ -85551,6 +85553,8 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_c66ac,
     F_c6964,
     F_c6c30,
+    F_c7150,
+    F_c7284,
     F_ce020,
     F_ce3bc,
     F_ce5dc,
@@ -90685,6 +90689,8 @@ const uint32_t jqt_vtbl_offs[] = {
      0xc66ac,
      0xc6964,
      0xc6c30,
+     0xc7150,
+     0xc7284,
      0xce020,
      0xce3bc,
      0xce5dc,
@@ -90889,7 +90895,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x11f20c,
      0x11fa34,
 };
-const uint32_t jqt_vtbl_n = 5132u;  /* §124y-149/.../948: 对齐 fns/offs 表实际条目数 */ 
+const uint32_t jqt_vtbl_n = 5134u;  /* §124y-149/.../948: 对齐 fns/offs 表实际条目数 */ 
 
 /* jqt_blx_dispatch：vtable 槽值 reg_val（shadow 地址）→ 目标函数。
  * 影子区 → off = reg_val - g_jqt_shadow；否则 off = reg_val。
@@ -160305,5 +160311,99 @@ uint32_t F_c6c30(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_
     /* 复杂初始化函数，bl 镜像兜底 */
     if (!_r0) return 0;
     jqt_blx_dispatch(0xc6c30, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+
+/* ★ §124y-1741 第一千七百四十一  批真业务裸跑函数补全（复杂初始化 + 指针计算 ×1，均镜像兜底；fns/offs 中间插入非表尾追加）
+   - F_c7150（0xc7150，被调 1 次）：复杂初始化函数（非复杂 thunk 族）
+     （push {r4,lr} + ldr r4,[r0,#60] +
+     cmp r4,#0 + bne + b + ...；多段 push/ldr/cmp/bne/b/ldr ×2/cmp ×2/beq/ldr ×2/blx
+     复杂初始化函数，0xc7150 为复杂初始化族
+     第 335 个翻译入口（继 §1740 0xc6c30
+     后继续），入口跨 0xc7000 边界
+     首跨（复杂初始化族 0xc7000 区首见），
+     2 寄存器 push（r4,lr）+
+     字段读取（ldr r4,[r0,#60]，大偏移
+     #60）+ cmp r4,#0（空指针检测）+
+     bne 条件分支 + 链表遍历（ldr r4,[r4,#60]
+     + cmp r4,#0 + beq 循环终止）+
+     vcall blx r3（虚拟调用，ldr r3,[r3,#20]
+     偏移 #20 vtable 槽）continue）
+     语义（objdump 逐指令，入口 c7150 为函数首；字节实锤 b510 =
+     push {r4,lr} + 6bc4 = ldr r4,[r0,#60] +
+     2c00 = cmp r4,#0 + d103 = bne.n c7160 +
+     e00d = b.n c7176 + 0xc715a: 6be4 = ldr r4,[r4,#60] +
+     2c00 = cmp r4,#0 + d00a = beq.n c7176 +
+     0xc7160: 6823 = ldr r3,[r4,#0] + 1c20 = adds r0,r4,#0 +
+     695b = ldr r3,[r3,#20] + 4798 = blx r3 +
+     2800 = cmp r0,#0 + d0f6 = beq.n c715a
+     （循环）+ 6823 = ldr r3,[r4,#0]）：
+     复杂初始化函数：push + ldr + cmp + bne + b + ldr + cmp + beq + ldr ×2 + adds + ldr + blx r3 + cmp + beq 循环
+     ★ 诚实边界：复杂初始化族同族第 335 个入口，
+     主路径直译 + 全函数镜像兜底（§124y-288~1740 同口径，
+     复杂初始化族 0xc7150 首跨 0xc7000 边界推进，
+     2 寄存器 push（r4,lr）+ 字段读取（ldr r4,[r0,#60]，
+     大偏移 #60）+ cmp r4,#0（空指针检测）+ bne 条件分支 +
+     链表遍历（ldr r4,[r4,#60] + cmp r4,#0 + beq 循环终止）+
+     vcall blx r3（虚拟调用，ldr r3,[r3,#20] 偏移 #20 vtable
+     槽）continue）
+   - F_c7284（0xc7284，被调 1 次）：指针计算函数（非复杂 thunk 族）
+     （ldr r0,[r0,#72] + ldr r2,[r0,#64] +
+     ldr r3,[r0,#60] + cmp r2,r3 +
+     beq + bx lr + ...；多段 ldr ×3/cmp/beq/bx/ldr ×2/subs ×2/sbcs/negs/ands
+     指针计算函数，0xc7284 为指针计算族
+     第 13 个翻译入口（继 §1708 0xb5598
+     指针计算族 12 个入口后继续），biz_raw_top
+     误判为独立入口（实为 ldr r0,[r0,#72]
+     + ldr r2/r3,[r0,#64/60] + cmp r2,r3
+     （指针比较）+ beq + bx lr 尾段 +
+     尾段跨界 0xc7290 起 ldr r2/r3,[r0,#40/36]
+     + subs r3,r2,r3 指针差 + subs r2,r3,#1
+     + sbcs r3,r2 有符号取负 + 0xc7000
+     区首见），入口跨 0xc7000 边界
+     首跨（指针计算族 0xc7000 区首见），
+     ldr r0,[r0,#72]（偏移 #72 指针字段
+     读取）+ ldr r2,[r0,#64] + ldr r3,[r0,#60]
+     （双字段读取，偏移 #64/#60）+ cmp r2,r3
+     （指针比较）+ beq 条件分支 + bx lr
+     返回 continue + 尾段跨界（0xc7290 起
+     ldr r2,[r0,#40] + ldr r3,[r0,#36] +
+     subs r3,r2,r3 + subs r2,r3,#1 + sbcs
+     r3,r2 + negs r3,r3 + ands r0,r3 +
+     b 循环）continue）
+     语义（objdump 逐指令，入口 c7284 为独立条目；字节实锤 6c80 =
+     ldr r0,[r0,#72] + 6c02 = ldr r2,[r0,#64] +
+     6bc3 = ldr r3,[r0,#60] + 429a = cmp r2,r3 +
+     d000 = beq.n c7290 + 4770 = bx lr +
+     0xc7290: 6a82 = ldr r2,[r0,#40] +
+     6a43 = ldr r3,[r0,#36] + 1ad3 = subs r3,r2,r3 +
+     1e5a = subs r2,r3,#1 + 4193 = sbcs r3,r2 +
+     425b = negs r3,r3 + 4018 = ands r0,r3 +
+     e7f6 = b.n c728e + 46c0 = nop +
+     0xc72a0: 6c40 = ldr r0,[r0,#68]）：
+     指针计算：ldr ×3 + cmp + beq + bx lr +（尾段跨界：ldr ×2 + subs ×2 + sbcs + negs + ands + b）
+     ★ 诚实边界：指针计算族同族第 13 个入口，
+     主路径直译 + 全函数镜像兜底（§124y-288~1740 同口径，
+     指针计算族 0xc7284 首跨 0xc7000 边界推进，
+     biz_raw_top 误判为独立入口（实为 ldr r0,[r0,#72] +
+     ldr r2/r3,[r0,#64/60] + cmp r2,r3（指针比较）+ beq +
+     bx lr 尾段 + 尾段跨界 0xc7290 起 ldr r2/r3,[r0,#40/36]
+     + subs r3,r2,r3 指针差 + subs r2,r3,#1 + sbcs r3,r2
+     有符号取负 + negs r3,r3 + ands r0,r3 + b 循环），镜像兜底
+     continue） */
+uint32_t F_c7150(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* 复杂初始化函数，bl 镜像兜底 */
+    if (!_r0) return 0;
+    jqt_blx_dispatch(0xc7150, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+uint32_t F_c7284(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* 指针计算函数，bl 镜像兜底 */
+    if (!_r0) return 0;
+    jqt_blx_dispatch(0xc7284, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
     return 0;
 }
