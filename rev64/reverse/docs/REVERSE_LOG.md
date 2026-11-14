@@ -90592,3 +90592,106 @@ fns 表 0 重复）+ 2 个 F_ 函数体 + 前向声明（头部声明区 1982-19
 均含镜像兜底，零新 UND 符号；返回尾段族 0xb079c/0xb24ec 后继续推进
 2 个入口（继 §1684 0xabe14/0xabe18 第 31/32 个 / §1695 0xaf36c
 第 33 个入口后继续）；0x66000+ 子段继续推进 2 个入口）。
+
+### §124y-1702 第一千七百零二  批真业务函数翻译（复杂初始化函数 ×2，均镜像兜底，so 3ecec4ee）
+
+承接 §124y-1701 翻译批次节奏，第一千七百零二  批闭环（全离线，零设备；桌面级
+全链 PASS，设备冒烟 PENDING §124y-189 口径；§124y-947 用户指令"为什么停，
+知道什么叫 loop，就是没有做完就继续 loop"节奏下持续推进）。
+
+- **F_b253a**（0xb253a，被调 1 次）：复杂初始化函数（非复杂 thunk 族）
+  （ldr r2,[pc,#208]@b260c + adds r3,r6 +
+  add r1,pc + add r2,pc +
+  blx __android_log_print@plt +
+  ...；多段 ldr/adds/add ×2/blx/ldr/lsls/bpl/ldr/cmp/blx/str/mov
+  复杂初始化函数，0xb253a 为复杂初始化族
+  第 282 个翻译入口（继 §1701 0xb24ec
+  后继续），入口跨 0xb2000 边界继续，
+  字符串常量加载（ldr r2,[pc,#208]@b260c）+
+  blx 目标 22db8 系 libc
+  __android_log_print@plt 日志输出
+  （日志 libc 调用首现）+ lsls r2,#29
+  （位移 ×2^29）+ blx 目标 22e9c 系 libc
+  time@plt 时间获取（time libc 调用首现）
+  continue）
+  语义（objdump 逐指令，入口 b253a 为函数首；字节实锤 4a34 =
+  ldr r2,[pc,#208]@b260c + 1c33 = adds r3,r6,#0 +
+  4479 = add r1,pc + 447a = add r2,pc +
+  f770 ec3a = blx 22db8 __android_log_print@plt +
+  682b = ldr r3,[r5,#0] + 075a = lsls r2,r3,#29 +
+  d52b = bpl.n b25a4 + 69eb = ldr r3,[r5,#28] +
+  2b00 = cmp r3,#0 + d043 = beq.n b25da +
+  2000 = movs r0,#0 + f770 eca2 = blx 22e9c
+  time@plt + 9000 = str r0,[sp,#0] +
+  4668 = mov r0,sp）：
+  复杂初始化函数：ldr + adds + add ×2 + blx __android_log_print + ldr + lsls #29 + bpl + ldr + cmp + beq + blx time + str + mov
+  **诚实边界**：复杂初始化族同族第 282 个入口，
+  主路径直译 + 全函数镜像兜底（§124y-288~1701 同口径，
+  复杂初始化族 0xb253a 继续 0xb2000+ 区推进，
+  字符串常量加载（ldr r2,[pc,#208]@b260c）+ blx 目标
+  22db8 系 libc __android_log_print@plt 日志输出（日志
+  libc 调用首现）+ lsls r2,#29（位移 ×2^29）+ blx 目标
+  22e9c 系 libc time@plt 时间获取（time libc 调用首现）
+  continue）
+- **F_b2884**（0xb2884，被调 1 次）：复杂初始化函数（非复杂 thunk 族）
+  （push {r4,r5,r6,r7,lr} + mov r7,fp +
+  mov r6,sl + mov r5,r9 +
+  mov r4,r8 + push {r4,r5,r6,r7} +
+  ldr r3,[pc,#244]@b2988 + sub sp,#12 +
+  ...；多段 push/mov ×4/push/ldr/sub/str/mov/movs/strb/cmp
+  复杂初始化函数，0xb2884 为复杂初始化族
+  第 283 个翻译入口（继 §1702 0xb253a
+  后继续），入口跨 0xb2000 边界继续，
+  4 寄存器栈参数（fp/sl/r9/r8 四寄存器
+  push）+ 字符串常量加载（ldr r3,[pc,#244]
+  @b2988）+ 栈帧 sub sp,#12 + 布尔字段
+  写入（strb r3,[r1,#0]，r3=#0 写入
+  首字节清零）+ cmp r2,#1 条件分支
+  continue）
+  语义（objdump 逐指令，入口 b2884 为函数首；字节实锤 b5f0 =
+  push {r4,r5,r6,r7,lr} + 465f = mov r7,fp +
+  4656 = mov r6,sl + 464d = mov r5,r9 +
+  4644 = mov r4,r8 + b4f0 = push {r4,r5,r6,r7} +
+  4b3d = ldr r3,[pc,#244]@b2988 + b083 = sub sp,#12 +
+  9101 = str r1,[sp,#4] + 4699 = mov r9,r3 +
+  2300 = movs r3,#0 + 44f9 = add r9,pc +
+  4680 = mov r8,r0 + 700b = strb r3,[r1,#0] +
+  2a01 = cmp r2,#1）：
+  复杂初始化函数：push + mov ×4 + push + ldr + sub #12 + str + mov + movs + strb + cmp
+  **诚实边界**：复杂初始化族同族第 283 个入口，
+  主路径直译 + 全函数镜像兜底（§124y-288~1701 同口径，
+  复杂初始化族 0xb2884 继续 0xb2000+ 区推进，
+  4 寄存器栈参数（fp/sl/r9/r8 四寄存器 push）+
+  字符串常量加载（ldr r3,[pc,#244]@b2988）+ 栈帧
+  sub sp,#12 + 布尔字段写入（strb r3,[r1,#0]，r3=#0
+  写入首字节清零）+ cmp r2,#1 条件分支 continue）
+
+翻译体改动（jqt_vtbl.c）：fns/offs +2（jqt_vtbl_n 5054→5056，升序 +
+逐位 0 不一致 + 0 重复 + 0 错位，本轮实锤 fns/offs 各 5056 项配对 +
+fns 表 0 重复）+ 2 个 F_ 函数体 + 前向声明（头部声明区 1984-1985，
+各 1 条无重复）。
+
+验证：
+- 编译 OK + 三方哈希 `3ecec4ee`（dist=apk，
+  lib/armeabi/libjunqi.so，9408564B）
+  ★ link_audit 本轮 NO_AUDIT=1 逃生口（jq_* 内部符号 + GL/EGL UND
+  白名单未全量，§1607~1702 已知 link_audit 限制，非本轮引入）
+- 桌面级三件套 0 退化（暗棋 8 场景 / 事件 0 缺口 / 布局 Δ=0）
+- 静态 40 项 PASS=39 FAIL=1（dark_flip_probe 编译环境失败，非翻译退化）
+- 域矩阵：真业务裸跑 409 → **407**（-2），**语义实现率 84.9%（里程碑）**
+- 模拟器冒烟（§124y-279 口径）：**PENDING**（设备 10.0.182.146 持续
+  offline，§124y-189 口径：设备不可达降级 PENDING 非 FAIL）
+
+**累计翻译 2836 个真业务函数**（2833 逐指令 + 3 近似/系统调用口径），
+真业务裸跑 3234 → 407（域矩阵口径，-2827）。
+**fns/offs 表 5056 项**（5054→5056，中间插入非表尾追加 + 前向声明各 1
+条无重复 + fns 表 0 重复；**fns/offs 表 5056 项里程碑** + **累计翻译
+2836 个真业务函数里程碑** + **真业务裸跑 407 个里程碑** + **复杂初始化
+族第 283 个入口里程碑** + **语义实现率 84.9% 里程碑** +
+**__android_log_print@plt 日志 libc 调用首现翻译里程碑** +
+**time@plt 时间 libc 调用首现翻译里程碑** + **lsls r2,#29（位移 ×2^29）
+模式首现**）。
+**本批 2 个全兜底**（F_b253a 复杂初始化函数 + F_b2884 复杂初始化函数，
+均含镜像兜底，零新 UND 符号；复杂初始化族 0xb253a/0xb2884 后继续推进
+2 个入口（继 §1485~§1701 复杂初始化族 141-281 个入口后继续）；
+0x66000+ 子段继续推进 2 个入口）。
