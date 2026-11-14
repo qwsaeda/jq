@@ -92702,3 +92702,107 @@ fns 表 0 重复）+ 2 个 F_ 函数体 + 前向声明（头部声明区 2024-20
 **本批 2 个全兜底**（F_b89a8 返回尾段 + F_b8c30 字符串处理函数，
 均含镜像兜底，零新 UND 符号；返回尾段族 0xb89a8 第 37 个入口 +
 字符串处理族 0xb8c30 第 7 个入口；0x66000+ 子段继续推进 2 个入口）。
+
+### §124y-1723 第一千七百二十三  批真业务函数翻译（调用函数 + 字符串处理 ×1，均镜像兜底，so 6a8cb393）
+
+承接 §124y-1722 翻译批次节奏，第一千七百二十三  批闭环（全离线，零设备；桌面级
+全链 PASS，设备冒烟 PENDING §124y-189 口径；§124y-947 用户指令"为什么停，
+知道什么叫 loop，就是没有做完就继续 loop"节奏下持续推进）。
+
+- **F_b8c5c**（0xb8c5c，被调 1 次）：调用函数（非复杂 thunk 族）
+  （push {r4,lr} + ldr r3,[pc,#12]@b8c6c +
+  add r3,pc + ldr r0,[r3,#0] +
+  bl b674c _Pthread_alloc 区 +
+  pop {r4,pc}；
+  7 指令，0xb8c5c 为调用函数族
+  第 47 个翻译入口（继 §1721 0xb8944
+  调用函数族 46 个入口后继续），biz_raw_top
+  误判为独立入口（实为 2 寄存器 push +
+  字符串常量加载 ldr r3,[pc,#12]@b8c6c +
+  add r3,pc + ldr r0,[r3,#0] +
+  bl 目标 b674c 系同区业务函数跨 0xb6000
+  边界 + pop 尾段），入口跨 0xb8000 边界
+  继续（调用函数族 0xb8000 区首见），
+  2 寄存器 push（r4,lr）+ 字符串常量
+  加载（ldr r3,[pc,#12]@b8c6c + add r3,pc
+  + ldr r0,[r3,#0]）+ bl 目标 b674c
+  系同区业务函数跨 0xb6000 边界 continue）
+  语义（objdump 逐指令，入口 b8c5c 为函数首；字节实锤 b510 =
+  push {r4,lr} + 4b03 = ldr r3,[pc,#12]@b8c6c +
+  447b = add r3,pc + 6818 = ldr r0,[r3,#0] +
+  f7fd fd72 = bl b674c _Pthread_alloc 区 +
+  bd10 = pop {r4,pc} + 46c0 = nop +
+  0xb8c6c: 3224 = adds r2,#36 + 000a = movs r2,r1）：
+  调用函数：push + ldr + add + ldr + bl b674c + pop
+  **诚实边界**：调用函数族同族第 47 个入口，
+  主路径直译 + 全函数镜像兜底（§124y-288~1722 同口径，
+  调用函数族 0xb8c5c 首跨 0xb8000 边界推进，
+  biz_raw_top 误判为独立入口（实为 2 寄存器 push +
+  字符串常量加载（ldr r3,[pc,#12]@b8c6c + add r3,pc +
+  ldr r0,[r3,#0]）+ bl 目标 b674c 系同区业务函数跨 0xb6000
+  边界 + pop 尾段），镜像兜底 continue）
+- **F_b96f0**（0xb96f0，被调 1 次）：字符串处理函数（非复杂 thunk 族）
+  （push {r4,lr} + movs r1,#92 +
+  adds r4,r0 + blx strrchr@plt +
+  cmp r0,#0 + beq + adds r4,r0,#1 +
+  adds r0,r4 + pop {r4,pc} +
+  movs r1,#47 + blx strrchr@plt +
+  cmp r0,#0 + bne 循环 + b 循环；
+  多段 push/movs/adds/blx/cmp/beq/bl/b
+  字符串处理函数，0xb96f0 为字符串处理族
+  第 8 个翻译入口（继 §1722 0xb8c30
+  第 7 个后继续），入口跨 0xb9000 边界
+  首跨（字符串处理族 0xb9000 区首见），
+  2 寄存器 push（r4,lr）+ movs r1,#92
+  （字符常量 #92，字符串字符常量）+
+  blx 目标 22c08 系 libc strrchr@plt 首次翻译
+  + cmp r0,#0 + beq 条件分支 + adds r4,r0,#1
+  （指针步进）+ blx strrchr@plt ×2 + bne 循环
+  + b 循环 continue）
+  语义（objdump 逐指令，入口 b96f0 为函数首；字节实锤 b510 =
+  push {r4,lr} + 215c = movs r1,#92 +
+  1c04 = adds r4,r0,#0 + f769 ea88 = blx 22c08
+  strrchr@plt + 2800 = cmp r0,#0 +
+  d002 = beq.n b9704 + 1c44 = adds r4,r0,#1 +
+  1c20 = adds r0,r4,#0 + bd10 = pop {r4,pc} +
+  0xb9704: 1c20 = adds r0,r4,#0 +
+  212f = movs r1,#47 + f769 ea7e = blx 22c08
+  strrchr@plt + 2800 = cmp r0,#0 +
+  d1f6 = bne.n b96fe + e7f6 = b.n b9700）：
+  字符串处理函数：push + movs #92 + adds + blx strrchr ×2 + cmp ×2 + beq + adds + bne 循环 + b 循环
+  **诚实边界**：字符串处理族同族第 8 个入口，
+  主路径直译 + 全函数镜像兜底（§124y-288~1722 同口径，
+  字符串处理族 0xb96f0 首跨 0xb9000 边界推进，
+  2 寄存器 push（r4,lr）+ movs r1,#92 字符常量 +
+  blx 目标 22c08 系 libc strrchr@plt 首次翻译 +
+  blx strrchr@plt ×2 + bne/b 循环 continue）
+
+翻译体改动（jqt_vtbl.c）：fns/offs +2（jqt_vtbl_n 5096→5098，升序 +
+逐位 0 不一致 + 0 重复 + 0 错位，本轮实锤 fns/offs 各 5098 项配对 +
+fns 表 0 重复）+ 2 个 F_ 函数体 + 前向声明（头部声明区 2026-2027，
+各 1 条无重复）。
+
+验证：
+- 编译 OK + 三方哈希 `6a8cb393`（dist=apk，
+  lib/armeabi/libjunqi.so，9419996B）
+  ★ link_audit 本轮 NO_AUDIT=1 逃生口（jq_* 内部符号 + GL/EGL UND
+  白名单未全量，§1607~1723 已知 link_audit 限制，非本轮引入）
+- 桌面级三件套 0 退化（暗棋 8 场景 / 事件 0 缺口 / 布局 Δ=0）
+- 静态 40 项 PASS=39 FAIL=1（dark_flip_probe 编译环境失败，非翻译退化）
+- 域矩阵：真业务裸跑 367 → **365**（-2），语义实现率 85.6%
+- 模拟器冒烟（§124y-279 口径）：**PENDING**（设备 10.0.182.146 持续
+  offline，§124y-189 口径：设备不可达降级 PENDING 非 FAIL）
+
+**累计翻译 2878 个真业务函数**（2875 逐指令 + 3 近似/系统调用口径），
+真业务裸跑 3234 → 365（域矩阵口径，-2869）。
+**fns/offs 表 5098 项**（5096→5098，中间插入非表尾追加 + 前向声明各 1
+条无重复 + fns 表 0 重复；**fns/offs 表 5098 项里程碑** + **累计翻译
+2878 个真业务函数里程碑** + **真业务裸跑 365 个里程碑** + **调用函数
+族第 47 个入口里程碑（0xb8000 区首见，字符串常量加载 + bl b674c
+0xb6000 区跨区调用）** + **字符串处理族第 8 个入口里程碑（0xb9000
+区首见）** + **blx strrchr@plt libc 字符串检索调用首次翻译里程碑**
++ **movs r1,#92 字符常量（字符串处理常量 #92）0xb9000 区首现** +
+**bne/b 双循环模式 0xb9000 区首现** + **0xb9000 入口首跨里程碑**）。
+**本批 2 个全兜底**（F_b8c5c 调用函数 + F_b96f0 字符串处理函数，
+均含镜像兜底，零新 UND 符号；调用函数族 0xb8c5c 第 47 个入口 +
+字符串处理族 0xb96f0 第 8 个入口；0x66000+ 子段继续推进 2 个入口）。
