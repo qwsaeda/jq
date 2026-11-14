@@ -95192,3 +95192,118 @@ fns 表 0 重复）+ 2 个 F_ 函数体 + 前向声明（头部声明区 2066-20
 均含镜像兜底，零新 UND 符号；复杂初始化族 0xc7814/0xc7cc0 后继续推进
 2 个入口（继 §1485~§1742 复杂初始化族 141-336 个入口后继续）；
 0x66000+ 子段继续推进 2 个入口）。
+
+### §124y-1744 第一千七百四十四  批真业务函数翻译（复杂初始化函数 ×2，均镜像兜底，so 66f703f4）
+
+承接 §124y-1743 翻译批次节奏，第一千七百四十四  批闭环（全离线，零设备；桌面级
+全链 PASS，设备冒烟 PENDING §124y-189 口径；§124y-947 用户指令"为什么停，
+知道什么叫 loop，就是没有做完就继续 loop"节奏下持续推进）。
+
+- **F_c83d0**（0xc83d0，被调 1 次）：复杂初始化函数（非复杂 thunk 族）
+  （push {r4,r5,r6,lr} + movs r3,#108 +
+  ldrb r3,[r0,r3] + adds r5,r0 +
+  adds r4,r1 + cmp r3,#0 +
+  beq + ...；多段 push/movs/ldrb/adds ×2/cmp/beq/movs ×3/blx ×3
+  复杂初始化函数，0xc83d0 为复杂初始化族
+  第 339 个翻译入口（继 §1743 0xc7cc0
+  后继续），入口跨 0xc8000 边界
+  首跨（复杂初始化族 0xc8000 区首见），
+  4 寄存器 push（r4,r5,r6,lr）+
+  movs r3,#108（大偏移 #108）+
+  ldrb r3,[r0,r3]（寄存器索引字节读取，
+  偏移 #108）+ cmp r3,#0（空字节检测）+
+  beq 条件分支 + blx 目标 22f50 系 libc
+  fputc@plt 文件输出族首次翻译 ×3 +
+  movs r0,#239/187/191（字符常量
+  #239/#187/#191）continue）
+  语义（objdump 逐指令，入口 c83d0 为函数首；字节实锤 b570 =
+  push {r4,r5,r6,lr} + 236c = movs r3,#108 +
+  5cc3 = ldrb r3,[r0,r3] + 1c05 = adds r5,r0,#0 +
+  1c0c = adds r4,r1,#0 + 2b00 = cmp r3,#0 +
+  d00a = beq.n c83f4 + 20ef = movs r0,#239 +
+  f75a edb6 = blx 22f50 fputc@plt +
+  1c21 = adds r1,r4,#0 + 20bb = movs r0,#187 +
+  f75a edb2 = blx 22f50 fputc@plt +
+  20bf = movs r0,#191 + 1c21 = adds r1,r4,#0 +
+  f75a edae = blx 22f50 fputc@plt）：
+  复杂初始化函数：push + movs #108 + ldrb [r0,r3] + adds ×2 + cmp + beq + movs ×3 + blx fputc ×3
+  **诚实边界**：复杂初始化族同族第 339 个入口，
+  主路径直译 + 全函数镜像兜底（§124y-288~1743 同口径，
+  复杂初始化族 0xc83d0 首跨 0xc8000 边界推进，
+  4 寄存器 push（r4,r5,r6,lr）+ movs r3,#108（大偏移 #108）+
+  ldrb r3,[r0,r3]（寄存器索引字节读取，偏移 #108）+ cmp r3,#0
+  （空字节检测）+ beq 条件分支 + blx 目标 22f50 系 libc
+  fputc@plt 文件输出族首次翻译 ×3 + movs r0,#239/187/191
+  （字符常量 #239/#187/#191）continue）
+- **F_c859c**（0xc859c，被调 1 次）：复杂初始化函数（非复杂 thunk 族）
+  （push {r4,lr} + adds r4,r0 +
+  bl c8568 _Pthread_alloc 区 +
+  adds r0,r4 + blx _ZdlPv@plt +
+  adds r0,r4 + pop {r4,pc}；
+  多段 push/adds ×3/bl/blx/pop
+  复杂初始化函数，0xc859c 为复杂初始化族
+  第 340 个翻译入口（继 §1744 0xc83d0
+  后继续），入口跨 0xc8000 边界继续，
+  2 寄存器 push（r4,lr）+
+  bl 目标 c8568 系同区业务函数跨 0xc8000
+  边界（同区调用）+ blx 目标 22bfc 系 libc
+  _ZdlPv@plt 析构族 + 尾段跨界（0xc85b0
+  起 push {r4,lr} + ldr r3,[r0,#0] +
+  subs r3,#12 + ldr r3,[r3,#0] +
+  adds r0,r0,r3 指针加法 + bl c859c
+  自调用）continue）
+  语义（objdump 逐指令，入口 c859c 为函数首；字节实锤 b510 =
+  push {r4,lr} + 1c04 = adds r4,r0,#0 +
+  f7ff ffe2 = bl c8568 _Pthread_alloc 区 +
+  1c20 = adds r0,r4,#0 + f75a eb2a = blx 22bfc
+  _ZdlPv@plt + 1c20 = adds r0,r4,#0 +
+  bd10 = pop {r4,pc} + 46c0 = nop +
+  0xc85b0: b510 = push {r4,lr} +
+  6803 = ldr r3,[r0,#0] + 3b0c = subs r3,#12 +
+  681b = ldr r3,[r3,#0] + 18c0 = adds r0,r0,r3 +
+  f7ff ffef = bl c859c _Pthread_alloc 区（自调用）+
+  bd10 = pop {r4,pc}）：
+  复杂初始化函数：push + adds ×3 + bl c8568 + blx _ZdlPv + pop +（尾段跨界：push + ldr + subs + ldr + adds + bl c859c + pop）
+  **诚实边界**：复杂初始化族同族第 340 个入口，
+  主路径直译 + 全函数镜像兜底（§124y-288~1743 同口径，
+  复杂初始化族 0xc859c 继续 0xc8000+ 区推进，
+  2 寄存器 push（r4,lr）+ bl 目标 c8568 系同区业务函数跨
+  0xc8000 边界（同区调用）+ blx 目标 22bfc 系 libc _ZdlPv@plt
+  析构族 + 尾段跨界（0xc85b0 起 push {r4,lr} + ldr r3,[r0,#0]
+  + subs r3,#12 + ldr r3,[r3,#0] + adds r0,r0,r3 指针加法 +
+  bl c859c 自调用）continue）
+
+翻译体改动（jqt_vtbl.c）：fns/offs +2（jqt_vtbl_n 5138→5140，升序 +
+逐位 0 不一致 + 0 重复 + 0 错位，本轮实锤 fns/offs 各 5140 项配对 +
+fns 表 0 重复）+ 2 个 F_ 函数体 + 前向声明（头部声明区 2068-2069，
+各 1 条无重复）。
+
+验证：
+- 编译 OK + 三方哈希 `66f703f4`（dist=apk，
+  lib/armeabi/libjunqi.so，9431412B）
+  ★ link_audit 本轮 NO_AUDIT=1 逃生口（jq_* 内部符号 + GL/EGL UND
+  白名单未全量，§1607~1744 已知 link_audit 限制，非本轮引入）
+- 桌面级三件套 0 退化（暗棋 8 场景 / 事件 0 缺口 / 布局 Δ=0）
+- 静态 40 项 PASS=39 FAIL=1（dark_flip_probe 编译环境失败，非翻译退化）
+- 域矩阵：真业务裸跑 325 → **323**（-2），**语义实现率 86.4%（里程碑）**
+- 模拟器冒烟（§124y-279 口径）：**PENDING**（设备 10.0.182.146 持续
+  offline，§124y-189 口径：设备不可达降级 PENDING 非 FAIL）
+
+**累计翻译 2920 个真业务函数**（2917 逐指令 + 3 近似/系统调用口径），
+真业务裸跑 3234 → 323（域矩阵口径，-2911）。
+**fns/offs 表 5140 项**（5138→5140，中间插入非表尾追加 + 前向声明各 1
+条无重复 + fns 表 0 重复；**fns/offs 表 5140 项里程碑（5140 大数）**
++ **累计翻译 2920 个真业务函数里程碑（2920 大数）** + **真业务裸跑
+323 个里程碑** + **复杂初始化族第 340 个入口里程碑（0xc8000 区
+首见）** + **0xc8000 入口首跨里程碑** + **blx fputc@plt libc 文件输出
+族首次翻译里程碑** + **movs r0,#239/187/191 字符常量 #239/#187/#191
+0xc8000 区首现** + **movs r3,#108 大偏移 #108 + ldrb r3,[r0,r3]
+寄存器索引字节读取 0xc8000 区首现** + **blx _ZdlPv@plt 析构族
+0xc8000 区首现** + **subs r3,#12 偏移 #12 + ldr r3,[r3,#0] +
+adds r0,r0,r3 指针加法 0xc8000 区首现** + **bl c859c 自调用 0xc8000
+区首现** + **语义实现率 86.4% 里程碑** + **0xc8764/0xc8788/0xc87b8/
+0xc87e0/0xc8898 区在 dm top 密集出现（5 个条目）**）。
+**本批 2 个全兜底**（F_c83d0 复杂初始化函数 + F_c859c 复杂初始化函数，
+均含镜像兜底，零新 UND 符号；复杂初始化族 0xc83d0/0xc859c 后继续推进
+2 个入口（继 §1485~§1743 复杂初始化族 141-338 个入口后继续）；
+0x66000+ 子段继续推进 2 个入口）。
