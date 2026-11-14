@@ -2461,3 +2461,22 @@ OnCreate 主线程被该钩子段拖住（转译层 property 读取 + 自动走 
 - rule_text_conformance（/tmp/opencode/rule_text_conformance.c，规则原文逐条
   机判 33 项）/ evverify 172/172 / regress.py 50局+悔棋20 / rulestest / gametest /
   dark_flip_test / draw_exist_test / dark_fullgame / flip_* 全 PASS。
+
+### 6. 吃子结果判定 0x31de0 函数（2026-11-14，原版事件名分发实证）
+- 走子执行（0x3a15c 交换 + Junqi.Move）后，**结果判定**在 0x31de0 区函数：
+  读双格 1B rank 数组（`ldrb [from]/[to]`，0x31e14-0x31e2a 读 4 个 rank 到
+  r9/r8/r11/r10）+ 1B 标志数组（`[r4+0x31f30 offset]`→r9、`[+0x31f34]`→r8）：
+  · **0x31e94 `cmp r9,r8 beq → 发 0x120f50 "Junqi.Eat"`**（rank 相等 + 标志
+    相等 = 同级同归，原版事件 = **Eat** 非 Bomb）；
+  · 0x31f0e 区 `cmp r3,#12`（军旗域）→ 0x31f14 发 "Junqi.Dead"（0x31f58 实锤，
+    非 mask 口径 0x120f58 区串）；
+  · 0x31eba 区 `strb 1,[r2,#8]` + 0x31ec8 发 "Junqi.Bomb"（0x31f54 区 0x120f48）。
+- **对照 64 位（B01-032 P1 诚实标注）**：同级普通子互杀事件码 = EV_BOMB
+  （音效播'炸弹'），原版 = EV_EAT（rank 相等判 Eat）→ **64 位事件分类口径
+  与原版分叉**（音效差异：同级互杀原版播 Eat 声 / 64 位播 Bomb 声）。
+  规则层胜负判定无差异（同级两格清空一致），仅事件名/音效分叉。
+  修法（改 jq_try_move 同级分支 ev=EV_EAT + 音效映射）需同步 evverify
+  同级夹具期望（:817 EV_BOMB 基准），留待下一轮专项（本轮实证入档）。
+- 0x69be4/0x69c08 = libstdc++ 内部短例程（.text 0x69xxx 区，非 PLT），
+  前段误判为 memcpy——修正：其"rank 比较"实为 libstdc++ 比较器（无业务语义），
+  真正的吃子结果判定 = 0x31de0 函数（事件名分发实证见上）。
