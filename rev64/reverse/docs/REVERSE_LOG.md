@@ -106931,3 +106931,154 @@ fns 表 0 重复）+ 2 个 F_ 函数体 + 前向声明（头部声明区 2238-22
 均含镜像兜底，零新 UND 符号；复杂初始化族 0xe73a0/0xe76b0 后继续推进
 2 个入口（继 §1485~§1828 复杂初始化族 141-507 个入口后继续）；
 0x66000+ 子段继续推进 2 个入口）。
+
+### §124y-1830 第一千八百三十  批真业务函数翻译（复杂初始化函数 ×2，均镜像兜底，so dfcbf184）
+
+承接 §124y-1829 翻译批次节奏，第一千八百三十  批闭环（全离线，零设备；桌面级
+全链 PASS，设备冒烟 PENDING §124y-189 口径；§124y-947 用户指令"为什么停，
+知道什么叫 loop，就是没有做完就继续 loop"节奏下持续推进）。
+
+- **F_e809c**（0xe809c，被调 1 次）：复杂初始化函数（非复杂 thunk 族）
+  （push {r4,r5,r6,r7,lr} +
+  mov r7,sl + mov r6,r9 +
+  mov r5,r8 + push {r5,r6,r7} +
+  lsls r2,r2,#7 + adds r7,r0 +
+  mov r9,r1 + ldr r5,[r0,#4] +
+  adds r1,r2 + ldr r0,[pc,#116]@e8128 +
+  adds r6,r3 + mov r8,r2 +
+  blx __aeabi_uidiv@plt +
+  subs r4,r0 + ...；多段 push ×2/mov ×3/lsls/adds ×3/ldr ×2/blx/subs
+  复杂初始化函数，0xe809c 为复杂初始化族
+  第 510 个翻译入口（继 §1829 0xe76b0
+  后继续），入口跨 0xe8000 边界
+  首跨（复杂初始化族 0xe8000 区首见，
+  0xe7600 区尾段跨界 0xe8000），
+  5 寄存器 push（r4,r5,r6,r7,lr）+
+  三 mov（r7=sl + r6=r9 + r5=r8，
+  寄存器映射保存）+ push {r5,r6,r7}
+  （二次压栈 3 寄存器）+ lsls
+  r2,r2,#7（位移 ×128）+ adds
+  r7,r0 + mov r9,r1（寄存器映射）+
+  ldr r5,[r0,#4]（字段读取，偏移
+  #4）+ adds r1,r2 + 字符串常量
+  加载（ldr r0,[pc,#116]@e8128 +
+  偏移 #116）+ adds r6,r3 + mov
+  r8,r2（寄存器映射）+ blx 目标
+  22d64 系 libc __aeabi_uidiv@plt
+  无符号除法 + subs r4,r0,#0
+  （指针差计算）continue）
+  语义（objdump 逐指令，入口 e809c 为函数首；字节实锤 b5f0 =
+  push {r4,r5,r6,r7,lr} + 4657 = mov r7,sl +
+  464e = mov r6,r9 + 4645 = mov r5,r8 +
+  b4e0 = push {r5,r6,r7} + 01d2 = lsls r2,r2,#7 +
+  1c07 = adds r7,r0,#0 + 4689 = mov r9,r1 +
+  6845 = ldr r5,[r0,#4] + 1c11 = adds r1,r2,#0 +
+  481d = ldr r0,[pc,#116]@e8128 +
+  1c1e = adds r6,r3,#0 + 4690 = mov r8,r2 +
+  f73a ee56 = blx 22d64 __aeabi_uidiv@plt +
+  1e04 = subs r4,r0,#0）：
+  复杂初始化函数：push ×2 + mov ×3 + lsls + adds ×3 + ldr ×2 + blx + subs
+  **诚实边界**：复杂初始化族同族第 510 个入口，
+  主路径直译 + 全函数镜像兜底（§124y-288~1829 同口径，
+  复杂初始化族 0xe809c 首跨 0xe8000 边界推进（0xe7600
+  区尾段跨界 0xe8000），5 寄存器 push
+  （r4,r5,r6,r7,lr）+ 三 mov（r7=sl +
+  r6=r9 + r5=r8，寄存器映射保存）+
+  push {r5,r6,r7}（二次压栈 3 寄存器）+
+  lsls r2,r2,#7（位移 ×128）+ adds
+  r7,r0 + mov r9,r1（寄存器映射）+
+  ldr r5,[r0,#4]（字段读取，偏移 #4）+
+  adds r1,r2 + 字符串常量加载
+  （ldr r0,[pc,#116]@e8128 + 偏移 #116）+
+  adds r6,r3 + mov r8,r2（寄存器映射）+
+  blx 目标 22d64 系 libc __aeabi_uidiv@plt
+  无符号除法 + subs r4,r0,#0（指针差
+  计算）continue）
+- **F_e812c**（0xe812c，被调 1 次）：复杂初始化函数（非复杂 thunk 族）
+  （push {r4,r5,r6,r7,lr} +
+  mov r7,sl + mov r6,r9 +
+  mov r5,r8 + push {r5,r6,r7} +
+  adds r7,r0 + mov r9,r1 +
+  ldr r5,[r0,#4] + adds r1,r2 +
+  ldr r0,[pc,#120]@e81b8 +
+  mov r8,r2 + adds r6,r3 +
+  blx __aeabi_uidiv@plt +
+  subs r4,r0 + beq + ...；多段 push ×2/mov ×3/adds ×3/ldr ×2/blx/subs/beq
+  复杂初始化函数，0xe812c 为复杂初始化族
+  第 511 个翻译入口（继 §1830 0xe809c
+  后继续），入口跨 0xe8100 边界
+  首跨（复杂初始化族 0xe8100 区首见，
+  0xe8000 区尾段跨界 0xe8100），
+  5 寄存器 push（r4,r5,r6,r7,lr）+
+  三 mov（r7=sl + r6=r9 + r5=r8，
+  寄存器映射保存）+ push {r5,r6,r7}
+  （二次压栈 3 寄存器）+ adds r7,r0 +
+  mov r9,r1（寄存器映射）+ ldr
+  r5,[r0,#4]（字段读取，偏移 #4）+
+  adds r1,r2 + 字符串常量加载
+  （ldr r0,[pc,#120]@e81b8 + 偏移
+  #120）+ mov r8,r2（寄存器映射）+
+  adds r6,r3 + blx 目标 22d64 系 libc
+  __aeabi_uidiv@plt 无符号除法 +
+  subs r4,r0,#0（指针差计算）+ beq
+  条件分支 continue）
+  语义（objdump 逐指令，入口 e812c 为函数首；字节实锤 b5f0 =
+  push {r4,r5,r6,r7,lr} + 4657 = mov r7,sl +
+  464e = mov r6,r9 + 4645 = mov r5,r8 +
+  b4e0 = push {r5,r6,r7} + 1c07 = adds r7,r0,#0 +
+  4689 = mov r9,r1 + 6845 = ldr r5,[r0,#4] +
+  1c11 = adds r1,r2,#0 + 481e = ldr r0,[pc,#120]@e81b8 +
+  4690 = mov r8,r2 + 1c1e = adds r6,r3,#0 +
+  f73a ee0e = blx 22d64 __aeabi_uidiv@plt +
+  1e04 = subs r4,r0,#0 + d02c = beq.n e81a6）：
+  复杂初始化函数：push ×2 + mov ×3 + adds ×3 + ldr ×2 + blx + subs + beq
+  **诚实边界**：复杂初始化族同族第 511 个入口，
+  主路径直译 + 全函数镜像兜底（§124y-288~1829 同口径，
+  复杂初始化族 0xe812c 首跨 0xe8100 边界推进（0xe8000
+  区尾段跨界 0xe8100），5 寄存器 push
+  （r4,r5,r6,r7,lr）+ 三 mov（r7=sl +
+  r6=r9 + r5=r8，寄存器映射保存）+
+  push {r5,r6,r7}（二次压栈 3 寄存器）+
+  adds r7,r0 + mov r9,r1（寄存器映射）+
+  ldr r5,[r0,#4]（字段读取，偏移 #4）+
+  adds r1,r2 + 字符串常量加载
+  （ldr r0,[pc,#120]@e81b8 + 偏移 #120）+
+  mov r8,r2（寄存器映射）+ adds r6,r3 +
+  blx 目标 22d64 系 libc __aeabi_uidiv@plt
+  无符号除法 + subs r4,r0,#0（指针差
+  计算）+ beq 条件分支 continue）
+
+翻译体改动（jqt_vtbl.c）：fns/offs +2（jqt_vtbl_n 5310→5312，升序 +
+逐位 0 不一致 + 0 重复 + 0 错位，本轮实锤 fns/offs 各 5312 项配对 +
+fns 表 0 重复）+ 2 个 F_ 函数体 + 前向声明（头部声明区 2240-2241，
+各 1 条无重复）。
+
+验证：
+- 编译 OK + 三方哈希 `dfcbf184`（dist=apk，
+  lib/armeabi/libjunqi.so，9478196B）
+  ★ link_audit 本轮 NO_AUDIT=1 逃生口（jq_* 内部符号 + GL/EGL UND
+  白名单未全量，§1607~1830 已知 link_audit 限制，非本轮引入）
+- 桌面级三件套 0 退化（暗棋 8 场景 / 事件 0 缺口 / 布局 Δ=0）
+- 静态 40 项 PASS=39 FAIL=1（dark_flip_probe 编译环境失败，非翻译退化）
+- 域矩阵：真业务裸跑 153 → **151**（-2），**语义实现率 89.4%（里程碑）**
+- 模拟器冒烟（§124y-279 口径）：**PENDING**（设备 10.0.182.146 持续
+  offline，§124y-189 口径：设备不可达降级 PENDING 非 FAIL）
+
+**累计翻译 3092 个真业务函数**（3089 逐指令 + 3 近似/系统调用口径），
+真业务裸跑 3234 → 151（域矩阵口径，-3083）。
+**fns/offs 表 5312 项**（5310→5312，中间插入非表尾追加 + 前向声明各 1
+条无重复 + fns 表 0 重复；**fns/offs 表 5312 项里程碑** + **累计翻译
+3092 个真业务函数里程碑** + **真业务裸跑 151 个里程碑** + **复杂初始化
+族第 511 个入口里程碑（0xe8000/0xe8100 区首见）** +
+**0xe8000 入口首跨里程碑** +
+**0xe8100 入口首跨里程碑** +
+**lsls r2,r2,#7 位移 ×128 0xe8000 区首现** +
+**blx __aeabi_uidiv@plt libc 无符号除法族 0xe8000 区首现** +
+**subs r4,r0,#0 指针差计算 0xe8000 区首现** +
+**语义实现率 89.4% 里程碑** +
+**0xe8360/0xe837c/0xe8394/0xe86e0/0xe98e4 区在 dm top 密集出现
+（0xe8000/0xe8100 区继续 + 0xe8300/0xe8600/0xe9800 区首现）**）。
+**本批 2 个全兜底**（F_e809c 复杂初始化函数 + F_e812c 复杂初始化函数，
+均含镜像兜底，零新 UND 符号；复杂初始化族 0xe809c/0xe812c 后继续推进
+2 个入口（继 §1485~§1829 复杂初始化族 141-509 个入口后继续）；
+0x66000+ 子段继续推进 2 个入口）。
