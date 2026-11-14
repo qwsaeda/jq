@@ -3110,3 +3110,34 @@ jq_rs_rules.c 注释定论。
   悔棋栈（jni_bridge g_undo 的 undo_push/undo_pop 帧管理）在本用例走 jq_undo_restore
   快照契约（非 jni_bridge 帧栈），完整 undo_push/pop 帧链路（悔棋连续 pop 到 BLUE，
   AUD 对抗审计既有）非本用例范围。
+
+### 37. 游戏设置 4 规则开关开/关分支行为级实证 + 验证方案扩到 22 项（2026-11-14）
+- **4 规则开关关闭分支独立覆盖**（dark_rule_switch_test，4 场景开/关对照）：补
+  现有用例仅覆盖开关开（默认 1）路径的缺口（rule_text_conformance/draw_exist_test
+  全走开关开，§P1 datah_012 开关关闭分支无独立用例）：
+  ① 和棋开关（which=0 g_rule_draw）：§519 `if(cfg(0)&&70步/1000步)jq_on_draw`
+     ——开=69→70 步判和(DRAW) / 关=不判和(PLAY)✓；
+  ② 吃地雷开关（which=2 g_rule_mine）：§746 工兵撞雷——开=EV_MINE工兵进雷格
+     (mines_cleared++) / 关=EV_DEAD工兵送死雷留（"关开关=工兵撞雷必死"）✓；
+  ③ 吃军旗开关（which=3 g_rule_flag）：§709 `if(cfg(3))jq_on_flag_capture`
+     ——开=EV_FLAG终局胜(OVER+BLUE) / 关=EV_FLAG走子不终局(PLAY+NONE，旗被攻子
+     覆盖但不判胜)✓；
+  ④ 暗棋开关（which=4 g_rule_dark）：§292/310 `mode==FLIP&&cfg(4)`——开=非工兵
+     未挖雷扛旗拒(暗棋门槛) / 关=明棋语义放行(can=1)✓。
+- **夹具口径固化（防困毙掩盖开关效果）**：和棋/扛旗场景放"双方有子"
+  （红 rank1@50），防单侧无子触发 jq_on_stalemate 困毙判胜掩盖和棋/扛旗开关
+  判定（首版诊断②夹具红无子→红困毙→蓝胜，误读为"开关关仍判和"，实为困毙路径；
+  修正夹具后开关关正确不判和）。
+- **对照 64 位实现**（rules.c 4 开关读点 §519/746/709/292/310 + 桌面桩
+  ui_state_stub.c ui_rule_*_set 可改）：4 开关开/关分支行为级 0 分叉。
+- **dark_rule_switch_test 复用进 dark_align**：dark_align_regress.sh
+  21→**22 项** PASS（规则原文 33 + 21 用例）。
+- **对齐验证方案三层"总结复用"终态（本轮复用确认）**：① make evverify
+  172/172 + 三件套（event_code 0 缺口 / layout 几何 Δ=0）/ ②
+  `dark_align_regress.sh` **22/22**（桌面 0 退化门禁）/ ③
+  `mumu_align_smoke.sh --dev 127.0.0.1:5556` **2/2 + 0 崩溃**（redroid 冒烟口径）。
+- **诚实边界**：本轮未改 rules.c 行为（4 开关分支均为 §P1 datah_012 既成实现，
+  纯补验证用例防回归），so 无需重建；规则层调 UI 层开关（§46-49 AUD-R-032 耦合，
+  非纯函数无法做规则矩阵回归）维持既有诚实标注（开关抽到 jq_state 分层重构
+  留待下一轮）；大本营开关（which=1 g_rule_hq，§237 大本营冻结）关闭分支未在本
+  用例覆盖（低价值——大本营冻结关闭=子进大本营后仍可动，边缘场景）。
