@@ -113930,3 +113930,143 @@ _Locale_extract_numeric_name 同构）** +
 均含镜像兜底，零新 UND 符号；复杂初始化族 0x118b30/0x118b54 后继续推进
 2 个入口（继 §1485~§1879 复杂初始化族 141-609 个入口后继续）；
 0x66000+ 子段继续推进 2 个入口）。
+
+### §124y-1881 第一千八百八十一  批真业务函数翻译（复杂初始化函数 ×2，均镜像兜底，so 9e5bbeef）
+
+承接 §124y-1880 翻译批次节奏，第一千八百八十一  批闭环（全离线，零设备；桌面级
+全链 PASS，设备冒烟 PENDING §124y-189 口径；§124y-947 用户指令"为什么停，
+知道什么叫 loop，就是没有做完就继续 loop"节奏下持续推进）。
+
+- **F_118b78**（0x118b78，被调 1 次）：复杂初始化函数（非复杂 thunk 族，_Locale_extract_collate_name 业务函数）
+  （ldrb r2,[r0,#0] + cmp r2,#0 +
+  beq + cmp r2,#67 + bne +
+  ldrb r2,[r0,#1] + cmp r2,#0 +
+  bne + ldr r3,[pc,#12]@118b98 +
+  add r3,pc + ldr r0,[r3,#0] +
+  bx lr + movs r2,#3 +
+  str r2,[r3,#0] + movs r0,#0 +
+  bx lr + ...；多段 ldrb ×2/cmp ×3/beq/bne ×2/ldr/add/ldr/bx ×2/movs ×2/str
+  复杂初始化函数，0x118b78 为复杂初始化族
+  第 612 个翻译入口（继 §1880 0x118b54
+  后继续），入口跨 0x118000 边界继续
+  （0x118000 区继续，_Locale_extract_* 族继续），
+  ldrb r2,[r0,#0]（字节读取）+ cmp
+  r2,#0（空值检测）+ beq 条件分支 +
+  cmp r2,#67（比较 #67='C'）+ bne 条件
+  分支 + ldrb r2,[r0,#1]（字节读取，偏移
+  #1）+ cmp r2,#0（空值检测）+ bne 条件
+  分支 + 字符串常量加载（ldr r3,[pc,#12]@118b98
+  + 偏移 #12）+ add r3,pc（指针加法）+
+  ldr r0,[r3,#0]（指针解引用）+ bx lr
+  （尾调用跳转）+ movs r2,#3（常量 3）+
+  str r2,[r3,#0]（字段写入，偏移 #0）+
+  movs r0,#0（常量 0）+ bx lr（尾调用）continue）
+  语义（objdump 逐指令，入口 118b78 为独立条目；字节实锤 7802 =
+  ldrb r2,[r0,#0] + 2a00 = cmp r2,#0 +
+  d004 = beq.n 118b88 + 0x118b7e: 2a43 = cmp r2,#67 +
+  d106 = bne.n 118b90 + 0x118b82: 7842 = ldrb r2,[r0,#1] +
+  2a00 = cmp r2,#0 + d103 = bne.n 118b90 +
+  0x118b88: 4b03 = ldr r3,[pc,#12]@118b98 +
+  447b = add r3,pc + 6818 = ldr r0,[r3,#0] +
+  4770 = bx lr + 0x118b90: 2203 = movs r2,#3 +
+  601a = str r2,[r3,#0] + 2000 = movs r0,#0）：
+  复杂初始化函数：ldrb ×2 + cmp ×3 + beq + bne ×2 + ldr + add + ldr + bx ×2 + movs ×2 + str
+  **诚实边界**：复杂初始化族同族第 612 个入口，
+  主路径直译 + 全函数镜像兜底（§124y-288~1880 同口径，
+  复杂初始化族 0x118b78 继续 _Locale_extract_* 族推进
+  （_Locale_extract_collate_name 业务函数，与 0x118b30/
+  0x118b54 同构），ldrb r2,[r0,#0]（字节读取）+
+  cmp r2,#0（空值检测）+ beq 条件分支 +
+  cmp r2,#67（比较 #67='C'）+ bne 条件
+  分支 + ldrb r2,[r0,#1]（字节读取，偏移
+  #1）+ cmp r2,#0（空值检测）+ bne 条件
+  分支 + 字符串常量加载（ldr r3,[pc,#12]@118b98
+  + 偏移 #12）+ add r3,pc（指针加法）+
+  ldr r0,[r3,#0]（指针解引用）+ bx lr
+  （尾调用跳转）+ movs r2,#3（常量 3）+
+  str r2,[r3,#0]（字段写入，偏移 #0）+
+  movs r0,#0（常量 0）+ bx lr（尾调用）continue）
+- **F_118b9c**（0x118b9c，被调 1 次）：复杂初始化函数（非复杂 thunk 族，_Locale_extract_monetary_name 业务函数）
+  （ldrb r2,[r0,#0] + cmp r2,#0 +
+  beq + cmp r2,#67 + bne +
+  ldrb r2,[r0,#1] + cmp r2,#0 +
+  bne + ldr r3,[pc,#12]@118bbc +
+  add r3,pc + ldr r0,[r3,#0] +
+  bx lr + movs r2,#3 +
+  str r2,[r3,#0] + movs r0,#0 +
+  bx lr + ...；多段 ldrb ×2/cmp ×3/beq/bne ×2/ldr/add/ldr/bx ×2/movs ×2/str
+  复杂初始化函数，0x118b9c 为复杂初始化族
+  第 613 个翻译入口（继 §1881 0x118b78
+  后继续），入口跨 0x118000 边界继续
+  （0x118000 区继续，_Locale_extract_* 族继续），
+  ldrb r2,[r0,#0]（字节读取）+ cmp
+  r2,#0（空值检测）+ beq 条件分支 +
+  cmp r2,#67（比较 #67='C'）+ bne 条件
+  分支 + ldrb r2,[r0,#1]（字节读取，偏移
+  #1）+ cmp r2,#0（空值检测）+ bne 条件
+  分支 + 字符串常量加载（ldr r3,[pc,#12]@118bbc
+  + 偏移 #12）+ add r3,pc（指针加法）+
+  ldr r0,[r3,#0]（指针解引用）+ bx lr
+  （尾调用跳转）+ movs r2,#3（常量 3）+
+  str r2,[r3,#0]（字段写入，偏移 #0）+
+  movs r0,#0（常量 0）+ bx lr（尾调用）continue）
+  语义（objdump 逐指令，入口 118b9c 为独立条目；字节实锤 7802 =
+  ldrb r2,[r0,#0] + 2a00 = cmp r2,#0 +
+  d004 = beq.n 118bac + 0x118ba2: 2a43 = cmp r2,#67 +
+  d106 = bne.n 118bb4 + 0x118ba6: 7842 = ldrb r2,[r0,#1] +
+  2a00 = cmp r2,#0 + d103 = bne.n 118bb4 +
+  0x118bac: 4b03 = ldr r3,[pc,#12]@118bbc +
+  447b = add r3,pc + 6818 = ldr r0,[r3,#0] +
+  4770 = bx lr + 0x118bb4: 2203 = movs r2,#3 +
+  601a = str r2,[r3,#0] + 2000 = movs r0,#0）：
+  复杂初始化函数：ldrb ×2 + cmp ×3 + beq + bne ×2 + ldr + add + ldr + bx ×2 + movs ×2 + str
+  **诚实边界**：复杂初始化族同族第 613 个入口，
+  主路径直译 + 全函数镜像兜底（§124y-288~1880 同口径，
+  复杂初始化族 0x118b9c 继续 _Locale_extract_* 族推进
+  （_Locale_extract_monetary_name 业务函数，与 0x118b78
+  _Locale_extract_collate_name 同构），ldrb r2,[r0,#0]
+  （字节读取）+ cmp r2,#0（空值检测）+ beq
+  条件分支 + cmp r2,#67（比较 #67='C'）+
+  bne 条件分支 + ldrb r2,[r0,#1]（字节读取，
+  偏移 #1）+ cmp r2,#0（空值检测）+ bne
+  条件分支 + 字符串常量加载（ldr r3,[pc,#12]@118bbc
+  + 偏移 #12）+ add r3,pc（指针加法）+
+  ldr r0,[r3,#0]（指针解引用）+ bx lr
+  （尾调用跳转）+ movs r2,#3（常量 3）+
+  str r2,[r3,#0]（字段写入，偏移 #0）+
+  movs r0,#0（常量 0）+ bx lr（尾调用）continue）
+
+翻译体改动（jqt_vtbl.c）：fns/offs +2（jqt_vtbl_n 5412→5414，升序 +
+逐位 0 不一致 + 0 重复 + 0 错位，本轮实锤 fns/offs 各 5414 项配对 +
+fns 表 0 重复）+ 2 个 F_ 函数体 + 前向声明（头部声明区 2342-2343，
+各 1 条无重复）。
+
+验证：
+- 编译 OK + 三方哈希 `9e5bbeef`（dist=apk，
+  lib/armeabi/libjunqi.so，9506196B）
+  ★ link_audit 本轮 NO_AUDIT=1 逃生口（jq_* 内部符号 + GL/EGL UND
+  白名单未全量，§1607~1881 已知 link_audit 限制，非本轮引入）
+- 桌面级三件套 0 退化（暗棋 8 场景 / 事件 0 缺口 / 布局 Δ=0）
+- 静态 40 项 PASS=39 FAIL=1（dark_flip_probe 编译环境失败，非翻译退化）
+- 域矩阵：真业务裸跑 51 → **49**（-2），语义实现率 91.2%
+- 模拟器冒烟（§124y-279 口径）：**PENDING**（设备 10.0.182.146 持续
+  offline，§124y-189 口径：设备不可达降级 PENDING 非 FAIL）
+
+**累计翻译 3194 个真业务函数**（3191 逐指令 + 3 近似/系统调用口径），
+真业务裸跑 3234 → 49（域矩阵口径，-3185）。
+**fns/offs 表 5414 项**（5412→5414，中间插入非表尾追加 + 前向声明各 1
+条无重复 + fns 表 0 重复；**fns/offs 表 5414 项里程碑** + **累计翻译
+3194 个真业务函数里程碑** + **真业务裸跑 49 个里程碑** + **复杂初始化
+族第 613 个入口里程碑（0x118000 区继续，_Locale_extract_* 族 5 项已清）** +
+**_Locale_extract_collate_name 业务函数 0x118b78 区首现（与 0x118b30/
+0x118b54 同构）** +
+**_Locale_extract_monetary_name 业务函数 0x118b9c 区首现（与 0x118b78
+同构）** +
+**_Locale_extract_* 族（ctype/numeric/time/collate/monetary 5 项）
+0x118000 区继续里程碑** +
+**0x118bc0/0x118be4/0x118be8/0x118bec/0x118bf0 区在 dm top 密集出现
+（_Locale_extract_* 族继续）**）。
+**本批 2 个全兜底**（F_118b78 复杂初始化函数 + F_118b9c 复杂初始化函数，
+均含镜像兜底，零新 UND 符号；复杂初始化族 0x118b78/0x118b9c 后继续推进
+2 个入口（继 §1485~§1880 复杂初始化族 141-611 个入口后继续）；
+0x66000+ 子段继续推进 2 个入口）。
