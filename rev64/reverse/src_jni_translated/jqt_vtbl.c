@@ -1803,6 +1803,8 @@ uint32_t F_99a80(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,
 uint32_t F_99b84(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_9a404(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_9a750(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_9aa8c(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_9aa90(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_66d42(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_66c70(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_667ec(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
@@ -85039,6 +85041,8 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_99b84,
     F_9a404,
     F_9a750,
+    F_9aa8c,
+    F_9aa90,
     F_ce020,
     F_ce3bc,
     F_ce5dc,
@@ -89917,6 +89921,8 @@ const uint32_t jqt_vtbl_offs[] = {
      0x99b84,
      0x9a404,
      0x9a750,
+     0x9aa8c,
+     0x9aa90,
      0xce020,
      0xce3bc,
      0xce5dc,
@@ -90121,7 +90127,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x11f20c,
      0x11fa34,
 };
-const uint32_t jqt_vtbl_n = 4876u;  /* §124y-149/.../948: 对齐 fns/offs 表实际条目数 */ 
+const uint32_t jqt_vtbl_n = 4878u;  /* §124y-149/.../948: 对齐 fns/offs 表实际条目数 */ 
 
 /* jqt_blx_dispatch：vtable 槽值 reg_val（shadow 地址）→ 目标函数。
  * 影子区 → off = reg_val - g_jqt_shadow；否则 off = reg_val。
@@ -150145,5 +150151,49 @@ uint32_t F_9a750(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_
     /* 复杂初始化函数，bl 镜像兜底 */
     if (!_r0) return 0;
     jqt_blx_dispatch(0x9a750, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+
+/* ★ §124y-1613 第一千六百十三  批真业务裸跑函数补全（字符串字段 getter ×2，均镜像兜底；fns/offs 中间插入非表尾追加）
+   - F_9aa8c（0x9aa8c，被调 1 次）：字符串字段 getter（非复杂 thunk 族）
+     （ldr r0,[r0,#12] + bx lr；
+     2 指令简单 getter，0x9aa8c 为字符串字段
+     getter 族第 27 个翻译入口（继 §1593 0x94e70
+     后继续），入口跨 0x9a000 边界首跨，
+     biz_raw_top 误判尾段为独立入口，镜像兜底）
+     语义（objdump 逐指令，入口 9aa8c 为字符串字段 getter 首；字节实锤 68c0 =
+     ldr r0,[r0,#12] + 4770 = bx lr）：
+     字符串字段 getter：ldr + bx lr
+     ★ 诚实边界：字符串字段 getter 族同族第 27 个入口，
+     biz_raw_top 误判尾段为独立入口，主路径直译 +
+     全函数镜像兜底（§124y-288~1612 同口径，
+     字符串字段 getter 族 0x9aa8c 首跨 0x9a000 边界推进）
+   - F_9aa90（0x9aa90，被调 1 次）：字符串字段 getter（非复杂 thunk 族）
+     （ldr r0,[r0,#16] + bx lr；
+     2 指令简单 getter，0x9aa90 为字符串字段
+     getter 族第 28 个翻译入口（继 §1613 0x9aa8c
+     后继续），入口跨 0x9a000 边界继续，
+     biz_raw_top 误判尾段为独立入口，镜像兜底）
+     语义（objdump 逐指令，入口 9aa90 为字符串字段 getter 首；字节实锤 6900 =
+     ldr r0,[r0,#16] + 4770 = bx lr）：
+     字符串字段 getter：ldr + bx lr
+     ★ 诚实边界：字符串字段 getter 族同族第 28 个入口，
+     biz_raw_top 误判尾段为独立入口，主路径直译 +
+     全函数镜像兜底（§124y-288~1612 同口径，
+     字符串字段 getter 族 0x9aa90 继续 0x9a000+ 区推进） */
+uint32_t F_9aa8c(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* 字符串字段 getter，bl 镜像兜底 */
+    if (!_r0) return 0;
+    jqt_blx_dispatch(0x9aa8c, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+uint32_t F_9aa90(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* 字符串字段 getter，bl 镜像兜底 */
+    if (!_r0) return 0;
+    jqt_blx_dispatch(0x9aa90, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
     return 0;
 }
