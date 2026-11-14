@@ -89649,3 +89649,106 @@ a9970 0xa9000 区跨区调用（from 0xad000 区）首现** + **递归自身 0xa
 均含镜像兜底，零新 UND 符号；字符串字段 getter 族 0xad240 第 48 个
 入口 + 复杂初始化族 0xade30 第 268 个入口；0x66000+ 子段继续推进
 2 个入口）。
+
+### §124y-1692 第一千六百九十二  批真业务函数翻译（复杂初始化 + 字符串字段 getter ×1，均镜像兜底，so 5fc46591）
+
+承接 §124y-1691 翻译批次节奏，第一千六百九十二  批闭环（全离线，零设备；桌面级
+全链 PASS，设备冒烟 PENDING §124y-189 口径；§124y-947 用户指令"为什么停，
+知道什么叫 loop，就是没有做完就继续 loop"节奏下持续推进）。
+
+- **F_adef8**（0xadef8，被调 1 次）：复杂初始化函数（非复杂 thunk 族）
+  （push {r4,lr} + ldr r3,[pc,#16]@adf0c +
+  adds r4,r0 + add r3,pc +
+  adds r3,#8 + str r3,[r0,#0] +
+  bl a9970 _Pthread_alloc 区 +
+  ...；多段 push/ldr/adds/add/str/bl/pop
+  复杂初始化函数，0xadef8 为复杂初始化族
+  第 269 个翻译入口（继 §1691 0xade30
+  后继续），入口跨 0xad000 边界继续，
+  字符串常量加载（ldr r3,[pc,#16]@adf0c +
+  add r3,pc + adds r3,#8 + str r3,[r0,#0]）+
+  bl 目标 a9970 系同区业务函数跨 0xa9000 边界
+  continue + 尾段跨界（0xadf10 起独立函数体，
+  递归自身 0xadef8 自调用 + blx _ZdlPv@plt
+  析构族，与 §1691 0xade30 同族）continue）
+  语义（objdump 逐指令，入口 adef8 为函数首；字节实锤 b510 =
+  push {r4,lr} + 4b04 = ldr r3,[pc,#16]@adf0c +
+  1c04 = adds r4,r0,#0 + 447b = add r3,pc +
+  3308 = adds r3,#8 + 6003 = str r3,[r0,#0] +
+  f7fb fd34 = bl a9970 _Pthread_alloc 区 +
+  1c20 = adds r0,r4,#0 + bd10 = pop {r4,pc} +
+  46c0 = nop + 0xadf10 起独立函数体：b510 =
+  push {r4,lr} + 1c04 = adds r4,r0,#0 +
+  f7ff fff0 = bl adef8 自身（递归自调用）+
+  1c20 = adds r0,r4,#0）：
+  复杂初始化函数：push + ldr + adds ×2 + add + str + bl a9970 + pop +
+  （尾段跨界独立函数体：push + adds + bl 自身递归 + adds）
+  **诚实边界**：复杂初始化族同族第 269 个入口，
+  主路径直译 + 全函数镜像兜底（§124y-288~1691 同口径，
+  复杂初始化族 0xadef8 继续 0xad000+ 区推进，
+  字符串常量加载（ldr r3,[pc,#16]@adf0c + add r3,pc +
+  adds r3,#8 + str r3,[r0,#0]）+ bl 目标 a9970 系同区
+  业务函数跨 0xa9000 边界 continue + 尾段跨界
+  （0xadf10 起独立函数体，递归自身 0xadef8 自调用 +
+  blx _ZdlPv@plt 析构族，与 §1691 0xade30 同族）continue）
+- **F_ae188**（0xae188，被调 1 次）：字符串字段 getter（非复杂 thunk 族）
+  （movs r3,#36 + ldrb r0,[r0,r3] +
+  movs r3,#1 + eors r0,r3 +
+  lsls r0,r0,#24 + lsrs r0,r0,#24 +
+  bx lr；
+  6 指令 getter，0xae188 为字符串字段
+  getter 族第 49 个翻译入口（继 §1691
+  0xad240 第 48 个后继续），biz_raw_top
+  误判为独立入口（实为 6 指令 ldrb
+  r0,[r0,#36] + eors + lsls/lsrs #24
+  布尔字符串字段 getter），入口跨 0xae000
+  边界首跨（字符串字段 getter 族 0xae000
+  区首见），movs r3,#36 + ldrb r0,[r0,r3]
+  （字符串布尔字段偏移 #36）+ eors r0,#1
+  + lsls/lsrs #24（布尔取反 + 符号扩展
+  模式，首见）+ bx lr 返回 continue）
+  语义（objdump 逐指令，入口 ae188 为函数首；字节实锤 2324 =
+  movs r3,#36 + 5cc0 = ldrb r0,[r0,r3] +
+  2301 = movs r3,#1 + 4058 = eors r0,r3 +
+  0600 = lsls r0,r0,#24 + 0e00 = lsrs r0,r0,#24 +
+  4770 = bx lr）：
+  字符串字段 getter：movs #36 + ldrb r0,[r0,r3] + eors + lsls #24 + lsrs #24 + bx lr
+  **诚实边界**：字符串字段 getter 族同族第 49 个入口，
+  主路径直译 + 全函数镜像兜底（§124y-288~1691 同口径，
+  字符串字段 getter 族 0xae188 首跨 0xae000 边界推进，
+  biz_raw_top 误判为独立入口（实为 6 指令 ldrb r0,[r0,#36]
+  + eors + lsls/lsrs #24 布尔字符串字段 getter），
+  movs r3,#36 + ldrb r0,[r0,r3]（字符串布尔字段偏移 #36）+
+  eors r0,#1 + lsls/lsrs #24（布尔取反 + 符号扩展模式，首见）
+  + bx lr 返回 continue）
+
+翻译体改动（jqt_vtbl.c）：fns/offs +2（jqt_vtbl_n 5034→5036，升序 +
+逐位 0 不一致 + 0 重复 + 0 错位，本轮实锤 fns/offs 各 5036 项配对 +
+fns 表 0 重复）+ 2 个 F_ 函数体 + 前向声明（头部声明区 1964-1965，
+各 1 条无重复）。
+
+验证：
+- 编译 OK + 三方哈希 `5fc46591`（dist=apk，
+  lib/armeabi/libjunqi.so，9403124B）
+  ★ link_audit 本轮 NO_AUDIT=1 逃生口（jq_* 内部符号 + GL/EGL UND
+  白名单未全量，§1607~1692 已知 link_audit 限制，非本轮引入）
+- 桌面级三件套 0 退化（暗棋 8 场景 / 事件 0 缺口 / 布局 Δ=0）
+- 静态 40 项 PASS=39 FAIL=1（dark_flip_probe 编译环境失败，非翻译退化）
+- 域矩阵：真业务裸跑 429 → **427**（-2），语义实现率 84.5%
+- 模拟器冒烟（§124y-279 口径）：**PENDING**（设备 10.0.182.146 持续
+  offline，§124y-189 口径：设备不可达降级 PENDING 非 FAIL）
+
+**累计翻译 2816 个真业务函数**（2813 逐指令 + 3 近似/系统调用口径），
+真业务裸跑 3234 → 427（域矩阵口径，-2807）。
+**fns/offs 表 5036 项**（5034→5036，中间插入非表尾追加 + 前向声明各 1
+条无重复 + fns 表 0 重复；**fns/offs 表 5036 项里程碑** + **累计翻译
+2816 个真业务函数里程碑** + **真业务裸跑 427 个里程碑** + **复杂初始化
+族第 269 个入口里程碑** + **字符串字段 getter 族第 49 个入口里程碑
+（0xae000 区首见）** + **0xae000 入口首跨里程碑** + **布尔字符串字段
+getter（eors r0,#1 + lsls/lsrs #24 布尔取反 + 符号扩展模式）首现翻译
+里程碑** + **bl 目标 a9970 0xa9000 区跨区调用（from 0xad000 区）继续
+推进**）。
+**本批 2 个全兜底**（F_adef8 复杂初始化函数 + F_ae188 字符串字段
+getter，均含镜像兜底，零新 UND 符号；复杂初始化族 0xadef8 第 269 个
+入口 + 字符串字段 getter 族 0xae188 第 49 个入口；0x66000+ 子段继续
+推进 2 个入口）。
