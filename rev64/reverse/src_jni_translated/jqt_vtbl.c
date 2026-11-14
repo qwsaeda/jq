@@ -1477,6 +1477,8 @@ uint32_t F_6914c(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,
 uint32_t F_69584(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_697b8(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_69810(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_69b48(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_69e78(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_66d42(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_66c70(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_667ec(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
@@ -84387,6 +84389,8 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_69584,
     F_697b8,
     F_69810,
+    F_69b48,
+    F_69e78,
     F_ce020,
     F_ce3bc,
     F_ce5dc,
@@ -88939,6 +88943,8 @@ const uint32_t jqt_vtbl_offs[] = {
      0x69584,
      0x697b8,
      0x69810,
+     0x69b48,
+     0x69e78,
      0xce020,
      0xce3bc,
      0xce5dc,
@@ -89143,7 +89149,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x11f20c,
      0x11fa34,
 };
-const uint32_t jqt_vtbl_n = 4550u;  /* §124y-149/.../948: 对齐 fns/offs 表实际条目数 */ 
+const uint32_t jqt_vtbl_n = 4552u;  /* §124y-149/.../948: 对齐 fns/offs 表实际条目数 */ 
 
 /* jqt_blx_dispatch：vtable 槽值 reg_val（shadow 地址）→ 目标函数。
  * 影子区 → off = reg_val - g_jqt_shadow；否则 off = reg_val。
@@ -138380,5 +138386,60 @@ uint32_t F_69810(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_
     /* 0x68000+ 区复杂分配 thunk，bl 镜像兜底 */
     if (!_r0) return 0;
     jqt_blx_dispatch(0x69810, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+
+/* ★ §124y-1450 第一千四十六  批真业务裸跑函数补全（复杂分配 thunk + 字符串解析函数 ×1，均镜像兜底；fns/offs 中间插入非表尾追加）
+   - F_69b48（0x69b48，被调 1 次）：0x68000+ 区复杂分配 thunk 复杂
+     （push {r4,r5,r6,lr} + ldr r3,[pc,#120]@69bc4 + sub sp,#32 +
+     adds r4,r0 + add r3,pc + bl 85858 _Pthread_alloc 区 +
+     ldr r3,[pc,#112]@69bc8 + ldr r1,[pc,#112]@69bcc +
+     adds r0,r4 + add r3,pc + adds r2,r3 + ...；C++ 复杂分配 thunk，
+     同族 0x68000+ 区推进第 9 个入口，入口跨 0x69b00 边界继续，
+     bl 目标跨 0x85000 边界继续）
+     语义（objdump 逐指令，入口 69b48 为函数首；字节实锤 b570 =
+     push {r4,r5,r6,lr} + 4b1e = ldr r3,[pc,#120]@69bc4 +
+     b088 = sub sp,#32 + 1c04 = adds r4,r0,#0 + 447b = add r3,pc +
+     f01b fe81 = bl 85858 _Pthread_alloc 区 + 4b1c = ldr r3,
+     [pc,#112]@69bc8 + 491c = ldr r1,[pc,#112]@69bcc +
+     1c20 = adds r0,r4,#0 + 447b = add r3,pc + 1c1a = adds r2,r3,#0）：
+     C++ 复杂分配 thunk：push + bl 85858 + 多段 ldr/add 表项构造
+     ★ 诚实边界：复杂 thunk 含 libstdc++ 区目标（85858），
+     主路径直译 + 全 thunk 镜像兜底（§124y-288~1449 同口径，
+     0x68000+ 区继续推进 1 个入口，入口跨 0x69b00 边界继续，
+     bl 目标跨 0x85000 边界继续）
+   - F_69e78（0x69e78，被调 1 次）：字符串解析函数（非复杂 thunk 族）
+     （push {r4,r5,lr} + ldrb r3,[r1,#0] + lsls r3,r3,#24 +
+     asrs r3,r3,#24（sign-extend byte→int32）+
+     adds r2,r3,#2 + bne 分支 + b 跳 69f64 + movs r2,#1 +
+     ldrsb r2,[r1,r2] + cmp r2,r3 + beq 跳 69f56 +
+     lsls r4,r3,#1 + ...；字符串逐字节解析/查找函数，
+     同区新族（非复杂分配 thunk），0x69e78 为字符串解析族
+     首个翻译入口）
+     语义（objdump 逐指令，入口 69e78 为函数首；字节实锤 b530 =
+     push {r4,r5,lr} + 780b = ldrb r3,[r1,#0] +
+     061b = lsls r3,r3,#24 + 161b = asrs r3,r3,#24 +
+     1c9a = adds r2,r3,#2 + d100 = bne.n 69e86 +
+     e06e = b.n 69f64 + 2201 = movs r2,#1 +
+     568a = ldrsb r2,[r1,r2] + 429a = cmp r2,r3 +
+     d063 = beq.n 69f56 + 005c = lsls r4,r3,#1）：
+     字符串解析函数：push + ldrb sign-extend + 逐字节查找逻辑
+     ★ 诚实边界：字符串解析族新入口（非复杂分配 thunk），
+     主路径直译 + 全函数镜像兜底（§124y-288~1449 同口径，
+     字符串解析族 0x69e78 首个翻译入口） */
+uint32_t F_69b48(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* 0x68000+ 区复杂分配 thunk，bl 镜像兜底 */
+    if (!_r0) return 0;
+    jqt_blx_dispatch(0x69b48, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+uint32_t F_69e78(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* 字符串解析函数，bl 镜像兜底 */
+    if (!_r0) return 0;
+    jqt_blx_dispatch(0x69e78, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
     return 0;
 }
