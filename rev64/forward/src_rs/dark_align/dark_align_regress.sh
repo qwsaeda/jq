@@ -71,6 +71,7 @@ run_one dark_mine_flag_test
 run_one dark_fullgame_flip_end
 run_one dark_flip_draw_count_test
 run_one dark_eat_reset_count_test
+run_one dark_undo_count_test
 
 echo ""
 echo "=== 合计 PASS=$pass FAIL=$fail MISS=$pending ==="

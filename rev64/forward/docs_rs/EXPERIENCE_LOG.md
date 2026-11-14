@@ -3082,3 +3082,31 @@ jq_rs_rules.c 注释定论。
   §B01-022 已修既成事实，纯补验证用例防回归），so 无需重建；同级互杀
   （rank 相等+标志相等 ev=EV_EAT，§798 实证对齐原版）未独立用例覆盖（低频
   场景，rank 分布下同级碰撞概率低，价值低）。
+
+### 36. 悔棋（undo）快照回退计数行为级实证 + 验证方案扩到 21 项（2026-11-14）
+- **悔棋回退计数路径独立覆盖**（dark_undo_count_test，3 场景）：补现有用例
+  未覆盖的"悔棋回退 moves_since_eat/total_moves + 撤销和棋判定 +
+  mines_cleared 下界钳制"路径（§523-524 既有口径"悔棋快照回退可回退
+  moves_since_eat，70 步进度丢失，悔棋后和棋进度重置合理"首次实证）：
+  ① 计数回退：开局快照→走子累加（moves_since_eat/total_moves=1）→回退→
+     全回滚到快照（0/0 + cell 还原 + turn 还原 BLUE）✓；
+  ② mines_cleared 下界钳制：损坏快照注入 -1→回退后钳 0（§B01-008 P0 已修，
+     负值=数据损坏，钳 0 消除语义歧义，:242 扛旗门槛恒 <3 拒放行方向安全）✓；
+  ③ 和棋进度重置：走子 69→70 触发 jq_on_draw（stage=OVER winner=DRAW）→
+     回退到 69 快照→撤销和棋（stage=PLAY winner=NONE moves_since_eat=69）✓
+     （悔棋可撤销误判和，防 70 步误判和棋后无法恢复对局）。
+- **对照 64 位实现**（rules.c jq_undo_restore §1032，`*st=*snap` 全字段覆盖 +
+  B01-008 P0 mines_cleared 钳 0）：悔棋栈唯一实现 = jni_bridge.c g_undo[UNDO_MAX]
+  （undo_push/undo_pop），jq_undo_restore 为快照恢复契约（AUD-R-012/013 已删
+  空壳 jq_undo_snapshot，restore 保留真实可用）。三场景 0 分叉。
+- **dark_undo_count_test 复用进 dark_align**：dark_align_regress.sh
+  20→**21 项** PASS（规则原文 33 + 20 用例）。
+- **对齐验证方案三层"总结复用"终态（本轮复用确认）**：① make evverify
+  172/172 + 三件套（event_code 0 缺口 / layout 几何 Δ=0）/ ②
+  `dark_align_regress.sh` **21/21**（桌面 0 退化门禁）/ ③
+  `mumu_align_smoke.sh --dev 127.0.0.1:5556` **2/2 + 0 崩溃**（redroid 冒烟口径）。
+- **诚实边界**：本轮未改 rules.c 行为（jq_undo_restore 全字段回退 + mines_cleared
+  钳 0 + 和棋撤销均为 §B01-008/§523 既成事实，纯补验证用例防回归），so 无需重建；
+  悔棋栈（jni_bridge g_undo 的 undo_push/undo_pop 帧管理）在本用例走 jq_undo_restore
+  快照契约（非 jni_bridge 帧栈），完整 undo_push/pop 帧链路（悔棋连续 pop 到 BLUE，
+  AUD 对抗审计既有）非本用例范围。
