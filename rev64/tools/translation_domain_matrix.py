@@ -202,6 +202,11 @@ def main():
     # §124y-284 真业务裸跑（可译 ROI 最高的批次）
     biz_raw = biz_in_img(bl, f_defs, plt, libc)
     print('  ★ 真业务裸跑（镜像区间内·非 libstdc++/glibc·可译）= %d 个（真机风险核心）' % len(biz_raw))
+    # §124y-1909 增强：输出剩余可译 RAW 按地址排序前 40（批次选取参考，设备无关）
+    if biz_raw:
+        print('── 剩余可译 RAW（按地址，前 40，批次选取参考）──')
+        for a in sorted(biz_raw, key=lambda x: int(x,16))[:40]:
+            print('  0x%s' % a)
 
     # 按功能域归因（翻译体文件 → 域）
     DOMAIN_FILE = {
