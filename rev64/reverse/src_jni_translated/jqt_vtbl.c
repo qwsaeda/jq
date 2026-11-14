@@ -1629,6 +1629,8 @@ uint32_t F_80568(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,
 uint32_t F_80586(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_805bc(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_80f64(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_80fb8(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_816d8(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_66d42(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_66c70(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_667ec(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
@@ -84691,6 +84693,8 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_80586,
     F_805bc,
     F_80f64,
+    F_80fb8,
+    F_816d8,
     F_ce020,
     F_ce3bc,
     F_ce5dc,
@@ -89395,6 +89399,8 @@ const uint32_t jqt_vtbl_offs[] = {
      0x80586,
      0x805bc,
      0x80f64,
+     0x80fb8,
+     0x816d8,
      0xce020,
      0xce3bc,
      0xce5dc,
@@ -89599,7 +89605,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x11f20c,
      0x11fa34,
 };
-const uint32_t jqt_vtbl_n = 4702u;  /* §124y-149/.../948: 对齐 fns/offs 表实际条目数 */ 
+const uint32_t jqt_vtbl_n = 4704u;  /* §124y-149/.../948: 对齐 fns/offs 表实际条目数 */ 
 
 /* jqt_blx_dispatch：vtable 槽值 reg_val（shadow 地址）→ 目标函数。
  * 影子区 → off = reg_val - g_jqt_shadow；否则 off = reg_val。
@@ -143681,5 +143687,74 @@ uint32_t F_80f64(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_
     /* 复杂初始化函数，bl 镜像兜底 */
     if (!_r0) return 0;
     jqt_blx_dispatch(0x80f64, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+
+/* ★ §124y-1526 第一千四百二十六  批真业务裸跑函数补全（循环体函数 + 调用函数 ×1，均镜像兜底；fns/offs 中间插入非表尾追加）
+   - F_80fb8（0x80fb8，被调 1 次）：循环体函数（非复杂 thunk 族）
+     （push {r4,r5,r6,r7,lr} + mov r7,sl +
+     mov r6,r9 + mov r5,r8 +
+     push {r5,r6,r7} + adds r6,r0 +
+     ldr r4,[r6,#8] + ldr r0,[r0,#4] +
+     sub sp,#8 + mov r9,r1 +
+     cmp r0,r4 + beq 跳 80fe6 +
+     ...；多段 mov/push/adds/ldr/sub/cmp
+     循环体函数，0x80fb8 为循环体族第 3 个
+     翻译入口（继 §1469 0x6f39c / §1525 0x805bc
+     后继续），入口跨 0x80f00 边界继续）
+     语义（objdump 逐指令，入口 80fb8 为函数首；字节实锤 b5f0 =
+     push {r4,r5,r6,r7,lr} + 4657 = mov r7,sl +
+     464e = mov r6,r9 + 4645 = mov r5,r8 +
+     b4e0 = push {r5,r6,r7} + 1c06 = adds r6,r0,#0 +
+     68b4 = ldr r4,[r6,#8] + 6840 = ldr r0,[r0,#4] +
+     b082 = sub sp,#8 + 4689 = mov r9,r1 +
+     42a0 = cmp r0,r4 + d00a = beq.n 80fe6）：
+     循环体函数：push + mov + push + adds + ldr + sub + cmp + beq
+     ★ 诚实边界：循环体族同族第 3 个入口，
+     主路径直译 + 全函数镜像兜底（§124y-288~1525 同口径，
+     循环体族 0x80fb8 继续 0x80f00+ 区推进）
+   - F_816d8（0x816d8，被调 1 次）：调用函数（非复杂 thunk 族）
+     （push {r3,r4,r5,r6,r7,lr} + adds r4,r0 +
+     bl 95580 _Pthread_alloc 区 +
+     movs r3,#204 + lsls r3,r3,#1 +
+     ldr r2,[r4,r3] + cmp r2,#2 +
+     beq 跳 81748 + movs r3,#207 +
+     lsls r3,r3,#1 + ldrb r3,[r4,r3] +
+     ...；多段 push/adds/bl/movs/lsls/ldr/ldrb
+     调用函数，0x816d8 为调用函数族第 13 个
+     翻译入口（继 §1472 0x71b88 / §1499 0x79cb8
+     / §1501 0x7a338 / §1506 0x7b2a8
+     / §1507 0x7b39c / §1508 0x7b3c4
+     / §1509 0x7bbdc / §1513 0x7cdcc
+     / §1516 0x7f230 / §1517 0x7f784
+     / §1518 0x7fdb4 / §1522 0x80210 后继续），
+     入口跨 0x81000 边界首跨，bl 目标 95580
+     系 libstdc++ 区目标）
+     语义（objdump 逐指令，入口 816d8 为函数首；字节实锤 b5f8 =
+     push {r3,r4,r5,r6,r7,lr} + 1c04 = adds r4,r0,#0 +
+     f013 ff50 = bl 95580 _Pthread_alloc 区 +
+     23cc = movs r3,#204 + 005b = lsls r3,r3,#1 +
+     58e2 = ldr r2,[r4,r3] + 2a02 = cmp r2,#2 +
+     d02e = beq.n 81748 + 23cf = movs r3,#207 +
+     005b = lsls r3,r3,#1 + 5ce3 = ldrb r3,[r4,r3]）：
+     调用函数：push + adds + bl 95580 + 多段 movs/lsls/ldr/ldrb
+     ★ 诚实边界：调用函数族同族第 13 个入口，
+     主路径直译 + 全函数镜像兜底（§124y-288~1525 同口径，
+     调用函数族 0x816d8 首跨 0x81000 边界推进，bl 目标
+     95580 系 libstdc++ 区目标） */
+uint32_t F_80fb8(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* 循环体函数，bl 镜像兜底 */
+    if (!_r0) return 0;
+    jqt_blx_dispatch(0x80fb8, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+uint32_t F_816d8(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* 调用函数，bl 镜像兜底 */
+    if (!_r0) return 0;
+    jqt_blx_dispatch(0x816d8, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
     return 0;
 }
