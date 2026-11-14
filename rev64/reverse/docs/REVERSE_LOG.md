@@ -116576,3 +116576,39 @@ fns/offs 表 5463 项不变。
   预期文件（防正向会话再拖逆向文件进 commit 且内容异常）
 ④ jq_rs_rules.c 事故窗口 = 9366a4d..HEAD 期间 so 构建实为缺 rules.c 的
   降级态（§1906 前各批 so 哈希均基于空 rules.c），59465d97 起恢复完整态。
+
+### §124y-1908 第一千九百零八  离线判据全链复验 + 待办收口状态（so 59465d97 保持）
+
+承接 §124y-1907 修复后 loop 继续：全量离线判据复验（零设备），确认修复态
+无退化 + 收口剩余待办。
+
+**全量离线判据（本轮全跑，0 退化）**：
+- 域矩阵（translation_domain_matrix）：真业务裸跑 **0**（§1906 清零保持）+
+  语义实现率 **92.1%** + 事件分发 67/67 收表 0 悬空 + 镜像覆盖 124.3% +
+  判定 PASS
+- 事件契约（event_code_map_check）：73/73 事件名全对照 + 12 码子集 +
+  Junqi 主链缺口 0 + disc=0 忠实边界 → PASS
+- 布局几何（layout_align_check --baseline）：Δ=0 → PASS
+- 暗棋 8 场景（dark_flip_probe_check，§1907 S8 翻棋不计步新口径）：
+  8/8 PASS
+- 静态 40 项（arm32_static_evidence）：**PASS=40 FAIL=0**（§1907 转全绿，
+  含 apk_so_hash 判据实锤 59465d97 dist=apk 三方一致）
+- 走子回归锚点（walkregress_anchors_check）：4 路径判据锚点源码+脚本
+  双源一致 → PASS（native_event 判据防漂移）
+
+**待办收口状态（诚实边界，非停滞）**：
+1. 设备侧 32 位验收 SOP（REAL_DEVICE_ACCEPTANCE 5 判据 + arm32_hook_check
+   全钩子）：设备 10.0.182.146:5555 持续 offline（本批复验 `adb get-state`
+   仍 not found；仅 127.0.0.1:5556 redroid 在线但 redroid 已禁用口径）
+   → PENDING（§124y-189 口径：设备不可达降级 PENDING 非 FAIL），
+   设备恢复后以 so `59465d97` 一次性跑通 5 判据 + 4 路径走子回归
+2. jq_rs_rules.c 事故后续：① 建议正向会话在 AGENTS.md/EXPERIENCE_LOG 固化
+   "共享文件 0 字节化提交禁令"（本会话不抢活不改正向文档，仅记录建议）
+   ② §1906 前各批 so（b431a878 及更早）基于空 rules.c 构建 = 降级态，
+   **59465d97 为事故后首个完整态 so**（真机验收必须用 59465d97，旧哈希
+   作废）
+3. 翻译体离线工作域矩阵裸跑=0 已收口；剩余真机风险区 = 426 个 RAW
+   （libstdc++/glibc 系统域，镜像裸跑口径，§124y-283 判读原则：
+   非业务可译区，真机 linker 解析兜底，不逐条翻译）
+
+**本批 0 代码改动**（纯复验 + 状态收口；so 哈希 59465d97 保持 §1907）。
