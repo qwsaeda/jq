@@ -15,7 +15,7 @@
   S5 军旗（RANK_FLAG）不可翻 → ok=0
   S6 空格（RANK_EMPTY）不可翻 → ok=0
   S7 终局（stage=OVER）不可翻 → ok=0
-  S8 和棋累加（moves_since_eat 达 70 → jq_on_draw 触发）
+  S8 翻棋不计步（★ §124y-1906：和棋只由走子 70/1000 步触发，翻棋不消耗进度）
 
 用法：python3 rev64/tools/dark_flip_probe_check.py
 （编译 32 位 jq_rs_rules.c + 临时 main，桌面跑 8 场景机判）
@@ -94,12 +94,13 @@ int main(void) {
     r = jq_can_flip(&st, 33);
     if (r == 0) { printf("S7 PASS\n"); pass++; } else { printf("S7 FAIL(终局 can=%d)\n", r); fail++; }
 
-    /* S8 和棋累加（翻到 moves_since_eat=70 触发 jq_on_draw） */
-    st.stage = STG_PLAY; st.moves_since_eat = 69; st.turn = 0;
+    /* S8 翻棋不计步（★ §124y-1906 口径修正：翻棋不消耗 70/1000 步和棋进度，
+       原版 0x302f0 实证 70 步扫描只读 6B 走子记录；和棋只由走子计数触发） */
+    st.stage = STG_PLAY; st.total_moves = 0; st.moves_since_eat = 0; st.turn = 0;
     st.cells[5].rank = 1; st.cells[5].side = 0xFF; st.cells[5].revealed = 0;
     if (jq_can_flip(&st, 5)) jq_flip(&st, 5);
-    /* flip 后 moves_since_eat=70 → jq_on_draw → stage=OVER */
-    if (st.stage == STG_OVER) { printf("S8 PASS\n"); pass++; } else { printf("S8 FAIL(stage=%d 未触发和棋)\n", st.stage); fail++; }
+    /* flip 后 moves_since_eat/total_moves 保持 0，stage 不触发 OVER（翻棋不计步实证） */
+    if (st.stage != STG_OVER && st.moves_since_eat == 0 && st.total_moves == 0) { printf("S8 PASS\n"); pass++; } else { printf("S8 FAIL(stage=%d mse=%d tm=%d 翻棋不应计步)\n", st.stage, st.moves_since_eat, st.total_moves); fail++; }
 
     printf("暗棋翻子 8 场景: %d PASS / %d FAIL\n", pass, fail);
     return fail ? 1 : 0;

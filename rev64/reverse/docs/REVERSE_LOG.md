@@ -116526,3 +116526,53 @@ fns 表 0 重复 + offs 表 0 重复；F_63060 插入 0x62fd4 后，中间插入
 **本批 1 个全兜底**（F_63060 单指令 bx lr 尾，含镜像兜底，零新 UND
 符号；复杂初始化族 0x63060 后继续推进 1 个入口（继 §1485~§1905
 复杂初始化族 141-661 个入口后继续）；0x63000 区跨区收尾 1 个入口）。
+
+### §124y-1907 第一千九百零七  jq_rs_rules.c 数据丢失事故修复 + 翻棋不计步同步（so 59465d97）
+
+承接 §124y-1906 域矩阵裸跑清零后 loop 继续：静态 40 项中 dark_flip_probe
+持续 FAIL（编译环境失败）根因深挖 = **数据丢失事故**，本批闭环修复。
+
+- **事故根因实锤**：`git show 9366a4d`（正向会话 commit，2026-11-14 12:40，
+  "§正向 翻棋不消耗 70/1000 步和棋进度"）stat 显示
+  `rev64/reverse/src_jni_translated/jq_rs_rules.c | 599 ------` ——
+  正向会话修 64 位 `src_rs/rules.c`（删 jq_flip 内 total_moves++/moves_since_eat++，
+  AUD-R-086/033 P2 关闭）时，**把 32 位翻译体 jq_rs_rules.c 整文件 599 行删光**
+  （提交信息自述"32 位翻译体同款缺陷已更正定论，逆向会话待修（不抢活）"，
+  但实际直接删除文件内容，违反正逆向"不抢活"规范 + .gitignore 无豁免）。
+  该 commit 后 jqt_vtbl.c 等其余翻译体文件未再受影响（本轮 git log 核对，
+  无其他 0 字节化文件）。
+- **修复**：以 `git show 2e2f057:jq_rs_rules.c`（599 行，事故前一版）为基底恢复
+  + 应用 64 位同款"翻棋不计步"补丁（删 jq_flip 内 total_moves++/moves_since_eat++
+  + 删翻棋内嵌和棋判定段，和棋只由走子 70/1000 步计数触发，消费点
+  jq_try_move 尾部不变）+ R-033/R-086 分叉标记同步更新为"已对齐（两侧翻棋
+  均不计步）"。
+- **dark_flip_probe S8 场景口径同步修正**：旧 S8"翻 70 张触发和棋"（旧口径
+  翻棋计步）→ 新 S8"翻棋不计步实证"（flip 后 moves_since_eat/total_moves 保持 0、
+  stage 不触发 OVER，PASS 判据 = 翻棋不消耗和棋进度）。8/8 场景 PASS。
+- **静态 40 项全 PASS（PASS=40 FAIL=0）**：dark_flip_probe 从长期 FAIL
+  （编译 undefined reference jq_can_move/jq_flip/jq_can_flip）转 PASS ——
+  该 FAIL 自事故 commit 起持续存在，此前各批"PASS=39 FAIL=1（编译环境
+  失败，非翻译退化）"实锤口径已纠正：根因 = 数据丢失事故非编译环境问题。
+
+翻译体改动（jq_rs_rules.c 恢复 599 行 + flip 补丁；jqt_vtbl.c 本批 0 改动）：
+fns/offs 表 5463 项不变。
+
+验证：
+- 编译 OK + 三方哈希 `59465d97`（dist=apk，lib/armeabi/libjunqi.so，9526056B）
+  ★ 哈希较 §1906 b431a878 变化 = jq_rs_rules.c 恢复所致（预期内）
+- 桌面级三件套 0 退化（暗棋 8 场景 8/8 PASS / 事件 0 缺口 / 布局 Δ=0）
+- 静态 40 项 **PASS=40 FAIL=0**（dark_flip_probe 转 PASS，全项 0 缺口）
+- 域矩阵：真业务裸跑 0（保持清零）/ 语义实现率 92.1%（保持）
+- 模拟器冒烟（§124y-279 口径）：**PENDING**（设备 10.0.182.146 持续
+  offline，§124y-189 口径：设备不可达降级 PENDING 非 FAIL；仅
+  127.0.0.1:5556 redroid 在线但 redroid 已禁用 §124y-禁用口径）
+
+**教训固化（防复发）**：
+① 跨会话共享文件（正逆向共用 rev64 树）删除/覆盖前必须 `git show HEAD:<file> | wc -l`
+  核对非零 + 提交信息注明影响面；"不抢活"规范 = 不改对方文件而非删光
+② 静态判据 FAIL 长期挂着时（本例 FAIL=1 跨 100+ 批），必须定期深挖根因
+  而非沿用"非翻译退化"口径搪塞（本例根因 = 数据丢失事故）
+③ 每批 git commit 后 `git log -1 --stat` 核对本次 commit 只动了本会话
+  预期文件（防正向会话再拖逆向文件进 commit 且内容异常）
+④ jq_rs_rules.c 事故窗口 = 9366a4d..HEAD 期间 so 构建实为缺 rules.c 的
+  降级态（§1906 前各批 so 哈希均基于空 rules.c），59465d97 起恢复完整态。
