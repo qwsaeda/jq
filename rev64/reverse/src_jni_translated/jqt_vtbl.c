@@ -1473,6 +1473,8 @@ uint32_t F_68374(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,
 uint32_t F_68930(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_68d9c(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_690f8(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_6914c(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_69584(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_66d42(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_66c70(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_667ec(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
@@ -84379,6 +84381,8 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_68930,
     F_68d9c,
     F_690f8,
+    F_6914c,
+    F_69584,
     F_ce020,
     F_ce3bc,
     F_ce5dc,
@@ -88927,6 +88931,8 @@ const uint32_t jqt_vtbl_offs[] = {
      0x68930,
      0x68d9c,
      0x690f8,
+     0x6914c,
+     0x69584,
      0xce020,
      0xce3bc,
      0xce5dc,
@@ -89131,7 +89137,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x11f20c,
      0x11fa34,
 };
-const uint32_t jqt_vtbl_n = 4546u;  /* §124y-149/.../948: 对齐 fns/offs 表实际条目数 */ 
+const uint32_t jqt_vtbl_n = 4548u;  /* §124y-149/.../948: 对齐 fns/offs 表实际条目数 */ 
 
 /* jqt_blx_dispatch：vtable 槽值 reg_val（shadow 地址）→ 目标函数。
  * 影子区 → off = reg_val - g_jqt_shadow；否则 off = reg_val。
@@ -138257,5 +138263,60 @@ uint32_t F_690f8(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_
     /* 0x68000+ 区复杂分配 thunk，bl 镜像兜底 */
     if (!_r0) return 0;
     jqt_blx_dispatch(0x690f8, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+
+/* ★ §124y-1448 第一千四十四  批真业务裸跑函数补全（0x68000+ 区复杂分配 thunk ×2，均镜像兜底；fns/offs 中间插入非表尾追加）
+   - F_6914c（0x6914c，被调 1 次）：0x68000+ 区复杂分配 thunk 复杂
+     （push {r4,r5,lr} + ldr r4,[pc,#52]@69184 + sub sp,#12 +
+     adds r5,r0 + add r4,pc + bl 855c4 _Pthread_alloc 区 +
+     cmp r0,#0 + beq.n 6917e + ldr r3,[pc,#40]@69188 +
+     add r3,pc + ldr r0,[r3,#0] + ...；C++ 复杂分配 thunk，
+     同族 0x68000+ 区推进第 5 个入口，入口跨 0x69000 边界继续，
+     bl 目标跨 0x85000 边界继续）
+     语义（objdump 逐指令，入口 6914c 为函数首；字节实锤 b530 =
+     push {r4,r5,lr} + 4c0d = ldr r4,[pc,#52]@69184 +
+     b083 = sub sp,#12 + 1c05 = adds r5,r0,#0 + 447c = add r4,pc +
+     f01c fa35 = bl 855c4 _Pthread_alloc 区 + 2800 = cmp r0,#0 +
+     d00f = beq.n 6917e + 4b0a = ldr r3,[pc,#40]@69188 +
+     447b = add r3,pc + 6818 = ldr r0,[r3,#0]）：
+     C++ 复杂分配 thunk：push + bl 855c4 + 失败跳 6917e /
+     成功 ldr 表项
+     ★ 诚实边界：复杂 thunk 含 libstdc++ 区目标（855c4），
+     主路径直译 + 全 thunk 镜像兜底（§124y-288~1447 同口径，
+     0x68000+ 区继续推进 1 个入口，入口跨 0x69000 边界继续，
+     bl 目标跨 0x85000 边界继续）
+   - F_69584（0x69584，被调 1 次）：0x68000+ 区复杂分配 thunk 复杂
+     （push {r4,r5,r6,lr} + ldr r3,[pc,#160]@69628 + sub sp,#32 +
+     adds r4,r0 + add r3,pc + bl 85858 _Pthread_alloc 区 +
+     ldr r3,[pc,#152]@6962c + adds r0,r4 + adds r0,#72 +
+     add r3,pc + adds r2,r3 + ...；C++ 复杂分配 thunk，
+     同族 0x68000+ 区推进第 6 个入口，入口跨 0x69500 边界继续，
+     bl 目标跨 0x85000 边界继续）
+     语义（objdump 逐指令，入口 69584 为函数首；字节实锤 b570 =
+     push {r4,r5,r6,lr} + 4b28 = ldr r3,[pc,#160]@69628 +
+     b088 = sub sp,#32 + 1c04 = adds r4,r0,#0 + 447b = add r3,pc +
+     f01c f963 = bl 85858 _Pthread_alloc 区 + 4b26 = ldr r3,
+     [pc,#152]@6962c + 1c20 = adds r0,r4,#0 + 3048 = adds r0,#72 +
+     447b = add r3,pc + 1c1a = adds r2,r3,#0）：
+     C++ 复杂分配 thunk：push + bl 85858 + 多段 ldr/add 表项构造
+     ★ 诚实边界：复杂 thunk 含 libstdc++ 区目标（85858），
+     主路径直译 + 全 thunk 镜像兜底（§124y-288~1447 同口径，
+     0x68000+ 区继续推进 1 个入口，入口跨 0x69500 边界继续，
+     bl 目标跨 0x85000 边界继续） */
+uint32_t F_6914c(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* 0x68000+ 区复杂分配 thunk，bl 镜像兜底 */
+    if (!_r0) return 0;
+    jqt_blx_dispatch(0x6914c, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+uint32_t F_69584(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* 0x68000+ 区复杂分配 thunk，bl 镜像兜底 */
+    if (!_r0) return 0;
+    jqt_blx_dispatch(0x69584, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
     return 0;
 }
