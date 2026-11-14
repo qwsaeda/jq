@@ -2924,3 +2924,31 @@ jq_rs_rules.c 注释定论。
 - **诚实边界**：本轮**未改规则引擎代码**（rules.c 行为级对齐 0 改动），仅
   补测试用例期望（④）+ 加 dark_bomb_test 进 dark_align + 文档定案——
   64 位 so 无需重建，"对齐"= 测试覆盖补全 + 口径定案固化，非行为修正。
+
+### 31. 扛旗胜全方向 + 困毙对称实证 + 验证方案扩到 16 项（2026-11-14）
+- **胜负方向覆盖缺口补全**（dark_flag_win_test）：现有用例胜负方向偏斜——
+  `dark_win_test` 仅"红困毙→蓝胜"单方向（暗棋），`dark_bomb_test` ②③ 测
+  "炸弹撞旗→撞旗方胜"（EV_BOMB 路径），`rule_text_conformance` 扛旗夹具仅
+  蓝扛红旗（蓝胜）。**缺"扛旗胜（EV_FLAG，非炸弹）全方向 + 红胜困毙对称"**。
+- **dark_flag_win_test 三场景实证**：
+  ① 蓝扛红旗（明棋 rank5 攻 red 大本营军旗 51→56）→ EV_FLAG(3) + 蓝胜 ✓；
+  ② 红扛蓝旗（对称，明棋 rank2 攻蓝大本营军旗 6→1）→ EV_FLAG(3) + 红胜 ✓；
+  ③ 蓝困毙→红胜（暗棋，蓝仅 flag+mine 无普通子，红 49→44 触发收口 →
+  轮到蓝 → 蓝无棋可走困毙 → 红胜）✓。
+- **对照原版**（rulelay 原文 + 0x30200 胜负分发）：
+  - "任何棋子都能扛军旗"→ 扛旗方胜（64 位 `jq_on_flag_capture` winner=captor_side，
+    蓝扛旗=BLUE/红扛旗=RED 双向对称，行为级 0 分叉）；
+  - 困毙（0x302b4）无棋可走方负（64 位 `jq_on_stalemate` winner=1-loser_side，
+    蓝困毙=红胜，对称 dark_win_test 的红困毙=蓝胜）。
+- **几何口径固化**：扛旗目标=大本营格（cell56 红军旗 / cell1 蓝军旗），明棋
+  LAY 模式攻子可直接进大本营吃旗（暗棋 FLIP 大本营安全岛，扛旗需工兵+挖 3 雷，
+  非本用例范围）；困毙构造=走子收口触发 `stalemate_after`（需对方先走一步把
+  turn 切到无子方，非直接调 jq_side_stalemated——后者只判不终局）。
+- **dark_flag_win_test 复用进 dark_align**：dark_align_regress.sh 15→**16 项**
+  PASS（规则原文 33 + 15 用例）。
+- **诚实边界（0x30430 winner 方向映射未定案，维持 §26 口径）**：原版 0x30430/
+  0x30438"一方无普通子→对方胜"的 winner 方向映射（0x30430→winner=1 对应 64 位
+  JQ_WIN_BLUE/RED 哪方）需 unidbg/frida 运行时或更深反汇编 0x303c0 函数定案；
+  本用例走 64 位 `jq_on_flag_capture`/`jq_side_stalemated` 已实现路径（行为级
+  对齐），**不包装成 0x30430 方向已实证**——"一方无普通子→对方胜"的 64 位
+  `draw_exist_test` ② 场景走困毙路径产出相同 winner（殊途同归，§26 已定案）。
