@@ -2491,3 +2491,34 @@ OnCreate 主线程被该钩子段拖住（转译层 property 读取 + 自动走 
 - **规则层胜负判定 0 变化**（同级两格清空一致，仅事件名/音效分叉消除）。
 - 回归全 PASS：rule_text_conformance 33/33 / evverify 172/172 / rulestest /
   regress 50局+悔棋20 / gametest / dark_*·flip_* 全过；arm64 so `20dbc860`。
+
+### 8. 0x31de0 事件名分发 5 路径解码（2026-11-14，&~3 口径修正 + 对照 64 位）
+**PC 口径陷阱（防复发）**：`add rX,pc` 目标 = literal + ((add_addr+4)&~3)，
+**&~3 对齐口径**（0x31e 区实锤：0x31f40+0x31e9c=0x120f4c "Junqi.Dead" 前缀，
+非"非 mask 口径"——非 mask 得 0x120f4a 非串界，错）。前段 0x31f4c/0x31f50
+按非 mask 算出 0x120f2a/0x120f1e 非串界即为此陷阱。
+
+0x31de0 走子结果判定 5 条事件路径（&~3 重算 + 分支条件）：
+| 路径 | 分支条件 | 事件 | 64 位对照 |
+|---|---|---|---|
+| 0x31e9c | r9==r8（rank+标志相等） | **Junqi.Eat**(0x120f50) | 同级=EV_EAT ✓ 已对齐（§7 a58123f） |
+| 0x31ec8 | 炸弹域（r1==0） | **Junqi.Bomb**(0x120f38) | 炸弹同归=EV_BOMB ✓ |
+| 0x31ee8 | 军旗域（r2==13?） | **Junqi.Move**(0x120f20) | **吃旗=EV_FLAG 分叉**（原版吃旗发 Move 事件名） |
+| 0x31ef4 | 送死域 | **Junqi.Flip**(0x120f14) | **送死=EV_DEAD 分叉**（原版发 Flip 事件名） |
+| 0x31f18 | 0x31f0e 前置（r3==1） | **Junqi.Dead**(0x120f44) | EV_DEAD ✓ |
+
+**两条事件名分叉（规则层胜负无差异，仅事件名/音效）**：
+- **吃旗**：原版 0x31ee8 发 "Junqi.Move"（0x120f20 实锤），64 位 EV_FLAG→
+  "Junqi.Flag"（jni_bridge:599）。原版 0x30200 区另有 Junqi.Win/Lose 分发
+  （§12 REVERSE_NOTES_01），0x31ee8 的 Move = 走子事件通路（旗被扛=子落位
+  空移语义，胜负在 0x30200 另判）。
+- **送死（非工兵撞雷）**：原版 0x31ef4 发 "Junqi.Flip"（0x120f14 实锤），
+  64 位 EV_DEAD→"Junqi.Dead"。
+- **判读**：原版事件名 = **音效/分发分类**（非严格业务语义）——吃旗/送死复用
+  Move/Flip 事件名走通用通路，业务胜负由 0x30200 独立分发（Junqi.Win/Lose/
+  Draw 实证 §12）。64 位事件码表（jq_event_names_73 7 类细分）比原版粗，
+  **对齐方向 = 64 位细分优于原版粗分类**（原版 Move/Flip 复用是历史包袱）。
+  维持 64 位 EV_FLAG/EV_DEAD 独立事件码（SPEC §3 7 事件契约），**不改**。
+  诚实边界：原版"吃旗发 Move"若实锤为原版音效行为（flag WAV 不走），
+  64 位 flag 音效（data_junqi_flag.wav）属增强非原版（SPEC §5 音效映射
+  7 类独立 WAV 为 64 位设计，原版 0x31de0 区仅 5 事件名通路）。
