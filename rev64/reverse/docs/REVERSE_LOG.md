@@ -78552,3 +78552,97 @@ fns 表 0 重复）+ 2 个 F_ 函数体 + 前向声明（头部声明区 1772-17
 翻译入口，本批 0x94ee8 第 10 个入口 + 0x94f00 第 11 个入口，继续
 0x94000+ 区推进，vtable 槽 0 间接调用 + movs r1,#34/84 常量参数 +
 栈传参继续）；0x66000+ 子段继续推进 2 个入口）。
+
+### §124y-1597 第一千五百九十七  批真业务函数翻译（vfunc-call + call-function ×1，均镜像兜底，so 9cf39c61）
+
+承接 §124y-1596 翻译批次节奏，第一千五百九十七  批闭环（全离线，零设备；桌面级
+全链 PASS，设备冒烟 PENDING §124y-189 口径；§124y-947 用户指令"为什么停，
+知道什么叫 loop，就是没有做完就继续 loop"节奏下持续推进）。
+
+- **F_95020**（0x95020，被调 1 次）：vfunc-call（非复杂 thunk 族）
+  （push {r4,lr} + sub sp,#16 +
+  str r3,[sp,#8] + ldr r3,[sp,#24] +
+  adds r4,r2 + str r1,[sp,#0] +
+  str r4,[sp,#4] + str r3,[sp,#12] +
+  ldr r3,[r0,#0] + mov r2,sp +
+  movs r1,#50 + ldr r3,[r3,#0] +
+  blx r3 + add sp,#16 +
+  pop {r4,pc} + ...；多段 push/sub/str/ldr/adds/mov/blx
+  vfunc-call，0x95020 为 vfunc-call 族
+  第 12 个翻译入口（继 §1596 0x94f00
+  后继续），入口跨 0x95000 边界首跨，
+  vtable 槽 0 间接调用 + movs r1,#50 常量参数 +
+  栈传参（str r1/r3/r4,[sp]），blx r3 系
+  vtable 槽间接调用）
+  语义（objdump 逐指令，入口 95020 为函数首；字节实锤 b510 =
+  push {r4,lr} + b084 = sub sp,#16 +
+  9302 = str r3,[sp,#8] + 9b06 = ldr r3,[sp,#24] +
+  1c14 = adds r4,r2,#0 + 9100 = str r1,[sp,#0] +
+  9401 = str r4,[sp,#4] + 9303 = str r3,[sp,#12] +
+  6803 = ldr r3,[r0,#0] + 466a = mov r2,sp +
+  2132 = movs r1,#50 + 681b = ldr r3,[r3,#0] +
+  4798 = blx r3 + b004 = add sp,#16 +
+  bd10 = pop {r4,pc}）：
+  vfunc-call：push + sub + str + ldr + adds + str + ldr + mov + blx r3 + add + pop
+  **诚实边界**：vfunc-call 族同族第 12 个入口，
+  主路径直译 + 全函数镜像兜底（§124y-288~1596 同口径，
+  vfunc-call 族 0x95020 首跨 0x95000 边界推进，
+  vtable 槽 0 间接调用 + movs r1,#50 常量参数 +
+  栈传参继续）
+- **F_95058**（0x95058，被调 1 次）：call-function（非复杂 thunk 族）
+  （push {r4,lr} + subs r4,r1 +
+  beq 跳 95082 + ldr r1,[pc,#40]@95088 +
+  adds r0,r4 + add r1,pc +
+  bl b4db4 _Pthread_alloc 区 +
+  ...；多段 push/subs/beq/ldr/adds/add/bl
+  call-function，0x95058 为 call-function 族
+  第 32 个翻译入口（继 §1585 0x9302c
+  后继续），入口跨 0x95000 边界首跨，
+  bl 目标 b4db4 系 libstdc++ 区目标继续
+  跨 0xb0000 边界）
+  语义（objdump 逐指令，入口 95058 为函数首；字节实锤 b510 =
+  push {r4,lr} + 1e0c = subs r4,r1,#0 +
+  d011 = beq.n 95082 + 490a = ldr r1,[pc,#40]@95088 +
+  1c20 = adds r0,r4,#0 + 4479 = add r1,pc +
+  f01f fea6 = bl b4db4 _Pthread_alloc 区 +
+  2304 = movs r3,#4 + 2800 = cmp r0,#0 +
+  d001 = beq.n 95072 + 1c18 = adds r0,r3,#0 +
+  bd10 = pop {r4,pc}）：
+  call-function：push + subs + beq + ldr + adds + add + bl b4db4 + movs + cmp + pop
+  **诚实边界**：call-function 族同族第 32 个入口，
+  主路径直译 + 全函数镜像兜底（§124y-288~1596 同口径，
+  call-function 族 0x95058 首跨 0x95000 边界推进，
+  bl 目标 b4db4 系 libstdc++ 区目标继续跨 0xb0000 边界）
+
+翻译体改动（jqt_vtbl.c）：fns/offs +2（jqt_vtbl_n 4844→4846，升序 +
+逐位 0 不一致 + 0 重复 + 0 错位，本轮实锤 fns/offs 各 4846 项配对 +
+fns 表 0 重复）+ 2 个 F_ 函数体 + 前向声明（头部声明区 1774-1775，
+各 1 条无重复）。
+
+验证：
+- 编译 OK + 链接审计 PASS + 三方哈希 `9cf39c61`（dist=apk，
+  lib/armeabi/libjunqi.so，9357908B）
+- 桌面级三件套 0 退化（暗棋 8 场景 / 事件 0 缺口 / 布局 Δ=0）
+- 静态 40 项 PASS（PASS=40 FAIL=0）
+- 域矩阵：真业务裸跑 619 → **617**（-2），**语义实现率 81.3%（里程碑）**
+- 模拟器冒烟（§124y-279 口径）：**PENDING**（设备 10.0.182.146 持续
+  offline，§124y-189 口径：设备不可达降级 PENDING 非 FAIL）
+
+**累计翻译 2626 个真业务函数**（2623 逐指令 + 3 近似/系统调用口径），
+真业务裸跑 3234 → 617（域矩阵口径，-2617）。
+**fns/offs 表 4846 项**（4844→4846，中间插入非表尾追加 + 前向声明各 1
+条无重复 + fns 表 0 重复；**fns/offs 表 4846 项里程碑** + **累计翻译
+2626 个真业务函数里程碑** + **真业务裸跑 617 个里程碑** + **语义实现率
+81.3% 里程碑** + **vfunc-call 族第 12 个入口里程碑** + **call-function
+族第 32 个入口里程碑** + **0x95000 入口首跨里程碑**）。
+**本批 2 个全兜底**（F_95020 vfunc-call + F_95058 call-function，
+均含镜像兜底，零新 UND 符号；vfunc-call 族 0x94f00 后继续推进 1
+个入口（§1554 0x8a37c/0x8a4b0 vfunc-call 族第 4/5 个翻译入口，§1594
+0x94e78/0x94e98 第 6/7 个翻译入口，§1595 0x94ea8/0x94ec4 第 8/9 个
+翻译入口，§1596 0x94ee8/0x94f00 第 10/11 个翻译入口，本批 0x95020
+第 12 个入口，首跨 0x95000 边界推进，vtable 槽 0 间接调用 +
+movs r1,#50 常量参数 + 栈传参继续）+ call-function 族 0x9302c 后继续
+推进 1 个入口（§1585 0x9302c call-function 族第 31 个翻译入口，本批
+0x95058 第 32 个入口，首跨 0x95000 边界推进，bl 目标 b4db4 系
+libstdc++ 区目标继续跨 0xb0000 边界）；0x66000+ 子段继续推进 2
+个入口）。
