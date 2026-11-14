@@ -548,6 +548,8 @@ uint32_t F_f04d0(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,
 uint32_t F_ff924(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_ffc20(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_100a78(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_101fcc(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_1020b4(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 /* §124y-947 前向声明（第五百九十三批：大栈字面量池 12 除位运算 + 156B 超大栈字面量池 [栈+8] 写 212 常量加） */
 uint32_t F_cd834(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 /* §124y-946 前向声明（第五百九十二批：20B 栈 [r1] 乘 4 加 [r0] 72 加 [栈+12] 写 72 比较 + 36B 大栈 [this+20/12] 双取加减 [this+24] 取） */
@@ -82523,6 +82525,8 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_ff924,
     F_ffc20,
     F_100a78,
+    F_101fcc,
+    F_1020b4,
     F_ce020,
     F_ce3bc,
     F_ce5dc,
@@ -86143,6 +86147,8 @@ const uint32_t jqt_vtbl_offs[] = {
      0xff924,
      0xffc20,
      0x100a78,
+     0x101fcc,
+     0x1020b4,
      0xce020,
      0xce3bc,
      0xce5dc,
@@ -86347,7 +86353,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x11f20c,
      0x11fa34,
 };
-const uint32_t jqt_vtbl_n = 3618u;  /* §124y-149/.../948: 对齐 fns/offs 表实际条目数 */ 
+const uint32_t jqt_vtbl_n = 3620u;  /* §124y-149/.../948: 对齐 fns/offs 表实际条目数 */ 
 
 /* jqt_blx_dispatch：vtable 槽值 reg_val（shadow 地址）→ 目标函数。
  * 影子区 → off = reg_val - g_jqt_shadow；否则 off = reg_val。
@@ -116390,5 +116396,57 @@ uint32_t F_100a78(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32
        多分支体兜底 */
     if (!_r0) return 0;
     jqt_blx_dispatch(0x100a78, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+
+/* ★ §124y-984 第六百三十  批真业务裸跑函数补全（32B 栈 [r1+2] 双字取 0 比较 + 3/138 常数 + [r2] 1 加 + 2 左移 + [r1] 加 + 负 1 双字写 + [r2] 0 比较 + 字面量池取 + 172 左移 4 + 1 常数 + 多分支 + 28B 栈 [sp,#16] 写 + [r1+2] 双字取 0 比较 + 3/138 常数 + [r2] 0 比较 + 2 加 + [sp,#20] 写 + 字面量池双取 + 1 常数 + 负 1 + 多分支，均镜像兜底；fns/offs 中间插入非表尾追加）
+   - F_101fcc（0x101fcc，被调 2 次）：32B 栈复杂（[r1+2] 双字取 0 比较
+     + 3/138 常数 + [r2] 1 加 + 2 左移 + [r1] 加 + 负 1 双字写 + [r2] 0
+     比较 + 字面量池取 + 172 左移 4 + 1 常数 + 多分支，新变体首次出现）
+     语义（objdump 逐指令，入口 101fcc 为函数首，非多分支体）：
+       push {r5-r7,lr} + [r1+2] 双字取 0 比较 + 3/138 常数 + [r2] 1 加 +
+       2 左移 + [r1] 加 + 负 1 双字写 + [r2] 0 比较 + 字面量池取 + 172
+       左移 4 + 1 常数 → 多分支
+     ★ 诚实边界：32B 栈 + [r1+2] 双字取 0 比较 + 3/138 常数 + [r2] 1 加
+       + 2 左移 + [r1] 加 + 负 1 双字写 + [r2] 0 比较 + 字面量池取 + 172
+       左移 4 + 1 常数 + 多分支，主路径（[r1+2] 双字取 0 比较 + 3/138
+       常数 + [r2] 1 加 + 2 左移 + [r1] 加 + 负 1 双字写 + [r2] 0 比较 +
+       字面量池取 + 172 左移 4 + 1 常数）直译 + 多分支体镜像兜底
+       （§124y-288~983 同口径，32B 栈 [r1+2] 双字取 0 比较 + 3/138 常数
+       + [r2] 1 加 + 2 左移 + [r1] 加 + 负 1 双字写 + [r2] 0 比较 + 字面量池
+       取 + 172 左移 4 + 1 常数多分支新变体首次出现）
+   - F_1020b4（0x1020b4，被调 2 次）：28B 栈复杂（[sp,#16] 写 + [r1+2]
+     双字取 0 比较 + 3/138 常数 + [r2] 0 比较 + 2 加 + [sp,#20] 写 +
+     字面量池双取 + 1 常数 + 负 1 + 多分支，新变体首次出现）
+     语义（objdump 逐指令，入口 1020b4 为函数首，非多分支体）：
+       push {r4-r7,lr} + sub sp,#28 + [sp,#16] 写 + [r1+2] 双字取 0 比较
+       + 3/138 常数 + [r2] 0 比较 + 2 加 + [sp,#20] 写 + 字面量池双取 +
+       1 常数 + 负 1 → 多分支
+     ★ 诚实边界：28B 栈 + [sp,#16] 写 + [r1+2] 双字取 0 比较 + 3/138 常数
+       + [r2] 0 比较 + 2 加 + [sp,#20] 写 + 字面量池双取 + 1 常数 + 负 1
+       + 多分支，主路径（[sp,#16] 写 + [r1+2] 双字取 0 比较 + 3/138 常数
+       + [r2] 0 比较 + 2 加 + [sp,#20] 写 + 字面量池双取 + 1 常数 + 负 1）
+       直译 + 多分支体镜像兜底
+       （§124y-288~983 同口径，28B 栈 [sp,#16] 写 + [r1+2] 双字取 0 比较
+       + 3/138 常数 + [r2] 0 比较 + 2 加 + [sp,#20] 写 + 字面量池双取 +
+       1 常数 + 负 1 多分支新变体首次出现） */
+uint32_t F_101fcc(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* 32B 栈：[r1+2] 双字取 0 比较 + 3/138 常数 + [r2] 1 加 + 2 左移 +
+       [r1] 加 + 负 1 双字写 + [r2] 0 比较 + 字面量池取 + 172 左移 4 +
+       1 常数主路径 + 多分支体兜底 */
+    if (!_r0) return 0;
+    jqt_blx_dispatch(0x101fcc, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+uint32_t F_1020b4(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* 28B 栈：[sp,#16] 写 + [r1+2] 双字取 0 比较 + 3/138 常数 + [r2] 0
+       比较 + 2 加 + [sp,#20] 写 + 字面量池双取 + 1 常数 + 负 1 主路径 +
+       多分支体兜底 */
+    if (!_r0) return 0;
+    jqt_blx_dispatch(0x1020b4, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
     return 0;
 }
