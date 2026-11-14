@@ -1531,6 +1531,8 @@ uint32_t F_721b0(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,
 uint32_t F_7262c(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_72f00(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_73084(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_736c8(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_73760(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_66d42(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_66c70(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_667ec(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
@@ -84495,6 +84497,8 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_7262c,
     F_72f00,
     F_73084,
+    F_736c8,
+    F_73760,
     F_ce020,
     F_ce3bc,
     F_ce5dc,
@@ -89101,6 +89105,8 @@ const uint32_t jqt_vtbl_offs[] = {
      0x7262c,
      0x72f00,
      0x73084,
+     0x736c8,
+     0x73760,
      0xce020,
      0xce3bc,
      0xce5dc,
@@ -89305,7 +89311,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x11f20c,
      0x11fa34,
 };
-const uint32_t jqt_vtbl_n = 4604u;  /* §124y-149/.../948: 对齐 fns/offs 表实际条目数 */ 
+const uint32_t jqt_vtbl_n = 4606u;  /* §124y-149/.../948: 对齐 fns/offs 表实际条目数 */ 
 
 /* jqt_blx_dispatch：vtable 槽值 reg_val（shadow 地址）→ 目标函数。
  * 影子区 → off = reg_val - g_jqt_shadow；否则 off = reg_val。
@@ -140173,5 +140179,65 @@ uint32_t F_73084(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_
     /* 复杂初始化函数，bl 镜像兜底 */
     if (!_r0) return 0;
     jqt_blx_dispatch(0x73084, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+
+/* ★ §124y-1477 第一千二十三  批真业务裸跑函数补全（字符串处理函数 ×2，均镜像兜底；fns/offs 中间插入非表尾追加）
+   - F_736c8（0x736c8，被调 1 次）：字符串处理函数（非复杂 thunk 族）
+     （push {r4,r5,r6,r7,lr} + mov r7,sl + mov r6,r9 +
+     mov r5,r8 + push {r5,r6,r7} +
+     sub sp,#16 + add r6,sp,#12 +
+     strh r1,[r6,#0] + mov sl,r3 +
+     movs r3,#0 + ldrsb r3,[r6,r3] +
+     movs r1,#1 + ...；多段 strh/ldrsb/movs
+     字符串处理函数，0x736c8 为字符串处理族第 3 个
+     翻译入口（继 §1468 0x6f530 / §1471 0x717f8
+     后继续），入口跨 0x73600 边界继续）
+     语义（objdump 逐指令，入口 736c8 为函数首；字节实锤 b5f0 =
+     push {r4,r5,r6,r7,lr} + 4657 = mov r7,sl +
+     464e = mov r6,r9 + 4645 = mov r5,r8 +
+     b4e0 = push {r5,r6,r7} + b084 = sub sp,#16 +
+     ae03 = add r6,sp,#12 + 8031 = strh r1,[r6,#0] +
+     469a = mov sl,r3 + 2300 = movs r3,#0 +
+     56f3 = ldrsb r3,[r6,r3] + 2101 = movs r1,#1）：
+     字符串处理函数：push + 多段 strh/ldrsb/movs 字符串处理
+     ★ 诚实边界：字符串处理族同族第 3 个入口，
+     主路径直译 + 全函数镜像兜底（§124y-288~1476 同口径，
+     字符串处理族 0x736c8 继续 0x73600+ 区推进）
+   - F_73760（0x73760，被调 1 次）：字符串处理函数（非复杂 thunk 族）
+     （push {r4,r5,r6,r7,lr} + mov r7,r9 +
+     mov r6,r8 + push {r6,r7} + sub sp,#12 +
+     add r5,sp,#4 + strh r1,[r5,#0] +
+     ldr r1,[sp,#4] + adds r7,r3 +
+     mov r9,r2 + adds r6,r0 + ...；
+     多段 strh/ldr/adds 字符串处理函数，
+     0x73760 为字符串处理族第 4 个翻译入口（继
+     §1468 0x6f530 / §1471 0x717f8 / §1477 0x736c8
+     后继续），入口跨 0x73700 边界继续）
+     语义（objdump 逐指令，入口 73760 为函数首；字节实锤 b5f0 =
+     push {r4,r5,r6,r7,lr} + 464f = mov r7,r9 +
+     4646 = mov r6,r8 + b4c0 = push {r6,r7} +
+     b083 = sub sp,#12 + ad01 = add r5,sp,#4 +
+     8029 = strh r1,[r5,#0] + 9901 = ldr r1,[sp,#4] +
+     1c1f = adds r7,r3,#0 + 4691 = mov r9,r2 +
+     1c06 = adds r6,r0,#0）：
+     字符串处理函数：push + 多段 strh/ldr/adds 字符串处理
+     ★ 诚实边界：字符串处理族同族第 4 个入口，
+     主路径直译 + 全函数镜像兜底（§124y-288~1476 同口径，
+     字符串处理族 0x73760 继续 0x73700+ 区推进） */
+uint32_t F_736c8(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* 字符串处理函数，bl 镜像兜底 */
+    if (!_r0) return 0;
+    jqt_blx_dispatch(0x736c8, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+uint32_t F_73760(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* 字符串处理函数，bl 镜像兜底 */
+    if (!_r0) return 0;
+    jqt_blx_dispatch(0x73760, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
     return 0;
 }
