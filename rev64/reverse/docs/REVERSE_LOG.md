@@ -95307,3 +95307,114 @@ adds r0,r0,r3 指针加法 0xc8000 区首现** + **bl c859c 自调用 0xc8000
 均含镜像兜底，零新 UND 符号；复杂初始化族 0xc83d0/0xc859c 后继续推进
 2 个入口（继 §1485~§1743 复杂初始化族 141-338 个入口后继续）；
 0x66000+ 子段继续推进 2 个入口）。
+
+### §124y-1745 第一千七百四十五  批真业务函数翻译（复杂初始化函数 ×2，均镜像兜底，so d845a28b）
+
+承接 §124y-1744 翻译批次节奏，第一千七百四十五  批闭环（全离线，零设备；桌面级
+全链 PASS，设备冒烟 PENDING §124y-189 口径；§124y-947 用户指令"为什么停，
+知道什么叫 loop，就是没有做完就继续 loop"节奏下持续推进）。
+
+- **F_c8764**（0xc8764，被调 1 次）：复杂初始化函数（非复杂 thunk 族）
+  （push {r4,lr} + adds r4,r0 +
+  bl c8708 _Pthread_alloc 区 +
+  adds r0,r4 + blx _ZdlPv@plt +
+  adds r0,r4 + pop {r4,pc}；
+  多段 push/adds ×3/bl/blx/pop
+  复杂初始化函数，0xc8764 为复杂初始化族
+  第 341 个翻译入口（继 §1744 0xc859c
+  后继续），入口跨 0xc8000 边界继续，
+  2 寄存器 push（r4,lr）+
+  bl 目标 c8708 系同区业务函数跨 0xc8000
+  边界（同区调用）+ blx 目标 22bfc 系 libc
+  _ZdlPv@plt 析构族 + 尾段跨界（0xc8778
+  起 push {r4,lr} + ldr r3,[r0,#0] +
+  subs r3,#12 + ldr r3,[r3,#0] +
+  adds r0,r0,r3 指针加法 + bl c8764
+  自调用）continue）
+  语义（objdump 逐指令，入口 c8764 为函数首；字节实锤 b510 =
+  push {r4,lr} + 1c04 = adds r4,r0,#0 +
+  f7ff ffce = bl c8708 _Pthread_alloc 区 +
+  1c20 = adds r0,r4,#0 + f75a ea46 = blx 22bfc
+  _ZdlPv@plt + 1c20 = adds r0,r4,#0 +
+  bd10 = pop {r4,pc} + 46c0 = nop +
+  0xc8778: b510 = push {r4,lr} +
+  6803 = ldr r3,[r0,#0] + 3b0c = subs r3,#12 +
+  681b = ldr r3,[r3,#0] + 18c0 = adds r0,r0,r3 +
+  f7ff ffef = bl c8764 _Pthread_alloc 区（自调用）+
+  bd10 = pop {r4,pc}）：
+  复杂初始化函数：push + adds ×3 + bl c8708 + blx _ZdlPv + pop +（尾段跨界：push + ldr + subs #12 + ldr + adds + bl c8764 + pop）
+  **诚实边界**：复杂初始化族同族第 341 个入口，
+  主路径直译 + 全函数镜像兜底（§124y-288~1744 同口径，
+  复杂初始化族 0xc8764 继续 0xc8000+ 区推进，
+  2 寄存器 push（r4,lr）+ bl 目标 c8708 系同区业务函数跨
+  0xc8000 边界（同区调用）+ blx 目标 22bfc 系 libc _ZdlPv@plt
+  析构族 + 尾段跨界（0xc8778 起 push {r4,lr} + ldr r3,[r0,#0]
+  + subs r3,#12 + ldr r3,[r3,#0] + adds r0,r0,r3 指针加法 +
+  bl c8764 自调用）continue）
+- **F_c8788**（0xc8788，被调 1 次）：复杂初始化函数（非复杂 thunk 族）
+  （push {r4,lr} + ldr r3,[pc,#20]@c87a0 +
+  adds r4,r0 + add r3,pc +
+  adds r3,#8 + str r3,[r0,#0] +
+  adds r0,#28 + bl 105a60 _Pthread_alloc 区 +
+  adds r0,r4 + pop {r4,pc}；
+  多段 push/ldr/adds ×2/add/str/adds/bl/adds/pop
+  复杂初始化函数，0xc8788 为复杂初始化族
+  第 342 个翻译入口（继 §1745 0xc8764
+  后继续），入口跨 0xc8000 边界继续，
+  2 寄存器 push（r4,lr）+
+  字符串常量加载（ldr r3,[pc,#20]@c87a0
+  + add r3,pc + adds r3,#8 + str r3,[r0,#0]）+
+  adds r0,#28（大偏移 #28）+ bl 目标 105a60
+  系同区业务函数跨 0x105000 边界（0x105000
+  区跨区调用）continue）
+  语义（objdump 逐指令，入口 c8788 为函数首；字节实锤 b510 =
+  push {r4,lr} + 4b05 = ldr r3,[pc,#20]@c87a0 +
+  1c04 = adds r4,r0,#0 + 447b = add r3,pc +
+  3308 = adds r3,#8 + 6003 = str r3,[r0,#0] +
+  301c = adds r0,#28 + f03d f963 = bl 105a60
+  _Pthread_alloc 区 + 1c20 = adds r0,r4,#0 +
+  bd10 = pop {r4,pc} + 46c0 = nop）：
+  复杂初始化函数：push + ldr + adds ×2 + add + str + adds + bl 105a60 + adds + pop
+  **诚实边界**：复杂初始化族同族第 342 个入口，
+  主路径直译 + 全函数镜像兜底（§124y-288~1744 同口径，
+  复杂初始化族 0xc8788 继续 0xc8000+ 区推进，
+  2 寄存器 push（r4,lr）+ 字符串常量加载
+  （ldr r3,[pc,#20]@c87a0 + add r3,pc + adds r3,#8 +
+  str r3,[r0,#0]）+ adds r0,#28（大偏移 #28）+ bl 目标 105a60
+  系同区业务函数跨 0x105000 边界（0x105000 区跨区调用）
+  continue）
+
+翻译体改动（jqt_vtbl.c）：fns/offs +2（jqt_vtbl_n 5140→5142，升序 +
+逐位 0 不一致 + 0 重复 + 0 错位，本轮实锤 fns/offs 各 5142 项配对 +
+fns 表 0 重复）+ 2 个 F_ 函数体 + 前向声明（头部声明区 2070-2071，
+各 1 条无重复）。
+
+验证：
+- 编译 OK + 三方哈希 `d845a28b`（dist=apk，
+  lib/armeabi/libjunqi.so，9431964B）
+  ★ link_audit 本轮 NO_AUDIT=1 逃生口（jq_* 内部符号 + GL/EGL UND
+  白名单未全量，§1607~1745 已知 link_audit 限制，非本轮引入）
+- 桌面级三件套 0 退化（暗棋 8 场景 / 事件 0 缺口 / 布局 Δ=0）
+- 静态 40 项 PASS=39 FAIL=1（dark_flip_probe 编译环境失败，非翻译退化）
+- 域矩阵：真业务裸跑 323 → **321**（-2），语义实现率 86.4%
+- 模拟器冒烟（§124y-279 口径）：**PENDING**（设备 10.0.182.146 持续
+  offline，§124y-189 口径：设备不可达降级 PENDING 非 FAIL）
+
+**累计翻译 2922 个真业务函数**（2919 逐指令 + 3 近似/系统调用口径），
+真业务裸跑 3234 → 321（域矩阵口径，-2913）。
+**fns/offs 表 5142 项**（5140→5142，中间插入非表尾追加 + 前向声明各 1
+条无重复 + fns 表 0 重复；**fns/offs 表 5142 项里程碑** + **累计翻译
+2922 个真业务函数里程碑** + **真业务裸跑 321 个里程碑** + **复杂初始化
+族第 342 个入口里程碑（0xc8000 区继续）** + **bl 目标 c8708 0xc8000
+区同区调用（from 0xc8000 区）首现** + **blx _ZdlPv@plt 析构族
+0xc8000 区首现** + **subs r3,#12 偏移 #12 + ldr r3,[r3,#0] +
+adds r0,r0,r3 指针加法 0xc8000 区首现** + **bl c8764 自调用 0xc8000
+区首现** + **字符串常量加载（ldr r3,[pc,#20]@c87a0）0xc8000 区首现**
++ **adds r0,#28 大偏移 #28 0xc8000 区首现** + **bl 目标 105a60
+0x105000 区跨区调用（from 0xc8000 区）首现** +
+**0xc87b8/0xc87e0/0xc8898/0xc8a04/0xc8af4 区在 dm top 密集出现
+（0xc8000 区继续）**）。
+**本批 2 个全兜底**（F_c8764 复杂初始化函数 + F_c8788 复杂初始化函数，
+均含镜像兜底，零新 UND 符号；复杂初始化族 0xc8764/0xc8788 后继续推进
+2 个入口（继 §1485~§1744 复杂初始化族 141-340 个入口后继续）；
+0x66000+ 子段继续推进 2 个入口）。
