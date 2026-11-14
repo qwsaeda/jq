@@ -2421,3 +2421,43 @@ OnCreate 主线程被该钩子段拖住（转译层 property 读取 + 自动走 
 - 退出/重进 0 崩溃（正向 app 侧；设备 buffer 内 1 条 Fatal 系 com.cnvcs.junqi32
   逆向侧进程，非正向）。
 - 提交：2fe2e0e（render.c +468/-62 + jni_bridge.c 26 行）。
+
+## 2026-11-14 规则原文对齐批（0dfd5ac + bbd68ca，正向驱动）
+
+### 1. 暗棋大本营安全岛（ruleflip 明文，已补，保留）
+- ruleflip："行营、大本营是个安全岛，进入以后，敌方棋子不能吃其中的棋子；
+  大本营的地雷、军旗可以吃。" 旧 64 位 move_legal 只有行营安全岛，大本营未拦
+  （探针实锤：暗棋吃大本营普通子 can_move=1）。
+- 补 is_base 目标检查（mode==FLIP && ui_rule_cfg_get(4)，雷/旗放行专属分支）；
+  明棋无此条款（军旗须任何子可扛，大本营非安全岛）。
+
+### 2. 困毙"可翻"扫描 = 精确对齐原版 0x30320（排地雷、不排军旗）——两轮纠偏
+- 初版误判：以为"可翻须与 jq_can_flip 白名单一致（只排旗）"，首轮 0dfd5ac
+  改掉了排雷（过度修复）。
+- 本轮反汇编 0x302f0 扫描段 0x30320-0x3035e 精确解码，坐实原版两条白名单
+  **本就不一致**（原版设计，非 bug）：
+  · 可翻判定 0x30320：`cmp r1,#11 / beq`（r1=原始 rank 字节）→ 仅排 RANK_MINE，
+    未翻军旗计入可翻（0x30350-0x3035a 计 1 分支）；
+  · 可动判定 0x30348：rank_norm 排 FLAG+MINE → 均不计。
+- 回调（bbd68ca）：翻扫描恢复「未翻 + 仅排 RANK_MINE + (0xFF||side)」= 原版一致。
+- 保持：jq_can_flip 只排军旗（翻雷=合法翻子动作，0x39e14 实证「地雷 from>3
+  合法」）；ai_pick（jni_bridge:330）允许翻雷（有翻雷权须实际行使，否则 AI 卡死）。
+  两 API 白名单差异=原版设计（翻=动作合法 / 困毙可行动=翻完须能走）。
+
+### 3. 测试桩判据陷阱（防复发）
+- jq_try_move 返回 EV_MOVE=0 ≠ 失败（失败=-1），测试判据必须 `>= 0`。
+- 夹具几何：col2 纵线被中心行营 (3,2)/(8,2) 阻断，铁路直走用例取 row4-7 段
+  ((4,2)->(7,2))；炸弹同归后双方无子→Draw 属正确终局（勿断 stage==PLAY）；
+  工兵挖雷后工兵**进目标格**（*dst=*src 交换，0x3a15c）。
+
+### 4. 0x39e14 语义澄清（防误读）
+- 0x39e14 = **布局校验**（报错串 ZhaError/LeiError/QiError 实证），用玩家局部
+  坐标（row0=前线路/row5=后线大本营）：炸弹 row!=0、地雷 row>3、军旗
+  col∈{1,3}&&row==5。§15 旧笔记"翻棋判定 from>3 地雷可翻"系该函数被翻棋路径
+  复用的误读；翻雷合法性的可靠依据 = 规则原文未禁 + jq_can_flip 白名单设计
+  （困毙排雷 ≠ 翻子排雷）。
+
+### 5. 桌面判据（本轮全 PASS）
+- rule_text_conformance（/tmp/opencode/rule_text_conformance.c，规则原文逐条
+  机判 33 项）/ evverify 172/172 / regress.py 50局+悔棋20 / rulestest / gametest /
+  dark_flip_test / draw_exist_test / dark_fullgame / flip_* 全 PASS。
