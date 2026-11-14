@@ -2893,3 +2893,33 @@ jq_rs_rules.c 注释定论。
   `sr<dr_ 大压小 / sr>dr_ 送死 / 同级同归`（rules.c:796）全序无分叉。
 - **rank_order_test 复用进 dark_align**：dark_align_regress.sh 13→**14 项**
   PASS（规则原文 33 + 13 用例）。
+
+### 30. 炸弹同归全场景定案 + 验证方案扩到 15 项（2026-11-14）
+- **炸弹同归（EV_BOMB）四场景定案**（dark_bomb_test，rulelay"炸弹与任何棋子
+  相遇双方都消失，包括军旗"）：
+  ① 蓝炸弹(rank10)撞红军长(rank2) → EV_BOMB 双格空 ✓（同归于尽，无旗不判胜）；
+  ② 蓝炸弹撞红军旗(rank12) → EV_BOMB + 扛旗方(蓝)胜 stage=OVER winner=BLUE ✓
+  （AUD-R-020 炸弹炸毁军旗判胜，32 位 B01-003 同源守卫 `if dst_rank==RANK_FLAG
+  && SIDE_VALID(dst_side)`）；③ 红炸弹撞蓝军旗 → EV_BOMB + 红胜 stage=OVER
+  winner=RED ✓；④ **双炸弹无旗 → EV_BOMB 双格空 + 双方无普通子 → Draw
+  （stage=OVER winner=JQ_WIN_DRAW）✓**。
+- **④ 双炸弹无旗定案（关键纠偏，旧用例④期望错误）**：双炸弹(rank10×2)消失后
+  双方无 rank 1-10 普通子（炸弹=普通子已消失）→ 原版 0x302f0 `sp[16]==0 &&
+  sp[17]==0`（双方无普通子位图，REVERSE_LOG §79643 实锤 0x303d2 beq 0x303a8
+  winner=3）→ **Draw 是正确终局**，非"无旗不判胜 stage=PLAY"。64 位
+  `side_has_normal`（rank 1-10 含炸弹）与原版位图口径一致（§3 测试桩判据陷阱
+  已固化"炸弹同归后双方无子→Draw 属正确终局，勿断 stage==PLAY"）。
+  **修**：dark_bomb_test.c 用例④期望改 `stage==STG_OVER && winner==JQ_WIN_DRAW`。
+- **对照原版**：0x31de0 炸弹域 `r1==0 → Junqi.Bomb`（REVERSE_LOG §79643
+  实锤）+ 0x302f0 双方无普通子→winner=3 Draw（0x303d2/0x303a8）——64 位
+  EV_BOMB 四场景（含双炸弹无旗 Draw）行为级对齐，0 分叉。
+- **dark_bomb_test 复用进 dark_align**：dark_align_regress.sh 14→**15 项**
+  PASS（规则原文 33 + 14 用例）。
+- **对齐验证方案三层"总结复用"终态（本轮复用确认）**：① make evverify
+  172/172 + 三件套（event_code_map_check 0 缺口 / layout_align_check 几何 Δ=0）/
+  ② `dark_align_regress.sh` **15/15**（桌面 0 退化门禁，0 设备依赖）/
+  ③ `mumu_align_smoke.sh`（设备层，本轮纯测试用例改动未改规则引擎 so，
+  规则行为不变故 ③ 非必须——规则改动才需重装+冒烟）。
+- **诚实边界**：本轮**未改规则引擎代码**（rules.c 行为级对齐 0 改动），仅
+  补测试用例期望（④）+ 加 dark_bomb_test 进 dark_align + 文档定案——
+  64 位 so 无需重建，"对齐"= 测试覆盖补全 + 口径定案固化，非行为修正。
