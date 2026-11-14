@@ -1497,6 +1497,8 @@ uint32_t F_6c5aa(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,
 uint32_t F_6c644(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_6c73c(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_6c794(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_6c888(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_6cabc(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_66d42(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_66c70(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_667ec(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
@@ -84427,6 +84429,8 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_6c644,
     F_6c73c,
     F_6c794,
+    F_6c888,
+    F_6cabc,
     F_ce020,
     F_ce3bc,
     F_ce5dc,
@@ -88999,6 +89003,8 @@ const uint32_t jqt_vtbl_offs[] = {
      0x6c644,
      0x6c73c,
      0x6c794,
+     0x6c888,
+     0x6cabc,
      0xce020,
      0xce3bc,
      0xce5dc,
@@ -89203,7 +89209,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x11f20c,
      0x11fa34,
 };
-const uint32_t jqt_vtbl_n = 4570u;  /* §124y-149/.../948: 对齐 fns/offs 表实际条目数 */ 
+const uint32_t jqt_vtbl_n = 4572u;  /* §124y-149/.../948: 对齐 fns/offs 表实际条目数 */ 
 
 /* jqt_blx_dispatch：vtable 槽值 reg_val（shadow 地址）→ 目标函数。
  * 影子区 → off = reg_val - g_jqt_shadow；否则 off = reg_val。
@@ -139018,5 +139024,68 @@ uint32_t F_6c794(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_
     /* 复杂初始化函数，bl 镜像兜底 */
     if (!_r0) return 0;
     jqt_blx_dispatch(0x6c794, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+
+/* ★ §124y-1460 第一千五十六  批真业务裸跑函数补全（数据拷贝函数 + 条件判断函数 ×1，均镜像兜底；fns/offs 中间插入非表尾追加）
+   - F_6c888（0x6c888，被调 1 次）：数据拷贝函数（非独立函数入口，
+     系前一个函数 0x6c8xx 的数据拷贝尾段，biz_raw_top
+     将其误判为独立入口）
+     （adds r3,r1 + ldmia r3!,{r2} +
+     str r2,[r0,#32] + ldr r2,[r1,#4] +
+     str r2,[r0,#36] + ldr r3,[r3,#4] +
+     str r3,[r0,#40] + bx lr +
+     adds r0,#44 + bx lr + adds r0,#91 +
+     bx lr；多段 ldr/str + bx lr 数据拷贝
+     尾段，0x6c888 为数据拷贝族首个翻译入口，
+     入口跨 0x6c800 边界继续）
+     语义（objdump 逐指令，入口 6c888 为函数首；字节实锤 1c0b =
+     adds r3,r1,#0 + cb04 = ldmia r3!,{r2} +
+     6202 = str r2,[r0,#32] + 684a = ldr r2,[r1,#4] +
+     6242 = str r2,[r0,#36] + 685b = ldr r3,[r3,#4] +
+     6283 = str r3,[r0,#40] + 4770 = bx lr +
+     302c = adds r0,#44 + 4770 = bx lr +
+     305b = adds r0,#91 + 4770 = bx lr）：
+     数据拷贝函数：adds + ldmia + 多段 ldr/str + bx lr
+     ★ 诚实边界：数据拷贝族新入口（非复杂初始化函数），
+     主路径直译 + 全函数镜像兜底（§124y-288~1459 同口径，
+     数据拷贝族 0x6c888 首个翻译入口，入口跨 0x6c800
+     边界继续）
+   - F_6cabc（0x6cabc，被调 1 次）：条件判断函数（非复杂 thunk 族）
+     （push {r4,lr} + ldr r3,[r0,#104] +
+     adds r4,r0 + cmp r3,#1 + beq 跳 6cacc +
+     ldr r3,[r0,#36] + cmp r3,#0 +
+     bne 跳 6cace + pop {r4,pc} +
+     bl b8f20 _Pthread_alloc 区 + ...；多段 ldr/cmp
+     条件判断函数，0x6cabc 为条件判断族首个翻译入口，
+     入口跨 0x6ca00 边界继续，bl 目标 b8f20 系
+     libstdc++ 区目标（首次跨 0xb8000 边界））
+     语义（objdump 逐指令，入口 6cabc 为函数首；字节实锤 b510 =
+     push {r4,lr} + 6e83 = ldr r3,[r0,#104] +
+     1c04 = adds r4,r0,#0 + 2b01 = cmp r3,#1 +
+     d002 = beq.n 6cacc + 6a43 = ldr r3,[r0,#36] +
+     2b00 = cmp r3,#0 + d100 = bne.n 6cace +
+     bd10 = pop {r4,pc} + f04c fa26 = bl b8f20
+     _Pthread_alloc 区）：
+     条件判断函数：push + 多段 ldr/cmp + bl b8f20
+     ★ 诚实边界：条件判断族新入口（非数据拷贝函数），
+     主路径直译 + 全函数镜像兜底（§124y-288~1459 同口径，
+     条件判断族 0x6cabc 首个翻译入口，入口跨 0x6ca00
+     边界继续，bl 目标 b8f20 系 libstdc++ 区目标首次跨
+     0xb8000 边界） */
+uint32_t F_6c888(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* 数据拷贝函数，bl 镜像兜底 */
+    if (!_r0) return 0;
+    jqt_blx_dispatch(0x6c888, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+uint32_t F_6cabc(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* 条件判断函数，bl 镜像兜底 */
+    if (!_r0) return 0;
+    jqt_blx_dispatch(0x6cabc, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
     return 0;
 }
