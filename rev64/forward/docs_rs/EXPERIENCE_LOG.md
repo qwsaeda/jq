@@ -3014,3 +3014,34 @@ jq_rs_rules.c 注释定论。
   运行时 dump）；0x303c0 函数完整指令流（Thumb-2 边界）仍有解码器偏差，但 winner
   写入序列（0x30428-0x3043c）双重证据定案可信，"一方无普通子→对方胜"语义方向与
   64 位一致（不包装成原版逐指令等价，仅行为级胜负方向对齐定案）。
+
+### 34. 暗棋和棋计数行为级实证（翻棋不消耗进度）+ 验证方案扩到 19 项（2026-11-14）
+- **缺口发现**：上轮提议"暗棋 FLIP 下 70/1000 步和棋计数"缺口时，实锤发现
+  **该对齐已达成**（rules.c §910-922 原版 0x302f0 实证修复：翻棋**不消耗**
+  moves_since_eat/total_moves，70 步扫描只读走子记录 0x6f4 区，翻牌非走子）——
+  但**无独立验证用例**（rule_text_conformance 70/1000 步用例全走明棋 LAY，
+  暗棋 FLIP 下"翻棋不计数 + 走子计数"未覆盖）。本轮补 `dark_flip_draw_count_test`
+  显式实证，防未来回归误删 §910 修复。
+- **dark_flip_draw_count_test 两场景实证**：
+  ① 暗棋连续翻棋 25 次（0xFF 未翻子，翻归翻子方）→ `moves_since_eat=0` /
+     `total_moves=0` / `stage=PLAY` / `winner=NONE`（翻棋不计数，不判和）✓；
+  ② 暗棋走子累加 `moves_since_eat` 69→70 → `jq_on_draw`（`stage=OVER`
+     `winner=JQ_WIN_DRAW=2`）✓（走子计数，70 步无吃子判和）。
+- **对照原版**（0x302f0 实证 §910-922 + ruleflip「连续 70 步没有吃子判和」）：
+  "步"= 走子非翻牌，64 位 jq_flip 不累加 moves_since_eat/total_moves + jq_try_move
+  走子累加，行为级 0 分叉。
+- **几何口径固化**：翻棋夹具用 0xFF（SIDE_UNKNOWN）未翻子（蓝翻归蓝，§30/§31
+  翻归翻子方口径）；走子累加用 col4 纵线 44→39 空移（§3 既有合法几何）。
+  踩坑：① 首版夹具误放 SIDE_RED 已定色子（蓝翻不合法，翻 0 次 FAIL）——翻棋夹具
+  必须 0xFF 未翻子，已修正。
+- **dark_flip_draw_count_test 复用进 dark_align**：dark_align_regress.sh
+  18→**19 项** PASS（规则原文 33 + 18 用例）。
+- **对齐验证方案三层"总结复用"终态（本轮复用确认）**：① make evverify
+  172/172 + 三件套（event_code 0 缺口 / layout 几何 Δ=0）/ ②
+  `dark_align_regress.sh` **19/19**（桌面 0 退化门禁）/ ③
+  `mumu_align_smoke.sh --dev 127.0.0.1:5556` **2/2 + 0 崩溃**（redroid 冒烟口径）。
+- **诚实边界**：本轮未改 rules.c 行为（§910 修复既成事实，纯补验证用例防回归），
+  so 无需重建；1000 步总步数在暗棋下的计数（翻棋不入 total_moves，§910 修复口径
+  "1000 步是否含翻棋无原版依据"）维持 AUD-R-033 诚实标注（未独立实证 1000 步
+  暗棋场景，因 70 步无吃子阈值先于 1000 步触发，1000 步独立场景需 1000 步无吃子
+  构造，价值低）。
