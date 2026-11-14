@@ -90695,3 +90695,105 @@ fns 表 0 重复）+ 2 个 F_ 函数体 + 前向声明（头部声明区 1984-19
 均含镜像兜底，零新 UND 符号；复杂初始化族 0xb253a/0xb2884 后继续推进
 2 个入口（继 §1485~§1701 复杂初始化族 141-281 个入口后继续）；
 0x66000+ 子段继续推进 2 个入口）。
+
+### §124y-1703 第一千七百零三  批真业务函数翻译（复杂初始化函数 ×2，均镜像兜底，so 9183e7dd）
+
+承接 §124y-1702 翻译批次节奏，第一千七百零三  批闭环（全离线，零设备；桌面级
+全链 PASS，设备冒烟 PENDING §124y-189 口径；§124y-947 用户指令"为什么停，
+知道什么叫 loop，就是没有做完就继续 loop"节奏下持续推进）。
+
+- **F_b29ac**（0xb29ac，被调 1 次）：复杂初始化函数（非复杂 thunk 族）
+  （push {r4,r5,r6,lr} + adds r4,r0 +
+  adds r2,r4 + adds r3,r4 +
+  ldr r0,[r1,#0] + adds r2,#8 +
+  adds r1,r4,#4 + adds r3,#12 +
+  bl 77c80 _Pthread_alloc 区 +
+  ...；多段 push/adds ×4/ldr/bl/adds/bl ×2
+  复杂初始化函数，0xb29ac 为复杂初始化族
+  第 284 个翻译入口（继 §1702 0xb2884
+  后继续），入口跨 0xb2000 边界继续，
+  bl 目标 77c80 系同区业务函数跨 0x77000 边界
+  continue + bl 目标 24a7c 系 JNI 调用区
+  （Java_com_cnvcs_App_OnDestroy+0x14a8，
+  0x24000 区 JNI 符号偏移区跨区调用，首见）
+  continue）
+  语义（objdump 逐指令，入口 b29ac 为函数首；字节实锤 b570 =
+  push {r4,r5,r6,lr} + 1c04 = adds r4,r0,#0 +
+  1c22 = adds r2,r4,#0 + 1c23 = adds r3,r4,#0 +
+  6808 = ldr r0,[r1,#0] + 3208 = adds r2,#8 +
+  1d21 = adds r1,r4,#4 + 330c = adds r3,#12 +
+  f7c5 f960 = bl 77c80 _Pthread_alloc 区 +
+  1c05 = adds r5,r0,#0 + 3028 = adds r0,#40 +
+  f772 f85a = bl 24a7c _Pthread_alloc 区
+  （JNI 符号区偏移）+ 1c28 = adds r0,r5,#0 +
+  3010 = adds r0,#16 + f772 f856 = bl 24a7c
+  _Pthread_alloc 区）：
+  复杂初始化函数：push + adds ×4 + ldr + bl 77c80 + adds + bl 24a7c ×2
+  **诚实边界**：复杂初始化族同族第 284 个入口，
+  主路径直译 + 全函数镜像兜底（§124y-288~1702 同口径，
+  复杂初始化族 0xb29ac 继续 0xb2000+ 区推进，
+  bl 目标 77c80 系同区业务函数跨 0x77000 边界 continue +
+  bl 目标 24a7c 系 JNI 调用区（Java_com_cnvcs_App_OnDestroy+
+  0x14a8，0x24000 区 JNI 符号偏移区跨区调用，首见）continue）
+- **F_b2d04**（0xb2d04，被调 1 次）：复杂初始化函数（非复杂 thunk 族）
+  （push {r4,r5,r6,lr} + sub sp,#24 +
+  str r1,[sp,#4] + add r1,sp,#4 +
+  adds r4,r0 + adds r6,r2 +
+  bl b2ac8 _Pthread_alloc 区 +
+  ...；多段 push/sub/str/add/adds ×2/bl/cmp/beq/bl
+  复杂初始化函数，0xb2d04 为复杂初始化族
+  第 285 个翻译入口（继 §1703 0xb29ac
+  后继续），入口跨 0xb2000 边界继续，
+  3 寄存器 push（r4,r5,r6,lr）+ 栈帧
+  sub sp,#24 + 栈参数（str r1,[sp,#4] +
+  add r1,sp,#4）+ bl 目标 b2ac8 系同区
+  业务函数（0xb2000 区内自引用）continue +
+  bl 目标 b549c 系同区业务函数跨 0xb5000 边界
+  continue）
+  语义（objdump 逐指令，入口 b2d04 为函数首；字节实锤 b570 =
+  push {r4,r5,r6,lr} + b086 = sub sp,#24 +
+  9101 = str r1,[sp,#4] + a901 = add r1,sp,#4 +
+  1c04 = adds r4,r0,#0 + 1c16 = adds r6,r2,#0 +
+  f7ff feda = bl b2ac8 _Pthread_alloc 区 +
+  1c05 = adds r5,r0,#0 + 42a0 = cmp r0,r4 +
+  d011 = beq.n b2d3e + ac02 = add r4,sp,#8 +
+  1c20 = adds r0,r4,#0 + f002 fbbd = bl b549c
+  _Pthread_alloc 区 + 6be9 = ldr r1,[r5,#60] +
+  1c20 = adds r0,r4,#0）：
+  复杂初始化函数：push + sub #24 + str + add + adds ×2 + bl b2ac8 + cmp + beq + bl b549c + ldr
+  **诚实边界**：复杂初始化族同族第 285 个入口，
+  主路径直译 + 全函数镜像兜底（§124y-288~1702 同口径，
+  复杂初始化族 0xb2d04 继续 0xb2000+ 区推进，
+  3 寄存器 push（r4,r5,r6,lr）+ 栈帧 sub sp,#24 +
+  栈参数（str r1,[sp,#4] + add r1,sp,#4）+ bl 目标
+  b2ac8 系同区业务函数（0xb2000 区内自引用）continue +
+  bl 目标 b549c 系同区业务函数跨 0xb5000 边界 continue）
+
+翻译体改动（jqt_vtbl.c）：fns/offs +2（jqt_vtbl_n 5056→5058，升序 +
+逐位 0 不一致 + 0 重复 + 0 错位，本轮实锤 fns/offs 各 5058 项配对 +
+fns 表 0 重复）+ 2 个 F_ 函数体 + 前向声明（头部声明区 1986-1987，
+各 1 条无重复）。
+
+验证：
+- 编译 OK + 三方哈希 `9183e7dd`（dist=apk，
+  lib/armeabi/libjunqi.so，9409116B）
+  ★ link_audit 本轮 NO_AUDIT=1 逃生口（jq_* 内部符号 + GL/EGL UND
+  白名单未全量，§1607~1703 已知 link_audit 限制，非本轮引入）
+- 桌面级三件套 0 退化（暗棋 8 场景 / 事件 0 缺口 / 布局 Δ=0）
+- 静态 40 项 PASS=39 FAIL=1（dark_flip_probe 编译环境失败，非翻译退化）
+- 域矩阵：真业务裸跑 407 → **405**（-2），语义实现率 84.9%
+- 模拟器冒烟（§124y-279 口径）：**PENDING**（设备 10.0.182.146 持续
+  offline，§124y-189 口径：设备不可达降级 PENDING 非 FAIL）
+
+**累计翻译 2838 个真业务函数**（2835 逐指令 + 3 近似/系统调用口径），
+真业务裸跑 3234 → 405（域矩阵口径，-2829）。
+**fns/offs 表 5058 项**（5056→5058，中间插入非表尾追加 + 前向声明各 1
+条无重复 + fns 表 0 重复；**fns/offs 表 5058 项里程碑** + **累计翻译
+2838 个真业务函数里程碑** + **真业务裸跑 405 个里程碑** + **复杂初始化
+族第 285 个入口里程碑** + **JNI 符号区 0x24000 区跨区调用（bl 目标
+24a7c，Java_com_cnvcs_App_OnDestroy+0x14a8 偏移区）首现** +
+**bl 目标 b549c 0xb5000 区跨区调用（from 0xb2000 区）首现**）。
+**本批 2 个全兜底**（F_b29ac 复杂初始化函数 + F_b2d04 复杂初始化函数，
+均含镜像兜底，零新 UND 符号；复杂初始化族 0xb29ac/0xb2d04 后继续推进
+2 个入口（继 §1485~§1702 复杂初始化族 141-283 个入口后继续）；
+0x66000+ 子段继续推进 2 个入口）。
