@@ -2779,3 +2779,28 @@ jq_rs_rules.c 注释定论。
 - 暗棋地雷语义双路径（工兵挖雷 EV_MINE / 非工兵送死 EV_DEAD）与
   §扛旗门槛（mines_cleared 累计）联动：挖雷 ++ → 凑满 3 → 扛旗放行
   （dark_flag_test §21）全链闭环。
+
+### 23. 对齐验证方案固化（2026-11-14，"总结复用"闭环）
+**问题**：本轮散落在 /tmp/opencode 的暗棋对齐用例（9 个）+ 规则原文机判
+（33 项）未固化，每轮手动 gcc 重编，跨轮易失、不可复用。
+**固化**（src_rs 内建 dark_align 子目录，用户定案）：
+- `rev64/forward/src_rs/dark_align/`：9 用例 .c + 2 个一键脚本，全入仓
+  （跨轮/跨会话可复用，与 src_rs 规则引擎同树）；
+  · **dark_align_regress.sh**（桌面层 0 设备依赖）：一键编译 + 跑
+    rule_text_conformance（33 项规则原文机判）+ 9 暗棋专项（翻子/终局
+    双路径/扛旗/挖雷/全对局/可达格）+ 桌面三件套联动，判据 = "行首 FAIL
+    →FAIL / 退出码 0→PASS"（修 `grep FAIL` 误判"合计 FAIL=0"陷阱 +
+    `fail++` 语法），`--only flag,mine` 子集。当前 **10/10 PASS**。
+  · **mumu_align_smoke.sh**（设备层，§124y-189 offline 降级 PENDING）：
+    127.0.0.1:5556 明棋走子（cell25→cell30 can_move=1+AI 应着）+ 暗棋
+    翻子（cell6 两击 can_flip=1+AI 翻 cell0）+ 崩溃 0 检查，含 view=1184
+    几何换算（设备坐标=基准×0.925），`--dev` 切红果权威口径。当前
+    **2/2 PASS + 0 崩溃**。
+**"对齐验证方案"最终形态（三层，全固化可复用）**：
+| 层 | 入口 | 复用 |
+|---|---|---|
+| 桌面规则基线 | make evverify 172/172 + regress.py + rulestest + 桌面三件套 | ✅ 既有 |
+| 暗棋对齐专项 | `bash dark_align/dark_align_regress.sh`（10 用例 0 设备依赖）| ✅ 本轮固化 |
+| 设备冒烟 | `bash dark_align/mumu_align_smoke.sh --dev <addr>` | ✅ 本轮固化 |
+**结论**：改一次规则层 → 跑 dark_align_regress.sh（桌面 0 退化门禁）+
+设备在跑则 mumu_align_smoke.sh（真机实锤），"总结复用"达成。
