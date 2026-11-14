@@ -1307,6 +1307,8 @@ uint32_t F_66a54(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,
 uint32_t F_66a62(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_66a70(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_66a7e(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_66a8c(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_66a9a(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_667ec(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 /* §124y-947 前向声明（第五百九十三批：大栈字面量池 12 除位运算 + 156B 超大栈字面量池 [栈+8] 写 212 常量加） */
 uint32_t F_cd834(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
@@ -84043,6 +84045,8 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_66a62,
     F_66a70,
     F_66a7e,
+    F_66a8c,
+    F_66a9a,
     F_ce020,
     F_ce3bc,
     F_ce5dc,
@@ -88423,6 +88427,8 @@ const uint32_t jqt_vtbl_offs[] = {
      0x66a62,
      0x66a70,
      0x66a7e,
+     0x66a8c,
+     0x66a9a,
      0xce020,
      0xce3bc,
      0xce5dc,
@@ -88627,7 +88633,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x11f20c,
      0x11fa34,
 };
-const uint32_t jqt_vtbl_n = 4378u;  /* §124y-149/.../948: 对齐 fns/offs 表实际条目数 */ 
+const uint32_t jqt_vtbl_n = 4380u;  /* §124y-149/.../948: 对齐 fns/offs 表实际条目数 */ 
 
 /* jqt_blx_dispatch：vtable 槽值 reg_val（shadow 地址）→ 目标函数。
  * 影子区 → off = reg_val - g_jqt_shadow；否则 off = reg_val。
@@ -133666,5 +133672,51 @@ uint32_t F_66a7e(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_
     /* .bss 单例惰性初始化：非零跳过 + bl 674d4 初始化体兜底 */
     if (!_r0) return 0;
     jqt_blx_dispatch(0x66a7e, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+
+/* ★ §124y-1364 第一千一  批真业务裸跑函数补全（.bss 单例惰性初始化器 ×2，均镜像兜底；fns/offs 中间插入非表尾追加）
+   - F_66a8c（0x66a8c，被调 1 次）：.bss 单例惰性初始化器复杂
+     （ldr r4,[pc,#408]（0x66c28 指向 .bss 偏移表槽，跨 0x66axx
+     区）+ add r4,pc + ldr r3,[r4,#0] + cmp r3,#0 + bne + bl 674e6，
+     同族新入口；0x66360 尾部 3 个 .bss 惰性初始化后 1 个独立入口，
+     初始化函数跨 0x67400 边界继续）
+     语义（objdump 逐指令，入口 66a8c 为函数首；字节实锤 4c66 =
+     ldr r4,[pc,#408]（0x66c28）+ 447c = add r4,pc + 6823 = ldr
+     r3,[r4,#0] + 2b00 = cmp r3,#0 + d101 = bne 66a9a + 66a96 =
+     bl 674e6）：
+     .bss 单例惰性初始化：非零则跳过，零则 bl 674e6 初始化
+     ★ 诚实边界：.bss 单例惰性初始化，主路径（非零跳过）直译 +
+     bl 674e6 初始化体镜像兜底
+     （§124y-288~1363 同口径，.bss 单例惰性初始化器族 0x66000+
+     子段继续推进 1 个入口，初始化函数序列跨 0x67400 边界继续）
+   - F_66a9a（0x66a9a，被调 1 次）：.bss 单例惰性初始化器复杂
+     （ldr r4,[pc,#400]（0x66c2c 指向 .bss 偏移表槽，跨 0x66axx
+     区）+ add r4,pc + ldr r3,[r4,#0] + cmp r3,#0 + bne + bl 674f8，
+     同族新入口；0x66360 尾部 3 个 .bss 惰性初始化后 1 个独立入口，
+     初始化函数跨 0x67400 边界继续）
+     语义（objdump 逐指令，入口 66a9a 为函数首；字节实锤 4c64 =
+     ldr r4,[pc,#400]（0x66c2c）+ 447c = add r4,pc + 6823 = ldr
+     r3,[r4,#0] + 2b00 = cmp r3,#0 + d101 = bne 66aa8 + 66aa4 =
+     bl 674f8）：
+     .bss 单例惰性初始化：非零则跳过，零则 bl 674f8 初始化
+     ★ 诚实边界：.bss 单例惰性初始化，主路径（非零跳过）直译 +
+     bl 674f8 初始化体镜像兜底
+     （§124y-288~1363 同口径，.bss 单例惰性初始化器族 0x66000+
+     子段继续推进 1 个入口，初始化函数序列跨 0x67400 边界继续） */
+uint32_t F_66a8c(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* .bss 单例惰性初始化：非零跳过 + bl 674e6 初始化体兜底 */
+    if (!_r0) return 0;
+    jqt_blx_dispatch(0x66a8c, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+uint32_t F_66a9a(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* .bss 单例惰性初始化：非零跳过 + bl 674f8 初始化体兜底 */
+    if (!_r0) return 0;
+    jqt_blx_dispatch(0x66a9a, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
     return 0;
 }
