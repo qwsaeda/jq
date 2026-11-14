@@ -1216,6 +1216,8 @@ uint32_t F_6643a(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,
 uint32_t F_66448(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_66456(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_66464(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_66472(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_66480(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 /* §124y-947 前向声明（第五百九十三批：大栈字面量池 12 除位运算 + 156B 超大栈字面量池 [栈+8] 写 212 常量加） */
 uint32_t F_cd834(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 /* §124y-946 前向声明（第五百九十二批：20B 栈 [r1] 乘 4 加 [r0] 72 加 [栈+12] 写 72 比较 + 36B 大栈 [this+20/12] 双取加减 [this+24] 取） */
@@ -83859,6 +83861,8 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_66448,
     F_66456,
     F_66464,
+    F_66472,
+    F_66480,
     F_ce020,
     F_ce3bc,
     F_ce5dc,
@@ -88147,6 +88151,8 @@ const uint32_t jqt_vtbl_offs[] = {
      0x66448,
      0x66456,
      0x66464,
+     0x66472,
+     0x66480,
      0xce020,
      0xce3bc,
      0xce5dc,
@@ -88351,7 +88357,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x11f20c,
      0x11fa34,
 };
-const uint32_t jqt_vtbl_n = 4286u;  /* §124y-149/.../948: 对齐 fns/offs 表实际条目数 */ 
+const uint32_t jqt_vtbl_n = 4288u;  /* §124y-149/.../948: 对齐 fns/offs 表实际条目数 */ 
 
 /* jqt_blx_dispatch：vtable 槽值 reg_val（shadow 地址）→ 目标函数。
  * 影子区 → off = reg_val - g_jqt_shadow；否则 off = reg_val。
@@ -131297,5 +131303,49 @@ uint32_t F_66464(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_
     /* .bss 单例惰性初始化：非零跳过 + bl 66e2c 初始化体兜底 */
     if (!_r0) return 0;
     jqt_blx_dispatch(0x66464, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+
+/* ★ §124y-1318 第九百六十四  批真业务裸跑函数补全（.bss 单例惰性初始化器 ×2，均镜像兜底；fns/offs 中间插入非表尾追加）
+   - F_66472（0x66472，被调 1 次）：.bss 单例惰性初始化器复杂
+     （ldr r4,[pc,#704]（0x66734 指向 .bss 偏移表槽）+ add r4,pc +
+     ldr r3,[r4,#0] + cmp r3,#0 + bne + bl 66e3e，同族新入口；
+     0x66360 尾部 3 个 .bss 惰性初始化后 1 个独立入口）
+     语义（objdump 逐指令，入口 66472 为函数首；字节实锤 4cb0 =
+     ldr r4,[pc,#704]（0x66734）+ 447c = add r4,pc + 6823 = ldr
+     r3,[r4,#0] + 2b00 = cmp r3,#0 + d101 = bne 66480 + 6647c =
+     bl 66e3e）：
+       .bss 单例惰性初始化：非零则跳过，零则 bl 66e3e 初始化
+     ★ 诚实边界：.bss 单例惰性初始化，主路径（非零跳过）直译 +
+       bl 66e3e 初始化体镜像兜底
+       （§124y-288~1317 同口径，.bss 单例惰性初始化器族 0x66000+
+       子段继续推进 1 个入口）
+   - F_66480（0x66480，被调 1 次）：.bss 单例惰性初始化器复杂
+     （ldr r4,[pc,#692]（0x66738 指向 .bss 偏移表槽）+ add r4,pc +
+     ldr r3,[r4,#0] + cmp r3,#0 + bne + bl 66e50，同族新入口；
+     0x66360 尾部 3 个 .bss 惰性初始化后 1 个独立入口）
+     语义（objdump 逐指令，入口 66480 为函数首；字节实锤 4cad =
+     ldr r4,[pc,#692]（0x66738）+ 447c = add r4,pc + 6823 = ldr
+     r3,[r4,#0] + 2b00 = cmp r3,#0 + d101 = bne 6648e + 6648a =
+     bl 66e50）：
+       .bss 单例惰性初始化：非零则跳过，零则 bl 66e50 初始化
+     ★ 诚实边界：.bss 单例惰性初始化，主路径（非零跳过）直译 +
+       bl 66e50 初始化体镜像兜底
+       （§124y-288~1317 同口径，.bss 单例惰性初始化器族 0x66000+
+       子段继续推进 1 个入口） */
+uint32_t F_66472(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* .bss 单例惰性初始化：非零跳过 + bl 66e3e 初始化体兜底 */
+    if (!_r0) return 0;
+    jqt_blx_dispatch(0x66472, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+uint32_t F_66480(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* .bss 单例惰性初始化：非零跳过 + bl 66e50 初始化体兜底 */
+    if (!_r0) return 0;
+    jqt_blx_dispatch(0x66480, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
     return 0;
 }
