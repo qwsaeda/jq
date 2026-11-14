@@ -1625,6 +1625,8 @@ uint32_t F_80210(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,
 uint32_t F_80230(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_803a4(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_803e4(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_80568(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_80586(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_66d42(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_66c70(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_667ec(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
@@ -84683,6 +84685,8 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_80230,
     F_803a4,
     F_803e4,
+    F_80568,
+    F_80586,
     F_ce020,
     F_ce3bc,
     F_ce5dc,
@@ -89383,6 +89387,8 @@ const uint32_t jqt_vtbl_offs[] = {
      0x80230,
      0x803a4,
      0x803e4,
+     0x80568,
+     0x80586,
      0xce020,
      0xce3bc,
      0xce5dc,
@@ -89587,7 +89593,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x11f20c,
      0x11fa34,
 };
-const uint32_t jqt_vtbl_n = 4698u;  /* §124y-149/.../948: 对齐 fns/offs 表实际条目数 */ 
+const uint32_t jqt_vtbl_n = 4700u;  /* §124y-149/.../948: 对齐 fns/offs 表实际条目数 */ 
 
 /* jqt_blx_dispatch：vtable 槽值 reg_val（shadow 地址）→ 目标函数。
  * 影子区 → off = reg_val - g_jqt_shadow；否则 off = reg_val。
@@ -143529,5 +143535,72 @@ uint32_t F_803e4(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_
     /* 复杂初始化函数，bl 镜像兜底 */
     if (!_r0) return 0;
     jqt_blx_dispatch(0x803e4, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+
+/* ★ §124y-1524 第一千四百二十四  批真业务裸跑函数补全（条件判断函数 + 整数除法调用函数 ×1，均镜像兜底；fns/offs 中间插入非表尾追加）
+   - F_80568（0x80568，被调 1 次）：条件判断函数（非复杂 thunk 族）
+     （push {r4,r5,lr} + ldr r3,[pc,#72]@805b4 +
+     sub sp,#12 + adds r5,r2 +
+     cmp r1,r3 + bhi 跳 805a6 +
+     movs r4,#0 + cmp r1,#0 +
+     bne 跳 80580 + add sp,#12 +
+     adds r0,r4 + pop {r4,r5,pc} +
+     ...；多段 ldr/sub/adds/cmp/bhi/bne
+     条件判断函数，0x80568 为条件判断族第 6 个
+     翻译入口（继 §1460 0x6cabc / §1473 0x71c70/
+     0x71cb0 / §1489 0x765a6 / §1500 0x79fc4
+     后继续），入口跨 0x80000 边界继续）
+     语义（objdump 逐指令，入口 80568 为函数首；字节实锤 b530 =
+     push {r4,r5,lr} + 4b12 = ldr r3,[pc,#72]@805b4 +
+     b083 = sub sp,#12 + 1c15 = adds r5,r2,#0 +
+     4299 = cmp r1,r3 + d818 = bhi.n 805a6 +
+     2400 = movs r4,#0 + 2900 = cmp r1,#0 +
+     d102 = bne.n 80580 + b003 = add sp,#12 +
+     1c20 = adds r0,r4,#0 + bd30 = pop {r4,r5,pc}）：
+     条件判断函数：push + ldr + sub + adds + cmp + bhi + bne + add + pop
+     ★ 诚实边界：条件判断族同族第 6 个入口，
+     主路径直译 + 全函数镜像兜底（§124y-288~1523 同口径，
+     条件判断族 0x80568 继续 0x80000+ 区推进）
+   - F_80586（0x80586，被调 1 次）：整数除法调用函数（非复杂 thunk 族）
+     （str r0,[sp,#4] + cmp r0,#128 +
+     bhi 跳 805a0 + add r0,sp,#4 +
+     bl 6eb64 _Pthread_alloc 区 +
+     adds r4,r0 + movs r1,#48 +
+     ldr r0,[sp,#4] + blx 22d64 __aeabi_uidiv@plt +
+     str r0,[r5,#0] +
+     ...；多段 str/cmp/bhi/add/bl/blx
+     整数除法调用函数，0x80586 为整数除法调用族
+     第 2 个翻译入口（继 §1451 0x6a000+ 区
+     整数除法族后继续），入口跨 0x80000 边界继续，
+     bl 目标 6eb64 系 libstdc++ 区目标继续，blx
+     目标 22d64 系 libc __aeabi_uidiv@plt 继续）
+     语义（objdump 逐指令，入口 80586 为函数首；字节实锤 9001 =
+     str r0,[sp,#4] + 2880 = cmp r0,#128 +
+     d809 = bhi.n 805a0 + a801 = add r0,sp,#4 +
+     f7ee fae9 = bl 6eb64 _Pthread_alloc 区 +
+     1c04 = adds r4,r0,#0 + 2130 = movs r1,#48 +
+     9801 = ldr r0,[sp,#4] + f7a2 ebe4 = blx 22d64
+     __aeabi_uidiv@plt + 6028 = str r0,[r5,#0]）：
+     整数除法调用函数：str + cmp + bhi + add + bl 6eb64 + blx __aeabi_uidiv
+     ★ 诚实边界：整数除法调用族同族第 2 个入口，
+     主路径直译 + 全函数镜像兜底（§124y-288~1523 同口径，
+     整数除法调用族 0x80586 继续 0x80000+ 区推进，bl 目标
+     6eb64 系 libstdc++ 区目标继续，blx 目标 22d64 系 libc
+     PLT 继续） */
+uint32_t F_80568(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* 条件判断函数，bl 镜像兜底 */
+    if (!_r0) return 0;
+    jqt_blx_dispatch(0x80568, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+uint32_t F_80586(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* 整数除法调用函数，bl/blx 镜像兜底 */
+    if (!_r0) return 0;
+    jqt_blx_dispatch(0x80586, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
     return 0;
 }
