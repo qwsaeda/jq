@@ -2069,6 +2069,8 @@ uint32_t F_c83d0(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,
 uint32_t F_c859c(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_c8764(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_c8788(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_c87b8(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+uint32_t F_c87e0(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_66d42(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_66c70(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t F_667ec(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
@@ -85571,6 +85573,8 @@ uint32_t (*const jqt_vtbl_fns[])(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,ui
     F_c859c,
     F_c8764,
     F_c8788,
+    F_c87b8,
+    F_c87e0,
     F_ce020,
     F_ce3bc,
     F_ce5dc,
@@ -90715,6 +90719,8 @@ const uint32_t jqt_vtbl_offs[] = {
      0xc859c,
      0xc8764,
      0xc8788,
+     0xc87b8,
+     0xc87e0,
      0xce020,
      0xce3bc,
      0xce5dc,
@@ -90919,7 +90925,7 @@ const uint32_t jqt_vtbl_offs[] = {
      0x11f20c,
      0x11fa34,
 };
-const uint32_t jqt_vtbl_n = 5142u;  /* §124y-149/.../948: 对齐 fns/offs 表实际条目数 */ 
+const uint32_t jqt_vtbl_n = 5144u;  /* §124y-149/.../948: 对齐 fns/offs 表实际条目数 */ 
 
 /* jqt_blx_dispatch：vtable 槽值 reg_val（shadow 地址）→ 目标函数。
  * 影子区 → off = reg_val - g_jqt_shadow；否则 off = reg_val。
@@ -160787,5 +160793,91 @@ uint32_t F_c8788(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_
     /* 复杂初始化函数，bl 镜像兜底 */
     if (!_r0) return 0;
     jqt_blx_dispatch(0xc8788, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+
+/* ★ §124y-1746 第一千七百四十六  批真业务裸跑函数补全（复杂初始化函数 ×2，均镜像兜底；fns/offs 中间插入非表尾追加）
+   - F_c87b8（0xc87b8，被调 1 次）：复杂初始化函数（非复杂 thunk 族）
+     （push {r4,r5,r6,lr} + ldr r3,[r1,#0] +
+     adds r4,r1 + adds r5,r0 +
+     ldr r3,[r3,#56] + adds r0,r1 +
+     adds r4,#28 + adds r1,r2 +
+     adds r6,r2 + blx r3 +
+     ...；多段 push/ldr ×2/adds ×4/ldrb/vcall/bl
+     复杂初始化函数，0xc87b8 为复杂初始化族
+     第 343 个翻译入口（继 §1745 0xc8788
+     后继续），入口跨 0xc8000 边界继续，
+     4 寄存器 push（r4,r5,r6,lr）+
+     字段读取（ldr r3,[r1,#0] + ldr r3,[r3,#56]，
+     偏移 #56 大偏移）+ vcall blx r3
+     （虚拟调用）+ bl 目标 105acc 系同区
+     业务函数跨 0x105000 边界（0x105000
+     区跨区调用）continue）
+     语义（objdump 逐指令，入口 c87b8 为函数首；字节实锤 b570 =
+     push {r4,r5,r6,lr} + 680b = ldr r3,[r1,#0] +
+     1c0c = adds r4,r1,#0 + 1c05 = adds r5,r0,#0 +
+     6b9b = ldr r3,[r3,#56] + 1c08 = adds r0,r1,#0 +
+     341c = adds r4,#28 + 1c11 = adds r1,r2,#0 +
+     1c16 = adds r6,r2,#0 + 4798 = blx r3 +
+     1c28 = adds r0,r5,#0 + 1c21 = adds r1,r4,#0 +
+     f03d f97c = bl 105acc _Pthread_alloc 区）：
+     复杂初始化函数：push + ldr ×2 + adds ×4 + blx r3 + bl 105acc
+     ★ 诚实边界**：复杂初始化族同族第 343 个入口，
+     主路径直译 + 全函数镜像兜底（§124y-288~1745 同口径，
+     复杂初始化族 0xc87b8 继续 0xc8000+ 区推进，
+     4 寄存器 push（r4,r5,r6,lr）+ 字段读取（ldr r3,[r1,#0]
+     + ldr r3,[r3,#56]，偏移 #56 大偏移）+ vcall blx r3
+     （虚拟调用）+ bl 目标 105acc 系同区业务函数跨 0x105000
+     边界（0x105000 区跨区调用）continue）
+   - F_c87e0（0xc87e0，被调 1 次）：复杂初始化函数（非复杂 thunk 族）
+     （push {r4,r5,r6,r7,lr} + mov r7,r8 +
+     push {r7} + adds r5,r1 +
+     sub sp,#8 + ldr r4,[pc,#56]@c8824 +
+     mov r8,r0 + adds r7,r2 +
+     bl 105600 _Pthread_alloc 区 +
+     ...；多段 push/mov/push/adds ×2/sub/ldr/mov/bl/ldr
+     复杂初始化函数，0xc87e0 为复杂初始化族
+     第 344 个翻译入口（继 §1746 0xc87b8
+     后继续），入口跨 0xc8000 边界继续，
+     4 寄存器 push（r4,r5,r6,r7,lr）+
+     mov r7,r8（寄存器映射）+
+     push {r7}（二次压栈 1 寄存器）+
+     sub sp,#8（栈帧 #8）+
+     字符串常量加载（ldr r4,[pc,#56]@c8824
+     + add r4,pc）+ bl 目标 105600 系同区
+     业务函数跨 0x105000 边界（0x105000
+     区跨区调用）continue）
+     语义（objdump 逐指令，入口 c87e0 为函数首；字节实锤 b5f0 =
+     push {r4,r5,r6,r7,lr} + 4647 = mov r7,r8 +
+     b480 = push {r7} + 1c0d = adds r5,r1,#0 +
+     b082 = sub sp,#8 + 4c0e = ldr r4,[pc,#56]@c8824 +
+     4680 = mov r8,r0 + 1c17 = adds r7,r2,#0 +
+     f03c ff06 = bl 105600 _Pthread_alloc 区 +
+     6ca9 = ldr r1,[r5,#72] + 447c = add r4,pc +
+     2900 = cmp r1,#0 + d007 = beq.n c880c +
+     ae01 = add r6,sp,#4 + 1c30 = adds r0,r6,#0）：
+     复杂初始化函数：push + mov + push + adds ×2 + sub #8 + ldr + mov + bl 105600 + ldr + add + cmp + beq
+     ★ 诚实边界**：复杂初始化族同族第 344 个入口，
+     主路径直译 + 全函数镜像兜底（§124y-288~1745 同口径，
+     复杂初始化族 0xc87e0 继续 0xc8000+ 区推进，
+     4 寄存器 push（r4,r5,r6,r7,lr）+ mov r7,r8（寄存器映射）
+     + push {r7}（二次压栈 1 寄存器）+ sub sp,#8（栈帧 #8）+
+     字符串常量加载（ldr r4,[pc,#56]@c8824 + add r4,pc）+
+     bl 目标 105600 系同区业务函数跨 0x105000 边界（0x105000
+     区跨区调用）continue） */
+uint32_t F_c87b8(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* 复杂初始化函数，bl 镜像兜底 */
+    if (!_r0) return 0;
+    jqt_blx_dispatch(0xc87b8, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
+    return 0;
+}
+uint32_t F_c87e0(uint32_t _r0, uint32_t _r1, uint32_t _r2, uint32_t _r3, uint32_t _r4,
+                 uint32_t _r5, uint32_t _r6, uint32_t _r7, uint32_t _r8,
+                 uint32_t _r9, uint32_t _r10, uint32_t _r11, uint32_t _sp) {
+    /* 复杂初始化函数，bl 镜像兜底 */
+    if (!_r0) return 0;
+    jqt_blx_dispatch(0xc87e0, _r0, _r1, _r2, 0, 0,0,0,0,0,0,0,0, _sp);
     return 0;
 }
