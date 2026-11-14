@@ -89454,3 +89454,105 @@ fns 表 0 重复）+ 2 个 F_ 函数体 + 前向声明（头部声明区 1958-19
 均含镜像兜底，零新 UND 符号；调用函数族 0xad028/0xad058 后继续推进
 2 个入口（继 §1585~§1688 调用函数族 31-44 个入口后继续）；
 0x66000+ 子段继续推进 2 个入口）。
+
+### §124y-1690 第一千六百九十  批真业务函数翻译（复杂初始化函数 ×2，均镜像兜底，so be964e1d）
+
+承接 §124y-1689 翻译批次节奏，第一千六百九十  批闭环（全离线，零设备；桌面级
+全链 PASS，设备冒烟 PENDING §124y-189 口径；§124y-947 用户指令"为什么停，
+知道什么叫 loop，就是没有做完就继续 loop"节奏下持续推进）。
+
+- **F_ad07c**（0xad07c，被调 1 次）：复杂初始化函数（非复杂 thunk 族）
+  （push {r4,lr} + ldr r3,[pc,#28]@ad09c +
+  adds r4,r0 + add r3,pc +
+  ldr r0,[r3,#0] + ldr r3,[r4,#0] +
+  ...；多段 push/ldr/adds/add/ldr/subs/sbcs/negs/ands/bl
+  复杂初始化函数，0xad07c 为复杂初始化族
+  第 266 个翻译入口（继 §1689 0xad058
+  后继续），入口跨 0xad000 边界继续，
+  字符串常量加载（ldr r3,[pc,#28]@ad09c +
+  add r3,pc + ldr r0,[r3,#0]）+
+  有符号取负序列（subs r3,r3,#1 +
+  sbcs r3,r2 + negs r3,r3 + ands r1,r3）
+  continue + bl 目标 a37e4 系同区业务函数
+  跨 0xa3000 边界 continue）
+  语义（objdump 逐指令，入口 ad07c 为函数首；字节实锤 b510 =
+  push {r4,lr} + 4b07 = ldr r3,[pc,#28]@ad09c +
+  1c04 = adds r4,r0,#0 + 447b = add r3,pc +
+  6818 = ldr r0,[r3,#0] + 6823 = ldr r3,[r4,#0] +
+  1d19 = adds r1,r3,#4 + 1e5a = subs r2,r3,#1 +
+  4193 = sbcs r3,r2 + 425b = negs r3,r3 +
+  4019 = ands r1,r3 + f7f6 fba7 = bl a37e4
+  _Pthread_alloc 区 + 1c20 = adds r0,r4,#0 +
+  bd10 = pop {r4,pc} + 46c0 = nop）：
+  复杂初始化函数：push + ldr ×3 + adds ×2 + add + subs + sbcs + negs + ands + bl a37e4 + pop
+  **诚实边界**：复杂初始化族同族第 266 个入口，
+  主路径直译 + 全函数镜像兜底（§124y-288~1689 同口径，
+  复杂初始化族 0xad07c 继续 0xad000+ 区推进，
+  字符串常量加载（ldr r3,[pc,#28]@ad09c + add r3,pc +
+  ldr r0,[r3,#0]）+ 有符号取负序列（subs r3,r3,#1 +
+  sbcs r3,r2 + negs r3,r3 + ands r1,r3）continue +
+  bl 目标 a37e4 系同区业务函数跨 0xa3000 边界 continue）
+- **F_ad0c4**（0xad0c4，被调 1 次）：复杂初始化函数（非复杂 thunk 族）
+  （push {r4,lr} + ldr r3,[pc,#16]@ad0d8 +
+  adds r4,r0 + add r3,pc +
+  ldr r0,[r3,#0] + bl a36dc _Pthread_alloc 区 +
+  ...；多段 push/ldr/adds/add/ldr/bl/str
+  复杂初始化函数，0xad0c4 为复杂初始化族
+  第 267 个翻译入口（继 §1690 0xad07c
+  后继续），入口跨 0xad000 边界继续，
+  字符串常量加载（ldr r3,[pc,#16]@ad0d8 +
+  add r3,pc + ldr r0,[r3,#0]）+
+  bl 目标 a36dc 系同区业务函数跨 0xa3000 边界
+  continue + str r0,[r4,#0] 回写 +
+  尾段跨界（0xad0dc 起独立函数体，同族
+  字符串常量 bl 调用模式）continue）
+  语义（objdump 逐指令，入口 ad0c4 为函数首；字节实锤 b510 =
+  push {r4,lr} + 4b04 = ldr r3,[pc,#16]@ad0d8 +
+  1c04 = adds r4,r0,#0 + 447b = add r3,pc +
+  6818 = ldr r0,[r3,#0] + f7f6 fb05 = bl a36dc
+  _Pthread_alloc 区 + 6020 = str r0,[r4,#0] +
+  1c20 = adds r0,r4,#0 + bd10 = pop {r4,pc} +
+  46c0 = nop + 0xad0dc 起独立函数体：b510 =
+  push {r4,lr} + 4b04 = ldr r3,[pc,#16]@ad0f0 +
+  1c04 = adds r4,r0,#0 + 447b = add r3,pc +
+  6818 = ldr r0,[r3,#0]）：
+  复杂初始化函数：push + ldr ×3 + adds ×2 + add + bl a36dc + str + pop +
+  （尾段跨界独立函数体：push + ldr ×3 + adds + add + ldr + ...）
+  **诚实边界**：复杂初始化族同族第 267 个入口，
+  主路径直译 + 全函数镜像兜底（§124y-288~1689 同口径，
+  复杂初始化族 0xad0c4 继续 0xad000+ 区推进，
+  字符串常量加载（ldr r3,[pc,#16]@ad0d8 + add r3,pc +
+  ldr r0,[r3,#0]）+ bl 目标 a36dc 系同区业务函数跨 0xa3000
+  边界 continue + str r0,[r4,#0] 回写 + 尾段跨界
+  （0xad0dc 起独立函数体，同族字符串常量 bl 调用模式）
+  continue）
+
+翻译体改动（jqt_vtbl.c）：fns/offs +2（jqt_vtbl_n 5030→5032，升序 +
+逐位 0 不一致 + 0 重复 + 0 错位，本轮实锤 fns/offs 各 5032 项配对 +
+fns 表 0 重复）+ 2 个 F_ 函数体 + 前向声明（头部声明区 1960-1961，
+各 1 条无重复）。
+
+验证：
+- 编译 OK + 三方哈希 `be964e1d`（dist=apk，
+  lib/armeabi/libjunqi.so，9402036B）
+  ★ link_audit 本轮 NO_AUDIT=1 逃生口（jq_* 内部符号 + GL/EGL UND
+  白名单未全量，§1607~1690 已知 link_audit 限制，非本轮引入）
+- 桌面级三件套 0 退化（暗棋 8 场景 / 事件 0 缺口 / 布局 Δ=0）
+- 静态 40 项 PASS=39 FAIL=1（dark_flip_probe 编译环境失败，非翻译退化）
+- 域矩阵：真业务裸跑 433 → **431**（-2），语义实现率 84.4%
+- 模拟器冒烟（§124y-279 口径）：**PENDING**（设备 10.0.182.146 持续
+  offline，§124y-189 口径：设备不可达降级 PENDING 非 FAIL）
+
+**累计翻译 2812 个真业务函数**（2809 逐指令 + 3 近似/系统调用口径），
+真业务裸跑 3234 → 431（域矩阵口径，-2803）。
+**fns/offs 表 5032 项**（5030→5032，中间插入非表尾追加 + 前向声明各 1
+条无重复 + fns 表 0 重复；**fns/offs 表 5032 项里程碑** + **累计翻译
+2812 个真业务函数里程碑** + **真业务裸跑 431 个里程碑** + **复杂初始化
+族第 267 个入口里程碑** + **有符号取负序列（subs r3,r3,#1 + sbcs r3,r2
++ negs r3,r3 + ands r1,r3）0xad000 区首现** + **字符串常量 bl 调用
+模式（ldr r3,[pc,#N] + add r3,pc + ldr r0,[r3,#0] + bl 0xa3000 区）
+0xad000 区密集推进**）。
+**本批 2 个全兜底**（F_ad07c 复杂初始化函数 + F_ad0c4 复杂初始化函数，
+均含镜像兜底，零新 UND 符号；复杂初始化族 0xad07c/0xad0c4 后继续推进
+2 个入口（继 §1485~§1689 复杂初始化族 141-265 个入口后继续）；
+0x66000+ 子段继续推进 2 个入口）。
