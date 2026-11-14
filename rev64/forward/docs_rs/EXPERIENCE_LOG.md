@@ -2480,3 +2480,14 @@ OnCreate 主线程被该钩子段拖住（转译层 property 读取 + 自动走 
 - 0x69be4/0x69c08 = libstdc++ 内部短例程（.text 0x69xxx 区，非 PLT），
   前段误判为 memcpy——修正：其"rank 比较"实为 libstdc++ 比较器（无业务语义），
   真正的吃子结果判定 = 0x31de0 函数（事件名分发实证见上）。
+
+### 7. 同级互杀事件码对齐原版 EV_EAT（2026-11-14，已修）
+- 修：rules.c jq_try_move 同级分支（:817 else 同级）ev=EV_BOMB→**EV_EAT**
+  （原版 0x31de0 0x31e94 `cmp r9,r8 beq → Junqi.Eat` 实证；EV_BOMB 仅保留
+  给含炸弹的真实同归）。
+- 同步夹具：evverify.c `--bomb` 用例（cell27→32 rank6vs6 同级）期望
+  EV_BOMB→EV_EAT；rulestest ③ 同级用例期望同步；rule_text_conformance
+  「同级同归于尽」断言同步。
+- **规则层胜负判定 0 变化**（同级两格清空一致，仅事件名/音效分叉消除）。
+- 回归全 PASS：rule_text_conformance 33/33 / evverify 172/172 / rulestest /
+  regress 50局+悔棋20 / gametest / dark_*·flip_* 全过；arm64 so `20dbc860`。

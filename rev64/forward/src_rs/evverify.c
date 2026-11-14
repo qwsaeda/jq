@@ -5,7 +5,7 @@
  *   --flag   蓝 rank2@53 吃红军旗@58        → 期望 EV_FLAG(3) stage=OVER winner=BLUE
  *   --mine   蓝工兵@49 挖红雷@54（红有子@59）→ 期望 EV_MINE(5) stage=PLAY（挖雷不结束）
  *   --eat    蓝 cell25@30 吃红（默认布局）   → 期望 EV_EAT(1)
- *   --bomb   蓝 cell27@32 同级（默认布局）   → 期望 EV_BOMB(2)
+ *   --bomb   蓝 cell27@32 同级（默认布局）   → 期望 EV_EAT(1)（2026-11-14 原版 0x31de0 实证）
  *   --move   蓝 cell12@11 空移（默认布局）   → 期望 EV_MOVE(0)
  *   --lay    打印默认布局 60 格（side/rank 原始值）
  *   --all    跑全部事件断言（含 P1 datah_012 4 规则开关），全对 exit=0
@@ -2584,10 +2584,13 @@ int main(int argc, char **argv)
         jq_load_layout(&st, JQ_DEFAULT_LAY);
         for (int i = 0; i < N_CELLS; i++) if (st.cells[i].rank) st.cells[i].revealed = 1;
         ev_total++; ev_pass += run_case("eat", &st, 25, 30, EV_EAT, STG_PLAY, -1);
-        /* BOMB：默认布局 cell27→32 */
+        /* BOMB（同级同归，原版 0x31de0 实证 = EV_EAT）：默认布局 cell27→32 */
         jq_load_layout(&st, JQ_DEFAULT_LAY);
         for (int i = 0; i < N_CELLS; i++) if (st.cells[i].rank) st.cells[i].revealed = 1;
-        ev_total++; ev_pass += run_case("bomb", &st, 27, 32, EV_BOMB, STG_PLAY, -1);
+        /* ★ 2026-11-14：同级普通子（rank6 vs rank6）互杀原版事件 = Junqi.Eat
+           （0x31de0 0x31e94 cmp beq → 0x120f50 实证），64 位已对齐 ev=EV_EAT。
+           真炸弹同归用例见 rulestest ④（rank10 撞 rank2 → EV_BOMB）。 */
+        ev_total++; ev_pass += run_case("bomb", &st, 27, 32, EV_EAT, STG_PLAY, -1);
         /* MOVE：默认布局 cell12→11 */
         jq_load_layout(&st, JQ_DEFAULT_LAY);
         for (int i = 0; i < N_CELLS; i++) if (st.cells[i].rank) st.cells[i].revealed = 1;
@@ -2855,7 +2858,7 @@ int main(int argc, char **argv)
     jq_load_layout(&st, JQ_DEFAULT_LAY);
     for (int i = 0; i < N_CELLS; i++) if (st.cells[i].rank) st.cells[i].revealed = 1;
     if (strcmp(mode, "--eat") == 0)  return run_case("eat",  &st, 25, 30, EV_EAT,  STG_PLAY, -1) ? 0 : 1;
-    if (strcmp(mode, "--bomb") == 0) return run_case("bomb", &st, 27, 32, EV_BOMB, STG_PLAY, -1) ? 0 : 1;
+    if (strcmp(mode, "--bomb") == 0) return run_case("bomb", &st, 27, 32, EV_EAT,  STG_PLAY, -1) ? 0 : 1;  /* 2026-11-14：同级互杀=EV_EAT（原版 0x31de0 实证） */
     if (strcmp(mode, "--move") == 0) return run_case("move", &st, 12, 11, EV_MOVE, STG_PLAY, -1) ? 0 : 1;
     if (strcmp(mode, "--undo") == 0) return run_undo() ? 0 : 1;
     if (strcmp(mode, "--draw") == 0 || strcmp(mode, "--resign") == 0)

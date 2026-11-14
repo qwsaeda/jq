@@ -81,14 +81,15 @@ static void t_lay_eat(void)
     CHECK(st.cells[C(3,0)].rank == RANK_EMPTY, "源格空");
 }
 
-/* ③ 同级同归：蓝 rank6@(3,0) 撞 红 rank6@(3,1) → EV_BOMB 双方消失 */
+/* ③ 同级同归：蓝 rank6@(3,0) 撞 红 rank6@(3,1) → EV_EAT 双方消失
+   ★ 2026-11-14：原版 0x31de0 实证同级（rank 相等）发 Junqi.Eat 非 Bomb。 */
 static void t_same_rank(void)
 {
     jq_state st; setup_lay(&st);
     put(&st, C(3,0), 6, SIDE_BLUE, 1);
     put(&st, C(3,1), 6, SIDE_RED, 1);
     int ev = jq_try_move(&st, C(3,0), C(3,1));
-    CHECK(ev == EV_BOMB, "同级互杀 ev=EV_BOMB");
+    CHECK(ev == EV_EAT, "同级互杀 ev=EV_EAT（原版 0x31de0 实证）");
     CHECK(st.cells[C(3,0)].rank == RANK_EMPTY && st.cells[C(3,1)].rank == RANK_EMPTY,
           "同级同归后双方格均空");
 }

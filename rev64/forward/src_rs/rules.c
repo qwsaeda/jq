@@ -814,12 +814,18 @@ int jq_try_move(jq_state *st, int from, int to)
                （雷）pieces_left（雷存活）✓ 正确（送死攻方死雷留），攻方扣减口径正确。
                B01-022 修后（EV_DEAD 不清零）本条自动闭合。 */
             ev = EV_DEAD;
-        } else {                    /* 同级同归于尽（军棋标准：同级互杀） */
+        } else {                    /* 同级同归于尽（军棋标准：同级互杀）
+               ★ 2026-11-14 原版 0x31de0 实证对齐：同级（rank 相等 + 标志相等）
+               原版发 **Junqi.Eat**（0x31e94 cmp r9,r8 beq → 0x31f40 literal
+               = 0x120f50 串实证），非 Bomb。旧 64 位走 EV_BOMB（音效播炸弹声）
+               属事件分类/音效分叉（规则层胜负无差异：同级两格清空一致）。
+               修：同级互杀 ev=EV_EAT，对齐原版事件名（EV_BOMB 仅保留给
+               含炸弹的真实同归）。 */
             memset(src, 0, sizeof(*src));
             memset(dst, 0, sizeof(*dst));
             st->pieces_left[me]--;
             st->pieces_left[1 - me]--;   /* ★ AUD-1000 B01-086（P3 注释）：同级互杀攻防跨方 1-me=守方 */
-            ev = EV_BOMB;
+            ev = EV_EAT;
         }
         st->moves_since_eat = 0;
     }
