@@ -3617,3 +3617,41 @@ jq_rs_rules.c 注释定论。
   全量用例覆盖（本轮聚焦 which=2×which=4 事实交互 + which=0 和棋×which=2 吃雷
   清零交互已在 §37/§46 单开关/多步用例覆盖，全组合矩阵价值低——多数组合为独立
   开关叠加无新交互）。
+
+### 52. which=0（和棋）× which=2（吃雷）交叉门控行为级实证 + 验证方案扩到 37 项（2026-11-15）
+- **which=0×which=2 交叉门控独立覆盖**（dark_02_switch_test，4 断言）：补
+  §37 `dark_rule_switch_test`（各开关独立开/关）/ §51 `dark_4switch_combo_test`
+  （which=2×which=4 事实交互）之外的**"which=0（和棋）× which=2（吃雷）交叉
+  门控"**缺口（§35 挂起"which=0 和棋×which=2 吃雷清零交互"）：
+  ① which=0开+which=2开：工兵挖雷（69 步后）→ EV_MINE + moves_since_eat 清零
+     + 不判和（清零到 0，非 70）✓；
+  ② which=0开+空移 70 步（无吃雷）→ 判和（jq_on_draw，winner=DRAW）✓；
+  ③ which=0关+空移 70 步 → 不判和（which=0 cfg(0) 门控，moves=70 但 stage=
+     PLAY）✓；
+  ④ 交叉交互：吃雷清零打断即将判和的 70 步进度（69 步→吃雷清零→stage=PLAY
+     不判和）✓。
+- **★ which=0×which=2 交叉门控口径实锤（本轮新固化）**：
+  · **which=0（和棋，§519 `if(cfg(0)&&moves_since_eat>=70)jq_on_draw`）**：独立
+    控"70 步无吃子是否判和"（开=判和 / 关=不判和，门控 jq_on_draw）；
+  · **which=2（吃雷，§746/§784）**：控"工兵撞雷=挖雷（EV_MINE，moves_since_eat
+    清零）vs 送死（EV_DEAD，不清零）"；
+  · **交叉交互**：which=2 开时吃雷清零可**打断**即将判和的 70 步进度（69 步
+    空移后吃雷 → moves_since_eat 清零 → 不判和）；which=0 开关独立控"是否判和"
+    （③ 实证 which=0 关即使 moves=70 也不判和），which=2 开关控"吃雷是否清零
+    进度"（①④ 实证吃雷清零打断 70 步），两开关分域（和棋判定 vs 吃雷清零）但
+    可交叉影响 70 步进度演化——区别于 §50 which=1×which=4 的"源格/目标格分域
+    独立"（互不影响）+ §51 which=2×which=4 的"事实交互"（开关 2 阻断开关 4
+    路径可达性），本轮 which=0×which=2 是"分域但交叉影响进度演化"。
+- **对照 64 位实现**（rules.c §519 和棋门控 + §746/§784 吃雷清零 + §645 空移
+  累加）：which=0×which=2 交叉门控行为级 0 分叉。
+- **dark_02_switch_test 复用进 dark_align**：dark_align_regress.sh
+  36→**37 项** PASS（规则原文 33 + 36 用例，37/37 全项）。
+- **对齐验证方案三层"总结复用"终态（本轮复用确认）**：① make evverify
+  172/172 + 三件套（event_code 0 缺口 / layout 几何 Δ=0）/ ②
+  `dark_align_regress.sh` **37/37**（桌面 0 退化门禁）/ ③
+  `mumu_align_smoke.sh --dev 127.0.0.1:5556` **2/2 + 0 崩溃**（redroid 冒烟口径）。
+- **诚实边界**：本轮未改 rules.c 行为（§519 和棋门控 + §746/§784 吃雷清零均
+  既成实现，纯补验证用例 + 交叉门控口径实锤），so 无需重建；4 开关全组合矩阵
+  （which=0/1/2/4 八种 0/1 组合）未全量用例覆盖（本轮 which=0×which=2 + §37
+  单开关 + §50 which=1×which=4 + §51 which=2×which=4 已覆盖主要交互组合，
+  剩余组合为独立开关叠加无新交互，价值低）。
