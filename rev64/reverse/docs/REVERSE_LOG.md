@@ -117567,3 +117567,50 @@ thunk_reuse 输出 37），须厘清口径防误读；另域矩阵事件分发�
 ③ 事件名 73 逐名 + 3 模板 %d 展开（Junqi.GameType%d / Misc.Graph%d）
    须按"基础名入表 + %d 展开对照"口径（映射表 12 码 names 含 %d
    模板，对照时展开 base 名），防"模板名未映射"假缺口
+
+
+### §124y-1929 第一千九百二十九  批 .rel.dyn 5312 RELATIVE 槽位分布判据（静态第 54 项，so 59465d97 保持）
+
+承接 §124y-1928 后 loop 继续：按"未达成继续做"原则推进——重定位槽
+（.rel.dyn 5312 RELATIVE）此前仅有 `readelf_rel_check.py`（逐槽 readelf
+对照）+ `translated_abi_check.py`（槽数实锤），缺"5312 槽位 VA 分布
+（全在 .data 区 0x155000-0x15be2c，全 ⊂ 镜像拷贝区，.bss 无 RELATIVE
+槽）"的槽位分布判据，本批固化。
+
+**本批实锤（全离线，零设备）**：
+- **新判据脚本 `rel_dyn_slots_check.py`**（4 判据，设备无关）：
+  ① .rel.dyn 段存在（REL 段 offset 0x17ca8 size 0xa668）
+  ② R_ARM_RELATIVE = **5312**（AGENTS §124x 口径，readelf -r 实锤）
+  ③ 5312 槽 VA 全 ⊂ [0x233e0, 0x15be80)（镜像拷贝区，jq_rel_data.h
+     重定位目标区）
+  ④ 槽 VA 上下界 = **0x155000-0x15be2c**（.data 区，.bss 0x15be80+
+     无 RELATIVE 槽——.bss 为 NOBITS 运行时清零，非重定位目标）
+- **槽位分布实锤**：5312 RELATIVE 槽 16 槽在 .data 段头 0x155000-
+  0x15be2c（.data 28288B 区），全 ⊂ 镜像拷贝区（jq_img.bin 0x233e0
+  起含 .data），.bss 区 0 槽（jq_rel_data.h 只重定位 .data 区 5312
+  槽 + .data blob 28288B，.bss 保持全 0 忠实兜底 §124y-152 口径）
+- **静态 54 项 PASS=54 FAIL=0**（rel_dyn_slots 第 54 项，KINDS 表 +
+  头注释同步；verify_all 53→54 同步）
+
+**so 三方哈希 59465d97 保持**（本批 0 译码改动，纯判据固化）。
+
+验证：
+- rel_dyn_slots_check.py 判定 PASS（①.rel.dyn 段 ②5312 RELATIVE
+  ③全 ⊂ 镜像区 ④上下界 0x155000-0x15be2c）
+- 静态 54 项 PASS=54 FAIL=0
+- 域矩阵 raw=434 / 真业务裸跑 0 / 语义 91.9% / 事件分发 67/67 0 悬空
+  保持
+- 模拟器冒烟：**PENDING**（设备 10.0.182.146 offline，§124y-189 口径）
+
+**踩坑固化（防复发）**：
+① 5312 RELATIVE 槽全在 .data 区 0x155000-0x15be2c（非全 so 散分布）
+   ——jq_rel_data.h 重定位目标 = .data 段 28288B 区（含 .data.rel.ro/
+   .dynamic/.got/.data），.bss（NOBITS）无 RELATIVE 槽（运行时清零，
+   非重定位目标，§124y-152 .bss 全 0 忠实兜底口径）
+② readelf -r RELATIVE 槽提取须 `^([0-9a-f]+)\s+[0-9a-f]+\s+R_ARM_
+   RELATIVE`（行首 VA + addend + 类型，re.M），非全文件 findall
+   （旧 `re.findall(r"R_ARM_RELATIVE", r)` 计行数含非槽行，本批改
+   行锚定正则精确 5312）
+③ .rel.dyn 段 offset 0x17ca8 size 0xa668 = 5312 槽 × 8B = 0xa668
+   （每槽 8B：R_Scnie + addend 各 4B），readelf -SW 实锤（与 5312
+   槽数自洽）
