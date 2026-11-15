@@ -118159,3 +118159,59 @@ rules 走子判定），判据 = 离线断言非设备实锤）。
 ③ centerpx=[0,0,0,255] 全黑 = 纹理未上传（§124w-ALIGN 根因：纹理
    全黑/错误 → F_9e760 采样黑 → 棋盘黑），判据 ③ 锚点在位 = 防
    centerpx 全黑回归（锚点存在 ≠ 采样非黑，采样实锤须设备 screencap）
+
+
+### §124y-1941 第一千九百四十一  批 蓝牙 UNDO/RESTART 帧闭环离线断言判据（静态第 64 项，so 59465d97 保持）
+
+承接 §124y-1940 后 loop 继续：按"未达成继续做"原则推进——用户指令
+"继续对齐"，判据链已覆盖 16 维度 63 项（含完整 60 局对弈离线断言 §1939
+/ 渲染像素级实锤 §1940），本批固化**蓝牙 UNDO/RESTART 帧闭环**维度
+（离线断言，32 位走子桥同源缺口补强）。
+
+**本批实锤（全离线，零设备）**：
+- **离线断言源 `jq_bttest`**（正向 src_rs bt_semtest 78 条，
+  `rev64/forward/src_rs/dist/jq_bttest`）：UNDO/RESTART 帧语义闭环
+  实锤 4 项全绿（== 结果: 全部通过 ==）：
+  ① **UNDO/RESTART 闸口拒收**（OUR_TURN 拒收 UNDO rc=-2 B04-027 /
+     DISCONNECTED 拒收 UNDO 数据帧 B04-013+B04-027 / DISCONNECTED
+     拒收 RESTART B04-012+B04-027）
+  ② **帧编码 7 字段同源**（v2\ntype,fc,fr,tc,tr,rank,side\n，
+     UUID ce1404fe = 32/64 位同源 §1933）
+  ③ **Java 重组边界闭合**（含尾帧 wire 长 = 帧长 / 裸帧 Java 追加
+     '\n' wire 长 = 帧长+1，跨语言契约 BtSpp 读线程分帧）
+  ④ **直写帧可被 native decode**（契约闭合）
+- **新判据脚本 `bt_undorestart_check.py`**（4 判据，设备无关）：
+  ① 基准 binary 在位（dist/jq_bttest 可执行，缺失 → PENDING 提示
+     make bttest）
+  ② UNDO/RESTART 闸口断言在位（OUR_TURN/DISCONNECTED 拒收）
+  ③ 帧编码 7 字段同源（v2\n 头 + 尾 \n + UUID ce1404fe）
+  ④ 整体 "== 结果: 全部通过 =="（jq_bttest rc=0，78 条全过）
+- **静态 64 项 PASS=64 FAIL=0**（bt_undorestart 第 64 项，KINDS 表 +
+  头注释同步；verify_all 63→64 同步）
+
+**so 三方哈希 59465d97 保持**（本批 0 译码改动，纯判据固化；UNDO/
+RESTART 帧基准 = 正向 src_rs jq_bttest，32 位翻译体走子桥同源缺口
+（jq_rs_rules R-013 snapshots_left 恒 0 → 蓝牙 UNDO 帧在 32 位侧走
+jq_bt_ctrl_send 调用方栈，不走规则 API，行为等价职责分离），判据 =
+离线断言非设备实锤）。
+
+验证：
+- bt_undorestart_check.py 判定 PASS（①binary 在位 ②UNDO/RESTART 闸口
+  ③帧编码同源 ④78 条全部通过）
+- 静态 64 项 PASS=64 FAIL=0
+- 域矩阵 raw=434 / 真业务裸跑 0 / 语义 91.9% / 事件分发 67/67 0 悬空
+  保持
+- 蓝牙 UNDO/RESTART 帧闭环：**离线断言 PASS**（jq_bttest 78 条 4/4）
+
+**踩坑固化（防复发）**：
+① 32 位走子桥 4 路径（arm32_walkregress）无 UNDO 路径——蓝牙 UNDO
+   帧在 32 位侧由 jq_bt_ctrl_send 走调用方栈（§R-013 snapshots_left
+   恒 0 职责分离），不走 jq_rs_rules 悔棋 API，行为等价。判据 = 32/
+   64 位帧契约同源离线断言（jq_bttest），非"32 位走子桥含 UNDO 路径"
+② UNDO/RESTART 闸口（B04-012/013/027）= 回合闸口 + 连接闸口双拒收
+   （OUR_TURN 拒收 UNDO / DISCONNECTED 拒收数据帧+RESTART），判据 ②
+   须双闸口断言（非仅"拒收 UNDO"），防单闸口误判
+③ 帧编码 v2\n 7 字段（type,fc,fr,tc,tr,rank,side）首字段 type 为
+   帧类型标识（B04-004/B09-039 P1 已修：旧 strstr 中段内嵌串命中
+   缺陷 → 帧首锚定 buf[0]='v2\n'），UUID ce1404fe 32/64 位同源
+   （§1933），判据 ③ 防帧编码漂移
