@@ -117911,3 +117911,48 @@ Junqi.* 事件 → WAV 资源，64 位基准 vs SPAK 资源全对照）。
 ③ 音效 14 = 12 游戏事件（走子/吃子/炸弹/军旗/死亡/胜利/失败/和棋/
    开局/翻棋/选择/结束）+ 2 UI（close/pop，SPEC §5），与 SPAK 14
    WAV 全对照（无缺漏无多余）
+
+
+### §124y-1936 第一千九百三十六  批 渲染层 GL 出屏帧 + 12 UI 对齐判据（静态第 60 项，so 59465d97 保持）
+
+承接 §124y-1935 后 loop 继续：按"未达成继续做"原则推进——判据链已
+覆盖事件分发/镜像/系统域/重定位/段布局/资源/规则引擎/走子桥/触摸布局/
+蓝牙/生命周期/音效各域，本批转向**渲染层（GL 出屏帧 + 12 UI 对齐）**
+维度的离线判据收口（AGENTS 渲染 12 项 UI 对齐 + 出屏非黑比判据）。
+
+**本批实锤（全离线，零设备）**：
+- **新判据脚本 `render_gl_check.py`**（4 判据，设备无关）：
+  ① **渲染层 71 F_ 全有定义体**（jqt_OnRender_full.c，GL 绘制 / 纹理
+     / 出屏帧收表完整）
+  ② **GL 出屏判据锚点在位**（jqt_gl_bridge.c FRAMEBUFFER-DUMP 非黑比
+     + glSwapBuffers 通路，§124y-179 防 0% 采样假象）
+  ③ **出屏 30% 阈值三源一致**（源码 jqt_vtbl.c + 判据 arm32_hook_
+     check.sh + jqt_gl_bridge.c，fb_ratio_check §192 同源，防阈值漂移）
+  ④ **UI 12 项对齐**（layout_align_check --baseline：主菜单 5 按钮
+     Δ=0 + 弹窗 datah_044-054 Δ≤3px，AGENTS 渲染 12 项 UI 对齐口径）
+- **静态 60 项 PASS=60 FAIL=0**（render_gl 第 60 项，KINDS 表 + 头
+  注释同步；verify_all 59→60 同步）
+
+**so 三方哈希 59465d97 保持**（本批 0 译码改动，纯判据固化）。
+
+验证：
+- render_gl_check.py 判定 PASS（①71 F_ 收表 ②GL 出屏锚点 ③30% 三源
+  一致 ④UI 12 项对齐）
+- 静态 60 项 PASS=60 FAIL=0
+- 域矩阵 raw=434 / 真业务裸跑 0 / 语义 91.9% / 事件分发 67/67 0 悬空
+  保持
+- 模拟器冒烟：**PENDING**（设备 10.0.182.146 offline，§124y-189 口径；
+  GL 出屏实锤 = 真机 screencap 非黑比 ≥30%，本判据 = 离线锚点对照）
+
+**踩坑固化（防复发）**：
+① 渲染层 71 F_（jqt_OnRender_full.c）= GL 绘制 / 纹理 / 出屏帧收表
+   完整（域矩阵 byfile 25 = BL 目标归属，全 F_ 体 71 = 文件内全部
+   函数，§1927 口径差异厘清）——判据 ① 用"全 F_ 体 ≥ 70"防收表退化
+② GL 出屏 30% 阈值须**三源一致**（源码 jqt_vtbl.c 帧非黑比日志 +
+   判据 arm32_hook_check.sh -ge 30 + jqt_gl_bridge.c FRAMEBUFFER-
+   DUMP），任一漂移 = 出屏判读假象（§124y-179 防 0% 采样假象口径，
+   全黑帧 <30% 跳过保留槽）
+③ UI 12 项对齐 = layout_align_check --baseline（主菜单 5 按钮 Δ=0 +
+   弹窗 datah_044-054 Δ≤3px），AGENTS 渲染 12 项 UI 对齐口径（正向
+   会话 UI_COMPARE 12 项产物 uicmp/*.png 为对照源，本判据离线跑
+   layout_align_check 不依赖设备截图）
