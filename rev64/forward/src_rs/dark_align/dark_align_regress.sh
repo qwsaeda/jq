@@ -126,6 +126,7 @@ run_one dark_rail_cross_eat_test
 run_one dark_rail_cross_flagmine_test
 run_one dark_rail_c4corner_cross_eat_test
 run_one dark_rail_corner11_c4_test
+run_one dark_rail_c1c4cross_test
 
 
 echo ""
