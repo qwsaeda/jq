@@ -69,6 +69,14 @@ const char *const JQ_EVENT_NAMES[7] = {
    ★ AUD-R-027（P2 已修）：修法=删 mover 形参（上一轮 AUD-R-017 一并落地，调用点
      rail_path_engineer/rail_path_straight 同步）；"能否穿过己方子"语义未定案，
      若将来需要，按 move_legal 的 dst->side==me 拦截风格另加谓词，勿悬空形参。
+      ★ 2026-11-15 工兵 BFS 穿己方子绕行语义实锤（dark_bfs_thru_test）：工兵恒走
+      rail_path_engineer（铁路网 BFS，§398-399 分派），中间有子格仅阻断"直接进该
+      子格"（walkable 空格判定），不阻断经其他铁路路径**绕行到达**目标格（目标格
+      须空格 + 存在某条不穿子格的铁路连通路径）——实证 (5,0)工兵 + (5,2)己方子
+      阻断 row5 直滑时 (5,4)/(6,4) 仍可绕行到达。非工兵 rail_path_straight 直线
+      不绕行（中间有子=阻断）。"直线穿己方子滑行"（不经绕行直接穿越子格）仍
+      未定案（BFS 走 walkable 空格判定天然不穿子格，绕行可达 ≠ 直线穿格），
+      若需"直线穿己方子"语义按上方 dst->side==me 拦截风格另加谓词。
      ★ AUD-R-098（P3 关闭确认）：walkable() 的 mover 形参已随 AUD-R-017/R-027 删除，
      本项确认关闭（grep 确认无调用点传 0）。 */
 static bool walkable(const jq_state *st, int row, int col)
