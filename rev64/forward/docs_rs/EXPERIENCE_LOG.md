@@ -4217,3 +4217,51 @@ jq_rs_rules.c 注释定论。
   暗棋 FLIP 模式下胜负收尾（暗棋扛旗工兵门槛 + 吃光困毙）维持 §54/§55 既有口径
   未在本用例重复断言；"胜负收尾 winner=RED"（红方判胜）路径本轮未覆盖（聚焦
   winner=BLUE 蓝方判胜 + DRAW 对照，RED 判胜几何对称可后续追加）。
+
+### 67. 暗棋完整对局"胜负收尾 winner=RED"（红方判胜）路径全程 moves_since_eat 追踪断言行为级实证 + 验证方案扩到 52 项（2026-11-15）
+- **完整对局"胜负收尾 winner=RED"（红方判胜）路径全程 moves_since_eat 追踪独
+  立覆盖**（dark_fullgame_redwin_ms_track_test，3 断言）：补 §66
+  `dark_fullgame_win_ms_track_test`（实锤完整对局"胜负收尾" winner=BLUE（蓝方判
+  胜，靠蓝扛红旗/蓝吃光红困毙）的 moves_since_eat 追踪（终值<70，扛旗/吃子清零
+  打断 70 步进度））之外的**winner=RED（红方判胜，靠红扛蓝旗/红吃光蓝困毙）的
+  moves_since_eat 追踪**（几何对称，终值<70 + winner=RED 先于 70 步阈值）缺口
+  （完整对局胜负收尾"蓝胜 vs 红胜"双向 moves_since_eat 语义差异（winner 方向 vs
+  清零路径）未独立断言）：
+  ① 胜负A 红扛蓝旗判胜（which=3 开 winner=RED，**非 70 步判和**，ms 终值<70
+     ——扛旗清零打断 70 步进度）✓；
+  ② 胜负B 红吃光蓝最后子困毙判胜（winner=RED，ms 清零终值=0<70）✓；
+  ③ 胜负C 对照 winner=RED 与 winner=BLUE/DRAW 语义一致（均<70 非 70 步判和，
+     仅 winner 方向不同）✓。
+- **★ 完整对局胜负收尾双向 moves_since_eat 语义口径实锤（本轮新固化）**：完整
+  对局胜负收尾"蓝胜 vs 红胜"双向 moves_since_eat 语义**一致**（仅 winner 方向
+  不同）：
+  · **winner=BLUE**（§66 既有）：蓝扛红旗/蓝吃光红困毙 → winner=BLUE，ms 终值
+    <70（扛旗/吃子清零打断 70 步进度，非 70 步判和）；
+  · **winner=RED**（本轮）：红扛蓝旗/红吃光蓝困毙 → winner=RED，ms 终值<70（同
+    源清零路径，攻方判胜，方向相反）；
+  · **语义一致核心**：胜负收尾（无论 winner=BLUE 或 RED）moves_since_eat 终值
+    均<70（扛旗/吃子清零打断 70 步进度 + winner 判胜先于 70 步阈值），与判和收
+    尾（§65 winner=DRAW 终值=70）语义差异——70 步判和阈值只对**纯空移累加**生效，
+    任何吃子/扛旗清零（无论攻方）都打断 70 步进度使对局走胜负路径（非判和路径）；
+  · **winner 方向 = 攻方判胜**：扛旗/吃光后对方困毙 → winner=攻方（蓝攻→BLUE，
+    红攻→RED），moves_since_eat 清零路径与 winner 方向无关（仅与"是否发生吃子/
+    扛旗清零"相关）。
+- **对照 64 位实现**（rules.c jq_try_move 扛旗/吃子清零 §683/726/737/784/830 +
+  jq_on_flag_capture 扛旗终局（winner 置攻方）+ jq_on_stalemate 困毙判胜 + 70
+  步阈值 stalemate_after §519（仅判和路径触发））：胜负收尾双向 moves_since_eat
+  语义行为级 0 分叉。
+- **dark_fullgame_redwin_ms_track_test 复用进 dark_align**：dark_align_regress.sh
+  51→**52 项** PASS（规则原文 33 + 51 用例，52/52 全项）。
+- **对齐验证方案三层"总结复用"终态（本轮复用确认）**：① make evverify
+  172/172 + 三件套（event_code 0 缺口 / layout 几何 Δ=0）/ ②
+  `dark_align_regress.sh` **52/52**（桌面 0 退化门禁）/ ③
+  `mumu_align_smoke.sh --dev 127.0.0.1:5556` **2/2 + 0 崩溃**（redroid 冒烟口
+  径，含 flaky 容错重跑命中）。
+- **诚实边界**：本轮未改 rules.c/board.c 行为（扛旗/吃光困毙判胜 + 清零 + 70
+  步判和均既成实现，纯补验证用例 + 胜负收尾双向 moves_since_eat 语义口径实锤），
+  so 无需重建；胜负收尾用 LAY 明棋口径（绕暗棋工兵扛旗门槛，纯几何+开关路径），
+  暗棋 FLIP 模式下 winner=RED 胜负收尾（暗棋扛旗工兵门槛 + 吃光困毙红胜）维持
+  §54/§55 既有口径未在本用例重复断言；"胜负收尾 winner=RED 完整 60 子对局链"
+  （AI 走子+翻棋交替到 winner=RED）本轮未跑（聚焦 winner=RED 单点扛旗/吃光终局
+  断言，非完整对局链——完整对局链 §65 跑法为 AI 优先走子策略，实锤判和收尾，
+  构造 winner=RED 完整对局链需限制 AI 策略，留待后续批次 / 非阻塞）。
