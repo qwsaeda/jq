@@ -26,6 +26,25 @@ def main():
         print("✗ %s 不存在（须先提取 32 位 so jq_event_tbl_fill_bytes）" % BIN)
         return 2
     data = open(BIN, 'rb').read()
+    # §124y-1912 增强：从当前 dist so 重提取 289B（jq_event_tbl_fill_bytes @ VA 0x214d8，
+    # ELF32 load base 0 → VA=文件偏移）做三方一致性（在库 bin == 当前 so 重提取），
+    # 防翻译体演进后 bin 漂移（bin 是一次性提取快照，so 每批都可能变）
+    SO = os.path.join(ROOT, "rev64/dist/libjunqi_arm32_aligned.so")
+    if os.path.exists(SO):
+        import re
+        nm = os.popen("arm-linux-gnueabi-nm -C %s 2>/dev/null | awk '/jq_event_tbl_fill_bytes/{print $1}'" % SO).read().strip()
+        if nm:
+            so = open(SO, 'rb').read()
+            soff = int(nm, 16)
+            sdata = so[soff:soff+289]
+            print("  §1912 三方: 当前 so 0x%s 起 289B 非0=%d 高nibble=%d | 与在库 bin 一致=%s" % (
+                format(soff, 'x'), sum(1 for b in sdata if b),
+                sum(1 for b in sdata if b >> 4), sdata == data))
+            if sdata != data:
+                ok = False
+                print("  ✗ 当前 so 与在库 bin 不一致（bin 漂移，须重提取）")
+        else:
+            print("  §1912 三方: nm 未查到 jq_event_tbl_fill_bytes（符号改名？跳过）")
     if len(data) != 289:
         print("✗ 大小 %d ≠ 289（17 行 × 17 字段）" % len(data))
         return 2
