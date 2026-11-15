@@ -118109,3 +118109,53 @@ rules 走子判定），判据 = 离线断言非设备实锤）。
    传 binary 路径触发 "not enough arguments for format string"）——
    判据脚本须**直接 subprocess.run([GT])**（不经 python -c 嵌套），
    本批初版 TypeError 已勘误
+
+
+### §124y-1940 第一千九百四十  批 渲染像素级实锤判据（静态第 63 项，so 59465d97 保持）
+
+承接 §124y-1939 后 loop 继续：按"未达成继续做"原则推进——用户指定
+"渲染像素级实锤"方向（与完整 60 局对弈离线断言并列），本批固化
+**渲染像素级（棋子/棋盘纹理出屏）** 维度（设备无关，§124w-ALIGN
+沉淀的像素级锚点）。
+
+**本批实锤（全离线，零设备）**：
+- **新判据脚本 `render_pixel_check.py`**（4 判据，设备无关）：
+  ① **PIECE-TEX 棋子图集纹理锚点在位**（jqt_vtbl.c datah#183
+     212×280 棋子图集，texID + px=0x%08x 非零 + err=0x%x，§124w-
+     ALIGN 棋子图集纹理对齐经验）
+  ② **帧非黑比 30% 阈值锚点在位**（FRAMEBUFFER-DUMP 帧非黑比=%d%，
+     <30 跳过保留槽，§124y-179 防 0% 采样假象口径）
+  ③ **centerpx 像素采样锚点在位**（F_9e760 glDrawArrays centerpx=
+     [r,g,b,a] 非全黑 = 纹理上传成功，§124w-ALIGN 纹理采样黑→棋盘
+     黑根因对照）
+  ④ **棋子双批出屏顶点写入实锤**（VERT-FULL/VERT-UV/VERT-COL 12
+     顶点非全 0 + jqt_gl_buf_pos/col/uv calloc 真实堆指针，§124w-
+     ALIGN 全做批次 2 双批 first=0/count=6 texID=1 + first=6/
+     count=12 texID=2）
+- **静态 63 项 PASS=63 FAIL=0**（render_pixel 第 63 项，KINDS 表 +
+  头注释同步；verify_all 62→63 同步）
+
+**so 三方哈希 59465d97 保持**（本批 0 译码改动，纯判据固化）。
+
+验证：
+- render_pixel_check.py 判定 PASS（①PIECE-TEX ②帧非黑比 30% ③centerpx
+  ④棋子双批顶点写入，像素级锚点全在位）
+- 静态 63 项 PASS=63 FAIL=0
+- 域矩阵 raw=434 / 真业务裸跑 0 / 语义 91.9% / 事件分发 67/67 0 悬空
+  保持
+- 渲染像素级实锤（棋子/棋盘纹理出屏）：像素级锚点 PASS；**设备侧
+  screencap 非黑比 ≥30% 实锤 = PENDING**（10.0.182.146 offline，
+  §124y-189 口径；判据 = 离线锚点在位，非设备实锤）
+
+**踩坑固化（防复发）**：
+① 渲染像素级 = 棋子/棋盘纹理出屏断言（非几何 Δ）——像素级三锚点
+   （PIECE-TEX 棋子图集 + 帧非黑比 30% + centerpx 采样）+ 棋子双批
+   顶点写入（§124w-ALIGN 沉淀），判据 = 锚点在位（源码 grep），非
+   "设备 screencap 已出屏"实锤（设备 PENDING）
+② 帧非黑比 30% 阈值须三源一致（源码 jqt_vtbl.c FRAMEBUFFER-DUMP +
+   判据 arm32_hook_check.sh -ge 30 + jqt_gl_bridge.c，fb_ratio_check
+   §192 同源），本判据 ② 锚点 + §1936 render_gl ③ 三源一致 = 阈值
+   防漂移双保险
+③ centerpx=[0,0,0,255] 全黑 = 纹理未上传（§124w-ALIGN 根因：纹理
+   全黑/错误 → F_9e760 采样黑 → 棋盘黑），判据 ③ 锚点在位 = 防
+   centerpx 全黑回归（锚点存在 ≠ 采样非黑，采样实锤须设备 screencap）

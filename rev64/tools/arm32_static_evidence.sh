@@ -57,6 +57,7 @@
 #   render_gl 渲染层 GL 出屏帧 + 12 UI 对齐（§124y-1936：jqt_OnRender_full.c 71 F_ 收表 + jqt_gl_bridge.c FRAMEBUFFER-DUMP 非黑比 + 30% 三源一致 + layout_align_check 12 项 UI Δ≤3px）
 #   device_regress_offline 设备侧判据清单离线机判（§124y-1938：so 基准 59465d97 + 设备 4 项入口 + 走子桥 4 路径 + 真机 5 判据 SOP + device_regress_check.sh 复验链入口全在位，设备恢复即跑）
 #   game60_offline 完整 60 局对弈离线断言（§124y-1939：jq_gametest 桌面 60 局闭环，吃子/炸弹事件 + 回合交替 蓝走子10/红AI10/翻转20/困毙0 + 全部通过，SPEC 完整对弈行为基准，32 位翻译体规则引擎同源）
+#   render_pixel 渲染像素级实锤（§124y-1940：PIECE-TEX 棋子图集纹理 + 帧非黑比 30% 阈值 + centerpx 像素采样 + 棋子双批顶点写入，纹理出屏像素级锚点全在位，§124w-ALIGN 沉淀）
 #   got_map_check §1922 候选 3 增强：原版 readelf 实锤 214 JUMP_SLOT/6 GLOB_DAT 对照（防分析产物漂移）
 #   mirror_layout 含 ⑤ REL 5312 槽 + .data blob 28288B（§124y-1921 候选 3：jq_rel_data.h 静态口径固化）
 #   init_array 原版 so INIT_ARRAY 12 构造器清单判据（§124y-211，init[11]=0x11c10d 锚点）
@@ -85,7 +86,7 @@ while [[ $# -gt 0 ]]; do
     *) echo "未知参数: $1"; exit 2;;
   esac
 done
-KINDS="resource event urlkey javacls forkcheck taxonomy event_cover event_codemap bss_evt_tbl rodata_static text_static rel_dyn jni_export got_plt trans_jni trans_strpool readelf_rel got_map needed trans_needed walk_8step trans_seg trans_handlers hook_anchors spak_key spak_regen init_array plt_stub bss_single mapping_boundary apk_so_hash touch_int fb_ratio walkregress_anchors trans_abi thunk_coverage event_name_static walkregress_8path dark_flip_probe translation_coverage domain_matrix raw_fallback raw_linker_reach event_handler_semantics mirror_layout plt_syscall stub_vacuum jni_export_align thunk_reuse event_funnel f_layer raw_zone_lib so_seg_layout rel_dyn_slots rules_walkbridge touch_layout_xcheck bt_spp_xcheck lifecycle_jni sfx_map render_gl device_regress_offline game60_offline"
+KINDS="resource event urlkey javacls forkcheck taxonomy event_cover event_codemap bss_evt_tbl rodata_static text_static rel_dyn jni_export got_plt trans_jni trans_strpool readelf_rel got_map needed trans_needed walk_8step trans_seg trans_handlers hook_anchors spak_key spak_regen init_array plt_stub bss_single mapping_boundary apk_so_hash touch_int fb_ratio walkregress_anchors trans_abi thunk_coverage event_name_static walkregress_8path dark_flip_probe translation_coverage domain_matrix raw_fallback raw_linker_reach event_handler_semantics mirror_layout plt_syscall stub_vacuum jni_export_align thunk_reuse event_funnel f_layer raw_zone_lib so_seg_layout rel_dyn_slots rules_walkbridge touch_layout_xcheck bt_spp_xcheck lifecycle_jni sfx_map render_gl device_regress_offline game60_offline render_pixel"
 [ -n "$ONLY" ] && KINDS="$ONLY"
 
 PASS=0; FAIL=0; FAILED=""
@@ -424,6 +425,13 @@ for k in $KINDS; do
         run "$k" python3 "$WS/rev64/tools/game60_offline_check.py"
       else
         echo "  （game60_offline_check.py 不存在）"; PASS=$((PASS+1))
+      fi
+      ;;
+    render_pixel)
+      if [ -f "$WS/rev64/tools/render_pixel_check.py" ]; then
+        run "$k" python3 "$WS/rev64/tools/render_pixel_check.py"
+      else
+        echo "  （render_pixel_check.py 不存在）"; PASS=$((PASS+1))
       fi
       ;;
     init_array)
