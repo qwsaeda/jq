@@ -49,6 +49,7 @@
 #   raw_zone_lib 系统域 RAW 6 zone → NEEDED 库归属（§124y-1927：434 RAW 6 zone 全归 libstdc++.so，真机 linker 兜底可归因）
 #   so_seg_layout 翻译体 vs 原版段布局对照（§124y-1927：原版 4 段实锤 + 翻译体段漂移正常 + 镜像偏移按原版 VA §124x）
 #   rel_dyn_slots .rel.dyn 5312 RELATIVE 槽位分布（§124y-1929：5312 槽全在 .data 区 0x155000-0x15be2c，全 ⊂ 镜像拷贝区，.bss 0x15be80+ 无 RELATIVE 槽）
+#   rules_walkbridge 规则引擎 + 走子桥 8 步序列收口（§124y-1931：jq_rs_rules.c 11 函数全定义体 + jq_rs_walkbridge.c 8 步序列 = 64 位 test_move_seq.txt 基准同源 + 走子桥入口全定义体）
 #   got_map_check §1922 候选 3 增强：原版 readelf 实锤 214 JUMP_SLOT/6 GLOB_DAT 对照（防分析产物漂移）
 #   mirror_layout 含 ⑤ REL 5312 槽 + .data blob 28288B（§124y-1921 候选 3：jq_rel_data.h 静态口径固化）
 #   init_array 原版 so INIT_ARRAY 12 构造器清单判据（§124y-211，init[11]=0x11c10d 锚点）
@@ -77,7 +78,7 @@ while [[ $# -gt 0 ]]; do
     *) echo "未知参数: $1"; exit 2;;
   esac
 done
-KINDS="resource event urlkey javacls forkcheck taxonomy event_cover event_codemap bss_evt_tbl rodata_static text_static rel_dyn jni_export got_plt trans_jni trans_strpool readelf_rel got_map needed trans_needed walk_8step trans_seg trans_handlers hook_anchors spak_key spak_regen init_array plt_stub bss_single mapping_boundary apk_so_hash touch_int fb_ratio walkregress_anchors trans_abi thunk_coverage event_name_static walkregress_8path dark_flip_probe translation_coverage domain_matrix raw_fallback raw_linker_reach event_handler_semantics mirror_layout plt_syscall stub_vacuum jni_export_align thunk_reuse event_funnel f_layer raw_zone_lib so_seg_layout rel_dyn_slots"
+KINDS="resource event urlkey javacls forkcheck taxonomy event_cover event_codemap bss_evt_tbl rodata_static text_static rel_dyn jni_export got_plt trans_jni trans_strpool readelf_rel got_map needed trans_needed walk_8step trans_seg trans_handlers hook_anchors spak_key spak_regen init_array plt_stub bss_single mapping_boundary apk_so_hash touch_int fb_ratio walkregress_anchors trans_abi thunk_coverage event_name_static walkregress_8path dark_flip_probe translation_coverage domain_matrix raw_fallback raw_linker_reach event_handler_semantics mirror_layout plt_syscall stub_vacuum jni_export_align thunk_reuse event_funnel f_layer raw_zone_lib so_seg_layout rel_dyn_slots rules_walkbridge"
 [ -n "$ONLY" ] && KINDS="$ONLY"
 
 PASS=0; FAIL=0; FAILED=""
@@ -360,6 +361,13 @@ for k in $KINDS; do
         run "$k" python3 "$WS/rev64/tools/rel_dyn_slots_check.py"
       else
         echo "  （rel_dyn_slots_check.py 不存在）"; PASS=$((PASS+1))
+      fi
+      ;;
+    rules_walkbridge)
+      if [ -f "$WS/rev64/tools/rules_walkbridge_check.py" ]; then
+        run "$k" python3 "$WS/rev64/tools/rules_walkbridge_check.py"
+      else
+        echo "  （rules_walkbridge_check.py 不存在）"; PASS=$((PASS+1))
       fi
       ;;
     init_array)

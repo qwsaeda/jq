@@ -117661,3 +117661,53 @@ so_seg_layout 判据只实锤"翻译体段漂移 4 段（正常）"，未量化"
 ③ 段布局不同构 = AGENTS 诚实边界（行为级对齐重写版非汇编级逆向）
    的段级实锤：翻译体是重编 so（clang 重排段 + 嵌镜像），非原版
    32 位 so 的段级副本，镜像偏移逻辑仍按原版 VA §124x 口径
+
+
+### §124y-1931 第一千九百三十一  批 规则引擎 + 走子桥 8 步序列收口判据（静态第 55 项，so 59465d97 保持）
+
+承接 §124y-1930 后 loop 继续：按"未达成继续做"原则推进——判据链已
+覆盖事件分发/镜像/系统域/重定位/段布局/资源各域，本批转向**规则引擎
++ 走子桥**维度（jq_rs_rules.c 599 行 + jq_rs_walkbridge.c 256 行）
+的离线判据收口——此前走子桥仅 `walk_bridge_8step_check.py`（判据锚点
+对照）+ `walkregress_8path_check.py`（8 路径锚点），缺"规则引擎 11
+函数全定义体 + 32 位 8 步序列 = 64 位 test_move_seq.txt 基准同源"
+的收口判据。
+
+**本批实锤（全离线，零设备）**：
+- **新判据脚本 `rules_walkbridge_check.py`**（4 判据，设备无关）：
+  ① **规则引擎 11 函数全有定义体**（jq_rs_rules.c）：jq_can_move/
+     jq_can_flip/jq_try_move/jq_flip/jq_on_draw/jq_on_flag_capture/
+     jq_on_stalemate/jq_side_stalemated/jq_snapshots_left/
+     jq_undo_snapshot/jq_undo_restore（走子/吃子/炸弹/悔棋/翻棋/和棋/
+     军旗/困毙全规则）
+  ② **走子桥 8 步序列全实列**（jq_rs_walkbridge.c）：f6 f33 m6→11
+     m33→38 m12→13(ILLEGAL) u(undo) m10→11(ILLEGAL) q0(认输)
+  ③ **32 位走子桥 8 步 = 64 位 test_move_seq.txt 基准同源**（f f m m
+     m u m q 逐步一致，会话 B 基准）
+  ④ jq_walk_bridge_move + jq_game_test_finish 入口全有定义体
+- **静态 55 项 PASS=55 FAIL=0**（rules_walkbridge 第 55 项，KINDS 表
+  + 头注释同步；verify_all 54→55 同步）
+
+**so 三方哈希 59465d97 保持**（本批 0 译码改动，纯判据固化）。
+
+验证：
+- rules_walkbridge_check.py 判定 PASS（①11 函数全定义体 ②8 步全实列
+  ③= 64 位基准 ④入口全定义体）
+- 静态 55 项 PASS=55 FAIL=0
+- 域矩阵 raw=434 / 真业务裸跑 0 / 语义 91.9% / 事件分发 67/67 0 悬空
+  保持
+- 模拟器冒烟：**PENDING**（设备 10.0.182.146 offline，§124y-189 口径）
+
+**踩坑固化（防复发）**：
+① 规则引擎 11 函数（jq_rs_rules.c）与走子桥 8 步（jq_rs_walkbridge.c）
+   是会话 B 规则引擎走子桥的核心，判据须"函数全定义体 + 8 步序列全
+   实列 + 64 位基准同源"三维度收口（单看"walk_bridge_8step 锚点对照"
+   不够——锚点对照防判据漂移，本批补"源函数/序列实体存在 + 基准同源"）
+② 32 位走子桥 8 步序列（f6 f33 m6 m33 m12 u m10 q0）与 64 位
+   test_move_seq.txt（f f m m m u m q）须逐步一致（ILLEGAL×2 在
+   32 位实列，64 位基准同），防"32 位序列 ≠ 64 位基准"漂移（本批
+   实锤同源）
+③ jq_rs_rules.c 599 行 11 函数 = 32 位规则引擎核心（走子/吃子/炸弹/
+   悔棋/翻棋/和棋/军旗/困毙），与 64 位 src_rs 规则引擎行为对齐
+   （SPEC_BUSINESS 走子/吃子/炸弹/悔棋/翻棋规则），判据 ① 11 函数
+   全定义体 = 规则引擎"非空实现"实锤（非占位）
