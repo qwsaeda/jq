@@ -62,6 +62,9 @@ def main():
     ok = (missing == 0 and ret2 == 0)  # 24 全有定义体 + 0 "return 2 兜底"
     print('═══ §124y-1919 事件 handler 忠实语义离线核查判据 ═══')
     print('  24 事件 handler（§124y-29/30 实锤 codes 0-41 → 24 handler）')
+    print('  §1926 口径厘清：24 = codes 0-41 区 case 指向 distinct handler（含 7 冗余 .rodata 地址）；')
+    print('      全 F_55d40（code 0-66）distinct = 37（§1924 全量）；.text 真实（去 14 冗余 .rodata）= 30')
+    print('      本判据口径 = 24（§124y-29/30 codes 0-41 原始收表，忠实语义核查范围）')
     print('  定义体齐全: %d/24（缺 %d）' % (24 - missing, missing))
     print('  return 2 兜底 = %d（§124y-32/33 忠实修正后应 = 0，原版 code4 在 F_3ab64 层 ok=0）' % ret2)
     print('  return 0 忠实 = %d（显式 return 0 / 隐式 void 体 0，.bss 未构造早返回 0）' % ret0)

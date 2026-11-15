@@ -42,6 +42,9 @@ def main():
     for h, c in sorted(multi.items(), key=lambda x: -x[1]):
         print('     0x%s × %d' % (h, c))
     print('  ④ 冗余/扩展区：14 冗余 case（.rodata §124y-162 不可达）+ 扩展区 42-66')
+    print('  §1926 口径厘清：37 = F_55d40 全 switch（code 0-66）distinct handler（含 7 冗余 .rodata 地址）；')
+    print('      .text 真实（去 14 冗余 .rodata）= 30；codes 0-41 原始 = 24（§124y-29/30 收表口径）')
+    print('      本判据 37 = 全量 distinct（复用度量化用全量，§1924 口径）')
     print('  判据: %s' % ('PASS（67 case / 37 handler 全定义体 / 7 高频复用，事件分发复用设计实锤）'
                           if ok else 'FAIL'))
     return 0 if ok else 2

@@ -11,12 +11,12 @@
   RAW       —— 仍靠 .rodata/.text 镜像裸跑（真机风险区）
 
 产出：按域分层的统计 + 每个域的语义/裸跑比例 + 高风险裸跑函数清单。
-判据（PASS）：事件分发 57/57 收表 0 悬空 + JNI 14 入口全语义 +
+判据（PASS）：事件分发 67/67 收表 0 悬空（§1923 勘误后实列 67 case）+ JNI 14 入口全语义 +
 镜像 100%+（原版代码整体在 shadow 可执行）。
 
 域划分（按原版 so 的符号/地址段 + 翻译体文件名归因）：
   - JNI 入口层    ：14 个 Java_com_cnvcs_* 导出 + OnCreate 调用链
-  - 事件分发层    ：F_55d40 code→handler switch + 24 handler
+  - 事件分发层    ：F_55d40 code→handler switch + 37 distinct handler（§1924 复用度实锤，实列 67 case）
   - 规则引擎层    ：jq_rs_rules（走子/吃子/炸弹/悔棋/翻棋）
   - 走子桥层      ：jq_rs_walkbridge（会话 B 规则引擎走子桥）
   - 布局层        ：jq_rs_layout（32 位原生布局链 F_2a380）
@@ -267,7 +267,7 @@ def main():
     # 事件分发 0 悬空（jqt_vtbl.c 的 F_55d40 switch case handler 全有定义体）
     vtbl_src = open(os.path.join(TRANS, 'jqt_vtbl.c'), errors='ignore').read()
     cases = {}
-    for m in re.finditer(r'case (\d+):\s*h = (0x[0-9a-f]+);', vtbl_src):
+    for m in re.finditer(r'case (\d+):\s*h\s*=\s*(0x[0-9a-f]+);', vtbl_src):
         cases[int(m.group(1))] = m.group(2)[2:]
     dangling = [c for c, h in cases.items() if h not in f_defs]
     print('  事件分发 %d/%d 收表，悬空 %d %s' % (

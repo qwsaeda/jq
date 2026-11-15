@@ -117392,3 +117392,57 @@ distinct handler"的复用设计（此前仅"67/67 0 悬空"收表完整度，�
    剥离，objdump BL 目标无 0x 直接比，PSEUDO/libc 无 0x lstrip 归一；
    本批 5 脚本专项核查全一致（防未来判据"0x 口径漂移 → 假缺定义体"
    复发）
+
+
+### §124y-1926 第一千九百二十六  批 事件分发 handler 数三层口径厘清（24/37/30）+ 域矩阵事件分发正则统一（静态 50 项保持）
+
+承接 §124y-1925 后 loop 继续：按"未达成继续做"原则推进——静态 50 项
+全 PASS 后发现**事件分发 handler 数口径漂移**：§1924 全量 37 / §1919
+原始 24 / .text 真实 30 三数并存（event_handler_semantics 输出 24，
+thunk_reuse 输出 37），须厘清口径防误读；另域矩阵事件分发段正则残留
+§1923 旧口径（`case (\d+):\s*h =` 漏 10 case，实列 57 非 67）。
+
+**本批实锤（全离线，零设备）**：
+- **handler 数三层口径厘清**（实锤）：
+  - **24** = codes 0-41 区 case 指向 distinct handler（§124y-29/30 原始
+    收表口径，含 7 冗余 .rodata 地址），event_handler_semantics 核查
+    范围
+  - **37** = F_55d40 全 switch（code 0-66）distinct handler（§1924 全量，
+    含 7 冗余 .rodata 地址），thunk_reuse 复用度量化范围
+  - **30** = .text 真实 handler（去 14 冗余 .rodata 地址，§124y-162
+    编译期不可达），真业务可执行 handler
+  - 各判据口径注记固化（event_handler_semantics 加 24 口径注记 /
+    thunk_reuse 加 37 口径注记，防"24 vs 37 矛盾"误读）
+- **域矩阵事件分发正则统一**（§1923 同源勘误）：translation_domain_
+  matrix.py 270 行事件分发段 `case (\d+):\s*h = (0x...)` 漏 10 多空格
+  case（实列 57 非 67）→ 改 `case (\d+):\s*h\s*=\s*(0x...)`，实列
+  57 → **67**（与 §1923 三判据统一口径）；docstring 残留 57/24 勘误为
+  67/37。
+- **静态 50 项 PASS=50 FAIL=0 保持**（事件分发 67/67 收表 0 悬空，
+  口径厘清 + 正则统一，0 退化）。
+
+**so 三方哈希 59465d97 保持**（本批 0 译码改动，纯口径厘清 + 正则统一）。
+
+验证：
+- 域矩阵事件分发 67/67 收表 0 悬空（正则统一后实列 67）
+- event_handler_semantics 24 口径注记（24 = codes 0-41 原始收表，忠实
+  语义核查范围；37 = 全 0-66 复用度；30 = .text 真实去冗余）
+- thunk_reuse 37 口径注记（37 = 全量 distinct 复用度量化；24/30 厘清）
+- 静态 50 项 PASS=50 FAIL=0
+- 域矩阵 raw=434 / 真业务裸跑 0 / 语义 91.9% 保持
+- 模拟器冒烟：**PENDING**（设备 10.0.182.146 offline，§124y-189 口径）
+
+**踩坑固化（防复发）**：
+① 事件分发 handler 数 24/37/30 三层口径并存（非矛盾）：24 = codes
+   0-41 区原始收表（§124y-29/30，含 7 冗余 .rodata 地址）；37 = 全
+   F_55d40（code 0-66）distinct（§1924，含 7 冗余）；30 = .text 真实
+   （去 14 冗余 .rodata，§124y-162 编译期不可达）。各判据须注明口径
+   （本批实做 event_handler_semantics 24 注记 + thunk_reuse 37 注记），
+   防"24 vs 37 矛盾"误读
+② 域矩阵事件分发段正则须与 §1923 三判据（thunk_coverage /
+   translation_coverage / 域矩阵）统一 `case (\d+):\s*h\s*=\s*(0x...)`
+   （含 `h\s*=\s*` 空白容错），任一保留旧 `case (\d+):\s*h =`（漏
+   `h\s*=\s*`）= 实列 57 假绿源（本批域矩阵 270 行残留旧正则已勘误）
+③ 冗余 .rodata 地址（14 case，§124y-162 编译期不可达）计入 distinct
+   handler（24/37 含），但 .text 真实 handler（30）须去冗余——"含
+   冗余 / 去冗余"口径须标注（本批厘清固化）
