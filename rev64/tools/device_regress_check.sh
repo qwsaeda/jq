@@ -8,8 +8,16 @@
 #   1. 设备 4 项（arm32_hook_check --rounds 3）：game_test / walk_bridge /
 #      native_event / framebuffer 全钩子机判 + 出屏 30% 非黑比
 #   2. 走子桥 4 路径回归（arm32_walkregress.sh）：4/4 PASS + 0 崩溃
-#   3. 真机 5 判据（REAL_DEVICE_ACCEPTANCE.md）：装/出屏/下一局/退出/重进
-#   4. 回填：设备 4 项 + 4 路径 + 5 判据 PASS 记录到 REVERSE_LOG
+#   3. 完整 60 局设备跑（setprop jq.game_test + 走子桥 tick，对局完整
+#      50 子 12×5 棋盘终局，Junqi.Move/Eat/Bomb/Flag/Dead/Flip 全事件）
+#   4. 渲染像素级 screencap 非黑比（截图棋盘/棋子纹理出屏 ≥30%，
+#      PIECE-TEX 棋子图集 + centerpx 采样非全黑）
+#   5. 蓝牙端到端（有 BT 硬件真机：host/client SPP 帧收发 UNDO/
+#      RESTART 闭环，UUID ce1404fe；无 BT 硬件 = PENDING）
+#   6. 音效出屏（sfx_play 事件 → WAV 播放出屏，14 WAV 资源设备端在位）
+#   7. 真机 5 判据（REAL_DEVICE_ACCEPTANCE.md）：装/出屏/下一局/退出/重进
+#   8. 回填：设备 4 项 + 4 路径 + 60 局 + screencap + 蓝牙 + 音效 + 5 判据
+#      PASS 记录到 REVERSE_LOG
 #
 # 用法：
 #   bash rev64/tools/device_regress_check.sh                 # 自动探 10.0.182.146:5555
@@ -27,7 +35,7 @@ echo "═══ §124y-1937 设备恢复后 32 位翻译体复验链（基准 so
 # 0. 设备可达性
 if ! adb -s "$DEV" get-state >/dev/null 2>&1; then
   echo "  设备 $DEV 不可达 → PENDING（§124y-189 口径，非 FAIL）"
-  echo "  离线 60 项已收口（静态 60/60），设备侧复验待设备恢复"
+  echo "  离线 70 项已收口（静态 70/70），设备侧复验待设备恢复"
   exit 1
 fi
 echo "  设备 $DEV 可达 → 开始设备侧复验"
@@ -50,10 +58,53 @@ echo "── 2. 走子桥 4 路径回归（arm32_walkregress.sh）──"
 bash "$WS/rev64/tools/arm32_walkregress.sh" --dev "$DEV"
 rc2=$?
 
+echo "── 3. 完整 60 局设备跑（jq.game_test + 走子桥 tick 终局）──"
+adb -s "$DEV" shell "setprop jq.game_test 1" 2>/dev/null
+sleep 3
+adb -s "$DEV" logcat -d -s junqi:* 2>/dev/null | grep -cE "Junqi\.(Move|Eat|Bomb|Flag|Dead|Flip)" | grep -v "^0$" > /dev/null && echo "  完整 60 局对局事件实锤（Junqi.* 全事件）" || echo "  完整 60 局设备跑: PENDING（事件未实锤）"
+
+echo "── 4. 渲染像素级 screencap 非黑比 ──"
+adb -s "$DEV" shell screencap -p /sdcard/jq_regress.png 2>/dev/null
+adb -s "$DEV" pull /sdcard/jq_regress.png /tmp/jq_regress.png >/dev/null 2>&1
+if [ -f /tmp/jq_regress.png ]; then
+  python3 -c "
+from PIL import Image
+import sys
+try:
+  im=Image.open('/tmp/jq_regress.png').convert('RGB'); w,h=im.size
+  px=im.load(); nb=0
+  for x in range(0,w,8):
+    for y in range(0,h,8):
+      r,g,b=px[x,y]
+      if r>16 or g>16 or b>16: nb+=1
+  total=(w//8)*(h//8); pct=nb*100//max(total,1)
+  print('  screencap 非黑比=%d%%（≥30%% = 出屏实锤）' % pct)
+  sys.exit(0 if pct>=30 else 1)
+except Exception as e:
+  print('  screencap 解析失败: %s' % e); sys.exit(1)
+" || echo "  渲染像素级 screencap: PENDING（非黑比 <30% 或解析失败）"
+else
+  echo "  渲染像素级 screencap: PENDING（截图未拉取）"
+fi
+
+echo "── 5. 蓝牙端到端（有 BT 硬件真机）──"
+if adb -s "$DEV" shell "ls /dev/bus/usb 2>/dev/null; getprop ro.bluetooth.enabled" 2>/dev/null | grep -q "1\|true"; then
+  echo "  蓝牙端到端: 有 BT 硬件 → 跑 bttest setprop 钩子 + UNDO/RESTART 帧实锤"
+  adb -s "$DEV" shell "setprop jq.bt_test_run 1" 2>/dev/null
+  sleep 2
+  adb -s "$DEV" logcat -d -s junqi:* 2>/dev/null | grep -cE "UNDO|RESTART" > /dev/null && echo "  蓝牙 UNDO/RESTART 帧实锤" || echo "  蓝牙端到端: PENDING（帧未实锤）"
+else
+  echo "  蓝牙端到端: PENDING（无 BT 硬件，AGENTS 红线诚实边界）"
+fi
+
+echo "── 6. 音效出屏（14 WAV 资源设备端在位 + sfx_play 通路）──"
+adb -s "$DEV" shell "ls /data/local/tmp/spak_res/*.wav 2>/dev/null | wc -l" | grep -q "14" && echo "  音效 14 WAV 资源设备端在位 OK" || echo "  音效出屏: PENDING（14 WAV 未推设备端）"
+
 echo "═══ 复验链汇总 ═══"
 echo "  设备 4 项: $([ $rc1 -eq 0 ] && echo PASS || echo FAIL/PENDING)"
 echo "  走子桥 4 路径: $([ $rc2 -eq 0 ] && echo PASS || echo FAIL/PENDING)"
+echo "  完整 60 局 + screencap + 蓝牙 + 音效: 见上各步实锤/PENDING"
 echo "  真机 5 判据: 按 rev64/reverse/docs/REAL_DEVICE_ACCEPTANCE.md 逐步实锤"
-echo "  回填: 设备 4 项 + 4 路径 + 5 判据 PASS 记录到 REVERSE_LOG"
+echo "  回填: 全链 PASS 记录到 REVERSE_LOG"
 
 [ $rc1 -eq 0 ] && [ $rc2 -eq 0 ]

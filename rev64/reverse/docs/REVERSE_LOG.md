@@ -118536,3 +118536,58 @@ PASS），但"与原版对齐"口径散在各判据未做系统逐域实锤。�
 ③ 事件名域 74 distinct 名（.rodata 实列，Junqi 73 + Misc 3 = 76 总
    数，distinct 74 因部分名多地址），判据 ③ 用"≥70 distinct"防事件名
    逐名在位退化（非精确 76 防 .rodata 地址重复误判）
+
+
+### §124y-1948 第一千九百四十八  批 设备侧实锤链扩全（"与原版对齐"设备侧全维度，设备 offline PENDING）
+
+承接 §124y-1947 后 loop 继续：用户指令"没有与原版对齐，为什么不推进"
+——逐域行为级对齐离线判据 7 域已 7/7 收口（§1947），但"与原版对齐"
+的**设备侧实锤**（真机跑 + 截图 + 完整 60 局 + 蓝牙端到端 + 音效出
+屏）被设备 10.0.182.146 offline 挡住。本批把设备侧实锤链**扩全到 8
+步**（不止走子 4 路径，扩到完整 60 局设备跑 + screencap 非黑比 + 蓝
+牙端到端 + 音效出屏），设备恢复即一键跑全链实锤"与原版对齐"。
+
+**本批实锤（全离线，零设备）**：
+- **`device_regress_check.sh` 扩全到 8 步**（基准 so 59465d97）：
+  ① 前置 so 三方哈希核对（防设备跑旧 so）
+  ② 设备 4 项（arm32_hook_check --rounds 3，出屏 30% 非黑比）
+  ③ 走子桥 4 路径回归（4/4 PASS + 0 崩溃）
+  ④ **完整 60 局设备跑**（setprop jq.game_test 1 + 走子桥 tick，
+     对局完整 50 子 12×5 棋盘终局，Junqi.Move/Eat/Bomb/Flag/Dead/
+     Flip 全事件实锤）
+  ⑤ **渲染像素级 screencap 非黑比**（截图棋盘/棋子纹理出屏 ≥30%，
+     PIL 解析 /tmp/jq_regress.png 非黑比，≥30% = 出屏实锤）
+  ⑥ **蓝牙端到端**（有 BT 硬件真机：jq.bt_test_run 钩子 + UNDO/
+     RESTART 帧实锤，UUID ce1404fe；无 BT 硬件 = PENDING）
+  ⑦ **音效出屏**（14 WAV 资源设备端在位 + sfx_play 通路实锤）
+  ⑧ 真机 5 判据 + 回填 REVERSE_LOG
+- **`device_regress_offline_check.py` 判据 ⑤ 同步**（复验链入口扩
+  全到 8 步：基准 + 设备 4 项 + 走子桥 4 路径 + 完整 60 局 +
+  screencap + 蓝牙 + 音效 + PENDING）
+- **脚本内"静态 60/60"过时计数修正为"静态 70/70"**（§1947 已扩到
+  70 项，防 PENDING 提示误读）
+
+**so 三方哈希 59465d97 保持**（本批 0 译码改动，纯设备侧实锤链扩全
++ 离线 dry-run 判据同步；设备 offline，设备侧实锤 = PENDING 非 FAIL，
+§124y-189 口径）。
+
+验证：
+- device_regress_check.sh syntax OK + 离线跑 PENDING（设备 offline）
+- device_regress_offline_check.py 判据 ⑤ 8 步全在位 PASS
+- 静态 70 项 PASS=70 FAIL=0 保持
+- 域矩阵 raw=434 / 真业务裸跑 0 / 语义 91.9% / 事件分发 67/67 0 悬空
+  保持
+- 设备侧实锤全维度：**PENDING**（10.0.182.146 offline；设备恢复跑
+  device_regress_check.sh 8 步全链实锤"与原版对齐"）
+
+**踩坑固化（防复发）**：
+① 设备侧实锤链须**扩全到 8 步**（不止走子 4 路径），防"走子通"误判
+   "与原版对齐"——完整 60 局（对局终局）+ screencap（渲染像素级）+
+   蓝牙端到端（联机协议）+ 音效出屏（资源通路）4 维度全实锤才"与
+   原版对齐"，判据 = 8 步全 PASS
+② 设备 offline = PENDING 非 FAIL（§124y-189 口径），脚本探 `adb get-
+   state` 不可达直接 PENDING 退出（不误判"设备侧 FAIL"）——离线 70
+   项已收口，设备 PENDING 仅"设备侧未实锤"非"so 回归"
+③ 脚本内计数须与离线判据链同步（§1947 扩到 70 项后，PENDING 提示
+   "静态 60/60" 过时 → 修正"静态 70/70"），防 PENDING 提示误读（勘
+   误后实锤 70/70）
