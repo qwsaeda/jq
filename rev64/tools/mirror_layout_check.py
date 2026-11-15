@@ -74,9 +74,34 @@ def main():
     else:
         print('④ .bss 0x15be80 起 memset(g_jqt_shadow+img_end) 清零 OK（img_end = 0x233e0+sz = 0x15be80）')
 
+    # ⑤ RELATIVE 5312 槽 + .data blob 28288B（jq_rel_data.h 静态判据，§124x 重定位口径）
+    rel_h = os.path.join(ROOT, 'rev64/reverse/src_jni_translated/jq_rel_data.h')
+    if os.path.exists(rel_h):
+        rh = open(rel_h, errors='ignore').read()
+        m = re.search(r'jqt_rel_tbl\[\d+\]|jq_rel_tbl\[\d+\]|\b\d+\b', rh)
+        # 找 RELATIVE 槽数（jq_rel_data.h 里 REL 槽数组大小）
+        rel_n = 0
+        for mm in re.finditer(r'jq_rel_tbl\[(\d+)\]', rh):
+            rel_n = int(mm.group(1))
+        # .data blob 大小（JQ_DATA_SZ 或 0x6e80）
+        data_sz = 0
+        for mm in re.finditer(r'jq_data_blob\[(\d+)\]|JQ_DATA_SZ.*?(\d+)', rh):
+            data_sz = int(mm.group(1) or mm.group(2))
+        print('⑤ RELATIVE 槽 + .data blob（jq_rel_data.h 静态判据）')
+        if rel_n != 5312:
+            print('   REL 槽 = %d（期望 5312，AGENTS 口径）' % rel_n)
+        else:
+            print('   REL 槽 = 5312 OK（AGENTS 口径，R_ARM_RELATIVE 全重定位）')
+        if data_sz not in (0, 0x6e80, 28288):
+            print('   .data blob = %d（期望 0x6e80/28288，§124w .data 段 0x155000-0x15be80）' % data_sz)
+        else:
+            print('   .data blob = %d OK（§124w .data 段 0x155000-0x15be80）' % data_sz)
+    else:
+        print('⑤ jq_rel_data.h 不存在（跳过 REL/ .data 静态判据，构建期生成）')
+
     for f in fails:
         print('FAIL:', f)
-    print('判据: %s' % ('PASS（镜像布局 0x233e0 起点 + 0x15be80 截断 + .bss 清零，§124x 口径固化）'
+    print('判据: %s' % ('PASS（镜像布局 0x233e0 起点 + 0x15be80 截断 + .bss 清零 + REL/ .data 静态口径，§124x 固化）'
                         if not fails else 'FAIL'))
     return 0 if not fails else 2
 

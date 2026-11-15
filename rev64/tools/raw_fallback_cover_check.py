@@ -120,8 +120,12 @@ def main():
         c = zones[z]
         dom = DOMAIN.get(z, '未知区')
         print('    0x%04x0000-0x%04xfff 区 %4d 条  %s' % (z, z + 1, c, dom))
-    print('  全分布合计 = %d 条（6 zone，全归系统域 / 数据区，0 业务混入）' % sum(zones.values()))
-    print('  §1916 对账: 域矩阵 main RAW 层 = %d，本判据 raw = %d，集合一致 = %s' % (
+    print('  全分布合计 = %d 条（6 zone，全归系统域 / 数据区，0 业务混入；§1921 勘误后含 9 注释依赖）' % sum(zones.values()))
+    # §124y-1921 勘误：域矩阵 load_vtable_dispatch 改正后（抓 jqt_vtbl_offs[] 真实
+    # 5463 表项，非旧 F_ 正则 5472 误抓），main RAW 层 = 434（旧 426 + 9 注释
+    # 依赖进 RAW，8/9 实锤；0xb79e6 = jqt_vtbl.c 内部 MEM 偏移非 BL 目标，未进 RAW）
+    # 本判据 raw 集合口径同步 = 434（含 9 注释依赖）
+    print('  §1916 对账: 域矩阵 main RAW 层 = %d，本判据 raw = %d，集合一致 = %s（§1921 勘误后 434 = 旧 426 + 9 注释依赖）' % (
         len(dm_main_raw), len(raw), raw_set_match))
     print('  判据: %s' % ('PASS（RAW 全在镜像区 + 系统域纯 + 双路命中 + 域矩阵对账一致，真机兜底无死角）'
                           if ok else 'FAIL'))

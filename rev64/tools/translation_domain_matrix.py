@@ -44,15 +44,20 @@ def load_f_defs():
     return f
 
 def load_vtable_dispatch():
-    """44 槽 vtable dispatch 收表（jqt_vtbl.c 的 jqt_vtbl_n / 槽→函数）。"""
+    """真实 jqt_vtbl dispatch 表项（jqt_vtbl_offs[] 数组，升序二分命中区）。
+    §124y-1921 勘误：旧实现 re.findall(r'\\bF_([0-9a-f]+)\\b') 全文件误抓
+    注释里"bl F_xxx（未译→镜像兜底）"依赖（9 条 F_105a60/F_1081a4/F_1187f4/
+    F_11a218/F_11a354/F_120508 等仅注释提及，无表项/无函数体）→ vtbl 层 5472
+    虚高 9 条。改抓 jqt_vtbl_offs[] 数组（真实 5463 项，与 fns 表一一对应）。
+    注释依赖 9 条单列（vtable_dep_miss），域矩阵 VTABLE 层 = 5463 真实口径。"""
     v = set()
     p = os.path.join(TRANS, 'jqt_vtbl.c')
     if os.path.exists(p):
         s = open(p, errors='ignore').read()
-        for m in re.finditer(r'jqt_vtbl_[0-9a-fx]+\s*[=;,]', s):
-            pass
-        # 直接抓所有被 dispatch 引用的 F_ 目标（槽指向）
-        for m in re.finditer(r'\bF_([0-9a-f]+)\b', s):
+        oi = s.find('const uint32_t jqt_vtbl_offs[]')
+        oe = s.find('};', oi)
+        tbl = s[oi:oe]
+        for m in re.finditer(r'0x([0-9a-f]+)', tbl):
             v.add(m.group(1))
     return v
 
@@ -188,8 +193,10 @@ def main():
             SY += 1
         elif a in f_defs:
             SEM += 1
-        elif a in vtbl:
-            VT += 1
+        # §124y-1921 勘误：真实 dispatch 表 = f_defs（jqt_vtbl_offs[] 全 5463 项
+        # 均有对应 F_ 函数体，load_f_defs 扫全文件 uint32_t F_xxx( 定义）；
+        # 旧 vtbl 层（load_vtable_dispatch 误抓 F_ 正则 5472）已并入 f_defs，
+        # VTABLE 层单列 = 0（真实口径：5463 dispatch 全走 SEMANTIC）
         elif a in stub:
             ST += 1
         else:

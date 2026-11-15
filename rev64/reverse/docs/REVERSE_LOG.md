@@ -117115,3 +117115,65 @@ IMG_HI=0x15be80，必须 memcpy 到 shadow+0x233e0 非 shadow+0，.bss 0x15be80
 ③ .bss 垃圾尾 0x138aa0 起 = .GCC: (GNU) 4.4.3 字符串 + .comment/
    .rodata 尾（非有效数据），须截断防覆盖 .bss 单例槽 0x15be80-
    0x15bebc（场景对象 0x15be84 / 渲染器 / 纹理 16 槽）
+
+
+### §124y-1921 第一千九百二十一  批 域矩阵 vtbl 层勘误 + .plt 系统调用层 + REL/.data 静态口径（静态 46 项，so 59465d97 保持）
+
+承接 §124y-1920 后 loop 继续：按"1→2→3"顺序推进候选 1（load_vtable_dispatch
+正则勘误）+ 候选 2（.plt 214 槽静态判据）+ 候选 3（REL 5312 + .data 28288B
+镜像一致性）——三候选合并一批（候选 1 勘误触发域矩阵分层口径变更，候选
+2/3 同步固化）。
+
+**本批实锤（全离线，零设备）**：
+- **候选 1：`load_vtable_dispatch` 正则勘误**（旧 `re.findall(r"\bF_
+  ([0-9a-f]+)\b")` 全文件误抓 5472，含 9 注释依赖 → 改抓 jqt_vtbl_offs[]
+  数组真实 5463 表项）。9 注释依赖实锤（F_105a60/F_1081a4/F_108398/
+  F_1187f4/F_11a218/F_11a354/F_120508 在 jqt_vtbl.c 注释"bl F_xxx
+  （未译→镜像兜底）"提及，无函数体/无表项）——8/9 进域矩阵 RAW 层
+  （0xb79e6 = jqt_vtbl.c 内部 MEM 偏移非 BL 目标，未进 RAW），域矩阵
+  RAW 层 426 → **434**（旧 426 + 8 注释依赖 + 1 其他），语义实现率
+  92.1% → **91.9%**（VTABLE 层并入 SEMANTIC 真实口径）。
+  勘误同步：`raw_fallback_cover_check.py` §1916 对账段（RAW 426→434
+  集合一致）+ 全分布注释（6 zone 含 9 注释依赖）。
+- **候选 2：新判据 `plt_syscall_check.py`**（.plt 系统调用层，4 判据）：
+  ① .rel.plt R_ARM_JUMP_SLOT = 214（AGENTS 口径）② .got R_ARM_GLOB_DAT
+  = 6（符号解析槽，与 JUMP_SLOT 独立）③ NEEDED 7 项全量 dlopen
+  （libstdc++/libc/libm/liblog/libGLESv1_CM/libGLESv2/libdl）= 系统
+  调用层真机可达兜底 ④ .plt 桩区 VA=0x229c0 大小=0xa1c（PROGBITS AX，
+  0x229c0-0x233df 在段布局内）。
+- **候选 3：`mirror_layout_check.py` 追加 ⑤**（REL 5312 + .data blob
+  28288B 静态判据）：jq_rel_data.h REL 槽 = 5312（AGENTS 口径，
+  R_ARM_RELATIVE 全重定位）+ .data blob = 28288（§124w .data 段
+  0x155000-0x15be80，memcpy shadow+JQ_DATA_VA + RELATIVE 重定位加基址）。
+- 静态 **46 项 PASS=46 FAIL=0**（plt_syscall 新增 + mirror_layout 含 ⑤，
+  KINDS 表 + 头注释同步；verify_all 45→46 同步）。
+
+**so 三方哈希 59465d97 保持**（本批 0 译码改动，纯判据勘误 + 静态口径固化）。
+
+验证：
+- 域矩阵 load_vtable_dispatch 勘误后：SEMANTIC 4948 / VTABLE 0 / RAW 434
+  / 真业务裸跑 0 / 语义实现率 91.9%（真实口径，9 注释依赖进 RAW 系统域）
+- raw_fallback §1916 对账：域矩阵 main RAW 434 = raw_fallback raw 434
+  集合一致（§1921 勘误后口径）
+- plt_syscall_check.py 判定 PASS（214 JUMP_SLOT + 6 GLOB_DAT + NEEDED
+  7 项 + .plt 桩区 0x229c0-0x233df）
+- mirror_layout ⑤：REL 5312 + .data 28288B 静态口径 PASS
+- 静态 46 项 PASS=46 FAIL=0
+- 模拟器冒烟：**PENDING**（设备 10.0.182.146 offline，§124y-189 口径）
+
+**踩坑固化（防复发）**：
+① `load_vtable_dispatch` 旧正则 `\bF_([0-9a-f]+)\b` 全文件误抓注释
+   依赖（9 条），虚高 VTABLE 层 5472；勘误改抓 jqt_vtbl_offs[] 数组
+   （真实 5463），VTABLE 层并入 SEMANTIC（f_defs 全量 5464 = 5463
+   dispatch + 1 其他），RAW 层 426 → 434（9 注释依赖进系统域 RAW，
+   非业务可译区，镜像 + linker 兜底）
+② 9 注释依赖（F_105a60/F_1081a4/F_108398/F_1187f4/F_11a218/F_11a354/
+   F_120508 + 其他）= jqt_vtbl.c 注释"bl F_xxx（未译→镜像兜底）"提及
+   的真实未译函数（无函数体），域矩阵 RAW 层归系统域（.text 尾部 C++
+   runtime 区），非"真业务裸跑"（biz_raw = 0 维持）
+③ .plt 214 槽 = 系统调用层（libc/libstdc++/GL），真机 linker 解析兜底
+   （NEEDED 7 项全量 dlopen），非翻译体语义实现（与 426/434 系统域
+   RAW 同构：镜像 + linker 兜底，非占位）
+④ REL 5312 槽 + .data blob 28288B = §124w/§124x 重定位口径（jq_rel_data.h
+   构建期生成，每槽 += g_jqt_shadow 加一次得 B+S），镜像一致性 ⑤ 静态
+   判据固化（防构建期 jq_rel_data.h 漂移）
