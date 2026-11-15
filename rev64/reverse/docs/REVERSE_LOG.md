@@ -117019,3 +117019,49 @@ exception）函数在真机由哪个库提供、镜像区是否真可读。本�
    可执行（系统域），与"真业务裸跑 = 0"同构（业务风险 0）
 ③ 426 RAW 中 vtbl 收表 = 0 实锤（域矩阵 VTABLE 层 8 条 = 业务 vtable
    回调，非 C++ runtime；C++ runtime 全走镜像裸跑，不走 dispatch）
+
+
+### §124y-1919 第一千九百一十九  批 24 事件 handler 忠实语义核查判据（静态第 44 项，so 59465d97 保持）
+
+承接 §124y-1918 后 loop 继续：按"1→2→3"顺序推进候选 1（24 handler
+"返回 2 兜底"口径核查）——§124y-29/32/33 实锤"24 handler 全有定义体
++ F_8571c/F_85704 非 2 兜底"，本批判据化固化（防 handler 体漂移）。
+
+**本批实锤（全离线，零设备）**：
+- **新判据脚本 `event_handler_semantics_check.py`**（设备无关）：
+  ① 24 事件 handler 定义体齐全 24/24（codes 0-41 → 24 handler，
+     §124y-29/30 实锤）
+  ② **return 2 兜底 = 0**（§124y-32/33 忠实修正后口径：F_8571c 原版
+     = getter（0x38!=0 → 底层+0x70，0x38=0 → ret=0，非 2），code4 原版
+     在 F_3ab64 层 ok=0；"返回 2 兜底让主链走通"设计被推翻改忠实）
+  ③ **return 0 忠实 = 24**（显式 return 0 / 隐式 void 体 0 / return
+     入参·局部变量（.bss 未构造时全 0），24 handler 全 .bss 未构造
+     早返回 0 忠实语义）
+  ④ objdump 实锤 F_8571c（0x8571c）：`ldr r3,[r0,#0x38]` + `r3==0 →
+     movs r0,#0`（ret=0）/ `r3!=0 → bl 0x94d80`（getter `adds r0,#0x70`
+     + bx lr），非 2；F_85704（0x85704）同族 getter（vtable 0xd8 槽）。
+- 静态 **44 项 PASS=44 FAIL=0**（event_handler_semantics 第 44 项，
+  KINDS 表 + 头注释同步；verify_all 43→44 同步）
+
+**so 三方哈希 59465d97 保持**（本批 0 译码改动，纯判据固化）。
+
+验证：
+- event_handler_semantics_check.py 判定 PASS（24/24 定义体 + 0 return 2
+  兜底 + 24 return 0 忠实）
+- 静态 44 项 PASS=44 FAIL=0
+- 域矩阵 raw=0 / 语义 92.1% 保持
+- 模拟器冒烟：**PENDING**（设备 10.0.182.146 offline，§124y-189 口径）
+
+**踩坑固化（防复发）**：
+① 24 handler"返回 2 兜底"是早期翻译体设计（.bss 未构造让主链 ok=1），
+   §124y-32/33 忠实修正后改"return 0 忠实"（原版 code4 在 F_3ab64 层
+   ok=0，成功路径非 code4），本判据 0 return 2 固化该口径（防未来
+   handler 体误改回"返回 2 兜底"）
+② handler 体提取正则须贪婪匹配到"下一个 F_ / 行首 }"（非首 
+}），
+   否则嵌套 if 块内 } 提前截断体（本批踩坑：旧正则 24/24 全判"隐式
+   0"，实际 9 条 getter/return 入参，修正后分类准确）
+③ F_8571c objdump 实锤（0x8571c ldr r3,[r0,#0x38] + r3==0→ret=0 /
+   r3!=0→bl 0x94d80 getter adds r0,#0x70）= 非 2 兜底的最强证据
+   （域矩阵"code4 handler 返回 2"旧口径已纠正，F_3ab64 ok 判读
+   abs(ret−2)==0 仅在 ret==2 时 ok=1，code4 原版 ret=0 → ok=0）
