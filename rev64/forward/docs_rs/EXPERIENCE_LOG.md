@@ -3394,3 +3394,37 @@ jq_rs_rules.c 注释定论。
   可达 ≠ 直线穿格"维持未定案）+ "工兵非铁路远格可否滑行"（本用例 ②⑤ 实证
   不可走，rail_path_* 只对铁路格）—— 非铁路远格不可走是既有实现（§131 !is_rail
   continue），本用例实锤，非行为修正。
+
+### 46. 暗棋多步走子序列 moves_since_eat 进度演化行为级实证 + 验证方案扩到 31 项（2026-11-15）
+- **多步走子序列 70 步进度动态演化独立覆盖**（dark_moves_seq_test，4 场景）：补
+  `dark_eat_reset_count_test`/`dark_flip_draw_count_test` 全为**单步场景**
+  （设 moves_since_eat=69 走一步看清零/累加）的缺口，补"多步走子序列下 70 步
+  进度动态演化（空移累加→吃子清零→再累加→70 步判和）"（§35 挂起"暗棋对局链
+  完整走子序列"首次行为级实锤）：
+  ① 多步空移序列累加：蓝 44↔39 / 红 50↔51 交替 6 步空移 → moves_since_eat=6
+     （空移全累加，turn 交替正确）✓；
+  ② 空移 3 步后吃子清零：moves_since_eat=3 → 蓝 rank1 吃红 rank9（EV_EAT）→
+     moves_since_eat=0（清零 70 步进度）✓；
+  ③ 空移累加到 70 步判和：moves_since_eat=69 → 第 70 步空移 → jq_on_draw
+     （stage=OVER winner=DRAW）✓；
+  ④ 吃子清零后不判和：moves_since_eat=69 → 蓝 rank1 吃红 rank9（EV_EAT 清零）→
+     stage 保持 PLAY（红不困毙，纯测清零非困毙终局）✓。
+- **对照 64 位实现**（rules.c jq_try_move 空移 moves_since_eat++ + 吃子分支清零
+  §645/726/737/784/830 + 70 步阈值 stalemate_after §519 `if(cfg(0)&&
+  moves_since_eat>=70)jq_on_draw`）：多步序列 70 步进度动态演化行为级 0 分叉。
+- **★ 夹具口径固化（§37 踩坑复用 + 本轮 ④ 复现）**：④ 首版夹具红仅 1 子（rank9
+  @39），吃子后红无子 → 红困毙 → 蓝胜（stage=OVER 掩盖"吃子清零"效果），误读为
+  "stage 保持 PLAY" FAIL。修正 = 放红 2 子（rank9@39 + rank2@50）防红吃子后
+  困毙，纯测清零。与 §37"和棋/扛旗场景放双方有子防困毙掩盖开关效果"同源踩坑。
+- **dark_moves_seq_test 复用进 dark_align**：dark_align_regress.sh
+  30→**31 项** PASS（规则原文 33 + 30 用例）。
+- **对齐验证方案三层"总结复用"终态（本轮复用确认）**：① make evverify
+  172/172 + 三件套（event_code 0 缺口 / layout 几何 Δ=0）/ ②
+  `dark_align_regress.sh` **31/31**（桌面 0 退化门禁）/ ③
+  `mumu_align_smoke.sh --dev 127.0.0.1:5556` **2/2 + 0 崩溃**（redroid 冒烟口径，
+  含 flaky 容错重跑命中）。
+- **诚实边界**：本轮未改 rules.c 行为（空移累加 + 吃子清零 + 70 步判和均既成
+  实现，纯补验证用例防回归），so 无需重建；多步序列**完整对局**（翻棋+走子
+  交替跑到终局，§33 dark_fullgame 既有）非本用例范围（本用例聚焦 moves_since_eat
+  进度演化的空移/吃子分界，非完整对局链）；1000 步总步数多步演化维持 §34/§35
+  诚实标注（价值低，70 步先触发）。
