@@ -118215,3 +118215,54 @@ jq_bt_ctrl_send 调用方栈，不走规则 API，行为等价职责分离），
    帧类型标识（B04-004/B09-039 P1 已修：旧 strstr 中段内嵌串命中
    缺陷 → 帧首锚定 buf[0]='v2\n'），UUID ce1404fe 32/64 位同源
    （§1933），判据 ③ 防帧编码漂移
+
+
+### §124y-1942 第一千九百四十二  批 音效播放链实锤判据（静态第 65 项，so 59465d97 保持）
+
+承接 §124y-1941 后 loop 继续：按"未达成继续做"原则推进——用户指令
+"继续对齐"，判据链已覆盖 17 维度 64 项（含蓝牙 UNDO/RESTART 帧闭环
+§1941），音效映射资源一致性 §1935 已收口（14/14 名对照），但**音效
+播放链**（sfx_play 入口 → WAV 资源可解码）独立维度未收口。本批固化
+**音效播放链实锤**（设备无关，SPEC §5 事件→音效映射 + 播放入口 +
+资源完整性）。
+
+**本批实锤（全离线，零设备）**：
+- **新判据脚本 `sfx_play_chain_check.py`**（4 判据，设备无关）：
+  ① **sfx_play 事件入口全在位**（jni_bridge.c 10 事件入口：close /
+     draw / flag / lose / move / over / pop / select / start / win，
+     覆盖胜负 win/lose/draw + UI pop/close + 走子 start/move/select）
+  ② **SPAK 14 WAV 资源非 0 字节**（spak_res/*.wav 全 >0，无 0 字节
+     空资源）
+  ③ **SPAK 14 WAV 资源合法 RIFF/WAVE 头**（magic=RIFF...WAVE，全 14
+     资源 WAV 容器合法，非损坏/截断）
+  ④ **sfx_play 10 事件名全映射 SPAK 资源**（data_ 前缀对照无缺漏：
+     junqi_X.wav / ui_X.wav / X.wav 候选映射，10 事件全命中）
+- **静态 65 项 PASS=65 FAIL=0**（sfx_play_chain 第 65 项，KINDS 表 +
+  头注释同步；verify_all 64→65 同步）
+
+**so 三方哈希 59465d97 保持**（本批 0 译码改动，纯判据固化；音效播放
+链 = 64 位 src_rs 基准（jni_bridge.c sfx_play + spak_res WAV 资源），
+32 位走原版 so 音效链，判据 = 资源完整性 + 入口覆盖，非"32 位 so
+音效播放"实锤）。
+
+验证：
+- sfx_play_chain_check.py 判定 PASS（①sfx_play 10 事件入口 ②SPAK 14
+  WAV 非 0 ③合法 RIFF/WAVE 头 ④事件名映射无缺漏）
+- 静态 65 项 PASS=65 FAIL=0
+- 域矩阵 raw=434 / 真业务裸跑 0 / 语义 91.9% / 事件分发 67/67 0 悬空
+  保持
+- 音效播放链：**离线 PASS**（入口 + 资源完整性 + 映射无缺漏，设备侧
+  播放实锤 = PENDING 10.0.182.146 offline）
+
+**踩坑固化（防复发）**：
+① 音效播放链 ≠ 音效映射（§1935）——映射 = 名对照（64 位 14 WAV 名 =
+   SPAK 14 资源），播放链 = 入口覆盖（sfx_play 10 事件）+ 资源可解
+   码（非 0 字节 + 合法 RIFF/WAVE 头），两维度互补不重复（映射防"名
+   漂移"，播放链防"资源损坏/入口缺漏"）
+② sfx_play 10 事件 = 64 位基准 jni_bridge.c 实有入口（win/lose/draw
+   胜负 + pop/close UI + start/move/select/flag/over 走子），判据 ①
+   须"实有 ≥ 必备 8"（必备 = win/lose/draw/start/move/select/close/
+   pop），防入口静默删除退化
+③ WAV 资源完整性 = 非 0 字节 + 合法 RIFF/WAVE 头双判据（RIFF magic
+   0x52494646 + WAVE 0x57415645），防 SPAK 解包截断/损坏（§1911 SPAK
+   可再生性同源），判据 ③ 须逐资源读头 12 字节校验（非仅 size>0）
