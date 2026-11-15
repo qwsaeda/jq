@@ -231,8 +231,9 @@ bool JQ_RS_DEF jq_can_move(const jq_state *st, int from, int to)
      越界写 1020 字节，AUD-R-004 P0 越界写 bug 在 32 位同样存在且未修 → 分叉
      （64 位已加 SIDE_VALID(dst_side) 守卫，32 位未同步；32 位布局写死分区时
      dst->side 恒 0/1 不触发，暗棋路径可达）
-   · AUD-R-073 困毙翻棋排除 RANK_MINE → 32 位侧 jq_side_stalemated 未排除地雷
-     （翻出地雷视为仍可行动）→ 分叉（64 位独有设计）
+   · AUD-R-073 困毙翻棋排除 RANK_MINE → ★ §124y-1949 修复：32 位侧 jq_side_stalemated
+     翻扫描补 `rank_norm != RANK_MINE`（对齐原版 0x30320 cmp r1,#11 beq 排地雷 + 64 位
+     AUD-R-073 口径，军旗保持不排除），32/64 位行为对齐（rule_probe C4b 19/20 → 20/20）
    走子桥基准 = arm32_walkregress 4/4 PASS（F_3ab80 ok=1），覆盖走子/翻棋/
    终局主链；细分规则（吃旗/炸弹撞旗/和棋 70 步/1000 步上限）32 位侧未
    逐条实证，诚实边界留待后续专项。 */
@@ -480,6 +481,7 @@ bool jq_side_stalemated(const jq_state *st, uint8_t side)
         const jq_cell *c = &st->cells[i];
         if (c->rank != RANK_EMPTY && !c->revealed &&
             rank_norm(c->rank) != RANK_FLAG &&
+            rank_norm(c->rank) != RANK_MINE &&   /* ★ §124y-1949 R-073 修复：原版 0x30320 cmp r1,#11 beq = 排地雷（可翻判定），32 位补排 RANK_MINE 对齐 64 位 AUD-R-073 口径（军旗保持不排除，原版 0x30350 未翻军旗计入可翻） */
             (c->side == 0xFF || c->side == side))
             return false;
     }

@@ -30,7 +30,7 @@ HOOK = os.path.join(ROOT, 'rev64/tools/arm32_hook_check.sh')
 WALK = os.path.join(ROOT, 'rev64/tools/arm32_walkregress.sh')
 ACCEPT = os.path.join(ROOT, 'rev64/reverse/docs/REAL_DEVICE_ACCEPTANCE.md')
 DEVREG = os.path.join(ROOT, 'rev64/tools/device_regress_check.sh')
-BASELINE_MD5 = '59465d974a9645cd426b965cb10901c5'
+BASELINE_MD5 = '2566750232e3fbc5ded778553f7ab34d'
 
 def md5_of(path):
     h = hashlib.md5()
