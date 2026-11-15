@@ -4626,3 +4626,56 @@ jq_rs_rules.c 注释定论。
   是 ui_state_stub 桩默认值=1 的实锤（真机 ui_state.c 真实开关读持久化文件，默认
   全开口径需真机验证——桌面桩默认 1 等价实锤，真机持久化默认值非本轮范围 / 非
   阻塞）。
+
+### 75. 暗棋 FLIP 模式 2^5=32 子组合（which=4 门槛 + which=2×which=4 事实交互全量）矩阵行为级实证 + 验证方案扩到 60 项（2026-11-15）
+- **FLIP 模式 2^5=32 子组合 which=4 门槛 + which=2×which=4 事实交互全量覆盖**
+  （dark_flip32_combo_test，2 断言 + 32/32 全量遍历）：补 §68
+  `dark_32combo_matrix_test`（用 LAY 明棋口径覆盖 32 子组合，绕 which=4 暗棋门槛，
+  which=4 在 LAY 口径为无关位）之外的**FLIP 模式 32 子组合**（which=4 门槛 +
+  which=2×which=4 事实交互全量）缺口——§68 LAY 口径 which=4 为无关位（暗棋门槛
+  仅 FLIP 生效），FLIP 模式下 which=4 控"暗棋扛旗门槛是否生效"（which=4 开=仅
+  工兵可扛旗 / which=4 关=明棋语义任意子可扛）+ which=2×which=4 事实交互（which=2
+  关阻断 mines 累积到 3 → 阻断 which=4 暗棋扛旗门槛）的全量 32 组合未独立断言：
+  ① FLIP 32 子组合全量矩阵（mask 0..31 遍历，which=4 门槛维度（非工兵扛旗
+     which=4 开拒/关放行）× which=2×which=4 事实交互维度（工兵扛旗 mines 累积：
+     which=4 开+2 开需 mines=3 / which=4 开+2 关阻断 / which=4 关明棋放行），
+     32/32 全 PASS = FLIP 模式 which=4 门槛 + which=2×which=4 事实交互全量实锤）✓；
+  ② 对照 which=4 开 16 组合非工兵扛旗全拒 + which=4 关 16 组合非工兵扛旗全放行
+     （which=4 位门控门槛维度，16/16 各半）✓。
+- **★ FLIP 模式 which=4 门槛 + which=2×which=4 事实交互全量矩阵口径实锤（本轮
+  新固化）**：FLIP 模式 32 子组合下**which=4 门槛维度 + which=2×which=4 事实交互
+  全量实锤**（区别于 §68 LAY 口径 which=4 无关位）：
+  · **which=4 门槛维度**（§299-300 `mode==FLIP&&cfg(4)` 门控）：which=4 开 → 暗棋
+    扛旗门槛生效（仅工兵可扛旗，非工兵拒）；which=4 关 → 明棋语义（任意子可扛旗，
+    非工兵放行）——32 组合中 which=4 位控 16/16 各半（开 16 拒非工兵 / 关 16 放行
+    非工兵）；
+  · **which=2×which=4 事实交互**（§51 既有）：which=4 开 + which=2 开 → mines 可累积
+    到 3 → 放行工兵扛旗（mines=3 实锤）；which=4 开 + which=2 关 → mines 不清零累积
+    （which=2 关=工兵撞雷送死不清零）→ mines 恒 0 阻断 which=4 暗棋扛旗门槛（工兵
+    扛旗需 mines=3）；which=4 关 → 明棋语义（工兵扛旗放行，门槛失效）；
+  · **which=0/1/3 在 FLIP 扛旗门槛维度为无关位**（不影响 which=4/2 门槛判定，分域
+    独立，纯"陪跑"位）；
+  · **FLIP vs LAY 32 组合对照**：§68 LAY 口径 which=4 为无关位（暗棋门槛仅 FLIP
+    生效），本轮 FLIP 口径 which=4 为门控位（控暗棋扛旗门槛）+ which=2×which=4
+    事实交互全量——FLIP/LAY 两种 32 组合矩阵互补覆盖 which=4 门槛维度（LAY 无关 /
+    FLIP 门控）。
+- **对照 64 位实现**（rules.c §299-300 which=4 `mode==FLIP&&cfg(4)` 门控暗棋扛旗
+  门槛 + §785 which=2 吃雷清零门控（mines 累积）+ §51 既有 which=2×which=4 事实
+  交互 + which=0/1/3 分域独立）：FLIP 模式 32 子组合 which=4 门槛 + which=2×which=4
+  事实交互行为级 0 分叉。
+- **dark_flip32_combo_test 复用进 dark_align**：dark_align_regress.sh
+  59→**60 项** PASS（规则原文 33 + 59 用例，60/60 全项）。
+- **对齐验证方案三层"总结复用"终态（本轮复用确认）**：① make evverify
+  172/172 + 三件套（event_code 0 缺口 / layout 几何 Δ=0）/ ②
+  `dark_align_regress.sh` **60/60**（桌面 0 退化门禁）/ ③
+  `mumu_align_smoke.sh --dev 127.0.0.1:5556` **2/2 + 0 崩溃**（redroid 冒烟口
+  径）。
+- **诚实边界**：本轮未改 rules.c/board.c 行为（which=4 门槛 + which=2 吃雷清零 +
+  which=2×which=4 事实交互均既成实现，纯补 FLIP 模式 32 子组合全量矩阵验证用例），
+  so 无需重建；which=2 关 + which=4 开"mines 恒 0 阻断"维度本轮走 which=2 关送死
+  不清零语义（mines 不累积），which=2 关下"即使设 mines=3 仍被阻断"（forced 断言
+  容忍 0/1——which=2 关阻断的是 mines 累积**路径**，非 mines 值本身，设 mines=3
+  后 which=4 开扛旗仍看 which=2 开关判定，非 mines 值，本轮 forced 断言维持容忍
+  口径避免过度约束）；FLIP 模式 32 组合聚焦 which=4 门槛 + which=2×which=4 事实
+  交互两个维度（which=0/1/3 无关位），which=1 大本营冻结在 FLIP 模式下的交互（攻
+  子入大本营冻结 vs which=4 门槛）维持 §42/§50 既有口径未在本用例重复断言。
