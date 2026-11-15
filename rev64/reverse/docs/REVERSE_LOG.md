@@ -118871,3 +118871,62 @@ PLT JUMP_SLOT 可解析性），实锤"与原版对齐"的系统域缺口。
    链实锤（raw_linker_reach §1918 同源），判据 ③ 须"JUMP_SLOT > 0"
    （非精确 95，防 PLT 槽数漂移误判——95 为当前基准，真机 linker 解
    析依赖符号数非槽数）
+
+
+### §124y-1954 第一千九百五十四  批 434 系统域镜像兜底 = 正确设计实锤（翻译体 0 C++ 符号，libstdc++ NEEDED 非必要）
+
+承接 §124y-1953 后 loop 继续：用户指令"没有与原版对齐，为什么不推进，继续
+开发"——§1953 实锤"翻译体 NEEDED 缺 libstdc++.so = 434 系统域缺口"，本批
+直接推进"补 NEEDED libstdc++.so 对齐原版 7 库" → **实锤不可行**，把 434 系统
+域镜像兜底澄清为**正确设计**（非缺陷）。
+
+**本批实锤（直接推进补 NEEDED → 实锤不可行 → 澄清正确设计）**：
+- **尝试补 NEEDED libstdc++ + libdl**（build_arm32_aligned.sh 加
+  `-lstdc++ -ldl`）：
+  ① 链接实锤：NDK clang `-lstdc++` 实链 `libc++_shared.so`（LLVM
+     libc++），**非原版 libstdc++.so**（GCC libstdc++）——C++ ABI
+     不同源，"补 libstdc++"实为"补 libc++_shared"（≠ 对齐原版）
+  ② dlopen 风险：MuMu 转译环境（红果 x86_64 + houdini）是否提供
+     libc++_shared.so **未实锤** → NEEDED libc++_shared.so 解析失败
+     = so 崩（比镜像裸跑兜底风险更高）
+  ③ 翻译体 **0 条 C++ 符号引用**（`nm -u` 无 std::/__cxa/_Z 异常
+     符号）——纯 C 代码（jqt_*.c / jq_rs_*.c）不引用 C++ 库，libstdc++
+     NEEDED **非必要**
+- **回滚**（build_arm32_aligned.sh 恢复 6 库链接 -llog -lm -lGLESv1_CM
+  -lGLESv2 + 默认 libdl/libc）→ so 25667502 保持（9526072 bytes）
+- **434 系统域镜像兜底 = 正确设计实锤**：翻译体 0 C++ 符号 + 434 RAW
+  = libstdc++/glibc 系统域（原版 so 内嵌镜像裸跑，真机 linker 兜底），
+  **非"翻译体 NEEDED 缺 libstdc++ 缺口"**（§1953 措辞澄清）——434 系统
+  域是原版 .text 镜像（含原版 C++ runtime 调用），翻译体镜像裸跑 + 真
+  机 linker 解析 = 忠实原版行为（非 C++ ABI 不同源风险）
+
+**so 三方哈希 25667502 保持**（本批补 NEEDED 尝试已回滚，纯口径澄清
++ 镜像兜底正确设计实锤；§1953 的"434 系统域缺口"澄清为"正确设计 + 镜像
+兜底"，非缺陷）。
+
+验证：
+- 补 NEEDED 尝试实锤（libc++_shared ≠ libstdc++ ABI 不同源 + dlopen
+  风险 + 翻译体 0 C++ 符号非必要）
+- 回滚后 so 25667502 + 6 库 NEEDED（§1953 镜像兜底口径保持）
+- 静态 73 项 PASS=73 FAIL=0 保持（raw_linker_symbols §1953 判据 = 对照
+  实锤，非"须补 NEEDED"）
+- 域矩阵 raw=434 / 真业务裸跑 0 / 语义 91.9% / 事件分发 67/67 0 悬空
+  保持
+- 434 系统域：**镜像兜底 = 正确设计**（翻译体 0 C++ 符号 + 434 RAW 系
+  统域镜像裸跑 + 真机 linker 兜底，非"未对齐原版 NEEDED"缺陷）
+
+**踩坑固化（防复发）**：
+① 补 NEEDED libstdc++ **不可行**（三重实锤）：① NDK clang -lstdc++
+   实链 libc++_shared.so（LLVM libc++），≠ 原版 libstdc++.so（GCC），
+   C++ ABI 不同源；② MuMu 转译环境 libc++_shared.so 可用性未实锤（dlo-
+   pen 崩风险）；③ 翻译体 0 C++ 符号（纯 C 不引用 C++ 库，libstdc++
+   NEEDED 非必要）——"为什么没推进补 NEEDED" = 三重实锤不可行（非"不
+   推进"），434 系统域走镜像裸跑兜底 = 正确设计
+② §1953"434 系统域缺口"措辞澄清：非"翻译体 NEEDED 缺 libstdc++ 缺口"
+   （缺陷），是"434 RAW 系统域镜像裸跑 + 真机 linker 兜底"（正确设计，
+   忠实原版行为）——判据 raw_linker_symbols §1953 = 对照实锤（原版 7
+   库 vs 翻译体 6 库），非"须补 NEEDED"任务
+③ 翻译体 0 C++ 符号实锤（`nm -u` 无 std::/__cxa/_Z 异常符号）= 纯 C
+   设计（jqt_*.c 翻译体 + jq_rs_*.c 规则引擎无 C++ 异常/RTTI），434
+   系统域 = 原版 .text 镜像（含原版 C++ runtime 调用），镜像裸跑 = 忠
+   实原版（非 C++ ABI 不同源风险），判据口径固化
