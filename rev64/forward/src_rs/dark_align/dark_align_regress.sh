@@ -97,6 +97,7 @@ run_one dark_fullgame_reset_test
 run_one dark_colorwalk_test
 run_one dark_fullgame_statemachine_test
 run_one dark_multi_switch_matrix_test
+run_one dark_allclose_switch_test
 
 echo ""
 echo "=== 合计 PASS=$pass FAIL=$fail MISS=$pending ==="
