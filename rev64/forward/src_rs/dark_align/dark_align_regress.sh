@@ -117,6 +117,7 @@ run_one dark_redwin_ai_test
 run_one dark_cross_rail_test
 run_one dark_rail_segment_test
 run_one dark_rail_seg8_test
+run_one dark_rail_fullseg_test
 
 echo ""
 echo "=== 合计 PASS=$pass FAIL=$fail MISS=$pending ==="
