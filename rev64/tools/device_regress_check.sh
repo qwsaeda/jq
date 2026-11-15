@@ -31,6 +31,11 @@ DEV="${1:-10.0.182.146:5555}"
 SO_MD5_EXPECT="59465d974a9645cd426b965cb10901c5"
 
 echo "═══ §124y-1937 设备恢复后 32 位翻译体复验链（基准 so $SO_MD5_EXPECT）═══"
+# ★ 设备侧唯一真源口径（§124y-1949 实锤）：10.0.182.146 = 红果 MuMu（x86_64 +
+#   houdini 转译 ARM32）唯一能跑 ARM32 翻译体 so 的设备。redroid12（127.0.0.1:
+#   5556）= x86_64 容器无 houdini 转译 ARM32 → 翻译体 so EM_ARM(40) dlopen 报
+#   "is for EM_ARM instead of EM_386" → UnsatisfiedLinkError 崩（2026-11-15 实锤）。
+#   redroid 仅作数据提取（AGENTS 红线），不作设备侧实锤源。
 
 # 0. 设备可达性
 if ! adb -s "$DEV" get-state >/dev/null 2>&1; then

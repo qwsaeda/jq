@@ -118591,3 +118591,55 @@ PASS），但"与原版对齐"口径散在各判据未做系统逐域实锤。�
 ③ 脚本内计数须与离线判据链同步（§1947 扩到 70 项后，PENDING 提示
    "静态 60/60" 过时 → 修正"静态 70/70"），防 PENDING 提示误读（勘
    误后实锤 70/70）
+
+
+### §124y-1949 第一千九百四十九  批 设备侧唯一真源实锤 + redroid 不可跑 ARM32 口径固化
+
+承接 §124y-1948 后 loop 继续：用户指令"没有与原版对齐，为什么不推进"——
+离线判据 70 项 + 逐域行为级 7 域全收口，设备侧实锤链 8 步已固化（§1948），
+唯一阻塞 = 设备 10.0.182.146 offline。本批复验 redroid（127.0.0.1:5556，
+唯一在线设备）能否替代做设备侧实锤 → **实锤不可**（x86_64 容器跑不了
+ARM32 翻译体 so），把"设备侧唯一真源 + redroid 不可跑 ARM32"口径固化。
+
+**本批实锤（redroid 替代源探明，零 ARM32 设备）**：
+- **redroid12（127.0.0.1:5556）装翻译体 apk + 启动实锤**：
+  ① `adb install -r phase_chain_arm32.apk` → Success（装机通）
+  ② `am start com.cnvcs.junqi32` → pid 39235 存活但**崩**：
+     `java.lang.UnsatisfiedLinkError: dlopen failed:
+     "…/lib/arm/libjunqi.so" is for EM_ARM (40) instead of EM_386 (3)`
+  ③ 根因：redroid12 = **x86_64 容器**（EM_386=x86 目标），无 houdini
+     转译 ARM32 → ARM32 翻译体 so（EM_ARM）dlopen 失败 → app 崩
+- **设备侧唯一真源实锤**：10.0.182.146（红果 MuMu，x86_64 + houdini
+  转译 ARM32）= **唯一能跑 ARM32 翻译体 so 做设备侧实锤的设备**
+  （AGENTS 红线"redroid 只用于提取数据，不能验证能玩"实锤坐实）
+- **`device_regress_check.sh` 加设备侧唯一真源口径注释**（§124y-1949：
+  10.0.182.146 唯一真源 + redroid12 x86_64 不可跑 ARM32 实锤 + redroid
+  仅作数据提取不作设备侧实锤源），防后续误用 redroid 做设备侧冒烟
+
+**so 三方哈希 59465d97 保持**（本批 0 译码改动，纯设备侧实锤源口径
+固化；redroid 替代源探明 = 实锤不可，设备侧实锤唯一真源 = 10.0.182.
+146，当前 offline PENDING）。
+
+验证：
+- redroid 装机 Success + 启动崩（UnsatisfiedLinkError EM_ARM→EM_386，
+  x86_64 容器无 ARM32 转译）
+- 设备侧唯一真源 = 10.0.182.146（MuMu x86_64 + houdini 转译 ARM32）
+- device_regress_check.sh 唯一真源口径注释固化 + syntax OK
+- 离线 70 项 PASS=70 FAIL=0 保持
+- 设备侧实锤：**PENDING**（唯一真源 10.0.182.146 offline；redroid
+  替代源实锤不可，无其他 ARM32 设备）
+
+**踩坑固化（防复发）**：
+① redroid12（127.0.0.1:5556）= **x86_64 容器**（EM_386 目标），**不
+   能跑 ARM32 翻译体 so**（dlopen 报 "is for EM_ARM(40) instead of
+   EM_386(3)" → UnsatisfiedLinkError 崩）——设备侧实锤唯一真源 =
+   10.0.182.146（红果 MuMu，x86_64 + **houdini 转译 ARM32**），防
+   误用 redroid 替代（AGENTS 红线"redroid 只用于提取数据"实锤坐实）
+② 设备 offline 时**无 ARM32 设备可用**（redroid 唯一在线但不可跑
+   ARM32），设备侧实锤 = PENDING 非"换 redroid 冒烟"——"没对齐为什
+   么没推进"答案 = 设备侧唯一真源 10.0.182.146 offline + redroid 实
+   锤不可（本批实锤），非"不推进"（已把设备侧实锤链 8 步全固化 +
+   唯一真源口径固化，设备恢复即全链实锤）
+③ `adb install` Success ≠ 能跑（装机通但 dlopen 崩 = ABI 不匹配，
+   判据须 `pidof` + 出屏日志双实锤，非仅装机 Success）——本批 redroid
+   装机 Success 但 pid 崩，实锤"装机通 ≠ ARM32 so 可跑"
