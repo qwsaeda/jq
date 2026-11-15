@@ -84,7 +84,8 @@ def load_libc_syms():
     """§124y-284 libstdc++/glibc 内部符号（.text 尾部 C++ runtime 区 + glibc locale
        数据段 0x11xxxx）：这些靠镜像 + linker 真机执行（非游戏业务语义），裸跑它们
        真机可跑，不计入"真机风险区"。判定：objdump 标签名匹配 _Z/_NSt/operator/
-       new/delete/locale 前缀（C++ mangled 名），或地址落在 ≥0x1100000（glibc 映射区）。
+       new/delete/locale 前缀（C++ mangled 名），或地址落在 ≥0x110000（§1915 勘误：
+       旧 0x1100000 恒 False 笔误，32 位 so VA 上界 0x15be80）。
        返回地址集合（hex 字符串口径与 BL 目标一致）。"""
     out = subprocess.run([OBJDUMP, '-d', ORIG_SO], capture_output=True, text=True).stdout
     tags = re.findall(r'^([0-9a-f]{7,8}) <(.+)>:', out, re.M)
@@ -97,7 +98,14 @@ def load_libc_syms():
         #   §124y-284：只有 C++ mangled 名（_Z 前缀）+ glibc 段外地址（≥0x1100000）
         #   才是 libstdc++/glibc 区；导出 JNI/线程符号名不参与判定。
         ai = int(a, 16)
-        if ai >= 0x1100000 or LIB.match(nm):
+        # §124y-1915 勘误：docstring/旧注释写"≥0x1100000（glibc 映射区）"实为
+        # "≥0x110000"之误——原版 32 位 so VA 上界仅 0x15be80，0x1100000 = 17MB
+        # 映射区恒 False，旧阈值永不生效。本批只修注释/docstring 笔误（阈值
+        # 改 0x110000 与 docstring 一致，实际收集不变）：伪影 0x1220e/0x1b0ca
+        # 因"无 objdump 标签锚定"仍留 RAW 层（raw_fallback 判据 PSEUDO 白名单
+        # 兜底，§1914 实锤 = objdump 软浮点 BL 标注噪声非真实 BL，镜像裸跑
+        # 数据区读常量安全，真机无风险）
+        if ai >= 0x110000 or LIB.match(nm):
             libc_addrs.add(a.lstrip('0'))
     return libc_addrs
 

@@ -57,6 +57,13 @@ def main():
     #    不在任何数据/代码区，是 objdump 标注噪声，非"数据区 BL"
     #    （本判据独立用 0x110000 阈值 + 伪影白名单排除 objdump 标注噪声；
     #    域矩阵 load_libc_syms 0x1100000 笔误留待下批勘误，本判据不误伤）
+    # §124y-1915 勘误：域矩阵 load_libc_syms 阈值 0x1100000→0x110000 只修
+    #   docstring/注释笔误（32 位 so VA 上界 0x15be80，旧 0x1100000 恒 False），
+    #   伪影 0x1220e/0x1b0ca 仍无 objdump 标签（最近标签锚定不到 0x11xxxx 区
+    #   C++ runtime 标签，因 0x1220e/0x1b0ca 在 .rodata 数据区非函数标签）
+    #   → PSEUDO 白名单维持 1914 实锤（objdump 软浮点 BL 标注噪声 4d20c/8b0c8
+    #   bl __aeabi_fadd@plt PC 位移伪值，非真实 BL 目标，镜像裸跑数据区 = 读
+    #   常量安全，真机无风险）
     PSEUDO = {'1220e', '1b0ca'}  # objdump 软浮点 BL 标注伪影（实锤 4d20c/8b0c8 bl __aeabi_fadd@plt）
     PSEUDO_USED = PSEUDO & {a.lstrip('0') for a in raw}
     biz_mix = [a for a in raw if not (a in libc or int(a, 16) >= 0x110000 or a.lstrip('0') in PSEUDO)]

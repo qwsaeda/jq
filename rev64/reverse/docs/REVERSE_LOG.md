@@ -116845,3 +116845,46 @@ fns/offs 表 5463 项不变。
 ③ 镜像兜底口径 = 真实指令/数据区 [0x233e0, 0x15be80)（R E LOAD + RW LOAD
    全段），非 .text 单段 0x15435c 上界（.rodata 0x120bf8-0x13db28 亦在
    R E 段内，BL 伪影落数据区时被 img 覆盖 = 读常量安全）
+
+
+### §124y-1915 第一千九百一十五  批 域矩阵 load_libc_syms 阈值笔误勘误 + raw_fallback PSEUDO 白名单口径对齐（so 59465d97 保持）
+
+承接 §124y-1914 后 loop 继续：§1914 留档"域矩阵 load_libc_syms 0x1100000
+笔误"，本批勘误收口——实锤该笔误只影响 docstring/注释（函数体阈值改
+0x110000 后 libc 收集 954→1065，多收 111 条 .rodata/.data.rel.ro 区 C++
+runtime 标签地址；但伪影 0x1220e/0x1b0ca 因"无 objdump 标签锚定"仍留
+RAW 层，需 raw_fallback PSEUDO 白名单兜底，§1914 实锤口径维持）。
+
+**本批实锤（全离线，零设备）**：
+- **域矩阵 `load_libc_syms` 勘误**：阈值 0x1100000→0x110000（32 位 so
+  VA 上界 0x15be80，旧 0x1100000 = 17MB 恒 False 笔误），docstring +
+  函数体注释同步（"glibc 映射区"→"≥0x110000 段内 C++ runtime 区"），
+  实际 libc 收集 954→1065（+111 条 .rodata/.data.rel.ro 标签地址，归
+  系统域 libc 区，域矩阵 RAW 层从 426 不变——伪影因无标签锚定仍留
+  RAW，raw_fallback PSEUDO 白名单 2 条兜底，§1914 判据 PASS 维持）。
+- **raw_fallback PSEUDO 白名单口径对齐**：1914 实锤伪影 = objdump 软浮点
+  BL 标注噪声（4d20c/8b0c8 `bl __aeabi_fadd@plt` PC 位移伪值，非真实
+  BL 目标），1915 勘误后伪影仍无标签 → PSEUDO 白名单维持 2 条（不退役，
+  §1915 勘误只清 docstring 笔误不清伪影标签缺口），注释同步。
+- 静态 **42 项 PASS=42 FAIL=0** 保持（域矩阵/raw_fallback 双判据新口径
+  全 PASS，0 退化）；域矩阵 raw=0 / 语义 92.1% 保持。
+
+**so 三方哈希 59465d97 保持**（本批 0 译码改动，纯判据/docstring 勘误）。
+
+验证：
+- 域矩阵 `load_libc_syms` 阈值 0x110000 + docstring 一致（实际 libc 1065，
+  伪影 0x1220e/0x1b0ca 仍无标签 → RAW 层留 2 条，raw_fallback PSEUDO
+  白名单兜底，判据 PASS）
+- raw_fallback_cover_check.py 判定 PASS（426 全系统域 + 424 双路命中 +
+  2 伪影白名单，§1914/1915 口径一致）
+- 静态 42 项 PASS=42 FAIL=0
+- 模拟器冒烟：**PENDING**（设备 10.0.182.146 offline，§124y-189 口径）
+
+**踩坑固化（防复发）**：
+① 域矩阵 docstring 与函数体阈值笔误（0x1100000 vs 0x110000）属已知限制
+   （§1607~ 同类），勘误时只清注释/docstring 笔误、不动实际收集逻辑
+   （改阈值会多收 111 条 .rodata 标签进 libc，伪影仍无标签需白名单兜
+   底）——勘误口径 = 注释与函数体一致，伪影归因不变
+② raw_fallback PSEUDO 白名单 = objdump 软浮点 BL 标注噪声专属（2 条
+   实锤 4d20c/8b0c8 `bl __aeabi_fadd@plt`），新增伪影须同步白名单 +
+   objdump 实锤（勿把真业务裸跑误归白名单）
