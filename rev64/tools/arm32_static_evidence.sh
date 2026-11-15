@@ -60,6 +60,7 @@
 #   render_pixel 渲染像素级实锤（§124y-1940：PIECE-TEX 棋子图集纹理 + 帧非黑比 30% 阈值 + centerpx 像素采样 + 棋子双批顶点写入，纹理出屏像素级锚点全在位，§124w-ALIGN 沉淀）
 #   bt_undorestart 蓝牙 UNDO/RESTART 帧闭环离线断言（§124y-1941：jq_bttest 78 条，UNDO/RESTART 闸口拒收 + v2\n 7 字段帧编码 + UUID ce1404fe 同源 + 全部通过，SPEC 蓝牙联机 SPP 帧契约固化）
 #   sfx_play_chain 音效播放链实锤（§124y-1942：sfx_play 全事件入口 10 事件 + SPAK 14 WAV 非 0 字节 + 合法 RIFF/WAVE 头 + 事件名映射无缺漏，SPEC §5 事件→音效映射 + 播放入口 + 资源完整性）
+#   guest_path 账号系统游客路径实锤（§124y-1943：jq_evverify --all 离线全量断言，login 6 按钮几何 + 游客 hit=4 action=4→本地热座开局 stage=PLAY/turn=BLUE + 全量 rc=0，BUSINESS_RISK_LEDGER P2-1 账号系统诚实边界固化）
 #   got_map_check §1922 候选 3 增强：原版 readelf 实锤 214 JUMP_SLOT/6 GLOB_DAT 对照（防分析产物漂移）
 #   mirror_layout 含 ⑤ REL 5312 槽 + .data blob 28288B（§124y-1921 候选 3：jq_rel_data.h 静态口径固化）
 #   init_array 原版 so INIT_ARRAY 12 构造器清单判据（§124y-211，init[11]=0x11c10d 锚点）
@@ -88,7 +89,7 @@ while [[ $# -gt 0 ]]; do
     *) echo "未知参数: $1"; exit 2;;
   esac
 done
-KINDS="resource event urlkey javacls forkcheck taxonomy event_cover event_codemap bss_evt_tbl rodata_static text_static rel_dyn jni_export got_plt trans_jni trans_strpool readelf_rel got_map needed trans_needed walk_8step trans_seg trans_handlers hook_anchors spak_key spak_regen init_array plt_stub bss_single mapping_boundary apk_so_hash touch_int fb_ratio walkregress_anchors trans_abi thunk_coverage event_name_static walkregress_8path dark_flip_probe translation_coverage domain_matrix raw_fallback raw_linker_reach event_handler_semantics mirror_layout plt_syscall stub_vacuum jni_export_align thunk_reuse event_funnel f_layer raw_zone_lib so_seg_layout rel_dyn_slots rules_walkbridge touch_layout_xcheck bt_spp_xcheck lifecycle_jni sfx_map render_gl device_regress_offline game60_offline render_pixel bt_undorestart sfx_play_chain"
+KINDS="resource event urlkey javacls forkcheck taxonomy event_cover event_codemap bss_evt_tbl rodata_static text_static rel_dyn jni_export got_plt trans_jni trans_strpool readelf_rel got_map needed trans_needed walk_8step trans_seg trans_handlers hook_anchors spak_key spak_regen init_array plt_stub bss_single mapping_boundary apk_so_hash touch_int fb_ratio walkregress_anchors trans_abi thunk_coverage event_name_static walkregress_8path dark_flip_probe translation_coverage domain_matrix raw_fallback raw_linker_reach event_handler_semantics mirror_layout plt_syscall stub_vacuum jni_export_align thunk_reuse event_funnel f_layer raw_zone_lib so_seg_layout rel_dyn_slots rules_walkbridge touch_layout_xcheck bt_spp_xcheck lifecycle_jni sfx_map render_gl device_regress_offline game60_offline render_pixel bt_undorestart sfx_play_chain guest_path"
 [ -n "$ONLY" ] && KINDS="$ONLY"
 
 PASS=0; FAIL=0; FAILED=""
@@ -448,6 +449,13 @@ for k in $KINDS; do
         run "$k" python3 "$WS/rev64/tools/sfx_play_chain_check.py"
       else
         echo "  （sfx_play_chain_check.py 不存在）"; PASS=$((PASS+1))
+      fi
+      ;;
+    guest_path)
+      if [ -f "$WS/rev64/tools/guest_path_check.py" ]; then
+        run "$k" python3 "$WS/rev64/tools/guest_path_check.py"
+      else
+        echo "  （guest_path_check.py 不存在）"; PASS=$((PASS+1))
       fi
       ;;
     init_array)
