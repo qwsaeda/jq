@@ -116888,3 +116888,51 @@ RAW 层，需 raw_fallback PSEUDO 白名单兜底，§1914 实锤口径维持）
 ② raw_fallback PSEUDO 白名单 = objdump 软浮点 BL 标注噪声专属（2 条
    实锤 4d20c/8b0c8 `bl __aeabi_fadd@plt`），新增伪影须同步白名单 +
    objdump 实锤（勿把真业务裸跑误归白名单）
+
+
+### §124y-1916 第一千九百一十六  批 域矩阵 RAW 对账 + libc 增量 111 条实锤（离线判据链收口，so 59465d97 保持）
+
+承接 §124y-1915 后 loop 继续：按"1→2→3"顺序推进——候选 1（域矩阵 main
+RAW 层与 raw_fallback 对账）+ 候选 2（load_libc_syms 增量 111 条实锤）
+合并收口（两者同源于域矩阵分层逻辑，一次实锤）。
+
+**本批实锤（全离线，零设备）**：
+- **域矩阵 main RAW 层 vs raw_fallback raw 集合一致实锤**：域矩阵 main
+  `raw_list`（426，含 2 伪影 0x1220e/0x1b0ca）= raw_fallback `raw`（426
+  = 真实 424 + 伪影 2），**两判据 RAW 集合同源一致**（域矩阵不另起炉灶，
+  raw_fallback 只加伪影白名单 + 双路命中，不动 RAW 集合口径）。
+- **raw_fallback §1916 对账段固化**：判据脚本新增 `dm_main_raw` 复刻域
+  矩阵 main 分层逻辑，输出"域矩阵 main RAW 层 = 426，本判据 raw = 426，
+  集合一致 = True"对账行（防未来域矩阵分层逻辑漂移导致两判据口径脱节）。
+- **`load_libc_syms` 增量 111 条实锤（候选 2）**：libc 1065 = ≥0x110000
+  阈值 716 + mangled 标签 954，交集 605；**仅阈值（非 mangled）= 111 条**
+  （.rodata/.data.rel.ro 区 C++ runtime 标签 0x1189e4 起，`_Locale_*`
+  /`_WLocale_*` 区），旧 954 口径 = mangled 标签 954 条（与历史一致）。
+  111 增量全在 .rodata/.data.rel.ro 区（非代码区），归 libc 系统域 = 镜像
+  裸跑数据区读常量安全（真机无风险）；**伪影 0x1220e/0x1b0ca 不在 111
+  增量**（无标签锚定，仍留 RAW 层，raw_fallback PSEUDO 白名单兜底，
+  §1914/1915 口径维持）。
+- 静态 **42 项 PASS=42 FAIL=0** 保持（raw_fallback 判据含 §1916 对账段，
+  0 退化）；域矩阵 raw=0 / 语义 92.1% 保持。
+
+**so 三方哈希 59465d97 保持**（本批 0 译码改动，纯判据对账 + 增量实锤）。
+
+验证：
+- raw_fallback §1916 对账实锤：域矩阵 main RAW 层 426 = raw_fallback raw
+  426（集合一致 True），伪影 2 条白名单兜底
+- load_libc_syms 增量 111 条实锤：≥0x110000 阈值 716 + mangled 954，交集
+  605，仅阈值 111（.rodata/.data.rel.ro 区 C++ runtime 标签），伪影不在
+  111（无标签）
+- 静态 42 项 PASS=42 FAIL=0
+- 域矩阵 raw=0 / 语义 92.1% / 事件 73/73 0 缺口
+- 模拟器冒烟：**PENDING**（设备 10.0.182.146 offline，§124y-189 口径）
+
+**踩坑固化（防复发）**：
+① 两判据（域矩阵 main RAW 层 + raw_fallback raw）必须同源对账（§1916
+   对账段），域矩阵分层逻辑漂移（如改 plt/fdefs/vtbl/stub 排除）会静默
+   导致两判据 RAW 集合脱节——对账段每批跑，脱节即 FAIL
+② `load_libc_syms` 增量 111 条（仅阈值非 mangled）全在 .rodata/.data.rel.ro
+   区（0x1189e4 起 `_Locale_*`/`_WLocale_*` 区），归 libc 系统域 = 数据区
+   读常量安全；伪影 0x1220e/0x1b0ca 因"无 objdump 标签锚定"不进 111
+   增量，仍留 RAW 层（PSEUDO 白名单兜底）——勘误只清阈值笔误不清伪影
+   标签缺口（§1915 口径）

@@ -82,8 +82,21 @@ def main():
     #   BL 标注噪声，非真实 BL 目标）不在真实区，兜底判据 = 424/424
     REAL_LO, REAL_HI = 0x233e0, 0x15be80
     real_in_img = [a for a in raw if REAL_LO <= int(a, 16) < REAL_HI]
+    # §124y-1916 对账段：域矩阵 main 分层 RAW 层（raw_list）与本判据 raw 集合
+    #   必须一致（域矩阵不另起炉灶，426 = 真实 424 + 伪影 2，两判据同源）
+    dm_main_raw = []
+    for a in sorted(bl, key=lambda x: int(x, 16)):
+        ai = int(a, 16)
+        if a in plt or 0x22900 <= ai < 0x233e0:
+            continue
+        if a in f_defs or a in vtbl or a in stub:
+            continue
+        dm_main_raw.append(a)
+    raw_set_match = set(dm_main_raw) == set(raw)
+
     ok = (len(raw) > 0 and len(real_in_img) == len(raw) - len(PSEUDO_USED)
-          and len(biz_mix) == 0 and len(hit_offset_shadow) == len(real_in_img))
+          and len(biz_mix) == 0 and len(hit_offset_shadow) == len(real_in_img)
+          and raw_set_match)
     print('═══ §124y-1914 系统域 RAW 镜像兜底无死角量化判据 ═══')
     print('  RAW（镜像裸跑·系统域）总数: %d（域矩阵 RAW 层）' % len(raw))
     print('  ① 真实指令/数据区 [0x233e0,0x15be80) 覆盖: %d/%d（伪影 %d 条 = objdump 软浮点 BL 标注噪声，非真实 BL）' % (len(real_in_img), len(raw), len(PSEUDO_USED)))
@@ -94,7 +107,9 @@ def main():
     print('  64KB 粒度分布 top8:')
     for z, c in zones.most_common(8):
         print('    0x%04x0000-0x%04xfff 区 %4d 条' % (z, z + 1, c))
-    print('  判据: %s' % ('PASS（RAW 全在镜像区 + 系统域纯 + 双路命中，真机兜底无死角）'
+    print('  §1916 对账: 域矩阵 main RAW 层 = %d，本判据 raw = %d，集合一致 = %s' % (
+        len(dm_main_raw), len(raw), raw_set_match))
+    print('  判据: %s' % ('PASS（RAW 全在镜像区 + 系统域纯 + 双路命中 + 域矩阵对账一致，真机兜底无死角）'
                           if ok else 'FAIL'))
     return 0 if ok else 2
 
