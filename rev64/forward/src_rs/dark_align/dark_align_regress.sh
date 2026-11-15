@@ -105,6 +105,7 @@ run_one dark_fullgame_win_ms_track_test
 run_one dark_fullgame_redwin_ms_track_test
 run_one dark_32combo_matrix_test
 run_one dark_4branch_clear_test
+run_one dark_flagoff_clear_test
 
 echo ""
 echo "=== 合计 PASS=$pass FAIL=$fail MISS=$pending ==="

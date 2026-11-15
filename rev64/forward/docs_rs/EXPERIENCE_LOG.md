@@ -4363,3 +4363,48 @@ jq_rs_rules.c 注释定论。
   支 which=3 关路径（:410 计数=0 同步，AUD-R-107 标注"EV_FLAG 开关关闭路径也含
   计数=0 需保持同步"）本轮走 which=3 开路径（:737/:748），which=3 关扛旗不终局
   路径（攻子入位非清零分支）维持 §54/§61 既有口径未在本用例重复断言。
+
+### 70. 吃子清零 which=3 关路径（EV_FLAG else 分支 :737-748 moves_since_eat=0 同步）独立用例行为级实证 + 验证方案扩到 55 项（2026-11-15）
+- **吃子清零 which=3 关路径独立覆盖**（dark_flagoff_clear_test，3 断言）：补
+  §69 `dark_4branch_clear_test`（实锤 which=3 开路径 EV_FLAG :737 终局分支清零）
+  之外的**which=3 关路径（EV_FLAG else 分支 :737-748 攻子入位不终局 +
+  moves_since_eat=0 清零同步）**缺口——AUD-R-107 标注"EV_FLAG 开关关闭路径也含
+  计数=0 需保持同步"，which=3 关扛旗不终局路径（攻子入位 + 困毙判定 +
+  moves_since_eat 清零）的独立断言未覆盖：
+  ① which=3 关 + 红有可动子：扛旗不终局（攻子入位 cell56，stage=PLAY winner=
+     NONE）+ moves_since_eat 清零（§748 同步，ms 3→0）✓；
+  ② which=3 关 + 红无其他子：扛旗后红困毙 → 蓝胜（stage=OVER winner=BLUE，困毙
+     近似 §54）+ moves_since_eat 清零（ms 3→0）✓；
+  ③ 对照 which=3 开 + 红无其他子：扛旗直接终局（stage=OVER winner=BLUE，§69
+     既有）+ moves_since_eat 清零（ms 3→0，与 ② 对称）✓。
+- **★ 吃子清零 which=3 关路径口径实锤（本轮新固化）**：EV_FLAG 分支 which=3 开/关
+  **均清零 moves_since_eat**（AUD-R-107"4 分支各含一份清零"含 which=3 关 else
+  分支）——
+  · **which=3 开**（§69 既有 :737 终局分支）：扛旗直接终局（jq_on_flag_capture
+    置 winner + stage=OVER）+ moves_since_eat=0（清零在判和检查前 §519）；
+  · **which=3 关**（本轮 :737-748 else 分支）：扛旗**不直接终局**（攻子入位
+    stalemate_after 判定）——红有可动子→stage=PLAY 不终局（①），红无其他子→困
+    毙近似判胜（②，§54 既有口径）；但**两者均清零 moves_since_eat**（EV_FLAG
+    事件无论终局与否都清零 70 步进度，扛旗活动重置无吃子计数）；
+  · **AUD-R-107 "EV_FLAG 开关关闭路径也含计数=0 需保持同步"实锤**：which=3 关
+    else 分支 :748 清零与 which=3 开 :737 清零**对称同步**（③ 对照同几何 which=3
+    开/关 ms 终值均 0，清零行为一致，仅后续终局判定不同——开=直接终局，关=困毙
+    近似/不终局）。
+- **对照 64 位实现**（rules.c :720 `if (ui_rule_cfg_get(3))` 开分支（终局 + :737
+  清零）/ else 分支（which=3 关 :737-748 攻子入位 + stalemate_after + :748 清零
+  同步，AUD-R-107 标注需与开分支保持同步）+ §54 困毙近似 + §519 清零在判和前）：
+  which=3 关路径清零行为级 0 分叉。
+- **dark_flagoff_clear_test 复用进 dark_align**：dark_align_regress.sh
+  54→**55 项** PASS（规则原文 33 + 54 用例，55/55 全项）。
+- **对齐验证方案三层"总结复用"终态（本轮复用确认）**：① make evverify
+  172/172 + 三件套（event_code 0 缺口 / layout 几何 Δ=0）/ ②
+  `dark_align_regress.sh` **55/55**（桌面 0 退化门禁）/ ③
+  `mumu_align_smoke.sh --dev 127.0.0.1:5556` **2/2 + 0 崩溃**（redroid 冒烟口
+  径）。
+- **诚实边界**：本轮未改 rules.c/board.c 行为（which=3 开/关 EV_FLAG 分支清零
+  均既成实现/AUD-R-107 既有标注，纯补 which=3 关路径验证用例 + 清零对称口径实
+  锤），so 无需重建；"统一 ate 标记"（AUD-R-107 P3"4 分支各含一份清零，统一 ate
+  标记留待下一轮"）维持代码重构方向（非行为修正），本轮不重构（维持 4 分支各含
+  一份清零现状，纯补验证用例）；which=3 关 + 红有可动子"扛旗不终局后对局继续"
+  的后续走子路径（攻子入位 cell56 后红可动子走子 + 蓝再走）本轮未覆盖（聚焦
+  which=3 关路径清零断言，非后续对局链）。
