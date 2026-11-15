@@ -4176,3 +4176,44 @@ jq_rs_rules.c 注释定论。
   无吃子判和收尾属合理行为，非 bug）；§33 dark_fullgame 与本轮跑法同源（AI 走
   子+翻棋交替），本轮在 §33 跑法上叠加 moves_since_eat 逐帧追踪断言（非改跑法
   本身，跑法 0 改造）。
+
+### 66. 暗棋完整对局"胜负收尾"路径全程 moves_since_eat 追踪断言行为级实证 + 验证方案扩到 51 项（2026-11-15）
+- **完整对局"胜负收尾"路径全程 moves_since_eat 追踪独立覆盖**（
+  dark_fullgame_win_ms_track_test，3 断言）：补 §65 `dark_fullgame_ai_ms_track_test`
+  （实锤完整 60 子对局以**判和 DRAW** 收尾，moves_since_eat 终值=70 触发 70 步阈
+  值）之外的**胜负收尾路径**（靠扛旗/吃光困毙判胜，winner=BLUE/RED，非 70 步判
+  和）的 moves_since_eat 追踪缺口（两种收尾"判和 vs 胜负"的 moves_since_eat 语
+  义差异未独立断言）：
+  ① 胜负A 扛旗判胜（which=3 开 winner=BLUE，**非 70 步判和**，ms 终值<70——扛旗
+     清零打断 70 步进度）✓；
+  ② 胜负B 吃光困毙判胜（蓝吃光红最后子 winner=BLUE，ms 清零终值=0<70，**非 70
+     步判和**）✓；
+  ③ 胜负C 对照判和收尾（纯空移累加 70 判 DRAW winner=DRAW 终值=70，区别于胜负
+     收尾 winner=BLUE/RED 终值<70）✓。
+- **★ 完整对局两种收尾 moves_since_eat 语义差异口径实锤（本轮新固化）**：完整
+  对局两种收尾（判和 vs 胜负）的 moves_since_eat 语义**差异**：
+  · **判和收尾**（§65 既有）：纯空移累加到 70 → stalemate_after 判 DRAW，
+    moves_since_eat 终值=70（**累加到阈值**触发 70 步判和）；
+  · **胜负收尾**（本轮）：扛旗/吃光困毙判胜（winner=BLUE/RED），**非 70 步判和**
+    ——扛旗/吃子**清零打断** moves_since_eat 进度（终值<70），对局以 winner 判胜
+    收尾（stalemate_after 的 70 步判和路径**未触发**）；
+  · **语义差异核心**：判和=终值 70（累加到阈值），胜负=终值<70（扛旗/吃子清零打
+    断 + winner 判胜先于 70 步阈值）——70 步判和阈值只对**纯空移累加**生效，任
+    何吃子/扛旗清零都打断 70 步进度使对局走胜负路径（非判和路径）。
+- **对照 64 位实现**（rules.c jq_try_move 扛旗/吃子清零 §683/726/737/784/830 +
+  jq_on_flag_capture 扛旗终局 + jq_on_stalemate 困毙判胜 + 70 步阈值
+  stalemate_after §519（仅纯空移累加>=70 触发判和））：两种收尾 moves_since_eat
+  语义差异行为级 0 分叉。
+- **dark_fullgame_win_ms_track_test 复用进 dark_align**：dark_align_regress.sh
+  50→**51 项** PASS（规则原文 33 + 50 用例，51/51 全项）。
+- **对齐验证方案三层"总结复用"终态（本轮复用确认）**：① make evverify
+  172/172 + 三件套（event_code 0 缺口 / layout 几何 Δ=0）/ ②
+  `dark_align_regress.sh` **51/51**（桌面 0 退化门禁）/ ③
+  `mumu_align_smoke.sh --dev 127.0.0.1:5556` **2/2 + 0 崩溃**（redroid 冒烟口
+  径）。
+- **诚实边界**：本轮未改 rules.c/board.c 行为（扛旗/吃光困毙判胜 + 清零 + 70 步
+  判和均既成实现，纯补验证用例 + 两种收尾 moves_since_eat 语义差异口径实锤），
+  so 无需重建；胜负收尾用 LAY 明棋口径（绕暗棋工兵扛旗门槛，纯几何+开关路径），
+  暗棋 FLIP 模式下胜负收尾（暗棋扛旗工兵门槛 + 吃光困毙）维持 §54/§55 既有口径
+  未在本用例重复断言；"胜负收尾 winner=RED"（红方判胜）路径本轮未覆盖（聚焦
+  winner=BLUE 蓝方判胜 + DRAW 对照，RED 判胜几何对称可后续追加）。
