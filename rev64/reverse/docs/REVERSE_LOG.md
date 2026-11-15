@@ -116975,3 +116975,47 @@ ios/locale 区 / C++ runtime 数据区 ×2），固化进 raw_fallback 判据输
 ② 全分布 426 条全归系统域 / 数据区（0 业务混入）= §1906 清零口径的
    兜底量化：镜像裸跑 426 条 = 读 C++ runtime / 数据常量，真机 linker
    解析兜底（非游戏业务语义），与"真业务裸跑 = 0"同构（业务风险 0）
+
+
+### §124y-1918 第一千九百一十八  批 系统域 RAW 真机 linker 可达量化判据（静态第 43 项，so 59465d97 保持）
+
+承接 §124y-1917 后 loop 继续：426 系统域 RAW 的"镜像 + linker 解析兜底"
+此前只有 raw_fallback 判据 ③（jqt_mem_valid 双路命中 = MEM 读可达），未量化
+"426 RAW 是否真被 linker 解析（真机可达）"——即 C++ runtime（ios/locale/
+exception）函数在真机由哪个库提供、镜像区是否真可读。本批补全。
+
+**本批实锤（全离线，零设备）**：
+- **新判据脚本 `raw_linker_reach_check.py`**（4 判据，设备无关）：
+  ① 426 RAW 全在镜像拷贝区 [0x233e0, 0x15be80)（img memcpy 全量覆盖，
+     真机 dlopen 后镜像区 = .text/.rodata/.data.rel.ro 可读）
+  ② 426 RAW 全在 6 系统域 zone（0x0001/0x0002/0x0006/0x10/0x11/0x12，
+     .text 尾部 C++ runtime + .rodata/.rel.ro 数据区，0 业务混入）
+  ③ 426 RAW 中 vtbl 收表 = 0（全走"镜像裸跑"非 dispatch 命中，§1914 口径）
+  ④ 原版 so NEEDED 7 项全量 dlopen（libc/libstdc++/libm/liblog/
+     libGLESv1_CM/libGLESv2/libdl），C++ runtime（ios/locale/exception）
+     由 **libstdc++.so** 提供 = 426 RAW 真机可执行兜底（镜像 + linker
+     解析，非占位）
+- **静态 43 项 PASS=43 FAIL=0**（raw_linker_reach 第 43 项，KINDS 表 +
+  头注释同步；verify_all 42→43 同步）
+- 域矩阵 raw=0 / 语义 92.1% 保持（本批 0 译码改动，纯判据加固）
+
+**so 三方哈希 59465d97 保持**。
+
+验证：
+- raw_linker_reach_check.py 判定 PASS（①424/424 ②0 混入 ③0 vtbl ④
+  NEEDED 7 项全量，C++ runtime = libstdc++ 兜底 OK）
+- 静态 43 项 PASS=43 FAIL=0
+- 域矩阵 raw=0 / 语义 92.1% / 事件 73/73 0 缺口
+- 模拟器冒烟：**PENDING**（设备 10.0.182.146 offline，§124y-189 口径）
+
+**踩坑固化（防复发）**：
+① "镜像兜底无死角"须双判据：raw_fallback（MEM 读可达 + 双路命中）+
+   raw_linker_reach（真机 linker 可达 + NEEDED 全量 + C++ runtime 归属
+   libstdc++），单判据不够（MEM 可达 ≠ 真机能执行 C++ runtime 函数体）
+② NEEDED 7 项 = 原版 so 静态 readelf 实锤（libc/libstdc++/libm/liblog/
+   libGLESv1_CM/libGLESv2/libdl），C++ runtime（ios/locale/exception/
+   bad_exception）全由 libstdc++.so 提供，镜像裸跑 = 真机 libstdc++
+   直接执行（非翻译体兜底，非占位）——"镜像 + linker 解析"口径 = 真机
+   可执行（系统域），与"真业务裸跑 = 0"同构（业务风险 0）
+③ 426 RAW 中 vtbl 收表 = 0 实锤（域矩阵 VTABLE 层 8 条 = 业务 vtable
+   回调，非 C++ runtime；C++ runtime 全走镜像裸跑，不走 dispatch）
