@@ -77,6 +77,7 @@ run_one dark_tongji_flip_test
 run_one dark_ai_score_test
 run_one dark_rail_topo_test
 run_one dark_camp_safety_test
+run_one dark_hq_freeze_test
 
 echo ""
 echo "=== 合计 PASS=$pass FAIL=$fail MISS=$pending ==="
