@@ -4097,3 +4097,38 @@ jq_rs_rules.c 注释定论。
   which=0×which=2 既有口径未在本用例重复断言（非阻塞）；完整 2^5=32 子组合终局
   矩阵本轮未全量覆盖（聚焦 which=2×which=4 事实交互 + which=3/2 分域叠加代表组
   合，全量 32 组合可后续批次追加）。
+
+### 64. 暗棋对局链完整走子+翻棋交替全程 moves_since_eat 逐帧演化追踪行为级实证 + rules.c AUD-R-086 注释纠正 + 验证方案扩到 49 项（2026-11-15）
+- **完整对局全程 moves_since_eat 逐帧演化追踪独立覆盖**（dark_fullgame_ms_track_test，
+  5 断言）：补 §33 `dark_fullgame`（跑完整对局但只断言"终局/正常结束"，不追踪
+  moves_since_eat 演化）/ §58 `dark_fullgame_reset_test`（对局链内嵌清零单点）
+  之外的**完整对局全程 moves_since_eat 逐帧演化追踪**（翻棋不消耗 + 走子空移累
+  加 + 吃子清零 + 70 步阈值触发/未触发的完整演化链）缺口：
+  ① 翻棋阶段全程 moves_since_eat=0（翻棋不消耗，§34 既有口径实锤）✓；
+  ② 走子空移累加：连续 3 步空移 moves_since_eat 0→1→2→3 ✓；
+  ③ 吃子清零：累加 3 步后吃子 EV_EAT 清零 moves_since_eat=0 ✓；
+  ④ 全程演化链：翻棋×2(=0)→空移×2(=1,2)（翻棋不消耗 + 空移累加完整链）✓；
+  ⑤ 70 步阈值触发：纯空移累加到 70 判和（stalemate_after §519，DRAW）✓。
+- **★ 翻棋不消耗 moves_since_eat 口径实锤 + rules.c AUD-R-086 注释纠正（本轮新
+  固化）**：诊断实锤翻棋后 moves_since_eat/total_moves 均 0（jq_flip 不自增），
+  走子空移才自增 1——**§34 "翻棋不消耗" 口径正确，rules.c:416 AUD-R-086 旧注释
+  "翻棋（jq_flip）消耗 moves_since_eat 与 total_moves（对齐原版 0x39f20 from==to
+  路径消耗步数）"系误读**：from==to 路径是**走子**原地判定（jq_try_move from==to
+  自增），非 jq_flip 翻棋；暗棋下翻棋不计步（§34），和棋 70/1000 步阈值只对走
+  子累加计数（翻棋不消耗）。本轮纠正 rules.c:416 AUD-R-086 注释（行为 0 变化，
+  纯注释纠正，0 退化）。
+- **对照 64 位实现**（rules.c jq_flip 翻棋不自增 moves_since_eat（§34 实锤）+
+  jq_try_move 空移自增 §653 + 吃子清零 §683/726/737/784/830 + 70 步阈值
+  stalemate_after §519）：全程演化追踪行为级 0 分叉。
+- **dark_fullgame_ms_track_test 复用进 dark_align**：dark_align_regress.sh
+  48→**49 项** PASS（规则原文 33 + 48 用例，49/49 全项）。
+- **对齐验证方案三层"总结复用"终态（本轮复用确认）**：① make evverify
+  172/172 + 三件套（event_code 0 缺口 / layout 几何 Δ=0）/ ②
+  `dark_align_regress.sh` **49/49**（桌面 0 退化门禁）/ ③
+  `mumu_align_smoke.sh --dev 127.0.0.1:5556` **2/2 + 0 崩溃**（redroid 冒烟口
+  径）。
+- **诚实边界**：本轮改 rules.c:416 注释（纯注释纠正，行为 0 变化，0 退化——三层
+  全 PASS 实锤）；完整 60 子对局链（§33 dark_fullgame 翻棋+走子交替到终局）非本
+  用例范围（本用例聚焦 moves_since_eat 逐帧演化追踪，非完整对局）；"吃子清零"
+  含 4 分支（EV_EAT/BOMB/MINE/FLAG 各清零点 §683/726/737/784/830）本轮实证 EV_EAT
+  分支（③④⑤），EV_BOMB/MINE/FLAG 清零分支维持 §46 既有口径未在本用例重复断言。

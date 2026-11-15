@@ -413,9 +413,12 @@ static bool move_legal(const jq_state *st, int from, int to, int turn)
    单步 ~3.5k 次合法性判定 / ~20 万次格点运算——规则引擎在主线程 OnTouch 单步执行，
    移动端 60fps 渲染线程不做走子计算，实测 OK；缓存合法目标格或射线扫描替代
    逐目标 BFS（性能重构）留待下一轮压测驱动。
-   ★ AUD-R-086（P2 诚实标注）：翻棋（jq_flip）消耗 moves_since_eat 与 total_moves
-   （对齐原版 0x39f20 from==to 路径消耗步数，与和棋 70/1000 步判定一致），
-   暗棋下翻牌速度主导和棋阈值——与 AUD-R-033 同源，本轮不改行为。
+   ★ AUD-R-086（P2 诚实标注，★ 2026-11-15 §64 注释纠正）：翻棋（jq_flip）
+   **不消耗** moves_since_eat 与 total_moves（本轮实锤：翻棋后 moves_since_eat/
+   total_moves 均 0，走子空移才自增 1）——旧注释"消耗（对齐原版 0x39f20
+   from==to 路径消耗步数）"系误读：from==to 路径是**走子**原地判定（jq_try_move
+   from==to 自增），非 jq_flip 翻棋；暗棋下翻棋不计步（§34 既有口径），和棋
+   70/1000 步阈值只对走子累加计数（翻棋不消耗），与 AUD-R-033 同源。
    ★ AUD-R-041（P2 诚实标注）：jq_try_move 全程不刷新 pieces_left/count_tbl
    （只做增量减法，与 AUD-R-014 同源——计数可为负/未刷新，困毙判定走
    jq_side_stalemated 实时扫描不读计数）。原 st->count_tbl 字段已删（全仓
