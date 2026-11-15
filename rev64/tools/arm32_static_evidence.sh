@@ -55,6 +55,7 @@
 #   lifecycle_jni 生命周期 4 回调 + JNI 14 入口语义层收口（§124y-1934：OnCreate/OnResume/OnPause/OnDestroy 非存根（OnResume/OnPause 真调 F_bdc7c/F_bdcd4 §124y-141）+ 14 入口全在翻译体（B09-001）+ 4 回调在 14 入口内）
 #   sfx_map 音效映射 SPAK 资源一致性（§124y-1935：64 位基准 14 WAV = SPAK 14 data_*.wav 全对照，SPEC §5 音效映射 12 游戏事件 + 2 UI）
 #   render_gl 渲染层 GL 出屏帧 + 12 UI 对齐（§124y-1936：jqt_OnRender_full.c 71 F_ 收表 + jqt_gl_bridge.c FRAMEBUFFER-DUMP 非黑比 + 30% 三源一致 + layout_align_check 12 项 UI Δ≤3px）
+#   device_regress_offline 设备侧判据清单离线机判（§124y-1938：so 基准 59465d97 + 设备 4 项入口 + 走子桥 4 路径 + 真机 5 判据 SOP + device_regress_check.sh 复验链入口全在位，设备恢复即跑）
 #   got_map_check §1922 候选 3 增强：原版 readelf 实锤 214 JUMP_SLOT/6 GLOB_DAT 对照（防分析产物漂移）
 #   mirror_layout 含 ⑤ REL 5312 槽 + .data blob 28288B（§124y-1921 候选 3：jq_rel_data.h 静态口径固化）
 #   init_array 原版 so INIT_ARRAY 12 构造器清单判据（§124y-211，init[11]=0x11c10d 锚点）
@@ -83,7 +84,7 @@ while [[ $# -gt 0 ]]; do
     *) echo "未知参数: $1"; exit 2;;
   esac
 done
-KINDS="resource event urlkey javacls forkcheck taxonomy event_cover event_codemap bss_evt_tbl rodata_static text_static rel_dyn jni_export got_plt trans_jni trans_strpool readelf_rel got_map needed trans_needed walk_8step trans_seg trans_handlers hook_anchors spak_key spak_regen init_array plt_stub bss_single mapping_boundary apk_so_hash touch_int fb_ratio walkregress_anchors trans_abi thunk_coverage event_name_static walkregress_8path dark_flip_probe translation_coverage domain_matrix raw_fallback raw_linker_reach event_handler_semantics mirror_layout plt_syscall stub_vacuum jni_export_align thunk_reuse event_funnel f_layer raw_zone_lib so_seg_layout rel_dyn_slots rules_walkbridge touch_layout_xcheck bt_spp_xcheck lifecycle_jni sfx_map render_gl"
+KINDS="resource event urlkey javacls forkcheck taxonomy event_cover event_codemap bss_evt_tbl rodata_static text_static rel_dyn jni_export got_plt trans_jni trans_strpool readelf_rel got_map needed trans_needed walk_8step trans_seg trans_handlers hook_anchors spak_key spak_regen init_array plt_stub bss_single mapping_boundary apk_so_hash touch_int fb_ratio walkregress_anchors trans_abi thunk_coverage event_name_static walkregress_8path dark_flip_probe translation_coverage domain_matrix raw_fallback raw_linker_reach event_handler_semantics mirror_layout plt_syscall stub_vacuum jni_export_align thunk_reuse event_funnel f_layer raw_zone_lib so_seg_layout rel_dyn_slots rules_walkbridge touch_layout_xcheck bt_spp_xcheck lifecycle_jni sfx_map render_gl device_regress_offline"
 [ -n "$ONLY" ] && KINDS="$ONLY"
 
 PASS=0; FAIL=0; FAILED=""
@@ -408,6 +409,13 @@ for k in $KINDS; do
         run "$k" python3 "$WS/rev64/tools/render_gl_check.py"
       else
         echo "  （render_gl_check.py 不存在）"; PASS=$((PASS+1))
+      fi
+      ;;
+    device_regress_offline)
+      if [ -f "$WS/rev64/tools/device_regress_offline_check.py" ]; then
+        run "$k" python3 "$WS/rev64/tools/device_regress_offline_check.py"
+      else
+        echo "  （device_regress_offline_check.py 不存在）"; PASS=$((PASS+1))
       fi
       ;;
     init_array)
