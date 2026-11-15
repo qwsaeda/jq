@@ -117446,3 +117446,69 @@ thunk_reuse 输出 37），须厘清口径防误读；另域矩阵事件分发�
 ③ 冗余 .rodata 地址（14 case，§124y-162 编译期不可达）计入 distinct
    handler（24/37 含），但 .text 真实 handler（30）须去冗余——"含
    冗余 / 去冗余"口径须标注（本批厘清固化）
+
+
+### §124y-1927 第一千九百二十七  批 各域收表 + RAW zone 库归属 + 段布局对照（静态 53 项，so 59465d97 保持）
+
+承接 §124y-1926 后 loop 继续：按"1→2→3"顺序推进候选 1（各功能域 F_
+收表完整度）+ 候选 2（434 RAW 6 zone → NEEDED 库归属）+ 候选 3（翻译
+体 vs 原版段布局对照）——三候选合并一批。
+
+**本批实锤（全离线，零设备）**：
+- **候选 1：新判据 `f_layer_check.py`**（7 功能域收表完整度，4 判据）：
+  ① 各文件全 F_ 体 vs 域矩阵 byfile（BL 目标归属）对照：jqt_vtbl.c
+  全 F_ 体 10399 vs byfile 5376（差 = 非 dispatch 辅助函数）/ OnCreate
+  740 vs 50 / OnRender 71 vs 25 / OnEvent 14 vs 6 / OnResume 6 vs 4 /
+  OnInput 3 vs 2 / OnKey 1 vs 1
+  ② 各域 F_ 全有定义体（跨 7 域，多行容错 DOTALL）5464/5464 悬空 0
+  （勘误：jqt_vtbl.c 定义体跨 2-3 行签名，旧单行 regex 漏 3245，改
+  DOTALL `^uint32_t F_xxx\(uint32_t.*?\)`）
+  ③ 7 功能域全在域矩阵 byfile（DOMAIN_FILE 分层完整）
+  ④ 口径厘清：byfile = BL 目标归属（域矩阵统计），全 F_ 体 = 文件内
+  全部函数（两口径并存，防误读"5376 = 全部函数"）
+- **候选 2：新判据 `raw_zone_lib_check.py`**（434 RAW 6 zone → NEEDED
+  库归属，4 判据）：① 434 RAW 全在 6 zone（0x0001/0x0002/0x0006/0x10/
+  0x11/0x12）② 每 zone 归属 libstdc++.so（C++ runtime/locale/iostream
+  facet，NEEDED 7 项之一）③ NEEDED 含 libstdc++.so（真机 dlopen 解析
+  兜底可归因）④ 0 业务混入（系统域纯，§1906 清零口径）
+- **候选 3：新判据 `so_seg_layout_check.py`**（翻译体 vs 原版段布局
+  对照，3 判据）：① 原版 4 段实锤（.text 0x233e0/0xfd814 + .rodata
+  0x120bf8/0x1d030 + .data 0x15bb6c/0x314 + .bss 0x15be80/0x7008）
+  ② 翻译体段地址漂移 4 段（ELF64 重编正常，非回归）③ 镜像偏移逻辑仍
+  按原版 VA（§124x 0x233e0 起点，与翻译体自身段布局无关）
+  （勘误：readelf -SW 段名 key 无点 `text` 非 `.text`，正则
+  `\.([\w.]+)` 匹配 `.text` 时 group(1)=`text`；exp dict key 同步无点）
+- **静态 53 项 PASS=53 FAIL=0**（f_layer + raw_zone_lib + so_seg_layout
+  3 项新增，KINDS 表 + 头注释同步；verify_all 50→53 同步）
+
+**so 三方哈希 59465d97 保持**（本批 0 译码改动，纯判据固化 + 勘误）。
+
+验证：
+- f_layer_check.py 判定 PASS（7 域收表完整 + 5464/5464 全定义体 +
+  口径厘清）
+- raw_zone_lib_check.py 判定 PASS（434 RAW 6 zone 全归 libstdc++.so，
+  真机 linker 兜底可归因）
+- so_seg_layout_check.py 判定 PASS（原版 4 段实锤 + 翻译体段漂移正常
+  + 镜像偏移按原版 VA）
+- 静态 53 项 PASS=53 FAIL=0
+- 域矩阵 raw=434 / 真业务裸跑 0 / 语义 91.9% / 事件分发 67/67 0 悬空
+  保持
+- 模拟器冒烟：**PENDING**（设备 10.0.182.146 offline，§124y-189 口径）
+
+**踩坑固化（防复发）**：
+① 跨文件 F_ 定义体判据须 DOTALL 多行容错（jqt_vtbl.c 函数体跨 2-3
+   行签名 `uint32_t F_xxx(uint32_t _r0, ...\n ... ) {`，旧单行
+   `^uint32_t F_xxx\(.*\)\s*\{` 漏 3245 个"悬空"误判，改
+   `^uint32_t F_xxx\(uint32_t.*?\)` DOTALL 后 5464/5464 全定义体）
+② byfile（域矩阵 BL 目标归属）vs 全 F_ 体（文件内全部函数）两口径
+   并存须标注：jqt_vtbl.c 5376 byfile ≠ 10399 全 F_ 体（差 5023 =
+   非 dispatch 辅助函数 + 注释/前向声明），"5376 = 全部函数"误读
+   须防（本批 f_layer ① 对照表 + ④ 口径厘清固化）
+③ readelf -SW 段名 regex `\.([\w.]+)` 匹配 `.text` 时 group(1)=
+   `text`（无点），dict key 须无点（`.text` → `text`）；seg 段 VA/
+   Size 列序 = `[N] Name Type Addr Off Size`，Addr=group(3) Size=
+   group(5)（勘误 2 处：group(5) 非 group(4) + dict key 无点）
+④ 翻译体 so（ELF64 重编）段布局 ≠ 原版 32 位（段地址全漂移），镜像
+   偏移逻辑（jq_img.bin 从原版 0x233e0 起）仍按**原版 VA 口径**（§124x），
+   与翻译体自身段布局无关（本批 so_seg_layout ③ 厘清，防"翻译体段
+   漂移 = 镜像偏移错"误读）
