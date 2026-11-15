@@ -78,11 +78,11 @@ def main():
 
     # ⑤ device_regress_check.sh 复验链一键入口在位
     dr = open(DEVREG, errors='ignore').read()
-    ok5 = all(k in dr for k in ['59465d97', 'arm32_hook_check.sh', 'arm32_walkregress.sh', 'PENDING', 'jq.game_test', 'screencap', 'bt_test_run'])
+    ok5 = all(k in dr for k in ['2566750232e3fbc5ded778553f7ab34d', 'arm32_hook_check.sh', 'arm32_walkregress.sh', 'PENDING', 'jq.game_test', 'screencap', 'bt_test_run', 'adb connect', 'ping'])
     if not ok5:
         fails.append('⑤ device_regress_check.sh 缺 基准哈希 / hook_check / walkregress / 60局 / screencap / 蓝牙 / PENDING 口径')
     else:
-        print('⑤ device_regress_check.sh 复验链一键入口在位 OK（基准 59465d97 + 设备 4 项 + 走子桥 4 路径 + 完整 60 局 + screencap 非黑比 + 蓝牙端到端 + 音效出屏 + PENDING 非 FAIL）')
+        print('⑤ device_regress_check.sh 复验链一键入口在位 OK（基准 25667502 + 网络三态判定 connect 防掉线 §1955 + 设备 4 项 + 走子桥 4 路径 + 完整 60 局 + screencap 非黑比 + 蓝牙端到端 + 音效出屏 + PENDING 非 FAIL）')
 
     for f in fails:
         print('FAIL:', f)

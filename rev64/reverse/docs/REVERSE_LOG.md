@@ -118987,3 +118987,55 @@ to host → PENDING）。本批固化"设备侧实锤链 8 步可跑 + 红果 ad
 ③ 红果 adb 掉线 = PENDING 非 FAIL（§124y-189 口径），重跑前须 `adb
    connect` 重新起服务 + `get-state` 探在线（No route to host = 网络
    层断，非 adb 服务问题，须等红果网络恢复 + adb 服务重起）
+
+
+### §124y-1956 第一千九百五十六  批 设备侧实锤防掉线三态判定固化（device_regress_check.sh 网络三态 + connect 防红果掉线）
+
+承接 §124y-1955 后 loop 继续：用户指令"继续"——§1955 实锤"设备侧 8
+步全链可跑通到设备 4 项段 + 红果 adb 不稳（connect 后重跑 No route to
+host）"，本批把"connect 后立即跑全链单次不重跑 + 网络三态判定"固化
+进 device_regress_check.sh（防红果 adb 不稳中断 8 步全链）。
+
+**本批实锤（全离线，零设备）**：
+- **`device_regress_check.sh` 网络三态判定增强**（§124y-1955 红果 adb
+  不稳口径固化）：
+  ① **adb 在线**（get-state=device）→ 直接跑（防红果掉线：单次跑全
+     链不重跑）
+  ② **网络可达但 adb 未起**（ping 通 + 端口 OPEN + get-state 失败）
+     → 先 `adb connect` 起服务再探在线
+  ③ **网络全断**（ping 100% loss / No route to host）→ PENDING（等
+     红果网络恢复 + adb 服务重起）
+  三态判定 = `HOST/PORT 拆分 + ping -c 1 -W 2 + adb connect + get-
+  state` 链，防"红果网络可达但 adb 服务未起"误判 PENDING（§1955 实
+  锤：ping 通 + 端口 OPEN 但 get-state 失败 → 须 connect 起服务）
+- **`device_regress_offline_check.py` 判据 ⑤ 同步**（基准 59465d97 →
+  25667502 + 三态判定锚点 adb connect / ping 在位，离线 dry-run 判据
+  与三态增强脚本同步）
+- **离线 73 项 PASS=73 FAIL=0 保持**（三态判定 = 脚本增强非判据数
+  变化）
+
+**so 三方哈希 25667502 保持**（本批 0 译码改动，纯设备侧防掉线增强；
+device_regress_check.sh 三态判定 + 离线 dry-run 判据同步）。
+
+验证：
+- device_regress_check.sh syntax OK + 离线跑三态判定（红果网络全断 →
+  PENDING §124y-189 口径，离线 73 项已收口）
+- device_regress_offline_check.py 判据 ⑤ 三态锚点全在位 PASS
+- 离线 73 项 PASS=73 FAIL=0 保持
+- 域矩阵 raw=434 / 真业务裸跑 0 / 语义 91.9% / 事件分发 67/67 0 悬空
+  保持
+- 设备侧实锤链：**三态判定防掉线固化**（红果网络全断 = PENDING；网络
+  可达 + adb 未起 = connect 起服务；adb 在线 = 单次跑全链不重跑）
+
+**踩坑固化（防复发）**：
+① 红果 10.0.182.146 **网络可达 ≠ adb 在线**（§1955 实锤：ping 通 +
+   端口 5555 OPEN 但 get-state 失败 / 重跑 No route to host）——设备侧
+   实锤须**网络三态判定**（adb 在线 / 网络可达+adb 未起 / 网络全断），
+   三态 ② 须 `adb connect` 起服务（防"网络可达但 adb 服务未起"误判
+   PENDING），三态 ③ PENDING 非 FAIL（§124y-189 口径）
+② 设备侧实锤链 8 步须**connect 后立即跑单次不重跑**（防红果 adb 不稳
+   中断 8 步全链——§1955 实锤重跑时 No route to host 中断设备 4 项段），
+   判据 = "get-state=device 后 8 步全链单次跑通"（非重跑容错）
+③ device_regress_offline_check.py 判据 ⑤ 须与三态增强脚本同步（基准
+   59465d97→25667502 + 三态锚点 adb connect / ping），防离线 dry-run
+   判据与脚本漂移（三态判定锚点缺 = 判据误判"复验链未含防掉线"）

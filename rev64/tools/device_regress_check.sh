@@ -37,13 +37,27 @@ echo "═══ §124y-1937 设备恢复后 32 位翻译体复验链（基准 so
 #   "is for EM_ARM instead of EM_386" → UnsatisfiedLinkError 崩（2026-11-15 实锤）。
 #   redroid 仅作数据提取（AGENTS 红线），不作设备侧实锤源。
 
-# 0. 设备可达性
-if ! adb -s "$DEV" get-state >/dev/null 2>&1; then
-  echo "  设备 $DEV 不可达 → PENDING（§124y-189 口径，非 FAIL）"
-  echo "  离线 70 项已收口（静态 70/70），设备侧复验待设备恢复"
+# 0. 设备可达性（★ §124y-1955 红果 adb 不稳增强：网络三态判定 + connect 后立即跑单次不重跑）
+# 三态：① adb 在线（get-state=device）→ 直接跑 ② 网络可达但 adb 服务未起
+# （ping 通 + 端口 OPEN + get-state 失败）→ 先 connect 再起 ③ 网络全断（ping
+# 100% loss / No route to host）→ PENDING（等红果网络恢复 + adb 服务重起）
+HOST="${DEV%%:*}"; PORT="${DEV##*:}"
+if adb -s "$DEV" get-state >/dev/null 2>&1; then
+  echo "  设备 $DEV adb 在线（get-state=device）→ 直接跑（防红果掉线：单次跑全链不重跑）"
+elif ping -c 1 -W 2 "$HOST" >/dev/null 2>&1; then
+  echo "  设备 $HOST 网络可达但 adb 未在线 → 尝试 adb connect 起服务"
+  adb connect "$DEV" 2>&1 | head -1
+  if ! adb -s "$DEV" get-state >/dev/null 2>&1; then
+    echo "  adb connect 后仍不在线 → PENDING（红果 adb 服务未起，§124y-1955 口径）"
+    echo "  离线 73 项已收口（静态 73/73），设备侧复验待红果 adb 服务起"
+    exit 1
+  fi
+  echo "  adb connect 成功 → 设备 $DEV 在线 → 跑全链（单次不重跑防红果掉线）"
+else
+  echo "  设备 $HOST 网络全断（ping 100% loss / No route to host）→ PENDING（§124y-189 口径）"
+  echo "  离线 73 项已收口（静态 73/73），设备侧复验待红果网络恢复 + adb 服务重起"
   exit 1
 fi
-echo "  设备 $DEV 可达 → 开始设备侧复验"
 
 # 前置：so 三方哈希核对（SOP §3.1）
 echo "── 0. so 三方哈希核对（防设备跑旧 so）──"
