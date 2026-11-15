@@ -82,6 +82,7 @@ run_one dark_bfs_thru_test
 run_one dark_base_empty_test
 run_one dark_rail_walk_test
 run_one dark_moves_seq_test
+run_one dark_rail_cross_test
 
 echo ""
 echo "=== 合计 PASS=$pass FAIL=$fail MISS=$pending ==="
