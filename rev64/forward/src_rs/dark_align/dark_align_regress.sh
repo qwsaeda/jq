@@ -130,6 +130,7 @@ run_one dark_rail_c1c4cross_test
 run_one dark_rail_r6cross_test
 run_one dark_rail_r0r11_ends_test
 run_one dark_rail_topology_matrix_test
+run_one dark_rail_r5r6_fullrow_test
 
 
 echo ""
