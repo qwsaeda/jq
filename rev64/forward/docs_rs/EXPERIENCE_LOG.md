@@ -3954,3 +3954,48 @@ jq_rs_rules.c 注释定论。
   so 无需重建；"状态机转换"实为**同一 STG_PLAY 内翻子/走子行为交替**（非 stage 切
   换）——④ 并行性（定色/走子非串行门控）是暗棋对局行为关键口径（翻一个 0xFF 即可
   走子，无需全翻完），本轮首次独立断言。
+
+### 61. 暗棋多规则开关组合（which=2 吃雷 × which=3 扛旗 开/关矩阵）终局行为级实证 + 验证方案扩到 46 项（2026-11-15）
+- **多开关组合终局矩阵独立覆盖**（dark_multi_switch_matrix_test，8 断言）：补
+  §51 `dark_4switch_combo_test`（which=2×which=4 两开关键交互）/ §54
+  `dark_flagoff_stalemate_test`（which=3 单开关）/ §55 `dark_mineoff_stalemate_test`
+  （which=2 单开关）之外的**多开关组合（which=2 关 + which=3 关 同时）的终局交互
+  矩阵**缺口（双关时"吃雷不清零 + 扛旗不置终局"叠加，靠困毙近似判胜，非任一端开
+  关单控）：
+  ① 全开（which=2 开 + which=3 开）：工兵吃雷 EV_MINE 清零 + 扛旗终局 OVER ✓；
+  ② which=2 关 + which=3 开：工兵撞雷送死 EV_DEAD 不清零 + 扛旗仍终局（which=3
+     终局不受 which=2 关影响）✓；
+  ③ which=2 开 + which=3 关：工兵吃雷仍清零 + 扛旗不置终局（PLAY+攻子入位，困毙
+     近似）✓；
+  ④ 双关（which=2 关 + which=3 关）：工兵撞雷送死 + 扛旗不置终局（**双行为叠加**：
+     雷不清零 + 旗不终局，终局统一退回困毙/吃光近似）✓。
+- **★ 多开关组合终局矩阵口径实锤（本轮新固化）**：which=2（吃雷清零）与 which=3
+  （扛旗终局）**分域独立**（§50 which=1×which=4 分域口径同源）——
+  · **which=2 控"工兵吃雷是否清零 moves_since_eat/mines"**（§746）：开=EV_MINE
+    清零，关=EV_DEAD 送死不清零；
+  · **which=3 控"扛旗是否置终局"**（§700）：开=EV_FLAG+OVER，关=PLAY 攻子入位靠
+    困毙近似；
+  · **组合下两行为叠加**（双关）：吃雷维度（which=2 关→送死不清零）+ 扛旗维度
+    （which=3 关→不终局）**互不串扰**（② 实证 which=3 终局不受 which=2 关影响，
+    ③ 实证 which=2 清零不受 which=3 关影响），双关时各自行为独立生效，终局判定
+    统一退回困毙/吃光近似（非任一端开关单控）；
+  · **与 §51 which=2×which=4 事实交互的差异**：§51 which=2 关阻断 mines 累积到 3
+    （阻断 which=4 暗棋扛旗**门槛**路径，事实交互）；本轮 which=2×which=3 **分域
+    独立**（which=2 控吃雷清零，which=3 控扛旗终局，组合下叠加非阻断）。
+- **踩坑固化（防复发）**：辅助函数 `setup_*` 按值传 `jq_state st` 后 `*out=st` 须在
+  `jq_try_move` **之后**（走子前拷出=旧状态，断言读到旧值全 FAIL）；本轮首版
+  `*out=st` 在 jq_try_move 之前致 8 断言 6 FAIL，修正后 8/8 PASS。
+- **对照 64 位实现**（rules.c §746 which=2 吃雷清零门控 + §700 which=3 扛旗终局
+  门控，分域独立 + EV_MINE/EV_DEAD/EV_FLAG 路径）：多开关组合终局矩阵行为级 0 分叉
+  （几何走 §54 既有 LAY 明棋口径，绕暗棋工兵扛旗门槛，0 分叉）。
+- **dark_multi_switch_matrix_test 复用进 dark_align**：dark_align_regress.sh
+  45→**46 项** PASS（规则原文 33 + 45 用例，46/46 全项）。
+- **对齐验证方案三层"总结复用"终态（本轮复用确认）**：① make evverify
+  172/172 + 三件套（event_code 0 缺口 / layout 几何 Δ=0）/ ②
+  `dark_align_regress.sh` **46/46**（桌面 0 退化门禁）/ ③
+  `mumu_align_smoke.sh --dev 127.0.0.1:5556` **2/2 + 0 崩溃**（redroid 冒烟口径）。
+- **诚实边界**：本轮未改 rules.c/board.c 行为（§746/§700 which=2/3 门控均既成实
+  现，纯补验证用例 + 多开关组合终局矩阵口径实锤 + 辅助函数 *out 时序踩坑固化），
+  so 无需重建；多开关组合用 LAY 明棋口径（绕暗棋工兵扛旗门槛），暗棋 FLIP 模式
+  下 which=2×which=3 组合（工兵门槛 + 扛旗门槛叠加）维持 §51 which=2×which=4 事
+  实交互口径（mines 阻断扛旗门槛），本轮不重复断言。
