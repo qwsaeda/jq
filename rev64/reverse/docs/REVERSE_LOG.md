@@ -117862,3 +117862,52 @@ OnCreate/OnResume/OnPause/OnDestroy 非存根 + 14 JNI 入口全语义）。
    误读（14 入口含 4 回调 + 9 非回调入口 OnUpdate/OnEvent/OnResult/
    OnKey/OnBluetooth/OnGraphCreate/OnGraphChange/OnTimer/OnInput/
    OnTouch）
+
+
+### §124y-1935 第一千九百三十五  批 音效映射 SPAK 资源一致性判据（静态第 59 项，so 59465d97 保持）
+
+承接 §124y-1934 后 loop 继续：按"未达成继续做"原则推进——判据链已
+覆盖事件分发/镜像/系统域/重定位/段布局/资源/规则引擎/走子桥/触摸布局/
+蓝牙/生命周期各域，本批转向**音效映射**维度（SPEC §5 音效映射：
+Junqi.* 事件 → WAV 资源，64 位基准 vs SPAK 资源全对照）。
+
+**本批实锤（全离线，零设备）**：
+- **新判据脚本 `sfx_map_check.py`**（4 判据，设备无关）：
+  ① **64 位基准 14 WAV 全引用**（jni_bridge.c sfx_event_to_wav：
+     12 游戏事件 junqi_bomb/dead/draw/eat/flag/flip/lose/move/over/
+     select/start/win + 2 UI ui_close/ui_pop）
+  ② **SPAK 14 WAV 资源全在**（spak_res/*.wav：12 data_junqi_* +
+     2 data_ui_*）
+  ③ **64 位 14 名 = SPAK 14 名**（data_ 前缀同源：基准 "junqi_X.wav"
+     映射 "data_junqi_X.wav"，SPAK 资源名 = data_ + 基准名，14/14
+     全对照）
+  ④ **事件→音效映射实锤**（SPEC §5：Junqi.Start→start / Junqi.Move→
+     move / Junqi.Eat→eat / Junqi.Bomb→bomb / Junqi.Flag→flag /
+     Junqi.Dead→dead / Junqi.Win→win / Junqi.Lose→lose / Junqi.Draw→
+     draw / UI close/pop→ui_close/ui_pop，14 WAV 全映射）
+- **静态 59 项 PASS=59 FAIL=0**（sfx_map 第 59 项，KINDS 表 + 头
+  注释同步；verify_all 58→59 同步）
+
+**so 三方哈希 59465d97 保持**（本批 0 译码改动，纯判据固化；音效
+映射 = 64 位 src_rs 基准，32 位走原版 so 音效，判据 = 资源一致性
+非 32 位音效实现实锤）。
+
+验证：
+- sfx_map_check.py 判定 PASS（①64 位 14 WAV ②SPAK 14 WAV ③14/14
+  全对照 ④事件映射实锤）
+- 静态 59 项 PASS=59 FAIL=0
+- 域矩阵 raw=434 / 真业务裸跑 0 / 语义 91.9% / 事件分发 67/67 0 悬空
+  保持
+- 模拟器冒烟：**PENDING**（设备 10.0.182.146 offline，§124y-189 口径）
+
+**踩坑固化（防复发）**：
+① 音效映射 = 64 位 src_rs 基准（jni_bridge.c sfx_event_to_wav），
+   32 位翻译体**不实现音效**（32 位走原版 so 音效链，jq_rs_* 规则
+   引擎 + jqt_vtbl.c 事件分发无 sfx 入口），判据 = 资源一致性（64
+   位基准 14 WAV = SPAK 14 资源全对照），非"32 位音效实现"实锤
+② SPAK WAV 资源名 = "data_" + 基准名（data_junqi_move.wav = junqi_
+   move.wav），对照须去 data_ 前缀（基准名 vs SPAK 名直接比 = 0
+   命中误判，本批初版 0/14 误判，勘误 data_ 前缀对照后 14/14 命中）
+③ 音效 14 = 12 游戏事件（走子/吃子/炸弹/军旗/死亡/胜利/失败/和棋/
+   开局/翻棋/选择/结束）+ 2 UI（close/pop，SPEC §5），与 SPAK 14
+   WAV 全对照（无缺漏无多余）

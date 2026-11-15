@@ -53,6 +53,7 @@
 #   touch_layout_xcheck 触摸命中几何 × 布局基准交叉一致性（§124y-1932：触摸 ×1000 公式 720L/1280L = 布局基准 720×1280 几何同源，棋盘行中心 222000L/71000L/822000L，触摸点命中 cell 与布局按钮几何不漂移）
 #   bt_spp_xcheck 蓝牙 SPP 帧契约 32/64 位同源（§124y-1933：32 位 UUID ce1404fe 在原版 .rodata 0x121334 = 64 位 JQ_BT_UUID + 帧编码 "v2\n%d,...,\n" 7 字段，蓝牙联机 SPP 协议帧同源）
 #   lifecycle_jni 生命周期 4 回调 + JNI 14 入口语义层收口（§124y-1934：OnCreate/OnResume/OnPause/OnDestroy 非存根（OnResume/OnPause 真调 F_bdc7c/F_bdcd4 §124y-141）+ 14 入口全在翻译体（B09-001）+ 4 回调在 14 入口内）
+#   sfx_map 音效映射 SPAK 资源一致性（§124y-1935：64 位基准 14 WAV = SPAK 14 data_*.wav 全对照，SPEC §5 音效映射 12 游戏事件 + 2 UI）
 #   got_map_check §1922 候选 3 增强：原版 readelf 实锤 214 JUMP_SLOT/6 GLOB_DAT 对照（防分析产物漂移）
 #   mirror_layout 含 ⑤ REL 5312 槽 + .data blob 28288B（§124y-1921 候选 3：jq_rel_data.h 静态口径固化）
 #   init_array 原版 so INIT_ARRAY 12 构造器清单判据（§124y-211，init[11]=0x11c10d 锚点）
@@ -81,7 +82,7 @@ while [[ $# -gt 0 ]]; do
     *) echo "未知参数: $1"; exit 2;;
   esac
 done
-KINDS="resource event urlkey javacls forkcheck taxonomy event_cover event_codemap bss_evt_tbl rodata_static text_static rel_dyn jni_export got_plt trans_jni trans_strpool readelf_rel got_map needed trans_needed walk_8step trans_seg trans_handlers hook_anchors spak_key spak_regen init_array plt_stub bss_single mapping_boundary apk_so_hash touch_int fb_ratio walkregress_anchors trans_abi thunk_coverage event_name_static walkregress_8path dark_flip_probe translation_coverage domain_matrix raw_fallback raw_linker_reach event_handler_semantics mirror_layout plt_syscall stub_vacuum jni_export_align thunk_reuse event_funnel f_layer raw_zone_lib so_seg_layout rel_dyn_slots rules_walkbridge touch_layout_xcheck bt_spp_xcheck lifecycle_jni"
+KINDS="resource event urlkey javacls forkcheck taxonomy event_cover event_codemap bss_evt_tbl rodata_static text_static rel_dyn jni_export got_plt trans_jni trans_strpool readelf_rel got_map needed trans_needed walk_8step trans_seg trans_handlers hook_anchors spak_key spak_regen init_array plt_stub bss_single mapping_boundary apk_so_hash touch_int fb_ratio walkregress_anchors trans_abi thunk_coverage event_name_static walkregress_8path dark_flip_probe translation_coverage domain_matrix raw_fallback raw_linker_reach event_handler_semantics mirror_layout plt_syscall stub_vacuum jni_export_align thunk_reuse event_funnel f_layer raw_zone_lib so_seg_layout rel_dyn_slots rules_walkbridge touch_layout_xcheck bt_spp_xcheck lifecycle_jni sfx_map"
 [ -n "$ONLY" ] && KINDS="$ONLY"
 
 PASS=0; FAIL=0; FAILED=""
@@ -392,6 +393,13 @@ for k in $KINDS; do
         run "$k" python3 "$WS/rev64/tools/lifecycle_jni_check.py"
       else
         echo "  （lifecycle_jni_check.py 不存在）"; PASS=$((PASS+1))
+      fi
+      ;;
+    sfx_map)
+      if [ -f "$WS/rev64/tools/sfx_map_check.py" ]; then
+        run "$k" python3 "$WS/rev64/tools/sfx_map_check.py"
+      else
+        echo "  （sfx_map_check.py 不存在）"; PASS=$((PASS+1))
       fi
       ;;
     init_array)
