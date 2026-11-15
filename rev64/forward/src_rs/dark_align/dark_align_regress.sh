@@ -121,6 +121,7 @@ run_one dark_rail_fullseg_test
 run_one dark_wrap_across_test
 run_one dark_rail_corner_nonrail_test
 run_one dark_rail_corner11_test
+run_one dark_rail_cross_eat_test
 
 echo ""
 echo "=== 合计 PASS=$pass FAIL=$fail MISS=$pending ==="
