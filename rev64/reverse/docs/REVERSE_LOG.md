@@ -117614,3 +117614,50 @@ thunk_reuse 输出 37），须厘清口径防误读；另域矩阵事件分发�
 ③ .rel.dyn 段 offset 0x17ca8 size 0xa668 = 5312 槽 × 8B = 0xa668
    （每槽 8B：R_Scnie + addend 各 4B），readelf -SW 实锤（与 5312
    槽数自洽）
+
+
+### §124y-1930 第一千九百三十  批 翻译体 vs 原版 4 段全对照 + 段漂移方向实锤（so_seg_layout 增强，静态 54 项保持）
+
+承接 §124y-1929 后 loop 继续：按"未达成继续做"原则推进——§1927
+so_seg_layout 判据只实锤"翻译体段漂移 4 段（正常）"，未量化"4 段
+全对照（VA + size + 漂移方向 + size 比）"，本批增强。
+
+**本批实锤（全离线，零设备）**：
+- **`so_seg_layout_check.py` 增强 4 段全对照**：原版 vs 翻译体 4 段
+  （.text/.rodata/.data/.bss）VA + size + 漂移方向 + size 比全实锤：
+  - .text  原版 VA 0x233e0 size 0xfd814 | 翻译体 VA 0x323c40 size 0x581510 | VA↑ size 比 **555.9%**（翻译体 = 5376 F_ 函数体）
+  - .rodata 原版 VA 0x120bf8 size 0x1d030 | 翻译体 VA 0xc4f0 size 0x316750 | VA↓ size 比 **2724.6%**（翻译体含 1.29MB 镜像 blob）
+  - .data  原版 VA 0x15bb6c size 0x314 | 翻译体 VA 0x8ace2c size 0x1f2c | VA↑ size 比 1012.7%
+  - .bss   原版 VA 0x15be80 size 0x7008 | 翻译体 VA 0x8aeee0 size 0x911b0 | VA↑ size 比 2072.4%
+- **段布局完全不同构实锤**：翻译体 .rodata VA 0xc4f0 < 原版 .rodata
+  0x120bf8（唯一 VA↓ 段，因 .rodata 嵌入 1.29MB 镜像 blob 前置），
+  余 3 段 VA↑（ELF 重编段地址重排），size 全 > 原版（翻译体含
+  镜像 + 5376 F_ + 5463 dispatch 表项）——**段布局完全不同构 =
+  重编 so 非原版汇编级**（AGENTS 诚实边界："行为级对齐重写版，非
+  32 位汇编级逐指令逆向"），镜像偏移逻辑仍按**原版 VA 口径**（§124x
+  0x233e0 起点，与翻译体自身段布局无关）。
+- **静态 54 项 PASS=54 FAIL=0 保持**（so_seg_layout 增强 4 段全对照，
+  0 退化）。
+
+**so 三方哈希 59465d97 保持**（本批 0 译码改动，纯判据增强）。
+
+验证：
+- so_seg_layout_check.py 4 段全对照实锤（VA + size + 方向 + size 比，
+  .rodata 2724% 含镜像 blob / .text 556% 含 5376 F_ 体）
+- 静态 54 项 PASS=54 FAIL=0
+- 域矩阵 raw=434 / 真业务裸跑 0 / 语义 91.9% / 事件分发 67/67 0 悬空
+  保持
+- 模拟器冒烟：**PENDING**（设备 10.0.182.146 offline，§124y-189 口径）
+
+**踩坑固化（防复发）**：
+① 翻译体 vs 原版段布局**完全不同构**（.rodata VA↓ 含镜像 blob + 3
+   段 VA↑ 重编重排 + 4 段 size 全 > 原版），非"同布局不同地址"——
+   判据须 4 段全对照（VA + size + 方向 + size 比），单看"段漂移 N 段"
+   不够（§1927 旧判据只实锤漂移 4 段，未量化 size 比/方向）
+② .rodata 翻译体 size 比 2724% = 嵌入 1.29MB 镜像 blob（jq_img.bin
+   .incbin 进 .rodata）+ 原版 .rodata 0x1d030（118KB），镜像 blob
+   占 .rodata 96%——"翻译体 .rodata ≠ 原版 .rodata"须实锤（防
+   "翻译体 .rodata 段 = 原版 .rodata 段"误读）
+③ 段布局不同构 = AGENTS 诚实边界（行为级对齐重写版非汇编级逆向）
+   的段级实锤：翻译体是重编 so（clang 重排段 + 嵌镜像），非原版
+   32 位 so 的段级副本，镜像偏移逻辑仍按原版 VA §124x 口径

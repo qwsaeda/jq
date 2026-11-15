@@ -45,9 +45,17 @@ def main():
             fails.append('① 原版 %s = %s ≠ 期望 (0x%x, 0x%x)' % (k, o.get(k), va, sz))
     if not fails:
         print('① 原版 4 段实锤 OK（.text 0x233e0/0xfd814 + .rodata 0x120bf8/0x1d030 + .data 0x15bb6c/0x314 + .bss 0x15be80/0x7008）')
-    # ② 翻译体段布局 ≠ 原版（ELF64 重编，段地址漂移正常）
+    # ② 翻译体段布局 ≠ 原版（重编 + 嵌入 1.29MB 镜像 blob，段完全不同构）
     drift = [k for k in exp if k in t and t[k] != exp[k]]
-    print('② 翻译体段地址漂移 %d 段（ELF64 重编正常，非回归）: %s' % (len(drift), drift or '无'))
+    print('② 翻译体段地址漂移 %d 段（重编 + 嵌镜像 blob，非回归）' % len(drift))
+    for k in ('text', 'rodata', 'data', 'bss'):
+        ov = exp.get(k, (0, 0)); tv = t.get(k, (0, 0))
+        print('   %-8s 原版 VA 0x%x size 0x%x | 翻译体 VA 0x%x size 0x%x | VA%s size比%.1f%%' % (
+            k, ov[0], ov[1], tv[0], tv[1],
+            ('↑' if tv[0] > ov[0] else ('↓' if tv[0] < ov[0] else '=')),
+            100.0 * tv[1] / ov[1] if ov[1] else 0))
+    print('   （.rodata 翻译体含 1.29MB 镜像 blob → size 2724%；.text 翻译体 = 5376 F_ 函数体 → 556%；')
+    print('    段布局完全不同构 = 重编 so 非原版汇编级，镜像偏移逻辑仍按原版 VA §124x）')
     # ③ 镜像偏移逻辑仍按原版 VA（§124x 0x233e0 起点）
     if o.get('text', (0,))[0] != 0x233e0:
         fails.append('③ 原版 .text VA ≠ 0x233e0（镜像偏移逻辑 §124x 起点失效）')
