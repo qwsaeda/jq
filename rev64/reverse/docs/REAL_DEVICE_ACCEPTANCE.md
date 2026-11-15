@@ -104,6 +104,36 @@ adb -s $DEV shell "md5sum /data/app/*/lib/arm/libjunqi.so"       # 设备端 so
 # 三者必须一致，否则判据跑的是旧 so（结果无效）
 ```
 
+### §3.1 基准哈希自动核对（§124y-1913 增强，设备无关 + 设备可达两段）
+
+**设备无关段（离线可跑，防 apk/dist 漂移）**：`so_probe.py` 风格哈希三段对照——
+dist so 与 apk 内 so 本地 md5 比对（零设备依赖，每批 pack 后自动跑）；
+基准 = REVERSE_LOG 最近一次「三方哈希」固化值（当前 **59465d97**，§1907 事故修复
+后完整态基线；勘误批/判据批 so 不变可继续沿用，译码批 so 必变须更新基准）。
+
+```bash
+# 离线段：dist vs apk 内 so（pack 幂等性判据，漂移 = 需重 pack）
+python3 - <<'PY'
+import hashlib, zipfile, sys
+d = hashlib.md5(open('rev64/dist/libjunqi_arm32_aligned.so','rb').read()).hexdigest()
+z = zipfile.ZipFile('rev64/dist/phase_chain_arm32.apk')
+a = hashlib.md5(z.read('lib/armeabi/libjunqi.so')).hexdigest()
+print('dist so  =', d); print('apk so   =', a)
+base = '59465d974a9645cd426b965cb10901c5'   # §1907 完整态基准（REVERSE_LOG 最近固化值）
+print('基准比对: dist=%s apk=%s' % ('MATCH' if d==base else 'DRIFT', 'MATCH' if a==base else 'DRIFT'))
+assert d==a==base, 'so 三方哈希漂移（dist/apk/基准 不一致），须重 pack + 更新基准'
+PY
+```
+
+**设备可达段（5 判据前置，跑在判据①之后）**：设备端 so 哈希必须 = 基准，
+否则设备跑旧 so（§124y-248 教训实锤口径），全部判据作废重跑：
+
+```bash
+EQ=$([ "$(adb -s $DEV shell md5sum /data/app/*/lib/arm/libjunqi.so | cut -d' ' -f1)" = "$(md5sum rev64/dist/libjunqi_arm32_aligned.so | cut -d' ' -f1)" ] && echo OK || echo DRIFT)
+echo "设备端 so 哈希核对: $EQ（DRIFT → am force-stop + 重装 + 重跑全部 5 判据）"
+```
+
+
 ## 4. 批量脚本（真机复用现有判据脚本）
 
 ```bash

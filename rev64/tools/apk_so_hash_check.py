@@ -32,11 +32,18 @@ def main():
             print("✗ apk 内无 lib/armeabi/libjunqi.so"); return 2
         apk_so_md5 = hashlib.md5(z.read(apk_so_name)).hexdigest()
     same = so_md5 == apk_so_md5
+    # §124y-1913 基准比对段：REVERSE_LOG 最近固化基准（当前 59465d97，§1907 完整态；
+    # 勘误/判据批 so 不变可沿用，译码批 so 必变须更新此处基准），漂移 = 提示更新基准
+    BASELINE = "59465d974a9645cd426b965cb10901c5"
     print("═══ §124y-216 32 位翻译体 apk 内 so 哈希一致性判据 ═══")
     print("  apk 内 %s md5: %s" % (apk_so_name, apk_so_md5))
     print("  dist  so  md5: %s" % so_md5)
     print("  一致: %s" % ("PASS（未误打包）" if same else "FAIL（误打包：so 重编后未重打包 apk）"))
+    print("  基准比对: dist=%s apk=%s（基准 59465d97，§1907 完整态）" % (
+        "MATCH" if so_md5 == BASELINE else "DRIFT",
+        "MATCH" if apk_so_md5 == BASELINE else "DRIFT"))
     print("  （坑固化 §124y-176：重编 so 后必须重打包 apk 才装机，so+apk 哈希一致性验证）")
+    print("  （§1913 基准：漂移 = so 重编后须更新此 BASELINE + REVERSE_LOG 固化，勿旧基准硬比）")
     return 0 if same else 2
 
 if __name__ == '__main__':
