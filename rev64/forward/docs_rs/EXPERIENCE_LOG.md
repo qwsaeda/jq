@@ -4132,3 +4132,47 @@ jq_rs_rules.c 注释定论。
   用例范围（本用例聚焦 moves_since_eat 逐帧演化追踪，非完整对局）；"吃子清零"
   含 4 分支（EV_EAT/BOMB/MINE/FLAG 各清零点 §683/726/737/784/830）本轮实证 EV_EAT
   分支（③④⑤），EV_BOMB/MINE/FLAG 清零分支维持 §46 既有口径未在本用例重复断言。
+
+### 65. 暗棋完整 60 子对局链（AI 走子+翻棋交替到终局）全程 moves_since_eat 逐帧追踪断言行为级实证 + 验证方案扩到 50 项（2026-11-15）
+- **完整 60 子对局链全程 moves_since_eat 逐帧追踪断言独立覆盖**（
+  dark_fullgame_ai_ms_track_test，4 断言）：补 §33 `dark_fullgame`（跑完整 60 子
+  对局 AI 走子+翻棋交替到 stage=OVER，但只断言"终局/正常结束"不追踪
+  moves_since_eat）/ §64 `dark_fullgame_ms_track_test`（全程逐帧演化追踪**单点
+  夹具**：翻棋不消耗+空移累加+吃子清零+70 步阈值独立断言）之外的**§33 完整 60 子
+  对局链跑法上叠加的全程 moves_since_eat 逐帧追踪断言**（完整对局中翻棋不消耗+
+  走子累加+吃子清零+终局 70 步阈值触发的完整链）缺口：
+  ① 完整 60 子对局正常结束（stage=OVER 或 turns<400，非超时挂死；实锤
+     turns=87 moves=79 flips=8 stage=OVER winner=DRAW）✓；
+  ② 全程翻棋不消耗 moves_since_eat（§34 实锤，翻后 ms 不变——完整对局链内逐帧
+     校验 8 次翻棋全 ms 不变）✓；
+  ③ 走子累加+吃子清零（完整对局有走子 moves=79，ms_max=70 清零 2 次）✓；
+  ④ 终局 moves_since_eat 语义（判和 DRAW 终值=70 触发 70 步阈值；胜负则终值<70
+     未触发）✓。
+- **★ 完整 60 子对局链全程 moves_since_eat 追踪口径实锤（本轮新固化）**：
+  · **完整对局跑法**：jq_dark_setup(JQ_DEFAULT_LAY) 全 60 子暗棋布局 → AI 走子优先
+    （已翻本方子）+ 翻棋兜底（0xFF 可翻）→ 交替到 stage=OVER（实锤 turns=87
+    moves=79 flips=8，判和 DRAW——完整对局以 70 步无吃子判和收尾，非胜负）；
+  · **全程翻棋不消耗**：完整对局 8 次翻棋全 ms 不变（§34 实锤，区别于 §64 单点
+    夹具的翻棋×2，本轮完整对局链内 8 次翻棋逐帧校验）；
+  · **走子累加+吃子清零**：79 次走子中 ms_max=70（累加到 70）+ 清零 2 次（中途吃
+    子打断 70 步进度，§58 既有内嵌清零口径）；
+  · **终局语义**：判和 DRAW 时终值=70（70 步阈值触发，§64 ⑤ 既有），胜负时终值
+    <70（未触发 70 步，靠吃光/困毙判胜）——本轮实锤完整对局以判和收尾（终值=70）。
+- **对照 64 位实现**（rules.c jq_flip 翻棋不自增（§34 实锤）+ jq_try_move 空移
+  自增 §653 + 吃子清零 §683/726/737/784/830 + 70 步阈值 stalemate_after §519 +
+  jq_dark_setup 全 0xFF 布局 + §33 AI 走子/翻棋交替跑法）：完整对局链全程追踪
+  行为级 0 分叉。
+- **dark_fullgame_ai_ms_track_test 复用进 dark_align**：dark_align_regress.sh
+  49→**50 项** PASS（规则原文 33 + 49 用例，50/50 全项）。
+- **对齐验证方案三层"总结复用"终态（本轮复用确认）**：① make evverify
+  172/172 + 三件套（event_code 0 缺口 / layout 几何 Δ=0）/ ②
+  `dark_align_regress.sh` **50/50**（桌面 0 退化门禁）/ ③
+  `mumu_align_smoke.sh --dev 127.0.0.1:5556` **2/2 + 0 崩溃**（redroid 冒烟口
+  径）。
+- **诚实边界**：本轮未改 rules.c/board.c 行为（完整对局链 + moves_since_eat 逐
+  帧追踪均既成实现/§34/§58/§64 既有口径，纯补验证用例 + 完整对局链全程追踪断言），
+  so 无需重建；完整对局判和收尾（DRAW，turns=87）是 JQ_DEFAULT_LAY 布局 + AI 走
+  子策略的**行为实锤**（非预设期望值——AI 优先走子/吃子策略下 60 子对局以 70 步
+  无吃子判和收尾属合理行为，非 bug）；§33 dark_fullgame 与本轮跑法同源（AI 走
+  子+翻棋交替），本轮在 §33 跑法上叠加 moves_since_eat 逐帧追踪断言（非改跑法
+  本身，跑法 0 改造）。
