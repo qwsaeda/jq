@@ -132,6 +132,7 @@ run_one dark_rail_r0r11_ends_test
 run_one dark_rail_topology_matrix_test
 run_one dark_rail_r5r6_fullrow_test
 run_one dark_rail_c2_fullseg_test
+run_one dark_rail_c2_worker_seg_test
 
 
 echo ""
