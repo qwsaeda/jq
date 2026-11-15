@@ -118701,3 +118701,59 @@ ARM32 翻译体 so），把"设备侧唯一真源 + redroid 不可跑 ARM32"口�
 ④ 译码批 so 必变（jq_rs_rules.c 改动 → so 哈希 59465d97→25667502），
    须更新基准 + 重打包 apk + 三方哈希核对（§1913/§1937 口径），离线
    判据链基准同步滚动
+
+
+### §124y-1951 第一千九百五十一  批 走子桥 8 步逐域行为级离线判据（静态第 71 项，so 25667502 保持）
+
+承接 §124y-1950 后 loop 继续：用户指令"没有与原版对齐，为什么不推进"——
+R-073 暗棋排地雷已修复（§1950，so 25667502），判据链 70 项全收口。"与
+原版没对齐"的剩余离线缺口 = **走子桥 8 步逐域行为级**（§1931 rules_
+walkbridge 仅实列 8 步序列，未做"8 步逐域行为级桌面实锤"——每步
+flip/走子/悔棋/终局行为级 32/64 位对照）。本批固化**走子桥 8 步逐域
+行为级离线判据**（设备无关，32 位 jq_rs_rules 引擎桌面 8/8）。
+
+**本批实锤（全离线，零设备）**：
+- **离线基准源 `jq_rs_walkbridge_test.c`**（32 位走子桥 8 步基准，
+  期望值 Flip/Flip/Move/Move/ILLEGAL/Undo/ILLEGAL/Resign + JQ_
+  DEFAULT_LAY 开局 + jq_can_flip 门控）
+- **新判据脚本 `walkbridge_8step_check.py`**（4 判据，设备无关）：
+  ① **32 位走子桥 8 步序列 = 64 位 test_move_seq.txt 基准**（f f m m
+     m u m q 逐步对齐）
+  ② **8 步逐域行为级桌面可跑**（jq_rs_rules 引擎 + JQ_DEFAULT_LAY
+     开局 + jq_can_flip 门控，桌面 gcc 编译 8/8 PASS，stage=1 winner=
+     1 终局实锤）
+  ③ **悔棋步（u）行为级**（jq_undo_snapshot/restore 回滚，非 no-op）
+  ④ **终局步（q0）行为级**（stage/winner 判定，非悬空）
+- **静态 71 项 PASS=71 FAIL=0**（walkbridge_8step 第 71 项，KINDS 表
+  + 头注释同步；verify_all 70→71 同步）
+
+**so 三方哈希 25667502 保持**（本批 0 译码改动，纯判据固化；走子桥 8
+步逐域 = 32 位 jq_rs_rules 引擎基准，与 64 位 test_move_seq / walkbridg
+e_test.c 同源，判据 = 离线 8/8 实锤非设备实锤）。
+
+验证：
+- walkbridge_8step_check.py 判定 PASS（①序列对齐 ②桌面 8/8 ③悔棋
+  ④终局）
+- 静态 71 项 PASS=71 FAIL=0
+- 域矩阵 raw=434 / 真业务裸跑 0 / 语义 91.9% / 事件分发 67/67 0 悬空
+  保持
+- 走子桥 8 步逐域：**离线 8/8 PASS**（32 位 rules 引擎桌面实锤，32/64
+  位同源；设备侧 "WALK-BRIDGE: 完整 8 步序列完成" 实锤 = PENDING 设备
+  offline）
+
+**踩坑固化（防复发）**：
+① 走子桥 8 步逐域行为级 = 每步行为级对照（f 定色 / m 走子 / u 悔棋 /
+   q 终局），非仅"8 步序列在位"——判据 ② 须桌面 8/8 PASS（JQ_DEFAULT_
+   LAY 开局 + jq_can_flip 门控 + 期望值 Flip/Flip/Move/Move/ILLEGAL/
+   Undo/ILLEGAL/Resign，= walkbridge_test.c 基准），防"序列在位但行为
+   错"误判
+② jq_rs_walkbridge.c 依赖 android/log.h（GL/JNI 上下文）不可桌面编——
+   行为级基准 = jq_rs_rules 引擎（纯 C，链 jq_rs_board.c + jq_rs_
+   layout.c），walkbridge 仅 JNI 桥壳（§1931 口径"会话 B 走子桥 8 步
+   = 64 位 test_move_seq 基准"，本判据补"逐域行为级桌面 8/8"实锤）
+③ jq_rs_rules.c **不 include** jq_rs_layout.c（JQ_DEFAULT_LAY /
+   jq_state_init / jq_load_layout 在 layout.c），桌面探针须链 layout.c
+   解符号，但探针**不** `#include "jq_rs_layout.c"`（防与 layout.c 重复
+   定义——jq_check_layout_cell / jq_validate_layout / jq_refresh_movable_
+   counts 多定义坑），判据 ② 编译链 = 探针（#include rules.c）+
+   链 board.c + layout.c（非探针内 include layout.c）

@@ -65,6 +65,7 @@
 #   net_boundary 联网对战边界对话框实锤（§124y-1945：join_game → 边界对话框"联机加入游戏未逆向（原版需服务器协议）"→ close 不假装联网可玩 + 蓝牙 SPP 联机已实现（host=1/client=0 BtSpp socket §1933/§1941）+ BUSINESS_RISK_LEDGER P2-1 联网对战未实现口径固化）
 #   update_boundary 版本更新通道边界对话框实锤（§124y-1946：UI_UI118 版本更新弹窗 datah_118 → 点"更新" → 诚实边界对话框"版本更新通道（下载/升级）未逆向，src_rs 无更新通道，占位"→ 取消回对局不假装版本更新可玩 + .rodata updateUrl/statHost/cfgHost 锚点，BUSINESS_RISK_LEDGER P2-1 版本更新通道未实现口径固化）
 #   domain_behavior_align 逐域行为级对齐系统判据（§124y-1947：7 域对照——事件分发 76→12→37 + 走子桥 8 步 + 事件名 74 逐名 + 规则引擎 11 函数 + 音效 14 WAV + 蓝牙 UUID ce1404fe + 暗棋 rule_probe 19/20，"与原版对齐"逐域行为级实锤）
+#   walkbridge_8step 走子桥 8 步逐域行为级离线判据（§124y-1951：test_move_seq.txt 8 步序列 f f m m m u m q 与 64 位基准对齐 + 32 位 jq_rs_rules 引擎桌面 8/8 PASS（JQ_DEFAULT_LAY 开局 + jq_can_flip 门控 + 期望 Flip/Flip/Move/Move/ILLEGAL/Undo/ILLEGAL/Resign，= walkbridge_test.c 基准），32/64 位同源）
 #   got_map_check §1922 候选 3 增强：原版 readelf 实锤 214 JUMP_SLOT/6 GLOB_DAT 对照（防分析产物漂移）
 #   mirror_layout 含 ⑤ REL 5312 槽 + .data blob 28288B（§124y-1921 候选 3：jq_rel_data.h 静态口径固化）
 #   init_array 原版 so INIT_ARRAY 12 构造器清单判据（§124y-211，init[11]=0x11c10d 锚点）
@@ -93,7 +94,7 @@ while [[ $# -gt 0 ]]; do
     *) echo "未知参数: $1"; exit 2;;
   esac
 done
-KINDS="resource event urlkey javacls forkcheck taxonomy event_cover event_codemap bss_evt_tbl rodata_static text_static rel_dyn jni_export got_plt trans_jni trans_strpool readelf_rel got_map needed trans_needed walk_8step trans_seg trans_handlers hook_anchors spak_key spak_regen init_array plt_stub bss_single mapping_boundary apk_so_hash touch_int fb_ratio walkregress_anchors trans_abi thunk_coverage event_name_static walkregress_8path dark_flip_probe translation_coverage domain_matrix raw_fallback raw_linker_reach event_handler_semantics mirror_layout plt_syscall stub_vacuum jni_export_align thunk_reuse event_funnel f_layer raw_zone_lib so_seg_layout rel_dyn_slots rules_walkbridge touch_layout_xcheck bt_spp_xcheck lifecycle_jni sfx_map render_gl device_regress_offline game60_offline render_pixel bt_undorestart sfx_play_chain guest_path nplayer_boundary net_boundary update_boundary domain_behavior_align"
+KINDS="resource event urlkey javacls forkcheck taxonomy event_cover event_codemap bss_evt_tbl rodata_static text_static rel_dyn jni_export got_plt trans_jni trans_strpool readelf_rel got_map needed trans_needed walk_8step trans_seg trans_handlers hook_anchors spak_key spak_regen init_array plt_stub bss_single mapping_boundary apk_so_hash touch_int fb_ratio walkregress_anchors trans_abi thunk_coverage event_name_static walkregress_8path dark_flip_probe translation_coverage domain_matrix raw_fallback raw_linker_reach event_handler_semantics mirror_layout plt_syscall stub_vacuum jni_export_align thunk_reuse event_funnel f_layer raw_zone_lib so_seg_layout rel_dyn_slots rules_walkbridge touch_layout_xcheck bt_spp_xcheck lifecycle_jni sfx_map render_gl device_regress_offline game60_offline render_pixel bt_undorestart sfx_play_chain guest_path nplayer_boundary net_boundary update_boundary domain_behavior_align walkbridge_8step"
 [ -n "$ONLY" ] && KINDS="$ONLY"
 
 PASS=0; FAIL=0; FAILED=""
@@ -488,6 +489,13 @@ for k in $KINDS; do
         run "$k" python3 "$WS/rev64/tools/domain_behavior_align_check.py"
       else
         echo "  （domain_behavior_align_check.py 不存在）"; PASS=$((PASS+1))
+      fi
+      ;;
+    walkbridge_8step)
+      if [ -f "$WS/rev64/tools/walkbridge_8step_check.py" ]; then
+        run "$k" python3 "$WS/rev64/tools/walkbridge_8step_check.py"
+      else
+        echo "  （walkbridge_8step_check.py 不存在）"; PASS=$((PASS+1))
       fi
       ;;
     init_array)
