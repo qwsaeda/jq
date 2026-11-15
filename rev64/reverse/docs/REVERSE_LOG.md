@@ -117229,3 +117229,55 @@ IMG_HI=0x15be80，必须 memcpy 到 shadow+0x233e0 非 shadow+0，.bss 0x15be80
 ③ got_map 227 ≠ readelf GLOB_DAT 6：got_map.txt 含 .got.plt 区 214
    JUMP_SLOT + 6 GLOB_DAT + 7 兜底槽（__cxa_pure_virtual 等），readelf
    实锤真值 = 214/6，产物 227 含兜底（交叉对照口径 = 真值 ⊆ 产物）
+
+
+### §124y-1923 第一千九百二十三  批 F_55d40 switch case 提取正则勘误（10 个多空格 case 漏抓收口，静态 48 项保持）
+
+承接 §124y-1922 后 loop 继续：按"未达成继续做"原则推进——静态 48 项全
+PASS 后发现**事件分发收表口径漂移**：`thunk_coverage_check.py` +
+`translation_coverage_check.py` 的 F_55d40 switch case 提取正则
+`case (\d+): h = (0x...)` 无空白符容错（`\s*`），漏抓 10 个对齐不同
+（多空格 `case N:  h = 0x...`）的 case → 误判"全量 57 case / .text 43
+有定义体"，实际 F_55d40 **实列 67 case（code 0-66，缺 67 走 default）**。
+
+**本批实锤（全离线，零设备）**：
+- **正则勘误实锤**：旧正则漏抓 10 个多空格 case（code 0/1/... 部分 case
+  `case N:  h = 0x...` 双空格，旧 `case (\d+): h =` 不匹配）→ 改
+  `case (\d+):\s*h\s*=\s*(0x...)`（空白符容错），实列 57 → **67**。
+- **事件分发收表口径修正**：F_55d40 switch 实列 **67 case（code 0-66，
+  缺 67 走 default）**，handler 全有定义体 **67/67，悬空 0**；distinct
+  handler = 37（.text 有定义体 53 个 case 指向 + .rodata 冗余 14 case，
+  §124y-162 编译期不可达边界维持）。
+- **两判据同步勘误**：
+  ① `thunk_coverage_check.py`：全量 case 57 → 67（.text 有定义体 43 → 53，
+     扩展区 42-67 18 个不变，14 冗余边界不变），docstring + 输出行同步
+  ② `translation_coverage_check.py`：F_55d40 switch 57 → 67 case（handler
+     全有定义体 67/67，悬空 0），事件分发收表 57/57 → **67/67**
+  ③ 域矩阵 `translation_domain_matrix.py` 事件分发收表 57/57 → **67/67**
+     （同源正则勘误，0 悬空维持）
+- **静态 48 项 PASS=48 FAIL=0 保持**（事件分发收表口径 67/67，0 悬空，
+  0 退化——勘误后实列更多 case，悬空仍 0 = 事件链更完整实锤）。
+
+**so 三方哈希 59465d97 保持**（本批 0 译码改动，纯判据正则勘误）。
+
+验证：
+- thunk_coverage_check.py 实列 67 case（.text 53 + rodata 冗余 14 +
+  扩展区 18），0 悬空 PASS
+- translation_coverage_check.py F_55d40 67/67 0 悬空 PASS
+- 域矩阵事件分发 67/67 收表 0 悬空 PASS
+- 静态 48 项 PASS=48 FAIL=0
+- 域矩阵 raw=434 / 真业务裸跑 0 / 语义 91.9% 保持
+- 模拟器冒烟：**PENDING**（设备 10.0.182.146 offline，§124y-189 口径）
+
+**踩坑固化（防复发）**：
+① switch case 提取正则必须含 `\s*` 空白符容错（多空格对齐
+  `case N:  h = 0x...` 旧 `case (\d+): h =` 不匹配漏抓）——§1923 起
+  全量 case 提取统一用 `case (\d+):\s*h\s*=\s*(0x...)`，防"对齐
+  漂移导致判据假 57"（勘误前 10 case 漏抓 = 事件分发收表假 57/57，
+  实 67/67，0 悬空不变但实列口径须准）
+② 三判据（thunk_coverage / translation_coverage / 域矩阵）同源 F_55d40
+   switch 提取，正则勘误须三处同步（本批实做 2 处 + 域矩阵事件分发
+   段，防口径漂移——任一判据保留旧 57 口径 = 假绿源）
+③ F_55d40 实列 67 case（code 0-66，缺 67 走 default）= §124y-31/162
+   口径（case 42-67 扩展区 + 编译期冗余 14，真实可达 handler 全收表），
+   distinct handler 37 个全有定义体（stub 真空口径 §1922 维持）

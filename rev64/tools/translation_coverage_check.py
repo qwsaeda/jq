@@ -93,7 +93,8 @@ def main():
     # 4. 事件分发收表
     v = open(VTBL).read()
     cases = {}
-    for m in re.finditer(r'case (\d+): h = (0x[0-9a-f]+);', v):
+    # §124y-1923 勘误：旧正则无空白符容错漏抓 10 个多空格 case（实列 67 非 57）
+    for m in re.finditer(r'case (\d+):\s*h\s*=\s*(0x[0-9a-f]+);', v):
         cases[int(m.group(1))] = m.group(2)[2:]
     dangling = sorted(c for c, h in cases.items() if h not in f_defs)
     print("F_55d40 switch: %d case，handler 全有定义体: %d，悬空: %d %s"

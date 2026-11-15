@@ -29,7 +29,10 @@ def main():
         print("FAIL: 找不到 %s" % VTV); sys.exit(1)
     s = open(VTV).read()
     cases = {}
-    for m in re.finditer(r'case (\d+): h = (0x[0-9a-f]+);', s):
+    # §124y-1923 勘误：旧正则 "case (\d+): h = 0x..." 无空白符容错，漏抓 10 个
+    # 对齐不同的 case（多空格 "case N:  h = ..."）→ 误判"全量 57"，实际
+    # F_55d40 实列 67 个 case（code 0-66，缺 67 走 default）
+    for m in re.finditer(r'case (\d+):\s*h\s*=\s*(0x[0-9a-f]+);', s):
         cases[int(m.group(1))] = m.group(2)
     defined = set()
     for m in re.finditer(r'^uint32_t F_([0-9a-f]{5,})\(.*\)\s*\{', s, re.M):
@@ -50,7 +53,7 @@ def main():
     ext_defined = [c for c in range(42,68) if c in cases and cases[c][2:] in defined]
 
     print("═══ F_55d40 switch 收表完整度 ═══")
-    print("全量 case %d 个（0-67 中实列 %d）" % (68, len(cases)))
+    print("全量 case %d 个（0-67 中实列 %d，§1923 勘误后含 10 个多空格 case）" % (68, len(cases)))
     print("指向 .text 有定义体 %d 个（真实可达 handler）" % len(text_cases))
     print("指向 .rodata 冗余 %d 个（§124y-162 编译期不可达）: %s" % (len(rodata_in), rodata_in))
     print("case 42-67 扩展区有定义体 %d 个: %s" % (len(ext_defined), ext_defined))
