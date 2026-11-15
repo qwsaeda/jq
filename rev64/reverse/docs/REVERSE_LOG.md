@@ -117065,3 +117065,53 @@ exception）函数在真机由哪个库提供、镜像区是否真可读。本�
    r3!=0→bl 0x94d80 getter adds r0,#0x70）= 非 2 兜底的最强证据
    （域矩阵"code4 handler 返回 2"旧口径已纠正，F_3ab64 ok 判读
    abs(ret−2)==0 仅在 ret==2 时 ok=1，code4 原版 ret=0 → ok=0）
+
+
+### §124y-1920 第一千九百二十  批 镜像布局一致性离线判据（静态第 45 项，so 59465d97 保持）
+
+承接 §124y-1919 后 loop 继续：按"1→2→3"顺序推进候选 3（32 位翻译体
+so 段布局镜像一致性离线判据化）——§124x/§124y-150 镜像偏移口径
+（jq_img.bin 从 .text 起点 0x233e0 开始，gen_shadow IMG_LO=0x233e0/
+IMG_HI=0x15be80，必须 memcpy 到 shadow+0x233e0 非 shadow+0，.bss 0x15be80
+起 memset 清零）此前无离线判据，本批固化。
+
+**本批实锤（全离线，零设备）**：
+- **新判据脚本 `mirror_layout_check.py`**（4 判据，设备无关）：
+  ① gen_shadow.py IMG_LO/HI = 0x233e0/0x15be80（镜像拷贝区口径）
+  ② 镜像 blob（/tmp/opencode/shadow/jq_img.bin）大小 0x13b234 = 全文件
+     内容（含 .bss 垃圾尾 0x2794B），≥ EXPECT_SZ 0x138aa0；运行期
+     jqt_mem.c IMG_EXPECT_SZ 截断到 0x138aa0（.bss 0x15be80 起 memset
+     清零，防垃圾覆盖 .bss 单例槽 0x15be80-0x15bebc）
+  ③ jqt_mem.c memcpy(shadow+JQT_IMG_VA=0x233e0) + IMG_EXPECT_SZ 截断
+     段在位（非 shadow+0，§124x 根因修复口径）
+  ④ .bss 0x15be80 起 memset(g_jqt_shadow+img_end) 清零段在位
+     （img_end = 0x233e0+sz = 0x15be80）
+- **原版 so 段布局实锤**（readelf -lW）：LOAD R E 0x0-0x15435c +
+  LOAD RW 0x155000-0x15be80（.data 止 0x15be80）+ .bss NOBITS
+  0x15be80-0x15ef34；镜像 blob 0x13b234 = 全文件内容（.text+.rodata+
+  .ARM.*+.init_array/.data.rel.ro/.dynamic/.got/.data+.bss 尾），
+  运行期截断 0x138aa0（= 0x15be80-0x233e0，.data 止）
+- 静态 **45 项 PASS=45 FAIL=0**（mirror_layout 第 45 项，KINDS 表 +
+  头注释同步；verify_all 44→45 同步）
+
+**so 三方哈希 59465d97 保持**（本批 0 译码改动，纯镜像口径判据固化）。
+
+验证：
+- mirror_layout_check.py 判定 PASS（①IMG_LO/HI ②blob 0x13b234 全内容
+  + 截断 0x138aa0 ③memcpy shadow+0x233e0 ④.bss 0x15be80 memset）
+- 静态 45 项 PASS=45 FAIL=0
+- 域矩阵 raw=0 / 语义 92.1% 保持
+- 模拟器冒烟：**PENDING**（设备 10.0.182.146 offline，§124y-189 口径）
+
+**踩坑固化（防复发）**：
+① 镜像 blob 0x13b234 > EXPECT_SZ 0x138aa0 = 正常（gen_shadow 全文件
+   内容含 .bss 垃圾尾 0x2794B），运行期 jqt_mem.c IMG_EXPECT_SZ 截断
+   到 0x138aa0（.bss 0x15be80 起 memset 清零）——判据 ② 口径 = "blob
+   ≥ EXPECT_SZ + 运行期截断段在位"，非"blob == EXPECT_SZ"（blob 全
+   内容 0x13b234 是 gen_shadow 产物口径，截断是运行期安全口径）
+② memcpy 必须到 shadow+JQT_IMG_VA（0x233e0），非 shadow+0（§124x 根
+   因：旧代码拷 shadow+0 → 所有 .text/.rodata MEM 读偏移 +0x233e0 →
+   字面量池/free-list 读错 → pthread_mutex_lock(shadow+0) 卡死）
+③ .bss 垃圾尾 0x138aa0 起 = .GCC: (GNU) 4.4.3 字符串 + .comment/
+   .rodata 尾（非有效数据），须截断防覆盖 .bss 单例槽 0x15be80-
+   0x15bebc（场景对象 0x15be84 / 渲染器 / 纹理 16 槽）
