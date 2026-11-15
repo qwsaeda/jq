@@ -117815,3 +117815,50 @@ host/client/悔棋/重开帧）无 32/64 位同源离线判据，本批固化。
 ③ 蓝牙 SPP 端到端 = 无 BT 硬件诚实边界（AGENTS 红线），本判据 =
    **帧契约静态同源**（UUID + 帧格式 32/64 位一致），非"蓝牙联机
    能玩"实锤（端到端须真机 BT 硬件，§124y 诚实边界维持）
+
+
+### §124y-1934 第一千九百三十四  批 生命周期 4 回调 + JNI 14 入口语义层收口判据（静态第 58 项，so 59465d97 保持）
+
+承接 §124y-1933 后 loop 继续：按"未达成继续做"原则推进——判据链已
+覆盖事件分发/镜像/系统域/重定位/段布局/资源/规则引擎/走子桥/触摸布局/
+蓝牙各域，本批转向**生命周期 + JNI 入口**维度（4 生命周期回调
+OnCreate/OnResume/OnPause/OnDestroy 非存根 + 14 JNI 入口全语义）。
+
+**本批实锤（全离线，零设备）**：
+- **新判据脚本 `lifecycle_jni_check.py`**（4 判据，设备无关）：
+  ① **4 生命周期回调全在 jni_aligned.c**（jqt_OnCreate/OnResume/
+     OnPause/OnDestroy：OnCreate 内联诊断日志段 + OnResume/OnPause/
+     OnDestroy 经 jqt_On* 调用点）
+  ② **OnResume/OnPause 非存根**（JNI 入口真调 F_bdc7c/F_bdcd4，
+     §124y-141 实锤：原版 0x234b0 OnResume 真调 F_bdc7c / 0x234c4
+     OnPause 真调 F_bdcd4，非 no-op 存根）
+  ③ **14 JNI 入口全在翻译体**（B09-001 口径，jni_export_align §1922
+     同源，`nm -D` 实锤 14 个 Java_com_cnvcs_App_*）
+  ④ **4 生命周期回调在 14 入口内**（OnCreate/OnResume/OnPause/
+     OnDestroy 是 14 入口子集）
+- **静态 58 项 PASS=58 FAIL=0**（lifecycle_jni 第 58 项，KINDS 表 +
+  头注释同步；verify_all 57→58 同步）
+
+**so 三方哈希 59465d97 保持**（本批 0 译码改动，纯判据固化）。
+
+验证：
+- lifecycle_jni_check.py 判定 PASS（①4 回调全在 ②OnResume/OnPause
+  非存根 ③14 入口全在 ④4 回调在 14 入口内）
+- 静态 58 项 PASS=58 FAIL=0
+- 域矩阵 raw=434 / 真业务裸跑 0 / 语义 91.9% / 事件分发 67/67 0 悬空
+  保持
+- 模拟器冒烟：**PENDING**（设备 10.0.182.146 offline，§124y-189 口径）
+
+**踩坑固化（防复发）**：
+① 4 生命周期回调判据须"非存根"口径（OnResume/OnPause 真调 F_bdc7c/
+   F_bdcd4 §124y-141，非 no-op 存根）——存根回调 = 生命周期未真实现
+   （OnResume 不恢复 / OnPause 不暂停 = 行为漂移），判据 ② 实锤非存根
+② OnCreate 在 jni_aligned.c 内联（诊断日志段 "OnCreate:"），非 jqt_OnCreate
+   调用点——判据 ① 须按"OnCreate 内联 OR jqt_On* 调用点"双路检测
+   （单一 `jqt_On+c` 串漏 OnCreate，本批勘误后 per-callback presence
+   映射实锤）
+③ 4 生命周期回调 = 14 JNI 入口子集（OnCreate/OnResume/OnPause/
+   OnDestroy 在 14 入口内），判据 ④ 防"生命周期回调独立于 14 入口"
+   误读（14 入口含 4 回调 + 9 非回调入口 OnUpdate/OnEvent/OnResult/
+   OnKey/OnBluetooth/OnGraphCreate/OnGraphChange/OnTimer/OnInput/
+   OnTouch）
