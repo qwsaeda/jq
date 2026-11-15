@@ -88,6 +88,7 @@ run_one dark_flip_island_test
 run_one dark_cross_switch_test
 run_one dark_4switch_combo_test
 run_one dark_02_switch_test
+run_one dark_stalemate_matrix_test
 
 echo ""
 echo "=== 合计 PASS=$pass FAIL=$fail MISS=$pending ==="
