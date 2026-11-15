@@ -4460,3 +4460,54 @@ jq_rs_rules.c 注释定论。
   触发蓝困毙判胜，无需多步链）；which=1 关对局持续 PLAY（③）的后续走子链（蓝
   出 cell56 后红蓝交替走子）本轮未覆盖（聚焦 which=1 开/关困毙对照，非完整对
   局链）。
+
+### 72. which=1 关（大本营不冻结）+ which=3 关（扛旗不终局）flag-off 对局持续演化走子链行为级实证 + 验证方案扩到 57 项（2026-11-15）
+- **which=1 关 + which=3 关 flag-off 对局持续演化走子链独立覆盖**（
+  dark_w1off_cont_test，4 断言）：补 §71 `dark_flagoff_cont_test`（实锤 which=1
+  开 + which=3 关 flag-off 后续走子触发蓝困毙判红胜 ② + which=1 关对照 ③ 单点
+  "蓝 cell56 可出大本营不困毙对局持续 PLAY"）之外的**which=1 关 + which=3 关
+  flag-off 对局持续演化的完整走子链**（蓝扛旗入位 cell56 → 红走子 → 蓝出 cell56
+  （which=1 关不冻结）→ 对局持续 PLAY 未终局）缺口——flag-off + which=1 关"对
+  局持续演化"（非困毙判胜，区别于 §71 which=1 开困毙判胜）的完整走子链未独立
+  断言：
+  ① which=1 关 + which=3 关 flag-off 持续演化走子链（蓝扛旗入位 cell56 → 红走子
+     50→51 → 蓝出 cell56（56→55 which=1 关放行）→ 对局持续 PLAY，winner=NONE）✓；
+  ② 蓝出 cell56 后对局持续（cell55=蓝 5 + cell56 空 + stage=PLAY 未终局）✓；
+  ③ 对照 which=1 开（§71 既有）：蓝扛旗入位 → 红走子 → 蓝 cell56 被 which=1 冻结
+     （56→55 拒）→ 蓝无合法着法 → 困毙红胜（OVER+RED）✓；
+  ④ 关键口径 which=1 控 flag-off 对局"持续演化 vs 困毙判胜"（which=3 关下攻子入
+     大本营后能否出：关=可出 PLAY / 开=冻结困毙 OVER+RED）✓。
+- **★ which=1 控 flag-off 对局"持续演化 vs 困毙判胜"口径实锤（本轮新固化）**：
+  which=3 关"扛旗不直接终局"（§70/§71 既有）下，**which=1 决定 flag-off 对局收
+  尾路径**——
+  · **which=1 关（不冻结）**：攻子入大本营 cell56 后**可出**（56→55 放行）→ 守
+    方（攻子所属方）有合法着法 → **不困毙，对局持续 PLAY**（flag-off 持续演化，
+    本轮 ①②）；
+  · **which=1 开（冻结）**：攻子入大本营 cell56 后**冻死**（56→55 拒）→ 守方无
+    合法着法 → **困毙，判攻方胜 OVER+RED**（§71 既有 ②③）；
+  · **which=1 是 flag-off 对局"持续 vs 终局"开关**：which=3 关"扛旗不直接终局"
+    仅是"扛旗动作不置终局"，后续对局是否终局由 which=1（攻子能否出大本营）决定
+    ——which=1 关对局持续演化（无终局直到其他终局路径触发），which=1 开对局困
+    毙判胜（攻子冻死守方无着法）；
+  · **与 §70/§71 既有口径的关系**：§70 实锤 which=3 关扛旗清零（红有可动子 PLAY），
+    §71 实锤 which=1 开 + which=3 关 flag-off 困毙判胜，本轮补全 **which=1 关 +
+    which=3 关 flag-off 持续演化**（对局不终局路径），3 用例（§70/§71/§72）合
+    起来覆盖 which=3 关下 which=1 开/关的完整对局收尾矩阵（困毙 vs 持续）。
+- **对照 64 位实现**（rules.c which=1 §237 大本营冻结门控（关=不冻结）+ which=3
+  关 else 分支 :737-748 扛旗不直接终局 + jq_side_stalemated 困毙扫描 §555（which=1
+  关攻子可出 → 守方有合法着法 → 不困毙））：flag-off 持续演化走子链行为级 0 分
+  叉。
+- **dark_w1off_cont_test 复用进 dark_align**：dark_align_regress.sh
+  56→**57 项** PASS（规则原文 33 + 56 用例，57/57 全项）。
+- **对齐验证方案三层"总结复用"终态（本轮复用确认）**：① make evverify
+  172/172 + 三件套（event_code 0 缺口 / layout 几何 Δ=0）/ ②
+  `dark_align_regress.sh` **57/57**（桌面 0 退化门禁）/ ③
+  `mumu_align_smoke.sh --dev 127.0.0.1:5556` **2/2 + 0 崩溃**（redroid 冒烟口
+  径）。
+- **诚实边界**：本轮未改 rules.c/board.c 行为（which=1 冻结门控 + which=3 关
+  else 分支 + 困毙判定均既成实现，纯补 flag-off 持续演化走子链验证用例 + 口径
+  实锤），so 无需重建；which=1 关 flag-off 持续演化走子链聚焦"蓝扛旗入位→红走
+  子→蓝出 cell56"3 步（①② 实证对局持续 PLAY），更长对局链（蓝出 cell56 后红
+  蓝交替多步走子到终局）本轮未覆盖（①② 已证"which=1 关对局不困毙"核心语义，
+  多步链非规则引擎对齐目标）；which=1 关 + which=3 开（扛旗直接终局，攻子不入大
+  本营困毙维度）路径维持 §69 既有 which=3 开终局口径未在本用例重复断言。

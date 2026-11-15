@@ -107,6 +107,7 @@ run_one dark_32combo_matrix_test
 run_one dark_4branch_clear_test
 run_one dark_flagoff_clear_test
 run_one dark_flagoff_cont_test
+run_one dark_w1off_cont_test
 
 echo ""
 echo "=== 合计 PASS=$pass FAIL=$fail MISS=$pending ==="
