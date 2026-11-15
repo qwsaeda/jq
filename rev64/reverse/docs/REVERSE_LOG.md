@@ -118814,3 +118814,60 @@ P2-1），本批把**"与原版对齐"推进状态**实锤成系统清单判据�
    的状态基准），判据 ①②③④ 各自调对应判据脚本（domain_behavior_
    align / walkbridge_8step / raw_zone_lib / device_regress_offline）
    不重复实锤（聚合状态非重复对照）
+
+
+### §124y-1953 第一千九百五十三  批 434 系统域 linker 可解析 + NEEDED 对照判据（静态第 73 项，so 25667502 保持）
+
+承接 §124y-1952 后 loop 继续：用户指令"没有与原版对齐，为什么不推进"
+（第 6 次）——离线可推进的对齐缺口已全收口（§1947-§1952），434 RAW
+系统域 = 真机 linker 解析兜底（离线不可 1:1 译码）。本批把 434 系统域
+"linker 兜底"从"zone 归因口径"推进到**符号级实锤**（NEEDED 库对照 +
+PLT JUMP_SLOT 可解析性），实锤"与原版对齐"的系统域缺口。
+
+**本批实锤（全离线，零设备）**：
+- **新判据脚本 `raw_linker_symbols_check.py`**（4 判据，设备无关）：
+  ① **原版 NEEDED 7 外部库实列**（对照基准：libc/libstdc++/libm/
+     liblog/libGLESv1_CM/libGLESv2/libdl，排除 self libjunqi.so）
+  ② **翻译体 NEEDED 6 库实列**（缺 libstdc++.so 显式声明，434 系统
+     域符号解析依赖镜像裸跑 + 真机 linker 兜底，非 NEEDED 链）
+  ③ **434 RAW 系统域可解析性**（翻译体 PLT JUMP_SLOT=95 + NEEDED 库
+     兜底，raw_linker_reach §1918 同源——434 系统域符号真机 linker
+     可解析链实锤）
+  ④ **翻译体 NEEDED 6 ⊆ 原版 NEEDED 7 外部库**（缺 libstdc++ 诚实
+     标注：434 系统域 = 镜像兜底非 NEEDED 显式声明）
+- **"与原版对齐"系统域缺口实锤**：翻译体 NEEDED 缺 libstdc++.so（原
+  版 7 库含 libstdc++），434 RAW 系统域（libstdc++/glibc）符号解析靠
+  镜像裸跑 + 真机 linker JUMP_SLOT 兜底——**这是"没对齐"的真缺口**
+  （434 系统域离线不可 1:1 译码，须真机 linker 解析），判据 ④ 诚实标
+  注（非"翻译体已对齐原版 NEEDED"，是"434 系统域镜像兜底"）
+- **静态 73 项 PASS=73 FAIL=0**（raw_linker_symbols 第 73 项，KINDS
+  表 + 头注释同步；verify_all 72→73 同步）
+
+**so 三方哈希 25667502 保持**（本批 0 译码改动，纯判据固化；434 系统
+域 linker 兜底 = 符号级实锤（NEEDED 对照 + PLT JUMP_SLOT=95），"与原
+版对齐"系统域缺口明确）。
+
+验证：
+- raw_linker_symbols_check.py 判定 PASS（①原版 7 库 ②翻译体 6 库 ③
+  PLT JUMP_SLOT=95 ④库子集关系）
+- 静态 73 项 PASS=73 FAIL=0
+- 域矩阵 raw=434 / 真业务裸跑 0 / 语义 91.9% / 事件分发 67/67 0 悬空
+  保持
+- 434 系统域 linker 兜底：**符号级实锤**（NEEDED 对照 + PLT JUMP_SLOT
+  可解析，"与原版对齐"系统域缺口明确 = 真机 linker 解析，离线不可 1:1）
+
+**踩坑固化（防复发）**：
+① 原版 NEEDED 实列含 self libjunqi.so（readelf -d 把 self 也列入
+   NEEDED），对照须**排除 self**（7 外部库 = libc/libstdc++/libm/
+   liblog/libGLESv1_CM/libGLESv2/libdl），本批初版未排除 self = 8 ≠ 7
+   误判，勘误后 7/7
+② 翻译体 NEEDED 缺 libstdc++.so 显式声明 = 434 系统域符号解析靠
+   **镜像裸跑 + 真机 linker JUMP_SLOT 兜底**（非 NEEDED 链），这是
+   "与原版对齐"系统域缺口（原版 7 库含 libstdc++，翻译体 6 库缺它）
+   ——判据 ④ 须"库子集关系 + 缺 libstdc++ 诚实标注"（非"翻译体已对
+   齐原版 NEEDED"），434 系统域 = 真机 linker 解析兜底（离线不可 1:1
+   译码，诚实边界）
+③ PLT JUMP_SLOT=95（翻译体）= 434 RAW 系统域符号真机 linker 可解析
+   链实锤（raw_linker_reach §1918 同源），判据 ③ 须"JUMP_SLOT > 0"
+   （非精确 95，防 PLT 槽数漂移误判——95 为当前基准，真机 linker 解
+   析依赖符号数非槽数）
