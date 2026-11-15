@@ -64,7 +64,7 @@ def main():
 def regen_check():
     """★ 映射表可再生判据：event_code_map.json vs 原版 so 静态提取 76 事件名一致（防手敲映射表漂移）"""
     so = open(ORIG_SO, 'rb').read()
-    all76 = sorted(set(m.group(0).decode() for m in re.finditer(rb'(?:Junqi|Misc)\\.[A-Za-z0-9%]+', so)))
+    all76 = sorted(set(m.group(0).decode() for m in re.finditer(rb'(?:Junqi|Misc)\.[A-Za-z0-9%]+', so)))
     d = json.load(open(MAP))
     codes = d.get('event_codes', {})
     mapped = set()
@@ -77,6 +77,9 @@ def regen_check():
     # 76 名 vs 映射表（%d token 按基础名对照）
     miss = [x for x in all76 if x not in mapped_expand and x.replace('%d','') not in mapped_expand]
     miss_junqi = [x for x in miss if x.startswith('Junqi.')]
+    misc = [x for x in all76 if x.startswith('Misc.')]
+    print("  §1925 Misc 3 条归因: %s（广告拆除目标，AGENTS 红线，非 Junqi 主链缺口）" %
+          ('; '.join(misc) if misc else "无"))
     print("  可再生对照: 原版 so 静态 76 事件名 vs 映射表 %d 事件名 → Junqi 主链缺口 %d %s" % (len(mapped), len(miss_junqi), miss_junqi if miss_junqi else "（0 缺口）"))
     return 0 if not miss_junqi else 2
 

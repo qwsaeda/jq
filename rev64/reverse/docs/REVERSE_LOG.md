@@ -117326,3 +117326,69 @@ distinct handler"的复用设计（此前仅"67/67 0 悬空"收表完整度，�
    handler 承载 67 事件码，复用比 67/37 = 1.81），非"67 个独立
    handler"（事件名 76 → 事件码 12 → 实际 handler 37 的漏斗，
    与 §124y-26 事件表数据模型一致）
+
+
+### §124y-1925 第一千九百二十五  批 事件分发三层漏斗 + Misc 归因 + 0x 前缀口径专项（静态 50 项，so 59465d97 保持）
+
+承接 §124y-1924 后 loop 继续：按"1→2→3"顺序推进候选 1（76→12→37
+三层漏斗量化）+ 候选 2（76 vs 73 的 3 归因）+ 候选 3（全判据脚本 0x
+前缀口径专项核查）——三候选合并一批。
+
+**本批实锤（全离线，零设备）**：
+- **候选 1：新判据 `event_funnel_check.py`**（事件分发三层漏斗，4 判据）：
+  ① 层1 事件名 76（.rodata 可提取，73 Junqi + 3 Misc）
+  ② 层2 事件码 12（code 0-11，event_code_map.json，.rodata 可提取子集；
+     SPEC §3.1 口径 17 事件码 0-16，code 12-16 = Misc 预留需 .bss 运行时
+     填 asr4 提取，§124y-163/185 disc=0 忠实边界）
+  ③ 层3 handler 37（F_55d40 实列 67 case 指向，全有定义体，§1923/1924
+     勘误后口径）
+  ④ 漏斗收敛比实锤：事件名 76/码 12 = **6.33:1**（收敛，1 码承载多事件名）
+     + case 67/handler 37 = **1.81:1**（发散，1 码可映射多 handler）= 事件
+     分发"少量 handler 承载多事件码"设计（与 §124y-26 事件表数据模型一致）
+- **候选 2：Misc 3 条归因实锤**（`event_code_map_check.py` 增强）：
+  76 vs 73 的 3 = **Misc.Graph%d / Misc.RemoveAdFail / Misc.RemoveAdOk**
+  = 广告拆除目标（AGENTS 红线：去广告删 smali/jar 后 Misc 区事件名随
+  广告 SDK 拆除不可达；Junqi 主链 73 全映射 = 0 缺口，Misc 3 不计入主
+  链判据）。勘误 regen_check 段 `\.` 双转义正则 bug（旧 `rb'(?:Junqi|
+  Misc)\.'` 在 raw string 里匹配字面 `\.` 非 `\.`，致 Misc 提取恒空 →
+  "§1925 Misc 归因: 无"误判，修 `\.` 后实锤 3 条）。
+- **候选 3：全判据脚本 0x 前缀口径专项核查**（§1923/1924 同源坑防复发）：
+  5 判据脚本（thunk_coverage / thunk_reuse / translation_coverage /
+  raw_fallback / raw_linker_reach）0x 前缀口径全一致核查——thunk_coverage
+  cases 含 0x（group(2)=0x557d4）+ defined 无 0x（F_ 名）→ `[2:]` 剥离
+  正确；thunk_reuse/translation_coverage cases 无 0x（regex 0x([0-9a-f]+)）
+  + defined 无 0x → 直接比正确；raw_fallback/raw_linker raw(无 0x) vs
+  PSEUDO(无 0x) vs libc(无 0x) → lstrip 归一正确。**无残留旧口径**。
+- **静态 50 项 PASS=50 FAIL=0**（event_funnel 第 50 项，KINDS 表 + 头
+  注释同步；verify_all 49→50 同步）
+
+**so 三方哈希 59465d97 保持**（本批 0 译码改动，纯判据固化 + 勘误）。
+
+验证：
+- event_funnel_check.py 判定 PASS（76→12→37 三层漏斗 + 收敛 6.33:1 /
+  发散 1.81:1）
+- event_code_map_check.py Misc 3 归因实锤（Misc.Graph%d/RemoveAdFail/
+  RemoveAdOk，广告拆除目标）
+- 0x 前缀口径专项：5 脚本全一致（各按源格式统一剥离，无残留旧口径）
+- 静态 50 项 PASS=50 FAIL=0
+- 域矩阵 raw=434 / 真业务裸跑 0 / 语义 91.9% / 事件分发 67/67 0 悬空
+  保持
+- 模拟器冒烟：**PENDING**（设备 10.0.182.146 offline，§124y-189 口径）
+
+**踩坑固化（防复发）**：
+① raw string 里 `\.` = 字面双反斜杠（正则匹配 `\` + 任意字符），非
+   `\.`（点号）——regen_check 段旧 `rb'(?:Junqi|Misc)\.[A-Za-z0-9%]+'`
+   匹配不到 `.rodata` 真实事件名（需单反斜杠 `rb'(?:Junqi|Misc)\.'`），
+   致 Misc 提取恒空 → 归因"无"误判（本批勘误后实锤 3 条）
+② 事件分发漏斗 76→12→37 = 完整数据模型实锤（§124y-26 口径）：76 事件
+   名（.rodata 可提取）→ 12 事件码（.rodata 可提取子集，SPEC 17 码中
+   code 12-16 需 .bss 运行时）→ 37 handler（F_55d40 实列 67 case 指向，
+   全有定义体）；收敛比 6.33:1 + 发散 1.81:1 = "少量 handler 承载多
+   事件码"设计（事件名 76 经事件码 12 漏斗到 handler 37，非 76 个
+   独立 handler）
+③ 0x 前缀口径（§1923/1924 同源坑防复发）：判据脚本里 cases/handler/raw
+   地址提取的 0x 前缀/`[2:]`/`lstrip('0')` 剥离须按源格式统一——regex
+   `0x([0-9a-f]+)` group(1) 无 0x 直接比，`group(2)` 含 0x 须 `[2:]`
+   剥离，objdump BL 目标无 0x 直接比，PSEUDO/libc 无 0x lstrip 归一；
+   本批 5 脚本专项核查全一致（防未来判据"0x 口径漂移 → 假缺定义体"
+   复发）
