@@ -117177,3 +117177,55 @@ IMG_HI=0x15be80，必须 memcpy 到 shadow+0x233e0 非 shadow+0，.bss 0x15be80
 ④ REL 5312 槽 + .data blob 28288B = §124w/§124x 重定位口径（jq_rel_data.h
    构建期生成，每槽 += g_jqt_shadow 加一次得 B+S），镜像一致性 ⑤ 静态
    判据固化（防构建期 jq_rel_data.h 漂移）
+
+
+### §124y-1922 第一千九百二十二  批 stub 真空 + JNI 14 对齐 + .got readelf 实锤（静态 48 项，so 59465d97 保持）
+
+承接 §124y-1921 后 loop 继续：按"1→2→3"顺序推进候选 1（load_stub_set
+真空量化）+ 候选 2（JNI 14 入口符号对齐）+ 候选 3（.got readelf 实锤
+扩展 got_map_check）——三候选合并一批。
+
+**本批实锤（全离线，零设备）**：
+- **候选 1：新判据 `stub_vacuum_check.py`**（stub 层真空，4 判据）：
+  ① jqt_stub.c 独立文件不存在（无独立 stub 区，§124y-31 4 auto-stub
+  全在 jqt_vtbl.c）② load_stub_set = 5376 条（jqt_vtbl.c 全 F_ 定义，
+  与 f_defs 同源，非独立 stub 集合）③ stub ⊆ f_defs 5376/5376（全有
+  函数体，非空 stub）④ 域矩阵 STUB 层 = 0（f_defs 先于 stub 判定，无
+  独立 STUB 命中）
+- **候选 2：新判据 `jni_export_align_check.py`**（JNI 14 入口对齐，4 判据）：
+  ① 原版 so JNI 导出 = 14（B09-001 口径，非旧"15 个"误口径）
+  ② 翻译体 so JNI 导出 = 14 ③ 符号名逐一匹配 14/14（原版 ⊆ 翻译体，
+  `nm -D` 实锤 14 个 Java_com_cnvcs_App_* 名称全量一致）④ 无多出口
+  （翻译体 14/14 = 原版 14/14，JNI 绑定不脱钩）
+- **候选 3：`got_map_check.py` 增强 readelf 实锤对照**（§1921 .got
+  214 槽静态判据扩展）：原版 so `readelf -r` 实锤 214 JUMP_SLOT +
+  6 GLOB_DAT 与分析产物（plt_map 214 / got_map 227 含 __cxa_pure_virtual
+  兜底）交叉对照（防分析产物漂移；GLOB_DAT 6 槽 = 真值，got_map 227
+  含 .got.plt 区 214 JUMP_SLOT + 6 GLOB_DAT + 7 兜底槽）。
+- 静态 **48 项 PASS=48 FAIL=0**（stub_vacuum + jni_export_align 新增，
+  KINDS 表 + 头注释同步；verify_all 46→48 同步）
+
+**so 三方哈希 59465d97 保持**（本批 0 译码改动，纯判据固化）。
+
+验证：
+- stub_vacuum_check.py 判定 PASS（①无 jqt_stub.c ②5376 同源 ③全有函数
+  体 ④STUB 层 0）
+- jni_export_align_check.py 判定 PASS（①②各 14 ③14/14 逐一匹配 ④
+  无多出口，B09-001 口径固化）
+- got_map_check.py 增强 readelf 实锤对照（214 JUMP_SLOT + 6 GLOB_DAT，
+  产物 227 含兜底）
+- 静态 48 项 PASS=48 FAIL=0
+- 域矩阵 raw=434（§1921 勘误后）/ 真业务裸跑 0 / 语义 91.9%
+- 模拟器冒烟：**PENDING**（设备 10.0.182.146 offline，§124y-189 口径）
+
+**踩坑固化（防复发）**：
+① load_stub_set 扫 jqt_vtbl.c（无 jqt_stub.c），与 f_defs 同源（5376
+   < f_defs 5464，f_defs 含其他 .c 文件 F_ 定义）——stub 层"真空"=
+   无独立 stub 区（4 auto-stub §124y-31 全在 jqt_vtbl.c 有函数体），
+   非"无 stub"（4 auto-stub 存在但已去重，非空 stub）
+② JNI 14 入口对齐 = B09-001 口径（AGENTS §124y-195 实锤），原版/翻译体
+   `nm -D` 14 个 Java_com_cnvcs_App_* 逐一匹配（VA 漂移正常，符号名
+   不变 = JNI 绑定不脱钩）；"15 个"旧误口径已纠正
+③ got_map 227 ≠ readelf GLOB_DAT 6：got_map.txt 含 .got.plt 区 214
+   JUMP_SLOT + 6 GLOB_DAT + 7 兜底槽（__cxa_pure_virtual 等），readelf
+   实锤真值 = 214/6，产物 227 含兜底（交叉对照口径 = 真值 ⊆ 产物）

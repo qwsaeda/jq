@@ -51,8 +51,16 @@ def main():
     overlap = len(plt_syms & got_syms)
     print("  got 槽偏移在 .got 区（0x150000..0x160000）: %d/%d" % (in_range, len(got)))
     print("  plt ∩ got 符号重叠: %d（交叉对照基线）" % overlap)
-    ok = plt_ok and got_ok
-    print("  判据: %s" % ("PASS（plt 214 条 + got %d 条产物在位，§124y 口径成立）" % len(got) if ok else "FAIL"))
+    # §124y-1922 候选 3 增强：原版 so readelf 实锤对照（防分析产物漂移）
+    import subprocess, re as _re
+    ORIG = '/tmp/orig/lib/armeabi/libjunqi.so'
+    r = subprocess.run(['arm-linux-gnueabi-readelf', '-r', ORIG], capture_output=True, text=True).stdout
+    js_real = len(_re.findall(r'R_ARM_JUMP_SLOT', r))
+    gd_real = len(_re.findall(r'R_ARM_GLOB_DAT', r))
+    print("  §1922 readelf 实锤对照: 原版 JUMP_SLOT = %d（产物 214）/ GLOB_DAT = %d（产物 got_map %d 含兜底）" % (js_real, gd_real, len(got)))
+    readelf_ok = (js_real == 214 and gd_real == 6)
+    ok = plt_ok and got_ok and readelf_ok
+    print("  判据: %s" % ("PASS（plt 214 条 + got %d 条产物在位 + readelf 实锤 214 JUMP_SLOT/6 GLOB_DAT，§124y 口径成立）" % len(got) if ok else "FAIL"))
     return 0 if ok else 2
 
 if __name__ == '__main__':
