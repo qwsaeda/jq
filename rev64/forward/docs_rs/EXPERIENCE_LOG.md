@@ -3690,3 +3690,41 @@ jq_rs_rules.c 注释定论。
   场景矩阵**（flag-off/mine-off 开关下困毙分界 + 翻棋交替对局链内嵌困毙判定）
   部分覆盖（本用例聚焦白名单差异 + 0xFF 归属，flag-off/mine-off 开关交叉困毙
   维持 §30/§31 既有覆盖，未全场景矩阵化）。
+
+### 54. which=3（扛旗开关）开/关 下困毙分界行为级实证 + 验证方案扩到 39 项（2026-11-15）
+- **which=3 flag-off 困毙分界独立覆盖**（dark_flagoff_stalemate_test，4 断言）：补
+  §37 `dark_rule_switch_test`（which=3 单开关：扛旗终局 vs 走子不终局）/
+  §53 `dark_stalemate_matrix_test`（困毙扫描白名单）之外的**"which=3 关（flag-off）
+  下扛旗不终局 → 攻子冻大本营 → 靠困毙/吃光近似判胜负"的完整分界**缺口
+  （§35 挂起"flag-off/mine-off 走单侧困毙路径产出相同 winner"）：
+  ① which=3 开：扛旗终局（EV_FLAG + stage=OVER + winner=BLUE）✓；
+  ② which=3 关：扛旗不终局（EV_FLAG 但 stage=PLAY + winner=NONE，攻子 5 入位
+     cell56，§700 诚实标注"开关关闭时旗被吃而局不终"）✓；
+  ③ which=3 关 + 红无其他可动子：扛旗后红困毙 → jq_on_stalemate 判蓝胜
+     （困毙近似，非直接终局）✓；
+  ④ which=3 关 + 红有可动子：扛旗后红不困毙 → 对局继续（stage=PLAY）✓。
+- **★ which=3 flag-off 困毙分界口径实锤（本轮新固化）**：which=3 开关切换
+  "扛旗直接终局 vs 扛旗走子+困毙近似"两种路径——
+  · **which=3 开（默认）**：扛旗 → jq_on_flag_capture → 即时终局（winner 置，
+    stage=OVER），与 §31 dark_flag_win_test 既有"扛旗方胜"口径一致；
+  · **which=3 关（flag-off）**：扛旗走子正常收口（攻子入位大本营格）但**不置
+    终局**（stage=PLAY），胜负靠后续**困毙/吃光可动子近似**——红无子=红困毙
+    蓝胜（③），红有子=对局继续（④）；
+  · 区别于 §52 which=0×which=2"分域但交叉影响进度"（进度演化），本轮 which=3
+    flag-off 是"终局判定 vs 困毙近似"的**胜负路径切换**（开关直接改变胜负
+    判定机制，非进度/门控）。
+- **对照 64 位实现**（rules.c §700 which=3 `if(cfg(3))jq_on_flag_capture` 终局
+  / else 走子正常收口不置终局 + §555 jq_on_stalemate 困毙近似 + §748 通用
+  收口 stage!=PLAY 跳过 turn）：which=3 flag-off 困毙分界行为级 0 分叉。
+- **dark_flagoff_stalemate_test 复用进 dark_align**：dark_align_regress.sh
+  38→**39 项** PASS（规则原文 33 + 38 用例，39/39 全项）。
+- **对齐验证方案三层"总结复用"终态（本轮复用确认）**：① make evverify
+  172/172 + 三件套（event_code 0 缺口 / layout 几何 Δ=0）/ ②
+  `dark_align_regress.sh` **39/39**（桌面 0 退化门禁）/ ③
+  `mumu_align_smoke.sh --dev 127.0.0.1:5556` **2/2 + 0 崩溃**（redroid 冒烟口径）。
+- **诚实边界**：本轮未改 rules.c 行为（§700 which=3 flag-off 走子不终局 +
+  §555 困毙近似均既成实现，纯补验证用例 + 分界口径实锤），so 无需重建；
+  §700 诚实标注"开关关闭时旗被吃而局不终，后续胜负靠困毙/吃光近似"的**具体
+  32 位 so 行为未确证**（"走子语义但终局不置"最小改动，原版 0x30200 flag-off
+  分发顺序未反汇编确证），本轮实证的是 64 位已实现行为（非原版行为级逐指令
+  对齐），原版 flag-off 胜负机制维持既有诚实标注（unidbg/frida 运行时可确证）。
