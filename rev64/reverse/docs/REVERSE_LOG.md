@@ -117281,3 +117281,48 @@ PASS 后发现**事件分发收表口径漂移**：`thunk_coverage_check.py` +
 ③ F_55d40 实列 67 case（code 0-66，缺 67 走 default）= §124y-31/162
    口径（case 42-67 扩展区 + 编译期冗余 14，真实可达 handler 全收表），
    distinct handler 37 个全有定义体（stub 真空口径 §1922 维持）
+
+
+### §124y-1924 第一千九百二十四  批 F_55d40 code→handler 复用度量化判据（静态第 49 项，so 59465d97 保持）
+
+承接 §124y-1923 后 loop 继续：按"未达成继续做"原则推进——事件分发
+收表口径 67/67 勘误（§1923）后，进一步量化"67 case 如何映射到 37
+distinct handler"的复用设计（此前仅"67/67 0 悬空"收表完整度，无
+复用度量化）。
+
+**本批实锤（全离线，零设备）**：
+- **新判据脚本 `thunk_reuse_check.py`**（4 判据，设备无关）：
+  ① 实列 case = 67（code 0-66，缺 67 走 default，§124y-1923 勘误后
+     口径）
+  ② distinct handler = 37（全有定义体 OK）
+  ③ **复用度实锤：7 个高频 handler 被 ≥3 case 复用**（最高 7 复用）：
+     F_85798 ×7 / F_857b0 ×4 / F_85348 ×4 / F_b52a0 ×4 / F_55dc4 ×4 /
+     F_82d3c ×3 / F_b4edc ×3 = 事件分发"少量 handler 承载多事件码"
+     的复用设计（非 67 个独立 handler，handler 总数 = 37 distinct）
+  ④ 14 冗余 case（.rodata §124y-162 编译期不可达）+ 扩展区 case 42-66
+     边界维持
+- **静态 49 项 PASS=49 FAIL=0**（thunk_reuse 第 49 项，KINDS 表 +
+  头注释同步；verify_all 48→49 同步）
+
+**so 三方哈希 59465d97 保持**（本批 0 译码改动，纯判据固化）。
+
+验证：
+- thunk_reuse_check.py 判定 PASS（67 case / 37 handler 全定义体 / 7
+  高频复用 / 复用度最高 7）
+- 静态 49 项 PASS=49 FAIL=0
+- 域矩阵 raw=434 / 真业务裸跑 0 / 语义 91.9% / 事件分发 67/67 0 悬空
+  保持
+- 模拟器冒烟：**PENDING**（设备 10.0.182.146 offline，§124y-189 口径）
+
+**踩坑固化（防复发）**：
+① F_55d40 switch case 提取 regex group(2) 值已去 0x 前缀（`case N:
+   h = 0x85798` → group(2)=`85798`），判据对 defined 集合比对须用
+   原值 `h`（非 `h[2:]`）——本批初版误用 `h[2:]`（对已去 0x 的值
+   再截 2 位）→ 37 handler 全"缺定义体"误判 FAIL，勘误后 PASS
+   （与 §1923 同源：switch 提取正则的 0x 前缀口径须统一）
+② 7 高频 handler 复用 = 事件分发设计实锤：F_85798（被 7 个事件码
+   指向）= 高频通用 handler，F_857b0/F_85348/F_b52a0/F_55dc4 各 ×4，
+   F_82d3c/F_b4edc 各 ×3 ——"少量 handler 承载多事件码"（37 distinct
+   handler 承载 67 事件码，复用比 67/37 = 1.81），非"67 个独立
+   handler"（事件名 76 → 事件码 12 → 实际 handler 37 的漏斗，
+   与 §124y-26 事件表数据模型一致）

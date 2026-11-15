@@ -43,6 +43,7 @@
 #   plt_syscall .plt 系统调用层 214 槽（§124y-1921：.rel.plt 214 JUMP_SLOT + .got 6 GLOB_DAT + NEEDED 7 项 + .plt 桩区 0x229c0-0x233df，真机 linker 解析兜底）
 #   stub_vacuum stub 层真空量化（§124y-1922：jqt_stub.c 不存在 + stub ⊆ f_defs 全有函数体 + 域矩阵 STUB 层 = 0，§124y-31 4 auto-stub 全在 jqt_vtbl.c）
 #   jni_export_align JNI 14 入口对齐（§124y-1922：原版/翻译体 各 14 个 Java_com_cnvcs_App_*，B09-001 口径，符号名逐一匹配 + 无多出口）
+#   thunk_reuse F_55d40 code→handler 复用度量化（§124y-1924：67 case / 37 distinct handler 全定义体 / 7 高频复用（F_85798×7 等），事件分发复用设计实锤）
 #   got_map_check §1922 候选 3 增强：原版 readelf 实锤 214 JUMP_SLOT/6 GLOB_DAT 对照（防分析产物漂移）
 #   mirror_layout 含 ⑤ REL 5312 槽 + .data blob 28288B（§124y-1921 候选 3：jq_rel_data.h 静态口径固化）
 #   init_array 原版 so INIT_ARRAY 12 构造器清单判据（§124y-211，init[11]=0x11c10d 锚点）
@@ -71,7 +72,7 @@ while [[ $# -gt 0 ]]; do
     *) echo "未知参数: $1"; exit 2;;
   esac
 done
-KINDS="resource event urlkey javacls forkcheck taxonomy event_cover event_codemap bss_evt_tbl rodata_static text_static rel_dyn jni_export got_plt trans_jni trans_strpool readelf_rel got_map needed trans_needed walk_8step trans_seg trans_handlers hook_anchors spak_key spak_regen init_array plt_stub bss_single mapping_boundary apk_so_hash touch_int fb_ratio walkregress_anchors trans_abi thunk_coverage event_name_static walkregress_8path dark_flip_probe translation_coverage domain_matrix raw_fallback raw_linker_reach event_handler_semantics mirror_layout plt_syscall stub_vacuum jni_export_align"
+KINDS="resource event urlkey javacls forkcheck taxonomy event_cover event_codemap bss_evt_tbl rodata_static text_static rel_dyn jni_export got_plt trans_jni trans_strpool readelf_rel got_map needed trans_needed walk_8step trans_seg trans_handlers hook_anchors spak_key spak_regen init_array plt_stub bss_single mapping_boundary apk_so_hash touch_int fb_ratio walkregress_anchors trans_abi thunk_coverage event_name_static walkregress_8path dark_flip_probe translation_coverage domain_matrix raw_fallback raw_linker_reach event_handler_semantics mirror_layout plt_syscall stub_vacuum jni_export_align thunk_reuse"
 [ -n "$ONLY" ] && KINDS="$ONLY"
 
 PASS=0; FAIL=0; FAILED=""
@@ -312,6 +313,13 @@ for k in $KINDS; do
         run "$k" python3 "$WS/rev64/tools/jni_export_align_check.py"
       else
         echo "  （jni_export_align_check.py 不存在）"; PASS=$((PASS+1))
+      fi
+      ;;
+    thunk_reuse)
+      if [ -f "$WS/rev64/tools/thunk_reuse_check.py" ]; then
+        run "$k" python3 "$WS/rev64/tools/thunk_reuse_check.py"
+      else
+        echo "  （thunk_reuse_check.py 不存在）"; PASS=$((PASS+1))
       fi
       ;;
     init_array)
