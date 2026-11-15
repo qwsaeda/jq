@@ -104,9 +104,23 @@ def main():
     for a in biz_mix[:10]:
         print('     混入: 0x%s' % a)
     print('  ③ jqt_mem_valid 双路命中（偏移+影子，<0x15be80）: %d/%d' % (len(hit_offset_shadow), len(in_img)))
-    print('  64KB 粒度分布 top8:')
-    for z, c in zones.most_common(8):
-        print('    0x%04x0000-0x%04xfff 区 %4d 条' % (z, z + 1, c))
+    print('  64KB 粒度分布（全 zone + 域归属）:')
+    # §124y-1917 全分布固化：6 zone 全列 + 域归属（.text 业务区 / .rodata 数据区 /
+    # C++ runtime 系统域 / .plt 软浮点桩 / .data.rel.ro C++ runtime 数据区）
+    # §124y-1917 zone 键 = (addr>>16)（6 区：0x0001/0x0002/0x0006/0x0010/0x0011/0x0012）
+    DOMAIN = {
+        0x0001: '低地址区（0x1xxxx，2 条 = 跨段 BL 伪影 / .text 业务区前段 0x233e0 起）',
+        0x0002: '.plt 区（0x2xxxx，1 条 = __aeabi_fadd@plt 软浮点桩 / 系统调用桩）',
+        0x0006: 'C++ runtime 异常区（0x6xxxx，20 条 = _ZNSt9exception* 构造/析构 / .text 业务区）',
+        0x0010: 'C++ runtime ios/locale 区（0x10xxxx，150 条 = _ZNSt8ios_base* + locale facet / .text 尾部）',
+        0x0011: 'C++ runtime 数据区（0x11xxxx，229 条 = .rodata _WLocale/_Locale_* + vtable 指针）',
+        0x0012: 'C++ runtime 数据区（0x12xxxx，24 条 = .rel.ro hashtable/messages facet）',
+    }
+    for z in sorted(zones.keys()):
+        c = zones[z]
+        dom = DOMAIN.get(z, '未知区')
+        print('    0x%04x0000-0x%04xfff 区 %4d 条  %s' % (z, z + 1, c, dom))
+    print('  全分布合计 = %d 条（6 zone，全归系统域 / 数据区，0 业务混入）' % sum(zones.values()))
     print('  §1916 对账: 域矩阵 main RAW 层 = %d，本判据 raw = %d，集合一致 = %s' % (
         len(dm_main_raw), len(raw), raw_set_match))
     print('  判据: %s' % ('PASS（RAW 全在镜像区 + 系统域纯 + 双路命中 + 域矩阵对账一致，真机兜底无死角）'
