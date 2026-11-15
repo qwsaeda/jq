@@ -50,6 +50,7 @@
 #   so_seg_layout 翻译体 vs 原版段布局对照（§124y-1927：原版 4 段实锤 + 翻译体段漂移正常 + 镜像偏移按原版 VA §124x）
 #   rel_dyn_slots .rel.dyn 5312 RELATIVE 槽位分布（§124y-1929：5312 槽全在 .data 区 0x155000-0x15be2c，全 ⊂ 镜像拷贝区，.bss 0x15be80+ 无 RELATIVE 槽）
 #   rules_walkbridge 规则引擎 + 走子桥 8 步序列收口（§124y-1931：jq_rs_rules.c 11 函数全定义体 + jq_rs_walkbridge.c 8 步序列 = 64 位 test_move_seq.txt 基准同源 + 走子桥入口全定义体）
+#   touch_layout_xcheck 触摸命中几何 × 布局基准交叉一致性（§124y-1932：触摸 ×1000 公式 720L/1280L = 布局基准 720×1280 几何同源，棋盘行中心 222000L/71000L/822000L，触摸点命中 cell 与布局按钮几何不漂移）
 #   got_map_check §1922 候选 3 增强：原版 readelf 实锤 214 JUMP_SLOT/6 GLOB_DAT 对照（防分析产物漂移）
 #   mirror_layout 含 ⑤ REL 5312 槽 + .data blob 28288B（§124y-1921 候选 3：jq_rel_data.h 静态口径固化）
 #   init_array 原版 so INIT_ARRAY 12 构造器清单判据（§124y-211，init[11]=0x11c10d 锚点）
@@ -78,7 +79,7 @@ while [[ $# -gt 0 ]]; do
     *) echo "未知参数: $1"; exit 2;;
   esac
 done
-KINDS="resource event urlkey javacls forkcheck taxonomy event_cover event_codemap bss_evt_tbl rodata_static text_static rel_dyn jni_export got_plt trans_jni trans_strpool readelf_rel got_map needed trans_needed walk_8step trans_seg trans_handlers hook_anchors spak_key spak_regen init_array plt_stub bss_single mapping_boundary apk_so_hash touch_int fb_ratio walkregress_anchors trans_abi thunk_coverage event_name_static walkregress_8path dark_flip_probe translation_coverage domain_matrix raw_fallback raw_linker_reach event_handler_semantics mirror_layout plt_syscall stub_vacuum jni_export_align thunk_reuse event_funnel f_layer raw_zone_lib so_seg_layout rel_dyn_slots rules_walkbridge"
+KINDS="resource event urlkey javacls forkcheck taxonomy event_cover event_codemap bss_evt_tbl rodata_static text_static rel_dyn jni_export got_plt trans_jni trans_strpool readelf_rel got_map needed trans_needed walk_8step trans_seg trans_handlers hook_anchors spak_key spak_regen init_array plt_stub bss_single mapping_boundary apk_so_hash touch_int fb_ratio walkregress_anchors trans_abi thunk_coverage event_name_static walkregress_8path dark_flip_probe translation_coverage domain_matrix raw_fallback raw_linker_reach event_handler_semantics mirror_layout plt_syscall stub_vacuum jni_export_align thunk_reuse event_funnel f_layer raw_zone_lib so_seg_layout rel_dyn_slots rules_walkbridge touch_layout_xcheck"
 [ -n "$ONLY" ] && KINDS="$ONLY"
 
 PASS=0; FAIL=0; FAILED=""
@@ -368,6 +369,13 @@ for k in $KINDS; do
         run "$k" python3 "$WS/rev64/tools/rules_walkbridge_check.py"
       else
         echo "  （rules_walkbridge_check.py 不存在）"; PASS=$((PASS+1))
+      fi
+      ;;
+    touch_layout_xcheck)
+      if [ -f "$WS/rev64/tools/touch_layout_xcheck.py" ]; then
+        run "$k" python3 "$WS/rev64/tools/touch_layout_xcheck.py"
+      else
+        echo "  （touch_layout_xcheck.py 不存在）"; PASS=$((PASS+1))
       fi
       ;;
     init_array)
