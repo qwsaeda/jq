@@ -112,6 +112,7 @@ run_one dark_w1off_multi_test
 run_one dark_fullgame_fullon_ms_track_test
 run_one dark_flip32_combo_test
 run_one dark_bfs_around_test
+run_one dark_straight_rail_test
 
 echo ""
 echo "=== 合计 PASS=$pass FAIL=$fail MISS=$pending ==="
