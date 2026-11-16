@@ -331,6 +331,12 @@ int jq_bt_session_on_frame_v3(jq_bt_session *s, jq_state *st,
                                      (int)seq, (int)ref, f1, f2, f3, 0);
     else
         rc = jq_bt_session_on_frame(s, st, type, f1, f2, f3, f4, f5, f6);
+    /* ★ R11-C Step6（能力探测）：成功收 v3 帧（seq>0，非 v2 归一化的 0）→ 升对端
+       v3 能力位 + 会话内锁定（防后续混帧翻转；R10 回执 §2.8 "收升发，会话内不降级"） */
+    if (seq > 0 && rc >= 0 && !s->peer_caps_v3) {
+        s->peer_caps_v3 = 1;
+        s->caps_locked = 1;
+    }
     /* ③ 成功消费登记窗口（RESTART 成功尾在下方单独复位，不走此登记） */
     if (rc == 0 || rc == JQ_BT_RC_UNDO_REQ_OK || rc == JQ_BT_RC_UNDO_REQ_DUP) {
         if (type == BT_T_RESTART) {
@@ -347,6 +353,8 @@ int jq_bt_session_on_frame_v3(jq_bt_session *s, jq_state *st,
             s->last_resp_reason = 0;
             s->last_resp_hash = 0;
             s->legacy_undo_done = 0;
+            s->peer_caps_v3 = 0;   /* ★ R11-C Step6：新会话能力边界（跨局 v3 锁定残留防误发 v3） */
+            s->caps_locked = 0;
         } else if (seq > 0) {
             s->rx_last_seq = seq;   /* 逐 case 登记（MOVE/FLIP/SYNC_CELL/SYNC/RESIGN/DRAW/CHAT/UNDO） */
         }

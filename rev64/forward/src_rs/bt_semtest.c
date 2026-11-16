@@ -684,6 +684,68 @@ int main(void)
         g_bt_undo_avail = 0;
     }
 
+    /* =====================================================================
+     * §8. R11-C Step6 能力探测（收 v3 帧升 peer_caps_v3 + 会话内锁定）
+     * ===================================================================== */
+    printf("[§8] R11-C Step6 能力探测（peer_caps_v3 升档/锁定）\n");
+    {
+        /* P1：收 v3 帧（seq>0）→ peer_caps_v3 升 1 + caps_locked 1 */
+        jq_state stP; fixture_play(&stP);
+        jq_bt_session sP; jq_bt_session_init(&sP, &stP, 0);
+        sP.state = BT_ST_CONNECTED;
+        sP.peer_caps_v3 = 0; sP.caps_locked = 0;
+        int p1 = jq_bt_session_on_frame_v3(&sP, &stP, BT_T_DRAW, 1, 0, 0, 0, 0, 0, 0, 0);
+        CHECK(p1 == 0 && sP.peer_caps_v3 == 1 && sP.caps_locked == 1,
+              "R11-C P1：收 v3 帧（seq=1）→ peer_caps_v3 升档 + 锁定");
+        /* P2：v2 归一化（seq=0）不升档（保持 0 退化） */
+        jq_state stP2; fixture_play(&stP2);
+        jq_bt_session sP2; jq_bt_session_init(&sP2, &stP2, 0);
+        sP2.state = BT_ST_CONNECTED;
+        /* v2 DRAW 帧经 decode_any 归一化 seq=0 → 直调 on_frame_v3 seq=0 */
+        int p2 = jq_bt_session_on_frame_v3(&sP2, &stP2, BT_T_DRAW, 0, 0, 0, 0, 0, 0, 0, 0);
+        CHECK(p2 == 0 && sP2.peer_caps_v3 == 0 && sP2.caps_locked == 0,
+              "R11-C P2：v2 归一化（seq=0）不升档（0 退化，保持 v2-only 口径）");
+        /* P3：RESTART 复位清能力位（新会话边界，防跨局残留 v3 锁定） */
+        jq_state stP3; fixture_play(&stP3);
+        jq_bt_session sP3; jq_bt_session_init(&sP3, &stP3, 0);
+        sP3.state = BT_ST_OUR_TURN;
+        sP3.peer_caps_v3 = 1; sP3.caps_locked = 1;   /* 先置位 */
+        int p3 = jq_bt_session_on_frame_v3(&sP3, &stP3, BT_T_RESTART, 5, 0, 999, 1, 0, 0, 0, 0);
+        CHECK(p3 == 0 && sP3.peer_caps_v3 == 0 && sP3.caps_locked == 0,
+              "R11-C P3：RESTART 复位清 peer_caps_v3/caps_locked（新会话能力边界）");
+    }
+
+    /* =====================================================================
+     * §8. R11-C Step6 能力探测（收 v3 帧升 peer_caps_v3 + 会话内锁定）
+     * ===================================================================== */
+    printf("[§8] R11-C Step6 能力探测（peer_caps_v3 升档/锁定）\n");
+    {
+        /* P1：收 v3 帧（seq>0）→ peer_caps_v3 升 1 + caps_locked 1 */
+        jq_state stP; fixture_play(&stP);
+        jq_bt_session sP; jq_bt_session_init(&sP, &stP, 0);
+        sP.state = BT_ST_CONNECTED;
+        sP.peer_caps_v3 = 0; sP.caps_locked = 0;
+        int p1 = jq_bt_session_on_frame_v3(&sP, &stP, BT_T_DRAW, 1, 0, 0, 0, 0, 0, 0, 0);
+        CHECK(p1 == 0 && sP.peer_caps_v3 == 1 && sP.caps_locked == 1,
+              "R11-C P1：收 v3 帧（seq=1）→ peer_caps_v3 升档 + 锁定");
+        /* P2：v2 归一化（seq=0）不升档（保持 0 退化） */
+        jq_state stP2; fixture_play(&stP2);
+        jq_bt_session sP2; jq_bt_session_init(&sP2, &stP2, 0);
+        sP2.state = BT_ST_CONNECTED;
+        /* v2 DRAW 帧经 decode_any 归一化 seq=0 → 直调 on_frame_v3 seq=0 */
+        int p2 = jq_bt_session_on_frame_v3(&sP2, &stP2, BT_T_DRAW, 0, 0, 0, 0, 0, 0, 0, 0);
+        CHECK(p2 == 0 && sP2.peer_caps_v3 == 0 && sP2.caps_locked == 0,
+              "R11-C P2：v2 归一化（seq=0）不升档（0 退化，保持 v2-only 口径）");
+        /* P3：RESTART 复位清能力位（新会话边界，防跨局残留 v3 锁定） */
+        jq_state stP3; fixture_play(&stP3);
+        jq_bt_session sP3; jq_bt_session_init(&sP3, &stP3, 0);
+        sP3.state = BT_ST_OUR_TURN;
+        sP3.peer_caps_v3 = 1; sP3.caps_locked = 1;   /* 先置位 */
+        int p3 = jq_bt_session_on_frame_v3(&sP3, &stP3, BT_T_RESTART, 5, 0, 999, 1, 0, 0, 0, 0);
+        CHECK(p3 == 0 && sP3.peer_caps_v3 == 0 && sP3.caps_locked == 0,
+              "R11-C P3：RESTART 复位清 peer_caps_v3/caps_locked（新会话能力边界）");
+    }
+
     printf(rc ? "== bt_semtest 结果: 有失败（%d 条通过）==\n"
               : "=== bt_semtest 全量 %d 条 PASS ===\n", n_pass);
     return rc;

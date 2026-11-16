@@ -199,6 +199,9 @@ jq_touch_state g_ts;            /* 触摸两步态机 */
    路径构成环）；g_ts_lock 临界区只做 g_ts 结构体读写 + 高亮置位。 */
 static pthread_mutex_t g_ts_lock = PTHREAD_MUTEX_INITIALIZER;
 jq_bt_session g_bt_sess;        /* 蓝牙会话 */
+/* ★ R11-C Step6 前向声明：g_bt_sess_init_done 定义于 :1085（晚于 jq_bt_ctrl_send），
+   发端双栈切换需在其内引用 → 前向声明（单一实定义，避免双份）。 */
+static volatile int g_bt_sess_init_done;   /* 前向声明，实定义 :1085（volatile int） */
 static void jq_bt_test_run(jq_state *st, const char *tag);
 static volatile int g_mt_inject_pending = 0;   /* ★ A11-F11-04（P2 已修）：minetest 一次性注入标志（锁内段置位→unlock 后段消费，prop 清 0 防残留重复注入） */  /* 蓝牙帧状态机测试（OnEvent bttest / setprop jq.bttest 复用） */
 
@@ -577,7 +580,23 @@ static void jq_bt_ctrl_send(JNIEnv *env, int type, int f1, int f2){
     /* ★ R8-C-14/15 字段语义定案（探针实锤）：encode(type, f1, f2, f3, f4, f5, f6, f7)，
        f1..f6 = 数据字段 1..6。RESTART：f1=mode(0明/1暗/999缺省), f2=host_is_blue
        (0/1/999缺省)；UNDO/DRAW/RESIGN/CHAT：f1/f2 传 999（收端不读，0 行为变化）。 */
-    int n = jq_bt_frame_encode(tb, sizeof tb, type, f1, f2, 0, 0, 0, 0, 0);
+    /* ★ R11-C Step6（发端双栈）：peer_caps_v3=1（收过 v3 帧已升档）→ encode_v3
+       （seq 单调递增携带）；否则 v2 0 退化（旧对端混跑受控，seq_dedup partial）。
+       取号+能力位快照在 g_mutex 内（与收帧 on_frame_v3 同锁域，防 tx_seq 数据竞争）。 */
+    unsigned int seq = 0;
+    int use_v3 = 0;
+    pthread_mutex_lock(&g_mutex);
+    if (g_bt_sess_init_done) {
+        seq = ++g_bt_sess.tx_seq;
+        g_bt_sess.tx_last_seq = seq;
+        use_v3 = g_bt_sess.peer_caps_v3;
+    }
+    pthread_mutex_unlock(&g_mutex);
+    int n;
+    if (use_v3)
+        n = jq_bt_frame_encode_v3(tb, sizeof tb, type, seq, 0, f1, f2, 0, 0, 0, 0);
+    else
+        n = jq_bt_frame_encode(tb, sizeof tb, type, f1, f2, 0, 0, 0, 0, 0);
     /* AUD-A-0002 探针降噪：n 是 jq_bt_frame_encode 返回值（snprintf 截断保护：
        n>=sizeof tb 时 encode 返回 -1），n∈[0,BT_BUF-1] 恒合法；tb[n]=0 越界不可能。 */
     if (n > 0) {

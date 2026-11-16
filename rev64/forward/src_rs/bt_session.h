@@ -40,6 +40,11 @@ typedef struct {
        单调窗口假设（非回绕，2^32 帧/会话不可达；RFC1982 serial compare 预留）。 */
     unsigned int rx_last_seq;     /* 全 type 最近接受帧 seq（0=窗口未建/legacy） */
     unsigned int tx_last_seq;     /* 发端最近发送 seq（诊断镜像） */
+    /* ★ R11-C Step6（P1 能力探测，R10 回执 §2.8/§7）：收 v3 帧升 v3，会话内不翻转。
+       peer_caps_v3=0（仅见 v2/未升档）→ 发端走 v2 encode（seq_dedup 对 v2-only
+       partial）；收 v3 帧置 1 + caps_locked=1 → 发端 encode_v3（双端 v3 互通）。 */
+    unsigned char peer_caps_v3;   /* 0=未知/仅 v2, 1=已确认对端 v3（收帧触发） */
+    unsigned char caps_locked;    /* 1=会话内锁定（升 v3 后不降级），防混帧翻转 */
 } jq_bt_session;
 
 /* UNDO 请求-应答 rc 哨兵（jq_bt_session_on_frame 返回值扩展，R9-C）：
