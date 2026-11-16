@@ -95,7 +95,7 @@ def main():
     else:
         out = subprocess.run([RULEPROBE], capture_output=True, text=True).stdout
         if 'RULE-PROBE DONE' in out:
-            print('⑦ 暗棋域 OK（rule_probe 双端对照 19/20 一致 + 1 分歧 R-073 困毙排地雷，RULE-PROBE DONE）')
+            print('⑦ 暗棋域 OK（rule_probe 双端对照 36 case，基线 4 坐实分叉 rule_probe_known_forks.txt 内不阻断，RULE-PROBE DONE）')
         else:
             fails.append('⑦ 暗棋域 rule_probe RULE-PROBE DONE 未输出')
 

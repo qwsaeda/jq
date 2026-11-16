@@ -2127,7 +2127,7 @@ OnCreate 主线程被该钩子段拖住（转译层 property 读取 + 自动走 
 ### 验证
 
 - 桌面专项 `dark_flip_test`（/tmp/opencode/dark_flip_test.c）：蓝首翻→红方困毙=0→红翻→蓝方困毙=0，PASS。
-- `src_rs_regress.sh` 11/12（唯一 FAIL `[5]` 是预存 JNI GetMethodID ExceptionClear 审计缺口，与本次改动无关）；evverify 170/170 + gametest 60局 + walkverify/longrun 全 PASS。
+- `src_rs_regress.sh` 11/12（唯一 FAIL `[5]` 是预存 JNI GetMethodID ExceptionClear 审计缺口，与本次改动无关）；evverify 170/170（历史快照，当前真值 172/172 见 align_gate ①）+ gametest 60局 + walkverify/longrun 全 PASS。
 - 真机全链复验（10.0.182.146 pid 24616）：人机→难度→开局→蓝翻 cell6（师长）→**无蓝胜误判**（stage=1 PLAY 持续）→**AI 翻 cell3 应着**（turn→0）→蓝再翻 cell10→AI 翻 cell4→回合交替持续→0 崩溃。盘面 4 子已翻（蓝旅长/师长 + 红排长/连长）出屏。
 - **完整"能玩"5 判据复验（pid 25482/26122，含走子路径）**：① 装得上 ✓ ② 进主界面 ✓（主菜单 98.1% 非黑）③ 下一局 ✓（人机→开局→蓝翻 cell6→AI翻 cell3→蓝翻 cell10→AI翻 cell4→蓝**走子 cell6→cell11** `can_move=1 Junqi.Move`→AI 翻 cell5 应着→回合交替持续）④ 正常退出 ✓（force-stop 0 崩溃）⑤ 重进不崩 ✓（重进 pid 26122 + 主菜单出屏 0 崩溃）。走子目标 cell11=空行营格（layout index16 空位）；走子序列=从 IDLE 点 cell6（选中）→点 cell11（走子），失败走子后回 IDLE（jq_touch_state_process 契约：SELECTED+新格=MOVE 后 IDLE）。
 - **"玩不了"环境根因终锤：MuMu 输入转发 `nemuinput` 卡死（用户真实触摸到不了系统）**：
@@ -2171,7 +2171,7 @@ OnCreate 主线程被该钩子段拖住（转译层 property 读取 + 自动走 
 ### 系统排查（代码级 + 真机验证）
 - **真实导航路径弹窗全验证**：主菜单/☰ 真实导航走 `rs_draw_*` 专用渲染（rs_draw_newgame/rs_draw_difficulty/rs_draw_about/rs_draw_settings/rs_draw_gameset/rs_draw_bright/rs_draw_login/rs_draw_waysel/rs_draw_exitconfirm 等），**普遍有 Title + TransLabel 标签**。rs_confirm_dialog（退出/认输/悔棋确认）画 Msg 文本，原版 datah_025 Title 无 text 属性（运行时填充），无独立可见 Title——属正常。
 - **dlgbatch 测试钩子路径（UI_DNNN/UI_UI*）缺 TransLabel 标签**：确认是**测试钩子路径非真实用户导航**（真实导航不引用 UI_DNNN，仅 jq.dlgNNN/jq.uiNNN setprop 钩子触发）。诚实标注，不包装成真实界面缺口。
-- **真机回归**：UI 改动后完整对局链 PASS（人机→难度→开局→蓝翻 cell6→AI 翻 cell3→turn 回蓝，0 崩溃），170/170 事件 + 12/12 布局 + 5/5 长路径走子 PASS。
+- **真机回归**：UI 改动后完整对局链 PASS（人机→难度→开局→蓝翻 cell6→AI 翻 cell3→turn 回蓝，0 崩溃），170/170（历史快照）事件 + 12/12 布局 + 5/5 长路径走子 PASS。
 
 ### apk 资源未利用完 诚实评估
 - 原版 272 个 datah_，src_rs 用 120，未用 152。未用中：

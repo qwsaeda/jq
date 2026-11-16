@@ -575,7 +575,7 @@ java -cp /tmp/opencode/apksigner/apksig.jar:/tmp/opencode/apksigner SignV2 \
 | `rev64/tools/gen_align_coverage.py` | **对齐覆盖矩阵自动生成**：规则 33 条款 / 桌面 86 用例 981 断言 / 探针 36 case / evverify 172 断言（★ R7-D-13 正则校准 ev_total++/geo_total++）→ `rev64/forward/audit/r4/align_coverage_matrix.md` | `python3 rev64/tools/gen_align_coverage.py`（幂等重生矩阵） |
 | `rev64/forward/src_rs/dark_align/mumu_align_smoke.sh` | **设备冒烟 2 判据**（明棋走子 can_move=1 / 暗棋翻子 can_flip=1 + 0 Fatal signal，`--dev` 默认 127.0.0.1:5556 转译器 flaky 需 `adb reboot` 刷新，红果 10.0.182.146 恢复后权威 5 判据） | `bash .../mumu_align_smoke.sh --dev 10.0.182.146:5555` |
 | `rev64/tools/rule_probe_compare.py` + `rule_probe_known_forks.txt` | **32/64 位规则行为实证双端对照**：36 case 逐字节同源探针 + 基线 4 坐实分叉（R-073/008/004/018）内不阻断、基线外新增分歧 → FAIL；`--offline` 按 fail 汇总（★ R1-D-02 假绿根治） | `python3 rev64/tools/rule_probe_compare.py --offline` / `--dev 10.0.182.146:5555` |
-| `rev64/forward/audit/r4/AUD_ALIGN_R{1..6}.md` | **「对齐」对抗审计台账 R1~R6**（各 100 条：承接上轮待修队列 + 新增；状态列 已修/待修/撤回）+ `align_coverage_matrix.md`（自动产物） | 读（每轮先读末轮台账状态列） |
+| `rev64/forward/audit/r4/AUD_ALIGN_R{1..7}.md` | **「对齐」对抗审计台账 R1~R7**（各 100+ 条：承接上轮待修队列 + 新增；状态列 已修/待修/撤回；末轮 = R7（R8 进行中））+ `align_coverage_matrix.md`（自动产物） | 读（每轮先读末轮台账状态列） |
 | `rev64/tools/layout_align_check.py` | **布局/按钮对齐可复现判据**（几何 Δ=0 + 截图按钮区非黑比，防"非黑%糊弄"。主菜单基准=orig_menu 真机×0.8，弹窗基准=datah 450/250/230 系换算。机读 `--json` / `--baseline` 只几何） | `python3 rev64/tools/layout_align_check.py --screenshot /tmp/xxx.png` / `--baseline` |
 | `rev64/forward/docs_rs/PIPELINE.md` | 流水线设计文档（每段一条命令 + 一组判据 + 一个诚实边界 + 5 固化原则） | 读 |
 
