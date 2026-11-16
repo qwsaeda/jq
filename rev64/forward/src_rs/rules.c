@@ -715,6 +715,13 @@ int jq_try_move(jq_state *st, int from, int to)
         if (dst_rank == RANK_FLAG && SIDE_VALID(dst_side)) {
             st->winner = (int)me;         /* winner: 0=蓝胜 1=红胜；me=用炸弹的一方=胜方 */
             st->stage = STG_OVER;
+            /* ★ Round 2 对抗审计 R6-A-08（P1 终局字段一致性）：EV_BOMB 撞旗终局
+               路径旧缺 total_moves 收口（EV_FLAG 成功路径 :761 有 total_moves++，
+               本路径 stage=OVER 后落通用收口 :875 `if (st->stage==STG_PLAY)` 被跳过
+               → 终局快照 total_moves 少计 1，两条终局吃旗路径不对称，和棋"总 1000
+               步"口径在终局时刻漂移）。修：置 OVER 同处补 total_moves++（本步
+               已实际发生，计步语义与 EV_FLAG 路径一致）。 */
+            st->total_moves++;
         }
         /* ★ AUD-1000-ALL A8-F8-001（P1 已修，32 位 B01-003 同源对齐）：终局（stage=OVER）
            后不再切 turn——旧实现 64 位 EV_BOMB 撞旗无 stage 守卫恒切 turn（turn=败方），
