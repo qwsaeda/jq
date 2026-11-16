@@ -1,0 +1,140 @@
+{
+  "total": 73,
+  "event_codes": {
+    "0": {
+      "code": 0,
+      "names": [
+        "Junqi.Move",
+        "Junqi.Eat"
+      ]
+    },
+    "1": {
+      "code": 1,
+      "names": [
+        "Junqi.Bomb",
+        "Junqi.Flag",
+        "Junqi.Dead"
+      ]
+    },
+    "2": {
+      "code": 2,
+      "names": [
+        "Junqi.Flip"
+      ]
+    },
+    "3": {
+      "code": 3,
+      "names": [
+        "Junqi.Win",
+        "Junqi.Lose",
+        "Junqi.RedWin",
+        "Junqi.BlueWin",
+        "Junqi.Draw",
+        "Junqi.GameOver",
+        "Junqi.Over"
+      ]
+    },
+    "4": {
+      "code": 4,
+      "names": [
+        "Junqi.DrawReq",
+        "Junqi.DrawAgree",
+        "Junqi.DrawDisagree",
+        "Junqi.DrawConfirm",
+        "Junqi.DrawSend"
+      ]
+    },
+    "5": {
+      "code": 5,
+      "names": [
+        "Junqi.Resign",
+        "Junqi.ResignConfirm"
+      ]
+    },
+    "6": {
+      "code": 6,
+      "names": [
+        "Junqi.RegretReq",
+        "Junqi.RegretAgree",
+        "Junqi.RegretDisagree",
+        "Junqi.RegretConfirm",
+        "Junqi.RegretSend",
+        "Junqi.RegretFail"
+      ]
+    },
+    "7": {
+      "code": 7,
+      "names": [
+        "Junqi.InputUser",
+        "Junqi.InputEmail",
+        "Junqi.InputPassword",
+        "Junqi.InputConfirmPwd",
+        "Junqi.LoginFail",
+        "Junqi.LoginAuthFail",
+        "Junqi.LoginMaxUser",
+        "Junqi.LoginVerOld",
+        "Junqi.EmailError",
+        "Junqi.EmailLenError",
+        "Junqi.InputName"
+      ]
+    },
+    "8": {
+      "code": 8,
+      "names": [
+        "Junqi.RegExist",
+        "Junqi.RegFail",
+        "Junqi.RegOk",
+        "Junqi.UserCharError",
+        "Junqi.UserLenError",
+        "Junqi.NameCharError",
+        "Junqi.NameLenError",
+        "Junqi.PwdLenError",
+        "Junqi.PwdNotMatch",
+        "Junqi.NewFail",
+        "Junqi.NewPwdLenError",
+        "Junqi.NewPwdNotMatch",
+        "Junqi.OriPwdLenError"
+      ]
+    },
+    "9": {
+      "code": 9,
+      "names": [
+        "Junqi.JoinGame",
+        "Junqi.Ready",
+        "Junqi.Start",
+        "Junqi.PeerStart",
+        "Junqi.PeerFirst",
+        "Junqi.PeerLast",
+        "Junqi.PeerLayFinish",
+        "Junqi.PeerWait",
+        "Junqi.LeaveGame",
+        "Junqi.PlayerLeave",
+        "Junqi.Reconnecting",
+        "Junqi.ReconnFail",
+        "Junqi.ConnectFail",
+        "Junqi.ExitFail",
+        "Junqi.ExitConfirm"
+      ]
+    },
+    "10": {
+      "code": 10,
+      "names": [
+        "Junqi.LayError",
+        "Junqi.HighAreaFail",
+        "Junqi.MidAreaFail",
+        "Junqi.ZhaError",
+        "Junqi.LeiError",
+        "Junqi.QiError"
+      ]
+    },
+    "11": {
+      "code": 11,
+      "names": [
+        "Junqi.Select",
+        "Junqi.GameType%d",
+        "Junqi.Over"
+      ]
+    }
+  },
+  "note": "原版 73 事件名 → 12 事件码（0-11）映射。SPEC §3.1 口径 17 事件码(0..16)，实测 .rodata 73 名归 12 业务大类；code 12-16 预留（Misc 区）。"
+}
