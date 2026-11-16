@@ -7144,3 +7144,34 @@ jq_rs_rules.c 注释定论。
   重连续弈对账（send_sync 接线）PENDING；32 位设备证据 0x39e14 归逆向 com.zxj 会话
   （正向只读核对 callgraph 调用点 00039e14→000b9c98/0003e5bc，32 位 so 本机缺失）；
   权威 5 判据待红果恢复（phase_rs_a64.apk 已重打包 so f654d603 + BtSpp + 全量 spak_res）。
+
+### 116. 「对齐」对抗审计 Round 15（续弈 SYNC_CELL 对账接线 + send_sync 副作用根除，bt_semtest 152 + dual 43）（§116 2026-11-16）
+
+- **★ R15-① 续弈 SYNC_CELL 对账接线（R14 回执③定案落地，续弈强一致收尾）**：
+  R14 定案"重连 = g_state 进程级保留断点（续弈）vs RESTART 显式重开"，但双端各自
+  g_state 断点可能漂移，需 SYNC_CELL 全量 60 帧对账收敛。R15 接线：① start_bt_session
+  锁外段发 60 帧 SYNC_CELL（重连=续弈双端对账，复用 UNDO mismatch :10757 范式：逐帧
+  拼接 + 容量守卫 + 单次 jq_bt_send）② 独立 static g_sync_payload 8KB + g_sync_sbuf
+  （g_bt_payload 是 OnBluetooth 局部非文件级，本区不可见）。SYNC_CELL 是 v2 帧，旧对端
+  收即逐格覆盖 st.cells（bt_session.c SYNC_CELL case），0 退化；双端同版才互通 epoch/v3。
+- **★ R15-② send_sync 副作用根除（P0 防复发）**：send_sync 旧 :433 强置 `state=
+  BT_ST_THEIR_TURN`——对 host/client 角色、续弈对账场景均错（重连角色按 host?OUR:
+  THEIR 分流，续弈对账不应改回合态）。R15 抽 `jq_bt_session_sync_encode` 纯编码函数
+  （不强制改 state），send_sync 复用它；副作用剥离给调用点按需处理。
+- **★ R15-③ epoch 16 位域限评估（定案非阻塞）**：UNDO ref_lo 16 位承载 req seq（tx_seq
+  从 1 单调），典型对局帧量 <10K 帧（60 格 × 几十手）远低于 65535，域限安全；未来超长
+  会话才需改 ref 承载位或 seq 重置（非当前阻塞）。epoch 16 位（65535 次重连回绕跳 0）。
+- **桌面单测演进**：bt_semtest §15 续弈 7 断言（C1 重连 init 不清棋盘/C2 仅复位传输域/
+  C4 SYNC_CELL 逐格覆盖 st/C5 全量 60 帧对齐收敛/C7a 续弈保留断点/C7b RESTART 重载清零
+  /C8 sync_encode 纯编码不改 state）：基线 145→152 PASS；dual 43 维持。
+- **攻坚坑（R15 新增 4 条，防复发）**：① jq_bt_send 返回 void（非 int）——60 帧须拼接
+  payload 单次发（复用 :10757 范式），非逐帧判返回值 ② g_bt_payload 是 OnBluetooth 局部
+  static（非文件级）——start_bt_session 区不可见，须独立 g_sync_payload（容量守卫 8KB）
+  ③ send_sync :433 强置 THEIR_TURN 副作用须根除（host/client 角色/续弈场景均错）——抽
+  纯编码函数 ④ epoch 16 位域限：UNDO ref_lo 16 位承载 req seq，典型对局 <10K 帧安全，
+  超长会话才需改 ref 承载位（非当前阻塞）。
+- **诚实边界（R15 收口）**：续弈对账需双端同版 + 双端各自重连（单边重连对端 g_state
+  漂移无法强一致，epoch/回合不对称）；无 BT 硬件端到端断连重连时序 = 真机 PENDING；
+  32 位设备证据 0x39e14 归逆向 com.zxj 会话（正向只读核对 callgraph 调用点）；
+  权威 5 判据 + 装机冒烟待红果恢复（phase_rs_a64.apk 已重打包 so 1240e6f7 + BtSpp +
+  全量 spak_res + 双签）。
