@@ -130,15 +130,29 @@ static bool rail_path_engineer(const jq_state *st, int fr, int fc, int tr, int t
                AUD-R-001 方向校验对齐 —— 横向铁路 = row0/5/6/11 整行，
                纵向铁路 = 仅 col2。旧实现只放 row5/6 → 工兵沿底线横滑
                （直滑允许但 BFS 禁止）两套判定打架。 */
-            /* ★ AUD-1000 B01-068（P3 注释）：nc!=c = 列变（横移）仅中线 row5/6
-               允许（横铁路仅中线）；nc==c = 列不变（纵滑）col2 全高（纵线贯穿，
-               非仅中线）。r 是当前 BFS 节点行（非目标行），语义正确。 */
+            /* ★ AUD-1000 B01-068（P3 注释）+ ★ R5-A-18（注释纠错，行为 0 变化）：
+               nc!=c = 列变（横移）允许在横向铁路行 row0/5/6/11（与 :172 直走
+               横滑校验、board.c is_rail 横铁路集合一致——旧注释"仅中线 row5/6"
+               系 AUD-R-024 修复前残留口径，已纠正）；nc==c = 列不变（纵滑）
+               col2 全高（纵线贯穿）。r 是当前 BFS 节点行（非目标行），语义正确。 */
             if (nc != c && !(r == 0 || r == 5 || r == 6 || r == 11)) continue;
             if (!is_rail(nr, nc)) continue;
             /* ★ AUD-1000 B01-001（P0 已修）：目标判定并入 walkable——行营/大本营
                空格非铁路占位 → 工兵 BFS 不可"滑行"进入（与 move_legal 条款一致）；
                占位空格且非行营/大本营 → walkable 真 → 目标命中。 */
-            if (nr == tr && nc == tc) return walkable(st, nr, nc);
+    if (nr == tr && nc == tc) {
+        /* ★ Round 1 对抗审计 R5-A-02 复勘（撤回，R4-A-02 定案维持）：工兵铁路
+           BFS 到达**占位目标格**时保留 `walkable`（要求目标空格）= 工兵铁路
+           滑行**不得越占位终点**——桌面 dark_align 3 用例实锤既有定案
+           （dark_rail_cross_eat_test：工兵横贯滑行到 col2 交叉格**吃雷/扛旗拒**
+           BFS walkable 拒非空格雷格 can=0；dark_rail_cross_flagmine_test 同；
+           dark_rail_r5r6_worker_eat_test：工兵在 row5/6 横铁路吃子场景同判据）。
+           与非工兵直走路径（:197-200 中间格循环不查目标格）的差异 = **原版设计
+           分派**：工兵滑行终点须空格（吃子另由一步相邻专属分支 :318-336 覆盖
+           相邻雷/旗），非工兵直滑可直达占位终点（直滑=同格判定吃子语义）。
+           两条路径判据差异**不是**未对齐缺陷 → R5-A-02/R4-A-02 撤回。 */
+        return walkable(st, nr, nc);
+    }
             if (!walkable(st, nr, nc)) continue;
             visited[nr][nc] = 1;
             if (tail >= 64) break;   /* AUD-A-0041：队列满保护（60 格棋盘恒不触发，纯防御） */
@@ -416,9 +430,12 @@ static bool move_legal(const jq_state *st, int from, int to, int turn)
    ★ AUD-R-086（P2 诚实标注，★ 2026-11-15 §64 注释纠正）：翻棋（jq_flip）
    **不消耗** moves_since_eat 与 total_moves（本轮实锤：翻棋后 moves_since_eat/
    total_moves 均 0，走子空移才自增 1）——旧注释"消耗（对齐原版 0x39f20
-   from==to 路径消耗步数）"系误读：from==to 路径是**走子**原地判定（jq_try_move
-   from==to 自增），非 jq_flip 翻棋；暗棋下翻棋不计步（§34 既有口径），和棋
-   70/1000 步阈值只对走子累加计数（翻棋不消耗），与 AUD-R-033 同源。
+   from==to 路径消耗步数）"系误读：from==to 路径是**走子**原地判定，非
+   jq_flip 翻棋；★ R5-A-19（注释纠错，行为 0 变化）：旧注释"（jq_try_move
+   from==to 自增）"与现实现矛盾——jq_try_move 入口（:617）对 from==to 直接
+   `return -1` 拒绝，**不存在自增路径**；翻棋不经 try_move 计步（§34 既有
+   口径），暗棋下翻棋不计步，和棋 70/1000 步阈值只对走子累加计数
+   （翻棋不消耗），与 AUD-R-033 同源。
    ★ AUD-R-041（P2 诚实标注）：jq_try_move 全程不刷新 pieces_left/count_tbl
    （只做增量减法，与 AUD-R-014 同源——计数可为负/未刷新，困毙判定走
    jq_side_stalemated 实时扫描不读计数）。原 st->count_tbl 字段已删（全仓
@@ -516,9 +533,13 @@ static void stalemate_after(jq_state *st)
        拷入 jq_state（st->cfg 快照开局时冻结）消除跨线程竞态。
        真机路径 ui_rule_cfg_get 已持 g_ui_lock，竞态窗口极小；桌面桩单线程无并发，
        保持现状不改行为。 */
-    /* AUD-1000 B01-023：判定值含本步（走子/翻棋收口前已 moves_since_eat++ /
+    /* AUD-1000 B01-023：判定值含本步（走子收口前已 moves_since_eat++ /
        total_moves++），即'第 70 步空移完成后'立即读 70 判和，语义='已进行
-       70 步无吃子'——与翻棋路径（jq_flip 同序自增）对称，防未来回归改顺序。
+       70 步无吃子'——★ R5-A-20（注释纠错，行为 0 变化）：旧注释"与翻棋路径
+       （jq_flip 同序自增）对称"与现实现矛盾：jq_flip **不**自增
+       moves_since_eat/total_moves（AUD-R-086/R-033 定案：翻棋不计步，
+       和棋阈值只对走子累加）；"对称"实为"翻棋路径无计数收口"（非同序自增），
+       防未来回归改顺序时误读为翻棋须自增。
        ★ AUD-1000 B01-002（P0 修）：吃子分支清零 moves_since_eat（:493/:522/:535/
        :577/:605 五处）——清零发生在 stalemate_after 调用**之前**（EV_BOMB 分支
        内 :493 清零后 :542 stalemate_after 读到 0 不判和 ✓）。和棋阈值判定对象
