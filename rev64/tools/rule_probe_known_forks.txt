@@ -1,0 +1,16 @@
+# rule_probe_known_forks.txt — 32↔64 双端探针**已知坐实分歧基线**
+# 用途：rev64/tools/rule_probe_compare.py 判据从"分歧数 ≤1"改为"基线 + 新增"——
+#       基线内分歧 = 已知坐实分叉（诚实标注，不阻断）；新增分歧 = 新出现的未对齐
+#       → 立即 FAIL（防新增分叉被旧阈值吞掉，CODE_STYLE §9 判据恒真同族）。
+# 格式：每行一个探针 case 名（= "RULE-PROBE <case> ..." 里的 <case> 段），# 开头为注释。
+# 登记口径：每条须在 EXPERIENCE_LOG 有对应轮次实证记录（坐实来源 + 语义说明）。
+#
+# ── 已坐实分叉 4 条（§101 双端实证 32/36 一致时坐实）──
+#   R-073 困毙排地雷/军旗：32 位 = 1（军旗也排，通用终局类设计）/ 64 位 = 0（仅排地雷）
+C4b_stalemate_only_flag
+#   R-008 翻棋困毙判定：32 位 jq_flip 做困毙判定（翻后红困毙=1）/ 64 位不做（=0）
+F2_flip_then_stalemate
+#   R-004 side=0xFF 还原 rank：32 位 ev=2（EV_BOMB，误判炸弹）/ 64 位 ev=1（EV_EAT 正确）
+G3_try_side0xff
+#   R-018 杀光判据：32 位 = 1（杀光判困毙）/ 64 位 = 0（仅困毙近似）
+G4_kill_all_stalemate

@@ -6552,3 +6552,46 @@ jq_rs_rules.c 注释定论。
   续补断言或探针才闭环，不等于行为已错；③ 32 位侧定案项（A-23/B-23）挂起走 §124y
   路线（逆向会话，本会话不越界）；④ 子代理限流导致本轮审计**并行度下降**（D-25 记
   录），覆盖深度按域顺序推进，Round 2 起继续 loop。
+
+### 105. 「对齐」对抗审计 Round 2（100 条 = R1 队列承接 82 + 新增 18）+ 一键门禁 align_gate.sh + 双端探针分歧判据改「基线+新增」+ 布局脚本 cwd 脆弱修复（2026-11-16）
+- **Round 2 结构**：承接 R1（`rev64/forward/audit/r4/AUD_ALIGN_R1.md`，100 条，已修
+  18 / 待修 82）→ 本轮**逐条处置 R1 队列 82 条**（修 / 定案 / 拆解 / 挂起，逐条给结
+  论）+ **实扫新增 18 条** = 100 条，台账落 `rev64/forward/audit/r4/AUD_ALIGN_R2.md`。
+  处置分布：已修 8 / 拆解 3 / 挂起 3（32 位侧定案走 §124y 路线 + 逆向侧脚本不跨界
+  改）/ 待修(R3) 70（主体是覆盖缺口：断言 / 探针 / 矩阵，行为改动仅在口径定案后）。
+- **★ 新增工具 1：rev64/tools/align_gate.sh（一键对齐门禁，D-18 落地）**——把分散
+  的 6 个门禁串成一条命令，防"门禁存在但没人跑 = 等于没有"（CODE_STYLE §9 静默降级
+  型）：① make evverify（172/172）② event_code_map_check（事件表 0 缺口）③
+  layout_align_check --baseline（几何 Δ=0）④ dark_align_regress（86/86 + 判据自检）
+  ⑤ make benchcheck（走子桥 8 步基准新鲜）⑥ rule_probe_compare（--offline 基线 /
+  给 --dev 走 32↔64 双端）。collect-all 语义（单项失败不中断）+ 汇总 PASS/FAIL +
+  任一 FAIL 退出码 1。**实跑 6/6 PASS**。
+- **★ 一键门禁立刻抓到既有脚本缺陷（R2-N01，P1 实证）**：`layout_align_check.py`
+  用**相对路径**读 `rev64/forward/src_rs/ui_menu.c` → 非仓库根运行（align_gate 内
+  cd src_rs）即 FileNotFoundError（此前手动跑都在仓库根，缺陷潜伏）。修：路径按
+  脚本自身位置解析（cwd 无关）——`ROOT = dirname(dirname(dirname(__file__)))` +
+  `--menu-src` 默认 None + `load_src_rs_buttons(path=None)` 自解析；验证 /tmp 下跑
+  与仓库根跑结果一致（几何 Δ 检查 PASS）。
+- **★ P1 判据修复（R2-N04）**：`rule_probe_compare.py` 旧判据"一致 ≥ N-1（分歧 ≤1）"
+  ——随已知坐实分叉增至 4 条已失效（新增分歧被静默吞掉 = 假绿三型之判据恒真）。改
+  **「基线 + 新增」**：新增 `rev64/tools/rule_probe_known_forks.txt` 登记 4 条已知坐
+  实分叉（C4b_stalemate_only_flag / F2_flip_then_stalemate / G3_try_side0xff /
+  G4_kill_all_stalemate，每条注明 AUD-R 号与语义来源）；基线内分歧 → 报告不阻断；
+  **基线外新增分歧 → FAIL**。实跑：一致 32 / 分歧 4（全基线内）+ 新增分歧 = 0 →
+  PASS（判读输出含每条分歧的[已知坐实分叉]/[★新增分歧]标记）。
+- **R2-N03 撤回怀疑（诚实，不硬凑）**：疑 `src_rs` 下 6 个 selftest（ai/bt/game/lay/
+  touch/rulestest）零断言恒判 PASS（承接 D-01/D-02 同型怀疑）→ 实锤**均有真断言**
+  （`✗ FAIL:` / `ok:` / `全部通过` / `12/12` 措辞，非 PASS/FAIL 串，故首轮 grep
+  计数为 0 属误判）→ src_rs_regress.sh 的 12/12 门禁**可信**，撤回该怀疑；衍生
+  R2-N12（断言失败措辞不统一 → 门禁依赖具体措辞）转 R3 统一输出协议。
+- **★ 逆向侧脚本同型缺陷只登记不跨界改（AGENTS 红线）**：R2-N02
+  `rev64/tools/verify_translation.py`（相对路径读 jq_rel_data.h / jni_aligned.c /
+  jqt_mem.c）+ R2-N11 `arm32_{cycle,hook_check,static_evidence,verify_all,
+  walkregress}.sh`（依赖 cd 仓库根）——挂起交逆向会话。
+- **五层验证实锤（Round 2 全 PASS）**：① make evverify 172/172 ② event_code_map 0
+  缺口 + layout 几何 Δ=0 ③ dark_align 86/86（含判据自检 PASS）④ make benchcheck ✓
+  ⑤ 32↔64 双端探针 32/36 一致 + 新增分歧 = 0 ⑥ **align_gate.sh 6/6 PASS**。
+- **诚实边界**：本轮**未改 rules.c/board.c 行为**（A-16 暗棋未定色暗子可被吃 / A-11
+  规则层 UI 开关耦合 / A-14 挖雷落位语义均**需先定案**，不擅自改）；R3 的 70 条待修
+  主体是**覆盖缺口**（缺断言 / 缺探针 / 缺矩阵），需逐条落地才闭环；A-23/B-23 32 位
+  定案挂起 §124y 路线；子代理通道仍限流（并行度受限，R3 起若恢复则并行化）。

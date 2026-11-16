@@ -112,6 +112,30 @@ def run_32(dev):
     return lines
 
 
+def case_of(line):
+    """从 "RULE-PROBE <case> ..." 行提取 <case> 名（分歧清单用）。"""
+    parts = line.split()
+    if len(parts) >= 2 and parts[0] == "RULE-PROBE":
+        return parts[1]
+    return line.split()[0] if line.split() else ""
+
+
+def load_known_forks():
+    """读已知坐实分歧基线（rev64/tools/rule_probe_known_forks.txt）。"""
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                        "rule_probe_known_forks.txt")
+    known = set()
+    if not os.path.exists(path):
+        return known
+    with open(path, encoding="utf-8") as f:
+        for ln in f:
+            ln = ln.strip()
+            if not ln or ln.startswith("#"):
+                continue
+            known.add(ln.split()[0])
+    return known
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--dev", default=DEV)
@@ -148,8 +172,22 @@ def main():
         print("  ── 仅 32 位（32 位不同 = 实证分歧）──")
         for x in only32:
             print(f"     32: {x}")
-    check(len(same) >= len(p64) - 1,
-          f"行为一致用例 ≥ {len(p64)-1}/{len(p64)}（分歧数 ≤1）")
+    # ★ Round 1 对抗审计 D-10 修法：旧判据"分歧数 ≤1"随已知坐实分叉增至 4 已失效
+    #   （新增分歧会被旧阈值静默吞掉 = 假绿三型之判据恒真）。现判据 = **基线 + 新增**：
+    #   基线（rev64/tools/rule_probe_known_forks.txt）内分歧 = 已知坐实分叉（诚实标注，
+    #   不阻断）；**基线外新增分歧 = 新出现的 32↔64 未对齐 → FAIL**。
+    forks = sorted(set([case_of(x) for x in (only64 + only32)]))
+    known = load_known_forks()
+    new_forks = [c for c in forks if c not in known]
+    known_forks = [c for c in forks if c in known]
+    print(f"  ── 分歧清单（{len(forks)} 条）──")
+    for c in forks:
+        tag = "已知坐实分叉（基线内）" if c in known else "★新增分歧（未对齐）★"
+        print(f"     {c}  [{tag}]")
+    check(len(new_forks) == 0,
+          f"新增分歧 = 0（基线内已知坐实分歧 {len(known_forks)} 条不阻断；"
+          f"基线 = rev64/tools/rule_probe_known_forks.txt）"
+          + (f"；新增 = {new_forks}" if new_forks else ""))
 
     # 落盘（供文档引用）
     os.makedirs("/tmp/opencode", exist_ok=True)

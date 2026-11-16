@@ -17,6 +17,10 @@ layout_align_check.py — 布局/按钮对齐验证工具（把"手点触摸+猜
   3. 坐标换算：原版 450/250/230 系 → 720×1280 物理基准（面板居中偏移 1:1 平移）
 """
 import argparse, json, sys, os, re
+# ★ Round 1 对抗审计 D-26（align_gate 暴露）：本脚本用**相对路径**读仓库文件，
+#   在非仓库根目录运行（如 align_gate.sh 内 cd src_rs）→ FileNotFoundError。
+#   修：路径基于脚本自身位置（cwd 无关）。
+ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # 原版对话框几何（SPAK datah XML，450/250/230 宽坐标系）
 # 面板居中 720×1280 偏移 = ((720-W)/2, (1280-H)/2)，局部坐标 1:1 平移
@@ -371,9 +375,12 @@ MENU_BUTTONS = [
 MENU_SCALE = 0.8  # 900×1600 → 720×1280
 
 # src_rs 按钮表（720×1280 基准，ui_menu.c 对齐值）
-def load_src_rs_buttons(path="rev64/forward/src_rs/ui_menu.c"):
-    """从 ui_menu.c 解析按钮表（g_btns/g_diff_btns/... 720×1280 基准）"""
-    txt = open(path).read()
+def load_src_rs_buttons(path=None):
+    """从 ui_menu.c 解析按钮表（g_btns/g_diff_btns/... 720×1280 基准）
+    ★ Round 1 对抗审计 D-26：path=None 时按脚本位置解析（cwd 无关）。"""
+    if path is None:
+        path = os.path.join(ROOT, "rev64/forward/src_rs/ui_menu.c")
+    txt = open(path, encoding="utf-8").read()
     tables = {}
     # g_btns[5] 主菜单
     m = re.findall(r"\{\s*([\d.]+)f\s*,\s*([\d.]+)f\s*,\s*([\d.]+)f\s*,\s*([\d.]+)f\s*,\s*\"([^\"]+)\"", txt)
@@ -476,7 +483,7 @@ def check_geometry(menu_src=None, verbose=True):
                 print(f"  主菜单 {lbl:4s} 原版({ox0:.0f},{oy0:.0f}) src({sx0:.0f},{sy0:.0f}) Δc=({dcx:+.1f},{dcy:+.1f}) {'✓' if ok else '✗'}")
             if not ok: failures.append(f"主菜单 {lbl} Δ=({dcx:+.1f},{dcy:+.1f})")
     # 弹窗（原版 720 换算 vs src_rs 按钮表 720 基准）
-    src = load_src_rs_buttons(src_rs_c_path or "rev64/forward/src_rs/ui_menu.c")
+    src = load_src_rs_buttons(src_rs_c_path)
     for dname in DIALOGS:
         if dname in ("datah_067_imen_bt","datah_006_imen"):
             continue   # ★ ☰ 菜单：基准已是 720 绝对值（实测），不走原版系→720 换算
@@ -829,7 +836,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--screenshot", help="真机截图路径（720×1280），做按钮区非黑探测")
     ap.add_argument("--baseline", action="store_true", help="只跑几何 Δ 检查（静默出结论，不打印逐行明细）")
-    ap.add_argument("--menu-src", default="rev64/forward/src_rs/ui_menu.c", help="src_rs 按钮表文件")
+    ap.add_argument("--menu-src", default=None, help="src_rs 按钮表文件（默认按脚本位置解析，cwd 无关）")
     ap.add_argument("--json", help="输出 JSON（机读）")
     ap.add_argument("--only", help="截图非黑探测只跑指定 DIALOGS 名（逗号分隔，如 datah_044_ui44）")
     ap.add_argument("-q", action="store_true", help="静默（只出 JSON/结论）")
@@ -837,11 +844,11 @@ def main():
     verbose_global = not a.q
 
     global src_rs_c_path
-    src_rs_c_path = a.menu_src
-    src = load_src_rs_buttons(a.menu_src)
+    src_rs_c_path = a.menu_src or os.path.join(ROOT, "rev64/forward/src_rs/ui_menu.c")
+    src = load_src_rs_buttons(src_rs_c_path)
     menu_src = [ (x0,y0,x1,y1,lbl) for lbl,x0,y0,x1,y1 in [] ]  # 主菜单 720 基准从 ui_menu.c g_btns 取
     # 重新解析 g_btns（带 label 5 个）
-    txt=open(a.menu_src).read()
+    txt=open(src_rs_c_path, encoding="utf-8").read()
     m=re.findall(r"\{\s*([\d.]+)f\s*,\s*([\d.]+)f\s*,\s*([\d.]+)f\s*,\s*([\d.]+)f\s*,\s*\"([^\"]+)\"", txt)
     menu_src=[(float(a_),float(b_),float(c_),float(d_),e) for a_,b_,c_,d_,e in m[:5]]
 
