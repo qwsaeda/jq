@@ -6424,3 +6424,69 @@ jq_rs_rules.c 注释定论。
   口径非红果权威（§124y-279 模拟器结论不可外推真机），红果 10.0.182.146 恢复
   后走权威 5 判据复验；用户手点（真实触摸）判据受设备侧输入桥制约（§124y 历
   史口径），本轮以 input tap 注入路径 + 桌面态机级用例固化。
+
+### 103. 逆向会话单向交接清单 6 类消费实锤（FORWARD_HANDOFF.md）+ ⑥ 走子桥 8 步基准过期修复（benchcheck 门禁复活，2026-11-16）
+- **逆向会话单向喂正向（rev64/reverse/docs/FORWARD_HANDOFF.md，本轮消费）**：
+  逆向 32 位价值在经验/数据非产物，6 类基准单向交接（正向读基准做行为级对
+  齐，不反向改逆向代码，AGENTS"不抢活"红线照旧）。本轮逐类核对 + 消费实锤：
+  · **① 原版 .rodata 事件名（jq_rodata_plain.h）——逐名 diff 实锤 0 缺 0 多
+    完全对齐**：逆向头 74 处 Junqi.* 提及 = 73 唯一名（+1 重复提及），正向
+    jq_event_names_73.c 73 唯一名，`comm` 双向 diff 0/0——正向事件契约
+    （evverify 172 + event_code_map_check 0 缺口）与原版 .rodata 同源，无漂
+    移（§1925 事件三层漏斗 76→12→37 口径维持）；
+  · **② 原版 32 位 .text 反汇编（/tmp/orig/lib/armeabi/libjunqi.so 在位）**：
+    rules.c 原版行为锚点注释覆盖 12 个 0x30xx 区锚点（0x301f0/0x30200/0x30260
+    /0x30280/0x302b4 困毙/0x302f0 翻棋不计数/0x30320 排地雷/0x30348-0x3035e
+    可动判定/0x3036a 和棋扫描等 11 函数行为级实锤），对照口径 =
+    rule_probe_compare.py 双端探针（§100/§101 已扩 E/F/G 组 36 条）；
+  · **③ frida-dump 明文（rodata_dec.bin 118KB + strings 1715 条在位）**：正
+    向消费点 = event_code_map_check.py（§124y-187 原版 .bss 事件表 asr4 映射
+    判据，289B = 17 行 × 17 字段静态侧，0 设备依赖）——frida 真值 vs 正向桌
+    面断言三方对照既有口径在位；
+  · **④ SPAK 资源（spak_res 970 文件 + 14 WAV 在位）**：正向 audio.c 音效表
+    14 项逐名对齐 SPAK 解包产物（data_junqi_{move,eat,bomb,flag,dead,flip,
+    win,lose,draw,start,over,select}.wav 12 + data_ui_{close,pop}.wav 2 =
+    14，§1935 音效 14 WAV = SPAK 14 data_*.wav 同源实锤）+ spak_load.c 资源
+    加载 + spak_res 全量推设备；
+  · **⑤ 真机 5 判据实锤（REVERSE_LOG 9298 处 + REAL_DEVICE_ACCEPTANCE.md）**：
+    正向"能玩"验收五判据同源（装/进主界面/下一局/退出/重进，AGENTS 验收判
+    据统一口径），模拟器结论不可外推真机（§124y-279）；
+  · **⑥ 走子桥 8 步序列（test_move_seq.txt + jq_rs_walkbridge_test.c）——
+    ★ 消费实锤发现真断点并修复（本轮核心产出）**。
+- **★ ⑥ 消费实锤发现真断点：benchcheck 门禁过期 FAIL（AUD-R-086 改行为未更
+  新基准）+ 双源基准修复**：`make benchcheck`（jq_consistency test_move_seq.txt
+  输出 vs test_expected.txt 文件基准 diff 门禁）实锤 **FAIL**——8 步序列输出
+  前 8 行（Flip/Flip/Junqi.Move/Junqi.Move/ILLEGAL/Undo/ILLEGAL/Resign）与基
+  准逐行一致，唯一 diff = FINAL 行 `total=3 since_eat=3`（基准值）vs
+  `total=1 since_eat=1`（实际值）。根因：test_expected.txt + BENCH_EXPECT 双
+  源基准写于**翻棋计数时代**（f6/f33 两翻 + m6-11 一走 = 3 计）；2026-11-14
+  AUD-R-086 原版 0x302f0 实锤**翻棋不计数**（翻棋不写走子记录，70/1000 步和
+  棋的"步"=走子）改 rules.c 行为后，基准未同步 → 门禁挂起（此门禁非 evverify/
+  dark_align 回归链覆盖，交接清单⑥消费时才暴露——正是交接价值实锤）。
+  语义确认（基准更新依据，非掩盖）：① 翻棋不计数（0x302f0 实锤，rules.c
+  :926-933 注释）；② m12-13/m10-11 ILLEGAL 不入栈不入计；③ u 悔棋 pop 回
+  m33-38 之前（m33-38 被回滚）→ 最终仅 m6-11 一手合法走子 = total=1
+  since_eat=1；winner=1/turn=1/stage=2 来自 q0 认输。修：test_expected.txt
+  FINAL 行 + consistency_desktop.c BENCH_EXPECT 同步更新（注释"三方同步"，
+  旧注释"两边一起改"扩三方）+ 基准口径注释固化。**benchcheck 门禁 PASS 复活
+  + selftest PASS（9 行逐行一致）**。
+- **踩坑固化**：① 基准双源（BENCH_EXPECT + test_expected.txt）过期风险 =
+  "改行为不跑 benchcheck"——benchcheck 不在 evverify/dark_align 链内，行为准
+  更新须显式 `make benchcheck`（Makefile 注释已有"人工确认后更新基准"流程，
+  本轮按流程走：语义确认 → 更新 → 门禁复验）；② 本轮第一处 edit 少注释闭
+  合符 `*/` 吞掉 main() 开头（CODE_STYLE §15 第四型假绿同族：注释吞语句，编
+  译错才暴露）——多行注释必须检查闭合符（复用既有防复发条目）。
+- **消费台账终态（6/6 类）**：① 逐名 diff 0/0 完全对齐 ✓ ② 锚点注释 12 处
+  + rule_probe 双端探针 36 条 ✓ ③ event_code_map_check 289B 静态侧 ✓
+  ④ 音效表 14 项逐名对齐 ✓ ⑤ 5 判据同源口径 ✓ ⑥ benchcheck 门禁修复复活 ✓。
+- **对齐验证方案终态（本轮复用确认）**：① make evverify 172/172 + 三件套 ②
+  dark_align_regress.sh **86/86**（0 退化，本轮复验 PASS）③
+  mumu_align_smoke.sh 2/2 + 0 崩溃 + 真机三翻全流程 ④ rule_probe_compare.py
+  32↔64 双端探针 32/36 一致坐实 4 项分叉 + **⑤ make benchcheck（走子桥 8 步
+  文件基准门禁，本轮复活）**——五层桌面门禁 + 设备冒烟。
+- **诚实边界**：本轮改 consistency_desktop.c（BENCH_EXPECT + 注释）+
+  test_expected.txt（基准同步，无 rules.c/jni_bridge.c 行为改动，64 位 so 无
+  需重建）；⑥ 8 步序列 32 位对照 = 逆向侧 jq_rs_walkbridge_test.c 8/8 PASS
+  （§1951），正向侧本次 benchcheck 复活后同源闭环；正向 60 局对弈完整基准
+  （缺口③）转 AI 策略工程非本轮；逆向 6 类基准仅只读消费，未触碰
+  rev64/reverse/* 任何代码（AGENTS 红线）。

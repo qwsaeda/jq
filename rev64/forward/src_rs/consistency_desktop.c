@@ -32,7 +32,12 @@ static const char BENCH_SEQ[] =
     "f 6\nf 33\nm 6 11\nm 33 38\nm 12 13\nu\nm 10 11\nq 0\n";
 static const char BENCH_EXPECT[] =
     "OK Flip\nOK Flip\nOK Junqi.Move\nOK Junqi.Move\nILLEGAL\nOK Undo\nILLEGAL\nOK Resign\n"
-    "FINAL winner=1 turn=1 total=3 since_eat=3 stage=2\n";
+    "FINAL winner=1 turn=1 total=1 since_eat=1 stage=2\n";
+/* ★ 基准口径（2026-11-16 逆向交接清单⑥消费实锤，AUD-R-086 同步）：翻棋**不计数**
+   （2026-11-14 原版 0x302f0 实锤：翻棋不写走子记录，70/1000 步和棋的"步"=走子），
+   故 f6/f33 不入 total_moves；m12-13/m10-11 ILLEGAL 不入栈不入计；u 悔棋回滚
+   m33-38（非法步不入栈，pop 回 m33-38 之前）→ 最终 total=1 since_eat=1（仅
+   m6-11 一手合法走子）。winner=1/turn=1/stage=2 来自 q0 认输（红胜+终局）。 */
 
 int main(int argc, char **argv)
 {
@@ -40,7 +45,13 @@ int main(int argc, char **argv)
     jq_state st;
     jq_load_layout(&st, JQ_DEFAULT_LAY);
     /* ★ 基准序列（f 6 / f 33 翻棋）暗棋语义自测：全子 revealed=0（暗棋布局），
-       明棋布局 revealed=1 不可翻 → 基准翻转。test_expected.txt 同步。 */
+       明棋布局 revealed=1 不可翻 → 基准翻转。test_expected.txt 同步。
+       ★ 基准口径（2026-11-16 逆向交接清单⑥消费实锤，AUD-R-086 同步）：翻棋
+       **不计数**（2026-11-14 原版 0x302f0 实锤：翻棋不写走子记录，70/1000 步
+       和棋的"步"=走子），故 f6/f33 不入 total_moves；m12-13/m10-11 ILLEGAL
+       不入栈不入计；u 悔棋回滚 m33-38（非法步不入栈，pop 回 m33-38 之前）→
+       最终 total=1 since_eat=1（仅 m6-11 一手合法走子）。与 test_expected.txt
+       + BENCH_EXPECT 三方同步，改动需一起改。 */
     for (int i = 0; i < N_CELLS; i++)
         if (st.cells[i].rank) st.cells[i].revealed = 0;
     char line[128];
