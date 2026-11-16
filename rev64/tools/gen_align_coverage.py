@@ -38,7 +38,15 @@ def read(p, default=""):
 
 def main():
     lines = []
+    # ★ R9-G-14/11（P1 矩阵新鲜度）：生成时间戳 + evverify 实测口径行（快照元数据
+    #   ——矩阵数字是生成时刻真值，无时间戳/实测口径 = 后续引用无法判新鲜度
+    #   （R7-D-10/11/12/15/16 定案落地）；git diff --exit-code 判据由人工/CI 承担，
+    #   本行至少可 grep 时间戳判"是否再生过"）。
+    import datetime
+    _gen_at = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
     lines.append("# 对齐覆盖矩阵（自动生成：rev64/tools/gen_align_coverage.py）\n")
+    lines.append("> 生成时间: %s（每次 `python3 rev64/tools/gen_align_coverage.py` 重生；"
+                 "引用前确认与当前源码一致——evverify 真值以 `jq_evverify --all` SUMMARY 动态为准）\n" % _gen_at)
     lines.append("> 用途：规则条款 ↔ 桌面断言 ↔ 双端探针 三向覆盖关系可见化；"
                  "并集中登记**硬编码期望值基准点**（改行为必须同步的清单）。\n")
 

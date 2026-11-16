@@ -3,9 +3,12 @@
 # 收敛反复手工 for 循环（flag/mine/restart/draw/resign/stalemate/close/pop/btconn）。
 # 用法:
 #   bash rev64/tools/mumu_regress.sh --dev 10.0.182.146:5555 --only flag,btconn
-#   （默认 DEV=emulator-5554，红果 MuMu 标准验证环境=10.0.182.146:5555，★ A6-14 注释口径统一）
+#   （默认 DEV=10.0.182.146:5555 权威红果，★ R9-G-34 全工具链同源；旧 emulator-5554 口径废弃）
 set -u
-DEV=emulator-5554
+# ★ R9-G-34（P1 默认设备统一，权威红果，与 rule_probe_compare/mumu_align_smoke/
+#   mumu_evtest 同源；旧 emulator-5554 = 未使用模拟器端口，一键回归误打假红——
+#   显式 --dev 可覆盖）。
+DEV=10.0.182.146:5555
 ONLY=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
