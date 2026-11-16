@@ -66,6 +66,7 @@ static void probe_clear(jq_state *st)
  *   R-016 EV_FLAG 开关 / R-020 炸弹撞旗判胜 / R-025 起点越界 / R-028 空行营
  *   R-029 大本营目标 / R-030 进大本营不可再动 / R-033 翻棋计数 / R-045 困毙白名单
  *   R-071 空大本营 / R-073 困毙排地雷 / R-089 困毙 vs 吃旗
+ *   §43/§76/§94-§99 工兵 BFS 穿格/绕行/拐弯（E1-E9，32↔64 双端对照探针）
  */
 
 /* 棋盘几何常量（12 行 × 5 列，行 0=蓝方底线，行 11=红方底线） */
@@ -236,6 +237,89 @@ void jq_rule_probe_run(void)
         st.cells[cell_index(5, 1)].rank = (uint8_t)probe_red_rank(12);
         PROBE_LOG("RULE-PROBE D2_stalemate_with_flag SM %d = %d",
                   (int)SIDE_RED, jq_side_stalemated(&st, SIDE_RED));
+    }
+
+    /* ===== E 组：工兵 BFS 穿格 / 绕行 / 拐弯场景（§43/§76/§80-§99 64 位实锤补
+       32↔64 双端对照探针，走 rule_probe_compare.py 路线非 unidbg/frida） =====
+       覆盖 §43 col2 隔断 + 己方子阻断 / §76 绕行可达性 / §80 col2 跨段 / §94
+       col2 同段直走 vs 跨段隔断 / §95 工兵 col2 同段拐弯 / §96 工兵 col0/col4
+       同段拐弯 / §97 工兵 col1/col3 同段拐弯 / §98 row6 全 5 端点同段拐弯——
+       32 位同场景 BFS 穿格行为需双端探针 diff 定案（若 32 位绕行可达性不同则
+       分叉，需运行时定案），64 位实锤为对照基准。 */
+    {
+        /* E1：工兵 col2 纵贯线 row4-7 段同段直走（§94/§95 实锤 64 位 can=1） */
+        probe_clear(&st);
+        st.turn = SIDE_BLUE;
+        probe_put(&st, 4, 2, 9, SIDE_BLUE, 1);     /* 工兵 row4 col2 */
+        PROBE_LOG("RULE-PROBE E1_worker_c2_same_seg CM %d %d = %d",
+                  cell_index(4, 2), cell_index(7, 2),
+                  jq_can_move(&st, cell_index(4, 2), cell_index(7, 2)));
+        /* E2：工兵 col2 纵贯线跨 row3 隔断（§94/§95 实锤 64 位 can=0） */
+        probe_clear(&st);
+        st.turn = SIDE_BLUE;
+        probe_put(&st, 4, 2, 9, SIDE_BLUE, 1);     /* 工兵 row4 col2 */
+        PROBE_LOG("RULE-PROBE E2_worker_c2_cross_row3 CM %d %d = %d",
+                  cell_index(4, 2), cell_index(0, 2),
+                  jq_can_move(&st, cell_index(4, 2), cell_index(0, 2)));
+        /* E3：工兵 col2 纵贯线跨 row8 隔断（§94/§95 实锤 64 位 can=0） */
+        probe_clear(&st);
+        st.turn = SIDE_BLUE;
+        probe_put(&st, 7, 2, 9, SIDE_BLUE, 1);     /* 工兵 row7 col2 */
+        PROBE_LOG("RULE-PROBE E3_worker_c2_cross_row8 CM %d %d = %d",
+                  cell_index(7, 2), cell_index(9, 2),
+                  jq_can_move(&st, cell_index(7, 2), cell_index(9, 2)));
+        /* E4：工兵 col0 非全高纵贯线 row5 全宽横贯线段同段拐弯到 col2（§96
+           实锤 64 位 can=1） */
+        probe_clear(&st);
+        st.turn = SIDE_BLUE;
+        probe_put(&st, 5, 0, 9, SIDE_BLUE, 1);     /* 工兵 row5 col0 */
+        PROBE_LOG("RULE-PROBE E4_worker_c0_to_c2 CM %d %d = %d",
+                  cell_index(5, 0), cell_index(5, 2),
+                  jq_can_move(&st, cell_index(5, 0), cell_index(5, 2)));
+        /* E5：工兵 col4 非全高纵贯线 row5 全宽横贯线段同段拐弯到 col2（§96
+           实锤 64 位 can=1） */
+        probe_clear(&st);
+        st.turn = SIDE_BLUE;
+        probe_put(&st, 5, 4, 9, SIDE_BLUE, 1);     /* 工兵 row5 col4 */
+        PROBE_LOG("RULE-PROBE E5_worker_c4_to_c2 CM %d %d = %d",
+                  cell_index(5, 4), cell_index(5, 2),
+                  jq_can_move(&st, cell_index(5, 4), cell_index(5, 2)));
+        /* E6：工兵 col1 非全高 2 格纵贯线 row5 全宽横贯线段同段拐弯到 col2（§
+           97 实锤 64 位 can=1） */
+        probe_clear(&st);
+        st.turn = SIDE_BLUE;
+        probe_put(&st, 5, 1, 9, SIDE_BLUE, 1);     /* 工兵 row5 col1 */
+        PROBE_LOG("RULE-PROBE E6_worker_c1_to_c2 CM %d %d = %d",
+                  cell_index(5, 1), cell_index(5, 2),
+                  jq_can_move(&st, cell_index(5, 1), cell_index(5, 2)));
+        /* E7：工兵 col3 非全高 2 格纵贯线 row5 全宽横贯线段同段拐弯到 col2（§
+           97 实锤 64 位 can=1） */
+        probe_clear(&st);
+        st.turn = SIDE_BLUE;
+        probe_put(&st, 5, 3, 9, SIDE_BLUE, 1);     /* 工兵 row5 col3 */
+        PROBE_LOG("RULE-PROBE E7_worker_c3_to_c2 CM %d %d = %d",
+                  cell_index(5, 3), cell_index(5, 2),
+                  jq_can_move(&st, cell_index(5, 3), cell_index(5, 2)));
+        /* E8：工兵 row5 全宽横贯线段内绕行穿己方子（§43/§76 实锤 64 位"直线
+           阻断 + 双重阻断绕行不可达"——row5 全宽横贯线段内己方子阻断直滑但绕
+           行可达性双端对照） */
+        probe_clear(&st);
+        st.turn = SIDE_BLUE;
+        probe_put(&st, 5, 0, 9, SIDE_BLUE, 1);     /* 工兵 row5 col0 */
+        probe_put(&st, 5, 2, 1, SIDE_BLUE, 1);     /* 蓝方己方子在 row5 col2（阻断直滑） */
+        PROBE_LOG("RULE-PROBE E8_worker_r5_blocked_own CM %d %d = %d",
+                  cell_index(5, 0), cell_index(5, 4),
+                  jq_can_move(&st, cell_index(5, 0), cell_index(5, 4)));
+        /* E9：工兵 row6 全宽横贯线段绕己方子到 col4 端（§98 row6 全 5 端点 +
+           §43/§76 绕行可达性双端对照——若 32 位工兵 BFS 绕行可达则 32/64 分叉
+           ） */
+        probe_clear(&st);
+        st.turn = SIDE_BLUE;
+        probe_put(&st, 6, 0, 9, SIDE_BLUE, 1);     /* 工兵 row6 col0 */
+        probe_put(&st, 6, 2, 1, SIDE_BLUE, 1);     /* 蓝方己方子在 row6 col2 */
+        PROBE_LOG("RULE-PROBE E9_worker_r6_around_to_c4 CM %d %d = %d",
+                  cell_index(6, 0), cell_index(6, 4),
+                  jq_can_move(&st, cell_index(6, 0), cell_index(6, 4)));
     }
 
     PROBE_LOG("RULE-PROBE DONE");
