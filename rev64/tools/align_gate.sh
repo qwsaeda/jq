@@ -10,6 +10,8 @@
 #   ④ dark_align_regress.sh          —— 暗棋对齐桌面回归（0 设备依赖）+ **判据自检**
 #   ⑤ make benchcheck                —— 走子桥 8 步文件基准新鲜（§103 基准过期防线）
 #   ⑥ rule_probe_compare.py --offline —— 64 位探针基线可跑（32 位设备项需 --dev）
+#   ⑦ event_names_alignment_check.py —— 事件名逐名对齐（原版 .rodata 73 名）
+#   ⑧ sfx_coverage_check.py          —— 73 事件名→evt55_sfx 键→14 WAV 三层覆盖（R8-B-16 落地）
 # 用法：
 #   bash rev64/tools/align_gate.sh                # 全跑（桌面层，0 设备依赖）
 #   bash rev64/tools/align_gate.sh --dev 10.0.182.146:5555   # 附加 32↔64 双端对照
@@ -47,6 +49,7 @@ run_gate "③ 布局几何 Δ=0" python3 "$WS/rev64/tools/layout_align_check.py"
 run_gate "④ 暗棋对齐回归 + 判据自检" bash "$RS/dark_align/dark_align_regress.sh"
 run_gate "⑤ 走子桥 8 步基准新鲜" make benchcheck
 run_gate "⑦ 事件名逐名对齐（原版 .rodata 73 名）" python3 "$WS/rev64/tools/event_names_alignment_check.py"
+run_gate "⑧ sfx 73名→14WAV 覆盖（R8-B-16/R7-B-16 落地）" python3 "$WS/rev64/tools/sfx_coverage_check.py"
 if [ -n "$DEV" ]; then
   run_gate "⑥ 32↔64 双端探针对照" python3 "$WS/rev64/tools/rule_probe_compare.py" --dev "$DEV"
 else
