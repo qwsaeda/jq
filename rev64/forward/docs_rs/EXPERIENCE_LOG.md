@@ -6878,3 +6878,46 @@ jq_rs_rules.c 注释定论。
   ④ 双源基准（test_expected.txt vs C 内嵌 BENCH_EXPECT）必须同步断言 + 负向验证
   （防"改一侧忘另一侧"假绿）⑤ 矩阵统计正则必须与被统计代码的实际判据形态同源
   （evverify 无 chk/assert 关键字 = 旧正则恒 0 失真的防复发判据）。
+
+## 2026-11-16 R8 对齐对抗审计（AUD_ALIGN_R8：蓝牙 RESTART 字段 + 事件单一入口 + 触摸几何统一 + 全仓漂移归零）
+
+> 台账：`rev64/forward/audit/r4/AUD_ALIGN_R8.md`（149 条回执：C 23 / B 21 / F 52 / G 53；
+> 4 路子代理 + 会话自跑主攻 C/B/F 高价值；提交 062e278/ffe570a/389a1ba/d050cfe/e5e7dc6）。
+
+- **★ R8-C RESTART mode+host_is_blue 帧字段（062e278）**：f2=mode/f3=host_is_blue
+  帧权威（999=v2 兼容回退）+ DISCONNECTED 放行会话恢复（B04-012 闸口仅拒数据帧）+
+  jni_bridge 11 调用点带参；bt_semtest §5b 新增 5 断言 = 93/93 基线。
+  **探针实锤坑**：on_frame 形参 f1=type（旧误设"字段在 f1/f2" → rst_mode=5 REJECT）→
+  数据槽位 f2/f3 定案——**协议字段槽位必须对照 encode 调用序实锤，防想当然**。
+- **★ R8-B 事件单一入口（d050cfe）**：by_name + 名级 code 覆盖表（DrawAgree→26/
+  Disagree→27 诊断 0 漂移）+ _checked 拒计数 + Σ 不变量哨兵（evverify end-of-run）
+  + count-only 17 调用点收敛（双计审计 0）；align_gate 升 8/8（⑧ sfx_coverage_check
+  三层矩阵 73 名→14 键→WAV + 兜底 58 + 不可达白名单 5，负向验证删 WAV→FAIL 实锤）。
+  **解析口径坑 4 连**（sfx 门禁静态解析族，防复发判据）：① 名表捕获 `};` 非贪婪越
+  首个闭合误吞 12 码分组区 → `^};` + 行级 `",` 收尾（注释体旧形态串误收根因）
+  ② sfx_wav 14 键 if 多空格对齐 `")   )` 双右括号形态 → 单括号正则恒 0 命中
+  ③ evt55_sfx 形态 2 多名串 `||` 族 `[^)]*` 非贪婪在 strcmp 闭括号即停 → `[^;]*` 全捕获
+  ④ L2 判据 basename（SFX_DIR 宏拼接 artifact 前导 /）。
+- **★ R8-F 触摸几何单一事实源（e5e7dc6）**：view_to_base() helper + **119 处旧式
+  独立 x/y 缩放清零**（grep 残留 0）；16:9 等价性实锤（720×1280 Δ=0 门禁 0 退化）；
+  20:9 全面屏触摸错位根因修正（letterbox 同几何）。
+- **★ R8-G 全仓数字漂移归零（389a1ba）**：PIPELINE 168/169→172 / RISK_LEDGER 19/20
+  →36 case / EXPERIENCE_LOG 2130/2174 快照标注 / 工具 N/N 泛化 / AGENTS R{1..7} 同步 +
+  复扫 0 漏网。
+- **★ 门禁基线（R8 全绿）**：align_gate 8/8（新 ⑧）+ dark_align 86/86 + evverify 172/172
+  （Σ 哨兵）+ bt_semtest 93/93 + 漂移复扫 0。
+- **★ 设备侧 PENDING（诚实边界）**：红果 10.0.182.146 装机后 adb 断连（No route to
+  host，主机侧网络中断非设备崩溃）——权威 5 判据挂起；so 哈希链 c5112d34 工作树
+  （phase3 重打装机 Success 实锤 + 设备端解压 so 97d26a4c ≠ 工作树 = 旧包残留根因，
+  已 pm uninstall 重装待设备恢复后复验）。
+- **R9 主攻输入（回执设计未落地防抢跑）**：① F-16/17/18 GL 资源泄漏 8 项纹理释放表
+  补齐（rebuild/free 三表统一）+ F-01/02 UI 渲染 piece-tex 门控解耦 ② C v3 完整协议
+  （UNDO REQ-ACK-NACK + seq 幂等 + 原子复位集 + bt_apply_terminal + BtSpp 双栈 +
+  bt_semtest_dual 12 用例 + 88→36 条基线同步）③ B 余量（ev7 一致性 assert +
+  jq.event_inv 设备钩子 + (biz,sub) 双键需 32 位证据再开）④ G 工具（矩阵时间戳/
+  新鲜度 + 门禁失败分级 + mumu_regress 默认设备统一）。
+- **教训固化**：① 协议字段槽位对照 encode 调用序实锤（f1=type 探针 REJECT 实证）
+  ② 静态解析正则必须与实际代码形态实锤同源（sfx 4 连坑全为形态假设错误）
+  ③ 全仓 grep 命中数 ≠ 调用点数（238 vs 119，2 行配对形态才是真调用点）
+  ④ 大改动先 git checkout 恢复再精确替换（B 批首次 4 处旁路替换截断 2 行被 abort 的
+  教训——sed/python 整段替换前实锤 old 文本完整性）。
