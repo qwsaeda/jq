@@ -45,6 +45,13 @@ typedef struct {
        partial）；收 v3 帧置 1 + caps_locked=1 → 发端 encode_v3（双端 v3 互通）。 */
     unsigned char peer_caps_v3;   /* 0=未知/仅 v2, 1=已确认对端 v3（收帧触发） */
     unsigned char caps_locked;    /* 1=会话内锁定（升 v3 后不降级），防混帧翻转 */
+    /* ★ R13-②（P0 session_epoch 在途旧帧强防护，R12 回执③ §4 N4/N5 窗口污染闭合）：
+       会话世代。v3 帧 wire_ref 高 16 位承载 session_epoch（低 16 位 = 业务 ref_lo，
+       UNDO req seq 回显位）；收端 on_frame_v3 前置 epoch 校验，不匹配=跨会话残帧拒收
+       （不登记 rx_last_seq，闭合 N5 旧高 seq 残帧污染新会话窗口）。init/重连单调 ++
+       （不复用，防重连循环同 epoch 误放行）；0=v2-only/legacy 哨兵（跳过校验 0 退化）。 */
+    unsigned short session_epoch;  /* 本端会话世代（init/重连 ++，重连不复用旧值） */
+    unsigned short peer_epoch;     /* 对端宣告世代（首帧建档；0=未知/v2-only） */
 } jq_bt_session;
 
 /* UNDO 请求-应答 rc 哨兵（jq_bt_session_on_frame 返回值扩展，R9-C）：

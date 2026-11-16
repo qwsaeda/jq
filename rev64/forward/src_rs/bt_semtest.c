@@ -828,6 +828,66 @@ int main(void)
               "R12 N8：重连清能力位（防残留 v3 锁定误发）");
     }
 
+    /* =====================================================================
+     * §11. R13-② session_epoch 在途旧帧强防护（wire_ref 高 16 位 = 会话世代）
+     * wire_ref = (epoch<<16)|ref_lo；收端拆 fep/ref_lo，不匹配拒收不污染窗口
+     * ===================================================================== */
+    printf("[§11] R13-② session_epoch 在途旧帧强防护\n");
+    {
+        #define EPREF(ep, rlo) ((((unsigned)(ep)) << 16) | ((rlo) & 0xFFFFu))
+        /* E1：重连 init epoch=1，同会话帧（EPREF(1,0)）匹配放行 + 登记 */
+        jq_state stE; fixture_play(&stE);
+        jq_bt_session sE; memset(&sE, 0, sizeof sE);   /* 模拟 g_bt_sess 静态零初始化语义 */
+        jq_bt_session_init(&sE, &stE, 1);   /* 首连 prev=0 → epoch=1 */
+        CHECK(sE.session_epoch == 1, "R13 E1a：首连 init session_epoch=1（prev=0→1）");
+        sE.state = BT_ST_CONNECTED;
+        int e1 = jq_bt_session_on_frame_v3(&sE, &stE, BT_T_DRAW, 1, EPREF(1,0), 0,0,0,0,0,0);
+        CHECK(e1 == 0 && sE.rx_last_seq == 1 && sE.peer_epoch == 1,
+              "R13 E1b：同会话帧（fep=1 匹配）放行 + 登记 + peer_epoch 建档");
+        /* E2：跨会话旧 epoch（fep=0 之外的旧值）——模拟重连后 epoch=2，旧帧 fep=1 拒收 */
+        sE.rx_last_seq = 0;   /* 重连窗口清 */
+        sE.session_epoch = 2; sE.peer_epoch = 0;   /* 模拟重连 ++ 到 2 */
+        int e2 = jq_bt_session_on_frame_v3(&sE, &stE, BT_T_DRAW, 500, EPREF(1,0), 0,0,0,0,0,0);
+        CHECK(e2 == -1 && sE.rx_last_seq == 0,
+              "R13 E2：旧 epoch(fep=1)≠新会话(session_epoch=2) 高 seq=500 残帧拒收 -1 不污染窗口（N5 闭合）");
+        /* E2b：新会话帧（fep=2）放行 */
+        sE.state = BT_ST_CONNECTED;
+        int e2b = jq_bt_session_on_frame_v3(&sE, &stE, BT_T_DRAW, 1, EPREF(2,0), 0,0,0,0,0,0);
+        CHECK(e2b == 0 && sE.rx_last_seq == 1,
+              "R13 E2b：新会话帧（fep=2 匹配）正常放行（N5 旧高 seq 残帧不再堵新会话）");
+        /* E3：v2 帧 fep=0（wire_ref=0）0 退化跳过 epoch 校验 */
+        sE.rx_last_seq = 0; sE.state = BT_ST_CONNECTED;
+        int e3 = jq_bt_session_on_frame_v3(&sE, &stE, BT_T_DRAW, 0, 0, 0,0,0,0,0,0);
+        CHECK(e3 == 0, "R13 E3：v2 帧（fep=0/wire_ref=0）0 退化跳过 epoch 校验（v2-only partial）");
+        /* E4：重连 init epoch 单调 ++（不复用） */
+        jq_state stE4; fixture_play(&stE4);
+        jq_bt_session sE4; memset(&sE4, 0, sizeof sE4);
+        jq_bt_session_init(&sE4, &stE4, 1);
+        unsigned short e4a = sE4.session_epoch;   /* 首连 =1 */
+        jq_bt_session_init(&sE4, &stE4, 0);       /* 重连 */
+        unsigned short e4b = sE4.session_epoch;
+        CHECK(e4a == 1 && e4b == 2 && sE4.peer_epoch == 0,
+              "R13 E4：重连 init epoch 单调 1→2（不复用旧值，防重连循环同 epoch 误放行）");
+        /* E5：UNDO ACK ref_lo 保真（EPREF(epoch, req_seq) 拆后低 16 位 = req seq） */
+        jq_state stE5; fixture_play(&stE5);
+        jq_bt_session sE5; jq_bt_session_init(&sE5, &stE5, 0);
+        sE5.state = BT_ST_CONNECTED; sE5.session_epoch = 1; sE5.peer_epoch = 1;
+        sE5.undo_pending = 1; sE5.pending_seq = 5;
+        int e5 = jq_bt_session_on_frame_v3(&sE5, &stE5, BT_T_UNDO, 5, EPREF(1, 5), 0,0,0,0,0,0);
+        CHECK(e5 == 0 && sE5.undo_pending == 0 && sE5.pending_seq == 0,
+              "R13 E5：UNDO ACK（wire_ref=EPREF(1,5)）拆 ref_lo=5 清 pending（R11 UNDO 位保留 + epoch 高位不破坏）");
+        /* E6：RESTART epoch 推进（档 B，同连接新局世代前移） */
+        jq_state stE6; fixture_play(&stE6);
+        jq_bt_session sE6; jq_bt_session_init(&sE6, &stE6, 1);
+        sE6.state = BT_ST_OUR_TURN; sE6.session_epoch = 1; sE6.peer_epoch = 1;
+        unsigned short e6a = sE6.session_epoch;
+        int e6 = jq_bt_session_on_frame_v3(&sE6, &stE6, BT_T_RESTART, 1, EPREF(1,0), 999, 1, 0,0,0,0);
+        CHECK(e6 == 0 && sE6.session_epoch == (e6a + 1) && sE6.peer_epoch == sE6.session_epoch
+              && sE6.rx_last_seq == 0,
+              "R13 E6：RESTART 成功 epoch 推进 1→2 + peer_epoch 同步 + 窗口复位（档 B 同连接新局隔离）");
+        #undef EPREF
+    }
+
     printf(rc ? "== bt_semtest 结果: 有失败（%d 条通过）==\n"
               : "=== bt_semtest 全量 %d 条 PASS ===\n", n_pass);
     return rc;

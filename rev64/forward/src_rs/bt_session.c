@@ -31,7 +31,13 @@ static int frame_coord_ok(int fc, int fr, int tc, int tr)
 void jq_bt_session_init(jq_bt_session *s, const jq_state *st, int we_blue)
 {
     if (!s) return;
+    /* ★ R13-②：epoch 单调不复用——memset 前保存旧值，memset 后推进（重连/新会话
+       边界 ++，0xFFFF 回绕跳 0；0 保留哨兵给 v2-only/未建）。首连 prev=0→1。 */
+    unsigned short prev_epoch = s->session_epoch;
     memset(s, 0, sizeof(*s));
+    s->session_epoch = (prev_epoch == 0) ? 1 : (unsigned short)(prev_epoch + 1);
+    if (s->session_epoch == 0) s->session_epoch = 1;   /* 0xFFFF->0 回绕修正 */
+    s->peer_epoch = 0;
     s->state    = BT_ST_CONNECTED;
     s->we_blue  = we_blue;
     s->peer_state = *st;
@@ -50,7 +56,8 @@ int jq_bt_session_on_frame(jq_bt_session *s, jq_state *st,
        数据帧（MOVE/FLIP/UNDO/SYNC_CELL/SYNC）拒收；RESTART/RESIGN 放行。 */
     if (s->state == BT_ST_DISCONNECTED &&
         f1 != BT_T_RESTART && f1 != BT_T_RESIGN &&
-        f1 != BT_T_DRAW && f1 != BT_T_CHAT)   /* ★ R6-C-03/09：DRAW/CHAT 合法消费（会话态可提和/聊天，数据帧仍拒） */
+        f1 != BT_T_DRAW && f1 != BT_T_CHAT &&
+        f1 != BT_T_CAP)   /* ★ R6-C-03/09 + R13：DRAW/CHAT/CAP 合法消费（CAP 握手穿透终态，数据帧仍拒） */
         return -2;
     switch (f1) {
     case BT_T_MOVE: {
@@ -290,6 +297,18 @@ int jq_bt_session_on_frame(jq_bt_session *s, jq_state *st,
            帧合法消费保证双端会话态不因此拒收发散）。 */
         s->last_type = f1;
         return 0;
+    case BT_T_CAP:
+        /* ★ R13：能力协商握手帧（显式 CAP，连接确认后发 1 次）。on_frame 形参映射
+           f1=type，f2..=数据域：f2=cap_ver，f3=cap_mask。仅升档能力位 + 记 last_type，
+           不改棋局/stage/turn/state（与 DRAW/CHAT 同"不改棋局"语义）；允许 DISCONNECTED
+           白名单穿透（重连/断连后重握手仅升档能力位）。双路升档同源：显式 CAP 置位 +
+           on_frame_v3 被动(seq>0,rc>=0)置位，幂等收敛。f2>=1 且 f3&JQ_BT_CAP_V3 才升。 */
+        s->last_type = f1;
+        if (f2 >= 1 && (f3 & JQ_BT_CAP_V3)) {
+            s->peer_caps_v3 = 1;
+            s->caps_locked  = 1;
+        }
+        return 0;
     default:
         return -1;
     }
@@ -315,6 +334,18 @@ int jq_bt_session_on_frame_v3(jq_bt_session *s, jq_state *st,
                                int f4, int f5, int f6)
 {
     if (!s || !st) return -1;
+    /* ★ R13-②（P0 session_epoch 在途旧帧强防护，N5 窗口污染闭合）：v3 帧 wire_ref
+       高 16 位 = session_epoch，低 16 位 = 业务 ref_lo（UNDO req seq 回显位）。
+       收端拆包 + 前置 epoch 校验（先于 seq 判重，跨会话残帧即便 seq 碰巧落窗也拒收）：
+       · fep==0 → 跳过校验（v2-only/legacy 归一化 0 退化，与 R11/R12 seq 窗口一致）
+       · fep>0 且 session_epoch>0 且 fep!=session_epoch → 跨会话/旧在途残帧拒收 -1
+       · 匹配 → peer_epoch 首帧建档 + 继续 seq 判重/业务链 */
+    unsigned short fep    = (unsigned short)(ref >> 16);
+    unsigned int   ref_lo = ref & 0xFFFFu;
+    if (fep > 0 && s->session_epoch > 0 && fep != s->session_epoch)
+        return -1;   /* 跨会话残帧（旧 epoch）：拒收，不登记窗口/不执行业务（N5 闭合） */
+    if (fep > 0 && s->peer_epoch == 0)
+        s->peer_epoch = fep;   /* 首帧建档对端世代（同会话后续恒匹配） */
     /* ① 前置全局判重（仅 seq>0 参与；v2-only/legacy 归一化 seq=0 跳过 = 0 退化） */
     int rc;
     /* 重复帧预检（UNDO 豁免：case 内自行判重/缓存） */
@@ -323,12 +354,12 @@ int jq_bt_session_on_frame_v3(jq_bt_session *s, jq_state *st,
         return 0;   /* 全 type 重复帧：静默丢弃（不执行业务） */
     if (seq > 0 && s->rx_last_seq > 0 && seq < s->rx_last_seq)
         return -1;  /* 旧包/乱序（uint 单调窗口，回绕外） */
-    /* ② 映射回旧 7 字段。UNDO 型：归一化独立槽 seq/ref 填旧数据域 f2/f3（R9 UNDO case
-       读 f2=seq/f3=ref/f4=hash|reason/f5=kind），f4..f6 取归一化 f1/f2/f3；
+    /* ② 映射回旧 7 字段。UNDO 型：归一化独立槽 seq/ref_lo 填旧数据域 f2/f3
+       （★ R13-②：ref 改用 ref_lo 拆掉 epoch 高位，R11 UNDO req seq 回显位保留）；
        非 UNDO 型：归一化 f1..f6 直通旧 f2..f7（数据域同义）。 */
     if (type == BT_T_UNDO)
         rc = jq_bt_session_on_frame(s, st, type,
-                                     (int)seq, (int)ref, f1, f2, f3, 0);
+                                     (int)seq, (int)ref_lo, f1, f2, f3, 0);
     else
         rc = jq_bt_session_on_frame(s, st, type, f1, f2, f3, f4, f5, f6);
     /* ★ R11-C Step6（能力探测）：成功收 v3 帧（seq>0，非 v2 归一化的 0）→ 升对端
@@ -355,6 +386,10 @@ int jq_bt_session_on_frame_v3(jq_bt_session *s, jq_state *st,
             s->legacy_undo_done = 0;
             s->peer_caps_v3 = 0;   /* ★ R11-C Step6：新会话能力边界（跨局 v3 锁定残留防误发 v3） */
             s->caps_locked = 0;
+            /* ★ R13-②：RESTART 同连接新局边界 epoch 推进（档 B，旧局在途帧旧 epoch 拒收） */
+            s->session_epoch = (unsigned short)(s->session_epoch + 1);
+            if (s->session_epoch == 0) s->session_epoch = 1;
+            s->peer_epoch = s->session_epoch;   /* 双端同收 RESTART 镜像推进 */
         } else if (seq > 0) {
             s->rx_last_seq = seq;   /* 逐 case 登记（MOVE/FLIP/SYNC_CELL/SYNC/RESIGN/DRAW/CHAT/UNDO） */
         }

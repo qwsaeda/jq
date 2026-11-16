@@ -166,6 +166,120 @@ int main(void)
         g_bt_undo_avail = 0;
     }
 
+    /* =====================================================================
+     * [S1m] MOVE 双端一致性（v3 MOVE + B 落子 + cells 同步；cell_col/row 合法域）
+     * ===================================================================== */
+    printf("[S1m] MOVE 双端一致性（v3 MOVE seq 独立 + B 落子 + cells 同步）\n");
+    {
+        jq_state stA, stB; fixture_play(&stA); fixture_play(&stB);
+        jq_bt_session sA, sB;
+        jq_bt_session_init(&sA, &stA, 1);
+        jq_bt_session_init(&sB, &stB, 0);
+        sA.state = BT_ST_OUR_TURN; sB.state = BT_ST_THEIR_TURN;
+        int from=-1, to=-1;
+        CHECK(find_blue_move(&stA, &from, &to) == 1,
+              "S1m-0：夹具取蓝方合法走子（find_blue_move）");
+        int fc=cell_col(from), fr=cell_row(from), tc=cell_col(to), tr=cell_row(to);
+        CHECK(fc>=0&&fc<5&&fr>=0&&fr<12&&tc>=0&&tc<5&&tr>=0&&tr<12,
+              "S1m-1：MOVE 坐标域 frame_coord_ok（col<5/row<12，经 cell_col/row 映射）");
+        jq_state stA_post = stA;
+        int mr = jq_try_move(&stA_post, from, to);
+        CHECK(mr >= 0, "S1m-2：发端本地 jq_try_move 合法落子（rc>=0）");
+        unsigned int seqA = ++sA.tx_seq; sA.tx_last_seq = seqA;
+        int rB = a_to_b(&sB, &stB, BT_T_MOVE, seqA, 0, fc, fr, tc, tr,
+                        stA.cells[to].rank, stA.cells[to].side);
+        CHECK(rB == 0 && sB.rx_last_seq == seqA && sB.peer_caps_v3 == 1,
+              "S1m-3：B 收 v3 MOVE(seq=1) 接受 + 登记 rx_last_seq + 升档");
+        CHECK(memcmp(stB.cells, stA_post.cells, sizeof(stB.cells)) == 0
+              && sB.state == BT_ST_OUR_TURN,
+              "S1m-4：双端 cells 同步一致（B==A 走子后视图，state=OUR_TURN）");
+    }
+
+    /* [S2m] seq 双向独立单调完整矩阵 */
+    printf("[S2m] seq 双向独立单调完整矩阵\n");
+    {
+        jq_state stA, stB; fixture_play(&stA); fixture_play(&stB);
+        jq_bt_session sA, sB;
+        jq_bt_session_init(&sA, &stA, 1); jq_bt_session_init(&sB, &stB, 0);
+        sA.state = sB.state = BT_ST_CONNECTED;
+        CHECK(a_to_b(&sB,&stB,BT_T_DRAW,1,0,0,0,0,0,0,0)==0 && sB.rx_last_seq==1, "S2m-1：B 收 A seq=1 登记");
+        CHECK(a_to_b(&sB,&stB,BT_T_DRAW,2,0,0,0,0,0,0,0)==0 && sB.rx_last_seq==2, "S2m-2：B 收 A seq=2 单调推进");
+        CHECK(a_to_b(&sB,&stB,BT_T_DRAW,3,0,0,0,0,0,0,0)==0 && sB.rx_last_seq==3, "S2m-3：B 收 A seq=3 单调推进");
+        /* seq=2 < rx=3 走旧包拒收分支（非重复==，2≠3）→ -1 */
+        CHECK(a_to_b(&sB,&stB,BT_T_DRAW,2,0,0,0,0,0,0,0)==-1 && sB.rx_last_seq==3, "S2m-4：B 收 seq=2<rx=3 旧包拒 -1（窗口不回退）");
+        CHECK(a_to_b(&sB,&stB,BT_T_DRAW,1,0,0,0,0,0,0,0)==-1 && sB.rx_last_seq==3, "S2m-5：B 收旧包 seq=1<3 拒 -1");
+        sB.tx_seq=1; sB.tx_last_seq=1;
+        CHECK(a_to_b(&sA,&stA,BT_T_DRAW,1,0,0,0,0,0,0,0)==0 && sA.rx_last_seq==1 && sB.tx_seq==1, "S2m-6：双向独立 seq 空间（A.rx=1 与 B.tx=1 不冲突）");
+        CHECK(a_to_b(&sA,&stA,BT_T_DRAW,2,0,0,0,0,0,0,0)==0 && sA.rx_last_seq==2 && sB.rx_last_seq==3, "S2m-7：A/B 双向推进互不干扰");
+    }
+
+    /* [S3m] 能力探测完整矩阵 */
+    printf("[S3m] 能力探测完整矩阵\n");
+    {
+        jq_state stA, stB; fixture_play(&stA); fixture_play(&stB);
+        jq_bt_session sA, sB;
+        jq_bt_session_init(&sA, &stA, 1); jq_bt_session_init(&sB, &stB, 0);
+        sA.state = sB.state = BT_ST_CONNECTED;
+        CHECK(a_to_b(&sB,&stB,BT_T_DRAW,1,0,0,0,0,0,0,0)==0 && sB.peer_caps_v3==1 && sB.caps_locked==1, "S3m-1：B 收 v3 升档 peer_caps_v3 + caps_locked");
+        CHECK(sB.peer_caps_v3==1, "S3m-2：B 升档后发端 use_v3=peer_caps_v3==1（encode_v3 镜像）");
+        CHECK(a_to_b(&sB,&stB,BT_T_DRAW,2,0,0,0,0,0,0,0)==0 && sB.caps_locked==1, "S3m-3：升档后再收 v3 能力位保持（会话内锁定）");
+        CHECK(a_to_b(&sB,&stB,BT_T_DRAW,0,0,0,0,0,0,0,0)==0 && sB.peer_caps_v3==1, "S3m-4：升档后收 v2(seq=0) 不降级（锁定保持）");
+        sB.state = BT_ST_OUR_TURN;
+        CHECK(a_to_b(&sB,&stB,BT_T_RESTART,3,0,999,1,0,0,0,0)==0 && sB.peer_caps_v3==0 && sB.caps_locked==0, "S3m-5：RESTART 清能力位（边界复位）");
+        sB.state = BT_ST_CONNECTED;
+        CHECK(a_to_b(&sB,&stB,BT_T_DRAW,1,0,0,0,0,0,0,0)==0 && sB.peer_caps_v3==1, "S3m-6：RESTART 后新会话可重新升档");
+        CHECK(sA.peer_caps_v3==0, "S3m-7：未收 v3 帧发端 peer_caps_v3=0（encode_v2 0 退化镜像）");
+    }
+
+    /* [S5m] UNDO 跨实例全链 */
+    printf("[S5m] UNDO 跨实例全链（REQ/ACK/NACK/DUP）\n");
+    {
+        jq_state stA, stB; fixture_play(&stA); fixture_play(&stB);
+        jq_bt_session sA, sB;
+        jq_bt_session_init(&sA, &stA, 1); jq_bt_session_init(&sB, &stB, 0);
+        sA.state = sB.state = BT_ST_CONNECTED; sB.state = BT_ST_THEIR_TURN;
+        g_bt_undo_avail = 1;
+        sA.undo_pending=1; sA.pending_seq=10; sA.tx_seq=10;
+        CHECK(a_to_b(&sB,&stB,BT_T_UNDO,10,0,0,0,0,0,0,0)==JQ_BT_RC_UNDO_REQ_OK && sB.last_req_seq==10, "S5m-1：B 收 UNDO_REQ(seq=10) REQ_OK + 登记");
+        CHECK(a_to_b(&sA,&stA,BT_T_UNDO,10,10,0,0,0,0,0,0)==0 && sA.undo_pending==0, "S5m-2：A 收 UNDO_ACK(ref=10) 清 pending");
+        sB.state = BT_ST_THEIR_TURN;
+        CHECK(a_to_b(&sB,&stB,BT_T_UNDO,10,0,0,0,0,0,0,0)==JQ_BT_RC_UNDO_REQ_DUP, "S5m-3：B 重放 UNDO_REQ seq=10 REQ_DUP");
+        g_bt_undo_avail = 0; sB.state = BT_ST_THEIR_TURN; sB.last_req_seq = 0;
+        CHECK(a_to_b(&sB,&stB,BT_T_UNDO,11,0,0,0,0,0,0,0)==-3, "S5m-4：B 栈空 UNDO_REQ → -3（NACK 栈空）");
+        g_bt_undo_avail = 1; sB.state = BT_ST_OUR_TURN; sB.last_req_seq = 0;
+        CHECK(a_to_b(&sB,&stB,BT_T_UNDO,12,0,0,0,0,0,0,0)==-2, "S5m-5：B 回合不符 UNDO_REQ → -2（NACK 回合）");
+        g_bt_undo_avail = 0;
+    }
+
+    /* [S6m] 去重与 UNDO 协同边界 */
+    printf("[S6m] 去重与 UNDO 协同边界\n");
+    {
+        jq_state stA, stB; fixture_play(&stA); fixture_play(&stB);
+        jq_bt_session sA, sB;
+        jq_bt_session_init(&sA, &stA, 1); jq_bt_session_init(&sB, &stB, 0);
+        sA.state = sB.state = BT_ST_CONNECTED; sB.state = BT_ST_THEIR_TURN;
+        g_bt_undo_avail = 1;
+        CHECK(a_to_b(&sB,&stB,BT_T_UNDO,5,0,0,0,0,0,0,0)==JQ_BT_RC_UNDO_REQ_OK && sB.rx_last_seq==5, "S6m-1：UNDO REQ seq=5 REQ_OK + 窗口登记");
+        sB.state = BT_ST_THEIR_TURN;
+        CHECK(a_to_b(&sB,&stB,BT_T_UNDO,5,0,0,0,0,0,0,0)==JQ_BT_RC_UNDO_REQ_DUP, "S6m-2：UNDO REQ 重放豁免预检直达 case");
+        CHECK(a_to_b(&sB,&stB,BT_T_DRAW,5,0,0,0,0,0,0,0)==0 && sB.rx_last_seq==5, "S6m-3：非 UNDO 重复 seq=5 静默丢弃");
+        CHECK(a_to_b(&sB,&stB,BT_T_DRAW,4,0,0,0,0,0,0,0)==-1 && sB.rx_last_seq==5, "S6m-4：旧包 seq=4<5 拒 -1");
+        sB.state = BT_ST_THEIR_TURN;
+        CHECK(a_to_b(&sB,&stB,BT_T_UNDO,4,0,0,0,0,0,0,0)==-1, "S6m-5：UNDO 旧包 seq=4<rx 拒 -1（旧包判定先于豁免）");
+        g_bt_undo_avail = 0;
+    }
+
+    /* [S7m] v2/v3 混帧同对射交错 */
+    printf("[S7m] v2/v3 混帧同对射交错\n");
+    {
+        jq_state stB; fixture_play(&stB);
+        jq_bt_session sB; jq_bt_session_init(&sB, &stB, 0);
+        sB.state = BT_ST_CONNECTED;
+        CHECK(a_to_b(&sB,&stB,BT_T_DRAW,1,0,0,0,0,0,0,0)==0 && sB.rx_last_seq==1 && sB.peer_caps_v3==1, "S7m-1：交错首帧 v3 升档 + 登记");
+        CHECK(a_to_b(&sB,&stB,BT_T_DRAW,0,0,0,0,0,0,0,0)==0 && sB.peer_caps_v3==1 && sB.rx_last_seq==1, "S7m-2：v2(seq=0) 消费但不升档/不推进窗口");
+        CHECK(a_to_b(&sB,&stB,BT_T_DRAW,2,0,0,0,0,0,0,0)==0 && sB.rx_last_seq==2, "S7m-3：v2 插入后 v3 seq=2 单调推进");
+    }
+
     printf(rc ? "== bt_semtest_dual 结果: 有失败（%d 条通过）==\n"
               : "=== bt_semtest_dual 全量 %d 条 PASS ===\n", n_pass);
     return rc;

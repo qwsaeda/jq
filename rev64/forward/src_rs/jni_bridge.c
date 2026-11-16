@@ -572,6 +572,35 @@ static void jq_bt_send(JNIEnv *env, const char *frame)
    修：所有 jq_restart_game() 调用点后统一调本 helper（内部判 ui_bt_active/
    g_bt_sess_init_done → 非联机态零开销）。 */
 
+/* ★ R13：CAP 显式握手帧（v3-only，连接确认后发 1 次；host/client 各发）。
+   主动宣告本端 v3 能力，**不依赖 peer_caps_v3**（对端未知时仍必须能发 v3 CAP，
+   否则双方互等对端先发 v3 → 永不升档死锁）。seq 取号走全局 tx 窗口（g_mutex 内）；
+   发端不自升 peer_caps_v3（升档仅收端：显式 CAP case / 被动 v3 业务帧）。
+   调用契约：调用方须已持 g_mutex（内部不 lock，防嵌套死锁；收帧段懒 init 处已 lock）。
+   强制 encode_v3（不看 peer_caps_v3）——CAP 本身即 v3 帧。 */
+static void jq_bt_send_cap(JNIEnv *env)
+{
+    /* ★ R13：调用方须已持 g_mutex（收帧段懒 init 处已 lock）——本函数内部不再
+       lock（防嵌套死锁）；jq_bt_send 本身锁外发 Java 帧（既有范式，:10281 锁外）。 */
+    if (!env) return;
+    char tb[BT_BUF];
+    unsigned int seq = 0;
+    if (g_bt_sess_init_done) {
+        seq = ++g_bt_sess.tx_seq;
+        g_bt_sess.tx_last_seq = seq;
+    }
+    if (seq == 0) return;
+    int n = jq_bt_frame_encode_v3(tb, sizeof tb, BT_T_CAP, seq, 0u,
+                                  JQ_BT_CAP_VER, (int)JQ_BT_CAP_V3, 0, 0, 0, 0);
+    if (n > 0) {
+        if (n >= BT_BUF) n = BT_BUF - 1;
+        tb[n] = 0;
+        jq_bt_send(env, tb);
+        LOGI("蓝牙联机 CAP 握手帧：seq=%u ver=%d mask=0x%x len=%d（R13 显式宣告 v3）",
+             seq, JQ_BT_CAP_VER, (int)JQ_BT_CAP_V3, n);
+    }
+}
+
 /* ★ 蓝牙控制帧（UNDO/RESTART）：BT 模式下 ☰ 悔棋/重开 → 编帧 → jq_bt_send。
    帧 type 走 bt_protocol 枚举；控制帧不受回合闸口（OUR_TURN 发送守卫仅走子/翻棋）。 */
 static void jq_bt_ctrl_send(JNIEnv *env, int type, int f1, int f2){
@@ -585,16 +614,19 @@ static void jq_bt_ctrl_send(JNIEnv *env, int type, int f1, int f2){
        取号+能力位快照在 g_mutex 内（与收帧 on_frame_v3 同锁域，防 tx_seq 数据竞争）。 */
     unsigned int seq = 0;
     int use_v3 = 0;
+    unsigned short my_ep = 0;
     pthread_mutex_lock(&g_mutex);
     if (g_bt_sess_init_done) {
         seq = ++g_bt_sess.tx_seq;
         g_bt_sess.tx_last_seq = seq;
         use_v3 = g_bt_sess.peer_caps_v3;
+        my_ep = g_bt_sess.session_epoch;   /* ★ R13-②：v3 帧携带本端会话世代（wire_ref 高 16 位） */
     }
     pthread_mutex_unlock(&g_mutex);
     int n;
+    unsigned int wire_ref = ((unsigned int)my_ep << 16);   /* ref_lo=0（非 UNDO 应答帧） */
     if (use_v3)
-        n = jq_bt_frame_encode_v3(tb, sizeof tb, type, seq, 0, f1, f2, 0, 0, 0, 0);
+        n = jq_bt_frame_encode_v3(tb, sizeof tb, type, seq, wire_ref, f1, f2, 0, 0, 0, 0);
     else
         n = jq_bt_frame_encode(tb, sizeof tb, type, f1, f2, 0, 0, 0, 0, 0);
     /* AUD-A-0002 探针降噪：n 是 jq_bt_frame_encode 返回值（snprintf 截断保护：
@@ -10510,6 +10542,12 @@ Java_com_qwsaeda_App_OnBluetooth(JNIEnv *env, jclass clazz, jobject intent)
                    由 Java 侧 start_bt_session(host?1:0) 显式覆盖（:3330 锁内 double-check）。 */
                 jq_bt_session_init(&g_bt_sess, &g_state, 1);
                 g_bt_sess_init_done = 1;
+                /* ★ R13：收帧段首次懒 init = 对端已在发帧 = 连接已建立/attach
+                   （最可靠连接确认信号，BtSpp.sendFrame 需 s_connected/s_out 已就绪）
+                   → 发 1 次 CAP 显式宣告 v3（打破"互不先发 v3 永不升档"死锁）。
+                   锁内发帧（jq_bt_send 内部走 Java，本段已持 g_mutex；CAP 幂等，
+                   对端收帧判重/能力位收敛无副作用）。 */
+                jq_bt_send_cap(env);
             }
             /* ★ R11-C：v3 归一化入口（前置全局 seq 判重 + 逐 case 登记 rx_last_seq
                + RESTART 复位；UNDO REQ/应答豁免保 R9 幂等；v2 归一化 seq=0 跳过 0 退化） */

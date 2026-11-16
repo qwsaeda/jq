@@ -20,7 +20,14 @@ typedef enum {
     BT_T_RESIGN,
     BT_T_DRAW,   /* ★ 对抗审计（datah_067）：提和 */
     BT_T_CHAT,   /* ★ 对抗审计（datah_067）：聊天 */
+    /* ★ R13：能力协商握手帧（显式 CAP，v3-only 双端互不先发 v3 死锁根治；连接确认后
+       发 1 次；旧对端 default 拒收 -1 = v2-only 降级维持，双端同版才互通 v3/CAP） */
+    BT_T_CAP,
 } jq_bt_type;
+
+/* ★ R13：CAP 能力位（v3 承载 f2=cap_ver / f3=cap_mask；bit0 = v3 帧 + 全局 seq 去重能力） */
+#define JQ_BT_CAP_VER  1
+#define JQ_BT_CAP_V3   0x01u
 
 /* ★ R11-C（P0 v3 完整帧双栈 API，R10 回执 §1/§2 定案）：
    v3 帧形 "v3\n" + "<type>,<seq>,<ref>,<f1>..<f6>\n"（10 字段，seq/ref 独立槽，
