@@ -7025,3 +7025,38 @@ jq_rs_rules.c 注释定论。
   发端双栈（encode_v3 切换）+ 能力探测全通；**当前过渡态 = 收 v3 发 v2 受控混跑**
   （peer_caps_v3=0 时对 v2-only 对端 seq_dedup partial）；跨重启/重连 seq 窗口
   强一致 + hash 真值校验 + 混跑矩阵 bt_semtest_dual = R12 输入。
+
+### 113. 「对齐」对抗审计 Round 12（C 协议收尾三主线 + 重连 P0 根治，bt_semtest 126→131 + dual 11）（§113 2026-11-16）
+
+- **★ R12-C UNDO hash_lo 真值校验 + mismatch 才 SYNC（R9/R11 TODO 占位闭合）**：
+  `jq_state_hash_lo`（FNV-1a 16-bit，双端同 C 源，覆盖 60 格 rank/side/revealed + stage +
+  turn 共 182 字节固定序，**不含** moves_since_eat/total_moves/winner 计数缓存——同构局面=
+  可继续对弈等价态，避免与回退步数无关的计数分叉误触发 SYNC）。REQ_OK 回 ACK f4 占位 0→
+  真值 hash_lo + last_resp_hash 缓存；收端 ACK 本端回退后 hash 比对，**mismatch 才置
+  did_undo 触发 60 帧全量 SYNC**（一致省 SYNC，R7-C-11 定案落地）；DUP 重发缓存 ACK 按
+  kind 带 hash/reason。16 位碰撞诚实边界：误判一致放过一次收敛（后续再悔/重开纠偏），
+  碰撞不误触 SYNC 致数据损坏（SYNC 是全量权威覆盖）。
+- **★ R12-③ 重连 seq 强一致 P0 根治（回执实锤"重连不重置"缺陷）**：start_bt_session 旧
+  `if (!g_bt_sess_init_done)` 仅首连 init → 重连（断线后再次联网/联机）残留旧
+  rx_last_seq=R_old，对端新会话 seq 从 1 重新单调，前 R_old-1 帧 seq<rx_last_seq 被
+  on_frame_v3 前置判重**全判旧包丢弃 = 新会话大面积丢帧（P0）**。BtSpp 断连链
+  （App.smali disconnected/failed 仅日志不回调 native）无 session reset。根治：
+  **start_bt_session 改无条件 jq_bt_session_init**（锁内 double-check 保留防 BtSpp 读线程
+  懒 init 竞争，init 幂等 memset 0 对首连 0 副作用）——重连=新会话边界，rx/tx/peer_caps/
+  UNDO 事务全清，对齐 RESTART 复位语义（会话内边界→跨连接边界同源）。
+- **★ R12-① 混跑矩阵 bt_semtest_dual（独立双实例对射文件）**：纯 bt_session+bt_protocol
+  （不链 jni_bridge），S1 v3↔v3（升档+独立 seq 空间+去重+旧包拒）/S2 v3发↔v2收（对称
+  升档+partial）/S3 v2发↔v3收（0 退化不升档）/S4 RESTART 跨实例窗口复位/S5 UNDO 跨实例
+  REQ-ACK-DUP 全链 = 11 条 PASS；Makefile 新增 target。桌面双实例=协议/状态机语义（非真实
+  SPP MTU 分片/断连时序）。
+- **桌面单测演进**：bt_semtest §5c-hash 6 条（H1 稳定/H2 非 0/H3 对称相等/H4 分叉不等/
+  H5 turn 敏感/H6 还原收敛）+ §9 重连复位 5 条（N1 全清 12+2 字段/N2 新会话 seq 从 0/
+  N3 残留 40 误判旧包反例/N4 高 seq 不误判/N8 清能力位）：基线 126→131 PASS。
+- **攻坚坑（R12 新增 3 条）**：① 重连=新会话边界（无条件 init 非仅首连），seq 窗口/能力
+  位/UNDO 事务跨连接残留是 P0 ② bt_semtest §8 存量重复块 + §9 段插入撞残留尾（先 sed 精
+  删残留再锚 main 尾插）③ hash 覆盖域须与"对称回退同序天然一致"对齐（不含计数缓存，否则
+  回退步数差异误触发 SYNC）。
+- **诚实边界（R12 收口）**：BT_T_CAP 能力握手帧（显式握手，双端枚举同步）+ session_epoch
+  在途旧帧强防护 + 混跑矩阵 11→43 增强 = R13 输入；当前"收 v3 发 v2 受控混跑"过渡态维持，
+  单边重连不复位=seq 空间不对称（N4/N5 表明窗口放行≠全等，须双端同复位 + epoch）；
+  无 BT 硬件端到端断连重连时序 = 真机 PENDING；续弈语义未定案（仅传输窗口强一致）。
