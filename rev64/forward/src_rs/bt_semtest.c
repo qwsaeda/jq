@@ -586,6 +586,51 @@ int main(void)
         CHECK(sess.last_type == BT_T_CHAT, "DRAW/CHAT 合法消费后 last_type=CHAT（最后有效帧）");
     }
 
+    /* =====================================================================
+     * §6. R11-C v3 双栈编解码（v3 round-trip + v2 归一化 + UNDO 语义迁移）
+     * ===================================================================== */
+    printf("[§6] R11-C v3 双栈编解码（decode_any 归一化）\n");
+    {
+        char b3[128];
+        int tn, f1,f2,f3,f4,f5,f6; unsigned int ts, tr;
+        /* V1：v3 encode/decode round-trip（MOVE 型，seq=7/ref=0） */
+        int en1 = jq_bt_frame_encode_v3(b3, sizeof b3, BT_T_MOVE, 7, 0, 1,2,3,4,5,6);
+        int d1 = jq_bt_frame_decode_v3(b3, &tn, &ts, &tr, &f1,&f2,&f3,&f4,&f5,&f6);
+        CHECK(d1==1
+              && en1>0 && ts==7 && tr==0 && f1==1&&f2==2&&f3==3&&f4==4&&f5==5&&f6==6 && tn==BT_T_MOVE,
+              "R11-C V1：v3 encode/decode round-trip（MOVE seq=7，10 字段直通）");
+        /* V2：decode_any 收 v3 帧（归一化直通，seq/ref 独立槽） */
+        CHECK(jq_bt_frame_decode_any(b3, &tn, &ts, &tr, &f1,&f2,&f3,&f4,&f5,&f6)==1
+              && tn==BT_T_MOVE && ts==7 && tr==0,
+              "R11-C V2：decode_any 识别 v3 帧（seq/ref 独立槽直通）");
+        /* V3：v2 帧归一化 seq=ref=0（非 UNDO，数据域 f1..f6 直通 csv1..6） */
+        char b2[128];
+        int n2 = jq_bt_frame_encode(b2, sizeof b2, BT_T_FLIP, 10,0,0,0,0,0,0);
+        (void)n2;
+        CHECK(jq_bt_frame_decode_any(b2, &tn, &ts, &tr, &f1,&f2,&f3,&f4,&f5,&f6)==1
+              && tn==BT_T_FLIP && ts==0 && tr==0 && f1==10,
+              "R11-C V3：decode_any v2 帧归一化 seq=ref=0（数据域直通）");
+        /* V4：v2 UNDO R9 语义迁移（f1=seq/f2=ref/f3=hash|reason/f4=kind → 独立槽） */
+        int n2u = jq_bt_frame_encode(b2, sizeof b2, BT_T_UNDO, 5, 5, 0x1234, 1, 0, 0, 0);
+        (void)n2u;
+        CHECK(jq_bt_frame_decode_any(b2, &tn, &ts, &tr, &f1,&f2,&f3,&f4,&f5,&f6)==1
+              && tn==BT_T_UNDO && ts==5 && tr==5 && f1==0x1234 && f2==1,
+              "R11-C V4：v2 UNDO R9 帧 → v3 归一化（seq/ref 独立槽 + hash/kind 迁 f1/f2）");
+        /* V5：v2 UNDO legacy（seq=0/ref=0）归一化 seq=ref=0 0 退化 */
+        int n2l = jq_bt_frame_encode(b2, sizeof b2, BT_T_UNDO, 0, 0, 0, 0, 0, 0, 0);
+        (void)n2l;
+        CHECK(jq_bt_frame_decode_any(b2, &tn, &ts, &tr, &f1,&f2,&f3,&f4,&f5,&f6)==1
+              && tn==BT_T_UNDO && ts==0 && tr==0,
+              "R11-C V5：v2 UNDO legacy（0/0）归一化 seq=ref=0（0 退化兼容）");
+        /* V6：非 v2/v3 噪声帧 decode_any 拒收（返回 0，不污染出参） */
+        CHECK(jq_bt_frame_decode_any("garbage\n1,2,3", &tn,&ts,&tr,&f1,&f2,&f3,&f4,&f5,&f6)==0,
+              "R11-C V6：decode_any 噪声帧拒收（首锚不命中）");
+        /* V7：v3 短帧 cap 边界（cap<10 拒收） */
+        char bs[9];
+        CHECK(jq_bt_frame_encode_v3(bs, sizeof bs, BT_T_MOVE, 1, 0, 0,0,0,0,0,0) == -1,
+              "R11-C V7：v3 encode cap<10 拒收（返回 -1）");
+    }
+
     printf(rc ? "== bt_semtest 结果: 有失败（%d 条通过）==\n"
               : "=== bt_semtest 全量 %d 条 PASS ===\n", n_pass);
     return rc;

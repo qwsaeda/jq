@@ -62,6 +62,76 @@ int jq_bt_frame_decode(const char *buf, int *f1, int *f2, int *f3,
                   f1, f2, f3, f4, f5, f6, f7) == 7;
 }
 
+/* ★ R11-C（P0 v3 完整帧编解码，R10 回执 §1/§2 定案落地）：
+   v3 帧形 "v3\n" + "<type>,<seq>,<ref>,<f1>..<f6>\n"（10 字段）。
+   seq/ref 独立控制槽（全局去重键 + 应答引用），f1..f6 业务域与 v2 同义
+   （MOVE 坐标/SYNC_CELL idx|rank|side|revealed/RESTART mode|host_is_blue）。
+   v3 encode 不携带 f7（对齐 v2 丢弃决策）；cap<10 拒收；n>=cap 返回 -1。 */
+int jq_bt_frame_encode_v3(char *buf, int cap, int type, unsigned int seq,
+                          unsigned int ref, int f1, int f2, int f3,
+                          int f4, int f5, int f6)
+{
+    if (!buf || cap < 10) return -1;
+    int n = snprintf(buf, cap, JQ_BT_V3_VERSION "\n%u,%u,%d,%d,%d,%d,%d,%d,%d\n",
+                     type, seq, ref, f1, f2, f3, f4, f5, f6);
+    if (n < 0 || n >= cap) return -1;
+    return n;
+}
+
+/* v3 decode：首字节锚定 "v3\n"（对齐 B04-004 首锚语义），sscanf 10 字段。
+   返回 1 成功 / 0 失败（非 v3 帧首锚，不污染出参）。 */
+int jq_bt_frame_decode_v3(const char *buf, int *type, unsigned int *seq,
+                          unsigned int *ref, int *f1, int *f2, int *f3,
+                          int *f4, int *f5, int *f6)
+{
+    if (!buf) return 0;
+    /* ★ R11-C：v3 首锚 "v3\n"（3 字符，对齐 B04-004/v2 strncmp 3 范式——旧 4 误读
+       字符串第 4 字节 null，数据行首数字 ≠ null 导致首锚永不命中） */
+    if (strncmp(buf, JQ_BT_V3_VERSION "\n", 3) != 0) return 0;
+    const char *p = buf + 3;
+    if (sscanf(p, "%d,%u,%u,%d,%d,%d,%d,%d,%d",
+               type, seq, ref, f1, f2, f3, f4, f5, f6) != 9)
+        return 0;
+    return 1;
+}
+
+/* 双栈入口：v3 优先，失败回退 v2。归一化输出（type/seq/ref/f1..f6）：
+   · v3 命中：直通；
+   · v2 命中：seq=ref=0（legacy 无序号）；type=csv0，f1..f6=csv1..6 直通；
+   · v2 UNDO 型 R9 语义迁移（R9 复用 v2 数据域 f1=seq/f2=ref/f3=hash|reason/
+     f4=kind）→ v3 归一化 seq=v2.f1, ref=v2.f2, f1=v2.f3(hash|reason),
+     f2=v2.f4(kind), f3..f6=0（防 v2 R9 帧被 v3 去重误判——seq>0 才参与全局
+     窗口；UNDO legacy seq=0 走 legacy 0 退化路径 0 变化）。
+   返回 1 成功 / 0 失败。 */
+int jq_bt_frame_decode_any(const char *buf, int *type, unsigned int *seq,
+                           unsigned int *ref, int *f1, int *f2, int *f3,
+                           int *f4, int *f5, int *f6)
+{
+    if (!buf) return 0;
+    /* v3 优先 */
+    if (jq_bt_frame_decode_v3(buf, type, seq, ref, f1, f2, f3, f4, f5, f6))
+        return 1;
+    /* v2 回退（归一化 seq=ref=0） */
+    int v2[7] = {0};
+    if (!jq_bt_frame_decode(buf, &v2[0], &v2[1], &v2[2], &v2[3], &v2[4], &v2[5], &v2[6]))
+        return 0;
+    *type = v2[0];
+    *seq = 0; *ref = 0;
+    if (v2[0] == BT_T_UNDO) {
+        /* R9 v2 UNDO 帧内扩展：f1=seq/f2=ref/f3=hash|reason/f4=kind →
+           v3 独立控制槽（seq/ref）+ 业务 f1/f2 迁移 */
+        *seq = (unsigned int)v2[1];
+        *ref = (unsigned int)v2[2];
+        *f1 = v2[3];   /* hash_lo | NACK reason */
+        *f2 = v2[4];   /* kind（0=ACK/1=NACK） */
+        *f3 = 0; *f4 = 0; *f5 = 0; *f6 = 0;
+    } else {
+        /* 非 UNDO：v2 数据域 f1..f6 = csv1..6 直通 */
+        *f1 = v2[1]; *f2 = v2[2]; *f3 = v2[3]; *f4 = v2[4]; *f5 = v2[5]; *f6 = v2[6];
+    }
+    return 1;
+}
+
 /* 全盘同步：60 格逐格构造帧（原版 0x26f5e-0x26f84 `cmp r6,#60` 循环）。
    每格一帧：BT_T_SYNC_CELL, idx, rank, side, revealed。返回帧数。 */
 int jq_bt_frame_sync_encode(char *buf, int cap_per_frame,
