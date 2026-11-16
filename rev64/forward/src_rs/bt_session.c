@@ -80,25 +80,61 @@ int jq_bt_session_on_frame(jq_bt_session *s, jq_state *st,
     }
     case BT_T_UNDO: {
         s->last_type = f1;   /* ★ B04-014（P1 已修）：仅合法 case 命中才记 last_type */
-        /* ★ AUD-R-013（P1）：UNDO 帧闸口改走 jni_bridge 暴露的 jq_bt_undo_available()
-           （读实际悔棋栈 g_undo_top），替代恒 0 的 jq_snapshots_left（旧路径死代码）。
-           诚实边界（★ 对抗审计 P1 批3 P1-B9/P1-J12）：本地悔棋回退（undo_pop +
-           广播）由 jni_bridge 收帧回调侧执行，本 case 仅切回合。若 jni_bridge
-           收帧侧未接 undo_pop → 双向悔棋状态发散（本地棋盘与对端已回退的棋盘
-           不一致）——当前为 PENDING 缺口，logcat 可诊断。
-            ★ AUD-1000 B04-023（P1 已注释，诚实边界）：UNDO 消费后 s->state 切
-            OUR_TURN 但本地 undo_pop 不联动——收帧侧（jni_bridge 约 :8047）
-            UNDO rc==0 才 undo_pop + 广播 send_sync 全盘对账；on_frame 切
-            回合与收帧侧恢复两处分离，漏接 undo_pop 则本地棋盘与对端已回
-            退态发散。顺序确认：rc==-3 拒收（栈空）时 state 不切（正确），
-            rc==0 消费后 state 已切，恢复靠收帧侧 send_sync 全量还原兜底。 */
-        if (s->state != BT_ST_THEIR_TURN) return -2;
-        if (!jq_bt_undo_available()) {
-            /* 栈空：拒绝（对端误发 UNDO 或本端无可悔步） */
-            return -3;
+        /* ★ R9-C（P0 UNDO 请求-应答语义，v2 帧内扩展，R7-C-01/02/03/04 定案落地）：
+           帧字段（f1=type，f2..=数据域）：f2=seq（>=1 新语义；0=legacy v2 旧帧）、
+           f3=ref（REQ=0 / 应答=回显 req seq）、f4=hash_lo（REQ=发起前摘要可选 /
+           ACK=回退后摘要 / NACK=reason 1非法/3回合/4栈空/5会话）、f5=1=NACK 子型
+           标记（ACK f5=0）。
+           三型分流：
+           · legacy（f2==0 && f3==0）：旧 v2 帧——仅闸口+切回合，不 pop/不回帧
+             （收帧侧 jni_bridge 走旧 undo_pop+SYNC 全量广播路径，0 退化兼容）；
+           · REQ（f3==0 && f2>0）：请求方（对端）发起悔棋——本端闸口校验：
+             回合不符 rc=-2（NACK reason=3）；栈空 rc=-3（reason=4）；
+             幂等重放（f2==last_req_seq 且已有缓存应答）rc=JQ_BT_RC_UNDO_REQ_DUP
+             （bridge 重发缓存 ACK/NACK，不二次 pop）；接受 rc=JQ_BT_RC_UNDO_REQ_OK
+             （bridge 执行对称回退 + 回 UNDO_ACK(ref, hash)）；
+           · 应答（f3>0）：ACK（f5==0）/NACK（f5==1）——仅记录缓存（幂等重发用），
+             rc=0；实际本地回退/解锁由 bridge 发端 pending 路径执行（职责分离：
+             session 层=闸口/幂等/应答元数据，bridge 层=回退实操+回帧）。
+           诚实边界：桌面 bt_semtest 桩 jq_bt_undo_available 控栈深（B04-031）；
+           无 BT 硬件端到端 = 真机 PENDING。 */
+        if (f2 == 0 && f3 == 0) {
+            /* legacy v2 UNDO（R8 前发端 999/999 缺省帧同族）：旧语义 0 退化。
+               ★ 幂等定案（R9-C-06）：legacy 帧 seq=0 亦登记 last_req_seq=0 哨兵
+               ——二次收 legacy 帧 → REQ_DUP（bridge 重发缓存/不再二次 pop，
+               防重传/回环二次消费；旧 99 条基线 0 退化——首次 legacy 路径 rc=0 不变）。 */
+            if (s->state != BT_ST_THEIR_TURN) return -2;
+            if (!jq_bt_undo_available()) return -3;
+            if (s->last_req_seq == 0 && s->legacy_undo_done)
+                return JQ_BT_RC_UNDO_REQ_DUP;
+            s->legacy_undo_done = 1;
+            s->state = BT_ST_OUR_TURN;
+            return 0;
         }
+        if (f3 != 0) {
+            /* 应答帧（ACK/NACK）：缓存供幂等重发；本地动作由 bridge 发端 pending 路径做 */
+            s->last_resp_seq = (unsigned int)f2;
+            s->last_resp_kind = (f5 == 1) ? 2 : 1;
+            s->last_resp_reason = (f5 == 1) ? (unsigned char)f4 : 0;
+            s->last_resp_hash = (f5 == 1) ? 0 : (unsigned short)(f4 & 0xffff);
+            if (s->undo_pending && s->pending_seq == (unsigned int)f2) {
+                s->undo_pending = 0;
+                s->pending_seq = 0;
+                s->state = (s->last_resp_kind == 1) ? BT_ST_OUR_TURN : s->state;
+            }
+            return 0;
+        }
+        /* REQ（f2>0, f3==0）——幂等判重必须在闸口校验**之前**：
+           首次 REQ 接受后 state 已切 OUR_TURN，重放帧若先走回合闸口必 -2
+           （§5c U4 实锤 rc=-2）；重放语义 = 重发缓存应答（不再校验栈深，
+           栈态由首次消费决定）。 */
+        if (f2 == (int)s->last_req_seq && s->last_req_seq != 0)
+            return JQ_BT_RC_UNDO_REQ_DUP;                  /* 幂等：重发缓存应答 */
+        if (s->state != BT_ST_THEIR_TURN) return -2;      /* NACK reason=3（回合不符） */
+        if (!jq_bt_undo_available()) return -3;            /* NACK reason=4（栈空） */
+        s->last_req_seq = (unsigned int)f2;
         s->state = BT_ST_OUR_TURN;
-        return 0;
+        return JQ_BT_RC_UNDO_REQ_OK;                       /* bridge：对称回退 + 回 ACK */
     }
     case BT_T_SYNC_CELL: {
         s->last_type = f1;   /* ★ B04-014（P1 已修）：仅合法 case 命中才记 last_type */

@@ -1198,7 +1198,19 @@ static const char *on_event(const char *name, const char *value, JNIEnv *env)
            64位简化版：发 UNDO 帧（对端同步悔棋），本地不 pop（收帧侧闭环）。
            诚实边界：原版 73 事件名 RegretReq/RegretAgree/RegretDisagree 全链，
            src_rs 仅实现"请求发帧"，应答判定（RegretAgree/Disagree）未移植（需对端协议）。 */
-        jq_bt_ctrl_send(env, BT_T_UNDO, 999, 999);
+        /* ★ R9-C（P0 UNDO 请求-应答）：REQ 帧携带单调 seq（f2=seq, f3=ref=0）——
+           收端按 seq 幂等去重 + 对称回退后回 UNDO_ACK(ref, hash)；legacy 0 退化
+           兼容判据 f2==0&&f3==0 仍走旧路径。 */
+        {
+            pthread_mutex_lock(&g_mutex);
+            g_bt_sess.tx_seq++;
+            g_bt_sess.last_req_seq = g_bt_sess.tx_seq;
+            g_bt_sess.pending_seq = g_bt_sess.tx_seq;
+            g_bt_sess.undo_pending = 1;   /* 发端 pending：走子闸口冻结（见 OnTouch 守卫） */
+            unsigned int _seq = g_bt_sess.tx_seq;
+            pthread_mutex_unlock(&g_mutex);
+            jq_bt_ctrl_send(env, BT_T_UNDO, (int)_seq, 0);
+        }
         sfx_play(env, "pop");
         jq_evt55_dispatch(42, "Junqi.RegretReq");   /* ★ 55code 分发：code 42 = RegretReq */
         LOGI("OnEvent regret_req → 发 UNDO 帧（原版 Junqi.RegretReq，code 42；诚实边界：本地不 pop 等收帧闭环）");
@@ -9931,7 +9943,17 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
                 sfx_play(env, "pop");
                 LOGI("☰菜单 悔棋：连续 undo_pop 到 BLUE（popped=%d，BT 态=0 仅发帧）", popped);
                 /* ★ BT 联机：悔棋 → 发 UNDO 帧（对端同步悔棋；收帧侧 8048 本地回退） */
-                if (sess_init_done_snap && (popped || ui_bt_active())) jq_bt_ctrl_send(env, BT_T_UNDO, 999, 999);
+                /* ★ R9-C：☰ 菜单 BT 悔棋——REQ 帧 seq 携带（legacy 帧 0 退化兼容） */
+                if (sess_init_done_snap && (popped || ui_bt_active())) {
+                    pthread_mutex_lock(&g_mutex);
+                    g_bt_sess.tx_seq++;
+                    g_bt_sess.last_req_seq = g_bt_sess.tx_seq;
+                    g_bt_sess.pending_seq = g_bt_sess.tx_seq;
+                    g_bt_sess.undo_pending = 1;
+                    unsigned int _seq2 = g_bt_sess.tx_seq;
+                    pthread_mutex_unlock(&g_mutex);
+                    jq_bt_ctrl_send(env, BT_T_UNDO, (int)_seq2, 0);
+                }
             } else if (bt_mode && act == 2) {   /* 提和（联机版，datah_067）→ 提和详情弹窗（★ P2 datah_042） */
                 /* ★ P2（datah_042 证据）：提和入口从"直接发帧"升级为 datah_042 7 图标
                    提和详情弹窗（提和/认输/聊天/系统设置/玩家资料/战况统计/软件信息），
@@ -10203,9 +10225,15 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
             int sess_state;
             char tb[BT_BUF];
             int bn = 0;
+            int undo_pending_snap = 0;
             pthread_mutex_lock(&g_mutex);
             sess_state = (int)g_bt_sess.state;
-            if (sess_state == BT_ST_OUR_TURN)
+            undo_pending_snap = g_bt_sess.undo_pending;   /* ★ R9-C：UNDO pending 期间冻结走子/翻棋帧发送 */
+            if (undo_pending_snap) {
+                /* R9-C：等待 UNDO_ACK/NACK 期间拒发新走子帧（防本地落子与对端回退分叉），
+                   清 pending 由收帧应答路径执行（OnBluetooth ACK/NACK 分支） */
+                LOGI("蓝牙联机发送：UNDO pending（seq=%u）期间拒发走子帧", g_bt_sess.pending_seq);
+            } else if (sess_state == BT_ST_OUR_TURN)
                 bn = jq_bt_session_send_move(&g_bt_sess, &g_state, from,
                                              flip_done ? from : to, flip_done,
                                              tb, sizeof tb);
@@ -10442,12 +10470,110 @@ Java_com_qwsaeda_App_OnBluetooth(JNIEnv *env, jclass clazz, jobject intent)
             static char g_bt_payload[BT_BUF * 64 + 1];   /* 锁外发送缓存（BtSpp 读线程串行处理，静态复用）
                ★ AUD-1000 B03-017：旧双 8KB 栈缓冲（sbuf+payload 均栈上）改 栈上 sbuf（仅 UNDO 帧时开）
                + 静态 payload（复用），常态栈压减半。 */
-            if (f[0] == BT_T_UNDO && rc == 0) {
-                if (undo_pop()) {
-                    did_undo = 1;   /* 仅栈操作（锁内），SYNC 编码移 unlock 后（A2-015） */
-                    LOGI("OnBluetooth：收 UNDO 帧 → 本地回退 1 步（undo_pop，turn=%d）", g_state.turn);
-                } else {
-                    LOGI("OnBluetooth：收 UNDO 帧但本地栈空（不悔，诚实边界）");
+            /* ★ R9-C（P0 UNDO 请求-应答收帧分发，v2 帧内扩展）：
+               f[0]=type, f[1..6]=数据域1..6。UNDO 三型：
+               · legacy（f[1]==0 && f[2]==0）：旧路径——收帧侧 undo_pop 1 步 +
+                 锁外 SYNC_CELL 全量广播（原 did_undo 路径，0 退化保留）；
+               · REQ（f[1]>0 && f[2]==0）：rc==JQ_BT_RC_UNDO_REQ_OK → 锁内对称
+                 回退（连续 undo_pop 到发起前回合）+ 回 UNDO_ACK(ref=seq, hash)；
+                 rc==JQ_BT_RC_UNDO_REQ_DUP → 重发缓存应答（幂等，不二次 pop）；
+                 rc<0 → 回 UNDO_NACK(ref=seq, reason)（-3→4 栈空 / -2→3 回合 / 其他→1）；
+               · 应答（f[2]>0）：发端 pending 清理——ACK 清 pending + 校验 hash
+                 （mismatch 才 SYNC 兜底，R7-C-11 定案）；NACK 清 pending 解锁。 */
+            if (f[0] == BT_T_UNDO) {
+                int u_seq = f[1], u_ref = f[2], u_v = f[3], u_kind = f[4];
+                if (u_seq == 0 && u_ref == 0) {
+                    /* legacy v2 UNDO：旧语义（收帧侧 pop + SYNC 全量） */
+                    if (rc == 0 && undo_pop()) {
+                        did_undo = 1;
+                        LOGI("OnBluetooth：收 legacy UNDO 帧 → 本地回退 1 步（undo_pop，turn=%d）", g_state.turn);
+                    } else if (rc == 0) {
+                        LOGI("OnBluetooth：收 legacy UNDO 帧但本地栈空（不悔，诚实边界）");
+                    }
+                } else if (u_ref == 0 && u_seq > 0) {
+                    /* UNDO_REQ（对端发起，本端应答） */
+                    if (rc == JQ_BT_RC_UNDO_REQ_OK) {
+                        /* 对称回退 1 完整回合（2 ply 裁剪：连续 pop 到 turn 回到发起前，
+                           与 jq.undotest :2969 范式同源）——锁内执行 */
+                        int popped_n = 0;
+                        while (undo_pop()) {
+                            popped_n++;
+                            if (g_state.turn == SIDE_BLUE || g_state.stage != STG_PLAY) break;
+                            if (popped_n >= 2) break;   /* 2 ply 上限裁剪 */
+                        }
+                        /* 回 UNDO_ACK（ref=seq, f4=hash 摘要位, f5=0 ACK 子型）——锁内编码发送 */
+                        char abuf[BT_BUF];
+                        int an = jq_bt_frame_encode(abuf, sizeof abuf, BT_T_UNDO,
+                                                     u_seq, 0, u_seq, 0, 0, 0, 0);
+                        /* f2=seq, f3=ref=u_seq, f4=0(hash 占位), f5=0(ACK), f6=0 */
+                        if (an > 0) {
+                            abuf[an] = 0;
+                            jq_bt_send(env, abuf);
+                            g_bt_sess.last_resp_seq = (unsigned int)u_seq;
+                            g_bt_sess.last_resp_kind = 1;
+                            g_bt_sess.last_resp_reason = 0;
+                            LOGI("OnBluetooth：UNDO_REQ seq=%d 接受 → 对称回退 %d 步 + ACK（turn=%d）",
+                                 u_seq, popped_n, g_state.turn);
+                        } else {
+                            LOGI("OnBluetooth：UNDO_REQ seq=%d ACK 编码失败（BT_BUF 不足）", u_seq);
+                        }
+                    } else if (rc == JQ_BT_RC_UNDO_REQ_DUP) {
+                        /* 幂等重放：重发缓存应答（不二次 pop） */
+                        char dbuf[BT_BUF];
+                        unsigned char kind = g_bt_sess.last_resp_kind;
+                        int dn = jq_bt_frame_encode(dbuf, sizeof dbuf, BT_T_UNDO,
+                                                     g_bt_sess.last_resp_seq, 0,
+                                                     g_bt_sess.last_resp_seq,
+                                                     kind == 2 ? g_bt_sess.last_resp_reason : 0,
+                                                     kind == 2 ? 1 : 0, 0, 0);
+                        if (dn > 0) {
+                            dbuf[dn] = 0;
+                            jq_bt_send(env, dbuf);
+                            LOGI("OnBluetooth：UNDO_REQ seq=%d 幂等重放（重发缓存 %s，不二次回退）",
+                                 u_seq, kind == 1 ? "ACK" : "NACK");
+                        }
+                    } else if (rc < 0) {
+                        /* NACK：reason 映射（-3 栈空→4 / -2 回合不符→3 / 其他→1） */
+                        int reason = (rc == -3) ? 4 : (rc == -2) ? 3 : 1;
+                        char nbuf[BT_BUF];
+                        int nn = jq_bt_frame_encode(nbuf, sizeof nbuf, BT_T_UNDO,
+                                                     u_seq, 0, u_seq, reason, 1, 0, 0);
+                        if (nn > 0) {
+                            nbuf[nn] = 0;
+                            jq_bt_send(env, nbuf);
+                            g_bt_sess.last_resp_seq = (unsigned int)u_seq;
+                            g_bt_sess.last_resp_kind = 2;
+                            g_bt_sess.last_resp_reason = (unsigned char)reason;
+                            LOGI("OnBluetooth：UNDO_REQ seq=%d 拒收（rc=%d）→ NACK reason=%d",
+                                 u_seq, rc, reason);
+                        }
+                    }
+                } else if (u_ref > 0) {
+                    /* UNDO_ACK/NACK（本端发端 pending 清理） */
+                    if (g_bt_sess.undo_pending && g_bt_sess.pending_seq == (unsigned int)u_ref) {
+                        g_bt_sess.undo_pending = 0;
+                        g_bt_sess.pending_seq = 0;
+                        if (u_kind == 1) {
+                            /* NACK：解锁不回退 */
+                            LOGI("OnBluetooth：收 UNDO_NACK ref=%d reason=%d → 解锁（不回退）",
+                                 u_ref, u_v);
+                        } else {
+                            /* ACK：本端对称回退（发起方）+ hash mismatch 才 SYNC 兜底（R7-C-11） */
+                            int popped_n = 0;
+                            while (undo_pop()) {
+                                popped_n++;
+                                if (g_state.turn == SIDE_BLUE || g_state.stage != STG_PLAY) break;
+                                if (popped_n >= 2) break;
+                            }
+                            LOGI("OnBluetooth：收 UNDO_ACK ref=%d → 本端回退 %d 步（hash=%d 占位校验）",
+                                 u_ref, popped_n, u_v);
+                            /* TODO R10：hash_lo 真值校验 + mismatch 才 SYNC（本轮占位 0 = 不 SYNC，
+                               对称回退后双端同序 pop 天然一致；全量 SYNC 兜底走 legacy 路径） */
+                        }
+                    } else {
+                        LOGI("OnBluetooth：收 UNDO 应答 ref=%d 非当前 pending（stale 丢弃，kind=%d）",
+                             u_ref, u_kind);
+                    }
                 }
             }
             sess_state = (int)g_bt_sess.state;

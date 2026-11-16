@@ -452,6 +452,70 @@ int main(void)
      * §7. 默认 type 拒收（未知帧类型 → rc=-1）
      * ===================================================================== */
     /* =====================================================================
+     * §5c. R9-C UNDO 请求-应答（v2 帧内扩展：f2=seq/f3=ref/f4=hash|reason/f5=kind）
+     * ===================================================================== */
+    printf("[§5c] R9-C UNDO REQ/ACK/NACK + 幂等 + legacy 兼容\n");
+    {
+        /* U1：UNDO_REQ 正常（f2=seq>0, f3=0；THEIR_TURN + 桩栈可悔） */
+        jq_state stU; fixture_play(&stU);
+        jq_bt_session sU; jq_bt_session_init(&sU, &stU, 0);
+        sU.state = BT_ST_THEIR_TURN;
+        g_bt_undo_avail = 1;   /* 桩：栈可悔 */
+        int rU = jq_bt_session_on_frame(&sU, &stU, BT_T_UNDO, 1, 0, 0, 0, 0, 0);
+        CHECK(rU == JQ_BT_RC_UNDO_REQ_OK && sU.state == BT_ST_OUR_TURN && sU.last_req_seq == 1,
+              "R9-C U1：UNDO_REQ seq=1 接受（rc=REQ_OK，切 OUR_TURN，last_req_seq=1）");
+        /* U2：UNDO_NACK 栈空（桩置 0，f2=2）——先拒后不切态 */
+        g_bt_undo_avail = 0;
+        jq_bt_session sU2; jq_state stU2; fixture_play(&stU2);
+        jq_bt_session_init(&sU2, &stU2, 0);
+        sU2.state = BT_ST_THEIR_TURN;
+        int rU2 = jq_bt_session_on_frame(&sU2, &stU2, BT_T_UNDO, 2, 0, 0, 0, 0, 0);
+        CHECK(rU2 == -3 && sU2.state == BT_ST_THEIR_TURN,
+              "R9-C U2：UNDO_REQ 栈空 → rc=-3（NACK reason=4 映射）+ state 不切（先判后改）");
+        /* U3：UNDO_NACK 回合不符（OUR_TURN 收 REQ，f2=3） */
+        g_bt_undo_avail = 1;
+        jq_bt_session sU3; jq_state stU3; fixture_play(&stU3);
+        jq_bt_session_init(&sU3, &stU3, 0);
+        sU3.state = BT_ST_OUR_TURN;
+        int rU3 = jq_bt_session_on_frame(&sU3, &stU3, BT_T_UNDO, 3, 0, 0, 0, 0, 0);
+        CHECK(rU3 == -2, "R9-C U3：UNDO_REQ 回合不符（OUR_TURN）→ rc=-2（NACK reason=3）");
+        /* U4：UNDO 幂等重放（同 seq 二次 REQ → REQ_DUP，不二次切态） */
+        g_bt_undo_avail = 1;
+        int rU4 = jq_bt_session_on_frame(&sU, &stU, BT_T_UNDO, 1, 0, 0, 0, 0, 0);
+        CHECK(rU4 == JQ_BT_RC_UNDO_REQ_DUP,
+              "R9-C U4：UNDO_REQ seq=1 重放 → rc=REQ_DUP（幂等，bridge 重发缓存 ACK）");
+        /* U5：UNDO_ACK 应答（f3=ref>0, f5=0；发端 pending 清理 + 切 OUR_TURN） */
+        jq_bt_session sU5; jq_state stU5; fixture_play(&stU5);
+        jq_bt_session_init(&sU5, &stU5, 0);
+        sU5.state = BT_ST_THEIR_TURN;
+        sU5.undo_pending = 1;
+        sU5.pending_seq = 5;
+        int rU5 = jq_bt_session_on_frame(&sU5, &stU5, BT_T_UNDO, 5, 5, 0, 0, 0, 0);
+        CHECK(rU5 == 0 && sU5.undo_pending == 0 && sU5.state == BT_ST_OUR_TURN
+              && sU5.last_resp_kind == 1,
+              "R9-C U5：UNDO_ACK ref=5 清 pending + 切 OUR_TURN + 缓存 kind=ACK");
+        /* U6：UNDO_NACK 应答（f5=1, f4=reason；pending 清理不切态） */
+        jq_bt_session sU6; jq_state stU6; fixture_play(&stU6);
+        jq_bt_session_init(&sU6, &stU6, 0);
+        sU6.state = BT_ST_THEIR_TURN;
+        sU6.undo_pending = 1;
+        sU6.pending_seq = 6;
+        int rU6 = jq_bt_session_on_frame(&sU6, &stU6, BT_T_UNDO, 6, 6, 4, 1, 0, 0);
+        CHECK(rU6 == 0 && sU6.undo_pending == 0 && sU6.state == BT_ST_THEIR_TURN
+              && sU6.last_resp_kind == 2 && sU6.last_resp_reason == 4,
+              "R9-C U6：UNDO_NACK ref=6 reason=4 清 pending 不切态 + 缓存 reason=4");
+        /* U7：legacy v2 UNDO（f2==0&&f3==0）旧语义 0 退化（THEIR_TURN + 桩可悔 → rc=0 切态） */
+        jq_bt_session sU7; jq_state stU7; fixture_play(&stU7);
+        jq_bt_session_init(&sU7, &stU7, 0);
+        sU7.state = BT_ST_THEIR_TURN;
+        g_bt_undo_avail = 1;
+        int rU7 = jq_bt_session_on_frame(&sU7, &stU7, BT_T_UNDO, 0, 0, 0, 0, 0, 0);
+        CHECK(rU7 == 0 && sU7.state == BT_ST_OUR_TURN,
+              "R9-C U7：legacy v2 UNDO（0/0 字段）旧语义 rc=0 + 切态（0 退化兼容）");
+        g_bt_undo_avail = 0;   /* 桩复位（防跨段污染） */
+    }
+
+    /* =====================================================================
      * §5b. R8-C-14/15/16 RESTART mode+host_is_blue 帧字段语义（新增断言族）
      * ===================================================================== */
     printf("[§5b] R8-C RESTART 帧字段（mode/host_is_blue/v2 兼容/拒收）\n");
