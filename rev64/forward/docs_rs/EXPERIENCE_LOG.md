@@ -7098,3 +7098,49 @@ jq_rs_rules.c 注释定论。
   单边重连 epoch 不对称（对端未重连）链路静默丢帧（设计正确代价，恢复须双端同会话）；
   v2-only 对端 N5 不闭合（epoch 仅 v3）；无 BT 硬件端到端断连重连时序 = 真机 PENDING；
   续弈语义未定案（仅传输窗口强一致）；epoch 16 位域限（UNDO ref_lo 极端长会话截断）。
+
+### 115. 「对齐」对抗审计 Round 14（双端同版部署判据 + BtSpp 同步缺口根治 + 续弈语义定案，bt_semtest 145 + dual 43）（§115 2026-11-16）
+
+- **★ R14-② 双端同版部署判据（闭合"单端升级如何观测/诊断"缺口）**：
+  R11-R13 落的 v3 双栈 + CAP 握手 + session_epoch 都需双端同版才互通；单端升级时旧对端
+  default 拒收 CAP/epoch 帧 = 降级 v2 维持，但**无可观测判据**。R14 加三判据：
+  ① JNI_OnLoad 版本锚点日志（`BT 协议版本 = v1（CAP/epoch 支持，cap_mask=0x1）`，logcat
+     可机判双端是否同版）② jq.bt_ver 属性钩子（55codetest/event_inv 同族纯 native 无锁
+     一次性清 0，打印本端 ver/caps/epoch + 对端 peer_caps_v3/peer_epoch + 降级判定
+     SUSPECT_OLD_PEER）③ 收帧侧单端升级检测（对端纯 v2 seq=0 + 未升档 → LOGI 降级 v2
+     维持，session_epoch 防刷屏）。CAP case 加 ver 门槛 `f1>=JQ_BT_CAP_VER`（部署同版
+     约束，当前 ver=1 与旧式等价 0 退化）。
+- **★ R14-② CAP case 形参映射纠正（P0 防复发）**：on_frame_v3 非 UNDO 映射
+  `on_frame(s,st,type,f1,f2,f3,f4,f5,f6)`——CAP 的 **ver 落 f1、mask 落 f2**；R13 原文
+  `f2>=1 && f3&V3` 错位（读 on_frame 形参 f2/f3 = 归一化 f2/f3 = mask/0）。R14 纠正
+  `f1>=JQ_BT_CAP_VER && f2&JQ_BT_CAP_V3`。bt_semtest §14 6 断言实锤**被动升档
+  （seq>0 && rc>=0）与 ver 门槛正交**——CAP 收帧 rc=0 即被动置位 peer_caps_v3=1，ver 不
+  匹配时显式分支不升但被动分支独立置位（V2/V3/V5 断言据此修正）。
+- **★ R14-① BtSpp 同步缺口根治（P0 前置阻塞，防装机崩）**：qwsaeda 构建树 dec_rs 的
+  App.smali 静态引用 `Lcom/qwsaeda/BtSpp`（3 处 sendFrame/startHost/startClient）但 smali
+  源缺类 → 装机 bt 路径 NoClassDefFoundError。根治：① dec_dual（cnvcs）BtSpp 4 文件
+  （含 $1/$2/$3 内部类，双栈 v3 帧解析在 $3 indexOf "v2\n"/"v3\n"）sed `com/cnvcs→
+  com/qwsaeda` 合入 dec_rs ② bt_smali.sh 增 qwsaeda 合并目标（改 BtSpp.java 后一条命令
+  3 树同步 cnvcs dual/full + qwsaeda rs，防复发）。重打包 phase_rs_a64.apk 验 dex 含
+  com/qwsaeda/BtSpp + indexOf/sendFrame/startHost 全实证。
+- **★ R14-③ 续弈语义定案（回执③，SYNC 对账 PENDING）**：重连（断线→再连，进程存活）
+  = **续弈**（g_state 进程级 global 保留断点，jq_bt_session_init 仅清 peer_state 镜像 +
+  传输窗口/seq/epoch/能力/UNDO 域，不写 st）vs RESTART（显式重开，重载布局 + 计数清零 +
+  epoch 推进）。续弈强一致缺口 = 重连后双端各自 g_state 断点可能漂移，需 **SYNC_CELL
+  全量 60 帧对账**（send_sync 现状仅 UNDO mismatch 调用 :10707，重连路径无 = R15 接线）；
+  send_sync :433 强置 THEIR_TURN 副作用须剥离。epoch 负责"隔离旧世代残帧"，SYNC_CELL
+  负责"新世代内容对齐"，组合 = 续弈强一致前提。
+- **桌面单测演进**：bt_semtest §14 CAP ver 比对 6 断言（匹配/ver 低/无 V3 位/>ver 兼容/
+  双不匹配/RESTART 重升）：基线 139→145 PASS；dual 43 维持。
+- **攻坚坑（R14 新增 4 条，防复发）**：① CAP case 形参映射错位（on_frame_v3 非 UNDO
+  映射 f1..f6，ver 落 f1 非 f2，R13 旧 f2/f3 错位）② 被动升档与 CAP ver 门槛正交
+  （CAP 收帧 rc=0 即被动置位，ver 不匹配断言须识"显式分支不升但被动分支独立置位"）
+  ③ BtSpp 双栈帧解析在 BtSpp$3（读线程 Runnable），漏拷内部类 = 运行期读线程缺失
+  ④ bt_smali.sh 只合并 cnvcs 树，qwsaeda 树需 sed 改包名同步——改 BtSpp.java 须 3 树
+  同步防漂移。
+- **诚实边界（R14 收口）**：双端同版才互通 v3/CAP/epoch（旧对端 default 拒收，单端升级
+  降级维持）；SUSPECT_OLD_PEER 判定有 false positive（会话初期/被动升档前短暂命中，
+  后续 v3 业务帧到达后被动升档收敛）；无 BT 硬件端到端 = 双端真机部署冒烟 PENDING；
+  重连续弈对账（send_sync 接线）PENDING；32 位设备证据 0x39e14 归逆向 com.zxj 会话
+  （正向只读核对 callgraph 调用点 00039e14→000b9c98/0003e5bc，32 位 so 本机缺失）；
+  权威 5 判据待红果恢复（phase_rs_a64.apk 已重打包 so f654d603 + BtSpp + 全量 spak_res）。
