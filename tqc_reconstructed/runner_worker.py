@@ -309,8 +309,8 @@ def main():
                     _log('键盘驱动已安装,请重启 Windows 后重新打开执行端', 'WARN')
                 else:
                     _log('键盘驱动未安装,游戏内输入可能失败。请用管理员身份运行执行端自动安装,或手动安装 install-interception.exe', 'WARN')
-        except Exception as _e:
-            _log(f'键盘驱动检测失败: {_e}', 'WARN')
+        except Exception as _de:
+            _log(f'键盘驱动检测跳过: {_de}', 'WARN')
 
         stop_event = _FileStopEvent(_STOP_FLAG)
         platform_mode = 'steam' if platform == 'Steam' else 'wgc'
@@ -469,10 +469,6 @@ def main():
                 return acct
             if launch_only:
                 acct = models_mod.Account(username=account, password=password)
-                try:
-                    acct.account_id = account_id or _id_of(account)
-                except Exception:
-                    pass
                 state = models_mod.AccountRunState(account=acct, index=0)
                 os.environ['PC_TQC_MANUAL_EXEC'] = '1'
                 try:
@@ -482,20 +478,16 @@ def main():
             else:
                 if login_only:
                     acct = models_mod.Account(username=account, password=password)
-                    try:
-                        acct.account_id = account_id or _id_of(account)
-                    except Exception:
-                        pass
+                    acct.account_id = account_id or _id_of(account)
                     state = models_mod.AccountRunState(account=acct, index=0)
                     _log('手动登录模式: 仅执行第一步,登录平台并进入游戏后结束', 'INFO')
                     _state_bak = _backup_account_state(account)
                     try:
                         os.environ['PC_TQC_MANUAL_EXEC'] = '1'
                         ar.run_launch_only(state)
-                    except:
-                        pass
-                    os.environ.pop('PC_TQC_MANUAL_EXEC', None)
-                    _restore_account_state(account, _state_bak)
+                    finally:
+                        os.environ.pop('PC_TQC_MANUAL_EXEC', None)
+                        _restore_account_state(account, _state_bak)
                     _aid = account_id or _id_of(account)
                     if getattr(state, 'status', None) == models_mod.RunStatus.SUCCESS:
                         _emit({'type': 'status', 'status': '成功', 'stage': '手动登录', 'message': '登录完成,可手动操作该账号', 'account': account, 'account_id': _aid})

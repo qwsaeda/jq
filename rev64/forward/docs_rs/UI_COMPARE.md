@@ -533,7 +533,7 @@ jq.setentry/OnEvent soundset 触发），渲染精确但非 ☰ 常规可达，�
 >   - touch.c `jq_touch_hit_cell` 等比（bs=view_w/720 + bby0，与渲染棋盘同几何）
 >   - 验证：16:9 无回归（s=1.25,yoff=0 数学同旧）+ 20:9 无拉伸（s=1.5,yoff=240）
 >     + 16:9 全链真机 PASS（主菜单→难度→对局棋盘→翻棋 cell6 + AI 应着）
->     + 桌面回归 touchtest 全过 + evverify 170/170
+>     + 桌面回归 touchtest 全过 + evverify 170/170（历史快照，当前门禁真值 172/172 见 align_gate ①）
 > - ⏳ **待做 ②**：刘海/挖孔（displayCutout top inset）、圆角、手势条（bottom inset）避让——
 >   当前无 displayCutout 处理，20:9 全面屏顶部内容穿刘海
 > - ✅ **待做② displayCutout 避让**（2026-11-11 已完成，App.smali）：API 28+

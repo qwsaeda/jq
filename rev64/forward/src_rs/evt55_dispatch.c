@@ -10,8 +10,9 @@
  *   核心 7 事件码（0-3/7/16/24-27/42）= g_state 真实操作。
  *   简化版 ≠ 完整版：本引擎 = 事件分发全链对齐，业务逻辑仍走 rules.c 7 事件码。
  *
- * 计数：evt55_dispatch 返回 (code, evname_idx)，调用点（jni_bridge）负责计数
- *       （g_event_cnt 是 static，不跨文件暴露）。 */
+ * 计数：★ R7-B-18（注释纠错）——g_event_cnt/g_event_total 为**跨文件**计数状态
+ *       （jni_bridge.c 非 static 定义，本文件 extern 累加，R6-B-09 未知名 idx=-1
+ *       拒计数后语义闭合）；旧"调用点负责计数/g_event_cnt 是 static"口径已废弃。 */
 #include "junqi.h"
 #include "jq_event_names_73.h"
 #include <string.h>
@@ -98,7 +99,8 @@ const char *jq_evt55_code_to_evname_str(int code);
      ③事件计数累加 ④handler 地址诊断标识。旧注释"执行对应 handler 业务动作"
      与实现不符（假对齐口径），本轮按实现改写注释（不改行为）。
    返回值：1 = 成功（事件已分发），0 = 失败（code 越界）。
-   调用点（jni_bridge）负责 g_event_cnt[evname_idx]++ 计数（g_event_cnt 是 static）。 */
+   计数在 dispatch 内跨文件累加（g_event_cnt/g_event_total 非 static，jni_bridge.c
+   定义；★ R7-B-18 注释纠错：旧"g_event_cnt 是 static 不跨文件"口径废弃）。 */
 int jq_evt55_dispatch(int code, const char *evname)
 {
     if (code < 0 || code >= 67)
@@ -123,8 +125,13 @@ int jq_evt55_dispatch(int code, const char *evname)
     if (!ok)
         return 0;
 
-    /* 事件计数：按 73 事件名索引累加（g_event_cnt 非 static，evt55_dispatch 跨文件直接计数）。
-       账号/注册/联机类 code 计数恒 0（业务逻辑未移植），核心 7 类正常累加。 */
+    /* 事件计数：按 73 事件名索引累加（g_event_cnt/g_event_total 为跨文件计数状态，
+       jni_bridge.c 定义，此处 extern）。★ R7-B-17（注释定案，行为 0 变化）：旧注释
+       "账号/注册/联机类 code 计数恒 0（业务逻辑未移植）"与实现矛盾——实现为**分发即
+       计数**（idx 有效即累加）。定案口径：64 位无账号/注册/联机业务触发路径，
+       若经 dispatch 传入合法 73 名仍按名级索引**防御计数**（与计数不变量
+       Σ g_event_cnt==g_event_total 一致），不因"未移植业务"而抑制计数；
+       核心 7 类与一切 73 表命中名按名级累加。 */
     extern int g_event_cnt[];   /* jni_bridge.c 定义（本轮去 static） */
     extern int g_event_total;
     if (evname_idx >= 0 && evname_idx < JQ_EVENT_NAME_COUNT) {

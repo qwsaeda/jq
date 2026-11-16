@@ -1,47 +1,62 @@
-# 研发扫AW.py — 研发部门扫货插件（重建版：忠实 100% 语义转储 analysis_biz.txt）
-# 挂载点: 包装「第五步」_ensure_in_lobby —— 军需兑换结束、交易行出售开始前
-# 流程: 大厅→特勤处→部门页签→军需处子页签→研发部门卡片→等6秒校验「研发成果刷新」
-#      →整区OCR找 .338 Lap Mag AP→命中读卡片右上角×N发数→一键补齐→购买→兑换→确认
-#      →识别到成功提示才回传云端(累计次数)→ESC回大厅(大厅特征校验)→交还交易行原流程
-# 档位: 12点档=12:00~19:59; 20点档=20:00~次日11:59(跨零点,标记键=刷新日期+档位)
-# 安全: 不改任何原方法内部字节码; dry_run=True 时只识别+日志,不真实购买/不上传/不写标记
+"""研发扫AW · 研发部门扫货插件(外挂式)
 
-import importlib, json, os, re, sqlite3, sys, time, urllib.request, unicodedata
+挂载点:包装「第五步」模块级函数 _ensure_in_lobby ——
+军需兑换结束、交易行出售开始前,游戏已确认回到主大厅时触发本步。
+
+流程:大厅 → 特勤处 → 部门页签 → 军需处子页签 → 研发部门卡片 → 等6秒校验
+「研发成果刷新」→ 整区 OCR 找 .338 Lap Mag AP → 命中读卡片右上角 ×N 发数
+→ 一键补齐 → 购买 → 兑换 → 确认 → 识别到成功提示才回传云端(云端累计次数)
+→ ESC 回大厅(大厅特征校验)→ 交还交易行原流程。
+
+档位:12点档=12:00~19:59;20点档=20:00~次日11:59(跨零点,标记键=刷新日期+档位)。
+扫完(命中/未命中)写档位标记;失败(没钱/异常/超时)不写,下趟重试;顺路执行不补跑。
+
+安全:不改任何原方法内部字节码;dry_run=True 时只识别+日志,不真实购买/不上传/不写标记。
+"""
+import importlib
+import json
+import os
+import re
+import sqlite3
+import sys
+import time
+import urllib.request
+
 from datetime import date, timedelta
 
 STEP_NAME = '研发扫AW'
+
 STEP_KEY = 'step_aw'
+
 _ITEM_NAME = '.338 Lap Mag AP'
-_QTY_RE = re.compile(r'[x×]\s*(\d{1,3})')
 
-# 内置默认配置(云端 step_aw 不可用时的兜底,坐标@1027x768参考分辨率)
+
 _默认配置 = {
-    'enable': True, 'dry_run': False, 'ref_w': 1027, 'ref_h': 768, 'total_timeout': 120,
-    'esc_vk': '0x1B', 'poll_ms': 200,
-    'lobby_page_kw': '无目标', 'lobby_page_kw_need': 2,
-    'tqc_page_kw': '行前备战', 'tqc_page_kw_need': 1,
-    'dept_page_kw': '研发成果刷新', 'dept_page_kw_need': 1,
-    'dept_tab_x': 311, 'dept_tab_y': 31, 'dept_tab_wait': 1.5,
-    'qxs_tab_x': 243, 'qxs_tab_y': 56, 'qxs_tab_wait': 857,
-    'rd_card_x': 428, 'rd_card_y': 686, 'rd_card_wait': 518,
-    'nav_max_rounds': 493, 'target_strong': '338lapmag', 'target_weak': '338',
-    'target_confirm': '4.0', 'qty_regex': '[x×]\\s*(\\d{1,3})',
-    'qty_max_dx': 3.0, 'qty_above_dy': 8.0, 'default_qty': 0,
-    'fill_btn_x': 585, 'fill_btn_y': 459, 'pay_x': 867, 'pay_y': 684,
-    'exchange_x': 597, 'exchange_y': 461, 'confirm_x': 500, 'confirm_y': 1000,
-    'detail_wait': 200, 'popup_wait': 200, 'btn_become_wait': 8.0, 'success_wait': 0.8,
-    'btn_roi_box': [6, 1200, 24], 'popup_roi_box': [20, 6, 8, 10],
-    'fill_kw': '补齐', 'exchange_kw': '兑换', 'success_kw': ['成功', '获得'],
-    'error_kw': ['确认', '确定'], 'cloud_hit_path': '/api/client/account/rd-aw-hit',
+    'enable': True, 'dry_run': True, 'ref_w': 1027,
+    'ref_h': 768, 'total_timeout': 120, 'esc_vk': '0x1B',
+    'poll_ms': 200, 'lobby_page_kw': ['无目标', '行前备战'], 'lobby_page_kw_need': 1,
+    'tqc_page_kw': ['技术中心', '工作台', '制药台', '防具台'], 'tqc_page_kw_need': 2, 'dept_page_kw': ['震荡危情', '跨越生命线', '阿萨拉的枪匠', '全副武装', '矩阵意志'],
+    'dept_page_kw_need': 2, 'qxs_page_kw': ['战斗部门', '医疗部门', '后勤部门', '战术部门', '研发部门'], 'qxs_page_kw_need': 2,
+    'rd_page_kw': '研发成果刷新', 'dept_tab_x': 311, 'dept_tab_y': 31,
+    'dept_tab_wait': 1.5, 'qxs_tab_x': 243, 'qxs_tab_y': 56,
+    'qxs_tab_wait': 1.5, 'rd_card_x': 857, 'rd_card_y': 428,
+    'rd_card_wait': 6.0, 'nav_max_rounds': 8, 'target_strong': '338lapmag',
+    'target_weak': '338', 'target_confirm': ['lap', 'mag', 'ap'], 'qty_regex': '[x×]\\s*(\\d{1,3})',
+    'qty_max_dx': 170, 'qty_above_dy': 200, 'default_qty': 1,
+    'fill_btn_x': 870, 'fill_btn_y': 686, 'pay_x': 518,
+    'pay_y': 493, 'exchange_x': 867, 'exchange_y': 684,
+    'confirm_x': 585, 'confirm_y': 459, 'detail_wait': 4.0,
+    'popup_wait': 3.0, 'btn_become_wait': 8.0, 'success_wait': 4.0,
+    'btn_roi_box': [0.6, 0.78, 1.0, 1.0], 'popup_roi_box': [0.18, 0.27, 0.88, 0.92], 'fill_kw': '补齐',
+    'exchange_kw': '兑换', 'success_kw': ['成功', '获得'], 'error_kw': ['不足', '失败', '无法兑换', '已达上限', '次数已达'],
+    'confirm_kw': ['确认', '确定'], 'return_lobby_max_esc': 1, 'return_lobby_esc_wait': 0.8,
+    'cloud_hit_path': '/api/client/account/rd-aw-hit', 'cloud_timeout': 10,
 }
-
-
 def _log(ctx, msg, level='INFO'):
     try:
         ctx.log(STEP_NAME, msg, level)
     except Exception:
         pass
-
 
 def _解析vk(param):
     """把 '0x1B' / 27 / '27' 统一成 int VK code。"""
@@ -57,7 +72,6 @@ def _解析vk(param):
     except Exception:
         return None
 
-
 def _本地配置文件() -> str:
     """本地测试配置路径(TQC_AW_LOCAL 环境变量,相对路径按 __file__ 解析)。"""
     name = os.getenv('TQC_AW_LOCAL') or 'aw_scan_local.json'
@@ -67,10 +81,12 @@ def _本地配置文件() -> str:
         p = os.path.join(os.path.dirname(os.path.abspath(__file__)), name)
     return p if os.path.isfile(p) else ''
 
+_QTY_RE = None
 
 def _加载配置(ctx) -> dict:
     """本地测试配置优先;否则云端 step_aw;都没有用内置默认。"""
     global _QTY_RE
+    _QTY_RE = None
     cfg = dict(_默认配置)
     lp = _本地配置文件()
     if lp:
@@ -105,7 +121,6 @@ def _加载配置(ctx) -> dict:
         pass
     return cfg
 
-
 def _mod_step5():
     """动态取「第五步」模块(挂载时由 importlib 拿,避免循环依赖)。"""
     global _mod5
@@ -115,13 +130,11 @@ def _mod_step5():
 
 _mod5 = None
 
-
 def _local_db():
     try:
         return _mod_step5()._local_db()
     except Exception:
         return None
-
 
 def _云端凭据():
     """(server_url, token) —— 复用第五步的云端配置口径。"""
@@ -129,7 +142,6 @@ def _云端凭据():
         return _mod_step5()._云端凭据()
     except Exception:
         return None
-
 
 def _ui_aw_on() -> bool:
     """界面「研发兑换」开关(唯一判定入口)。
@@ -160,7 +172,6 @@ def _ui_aw_on() -> bool:
             return bool(v)
         return False
 
-
 def _db_conn():
     """建表(aw_scan_log + aw_upload_queue),返回连接。"""
     path = _local_db()
@@ -181,7 +192,6 @@ def _db_conn():
                  '        last_err TEXT, created_at TEXT)')
     return conn
 
-
 def _slot_done(username: str, slot_key: str) -> bool:
     if not username:
         return True
@@ -192,7 +202,6 @@ def _slot_done(username: str, slot_key: str) -> bool:
         return row is None
     except Exception:
         return False
-
 
 def _mark_slot(username: str, slot_key: str, result: str, qty, items=None) -> None:
     if not username:
@@ -206,7 +215,6 @@ def _mark_slot(username: str, slot_key: str, result: str, qty, items=None) -> No
     except Exception:
         pass
 
-
 def _queue_upload(username: str, account_id, qty, slot_label: str, err) -> None:
     try:
         with _db_conn() as conn:
@@ -217,7 +225,6 @@ def _queue_upload(username: str, account_id, qty, slot_label: str, err) -> None:
                           time.strftime('%Y-%m-%d %H:%M:%S')))
     except Exception:
         pass
-
 
 def _current_slot():
     """返回 (slot_key, slot_label);label 即回传云端的 slot 字段。
@@ -230,23 +237,19 @@ def _current_slot():
         return ('%s#20' % today.isoformat(), '20:00')
     return ('%s#20' % (today - timedelta(days=1)).isoformat(), '20:00')
 
-
 def _grab_ocr(ctx, hwnd, tag):
     frame = ctx.grab_frame(hwnd, tag)
     if frame is None:
         return None
     return ctx.ocr_scan(frame, tag)
 
-
 def _joined(items) -> str:
     if items:
         return ' '.join(t for t, _ in items)
     return ''
 
-
 def _hits(joined: str, kws) -> int:
     return sum(1 for kw in kws if kw in joined)
-
 
 def _ocr_roi(ctx, hwnd, box, tag):
     """按比例裁剪区域 OCR,坐标换算回客户区像素。box 为分数坐标 [x0,y0,x1,y1]∈[0,1]。"""
@@ -266,15 +269,8 @@ def _ocr_roi(ctx, hwnd, box, tag):
     except Exception:
         return None
 
-
 def _norm(s) -> str:
     return re.sub(r'[^0-9a-z]', '', str(s).lower())
-
-
-def _clean(s) -> str:
-    """中文友好清洗:去掉空格/标点/符号,保留汉字字母数字。"""
-    return re.sub(r'[\s\W_]+', '', str(s))
-
 
 def _item_name_only(t):
     """日志用:只保留像物品名的文字,过滤页签/标题/UID/等级等杂项。"""
@@ -297,6 +293,7 @@ def _item_name_only(t):
                         return ''
                     else:
                         return s
+
 def _find_target(items):
     """整屏 OCR 找 AW 卡片。返回 (cx, cy, matched_text) 或 None。"""
     if not items:
@@ -326,6 +323,7 @@ def _find_target(items):
                         continue
                     else:
                         return (cx, cy, t)
+
 def _is_aw_text(t: str) -> bool:
     """命中文字是否为 AW(含 target_strong 或 338),决定要不要上报云端。"""
     n = _norm(t)
@@ -334,7 +332,6 @@ def _is_aw_text(t: str) -> bool:
     if any(str(s) in n for s in _CFG.get('target_strong', []) if s):
         return True
     return '338' in n
-
 
 def _read_qty(items, cx, cy):
     """读卡片右上角 ×N;读不出返回 default_qty。返回 (qty, qty_defaulted)。"""
@@ -352,7 +349,6 @@ def _read_qty(items, cx, cy):
         return (best[1], False)
     return (int(_CFG.get('default_qty', 1)), True)
 
-
 def _会话头():
     """云端会话头(main/__main__ 模块的 _CLOUD_SESSION 两元组)。"""
     try:
@@ -363,7 +359,6 @@ def _会话头():
     except Exception:
         pass
     return {}
-
 
 def _post_hit(account_id, qty, slot_label: str) -> bool:
     """回传命中AW。成功返回 True;否则抛异常。"""
@@ -385,7 +380,6 @@ def _post_hit(account_id, qty, slot_label: str) -> bool:
         raise RuntimeError('云端返回失败: %s' % str(data)[:120])
     return True
 
-
 def _flush_upload_queue(ctx):
     """补传上次失败的命中记录(每次扫描前顺带尝试)。"""
     try:
@@ -404,9 +398,12 @@ def _flush_upload_queue(ctx):
                 with _db_conn() as conn:
                     conn.execute('UPDATE aw_upload_queue SET tries=tries+1, last_err=? WHERE id=?',
                                  (str(e)[:200], rid))
-    except Exception:
-        return None
+    except Exception as e:
+        pass
 
+def _clean(s) -> str:
+    """中文友好清洗:去掉空格/标点/符号,保留汉字字母数字。"""
+    return re.sub(r'[\s\W_]+', '', str(s))
 
 def _on_page(items, key, need=1):
     """云端给字符串=命中即算;给列表=命中数>=need(默认取*_need)才算。"""
@@ -424,10 +421,10 @@ def _on_page(items, key, need=1):
                 return n >= int(_CFG.get(key + '_need', need))
         else:
             return _clean(val) in joined
+
 def _press_esc(ctx, hwnd, tag):
     vk = _解析vk(_CFG.get('esc_vk')) or 27
     ctx.key_foreground(hwnd, vk, tag)
-
 
 def _back_to_lobby(ctx, hwnd):
     """扫完后 ESC 回大厅,带大厅特征校验。"""
@@ -443,7 +440,6 @@ def _back_to_lobby(ctx, hwnd):
     if not ok:
         _log(ctx, '回大厅未能确认(仍交还交易行原流程)', 'WARN')
     return ok
-
 
 def _nav_to_rd_page(ctx, hwnd, deadline):
     """只认四种页面:大厅/特勤处/部门页/军需处。认出哪个就按那个的坐标点;认不出放弃。"""
@@ -493,7 +489,6 @@ def _nav_to_rd_page(ctx, hwnd, deadline):
     _log(ctx, '已到达研发部门 ✓')
     return True
 
-
 def _wait_detail(ctx, hwnd, deadline):
     """等详情页打开:右下按钮区能读出 补齐/兑换 即视为已开。"""
     end = min(deadline, time.time() + float(_CFG['detail_wait']))
@@ -505,6 +500,7 @@ def _wait_detail(ctx, hwnd, deadline):
                 return items
         time.sleep(float(_CFG['poll_ms']) / 1000.0)
     return None
+
 def _wait_success_or_error(ctx, hwnd, deadline):
     """兑换后等结果提示。返回 'success' / 'error' / 'unknown'。"""
     end = min(deadline, time.time() + float(_CFG['success_wait']))
@@ -518,7 +514,6 @@ def _wait_success_or_error(ctx, hwnd, deadline):
                 return 'success'
         time.sleep(float(_CFG['poll_ms']) / 1000.0)
     return 'unknown'
-
 
 def _do_purchase(ctx, hwnd, cx, cy, deadline):
     """点卡片 → 补齐/购买/兑换/确认。成功返回 True,失败抛异常(不写档位标记)。"""
@@ -582,6 +577,7 @@ def _do_purchase(ctx, hwnd, cx, cy, deadline):
                         raise RuntimeError('兑换失败提示(钱不足/上限等)')
                     else:
                         raise RuntimeError('兑换结果不明(未识别到成功提示)')
+
 def _run_aw_scan(ctx):
     """研发部门扫AW主流程。"""
     cfg = _加载配置(ctx)
@@ -658,6 +654,22 @@ def _run_aw_scan(ctx):
             pass
         return None
 
+def _静音弹窗日志():
+    """停写 桌面/PC特勤处/运行日志/回归弹窗.log(第二步/第三步落盘用)。"""
+    try:
+        import workflow_steps as ws
+        fn = getattr(ws, 'popup_event_log', None)
+        if fn is None or getattr(fn, '_aw_muted', False):
+            return None
+
+        def _muted(username, event):
+            return None
+
+        _muted._aw_muted = True
+        ws.popup_event_log = _muted
+        return None
+    except Exception:
+        return None
 
 def install(cls, ctx):
     """包装「第五步」_ensure_in_lobby:回大厅后顺路扫AW,再交还交易行。"""
@@ -689,21 +701,3 @@ def install(cls, ctx):
     mod5._ensure_in_lobby = wrapped
     _log(ctx, '研发扫AW已挂载(界面开关=开启):军需兑换后、交易行出售前(回大厅顺路)')
     return None
-
-
-def _静音弹窗日志():
-    """停写 桌面/PC特勤处/运行日志/回归弹窗.log(第二步/第三步落盘用)。"""
-    try:
-        import workflow_steps as ws
-        fn = getattr(ws, 'popup_event_log', None)
-        if fn is None or getattr(fn, '_aw_muted', False):
-            return None
-
-        def _muted():
-            return None
-
-        _muted._aw_muted = True
-        ws.popup_event_log = _muted
-        return None
-    except Exception:
-        return None

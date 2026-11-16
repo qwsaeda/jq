@@ -1,17 +1,20 @@
-# workflow_steps.py — 工作流总控（重建版：忠实 100% 语义转储 analysis_biz.txt）
-# 职责: 本地调度库读写 / 哈夫币解析 / 验证码守卫 / 弹药交换安装 / 游戏窗口定位
-# 边界: 视觉层经 ctx.grab_frame/ocr_scan 抽象(Nuitka .pyd 收口), 不读游戏内存
-
-import contextlib, importlib, json, logging, os, sys, threading, time
+import contextlib
+import importlib
+import json
+import logging
+import os
+import sys
+import threading
+import time
 import urllib.request
 
-STEP_NAME = 'workflow_steps'
-_HAF_RE = None
-_GAME_PROCS = ('deltalaction.exe', 'deltalaction.exe')
-_AMMO_EXCHANGE_TABLE = 'ammo_exchange'
+STEP_MODULES = ('第一步', '第二步', '第三步', '第四步', '第五步', '研发扫AW', '第六步', '设施等级')
 
 
-def _local_db_path() -> str:
+
+
+
+def _local_db_path():
     """runner 本地调度库路径: 桌面/PC特勤处/pc_tqc.db。"""
     try:
         import winreg
@@ -24,22 +27,7 @@ def _local_db_path() -> str:
         pass
     return os.path.join(os.path.expanduser('~'), 'Desktop', 'PC特勤处', 'pc_tqc.db')
 
-
-def _local_db() -> str:
-    """本地调度库路径(与 _local_db_path 同口径)。"""
-    try:
-        import winreg
-        with winreg.OpenKey(winreg.HKEY_CURRENT_USER,
-                            r'Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders') as key:
-            desktop = os.path.expandvars(str(winreg.QueryValueEx(key, 'Desktop')[0]).strip())
-            if desktop:
-                return os.path.join(desktop, 'PC特勤处', 'pc_tqc.db')
-    except Exception:
-        pass
-    return os.path.join(os.path.expanduser('~'), 'Desktop', 'PC特勤处', 'pc_tqc.db')
-
-
-def popup_event_log(username: str, event: str) -> None:
+def popup_event_log(username, event):
     """回归弹窗识别/按键事件落盘(桌面/PC特勤处/运行日志/回归弹窗.log)。
     UI控制台最多缓存1000行会被刷掉,文件留底供事后核查。任何失败静默忽略(日志绝不能影响主流程)。"""
     try:
@@ -50,7 +38,6 @@ def popup_event_log(username: str, event: str) -> None:
             f.write(line)
     except Exception:
         pass
-
 
 def _parse_haf_coins(raw):
     """本地库 haf_coins(如 '50,653K' / '1.2M' / '50653000') → 整数。失败返回 None。"""
@@ -75,7 +62,7 @@ def _parse_haf_coins(raw):
     return int(round(num))
 
 
-def _read_local_final(username: str):
+def _read_local_final(username):
     """从本地调度库读该账号最新 (level, haf_coins_int, updated_at);读不到返回 (None,None,None)。
     带 3 次轻量重试,抵御 SQLite 瞬时锁/核心写入尚未提交,避免偶发读空。"""
     if not username:
@@ -103,8 +90,7 @@ def _read_local_final(username: str):
             continue
     return (None, None, None)
 
-
-def _is_fresh(updated_at, within: float = 180) -> bool:
+def _is_fresh(updated_at, within=180):
     """updated_at 是否在 within 秒内——即本轮刚写入的新值,而非历史旧值。"""
     if not updated_at:
         return False
@@ -118,8 +104,7 @@ def _is_fresh(updated_at, within: float = 180) -> bool:
     except Exception:
         return False
 
-
-def _read_final_with_freshness(username: str, max_wait: float = 10.0):
+def _read_final_with_freshness(username, max_wait=10.0):
     """读本地库最终币,并确认是本轮新写的(updated_at 新鲜);否则等待重试。
 
     抵御 on_account_completed 早于核心写库的时序风险:核心若在回调之后才提交,
@@ -138,8 +123,134 @@ def _read_final_with_freshness(username: str, max_wait: float = 10.0):
             return (last_lvl, last_coins)
         time.sleep(1.0)
 
+class CaptchaError(RuntimeError):
+    """识别到安全验证码弹窗(购买/出售触发),该账号判失败,人工处理。"""
+    pass
 
-def _aid_read_cfg_map() -> dict:
+_验证码双词 = ('安全验证', '安全挑战')
+
+_验证码红字 = '账号存在异常状态'
+
+def _是验证码弹窗(joined_text):
+    """OCR拼接文本判定:双词同框 或 红字命中。未命中返回 False(零影响)。"""
+    if not joined_text:
+        return False
+    else:
+        if _验证码红字 in joined_text:
+            return True
+        else:
+            return all((w in joined_text for w in _验证码双词))
+
+def _提取OCR文本(result):
+    """从引擎OCR返回值提取纯文本列表(兼容对象.txts/dict/列表多种形态)。"""
+    txts = getattr(result, 'txts', None)
+    if txts:
+        return [str(t) for t in txts]
+    else:
+        if isinstance(result, dict):
+            v = result.get('txts') or result.get('texts')
+            if v:
+                return [str(t) for t in v]
+        if isinstance(result, (list, tuple)):
+            out = []
+            for it in result:
+                if isinstance(it, str):
+                    out.append(it)
+                else:
+                    if isinstance(it, (list, tuple)) and it and isinstance(it[0], str):
+                                out.append(it[0])
+            return out
+        else:
+            return []
+
+def _install_captcha_guard(ctx, push_log):
+    """补丁引擎视觉OCR模块级函数:任何环节(种菜购买/军需兑换/交易行出售)
+    OCR扫到验证码特征 → ERROR日志「该账号出现了验证码弹窗」+ 抛 CaptchaError
+    判失败切号。未命中时原返回值原样返回,对现有逻辑零改动。"""
+    try:
+        from pc_tqc.vision import ocr as _vocr
+    except Exception as e:
+        push_log(f'[验证码] 视觉模块加载失败,守卫未生效: {type(e).__name__}: {e}', 'WARN')
+        return None
+
+    patched = []
+    for fname in ('recognize_texts', 'recognize_texts_rec_only'):
+        fn = getattr(_vocr, fname, None)
+        if not callable(fn):
+            continue
+        if getattr(fn, '_tqc_captcha', False):
+            continue
+
+        def _mk(_orig):
+            def _guarded(*args, **kwargs):
+                result = _orig(*args, **kwargs)
+                texts = _提取OCR文本(result)
+                if texts and _是验证码弹窗(' '.join(texts)):
+                    try:
+                        ctx._captcha_hit = 'ocr'
+                        push_log('[验证码] 该账号出现了验证码弹窗,判定失败,切下一个账号', 'ERROR')
+                        raise CaptchaError('该账号出现了验证码弹窗')
+                    except CaptchaError:
+                        raise
+                    except Exception:
+                        pass
+                return result
+            _guarded._tqc_captcha = True
+            return _guarded
+
+        setattr(_vocr, fname, _mk(fn))
+        patched.append(fname)
+    if patched:
+        push_log(f'[验证码] 弹窗守卫已安装({", ".join(patched)})', 'INFO')
+    else:
+        push_log('[验证码] 未找到可补丁的OCR函数,守卫未生效', 'WARN')
+    return None
+
+def _install_final_coins_report(ar, ctx, push_log):
+    """包装核心 callbacks.on_account_completed:账号本轮跑完后读本地库最终币回传。
+
+    为什么放这:runner_worker 是 exe 内嵌入口(改外部副本不生效),但它会
+    `from workflow_steps import` 加载本文件(外部文件,改了生效)。在安装步骤时
+    拿到 ar.callbacks 包一层即可,无需动 runner_worker。
+    """
+    cb_obj = getattr(ar, 'callbacks', None)
+    if cb_obj is None:
+        push_log('[总管] 未找到 ar.callbacks,最终币回传未安装', 'WARN')
+        return None
+    orig = getattr(cb_obj, 'on_account_completed', None)
+    if not callable(orig):
+        push_log('[总管] callbacks.on_account_completed 不可调用,最终币回传未安装', 'WARN')
+        return None
+
+    def _wrapper(*args, _orig=orig, _ctx=ctx, **kwargs):
+        try:
+            _orig(*args, **kwargs)
+        except Exception as _e:
+            _ctx.log('数据回传', f'原 on_account_completed 异常(已忽略): {_e}', 'WARN')
+        try:
+            state = args[0] if args else None
+            acct = getattr(state, 'account', None) if state is not None else None
+            uname = (getattr(acct, 'username', '') if acct is not None else '') or ''
+            lvl, coins = _read_final_with_freshness(uname)
+            if not lvl:
+                lvl = None
+            if coins is not None:
+                _ctx.report_account_data(level=lvl, coins=coins, username=uname)
+                _ctx.log('数据回传', f'账号 {uname} 本轮完成,本地库最终哈夫币 {coins} 已回传', 'INFO')
+            else:
+                _ctx.log('数据回传', f'账号 {uname} 本轮完成,但本地库未读到哈夫币,暂不回传', 'WARN')
+        except Exception as _e:
+            _ctx.log('数据回传', f'本地库最终币回传失败: {type(_e).__name__}: {_e}', 'ERROR')
+
+    try:
+        cb_obj.on_account_completed = _wrapper
+        push_log('[总管] 已安装:账号完成时读本地库最终哈夫币回传', 'INFO')
+        return None
+    except Exception as _e:
+        push_log(f'[总管] on_account_completed 不可替换({_e}),最终币回传未安装', 'WARN')
+        return None
+
+def _aid_read_cfg_map():
     """读 worker 配置 JSON,返回 {账号名: 云端中控ID} 映射;读不到返回 {}。
 
     优先读进程环境变量 PC_TQC_RUNNER_CFG(新链路配置经 stdin 传入,由 worker
@@ -203,96 +314,6 @@ def _aid_read_cfg_map() -> dict:
 
     return {}
 
-
-def _install_captcha_guard(ctx, push_log):
-    """补丁引擎视觉OCR模块级函数:任何环节(种菜购买/军需兑换/交易行出售)
-    OCR扫到验证码特征 → ERROR日志「该账号出现了验证码弹窗」+ 抛 CaptchaError
-    判失败切号。未命中时原返回值原样返回,对现有逻辑零改动。"""
-    try:
-        from pc_tqc.vision import ocr as _vocr
-    except Exception as e:
-        push_log(f'[验证码] 视觉模块加载失败,守卫未生效: {type(e).__name__}: {e}', 'WARN')
-        return None
-
-    patched = []
-    for fname in ('recognize_texts', 'recognize_texts_rec_only'):
-        fn = getattr(_vocr, fname, None)
-        if not callable(fn):
-            continue
-        if getattr(fn, '_tqc_captcha', False):
-            continue
-
-        def _mk(_orig):
-            def _guarded(*args, **kwargs):
-                result = _orig(*args, **kwargs)
-                texts = _提取OCR文本(result)
-                if texts and _是验证码弹窗(' '.join(texts)):
-                    try:
-                        ctx._captcha_hit = 'ocr'
-                        push_log('[验证码] 该账号出现了验证码弹窗,判定失败,切下一个账号', 'ERROR')
-                        raise CaptchaError('该账号出现了验证码弹窗')
-                    except CaptchaError:
-                        raise
-                    except Exception:
-                        pass
-                return result
-            _guarded._tqc_captcha = True
-            return _guarded
-
-        setattr(_vocr, fname, _mk(fn))
-        patched.append(fname)
-    if patched:
-        push_log(f'[验证码] 弹窗守卫已安装({", ".join(patched)})', 'INFO')
-    else:
-        push_log('[验证码] 未找到可补丁的OCR函数,守卫未生效', 'WARN')
-    return None
-
-
-def _install_final_coins_report(ar, ctx, push_log):
-    """包装核心 callbacks.on_account_completed:账号本轮跑完后读本地库最终币回传。
-
-    为什么放这:runner_worker 是 exe 内嵌入口(改外部副本不生效),但它会
-    `from workflow_steps import` 加载本文件(外部文件,改了生效)。在安装步骤时
-    拿到 ar.callbacks 包一层即可,无需动 runner_worker。
-    """
-    cb_obj = getattr(ar, 'callbacks', None)
-    if cb_obj is None:
-        push_log('[总管] 未找到 ar.callbacks,最终币回传未安装', 'WARN')
-        return None
-    orig = getattr(cb_obj, 'on_account_completed', None)
-    if not callable(orig):
-        push_log('[总管] callbacks.on_account_completed 不可调用,最终币回传未安装', 'WARN')
-        return None
-
-    def _wrapper(*args, _orig=orig, _ctx=ctx, **kwargs):
-        try:
-            _orig(*args, **kwargs)
-        except Exception as _e:
-            _ctx.log('数据回传', f'原 on_account_completed 异常(已忽略): {_e}', 'WARN')
-        try:
-            state = args[0] if args else None
-            acct = getattr(state, 'account', None) if state is not None else None
-            uname = (getattr(acct, 'username', '') if acct is not None else '') or ''
-            lvl, coins = _read_final_with_freshness(uname)
-            if not lvl:
-                lvl = None
-            if coins is not None:
-                _ctx.report_account_data(level=lvl, coins=coins, username=uname)
-                _ctx.log('数据回传', f'账号 {uname} 本轮完成,本地库最终哈夫币 {coins} 已回传', 'INFO')
-            else:
-                _ctx.log('数据回传', f'账号 {uname} 本轮完成,但本地库未读到哈夫币,暂不回传', 'WARN')
-        except Exception as _e:
-            _ctx.log('数据回传', f'本地库最终币回传失败: {type(_e).__name__}: {_e}', 'ERROR')
-
-    try:
-        cb_obj.on_account_completed = _wrapper
-        push_log('[总管] 已安装:账号完成时读本地库最终哈夫币回传', 'INFO')
-        return None
-    except Exception as _e:
-        push_log(f'[总管] on_account_completed 不可替换({_e}),最终币回传未安装', 'WARN')
-        return None
-
-
 def _install_aid_inject(ar, push_log):
     """包装 ar.run:执行前给每个账号补齐 account_id(中控ID)。
 
@@ -351,66 +372,70 @@ def _install_aid_inject(ar, push_log):
         push_log(f'[总管] ar.run 不可替换({_e}),中控ID注入未安装', 'WARN')
         return None
 
+GAME_PROCS = ('DeltaForceClient-Win64-Shipping.exe', 'DeltaForceClient.exe')
 
-class CaptchaError(Exception):
-    """识别到安全验证码弹窗(购买/出售触发),该账号判失败,人工处理。"""
-    pass
+_AMMO_EXCHANGE_TABLE = 'ammo_exchange_log'
 
+def _local_db():
+    """本地调度库路径(与 _local_db_path 同口径)。"""
+    try:
+        import winreg
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER,
+                            r'Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders') as key:
+            desktop = os.path.expandvars(str(winreg.QueryValueEx(key, 'Desktop')[0]).strip())
+            if desktop:
+                return os.path.join(desktop, 'PC特勤处', 'pc_tqc.db')
+    except Exception:
+        pass
+    return os.path.join(os.path.expanduser('~'), 'Desktop', 'PC特勤处', 'pc_tqc.db')
 
-def _find_game_hwnd():
-    """按进程名找游戏窗口 hwnd。"""
-    import ctypes
-    from ctypes import wintypes
-    u32 = ctypes.windll.user32
-    hwnd = None
-    for proc in GAME_PROCS:
+def _is_ammo_exchanged_today(username):
+    """检查该账号今天是否已兑换过子弹。"""
+    if not username:
+        return True
+    db = _local_db()
+    if not os.path.exists(db):
+        return False
+    try:
+        import sqlite3
+        from datetime import date
+        today = date.today().isoformat()
+        conn = sqlite3.connect(db, timeout=10)
         try:
-            import psutil
-            for p in psutil.process_iter(['name']):
-                if p.info['name'] == proc:
-                    pid = p.pid
-                    def _cb(h, _):
-                        nonlocal hwnd
-                        if hwnd:
-                            return
-                        else:
-                            pid_out = wintypes.DWORD()
-                            u32.GetWindowThreadProcessId(h, ctypes.byref(pid_out))
-                            if pid_out.value == pid and u32.IsWindowVisible(h):
-                                    hwnd = h
-                    u32.EnumWindows(ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)(_cb), 0)
-                    if hwnd:
-                        return hwnd
-        except Exception:
-            pass
-    return hwnd
-def _run_ammo_exchange(ctx, push_log):
-    """军需处子弹兑换主流程。"""
-    uname = ctx.current_username
-    if not uname:
-        push_log('[军需兑换] 无当前账号名,跳过', 'WARN')
+            cur = conn.cursor()
+            cur.execute(f'CREATE TABLE IF NOT EXISTS {_AMMO_EXCHANGE_TABLE} (username TEXT PRIMARY KEY, exchange_date TEXT)')
+            row = cur.execute(f'SELECT exchange_date FROM {_AMMO_EXCHANGE_TABLE} WHERE username=?',
+                              (username,)).fetchone()
+            if row and row[0] == today:
+                return True
+            return False
+        finally:
+            conn.close()
+    except Exception:
+        return False
+
+def _mark_ammo_exchanged_today(username):
+    """标记该账号今天已兑换。"""
+    if not username:
         return None
-    if _is_ammo_exchanged_today(uname):
-        push_log(f'[军需兑换] 账号 {uname} 今日已兑换,跳过', 'INFO')
-        return None
-    top5 = _fetch_ammo_exchange_top5(ctx, push_log)
-    if not top5:
-        push_log('[军需兑换] 拉取云端排行失败,跳过', 'WARN')
-        return None
-    push_log(f'[军需兑换] 云端Top5: {[r["name"] for r in top5]}', 'INFO')
-    hwnd = _find_game_hwnd()
-    if not hwnd:
-        push_log('[军需兑换] 找不到游戏窗口,跳过', 'WARN')
+    db = _local_db()
+    if not os.path.exists(db):
         return None
     try:
-        _do_ammo_exchange(ctx, hwnd, top5, push_log)
-        _mark_ammo_exchanged_today(uname)
-        push_log(f'[军需兑换] 账号 {uname} 兑换完成', 'INFO')
-    except Exception as e:
-        push_log(f'[军需兑换] 兑换失败: {type(e).__name__}: {e}', 'WARN')
-        _mark_ammo_exchanged_today(uname)
-    return None
-
+        import sqlite3
+        from datetime import date
+        today = date.today().isoformat()
+        conn = sqlite3.connect(db, timeout=10)
+        try:
+            cur = conn.cursor()
+            cur.execute(f'CREATE TABLE IF NOT EXISTS {_AMMO_EXCHANGE_TABLE} (username TEXT PRIMARY KEY, exchange_date TEXT)')
+            cur.execute(f'INSERT OR REPLACE INTO {_AMMO_EXCHANGE_TABLE}(username,exchange_date) VALUES(?,?)',
+                        (username, today))
+            conn.commit()
+        finally:
+            conn.close()
+    except Exception:
+        return None
 
 def _fetch_ammo_exchange_top5(ctx, push_log):
     """从云端拉取战术部门子弹利润 Top5。"""
@@ -446,56 +471,60 @@ def _fetch_ammo_exchange_top5(ctx, push_log):
         push_log(f'[军需兑换] 拉云端排行失败: {type(e).__name__}: {e}', 'WARN')
         return None
 
-
-def _is_ammo_exchanged_today(username: str) -> bool:
-    """检查该账号今天是否已兑换过子弹。"""
-    if not username:
-        return True
-    db = _local_db()
-    if not os.path.exists(db):
-        return False
-    try:
-        import sqlite3
-        from datetime import date
-        today = date.today().isoformat()
-        conn = sqlite3.connect(db, timeout=10)
+def _find_game_hwnd():
+    """按进程名找游戏窗口 hwnd。"""
+    import ctypes
+    from ctypes import wintypes
+    u32 = ctypes.windll.user32
+    hwnd = None
+    for proc in GAME_PROCS:
         try:
-            cur = conn.cursor()
-            cur.execute(f'CREATE TABLE IF NOT EXISTS {_AMMO_EXCHANGE_TABLE} (username TEXT PRIMARY KEY, exchange_date TEXT)')
-            row = cur.execute(f'SELECT exchange_date FROM {_AMMO_EXCHANGE_TABLE} WHERE username=?',
-                              (username,)).fetchone()
-            if row and row[0] == today:
-                return True
-            return False
-        finally:
-            conn.close()
-    except Exception:
-        return False
+            import psutil
+            for p in psutil.process_iter(['name']):
+                if p.info['name'] == proc:
+                    pid = p.pid
+                    def _cb(h, _):
+                        nonlocal hwnd
+                        if hwnd:
+                            return
+                        else:
+                            pid_out = wintypes.DWORD()
+                            u32.GetWindowThreadProcessId(h, ctypes.byref(pid_out))
+                            if pid_out.value == pid and u32.IsWindowVisible(h):
+                                    hwnd = h
+                    u32.EnumWindows(ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)(_cb), 0)
+                    if hwnd:
+                        return hwnd
+        except Exception:
+            pass
+    return hwnd
 
-
-def _mark_ammo_exchanged_today(username: str) -> None:
-    """标记该账号今天已兑换。"""
-    if not username:
+def _run_ammo_exchange(ctx, push_log):
+    """军需处子弹兑换主流程。"""
+    uname = ctx.current_username
+    if not uname:
+        push_log('[军需兑换] 无当前账号名,跳过', 'WARN')
         return None
-    db = _local_db()
-    if not os.path.exists(db):
+    if _is_ammo_exchanged_today(uname):
+        push_log(f'[军需兑换] 账号 {uname} 今日已兑换,跳过', 'INFO')
+        return None
+    top5 = _fetch_ammo_exchange_top5(ctx, push_log)
+    if not top5:
+        push_log('[军需兑换] 拉取云端排行失败,跳过', 'WARN')
+        return None
+    push_log(f'[军需兑换] 云端Top5: {[r["name"] for r in top5]}', 'INFO')
+    hwnd = _find_game_hwnd()
+    if not hwnd:
+        push_log('[军需兑换] 找不到游戏窗口,跳过', 'WARN')
         return None
     try:
-        import sqlite3
-        from datetime import date
-        today = date.today().isoformat()
-        conn = sqlite3.connect(db, timeout=10)
-        try:
-            cur = conn.cursor()
-            cur.execute(f'CREATE TABLE IF NOT EXISTS {_AMMO_EXCHANGE_TABLE} (username TEXT PRIMARY KEY, exchange_date TEXT)')
-            cur.execute(f'INSERT OR REPLACE INTO {_AMMO_EXCHANGE_TABLE}(username,exchange_date) VALUES(?,?)',
-                        (username, today))
-            conn.commit()
-        finally:
-            conn.close()
-    except Exception:
-        return None
-
+        _do_ammo_exchange(ctx, hwnd, top5, push_log)
+        _mark_ammo_exchanged_today(uname)
+        push_log(f'[军需兑换] 账号 {uname} 兑换完成', 'INFO')
+    except Exception as e:
+        push_log(f'[军需兑换] 兑换失败: {type(e).__name__}: {e}', 'WARN')
+        _mark_ammo_exchanged_today(uname)
+    return None
 
 def _do_ammo_exchange(ctx, hwnd, top5, push_log):
     """游戏内军需处兑换操作。
@@ -639,53 +668,6 @@ def _do_ammo_exchange(ctx, hwnd, top5, push_log):
     ctx.press_key(hwnd, VK_ESCAPE, 'ESC回大厅-2')
     wait(1000)
 
-
-def uninstall_step_wrappers():
-    """卸载所有 patch,恢复 EXE 原始方法(调试/回退用)。"""
-    if not _originals:
-        return None
-    from pc_tqc.workflow import runner as R
-    cls = R.AccountRunner
-    for method_name, original in _originals.items():
-        setattr(cls, method_name, original)
-    _originals.clear()
-    return None
-
-
-def _是验证码弹窗(joined_text):
-    """OCR拼接文本判定:双词同框 或 红字命中。未命中返回 False(零影响)。"""
-    if not joined_text:
-        return False
-    else:
-        if _验证码红字 in joined_text:
-            return True
-        else:
-            return all((w in joined_text for w in _验证码双词))
-
-
-def _提取OCR文本(result):
-    """从引擎OCR返回值提取纯文本列表(兼容对象.txts/dict/列表多种形态)。"""
-    txts = getattr(result, 'txts', None)
-    if txts:
-        return [str(t) for t in txts]
-    else:
-        if isinstance(result, dict):
-            v = result.get('txts') or result.get('texts')
-            if v:
-                return [str(t) for t in v]
-        if isinstance(result, (list, tuple)):
-            out = []
-            for it in result:
-                if isinstance(it, str):
-                    out.append(it)
-                else:
-                    if isinstance(it, (list, tuple)) and it and isinstance(it[0], str):
-                                out.append(it[0])
-            return out
-        else:
-            return []
-
-
 def _install_ammo_exchange(ar, ctx, push_log):
     """在账号完成时执行军需处子弹兑换(每天一次)。"""
     cb = getattr(ar, 'callbacks', None)
@@ -708,394 +690,9 @@ def _install_ammo_exchange(ar, ctx, push_log):
             except Exception as e:
                 push_log(f'[总管] 军需兑换安装失败: {e}', 'WARN')
 
+_originals = {}
 
-def install_step_wrappers(ar, push_log, stop_event, account_id=None, on_account_data=None, on_account_banned=None, on_observation_detected=None, login_only=False):
-    """顺序加载 第一步~第五步,把各自的 patch 装到 AccountRunner 类上。\n\n    V1.8 login_only=True(手动登录):只装载第一步,编排入口由 runner_worker\n    走引擎 run_launch_only(第一步完成后自然停止,后续步骤不执行)。"""
-    ctx = StepContext(push_log, stop_event, account_id=account_id, on_account_data=on_account_data, on_account_banned=on_account_banned, on_observation_detected=on_observation_detected)
-    _install_capture_guard(push_log)
-    cls = ar.__class__
-    if login_only:
-        _install_login_only(cls, ctx, ar, push_log)
-        return
-    else:
-        names = []
-        for mod_name in STEP_MODULES:
-            mod = importlib.import_module(mod_name)
-            mod.install(cls, ctx)
-            names.append(getattr(mod, 'STEP_NAME', mod_name))
-        push_log('[总管] 已按顺序安装 ' + ' → '.join(names), 'INFO')
-        _install_market_budget_guard(push_log)
-        _install_captcha_guard(ctx, push_log)
-        ctx.start_captcha_watcher()
-        globals()['_ACTIVE_CTX'] = ctx
-        _install_final_coins_report(ar, ctx, push_log)
-        _install_aid_inject(ar, push_log)
-        _install_login_diag(push_log)
-
-
-def _install_login_only(cls, ctx, ar, push_log):
-    """V1.8 手动登录模式安装:只装载第一步补丁,编排入口由 runner_worker 走\n    引擎自带 run_launch_only(内部 _run_account(launch_only=True))。\n\n    引擎探针实测:run_launch_only 的调用序列为\n    清理环境→登录Steam→启动游戏→处理启动器,之后自然返回,\n    不会进入第二步(_pre_lobby)/读数/制造/交易行 —— 天然就是\"只跑第一步\"。\n    这里只需装上第一步的日志壳与 Steam 登录兼容补丁;\n    (注:不能用 _run_account_once 当入口——它是队列续跑语义,\n    会直接跳到设施批量校验,登录步骤根本不会执行。)"""
-    mod = importlib.import_module('第一步')
-    mod.install(cls, ctx)
-    push_log(f"[总管] 手动登录模式: 仅装载 {getattr(mod, 'STEP_NAME', '第一步')},编排走引擎 run_launch_only(第一步完成后自然停止)", 'INFO')
-    ctx.start_captcha_watcher()
-    globals()['_ACTIVE_CTX'] = ctx
-    _install_aid_inject(ar, push_log)
-
-
-def _install_market_budget_guard(push_log):
-    """给 MarketSeller.run 套一层\"减价点击预算\":同一减价按钮位置被点击\n    超过 config.market_price_decrements(UI 设置)次后,后续点击直接拦截。\n\n    原版 pyd 的减价循环理论上读该配置,实测仍会多下调;这里在输入层兜底,\n    不改变任何交易逻辑。不同物品/其他按钮的点击坐标不同,天然重置计数。\n    """
-    try:
-        from pc_tqc.workflow import market as _market
-    except Exception as e:
-        push_log(f'[交易行] 模块加载失败,减价上限未生效: {type(e).__name__}: {e}', 'WARN')
-        return
-    seller_cls = _market.MarketSeller
-    if getattr(seller_cls.run, '_tqc_budget', False):
-        return
-    else:
-        _orig_run = seller_cls.run
-        def run_with_budget(self, account, hwnd_supplier):
-            try:
-                budget = int(getattr(self.config, 'market_price_decrements', 5) or 0)
-            except Exception:
-                budget = 5
-            push_log(f'[交易行] 价格下调硬上限 {budget} 次/物品(以UI设置为准)', 'INFO')
-            inp = None
-            for _attr in ['input', 'input_controller', '_input']:
-                try:
-                    inp = getattr(self, _attr)
-                    if inp is not None:
-                        break
-                except AttributeError:
-                    pass
-            if inp is None:
-                push_log('[交易行] 找不到输入控制器,减价上限未能生效', 'WARN')
-                return _orig_run(self, account, hwnd_supplier)
-            else:
-                _orig_click = inp.click_client
-                cluster = {'x': None, 'y': None, 'n': 0}
-                def guarded_click(hwnd, x, y, *args, **kwargs):
-                    cx, cy = (cluster['x'], cluster['y'])
-                    if cx is not None and abs(x - cx) <= 18 and (abs(y - cy) <= 18):
-                        cluster['n'] += 1
-                    else:
-                        cluster['x'], cluster['y'], cluster['n'] = (x, y, 1)
-                    if cluster['n'] > budget:
-                        push_log(f"[交易行] 第 {cluster['n']} 次减价超过 UI 上限 {budget},拦截该次点击({x},{y})", 'WARN')
-                        return
-                    else:
-                        return _orig_click(hwnd, x, y, *args, **kwargs)
-            try:
-                inp.click_client = guarded_click
-                return _orig_run(self, account, hwnd_supplier)
-            finally:
-                try:
-                    inp.click_client = _orig_click
-                except Exception:
-                    pass
-        run_with_budget._tqc_budget = True
-        seller_cls.run = run_with_budget
-        push_log('[交易行] 减价次数硬上限补丁已安装', 'INFO')
-
-
-def _diag_fmt(v, n=100):
-    try:
-        s = repr(v)
-    except Exception:
-        s = '<repr失败>'
-    if len(s) <= n:
-        return s
-    else:
-        return s[:n] + '…'
-
-
-def _diag_wi(wi):
-    """把一个 WindowInfo 打印成一行:hwnd/标题/类名/进程/可见/客户区尺寸。"""
-    if wi is None:
-        return 'None'
-    else:
-        return f"hwnd={getattr(wi, 'hwnd', '?')} title={_diag_fmt(getattr(wi, 'title', ''), 40)} class={_diag_fmt(getattr(wi, 'class_name', ''), 30)} proc={_diag_fmt(getattr(wi, 'process_name', ''), 30)} visible={getattr(wi, 'visible', '?')} client={getattr(wi, 'client_width', '?')}x{getattr(wi, 'client_height', '?')}"
-
-
-def _hwnd_stable(hwnd):
-    """连续两次(间隔 100ms)采样都有效且客户区尺寸一致,才认为窗口稳定。"""
-    ok, why, size = _hwnd_state(hwnd)
-    if not ok:
-        return (False, why)
-    else:
-        time.sleep(0.1)
-        ok2, why2, size2 = _hwnd_state(hwnd)
-        if not ok2:
-            return (False, why2)
-        else:
-            if size != size2:
-                return (False, f'客户区尺寸不稳定 {size[0]}x{size[1]}→{size2[0]}x{size2[1]}')
-            else:
-                return (True, '')
-
-
-def _install_capture_guard(push_log):
-    """安装 WGC 截屏防护(纯 Python 层,自身出错不影响主流程)。"""
-    if _CAP_GUARD['installed']:
-        return None
-    _CAP_GUARD['installed'] = True
-
-    def glog(msg, level='WARN'):
-        if _CAP_GUARD['logs'] > 120:
-            return None
-        _CAP_GUARD['logs'] += 1
-        try:
-            push_log('[截屏防护] ' + msg, level)
-        except Exception:
-            return None
-
-    try:
-        from pc_tqc.platform import capture as _C
-    except Exception as e:
-        glog(f'capture 模块不可用,跳过防护: {type(e).__name__}: {e}', 'ERROR')
-        return None
-
-    if str(os.environ.get('PC_TQC_FORCE_GDI') or '') == '1':
-        try:
-            _orig_init = _C.CaptureManager.__init__
-            def _init_force_gdi(self, preferred='wgc', *a, **k):
-                return _orig_init(self, 'gdi', *a, **k)
-            _init_force_gdi._tqc_guard = True
-            _C.CaptureManager.__init__ = _init_force_gdi
-            glog('已按执行端要求整轮改用 GDI 截屏(兼容模式)', 'WARN')
-        except Exception as e:
-            glog(f'切换 GDI 失败: {type(e).__name__}: {e}', 'ERROR')
-
-    try:
-        _orig_cap = _C.CaptureManager.capture
-        def _capture_guarded(self, hwnd, timeout=3.0):
-            now = time.time()
-            cur = int(hwnd or 0)
-            switched = cur != _CAP_GUARD['last_hwnd']
-            gap = now - _CAP_GUARD['last_switch'] if _CAP_GUARD['last_switch'] else 1000000000.0
-            too_fast = switched and gap < 1.5
-            if switched:
-                _CAP_GUARD['last_hwnd'] = cur
-                _CAP_GUARD['last_switch'] = now
-            if cur != _CAP_GUARD['ok_hwnd'] or now - _CAP_GUARD['ok_at'] > 2.0:
-                ok, why = _hwnd_stable(hwnd)
-                if not ok:
-                    glog(f'窗口校验未通过({why}) hwnd={hwnd},本次改用 GDI 截图')
-                    return self.capture_gdi(hwnd, timeout)
-                _CAP_GUARD['ok_hwnd'] = cur
-                _CAP_GUARD['ok_at'] = now
-            if too_fast:
-                glog(f'窗口切换过快(距上次 {gap:.1f}s),本次改用 GDI 截图 hwnd={hwnd}')
-                return self.capture_gdi(hwnd, timeout)
-            with _capture_session() as (locked, waited_ms):
-                if not locked:
-                    glog(f'等锁超时 {waited_ms:.0f}ms,本次改用 GDI 截图 hwnd={hwnd}', 'WARN')
-                    return self.capture_gdi(hwnd, timeout)
-                return _orig_cap(self, hwnd, timeout)
-        _capture_guarded._tqc_guard = True
-        _C.CaptureManager.capture = _capture_guarded
-    except Exception as e:
-        glog(f'挂截屏校验失败: {type(e).__name__}: {e}', 'ERROR')
-
-    try:
-        _orig_start = _C.WindowsGraphicsCaptureBackend._start
-        def _start_guarded(self, hwnd):
-            with _capture_session() as (locked, waited_ms):
-                if not locked:
-                    glog(f'等锁超时 {waited_ms:.0f}ms,WGC 会话创建取消,本次改用 GDI', 'WARN')
-                    raise _C.CaptureError(f'截屏会话锁等待超时({waited_ms:.0f}ms),改用 GDI')
-                prev = _CAP_GUARD.get('backend')
-                prev_hwnd = _CAP_GUARD.get('backend_hwnd') or 0
-                need_wait = False
-                if prev is not None and (prev is not self or (prev_hwnd and prev_hwnd != int(hwnd or 0))):
-                    ctrl = getattr(prev, '_control', None)
-                    if ctrl is not None:
-                        try:
-                            ctrl.stop()
-                            need_wait = True
-                        except Exception:
-                            pass
-                if need_wait:
-                    glog(f'WGC 切换窗口: 已停止旧会话 hwnd={prev_hwnd},等待采集线程退出 400ms 后重建')
-                    time.sleep(0.4)
-                _CAP_GUARD['backend'] = self
-                _CAP_GUARD['backend_hwnd'] = int(hwnd or 0)
-                return _orig_start(self, hwnd)
-        _start_guarded._tqc_guard = True
-        _C.WindowsGraphicsCaptureBackend._start = _start_guarded
-    except Exception as e:
-        glog(f'挂 WGC 会话串行失败: {type(e).__name__}: {e}', 'ERROR')
-    return None
-
-
-def _capture_session(timeout):
-    """WGC 会话互斥。产出 (是否拿到锁, 等待毫秒);异常路径也会释放。"""
-    t0 = time.monotonic()
-    got = _CAPTURE_SESSION_LOCK.acquire(timeout=timeout)
-    waited_ms = (time.monotonic() - t0) * 1000.0
-    try:
-        yield (got, waited_ms)
-    finally:
-        if got:
-            _CAPTURE_SESSION_LOCK.release()
-
-
-def _hwnd_state(hwnd):
-    """窗口是否真实可用 → (ok, 原因, 客户区宽高)。只读校验,不碰采集。"""
-    try:
-        import ctypes
-        from ctypes import wintypes
-        if not hwnd:
-            return (False, '句柄为空', (0, 0))
-        u32 = ctypes.WinDLL('user32', use_last_error=True)
-        k32 = ctypes.WinDLL('kernel32', use_last_error=True)
-        if not u32.IsWindow(wintypes.HWND(int(hwnd))):
-            return (False, '句柄已失效', (0, 0))
-        if not u32.IsWindowVisible(wintypes.HWND(int(hwnd))):
-            return (False, '窗口不可见', (0, 0))
-        rect = wintypes.RECT()
-        if not u32.GetClientRect(wintypes.HWND(int(hwnd)), ctypes.byref(rect)):
-            return (False, '客户区读取失败', (0, 0))
-        w, h = int(rect.right - rect.left), int(rect.bottom - rect.top)
-        if w < 50 or h < 50:
-            return (False, f'客户区尺寸异常 {w}x{h}', (w, h))
-        pid = wintypes.DWORD(0)
-        u32.GetWindowThreadProcessId(wintypes.HWND(int(hwnd)), ctypes.byref(pid))
-        if not pid.value:
-            return (False, '进程ID无效', (w, h))
-        hproc = k32.OpenProcess(4096, False, pid.value)
-        if not hproc:
-            return (False, '所属进程已退出', (w, h))
-        try:
-            code = wintypes.DWORD(0)
-            if not k32.GetExitCodeProcess(hproc, ctypes.byref(code)):
-                return (False, '进程状态读取失败', (w, h))
-            if code.value != 259:
-                return (False, '所属进程已退出', (w, h))
-        finally:
-            k32.CloseHandle(hproc)
-        return (True, '', (w, h))
-    except Exception as e:
-        return (False, f'校验异常 {type(e).__name__}', (0, 0))
-
-
-def _install_login_diag(push_log):
-    """安装诊断探针(只读、只打印,不改动执行端任何动作)。"""
-    if _DIAG['installed']:
-        return None
-    _DIAG['installed'] = True
-
-    def dlog(msg, level='INFO'):
-        if _DIAG['count'] > 400:
-            return None
-        _DIAG['count'] += 1
-        try:
-            push_log('[诊断] ' + msg, level)
-        except Exception:
-            return None
-
-    try:
-        import windows_capture as _WC
-        _cls = getattr(_WC, 'WindowsCapture', None)
-        if _cls is not None and (not getattr(_cls.__init__, '_tqc_diag', False)):
-            _orig_init = _cls.__init__
-            def _init(self, *a, **k):
-                dlog(f'WGC会话: 新建 WindowsCapture args={_diag_fmt(a, 80)} kwargs={_diag_fmt(k, 160)}', 'WARN')
-                return _orig_init(self, *a, **k)
-            _init._tqc_diag = True
-            _cls.__init__ = _init
-            for _m in ['start', 'start_free_threaded', 'stop']:
-                _om = getattr(_cls, _m, None)
-                if _om is None or getattr(_om, '_tqc_diag', False):
-                    continue
-                def _mk(orig=_om, nm=_m):
-                    def _w(self, *a, **k):
-                        dlog(f'WGC会话: {nm}() 调用', 'WARN')
-                        try:
-                            r = orig(self, *a, **k)
-                            dlog(f'WGC会话: {nm}() 成功 → {_diag_fmt(r, 60)}', 'INFO')
-                            return r
-                        except Exception as e:
-                            dlog(f'WGC会话: {nm}() 失败 {type(e).__name__}: {e}', 'ERROR')
-                            raise
-                    _w._tqc_diag = True
-                    return _w
-                setattr(_cls, _m, _mk())
-            dlog('已挂 WGC 会话探针', 'WARN')
-    except Exception as e:
-        dlog(f'windows_capture 探针未挂上: {type(e).__name__}: {e}', 'WARN')
-
-    try:
-        from pc_tqc.platform import windows as _W
-        _of = getattr(_W, 'find_window', None)
-        if _of is not None and (not getattr(_of, '_tqc_diag', False)):
-            _last = {'k': None}
-            def find_window_diag(*a, **k):
-                wi = _of(*a, **k)
-                key = (_diag_fmt(a, 60), _diag_fmt(sorted(((str(kk), str(vv)) for kk, vv in k.items())), 160))
-                if key != _last['k']:
-                    _last['k'] = key
-                    dlog(f'找窗口 find_window(args={_diag_fmt(a, 60)}, kwargs={_diag_fmt(k, 160)}) → {_diag_wi(wi)}', 'WARN' if wi is None else 'INFO')
-                return wi
-            find_window_diag._tqc_diag = True
-            _W.find_window = find_window_diag
-            dlog('已挂 find_window 探针', 'WARN')
-    except Exception as e:
-        dlog(f'find_window 探针未挂上: {type(e).__name__}: {e}', 'WARN')
-
-    try:
-        from pc_tqc.platform import capture as _C
-        _oc = getattr(_C, 'capture_visible_client', None)
-        if _oc is not None and (not getattr(_oc, '_tqc_diag', False)):
-            _lastc = {'k': None}
-            def capture_visible_client_diag(hwnd, *a, **k):
-                try:
-                    fr = _oc(hwnd, *a, **k)
-                except Exception as e:
-                    dlog(f'捕获 capture_visible_client(hwnd={hwnd}) 异常 {type(e).__name__}: {e}', 'ERROR')
-                    raise
-                shp = getattr(fr, 'shape', None)
-                key = (hwnd, str(shp))
-                if key != _lastc['k']:
-                    _lastc['k'] = key
-                    if fr is None:
-                        dlog(f'捕获 capture_visible_client(hwnd={hwnd}) → None(捕获失败)', 'WARN')
-                        return fr
-                    else:
-                        dlog(f'捕获 capture_visible_client(hwnd={hwnd}) → OK shape={shp}', 'INFO')
-                return fr
-            capture_visible_client_diag._tqc_diag = True
-            _C.capture_visible_client = capture_visible_client_diag
-            dlog('已挂 capture_visible_client 探针', 'WARN')
-    except Exception as e:
-        dlog(f'capture 探针未挂上: {type(e).__name__}: {e}', 'WARN')
-
-    try:
-        from pc_tqc.platform import windows as _W2
-        _ol = getattr(_W2, 'list_windows', None)
-        if _ol is not None and (not getattr(_ol, '_tqc_diag', False)):
-            _lastl = {'k': None, 't': 0.0}
-            def list_windows_diag(*a, **k):
-                wins = _ol(*a, **k)
-                try:
-                    steam = [w for w in wins or [] if 'steam' in str(getattr(w, 'process_name', '') or '').lower() or 'steam' in str(getattr(w, 'title', '') or '').lower()]
-                    key = tuple(sorted((_diag_wi(w) for w in steam)))
-                    now = time.time()
-                    if key != _lastl['k'] and now - _lastl['t'] >= 3.0:
-                        _lastl['k'], _lastl['t'] = (key, now)
-                        dlog(f'窗口普查: 可见窗口共 {len(wins or [])} 个,Steam 相关 {len(steam)} 个', 'WARN')
-                        for w in steam:
-                            dlog('    · ' + _diag_wi(w), 'WARN')
-                except Exception:
-                    pass
-                return wins
-            list_windows_diag._tqc_diag = True
-            _W2.list_windows = list_windows_diag
-            dlog('已挂 list_windows 探针', 'WARN')
-    except Exception as e:
-        dlog(f'list_windows 探针未挂上: {type(e).__name__}: {e}', 'WARN')
-
+_HERE = os.path.dirname(os.path.abspath(__file__))
 
 class StepContext:
     """共享工具上下文:日志、停止信号、OCR、游戏窗口、鼠标键盘。
@@ -1735,3 +1332,413 @@ class StepContext:
             sx, sy = x, y
             self.log(tag, '拿不到客户区尺寸,参考坐标未缩放直接点击', 'WARN')
         return self.click(hwnd, sx, sy, tag)
+
+def install_step_wrappers(ar, push_log, stop_event, account_id=None, on_account_data=None, on_account_banned=None, on_observation_detected=None, login_only=False):
+    """顺序加载 第一步~第五步,把各自的 patch 装到 AccountRunner 类上。\n\n    V1.8 login_only=True(手动登录):只装载第一步,编排入口由 runner_worker\n    走引擎 run_launch_only(第一步完成后自然停止,后续步骤不执行)。"""
+    ctx = StepContext(push_log, stop_event, account_id=account_id, on_account_data=on_account_data, on_account_banned=on_account_banned, on_observation_detected=on_observation_detected)
+    _install_capture_guard(push_log)
+    cls = ar.__class__
+    if login_only:
+        _install_login_only(cls, ctx, ar, push_log)
+        return
+    else:
+        names = []
+        for mod_name in STEP_MODULES:
+            mod = importlib.import_module(mod_name)
+            mod.install(cls, ctx)
+            names.append(getattr(mod, 'STEP_NAME', mod_name))
+        push_log('[总管] 已按顺序安装 ' + ' → '.join(names), 'INFO')
+        _install_market_budget_guard(push_log)
+        _install_captcha_guard(ctx, push_log)
+        ctx.start_captcha_watcher()
+        globals()['_ACTIVE_CTX'] = ctx
+        _install_final_coins_report(ar, ctx, push_log)
+        _install_aid_inject(ar, push_log)
+        _install_login_diag(push_log)
+
+def _install_login_only(cls, ctx, ar, push_log):
+    """V1.8 手动登录模式安装:只装载第一步补丁,编排入口由 runner_worker 走\n    引擎自带 run_launch_only(内部 _run_account(launch_only=True))。\n\n    引擎探针实测:run_launch_only 的调用序列为\n    清理环境→登录Steam→启动游戏→处理启动器,之后自然返回,\n    不会进入第二步(_pre_lobby)/读数/制造/交易行 —— 天然就是\"只跑第一步\"。\n    这里只需装上第一步的日志壳与 Steam 登录兼容补丁;\n    (注:不能用 _run_account_once 当入口——它是队列续跑语义,\n    会直接跳到设施批量校验,登录步骤根本不会执行。)"""
+    mod = importlib.import_module('第一步')
+    mod.install(cls, ctx)
+    push_log(f"[总管] 手动登录模式: 仅装载 {getattr(mod, 'STEP_NAME', '第一步')},编排走引擎 run_launch_only(第一步完成后自然停止)", 'INFO')
+    ctx.start_captcha_watcher()
+    globals()['_ACTIVE_CTX'] = ctx
+    _install_aid_inject(ar, push_log)
+
+def _install_market_budget_guard(push_log):
+    """给 MarketSeller.run 套一层\"减价点击预算\":同一减价按钮位置被点击\n    超过 config.market_price_decrements(UI 设置)次后,后续点击直接拦截。\n\n    原版 pyd 的减价循环理论上读该配置,实测仍会多下调;这里在输入层兜底,\n    不改变任何交易逻辑。不同物品/其他按钮的点击坐标不同,天然重置计数。\n    """
+    try:
+        from pc_tqc.workflow import market as _market
+    except Exception as e:
+        push_log(f'[交易行] 模块加载失败,减价上限未生效: {type(e).__name__}: {e}', 'WARN')
+        return
+    seller_cls = _market.MarketSeller
+    if getattr(seller_cls.run, '_tqc_budget', False):
+        return
+    else:
+        _orig_run = seller_cls.run
+        def run_with_budget(self, account, hwnd_supplier):
+            try:
+                budget = int(getattr(self.config, 'market_price_decrements', 5) or 0)
+            except Exception:
+                budget = 5
+            push_log(f'[交易行] 价格下调硬上限 {budget} 次/物品(以UI设置为准)', 'INFO')
+            inp = None
+            for _attr in ['input', 'input_controller', '_input']:
+                try:
+                    inp = getattr(self, _attr)
+                    if inp is not None:
+                        break
+                except AttributeError:
+                    pass
+            if inp is None:
+                push_log('[交易行] 找不到输入控制器,减价上限未能生效', 'WARN')
+                return _orig_run(self, account, hwnd_supplier)
+            else:
+                _orig_click = inp.click_client
+                cluster = {'x': None, 'y': None, 'n': 0}
+                def guarded_click(hwnd, x, y, *args, **kwargs):
+                    cx, cy = (cluster['x'], cluster['y'])
+                    if cx is not None and abs(x - cx) <= 18 and (abs(y - cy) <= 18):
+                        cluster['n'] += 1
+                    else:
+                        cluster['x'], cluster['y'], cluster['n'] = (x, y, 1)
+                    if cluster['n'] > budget:
+                        push_log(f"[交易行] 第 {cluster['n']} 次减价超过 UI 上限 {budget},拦截该次点击({x},{y})", 'WARN')
+                        return
+                    else:
+                        return _orig_click(hwnd, x, y, *args, **kwargs)
+            try:
+                inp.click_client = guarded_click
+                return _orig_run(self, account, hwnd_supplier)
+            finally:
+                try:
+                    inp.click_client = _orig_click
+                except Exception:
+                    pass
+        run_with_budget._tqc_budget = True
+        seller_cls.run = run_with_budget
+        push_log('[交易行] 减价次数硬上限补丁已安装', 'INFO')
+
+def uninstall_step_wrappers():
+    """卸载所有 patch,恢复 EXE 原始方法(调试/回退用)。"""
+    if not _originals:
+        return None
+    from pc_tqc.workflow import runner as R
+    cls = R.AccountRunner
+    for method_name, original in _originals.items():
+        setattr(cls, method_name, original)
+    _originals.clear()
+    return None
+
+_DIAG = {'installed': False, 'count': 0}
+
+def _diag_fmt(v, n=100):
+    try:
+        s = repr(v)
+    except Exception:
+        s = '<repr失败>'
+    if len(s) <= n:
+        return s
+    else:
+        return s[:n] + '…'
+
+def _diag_wi(wi):
+    """把一个 WindowInfo 打印成一行:hwnd/标题/类名/进程/可见/客户区尺寸。"""
+    if wi is None:
+        return 'None'
+    else:
+        return f"hwnd={getattr(wi, 'hwnd', '?')} title={_diag_fmt(getattr(wi, 'title', ''), 40)} class={_diag_fmt(getattr(wi, 'class_name', ''), 30)} proc={_diag_fmt(getattr(wi, 'process_name', ''), 30)} visible={getattr(wi, 'visible', '?')} client={getattr(wi, 'client_width', '?')}x{getattr(wi, 'client_height', '?')}"
+
+def _install_login_diag(push_log):
+    """安装诊断探针(只读、只打印,不改动执行端任何动作)。"""
+    if _DIAG['installed']:
+        return None
+    _DIAG['installed'] = True
+
+    def dlog(msg, level='INFO'):
+        if _DIAG['count'] > 400:
+            return None
+        _DIAG['count'] += 1
+        try:
+            push_log('[诊断] ' + msg, level)
+        except Exception:
+            return None
+
+    try:
+        import windows_capture as _WC
+        _cls = getattr(_WC, 'WindowsCapture', None)
+        if _cls is not None and (not getattr(_cls.__init__, '_tqc_diag', False)):
+            _orig_init = _cls.__init__
+            def _init(self, *a, **k):
+                dlog(f'WGC会话: 新建 WindowsCapture args={_diag_fmt(a, 80)} kwargs={_diag_fmt(k, 160)}', 'WARN')
+                return _orig_init(self, *a, **k)
+            _init._tqc_diag = True
+            _cls.__init__ = _init
+            for _m in ['start', 'start_free_threaded', 'stop']:
+                _om = getattr(_cls, _m, None)
+                if _om is None or getattr(_om, '_tqc_diag', False):
+                    continue
+                def _mk(orig=_om, nm=_m):
+                    def _w(self, *a, **k):
+                        dlog(f'WGC会话: {nm}() 调用', 'WARN')
+                        try:
+                            r = orig(self, *a, **k)
+                            dlog(f'WGC会话: {nm}() 成功 → {_diag_fmt(r, 60)}', 'INFO')
+                            return r
+                        except Exception as e:
+                            dlog(f'WGC会话: {nm}() 失败 {type(e).__name__}: {e}', 'ERROR')
+                            raise
+                    _w._tqc_diag = True
+                    return _w
+                setattr(_cls, _m, _mk())
+            dlog('已挂 WGC 会话探针', 'WARN')
+    except Exception as e:
+        dlog(f'windows_capture 探针未挂上: {type(e).__name__}: {e}', 'WARN')
+
+    try:
+        from pc_tqc.platform import windows as _W
+        _of = getattr(_W, 'find_window', None)
+        if _of is not None and (not getattr(_of, '_tqc_diag', False)):
+            _last = {'k': None}
+            def find_window_diag(*a, **k):
+                wi = _of(*a, **k)
+                key = (_diag_fmt(a, 60), _diag_fmt(sorted(((str(kk), str(vv)) for kk, vv in k.items())), 160))
+                if key != _last['k']:
+                    _last['k'] = key
+                    dlog(f'找窗口 find_window(args={_diag_fmt(a, 60)}, kwargs={_diag_fmt(k, 160)}) → {_diag_wi(wi)}', 'WARN' if wi is None else 'INFO')
+                return wi
+            find_window_diag._tqc_diag = True
+            _W.find_window = find_window_diag
+            dlog('已挂 find_window 探针', 'WARN')
+    except Exception as e:
+        dlog(f'find_window 探针未挂上: {type(e).__name__}: {e}', 'WARN')
+
+    try:
+        from pc_tqc.platform import capture as _C
+        _oc = getattr(_C, 'capture_visible_client', None)
+        if _oc is not None and (not getattr(_oc, '_tqc_diag', False)):
+            _lastc = {'k': None}
+            def capture_visible_client_diag(hwnd, *a, **k):
+                try:
+                    fr = _oc(hwnd, *a, **k)
+                except Exception as e:
+                    dlog(f'捕获 capture_visible_client(hwnd={hwnd}) 异常 {type(e).__name__}: {e}', 'ERROR')
+                    raise
+                shp = getattr(fr, 'shape', None)
+                key = (hwnd, str(shp))
+                if key != _lastc['k']:
+                    _lastc['k'] = key
+                    if fr is None:
+                        dlog(f'捕获 capture_visible_client(hwnd={hwnd}) → None(捕获失败)', 'WARN')
+                        return fr
+                    else:
+                        dlog(f'捕获 capture_visible_client(hwnd={hwnd}) → OK shape={shp}', 'INFO')
+                return fr
+            capture_visible_client_diag._tqc_diag = True
+            _C.capture_visible_client = capture_visible_client_diag
+            dlog('已挂 capture_visible_client 探针', 'WARN')
+    except Exception as e:
+        dlog(f'capture 探针未挂上: {type(e).__name__}: {e}', 'WARN')
+
+    try:
+        from pc_tqc.platform import windows as _W2
+        _ol = getattr(_W2, 'list_windows', None)
+        if _ol is not None and (not getattr(_ol, '_tqc_diag', False)):
+            _lastl = {'k': None, 't': 0.0}
+            def list_windows_diag(*a, **k):
+                wins = _ol(*a, **k)
+                try:
+                    steam = [w for w in wins or [] if 'steam' in str(getattr(w, 'process_name', '') or '').lower() or 'steam' in str(getattr(w, 'title', '') or '').lower()]
+                    key = tuple(sorted((_diag_wi(w) for w in steam)))
+                    now = time.time()
+                    if key != _lastl['k'] and now - _lastl['t'] >= 3.0:
+                        _lastl['k'], _lastl['t'] = (key, now)
+                        dlog(f'窗口普查: 可见窗口共 {len(wins or [])} 个,Steam 相关 {len(steam)} 个', 'WARN')
+                        for w in steam:
+                            dlog('    · ' + _diag_wi(w), 'WARN')
+                except Exception:
+                    pass
+                return wins
+            list_windows_diag._tqc_diag = True
+            _W2.list_windows = list_windows_diag
+            dlog('已挂 list_windows 探针', 'WARN')
+    except Exception as e:
+        dlog(f'list_windows 探针未挂上: {type(e).__name__}: {e}', 'WARN')
+
+_CAP_GUARD = {
+    'installed': False,
+    'ok_hwnd': 0,
+    'ok_at': 0.0,
+    'last_hwnd': 0,
+    'last_switch': 0.0,
+    'backend': None,
+    'backend_hwnd': 0,
+    'logs': 0,
+}
+
+_CAPTURE_SESSION_LOCK = threading.RLock()
+
+_CAPTURE_LOCK_WAIT = 0.5
+
+if _HERE not in sys.path:
+    sys.path.insert(0, _HERE)
+
+@contextlib.contextmanager
+def _capture_session(timeout=_CAPTURE_LOCK_WAIT):
+    """WGC 会话互斥。产出 (是否拿到锁, 等待毫秒);异常路径也会释放。"""
+    t0 = time.monotonic()
+    got = _CAPTURE_SESSION_LOCK.acquire(timeout=timeout)
+    waited_ms = (time.monotonic() - t0) * 1000.0
+    try:
+        yield (got, waited_ms)
+    finally:
+        if got:
+            _CAPTURE_SESSION_LOCK.release()
+
+def _hwnd_state(hwnd):
+    """窗口是否真实可用 → (ok, 原因, 客户区宽高)。只读校验,不碰采集。"""
+    try:
+        import ctypes
+        from ctypes import wintypes
+        if not hwnd:
+            return (False, '句柄为空', (0, 0))
+        u32 = ctypes.WinDLL('user32', use_last_error=True)
+        k32 = ctypes.WinDLL('kernel32', use_last_error=True)
+        if not u32.IsWindow(wintypes.HWND(int(hwnd))):
+            return (False, '句柄已失效', (0, 0))
+        if not u32.IsWindowVisible(wintypes.HWND(int(hwnd))):
+            return (False, '窗口不可见', (0, 0))
+        rect = wintypes.RECT()
+        if not u32.GetClientRect(wintypes.HWND(int(hwnd)), ctypes.byref(rect)):
+            return (False, '客户区读取失败', (0, 0))
+        w, h = int(rect.right - rect.left), int(rect.bottom - rect.top)
+        if w < 50 or h < 50:
+            return (False, f'客户区尺寸异常 {w}x{h}', (w, h))
+        pid = wintypes.DWORD(0)
+        u32.GetWindowThreadProcessId(wintypes.HWND(int(hwnd)), ctypes.byref(pid))
+        if not pid.value:
+            return (False, '进程ID无效', (w, h))
+        hproc = k32.OpenProcess(4096, False, pid.value)
+        if not hproc:
+            return (False, '所属进程已退出', (w, h))
+        try:
+            code = wintypes.DWORD(0)
+            if not k32.GetExitCodeProcess(hproc, ctypes.byref(code)):
+                return (False, '进程状态读取失败', (w, h))
+            if code.value != 259:
+                return (False, '所属进程已退出', (w, h))
+        finally:
+            k32.CloseHandle(hproc)
+        return (True, '', (w, h))
+    except Exception as e:
+        return (False, f'校验异常 {type(e).__name__}', (0, 0))
+
+def _hwnd_stable(hwnd):
+    """连续两次(间隔 100ms)采样都有效且客户区尺寸一致,才认为窗口稳定。"""
+    ok, why, size = _hwnd_state(hwnd)
+    if not ok:
+        return (False, why)
+    else:
+        time.sleep(0.1)
+        ok2, why2, size2 = _hwnd_state(hwnd)
+        if not ok2:
+            return (False, why2)
+        else:
+            if size != size2:
+                return (False, f'客户区尺寸不稳定 {size[0]}x{size[1]}→{size2[0]}x{size2[1]}')
+            else:
+                return (True, '')
+
+def _install_capture_guard(push_log):
+    """安装 WGC 截屏防护(纯 Python 层,自身出错不影响主流程)。"""
+    if _CAP_GUARD['installed']:
+        return None
+    _CAP_GUARD['installed'] = True
+
+    def glog(msg, level='WARN'):
+        if _CAP_GUARD['logs'] > 120:
+            return None
+        _CAP_GUARD['logs'] += 1
+        try:
+            push_log('[截屏防护] ' + msg, level)
+        except Exception:
+            return None
+
+    try:
+        from pc_tqc.platform import capture as _C
+    except Exception as e:
+        glog(f'capture 模块不可用,跳过防护: {type(e).__name__}: {e}', 'ERROR')
+        return None
+
+    if str(os.environ.get('PC_TQC_FORCE_GDI') or '') == '1':
+        try:
+            _orig_init = _C.CaptureManager.__init__
+            def _init_force_gdi(self, preferred='wgc', *a, **k):
+                return _orig_init(self, 'gdi', *a, **k)
+            _init_force_gdi._tqc_guard = True
+            _C.CaptureManager.__init__ = _init_force_gdi
+            glog('已按执行端要求整轮改用 GDI 截屏(兼容模式)', 'WARN')
+        except Exception as e:
+            glog(f'切换 GDI 失败: {type(e).__name__}: {e}', 'ERROR')
+
+    try:
+        _orig_cap = _C.CaptureManager.capture
+        def _capture_guarded(self, hwnd, timeout=3.0):
+            now = time.time()
+            cur = int(hwnd or 0)
+            switched = cur != _CAP_GUARD['last_hwnd']
+            gap = now - _CAP_GUARD['last_switch'] if _CAP_GUARD['last_switch'] else 1000000000.0
+            too_fast = switched and gap < 1.5
+            if switched:
+                _CAP_GUARD['last_hwnd'] = cur
+                _CAP_GUARD['last_switch'] = now
+            if cur != _CAP_GUARD['ok_hwnd'] or now - _CAP_GUARD['ok_at'] > 2.0:
+                ok, why = _hwnd_stable(hwnd)
+                if not ok:
+                    glog(f'窗口校验未通过({why}) hwnd={hwnd},本次改用 GDI 截图')
+                    return self.capture_gdi(hwnd, timeout)
+                _CAP_GUARD['ok_hwnd'] = cur
+                _CAP_GUARD['ok_at'] = now
+            if too_fast:
+                glog(f'窗口切换过快(距上次 {gap:.1f}s),本次改用 GDI 截图 hwnd={hwnd}')
+                return self.capture_gdi(hwnd, timeout)
+            with _capture_session() as (locked, waited_ms):
+                if not locked:
+                    glog(f'等锁超时 {waited_ms:.0f}ms,本次改用 GDI 截图 hwnd={hwnd}', 'WARN')
+                    return self.capture_gdi(hwnd, timeout)
+                return _orig_cap(self, hwnd, timeout)
+        _capture_guarded._tqc_guard = True
+        _C.CaptureManager.capture = _capture_guarded
+    except Exception as e:
+        glog(f'挂截屏校验失败: {type(e).__name__}: {e}', 'ERROR')
+
+    try:
+        _orig_start = _C.WindowsGraphicsCaptureBackend._start
+        def _start_guarded(self, hwnd):
+            with _capture_session() as (locked, waited_ms):
+                if not locked:
+                    glog(f'等锁超时 {waited_ms:.0f}ms,WGC 会话创建取消,本次改用 GDI', 'WARN')
+                    raise _C.CaptureError(f'截屏会话锁等待超时({waited_ms:.0f}ms),改用 GDI')
+                prev = _CAP_GUARD.get('backend')
+                prev_hwnd = _CAP_GUARD.get('backend_hwnd') or 0
+                need_wait = False
+                if prev is not None and (prev is not self or (prev_hwnd and prev_hwnd != int(hwnd or 0))):
+                    ctrl = getattr(prev, '_control', None)
+                    if ctrl is not None:
+                        try:
+                            ctrl.stop()
+                            need_wait = True
+                        except Exception:
+                            pass
+                if need_wait:
+                    glog(f'WGC 切换窗口: 已停止旧会话 hwnd={prev_hwnd},等待采集线程退出 400ms 后重建')
+                    time.sleep(0.4)
+                _CAP_GUARD['backend'] = self
+                _CAP_GUARD['backend_hwnd'] = int(hwnd or 0)
+                return _orig_start(self, hwnd)
+        _start_guarded._tqc_guard = True
+        _C.WindowsGraphicsCaptureBackend._start = _start_guarded
+    except Exception as e:
+        glog(f'挂 WGC 会话串行失败: {type(e).__name__}: {e}', 'ERROR')
+    return None

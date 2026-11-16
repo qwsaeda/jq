@@ -6,6 +6,17 @@
 >
 > 诚实边界：src_rs 是**逆向驱动重写**（规则引擎对齐原版 0x39e14/0x39f20/0x302b4 等），
 > 非规格先行的纯正向设计；本规格是"**从已对齐实现反推 + 验证**"的业务描述，非独立设计稿。
+> ★ **口径总表（R7-D-33 单一事实源，防多文档漂移）**：
+> | 口径 | 真值 | 基准/复现命令 |
+> |---|---|---|
+> | 事件名全集 | **76 = Junqi 73 + Misc 3**（Misc 3 归广告拆除红线，不入门禁） | `python3 rev64/tools/event_code_map_check.py`（0 缺口 PASS） |
+> | 门禁主链 | **73 Junqi 名**（`jq_event_names_73.c`，含 `Junqi.GameType%d` 格式串形态） | `python3 rev64/tools/event_names_alignment_check.py`（PASS） |
+> | 历史口径 | "74 名"= §124y-114 早期 10 大类求和快照（Misc 区仅 2 条时期） | 仅作演变注，不作判据 |
+> | evverify 断言 | **172/172（事件/业务 40 + 几何 132）** | `cd rev64/forward/src_rs && ./dist/jq_evverify --all`（SUMMARY 动态真值） |
+> | 双端探针 | **36 case**（基线 4 坐实分叉 R-073/008/004/018 内不阻断） | `python3 rev64/tools/rule_probe_compare.py --offline` |
+> | SPAK 资源 | 原版解包全量 **18 WAV / 883 资源**；仓内实物 **14 WAV / 970 文件**（spak_res 交付口径） | `ls rev64/dist/spak_res/*.wav \| wc -l` |
+> | 暗棋桌面用例 | **86/86**（含判据自检） | `bash rev64/forward/src_rs/dark_align/dark_align_regress.sh` |
+
 
 ## 1. 棋盘与棋子
 

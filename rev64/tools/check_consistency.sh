@@ -37,7 +37,7 @@ grep -q "9/9" $COURSE/APPENDIX_C_REVERSE_ENGINEERING.md && echo "  [课程 ⑧] 
 
 # 6. 课程 evverify 断言口径（实测 N 断言 ↔ 课程；N33 7→8 后随工具升级同步，现 44→47 UI 对齐验证）
 # ★ AUD-1000-ALL A5-F5-007（P1 已修）：EVN 三复合缺陷——(1) grep -oE '[0-9]+' 取第一个
-#   数字（"桌面事件验证: 170/170" → 170，非"170/170"的总断言口径）；(2) 硬编码 fallback
+#   数字（"桌面事件验证: N/N" → 提取 N 与总数比对；以实际 evverify SUMMARY 为准，勿硬编码）；(2) 硬编码 fallback
 #   47（evverify 断言数升级后 47 过期，缓存缺失/构建失败静默降级到 47 假绿）；(3) make
 #   管道吞码（make 失败 grep 空 → fallback 47 掩盖）。修：取 "N/N" 完整口径（分母=总断言
 #   数，防分子/分母不等误判），make rc 断言，fallback 改"未获取"显式 FAIL。

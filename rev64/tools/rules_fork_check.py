@@ -13,7 +13,7 @@ rules_fork_check.py — R-138 分叉检测脚本（src_rs 重写 vs src_jni_tran
 
 同步机制 = 行为一致性闸门（非代码同步）：
   · 32 位基准 = rev64/tools/arm32_walkregress.sh（4 路径回归，F_3ab80/F_3ab64 判据）
-  · 64 位基准 = evverify 167/167 + regress.py 50/50 + consistency 9/9
+  · 64 位基准 = evverify 172/172（SUMMARY 动态真值）+ rule_probe 36 case（基线 4 坐实分叉）+ consistency 9/9
   单条路线 PASS 不代表另一条路线对齐。
 
 本脚本只做只读扫描 + 报告，不改任何 .c 文件：
@@ -254,7 +254,7 @@ def main():
     print("-" * 78)
     print("行为一致性闸门（非代码同步）：")
     print("  · 32 位基准 = rev64/tools/arm32_walkregress.sh（4 路径回归，F_3ab80 判据）")
-    print("  · 64 位基准 = evverify 167/167 + regress.py 50/50 + consistency 9/9")
+    print("  · 64 位基准 = evverify 172/172（SUMMARY 动态真值）+ rule_probe 36 case（基线 4 坐实分叉）+ consistency 9/9")
     print("  · 单条路线 PASS 不代表另一条路线对齐；新 AUD-R 修复须双路验证。")
     print("-" * 78)
 

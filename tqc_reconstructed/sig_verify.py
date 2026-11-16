@@ -36,10 +36,10 @@ def _header(headers, name: str) -> str:
     """大小写不敏感取响应头(兼容 requests 与 urllib)。"""
     if headers is None:
         return ''
-    v = headers.get(name)
-    if v is not None:
-        return str(v).strip()
     try:
+        v = headers.get(name)
+        if v is not None:
+            return str(v).strip()
         for k, v in headers.items():
             if str(k).lower() == name:
                 return str(v).strip()

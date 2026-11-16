@@ -123,7 +123,7 @@
 | R5-C-08 | P1 | 实证 | bt_session.c:152-165 | 对端认输收帧无音效/无 evt55 派发/无计数（R4-C-11 承接） | SPEC §5 认输闭环 | 待修(R6) |
 | R5-C-09 | P1 | 实证 | bt_session.c switch | BT_T_DRAW/BT_T_CHAT 无收帧分支（落 default 拒收）→ 联机提和/聊天无应答（R4-C-19 承接） | SPEC §6 提和/聊天 | 待修(R6) |
 | R5-C-10 | P1 | 实证 | jni_bridge.c:490-540 | 断连镜像断链（Java 无 `jq.bt_conn` setprop 消费）→ g_bt_connected 恒 1、断连后卡死（R4-C-20 承接） | SPEC §6 断连镜像 | 待修(R6) |
-| R5-C-11 | P2 | 实证 | jni_bridge.c:10348-10351 | 帧推进 `strchr(p,'\n')` 命中帧头 "v2\n" 的换行 → 多帧串接仅首帧处理（R4-C-23 承接） | SPEC §6 帧格式 | ✅**已修**（★ R6 自跑实锤：AUD-1000 B09-038 已落地——帧格式 `v2\n7字段\n` 无内部换行，从帧尾推进安全；:10479 注释+代码实证） |
+| R5-C-11 | P2 | 实证 | jni_bridge.c:10480-10488 | 帧推进 `strchr(p,'\n')+1` 停在 **v2 行尾**（帧形 `v2\n7字段\n` 两行）→ p 指向数据行 → 下轮 decode 首字节锚定 `strncmp(p,"v2\n")` 失败 → break → **多帧串接仅首帧处理**（UNDO 后 60 帧 SYNC_CELL 丢 59 帧；B09-038 注释宣称"从帧尾推进"与实现不符=注释-实现矛盾） | SPEC §6 帧格式（bt_protocol.c 0x26efc/0x26f24 两行帧实锤） | ✅**已修**（★ R6-C-05：`strspn(p,"v2\n")` 跳 v2 行头 → 数据行尾换行后推进=整帧消费；桌面 frame_adv_test 4 场景实锤：旧 60 帧仅 1（丢 59）→ 新 60/60 + 2 帧串接 2/2 + 单帧 1/1 + 垃圾缓冲 0（无越界）） |
 | R5-C-12 | P2 | 实证 | bt_session.c 收帧 MOVE 拒绝 | 收帧拒绝无 NACK/回执 → 首次分叉后联机永久卡死且不可诊断（R4-C-24 承接） | SPEC §6 帧状态机 | 待修(R6) |
 | R5-C-13 | P2 | 实证 | bt_session.c:152-165 | RESTART 帧不携带 mode 字段 → 双端可能一明一暗（本轮修复后按各自 ui_opt_get_mode，选项不一致仍发散）（R4-C-25 承接） | SPEC §7 mode | 待修(R6)（帧协议扩字段） |
 | R5-C-14 | P1 | 实证 | jni_bridge.c:2756-2776 | 续局只回灌 g_state，不恢复 undo 栈 / 不重置 g_ts / 不 ui_replay_init → 复盘基线以残局为准（R4-C-08 承接） | §104 续局一致性 | 待修(R6) |

@@ -1,17 +1,26 @@
-# 第五步.py — 军需处兑换（重建版：忠实 100% 语义转储 analysis_biz.txt）
+import json, os, sqlite3, sys, time, urllib.request
 
-# 本文件 = 从语义转储重建的关键函数（可执行、可 ast.parse）+ pycdc 体对照
-import json, os, re, sqlite3, sys, time, urllib.request, datetime, unicodedata
 from datetime import date
 
-STEP_NAME = '第五步'
-_AMMO_EXCHANGE_TABLE = 'ammo_exchange'
+STEP_NAME = '第五步 · 军需处兑换'
+
 VK_ESCAPE = 0x1B
 
-# 主菜单专属词(判定是否在主大厅,与第二步同口径)
-_LOBBY_MENU_KW = ('仓库', '特战干员', '交易行', '改枪台', '特勤处')
+_AMMO_EXCHANGE_TABLE = 'ammo_exchange_log'
 
-def _is_ammo_exchanged_today(username: str) -> bool:
+def _local_db():
+    """本地调度库路径。"""
+    try:
+        import winreg
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, 'Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\User Shell Folders') as key:
+            desktop = os.path.expandvars(str(winreg.QueryValueEx(key, 'Desktop')[0]).strip())
+            if desktop:
+                return os.path.join(desktop, 'PC特勤处', 'pc_tqc.db')
+    except Exception:
+        pass
+    return os.path.join(os.path.expanduser('~'), 'Desktop', 'PC特勤处', 'pc_tqc.db')
+
+def _is_ammo_exchanged_today(username):
     """检查该账号今天是否已兑换过子弹。"""
     if not username:
         return True
@@ -34,8 +43,7 @@ def _is_ammo_exchanged_today(username: str) -> bool:
     except Exception:
         return False
 
-
-def _mark_ammo_exchanged_today(username: str) -> None:
+def _mark_ammo_exchanged_today(username):
     """标记该账号今天已兑换。"""
     if not username:
         return None
@@ -56,16 +64,152 @@ def _mark_ammo_exchanged_today(username: str) -> None:
     except Exception:
         return None
 
+def _fetch_ammo_exchange_top5(log):
+    """从云端拉取战术部门子弹利润 Top5。"""
+    try:
+        cfg_path = os.path.join(os.path.expanduser('~'), '.pc_tqc_client', 'config.json')
+        if not os.path.exists(cfg_path):
+            log('[军需兑换] 无云端配置文件,跳过', 'WARN')
+            return
+        else:
+            with open(cfg_path, 'r', encoding='utf-8-sig') as f:
+                cfg = json.load(f)
+            server_url = cfg.get('server_url') or cfg.get('cloud_url') or ''
+            token = cfg.get('token') or ''
+            if not server_url or not token:
+                log('[军需兑换] 云端配置缺少 server_url/token,跳过', 'WARN')
+                return
+            else:
+                url = f"{server_url.rstrip('/')}/api/admin/ammo-exchange-rec"
+                req = urllib.request.Request(url, headers={'Authorization': f'Bearer {token}', 'User-Agent': 'Mozilla/5.0 Chrome/130'})
+                with urllib.request.urlopen(req, timeout=15) as r:
+                    d = json.loads(r.read().decode('utf-8'))
+                if not d.get('ok'):
+                    log('[军需兑换] 云端返回错误', 'WARN')
+                    return
+                else:
+                    data = d.get('data') or {}
+                    rows = data.get('战术部门') or []
+                    if not rows:
+                        log('[军需兑换] 云端无战术部门数据', 'WARN')
+                        return
+                    else:
+                        return rows[:5]
+    except Exception as e:
+        log(f'[军需兑换] 拉云端排行失败: {type(e).__name__}: {e}', 'WARN')
+        return None
 
-def _norm_txt(s) -> str:
+def _find_game_hwnd():
+    """查找游戏窗口句柄。"""
+    try:
+        import ctypes
+        import ctypes.wintypes as wintypes
+        user32 = ctypes.windll.user32
+        kernel32 = ctypes.windll.kernel32
+        result = []
+        def enum_callback(hwnd, _):
+            if not user32.IsWindowVisible(hwnd):
+                return True
+            else:
+                pid = wintypes.DWORD()
+                user32.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
+                try:
+                    hproc = kernel32.OpenProcess(1040, False, pid.value)
+                    if hproc:
+                        buf = ctypes.create_unicode_buffer(260)
+                        size = wintypes.DWORD(260)
+                        kernel32.QueryFullProcessImageNameW(hproc, 0, buf, ctypes.byref(size))
+                        kernel32.CloseHandle(hproc)
+                        path = buf.value
+                        for proc in ['DeltaForceClient-Win64-Shipping.exe', 'DeltaForceClient.exe']:
+                            if proc.lower() in path.lower():
+                                result.append(hwnd)
+                                return False
+                except Exception:
+                    return True
+                return True
+        enum_proc = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)(enum_callback)
+        user32.EnumWindows(enum_proc, 0)
+        return result[0] if result else None
+    except Exception:
+        return None
+
+_LOBBY_MENU_KW = ('仓库', '特战干员', '交易行', '改枪台', '特勤处')
+
+def _is_main_lobby(items):
+    """是否主大厅:5个主菜单专属词同屏命中≥2,且没有军需处内部\'限购\'字样。"""
+    if not items:
+        return False
+    else:
+        joined = ' '.join((t for t, _ in items))
+        hits = sum((1 for w in _LOBBY_MENU_KW if w in joined))
+        return hits >= 2 and '限购' not in joined
+
+def _ensure_in_lobby(ctx, log, max_esc=5):
+    """交易行开始前的双保险:不在主大厅就逐次ESC,认到大厅立刻停。\n    返回 True=已确认大厅;False=未能确认(调用方仍按原流程走,不抛异常)。"""
+    try:
+        hwnd = _find_game_hwnd()
+        if not hwnd:
+            log('[军需兑换] 交易行前找不到游戏窗口,大厅确认跳过', 'WARN')
+            return False
+        else:
+            for i in range(max_esc + 1):
+                frame = ctx.grab_frame(hwnd, '交易行前大厅确认')
+                items = ctx.ocr_scan(frame, '交易行前大厅确认') if frame is not None else None
+                if items and _is_main_lobby(items):
+                    if i > 0:
+                        log(f'[军需兑换] 第{i}次ESC后已确认回到主大厅 ✓', 'INFO')
+                    return True
+                else:
+                    if i >= max_esc:
+                        break
+                    else:
+                        ctx.key_foreground(hwnd, VK_ESCAPE, f'交易行前ESC回大厅-{i + 1}')
+                        time.sleep(1.2)
+            log('[军需兑换] 交易行前未能确认回到大厅(仍放行原流程)', 'WARN')
+    except Exception as e:
+        log(f'[军需兑换] 交易行前大厅确认异常(忽略): {type(e).__name__}: {e}', 'WARN')
+        return False
+    return False
+
+def _run_ammo_exchange(ctx, log):
+    """军需处子弹兑换主流程。"""
+    uname = ctx.current_username
+    if not uname:
+        log('[军需兑换] 无当前账号名,跳过', 'WARN')
+        return
+    else:
+        if _is_ammo_exchanged_today(uname):
+            log(f'[军需兑换] 账号 {uname} 今日已兑换,跳过', 'INFO')
+            return
+        else:
+            top5 = _fetch_ammo_exchange_top5(log)
+            if not top5:
+                log('[军需兑换] 拉取云端排行失败,跳过', 'WARN')
+                return
+            else:
+                log(f"[军需兑换] 云端Top5: {[r['name'] for r in top5]}", 'INFO')
+                hwnd = _find_game_hwnd()
+                if not hwnd:
+                    log('[军需兑换] 找不到游戏窗口,跳过', 'WARN')
+                    return
+                else:
+                    try:
+                        _do_ammo_exchange(ctx, hwnd, top5, log)
+                        _mark_ammo_exchanged_today(uname)
+                        log(f'[军需兑换] 账号 {uname} 兑换完成', 'INFO')
+                    except Exception as e:
+                        log(f'[军需兑换] 兑换失败(不标记今日已兑,下轮自动重试): {type(e).__name__}: {e}', 'WARN')
+                        return None
+
+def _norm_txt(s):
     """名称归一化:全角转半角、去全部空白、统一小写、×→x(防OCR空格/全角差异)。"""
     import unicodedata
     s = unicodedata.normalize('NFKC', str(s) if s else '')
     s = s.replace('×', 'x')
     return ''.join(s.split()).lower()
 
-
-def _是子弹名(t: str) -> bool:
+def _是子弹名(t):
     """子弹名口径锚点:归一化后以.数字开头(.45 ACP/.50 AE/.300 BLK)
     或含 mm(9x19mm等)/auge(12 Gauge)/acp/blk。
     曾只认 mm+auge 导致 .45 ACP RIP 普查漏显示(10-16 ctbnesc7798实发)。"""
@@ -76,8 +220,7 @@ def _是子弹名(t: str) -> bool:
         return True
     return any(k in nt for k in ('mm', 'auge', 'acp', 'blk'))
 
-
-def _名匹配(nname: str, t: str) -> bool:
+def _名匹配(nname, t):
     """Top5名(已归一化)匹配OCR文本:双向包含 + 点前缀容忍。
     10-16实发:OCR把.45 ACP RIP的点读丢成"45 ACP RIP"(同一行4个.45
     两个读出点两个没读出),归一化后 .45acprip 不包含于 45acprip 误判不在列表。"""
@@ -89,84 +232,6 @@ def _名匹配(nname: str, t: str) -> bool:
     alt = nname.lstrip('.')
     return bool(alt) and (alt in nt or nt in alt)
 
-
-def _is_in_time_window(start_str: str, end_str: str) -> bool:
-    """检查本机当前时间是否在 [start_str, end_str] 范围内(支持跨零点)。
-    start_str/end_str: 'HH:MM' 格式;start > end 视为跨零点窗口(如 22:00-02:00)。"""
-    try:
-        from datetime import datetime, time
-        now = datetime.now().time()
-        sh, sm = [int(x) for x in start_str.split(':')]
-        eh, em = [int(x) for x in end_str.split(':')]
-        start_t = time(sh, sm)
-        end_t = time(eh, em)
-        if start_t <= end_t:
-            return start_t <= now <= end_t
-        return now >= start_t or now <= end_t
-    except Exception:
-        return True
-
-
-def _cfg_bool(value, default=False) -> bool:
-    """把界面/JSON 传进来的开关值归一化成 bool(未配置时按 default 处理)。
-    兼容 bool、0/1、'true'/'false'、'on'/'off'、'yes'/'no'、'1'/'0' 等写法;
-    无法识别时返回 default(默认 False=关闭),避免 bool('false')==True 的坑。"""
-    if value is None:
-        return default
-    if isinstance(value, bool):
-        return value
-    if isinstance(value, (int, float)):
-        return bool(value)
-    s = str(value).strip().lower()
-    if s in ('1', 'true', 'on', 'yes', 'y', '开', '开启', '是'):
-        return True
-    if s in ('0', 'false', 'off', 'no', 'n', '关', '关闭', '否', ''):
-        return False
-    return default
-
-
-def _read_worker_cfg() -> dict:
-    """读 worker 子进程的界面配置(开关/时段)。
-
-    优先进程环境变量 PC_TQC_RUNNER_CFG(worker 解析完配置后写入的 JSON 字符串,
-    新链路配置经 stdin 传入、不再落地临时文件);兼容旧链路 sys.argv[1] 与
-    %TEMP% 下历史遗留的 pc_tqc_runner_cfg_*.json;都找不到返回 {}。
-    """
-    try:
-        _raw = os.environ.get('PC_TQC_RUNNER_CFG')
-        if _raw:
-            _cfg = json.loads(_raw)
-            if isinstance(_cfg, dict):
-                return _cfg
-    except Exception:
-        pass
-
-    paths = []
-    try:
-        if len(sys.argv) >= 2 and str(sys.argv[1]).lower().endswith('.json') and os.path.exists(sys.argv[1]):
-            paths.append(sys.argv[1])
-    except Exception:
-        pass
-
-    try:
-        import glob
-        import tempfile
-        tmp = tempfile.gettempdir()
-        cands = [p for p in glob.glob(os.path.join(tmp, 'pc_tqc_runner_cfg_*.json')) if p not in paths]
-        cands.sort(key=lambda p: os.path.getmtime(p), reverse=True)
-        if cands:
-            paths.append(cands[0])
-    except Exception:
-        pass
-
-    for p in paths:
-        try:
-            with open(p, 'r', encoding='utf-8-sig') as f:
-                return json.load(f)
-        except Exception:
-            continue
-
-    return {}
 def _do_ammo_exchange(ctx, hwnd, top5, log):
     '''游戏内军需处兑换操作(固定滚动序列 + 状态感知返回版)。
 
@@ -842,147 +907,81 @@ def _do_ammo_exchange(ctx, hwnd, top5, log):
         except Exception:
             pass
 
+def _read_worker_cfg():
+    """读 worker 子进程的界面配置(开关/时段)。
 
-def _fetch_ammo_exchange_top5(log):
-    """从云端拉取战术部门子弹利润 Top5。"""
+    优先进程环境变量 PC_TQC_RUNNER_CFG(worker 解析完配置后写入的 JSON 字符串,
+    新链路配置经 stdin 传入、不再落地临时文件);兼容旧链路 sys.argv[1] 与
+    %TEMP% 下历史遗留的 pc_tqc_runner_cfg_*.json;都找不到返回 {}。
+    """
     try:
-        cfg_path = os.path.join(os.path.expanduser('~'), '.pc_tqc_client', 'config.json')
-        if not os.path.exists(cfg_path):
-            log('[军需兑换] 无云端配置文件,跳过', 'WARN')
-            return
-        else:
-            with open(cfg_path, 'r', encoding='utf-8-sig') as f:
-                cfg = json.load(f)
-            server_url = cfg.get('server_url') or cfg.get('cloud_url') or ''
-            token = cfg.get('token') or ''
-            if not server_url or not token:
-                log('[军需兑换] 云端配置缺少 server_url/token,跳过', 'WARN')
-                return
-            else:
-                url = f"{server_url.rstrip('/')}/api/admin/ammo-exchange-rec"
-                req = urllib.request.Request(url, headers={'Authorization': f'Bearer {token}', 'User-Agent': 'Mozilla/5.0 Chrome/130'})
-                with urllib.request.urlopen(req, timeout=15) as r:
-                    d = json.loads(r.read().decode('utf-8'))
-                if not d.get('ok'):
-                    log('[军需兑换] 云端返回错误', 'WARN')
-                    return
-                else:
-                    data = d.get('data') or {}
-                    rows = data.get('战术部门') or []
-                    if not rows:
-                        log('[军需兑换] 云端无战术部门数据', 'WARN')
-                        return
-                    else:
-                        return rows[:5]
-    except Exception as e:
-        log(f'[军需兑换] 拉云端排行失败: {type(e).__name__}: {e}', 'WARN')
-        return None
-
-
-def _find_game_hwnd():
-    """查找游戏窗口句柄。"""
-    try:
-        import ctypes
-        import ctypes.wintypes as wintypes
-        user32 = ctypes.windll.user32
-        kernel32 = ctypes.windll.kernel32
-        result = []
-        def enum_callback(hwnd, _):
-            if not user32.IsWindowVisible(hwnd):
-                return True
-            else:
-                pid = wintypes.DWORD()
-                user32.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
-                try:
-                    hproc = kernel32.OpenProcess(1040, False, pid.value)
-                    if hproc:
-                        buf = ctypes.create_unicode_buffer(260)
-                        size = wintypes.DWORD(260)
-                        kernel32.QueryFullProcessImageNameW(hproc, 0, buf, ctypes.byref(size))
-                        kernel32.CloseHandle(hproc)
-                        path = buf.value
-                        for proc in ['DeltaForceClient-Win64-Shipping.exe', 'DeltaForceClient.exe']:
-                            if proc.lower() in path.lower():
-                                result.append(hwnd)
-                                return False
-                except Exception:
-                    return True
-                return True
-        enum_proc = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)(enum_callback)
-        user32.EnumWindows(enum_proc, 0)
-        return result[0] if result else None
+        _raw = os.environ.get('PC_TQC_RUNNER_CFG')
+        if _raw:
+            _cfg = json.loads(_raw)
+            if isinstance(_cfg, dict):
+                return _cfg
     except Exception:
-        return None
+        pass
 
-
-def _is_main_lobby(items):
-    """是否主大厅:5个主菜单专属词同屏命中≥2,且没有军需处内部\'限购\'字样。"""
-    if not items:
-        return False
-    else:
-        joined = ' '.join((t for t, _ in items))
-        hits = sum((1 for w in _LOBBY_MENU_KW if w in joined))
-        return hits >= 2 and '限购' not in joined
-
-
-def _ensure_in_lobby(ctx, log, max_esc=5):
-    """交易行开始前的双保险:不在主大厅就逐次ESC,认到大厅立刻停。\n    返回 True=已确认大厅;False=未能确认(调用方仍按原流程走,不抛异常)。"""
+    paths = []
     try:
-        hwnd = _find_game_hwnd()
-        if not hwnd:
-            log('[军需兑换] 交易行前找不到游戏窗口,大厅确认跳过', 'WARN')
-            return False
-        else:
-            for i in range(max_esc + 1):
-                frame = ctx.grab_frame(hwnd, '交易行前大厅确认')
-                items = ctx.ocr_scan(frame, '交易行前大厅确认') if frame is not None else None
-                if items and _is_main_lobby(items):
-                    if i > 0:
-                        log(f'[军需兑换] 第{i}次ESC后已确认回到主大厅 ✓', 'INFO')
-                    return True
-                else:
-                    if i >= max_esc:
-                        break
-                    else:
-                        ctx.key_foreground(hwnd, VK_ESCAPE, f'交易行前ESC回大厅-{i + 1}')
-                        time.sleep(1.2)
-            log('[军需兑换] 交易行前未能确认回到大厅(仍放行原流程)', 'WARN')
-    except Exception as e:
-        log(f'[军需兑换] 交易行前大厅确认异常(忽略): {type(e).__name__}: {e}', 'WARN')
+        if len(sys.argv) >= 2 and str(sys.argv[1]).lower().endswith('.json') and os.path.exists(sys.argv[1]):
+            paths.append(sys.argv[1])
+    except Exception:
+        pass
+
+    try:
+        import glob
+        import tempfile
+        tmp = tempfile.gettempdir()
+        cands = [p for p in glob.glob(os.path.join(tmp, 'pc_tqc_runner_cfg_*.json')) if p not in paths]
+        cands.sort(key=lambda p: os.path.getmtime(p), reverse=True)
+        if cands:
+            paths.append(cands[0])
+    except Exception:
+        pass
+
+    for p in paths:
+        try:
+            with open(p, 'r', encoding='utf-8-sig') as f:
+                return json.load(f)
+        except Exception:
+            continue
+
+    return {}
+
+def _cfg_bool(value, default=False):
+    """把界面/JSON 传进来的开关值归一化成 bool(未配置时按 default 处理)。
+    兼容 bool、0/1、'true'/'false'、'on'/'off'、'yes'/'no'、'1'/'0' 等写法;
+    无法识别时返回 default(默认 False=关闭),避免 bool('false')==True 的坑。"""
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return bool(value)
+    s = str(value).strip().lower()
+    if s in ('1', 'true', 'on', 'yes', 'y', '开', '开启', '是'):
+        return True
+    if s in ('0', 'false', 'off', 'no', 'n', '关', '关闭', '否', ''):
         return False
-    return False
+    return default
 
-
-def _run_ammo_exchange(ctx, log):
-    """军需处子弹兑换主流程。"""
-    uname = ctx.current_username
-    if not uname:
-        log('[军需兑换] 无当前账号名,跳过', 'WARN')
-        return
-    else:
-        if _is_ammo_exchanged_today(uname):
-            log(f'[军需兑换] 账号 {uname} 今日已兑换,跳过', 'INFO')
-            return
-        else:
-            top5 = _fetch_ammo_exchange_top5(log)
-            if not top5:
-                log('[军需兑换] 拉取云端排行失败,跳过', 'WARN')
-                return
-            else:
-                log(f"[军需兑换] 云端Top5: {[r['name'] for r in top5]}", 'INFO')
-                hwnd = _find_game_hwnd()
-                if not hwnd:
-                    log('[军需兑换] 找不到游戏窗口,跳过', 'WARN')
-                    return
-                else:
-                    try:
-                        _do_ammo_exchange(ctx, hwnd, top5, log)
-                        _mark_ammo_exchanged_today(uname)
-                        log(f'[军需兑换] 账号 {uname} 兑换完成', 'INFO')
-                    except Exception as e:
-                        log(f'[军需兑换] 兑换失败(不标记今日已兑,下轮自动重试): {type(e).__name__}: {e}', 'WARN')
-                        return None
-
+def _is_in_time_window(start_str, end_str):
+    """检查本机当前时间是否在 [start_str, end_str] 范围内(支持跨零点)。
+    start_str/end_str: 'HH:MM' 格式;start > end 视为跨零点窗口(如 22:00-02:00)。"""
+    try:
+        from datetime import datetime, time as dtime
+        now = datetime.now().time()
+        sh, sm = [int(x) for x in start_str.split(':')]
+        eh, em = [int(x) for x in end_str.split(':')]
+        start_t = dtime(sh, sm)
+        end_t = dtime(eh, em)
+        if start_t <= end_t:
+            return start_t <= now <= end_t
+        return now >= start_t or now <= end_t
+    except Exception:
+        return True
 
 def _market_ok_result(msg, details=None):
     """构造与引擎 StepResult 同构的\"阶段正常完成\"结果。\n\n    调用方(引擎 runner.pyd)按 StepResult 契约消费 MarketSeller.run 的返回值:\n    读 .ok(=status==成功)/.details/.message/.elapsed_seconds 等字段\n    (runner.pyd 二进制内含全部 StepResult 属性名字符串,实证)。\n    跳过出售绝不能 return None——否则引擎读 None.ok 抛 AttributeError,\n    任务被判失败、流程走不到收尾(游戏停在特勤处不退出)。\n    首选引擎真实 StepResult(status=RunStatus.成功),构造失败退回\n    duck-typing 兜底对象(与第二步 _OkResult 同款,现网验证过的接口)。"""
@@ -1004,7 +1003,6 @@ def _market_ok_result(msg, details=None):
             def __getattr__(self, name):
                 return {}
         return _Ok(msg, details)
-
 
 def install(cls, ctx):
     """总管调用:把军需兑换挂到【交易行阶段入口】(MarketSeller.run)。"""
@@ -1138,16 +1136,3 @@ def install(cls, ctx):
         ctx.log(STEP_NAME, '军需兑换已挂载:交易行阶段入口(收菜后、出售前)')
     except Exception as e:
         ctx.log(STEP_NAME, f'军需兑换挂载交易行失败: {type(e).__name__}: {e}', 'WARN')
-
-
-def _local_db():
-    """本地调度库路径。"""
-    try:
-        import winreg
-        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, 'Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\User Shell Folders') as key:
-            desktop = os.path.expandvars(str(winreg.QueryValueEx(key, 'Desktop')[0]).strip())
-            if desktop:
-                return os.path.join(desktop, 'PC特勤处', 'pc_tqc.db')
-    except Exception:
-        pass
-    return os.path.join(os.path.expanduser('~'), 'Desktop', 'PC特勤处', 'pc_tqc.db')

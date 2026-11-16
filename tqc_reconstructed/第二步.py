@@ -151,29 +151,27 @@ def _找关键词坐标(items, kw):
         return
 def _比例坐标(ctx, frame, fixed):
     """把 0~1 比例换算成客户区像素;比例或结果越界返回 None(调用方不点击)。"""
-    # ***<module>._比例坐标: Failure: Compilation Error
     size = getattr(ctx, '_client_size', None)
     if not size and frame is not None:
-            try:
-                h, w = frame.shape[:2]
-                size = (w, h)
-            except Exception:
-                size = None
+        try:
+            h, w = frame.shape[:2]
+            size = (w, h)
+        except Exception:
+            size = None
     if not size:
-        return
-    else:
-        w, h = (int(size[0]), int(size[1]))
-        if w <= 0 or h <= 0:
-            return None
-        else:
-            rx, ry = fixed
-            if not (0.0 <= rx <= 1.0 and 0.0 <= ry <= 1.0):
-                return
-            else:
-                px, py = (int(round(rx * w)), int(round(ry * h)))
-                if not (0 <= px < w and 0 <= py < h):
-                    return (px, py)
-                return None
+        return None
+    w, h = (int(size[0]), int(size[1]))
+    if w <= 0 or h <= 0:
+        return None
+    rx, ry = fixed
+    if not (0.0 <= rx <= 1.0):
+        return None
+    if not (0.0 <= ry <= 1.0):
+        return None
+    px, py = (int(round(rx * w)), int(round(ry * h)))
+    if not (0 <= px < w and 0 <= py < h):
+        return None
+    return (px, py)
 
 class _OkResult:
     """EXE runner 期望的 _pre_lobby 返回值接口(.ok/.details 等)。"""

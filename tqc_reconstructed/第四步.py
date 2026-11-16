@@ -2,9 +2,34 @@
 # 职责: 阶段4(设施准备/交易行前置) + 模式B 自定义跳过流程(OCR 判定锁标,全锁则跳过本轮)
 # 关键: _SkipResult 是与引擎 StepResult 同构的"跳过"兜底对象(引擎 runner.pyd 读 .ok/.skipped/.reason)
 
-import json, os, re, time
+import time
 
-STEP_NAME = '第四步'
+from workflow_steps import CaptchaError
+
+STEP_NAME = '第四步 · 特勤处设施'
+
+# —— 模块级常量(GT 原版模块级字节码实锤, 顺序/值均对齐; 缺一项即 NameError) ——
+TIMEOUT = 180
+全设施锁标自定义跳过 = False
+特勤处TAB参考坐标 = (446, 60)
+参考分辨率 = (1027, 768)
+点击TAB后等待 = 4
+KW_特勤处面板 = ('升级制造', '进入特勤处')
+KW_未解锁 = ('未解锁',)
+设施列表 = ('技术中心', '工作台', '制药台', '防具台')
+面板最长等待 = 12
+空轮询间隔 = 2
+VK_ESCAPE = 27
+置顶前置识别 = True
+列表参考分辨率 = (1024, 768)
+置顶行点击坐标 = (160, 158)
+置顶行文本区 = (300, 110, 195)
+置顶识别动作间隔 = 1.2
+总览卡片重试 = True
+总览重试轮数 = 3
+总览重试间隔 = 2.5
+悬停清除点 = (700, 170)
+面板取证区 = (35, 225, 455, 610)
 
 
 class _SkipResult:
@@ -21,6 +46,95 @@ class _SkipResult:
         return {}
 
 
+
+
+def _自定义跳过流程(self, ctx, started_at, username=''):
+    """模式B:自己进图5面板 OCR 判定锁标,全锁则跳过本轮。"""
+    hwnd = ctx.resolve_hwnd(self, STEP_NAME)
+    if not hwnd:
+        raise RuntimeError('第四步: 找不到游戏窗口')
+    else:
+        deadline = started_at + TIMEOUT
+        tx, ty = 特勤处TAB参考坐标
+        rw, rh = 参考分辨率
+        ctx.click_ref(hwnd, tx, ty, rw, rh, STEP_NAME)
+        ctx.log(STEP_NAME, '已点击顶部「特勤处」菜单')
+        time.sleep(点击TAB后等待)
+        panel = False
+        while time.time() < min(time.time() + 面板最长等待, deadline):
+            if ctx.stopped():
+                raise RuntimeError('第四步: 已停止')
+            frame = ctx.grab_frame(hwnd, STEP_NAME)
+            if frame is None:
+                time.sleep(空轮询间隔)
+                continue
+            items = ctx.ocr_scan(frame, STEP_NAME)
+            ctx.raise_if_banned(items, hwnd, username, STEP_NAME)
+            if ctx.find_kw(items, KW_特勤处面板):
+                panel = True
+                break
+            time.sleep(空轮询间隔)
+        if not panel:
+            ctx.log(STEP_NAME, '未进入特勤处面板,放行给 EXE 原流程尝试', 'WARN')
+            return
+        else:
+            frame = ctx.grab_frame(hwnd, STEP_NAME)
+            items = ctx.ocr_scan(frame, STEP_NAME)
+            ctx.raise_if_banned(items, hwnd, username, STEP_NAME)
+            all_text = ' '.join((txt for txt, _ in items))
+            found_fac = [name for name in 设施列表 if name in all_text]
+            locked = ctx.find_kw(items, KW_未解锁) is not None
+            ctx.log(STEP_NAME, f"面板识别:设施名命中 {found_fac or '无'} · 锁标「未解锁」={('有' if locked else '无')}")
+            ctx.key_foreground(hwnd, VK_ESCAPE, STEP_NAME)
+            if locked and len(found_fac) <= 2:
+                ctx.log(STEP_NAME, '4 设施均未解锁(行动等级不足),本轮跳过,不制造 ✓', 'WARN')
+                return _SkipResult('facilities_locked: 行动等级不足,4设施未解锁')
+            else:
+                if locked:
+                    ctx.log(STEP_NAME, '存在未解锁设施且部分设施可见,自定义模式不制造,交回 EXE', 'WARN')
+                else:
+                    ctx.log(STEP_NAME, '未发现锁标,设施可能已解锁,自定义模式不制造,交回 EXE', 'WARN')
+
+
+_候选表 = {}
+
+
+def 登记候选(account_id, settings):
+    """runner_worker 拉到云端制造配置后调用,登记「物品ID -> 候选序列」。"""
+    try:
+        for _fac, s in (settings or {}).items():
+            if not isinstance(s, dict):
+                continue
+            else:
+                ids = s.get('candidates')
+                if not isinstance(ids, (list, tuple)):
+                    continue
+                else:
+                    seq = [str(x) for x in ids if isinstance(x, str) and str(x).strip()]
+                    head = s.get('item_id') or s.get('itemId')
+                    if head and (not seq or seq[0] != str(head)):
+                            seq = [str(head)] + seq
+                    seq = list(dict.fromkeys(seq))
+                    if len(seq) < 2:
+                        continue
+                    else:
+                        for i in seq:
+                            _候选表[str(account_id), i] = seq
+    except Exception:
+        return None
+
+
+def _查本地物品(item_id):
+    """从本地制造目录按 ID 取 ManufactureItem;取不到返回 None。"""
+    try:
+        from pc_tqc.vision.manufacture_list import load_manufacture_catalog
+        for items in (load_manufacture_catalog()[1] or {}).values():
+            it = items.get(item_id)
+            if it is not None:
+                return it
+    except Exception:
+        return None
+    return None
 
 
 def install(cls, ctx):
@@ -486,89 +600,5 @@ def install(cls, ctx):
             return wrapped_manu
         ctx.patch_with(cls, '_batch_manufacture_facility', _make_manu)
         ctx.log(STEP_NAME, '已挂载一键补齐弹窗救援(FILL_RETURN超时→补点支付+重试)', 'INFO')
-        return None
-    return None
-def _自定义跳过流程(self, ctx, started_at, username=''):
-    """模式B:自己进图5面板 OCR 判定锁标,全锁则跳过本轮。"""
-    hwnd = ctx.resolve_hwnd(self, STEP_NAME)
-    if not hwnd:
-        raise RuntimeError('第四步: 找不到游戏窗口')
-    else:
-        deadline = started_at + TIMEOUT
-        tx, ty = 特勤处TAB参考坐标
-        rw, rh = 参考分辨率
-        ctx.click_ref(hwnd, tx, ty, rw, rh, STEP_NAME)
-        ctx.log(STEP_NAME, '已点击顶部「特勤处」菜单')
-        time.sleep(点击TAB后等待)
-        panel = False
-        while time.time() < min(time.time() + 面板最长等待, deadline):
-            if ctx.stopped():
-                raise RuntimeError('第四步: 已停止')
-            frame = ctx.grab_frame(hwnd, STEP_NAME)
-            if frame is None:
-                time.sleep(空轮询间隔)
-                continue
-            items = ctx.ocr_scan(frame, STEP_NAME)
-            ctx.raise_if_banned(items, hwnd, username, STEP_NAME)
-            if ctx.find_kw(items, KW_特勤处面板):
-                panel = True
-                break
-            time.sleep(空轮询间隔)
-        if not panel:
-            ctx.log(STEP_NAME, '未进入特勤处面板,放行给 EXE 原流程尝试', 'WARN')
-            return
-        else:
-            frame = ctx.grab_frame(hwnd, STEP_NAME)
-            items = ctx.ocr_scan(frame, STEP_NAME)
-            ctx.raise_if_banned(items, hwnd, username, STEP_NAME)
-            all_text = ' '.join((txt for txt, _ in items))
-            found_fac = [name for name in 设施列表 if name in all_text]
-            locked = ctx.find_kw(items, KW_未解锁) is not None
-            ctx.log(STEP_NAME, f"面板识别:设施名命中 {found_fac or '无'} · 锁标「未解锁」={('有' if locked else '无')}")
-            ctx.key_foreground(hwnd, VK_ESCAPE, STEP_NAME)
-            if locked and len(found_fac) <= 2:
-                ctx.log(STEP_NAME, '4 设施均未解锁(行动等级不足),本轮跳过,不制造 ✓', 'WARN')
-                return _SkipResult('facilities_locked: 行动等级不足,4设施未解锁')
-            else:
-                if locked:
-                    ctx.log(STEP_NAME, '存在未解锁设施且部分设施可见,自定义模式不制造,交回 EXE', 'WARN')
-                else:
-                    ctx.log(STEP_NAME, '未发现锁标,设施可能已解锁,自定义模式不制造,交回 EXE', 'WARN')
-
-
-def 登记候选(account_id, settings):
-    """runner_worker 拉到云端制造配置后调用,登记「物品ID -> 候选序列」。"""
-    try:
-        for _fac, s in (settings or {}).items():
-            if not isinstance(s, dict):
-                continue
-            else:
-                ids = s.get('candidates')
-                if not isinstance(ids, (list, tuple)):
-                    continue
-                else:
-                    seq = [str(x) for x in ids if isinstance(x, str) and str(x).strip()]
-                    head = s.get('item_id') or s.get('itemId')
-                    if head and (not seq or seq[0] != str(head)):
-                            seq = [str(head)] + seq
-                    seq = list(dict.fromkeys(seq))
-                    if len(seq) < 2:
-                        continue
-                    else:
-                        for i in seq:
-                            _候选表[str(account_id), i] = seq
-    except Exception:
-        return None
-
-
-def _查本地物品(item_id):
-    """从本地制造目录按 ID 取 ManufactureItem;取不到返回 None。"""
-    try:
-        from pc_tqc.vision.manufacture_list import load_manufacture_catalog
-        for items in (load_manufacture_catalog()[1] or {}).values():
-            it = items.get(item_id)
-            if it is not None:
-                return it
-    except Exception:
         return None
     return None

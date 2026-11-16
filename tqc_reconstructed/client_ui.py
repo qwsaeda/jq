@@ -1,23 +1,24 @@
-# client_ui.py — 执行端主窗口（重建版：忠实 100% 语义转储 analysis_biz.txt + pyc 字节码钉死）
-# 本文件 = 顶层工具函数 / 状态持久化 / 设备指纹 / 云端握手 / GUI 类（ConfigDialog/ClickableLabel/
-# PasswordDialog/UpdateReadyDialog/UpdateDownloader/CloudWorker/UpsertWorker/RestoreWorker/RunnerWorkerThread）
-# GUI 类按原版 pyc 字节码逐指令重建(不依赖 PySide6 运行时,可 ast.parse + compile)。
+"""client_ui.py — 执行端主窗口 UI(PySide6)
 
-import hashlib, json, logging, os, re, shutil, subprocess, sys, tempfile, time
+复刻原版 PC特勤处V1.0.66 执行端风格:
+  - 深色主题窗口
+  - 顶部:服务器信息 + 交易行价格下调输入 + 大红停止按钮
+  - 统计条:账号 N · 待执行 N · 配置等待 N · 失败 N · 封禁 N
+  - 表格:等级 | 哈夫币 | 状态 | 日志
+  - 底部:黑色日志控制台
+"""
+
+import hashlib, json, logging, os, re, shutil, subprocess, sys, tempfile, threading, time
+
 from datetime import datetime
-from dataclasses import dataclass, asdict
-from pathlib import Path
 from typing import Optional
+from pathlib import Path
 
-from client_config import ClientConfig, load_config, save_config
-from cloud_client import (CloudClient, CloudAccount, CloudClientError,
-                          CloudVerificationError, test_connection)
-from sig_verify import USER_MESSAGE
-
-# PySide6 导入(原版 client_ui.py L25-28)
 from PySide6.QtCore import Qt, QTimer, Signal, Slot, QThread, QUrl, QTime
+
 from PySide6.QtGui import (QColor, QFont, QIcon, QPalette, QPainter, QPixmap,
                            QDesktopServices)
+
 from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
                                QHBoxLayout, QLabel, QPushButton, QSpinBox,
                                QTableWidget, QTableWidgetItem, QTextEdit,
@@ -27,48 +28,54 @@ from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
                                QProgressDialog, QCheckBox, QTimeEdit,
                                QInputDialog)
 
-logger = logging.getLogger('client_ui')
+from client_config import ClientConfig, load_config, save_config
 
-APP_VERSION = '1.9.20261115'
+from cloud_client import (CloudClient, CloudAccount, CloudClientError,
+                          CloudVerificationError, test_connection)
+
+from sig_verify import USER_MESSAGE
+
+logger = logging.getLogger('pc_tqc.ui')
+
 CLOUD_URL = 'https://teqinsi.cn'   # 模块级常量(原版 client_ui.py L44 直接赋值)
+
+APP_VERSION = '1.9.20261120'
+
 RELEASE_PUB_N = int('b8a2cb7a8b71d6b8e79a3bd0466bda1c9ead351fd2a9a280433475cfca2c497d001cea261415a3822ecc38350165e5a040a92e3c8eb4d375a5be7002b5ececaf8ca96c316b3371d93183e7c856396a0cb3091a8c51c00e715486012e6b3c9192ada8909d6b4bf568d26f463636d080cbcd6bc11ef185b5c63f70e66e6e273265f336a489b4b16a271f339694b99a1055483d62f0dcb441af93e90eb8f111cfd0e677cdeab0e5fa33dfa04317cf2eb38db396d7e8a3203470a49ba8d45b72d79fb50078dc2a6a026432829ed666516fc58c306a0f96429b5b70256f841ce1f377ba9f3bdfde55134377936278c0e073c740735cd4a327c8178aa8bac2b91688a17002eb7bf239eaca5f257519d47afbbd54c3ae2264f71a3a2ca01b01f44b43025720d16edad4baedc92ead5dc1ca6cc9dfeab01c47e86c2c54e7413ebb61b835f2b0aa94120db0426eb74a5d48cb96007c64f416c2928a9122b11f2787b7f1c002595bb1d0c82c2d61590bf15538cd24a019657467806b85d1926896ac54b56d', 16)   # 安装包发布者 RSA-2048 模数
+
 RELEASE_PUB_E = 65537
+
 _DIGESTINFO_SHA256 = bytes.fromhex('3031300d060960864801650304020105000420')
+
 DEBUG_LOG = os.environ.get('PC_TQC_DEBUG_LOG', '').strip().lower() in ('1', 'true', 'yes', 'on')
-_RE_POINT = re.compile(r'point=\(\s*-?\d{1,4}\s*,\s*-?\d{1,4}\s*\)')
-_RE_CLICK = re.compile(r'点击\(\s*\d{1,4}\s*,\s*\d{1,4}\s*\)')
-_RE_CLICK_LABEL = re.compile(r'(点击「[^」]*」)\(\s*\d{1,4}\s*,\s*\d{1,4}\s*\)')
-_RE_CLICK_POS = re.compile(r'点击\(\s*\d{1,4}\s*,\s*\d{1,4}\s*\)')
-_RE_KEY = re.compile(r'\b0x[0-9A-Fa-f]{2}\b')
-_RE_SCORE = re.compile(r'score=\d+(?:\.\d+)?')
-_RE_SCROLL = re.compile(r'scroll=[-\w.]+')
-_RE_Y = re.compile(r'\by=-?\d+')
-_RE_ROW = re.compile(r'\brow=-?\d+')
-_RE_COL = re.compile(r'\bcol=-?\d+')
-_RE_LABEL = re.compile(r'label=[^\s,)]+')
-_RE_ITEM = re.compile(r'item_id=[^\s,)]+')
+
 _LOG_DROP_KEYS = ('固定模板匹配成功', '制造列表候选确认')
-_FACILITY_LABELS = (('tech', '技术中心'), ('workbench', '工作台'), ('pharmacy', '制药台'), ('armor', '防具台'))
-STATUS_COLORS = {
-    'PENDING': '#9e9e9e', 'WAITING': '#ff9800', 'READY': '#4fc3f7',
-    'RUNNING': '#4caf50', 'SUCCESS': '#8bc34a', 'BANNED': '#f44336',
-    'OBSERVATION': '#ff9800', 'FAILED': '#e91e63', 'STOPPED': '#795548',
-    'SKIPPED': '#607d8b', 'PAUSED': '#607d8b',
-}
-STATUS_NAMES = {
-    'PENDING': '等待', 'WAITING': '等待时间', 'READY': '待执行',
-    'RUNNING': '运行中', 'SUCCESS': '成功', 'BANNED': '封禁',
-    'OBSERVATION': '观察期', 'FAILED': '失败', 'STOPPED': '已停止',
-    'SKIPPED': '已跳过',
-}
-STATUS_CN_TO_CODE = {v: k for k, v in STATUS_NAMES.items()}
-TERMINAL_STATUSES = frozenset({'FAILED', 'SUCCESS', 'OBSERVATION', 'BANNED', 'SKIPPED', 'STOPPED'})
-RUN_LIMIT_TIMES = 3
-RUN_LIMIT_WINDOW = 3600
-DARK_STYLE = """\nQMainWindow {\n    background-color: transparent;\n}\nQDialog {\n    background-color: #23201a;\n    color: #e8e2d4;\n}\nQWidget {\n    background-color: transparent;\n    color: #e8e2d4;\n    font-family: "Microsoft YaHei", "SimHei", sans-serif;\n    font-size: 12px;\n}\nQTableWidget {\n    background-color: rgba(14, 18, 24, 205);\n    gridline-color: rgba(120, 130, 145, 60);\n    border: 1px solid rgba(140, 150, 165, 80);\n    border-radius: 4px;\n}\nQTableWidget::item {\n    padding: 4px;\n    border-bottom: 1px solid rgba(120, 130, 145, 45);\n}\nQTableWidget::item:selected {\n    background-color: rgba(88, 130, 180, 110);\n    color: #f2ede2;\n}\nQHeaderView::section {\n    background-color: rgba(26, 32, 42, 225);\n    color: #d5c9ae;\n    padding: 6px;\n    border: none;\n    font-weight: bold;\n}\nQTextEdit {\n    background-color: rgba(8, 10, 14, 228);\n    color: #e8dfc8;\n    border: 1px solid rgba(140, 150, 165, 80);\n    border-radius: 4px;\n    font-family: "Consolas", "Courier New", monospace;\n    font-size: 11px;\n}\nQPushButton {\n    background-color: rgba(52, 60, 74, 215);\n    color: #e8e2d4;\n    border: 1px solid rgba(150, 160, 175, 90);\n    border-radius: 4px;\n    padding: 6px 16px;\n    font-weight: bold;\n}\nQPushButton:hover {\n    background-color: rgba(66, 76, 92, 225);\n}\nQPushButton:pressed {\n    background-color: rgba(40, 46, 58, 235);\n}\nQPushButton:disabled {\n    background-color: rgba(40, 44, 52, 160);\n    color: rgba(160, 158, 150, 130);\n}\nQPushButton#stopBtn {\n    background-color: rgba(160, 62, 44, 230);\n    color: white;\n    font-size: 14px;\n    padding: 8px 24px;\n}\nQPushButton#stopBtn:hover {\n    background-color: rgba(186, 78, 56, 240);\n}\nQPushButton#stopBtn:disabled {\n    background-color: rgba(90, 60, 54, 160);\n    color: rgba(180, 160, 150, 120);\n}\nQPushButton#startBtn {\n    background-color: rgba(88, 122, 58, 230);\n    color: white;\n    font-size: 14px;\n    padding: 8px 24px;\n}\nQPushButton#startBtn:hover {\n    background-color: rgba(102, 140, 68, 240);\n}\nQPushButton#restoreBtn {\n    background-color: rgba(180, 122, 32, 230);\n    color: white;\n    font-weight: bold;\n}\nQPushButton#restoreBtn:hover {\n    background-color: rgba(198, 140, 44, 240);\n}\nQPushButton#restoreBtn:disabled {\n    background-color: rgba(90, 76, 52, 160);\n    color: rgba(170, 160, 140, 120);\n}\nQMenu {\n    background-color: #262c36;\n    color: #e8e2d4;\n    border: 1px solid rgba(140, 150, 165, 90);\n}\nQMenu::item:selected {\n    background-color: rgba(88, 130, 180, 120);\n}\nQSpinBox {\n    background-color: rgba(20, 25, 32, 215);\n    color: #e8e2d4;\n    border: 1px solid rgba(140, 150, 165, 90);\n    border-radius: 4px;\n    padding: 4px;\n}\nQLineEdit {\n    background-color: rgba(20, 25, 32, 215);\n    color: #e8e2d4;\n    border: 1px solid rgba(140, 150, 165, 90);\n    border-radius: 4px;\n    padding: 6px;\n}\nQLabel#statLabel {\n    color: #c9b892;\n    font-weight: bold;\n    padding: 4px 8px;\n}\nQLabel#statValue {\n    color: #e8a83e;\n    font-weight: bold;\n    padding: 4px 8px;\n}\nQLabel#serverInfo {\n    color: #9ec48a;\n    font-size: 11px;\n}\nQProgressBar {\n    background-color: rgba(20, 25, 32, 215);\n    border: 1px solid rgba(140, 150, 165, 90);\n    border-radius: 4px;\n    height: 16px;\n    text-align: center;\n}\nQProgressBar::chunk {\n    background-color: #c98f2d;\n    border-radius: 4px;\n}\nQPushButton#cellBtn {\n    padding: 2px 8px;\n    font-size: 11px;\n    border-radius: 3px;\n}\nQStatusBar {\n    background-color: rgba(12, 15, 20, 200);\n    color: #b8b0a0;\n}\nQToolTip {\n    background-color: #262c36;\n    color: #e8e2d4;\n    border: 1px solid rgba(140, 150, 165, 90);\n}\nQLabel#updateTip {\n    color: #ffd166;\n    font-weight: bold;\n    padding: 2px 4px;\n}\nQPushButton#updateBtn {\n    background-color: rgba(196, 124, 36, 235);\n    color: #fff5e0;\n    border: 1px solid rgba(255, 196, 110, 150);\n}\nQPushButton#updateBtn:hover {\n    background-color: rgba(222, 148, 52, 245);\n}\n"""
 
+_RE_POINT = re.compile(r'point=\(\s*-?\d{1,4}\s*,\s*-?\d{1,4}\s*\)')
 
-def _mask_sensitive_log(text: str) -> Optional[str]:
+_RE_CLICK = re.compile(r'已点击\(\s*\d{1,4}\s*,\s*\d{1,4}\s*\)')
+
+_RE_CLICK_LABEL = re.compile(r'(点击「[^」]*」)\(\s*\d{1,4}\s*,\s*\d{1,4}\s*\)')
+
+_RE_CLICK_POS = re.compile(r'点击\(\s*\d{1,4}\s*,\s*\d{1,4}\s*\)')
+
+_RE_KEY = re.compile(r'\b0x[0-9A-Fa-f]{2}\b')
+
+_RE_SCORE = re.compile(r'score=\d+(?:\.\d+)?')
+
+_RE_SCROLL = re.compile(r'scroll=[-\w.]+')
+
+_RE_Y = re.compile(r'\by=-?\d+')
+
+_RE_ROW = re.compile(r'\brow=-?\d+')
+
+_RE_COL = re.compile(r'\bcol=-?\d+')
+
+_RE_LABEL = re.compile(r'label=[^\s,)]+')
+
+_RE_ITEM = re.compile(r'item_id=[^\s,)]+')
+
+def _mask_sensitive_log(text: str):
     """隐藏坐标/按键码/模板分数/滚动位置/模板名/候选明细;返回 None 表示整行丢弃。"""
     if not text:
         return text
@@ -88,18 +95,12 @@ def _mask_sensitive_log(text: str) -> Optional[str]:
     text = _RE_ITEM.sub('item_id=***', text)
     return text
 
-
 def _get_config_dir() -> Path:
     """执行端配置目录: %USERPROFILE%/.pc_tqc_client/。"""
     up = os.environ.get('USERPROFILE', str(Path.home()))
     d = Path(up) / '.pc_tqc_client'
     d.mkdir(parents=True, exist_ok=True)
     return d
-
-
-def _get_config_path() -> Path:
-    return _get_config_dir() / 'config.json'
-
 
 def _cleanup_stale_runner_cfg(max_age_sec: int = 600) -> None:
     """清理旧版本遗留的明文配置(新版本已改为 stdin 传参,不再产生该文件)。"""
@@ -116,6 +117,8 @@ def _cleanup_stale_runner_cfg(max_age_sec: int = 600) -> None:
     except Exception:
         pass
 
+def _get_config_path() -> Path:
+    return _get_config_dir() / 'config.json'
 
 def verify_release_signature(sha256_hex: str, sig_hex: str) -> bool:
     """校验安装包发布者签名;签名只覆盖 SHA256 摘要,防止包被替换。"""
@@ -137,6 +140,25 @@ def verify_release_signature(sha256_hex: str, sig_hex: str) -> bool:
         return False
     return em == b'\x00\x01' + b'\xff' * pad + b'\x00' + tail
 
+DARK_STYLE = """\nQMainWindow {\n    background-color: transparent;\n}\nQDialog {\n    background-color: #23201a;\n    color: #e8e2d4;\n}\nQWidget {\n    background-color: transparent;\n    color: #e8e2d4;\n    font-family: "Microsoft YaHei", "SimHei", sans-serif;\n    font-size: 12px;\n}\nQTableWidget {\n    background-color: rgba(14, 18, 24, 205);\n    gridline-color: rgba(120, 130, 145, 60);\n    border: 1px solid rgba(140, 150, 165, 80);\n    border-radius: 4px;\n}\nQTableWidget::item {\n    padding: 4px;\n    border-bottom: 1px solid rgba(120, 130, 145, 45);\n}\nQTableWidget::item:selected {\n    background-color: rgba(88, 130, 180, 110);\n    color: #f2ede2;\n}\nQHeaderView::section {\n    background-color: rgba(26, 32, 42, 225);\n    color: #d5c9ae;\n    padding: 6px;\n    border: none;\n    font-weight: bold;\n}\nQTextEdit {\n    background-color: rgba(8, 10, 14, 228);\n    color: #e8dfc8;\n    border: 1px solid rgba(140, 150, 165, 80);\n    border-radius: 4px;\n    font-family: "Consolas", "Courier New", monospace;\n    font-size: 11px;\n}\nQPushButton {\n    background-color: rgba(52, 60, 74, 215);\n    color: #e8e2d4;\n    border: 1px solid rgba(150, 160, 175, 90);\n    border-radius: 4px;\n    padding: 6px 16px;\n    font-weight: bold;\n}\nQPushButton:hover {\n    background-color: rgba(66, 76, 92, 225);\n}\nQPushButton:pressed {\n    background-color: rgba(40, 46, 58, 235);\n}\nQPushButton:disabled {\n    background-color: rgba(40, 44, 52, 160);\n    color: rgba(160, 158, 150, 130);\n}\nQPushButton#stopBtn {\n    background-color: rgba(160, 62, 44, 230);\n    color: white;\n    font-size: 14px;\n    padding: 8px 24px;\n}\nQPushButton#stopBtn:hover {\n    background-color: rgba(186, 78, 56, 240);\n}\nQPushButton#stopBtn:disabled {\n    background-color: rgba(90, 60, 54, 160);\n    color: rgba(180, 160, 150, 120);\n}\nQPushButton#startBtn {\n    background-color: rgba(88, 122, 58, 230);\n    color: white;\n    font-size: 14px;\n    padding: 8px 24px;\n}\nQPushButton#startBtn:hover {\n    background-color: rgba(102, 140, 68, 240);\n}\nQPushButton#restoreBtn {\n    background-color: rgba(180, 122, 32, 230);\n    color: white;\n    font-weight: bold;\n}\nQPushButton#restoreBtn:hover {\n    background-color: rgba(198, 140, 44, 240);\n}\nQPushButton#restoreBtn:disabled {\n    background-color: rgba(90, 76, 52, 160);\n    color: rgba(170, 160, 140, 120);\n}\nQMenu {\n    background-color: #262c36;\n    color: #e8e2d4;\n    border: 1px solid rgba(140, 150, 165, 90);\n}\nQMenu::item:selected {\n    background-color: rgba(88, 130, 180, 120);\n}\nQSpinBox {\n    background-color: rgba(20, 25, 32, 215);\n    color: #e8e2d4;\n    border: 1px solid rgba(140, 150, 165, 90);\n    border-radius: 4px;\n    padding: 4px;\n}\nQLineEdit {\n    background-color: rgba(20, 25, 32, 215);\n    color: #e8e2d4;\n    border: 1px solid rgba(140, 150, 165, 90);\n    border-radius: 4px;\n    padding: 6px;\n}\nQLabel#statLabel {\n    color: #c9b892;\n    font-weight: bold;\n    padding: 4px 8px;\n}\nQLabel#statValue {\n    color: #e8a83e;\n    font-weight: bold;\n    padding: 4px 8px;\n}\nQLabel#serverInfo {\n    color: #9ec48a;\n    font-size: 11px;\n}\nQProgressBar {\n    background-color: rgba(20, 25, 32, 215);\n    border: 1px solid rgba(140, 150, 165, 90);\n    border-radius: 4px;\n    height: 16px;\n    text-align: center;\n}\nQProgressBar::chunk {\n    background-color: #c98f2d;\n    border-radius: 4px;\n}\nQPushButton#cellBtn {\n    padding: 2px 8px;\n    font-size: 11px;\n    border-radius: 3px;\n}\nQStatusBar {\n    background-color: rgba(12, 15, 20, 200);\n    color: #b8b0a0;\n}\nQToolTip {\n    background-color: #262c36;\n    color: #e8e2d4;\n    border: 1px solid rgba(140, 150, 165, 90);\n}\nQLabel#updateTip {\n    color: #ffd166;\n    font-weight: bold;\n    padding: 2px 4px;\n}\nQPushButton#updateBtn {\n    background-color: rgba(196, 124, 36, 235);\n    color: #fff5e0;\n    border: 1px solid rgba(255, 196, 110, 150);\n}\nQPushButton#updateBtn:hover {\n    background-color: rgba(222, 148, 52, 245);\n}\n"""
+
+STATUS_COLORS = {
+    'PENDING': '#9e9e9e', 'WAITING': '#ff9800', 'READY': '#4fc3f7',
+    'RUNNING': '#4caf50', 'SUCCESS': '#8bc34a', 'BANNED': '#f44336',
+    'OBSERVATION': '#ff9800', 'FAILED': '#e91e63', 'STOPPED': '#795548',
+    'SKIPPED': '#607d8b', 'PAUSED': '#607d8b',
+}
+
+STATUS_NAMES = {
+    'PENDING': '等待', 'WAITING': '等待时间', 'READY': '待执行',
+    'RUNNING': '运行中', 'SUCCESS': '成功', 'BANNED': '封禁',
+    'OBSERVATION': '观察期', 'FAILED': '失败', 'STOPPED': '已停止',
+    'SKIPPED': '已跳过',
+}
+
+STATUS_CN_TO_CODE = {v: k for k, v in STATUS_NAMES.items()}
+
+TERMINAL_STATUSES = frozenset({'FAILED', 'SUCCESS', 'OBSERVATION', 'BANNED', 'SKIPPED', 'STOPPED'})
 
 def _format_hafu_w(value) -> str:
     """哈夫币 → 万(w)显示串,仅用于界面展示,例如 40998000 → '4099.8w'。
@@ -151,7 +173,6 @@ def _format_hafu_w(value) -> str:
     if abs(n) < 10000:
         return str(n)
     return f'{n / 10000:.1f}w'
-
 
 def _earliest_facility_time(timers: dict, future_only: bool = False):
     """从4设施到期时间取最早一个(引擎到最早设施到期即醒来开跑)。
@@ -172,12 +193,12 @@ def _earliest_facility_time(timers: dict, future_only: bool = False):
         times.append(dt)
     return min(times) if times else None
 
+_FACILITY_LABELS = (('tech', '技术中心'), ('workbench', '工作台'), ('pharmacy', '制药台'), ('armor', '防具台'))
 
 def _fmt_hms(seconds: int) -> str:
     """秒 → H:MM:SS(小时不封顶,可超过24)。"""
     p = lambda n: str(n).zfill(2)
     return f'{seconds // 3600}:{p((seconds % 3600) // 60)}:{p(seconds % 60)}'
-
 
 def _facility_countdown_text(timers: dict) -> str:
     """4设施实时倒计时多行文本(每秒重算):
@@ -188,8 +209,8 @@ def _facility_countdown_text(timers: dict) -> str:
     if not isinstance(timers, dict):
         return ''
     now = datetime.now()
-    lines = []
     any_time = False
+    lines = []
     for key, label in _FACILITY_LABELS:
         raw = timers.get(key)
         if not raw:
@@ -207,6 +228,40 @@ def _facility_countdown_text(timers: dict) -> str:
         return '\n'.join(lines)
     return ''
 
+def _derive_display_status(acc) -> tuple:
+    """显示状态由4设施倒计时推导(状态列只认倒计时,不信任云端状态码)。\n\n    返回 (显示文本, 颜色key):\n      · 封禁(内部BANNED):不跑,显示\'封禁\',日志列显示封禁信息;\n      · 已停止(内部STOPPED,连败3次):显示\'失败\',调度排除,等人工恢复;\n      · 运行中(内部RUNNING):显示\'执行中\';\n      · 工作台/制药台/防具台 三项全部到点 → \'待执行\'(技术中心不参与判定);\n      · 上述三项有一项未到           → \'等待时间\';\n      · 否则(无数据/新账号)          → \'失败\'(可重跑)。\n    """
+    status = getattr(acc, 'status', '')
+    if status == 'BANNED':
+        return ('封禁', 'BANNED')
+    else:
+        if status == 'STOPPED':
+            return ('失败', 'FAILED')
+        else:
+            if status == 'RUNNING':
+                return ('执行中', 'RUNNING')
+            else:
+                timers = getattr(acc, 'facility_next_run_at', None)
+                if isinstance(timers, dict) and timers:
+                    now = datetime.now()
+                    remains = []
+                    for key, _label in _FACILITY_LABELS:
+                        if key == 'tech':
+                            continue
+                        else:
+                            raw = timers.get(key)
+                            if raw:
+                                try:
+                                    dt = datetime.fromisoformat(str(raw))
+                                except ValueError:
+                                    pass
+                                else:
+                                    remains.append(int((dt - now).total_seconds()))
+                    if remains:
+                        if all((r <= 0 for r in remains)):
+                            return ('待执行', 'READY')
+                        else:
+                            return ('等待时间', 'WAITING')
+                return ('失败', 'FAILED')
 
 def _runner_db_path() -> str:
     """runner(原版EXE核心)的本地调度库路径: 桌面/PC特勤处/pc_tqc.db"""
@@ -220,7 +275,6 @@ def _runner_db_path() -> str:
     except (ImportError, OSError):
         pass
     return os.path.join(os.path.expanduser('~'), 'Desktop', 'PC特勤处', 'pc_tqc.db')
-
 
 def _load_facility_schedules() -> dict:
     """读 runner 本地调度库: {username: 最晚设施到期时间(datetime),无有效时间则为 None}。
@@ -251,6 +305,102 @@ def _load_facility_schedules() -> dict:
         return result
     return result
 
+def _load_all_facility_timers() -> dict:
+    """读 runner 本地调度库的完整4设施时间:\n    {username: {tech/workbench/pharmacy/armor: \'ISO时间串\'}}。\n    无有效时间的账号不放入结果;库不存在/失败返回空表。"""
+    import sqlite3
+    db = _runner_db_path()
+    result = {}
+    if not os.path.exists(db):
+        return result
+    else:
+        try:
+            conn = sqlite3.connect(db, timeout=10)
+            try:
+                cur = conn.cursor()
+                for name, tech, wb, ph, ar in cur.execute('SELECT username, tech_next_at, workbench_next_at, pharmacy_next_at, armor_next_at FROM account_state'):
+                    timers = {}
+                    for key, raw in [('tech', tech), ('workbench', wb), ('pharmacy', ph), ('armor', ar)]:
+                        if raw:
+                            try:
+                                datetime.fromisoformat(str(raw))
+                                timers[key] = str(raw)
+                            except ValueError:
+                                pass
+                            else:
+                                pass
+                    if timers:
+                        result[name] = timers
+            finally:
+                conn.close()
+        except Exception:
+            pass
+        return result
+
+def _load_local_record_usernames() -> set:
+    """本地存在任何痕迹的用户名集合:调度库 account_state/market_listing 两表
+    + last_run.json。库不存在/失败时只返回 last_run 中的名字。"""
+    import sqlite3
+    names = {u for u in _load_last_run_store().keys() if u}
+    db = _runner_db_path()
+    if os.path.exists(db):
+        try:
+            conn = sqlite3.connect(db, timeout=10)
+            try:
+                cur = conn.cursor()
+                for table in ('account_state', 'market_listing'):
+                    try:
+                        cur.execute(f'SELECT DISTINCT username FROM {table} WHERE username IS NOT NULL AND username<>\'\'')
+                        names.update((u for u, in cur.fetchall() if u))
+                    except sqlite3.Error:
+                        continue
+            finally:
+                conn.close()
+        except Exception:
+            pass
+    return names
+
+def _purge_local_accounts(usernames) -> dict:
+    """彻底清除指定账号在本机的全部记录(云端删除/删号重导后调用):\n    account_state 整行、market_listing 挂售记录、ammo_exchange_log 军需兑换标记、\n    last_run.json 条目。\n    返回 {\'state\': n, \'market\': n, \'ammo\': n, \'lastrun\': n}。"""
+    import sqlite3
+    info = {'state': 0, 'market': 0, 'ammo': 0, 'lastrun': 0}
+    names, seen = ([], set())
+    for u in usernames or []:
+        if u and u not in seen:
+                seen.add(u)
+                names.append(u)
+    if not names:
+        return info
+    else:
+        db = _runner_db_path()
+        if os.path.exists(db):
+            conn = sqlite3.connect(db, timeout=10)
+            try:
+                cur = conn.cursor()
+                for name in names:
+                    cur.execute('DELETE FROM account_state WHERE username=?', (name,))
+                    info['state'] += cur.rowcount
+                    cur.execute('DELETE FROM market_listing WHERE username=?', (name,))
+                    info['market'] += cur.rowcount
+                    try:
+                        cur.execute('DELETE FROM ammo_exchange_log WHERE username=?', (name,))
+                        info['ammo'] += cur.rowcount
+                    except sqlite3.Error:
+                        pass
+                    else:
+                        pass
+                conn.commit()
+            finally:
+                conn.close()
+        store = _load_last_run_store()
+        removed = 0
+        for name in names:
+            if name in store:
+                del store[name]
+                removed += 1
+        if removed:
+            _save_last_run_store(store)
+            info['lastrun'] = removed
+        return info
 
 def _last_run_store_path() -> str:
     """最近运行时间持久化文件(与客户端配置同目录)。"""
@@ -258,7 +408,6 @@ def _last_run_store_path() -> str:
     d = os.path.join(base, '.pc_tqc_client')
     os.makedirs(d, exist_ok=True)
     return os.path.join(d, 'last_run.json')
-
 
 def _atomic_write_json(path: str, data) -> None:
     """原子写 JSON:先写同目录临时文件再 os.replace,避免断电/崩溃留下半截文件。"""
@@ -269,7 +418,6 @@ def _atomic_write_json(path: str, data) -> None:
         os.fsync(f.fileno())
     os.replace(tmp, path)
 
-
 def _load_last_run_store() -> dict:
     try:
         with open(_last_run_store_path(), 'r', encoding='utf-8') as f:
@@ -277,20 +425,17 @@ def _load_last_run_store() -> dict:
     except Exception:
         return {}
 
-
 def _save_last_run_store(store: dict) -> None:
     try:
         _atomic_write_json(_last_run_store_path(), store)
     except Exception as e:
         logger.warning('保存 last_run.json 失败: %s: %s', type(e).__name__, e)
 
-
 def _known_accounts_path() -> str:
     base = os.environ.get('USERPROFILE', os.path.expanduser('~'))
     d = os.path.join(base, '.pc_tqc_client')
     os.makedirs(d, exist_ok=True)
     return os.path.join(d, 'known_accounts.json')
-
 
 def _load_known_accounts() -> dict:
     try:
@@ -299,14 +444,12 @@ def _load_known_accounts() -> dict:
     except Exception:
         return {}
 
-
 def _save_known_accounts(mapping: dict) -> None:
     try:
         with open(_known_accounts_path(), 'w', encoding='utf-8') as f:
             json.dump(mapping, f, ensure_ascii=False, indent=2)
     except Exception:
         pass
-
 
 def _manual_state_path() -> str:
     """手动操作状态文件(EXE 同目录,跨重启保留暂停名单/锁定名单/密码哈希)"""
@@ -316,6 +459,13 @@ def _manual_state_path() -> str:
         base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     return os.path.join(base, 'manual_state.json')
 
+def _bg_image_path() -> str:
+    """窗口氛围背景图(EXE 同目录 bg.jpg,随包分发)"""
+    if getattr(sys, 'frozen', False):
+        base = os.path.dirname(sys.executable)
+    else:
+        base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    return os.path.join(base, 'bg.jpg')
 
 def _load_manual_state() -> dict:
     try:
@@ -327,112 +477,19 @@ def _load_manual_state() -> dict:
     except Exception:
         return {}
 
-
 def _save_manual_state(data: dict) -> None:
     try:
         _atomic_write_json(_manual_state_path(), data)
     except Exception as e:
         logger.warning('保存 manual_state.json 失败: %s: %s', type(e).__name__, e)
 
+RUN_LIMIT_TIMES = 3
+
+RUN_LIMIT_WINDOW = 3600
 
 def _hash_password(pwd: str, salt: str) -> str:
     """PBKDF2 口令哈希(本地只存哈希,绝不存明文)。"""
     return hashlib.pbkdf2_hmac('sha256', pwd.encode('utf-8'), salt, 100000).hex()
-
-
-def device_fingerprint() -> str:
-    """本机设备指纹:MachineGuid + 系统盘卷序列号 + 网卡MAC 的 SHA256。
-
-    只读取系统标识,不读取/修改任何进程内存,也不注入或结束任何进程。"""
-    parts = []
-    try:
-        import winreg
-        with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE,
-                            r'SOFTWARE\Microsoft\Cryptography',
-                            0, winreg.KEY_READ | winreg.KEY_WOW64_64KEY) as k:
-            parts.append(str(winreg.QueryValueEx(k, 'MachineGuid')[0]))
-    except Exception:
-        parts.append('')
-    try:
-        import ctypes
-        serial = ctypes.c_ulong(0)
-        ok = ctypes.windll.kernel32.GetVolumeInformationW(
-            ctypes.c_wchar_p(os.environ.get('SystemDrive', 'C:') + '\\'),
-            None, 0, ctypes.byref(serial), None, None, None, 0)
-        parts.append(str(serial.value) if ok else '')
-    except Exception:
-        parts.append('')
-    try:
-        import uuid
-        parts.append('%012x' % uuid.getnode())
-    except Exception:
-        parts.append('')
-    return hashlib.sha256('|'.join(parts).encode('utf-8')).hexdigest()
-
-
-def cloud_handshake(client):
-    """与云端握手(设备绑定 + 会话签名)。
-
-    返回 (blocked, detail):
-      blocked=True  → 授权/设备校验不通过,必须锁住"开始",detail 为提示文案;
-      blocked=False → 握手通过,或仅网络异常(交给原有刷新逻辑判断)。
-    """
-    try:
-        res = client._post('/api/client/handshake', {
-            'deviceId': device_fingerprint(),
-            'appVersion': APP_VERSION,
-            'platform': 'windows',
-            'os': f'{sys.platform} {os.environ.get("PROCESSOR_ARCHITECTURE", "")}',
-        })
-    except CloudVerificationError as e:
-        return (True, str(e))
-    except CloudClientError as e:
-        detail = MainWindow._license_detail(str(e))
-        if detail:
-            return (True, detail)
-        return (False, '')
-    except Exception:
-        return (False, '')
-    if res.get('ok', True):
-        try:
-            client.set_session(res.get('session', ''), res.get('expiresIn', 0))
-        except Exception:
-            return (False, '')
-        return (False, '')
-    return (True, res.get('error') or '设备校验失败,请联系管理员')
-
-
-# ================================================================== GUI 类
-# 以下 GUI 类按原版 pyc 字节码逐指令重建(结构/常量/调用序列忠实)。
-# PySide6 未安装时本文件仍可 ast.parse/compile(类定义惰性,import 在 try/except 内)。
-try:
-    from PySide6.QtCore import Qt, QTimer, Signal, Slot, QThread, QUrl, QTime
-    from PySide6.QtGui import QColor, QFont, QIcon, QPalette, QPainter, QPixmap, QDesktopServices
-    from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
-                                   QLabel, QPushButton, QSpinBox, QDialog, QFormLayout, QLineEdit,
-                                   QDialogButtonBox, QInputDialog, QMessageBox)
-    _PYSIDE_OK = True
-except Exception:
-    _PYSIDE_OK = False
-    class _Stub:
-        def __init__(self, *a, **k): pass
-        def __getattr__(self, n):
-            class _M:
-                def __call__(self_, *a, **k): pass
-            return _M()
-    class _SignalStub:
-        def __init__(self, *a, **k): self._t = a
-        def connect(self, *a, **k): pass
-        def emit(self, *a, **k): pass
-        def __call__(self, *a, **k): return self
-        def __getattr__(self, n): return (lambda *a, **k: None)
-    Qt = QTimer = QThread = QUrl = QTime = _Stub
-    Slot = _Stub
-    Signal = _SignalStub
-    QColor = QFont = QIcon = QPalette = QPainter = QPixmap = QDesktopServices = _Stub
-    QApplication = QMainWindow = QWidget = QVBoxLayout = QHBoxLayout = QLabel = QPushButton = _Stub
-    QSpinBox = QDialog = QFormLayout = QLineEdit = QDialogButtonBox = QInputDialog = QMessageBox = _Stub
-
 
 class ConfigDialog:
     '''授权配置对话框(服务器地址可编辑,留空用内置默认值)'''
@@ -499,7 +556,6 @@ class ConfigDialog:
             sell_window_end=str(getattr(self.config, 'sell_window_end', '20:00')),
         )
 
-
 class ClickableLabel:
     '''可点击的统计数值标签(V1.8:点击过滤主表格)'''
     clicked = Signal()
@@ -512,7 +568,6 @@ class ClickableLabel:
         if event.button() == Qt.LeftButton:
             self.clicked.emit()
         super().mousePressEvent(event)
-
 
 class PasswordDialog:
     """登录密码对话框:mode='verify' 验证密码(解锁/上锁账号登录);mode='set' 设置/修改密码"""
@@ -594,6 +649,93 @@ class PasswordDialog:
     def old_password(self) -> str:
         return self.old_edit.text() if self.old_edit is not None else ''
 
+def device_fingerprint() -> str:
+    """本机设备指纹:MachineGuid + 系统盘卷序列号 + 网卡MAC 的 SHA256。
+
+    只读取系统标识,不读取/修改任何进程内存,也不注入或结束任何进程。"""
+    parts = []
+    try:
+        import winreg
+        with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE,
+                            r'SOFTWARE\Microsoft\Cryptography',
+                            0, winreg.KEY_READ | winreg.KEY_WOW64_64KEY) as k:
+            parts.append(str(winreg.QueryValueEx(k, 'MachineGuid')[0]))
+    except Exception:
+        parts.append('')
+    try:
+        import ctypes
+        serial = ctypes.c_ulong(0)
+        ok = ctypes.windll.kernel32.GetVolumeInformationW(
+            ctypes.c_wchar_p(os.environ.get('SystemDrive', 'C:') + '\\'),
+            None, 0, ctypes.byref(serial), None, None, None, 0)
+        parts.append(str(serial.value) if ok else '')
+    except Exception:
+        parts.append('')
+    try:
+        import uuid
+        parts.append('%012x' % uuid.getnode())
+    except Exception:
+        parts.append('')
+    return hashlib.sha256('|'.join(parts).encode('utf-8')).hexdigest()
+
+def cloud_handshake(client: CloudClient) -> tuple:
+    """与云端握手(设备绑定 + 会话签名)。
+
+    返回 (blocked, detail):
+      blocked=True  → 授权/设备校验不通过,必须锁住"开始",detail 为提示文案;
+      blocked=False → 握手通过,或仅网络异常(交给原有刷新逻辑判断)。
+    """
+    try:
+        res = client._post('/api/client/handshake', {
+            'deviceId': device_fingerprint(),
+            'appVersion': APP_VERSION,
+            'platform': 'windows',
+            'os': f'{sys.platform} {os.environ.get("PROCESSOR_ARCHITECTURE", "")}',
+        })
+    except CloudVerificationError as e:
+        return (True, str(e))
+    except CloudClientError as e:
+        detail = MainWindow._license_detail(str(e))
+        if detail:
+            return (True, detail)
+        return (False, '')
+    except Exception:
+        return (False, '')
+    if res.get('ok', True):
+        try:
+            client.set_session(res.get('session', ''), res.get('expiresIn', 0))
+        except Exception:
+            return (False, '')
+        return (False, '')
+    return (True, res.get('error') or '设备校验失败,请联系管理员')
+
+try:
+    from PySide6.QtCore import Qt, QTimer, Signal, Slot, QThread, QUrl, QTime
+    from PySide6.QtGui import QColor, QFont, QIcon, QPalette, QPainter, QPixmap, QDesktopServices
+    from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
+                                   QLabel, QPushButton, QSpinBox, QDialog, QFormLayout, QLineEdit,
+                                   QDialogButtonBox, QInputDialog, QMessageBox)
+    _PYSIDE_OK = True
+except Exception:
+    _PYSIDE_OK = False
+    class _Stub:
+        def __init__(self, *a, **k): pass
+        def __getattr__(self, n):
+            class _M:
+                def __call__(self_, *a, **k): pass
+            return _M()
+    class _SignalStub:
+        def __init__(self, *a, **k): self._t = a
+        def connect(self, *a, **k): pass
+        def emit(self, *a, **k): pass
+        def __call__(self, *a, **k): return self
+        def __getattr__(self, n): return (lambda *a, **k: None)
+    Qt = QTimer = QThread = QUrl = QTime = _Stub
+    Slot = _Stub
+    Signal = _SignalStub
+    QColor = QFont = QIcon = QPalette = QPainter = QPixmap = QDesktopServices = _Stub
+    QApplication = QMainWindow = QWidget = QVBoxLayout = QHBoxLayout = QLabel = QPushButton = _Stub
+    QSpinBox = QDialog = QFormLayout = QLineEdit = QDialogButtonBox = QInputDialog = QMessageBox = _Stub
 
 class UpdateReadyDialog:
     '''更新确认框:沿用原生提示框字体与样式,「Yes」需阅读 5 秒后才可点击。'''
@@ -627,7 +769,6 @@ class UpdateReadyDialog:
         self._timer.stop()
         super().done(result)
 
-
 class UpdateDownloader(QThread):
     '''多线程分段下载更新包:支持断点续传、下载链接过期自动刷新,校验 SHA256 与发布者签名。'''
     progress = Signal(int)
@@ -638,6 +779,7 @@ class UpdateDownloader(QThread):
     PART_SIZE = 25165824
     MIN_PARTS = 4
     MAX_PARTS = 8
+    MAX_RETRY = 4
 
     def __init__(self, url: str, sha256: str, dest: str, sig: str = '', url_refresh=None):
         super().__init__()
@@ -652,7 +794,7 @@ class UpdateDownloader(QThread):
         self._total = 0
         self._last_pct = -1
 
-    def _add_progress(self, n):
+    def _add_progress(self, n: int):
         with self._lock:
             self._got += n
             total = self._total
@@ -666,7 +808,7 @@ class UpdateDownloader(QThread):
             return None
         return None
 
-    def _refresh_url(self):
+    def _refresh_url(self) -> bool:
         '''下载链接过期(401/403)时向云端重新取一次签名链接。'''
         if not self.url_refresh:
             return False
@@ -692,7 +834,7 @@ class UpdateDownloader(QThread):
                 return (int(resp.headers.get('Content-Length') or 0), False)
         raise PermissionError('下载链接已过期')
 
-    def _fetch_part(self, requests, index, start, end):
+    def _fetch_part(self, requests, index: int, start: int, end: int):
         '''下载 [start, end] 区间;断线后从该段已写位置继续。'''
         path = os.path.join(self.parts_dir, str(index))
         had = os.path.getsize(path) if os.path.exists(path) else 0
@@ -782,14 +924,14 @@ class UpdateDownloader(QThread):
             raise
 
     @staticmethod
-    def _sha256(path):
+    def _sha256(path: str) -> str:
         h = hashlib.sha256()
         with open(path, 'rb') as f:
             for chunk in iter(lambda: f.read(4194304), b''):
                 h.update(chunk)
         return h.hexdigest()
 
-    def _cleanup(self, remove_dest=False):
+    def _cleanup(self, remove_dest: bool = False):
         '''清理下载中间文件。'''
         shutil.rmtree(self.parts_dir, ignore_errors=True)
         for path in (self.dest + '.part', self.dest if remove_dest else ''):
@@ -827,7 +969,6 @@ class UpdateDownloader(QThread):
         self.progress.emit(100)
         self.finished_ok.emit(self.dest)
 
-
 class CloudWorker(QThread):
     '''后台线程:从云端拉取账号列表'''
     accounts_loaded = Signal(list)
@@ -850,7 +991,6 @@ class CloudWorker(QThread):
             self.error_occurred.emit(str(e))
         except Exception as e:
             self.error_occurred.emit('%s: %s' % (type(e).__name__, e))
-
 
 class UpsertWorker(QThread):
     '''后台线程:把执行结果回传云端(不阻塞 UI)'''
@@ -904,7 +1044,6 @@ class UpsertWorker(QThread):
             self._send_followup()
             raise
 
-
 class RestoreWorker(QThread):
     '''后台线程:批量把账号状态回传云端(默认=手动恢复为"待执行")'''
     progress = Signal(int, int)
@@ -923,7 +1062,7 @@ class RestoreWorker(QThread):
         self.message = message
         self.remark = remark
 
-    def _payload(self, item):
+    def _payload(self, item: tuple) -> tuple:
         if isinstance(item, (tuple, list)) and len(item) == 2:
             aid, extra = item
             payload = {'status': self.status, 'stage': self.stage, 'message': self.message, 'remark': self.remark}
@@ -955,7 +1094,6 @@ class RestoreWorker(QThread):
                 self.one_failed.emit(aid, last_err)
             self.progress.emit(i, total)
         self.all_done.emit(ok_n, fail_n)
-
 
 class RunnerWorkerThread(QThread):
     '''后台线程:运行游戏自动化子进程'''
@@ -1136,6 +1274,7 @@ class RunnerWorkerThread(QThread):
                     pass
 
         threading.Thread(target=_graceful_kill, daemon=True).start()
+
 class MainWindow(QMainWindow):
     """执行端主窗口"""
     IP刷新间隔秒 = 18000
@@ -1322,7 +1461,7 @@ class MainWindow(QMainWindow):
             m = _re.search(ipv4, text)
             if m:
                 loc = ''
-                lm = _re.search('来自于[:：]\s*(.+)', text)
+                lm = _re.search(r'来自于[:：]\s*(.+)', text)
                 if lm:
                     parts = [p for p in _re.split(r'\s+', lm.group(1).strip()) if p and p != '中国']
                     loc = ' '.join(parts)
@@ -3592,156 +3731,15 @@ class MainWindow(QMainWindow):
             pass
         event.accept()
 
-
-
-def _derive_display_status(acc) -> tuple:
-    """显示状态由4设施倒计时推导(状态列只认倒计时,不信任云端状态码)。\n\n    返回 (显示文本, 颜色key):\n      · 封禁(内部BANNED):不跑,显示\'封禁\',日志列显示封禁信息;\n      · 已停止(内部STOPPED,连败3次):显示\'失败\',调度排除,等人工恢复;\n      · 运行中(内部RUNNING):显示\'执行中\';\n      · 工作台/制药台/防具台 三项全部到点 → \'待执行\'(技术中心不参与判定);\n      · 上述三项有一项未到           → \'等待时间\';\n      · 否则(无数据/新账号)          → \'失败\'(可重跑)。\n    """
-    status = getattr(acc, 'status', '')
-    if status == 'BANNED':
-        return ('封禁', 'BANNED')
-    else:
-        if status == 'STOPPED':
-            return ('失败', 'FAILED')
-        else:
-            if status == 'RUNNING':
-                return ('执行中', 'RUNNING')
-            else:
-                timers = getattr(acc, 'facility_next_run_at', None)
-                if isinstance(timers, dict) and timers:
-                    now = datetime.now()
-                    remains = []
-                    for key, _label in _FACILITY_LABELS:
-                        if key == 'tech':
-                            continue
-                        else:
-                            raw = timers.get(key)
-                            if raw:
-                                try:
-                                    dt = datetime.fromisoformat(str(raw))
-                                except ValueError:
-                                    pass
-                                else:
-                                    remains.append(int((dt - now).total_seconds()))
-                    if remains:
-                        if all((r <= 0 for r in remains)):
-                            return ('待执行', 'READY')
-                        else:
-                            return ('等待时间', 'WAITING')
-                return ('失败', 'FAILED')
-
-
-def _load_all_facility_timers() -> dict:
-    """读 runner 本地调度库的完整4设施时间:\n    {username: {tech/workbench/pharmacy/armor: \'ISO时间串\'}}。\n    无有效时间的账号不放入结果;库不存在/失败返回空表。"""
-    import sqlite3
-    db = _runner_db_path()
-    result = {}
-    if not os.path.exists(db):
-        return result
-    else:
-        try:
-            conn = sqlite3.connect(db, timeout=10)
-            try:
-                cur = conn.cursor()
-                for name, tech, wb, ph, ar in cur.execute('SELECT username, tech_next_at, workbench_next_at, pharmacy_next_at, armor_next_at FROM account_state'):
-                    timers = {}
-                    for key, raw in [('tech', tech), ('workbench', wb), ('pharmacy', ph), ('armor', ar)]:
-                        if raw:
-                            try:
-                                datetime.fromisoformat(str(raw))
-                                timers[key] = str(raw)
-                            except ValueError:
-                                pass
-                            else:
-                                pass
-                    if timers:
-                        result[name] = timers
-            finally:
-                conn.close()
-        except Exception:
-            pass
-        return result
-
-
-def _load_local_record_usernames() -> set:
-    """本地存在任何痕迹的用户名集合:调度库 account_state/market_listing 两表
-    + last_run.json。库不存在/失败时只返回 last_run 中的名字。"""
-    import sqlite3
-    names = {u for u in _load_last_run_store().keys() if u}
-    db = _runner_db_path()
-    if os.path.exists(db):
-        try:
-            conn = sqlite3.connect(db, timeout=10)
-            try:
-                cur = conn.cursor()
-                for table in ('account_state', 'market_listing'):
-                    try:
-                        cur.execute(f'SELECT DISTINCT username FROM {table} WHERE username IS NOT NULL AND username<>\'\'')
-                        names.update((u for u, in cur.fetchall() if u))
-                    except sqlite3.Error:
-                        continue
-            finally:
-                conn.close()
-        except Exception:
-            pass
-    return names
-
-
-def _purge_local_accounts(usernames) -> dict:
-    """彻底清除指定账号在本机的全部记录(云端删除/删号重导后调用):\n    account_state 整行、market_listing 挂售记录、ammo_exchange_log 军需兑换标记、\n    last_run.json 条目。\n    返回 {\'state\': n, \'market\': n, \'ammo\': n, \'lastrun\': n}。"""
-    import sqlite3
-    info = {'state': 0, 'market': 0, 'ammo': 0, 'lastrun': 0}
-    names, seen = ([], set())
-    for u in usernames or []:
-        if u and u not in seen:
-                seen.add(u)
-                names.append(u)
-    if not names:
-        return info
-    else:
-        db = _runner_db_path()
-        if os.path.exists(db):
-            conn = sqlite3.connect(db, timeout=10)
-            try:
-                cur = conn.cursor()
-                for name in names:
-                    cur.execute('DELETE FROM account_state WHERE username=?', (name,))
-                    info['state'] += cur.rowcount
-                    cur.execute('DELETE FROM market_listing WHERE username=?', (name,))
-                    info['market'] += cur.rowcount
-                    try:
-                        cur.execute('DELETE FROM ammo_exchange_log WHERE username=?', (name,))
-                        info['ammo'] += cur.rowcount
-                    except sqlite3.Error:
-                        pass
-                    else:
-                        pass
-                conn.commit()
-            finally:
-                conn.close()
-        store = _load_last_run_store()
-        removed = 0
-        for name in names:
-            if name in store:
-                del store[name]
-                removed += 1
-        if removed:
-            _save_last_run_store(store)
-            info['lastrun'] = removed
-        return info
-
-
-def _bg_image_path() -> str:
-    """窗口氛围背景图(EXE 同目录 bg.jpg,随包分发)"""
-    if getattr(sys, 'frozen', False):
-        base = os.path.dirname(sys.executable)
-    else:
-        base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    return os.path.join(base, 'bg.jpg')
-
-
 def main():
     app = QApplication(sys.argv)
     app.setStyle('Fusion')
     window = MainWindow()
     window.show()
     sys.exit(app.exec())
+
+if __name__ == '__main__':
+    main()
+
+
+

@@ -46,7 +46,10 @@ for _d in (EXTRACTED, os.path.join(EXTRACTED, 'numpy.libs'), os.path.join(EXTRAC
     if not os.path.isdir(_d):
         continue
     os.environ['PATH'] = _d + os.pathsep + os.environ.get('PATH', '')
-    os.add_dll_directory(_d)
+    try:
+        os.add_dll_directory(_d)
+    except (AttributeError, OSError):
+        pass
 
 logger = logging.getLogger('pc_tqc.runner_client')
 
@@ -211,12 +214,13 @@ class ClientRunner:
         def _on_account_completed_cb(state):
             self._emit_log(f'账号 {state.account.username} 完成,阶段 {state.stage}', 'INFO')
 
-        def _on_observation_detected_cb(until):
-            if self.cloud_client and account_id:
-                try:
-                    self.cloud_client.report_observation(account_id, until)
-                except Exception as e:
-                    self._emit_log(f'观察期回传失败: {e}', 'ERROR')
+        def _on_observation_detected_cb(until, account_name=None):
+            if self.cloud_client:
+                if account_id:
+                    try:
+                        self.cloud_client.report_observation(account_id, until)
+                    except Exception as e:
+                        self._emit_log(f'观察期回传失败: {e}', 'ERROR')
 
         def _on_finished_cb(success):
             self._emit_log(f'任务执行结束 ({"成功" if success else "失败"})', 'INFO' if success else 'ERROR')
@@ -348,7 +352,7 @@ class ClientRunner:
             self._emit_log(f'写停止标志失败: {e}', 'ERROR')
 
 
-def run_worker(config_path):
+def run_worker(config_path: str):
     """子进程工作函数(供命令行调用)
 
     config JSON 字段:

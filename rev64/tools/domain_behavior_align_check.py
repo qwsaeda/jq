@@ -16,7 +16,7 @@
   - 音效域：64 位基准 14 WAV = SPAK 14 data_*.wav 全对照（sfx_map §1935）
   - 蓝牙域：UUID ce1404fe 32/64 位同源 + 7 字段帧契约（bt_spp_xcheck
     §1933 / bt_undorestart §1941）
-  - 暗棋域：rule_probe 双端对照 19/20 一致 + 1 分歧（R-073 困毙排地雷）
+  - 暗棋域：rule_probe 双端对照 36 case（基线 4 坐实分叉：R-073/008/004/018，以 rule_probe_compare.py 输出为准）
 判据（7 域全 PASS）：
   ① 事件分发域（76→12→37 三层漏斗 0 悬空）
   ② 走子桥域（32 位 8 步 = 64 位 test_move_seq 基准）
@@ -24,7 +24,7 @@
   ④ 规则引擎域（11 函数全有定义体）
   ⑤ 音效域（14 WAV 全对照）
   ⑥ 蓝牙域（UUID 同源 + 帧契约）
-  ⑦ 暗棋域（rule_probe 19/20 一致）
+  ⑦ 暗棋域（rule_probe 36 case 基线 4 分叉内不阻断）
 
 用法：python3 rev64/tools/domain_behavior_align_check.py
 """
@@ -89,7 +89,7 @@ def main():
     else:
         print('⑥ 蓝牙域 OK（UUID ce1404fe 32/64 位同源 + 7 字段帧契约）')
 
-    # ⑦ 暗棋域（rule_probe 19/20 一致）
+    # ⑦ 暗棋域（rule_probe 36 case 基线 4 分叉内不阻断）
     if not (os.path.isfile(RULEPROBE) and os.access(RULEPROBE, os.X_OK)):
         fails.append('⑦ 暗棋域 rule_probe 基准 binary 缺失')
     else:

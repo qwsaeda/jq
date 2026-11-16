@@ -153,7 +153,7 @@
 |---|---|---|
 | src_rs/test_expected.txt | 9 | make benchcheck |
 | src_rs/consistency_desktop.c BENCH_EXPECT | 9 | make benchcheck（双源需同步） |
-| src_rs/evverify.c | 0 | make evverify |
+| src_rs/evverify.c | 172 | make evverify |
 | src_rs/dark_align/*.c（chk 断言） | 981 | dark_align_regress.sh |
 | src_rs/rule_probe_shared.inc（探针期望值在 diff 中） | 36 | rule_probe_compare.py |
 | forward/docs_rs/UI_COMPARE.md（Δ 表） | 12 项 | layout_align_check.py --baseline |

@@ -16,7 +16,7 @@ DEFAULT_SERVER_URL = 'https://teqinsi.cn'
 _LEGACY_SERVER_HOSTS = {
     '43.138.186.91'}
 
-def _get_config_dir():
+def _get_config_dir() -> Path:
     '''获取配置目录(Windows 用户目录下的 .pc_tqc_client)'''
     if os.name == 'nt':
         base = Path(os.environ.get('USERPROFILE', Path.home()))
@@ -27,7 +27,7 @@ def _get_config_dir():
     return config_dir
 
 
-def _get_config_path():
+def _get_config_path() -> Path:
     '''获取配置文件路径'''
     return _get_config_dir() / 'config.json'
 
@@ -58,7 +58,7 @@ class ClientConfig:
             return False
 
     @classmethod
-    def load(cls) -> ClientConfig:
+    def load(cls) -> 'ClientConfig':
         '''从本地文件加载配置,不存在则返回默认配置。
 
         旧版本内置地址是裸 IP:已装用户配置里若仍是该地址,这里平滑迁移到域名,
@@ -92,12 +92,12 @@ class ClientConfig:
 
 
 
-def save_config(config=None):
+def save_config(config: ClientConfig) -> bool:
     '''保存配置'''
     return config.save()
 
 
-def load_config():
+def load_config() -> ClientConfig:
     '''加载配置'''
     return ClientConfig.load()
 

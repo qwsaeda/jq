@@ -1,36 +1,85 @@
-# 第一步.py — 登录平台并进入游戏（重建版：忠实 100% 语义转储 analysis_biz.txt）
-# 职责: Steam 活跃用户校验 + 杀进程守卫 + 游戏窗口/桌面识别
-# 边界: 只查进程存在性/注册表, 绝不结束/注入/读游戏内存
-
 import os, re, sys, time, threading
 
-STEP_NAME = '第一步'
+STEP_NAME = '第一步 · 打开Steam进入游戏'
 
+TIMEOUT_清理环境 = 20
+
+TIMEOUT_登录STEAM = 180
+
+TIMEOUT_登录WEGAME = 180
+
+TIMEOUT_启动游戏 = 90
+
+TIMEOUT_处理启动器 = 120
+
+STEAM_登录前等待秒 = 10
+
+STEAM_守卫_扫描间隔秒 = 5.0
+
+STEAM_守卫_进程轮询秒 = 0.5
+
+STEAM_守卫_初始宽限秒 = 20.0
+
+STEAM_守卫_重启宽限秒 = 25.0
+
+STEAM_守卫_最多重启 = 2
+
+STEAM_守卫_进程消失确认次数 = 2
+
+STEAM_守卫_窗口缺失确认次数 = 2
+
+STEAM_守卫_命中确认次数 = 2
+
+STEAM_守卫_画面异常确认次数 = 3
+
+STEAM_守卫_画面正常占比 = 0.03
+
+STEAM_守卫_启动关键词 = ('开始游戏',)
+
+STEAM_守卫_启动锚点 = ('已详细阅读并同意', '用户协议', '极星守望')
+
+STEAM_守卫_白名单关键词 = ('账户名称登录', '二维码登录', '创建免费账户', '添加游戏', '管理下载', '好友与聊天')
+
+STEAM_守卫_游戏进程名 = ('DeltaForceClient-Win64-Shipping.exe', 'DeltaForceClient.exe')
+
+STEAM_守卫_启动器进程名 = ('df_launcher.exe', 'launcher.exe')
+
+_STEAM_WINDOW_PROCS = ('steam.exe', 'steamwebhelper.exe')
+
+启动组件错误_最多完整重跑 = 3
+
+启动组件错误关键词 = ('启动组件', '登录组件报错', '登录组件异常', '强制关闭', '需要重新启动', '1067105', '2007105', '错误码')
+
+_SUB_STEPS = [
+    ('_cleanup', '1) 清理环境', TIMEOUT_清理环境),
+    ('_steam_login', '2) 登录Steam', TIMEOUT_登录STEAM),
+    ('_wegame_login', '2) 登录WeGame', TIMEOUT_登录WEGAME),
+    ('_launch_game', '3) 启动游戏', TIMEOUT_启动游戏),
+    ('_wegame_launch_game', '3) WeGame启动游戏', TIMEOUT_启动游戏),
+    ('_handle_launcher', '4) 处理启动器', TIMEOUT_处理启动器),
+]
 
 _CAPTURE_GUARD = {'ts': 0.0}
 
-
-def _capture_guard_on(seconds) -> None:
+def _capture_guard_on(seconds=60):
     """记录保护截止时间(从此刻起 seconds 秒内禁止杀进程)。"""
     _CAPTURE_GUARD['ts'] = max(_CAPTURE_GUARD['ts'], time.time() + float(seconds))
 
-
-def _capture_guard_off() -> None:
+def _capture_guard_off():
     """登录成功/窗口消失时解除保护,允许后续清理。"""
     _CAPTURE_GUARD['ts'] = 0.0
 
-
-def _capture_guard_active() -> bool:
+def _capture_guard_active():
     """当前是否处于捕获保护期(禁止杀进程)。"""
     return time.time() < _CAPTURE_GUARD['ts']
 
-
-def _guard_skip_kill(ctx, action):
+def _guard_skip_kill(ctx, action='terminate_processes'):
     """保护期内的杀进程动作统一走这里:记日志并拒绝执行。"""
     if not _capture_guard_active():
         return False
     ctx.log(STEP_NAME, f'捕获保护中(Steam登录橙框):禁止杀进程,已跳过 {action}', 'WARN')
     return True
+
 def _wrap_kill(ctx, orig):
     """把杀进程函数包成\"保护期内一律拒绝\"。"""
     def guarded(*args, **kwargs):
@@ -40,10 +89,9 @@ def _wrap_kill(ctx, orig):
             return orig(*args, **kwargs)
     guarded._tqc_capture_guard = True
     return guarded
-_skip_kill = False
 
 
-def _install_kill_guard(ctx, cls):
+def _install_kill_guard(ctx, cls=None):
     """把平台层 terminate_processes 套上捕获保护:保护期内直接拒绝执行。
 
     两处都要换,否则拦不住:
@@ -111,7 +159,10 @@ def _install_kill_guard(ctx, cls):
     except Exception as e:
         ctx.log(STEP_NAME, f'挂载 psutil 捕获保护失败: {e}', 'WARN')
         return None
-def _read_steam_active_user() -> int:
+
+_STEAM_ID64_BASE = 76561197960265728
+
+def _read_steam_active_user():
     """读当前 Steam 运行态登录账号的 SteamID3(未登录或读不到返回 0)。"""
     try:
         import winreg
@@ -120,16 +171,14 @@ def _read_steam_active_user() -> int:
     except Exception:
         return 0
 
-
-def _reset_steam_active_user() -> None:
+def _reset_steam_active_user():
     """启动 Steam 前清空运行态 ActiveUser,使其只在本次登录成功后才被写入。"""
     try:
         import winreg
-        with winreg.CreateKeyEx(winreg.HKEY_CURRENT_USER, 'Software\Valve\Steam\ActiveProcess', 0, winreg.KEY_SET_VALUE) as key:
+        with winreg.CreateKeyEx(winreg.HKEY_CURRENT_USER, r'Software\Valve\Steam\ActiveProcess', 0, winreg.KEY_SET_VALUE) as key:
             winreg.SetValueEx(key, 'ActiveUser', 0, winreg.REG_DWORD, 0)
     except Exception:
         pass
-
 
 def _steam_root():
     """定位 Steam 根目录:注册表 SteamPath(优先)/ SteamExe 所在目录。"""
@@ -148,7 +197,6 @@ def _steam_root():
     except Exception:
         return None
     return None
-
 
 def _steam_id3_of_name(root, name):
     """从 config.vdf 的 Accounts 块取账号名对应 SteamID3;找不到返回 None。"""
@@ -172,8 +220,7 @@ def _steam_id3_of_name(root, name):
                 return None
     return None
 
-
-def _steam_registry_login_ok(self, username: str) -> bool:
+def _steam_registry_login_ok(self, username):
     """运行态注册表判定:ActiveUser == 该账号 SteamID3 即视为已登录。"""
     active = _read_steam_active_user()
     if active <= 0:
@@ -184,15 +231,53 @@ def _steam_registry_login_ok(self, username: str) -> bool:
     sid3 = _steam_id3_of_name(root, username)
     return sid3 is not None and active == sid3
 
+def _make_steam_login_check(original):
+    """包装引擎 Steam 登录检查:加运行态注册表判定兜底。"""
+    def wrapped(self, username, *args, **kwargs):
+        try:
+            if original(self, username, *args, **kwargs):
+                return True
+        except Exception:
+            pass
+        return _steam_registry_login_ok(self, username)
+    return wrapped
 
-def _steam_process_running() -> bool:
+def _make_steam_login_reset(original):
+    """包装引擎 Steam 登录重置:启动前清 ActiveUser。"""
+    def wrapped(self, *args, **kwargs):
+        _reset_steam_active_user()
+        return original(self, *args, **kwargs)
+    return wrapped
+
+def _install_steam_login_compat(ctx):
+    """把兼容补丁装到 EXE 的 SteamClient 上。"""
+    try:
+        from pc_tqc.platform import steam as steam_mod
+    except Exception as e:
+        ctx.log(STEP_NAME, f'Steam登录兼容补丁未安装(导入失败): {type(e).__name__}: {e}', 'WARN')
+        return None
+    try:
+        steam_cls = getattr(steam_mod, 'SteamClient', None)
+        if steam_cls is None:
+            ctx.log(STEP_NAME, 'Steam登录兼容补丁未安装:未找到 SteamClient', 'WARN')
+            return None
+        if hasattr(steam_cls, 'is_account_logged_in'):
+            ctx.patch_with(steam_cls, 'is_account_logged_in', _make_steam_login_check)
+        if hasattr(steam_cls, 'login'):
+            ctx.patch_with(steam_cls, 'login', _make_steam_login_reset)
+        ctx.log(STEP_NAME, '已安装 Steam 登录判定兼容补丁(新版Steam无 loginusers.vdf 时按运行态注册表判定)', 'INFO')
+        return None
+    except Exception as e:
+        ctx.log(STEP_NAME, f'Steam登录兼容补丁安装异常(忽略): {type(e).__name__}: {e}', 'WARN')
+        return None
+
+def _steam_process_running():
     """steam.exe 是否还在(只查进程存在性,绝不结束/注入/读内存)。"""
     try:
         from pc_tqc.platform.windows import process_exists
         return bool(process_exists('steam.exe') or process_exists('steam'))
     except Exception:
         return True
-
 
 def _game_process_running():
     """三角洲游戏进程是否在跑(只查存在性)。"""
@@ -202,8 +287,7 @@ def _game_process_running():
     except Exception:
         return False
 
-
-def _game_or_launcher_running() -> bool:
+def _game_or_launcher_running():
     """三角洲游戏或启动器进程是否在跑(画面判据兜底,只查存在性)。"""
     try:
         from pc_tqc.platform import windows
@@ -213,7 +297,6 @@ def _game_or_launcher_running() -> bool:
         return False
     except Exception:
         return False
-
 
 def _virtual_screen_rect():
     """虚拟桌面(多显示器)的屏幕坐标范围 (left, top, width, height)。"""
@@ -227,6 +310,7 @@ def _virtual_screen_rect():
     except Exception:
         return (0, 0, 1920, 1080)
 
+_OWN_WIN = {'pids': set(), 'rects': None, 'ts': 0.0}
 
 def _own_window_rects():
     """执行端自身窗口的屏幕矩形(用于 OCR 前涂黑)。"""
@@ -273,6 +357,7 @@ def _own_window_rects():
     _OWN_WIN['rects'] = rects
     _OWN_WIN['ts'] = now
     return rects
+
 def _mask_own_windows(frame):
     """把执行端自身窗口区域涂黑,避免 OCR 把自己日志里的字当成游戏画面。"""
     rects = _own_window_rects()
@@ -296,7 +381,6 @@ def _mask_own_windows(frame):
         return frame
     except Exception:
         return frame
-
 
 def _grab_desktop_bgr():
     """全屏截图(BGR)。用 GDI 桌面 BitBlt。"""
@@ -327,8 +411,7 @@ def _grab_desktop_bgr():
     except Exception:
         return None
 
-
-def _shrink_for_ocr(frame, max_width):
+def _shrink_for_ocr(frame, max_width=1280):
     """整屏缩到 max_width 宽再 OCR,速度翻倍。"""
     try:
         import cv2
@@ -341,6 +424,7 @@ def _shrink_for_ocr(frame, max_width):
     except Exception:
         return frame
 
+_STEAM_WIN = {'state': 'none', 'ts': 0.0, 'rect': None}
 
 def _steam_window_state():
     """Steam 窗口状态:'visible'/'minimized'/'none';同时缓存窗口矩形供黑屏判定。"""
@@ -383,6 +467,7 @@ def _steam_window_state():
     _STEAM_WIN['state'] = resolved
     _STEAM_WIN['ts'] = now
     return resolved
+
 def _steam_content_ratio(frame):
     """Steam 窗口内的有效画面占比(非近黑且非近白像素);无窗口/无帧返回 None。
 
@@ -408,50 +493,6 @@ def _steam_content_ratio(frame):
         return float(good) / float(roi.shape[0] * roi.shape[1])
     except Exception:
         return None
-
-
-def _make_steam_login_check(original):
-    """包装引擎 Steam 登录检查:加运行态注册表判定兜底。"""
-    def wrapped(self, username, *args, **kwargs):
-        try:
-            if original(self, username, *args, **kwargs):
-                return True
-        except Exception:
-            pass
-        return _steam_registry_login_ok(self, username)
-    return wrapped
-
-
-def _make_steam_login_reset(original):
-    """包装引擎 Steam 登录重置:启动前清 ActiveUser。"""
-    def wrapped(self, *args, **kwargs):
-        _reset_steam_active_user()
-        return original(self, *args, **kwargs)
-    return wrapped
-
-
-def _install_steam_login_compat(ctx):
-    """把兼容补丁装到 EXE 的 SteamClient 上。"""
-    try:
-        from pc_tqc.platform import steam as steam_mod
-    except Exception as e:
-        ctx.log(STEP_NAME, f'Steam登录兼容补丁未安装(导入失败): {type(e).__name__}: {e}', 'WARN')
-        return None
-    try:
-        steam_cls = getattr(steam_mod, 'SteamClient', None)
-        if steam_cls is None:
-            ctx.log(STEP_NAME, 'Steam登录兼容补丁未安装:未找到 SteamClient', 'WARN')
-            return None
-        if hasattr(steam_cls, 'is_account_logged_in'):
-            ctx.patch_with(steam_cls, 'is_account_logged_in', _make_steam_login_check)
-        if hasattr(steam_cls, 'login'):
-            ctx.patch_with(steam_cls, 'login', _make_steam_login_reset)
-        ctx.log(STEP_NAME, '已安装 Steam 登录判定兼容补丁(新版Steam无 loginusers.vdf 时按运行态注册表判定)', 'INFO')
-        return None
-    except Exception as e:
-        ctx.log(STEP_NAME, f'Steam登录兼容补丁安装异常(忽略): {type(e).__name__}: {e}', 'WARN')
-        return None
-
 
 class _SteamWatchdog(threading.Thread):
     """Steam 启动兜底守卫:OCR 扫桌面 + 进程/窗口监测 + 自动重拉。"""
@@ -479,7 +520,7 @@ class _SteamWatchdog(threading.Thread):
         self._next_log = self._t0 + 15.0
         self._next_err = 0.0
 
-    def set_screen_check(self, enabled: bool, reason: str = ''):
+    def set_screen_check(self, enabled: bool, reason: str = None):
         """启停"黑屏/白屏"画面判据;窗口/进程两条判据不受影响。
 
         启动游戏阶段画面会被启动器/全屏切换短暂变黑,此时若继续按占比判定
@@ -639,13 +680,16 @@ class _SteamWatchdog(threading.Thread):
                     win_text = {'visible': '可见', 'minimized': '最小化'}.get(win_state, '无')
                     ratio_text = '未知' if self._last_ratio is None else f'{self._last_ratio*100:.1f}%'
                     self.ctx.log(self.tag, f'扫描中... 窗口:{win_text} 画面:{ratio_text} {proc_text} 已重新拉起 {self.relaunch_count} 次', 'INFO')
-                self.stop_event.wait(STEAM_守卫_进程轮询秒)
             except Exception as e:
                 if time.time() >= self._next_err:
                     self._next_err = time.time() + 10.0
                     self.ctx.log(self.tag, f'扫描异常(继续): {type(e).__name__}: {e}', 'WARN')
                 time.sleep(1.0)
+                self.stop_event.wait(STEAM_守卫_进程轮询秒)
         return None
+
+_STEAM_WATCH = {}
+
 def _start_steam_watchdog(ctx, account):
     """账号流程开始时启动兜底扫描(重复启动会先停掉上一轮)。\n\n    ★ 守卫只是兜底:启动失败只记 WARN,绝不阻断 Steam 登录主流程。\n    """
     _stop_steam_watchdog(ctx, '重新开始本账号流程')
@@ -658,7 +702,6 @@ def _start_steam_watchdog(ctx, account):
     except Exception as e:
         _STEAM_WATCH['thread'] = None
         ctx.log(f'{STEP_NAME} · Steam守卫', f'守卫启动失败(不影响登录主流程): {type(e).__name__}: {e}', 'WARN')
-
 
 def _stop_steam_watchdog(ctx, reason=None):
     """停止兜底扫描,并把 lost/hit 状态留给 _run_account_once 判定。"""
@@ -674,6 +717,20 @@ def _stop_steam_watchdog(ctx, reason=None):
         if ctx and reason:
                 ctx.log(f'{STEP_NAME} · Steam守卫', f'兜底扫描结束({reason})', 'INFO')
 
+def _set_steam_screen_check(ctx, enabled: bool, reason: str=''):
+    """启停守卫的"黑屏/白屏"画面判据(启动游戏阶段暂停,识别完启动器再恢复)。"""
+    w = _STEAM_WATCH.get('thread')
+    if w is None:
+        return None
+    try:
+        w.set_screen_check(enabled, reason=reason)
+        return None
+    except Exception as e:
+        try:
+            ctx.log(f'{STEP_NAME} · Steam守卫', f'切换画面判据失败(忽略): {type(e).__name__}: {e}', 'WARN')
+        except Exception:
+            pass
+        return None
 
 def _make_wrapper(original, label, budget, ctx, pre_delay=0, steam_guard=False, skip_when_guarded=False, steam_watch=False, stop_steam_watch=False, screen_check_off=False, screen_check_on=False):
     """给 EXE 原方法套日志壳,可选挂载捕获保护和 Steam 守卫。\n\n    pre_delay > 0 时,在调用原方法前先等待 pre_delay 秒(用于杀完进程后\n    给 Steam 留出退出缓冲,避免旧进程未退干净导致登录卡在加载态)。\n    steam_guard=True:登录开始时开启捕获保护(橙框出现即禁止杀进程 180 秒),\n                     登录成功自动解除;异常/超时则等保护期自然结束。\n    skip_when_guarded=True:清理环境等杀进程步骤,在保护期内整段跳过。\n    steam_watch=True:登录开始即启动 Steam 兜底扫描(每 5 秒全屏识别启动器画面,\n                     进程消失自动重新拉起),一直扫到 _handle_launcher 结束。\n    stop_steam_watch=True:本步结束时停止兜底扫描(启动器阶段结束)。\n    screen_check_off=True:本步开始时暂停\"黑屏/白屏\"画面判据(启动游戏阶段),\n                          窗口/进程判据照常。\n    screen_check_on=True:本步结束时恢复画面判据(启动器画面识别完成/已进游戏)。\n    """
@@ -712,28 +769,10 @@ def _make_wrapper(original, label, budget, ctx, pre_delay=0, steam_guard=False, 
             return result
     return wrapped
 
-
 def _is_launcher_component_error(exc):
     """判断异常是否为启动器登录组件报错(如错误码 1067105,非封号)。"""
     msg = f'{type(exc).__name__}: {exc}'
     return any((k in msg for k in 启动组件错误关键词))
-
-
-def _set_steam_screen_check(ctx, enabled, reason):
-    """启停守卫的"黑屏/白屏"画面判据(启动游戏阶段暂停,识别完启动器再恢复)。"""
-    w = _STEAM_WATCH.get('thread')
-    if w is None:
-        return None
-    try:
-        w.set_screen_check(enabled, reason=reason)
-        return None
-    except Exception as e:
-        try:
-            ctx.log(f'{STEP_NAME} · Steam守卫', f'切换画面判据失败(忽略): {type(e).__name__}: {e}', 'WARN')
-        except Exception:
-            pass
-        return None
-
 
 def _dismiss_launcher_error(self, ctx):
     """重跑前尝试点掉启动器错误页的按钮。"""
@@ -766,7 +805,6 @@ def _dismiss_launcher_error(self, ctx):
     except Exception as e:
         ctx.log(STEP_NAME, f'点掉错误页异常(忽略): {type(e).__name__}: {e}', 'WARN')
         return False
-
 
 def install(cls, ctx):
     """把启动阶段的 EXE 方法逐个套上日志壳 + 守卫 hook。"""
