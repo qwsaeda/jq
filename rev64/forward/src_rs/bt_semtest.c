@@ -453,19 +453,23 @@ int main(void)
         sess.state = BT_ST_THEIR_TURN;
         int ret = jq_bt_session_on_frame(&sess, &st, BT_T_MOVE + 100, 0, 0, 0, 0, 0, 0);
         CHECK(ret == -1, "未知 type（越界）拒收（rc=-1）");
-        /* ★ AUD-1000 B04-040（P2 补用例）：type=8/9（DRAW/CHAT）帧协议已定义但
-           bt_session.c switch 未处理（default 拒收）——验证对端误发 DRAW/CHAT 帧
-           被拒（rc=-1），不静默消费。诚实边界：DRAW/CHAT 业务逻辑未移植（需
-           服务器协议），此处只验"帧协议完整拒收"非"业务处理"。 */
-        CHECK(jq_bt_session_on_frame(&sess, &st, 8, 0, 0, 0, 0, 0, 0) == -1,
-              "未知 type=8（DRAW，协议已定义未处理）拒收（rc=-1）");
-        CHECK(jq_bt_session_on_frame(&sess, &st, 9, 0, 0, 0, 0, 0, 0) == -1,
-              "未知 type=9（CHAT，协议已定义未处理）拒收（rc=-1）");
+        /* ★ AUD-1000 B04-040（P2 补用例）+ ★ R6-C-03/09（P1 最小闭合）：
+           BT_T_DRAW/BT_T_CHAT 旧实现 switch 无 case → default 拒收（rc=-1）
+           = 帧协议与实现永久分叉。R6 已补收帧 case（合法消费 rc=0 不改棋局，
+           诚实边界：提和/聊天业务 UI 未移植，收帧合法消费保证双端会话态
+           不发散）。断言同步：DRAW/CHAT → rc=0（合法消费）；last_type 记录。 */
+        /* ★ 夹具复位：本段前 §5 RESIGN 已置 sess.state=DISCONNECTED（终态闸口
+           B04-013）→ DRAW/CHAT 断言前先 RESTART 恢复会话态（RESTART 放行
+           DISCONNECTED + 按角色分 OUR/THEIR_TURN），再验合法消费。 */
+        CHECK(jq_bt_session_on_frame(&sess, &st, BT_T_RESTART, 0, 0, 0, 0, 0, 0) == 0,
+              "R6 夹具：RESTART 恢复会话态（DISCONNECTED→按角色分流）");
+        CHECK(jq_bt_session_on_frame(&sess, &st, BT_T_DRAW, 0, 0, 0, 0, 0, 0) == 0,
+              "R6-C-03: DRAW 合法消费（rc=0，不改棋局）");
+        CHECK(jq_bt_session_on_frame(&sess, &st, BT_T_CHAT, 0, 0, 0, 0, 0, 0) == 0,
+              "R6-C-03: CHAT 合法消费（rc=0，透传不改棋局）");
         /* ★ AUD-1000 B04-014（P1 已修）：last_type 仅合法 case 命中才记录——
-           旧断言"越界 type 也写 last_type"随修复反转：init 后 memset 清零，
-           越界帧不污染 last_type（诊断日志按 last_type 判"最后有效帧"不被
-           非法帧误导）。初值 0 = BT_T_MOVE（memset 0）保持。 */
-        CHECK(sess.last_type == 0, "越界 type 不污染 last_type（保持 init 初值 0）");
+           越界帧不污染；DRAW/CHAT 合法 case 记录后 last_type=9（最后有效帧）。 */
+        CHECK(sess.last_type == BT_T_CHAT, "DRAW/CHAT 合法消费后 last_type=CHAT（最后有效帧）");
     }
 
     printf(rc ? "== bt_semtest 结果: 有失败（%d 条通过）==\n"

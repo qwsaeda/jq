@@ -10475,13 +10475,18 @@ Java_com_qwsaeda_App_OnBluetooth(JNIEnv *env, jclass clazz, jobject intent)
                     LOGI("OnBluetooth：UNDO 后 sync 编码 0 帧（会话未就绪，诚实边界）");
                 }
             }
-            /* ★ AUD-1000 B09-038（P1 已修）：找下一帧起点须从**帧尾**推进——
-               旧实现 `strchr(p, '\n')` 命中的是 "v2\n" 头的第一个 '\n'（帧自带
-               尾 '\n'，decode 成功意味着 p 指向完整 "v2\n...\n"）→ p 永不前进，
-               UNDO 后 60 帧串接广播**仅首帧被处理**，后续 59 帧静默丢失（与
-               P0 帧丢帧同族残留）。修：前进到 p 起的首个 '\n' 之后。 */
-            const char *nl = strchr(p, '\n');
-            p = nl ? nl + 1 : p + 1;
+            /* ★ AUD-1000 B09-038（P1 已修）+ ★ R6-C-05（Round 2 对抗审计，帧格式
+               实锤复勘）：帧形 = "v2\n7字段\n"（v2 头与数据**两行**，bt_protocol.c
+               0x26efc/0x26f24 实证）。旧 `strchr(p,'\n')+1` 停在**首行尾**（v2 行
+               换行后）→ p 指向数据行 → 下轮 decode 首字节锚定 `strncmp(p,"v2\n")`
+               失败 → break → **多帧串接仅首帧被处理**（UNDO 后 60 帧 SYNC_CELL 丢
+               59 帧，B09-038 注释宣称的"从帧尾推进"与实现不符——注释-实现矛盾）。
+               修：`strspn(p,"v2\n")` 跳过整行行头（decode 成功保证 p 必在 v2 行首，
+               行内无换行）→ 命中数据行尾 '\n' 后推进 = **整帧消费**。
+               桌面验证：2 帧串接 "v2\n0,...\nv2\n1,...\n" 循环消费 2 帧
+               （旧逻辑 1 帧后 break）。 */
+            p += strspn(p, "v2\n");
+            p = p[0] ? (strchr(p, '\n') + 1) : p;
         } else {
             break;
         }

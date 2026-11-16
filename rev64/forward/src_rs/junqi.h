@@ -159,8 +159,12 @@ typedef struct {
        （jqt_vtbl.c 240 字节复制）关切，src_rs 侧无需对齐。 */
     /* AUD-1000 B01-012：困毙增量缓存（落子/翻棋后置 dirty=1，jq_side_stalemated
        只在 dirty 时重扫；stalemated[s] = 方 s 当前无合法着法（false=困毙不成立=有棋可走））*/
-    uint8_t   stale_dirty;           /* 1=缓存失效（走子/翻棋后），0=缓存有效 */
-    uint8_t   stale_cache[2];       /* [side]=该方是否已缓存"可行动"判定（true=有棋可走/可翻） */
+    uint8_t   stale_dirty;           /* ★ R6-A-11/17/25（P1 已修）：字段废弃保留（jq_state
+       布局兼容，不再读写）——困毙缓存改 per-side 双槽 stale_v/stale_c */
+    uint8_t   stale_cache[2];       /* ★ 同上：废弃保留（旧"任一非零即有效"判据的载体） */
+    uint8_t   stale_v[2];           /* ★ R6-A-11（per-side 有效位）：该 side 困毙结果已缓存
+       （1=stale_c[side] 可信，含"已算出困毙=0"——旧判据无法区分"未算(0)"与"算出困毙(0)"） */
+    uint8_t   stale_c[2];          /* ★ R6-A-11（per-side 值）：该 side 是否可行动（1=未困毙） */
     uint8_t   mode;                  /* ★ AUD-R-002/003（P0）：JQ_MODE_LAY=明棋 / JQ_MODE_FLIP=暗棋
                                         暗棋语义：未翻子 revealed=0、地雷/军旗仅工兵可吃、
                                         工兵挖满 3 雷方可扛旗（ruleflip 原文）。

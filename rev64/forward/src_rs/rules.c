@@ -409,7 +409,15 @@ static bool move_legal(const jq_state *st, int from, int to, int turn)
                脏值仅 BT SYNC_CELL 注入 / 存档损坏时可达（AUD-R-047 同源）。
                修法：rank_of 对 SIDE_UNKNOWN 不做 +0xc 域钳位（0xFF 侧 rank 恒 raw
                1-12），留待 SPEC 定案。本轮不改行为。 */
-            if (src->revealed == 0 && d_rank != RANK_MINE && d_rank != RANK_FLAG)
+            /* ★ R5-A-06/R6-A-10/26（P2 死分支收敛）：旧判据 `src->revealed == 0`
+               因 :279 前置守卫（`!src->revealed || src->side==SIDE_UNKNOWN → return false`）
+               **恒不可达**（走到此处 src 必已揭示）= 死分支 + 注释自相矛盾。
+               收敛为显式暗棋模式判定（st->mode==JQ_MODE_FLIP，与 :314-318
+               安全岛分支同源信号）：暗棋下大本营目标仅雷/旗可吃（ruleflip 第 3 行），
+               明棋放行任何子（rulelay 未禁）——**行为 0 变化**（明棋 src 恒已揭示
+               旧判据恒放行；暗棋 src 未揭示被 :279 前置拒，到达此处暗棋场景
+               仅"明棋布局混入暗棋开关"防御路径，新判据更精确且可测）。 */
+            if (st->mode == JQ_MODE_FLIP && d_rank != RANK_MINE && d_rank != RANK_FLAG)
                 return false;
         }
     }
@@ -582,7 +590,14 @@ static void stalemate_after(jq_state *st)
        该分支独立实现需先确认原版 0x301f0 分发 flag 字段（state+1778）的
        Win/Lose 方向映射（winner 字段编码），留待下一轮专项（0x30430 已实证
        是"蓝无军旗/普通子→winner=1"，映射到 64 位 JQ_WIN_BLUE=0 需方向确认）。 */
-    st->stale_dirty = 1;   /* ★ 强制全扫：走子后棋盘变化，缓存须失效（2026-11-13 教训） */
+    /* ★ R6-A-17（per-side 根治后重写）：走子/翻棋后棋盘变化 → **双侧** per-side
+       有效位置 0（强制重算）。旧实现 stale_dirty=1 单一位 + "任一 cache 非零
+       即有效"判据 → 仅算本侧却宣告双方有效（对端陈旧值可误命中）。修：
+       stale_v[0]=stale_v[1]=0，jq_side_stalemated(st,turn) 全扫写本侧 (v=1),
+       下方对端预刷全扫写对端 (v=1)——两步后双侧 (v,c) 全有效。 */
+    st->stale_v[0] = 0;
+    st->stale_v[1] = 0;
+    st->stale_dirty = 0;   /* 字段废弃（兼容保留） */
     if (st->stage == STG_PLAY && !side_has_normal(st, 0) && !side_has_normal(st, 1)) {
         jq_on_draw(st);
     } else if (st->stage == STG_PLAY && jq_side_stalemated(st, st->turn)) {
@@ -595,8 +610,8 @@ static void stalemate_after(jq_state *st)
        修：turn 侧判完补判对端侧（缓存 0/1 都写，下次对端侧直接命中），
        两步走子后双端缓存全有效，后续全扫仅在 stale_dirty=1（实际走子）后触发。 */
     if (st->stage == STG_PLAY)
-        jq_side_stalemated(st, 1 - st->turn);
-    st->stale_dirty = 0;
+        jq_side_stalemated(st, 1 - st->turn);   /* R6-A-15：对端全扫写对端 (v=1)——per-side 后预刷真生效 */
+    /* stale_dirty/stale_cache 字段废弃（per-side 槽 stale_v/stale_c 为准） */
 }
 
 /* ★ AUD-R-108（P3 诚实标注，不提取共用收尾）：审计项建议提取
@@ -882,8 +897,8 @@ int jq_try_move(jq_state *st, int from, int to)
         st->turn = 1 - me;
         st->total_moves++;
         /* 走子后收口（和棋+困毙；AUD-R-008 对称，stalemate_after 与 jq_flip 共用） */
-        /* AUD-1000 B01-012：走子后棋盘变化，困毙缓存失效（stalemate_after 内全扫时重填） */
-        st->stale_dirty = 1;
+        /* ★ R6-A-17：走子后棋盘变化，困毙缓存 per-side 失效（stalemate_after 内双侧
+           强制重算并写回 stale_v/stale_c；AUD-1000 B01-012 同源） */
         stalemate_after(st);
     }
     return ev;
@@ -966,8 +981,8 @@ bool jq_flip(jq_state *st, int idx)
        ★ AUD-1000 B01-087：翻棋收口（stalemate_after）判对方困毙与走子同口径，
        和棋判定读走子计数（翻棋不入计——已对齐原版）。
        ★ AUD-R-008（P1）：翻棋路径与走子路径对称收口（和棋+困毙）。 */
-    /* AUD-1000 B01-012：翻棋后棋盘变化，困毙缓存失效 */
-    st->stale_dirty = 1;
+    /* ★ R6-A-17（per-side 根治）：翻棋后棋盘变化，困毙缓存双侧失效（stalemate_after
+       内清 stale_v[0]=stale_v[1]=0 后全扫重填；AUD-1000 B01-012 同源） */
     stalemate_after(st);
     return true;
 }
@@ -983,6 +998,11 @@ bool jq_side_stalemated(const jq_state *st, uint8_t side)
 {
     /* ★ AUD-R-091/114（P3 NULL 防护统一批）：st NULL → false（未困毙）。 */
     if (!st) return false;
+    /* ★ R6-A-06/18（P2 防御一致批）：side 合法性入口守卫——stale_v/stale_c 为
+       [2] 数组，非 0/1 入参（如 0xFF/越界值经 BT SYNC_CELL 注入/外部误调用）
+       作下标即 OOB 读写（公开 API 契约：同族 jq_on_* 终局函数已有 SIDE_VALID
+       守卫，查询 API 补齐）。 */
+    if (side != SIDE_BLUE && side != SIDE_RED) return false;
     if (st->stage != STG_PLAY || st->winner >= 0) return false;
     /* AUD-1000 B01-012：增量缓存——stale_dirty==0 且 stale_cache 有效时直接读。
        stale_cache[s]==1：方 s 可行动（未困毙，返 false）；stale_cache[s]==0：困毙（返 true）。
@@ -990,9 +1010,15 @@ bool jq_side_stalemated(const jq_state *st, uint8_t side)
        ★ 构造态兜底：jq_state_init memset 全 0 → stale_dirty=0 + stale_cache 全 0，
        若直接读缓存会把"从未写过的 0"误判为"困毙"。故缓存有效判据须 stale_cache
        任一侧曾被写（==1 即有效），全 0 = 未初始化 → 走全扫。 */
-    if (!st->stale_dirty && (st->stale_cache[0] || st->stale_cache[1])) {
-        if (st->stale_cache[side]) return false;
-        else                        return true;
+    /* ★ R6-A-11/17/25（P1 per-side 根治）：旧判据"stale_dirty==0 且任一 cache 非
+       0 即有效"无法区分"该 side 未计算(0)"与"该 side 已算出困毙(0)"——
+       stalemate_after 只写本侧后清 dirty，对端 0 可被误命中。修：per-side
+       有效位 stale_v[side]（全扫写回双写 v=1；走子/翻棋后双侧 v=0 强制重算）。
+       ★ 命中须 stage==PLAY（上方守卫已拒终局——终局态 stale_v 残留不得命中，
+       与旧实现 stage 守卫语义一致；构造态 stale_v=0 自然走全扫）。 */
+    if (st->stale_v[side]) {
+        if (st->stale_c[side]) return false;
+        else                   return true;
     }
     /* ★ AUD-1000 B01-077（P3 注释）：winner>=0 含 DRAW(2) 全终局拒收——
        winner=JQ_WIN_NONE(-1) 时 -1>=0 假放行正常扫描；winner=2(DRAW 已判和) 时
@@ -1032,8 +1058,9 @@ bool jq_side_stalemated(const jq_state *st, uint8_t side)
             /* ★ 2026-11-10 用户"MuMu玩不了"根因修复（与上注释同源）：0xFF 子双方计
                未困毙（B01-089 旧修"仅先手侧计"已推翻，随 jq_can_flip 修复闭合）。 */
             /* AUD-1000 B01-012：写缓存（可翻暗子 → 未困毙） */
-            ((jq_state *)st)->stale_cache[side] = 1;
-            ((jq_state *)st)->stale_dirty = 0;
+            ((jq_state *)st)->stale_c[side] = 1;
+            ((jq_state *)st)->stale_v[side] = 1;
+            ((jq_state *)st)->stale_dirty = 0;   /* 兼容保留（字段废弃） */
             return false;
         }
     }
@@ -1052,14 +1079,16 @@ bool jq_side_stalemated(const jq_state *st, uint8_t side)
         for (int t = 0; t < N_CELLS; t++)
             if (t != i && can_move_ignore_turn(st, i, t)) {
                 /* AUD-1000 B01-012：写缓存（可动子有合法目标 → 未困毙） */
-                ((jq_state *)st)->stale_cache[side] = 1;
-                ((jq_state *)st)->stale_dirty = 0;
+                ((jq_state *)st)->stale_c[side] = 1;
+                ((jq_state *)st)->stale_v[side] = 1;
+                ((jq_state *)st)->stale_dirty = 0;   /* 兼容保留 */
                 return false;
             }
     }
     /* AUD-1000 B01-012：全扫无可动/可翻 → 困毙，写缓存 */
-    ((jq_state *)st)->stale_cache[side] = 0;
-    ((jq_state *)st)->stale_dirty = 0;
+    ((jq_state *)st)->stale_c[side] = 0;
+    ((jq_state *)st)->stale_v[side] = 1;   /* R6-A-25：算出困毙也是可信缓存 */
+    ((jq_state *)st)->stale_dirty = 0;   /* 兼容保留 */
     return true;
 }
 
@@ -1091,7 +1120,12 @@ void jq_undo_restore(jq_state *st, const jq_state *snap)
        会用陈旧缓存判困毙（可能误判红方困毙→蓝胜）。修：回退后强制 stale_dirty=1
        （下次判定走全扫重算）。行为影响：仅在"悔棋后立刻判困毙"路径上由陈旧缓存
        改为重算（结果正确性提升，无功能回退）。 */
-    st->stale_dirty = 1;
+    /* ★ R6-A-11 同源（per-side 槽生效）：悔棋回退后快照里的困毙缓存属旧局面 →
+       双侧 per-side 有效位清零（强制下次判定全扫重算）；stale_dirty/stale_cache
+       废弃字段同步清（兼容保留，防旧代码路径残留读）。 */
+    st->stale_v[0] = 0;
+    st->stale_v[1] = 0;
+    st->stale_dirty = 0;   /* 字段废弃（兼容保留） */
     st->stale_cache[0] = 0;
     st->stale_cache[1] = 0;
 }

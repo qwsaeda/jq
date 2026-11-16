@@ -9,6 +9,14 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.UUID;
 
+/* ★ Round 2 对抗审计 R6-C-10（P1 断连镜像接线）：BtSpp 连接成功/断开 setprop
+   jq.bt_conn 1/0 —— jni_bridge.c :490 区 bstate 属性钩子设计的 Java 侧缺失端
+   （注释自述"未推设备 bstate 钩子前，g_bt_connected 恒 0 → 所有发送打
+   '未连接被拒'"）。修：连接成功（attach）setprop 1；断开（disconnect/读线程
+   异常/fail）setprop 0。native 发送前 jq_bt_conn_prop() 轮询消费（B10-001）。
+   诚实边界：setprop 需 root/设备侧属性可写（MuMu redroid 可用；无权限时
+   catch 吞掉降级为原"推帧推定"镜像路径，行为不劣化）。 */
+
 /**
  * BtSpp — 蓝牙联机 SPP socket 宿主（Java 侧，诚实边界：无真机蓝牙验证）。
  *
@@ -88,6 +96,7 @@ public class BtSpp {
                 s_socket = s;
                 s_out = s.getOutputStream();
                 s_connected = true;   /* ★ AUD-1000-ALL A2-011（P1 已修）：共享字段写侧 synchronized（4 线程：accept/connect/读线程/sendFrame），旧版裸写与 sendFrame 读 s_connected/s_out TOCTOU 丢帧→双端棋盘发散 */
+                setBtConn(1);   /* ★ R6-C-10：连接成功镜像（native g_bt_connected 轮询） */
             }
             startRead(s);
         } catch (Exception e) { fail("attach 失败: " + e); }
@@ -152,6 +161,7 @@ public class BtSpp {
                 }
                 synchronized (BtSpp.class) { s_connected = false; }   /* ★ A2-011：写侧同锁 */
                 App.btState("disconnected");
+                setBtConn(0);   /* ★ R6-C-10：读线程断连镜像 */
             }
         });
         s_readThread.setDaemon(true);
@@ -195,6 +205,7 @@ public class BtSpp {
         }
         if (s_readThread != null) s_readThread.interrupt();
         App.btState("disconnected");
+        setBtConn(0);   /* ★ R6-C-10：主动 disconnect 镜像 */
     }
 
     private static void serverClose(BluetoothServerSocket s) {
@@ -204,5 +215,18 @@ public class BtSpp {
     private static void fail(String msg) {
         Log.e(TAG, msg);
         App.btState("failed:" + msg);
+        setBtConn(0);   /* ★ R6-C-10：失败态镜像断连 */
+    }
+
+    /** ★ R6-C-10：setprop jq.bt_conn 1/0（native 发送前轮询消费，断连镜像根治）。 */
+    private static void setBtConn(int v) {
+        try {
+            java.lang.Process p = Runtime.getRuntime().exec(new String[]{
+                    "/system/bin/setprop", "jq.bt_conn", String.valueOf(v)});
+            p.waitFor();   /* setprop 无 stdin，等进程退出即完成 */
+            Log.i(TAG, "jq.bt_conn = " + v + "（断连镜像 setprop）");
+        } catch (Exception e) {
+            Log.w(TAG, "setprop jq.bt_conn 失败（降级推帧推定镜像）: " + e);
+        }
     }
 }

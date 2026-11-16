@@ -6775,3 +6775,42 @@ jq_rs_rules.c 注释定论。
   断连镜像 + R5-C-11 帧推进 + R5-C-12 NACK = R6 蓝牙族主攻；困毙缓存 per-side
   （A-14/15/25 同根因一次关三条）+ 铁路起点统一谓词（A-01/02/26 同批）+
   pieces_left 语义统一（A-09~13 同批）为 R6 规则族主攻。
+
+### 109. 「对齐」对抗审计 Round 6（4 路子代理全成功 110 原始→100 入账）+ ★R5 阶段 2 缓存重构"声称已修未落地"根因 + per-side 真落地 + 0xFF 判据定案 + 蓝牙/事件/口径 14 修（§109 2026-11-16）
+- **★ R6 子代理 4 路全成功**（免费额度窗口）：A 规则 27 / B 事件 27 / C 蓝牙 26 /
+  D 口径 30 = 110 原始 → 复核撤回 9 + 合并 1 → **100 入账**（A25/B26/C20/D29），
+  台账 `rev64/forward/audit/r4/AUD_ALIGN_R6.md`。
+- **★ 本轮最大发现（对抗审计价值实证）：R5 阶段 2 缓存重构"声称已修"实际未落地**——
+  `git show b4e7134 -- junqi.h` 实锤 stale_cache[2] 未改（该提交仅注释纠错 3 处+铁路
+  撤回）；R6-A 回执按当时代码报出 R6-A-11/17/25（= R5-A-14/15/25 回归复报）→
+  本轮**真落地**：junqi.h 加 `stale_v[2]+stale_c[2]`（废弃 stale_dirty/stale_cache
+  保留字段）+ rules.c 命中判据 per-side / 3 全扫写回双写 / stalemate_after 双侧
+  强制重算 / jq_undo_restore per-side 同步。
+  **教训固化：commit message 宣称的修复必须 `git show <sha> -- <file>` 逐文件核
+  diff 实证，不许以 message 为准。**
+- **★ 0xFF 判据定案批（行为定案，桌面判据二次实证优先）**：dark_stalemate_matrix_test
+  ③④ 旧期望"对方 0xFF 己无子 → 己困毙"系 B01-011 修复前快照；复勘实锤：删
+  `c->side==0xFF` 项 → **10 桌面用例 FAIL**（dark_flip/dark_fullgame/flip_draw_guard/
+  dark_flip_draw_count/dark_flip_color/dark_redwin_ai/dark_touch_flip_flow 全依赖
+  "0xFF 双方计可翻"= 2026-11-10 根因②定案同源，删项后 ai_pick 候选恒空 → 红方
+  死锁"点不动"）→ **回滚行为 + 测试判据 ③④ 更新 want=0 + 头注口径**。
+  （R5 教训"桌面判据优先于子代理推断"第二次实证。）
+- **★ 本轮已修 14 条**：规则族（A-11/17/25 per-side + A-06/18 side 守卫 +
+  A-10/26 死分支收敛 st->mode 判定 + A-12 撞旗 total_moves@990af71）/
+  蓝牙族（C-03/09 DRAW-CHAT 收帧 case + DISCONNECTED 放行 + bt_semtest 88/88；
+  C-04 BtSpp setprop jq.bt_conn 5 接线点断连镜像根治；C-05/06 帧推进 strspn
+  整帧消费——frame_adv_test 实锤旧逻辑 60 帧串接**丢 59 帧**→新 60/60，
+  纠正 R5 台账 C-11"B09-038 已修"误判=注释与实现矛盾）/ 事件族（B-09 未知名
+  隔离 idx=-1 拒计数 + B-10 default -1 哨兵 + B-21/22 GameType%d 键统一
+  双 json）/ 口径批（D-01/02/03/05/08 172/172 全仓同步 + D-12 align_gate
+  pipefail + D-17 SKIP 口径澄清）。
+- **验证实锤（全 PASS）**：align_gate 7/7 + dark_align 86/86（含 ③④ 判据更新）+
+  bt_semtest 88/88 + evverify 172/172 + frame_adv_test 4/4 + 冒烟 2/2
+  （so `d9d1c325`，127.0.0.1:5556 转译器窗口内 0 崩溃）。
+- **R7 主攻（按价值排序）**：① pieces_left 语义定案批（A-01~05/13~16/19~23 同批
+  一次定案：可动子=已翻非旗雷存在合法目标，全事件分支增量对齐 refresh，
+  0xFF 未入集不扣，工兵挖雷存活不扣）② 蓝牙扩字段批（C-01/02 UNDO 请求-应答 +
+  C-07 NACK + C-08 RESTART mode 字段 + C-13 幂等 token + C-19 原子复位集）
+  ③ 事件单一入口批（B-01~08/11~15/18~20/23~27：name_to_55code 全量 + Σ==total
+  不变量 + 三层 sfx 矩阵门禁 sfx_coverage_check.py）④ 数字口径收尾 + AGENTS
+  路由补登（D-28）⑤ 暗棋 rank 泄露 32 位定案（A-07/08 需真机 0x39e14 实证）。

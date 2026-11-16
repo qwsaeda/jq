@@ -50,7 +50,7 @@ run "[11/12] 真实长路径走子 (make walkverify --longrun 5)" bash -c "cd $R
 # 12. 桌面事件验证（EAT/BOMB/MOVE/FLAG/MINE/UNDO/DRAW/RESIGN/STALEMATE 9 断言 + 120 弹窗几何 + 规则回归，防事件夹具回归）
 # ★ AUD-1000 B07-001/B08-049（P1 判据口径同步）：evverify 退码分级——事件项
 #   FAIL 退 1（阻断 12/12）；仅几何项 FAIL 退 2（警告，单弹窗几何漂移不再
-#   过度敏感阻断全回归）。判据仍 grep "全对"（169/169 全对），退 2 时
+#   过度敏感阻断全回归）。判据仍 grep "全对"（当前 172/172，事件 40/40 + 几何 132/132），退 2 时
 #   "全对" 不出现（几何 FAIL 行）→ [12/12] FAIL 但日志可区分"事件阻断"
 #   与"几何警告"（stdout 含"退 2（警告"字样）。
 run "[12/12] 桌面事件验证 (make evverify)" bash -c "cd $RS && make evverify MODE=--all 2>&1 | grep '全对'"

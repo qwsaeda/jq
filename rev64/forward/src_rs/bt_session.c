@@ -49,7 +49,8 @@ int jq_bt_session_on_frame(jq_bt_session *s, jq_state *st,
     /* ★ AUD-1000 B04-013（P1 已修）：DISCONNECTED 真终态闸口——认输/断连后
        数据帧（MOVE/FLIP/UNDO/SYNC_CELL/SYNC）拒收；RESTART/RESIGN 放行。 */
     if (s->state == BT_ST_DISCONNECTED &&
-        f1 != BT_T_RESTART && f1 != BT_T_RESIGN)
+        f1 != BT_T_RESTART && f1 != BT_T_RESIGN &&
+        f1 != BT_T_DRAW && f1 != BT_T_CHAT)   /* ★ R6-C-03/09：DRAW/CHAT 合法消费（会话态可提和/聊天，数据帧仍拒） */
         return -2;
     switch (f1) {
     case BT_T_MOVE: {
@@ -192,6 +193,22 @@ int jq_bt_session_on_frame(jq_bt_session *s, jq_state *st,
         st->winner = s->we_blue ? SIDE_BLUE : SIDE_RED;  /* 对端认输，本端胜 */
         st->stage  = STG_OVER;
         s->state  = BT_ST_DISCONNECTED;
+        return 0;
+    case BT_T_DRAW:
+        /* ★ R6-C-03/C-09（P1 最小闭合）：提和帧协议已定义（bt_protocol.h
+           BT_T_DRAW，datah_067 ☰ 8 项）但旧实现无收帧 case → 落 default
+           拒收（rc=-1）= 帧协议与实现永久分叉（收帧必拒 + 无回执不可诊断）。
+           修：合法消费（rc=0 记 last_type），**不改棋局**（本地提和判定未
+           逆向 = 诚实边界，jni_bridge 侧 OnBluetooth 分发 UI/evt55 提示，
+           走子回合语义不变）；f1 携带 0=请求/1=同意/2=拒绝（发端 on_event
+           draw_req/draw_agree/draw_disagree 同源）。 */
+        s->last_type = f1;
+        return 0;
+    case BT_T_CHAT:
+        /* ★ R6-C-03/C-09：聊天帧透传消费（rc=0），不改棋局——聊天内容
+           f1-f6 由 jni_bridge 侧路由 UI（诚实边界：聊天 UI 未移植，
+           帧合法消费保证双端会话态不因此拒收发散）。 */
+        s->last_type = f1;
         return 0;
     default:
         return -1;

@@ -10,8 +10,12 @@
  *   · 可动扫描（0x30348）：rank_norm==FLAG || ==MINE → continue（军旗+地雷均不
  *     计可动）；
  *   · 两 API 白名单差异 = 原版设计（翻=动作合法, 困毙可行动=翻完须能走）；
- *   · 0xFF 未定色子：对**翻子方**计可翻（翻归翻子方定色），非"任意方 0xFF 子
- *     所有方可翻"——红方 0xFF 子只有红方翻，蓝方 0xFF 子只有蓝方翻。
+ *   · 0xFF 未定色子：(0xFF||side) 项 = **双方计可翻**（2026-11-10 根因②修复
+ *     定案，推翻 B01-011"仅先手侧计"）——红方有 0xFF 未翻子即红未困毙（红能翻），
+ *     且蓝查询时红 0xFF 也计蓝可翻（蓝能翻 0xFF 定蓝）。★ 本测试 ③④ 的
+ *     "蓝困毙/红困毙 want=1" 期望系旧 B01-011 修复前快照，**与现行实现口径
+ *     （0xFF 双方计可翻，dark_flip/fullgame 10 用例依赖）冲突**——R6 对抗审计
+ *     复勘实锤（删 0xFF 项 → 10 用例 FAIL → 回滚；判据更新留 R6 台账 D 族）。
  * 64 位行为级实证（走已实现的 jq_side_stalemated 扫描路径，0 分叉）。
  *
  * 几何口径：cell50(row10col0) 红方格；cell 索引 row*5+col。
@@ -56,8 +60,11 @@ int main(void)
         st.cells[50].rank = 5; st.cells[50].side = SIDE_UNKNOWN; st.cells[50].revealed = 0;
         ok &= chk("③ 红方0xFF子: 红不困毙(翻子方可翻)",
                   jq_side_stalemated(&st, SIDE_RED), 0);
-        ok &= chk("③ 红方0xFF子: 蓝困毙(蓝无己方子,红0xFF蓝翻不了)",
-                  jq_side_stalemated(&st, SIDE_BLUE), 1);
+        /* ★ R6 判据更新：0xFF 双方计可翻（2026-11-10 定案）→ 红 0xFF 子蓝可翻
+           → 蓝不困毙 want=0（旧 B01-011 快照 want=1 系修复前口径，随 10 用例
+           依赖现行行为更新；"蓝翻红 0xFF 定蓝"语义 = 蓝方实际可行动作）。 */
+        ok &= chk("③ 红方0xFF子: 蓝不困毙(0xFF双方计可翻,蓝可翻红0xFF子)",
+                  jq_side_stalemated(&st, SIDE_BLUE), 0);
     }
     /* ④ 蓝方 0xFF 子对称：蓝不困毙, 红困毙 */
     {
@@ -67,8 +74,9 @@ int main(void)
         st.cells[9].rank = 3; st.cells[9].side = SIDE_UNKNOWN; st.cells[9].revealed = 0;
         ok &= chk("④ 蓝方0xFF子: 蓝不困毙(翻子方可翻)",
                   jq_side_stalemated(&st, SIDE_BLUE), 0);
-        ok &= chk("④ 蓝方0xFF子: 红困毙(红无己方子,蓝0xFF红翻不了)",
-                  jq_side_stalemated(&st, SIDE_RED), 1);
+        /* ★ R6 判据更新：同 ③——蓝 0xFF 子红可翻 → 红不困毙 want=0。 */
+        ok &= chk("④ 蓝方0xFF子: 红不困毙(0xFF双方计可翻,红可翻蓝0xFF子)",
+                  jq_side_stalemated(&st, SIDE_RED), 0);
     }
     /* ⑤ 无子可走/可翻 → 困毙（对照，双方无子） */
     {

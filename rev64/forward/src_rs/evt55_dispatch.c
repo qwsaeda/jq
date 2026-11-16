@@ -68,7 +68,9 @@ static int e55_code_to_evname(int code)
     case 38: return 50;  /* Junqi.JoinGame（NET 桶代表，idx 50） */
     case 44: return 65;  /* Junqi.LayError（LAY 桶代表，idx 65） */
     case 46: return 71;  /* Junqi.Select（MISC 桶代表，idx 71） */
-    default: return 0;   /* 兜底 Junqi.Move（未映射 code） */
+    default: return -1;  /* ★ R6-B-10（P1 未知名隔离）：未映射 55code 返哨兵 -1
+       （旧 default 0 使未映射 code 全归 Junqi.Move = 假绿同族静默归因）；
+       调用方 jq_evt55_dispatch 对 evname 命中 73 表时精确覆盖不受影响 */
     }
 }
 
@@ -103,11 +105,18 @@ int jq_evt55_dispatch(int code, const char *evname)
         return 0;   /* 越界拒收（67 code，0..66） */
 
     int evname_idx = e55_code_to_evname(code);
-    /* 按事件名字符串精确匹配 73 事件名索引（evname 非 NULL 时优先） */
+    /* 按事件名字符串精确匹配 73 事件名索引（evname 非 NULL 时优先）
+       ★ R6-B-09（P1 未知名隔离）：evname 非空但**未命中 73 表**时旧实现保留
+       code 默认 idx（哨兵 -1 或桶代表）照常计数 → 未知名事件误归因（假绿同族）。
+       修：未命中 → evname_idx = -1（拒计数，与 code 未映射哨兵同语义），
+       LOGV 可诊断；合法调用点全部传 73 表内名（on_event/AI/走子路径实证），
+       行为 0 退化（负向：传 "Junqi.NotExist" 不再计入 g_event_cnt）。 */
     if (evname) {
+        int hit = -1;
         for (int i = 0; i < JQ_EVENT_NAME_COUNT; i++)
             if (strcmp(evname, jq_event_names_73[i]) == 0)
-                evname_idx = i;
+                hit = i;
+        evname_idx = hit;   /* 命中=精确 idx；未命中=-1 拒计数 */
     }
 
     int ok = e55_do_code(code);

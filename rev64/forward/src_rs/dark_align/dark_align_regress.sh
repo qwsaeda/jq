@@ -189,7 +189,7 @@ run_one dark_touch_flip_flow_test
 
 
 echo ""
-echo "=== 合计 PASS=$pass FAIL=$fail MISS=$pending ==="
+echo "=== 合计 PASS=$pass FAIL=$fail SKIP=$pending（★ D-17：pending 自 R4-D-05 修复后无累加点，恒 0；字段改名口径澄清） ==="
 if [ "$fail" -gt 0 ]; then
   echo "判定: FAIL（定位根因后重跑）"; exit 1
 fi

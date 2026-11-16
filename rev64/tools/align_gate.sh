@@ -14,7 +14,7 @@
 #   bash rev64/tools/align_gate.sh                # 全跑（桌面层，0 设备依赖）
 #   bash rev64/tools/align_gate.sh --dev 10.0.182.146:5555   # 附加 32↔64 双端对照
 # 诚实边界：⑥ 的双端对照需 32 位设备；未给 --dev 时只跑 64 位基线（不冒充双端结论）。
-set -u
+set -uo pipefail
 WS=/disk/workspaces/jq
 RS=$WS/rev64/forward/src_rs
 DEV=""
