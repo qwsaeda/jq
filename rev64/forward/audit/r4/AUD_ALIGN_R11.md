@@ -64,6 +64,13 @@
 - P1：**6**（能力探测/RESTART 复位/推进/UNDO 映射/SYNC seq/UNDO 豁免，全已修）
 - P2：**4**（混跑矩阵/hash/跨重启/32 位证据，全待修 = R12）
 
+## 帧形态实锤（防字段数误判）
+
+- v2 帧 = `v2\n` + 7 CSV 字段（type + f1..f6）：实锤 `v2\n1,5,0,0,0,0,0\n`（17 字节，bt_protocol jq_bt_frame_encode）
+- v3 帧 = `v3\n` + 9 CSV 字段（type + seq + ref + f1..f6）：实锤 `v3\n1,7,0,5,0,0,0,0,0\n`（21 字节，jq_bt_frame_encode_v3）
+- **口径澄清**：v3 "10 字段" = 10 个**参数位**（type/seq/ref/f1..f6），线侧 9 CSV 列（type 列 + seq/ref + 6 数据域）；
+  旧"10 字段"措辞指 API 形参，非 CSV 列数——防未来审计按"10 列"误读。decode_v3 sscanf 9 值（`%d,%u,%u,%d×6`）。
+
 ## 攻坚日志坑（R11 新增 5 条）
 
 1. C99 goto 跨 int 声明（跳入带初始化声明）→ 改显式分支
