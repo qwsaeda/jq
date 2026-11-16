@@ -67,6 +67,8 @@ static void probe_clear(jq_state *st)
  *   R-029 大本营目标 / R-030 进大本营不可再动 / R-033 翻棋计数 / R-045 困毙白名单
  *   R-071 空大本营 / R-073 困毙排地雷 / R-089 困毙 vs 吃旗
  *   §43/§76/§94-§99 工兵 BFS 穿格/绕行/拐弯（E1-E9，32↔64 双端对照探针）
+ *   R-003 先手翻子定色 / R-008 翻棋不困毙判定（F1-F3）
+ *   R-011 未定色暗子被吃 / R-004 越界写防御 / R-018 杀光判据（G1-G4）
  */
 
 /* 棋盘几何常量（12 行 × 5 列，行 0=蓝方底线，行 11=红方底线） */
@@ -320,6 +322,98 @@ void jq_rule_probe_run(void)
         PROBE_LOG("RULE-PROBE E9_worker_r6_around_to_c4 CM %d %d = %d",
                   cell_index(6, 0), cell_index(6, 4),
                   jq_can_move(&st, cell_index(6, 0), cell_index(6, 4)));
+    }
+
+    /* ===== F 组：暗棋翻棋定色 / 翻棋困毙（R-003 先手翻子定色 / R-008 翻棋不困
+       毙判定）——32↔64 双端对照探针（C 组既有 C2 翻棋定色 + C3 暗地雷翻，本轮
+       补全"先手翻子定色后对局状态" + "翻完即困毙对局是否继续"两个 32↔64 分歧
+       场景） ===== */
+    {
+        /* F1：暗棋先手翻子定色后 side 归属（R-003——先手翻子定色，side 变当前
+           回合方；32 位若布局写死 side 则分叉） */
+        probe_clear(&st);
+        st.turn = SIDE_BLUE;
+        probe_put(&st, 5, 0, 1, SIDE_UNKNOWN, 0);   /* 未定色暗子 */
+        {
+            int ok = jq_flip(&st, cell_index(5, 0));
+            PROBE_LOG("RULE-PROBE F1_flip_first_side FL %d = %d side %d turn %d",
+                      cell_index(5, 0), ok, (int)st.cells[cell_index(5, 0)].side,
+                      (int)st.turn);
+        }
+        /* F2：暗棋翻完即困毙的对局是否继续（R-008——jq_flip 不做困毙判定，翻
+           完即困毙对局仍进行；32 位若 jq_flip 做困毙判定则分叉） */
+        probe_clear(&st);
+        st.turn = SIDE_BLUE;
+        /* 红方仅一枚暗地雷（未定色）→ 翻完后红方无子可动（困毙） */
+        probe_put(&st, 5, 0, 11, SIDE_UNKNOWN, 0);
+        probe_put(&st, 5, 1, 12, SIDE_RED, 1);   /* 红方军旗（红方无其他子） */
+        {
+            int ok = jq_flip(&st, cell_index(5, 0));
+            PROBE_LOG("RULE-PROBE F2_flip_then_stalemate FL %d = %d SM_red %d turn %d",
+                      cell_index(5, 0), ok, jq_side_stalemated(&st, SIDE_RED),
+                      (int)st.turn);
+        }
+        /* F3：暗棋先手翻子定色后对方暗子不可被定（R-003 对称——先手翻子定色后
+           敌方暗子不可翻，防"抢定色"） */
+        probe_clear(&st);
+        st.turn = SIDE_BLUE;
+        probe_put(&st, 5, 0, 1, SIDE_UNKNOWN, 0);   /* 蓝方未定色暗子 */
+        probe_put(&st, 5, 1, 1, SIDE_UNKNOWN, 0);   /* 红方未定色暗子 */
+        {
+            /* 先翻蓝方暗子（定色 side=BLUE） */
+            int ok1 = jq_flip(&st, cell_index(5, 0));
+            st.turn = SIDE_RED;
+            /* 红方翻自己的暗子（定色 side=RED） */
+            int ok2 = jq_flip(&st, cell_index(5, 1));
+            PROBE_LOG("RULE-PROBE F3_flip_both_sides FL %d %d = %d %d side %d %d",
+                      cell_index(5, 0), cell_index(5, 1), ok1, ok2,
+                      (int)st.cells[cell_index(5, 0)].side,
+                      (int)st.cells[cell_index(5, 1)].side);
+        }
+    }
+
+    /* ===== G 组：未定色暗子被吃 / 越界写防御（R-011 未定色暗子被吃 / R-004
+       越界写）——32↔64 双端对照探针（C1 既有未定色不可动，本轮补全"未定色暗
+       子被吃" + "side=0xFF 越界写防御"两个 32↔64 分歧场景） ===== */
+    {
+        /* G1：未定色暗子被己方吃（R-011——引擎允许未定色暗子被吃则分叉；32
+           位若拦截 side==0xFF 目标则对齐） */
+        probe_clear(&st);
+        st.turn = SIDE_BLUE;
+        probe_put(&st, 5, 0, 1, SIDE_BLUE, 1);     /* 蓝方司令 */
+        probe_put(&st, 5, 1, 1, SIDE_UNKNOWN, 0);   /* 未定色暗子（side=0xFF） */
+        PROBE_LOG("RULE-PROBE G1_cm_unrevealed_eat CM %d %d = %d",
+                  cell_index(5, 0), cell_index(5, 1),
+                  jq_can_move(&st, cell_index(5, 0), cell_index(5, 1)));
+        /* G2：未定色暗子被对方吃（R-011——暗棋下敌方未定色暗子不可被吃，若可
+           吃则信息泄露 + 分叉） */
+        probe_clear(&st);
+        st.turn = SIDE_BLUE;
+        probe_put(&st, 5, 0, 1, SIDE_BLUE, 1);     /* 蓝方司令 */
+        probe_put(&st, 5, 1, 1, SIDE_RED, 0);      /* 红方暗子（revealed=0，未翻开） */
+        PROBE_LOG("RULE-PROBE G2_cm_enemy_dark_eat CM %d %d = %d",
+                  cell_index(5, 0), cell_index(5, 1),
+                  jq_can_move(&st, cell_index(5, 0), cell_index(5, 1)));
+        /* G3：越界写防御（R-004——side=0xFF 时 pieces_left 下标越界，32 位若
+           无范围守卫则分叉；探针查 side=0xFF 目标 try_move 是否崩/拒） */
+        probe_clear(&st);
+        st.turn = SIDE_BLUE;
+        probe_put(&st, 5, 0, 1, SIDE_BLUE, 1);     /* 蓝方司令 */
+        probe_put(&st, 5, 1, 1, SIDE_UNKNOWN, 0);   /* side=0xFF 目标 */
+        {
+            int ev = jq_try_move(&st, cell_index(5, 0), cell_index(5, 1));
+            PROBE_LOG("RULE-PROBE G3_try_side0xff TM %d %d = ev %d",
+                      cell_index(5, 0), cell_index(5, 1), ev);
+        }
+        /* G4：kill-all 判据（R-018——杀光对方所有能动的子判胜，32 位若仅靠
+           困毙近似则分叉；探针查"对方仅一枚不可动子"场景） */
+        probe_clear(&st);
+        st.turn = SIDE_BLUE;
+        probe_put(&st, 5, 0, 1, SIDE_BLUE, 1);     /* 蓝方司令 */
+        probe_put(&st, 5, 1, 11, SIDE_RED, 1);      /* 红方地雷（不可动——地雷不可走） */
+        st.cells[cell_index(5, 1)].rank = (uint8_t)probe_red_rank(11);
+        PROBE_LOG("RULE-PROBE G4_kill_all_stalemate SM %d = %d",
+                  (int)SIDE_RED, jq_side_stalemated(&st, SIDE_RED));
     }
 
     PROBE_LOG("RULE-PROBE DONE");
