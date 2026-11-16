@@ -547,10 +547,13 @@ static void jq_bt_send(JNIEnv *env, const char *frame)
 
 /* ★ 蓝牙控制帧（UNDO/RESTART）：BT 模式下 ☰ 悔棋/重开 → 编帧 → jq_bt_send。
    帧 type 走 bt_protocol 枚举；控制帧不受回合闸口（OUR_TURN 发送守卫仅走子/翻棋）。 */
-static void jq_bt_ctrl_send(JNIEnv *env, int type){
+static void jq_bt_ctrl_send(JNIEnv *env, int type, int f1, int f2){
     if (!env) return;
     char tb[BT_BUF];
-    int n = jq_bt_frame_encode(tb, sizeof tb, type, 0, 0, 0, 0, 0, 0, 0);
+    /* ★ R8-C-14/15 字段语义定案（探针实锤）：encode(type, f1, f2, f3, f4, f5, f6, f7)，
+       f1..f6 = 数据字段 1..6。RESTART：f1=mode(0明/1暗/999缺省), f2=host_is_blue
+       (0/1/999缺省)；UNDO/DRAW/RESIGN/CHAT：f1/f2 传 999（收端不读，0 行为变化）。 */
+    int n = jq_bt_frame_encode(tb, sizeof tb, type, f1, f2, 0, 0, 0, 0, 0);
     /* AUD-A-0002 探针降噪：n 是 jq_bt_frame_encode 返回值（snprintf 截断保护：
        n>=sizeof tb 时 encode 返回 -1），n∈[0,BT_BUF-1] 恒合法；tb[n]=0 越界不可能。 */
     if (n > 0) {
@@ -1053,7 +1056,7 @@ static void bt_broadcast_restart(JNIEnv *env)
     if (!env) return;
     if (!ui_bt_active()) return;
     if (!g_bt_sess_init_done) return;
-    jq_bt_ctrl_send(env, BT_T_RESTART);
+    jq_bt_ctrl_send(env, BT_T_RESTART, ui_opt_get_mode(), g_bt_sess.we_blue ? 1 : 0);
 }
 /* ★ AUD-1000 B03-013/B03-047/B03-067（P1 已修）：g_bt_sess 字段/标志跨线程契约——
    g_bt_sess_init_done 与 g_bt_sess.state 的锁内读写点：start_bt_session 初始化段、
@@ -1171,7 +1174,7 @@ static const char *on_event(const char *name, const char *value, JNIEnv *env)
            64位简化版：发 UNDO 帧（对端同步悔棋），本地不 pop（收帧侧闭环）。
            诚实边界：原版 73 事件名 RegretReq/RegretAgree/RegretDisagree 全链，
            src_rs 仅实现"请求发帧"，应答判定（RegretAgree/Disagree）未移植（需对端协议）。 */
-        jq_bt_ctrl_send(env, BT_T_UNDO);
+        jq_bt_ctrl_send(env, BT_T_UNDO, 999, 999);
         sfx_play(env, "pop");
         jq_evt55_dispatch(42, "Junqi.RegretReq");   /* ★ 55code 分发：code 42 = RegretReq */
         LOGI("OnEvent regret_req → 发 UNDO 帧（原版 Junqi.RegretReq，code 42；诚实边界：本地不 pop 等收帧闭环）");
@@ -1192,7 +1195,7 @@ static const char *on_event(const char *name, const char *value, JNIEnv *env)
         return NULL;
     } else if (strcmp(name, "draw_req") == 0) {
         /* 原版 Junqi.DrawReq 提和请求——64位简化版：发 DRAW 帧 + 诚实边界对话框。 */
-        jq_bt_ctrl_send(env, BT_T_DRAW);
+        jq_bt_ctrl_send(env, BT_T_DRAW, 999, 999);
         sfx_play(env, "pop");
         jq_evt55_dispatch(25, "Junqi.DrawReq");   /* ★ 55code 分发：code 25 = DrawReq */
         LOGI("OnEvent draw_req → 发 DRAW 帧（原版 Junqi.DrawReq，code 25；本地提和判定未实现，需对端应答）");
@@ -1258,7 +1261,7 @@ static const char *on_event(const char *name, const char *value, JNIEnv *env)
         g_state.winner = (g_state.turn == SIDE_BLUE) ? SIDE_RED : SIDE_BLUE;
         g_state.stage = STG_OVER;
         pthread_mutex_unlock(&g_mutex);
-        jq_bt_ctrl_send(env, BT_T_RESIGN);
+        jq_bt_ctrl_send(env, BT_T_RESIGN, 999, 999);
         sfx_play(env, "lose");
         /* resign_confirm 无独立 55code（原版 F_55d40 switch 未含 ResignConfirm，
            诚实边界：73-name 索引 19=ResignConfirm 仅计数对齐，code 兜底 24=Resign） */
@@ -8929,7 +8932,7 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
             int dact = db[dh].action;
             LOGI("OnTouch 提和详情弹窗：图标%d（action=%d）", dh, dact);
             if (dact == 0) {   /* 提和 → 发 BT_T_DRAW 帧 + 诚实边界对话框（本地提和判定未实现） */
-                jq_bt_ctrl_send(env, BT_T_DRAW);
+                jq_bt_ctrl_send(env, BT_T_DRAW, 999, 999);
                 jq_show_dialog(env, "提和（诚实边界）",
                     "提和已发送，等待对方回应。\n"
                     "本地提和判定未实现（原版需对端应答，\n"
@@ -8944,11 +8947,11 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
                 g_state.stage = STG_OVER;
                 winner_snap = g_state.winner;
                 pthread_mutex_unlock(&g_mutex);
-                jq_bt_ctrl_send(env, BT_T_RESIGN);
+                jq_bt_ctrl_send(env, BT_T_RESIGN, 999, 999);
                 sfx_play(env, "over");
                 LOGI("OnTouch 提和详情：认输 → 对方胜（winner=%d，锁内快照）+ RESIGN 帧", winner_snap);
             } else if (dact == 2) {   /* 聊天 → 发 BT_T_CHAT 占位帧 + 边界对话框 */
-                jq_bt_ctrl_send(env, BT_T_CHAT);
+                jq_bt_ctrl_send(env, BT_T_CHAT, 999, 999);
                 jq_show_dialog(env, "聊天（诚实边界）",
                     "聊天（诚实边界）：\n"
                     "原版联机聊天消息（Junqi.Chat*）未逆向，\n"
@@ -9430,7 +9433,7 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
             int c63act = c63[c63h].action;
             LOGI("OnTouch 聊天完整版弹窗：按钮%d（action=%d）", c63h, c63act);
             if (c63act == 0) {   /* 发送 → BT_T_CHAT 占位帧 + 边界对话框 */
-                jq_bt_ctrl_send(env, BT_T_CHAT);
+                jq_bt_ctrl_send(env, BT_T_CHAT, 999, 999);
                 jq_show_dialog(env, "聊天（诚实边界）",
                     "聊天（诚实边界）：\n"
                     "联机聊天文本未逆向，\n"
@@ -9897,7 +9900,7 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
                 sfx_play(env, "start");   /* ★ 原版对齐：开局音效 Junqi.Start → data_junqi_start.wav（SPEC §5） */
                 LOGI("☰菜单 重新开始：default.lay 重开局（stage=PLAY 蓝先手）");
                 /* ★ BT 联机：重开 → 发 RESTART 帧（对端同步重开，锁内快照值判发帧） */
-                if (sess_init_done_snap) jq_bt_ctrl_send(env, BT_T_RESTART);
+                if (sess_init_done_snap) jq_bt_ctrl_send(env, BT_T_RESTART, ui_opt_get_mode(), g_bt_sess.we_blue ? 1 : 0);
             } else if (act == 1) {   /* 悔棋 */
                 int sess_init_done_snap;
                 int popped = 0;
@@ -9919,7 +9922,7 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
                 sfx_play(env, "pop");
                 LOGI("☰菜单 悔棋：连续 undo_pop 到 BLUE（popped=%d，BT 态=0 仅发帧）", popped);
                 /* ★ BT 联机：悔棋 → 发 UNDO 帧（对端同步悔棋；收帧侧 8048 本地回退） */
-                if (sess_init_done_snap && (popped || ui_bt_active())) jq_bt_ctrl_send(env, BT_T_UNDO);
+                if (sess_init_done_snap && (popped || ui_bt_active())) jq_bt_ctrl_send(env, BT_T_UNDO, 999, 999);
             } else if (bt_mode && act == 2) {   /* 提和（联机版，datah_067）→ 提和详情弹窗（★ P2 datah_042） */
                 /* ★ P2（datah_042 证据）：提和入口从"直接发帧"升级为 datah_042 7 图标
                    提和详情弹窗（提和/认输/聊天/系统设置/玩家资料/战况统计/软件信息），
@@ -9938,7 +9941,7 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
                 g_state.winner = (g_state.turn == SIDE_BLUE) ? SIDE_RED : SIDE_BLUE;
                 g_state.stage = STG_OVER;
                 pthread_mutex_unlock(&g_mutex);
-                jq_bt_ctrl_send(env, BT_T_RESIGN);
+                jq_bt_ctrl_send(env, BT_T_RESIGN, 999, 999);
                 sfx_play(env, "over");
                 LOGI("☰菜单 认输：本机认输 → 对方胜（winner=%d）", g_state.winner);
             } else if (bt_mode && act == 4) {   /* 聊天（联机版，datah_067）→ 聊天完整版弹窗（★ P2 datah_063） */

@@ -156,20 +156,60 @@ int jq_bt_session_on_frame(jq_bt_session *s, jq_state *st,
            本地棋盘（jq_state_init+强置 OUR_TURN），且 bt_semtest §5 用已 RESIGN 后
            的 sessr 发 RESTART 也通过（掩盖无闸口）。修正：仅对局进行中
            （CONNECTED 态：OUR_TURN/THEIR_TURN）接受 RESTART，DISCONNECTED 终态拒收。 */
-        if (s->state == BT_ST_DISCONNECTED) return -2;
+        /* ★ R8-C-16（定案落地）：DISCONNECTED 下 RESTART 放行语义——会话已终局
+           （RESIGN/断连）后对端发起重开 = 重建对局（B04-012 闸口仅拒**数据帧**
+           继续污染终局棋盘；重开本身是合法恢复路径，bt_semtest §7 夹具依赖：
+           DISCONNECTED→RESTART→CONNECTED 分流恢复会话态）。
+           诚实边界：重连后帧窗口去重（v3 seq）未落地前，旧局在途帧可能被
+           新会话消费——R8-C-17 复位集（bt_restart_reset_all）落地后清帧窗口。 */
+        /* ★ R8-C-14/15 根因修正：case 入口必须将 DISCONNECTED 迁到 CONNECTED
+           （会话恢复路径——RESIGN/断连终局后对端重开 = 重建会话）。旧 B04-012
+           全拒收语义 + 顶层 :49-53 放行 RESTART 但 case 内 state 恒 0 → 后续
+           MOVE/FLIP/UNDO 闸口（要求 state==THEIR_TURN）恒拒收 = "放行后死会话"。
+           修：case 首行 s->state = BT_ST_CONNECTED；:182 首手分流覆写为
+           OUR/THEIR_TURN（v2 999 缺省角色分流 0 退化，R8-C-15 帧权威覆写）。 */
+        if (s->state == BT_ST_DISCONNECTED) s->state = BT_ST_CONNECTED;
         s->last_type = f1;   /* ★ B04-014（P1 已修）：仅合法 case 命中才记 last_type */
+        /* ★ R8-C-14/15（P1，R7-C-14/15 定案落地：RESTART 携带 mode+host_is_blue，
+           方案 A 帧内扩字段，R4-C-25 "帧不携带 mode"诚实边界闭合）：
+           RESTART 帧字段约定：f1=mode（0=明棋/1=暗棋/999=v2 兼容帧缺省）、
+           f2=host_is_blue（1=主机蓝/0=主机红，首手归属权威；999=v2 兼容缺省）。
+           收端语义：① f1∈{0,1} 时**帧 mode 权威**（覆盖本机 ui_opt 选项，杜绝
+           "一明一暗"双端分叉，R7-C-14 定案：host 发起方选项为权威）；f1==999
+           （v2 旧发端无字段）回退本机 ui_opt_get_mode（R5 阶段 2 行为，0 退化）。
+           ② f2∈{0,1} 时首手按 f2（host 蓝先手）vs 本端角色（we_blue）定
+           s->state（取代 we_blue 单角色推定，双端先后手一致，R7-C-15 host_is_blue 校验）；
+           f2==999 回退 we_blue 角色分流（v2 兼容）。
+           拒绝语义：f1∉{0,1,999} 或 f2∉{0,1,999} 拒收 rc=-1（非法 mode 不重开，
+           对齐 R7-C-12 NACK_MODE_MISMATCH 桌面等价——v3 完整 NACK 帧落地后
+           本拒收点升级为 NACK 回帧，双端均不改局）。 */
+        /* ★ R8-C-14 字段语义定案（★ 探针实锤纠正：on_frame 形参 f1=type、f2..f7=数据
+           字段 1..6——jq_bt_session_on_frame(s,st,f1,f2,f3,f4,f5,f6,f7)，f1 恒为帧类型，
+           mode/host_is_blue 走**数据字段** f2/mode + f3/host_is_blue（与 v2 7 字段编码
+           "type,fc,fr,tc,tr,rank,side" 首字段=type 约定一致，bt_protocol.c:43-46）：
+           f2=mode（0=明棋/1=暗棋/999=v2 兼容缺省）、f3=host_is_blue（1/0；999=v2 缺省）。
+           旧误设"字段在 f1/f2"已删（f1=5 type 恒拒收 = 探针实锤 rst_mode=5 REJECT）。 */
+        int rst_mode = f2, rst_blue = f3;
+        if (rst_mode != 999 && rst_mode != 0 && rst_mode != 1) return -1;
+        if (rst_blue != 999 && rst_blue != 0 && rst_blue != 1) return -1;
+
+        /* ★ R8-C-16 落地修正：旧 B04-012 case 内 DISCONNECTED 二次拒收（rc=-2）
+           已删——DISCONNECTED 下 RESTART 放行 = 会话恢复路径（顶层闸口 :49-53 仅
+           拒数据帧，重开本身合法；§7 夹具 DISCONNECTED→RESTART→CONNECTED 分流
+           依赖此放行）。B04-012 历史注释（:154-158）保留为演变注，语义以 R8-C-16
+           定案为准：闸口仅拒数据帧继续污染终局棋盘，RESTART = 合法恢复。
+           诚实边界：重连后帧窗口去重（v3 seq）未落地前，旧局在途帧可能被新会话
+           消费——R8-C-17 复位集（bt_restart_reset_all）落地后清帧窗口。 */
         /* ★ Round 1 对抗审计 C-13/C-15/C-25（P1 协议级修复）：旧实现收端 RESTART
            走 `jq_state_init(st)` —— 该函数只 memset + 设 turn/stage/winner/mode，
            **60 格 cells 全清零且不载入默认布局**（layout.c 实证）→ 收端变成"空棋盘
            + stage=PLAY" → 无子可动 → 永久软锁；且无条件 `s->state = BT_ST_OUR_TURN`
            → **主机重开后收端也变 OUR_TURN**，双端互发首手被回合闸口丢弃 → 开局卡死。
-           修：① 按模式重载默认布局（明棋 jq_load_layout / 暗棋 jq_dark_setup，跟随
-           本机 ui_opt_get_mode，与本地 jq_restart_game 同口径）；② 重置 stage/turn/
-           winner/计数；③ 回合闸口按**角色**分流（we_blue=我蓝 → OUR_TURN；我红 →
-           THEIR_TURN），与 start_bt_session 的首帧分流一致。
-           诚实边界：RESTART 帧**不携带 mode 字段** → 双端模式以各自本机选项为准，
-           若双方选项不一致仍会一明一暗（R4-C-25 待帧协议扩字段）。 */
-        if (ui_opt_get_mode() == 1)
+           修：① 按模式重载默认布局（R8：mode = 帧权威或本机 ui_opt 回退）；
+           ② 重置 stage/turn/winner/计数；③ 回合闸口按**首手归属**分流
+           （R8：host_is_blue 帧权威，999 回退 we_blue 角色），与 start_bt_session 首帧分流一致。 */
+        int eff_mode = (rst_mode == 999) ? ui_opt_get_mode() : rst_mode;
+        if (eff_mode == 1)
             jq_dark_setup(st, JQ_DEFAULT_LAY);
         else
             jq_load_layout(st, JQ_DEFAULT_LAY);
@@ -179,7 +219,11 @@ int jq_bt_session_on_frame(jq_bt_session *s, jq_state *st,
         st->moves_since_eat = 0;
         st->total_moves = 0;
         for (int ri = 0; ri < 2; ri++) { st->mines_cleared[ri] = 0; st->pieces_left[ri] = 0; }
-        s->state = s->we_blue ? BT_ST_OUR_TURN : BT_ST_THEIR_TURN;
+        /* R8-C-15：首手归属 = 帧 host_is_blue 权威（999 回退 we_blue 角色分流） */
+        if (rst_blue == 999)
+            s->state = s->we_blue ? BT_ST_OUR_TURN : BT_ST_THEIR_TURN;
+        else
+            s->state = (rst_blue == s->we_blue) ? BT_ST_OUR_TURN : BT_ST_THEIR_TURN;
         return 0;
     case BT_T_RESIGN:
         s->last_type = f1;   /* ★ B04-014（P1 已修）：仅合法 case 命中才记 last_type */

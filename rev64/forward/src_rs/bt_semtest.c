@@ -357,14 +357,19 @@ int main(void)
         jq_state strr; fixture_play(&strr);
         CHECK(strr.stage == STG_PLAY && strr.winner == JQ_WIN_NONE,
               "RESTART 前置：对局进行中（新夹具 STG_PLAY）");
-        int ret2 = jq_bt_session_on_frame(&sessr, &strr, BT_T_RESTART, 0, 0, 0, 0, 0, 0);
-        CHECK(ret2 == -2, "RESTART 闸口：DISCONNECTED（RESIGN 终态后）拒收（rc=-2，B04-012）");
+        /* ★ R8-C-16 定案语义：DISCONNECTED 下 RESTART **放行**（会话恢复路径，
+           重开重建对局）；B04-012 闸口仅拒**数据帧**（MOVE/FLIP/UNDO/SYNC/
+           SYNC_CELL）继续污染终局棋盘。999/999 = R8-C-14/15 v2 兼容缺省。 */
+        int ret2 = jq_bt_session_on_frame(&sessr, &strr, BT_T_RESTART, 999, 999, 0, 0, 0, 0);
+        CHECK(ret2 == 0, "RESTART 闸口：DISCONNECTED 放行（rc=0，R8-C-16 会话恢复；数据帧仍拒收）");
         {
             /* CONNECTED 态 RESTART 正例（新会话未断连，重开语义全链） */
             jq_bt_session sess2; jq_state st2; fixture_play(&st2);
             jq_bt_session_init(&sess2, &st2, 0);
-            int ret3 = jq_bt_session_on_frame(&sess2, &st2, BT_T_RESTART, 0, 0, 0, 0, 0, 0);
-            CHECK(ret3 == 0, "RESTART 帧接受（CONNECTED 态，rc=0）");
+            /* ★ R8-C-14/15：RESTART 携带 mode+host_is_blue 帧字段；999/999 =
+               v2 兼容缺省（mode 回退本机 ui_opt，首手回退角色分流）——0 行为变化。 */
+            int ret3 = jq_bt_session_on_frame(&sess2, &st2, BT_T_RESTART, 999, 999, 0, 0, 0, 0);
+            CHECK(ret3 == 0, "RESTART 帧接受（CONNECTED 态，rc=0，R8-C-14/15 v2 兼容 999/999）");
             CHECK(st2.stage == STG_PLAY, "RESTART 语义：stage 回 STG_PLAY");
             CHECK(st2.winner == JQ_WIN_NONE, "RESTART 语义：winner 复位未定");
             CHECK(st2.turn == SIDE_BLUE, "RESTART 语义：turn 复位蓝先手");
@@ -377,7 +382,7 @@ int main(void)
             for (int i = 0; i < N_CELLS; i++) if (st2.cells[i].rank) loaded = 1;
             CHECK(loaded == 1, "RESTART 语义：★棋盘已重载默认布局（不再清空 → 收端不软锁）");
             CHECK(sess2.state == (sess2.we_blue ? BT_ST_OUR_TURN : BT_ST_THEIR_TURN),
-                  "RESTART 语义：★state 按角色分流（we_blue→OUR_TURN / 我红→THEIR_TURN，不双端争先手）");
+                  "RESTART 语义：★state 按角色分流（we_blue→OUR_TURN / 我红→THEIR_TURN，R8 999 缺省路径 0 退化）");
             CHECK(st2.total_moves == 0 && st2.moves_since_eat == 0,
                   "RESTART 语义：计数复位 0");
         }
@@ -387,7 +392,8 @@ int main(void)
             jq_bt_session s3; jq_state st3;
             jq_bt_session_init(&s3, &st3, 0 /* 我红 */);
             st3.stage = STG_PLAY;
-            int r3 = jq_bt_session_on_frame(&s3, &st3, BT_T_RESTART, 0, 0, 0, 0, 0, 0);
+            /* R8-C-14/15：999/999 v2 兼容 → 角色分流（我红 → THEIR_TURN 不抢先手） */
+            int r3 = jq_bt_session_on_frame(&s3, &st3, BT_T_RESTART, 999, 999, 0, 0, 0, 0);
             int loaded3 = 0;
             for (int i = 0; i < N_CELLS; i++) if (st3.cells[i].rank) loaded3 = 1;
             CHECK(r3 == 0 && loaded3 == 1 && s3.state == BT_ST_THEIR_TURN,
@@ -445,6 +451,50 @@ int main(void)
     /* =====================================================================
      * §7. 默认 type 拒收（未知帧类型 → rc=-1）
      * ===================================================================== */
+    /* =====================================================================
+     * §5b. R8-C-14/15/16 RESTART mode+host_is_blue 帧字段语义（新增断言族）
+     * ===================================================================== */
+    printf("[§5b] R8-C RESTART 帧字段（mode/host_is_blue/v2 兼容/拒收）\n");
+    {
+        jq_state st8; fixture_play(&st8);
+        jq_bt_session s8; jq_bt_session_init(&s8, &st8, 0);  /* 我红 */
+        /* ① 帧 mode=0（明棋权威）：覆盖本机 ui_opt（暗棋默认）→ 明棋布局重载 */
+        int r8 = jq_bt_session_on_frame(&s8, &st8, BT_T_RESTART, 0, 999, 0, 0, 0, 0);
+        int loaded8 = 0;
+        for (int i = 0; i < N_CELLS; i++) if (st8.cells[i].rank) loaded8 = 1;
+        CHECK(r8 == 0 && loaded8 == 1 && st8.stage == STG_PLAY,
+              "R8-C-14：RESTART 帧 mode=0 明棋权威（重载布局 rc=0 + 棋盘有子）");
+        /* ② host_is_blue=1（主机蓝先手）+ 我红收端 → THEIR_TURN（等蓝方先手） */
+        jq_bt_session s9; jq_state st9; fixture_play(&st9);
+        jq_bt_session_init(&s9, &st9, 0);  /* 我红 */
+        int r9 = jq_bt_session_on_frame(&s9, &st9, BT_T_RESTART, 999, 1, 0, 0, 0, 0);
+        CHECK(r9 == 0 && s9.state == BT_ST_THEIR_TURN,
+              "R8-C-15：RESTART 帧 host_is_blue=1 + 我红 → THEIR_TURN（首手归属帧权威）");
+        /* ③ host_is_blue=0（主机红先手）+ 我蓝收端 → THEIR_TURN（等红方先手） */
+        jq_bt_session s10; jq_state st10; fixture_play(&st10);
+        jq_bt_session_init(&s10, &st10, 1);  /* 我蓝 */
+        int r10 = jq_bt_session_on_frame(&s10, &st10, BT_T_RESTART, 999, 0, 0, 0, 0, 0);
+        CHECK(r10 == 0 && s10.state == BT_ST_THEIR_TURN,
+              "R8-C-15：RESTART 帧 host_is_blue=0 + 我蓝 → THEIR_TURN（首手归属帧权威）");
+        /* ④ host_is_blue=1 + 我蓝 → OUR_TURN（本机即先手方） */
+        jq_bt_session s11; jq_state st11; fixture_play(&st11);
+        jq_bt_session_init(&s11, &st11, 1);  /* 我蓝 */
+        int r11 = jq_bt_session_on_frame(&s11, &st11, BT_T_RESTART, 999, 1, 0, 0, 0, 0);
+        CHECK(r11 == 0 && s11.state == BT_ST_OUR_TURN,
+              "R8-C-15：RESTART 帧 host_is_blue=1 + 我蓝 → OUR_TURN");
+        /* ⑤ 非法 mode（f1=2 越域）拒收 rc=-1 不改局 */
+        jq_bt_session s12; jq_state st12; fixture_play(&st12);
+        jq_bt_session_init(&s12, &st12, 1);
+        st12.stage = STG_PLAY; st12.winner = JQ_WIN_NONE; st12.turn = SIDE_BLUE;
+        int st12_cells = 0;
+        for (int i = 0; i < N_CELLS; i++) st12_cells += st12.cells[i].rank;
+        int r12 = jq_bt_session_on_frame(&s12, &st12, BT_T_RESTART, 2, 1, 0, 0, 0, 0);
+        int st12_cells2 = 0;
+        for (int i = 0; i < N_CELLS; i++) st12_cells2 += st12.cells[i].rank;
+        CHECK(r12 == -1 && st12_cells == st12_cells2,
+              "R8-C-12：RESTART 非法 mode（f1=2）拒收 rc=-1 + 棋盘不变（NACK_MODE 桌面等价）");
+    }
+
     printf("[§7] 未知帧类型拒收\n");
     {
         jq_state st; fixture_play(&st);
@@ -461,8 +511,8 @@ int main(void)
         /* ★ 夹具复位：本段前 §5 RESIGN 已置 sess.state=DISCONNECTED（终态闸口
            B04-013）→ DRAW/CHAT 断言前先 RESTART 恢复会话态（RESTART 放行
            DISCONNECTED + 按角色分 OUR/THEIR_TURN），再验合法消费。 */
-        CHECK(jq_bt_session_on_frame(&sess, &st, BT_T_RESTART, 0, 0, 0, 0, 0, 0) == 0,
-              "R6 夹具：RESTART 恢复会话态（DISCONNECTED→按角色分流）");
+        CHECK(jq_bt_session_on_frame(&sess, &st, BT_T_RESTART, 999, 999, 0, 0, 0, 0) == 0,
+              "R6 夹具：RESTART 恢复会话态（DISCONNECTED→按角色分流，R8-C-16 放行 + 999/999）");
         CHECK(jq_bt_session_on_frame(&sess, &st, BT_T_DRAW, 0, 0, 0, 0, 0, 0) == 0,
               "R6-C-03: DRAW 合法消费（rc=0，不改棋局）");
         CHECK(jq_bt_session_on_frame(&sess, &st, BT_T_CHAT, 0, 0, 0, 0, 0, 0) == 0,
