@@ -18,6 +18,39 @@
 #include "board_geom.h"   /* AUD-R-077/118/120：直接引用 BG_* 渲染常量 */
 #include "png_decode.h"
 #include "img_decode.h"   /* ★ C 项：原版 SPAK 位图运行时解码（stb_image JPEG/PNG） */
+/* ★ R10-F（P1 GL 资源单事实源，R8-F-16/17/18/19 终态）：纹理槽 X-macro 统一表。
+   常规 53 槽：tex_<stem>[2] ↔ <stem>_px（has_px = rr->px 非空判据，render.h 实锤）；
+   特判 3 槽：tex_btn_skin[0..2][2] 内嵌常量无独立 px（has_px 恒 1）。
+   4 处消费同源展开：rebuild 预删 / rs_render_free 释放 / slots_up 上传统计 /（可选诊断）。
+   守护/时机（slot 判定、Adreno quirk 注释、free 双 slot、gl_ok 语义）由调用点保留，
+   宏仅提供遍历来源与字段名映射（R9 三表补齐 → R10 结构性 0 漂移，0 GL 行为变化）。 */
+#define RS_TEX_SLOTS_REGULAR(X) \
+    X(board, board_px) X(piece, piece_px) X(text, text_px) X(bg, bg_px) \
+    X(menu_bg, menu_bg_px) X(dlg_text, dlg_text_px) X(imen_text, imen_text_px) \
+    X(imen_icons, imen_icons_px) X(imen_orig, imen_orig_px) X(hamburger, hamburger_px) \
+    X(btn_big, btn_big_px) X(btn_small, btn_small_px) X(house, house_px) \
+    X(popup, popup_px) X(opt_text, opt_text_px) X(waysel_text, waysel_text_px) \
+    X(btimen_text, btimen_text_px) X(settings_text, settings_text_px) \
+    X(sound_text, sound_text_px) X(nplayer_text, nplayer_text_px) \
+    X(newgame_text, newgame_text_px) X(gameset_text, gameset_text_px) \
+    X(layres_text, layres_text_px) X(replay_text, replay_text_px) \
+    X(login_text, login_text_px) X(rules_text, rules_text_px) \
+    X(ng104_text, ng104_text_px) X(join_text, join_text_px) \
+    X(ng061_text, ng061_text_px) X(gameinfo_text, gameinfo_text_px) \
+    X(bright_text, bright_text_px) X(chatlog_text, chatlog_text_px) \
+    X(profile_text, profile_text_px) X(drawdetail_text, drawdetail_text_px) \
+    X(setentry_text, setentry_text_px) X(imgset_text, imgset_text_px) \
+    X(join065_text, join065_text_px) X(create069_text, create069_text_px) \
+    X(rules070_text, rules070_text_px) X(room060_text, room060_text_px) \
+    X(chat063_text, chat063_text_px) X(about_text, about_text_px) \
+    X(exit_text, exit_text_px) X(uibat_text, uibat_text_px) \
+    X(drawdetail_icons, drawdetail_icons_px) X(panel, panel_px) \
+    X(panel_btn, panel_btn_px) X(panel_icon, panel_icon_px) \
+    X(btn_color2, btn_color2_px) X(gameset_title, gameset_title_px)
+
+#define RS_TEX_SLOTS_BTN_SKIN(X) \
+    X(btn_skin0, 0) X(btn_skin1, 1) X(btn_skin2, 2)
+
 #include "ui_menu.h"
 #include "jq_strings.h"   /* ★ 原版字符串表真值（79 条，自动生成） */
 #include "ui_state.h"   /* P2 图像设置 4 开关 ui_imgset_cfg_get（夜间/对方棋子接渲染层） */
@@ -9790,45 +9823,18 @@ static void rs_gl_rebuild(rs_render *rr, int slot)
        #if 0 注释掉回退（重建判据 (slot,cur) 配对已保证同 context 不重复 rebuild）。 */
     if (rr->prog_tex[slot])    { glDeleteProgram(rr->prog_tex[slot]); rr->prog_tex[slot] = 0; }
     if (rr->prog_solid[slot])  { glDeleteProgram(rr->prog_solid[slot]); rr->prog_solid[slot] = 0; }
-    if (rr->tex_board[slot])   { glDeleteTextures(1, &rr->tex_board[slot]); rr->tex_board[slot] = 0; }
-    if (rr->tex_piece[slot])   { glDeleteTextures(1, &rr->tex_piece[slot]); rr->tex_piece[slot] = 0; }
-    if (rr->tex_text[slot])    { glDeleteTextures(1, &rr->tex_text[slot]); rr->tex_text[slot] = 0; }
-    if (rr->tex_bg[slot])      { glDeleteTextures(1, &rr->tex_bg[slot]); rr->tex_bg[slot] = 0; }
-    if (rr->tex_menu_bg[slot]) { glDeleteTextures(1, &rr->tex_menu_bg[slot]); rr->tex_menu_bg[slot] = 0; }
-    if (rr->tex_imen_text[slot]) { glDeleteTextures(1, &rr->tex_imen_text[slot]); rr->tex_imen_text[slot] = 0; }
-    /* ★ AUD-1000 B04-054（P1 已修，同 rs_render_free 遍历范式）：旧版 rs_gl_rebuild
-       只删 5 类纹理（board/piece/text/bg/menu_bg/imen_text）+ 3 VBO + 2 program，
-       其余 38 类纹理（imen_icons/hamburger/btn 系/popup/各弹窗文字图集…）在
-       context 重建（onSurfaceCreated/slot 切换）时不删 → 同 context 重建随帧数
-       泄漏（与 rs_render_free 同源根因，rebuild 是高频路径，泄漏更快）。
-       现遍历与 rs_render_free 同一纹理数组全删。 */
-    {
-        rs_glid_t *texs[] = {
-            rr->tex_dlg_text, rr->tex_imen_icons, rr->tex_imen_orig,
-            rr->tex_hamburger, rr->tex_btn_big, rr->tex_btn_small,
-            rr->tex_popup, rr->tex_opt_text, rr->tex_waysel_text, rr->tex_btimen_text,
-            rr->tex_settings_text, rr->tex_nplayer_text, rr->tex_newgame_text, rr->tex_gameset_text,
-            rr->tex_layres_text, rr->tex_replay_text, rr->tex_login_text, rr->tex_rules_text,
-            rr->tex_ng104_text, rr->tex_join_text, rr->tex_ng061_text, rr->tex_gameinfo_text,
-            rr->tex_bright_text, rr->tex_chatlog_text, rr->tex_profile_text, rr->tex_drawdetail_text,
-            rr->tex_setentry_text, rr->tex_imgset_text, rr->tex_join065_text, rr->tex_create069_text,
-            rr->tex_rules070_text, rr->tex_room060_text, rr->tex_chat063_text, rr->tex_about_text,
-            rr->tex_uibat_text, rr->tex_drawdetail_icons,
-            /* ★ R9-F-16（P1 GL 资源三表统一）：预删表补 8 项漏删纹理（rebuild 覆盖
-               glGenTextures 旧 ID 不回收 = 同 context 重建 GPU 纹理泄漏；gen 点
-               tex_house 9897 / tex_panel 9985 / tex_panel_btn 9993 / tex_btn_color2
-               10002 / tex_gameset_title 10030 / tex_panel_icon 10038 / tex_sound_text
-               10083 / tex_exit_text 10299；另 tex_imen_text 显式段遗漏同补） */
-            rr->tex_house, rr->tex_panel, rr->tex_panel_btn, rr->tex_btn_color2,
-            rr->tex_gameset_title, rr->tex_panel_icon, rr->tex_sound_text,
-            rr->tex_exit_text, rr->tex_imen_text
-        };
-        for (size_t k = 0; k < sizeof(texs)/sizeof(texs[0]); k++)
-            if (texs[k][slot]) { glDeleteTextures(1, &texs[k][slot]); texs[k][slot] = 0; }
-        /* ★ 2026-11-13 原版按钮皮肤三态（jq_btn_skin.h 内嵌，同重建范式） */
-        for (int b = 0; b < 3; b++)
-            if (rr->tex_btn_skin[b][slot]) { glDeleteTextures(1, &rr->tex_btn_skin[b][slot]); rr->tex_btn_skin[b][slot] = 0; }
-    }
+    /* ★ R10-F（P1 GL 资源单事实源）：预删遍历改 RS_TEX_SLOTS X-macro 同源展开
+       （53 常规 + 3 btn_skin = 56 槽位；旧显式 8 行 + texs[] 45 项 + skin 循环退场；
+       imen_text 双删去重（第二次 0-id no-op，语义等价）；删除时机/slot 条件 0 变化）。 */
+    #define RS_TEX_PRED(stem, px) \
+        if (rr->tex_##stem[slot]) { glDeleteTextures(1, &rr->tex_##stem[slot]); rr->tex_##stem[slot] = 0; }
+    RS_TEX_SLOTS_REGULAR(RS_TEX_PRED)
+    #undef RS_TEX_PRED
+    #define RS_TEX_PRED_SKIN(fld, idx) \
+        if (rr->tex_btn_skin[idx][slot]) { glDeleteTextures(1, &rr->tex_btn_skin[idx][slot]); rr->tex_btn_skin[idx][slot] = 0; }
+    RS_TEX_SLOTS_BTN_SKIN(RS_TEX_PRED_SKIN)
+    #undef RS_TEX_PRED_SKIN
+
     if (rr->vbo_board[slot])   { glDeleteBuffers(1, &rr->vbo_board[slot]); rr->vbo_board[slot] = 0; }
     if (rr->vbo_piece[slot])   { glDeleteBuffers(1, &rr->vbo_piece[slot]); rr->vbo_piece[slot] = 0; }
     if (rr->vbo_sel[slot])     { glDeleteBuffers(1, &rr->vbo_sel[slot]); rr->vbo_sel[slot] = 0; }
@@ -10339,62 +10345,19 @@ static void rs_gl_rebuild(rs_render *rr, int slot)
     {
         int n_upload = 0, n_total = 0;
         struct { rs_glid_t *tex; int has_px; } slots_up[] = {
-            { &rr->tex_board[slot], rr->board_px != 0 },
-            { &rr->tex_piece[slot], rr->piece_px != 0 },
-            { &rr->tex_text[slot], rr->text_px != 0 },
-            { &rr->tex_bg[slot], rr->bg_px != 0 },
-            { &rr->tex_menu_bg[slot], rr->menu_bg_px != 0 },
-            { &rr->tex_imen_text[slot], rr->imen_text_px != 0 },
-            { &rr->tex_imen_icons[slot], rr->imen_icons_px != 0 },
-            { &rr->tex_hamburger[slot], rr->hamburger_px != 0 },
-            { &rr->tex_btn_big[slot], rr->btn_big_px != 0 },
-            { &rr->tex_btn_small[slot], rr->btn_small_px != 0 },
-            { &rr->tex_popup[slot], rr->popup_px != 0 },
-            { &rr->tex_dlg_text[slot], rr->dlg_text_px != 0 },
-            { &rr->tex_imen_orig[slot], rr->imen_orig_px != 0 },
-            { &rr->tex_panel[slot], rr->panel_px != 0 },
-            { &rr->tex_panel_btn[slot], rr->panel_btn_px != 0 },
-            { &rr->tex_btn_color2[slot], rr->btn_color2_px != 0 },
-            { &rr->tex_gameset_title[slot], rr->gameset_title_px != 0 },
-            { &rr->tex_panel_icon[slot], rr->panel_icon_px != 0 },
-            { &rr->tex_opt_text[slot], rr->opt_text_px != 0 },
-            { &rr->tex_waysel_text[slot], rr->waysel_text_px != 0 },
-            { &rr->tex_btimen_text[slot], rr->btimen_text_px != 0 },
-            { &rr->tex_settings_text[slot], rr->settings_text_px != 0 },
-            { &rr->tex_sound_text[slot], rr->sound_text_px != 0 },
-            { &rr->tex_nplayer_text[slot], rr->nplayer_text_px != 0 },
-            { &rr->tex_newgame_text[slot], rr->newgame_text_px != 0 },
-            { &rr->tex_gameset_text[slot], rr->gameset_text_px != 0 },
-            { &rr->tex_layres_text[slot], rr->layres_text_px != 0 },
-            { &rr->tex_replay_text[slot], rr->replay_text_px != 0 },
-            { &rr->tex_login_text[slot], rr->login_text_px != 0 },
-            { &rr->tex_rules_text[slot], rr->rules_text_px != 0 },
-            { &rr->tex_ng104_text[slot], rr->ng104_text_px != 0 },
-            { &rr->tex_join_text[slot], rr->join_text_px != 0 },
-            { &rr->tex_ng061_text[slot], rr->ng061_text_px != 0 },
-            { &rr->tex_gameinfo_text[slot], rr->gameinfo_text_px != 0 },
-            { &rr->tex_bright_text[slot], rr->bright_text_px != 0 },
-            { &rr->tex_chatlog_text[slot], rr->chatlog_text_px != 0 },
-            { &rr->tex_profile_text[slot], rr->profile_text_px != 0 },
-            { &rr->tex_drawdetail_text[slot], rr->drawdetail_text_px != 0 },
-            { &rr->tex_setentry_text[slot], rr->setentry_text_px != 0 },
-            { &rr->tex_imgset_text[slot], rr->imgset_text_px != 0 },
-            { &rr->tex_join065_text[slot], rr->join065_text_px != 0 },
-            { &rr->tex_create069_text[slot], rr->create069_text_px != 0 },
-            { &rr->tex_rules070_text[slot], rr->rules070_text_px != 0 },
-            { &rr->tex_room060_text[slot], rr->room060_text_px != 0 },
-            { &rr->tex_chat063_text[slot], rr->chat063_text_px != 0 },
-            { &rr->tex_about_text[slot], rr->about_text_px != 0 },
-            { &rr->tex_uibat_text[slot], rr->uibat_text_px != 0 },
-        };
-        for (int k = 0; k < (int)(sizeof slots_up / sizeof slots_up[0]); k++) {
-            if (slots_up[k].has_px) { n_total++; if (slots_up[k].tex) n_upload++; }
-        }
-        if (n_upload < n_total)
-            LOGI("rs_gl_rebuild slot%d 纹理资源使用：%d/%d 上传成功（%d 张缺失→纯色退化，查设备端 spak_res）",
-                 slot, n_upload, n_total, n_total - n_upload);
-    }
-    /* AUD-1000 B04-051：gl_ok = 核心 3 对象全建诊断值（rs_render_frame 判 gl2_ok
+        #define RS_TEX_STAT(stem, px) { &rr->tex_##stem[slot], rr->px != 0 },
+            RS_TEX_SLOTS_REGULAR(RS_TEX_STAT)
+        #undef RS_TEX_STAT
+        #define RS_TEX_STAT_SKIN(fld, idx) { &rr->tex_btn_skin[idx][slot], 1 },
+            RS_TEX_SLOTS_BTN_SKIN(RS_TEX_STAT_SKIN)
+        #undef RS_TEX_STAT_SKIN
+    };
+    for (int k = 0; k < (int)(sizeof slots_up / sizeof slots_up[0]); k++)
+        if (slots_up[k].has_px) { n_total++; if (*slots_up[k].tex) n_upload++; }
+    if (n_upload < n_total)
+        LOGI("rs_gl_rebuild slot%d 纹理资源使用：%d/%d 上传成功（%d 张缺失→纯色退化，查设备端 spak_res）",
+             slot, n_upload, n_total, n_total - n_upload);
+    }   /* AUD-1000 B04-051：gl_ok = 核心 3 对象全建诊断值（rs_render_frame 判 gl2_ok
        + 各纹理指针判空实际出几何，gl_ok 无判读点 = 诊断/日志字段，不影响渲染行为）。
        单纹理缺失时 gl_ok=0 但其他纹理照常出几何（如 piece 缺失 → 棋盘/菜单仍渲染），
        与 rs_render_frame 实际判读路径（gl2_ok[slot] + tex_xxx[slot] 指针）一致。 */
@@ -10516,7 +10479,9 @@ void rs_render_frame(rs_render *rr)
     /* 棋子（60 格，revealed 子画到棋盘格上）：顶点池一次分配 + 单次 glDrawArrays
        （去每棋子 glGenBuffers/glDeleteBuffers——60fps × 60 格 = 3600 次/秒 buffer 开关，
        真机 GPU 会卡；改 1 次 glBufferData + 1 次 glDrawArrays） */
-    if (rr->tex_piece[slot] && rr->gl2_ok[slot]) {
+    /* ★ R10-F-01/02：棋子段门控（tex_piece && gl2_ok），UI 段独立 gl2_ok（下切点） */
+    int can_piece = (rr->tex_piece[slot] && rr->gl2_ok[slot]);
+    if (can_piece) {
         /* ★ 层 2 视觉对齐：棋子画在 datax_177 棋盘格上（bg 全图铺满）。
            cell 中心/尺寸按图像棋盘格定位（image_row=11-设备row，row0=底）。
            ★ 顶点 shader ndc.y=-ndc.y → aPos.y=0=屏幕顶、view_h=屏幕底
@@ -10682,8 +10647,15 @@ void rs_render_frame(rs_render *rr)
             glDeleteBuffers(1, &rr->vbo_sel[slot]);
             rr->vbo_sel[slot] = 0;
         }
-        /* 可走格绿色高亮（选中格后 jq_can_move 合法目标格，正向 UI 层） */
+        /* 可走格绿色高亮（选中格后 jq_can_move 合法目标格，棋子语义留本段） */
         rs_draw_highlights(rr, slot);
+    } /* end can_piece（棋子/选中/高亮段，R10-F-01/02 解耦切点） */
+
+    /* ★ R10-F-01/02（P1 门控解耦）：UI/菜单/弹窗/overlay 段仅依赖 gl2_ok（prog/
+       viewport 就绪），不再被 tex_piece 门控——纹理缺失时棋子/sel/高亮跳过但
+       UI 层照常绘制（各 draw 内部自检各自纹理/prog，二级防线）；正常路径
+       （tex_piece 存在 + gl2_ok）两段同帧同序执行，绘制集合/顺序 0 变化。 */
+    if (rr->gl2_ok[slot]) {
         /* ★ 原版 UI 对齐：对局态画 ☰/↩ 图标（棋盘中部）；☰ 菜单态叠 datah_006 面板 */
         if (ui_screen_get() == UI_GAME || ui_screen_get() == UI_INGAME_MENU) {
             rs_draw_imen_icons(rr, slot);
@@ -11152,24 +11124,16 @@ void rs_render_free(rs_render *rr)
        每次 GL context 重建（onSurfaceCreated/slot 切换）都泄漏整套纹理，
        长时间反复切前后台会耗尽 GPU 纹理。现统一遍历删除。 */
     {
+        /* ★ R10-F（P1 GL 资源单事实源）：free 释放表改 RS_TEX_SLOTS X-macro 同源
+           展开（与 rebuild 预删 / slots_up 统计同宏 = 结构性 0 漂移；旧 R9 手写
+           51 项 + 8 漏补项 + skin 3 项退场，集合等价）。 */
         rs_glid_t *texs[] = {
-            rr->tex_board, rr->tex_piece, rr->tex_text, rr->tex_bg,
-            rr->tex_menu_bg, rr->tex_dlg_text, rr->tex_imen_text, rr->tex_imen_icons,
-            rr->tex_imen_orig, rr->tex_hamburger, rr->tex_btn_big, rr->tex_btn_small,
-            rr->tex_popup, rr->tex_opt_text, rr->tex_waysel_text, rr->tex_btimen_text,
-            rr->tex_settings_text, rr->tex_nplayer_text, rr->tex_newgame_text, rr->tex_gameset_text,
-            rr->tex_layres_text, rr->tex_replay_text, rr->tex_login_text, rr->tex_rules_text,
-            rr->tex_ng104_text, rr->tex_join_text, rr->tex_ng061_text, rr->tex_gameinfo_text,
-            rr->tex_bright_text, rr->tex_chatlog_text, rr->tex_profile_text, rr->tex_drawdetail_text,
-            rr->tex_setentry_text, rr->tex_imgset_text, rr->tex_join065_text, rr->tex_create069_text,
-            rr->tex_rules070_text, rr->tex_room060_text, rr->tex_chat063_text, rr->tex_about_text,
-            rr->tex_uibat_text, rr->tex_drawdetail_icons,
-            /* ★ R9-F-17（P1 GL 资源三表统一）：释放表补 8 项漏删（与 rebuild 预删
-               同集合；tex_house/tex_exit_text 三表全漏，其余 6 项统计有但 free 漏） */
-            rr->tex_house, rr->tex_panel, rr->tex_panel_btn, rr->tex_btn_color2,
-            rr->tex_gameset_title, rr->tex_panel_icon, rr->tex_sound_text,
-            rr->tex_exit_text,
-            rr->tex_btn_skin[0], rr->tex_btn_skin[1], rr->tex_btn_skin[2]   /* ★ 2026-11-13 按钮皮肤三态 */
+        #define RS_TEX_FREE(stem, px) rr->tex_##stem,
+            RS_TEX_SLOTS_REGULAR(RS_TEX_FREE)
+        #undef RS_TEX_FREE
+        #define RS_TEX_FREE_SKIN(fld, idx) rr->tex_btn_skin[idx],
+            RS_TEX_SLOTS_BTN_SKIN(RS_TEX_FREE_SKIN)
+        #undef RS_TEX_FREE_SKIN
         };
         for (size_t k = 0; k < sizeof(texs)/sizeof(texs[0]); k++)
             for (int i = 0; i < 2; i++)
