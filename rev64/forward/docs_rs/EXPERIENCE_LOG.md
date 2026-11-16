@@ -6692,3 +6692,86 @@ jq_rs_rules.c 注释定论。
   触发），其余为判据/工具/文档口径类；**撤回 4 条子代理误报**；A-05/A-09~A-11/A-15/
   A-19/A-20/A-23 需**原版/32 位定案**项挂起（不擅改）；R4-C 蓝牙协议族 + R4-B 渲染/
   缩放族（B-14/B-15/B-23 渲染与触摸两套缩放模型）需 R5 专项。
+
+### 108. 「对齐」对抗审计 Round 5（子代理 3/4 + 自跑补位，100 条）+ BT 协议族 P1 四修 + 事件契约三修 + 转译器 flaky 定性（§108 2026-11-16）
+- **★ 子代理 3 路成功 + C 路限流自跑补位**：R5-A 规则引擎 26 条 / R5-B 事件音效 28 条 /
+  R5-D 文档口径 25 条（子代理回执）+ R5-C 蓝牙协议族 21 条（**子代理免费额度触限失败
+  → 同会话自跑补位**，主攻 R4 最大 P1 协议级族群）= **100 条入账**，
+  台账落 `rev64/forward/audit/r4/AUD_ALIGN_R5.md`。
+- **★ 本轮已修 8 条（BT 协议族 P1 四修 + 事件契约三修 + ev 初始化，commit `64e5a24`）**：
+  - **R5-C-01/C-02（P1 协议级）**：`bt_session.c` 收端 RESTART 旧走 `jq_state_init`
+    （60 格全清零**不载布局**→ 收端空棋盘永久软锁）+ 无条件 `state=OUR_TURN`
+    （主机重开后收端也变 OUR_TURN → 双端互发首手被闸口丢弃 → 开局卡死）。
+    修：按 `ui_opt_get_mode()` 重载默认布局（明棋 `jq_load_layout` / 暗棋
+    `jq_dark_setup` + `JQ_DEFAULT_LAY` **extern 声明**——`jq_default_lay.h` 是
+    **定义**头，多 TU include 会 multiple definition，踩坑固化）+ 回合按角色分流
+    （we_blue→OUR_TURN / 我红→THEIR_TURN）+ 计数/pieces_left 复位。
+  - **R5-C-03（P1 协议级）**：SYNC_CELL 旧只写 `peer_state` 死影子（全仓读取点仅
+    bt_semtest）→ "对端权威态覆盖本端"收敛通道完全失效。修：同时回写权威态
+    `st->cells`。诚实边界：**发送侧 `jq_bt_session_send_sync` 无运行时调用点**
+    （仅 bt_semtest 使用）→ 本修复为"接收侧就绪"，发送侧接线（UNDO 广播 SYNC_CELL
+    链）留 R6。
+  - **R5-C-04（P1 协议级）**：OnTouch 对局触摸**无 BT 回合闸口** → THEIR_TURN 期间
+    可自由动蓝方棋子（发送侧 sess_state≠OUR_TURN 拒帧 → 本地改了但对端不知 →
+    双端发散 + 暗棋布局泄露）。修：`ui_bt_active() && g_bt_sess_init_done` 且
+    sess.state != OUR_TURN → 整个两步态机短路（消费触摸不改棋局）+ 清选中态。
+  - **R5-C-05（P1 协议级）**：4 个重开入口（OnEvent restart / 菜单开局 /
+    property jq.restartgame / 对局结束再来一局 / 左上角重开按钮）仅 ☰ 菜单 BT 路径
+    发 BT_T_RESTART，其余**静默单边重开** → 联机双端永久错位。修：
+    `bt_broadcast_restart(env)` helper（内部判 ui_bt_active / g_bt_sess_init_done
+    → 非联机态零开销）+ 17 处 `jq_restart_game();` 后统一插入调用。
+    **踩坑**：helper 初插 `jq_bt_ctrl_send`（:543）前因 `g_bt_sess_init_done`
+    （:1049 才声明）+ `ui_bt_active`（ui_state.h 前向）未声明 →
+    implicit declaration + use of undeclared 编译错；**定义须置于 :1049 全局声明后**。
+  - **R5-B-02（P1 假绿同族）**：`e55_code_to_evname` 对代表 55code 34/36/38/44/46
+    无 case → default 返 0 → 名称→code→名称往返身份**丢失为 Junqi.Move**
+    （未映射 code 全记 Move = 判据恒真/静默降级同族）。修：补 5 桶代表名 case
+    （30 LoginFail / 37 RegExist / 50 JoinGame / 65 LayError / 71 Select，
+    索引按 73 名表行内 [idx] 注释实测——**子代理给的索引 36/43/56/71/77 全错**，
+    逐行核 `jq_event_names_73.c` 纠正）。
+  - **R5-B-07（P1）**：`on_event` draw_disagree 分支无计数无分发（同类分支均有
+    dispatch）→ 补 `jq_evt55_dispatch(27, "Junqi.DrawDisagree")`。
+  - **R5-B-22/B-04（P1 数值巧合依赖）**：on_event move 路径 `jq_evt55_dispatch(ev, ...)`
+    **把 7 事件码当 55 码传**（code 5/7 两空间语义冲突：7码 5=EV_MINE vs 55码 5=Draw；
+    旧实现靠 evname 字符串覆盖规避 = 巧合依赖）。修：新增 `ev7_to_55code(ev)`
+    显式转换表（与 `e55_biz_to_55code` 同口径：BOMB/FLAG→2 / FLIP→6 / 余→0）+
+    on_event move / flip 两分发点改造。
+  - **R5-A-07（P1 崩溃风险）**：`jq_try_move` 的 `jq_event ev` **未初始化**
+    （各分支成功路径都赋值，但未来新分支漏赋值即读 UB；`return ev` 在 :750/:753
+    直接消费）。修：显式初始化 `jq_event ev = EV_MOVE`（最保守语义，不改既有路径）。
+- **★ bt_semtest 断言从旧缺陷语义改正确语义（R5-C-06）**：既有 §5 RESTART 断言
+  "棋盘清空（jq_state_init）+ state=OUR_TURN" **编码了缺陷语义** → 修复后 2 条 FAIL。
+  改：① "棋盘已重载默认布局（不再清空→收端不软锁）" ② "state 按角色分流"
+  + 新增 2 断言（我红收端 THEIR_TURN 不抢先手 / SYNC_CELL 回写权威态 st->cells）
+  = **87/87 PASS**（旧 85 + 新 2）。
+- **★ 127.0.0.1:5556 启动崩溃定性（本轮最大非代码发现，转译器 flaky）**：
+  com.qwsaeda.junqirs 启动即 `UnsatisfiedLinkError`（so `97d26a4c` 时期 3 连跑全
+  FAIL + 设备重启后仍复现 pid 46190/46311）。**排查链 5 项全排除 so/包/符号问题**：
+  ① 设备 so = APK 内 so（sha1 eeb3da4a 一致）+ 14 个 `Java_com_qwsaeda_App_*` 符号
+  T 导出齐全（llvm-readelf FUNC GLOBAL 非弱）② smali/dex/manifest 包名一致
+  （com.qwsaeda）+ `loadLibrary("junqi")` 正确 ③ 设备无 libhoudini（redroid 用
+  Google **ndk_translation** 组件：`libndk_translation.so` + 25 个 proxy 库，
+  日志 `I ndk_translation: Initialized NDK translation (aarch64)`）④ 对照：
+  `com.cnvcs.junqi32`（lib/arm/armeabi-v7a）dlopen 被 linker 直接拒
+  （`EM_ARM (40) instead of EM_386 (3)`）= 该容器 32 位库不支持（§124y-279 口径
+  一致：32 位验收基准=真机）⑤ **决定性**：同 so 同 APK，设备重启（转译器状态刷新）
+  + 新装机（so `72922a62`）后 pid 46750 **正常启动**（渲染线程存活
+  `fromSurface 未 ready（第 13 次）`，无 ULE 无 FATAL）。
+  **结论**：ULE = redroid ndk_translation aarch64 通道**间歇性符号解析失败**
+  （转译器自身 flaky，窗口可恢复；早于 JNI_OnLoad 的 dlopen/符号解析层，
+  与业务代码改动无关）。**口径固化**：127.0.0.1:5556 冒烟 FAIL+ULE = 转译器 flaky
+  期 → `adb reboot` 刷新 + 重跑 1-2 次容错；**权威 5 判据挂起至红果
+  10.0.182.146:5555 恢复**（当前 offline）；模拟器结论不可外推真机（§124y-279）。
+- **验证实锤（本轮全 PASS）**：align_gate **7/7**（含 R4-D-02/D-05 判据）+
+  dark_align **86/86**（含判据自检）+ bt_semtest **87/87** + 设备冒烟 127.0.0.1:5556
+  **2/2**（明棋走子 can_move=1 / 暗棋翻子 can_flip=1，so `72922a62`，
+  全链 0 Fatal signal，转译器恢复窗口内）。
+- **撤回 1 条误报**：R5-A-03（源格 `!src->revealed || side==0xFF` 前置守卫被报成
+  "rank 泄露"→ 实为**无缺陷锚点**：入口前置屏障，与 dst-rank 读取点（:300-305/
+  :314-337/:361-375）形成边界；后三点 R5-A-04/05 才是真泄露点）。
+  教训复用 R4：子代理结论必须回读注释既有定案再入账。
+- **诚实边界**：本轮**行为改动 9 处**（BT 协议族 5 + 事件契约 3 + ev 初始化 1），
+  其余为判据/文档口径；R5-C-03 发送侧 send_sync 接线 + R5-C-07 UNDO 方向 + R5-C-10
+  断连镜像 + R5-C-11 帧推进 + R5-C-12 NACK = R6 蓝牙族主攻；困毙缓存 per-side
+  （A-14/15/25 同根因一次关三条）+ 铁路起点统一谓词（A-01/02/26 同批）+
+  pieces_left 语义统一（A-09~13 同批）为 R6 规则族主攻。
