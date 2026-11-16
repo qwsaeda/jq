@@ -115,7 +115,11 @@ def main():
     bench = read(os.path.join(SRC, "test_expected.txt"))
     bench_n = len([x for x in bench.splitlines() if x.strip()])
     evv = read(os.path.join(SRC, "evverify.c"))
-    evv_n = len(re.findall(r'\bchk\(|\bassert', evv))
+    # ★ R7-D-13（正则校准）：evverify 断言形态 = `ev_total++; ev_pass += run_case(...)`
+    #   / `geo_total++; ...`（无 chk/assert 关键字 → 旧正则恒 0 = 矩阵失真）。
+    #   修：统计 ev_total++/geo_total++ 累加点（= 真断言数，当前 40+132=172，
+    #   与 jq_evverify --all SUMMARY "172/172 全对" 同源）。
+    evv_n = len(re.findall(r'\bev_total\+\+', evv)) + len(re.findall(r'\bgeo_total\+\+', evv))
     lines.append(f"| src_rs/test_expected.txt | {bench_n} | make benchcheck |")
     lines.append(f"| src_rs/consistency_desktop.c BENCH_EXPECT | 9 | make benchcheck（双源需同步） |")
     lines.append(f"| src_rs/evverify.c | {evv_n} | make evverify |")

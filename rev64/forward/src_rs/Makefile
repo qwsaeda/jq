@@ -58,7 +58,6 @@ benchcheck: consistency
 	@./dist/jq_consistency test_move_seq.txt > .bench_actual.txt
 	@if cmp -s .bench_actual.txt test_expected.txt; then \
 	    echo "  ✓ benchcheck：jq_consistency test_move_seq.txt 输出 == test_expected.txt（基准新鲜）"; \
-	    rm -f .bench_actual.txt; \
 	else \
 	    echo "  ★ benchcheck：test_expected.txt 基准过期（jq_consistency 输出已变）"; \
 	    echo "    修法：先确认 rules.c 改动行为是否符合预期，符合则 "; \
@@ -66,6 +65,22 @@ benchcheck: consistency
 	    diff .bench_actual.txt test_expected.txt | head -20; \
 	    rm -f .bench_actual.txt; exit 1; \
 	fi
+	# ★ R7-D-18（P1 双源同步断言）：test_expected.txt 文件基准 vs consistency_desktop.c
+	#   内嵌 BENCH_EXPECT 双源——旧实现只比"实际输出 vs 文件基准"，内嵌 BENCH_EXPECT
+	#   过期（改 test_expected.txt 忘改内置表）selftest 恒 PASS 假绿。修：benchcheck
+	#   加第三步 = 用 jq_consistency 内置自测序列（无参跑 BENCH_EXPECT 比对）+ 显式
+	#   抽取 C 表与文件基准 cmp（grep -A 抽取 BENCH_EXPECT 数组体到临时文件）。
+	@python3 $(CURDIR)/bench_c_extract.py
+	@if cmp -s .bench_c_expect.txt test_expected.txt; then \
+	    echo "  ✓ benchcheck 双源：BENCH_EXPECT（C 内嵌表）== test_expected.txt（文件基准）"; \
+	    rm -f .bench_c_expect.txt; \
+	else \
+	    echo "  ★ benchcheck 双源漂移：BENCH_EXPECT（consistency_desktop.c）≠ test_expected.txt"; \
+	    echo "    修法：两侧同步更新（jq_consistency 输出变化 → 同时刷新文件基准与 C 内嵌表）"; \
+	    diff .bench_c_expect.txt test_expected.txt | head -20; \
+	    rm -f .bench_c_expect.txt; exit 1; \
+	fi
+	@rm -f .bench_actual.txt
 
 .PHONY: bttest
 bttest:

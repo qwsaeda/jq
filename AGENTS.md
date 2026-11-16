@@ -350,7 +350,7 @@ java -cp /tmp/opencode/apksigner/apksig.jar:/tmp/opencode/apksigner SignV2 \
 > - 用户截图实锤：软件信息弹窗"反馈/关闭"按钮与标题文字下有**不透明黑块/黑条**。
 > - 根因（CODE_STYLE §15 第四型假绿：注释吞语句）：`rs_render_frame` 帧头 `glViewport`
 >   尾随注释缺闭合符，吞掉 `glEnable(GL_BLEND)/glBlendFunc` → **blend 从未生效**，
->   atlas 文字透明区（0,0,0,0）画成不透明黑底。编译零告警、170/170 回归零发现（非黑比判据漏洞）。
+>   atlas 文字透明区（0,0,0,0）画成不透明黑底。编译零告警、170/170（当时口径）回归零发现（非黑比判据漏洞；当前真值 172/172）。
 > - 修：补闭合符 + FRAME-BLEND/ATLAS-DRAW 诊断留档（draw 前 blend=1 实锤）；
 >   10.0.182.146 实测弹窗反馈蓝/关闭灰/标题/版本条全正常 + 主菜单 97.8% 非黑；phase3.apk 重打。
 > - 防复发固化：尾随 /* 禁止多行；渲染修复验收必须像素级（文字区底色非纯黑）。
@@ -406,7 +406,7 @@ java -cp /tmp/opencode/apksigner/apksig.jar:/tmp/opencode/apksigner SignV2 \
   - 根因定位：缺口①②③的 `can_move=0` 系**暗棋模式默认**（`g_opt_mode=1` 翻棋暗子目标不可撞 = B01-053 忠实 32 位行为），非几何错。
     几何基准 720×1280：`base = view 坐标直接同值`（MuMu view=720×1280 与渲染基准一致），cell 中心公式
     `x=78.5+col×140.5 / y=image_row≤5: 222+image_row×71 : 822+(image_row-6)×71`（image_row=11-device_row，row0=底）。
-    诊断锚点：`OnTouch 走子诊断` 日志（jni_bridge.c 限 10 次）+ 桌面 evverify 170/170 同源。
+    诊断锚点：`OnTouch 走子诊断` 日志（jni_bridge.c 限 10 次）+ 桌面 evverify 170/170（当时口径）同源。
   - 出屏验证：走子后截图 97.9% 非黑 / 30 色块（棋盘+棋子纹理出屏，非纯色退化）
   - 红果回归：so `81780508` 装 `10.0.182.146` 主菜单 98.8% 非黑 / 84 色块 + 0 崩溃（出不退化）
 - 判据维持口径：**MuMu 64 位"能玩"= 出屏 + 真实触摸走子全达成（`81780508`）**；若后续新增判据未过，按"未达成继续做"原则追加本段缺口与路线。
@@ -434,7 +434,7 @@ java -cp /tmp/opencode/apksigner/apksig.jar:/tmp/opencode/apksigner SignV2 \
   - **用户视角卡点**：人机对战→新手翻棋→开局→蓝翻子（cell 6 师长）后**对局立即判蓝方胜结束**（`rs_draw_overlay winner=BLUE` + stage→2 OVER），AI 不应对，玩家无法继续 = "玩不了"。
   - **根因①（jq_side_stalemated 误判红方困毙）**：`jq_dark_setup` 全 60 格 `side=SIDE_UNKNOWN(0xFF)`（先手翻子定色，layout.c:214 实锤），蓝首翻定蓝后红方**全 0xFF 未翻**；B01-011/089 旧修把 0xFF 子限成"仅先手蓝计可翻"→ 红方困毙扫描无任何可翻/可动子 → **红方立即困毙 → 蓝胜**（`jq_flip` 收口 `stalemate_after` 判对方困毙）。修：`jq_side_stalemated` 恢复 `(c->side == 0xFF || c->side == side)`（0xFF 双方可翻，翻归翻子方）；`jq_can_flip` 0xFF 分支改 `SIDE_VALID(st->turn)`（当前回合方可翻，保留回合门防"抢定色"）。
   - **根因②（ai_pick 永无翻棋候选）**：`ai_pick` 翻棋循环 `if (c->rank == RANK_EMPTY || c->side != me || c->revealed) continue;`——暗棋全 0xFF 下 `c->side != me`（0xFF≠RED）恒 continue → AI 翻棋候选恒空 → 红方回合死锁（蓝首翻后 turn=RED 永无 AI 动作）。修：翻棋循环接受 `c->side == SIDE_UNKNOWN`（翻归 me）或 `c->side == me`。
-  - **桌面专项回归**（dark_flip_test，/tmp/opencode/dark_flip_test.c）：蓝首翻→红方困毙=0（未困毙）→红翻→蓝方困毙=0，PASS；`src_rs_regress.sh` 11/12（唯一 FAIL `[5]` 是预存 JNI GetMethodID 审计缺口，与本次改动无关）；evverify 170/170 + gametest 60局 + walkverify/longrun 全 PASS。
+  - **桌面专项回归**（dark_flip_test，/tmp/opencode/dark_flip_test.c）：蓝首翻→红方困毙=0（未困毙）→红翻→蓝方困毙=0，PASS；`src_rs_regress.sh` 11/12（唯一 FAIL `[5]` 是预存 JNI GetMethodID 审计缺口，与本次改动无关）；evverify 170/170（当时口径）+ gametest 60局 + walkverify/longrun 全 PASS。
   - **真机全链复验（10.0.182.146 pid 24616）**：人机→难度→开局→蓝翻 cell6（师长）→**无蓝胜误判**（stage=1 PLAY 持续）→**AI 翻 cell3 应着**（turn→0）→蓝再翻 cell10→AI 翻 cell4→回合交替持续→0 崩溃。盘面 4 子已翻（蓝旅长/师长 + 红排长/连长）出屏。
   - **★ 2026-11-10 完整"能玩"5 判据复验（pid 25482/26122，含走子路径）**：① 装得上 ✓（APK 启动正常）② 进主界面 ✓（主菜单 98.1% 非黑 5 按钮）③ 下一局 ✓（人机→开局→蓝翻 cell6→AI翻 cell3→蓝翻 cell10→AI翻 cell4→蓝**走子 cell6→cell11** `can_move=1 Junqi.Move`（move 累计 1）→AI 翻 cell5 应着→回合交替持续，stage=1 PLAY）④ 正常退出 ✓（force-stop 0 崩溃）⑤ 重进不崩 ✓（重进 pid 26122 + 主菜单出屏 0 崩溃）。走子目标 cell11=空行营格（layout index16 空位，cell6 row1col1 上邻），走子序列=从 IDLE 点 cell6（选中）→点 cell11（走子）。
   - **★ 2026-11-10 "玩不了"环境根因终锤：MuMu 输入转发 `nemuinput` 卡死（用户真实触摸到不了系统）**：
@@ -570,6 +570,12 @@ java -cp /tmp/opencode/apksigner/apksig.jar:/tmp/opencode/apksigner SignV2 \
 | `rev64/tools/dispatch_insert.py` | **dispatch 表批量插入**（offs/fns/jqt_vtbl_n 三处同步 + 可选 stub 生成，幂等，fns/offs 逐行对齐） | `python3 rev64/tools/dispatch_insert.py 0xad248 0x78890 --gen-stub` |
 | `rev64/tools/thunk_code_map.py` | **0x55d40 事件业务 thunk 区 code→handler 提取 + switch 生成**（§124y-31 固化：提取 42 code 全量映射 / 生成 F_55d40 switch case 体 / 查 24 handler 收表状态；坑固化：objdump 地址必须带 0x 前缀，否则 bad number 静默 0 提取） | `python3 rev64/tools/thunk_code_map.py` / `--gen-switch` / `--check` |
 | `rev64/tools/probe_cycle.sh` | **"红果测试+对象图探查"一条龙**（redroid_test.sh[已禁用] 抓 gs8 → so_probe.py 查 vtable 各槽是否收进 dispatch 表 → 汇总；redroid 删除后 gs8 抓取段失效，so_probe.py 静态查询段仍可用） | ~~`bash rev64/tools/probe_cycle.sh --no-install --slots 0x10,0x28,0x48`~~ |
+| `rev64/tools/align_gate.sh` | **「对齐」对抗审计一键门禁（7 项）**：① evverify 172/172（SUMMARY 动态真值）② 事件表映射 0 缺口 ③ 布局几何 Δ=0 ④ 暗棋对齐回归 86/86 + 判据自检 ⑤ 走子桥 8 步基准新鲜 ⑥ 64 位探针 --offline（基线 4 分叉不阻断）⑦ 事件名逐名对齐（原版 .rodata 73 名）；`set -uo pipefail`（★ R6-D-12 假绿三型防线）；设备冒烟另走 `mumu_align_smoke.sh` | `bash rev64/tools/align_gate.sh`（桌面 7 项汇总 PASS/FAIL） |
+| `rev64/tools/event_names_alignment_check.py` | **事件名逐名对齐门禁**：原版 .rodata 73 唯一名 vs 正向 `jq_event_names_73.c` 集合 diff（含 `%d` 格式串形态 `Junqi.GameType%d` 正则 + 基准 ≥70 防空集假绿）；Misc 3 条（广告拆除目标）显式归因不阻断 | `python3 rev64/tools/event_names_alignment_check.py`（PASS/FAIL） |
+| `rev64/tools/gen_align_coverage.py` | **对齐覆盖矩阵自动生成**：规则 33 条款 / 桌面 86 用例 981 断言 / 探针 36 case / evverify 172 断言（★ R7-D-13 正则校准 ev_total++/geo_total++）→ `rev64/forward/audit/r4/align_coverage_matrix.md` | `python3 rev64/tools/gen_align_coverage.py`（幂等重生矩阵） |
+| `rev64/forward/src_rs/dark_align/mumu_align_smoke.sh` | **设备冒烟 2 判据**（明棋走子 can_move=1 / 暗棋翻子 can_flip=1 + 0 Fatal signal，`--dev` 默认 127.0.0.1:5556 转译器 flaky 需 `adb reboot` 刷新，红果 10.0.182.146 恢复后权威 5 判据） | `bash .../mumu_align_smoke.sh --dev 10.0.182.146:5555` |
+| `rev64/tools/rule_probe_compare.py` + `rule_probe_known_forks.txt` | **32/64 位规则行为实证双端对照**：36 case 逐字节同源探针 + 基线 4 坐实分叉（R-073/008/004/018）内不阻断、基线外新增分歧 → FAIL；`--offline` 按 fail 汇总（★ R1-D-02 假绿根治） | `python3 rev64/tools/rule_probe_compare.py --offline` / `--dev 10.0.182.146:5555` |
+| `rev64/forward/audit/r4/AUD_ALIGN_R{1..6}.md` | **「对齐」对抗审计台账 R1~R6**（各 100 条：承接上轮待修队列 + 新增；状态列 已修/待修/撤回）+ `align_coverage_matrix.md`（自动产物） | 读（每轮先读末轮台账状态列） |
 | `rev64/tools/layout_align_check.py` | **布局/按钮对齐可复现判据**（几何 Δ=0 + 截图按钮区非黑比，防"非黑%糊弄"。主菜单基准=orig_menu 真机×0.8，弹窗基准=datah 450/250/230 系换算。机读 `--json` / `--baseline` 只几何） | `python3 rev64/tools/layout_align_check.py --screenshot /tmp/xxx.png` / `--baseline` |
 | `rev64/forward/docs_rs/PIPELINE.md` | 流水线设计文档（每段一条命令 + 一组判据 + 一个诚实边界 + 5 固化原则） | 读 |
 

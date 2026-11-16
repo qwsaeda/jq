@@ -8,7 +8,11 @@
 # 用法：bash mumu_align_smoke.sh [--dev <addr>] [--only move|flip|all]
 # 几何（view=720×1184，g_touch_s=0.925）：设备坐标 = 基准 720×1280 × 0.925。
 set -u
-DEV="127.0.0.1:5556"; PKG="com.qwsaeda.junqirs"; ACT="com.qwsaeda.junqirs/com.qwsaeda.App"
+# ★ R7-D-27（P2 设备口径统一，redroid 禁用后）：默认设备改权威红果
+#   10.0.182.146:5555（与 rule_probe_compare.py DEV 同源）；旧默认 127.0.0.1:5556
+#   （redroid12 转译器 flaky，AGENTS §124y-279 禁用口径）仅作显式 --dev 传入的
+#   冒烟备选（转译器恢复窗口内可用，非权威）。
+DEV="10.0.182.146:5555"; PKG="com.qwsaeda.junqirs"; ACT="com.qwsaeda.junqirs/com.qwsaeda.App"
 ONLY="all"
 while [ $# -gt 0 ]; do
   case "$1" in
