@@ -52,12 +52,23 @@ static int e55_code_to_evname(int code)
     case 6:  return 5;   /* Junqi.Flip */
     case 7:  return 0;   /* Junqi.Move（挖雷音效分类，AUD-R-062 同名） */
     case 16: return 11;  /* Junqi.GameOver */
-    case 24: return 18;  /* Junqi.Resign */
+    case 24: return 18;  /* Junqi.Resign（R5-B-05：ResignConfirm 由调用方传 evname 精确覆盖） */
     case 25: return 13;  /* Junqi.DrawReq */
     case 26: return 14;  /* Junqi.DrawAgree */
     case 27: return 15;  /* Junqi.DrawDisagree */
-    case 42: return 20;  /* Junqi.RegretReq */
-    default: return 0;   /* 兜底 Junqi.Move（账号/联机类无独立音效） */
+    case 42: return 20;  /* Junqi.RegretReq（悔棋子事件由 evname 精确覆盖，R5-B-06） */
+    /* ★ Round 1 对抗审计 R5-B-02（P1 真缺陷）：业务代表 55code 34/36/38/44/46
+       无 case → default 返回 0 → 名称→code→名称 往返身份丢失为 Junqi.Move
+       （未映射 code 全记 Move = 假绿同族）。修：按桶返代表名（73 名表 idx 实测：
+       LOGIN→30 LoginFail / REG→37 RegExist / NET→50 JoinGame / LAY→65 LayError /
+       MISC→71 Select，见 jq_event_names_73.c 行内 [idx] 注释），
+       调用方传 evname 时精确覆盖（jq_evt55_dispatch 的 strcmp 路径不变）。 */
+    case 34: return 30;  /* Junqi.LoginFail（LOGIN 桶代表，idx 30） */
+    case 36: return 37;  /* Junqi.RegExist（REG 桶代表，idx 37） */
+    case 38: return 50;  /* Junqi.JoinGame（NET 桶代表，idx 50） */
+    case 44: return 65;  /* Junqi.LayError（LAY 桶代表，idx 65） */
+    case 46: return 71;  /* Junqi.Select（MISC 桶代表，idx 71） */
+    default: return 0;   /* 兜底 Junqi.Move（未映射 code） */
     }
 }
 

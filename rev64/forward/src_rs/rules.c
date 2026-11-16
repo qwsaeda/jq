@@ -643,7 +643,11 @@ int jq_try_move(jq_state *st, int from, int to)
         return -1;
     }
 
-    jq_event ev;
+    /* ★ Round 1 对抗审计 R5-A-07（P1 崩溃风险修复）：ev 原为**未初始化**局部变量，
+       各分支成功路径都赋值（EV_MOVE/EV_BOMB/EV_FLAG/EV_MINE/EV_EAT/EV_DEAD）；
+       若未来新增分支漏赋值即读未初始化值（UB，行为不可预测）。修：显式
+       初始化 EV_MOVE（默认语义=空移，与最保守分支一致，不改任何既有路径行为）。 */
+    jq_event ev = EV_MOVE;
     if (dst->rank == RANK_EMPTY) {
         /* 空目标：互换 rank（0x3a15c：from←to, to←from，to=0）
            ★ AUD-R-106（P3 诚实标注）：整格拷贝 *dst=*src 把 flags 冗余字段（AUD-R-046）

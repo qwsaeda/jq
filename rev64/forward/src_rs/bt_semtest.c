@@ -368,12 +368,42 @@ int main(void)
             CHECK(st2.stage == STG_PLAY, "RESTART 语义：stage 回 STG_PLAY");
             CHECK(st2.winner == JQ_WIN_NONE, "RESTART 语义：winner 复位未定");
             CHECK(st2.turn == SIDE_BLUE, "RESTART 语义：turn 复位蓝先手");
-            int empty = 0;
-            for (int i = 0; i < N_CELLS; i++) if (st2.cells[i].rank) empty = 1;
-            CHECK(empty == 0, "RESTART 语义：棋盘清空（jq_state_init）");
-            CHECK(sess2.state == BT_ST_OUR_TURN, "RESTART 语义：state=OUR_TURN（等本方输入）");
+            /* ★ Round 1 对抗审计 C-13（P1 协议级修复，基准同步）：旧断言
+               "棋盘清空（jq_state_init）"+"state 恒 OUR_TURN" **编码了缺陷语义**
+               （收端清空棋盘 → 永久软锁；主机重开后收端也变 OUR_TURN → 双端争先手
+               → 开局卡死，R4-C-13/C-15）。新语义：① 按模式重载默认布局（棋盘有子）
+               ② 回合闸口按**角色**分流（we_blue=我蓝→OUR_TURN / 我红→THEIR_TURN）。 */
+            int loaded = 0;
+            for (int i = 0; i < N_CELLS; i++) if (st2.cells[i].rank) loaded = 1;
+            CHECK(loaded == 1, "RESTART 语义：★棋盘已重载默认布局（不再清空 → 收端不软锁）");
+            CHECK(sess2.state == (sess2.we_blue ? BT_ST_OUR_TURN : BT_ST_THEIR_TURN),
+                  "RESTART 语义：★state 按角色分流（we_blue→OUR_TURN / 我红→THEIR_TURN，不双端争先手）");
             CHECK(st2.total_moves == 0 && st2.moves_since_eat == 0,
                   "RESTART 语义：计数复位 0");
+        }
+        /* ★ Round 1 对抗审计 C-13/C-15 追加断言：我红方（we_blue=0）收 RESTART
+           → state 必须是 THEIR_TURN（等对端先手），不得 OUR_TURN。 */
+        {
+            jq_bt_session s3; jq_state st3;
+            jq_bt_session_init(&s3, &st3, 0 /* 我红 */);
+            st3.stage = STG_PLAY;
+            int r3 = jq_bt_session_on_frame(&s3, &st3, BT_T_RESTART, 0, 0, 0, 0, 0, 0);
+            int loaded3 = 0;
+            for (int i = 0; i < N_CELLS; i++) if (st3.cells[i].rank) loaded3 = 1;
+            CHECK(r3 == 0 && loaded3 == 1 && s3.state == BT_ST_THEIR_TURN,
+                  "RESTART 语义（我红收端）：rc=0 + 棋盘重载 + state=THEIR_TURN（不抢蓝方先手）");
+        }
+        /* ★ Round 1 对抗审计 C-16 追加断言：SYNC_CELL 必须回写**权威态** st->cells
+           （旧实现只写 peer_state 死影子 → 双端发散无收敛通道）。 */
+        {
+            jq_bt_session s4; jq_state st4;
+            jq_bt_session_init(&s4, &st4, 1);
+            jq_state_init(&st4);
+            memset(&st4.cells, 0, sizeof(st4.cells));
+            int r4 = jq_bt_session_on_frame(&s4, &st4, BT_T_SYNC_CELL, 7, 5, SIDE_BLUE, 1, 0, 0);
+            CHECK(r4 == 0 && st4.cells[7].rank == 5 && st4.cells[7].side == SIDE_BLUE
+                  && st4.cells[7].revealed == 1,
+                  "SYNC_CELL 回写权威态 st->cells（不再只写 peer_state 死影子）");
         }
     }
 

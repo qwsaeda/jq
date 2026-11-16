@@ -10,6 +10,10 @@
 #include "bt_session.h"
 #include "bt_protocol.h"
 #include "ui_state.h"   /* ★ P1（datah_039/107）：ui_replay_record（蓝牙走子/翻棋记录复盘序列） */
+/* ★ Round 1 对抗审计 C-13（重开收端重载默认阵）：jq_default_lay.h 是**定义**头
+   （const 数组在 C 里具外部链接 → 多 TU 包含会 multiple definition），故此处只
+   extern 声明，不 include 头（layout.c 侧是唯一定义处）。 */
+extern const uint8_t JQ_DEFAULT_LAY[30];
 #include <string.h>
 /* ★ 对抗审计 P3（批3 P3-B19）：原 static jq_state g_undo_snap 死代码
    （无写入/读取点，jq_state 体量不小白占 BSS）。删除。
@@ -121,6 +125,17 @@ int jq_bt_session_on_frame(jq_bt_session *s, jq_state *st,
         s->peer_state.cells[idx].rank = (uint8_t)f3;
         s->peer_state.cells[idx].side = (uint8_t)f4;
         s->peer_state.cells[idx].revealed = f5 ? 1 : 0;
+        /* ★ Round 1 对抗审计 C-16（P1 协议级修复）：SYNC_CELL 原只写 `peer_state`
+           **死影子**（全仓读取点仅 bt_semtest 单测，jni_bridge/rules/render 均不读）
+           → "对端权威态覆盖本端"的收敛通道**完全失效**（双端发散无修复途径）。
+           修：除保留 peer_state 镜像外，**同时回写权威态 st->cells**（SYNC_CELL 的
+           协议语义就是"以对端权威态覆盖"，逐格应用；BT SPP 为可靠有序流，60 帧
+           到齐即全盘一致）。诚实边界：**发送侧 jq_bt_session_send_sync 目前无运行
+           时调用点**（仅 bt_semtest 使用）→ 本修复为"接收侧就绪"，发送侧接线见
+           R4-C-16 后续（UNDO 广播 SYNC_CELL 链）。 */
+        st->cells[idx].rank = (uint8_t)f3;
+        st->cells[idx].side = (uint8_t)f4;
+        st->cells[idx].revealed = f5 ? 1 : 0;
         return 0;
     }
     case BT_T_SYNC:
@@ -142,8 +157,28 @@ int jq_bt_session_on_frame(jq_bt_session *s, jq_state *st,
            （CONNECTED 态：OUR_TURN/THEIR_TURN）接受 RESTART，DISCONNECTED 终态拒收。 */
         if (s->state == BT_ST_DISCONNECTED) return -2;
         s->last_type = f1;   /* ★ B04-014（P1 已修）：仅合法 case 命中才记 last_type */
-        jq_state_init(st);
-        s->state = BT_ST_OUR_TURN;
+        /* ★ Round 1 对抗审计 C-13/C-15/C-25（P1 协议级修复）：旧实现收端 RESTART
+           走 `jq_state_init(st)` —— 该函数只 memset + 设 turn/stage/winner/mode，
+           **60 格 cells 全清零且不载入默认布局**（layout.c 实证）→ 收端变成"空棋盘
+           + stage=PLAY" → 无子可动 → 永久软锁；且无条件 `s->state = BT_ST_OUR_TURN`
+           → **主机重开后收端也变 OUR_TURN**，双端互发首手被回合闸口丢弃 → 开局卡死。
+           修：① 按模式重载默认布局（明棋 jq_load_layout / 暗棋 jq_dark_setup，跟随
+           本机 ui_opt_get_mode，与本地 jq_restart_game 同口径）；② 重置 stage/turn/
+           winner/计数；③ 回合闸口按**角色**分流（we_blue=我蓝 → OUR_TURN；我红 →
+           THEIR_TURN），与 start_bt_session 的首帧分流一致。
+           诚实边界：RESTART 帧**不携带 mode 字段** → 双端模式以各自本机选项为准，
+           若双方选项不一致仍会一明一暗（R4-C-25 待帧协议扩字段）。 */
+        if (ui_opt_get_mode() == 1)
+            jq_dark_setup(st, JQ_DEFAULT_LAY);
+        else
+            jq_load_layout(st, JQ_DEFAULT_LAY);
+        st->stage = STG_PLAY;
+        st->turn = SIDE_BLUE;
+        st->winner = JQ_WIN_NONE;
+        st->moves_since_eat = 0;
+        st->total_moves = 0;
+        for (int ri = 0; ri < 2; ri++) { st->mines_cleared[ri] = 0; st->pieces_left[ri] = 0; }
+        s->state = s->we_blue ? BT_ST_OUR_TURN : BT_ST_THEIR_TURN;
         return 0;
     case BT_T_RESIGN:
         s->last_type = f1;   /* ★ B04-014（P1 已修）：仅合法 case 命中才记 last_type */

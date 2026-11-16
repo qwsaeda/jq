@@ -538,10 +538,16 @@ static void jq_bt_send(JNIEnv *env, const char *frame)
         LOGI("蓝牙联机发送：未连接被拒（g_bt_connected=0，Java 侧 s_connected=false，诚实边界）");
 }
 
+/* ★ Round 1 对抗审计 C-22（P1 协议级修复）：重开广播统一入口。
+   旧实现仅 ☰ 菜单 BT 路径发 BT_T_RESTART，其余重开入口（OnEvent restart / 菜单
+   开局 / property jq.restartgame / 对局结束"再来一局" / 左上角重开按钮）都是
+   **静默单边重开** → 联机点任一入口 = 本机重开 + 对端仍在旧局 → 双端永久错位。
+   修：所有 jq_restart_game() 调用点后统一调本 helper（内部判 ui_bt_active/
+   g_bt_sess_init_done → 非联机态零开销）。 */
+
 /* ★ 蓝牙控制帧（UNDO/RESTART）：BT 模式下 ☰ 悔棋/重开 → 编帧 → jq_bt_send。
    帧 type 走 bt_protocol 枚举；控制帧不受回合闸口（OUR_TURN 发送守卫仅走子/翻棋）。 */
-static void jq_bt_ctrl_send(JNIEnv *env, int type)
-{
+static void jq_bt_ctrl_send(JNIEnv *env, int type){
     if (!env) return;
     char tb[BT_BUF];
     int n = jq_bt_frame_encode(tb, sizeof tb, type, 0, 0, 0, 0, 0, 0, 0);
@@ -1034,6 +1040,21 @@ static void sfx_play_file(JNIEnv *env, const char *event, const char *path_overr
 /* ★ 对抗审计 P1-J11：原 g_bt_sess_init（不带 _done）全仓无读点（纯写不读死字段），
    与 g_bt_sess_init_done 并行维护冗余。删除 g_bt_sess_init，仅留 g_bt_sess_init_done。 */
 static volatile int g_bt_sess_init_done = 0;   /* ★ AUD-1000-ALL A2-002/003/033（P2 已修）：volatile——BtSpp 读线程锁内写 1 + 主线程 OnTouch 锁外裸读（:8478 发送闸口）+ GLThread 读，int 单字写原子但 volatile 保证编译器不 hoist/缓存（蓝牙走子静默不发帧根因） */
+
+/* ★ Round 1 对抗审计 C-22（P1 协议级修复）：重开广播统一入口。
+   旧实现仅 ☰ 菜单 BT 路径发 BT_T_RESTART，其余重开入口（OnEvent restart / 菜单
+   开局 / property jq.restartgame / 对局结束"再来一局" / 左上角重开按钮）都是
+   **静默单边重开** → 联机点任一入口 = 本机重开 + 对端仍在旧局 → 双端永久错位。
+   修：所有 jq_restart_game() 调用点后统一调本 helper（内部判 ui_bt_active/
+   g_bt_sess_init_done → 非联机态零开销）。★ 定义置于 :1049 全局声明后
+   （前移版本在 :543 因 g_bt_sess_init_done/ui_bt_active 未声明而编译失败）。 */
+static void bt_broadcast_restart(JNIEnv *env)
+{
+    if (!env) return;
+    if (!ui_bt_active()) return;
+    if (!g_bt_sess_init_done) return;
+    jq_bt_ctrl_send(env, BT_T_RESTART);
+}
 /* ★ AUD-1000 B03-013/B03-047/B03-067（P1 已修）：g_bt_sess 字段/标志跨线程契约——
    g_bt_sess_init_done 与 g_bt_sess.state 的锁内读写点：start_bt_session 初始化段、
    OnBluetooth 懒初始化 + 收帧处理（均在 g_mutex 内）；锁外读（☰ 菜单 7712/7730 的
@@ -1055,6 +1076,24 @@ static int ev7_to_name_idx(int ev)
     if (ev == 6) return 5;              /* EV_FLIP → Junqi.Flip (name idx 5) */
     return 0;   /* 越界兜底 */
 }
+
+/* ★ Round 1 对抗审计 R5-B-22（P1 真缺陷）：7 事件码空间（EV_ 0..6）与原版 55
+   业务码空间在 code=5/7 上**语义冲突**（7 码 5=EV_MINE，55 码 5=Draw 兜底；
+   7 码 7 不存在，55 码 7=挖雷分类）——旧实现 `jq_evt55_dispatch(ev, ...)`
+   **直接传 7 码当 55 码**（on_event move 路径，依赖 evname 字符串覆盖规避
+   冲突，属数值巧合依赖 = 假绿同族）。修：显式转换表 7码→55码（与
+   evt55_business.c e55_biz_to_55code 同口径：MOVE/EAT/DEAD→0，BOMB/FLAG→2，
+   FLIP→6）后分发。 */
+static int ev7_to_55code(int ev)
+{
+    switch (ev) {
+    case EV_BOMB:  return 2;   /* Junqi.Bomb（BIZ_BOMB 代表 55code） */
+    case EV_FLAG:  return 2;   /* Junqi.Flag（同 BIZ_BOMB 桶，与原版 55 桶同域） */
+    case EV_FLIP:  return 6;   /* Junqi.Flip（BIZ_FLIP 代表 55code） */
+    default:       return 0;   /* MOVE/EAT/DEAD/MINE → BIZ_MOVE 代表 55code=0 */
+    }
+}
+
 static int  g_way_host = 1;   /* ★ 对抗审计（datah_072）：方式选择来源——2=联网(host) 3=联机(client) */
 
 static const char *on_event(const char *name, const char *value, JNIEnv *env)
@@ -1085,8 +1124,10 @@ static const char *on_event(const char *name, const char *value, JNIEnv *env)
                7 事件码（EV_MOVE=0..EV_FLIP=6）→ 原版 55 code（code=ev，0-6 直接映射），
                分发引擎确认成功 + 按 73 事件名索引计数（g_event_cnt 非 static，跨文件直接累加）。
                诚实边界：g_state 变更已在 jq_try_move 内完成，evt55 仅做分发确认（幂等）。 */
+            /* ★ R5-B-22（P1 真缺陷修复）：7 事件码**显式转 55 码**再分发
+               （旧实现直接传 ev 当 55code = 数值巧合依赖，code 5/7 语义冲突）。 */
             if (ev >= 0 && ev < 7)
-                jq_evt55_dispatch(ev, JQ_EVENT_NAMES[ev]);
+                jq_evt55_dispatch(ev7_to_55code(ev), JQ_EVENT_NAMES[ev]);
             ui_replay_record(from, to, 0);   /* ★ P1（datah_039/107）：OnEvent 走子成功记录 1 步 */
             LOGI("OnEvent move (%d,%d)→(%d,%d) %s（#%d 累计）", cell_row(from), cell_col(from),
                  cell_row(to), cell_col(to), JQ_EVENT_NAMES[ev < 7 ? ev : 0],
@@ -1100,7 +1141,7 @@ static const char *on_event(const char *name, const char *value, JNIEnv *env)
                 ui_replay_record(idx, idx, 1);   /* ★ P1（datah_039/107）：OnEvent 翻棋成功记录 1 步 */
                 /* ★ 原版行为移植（55 code 分发）：翻棋 → code 6（Junqi.Flip），
                    evt55_dispatch 内部按 73 事件名索引计数（g_event_cnt[Junqi.Flip=5]++）。 */
-                jq_evt55_dispatch(EV_FLIP, "Junqi.Flip");
+                jq_evt55_dispatch(ev7_to_55code(EV_FLIP), "Junqi.Flip");   /* ★ R5-B-22：7码→55码显式转换（防数值巧合依赖） */
                 LOGI("OnEvent flip (%d,%d) rank=%d", cell_row(idx), cell_col(idx),
                      rank_norm(st->cells[idx].rank));
             } else if (pushed) undo_pop_discard();   /* ★ AUD-1000 B03-011：仅 push 成功才平衡 */
@@ -1167,7 +1208,11 @@ static const char *on_event(const char *name, const char *value, JNIEnv *env)
         LOGI("OnEvent draw_agree → jq_on_draw 和棋（原版 Junqi.DrawAgree，code 26，winner=%d）", dwin);
         return "draw";
     } else if (strcmp(name, "draw_disagree") == 0) {
-        /* 原版 Junqi.DrawDisagree 提和拒绝——64位简化版：对端拒绝，本地无操作。 */
+        /* 原版 Junqi.DrawDisagree 提和拒绝——64位简化版：对端拒绝，本地无操作。
+           ★ Round 1 对抗审计 R5-B-07（P1）：旧实现无计数无分发 → 73 名计数契约
+           不一致（同类分支 draw_agree/resign 均有 jq_evt55_dispatch）。修：
+           55code 27 = DrawDisagree 分发（evname 精确覆盖，计数走 idx 15）。 */
+        jq_evt55_dispatch(27, "Junqi.DrawDisagree");
         LOGI("OnEvent draw_disagree → 对端拒绝提和（原版 Junqi.DrawDisagree，诚实边界：简化版不独立处理拒绝帧）");
         return NULL;
     } else if (strcmp(name, "join_game") == 0) {
@@ -1233,7 +1278,9 @@ static const char *on_event(const char *name, const char *value, JNIEnv *env)
         /* ★ 对抗审计 #4：统一走 jq_restart_game（随模式：明棋布局/暗棋翻棋 + 清 undo +
            stage/turn/winner/moves）。旧版内联 jq_load_layout（暗棋）→ 与 OnTouch 路径不一致。 */
         jq_restart_game();
+        bt_broadcast_restart(env);   /* ★ C-22：重开广播对端（联机态） */
         sfx_play(env, "start");   /* ★ 原版对齐：开局音效 Junqi.Start → data_junqi_start.wav（SPEC §5） */
+        bt_broadcast_restart(env);   /* ★ C-22：重开广播对端（联机态） */
         LOGI("OnEvent restart（jq_restart_game：default.lay 随模式 mode=%d，stage=PLAY 蓝先手）",
              ui_opt_get_mode());
     } else if (strcmp(name, "flagtest") == 0) {
@@ -1301,7 +1348,9 @@ static const char *on_event(const char *name, const char *value, JNIEnv *env)
                ★ 按钮业务对齐：mode 0=人机（AI 走红），mode 1=两人热座，mode 4=四国（AI 不介入）。 */
             ui_vs_ai_set((mode == 0));
             jq_restart_game();
+            bt_broadcast_restart(env);   /* ★ C-22：重开广播对端（联机态） */
             sfx_play(env, "start");   /* ★ 原版对齐：开局音效 Junqi.Start → data_junqi_start.wav（SPEC §5） */
+            bt_broadcast_restart(env);   /* ★ C-22：重开广播对端（联机态） */
             LOGI("OnEvent menu 开局 mode=%d（%s，jq_restart_game：随模式 mode=%d stage=PLAY 蓝先手）",
                  mode, g_vs_ai ? "人机AI走红" : "两人热座", ui_opt_get_mode());
             ui_screen_set(UI_GAME);   /* 对局态：AI 介入 + 触摸走子放行 */
@@ -1341,12 +1390,16 @@ static const char *on_event(const char *name, const char *value, JNIEnv *env)
             } else {
                 if (f) fclose(f);
                 jq_restart_game();
+                bt_broadcast_restart(env);   /* ★ C-22：重开广播对端（联机态） */
                 sfx_play(env, "start");   /* ★ 原版对齐：开局音效 Junqi.Start → data_junqi_start.wav（SPEC §5） */
+                bt_broadcast_restart(env);   /* ★ C-22：重开广播对端（联机态） */
                 LOGI("OnEvent start：布局 %d 缺失 → default.lay（随模式 mode=%d）", lay, ui_opt_get_mode());
             }
         } else {
             jq_restart_game();
+            bt_broadcast_restart(env);   /* ★ C-22：重开广播对端（联机态） */
             sfx_play(env, "start");   /* ★ 原版对齐：开局音效 Junqi.Start → data_junqi_start.wav（SPEC §5） */
+            bt_broadcast_restart(env);   /* ★ C-22：重开广播对端（联机态） */
             LOGI("OnEvent start：default.lay（随模式 mode=%d 蓝先手）", ui_opt_get_mode());
         }
         g_undo_top = 0;
@@ -2898,6 +2951,7 @@ void jq_glview_props_update(JNIEnv *env)
     if (strcmp(rg_prop, "1") == 0) {
         pthread_mutex_lock(&g_mutex);
         jq_restart_game();
+        bt_broadcast_restart(env);   /* ★ C-22：重开广播对端（联机态） */
         pthread_mutex_unlock(&g_mutex);
         sfx_play(env, "start");   /* ★ 原版对齐：开局音效 Junqi.Start → data_junqi_start.wav（SPEC §5） */
         LOGI("OnUpdate 游戏内重开：restartgame（default.lay 重新开局，stage=PLAY 蓝先手）");
@@ -7886,6 +7940,7 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
                反向（CODE_STYLE §锁序，文档锚点此处）。 */
             pthread_mutex_lock(&g_mutex);
             jq_restart_game();
+            bt_broadcast_restart(env);   /* ★ C-22：重开广播对端（联机态） */
             pthread_mutex_unlock(&g_mutex);
             sfx_play(env, "start");   /* ★ 原版对齐：开局音效 Junqi.Start → data_junqi_start.wav（SPEC §5） */
             ui_screen_set(UI_GAME);
@@ -8045,6 +8100,7 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
                 ui_vs_ai_set(0);
                 pthread_mutex_lock(&g_mutex);
                 jq_restart_game();
+                bt_broadcast_restart(env);   /* ★ C-22：重开广播对端（联机态） */
                 pthread_mutex_unlock(&g_mutex);
                 sfx_play(env, "start");   /* ★ 原版对齐：开局音效 Junqi.Start → data_junqi_start.wav（SPEC §5） */
                 ui_screen_set(UI_GAME);
@@ -8101,6 +8157,7 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
                 ui_vs_ai_set(0);   /* 游客=本地单机：AI 不介入，两人热座 */
                 pthread_mutex_lock(&g_mutex);
                 jq_restart_game();
+                bt_broadcast_restart(env);   /* ★ C-22：重开广播对端（联机态） */
                 pthread_mutex_unlock(&g_mutex);
                 sfx_play(env, "start");   /* ★ 原版对齐：开局音效 Junqi.Start → data_junqi_start.wav（SPEC §5） */
                 ui_screen_set(UI_GAME);
@@ -8516,6 +8573,7 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
                 ui_vs_ai_set(0);
                 pthread_mutex_lock(&g_mutex);
                 jq_restart_game();
+                bt_broadcast_restart(env);   /* ★ C-22：重开广播对端（联机态） */
                 pthread_mutex_unlock(&g_mutex);
                 sfx_play(env, "start");   /* ★ 原版对齐：开局音效 Junqi.Start → data_junqi_start.wav（SPEC §5） */
                 ui_screen_set(UI_GAME);
@@ -8651,6 +8709,7 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
                 ui_vs_ai_set(0);
                 pthread_mutex_lock(&g_mutex);
                 jq_restart_game();
+                bt_broadcast_restart(env);   /* ★ C-22：重开广播对端（联机态） */
                 pthread_mutex_unlock(&g_mutex);
                 sfx_play(env, "start");   /* ★ 原版对齐：开局音效 Junqi.Start → data_junqi_start.wav（SPEC §5） */
                 ui_screen_set(UI_GAME);
@@ -9680,6 +9739,7 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
             if (h73 == 0) {   /* 开始 → 本地开局（诚实边界简化：联机创建游戏未逆向） */
                 pthread_mutex_lock(&g_mutex);
                 jq_restart_game();
+                bt_broadcast_restart(env);   /* ★ C-22：重开广播对端（联机态） */
                 pthread_mutex_unlock(&g_mutex);
                 sfx_play(env, "start");   /* ★ 原版对齐：开局音效 Junqi.Start → data_junqi_start.wav（SPEC §5） */
                 ui_screen_set(UI_GAME);
@@ -9831,6 +9891,7 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
                 int sess_init_done_snap;
                 pthread_mutex_lock(&g_mutex);
                 jq_restart_game();
+                bt_broadcast_restart(env);   /* ★ C-22：重开广播对端（联机态） */
                 sess_init_done_snap = g_bt_sess_init_done;   /* ★ AUD-1000 B03-047（P1 已修）：锁内快照 */
                 pthread_mutex_unlock(&g_mutex);
                 sfx_play(env, "start");   /* ★ 原版对齐：开局音效 Junqi.Start → data_junqi_start.wav（SPEC §5） */
@@ -9995,6 +10056,7 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
     if (nx < 0.15f && ny < 0.10f) {
         pthread_mutex_lock(&g_mutex);
         jq_restart_game();
+        bt_broadcast_restart(env);   /* ★ C-22：重开广播对端（联机态） */
         pthread_mutex_unlock(&g_mutex);
         sfx_play(env, "start");   /* ★ 原版对齐：开局音效 Junqi.Start → data_junqi_start.wav（SPEC §5） */
         LOGI("OnTouch 游戏内重开：左上角重开按钮（default.lay 重新开局，stage=PLAY 蓝先手）");
@@ -10010,6 +10072,29 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
     pthread_mutex_lock(&g_ts_lock);
     int ev = jq_touch_state_process(&g_ts, x, y, g_view_w, g_view_h, &from, &to);
     pthread_mutex_unlock(&g_ts_lock);
+    /* ★ Round 1 对抗审计 C-18（P1 协议级修复）：蓝牙联机对局的**回合闸口缺失**——
+       旧实现对局触摸路径完全不看 BT 回合状态：SELECT 任意格可选中（含对端棋色/暗子/
+       空格），MOVE 直接 jq_can_move（只校验 st->turn 侧棋子，**不校验本机是否持有
+       该回合**）→ 联机客户端在 THEIR_TURN 期间可"自由动蓝方棋子"，本地 g_state 被
+       静默改写（发送侧因 sess_state≠OUR_TURN 被拒 → 本地改了但对端不知）→ **双端
+       发散**（并泄露暗棋对端子布局）。
+       修：BT 激活且当前不是本方回合（sess.state != BT_ST_OUR_TURN）→ 整个两步态机
+       短路（消费触摸但不改棋局），并清选中态（避免残留 SELECTED 格）。 */
+    if (ui_bt_active() && g_bt_sess_init_done) {
+        int sess_state_now;
+        pthread_mutex_lock(&g_mutex);
+        sess_state_now = (int)g_bt_sess.state;
+        pthread_mutex_unlock(&g_mutex);
+        if (sess_state_now != BT_ST_OUR_TURN) {
+            pthread_mutex_lock(&g_ts_lock);
+            jq_touch_state_reset(&g_ts);
+            pthread_mutex_unlock(&g_ts_lock);
+            if (jq_glview_is_ready()) jq_glview_set_selected(&g_glview, -1);
+            LOGI("OnTouch 蓝牙回合闸口：非本方回合（sess=%d）→ 消费触摸不改棋局", sess_state_now);
+            (void)clazz;
+            return JNI_TRUE;
+        }
+    }
     if (ev != 0) {
         LOGI("OnTouch 走子态机：ev=%d（SELECT/UNSELECT/MOVE）from=%d to=%d（cell 索引）",
              ev, from, to);
