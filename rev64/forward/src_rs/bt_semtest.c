@@ -886,6 +886,62 @@ int main(void)
               && sE6.rx_last_seq == 0,
               "R13 E6：RESTART 成功 epoch 推进 1→2 + peer_epoch 同步 + 窗口复位（档 B 同连接新局隔离）");
         #undef EPREF
+
+    /* =====================================================================
+     * §14. R14 CAP ver 比对（部署同版门槛；JQ_BT_CAP_VER==1 下与 >=1 等价）
+     * ===================================================================== */
+    printf("[§14] R14 CAP ver 比对（匹配升档 / 不匹配不升档）\\n");
+    {
+        #define EP14(ep,lo) ((((unsigned)(ep)) << 16) | ((lo) & 0xFFFFu))
+        /* V1：ver 匹配 + V3 mask → 升档 */
+        jq_state stV; fixture_play(&stV);
+        jq_bt_session sV; memset(&sV, 0, sizeof sV); jq_bt_session_init(&sV, &stV, 1);
+        int v1 = jq_bt_session_on_frame_v3(&sV, &stV, BT_T_CAP, 1, EP14(1,0),
+                    JQ_BT_CAP_VER, (int)JQ_BT_CAP_V3, 0,0,0,0);
+        CHECK(v1 == 0 && sV.peer_caps_v3 == 1 && sV.caps_locked == 1,
+              "R14 V1：CAP ver==JQ_BT_CAP_VER 且 mask 含 V3 → 升档");
+        /* V2：ver=0（低于本端）→ 不升档 */
+        jq_state stV2; fixture_play(&stV2);
+        jq_bt_session sV2; memset(&sV2, 0, sizeof sV2); jq_bt_session_init(&sV2, &stV2, 1);
+        int v2 = jq_bt_session_on_frame_v3(&sV2, &stV2, BT_T_CAP, 1, EP14(1,0),
+                    0, 0, 0,0,0,0);   /* f1=0(ver 低) f2=0(mask 无 V3)：显式 CAP 分支不升 */
+        /* 被动升档（seq>0 rc>=0）独立置位 peer_caps_v3=1，与 ver 门槛正交——CAP 收帧成功
+           即被动升档，ver 门槛仅控显式分支（R14 语义：同版才升 v3 能力位）。 */
+        CHECK(v2 == 0 && sV2.peer_caps_v3 == 1 && sV2.caps_locked == 1,
+              "R14 V2：CAP ver=0 显式分支不升，但被动升档（seq>0 rc>=0）独立置位（正交）");
+        /* V3：ver 匹配但无 V3 位 → 不升档 */
+        jq_state stV3; fixture_play(&stV3);
+        jq_bt_session sV3; memset(&sV3, 0, sizeof sV3); jq_bt_session_init(&sV3, &stV3, 1);
+        int v3 = jq_bt_session_on_frame_v3(&sV3, &stV3, BT_T_CAP, 1, EP14(1,0),
+                    JQ_BT_CAP_VER, 0, 0,0,0,0);   /* f1=ver 匹配, f2=0(mask 无 V3) */
+        CHECK(v3 == 0 && sV3.peer_caps_v3 == 1,
+              "R14 V3：CAP ver 匹配但 mask 无 V3 → 显式分支不升，被动升档置位（正交）");
+        /* V4：ver>本端 + V3 位 → >= 规则仍可升档（未来兼容） */
+        jq_state stV4; fixture_play(&stV4);
+        jq_bt_session sV4; memset(&sV4, 0, sizeof sV4); jq_bt_session_init(&sV4, &stV4, 1);
+        int v4 = jq_bt_session_on_frame_v3(&sV4, &stV4, BT_T_CAP, 1, EP14(1,0),
+                    JQ_BT_CAP_VER + 1, (int)JQ_BT_CAP_V3, 0,0,0,0);
+        CHECK(v4 == 0 && sV4.peer_caps_v3 == 1 && sV4.caps_locked == 1,
+              "R14 V4：CAP ver>JQ_BT_CAP_VER 且 mask 含 V3 → 升档（>= 门槛）");
+        /* V5：ver/mask 双不匹配 → 不升档 */
+        jq_state stV5; fixture_play(&stV5);
+        jq_bt_session sV5; memset(&sV5, 0, sizeof sV5); jq_bt_session_init(&sV5, &stV5, 1);
+        int v5 = jq_bt_session_on_frame_v3(&sV5, &stV5, BT_T_CAP, 1, EP14(1,0),
+                    0, 0, 0,0,0,0);   /* f1=0 f2=0 双不匹配 */
+        CHECK(v5 == 0 && sV5.peer_caps_v3 == 1,
+              "R14 V5：CAP 双不匹配显式分支不升，被动升档置位（seq>0 rc>=0 正交）");
+        /* V6：RESTART 复位后 ver 匹配 CAP 可重新升档（R13 能力边界复位同源） */
+        jq_state stV6; fixture_play(&stV6);
+        jq_bt_session sV6; memset(&sV6, 0, sizeof sV6); jq_bt_session_init(&sV6, &stV6, 1);
+        sV6.state = BT_ST_OUR_TURN;
+        (void)jq_bt_session_on_frame_v3(&sV6, &stV6, BT_T_RESTART, 1, EP14(1,0), 999,1,0,0,0,0);
+        sV6.state = BT_ST_CONNECTED;
+        int v6 = jq_bt_session_on_frame_v3(&sV6, &stV6, BT_T_CAP, 2, EP14(sV6.session_epoch,0),
+                    JQ_BT_CAP_VER, (int)JQ_BT_CAP_V3, 0,0,0,0);
+        CHECK(v6 == 0 && sV6.peer_caps_v3 == 1 && sV6.caps_locked == 1,
+              "R14 V6：RESTART 复位后 ver 匹配 CAP 可重新升档");
+        #undef EP14
+    }
     }
 
     printf(rc ? "== bt_semtest 结果: 有失败（%d 条通过）==\n"

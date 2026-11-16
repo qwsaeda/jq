@@ -1763,6 +1763,28 @@ Java_com_qwsaeda_App_OnCreate(JNIEnv *env, jclass clazz, jobject activity)
             __system_property_set("jq.event_inv", "0");
         }
     }
+    /* ★ R14（部署能力矩阵诊断，55codetest/event_inv 同族）：setprop jq.bt_ver 1 →
+       打印本端 ver/caps/epoch + 对端观测 + 降级判定；一次性清 0；纯 native、无 g_mutex
+       （诊断读 g_bt_sess 与 event_inv 读全局同容忍度）。 */
+    {
+        char bvv[8] = {0};
+        __system_property_get("jq.bt_ver", bvv);
+        if (bvv[0] == '1') {
+            int downgrade = (g_bt_sess_init_done
+                             && !g_bt_sess.peer_caps_v3 && !g_bt_sess.caps_locked);
+            LOGI("jq.bt_ver：本端 ver=%d mask=0x%x ep=%u tx=%u"
+                 " | 对端 peer_caps_v3=%u caps_locked=%u peer_ep=%u rx=%u"
+                 " | sess_init=%d 降级判定=%s（v2维持=%d）",
+                 JQ_BT_CAP_VER, (int)JQ_BT_CAP_V3,
+                 (unsigned)g_bt_sess.session_epoch, g_bt_sess.tx_seq,
+                 (unsigned)g_bt_sess.peer_caps_v3, (unsigned)g_bt_sess.caps_locked,
+                 (unsigned)g_bt_sess.peer_epoch, g_bt_sess.rx_last_seq,
+                 (int)g_bt_sess_init_done,
+                 downgrade ? "SUSPECT_OLD_PEER" : "V3_OR_UNKNOWN",
+                 downgrade);
+            __system_property_set("jq.bt_ver", "0");
+        }
+    }
     /* 明棋开局：全子 revealed=1（棋子画正面 rank 映射，50 子全可见；
        暗棋玩法后续加"翻棋"交互——点背面格 revealed=1 露出 rank）。
        渲染器在下方 jq_glview_init 快照 g_state，故必须先设 revealed。 */
@@ -10554,6 +10576,21 @@ Java_com_qwsaeda_App_OnBluetooth(JNIEnv *env, jclass clazz, jobject intent)
             int rc = jq_bt_session_on_frame_v3(&g_bt_sess, &g_state,
                                                v3_type, v3_seq, v3_ref,
                                                f[1], f[2], f[3], f[4], f[5], f[6]);
+            /* ★ R14（单端升级检测）：decode_any 归一化 v2 帧 => v3_seq==0 且本会话未收
+               CAP/未被动升 v3（peer_caps_v3==0）=> 对端疑似旧版，降级 v2 维持。
+               一次性日志（按 session_epoch 防刷屏）；锁内读 g_bt_sess 与 rc 判定同域。 */
+            {
+                static unsigned short s_legacy_peer_log_ep = 0;
+                if (rc >= 0 && v3_seq == 0
+                    && g_bt_sess.peer_caps_v3 == 0 && g_bt_sess.caps_locked == 0
+                    && g_bt_sess_init_done
+                    && g_bt_sess.session_epoch != s_legacy_peer_log_ep) {
+                    LOGI("BT 部署诊断：对端疑似旧版（无 CAP/v3，收 v2 帧 seq=0），"
+                         "降级 v2 维持（peer_caps_v3=0 epoch=%u）",
+                         (unsigned)g_bt_sess.session_epoch);
+                    s_legacy_peer_log_ep = g_bt_sess.session_epoch;
+                }
+            }
             /* ★ 蓝牙 UNDO 收帧侧闭环（对抗审计 P1-B9 / P1-J12 PENDING → 真接线）：
                对端发 BT_T_UNDO = "我已悔棋"（本端之前发的 UNDO 帧的对端应答）。
                bt_session 侧只切回合（不持有悔棋栈），真实回退必须在本文件做——
@@ -10781,5 +10818,9 @@ JNI_OnLoad(JavaVM *vm, void *reserved)
         }
     }
     g_assets = NULL;   /* 由 OnCreate 主线程反射 getAssets() 填（AAssetManager 实例） */
+    /* ★ R14（双端同版部署判据）：so 加载期版本锚点——JQ_BT_CAP_VER/CAP_V3 与
+       bt_protocol.h 同源，logcat 可机判"双端是否同版/是否支持 CAP+epoch"。 */
+    LOGI("BT 协议版本 = v%d（CAP/epoch 支持，cap_mask=0x%x）",
+         JQ_BT_CAP_VER, (int)JQ_BT_CAP_V3);
     return JNI_VERSION_1_2;
 }

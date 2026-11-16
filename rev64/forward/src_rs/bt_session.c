@@ -304,7 +304,10 @@ int jq_bt_session_on_frame(jq_bt_session *s, jq_state *st,
            白名单穿透（重连/断连后重握手仅升档能力位）。双路升档同源：显式 CAP 置位 +
            on_frame_v3 被动(seq>0,rc>=0)置位，幂等收敛。f2>=1 且 f3&JQ_BT_CAP_V3 才升。 */
         s->last_type = f1;
-        if (f2 >= 1 && (f3 & JQ_BT_CAP_V3)) {
+        /* ★ R14（映射纠正）：on_frame 形参 f1=cap_ver（归一化 f1），f2=cap_mask（归一化 f2）
+           ——on_frame_v3 非 UNDO 映射 on_frame(s,st,type,f1,f2,f3,f4,f5,f6)，ver 落 f1。
+           ver<本端支持 ver 不升 v3（部署同版门槛）；当前 JQ_BT_CAP_VER==1，与旧式等价。 */
+        if (f1 >= JQ_BT_CAP_VER && (f2 & JQ_BT_CAP_V3)) {
             s->peer_caps_v3 = 1;
             s->caps_locked  = 1;
         }

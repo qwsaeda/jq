@@ -67,7 +67,21 @@ baksmali d --api $API dex/classes.dex -o smali_out 2>&1 | head -2
 
 cp smali_out/com/cnvcs/*.smali "$RA/dec_dual/smali/com/cnvcs/"
 cp smali_out/com/cnvcs/*.smali "$RA/dec_full/smali/com/cnvcs/"
-echo "✓ BtSpp smali 已合并到 dec_dual + dec_full（$(find smali_out -name '*.smali' | wc -l) 文件）"
+# ★ R14（BtSpp 同步缺口根治，回执①路径②）：dec_rs = com.qwsaeda 正向打包树，App.smali
+#   静态引用 Lcom/qwsaeda/BtSpp（3 处 sendFrame/startHost/startClient）但 smali 源缺类 →
+#   bt 路径 NoClassDefFoundError。cnvcs smali sed 改包名（含 $1-$3 内部类）合入 dec_rs qwsaeda。
+#   双栈 v3 帧解析在 BtSpp$3（indexOf "v2\n"/"v3\n"），漏拷内部类 = 读线程缺失运行期崩。
+if [ -d "$RA/dec_rs/smali/com/qwsaeda" ]; then
+    rm -f "$RA/dec_rs/smali/com/qwsaeda/BtSpp"*.smali 2>/dev/null
+    for f in BtSpp 'BtSpp$1' 'BtSpp$2' 'BtSpp$3'; do
+        [ -f "smali_out/com/cnvcs/$f.smali" ] || continue
+        sed 's#Lcom/cnvcs#Lcom/qwsaeda#g; s#com/cnvcs#com/qwsaeda#g' \
+            "smali_out/com/cnvcs/$f.smali" > "$RA/dec_rs/smali/com/qwsaeda/$f.smali"
+    done
+    grep -q "Lcom/cnvcs" "$RA/dec_rs/smali/com/qwsaeda/BtSpp.smali" 2>/dev/null \
+        && echo "✗ dec_rs BtSpp cnvcs 残留" || echo "✓ BtSpp smali（qwsaeda，4 文件含内部类）已合入 dec_rs"
+fi
+echo "✓ BtSpp smali 已合并到 dec_dual + dec_full + dec_rs(qwsaeda)（$(find smali_out -name '*.smali' | wc -l) 文件）"
 
 # ★ App.smali + App$BtStart 同步：dec_full 为手工编辑源（showInfo/bt 方法/全面屏），
 #   dec_dual 派生——一条命令保两树一致（防 App.smali 手工改后忘同步 dec_dual）。
