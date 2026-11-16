@@ -6986,3 +6986,42 @@ jq_rs_rules.c 注释定论。
   `}` 两层嵌套，替换时误删外层 `}` 导致编译错 → 补回）③ GL 三表 R9 最小 diff +
   R10 X-macro 两步走（先补漏再统一来源）比一步到位更易验证，且 0 行为变化可逐步实锤。
 
+
+### 112. 「对齐」对抗审计 Round 11（C v3 完整帧协议全 6 Step 落地，bt_semtest 100→120）（§112 2026-11-16）
+
+- **★ R11-C 完整帧协议全闭环（4 commit：2fec797/e1db457/9bee4d1/8bfa39c）**——R10 回执
+  97 条设计冻结 → R11 全 6 Step 落地：
+  - **Step 1 bt_protocol v3 双栈 API**（`2fec797`）：encode_v3/decode_v3/decode_any
+    （v3\n + 10 字段 type/seq/ref/f1..f6，seq/ref 独立控制槽；v2 既有 API 0 改动；
+    decode_any v3 优先 + v2 归一化 seq=ref=0 + v2 UNDO R9 语义迁移 f1=seq/f2=ref/
+    f3=hash|reason/f4=kind → 独立槽）。坑：decode_v3 首锚 strncmp 长度写 4 误读字符串
+    第 4 字节 null（"v3\n" 长度 3）→ 数据行首数字 ≠ null 首锚永不命中，改 3 实锤。
+  - **Step 3 BtSpp.java 双栈重组**（`e1db457`）：读线程单头 indexOf(v2) → 双头
+    min(iv2,iv3) 逐帧抽取（v2/v3 头同长 3 字节）+ 噪声双版本丢弃 + 32KB 上限兼容；
+    sendFrame/attach/disconnect/App.OnBluetooth 契约 0 改动；bt_smali.sh:92 marker
+    扩 v2\\\\n|v3\\\\n + smali 全链 verify PASS（4 文件 + App bt 方法=5）。
+  - **Step 4/5 全局 seq 去重 + RESTART 复位**（`9bee4d1`）：on_frame_v3 封装（旧
+    on_frame 7 字段签名不变 = 79 处调用点 0 级联）：① 前置全局判重（seq>0 且
+    rx_last_seq>0：重复帧非 UNDO 静默丢弃 / 旧包 seq<rx 拒 -1 / UNDO 豁免直达 case
+    保 REQ_DUP 重发缓存）② 映射回旧 7 字段（UNDO seq→f2/ref→f3 对齐 case 读位）
+    ③ 成功消费逐 case 登记 rx_last_seq + RESTART 成功尾复位 12 字段（窗口/UNDO 事务）；
+    收帧 jq_bt_frame_decode→decode_any + on_frame→on_frame_v3 + 整帧推进 strspn
+    "v2\n"→"v23\n"。
+  - **Step 6 发端双栈 + 能力探测**（`8bfa39c`）：peer_caps_v3/caps_locked（收 v3
+    帧升档 + 会话内不翻转；RESTART 复位清能力位防跨局残留）；jq_bt_ctrl_send 按
+    peer_caps_v3 选 encode_v3(seq 单调)/v2 0 退化（取号+能力位快照 g_mutex 内防
+    tx_seq 数据竞争）。
+- **桌面单测演进（bt_semtest 100→120）**：§6 v3 双栈编解码 7 场景（round-trip/
+  decode_any/v2 归一化/v2 UNDO 迁移/legacy/噪声拒收/cap 边界）+ §7 全局 seq 去重
+  5 场景（DRAW 做登记隔离：接受/重复丢弃/推进/旧包拒/RESTART 复位 + UNDO ACK/
+  REQ 重放）+ §8 能力探测 3 场景（收 v3 升档+v2 不升+RESTART 清能力位）。
+- **攻坚坑（R11 新增 5 条，防复发）**：① C99 goto 跨 int 声明（跳入带初始化
+  声明编译错）→ 改显式分支 ② UNDO 归一化 seq/ref 映射须对齐旧 case 读位 f2/f3
+  （非直填 f1..f6，v3 独立槽 seq/ref 映射到旧数据域位）③ 前置全局判重须 UNDO
+  豁免（否则 REQ_DUP 重发缓存被吞 → 事务悬挂）④ g_bt_sess_init_done 定义晚于
+  jq_bt_ctrl_send → 前向声明（单一实定义）⑤ 块插入残留旧尾（脚本 anchor 未清
+  §7 尾 g_bt_undo_avail=0;}）→ sed 精删。
+- **诚实边界（R11 收口）**：无 BT 硬件端到端 = 真机 PENDING；收帧双栈（v3/v2）+
+  发端双栈（encode_v3 切换）+ 能力探测全通；**当前过渡态 = 收 v3 发 v2 受控混跑**
+  （peer_caps_v3=0 时对 v2-only 对端 seq_dedup partial）；跨重启/重连 seq 窗口
+  强一致 + hash 真值校验 + 混跑矩阵 bt_semtest_dual = R12 输入。
