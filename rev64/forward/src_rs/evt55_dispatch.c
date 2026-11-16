@@ -88,6 +88,66 @@ static int e55_do_code(int code)
 
 /* 对外声明（供 jni_bridge.c 调用） */
 int jq_evt55_dispatch(int code, const char *evname);
+/* ★ R8-B-01（P0）：事件单一入口 by_name——name→查表精确 55code→dispatch(code,name)。
+   计数口径 0 变化证明：jq_evt55_dispatch 以 evname 精确命中 73 表选 idx
+   （:114-120），code 仅影响越界拒收与 handler 诊断（e55_handler_addr），
+   故 73 合法名 by_name 与旧硬编码 code+名 同 idx 同增 1；_checked 未命中
+   （NULL/非 73 名）→ 不调 dispatch 不计数 返 0（R7-B-05 拒计数语义）。 */
+int jq_evt55_dispatch_by_name(const char *evname)
+{
+    int code = -1;
+    if (!jq_evt55_name_to_55code_checked(evname, &code)) return 0;
+    return jq_evt55_dispatch(code, evname);
+}
+
+/* ★ R8-B-07（P0）：Σ 计数不变量单点 API——Σ g_event_cnt[i] == g_event_total。
+   仅当"计数被接受"（idx 有效）时两者同增 1（:130-133 同点双写），
+   拒计数路径（idx=-1 不累加）天然满足。O(73) 纯读无锁（诊断用途，
+   与 g_event_cnt/g_event_total 现有 int 单字读写契约一致）。 */
+int jq_event_count_invariant_ok(void)
+{
+    extern int g_event_cnt[];
+    extern int g_event_total;
+    long long sum = 0;
+    for (int i = 0; i < JQ_EVENT_NAME_COUNT; i++) sum += g_event_cnt[i];
+    return (sum == (long long)g_event_total) ? 1 : 0;
+}
+
+/* ★ R8-B-08/09（P1）：count-only API（"无独立 55code"手工旁路/7 码直写收敛，
+   R7-B-08/09 定案）——仅计数不走 e55_do_code/handler 诊断；未知名拒计数。
+   双计审计（R7-B 回执 13 路径 0 双计）：5 手工旁路 + 8 直写均无前置
+   dispatch，收敛后每事件恰好 +1。 */
+int jq_evt55_count_by_name(const char *evname)
+{
+    extern int g_event_cnt[];
+    extern int g_event_total;
+    if (!evname) return 0;
+    for (int i = 0; i < JQ_EVENT_NAME_COUNT; i++) {
+        if (strcmp(evname, jq_event_names_73[i]) == 0) {
+            g_event_cnt[i]++;
+            g_event_total++;
+            return 1;
+        }
+    }
+    return 0;
+}
+
+int jq_evt55_count_7code(int ev)
+{
+    /* ★ R8-B-09 名级映射定案（实锤）：7 码域 0..6 → 73 名表索引（与 jni_bridge.c
+       ev7_to_name_idx 同口径——EV_MINE(5) 名级 = Junqi.Move（同 Junqi.Move 走子
+       语义，name idx 0），EV_FLIP(6) = Junqi.Flip（idx 5））：
+         ev 0..4 → name idx 0..4（Move/Eat/Bomb/Flag/Dead）
+         ev 5    → name idx 0（EV_MINE = Move）
+         ev 6    → name idx 5（EV_FLIP = Flip）
+       经 jq_evt55_count_by_name 名级命中 73 表 → g_event_cnt[idx]++/g_event_total++。 */
+    static const char *const ev7_name[7] = {
+        "Junqi.Move", "Junqi.Eat", "Junqi.Bomb", "Junqi.Flag",
+        "Junqi.Dead", "Junqi.Move", "Junqi.Flip"
+    };
+    return jq_evt55_count_by_name((ev >= 0 && ev < 7) ? ev7_name[ev] : NULL);
+}
+
 int jq_evt55_name_to_code(const char *evname);
 const char *jq_evt55_code_to_evname_str(int code);
 

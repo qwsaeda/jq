@@ -369,6 +369,11 @@ int  jq_evt55_dispatch(int code, const char *evname);      /* 1=成功 0=越界 
 int  jq_evt55_name_to_code(const char *evname);            /* 事件名→code，-1/0=兜底 */
 const char *jq_evt55_code_to_evname_str(int code);          /* code→事件名（日志用） */
 int  jq_evt55_name_to_55code(const char *evname);          /* 76事件名→55code（原版全链，深水区） */
+int  jq_evt55_name_to_55code_checked(const char *evname, int *out_code); /* ★ R8-B-05：命中 73 表→1；NULL/未知→-1/0（拒计数） */
+int  jq_evt55_dispatch_by_name(const char *evname);         /* ★ R8-B-01 单一入口：name→精确 code→dispatch+计数（未知名拒计数返 0） */
+int  jq_event_count_invariant_ok(void);                    /* ★ R8-B-07：Σ g_event_cnt == g_event_total（O(73) 纯读） */
+int  jq_evt55_count_by_name(const char *evname);            /* ★ R8-B-08/09：count-only（手工旁路收敛，无 55code 语义） */
+int  jq_evt55_count_7code(int ev);                          /* ★ R8-B-09：7 码域 count-only（JQ_EVENT_NAMES[ev] 名级） */
 int  jq_evt55_name_to_biz(const char *evname);             /* 76事件名→12业务码（诊断/统计） */
 const char *jq_evt55_sfx_for_name(const char *evname);     /* 76事件名→音效WAV名（原版音效分类对齐） */
 

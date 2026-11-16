@@ -1181,16 +1181,12 @@ static const char *on_event(const char *name, const char *value, JNIEnv *env)
         return "resign";   /* 音效用 resign 兜底（原版无独立 regret WAV） */
     } else if (strcmp(name, "resign_agree") == 0) {
         /* 原版 Junqi.RegretAgree 悔棋同意——64位简化版：对端同意→收帧侧 undo_pop 闭环。 */
-        extern int g_event_cnt[];
-        for (int _i = 0; _i < JQ_EVENT_NAME_COUNT; _i++)
-            if (!strcmp(jq_event_names_73[_i], "Junqi.RegretAgree")) { g_event_cnt[_i]++; g_event_total++; break; }
+        jq_evt55_count_by_name("Junqi.RegretAgree");   /* ★ R8-B-08：手工查名计数旁路收敛单入口（count-only） */
         LOGI("OnEvent regret_agree → 对端同意悔棋（原版 Junqi.RegretAgree name idx 21，收帧侧 undo_pop；诚实边界：简化版不独立处理同意帧）");
         return NULL;
     } else if (strcmp(name, "resign_disagree") == 0) {
         /* 原版 Junqi.RegretDisagree 悔棋拒绝——64位简化版：对端拒绝，本地无操作。 */
-        extern int g_event_cnt[];
-        for (int _i = 0; _i < JQ_EVENT_NAME_COUNT; _i++)
-            if (!strcmp(jq_event_names_73[_i], "Junqi.RegretDisagree")) { g_event_cnt[_i]++; g_event_total++; break; }
+        jq_evt55_count_by_name("Junqi.RegretDisagree");   /* ★ R8-B-08：手工查名计数旁路收敛单入口（count-only） */
         LOGI("OnEvent regret_disagree → 对端拒绝悔棋（原版 Junqi.RegretDisagree name idx 22，诚实边界：简化版不独立处理拒绝帧）");
         return NULL;
     } else if (strcmp(name, "draw_req") == 0) {
@@ -1223,9 +1219,7 @@ static const char *on_event(const char *name, const char *value, JNIEnv *env)
         jq_show_dialog(env, "加入游戏（诚实边界）",
             "联机加入游戏未逆向（原版需服务器协议），\nsrc_rs 离线单机不支持多人房间。");
         sfx_play(env, "close");
-        extern int g_event_cnt[];
-        for (int _i = 0; _i < JQ_EVENT_NAME_COUNT; _i++)
-            if (!strcmp(jq_event_names_73[_i], "Junqi.JoinGame")) { g_event_cnt[_i]++; g_event_total++; break; }
+        jq_evt55_count_by_name("Junqi.JoinGame");   /* ★ R8-B-08：手工查名计数旁路收敛单入口（count-only） */
         LOGI("OnEvent join_game → 边界对话框（原版 Junqi.JoinGame，73-name 计数对齐，联机协议未逆向）");
         return "close";
     } else if (strcmp(name, "leave_game") == 0) {
@@ -1238,9 +1232,7 @@ static const char *on_event(const char *name, const char *value, JNIEnv *env)
         sfx_play(env, "close");
         /* leave_game 无独立 55code（原版 F_55d40 switch 未含 LeaveGame，
            诚实边界：73-name 索引直接计数对齐） */
-        extern int g_event_cnt[];
-        for (int _i = 0; _i < JQ_EVENT_NAME_COUNT; _i++)
-            if (!strcmp(jq_event_names_73[_i], "Junqi.LeaveGame")) { g_event_cnt[_i]++; g_event_total++; break; }
+        jq_evt55_count_by_name("Junqi.LeaveGame");   /* ★ R8-B-08：手工查名计数旁路收敛单入口（count-only） */
         LOGI("OnEvent leave_game → 退对局回主菜单（原版 Junqi.LeaveGame，73-name 计数对齐）");
         return "close";
     } else if (strcmp(name, "game_over") == 0) {
@@ -1265,16 +1257,9 @@ static const char *on_event(const char *name, const char *value, JNIEnv *env)
         sfx_play(env, "lose");
         /* resign_confirm 无独立 55code（原版 F_55d40 switch 未含 ResignConfirm，
            诚实边界：73-name 索引 19=ResignConfirm 仅计数对齐，code 兜底 24=Resign） */
-        extern int g_event_cnt[];
-        /* ★ AUD-1000-ALL A2-048（P1 已修）：g_event_cnt[19] 硬编码下标→按 73 名表精确
-           查表（ResignConfirm 非 7 事件码，ev7_to_name_idx 不适用；防 73 表重排漂移，
-           与 B03-012 查表口径一致）。下标 = jq_event_names_73 中 "Junqi.ResignConfirm"
-           的位置（:25 = [19]）。 */
-        int _rc = -1;
-        for (int _i = 0; _i < JQ_EVENT_NAME_COUNT; _i++)
-            if (strcmp(jq_event_names_73[_i], "Junqi.ResignConfirm") == 0) { _rc = _i; break; }
-        if (_rc < 0) _rc = 19;   /* 兜底（73 表重排时安全回退到旧下标） */
-        g_event_cnt[_rc]++; g_event_total++;   /* Junqi.ResignConfirm name idx 计数（查表非硬编码） */
+        jq_evt55_count_by_name("Junqi.ResignConfirm");   /* ★ R8-B-08：resign_confirm 旁路
+           收敛单入口（count-only；A2-048 查表口径由 jq_evt55_count_by_name 内部 73 表
+           精确命中承担，旧手工 _rc 查表+兜底 19 退场）。 */
         LOGI("OnEvent resign_confirm → 认输确认（原版 Junqi.ResignConfirm name idx 19，code 兜底 24）");
         return "lose";
     } else if (strcmp(name, "restart") == 0) {
@@ -2391,7 +2376,7 @@ Java_com_qwsaeda_App_OnCreate(JNIEnv *env, jclass clazz, jobject activity)
                从 UI_MENU(1188) 改到 UI_GAME——仅测试 prop 触发时发生（非默认路径），
                渲染层进棋盘而非菜单，与测试语义一致，保留。 */
             int ftev = jq_try_move(&g_state, 53, 58);
-            if (ftev >= 0 && ftev < 7) { g_event_cnt[ev7_to_name_idx(ftev)]++; g_event_total++; }   /* AUD-R-061：7 项事件码（AUD-A-0003：下界+上界守卫已全，真修确认关闭） */
+            if (ftev >= 0 && ftev < 7) jq_evt55_count_7code(ftev);   /* ★ R8-B-09：7 码直写收敛单入口（count-only） */   /* AUD-R-061：7 项事件码（AUD-A-0003：下界+上界守卫已全，真修确认关闭） */
             LOGI("flagtest：近旗状态注入 + 自动走 53→58 ev=%d %s（turn=%d stage=%d winner=%d）",
                  ftev, ftev < 0 ? "-" : JQ_EVENT_NAMES[ftev < 7 ? ftev : 0],
                  g_state.turn, g_state.stage, g_state.winner);
@@ -2425,7 +2410,7 @@ Java_com_qwsaeda_App_OnCreate(JNIEnv *env, jclass clazz, jobject activity)
                UI_MENU 改到 UI_GAME（测试钩子改主界面初态，与 flagtest 同款），
                仅测试 prop 触发时发生，非默认路径；保留（测试钩子语义，标注）。 */
             int mtev = jq_try_move(&g_state, 49, 54);
-            if (mtev >= 0 && mtev < 7) { g_event_cnt[ev7_to_name_idx(mtev)]++; g_event_total++; }   /* AUD-R-061：7 项事件码（AUD-A-0004：下界+上界守卫已全，真修确认关闭） */
+            if (mtev >= 0 && mtev < 7) jq_evt55_count_7code(mtev);   /* ★ R8-B-09：7 码直写收敛单入口（count-only） */   /* AUD-R-061：7 项事件码（AUD-A-0004：下界+上界守卫已全，真修确认关闭） */
             LOGI("minetest：挖雷状态注入 + 自动走 49→54 ev=%d %s（turn=%d stage=%d）",
                  mtev, mtev < 0 ? "-" : JQ_EVENT_NAMES[mtev < 7 ? mtev : 0], g_state.turn, g_state.stage);
             sfx_play(env, "move");
@@ -2864,7 +2849,7 @@ Java_com_qwsaeda_App_OnTimer(JNIEnv *env, jclass clazz)
                OnTimer/OnUpdate/OnTouch 三处 AI 块共用同一契约（B03-008 收敛点=同 g_mutex 互斥 + turn 判定去重） */
             if (flip) {
                 int frc = 0;
-                if (jq_flip(&g_state, from)) { frc = 1; ui_replay_record(from, from, 1); g_event_cnt[ev7_to_name_idx(EV_FLIP)]++; g_event_total++; ai_ev = EV_FLIP; }   /* AUD-R-061：翻棋计数走 EV_FLIP=6 位 */   /* ★ P1（datah_039/107）：AI 翻棋记录 */
+                if (jq_flip(&g_state, from)) { frc = 1; ui_replay_record(from, from, 1); jq_evt55_count_7code(EV_FLIP);   /* ★ R8-B-09：翻棋 7 码直写收敛 */ ai_ev = EV_FLIP; }   /* AUD-R-061：翻棋计数走 EV_FLIP=6 位 */   /* ★ P1（datah_039/107）：AI 翻棋记录 */
                 if (!frc && pushed) undo_pop_discard();   /* ★ AUD-1000-ALL A9-001~004（P1 已修）：jq_flip bool 契约（成功 1/失败 0），frc<0 恒假死条件→翻棋失败脏快照不回滚；改 !frc（失败即回滚栈顶） */   /* 翻棋失败回滚栈顶快照 */
             } else {
                 int e = jq_try_move(&g_state, from, to);
@@ -3566,7 +3551,7 @@ Java_com_qwsaeda_App_OnUpdate(JNIEnv *env, jclass clazz)
                    块同 g_mutex 互斥 + turn==RED 判定天然去重（turn 切回 BLUE 后不再重跑 O(N²)） */
                 if (flip) {
                     int frc = 0;
-                    if (jq_flip(&g_state, from)) { frc = 1; ui_replay_record(from, from, 1); g_event_cnt[ev7_to_name_idx(EV_FLIP)]++; g_event_total++; }   /* AUD-R-061：翻棋计数走 EV_FLIP=6 位 */   /* ★ P1（datah_039/107）：AI 翻棋记录 */
+                    if (jq_flip(&g_state, from)) { frc = 1; ui_replay_record(from, from, 1); jq_evt55_count_7code(EV_FLIP);   /* ★ R8-B-09：翻棋 7 码直写收敛 */ }   /* AUD-R-061：翻棋计数走 EV_FLIP=6 位 */   /* ★ P1（datah_039/107）：AI 翻棋记录 */
                     if (!frc && pushed) undo_pop_discard();   /* ★ AUD-1000-ALL A9-001~004（P1 已修）：jq_flip bool 契约（成功 1/失败 0），frc<0 恒假死条件→翻棋失败脏快照不回滚；改 !frc（失败即回滚栈顶） */
                     LOGI("红方 AI 应着（翻棋）：cell=%d（turn 切回蓝方）", from);
                 } else {
@@ -9981,7 +9966,7 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
                     int from, to, flip;
                     if (ai_pick(&from, &to, &flip) == 0) {
                         int pushed = undo_push();   /* ★ AUD-1000 B03-008（P1 已修）：☰ 电脑变着 push 契约 */
-                        if (flip) { int frc = 0; if (jq_flip(&g_state, from)) { frc = 1; ui_replay_record(from, from, 1); g_event_cnt[ev7_to_name_idx(EV_FLIP)]++; g_event_total++; }   /* AUD-R-061：翻棋计数走 EV_FLIP=6 位 */   /* ★ P1（datah_039/107）：电脑变着翻棋记录 */ if (!frc && pushed) undo_pop_discard();   /* ★ AUD-1000-ALL A9-001~004（P1 已修）：jq_flip bool 契约（成功 1/失败 0），frc<0 恒假死条件→翻棋失败脏快照不回滚；改 !frc（失败即回滚栈顶） */ }
+                        if (flip) { int frc = 0; if (jq_flip(&g_state, from)) { frc = 1; ui_replay_record(from, from, 1); jq_evt55_count_7code(EV_FLIP);   /* ★ R8-B-09：翻棋 7 码直写收敛 */ }   /* AUD-R-061：翻棋计数走 EV_FLIP=6 位 */   /* ★ P1（datah_039/107）：电脑变着翻棋记录 */ if (!frc && pushed) undo_pop_discard();   /* ★ AUD-1000-ALL A9-001~004（P1 已修）：jq_flip bool 契约（成功 1/失败 0），frc<0 恒假死条件→翻棋失败脏快照不回滚；改 !frc（失败即回滚栈顶） */ }
                         else { int e = jq_try_move(&g_state, from, to); if (e >= 0) ui_replay_record(from, to, 0); if (e < 0 && pushed) undo_pop_discard(); (void)e; }   /* ★ P1（datah_039/107）：电脑变着走子记录 */
                         done = 1;
                     }
@@ -10154,7 +10139,7 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
                 flip_done = jq_flip(st, from);
                 if (flip_done) {
                     ui_replay_record(from, from, 1);   /* ★ P1（datah_039/107）：翻棋成功记录 1 步 */
-                    g_event_cnt[ev7_to_name_idx(EV_FLIP)]++; g_event_total++;   /* ★ AUD-R-061（P2）：翻棋计数走 EV_FLIP=6 位 */
+                    jq_evt55_count_7code(EV_FLIP);   /* ★ R8-B-09：翻棋 7 码直写收敛 */   /* ★ AUD-R-061（P2）：翻棋计数走 EV_FLIP=6 位 */
                     pthread_mutex_lock(&g_ts_lock);   /* ★ Round 1 对抗审计 P1（§104）：g_ts 写侧加锁 */
                     jq_touch_state_reset(&g_ts);   /* ★ AUD-R-044 修复：翻棋成功清选中态（点暗子 B=全新选中，非走子 A→B） */
                     pthread_mutex_unlock(&g_ts_lock);
@@ -10176,8 +10161,7 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
                 if (move_ok) ui_replay_record(from, to, 0);   /* ★ P1（datah_039/107）：走子成功记录 1 步 */
                 if (jnev < 0 && pushed) undo_pop_discard();   /* 走子失败回滚栈顶快照 */
                 if (move_ok && jnev >= 0 && jnev < 7) {   /* AUD-R-061：7 项事件码（AUD-A-0003/0004 同族：下界+上界守卫齐全） */
-                    g_event_cnt[ev7_to_name_idx(jnev < 0 ? 0 : jnev)]++;   /* ★ 原版行为移植：7-code→73-name 索引映射（OnTouch 直接走子不经 on_event） */
-                    g_event_total++;
+                    jq_evt55_count_7code(jnev < 0 ? 0 : jnev);   /* ★ R8-B-09：OnTouch 走子 7 码直写收敛单入口（count-only，原版行为移植口径注释保留于 7code 名级） */
                 }
                 if (move_ok && st->stage == STG_OVER)
                     over_win = st->winner;   /* 对局结束（吃旗/无子可走等），锁外播 win/lose */
@@ -10247,7 +10231,7 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
                     int pushed = undo_push();   /* ★ AUD-1000 B03-008（P1 已修）：OnTouch AI 块 push 契约 */
                     if (aflip) {
                         int frc = 0;
-                        if (jq_flip(&g_state, af)) { frc = 1; ui_replay_record(af, af, 1); g_event_cnt[ev7_to_name_idx(EV_FLIP)]++; g_event_total++; }   /* AUD-R-061：翻棋计数走 EV_FLIP=6 位 */   /* ★ P1（datah_039/107）：AI 翻棋记录 */
+                        if (jq_flip(&g_state, af)) { frc = 1; ui_replay_record(af, af, 1); jq_evt55_count_7code(EV_FLIP);   /* ★ R8-B-09：翻棋 7 码直写收敛 */ }   /* AUD-R-061：翻棋计数走 EV_FLIP=6 位 */   /* ★ P1（datah_039/107）：AI 翻棋记录 */
                         if (!frc && pushed) undo_pop_discard();   /* ★ AUD-1000-ALL A9-001~004（P1 已修）：jq_flip bool 契约（成功 1/失败 0），frc<0 恒假死条件→翻棋失败脏快照不回滚；改 !frc（失败即回滚栈顶） */
                         LOGI("红方 AI 应着（翻棋）：cell=%d（turn 切回蓝方）", af);
                     } else {

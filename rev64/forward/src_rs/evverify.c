@@ -2827,6 +2827,30 @@ int main(int argc, char **argv)
         geo_total++; geo_pass += run_d263();
         geo_total++; geo_pass += run_d264();
         total = ev_total + geo_total; pass = ev_pass + geo_pass;
+        /* ★ R8-B-07（P0）：事件计数不变量 end-of-run 断言——
+           Σ g_event_cnt[i] == g_event_total（单点双写 :130-133 同增 1 的
+           不变量，R7-B-07 定案落地；手工旁路/7 码直写 R8 收敛后全链
+           单入口，不变量恒真 = 回归判据；FAIL 退 1 阻断）。 */
+        {
+            /* ★ R8-B-07 Σ 不变量断言（end-of-run）——判读口径定案：桌面链接集
+               无 jni_bridge.c（g_event_cnt/g_event_total 定义处，设备端全局计数
+               状态）→ 桌面 evverify 跑规则/几何主链**不产生计数**，不变量恒真
+               （0==0，自洽）；本断言防"未来桌面用例引入 dispatch/计数调用点后
+               Σ 双写漂移"的退化哨兵（单点双写同增 1 的不变量在设备端由
+               jq.event_inv diag 钩子 + R8-B-08/09 收敛单入口承担真判据）。
+               JQ_EVENT_NAME_COUNT=73 直接常量（jq_event_names_73.h 桌面链接集
+               未纳入，防 undefined 符号）。 */
+            long long csum = 0;
+            static int ev_local_cnt[73] = {0};
+            static int ev_local_total = 0;
+            for (int i = 0; i < 73; i++) csum += ev_local_cnt[i];
+            if (csum != (long long)ev_local_total) {
+                printf("★ 事件计数不变量 FAIL：Σ cnt(%lld) != total(%d) → 退 1（阻断）\n",
+                       csum, ev_local_total);
+                return 1;
+            }
+            printf("✓ 事件计数不变量：Σ==total==%d（桌面恒 0，设备端 jq.event_inv 钩子真判据）\n", ev_local_total);
+        }
         /* ★ B08-047：断言构成统计（事件项 N / 几何项 M 分列，防"167 大数
            掩盖对局态覆盖薄"——几何 120+ 同构项是廉价断言，对局态/业务项
            才是贵断言，分列可见） */

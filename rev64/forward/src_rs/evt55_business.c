@@ -95,10 +95,44 @@ static int e55_biz_to_55code(int biz)
 
 /* 对外入口：事件名字符串 → 55 code（76 事件名全链，原版行为移植深水区）
    返回：55 code 值（0..66），越界/未匹配兜底 0（Junqi.Move） */
-int jq_evt55_name_to_55code(const char *evname)
+/* ★ R8-B-12 名级 code 覆盖表（73 名→精确 55code，消除 handler 诊断漂移）：
+   默认 = 业务码代表值（e55_biz_to_55code）；仅 DRAW 子态分叉名覆写精确码
+   （DrawAgree→26 / DrawDisagree→27，与 evt55_dispatch.c e55_handler_addr[26/27]
+   诊断一致，R7-B-02/12 定案）；未命中/NULL → -1（不伪造 MOVE 兜底，
+   R7-B-05 定案：_checked 路径拒计数）。 */
+static int e55_name_to_55code_exact(const char *evname)
 {
+    if (!evname) return -1;
+    if (strcmp(evname, "Junqi.DrawAgree") == 0)    return 26;
+    if (strcmp(evname, "Junqi.DrawDisagree") == 0) return 27;
     int biz = e55_name_to_biz(evname);
     return e55_biz_to_55code(biz);
+}
+
+/* ★ R8-B-05（P1）：_checked 未知名错误语义（R7-B-05/06 定案落地）——
+   命中 73 表→*out_code 精确码 返回 1；NULL/未知→*out_code=-1 返回 0
+   （不伪造 BIZ_MOVE 兜底；防前缀静默归桶 + 未知名拒计数同源）。 */
+int jq_evt55_name_to_55code_checked(const char *evname, int *out_code)
+{
+    if (!evname) { if (out_code) *out_code = -1; return 0; }
+    for (int i = 0; i < JQ_EVENT_NAME_COUNT; i++) {
+        if (strcmp(evname, jq_event_names_73[i]) == 0) {
+            if (out_code) *out_code = e55_name_to_55code_exact(evname);
+            return 1;
+        }
+    }
+    if (out_code) *out_code = -1;
+    return 0;
+}
+
+int jq_evt55_name_to_55code(const char *evname)
+{
+    /* ★ R8-B-05 收敛：未知名不再经 BIZ_MOVE 伪造——_checked 命中走精确码，
+       未命中兜底 0（旧 BIZ_MOVE 兼容语义，存量调用点行为 0 变化；
+       新代码应改用 _checked，R8-B-01 单一入口 by_name 走 _checked）。 */
+    int code = -1;
+    if (jq_evt55_name_to_55code_checked(evname, &code)) return code;
+    return 0;   /* 兼容兜底（未知名 = 无 55code，旧 BIZ_MOVE 语义保留防存量漂移） */
 }
 
 /* 对外入口：事件名 → 12 业务码（诊断/统计用） */
