@@ -6921,3 +6921,68 @@ jq_rs_rules.c 注释定论。
   ③ 全仓 grep 命中数 ≠ 调用点数（238 vs 119，2 行配对形态才是真调用点）
   ④ 大改动先 git checkout 恢复再精确替换（B 批首次 4 处旁路替换截断 2 行被 abort 的
   教训——sed/python 整段替换前实锤 old 文本完整性）。
+
+### 110. 「对齐」对抗审计 Round 9（4 路子代理回执 101 条）+ GL 资源三表统一 + UNDO 请求-应答协议闭环 + 事件白名单 + 设备钩子（§110 2026-11-16）
+
+- **★ R9-F GL 资源三表最小补齐（c9e1595）**：rebuild 预删表补 9 项漏删纹理（tex_house/
+  panel/panel_btn/btn_color2/gameset_title/panel_icon/sound_text/exit_text/imen_text）
+  + free 释放表补 8 项 + program 释放去 gl_ok 门控（根因实锤：gl_ok = gl2_ok && vbo_board
+  && tex_board && tex_piece 诊断粗判据，单核心纹理缺失即 0 → program 泄漏，与纹理/VBO
+  F3-002 去门控范式统一）。
+- **★ R9-C UNDO 请求-应答协议闭环（a463963）**：v2 7 字段帧内扩展（f2=seq/f3=ref/
+  f4=hash|reason/f5=kind，**BtSpp.java 0 改动**），三型分流（legacy 0 退化 / REQ 幂等
+  判重先于闸口 / ACK-NACK pending 清理）+ 发端 pending 管理（走子闸口冻结）+ 对称回退
+  2ply 裁剪（jq.undotest :2969 范式同源）+ bt_semtest §5c 新增 7 场景（基线 93→100）。
+  攻坚坑：UNDO REQ 幂等判重必须前置（U4 实锤：首 REQ 切 OUR_TURN 后重放帧先走回合
+  闸口必 -2 → 判重前置，重放语义 = 重发缓存 ACK/NACK）。
+- **★ R9-B 事件余量落地（b544d52 含 R10-B 同批）**：B-04 ev7 查表一致性守护
+  （:1157 区 LOGE 哨兵，全 7 码恒等含 EV_MINE 同名 Move 特判说明）+ B-06 前缀白名单
+  （e55_in_73_names 73 名可达校验，6 桶未知名静默归桶→-1 拒，拼写漂移防复发）
+  + jq.event_inv 设备钩子（55codetest 同族：纯 native 无锁 + 一次性清 0，设备端
+  Σ 不变量真判据，桌面 0==0 自洽哨兵维持防未来漂移）。
+- **★ R9-G 口径（d092347）**：mumu_regress.sh 默认设备 emulator-5554（未使用端口）
+  → 权威红果 10.0.182.146:5555（一键回归误打假红根治）；gen_align_coverage.py
+  矩阵头加生成时间戳 + evverify 动态口径行（快照新鲜度可 grep 判读）。
+- **门禁基线（R9 全绿）**：align_gate 8/8 + evverify 172/172（Σ 哨兵）+
+  dark_align 86/86 + bt_semtest **100/100**（+7 UNDO 场景）。
+- **R10 主攻输入（回执设计未落地防抢跑）**：① GL X-macro 统一元数据表（56 槽位
+  单事实源，4 处展开，结构性 0 漂移）② C v3 完整帧（v3\n + 10 字段 + BtSpp 双栈 +
+  bt_smali.sh marker + 全局 seq 去重 + 能力探测）③ F-01/02 UI 门控解耦（render.c:10519
+  块拆分：can_piece 段 + gl2_ok UI 段，0 行为变化）④ B 余量全已落 b544d52。
+- **教训固化（R9 新增）**：① UNDO REQ 幂等判重必须前置于闸口校验（U4 实锤 -2 根因）
+  ② GL 三表最小 diff 策略（过渡形态：三表同集合补齐；终态 = X-macro 单事实源）
+  ③ X-macro 在函数体内 `#define/#undef` 成对使用（C99 合法但非常态，`slots_up` 块
+  外层 `{` 与 `struct ... };` 闭合层次不同，落地前先 sed 读完整块结构）。
+
+### 111. 「对齐」对抗审计 Round 10（4 路子代理回执 10+97+48+46 条）+ GL X-macro 终态 + UI 门控解耦 + C v3 设计冻结（§111 2026-11-16）
+
+- **★ R10-F GL X-macro 单事实源（7f0c9b0）**：RS_TEX_SLOTS_REGULAR（53 常规槽）+
+  RS_TEX_SLOTS_BTN_SKIN（3 特判槽）X-macro 宏定义于 render.c 顶部，4 处消费同源展开
+  （rebuild 预删 / rs_render_free / slots_up 统计 / 可选诊断）。旧三表手写 51 项 + 8
+  漏补项 + skin 3 项全退场；集合等价 0 GL 行为变化（删除时机/slot 条件/Adreno quirk
+  注释/F3-002 双 slot 全保留）；slots_up 分母 47→56（补 R9 漏项，仅日志诊断覆盖面
+  扩大，不触 glDelete/glGen 时机）。
+- **★ R10-F-01/02 UI 门控解耦（7f0c9b0）**：render.c:10519 旧单大门控
+  `if (tex_piece[slot] && gl2_ok[slot])` 拆 2 段——① can_piece 段（棋子/选中线/
+  rs_draw_highlights，10520-10686，切点 = rs_draw_highlights 调用后）+ ② gl2_ok
+  UI 段（rs_draw_imen_icons + rs_draw_imen + 全 UI_MENU..UI_UI118 分发 + STG_OVER
+  overlay，10687-11102）。正常路径（tex_piece 存在 + gl2_ok）两段同帧同序，绘制
+  集合/顺序 0 变化；退化路径 piece 缺失时 UI/菜单/弹窗/overlay 可见性扩大（修复
+  R8-F-01/02 定案，rs_draw_highlights 留 can_piece 内 = 棋盘格几何与棋子同源，不扩
+  scope；overlay 随 UI 段 gl2_ok 门控 = 自检 prog_solid 不依赖 tex_piece）。
+- **★ R10-B 全闭环（b544d52，R9/R10 同批落码）**：前缀白名单 6 桶 + ev7 守护断言 +
+  jq.event_inv 设备钩子（见 §110 R9-B 条目）。
+- **★ R10-C v3 完整帧设计冻结（R11 主攻输入，回执 97 条）**：v3\n + 10 字段
+  （type/seq/ref/f1..f6，seq/ref 独立槽不借 f2/f3 数据域）+ BtSpp.java 双栈重组
+  （双头 min 识别 + 噪声双版本丢弃 + 32KB 上限兼容）+ 全局帧窗口 rx_last_seq 去重
+  + 能力探测 peer_caps_v3 会话内锁定 + bt_smali.sh marker 扩 `v2\n|v3\n`；v3
+  encode/decode/decode_any API 设计 + v2→v3 UNDO 语义迁移表（R9 f[1..4] 复用语义 →
+  v3 独立 seq/ref + f1=hash|reason/f2=kind_flag）+ 混跑矩阵 3 场景 + 真机 PENDING。
+- **门禁基线（R10 全绿）**：align_gate 8/8 + evverify 172/172 + dark_align 86/86
+  + bt_semtest 100/100（v3 协议未落地，门禁 0 退化）。
+- **教训固化（R10 新增）**：① X-macro 在函数体内使用（C99 合法，`#define/#undef`
+  成对）落地前先 sed 读完整块结构确认外层 `{}` 闭合层次 ② slots_up `};` 闭合
+  struct 声明（非外层块），外层 `}` 在 LOGI 后（旧代码 10354 行 `};` 与 10360 行
+  `}` 两层嵌套，替换时误删外层 `}` 导致编译错 → 补回）③ GL 三表 R9 最小 diff +
+  R10 X-macro 两步走（先补漏再统一来源）比一步到位更易验证，且 0 行为变化可逐步实锤。
+
