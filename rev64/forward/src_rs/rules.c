@@ -1053,6 +1053,15 @@ void jq_undo_restore(jq_state *st, const jq_state *snap)
        恒 <3 拒放行（方向安全），此处显式钳 0 消除语义歧义（负=数据损坏）。 */
     for (int i = 0; i < 2; i++)
         if (st->mines_cleared[i] < 0) st->mines_cleared[i] = 0;
+    /* ★ Round 1 对抗审计 C-13（P1 修）：悔棋回退后**失效困毙缓存**——快照含
+       stale_cache/stale_dirty（B01-012 增量缓存），回退到旧局面时缓存值属旧局面
+       的"可行动"判定 → 后续 jq_side_stalemated 若判缓存有效（stale_dirty==0）
+       会用陈旧缓存判困毙（可能误判红方困毙→蓝胜）。修：回退后强制 stale_dirty=1
+       （下次判定走全扫重算）。行为影响：仅在"悔棋后立刻判困毙"路径上由陈旧缓存
+       改为重算（结果正确性提升，无功能回退）。 */
+    st->stale_dirty = 1;
+    st->stale_cache[0] = 0;
+    st->stale_cache[1] = 0;
 }
 
 int  jq_bt_undo_available(void);   /* bt_session.c BT_T_UNDO 分支用（jni_bridge.c 实现；bttest 桩在 bt_selftest.c） */

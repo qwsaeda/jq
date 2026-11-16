@@ -46,6 +46,7 @@ run_gate "② 事件表映射 0 缺口" python3 "$WS/rev64/tools/event_code_map_
 run_gate "③ 布局几何 Δ=0" python3 "$WS/rev64/tools/layout_align_check.py" --baseline
 run_gate "④ 暗棋对齐回归 + 判据自检" bash "$RS/dark_align/dark_align_regress.sh"
 run_gate "⑤ 走子桥 8 步基准新鲜" make benchcheck
+run_gate "⑦ 事件名逐名对齐（原版 .rodata 73 名）" python3 "$WS/rev64/tools/event_names_alignment_check.py"
 if [ -n "$DEV" ]; then
   run_gate "⑥ 32↔64 双端探针对照" python3 "$WS/rev64/tools/rule_probe_compare.py" --dev "$DEV"
 else
