@@ -1790,7 +1790,7 @@ datah_095 原版 9 按钮但**互斥重叠**（复盘/聊天同位、提和/取�
   但兜底使 F_3a92c disc 恒 0 → 成功路径 F_3ab64/F_55d40 全被跳过 = 事件业务分发死代码。
   **教训：忠实 ≠ 已实现，"兜底没崩"不能当"功能通了"；判功能必须看消费点返回值，不是看崩溃计数。**
 - **文档一致性（D3 103 条，无 P0 但 P1 高）**：16 组跨文档数值矛盾（事件名 73/74/76、JNI 14/15、
-  棋盘 38 子→50 子（AUD-R-076 纠正）、asr4 四种语义、evverify 8/8→47/47→60/60→167/167 五代口径）+ 20 处 REVERSE_LOG
+  棋盘 38 子→50 子（AUD-R-076 纠正）、asr4 四种语义、evverify 8/8→47/47→60/60→167/167 五代口径（历史演变快照，当前真值 172/172 见 align_gate ①））+ 20 处 REVERSE_LOG
   早期结论被后续 § 推翻未标作废 + 11 处死链。**固化：被推翻结论加"已被 §XXX 取代"头注；
   数值事实全仓单一口径（事件名 76 / JNI 14 / 棋盘 12×5 50 子）；路由表不塞全文。**
 - **固定 sleep 是 flaky 根因（D2 8 处 + 已有 §2026-11-08 轮询教训）**：本轮再扫出
@@ -1816,7 +1816,7 @@ datah_095 原版 9 按钮但**互斥重叠**（复盘/聊天同位、提和/取�
   "只标注不动代码"（注释块保留说明，代码恢复到修复前语义）。台账 `AUD_1000.md` B05-026/027/030/040
   各加"§2026-11-08 B05 撤回"注记。
 - **验证**：撤回后 `arm32_walkregress` 连续 2 轮 4/4 全 PASS + 0 崩溃；
-  桌面 64 位 evverify 167/167 全绿不受影响（改动仅在 32 位 `jni_aligned.c`）。
+  桌面 64 位 evverify 167/167（当时快照）全绿不受影响（改动仅在 32 位 `jni_aligned.c`）。
 - **教训固化**：
   1. **64 位修复不可直接搬到 32 位翻译体**（转译层 MEM/scudo/渲染链语义与 64 位真机不同）；
      B05 58 条里 44 条注释+2 死代码无行为影响可入库，**6 条行为修中 4 条在转译层实证有害，全部撤回**。
@@ -1854,7 +1854,7 @@ datah_095 原版 9 按钮但**互斥重叠**（复盘/聊天同位、提和/取�
   - room060：2 玩家×4 字段（玩家/准备中/局分/胜率）占位标签
   - chat063：Msg 输入框占位 + 发送/记录/关闭 3 按钮
 
-- **回归**：桌面 `evverify` 169/169 全对；`verify_asset_chain` 34 资源 0 MISS；
+- **回归**：桌面 `evverify` 169/169（当时快照）全对；`verify_asset_chain` 34 资源 0 MISS；
   32 位 4 路径回归 4/4 PASS + 0 崩溃（`jq.bss_dump` 钩子触发无回归）。
 
 
@@ -1987,7 +1987,7 @@ OnCreate 主线程被该钩子段拖住（转译层 property 读取 + 自动走 
 ### 闭环事实
 - **9 项真机回归全 PASS**（flag/mine/restart/draw/resign/stalemate/close/pop/btconn，
   MuMu 10.0.182.146:5555，PASS=9 FLAKY=0 FAIL=0）；资源 34=1 干净启动实锤。
-- **64 位基线全绿**：desk OK / evverify 170/170（事件 40 + 几何 130）/ 8 自测全 OK /
+- **64 位基线全绿**：desk OK / evverify 170/170（事件 40 + 几何 130，当时快照）/ 8 自测全 OK /
   NDK so 可构建 / 32 位 build_aligned 7451056B OK。
 
 ### flag/mine 回归 FAIL 根因链（g_ui_lock 热路径取锁死锁）
@@ -6814,3 +6814,67 @@ jq_rs_rules.c 注释定论。
   ③ 事件单一入口批（B-01~08/11~15/18~20/23~27：name_to_55code 全量 + Σ==total
   不变量 + 三层 sfx 矩阵门禁 sfx_coverage_check.py）④ 数字口径收尾 + AGENTS
   路由补登（D-28）⑤ 暗棋 rank 泄露 32 位定案（A-07/08 需真机 0x39e14 实证）。
+
+## 2026-11-16 R7 对齐对抗审计（AUD_ALIGN_R7：pieces_left 方案 A 定案落地 + 蓝牙 v3/事件单一入口设计 + 口径批 31 修）
+
+> 台账：`rev64/forward/audit/r4/AUD_ALIGN_R7.md`（101 条：A 18 / B 20 / C 23 / D 35 / E 5；
+> 4 路子代理 + 会话自跑主攻 ①④；提交 b0a96a1 + 8e04770）。
+
+- **★ pieces_left 方案 A 定案落地（R7-A，commit b0a96a1，核心决策）**：
+  ① 语义定案：`pieces_left[2]` = **可动子数缓存**（已翻开、非旗非雷、存在合法目标），
+  单一真值源 = `jq_refresh_movable_counts`（stalemate_after 全量刷新）；方案 B（存活子数）
+  不采纳（需重写 refresh + 命名契约翻转，困毙/可动性仍不闭合，收益低）。
+  ② 全仓 13 处增量扣减清零（grep `pieces_left[.*][+-]+` 归零实锤）：EV_BOMB 攻/守/0xFF +
+  挖雷雷方/0xFF 雷/工兵 + EV_DEAD 送死/被吃 + EV_EAT 守方/0xFF + 同级互杀双方 +
+  flag_capture 扣减。
+  ③ 撤回清单：B01-008（工兵"消失"与盘面"工兵留"矛盾）/ B01-009（0xFF 归蓝池 vs
+  refresh 从未入集 + 同级互杀 `1-me` 扣 RED 分叉）/ B01-057 0xFF 落点 / B01-058/085/086/095
+  增量族 / R-054 增量记账（SIDE_VALID 守卫保留）/ R-014 "刷新恒 1 未接线" 过时描述。
+  ④ 终局快照冻结：stage=OVER 后 pieces_left 只读（B01-026 "终局后计数继续变化" 隐患消除）；
+  0xFF 域外不扣、旗雷排除域不扣。
+  ⑤ 注释定案 3 处：junqi.h:148 字段注释 / rules.c:447 AUD-R-041 / replay.h:29（replay.c
+  基底 0 口径对齐）；E-03 EV_EAT 分支删扣减后 if/else 悬挂语法错修复、E-04 dst_side 死变量
+  告警清零。
+  ⑥ 门禁复验全 PASS：align_gate 7/7 + dark_align 86/86 + evverify 172/172（R-004 [0,N_CELLS]
+  / R-014 >=5 断言在方案 A 下仍成立，未改断言）+ bt_semtest 88/88。
+- **★ R7 口径批自跑（8e04770，14 条落地）**：gen_align_coverage evverify 统计正则
+  `chk(/assert` 恒 0 → `ev_total++/geo_total++`（= 172，与 SUMMARY 同源）；benchcheck
+  双源（test_expected.txt vs consistency_desktop.c 内嵌 BENCH_EXPECT）同步断言新增
+  （bench_c_extract.py 抽取 + Makefile 第三步 cmp，**负向验证实锤**：污染文件 → FAIL 退出 2
+  → 恢复 → PASS）；SPEC 74/76 矛盾定案（**76 = 73 Junqi + 3 Misc 单一锚点**，"74" =
+  §124y-114 早期求和快照仅演变注保留；门禁真值 = 73 Junqi 主链，Misc 3 = 广告拆除红线
+  不进门禁）+ SPEC 顶部 7 行口径总表（事件名全集/门禁主链/evverify/双端探针/SPAK 资源/
+  暗棋用例 单一事实源）；默认设备统一（mumu_align_smoke 127.0.0.1:5556 redroid 禁用 →
+  权威红果 10.0.182.146:5555，与 rule_probe_compare 同源）；AGENTS 路由表补登 6 项
+  （align_gate / event_names_alignment_check / gen_align_coverage / mumu_align_smoke /
+  rule_probe 双端 + known_forks / AUD_ALIGN_R1~R6 台账族）；AGENTS:108 WAV 两口径分标
+  （SPAK 解包全量 18 / spak_res 实物 14/970）；历史段快照标注（AGENTS 353/409/437 +
+  UI_COMPARE:536 + EXPERIENCE_LOG 文首声明 + 4 行内标注 + gen_dialog_batch/check_consistency
+  注释泛化 N/N）。
+- **★ R7-B/C 设计定案（R8 主攻输入，未落地防抢跑）**：
+  ① 事件单一入口（B 族 20 条）：`jq_evt55_dispatch_by_name` + 名级 code 覆盖表
+  （DrawAgree→26/DrawDisagree→27 消除 handler 诊断漂移）+ `_checked` 未知名拒计数 +
+  Σ g_event_cnt==g_event_total 不变量（evverify end-of-run + diag 钩子）+
+  sfx_coverage_check.py 三层矩阵（73 名→evt55_sfx 键→14 WAV，不可达资源 start/over/
+  select/close/pop 白名单）作为 align_gate 第 ⑧ 项；(biz,sub) 双键**明确不引入**
+  （名级计数已精确，双键需 32 位证据，R8+ 再开）。
+  ② 蓝牙 v3（C 族 23 条）：帧 `v3\n<type>,<seq>,<ref>,f1..f6\n` 10 字段；
+  UNDO 请求-应答 + ACK/NACK 原因码 8 项（BAD_COORD/ILLEGAL_MOVE/TURN_MISMATCH/
+  EMPTY_UNDO/SESSION_INVALID/HASH_MISMATCH/MODE_MISMATCH/UNSUPPORTED）+ 幂等 seq/token +
+  RESTART 携带 mode+host_is_blue（方案 A 帧内扩字段单帧原子）+ 原子复位集 6 类
+  （bt_restart_reset_all）+ RESIGN 统一终局入口（bt_apply_terminal）；bt_semtest_dual.c
+  12 用例（10 纯 C 桌面可测 + D12 需真机 BT）；v3 落地时 bt_semtest §5/§6/§7 断言
+  清单同步（高冲击区已列）。
+- **★ bt_semtest 基线口径实锤（R7-E-05）**：`grep -c "CHECK(" bt_semtest.c` = 67（静态
+  调用点 66 + 宏定义 1），**运行时实锤 88 ok 行**（§3 SYNC_CELL 白名单 ok[7]×2 + bad[6] 等
+  循环展开 21）——台账/文档口径以 88 运行时为准；子代理"67"系 grep-only 漏展开。
+- **★ 门禁基线（R7 全绿）**：align_gate 7/7 + dark_align 86/86 + evverify 172/172 +
+  bt_semtest 88/88 + benchcheck 双源 3 步 + event_code_map 0 缺口 + 矩阵 172/981/36。
+  设备：红果 10.0.182.146 离线，权威 5 判据挂起；so 哈希链 `d9d1c325`(R6) → R7 工作树
+  （b0a96a1，未重打包推设备）。
+- **教训固化**：① 方案定案优先散修（13 处增量一个方案统一清零 vs 逐条 13 次补丁，
+  且散修维持"双事实源漂移"）② 删代码后必跑 `gcc -fsyntax-only`（E-03 悬挂 if/else 实证）
+  + 告警清零判据（E-04 死变量）③ 静态 grep 计数 ≠ 运行时真值（67 vs 88，跑一遍才定案）
+  ④ 双源基准（test_expected.txt vs C 内嵌 BENCH_EXPECT）必须同步断言 + 负向验证
+  （防"改一侧忘另一侧"假绿）⑤ 矩阵统计正则必须与被统计代码的实际判据形态同源
+  （evverify 无 chk/assert 关键字 = 旧正则恒 0 失真的防复发判据）。
