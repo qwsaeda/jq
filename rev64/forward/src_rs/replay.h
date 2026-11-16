@@ -25,9 +25,11 @@ typedef struct {
     int     n;                  /* 已记录步数 */
     int     cur;                /* 回放游标（重放到前 cur 步的位置） */
     /* ★ AUD-1000 B02-066/067（P1 已修）：开局快照字段——旧版 rewind 硬编码
-       turn=SIDE_BLUE（ui_first=1 红先手时重放第 1 步 turn 判定错误）+
-       硬编码 pieces_left=25/25（非 25 子开局偏差）。init 时快照，
-       rewind 用快照值。 */
+       turn=SIDE_BLUE（ui_first=1 红先手时重放第 1 步 turn 判定错误）。
+       ★ R7-A-18：旧"硬编码 pieces_left=25/25"口径废弃——replay.c 基底实际置 0
+       （pieces_left 为可动子缓存非开局常量），replay 链 EV 不再增量扣减
+       （R7-A 方案 A），基底 0 由 stalemate_after 全量刷新重建真值。init 时
+       快照 turn/mode，rewind 用快照值。 */
     uint8_t turn_init;          /* 开局 turn（ui_first=1 → RED 先手） */
     uint8_t mode_init;          /* 开局 mode（LAY/FLIP 复盘语义） */
     jq_cell init_cells[N_CELLS];  /* 开局 60 格快照（rank/side/revealed/flags，重放基底） */

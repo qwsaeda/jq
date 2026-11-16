@@ -146,9 +146,12 @@ typedef struct {
     int       mines_cleared[2];      /* 暗棋（ruleflip）工兵挖雷计数
                                         ★ AUD-R-015（P1）：仅记录，胜负判定未用（扛旗条件待暗棋族实现） */
     int       pieces_left[2];        /* 各方剩余可动子数（0x6a3b0 统计）
-                                        ★ AUD-R-014（P1）：统计未接线——刷新逻辑恒 1、
-                                        吃子后持续增减（可为负），勿用于判胜；
-                                        困毙判定走 jq_side_stalemated 实时扫描，不读本字段 */
+                                        ★ R7-A 方案 A 定案（2026-11-16）：可动子数缓存，
+                                        单一真值源 = jq_refresh_movable_counts（已翻开、
+                                        非旗非雷、存在合法目标；stalemate_after 全量刷新）；
+                                        规则逻辑（困毙/胜负）不读本字段（走实时扫描）；
+                                        旧"增量扣减"全仓已删（B01-008/009/057/058/086/
+                                        R-054 增量记账撤回；0xFF 域外/旗雷排除域不扣）。 */
     /* ★ AUD-R-041（P2 诚实标注）：原 count_tbl[RANK_COUNT] 布局计数表字段已删——
        全仓从未写入（layout.c jq_validate_layout 用局部 seen[] 数组，从不回填
        st->count_tbl），与 undo_depth 同类"零使用者"死字段；布局计数需求走

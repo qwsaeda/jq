@@ -444,9 +444,10 @@ static bool move_legal(const jq_state *st, int from, int to, int turn)
    `return -1` 拒绝，**不存在自增路径**；翻棋不经 try_move 计步（§34 既有
    口径），暗棋下翻棋不计步，和棋 70/1000 步阈值只对走子累加计数
    （翻棋不消耗），与 AUD-R-033 同源。
-   ★ AUD-R-041（P2 诚实标注）：jq_try_move 全程不刷新 pieces_left/count_tbl
-   （只做增量减法，与 AUD-R-014 同源——计数可为负/未刷新，困毙判定走
-   jq_side_stalemated 实时扫描不读计数）。原 st->count_tbl 字段已删（全仓
+   ★ AUD-R-041（P2 诚实标注）：jq_try_move 不直接刷新 pieces_left/count_tbl
+   （★ R7-A 方案 A：增量扣减全删，写点唯一 = stalemate_after →
+   jq_refresh_movable_counts 全量重算；困毙判定走
+   jq_side_stalemated 实时扫描不读计数，口径维持）。原 st->count_tbl 字段已删（全仓
    从未写入，布局计数需求走 containers.c cc->count_tbl 校验链路）。 */
 /* ★ AUD-R-091（P3 诚实标注）：规则引擎公开 API（jq_can_move/jq_try_move/jq_can_flip/
    jq_flip/jq_side_stalemated/jq_on_draw/jq_on_flag_capture/jq_on_stalemate/jq_undo_*）未做 st==NULL 防护（兄弟实现
@@ -708,17 +709,16 @@ int jq_try_move(jq_state *st, int from, int to)
         int dst_rank = dr_;
         memset(src, 0, sizeof(*src));
         memset(dst, 0, sizeof(*dst));
-        st->pieces_left[me]--;   /* ★ AUD-1000 B01-056（P3 注释）：攻方炸弹消失 -1 */
-        /* ★ 对抗审计修正（AUD-R-004 P0）：dst->side 可能是暗棋未定态 0xFF
-           （junqi.h SIDE_UNKNOWN）→ pieces_left[255] 越界写 1020 字节外，
-           破坏 jq_state 相邻成员。加范围守卫。 */
-        if (dst_side != me && SIDE_VALID(dst_side)) st->pieces_left[dst_side]--;
+        /* ★ R7-A-03（方案 A）：删除炸弹同归攻方/守方增量扣减（B01-056 撤回，
+           AUD-R-004 越界守卫随增量扣减一并退场——无扣减即无越界面）：
+           pieces_left = 可动子数缓存，单一真值源 = jq_refresh_movable_counts。 */
         /* AUD-1000 B01-009：暗棋未定色暗子（dst_side=0xFF）撞炸弹同归后该子从棋盘
            消失但 pieces_left 无计数对象（pieces_left[2] 域外，SIDE_VALID 拒）。
            旧行为=计数漂移（暗棋 50 子开局下总量偏 1）；修：0xFF 消失子计入
            先手（蓝）池——先手翻子定色语义下 0xFF 暗子归先手（B01-011 同源），
            定色前消失=先手失去 1 子。mines_cleared 不动（非地雷）。 */
-        else if (dst_side != me && dst_side == SIDE_UNKNOWN) st->pieces_left[SIDE_BLUE]--;
+        /* ★ R7-A-07/11（方案 A）：删除 0xFF→BLUE 池扣减（B01-009 撤回，0xFF 域外）
+           ——未定色暗子 refresh 从未入集（layout.c side!=s 过滤），不归属任一侧。 */
         /* ★ AUD-1000 B01-083（P3 注释，与 B01-009 同源）：dst_side=0xFF（未定色）跳过
            （扣错对象），B01-009 已修（未定色消失计先手池）。本条与 B01-009 同源，
            B01-009 修后本条自动闭合。 */
@@ -808,20 +808,21 @@ int jq_try_move(jq_state *st, int from, int to)
             /* 工兵挖雷（rank 小=强，9 工兵 > 11 地雷）：工兵留、雷消失。
                ★ P1（datah_012）：吃地雷开关（ui_rule_cfg_get(2)，默认 1 对齐原版默认）：
                =0 时工兵也不能吃地雷（地雷无敌，工兵撞雷=送死）。 */
-            /* 工兵挖雷（rank 小=强，9 工兵 > 11 地雷）：工兵留、雷消失 */
-            int dst_side = dst->side;
+            /* 工兵挖雷（rank 小=强，9 工兵 > 11 地雷）：工兵留、雷消失
+               ★ R7-A-02/07/08（方案 A）：本分支原 dst_side 仅服务于 pieces_left
+               增量扣减（B01-009 地雷归蓝池/B01-008 工兵扣减），R7-A 全删后
+               无消费者——移除局部变量与 B01-009 地雷池注释（0xFF 域外、
+               雷 refresh 排除域，均不扣；工兵存活移位的可动性由刷新判定）。 */
             *dst = *src;
             memset(src, 0, sizeof(*src));
-            /* AUD-1000 B01-009 同源（地雷分支）：暗棋未定色地雷（dst_side=0xFF）
-               被工兵挖除后该子消失无计数对象 → 归先手（蓝）池（同炸弹分支语义） */
-            if (dst_side == SIDE_UNKNOWN) st->pieces_left[SIDE_BLUE]--;
+            /* ★ R7-A-07/11（方案 A）：删除 0xFF 雷方→BLUE 池扣减（B01-009 撤回，域外）。 */
             /* ★ AUD-1000 B01-084（P3 注释，与 B01-009 同源）：暗棋未定色雷（side=0xFF）
                被工兵挖除后该子消失无计数对象 → 归先手池（同炸弹分支语义）。
                明棋雷 side 恒 0/1 恒扣减 ✓ 无缺陷。 */
             /* ★ AUD-R-040（P2）：计数对象用 dst->side（原子的实际归属方）而非 1-me
                （对方）。暗棋未定色暗子（side=SIDE_UNKNOWN）时 1-me 会扣错对象；
                地雷本非"可动子"（AUD-R-014），SIDE_VALID 范围守卫与 EV_BOMB 分支一致。 */
-            if (SIDE_VALID(dst_side)) st->pieces_left[dst_side]--;
+            /* ★ R7-A-02/08（方案 A）：删除雷方增量扣减——地雷 refresh 排除域（排旗雷）。 */
             /* ★ AUD-R-039（P2）：src 已 memset 后 side 恒 0，原 `!= 0xFF` 死判断已删
                （挖雷计数无条件递增，符合 ruleflip）。
                ★ AUD-R-015（P1）：mines_cleared 仅记录——"工兵挖 3 雷才能扛旗"
@@ -833,10 +834,8 @@ int jq_try_move(jq_state *st, int from, int to)
                t_worker_mine 明棋夹具断言 mines_cleared[BLUE]=1 即此口径）。
                前批误改为仅暗棋递增 → 明棋夹具 FAIL，纠正回恒递增。 */
             st->mines_cleared[me]++;
-            /* AUD-1000 B01-008：挖雷攻方（工兵）消失也须 pieces_left[me]--，
-               与 EV_DEAD 送死（:574 攻方--）计数对象对称。me 已经入口
-               SIDE_VALID 守卫（恒 0/1），下标安全。 */
-            st->pieces_left[me]--;
+            /* （B01-008 注释体已撤回，见下行 R7-A-01/08 定案） */
+            /* ★ R7-A-01/08（方案 A）：删除工兵挖雷攻方扣减（B01-008 撤回，工兵存活移位）。 */
             ev = EV_MINE;
             /* ★ AUD-1000 B01-022（P1）：真挖雷（地雷消失）才清零无吃子计数 */
             st->moves_since_eat = 0;
@@ -846,7 +845,7 @@ int jq_try_move(jq_state *st, int from, int to)
                **不**清零 moves_since_eat——旧实现在 if/else 公共尾部清零，把"送死"
                当"吃子活动"，70 步无吃子和棋进度被送死步误重置。 */
             memset(src, 0, sizeof(*src));
-            st->pieces_left[me]--;
+            /* ★ R7-A-09（方案 A）：删除送死攻方增量扣减（B01-058 撤回，刷新单一真值源）。 */
             ev = EV_DEAD;
         }
     } else {
@@ -857,20 +856,15 @@ int jq_try_move(jq_state *st, int from, int to)
             /* ★ AUD-1000 B01-057（P1 已修）：统一 dst->side 口径（原 1-me 推导入手方，
                暗棋未定色 0xFF dst 时 1-me 仍合法 0/1 下标但扣错对象）；
                SIDE_VALID(dst->side) 守卫防 0xFF 越界，未定色消失子归先手池（B01-009 同源）。 */
-            if (SIDE_VALID(dst->side))
-                st->pieces_left[dst->side]--;
-            else if (dst->side == SIDE_UNKNOWN)
-                st->pieces_left[SIDE_BLUE]--;
+            /* ★ R7-A-07/09（方案 A）：删除吃子守方/0xFF 增量扣减（B01-057/009 撤回，
+               刷新单一真值源；0xFF 域外不归属任一侧）。
+               （AUD-R-004 P0 越界守卫随扣减一并退场——无扣减即无越界面。） */
             ev = EV_EAT;
         } else if (sr > dr_) {      /* src 被吃 */
             memset(src, 0, sizeof(*src));
-            st->pieces_left[me]--;   /* ★ AUD-1000 B01-058（P3 注释）：攻子消失 减攻方计数（经 SIDE_VALID 守卫 me∈{0,1}）
-               ★ AUD-1000 B01-085（P3 注释，与 B01-057 同源）：攻方扣减用 me/1-me 推导
-               非 dst side，与 :536 EV_EAT 守方扣减口径分叉（AUD-R-040 已指出）。
-               B01-057 统一 dst->side 口径后本条自动闭合。
-               ★ AUD-1000 B01-095（P3 注释，与 B01-022 同源）：EV_DEAD 分支不扣守方
-               （雷）pieces_left（雷存活）✓ 正确（送死攻方死雷留），攻方扣减口径正确。
-               B01-022 修后（EV_DEAD 不清零）本条自动闭合。 */
+            /* ★ R7-A-09（方案 A）：删除被吃攻方增量扣减（B01-058/085/095 撤回，
+               可动性变化由 stalemate_after 全量刷新覆盖；B01-085 分叉口径随增量
+               退场自动闭合，B01-095 "雷存活不扣守方"判定保留为历史参考）。 */
             ev = EV_DEAD;
         } else {                    /* 同级同归于尽（军棋标准：同级互杀）
                ★ 2026-11-14 原版 0x31de0 实证对齐：同级（rank 相等 + 标志相等）
@@ -881,8 +875,8 @@ int jq_try_move(jq_state *st, int from, int to)
                含炸弹的真实同归）。 */
             memset(src, 0, sizeof(*src));
             memset(dst, 0, sizeof(*dst));
-            st->pieces_left[me]--;
-            st->pieces_left[1 - me]--;   /* ★ AUD-1000 B01-086（P3 注释）：同级互杀攻防跨方 1-me=守方 */
+            /* ★ R7-A-15（方案 A）：删除同级互杀双方增量扣减（B01-086 撤回；0xFF 目标
+               亦不扣=域外，与 B01-009 撤回一致）。 */
             ev = EV_EAT;
         }
         st->moves_since_eat = 0;
@@ -1160,7 +1154,9 @@ void jq_on_flag_capture(jq_state *st, uint8_t captor_side)
        本扣减在 stage=OVER 后置（:776-777），终局快照计数字段不冻结，与
        EV_BOMB/EV_DEAD 分支的递减风格一致（AUD-R-014 同源）。
        SIDE_VALID(captor_side) 守卫（:774）保证 1-captor_side∈{0,1} 下标安全。 */
-    st->pieces_left[1 - captor_side]--;
+    /* ★ R7-A-10（方案 A + 终局冻结）：删除吃旗被吃方增量扣减（R-054 增量记账撤回）
+       ——军旗 refresh 排除域 + 终局快照冻结（stage=OVER 后 pieces_left 只读，
+       B01-026 "终局后计数继续变化"隐患消除）。 */
 }
 
 void jq_on_draw(jq_state *st)
