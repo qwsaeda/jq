@@ -86,5 +86,8 @@ int   jq_bt_session_send_move(jq_bt_session *s, jq_state *st,
                                int from, int to, int flip, char *buf, int cap);
 int   jq_bt_session_send_sync(jq_bt_session *s, jq_state *st,
                                char *buf, int cap_per_frame);
+/* ★ R15（续弈对账）：纯编码 60 帧 SYNC_CELL，无会话副作用（send_sync 复用它） */
+int   jq_bt_session_sync_encode(jq_bt_session *s, const jq_state *st,
+                                 char *buf, int cap_per_frame);
 
 #endif /* RS_BT_SESSION_H */

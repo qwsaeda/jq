@@ -942,6 +942,87 @@ int main(void)
               "R14 V6：RESTART 复位后 ver 匹配 CAP 可重新升档");
         #undef EP14
     }
+    /* =====================================================================
+     * §15. R15 续弈语义（重连 = g_state 保留断点 + 仅传输域复位 + SYNC 对账）
+     * ===================================================================== */
+    printf("[§15] R15 续弈语义（init 不清 st / SYNC 覆盖 / 重连≠RESTART）\\n");
+    {
+        /* C1：重连 init 不清棋盘内容（st.cells/turn/stage 保留，仅 peer_state 镜像） */
+        jq_state stC1; fixture_play(&stC1);
+        stC1.turn = 1; stC1.stage = 1; stC1.cells[7].rank = 3; stC1.cells[7].side = 0;
+        unsigned char c1_rank = stC1.cells[7].rank, c1_side = stC1.cells[7].side;
+        jq_bt_session sC1; memset(&sC1, 0, sizeof sC1);
+        jq_bt_session_init(&sC1, &stC1, 1);
+        CHECK(stC1.turn == 1 && stC1.stage == 1
+              && stC1.cells[7].rank == c1_rank && stC1.cells[7].side == c1_side
+              && sC1.peer_state.cells[7].rank == c1_rank,
+              "R15 C1：重连 init 不清棋盘（st.cells/turn/stage 保留，peer_state 镜像快照）");
+        /* C2：重连 init 仅复位传输域（窗口/能力/UNDO 清零 + epoch 单调 + state=CONNECTED） */
+        jq_state stC2; fixture_play(&stC2);
+        jq_bt_session sC2; memset(&sC2, 0, sizeof sC2);
+        jq_bt_session_init(&sC2, &stC2, 1);
+        sC2.rx_last_seq = 40; sC2.tx_seq = 40; sC2.undo_pending = 1; sC2.peer_caps_v3 = 1;
+        unsigned short c2_ep = sC2.session_epoch;
+        jq_bt_session_init(&sC2, &stC2, 0);   /* 重连 */
+        CHECK(sC2.rx_last_seq == 0 && sC2.tx_seq == 0 && sC2.undo_pending == 0
+              && sC2.peer_caps_v3 == 0 && sC2.session_epoch == c2_ep + 1
+              && sC2.state == BT_ST_CONNECTED,
+              "R15 C2：重连 init 复位传输域（窗口/能力/UNDO 清零 + epoch 单调 + CONNECTED）");
+        /* C4：SYNC_CELL 逐格覆盖 st（续弈对账原语，收端以发端权威态覆盖本端） */
+        jq_state stS_r, stS_s; fixture_play(&stS_r); fixture_play(&stS_s);
+        stS_s.cells[10].rank = 5; stS_s.cells[10].side = 1; stS_s.cells[10].revealed = 1;
+        jq_bt_session sS; memset(&sS, 0, sizeof sS); jq_bt_session_init(&sS, &stS_r, 0);
+        sS.state = BT_ST_CONNECTED;
+        int rc4 = jq_bt_session_on_frame_v3(&sS, &stS_r, BT_T_SYNC_CELL, 1,
+                    ((unsigned)sS.session_epoch) << 16, 10, 5, 1, 1, 0, 0);
+        CHECK(rc4 == 0 && stS_r.cells[10].rank == 5 && stS_r.cells[10].side == 1
+              && stS_r.cells[10].revealed == 1,
+              "R15 C4：SYNC_CELL 逐格覆盖 st（收端以发端权威态覆盖本端 cell[10]）");
+        /* C5：全量 60 帧 SYNC 对齐收敛（sync_encode 编码 + 逐帧应用 = 双端一致） */
+        char buf[BT_BUF * 64];
+        int n5 = jq_bt_session_sync_encode(&sS, &stS_s, buf, BT_BUF);
+        int c5_match = 1;
+        if (n5 > 0) {
+            for (int k = 0; k < n5; k++) {
+                int t, f1, f2, f3, f4, f5, f6; unsigned int seq, ref;
+                if (jq_bt_frame_decode_any(buf + k * BT_BUF, &t, &seq, &ref,
+                            &f1, &f2, &f3, &f4, &f5, &f6)) {
+                    jq_bt_session s5; memset(&s5, 0, sizeof s5);
+                    jq_state st5; fixture_play(&st5);
+                    jq_bt_session_init(&s5, &st5, 0); s5.state = BT_ST_CONNECTED;
+                    s5.session_epoch = 1;
+                    int r5 = jq_bt_session_on_frame_v3(&s5, &st5, t, seq,
+                                ((unsigned)s5.session_epoch) << 16, f1, f2, f3, f4, f5, f6);
+                    if (r5 != 0) c5_match = 0;
+                }
+            }
+        }
+        CHECK(n5 == N_CELLS && c5_match,
+              "R15 C5：全量 60 帧 SYNC 编码 + 逐帧应用对齐收敛（双端一致）");
+        /* C7：续弈（init）保留断点 ≠ RESTART（重载布局 + 计数清零） */
+        jq_state stC7; fixture_play(&stC7); stC7.total_moves = 30; stC7.turn = 1; stC7.stage = 1;
+        jq_bt_session sC7; memset(&sC7, 0, sizeof sC7);
+        jq_bt_session_init(&sC7, &stC7, 1);   /* 重连续弈 */
+        unsigned int c7_moves = stC7.total_moves;
+        CHECK(c7_moves == 30 && stC7.turn == 1,
+              "R15 C7a：重连（续弈）init 保留断点（total_moves/turn 不变）");
+        jq_bt_session sC7b; memset(&sC7b, 0, sizeof sC7b);
+        jq_state stC7b; fixture_play(&stC7b); stC7b.total_moves = 30; stC7b.turn = 1; stC7b.stage = 1;
+        sC7b.session_epoch = 1; sC7b.peer_epoch = 1; sC7b.state = BT_ST_OUR_TURN;
+        int rc7 = jq_bt_session_on_frame_v3(&sC7b, &stC7b, BT_T_RESTART, 1,
+                    ((unsigned)sC7b.session_epoch) << 16, 999, 1, 0, 0, 0, 0);
+        CHECK(rc7 == 0 && stC7b.total_moves == 0 && stC7b.turn == 0,
+              "R15 C7b：RESTART 重载布局 + 计数清零（total_moves=0/turn=BLUE，区别于续弈）");
+        /* C8：send_sync 副作用已根除（纯编码不改 state，旧 :433 强置 THEIR_TURN 已剥离） */
+        jq_state stC8; fixture_play(&stC8);
+        jq_bt_session sC8; memset(&sC8, 0, sizeof sC8); jq_bt_session_init(&sC8, &stC8, 1);
+        sC8.state = BT_ST_OUR_TURN;
+        char c8buf[BT_BUF * 64];
+        int n8 = jq_bt_session_sync_encode(&sC8, &stC8, c8buf, BT_BUF);
+        CHECK(n8 == N_CELLS && sC8.state == BT_ST_OUR_TURN,
+              "R15 C8：sync_encode 纯编码不改 state（副作用根除，旧 :433 强置 THEIR_TURN 已剥离）");
+    }
+
     }
 
     printf(rc ? "== bt_semtest 结果: 有失败（%d 条通过）==\n"

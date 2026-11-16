@@ -424,15 +424,23 @@ int jq_bt_session_send_move(jq_bt_session *s, jq_state *st,
     return n;
 }
 
-int jq_bt_session_send_sync(jq_bt_session *s, jq_state *st,
-                             char *buf, int cap_per_frame)
+/* ★ R15（续弈对账）：纯编码 60 帧 SYNC_CELL，无会话副作用（send_sync 旧 :433 强置
+   THEIR_TURN 对 host/client 角色/续弈场景均错，根除）。供重连对账/UNDO mismatch 复用。 */
+int jq_bt_session_sync_encode(jq_bt_session *s, const jq_state *st,
+                              char *buf, int cap_per_frame)
 {
     if (!s || !buf) return -1;
     /* ★ AUD-1000 B04-021（P1 已修）：cap_per_frame 下限守护（旧实现越界依赖
        sync_encode 内部 len+1<=cap 契约，cap 过小时 B04-001 越界放大；
        帧最小长 "v2\n"+7 字段+换行 ≥ 40 字节（含 NUL 裕量））。 */
     if (cap_per_frame < 40) return -1;
-    int n = jq_bt_frame_sync_encode(buf, cap_per_frame, st, 0, N_CELLS);
-    s->state = BT_ST_THEIR_TURN;
-    return n;
+    return jq_bt_frame_sync_encode(buf, cap_per_frame, st, 0, N_CELLS);
+}
+
+int jq_bt_session_send_sync(jq_bt_session *s, jq_state *st,
+                             char *buf, int cap_per_frame)
+{
+    /* ★ R15：副作用根除——send_sync = 纯编码（不强制改 s->state）；旧 :433 强置
+       THEIR_TURN 与 host/client 角色、续弈对账语义冲突，剥离给调用点按需处理。 */
+    return jq_bt_session_sync_encode(s, st, buf, cap_per_frame);
 }

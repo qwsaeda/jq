@@ -3860,6 +3860,36 @@ static void start_bt_session(JNIEnv *env, int host)
     g_bt_sess.state = host ? BT_ST_OUR_TURN : BT_ST_THEIR_TURN;
     g_bt_sess_init_done = 1;   /* ★ 锁内置位（原子） */
     pthread_mutex_unlock(&g_mutex);
+    /* ★ R15（续弈对账）：重连 = 续弈（g_state 进程级保留断点，init 仅清传输域）
+       → 双端各自 g_state 断点可能漂移，发 60 帧 SYNC_CELL 对账收敛（纯编码无副作用，
+       jq_bt_session_sync_encode 不强制改 state）。SYNC_CELL 是 v2 帧，旧对端收即逐格
+       覆盖 st.cells（bt_session.c SYNC_CELL case），0 退化；双端同版才互通 epoch/v3。
+       锁外编码 + jq_bt_send（复用 UNDO mismatch :10744 同范式）。 */
+    {
+        /* ★ R15：续弈对账 60 帧 SYNC_CELL（重连 = g_state 断点保留 + 全盘对账收敛漂移）。
+           锁外编码 + 拼接单次 jq_bt_send（复用 UNDO mismatch :10757 范式）。独立 static
+           拼接 buffer（g_bt_payload 是 OnBluetooth 局部，本区不可见）；容量守卫 8KB
+           （60 帧 v2 SYNC_CELL 实测 ~1.6KB，8KB 充裕）。static 复用免栈压。 */
+        static char g_sync_payload[8192];
+        static char g_sync_sbuf[BT_BUF * 64];
+        char *sbuf = g_sync_sbuf;
+        int ns = jq_bt_session_sync_encode(&g_bt_sess, &g_state, sbuf, BT_BUF);
+        int plen = 0;
+        if (ns > 0) {
+            for (int k = 0; k < ns; k++) {
+                const char *fr = sbuf + k * BT_BUF;
+                int flen = (int)strlen(fr);
+                if (flen <= 0 || plen + flen >= (int)(sizeof g_sync_payload) - 1) break;
+                memcpy(g_sync_payload + plen, fr, flen);
+                plen += flen;
+            }
+            g_sync_payload[plen] = 0;
+            if (plen > 0) {
+                jq_bt_send(env, g_sync_payload);
+                LOGI("蓝牙联机 续弈对账 SYNC_CELL：重连 g_state 断点保留 + 全盘 60 帧对账收敛漂移（%d 字节）", plen);
+            }
+        }
+    }
     ui_bt_set_active(1);   /* ★ 对抗审计（datah_067）：联机 ☰ 菜单分流 */
     LOGI("start_bt_session(reconnect-safe R12)：会话无条件重置（host=%d %s，%s；rx/tx/peer_caps/UNDO 清零）",
          host, host ? "蓝先手" : "红后手",
