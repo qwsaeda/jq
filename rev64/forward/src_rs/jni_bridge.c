@@ -10467,12 +10467,16 @@ Java_com_qwsaeda_App_OnBluetooth(JNIEnv *env, jclass clazz, jobject intent)
        （CODE_STYLE §5 "g_state 读写必须 g_mutex" 漂移）。现每帧包 g_mutex。
        懒初始化（g_bt_sess_init_done）也在锁内（对照 start_bt_session :2759 持锁写）。 */
     const char *p = disp;
-    int f[8];
+    int f[8];   /* v2 归一化 7 字段 + 尾 */
+    int v3_type = 0; unsigned int v3_seq = 0, v3_ref = 0;   /* ★ R11-C：decode_any 归一化视图 */
     int nframes = 0;
     int sess_state = -1, stage_snap = -1;   /* ★ AUD-1000 B03-016/B03-089（P1 已修）：
        末日志锁外裸读 g_bt_sess.state/g_state.stage → 锁内快照后 LOGI */
     while (*p) {
-        if (jq_bt_frame_decode(p, &f[0], &f[1], &f[2], &f[3], &f[4], &f[5], &f[6])) {
+        /* ★ R11-C：双栈收帧（v3 优先，v2 归一化 seq=ref=0；v2 UNDO R9 迁移独立槽） */
+        if (jq_bt_frame_decode_any(p, &v3_type, &v3_seq, &v3_ref,
+                                   &f[1], &f[2], &f[3], &f[4], &f[5], &f[6])) {
+            f[0] = v3_type;   /* type 归位 f[0]（下游 UNDO 特判/jq_bt_session_on_frame 读 f[0]） */
             pthread_mutex_lock(&g_mutex);
             if (!g_bt_sess_init_done) {
                 /* ★ AUD-1000-ALL A4-11（P1 已修）：we_blue 口径矛盾消除——入口段（:8631）
@@ -10484,9 +10488,11 @@ Java_com_qwsaeda_App_OnBluetooth(JNIEnv *env, jclass clazz, jobject intent)
                 jq_bt_session_init(&g_bt_sess, &g_state, 1);
                 g_bt_sess_init_done = 1;
             }
-            int rc = jq_bt_session_on_frame(&g_bt_sess, &g_state,
-                                            f[0], f[1], f[2], f[3],
-                                            f[4], f[5], f[6]);
+            /* ★ R11-C：v3 归一化入口（前置全局 seq 判重 + 逐 case 登记 rx_last_seq
+               + RESTART 复位；UNDO REQ/应答豁免保 R9 幂等；v2 归一化 seq=0 跳过 0 退化） */
+            int rc = jq_bt_session_on_frame_v3(&g_bt_sess, &g_state,
+                                               v3_type, v3_seq, v3_ref,
+                                               f[1], f[2], f[3], f[4], f[5], f[6]);
             /* ★ 蓝牙 UNDO 收帧侧闭环（对抗审计 P1-B9 / P1-J12 PENDING → 真接线）：
                对端发 BT_T_UNDO = "我已悔棋"（本端之前发的 UNDO 帧的对端应答）。
                bt_session 侧只切回合（不持有悔棋栈），真实回退必须在本文件做——
@@ -10655,7 +10661,9 @@ Java_com_qwsaeda_App_OnBluetooth(JNIEnv *env, jclass clazz, jobject intent)
                行内无换行）→ 命中数据行尾 '\n' 后推进 = **整帧消费**。
                桌面验证：2 帧串接 "v2\n0,...\nv2\n1,...\n" 循环消费 2 帧
                （旧逻辑 1 帧后 break）。 */
-            p += strspn(p, "v2\n");
+            /* ★ R11-C：双栈整帧推进（v2/v3 头行同构 3 字节，跳过版本头字符后
+               命中数据行尾 \n；v3 10 字段与 v2 7 字段推进算法同构，0 逻辑改动） */
+            p += strspn(p, "v23\n");
             p = p[0] ? (strchr(p, '\n') + 1) : p;
         } else {
             break;

@@ -631,6 +631,59 @@ int main(void)
               "R11-C V7：v3 encode cap<10 拒收（返回 -1）");
     }
 
+    /* =====================================================================
+     * §7. R11-C 全局帧窗口 seq 去重（on_frame_v3：重复/旧包/RESTART复位/UNDO豁免）
+     * 注：seq 登记用例用 DRAW（收端恒 rc=0、无坐标/回合校验，最干净隔离窗口语义）；
+     *     UNDO 用例走 REQ/ACK 桩（g_bt_undo_avail 控栈深）。
+     * ===================================================================== */
+    printf("[§7] R11-C 全局帧窗口 seq 去重（on_frame_v3）\n");
+    {
+        /* Q1：DRAW seq=1 接受（登记 rx_last_seq=1）→ 重复 seq=1 静默丢弃 */
+        jq_state stQ; fixture_play(&stQ);
+        jq_bt_session sQ; jq_bt_session_init(&sQ, &stQ, 0);
+        sQ.state = BT_ST_CONNECTED;
+        int r1 = jq_bt_session_on_frame_v3(&sQ, &stQ, BT_T_DRAW, 1, 0, 0, 0, 0, 0, 0, 0);
+        CHECK(r1 == 0 && sQ.rx_last_seq == 1,
+              "R11-C Q1：DRAW seq=1 接受 + 登记 rx_last_seq=1");
+        int r1b = jq_bt_session_on_frame_v3(&sQ, &stQ, BT_T_DRAW, 1, 0, 0, 0, 0, 0, 0, 0);
+        CHECK(r1b == 0 && sQ.rx_last_seq == 1,
+              "R11-C Q1b：重复 seq=1 静默丢弃（rc=0，rx_last_seq 不变）");
+        /* Q2：推进 seq=3 → 旧包 seq=2 → -1（窗口不回退） */
+        int r3 = jq_bt_session_on_frame_v3(&sQ, &stQ, BT_T_DRAW, 3, 0, 0, 0, 0, 0, 0, 0);
+        CHECK(r3 == 0 && sQ.rx_last_seq == 3, "R11-C Q2a：DRAW seq=3 接受（rx_last_seq=3）");
+        int r4 = jq_bt_session_on_frame_v3(&sQ, &stQ, BT_T_DRAW, 2, 0, 0, 0, 0, 0, 0, 0);
+        CHECK(r4 == -1 && sQ.rx_last_seq == 3,
+              "R11-C Q2b：旧包 seq=2 < rx_last_seq=3 → rc=-1（窗口不回退）");
+        /* Q3：RESTART 成功 → 复位窗口 + UNDO 事务态（新会话边界） */
+        sQ.tx_seq = 50; sQ.last_req_seq = 7; sQ.undo_pending = 1;
+        sQ.pending_seq = 9; sQ.legacy_undo_done = 1; sQ.last_resp_seq = 4;
+        sQ.rx_last_seq = 40;
+        sQ.state = BT_ST_OUR_TURN;
+        int r5 = jq_bt_session_on_frame_v3(&sQ, &stQ, BT_T_RESTART, 41, 0, 999, 1, 0, 0, 0, 0);
+        CHECK(r5 == 0 && sQ.rx_last_seq == 0 && sQ.tx_seq == 0 && sQ.tx_last_seq == 0
+              && sQ.last_req_seq == 0 && sQ.undo_pending == 0 && sQ.pending_seq == 0
+              && sQ.legacy_undo_done == 0 && sQ.last_resp_seq == 0,
+              "R11-C Q3：RESTART 成功复位窗口 + UNDO 事务态（新会话边界）");
+        /* Q4：UNDO ACK（seq=9/ref=9）清 pending（应答消费，rc=0） */
+        jq_state stQ4; fixture_play(&stQ4);
+        jq_bt_session sQ4; jq_bt_session_init(&sQ4, &stQ4, 0);
+        sQ4.state = BT_ST_CONNECTED;
+        sQ4.undo_pending = 1; sQ4.pending_seq = 9; sQ4.tx_seq = 9;
+        int r6 = jq_bt_session_on_frame_v3(&sQ4, &stQ4, BT_T_UNDO, 9, 9, 0, 0, 0, 0, 0, 0);
+        CHECK(r6 == 0 && sQ4.undo_pending == 0 && sQ4.pending_seq == 0,
+              "R11-C Q4：UNDO ACK seq=9/ref=9 清 pending（应答消费）");
+        /* Q5：UNDO REQ seq=5 首次 REQ_OK + 重放 REQ_DUP（豁免预检直达 case） */
+        jq_state stQ5; fixture_play(&stQ5);
+        jq_bt_session sQ5; jq_bt_session_init(&sQ5, &stQ5, 0);
+        sQ5.state = BT_ST_THEIR_TURN;
+        g_bt_undo_avail = 1;
+        int r7 = jq_bt_session_on_frame_v3(&sQ5, &stQ5, BT_T_UNDO, 5, 0, 0, 0, 0, 0, 0, 0);
+        int r7b = jq_bt_session_on_frame_v3(&sQ5, &stQ5, BT_T_UNDO, 5, 0, 0, 0, 0, 0, 0, 0);
+        CHECK(r7 == JQ_BT_RC_UNDO_REQ_OK && r7b == JQ_BT_RC_UNDO_REQ_DUP,
+              "R11-C Q5：UNDO REQ seq=5 首次 REQ_OK + 重放 REQ_DUP（豁免预检直达 case）");
+        g_bt_undo_avail = 0;
+    }
+
     printf(rc ? "== bt_semtest 结果: 有失败（%d 条通过）==\n"
               : "=== bt_semtest 全量 %d 条 PASS ===\n", n_pass);
     return rc;

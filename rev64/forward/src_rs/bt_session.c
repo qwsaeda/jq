@@ -295,6 +295,65 @@ int jq_bt_session_on_frame(jq_bt_session *s, jq_state *st,
     }
 }
 
+/* ★ R11-C（P0/P1 全局帧窗口 seq 去重 + v3 接线，R10 回执 §2/§3/§5/§6/§7 定案落地）：
+   v3 归一化入口。decode_any 产出 (type,seq,ref,f1..f6) 归一化视图；本封装：
+   ① 前置全局判重（seq>0 且 rx_last_seq>0）：
+      - 重复帧（seq==rx_last_seq）：UNDO REQ/应答（ref 关联）豁免直达 case（保
+        R9 REQ_DUP 重发缓存 + 应答幂等语义），其余全 type 静默丢弃 return 0；
+      - 旧包（seq<rx_last_seq，uint 单调窗口不回绕）return -1；
+      - 新帧（seq>rx_last_seq）放行，成功消费后逐 case 登记 rx_last_seq=seq。
+   ② 映射回旧 7 字段调 on_frame（type→f1，f1..f6→f2..f7；UNDO 归一化 seq/ref/
+      f1/f2 填 f2..f5，与 R9 on_frame UNDO case f2=seq/f3=ref/f4=hash|reason/
+      f5=kind 语义对齐——decode_any v2 UNDO 迁移已把 seq→f2、ref→f3 位）。
+   ③ RESTART 成功尾统一复位窗口 + UNDO 事务态（新会话边界，R8-C-17 同源）。
+   v2 兼容：decode_any 对 v2 非 UNDO 归一化 seq=0 → 前置判重跳过，0 退化。
+   诚实边界：单调窗口不回绕（2^32 帧/会话不可达）；RESTART 跨局复位后新窗口
+   从 1 重新单调；跨重启/重连强一致 = 未覆盖（对端 seq 空间重启）。 */
+int jq_bt_session_on_frame_v3(jq_bt_session *s, jq_state *st,
+                               int type, unsigned int seq, unsigned int ref,
+                               int f1, int f2, int f3,
+                               int f4, int f5, int f6)
+{
+    if (!s || !st) return -1;
+    /* ① 前置全局判重（仅 seq>0 参与；v2-only/legacy 归一化 seq=0 跳过 = 0 退化） */
+    int rc;
+    /* 重复帧预检（UNDO 豁免：case 内自行判重/缓存） */
+    if (seq > 0 && s->rx_last_seq > 0 && seq == s->rx_last_seq
+        && type != BT_T_UNDO)
+        return 0;   /* 全 type 重复帧：静默丢弃（不执行业务） */
+    if (seq > 0 && s->rx_last_seq > 0 && seq < s->rx_last_seq)
+        return -1;  /* 旧包/乱序（uint 单调窗口，回绕外） */
+    /* ② 映射回旧 7 字段。UNDO 型：归一化独立槽 seq/ref 填旧数据域 f2/f3（R9 UNDO case
+       读 f2=seq/f3=ref/f4=hash|reason/f5=kind），f4..f6 取归一化 f1/f2/f3；
+       非 UNDO 型：归一化 f1..f6 直通旧 f2..f7（数据域同义）。 */
+    if (type == BT_T_UNDO)
+        rc = jq_bt_session_on_frame(s, st, type,
+                                     (int)seq, (int)ref, f1, f2, f3, 0);
+    else
+        rc = jq_bt_session_on_frame(s, st, type, f1, f2, f3, f4, f5, f6);
+    /* ③ 成功消费登记窗口（RESTART 成功尾在下方单独复位，不走此登记） */
+    if (rc == 0 || rc == JQ_BT_RC_UNDO_REQ_OK || rc == JQ_BT_RC_UNDO_REQ_DUP) {
+        if (type == BT_T_RESTART) {
+            /* RESTART = 新会话边界：复位窗口 + UNDO 事务态（R8-C-17 同源，
+               防旧局在途帧/残留 pending/legacy 哨兵污染新局） */
+            s->rx_last_seq = 0;
+            s->tx_last_seq = 0;
+            s->tx_seq = 0;
+            s->last_req_seq = 0;
+            s->pending_seq = 0;
+            s->undo_pending = 0;
+            s->last_resp_seq = 0;
+            s->last_resp_kind = 0;
+            s->last_resp_reason = 0;
+            s->last_resp_hash = 0;
+            s->legacy_undo_done = 0;
+        } else if (seq > 0) {
+            s->rx_last_seq = seq;   /* 逐 case 登记（MOVE/FLIP/SYNC_CELL/SYNC/RESIGN/DRAW/CHAT/UNDO） */
+        }
+    }
+    return rc;
+}
+
 int jq_bt_session_send_move(jq_bt_session *s, jq_state *st,
                              int from, int to, int flip, char *buf, int cap)
 {
