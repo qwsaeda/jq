@@ -7060,3 +7060,41 @@ jq_rs_rules.c 注释定论。
   在途旧帧强防护 + 混跑矩阵 11→43 增强 = R13 输入；当前"收 v3 发 v2 受控混跑"过渡态维持，
   单边重连不复位=seq 空间不对称（N4/N5 表明窗口放行≠全等，须双端同复位 + epoch）；
   无 BT 硬件端到端断连重连时序 = 真机 PENDING；续弈语义未定案（仅传输窗口强一致）。
+
+### 114. 「对齐」对抗审计 Round 13（C 协议余量全闭环：CAP 握手 + epoch 强防护 + 混跑矩阵 43，bt_semtest 139 + dual 43）（§114 2026-11-16）
+
+- **★ R13-① BT_T_CAP 能力协商握手帧（闭合"互不先发 v3 永不升档"死锁）**：
+  R11/R12 能力探测是被动升档（收 v3 业务帧才升 peer_caps_v3），双方都只等对端先发
+  v3 则互不升档（v3-only 双端永不发 v3）。R13 加显式 CAP 握手帧（BT_T_CAP=9，
+  连接确认后发 1 次）：① bt_protocol.h 枚举 + JQ_BT_CAP_V3/VER ② 收端 case BT_T_CAP
+  升档 peer_caps_v3/caps_locked（不改棋局）+ DISCONNECTED 白名单纳入（重连握手穿透
+  终态）③ jq_bt_send_cap helper（强制 encode_v3 宣告 v3，收帧段首连懒 init 后发 1
+  次=连接确认最可靠信号）。双路升档同源：显式 CAP + 被动 v3 业务帧幂等收敛；
+  RESTART/重连 init 清能力位；v2-only 对端 default 拒收 CAP = 降级维持（双端同版才
+  互通，诚实边界）。
+- **★ R13-② session_epoch 在途旧帧强防护（N5 窗口污染闭合，P0）**：R12 重连"无条件
+  init 清 rx_last_seq"解决本端残留窗口，但**旧会话高 seq 残帧**（在途末帧 H）到达新
+  会话（rx=0）被放行并登记 H → 后续新会话真正新帧 seq 1..H-1 误判旧包 = 窗口反向
+  污染。R13 加会话世代隔离：v3 帧 **wire_ref 高 16 位 = session_epoch**，低 16 位 =
+  业务 ref_lo（UNDO req seq 回显位）；on_frame_v3 前置 epoch 校验（先于 seq 判重，
+  fep!=session_epoch 拒收 -1 不登记窗口，闭合 N5）；jq_bt_session_init epoch 单调 ++
+  （重连不复用旧值）；RESTART 档 B epoch 推进（同连接新局世代前移）；发端 ctrl/UNDO/
+  move 的 v3 路径统一快照 session_epoch 打包 wire_ref。epoch 与 seq 窗口正交双门控
+  （归属 epoch ∧ 窗口 seq）；v2 帧 fep=0 跳过（0 退化 partial）。
+- **★ R13-③ 混跑矩阵 bt_semtest_dual 11→43 增强**：保留 S1-S5 11 条 + 新增 S1m MOVE
+  双端一致性（cell_col/row 合法域禁 R12 FLIP col=5 越界坑 + jq_try_move 双端 cells
+  同步）/ S2m seq 双向独立矩阵 / S3m 能力探测完整 / S5m UNDO 全链（REQ/ACK/NACK/
+  DUP）/ S6m 去重 UNDO 协同 / S7m v2/v3 混帧交错 = 净 +32，43/43 PASS。
+- **桌面单测演进**：bt_semtest §10 CAP（升档/不改棋局/DISCONNECTED 穿透/重复帧/旧包/
+  mask 防御/RESTART 清）+ §11 epoch（匹配放行/不匹配拒收 N5 闭合/v2 退化/重连 ++/
+  UNDO ref_lo 保真/RESTART 推进）：基线 131→139 PASS；dual 11→43。
+- **攻坚坑（R13 新增 4 条，防复发）**：① 大块 replace 须 grep 实锤"代码真落盘"
+  （on_frame_v3 epoch 代码首次 assert old==1 过但 replace 文本漂移未生效，grep 0 命中
+  暴露，重做）② 前置判重语义精确（seq==rx 重复 / seq<rx 旧包，S2m-4 断言纠正）
+  ③ 收帧段已持 g_mutex 的发送 helper 须无锁版（内部再 lock = 嵌套死锁，jq_bt_send_cap
+  改调用方持锁契约）④ 局部 jq_bt_session 测试须先 memset（模拟全局静态零初始化，
+  栈未初始化 prev_epoch 读垃圾致 epoch 乱跳）。
+- **诚实边界（R13 收口）**：双端同版才互通 v3/CAP/epoch（旧对端 default 拒收）；
+  单边重连 epoch 不对称（对端未重连）链路静默丢帧（设计正确代价，恢复须双端同会话）；
+  v2-only 对端 N5 不闭合（epoch 仅 v3）；无 BT 硬件端到端断连重连时序 = 真机 PENDING；
+  续弈语义未定案（仅传输窗口强一致）；epoch 16 位域限（UNDO ref_lo 极端长会话截断）。
