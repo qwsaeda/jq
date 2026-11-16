@@ -9996,14 +9996,21 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
         pthread_mutex_lock(&g_mutex);
         jq_state *st = &g_state;
         if (to == from) {
-            /* 点自身 = 翻棋。翻棋成功保持选中（态机已 SELECTED，下一步走子）；
-               翻棋失败（已翻开/非己方）回 IDLE。 */
+            /* 点自身 = 翻棋。★ AUD-R-044 修复（2026-11-16 用户实锤"翻棋后翻不了/
+               选中无效果"根因）：翻棋成功**清选中态**（jq_touch_state_reset + 高亮
+               同清 :10064）——旧实现"翻棋成功保持选中（下一步走子）"使暗棋翻棋后
+               态机停在 SELECTED(A)，对方翻完我点暗子 B 被解释为走子 A→B（can_move
+               拒：目标暗子格）→ 翻不了棋 + 点 B 无 SELECT 事件无高亮 → 选中无效果。
+               32 位原版翻译体实锤翻棋后清选中（§124y 手点全链"蓝翻→AI翻→蓝再翻
+               cell10 成功"）；暗棋翻棋是一手棋（翻完轮对方），保持选中无意义且有害。
+               翻棋失败（已翻开/非己方）回 IDLE（:10011 既有）。 */
             if (from >= 0 && jq_can_flip(st, from)) {
                 int pushed = undo_push();   /* ★ AUD-1000 B03-008/B03-011（P1 已修）：push 契约 */
                 flip_done = jq_flip(st, from);
                 if (flip_done) {
                     ui_replay_record(from, from, 1);   /* ★ P1（datah_039/107）：翻棋成功记录 1 步 */
                     g_event_cnt[ev7_to_name_idx(EV_FLIP)]++; g_event_total++;   /* ★ AUD-R-061（P2）：翻棋计数走 EV_FLIP=6 位 */
+                    jq_touch_state_reset(&g_ts);   /* ★ AUD-R-044 修复：翻棋成功清选中态（点暗子 B=全新选中，非走子 A→B） */
                 } else if (pushed) undo_pop_discard();   /* 翻棋失败回滚栈顶快照 */
                 LOGI("走子判定 翻棋：cell=%d rc=%d turn→%d（人机AI走红=%d）",
                      from, flip_done, st->turn, g_vs_ai);
@@ -10061,9 +10068,9 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
         /* ★ 对局结束音效（走子后 stage==OVER → win/lose，sfx_wav 表已有 win/lose/draw） */
         if (over_win >= 0)
             sfx_game_over(env, STG_OVER, over_win);
-        /* 翻棋成功保持选中（下一步走子）；走子/翻棋失败清高亮 */
+        /* ★ AUD-R-044 修复：翻棋成功清高亮（选中态已 reset）；走子/翻棋失败清高亮 */
         if (jq_glview_is_ready())
-            jq_glview_set_selected(&g_glview, flip_done ? from : -1);
+            jq_glview_set_selected(&g_glview, -1);
         /* ★ 红方 AI 应着（主线程同步，OnTouch 走子后触发；GLThread OnUpdate 的 AI 块
            在 MuMu surface attach flaky 停帧时兜底不了 → 主线程直接推进）。
            OnUpdate 检查 turn==RED 时 AI 已把 turn 切回 BLUE → 不重复（同 g_mutex）。 */

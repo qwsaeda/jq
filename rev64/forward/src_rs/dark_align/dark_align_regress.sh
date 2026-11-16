@@ -15,7 +15,7 @@ set -u
 WS=/disk/workspaces/jq
 RS=$WS/rev64/forward/src_rs
 DARK=$RS/dark_align
-SRCS="$RS/board.c $RS/layout.c $RS/rules.c $RS/save.c $RS/bt_protocol.c $RS/replay.c $RS/ui_state_stub.c"
+SRCS="$RS/board.c $RS/layout.c $RS/rules.c $RS/save.c $RS/bt_protocol.c $RS/replay.c $RS/ui_state_stub.c $RS/touch_state.c $RS/touch.c"
 CC=gcc
 CFLAGS="-O2 -Wall -I$RS -DRS_NO_GL"
 
@@ -137,6 +137,7 @@ run_one dark_rail_c0c4_worker_seg_test
 run_one dark_rail_c1c3_worker_seg_test
 run_one dark_rail_r6_fullrow_worker_test
 run_one dark_rail_r5r6_worker_eat_test
+run_one dark_touch_flip_flow_test
 
 
 echo ""

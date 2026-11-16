@@ -6360,3 +6360,67 @@ jq_rs_rules.c 注释定论。
   等价证明"= 双端探针覆盖更多 AUD-R 主题（本轮 F/G 组 7 探针覆盖 5 个高频未覆
   盖主题 + 坐实 4 项分叉），非全量规则等价（102 条分叉矩阵全量覆盖需更多探针
    / 真机 32 位实跑 / unidbg-frida，非本会话目标）。
+
+### 102. 用户实锤"翻棋后翻不了/选中无效果"根因修复（AUD-R-044 落地：翻棋成功清选中态）+ 真机三翻全流程实锤（2026-11-16）
+- **用户实锤三症状（2026-11-16 截图指正）**：① 页面 UI 没对齐 ② 游戏逻辑没对
+  齐："我翻棋，对方翻棋，然后我就翻不了棋了" ③ 选中棋子没有效果。
+- **★ 症状②③根因实锤（同一缺陷：AUD-R-044 挂起修法本轮落地）**：触摸态机
+  （touch_state.c 两步走子态机 + jni_bridge.c OnTouch 消费）**翻棋成功后保持选
+  中态**（旧实现 jni_bridge.c :10064 `jq_glview_set_selected(flip_done ? from :
+  -1)` + 态机停留 SELECTED(A)）→ 暗棋翻棋后轮对方（AI 翻，OnTimer 驱动不走态
+  机）→ 对方翻完我点暗子 B 被态机解释为**走子 A→B**（touch_state.c :78 to!=
+  from → JQ_EV_MOVE 走子意图，非翻棋/非重新选中）→ jq_can_move(A,B) 拒（B 是
+  暗子格 rank≠EMPTY，move_legal 吃子分支拒未定色目标）→ **翻不了棋**（用户症
+  状②）；点 B 不产生 JQ_EV_SELECT → 无高亮 → **选中无效果**（用户症状③）。
+  缺陷链完整闭环：① 蓝点暗子 A（IDLE→SELECT）② 再点 A（SELECTED→JQ_EV_MOVE
+  to==from → 翻棋成功，态机保持 SELECTED(A)）③ AI 翻（turn→BLUE）④ 我点暗子
+  B → 被解释为走子 A→B → 拒 → 死路。
+- **32 位原版实锤对照（§124y 手点全链）**：蓝翻 cell6（两次点）→ AI 翻 cell3
+  → **蓝再翻 cell10 成功**——原版翻棋后清选中（点暗子 B = 全新选中），64 位
+  侧漏这一步（AUD-R-044 注释 :913-917 早标注"翻棋后保持选中——玩家点目标格会
+  被拒，UI 与引擎语义不一致，修法留待下一轮"，本轮落地）。
+- **修复（jni_bridge.c + touch_state.c 注释同步）**：翻棋成功分支加
+  `jq_touch_state_reset(&g_ts)`（态机回 IDLE）+ :10064 高亮改
+  `jq_glview_set_selected(&g_glview, -1)`（翻棋成功清高亮，原来 flip_done 保
+  from）；暗棋翻棋是一手棋（翻完轮对方），保持选中无意义且有害。修复后流程：
+  蓝翻→（reset）→AI 翻→我点暗子 B = 全新 SELECT→再点 B = 翻棋成功，蓝→红→
+  蓝交替可持续。
+- **桌面回归固化（dark_touch_flip_flow_test.c 12 项 + dark_align_regress 收
+  录）**：夹具暗棋全 0xFF（jq_dark_setup rank2 全阵）+ 触摸几何互逆自检
+  （cell→tap→hit 同格）+ 蓝首翻两击（SELECT→MOVE to==from→jq_flip ok turn→
+  RED 先手定色蓝）+ 对方翻（turn→BLUE）+ **★修复核心：翻棋成功 reset 后点暗
+  子 C = JQ_EV_SELECT 全新选中（非走子 A→B）**+ 蓝再翻 C 成功 turn→RED（蓝→
+  红→蓝交替 winner 不误判）+ 旧缺陷回归守卫（不 reset 时 SELECTED(A) 点暗子
+  C = JQ_EV_MOVE(A→C) 走子意图，根因路径文档化防复发）+ 引擎旁证（走子 A→C
+  被拒 = 用户"翻不了"根因）+ 三翻后剩余暗子仍可翻（对局可持续非困毙）。
+  **dark_align_regress.sh 86/86 PASS（85→86，0 退化）**。
+- **真机三翻全流程实锤（127.0.0.1:5556 冒烟口径，so 8f956617）**：蓝翻 cell6
+  rc=1 turn→1（红）→ AI 翻 cell0 turn→0（蓝）→ **蓝再翻 cell8 rc=1 turn→1
+  （★修复验证点命中：旧实现此处被解释为走子 A→B 拒="翻不了"）**→ AI 再翻
+  cell2 turn→0——回合交替持续，0 Fatal signal。mumu_align_smoke.sh 2/2 PASS
+  + 0 崩溃。
+- **四层验证实锤（本轮全 PASS）**：① make evverify 172/172（事件/业务 40/40
+  + 几何 132/132）+ 三件套（event_code 0 缺口 / layout 几何 Δ=0）②
+  dark_align_regress.sh **86/86**（桌面 0 退化门禁，新增 touch_state.c/touch.c
+  进 SRCS）③ mumu_align_smoke.sh 2/2 + 0 崩溃 + **真机三翻全流程 rc=1×2** ④
+  引擎层桌面 flip3_test 复现（蓝翻→红翻→蓝再翻 can_flip=1，58 暗子全可翻
+  winner=-1——引擎层 0 缺陷，缺陷纯在 UI 态机层）。
+- **踩坑固化**：① 症状②③是同一缺陷（态机保持选中），非引擎 bug——引擎
+  jq_flip/jq_can_flip/turn 交替全正常（桌面 flip3_test 实锤），先查引擎再查
+  UI 分层定位；② "翻棋成功保持选中（下一步走子）"对**明棋两步走子**语义
+  正确（明棋无翻棋），但对**暗棋翻棋**有害（翻完轮对方，保持选中使下一击被
+  解释为走子）——两模式语义差异是根因，修法按暗棋口径（翻棋成功清选中），
+  明棋走子流程不受影响（明棋翻棋 jq_can_flip 恒拒已翻开子，走子流程 SELECT→
+  MOVE 不变）；③ touch_state.c :69 旧注释"翻棋后保持选中（标准军棋）"与
+  jni_bridge.c 落地行为矛盾——注释同步改（文档/代码一致），防后续读者误改回。
+- **对照 64 位实现**（jni_bridge.c OnTouch 翻棋成功分支 + touch_state.c 注释，
+  行为级修复非新增机制）：AUD-R-044 从"诚实标注挂起"转"已修落地"。
+- **症状①（UI 没对齐）诚实边界**：用户截图两张本轮未能定位（截图内容未随会
+  话传达，具体界面/几何偏差未知）——**未达成，待用户提供具体界面/截图内容
+  后按 UI_COMPARE.md 基准逐项比对**；症状②③本轮根因修复闭环（真机三翻全流
+  程实锤）。
+- **诚实边界**：本轮改 jni_bridge.c OnTouch 翻棋成功分支 + touch_state.c 注
+  释（64 位 so 已重建装机 8f956617 + redroid 冒烟复验）；127.0.0.1:5556 冒烟
+  口径非红果权威（§124y-279 模拟器结论不可外推真机），红果 10.0.182.146 恢复
+  后走权威 5 判据复验；用户手点（真实触摸）判据受设备侧输入桥制约（§124y 历
+  史口径），本轮以 input tap 注入路径 + 桌面态机级用例固化。

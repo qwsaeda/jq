@@ -66,7 +66,10 @@ int jq_touch_state_process(jq_touch_state *ts, float px, float py,
     }
     /* 已选中态：
        - 点同一格 = 翻棋意图（走子到自身，帧驱动 jq_can_flip 判定）。
-         ★ 翻棋后保持选中（标准军棋：翻棋成功仍选中，下一步点目标格走子）。
+         ★ AUD-R-044 修复（2026-11-16）：翻棋成功由 OnTouch **清选中态**
+         （jq_touch_state_reset + 高亮 -1）——旧"翻棋成功保持选中"使暗棋翻棋后
+         点暗子 B 被解释为走子 A→B（用户实锤"翻不了棋/选中无效果"根因）；
+         32 位原版实锤翻棋后清选中（§124y 手点全链"蓝翻→AI翻→蓝再翻成功"）。
          翻棋失败由 OnTouch 手动回 IDLE（jq_touch_state_reset）。
        - 点新格 = 走子意图（type 7，A→B，帧驱动 jq_can_move 判定） */
     int from = ts->sel, to = cell;
