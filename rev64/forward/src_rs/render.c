@@ -9813,7 +9813,15 @@ static void rs_gl_rebuild(rs_render *rr, int slot)
             rr->tex_bright_text, rr->tex_chatlog_text, rr->tex_profile_text, rr->tex_drawdetail_text,
             rr->tex_setentry_text, rr->tex_imgset_text, rr->tex_join065_text, rr->tex_create069_text,
             rr->tex_rules070_text, rr->tex_room060_text, rr->tex_chat063_text, rr->tex_about_text,
-            rr->tex_uibat_text, rr->tex_drawdetail_icons
+            rr->tex_uibat_text, rr->tex_drawdetail_icons,
+            /* ★ R9-F-16（P1 GL 资源三表统一）：预删表补 8 项漏删纹理（rebuild 覆盖
+               glGenTextures 旧 ID 不回收 = 同 context 重建 GPU 纹理泄漏；gen 点
+               tex_house 9897 / tex_panel 9985 / tex_panel_btn 9993 / tex_btn_color2
+               10002 / tex_gameset_title 10030 / tex_panel_icon 10038 / tex_sound_text
+               10083 / tex_exit_text 10299；另 tex_imen_text 显式段遗漏同补） */
+            rr->tex_house, rr->tex_panel, rr->tex_panel_btn, rr->tex_btn_color2,
+            rr->tex_gameset_title, rr->tex_panel_icon, rr->tex_sound_text,
+            rr->tex_exit_text, rr->tex_imen_text
         };
         for (size_t k = 0; k < sizeof(texs)/sizeof(texs[0]); k++)
             if (texs[k][slot]) { glDeleteTextures(1, &texs[k][slot]); texs[k][slot] = 0; }
@@ -11131,8 +11139,12 @@ void rs_render_resize(rs_render *rr, int w, int h)
 void rs_render_free(rs_render *rr)
 {
     for (int i = 0; i < 2; i++) {
-        if (rr->prog_tex[i] && rr->gl_ok[i]) glDeleteProgram(rr->prog_tex[i]);
-        if (rr->prog_solid[i] && rr->gl_ok[i]) glDeleteProgram(rr->prog_solid[i]);
+        /* ★ R9-F-17（P1）：program 释放去 gl_ok 门控——gl_ok=gl2_ok&&vbo_board&&
+           tex_board&&tex_piece（:10400 诊断粗判据），单核心纹理缺失即 0 → 旧门控
+           下 program 泄漏（与纹理/VBO 的 F3-002 去门控范式一致）；gl_ok 字段保留
+           诊断用途不改语义。 */
+        if (rr->prog_tex[i])   { glDeleteProgram(rr->prog_tex[i]);   rr->prog_tex[i] = 0; }
+        if (rr->prog_solid[i]) { glDeleteProgram(rr->prog_solid[i]); rr->prog_solid[i] = 0; }
     }
     /* ★ 对抗审计（§2026-11-11）：旧 rs_render_free 只删 tex_board/tex_piece 两个纹理，
        其余 41 个纹理数组（text / bg / menu_bg / dlg_text / imen 系列 / 各弹窗文字图集…）
@@ -11152,6 +11164,11 @@ void rs_render_free(rs_render *rr)
             rr->tex_setentry_text, rr->tex_imgset_text, rr->tex_join065_text, rr->tex_create069_text,
             rr->tex_rules070_text, rr->tex_room060_text, rr->tex_chat063_text, rr->tex_about_text,
             rr->tex_uibat_text, rr->tex_drawdetail_icons,
+            /* ★ R9-F-17（P1 GL 资源三表统一）：释放表补 8 项漏删（与 rebuild 预删
+               同集合；tex_house/tex_exit_text 三表全漏，其余 6 项统计有但 free 漏） */
+            rr->tex_house, rr->tex_panel, rr->tex_panel_btn, rr->tex_btn_color2,
+            rr->tex_gameset_title, rr->tex_panel_icon, rr->tex_sound_text,
+            rr->tex_exit_text,
             rr->tex_btn_skin[0], rr->tex_btn_skin[1], rr->tex_btn_skin[2]   /* ★ 2026-11-13 按钮皮肤三态 */
         };
         for (size_t k = 0; k < sizeof(texs)/sizeof(texs[0]); k++)
