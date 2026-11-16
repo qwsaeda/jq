@@ -128,9 +128,18 @@ public class BtSpp {
                             char c = (char) tmp[i];
                             if (c != '\r') buf.append(c);
                         }
-                        /* 逐帧抽取：buf 内可能有多帧（v2\npayload\nv2\npayload\n） */
-                        int vs;
-                        while ((vs = buf.indexOf("v2\n")) >= 0) {
+                        /* ★ R11-C 双栈逐帧抽取：buf 内可多帧（v2/v3 混杂或同版连帧）。
+                           取双头 min(iv2,iv3) 作首帧起点；v2/v3 头同长 3 字节，
+                           payload 终止符相对 vs+3。native encode 产 "v?\n"+payload+"\n"，
+                           App.OnBluetooth(it.extra=frame) 契约 0 改动。 */
+                        while (true) {
+                            int iv2 = buf.indexOf("v2\n");
+                            int iv3 = buf.indexOf("v3\n");
+                            int vs = -1;
+                            if (iv2 >= 0 && iv3 >= 0) vs = (iv2 <= iv3) ? iv2 : iv3;
+                            else if (iv2 >= 0) vs = iv2;
+                            else if (iv3 >= 0) vs = iv3;
+                            if (vs < 0) break;
                             int pe = buf.indexOf("\n", vs + 3);   /* payload 终止符 */
                             if (pe < 0) break;                     /* 帧未收全，等下次读 */
                             String frame = buf.substring(vs, pe);
@@ -146,7 +155,9 @@ public class BtSpp {
                            尾 '\n' 未到时 buf 保留半帧等下次读，若对端只发半帧断连，
                            缓冲随读无限增长。32KB 上限（单帧最大 = 60 格 SYNC_CELL
                            串接 ~6KB，5 倍余量）。 */
-                        if (buf.length() > 0 && buf.indexOf("v2\n") < 0 && buf.length() > 256) {
+                        /* ★ R11-C：无 v2/v3 任一头且缓冲过长 → 丢弃（双版本噪声保护） */
+                        if (buf.length() > 0 && buf.indexOf("v2\n") < 0
+                            && buf.indexOf("v3\n") < 0 && buf.length() > 256) {
                             buf.setLength(0);
                         }
                         if (buf.length() > 32768) {
