@@ -587,6 +587,38 @@ int main(void)
     }
 
     /* =====================================================================
+     * §5c-hash. R12-C UNDO ACK hash_lo 真值（FNV-1a 16-bit，双端同算法）
+     * ===================================================================== */
+    printf("[§5c-hash] R12-C 局面 hash_lo 真值/对称一致/分叉 mismatch\n");
+    {
+        jq_state stH; fixture_play(&stH);
+        unsigned short h1 = jq_state_hash_lo(&stH);
+        unsigned short h2 = jq_state_hash_lo(&stH);
+        CHECK(h1 == h2, "R12-C H1：同局面 hash_lo 稳定（两次一致）");
+        CHECK(h1 != 0, "R12-C H2：fixture_play 后 hash_lo 非 0（非退化）");
+        /* 对称同构局面 hash 相等 */
+        jq_state stA; jq_state stB; fixture_play(&stA); fixture_play(&stB);
+        unsigned short ha = jq_state_hash_lo(&stA);
+        unsigned short hb = jq_state_hash_lo(&stB);
+        CHECK(ha == hb, "R12-C H3：对称同构局面 hash_lo 相等（双端一致不变量）");
+        /* 故意分叉 hash 不等（mismatch 判据） */
+        stB.cells[0].rank = (uint8_t)(stB.cells[0].rank + 1);
+        unsigned short hb2 = jq_state_hash_lo(&stB);
+        CHECK(ha != hb2, "R12-C H4：分叉局面 hash_lo 不等（mismatch 判据成立）");
+        /* turn 域敏感 */
+        jq_state stC; fixture_play(&stC);
+        unsigned short hc0 = jq_state_hash_lo(&stC);
+        stC.turn = (stC.turn == SIDE_BLUE) ? SIDE_RED : SIDE_BLUE;
+        unsigned short hc1 = jq_state_hash_lo(&stC);
+        CHECK(hc0 != hc1, "R12-C H5：turn 变化 hash_lo 变化（域覆盖含 turn）");
+        /* 分叉还原回收敛 */
+        stB.cells[0].rank = stA.cells[0].rank;
+        CHECK(jq_state_hash_lo(&stB) == ha,
+              "R12-C H6：分叉还原后 hash_lo 回到同构值（回退收敛可比对）");
+    }
+
+    /* =====================================================================
+     * §6. R11-C v3 双栈编解码（v3 round-trip + v2 归一化 + UNDO 语义迁移）    /* =====================================================================
      * §6. R11-C v3 双栈编解码（v3 round-trip + v2 归一化 + UNDO 语义迁移）
      * ===================================================================== */
     printf("[§6] R11-C v3 双栈编解码（decode_any 归一化）\n");
@@ -715,6 +747,7 @@ int main(void)
               "R11-C P3：RESTART 复位清 peer_caps_v3/caps_locked（新会话能力边界）");
     }
 
+
     /* =====================================================================
      * §8. R11-C Step6 能力探测（收 v3 帧升 peer_caps_v3 + 会话内锁定）
      * ===================================================================== */
@@ -744,6 +777,55 @@ int main(void)
         int p3 = jq_bt_session_on_frame_v3(&sP3, &stP3, BT_T_RESTART, 5, 0, 999, 1, 0, 0, 0, 0);
         CHECK(p3 == 0 && sP3.peer_caps_v3 == 0 && sP3.caps_locked == 0,
               "R11-C P3：RESTART 复位清 peer_caps_v3/caps_locked（新会话能力边界）");
+    }
+
+    /* =====================================================================
+     * §9. R12-③ 重连 seq 强一致（start_bt_session 无条件 init = 新会话边界）
+     * 桌面验证：jq_bt_session_init 等价重连复位（R12 回执 §1 P0 根治判据）
+     * ===================================================================== */
+    printf("[§9] R12-③ 重连 seq 窗口复位（init 等价新会话边界）\n");
+    {
+        /* N1：重连复位 = init 全清（污染后 init 等价清零 12+2 字段） */
+        jq_state stN; fixture_play(&stN);
+        jq_bt_session sN; jq_bt_session_init(&sN, &stN, 1);
+        sN.rx_last_seq = 9; sN.tx_seq = 7; sN.tx_last_seq = 7;
+        sN.peer_caps_v3 = 1; sN.caps_locked = 1;
+        sN.undo_pending = 1; sN.pending_seq = 5; sN.last_req_seq = 3;
+        sN.last_resp_kind = 2; sN.legacy_undo_done = 1;
+        jq_bt_session_init(&sN, &stN, 0);   /* 重连 = 重新 init */
+        CHECK(sN.rx_last_seq == 0 && sN.tx_seq == 0 && sN.tx_last_seq == 0
+              && sN.peer_caps_v3 == 0 && sN.caps_locked == 0
+              && sN.undo_pending == 0 && sN.pending_seq == 0 && sN.last_req_seq == 0
+              && sN.last_resp_kind == 0 && sN.legacy_undo_done == 0
+              && sN.we_blue == 0 && sN.state == BT_ST_CONNECTED,
+              "R12 N1：重连 init 等价全清窗口/能力/UNDO（12+2 字段，we_blue=0 client）");
+        /* N2：重连后 seq 空间从 0 接受新帧 */
+        sN.state = BT_ST_THEIR_TURN;
+        int n2 = jq_bt_session_on_frame_v3(&sN, &stN, BT_T_DRAW, 1, 0, 0, 0, 0, 0, 0, 0);
+        CHECK(n2 == 0 && sN.rx_last_seq == 1,
+              "R12 N2：重连后 seq=1 新帧正常接受（窗口从 0 起，不残留旧值）");
+        /* N3（反例实锤）：残留 rx_last_seq=40 → 收 seq=1 误判旧包 -1 */
+        jq_state stN3; fixture_play(&stN3);
+        jq_bt_session sN3; jq_bt_session_init(&sN3, &stN3, 0);
+        sN3.rx_last_seq = 40;   /* 模拟残留（不重置） */
+        sN3.state = BT_ST_CONNECTED;
+        int n3 = jq_bt_session_on_frame_v3(&sN3, &stN3, BT_T_DRAW, 1, 0, 0, 0, 0, 0, 0, 0);
+        CHECK(n3 == -1 && sN3.rx_last_seq == 40,
+              "R12 N3：残留 rx_last_seq=40 收 seq=1 → -1 旧包（反例：证明必须重连复位）");
+        /* N4：init 后 rx_last_seq=0，收高 seq=500 不误判（窗口放行） */
+        jq_state stN4; fixture_play(&stN4);
+        jq_bt_session sN4; jq_bt_session_init(&sN4, &stN4, 0);
+        sN4.state = BT_ST_CONNECTED;
+        int n4 = jq_bt_session_on_frame_v3(&sN4, &stN4, BT_T_DRAW, 500, 0, 0, 0, 0, 0, 0, 0);
+        CHECK(n4 == 0 && sN4.rx_last_seq == 500,
+              "R12 N4：重连后 rx_last_seq=0 收高 seq=500 不误判旧包（窗口放行）");
+        /* N8：重连清能力位（防误发 v3） */
+        jq_state stN8; fixture_play(&stN8);
+        jq_bt_session sN8; jq_bt_session_init(&sN8, &stN8, 1);
+        sN8.peer_caps_v3 = 1; sN8.caps_locked = 1;   /* 旧会话已升档 */
+        jq_bt_session_init(&sN8, &stN8, 1);           /* 重连 */
+        CHECK(sN8.peer_caps_v3 == 0 && sN8.caps_locked == 0,
+              "R12 N8：重连清能力位（防残留 v3 锁定误发）");
     }
 
     printf(rc ? "== bt_semtest 结果: 有失败（%d 条通过）==\n"

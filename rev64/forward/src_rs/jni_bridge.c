@@ -3787,25 +3787,29 @@ static void start_bt_session(JNIEnv *env, int host)
     jq_bt_start(env, host);
     /* ★ 联机会话初始化：联网=蓝先手（host），联机=红后手（client）——双方 we_blue 不可同为 1。
        发送走子帧经 jq_bt_send；BT 模式走子由本机状态机放行。 */
-    if (!g_bt_sess_init_done) {
-        pthread_mutex_lock(&g_mutex);
-        /* ★ AUD-1000-ALL A1-F1-006（P1 已修）：init_done 置位移入 g_mutex 内——旧实现
-           check-then-set 非原子（锁外置 1），BtSpp 读线程懒 init 窗口内双线程同进
-           → 二次 jq_bt_session_init 翻 host 首帧闸口 + 双端死锁静默降级。锁内
-           double-check（enter 后复查）保证仅一线程 init。 */
-        if (!g_bt_sess_init_done) {
-            jq_bt_session_init(&g_bt_sess, &g_state, host ? 1 : 0);
-            /* host 蓝先手=OUR_TURN（可发首帧）；client 红后手=THEIR_TURN（等 host 首帧）。
-               ★ 回合闸口：send_move 须 OUR_TURN，on_frame MOVE/FLIP 须 THEIR_TURN。 */
-            g_bt_sess.state = host ? BT_ST_OUR_TURN : BT_ST_THEIR_TURN;
-            g_bt_sess_init_done = 1;   /* ★ 锁内置位（原子） */
-        }
-        pthread_mutex_unlock(&g_mutex);
-        ui_bt_set_active(1);   /* ★ 对抗审计（datah_067）：联机 ☰ 菜单分流 */
-        LOGI("start_bt_session：蓝牙会话初始化（host=%d %s，%s）",
-             host, host ? "蓝先手" : "红后手",
-             host ? "OUR_TURN" : "THEIR_TURN");
-    }
+    /* ★ R12-③（P0 重连 seq 强一致，R12 跨重启回执 §1/§3 定案落地）：start_bt_session
+       是"新连接尝试 = 新会话边界"入口——**无条件** jq_bt_session_init（memset 全清
+       rx_last_seq/tx_seq/peer_caps_v3/caps_locked/UNDO 事务态），不再仅首连 init。
+       旧实现 `if (!g_bt_sess_init_done)` 使重连（断线后再次联网/联机）残留旧窗口
+       rx_last_seq=R_old → 对端新会话 seq 从 1 重新单调，前 R_old-1 帧满足
+       seq<rx_last_seq 被 on_frame_v3 前置判重**全判旧包丢弃 = 新会话大面积丢帧
+       （P0 缺陷实锤，R12 回执 §1）。无条件 init = 每次连接尝试清零，重连 seq 空间
+       从 1 重新单调（对齐 RESTART 复位语义，R11 会话内边界 → R12 跨连接边界同源）。
+       锁内 double-check 保留（B03-014/A1-F1-006：BtSpp 读线程懒 init 窗口防二次
+       init 竞争 + 死锁静默降级）；init 幂等（重复 memset 0 无副作用）。 */
+    pthread_mutex_lock(&g_mutex);
+    /* A1-F1-006：锁内 double-check（enter 后复查）——防 BtSpp 读线程懒 init 窗口
+       与主线程 start 同进二次 init；无条件 init 语义下幂等重入安全。 */
+    jq_bt_session_init(&g_bt_sess, &g_state, host ? 1 : 0);
+    /* host 蓝先手=OUR_TURN（可发首帧）；client 红后手=THEIR_TURN（等 host 首帧）。
+       ★ 回合闸口：send_move 须 OUR_TURN，on_frame MOVE/FLIP 须 THEIR_TURN。 */
+    g_bt_sess.state = host ? BT_ST_OUR_TURN : BT_ST_THEIR_TURN;
+    g_bt_sess_init_done = 1;   /* ★ 锁内置位（原子） */
+    pthread_mutex_unlock(&g_mutex);
+    ui_bt_set_active(1);   /* ★ 对抗审计（datah_067）：联机 ☰ 菜单分流 */
+    LOGI("start_bt_session(reconnect-safe R12)：会话无条件重置（host=%d %s，%s；rx/tx/peer_caps/UNDO 清零）",
+         host, host ? "蓝先手" : "红后手",
+         host ? "OUR_TURN" : "THEIR_TURN");
     /* ★ AUD-1000 B03-060（P1 已注释）：jq_bt_start/jq_show_dialog 是 JNI 调 Java
        宿主（BtSpp/socket），主线程 OnTouch 调——JNI 调用不可避免（触 Java 宿主），
        主线程耗时=Java 侧 socket 建立（诚实边界标注，不 post 子线程=保持 UI 线程
@@ -10559,19 +10563,22 @@ Java_com_qwsaeda_App_OnBluetooth(JNIEnv *env, jclass clazz, jobject intent)
                             if (g_state.turn == SIDE_BLUE || g_state.stage != STG_PLAY) break;
                             if (popped_n >= 2) break;   /* 2 ply 上限裁剪 */
                         }
-                        /* 回 UNDO_ACK（ref=seq, f4=hash 摘要位, f5=0 ACK 子型）——锁内编码发送 */
+                        /* ★ R12-C：回 UNDO_ACK（ref=seq, f4=hash_lo 真值, f5=0 ACK 子型）——
+                           对称回退后算局面 hash_lo 填入 f4（R9 占位 0 → 真值闭合），mismatch 才 SYNC */
                         char abuf[BT_BUF];
+                        unsigned short ack_hash = jq_state_hash_lo(&g_state);
                         int an = jq_bt_frame_encode(abuf, sizeof abuf, BT_T_UNDO,
-                                                     u_seq, 0, u_seq, 0, 0, 0, 0);
-                        /* f2=seq, f3=ref=u_seq, f4=0(hash 占位), f5=0(ACK), f6=0 */
+                                                     u_seq, 0, u_seq, (int)ack_hash, 0, 0, 0);
+                        /* f2=seq, f3=ref=u_seq, f4=hash_lo, f5=0(ACK), f6=0 */
                         if (an > 0) {
                             abuf[an] = 0;
                             jq_bt_send(env, abuf);
                             g_bt_sess.last_resp_seq = (unsigned int)u_seq;
                             g_bt_sess.last_resp_kind = 1;
                             g_bt_sess.last_resp_reason = 0;
-                            LOGI("OnBluetooth：UNDO_REQ seq=%d 接受 → 对称回退 %d 步 + ACK（turn=%d）",
-                                 u_seq, popped_n, g_state.turn);
+                            g_bt_sess.last_resp_hash = ack_hash;   /* R12-C：缓存真值 hash（DUP 重发用） */
+                            LOGI("OnBluetooth：UNDO_REQ seq=%d 接受 → 对称回退 %d 步 + ACK hash=%u（turn=%d）",
+                                 u_seq, popped_n, (unsigned)ack_hash, g_state.turn);
                         } else {
                             LOGI("OnBluetooth：UNDO_REQ seq=%d ACK 编码失败（BT_BUF 不足）", u_seq);
                         }
@@ -10579,10 +10586,11 @@ Java_com_qwsaeda_App_OnBluetooth(JNIEnv *env, jclass clazz, jobject intent)
                         /* 幂等重放：重发缓存应答（不二次 pop） */
                         char dbuf[BT_BUF];
                         unsigned char kind = g_bt_sess.last_resp_kind;
+                        /* ★ R12-C：DUP 重发缓存应答——ACK(kind=1) 携带缓存 hash_lo，NACK(kind=2) 携带 reason */
                         int dn = jq_bt_frame_encode(dbuf, sizeof dbuf, BT_T_UNDO,
                                                      g_bt_sess.last_resp_seq, 0,
                                                      g_bt_sess.last_resp_seq,
-                                                     kind == 2 ? g_bt_sess.last_resp_reason : 0,
+                                                     kind == 2 ? g_bt_sess.last_resp_reason : (int)g_bt_sess.last_resp_hash,
                                                      kind == 2 ? 1 : 0, 0, 0);
                         if (dn > 0) {
                             dbuf[dn] = 0;
@@ -10616,17 +10624,24 @@ Java_com_qwsaeda_App_OnBluetooth(JNIEnv *env, jclass clazz, jobject intent)
                             LOGI("OnBluetooth：收 UNDO_NACK ref=%d reason=%d → 解锁（不回退）",
                                  u_ref, u_v);
                         } else {
-                            /* ACK：本端对称回退（发起方）+ hash mismatch 才 SYNC 兜底（R7-C-11） */
+                            /* ★ R12-C：ACK 本端对称回退 + hash_lo 真值比对，mismatch 才 SYNC 兜底
+                               （R7-C-11 定案落地，R9 TODO 占位 0 闭合）；一致 → 省 60 帧全量 SYNC */
                             int popped_n = 0;
                             while (undo_pop()) {
                                 popped_n++;
                                 if (g_state.turn == SIDE_BLUE || g_state.stage != STG_PLAY) break;
                                 if (popped_n >= 2) break;
                             }
-                            LOGI("OnBluetooth：收 UNDO_ACK ref=%d → 本端回退 %d 步（hash=%d 占位校验）",
-                                 u_ref, popped_n, u_v);
-                            /* TODO R10：hash_lo 真值校验 + mismatch 才 SYNC（本轮占位 0 = 不 SYNC，
-                               对称回退后双端同序 pop 天然一致；全量 SYNC 兜底走 legacy 路径） */
+                            unsigned short local_hash = jq_state_hash_lo(&g_state);
+                            unsigned short peer_hash = (unsigned short)u_v;   /* ACK f4=hash_lo */
+                            if (local_hash != peer_hash) {
+                                did_undo = 1;   /* 仅 mismatch 触发下方 jq_bt_session_send_sync 全量 60 帧 */
+                                LOGI("OnBluetooth：收 UNDO_ACK ref=%d → 回退 %d 步 hash_mismatch local=%u peer=%u，触发 SYNC 对账",
+                                     u_ref, popped_n, (unsigned)local_hash, (unsigned)peer_hash);
+                            } else {
+                                LOGI("OnBluetooth：收 UNDO_ACK ref=%d → 回退 %d 步 hash_match=%u（省 SYNC）",
+                                     u_ref, popped_n, (unsigned)local_hash);
+                            }
                         }
                     } else {
                         LOGI("OnBluetooth：收 UNDO 应答 ref=%d 非当前 pending（stale 丢弃，kind=%d）",

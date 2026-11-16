@@ -51,5 +51,9 @@ int jq_bt_frame_sync_encode(char *buf, int cap_per_frame,
                            const jq_state *st, int start, int count);
 int jq_bt_move_frame(char *buf, int cap, const jq_state *st, int from, int to,
                      jq_event ev);
+/* ★ R12-C：局面摘要 hash_lo（16 位 FNV-1a，双端同实现同输入→同值；覆盖 60 格
+   rank/side/revealed + stage + turn 共 182 字节固定序喂入；不含 moves/winner
+   计数缓存，同构局面=可继续对弈等价态）。UNDO ACK 携带，mismatch 才全量 SYNC。 */
+unsigned short jq_state_hash_lo(const jq_state *st);
 
 #endif /* RS_BT_PROTOCOL_H */

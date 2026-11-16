@@ -156,6 +156,15 @@ bt_semtest:
 	@echo "构建完成: dist/jq_bt_semtest"
 	@./dist/jq_bt_semtest
 
+# ★ R12 混跑矩阵双实例对射（v3/v2 能力混跑 + seq 去重 + UNDO 全链，桌面纯 bt_session/bt_protocol）
+.PHONY: bt_semtest_dual
+bt_semtest_dual:
+	@mkdir -p dist
+	$(CC) $(CFLAGS) -DRS_NO_GL -o dist/jq_bt_semtest_dual \
+	    $(SRCS_CORE) bt_session.c bt_semtest_dual.c ui_state_stub.c -lm
+	@echo "构建完成: dist/jq_bt_semtest_dual"
+	@./dist/jq_bt_semtest_dual
+
 .PHONY: evverify
 MODE ?= --all
 evverify:

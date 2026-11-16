@@ -182,3 +182,21 @@ int jq_bt_move_frame(char *buf, int cap, const jq_state *st, int from, int to,
                               fc, fr, tc, tr,
                               st->cells[to].rank, st->cells[to].side, ev);
 }
+/* ★ R12-C：局面 hash_lo（FNV-1a 16-bit，确定性逐字节；双端同 C 源编译进收发两端，
+   输入序固定：格序 0..N_CELLS-1 × (rank,side,revealed) + stage + turn，无平台随机/地址依赖） */
+unsigned short jq_state_hash_lo(const jq_state *st)
+{
+    unsigned short h = 0x811cu;   /* FNV-1a offset basis（16 位） */
+    if (!st) return h;
+    for (int i = 0; i < N_CELLS; i++) {
+        const unsigned char b[3] = {
+            (unsigned char)st->cells[i].rank,
+            (unsigned char)st->cells[i].side,
+            (unsigned char)st->cells[i].revealed
+        };
+        for (int k = 0; k < 3; k++) { h ^= b[k]; h = (unsigned short)(h * 0x0193u); }
+    }
+    { unsigned char b = (unsigned char)st->stage; h ^= b; h = (unsigned short)(h * 0x0193u); }
+    { unsigned char b = (unsigned char)st->turn;  h ^= b; h = (unsigned short)(h * 0x0193u); }
+    return h;
+}
