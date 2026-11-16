@@ -2801,21 +2801,40 @@ Java_com_qwsaeda_App_OnTimer(JNIEnv *env, jclass clazz)
         pthread_mutex_lock(&g_mutex);
         if (ui_screen_get() == UI_GAME && g_vs_ai && g_state.stage == STG_PLAY && g_state.turn == SIDE_RED) {
         int from, to, flip;
+        int ai_ev = -1;         /* ★ Round 1 对抗审计 C-01/C-02（P1）：AI 应着事件码（音效用） */
+        int ai_win = -1;        /* 终局 winner（音效用） */
         if (ai_pick(&from, &to, &flip) == 0) {
             int pushed = undo_push();   /* ★ AUD-1000 B03-034/B03-008（P1 已修）：push 契约（栈满=0 不污染栈）；
                OnTimer/OnUpdate/OnTouch 三处 AI 块共用同一契约（B03-008 收敛点=同 g_mutex 互斥 + turn 判定去重） */
             if (flip) {
                 int frc = 0;
-                if (jq_flip(&g_state, from)) { frc = 1; ui_replay_record(from, from, 1); g_event_cnt[ev7_to_name_idx(EV_FLIP)]++; g_event_total++; }   /* AUD-R-061：翻棋计数走 EV_FLIP=6 位 */   /* ★ P1（datah_039/107）：AI 翻棋记录 */
+                if (jq_flip(&g_state, from)) { frc = 1; ui_replay_record(from, from, 1); g_event_cnt[ev7_to_name_idx(EV_FLIP)]++; g_event_total++; ai_ev = EV_FLIP; }   /* AUD-R-061：翻棋计数走 EV_FLIP=6 位 */   /* ★ P1（datah_039/107）：AI 翻棋记录 */
                 if (!frc && pushed) undo_pop_discard();   /* ★ AUD-1000-ALL A9-001~004（P1 已修）：jq_flip bool 契约（成功 1/失败 0），frc<0 恒假死条件→翻棋失败脏快照不回滚；改 !frc（失败即回滚栈顶） */   /* 翻棋失败回滚栈顶快照 */
             } else {
                 int e = jq_try_move(&g_state, from, to);
-                if (e >= 0) ui_replay_record(from, to, 0);   /* ★ P1（datah_039/107）：AI 走子记录 */
+                if (e >= 0) { ui_replay_record(from, to, 0); ai_ev = e; }   /* ★ P1（datah_039/107）：AI 走子记录 */
                 LOGI("红方 AI 应着：from=%d to=%d 结果=%s（turn 切回蓝方）",
                      from, to, JQ_EVENT_NAMES[e < 0 ? 0 : e]);
                 if (e < 0 && pushed) undo_pop_discard();   /* 走子失败回滚栈顶快照 */
             }
+            if (g_state.stage == STG_OVER) ai_win = g_state.winner;
             LOGI("OnTimer 人机AI：%s cell=%d turn→%d", flip ? "翻棋" : "走子", from, g_state.turn);
+            /* ★ Round 1 对抗审计 C-01（P1，§104 同族漏修）：OnTimer 是 AI 应着的
+               **三个入口之一**（另两：OnUpdate GLThread / OnTouch 主线程）——§104 只在
+               OnUpdate 入口做了"清玩家选中态"，OnTimer 入口漏修 → AI 应着后残留
+               SELECTED(A)，玩家下一击被解释为走子 A→B（can_move 拒）→"点不动"。
+               修：三入口统一清选中态（g_ts_lock 保护）+ 清高亮。 */
+            pthread_mutex_lock(&g_ts_lock);
+            jq_touch_state_reset(&g_ts);
+            pthread_mutex_unlock(&g_ts_lock);
+            if (jq_glview_is_ready()) jq_glview_set_selected(&g_glview, -1);
+            /* ★ Round 1 对抗审计 C-02（P1）：OnTimer AI 入口**无任何音效**（对比
+               OnTouch AI 块有 sfx_done/sfx_name 机制）→ AI 应着静音。修：按事件码播
+               走子/吃子/炸弹/扛旗/翻棋音效（终局播 win/lose/draw），锁外播。 */
+            if (ai_ev >= 0) {
+                sfx_play(env, flip ? "flip" : sfx_for_move(ai_ev));
+                if (ai_win >= 0) sfx_game_over(env, STG_OVER, ai_win);
+            }
         }
         }
         pthread_mutex_unlock(&g_mutex);
@@ -10113,10 +10132,14 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
         /* ★ AUD-R-044 修复：翻棋成功清高亮（选中态已 reset）；走子/翻棋失败清高亮 */
         if (jq_glview_is_ready())
             jq_glview_set_selected(&g_glview, -1);
-        /* ★ 红方 AI 应着（主线程同步，OnTouch 走子后触发；GLThread OnUpdate 的 AI 块
+        /* ★ 红方 AI 应着（主线程同步，OnTouch 走子/翻棋后触发；GLThread OnUpdate 的 AI 块
            在 MuMu surface attach flaky 停帧时兜底不了 → 主线程直接推进）。
-           OnUpdate 检查 turn==RED 时 AI 已把 turn 切回 BLUE → 不重复（同 g_mutex）。 */
-        if (move_ok) {
+           OnUpdate 检查 turn==RED 时 AI 已把 turn 切回 BLUE → 不重复（同 g_mutex）。
+           ★ Round 1 对抗审计 C-05（P1）：旧判据仅 `if (move_ok)`（move_ok 仅在
+           to!=from 的走子路径置位）→ **玩家暗棋翻子（flip_done=1）不 inline 触发 AI**，
+           人机暗棋局在 OnUpdate 停帧环境（MuMu surface attach flaky）下 turn 恒为 RED
+           → 玩家下一击被回合门拒 → "点不动/玩不了"。修：`move_ok || flip_done`。 */
+        if (move_ok || flip_done) {
             /* ★ AUD-1000-ALL A10-D2-01（P2 已修）：OnTouch 走子块 ai_pick O(N²) 移锁外
                （同 A2-020 OnUpdate 范式）——旧实现在 g_mutex 段内做 ai_pick（60×60
                jq_can_move），阻塞 GLThread 渲染读 + 触摸线程。修：锁内判定快照

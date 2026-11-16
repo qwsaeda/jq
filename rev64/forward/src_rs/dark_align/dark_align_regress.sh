@@ -71,7 +71,13 @@ EOF
 run_one() {
   local name="$1"
   if [ -n "$ONLY" ] && ! echo ",$ONLY," | grep -q ",$name,"; then return 0; fi
-  if [ ! -f "$DARK/$name.c" ]; then echo "  [MISS] $name（缺源文件）"; pending=$((pending+1)); return 0; fi
+  # ★ Round 1 对抗审计 D-05（P1 假绿修复）：旧实现缺用例源文件 → [MISS] + pending++
+  #   + return 0 → **门禁不 FAIL**（用例集合被删/改名即静默缩小覆盖 = 假绿三型之
+  #   静默降级）。修：缺源文件一律计 FAIL（覆盖集合漂移必须阻断）。
+  if [ ! -f "$DARK/$name.c" ]; then
+    echo "  [MISS→FAIL] $name（缺源文件：覆盖集合漂移，按 P1 假绿修复计 FAIL）"
+    fail=$((fail+1)); return 0
+  fi
   local out rc verdict
   if $CC $CFLAGS -o /tmp/opencode/da_$name "$DARK/$name.c" $SRCS -lm 2>/tmp/opencode/da_$name.cc.log; then
     out=$(/tmp/opencode/da_$name 2>&1); rc=$?

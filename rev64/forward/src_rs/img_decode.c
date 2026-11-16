@@ -41,7 +41,12 @@ int img_decode_any(const unsigned char *data, size_t len,
     stbi_set_flip_vertically_on_load(1);
     int comp = 0;
     unsigned char *px = stbi_load_from_memory(data, (int)len, out_w, out_h, &comp, 4);
-    if (!px || comp != 4) return -1;
+    /* ★ Round 1 对抗审计 B-09（P1 真缺陷修复）：stbi 的 comp_out 返回**源文件**通道数
+       （req_comp=4 只保证输出 4 通道，不改 comp）→ 旧判据 `comp != 4` 会把 **3 通道
+       RGB 源（JPEG/PNG）误判为解码失败**，进而让 render.c 的"datax JPEG 直读优先"
+       路径（:681/:689）永远走烘焙 PNG 兜底。修：req_comp=4 已保证输出 RGBA，不再用
+       源通道数判失败（保留 !px 判据）。 */
+    if (!px) return -1;
     *out_rgba = px;
     return 0;
 }

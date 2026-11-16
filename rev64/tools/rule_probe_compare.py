@@ -152,7 +152,11 @@ def main():
     if a.offline:
         print("\n=== ③ 对比：离线模式（无 32 位设备）===")
         print("  跳过 32 位对比（--offline）")
-        return 0
+        # ★ Round 1 对抗审计 D-02（P1 假绿修复）：旧实现此处恒 return 0 →
+        #   上游 check() 的 fail 计数被吞（64 位探针空输出也判 PASS = 假绿三型之
+        #   判据恒真/静默降级）。修：offline 分支同样按 fail 汇总返回退出码。
+        print(f"\n{'=== 行为实证完成（offline）===' if fail == 0 else f'=== {fail} 项 FAIL ==='}")
+        return 0 if fail == 0 else 1
 
     p32 = run_32(a.dev)
     if p32 is None:
