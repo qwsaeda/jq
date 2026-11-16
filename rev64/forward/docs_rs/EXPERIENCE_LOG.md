@@ -6490,3 +6490,65 @@ jq_rs_rules.c 注释定论。
   （§1951），正向侧本次 benchcheck 复活后同源闭环；正向 60 局对弈完整基准
   （缺口③）转 AI 策略工程非本轮；逆向 6 类基准仅只读消费，未触碰
   rev64/reverse/* 任何代码（AGENTS 红线）。
+
+### 104. 「对齐」对抗审计 Round 1（100 条台账 + P0 门禁可信度修复 + P1 选中态残留修复）2026-11-16
+- **★ 对齐对抗审计启动（用户指令"启动子代理进行对齐对抗，每轮 100 处，loop 到全部对齐"）**：
+  - **工具约束诚实标注**：子代理通道被平台用量限制硬拦（默认模型 + 免费模型各试一
+    轮共 8 次全返回 "Free usage limit reached"）→ Round 1 改**同会话 4 域自跑审计**
+    （A 规则引擎 25 / B 事件音效资源渲染 25 / C 交互态机会话蓝牙 25 / D 文档判据
+    工具 25 = **100 条**），证据口径不变（文件:行 + 基准引用 + 类型标注[实证/判读/
+    覆盖缺口]）；台账落 `rev64/forward/audit/r4/AUD_ALIGN_R1.md`（原始 100 条，撤回
+    0 条，已修 18，待修 82 入 Round 2 队列）；子代理恢复后可并行化沿用本台账。
+- **★★ P0 门禁可信度修复（本轮最高价值产出：动摇"86/86 PASS"的可信度）**：
+  - **P0-1 判据假绿（CODE_STYLE §9 假绿三型之"判据恒真/盲区"）**：dark_align_
+    regress.sh:39 判据 `grep -qE "^FAIL | FAIL 共"` + 退出码 0 —— ① **FAIL 打在行尾**
+    （`printf("... → %s", ok?"PASS":"FAIL")`）不被行首匹配捕获；② **main 尾部无条件
+    `return 0`**（9 个零断言观测脚本同款）使退出码兜底失效。**合成失败样例端到端实
+    锤：旧判据判 PASS（假绿）**。修：judge_case() = ① 退出码≠0 → FAIL ② 输出剥离
+    汇总行"FAIL=0"后仍含 FAIL → FAIL（行首/行尾全覆盖 + 退出码双保险）。
+  - **P0-2 9 个"用例"零断言恒判 PASS**：dark_flag_test / dark_fullgame / dark_mine_
+    test / dark_win_test / eat_dir_test / flip_eat_test / flip_rail_test / layout_check_
+    test / rail_block_test —— PASS/FAIL 串=0、断言函数=0、main 尾部 `return 0` → 无论
+    行为如何恒判 PASS，**门禁覆盖虚高 9 项**（"86/86"实际有效断言 77 项）。修：按
+    各文件自带"期望"注释 + 2026-11-16 实跑核对补 **30 条真断言** + 条件返回
+    （`return g_ok ? 0 : 1`）→ 转正后 86/86 为真断言。
+  - **P0-3 判据无 meta 自检**：修：加 self_test_judge() —— 合成「行尾 FAIL + return
+    0」必须判 FAIL、「全 PASS + return 0」必须判 PASS，**自检不过则整脚本判 FAIL
+    退出**（门禁自身不可信则后续 PASS/FAIL 无意义）。注入破坏端到端复验：故意改坏
+    dark_flag_test 断言 → 判 [FAIL] → 恢复 → 判 [PASS]。
+  - **踩坑固化**：① 转正断言时**我的初版期望写错 3 处**（吃子后攻方进被吃格、挖雷
+    后工兵进雷格、try_move 后再取 can_move 已失效）——真断言的价值正在于暴露"注释
+    期望 vs 实现语义"分歧；断言必须取 **try_move 之前**的快照值（跑前核对）；② 判据
+    改法不能简单 `grep FAIL`（会误伤汇总行"合计 PASS=33 FAIL=0"）→ 用 sed 剥离
+    "FAIL=0" 后再匹配。
+- **★ P1 选中态残留修复（§102/AUD-R-044 同族缺陷，3 处）**：
+  - **undo_pop 不清选中态**（jni_bridge.c:225）：悔棋回退后玩家点任意格被态机解释
+    为走子 A→B（can_move 拒）→"点不动"。修：undo 后 reset g_ts + 高亮清 -1。
+  - **AI 应着不清玩家选中态**（OnUpdate AI 块）：AI 走/翻后回合切回蓝方，残留
+    SELECTED(A) 使玩家下一击被当走子。修：AI 动作后 reset g_ts + 高亮清 -1。
+  - **g_ts 跨线程无锁**（CODE_STYLE §12 同族）：OnTouch 主线程 vs GLThread props 钩子
+    并发读写 g_ts。修：引入 `g_ts_lock`（小锁，仅包 g_ts 结构体读写；**锁序纪律
+    g_mutex→g_ts_lock，g_ts_lock 内绝不再取 g_mutex**，避免成环）；覆盖点：OnTouch
+    process 读侧、翻棋成功 reset、翻棋失败 reset、undo_pop、重开 init、undotest
+    init、OnCreate init、SELECT 分支 selected 读。
+  - **jq_restart_game 不清 GL 高亮**：重开清 g_ts 但高亮仍指旧格 → 补 set_selected(-1)。
+  - 桌面回归固化：dark_touch_flip_flow_test 扩 ⑬⑭⑮ 三项（悔棋清选中后点格=全新
+    SELECT / AI 应着清选中后点格=全新 SELECT / 清选中语义唯一入口一致），共 15 项断言。
+- **P2 口径诚实化**：evt55_dispatch.c:80 注释"执行对应 handler 业务动作" vs
+  `e55_do_code()` 恒 1 空实现（假对齐口径）→ 注释按实现改写（不改行为）；原版 55
+  code 空间与正向 7 事件码空间混用（jni_bridge.c:1073）记录为待修 A-09。
+- **四层验证实锤（本轮全 PASS）**：① make evverify 172/172（事件/业务 40/40 + 几何
+  132/132）+ 三件套（event_code 0 缺口 / layout 几何 Δ=0）② dark_align_regress
+  **86/86**（含判据自检 PASS + 30 条新增真断言）③ 设备冒烟 2/2 + 0 崩溃 + **真机
+  暗棋三翻全流程 rc=1×2**（蓝翻 cell6 → AI 翻 cell0 → 蓝再翻 cell8 → AI 翻 cell2，
+  so 75f6727e0c7a7593cbf0102c389ba086）④ make benchcheck ✓（走子桥 8 步基准新鲜）。
+- **台账统计（100 条）**：P0×4（判据假绿/零断言×9/无 meta 自检/基准过期）/ P1×21 /
+  P2×75；类型分布 [实证]38 / [判读]21 / [覆盖缺口]41；已修 18（A-01~08、B-01/05/06、
+  C-01~05、D-01~07 等）/ 待修 82 入 Round 2 队列（A 组规则分叉未实证项 + B 组资源
+  引用矩阵 + C 组交互断言 + D 组工具一键门禁）。
+- **诚实边界**：① 本轮**未改 rules.c/board.c 行为**（A-16 暗棋未定色暗子可被吃 =
+  需原版 .text 定案，§101 G1/G2 双端一致说明非 32/64 分叉；A-11 规则层读 UI 开关
+  耦合待定案）；② "覆盖缺口"类 41 条 = **验证缺口**（无断言/无探针/无矩阵），需后
+  续补断言或探针才闭环，不等于行为已错；③ 32 位侧定案项（A-23/B-23）挂起走 §124y
+  路线（逆向会话，本会话不越界）；④ 子代理限流导致本轮审计**并行度下降**（D-25 记
+  录），覆盖深度按域顺序推进，Round 2 起继续 loop。

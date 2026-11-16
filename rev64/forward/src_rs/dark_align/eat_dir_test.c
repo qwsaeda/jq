@@ -1,6 +1,17 @@
 #include <stdio.h>
 #include <string.h>
 #include "junqi.h"
+
+/* ★ Round 1 对抗审计 P0（§104）：本用例原为「零断言观测脚本」（只打印观察值、
+   main 尾部无条件 return 0 → 无论行为如何都判 PASS = 假绿三型之判据恒真）。
+   现补真断言 + 条件返回（退出码 + 行首 FAIL 双保险），期望值取自本文件注释与
+   2026-11-16 实跑核对（口径见各断言行尾注释）。 */
+static int g_ok = 1;
+static void chk(const char *name, int cond)
+{
+    printf("%s %s\n", cond ? "PASS" : "FAIL", name);
+    if (!cond) g_ok = 0;
+}
 /* 吃子方向实证（rank 小=强，司令 rank1 最强）：
    大压小=吃 / 小撞大=送死 / 同级=同归。规则原文"司令>军长>...>工兵"。 */
 static void put(jq_state*s,int i,int r,int side){s->cells[i].rank=r;s->cells[i].side=side;s->cells[i].revealed=1;}
@@ -26,5 +37,17 @@ int main(void){
     int ev3=jq_try_move(&c,44,39);
     printf("③ 同级同归 ev=%d(1=EAT) 蓝格=%d 红格=%d（期望 EAT+两格空）\n",
         ev3, c.cells[44].rank, c.cells[39].rank);
-    return 0;
+    
+    /* ① 大压小：司令吃军长 = EV_EAT(1) + 蓝格留 rank1 + 红格清空 */
+    /* 吃子语义（★ 修正本轮初版期望）：攻方进被吃格(39 rank=1 司令)，原格(44)空 */
+    chk("① 司令吃军长：EV_EAT(1)+攻方进被吃格+原格空",
+        ev == 1 && a.cells[39].rank == 1 && a.cells[44].rank == RANK_EMPTY);
+    /* ② 小撞大送死：EV_DEAD(4) + 蓝格清空 + 红格留 rank1 */
+    chk("② 军长撞司令：EV_DEAD(4)+蓝格空+红格留",
+        ev2 == 4 && b.cells[44].rank == RANK_EMPTY && b.cells[39].rank == 1);
+    /* ③ 同级同归：EV_EAT(1) + 两格皆空 */
+    chk("③ 同级同归：EV_EAT(1)+两格空",
+        ev3 == 1 && c.cells[44].rank == RANK_EMPTY && c.cells[39].rank == RANK_EMPTY);
+    return g_ok ? 0 : 1;
+
 }

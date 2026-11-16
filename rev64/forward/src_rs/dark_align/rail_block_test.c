@@ -1,6 +1,17 @@
 #include <stdio.h>
 #include <string.h>
 #include "junqi.h"
+
+/* ★ Round 1 对抗审计 P0（§104）：本用例原为「零断言观测脚本」（只打印观察值、
+   main 尾部无条件 return 0 → 无论行为如何都判 PASS = 假绿三型之判据恒真）。
+   现补真断言 + 条件返回（退出码 + 行首 FAIL 双保险），期望值取自本文件注释与
+   2026-11-16 实跑核对（口径见各断言行尾注释）。 */
+static int g_ok = 1;
+static void chk(const char *name, int cond)
+{
+    printf("%s %s\n", cond ? "PASS" : "FAIL", name);
+    if (!cond) g_ok = 0;
+}
 /* 铁路滑行阻断（rulelay"铁路上没有障碍时"）：
    col2 纵线被中心行营(3,2)/(8,2)阻断 + 中间有子阻断 + 工兵可拐弯/非工兵直走 */
 int main(void){
@@ -29,5 +40,19 @@ int main(void){
     d.cells[cell_index(4,2)].rank=5; d.cells[cell_index(4,2)].side=SIDE_BLUE; d.cells[cell_index(4,2)].revealed=1;
     printf("④ 非工兵拐弯 (4,2)→(5,4) can=%d（期望 0 直走不拐弯）\n",
         jq_can_move(&d,cell_index(4,2),cell_index(5,4)));
-    return 0;
+    
+    /* ① 非工兵纵线直走（row5/6 无行营）→ can=1 */
+    chk("① 非工兵纵线直走 (4,2)→(7,2) can=1",
+        jq_can_move(&a,cell_index(4,2),cell_index(7,2)) == 1);
+    /* ② 中间有子阻断 → can=0 */
+    chk("② 中间有子 (5,2) 挡 → can=0",
+        jq_can_move(&b,cell_index(4,2),cell_index(7,2)) == 0);
+    /* ③ 工兵可拐弯 (4,2)→(5,4) → can=1 */
+    chk("③ 工兵拐弯 (4,2)→(5,4) can=1",
+        jq_can_move(&c,cell_index(4,2),cell_index(5,4)) == 1);
+    /* ④ 非工兵不可拐弯 → can=0 */
+    chk("④ 非工兵拐弯 (4,2)→(5,4) can=0",
+        jq_can_move(&d,cell_index(4,2),cell_index(5,4)) == 0);
+    return g_ok ? 0 : 1;
+
 }

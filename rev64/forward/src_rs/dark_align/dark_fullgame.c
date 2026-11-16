@@ -2,6 +2,17 @@
 #include <string.h>
 #include <stdlib.h>
 #include "junqi.h"
+
+/* ★ Round 1 对抗审计 P0（§104）：本用例原为「零断言观测脚本」（只打印观察值、
+   main 尾部无条件 return 0 → 无论行为如何都判 PASS = 假绿三型之判据恒真）。
+   现补真断言 + 条件返回（退出码 + 行首 FAIL 双保险），期望值取自本文件注释与
+   2026-11-16 实跑核对（口径见各断言行尾注释）。 */
+static int g_ok = 1;
+static void chk(const char *name, int cond)
+{
+    printf("%s %s\n", cond ? "PASS" : "FAIL", name);
+    if (!cond) g_ok = 0;
+}
 extern const uint8_t JQ_DEFAULT_LAY[30];
 
 /* 简单 AI：优先走子（吃子/滑行），否则翻子。统计可达格分布。 */
@@ -46,5 +57,13 @@ int main(void){
     /* 检查每个已翻子的可达格（非0才算正常棋子可动） */
     printf("dark_fullgame: %s\n",
            (st.stage==STG_OVER || turns<400) ? "终局/正常结束" : "超时");
-    return 0;
+    
+    /* 对局必须正常推进并终局（不超时）+ 双方均有走子/翻棋动作（覆盖退化） */
+    chk("① 暗棋对局在 400 回合内结束（不超时）", turns < 400);
+    chk("② 对局含走子与翻棋动作（不退化）", moves > 0 && flips > 0);
+    /* ③ 终局状态合法（OVER 或 步数上限） */
+    chk("③ 终局状态合法（stage=OVER 或 回合达上限）",
+        st.stage == 2 || turns >= 400);
+    return g_ok ? 0 : 1;
+
 }

@@ -79,6 +79,11 @@ const char *jq_evt55_code_to_evname_str(int code);
 
 /* 核心分发入口：接收原版 55 code（0..66）+ 可选事件名字符串，
    执行对应 handler 业务动作。
+   ★ Round 1 对抗审计 P2（§104 口径诚实化）：**本入口不执行原版 handler 业务
+     动作**——e55_do_code() 为恒 1 空实现（原版业务由调用点 rules.c 完成），函数
+     实际职责 = ①code 越界拒收 ②code→73 事件名索引解析（evname 字符串优先）
+     ③事件计数累加 ④handler 地址诊断标识。旧注释"执行对应 handler 业务动作"
+     与实现不符（假对齐口径），本轮按实现改写注释（不改行为）。
    返回值：1 = 成功（事件已分发），0 = 失败（code 越界）。
    调用点（jni_bridge）负责 g_event_cnt[evname_idx]++ 计数（g_event_cnt 是 static）。 */
 int jq_evt55_dispatch(int code, const char *evname)

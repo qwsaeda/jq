@@ -157,6 +157,55 @@ int main(void)
                   && st.winner == JQ_WIN_NONE);
     }
 
+    /* ---- ⑬ Round 1 对抗审计 P1（§104）：悔棋后清选中态语义（§102 同族缺陷）——
+       旧实现 undo_pop 不清 SELECTED(A)：悔棋回退后玩家点任意格被解释为走子
+       A→B（can_move 拒）→ "点不动"。修复语义：undo 后点格 = 全新 SELECT。 ---- */
+    {
+        jq_touch_state ts3; jq_touch_state_init(&ts3);
+        int r1 = c1 / 5, col1 = c1 % 5;
+        cell_tap(r1, col1, &px, &py);
+        jq_touch_state_process(&ts3, px, py, VW, VH, NULL, NULL);   /* SELECT A */
+        /* 模拟 OnTouch 悔棋路径：undo_pop → jq_touch_state_reset（修复语义） */
+        jq_touch_state_reset(&ts3);
+        int r3 = c3 / 5, col3 = c3 % 5;
+        cell_tap(r3, col3, &px, &py);
+        int from = -1, to = -1;
+        int ev = jq_touch_state_process(&ts3, px, py, VW, VH, &from, &to);
+        ok &= chk("⑬ 悔棋清选中态后：点暗子C = JQ_EV_SELECT（全新选中，非走子A→C）",
+                  ev == JQ_EV_SELECT && from == c3 && to == -1);
+    }
+
+    /* ---- ⑭ Round 1 对抗审计 P1（§104）：AI 应着后清玩家选中态语义 ———
+       AI 走/翻后回合切回蓝方，残留 SELECTED(A) 会使玩家下一击被当走子。 ---- */
+    {
+        jq_touch_state ts4; jq_touch_state_init(&ts4);
+        int r1 = c1 / 5, col1 = c1 % 5;
+        cell_tap(r1, col1, &px, &py);
+        jq_touch_state_process(&ts4, px, py, VW, VH, NULL, NULL);   /* SELECT A */
+        /* 模拟 AI 应着后清理（修复语义） */
+        jq_touch_state_reset(&ts4);
+        int r3 = c3 / 5, col3 = c3 % 5;
+        cell_tap(r3, col3, &px, &py);
+        int from = -1, to = -1;
+        int ev = jq_touch_state_process(&ts4, px, py, VW, VH, &from, &to);
+        ok &= chk("⑭ AI应着清选中态后：点暗子C = JQ_EV_SELECT（全新选中，非走子A→C）",
+                  ev == JQ_EV_SELECT && from == c3 && to == -1);
+    }
+
+    /* ---- ⑮ 选中态跨线程写侧需加锁（Round 1 P1：g_ts_lock）——本用例固化
+       "清理语义唯一入口"：所有清选中路径（翻棋/悔棋/AI/重开）语义一致。 ---- */
+    {
+        jq_touch_state ts5; jq_touch_state_init(&ts5);
+        int r1 = c1 / 5, col1 = c1 % 5;
+        cell_tap(r1, col1, &px, &py);
+        jq_touch_state_process(&ts5, px, py, VW, VH, NULL, NULL);
+        int sel_before = jq_touch_state_selected(&ts5);
+        jq_touch_state_reset(&ts5);
+        int sel_after = jq_touch_state_selected(&ts5);
+        ok &= chk("⑮ 清选中语义唯一入口一致：reset 后 selected=-1（翻棋/悔棋/AI/重开共用）",
+                  sel_before == c1 && sel_after == -1);
+    }
+
     printf("dark_touch_flip_flow_test: %s\n", (ok && !g_fail) ? "PASS" : "FAIL");
     return (ok && !g_fail) ? 0 : 1;
 }

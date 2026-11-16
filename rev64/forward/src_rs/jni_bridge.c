@@ -193,6 +193,11 @@ static jq_layout_container g_laycc;
 jq_state g_state;                /* 对局全局状态（规则引擎） */
 jq_glview g_glview;             /* GLView 线程驱动 */
 jq_touch_state g_ts;            /* 触摸两步态机 */
+/* ★ Round 1 对抗审计 P1（§104）：g_ts 跨线程读写（OnTouch 主线程 vs GLThread
+   props 钩子 undo_pop/重开/AI 应着）→ 引入独立小锁 g_ts_lock 保护 g_ts 操作。
+   锁序纪律：g_ts_lock 内**绝不允许**再取 g_mutex（避免与 g_mutex→g_ts_lock
+   路径构成环）；g_ts_lock 临界区只做 g_ts 结构体读写 + 高亮置位。 */
+static pthread_mutex_t g_ts_lock = PTHREAD_MUTEX_INITIALIZER;
 jq_bt_session g_bt_sess;        /* 蓝牙会话 */
 static void jq_bt_test_run(jq_state *st, const char *tag);
 static volatile int g_mt_inject_pending = 0;   /* ★ A11-F11-04（P2 已修）：minetest 一次性注入标志（锁内段置位→unlock 后段消费，prop 清 0 防残留重复注入） */  /* 蓝牙帧状态机测试（OnEvent bttest / setprop jq.bttest 复用） */
@@ -225,6 +230,14 @@ static int undo_push(void) {
 static int undo_pop(void) {
     if (g_undo_top <= 0) return 0;
     g_state = g_undo[--g_undo_top];
+    /* ★ Round 1 对抗审计 P1（§104，§102/AUD-R-044 同族缺陷）：悔棋后**清选中态**
+       ——旧实现保留 SELECTED(A)，悔棋回退棋盘后玩家点任意格被态机解释为走子
+       A→B（can_move 拒：回退后目标可能已变）→ 表现为"点不动/翻不了"。清选中态
+       后：悔棋回退 → 点格 = 全新选中（SELECT）→ 再点 = 走子/翻棋。 */
+    pthread_mutex_lock(&g_ts_lock);
+    jq_touch_state_reset(&g_ts);
+    pthread_mutex_unlock(&g_ts_lock);
+    if (jq_glview_is_ready()) jq_glview_set_selected(&g_glview, -1);
     static int up_log_cnt = 0;
     /* ★ AUD-1000 B03-035（P1 已修）：LOGI 每 8 次 1 条（锁内 while-pop 循环降噪，
        终止条件覆盖 stage 变化（!STG_PLAY break）+ 栈空（undo_pop 返 0 停），无死循环） */
@@ -280,7 +293,10 @@ static void jq_restart_game(void)
        清 0 保证开局首步判定基准一致）。 */
     for (int ri = 0; ri < 2; ri++) { g_state.mines_cleared[ri] = 0; g_state.pieces_left[ri] = 0; }
     ui_replay_init();   /* ★ P1（datah_039/107）：重开清复盘走子记录 + 重新提取开局布局 */
+    pthread_mutex_lock(&g_ts_lock);   /* ★ Round 1 对抗审计 P1（§104）：g_ts 跨线程保护 */
     jq_touch_state_init(&g_ts);
+    pthread_mutex_unlock(&g_ts_lock);
+    if (jq_glview_is_ready()) jq_glview_set_selected(&g_glview, -1);
 }
 
 /* 红方 AI 贪心（吃子优先 > 同级 > 炸弹 > 工兵挖雷 > 空移 > 翻棋），对齐 game_selftest ai_step
@@ -2281,7 +2297,9 @@ Java_com_qwsaeda_App_OnCreate(JNIEnv *env, jclass clazz, jobject activity)
         }
     }
 
+    pthread_mutex_lock(&g_ts_lock);   /* ★ Round 1 对抗审计 P1（§104）：g_ts 跨线程保护 */
     jq_touch_state_init(&g_ts);   /* ⑤b 态机初始化 */
+    pthread_mutex_unlock(&g_ts_lock);
     /* ③ 渲染对象图构造（对齐原版 0xba12c → 0xba034/0xc5d54/0xb7500） */
     jq_subsys_list_init(&g_subs);
     jq_subsys sgl, sgl2, srend, saud;
@@ -2881,7 +2899,10 @@ void jq_glview_props_update(JNIEnv *env)
         }
         int turn_snap = g_state.turn, stage_snap = g_state.stage;   /* ★ B03-089/A2-042：锁内快照 */
         pthread_mutex_unlock(&g_mutex);
+        pthread_mutex_lock(&g_ts_lock);   /* ★ Round 1 对抗审计 P1（§104）：g_ts 写侧加锁 */
         jq_touch_state_init(&g_ts);   /* ★ AUD-1000-ALL A2-042（P1 已修）：g_ts 锁外重置 */
+        pthread_mutex_unlock(&g_ts_lock);
+        if (jq_glview_is_ready()) jq_glview_set_selected(&g_glview, -1);
         LOGI("OnUpdate 游戏内悔棋：undotest %s（pop %d 步 → turn=%d stage=%d）",
              n > 0 ? "成功" : "无历史", n, turn_snap, stage_snap);
         __system_property_set("jq.undotest", "0");
@@ -3481,6 +3502,13 @@ Java_com_qwsaeda_App_OnUpdate(JNIEnv *env, jclass clazz)
                 }
             }
             pthread_mutex_unlock(&g_mutex);
+            /* ★ Round 1 对抗审计 P1（§104）：AI 应着后清玩家选中态——AI 走/翻后
+               回合切回蓝方，若残留旧 SELECTED(A)（如玩家在 AI 回合前点过子），
+               玩家下一击被解释为走子 A→B（can_move 拒）→ "点不动"。 */
+            pthread_mutex_lock(&g_ts_lock);
+            jq_touch_state_reset(&g_ts);
+            pthread_mutex_unlock(&g_ts_lock);
+            if (jq_glview_is_ready()) jq_glview_set_selected(&g_glview, -1);
         }
     }
     /* ③ EglHelper 出屏：onDrawFrame 返回后 GLThread EglHelper 已 makeCurrent + glClear，
@@ -9958,7 +9986,11 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
        ★ 对抗审计修复：该块在中心带（nx 0.366-0.631）每次触摸无条件重置 turn=BLUE/
          winner=-1/moves——对局中破坏进行中的棋局；stage=OVER 时点棋盘上部绕过来一局
          按钮意外重开。原版无此行为，整块删除。 */
+    /* ★ Round 1 对抗审计 P1（§104）：g_ts 读侧加锁（与 undo_pop/重开/AI 应着的
+       写侧互斥——g_ts 跨线程：OnTouch 主线程 vs GLThread props 钩子）。 */
+    pthread_mutex_lock(&g_ts_lock);
     int ev = jq_touch_state_process(&g_ts, x, y, g_view_w, g_view_h, &from, &to);
+    pthread_mutex_unlock(&g_ts_lock);
     if (ev != 0) {
         LOGI("OnTouch 走子态机：ev=%d（SELECT/UNSELECT/MOVE）from=%d to=%d（cell 索引）",
              ev, from, to);
@@ -9988,7 +10020,13 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
         /* ★ AUD-1000 B03-069（P1 已注释）：JQ_EV_SELECT 分支 set_selected/sfx 均锁外
            （设计意图，对照 :8160 "sfx 锁外"注释）；g_glview sel_cell int 对齐读
            跨线程实践原子（高亮滞后一帧良性，诚实边界）。 */
-        if (jq_glview_is_ready()) jq_glview_set_selected(&g_glview, jq_touch_state_selected(&g_ts));
+        if (jq_glview_is_ready()) {
+            int sel_now;
+            pthread_mutex_lock(&g_ts_lock);   /* ★ Round 1 对抗审计 P1（§104）：g_ts 读侧加锁 */
+            sel_now = jq_touch_state_selected(&g_ts);
+            pthread_mutex_unlock(&g_ts_lock);
+            jq_glview_set_selected(&g_glview, sel_now);
+        }
         sfx_play(env, "select");
     } else if (ev == JQ_EV_UNSELECT) {
         if (jq_glview_is_ready()) jq_glview_set_selected(&g_glview, -1);
@@ -10010,12 +10048,16 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
                 if (flip_done) {
                     ui_replay_record(from, from, 1);   /* ★ P1（datah_039/107）：翻棋成功记录 1 步 */
                     g_event_cnt[ev7_to_name_idx(EV_FLIP)]++; g_event_total++;   /* ★ AUD-R-061（P2）：翻棋计数走 EV_FLIP=6 位 */
+                    pthread_mutex_lock(&g_ts_lock);   /* ★ Round 1 对抗审计 P1（§104）：g_ts 写侧加锁 */
                     jq_touch_state_reset(&g_ts);   /* ★ AUD-R-044 修复：翻棋成功清选中态（点暗子 B=全新选中，非走子 A→B） */
+                    pthread_mutex_unlock(&g_ts_lock);
                 } else if (pushed) undo_pop_discard();   /* 翻棋失败回滚栈顶快照 */
                 LOGI("走子判定 翻棋：cell=%d rc=%d turn→%d（人机AI走红=%d）",
                      from, flip_done, st->turn, g_vs_ai);
             } else {
+                pthread_mutex_lock(&g_ts_lock);
                 jq_touch_state_reset(&g_ts);
+                pthread_mutex_unlock(&g_ts_lock);
             }
         } else {
             /* 走子 A→B（jq_can_move 判定 + jq_try_move 事件） */
