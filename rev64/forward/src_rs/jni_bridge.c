@@ -1153,8 +1153,20 @@ static const char *on_event(const char *name, const char *value, JNIEnv *env)
                诚实边界：g_state 变更已在 jq_try_move 内完成，evt55 仅做分发确认（幂等）。 */
             /* ★ R5-B-22（P1 真缺陷修复）：7 事件码**显式转 55 码**再分发
                （旧实现直接传 ev 当 55code = 数值巧合依赖，code 5/7 语义冲突）。 */
-            if (ev >= 0 && ev < 7)
+            if (ev >= 0 && ev < 7) {
+                /* ★ R10-B-04（P1 守护，R9-B 回执定案落地）：7 码显式转 55 码 vs
+                   名级查表一致性断言（EV_MINE 特判：JQ_EVENT_NAMES[5]="Junqi.Move"
+                   与 ev7_to_55code(5)=default→0 同值，全 7 码恒等 → 漂移仅 LOGE，
+                   分发仍走 ev7_to_55code 原值，0 行为变化）。 */
+                {
+                    int _c7 = ev7_to_55code(ev);
+                    int _c73 = jq_evt55_name_to_55code(JQ_EVENT_NAMES[ev]);
+                    if (_c7 != _c73)
+                        LOGE("R10-B-04 ev7/名级查表漂移 ev=%d name=%s c7=%d c73=%d",
+                             ev, JQ_EVENT_NAMES[ev], _c7, _c73);
+                }
                 jq_evt55_dispatch(ev7_to_55code(ev), JQ_EVENT_NAMES[ev]);
+            }
             ui_replay_record(from, to, 0);   /* ★ P1（datah_039/107）：OnEvent 走子成功记录 1 步 */
             LOGI("OnEvent move (%d,%d)→(%d,%d) %s（#%d 累计）", cell_row(from), cell_col(from),
                  cell_row(to), cell_col(to), JQ_EVENT_NAMES[ev < 7 ? ev : 0],
@@ -1677,6 +1689,27 @@ Java_com_qwsaeda_App_OnCreate(JNIEnv *env, jclass clazz, jobject activity)
                 if (g_event_cnt[i]) { LOGI("55code-dist: %s = %d", jq_event_names_73[i], g_event_cnt[i]); nz++; }
             LOGI("55code-test：11 次分发完成，非零 %d 项（total=%d）→ prop 清 0", nz, g_event_total);
             __system_property_set("jq.55codetest", "0");
+        }
+    }
+    /* ★ R10-B（设备端 Σ 不变量真判据，R9-B 回执 §3/§5 定案落地）：jq.event_inv 钩子
+       ——55codetest 同族（纯 native 无锁 + 一次性清 0 + 无 Java/sfx/BT 副作用）：
+       setprop jq.event_inv 1 → 读真实 g_event_cnt/g_event_total（本进程全局，
+       设备端真计数源）+ jq_event_count_invariant_ok()（O(73) 纯读，R8-B-07 API）
+       → LOGI PASS/FAIL 判读锚点 + prop 清 0。
+       判读口径（R9-B §5.2 定案）：桌面 evverify Σ 哨兵 = 本地 0==0 防漂移；
+       设备端真判据 = 本钩子日志 "jq.event_inv PASS"（total 为真实计数）；
+       设备离线时 PENDING（不得以桌面 0 冒充设备真值）。 */
+    {
+        char einv[8] = {0};
+        __system_property_get("jq.event_inv", einv);
+        if (einv[0] == '1') {
+            int inv = jq_event_count_invariant_ok();
+            int nz = 0;
+            for (int i = 0; i < JQ_EVENT_NAME_COUNT; i++)
+                if (g_event_cnt[i]) nz++;
+            LOGI("jq.event_inv：Σ g_event_cnt == g_event_total %s（total=%d，非零 %d 项，inv=%d）",
+                 inv ? "PASS" : "FAIL", g_event_total, nz, inv);
+            __system_property_set("jq.event_inv", "0");
         }
     }
     /* 明棋开局：全子 revealed=1（棋子画正面 rank 映射，50 子全可见；

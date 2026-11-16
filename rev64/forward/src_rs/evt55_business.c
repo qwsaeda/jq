@@ -22,6 +22,18 @@
 #define E55_BIZ_MISC    11   /* 系统/杂项（Select/GameType）→ 55code 46（同上） */
 
 /* 事件名字符串 → 12 业务码（73 事件名实锤） */
+/* ★ R10-B-06（P1 白名单）：73 名可达集合线性校验（前缀桶静默归桶防复发）。
+   73 次 strcmp 短串（低频分发路径可接受）；_checked 入口（全表精确命中）与
+   本 helper 同源——前缀桶命中名必在 73 表内才归桶，拼写漂移（前缀命中但
+   非注册名）返 -1 拒。 */
+static int e55_in_73_names(const char *evname)
+{
+    if (!evname) return 0;
+    for (int i = 0; i < JQ_EVENT_NAME_COUNT; i++)
+        if (strcmp(evname, jq_event_names_73[i]) == 0) return 1;
+    return 0;
+}
+
 static int e55_name_to_biz(const char *evname)
 {
     if (!evname) return E55_BIZ_MOVE;
@@ -51,26 +63,28 @@ static int e55_name_to_biz(const char *evname)
     /* 登录/账号（Input族/Login族/Email族/User族）→ 诚实边界（分发成功，无 g_state 变更） */
     if (!strncmp(evname, "Junqi.Input", 11) || !strncmp(evname, "Junqi.Login", 11)
      || !strncmp(evname, "Junqi.Email", 11) || !strncmp(evname, "Junqi.User", 10))
-        return E55_BIZ_LOGIN;
+        return e55_in_73_names(evname) ? E55_BIZ_LOGIN : -1;   /* R10-B-06 白名单 */
     /* 注册（Name族/Pwd族/New族/Ori族 + RegExist/RegFail/RegOk 精确匹配）→ 同上 */
     if (!strncmp(evname, "Junqi.Name", 10) || !strncmp(evname, "Junqi.Pwd", 9)
      || !strncmp(evname, "Junqi.New", 9)   || !strncmp(evname, "Junqi.Ori", 9)
      || !strcmp(evname, "Junqi.RegExist") || !strcmp(evname, "Junqi.RegFail")
      || !strcmp(evname, "Junqi.RegOk"))
-        return E55_BIZ_REG;
+        return e55_in_73_names(evname) ? E55_BIZ_REG : -1;   /* R10-B-06 白名单 */
     if (!strncmp(evname, "Junqi.Join", 10) || !strncmp(evname, "Junqi.Ready", 11)
      || !strncmp(evname, "Junqi.Start", 11) || !strncmp(evname, "Junqi.Peer", 10)
      || !strncmp(evname, "Junqi.Leave", 11) || !strncmp(evname, "Junqi.Player", 12)
      || !strncmp(evname, "Junqi.Reconn", 12) || !strncmp(evname, "Junqi.Connect", 13)
      || !strncmp(evname, "Junqi.Exit", 10))
-        return E55_BIZ_NET;
+        return e55_in_73_names(evname) ? E55_BIZ_NET : -1;   /* R10-B-06 白名单 */
     if (!strncmp(evname, "Junqi.Lay", 9) || !strncmp(evname, "Junqi.High", 10)
      || !strncmp(evname, "Junqi.Mid", 9) || !strncmp(evname, "Junqi.Zha", 9)
      || !strncmp(evname, "Junqi.Lei", 9) || !strncmp(evname, "Junqi.Qi", 8))
-        return E55_BIZ_LAY;
+        return e55_in_73_names(evname) ? E55_BIZ_LAY : -1;   /* R10-B-06 白名单 */
     if (!strncmp(evname, "Junqi.Select", 12) || !strncmp(evname, "Junqi.GameType", 14))
-        return E55_BIZ_MISC;
-    return E55_BIZ_MOVE;   /* 兜底 */
+        return e55_in_73_names(evname) ? E55_BIZ_MISC : -1;   /* R10-B-06 白名单 */
+    /* 兜底：★ R10-B-06——未知名不再静默归 BIZ_MOVE（伪造 55code=0），73 表外
+       返 -1 拒（_checked 入口本就拒计数，此处收敛 biz 语义同源）。 */
+    return e55_in_73_names(evname) ? E55_BIZ_MOVE : -1;
 }
 
 /* 12 业务码 → 55 code（representative） */
