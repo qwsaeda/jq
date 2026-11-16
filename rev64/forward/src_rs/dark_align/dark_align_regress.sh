@@ -135,6 +135,7 @@ run_one dark_rail_c2_fullseg_test
 run_one dark_rail_c2_worker_seg_test
 run_one dark_rail_c0c4_worker_seg_test
 run_one dark_rail_c1c3_worker_seg_test
+run_one dark_rail_r6_fullrow_worker_test
 
 
 echo ""
