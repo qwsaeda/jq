@@ -41,7 +41,7 @@ dist/                       四阶段交付物（phase0-3.apk）
 ## git 仓库（工作区规范/经验/路线代码入库）
 
 - 远程：`https://github.com/qwsaeda/jq.git`（`origin`，branch `main`）
-- 入库：顶层规范（AGENTS.md / REVERSE_PLAN.md / jni_reversal_report.md / .gitignore）+ `rev64/forward/docs_rs/`（64 位正向规范）+ `rev64/reverse/phases/` + `rev64/reverse/analysis/` + `rev64/reverse/src_jni_translated/`（32 位 R6 翻译体）+ `course_unidbg/`（31 章课程 md）+ `frida-dump/`（Frida 工作流脚本）
+- 入库：顶层规范（AGENTS.md / REVERSE_PLAN.md / jni_reversal_report.md / .gitignore）+ `rev64/forward/docs_rs/`（64 位正向规范）+ `rev64/reverse/phases/` + `rev64/reverse/analysis/` + `rev64/reverse/src_jni_translated/`（32 位 R6 翻译体）+ `course_unidbg/`（31 章课程 md）+ `frida-dump/`（Frida 工作流脚本）+ `dist/MANIFEST.md`（★ R21 白名单例外：4 阶段 apk md5/so 基准/双签口径文本, 非 apk 本体; 设备侧三方哈希核对用）
 - 排除（.gitignore）：二进制（*.so / *.apk / *.dex / *.keystore）/ 大文件（*.pdf）/ 自动生成大头（jq_board_px.h / jq_texdata_board.h / jqt_vtbl.c / jq_data_blob.* / jq_rel_data.h）/ 二进制 key（spak_key*.bin）/ 课程素材（videos / assets）/ 构建中间产物（rev64/tools/bin / rev64/out / rev64/jq_img.bin / rev64/native64/*.o）
 - 推送：`git push -u origin main`（需 GitHub credentials，本机 `~/.git-credentials` 已配）
 - 详细清单 + 红线见 `rev64/forward/docs_rs/EXPERIENCE_LOG.md` §"仓库 / 规范固化"
@@ -575,7 +575,7 @@ java -cp /tmp/opencode/apksigner/apksig.jar:/tmp/opencode/apksigner SignV2 \
 | `rev64/tools/gen_align_coverage.py` | **对齐覆盖矩阵自动生成**：规则 33 条款 / 桌面 86 用例 981 断言 / 探针 36 case / evverify 172 断言（★ R7-D-13 正则校准 ev_total++/geo_total++）→ `rev64/forward/audit/r4/align_coverage_matrix.md` | `python3 rev64/tools/gen_align_coverage.py`（幂等重生矩阵） |
 | `rev64/forward/src_rs/dark_align/mumu_align_smoke.sh` | **设备冒烟 2 判据**（明棋走子 can_move=1 / 暗棋翻子 can_flip=1 + 0 Fatal signal，`--dev` 默认 127.0.0.1:5556 转译器 flaky 需 `adb reboot` 刷新，红果 10.0.182.146 恢复后权威 5 判据） | `bash .../mumu_align_smoke.sh --dev 10.0.182.146:5555` |
 | `rev64/tools/rule_probe_compare.py` + `rule_probe_known_forks.txt` | **32/64 位规则行为实证双端对照**：36 case 逐字节同源探针 + 基线 4 坐实分叉（R-073/008/004/018）内不阻断、基线外新增分歧 → FAIL；`--offline` 按 fail 汇总（★ R1-D-02 假绿根治） | `python3 rev64/tools/rule_probe_compare.py --offline` / `--dev 10.0.182.146:5555` |
-| `rev64/forward/audit/r4/AUD_ALIGN_R{1..20}.md` | **「对齐」对抗审计台账 R1~R20**（各 100+ 条：承接上轮待修队列 + 新增；状态列 已修/待修/撤回；末轮 = R20（P2 边角 2 项全修：arm32_hook_check exit 钳位 + SPEC "§AGENTS.md" 前缀误导 + 设备 8 步全链复测仍离线维持 PENDING（R19 加固后离线跑 mumu_regress 自动 rc=3 提前终止, 误报风险已除, 收口只待设备恢复）；全门禁基线复跑：align_gate 8/8 + src_rs_regress 12/12 + [2.5] + [2.6] + arm32_static_evidence 73/73 + make so 0 告警；R19 = 工具链假绿防护 5 项 + 判据漂移同步 4 项；R18 = 三轮对抗审计 P0×2+P1×4；R17 = P0 门禁击穿 3 项；R16 = 逆向会话地址空间澄清；R15 = 续弈 SYNC_CELL 对账）+ `align_coverage_matrix.md`（自动产物） | 读（每轮先读末轮台账状态列） |
+| `rev64/forward/audit/r4/AUD_ALIGN_R{1..21}.md` | **「对齐」对抗审计台账 R1~R21**（各 100+ 条：承接上轮待修队列 + 新增；状态列 已修/待修/撤回；末轮 = R21（交付物审计：dist 4 阶段 apk 补齐重建 (phase0/1/2 此前缺失, build_phases 幂等重打 + so 同源 ×4 + 双签 v1+v2+v3 ×4 实锤) + BtSpp 帧重组 32KB 防悬挂在位 + ★ P1-1 包名口径漂移登记 (dist apk = com.cnvcs 旧口径, 红线 com.zxj/com.qwsaeda, 全链 4 处改动归正向会话不擅改) + P2-1 dist/MANIFEST.md 生成 (4 apk md5 + so 基准 2bf57a5b + 双签口径, 设备侧三方核对用)；R20 = P2 边角 2 项 + 全门禁基线复跑；R19 = 工具链假绿防护 5 项 + 判据漂移同步 4 项；R18 = 三轮对抗审计 P0×2+P1×4；R17 = P0 门禁击穿 3 项；R16 = 逆向会话地址空间澄清；R15 = 续弈 SYNC_CELL 对账）+ `align_coverage_matrix.md`（自动产物） | 读（每轮先读末轮台账状态列） |
 | `rev64/tools/layout_align_check.py` | **布局/按钮对齐可复现判据**（几何 Δ=0 + 截图按钮区非黑比，防"非黑%糊弄"。主菜单基准=orig_menu 真机×0.8，弹窗基准=datah 450/250/230 系换算。机读 `--json` / `--baseline` 只几何） | `python3 rev64/tools/layout_align_check.py --screenshot /tmp/xxx.png` / `--baseline` |
 | `rev64/forward/docs_rs/PIPELINE.md` | 流水线设计文档（每段一条命令 + 一组判据 + 一个诚实边界 + 5 固化原则） | 读 |
 
