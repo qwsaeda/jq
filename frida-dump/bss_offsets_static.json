@@ -1,0 +1,1796 @@
+{
+  "method": "static_disasm_F_79858",
+  "patterns": [
+    {
+      "call_site": "0x3351c0",
+      "sp_offset": 52,
+      "register": "r0",
+      "prev_line": "3351b4:\te58d0034 \tstr\tr0, [sp, #52]\t@ 0x34"
+    },
+    {
+      "call_site": "0x3351e0",
+      "sp_offset": 48,
+      "register": "r0",
+      "prev_line": "3351d4:\te58d0030 \tstr\tr0, [sp, #48]\t@ 0x30"
+    },
+    {
+      "call_site": "0x335200",
+      "sp_offset": 44,
+      "register": "r0",
+      "prev_line": "3351f4:\te58d002c \tstr\tr0, [sp, #44]\t@ 0x2c"
+    },
+    {
+      "call_site": "0x335220",
+      "sp_offset": 40,
+      "register": "r0",
+      "prev_line": "335214:\te58d0028 \tstr\tr0, [sp, #40]\t@ 0x28"
+    },
+    {
+      "call_site": "0x33535c",
+      "sp_offset": 40,
+      "register": "r0",
+      "prev_line": "335350:\te58d0028 \tstr\tr0, [sp, #40]\t@ 0x28"
+    },
+    {
+      "call_site": "0x335374",
+      "sp_offset": 40,
+      "register": "r0 (ldr)",
+      "prev_line": "335364:\te59d0028 \tldr\tr0, [sp, #40]\t@ 0x28"
+    },
+    {
+      "call_site": "0x335908",
+      "sp_offset": 56,
+      "register": "r0",
+      "prev_line": "3358fc:\te58d0038 \tstr\tr0, [sp, #56]\t@ 0x38"
+    },
+    {
+      "call_site": "0x335928",
+      "sp_offset": 52,
+      "register": "r0",
+      "prev_line": "33591c:\te58d0034 \tstr\tr0, [sp, #52]\t@ 0x34"
+    },
+    {
+      "call_site": "0x335948",
+      "sp_offset": 48,
+      "register": "r0",
+      "prev_line": "33593c:\te58d0030 \tstr\tr0, [sp, #48]\t@ 0x30"
+    },
+    {
+      "call_site": "0x3368e4",
+      "sp_offset": 64,
+      "register": "r0",
+      "prev_line": "3368d8:\te58d0040 \tstr\tr0, [sp, #64]\t@ 0x40"
+    },
+    {
+      "call_site": "0x336904",
+      "sp_offset": 60,
+      "register": "r0",
+      "prev_line": "3368f8:\te58d003c \tstr\tr0, [sp, #60]\t@ 0x3c"
+    },
+    {
+      "call_site": "0x336924",
+      "sp_offset": 56,
+      "register": "r0",
+      "prev_line": "336918:\te58d0038 \tstr\tr0, [sp, #56]\t@ 0x38"
+    },
+    {
+      "call_site": "0x336944",
+      "sp_offset": 52,
+      "register": "r0",
+      "prev_line": "336938:\te58d0034 \tstr\tr0, [sp, #52]\t@ 0x34"
+    },
+    {
+      "call_site": "0x336978",
+      "sp_offset": 48,
+      "register": "r0",
+      "prev_line": "33696c:\te58d0030 \tstr\tr0, [sp, #48]\t@ 0x30"
+    },
+    {
+      "call_site": "0x3369e8",
+      "sp_offset": 44,
+      "register": "r0",
+      "prev_line": "3369d8:\te58d002c \tstr\tr0, [sp, #44]\t@ 0x2c"
+    },
+    {
+      "call_site": "0x336c04",
+      "sp_offset": 40,
+      "register": "r0",
+      "prev_line": "336bf4:\te58d0028 \tstr\tr0, [sp, #40]\t@ 0x28"
+    },
+    {
+      "call_site": "0x3375b0",
+      "sp_offset": 64,
+      "register": "r0",
+      "prev_line": "3375a4:\te58d0040 \tstr\tr0, [sp, #64]\t@ 0x40"
+    },
+    {
+      "call_site": "0x3375d0",
+      "sp_offset": 60,
+      "register": "r0",
+      "prev_line": "3375c4:\te58d003c \tstr\tr0, [sp, #60]\t@ 0x3c"
+    },
+    {
+      "call_site": "0x3375f0",
+      "sp_offset": 56,
+      "register": "r0",
+      "prev_line": "3375e4:\te58d0038 \tstr\tr0, [sp, #56]\t@ 0x38"
+    },
+    {
+      "call_site": "0x337610",
+      "sp_offset": 52,
+      "register": "r0",
+      "prev_line": "337604:\te58d0034 \tstr\tr0, [sp, #52]\t@ 0x34"
+    },
+    {
+      "call_site": "0x337644",
+      "sp_offset": 48,
+      "register": "r0",
+      "prev_line": "337638:\te58d0030 \tstr\tr0, [sp, #48]\t@ 0x30"
+    },
+    {
+      "call_site": "0x33771c",
+      "sp_offset": 44,
+      "register": "r0",
+      "prev_line": "337714:\te58d002c \tstr\tr0, [sp, #44]\t@ 0x2c"
+    },
+    {
+      "call_site": "0x337fc8",
+      "sp_offset": 36,
+      "register": "r0",
+      "prev_line": "337fbc:\te58d0024 \tstr\tr0, [sp, #36]\t@ 0x24"
+    },
+    {
+      "call_site": "0x338170",
+      "sp_offset": 60,
+      "register": "r0",
+      "prev_line": "33815c:\te58d003c \tstr\tr0, [sp, #60]\t@ 0x3c"
+    },
+    {
+      "call_site": "0x338184",
+      "sp_offset": 36,
+      "register": "r0 (ldr)",
+      "prev_line": "338178:\te59d0024 \tldr\tr0, [sp, #36]\t@ 0x24"
+    },
+    {
+      "call_site": "0x338218",
+      "sp_offset": 60,
+      "register": "r0 (ldr)",
+      "prev_line": "338210:\te59d003c \tldr\tr0, [sp, #60]\t@ 0x3c"
+    },
+    {
+      "call_site": "0x338354",
+      "sp_offset": 60,
+      "register": "r0",
+      "prev_line": "338348:\te58d003c \tstr\tr0, [sp, #60]\t@ 0x3c"
+    },
+    {
+      "call_site": "0x33854c",
+      "sp_offset": 88,
+      "register": "r0",
+      "prev_line": "33853c:\te58d0058 \tstr\tr0, [sp, #88]\t@ 0x58"
+    },
+    {
+      "call_site": "0x338578",
+      "sp_offset": 52,
+      "register": "r0",
+      "prev_line": "338568:\te58d0034 \tstr\tr0, [sp, #52]\t@ 0x34"
+    },
+    {
+      "call_site": "0x3385e0",
+      "sp_offset": 48,
+      "register": "r0",
+      "prev_line": "3385d0:\te58d0030 \tstr\tr0, [sp, #48]\t@ 0x30"
+    },
+    {
+      "call_site": "0x338648",
+      "sp_offset": 44,
+      "register": "r0",
+      "prev_line": "338638:\te58d002c \tstr\tr0, [sp, #44]\t@ 0x2c"
+    },
+    {
+      "call_site": "0x3386b0",
+      "sp_offset": 40,
+      "register": "r0",
+      "prev_line": "3386a0:\te58d0028 \tstr\tr0, [sp, #40]\t@ 0x28"
+    },
+    {
+      "call_site": "0x3387a4",
+      "sp_offset": 36,
+      "register": "r0",
+      "prev_line": "338794:\te58d0024 \tstr\tr0, [sp, #36]\t@ 0x24"
+    },
+    {
+      "call_site": "0x3387bc",
+      "sp_offset": 36,
+      "register": "r0 (ldr)",
+      "prev_line": "3387ac:\te59d0024 \tldr\tr0, [sp, #36]\t@ 0x24"
+    },
+    {
+      "call_site": "0x338f74",
+      "sp_offset": 152,
+      "register": "r0",
+      "prev_line": "338f68:\te58d0098 \tstr\tr0, [sp, #152]\t@ 0x98"
+    },
+    {
+      "call_site": "0x338f94",
+      "sp_offset": 148,
+      "register": "r0",
+      "prev_line": "338f88:\te58d0094 \tstr\tr0, [sp, #148]\t@ 0x94"
+    },
+    {
+      "call_site": "0x338fb4",
+      "sp_offset": 144,
+      "register": "r0",
+      "prev_line": "338fa8:\te58d0090 \tstr\tr0, [sp, #144]\t@ 0x90"
+    },
+    {
+      "call_site": "0x338fd4",
+      "sp_offset": 140,
+      "register": "r0",
+      "prev_line": "338fc8:\te58d008c \tstr\tr0, [sp, #140]\t@ 0x8c"
+    },
+    {
+      "call_site": "0x339008",
+      "sp_offset": 136,
+      "register": "r0",
+      "prev_line": "338ffc:\te58d0088 \tstr\tr0, [sp, #136]\t@ 0x88"
+    },
+    {
+      "call_site": "0x33901c",
+      "sp_offset": 136,
+      "register": "r0 (ldr)",
+      "prev_line": "339010:\te59d0088 \tldr\tr0, [sp, #136]\t@ 0x88"
+    },
+    {
+      "call_site": "0x3391a4",
+      "sp_offset": 132,
+      "register": "r0",
+      "prev_line": "339198:\te58d0084 \tstr\tr0, [sp, #132]\t@ 0x84"
+    },
+    {
+      "call_site": "0x3391bc",
+      "sp_offset": 132,
+      "register": "r0 (ldr)",
+      "prev_line": "3391ac:\te59d0084 \tldr\tr0, [sp, #132]\t@ 0x84"
+    },
+    {
+      "call_site": "0x339294",
+      "sp_offset": 128,
+      "register": "r0",
+      "prev_line": "339288:\te58d0080 \tstr\tr0, [sp, #128]\t@ 0x80"
+    },
+    {
+      "call_site": "0x3392b4",
+      "sp_offset": 124,
+      "register": "r0",
+      "prev_line": "3392a8:\te58d007c \tstr\tr0, [sp, #124]\t@ 0x7c"
+    },
+    {
+      "call_site": "0x3392cc",
+      "sp_offset": 124,
+      "register": "r0 (ldr)",
+      "prev_line": "3392bc:\te59d007c \tldr\tr0, [sp, #124]\t@ 0x7c"
+    },
+    {
+      "call_site": "0x339488",
+      "sp_offset": 120,
+      "register": "r0",
+      "prev_line": "33947c:\te58d0078 \tstr\tr0, [sp, #120]\t@ 0x78"
+    },
+    {
+      "call_site": "0x3394a4",
+      "sp_offset": 120,
+      "register": "r0 (ldr)",
+      "prev_line": "339490:\te59d0078 \tldr\tr0, [sp, #120]\t@ 0x78"
+    },
+    {
+      "call_site": "0x3397e8",
+      "sp_offset": 116,
+      "register": "r0",
+      "prev_line": "3397dc:\te58d0074 \tstr\tr0, [sp, #116]\t@ 0x74"
+    },
+    {
+      "call_site": "0x339808",
+      "sp_offset": 112,
+      "register": "r0",
+      "prev_line": "3397fc:\te58d0070 \tstr\tr0, [sp, #112]\t@ 0x70"
+    },
+    {
+      "call_site": "0x339820",
+      "sp_offset": 112,
+      "register": "r0 (ldr)",
+      "prev_line": "339810:\te59d0070 \tldr\tr0, [sp, #112]\t@ 0x70"
+    },
+    {
+      "call_site": "0x33a108",
+      "sp_offset": 104,
+      "register": "r0",
+      "prev_line": "33a0fc:\te58d0068 \tstr\tr0, [sp, #104]\t@ 0x68"
+    },
+    {
+      "call_site": "0x33a128",
+      "sp_offset": 100,
+      "register": "r0",
+      "prev_line": "33a11c:\te58d0064 \tstr\tr0, [sp, #100]\t@ 0x64"
+    },
+    {
+      "call_site": "0x33a148",
+      "sp_offset": 96,
+      "register": "r0",
+      "prev_line": "33a13c:\te58d0060 \tstr\tr0, [sp, #96]\t@ 0x60"
+    },
+    {
+      "call_site": "0x33a168",
+      "sp_offset": 92,
+      "register": "r0",
+      "prev_line": "33a15c:\te58d005c \tstr\tr0, [sp, #92]\t@ 0x5c"
+    },
+    {
+      "call_site": "0x33a1b4",
+      "sp_offset": 88,
+      "register": "r0",
+      "prev_line": "33a1a8:\te58d0058 \tstr\tr0, [sp, #88]\t@ 0x58"
+    },
+    {
+      "call_site": "0x33a1d4",
+      "sp_offset": 84,
+      "register": "r0",
+      "prev_line": "33a1c8:\te58d0054 \tstr\tr0, [sp, #84]\t@ 0x54"
+    },
+    {
+      "call_site": "0x33a1f4",
+      "sp_offset": 80,
+      "register": "r0",
+      "prev_line": "33a1e8:\te58d0050 \tstr\tr0, [sp, #80]\t@ 0x50"
+    },
+    {
+      "call_site": "0x33a214",
+      "sp_offset": 76,
+      "register": "r0",
+      "prev_line": "33a208:\te58d004c \tstr\tr0, [sp, #76]\t@ 0x4c"
+    },
+    {
+      "call_site": "0x33a228",
+      "sp_offset": 76,
+      "register": "r0 (ldr)",
+      "prev_line": "33a21c:\te59d004c \tldr\tr0, [sp, #76]\t@ 0x4c"
+    },
+    {
+      "call_site": "0x33a24c",
+      "sp_offset": 72,
+      "register": "r0",
+      "prev_line": "33a244:\te58d0048 \tstr\tr0, [sp, #72]\t@ 0x48"
+    },
+    {
+      "call_site": "0x33a260",
+      "sp_offset": 72,
+      "register": "r0 (ldr)",
+      "prev_line": "33a254:\te59d0048 \tldr\tr0, [sp, #72]\t@ 0x48"
+    },
+    {
+      "call_site": "0x33a2ec",
+      "sp_offset": 68,
+      "register": "r0",
+      "prev_line": "33a2e0:\te58d0044 \tstr\tr0, [sp, #68]\t@ 0x44"
+    },
+    {
+      "call_site": "0x33a300",
+      "sp_offset": 68,
+      "register": "r0 (ldr)",
+      "prev_line": "33a2f4:\te59d0044 \tldr\tr0, [sp, #68]\t@ 0x44"
+    },
+    {
+      "call_site": "0x33a348",
+      "sp_offset": 64,
+      "register": "r0",
+      "prev_line": "33a33c:\te58d0040 \tstr\tr0, [sp, #64]\t@ 0x40"
+    },
+    {
+      "call_site": "0x33a72c",
+      "sp_offset": 60,
+      "register": "r0",
+      "prev_line": "33a720:\te58d003c \tstr\tr0, [sp, #60]\t@ 0x3c"
+    },
+    {
+      "call_site": "0x33a74c",
+      "sp_offset": 56,
+      "register": "r0",
+      "prev_line": "33a740:\te58d0038 \tstr\tr0, [sp, #56]\t@ 0x38"
+    },
+    {
+      "call_site": "0x33a76c",
+      "sp_offset": 52,
+      "register": "r0",
+      "prev_line": "33a760:\te58d0034 \tstr\tr0, [sp, #52]\t@ 0x34"
+    },
+    {
+      "call_site": "0x33bd74",
+      "sp_offset": 44,
+      "register": "r0",
+      "prev_line": "33bd68:\te58d002c \tstr\tr0, [sp, #44]\t@ 0x2c"
+    },
+    {
+      "call_site": "0x33bd94",
+      "sp_offset": 40,
+      "register": "r0",
+      "prev_line": "33bd88:\te58d0028 \tstr\tr0, [sp, #40]\t@ 0x28"
+    },
+    {
+      "call_site": "0x33bdb8",
+      "sp_offset": 36,
+      "register": "r0",
+      "prev_line": "33bda8:\te58d0024 \tstr\tr0, [sp, #36]\t@ 0x24"
+    },
+    {
+      "call_site": "0x33bdd0",
+      "sp_offset": 36,
+      "register": "r0 (ldr)",
+      "prev_line": "33bdc0:\te59d0024 \tldr\tr0, [sp, #36]\t@ 0x24"
+    },
+    {
+      "call_site": "0x33c008",
+      "sp_offset": 56,
+      "register": "r0",
+      "prev_line": "33bffc:\te58d0038 \tstr\tr0, [sp, #56]\t@ 0x38"
+    },
+    {
+      "call_site": "0x33c028",
+      "sp_offset": 52,
+      "register": "r0",
+      "prev_line": "33c01c:\te58d0034 \tstr\tr0, [sp, #52]\t@ 0x34"
+    },
+    {
+      "call_site": "0x33c048",
+      "sp_offset": 48,
+      "register": "r0",
+      "prev_line": "33c03c:\te58d0030 \tstr\tr0, [sp, #48]\t@ 0x30"
+    },
+    {
+      "call_site": "0x33c068",
+      "sp_offset": 44,
+      "register": "r0",
+      "prev_line": "33c05c:\te58d002c \tstr\tr0, [sp, #44]\t@ 0x2c"
+    },
+    {
+      "call_site": "0x33c6a0",
+      "sp_offset": 40,
+      "register": "r0",
+      "prev_line": "33c694:\te58d0028 \tstr\tr0, [sp, #40]\t@ 0x28"
+    },
+    {
+      "call_site": "0x33c6bc",
+      "sp_offset": 40,
+      "register": "r0 (ldr)",
+      "prev_line": "33c6a8:\te59d0028 \tldr\tr0, [sp, #40]\t@ 0x28"
+    },
+    {
+      "call_site": "0x33c6d4",
+      "sp_offset": 36,
+      "register": "r0 (ldr)",
+      "prev_line": "33c6c4:\te59d0024 \tldr\tr0, [sp, #36]\t@ 0x24"
+    },
+    {
+      "call_site": "0x33c8b8",
+      "sp_offset": 144,
+      "register": "r0",
+      "prev_line": "33c8ac:\te58d0090 \tstr\tr0, [sp, #144]\t@ 0x90"
+    },
+    {
+      "call_site": "0x33c8d8",
+      "sp_offset": 140,
+      "register": "r0",
+      "prev_line": "33c8cc:\te58d008c \tstr\tr0, [sp, #140]\t@ 0x8c"
+    },
+    {
+      "call_site": "0x33c8f8",
+      "sp_offset": 136,
+      "register": "r0",
+      "prev_line": "33c8ec:\te58d0088 \tstr\tr0, [sp, #136]\t@ 0x88"
+    },
+    {
+      "call_site": "0x33c918",
+      "sp_offset": 132,
+      "register": "r0",
+      "prev_line": "33c90c:\te58d0084 \tstr\tr0, [sp, #132]\t@ 0x84"
+    },
+    {
+      "call_site": "0x33c964",
+      "sp_offset": 128,
+      "register": "r0",
+      "prev_line": "33c958:\te58d0080 \tstr\tr0, [sp, #128]\t@ 0x80"
+    },
+    {
+      "call_site": "0x33c984",
+      "sp_offset": 124,
+      "register": "r0",
+      "prev_line": "33c978:\te58d007c \tstr\tr0, [sp, #124]\t@ 0x7c"
+    },
+    {
+      "call_site": "0x33c9a4",
+      "sp_offset": 120,
+      "register": "r0",
+      "prev_line": "33c998:\te58d0078 \tstr\tr0, [sp, #120]\t@ 0x78"
+    },
+    {
+      "call_site": "0x33c9c4",
+      "sp_offset": 116,
+      "register": "r0",
+      "prev_line": "33c9b8:\te58d0074 \tstr\tr0, [sp, #116]\t@ 0x74"
+    },
+    {
+      "call_site": "0x33c9f0",
+      "sp_offset": 112,
+      "register": "r0",
+      "prev_line": "33c9e4:\te58d0070 \tstr\tr0, [sp, #112]\t@ 0x70"
+    },
+    {
+      "call_site": "0x33ca04",
+      "sp_offset": 112,
+      "register": "r0 (ldr)",
+      "prev_line": "33c9f8:\te59d0070 \tldr\tr0, [sp, #112]\t@ 0x70"
+    },
+    {
+      "call_site": "0x33d094",
+      "sp_offset": 108,
+      "register": "r0",
+      "prev_line": "33d088:\te58d006c \tstr\tr0, [sp, #108]\t@ 0x6c"
+    },
+    {
+      "call_site": "0x33d37c",
+      "sp_offset": 104,
+      "register": "r0",
+      "prev_line": "33d370:\te58d0068 \tstr\tr0, [sp, #104]\t@ 0x68"
+    },
+    {
+      "call_site": "0x33d4a0",
+      "sp_offset": 100,
+      "register": "r0",
+      "prev_line": "33d494:\te58d0064 \tstr\tr0, [sp, #100]\t@ 0x64"
+    },
+    {
+      "call_site": "0x33d4b4",
+      "sp_offset": 100,
+      "register": "r0 (ldr)",
+      "prev_line": "33d4a8:\te59d0064 \tldr\tr0, [sp, #100]\t@ 0x64"
+    },
+    {
+      "call_site": "0x33d4cc",
+      "sp_offset": 96,
+      "register": "r0",
+      "prev_line": "33d4c4:\te58d0060 \tstr\tr0, [sp, #96]\t@ 0x60"
+    },
+    {
+      "call_site": "0x33d4ec",
+      "sp_offset": 92,
+      "register": "r0",
+      "prev_line": "33d4e0:\te58d005c \tstr\tr0, [sp, #92]\t@ 0x5c"
+    },
+    {
+      "call_site": "0x33d72c",
+      "sp_offset": 88,
+      "register": "r0",
+      "prev_line": "33d720:\te58d0058 \tstr\tr0, [sp, #88]\t@ 0x58"
+    },
+    {
+      "call_site": "0x33d744",
+      "sp_offset": 88,
+      "register": "r0 (ldr)",
+      "prev_line": "33d734:\te59d0058 \tldr\tr0, [sp, #88]\t@ 0x58"
+    },
+    {
+      "call_site": "0x33d9a8",
+      "sp_offset": 84,
+      "register": "r0",
+      "prev_line": "33d99c:\te58d0054 \tstr\tr0, [sp, #84]\t@ 0x54"
+    },
+    {
+      "call_site": "0x33d9c8",
+      "sp_offset": 80,
+      "register": "r0",
+      "prev_line": "33d9bc:\te58d0050 \tstr\tr0, [sp, #80]\t@ 0x50"
+    },
+    {
+      "call_site": "0x33d9e8",
+      "sp_offset": 76,
+      "register": "r0",
+      "prev_line": "33d9dc:\te58d004c \tstr\tr0, [sp, #76]\t@ 0x4c"
+    },
+    {
+      "call_site": "0x33daac",
+      "sp_offset": 72,
+      "register": "r0",
+      "prev_line": "33daa4:\te58d0048 \tstr\tr0, [sp, #72]\t@ 0x48"
+    },
+    {
+      "call_site": "0x33dac4",
+      "sp_offset": 72,
+      "register": "r0 (ldr)",
+      "prev_line": "33dab4:\te59d0048 \tldr\tr0, [sp, #72]\t@ 0x48"
+    },
+    {
+      "call_site": "0x33daf4",
+      "sp_offset": 68,
+      "register": "r0",
+      "prev_line": "33dae8:\te58d0044 \tstr\tr0, [sp, #68]\t@ 0x44"
+    },
+    {
+      "call_site": "0x33dc2c",
+      "sp_offset": 64,
+      "register": "r0",
+      "prev_line": "33dc20:\te58d0040 \tstr\tr0, [sp, #64]\t@ 0x40"
+    },
+    {
+      "call_site": "0x33de40",
+      "sp_offset": 60,
+      "register": "r0",
+      "prev_line": "33de34:\te58d003c \tstr\tr0, [sp, #60]\t@ 0x3c"
+    },
+    {
+      "call_site": "0x33de60",
+      "sp_offset": 56,
+      "register": "r0",
+      "prev_line": "33de54:\te58d0038 \tstr\tr0, [sp, #56]\t@ 0x38"
+    },
+    {
+      "call_site": "0x33de78",
+      "sp_offset": 56,
+      "register": "r0 (ldr)",
+      "prev_line": "33de68:\te59d0038 \tldr\tr0, [sp, #56]\t@ 0x38"
+    },
+    {
+      "call_site": "0x33e6fc",
+      "sp_offset": 52,
+      "register": "r0",
+      "prev_line": "33e6f0:\te58d0034 \tstr\tr0, [sp, #52]\t@ 0x34"
+    },
+    {
+      "call_site": "0x33e718",
+      "sp_offset": 52,
+      "register": "r0 (ldr)",
+      "prev_line": "33e704:\te59d0034 \tldr\tr0, [sp, #52]\t@ 0x34"
+    },
+    {
+      "call_site": "0x33e738",
+      "sp_offset": 44,
+      "register": "r0",
+      "prev_line": "33e72c:\te58d002c \tstr\tr0, [sp, #44]\t@ 0x2c"
+    },
+    {
+      "call_site": "0x33e750",
+      "sp_offset": 44,
+      "register": "r0 (ldr)",
+      "prev_line": "33e740:\te59d002c \tldr\tr0, [sp, #44]\t@ 0x2c"
+    },
+    {
+      "call_site": "0x33ea20",
+      "sp_offset": 48,
+      "register": "r0",
+      "prev_line": "33ea14:\te58d0030 \tstr\tr0, [sp, #48]\t@ 0x30"
+    },
+    {
+      "call_site": "0x33ea40",
+      "sp_offset": 44,
+      "register": "r0",
+      "prev_line": "33ea34:\te58d002c \tstr\tr0, [sp, #44]\t@ 0x2c"
+    },
+    {
+      "call_site": "0x33ea6c",
+      "sp_offset": 40,
+      "register": "r0",
+      "prev_line": "33ea60:\te58d0028 \tstr\tr0, [sp, #40]\t@ 0x28"
+    },
+    {
+      "call_site": "0x33ed5c",
+      "sp_offset": 96,
+      "register": "r0",
+      "prev_line": "33ed50:\te58d0060 \tstr\tr0, [sp, #96]\t@ 0x60"
+    },
+    {
+      "call_site": "0x33efb4",
+      "sp_offset": 20,
+      "register": "r0",
+      "prev_line": "33efa4:\te58d0014 \tstr\tr0, [sp, #20]"
+    },
+    {
+      "call_site": "0x33efdc",
+      "sp_offset": 4,
+      "register": "r0",
+      "prev_line": "33efd0:\te58d0004 \tstr\tr0, [sp, #4]"
+    },
+    {
+      "call_site": "0x33f1a0",
+      "sp_offset": 8,
+      "register": "r0",
+      "prev_line": "33f194:\te58d0008 \tstr\tr0, [sp, #8]"
+    },
+    {
+      "call_site": "0x33f1c0",
+      "sp_offset": 4,
+      "register": "r0",
+      "prev_line": "33f1b4:\te58d0004 \tstr\tr0, [sp, #4]"
+    },
+    {
+      "call_site": "0x33f304",
+      "sp_offset": 64,
+      "register": "r0",
+      "prev_line": "33f2f8:\te58d0040 \tstr\tr0, [sp, #64]\t@ 0x40"
+    },
+    {
+      "call_site": "0x33f324",
+      "sp_offset": 60,
+      "register": "r0",
+      "prev_line": "33f318:\te58d003c \tstr\tr0, [sp, #60]\t@ 0x3c"
+    },
+    {
+      "call_site": "0x33f344",
+      "sp_offset": 56,
+      "register": "r0",
+      "prev_line": "33f338:\te58d0038 \tstr\tr0, [sp, #56]\t@ 0x38"
+    },
+    {
+      "call_site": "0x33f8a8",
+      "sp_offset": 52,
+      "register": "r0",
+      "prev_line": "33f89c:\te58d0034 \tstr\tr0, [sp, #52]\t@ 0x34"
+    },
+    {
+      "call_site": "0x33f928",
+      "sp_offset": 48,
+      "register": "r0",
+      "prev_line": "33f920:\te58d0030 \tstr\tr0, [sp, #48]\t@ 0x30"
+    },
+    {
+      "call_site": "0x33f940",
+      "sp_offset": 48,
+      "register": "r0 (ldr)",
+      "prev_line": "33f930:\te59d0030 \tldr\tr0, [sp, #48]\t@ 0x30"
+    },
+    {
+      "call_site": "0x33fc44",
+      "sp_offset": 44,
+      "register": "r0",
+      "prev_line": "33fc3c:\te58d002c \tstr\tr0, [sp, #44]\t@ 0x2c"
+    },
+    {
+      "call_site": "0x33fc5c",
+      "sp_offset": 44,
+      "register": "r0 (ldr)",
+      "prev_line": "33fc4c:\te59d002c \tldr\tr0, [sp, #44]\t@ 0x2c"
+    },
+    {
+      "call_site": "0x33fd90",
+      "sp_offset": 40,
+      "register": "r0",
+      "prev_line": "33fd84:\te58d0028 \tstr\tr0, [sp, #40]\t@ 0x28"
+    },
+    {
+      "call_site": "0x33fda4",
+      "sp_offset": 40,
+      "register": "r0 (ldr)",
+      "prev_line": "33fd98:\te59d0028 \tldr\tr0, [sp, #40]\t@ 0x28"
+    },
+    {
+      "call_site": "0x340160",
+      "sp_offset": 60,
+      "register": "r0",
+      "prev_line": "340154:\te58d003c \tstr\tr0, [sp, #60]\t@ 0x3c"
+    },
+    {
+      "call_site": "0x340180",
+      "sp_offset": 56,
+      "register": "r0",
+      "prev_line": "340174:\te58d0038 \tstr\tr0, [sp, #56]\t@ 0x38"
+    },
+    {
+      "call_site": "0x3401a0",
+      "sp_offset": 52,
+      "register": "r0",
+      "prev_line": "340194:\te58d0034 \tstr\tr0, [sp, #52]\t@ 0x34"
+    },
+    {
+      "call_site": "0x34024c",
+      "sp_offset": 48,
+      "register": "r0",
+      "prev_line": "340240:\te58d0030 \tstr\tr0, [sp, #48]\t@ 0x30"
+    },
+    {
+      "call_site": "0x34026c",
+      "sp_offset": 44,
+      "register": "r0",
+      "prev_line": "340260:\te58d002c \tstr\tr0, [sp, #44]\t@ 0x2c"
+    },
+    {
+      "call_site": "0x3408ec",
+      "sp_offset": 20,
+      "register": "r0",
+      "prev_line": "3408e0:\te58d0014 \tstr\tr0, [sp, #20]"
+    },
+    {
+      "call_site": "0x3409a8",
+      "sp_offset": 16,
+      "register": "r0",
+      "prev_line": "3409a0:\te58d0010 \tstr\tr0, [sp, #16]"
+    },
+    {
+      "call_site": "0x340d30",
+      "sp_offset": 12,
+      "register": "r0",
+      "prev_line": "340d20:\te58d000c \tstr\tr0, [sp, #12]"
+    },
+    {
+      "call_site": "0x3413c8",
+      "sp_offset": 8,
+      "register": "r0",
+      "prev_line": "3413c0:\te58d0008 \tstr\tr0, [sp, #8]"
+    },
+    {
+      "call_site": "0x3413e0",
+      "sp_offset": 8,
+      "register": "r0 (ldr)",
+      "prev_line": "3413d0:\te59d0008 \tldr\tr0, [sp, #8]"
+    },
+    {
+      "call_site": "0x341824",
+      "sp_offset": 56,
+      "register": "r0",
+      "prev_line": "341818:\te58d0038 \tstr\tr0, [sp, #56]\t@ 0x38"
+    },
+    {
+      "call_site": "0x341844",
+      "sp_offset": 52,
+      "register": "r0",
+      "prev_line": "341838:\te58d0034 \tstr\tr0, [sp, #52]\t@ 0x34"
+    },
+    {
+      "call_site": "0x341864",
+      "sp_offset": 48,
+      "register": "r0",
+      "prev_line": "341858:\te58d0030 \tstr\tr0, [sp, #48]\t@ 0x30"
+    },
+    {
+      "call_site": "0x34204c",
+      "sp_offset": 56,
+      "register": "r0",
+      "prev_line": "342040:\te58d0038 \tstr\tr0, [sp, #56]\t@ 0x38"
+    },
+    {
+      "call_site": "0x34206c",
+      "sp_offset": 52,
+      "register": "r0",
+      "prev_line": "342060:\te58d0034 \tstr\tr0, [sp, #52]\t@ 0x34"
+    },
+    {
+      "call_site": "0x34208c",
+      "sp_offset": 48,
+      "register": "r0",
+      "prev_line": "342080:\te58d0030 \tstr\tr0, [sp, #48]\t@ 0x30"
+    },
+    {
+      "call_site": "0x3420a4",
+      "sp_offset": 48,
+      "register": "r0 (ldr)",
+      "prev_line": "342094:\te59d0030 \tldr\tr0, [sp, #48]\t@ 0x30"
+    },
+    {
+      "call_site": "0x342e08",
+      "sp_offset": 148,
+      "register": "r0",
+      "prev_line": "342dfc:\te58d0094 \tstr\tr0, [sp, #148]\t@ 0x94"
+    },
+    {
+      "call_site": "0x342e28",
+      "sp_offset": 144,
+      "register": "r0",
+      "prev_line": "342e1c:\te58d0090 \tstr\tr0, [sp, #144]\t@ 0x90"
+    },
+    {
+      "call_site": "0x342e48",
+      "sp_offset": 140,
+      "register": "r0",
+      "prev_line": "342e3c:\te58d008c \tstr\tr0, [sp, #140]\t@ 0x8c"
+    },
+    {
+      "call_site": "0x343090",
+      "sp_offset": 136,
+      "register": "r0",
+      "prev_line": "343088:\te58d0088 \tstr\tr0, [sp, #136]\t@ 0x88"
+    },
+    {
+      "call_site": "0x3431c0",
+      "sp_offset": 132,
+      "register": "r0",
+      "prev_line": "3431b0:\te58d0084 \tstr\tr0, [sp, #132]\t@ 0x84"
+    },
+    {
+      "call_site": "0x3431e4",
+      "sp_offset": 128,
+      "register": "r0",
+      "prev_line": "3431d4:\te58d0080 \tstr\tr0, [sp, #128]\t@ 0x80"
+    },
+    {
+      "call_site": "0x3432d4",
+      "sp_offset": 124,
+      "register": "r0",
+      "prev_line": "3432cc:\te58d007c \tstr\tr0, [sp, #124]\t@ 0x7c"
+    },
+    {
+      "call_site": "0x3434c4",
+      "sp_offset": 120,
+      "register": "r0",
+      "prev_line": "3434b4:\te58d0078 \tstr\tr0, [sp, #120]\t@ 0x78"
+    },
+    {
+      "call_site": "0x3436a0",
+      "sp_offset": 116,
+      "register": "r0",
+      "prev_line": "343690:\te58d0074 \tstr\tr0, [sp, #116]\t@ 0x74"
+    },
+    {
+      "call_site": "0x3437f4",
+      "sp_offset": 112,
+      "register": "r0",
+      "prev_line": "3437e4:\te58d0070 \tstr\tr0, [sp, #112]\t@ 0x70"
+    },
+    {
+      "call_site": "0x3439d0",
+      "sp_offset": 108,
+      "register": "r0",
+      "prev_line": "3439c0:\te58d006c \tstr\tr0, [sp, #108]\t@ 0x6c"
+    },
+    {
+      "call_site": "0x343b24",
+      "sp_offset": 104,
+      "register": "r0",
+      "prev_line": "343b14:\te58d0068 \tstr\tr0, [sp, #104]\t@ 0x68"
+    },
+    {
+      "call_site": "0x343cbc",
+      "sp_offset": 100,
+      "register": "r0",
+      "prev_line": "343cac:\te58d0064 \tstr\tr0, [sp, #100]\t@ 0x64"
+    },
+    {
+      "call_site": "0x343d24",
+      "sp_offset": 96,
+      "register": "r0",
+      "prev_line": "343d14:\te58d0060 \tstr\tr0, [sp, #96]\t@ 0x60"
+    },
+    {
+      "call_site": "0x343d38",
+      "sp_offset": 96,
+      "register": "r0 (ldr)",
+      "prev_line": "343d2c:\te59d0060 \tldr\tr0, [sp, #96]\t@ 0x60"
+    },
+    {
+      "call_site": "0x343d9c",
+      "sp_offset": 92,
+      "register": "r0",
+      "prev_line": "343d8c:\te58d005c \tstr\tr0, [sp, #92]\t@ 0x5c"
+    },
+    {
+      "call_site": "0x343e04",
+      "sp_offset": 88,
+      "register": "r0",
+      "prev_line": "343df4:\te58d0058 \tstr\tr0, [sp, #88]\t@ 0x58"
+    },
+    {
+      "call_site": "0x343e6c",
+      "sp_offset": 84,
+      "register": "r0",
+      "prev_line": "343e5c:\te58d0054 \tstr\tr0, [sp, #84]\t@ 0x54"
+    },
+    {
+      "call_site": "0x343ed4",
+      "sp_offset": 80,
+      "register": "r0",
+      "prev_line": "343ec4:\te58d0050 \tstr\tr0, [sp, #80]\t@ 0x50"
+    },
+    {
+      "call_site": "0x343f3c",
+      "sp_offset": 76,
+      "register": "r0",
+      "prev_line": "343f2c:\te58d004c \tstr\tr0, [sp, #76]\t@ 0x4c"
+    },
+    {
+      "call_site": "0x343fa4",
+      "sp_offset": 72,
+      "register": "r0",
+      "prev_line": "343f94:\te58d0048 \tstr\tr0, [sp, #72]\t@ 0x48"
+    },
+    {
+      "call_site": "0x34400c",
+      "sp_offset": 68,
+      "register": "r0",
+      "prev_line": "343ffc:\te58d0044 \tstr\tr0, [sp, #68]\t@ 0x44"
+    },
+    {
+      "call_site": "0x344074",
+      "sp_offset": 64,
+      "register": "r0",
+      "prev_line": "344064:\te58d0040 \tstr\tr0, [sp, #64]\t@ 0x40"
+    },
+    {
+      "call_site": "0x3440dc",
+      "sp_offset": 60,
+      "register": "r0",
+      "prev_line": "3440cc:\te58d003c \tstr\tr0, [sp, #60]\t@ 0x3c"
+    },
+    {
+      "call_site": "0x344144",
+      "sp_offset": 56,
+      "register": "r0",
+      "prev_line": "344134:\te58d0038 \tstr\tr0, [sp, #56]\t@ 0x38"
+    },
+    {
+      "call_site": "0x3441ac",
+      "sp_offset": 52,
+      "register": "r0",
+      "prev_line": "34419c:\te58d0034 \tstr\tr0, [sp, #52]\t@ 0x34"
+    },
+    {
+      "call_site": "0x344214",
+      "sp_offset": 48,
+      "register": "r0",
+      "prev_line": "344204:\te58d0030 \tstr\tr0, [sp, #48]\t@ 0x30"
+    },
+    {
+      "call_site": "0x34427c",
+      "sp_offset": 44,
+      "register": "r0",
+      "prev_line": "34426c:\te58d002c \tstr\tr0, [sp, #44]\t@ 0x2c"
+    },
+    {
+      "call_site": "0x3443c0",
+      "sp_offset": 40,
+      "register": "r0",
+      "prev_line": "3443b8:\te58d0028 \tstr\tr0, [sp, #40]\t@ 0x28"
+    },
+    {
+      "call_site": "0x3443e0",
+      "sp_offset": 36,
+      "register": "r0",
+      "prev_line": "3443d4:\te58d0024 \tstr\tr0, [sp, #36]\t@ 0x24"
+    },
+    {
+      "call_site": "0x3443f8",
+      "sp_offset": 36,
+      "register": "r0 (ldr)",
+      "prev_line": "3443e8:\te59d0024 \tldr\tr0, [sp, #36]\t@ 0x24"
+    },
+    {
+      "call_site": "0x3446a4",
+      "sp_offset": 92,
+      "register": "r0",
+      "prev_line": "344690:\te58d005c \tstr\tr0, [sp, #92]\t@ 0x5c"
+    },
+    {
+      "call_site": "0x344858",
+      "sp_offset": 72,
+      "register": "r0",
+      "prev_line": "344848:\te58d0048 \tstr\tr0, [sp, #72]\t@ 0x48"
+    },
+    {
+      "call_site": "0x34486c",
+      "sp_offset": 40,
+      "register": "r0 (ldr)",
+      "prev_line": "344860:\te59d0028 \tldr\tr0, [sp, #40]\t@ 0x28"
+    },
+    {
+      "call_site": "0x344908",
+      "sp_offset": 36,
+      "register": "r0",
+      "prev_line": "3448fc:\te58d0024 \tstr\tr0, [sp, #36]\t@ 0x24"
+    },
+    {
+      "call_site": "0x3449ac",
+      "sp_offset": 72,
+      "register": "r0",
+      "prev_line": "3449a0:\te58d0048 \tstr\tr0, [sp, #72]\t@ 0x48"
+    },
+    {
+      "call_site": "0x344b08",
+      "sp_offset": 56,
+      "register": "r0",
+      "prev_line": "344afc:\te58d0038 \tstr\tr0, [sp, #56]\t@ 0x38"
+    },
+    {
+      "call_site": "0x344b28",
+      "sp_offset": 52,
+      "register": "r0",
+      "prev_line": "344b1c:\te58d0034 \tstr\tr0, [sp, #52]\t@ 0x34"
+    },
+    {
+      "call_site": "0x344b48",
+      "sp_offset": 48,
+      "register": "r0",
+      "prev_line": "344b3c:\te58d0030 \tstr\tr0, [sp, #48]\t@ 0x30"
+    },
+    {
+      "call_site": "0x344b60",
+      "sp_offset": 48,
+      "register": "r0 (ldr)",
+      "prev_line": "344b50:\te59d0030 \tldr\tr0, [sp, #48]\t@ 0x30"
+    },
+    {
+      "call_site": "0x345748",
+      "sp_offset": 208,
+      "register": "r0",
+      "prev_line": "34573c:\te58d00d0 \tstr\tr0, [sp, #208]\t@ 0xd0"
+    },
+    {
+      "call_site": "0x345768",
+      "sp_offset": 204,
+      "register": "r0",
+      "prev_line": "34575c:\te58d00cc \tstr\tr0, [sp, #204]\t@ 0xcc"
+    },
+    {
+      "call_site": "0x345788",
+      "sp_offset": 200,
+      "register": "r0",
+      "prev_line": "34577c:\te58d00c8 \tstr\tr0, [sp, #200]\t@ 0xc8"
+    },
+    {
+      "call_site": "0x3457a8",
+      "sp_offset": 196,
+      "register": "r0",
+      "prev_line": "34579c:\te58d00c4 \tstr\tr0, [sp, #196]\t@ 0xc4"
+    },
+    {
+      "call_site": "0x3457dc",
+      "sp_offset": 192,
+      "register": "r0",
+      "prev_line": "3457d0:\te58d00c0 \tstr\tr0, [sp, #192]\t@ 0xc0"
+    },
+    {
+      "call_site": "0x345ba4",
+      "sp_offset": 188,
+      "register": "r0",
+      "prev_line": "345b9c:\te58d00bc \tstr\tr0, [sp, #188]\t@ 0xbc"
+    },
+    {
+      "call_site": "0x345c98",
+      "sp_offset": 184,
+      "register": "r0",
+      "prev_line": "345c88:\te58d00b8 \tstr\tr0, [sp, #184]\t@ 0xb8"
+    },
+    {
+      "call_site": "0x345edc",
+      "sp_offset": 180,
+      "register": "r0",
+      "prev_line": "345ecc:\te58d00b4 \tstr\tr0, [sp, #180]\t@ 0xb4"
+    },
+    {
+      "call_site": "0x346100",
+      "sp_offset": 176,
+      "register": "r0",
+      "prev_line": "3460f0:\te58d00b0 \tstr\tr0, [sp, #176]\t@ 0xb0"
+    },
+    {
+      "call_site": "0x346168",
+      "sp_offset": 172,
+      "register": "r0",
+      "prev_line": "346158:\te58d00ac \tstr\tr0, [sp, #172]\t@ 0xac"
+    },
+    {
+      "call_site": "0x3461d0",
+      "sp_offset": 168,
+      "register": "r0",
+      "prev_line": "3461c0:\te58d00a8 \tstr\tr0, [sp, #168]\t@ 0xa8"
+    },
+    {
+      "call_site": "0x346238",
+      "sp_offset": 164,
+      "register": "r0",
+      "prev_line": "346228:\te58d00a4 \tstr\tr0, [sp, #164]\t@ 0xa4"
+    },
+    {
+      "call_site": "0x3462a0",
+      "sp_offset": 160,
+      "register": "r0",
+      "prev_line": "346290:\te58d00a0 \tstr\tr0, [sp, #160]\t@ 0xa0"
+    },
+    {
+      "call_site": "0x346308",
+      "sp_offset": 156,
+      "register": "r0",
+      "prev_line": "3462f8:\te58d009c \tstr\tr0, [sp, #156]\t@ 0x9c"
+    },
+    {
+      "call_site": "0x346370",
+      "sp_offset": 152,
+      "register": "r0",
+      "prev_line": "346360:\te58d0098 \tstr\tr0, [sp, #152]\t@ 0x98"
+    },
+    {
+      "call_site": "0x3463d8",
+      "sp_offset": 148,
+      "register": "r0",
+      "prev_line": "3463c8:\te58d0094 \tstr\tr0, [sp, #148]\t@ 0x94"
+    },
+    {
+      "call_site": "0x346440",
+      "sp_offset": 144,
+      "register": "r0",
+      "prev_line": "346430:\te58d0090 \tstr\tr0, [sp, #144]\t@ 0x90"
+    },
+    {
+      "call_site": "0x3464a8",
+      "sp_offset": 140,
+      "register": "r0",
+      "prev_line": "346498:\te58d008c \tstr\tr0, [sp, #140]\t@ 0x8c"
+    },
+    {
+      "call_site": "0x346510",
+      "sp_offset": 136,
+      "register": "r0",
+      "prev_line": "346500:\te58d0088 \tstr\tr0, [sp, #136]\t@ 0x88"
+    },
+    {
+      "call_site": "0x3465bc",
+      "sp_offset": 132,
+      "register": "r0",
+      "prev_line": "3465ac:\te58d0084 \tstr\tr0, [sp, #132]\t@ 0x84"
+    },
+    {
+      "call_site": "0x3465e8",
+      "sp_offset": 128,
+      "register": "r0",
+      "prev_line": "3465d8:\te58d0080 \tstr\tr0, [sp, #128]\t@ 0x80"
+    },
+    {
+      "call_site": "0x346694",
+      "sp_offset": 124,
+      "register": "r0",
+      "prev_line": "346684:\te58d007c \tstr\tr0, [sp, #124]\t@ 0x7c"
+    },
+    {
+      "call_site": "0x346788",
+      "sp_offset": 120,
+      "register": "r0",
+      "prev_line": "346778:\te58d0078 \tstr\tr0, [sp, #120]\t@ 0x78"
+    },
+    {
+      "call_site": "0x3467f0",
+      "sp_offset": 116,
+      "register": "r0",
+      "prev_line": "3467e0:\te58d0074 \tstr\tr0, [sp, #116]\t@ 0x74"
+    },
+    {
+      "call_site": "0x346920",
+      "sp_offset": 112,
+      "register": "r0",
+      "prev_line": "346910:\te58d0070 \tstr\tr0, [sp, #112]\t@ 0x70"
+    },
+    {
+      "call_site": "0x346a74",
+      "sp_offset": 108,
+      "register": "r0",
+      "prev_line": "346a64:\te58d006c \tstr\tr0, [sp, #108]\t@ 0x6c"
+    },
+    {
+      "call_site": "0x346a88",
+      "sp_offset": 108,
+      "register": "r0 (ldr)",
+      "prev_line": "346a7c:\te59d006c \tldr\tr0, [sp, #108]\t@ 0x6c"
+    },
+    {
+      "call_site": "0x346b3c",
+      "sp_offset": 104,
+      "register": "r0",
+      "prev_line": "346b2c:\te58d0068 \tstr\tr0, [sp, #104]\t@ 0x68"
+    },
+    {
+      "call_site": "0x346ba4",
+      "sp_offset": 100,
+      "register": "r0",
+      "prev_line": "346b94:\te58d0064 \tstr\tr0, [sp, #100]\t@ 0x64"
+    },
+    {
+      "call_site": "0x346bb8",
+      "sp_offset": 100,
+      "register": "r0 (ldr)",
+      "prev_line": "346bac:\te59d0064 \tldr\tr0, [sp, #100]\t@ 0x64"
+    },
+    {
+      "call_site": "0x346bd8",
+      "sp_offset": 96,
+      "register": "r0",
+      "prev_line": "346bc8:\te58d0060 \tstr\tr0, [sp, #96]\t@ 0x60"
+    },
+    {
+      "call_site": "0x346c40",
+      "sp_offset": 92,
+      "register": "r0",
+      "prev_line": "346c30:\te58d005c \tstr\tr0, [sp, #92]\t@ 0x5c"
+    },
+    {
+      "call_site": "0x346c54",
+      "sp_offset": 92,
+      "register": "r0 (ldr)",
+      "prev_line": "346c48:\te59d005c \tldr\tr0, [sp, #92]\t@ 0x5c"
+    },
+    {
+      "call_site": "0x346c74",
+      "sp_offset": 88,
+      "register": "r0",
+      "prev_line": "346c64:\te58d0058 \tstr\tr0, [sp, #88]\t@ 0x58"
+    },
+    {
+      "call_site": "0x346cdc",
+      "sp_offset": 84,
+      "register": "r0",
+      "prev_line": "346ccc:\te58d0054 \tstr\tr0, [sp, #84]\t@ 0x54"
+    },
+    {
+      "call_site": "0x346d44",
+      "sp_offset": 80,
+      "register": "r0",
+      "prev_line": "346d34:\te58d0050 \tstr\tr0, [sp, #80]\t@ 0x50"
+    },
+    {
+      "call_site": "0x346dac",
+      "sp_offset": 76,
+      "register": "r0",
+      "prev_line": "346d9c:\te58d004c \tstr\tr0, [sp, #76]\t@ 0x4c"
+    },
+    {
+      "call_site": "0x346e74",
+      "sp_offset": 72,
+      "register": "r0",
+      "prev_line": "346e64:\te58d0048 \tstr\tr0, [sp, #72]\t@ 0x48"
+    },
+    {
+      "call_site": "0x346ee4",
+      "sp_offset": 68,
+      "register": "r0",
+      "prev_line": "346ed4:\te58d0044 \tstr\tr0, [sp, #68]\t@ 0x44"
+    },
+    {
+      "call_site": "0x3473c4",
+      "sp_offset": 64,
+      "register": "r0",
+      "prev_line": "3473b4:\te58d0040 \tstr\tr0, [sp, #64]\t@ 0x40"
+    },
+    {
+      "call_site": "0x34742c",
+      "sp_offset": 60,
+      "register": "r0",
+      "prev_line": "34741c:\te58d003c \tstr\tr0, [sp, #60]\t@ 0x3c"
+    },
+    {
+      "call_site": "0x34749c",
+      "sp_offset": 56,
+      "register": "r0",
+      "prev_line": "34748c:\te58d0038 \tstr\tr0, [sp, #56]\t@ 0x38"
+    },
+    {
+      "call_site": "0x34750c",
+      "sp_offset": 52,
+      "register": "r0",
+      "prev_line": "3474fc:\te58d0034 \tstr\tr0, [sp, #52]\t@ 0x34"
+    },
+    {
+      "call_site": "0x347574",
+      "sp_offset": 48,
+      "register": "r0",
+      "prev_line": "347564:\te58d0030 \tstr\tr0, [sp, #48]\t@ 0x30"
+    },
+    {
+      "call_site": "0x3475d4",
+      "sp_offset": 44,
+      "register": "r0",
+      "prev_line": "3475cc:\te58d002c \tstr\tr0, [sp, #44]\t@ 0x2c"
+    },
+    {
+      "call_site": "0x3475f4",
+      "sp_offset": 40,
+      "register": "r0",
+      "prev_line": "3475e8:\te58d0028 \tstr\tr0, [sp, #40]\t@ 0x28"
+    },
+    {
+      "call_site": "0x3476a4",
+      "sp_offset": 36,
+      "register": "r0",
+      "prev_line": "347694:\te58d0024 \tstr\tr0, [sp, #36]\t@ 0x24"
+    },
+    {
+      "call_site": "0x3478e0",
+      "sp_offset": 12,
+      "register": "r0",
+      "prev_line": "3478d0:\te58d000c \tstr\tr0, [sp, #12]"
+    },
+    {
+      "call_site": "0x347a70",
+      "sp_offset": 116,
+      "register": "r0",
+      "prev_line": "347a64:\te58d0074 \tstr\tr0, [sp, #116]\t@ 0x74"
+    },
+    {
+      "call_site": "0x347a90",
+      "sp_offset": 112,
+      "register": "r0",
+      "prev_line": "347a84:\te58d0070 \tstr\tr0, [sp, #112]\t@ 0x70"
+    },
+    {
+      "call_site": "0x347ab0",
+      "sp_offset": 108,
+      "register": "r0",
+      "prev_line": "347aa4:\te58d006c \tstr\tr0, [sp, #108]\t@ 0x6c"
+    },
+    {
+      "call_site": "0x347ad0",
+      "sp_offset": 104,
+      "register": "r0",
+      "prev_line": "347ac4:\te58d0068 \tstr\tr0, [sp, #104]\t@ 0x68"
+    },
+    {
+      "call_site": "0x347b04",
+      "sp_offset": 100,
+      "register": "r0",
+      "prev_line": "347af8:\te58d0064 \tstr\tr0, [sp, #100]\t@ 0x64"
+    },
+    {
+      "call_site": "0x347f40",
+      "sp_offset": 96,
+      "register": "r0",
+      "prev_line": "347f38:\te58d0060 \tstr\tr0, [sp, #96]\t@ 0x60"
+    },
+    {
+      "call_site": "0x347fe8",
+      "sp_offset": 92,
+      "register": "r0",
+      "prev_line": "347fdc:\te58d005c \tstr\tr0, [sp, #92]\t@ 0x5c"
+    },
+    {
+      "call_site": "0x348008",
+      "sp_offset": 88,
+      "register": "r0",
+      "prev_line": "347ffc:\te58d0058 \tstr\tr0, [sp, #88]\t@ 0x58"
+    },
+    {
+      "call_site": "0x34801c",
+      "sp_offset": 88,
+      "register": "r0 (ldr)",
+      "prev_line": "348010:\te59d0058 \tldr\tr0, [sp, #88]\t@ 0x58"
+    },
+    {
+      "call_site": "0x348048",
+      "sp_offset": 84,
+      "register": "r0",
+      "prev_line": "34803c:\te58d0054 \tstr\tr0, [sp, #84]\t@ 0x54"
+    },
+    {
+      "call_site": "0x348064",
+      "sp_offset": 84,
+      "register": "r0 (ldr)",
+      "prev_line": "348050:\te59d0054 \tldr\tr0, [sp, #84]\t@ 0x54"
+    },
+    {
+      "call_site": "0x3480f4",
+      "sp_offset": 80,
+      "register": "r0",
+      "prev_line": "3480e4:\te58d0050 \tstr\tr0, [sp, #80]\t@ 0x50"
+    },
+    {
+      "call_site": "0x348120",
+      "sp_offset": 76,
+      "register": "r0",
+      "prev_line": "348110:\te58d004c \tstr\tr0, [sp, #76]\t@ 0x4c"
+    },
+    {
+      "call_site": "0x34815c",
+      "sp_offset": 72,
+      "register": "r0",
+      "prev_line": "34814c:\te58d0048 \tstr\tr0, [sp, #72]\t@ 0x48"
+    },
+    {
+      "call_site": "0x348184",
+      "sp_offset": 68,
+      "register": "r0",
+      "prev_line": "348178:\te58d0044 \tstr\tr0, [sp, #68]\t@ 0x44"
+    },
+    {
+      "call_site": "0x3481a4",
+      "sp_offset": 64,
+      "register": "r0",
+      "prev_line": "348198:\te58d0040 \tstr\tr0, [sp, #64]\t@ 0x40"
+    },
+    {
+      "call_site": "0x3481cc",
+      "sp_offset": 60,
+      "register": "r0",
+      "prev_line": "3481c0:\te58d003c \tstr\tr0, [sp, #60]\t@ 0x3c"
+    },
+    {
+      "call_site": "0x3481ec",
+      "sp_offset": 56,
+      "register": "r0",
+      "prev_line": "3481e0:\te58d0038 \tstr\tr0, [sp, #56]\t@ 0x38"
+    },
+    {
+      "call_site": "0x34820c",
+      "sp_offset": 52,
+      "register": "r0",
+      "prev_line": "348200:\te58d0034 \tstr\tr0, [sp, #52]\t@ 0x34"
+    },
+    {
+      "call_site": "0x3482bc",
+      "sp_offset": 48,
+      "register": "r0",
+      "prev_line": "3482ac:\te58d0030 \tstr\tr0, [sp, #48]\t@ 0x30"
+    },
+    {
+      "call_site": "0x3482dc",
+      "sp_offset": 44,
+      "register": "r0",
+      "prev_line": "3482d0:\te58d002c \tstr\tr0, [sp, #44]\t@ 0x2c"
+    },
+    {
+      "call_site": "0x3482fc",
+      "sp_offset": 40,
+      "register": "r0",
+      "prev_line": "3482f0:\te58d0028 \tstr\tr0, [sp, #40]\t@ 0x28"
+    },
+    {
+      "call_site": "0x348844",
+      "sp_offset": 60,
+      "register": "r0",
+      "prev_line": "348838:\te58d003c \tstr\tr0, [sp, #60]\t@ 0x3c"
+    },
+    {
+      "call_site": "0x348864",
+      "sp_offset": 56,
+      "register": "r0",
+      "prev_line": "348858:\te58d0038 \tstr\tr0, [sp, #56]\t@ 0x38"
+    },
+    {
+      "call_site": "0x348930",
+      "sp_offset": 96,
+      "register": "r0",
+      "prev_line": "34891c:\te58d0060 \tstr\tr0, [sp, #96]\t@ 0x60"
+    },
+    {
+      "call_site": "0x348ac8",
+      "sp_offset": 96,
+      "register": "r0",
+      "prev_line": "348ab4:\te58d0060 \tstr\tr0, [sp, #96]\t@ 0x60"
+    },
+    {
+      "call_site": "0x348ae8",
+      "sp_offset": 44,
+      "register": "r0",
+      "prev_line": "348adc:\te58d002c \tstr\tr0, [sp, #44]\t@ 0x2c"
+    },
+    {
+      "call_site": "0x348b00",
+      "sp_offset": 44,
+      "register": "r0 (ldr)",
+      "prev_line": "348af0:\te59d002c \tldr\tr0, [sp, #44]\t@ 0x2c"
+    },
+    {
+      "call_site": "0x348c30",
+      "sp_offset": 96,
+      "register": "r0",
+      "prev_line": "348c1c:\te58d0060 \tstr\tr0, [sp, #96]\t@ 0x60"
+    },
+    {
+      "call_site": "0x348c50",
+      "sp_offset": 36,
+      "register": "r0",
+      "prev_line": "348c44:\te58d0024 \tstr\tr0, [sp, #36]\t@ 0x24"
+    },
+    {
+      "call_site": "0x348c68",
+      "sp_offset": 36,
+      "register": "r0 (ldr)",
+      "prev_line": "348c58:\te59d0024 \tldr\tr0, [sp, #36]\t@ 0x24"
+    },
+    {
+      "call_site": "0x348db0",
+      "sp_offset": 60,
+      "register": "r0",
+      "prev_line": "348d9c:\te58d003c \tstr\tr0, [sp, #60]\t@ 0x3c"
+    },
+    {
+      "call_site": "0x348e28",
+      "sp_offset": 60,
+      "register": "r0 (ldr)",
+      "prev_line": "348e20:\te59d003c \tldr\tr0, [sp, #60]\t@ 0x3c"
+    },
+    {
+      "call_site": "0x349084",
+      "sp_offset": 72,
+      "register": "r0",
+      "prev_line": "349078:\te58d0048 \tstr\tr0, [sp, #72]\t@ 0x48"
+    },
+    {
+      "call_site": "0x3490a4",
+      "sp_offset": 68,
+      "register": "r0",
+      "prev_line": "349098:\te58d0044 \tstr\tr0, [sp, #68]\t@ 0x44"
+    },
+    {
+      "call_site": "0x3490c4",
+      "sp_offset": 64,
+      "register": "r0",
+      "prev_line": "3490b8:\te58d0040 \tstr\tr0, [sp, #64]\t@ 0x40"
+    },
+    {
+      "call_site": "0x3490d8",
+      "sp_offset": 64,
+      "register": "r0 (ldr)",
+      "prev_line": "3490cc:\te59d0040 \tldr\tr0, [sp, #64]\t@ 0x40"
+    },
+    {
+      "call_site": "0x349240",
+      "sp_offset": 60,
+      "register": "r0",
+      "prev_line": "349238:\te58d003c \tstr\tr0, [sp, #60]\t@ 0x3c"
+    },
+    {
+      "call_site": "0x349258",
+      "sp_offset": 60,
+      "register": "r0 (ldr)",
+      "prev_line": "349248:\te59d003c \tldr\tr0, [sp, #60]\t@ 0x3c"
+    },
+    {
+      "call_site": "0x34944c",
+      "sp_offset": 56,
+      "register": "r0",
+      "prev_line": "349440:\te58d0038 \tstr\tr0, [sp, #56]\t@ 0x38"
+    },
+    {
+      "call_site": "0x3497d0",
+      "sp_offset": 52,
+      "register": "r0",
+      "prev_line": "3497c4:\te58d0034 \tstr\tr0, [sp, #52]\t@ 0x34"
+    },
+    {
+      "call_site": "0x3497f0",
+      "sp_offset": 48,
+      "register": "r0",
+      "prev_line": "3497e4:\te58d0030 \tstr\tr0, [sp, #48]\t@ 0x30"
+    },
+    {
+      "call_site": "0x349810",
+      "sp_offset": 44,
+      "register": "r0",
+      "prev_line": "349804:\te58d002c \tstr\tr0, [sp, #44]\t@ 0x2c"
+    },
+    {
+      "call_site": "0x349830",
+      "sp_offset": 40,
+      "register": "r0",
+      "prev_line": "349824:\te58d0028 \tstr\tr0, [sp, #40]\t@ 0x28"
+    },
+    {
+      "call_site": "0x34996c",
+      "sp_offset": 128,
+      "register": "r0",
+      "prev_line": "349960:\te58d0080 \tstr\tr0, [sp, #128]\t@ 0x80"
+    },
+    {
+      "call_site": "0x34998c",
+      "sp_offset": 124,
+      "register": "r0",
+      "prev_line": "349980:\te58d007c \tstr\tr0, [sp, #124]\t@ 0x7c"
+    },
+    {
+      "call_site": "0x3499ac",
+      "sp_offset": 120,
+      "register": "r0",
+      "prev_line": "3499a0:\te58d0078 \tstr\tr0, [sp, #120]\t@ 0x78"
+    },
+    {
+      "call_site": "0x3499cc",
+      "sp_offset": 116,
+      "register": "r0",
+      "prev_line": "3499c0:\te58d0074 \tstr\tr0, [sp, #116]\t@ 0x74"
+    },
+    {
+      "call_site": "0x349a18",
+      "sp_offset": 112,
+      "register": "r0",
+      "prev_line": "349a0c:\te58d0070 \tstr\tr0, [sp, #112]\t@ 0x70"
+    },
+    {
+      "call_site": "0x349a38",
+      "sp_offset": 108,
+      "register": "r0",
+      "prev_line": "349a2c:\te58d006c \tstr\tr0, [sp, #108]\t@ 0x6c"
+    },
+    {
+      "call_site": "0x349a58",
+      "sp_offset": 104,
+      "register": "r0",
+      "prev_line": "349a4c:\te58d0068 \tstr\tr0, [sp, #104]\t@ 0x68"
+    },
+    {
+      "call_site": "0x349a78",
+      "sp_offset": 100,
+      "register": "r0",
+      "prev_line": "349a6c:\te58d0064 \tstr\tr0, [sp, #100]\t@ 0x64"
+    },
+    {
+      "call_site": "0x349a8c",
+      "sp_offset": 100,
+      "register": "r0 (ldr)",
+      "prev_line": "349a80:\te59d0064 \tldr\tr0, [sp, #100]\t@ 0x64"
+    },
+    {
+      "call_site": "0x349b0c",
+      "sp_offset": 96,
+      "register": "r0",
+      "prev_line": "349b00:\te58d0060 \tstr\tr0, [sp, #96]\t@ 0x60"
+    },
+    {
+      "call_site": "0x349b20",
+      "sp_offset": 96,
+      "register": "r0 (ldr)",
+      "prev_line": "349b14:\te59d0060 \tldr\tr0, [sp, #96]\t@ 0x60"
+    },
+    {
+      "call_site": "0x349e08",
+      "sp_offset": 92,
+      "register": "r0",
+      "prev_line": "349df8:\te58d005c \tstr\tr0, [sp, #92]\t@ 0x5c"
+    },
+    {
+      "call_site": "0x349e2c",
+      "sp_offset": 88,
+      "register": "r0",
+      "prev_line": "349e24:\te58d0058 \tstr\tr0, [sp, #88]\t@ 0x58"
+    }
+  ],
+  "sp_offset_counts": {
+    "52": 18,
+    "48": 19,
+    "44": 18,
+    "40": 16,
+    "56": 17,
+    "64": 10,
+    "60": 17,
+    "36": 13,
+    "88": 9,
+    "152": 2,
+    "148": 3,
+    "144": 4,
+    "140": 4,
+    "136": 5,
+    "132": 5,
+    "128": 5,
+    "124": 6,
+    "120": 6,
+    "116": 6,
+    "112": 8,
+    "104": 6,
+    "100": 9,
+    "96": 12,
+    "92": 8,
+    "84": 6,
+    "80": 5,
+    "76": 6,
+    "72": 10,
+    "68": 7,
+    "108": 6,
+    "20": 2,
+    "4": 2,
+    "8": 3,
+    "16": 1,
+    "12": 2,
+    "208": 1,
+    "204": 1,
+    "200": 1,
+    "196": 1,
+    "192": 1,
+    "188": 1,
+    "184": 1,
+    "180": 1,
+    "176": 1,
+    "172": 1,
+    "168": 1,
+    "164": 1,
+    "160": 1,
+    "156": 1
+  }
+}
