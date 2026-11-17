@@ -11,9 +11,10 @@
  *   见 REVERSE_NOTES_01 §L59「0x39e14 布局校验确证：非走子方向限制」）：
  *     布局校验：炸弹 row!=0（不放第一行）；地雷 row>3（仅最后两行）；
  *     军旗 row∈{大本营格}（0x39e7a 特判）。
- *   0x39f20 移动执行器：from==to→翻棋；坐标 0x6ef54 比较（[0]=col [1]=row）；
- *     格子 +0x80+[from*5+to_offset]，rank 在格 +4（L65/L79）。
- *   0x3a15c 走子交换：from rank ← to rank 互换（含吃子落点）。
+ *   0x39f20 区 (走子执行器语义, 非完整移动执行; ★ 原版 32 位 so 地址 — AUD_ALIGN_R16/17):
+ *     实证为短函数 (读对象 +168/164, ORIG_39f20_3a15c_ANALYSIS.md), "from==to→翻棋" 完整语义
+ *     在更大执行器 (0x39f20 区 + 0xb67ec 标志 setter + 0xb6808 特殊格, 见 ORIG_B6808_COMPLETE.md)。
+ *   0x3a15c 走子交换: from rank ← to rank 互换 (含吃子落点; 原版 32 位 so 地址, 实证 = 坐标/rank 数组访问)。
  *   0x30200 胜负分发：r3=0/1/2（蓝胜/红胜/和）→ Junqi.Win/Draw 事件。
  *   0x30260 吃旗胜 / 0x30280 和棋 / 0x302b4 困毙（status=3，L53/L54）。
  *
@@ -511,7 +512,7 @@ static bool side_has_normal(const jq_state *st, int side)
     return false;
 }
 
-/* ---------- 走子执行（0x39f20 + 0x3a15c 语义） ---------- */
+/* ---------- 走子执行（0x39f20 + 0x3a15c 语义; ★ 原版 32 位 so 地址, 非翻译体 — AUD_ALIGN_R16/17） ---------- */
 /* ★ AUD-R-008（P1）：走子/翻棋共用的终局收口（顺序对齐原 jq_try_move：先和棋后困毙）。
    stage 已 OVER（吃旗/炸旗终局）时双守卫自动放行，不动终局 winner。 */
 static void stalemate_after(jq_state *st)
@@ -1210,18 +1211,20 @@ void jq_on_stalemate(jq_state *st, uint8_t loser_side)
    src/dst 为原始存储 rank（红方 = 实际+0xc，需 rank_norm 还原）。
    返回：1000 吃子 / 900 同级 / 800 炸弹 / 700 工兵挖雷 / 2 空移 / 1 送死 / -1 旗雷不可走 / -2 空源（AUD-R-057）。
    ★ AUD-R-055（P2 诚实标注）：评分不区分子价值（用司令吃掉排长 = 用排长吃掉司令 = 1000）——
-     对齐原版 0x39f20/0x55d40 单步贪心无价值维度（原版无 ai_value 子力表，兄弟实现
+     对齐原版 0x39f20/0x55d40 单步贪心无价值维度（★ 原版 32 位 so 地址; 原版无 ai_value 子力表，兄弟实现
      game_logic.c:534 ai_value 为手写路线自有设计，非原版对齐目标）。
    ★ AUD-R-056（P2 诚实标注）：不评估吃子后被反吃的风险（无前瞻/无模拟走子）——
-     原版贪心 0x55d40 handler 实证单步评分，不实现前瞻（性能 + 对齐原版）。
+     原版 0x55d40 区（★ 原版 32 位 so .text, 75 thunk 收表 ORIG_THUNK_55d40.json）无集中评分表,
+     单步贪心分散在执行器+handler, 不实现前瞻（性能 + 对齐原版）。
+     ★ 64 位 ai_score 评分表 (1000/900/800/700/2/1) = **正向设计, 非 32 位地址对齐** (AUD_ALIGN_R16)。
    ★ AUD-R-059（P2 诚实标注）：炸弹空移与普通子空移同分（2）——原版贪心无此区分。
    ★ AUD-R-060（P2 诚实标注）：同级同归 900 覆盖"两炸弹相撞"与"同级普通子互杀"两种语义——
-     原版 ai_score 无此区分（0x55d40 实证），事件侧 EV_BOMB 同码同源。
+     原版 ai_score 无此区分（原版 0x55d40 区 75 thunk 实证无评分常量），事件侧 EV_BOMB 同码同源。
    ★ AUD-R-058（P2 诚实标注）：暗棋扛旗前置条件（工兵 + 挖 3 雷）未进评分——需 st 状态
      查询（mines_cleared/mode），ai_score 签名改动大，留待下一轮；当前暗棋下 AI 靠
      move_legal 拦截兜底（非工兵扛旗被拒），不会误胜。
    ★ AUD-1000 B01-031（P1 诚实标注）：炸弹撞旗（r=10<dr=12）命中 1000 分（'吃子最高分'），
-     语义上是'同归胜局'而非'净吃'——原版 0x55d40 单步贪心无价值维度，无炸弹/旗专项权重，
+     语义上是'同归胜局'而非'净吃'——原版 0x55d40 区单步贪心无价值维度（★ 原版 32 位 so 地址），无炸弹/旗专项权重，
      保持 1000 对齐原版（若 SPEC 定案'同归+胜局组合权重'需改 800+win_bonus，留待下一轮）。
      ★ AUD-1000 B01-030（P1 已修）：炸弹撞雷（dr=RANK_MINE, r=RANK_BOMB）评 800（同归分），
      旧实现评 1（送死）导致 AI 避免炸弹撞雷——但规则上炸弹撞雷双方同归（EV_BOMB 800 语义），
@@ -1229,7 +1232,7 @@ void jq_on_stalemate(jq_state *st, uint8_t loser_side)
      普通子撞雷 1），基准不受影响。
    ★ AUD-1000 B01-032（P1 诚实标注）：同级普通子互杀（如排长 vs 排长）返回 900（同级分）
      但事件码走 EV_BOMB（JQ_EVENT_NAMES[2]="Junqi.Bomb"）——音效播'炸弹'声而非'同级互杀'。
-     原版 0x55d40 同码同源（AUD-R-062），区分需扩事件码（0-6 已满 7 项）同步 jni_bridge 计数，
+     原版 0x55d40 区同码同源（★ 原版 32 位 so 地址, AUD-R-062），区分需扩事件码（0-6 已满 7 项）同步 jni_bridge 计数，
      留待 SPEC 定案。 */
 int ai_score(int src_rank_raw, int dst_rank_raw, int dst_revealed)
 {
@@ -1260,7 +1263,7 @@ int ai_score(int src_rank_raw, int dst_rank_raw, int dst_revealed)
        ★ AUD-R-095（P3 诚实标注）：rank_norm 上界校验（v>24 钳到 RANK_TOP）已随
        AUD-R-080 落地（junqi.h rank_norm）；ai_score 对 RANK_TOP 钳位值的处理
        （钳位后=12 走 RANK_FLAG 分支返回 -1）为正确降级，无需额外哨兵。
-       若原版 0x55d40 对非法 rank 有独立评分分支，需专项逆向确认。 */
+       若原版 0x55d40 区 handler（★ 原版 32 位 so 地址, 75 thunk 区）对非法 rank 有独立评分分支，需专项逆向确认。 */
     if (src_rank_raw == 0) return -2;
     /* ★ AUD-1000 B01-079（P3 注释）：评分收表——1000 吃子 / 900 同级 / 800 炸弹 /
        700 工兵挖雷 / 2 空移 / 1 送死 / -1 旗雷不可走 / -2 空源。

@@ -125,9 +125,11 @@ int main(void) {
         CHECK(sessg.state == BT_ST_DISCONNECTED, "RESIGN 后置 DISCONNECTED（B04-013 闸口前置）");
         CHECK(jq_bt_session_on_frame(&sessg, &stg, BT_T_UNDO, 0,0,0,0,0,0) == -2,
               "DISCONNECTED 拒收 UNDO 数据帧（rc=-2，B04-013+B04-027 闸口覆盖）");
-        /* RESTART：B04-012 DISCONNECTED 闸口拒收（rc=-2） */
-        CHECK(jq_bt_session_on_frame(&sessg, &stg, BT_T_RESTART, 0,0,0,0,0,0) == -2,
-              "DISCONNECTED 拒收 RESTART 帧（rc=-2，B04-012+B04-027 闸口覆盖）");
+        /* ★ R8-C-16 定案落地：DISCONNECTED 下 RESTART 放行（会话恢复路径）——
+           B04-012 旧 "全拒收" 语义已废弃（bt_session.c :196-245 演变注保留），
+           RESTART = 合法重开（RESIGN/断连终局后对端发起重开 = 重建对局），rc=0。 */
+        CHECK(jq_bt_session_on_frame(&sessg, &stg, BT_T_RESTART, 0,0,0,0,0,0) == 0,
+              "DISCONNECTED 放行 RESTART 帧（rc=0，R8-C-16 会话恢复路径）");
     }
 
     /* 7. 翻完蓝方后找可走子（明棋阶段）测 MOVE 帧 */

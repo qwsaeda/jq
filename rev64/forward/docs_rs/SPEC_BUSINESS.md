@@ -203,6 +203,7 @@ UI_MENU（5 按钮：人机/两人/联网/联机/四国）
 | resign_confirm | 本机败+RESIGN 帧 | Junqi.ResignConfirm | — |
 
 **音效分流对齐**：`sfx_for_event_name()` 按 73 事件名首字段映射 WAV（Move/Eat/Bomb/Flag/Dead/Flip 6 类，其余兜底 move）；账号/联机类无独立音效（诚实边界）。
+★ 2026-11-17 R17 注: `sfx_for_event_name` 已删 (L242 3 死函数清理, 现行 = `jq_evt55_sfx_for_name`), 本段保留为设计演变记录。
 
 **事件计数**：`g_event_cnt` 7→73（对齐 `jq_event_names_73` 契约）；战况统计 UI 显示 7 事件码核心计数 + 73 事件名非零分布（账号/联机类恒 0 不刷屏）。
 

@@ -2800,10 +2800,12 @@ static void spak_res_stage_private(JNIEnv *env, jobject activity, int log_miss)
         if (fobj) {
             jclass f_cls = (*env)->GetObjectClass(env, fobj);
             jmethodID abs = (*env)->GetMethodID(env, f_cls, "getAbsolutePath", "()Ljava/lang/String;");
-            jstring js = (*env)->CallObjectMethod(env, fobj, abs);
-            const char *s = (*env)->GetStringUTFChars(env, js, NULL);
+            if ((*env)->ExceptionCheck(env)) { (*env)->ExceptionClear(env); abs = NULL; }  /* ★ P0-3 审计修复: GetMethodID 后异常清理 (原缺口 jni_method_audit 报点) */
+            jstring js = abs ? (*env)->CallObjectMethod(env, fobj, abs) : NULL;
+            const char *s = js ? (*env)->GetStringUTFChars(env, js, NULL) : NULL;
             if (s) { snprintf(g_files_dir, sizeof g_files_dir, "%s", s);
                      (*env)->ReleaseStringUTFChars(env, js, s); }
+            if (f_cls) (*env)->DeleteLocalRef(env, f_cls);
         }
         if (act_cls) (*env)->DeleteLocalRef(env, act_cls);
         if (!g_files_dir[0]) return;
@@ -3784,6 +3786,7 @@ Java_com_qwsaeda_App_OnKey(JNIEnv *env, jclass clazz, jobject keyEvent)
        down 开弹窗 + up 立即关弹窗 = 用户只见闪烁 = "点击无效"。
        修：读 getAction()，非 ACTION_DOWN(0) 交系统（不处理）。 */
     jmethodID amid = (*env)->GetMethodID(env, kcls, "getAction", "()I");
+    if ((*env)->ExceptionCheck(env)) { (*env)->ExceptionClear(env); amid = NULL; }  /* ★ P0-3 审计修复: GetMethodID 后异常清理 (原缺口 jni_method_audit 报点) */
     int action = 0;
     if (amid != NULL) action = (*env)->CallIntMethod(env, keyEvent, amid);
     if (action != 0) { return JNI_FALSE; }   /* 只处理 ACTION_DOWN */

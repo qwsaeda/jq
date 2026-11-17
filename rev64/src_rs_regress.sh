@@ -25,6 +25,11 @@ run "[1/12] make desk + so" bash -c "cd $RS && make desk && NDK=/tmp/opencode/an
 
 # 2. 蓝牙帧协议 + 状态机桌面自测
 run "[2/12] 蓝牙自测 (make bttest)" bash -c "cd $RS && make bttest 2>&1 | grep '全部通过'"
+# 2.5 ★ P0-1 审计修复 (AUD_ALIGN_R17 承接 R16 P0)：bt_semtest 152 条断言池此前未挂 12/12
+#   回归（make bttest 与 bt_semtest 源文件列表同源但 target 不同，[2/12] 只跑 bttest →
+#   断言池扩容 145→152 后门禁不感知，静默降级）。挂上后 152/43 条进 12/12 覆盖。
+run "[2.5/12] 蓝牙会话语义自测 (make bt_semtest)" bash -c "cd $RS && make bt_semtest 2>&1 | grep '152 条 PASS'"
+run "[2.6/12] 双端语义自测 (make bt_semtest_dual)" bash -c "cd $RS && make bt_semtest_dual 2>&1 | grep '43 条 PASS'"
 
 # 3. 桌面 headless 走一局
 run "[3/12] 桌面走局 (jq_run)" bash -c "cd $RS && ./dist/jq_run >/dev/null 2>&1"
@@ -50,7 +55,8 @@ run "[11/12] 真实长路径走子 (make walkverify --longrun 5)" bash -c "cd $R
 # 12. 桌面事件验证（EAT/BOMB/MOVE/FLAG/MINE/UNDO/DRAW/RESIGN/STALEMATE 9 断言 + 120 弹窗几何 + 规则回归，防事件夹具回归）
 # ★ AUD-1000 B07-001/B08-049（P1 判据口径同步）：evverify 退码分级——事件项
 #   FAIL 退 1（阻断 12/12）；仅几何项 FAIL 退 2（警告，单弹窗几何漂移不再
-#   过度敏感阻断全回归）。判据仍 grep "全对"（当前 172/172，事件 40/40 + 几何 132/132），退 2 时
+#   过度敏感阻断全回归）。判据仍 grep "全对"（动态真值，SUMMARY 实时生成——★ P1-5 审计修复:
+#   注释不再硬编码断言数, 历史 8/8→167/172 三代口径漂移教训, 以 SUMMARY 行为准），退 2 时
 #   "全对" 不出现（几何 FAIL 行）→ [12/12] FAIL 但日志可区分"事件阻断"
 #   与"几何警告"（stdout 含"退 2（警告"字样）。
 run "[12/12] 桌面事件验证 (make evverify)" bash -c "cd $RS && make evverify MODE=--all 2>&1 | grep '全对'"
