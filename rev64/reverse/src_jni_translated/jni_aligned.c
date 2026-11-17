@@ -112,11 +112,9 @@ void jqt_init_empty_containers(void){
    F_8571c 读 [single+0x38] 非 0 → bl 0x94d88（vtable 偏移 getter：ldr r0,[r0,#0xa4]）。
    构造：calloc 对象 O，MEM(O+0x38)=底层对象 B；MEM(B) = 某 vtable（0xa4 槽有效）→ 走原版 0x38 非 0 路径，
    看 F_55d40 返回链是否仍 ok=1（验证 .bss 未构造兜底 与 真实对象路径等价性）。
-   ★ AUD-1000 B05-019（P1 R-138 诚实标注）：无 done 标志——调用方多点触发
-   （OnLoad + 后续钩子重复 setprop jq.event_base 1）时每次 calloc 新 O/B，
-   MEM(0x15bfec) 被覆盖 → 旧 O/B 堆块泄漏（进程生命周期内不回收）。
-   实验钩子（setprop 门控，非常态路径），泄漏量 2×0x200B/次 可接受；
-   加 static done 或全局 O/B 指针复用属行为改动，R-138 只标注。 */
+   ★ R23-P1-7: done 幂等已加 (泄漏 2×0x200B/首次, 非每次), B05-019 旧注释
+   '多点触发每次 calloc 泄漏' 已随 P1 修复过时——见下方 _eb_done static 守卫
+   (首次一次 400B, 重复调用 no-op), 无泄漏风险。 */
 void jqt_build_event_base(void){
     /* ★ AUD-1000 B05-019（P1 已修）：幂等守卫——多点触发（OnLoad+后续钩子）时
        重复 calloc 覆盖 MEM(0x15bfec)，旧 O/B 泄漏。加 static done：
@@ -805,6 +803,8 @@ static void jq_native_event_hook(void)
             extern uint32_t F_2a380(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
             extern void *_Znwj(unsigned int);
             uint32_t stobj = (uint32_t)_Znwj(0x200);
+            /* ★ R23-P1-6: OOME 守卫 (对照 jqt_gl_bridge.c:117 判空模式; 转译层 malloc 哨兵返回先例 §124w-ALIGN) */
+            if (!stobj) { __android_log_print(6,"junqi","native_event_hook: _Znwj(0x200) OOME, 跳过事件构造"); return; }
             MEM(stobj) = JQT_ABS_PTR(0x159950);   /* 游戏状态 vtable */
             for (int i = 0; i < 64; i++) MEM(stobj + i*4) = (i==0) ? MEM(stobj) : 0;
             uint32_t ret = F_2a380(stobj, 0, 0,0,0,0,0,0,0,0,0,0, 0x20f000);
@@ -818,6 +818,8 @@ static void jq_native_event_hook(void)
                （F_3a92c 反汇编：evt+0x35 类型标记 + evt+0x44 事件码 + evt+0x48 事件名首字节）
                32 位 .rodata Junqi.Move @ 0x120f20（.rodata 73 条 Junqi.* 明文之一） */
             uint32_t evtobj = (uint32_t)_Znwj(0x100);
+            /* ★ R23-P1-6: OOME 守卫 (对照 jqt_gl_bridge.c:117 判空模式; 转译层 malloc 哨兵返回先例 §124w-ALIGN) */
+            if (!evtobj) { __android_log_print(6,"junqi","native_event_hook: _Znwj(0x100) OOME, 跳过事件构造"); return; }
             MEM(evtobj) = JQT_ABS_PTR(0x159950);
             for (int i = 0; i < 64; i++) MEM(evtobj + i*4) = (i==0) ? MEM(evtobj) : 0;
             /* 真实事件对象字段（F_3a92c 读这些）：

@@ -96,7 +96,7 @@ while [[ $# -gt 0 ]]; do
     *) echo "未知参数: $1"; exit 2;;
   esac
 done
-KINDS="resource event urlkey javacls forkcheck taxonomy event_cover event_codemap bss_evt_tbl rodata_static text_static rel_dyn jni_export got_plt trans_jni trans_strpool readelf_rel got_map needed trans_needed walk_8step trans_seg trans_handlers hook_anchors spak_key spak_regen init_array plt_stub bss_single mapping_boundary apk_so_hash touch_int fb_ratio walkregress_anchors trans_abi thunk_coverage event_name_static walkregress_8path dark_flip_probe translation_coverage domain_matrix raw_fallback raw_linker_reach event_handler_semantics mirror_layout plt_syscall stub_vacuum jni_export_align thunk_reuse event_funnel f_layer raw_zone_lib so_seg_layout rel_dyn_slots rules_walkbridge touch_layout_xcheck bt_spp_xcheck lifecycle_jni sfx_map render_gl device_regress_offline game60_offline render_pixel bt_undorestart sfx_play_chain guest_path nplayer_boundary net_boundary update_boundary domain_behavior_align walkbridge_8step alignment_status raw_linker_symbols"
+KINDS="resource event urlkey javacls forkcheck taxonomy event_cover event_codemap bss_evt_tbl rodata_static text_static rel_dyn jni_export got_plt trans_jni trans_strpool readelf_rel got_map needed trans_needed walk_8step trans_seg trans_handlers hook_anchors spak_key spak_regen init_array plt_stub bss_single mapping_boundary apk_so_hash touch_int fb_ratio walkregress_anchors trans_abi thunk_coverage event_name_static walkregress_8path dark_flip_probe translation_coverage domain_matrix raw_fallback raw_linker_reach event_handler_semantics mirror_layout plt_syscall stub_vacuum jni_export_align thunk_reuse event_funnel f_layer raw_zone_lib so_seg_layout rel_dyn_slots rules_walkbridge touch_layout_xcheck bt_spp_xcheck lifecycle_jni sfx_map render_gl device_regress_offline game60_offline render_pixel bt_undorestart sfx_play_chain guest_path nplayer_boundary net_boundary update_boundary domain_behavior_align walkbridge_8step alignment_status raw_linker_symbols vtable_sorted"
 [ -n "$ONLY" ] && KINDS="$ONLY"
 
 PASS=0; FAIL=0; FAILED=""
@@ -142,6 +142,33 @@ for k in $KINDS; do
       ;;
     forkcheck)
       run "$k" check_fork
+      ;;
+    vtable_sorted)
+      # ★ R23-P0-1 门禁: vtable 分发表排序 + 二分全值可达 (防 "新增表项插错位置 →
+      #   43% 条目二分 miss 静默 return 0" 复发; R23 前 jqt_vtbl_offs 有 4 处逆序实锤,
+      #   修复后 5463 项严格升序。jqt_vtbl.c 为 .gitignore 排除文件, 门禁 = 纯文本
+      #   解析 C 表体, 无需编译。REVERSE_LOG 红线 "jq_dispatch[] 必须按地址排序" 同源。
+      run "$k" bash -c "
+        python3 - << 'PYEOF'
+import re, sys
+src = open('$WS/rev64/reverse/src_jni_translated/jqt_vtbl.c', encoding='utf-8', errors='ignore').read()
+m = re.search(r'jqt_vtbl_offs\[\]\s*=\s*\{(.*?)\};', src, re.S)
+if not m:
+    print('✗ jqt_vtbl_offs[] 未找到'); sys.exit(1)
+offs = [int(x, 16) for x in re.findall(r'0x[0-9a-f]+', m.group(1))]
+viol = [i for i in range(1, len(offs)) if offs[i] < offs[i-1]]
+if viol:
+    print('✗ jqt_vtbl_offs 逆序 %d 处 (前 3: %s) → dispatch 二分布局 miss' % (len(viol), viol[:3]))
+    sys.exit(1)
+import bisect
+vals = list(set(offs))
+miss = sum(1 for v in vals
+           if (lambda i: i >= len(offs) or offs[i] != v)(bisect.bisect_left(offs, v)))
+if miss:
+    print('✗ 二分不可达值 %d/%d' % (miss, len(vals))); sys.exit(1)
+print('✓ vtable_sorted: %d 表项严格升序 + 二分全值可达 (0 逆序 / 0 miss)' % len(offs))
+PYEOF
+      "
       ;;
     taxonomy)
       if [ -f "$WS/rev64/tools/rodata_event_taxonomy.py" ]; then

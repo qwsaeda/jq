@@ -118,9 +118,9 @@ void jq_refresh_movable_counts(jq_state *st)
             int r = rank_norm(c->rank);
             if (r == RANK_FLAG || r == RANK_MINE) continue;
             if (!c->revealed) continue;
+            /* ★ R23-P2-3: n = 可动子数累加 (旧实现 n 恒 0/1 语义错, 对照 64 位 rules.c 同名; pieces_left 消费点走实时扫描故 4 路径无感, 但 API 语义修正) */
             for (int t = 0; t < N_CELLS; t++)
-                if (t != i && jq_can_move(st, i, t)) { n = 1; break; }
-            if (!n) n++;
+                if (t != i && jq_can_move(st, i, t)) { n++; break; }
         }
         st->pieces_left[s] = n;
     }

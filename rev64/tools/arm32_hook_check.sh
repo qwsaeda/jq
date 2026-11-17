@@ -87,7 +87,7 @@ classify_crash() {
 }
 
 if [ "$NO_INSTALL" -eq 0 ] && [ -f "$APK" ]; then
-  ensure_dev || { echo "设备 $DEV 不可达"; exit 2; }
+  ensure_dev || { echo "设备 $DEV 不可达"; exit 3; }   # ★ R23: rc=3 PENDING (设备离线, §124y-189 降级口径; 旧 rc=2 与 '未知参数/用法错误' 码位混淆, 与 mumu_evtest R19 rc=3 统一)
   echo "═══ 装机（phase_chain_arm32.apk）═══"
   adb -s "$DEV" install -r "$APK" 2>&1 | tail -1
 fi
@@ -246,13 +246,24 @@ for k in $KINDS; do
   # ★ §124y-189 设备掉线容错（32 位 so 拖 adbd + MuMu 重启循环已知项）：
   #   任一项"设备不可达"时自动重连 + 等待 30s（最多 2 轮），仍失败才判 FAIL。
   #   避免环境掉线（非 so 回归）污染判据结果。
+  # ★ R23-P1: 首轮重连失败即全脚本 PENDING 终止 (rc=3)——设备持续离线时
+  #   原逻辑逐项 2×30s 重连 + 4 项全 FAIL 误标 "so 回归", 实际是环境断连。
+  #   (★ R23 验收修正: 首轮 = 仅前置 ensure_dev, 无 30s sleep → 离线 ~1s 即退, 可 CI 高频探活)
   dev_ok=0
   for _r in 1 2; do
     ensure_dev && { dev_ok=1; break; }
+    if [ "$_r" -eq 1 ]; then
+      echo "  [dev-retry] 首轮前置: 设备 $DEV 持续不可达 → rc=3 PENDING (§124y-189 非 so 回归)"
+      echo "✗ 设备 $DEV 持续不可达 → rc=3 PENDING (恢复后重跑; 单轮 30s 冷却已省)"
+      exit 3
+    fi
     echo "  [dev-retry] $k 设备不可达，30s 后重连（第 $_r 轮）..."
     sleep 30
   done
-  [ "$dev_ok" -eq 1 ] || { echo "  ✗ $k（设备不可达，2 轮重连仍失败）"; FAIL=$((FAIL+1)); FAILED="$FAILED $k"; continue; }
+  [ "$dev_ok" -eq 1 ] || {
+    echo "✗ 设备 $DEV 持续不可达 → rc=3 PENDING (§124y-189, 非 so 回归; 恢复后重跑)"
+    exit 3
+  }
   # §124y-180 方法论第 5 条（flaky 防）：项间冷却 5s（32 位 so 转译冷启动抖动，
   # 串行 4 项时上一项 am force-stop 后 32 位 so 转译缓存未稳 → 下一项判据假 FAIL）
   [ "$k" != "$(echo $KINDS | awk '{print $1}')" ] && sleep 5

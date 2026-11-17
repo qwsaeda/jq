@@ -165,6 +165,11 @@ JQ_EXPORT int jq_walk_bridge_flip(int cell) {
        · AUD-R-003 先手翻子定色 → 定色在 jq_flip 内（side==0xFF→turn），
          本入口不介入 → 等价（jq_flip 语义与 64 位一致，布局未走 SIDE_UNKNOWN） */
     if (!g_walk_init) jq_walk_bridge_run();
+    /* ★ R23-P1-3: 入口界检查前置 (旧实现先读 cells[cell] 再 jq_can_flip 内部界查, 越界 cell 先于界检查解引用 = OOB 读; 对照 jq_rs_touch.c:56-70 col/image_row 双界检模式) */
+    if (cell < 0 || cell >= N_CELLS) {
+        __android_log_print(6, "junqi", "jq_walk_bridge_flip: 越界 cell=%d 拒 (界 [0,%d))", cell, N_CELLS);
+        return -1;
+    }
     int ok = jq_can_flip(&g_walk_state, cell) ? jq_flip(&g_walk_state, cell) : 0;
     const jq_cell *c = &g_walk_state.cells[cell];
     __android_log_print(6, "junqi", "jq_walk_bridge_flip: cell%d 翻子 ok=%d rank=%d side=%d revealed=%d",

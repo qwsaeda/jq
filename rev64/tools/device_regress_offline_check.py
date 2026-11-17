@@ -30,7 +30,7 @@ HOOK = os.path.join(ROOT, 'rev64/tools/arm32_hook_check.sh')
 WALK = os.path.join(ROOT, 'rev64/tools/arm32_walkregress.sh')
 ACCEPT = os.path.join(ROOT, 'rev64/reverse/docs/REAL_DEVICE_ACCEPTANCE.md')
 DEVREG = os.path.join(ROOT, 'rev64/tools/device_regress_check.sh')
-BASELINE_MD5 = '2bf57a5b78593912444501ac8beb19a4'  # ★ R19: 2026-11-16 翻译体 so 重编后同步 (旧基准 25667502 过期)
+BASELINE_MD5 = '623ead7723017e47c3af43005bbc3fde'  # ★ R23-P1: P1 批次修复 (OOME 守卫/flip 界检/n 语义/注释漂移) 重编后同步 (旧 790fb19a 过期)
 
 def md5_of(path):
     h = hashlib.md5()
@@ -41,10 +41,10 @@ def md5_of(path):
 
 def main():
     fails = []
-    # ① so 三方哈希基准 (★ R19 漂移修正: 基准值随翻译体 so 重编更新, 旧基准
-    #   59465d97/25667502 过期; 现行基准 = 2026-11-16 翻译体 so, 与 apk 内
-    #   lib/armeabi/libjunqi.so 同源一致实锤。重编 so 后须同步本基准, 否则
-    #   本判据恒 FAIL = 假红。)
+    # ① so 三方哈希基准 (★ R23 漂移修正: 基准值随翻译体 so 重编更新, 旧基准
+    #   2bf57a5b/59465d97/25667502 过期; 现行基准 = 2026-11-17 R23 vtable 排序
+    #   修复重编 so, 与 apk 内 lib/armeabi/libjunqi.so 同源一致实锤。重编 so
+    #   后须同步本基准, 否则本判据恒 FAIL = 假红。)
     so_md5 = md5_of(DIST_SO)
     if so_md5 != BASELINE_MD5:
         fails.append('① dist so md5=%s ≠ 基准 %s (翻译体 so 重编后基准过期, 同步 BASELINE_MD5 或重打 phase_chain_arm32.apk)' % (so_md5, BASELINE_MD5))
@@ -93,11 +93,11 @@ def main():
 
     # ⑤ device_regress_check.sh 复验链一键入口在位
     dr = open(DEVREG, errors='ignore').read()
-    ok5 = all(k in dr for k in ['2bf57a5b78593912444501ac8beb19a4', 'arm32_hook_check.sh', 'arm32_walkregress.sh', 'PENDING', 'jq.game_test', 'screencap', 'bt_test_run', 'adb connect', 'ping'])
+    ok5 = all(k in dr for k in ['623ead7723017e47c3af43005bbc3fde', 'arm32_hook_check.sh', 'arm32_walkregress.sh', 'PENDING', 'jq.game_test', 'screencap', 'bt_test_run', 'adb connect', 'ping'])
     if not ok5:
         fails.append('⑤ device_regress_check.sh 缺 基准哈希 / hook_check / walkregress / 60局 / screencap / 蓝牙 / PENDING 口径')
     else:
-        print('⑤ device_regress_check.sh 复验链一键入口在位 OK（基准 2bf57a5b + 网络三态判定 connect 防掉线 §1955 + 设备 4 项 + 走子桥 4 路径 + 完整 60 局 + screencap 非黑比 + 蓝牙端到端 + 音效出屏 + PENDING 非 FAIL）')
+        print('⑤ device_regress_check.sh 复验链一键入口在位 OK（基准 623ead77 + 网络三态判定 connect 防掉线 §1955 + 设备 4 项 + 走子桥 4 路径 + 完整 60 局 + screencap 非黑比 + 蓝牙端到端 + 音效出屏 + PENDING 非 FAIL）')
 
     for f in fails:
         print('FAIL:', f)
