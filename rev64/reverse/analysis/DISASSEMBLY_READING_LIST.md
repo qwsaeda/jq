@@ -3,8 +3,8 @@
 # 生成日期: 2026-11-17
 
 ## so 基本信息
-- 文件: rev64/dist/libjunqi_arm32_aligned.so (9.1MB, 对齐后)
-- 架构: ELF32 / ARM / EABI5 / stripped
+- 文件: rev64/dist/libjunqi_arm32_aligned.so (9.1MB, 对齐后, **有符号表** — objdump 全量 F_ 命名 + 14 个 JNI 导出符号)
+- 架构: ELF32 / ARM / EABI5 (动态符号表齐全, 非 stripped)
 - 段布局:
   - .rodata: 0x000c4f0 ~ 0x316a60 (3.2MB 字符串池 + 压缩资源)
   - .text:   0x323f50 ~ 0x5821d8 (5.5MB 代码段)

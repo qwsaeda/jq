@@ -9,7 +9,7 @@ import re, subprocess
 from collections import Counter
 
 SO = "rev64/dist/libjunqi_arm32_aligned.so"
-F_79858_START = 0x335258  # 推测入口
+F_79858_START = 0x335258  # 实证入口 (objdump 符号表 F_25988 起, 至 ~0x34a000 多函数区)
 JQT_MEM_ADDR = 0x328a88
 
 def main():
@@ -20,8 +20,7 @@ def main():
     
     lines = out.split("\n")
     
-    # 提取 F_79858 范围 (向前找入口, 向后找结束)
-    # 简化: 提取 0x335000-0x34a000 范围
+    # 提取 0x335000-0x34a000 范围 (★ 多函数区, 非单一 F_79858; 含 F_25988 入口及邻函数)
     in_range = []
     for line in lines:
         m = re.match(r'\s*([0-9a-f]{6}):', line)
@@ -60,7 +59,7 @@ def main():
                     })
                     break
     
-    print(f"=== F_79858 范围内 jqt_mem_addr 调用点: {len(patterns)} ===")
+    print(f"=== 0x335000-0x34a000 多函数区 (F_25988 入口区) 内 jqt_mem_addr 调用点: {len(patterns)} ===")
     
     # 统计 sp_offset 分布
     sp_counts = Counter(p["sp_offset"] for p in patterns)

@@ -267,7 +267,7 @@ jqt_blx_dispatch (0x4af4f4):
 
 与 §124y 17 handler 问题同源:
   - 编译期固定映射 (thunk 区)
-  - 静态收表需逐一反汇编 (42 子函数太多, 本次未做)
+  - 静态收表需逐一反汇编 (46 目标太多, 本次未全做)
 ```
 
 ### 8.7 地址空间区分 (★ 重要, 防对照错对象)
@@ -277,9 +277,10 @@ jqt_blx_dispatch (0x4af4f4):
 原版 32 位 so (lib/armeabi/libjunqi.so, 1.4MB, from 军棋.apk):
   .text:   0x233e0 - 0xfd814
   .rodata: 0x120bf8 - 0x13dbc8
-  0x55d40 = .text 事件业务 thunk (16 字节, 调 0x557d4 评分逻辑)
-  0x39f20 = .text 走子执行器区
-  0x3a15c = .text 走子执行器区
+  0x55d40 = .text 事件业务 thunk 区 (0x55d40-0x56300 共 75 thunk, 41 独立目标;
+           thunk bl 目标多为析构/setter/虚函数分发, 0x557d4 = getter thunk 读对象 +132, 非评分)
+  0x39f20 = .text 走子执行器区 (短函数, 读对象 +168/164)
+  0x3a15c = .text 坐标/rank 数组访问区
 
 翻译体 32 位 so (rev64/dist/libjunqi_arm32_aligned.so, 9.1MB):
   .text:   0x323f50 - 0x5821d8

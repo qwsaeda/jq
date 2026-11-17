@@ -8,7 +8,7 @@
 | 函数 | 起始 | 大小 | 独立 bl 目标 | 关键符号调用 |
 |------|------|------|-------------|-------------|
 | JNI_OnLoad | 0x32492c | 0x49c | 7 | jqt_mem_init, jqt_init_empty_containers, jqt_build_event_base, jqt_jni_resolve_only |
-| OnCreate | 0x324dc8 | 0x1584 | 22 | jq_game_test_hook, jq_native_event_hook, F_b9edc, F_75210, _Znwj, F_24250, F_be9cc, F_23560, F_2a380, F_3ab80 |
+| OnCreate | 0x324dc8 | 0x1584 | 23 | jq_game_test_hook, jq_native_event_hook, F_b9edc, F_75210, _Znwj, F_24250, F_be9cc, F_23560, F_2a380, F_3ab80 |
 | OnDestroy | 0x32636c | 0xb0 | 1 | jqt_jni_setenv |
 | OnPause | 0x32641c | 0x60 | 1 | jqt_jni_setenv |
 | OnResume | 0x32647c | 0xf8 | 4 | jqt_jni_setenv, jqt_jni_selftest, __aeabi_memclr |
@@ -19,7 +19,7 @@
 | OnBluetooth | 0x326900 | 0x64 | 1 | jqt_jni_setenv |
 | OnGraphCreate | 0x326964 | 0x15c | 6 | jqt_jni_setenv, jqt_jni_selftest, __aeabi_memclr |
 | OnGraphChange | 0x326ac0 | 0x13c | 4 | jqt_jni_setenv, jqt_jni_selftest |
-| OnTimer | 0x326b7c | 0x594 | 10 | jqt_jni_setenv, jqt_jni_selftest, _Znwj, F_2af44, jq_rule_probe_run, F_23461 |
+| OnTimer | 0x326b7c | 0x594 | 14 | jqt_jni_setenv, jqt_jni_selftest, _Znwj, F_2af44, jq_rule_probe_run, F_23461 |
 | OnInput | 0x327110 | 0x64 | 1 | jqt_jni_setenv |
 | OnTouch | 0x327174 | 0x400 | 8 | jqt_OnTouch, __aeabi_memclr |
 

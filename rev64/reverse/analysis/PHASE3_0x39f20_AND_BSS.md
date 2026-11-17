@@ -6,14 +6,15 @@
 
 ### 结论: 0x39f20 是**代码地址**, 非数据表
 - 64 位 rules.c 注释 "对齐原版 0x39f20" 指的是**走子执行器函数体**
-- 0x39f20 位于 **F_79858 (0x335258, 大小 ~0x2A00)** 内部
+- 0x39f20 位于 **F_79858 区 (0x335258 入口, 至 ~0x34a000)** 内部 (★ 精确表述: 0x39f20 落在该区范围内,
+  该区为多函数密集区非单一函数体; 0x39f20 自身 = 短函数入口, 读对象 +168/164, 见 ORIG_39f20_3a15c_ANALYSIS.md)
 - .rodata 区 (0x0c4f0-0x316a60) 的 "7fce b27f..." 模式是**浮点常量表** (PI/e/三角函数系数), 与 0x39f20 无关
 
 ### F_79858 走子执行器特征 (已实证)
 | 特征 | 证据 |
 |------|------|
-| 超大函数 | ~17KB 代码, 42 个子函数调用 |
-| 密集 .bss 访问 | 290 次 jqt_mem_addr (F_79858 范围) |
+| 超大函数 | ~17KB 代码, 46 个独立 bl 目标 (F_79858_CALLS.json) |
+| 密集 .bss 访问 | 472 次 jqt_mem_addr (0x335258-0x34a000 区, 含 290 个"str/ldr 后接 bl"模式调用点) |
 | 虚函数分发 | 多次 jqt_blx_dispatch (C++ 多态) |
 | 走子执行 | 0x39f20 处 `movw r0, #6` + `blx ip` (事件码 6 = 走子?) |
 | 坐标比较 | 64 位注释 "坐标 0x6ef54 比较 [0]=col [1]=row" |
@@ -82,8 +83,8 @@ python3 frida-dump/bss_offset_trace.py 10.0.182.146:5555
 # 4. 输出: frida-dump/bss_offsets.json (真实 .bss 偏移)
 ```
 
-### P1: 反汇编 F_79858 完整控制流 (1-2h)
-- 42 个子函数调用图
+### P1: 反汇编 0x335258-0x34a000 区 (F_79858 简写) 完整控制流 (已完成, 见 PHASE3_F_79858_CALLS.md)
+- 46 个独立 bl 目标调用图 (553 条 bl)
 - 虚函数分发点 (jqt_blx_dispatch)
 - 事件码 6 的语义 (走子/翻棋/吃子?)
 
@@ -92,16 +93,16 @@ python3 frida-dump/bss_offset_trace.py 10.0.182.146:5555
 - 32 位: F_79858 + 0x39f20
 - 差异点: 虚函数 vs 简化实现
 
-## 五、正向开发关联 (★ 已写入 AUD 台账)
+## 六、正向开发关联 (★ 已写入 AUD 台账)
 
-### 5.1 rules.c 注释纠错 (AUD_ALIGN_R16.md)
+### 6.1 rules.c 注释纠错 (AUD_ALIGN_R16.md)
 - 正向 `rev64/forward/src_rs/rules.c` 第 14/440/514/1213/1216/1219/1224/1232/1263 行注释
   引用 0x39f20/0x55d40/0x3a15c 时**未标注"原版 32 位 so 地址"**
 - 易误读为翻译体地址 (翻译体 0x55d40 = .rodata 浮点表, 完全不同)
-- 建议: 加 "(原版 32 位 so 地址)" 前缀 + 评分逻辑真实地址 = 0x557d4 (0x55d40 thunk 的 bl 目标)
+- 建议: 加 "(原版 32 位 so 地址)" 前缀 (★ 0x557d4 系 thunk bl 目标但实证为 getter, 非评分 — 详见 ORIG_THUNK_55d40_ANALYSIS.md, 本节旧稿 "评分逻辑真实地址 = 0x557d4" 已作废)
 - 台账: `rev64/forward/audit/r4/AUD_ALIGN_R16.md` (P2, 逆向会话只写台账, 不动 forward/src_rs)
 
-### 5.2 地址空间区分 (固化到 REVERSE_METHODOLOGY §8.7)
+### 6.2 地址空间区分 (固化到 REVERSE_METHODOLOGY §8.7)
 ```
 原版 32 位 so (lib/armeabi/libjunqi.so, 1.4MB):
   .text: 0x233e0 - 0xfd814
@@ -124,7 +125,7 @@ python3 frida-dump/bss_offset_trace.py 10.0.182.146:5555
 ```
 逆向前先判断地址类型:
   1. 查段: readelf -S → .text/.rodata/.data/.bss
-  2. 0x39f20 在 .text (0x323f50-0x5821d8) → 代码
+  2. 0x39f20 在**翻译体** .rodata (0xc4f0-0x316a60); 在**原版** so 才是 .text 代码 (段归属必须标注 so 来源, 见 §8.7)
   3. .rodata 数据 → 可能是常量表 (浮点/字符串/vtable)
   4. 64 位注释引用 0x39f20 → 走子执行器 (代码地址)
 ```
@@ -152,5 +153,5 @@ jqt_blx_dispatch (0x4af4f4):
 与 §124y 17 handler 问题同源:
   - 编译期固定映射 (thunk 区)
   - 静态收表需逐一反汇编
-  - 本次未做 (42 子函数太多)
+  - 本次未做 (46 目标太多, 收表见 ORIG_THUNK_55d40.json)
 ```

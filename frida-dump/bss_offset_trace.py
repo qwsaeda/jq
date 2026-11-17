@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 """
-Frida .bss 偏移追踪: hook jqt_mem_addr (0x328a88), 记录所有 r0 偏移值.
+Frida .bss 偏移追踪: hook jqt_mem_addr (翻译体 so 0x328a88), 记录所有 r0 偏移值.
+★ 目标 so: 32 位翻译体 libjunqi (com.zxj.junqirs 逆向 app, 包名见 AGENTS.md 包名规范;
+  旧包名 com.cnvcs.junqi32 为历史装机口径, 以设备实际 pm list packages 为准)
 用法:
-  frida -f com.cnvcs.junqi32 -l bss_offset_trace.js
-  # 或附加到已运行进程:
-  frida -n com.cnvcs.junqi32 -l bss_offset_trace.js
+  python3 bss_offset_trace.py <device-id> [attach]
+  # device-id: adb 设备地址 (如 10.0.182.146:5555) 或 "local"
+  # attach 模式: 附加到已运行进程
 输出: bss_offsets.json (偏移 -> 访问次数 + 调用点)
 """
 import frida, json, sys, time
@@ -26,8 +28,6 @@ function record(offset, caller_pc) {
 }
 
 // Hook jqt_mem_addr (ARM32: 入口偏移 0, 参数 r0)
-Interceptor.attach(Process.pointer("jqt_mem_addr").readPointer ? "base" : null, {})  // placeholder
-
 // 实际: 通过 base address + offset
 var base = Module.findBaseAddress("libjunqi.so");
 if (!base) {

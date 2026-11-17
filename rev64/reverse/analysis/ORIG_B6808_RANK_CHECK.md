@@ -1,6 +1,8 @@
 # 原版 0xb67ec/0xb6808 区逆向 + 走子验证逻辑实证
 # 日期: 2026-11-17
 # so: /tmp/opencode/jq_apk/lib/armeabi/libjunqi.so (原版, 1.4MB)
+# ⚠️ 本文 §二 "rank 判定" 表述已被 ORIG_B6808_COMPLETE.md 修正 (cmp r4,#2/#7/#1 实为格索引判定, 非棋子 rank);
+#    本文保留作为过程记录, 结论以 ORIG_B6808_COMPLETE.md 为准。
 
 ## 一、0xb67ec 区实证 (★ 新发现)
 
