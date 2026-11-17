@@ -130,6 +130,11 @@ def return_sem(handlers):
     return 0
 
 def main():
+    # ★ R19-P1: so 文件存在性前置守卫 (原缺陷: so 缺失时 objdump 报 'bad file' 输出 0 行
+    #   → mapping={} → --check 误报 "0 个不同 handler" 假绿; 缺 so 必须 rc=1 判据码)
+    if not os.path.exists(SO):
+        print(f"✗ so 不存在: {SO} (设 JQ_SO 环境变量指向原版 32 位 so); 判据无对象 → rc=1")
+        return 1
     ap = argparse.ArgumentParser()
     ap.add_argument('--gen-switch', action='store_true', help='只生成 switch case 体')
     ap.add_argument('--check', action='store_true', help='查 handler 收表状态')

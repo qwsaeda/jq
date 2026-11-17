@@ -53,8 +53,18 @@ echo "═══ 双端总入口汇总 ═══"
 echo "  静态 73 项: $( [ "$STATIC_PASS" = 1 ] && echo PASS || echo "FAIL（$STATIC_FAIL）" )"
 echo "  设备 4 项:  $DEV_STATUS"
 case "$DEV_STATUS" in
-  PENDING) echo "  总判读: 静态 PASS + 设备 PENDING（环境掉线非 so 回归，等设备稳定窗口复验）";;
-  PASS)    echo "  总判读: 双端全 PASS（32 位逆向对齐基准成立）";;
-  SKIPPED) echo "  总判读: 仅静态 PASS（--static-only 模式）";;
-  *)       echo "  总判读: 设备 FAIL（查 flaky 窗口 / 转译层崩溃周期 §124y-188/191，单跑 4 项为准）";;
+  PENDING) echo "  总判读: 静态 PASS + 设备 PENDING（环境掉线非 so 回归，等设备稳定窗口复验）"
+           [ "$STATIC_FAIL" = 1 ] && exit 1
+           exit 0;;
+  PASS)    echo "  总判读: 双端全 PASS（32 位逆向对齐基准成立）"
+           [ "$STATIC_FAIL" = 1 ] && exit 1
+           exit 0;;
+  SKIPPED) echo "  总判读: 仅静态 PASS（--static-only 模式）"
+           [ "$STATIC_FAIL" = 1 ] && { echo "★ 静态有 FAIL, 非通过"; exit 1; }
+           # ★ R19-P1: SKIPPED = 显式跳过设备侧, 退出码 2 (区分全 PASS rc=0 / PENDING rc=0 /
+           # FAIL rc=1), 防调用方把 "--static-only 产物" 当 "双端全 PASS" 误报。
+           echo "★ SKIPPED rc=2: 设备侧未验, 引用本结果时须标注 '仅静态'"
+           exit 2;;
+  *)       echo "  总判读: 设备 FAIL（查 flaky 窗口 / 转译层崩溃周期 §124y-188/191，单跑 4 项为准）"
+           exit 1;;
 esac

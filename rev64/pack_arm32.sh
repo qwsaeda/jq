@@ -55,7 +55,14 @@ bash /disk/workspaces/jq/rev64/sign_apk.sh /tmp/opencode/phase32_aligned.apk /tm
 cp /tmp/opencode/phase32_signed.apk $OUT
 
 echo "=== 验证 ==="
-apksigner verify --verbose $OUT 2>&1 | grep -E "Verified|Number" | head -3
+# ★ R19-P1: 判据锚定 ": true" (sign_apk.sh D6-#20 同型, 旧裸 grep "Verified" 命中
+# "Verified using v1 ...: false" 也 PASS = 判据恒真) + apksigner rc 显式取
+_verify_rc=0
+apksigner verify --verbose $OUT > /tmp/opencode/apksig_verify.log 2>&1 || _verify_rc=$?
+grep -E "Verified using v[0-9] scheme .*: true" /tmp/opencode/apksig_verify.log | head -3
+[ $_verify_rc -eq 0 ] || { echo "✗ apksigner verify 非 0 (rc=$_verify_rc), 签名无效"; exit 1; }
+[ $(grep -cE "Verified using v[0-9] scheme .*: true" /tmp/opencode/apksig_verify.log) -ge 1 ] \
+  || { echo "✗ 无 scheme 验证 true 行, 签名不完整"; exit 1; }
 
 python3 -c "
 import zipfile, struct

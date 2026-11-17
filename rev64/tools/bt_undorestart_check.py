@@ -41,12 +41,19 @@ def main():
     all_ok = '== 结果: 全部通过 ==' in out or '全部通过' in out
 
     # ② UNDO/RESTART 闸口断言在位
+    # ★ R19 口径同步 (R8-C-16 语义演进, AUD_ALIGN_R17 P0-2):
+    #   旧判据 "DISCONNECTED 拒收 RESTART 帧 rc=-2" = B04-012 全拒收语义 (已废弃)。
+    #   R8-C-16 定案: DISCONNECTED 下 RESTART 放行 (会话恢复路径, rc=0), 闸口仅拒数据帧
+    #   继续污染终局棋盘。现行断言组 = OUR_TURN 拒收 UNDO (rc=-2, B04-027) +
+    #   DISCONNECTED 拒收 UNDO 数据帧 (rc=-2, B04-013+B04-027) +
+    #   DISCONNECTED 放行 RESTART (rc=0, R8-C-16 会话恢复)。
     ok2 = ('拒收 UNDO' in out or 'OUR_TURN 拒收 UNDO' in out) and \
-          ('拒收 RESTART' in out or 'DISCONNECTED 拒收 RESTART' in out)
+          ('DISCONNECTED 拒收 UNDO' in out or 'DISCONNECTED 拒收 UNDO 数据帧' in out) and \
+          ('DISCONNECTED 放行 RESTART' in out or 'R8-C-16' in out)
     if not ok2:
-        fails.append('② UNDO/RESTART 闸口断言缺失（OUR_TURN/DISCONNECTED 拒收）')
+        fails.append('② UNDO/RESTART 闸口断言缺失（OUR_TURN 拒收 UNDO + DISCONNECTED 拒收 UNDO 数据帧 + R8-C-16 放行 RESTART）')
     else:
-        print('② UNDO/RESTART 闸口断言在位 OK（OUR_TURN 拒收 UNDO + DISCONNECTED 拒收 RESTART，B04 闸口）')
+        print('② UNDO/RESTART 闸口断言在位 OK（OUR_TURN 拒收 UNDO + DISCONNECTED 拒收 UNDO 数据帧 + R8-C-16 DISCONNECTED 放行 RESTART 会话恢复, B04/R8 闸口）')
 
     # ③ 帧编码 7 字段同源
     ok3 = 'v2' in out and 'UUID' in out.lower() or 'ce1404fe' in open(os.path.join(ROOT,'rev64/forward/src_rs/bt_protocol.c'),errors='ignore').read()

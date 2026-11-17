@@ -25,6 +25,14 @@ done
 
 log() { echo "[evtest] $*"; }
 
+# ★ R19-P1: 设备可达性前置门禁 (原缺陷: 设备离线时 adb 全失败 → wait_log 轮询 40s
+#   全 miss 返 1 误判"app 无响应", 调用方 mumu_regress 重跑仍 FAIL 误标 flaky/回归,
+#   实为环境断连)。离线 → exit 3 (区分于判据 FAIL rc=1), 调用方按 §124y-189 口径降级 PENDING。
+if ! timeout 10 adb -s "$DEV" shell true >/dev/null 2>&1; then
+  echo "[evtest] 设备 $DEV 不可达 (timeout 10s) → rc=3 PENDING (非判据 FAIL)"
+  exit 3
+fi
+
 # ★ 对抗审计 P2-B13（时序稳健性）：原各测试用固定 sleep 8/10/12 等 app 启动/GLThread
 #   attach 等待——MuMu/redroid 启动慢时 property 未被消费 → 假 FAIL（实测 draw/restart
 #   首跑失败重跑即过的 flaky 根因）。改为"轮询到判据出现或超时"：

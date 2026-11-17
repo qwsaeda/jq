@@ -29,6 +29,14 @@ for k in $KINDS; do
     echo "  ✓ $k"
     PASS=$((PASS+1))
   else
+    rc=$?
+    # ★ R19-P1: rc=3 = 设备不可达 (PENDING, §124y-189 降级口径, 非判据 FAIL) →
+    # 后续项必然同断, 提前汇总退 3 (调用方按 PENDING 处理, 不计 FAIL)。
+    if [ $rc -eq 3 ]; then
+      echo "  ⚠ $k: 设备 $DEV 不可达 (rc=3 PENDING)——后续项跳过, 恢复后重跑"
+      echo "════════ 回归汇总：PASS=$PASS FLAKY=$FLAKY_N FAIL=$FAIL PENDING=设备离线 ════════"
+      exit 3
+    fi
     # 重跑一次（瞬时时序——redroid/MuMu 触摸 flaky、WAV 加载时序，非代码回归）
     # ★ 对抗审计 P1-J5（flaky 假绿修正）：重跑 PASS 单独计 FLAKY（非 PASS）——
     #   原"1 FAIL + 1 PASS 即记 PASS"会把偶发竞态/真回归掩盖。flaky 项供人工

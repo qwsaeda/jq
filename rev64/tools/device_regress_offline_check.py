@@ -4,7 +4,7 @@
 
 固化"设备恢复后复验链 4 项子判据清单"口径（§1937 device_regress_check.sh
 的 4 项子判据逐条机判，防设备恢复时漏项）：
-  - 前置：so 三方哈希核对（基准 59465d97，SOP §3.1）
+  - 前置：so 三方哈希核对（基准见 BASELINE_MD5 (随 so 重编同步)，SOP §3.1）
   - 设备 4 项：arm32_hook_check --rounds 3（game_test/walk_bridge/
     native_event/framebuffer 全钩子 + 出屏 30% 非黑比）
   - 走子桥 4 路径：arm32_walkregress.sh（4/4 PASS + 0 崩溃）
@@ -30,7 +30,7 @@ HOOK = os.path.join(ROOT, 'rev64/tools/arm32_hook_check.sh')
 WALK = os.path.join(ROOT, 'rev64/tools/arm32_walkregress.sh')
 ACCEPT = os.path.join(ROOT, 'rev64/reverse/docs/REAL_DEVICE_ACCEPTANCE.md')
 DEVREG = os.path.join(ROOT, 'rev64/tools/device_regress_check.sh')
-BASELINE_MD5 = '2566750232e3fbc5ded778553f7ab34d'
+BASELINE_MD5 = '2bf57a5b78593912444501ac8beb19a4'  # ★ R19: 2026-11-16 翻译体 so 重编后同步 (旧基准 25667502 过期)
 
 def md5_of(path):
     h = hashlib.md5()
@@ -41,15 +41,30 @@ def md5_of(path):
 
 def main():
     fails = []
-    # ① so 三方哈希基准 = 59465d97
+    # ① so 三方哈希基准 (★ R19 漂移修正: 基准值随翻译体 so 重编更新, 旧基准
+    #   59465d97/25667502 过期; 现行基准 = 2026-11-16 翻译体 so, 与 apk 内
+    #   lib/armeabi/libjunqi.so 同源一致实锤。重编 so 后须同步本基准, 否则
+    #   本判据恒 FAIL = 假红。)
     so_md5 = md5_of(DIST_SO)
     if so_md5 != BASELINE_MD5:
-        fails.append('① dist so md5=%s ≠ 基准 %s' % (so_md5, BASELINE_MD5))
+        fails.append('① dist so md5=%s ≠ 基准 %s (翻译体 so 重编后基准过期, 同步 BASELINE_MD5 或重打 phase_chain_arm32.apk)' % (so_md5, BASELINE_MD5))
     else:
-        print('① dist so 哈希 = 基准 59465d97 OK')
-    # apk 内 so 哈希（device_regress_check 前置 apk_so_hash_check 同源）
-    apk_md5 = md5_of(APK)
-    print('   apk phase_chain_arm32.apk md5=%s（设备端 so 提取核对基准）' % apk_md5)
+        print('① dist so 哈希 = 基准 %s OK' % BASELINE_MD5)
+    # apk 内 so 与 dist so 同源核对 (★ R19: 原判据只打 apk 整包 md5 未做三方一致性
+    #   判断, 整包 md5 无基准可对照; 改提取 apk 内 so 算 md5 与 dist so 直接对)
+    import subprocess as _sp, tempfile, zipfile, os as _os
+    with tempfile.TemporaryDirectory() as _td:
+        with zipfile.ZipFile(APK) as _z:
+            _names = [n for n in _z.namelist() if n.endswith('libjunqi.so')]
+            if not _names:
+                fails.append('① apk 内无 libjunqi.so (phase_chain_arm32.apk 结构异常)')
+            else:
+                _z.extract(_names[0], _td)
+                apk_so_md5 = md5_of(_os.path.join(_td, _names[0]))
+                if apk_so_md5 != so_md5:
+                    fails.append('① apk 内 so md5=%s ≠ dist so %s (两源漂移, 重打 apk)' % (apk_so_md5, so_md5))
+                else:
+                    print('   apk 内 %s md5=%s = dist so 同源 OK' % (_names[0], apk_so_md5))
 
     # ② 设备 4 项入口在位
     hk = open(HOOK, errors='ignore').read()
@@ -78,11 +93,11 @@ def main():
 
     # ⑤ device_regress_check.sh 复验链一键入口在位
     dr = open(DEVREG, errors='ignore').read()
-    ok5 = all(k in dr for k in ['2566750232e3fbc5ded778553f7ab34d', 'arm32_hook_check.sh', 'arm32_walkregress.sh', 'PENDING', 'jq.game_test', 'screencap', 'bt_test_run', 'adb connect', 'ping'])
+    ok5 = all(k in dr for k in ['2bf57a5b78593912444501ac8beb19a4', 'arm32_hook_check.sh', 'arm32_walkregress.sh', 'PENDING', 'jq.game_test', 'screencap', 'bt_test_run', 'adb connect', 'ping'])
     if not ok5:
         fails.append('⑤ device_regress_check.sh 缺 基准哈希 / hook_check / walkregress / 60局 / screencap / 蓝牙 / PENDING 口径')
     else:
-        print('⑤ device_regress_check.sh 复验链一键入口在位 OK（基准 25667502 + 网络三态判定 connect 防掉线 §1955 + 设备 4 项 + 走子桥 4 路径 + 完整 60 局 + screencap 非黑比 + 蓝牙端到端 + 音效出屏 + PENDING 非 FAIL）')
+        print('⑤ device_regress_check.sh 复验链一键入口在位 OK（基准 2bf57a5b + 网络三态判定 connect 防掉线 §1955 + 设备 4 项 + 走子桥 4 路径 + 完整 60 局 + screencap 非黑比 + 蓝牙端到端 + 音效出屏 + PENDING 非 FAIL）')
 
     for f in fails:
         print('FAIL:', f)

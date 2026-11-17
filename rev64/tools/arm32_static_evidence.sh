@@ -145,478 +145,886 @@ for k in $KINDS; do
       ;;
     taxonomy)
       if [ -f "$WS/rev64/tools/rodata_event_taxonomy.py" ]; then
+
         run "$k" python3 "$WS/rev64/tools/rodata_event_taxonomy.py"
+
       else
-        echo "  （rodata_event_taxonomy.py 不存在）"; PASS=$((PASS+1))
+
+        # ★ R19-P1: 判据脚本缺失 = FAIL (非 PASS), 防 "40 项全 PASS" 权威基准被误删污染
+
+        echo "  ✗ $k: rodata_event_taxonomy.py 缺失 (判据无对象 → FAIL, 非静默 PASS)"; FAIL=$((FAIL+1)); FAILED="$FAILED $k"
+
       fi
       ;;
     event_cover)
       if [ -f "$WS/rev64/tools/rodata_event_cover.py" ]; then
+
         run "$k" python3 "$WS/rev64/tools/rodata_event_cover.py"
+
       else
-        echo "  （rodata_event_cover.py 不存在）"; PASS=$((PASS+1))
+
+        # ★ R19-P1: 判据脚本缺失 = FAIL (非 PASS), 防 "40 项全 PASS" 权威基准被误删污染
+
+        echo "  ✗ $k: rodata_event_cover.py 缺失 (判据无对象 → FAIL, 非静默 PASS)"; FAIL=$((FAIL+1)); FAILED="$FAILED $k"
+
       fi
       ;;
     event_codemap)
       if [ -f "$WS/rev64/tools/event_code_map_check.py" ]; then
+
         run "$k" python3 "$WS/rev64/tools/event_code_map_check.py"
+
       else
-        echo "  （event_code_map_check.py 不存在）"; PASS=$((PASS+1))
+
+        # ★ R19-P1: 判据脚本缺失 = FAIL (非 PASS), 防 "40 项全 PASS" 权威基准被误删污染
+
+        echo "  ✗ $k: event_code_map_check.py 缺失 (判据无对象 → FAIL, 非静默 PASS)"; FAIL=$((FAIL+1)); FAILED="$FAILED $k"
+
       fi
       ;;
     bss_evt_tbl)
       if [ -f "$WS/rev64/tools/bss_evt_tbl_check.py" ]; then
+
         run "$k" python3 "$WS/rev64/tools/bss_evt_tbl_check.py"
+
       else
-        echo "  （bss_evt_tbl_check.py 不存在）"; PASS=$((PASS+1))
+
+        # ★ R19-P1: 判据脚本缺失 = FAIL (非 PASS), 防 "40 项全 PASS" 权威基准被误删污染
+
+        echo "  ✗ $k: bss_evt_tbl_check.py 缺失 (判据无对象 → FAIL, 非静默 PASS)"; FAIL=$((FAIL+1)); FAILED="$FAILED $k"
+
       fi
       ;;
     rodata_static)
       if [ -f "$WS/rev64/tools/rodata_static_check.py" ]; then
+
         run "$k" python3 "$WS/rev64/tools/rodata_static_check.py"
+
       else
-        echo "  （rodata_static_check.py 不存在）"; PASS=$((PASS+1))
+
+        # ★ R19-P1: 判据脚本缺失 = FAIL (非 PASS), 防 "40 项全 PASS" 权威基准被误删污染
+
+        echo "  ✗ $k: rodata_static_check.py 缺失 (判据无对象 → FAIL, 非静默 PASS)"; FAIL=$((FAIL+1)); FAILED="$FAILED $k"
+
       fi
       ;;
     text_static)
       if [ -f "$WS/rev64/tools/text_static_check.py" ]; then
+
         run "$k" python3 "$WS/rev64/tools/text_static_check.py"
+
       else
-        echo "  （text_static_check.py 不存在）"; PASS=$((PASS+1))
+
+        # ★ R19-P1: 判据脚本缺失 = FAIL (非 PASS), 防 "40 项全 PASS" 权威基准被误删污染
+
+        echo "  ✗ $k: text_static_check.py 缺失 (判据无对象 → FAIL, 非静默 PASS)"; FAIL=$((FAIL+1)); FAILED="$FAILED $k"
+
       fi
       ;;
     rel_dyn)
       if [ -f "$WS/rev64/tools/rel_dyn_check.py" ]; then
+
         run "$k" python3 "$WS/rev64/tools/rel_dyn_check.py"
+
       else
-        echo "  （rel_dyn_check.py 不存在）"; PASS=$((PASS+1))
+
+        # ★ R19-P1: 判据脚本缺失 = FAIL (非 PASS), 防 "40 项全 PASS" 权威基准被误删污染
+
+        echo "  ✗ $k: rel_dyn_check.py 缺失 (判据无对象 → FAIL, 非静默 PASS)"; FAIL=$((FAIL+1)); FAILED="$FAILED $k"
+
       fi
       ;;
     jni_export)
       if [ -f "$WS/rev64/tools/jni_export_check.py" ]; then
+
         run "$k" python3 "$WS/rev64/tools/jni_export_check.py"
+
       else
-        echo "  （jni_export_check.py 不存在）"; PASS=$((PASS+1))
+
+        # ★ R19-P1: 判据脚本缺失 = FAIL (非 PASS), 防 "40 项全 PASS" 权威基准被误删污染
+
+        echo "  ✗ $k: jni_export_check.py 缺失 (判据无对象 → FAIL, 非静默 PASS)"; FAIL=$((FAIL+1)); FAILED="$FAILED $k"
+
       fi
       ;;
     got_plt)
       if [ -f "$WS/rev64/tools/got_plt_check.py" ]; then
+
         run "$k" python3 "$WS/rev64/tools/got_plt_check.py"
+
       else
-        echo "  （got_plt_check.py 不存在）"; PASS=$((PASS+1))
+
+        # ★ R19-P1: 判据脚本缺失 = FAIL (非 PASS), 防 "40 项全 PASS" 权威基准被误删污染
+
+        echo "  ✗ $k: got_plt_check.py 缺失 (判据无对象 → FAIL, 非静默 PASS)"; FAIL=$((FAIL+1)); FAILED="$FAILED $k"
+
       fi
       ;;
     trans_jni)
       if [ -f "$WS/rev64/tools/translated_jni_check.py" ]; then
+
         run "$k" python3 "$WS/rev64/tools/translated_jni_check.py"
+
       else
-        echo "  （translated_jni_check.py 不存在）"; PASS=$((PASS+1))
+
+        # ★ R19-P1: 判据脚本缺失 = FAIL (非 PASS), 防 "40 项全 PASS" 权威基准被误删污染
+
+        echo "  ✗ $k: translated_jni_check.py 缺失 (判据无对象 → FAIL, 非静默 PASS)"; FAIL=$((FAIL+1)); FAILED="$FAILED $k"
+
       fi
       ;;
     trans_strpool)
       if [ -f "$WS/rev64/tools/translated_strpool_check.py" ]; then
+
         run "$k" python3 "$WS/rev64/tools/translated_strpool_check.py"
+
       else
-        echo "  （translated_strpool_check.py 不存在）"; PASS=$((PASS+1))
+
+        # ★ R19-P1: 判据脚本缺失 = FAIL (非 PASS), 防 "40 项全 PASS" 权威基准被误删污染
+
+        echo "  ✗ $k: translated_strpool_check.py 缺失 (判据无对象 → FAIL, 非静默 PASS)"; FAIL=$((FAIL+1)); FAILED="$FAILED $k"
+
       fi
       ;;
     readelf_rel)
       if [ -f "$WS/rev64/tools/readelf_rel_check.py" ]; then
+
         run "$k" python3 "$WS/rev64/tools/readelf_rel_check.py"
+
       else
-        echo "  （readelf_rel_check.py 不存在）"; PASS=$((PASS+1))
+
+        # ★ R19-P1: 判据脚本缺失 = FAIL (非 PASS), 防 "40 项全 PASS" 权威基准被误删污染
+
+        echo "  ✗ $k: readelf_rel_check.py 缺失 (判据无对象 → FAIL, 非静默 PASS)"; FAIL=$((FAIL+1)); FAILED="$FAILED $k"
+
       fi
       ;;
     got_map)
       if [ -f "$WS/rev64/tools/got_map_check.py" ]; then
+
         run "$k" python3 "$WS/rev64/tools/got_map_check.py"
+
       else
-        echo "  （got_map_check.py 不存在）"; PASS=$((PASS+1))
+
+        # ★ R19-P1: 判据脚本缺失 = FAIL (非 PASS), 防 "40 项全 PASS" 权威基准被误删污染
+
+        echo "  ✗ $k: got_map_check.py 缺失 (判据无对象 → FAIL, 非静默 PASS)"; FAIL=$((FAIL+1)); FAILED="$FAILED $k"
+
       fi
       ;;
     needed)
       if [ -f "$WS/rev64/tools/needed_check.py" ]; then
+
         run "$k" python3 "$WS/rev64/tools/needed_check.py"
+
       else
-        echo "  （needed_check.py 不存在）"; PASS=$((PASS+1))
+
+        # ★ R19-P1: 判据脚本缺失 = FAIL (非 PASS), 防 "40 项全 PASS" 权威基准被误删污染
+
+        echo "  ✗ $k: needed_check.py 缺失 (判据无对象 → FAIL, 非静默 PASS)"; FAIL=$((FAIL+1)); FAILED="$FAILED $k"
+
       fi
       ;;
     trans_needed)
       if [ -f "$WS/rev64/tools/translated_needed_check.py" ]; then
+
         run "$k" python3 "$WS/rev64/tools/translated_needed_check.py"
+
       else
-        echo "  （translated_needed_check.py 不存在）"; PASS=$((PASS+1))
+
+        # ★ R19-P1: 判据脚本缺失 = FAIL (非 PASS), 防 "40 项全 PASS" 权威基准被误删污染
+
+        echo "  ✗ $k: translated_needed_check.py 缺失 (判据无对象 → FAIL, 非静默 PASS)"; FAIL=$((FAIL+1)); FAILED="$FAILED $k"
+
       fi
       ;;
     walk_8step)
       if [ -f "$WS/rev64/tools/walk_bridge_8step_check.py" ]; then
+
         run "$k" python3 "$WS/rev64/tools/walk_bridge_8step_check.py"
+
       else
-        echo "  （walk_bridge_8step_check.py 不存在）"; PASS=$((PASS+1))
+
+        # ★ R19-P1: 判据脚本缺失 = FAIL (非 PASS), 防 "40 项全 PASS" 权威基准被误删污染
+
+        echo "  ✗ $k: walk_bridge_8step_check.py 缺失 (判据无对象 → FAIL, 非静默 PASS)"; FAIL=$((FAIL+1)); FAILED="$FAILED $k"
+
       fi
       ;;
     trans_seg)
       if [ -f "$WS/rev64/tools/translated_seg_check.py" ]; then
+
         run "$k" python3 "$WS/rev64/tools/translated_seg_check.py"
+
       else
-        echo "  （translated_seg_check.py 不存在）"; PASS=$((PASS+1))
+
+        # ★ R19-P1: 判据脚本缺失 = FAIL (非 PASS), 防 "40 项全 PASS" 权威基准被误删污染
+
+        echo "  ✗ $k: translated_seg_check.py 缺失 (判据无对象 → FAIL, 非静默 PASS)"; FAIL=$((FAIL+1)); FAILED="$FAILED $k"
+
       fi
       ;;
     trans_handlers)
       if [ -f "$WS/rev64/tools/translated_handlers_check.py" ]; then
+
         run "$k" python3 "$WS/rev64/tools/translated_handlers_check.py"
+
       else
-        echo "  （translated_handlers_check.py 不存在）"; PASS=$((PASS+1))
+
+        # ★ R19-P1: 判据脚本缺失 = FAIL (非 PASS), 防 "40 项全 PASS" 权威基准被误删污染
+
+        echo "  ✗ $k: translated_handlers_check.py 缺失 (判据无对象 → FAIL, 非静默 PASS)"; FAIL=$((FAIL+1)); FAILED="$FAILED $k"
+
       fi
       ;;
     hook_anchors)
       if [ -f "$WS/rev64/tools/hook_anchors_check.py" ]; then
+
         run "$k" python3 "$WS/rev64/tools/hook_anchors_check.py"
+
       else
-        echo "  （hook_anchors_check.py 不存在）"; PASS=$((PASS+1))
+
+        # ★ R19-P1: 判据脚本缺失 = FAIL (非 PASS), 防 "40 项全 PASS" 权威基准被误删污染
+
+        echo "  ✗ $k: hook_anchors_check.py 缺失 (判据无对象 → FAIL, 非静默 PASS)"; FAIL=$((FAIL+1)); FAILED="$FAILED $k"
+
       fi
       ;;
     spak_key)
       if [ -f "$WS/rev64/tools/spak_key_check.py" ]; then
+
         run "$k" python3 "$WS/rev64/tools/spak_key_check.py"
+
       else
-        echo "  （spak_key_check.py 不存在）"; PASS=$((PASS+1))
+
+        # ★ R19-P1: 判据脚本缺失 = FAIL (非 PASS), 防 "40 项全 PASS" 权威基准被误删污染
+
+        echo "  ✗ $k: spak_key_check.py 缺失 (判据无对象 → FAIL, 非静默 PASS)"; FAIL=$((FAIL+1)); FAILED="$FAILED $k"
+
       fi
       ;;
     spak_regen)
       if [ -f "$WS/rev64/tools/spak_regen_check.py" ]; then
+
         run "$k" python3 "$WS/rev64/tools/spak_regen_check.py"
+
       else
-        echo "  （spak_regen_check.py 不存在）"; PASS=$((PASS+1))
+
+        # ★ R19-P1: 判据脚本缺失 = FAIL (非 PASS), 防 "40 项全 PASS" 权威基准被误删污染
+
+        echo "  ✗ $k: spak_regen_check.py 缺失 (判据无对象 → FAIL, 非静默 PASS)"; FAIL=$((FAIL+1)); FAILED="$FAILED $k"
+
       fi
       ;;
     raw_fallback)
       if [ -f "$WS/rev64/tools/raw_fallback_cover_check.py" ]; then
+
         run "$k" python3 "$WS/rev64/tools/raw_fallback_cover_check.py"
+
       else
-        echo "  （raw_fallback_cover_check.py 不存在）"; PASS=$((PASS+1))
+
+        # ★ R19-P1: 判据脚本缺失 = FAIL (非 PASS), 防 "40 项全 PASS" 权威基准被误删污染
+
+        echo "  ✗ $k: raw_fallback_cover_check.py 缺失 (判据无对象 → FAIL, 非静默 PASS)"; FAIL=$((FAIL+1)); FAILED="$FAILED $k"
+
       fi
       ;;
     raw_linker_reach)
       if [ -f "$WS/rev64/tools/raw_linker_reach_check.py" ]; then
+
         run "$k" python3 "$WS/rev64/tools/raw_linker_reach_check.py"
+
       else
-        echo "  （raw_linker_reach_check.py 不存在）"; PASS=$((PASS+1))
+
+        # ★ R19-P1: 判据脚本缺失 = FAIL (非 PASS), 防 "40 项全 PASS" 权威基准被误删污染
+
+        echo "  ✗ $k: raw_linker_reach_check.py 缺失 (判据无对象 → FAIL, 非静默 PASS)"; FAIL=$((FAIL+1)); FAILED="$FAILED $k"
+
       fi
       ;;
     event_handler_semantics)
       if [ -f "$WS/rev64/tools/event_handler_semantics_check.py" ]; then
+
         run "$k" python3 "$WS/rev64/tools/event_handler_semantics_check.py"
+
       else
-        echo "  （event_handler_semantics_check.py 不存在）"; PASS=$((PASS+1))
+
+        # ★ R19-P1: 判据脚本缺失 = FAIL (非 PASS), 防 "40 项全 PASS" 权威基准被误删污染
+
+        echo "  ✗ $k: event_handler_semantics_check.py 缺失 (判据无对象 → FAIL, 非静默 PASS)"; FAIL=$((FAIL+1)); FAILED="$FAILED $k"
+
       fi
       ;;
     mirror_layout)
       if [ -f "$WS/rev64/tools/mirror_layout_check.py" ]; then
+
         run "$k" python3 "$WS/rev64/tools/mirror_layout_check.py"
+
       else
-        echo "  （mirror_layout_check.py 不存在）"; PASS=$((PASS+1))
+
+        # ★ R19-P1: 判据脚本缺失 = FAIL (非 PASS), 防 "40 项全 PASS" 权威基准被误删污染
+
+        echo "  ✗ $k: mirror_layout_check.py 缺失 (判据无对象 → FAIL, 非静默 PASS)"; FAIL=$((FAIL+1)); FAILED="$FAILED $k"
+
       fi
       ;;
     plt_syscall)
       if [ -f "$WS/rev64/tools/plt_syscall_check.py" ]; then
+
         run "$k" python3 "$WS/rev64/tools/plt_syscall_check.py"
+
       else
-        echo "  （plt_syscall_check.py 不存在）"; PASS=$((PASS+1))
+
+        # ★ R19-P1: 判据脚本缺失 = FAIL (非 PASS), 防 "40 项全 PASS" 权威基准被误删污染
+
+        echo "  ✗ $k: plt_syscall_check.py 缺失 (判据无对象 → FAIL, 非静默 PASS)"; FAIL=$((FAIL+1)); FAILED="$FAILED $k"
+
       fi
       ;;
     stub_vacuum)
       if [ -f "$WS/rev64/tools/stub_vacuum_check.py" ]; then
+
         run "$k" python3 "$WS/rev64/tools/stub_vacuum_check.py"
+
       else
-        echo "  （stub_vacuum_check.py 不存在）"; PASS=$((PASS+1))
+
+        # ★ R19-P1: 判据脚本缺失 = FAIL (非 PASS), 防 "40 项全 PASS" 权威基准被误删污染
+
+        echo "  ✗ $k: stub_vacuum_check.py 缺失 (判据无对象 → FAIL, 非静默 PASS)"; FAIL=$((FAIL+1)); FAILED="$FAILED $k"
+
       fi
       ;;
     jni_export_align)
       if [ -f "$WS/rev64/tools/jni_export_align_check.py" ]; then
+
         run "$k" python3 "$WS/rev64/tools/jni_export_align_check.py"
+
       else
-        echo "  （jni_export_align_check.py 不存在）"; PASS=$((PASS+1))
+
+        # ★ R19-P1: 判据脚本缺失 = FAIL (非 PASS), 防 "40 项全 PASS" 权威基准被误删污染
+
+        echo "  ✗ $k: jni_export_align_check.py 缺失 (判据无对象 → FAIL, 非静默 PASS)"; FAIL=$((FAIL+1)); FAILED="$FAILED $k"
+
       fi
       ;;
     thunk_reuse)
       if [ -f "$WS/rev64/tools/thunk_reuse_check.py" ]; then
+
         run "$k" python3 "$WS/rev64/tools/thunk_reuse_check.py"
+
       else
-        echo "  （thunk_reuse_check.py 不存在）"; PASS=$((PASS+1))
+
+        # ★ R19-P1: 判据脚本缺失 = FAIL (非 PASS), 防 "40 项全 PASS" 权威基准被误删污染
+
+        echo "  ✗ $k: thunk_reuse_check.py 缺失 (判据无对象 → FAIL, 非静默 PASS)"; FAIL=$((FAIL+1)); FAILED="$FAILED $k"
+
       fi
       ;;
     event_funnel)
       if [ -f "$WS/rev64/tools/event_funnel_check.py" ]; then
+
         run "$k" python3 "$WS/rev64/tools/event_funnel_check.py"
+
       else
-        echo "  （event_funnel_check.py 不存在）"; PASS=$((PASS+1))
+
+        # ★ R19-P1: 判据脚本缺失 = FAIL (非 PASS), 防 "40 项全 PASS" 权威基准被误删污染
+
+        echo "  ✗ $k: event_funnel_check.py 缺失 (判据无对象 → FAIL, 非静默 PASS)"; FAIL=$((FAIL+1)); FAILED="$FAILED $k"
+
       fi
       ;;
     f_layer)
       if [ -f "$WS/rev64/tools/f_layer_check.py" ]; then
+
         run "$k" python3 "$WS/rev64/tools/f_layer_check.py"
+
       else
-        echo "  （f_layer_check.py 不存在）"; PASS=$((PASS+1))
+
+        # ★ R19-P1: 判据脚本缺失 = FAIL (非 PASS), 防 "40 项全 PASS" 权威基准被误删污染
+
+        echo "  ✗ $k: f_layer_check.py 缺失 (判据无对象 → FAIL, 非静默 PASS)"; FAIL=$((FAIL+1)); FAILED="$FAILED $k"
+
       fi
       ;;
     raw_zone_lib)
       if [ -f "$WS/rev64/tools/raw_zone_lib_check.py" ]; then
+
         run "$k" python3 "$WS/rev64/tools/raw_zone_lib_check.py"
+
       else
-        echo "  （raw_zone_lib_check.py 不存在）"; PASS=$((PASS+1))
+
+        # ★ R19-P1: 判据脚本缺失 = FAIL (非 PASS), 防 "40 项全 PASS" 权威基准被误删污染
+
+        echo "  ✗ $k: raw_zone_lib_check.py 缺失 (判据无对象 → FAIL, 非静默 PASS)"; FAIL=$((FAIL+1)); FAILED="$FAILED $k"
+
       fi
       ;;
     so_seg_layout)
       if [ -f "$WS/rev64/tools/so_seg_layout_check.py" ]; then
+
         run "$k" python3 "$WS/rev64/tools/so_seg_layout_check.py"
+
       else
-        echo "  （so_seg_layout_check.py 不存在）"; PASS=$((PASS+1))
+
+        # ★ R19-P1: 判据脚本缺失 = FAIL (非 PASS), 防 "40 项全 PASS" 权威基准被误删污染
+
+        echo "  ✗ $k: so_seg_layout_check.py 缺失 (判据无对象 → FAIL, 非静默 PASS)"; FAIL=$((FAIL+1)); FAILED="$FAILED $k"
+
       fi
       ;;
     rel_dyn_slots)
       if [ -f "$WS/rev64/tools/rel_dyn_slots_check.py" ]; then
+
         run "$k" python3 "$WS/rev64/tools/rel_dyn_slots_check.py"
+
       else
-        echo "  （rel_dyn_slots_check.py 不存在）"; PASS=$((PASS+1))
+
+        # ★ R19-P1: 判据脚本缺失 = FAIL (非 PASS), 防 "40 项全 PASS" 权威基准被误删污染
+
+        echo "  ✗ $k: rel_dyn_slots_check.py 缺失 (判据无对象 → FAIL, 非静默 PASS)"; FAIL=$((FAIL+1)); FAILED="$FAILED $k"
+
       fi
       ;;
     rules_walkbridge)
       if [ -f "$WS/rev64/tools/rules_walkbridge_check.py" ]; then
+
         run "$k" python3 "$WS/rev64/tools/rules_walkbridge_check.py"
+
       else
-        echo "  （rules_walkbridge_check.py 不存在）"; PASS=$((PASS+1))
+
+        # ★ R19-P1: 判据脚本缺失 = FAIL (非 PASS), 防 "40 项全 PASS" 权威基准被误删污染
+
+        echo "  ✗ $k: rules_walkbridge_check.py 缺失 (判据无对象 → FAIL, 非静默 PASS)"; FAIL=$((FAIL+1)); FAILED="$FAILED $k"
+
       fi
       ;;
     touch_layout_xcheck)
       if [ -f "$WS/rev64/tools/touch_layout_xcheck.py" ]; then
+
         run "$k" python3 "$WS/rev64/tools/touch_layout_xcheck.py"
+
       else
-        echo "  （touch_layout_xcheck.py 不存在）"; PASS=$((PASS+1))
+
+        # ★ R19-P1: 判据脚本缺失 = FAIL (非 PASS), 防 "40 项全 PASS" 权威基准被误删污染
+
+        echo "  ✗ $k: touch_layout_xcheck.py 缺失 (判据无对象 → FAIL, 非静默 PASS)"; FAIL=$((FAIL+1)); FAILED="$FAILED $k"
+
       fi
       ;;
     bt_spp_xcheck)
       if [ -f "$WS/rev64/tools/bt_spp_xcheck.py" ]; then
+
         run "$k" python3 "$WS/rev64/tools/bt_spp_xcheck.py"
+
       else
-        echo "  （bt_spp_xcheck.py 不存在）"; PASS=$((PASS+1))
+
+        # ★ R19-P1: 判据脚本缺失 = FAIL (非 PASS), 防 "40 项全 PASS" 权威基准被误删污染
+
+        echo "  ✗ $k: bt_spp_xcheck.py 缺失 (判据无对象 → FAIL, 非静默 PASS)"; FAIL=$((FAIL+1)); FAILED="$FAILED $k"
+
       fi
       ;;
     lifecycle_jni)
       if [ -f "$WS/rev64/tools/lifecycle_jni_check.py" ]; then
+
         run "$k" python3 "$WS/rev64/tools/lifecycle_jni_check.py"
+
       else
-        echo "  （lifecycle_jni_check.py 不存在）"; PASS=$((PASS+1))
+
+        # ★ R19-P1: 判据脚本缺失 = FAIL (非 PASS), 防 "40 项全 PASS" 权威基准被误删污染
+
+        echo "  ✗ $k: lifecycle_jni_check.py 缺失 (判据无对象 → FAIL, 非静默 PASS)"; FAIL=$((FAIL+1)); FAILED="$FAILED $k"
+
       fi
       ;;
     sfx_map)
       if [ -f "$WS/rev64/tools/sfx_map_check.py" ]; then
+
         run "$k" python3 "$WS/rev64/tools/sfx_map_check.py"
+
       else
-        echo "  （sfx_map_check.py 不存在）"; PASS=$((PASS+1))
+
+        # ★ R19-P1: 判据脚本缺失 = FAIL (非 PASS), 防 "40 项全 PASS" 权威基准被误删污染
+
+        echo "  ✗ $k: sfx_map_check.py 缺失 (判据无对象 → FAIL, 非静默 PASS)"; FAIL=$((FAIL+1)); FAILED="$FAILED $k"
+
       fi
       ;;
     render_gl)
       if [ -f "$WS/rev64/tools/render_gl_check.py" ]; then
+
         run "$k" python3 "$WS/rev64/tools/render_gl_check.py"
+
       else
-        echo "  （render_gl_check.py 不存在）"; PASS=$((PASS+1))
+
+        # ★ R19-P1: 判据脚本缺失 = FAIL (非 PASS), 防 "40 项全 PASS" 权威基准被误删污染
+
+        echo "  ✗ $k: render_gl_check.py 缺失 (判据无对象 → FAIL, 非静默 PASS)"; FAIL=$((FAIL+1)); FAILED="$FAILED $k"
+
       fi
       ;;
     device_regress_offline)
       if [ -f "$WS/rev64/tools/device_regress_offline_check.py" ]; then
+
         run "$k" python3 "$WS/rev64/tools/device_regress_offline_check.py"
+
       else
-        echo "  （device_regress_offline_check.py 不存在）"; PASS=$((PASS+1))
+
+        # ★ R19-P1: 判据脚本缺失 = FAIL (非 PASS), 防 "40 项全 PASS" 权威基准被误删污染
+
+        echo "  ✗ $k: device_regress_offline_check.py 缺失 (判据无对象 → FAIL, 非静默 PASS)"; FAIL=$((FAIL+1)); FAILED="$FAILED $k"
+
       fi
       ;;
     game60_offline)
       if [ -f "$WS/rev64/tools/game60_offline_check.py" ]; then
+
         run "$k" python3 "$WS/rev64/tools/game60_offline_check.py"
+
       else
-        echo "  （game60_offline_check.py 不存在）"; PASS=$((PASS+1))
+
+        # ★ R19-P1: 判据脚本缺失 = FAIL (非 PASS), 防 "40 项全 PASS" 权威基准被误删污染
+
+        echo "  ✗ $k: game60_offline_check.py 缺失 (判据无对象 → FAIL, 非静默 PASS)"; FAIL=$((FAIL+1)); FAILED="$FAILED $k"
+
       fi
       ;;
     render_pixel)
       if [ -f "$WS/rev64/tools/render_pixel_check.py" ]; then
+
         run "$k" python3 "$WS/rev64/tools/render_pixel_check.py"
+
       else
-        echo "  （render_pixel_check.py 不存在）"; PASS=$((PASS+1))
+
+        # ★ R19-P1: 判据脚本缺失 = FAIL (非 PASS), 防 "40 项全 PASS" 权威基准被误删污染
+
+        echo "  ✗ $k: render_pixel_check.py 缺失 (判据无对象 → FAIL, 非静默 PASS)"; FAIL=$((FAIL+1)); FAILED="$FAILED $k"
+
       fi
       ;;
     bt_undorestart)
       if [ -f "$WS/rev64/tools/bt_undorestart_check.py" ]; then
+
         run "$k" python3 "$WS/rev64/tools/bt_undorestart_check.py"
+
       else
-        echo "  （bt_undorestart_check.py 不存在）"; PASS=$((PASS+1))
+
+        # ★ R19-P1: 判据脚本缺失 = FAIL (非 PASS), 防 "40 项全 PASS" 权威基准被误删污染
+
+        echo "  ✗ $k: bt_undorestart_check.py 缺失 (判据无对象 → FAIL, 非静默 PASS)"; FAIL=$((FAIL+1)); FAILED="$FAILED $k"
+
       fi
       ;;
     sfx_play_chain)
       if [ -f "$WS/rev64/tools/sfx_play_chain_check.py" ]; then
+
         run "$k" python3 "$WS/rev64/tools/sfx_play_chain_check.py"
+
       else
-        echo "  （sfx_play_chain_check.py 不存在）"; PASS=$((PASS+1))
+
+        # ★ R19-P1: 判据脚本缺失 = FAIL (非 PASS), 防 "40 项全 PASS" 权威基准被误删污染
+
+        echo "  ✗ $k: sfx_play_chain_check.py 缺失 (判据无对象 → FAIL, 非静默 PASS)"; FAIL=$((FAIL+1)); FAILED="$FAILED $k"
+
       fi
       ;;
     guest_path)
       if [ -f "$WS/rev64/tools/guest_path_check.py" ]; then
+
         run "$k" python3 "$WS/rev64/tools/guest_path_check.py"
+
       else
-        echo "  （guest_path_check.py 不存在）"; PASS=$((PASS+1))
+
+        # ★ R19-P1: 判据脚本缺失 = FAIL (非 PASS), 防 "40 项全 PASS" 权威基准被误删污染
+
+        echo "  ✗ $k: guest_path_check.py 缺失 (判据无对象 → FAIL, 非静默 PASS)"; FAIL=$((FAIL+1)); FAILED="$FAILED $k"
+
       fi
       ;;
     nplayer_boundary)
       if [ -f "$WS/rev64/tools/nplayer_boundary_check.py" ]; then
+
         run "$k" python3 "$WS/rev64/tools/nplayer_boundary_check.py"
+
       else
-        echo "  （nplayer_boundary_check.py 不存在）"; PASS=$((PASS+1))
+
+        # ★ R19-P1: 判据脚本缺失 = FAIL (非 PASS), 防 "40 项全 PASS" 权威基准被误删污染
+
+        echo "  ✗ $k: nplayer_boundary_check.py 缺失 (判据无对象 → FAIL, 非静默 PASS)"; FAIL=$((FAIL+1)); FAILED="$FAILED $k"
+
       fi
       ;;
     net_boundary)
       if [ -f "$WS/rev64/tools/net_boundary_check.py" ]; then
+
         run "$k" python3 "$WS/rev64/tools/net_boundary_check.py"
+
       else
-        echo "  （net_boundary_check.py 不存在）"; PASS=$((PASS+1))
+
+        # ★ R19-P1: 判据脚本缺失 = FAIL (非 PASS), 防 "40 项全 PASS" 权威基准被误删污染
+
+        echo "  ✗ $k: net_boundary_check.py 缺失 (判据无对象 → FAIL, 非静默 PASS)"; FAIL=$((FAIL+1)); FAILED="$FAILED $k"
+
       fi
       ;;
     update_boundary)
       if [ -f "$WS/rev64/tools/update_boundary_check.py" ]; then
+
         run "$k" python3 "$WS/rev64/tools/update_boundary_check.py"
+
       else
-        echo "  （update_boundary_check.py 不存在）"; PASS=$((PASS+1))
+
+        # ★ R19-P1: 判据脚本缺失 = FAIL (非 PASS), 防 "40 项全 PASS" 权威基准被误删污染
+
+        echo "  ✗ $k: update_boundary_check.py 缺失 (判据无对象 → FAIL, 非静默 PASS)"; FAIL=$((FAIL+1)); FAILED="$FAILED $k"
+
       fi
       ;;
     domain_behavior_align)
       if [ -f "$WS/rev64/tools/domain_behavior_align_check.py" ]; then
+
         run "$k" python3 "$WS/rev64/tools/domain_behavior_align_check.py"
+
       else
-        echo "  （domain_behavior_align_check.py 不存在）"; PASS=$((PASS+1))
+
+        # ★ R19-P1: 判据脚本缺失 = FAIL (非 PASS), 防 "40 项全 PASS" 权威基准被误删污染
+
+        echo "  ✗ $k: domain_behavior_align_check.py 缺失 (判据无对象 → FAIL, 非静默 PASS)"; FAIL=$((FAIL+1)); FAILED="$FAILED $k"
+
       fi
       ;;
     walkbridge_8step)
       if [ -f "$WS/rev64/tools/walkbridge_8step_check.py" ]; then
+
         run "$k" python3 "$WS/rev64/tools/walkbridge_8step_check.py"
+
       else
-        echo "  （walkbridge_8step_check.py 不存在）"; PASS=$((PASS+1))
+
+        # ★ R19-P1: 判据脚本缺失 = FAIL (非 PASS), 防 "40 项全 PASS" 权威基准被误删污染
+
+        echo "  ✗ $k: walkbridge_8step_check.py 缺失 (判据无对象 → FAIL, 非静默 PASS)"; FAIL=$((FAIL+1)); FAILED="$FAILED $k"
+
       fi
       ;;
     alignment_status)
       if [ -f "$WS/rev64/tools/alignment_status_check.py" ]; then
+
         run "$k" python3 "$WS/rev64/tools/alignment_status_check.py"
+
       else
-        echo "  （alignment_status_check.py 不存在）"; PASS=$((PASS+1))
+
+        # ★ R19-P1: 判据脚本缺失 = FAIL (非 PASS), 防 "40 项全 PASS" 权威基准被误删污染
+
+        echo "  ✗ $k: alignment_status_check.py 缺失 (判据无对象 → FAIL, 非静默 PASS)"; FAIL=$((FAIL+1)); FAILED="$FAILED $k"
+
       fi
       ;;
     raw_linker_symbols)
       if [ -f "$WS/rev64/tools/raw_linker_symbols_check.py" ]; then
+
         run "$k" python3 "$WS/rev64/tools/raw_linker_symbols_check.py"
+
       else
-        echo "  （raw_linker_symbols_check.py 不存在）"; PASS=$((PASS+1))
+
+        # ★ R19-P1: 判据脚本缺失 = FAIL (非 PASS), 防 "40 项全 PASS" 权威基准被误删污染
+
+        echo "  ✗ $k: raw_linker_symbols_check.py 缺失 (判据无对象 → FAIL, 非静默 PASS)"; FAIL=$((FAIL+1)); FAILED="$FAILED $k"
+
       fi
       ;;
     init_array)
       if [ -f "$WS/rev64/tools/init_array_check.py" ]; then
+
         run "$k" python3 "$WS/rev64/tools/init_array_check.py"
+
       else
-        echo "  （init_array_check.py 不存在）"; PASS=$((PASS+1))
+
+        # ★ R19-P1: 判据脚本缺失 = FAIL (非 PASS), 防 "40 项全 PASS" 权威基准被误删污染
+
+        echo "  ✗ $k: init_array_check.py 缺失 (判据无对象 → FAIL, 非静默 PASS)"; FAIL=$((FAIL+1)); FAILED="$FAILED $k"
+
       fi
       ;;
     plt_stub)
       if [ -f "$WS/rev64/tools/plt_stub_check.py" ]; then
+
         run "$k" python3 "$WS/rev64/tools/plt_stub_check.py"
+
       else
-        echo "  （plt_stub_check.py 不存在）"; PASS=$((PASS+1))
+
+        # ★ R19-P1: 判据脚本缺失 = FAIL (非 PASS), 防 "40 项全 PASS" 权威基准被误删污染
+
+        echo "  ✗ $k: plt_stub_check.py 缺失 (判据无对象 → FAIL, 非静默 PASS)"; FAIL=$((FAIL+1)); FAILED="$FAILED $k"
+
       fi
       ;;
     bss_single)
       if [ -f "$WS/rev64/tools/bss_single_check.py" ]; then
+
         run "$k" python3 "$WS/rev64/tools/bss_single_check.py"
+
       else
-        echo "  （bss_single_check.py 不存在）"; PASS=$((PASS+1))
+
+        # ★ R19-P1: 判据脚本缺失 = FAIL (非 PASS), 防 "40 项全 PASS" 权威基准被误删污染
+
+        echo "  ✗ $k: bss_single_check.py 缺失 (判据无对象 → FAIL, 非静默 PASS)"; FAIL=$((FAIL+1)); FAILED="$FAILED $k"
+
       fi
       ;;
     mapping_boundary)
       if [ -f "$WS/rev64/tools/mapping_boundary_check.py" ]; then
+
         run "$k" python3 "$WS/rev64/tools/mapping_boundary_check.py"
+
       else
-        echo "  （mapping_boundary_check.py 不存在）"; PASS=$((PASS+1))
+
+        # ★ R19-P1: 判据脚本缺失 = FAIL (非 PASS), 防 "40 项全 PASS" 权威基准被误删污染
+
+        echo "  ✗ $k: mapping_boundary_check.py 缺失 (判据无对象 → FAIL, 非静默 PASS)"; FAIL=$((FAIL+1)); FAILED="$FAILED $k"
+
       fi
       ;;
     apk_so_hash)
       if [ -f "$WS/rev64/tools/apk_so_hash_check.py" ]; then
+
         run "$k" python3 "$WS/rev64/tools/apk_so_hash_check.py"
+
       else
-        echo "  （apk_so_hash_check.py 不存在）"; PASS=$((PASS+1))
+
+        # ★ R19-P1: 判据脚本缺失 = FAIL (非 PASS), 防 "40 项全 PASS" 权威基准被误删污染
+
+        echo "  ✗ $k: apk_so_hash_check.py 缺失 (判据无对象 → FAIL, 非静默 PASS)"; FAIL=$((FAIL+1)); FAILED="$FAILED $k"
+
       fi
       ;;
     touch_int)
       if [ -f "$WS/rev64/tools/touch_int_check.py" ]; then
+
         run "$k" python3 "$WS/rev64/tools/touch_int_check.py"
+
       else
-        echo "  （touch_int_check.py 不存在）"; PASS=$((PASS+1))
+
+        # ★ R19-P1: 判据脚本缺失 = FAIL (非 PASS), 防 "40 项全 PASS" 权威基准被误删污染
+
+        echo "  ✗ $k: touch_int_check.py 缺失 (判据无对象 → FAIL, 非静默 PASS)"; FAIL=$((FAIL+1)); FAILED="$FAILED $k"
+
       fi
       ;;
     fb_ratio)
       if [ -f "$WS/rev64/tools/fb_ratio_check.py" ]; then
+
         run "$k" python3 "$WS/rev64/tools/fb_ratio_check.py"
+
       else
-        echo "  （fb_ratio_check.py 不存在）"; PASS=$((PASS+1))
+
+        # ★ R19-P1: 判据脚本缺失 = FAIL (非 PASS), 防 "40 项全 PASS" 权威基准被误删污染
+
+        echo "  ✗ $k: fb_ratio_check.py 缺失 (判据无对象 → FAIL, 非静默 PASS)"; FAIL=$((FAIL+1)); FAILED="$FAILED $k"
+
       fi
       ;;
     walkregress_anchors)
       if [ -f "$WS/rev64/tools/walkregress_anchors_check.py" ]; then
+
         run "$k" python3 "$WS/rev64/tools/walkregress_anchors_check.py"
+
       else
-        echo "  （walkregress_anchors_check.py 不存在）"; PASS=$((PASS+1))
+
+        # ★ R19-P1: 判据脚本缺失 = FAIL (非 PASS), 防 "40 项全 PASS" 权威基准被误删污染
+
+        echo "  ✗ $k: walkregress_anchors_check.py 缺失 (判据无对象 → FAIL, 非静默 PASS)"; FAIL=$((FAIL+1)); FAILED="$FAILED $k"
+
       fi
       ;;
     thunk_coverage)
       if [ -f "$WS/rev64/tools/thunk_coverage_check.py" ]; then
+
         run "$k" python3 "$WS/rev64/tools/thunk_coverage_check.py"
+
       else
-        echo "  （thunk_coverage_check.py 不存在）"; PASS=$((PASS+1))
+
+        # ★ R19-P1: 判据脚本缺失 = FAIL (非 PASS), 防 "40 项全 PASS" 权威基准被误删污染
+
+        echo "  ✗ $k: thunk_coverage_check.py 缺失 (判据无对象 → FAIL, 非静默 PASS)"; FAIL=$((FAIL+1)); FAILED="$FAILED $k"
+
       fi
       ;;
     event_name_static)
       if [ -f "$WS/rev64/tools/event_name_static_check.py" ]; then
+
         run "$k" python3 "$WS/rev64/tools/event_name_static_check.py"
+
       else
-        echo "  （event_name_static_check.py 不存在）"; PASS=$((PASS+1))
+
+        # ★ R19-P1: 判据脚本缺失 = FAIL (非 PASS), 防 "40 项全 PASS" 权威基准被误删污染
+
+        echo "  ✗ $k: event_name_static_check.py 缺失 (判据无对象 → FAIL, 非静默 PASS)"; FAIL=$((FAIL+1)); FAILED="$FAILED $k"
+
       fi
       ;;
     walkregress_8path)
       if [ -f "$WS/rev64/tools/walkregress_8path_check.py" ]; then
+
         run "$k" python3 "$WS/rev64/tools/walkregress_8path_check.py"
+
       else
-        echo "  （walkregress_8path_check.py 不存在）"; PASS=$((PASS+1))
+
+        # ★ R19-P1: 判据脚本缺失 = FAIL (非 PASS), 防 "40 项全 PASS" 权威基准被误删污染
+
+        echo "  ✗ $k: walkregress_8path_check.py 缺失 (判据无对象 → FAIL, 非静默 PASS)"; FAIL=$((FAIL+1)); FAILED="$FAILED $k"
+
       fi
       ;;
     dark_flip_probe)
       if [ -f "$WS/rev64/tools/dark_flip_probe_check.py" ]; then
+
         run "$k" python3 "$WS/rev64/tools/dark_flip_probe_check.py"
+
       else
-        echo "  （dark_flip_probe_check.py 不存在）"; PASS=$((PASS+1))
+
+        # ★ R19-P1: 判据脚本缺失 = FAIL (非 PASS), 防 "40 项全 PASS" 权威基准被误删污染
+
+        echo "  ✗ $k: dark_flip_probe_check.py 缺失 (判据无对象 → FAIL, 非静默 PASS)"; FAIL=$((FAIL+1)); FAILED="$FAILED $k"
+
       fi
       ;;
     translation_coverage)
       if [ -f "$WS/rev64/tools/translation_coverage_check.py" ]; then
+
         run "$k" python3 "$WS/rev64/tools/translation_coverage_check.py"
+
       else
-        echo "  （translation_coverage_check.py 不存在）"; PASS=$((PASS+1))
+
+        # ★ R19-P1: 判据脚本缺失 = FAIL (非 PASS), 防 "40 项全 PASS" 权威基准被误删污染
+
+        echo "  ✗ $k: translation_coverage_check.py 缺失 (判据无对象 → FAIL, 非静默 PASS)"; FAIL=$((FAIL+1)); FAILED="$FAILED $k"
+
       fi
       ;;
     domain_matrix)
       if [ -f "$WS/rev64/tools/translation_domain_matrix.py" ]; then
+
         run "$k" python3 "$WS/rev64/tools/translation_domain_matrix.py"
+
       else
-        echo "  （translation_domain_matrix.py 不存在）"; PASS=$((PASS+1))
+
+        # ★ R19-P1: 判据脚本缺失 = FAIL (非 PASS), 防 "40 项全 PASS" 权威基准被误删污染
+
+        echo "  ✗ $k: translation_domain_matrix.py 缺失 (判据无对象 → FAIL, 非静默 PASS)"; FAIL=$((FAIL+1)); FAILED="$FAILED $k"
+
       fi
       ;;
     trans_abi)
       if [ -f "$WS/rev64/tools/translated_abi_check.py" ]; then
+
         run "$k" python3 "$WS/rev64/tools/translated_abi_check.py"
+
       else
-        echo "  （translated_abi_check.py 不存在）"; PASS=$((PASS+1))
+
+        # ★ R19-P1: 判据脚本缺失 = FAIL (非 PASS), 防 "40 项全 PASS" 权威基准被误删污染
+
+        echo "  ✗ $k: translated_abi_check.py 缺失 (判据无对象 → FAIL, 非静默 PASS)"; FAIL=$((FAIL+1)); FAILED="$FAILED $k"
+
       fi
       ;;
   esac

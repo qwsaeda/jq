@@ -50,9 +50,12 @@ def main():
     # §124y-187 模板串 token 口径归一化：so .rodata 存完整模板（Junqi.GameType%d /
     #   Misc.Graph%d 等带 %d 序号展开 token），map 按简写存名（去 %d）。
     #   对照时 so 侧去 %d 简写归一，与 map 简写对齐。
+    # ★ R19 口径双向对称: map 侧亦可能存 %d 模板形态 (如 Junqi.GameType%d),
+    #   旧单向 norm(so) 把 so "Junqi.GameType" 归一成简写后与 map 模板串不匹配 →
+    #   假 FAIL (缺=GameType 多=GameType%d 同一串双向误报)。两侧同 norm 对称对照。
     def norm(n): return n.split('%')[0] if '%' in n else n
     so_norm = set(norm(n) for n in so_names)
-    map_norm = set(map_names)
+    map_norm = set(norm(n) for n in map_names)
     miss = [n for n in so_norm if n not in map_norm]
     extra = [n for n in map_norm if n not in so_norm]
     print("event_code_map.json: %d 事件名 / %d 事件码（值域 %s）" % (len(map_names), len(codes), codes))

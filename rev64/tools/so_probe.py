@@ -282,6 +282,12 @@ def cmd_audit(pool_addr, add_addr=None):
 
 
 def main():
+    # ★ R19-P1: so 文件存在性前置守卫 (原缺陷: /tmp/orig 被清空后所有子命令
+    #   抛 FileNotFoundError Traceback, 上游误判 "工具崩溃" 而非 "判据无对象")
+    import os as _os
+    if not _os.path.exists(SO):
+        print(f"✗ so 不存在: {SO} (设 JQ_SO 环境变量指向原版 32 位 so); 判据无对象 → rc=1")
+        return 1
     if len(sys.argv) < 2:
         print(__doc__); return 0
     cmd = sys.argv[1]
