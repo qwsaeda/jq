@@ -431,4 +431,6 @@ echo "═══ arm32_hook_check 汇总 ═══"
 echo "  PASS=$PASS FAIL=$FAIL"
 [ -n "$FAILED" ] && echo "  失败: $FAILED"
 if [ "$FAIL" -eq 0 ]; then echo "  ✓ 全 PASS"; else echo "  ✗ 存在 FAIL"; fi
-exit "$FAIL"
+# ★ R20-P2: exit 码钳位 (原 `exit "$FAIL"` 在 FAIL>255 时 bash 低 8 位归零 →
+# 调用方 $? -eq 0 误判 PASS; 现行 4 项无影响, 防御性钳位)
+[ "$FAIL" -eq 0 ] && exit 0 || exit 1
