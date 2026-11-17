@@ -12,7 +12,7 @@
 | phase3 | com.cnvcs.junqirs (v1.6.8) | e5687c88c2e175e65e68b5d1cb7de2df | 同 phase2 + 去广告终态 | v1+v2+v3 ✓ |
 
 ## so 基准
-- 32 位翻译体 so: `rev64/dist/libjunqi_arm32_aligned.so` md5 = **623ead7723017e47c3af43005bbc3fde**
+- 32 位翻译体 so: `rev64/dist/libjunqi_arm32_aligned.so` md5 = **d8c98fd9baf61f5a6efff530d17b77ee**（★ R24: ExceptionClear 修复重编同步）
   (★ R23-P1: P1 批次修复 (OOME 守卫/flip 界检/n 语义/注释漂移) 重编 2026-11-17, 旧基准 790fb19a/2bf57a5b/25667502/59465d97 全过期)
 - 64 位 so: `rev64/forward/src_rs/dist/libjunqi_rs.so` (R18 渲染修复后, make so 0 告警)
 

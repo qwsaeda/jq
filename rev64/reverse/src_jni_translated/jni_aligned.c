@@ -284,9 +284,15 @@ uint32_t jqt_jni_selftest(void){
 uint32_t jq_jni_make_glview(void) {
     if (!g_jni_env) { __android_log_print(6, "junqi", "make_glview: g_jni_env NULL"); return 0; }
     jclass cls = (*g_jni_env)->FindClass(g_jni_env, "com/cnvcs/GLView");
-    if (cls == NULL) { __android_log_print(6, "junqi", "make_glview: FindClass 失败"); return 0; }
+    if (cls == NULL) {
+        if ((*g_jni_env)->ExceptionCheck(g_jni_env)) (*g_jni_env)->ExceptionClear(g_jni_env); /* ★ R24-P1: FindClass 异常清理 (64 位 R17 P0-3 同款, 32 位同步) */
+        __android_log_print(6, "junqi", "make_glview: FindClass 失败"); return 0;
+    }
     jmethodID ctor = (*g_jni_env)->GetMethodID(g_jni_env, cls, "<init>", "(Landroid/content/Context;)V");
-    if (ctor == NULL) { __android_log_print(6, "junqi", "make_glview: GetMethodID 失败"); return 0; }
+    if (ctor == NULL) {
+        if ((*g_jni_env)->ExceptionCheck(g_jni_env)) (*g_jni_env)->ExceptionClear(g_jni_env); /* ★ R24-P1: GetMethodID 异常清理 (64 位 jni_method_audit 门禁同款, 32 位同步) */
+        __android_log_print(6, "junqi", "make_glview: GetMethodID 失败"); return 0;
+    }
     /* 用 activity（Context）创建。activity 从哪来？F_be47c 的 r1（GLView 相关对象）不是 activity。
      * 用 jni_aligned 保存的 activity 全局。 */
     jobject view = (*g_jni_env)->NewObject(g_jni_env, cls, ctor, g_activity);
@@ -456,6 +462,7 @@ Java_com_cnvcs_App_OnCreate(JNIEnv *env, jclass c, jobject a){
             jobject view_obj = (jobject)(uintptr_t)r;
             jclass glview_cls = (*env)->GetObjectClass(env, view_obj);
             jmethodID setecv = (*env)->GetMethodID(env, glview_cls, "setEGLContextClientVersion", "(I)V");
+            if (setecv == NULL && (*env)->ExceptionCheck(env)) (*env)->ExceptionClear(env); /* ★ R24-P1: GetMethodID 异常清理 (64 位 R17 P0-3 同款, 32 位同步) */
             if (setecv != NULL) {
                 (*env)->CallVoidMethod(env, view_obj, setecv, 2);
                 __android_log_print(6, "junqi", "OnCreate: setEGLContextClientVersion(2) 已调用（GLES2 context）");
@@ -467,8 +474,10 @@ Java_com_cnvcs_App_OnCreate(JNIEnv *env, jclass c, jobject a){
         jclass actcls2 = (*env)->GetObjectClass(env, a);
         jmethodID setcv2 = (*env)->GetMethodID(env, actcls2, "setContentView", "(Landroid/view/View;)V");
         if (setcv2 == NULL) {
+            if ((*env)->ExceptionCheck(env)) (*env)->ExceptionClear(env); /* ★ R24-P1: GetMethodID 异常清理 (64 位 R17 P0-3 同款, 32 位同步) */
             jclass base2 = (*env)->GetSuperclass(env, actcls2);
             setcv2 = (*env)->GetMethodID(env, base2, "setContentView", "(Landroid/view/View;)V");
+            if (setcv2 == NULL && (*env)->ExceptionCheck(env)) (*env)->ExceptionClear(env); /* ★ R24-P1: GetMethodID 异常清理 (回退 GetSuperclass 后, 32 位同步) */
         }
         if (setcv2 != NULL) {
             (*env)->CallVoidMethod(env, a, setcv2, (jobject)(uintptr_t)r);
@@ -485,9 +494,15 @@ Java_com_cnvcs_App_OnCreate(JNIEnv *env, jclass c, jobject a){
     jobject fb_view;
     oncreate_fallback:
     fb_cls = (*env)->FindClass(env, "com/cnvcs/GLView");
-    if (fb_cls == NULL) { __android_log_print(6, "junqi", "OnCreate: fallback FindClass GLView 失败"); return NULL; }
+    if (fb_cls == NULL) {
+        if ((*env)->ExceptionCheck(env)) (*env)->ExceptionClear(env); /* ★ R24-P1: FindClass 异常清理 (64 位 R17 P0-3 同款, 32 位同步) */
+        __android_log_print(6, "junqi", "OnCreate: fallback FindClass GLView 失败"); return NULL;
+    }
     fb_ctor = (*env)->GetMethodID(env, fb_cls, "<init>", "(Landroid/content/Context;)V");
-    if (fb_ctor == NULL) { __android_log_print(6, "junqi", "OnCreate: fallback GetMethodID GLView 失败"); return NULL; }
+    if (fb_ctor == NULL) {
+        if ((*env)->ExceptionCheck(env)) (*env)->ExceptionClear(env); /* ★ R24-P1: GetMethodID 异常清理 (64 位 R17 P0-3 同款, 32 位同步) */
+        __android_log_print(6, "junqi", "OnCreate: fallback GetMethodID GLView 失败"); return NULL;
+    }
     fb_view = (*env)->NewObject(env, fb_cls, fb_ctor, a);
     __android_log_print(6, "junqi", "OnCreate: NewObject(GLView) = %p", (void*)fb_view);
     if (fb_view == NULL) { __android_log_print(6, "junqi", "OnCreate: NewObject GLView 返回 NULL"); return NULL; }
@@ -499,6 +514,7 @@ Java_com_cnvcs_App_OnCreate(JNIEnv *env, jclass c, jobject a){
      *   fallback NewObject 路径同样需要（否则 GLES1 context → glVertexAttribPointer 崩）。 */
     {
         jmethodID fb_setecv = (*env)->GetMethodID(env, fb_cls, "setEGLContextClientVersion", "(I)V");
+        if (fb_setecv == NULL && (*env)->ExceptionCheck(env)) (*env)->ExceptionClear(env); /* ★ R24-P1: GetMethodID 异常清理 (64 位 R17 P0-3 同款, 32 位同步) */
         if (fb_setecv != NULL) {
             (*env)->CallVoidMethod(env, fb_view, fb_setecv, 2);
             __android_log_print(6, "junqi", "OnCreate: fallback setEGLContextClientVersion(2) 已调用（GLES2 context）");
@@ -510,9 +526,11 @@ Java_com_cnvcs_App_OnCreate(JNIEnv *env, jclass c, jobject a){
     jclass actcls = (*env)->GetObjectClass(env, a);
     jmethodID setcv = (*env)->GetMethodID(env, actcls, "setContentView", "(Landroid/view/View;)V");
     if (setcv == NULL) {
+        if ((*env)->ExceptionCheck(env)) (*env)->ExceptionClear(env); /* ★ R24-P1: GetMethodID 异常清理 (64 位 R17 P0-3 同款, 32 位同步) */
         __android_log_print(6, "junqi", "OnCreate: GetMethodID setContentView 失败（回退 GetSuperclass）");
         jclass base = (*env)->GetSuperclass(env, actcls);
         setcv = (*env)->GetMethodID(env, base, "setContentView", "(Landroid/view/View;)V");
+        if (setcv == NULL && (*env)->ExceptionCheck(env)) (*env)->ExceptionClear(env); /* ★ R24-P1: GetMethodID 异常清理 (回退 GetSuperclass 后, 32 位同步) */
     }
     if (setcv != NULL) {
         (*env)->CallVoidMethod(env, a, setcv, fb_view);
