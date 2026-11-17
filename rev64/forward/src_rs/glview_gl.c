@@ -442,8 +442,15 @@ static void *rs_render_thread_main(void *arg)
                    rs_render_frame 内 glDrawElements/glDrawArrays 若触发软驱动 0x502
                    （GL_INVALID_OPERATION 自维持），旧 error 残留会让下次 glGetError
                    永远返 0x502 → 判读"几何未画"假象。swap 前清一次确保 glGetError
-                   反映的是 swap 后新状态。 */
-                while (glGetError() != GL_NO_ERROR) {}
+                   反映的是 swap 后新状态。
+                   ★ R18-P0-1: 无 current context 时 glGetError 恒返非零 → 死循环占满
+                   渲染线程 (活锁, 下方 0x3000 自愈段永远执行不到)。加: ① context 判空
+                   ② 16 次上限 (正常 0 残留; 上限触发 = context 失效, 走下方 0x3000
+                   surface 重建自愈)。 */
+                if (eglGetCurrentContext() != EGL_NO_CONTEXT) {
+                    int _eclear = 0;
+                    while (glGetError() != GL_NO_ERROR && _eclear++ < 16) {}
+                }
             }
             /* ★ AUD-1000-ALL A2-007（P1 已修）：window 出屏读 g_state（rr->game->cells）
                持 g_mutex 短读锁——旧实现渲染线程无锁读，与 OnTouch/OnEvent 写 g_state

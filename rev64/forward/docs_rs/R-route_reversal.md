@@ -51,7 +51,7 @@
 | `save.c` | one.sjq 进度（0x37664/0x379ec L74）/ one.sjg 对局存档（0x390ac L89） |
 | `bt_protocol.c` | 蓝牙 v2 帧（0x26f24）+ 60 格全盘同步（§92，UUID/服务名/版本确证） |
 | `main.c` | 桌面 headless 可执行（走一局 + 悔棋 + 暗棋翻棋） |
-| `jni_bridge.c` | 14 个 On* JNI 入口（签名与 App.smali 一致）+ 规则引擎接线 |
+| `jni_bridge.c` | 14 个 App On* JNI 入口 + JNI_OnLoad（★ R18 口径: smali 共 15 native 方法 = 14 App On* + JNI_OnLoad; 签名与 App.smali 一致）+ 规则引擎接线 |
 | `regress.py` | 回归：N 局 AI 对弈 + 悔棋 + 吃子事件覆盖断言 |
 | `build_rs.sh` | 构建：desk（桌面）/ so（NDK arm64）/ apk（可安装双 ABI） |
 
@@ -87,6 +87,6 @@
 cd rev64/forward/src_rs
 make desk                          # dist/jq_run（桌面 headless）
 python3 regress.py --games 60      # 走一局 + 悔棋 + 吃子回归
-NDK=/tmp/opencode/android-ndk-r25b make so   # dist/libjunqi_rs.so（arm64，14 On*）
+NDK=/tmp/opencode/android-ndk-r25b make so   # dist/libjunqi_rs.so（arm64，14 个 App On* + JNI_OnLoad）
 NDK=... ./build_rs.sh apk dist/libjunqi_rs.so  # dist/phase_rs_apk.apk（可安装）
 ```

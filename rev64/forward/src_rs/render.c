@@ -11153,6 +11153,7 @@ void rs_render_free(rs_render *rr)
     }
     free(rr->board_px); rr->board_px = NULL;
     free(rr->piece_px); rr->piece_px = NULL;
+    free(rr->house_px); rr->house_px = NULL;   /* ★ R18-P0-2: house_px 此前漏 free (仅置 NULL), 二次 create/destroy 循环泄漏 ~84KB */
     /* ★ 对抗审计 P3-J2j（rs_render_free 漏 50 个 *_px free）：遍历全部像素 buffer
        free + 置 NULL（二次 create/destroy 循环防累积泄漏）。 */
     {

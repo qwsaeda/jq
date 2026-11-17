@@ -621,6 +621,13 @@ static void jq_bt_ctrl_send(JNIEnv *env, int type, int f1, int f2){
         g_bt_sess.tx_last_seq = seq;
         use_v3 = g_bt_sess.peer_caps_v3;
         my_ep = g_bt_sess.session_epoch;   /* ★ R13-②：v3 帧携带本端会话世代（wire_ref 高 16 位） */
+        /* ★ R18-P1-6: UNDO 型帧在此统一登记 pending (原 resign_req 钩子预取号跳号 2 已删),
+           保证帧 seq == pending_seq/last_req_seq, 收 ACK 匹配 10727 成立。 */
+        if (type == BT_T_UNDO) {
+            g_bt_sess.pending_seq = seq;
+            g_bt_sess.last_req_seq = seq;
+            g_bt_sess.undo_pending = 1;
+        }
     }
     pthread_mutex_unlock(&g_mutex);
     int n;
@@ -1265,14 +1272,11 @@ static const char *on_event(const char *name, const char *value, JNIEnv *env)
            收端按 seq 幂等去重 + 对称回退后回 UNDO_ACK(ref, hash)；legacy 0 退化
            兼容判据 f2==0&&f3==0 仍走旧路径。 */
         {
-            pthread_mutex_lock(&g_mutex);
-            g_bt_sess.tx_seq++;
-            g_bt_sess.last_req_seq = g_bt_sess.tx_seq;
-            g_bt_sess.pending_seq = g_bt_sess.tx_seq;
-            g_bt_sess.undo_pending = 1;   /* 发端 pending：走子闸口冻结（见 OnTouch 守卫） */
-            unsigned int _seq = g_bt_sess.tx_seq;
-            pthread_mutex_unlock(&g_mutex);
-            jq_bt_ctrl_send(env, BT_T_UNDO, (int)_seq, 0);
+            /* ★ R18-P1-6: 取号+登记统一在 jq_bt_ctrl_send 内部执行 (原钩子预取号 +
+               ctrl_send 内部再取号 = seq 跳号 2, 导致 pending_seq ≠ 实际帧 seq,
+               收 UNDO_ACK 时 10727 `pending_seq == u_ref` 永不匹配 → 走子闸口永久冻结)。
+               ctrl_send: ++tx_seq + 登记 pending_seq/last_req_seq/undo_pending + 编码。 */
+            jq_bt_ctrl_send(env, BT_T_UNDO, 0, 0);   /* seq=0 → ctrl_send 内部统一取号 */
         }
         sfx_play(env, "pop");
         jq_evt55_dispatch(42, "Junqi.RegretReq");   /* ★ 55code 分发：code 42 = RegretReq */
@@ -2999,7 +3003,7 @@ Java_com_qwsaeda_App_OnTimer(JNIEnv *env, jclass clazz)
                 int e = jq_try_move(&g_state, from, to);
                 if (e >= 0) { ui_replay_record(from, to, 0); ai_ev = e; }   /* ★ P1（datah_039/107）：AI 走子记录 */
                 LOGI("红方 AI 应着：from=%d to=%d 结果=%s（turn 切回蓝方）",
-                     from, to, JQ_EVENT_NAMES[e < 0 ? 0 : e]);
+                     from, to, JQ_EVENT_NAMES[(e >= 0 && e < 7) ? e : 0]);   /* ★ R18-P1-2: 上界守卫 (对照 :1223 同款, 防 e>=7 OOB 读 7 项数组) */
                 if (e < 0 && pushed) undo_pop_discard();   /* 走子失败回滚栈顶快照 */
             }
             if (g_state.stage == STG_OVER) ai_win = g_state.winner;
@@ -3703,7 +3707,7 @@ Java_com_qwsaeda_App_OnUpdate(JNIEnv *env, jclass clazz)
                     if (e >= 0) ui_replay_record(from, to, 0);   /* ★ P1（datah_039/107）：AI 走子记录 */
                     if (e < 0 && pushed) undo_pop_discard();
                     LOGI("红方 AI 应着：from=%d to=%d 结果=%s（turn 切回蓝方）",
-                         from, to, JQ_EVENT_NAMES[e < 0 ? 0 : e]);
+                         from, to, JQ_EVENT_NAMES[(e >= 0 && e < 7) ? e : 0]);   /* ★ R18-P1-2: 上界守卫 (对照 :1223 同款, 防 e>=7 OOB 读 7 项数组) */
                 }
             }
             pthread_mutex_unlock(&g_mutex);
@@ -10088,14 +10092,9 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
                 /* ★ BT 联机：悔棋 → 发 UNDO 帧（对端同步悔棋；收帧侧 8048 本地回退） */
                 /* ★ R9-C：☰ 菜单 BT 悔棋——REQ 帧 seq 携带（legacy 帧 0 退化兼容） */
                 if (sess_init_done_snap && (popped || ui_bt_active())) {
-                    pthread_mutex_lock(&g_mutex);
-                    g_bt_sess.tx_seq++;
-                    g_bt_sess.last_req_seq = g_bt_sess.tx_seq;
-                    g_bt_sess.pending_seq = g_bt_sess.tx_seq;
-                    g_bt_sess.undo_pending = 1;
-                    unsigned int _seq2 = g_bt_sess.tx_seq;
-                    pthread_mutex_unlock(&g_mutex);
-                    jq_bt_ctrl_send(env, BT_T_UNDO, (int)_seq2, 0);
+                    /* ★ R18-P1-6 同源修复: 取号+登记统一在 ctrl_send 内部 (原预取号跳号 2),
+                       与 :1275 regret_req 钩子同模式。 */
+                    jq_bt_ctrl_send(env, BT_T_UNDO, 0, 0);
                 }
             } else if (bt_mode && act == 2) {   /* 提和（联机版，datah_067）→ 提和详情弹窗（★ P2 datah_042） */
                 /* ★ P2（datah_042 证据）：提和入口从"直接发帧"升级为 datah_042 7 图标
