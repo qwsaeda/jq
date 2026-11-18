@@ -480,11 +480,13 @@ static void *rs_render_thread_main(void *arg)
                 if (frame_cnt < 50 || frame_cnt % 1000 == 0)
                     LOGE("渲染线程 帧 %d：eglSwapBuffers 失败 err=0x%x（window 出屏未上屏；0x3000=EGL_BAD_SURFACE 周期诊断）",
                          frame_cnt, eglGetError());
-                 /* ★ 2026-11-12 荣耀 Magic9 真机修复（P1）：swap 失败时 3 秒节流主动重建
-                    window surface（旧 3000 帧周期 = 60s 太慢，Adreno 真机 buffer 被系统
-                    回收后 60s 黑屏才自愈）。180 帧（20fps）= 3s，比 3000 帧快 20 倍。 */
+                 /* ★ 2026-11-12 荣耀 Magic9 真机修复（P1）：swap 失败时主动重建
+                    window surface（旧 3000 帧=60s 太慢 → 180 帧=3s）。★ R25 正向优化：
+                    60 帧（~1s @60fps）= 比 180 帧快 3 倍——进主界面 EGL surface 周期
+                    失效（ANativeWindow buffer 回收）后 1s 内自愈，消除"进主界面卡顿"
+                    主因之一（3s 黑屏等待）。 */
                  static int g_last_swap_fail_rebuild = 0;
-                 if (frame_cnt - g_last_swap_fail_rebuild >= 180) {
+                 if (frame_cnt - g_last_swap_fail_rebuild >= 60) {
                      g_last_swap_fail_rebuild = frame_cnt;
                      if (g_surf_jobj && egl_current_thread_attached) {
                          LOGI("渲染线程 帧 %d：swap 失败 → 主动重建 window surface（3s 节流）",
