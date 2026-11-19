@@ -76,8 +76,9 @@
 - **render pass 攻坚细化（真机 152，2026-11-19 23:18）**：
   - JNI raw varargs CallObjectMethod 取 Surface → SIGSEGV（fault 0x10，houdini 变参 jobject 对齐问题）→ 改 jni crate safe API `call_method` 后无崩溃
   - 阶段打点：`jq.wgpu_state=device_ok` + `jq.wgpu_step=window_got`（GLView.getHolder().getSurface() → ANativeWindow_fromSurface 成功）
-  - **当前卡点**：`jq.surface_fail` + `jq.surface_step=none` = wgpu `create_surface_unsafe(SurfaceTargetUnsafe::from_window(AndroidNdkWindowHandle))` 静默返回 None（houdini + gles 后端 surface 创建兼容问题）
-  - wgpu 30 API 全对齐（Instance/Adapter/Device/Surface/CurrentSurfaceTexture/SurfaceConfiguration），create_surface+clear_frame 编译通
+  - **卡点精确定位**：`jq.surface_step=create_surface_unsafe_err`（细分打点 enter→window_nonnull→from_window_ok→**create_surface_unsafe_err**）= wgpu-hal gles 后端 `eglCreateWindowSurface(ANativeWindow)` 在 houdini 下失败；试 Vulkan 后端 → `device_fail`（无 Vulkan adapter）。**结论：MuMu houdini 转译环境不支持 wgpu surface 创建（环境限制，非代码）**，对齐 AGENTS.md §124y-279"模拟器结论不可外推真机"
+  - wgpu 30 API 全对齐（Instance/Adapter/Device/SurfaceTargetUnsafe::from_window(AndroidNdkWindowHandle)/CurrentSurfaceTexture/SurfaceConfiguration），create_surface+clear_frame+细分打点编译通
+  - **真机（非 houdini）路径**：wgpu gles device + surface 在真 ARM64 GPU 上应可创建（未验证，设备为 MuMu x86_64+houdini）——真机可达时重验 create_surface
 - **完整出屏闭环（跨 session）**：① native setContentView ✓ ② OnUpdate+wgpu device ✓ ③ wgpu render pass（EGL surface+wgsl+纹理）✗ —— 仅剩 ③
 
 ## 5. PENDING 项（真机可达 10.0.182.152，wgpu 出屏攻坚进行中）

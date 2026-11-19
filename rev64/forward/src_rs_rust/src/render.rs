@@ -61,7 +61,7 @@ mod gles_render {
             use pollster::FutureExt;
             // wgpu 30 真实 API：Instance::new(desc) 非 &desc + RequestAdapterOptions（非 AdapterOptions）
             let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
-                backends: wgpu::Backends::GL, // gles 后端（对齐 C libGLESv2）
+                backends: wgpu::Backends::GL, // gles 后端（对齐 C libGLESv2；Vulkan 在 houdini 下 device_fail）
                 flags: wgpu::InstanceFlags::default(),
                 memory_budget_thresholds: wgpu::MemoryBudgetThresholds::default(),
                 backend_options: wgpu::BackendOptions::default(),
@@ -99,11 +99,14 @@ mod gles_render {
             width: u32,
             height: u32,
         ) -> Option<(wgpu::Surface<'static>, wgpu::SurfaceConfiguration)> {
+            crate::log::setprop("jq.surface_step", "enter_create_surface");
             use raw_window_handle::{AndroidNdkWindowHandle, HasWindowHandle, RawWindowHandle, WindowHandle};
             use pollster::FutureExt;
             if anative_window.is_null() {
+                crate::log::setprop("jq.surface_step", "null_window");
                 return None;
             }
+            crate::log::setprop("jq.surface_step", "window_nonnull");
             let nwin = std::ptr::NonNull::new(anative_window as *mut ())?;
             // 自定义 handle 包装 ANativeWindow
             struct WinHandle(std::ptr::NonNull<()>);
@@ -113,9 +116,15 @@ mod gles_render {
                 }
             }
             let wh = WinHandle(nwin);
-            let surface = unsafe {
-                instance.create_surface_unsafe(wgpu::SurfaceTargetUnsafe::from_window(&wh).ok()?)
-            }.ok()?;
+            let target = match unsafe { wgpu::SurfaceTargetUnsafe::from_window(&wh) } {
+                Ok(t) => t,
+                Err(_) => { crate::log::setprop("jq.surface_step", "from_window_err"); return None; }
+            };
+            crate::log::setprop("jq.surface_step", "from_window_ok");
+            let surface = match unsafe { instance.create_surface_unsafe(target) } {
+                Ok(s) => s,
+                Err(_) => { crate::log::setprop("jq.surface_step", "create_surface_unsafe_err"); return None; }
+            };
             crate::log::setprop("jq.surface_step", "surface_created");
             let caps = surface.get_capabilities(&instance.request_adapter(&wgpu::RequestAdapterOptions {
                 power_preference: wgpu::PowerPreference::LowPower,
