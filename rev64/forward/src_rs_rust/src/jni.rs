@@ -83,14 +83,29 @@ mod android_impl {
             let sig_ver = c"(I)V";
             let mid_ver = get_method(env, cls, set_ver.as_ptr() as *const _, sig_ver.as_ptr() as *const _);
             if !mid_ver.is_null() {
-                let call_void = match envf.CallVoidMethod {
-                    Some(f) => f,
-                    None => return view,
-                };
-                call_void(env, view, mid_ver, 2i32);
+                if let Some(f) = envf.CallVoidMethod {
+                    f(env, view, mid_ver, 2i32);
+                }
             }
-            // requestRender() 不在 native OnCreate 调：view 尚未 attach（mGLThread=null）→ NPE 崩溃
-            // （C 版在 setContentView 之后调；Java App.onCreate setContentView 后 GLThread 自启动）
+            // ★ 出屏根因修复（对齐 C jni_bridge.c:2740）：native OnCreate 内调 activity.setContentView(view)
+            //   smali onCreate 拿到 GLView 后只 setOnTouchListener+setRenderer，无 setContentView
+            //   → view 不 attach → GLThread 不启动 → surfaceCreated 不触发 → OnUpdate 永不被调
+            //   → wgpu 无出屏。此处补 setContentView(view) 激活 Java GLThread 出帧链。
+            let act_cls = match envf.GetObjectClass {
+                Some(f) => f(env, activity),
+                None => return view,
+            };
+            if !act_cls.is_null() {
+                let set_cv = c"setContentView";
+                let sig_cv = c"(Landroid/view/View;)V";
+                let mid_cv = get_method(env, act_cls, set_cv.as_ptr() as *const _, sig_cv.as_ptr() as *const _);
+                if !mid_cv.is_null() {
+                    if let Some(f) = envf.CallVoidMethod {
+                        f(env, activity, mid_cv, view);
+                    }
+                }
+            }
+            // requestRender 不在 native 调：view attach 后 Java GLThread 自会出首帧（提前调 NPE）
             view
         }
     }

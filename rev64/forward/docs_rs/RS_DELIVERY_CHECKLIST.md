@@ -68,7 +68,12 @@
 - **houdini 诊断限制**：setprop 可用（jq.native_probe=OnCreate_called 实锤），logcat 桥/文件探针失效；native OnCreate 已调，但 **OnUpdate（GLThread onDrawFrame）未被调**（jq.wgpu_state=none）→ wgpu device 未初始化
 - **出屏链路完整诊断（真机 152）**：native OnCreate ✓ → GLView 非 null ✓ → setEGLContextClientVersion(2) ✓ → **GLThread onDrawFrame 未触发**（C 版靠 native `jq_glview_start_render_thread()` PBuffer 渲染线程持续驱动，Rust 缺）→ OnUpdate 不调 → wgpu 不出屏
 - **requestRender NPE 修复**：native OnCreate 调 GLView.requestRender 在 view attach 前 → GLThread null → NPE 崩溃 SIG9；已去掉（C 版在 setContentView 后调）
-- **完整出屏闭环（跨 session）**：① native 渲染线程（jq_glview_start_render_thread 等价）+ ② wgpu render pass（EGL surface+wgsl+棋盘纹理）+ ③ OnUpdate 接线，三者缺一不可；当前截图 22KB/59% = Java 默认画面
+- **★ 出屏链路打通（真机 152，2026-11-19 23:11，pid 5629）**：
+  - native OnCreate 补 **activity.setContentView(view)**（C jni_bridge.c:2740）——smali onCreate 只 setOnTouchListener+setRenderer 无 setContentView → view 不 attach → GLThread 不启动 → OnUpdate 永不被调（这才是根因）
+  - 修复后：`jq.native_probe=OnCreate_called` + **`jq.wgpu_state=device_ok`** 实锤 OnUpdate 被调用 + **wgpu device 获取成功（gles 后端可达）**
+  - 截图从 22KB/59%（Java 默认画面）→ **9087B/纯黑（GLThread surface 清屏色）**：出屏链路已打通到最后一步
+- **唯一剩余阻塞 = wgpu render pass**：黑屏 = device 拿到但没画任何内容到 surface（surface EGL 互操作 + wgsl + 棋盘纹理 + present 未实现）
+- **完整出屏闭环（跨 session）**：① native setContentView ✓ ② OnUpdate+wgpu device ✓ ③ wgpu render pass（EGL surface+wgsl+纹理）✗ —— 仅剩 ③
 
 ## 5. PENDING 项（真机可达 10.0.182.152，wgpu 出屏攻坚进行中）
 
