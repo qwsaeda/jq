@@ -18,6 +18,10 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 KINDS="flag mine restart draw resign stalemate close pop btconn"
+# ★ R48-Q78（P0 btconn 钩子防误判标注）：btconn = 模拟 App.btState("host_connected") 回调链路
+#   （jni_bridge :1619-1645 setprop 钩子 + mumu_regress 回归），非真实 BtSpp RFCOMM accept/connect
+#   数据面（BtSpp.java:44-197 真实 socket 需 BT 硬件/权限/配对，无硬件端到端 PENDING）。
+#   btconn PASS = "协议态/UI 回调模拟 PASS"，**非** "蓝牙硬件端到端可联机"（SPEC §8 L202 红线）。
 [ -n "$ONLY" ] && KINDS=$(echo "$ONLY" | tr ',' ' ')   # ★ 逗号分隔支持（--only flag,btconn）
 PASS=0; FAIL=0
 FAILED=""

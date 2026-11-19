@@ -57,7 +57,7 @@
 |---|---|---|
 | `EV_MOVE` | `Junqi.Move` | 普通走子/挖雷 |
 | `EV_EAT` | `Junqi.Eat` | 吃子（rank 小压大） |
-| `EV_BOMB` | `Junqi.Bomb` | 同级同归/碰炸弹 |
+| `EV_BOMB` | `Junqi.Bomb` | 碰炸弹（炸弹与任何棋子相遇双方消失）；★ R44-Q3 口径收敛：**同级互杀=EV_EAT**（原版 0x31de0 实证，rules.c:870——同级 rank 相等+标志相等时 ev=EV_EAT 非 EV_BOMB，EV_BOMB 仅保留给炸弹同归）；旧文案"同级同归/碰炸弹"混两类事件码，现以代码实证为准 |
 | `EV_FLAG` | `Junqi.Flag` | 扛军旗（对局结束） |
 | `EV_DEAD` | `Junqi.Dead` | 子被吃/同归 |
 | `EV_FLIP` | `Junqi.Flip` | 翻棋 |
@@ -92,7 +92,7 @@
 旧"74 事件名"（§124y-114 早期 10 大类求和 74）已被 §124y-163 取代，头注保留
 "74→76 口径演变"防复发）：
 - 走子/吃子/翻牌 7 + 胜负/终局 7 + 悔棋 6 + 和棋 5 + 投降 2 + 登录/账号 10
-  + 注册 12 + 联机 11 + 摆子/布局 8 + 系统/杂项 4 + Misc 去广告 2 = 74 条
+  + 注册 12 + 联机 11 + 摆子/布局 8 + 系统/杂项 4 + Misc 去广告 2 = 74 条（★ R43-Q26 历史快照注：§124y-114 早期求和，当前真值 76=73 Junqi+3 Misc，"74"仅历史演变注，正文以 76 为准防同节混读）
   （★ R7-D-24/25 口径定案：§124y-114 早期 10 大类**求和 74 = 当时快照**
   （Misc 区早期仅 2 条）；.rodata 0x120xxx 全量实测**当前真值 76**
   = Junqi 73 + Misc 3（Misc 区后补 1 条，§124y-163 事件名映射固化）。
@@ -178,14 +178,15 @@ UI_MENU（5 按钮：人机/两人/联网/联机/四国）
 
 ## 7. 对局状态
 
-- `jq_state`：`cells[60]`（rank/side/revealed/flags）+ `turn`（0=蓝 1=红）+ `stage`（PLAY/OVER）+ `winner`（-1/0/1/2）+ `moves_since_eat`/`total_moves`。
+- `jq_state`：`cells[60]`（rank/side/revealed/flags）+ `turn`（0=蓝 1=红）+ `stage`（PLAY/OVER）+ `winner`（-1/0/1/2）+ `moves_since_eat`/`total_moves` + **`mode`（JQ_MODE_LAY 明棋/JQ_MODE_FLIP 暗棋，★ R43-Q69 补）** + **`mines_cleared[2]`（暗棋工兵挖雷计数）/`pieces_left[2]`（各方剩余可动子缓存，规则不读本字段，jq_refresh_movable_counts 刷新）/`stale_v[2]`/`stale_c[2]`（困毙 per-side 增量缓存，落子/翻棋后置 dirty，jq_side_stalemated 只 dirty 时重扫，★ R43-Q67 补）**。
+- **翻棋 0xFF 定色状态**（★ R43-Q72 补）：暗棋开局全 60 格 `side=SIDE_UNKNOWN(0xFF)` + `revealed=0` + `mode=JQ_MODE_FLIP`；`jq_flip` 将 0xFF 定色为 `st->turn` 方 + `revealed=1` + `turn` 翻转 + 翻棋不计步（不消耗 moves_since_eat/total_moves）；0xFF 子双方可翻（jq_can_flip 允许 0xFF 当前回合方，保留回合门防抢定色）；**暗棋 0xFF 提取全 0=jq_dark_setup 专路径（设计边界非 bug，经 jq_extract_layout_30 提取无有效蓝方归属）**。
 - `jq_cell`：rank（raw）/side/revealed/flags（JQF_MINE/JQF_FLAG）。
 - 和棋判据：`moves_since_eat >= 70 || total_moves >= 1000`（走子后自动检查）。
 - 困毙判据：`jq_side_stalemated(st, turn)`（走子后自动检查）。
 
 ## 8. 诚实边界（红线）
 
-- 渲染/音频为桩（OnCreate 返回 NULL，Java 侧 new GLView 兜底）。**★ R30-Q80 文档修正：蓝牙 SPP socket 非桩**——`BtSpp.java` 已接线 SPP 读写线程（host 监听/client 连接/帧重组/UNDO 收帧闭环）+ `App.smali` btHost/btClient/btSend 接线 + `jni_bridge.c` 发送/启动/CAP 全链；诚实边界 = **无 BT 硬件端到端验证**（桌面桩验证协议状态机，非联机可玩）。
+- 渲染/音频为桩（OnCreate 返回 NULL，Java 侧 new GLView 兜底）（★ R43-Q78 历史态标注：早期渲染/音频桩口径，**现已被 SSOT L199-200「已接线」取代**——渲染=GL2 window 出屏已接线（视觉未真机验证，设备 PENDING）；音频=sfx_wav 三路径已接线（实播真机未验）；本行保留为历史演变注，非当前态）。**★ R30-Q80 文档修正：蓝牙 SPP socket 非桩**——`BtSpp.java` 已接线 SPP 读写线程（host 监听/client 连接/帧重组/UNDO 收帧闭环）+ `App.smali` btHost/btClient/btSend 接线 + `jni_bridge.c` 发送/启动/CAP 全链；诚实边界 = **无 BT 硬件端到端验证**（桌面桩验证协议状态机，非联机可玩）。
 - 7 字段帧语义为行为级约定（非原版 C++ 类布局逐字段逆向）。
 - "能玩"需真机 GPU 设备验收（MuMu GLES1 几何出帧受限，PBuffer 离屏已证、window surface 通路未通）。
 - 不包装成"完整版/可玩"——本规格描述已对齐实现，非独立设计稿。
@@ -207,12 +208,20 @@ UI_MENU（5 按钮：人机/两人/联网/联机/四国）
 **★ R39-Q23/Q38/Q67（P0 SSOT 时效刷新 + evverify 真值收敛 + 设备 PENDING 互斥标注，防多口径无仲裁）**：
 - **最后复核锚点**：本 SSOT 表 R34（撞未翻结算）/R37（渲染 P1：sel_line 清零+hl_pool clamp+house blend）/R38（蓝牙 P1：被拒帧 seq 窗口登记）/R39（蓝牙头注 10 类修正）落地后复核（2026-11-19 第 2 批次 12-17 轮）
 - **evverify 真值收敛**：当前真值 = **174/174（42 事件 + 132 几何）**；AGENTS.md/align_gate.sh:7/gen_align_coverage.py:129/PIPELINE.md 注释"172/172"为 R27 前历史快照，以 SUMMARY 动态真值（174）为唯一仲裁——工具链注释待同步（Q65/Q88 防误判红线）
+- **★ R50-Q13/Q24（P0 当前态单一权威字段 + so 哈希登记，防历史/当前时间维度误判）**：
+  - **当前 so 哈希** = **`729496B`**（R37-R41 落地：datax 快检/选路 + 渲染 P1 + 蓝牙 P1 + 存档 P1；历史实锤 so 722dde6d/09664e7f/81780508/82bfc803/d0342096/08111239 均为旧版本，AGENTS 各段绑定旧 so 非当前）
+  - **当前态时间戳** = **截至 2026-11-19**（第 3 批次审计 R43-R49 落地，10.0.182.146 No route to host = 设备不可达 = 全 6 域 PENDING）
+  - **当前态权威字段**：`current_state = PENDING（设备不可达）` / `current_so = 729496B` / `as_of = 2026-11-19` / `device = 10.0.182.146` / `device_reachable = false`——**此为当前态唯一权威**，AGENTS 各"已达成/PASS"段（绑定旧 so+日期）为历史实锤，**以本字段+设备可达性为准仲裁**（SPEC L211 互斥标注落地为可机判字段，防"历史 PASS 外推当前达成"误判）
+  - **历史 PASS 防外推机制**：AGENTS L334/L465"当前状态已达成"已加 ★ 历史实锤失效标注（R50-Q46）；设备恢复后重跑 5 判据全链 + so 对齐 current_so 才允许更新当前态为"已达成"（更新 as_of/device_reachable）
 - **设备 PENDING 互斥标注**：AGENTS 历史"已达成/PASS"段落（so 哈希/pid/日期各异）= **历史实锤**（绑定当时 so+设备+时间），**非当前状态**；当前 10.0.182.146 No route to host（SPEC L204）= 设备不可达，**当前态 = PENDING**，历史 PASS 不外推当前达成（Q38/Q45/Q68 互斥仲裁：以最新实测时间戳+设备可达性为准）
 - **口径红线补**（Q56/Q57/Q58 防误判）：① SYNC_CELL 白名单=逐格盘面注入防护（非全量状态对账，stage/turn/计数不同步）② v2 帧 seq=0 降级=无 epoch/seq 去重（仅 v3 帧享）③ UNDO hash 省 SYNC=mismatch 才全量广播（hash 一致不回退本地对账）④ 资源 48 项私有预读 vs 970 dev 全量=选路决定进程读到全量（推 dev≠进程读，R36-Q46 回退修）
 ⑤ **replay 明棋范式 ≠ 暗棋翻棋**（R42-Q30）：`replay.c:94-96` 强制 `revealed=1` 后重放，翻棋步 `jq_flip` 对已翻子 no-op → 翻棋序列重放失败=设计边界（翻棋=暗棋玩法，replay 仅明棋），桌面 0 回归 ≠ replay 翻棋/暗棋全对齐
 ⑥ **sjg 非原版兼容 + 短读已修**（R42-Q31）：one.sjg 裸 `sizeof(jq_state)` 序列化=行为级自有格式（混合版本互读 PENDING）；R41-Q16 短读污染根治 + R41-Q17 读后域校验（turn/stage/winner/mode）；残余=cells 逐格域未校验（与 SYNC_CELL 白名单同语义，防脏值注入非全量对账）
 ⑦ **资源 970 推全量 ≠ 进程读到 970**（R42-Q33）：spak_res 仓内 970（14 WAV）=交付口径；运行时选路=priv 48 项（缺 datax 背景 bin）→ R36-Q46 回退 dev 970；出屏=设备截图非黑比（PENDING，非 48/970 计数可达）
 ⑧ **音效 14 仓内 vs 18 原版**（R42-Q32）：EV2WAV 14 项（move/eat/bomb/flag/dead/flip/win/lose/draw/start/over/select/close/pop）=仓内实物；原版 18 WAV（R7-D-26 分标）缺 4；实播=AudioTrack 设备（PENDING），桌面 `jq_sfx_load_selftest` 仅验解码能力
+⑨ **存档×蓝牙交叉=恢复对局≠恢复联机会话**（R49-Q78/Q88/Q99，P0）：one.sjg 仅序列化 `jq_state`（cells/turn/stage/winner/mode/计数/stale_*），**不持久化 `jq_bt_session` 会话态**（seq/epoch/peer_caps_v3/UNDO 事务 pending/last_req/last_resp/legacy_undo_done/连接态 g_bt_connected/ui_bt_active）——续局后协议语境（去重窗口/世代防护/能力协商/UNDO 对称回退）必丢失，**存档恢复 ≠ 联机会话可续**；`OnResume` 仅恢复 `g_state`+强置 STG_PLAY（:3025），**不触发 `start_bt_session` 会话重建/60 帧 SYNC_CELL 对账**（:3916-3963 仅显式重连入口走）；SAVE 全量快照权威（整 jq_state）vs SYNC_CELL 增量白名单（仅 cells 三字段，stage/turn/计数不同步，红线①）两条收敛通道未仲裁；跨重启强一致 PENDING（:333-335 单调窗口不回绕，对端 seq 空间重启未覆盖）× 存档恢复态注入放大——**"存档恢复后可继续联机"为误判，需重连+重协商+对账（非存档自动完成）**；桌面 evverify 174 无 save×bt 交叉用例（Q89-Q99），交叉正确性依赖真机 BT 硬件端到端（PENDING）
+⑩ **竞态域 D=静态可见风险≠已实锤数据竞争（防双向误判）**（R52-Q21/Q34-Q44，P1）：`g_event_cnt[73]/g_event_total` 无锁 int 双变量非原子同增（SPEC L72 声明"诊断用途非强一致"，`jni_bridge.c:1150-1151` + `evt55_dispatch.c:153-159/:222-226` 多入口累加）；`undo_push/pop/pop_discard` 无 `g_mutex` 写 `g_state`（`:223-251`，仅 pop 内 `g_ts_lock` 复位触摸态）；`g_bt_connected` 三写源（收帧推定/属性轮询/发送前同步 `:524/:553/:563`）无锁镜像；UI getter 快读 vs setter 加锁（`ui_state.c:43-58/:208-229` int 原子假设）——**双向误判防**：既不可宣称"无竞态/线程安全"（静态可见无锁共享状态面广，需 TSAN/压力/真机多线程实测才能实锤），也不可宣称"必现数据竞争/崩溃"（无 TSAN/无真机多线程证据，桌面桩单线程）；本轮审计未升级 P0（无实锤崩溃）；收敛需 TSAN 检测+真机多线程实测（设备 PENDING）
+⑪ **EGL 跨线程=R51 set/reset 加锁后仍有残留无锁面（"EGL 线程安全已收敛"为误判）**（R52-Q22/Q48-Q55，P1）：`R51-Q23/Q24` 已修 `jq_glview_set_window`/`reset_win` 写 `g_win`/`g_win_surf` 加 `g_mutex`（与渲染线程 :472 持锁 `rs_render_frame` 互斥，防 UAF/双重 release）；**残留无锁面未收敛**：① `jq_glview_frame`（:235-239）无锁直调 `rs_render_frame`（与渲染线程 window 分支持锁路径契约分叉，外部非持锁线程调用即竞态）② `g_gl_current/g_current_is_window/g_win_surf` 渲染线程主循环 vs 主线程 reset_win 仍有非 set/reset 入口的共享读写点（Q48）③ `g_surf_jobj`（`set_surface_env` :226-233）主线程写 vs 渲染线程 `fromSurface` 轮询读无同步（Q49）④ GL 对象跨 context delete 依赖驱动宽容无归属校验（Q52）⑤ PBuffer 路径不持锁 vs window 路径持锁双语义（Q47）——**"EGL 加锁（R51）≠ EGL/渲染全链线程安全"**，残留项需 TSAN/真机多线程压测才能实锤（设备 PENDING），收敛前维持"静态可见风险"口径（禁外推"线程安全已达成"）
 
 **★ R42-Q80（P0 设备 PENDING 机器汇总段，防"分散文本 PENDING"误判当前达成）**：
 - **设备侧 6 域 PENDING 统一登记（10.0.182.146 No route to host，当前不可裁决）**：

@@ -2001,7 +2001,7 @@ Java_com_qwsaeda_App_OnCreate(JNIEnv *env, jclass clazz, jobject activity)
         if (strcmp(jo_prop, "1") == 0) {
             ui_screen_set(UI_JOIN);
             LOGI("jq.join 钩子：→ UI_JOIN 加入游戏弹窗（datah_034 桌号占位标签 + 确定/取消，"
-                 "诚实边界：Wi-Fi/局域网协议未逆向，src_rs 仅蓝牙联机已实现，确定→边界对话框）");
+                 "诚实边界：Wi-Fi/局域网协议未逆向；src_rs 蓝牙 SPP 联机=代码/协议接线已实现（帧语义对齐+UNDO/SYNC/CAP），**但无 BT 硬件端到端验证（PENDING，需真实 BT 硬件/权限/配对/双端实测），非联机可玩承诺**；确定→边界对话框）");
             __system_property_set("jq.join", "0");
         }
     }
@@ -2019,7 +2019,7 @@ Java_com_qwsaeda_App_OnCreate(JNIEnv *env, jclass clazz, jobject activity)
         if (strcmp(cr_prop, "1") == 0) {
             ui_screen_set(UI_CREATE);
             LOGI("jq.create 钩子：→ UI_CREATE 创建游戏弹窗（datah_035 密码占位标签 + 确定/取消，"
-                 "诚实边界：Wi-Fi/局域网协议未逆向，src_rs 仅蓝牙联机已实现，确定→边界对话框）");
+                 "诚实边界：Wi-Fi/局域网协议未逆向；src_rs 蓝牙 SPP 联机=代码/协议接线已实现（帧语义对齐+UNDO/SYNC/CAP），**但无 BT 硬件端到端验证（PENDING，需真实 BT 硬件/权限/配对/双端实测），非联机可玩承诺**；确定→边界对话框）");
             __system_property_set("jq.create", "0");
         }
 
@@ -2583,13 +2583,22 @@ Java_com_qwsaeda_App_OnCreate(JNIEnv *env, jclass clazz, jobject activity)
            datax，渲染背景 MISS 且不回退 dev（单目录读）。选路加 datax 探测：priv 存在但缺 datax_294 前缀
            时回退 dev 全量（dev 推 970 含 datax 301 个），防"推全量 dev ≠ 进程读到全量"误判。 */
         {
+            /* ★ R46-Q1/Q57（P1 datax 双前缀探测，防 priv 半齐 case）：渲染 render.c:648 同时依赖
+               datax_294_（菜单背景）+ datax_177_（对局背景）两类 JPEG 真值源——旧探测仅 294 单前缀，
+               priv 含 294 缺 177 时仍选 priv → 对局背景 MISS 纯色退化（选路-读取半同源断裂）。
+               改双前缀齐才选 priv，缺一回退 dev 全量 970（dev 双前缀齐）。 */
             int priv_has_datax = 0;
+            int priv_has_294 = 0, priv_has_177 = 0;
             DIR *dp = opendir(priv);
             if (dp) {
                 struct dirent *de;
-                while ((de = readdir(dp)) != NULL)
-                    if (strncmp(de->d_name, "datax_294_", 10) == 0) { priv_has_datax = 1; break; }
+                while ((de = readdir(dp)) != NULL) {
+                    if (strncmp(de->d_name, "datax_294_", 10) == 0) priv_has_294 = 1;
+                    if (strncmp(de->d_name, "datax_177_", 10) == 0) priv_has_177 = 1;
+                    if (priv_has_294 && priv_has_177) break;
+                }
                 closedir(dp);
+                priv_has_datax = priv_has_294 && priv_has_177;   /* 双前缀齐才视为 datax 背景齐 */
             }
             if (stat(priv, &st) == 0 && priv_has_datax) {
                 snprintf(g_spak_dir_buf, sizeof g_spak_dir_buf, "%s", priv);
@@ -2982,7 +2991,7 @@ static void spak_res_stage_private(JNIEnv *env, jobject activity, int log_miss)
             if (ok) copied++; else miss++;
         }
     }
-    LOGI("spak_res 预读：getFilesDir/spak_res 落地 %d/48（Java 反射读 assets，免 AAsset C API 锁竞争，缺失 %d 走纯色退化）",
+    LOGI("spak_res 预读：getFilesDir/spak_res 落地 %d/50（Java 反射读 assets，免 AAsset C API 锁竞争，缺失 %d 走纯色退化；★ R46-Q12 实 50 项清单非 48，旧 /48 文案漂移）",
          copied, miss);
     if (am_cls) (*env)->DeleteLocalRef(env, am_cls);
     if (am) (*env)->DeleteLocalRef(env, am);
@@ -3014,7 +3023,11 @@ Java_com_qwsaeda_App_OnResume(JNIEnv *env, jclass clazz)
             g_state = resumed;
             g_state.stage = STG_PLAY;   /* 续局回对局态（快照终局态保留则终局） */
             pthread_mutex_unlock(&g_mutex);
-            LOGI("OnResume：one.sjg 快照续局读成功（回合回对局，winner=%d）", g_state.winner);
+            /* ★ R49-Q79（P0 存档×BT 交叉误判根治）：sjg 仅恢复 jq_state 棋盘/对局态，
+               **不恢复 BT 会话态**（seq/epoch/能力/UNDO 事务/连接态全失，SPEC 红线⑨）——
+               续局后若需继续联机必须走 start_bt_session 重建会话+对账（非 OnResume 自动完成），
+               日志显式标注防"存档恢复=联机可续"误判。 */
+            LOGI("OnResume：one.sjg 快照续局读成功（回合回对局，winner=%d）；★ 仅恢复 jq_state 棋盘/对局态，BT 会话态（seq/epoch/能力/UNDO/连接）未恢复（SPEC 红线⑨，续联机需 start_bt_session 重建+对账）", g_state.winner);
         }
     }
 }
@@ -3309,7 +3322,7 @@ Java_com_qwsaeda_App_OnUpdate(JNIEnv *env, jclass clazz)
         if (strcmp(jo_prop, "1") == 0) {
             ui_screen_set(UI_JOIN);
             LOGI("OnUpdate 加入游戏入口：join=1 → UI_JOIN 加入游戏弹窗（datah_034 桌号占位标签 + 确定/取消，"
-                 "诚实边界：Wi-Fi/局域网协议未逆向，src_rs 仅蓝牙联机已实现，确定→边界对话框）");
+                 "诚实边界：Wi-Fi/局域网协议未逆向；src_rs 蓝牙 SPP 联机=代码/协议接线已实现（帧语义对齐+UNDO/SYNC/CAP），**但无 BT 硬件端到端验证（PENDING，需真实 BT 硬件/权限/配对/双端实测），非联机可玩承诺**；确定→边界对话框）");
             __system_property_set("jq.join", "0");
         } else if (strcmp(jo_prop, "2") == 0) {
             ui_screen_set(UI_MENU);
@@ -3326,7 +3339,7 @@ Java_com_qwsaeda_App_OnUpdate(JNIEnv *env, jclass clazz)
         if (strcmp(cr_prop, "1") == 0) {
             ui_screen_set(UI_CREATE);
             LOGI("OnUpdate 创建游戏入口：create=1 → UI_CREATE 创建游戏弹窗（datah_035 密码占位标签 + 确定/取消，"
-                 "诚实边界：Wi-Fi/局域网协议未逆向，src_rs 仅蓝牙联机已实现，确定→边界对话框）");
+                 "诚实边界：Wi-Fi/局域网协议未逆向；src_rs 蓝牙 SPP 联机=代码/协议接线已实现（帧语义对齐+UNDO/SYNC/CAP），**但无 BT 硬件端到端验证（PENDING，需真实 BT 硬件/权限/配对/双端实测），非联机可玩承诺**；确定→边界对话框）");
             __system_property_set("jq.create", "0");
         } else if (strcmp(cr_prop, "2") == 0) {
             ui_screen_set(UI_MENU);
@@ -8202,7 +8215,7 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
                 ui_screen_set(UI_JOIN);
                 sfx_play(env, "pop");
                 LOGI("OnTouch 方式选择：Wi-Fi 联机 → UI_JOIN 加入游戏弹窗（datah_034 桌号占位标签 + 确定/取消，"
-                     "诚实边界：Wi-Fi/局域网协议未逆向，src_rs 仅蓝牙联机已实现，确定→边界对话框）");
+                     "诚实边界：Wi-Fi/局域网协议未逆向；src_rs 蓝牙 SPP 联机=代码/协议接线已实现（帧语义对齐+UNDO/SYNC/CAP），**但无 BT 硬件端到端验证（PENDING，需真实 BT 硬件/权限/配对/双端实测），非联机可玩承诺**；确定→边界对话框）");
             } else if (wact == 2) {   /* 个人资料 → 登录弹窗（★ P1 datah_038 证据：对齐原版登录对话框几何） */
                 ui_screen_set(UI_LOGIN);
                 sfx_play(env, "pop");

@@ -210,3 +210,48 @@ so 真值：R7 渲染 P1→so 729496B；R8/R9/R10 断言层改动 so 未变
 - evverify **174/174**（42 事件 + 132 几何，含 run_dark ⑪ 撞未翻结算 R34 + 终局幂等）
 - bt_semtest 152 + dual 43 + align_gate 8/8 + dark_align 86 全 0 退化
 - so 729496B（R14 datax 快检+选路 / R15 渲染 P1 / R16 蓝牙 P1 / R19 存档 P1 落地）
+
+---
+
+## 第 3 批次清账（21-30 轮，域轮转：SPEC 全文条款终审/明棋复合/事件分发音效/资源出屏判据/渲染 GL 状态机/蓝牙端到端诚实边界/存档×BT 交叉终审/文档历史态 vs 当前态/全模块竞态/全模块 SSOT 收敛终审）
+
+### 各轮回执（99 问题/轮）
+| 轮 | 域 | P0 | P1 | P2 | 最高价值可修 P0/P1 |
+|---|---|---|---|---|---|
+| 21 | SPEC 全文条款终审 | 7 | 54 | 38 | R43-Q67/Q69/Q72（§7 jq_state 漏 mode/mines_cleared/pieces_left/stale_*）+ Q26（§3.1 74/76 同节并存）+ Q78（L188 桩 vs SSOT 已接线互斥） |
+| 22 | rules.c 明棋复合 | 4 | 28 | 67 | R44-Q3（SPEC §3 EV_BOMB 行同级互杀口径收敛）+ Q1（cfg2 关送死不动 moves_since_eat=B01-022 撤回） |
+| 23 | 事件分发×音效映射 | 0 | 19 | 60 | R45-Q51/Q52（注释"76 事件名"→"73 Junqi 主链"）+ Q14（code_to_evname_str 未映射返 NULL 防诊断误归因 Move） |
+| 24 | 资源出屏判据 | 2 | 45 | 52 | R46-Q34（geom_ready 加 gl2_ok 门控防假阳性）+ Q1（datax 294+177 双前缀探测）+ Q12（落地 /48→/50） |
+| 25 | 渲染 GL 状态机 | 0 | 23 | 45 | R47-Q67（Attach 失败不置 attached=1）+ Q17（rs_render_frame 无 context 短路） |
+| 26 | 蓝牙端到端诚实边界 | 3 | 66 | 30 | R48-Q78（btconn 加"协议态模拟非硬件端到端"标注）+ Q82（jni_bridge 5 处 UI 文案"非联机可玩承诺"限定） |
+| 27 | 存档×BT 交叉终审 | 18 | 61 | 20 | R49-Q78（SPEC 红线加 ⑨ 存档×BT：one.sjg 不持久化 BT 会话态 5 字段 + OnResume 不重建）+ Q79（OnResume 日志"BT 会话未恢复"限定） |
+| 28 | 文档历史态 vs 当前态 | 16 | 53 | 30 | R50-Q46（AGENTS L334/L465"当前状态已达成"→历史实锤失效标注）+ Q13/Q24（SPEC 加当前 so 729496B + 截至 2026-11-19 + 当前态权威字段） |
+| 29 | 全模块竞态 | 2 | 60 | 37 | R51-Q23/Q24（EGL g_win/g_win_surf 跨线程无锁 P0 实锤→主线程 set_window/reset_win 加 g_mutex 与渲染线程 :472 互斥） |
+| 30 | 全模块 SSOT 收敛终审 | 0 | 53 | 46 | R52-Q21/Q22/Q55（SPEC 红线加 ⑩ 竞态域 D 双向误判防 + ⑪ EGL 跨线程残项防外推"加锁≠收敛"） |
+
+### 第 3 批次 P0/P1 落地汇总
+| 落地项 | 文件 | so | 全门禁 |
+|---|---|---|---|
+| R43 SPEC §7 字段补全 + §3.1 74/76 收敛 + L188 桩历史标注 | SPEC_BUSINESS.md | 不变 | 174/174 |
+| R44 SPEC §3 EV_BOMB 口径收敛（同级互杀=EV_EAT） | SPEC_BUSINESS.md | 不变 | 174/174 |
+| R45 注释 76→73 + code_to_evname_str NULL | evt55_business.c/junqi.h/evt55_dispatch.c | 729496B | 174/174 |
+| R46 geom_ready gl2_ok + datax 双前缀 + /48→/50 | glview_gl.c/jni_bridge.c | 729496B | 174/174 |
+| R47 attach 不置位 + 无 context 短路 | glview_gl.c/render.c | 729496B | 174/174 |
+| R48 btconn 标注 + UI 文案 5 处 PENDING 限定 | mumu_regress.sh/jni_bridge.c | 729496B | 174/174 |
+| R49 SPEC 红线 ⑨ 存档×BT + OnResume 日志限定 | SPEC/jni_bridge.c | 729496B | 174/174 |
+| R50 AGENTS 历史失效标注 + SPEC 当前 so/权威字段 | AGENTS.md/SPEC | 不变 | 174/174 |
+| R51 EGL set_window/reset_win 加 g_mutex | glview_gl.c | 729496B | 174/174 |
+| R52 SPEC 红线 ⑩ 竞态域 D + ⑪ EGL 残项 | SPEC_BUSINESS.md | 不变 | 174/174 |
+
+### 第 3 批次撤回误报累计（防硬凑）
+- R22-Q1 cfg2 关送死不动 moves_since_eat=B01-022 已修（撤回缺陷判定）
+- R22 同级互杀=EV_EAT 非 EV_BOMB（原版 0x31de0，Q3 撤回 bug 判定→SPEC 文案收敛）
+- R23 未知名 dispatch_by_name 拒绝=正确 / EV_MINE→idx0 合槽=设计 / 73 名表不含 Misc 3=既定口径
+- R26 BtSpp 已实现 SPP socket 非未接线 / bt_session 已处理 DRAW/CHAT/CAP 非未处理 / v2 UNDO R9 迁移非无 seq / save.c 与 BT 解耦属设计边界非崩溃 / SPEC 已声明 BT 硬件 PENDING 非缺失
+- R28 SPEC L211 互斥标注已存在 / AUD_ALIGN_R26 已声明设备 PENDING（问题转为"全域传播/机器汇总缺失"）
+- R29 Q23/Q24 EGL 跨线程为静态可见风险（无 TSAN 实锤，未升 P0 必现崩溃）
+
+### 真值演进（第 3 批次末）
+- evverify **174/174**（42 事件 + 132 几何）+ bt_semtest 152 + dual 43 + align_gate 8/8 + dark_align 86 全 0 退化
+- so 729496B（R45 注释/NULL + R46 geom_ready/datax + R47 attach/无 context + R48 UI 文案 + R49 OnResume 日志 + R51 EGL 加锁 落地）
+- **第 3 批次末轮终审（R52-Q99）：全模块 SSOT 收敛未达成**——R43-R51 局部落地成立，但 ① SSOT 表 8 行与实现/历史口径分叉（Q1-Q11）② 红线 ①-⑨ 未覆盖竞态域 D/EGL 残项（Q21/Q22，R52 已补 ⑩/⑪）③ 设备 PENDING 6 域机器汇总缺结构化产物+脚本退出码不统一（Q23-Q33）④ 误判防闭环未形成（Q55/Q84 EGL 加锁≠收敛 / btconn 模拟≠硬件 / 推全量≠读到全量）；设备 6 域维持 PENDING（SPEC L214 current_state=PENDING/device_reachable=false），历史 PASS 不外推当前达成

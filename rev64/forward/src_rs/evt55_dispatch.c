@@ -247,5 +247,8 @@ const char *jq_evt55_code_to_evname_str(int code)
         (void)e55_handler_addr[code];   /* 32位 handler 地址（诊断标识） */
     if (idx >= 0 && idx < JQ_EVENT_NAME_COUNT)
         return jq_event_names_73[idx];
-    return "Junqi.Move";
+    /* ★ R45-Q14/Q75/Q86（P1 诊断误归因根治）：未映射 code 不再兜底 "Junqi.Move"——旧兜底与
+       计数"未知名拒计数"策略矛盾（显示 Move 名但计数未增对应预期，日志误判为 Move 事件）。
+       返 NULL 由调用方判"未知 code"（诊断标注 unknown），防把未映射 code 误归因 Move。 */
+    return NULL;
 }

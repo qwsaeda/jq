@@ -10385,6 +10385,11 @@ static void rs_gl_rebuild(rs_render *rr, int slot)
 void rs_render_frame(rs_render *rr)
 {
     if (!rr->egl_ctx) return;
+    /* ★ R47-Q17（P1 无 context 短路根治）：eglGetCurrentContext()==EGL_NO_CONTEXT 时不触发
+       rs_gl_rebuild（其内大量 glGen/glTexImage2D/glBufferData 需有效 current context，无 context 调用
+       为 GL 前置条件违规/未定义行为）。旧代码仅判 rr->egl_ctx 非空，cur=EGL_NO_CONTEXT 时
+       slot_ctx[slot]!=cur 仍触发 rebuild → 无效 GL 调用风暴（Q20 now_is_glthread_ctx 无 context 恒返 slot0 同根因）。 */
+    if (eglGetCurrentContext() == EGL_NO_CONTEXT) return;
     /* 像素解码（跨 context 共享，只解一次）：纹理上传/几何对象在 rs_gl_rebuild 按 slot 建 */
     if (!rr->gl_px_loaded)
         rs_gl_first_init(rr);

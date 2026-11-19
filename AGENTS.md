@@ -331,7 +331,7 @@ java -cp /tmp/opencode/apksigner/apksig.jar:/tmp/opencode/apksigner SignV2 \
 > ③ 下一局 ✓（菜单→弹窗切明棋→确定开局 stage=PLAY→蓝方走子 6→11 `can_move=1 Junqi.Move`，复盘 n=1）
 > ④ 正常退出 ✓（am force-stop 0 崩溃）⑤ 重进不崩 ✓（重进 pid=12032 + PNG 全 OK + 0 崩溃）。
 > **验收口径**："能玩" = 装得上 + 进主界面 + 下一局（走子 can_move=1 真实棋子位移）+ 正常退出 + 重进不崩，五判据同时满足。
-> **当前状态：64 位真机"能玩"已达成**（so `722dde6d` + immersive 修复 `b75c303` + 本轮复验）；
+> **★ 历史实锤（已失效前提，非当前态）**：64 位真机"能玩"曾达成（so `722dde6d` + immersive 修复 `b75c303` + 2026-11-10 复验，绑定当时 so+设备可达+时间）；★ R50-Q46 标注：该达成受设备 10.0.182.146 可达性前提约束，当前设备 No route to host（SPEC L205）= 前提已失效，**当前态 = 设备 8 步全链 PENDING**（见下方 L578），历史 PASS 不外推当前达成（SPEC L211 互斥标注）；
 > 后续新增判据（完整 60 局对弈 / AI 介入 / 蓝牙端到端 / 真实手点验收等）未过时，记录缺口到本段并继续做。
 >
 > **★ 2026-11-10 用户反馈"app 名字不是叫新军棋吗 MuMu 里就没有这个 app"（未达成卡点）**：
@@ -462,7 +462,7 @@ java -cp /tmp/opencode/apksigner/apksig.jar:/tmp/opencode/apksigner SignV2 \
     ③ 下一局：`jq.movetest` 走子 3/3 步（Junqi.Move×2 + Junqi.Dead×1，复盘 n=3）或触摸走子 `can_move=1`
     ④ 正常退出：`am force-stop` 0 崩溃
     ⑤ 重进不崩：重启后 pid 存活 + board=OK + 全链 0 `Fatal signal`
-  - **当前状态：64 位真机"能玩"已达成**（so `09664e7f` + MuMu pid 6880/6945/7039 全 PASS，
+  - **★ 历史实锤（已失效前提，非当前态）**：64 位真机"能玩"曾达成（so `09664e7f` + MuMu pid 6880/6945/7039 全 PASS，
     2026-11-10 复验：装 ✓ 进主界面 ✓ 下一局 movetest 3/3 ✓ 退出 ✓ 重进 ✓，全链崩溃=0）
   - **未达成就继续做**：后续新增判据（如完整 60 局对弈 / AI 介入 / 蓝牙端到端 / 真实手点验收）
     未过时，按"未达成继续做"原则追加缺口与路线到本段，不许以"诚实边界"搪塞收尾。

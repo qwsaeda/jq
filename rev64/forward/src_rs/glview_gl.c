@@ -190,23 +190,36 @@ void jq_glview_set_window(void *native_window, EGLDisplay disp)
     /* ★ 覆盖前先释放旧引用（主线程 OnCreate/OnResume 可能多次 set_window，旧 g_win 引用
        不 release 会泄漏 + refcount 紊乱）。新引用仅由渲染线程消费（eglCreateWindowSurface
        输入，建后立即 rs_release_win 释放）。 */
+    /* ★ R51-Q23/Q24（P0 EGL surface 跨线程加锁）：旧实现 rs_release_win+写 g_win 无锁，
+       与渲染线程消费/释放同一 g_win 并发（UAF/双重 release 窗口）。加 g_mutex 与渲染线程
+       window 分支（:472 持锁 rs_render_frame + 读 g_win）互斥。rs_release_win 持锁调用
+       （其内 ANativeWindow_release(g_win)+g_win=NULL 与渲染线程 fromSurface/释放互斥）。 */
+    pthread_mutex_lock(&g_mutex);
     rs_release_win();
     g_win = (ANativeWindow *)native_window;
+    pthread_mutex_unlock(&g_mutex);
     /* 主线程只存 window 指针；window EGL surface 由渲染线程建（EGL 上下文属渲染线程，
        主线程建 surface 会 3002 EGL_BAD_ACCESS——MuMu mesa 限制，§124 红线）。 */
-    if (g_win)
-        LOGI("window ANativeWindow 已存（%p），渲染线程建 window surface 出屏主路", g_win);
+    if (native_window)
+        LOGI("window ANativeWindow 已存（%p），渲染线程建 window surface 出屏主路", native_window);
 }
 
 void jq_glview_reset_win(void)
 {
-    /* 重置 window surface 失败标志 + 销毁旧 window surface（允许重建） */
+    /* 重置 window surface 失败标志 + 销毁旧 window surface（允许重建）
+       ★ R51-Q24（P0 EGL surface 跨线程加锁）：旧实现销毁 g_win_surf 无锁，与渲染线程
+       makeCurrent/swap/重建（:307-375/:472-513）并发同一句柄（高风险 EGL 竞态/驱动未定义行为）。
+       加 g_mutex 与渲染线程消费互斥。eglDestroySurface 需 current display context——主线程调用时
+       渲染线程已 stop（destroy 先 join 再 reset 场景）或 surface 未被 current（重建场景），
+       EGL 对非 current surface destroy 为合法 no-op/成功。 */
+    pthread_mutex_lock(&g_mutex);
     if (g_win_surf != EGL_NO_SURFACE) {
         eglDestroySurface(g_rr.egl_disp, g_win_surf);
         g_win_surf = EGL_NO_SURFACE;
     }
     g_win_failed = 0;
     g_win_retry_cnt = 0;
+    pthread_mutex_unlock(&g_mutex);
 }
 
 /* 存 Surface jobject（global ref），OnResume 重试 ANativeWindow_fromSurface 诊断 */
@@ -266,10 +279,16 @@ static void rs_render_attach_jvm(void)
             return;
         }
     }
-    if (env)
+    if (env) {
         g_ehl_env = env;
-        egl_current_thread_attached = 1;
+        egl_current_thread_attached = 1;   /* ★ R47-Q67（P1 attach 成功才置位）：旧代码无大括号
+           无条件置 attached=1——AttachCurrentThread 失败（上方 return）后 env=NULL 仍置位，
+           fromSurface 轮询条件 egl_current_thread_attached 为真即调 ANativeWindow_fromSurface(NULL,jobj)
+           空指针 JNI 调用风险。改 attach 成功（env 非空）才置位，attach 失败保持 0 不轮询。 */
         LOGI("渲染线程已 attach JVM（env=%p，fromSurface 轮询 window 出屏就绪）", (void*)env);
+    } else {
+        LOGI("渲染线程 attach JVM 失败/已 detach（env=NULL）→ 不置 attached，fromSurface 轮询禁用");
+    }
 }
 
 /* 正向出屏渲染线程：
@@ -471,9 +490,16 @@ static void *rs_render_thread_main(void *arg)
                     /* ★ 出图实证：swap 成功记 GLERR + 几何就绪 + 纹理状态
                        （frame_cnt<200 前 200 帧都记，防 1Hz 节拍下 600 帧节流漏证据） */
                     GLenum glerr = glGetError();
-                    int geom_ready = (g_rr.tex_bg[1] != 0) || (g_rr.board_px != 0);
-                    LOGI("渲染线程 帧 %d：swap成功 GLERR=0x%x 几何就绪=%d tex_bg1=%u board_px=%p",
-                         frame_cnt, (unsigned)glerr, geom_ready,
+                    /* ★ R46-Q34（P0 geom_ready 乐观误判根治）：旧判据 (tex_bg[1]||board_px) 仅资源存在性
+                       OR，未覆盖 gl2_ok（shader 编译）——gl2_ok=0 时 board_px 仍非零致 geom_ready=1 假阳性
+                       （资源可能就绪≠可出屏，SPEC L199 视觉未真机验证）。加 gl2_ok 门控：
+                       几何就绪 = 资源就绪（tex_bg||board_px）且 GL2 shader 可绘制（gl2_ok[0]||gl2_ok[1]），
+                       防"有像素无 shader"乐观信号（Q41/Q53 同根因：gl2_ok=0 时纹理未上传但像素缓存保留）。 */
+                    int res_ready = (g_rr.tex_bg[1] != 0) || (g_rr.board_px != 0);
+                    int gl_ok = (g_rr.gl2_ok[0] != 0) || (g_rr.gl2_ok[1] != 0);
+                    int geom_ready = res_ready && gl_ok;
+                    LOGI("渲染线程 帧 %d：swap成功 GLERR=0x%x 几何就绪=%d（资源=%d GL2=%d）tex_bg1=%u board_px=%p",
+                         frame_cnt, (unsigned)glerr, geom_ready, res_ready, gl_ok,
                          (unsigned)g_rr.tex_bg[1], (void*)g_rr.board_px);
                 }
             } else {
