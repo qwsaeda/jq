@@ -19,6 +19,8 @@ pub mod ui;
 pub mod evt;
 pub mod jni;
 pub mod render;
+pub mod gametest;
+pub mod evtest;
 
 #[cfg(test)]
 mod tests {
