@@ -36,7 +36,7 @@ mod android_impl {
         _env: *mut jni::sys::JNIEnv,
         _cls: JClass,
         _activity: jni::sys::jobject,
-    ) {
+    ) -> jni::sys::jobject {
         with_lock(|st, _u, _c| {
             *st = State::new();
             st.mode = crate::state::MODE_FLIP; // 默认暗棋翻棋（g_opt_mode 默认 1）
@@ -44,6 +44,7 @@ mod android_impl {
             st.turn = crate::state::SIDE_BLUE;
             st.stage = crate::state::Stage::Play;
         });
+        std::ptr::null_mut() // jobject null（Rust 版 GLView 由 Java 侧构造，OnCreate 不返 native 对象；诚实边界）
     }
 
     #[no_mangle]
@@ -80,8 +81,12 @@ mod android_impl {
     }
 
     #[no_mangle]
-    pub extern "C" fn Java_com_qwsaeda_App_OnUpdate(_env: *mut jni::sys::JNIEnv, _cls: JClass) {
-        with_lock(|_s, _u, _c| {});
+    pub extern "C" fn Java_com_qwsaeda_App_OnUpdate(
+        _env: *mut jni::sys::JNIEnv,
+        _cls: JClass,
+    ) -> jni::sys::jboolean {
+        let r = with_lock(|_s, _u, _c| true);
+        r as jni::sys::jboolean
     }
 
     #[no_mangle]
@@ -108,12 +113,16 @@ mod android_impl {
         _env: *mut jni::sys::JNIEnv,
         _cls: JClass,
         _key: jni::sys::jobject,
-    ) {
-        with_lock(|_s, u, _c| {
+    ) -> jni::sys::jboolean {
+        let consumed = with_lock(|_s, u, _c| {
             if u.screen == ui::Screen::Game {
                 u.screen = ui::Screen::ExitConfirm;
+                true
+            } else {
+                false
             }
         });
+        consumed as jni::sys::jboolean
     }
 
     #[no_mangle]
@@ -121,17 +130,19 @@ mod android_impl {
         env: *mut jni::sys::JNIEnv,
         _cls: JClass,
         me: jni::sys::jobject,
-    ) {
+    ) -> jni::sys::jboolean {
         use jni:: JNIEnv;
         // 从 MotionEvent 提取 x/y（对齐 C OnTouch getAction/getX/getY）
         // jni 0.21：env.get_object(me) → 调 Android 方法需 JniEnv 方法
-        with_lock(|st, u, cnt| {
+        let consumed = with_lock(|st, u, cnt| {
             // 坐标提取：jni crate 调 MotionEvent.getX() 需 Java 反射（留完整实现）；
             // 此处接 render::handle_touch 通道（坐标由 GLView 触摸层传入后调规则）
             // 完整 OnTouch 坐标提取 + handle_touch 调用真机 NDK 可达时补全（设计 §3 ③④）
             let _ = (env, me);
             let _ = (st, u, cnt);
+            false // 未消费（坐标提取真机补全前默认不消费，对齐 C ACTION_DOWN 语义）
         });
+        consumed as jni::sys::jboolean
     }
 
     #[no_mangle]
