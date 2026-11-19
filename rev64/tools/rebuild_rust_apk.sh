@@ -34,8 +34,9 @@ log "Rust so OK：$(du -h "$RSO" | cut -f1)，JNI 导出 $NSYM 符号"
 log "=== [1/6] 注入 Rust so → dec_rs ==="
 LIBDIR=$DECRS/lib/arm64-v8a
 mkdir -p "$LIBDIR"
-cp "$RSO" "$LIBDIR/libjunqi_rs.so"
-log "so 注入：$LIBDIR/libjunqi_rs.so（$(md5sum "$LIBDIR/libjunqi_rs.so" | cut -d' ' -f1)）"
+cp "$RSO" "$LIBDIR/libjunqi.so"
+rm -f "$LIBDIR/libjunqi_rs.so"
+log "so 注入：$LIBDIR/libjunqi.so（$(md5sum "$LIBDIR/libjunqi.so" | cut -d' ' -f1)，替换 C so）"
 
 # [2/6] apktool 重编
 log "=== [2/6] apktool b dec_rs → 源 APK ==="
@@ -86,7 +87,7 @@ if [ "${1:-}" != "--no-install" ]; then
     LOCAL_MD5=$(md5sum "$RSO" | cut -d' ' -f1)
     DEV_SO=$(adb -s 10.0.182.152:5555 shell "pm path com.qwsaeda.junqirs" 2>/dev/null | head -1 | sed 's/package://')
     if [ -n "$DEV_SO" ]; then
-        DEV_MD5=$(adb -s 10.0.182.152:5555 shell "unzip -p $DEV_SO lib/arm64-v8a/libjunqi_rs.so 2>/dev/null | md5sum" | cut -d' ' -f1)
+        DEV_MD5=$(adb -s 10.0.182.152:5555 shell "unzip -p $DEV_SO lib/arm64-v8a/libjunqi.so 2>/dev/null | md5sum" | cut -d' ' -f1)
         [ "$LOCAL_MD5" = "$DEV_MD5" ] && log "对账 PASS（$LOCAL_MD5）" || log "★ 对账 FAIL（本地 $LOCAL_MD5 / 设备 $DEV_MD5）"
     else
         log "（设备不可达，对账 PENDING）"

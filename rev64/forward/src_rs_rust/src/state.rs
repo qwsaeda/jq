@@ -111,6 +111,8 @@ pub struct State {
     /// 规则开关快照（规格 §2：cfg[0]和棋 cfg[1]大本营 cfg[2]吃雷 cfg[3]吃旗 cfg[4]暗棋门槛）
     /// 开局快照语义（UI 层改开关写此字段，规则引擎读快照，避免 C 版运行时全局竞态）
     pub cfg: [u8; 5],
+    /// wgpu 出屏初始化标记（OnUpdate 首次 create_wgpu_device 后置 true）
+    pub wgpu_init_done: bool,
 }
 
 impl State {
@@ -128,6 +130,7 @@ impl State {
             mode: MODE_LAY,
             // 规则开关默认全开（对齐原版：和棋/大本营/吃雷/吃旗/暗棋门槛）
             cfg: [1, 1, 1, 1, 1],
+            wgpu_init_done: false,
         }
     }
 

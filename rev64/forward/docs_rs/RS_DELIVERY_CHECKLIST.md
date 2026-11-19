@@ -52,7 +52,7 @@
 | 判据 | 状态 | 实锤 |
 |---|---|---|
 | ① 装得上 | ✅ | 装机 Success + so 对账 PASS（Rust so d2934742） |
-| ② 进主界面（出屏） | 🔲 **58.8% 非黑（< C 基准 98%+）** | Rust 骨架接管（pid 存活+无崩+14 符号匹配），wgpu render pass 未实现 |
+| ② 进主界面（出屏） | 🔲 **58.8% 非黑（< C 基准 98%+）** | Rust so 真正接管（4.2MB wgpu so e36a73a，pid 3726 无崩）；截图与 C so 完全一致=画面由 Java SurfaceView 默认绘制，wgpu render pass 未实现→游戏内容未出屏 |
 | ③ 下一局 | 🔲 | 出屏未达成，走子前置未通 |
 | ④ 正常退出 | ✅ | force-stop 0 崩溃 |
 | ⑤ 重进不崩 | ✅ | 重启 pid 2705 存活 |
@@ -62,6 +62,8 @@
 - 设备 base.apk 内 so md5 = d2934742（= 本地 Rust so），C so 已删
 - 截图 900×1600 非黑比 58.8%（系统层/Java UI 出屏，wgpu 渲染层未接 → 内容未出屏）
 - 设备 IP 变更：10.0.182.146 → **10.0.182.152:5555**（rebuild_rust_apk.sh 已更新）
+- **脚本修复实锤**：rebuild_rust_apk.sh 注入 Rust so→`libjunqi.so`（替换 C so，smali loadLibrary('junqi') 同名加载），删 libjunqi_rs.so 避免双 so；APK 内仅 1 个 so（4.2MB wgpu e36a73a）
+- **出屏诊断**：C so（779K）与 wgpu so（4.2MB）截图完全一致（22375B/58.8%/4 色块）→ 画面由 Java SurfaceView 默认绘制，与 native so 渲染无关；**wgpu render pass（EGL surface+wgsl+纹理）未实现 = 游戏内容未出屏**
 
 ## 5. PENDING 项（真机可达 10.0.182.152，wgpu 出屏攻坚进行中）
 

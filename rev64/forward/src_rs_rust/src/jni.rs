@@ -85,8 +85,28 @@ mod android_impl {
         _env: *mut jni::sys::JNIEnv,
         _cls: JClass,
     ) -> jni::sys::jboolean {
-        let r = with_lock(|_s, _u, _c| true);
-        r as jni::sys::jboolean
+        // wgpu 出屏攻坚：OnUpdate 首次调初始化 wgpu device（gles 后端，真机验可达）
+        // 真机 logcat 诊断：wgpu device 获取成功/失败 + 出屏通路
+        let init_ok = with_lock(|st, _u, _c| {
+            // device 未初始化时获取（幂等：已 init 跳过）
+            // wgpu 出屏攻坚：create_wgpu_device 真机验 gles 后端（EGL/GPU 驱动）
+            if !st.wgpu_init_done {
+                match crate::render::RenderCtx::create_wgpu_device() {
+                    Some((dev, _q)) => {
+                        // device 获取成功（真机 wgpu gles 后端可达）
+                        // 完整 surface/纹理/wgsl 出屏留真机迭代（设计 §3）
+                        let _ = dev;
+                        st.wgpu_init_done = true;
+                    }
+                    None => {
+                        // wgpu 后端不可达（无 GPU/EGL 失败）——安全降级，不崩
+                        st.wgpu_init_done = false;
+                    }
+                }
+            }
+            true
+        });
+        init_ok as jni::sys::jboolean
     }
 
     #[no_mangle]
