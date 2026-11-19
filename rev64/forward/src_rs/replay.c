@@ -90,6 +90,11 @@ int jq_replay_rewind_to(jq_replay *rp, jq_state *st, int cur)
     st->moves_since_eat = 0;
     st->total_moves = 0;
     st->pieces_left[0] = 0; st->pieces_left[1] = 0;
+    /* ★ P1（第一性原理重审 Q7/Q8）：mines_cleared 归零（重放链自计数，防旧雷计数残带入重放态
+       影响暗棋扛旗判定）+ stale 困毙缓存清除（防调用前脏缓存被重放后困毙判定信任）。 */
+    st->mines_cleared[0] = 0; st->mines_cleared[1] = 0;
+    st->stale_v[0] = 0; st->stale_v[1] = 0;
+    st->stale_c[0] = 0; st->stale_c[1] = 0;
     st->stage = STG_PLAY;
     /* 复盘态明棋全翻开（对齐 jq_restart_game 明棋范式；引擎要求 revealed=1 才可走子） */
     for (int i = 0; i < N_CELLS; i++)

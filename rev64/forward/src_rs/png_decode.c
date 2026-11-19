@@ -19,8 +19,8 @@
    链接期不写 UND 动态引用。 */
 
 /* PNG 滤波器重建（每行前 1 字节 filter type） */
-static void unfilter(unsigned char *out, const unsigned char *in,
-                     int w, int h, int bpp) {
+static int unfilter(unsigned char *out, const unsigned char *in,
+                    int w, int h, int bpp) {
     int stride = w * bpp;
     const unsigned char *src = in;
     unsigned char *dst = out;
@@ -28,7 +28,7 @@ static void unfilter(unsigned char *out, const unsigned char *in,
         int ft = *src++;
         /* ★ AUD-1000 B04-081（P2 已修）：filter type 0-4 白名单（PNG 规范 5 类），
            非 0-4（恶意/损坏）拒收——原 switch default 不拒按 None 处理（静默）。 */
-        if (ft < 0 || ft > 4) return;
+        if (ft < 0 || ft > 4) return -1;   /* ★ P0 Q1：非法 filter 拒收（非 0-4 白名单），防未初始化像素入纹理 */
         const unsigned char *prev = (y == 0) ? NULL : dst - stride;
         for (int x = 0; x < stride; x++) {
             int a = (x >= bpp) ? dst[x - bpp] : 0;      /* 左 */
@@ -52,6 +52,7 @@ static void unfilter(unsigned char *out, const unsigned char *in,
         src += stride;
         dst += stride;
     }
+    return 0;   /* 全行解滤成功 */
 }
 
 /* 解码 PNG：rgba 输出（4 字节/像素），成功返回 0，失败返回 -1 */
@@ -178,7 +179,11 @@ int png_decode(const unsigned char *data, size_t len,
     size_t raw_len = (size_t)stride * h;
     unsigned char *unf = (unsigned char *)malloc(raw_len);
     if (!unf) { free(raw); return -1; }
-    unfilter(unf, raw, (int)w, (int)h, channels);
+    if (unfilter(unf, raw, (int)w, (int)h, channels) != 0) {
+        /* 非法 filter type：拒收（防未初始化/损坏像素入纹理，P0 Q1 根治） */
+        free(unf); free(raw);
+        return -1;
+    }
     free(raw);
 
     /* 转为 RGBA（4 字节/像素） */

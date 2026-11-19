@@ -2578,7 +2578,7 @@ Java_com_qwsaeda_App_OnCreate(JNIEnv *env, jclass clazz, jobject activity)
         snprintf(priv, sizeof priv, "%s/spak_res",
                  g_files_dir[0] ? g_files_dir : "/data/user/0/com.qwsaeda.junqirs/files");
         struct stat st;
-        /* ★ R36-Q46/Q67（P0 选路-落地-读取三环同源）：priv 预读落地仅 48 项清单（无 datax 背景 bin），
+        /* ★ R36-Q46/Q67（P0 选路-落地-读取三环同源）+ R55-Q1 口径修正：priv 预读落地实 50 项清单（res_list :2928-2951，非 48，无 datax 背景 bin），
            渲染 render.c:648 实际依赖 datax_294_/datax_177_ 前缀读菜单/对局背景 JPEG——priv 选中后若缺
            datax，渲染背景 MISS 且不回退 dev（单目录读）。选路加 datax 探测：priv 存在但缺 datax_294 前缀
            时回退 dev 全量（dev 推 970 含 datax 301 个），防"推全量 dev ≠ 进程读到全量"误判。 */
@@ -2605,7 +2605,7 @@ Java_com_qwsaeda_App_OnCreate(JNIEnv *env, jclass clazz, jobject activity)
                 SPAK_DIR = g_spak_dir_buf;
                 LOGI("OnCreate：spak_res 走 app 私有目录 %s（预读落地 + datax 背景齐，渲染 fs 读）", SPAK_DIR);
             } else if (stat(priv, &st) == 0) {
-                /* priv 存在但缺 datax 背景 → 回退 dev 全量（渲染实际依赖 datax，priv 48 项清单不覆盖） */
+                /* priv 存在但缺 datax 背景 → 回退 dev 全量（渲染实际依赖 datax，priv 50 项清单不覆盖，★ R55-Q1 口径 50 非 48） */
                 snprintf(g_spak_dir_buf, sizeof g_spak_dir_buf, "%s", SPAK_DIR_DEV);
                 SPAK_DIR = g_spak_dir_buf;
                 LOGI("OnCreate：spak_res 私有目录缺 datax 背景 bin，回退 /data/local/tmp（dev 全量 970 含 datax，防背景 MISSING 退化）");
@@ -2618,7 +2618,7 @@ Java_com_qwsaeda_App_OnCreate(JNIEnv *env, jclass clazz, jobject activity)
         }
         /* ★ R26 资源加载域 RL-02（P1）：关键资源存在性快检（board/piece/bg/text 4 张核心）
            ——SPAK_DIR 选路后 stat 关键文件，缺失聚合告警（可观测事件，非阻断，纯色降级）。
-           真机无 dev push + 预读清单 48 项未含该文件时，此判据暴露"桌面 0 回归但真机出屏退化"。 */
+           真机无 dev push + 预读清单 50 项未含该文件时（★ R55-Q1 口径 50 非 48），此判据暴露"桌面 0 回归但真机出屏退化"。 */
         {
             /* ★ R26 RL-02：前缀遍历判 4 类核心资源（datah_188 前缀、datah_183 前缀、
                bg_menu_720 前缀、menu_text_atlas 前缀）——SPAK 解包文件名带 hash 后缀
@@ -2881,7 +2881,7 @@ static void spak_res_stage_private(JNIEnv *env, jobject activity, int log_miss)
     }
     /* mkdirs getFilesDir/spak_res 子目录（★ 2026-11-12 正向：对 new File(root,"spak_res") 调
        mkdirs，旧实现对 root 调 mkdirs 只确保根存在，子目录 spak_res 未建 → FileOutputStream
-       写失败 → 预读 0/48。sfx 段范式：new File(getFilesDir,"jq_sfx").mkdirs()。 */
+       写失败 → 预读 0/50（★ R55-Q1 口径 50 非 48）。sfx 段范式：new File(getFilesDir,"jq_sfx").mkdirs()。 */
     {
         jclass act_cls = (*env)->GetObjectClass(env, activity);
         jmethodID getFilesDir = (*env)->GetMethodID(env, act_cls, "getFilesDir",
@@ -4124,8 +4124,14 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
             return JNI_TRUE;
         }
         /* ★ 原版 UI 对齐：菜单态点按钮外 = 不消费（原版主菜单仅 5 按钮可点，
-           点空白无反应——去掉旧"点棋盘区快速开局"测试路径，对齐原版交互） */
+           点空白无反应——去掉旧"点棋盘区快速开局"测试路径，对齐原版交互）。
+           ★ R55-Q23/Q91（P0 菜单空白穿透根治）：旧实现 (void)clazz 后无 return，
+           fall-through 到 D* 批量弹窗分支（:4145+，UI_MENU 态下全不匹配）继续穿透到
+           尾部 :10300+ 游戏态机（"再来一局" STG_OVER 可误触发重开 / 左上角重开无守卫 Q25）。
+           修：UI_MENU 空白点击显式 return JNI_FALSE（不消费，对齐原版"点空白无反应"，
+           防穿透到游戏态机误消费菜单空白触摸）。 */
         (void)clazz;
+        return JNI_FALSE;   /* ★ R55-Q23：UI_MENU 空白不消费（防 fall-through 穿透尾部游戏态机） */
     
 
 
@@ -8267,18 +8273,22 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
                 sfx_play(env, "pop");
                 LOGI("声音设置：确定 → 保存 + 回对局");
                 ui_screen_set(UI_GAME);
-            } else if (sact == 3) {   /* 取消（原版 btn3 真值）：不保存回对局 */
+            } else if (sact == 3) {   /* 取消（原版 btn3 真值）：不保存回对局 + 恢复 g_sound_on（★ P1 Q2/Q3 双轨回滚） */
                 ui_settings_load();
+                sfx_sound_load();   /* ★ P1：重载 jq_sound_on.txt 恢复 g_sound_on（防静音切换联动 g_sound_on 残留） */
                 sfx_play(env, "pop");
-                LOGI("声音设置：取消 → 恢复原值 + 回对局");
+                LOGI("声音设置：取消 → 恢复原值 + g_sound_on + 回对局");
                 ui_screen_set(UI_GAME);
             }
             (void)clazz;
             return JNI_TRUE;
         }
         if (!ui_set_popup_inside(bx, by)) {
+            /* ★ P1 Q2/Q3：面板外 = 取消语义（恢复未保存设置 + g_sound_on），与取消分支对称 */
+            ui_settings_load();
+            sfx_sound_load();
             ui_screen_set(UI_GAME);
-            LOGI("OnTouch 声音设置外（bx=%.0f by=%.0f）→ 回对局", bx, by);
+            LOGI("OnTouch 声音设置外（bx=%.0f by=%.0f）→ 恢复 + 回对局", bx, by);
             sfx_play(env, "pop");
         }
         (void)clazz;
@@ -8318,6 +8328,9 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
        点 玩法/明暗棋 → 切换模式（明棋/翻棋暗棋循环，默认翻棋暗棋对齐原版）；
        点 确定 → ui_opt_select(mode) + jq_restart_game（随模式开局，两人热座 AI 不介入）；
        点 取消 → 回主菜单；点面板外 → 回主菜单。 */
+    /* ★ P0（第一性原理重审）：UI_NEWGAME 弹窗 mode 切换会话快照——文件级单一 static
+       （3 处块内 static 为不同对象作用域拆裂→取消/面板外分支恒 -1 恢复死代码，根治）。 */
+    static int jq_ng_mode_prev = -1;   /* -1=本会话未切换过；>=0=切换前旧 mode */
     if (ui_screen_get() == UI_NEWGAME) {
         float bx = g_view_w > 0 ? (x - (g_view_w - 720.0f * g_touch_s) * 0.5f) / g_touch_s : 0;
         float by = g_view_h > 0 ? (y - g_touch_yoff) / g_touch_s : 0;
@@ -8328,6 +8341,13 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
             if (nact == 0 || nact == 1) {   /* 玩法/明暗棋：同义切换（明棋=布局 / 翻棋暗棋）
                 ★ AUD-1000 B03-023（P1 已修）：切换走 ui_opt_toggle_mode 单入口
                 （锁内 read-modify-write，旧 get→取反→select 三步锁外裸改丢更新）。 */
+                /* ★ R55-Q15/Q17（P1 mode 切换取消不回滚根治）：切换前记录旧 mode，
+                   本弹窗取消/面板外时恢复旧 mode（防"切换即时翻全局 + 取消不恢复"
+                   污染后续开局 mode）。g_newgame_mode_prev 为 UI_NEWGAME 弹窗会话内快照。 */
+                {
+                    if (jq_ng_mode_prev < 0)
+                        jq_ng_mode_prev = ui_opt_get_mode();   /* 首次切换前记录旧值 */
+                }
                 int mode = ui_opt_toggle_mode();
                 sfx_play(env, "pop");
                 LOGI("OnTouch 新局弹窗：玩法/明暗棋切换 → mode=%d（%s，默认翻棋暗棋对齐原版）",
@@ -8345,17 +8365,27 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
                 ui_screen_set(UI_GAME);
                 LOGI("OnTouch 新局弹窗：确定 → 开局（stage=PLAY 蓝先手，mode=%d %s，两人热座 AI 不介入）",
                      ui_opt_get_mode(), ui_opt_get_mode() ? "翻棋暗棋" : "布局明棋");
-            } else if (nact == 3) {         /* 取消：回主菜单 */
+            } else if (nact == 3) {         /* 取消：回主菜单 + 恢复切换前 mode（防残留污染） */
+                {   /* ★ R55-Q15/Q17：取消 = 回主菜单 + 恢复切换前 mode（与"切换即时翻全局"对称） */
+                    if (jq_ng_mode_prev >= 0)
+                        ui_opt_select(ui_opt_get_level(), jq_ng_mode_prev);   /* 恢复旧 mode（level 不变） */
+                    jq_ng_mode_prev = -1;   /* 清会话快照，下次切换重新记录 */
+                }
                 ui_screen_set(UI_MENU);
                 sfx_play(env, "pop");
-                LOGI("OnTouch 新局弹窗：取消 → 回主菜单（不开局）");
+                LOGI("OnTouch 新局弹窗：取消 → 回主菜单 + 恢复切换前 mode（不开局，★ R55-Q15 防 mode 残留）");
             }
             (void)clazz;
             return JNI_TRUE;
         }
         if (!ui_newgame_popup_inside(bx, by)) {
+            {   /* ★ R55-Q15/Q17：面板外 = 回主菜单 + 恢复切换前 mode（与取消对称，防状态悬挂） */
+                if (jq_ng_mode_prev >= 0)
+                    ui_opt_select(ui_opt_get_level(), jq_ng_mode_prev);
+                jq_ng_mode_prev = -1;
+            }
             ui_screen_set(UI_MENU);
-            LOGI("OnTouch 新局弹窗外（bx=%.0f by=%.0f）→ 回主菜单", bx, by);
+            LOGI("OnTouch 新局弹窗外（bx=%.0f by=%.0f）→ 回主菜单 + 恢复切换前 mode", bx, by);
             sfx_play(env, "pop");
         }
         (void)clazz;
@@ -8492,11 +8522,18 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
                        "载入"按钮），O(N_CELLS) 短暂持锁可接受（与 B03-055 UI_LAY_MGR
                        同范式），高频点击面有限；锁契约保留（g_state 读写必须 g_mutex）。 */
                     pthread_mutex_lock(&g_mutex);
-                    jq_load_layout(&g_state, lay);
+                    /* ★ R55-Q45/Q46（P1 暗棋载入布局分派 jq_dark_setup 根治）：暗棋模式（mode=FLIP）
+                       走 jq_dark_setup（0xFF 定色 + FLIP + revealed=0 + rank 原值不+0xc，SPEC §7 翻棋
+                       前提），明棋模式走 jq_load_layout（明棋编码 + revealed=1）。旧实现暗棋也走
+                       jq_load_layout+revealed 覆写=明棋编码+藏脸杂合态（side 已定色+mode 仍 LAY）破坏
+                       先手翻子定色/暗棋规则分支一致性。修：按 ui_opt_get_mode 分派，暗棋=jq_dark_setup
+                       等价态（修复"UI 载入布局暗棋杂合态"第 34 轮最高价值 P1）。 */
                     int dark = ui_opt_get_mode() == 1;
-                    for (int i = 0; i < N_CELLS; i++)
-                        if (g_state.cells[i].rank != RANK_EMPTY)
-                            g_state.cells[i].revealed = dark ? 0 : 1;
+                    if (dark)
+                        jq_dark_setup(&g_state, lay);   /* 暗棋：0xFF 定色 + FLIP + revealed=0 */
+                    else {
+                        jq_load_layout(&g_state, lay);  /* 明棋：明棋编码 + revealed=1（内部全翻开） */
+                    }
                     g_undo_top = 0;
                     g_state.stage = STG_PLAY;
                     g_state.turn = SIDE_BLUE;
@@ -8504,8 +8541,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
                     pthread_mutex_unlock(&g_mutex);
                     ui_screen_set(UI_GAME);
                     sfx_play(env, "start");   /* ★ 原版对齐：开局音效 Junqi.Start → data_junqi_start.wav */
-                    LOGI("载入布局：载入 %s 到棋盘（30 字节 .lay，随模式 mode=%d，清 undo，蓝先手）",
-                         nm, ui_opt_get_mode());
+                    LOGI("载入布局：载入 %s 到棋盘（30 字节 .lay，mode=%d %s，清 undo，蓝先手，★ R55-Q45 暗棋走 jq_dark_setup）",
+                         nm, ui_opt_get_mode(), dark ? "暗棋" : "明棋");
                     (void)clazz;
                     return JNI_TRUE;
                 }
@@ -8622,11 +8659,12 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
                 uint8_t lay[30];
                 if (nm && ui_layout_load(nm, lay) == 0) {
                     pthread_mutex_lock(&g_mutex);
-                    jq_load_layout(&g_state, lay);
+                    /* ★ R55-Q46（P1 暗棋载入布局分派 jq_dark_setup，与 UI_LOAD_LAY 同款根治） */
                     int dark = ui_opt_get_mode() == 1;
-                    for (int i = 0; i < N_CELLS; i++)
-                        if (g_state.cells[i].rank != RANK_EMPTY)
-                            g_state.cells[i].revealed = dark ? 0 : 1;
+                    if (dark)
+                        jq_dark_setup(&g_state, lay);   /* 暗棋：0xFF 定色 + FLIP + revealed=0 */
+                    else
+                        jq_load_layout(&g_state, lay);  /* 明棋：明棋编码 + revealed=1 */
                     g_undo_top = 0;
                     g_state.stage = STG_PLAY;
                     g_state.turn = SIDE_BLUE;
@@ -9060,6 +9098,8 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
             return JNI_TRUE;
         }
         if (!ui_bright_popup_inside(bx, by)) {
+            /* ★ P1（第一性原理重审 Q4）：面板外 = 取消语义（恢复未保存亮度） */
+            ui_bright_load();
             ui_screen_set(UI_GAME);
             LOGI("OnTouch 亮度调节弹窗外（bx=%.0f by=%.0f）→ 回对局", bx, by);
             sfx_play(env, "pop");
@@ -9367,8 +9407,10 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
             return JNI_TRUE;
         }
         if (!ui_imgset7_popup_inside(bx, by)) {
+            /* ★ P1（第一性原理重审 Q5）：面板外 = 取消语义（恢复未保存图像设置） */
+            ui_imgset_load();
             ui_screen_set(UI_MENU);
-            LOGI("OnTouch 图像设置弹窗（完整版）外（bx=%.0f by=%.0f）→ 回主菜单", bx, by);
+            LOGI("OnTouch 图像设置弹窗（完整版）外（bx=%.0f by=%.0f）→ 恢复 + 回主菜单", bx, by);
             sfx_play(env, "pop");
         }
         (void)clazz;
@@ -9422,8 +9464,10 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
             return JNI_TRUE;
         }
         if (!ui_imgset8_popup_inside(bx, by)) {
+            /* ★ P1（第一性原理重审 Q6）：面板外 = 取消语义（恢复未保存图像设置） */
+            ui_imgset_load();
             ui_screen_set(UI_MENU);
-            LOGI("OnTouch 图像设置弹窗（简化版）外（bx=%.0f by=%.0f）→ 回主菜单", bx, by);
+            LOGI("OnTouch 图像设置弹窗（简化版）外（bx=%.0f by=%.0f）→ 恢复 + 回主菜单", bx, by);
             sfx_play(env, "pop");
         }
         (void)clazz;
@@ -9597,8 +9641,10 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
             return JNI_TRUE;
         }
         if (!ui_rules070_popup_inside(bx, by)) {
+            /* ★ P1（第一性原理重审 Q7）：面板外 = 取消语义（恢复未保存规则开关） */
+            ui_rules_load();
             ui_screen_set(UI_MENU);
-            LOGI("OnTouch 游戏规则完整版弹窗外（bx=%.0f by=%.0f）→ 回主菜单", bx, by);
+            LOGI("OnTouch 游戏规则完整版弹窗外（bx=%.0f by=%.0f）→ 恢复 + 回主菜单", bx, by);
             sfx_play(env, "pop");
         }
         (void)clazz;
@@ -10296,8 +10342,12 @@ Java_com_qwsaeda_App_OnTouch(JNIEnv *env, jclass clazz, jobject motionEvent)
         }
     }
     /* ★ 游戏内"悔棋重开"按钮：对局态左上角（nx<0.15, ny<0.10，棋盘左侧空闲区）
-       → 重开新局（不重启 app）。触摸路径（property jq.restartgame 为可靠备用路径）。 */
-    if (nx < 0.15f && ny < 0.10f) {
+       → 重开新局（不重启 app）。触摸路径（property jq.restartgame 为可靠备用路径）。
+       ★ R55-Q25（P0 重开守卫补全）：旧实现无屏态/阶段守卫，任意到达该段的触摸在左上角区
+       都会重开（含 STG_OVER/STG_SETUP/非 UI_GAME 态误触）。修：加 UI_GAME 屏态 + STG_PLAY
+       阶段双守卫——仅"对局进行中（PLAY）且 UI_GAME 态"下左上角才触发重开，防误重开。 */
+    if (nx < 0.15f && ny < 0.10f && ui_screen_get() == UI_GAME &&
+        g_state.stage == STG_PLAY) {
         pthread_mutex_lock(&g_mutex);
         jq_restart_game();
         bt_broadcast_restart(env);   /* ★ C-22：重开广播对端（联机态） */

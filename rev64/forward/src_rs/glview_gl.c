@@ -226,7 +226,11 @@ void jq_glview_reset_win(void)
 void jq_glview_set_surface_env(void *env, void *surface_jobj, void *disp)
 {
     (void)env; (void)disp;
+    /* ★ P1 Q4（第一性原理重审）：g_surf_jobj 跨线程共享（主线程写 vs 渲染线程 :334 读），
+       旧实现无锁写=数据竞争。加 g_mutex 与渲染线程 fromSurface 读互斥。 */
+    pthread_mutex_lock(&g_mutex);
     g_surf_jobj = surface_jobj;
+    pthread_mutex_unlock(&g_mutex);
     if (g_surf_jobj)
         LOGI("出屏目标 Surface 已存（jobject=%p）（OnResume 重试 fromSurface 诊断）", surface_jobj);
 }
@@ -402,9 +406,13 @@ static void *rs_render_thread_main(void *arg)
                 LOGI("渲染线程 帧 %d：无 surface（等 window attach / PBuffer）", frame_cnt);
             continue;
         }
-        /* ③ 切 current：window 出屏主路优先；PBuffer 兜底 */
+        /* ③ 切 current：window 出屏主路优先；PBuffer 兜底
+           ★ P1 Q5（第一性原理重审）：读 g_win_surf 加 g_mutex（与主线程 reset_win :215 销毁
+           g_win_surf 互斥，防"使用中/销毁中"并发窗口 EGL 资源竞争 UB）。 */
+        pthread_mutex_lock(&g_mutex);
         EGLSurface target = (g_win_surf != EGL_NO_SURFACE) ? g_win_surf
                           : (g_pbuf_ok ? g_rr.egl_surf : EGL_NO_SURFACE);
+        pthread_mutex_unlock(&g_mutex);
         if (target != EGL_NO_SURFACE && (!g_gl_current ||
             g_current_is_window != ((g_win_surf != EGL_NO_SURFACE && target == g_win_surf) ? 1 : 0))) {
             if (eglMakeCurrent(g_rr.egl_disp, target, target, g_rr.egl_ctx)) {
@@ -498,7 +506,12 @@ static void *rs_render_thread_main(void *arg)
                     int res_ready = (g_rr.tex_bg[1] != 0) || (g_rr.board_px != 0);
                     int gl_ok = (g_rr.gl2_ok[0] != 0) || (g_rr.gl2_ok[1] != 0);
                     int geom_ready = res_ready && gl_ok;
-                    LOGI("渲染线程 帧 %d：swap成功 GLERR=0x%x 几何就绪=%d（资源=%d GL2=%d）tex_bg1=%u board_px=%p",
+                    /* ★ R55-Q34/Q42（P1 geom_ready 出屏误判防外推）：geom_ready 为跨槽 OR 聚合的
+                       前置能力信号（tex_bg[1]||board_px × gl2_ok[0]||gl2_ok[1]），非"当前 slot 已
+                       绘制成功/已出屏"充分条件——board_px（CPU 像素缓存）跨过 GL 上传/绑定/绘制/
+                       swap 仍可能 MISS，且跨槽 OR 掩盖目标槽未就绪。判读限定：geom_ready=1 仅证
+                       "资源+shader 前置具备"，出屏仍需设备截图非黑比+像素级验证（PENDING，SPEC 红线⑦）。 */
+                    LOGI("渲染线程 帧 %d：swap成功 GLERR=0x%x 几何就绪=%d（资源=%d GL2=%d，★ 前置信号非出屏充分条件）tex_bg1=%u board_px=%p",
                          frame_cnt, (unsigned)glerr, geom_ready, res_ready, gl_ok,
                          (unsigned)g_rr.tex_bg[1], (void*)g_rr.board_px);
                 }

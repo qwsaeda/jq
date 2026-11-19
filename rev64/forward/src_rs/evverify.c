@@ -442,6 +442,24 @@ static int run_evt55_names_smoke(void)
     ok &= (jq_event_count_invariant_ok() == 1);
     /* 未知名拒计数（诚实边界：域外名 = 不可观测，防误归因） */
     ok &= (jq_evt55_count_by_name("Junqi.NotExist999") == 0);
+    /* ★ R54-Q81（P1 防误判契约激活）：jq_evt55_no_state_change 12 业务码代表断言——
+       旧版全仓 0 调用点（防误判 API 已定义未接入门禁，文档强/门禁弱）。补 12 业务码
+       代表断言：biz7-11（登录34/注册36/联机38/摆子44/杂项46）=1（无状态变更），
+       biz0-6（走子0/吃子2/翻棋6/终局16/和棋25/悔棋24/炸弹42）=0（g_state 变更在调用点），
+       未映射 code（如 999）保守=0。锁定"47 名 biz7-11 无 g_state 变更"机器契约防漂移。 */
+    ok &= (jq_evt55_no_state_change(34) == 1);   /* 登录（biz7）无状态变更 */
+    ok &= (jq_evt55_no_state_change(36) == 1);   /* 注册（biz8）无状态变更 */
+    ok &= (jq_evt55_no_state_change(38) == 1);   /* 联机（biz9）无状态变更 */
+    ok &= (jq_evt55_no_state_change(44) == 1);   /* 摆子（biz10）无状态变更 */
+    ok &= (jq_evt55_no_state_change(46) == 1);   /* 杂项（biz11）无状态变更 */
+    ok &= (jq_evt55_no_state_change(0)  == 0);   /* 走子（biz0）g_state 变更域 */
+    ok &= (jq_evt55_no_state_change(2)  == 0);   /* 吃子（biz1）g_state 变更域 */
+    ok &= (jq_evt55_no_state_change(6)  == 0);   /* 翻棋（biz2）g_state 变更域 */
+    ok &= (jq_evt55_no_state_change(16) == 0);   /* 终局（biz3）g_state 变更域 */
+    ok &= (jq_evt55_no_state_change(25) == 0);   /* 和棋（biz4）g_state 变更域 */
+    ok &= (jq_evt55_no_state_change(24) == 0);   /* 悔棋（biz5）g_state 变更域 */
+    ok &= (jq_evt55_no_state_change(42) == 0);   /* 炸弹（biz6）g_state 变更域 */
+    ok &= (jq_evt55_no_state_change(999) == 0);  /* 未映射 code 保守=0 */
     /* 恢复计数基线（防污染后续用例） */
     int delta = g_event_total - base_total;
     (void)delta;   /* 计数为全局累计，不回退（Σ 不变量含全累计），仅验一致性 */

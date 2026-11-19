@@ -135,14 +135,31 @@ int jq_save_game_read(const char *path, jq_state *st)
     {
         jq_state tmp_state;
         if (fread(&tmp_state, 1, SJG_STATE_BYTES, f) != SJG_STATE_BYTES) { fclose(f); return 0; }
-        *st = tmp_state;   /* 完整读入才覆盖调用方（原子语义） */
 
-        /* ★ R41-Q17（P1 读后最小域校验，防脏存档直接入引擎）：turn/stage/winner/mode 枚举域
-           校验 + 不合法即拒读（返回 0 不覆盖 st），防损坏/跨版本同 size 脏值污染规则引擎
-           （stale_* 缓存由 jq_undo_restore/stalemate_after 失效机制兜底，不在此校验）。 */
-        if (tmp_state.turn > 1 || tmp_state.stage > STG_OVER || tmp_state.winner > 2 ||
-            tmp_state.mode > 1) { fclose(f); return 0; }    }
+        /* ★ R41-Q17（P1 读后最小域校验，防脏存档直接入引擎）+ R55-Q1（★ 第 34 轮 P1 原子语义
+           修复）：turn/stage/winner/mode 枚举域校验 + 不合法即拒读（返回 0 不覆盖 st）。
+           旧缺陷：域校验在 *st=tmp_state 之后——校验失败（脏枚举）时调用方 st 已被脏值污染
+           （破坏"拒读不覆盖"原子语义，与注释矛盾）。修：域校验移到 *st 之前，校验全通过才覆写
+           （完整"校验→覆写"原子语义，与 R41-Q16 短读根治同范式）。 */
+        /* ★ P1（第一性原理重审 Q2）：winner 为 int8_t，合法域 {JQ_WIN_NONE=-1, 0, 1, 2}，
+           旧校验仅上界 winner>2，负值 -2..-128 通过校验入引擎（脏值）。补下界 winner<-1 拒绝。 */
+        if (tmp_state.turn > 1 || tmp_state.stage > STG_OVER ||
+            tmp_state.winner > 2 || tmp_state.winner < -1 ||
+            tmp_state.mode > 1) { fclose(f); return 0; }
+        *st = tmp_state;   /* 完整读入 + 域校验通过才覆盖调用方（原子语义） */    }
     fclose(f);
+    /* ★ P1（第一性原理重审 Q3）：cells 逐格最小域校验（防脏存档注入非法 side/rank/revealed 入引擎）。
+       合法域：side∈{SIDE_BLUE(0),SIDE_RED(1),SIDE_UNKNOWN(0xFF)}；rank∈[0,RANK_TOP+0xc]（蓝 raw 0-12/红 编码 13-24）；
+       revealed∈{0,1}。越域格强制归零（rank=0 空位+side=0xFF+revealed=0），防脏值污染规则/渲染。 */
+    for (int i = 0; i < N_CELLS; i++) {
+        jq_cell *c = &st->cells[i];
+        int side_ok = (c->side == SIDE_BLUE || c->side == SIDE_RED || c->side == SIDE_UNKNOWN);
+        int rank_ok = (c->rank <= RANK_TOP + 0x0c);   /* 红方编码 raw+0xc 上界 */
+        int rev_ok  = (c->revealed == 0 || c->revealed == 1);
+        if (!side_ok || !rank_ok || !rev_ok) {
+            c->rank = RANK_EMPTY; c->side = SIDE_UNKNOWN; c->revealed = 0; c->flags = 0;
+        }
+    }
     /* AUD-1000 B01-037：读档后 pieces_left 可为负（旧版游戏存档序列化了
        增量递减未钳制的脏值），下界钳 0 防止负值进规则引擎/AI 评分。 */
     for (int i = 0; i < 2; i++)
