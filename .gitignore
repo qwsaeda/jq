@@ -61,3 +61,8 @@ build/
 
 # §124w-ALIGN 棋子图集生成头（SPAK datah#183 像素内嵌，~650KB，同 jq_board_px.h 排除）
 rev64/reverse/src_jni_translated/jq_piece_atlas.h
+
+# Rust 构建产物（src_rs_rust）
+rev64/forward/src_rs_rust/target/
+**/target/aarch64-linux-android/
+

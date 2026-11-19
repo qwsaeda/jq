@@ -1,0 +1,22 @@
+[package]
+name = "junqi_rs"
+version = "1.0.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[profile.release]
+opt-level = 3
+
+# 纯逻辑层（board/state/rules/ai/save/ui/evt）：零 FFI 依赖，cargo test 本机可跑
+# 渲染层（wgpu）+ JNI 壳（jni）：仅 android target 编译
+
+[target.'cfg(target_os = "android")'.dependencies]
+jni = "0.21"
+# wgpu 渲染层（vulkan 首选 + gles 兜底，对齐 C libGLESv2 同源）
+# wgpu-hal 直接链接 android EGL/Vulkan；军棋 Android 默认 gles 后端（最低风险）
+wgpu = { version = "30", default-features = false, features = ["std", "gles"] }
+
+[dependencies]
+# 纯逻辑层（桌面 + android 均编译，41 测试锚定）

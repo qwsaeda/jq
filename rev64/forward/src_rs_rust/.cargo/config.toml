@@ -1,0 +1,6 @@
+[target.aarch64-linux-android]
+linker = "/tmp/opencode/android-ndk-r25b/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android24-clang"
+rustflags = [
+    "-C", "link-arg=-llog",
+    "-C", "link-arg=-landroid",
+]
