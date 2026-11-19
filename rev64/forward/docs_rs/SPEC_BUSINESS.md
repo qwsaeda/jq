@@ -12,7 +12,7 @@
 > | 事件名全集 | **76 = Junqi 73 + Misc 3**（Misc 3 归广告拆除红线，不入门禁） | `python3 rev64/tools/event_code_map_check.py`（0 缺口 PASS） |
 > | 门禁主链 | **73 Junqi 名**（`jq_event_names_73.c`，含 `Junqi.GameType%d` 格式串形态） | `python3 rev64/tools/event_names_alignment_check.py`（PASS） |
 > | 历史口径 | "74 名"= §124y-114 早期 10 大类求和快照（Misc 区仅 2 条时期） | 仅作演变注，不作判据 |
-> | evverify 断言 | **172/172（事件/业务 40 + 几何 132）** | `cd rev64/forward/src_rs && ./dist/jq_evverify --all`（SUMMARY 动态真值） |
+> | evverify 断言 | **174/174（事件/业务 42 + 几何 132）**（★ R32-Q56/Q66/Q93 快照修正：旧 172/172 为 R27 前历史快照，+run_switch_matrix(R27-Q92)+run_evt55_names_smoke(R27-Q68)=42 事件项；与 §8 SSOT 表 L190/L197 一致） | `cd rev64/forward/src_rs && ./dist/jq_evverify --all`（SUMMARY 动态真值） |
 > | 双端探针 | **36 case**（基线 4 坐实分叉 R-073/008/004/018 内不阻断） | `python3 rev64/tools/rule_probe_compare.py --offline` |
 > | SPAK 资源 | 原版解包全量 **18 WAV / 883 资源**；仓内实物 **14 WAV / 970 文件**（spak_res 交付口径） | `ls rev64/dist/spak_res/*.wav \| wc -l` |
 > | 暗棋桌面用例 | **86/86**（含判据自检） | `bash rev64/forward/src_rs/dark_align/dark_align_regress.sh` |
@@ -35,7 +35,7 @@
 | 吃子 | rank 小=强（3 吃 8）；目标 rank=12 军旗 → 吃旗胜 | 0x39e14 `jq_check_target` |
 | 炸弹 | 任何子碰炸弹同归于尽（双方消失） | 0x39e14 `0xa` 特判 |
 | 地雷 | 仅工兵（rank 9）可挖；地雷不可动 | 0x39e14 `0xb`（`from_row>3` 工兵） |
-| 军旗 | 明棋：任何已翻子扛旗即胜（rank 12）；**暗棋（mode=FLIP && cfg4=1）：仅工兵（rank 9）且已挖满 3 雷（mines_cleared[me]>=3）可扛旗**——★ R26-Q4 文档修正（SPEC 旧"任何已翻子"未区分明暗棋 + 暗棋开关语义） | 0x39e14 军旗特判（rules.c:325 暗棋工兵+挖3雷门槛，cfg3 开关控扛旗判胜） |
+| 军旗 | 明棋：任何已翻子扛旗即胜（rank 12）；**暗棋（mode=FLIP && cfg4=1 前置门槛）：仅工兵（rank 9）且已挖满 3 雷（mines_cleared[me]>=3）可扛旗**——★ R26-Q4 + R32-Q2 文档修正（cfg3/cfg4 职责分标：cfg4=暗棋雷/旗前置门槛（工兵+挖3雷），cfg3=吃旗开关控扛旗是否判胜（关则入位不终局），旧条款混写"cfg3 控扛旗"未区分双开关） | 0x39e14 军旗特判（rules.c:325 cfg4 暗棋工兵+挖3雷门槛 + rules.c:753-795 cfg3 吃旗开关控判胜，双开关交互） |
 | 走子 | 铁路（十字 + 双方底线 row0/11）直线任意格；普通格一步 | `is_rail`（board.c） |
 | 翻棋 | 点未翻己方子 → 翻开（暗棋玩法）；明棋全子 revealed=1 | 0x39f20 from==to→翻棋 |
 | 暗棋未翻目标 | 暗棋（mode=FLIP）下未翻普通暗子（rank 1-9 revealed=0）**可撞**（翻出子可走/吃到未翻暗子，撞子即翻暴露 rank）——★ R26-Q7/Q89 文档修正（2026-11-13 移除旧 B01-053"不可撞"限制，对齐原版 0x6a45c：翻出子可走路线不少于原版，用户"翻棋后可走路线少"指正）。旧 B01-053"未翻目标不可撞"为 AUD-1000 加的"防信息泄露"，已移除（信息不泄露非原版 0x6a45c 语义） | 0x6a45c 实证（rules.c:283-291 移除注释），evverify 暗棋基准已同步 |
@@ -166,7 +166,7 @@ UI_MENU（5 按钮：人机/两人/联网/联机/四国）
 - ★ B04-002 定案：ev（事件码）不编入第 7 字段 f7——f7 为兼容旧调用方保留位（恒 0 透传），
   事件分类走 jni_bridge 收帧侧 `jq_try_move` 返回值映射（原版 32位 帧格式无 ev 槽，
   7 字段定案=实证 0x26f5e-0x26f84 同步循环 + 帧格式逆向）。
-- 帧状态机 `bt_session`：7 种帧类型回合闸口 + 坐标校验 + `jq_try_move` 验证对方走子 + 回合翻转。
+- 帧状态机 `bt_session`：10 种帧类型（MOVE/FLIP/UNDO/SYNC_CELL/SYNC/RESTART/RESIGN/DRAW/CHAT/CAP，★ R32-Q34 快照修正：旧 7 种为 v2 基线，已扩 v3 双栈 10 类型）回合闸口 + 坐标校验 + `jq_try_move` 验证对方走子 + 回合翻转。
 - 诚实边界：SPP socket IO 由 Java 宿主承担，无真机蓝牙验证；7 字段语义为行为级约定。
 
 ## 7. 对局状态
