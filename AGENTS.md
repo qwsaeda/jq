@@ -552,6 +552,7 @@ java -cp /tmp/opencode/apksigner/apksig.jar:/tmp/opencode/apksigner SignV2 \
 | `rev64/forward/docs_rs/WGPU_RENDER_DESIGN.md` | **wgpu 渲染层设计（§12 出屏 + NDK 链接契约）**——wgpu 30 gles 后端（对齐 C libGLESv2 同源）/ 渲染几何基准（board 737×751 + aPos.y=i/1280*view_h + cell 中心公式）/ 渲染帧管线（清屏+棋盘+棋子+UI+blend）/ 真机 5 判据（装/出屏/下一局/退出/重进，设备 10.0.182.146 PENDING）/ 诚实边界（出屏未真机验证=PENDING，NDK 链接通过≠出屏达成） | ✅ 成文（本轮） |
 | `rev64/forward/src_rs_rust/` | **Rust 正向源码（人机对战全栈，与 C src_rs/ 物理隔离）**——crate-type cdylib+rlib；7 模块 41/41 测试（board/state/rules/ai/save/ui/evt，cargo test 本机）+ jni.rs（14 个 `Java_com_qwsaeda_App_*` 导出，arm64 so nm -D 实锤全中）+ render.rs（wgpu 30 gles 骨架，类型可解析，真机出屏 PENDING）；范围=人机对战（OnBluetooth 空实现保 smali 契约）；构建 `cargo build --target aarch64-linux-android`（NDK r25b `.cargo/config.toml` 已配）；★ 包名 com.qwsaeda.junqirs（正向 app，非逆向 com.zxj） | ✅ 成文（本轮，41 测试全绿 + 14 符号 + git 入库 491c7a3） |
 
+| `rev64/forward/docs_rs/RS_DELIVERY_CHECKLIST.md` | **Rust 正向 64 位全栈交付清单**——13 模块 2914 行 82 测试全绿 / C 正向优势移植（game_selftest+evverify+rule_probe 36 case，抓出 Rust 2 规则层分叉 bug）/ 交付物（82 测试+arm64 so 14 符号+APK 三签+打包脚本）/ PENDING 3 项（wgpu render pass+OnTouch 坐标+真机 5 判据，设备 No route to host）/ 位宽锁定纯 64 位（用户 2026-11-19 指令，不覆盖 32 位） | ✅ 成文（本轮） |
 ### 32 位逆向路线（R6 / 翻译体 / unidbg / frida / MuMu）
 
 | 文档 | 内容 | 状态 |
