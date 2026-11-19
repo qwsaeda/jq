@@ -90,7 +90,13 @@ mod imp {
                     }
                 }
             }));
-            if r.is_err() { crate::log::setprop("jq.wgpu_thread", "frame_panic"); break; }
+            if let Err(payload) = &r {
+                let msg = payload.downcast_ref::<&str>().copied()
+                    .or_else(|| payload.downcast_ref::<String>().map(|s| s.as_str()))
+                    .unwrap_or("?");
+                crate::log::setprop("jq.err", &msg.chars().take(40).collect::<String>());
+                crate::log::setprop("jq.wgpu_thread", "frame_panic"); break;
+            }
             frame += 1;
             if frame == 3 { crate::log::setprop("jq.wgpu_thread", "rendering"); }
             std::thread::sleep(std::time::Duration::from_millis(400));

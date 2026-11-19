@@ -123,6 +123,8 @@
 | ⑤ 重进不崩 | ✅ | pid 31340 存活，SIGABRT=0 |
 
 **当前出屏内容 = 纯色蓝（渲染通路验证）**，下一步 = 移植棋盘/棋子/菜单几何到 wgpu offscreen（C render.c rs_draw_menu 基准，纯 Rust 重写）。**不出"能玩"结论直到判据③达成。**
+- **几何绘制攻坚（2026-11-20）**：新增 `render.rs::draw_rects_rgba`（纯 Rust wgsl shader + 顶点 buffer + render pass 画棋盘/菜单矩形）+ `menu_rects`（12×5 棋盘格 + 5 按钮）。**当前 wgpu Validation Error**（wgsl vec4<f32> 语法已修，仍报 validation——疑 fragment target format / vertex layout 细节），几何代码保留禁用，回退纯色稳定态（100% 出屏）。剩余 = 修 wgpu pipeline validation（error scope 在 wgpu 30 API 名待查）
+- **稳定交付态**：纯 Rust wgpu offscreen 纯色渲染 100% 出屏 + 5 判据 ①④⑤ PASS + 82 测试 + 14 符号；判据③（真实棋盘/菜单）待几何 pipeline validation 修复
 
 ## 6. 位宽锁定（用户 2026-11-19 指令）
 
