@@ -55,6 +55,41 @@ mod gles_render {
             self.init_done = true;
         }
 
+        /// wgpu instance/adapter/device 获取（真机 pollster 轮询，设计 §3）
+        /// 返回 (device, queue)；失败 None（后端不支持/GPU 缺失）
+        pub fn create_wgpu_device() -> Option<(wgpu::Device, wgpu::Queue)> {
+            use pollster::FutureExt;
+            // wgpu 30 真实 API：Instance::new(desc) 非 &desc + RequestAdapterOptions（非 AdapterOptions）
+            let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
+                backends: wgpu::Backends::GL, // gles 后端（对齐 C libGLESv2）
+                flags: wgpu::InstanceFlags::default(),
+                memory_budget_thresholds: wgpu::MemoryBudgetThresholds::default(),
+                backend_options: wgpu::BackendOptions::default(),
+                display: None,
+            });
+            let adapter = instance
+                .request_adapter(&wgpu::RequestAdapterOptions {
+                    power_preference: wgpu::PowerPreference::LowPower,
+                    force_fallback_adapter: false,
+                    compatible_surface: None,
+                    apply_limit_buckets: false,
+                })
+                .block_on()
+                .ok()?;
+            let (device, queue) = adapter
+                .request_device(&wgpu::DeviceDescriptor {
+                    label: Some("junqi-rs"),
+                    required_features: wgpu::Features::empty(),
+                    required_limits: wgpu::Limits::default(),
+                    experimental_features: wgpu::ExperimentalFeatures::default(),
+                    memory_hints: wgpu::MemoryHints::default(),
+                    trace: wgpu::Trace::default(),
+                })
+                .block_on()
+                .ok()?;
+            Some((device, queue))
+        }
+
         /// 创建棋盘渲染 pipeline（真机可达时补全 wgpu API，设计 §3 ②③⑤）
         /// 真机实现：vertex buffer（棋盘 6 顶点）+ fragment（棋盘纹理采样）+ blend state（防黑底）
         pub fn build_pipeline(&mut self) {

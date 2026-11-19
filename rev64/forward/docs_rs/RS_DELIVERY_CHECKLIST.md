@@ -47,18 +47,34 @@
 | 规格审计 17 条 | ✅ 全修 | SPEC_HUMAN_PLAY P0×3+P1×8+P2×4+P3×2 |
 | git 入库 | ✅ | 全推 origin/main（HEAD b1c9fb8） |
 
-## 4. PENDING 项（须真机 10.0.182.146，当前 No route to host）
+## 4. 真机验收实锤（设备 10.0.182.152:5555，2026-11-19）
 
-| 待办 | 内容 | 文件 | 阻塞 |
-|---|---|---|---|
-| ① wgpu render pass | 完整棋盘/棋子渲染（build_pipeline+顶点+纹理+blend+EGL surface） | src/render.rs | 设备不可达 |
-| ② OnTouch 坐标提取 | 原生 JNI 反射 MotionEvent.getX/getY→handle_touch | src/jni.rs | 设备不可达 |
-| ③ 真机 5 判据 | 装/出屏/下一局/退出/重进 | rebuild_rust_apk.sh [5/6]+[6/6] | 设备不可达 |
+| 判据 | 状态 | 实锤 |
+|---|---|---|
+| ① 装得上 | ✅ | 装机 Success + so 对账 PASS（Rust so d2934742） |
+| ② 进主界面（出屏） | 🔲 **58.8% 非黑（< C 基准 98%+）** | Rust 骨架接管（pid 存活+无崩+14 符号匹配），wgpu render pass 未实现 |
+| ③ 下一局 | 🔲 | 出屏未达成，走子前置未通 |
+| ④ 正常退出 | ✅ | force-stop 0 崩溃 |
+| ⑤ 重进不崩 | ✅ | 重启 pid 2705 存活 |
+
+**★ 真机实锤（10.0.182.152，pid 2705/2501）**：
+- Rust so 替换 C so 成功（smali loadLibrary("junqi") 同名替换，14 JNI 符号匹配，**无 UnsatisfiedLinkError + 无崩溃**）
+- 设备 base.apk 内 so md5 = d2934742（= 本地 Rust so），C so 已删
+- 截图 900×1600 非黑比 58.8%（系统层/Java UI 出屏，wgpu 渲染层未接 → 内容未出屏）
+- 设备 IP 变更：10.0.182.146 → **10.0.182.152:5555**（rebuild_rust_apk.sh 已更新）
+
+## 5. PENDING 项（真机可达 10.0.182.152，wgpu 出屏攻坚进行中）
+
+| 待办 | 内容 | 进度 |
+|---|---|---|
+| ① wgpu render pass | device 初始化通路（create_wgpu_device pollster）已编译；**surface（EGL 互操作）+ 棋盘纹理上传 + wgsl 顶点批次 = 真机迭代中** | 🔵 device 通路 ✓ / surface+纹理 PENDING |
+| ② OnTouch 坐标提取 | 原生 JNI 反射 MotionEvent.getX/getY→handle_touch（骨架安全降级） | 🔲 真机补全 |
+| ③ 真机 5 判据 | ①④⑤ PASS，②③ PENDING（wgpu 出屏达成后） | 🔵 部分达成 |
 
 **边界声明**：①②③ 代码骨架已落（render.rs 可编译+jni.rs OnTouch 安全降级+打包全链），
 真机可达时补全 ①② 实现+跑 ③ 判据。设备不可达前**不出"出屏达成"结论**（禁自欺）。
 
-## 5. 位宽锁定（用户 2026-11-19 指令）
+## 6. 位宽锁定（用户 2026-11-19 指令）
 
 - Rust 正向 = **纯 64 位（aarch64）单源码**，不做 32 位变体（用户明确不要求覆盖 32 位设备）
 - 32 位设备走原版 com.cnvcs.junqi（ELF32）/ 逆向 com.zxj，与 Rust 正向互不干涉

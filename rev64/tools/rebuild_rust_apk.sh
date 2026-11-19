@@ -71,9 +71,9 @@ log "APK：$OUTAPK（$(du -h "$OUTAPK" | cut -f1)）+ 双签验证 PASS"
 if [ "${1:-}" = "--no-install" ]; then
     log "=== [5/6] --no-install 跳过装机 ==="
 else
-    log "=== [5/6] 装机 10.0.182.146:5555 ==="
-    timeout 5 adb connect 10.0.182.146:5555 2>&1 | head -1
-    if adb -s 10.0.182.146:5555 install -r "$OUTAPK" 2>&1 | grep -q "Success"; then
+    log "=== [5/6] 装机 10.0.182.152:5555 ==="
+    timeout 5 adb connect 10.0.182.152:5555 2>&1 | head -1
+    if adb -s 10.0.182.152:5555 install -r "$OUTAPK" 2>&1 | grep -q "Success"; then
         log "装机 Success"
     else
         log "★ 装机失败（设备不可达/安装错误）——APK 已出，设备可达后手动 adb install"
@@ -84,9 +84,9 @@ fi
 if [ "${1:-}" != "--no-install" ]; then
     log "=== [6/6] so 哈希对账 ==="
     LOCAL_MD5=$(md5sum "$RSO" | cut -d' ' -f1)
-    DEV_SO=$(adb -s 10.0.182.146:5555 shell "pm path com.qwsaeda.junqirs" 2>/dev/null | head -1 | sed 's/package://')
+    DEV_SO=$(adb -s 10.0.182.152:5555 shell "pm path com.qwsaeda.junqirs" 2>/dev/null | head -1 | sed 's/package://')
     if [ -n "$DEV_SO" ]; then
-        DEV_MD5=$(adb -s 10.0.182.146:5555 shell "unzip -p $DEV_SO lib/arm64-v8a/libjunqi_rs.so 2>/dev/null | md5sum" | cut -d' ' -f1)
+        DEV_MD5=$(adb -s 10.0.182.152:5555 shell "unzip -p $DEV_SO lib/arm64-v8a/libjunqi_rs.so 2>/dev/null | md5sum" | cut -d' ' -f1)
         [ "$LOCAL_MD5" = "$DEV_MD5" ] && log "对账 PASS（$LOCAL_MD5）" || log "★ 对账 FAIL（本地 $LOCAL_MD5 / 设备 $DEV_MD5）"
     else
         log "（设备不可达，对账 PENDING）"
