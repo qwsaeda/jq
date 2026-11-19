@@ -33,9 +33,9 @@ mod android_impl {
 
     #[no_mangle]
     pub extern "C" fn Java_com_qwsaeda_App_OnCreate(
-        _env: *mut jni::sys::JNIEnv,
+        env: *mut jni::sys::JNIEnv,
         _cls: JClass,
-        _activity: jni::sys::jobject,
+        activity: jni::sys::jobject,
     ) -> jni::sys::jobject {
         with_lock(|st, _u, _c| {
             *st = State::new();
@@ -44,7 +44,38 @@ mod android_impl {
             st.turn = crate::state::SIDE_BLUE;
             st.stage = crate::state::Stage::Play;
         });
-        std::ptr::null_mut() // jobject null（Rust 版 GLView 由 Java 侧构造，OnCreate 不返 native 对象；诚实边界）
+        // ★ 出屏攻坚关键（对齐 C jni_bridge.c:2707-2811）：
+        //   smali 拿非 null GLView → setOnTouchListener + setRenderer + GLThread 启动
+        //   → 渲染线程持续调 native OnUpdate → wgpu 出屏通路激活。
+        //   Rust 旧返回 null → Java 兜底 GLView → native 渲染线程不启动 → 无出屏（58.8% 根因）。
+        unsafe {
+            let envf = &**env; // env: *mut JNIEnv(*const JNINativeInterface_) → 解两层到 JNINativeInterface_
+            let find_class = match envf.FindClass {
+                Some(f) => f,
+                None => return std::ptr::null_mut(),
+            };
+            let get_method = match envf.GetMethodID {
+                Some(f) => f,
+                None => return std::ptr::null_mut(),
+            };
+            let new_object = match envf.NewObject {
+                Some(f) => f,
+                None => return std::ptr::null_mut(),
+            };
+            let name = c"com/qwsaeda/GLView";
+            let cls = find_class(env, name.as_ptr() as *const _);
+            if cls.is_null() {
+                return std::ptr::null_mut();
+            }
+            let init = c"<init>";
+            let sig = c"(Landroid/content/Context;)V";
+            let ctor = get_method(env, cls, init.as_ptr() as *const _, sig.as_ptr() as *const _);
+            if ctor.is_null() {
+                return std::ptr::null_mut();
+            }
+            // NewObject(env, cls, ctor, activity)——变参函数，Context 单个 jobject 参数
+            new_object(env, cls, ctor, activity)
+        }
     }
 
     #[no_mangle]
@@ -90,19 +121,19 @@ mod android_impl {
         let init_ok = with_lock(|st, _u, _c| {
             // device 未初始化时获取（幂等：已 init 跳过）
             // wgpu 出屏攻坚：create_wgpu_device 真机验 gles 后端（EGL/GPU 驱动）
-            if !st.wgpu_init_done {
+            if !st.wgpu_log_done {
                 match crate::render::RenderCtx::create_wgpu_device() {
                     Some((dev, _q)) => {
-                        // device 获取成功（真机 wgpu gles 后端可达）
-                        // 完整 surface/纹理/wgsl 出屏留真机迭代（设计 §3）
+                        crate::log::setprop("jq.wgpu_state", "device_ok");
                         let _ = dev;
                         st.wgpu_init_done = true;
                     }
                     None => {
-                        // wgpu 后端不可达（无 GPU/EGL 失败）——安全降级，不崩
+                        crate::log::setprop("jq.wgpu_state", "device_fail");
                         st.wgpu_init_done = false;
                     }
                 }
+                st.wgpu_log_done = true;
             }
             true
         });

@@ -113,6 +113,8 @@ pub struct State {
     pub cfg: [u8; 5],
     /// wgpu 出屏初始化标记（OnUpdate 首次 create_wgpu_device 后置 true）
     pub wgpu_init_done: bool,
+    /// wgpu device 诊断日志只打一次
+    pub wgpu_log_done: bool,
 }
 
 impl State {
@@ -131,6 +133,7 @@ impl State {
             // 规则开关默认全开（对齐原版：和棋/大本营/吃雷/吃旗/暗棋门槛）
             cfg: [1, 1, 1, 1, 1],
             wgpu_init_done: false,
+            wgpu_log_done: false,
         }
     }
 
