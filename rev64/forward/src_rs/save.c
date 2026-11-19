@@ -129,7 +129,19 @@ int jq_save_game_read(const char *path, jq_state *st)
         return 0;
     }
     /* ★ AUD-R-049/041（P2）：整结构读取（与写侧同版 sizeof，已按 sz 校验） */
-    if (fread(st, 1, SJG_STATE_BYTES, f) != SJG_STATE_BYTES) { fclose(f); return 0; }
+    /* ★ R41-Q16（P1 短读污染 st 根治）：旧代码直接 fread(st,...)——短读时 st 已被部分覆写
+       但函数返回 0，调用方若忽略返回值/复用 st 将得到半读脏状态。改为先读临时缓冲，
+       完整（SJG_STATE_BYTES）才 memcpy 进 st，保证"失败不改调用方状态"。 */
+    {
+        jq_state tmp_state;
+        if (fread(&tmp_state, 1, SJG_STATE_BYTES, f) != SJG_STATE_BYTES) { fclose(f); return 0; }
+        *st = tmp_state;   /* 完整读入才覆盖调用方（原子语义） */
+
+        /* ★ R41-Q17（P1 读后最小域校验，防脏存档直接入引擎）：turn/stage/winner/mode 枚举域
+           校验 + 不合法即拒读（返回 0 不覆盖 st），防损坏/跨版本同 size 脏值污染规则引擎
+           （stale_* 缓存由 jq_undo_restore/stalemate_after 失效机制兜底，不在此校验）。 */
+        if (tmp_state.turn > 1 || tmp_state.stage > STG_OVER || tmp_state.winner > 2 ||
+            tmp_state.mode > 1) { fclose(f); return 0; }    }
     fclose(f);
     /* AUD-1000 B01-037：读档后 pieces_left 可为负（旧版游戏存档序列化了
        增量递减未钳制的脏值），下界钳 0 防止负值进规则引擎/AI 评分。 */

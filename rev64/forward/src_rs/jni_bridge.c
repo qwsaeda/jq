@@ -2578,12 +2578,29 @@ Java_com_qwsaeda_App_OnCreate(JNIEnv *env, jclass clazz, jobject activity)
         snprintf(priv, sizeof priv, "%s/spak_res",
                  g_files_dir[0] ? g_files_dir : "/data/user/0/com.qwsaeda.junqirs/files");
         struct stat st;
-        if (stat(priv, &st) == 0) {
-            /* 主线程预读私有目录（正向规范主路：APK 资源内嵌 + 私有目录落地） */
-            snprintf(g_spak_dir_buf, sizeof g_spak_dir_buf, "%s", priv);
-            SPAK_DIR = g_spak_dir_buf;
-            LOGI("OnCreate：spak_res 走 app 私有目录 %s（主线程预读落地，渲染线程 fs 读）", SPAK_DIR);
-        } else if (stat(SPAK_DIR_DEV, &st) == 0) {
+        /* ★ R36-Q46/Q67（P0 选路-落地-读取三环同源）：priv 预读落地仅 48 项清单（无 datax 背景 bin），
+           渲染 render.c:648 实际依赖 datax_294_/datax_177_ 前缀读菜单/对局背景 JPEG——priv 选中后若缺
+           datax，渲染背景 MISS 且不回退 dev（单目录读）。选路加 datax 探测：priv 存在但缺 datax_294 前缀
+           时回退 dev 全量（dev 推 970 含 datax 301 个），防"推全量 dev ≠ 进程读到全量"误判。 */
+        {
+            int priv_has_datax = 0;
+            DIR *dp = opendir(priv);
+            if (dp) {
+                struct dirent *de;
+                while ((de = readdir(dp)) != NULL)
+                    if (strncmp(de->d_name, "datax_294_", 10) == 0) { priv_has_datax = 1; break; }
+                closedir(dp);
+            }
+            if (stat(priv, &st) == 0 && priv_has_datax) {
+                snprintf(g_spak_dir_buf, sizeof g_spak_dir_buf, "%s", priv);
+                SPAK_DIR = g_spak_dir_buf;
+                LOGI("OnCreate：spak_res 走 app 私有目录 %s（预读落地 + datax 背景齐，渲染 fs 读）", SPAK_DIR);
+            } else if (stat(priv, &st) == 0) {
+                /* priv 存在但缺 datax 背景 → 回退 dev 全量（渲染实际依赖 datax，priv 48 项清单不覆盖） */
+                snprintf(g_spak_dir_buf, sizeof g_spak_dir_buf, "%s", SPAK_DIR_DEV);
+                SPAK_DIR = g_spak_dir_buf;
+                LOGI("OnCreate：spak_res 私有目录缺 datax 背景 bin，回退 /data/local/tmp（dev 全量 970 含 datax，防背景 MISSING 退化）");
+            } else if (stat(SPAK_DIR_DEV, &st) == 0) {
             SPAK_DIR = SPAK_DIR_DEV;
             LOGI("OnCreate：spak_res 走 /data/local/tmp（开发 push 缓存）");
         } else {
@@ -2601,24 +2618,31 @@ Java_com_qwsaeda_App_OnCreate(JNIEnv *env, jclass clazz, jobject activity)
             int nmiss = 0;
             {
                 DIR *dp = opendir(SPAK_DIR);
-                int found[4] = {0,0,0,0};
-                const char *kpre[4] = { "datah_188_", "datah_183_", "bg_menu_720", "menu_text_atlas" };
+                int found[6] = {0,0,0,0,0,0};
+                /* ★ R36-Q3/Q12/Q15（P0 渲染实际依赖 datax 背景 bin 入快检）：datax_294_/datax_177_
+                   前缀=菜单/对局背景 JPEG 真值源（render.c:648 rs_read_spak_by_prefix 读），
+                   旧 4 前缀漏检致"RL-02 齐备但背景 datax 缺失"误判（选路-快检-读取三环同源） */
+                const char *kpre[6] = { "datah_188_", "datah_183_", "bg_menu_720", "menu_text_atlas",
+                                        "datax_294_", "datax_177_" };
                 if (dp) {
                     struct dirent *de;
                     while ((de = readdir(dp)) != NULL) {
-                        for (int k = 0; k < 4; k++)
+                        for (int k = 0; k < 6; k++)
                             if (strncmp(de->d_name, kpre[k], strlen(kpre[k])) == 0) found[k] = 1;
                     }
                     closedir(dp);
                 }
-                for (int k = 0; k < 4; k++) if (!found[k]) nmiss++;
+                for (int k = 0; k < 6; k++) if (!found[k]) nmiss++;
                 if (g_files_dir[0] && nmiss > 0)
-                    LOGI("OnCreate：spak_res 关键资源缺失 %d/4（前缀 datah_188/183/bg_menu_720/menu_text_atlas，%s），缺者走纯色降级",
+                    LOGI("OnCreate：spak_res 关键资源缺失 %d/6（前缀 datah_188/183/bg_menu_720/menu_text_atlas/datax_294/177，%s），缺者走纯色降级",
                          nmiss, SPAK_DIR);
-                if (nmiss == 4)
-                    LOGI("OnCreate：spak_res 4 张核心资源全缺失（%s），进主界面走纯色/清屏退化（资源完整出屏未达成）", SPAK_DIR);
+                if (nmiss == 6)
+                    LOGI("OnCreate：spak_res 6 类核心资源全缺失（%s），进主界面走纯色/清屏退化（资源完整出屏未达成）", SPAK_DIR);
                 else if (nmiss == 0)
-                    LOGI("OnCreate：spak_res 4 张核心资源齐备（%s），棋盘/棋子/背景/文字可出屏", SPAK_DIR);
+                    /* ★ R36-Q71（P0 快检文案诚实标注）：6 前缀齐备≠全 40+ atlas 齐备——RL-02 仅
+                       6 类核心前缀，未覆盖 popup/40+ 对话框文字图集/图标/面板皮肤；出屏需 GL 上传+
+                       draw+设备截图非黑比（PENDING），不可由快检 PASS 外推 */
+                    LOGI("OnCreate：spak_res 6 类核心资源前缀齐备（%s，仅 6 前缀=棋盘/棋子/背景 bin/菜单文字/对局背景 datax，非全 40+ atlas），出屏需设备截图非黑比（PENDING）", SPAK_DIR);
             }
         }
     }

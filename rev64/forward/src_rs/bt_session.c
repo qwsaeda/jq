@@ -3,9 +3,11 @@
  * 对齐原版 0xbe9cc 逻辑（收帧→校验→规则引擎→回合翻转→出帧）。
  * 7 字段行为级约定：f1=type, f2=fc, f3=fr, f4=tc, f5=tr, f6=rank, f7=side。
  * type 取值（jq_bt_type，权威定义在 bt_protocol.h）：MOVE=0/FLIP=1/UNDO=2/SYNC=3/
- * SYNC_CELL=4/RESTART=5/RESIGN=6/DRAW=7/CHAT=8。★ AUD-1000-ALL A4-01（P1 已修）：
- * 旧注释仅列 7 类（缺 DRAW/CHAT），与 .h 权威枚举（9 类）双源漂移；switch 未处理
- * DRAW/CHAT（default 拒收，bt_semtest B04-040 验 type=8/9 拒收），注释补全对齐 .h。
+ * SYNC_CELL=4/RESTART=5/RESIGN=6/DRAW=7/CHAT=8/CAP=9（共 10 类，★ R39-Q80 修正：旧注释误写
+ * "9 类"缺 CAP；bt_protocol.h enum 实锤 10 值含 BT_T_CAP）。★ AUD-1000-ALL A4-01（P1 已修）：
+ * 旧注释仅列 7 类（缺 DRAW/CHAT/CAP）；★ R39-Q81 修正：switch 已处理 DRAW(:284)/CHAT(:294)
+ * （合法消费不改棋局，非 default 拒收），注释对齐代码现状（bt_semtest B04-040 旧验 type=8/9
+ * 拒收为早期口径，现 DRAW/CHAT 已收表处理，CAP(:300) 升档）。
  */
 #include "bt_session.h"
 #include "bt_protocol.h"
@@ -396,6 +398,13 @@ int jq_bt_session_on_frame_v3(jq_bt_session *s, jq_state *st,
         } else if (seq > 0) {
             s->rx_last_seq = seq;   /* 逐 case 登记（MOVE/FLIP/SYNC_CELL/SYNC/RESIGN/DRAW/CHAT/UNDO） */
         }
+    }
+    /* ★ R38-Q34（P1 被拒绝帧 seq 窗口登记根治）：被业务拒绝的 v3 帧（rc<0 但 seq>0，如回合不符/
+       非法走子/坐标越界）同样登记 rx_last_seq——帧已到达并被校验即"消费"该 seq，不登记则对端
+       重传同 seq 走"新帧"路径重复业务校验，后续更大 seq 成功后该 seq 成永久窗口空洞。
+       v2 降级帧 seq=0 不受影响（无去重语义，Q30 诚实边界）。RESTART 成功复位在上方已先行清零。 */
+    if (seq > 0 && type != BT_T_RESTART) {
+        if (rc < 0) s->rx_last_seq = seq;   /* 被拒绝帧登记（防重传空洞） */
     }
     return rc;
 }

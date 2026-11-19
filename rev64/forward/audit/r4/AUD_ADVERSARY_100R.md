@@ -167,3 +167,46 @@ so 真值：R7 渲染 P1→so 729496B；R8/R9/R10 断言层改动 so 未变
 - 分发成功 ≠ 业务实现（账号/联机 47 名无 g_state 变更）
 - "推了全量资源" ≠ "进程读到全量"（SPAK_DIR 选路决定，渲染对未落地资源 MISS 走纯色）
 - 基线 4 分叉归因不阻断（R-073 地雷模型/翻子困毙 + R-004 0xFF 编码 + R-018 杀光判据 + R-008 翻子收口时序）
+
+---
+
+## 第 2 批次清账（11-20 轮，域轮转：SPEC §4 UI/暗棋复合/事件计数/资源加载/渲染顶点/蓝牙帧重组/诚实边界/文档多口径/存档回放/全模块 SSOT 仲裁）
+
+### 各轮回执（99 问题/轮）
+| 轮 | 域 | P0 | P1 | P2 | 最高价值可修 P0/P1 |
+|---|---|---|---|---|---|
+| 11 | SPEC §4 UI 流程 | 0 | 31 | 68 | R33-Q4/Q23/Q12：SPEC §4 补全（难度弹窗前置 action0→UI_DIFFICULTY + 蓝牙菜单 ui_imen_bt_buttons 分流 + 40+ 屏态索引 + UI 可达≠功能可用） |
+| 12 | 暗棋复合规则 | 0 | 24 | 75 | R34-Q12/Q92：run_dark ⑪ 撞未翻结算 3 case（EV_EAT 强吃 ev=1 / EV_DEAD 弱被吃 ev=4 / 同级互杀 EV_EAT 0x31de0 ev=1） |
+| 13 | 事件计数口径 | 0 | 23 | 76 | R35-Q56/Q57：SPEC §3 计数口径 g_event_cnt[7]→[73] 名级 + EV_MINE→idx0 合槽 / EV_FLIP→idx5 + 并发竞态诚实边界（无锁 int 双变量非原子同增） |
+| 14 | 资源加载续 | 3 | 27 | 69 | R36-Q3/Q46/Q67：datax_294/177 前缀入 RL-02 快检（4→6 前缀）+ found[4]→[6] + 快检文案诚实标注（6 前缀≠全 40+ atlas）+ 选路 priv 缺 datax 回退 dev 全量（SPAK 选路-落地-读取三环同源，防"推全量≠读到全量"） |
+| 15 | 渲染顶点/blend 续 | 0 | 33 | 66 | R37-Q38/Q37/Q47/Q13：sel_line 每帧 memset 清零（防残留坐标幽灵高亮）+ hl_pool nhl clamp 64（防越界写静态缓冲）+ rs_draw_house 移除 glDisable(GL_BLEND)+glFlush（不破坏帧头 blend 不变量） |
+| 16 | 蓝牙帧重组续 | 0 | 27 | 49+23 | R38-Q34：on_frame_v3 被拒绝帧（rc<0 但 seq>0）登记 rx_last_seq 防重传窗口空洞（v2 seq=0 不受影响，Q30 诚实边界） |
+| 17 | 诚实边界续 | 8 | 44 | 47 | R39-Q80/Q81/Q23/Q38/Q67：bt_session.c 头注 9→10 类含 CAP + DRAW/CHAT 已处理修正 + SPEC SSOT 表 R34-R38 落地时效刷新 + evverify 174 收敛 + 设备 PENDING 互斥标注（历史 PASS 不外推当前）+ 4 条红线补（SYNC_CELL 白名单/v2 去重降级/UNDO hash 省 SYNC/资源 48vs970 选路） |
+| 18 | 文档多口径仲裁 | 0 | 39 | 54+6 | R40-Q78-Q83：align_gate.sh:7 + gen_align_coverage.py:128-129 + pipeline_run.sh:51 + AGENTS:573/575 工具链 172 注释全同步 174（与 SPEC L15/L209 一致，0 残留；AGENTS:107/353 历史叙事段保留） |
+| 19 | 存档/回放 | 0 | 20 | 46+33 | R41-Q16/Q17：jq_save_game_read 短读污染 st 根治（先读临时缓冲 tmp_state，完整才 memcpy）+ 读后最小域校验（turn/stage/winner/mode 枚举域，不合法拒读）。Q68 replay 翻棋重放冲突 = 明棋复盘设计边界非 bug（replay :94-96 强制 revealed=1 对齐明棋范式，翻棋=暗棋玩法，撤回缺陷判定） |
+| 20 | 全模块 SSOT 仲裁 | 8 | 55 | 36 | R42-Q1/Q19（SSOT 表 4 行证据列刷新 R34/R37/R38/R39/R41 落地 + 诚实边界补）+ Q30/Q31/Q32/Q33（红线补 ⑤-⑧：replay 明棋范式/sjg 非原版兼容+短读已修/资源 970 推全量 vs 选路/音效 14vs18）+ Q80（设备 PENDING 机器汇总段：6 域统一登记 + 退出码口径 + 互斥仲裁） |
+
+### 第 2 批次 P0/P1 落地汇总
+| 落地项 | 文件 | so | 全门禁 |
+|---|---|---|---|
+| R33 SPEC §4 补全 | SPEC_BUSINESS.md | 不变 | 174/174 |
+| R34 撞未翻结算 3 case | evverify.c + rules.c | 729496B | 174/174（42+132，run_dark ⑪ 纳入 42 事件项） |
+| R35 计数口径 | SPEC §3 | 不变 | 174/174 |
+| R36 资源 P0（datax 快检+选路） | jni_bridge.c | 729496B | 174/174 |
+| R37 渲染 P1 | render.c | 729496B | 174/174 |
+| R38 蓝牙 P1 | bt_session.c | 729496B | bt_semtest 152 + dual 43 |
+| R39 诚实边界 P0 | bt_session.c 头注 + SPEC | 729496B | 174/174 |
+| R40 工具链 174 同步 | align_gate.sh/gen_align_coverage.py/pipeline_run.sh/AGENTS | 不变 | 8/8 |
+| R41 存档 P1 | save.c | 729496B | 174/174 |
+| R42 SSOT 仲裁 P0 | SPEC §8 SSOT 表 + 红线 ⑤-⑧ + 设备 PENDING 机器汇总段 | 不变 | 174/174 |
+
+### 第 2 批次撤回误报累计（防硬凑）
+- R19-Q68 replay 翻棋重放=明棋设计边界（撤回缺陷判定，翻棋=暗棋玩法）
+- 暗棋 0xFF 提取全 0=设计边界非 bug（layout.c:179-183 B01-043 已声明）
+- 桌面 0 回归 ≠ 存档/回放域已对齐（混合版本互读 PENDING，R42-Q31 红线补⑥）
+- 资源 970 推全量 ≠ 进程读到 970（选路决定，R42-Q33 红线补⑦）
+
+### 真值演进（第 2 批次末）
+- evverify **174/174**（42 事件 + 132 几何，含 run_dark ⑪ 撞未翻结算 R34 + 终局幂等）
+- bt_semtest 152 + dual 43 + align_gate 8/8 + dark_align 86 全 0 退化
+- so 729496B（R14 datax 快检+选路 / R15 渲染 P1 / R16 蓝牙 P1 / R19 存档 P1 落地）

@@ -625,7 +625,43 @@ static int run_dark(void)
                st.moves_since_eat, st.total_moves, c8, c8 ? "" : "  [FAIL]");
         if (!c8) ok = 0;
     }
-    printf("暗棋规则族（AUD-R-002/003 P0 + R27-Q5/Q8/Q91）: %s\n", ok ? "PASS" : "FAIL");
+    /* ★ R34-Q12/Q92（P1 暗棋撞未翻目标结算断言根治）：0x6a45c 移除 B01-053 后，
+       已翻子撞未翻暗子→按 rank 比较结算（EV_EAT 强吃/EV_DEAD 弱被吃/同级互杀）——
+       run_dark⑧ 仅验 can_move=1（可撞），本 ⑪ 验撞击后 jq_try_move 结算全矩阵 */
+    {
+        /* ⑪-a：蓝强(rank3 师长) 撞 红弱(rank8 排长, 未翻 revealed=0) → EV_EAT（大压小） */
+        jq_state st; memset(&st, 0, sizeof(st));
+        st.turn = SIDE_BLUE; st.stage = STG_PLAY; st.winner = JQ_WIN_NONE; st.mode = JQ_MODE_FLIP;
+        st.cells[49].rank = 3; st.cells[49].side = SIDE_BLUE; st.cells[49].revealed = 1;  /* 已翻蓝师长 */
+        st.cells[54].rank = 8; st.cells[54].side = SIDE_RED; st.cells[54].revealed = 0;  /* 未翻红排长 */
+        int eva = jq_try_move(&st, 49, 54);
+        int ca = (eva == EV_EAT);   /* 强吃弱（rank3<rank8 大压小） */
+        printf("dark⑪-a 撞未翻 EV_EAT（强吃弱）: ev=%d %s\n", eva, ca ? "" : "  [FAIL]");
+        if (!ca) ok = 0;
+    }
+    {
+        /* ⑪-b：蓝弱(rank8) 撞 红强(rank3, 未翻) → EV_DEAD（弱被强吃，src 清空） */
+        jq_state st; memset(&st, 0, sizeof(st));
+        st.turn = SIDE_BLUE; st.stage = STG_PLAY; st.winner = JQ_WIN_NONE; st.mode = JQ_MODE_FLIP;
+        st.cells[49].rank = 8; st.cells[49].side = SIDE_BLUE; st.cells[49].revealed = 1;  /* 已翻蓝排长 */
+        st.cells[54].rank = 3; st.cells[54].side = SIDE_RED; st.cells[54].revealed = 0;  /* 未翻红师长 */
+        int evb = jq_try_move(&st, 49, 54);
+        int cb = (evb == EV_DEAD);   /* 弱被强吃（src 清空） */
+        printf("dark⑪-b 撞未翻 EV_DEAD（弱被吃）: ev=%d %s\n", evb, cb ? "" : "  [FAIL]");
+        if (!cb) ok = 0;
+    }
+    {
+        /* ⑪-c：同级(rank5 vs rank5, 未翻) → EV_EAT（同级互杀，0x31de0 对齐非 EV_BOMB） */
+        jq_state st; memset(&st, 0, sizeof(st));
+        st.turn = SIDE_BLUE; st.stage = STG_PLAY; st.winner = JQ_WIN_NONE; st.mode = JQ_MODE_FLIP;
+        st.cells[49].rank = 5; st.cells[49].side = SIDE_BLUE; st.cells[49].revealed = 1;  /* 已翻蓝团长 */
+        st.cells[54].rank = 5; st.cells[54].side = SIDE_RED; st.cells[54].revealed = 0;  /* 未翻红团长 */
+        int evc = jq_try_move(&st, 49, 54);
+        int cc = (evc == EV_EAT);   /* 同级互杀 EV_EAT（非 EV_BOMB，0x31de0 实证） */
+        printf("dark⑪-c 撞未翻同级互杀 EV_EAT（0x31de0）: ev=%d %s\n", evc, cc ? "" : "  [FAIL]");
+        if (!cc) ok = 0;
+    }
+    printf("暗棋规则族（AUD-R-002/003 P0 + R27-Q5/Q8/Q91 + R34-Q12/Q92 撞未翻结算）: %s\n", ok ? "PASS" : "FAIL");
     return ok;
 }
 

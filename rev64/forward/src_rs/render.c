@@ -1342,10 +1342,13 @@ static void rs_draw_house(rs_render *rr, int slot, float sx, float sy, float yof
     glDrawArrays(GL_TRIANGLES, 0, 6);
     rs_unbind_vbo();
     glDeleteBuffers(1, &hvbo);
-    glDisable(GL_BLEND);
+    /* ★ R37-Q13（P1 blend 防篡改）：house 绘制后【恢复帧头 blend 不变量】而非 glDisable(GL_BLEND)——
+       旧代码关 blend 致同帧后续透明 atlas/UI 绘制（文字/弹窗/高亮）失去 alpha 混合 → "透明区不透明/
+       黑底"类回归（R25 修的是注释吞语句，本处是帧内篡改）。house 为不透明房屋位图（UV 0..1 整图），
+       绘制本身可保持 blend 开启（与帧头一致），无需关；保持帧头 SRC_ALPHA,ONE_MINUS_SRC_ALPHA。 */
     glBindBuffer(GL_ARRAY_BUFFER, 0);
-    glFlush();
-    LOGI("rs_draw_house：tex_house=%u (%dx%d) 屏幕 (%.1f,%.1f)-(%.1f,%.1f)",
+    /* glFlush 移除（帧尾统一 flush，house 内提前 flush 强制 pipeline 同步拖累帧性能） */
+    LOGI("rs_draw_house：tex_house=%u (%dx%d) 屏幕 (%.1f,%.1f)-(%.1f,%.1f) blend=保持帧头",
          (unsigned)rr->tex_house[slot], rr->house_w, rr->house_h, hx0, hy0, hx1, hy1);
 }
 
@@ -1636,11 +1639,19 @@ static void rs_draw_highlights(rs_render *rr, int slot)
     /* ★ 层 2：可走格高亮与棋子同几何（datax_177 BG_GRID，aPos.y=0=屏幕顶）
        ★ 2026-11-11 现代全面屏等比（与棋盘/棋子同几何，16:9 无回归） */
     float vw = (float)rr->view_w, vh = (float)rr->view_h;
-    float hl_s = (float)rr->view_w / 720.0f;
-    float hl_by0 = ((float)rr->view_h - 1280.0f * hl_s) * 0.5f;
+    /* ★ R29-Q2（P1 高亮几何对齐主路径）：hl_s 按高铺满分支与棋子/棋盘主路径
+       （:10545-10551 bg_h_px < vh 时 bg_s = vh/1280）同源——瘦高屏下可走格绿框
+       与棋子/棋盘格同缩放，防两套公式漂移（旧 hl_s=vw/720 单一公式致错位） */
+    float hl_s = vw / 720.0f;
+    if (1280.0f * hl_s < vh) hl_s = vh / 1280.0f;   /* 按高铺满（同 :10545-10551） */
+    float hl_by0 = (vh - 1280.0f * hl_s) * 0.5f;
     float cell_w = BG_GRID_COL_W * hl_s;
     float cell_h = BG_GRID_ROW_H * hl_s;
     static rs_v4f hl_pool[64 * 8];
+    /* ★ R37-Q37/Q47（P1 高亮池越界防御）：hl_pool 容量 64 格 × 8 顶点边框，N_CELLS=60 理论上界
+       nhl<=59 安全，但 64 魔数与 N_CELLS/hl_cells[61] 不由同一常量派生——若规则/可走格逻辑
+       异常返回超界计数将越界写静态缓冲。nhl clamp 到池容量（64）防越界。 */
+    if (nhl > 64) nhl = 64;
     int nverts = 0;
     for (int k = 0; k < nhl; k++) {
         int i = rr->hl_cells[k];
@@ -10489,7 +10500,10 @@ void rs_render_frame(rs_render *rr)
        （去每棋子 glGenBuffers/glDeleteBuffers——60fps × 60 格 = 3600 次/秒 buffer 开关，
        真机 GPU 会卡；改 1 次 glBufferData + 1 次 glDrawArrays） */
     /* ★ R10-F-01/02：棋子段门控（tex_piece && gl2_ok），UI 段独立 gl2_ok（下切点） */
-    int can_piece = need_board && (rr->tex_piece[slot] && rr->gl2_ok[slot]);   /* ★ R26：菜单态跳过棋子（与棋盘 bg 门控同源） */
+    /* ★ R29-Q32（P1 棋子段 NULL 守卫）：can_piece 加 rr->game 判空——初始化异常/
+       生命周期边界下 rr->game==NULL 时 need_board 真且资源就绪会在棋子遍历处
+       空指针解引用（:10556 for i<N_CELLS rr->game->cells[i]），防渲染入口契约未防御 */
+    int can_piece = need_board && rr->game && (rr->tex_piece[slot] && rr->gl2_ok[slot]);   /* ★ R26：菜单态跳过棋子 + R29-Q32：game NULL 守卫 */
     if (can_piece) {
         /* ★ 层 2 视觉对齐：棋子画在 datax_177 棋盘格上（bg 全图铺满）。
            cell 中心/尺寸按图像棋盘格定位（image_row=11-设备row，row0=底）。
@@ -10556,6 +10570,10 @@ void rs_render_frame(rs_render *rr)
         static int piece_diag_done = 0;
         static rs_v4f piece_pool[N_CELLS * 6];
         static rs_v4f sel_line[8];
+        /* ★ R37-Q38（P1 选中框残留坐标根治）：sel_line 为 static 跨帧复用，若本帧选中格被过滤
+           （空格/imgset_opp 关闭/棋子隐藏未进赋值分支），sel_line 残留上一帧坐标 → glDrawArrays
+           读旧数据绘"幽灵高亮"。每帧先清零，sel_cell>=0 时再按当前棋子几何写入。 */
+        memset(sel_line, 0, sizeof sel_line);
         int nverts = 0;
         for (int i = 0; i < N_CELLS; i++) {
             const jq_cell *c = &rr->game->cells[i];

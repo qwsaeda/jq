@@ -4,7 +4,7 @@
 # 目的：把分散的 5+ 个门禁串成**一条命令**，防"漏跑某个门禁"（CODE_STYLE §9
 #       假绿三型之"静默降级"——门禁存在但没人跑 = 等于没有）。
 # 门禁清单（每项独立判据，汇总 PASS/FAIL，任一 FAIL → 退出码 1）：
-#   ① make evverify                  —— 以 SUMMARY 动态真值为准（当前 172/172 = 事件/业务 40/40 + 几何 132/132；★ R7-D-08 去硬编码防再次漂移）
+#   ① make evverify                  —— 以 SUMMARY 动态真值为准（当前 174/174 = 事件/业务 42/42 + 几何 132/132；★ R40-Q78 同步 SPEC L15/L209 174，旧 172 为 R27 前快照；★ R7-D-08 去硬编码防再次漂移）
 #   ② event_code_map_check.py        —— 原版 .bss 事件表 asr4 映射 0 缺口
 #   ③ layout_align_check.py --baseline —— 布局几何 Δ=0
 #   ④ dark_align_regress.sh          —— 暗棋对齐桌面回归（0 设备依赖）+ **判据自检**

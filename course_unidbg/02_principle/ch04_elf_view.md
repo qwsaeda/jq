@@ -334,7 +334,7 @@ OnCreate 调到 0x4000000+0x233e1（错位置）→ 段错误。
 >
 > **本节难点**：
 > 1. 动态读（unidbg）跑不到 0x43ed8 → .got/.text 常量**房间真值**也读不出（N45）
-> 2. 静态 + 动态两方向**房间真值**都断 → 18 常量早期 redroid dump（**★ §124x-z 后 = 静态固化 `jqt_mem.c` 免 dump**）
+> 2. 静态 + 动态两方向**房间真值**都断 → 18 常量早期 redroid dump（**★ 2026-11-09 redroid 容器已禁用，早期拿法**；**★ §124x-z 后 = 静态固化 `jqt_mem.c` 免 dump，当前路线**）
 > 3. objdump/readelf 可核对段地图，但「房间真值读不出」和「段地图」是两回事（N45）
 
 | 环节 | 能干什么（✓） | 不能干什么（✗） |
@@ -352,7 +352,8 @@ OnCreate 调到 0x4000000+0x233e1（错位置）→ 段错误。
   OnKey / OnUpdate / OnGraphChange / OnBluetooth / OnPause / OnGraphCreate / OnTimer /
   OnInput / OnTouch）
 - **✗ 从 `.got` 读运行时值**：静态 `.got` 全 0（未重定位），军棋 18 个 `.text` 常量池
-  值只有 dlopen 重定位才填（需 redroid dump，见第 8 章 18 地址 72B）
+  值只有 dlopen 重定位才填（门牌号静态可读，房间真值需 dlopen 才填对，N45；早期需 redroid dump 72B，
+  **★ 2026-11-09 redroid 容器已禁用，早期拿法存档**；**★ §124x-z 后 = 静态位移固化 `jqt_mem.c` `g_jq_got_tbl` 免 dump**，见第 8 章 18 地址 72B）
 ## 4.7 军棋实战验证：用 objdump/readelf 核对这张地图
 
 
@@ -392,3 +393,5 @@ readelf --dyn-syms lib/armeabi/libjunqi.so | grep 'Java_com_cnvcs'
 ---
 
 ## 视频
+
+- `videos/ch04_intro.mp4`（~10s 讲解动画：ELF 头/PHDR/节区三层结构 + 房证/图纸/清单类比 + .got 零值卡点 + N45 门牌号 vs 房间真值）

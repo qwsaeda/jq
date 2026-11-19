@@ -64,11 +64,12 @@
 | `EV_MINE` | `Junqi.Move` | 工兵挖雷（不结束对局，红有子则 stage 保持 PLAY） |
 
 - **同名提示（AUD-R-062）**：`EV_MINE`(5) 与 `EV_MOVE`(0) 共用 "Junqi.Move" 事件名——对齐原版 32 位
-  .rodata 设计（挖雷不结束对局，音效按名分流）；调用方按**事件码**分流统计（`g_event_cnt[0]` 与
-  `[5]` 分开计数），按**事件名**分流音效。
+  .rodata 设计（挖雷不结束对局，音效按名分流）；调用方按**事件码**分流统计（旧 7 槽口径 `g_event_cnt[0]` 与
+  `[5]` 分开计数 → ★ R35-Q57 修正：73 名域下 EV_MINE 与 EV_MOVE **同名合槽** `g_event_cnt[0]`（AUD-R-062 原版设计，
+  音效按名分流故可分，计数域名级投影不可分），EV_FLIP→名索引 5），按**事件名**分流音效。
 - **返回契约**：`jq_try_move` 返回事件码（0-5），**-1 = 非法**（不改变状态）。`jq_flip` 返回 bool
   （翻棋不走 jq_try_move 事件码通道，EV_FLIP=6 计数由调用点承担，AUD-R-061）。
-- **事件计数**：`g_event_cnt[7]` + `g_event_total`，OnTouch 直接走子也要递增（不经 on_event）。
+- **事件计数**：`g_event_cnt[JQ_EVENT_NAME_COUNT=73]`（73 名级索引计数）+ `g_event_total`，OnTouch 直接走子也要递增（不经 on_event）。★ R35-Q56/Q57/Q39 口径修正：旧" g_event_cnt[7] + [0]/[5] 分开计"为 AUD-R-061 扩容前 7 槽历史口径，现 73 名域下 EV_MINE→名索引 0（与 EV_MOVE 同名 Junqi.Move 合槽，AUD-R-062 原版设计），EV_FLIP→名索引 5；7 事件码经 ev7_to_name_idx 映射到 73 名索引（非 7 码独立计数域，名级投影）。**并发诚实边界（Q45/Q96）：g_event_cnt/g_event_total 为无锁 int 全局，双变量非原子同增，Σ 不变量并发下可瞬时误判（诊断用途非强一致），桌面桩 evt55_stub.c 恒 0 基线，设备端 jq.event_inv 钩子真判据**
 
 ### 3.1 原版事件分发全链（§124y-34~123 逆向实锤，对齐参考）
 
@@ -111,8 +112,14 @@
 
 ```
 UI_MENU（5 按钮：人机/两人/联网/联机/四国）
-  → 点按钮 action 0/1/2/3 → UI_GAME + 开局（jq_restart_game：default.lay + 暗棋（g_opt_mode=1
-     默认，ui_state.c:31）+ stage=PLAY 蓝先手；明棋/暗棋可在功能设置 ☰ 切换）
+  ★ R33-Q4/Q23/Q12 UI 流程补全（SPEC 旧口径"action 0/1/2/3→UI_GAME 直开局"为早期简化，实锤实现为前置弹窗+蓝牙分流）：
+  → 点按钮 action 0（人机）→ **UI_DIFFICULTY（datah_041 8 按钮难度弹窗，布局×翻棋 8 组合）** → 选难度/模式 → jq_restart_game + UI_GAME（暗棋 g_opt_mode=1 默认，ui_state.c:35）
+  → 点按钮 action 1（两人）→ **UI_NEWGAME（新局弹窗，明/暗棋切换）** → 确定 → jq_restart_game + UI_GAME
+  → 点按钮 action 2/3（联网/联机）→ **UI_WAYSEL（方式选择弹窗：蓝牙 SPP/Wi-Fi 联机/个人资料/返回）** → 蓝牙→jq_bt_start+UI_GAME / Wi-Fi→UI_JOIN（诚实边界：协议未逆向）/ 个人资料→UI_LOGIN
+  → 点按钮 action 4（四国）→ **UI_NPLAYER（人数选择）** → 诚实边界对话框（4 方规则未实现）→ 回 UI_MENU
+  → **☰ 菜单蓝牙分流（★ R33-Q23）**：本地 `ui_imen_buttons`（8 项：重新开始/悔棋/电脑变着/游戏规则/功能设置/战况统计/软件信息/退出） vs 联机 `ui_imen_bt_buttons`（8 项：重新开始/悔棋/提和/认输/聊天/系统设置/战况统计/游戏规则），`ui_bt_active()` 分流——提和/认输/聊天=BT 帧+边界对话框（业务未闭环）
+  → **40+ 主命名屏态索引（★ R33-Q12，SPEC 旧 §4 仅 5 态，ui_menu.h 实锤 40+ 主命名 + 100+ 批量 D/UI 态）**：UI_DIFFICULTY/UI_NEWGAME/UI_WAYSEL/UI_NPLAYER/UI_GAMESET/UI_LOAD_LAY/UI_SAVE_LAY/UI_LAY_MGR/UI_LOGIN/UI_REPLAY/UI_RULES/UI_JOIN/UI_CREATE/UI_GAMEINFO/UI_BRIGHT/UI_CHATLOG/UI_PROFILE/UI_ABOUT/UI_EXITCONFIRM/UI_RESIGNCONFIRM/UI_REGRETCONFIRM/UI_DRAWDETAIL/UI_SETTINGS/UI_SETEXTTRY/UI_IMGSET7/UI_IMGSET8/UI_ROOM060/UI_CHAT063/UI_JOIN065/UI_CREATE069/UI_RULES070/UI_UI118 + 批量 UI_D000-UI_D264/UI_UI44-118（datah 对齐族，多为测试钩子/边界占位）
+  → **UI 可达≠功能可用（★ R33-Q49-Q55 诚实边界，防误判）**：四国/联网/账号/版本更新/提和/聊天入口存在→边界对话框/占位帧（业务未实现），SPEC §4 各屏态须标注"可达"与"可用"分层——渲染对齐/几何 Δ=0 ≠ 业务闭环/硬件端到端
   → 点按钮 action 4（四国）→ UI_NPLAYER 人数选择弹窗（datah_089 2/3/4 人），
      选人后显示诚实边界对话框（4 方规则未实现，不静默开 2 人局）
   → 对局：两步走子态机（点格 A 选中 → 点格 B 走子/翻棋）；可走格绿框高亮
@@ -187,15 +194,34 @@ UI_MENU（5 按钮：人机/两人/联网/联机/四国）
 
 | 能力域 | 当前状态（2026-11-19） | 证据 | 诚实边界 |
 |---|---|---|---|
-| 规则引擎（走子/吃子/炸弹/雷/旗/翻棋/暗棋/困毙/和棋） | **已实现**（行为级对齐，非汇编级） | evverify 174 + dark_align 86 + rule_probe 36 case | 32/64 位基线 4 分叉（R-073/008/004/018）归因不阻断 |
+| 规则引擎（走子/吃子/炸弹/雷/旗/翻棋/暗棋/困毙/和棋） | **已实现**（行为级对齐，非汇编级） | evverify 174（含 R34 撞未翻结算 ⑪ EV_EAT/EV_DEAD/同级互杀）+ dark_align 86 + rule_probe 36 case | 32/64 位基线 4 分叉（R-073/008/004/018）归因不阻断；暗棋 0xFF 提取全 0=jq_dark_setup 专路径（设计边界非 bug） |
 | 事件分发（73 名→12 业务码→55 code） | **分发已对齐，业务未实现**（账号/联机 47 名无 g_state 变更） | run_evt55_names_smoke 73/73 + jq_evt55_no_state_change（R31-Q12） | 分发成功≠业务实现（evt55_do_code 恒返 1，无状态变更） |
-| 渲染（GL2 window 出屏/EGL 自愈/stage 门控） | **已接线，视觉未真机验证** | glview_gl window 路径 + R25 EGL 60 帧自愈 + R26 stage 门控 | 非黑比≠棋盘几何出屏（设备 PENDING，MuMu GLES1 受限） |
+| 渲染（GL2 window 出屏/EGL 自愈/stage 门控） | **已接线，视觉未真机验证** | glview_gl window 路径 + R25 EGL 60 帧自愈 + R26 stage 门控 + R37 P1（sel_line 清零+hl_pool clamp+house blend 不破坏帧头） | 非黑比≠棋盘几何出屏（设备 PENDING，MuMu GLES1 受限）；blend 防篡改=帧头单点（R37-Q13 house 不破坏），帧内无 re-enable 校验（Q12 残余） |
 | 音频（WAV 解码/三路径优先级） | **已接线，实播真机未验** | jni_bridge sfx_wav 三路径 + 14 WAV 落地 | 解码库能力 vs JNI 实播能力分层（无硬件端到端） |
-| 蓝牙 SPP（host/client/帧重组/UNDO 闭环） | **已接线，硬件端到端 PENDING** | BtSpp.java 读写线程 + jni_bridge 发送/启动/CAP | 无 BT 硬件验证（桌面桩=协议状态机，非联机可玩） |
+| 蓝牙 SPP（host/client/帧重组/UNDO 闭环） | **已接线，硬件端到端 PENDING** | BtSpp.java 读写线程 + jni_bridge 发送/启动/CAP + R38 被拒帧 seq 窗口登记 + R39 头注 10 类（含 CAP）+ bt_semtest 152/dual 43 | 无 BT 硬件验证（桌面桩=协议状态机，非联机可玩）；v2 帧 seq=0 无去重（Q30 降级边界）；UNDO hash 省 SYNC（mismatch 才广播） |
 | 四国军棋/联网对战/账号/版本更新/本地提和/联机聊天 | **未实现**（入口存在→边界对话框） | jni_bridge/render 多处"边界对话框/占位帧" | UI 可达≠功能可用（分发对齐/协议对齐≠业务闭环） |
-| 存档（one.sjq/one.sjg） | **行为级重建，非原版逐字节** | save.c 裸 sizeof 序列化 + magic/size 校验 | 非原版兼容（混合版本互读未回归） |
+| 存档（one.sjq/one.sjg） | **行为级重建，非原版逐字节** | save.c 裸 sizeof 序列化 + magic/size 校验 + R41-Q16 短读污染根治（先读 tmp 完整才覆盖）+ R41-Q17 读后域校验（turn/stage/winner/mode 枚举域） | 非原版兼容（混合版本互读未回归）；dirty 存档忠实恢复仅 2 字段下界钳（Q17 残余：turn/stage/winner/mode 已校验，cells 逐格未校验）；replay 仅明棋范式（Q68 翻棋重放=设计边界非 bug） |
 | 桌面 vs 设备验证分层 | **桌面 0 回归≠设备 100% 达成** | evverify 174 + bt_semtest 152 + dual 43 | 设备冒烟 5 判据 PENDING（10.0.182.146 No route to host） |
 
+
+**★ R39-Q23/Q38/Q67（P0 SSOT 时效刷新 + evverify 真值收敛 + 设备 PENDING 互斥标注，防多口径无仲裁）**：
+- **最后复核锚点**：本 SSOT 表 R34（撞未翻结算）/R37（渲染 P1：sel_line 清零+hl_pool clamp+house blend）/R38（蓝牙 P1：被拒帧 seq 窗口登记）/R39（蓝牙头注 10 类修正）落地后复核（2026-11-19 第 2 批次 12-17 轮）
+- **evverify 真值收敛**：当前真值 = **174/174（42 事件 + 132 几何）**；AGENTS.md/align_gate.sh:7/gen_align_coverage.py:129/PIPELINE.md 注释"172/172"为 R27 前历史快照，以 SUMMARY 动态真值（174）为唯一仲裁——工具链注释待同步（Q65/Q88 防误判红线）
+- **设备 PENDING 互斥标注**：AGENTS 历史"已达成/PASS"段落（so 哈希/pid/日期各异）= **历史实锤**（绑定当时 so+设备+时间），**非当前状态**；当前 10.0.182.146 No route to host（SPEC L204）= 设备不可达，**当前态 = PENDING**，历史 PASS 不外推当前达成（Q38/Q45/Q68 互斥仲裁：以最新实测时间戳+设备可达性为准）
+- **口径红线补**（Q56/Q57/Q58 防误判）：① SYNC_CELL 白名单=逐格盘面注入防护（非全量状态对账，stage/turn/计数不同步）② v2 帧 seq=0 降级=无 epoch/seq 去重（仅 v3 帧享）③ UNDO hash 省 SYNC=mismatch 才全量广播（hash 一致不回退本地对账）④ 资源 48 项私有预读 vs 970 dev 全量=选路决定进程读到全量（推 dev≠进程读，R36-Q46 回退修）
+⑤ **replay 明棋范式 ≠ 暗棋翻棋**（R42-Q30）：`replay.c:94-96` 强制 `revealed=1` 后重放，翻棋步 `jq_flip` 对已翻子 no-op → 翻棋序列重放失败=设计边界（翻棋=暗棋玩法，replay 仅明棋），桌面 0 回归 ≠ replay 翻棋/暗棋全对齐
+⑥ **sjg 非原版兼容 + 短读已修**（R42-Q31）：one.sjg 裸 `sizeof(jq_state)` 序列化=行为级自有格式（混合版本互读 PENDING）；R41-Q16 短读污染根治 + R41-Q17 读后域校验（turn/stage/winner/mode）；残余=cells 逐格域未校验（与 SYNC_CELL 白名单同语义，防脏值注入非全量对账）
+⑦ **资源 970 推全量 ≠ 进程读到 970**（R42-Q33）：spak_res 仓内 970（14 WAV）=交付口径；运行时选路=priv 48 项（缺 datax 背景 bin）→ R36-Q46 回退 dev 970；出屏=设备截图非黑比（PENDING，非 48/970 计数可达）
+⑧ **音效 14 仓内 vs 18 原版**（R42-Q32）：EV2WAV 14 项（move/eat/bomb/flag/dead/flip/win/lose/draw/start/over/select/close/pop）=仓内实物；原版 18 WAV（R7-D-26 分标）缺 4；实播=AudioTrack 设备（PENDING），桌面 `jq_sfx_load_selftest` 仅验解码能力
+
+**★ R42-Q80（P0 设备 PENDING 机器汇总段，防"分散文本 PENDING"误判当前达成）**：
+- **设备侧 6 域 PENDING 统一登记（10.0.182.146 No route to host，当前不可裁决）**：
+  ① 渲染出屏（board=OK + 非黑比 + 顶点/blend 像素级）② 蓝牙硬件端到端（SPP socket 实连）
+  ③ 资源出屏（spak_res 推设备 + 截图非黑比 + RL-02 快检 6 前缀日志）④ 音效实播（AudioTrack 出声）
+  ⑤ 进主界面卡顿（EGL 60 帧自愈实测）⑥ 设备冒烟 5 判据（装/进主界面/下一局/退出/重进）
+- **机器汇总口径**：`mumu_align_smoke.sh` 不可达 → 打印 PENDING + `exit 0`（防误判设计）；
+  `arm32_verify_all.sh` 设备 4 项离线 → rc=3（PENDING 非 FAIL §124y-189）；**当前态 = 全 6 域 PENDING，历史 PASS 不外推**
+  （SPEC L210 互斥标注：以最新实测时间戳+设备可达性为准，设备恢复后重跑 5 判据全链才允许写"当前达成"）
 **口径红线（防误判"已对齐"为"已实现"）**：
 - 行为级对齐 ≠ 汇编级等价（原版 .text 1,037,940B > 重写 728,584B，信息论下界）
 - 分发成功 ≠ 业务实现（evt55 47 名无 g_state 变更，jq_evt55_no_state_change=1 防误判）

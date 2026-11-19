@@ -227,7 +227,7 @@ long ret = vm.getMemory().call(emulator, 0x233e1L, 0, jniEnv, objHash).singleVal
 
 | 阶段 | 办法 | 现状 |
 |---|---|---|
-| **早期（工具三件套）** | redroid 容器跑原版 32 位 so → dlopen → dump 18 个"房间真值"（常量池 + .data 共 72B 运行时值，非门牌号）→ 注入 unidbg。工具：`frida-dump/redroid_jni_dump.py` + `redroid_dump_jni.sh` + `gen_runtime_table.py`（JSON→C） | **保留作备查**（能 dump 但 redroid 32 位 so 不被加载 + 无 GPU，见 AGENTS.md 终局反思） |
+| **早期（工具三件套）** | redroid 容器跑原版 32 位 so → dlopen → dump 18 个"房间真值"（常量池 + .data 共 72B 运行时值，非门牌号）→ 注入 unidbg。工具：`frida-dump/redroid_jni_dump.py` + `redroid_dump_jni.sh` + `gen_runtime_table.py`（JSON→C） | **★ 2026-11-09 redroid 容器已禁用**（用户指令删除 redroid 镜像，容器 `redroid_dump` 已删、5555 端口释放；历史产物 `frida-dump/rodata_dec.bin` 保留存档，禁止再起容器）——早期拿法仅存档，**禁止执行** |
 | **★ 当前（§124x-z 静态固化）** | **18 值已静态固化在 `rev64/reverse/src_jni_translated/jqt_mem.c` 的 `g_jq_got_tbl`（静态位移，如 0x00138918，非 redroid 绝对值，不同进程基址通用），无需运行时 dump** | **当前干活会话直接用 `jqt_mem.c` 固化值，别再找/生成 `jni_runtime_values.json`（已删）** |
 
 **★ 为什么改静态位移**：翻译体把 `add rX,pc` 实现为 `rX=file_off+rX`（PC 相对位移），故注入值应为**静态位移**（jq_img.bin 原始值），非 redroid 运行时绝对地址（`0x96a779e4` 类——不同进程基址不同，注入即错）。旧表用 redroid 绝对值 → 落到 host 随机映射读垃圾 → 主线程 `_ZdlPv(垃圾)` SIGSEGV。

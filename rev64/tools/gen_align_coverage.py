@@ -125,8 +125,9 @@ def main():
     evv = read(os.path.join(SRC, "evverify.c"))
     # ★ R7-D-13（正则校准）：evverify 断言形态 = `ev_total++; ev_pass += run_case(...)`
     #   / `geo_total++; ...`（无 chk/assert 关键字 → 旧正则恒 0 = 矩阵失真）。
-    #   修：统计 ev_total++/geo_total++ 累加点（= 真断言数，当前 40+132=172，
-    #   与 jq_evverify --all SUMMARY "172/172 全对" 同源）。
+    #   修：统计 ev_total++/geo_total++ 累加点（= 真断言数，当前 42+132=174，
+    #   与 jq_evverify --all SUMMARY "174/174 全对" 同源；★ R40-Q79 同步 SPEC L15/L209，
+    #   旧 40+132=172 为 R27 前快照（+run_switch_matrix R27-Q92 +run_evt55_names_smoke R27-Q68 = 42 事件项））。
     evv_n = len(re.findall(r'\bev_total\+\+', evv)) + len(re.findall(r'\bgeo_total\+\+', evv))
     lines.append(f"| src_rs/test_expected.txt | {bench_n} | make benchcheck |")
     lines.append(f"| src_rs/consistency_desktop.c BENCH_EXPECT | 9 | make benchcheck（双源需同步） |")

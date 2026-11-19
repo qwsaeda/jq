@@ -48,7 +48,7 @@ seg2() {
   else
     failitems=$(echo "$out" | grep -E "回归有.*FAIL:" | tail -1)
     if [ -n "$failitems" ]; then
-      bad "src_rs_regress 12/12 未全 PASS：$failitems（B07-001 判据漂移连锁假红非真回归，口径 172/172（以 evverify SUMMARY 动态真值为准））"
+      bad "src_rs_regress 12/12 未全 PASS：$failitems（B07-001 判据漂移连锁假红非真回归，口径 174/174（以 evverify SUMMARY 动态真值为准；★ R40-Q80 同步 SPEC L15/L209，旧 172 为 R27 前快照））"
     else
       bad "src_rs_regress 12/12 未全 PASS（无 FAIL 项标签；跑 bash $WS/rev64/forward/src_rs_regress.sh 看哪项挂；若 grep 全对 口径漂移属 B07-001 假红）"
     fi
