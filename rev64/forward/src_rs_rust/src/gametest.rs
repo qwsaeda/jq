@@ -70,7 +70,7 @@ pub fn run_game_selftest(games: usize) -> (u32, u32, u32, u32) {
 /// 默认布局（C jq_default_lay.h JQ_DEFAULT_LAY[30] + layout.c:63-90 装载语义）
 /// 每个布局字节 i（0-29）→ 蓝方 (5-lrow, lcol) + 红方 (6+lrow, 4-lcol)，红 rank+0xc。
 /// lrow=i/5, lcol=i%5；v=0 跳过（行营空位）；v>12 脏字节拒（装载即拒）。
-fn make_default_layout() -> State {
+pub fn make_default_layout() -> State {
     let lay: [u8; 30] = [
         3, 7, 6, 5, 8, 10, 0, 9, 0, 1,
         2, 10, 0, 9, 5, 4, 0, 6, 0, 7,
