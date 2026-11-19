@@ -65,7 +65,10 @@
 - **脚本修复实锤**：rebuild_rust_apk.sh 注入 Rust so→`libjunqi.so`（替换 C so，smali loadLibrary('junqi') 同名加载），删 libjunqi_rs.so 避免双 so；APK 内仅 1 个 so（4.2MB wgpu e36a73a）
 - **出屏诊断**：C so（779K）与 wgpu so（4.2MB）截图完全一致（22375B/58.8%/4 色块）→ 画面由 Java SurfaceView 默认绘制，与 native so 渲染无关；**wgpu render pass（EGL surface+wgsl+纹理）未实现 = 游戏内容未出屏**
 - **OnCreate GLView 根因修复**：Rust OnCreate 原返回 null → Java 兜底 GLView → GLThread/native 渲染链路不启动；改 JNI NewObject 构造 com.qwsaeda.GLView 返回（对齐 C jni_bridge.c:2707-2811）→ 真机 EGL display init ×2 实锤 GLThread 启动
-- **houdini 诊断限制**：logcat 桥/setprop/文件探针在 MuMu houdini 转译下均失效（native OnCreate 已调但探针无信号），无法观测 wgpu device 结果；native 链路已通（EGL init ×2）
+- **houdini 诊断限制**：setprop 可用（jq.native_probe=OnCreate_called 实锤），logcat 桥/文件探针失效；native OnCreate 已调，但 **OnUpdate（GLThread onDrawFrame）未被调**（jq.wgpu_state=none）→ wgpu device 未初始化
+- **出屏链路完整诊断（真机 152）**：native OnCreate ✓ → GLView 非 null ✓ → setEGLContextClientVersion(2) ✓ → **GLThread onDrawFrame 未触发**（C 版靠 native `jq_glview_start_render_thread()` PBuffer 渲染线程持续驱动，Rust 缺）→ OnUpdate 不调 → wgpu 不出屏
+- **requestRender NPE 修复**：native OnCreate 调 GLView.requestRender 在 view attach 前 → GLThread null → NPE 崩溃 SIG9；已去掉（C 版在 setContentView 后调）
+- **完整出屏闭环（跨 session）**：① native 渲染线程（jq_glview_start_render_thread 等价）+ ② wgpu render pass（EGL surface+wgsl+棋盘纹理）+ ③ OnUpdate 接线，三者缺一不可；当前截图 22KB/59% = Java 默认画面
 
 ## 5. PENDING 项（真机可达 10.0.182.152，wgpu 出屏攻坚进行中）
 

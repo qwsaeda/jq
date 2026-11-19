@@ -74,7 +74,24 @@ mod android_impl {
                 return std::ptr::null_mut();
             }
             // NewObject(env, cls, ctor, activity)——变参函数，Context 单个 jobject 参数
-            new_object(env, cls, ctor, activity)
+            let view = new_object(env, cls, ctor, activity);
+            if view.is_null() {
+                return view;
+            }
+            // 对齐 C jni_bridge.c:2727：setEGLContextClientVersion(2) 须在 GLThread start 前调
+            let set_ver = c"setEGLContextClientVersion";
+            let sig_ver = c"(I)V";
+            let mid_ver = get_method(env, cls, set_ver.as_ptr() as *const _, sig_ver.as_ptr() as *const _);
+            if !mid_ver.is_null() {
+                let call_void = match envf.CallVoidMethod {
+                    Some(f) => f,
+                    None => return view,
+                };
+                call_void(env, view, mid_ver, 2i32);
+            }
+            // requestRender() 不在 native OnCreate 调：view 尚未 attach（mGLThread=null）→ NPE 崩溃
+            // （C 版在 setContentView 之后调；Java App.onCreate setContentView 后 GLThread 自启动）
+            view
         }
     }
 
