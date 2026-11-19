@@ -13,6 +13,14 @@ mod android_impl {
     use crate::{ai, evt, rules, ui};
     use jni::objects::JClass;
 
+    static mut G_VM: usize = 0;
+    /// JNI_OnLoad：保存 JavaVM（native EGL 线程 attach JVM 用）
+    #[no_mangle]
+    pub extern "C" fn JNI_OnLoad(vm: *mut jni::sys::JavaVM, _reserved: *mut std::ffi::c_void) -> jni::sys::jint {
+        unsafe { G_VM = vm as usize; }
+        jni::sys::JNI_VERSION_1_6 as jni::sys::jint
+    }
+
     static mut G_STATE: Option<State> = None;
     // wgpu 出屏攻坚：GLView global ref + wgpu 资源
     static mut G_VIEW: jni::sys::jobject = std::ptr::null_mut();
@@ -123,6 +131,10 @@ mod android_impl {
                 None => return view,
             };
             unsafe { G_VIEW = new_global(env, view); }
+            // ★ native EGL 渲染线程独占 window（setRenderer 已在 smali 移除，避免 0x3003）
+            //   线程内 attach JVM 轮询 Surface→ANativeWindow→eglCreateWindowSurface→画→swap
+            // native EGL 独占 window 需整套 C 渲染架构移植（去 setRenderer 致 SurfaceView NPE，死路）
+            // 保留 egl_render.rs 代码供后续真机/架构移植；当前不启动
             // requestRender 不在 native 调：view attach 后 Java GLThread 自会出首帧（提前调 NPE）
             view
         }
@@ -204,17 +216,9 @@ mod android_impl {
                     let surface_obj = je.call_method(h, "getSurface", "()Landroid/view/Surface;", &[])
                         .ok().and_then(|v| v.l().ok());
                     crate::log::setprop("jq.wgpu_step", if surface_obj.is_some() { "surface_ok" } else { "surface_fail" });
-                    if let Some(so) = surface_obj {
-                        // ★ 最终出屏路径（C 同款）：ANativeWindow_fromSurface → native EGL 渲染线程
-                        //   持 window surface + eglMakeCurrent + GLES 画 + eglSwapBuffers（C 已实锤 houdini 出屏 98%+）
-                        let win = crate::log::surface_to_window(env as *mut _, so.into_raw());
-                        if !win.is_null() {
-                            // window 由渲染线程持有（不 release），eglCreateWindowSurface 消费
-                            crate::egl_render::start_render_thread(win, 900, 1600);
-                            crate::log::setprop("jq.wgpu_step", "egl_thread_started");
-                        } else {
-                            crate::log::setprop("jq.wgpu_step", "window_null");
-                        }
+                    if surface_obj.is_some() {
+                        // 渲染线程已在 OnCreate 启动并自行轮询 Surface（setRenderer 已移除，native 独占 window）
+                        crate::log::setprop("jq.wgpu_step", "surface_polled_by_egl_thread");
                     }
                 }
             }

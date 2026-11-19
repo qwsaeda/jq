@@ -45,15 +45,40 @@ mod imp {
 
     static RUNNING: AtomicBool = AtomicBool::new(false);
 
-    /// 启动 native EGL 渲染线程（持 window surface 循环画+swap）
-    /// window: ANativeWindow 指针（ANativeWindow_fromSurface 拿到，线程持有期间不 release）
-    pub fn start_render_thread(window: *mut c_void, w: i32, h: i32) {
+    /// 启动 native EGL 渲染线程（attach JVM 轮询 Surface→ANativeWindow，持 window surface 画+swap）
+    /// vm_addr: JavaVM 指针（JNI_OnLoad 保存）, view_addr: GLView global ref
+    pub fn start_render_thread_jni(vm_addr: usize, view_addr: usize, w: i32, h: i32) {
         if RUNNING.swap(true, Ordering::SeqCst) {
             return; // 已在跑
         }
-        let window_addr = window as usize; // 裸指针转 usize 跨线程传递
         std::thread::spawn(move || {
-            let window = window_addr as *mut c_void;
+            // ① attach JVM + 轮询拿 Surface（setContentView 后异步创建）
+            let mut window: *mut c_void = std::ptr::null_mut();
+            unsafe {
+                let vm = jni::JavaVM::from_raw(vm_addr as *mut jni::sys::JavaVM).ok();
+                crate::log::setprop("jq.egl", "thread_attached");
+                if let Some(vm) = vm {
+                    if let Ok(mut env) = vm.attach_current_thread() {
+                        let view = jni::objects::JObject::from_raw(view_addr as jni::sys::jobject);
+                        for _ in 0..120 { // 轮询 ~4s 等 Surface 创建
+                            let surf = env.call_method(&view, "getHolder", "()Landroid/view/SurfaceHolder;", &[])
+                                .ok().and_then(|v| v.l().ok())
+                                .and_then(|h| env.call_method(h, "getSurface", "()Landroid/view/Surface;", &[]).ok().and_then(|s| s.l().ok()));
+                            if let Some(so) = surf {
+                                window = crate::log::surface_to_window(&mut env as *mut _ as *mut _, so.into_raw());
+                                if !window.is_null() { break; }
+                            }
+                            std::thread::sleep(std::time::Duration::from_millis(33));
+                        }
+                    }
+                }
+                if window.is_null() {
+                    crate::log::setprop("jq.egl", "window_timeout");
+                    RUNNING.store(false, Ordering::SeqCst);
+                    return;
+                }
+                crate::log::setprop("jq.egl", "window_acquired");
+            }
             unsafe {
                 // EGL 初始化（C 同款：EGL_DEFAULT_DISPLAY）
                 let disp = eglGetDisplay(std::ptr::null_mut());
@@ -122,6 +147,6 @@ mod imp {
     }
 }
 #[cfg(target_os = "android")]
-pub use imp::start_render_thread;
+pub use imp::start_render_thread_jni;
 #[cfg(not(target_os = "android"))]
-pub fn start_render_thread(_w: *mut std::ffi::c_void, _w2: i32, _h: i32) {}
+pub fn start_render_thread_jni(_vm: usize, _view: usize, _w: i32, _h: i32) {}
