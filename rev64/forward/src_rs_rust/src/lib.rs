@@ -21,6 +21,7 @@ pub mod jni;
 pub mod render;
 pub mod gametest;
 pub mod evtest;
+pub mod rprobe;
 
 #[cfg(test)]
 mod tests {

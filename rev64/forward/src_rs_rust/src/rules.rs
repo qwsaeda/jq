@@ -49,7 +49,9 @@ fn rail_path_engineer(st: &State, fr: i32, fc: i32, tr: i32, tc: i32) -> bool {
     let mut qc: [i32; 64] = [0; 64];
     let mut head = 0usize;
     let mut tail = 0usize;
-    if is_rail(fr, fc) && walkable(st, fr, fc) {
+    // ★ C 基准：起点直接入队（不查 walkable——起点是工兵自身有子，合法起点）
+    //   旧误用 walkable(st,fr,fc) 把起点有子判不可走 → E1 工兵拐弯全误判 false
+    if is_rail(fr, fc) {
         visited[fr as usize][fc as usize] = true;
         qr[0] = fr;
         qc[0] = fc;
@@ -420,13 +422,16 @@ pub fn side_stalemated(st: &State, side: u8) -> bool {
     if matches!(st.winner, Winner::Blue | Winner::Red | Winner::Draw) {
         return false; // 已终局
     }
-    // 还有未翻暗子可翻（仅排地雷）→ 未困毙
+    // 还有未翻暗子可翻 → 未困毙
+    // ★ C 64 位 R-073 基准：困毙"可翻"扫描**军旗+地雷都排**（翻完须能走，旗/雷不可走）
+    //   32 位分叉 = 仅排地雷（军旗计可翻），Rust 对齐 64 位（排旗+雷）
     for i in 0..N_CELLS {
         let c = &st.cells[i];
         let cn = rank_of(c);
         if !c.is_empty()
             && c.revealed == 0
             && cn != RANK_MINE
+            && cn != RANK_FLAG // R-073 64 位：军旗也排（翻完不能走）
             && (c.side == SIDE_UNKNOWN || c.side == side)
         {
             return false;
