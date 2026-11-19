@@ -64,6 +64,8 @@
 - 设备 IP 变更：10.0.182.146 → **10.0.182.152:5555**（rebuild_rust_apk.sh 已更新）
 - **脚本修复实锤**：rebuild_rust_apk.sh 注入 Rust so→`libjunqi.so`（替换 C so，smali loadLibrary('junqi') 同名加载），删 libjunqi_rs.so 避免双 so；APK 内仅 1 个 so（4.2MB wgpu e36a73a）
 - **出屏诊断**：C so（779K）与 wgpu so（4.2MB）截图完全一致（22375B/58.8%/4 色块）→ 画面由 Java SurfaceView 默认绘制，与 native so 渲染无关；**wgpu render pass（EGL surface+wgsl+纹理）未实现 = 游戏内容未出屏**
+- **OnCreate GLView 根因修复**：Rust OnCreate 原返回 null → Java 兜底 GLView → GLThread/native 渲染链路不启动；改 JNI NewObject 构造 com.qwsaeda.GLView 返回（对齐 C jni_bridge.c:2707-2811）→ 真机 EGL display init ×2 实锤 GLThread 启动
+- **houdini 诊断限制**：logcat 桥/setprop/文件探针在 MuMu houdini 转译下均失效（native OnCreate 已调但探针无信号），无法观测 wgpu device 结果；native 链路已通（EGL init ×2）
 
 ## 5. PENDING 项（真机可达 10.0.182.152，wgpu 出屏攻坚进行中）
 
