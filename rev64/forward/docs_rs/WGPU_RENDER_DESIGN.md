@@ -81,9 +81,20 @@ linker = "/tmp/opencode/android-ndk-r25b/.../aarch64-linux-android24-clang"
 **设备侧前置**（§124y-279 模拟器口径）：模拟器结论不可外推真机；32 位侧验收基准=真机。
 wgpu 出屏 = 64 位正向 app（com.qwsaeda.junqirs），真机可达后跑 5 判据。
 
+## 6.5 打包全链（Rust so → APK）
+
+`rev64/tools/rebuild_rust_apk.sh` 一键打包（对齐 C rebuild_rs_apk.sh 范式）：
+`[0] 交叉编译 Rust so（14 符号门禁）→ [1] 注入 dec_rs（com.qwsaeda）→ [2] apktool b →
+[3] STORE+zipalign → [4] apksigner v1+v2 双签（PIPESTATUS 防管道吞码）→ [5] 装机 → [6] so 哈希对账`。
+**实锤（2026-11-19）**：`dist/phase_rs_rust.apk` 20M + com.qwsaeda.junqirs（新军棋）+
+Rust so `libjunqi_rs.so`（469968B，14 JNI 符号）+ STORE + v1+v2+v3 三签验证全 true。
+`--no-install` 前半程（[0-4]）本机全通；[5/6] 装机+对账 = 设备 10.0.182.146 No route to host **PENDING**。
+
 ## 7. 诚实边界（禁自欺）
 
 - wgpu 出屏**未真机验证前 = PENDING**，桌面/NDK 链接通过 ≠ 出屏达成
+- **打包全链达成 ≠ 出屏达成**：APK 可装机（[0-4] PASS）但 wgpu 渲染出屏 + 5 判据
+  （装/出屏/下一局/退出/重进）须真机可达执行（§6），设备 No route to host = PENDING
 - gles 后端真机 GPU 驱动兼容性未实测（部分设备 vulkan 更稳，需真机 A/B）
 - 棋子纹理动态跟随走子（顶点按批切换）= C §124w-ALIGN 未完全闭环项，wgpu 版需重做
 - 本设计 = 渲染层实现基准，真机 5 判据全 PASS 才允许写"达成"
