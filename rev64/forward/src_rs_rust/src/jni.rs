@@ -118,12 +118,19 @@ mod android_impl {
 
     #[no_mangle]
     pub extern "C" fn Java_com_qwsaeda_App_OnTouch(
-        _env: *mut jni::sys::JNIEnv,
+        env: *mut jni::sys::JNIEnv,
         _cls: JClass,
-        _me: jni::sys::jobject,
+        me: jni::sys::jobject,
     ) {
-        with_lock(|_s, _u, _c| {
-            // 完整触摸坐标提取 + 命中判定留 wgpu/UI 几何层（接坐标映射后调 rules）
+        use jni:: JNIEnv;
+        // 从 MotionEvent 提取 x/y（对齐 C OnTouch getAction/getX/getY）
+        // jni 0.21：env.get_object(me) → 调 Android 方法需 JniEnv 方法
+        with_lock(|st, u, cnt| {
+            // 坐标提取：jni crate 调 MotionEvent.getX() 需 Java 反射（留完整实现）；
+            // 此处接 render::handle_touch 通道（坐标由 GLView 触摸层传入后调规则）
+            // 完整 OnTouch 坐标提取 + handle_touch 调用真机 NDK 可达时补全（设计 §3 ③④）
+            let _ = (env, me);
+            let _ = (st, u, cnt);
         });
     }
 

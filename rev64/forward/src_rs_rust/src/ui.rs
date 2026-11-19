@@ -162,6 +162,14 @@ impl Rect {
 pub const MENU_BTN_HUMAN: Rect = Rect { x: 200, y: 400, w: 320, h: 90 };
 pub const MENU_BTN_TWOPLAYER: Rect = Rect { x: 200, y: 520, w: 320, h: 90 };
 
+/// 难度弹窗面板（450×335 居中 720×1280 基准，对齐 datah_041）
+pub const DIFFICULTY_PANEL: Rect = Rect {
+    x: (720 - 450) / 2,  // 135
+    y: (1280 - 335) / 2, // ~472
+    w: 450,
+    h: 335,
+};
+
 /// 面板外 = 取消语义（规格 §10 通病根治：所有设置弹窗点面板外须回滚，与取消按钮对称）
 ///
 /// 返回：true=命中面板外（须回滚快照 + 回主菜单）；false=命中面板内某控件
