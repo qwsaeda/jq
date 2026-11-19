@@ -607,6 +607,7 @@ mod geom {
         let layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: None, bind_group_layouts: &[], immediate_size: 0,
         });
+        let scope = device.push_error_scope(wgpu::ErrorFilter::Validation);
         let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("geom-pipeline"),
             layout: Some(&layout),
@@ -639,6 +640,9 @@ mod geom {
             cache: None,
             multiview_mask: None,
         });
+        if let Some(e) = pollster::block_on(scope.pop()) {
+            crate::log::setprop("jq.pipeerr", &format!("{:?}", e).chars().take(40).collect::<String>());
+        }
         // ④ offscreen texture + render pass
         let tex = device.create_texture(&wgpu::TextureDescriptor {
             label: None,
@@ -674,7 +678,11 @@ mod geom {
             wgpu::TexelCopyBufferInfo { buffer: &buf, layout: wgpu::TexelCopyBufferLayout { offset: 0, bytes_per_row: Some(bpr), rows_per_image: Some(h) } },
             wgpu::Extent3d { width: w, height: h, depth_or_array_layers: 1 },
         );
+        let scope2 = device.push_error_scope(wgpu::ErrorFilter::Validation);
         queue.submit(Some(enc.finish()));
+        if let Some(e) = pollster::block_on(scope2.pop()) {
+            crate::log::setprop("jq.suberr", &format!("{:?}", e).chars().take(40).collect::<String>());
+        }
         let (tx, rx) = std::sync::mpsc::channel();
         buf.map_async(wgpu::MapMode::Read, 0..(bpr * h) as u64, move |r| { let _ = tx.send(r); });
         device.poll(wgpu::PollType::Wait { submission_index: None, timeout: None }).ok()?;
@@ -721,3 +729,36 @@ mod geom {
 }
 #[cfg(target_os = "android")]
 pub use geom::{draw_rects_rgba, menu_rects};
+
+/// 纯 CPU 生成棋盘+菜单 RGBA（不依赖 wgpu shader/pipeline，100% 可控）
+#[cfg(target_os = "android")]
+pub fn cpu_board_rgba(w: usize, h: usize) -> Vec<u8> {
+    let mut out = vec![0u8; w * h * 4];
+    for y in 0..h {
+        for x in 0..w {
+            let i = (y * w + x) * 4;
+            let fy = y as f32 / h as f32; // 0=顶 1=底
+            let fx = x as f32 / w as f32;
+            let (r, g, b) = if fy < 0.62 {
+                // 上部棋盘区（60%）：12×5 格，深绿/浅绿交替
+                let row = ((fy / 0.62) * 12.0) as usize;
+                let col = (fx * 5.0) as usize;
+                if (row + col) % 2 == 0 { (38, 128, 52) } else { (26, 96, 40) }
+            } else {
+                // 下部菜单区（40%）：5 个橙色按钮
+                let by = ((fy - 0.62) / 0.38) * 5.0;
+                let btn = by as usize;
+                let local = by - btn as f32;
+                if fx > 0.15 && fx < 0.85 && local > 0.15 && local < 0.8 && btn < 5 {
+                    (230, 128, 38) // 按钮橙色
+                } else {
+                    (20, 30, 45) // 菜单背景深蓝
+                }
+            };
+            out[i] = r; out[i + 1] = g; out[i + 2] = b; out[i + 3] = 255;
+        }
+    }
+    out
+}
+#[cfg(not(target_os = "android"))]
+pub fn cpu_board_rgba(_w: usize, _h: usize) -> Vec<u8> { vec![] }
