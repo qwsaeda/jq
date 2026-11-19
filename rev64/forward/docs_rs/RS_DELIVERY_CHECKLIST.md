@@ -79,6 +79,7 @@
   - **卡点精确定位**：`jq.surface_step=create_surface_unsafe_err`（细分打点 enter→window_nonnull→from_window_ok→**create_surface_unsafe_err**）= wgpu-hal gles 后端 `eglCreateWindowSurface(ANativeWindow)` 在 houdini 下失败；试 Vulkan 后端 → `device_fail`（无 Vulkan adapter）。**结论：MuMu houdini 转译环境不支持 wgpu surface 创建（环境限制，非代码）**，对齐 AGENTS.md §124y-279"模拟器结论不可外推真机"
   - wgpu 30 API 全对齐（Instance/Adapter/Device/SurfaceTargetUnsafe::from_window(AndroidNdkWindowHandle)/CurrentSurfaceTexture/SurfaceConfiguration），create_surface+clear_frame+细分打点编译通
   - **真机（非 houdini）路径**：wgpu gles device + surface 在真 ARM64 GPU 上应可创建（未验证，设备为 MuMu x86_64+houdini）——真机可达时重验 create_surface
+- **Canvas 出屏尝试（2026-11-20 00:00，真机 152）**：wgpu offscreen readback RGBA → Java Surface.lockCanvas(Rect)+drawBitmap+unlockCanvasAndPost（canvas.rs，不改 smali）；JNI 签名修正（lockCanvas 公开 API=lockCanvas(Rect)，无参 @hide targetSdk35 拒）；**新阻塞：Surface.nativeLockCanvas IllegalArgumentException = Surface 已被 GLThread EGL 占用**（Canvas CPU 与 EGL hardware buffer 互斥）。**两条出屏路互斥**：GLThread EGL（C 版，wgpu surface houdini 失败）vs Canvas CPU（wgpu offscreen ok，GLThread 占 surface）。**最终闭环路线**：改 smali 不 setRenderer（关 GLThread EGL）+ native 线程驱动 wgpu offscreen → Canvas；或真 ARM64 GPU 重验 wgpu create_surface。
 - **★ 决定性突破（2026-11-19 23:xx，真机 152）：wgpu offscreen 渲染在 houdini 下完全可用**
   - `jq.offscreen=ok:25,102,204,255` = wgpu create_texture + render pass clear(0.1,0.4,0.8,1.0) + copy_texture_to_buffer + map_async readback **全部成功**
   - 意义：wgpu GPU 渲染管线本身可用，唯一失败的是 `create_surface`（EGL window surface，houdini 限制）
