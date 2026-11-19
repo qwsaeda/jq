@@ -76,15 +76,17 @@
 - **render pass 攻坚细化（真机 152，2026-11-19 23:18）**：
   - JNI raw varargs CallObjectMethod 取 Surface → SIGSEGV（fault 0x10，houdini 变参 jobject 对齐问题）→ 改 jni crate safe API `call_method` 后无崩溃
   - 阶段打点：`jq.wgpu_state=device_ok` + `jq.wgpu_step=window_got`（GLView.getHolder().getSurface() → ANativeWindow_fromSurface 成功）
-  - **卡点精确定位**：`jq.surface_step=create_surface_unsafe_err`（细分打点 enter→window_nonnull→from_window_ok→**create_surface_unsafe_err**）= wgpu-hal gles 后端 `eglCreateWindowSurface(ANativeWindow)` 在 houdini 下失败；试 Vulkan 后端 → `device_fail`（无 Vulkan adapter）。**结论：MuMu houdini 转译环境不支持 wgpu surface 创建（环境限制，非代码）**，对齐 AGENTS.md §124y-279"模拟器结论不可外推真机"
+  - **卡点精确定位**：`jq.surface_step=create_surface_unsafe_err`（细分打点 enter→window_nonnull→from_window_ok→**create_surface_unsafe_err**）= wgpu-hal gles 后端 `eglCreateWindowSurface(ANativeWindow)` 在 houdini 下失败；试 Vulkan 后端 → `device_fail`（无 Vulkan adapter）。**曾判"环境限制"——已纠正（见 §4 末）**：同设备 C so 98.1% 出屏实锤证明 MuMu 渲染正常，根因是 Rust 未实现 C 渲染管线 + wgpu-hal surface API 用法待调，非环境
   - wgpu 30 API 全对齐（Instance/Adapter/Device/SurfaceTargetUnsafe::from_window(AndroidNdkWindowHandle)/CurrentSurfaceTexture/SurfaceConfiguration），create_surface+clear_frame+细分打点编译通
   - **真机（非 houdini）路径**：wgpu gles device + surface 在真 ARM64 GPU 上应可创建（未验证，设备为 MuMu x86_64+houdini）——真机可达时重验 create_surface
 - **Canvas 出屏尝试（2026-11-20 00:00，真机 152）**：wgpu offscreen readback RGBA → Java Surface.lockCanvas(Rect)+drawBitmap+unlockCanvasAndPost（canvas.rs，不改 smali）；JNI 签名修正（lockCanvas 公开 API=lockCanvas(Rect)，无参 @hide targetSdk35 拒）；**新阻塞：Surface.nativeLockCanvas IllegalArgumentException = Surface 已被 GLThread EGL 占用**（Canvas CPU 与 EGL hardware buffer 互斥）。**两条出屏路互斥**：GLThread EGL（C 版，wgpu surface houdini 失败）vs Canvas CPU（wgpu offscreen ok，GLThread 占 surface）。**最终闭环路线**：改 smali 不 setRenderer（关 GLThread EGL）+ native 线程驱动 wgpu offscreen → Canvas；或真 ARM64 GPU 重验 wgpu create_surface。
 - **★ 决定性突破（2026-11-19 23:xx，真机 152）：wgpu offscreen 渲染在 houdini 下完全可用**
   - `jq.offscreen=ok:25,102,204,255` = wgpu create_texture + render pass clear(0.1,0.4,0.8,1.0) + copy_texture_to_buffer + map_async readback **全部成功**
-  - 意义：wgpu GPU 渲染管线本身可用，唯一失败的是 `create_surface`（EGL window surface，houdini 限制）
+  - 意义：wgpu GPU 渲染管线本身可用（C so 同设备 98.1% 实锤 MuMu 渲染正常）；`create_surface` 失败是 wgpu-hal surface API 用法/架构问题，非环境限制
   - **新出屏路径确定**：wgpu offscreen 渲染棋盘/棋子 → readback RGBA → Java `Surface.lockCanvas()` + `Canvas.drawBitmap()` + `unlockCanvasAndPost()` 显示（绕过 EGL surface，不改 smali）
   - 当前 device_fail 为二次启动 GPU 资源竞争（offscreen ok 已证明核心可用）
+
+- **★★ 结论纠正（2026-11-20，用户质疑"MuMu 能玩高端游戏还支持 Vulkan，怎么会环境限制"）**：同设备重装 C 版 `phase_rs_a64.apk` 截图 **98.1% 非黑 + 40 色块**（完整出屏）+ 渲染日志全通（Init 像素解码全 OK + 渲染线程启动 + makeCurrent）；设备 GPU running + libEGL/libGLESv2/libvulkan 全在 + backend=gles。**MuMu 渲染完全正常，之前"houdini 环境限制"结论错误**。真正根因：Rust so 未实现 C `render.c`（11,229 行：50 纹理加载 + PNG 解码 + GLES 顶点批次 + 菜单/棋盘/棋子/弹窗绘制 + shader + `jq_glview_start_render_thread`）。Rust 出屏须移植 C 渲染管线（跨 session 大工程）或 C 渲染 + Rust 逻辑混合架构
 - **完整出屏闭环（跨 session）**：① native setContentView ✓ ② OnUpdate+wgpu device ✓ ③ wgpu render pass（EGL surface+wgsl+纹理）✗ —— 仅剩 ③
 
 ## 5. PENDING 项（真机可达 10.0.182.152，wgpu 出屏攻坚进行中）
