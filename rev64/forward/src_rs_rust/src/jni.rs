@@ -218,20 +218,12 @@ mod android_impl {
                     }
                 }
             }
-            // ③ 每帧：wgpu offscreen 渲染 RGBA → Java Surface Canvas 显示（绕过 EGL surface）
-            if !G_SURFACE.is_null() {
-                if let (Some(dev), Some(q)) = (G_WGPU_DEVICE.as_ref(), G_WGPU_QUEUE.as_ref()) {
-                    let w = 900u32;
-                    let h = 1600u32;
-                    if let Some(rgba) = crate::render::RenderCtx::offscreen_render_rgba(dev, q, w, h) {
-                        let mut je = match jni::JNIEnv::from_raw(env) { Ok(e) => e, Err(_) => return 1 };
-                        let surf = jni::objects::JObject::from_raw(G_SURFACE);
-                        match crate::canvas::draw_rgba_to_surface(&mut je, surf, &rgba, w as i32, h as i32) {
-                            Ok(_) => { if !st_canvas_done() { setprop_canvas_ok(); } }
-                            Err(_) => { if !st_canvas_done() { setprop_canvas_fail(); } }
-                        }
-                    }
-                }
+            // ③ 修复 Canvas/EGL 互斥：不用 lockCanvas（Surface 被 GLThread EGL 占用），
+            //    改在 GLThread 当前 EGL context 内用 GLES20 直接画（swap 由 EglHelper 完成）
+            let mut je = match jni::JNIEnv::from_raw(env) { Ok(e) => e, Err(_) => return 1 };
+            match crate::gles::gles20_clear(&mut je, 1.0, 0.0, 0.0, 1.0) {
+                Ok(_) => { if !st_canvas_done() { setprop_canvas_ok(); } }
+                Err(_) => { if !st_canvas_done() { setprop_canvas_fail(); } }
             }
         }
         1 // GLThread 持续出帧
