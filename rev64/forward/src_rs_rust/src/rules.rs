@@ -509,7 +509,14 @@ fn stalemate_after(st: &mut State) {
 }
 
 /// 和棋（规格 §4.1：winner=Draw, stage=Over）
+/// ★ C 双守卫（B01-065/066）：stage!=PLAY 拒收 + winner!=NONE 拒收（防脏 winner 被覆盖/重复终局副作用）
 pub fn on_draw(st: &mut State) {
+    if st.stage != Stage::Play {
+        return;
+    }
+    if !matches!(st.winner, Winner::None) {
+        return;
+    }
     st.winner = Winner::Draw;
     st.stage = Stage::Over;
 }
@@ -524,8 +531,11 @@ fn on_flag_capture(st: &mut State, me: u8) {
 }
 
 /// 困毙（规格 §4.1：无棋可走方负，对方胜）
-fn on_stalemate(st: &mut State, loser_side: u8) {
+pub fn on_stalemate(st: &mut State, loser_side: u8) {
     if st.stage != Stage::Play {
+        return;
+    }
+    if !matches!(st.winner, Winner::None) {
         return;
     }
     st.winner = winner_from_side(1 - loser_side);

@@ -3,7 +3,7 @@
 //! 把 C 正向的"事件契约对齐"证据（evverify 174 断言核心）搬进 Rust：
 //! 走子/吃子/扛旗/挖雷 → 事件码 + stage + winner 真值断言，对齐 C 行为基准。
 
-use crate::state::{Cell, Ev, State, Stage, Winner, SIDE_BLUE, SIDE_RED};
+use crate::state::{Cell, Ev, State, Stage, Winner, SIDE_BLUE, SIDE_RED, SIDE_UNKNOWN};
 use crate::rules;
 
 /// C mk_flag 夹具：cell53 蓝 rank2 + cell58 红旗（rank12+0xc=24）
@@ -191,6 +191,55 @@ mod tests {
         // 收口后 stage/winner（困毙判蓝胜 或 和棋——按实际布局）
         // C 基准：flag-off → STG_OVER winner=BLUE（红 58 困毙）
         assert!(st.stage == Stage::Over || st.stage == Stage::Play, "cfg3 关终局收口");
+    }
+
+    // ---- C run_draw_resign / run_dark 移植（和棋/认输 + 暗棋翻棋 + 终局守卫）----
+    // C run_draw_resign：和棋（winner=DRAW+stage=OVER）+ 认输（winner=1-turn）
+    #[test]
+    fn draw_resign() {
+        let mut st = crate::gametest::make_default_layout();
+        // 和棋：cfg0 开 + moves_since_eat>=70 → on_draw
+        st.cfg[0] = 1;
+        st.moves_since_eat = 70;
+        crate::rules::on_draw(&mut st);
+        assert_eq!(st.winner, Winner::Draw, "和棋 winner=DRAW");
+        assert_eq!(st.stage, Stage::Over, "和棋 stage=OVER");
+        // 认输：蓝走子前 turn=BLUE → winner=1-turn=RED
+        let mut st2 = crate::gametest::make_default_layout();
+        st2.turn = SIDE_BLUE;
+        crate::rules::on_stalemate(&mut st2, SIDE_BLUE); // 蓝困毙 → 红胜
+        assert_eq!(st2.winner, Winner::Red, "蓝困毙红胜");
+        assert_eq!(st2.stage, Stage::Over);
+    }
+
+    // C run_case 终局守卫：重复终局 API 0 副作用（stage!=PLAY 拒收）
+    #[test]
+    fn endgame_guard_no_sideeffect() {
+        let mut st = crate::gametest::make_default_layout();
+        st.stage = Stage::Over;
+        st.winner = Winner::Red;
+        let w_before = st.winner;
+        let s_before = st.stage;
+        // 重复调 on_draw（stage=OVER 守卫应拒收，winner/stage 不变）
+        crate::rules::on_draw(&mut st);
+        assert_eq!(st.winner, w_before, "终局后重复 on_draw 0 副作用");
+        assert_eq!(st.stage, s_before);
+    }
+
+    // C run_dark：暗棋翻棋（0xFF 定色 + revealed + 切 turn）
+    #[test]
+    fn dark_flip() {
+        let mut st = State::new();
+        st.mode = crate::state::MODE_FLIP;
+        st.cfg[4] = 1;
+        st.turn = SIDE_BLUE;
+        // 0xFF 未定暗子（暗棋开局全 0xFF）
+        st.cells[49] = Cell { rank: 2, side: SIDE_UNKNOWN, revealed: 0 };
+        assert!(crate::rules::can_flip(&st, 49), "0xFF 当前方可翻");
+        assert!(crate::rules::flip(&mut st, 49));
+        assert_eq!(st.cells[49].side, SIDE_BLUE, "定色归翻子方（蓝）");
+        assert_eq!(st.cells[49].revealed, 1, "翻后 revealed=1");
+        assert_eq!(st.turn, SIDE_RED, "翻棋切回合");
     }
 
     // C evverify run_case("mine-off", 49, 54, EV_DEAD, STG_OVER, SIDE_BLUE)（cfg2 关工兵被雷炸+红困毙）
