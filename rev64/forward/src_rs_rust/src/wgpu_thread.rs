@@ -3,9 +3,14 @@
 mod imp {
     use std::sync::atomic::{AtomicBool, Ordering};
     static RUNNING: AtomicBool = AtomicBool::new(false);
+    static STOP: AtomicBool = AtomicBool::new(false);
+
+    /// 停止渲染线程（OnDestroy 调用，防退出 SIGABRT）
+    pub fn stop() { STOP.store(true, Ordering::SeqCst); }
 
     /// 启动 wgpu 渲染线程（native 独占 window，无 Java GLThread 竞争）
     pub fn start(vm_addr: usize, view_addr: usize, w: u32, h: u32) {
+        STOP.store(false, Ordering::SeqCst);
         if RUNNING.swap(true, Ordering::SeqCst) {
             return;
         }
@@ -76,10 +81,11 @@ mod imp {
         // ③ 渲染循环：wgpu offscreen RGBA → Java Surface.lockCanvas 显示
         let mut frame = 0u64;
         loop {
+            if STOP.load(Ordering::SeqCst) { break; }
             let r = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                if let Some(rgba) = crate::render::RenderCtx::offscreen_render_rgba(&dev, &q, 256, 256) {
+                if let Some(rgba) = crate::render::RenderCtx::offscreen_render_rgba(&dev, &q, 900, 1600) {
                     let surface = jni::objects::JObject::from_raw(surf_global);
-                    if crate::canvas::draw_rgba_to_surface(&mut env, surface, &rgba, 256, 256).is_err() {
+                    if crate::canvas::draw_rgba_to_surface(&mut env, surface, &rgba, 900, 1600).is_err() {
                         crate::log::setprop("jq.wgpu_thread", "canvas_err");
                     }
                 }
@@ -87,11 +93,13 @@ mod imp {
             if r.is_err() { crate::log::setprop("jq.wgpu_thread", "frame_panic"); break; }
             frame += 1;
             if frame == 3 { crate::log::setprop("jq.wgpu_thread", "rendering"); }
-            std::thread::sleep(std::time::Duration::from_millis(16));
+            std::thread::sleep(std::time::Duration::from_millis(400));
         }
     }
 }
 #[cfg(target_os = "android")]
-pub use imp::start;
+pub use imp::{start, stop};
 #[cfg(not(target_os = "android"))]
 pub fn start(_vm: usize, _view: usize, _w: u32, _h: u32) {}
+#[cfg(not(target_os = "android"))]
+pub fn stop() {}

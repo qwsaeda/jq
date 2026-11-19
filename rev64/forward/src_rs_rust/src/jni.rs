@@ -134,8 +134,8 @@ mod android_impl {
             unsafe { G_VIEW = new_global(env, view); }
             // ★ native EGL 渲染线程独占 window（setRenderer 已在 smali 移除，避免 0x3003）
             //   线程内 attach JVM 轮询 Surface→ANativeWindow→eglCreateWindowSurface→画→swap
-            // wgpu 出屏攻坚：create_surface 在 MuMu 上失败 + lockCanvas 限主线程，渲染线程暂不启动
-            // 保留 wgpu_thread.rs / canvas.rs 代码供后续主线程 Canvas 方案
+            // 纯 Rust wgpu 渲染线程（offscreen → lockCanvas；Surface 已 null-safe patch + GLThread 已移除）
+            unsafe { crate::wgpu_thread::start(G_VM, G_VIEW as usize, 900, 1600); }
             
             // requestRender 不在 native 调：view attach 后 Java GLThread 自会出首帧（提前调 NPE）
             view
@@ -144,6 +144,7 @@ mod android_impl {
 
     #[no_mangle]
     pub extern "C" fn Java_com_qwsaeda_App_OnDestroy(_env: *mut jni::sys::JNIEnv, _cls: JClass) {
+        crate::wgpu_thread::stop();
         // 清理 wgpu 资源（重进不崩：旧 surface/device 必须先释放）
         unsafe {
             G_WGPU_SURFACE = None;

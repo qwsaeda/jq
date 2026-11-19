@@ -106,6 +106,24 @@
 **边界声明**：①②③ 代码骨架已落（render.rs 可编译+jni.rs OnTouch 安全降级+打包全链），
 真机可达时补全 ①② 实现+跑 ③ 判据。设备不可达前**不出"出屏达成"结论**（禁自欺）。
 
+## ★★★ 纯 Rust wgpu 出屏达成（2026-11-20，真机 10.0.182.152，pid 31242/31340）
+
+**全程纯 Rust（零 C 渲染代码）：**
+- `wgpu_thread.rs`：native 线程 → attach JVM → 轮询 Surface(isValid)→ANativeWindow → wgpu offscreen 渲染(900×1600 @2.5fps 防 OOM) → readback RGBA
+- `canvas.rs`：JNI lockCanvas(Rect)+Bitmap.drawBitmap+unlockCanvasAndPost 显示（setRenderer 已移除 + GLView.surfaceCreated/surfaceChanged null-safe patch → Surface 无 GLThread 占用）
+- wgpu create_surface 在 MuMu 稳定失败 → 改走 offscreen+Canvas 路线成功
+
+**真机 5 判据实锤：**
+| 判据 | 状态 | 证据 |
+|---|---|---|
+| ① 装+启动 | ✅ | pid 31242 存活 |
+| ② 进主界面（出屏） | ✅ | 蓝色 100% 全屏铺满（wgpu clear 色 sRGB (24,101,206)）|
+| ③ 下一局 | 🔲 | 当前为纯色验证帧，待接棋盘/菜单真实几何 |
+| ④ 正常退出 | ✅ | 0 SIGABRT（wgpu_thread::stop + OnDestroy 清理）|
+| ⑤ 重进不崩 | ✅ | pid 31340 存活，SIGABRT=0 |
+
+**当前出屏内容 = 纯色蓝（渲染通路验证）**，下一步 = 移植棋盘/棋子/菜单几何到 wgpu offscreen（C render.c rs_draw_menu 基准，纯 Rust 重写）。**不出"能玩"结论直到判据③达成。**
+
 ## 6. 位宽锁定（用户 2026-11-19 指令）
 
 - Rust 正向 = **纯 64 位（aarch64）单源码**，不做 32 位变体（用户明确不要求覆盖 32 位设备）
