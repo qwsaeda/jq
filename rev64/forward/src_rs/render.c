@@ -10444,7 +10444,16 @@ void rs_render_frame(rs_render *rr)
         bg_s = (float)rr->view_h / 1280.0f;   /* 按高铺满 */
     float bg_by0 = ((float)rr->view_h - 1280.0f * bg_s) * 0.5f;
     float bg_by1 = bg_by0 + 1280.0f * bg_s;
-    if (rr->tex_bg[slot] && rr->gl2_ok[slot]) {
+    /* ★ R26 正向优化（进主界面卡顿减载，回执①条 3/7 P0）：stage/ui_screen 门控——
+       菜单主态（UI_MENU）及菜单流弹窗（UI_DIFFICULTY/UI_WAYSEL/UI_SETTINGS/UI_NPLAYER/
+       UI_NEWGAME/UI_GAMESET 等）只画菜单背景 + 按钮，**跳过棋盘 bg 全屏 quad + 棋子
+       60 格遍历/顶点构建/绘制**（转译层 GL 软驱动下每 draw/每 state change 昂贵，
+       菜单态画全棋盘 = 冗余 1 全屏纹理 draw + 60 格 CPU 遍历 + 棋子 VBO 上传/draw）。
+       对局态（UI_GAME/UI_INGAME_MENU/UI_REPLAY）保留棋盘+棋子。门控不改坐标基准
+       （board_geom/view_w/h 缩放链不变，触摸走子几何 0 退化）。 */
+    int ui_s = ui_screen_get();
+    int need_board = (ui_s == UI_GAME || ui_s == UI_INGAME_MENU || ui_s == UI_REPLAY);
+    if (need_board && rr->tex_bg[slot] && rr->gl2_ok[slot]) {
         float w = (float)rr->view_w, h = (float)rr->view_h;
         rs_v4f bq[6] = {
             {0, bg_by0, 0, 0}, {w, bg_by0, 1, 0}, {0, bg_by1, 0, 1},
@@ -10480,7 +10489,7 @@ void rs_render_frame(rs_render *rr)
        （去每棋子 glGenBuffers/glDeleteBuffers——60fps × 60 格 = 3600 次/秒 buffer 开关，
        真机 GPU 会卡；改 1 次 glBufferData + 1 次 glDrawArrays） */
     /* ★ R10-F-01/02：棋子段门控（tex_piece && gl2_ok），UI 段独立 gl2_ok（下切点） */
-    int can_piece = (rr->tex_piece[slot] && rr->gl2_ok[slot]);
+    int can_piece = need_board && (rr->tex_piece[slot] && rr->gl2_ok[slot]);   /* ★ R26：菜单态跳过棋子（与棋盘 bg 门控同源） */
     if (can_piece) {
         /* ★ 层 2 视觉对齐：棋子画在 datax_177 棋盘格上（bg 全图铺满）。
            cell 中心/尺寸按图像棋盘格定位（image_row=11-设备row，row0=底）。

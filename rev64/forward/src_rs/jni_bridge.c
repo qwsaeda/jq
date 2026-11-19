@@ -2590,6 +2590,37 @@ Java_com_qwsaeda_App_OnCreate(JNIEnv *env, jclass clazz, jobject activity)
             SPAK_DIR = SPAK_DIR_DEV;   /* 兜底仍用 dev（预读落地后此分支不应命中） */
             LOGI("OnCreate：spak_res 无可用目录（预读未落地 + tmp 不存在，走纯色退化）");
         }
+        /* ★ R26 资源加载域 RL-02（P1）：关键资源存在性快检（board/piece/bg/text 4 张核心）
+           ——SPAK_DIR 选路后 stat 关键文件，缺失聚合告警（可观测事件，非阻断，纯色降级）。
+           真机无 dev push + 预读清单 48 项未含该文件时，此判据暴露"桌面 0 回归但真机出屏退化"。 */
+        {
+            /* ★ R26 RL-02：前缀遍历判 4 类核心资源（datah_188 前缀、datah_183 前缀、
+               bg_menu_720 前缀、menu_text_atlas 前缀）——SPAK 解包文件名带 hash 后缀
+               （如 datah_188_21d95e03e7692e98.bin），硬编码全名会漂移误报；前缀遍历防复发。
+               缺者走纯色降级（可观测聚合告警，非阻断）。 */
+            int nmiss = 0;
+            {
+                DIR *dp = opendir(SPAK_DIR);
+                int found[4] = {0,0,0,0};
+                const char *kpre[4] = { "datah_188_", "datah_183_", "bg_menu_720", "menu_text_atlas" };
+                if (dp) {
+                    struct dirent *de;
+                    while ((de = readdir(dp)) != NULL) {
+                        for (int k = 0; k < 4; k++)
+                            if (strncmp(de->d_name, kpre[k], strlen(kpre[k])) == 0) found[k] = 1;
+                    }
+                    closedir(dp);
+                }
+                for (int k = 0; k < 4; k++) if (!found[k]) nmiss++;
+                if (g_files_dir[0] && nmiss > 0)
+                    LOGI("OnCreate：spak_res 关键资源缺失 %d/4（前缀 datah_188/183/bg_menu_720/menu_text_atlas，%s），缺者走纯色降级",
+                         nmiss, SPAK_DIR);
+                if (nmiss == 4)
+                    LOGI("OnCreate：spak_res 4 张核心资源全缺失（%s），进主界面走纯色/清屏退化（资源完整出屏未达成）", SPAK_DIR);
+                else if (nmiss == 0)
+                    LOGI("OnCreate：spak_res 4 张核心资源齐备（%s），棋盘/棋子/背景/文字可出屏", SPAK_DIR);
+            }
+        }
     }
     /* ★ 对抗审计（2026-11-09）：movetest/replay 注入段（原在 g_mutex 段内 2149-2190，
        jq_try_move/ui_replay_record/ui_replay_rewind/ui_screen_set 取 g_ui_lock）移至
