@@ -90,6 +90,96 @@ mod gles_render {
             Some((device, queue))
         }
 
+        /// 从 ANativeWindow 创建 wgpu Surface（Android gles 后端，出屏关键）
+        /// 参数 anative_window: *mut c_void（ANativeWindow_fromSurface 拿到的指针）
+        pub fn create_surface(
+            instance: &wgpu::Instance,
+            device: &wgpu::Device,
+            anative_window: *mut std::ffi::c_void,
+            width: u32,
+            height: u32,
+        ) -> Option<(wgpu::Surface<'static>, wgpu::SurfaceConfiguration)> {
+            use raw_window_handle::{AndroidNdkWindowHandle, HasWindowHandle, RawWindowHandle, WindowHandle};
+            use pollster::FutureExt;
+            if anative_window.is_null() {
+                return None;
+            }
+            let nwin = std::ptr::NonNull::new(anative_window as *mut ())?;
+            // 自定义 handle 包装 ANativeWindow
+            struct WinHandle(std::ptr::NonNull<()>);
+            impl HasWindowHandle for WinHandle {
+                fn window_handle(&self) -> Result<WindowHandle<'_>, raw_window_handle::HandleError> {
+                    Ok(unsafe { WindowHandle::borrow_raw(RawWindowHandle::AndroidNdk(AndroidNdkWindowHandle::new(self.0.cast()))) })
+                }
+            }
+            let wh = WinHandle(nwin);
+            let surface = unsafe {
+                instance.create_surface_unsafe(wgpu::SurfaceTargetUnsafe::from_window(&wh).ok()?)
+            }.ok()?;
+            crate::log::setprop("jq.surface_step", "surface_created");
+            let caps = surface.get_capabilities(&instance.request_adapter(&wgpu::RequestAdapterOptions {
+                power_preference: wgpu::PowerPreference::LowPower,
+                force_fallback_adapter: false,
+                compatible_surface: Some(&surface),
+                apply_limit_buckets: false,
+            }).block_on().ok()?);
+            crate::log::setprop("jq.surface_step", "caps_ok");
+            let format = match caps.formats.first().copied() {
+                Some(f) => f,
+                None => { crate::log::setprop("jq.surface_step", "no_formats"); return None; }
+            };
+            let config = wgpu::SurfaceConfiguration {
+                usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+                format,
+                width: width.max(1),
+                height: height.max(1),
+                present_mode: wgpu::PresentMode::AutoVsync,
+                alpha_mode: caps.alpha_modes.first().copied()?,
+                view_formats: vec![],
+                color_space: wgpu::SurfaceColorSpace::Srgb,
+                desired_maximum_frame_latency: 2,
+            };
+            surface.configure(device, &config);
+            Some((surface, config))
+        }
+
+        /// 清屏渲染一帧（验证 wgpu 出屏通路；颜色 RGBA）
+        pub fn clear_frame(
+            device: &wgpu::Device,
+            queue: &wgpu::Queue,
+            surface: &wgpu::Surface<'_>,
+            r: f64, g: f64, b: f64,
+        ) {
+            // wgpu 30：get_current_texture 返回 enum（Good/Timeout/Occluded/Outdated/Lost/Validation）
+            let tex = match surface.get_current_texture() {
+                wgpu::CurrentSurfaceTexture::Success(t) | wgpu::CurrentSurfaceTexture::Suboptimal(t) => t,
+                _ => return, // Timeout/Occluded/Outdated/Lost/Validation → 跳过本帧
+            };
+            let view = tex.texture.create_view(&wgpu::TextureViewDescriptor::default());
+            let mut enc = device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
+            {
+                let mut pass = enc.begin_render_pass(&wgpu::RenderPassDescriptor {
+                    label: None,
+                    color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                        view: &view,
+                        resolve_target: None,
+                        depth_slice: None,
+                        ops: wgpu::Operations {
+                            load: wgpu::LoadOp::Clear(wgpu::Color { r, g, b, a: 1.0 }),
+                            store: wgpu::StoreOp::Store,
+                        },
+                    })],
+                    depth_stencil_attachment: None,
+                    timestamp_writes: None,
+                    occlusion_query_set: None,
+                    multiview_mask: None,
+                });
+                let _ = &mut pass;
+            }
+            queue.submit(Some(enc.finish()));
+            // wgpu 30：SurfaceTexture 在 Drop 时自动 present（无显式 present()）
+        }
+
         /// 创建棋盘渲染 pipeline（真机可达时补全 wgpu API，设计 §3 ②③⑤）
         /// 真机实现：vertex buffer（棋盘 6 顶点）+ fragment（棋盘纹理采样）+ blend state（防黑底）
         pub fn build_pipeline(&mut self) {

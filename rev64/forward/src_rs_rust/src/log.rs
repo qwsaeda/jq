@@ -10,6 +10,8 @@ mod imp {
     const ANDROID_LOG_ERROR: i32 = 6;
     unsafe extern "C" {
         fn __system_property_set(name: *const c_char, value: *const c_char) -> i32;
+        fn ANativeWindow_fromSurface(env: *mut std::ffi::c_void, surface: jni::sys::jobject) -> *mut std::ffi::c_void;
+        fn ANativeWindow_release(window: *mut std::ffi::c_void);
     }
     /// 写系统属性（adb getprop 可读，houdini 转译下比 logcat 可靠）
     pub fn setprop(name: &str, value: &str) {
@@ -37,11 +39,19 @@ mod imp {
             );
         }
     }
+
+    /// 从 Java Surface 对象拿 ANativeWindow 指针（需配对 ANativeWindow_release）
+    pub unsafe fn surface_to_window(env: *mut std::ffi::c_void, surface: jni::sys::jobject) -> *mut std::ffi::c_void {
+        ANativeWindow_fromSurface(env, surface)
+    }
+    pub unsafe fn window_release(window: *mut std::ffi::c_void) {
+        ANativeWindow_release(window)
+    }
     pub fn info(msg: &str) { log_buf(ANDROID_LOG_INFO, msg); }
     pub fn error(msg: &str) { log_buf(ANDROID_LOG_ERROR, msg); }
 }
 #[cfg(target_os = "android")]
-pub use imp::{error, info, setprop};
+pub use imp::{error, info, setprop, surface_to_window, window_release};
 #[cfg(not(target_os = "android"))]
 pub fn info(_msg: &str) {}
 #[cfg(not(target_os = "android"))]

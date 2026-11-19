@@ -73,6 +73,11 @@
   - 修复后：`jq.native_probe=OnCreate_called` + **`jq.wgpu_state=device_ok`** 实锤 OnUpdate 被调用 + **wgpu device 获取成功（gles 后端可达）**
   - 截图从 22KB/59%（Java 默认画面）→ **9087B/纯黑（GLThread surface 清屏色）**：出屏链路已打通到最后一步
 - **唯一剩余阻塞 = wgpu render pass**：黑屏 = device 拿到但没画任何内容到 surface（surface EGL 互操作 + wgsl + 棋盘纹理 + present 未实现）
+- **render pass 攻坚细化（真机 152，2026-11-19 23:18）**：
+  - JNI raw varargs CallObjectMethod 取 Surface → SIGSEGV（fault 0x10，houdini 变参 jobject 对齐问题）→ 改 jni crate safe API `call_method` 后无崩溃
+  - 阶段打点：`jq.wgpu_state=device_ok` + `jq.wgpu_step=window_got`（GLView.getHolder().getSurface() → ANativeWindow_fromSurface 成功）
+  - **当前卡点**：`jq.surface_fail` + `jq.surface_step=none` = wgpu `create_surface_unsafe(SurfaceTargetUnsafe::from_window(AndroidNdkWindowHandle))` 静默返回 None（houdini + gles 后端 surface 创建兼容问题）
+  - wgpu 30 API 全对齐（Instance/Adapter/Device/Surface/CurrentSurfaceTexture/SurfaceConfiguration），create_surface+clear_frame 编译通
 - **完整出屏闭环（跨 session）**：① native setContentView ✓ ② OnUpdate+wgpu device ✓ ③ wgpu render pass（EGL surface+wgsl+纹理）✗ —— 仅剩 ③
 
 ## 5. PENDING 项（真机可达 10.0.182.152，wgpu 出屏攻坚进行中）

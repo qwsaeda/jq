@@ -288,6 +288,7 @@ version = "1.0.0"
 dependencies = [
  "jni",
  "pollster",
+ "raw-window-handle",
  "wgpu",
 ]
 

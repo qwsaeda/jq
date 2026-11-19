@@ -14,6 +14,13 @@ mod android_impl {
     use jni::objects::JClass;
 
     static mut G_STATE: Option<State> = None;
+    // wgpu 出屏攻坚：GLView global ref + wgpu 资源
+    static mut G_VIEW: jni::sys::jobject = std::ptr::null_mut();
+    static mut G_WGPU_INSTANCE: Option<wgpu::Instance> = None;
+    static mut G_WGPU_DEVICE: Option<wgpu::Device> = None;
+    static mut G_WGPU_QUEUE: Option<wgpu::Queue> = None;
+    static mut G_WGPU_SURFACE: Option<wgpu::Surface<'static>> = None;
+    static mut G_WGPU_CONFIG: Option<wgpu::SurfaceConfiguration> = None;
     static G_LOCK: Mutex<()> = Mutex::new(());
     static mut G_UI: Option<ui::Ui> = None;
     static mut G_CNT: Option<evt::EventCounter> = None;
@@ -105,6 +112,12 @@ mod android_impl {
                     }
                 }
             }
+            // 保存 GLView global ref（OnUpdate 用它拿 Surface → ANativeWindow → wgpu Surface）
+            let new_global = match envf.NewGlobalRef {
+                Some(f) => f,
+                None => return view,
+            };
+            unsafe { G_VIEW = new_global(env, view); }
             // requestRender 不在 native 调：view attach 后 Java GLThread 自会出首帧（提前调 NPE）
             view
         }
@@ -145,31 +158,66 @@ mod android_impl {
 
     #[no_mangle]
     pub extern "C" fn Java_com_qwsaeda_App_OnUpdate(
-        _env: *mut jni::sys::JNIEnv,
+        env: *mut jni::sys::JNIEnv,
         _cls: JClass,
     ) -> jni::sys::jboolean {
-        // wgpu 出屏攻坚：OnUpdate 首次调初始化 wgpu device（gles 后端，真机验可达）
-        // 真机 logcat 诊断：wgpu device 获取成功/失败 + 出屏通路
-        let init_ok = with_lock(|st, _u, _c| {
-            // device 未初始化时获取（幂等：已 init 跳过）
-            // wgpu 出屏攻坚：create_wgpu_device 真机验 gles 后端（EGL/GPU 驱动）
-            if !st.wgpu_log_done {
-                match crate::render::RenderCtx::create_wgpu_device() {
-                    Some((dev, _q)) => {
-                        crate::log::setprop("jq.wgpu_state", "device_ok");
-                        let _ = dev;
-                        st.wgpu_init_done = true;
-                    }
-                    None => {
-                        crate::log::setprop("jq.wgpu_state", "device_fail");
-                        st.wgpu_init_done = false;
+        unsafe {
+            let envf = &**env;
+            // ① 首次：创建 wgpu device + instance
+            if G_WGPU_DEVICE.is_none() {
+                if let Some((dev, q)) = crate::render::RenderCtx::create_wgpu_device() {
+                    // Instance 需重建（create_wgpu_device 内部建的实例未返回，这里重建一个用于 surface）
+                    G_WGPU_INSTANCE = Some(wgpu::Instance::new(wgpu::InstanceDescriptor {
+                        backends: wgpu::Backends::GL,
+                        flags: wgpu::InstanceFlags::default(),
+                        memory_budget_thresholds: wgpu::MemoryBudgetThresholds::default(),
+                        backend_options: wgpu::BackendOptions::default(),
+                        display: None,
+                    }));
+                    G_WGPU_DEVICE = Some(dev);
+                    G_WGPU_QUEUE = Some(q);
+                    crate::log::setprop("jq.wgpu_state", "device_ok");
+                } else {
+                    crate::log::setprop("jq.wgpu_state", "device_fail");
+                    return 1;
+                }
+            }
+            // ② 拿 GLView.getHolder().getSurface() → ANativeWindow（jni crate safe API，避免 raw varargs 崩溃）
+            if G_WGPU_SURFACE.is_none() && !G_VIEW.is_null() {
+                crate::log::setprop("jq.wgpu_step", "safe_surface_begin");
+                let mut je = match jni::JNIEnv::from_raw(env) { Ok(e) => e, Err(_) => return 1 };
+                let view = jni::objects::JObject::from_raw(G_VIEW);
+                let holder = je.call_method(view, "getHolder", "()Landroid/view/SurfaceHolder;", &[])
+                    .ok().and_then(|v| v.l().ok());
+                crate::log::setprop("jq.wgpu_step", if holder.is_some() { "holder_ok" } else { "holder_fail" });
+                if let Some(h) = holder {
+                    let surface_obj = je.call_method(h, "getSurface", "()Landroid/view/Surface;", &[])
+                        .ok().and_then(|v| v.l().ok());
+                    crate::log::setprop("jq.wgpu_step", if surface_obj.is_some() { "surface_ok" } else { "surface_fail" });
+                    if let Some(so) = surface_obj {
+                        let win = crate::log::surface_to_window(env as *mut _, so.into_raw());
+                        crate::log::setprop("jq.wgpu_step", "window_got");
+                        if !win.is_null() {
+                            if let (Some(inst), Some(dev)) = (G_WGPU_INSTANCE.as_ref(), G_WGPU_DEVICE.as_ref()) {
+                                if let Some((surf, cfg)) = crate::render::RenderCtx::create_surface(inst, dev, win, 900, 1600) {
+                                    G_WGPU_SURFACE = Some(surf);
+                                    G_WGPU_CONFIG = Some(cfg);
+                                    crate::log::setprop("jq.wgpu_state", "surface_ok");
+                                } else {
+                                    crate::log::setprop("jq.wgpu_state", "surface_fail");
+                                }
+                            }
+                            crate::log::window_release(win);
+                        }
                     }
                 }
-                st.wgpu_log_done = true;
             }
-            true
-        });
-        init_ok as jni::sys::jboolean
+            // ③ 每帧画纯色（红绿交替，验证 wgpu 出屏通路）
+            if let (Some(dev), Some(q), Some(surf)) = (G_WGPU_DEVICE.as_ref(), G_WGPU_QUEUE.as_ref(), G_WGPU_SURFACE.as_ref()) {
+                crate::render::RenderCtx::clear_frame(dev, q, surf, 0.1, 0.3, 0.6);
+            }
+        }
+        1 // GLThread 持续出帧
     }
 
     #[no_mangle]
