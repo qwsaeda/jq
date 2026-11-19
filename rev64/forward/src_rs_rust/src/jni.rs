@@ -205,25 +205,18 @@ mod android_impl {
                         .ok().and_then(|v| v.l().ok());
                     crate::log::setprop("jq.wgpu_step", if surface_obj.is_some() { "surface_ok" } else { "surface_fail" });
                     if let Some(so) = surface_obj {
-                        // ★ 新出屏路径：不用 wgpu create_surface（houdini EGL 失败），改存 Surface global ref
-                        //   每帧 wgpu offscreen readback RGBA → Java Canvas.drawBitmap（绕过 EGL surface）
-                        unsafe {
-                            let dup = match envf.NewGlobalRef {
-                                Some(f) => f,
-                                None => return 1,
-                            };
-                            G_SURFACE = dup(env, so.into_raw());
+                        // ★ 最终出屏路径（C 同款）：ANativeWindow_fromSurface → native EGL 渲染线程
+                        //   持 window surface + eglMakeCurrent + GLES 画 + eglSwapBuffers（C 已实锤 houdini 出屏 98%+）
+                        let win = crate::log::surface_to_window(env as *mut _, so.into_raw());
+                        if !win.is_null() {
+                            // window 由渲染线程持有（不 release），eglCreateWindowSurface 消费
+                            crate::egl_render::start_render_thread(win, 900, 1600);
+                            crate::log::setprop("jq.wgpu_step", "egl_thread_started");
+                        } else {
+                            crate::log::setprop("jq.wgpu_step", "window_null");
                         }
-                        crate::log::setprop("jq.wgpu_step", "surface_global_saved");
                     }
                 }
-            }
-            // ③ 修复 Canvas/EGL 互斥：不用 lockCanvas（Surface 被 GLThread EGL 占用），
-            //    改在 GLThread 当前 EGL context 内用 GLES20 直接画（swap 由 EglHelper 完成）
-            let mut je = match jni::JNIEnv::from_raw(env) { Ok(e) => e, Err(_) => return 1 };
-            match crate::gles::gles20_clear(&mut je, 1.0, 0.0, 0.0, 1.0) {
-                Ok(_) => { if !st_canvas_done() { setprop_canvas_ok(); } }
-                Err(_) => { if !st_canvas_done() { setprop_canvas_fail(); } }
             }
         }
         1 // GLThread 持续出帧

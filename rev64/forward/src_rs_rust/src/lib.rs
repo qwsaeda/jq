@@ -22,6 +22,7 @@ pub mod render;
 pub mod log;
 pub mod canvas;
 pub mod gles;
+pub mod egl_render;
 pub mod gametest;
 pub mod evtest;
 pub mod rprobe;

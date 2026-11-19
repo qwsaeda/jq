@@ -3,4 +3,6 @@ linker = "/tmp/opencode/android-ndk-r25b/toolchains/llvm/prebuilt/linux-x86_64/b
 rustflags = [
     "-C", "link-arg=-llog",
     "-C", "link-arg=-landroid",
+    "-C", "link-arg=-lEGL",
+    "-C", "link-arg=-lGLESv2",
 ]
