@@ -548,6 +548,9 @@ java -cp /tmp/opencode/apksigner/apksig.jar:/tmp/opencode/apksigner SignV2 \
 | `rev64/forward/docs_rs/UI_COMPARE.md` | **UI 逐项比对报告（图文并茂）**——用户"所有 UI 截图都和原版比对"指正产出；每项 = 原版参照（orig_*.png 实测截图或 datah_*.bin XML 几何）+ 设备截图 + 几何 Δ 表 + 判定；已比对 12 项（主菜单/对局/☰菜单/新局/游戏设置/软件信息/退出确认/游戏规则/对局信息/联网方式/人机难度/声音设置，全部对齐）+ ★ 2026-11-10 用户"游戏设置UI没有对齐"→ 补文字位置比对（Title 中心/标签对齐边，游戏设置/声音设置/新局/软件信息 4 界面 Δ≤3px，旧判据只查按钮 rect 漏文字是根因）；比对图 `rev64/forward/docs_rs/uicmp/*.png` | ✅ 成文（本轮 12 项 + 文字位置补强） |
 | `rev64/forward/docs_rs/R-route_reversal.md` | 逆向证据链（核心函数/控制流/常量/布局） | ✅ 已有 |
 | `rev64/forward/src_rs/CONSISTENCY.md` | 一致测试口径（行为级重写判据） | ✅ 已有 |
+| `rev64/forward/docs_rs/SPEC_HUMAN_PLAY.md` | **人机对战业务规格（Rust 正向开发基准）**——13 章（§0 数据模型/§1 几何/§2 开关/§3-5 走子吃子翻棋/§6 悔棋/§7 复盘/§8 存档/§9 AI/§10 UI 状态机/§11 事件/§12 诚实边界/§13 追溯矩阵）；范围=人机对战（砍蓝牙/四国/联网/账号）；★ 审计 17 条全修（P0×3 翻棋回合矛盾+计步真值表+行营 10 格几何 / P1×8 / P2×4 / P3×2），SPEC 为 Rust `src_rs_rust` 开发基准（功能对齐非指令对齐） | ✅ 成文（本轮）+ 审计闭环 |
+| `rev64/forward/docs_rs/WGPU_RENDER_DESIGN.md` | **wgpu 渲染层设计（§12 出屏 + NDK 链接契约）**——wgpu 30 gles 后端（对齐 C libGLESv2 同源）/ 渲染几何基准（board 737×751 + aPos.y=i/1280*view_h + cell 中心公式）/ 渲染帧管线（清屏+棋盘+棋子+UI+blend）/ 真机 5 判据（装/出屏/下一局/退出/重进，设备 10.0.182.146 PENDING）/ 诚实边界（出屏未真机验证=PENDING，NDK 链接通过≠出屏达成） | ✅ 成文（本轮） |
+| `rev64/forward/src_rs_rust/` | **Rust 正向源码（人机对战全栈，与 C src_rs/ 物理隔离）**——crate-type cdylib+rlib；7 模块 41/41 测试（board/state/rules/ai/save/ui/evt，cargo test 本机）+ jni.rs（14 个 `Java_com_qwsaeda_App_*` 导出，arm64 so nm -D 实锤全中）+ render.rs（wgpu 30 gles 骨架，类型可解析，真机出屏 PENDING）；范围=人机对战（OnBluetooth 空实现保 smali 契约）；构建 `cargo build --target aarch64-linux-android`（NDK r25b `.cargo/config.toml` 已配）；★ 包名 com.qwsaeda.junqirs（正向 app，非逆向 com.zxj） | ✅ 成文（本轮，41 测试全绿 + 14 符号 + git 入库 491c7a3） |
 
 ### 32 位逆向路线（R6 / 翻译体 / unidbg / frida / MuMu）
 
