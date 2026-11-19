@@ -84,6 +84,33 @@ static int e55_do_code(int code)
 {
     (void)code;
     return 1;   /* 全 67 code 分发成功（g_state 变更在调用点完成） */
+
+/* ★ R31-Q12（P0 机器可判契约）：该 55code 是否"分发成功但无 g_state 变更"——
+   账号/注册/联机/摆子类（biz 7-11 桶）=1（分发对齐，业务未实现）；
+   核心走子/吃子/炸弹/雷/旗/翻棋/终局类（biz 0-6）=0（g_state 变更在调用点完成）。
+   调用方据此防误判"分发成功=业务实现"（Q12 P0 防误判根治）。 */
+int jq_evt55_no_state_change(int code)
+{
+    /* 55code→biz 映射（e55_biz_to_55code 代表码）：biz 7-11=无状态变更 */
+    int biz = -1;
+    /* 反向映射：代表 55code→biz（与 e55_biz_to_55code 同表） */
+    switch (code) {
+      case 0: biz = 0; break;   /* 走子 */
+      case 2: biz = 1; break;   /* 吃子 */
+      case 6: biz = 2; break;   /* 翻棋 */
+      case 16: biz = 3; break;  /* 胜负/终局 */
+      case 25: biz = 4; break;  /* 和棋 */
+      case 24: biz = 5; break;  /* 悔棋 */
+      case 42: biz = 6; break;  /* 炸弹 */
+      case 34: biz = 7; break;  /* 登录 */
+      case 36: biz = 8; break;  /* 注册 */
+      case 38: biz = 9; break;  /* 联机 */
+      case 44: biz = 10; break; /* 摆子 */
+      case 46: biz = 11; break; /* 杂项 */
+      default: biz = -1; break; /* 未映射 code 视为核心（保守=0） */
+    }
+    return (biz >= 7) ? 1 : 0;   /* biz 7-11=无状态变更，0-6=g_state 变更在调用点 */
+}
 }
 
 /* 对外声明（供 jni_bridge.c 调用） */

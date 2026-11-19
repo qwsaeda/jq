@@ -60,6 +60,18 @@ int ui_rule_mine_get(void) { return g_rm; }
 void ui_rule_mine_set(int v) { g_rm = v ? 1 : 0; }
 int ui_rule_flag_get(void) { return g_rf; }
 void ui_rule_flag_set(int v) { g_rf = v ? 1 : 0; }
+/* ★ R27-Q92：ui_rule_cfg_set 桩（按 which 调对应 _set，cfg4 暗棋开关桩缺失根因） */
+void ui_rule_cfg_set(int which, int v)
+{
+    switch (which) {
+      case 0: ui_rule_draw_set(v); break;
+      case 1: ui_rule_hq_set(v); break;
+      case 2: ui_rule_mine_set(v); break;
+      case 3: ui_rule_flag_set(v); break;
+      case 4: ui_rule_dark_set(v); break;
+      default: break;
+    }
+}
 static int g_rule_dark_stub = 1; /* ★ AUD-R-002/003：暗棋开关桩（默认开） */
 int ui_rule_dark_get(void) { return g_rule_dark_stub; }
 void ui_rule_dark_set(int v) { g_rule_dark_stub = v ? 1 : 0; }

@@ -1143,6 +1143,12 @@ void jq_on_flag_capture(jq_state *st, uint8_t captor_side)
     /* ★ AUD-R-054（P2）：前置守卫——吃旗方必须合法（SIDE_VALID），防御非法侧
        值污染 winner（int8_t 会存 0xFF/越界值）。 */
     if (!SIDE_VALID(captor_side)) return;
+    /* ★ R28-Q88（P0 脏 winner 防御一致性，对齐 B01-065 jq_on_draw/stalemate）：
+       已有 winner（脏/他路径先置）拒收——与 jq_on_draw/stalemate 的
+       `if (st->winner != JQ_WIN_NONE) return;` 守卫一致。正常路径 winner 恒 NONE
+       直到终局；双终局叠加（EV_BOMB 撞旗先置 winner 后 EV_FLAG 误调）下拒收，
+       防脏 winner 被扛旗覆盖（B01-064 原子性缺口收口）。 */
+    if (st->winner != JQ_WIN_NONE) return;
     st->winner = captor_side;        /* 吃旗方胜（JQ_WIN_BLUE/JQ_WIN_RED） */
     st->stage = STG_OVER;
     /* AUD-1000 B01-002：终局后不再切 turn（旧实现终局快照 turn 已翻转到败方，

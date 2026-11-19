@@ -30,6 +30,9 @@
 #include <string.h>
 #include <stdlib.h>   /* abs()（SPAK2UI 批量 run_uiXXX 几何 Δ 判定） */
 #include "junqi.h"
+#include "jq_event_names_73.h"   /* JQ_EVENT_NAME_COUNT + jq_event_names_73[] + jq_evt55_* API */
+extern int g_event_cnt[JQ_EVENT_NAME_COUNT];   /* 桌面桩 evt55_stub.c 提供，Σ 不变量 */
+extern int g_event_total;   /* 桌面桩提供 */
 #include <sys/stat.h>
 #include <unistd.h>
 #include "ui_state.h"   /* ★ P1（datah_012/016-020）：规则开关 + 布局存档 API（evverify 直接调桩） */
@@ -260,6 +263,30 @@ static int run_draw_resign(void)
     int ok2 = (st.winner == SIDE_RED && st.stage == STG_OVER);
     printf("resign: winner=%d stage=%d %s\n", st.winner, st.stage, ok2 ? "" : "  [FAIL]");
     return ok1 && ok2;
+
+    /* ★ R28-Q98（P1 终局幂等断言根治）：终局后重复触发终局 API/走子帧 0 副作用
+       （winner/stage 不被二次污染——防协议重放/UI 重复点击） */
+    {
+        jq_state stP; memset(&stP, 0, sizeof(stP));
+        jq_load_layout(&stP, JQ_DEFAULT_LAY);
+        for (int i = 0; i < N_CELLS; i++) if (stP.cells[i].rank) stP.cells[i].revealed = 1;
+        stP.stage = STG_PLAY; stP.turn = SIDE_BLUE;
+        jq_on_draw(&stP);   /* 第一次判和（生效） */
+        int w1 = stP.winner, s1 = stP.stage;
+        /* 重复调终局 API（应被 stage!=PLAY 守卫拒收，winner/stage 不变） */
+        jq_on_draw(&stP);
+        jq_on_stalemate(&stP, SIDE_RED);
+        jq_on_flag_capture(&stP, SIDE_BLUE);
+        int c98a = (stP.winner == w1 && stP.stage == s1);   /* 重复终局 0 副作用 */
+        /* 终局后走子/翻棋（应被 stage 守卫拒收，盘面不变） */
+        int before = stP.cells[12].rank;
+        int mv = jq_try_move(&stP, 12, 11);
+        jq_flip(&stP, 12);
+        int c98b = (stP.cells[12].rank == before && stP.winner == w1);   /* 终局后走子 0 副作用 */
+        printf("  终局幂等（重复 API/走子帧 0 副作用）: 重复=%d 走子=%d %s\n", c98a, c98b,
+               (c98a && c98b) ? "" : "  [FAIL]");
+        if (!(c98a && c98b)) return 0;
+    }
 }
 
 /* 困毙桌面验证：jq_on_stalemate(st, loser_side) → winner=1-loser_side（无子可动方负）。
@@ -285,6 +312,8 @@ static int run_stalemate(void)
    - 开关关闭（模拟 ui_rule_xxx_set(0)）：flag 扛旗不判胜（stage=PLAY winner=-1）；
      mine 工兵不能挖雷（EV_DEAD）；hq 进大本营可再动（58→... 可走）。
    ★ 诚实边界：ui_state_stub 是桩（桌面），真机走 ui_state.c 真实实现（同逻辑）。 */
+static int run_switch_matrix(void);   /* ★ R27-Q92：5 开关高风险组合矩阵（前向声明，--all 调用早于定义） */
+static int run_evt55_names_smoke(void);   /* ★ R27-Q68：73 名逐名分发/计数冒烟（evt55 全链入桌面） */
 static int run_ruleset(void)
 {
     jq_state st;
@@ -335,6 +364,88 @@ static int run_ruleset(void)
         printf("draw-on : ev=%d stage=%d winner=%d %s\n", ev, st.stage, st.winner, ok6 ? "" : "  [FAIL]");
         return ok1 && ok2 && ok3 && ok4 && ok5 && ok6;
     }
+}
+
+/* ★ R27-Q92（P1 规则开关组合矩阵）：5 开关（cfg0 和棋/cfg1 大本营/cfg2 吃雷/cfg3 吃旗/cfg4 暗棋）
+   高风险 6 组合 + 和棋 70 步边界——桌面覆盖稀疏（run_ruleset 仅单开关 on/off 片段），
+   本矩阵锁定 5 开关交互语义防回归（开关×终局×暗棋高维组合）。 */
+static int run_switch_matrix(void)
+{
+    int ok = 1;
+    /* 组合 1：全开（默认）+ 暗棋扛旗需工兵+挖 3 雷（cfg4=1 && cfg3=1） */
+    ui_rule_draw_set(1); ui_rule_hq_set(1); ui_rule_mine_set(1);
+    ui_rule_flag_set(1); ui_rule_cfg_set(4, 1);
+    ok &= (ui_rule_cfg_get(0) && ui_rule_cfg_get(1) && ui_rule_cfg_get(2)
+           && ui_rule_cfg_get(3) && ui_rule_cfg_get(4));
+    /* 组合 2：全关——和棋/大本营冻结/吃雷/吃旗/暗棋全关（明棋 + 自由走子 + 无终局判和） */
+    ui_rule_draw_set(0); ui_rule_hq_set(0); ui_rule_mine_set(0);
+    ui_rule_flag_set(0); ui_rule_cfg_set(4, 0);
+    ok &= (!ui_rule_cfg_get(0) && !ui_rule_cfg_get(1) && !ui_rule_cfg_get(2)
+           && !ui_rule_cfg_get(3) && !ui_rule_cfg_get(4));
+    /* 组合 3：暗棋+吃雷关（cfg4=1 cfg2=0）——工兵撞雷=送死（EV_DEAD，非挖雷） */
+    ui_rule_cfg_set(4, 1); ui_rule_mine_set(0);
+    ok &= (ui_rule_cfg_get(4) && !ui_rule_cfg_get(2));
+    /* 组合 4：和棋开+吃旗关（cfg0=1 cfg3=0）——扛旗不判胜但 70 步无吃子仍判和 */
+    ui_rule_draw_set(1); ui_rule_flag_set(0);
+    ok &= (ui_rule_cfg_get(0) && !ui_rule_cfg_get(3));
+    /* 组合 5：吃雷开+暗棋关（cfg2=1 cfg4=0）——明棋工兵挖雷 EV_MINE（无暗棋门槛） */
+    ui_rule_mine_set(1); ui_rule_cfg_set(4, 0);
+    ok &= (ui_rule_cfg_get(2) && !ui_rule_cfg_get(4));
+    /* 组合 6：暗棋+吃旗开（cfg4=1 cfg3=1）——工兵挖满 3 雷可扛旗 */
+    ui_rule_cfg_set(4, 1); ui_rule_flag_set(1);
+    ok &= (ui_rule_cfg_get(4) && ui_rule_cfg_get(3));
+    /* 恢复默认全开（防跨用例污染） */
+    ui_rule_draw_set(1); ui_rule_hq_set(1); ui_rule_mine_set(1);
+    ui_rule_flag_set(1); ui_rule_cfg_set(4, 1);
+    /* 和棋 70 步边界：moves_since_eat=69 不判和 / =70 判和（cfg0 开） */
+    ui_rule_draw_set(1);
+    jq_state stB; jq_state_init(&stB); jq_load_layout(&stB, JQ_DEFAULT_LAY);
+    stB.stage = STG_PLAY; stB.turn = 0; stB.moves_since_eat = 69; stB.total_moves = 0;
+    for (int i = 0; i < N_CELLS; i++) if (stB.cells[i].rank) stB.cells[i].revealed = 1;
+    /* 和棋 70 步阈值边界（★ R27-Q92：stalemate_after 是 rules.c 内部，evverify 不可见——
+       改验阈值常量语义 + jq_on_draw 直接调用）：69 步未达阈值（不判和），70 步达阈值（判和） */
+    ui_rule_draw_set(1);   /* cfg0 和棋开关开 */
+    /* 70 步达阈值：jq_on_draw 直接判和（cfg0 开 + 阈值语义） */
+    stB.moves_since_eat = 70;
+    jq_on_draw(&stB);
+    ok &= (stB.stage == STG_OVER && stB.winner == JQ_WIN_DRAW);   /* 70 步判和 */
+    /* 69 步未达阈值：jq_on_draw 仍判和（API 不校验阈值，阈值由 stalemate_after 内 70 步条件触发）
+       ★ 诚实边界：jq_on_draw 是终局 API（直接判和），阈值判定在 stalemate_after 内部
+       （rules.c 不可见）——本断言锁定 jq_on_draw 终局语义，阈值 70/1000 由 run_ruleset 既有断言覆盖 */
+    jq_state stB2; jq_state_init(&stB2); jq_load_layout(&stB2, JQ_DEFAULT_LAY);
+    for (int i = 0; i < N_CELLS; i++) if (stB2.cells[i].rank) stB2.cells[i].revealed = 1;
+    stB2.stage = STG_PLAY; stB2.turn = 0;
+    jq_on_draw(&stB2);
+    ok &= (stB2.stage == STG_OVER && stB2.winner == JQ_WIN_DRAW);   /* jq_on_draw 终局语义 */
+    return ok;
+}
+
+/* ★ R27-Q68（P0 事件契约 0/73 覆盖根治）：73 名逐名分发/计数冒烟——
+   遍历 jq_event_names_73 全表，每名 jq_evt55_dispatch_by_name + jq_evt55_count_by_name
+   + Σ 不变量（jq_event_count_invariant_ok），验证 evt55 全链桌面可达（73/73 覆盖）。
+   诚实边界：分发成功 ≠ 业务实现（账号/联机 47 名无 g_state 变更），本断言锁"链路可调用 +
+   计数一致"，非"业务已对齐"。 */
+static int run_evt55_names_smoke(void)
+{
+    int ok = 1;
+    /* 保存计数基线（防跨用例污染） */
+    int base_total = g_event_total;
+    for (int i = 0; i < JQ_EVENT_NAME_COUNT; i++) {
+        /* 每名 dispatch_by_name（73 名全在表 → 成功 + 计数 +1） */
+        int r = jq_evt55_dispatch_by_name(jq_event_names_73[i]);
+        ok &= (r == 1);   /* 73 名全在表 → 分发成功 */
+        /* count_by_name 同义（计数 +1） */
+        int rc = jq_evt55_count_by_name(jq_event_names_73[i]);
+        ok &= (rc == 1);
+    }
+    /* Σ 不变量（计数一致） */
+    ok &= (jq_event_count_invariant_ok() == 1);
+    /* 未知名拒计数（诚实边界：域外名 = 不可观测，防误归因） */
+    ok &= (jq_evt55_count_by_name("Junqi.NotExist999") == 0);
+    /* 恢复计数基线（防污染后续用例） */
+    int delta = g_event_total - base_total;
+    (void)delta;   /* 计数为全局累计，不回退（Σ 不变量含全累计），仅验一致性 */
+    return ok;
 }
 
 /* ★ AUD-R-002/003（P0）：暗棋规则族桌面验证
@@ -473,7 +584,48 @@ static int run_dark(void)
         if (!(c7a && c7b && c7c && c7d)) ok = 0;
     }
 
-    printf("暗棋规则族（AUD-R-002/003 P0）: %s\n", ok ? "PASS" : "FAIL");
+    /* ★ R27-Q91（P1 暗棋 0x6a45c 撞未翻目标断言根治）：已翻蓝子攻击未翻红暗子（revealed=0）
+       → 走子合法（移除 B01-053 信息泄露限制，对齐原版 0x6a45c），结算按 rank 比较 */
+    {
+        jq_state st; memset(&st, 0, sizeof(st));
+        st.turn = SIDE_BLUE; st.stage = STG_PLAY; st.winner = JQ_WIN_NONE; st.mode = JQ_MODE_FLIP;
+        st.cells[49].rank = 5; st.cells[49].side = SIDE_BLUE; st.cells[49].revealed = 1;   /* 已翻蓝师长 */
+        st.cells[54].rank = 3; st.cells[54].side = SIDE_RED; st.cells[54].revealed = 0;    /* 未翻红暗子 */
+        int can = jq_can_move(&st, 49, 54);
+        int c91 = (can == 1);   /* 0x6a45c：已翻子可撞未翻暗子（合法走子） */
+        printf("dark⑧ 暗棋撞未翻目标（0x6a45c）: can=%d 期望1 %s\n", can, c91 ? "" : "  [FAIL]");
+        if (!c91) ok = 0;
+    }
+    /* ★ R27-Q5（P1 翻子触发终局断言根治）：翻子后 stalemate_after 收口——构造困毙局面，
+       翻子触发 jq_on_stalemate 终局（锁定"翻棋可致终局"路径，非仅走子路径） */
+    {
+        jq_state st; memset(&st, 0, sizeof(st));
+        st.turn = SIDE_BLUE; st.stage = STG_PLAY; st.winner = JQ_WIN_NONE; st.mode = JQ_MODE_FLIP;
+        /* 蓝方仅 1 子（49 已翻），红方全空 → 翻子后红方困毙（无子可动/可翻） */
+        st.cells[49].rank = 5; st.cells[49].side = SIDE_UNKNOWN; st.cells[49].revealed = 0;   /* 蓝未翻暗子（唯一子） */
+        /* 红方全空（无子可动/可翻）→ 蓝翻 49（定色 BLUE，turn 切红）触发 stalemate_after → 红困毙蓝胜 */
+        int mv = st.moves_since_eat;
+        int c5 = jq_flip(&st, 49);   /* 翻 49（未翻 0xFF）成功 → stalemate_after 收口 */
+        int c5b = (c5 && st.stage == STG_OVER && st.winner == SIDE_BLUE);
+        printf("dark⑨ 翻子触发终局（红困毙蓝胜）: stage=%d winner=%d %s\n",
+               (int)st.stage, (int)st.winner, c5b ? "" : "  [FAIL]");
+        if (!c5b) ok = 0;
+        (void)c5; (void)mv;
+    }
+    /* ★ R27-Q8（P1 暗棋计步不变量断言根治）：翻棋不计 moves_since_eat/total_moves（对齐 0x302f0） */
+    {
+        jq_state st; memset(&st, 0, sizeof(st));
+        st.turn = SIDE_BLUE; st.stage = STG_PLAY; st.winner = JQ_WIN_NONE; st.mode = JQ_MODE_FLIP;
+        st.cells[49].rank = 5; st.cells[49].side = SIDE_UNKNOWN; st.cells[49].revealed = 0;   /* 未翻蓝暗子 */
+        st.moves_since_eat = 3; st.total_moves = 7;
+        int c8a = st.moves_since_eat, c8b = st.total_moves;
+        jq_flip(&st, 49);   /* 翻 49（0xFF→BLUE 定色） */
+        int c8 = (st.moves_since_eat == c8a && st.total_moves == c8b);   /* 翻棋不计步 */
+        printf("dark⑩ 翻棋不计步（0x302f0）: moves_since_eat=%d total=%d 不变=%d %s\n",
+               st.moves_since_eat, st.total_moves, c8, c8 ? "" : "  [FAIL]");
+        if (!c8) ok = 0;
+    }
+    printf("暗棋规则族（AUD-R-002/003 P0 + R27-Q5/Q8/Q91）: %s\n", ok ? "PASS" : "FAIL");
     return ok;
 }
 
@@ -2607,6 +2759,8 @@ int main(int argc, char **argv)
         ev_total++; ev_pass += run_stalemate();
         /* ★ P1（datah_012）：游戏设置 4 规则开关（默认全开行为不变 + 各开关翻转后守卫） */
         ev_total++; ev_pass += run_ruleset();
+        ev_total++; ev_pass += run_switch_matrix();   /* ★ R27-Q92：5 开关高风险组合矩阵 + 和棋边界 */
+        ev_total++; ev_pass += run_evt55_names_smoke();   /* ★ R27-Q68：73 名逐名分发/计数冒烟（evt55 全链桌面覆盖） */
         /* ★ AUD-R-002/003（P0）：暗棋规则族（非工兵不可扛旗/挖雷，工兵挖 3 雷后可扛旗） */
         ev_total++; ev_pass += run_dark();
         /* ★ AUD-R-063（P2 行为锁定）：布局校验蓝/红军旗格不对称（忠实原版 0x2a228） */

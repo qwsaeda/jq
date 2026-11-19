@@ -170,7 +170,9 @@ MODE ?= --all
 evverify:
 	@mkdir -p dist
 	$(CC) $(CFLAGS) -DRS_NO_GL -o dist/jq_evverify \
-	    board.c layout.c rules.c save.c replay.c evverify.c ui_state_stub.c ui_menu_stub.c -lm
+	    board.c layout.c rules.c save.c replay.c evverify.c ui_state_stub.c ui_menu_stub.c \
+	    evt55_business.c evt55_dispatch.c jq_event_names_73.c evt55_stub.c -lm
+	# ★ R27-Q67/Q68：evt55 全链入桌面链接（73 名逐名分发/计数断言可调用，含计数桩）
 	@echo "构建完成: dist/jq_evverify"
 	@dist/jq_evverify $(MODE)
 

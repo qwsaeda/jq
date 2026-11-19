@@ -10836,7 +10836,13 @@ Java_com_qwsaeda_App_OnBluetooth(JNIEnv *env, jclass clazz, jobject intent)
             /* ★ R11-C：双栈整帧推进（v2/v3 头行同构 3 字节，跳过版本头字符后
                命中数据行尾 \n；v3 10 字段与 v2 7 字段推进算法同构，0 逻辑改动） */
             p += strspn(p, "v23\n");
-            p = p[0] ? (strchr(p, '\n') + 1) : p;
+            /* ★ R30-Q18（P1 帧推进 NULL 判空）：strchr(p,'\n') 在缓冲无尾换行时返
+               NULL，旧 `NULL+1` UB。decode 成功保证帧有边界，但并发/截断/协议偏差
+               下可无尾换行——判空后 break（剩余半帧留待下批，BtSpp 侧 32KB 悬挂上限兜底） */
+            if (p[0]) {
+                char *nl = strchr(p, '\n');
+                p = nl ? (nl + 1) : p;   /* 无尾换行：停在当前（半帧留待下批） */
+            }
         } else {
             break;
         }
