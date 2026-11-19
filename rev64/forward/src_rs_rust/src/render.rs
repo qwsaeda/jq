@@ -23,9 +23,11 @@ mod gles_render {
         pub device: Option<WgpuDevice>,
         pub queue: Option<wgpu::Queue>,
         // surface（wgpu 30 Surface<'a> 含生命周期，真机 EGL 创建时局部持有；骨架期不存）
-        // 棋盘纹理（737×751，从 SPAK 解码后上传，此处占位）
+        // 棋盘纹理（737×751，从 SPAK 解码后上传）
         pub board_tex: Option<wgpu::TextureView>,
         pub pipeline: Option<wgpu::RenderPipeline>,
+        // 顶点 buffer（棋盘/棋子 quad，设计 §3 ③ 顶点批次）
+        pub vertex_buf: Option<wgpu::Buffer>,
         // 初始化状态（pollster 轮询标记）
         pub init_done: bool,
     }
@@ -39,22 +41,24 @@ mod gles_render {
                 queue: None,
                 board_tex: None,
                 pipeline: None,
+                vertex_buf: None,
                 init_done: false,
             }
         }
     }
 
     impl RenderCtx {
-        /// 初始化 wgpu device + surface（设计 §3 OnGraphCreate，真机 pollster 轮询）
-        /// 骨架期：仅置 init_done 标记（真机可达时补 request_adapter/request_device 异步获取）
-        pub fn init(&mut self) {
-            // 完整实现（真机）：
-            //   let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor { backends: GL, .. });
-            //   let adapter = pollster::block_on(instance.request_adapter(...));
-            //   let (device, queue) = pollster::block_on(adapter.request_device(...));
-            //   surface = 从 anative_window 创建 EGL surface → wgpu Surface
-            // 骨架期保编译 + 14 符号链接（设计 §5 交付物①），真机补全（设计 §6 5 判据）
+        /// 初始化 wgpu device + queue（设计 §3 OnGraphCreate，真机 pollster 获取后传入）
+        pub fn init_device(&mut self, device: wgpu::Device, queue: wgpu::Queue) {
+            self.device = Some(device);
+            self.queue = Some(queue);
             self.init_done = true;
+        }
+
+        /// 创建棋盘渲染 pipeline（真机可达时补全 wgpu API，设计 §3 ②③⑤）
+        /// 真机实现：vertex buffer（棋盘 6 顶点）+ fragment（棋盘纹理采样）+ blend state（防黑底）
+        pub fn build_pipeline(&mut self) {
+            // 真机 NDK 可达时按设计 §3 补全（wgpu 30 create_render_pipeline + wgsl 着色器）
         }
 
         /// 渲染帧（设计 §3 OnUpdate：清屏+棋盘+棋子+UI+blend）

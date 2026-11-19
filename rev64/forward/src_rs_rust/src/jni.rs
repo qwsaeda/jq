@@ -131,16 +131,21 @@ mod android_impl {
         _cls: JClass,
         me: jni::sys::jobject,
     ) -> jni::sys::jboolean {
-        use jni:: JNIEnv;
-        // 从 MotionEvent 提取 x/y（对齐 C OnTouch getAction/getX/getY）
-        // jni 0.21：env.get_object(me) → 调 Android 方法需 JniEnv 方法
+        // 原生 JNI 反射提取 MotionEvent.getAction/getX/getY（对齐 C jni_bridge.c:3993）：
+        //   let envref = unsafe { &*env };
+        //   let mcls = (envref.GetClass)(env, me);
+        //   let mid_act = (envref.GetMethodID)(env, mcls, c_str"getAction").as_ptr() as *const _, c"()I".as_ptr() as *const _);
+        //   let action = (envref.CallIntMethod)(env, me, mid_act) as i32;
+        //   if action != 0 { return 0; }  // 只处理 ACTION_DOWN
+        //   let mx = (envref.CallFloatMethod)(env, me, mid_x) as f32;
+        //   let my = (envref.CallFloatMethod)(env, me, mid_y) as f32;
+        //   with_lock(|st,u,cnt| render::handle_touch(st,u,cnt,mx as i32,my as i32,view_w,view_h));
+        // ★ 诚实边界（设计 §3 ③④）：完整坐标提取 + handle_touch 接线真机 NDK 可达时补全
+        //   （c-str 字面量 + JNIEnv 函数指针布局桌面 cross-compile 不执行，真机验证）。
+        // 骨架期：安全降级返 false（不消费，对齐 C ACTION_DOWN 语义，不误触发走子）
         let consumed = with_lock(|st, u, cnt| {
-            // 坐标提取：jni crate 调 MotionEvent.getX() 需 Java 反射（留完整实现）；
-            // 此处接 render::handle_touch 通道（坐标由 GLView 触摸层传入后调规则）
-            // 完整 OnTouch 坐标提取 + handle_touch 调用真机 NDK 可达时补全（设计 §3 ③④）
-            let _ = (env, me);
-            let _ = (st, u, cnt);
-            false // 未消费（坐标提取真机补全前默认不消费，对齐 C ACTION_DOWN 语义）
+            let _ = (env, me, st, u, cnt);
+            false
         });
         consumed as jni::sys::jboolean
     }

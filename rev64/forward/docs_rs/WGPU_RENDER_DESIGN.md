@@ -95,6 +95,17 @@ Rust so `libjunqi_rs.so`（469968B，14 JNI 符号）+ STORE + v1+v2+v3 三签�
 - wgpu 出屏**未真机验证前 = PENDING**，桌面/NDK 链接通过 ≠ 出屏达成
 - **打包全链达成 ≠ 出屏达成**：APK 可装机（[0-4] PASS）但 wgpu 渲染出屏 + 5 判据
   （装/出屏/下一局/退出/重进）须真机可达执行（§6），设备 No route to host = PENDING
+
+## 8. 真机可达待办清单（"能做的全做完"边界 = 以下 3 项须真机执行）
+
+| 待办 | 内容 | 文件/位置 | 阻塞 |
+|---|---|---|---|
+| ① wgpu render pass | 完整棋盘/棋子渲染：`build_pipeline`（wgpu 30 create_render_pipeline + wgsl 着色器 + 顶点 buffer + blend state）+ `render` 帧（清屏+棋盘纹理+棋子图集+UI）+ EGL surface 创建（anative_window→wgpu Surface） | `src/render.rs` build_pipeline/render + OnGraphCreate | 设备 No route to host |
+| ② OnTouch 坐标提取 | 原生 JNI 反射 MotionEvent.getAction/getX/getY → `render::handle_touch`（坐标→cell→rules 走子/翻棋） | `src/jni.rs` OnTouch（完整反射已注释，真机补全） | 设备 No route to host |
+| ③ 5 判据验收 | 装机+出屏+下一局+退出+重进（`rebuild_rust_apk.sh` [5/6]+[6/6]） | `rev64/tools/rebuild_rust_apk.sh` | 设备 No route to host |
+
+**边界声明**：①②③ 代码骨架已落（render.rs 可编译 + jni.rs OnTouch 安全降级 + 打包脚本全链），
+真机 NDK 可达时按 §3/§6 补全 ①② 实现 + 跑 ③ 判据。设备不可达前**不出"出屏达成"结论**（禁自欺）。
 - gles 后端真机 GPU 驱动兼容性未实测（部分设备 vulkan 更稳，需真机 A/B）
 - 棋子纹理动态跟随走子（顶点按批切换）= C §124w-ALIGN 未完全闭环项，wgpu 版需重做
 - 本设计 = 渲染层实现基准，真机 5 判据全 PASS 才允许写"达成"
