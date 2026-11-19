@@ -174,6 +174,11 @@ mod android_impl {
                         backend_options: wgpu::BackendOptions::default(),
                         display: None,
                     }));
+                    // ①-b offscreen 渲染验证（不依赖 surface，验证 wgpu 管线在 houdini 可用）
+                    match crate::render::RenderCtx::offscreen_render_test(&dev, &q) {
+                        Some((r, g, b, a)) => crate::log::setprop("jq.offscreen", &format!("ok:{r},{g},{b},{a}")),
+                        None => crate::log::setprop("jq.offscreen", "fail"),
+                    }
                     G_WGPU_DEVICE = Some(dev);
                     G_WGPU_QUEUE = Some(q);
                     crate::log::setprop("jq.wgpu_state", "device_ok");

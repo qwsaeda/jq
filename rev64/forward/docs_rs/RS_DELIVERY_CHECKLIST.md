@@ -79,6 +79,11 @@
   - **卡点精确定位**：`jq.surface_step=create_surface_unsafe_err`（细分打点 enter→window_nonnull→from_window_ok→**create_surface_unsafe_err**）= wgpu-hal gles 后端 `eglCreateWindowSurface(ANativeWindow)` 在 houdini 下失败；试 Vulkan 后端 → `device_fail`（无 Vulkan adapter）。**结论：MuMu houdini 转译环境不支持 wgpu surface 创建（环境限制，非代码）**，对齐 AGENTS.md §124y-279"模拟器结论不可外推真机"
   - wgpu 30 API 全对齐（Instance/Adapter/Device/SurfaceTargetUnsafe::from_window(AndroidNdkWindowHandle)/CurrentSurfaceTexture/SurfaceConfiguration），create_surface+clear_frame+细分打点编译通
   - **真机（非 houdini）路径**：wgpu gles device + surface 在真 ARM64 GPU 上应可创建（未验证，设备为 MuMu x86_64+houdini）——真机可达时重验 create_surface
+- **★ 决定性突破（2026-11-19 23:xx，真机 152）：wgpu offscreen 渲染在 houdini 下完全可用**
+  - `jq.offscreen=ok:25,102,204,255` = wgpu create_texture + render pass clear(0.1,0.4,0.8,1.0) + copy_texture_to_buffer + map_async readback **全部成功**
+  - 意义：wgpu GPU 渲染管线本身可用，唯一失败的是 `create_surface`（EGL window surface，houdini 限制）
+  - **新出屏路径确定**：wgpu offscreen 渲染棋盘/棋子 → readback RGBA → Java `Surface.lockCanvas()` + `Canvas.drawBitmap()` + `unlockCanvasAndPost()` 显示（绕过 EGL surface，不改 smali）
+  - 当前 device_fail 为二次启动 GPU 资源竞争（offscreen ok 已证明核心可用）
 - **完整出屏闭环（跨 session）**：① native setContentView ✓ ② OnUpdate+wgpu device ✓ ③ wgpu render pass（EGL surface+wgsl+纹理）✗ —— 仅剩 ③
 
 ## 5. PENDING 项（真机可达 10.0.182.152，wgpu 出屏攻坚进行中）

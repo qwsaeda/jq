@@ -189,6 +189,71 @@ mod gles_render {
             // wgpu 30：SurfaceTexture 在 Drop 时自动 present（无显式 present()）
         }
 
+        /// offscreen 渲染验证（不依赖 surface，纯 GPU texture + render pass + readback）
+        /// 返回读回的首像素 RGBA（验证 wgpu 渲染管线在 houdini 下可用）
+        pub fn offscreen_render_test(device: &wgpu::Device, queue: &wgpu::Queue) -> Option<(u8, u8, u8, u8)> {
+            use pollster::FutureExt;
+            let w = 64u32;
+            let h = 64u32;
+            // ① 创建 offscreen texture（RENDER_ATTACHMENT | COPY_SRC）
+            let tex = device.create_texture(&wgpu::TextureDescriptor {
+                label: Some("offscreen-test"),
+                size: wgpu::Extent3d { width: w, height: h, depth_or_array_layers: 1 },
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: wgpu::TextureDimension::D2,
+                format: wgpu::TextureFormat::Rgba8Unorm,
+                usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::COPY_SRC,
+                view_formats: &[],
+            });
+            let view = tex.create_view(&wgpu::TextureViewDescriptor::default());
+            // ② render pass 清屏成蓝色 (0.1, 0.4, 0.8, 1.0)
+            let mut enc = device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
+            {
+                let mut pass = enc.begin_render_pass(&wgpu::RenderPassDescriptor {
+                    label: None,
+                    color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                        view: &view,
+                        resolve_target: None,
+                        depth_slice: None,
+                        ops: wgpu::Operations {
+                            load: wgpu::LoadOp::Clear(wgpu::Color { r: 0.1, g: 0.4, b: 0.8, a: 1.0 }),
+                            store: wgpu::StoreOp::Store,
+                        },
+                    })],
+                    depth_stencil_attachment: None,
+                    timestamp_writes: None,
+                    occlusion_query_set: None,
+                    multiview_mask: None,
+                });
+                let _ = &mut pass;
+            }
+            // ③ readback buffer（bytes_per_row 须 256 对齐）
+            let bpr = 256u32;
+            let buf = device.create_buffer(&wgpu::BufferDescriptor {
+                label: Some("readback"),
+                size: (bpr * h) as u64,
+                usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ,
+                mapped_at_creation: false,
+            });
+            enc.copy_texture_to_buffer(
+                wgpu::TexelCopyTextureInfo { texture: &tex, mip_level: 0, origin: wgpu::Origin3d::ZERO, aspect: wgpu::TextureAspect::All },
+                wgpu::TexelCopyBufferInfo { buffer: &buf, layout: wgpu::TexelCopyBufferLayout { offset: 0, bytes_per_row: Some(bpr), rows_per_image: Some(h) } },
+                wgpu::Extent3d { width: w, height: h, depth_or_array_layers: 1 },
+            );
+            queue.submit(Some(enc.finish()));
+            // ④ 映射读回首像素
+            let (tx, rx) = std::sync::mpsc::channel();
+            buf.map_async(wgpu::MapMode::Read, 0..(bpr * h) as u64, move |res| { let _ = tx.send(res); });
+            device.poll(wgpu::PollType::Wait { submission_index: None, timeout: None }).ok()?;
+            let _ = rx.recv().ok()?.ok()?;
+            let data = buf.get_mapped_range(0..(bpr * h) as u64).ok()?;
+            let px = (data[0], data[1], data[2], data[3]);
+            drop(data);
+            buf.unmap();
+            Some(px)
+        }
+
         /// 创建棋盘渲染 pipeline（真机可达时补全 wgpu API，设计 §3 ②③⑤）
         /// 真机实现：vertex buffer（棋盘 6 顶点）+ fragment（棋盘纹理采样）+ blend state（防黑底）
         pub fn build_pipeline(&mut self) {
