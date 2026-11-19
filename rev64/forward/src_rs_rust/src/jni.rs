@@ -16,6 +16,11 @@ mod android_impl {
     static mut G_STATE: Option<State> = None;
     // wgpu 出屏攻坚：GLView global ref + wgpu 资源
     static mut G_VIEW: jni::sys::jobject = std::ptr::null_mut();
+    static mut G_SURFACE: jni::sys::jobject = std::ptr::null_mut();
+    static CANVAS_LOGGED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+    fn st_canvas_done() -> bool { CANVAS_LOGGED.load(std::sync::atomic::Ordering::Relaxed) }
+    fn setprop_canvas_ok() { crate::log::setprop("jq.canvas", "draw_ok"); CANVAS_LOGGED.store(true, std::sync::atomic::Ordering::Relaxed); }
+    fn setprop_canvas_fail() { crate::log::setprop("jq.canvas", "draw_fail"); CANVAS_LOGGED.store(true, std::sync::atomic::Ordering::Relaxed); }
     static mut G_WGPU_INSTANCE: Option<wgpu::Instance> = None;
     static mut G_WGPU_DEVICE: Option<wgpu::Device> = None;
     static mut G_WGPU_QUEUE: Option<wgpu::Queue> = None;
@@ -200,26 +205,33 @@ mod android_impl {
                         .ok().and_then(|v| v.l().ok());
                     crate::log::setprop("jq.wgpu_step", if surface_obj.is_some() { "surface_ok" } else { "surface_fail" });
                     if let Some(so) = surface_obj {
-                        let win = crate::log::surface_to_window(env as *mut _, so.into_raw());
-                        crate::log::setprop("jq.wgpu_step", "window_got");
-                        if !win.is_null() {
-                            if let (Some(inst), Some(dev)) = (G_WGPU_INSTANCE.as_ref(), G_WGPU_DEVICE.as_ref()) {
-                                if let Some((surf, cfg)) = crate::render::RenderCtx::create_surface(inst, dev, win, 900, 1600) {
-                                    G_WGPU_SURFACE = Some(surf);
-                                    G_WGPU_CONFIG = Some(cfg);
-                                    crate::log::setprop("jq.wgpu_state", "surface_ok");
-                                } else {
-                                    crate::log::setprop("jq.wgpu_state", "surface_fail");
-                                }
-                            }
-                            crate::log::window_release(win);
+                        // ★ 新出屏路径：不用 wgpu create_surface（houdini EGL 失败），改存 Surface global ref
+                        //   每帧 wgpu offscreen readback RGBA → Java Canvas.drawBitmap（绕过 EGL surface）
+                        unsafe {
+                            let dup = match envf.NewGlobalRef {
+                                Some(f) => f,
+                                None => return 1,
+                            };
+                            G_SURFACE = dup(env, so.into_raw());
                         }
+                        crate::log::setprop("jq.wgpu_step", "surface_global_saved");
                     }
                 }
             }
-            // ③ 每帧画纯色（红绿交替，验证 wgpu 出屏通路）
-            if let (Some(dev), Some(q), Some(surf)) = (G_WGPU_DEVICE.as_ref(), G_WGPU_QUEUE.as_ref(), G_WGPU_SURFACE.as_ref()) {
-                crate::render::RenderCtx::clear_frame(dev, q, surf, 0.1, 0.3, 0.6);
+            // ③ 每帧：wgpu offscreen 渲染 RGBA → Java Surface Canvas 显示（绕过 EGL surface）
+            if !G_SURFACE.is_null() {
+                if let (Some(dev), Some(q)) = (G_WGPU_DEVICE.as_ref(), G_WGPU_QUEUE.as_ref()) {
+                    let w = 900u32;
+                    let h = 1600u32;
+                    if let Some(rgba) = crate::render::RenderCtx::offscreen_render_rgba(dev, q, w, h) {
+                        let mut je = match jni::JNIEnv::from_raw(env) { Ok(e) => e, Err(_) => return 1 };
+                        let surf = jni::objects::JObject::from_raw(G_SURFACE);
+                        match crate::canvas::draw_rgba_to_surface(&mut je, surf, &rgba, w as i32, h as i32) {
+                            Ok(_) => { if !st_canvas_done() { setprop_canvas_ok(); } }
+                            Err(_) => { if !st_canvas_done() { setprop_canvas_fail(); } }
+                        }
+                    }
+                }
             }
         }
         1 // GLThread 持续出帧

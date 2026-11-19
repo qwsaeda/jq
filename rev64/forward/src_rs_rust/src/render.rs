@@ -191,6 +191,61 @@ mod gles_render {
 
         /// offscreen 渲染验证（不依赖 surface，纯 GPU texture + render pass + readback）
         /// 返回读回的首像素 RGBA（验证 wgpu 渲染管线在 houdini 下可用）
+        /// offscreen 渲染返回完整 RGBA（供 Java Canvas 显示）
+        pub fn offscreen_render_rgba(device: &wgpu::Device, queue: &wgpu::Queue, w: u32, h: u32) -> Option<Vec<u8>> {
+            use pollster::FutureExt;
+            let tex = device.create_texture(&wgpu::TextureDescriptor {
+                label: Some("offscreen-rgba"),
+                size: wgpu::Extent3d { width: w, height: h, depth_or_array_layers: 1 },
+                mip_level_count: 1, sample_count: 1, dimension: wgpu::TextureDimension::D2,
+                format: wgpu::TextureFormat::Rgba8Unorm,
+                usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::COPY_SRC,
+                view_formats: &[],
+            });
+            let view = tex.create_view(&wgpu::TextureViewDescriptor::default());
+            let mut enc = device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
+            {
+                let mut pass = enc.begin_render_pass(&wgpu::RenderPassDescriptor {
+                    label: None,
+                    color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                        view: &view, resolve_target: None, depth_slice: None,
+                        ops: wgpu::Operations {
+                            load: wgpu::LoadOp::Clear(wgpu::Color { r: 0.1, g: 0.4, b: 0.8, a: 1.0 }),
+                            store: wgpu::StoreOp::Store,
+                        },
+                    })],
+                    depth_stencil_attachment: None, timestamp_writes: None,
+                    occlusion_query_set: None, multiview_mask: None,
+                });
+                let _ = &mut pass;
+            }
+            let bpr = ((w * 4 + 255) / 256) * 256;
+            let buf = device.create_buffer(&wgpu::BufferDescriptor {
+                label: Some("readback-rgba"), size: (bpr * h) as u64,
+                usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ,
+                mapped_at_creation: false,
+            });
+            enc.copy_texture_to_buffer(
+                wgpu::TexelCopyTextureInfo { texture: &tex, mip_level: 0, origin: wgpu::Origin3d::ZERO, aspect: wgpu::TextureAspect::All },
+                wgpu::TexelCopyBufferInfo { buffer: &buf, layout: wgpu::TexelCopyBufferLayout { offset: 0, bytes_per_row: Some(bpr), rows_per_image: Some(h) } },
+                wgpu::Extent3d { width: w, height: h, depth_or_array_layers: 1 },
+            );
+            queue.submit(Some(enc.finish()));
+            let (tx, rx) = std::sync::mpsc::channel();
+            buf.map_async(wgpu::MapMode::Read, 0..(bpr * h) as u64, move |r| { let _ = tx.send(r); });
+            device.poll(wgpu::PollType::Wait { submission_index: None, timeout: None }).ok()?;
+            let _ = rx.recv().ok()?.ok()?;
+            let mapped = buf.get_mapped_range(0..(bpr * h) as u64).ok()?;
+            let mut out = vec![0u8; (w * h * 4) as usize];
+            for row in 0..h as usize {
+                let src = &mapped[row * bpr as usize..row * bpr as usize + w as usize * 4];
+                out[row * w as usize * 4..(row + 1) * w as usize * 4].copy_from_slice(src);
+            }
+            drop(mapped);
+            buf.unmap();
+            Some(out)
+        }
+
         pub fn offscreen_render_test(device: &wgpu::Device, queue: &wgpu::Queue) -> Option<(u8, u8, u8, u8)> {
             use pollster::FutureExt;
             let w = 64u32;

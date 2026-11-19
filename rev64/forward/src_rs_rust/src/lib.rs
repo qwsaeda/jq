@@ -20,6 +20,7 @@ pub mod evt;
 pub mod jni;
 pub mod render;
 pub mod log;
+pub mod canvas;
 pub mod gametest;
 pub mod evtest;
 pub mod rprobe;
