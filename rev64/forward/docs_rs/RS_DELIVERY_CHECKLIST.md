@@ -87,6 +87,12 @@
   - 当前 device_fail 为二次启动 GPU 资源竞争（offscreen ok 已证明核心可用）
 
 - **★★ 结论纠正（2026-11-20，用户质疑"MuMu 能玩高端游戏还支持 Vulkan，怎么会环境限制"）**：同设备重装 C 版 `phase_rs_a64.apk` 截图 **98.1% 非黑 + 40 色块**（完整出屏）+ 渲染日志全通（Init 像素解码全 OK + 渲染线程启动 + makeCurrent）；设备 GPU running + libEGL/libGLESv2/libvulkan 全在 + backend=gles。**MuMu 渲染完全正常，之前"houdini 环境限制"结论错误**。真正根因：Rust so 未实现 C `render.c`（11,229 行：50 纹理加载 + PNG 解码 + GLES 顶点批次 + 菜单/棋盘/棋子/弹窗绘制 + shader + `jq_glview_start_render_thread`）。Rust 出屏须移植 C 渲染管线（跨 session 大工程）或 C 渲染 + Rust 逻辑混合架构
+- **纯 Rust wgpu 出屏攻坚穷尽（2026-11-20，跨多轮冲刺）**：
+  - wgpu device ✅ + offscreen 渲染+readback ✅（ok:25,102,204,255，MuMu 上 wgpu GPU 管线完全可用）
+  - `wgpu::create_surface` 从 ANativeWindow 建 surface **稳定失败**：试遍 GL/Vulkan/PRIMARY × from_window/RawHandle(AndroidDisplay) × compatible_surface —— from_window 返回 Err，RawHandle 触发 wgpu-hal panic（catch_unwind 捕获），compatible_surface 也失败
+  - offscreen RGBA → Java `Surface.lockCanvas` 显示：lockCanvas 必须在创建 Surface 的主线程调用，native attach 线程调 → 崩溃（tombstone canvas::draw_rgba_to_surface+316）
+  - 纯 Rust 出屏剩余唯一路线：offscreen 渲染在后台线程 → 通过 `activity.runOnUiThread` 切主线程 → lockCanvas+drawBitmap；或等 wgpu-hal 修复 Android surface
+  - **稳定态恢复**：smali setRenderer + surfaceCreated 还原（去 setRenderer 致 GLThread NPE），wgpu_thread 禁用启动；82 测试 + 14 符号全绿；设备维持 C so 可玩 5 判据全 PASS
 - **完整出屏闭环（跨 session）**：① native setContentView ✓ ② OnUpdate+wgpu device ✓ ③ wgpu render pass（EGL surface+wgsl+纹理）✗ —— 仅剩 ③
 
 ## 5. PENDING 项（真机可达 10.0.182.152，wgpu 出屏攻坚进行中）

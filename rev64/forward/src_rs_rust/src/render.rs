@@ -61,7 +61,7 @@ mod gles_render {
             use pollster::FutureExt;
             // wgpu 30 真实 API：Instance::new(desc) 非 &desc + RequestAdapterOptions（非 AdapterOptions）
             let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
-                backends: wgpu::Backends::GL, // gles 后端（对齐 C libGLESv2；Vulkan 在 houdini 下 device_fail）
+                backends: wgpu::Backends::GL, // gles 后端
                 flags: wgpu::InstanceFlags::default(),
                 memory_budget_thresholds: wgpu::MemoryBudgetThresholds::default(),
                 backend_options: wgpu::BackendOptions::default(),
@@ -92,6 +92,71 @@ mod gles_render {
 
         /// 从 ANativeWindow 创建 wgpu Surface（Android gles 后端，出屏关键）
         /// 参数 anative_window: *mut c_void（ANativeWindow_fromSurface 拿到的指针）
+        /// 一次性创建 surface + device（adapter 带 compatible_surface，Android 关键）
+        pub fn create_surface_and_device(
+            anative_window: *mut std::ffi::c_void,
+            w: u32,
+            h: u32,
+        ) -> Option<(wgpu::Instance, wgpu::Surface<'static>, wgpu::Device, wgpu::Queue)> {
+            use pollster::FutureExt;
+            use raw_window_handle::{AndroidNdkWindowHandle, HasWindowHandle, RawWindowHandle, WindowHandle};
+            if anative_window.is_null() { return None; }
+            let nwin = std::ptr::NonNull::new(anative_window as *mut ())?;
+            struct WinHandle(std::ptr::NonNull<()>);
+            impl HasWindowHandle for WinHandle {
+                fn window_handle(&self) -> Result<WindowHandle<'_>, raw_window_handle::HandleError> {
+                    Ok(unsafe { WindowHandle::borrow_raw(RawWindowHandle::AndroidNdk(AndroidNdkWindowHandle::new(self.0.cast()))) })
+                }
+            }
+            let wh = WinHandle(nwin);
+            let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
+                backends: wgpu::Backends::PRIMARY,
+                flags: wgpu::InstanceFlags::default(),
+                memory_budget_thresholds: wgpu::MemoryBudgetThresholds::default(),
+                backend_options: wgpu::BackendOptions::default(),
+                display: None,
+            });
+            let surface = unsafe {
+                instance.create_surface_unsafe(wgpu::SurfaceTargetUnsafe::from_window(&wh).ok()?)
+            }.ok()?;
+            crate::log::setprop("jq.surf_dev", "surface_ok");
+            // ★ 关键：request_adapter 带 compatible_surface
+            let adapter = instance.request_adapter(&wgpu::RequestAdapterOptions {
+                power_preference: wgpu::PowerPreference::LowPower,
+                force_fallback_adapter: false,
+                compatible_surface: Some(&surface),
+                apply_limit_buckets: false,
+            }).block_on().ok()?;
+            let caps = surface.get_capabilities(&adapter);
+            crate::log::setprop("jq.surf_dev", "caps_ok");
+            let format = match caps.formats.first().copied() {
+                Some(f) => f,
+                None => { crate::log::setprop("jq.surf_dev", "no_formats"); return None; }
+            };
+            let (dev, q) = adapter.request_device(&wgpu::DeviceDescriptor {
+                label: Some("junqi-rs"),
+                required_features: wgpu::Features::empty(),
+                required_limits: wgpu::Limits::default(),
+                experimental_features: wgpu::ExperimentalFeatures::default(),
+                memory_hints: wgpu::MemoryHints::default(),
+                trace: wgpu::Trace::default(),
+            }).block_on().ok()?;
+            let config = wgpu::SurfaceConfiguration {
+                usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+                format,
+                width: w.max(1),
+                height: h.max(1),
+                present_mode: wgpu::PresentMode::AutoVsync,
+                alpha_mode: caps.alpha_modes.first().copied()?,
+                view_formats: vec![],
+                color_space: wgpu::SurfaceColorSpace::Srgb,
+                desired_maximum_frame_latency: 2,
+            };
+            surface.configure(&dev, &config);
+            crate::log::setprop("jq.surf_dev", "configured");
+            Some((instance, surface, dev, q))
+        }
+
         pub fn create_surface(
             instance: &wgpu::Instance,
             device: &wgpu::Device,
@@ -100,7 +165,7 @@ mod gles_render {
             height: u32,
         ) -> Option<(wgpu::Surface<'static>, wgpu::SurfaceConfiguration)> {
             crate::log::setprop("jq.surface_step", "enter_create_surface");
-            use raw_window_handle::{AndroidNdkWindowHandle, HasWindowHandle, RawWindowHandle, WindowHandle};
+            use raw_window_handle::{AndroidDisplayHandle, AndroidNdkWindowHandle, HasWindowHandle, RawDisplayHandle, RawWindowHandle, WindowHandle};
             use pollster::FutureExt;
             if anative_window.is_null() {
                 crate::log::setprop("jq.surface_step", "null_window");
@@ -116,6 +181,7 @@ mod gles_render {
                 }
             }
             let wh = WinHandle(nwin);
+            // 用 from_window（稳，不 panic）——RawHandle+AndroidDisplay 在 houdini 下触发 wgpu-hal panic
             let target = match unsafe { wgpu::SurfaceTargetUnsafe::from_window(&wh) } {
                 Ok(t) => t,
                 Err(_) => { crate::log::setprop("jq.surface_step", "from_window_err"); return None; }

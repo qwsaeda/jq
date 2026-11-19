@@ -14,6 +14,7 @@ mod android_impl {
     use jni::objects::JClass;
 
     static mut G_VM: usize = 0;
+    static WGPU_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
     /// JNI_OnLoad：保存 JavaVM（native EGL 线程 attach JVM 用）
     #[no_mangle]
     pub extern "C" fn JNI_OnLoad(vm: *mut jni::sys::JavaVM, _reserved: *mut std::ffi::c_void) -> jni::sys::jint {
@@ -133,8 +134,9 @@ mod android_impl {
             unsafe { G_VIEW = new_global(env, view); }
             // ★ native EGL 渲染线程独占 window（setRenderer 已在 smali 移除，避免 0x3003）
             //   线程内 attach JVM 轮询 Surface→ANativeWindow→eglCreateWindowSurface→画→swap
-            // native EGL 独占 window 需整套 C 渲染架构移植（去 setRenderer 致 SurfaceView NPE，死路）
-            // 保留 egl_render.rs 代码供后续真机/架构移植；当前不启动
+            // wgpu 出屏攻坚：create_surface 在 MuMu 上失败 + lockCanvas 限主线程，渲染线程暂不启动
+            // 保留 wgpu_thread.rs / canvas.rs 代码供后续主线程 Canvas 方案
+            
             // requestRender 不在 native 调：view attach 后 Java GLThread 自会出首帧（提前调 NPE）
             view
         }
@@ -142,7 +144,17 @@ mod android_impl {
 
     #[no_mangle]
     pub extern "C" fn Java_com_qwsaeda_App_OnDestroy(_env: *mut jni::sys::JNIEnv, _cls: JClass) {
-        with_lock(|_s, _u, _c| {});
+        // 清理 wgpu 资源（重进不崩：旧 surface/device 必须先释放）
+        unsafe {
+            G_WGPU_SURFACE = None;
+            G_WGPU_CONFIG = None;
+            G_WGPU_QUEUE = None;
+            G_WGPU_DEVICE = None;
+            G_WGPU_INSTANCE = None;
+            G_VIEW = std::ptr::null_mut();
+            G_SURFACE = std::ptr::null_mut();
+        }
+        with_lock(|st, _u, _c| { st.wgpu_init_done = false; st.wgpu_log_done = false; });
     }
 
     #[no_mangle]
@@ -178,6 +190,8 @@ mod android_impl {
         env: *mut jni::sys::JNIEnv,
         _cls: JClass,
     ) -> jni::sys::jboolean {
+        let _wgpu_guard = match WGPU_LOCK.lock() { Ok(g) => g, Err(e) => e.into_inner() };
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         unsafe {
             let envf = &**env;
             // ① 首次：创建 wgpu device + instance
@@ -216,12 +230,38 @@ mod android_impl {
                     let surface_obj = je.call_method(h, "getSurface", "()Landroid/view/Surface;", &[])
                         .ok().and_then(|v| v.l().ok());
                     crate::log::setprop("jq.wgpu_step", if surface_obj.is_some() { "surface_ok" } else { "surface_fail" });
-                    if surface_obj.is_some() {
-                        // 渲染线程已在 OnCreate 启动并自行轮询 Surface（setRenderer 已移除，native 独占 window）
-                        crate::log::setprop("jq.wgpu_step", "surface_polled_by_egl_thread");
+                    if let Some(so) = surface_obj {
+                        // 纯 Rust wgpu：Surface → ANativeWindow → wgpu create_surface
+                        let win = crate::log::surface_to_window(env as *mut _, so.into_raw());
+                        crate::log::setprop("jq.wgpu_step", if win.is_null() { "win_null" } else { "win_ok" });
+                        if !win.is_null() {
+                            if let (Some(inst), Some(dev)) = (G_WGPU_INSTANCE.as_ref(), G_WGPU_DEVICE.as_ref()) {
+                                match crate::render::RenderCtx::create_surface(inst, dev, win, 900, 1600) {
+                                    Some((surf, cfg)) => {
+                                        G_WGPU_SURFACE = Some(surf); G_WGPU_CONFIG = Some(cfg);
+                                        crate::log::setprop("jq.wgpu_state", "surface_ok");
+                                    }
+                                    None => crate::log::setprop("jq.wgpu_state", "surface_fail"),
+                                }
+                            }
+                            crate::log::window_release(win);
+                        }
                     }
                 }
             }
+            // ③ 每帧 wgpu 清屏（出屏验证）
+            if let (Some(dev), Some(q), Some(surf)) = (G_WGPU_DEVICE.as_ref(), G_WGPU_QUEUE.as_ref(), G_WGPU_SURFACE.as_ref()) {
+                crate::render::RenderCtx::clear_frame(dev, q, surf, 0.1, 0.45, 0.85);
+            }
+            1i32
+        }
+        }));
+        if let Err(payload) = &result {
+            let msg = payload.downcast_ref::<&str>().copied()
+                .or_else(|| payload.downcast_ref::<String>().map(|s| s.as_str()))
+                .unwrap_or("unknown");
+            let truncated: String = msg.chars().take(20).collect();
+            crate::log::setprop("jq.panic", &truncated);
         }
         1 // GLThread 持续出帧
     }
