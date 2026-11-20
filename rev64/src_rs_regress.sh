@@ -62,6 +62,8 @@ run "[8.8/12] P2 渗透面 UI 状态机点击 fuzz (make fuzzui)" bash -c "cd $R
 run "[8.9/12] P5' 渗透面 JNI 入口参数 fuzz (make fuzzjni)" bash -c "cd $RS && make fuzzjni SEED=7 ROUNDS=1 2>&1 | grep '判据: PASS'"
 # ★ P8 渗透面：多线程竞态 fuzz（TSAN，setarch -R 固定地址布局）
 #   TSAN 0 报告 = 锁纪律机检通过；原子化修复（ui_state g_ui/g_opt_* 2026-11-20）
+# ★ P3 渗透面：事件分发+音效映射 fuzz（全 67 code + 往返身份 + 73 名音效 + 计数守恒）
+run "[8.11/12] P3 渗透面 事件分发+音效 fuzz (make fuzzevt)" bash -c "cd $RS && make fuzzevt SEED=7 2>&1 | grep '判据: PASS'"
 run "[8.10/12] P8 渗透面 多线程竞态 TSAN (make fuzzmt)" bash -c "cd $RS && make fuzzmt SEED=7 ITERS=8000 2>&1 | grep -q '== 全部通过 ==' && echo 'TSAN 0 报告'"
 run "[9/12] so_link_check.py 链接审计" python3 $TOOLS/so_link_check.py $RS/dist/libjunqi_rs.so
 # 10. 走子预验证工具（三件套之一，防新工具回归）

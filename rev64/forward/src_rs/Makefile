@@ -224,6 +224,17 @@ fuzzui:
 # ★ 依赖 android_stub/（桌面 jni.h / EGL / android/*.h 最小桩）+ platform_stub.c（GL/平台符号）
 # 用法：make fuzzjni SEED=7 ROUNDS=1
 #
+# ★ P3 渗透面：事件分发 + 音效映射 fuzz（ASan；探针 #include evt55_dispatch.c 取 static
+#   e55_code_to_evname + 链接其余 evt55_*；全 67 code 扫描 + 往返身份 + 73 名音效 + 计数守恒）
+# 用法：make fuzzevt SEED=7
+fuzzevt:
+	@mkdir -p dist
+	$(CC) $(CFLAGS) -O0 -g -fsanitize=address -DRS_NO_GL -Iandroid_stub \
+	    -o dist/jq_fuzzevt fuzz_evt.c evt55_sfx.c evt55_business.c \
+	    jq_event_names_73.c evt55_stub.c -lm
+	@echo "构建完成: dist/jq_fuzzevt（ASan）"
+	@dist/jq_fuzzevt $(SEED)
+
 # ★ P8 渗透面：多线程竞态 fuzz（TSAN + -no-pie + setarch -R 固定地址布局）
 #   3 场景 × 8 线程：M1 g_state 读写（模拟真机 g_mutex 双侧持锁契约）/ M2 UI 屏态
 #   （ui_state 原子化后 0 报告）/ M3 触摸态（共享实例 + g_ts_lock）

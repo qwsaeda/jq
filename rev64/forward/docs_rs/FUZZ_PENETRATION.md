@@ -242,7 +242,7 @@ M5' rebuild：×50 幂等 + 10000 次路由解引用 0 崩溃
 
 | # | 空白面 | 价值 | 阻塞 |
 |---|---|---|---|
-| P3 | 事件分发 code→handler + 音效映射（evt55_dispatch/sfx） | 中高 | 可离线 ✅ |
+| ~~P3~~ | ~~事件分发 code→handler + 音效映射（evt55_dispatch/sfx）~~ | 中高 | ✅ **已做（§2.8.6）** |
 | P4 | 渲染 GL 状态序列（render.c 11229 行） | 高 | 需 GL 上下文（设备） |
 | P5 | JNI 入口参数 fuzz（14 入口） | 中高 | 需设备 |
 | P6 | 存档文件损坏 fuzz（截断/字节翻转 on .sjg） | 中 | 可离线 ✅ |
@@ -334,6 +334,30 @@ TSAN 报 `data race at ui_state.c:46 in ui_screen_set`——`ui_screen_set` 持 
 
 **诚实边界**：桌面 TSAN 能报**真实存在**的竞态（比真机强），但**不报真机特有**的
 竞态（NDK 优化/信号时序差异）；不含蓝牙收帧线程（用户指令）+ 真实 GL 线程（桌面 stub）。
+
+### 2.8.6 P3：事件分发 + 音效映射 fuzz（`fuzz_evt.c`）——防历史两类假绿缺陷复活
+
+**覆盖**：`evt55_dispatch.c`（67 code 分发 + static `e55_code_to_evname` +
+计数不变量）+ `evt55_sfx.c`（73 名 → 15 精确音效映射）。
+
+**历史真缺陷背景（本探针防复活）**：
+- R5-B-02：业务代表 code 34/36/38/44/46 无 case → default 返 0 → 名称往返丢身份变
+  Junqi.Move（假绿同族），已修（按桶返代表名）
+- R6-B-10：未知名 default 返 0 = 假绿，已修返哨兵 -1
+
+**4 项判据（实锤全 PASS）**：
+- M1 全 code 扫描（0..66 + 边界 -1/67/68/0x7fffffff/INT32_MIN）：72 code → 映射 19 /
+  未映射哨兵 53 / 非法 0（0 崩溃）
+- M2 往返身份：19 code 全幂等，身份丢失 0
+- M3 音效映射：15 核心精确（7 业务类 + win/lose/draw 胜负类 + Resign 系）+ NULL 兜底
+  move + 73 名全部非 NULL（防 `sfx_play(NULL)` 崩）
+- M4 计数守恒：注入 100 次后 Σ g_event_cnt == g_event_total（95==95）
+
+**踩坑固化**：
+1. static `e55_code_to_evname` 无法直接调 → 探针 `#define static` + `#include "evt55_dispatch.c"`
+   内联实现（不再单独链接该文件，否则重复定义）
+2. 判据阈值按**真值**设（有效映射 19 个）——初版设 >20 导致假 FAIL。**教训：机检阈值
+   必须先跑一次取真值再设，不能拍脑袋**（与 F1 guard截断率 ≤10% 同型纪律）
 
 ## 3. 诚实边界
 
