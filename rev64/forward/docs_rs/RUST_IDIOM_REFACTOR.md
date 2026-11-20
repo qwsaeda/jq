@@ -74,3 +74,17 @@
   - Canvas 诊断死代码（CANVAS_LOGGED + st_canvas_done/setprop_canvas_ok/setprop_canvas_fail）删除（早期出屏攻坚残留，无调用）
 - **全仓 `#[allow(...)]` 归零**：所有警告真修掉，无靠 allow 盖住。
 - 判据守门：95 测试 / clippy -D warnings rc=0 / android 0 错 0 警 / 14 符号 / static mut 0 / allow 0 / 154 case / align_gate / fuzz_probe / event_names 全 PASS；真机 5 判据（so 9c3f54b6）。
+
+## render.rs 模块拆分（2026-11-20 续：用户授权拆 775 行大文件）
+按职责拆成 5 文件，**逐字搬运、逻辑零改动**（仅可见性 pub(crate) + 路径 re-export 适配）：
+| 文件 | 行数 | 职责 |
+|---|---|---|
+| `render/mod.rs` | 40 | 文件头 + 子模块声明 + 对外 API re-export + 坐标测试 |
+| `render/gles.rs` | 502 | wgpu RenderCtx + 渲染管线 |
+| `render/geom.rs` | 179 | 顶点/矩形几何 + RGBA 合成 |
+| `render/cpu.rs` | 48 | 纯 CPU 棋盘 RGBA |
+| `render/coord.rs` | 15 | 触摸坐标纯几何 touch_base_coord |
+
+- 对外 API 不变：`crate::render::{RenderCtx, view_to_cell, draw_rects_rgba, menu_rects}` 全 re-export（jni.rs/wgpu_thread.rs 引用零改动）。
+- 判据守门：95 测试 / clippy -D warnings rc=0 / android 0 错 0 警 / 14 符号 / 154 case / align_gate / fuzz_probe 全 PASS；真机 5 判据（so 3a3ffc78：装/出屏 rendering+win_ok/走子 Move/悔棋 undo_ok/重进 rendering）。
+- 注：render.rs 原 `#![allow(dead_code)]` 随拆分保留在 mod.rs（单独清理属另一议题）。
