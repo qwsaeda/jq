@@ -94,3 +94,18 @@
 - **替换1（已做）**：`asset.rs::decode_png` 手写 RGB→RGBA 循环 → `png::Transformations::EXPAND|ALPHA|STRIP_16` 让 crate 直接输出 RGBA8（零新增依赖）。实证 `/tmp/pngcmp`：对 bg_menu(RGBA)/piece_atlas(RGB) 两图输出与旧手动转换逐字节 identical=true。
 - **不替换（诚实边界）**：① 手写图像缩放/blit（asset.rs 15 个循环）——`image` crate 可做但需新增依赖（houdini 稳定风险），且椭圆棋子外形是业务真值无现成 API；② `log.rs` 手写 `__android_log_print`+setprop+文件探针——`log` crate 覆盖不了 houdini 环境下 logcat 不可靠的诊断通道。
 - 判据守门：95 测试 / clippy rc=0 / 0 错 0 警 / 14 符号 / 154 case / 真机 5 判据（so 9b8544d2）。
+
+## 出屏崩溃根治 + Java 壳裁剪（2026-11-20 续：用户"裁剪/作废 Java 壳"决策）
+### 崩溃根治（用户选"两个一起做"）
+- **根因**：wgpu_thread 用一次性 `surf_global` 缓存 Surface global ref，系统回收/重建 Surface 后失效 → `Surface.lockCanvas` 抛 `IllegalStateException` → JNI 异常未清 → 下次调用 `No pending exception expected` abort（logcat 8 次 Fatal，app 反复崩）。之前"5判据全PASS"只查 pid/属性未查 Fatal = 假绿盲区。
+- **修法**：① `canvas.rs::draw_rgba_to_surface` 入口先 `ExceptionCheck/Clear` 清残留；lockCanvas 失败清异常返 Err（不 abort）；② `wgpu_thread.rs` 渲染循环**每帧从 view 重取当前 Surface**（isValid 检查），不再用失效的 global ref。
+- **验证**：清 logcat 后启动 + 走子 + 20s 观察，Fatal/Surface释放 = 0，pid 稳定，canvas_err=0。
+
+### Java 壳裁剪（dec_rs 构建树，非 git）
+- **权威依据**：当前 Rust so 的 FindClass 只反射 `com/qwsaeda/GLView`（new_object + setEGLContextClientVersion + setContentView），**不反射任何 InputDlg/TextDlg/SiteView/AdLis/BtSpp** → 这些 Java 类是死代码。
+- **删除**：AdLis/BtReceiver/BtSpp(4类)/SiteView(8类)/InputDlg/TextDlg = 15 个 smali；App.smali 的 btClient/btHost/btSend 方法体清空（保留签名防 native 反射）。
+- **保留**：App（native 声明 + 生命周期 + 输入桥 + Handler 100ms）、GLView 全套（native new_object 它 + Renderer 接口被 App implements，内部类被本体引用不能单独删）。剩 17 smali。
+- **验证**：apktool b 成功 + 装机 + 5 判据全 PASS + Fatal=0。
+
+### 判据守门
+95 测试 / clippy rc=0 / android 0 错 0 警 / 14 符号 / 154 case 全 PASS；真机 5 判据（装/出屏 rendering/走子 Move/悔棋 undo_ok/重进）+ **Fatal=0**（新增判据，防假绿复发）。

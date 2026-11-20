@@ -76,20 +76,13 @@ mod imp {
             None => { crate::log::setprop("jq.wgpu_thread", "device_fail"); return; }
         };
         crate::log::setprop("jq.wgpu_thread", "device_ok");
-        // 保存 Java Surface global ref（lockCanvas 显示用）；setRenderer 已移除，GLThread 不占 window
-        let surf_global: jni::sys::jobject = {
-            let so = env.call_method(&view, "getHolder", "()Landroid/view/SurfaceHolder;", &[])
-                .ok().and_then(|v| v.l().ok())
-                .and_then(|h| env.call_method(h, "getSurface", "()Landroid/view/Surface;", &[]).ok().and_then(|s| s.l().ok()));
-            let g = match so {
-                Some(s) => match env.new_global_ref(s) { Ok(g) => g, Err(_) => return },
-                None => return,
-            };
-            let raw = jni::objects::JObject::from_raw(g.as_obj().as_raw()).into_raw(); std::mem::forget(g); raw
-        };
-        crate::log::window_release(window); // 释放轮询时的临时引用，用 surf_global
+        // ★ 不再缓存 Surface global ref：系统回收/重建后旧 ref 失效会让 lockCanvas abort。
+        //   改为每帧从 view 重取当前 Surface（见下方渲染循环）。
+        crate::log::window_release(window); // 释放轮询时的临时 ANativeWindow 引用
 
         // ③ 渲染循环：wgpu offscreen RGBA → Java Surface.lockCanvas 显示
+        // ★ 崩溃根治：每帧从 view 重取当前 Surface（系统回收/重建后自动恢复），
+        //   不再用一次性 surf_global（失效后 lockCanvas 抛 IllegalStateException abort）。
         let mut frame = 0u64;
         loop {
             if STOP.load(Ordering::SeqCst) { break; }
@@ -99,9 +92,16 @@ mod imp {
                     let (board, screen) = match crate::jni::board_snapshot() { Some(b) => b, None => return };
                     Some(crate::asset::compose_board_rgba(450, 800, Some(&board), screen))
                 } {
-                    let surface = jni::objects::JObject::from_raw(surf_global);
-                    if crate::canvas::draw_rgba_to_surface(&mut env, surface, &rgba, 450, 800).is_err() {
-                        crate::log::setprop("jq.wgpu_thread", "canvas_err");
+                    // 每帧重取当前 Surface（local ref，用完自动释放）
+                    let cur = env.call_method(&view, "getHolder", "()Landroid/view/SurfaceHolder;", &[])
+                        .ok().and_then(|v| v.l().ok())
+                        .and_then(|holder| env.call_method(holder, "getSurface", "()Landroid/view/Surface;", &[]).ok().and_then(|s| s.l().ok()));
+                    if let Some(surface) = cur {
+                        let valid = env.call_method(&surface, "isValid", "()Z", &[])
+                            .ok().and_then(|v| v.z().ok()).unwrap_or(false);
+                        if valid && crate::canvas::draw_rgba_to_surface(&mut env, surface, &rgba, 450, 800).is_err() {
+                            crate::log::setprop("jq.wgpu_thread", "canvas_err");
+                        }
                     }
                 }
             }));

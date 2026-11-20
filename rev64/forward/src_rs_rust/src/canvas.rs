@@ -14,6 +14,12 @@ mod imp {
         w: i32,
         h: i32,
     ) -> Result<(), String> {
+        // ★ 崩溃根治（Surface released 后 lockCanvas 抛 IllegalStateException）：
+        //   JNI 异常若挂着不清理，下一次 JNI 调用会 "No pending exception expected" abort。
+        //   入口先清残留异常；lockCanvas 失败时清异常再返回 Err（由调用方跳过该帧）。
+        if env.exception_check().unwrap_or(false) {
+            let _ = env.exception_clear();
+        }
         // ① int[] 像素（Java int ARGB_8888 = 0xAARRGGBB）
         let n = (w * h) as usize;
         let mut pixels = vec![0i32; n];
@@ -40,9 +46,15 @@ mod imp {
         // ③ Surface.lockCanvas() → Canvas
         // Android 公开 API = lockCanvas(Rect dirty)；无参版 @hide（targetSdk 35 拒）
         // 传 null Rect = 锁整个 surface
-        let canvas = env.call_method(&surface, "lockCanvas", "(Landroid/graphics/Rect;)Landroid/graphics/Canvas;",
-                &[JValue::Object(&JObject::null())])
-            .map_err(|e| e.to_string())?.l().map_err(|e| e.to_string())?;
+        let canvas = match env.call_method(&surface, "lockCanvas", "(Landroid/graphics/Rect;)Landroid/graphics/Canvas;",
+                &[JValue::Object(&JObject::null())]) {
+            Ok(v) => v.l().map_err(|e| e.to_string())?,
+            Err(e) => {
+                // Surface 已释放/无效 → 清 JNI 异常，返回 Err 让调用方跳过该帧（不 abort）
+                if env.exception_check().unwrap_or(false) { let _ = env.exception_clear(); }
+                return Err(format!("lockCanvas failed: {}", e));
+            }
+        };
 
         // ④ Bitmap.createScaledBitmap(bitmap, 900, 1600, false) → 缩放小图到全屏（降 CPU 合成量）
         let scaled = match env.call_static_method("android/graphics/Bitmap", "createScaledBitmap",
