@@ -56,6 +56,11 @@ mod android_impl {
         }
     }
 
+    /// 棋盘快照（渲染线程读，供 cpu_board_rgba 画棋子）
+    pub fn board_snapshot() -> Option<std::sync::MutexGuard<'static, Option<State>>> {
+        G_BOARD.lock().ok()
+    }
+
     #[no_mangle]
     pub extern "C" fn Java_com_qwsaeda_App_OnCreate(
         env: *mut jni::sys::JNIEnv,
@@ -387,3 +392,8 @@ mod android_impl {
 // 桌面（非 android）：不编译 JNI 壳（jni 依赖仅 android target），纯逻辑层正常测试
 #[cfg(not(target_os = "android"))]
 pub fn _jni_desktop_noop() {}
+
+#[cfg(target_os = "android")]
+pub use android_impl::board_snapshot;
+#[cfg(not(target_os = "android"))]
+pub fn board_snapshot() -> Option<()> { None }

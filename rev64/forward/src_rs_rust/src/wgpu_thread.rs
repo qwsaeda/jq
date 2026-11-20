@@ -83,7 +83,10 @@ mod imp {
         loop {
             if STOP.load(Ordering::SeqCst) { break; }
             let r = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                if let Some(rgba) = Some(crate::render::cpu_board_rgba(900, 1600)) {
+                if let Some(rgba) = {
+                    let guard = match crate::jni::board_snapshot() { Some(g) => g, None => return };
+                    Some(crate::render::cpu_board_rgba(900, 1600, guard.as_ref()))
+                } {
                     let surface = jni::objects::JObject::from_raw(surf_global);
                     if crate::canvas::draw_rgba_to_surface(&mut env, surface, &rgba, 900, 1600).is_err() {
                         crate::log::setprop("jq.wgpu_thread", "canvas_err");
@@ -98,8 +101,7 @@ mod imp {
                 crate::log::setprop("jq.wgpu_thread", "frame_panic"); break;
             }
             frame += 1;
-            if frame == 1 { crate::log::setprop("jq.wgpu_thread", "rendering"); }
-            if frame >= 2 { break; } // 静态验证：只画 1 帧（排查每帧重建资源 validation）
+            if frame == 3 { crate::log::setprop("jq.wgpu_thread", "rendering"); }
             std::thread::sleep(std::time::Duration::from_millis(400));
         }
     }
