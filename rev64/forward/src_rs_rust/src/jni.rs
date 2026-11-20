@@ -7,7 +7,6 @@
 //! JNI 入口纪律：每个导出持全局锁（对齐 C g_mutex）；OnTouch/OnTimer 走规则层。
 
 #[cfg(target_os = "android")]
-#[allow(dead_code, unused_unsafe, static_mut_refs)]
 mod android_impl {
     use std::sync::Mutex;
     use crate::state::State;
@@ -36,10 +35,6 @@ mod android_impl {
     static G_VIEW: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
     /// 走子计数（刷新画面用）
     static G_MOVES: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
-    static CANVAS_LOGGED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
-    fn st_canvas_done() -> bool { CANVAS_LOGGED.load(std::sync::atomic::Ordering::Relaxed) }
-    fn setprop_canvas_ok() { crate::log::setprop("jq.canvas", "draw_ok"); CANVAS_LOGGED.store(true, std::sync::atomic::Ordering::Relaxed); }
-    fn setprop_canvas_fail() { crate::log::setprop("jq.canvas", "draw_fail"); CANVAS_LOGGED.store(true, std::sync::atomic::Ordering::Relaxed); }
     /// 选中格（审计 A8：替代 static mut SEL，避免竞态）
     static G_SEL: Mutex<Option<usize>> = Mutex::new(None);
 
@@ -56,7 +51,7 @@ mod android_impl {
     where
         F: FnOnce(&mut State, &mut ui::Ui, &mut evt::EventCounter) -> R,
     {
-        let mut guard = GAME.lock().unwrap();
+        let mut guard = GAME.lock().unwrap_or_else(|e| e.into_inner()); // poison 时恢复数据，JNI 边界不二次 panic
         let game = guard.get_or_insert_with(|| Game {
             state: State::new(),
             ui: ui::Ui::new(),
@@ -236,7 +231,7 @@ mod android_impl {
         //   旧裸指针版 NewGlobalRef 从不 DeleteGlobalRef，成员 forget 对齐该生命周期语义。
         std::mem::forget(global);
         // ★ native EGL 渲染线程独占 window（setRenderer 已在 smali 移除，避免 0x3003）
-        unsafe { crate::wgpu_thread::start(G_VM.load(std::sync::atomic::Ordering::Relaxed), G_VIEW.load(std::sync::atomic::Ordering::Relaxed), 900, 1600); }
+        crate::wgpu_thread::start(G_VM.load(std::sync::atomic::Ordering::Relaxed), G_VIEW.load(std::sync::atomic::Ordering::Relaxed), 900, 1600);
         // requestRender 不在 native 调：view attach 后 Java GLThread 自会出首帧（提前调 NPE）
         view.into_raw()
     }
@@ -309,7 +304,7 @@ mod android_impl {
                     return 1;
                 }
             }
-            let wgpu = wgpu_guard.as_mut().unwrap();
+            let wgpu = wgpu_guard.as_mut().expect("wgpu device 已在上方创建（is_none 分支 return/填充）");
             // ② 拿 GLView.getHolder().getSurface() → ANativeWindow（jni crate safe API，避免 raw varargs 崩溃）
             if wgpu.surface.is_none() && G_VIEW.load(std::sync::atomic::Ordering::Acquire) != 0 {
                 crate::log::setprop("jq.wgpu_step", "safe_surface_begin");

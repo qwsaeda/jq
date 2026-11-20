@@ -65,3 +65,12 @@
 - **serde 未引入（诚实边界）**：save.rs 是纯逻辑层（域校验/复盘），无序列化代码；文件 I/O 在 JNI/磁盘边界。强行加 serde 会造出"无消费者的序列化 API"= 假实现，故不做。
 - 判据守门：95 测试 / clippy -D warnings rc=0 / android 0 错 0 警 / 14 符号 / 154 case / rust_anything 全 PASS；真机 5 判据（so de03d4c2：装/出屏 rendering/走子 Move/悔棋 undo_ok/重进）+ 连续 3 次干净重启 0 崩溃。
 - 全仓 `static mut` 声明归零（仅注释文字残留），消除 `#[allow(static_mut_refs)]`。
+
+## 抑制归零 + 锁安全（2026-11-20 续）
+- `#[allow(dead_code, unused_unsafe, static_mut_refs)]` 残留抑制清掉（static mut 已清零后 static_mut_refs 不再需要）→ 暴露并真修：
+  - jni.rs:239 `unnecessary unsafe`（wgpu_thread::start 内部已处理）删除
+  - jni.rs:59 `GAME.lock().unwrap()` → `unwrap_or_else(|e| e.into_inner())`：锁 poison 时恢复数据，JNI 边界不二次 panic abort
+  - jni.rs:312 `wgpu_guard.as_mut().unwrap()` → `expect` 带语义信息
+  - Canvas 诊断死代码（CANVAS_LOGGED + st_canvas_done/setprop_canvas_ok/setprop_canvas_fail）删除（早期出屏攻坚残留，无调用）
+- **全仓 `#[allow(...)]` 归零**：所有警告真修掉，无靠 allow 盖住。
+- 判据守门：95 测试 / clippy -D warnings rc=0 / android 0 错 0 警 / 14 符号 / static mut 0 / allow 0 / 154 case / align_gate / fuzz_probe / event_names 全 PASS；真机 5 判据（so 9c3f54b6）。
