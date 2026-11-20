@@ -58,9 +58,20 @@ def extract_const(h, name):
 
 
 def extract_rust_const(rs, name):
-    """Rust 侧：从 state.rs 的 `pub const RANK_*: u8 = N;` 抽（独立 SSOT）。"""
+    """Rust 侧：从 state.rs 抽 RANK_* 数值（独立 SSOT）。
+    兼容两种格式：
+      旧 `pub const RANK_BOMB: u8 = 10;`
+      新 `pub const RANK_BOMB: Rank = Rank::BOMB;` + `pub const BOMB: Rank = Rank(10);`
+    """
     m = re.search(r"pub const\s+" + name + r"\s*:\s*u8\s*=\s*(\d+)", rs)
-    return m.group(1) if m else None
+    if m:
+        return m.group(1)
+    # 新 newtype：别名 RANK_X = Rank::X → 查 impl 里的 X = Rank(N)
+    alias = re.search(r"pub const\s+" + name + r"\s*:\s*Rank\s*=\s*Rank::(\w+)", rs)
+    if alias:
+        assoc = re.search(r"pub const\s+" + alias.group(1) + r"\s*:\s*Rank\s*=\s*Rank\((\d+)\)", rs)
+        return assoc.group(1) if assoc else None
+    return None
 
 
 def extract_rank_norm(h):

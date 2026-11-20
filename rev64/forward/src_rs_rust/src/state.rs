@@ -6,12 +6,28 @@
 use crate::board::N_CELLS;
 
 // ---- 棋子等级（rank）----
-pub const RANK_EMPTY: u8 = 0;
-pub const RANK_BOMB: u8 = 10;
-pub const RANK_MINE: u8 = 11;
-pub const RANK_FLAG: u8 = 12;
-pub const RANK_TOP: u8 = 12;
-pub const RANK_WORKER: u8 = 9;
+/// 棋子等级 newtype：封装裸 u8，数值语义 100% 保留原版（含红方 +0xc 编码、脏 rank 域），
+/// 杜绝 u8/i32 魔法数在比较中混用；行为等价。
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug, Default)]
+pub struct Rank(pub u8);
+impl Rank {
+    pub const EMPTY: Rank = Rank(0);
+    pub const BOMB: Rank = Rank(10);
+    pub const MINE: Rank = Rank(11);
+    pub const FLAG: Rank = Rank(12);
+    pub const TOP: Rank = Rank(12);
+    pub const WORKER: Rank = Rank(9);
+}
+impl From<u8> for Rank { fn from(v: u8) -> Self { Rank(v) } }
+impl From<Rank> for u8 { fn from(r: Rank) -> Self { r.0 } }
+impl From<Rank> for i32 { fn from(r: Rank) -> Self { r.0 as i32 } }
+/// 兼容常量别名（值语义与 newtype 一致，类型从裸 u8 升级为 Rank）
+pub const RANK_EMPTY: Rank = Rank::EMPTY;
+pub const RANK_BOMB: Rank = Rank::BOMB;
+pub const RANK_MINE: Rank = Rank::MINE;
+pub const RANK_FLAG: Rank = Rank::FLAG;
+pub const RANK_TOP: Rank = Rank::TOP;
+pub const RANK_WORKER: Rank = Rank::WORKER;
 
 // ---- 阵营（类型安全 enum，替代 u8 0/1/0xFF 哨兵）----
 /// 阵营：蓝 / 红 / 未定色（暗棋翻棋前）。非法判别值在反序列化边界用 `from_raw` 拒绝。
@@ -115,14 +131,14 @@ pub enum Ev {
 // ---- 单个格子 ----
 #[derive(Clone, Copy, Debug, Default)]
 pub struct Cell {
-    pub rank: u8,       // 0-24（红方已翻开存 +0xc，用 rank_of 还原）
+    pub rank: Rank,     // newtype（红方已翻开存 +0xc，用 rank_of 还原）
     pub side: Side,     // 类型安全 enum（原 u8 0/1/0xFF 哨兵）
     pub revealed: bool, // false=背面（暗棋未翻）true=正面（类型安全，非法值无法表达）
 }
 
 impl Cell {
     pub fn empty() -> Self {
-        Self { rank: 0, side: SIDE_BLUE, revealed: false }
+        Self { rank: RANK_EMPTY, side: SIDE_BLUE, revealed: false }
     }
     pub fn is_empty(&self) -> bool {
         self.rank == RANK_EMPTY
@@ -131,10 +147,10 @@ impl Cell {
 
 /// 阵营感知 rank 还原（§1.1 rank 编码：红方已翻开存 rank+0xc）
 /// 蓝方/未定色 rank 必须 ≤12；红方编码域 [13,24]。
-pub fn rank_of(c: &Cell) -> u8 {
+pub fn rank_of(c: &Cell) -> Rank {
     if c.rank > RANK_TOP {
-        if c.side == SIDE_RED && c.rank <= RANK_TOP + 0x0c {
-            return c.rank - 0x0c; // 红方 +0xc 还原
+        if c.side == SIDE_RED && c.rank <= Rank(RANK_TOP.0 + 0x0c) {
+            return Rank(c.rank.0 - 0x0c); // 红方 +0xc 还原
         }
         return RANK_TOP; // 蓝/未定色 >12 = 脏值哨兵
     }
@@ -198,23 +214,23 @@ mod tests {
     #[test]
     fn rank_of_red_encoded() {
         // 红方 rank 8 已翻开存 8+0xc=20，rank_of 还原 8
-        let c = Cell { rank: 20, side: SIDE_RED, revealed: true };
-        assert_eq!(rank_of(&c), 8);
+        let c = Cell { rank: Rank(20), side: SIDE_RED, revealed: true };
+        assert_eq!(rank_of(&c), Rank(8));
         // 蓝方 rank 8 存 8，rank_of 还原 8
-        let b = Cell { rank: 8, side: SIDE_BLUE, revealed: true };
-        assert_eq!(rank_of(&b), 8);
+        let b = Cell { rank: Rank(8), side: SIDE_BLUE, revealed: true };
+        assert_eq!(rank_of(&b), Rank(8));
     }
 
     #[test]
     fn undo_roundtrip() {
         let mut s = State::new();
         s.turn = SIDE_RED;
-        s.cells[0].rank = 1;
+        s.cells[0].rank = Rank(1);
         let snap = s.clone();
         s.turn = SIDE_BLUE;
-        s.cells[0].rank = 0;
+        s.cells[0].rank = RANK_EMPTY;
         s.undo_restore(&snap);
         assert_eq!(s.turn, SIDE_RED);
-        assert_eq!(s.cells[0].rank, 1);
+        assert_eq!(s.cells[0].rank, Rank(1));
     }
 }

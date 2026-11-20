@@ -235,7 +235,7 @@ pub fn difficulty_hit(px: i32, py: i32, panel: &Rect) -> Option<(u8, u8)> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::state::{Cell, MODE_FLIP, MODE_LAY, SIDE_BLUE, State};
+    use crate::state::{Cell, MODE_FLIP, MODE_LAY, SIDE_BLUE, State, Rank};
 
     // §10 菜单"人机对战"→难度弹窗
     #[test]
@@ -289,7 +289,7 @@ mod tests {
     fn restart_after_over() {
         let mut ui = Ui::new();
         let mut st = State::new();
-        st.cells[0] = Cell { rank: 1, side: SIDE_BLUE, revealed: true };
+        st.cells[0] = Cell { rank: Rank(1), side: SIDE_BLUE, revealed: true };
         st.total_moves = 50;
         st.stage = crate::state::Stage::Over;
         ui.restart(&mut st);

@@ -25,3 +25,17 @@
 - "全面惯用 Rust 重构"在**行为敏感层**遇到实证硬边界：继续改 = 破对齐 = 砸 95 测试 + 154 case + 真机 5 判据。
 - 本轮在**可安全改的范围**（BFS/Option 哨兵）完成了 Rust 化；剩余 i32/as/static mut 是
   对齐/JNI 契约下的**有意保留**，用 154 case 录制实证了"改了会破行为"。
+
+## 核心层纯 Rust 化完成（2026-11-20 续）
+用户明确要求"核心层也改成纯 Rust"，在实测行为等价的前提下完成：
+| 批次 | 改动 | 判据 |
+|---|---|---|
+| 4 | `revealed: u8`(0/1/非法) → `bool`（非法值类型层面无法表达，域校验前移到 `Side::from_raw`/反序列化边界） | 全绿 |
+| 5 | `side`/`turn: u8`(0/1/0xFF) → `Side` enum{Blue,Red,Unknown} + `to_raw/from_raw/opposite/is_valid/Display` | 全绿 |
+| 6 | `rank: u8` → `Rank(u8)` newtype（PartialEq/Ord/From，数值语义 100% 保留含 +0xc 编码）；消除 `Rank as i32` 魔法转换 | 全绿 |
+
+- 判据守门（每批）: 95 测试 / 0 警告 / 14 符号 / 154 case 对齐 / align_gate / fuzz_probe 全 PASS
+- 真机 5 判据复验: 装 pid=53957 / 出屏 rendering / 走子 Move / 悔棋 undo_ok / 重进 pid=54082 全 PASS
+- so 三方对账 37bbefeb（本机=APK=设备）
+- `rust_anything_check.py` 判据适配 newtype 常量抽取（兼容旧 u8 + 新 `Rank::BOMB=Rank(10)` 两种格式）
+- 核心层现在是类型安全 Rust：`Rank` newtype + `Side` enum + `revealed: bool` + `Option` 哨兵 + `VecDeque/HashSet`，无裸 u8/i32 魔法数混用

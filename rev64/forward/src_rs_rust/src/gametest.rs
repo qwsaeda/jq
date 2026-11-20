@@ -4,7 +4,7 @@
 //! 合法终局（胜/负/和/困毙之一，无非法状态）。移植到 Rust 把"行为对齐深度"拉高
 //! （单测 42 → 完整对局回归），对齐 C 正向"对齐上限"证据。
 
-use crate::state::{Cell, State, SIDE_BLUE, SIDE_RED, Side};
+use crate::state::{Cell, State, SIDE_BLUE, SIDE_RED, Side, Rank};
 use crate::{ai, rules};
 
 /// 单方走一步（暗棋先翻，明棋走子/吃子，贪心同 ai_score）。对齐 C ai_step。
@@ -94,11 +94,11 @@ pub fn init_from_layout_30(layout: &[u8; 30], mode: u8) -> crate::state::State {
         };
         // 红方半区（i>=15 布局红方 15 字节 → device row6-10）
         let (dev_row, dev_col) = (6 + lrow, 4 - lcol);
-        st.cells[dev_row * 5 + dev_col] = Cell { rank, side, revealed: rev };
+        st.cells[dev_row * 5 + dev_col] = Cell { rank: Rank(rank), side, revealed: rev };
         // 蓝方半区（布局同一字节镜像到蓝方）
         let blue_side = if flip { SIDE_UNKNOWN } else { SIDE_BLUE };
         let blue_rank = if flip { v } else { v };
-        st.cells[(5 - lrow) * 5 + lcol] = Cell { rank: blue_rank, side: blue_side, revealed: rev };
+        st.cells[(5 - lrow) * 5 + lcol] = Cell { rank: Rank(blue_rank), side: blue_side, revealed: rev };
     }
     st
 }
@@ -120,7 +120,7 @@ pub fn make_default_layout() -> State {
         if v == 0 {
             continue; // 行营空位
         }
-        if v > crate::state::RANK_TOP {
+        if v > crate::state::RANK_TOP.0 {
             continue; // 脏字节拒（B01-039/040）
         }
         let lrow = i / 5;
@@ -128,12 +128,12 @@ pub fn make_default_layout() -> State {
         // 蓝方：(5-lrow, lcol)
         let b_row = 5 - lrow;
         let b_idx = b_row * 5 + lcol;
-        st.cells[b_idx] = Cell { rank: v, side: SIDE_BLUE, revealed: true };
+        st.cells[b_idx] = Cell { rank: Rank(v), side: SIDE_BLUE, revealed: true };
         // 红方：(6+lrow, 4-lcol)，rank+0xc
         let r_row = 6 + lrow;
         let r_col = 4 - lcol;
         let r_idx = r_row * 5 + r_col;
-        st.cells[r_idx] = Cell { rank: v + 0x0c, side: SIDE_RED, revealed: true };
+        st.cells[r_idx] = Cell { rank: Rank(v + 0x0c), side: SIDE_RED, revealed: true };
     }
     st
 }
@@ -205,7 +205,7 @@ mod tests {
         assert!(!occupied.is_empty(), "暗棋布局有子");
         assert!(occupied.iter().all(|c| c.side == SIDE_UNKNOWN), "暗棋全未定色 0xFF");
         assert!(occupied.iter().all(|c| !c.revealed), "暗棋全未翻");
-        assert!(occupied.iter().all(|c| c.rank <= 12), "暗棋 rank 用 raw（不 +0xc）");
+        assert!(occupied.iter().all(|c| c.rank <= Rank(12)), "暗棋 rank 用 raw（不 +0xc）");
     }
 
     #[test]
@@ -217,7 +217,7 @@ mod tests {
         assert_eq!(red, 25, "红方 25 子");
         // 红方编码域 13-24（rank+0xc）
         for c in st.cells[30..].iter().filter(|c| !c.is_empty()) {
-            assert!(c.rank >= 13 && c.rank <= 24, "红方 rank+0xc 编码域");
+            assert!(c.rank >= Rank(13) && c.rank <= Rank(24), "红方 rank+0xc 编码域");
         }
     }
 }

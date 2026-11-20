@@ -9,7 +9,7 @@
 
 use crate::board::N_CELLS;
 use crate::state::{
-    Cell, RANK_EMPTY, RANK_TOP, Side, SIDE_BLUE, SIDE_RED, SIDE_UNKNOWN, State,
+    Cell, RANK_EMPTY, RANK_TOP, Rank, Side, SIDE_BLUE, SIDE_RED, SIDE_UNKNOWN, State,
 };
 
 /// 复盘容量（对齐 C N_REPLAY=512：和棋前 1000 步，512 条够复盘）
@@ -176,7 +176,7 @@ pub fn validate_state(st: &mut State) -> bool {
     // cells 逐格域校验（越域格强制归零，防脏值入引擎）
     for c in st.cells.iter_mut() {
         let side_ok = matches!(c.side, SIDE_BLUE | SIDE_RED | SIDE_UNKNOWN);
-        let rank_ok = c.rank <= RANK_TOP + 0x0c; // 红方编码 raw+0xc 上界 24
+        let rank_ok = c.rank <= Rank(RANK_TOP.0 + 0x0c); // 红方编码 raw+0xc 上界 24
         // revealed 已是 bool（类型安全，非法值无法表达）——原 rev_ok 域校验前移到反序列化边界
         if !side_ok || !rank_ok {
             c.rank = RANK_EMPTY;
@@ -219,7 +219,7 @@ mod tests {
     #[test]
     fn sjg_cells_domain() {
         let mut st = State::new();
-        st.cells[0].rank = 30; // >24 越域
+        st.cells[0].rank = Rank(30); // >24 越域
         st.cells[0].side = SIDE_BLUE;
         st.cells[0].revealed = true;
         assert!(validate_state(&mut st), "cells 越域格归零不拒读");
@@ -230,7 +230,7 @@ mod tests {
         // side 非法值在反序列化边界 from_raw 拒（Side enum 内部无法表达）
         assert!(Side::from_raw(7).is_none(), "越域 side=7 被 from_raw 拒（类型安全边界）");
         // 内部"越域格归零"改由 rank 越域触发验证
-        st2.cells[5].rank = 30; // >24 越域
+        st2.cells[5].rank = Rank(30); // >24 越域
         st2.cells[5].revealed = true;
         assert!(validate_state(&mut st2));
         assert_eq!(st2.cells[5].rank, RANK_EMPTY, "越域格全格归零");

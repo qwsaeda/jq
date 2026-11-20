@@ -6,7 +6,7 @@
 //! 对齐 C rule_probe_compare.py 32/64 位对照范式（Rust 版 = 正向行为基准）。
 
 use crate::board::cell_index;
-use crate::state::{Cell, Ev, State, Stage, Winner, SIDE_BLUE, SIDE_RED, SIDE_UNKNOWN};
+use crate::state::{Cell, Ev, State, Stage, Winner, SIDE_BLUE, SIDE_RED, SIDE_UNKNOWN, Rank};
 use crate::rules;
 use crate::state::Side;
 
@@ -16,7 +16,7 @@ const R_MID: usize = 5;      // 中线 row5
 const R_RED_TOP: usize = 11; // 红底线 row11
 
 fn probe_put(st: &mut State, row: usize, col: usize, rank: u8, side: Side, rev: bool) {
-    st.cells[cell_index(row, col)] = Cell { rank, side, revealed: rev };
+    st.cells[cell_index(row, col)] = Cell { rank: Rank(rank), side, revealed: rev };
 }
 
 fn probe_red_rank(rank: u8) -> u8 {
@@ -44,7 +44,7 @@ mod tests {
         probe_clear(&mut st);
         probe_put(&mut st, R_MID, 2, 9, SIDE_BLUE, true);
         probe_put(&mut st, R_BLUE_BOT, 2, 1, SIDE_RED, true);
-        st.cells[cell_index(R_BLUE_BOT, 2)] = Cell { rank: probe_red_rank(1), side: SIDE_RED, revealed: true };
+        st.cells[cell_index(R_BLUE_BOT, 2)] = Cell { rank: Rank(probe_red_rank(1)), side: SIDE_RED, revealed: true };
         // C 基准 A1_cm_result=0：工兵 (5,2)→(0,2) 经 col2 纵线，(3,2) 行营阻断 → 不可
         // 工兵不能穿行营纵滑（行营非铁路），需绕行横向铁路（军棋 col2 唯一纵线，无绕行）
         let cm = rules::can_move(&st, cell_index(5, 2), cell_index(0, 2));
@@ -90,7 +90,7 @@ mod tests {
         probe_clear(&mut st);
         probe_put(&mut st, 5, 0, 1, SIDE_BLUE, true);
         probe_put(&mut st, 5, 1, 11, SIDE_RED, true);
-        st.cells[cell_index(5, 1)] = Cell { rank: probe_red_rank(11), side: SIDE_RED, revealed: true };
+        st.cells[cell_index(5, 1)] = Cell { rank: Rank(probe_red_rank(11)), side: SIDE_RED, revealed: true };
         st.cfg[4] = 0; // 明棋（cfg4 关，任意子可撞雷→但雷>普通子，撞雷=送死，can_move 放行）
         // 明棋：普通子可撞雷（送死），can_move 放行（规则层合法，结算 EV_DEAD）
         let cm = rules::can_move(&st, cell_index(5, 0), cell_index(5, 1));
@@ -104,7 +104,7 @@ mod tests {
         probe_clear(&mut st);
         probe_put(&mut st, 5, 0, 9, SIDE_BLUE, true);
         probe_put(&mut st, 5, 1, 11, SIDE_RED, true);
-        st.cells[cell_index(5, 1)] = Cell { rank: probe_red_rank(11), side: SIDE_RED, revealed: true };
+        st.cells[cell_index(5, 1)] = Cell { rank: Rank(probe_red_rank(11)), side: SIDE_RED, revealed: true };
         st.mode = crate::state::MODE_FLIP;
         st.cfg[4] = 1; // 暗棋门槛开：雷仅工兵
         let cm = rules::can_move(&st, cell_index(5, 0), cell_index(5, 1));
@@ -118,7 +118,7 @@ mod tests {
         probe_clear(&mut st);
         probe_put(&mut st, 5, 0, 10, SIDE_BLUE, true);
         probe_put(&mut st, 5, 1, 12, SIDE_RED, true);
-        st.cells[cell_index(5, 1)] = Cell { rank: probe_red_rank(12), side: SIDE_RED, revealed: true };
+        st.cells[cell_index(5, 1)] = Cell { rank: Rank(probe_red_rank(12)), side: SIDE_RED, revealed: true };
         let ev = rules::try_move(&mut st, cell_index(5, 0), cell_index(5, 1)).unwrap();
         assert_eq!(ev, Ev::Bomb, "B3 炸弹撞旗=EV_BOMB");
         assert_eq!(st.winner, Winner::Blue, "蓝方扛旗胜");
@@ -132,7 +132,7 @@ mod tests {
         probe_clear(&mut st);
         probe_put(&mut st, 5, 0, 1, SIDE_BLUE, true);
         probe_put(&mut st, 5, 1, 12, SIDE_RED, true);
-        st.cells[cell_index(5, 1)] = Cell { rank: probe_red_rank(12), side: SIDE_RED, revealed: true };
+        st.cells[cell_index(5, 1)] = Cell { rank: Rank(probe_red_rank(12)), side: SIDE_RED, revealed: true };
         st.cfg[3] = 1;
         let ev = rules::try_move(&mut st, cell_index(5, 0), cell_index(5, 1)).unwrap();
         assert_eq!(ev, Ev::Flag, "B4 普通子扛旗=EV_FLAG");
@@ -234,7 +234,7 @@ mod tests {
         st.cfg[2] = 1;
         probe_put(&mut st, 5, 0, 9, SIDE_BLUE, true);
         probe_put(&mut st, 5, 1, 11, SIDE_RED, true);
-        st.cells[cell_index(5, 1)] = Cell { rank: probe_red_rank(11), side: SIDE_RED, revealed: true };
+        st.cells[cell_index(5, 1)] = Cell { rank: Rank(probe_red_rank(11)), side: SIDE_RED, revealed: true };
         let ev = rules::try_move(&mut st, cell_index(5, 0), cell_index(5, 1)).unwrap();
         assert_eq!(ev, Ev::Mine, "C6 工兵挖雷=EV_MINE");
         assert_eq!(st.mines_cleared[0], 1, "C6 挖雷计数+1");

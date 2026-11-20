@@ -105,7 +105,7 @@ mod imp {
                     let y0 = (cy - ph as f32 * 0.5) as usize;
                     let base: [u8; 3] = if c.side == crate::state::SIDE_RED { [205, 55, 45] } else { [80, 150, 225] };
                     // 图集 idx：rank1-12 → 0-11
-                    let rank = crate::state::rank_of(c) as usize;
+                    let rank = u8::from(crate::state::rank_of(c)) as usize;
                     let idx = rank.saturating_sub(1).min(11);
                     let sc = idx % 6;
                     let sr = if c.side == crate::state::SIDE_RED { idx / 6 } else { 3 + idx / 6 };

@@ -4,7 +4,7 @@
 
 #[cfg(test)]
 mod tests {
-    use crate::state::{Side, State, Stage, Winner, SIDE_BLUE, SIDE_RED, SIDE_UNKNOWN};
+    use crate::state::{Side, State, Stage, Winner, SIDE_BLUE, SIDE_RED, SIDE_UNKNOWN, Rank};
     use crate::{ai, rules};
 
     /// xorshift32（先变换后保存，避免 C 首版自 bug）
@@ -33,7 +33,7 @@ mod tests {
                 // 不变量：turn 域 / winner 域 / cells rank 域
                 assert!(st.turn.is_valid(), "turn 域（Side enum 类型安全）");
                 assert!(matches!(st.winner, Winner::None | Winner::Blue | Winner::Red | Winner::Draw));
-                assert!(st.cells.iter().all(|c| c.rank <= 24), "rank 存储域 [0,24]");
+                assert!(st.cells.iter().all(|c| c.rank <= Rank(24)), "rank 存储域 [0,24]");
                 // 随机走子（ai_pick 优先，否则随机合法）
                 let mv = if rng.next() % 4 == 0 {
                     random_move(&mut rng, &st)
@@ -144,10 +144,10 @@ mod tests {
         // ★ revealed 已 bool 类型安全（非法值无法表达），原"revealed=2 归零"契约
         //   前移到反序列化边界（u8→bool try_from），内部字段不再需要该校验。
         let mut dirty = crate::gametest::make_default_layout();
-        dirty.cells[0].rank = 99; // 越域
+        dirty.cells[0].rank = Rank(99); // 越域
         assert!(Side::from_raw(7).is_none(), "契约3：非法 side=7 被边界拒");
         assert!(crate::save::validate_state(&mut dirty));
-        assert_eq!(dirty.cells[0].rank, 0, "契约3：越域 rank 归零");
+        assert_eq!(dirty.cells[0].rank, Rank(0), "契约3：越域 rank 归零");
         
         // 计数负值钳 0
         let mut neg = crate::gametest::make_default_layout();

@@ -8,9 +8,9 @@ use crate::state::{rank_of, RANK_BOMB, RANK_EMPTY, RANK_FLAG, RANK_MINE, RANK_TO
 
 /// 阵营感知 rank 还原（裸 rank_norm：>24 钳 RANK_TOP；>12 还原 -0xc）
 fn rank_norm(v: i32) -> i32 {
-    if v > RANK_TOP as i32 + 0x0c {
-        RANK_TOP as i32
-    } else if v > RANK_TOP as i32 {
+    if v > RANK_TOP.0 as i32 + 0x0c {
+        RANK_TOP.0 as i32
+    } else if v > RANK_TOP.0 as i32 {
         v - 0x0c
     } else {
         v
@@ -53,8 +53,8 @@ pub fn ai_pick(st: &State, level: u8) -> Option<Move> {
         if c.rank == RANK_EMPTY || c.side != me || !c.revealed {
             continue;
         }
-        let r = rank_of(c) as i32;
-        if r == RANK_FLAG as i32 || r == RANK_MINE as i32 {
+        let r = i32::from(rank_of(c));
+        if r == RANK_FLAG.0 as i32 || r == RANK_MINE.0 as i32 {
             continue; // 旗/雷源不可走
         }
         for t in 0..N_CELLS {
@@ -69,7 +69,7 @@ pub fn ai_pick(st: &State, level: u8) -> Option<Move> {
             if st.mode == crate::state::MODE_FLIP && d.rank != RANK_EMPTY && !d.revealed {
                 continue;
             }
-            let sc = match ai_score(c.rank as i32, d.rank as i32, d.revealed) {
+            let sc = match ai_score(c.rank.0 as i32, d.rank.0 as i32, d.revealed) {
                 Some(v) => v,
                 None => continue, // 脏输入/不可走源（原 -2/-1 哨兵）跳过，不污染
             };
@@ -158,7 +158,7 @@ pub fn ai_score(src_rank: i32, dst_rank: i32, dst_revealed: bool) -> Option<i32>
     }
     let r = rank_norm(src_rank);
     // 军旗/地雷源不可走
-    if r == RANK_FLAG as i32 || r == RANK_MINE as i32 {
+    if r == RANK_FLAG.0 as i32 || r == RANK_MINE.0 as i32 {
         return None;
     }
     // 暗棋未翻暗子目标：不透视，恒 2
@@ -171,12 +171,12 @@ pub fn ai_score(src_rank: i32, dst_rank: i32, dst_revealed: bool) -> Option<i32>
     }
     // 有目标子（已翻开）
     let dr = rank_norm(dst_rank);
-    if dr == RANK_MINE as i32 {
+    if dr == RANK_MINE.0 as i32 {
         // 雷特判
-        if r == RANK_WORKER as i32 {
+        if r == RANK_WORKER.0 as i32 {
             return Some(700); // 工兵挖雷
         }
-        if r == RANK_BOMB as i32 {
+        if r == RANK_BOMB.0 as i32 {
             return Some(800); // 炸弹撞雷同归
         }
         return Some(1); // 普通子撞雷送死
@@ -188,7 +188,7 @@ pub fn ai_score(src_rank: i32, dst_rank: i32, dst_revealed: bool) -> Option<i32>
     if r == dr {
         return Some(900); // 同级互杀
     }
-    if r == RANK_BOMB as i32 {
+    if r == RANK_BOMB.0 as i32 {
         return Some(800); // 炸弹撞弱普通子
     }
     Some(1) // 送死
@@ -197,7 +197,7 @@ pub fn ai_score(src_rank: i32, dst_rank: i32, dst_revealed: bool) -> Option<i32>
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::state::{Cell, MODE_LAY, SIDE_BLUE, SIDE_RED};
+    use crate::state::{Cell, Rank, MODE_LAY, SIDE_BLUE, SIDE_RED};
 
     // 规格 §9.2 评分表全档（对照 C ai_selftest 期望值）
     #[test]
@@ -205,20 +205,20 @@ mod tests {
         // 明棋（revealed=true）
         assert_eq!(ai_score(3, 8, true), Some(1000), "红 rank3 吃蓝 rank8");
         assert_eq!(ai_score(6, 6, true), Some(900), "同级互杀");
-        assert_eq!(ai_score(RANK_BOMB as i32, 1, true), Some(800), "炸弹撞普通子");
-        assert_eq!(ai_score(RANK_WORKER as i32, RANK_MINE as i32, true), Some(700), "工兵挖雷");
+        assert_eq!(ai_score(RANK_BOMB.0 as i32, 1, true), Some(800), "炸弹撞普通子");
+        assert_eq!(ai_score(RANK_WORKER.0 as i32, RANK_MINE.0 as i32, true), Some(700), "工兵挖雷");
         assert_eq!(ai_score(2, 1, true), Some(1), "rank2 撞 rank1 送死");
-        assert_eq!(ai_score(2, RANK_MINE as i32, true), Some(1), "普通子撞雷送死");
-        assert_eq!(ai_score(RANK_BOMB as i32, RANK_MINE as i32, true), Some(800), "炸弹撞雷");
+        assert_eq!(ai_score(2, RANK_MINE.0 as i32, true), Some(1), "普通子撞雷送死");
+        assert_eq!(ai_score(RANK_BOMB.0 as i32, RANK_MINE.0 as i32, true), Some(800), "炸弹撞雷");
         assert_eq!(ai_score(3, 0, true), Some(2), "空移");
         assert_eq!(ai_score(12, 0, true), None, "军旗源不可走");
-        assert_eq!(ai_score(RANK_MINE as i32, 0, true), None, "地雷源不可走");
+        assert_eq!(ai_score(RANK_MINE.0 as i32, 0, true), None, "地雷源不可走");
         // 暗棋不透视
         assert_eq!(ai_score(3, 8, false), Some(2), "暗棋未翻暗子不透视");
         assert_eq!(ai_score(6, 6, false), Some(2), "暗棋未翻同级不透视");
-        assert_eq!(ai_score(RANK_BOMB as i32, 8, false), Some(2), "暗棋未翻炸弹不透视");
+        assert_eq!(ai_score(RANK_BOMB.0 as i32, 8, false), Some(2), "暗棋未翻炸弹不透视");
         // 炸弹撞旗（10 < 12 → 1000 吃子档）
-        assert_eq!(ai_score(RANK_BOMB as i32, RANK_FLAG as i32, true), Some(1000), "炸弹撞旗=大压小 1000");
+        assert_eq!(ai_score(RANK_BOMB.0 as i32, RANK_FLAG.0 as i32, true), Some(1000), "炸弹撞旗=大压小 1000");
     }
 
     // 规格 §9.2 脏输入哨兵
@@ -238,8 +238,8 @@ mod tests {
         s.cfg[4] = 0; // 明棋
         // AI=RED，蓝 rank1(强) 在 30，红 rank5(弱) 在 35，红可走 35→? 吃蓝 30
         // 设蓝 30=rank1 revealed，红 35=rank5 revealed，30/35 同列相邻（(6,0)/(7,0)）
-        s.cells[30] = Cell { rank: 1, side: SIDE_BLUE, revealed: true };
-        s.cells[35] = Cell { rank: 5, side: SIDE_RED, revealed: true };
+        s.cells[30] = Cell { rank: Rank(1), side: SIDE_BLUE, revealed: true };
+        s.cells[35] = Cell { rank: Rank(5), side: SIDE_RED, revealed: true };
         s.turn = SIDE_RED;
         let mv = ai_pick(&s, 3).unwrap();
         // 红 35(rank5) 吃蓝 30(rank1)：5>1 送死档 1；但若有更优（吃更强子）应优先

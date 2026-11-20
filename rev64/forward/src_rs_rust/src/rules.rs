@@ -11,7 +11,7 @@
 
 use crate::board::{cell_col, cell_index, cell_row, is_base, is_camp, is_rail, N_CELLS};
 use crate::state::{
-    rank_of, side_valid, Cell, Ev, RANK_BOMB, RANK_FLAG, RANK_MINE, RANK_TOP, RANK_WORKER,
+    rank_of, side_valid, Cell, Ev, Rank, RANK_BOMB, RANK_FLAG, RANK_MINE, RANK_TOP, RANK_WORKER,
     Side, SIDE_BLUE, SIDE_RED, SIDE_UNKNOWN, Stage, State, Winner,
 };
 
@@ -151,7 +151,7 @@ fn move_legal(st: &State, from: usize, to: usize, turn: Option<Side>) -> bool {
     if src.is_empty() {
         return false;
     }
-    let sr = rank_of(src) as i32;
+    let sr = rank_of(src);
 
     // 回合校验（None=忽略回合时跳过）
     if let Some(t) = turn {
@@ -160,7 +160,7 @@ fn move_legal(st: &State, from: usize, to: usize, turn: Option<Side>) -> bool {
         }
     }
     // 军旗/地雷不可动
-    if sr == RANK_FLAG as i32 || sr == RANK_MINE as i32 {
+    if sr == RANK_FLAG || sr == RANK_MINE {
         return false;
     }
     // 源格在大本营 + cfg1 开 → 冻结不可动
@@ -190,25 +190,25 @@ fn move_legal(st: &State, from: usize, to: usize, turn: Option<Side>) -> bool {
         && !dst.is_empty()
         && dst.side != me
     {
-        let dbr = rank_of(dst) as i32;
-        if dbr != RANK_MINE as i32 && dbr != RANK_FLAG as i32 {
+        let dbr = rank_of(dst);
+        if dbr != RANK_MINE && dbr != RANK_FLAG {
             return false;
         }
     }
     // 暗棋 + cfg4 开：雷/旗仅工兵可攻（旗须已挖满 3 雷）
     {
-        let dr = rank_of(dst) as i32;
+        let dr = rank_of(dst);
         if st.mode == crate::state::MODE_FLIP
             && st.cfg[4] == 1
             && !dst.is_empty()
-            && (dr == RANK_MINE as i32 || dr == RANK_FLAG as i32)
+            && (dr == RANK_MINE || dr == RANK_FLAG)
         {
-            if dr == RANK_MINE as i32 {
-                if sr != RANK_WORKER as i32 {
+            if dr == RANK_MINE {
+                if sr != RANK_WORKER {
                     return false; // 雷仅工兵可吃
                 }
             } else {
-                if sr != RANK_WORKER as i32 {
+                if sr != RANK_WORKER {
                     return false; // 旗仅工兵可扛
                 }
                 if side_valid(me) && st.mines_cleared[me as usize] < 3 {
@@ -223,11 +223,11 @@ fn move_legal(st: &State, from: usize, to: usize, turn: Option<Side>) -> bool {
             return false;
         }
         // 暗棋：大本营内普通子不可被吃（仅雷/旗）——审计 A2：须受 cfg4 门控，cfg4=0 退明棋语义
-        let d_rank = rank_of(dst) as i32;
+        let d_rank = rank_of(dst);
         if st.mode == crate::state::MODE_FLIP
             && st.cfg[4] == 1
-            && d_rank != RANK_MINE as i32
-            && d_rank != RANK_FLAG as i32
+            && d_rank != RANK_MINE
+            && d_rank != RANK_FLAG
         {
             return false;
         }
@@ -246,7 +246,7 @@ fn move_legal(st: &State, from: usize, to: usize, turn: Option<Side>) -> bool {
         return true;
     }
     // 铁路滑行
-    if sr == RANK_WORKER as i32 {
+    if sr == RANK_WORKER {
         return rail_path_engineer(st, fr, fc, tr, tc);
     }
     rail_path_straight(st, fr, fc, tr, tc)
@@ -273,9 +273,9 @@ pub fn try_move(st: &mut State, from: usize, to: usize) -> Result<Ev, ()> {
         return Err(());
     }
     let src = &st.cells[from];
-    let sr = rank_of(src) as i32;
+    let sr = rank_of(src);
     let dst = &st.cells[to];
-    let dr = rank_of(dst) as i32;
+    let dr = rank_of(dst);
     let me = src.side;
     if !side_valid(me) {
         return Err(()); // 外部脏 turn 降级为明确失败
@@ -290,20 +290,20 @@ pub fn try_move(st: &mut State, from: usize, to: usize) -> Result<Ev, ()> {
         st.cells[from] = Cell::empty();
         st.moves_since_eat += 1;
         Ev::Move
-    } else if sr == RANK_BOMB as i32 || dr == RANK_BOMB as i32 {
+    } else if sr == RANK_BOMB || dr == RANK_BOMB {
         // 炸弹同归（含炸弹撞旗）
         let dst_side = dst_cell.side;
         st.cells[from] = Cell::empty();
         st.cells[to] = Cell::empty();
         st.moves_since_eat = 0;
         // 炸弹炸军旗 → 扛旗方胜（dst_side 有效才判，0xFF 未定不判）
-        if dr == RANK_FLAG as i32 && side_valid(dst_side) {
+        if dr == RANK_FLAG && side_valid(dst_side) {
             st.winner = winner_from_side(me);
             st.stage = Stage::Over;
             st.total_moves += 1;
         }
         Ev::Bomb
-    } else if dr == RANK_FLAG as i32 {
+    } else if dr == RANK_FLAG {
         // 吃旗
         if st.cfg[3] == 1 {
             // cfg3 开：扛旗即胜
@@ -325,9 +325,9 @@ pub fn try_move(st: &mut State, from: usize, to: usize) -> Result<Ev, ()> {
             stalemate_after(st);
             return Ok(Ev::Flag);
         }
-    } else if dr == RANK_MINE as i32 {
+    } else if dr == RANK_MINE {
         // 地雷
-        if sr == RANK_WORKER as i32 && st.cfg[2] == 1 {
+        if sr == RANK_WORKER && st.cfg[2] == 1 {
             // 工兵挖雷（cfg2 开）：工兵留位，雷消失
             st.cells[to] = src_cell;
             st.cells[from] = Cell::empty();
@@ -478,7 +478,7 @@ pub fn side_has_normal(st: &State, side: Side) -> bool {
         }
         let mut r = rank_of(c);
         if side == SIDE_RED && r > RANK_TOP {
-            r -= 0x0c; // 红方 +0xc 归一
+            r = Rank(r.0 - 0x0c); // 红方 +0xc 归一
         }
         if r == RANK_MINE || r == RANK_FLAG {
             continue;
@@ -560,9 +560,9 @@ mod tests {
         s.mode = MODE_LAY; // 明棋
         s.cfg = [1, 1, 1, 1, 0]; // 暗棋门槛关（明棋场景）
         // 蓝 (5,0)=idx25 rank3 revealed=1 side=BLUE
-        s.cells[25] = Cell { rank: 3, side: SIDE_BLUE, revealed: true };
+        s.cells[25] = Cell { rank: Rank(3), side: SIDE_BLUE, revealed: true };
         // 红 (6,0)=idx30 rank8 revealed=1 side=RED
-        s.cells[30] = Cell { rank: 8, side: SIDE_RED, revealed: true };
+        s.cells[30] = Cell { rank: Rank(8), side: SIDE_RED, revealed: true };
         s.turn = SIDE_BLUE;
         s
     }
@@ -593,7 +593,7 @@ mod tests {
         // 蓝 25(rank3) → 红 30(rank8)：相邻 25(5,0)→? 30(6,0) 同列相邻一步
         let ev = try_move(&mut s, 25, 30).unwrap();
         assert_eq!(ev, Ev::Eat, "rank3 吃 rank8 = EV_EAT");
-        assert_eq!(s.cells[30].rank, 3, "吃子后蓝子落 30");
+        assert_eq!(s.cells[30].rank, Rank(3), "吃子后蓝子落 30");
         assert!(s.cells[25].is_empty(), "源格清空");
         assert_eq!(s.turn, SIDE_RED, "切到红方");
     }
@@ -604,8 +604,8 @@ mod tests {
         let mut s = State::new();
         s.mode = MODE_LAY;
         s.cfg[4] = 0;
-        s.cells[25] = Cell { rank: 5, side: SIDE_BLUE, revealed: true };
-        s.cells[30] = Cell { rank: 5, side: SIDE_RED, revealed: true };
+        s.cells[25] = Cell { rank: Rank(5), side: SIDE_BLUE, revealed: true };
+        s.cells[30] = Cell { rank: Rank(5), side: SIDE_RED, revealed: true };
         s.turn = SIDE_BLUE;
         let ev = try_move(&mut s, 25, 30).unwrap();
         assert_eq!(ev, Ev::Eat, "同级互杀 = EV_EAT（非 BOMB）");
@@ -619,7 +619,7 @@ mod tests {
         s.mode = MODE_LAY;
         s.cfg[4] = 0;
         s.cells[25] = Cell { rank: RANK_BOMB, side: SIDE_BLUE, revealed: true };
-        s.cells[30] = Cell { rank: 5, side: SIDE_RED, revealed: true };
+        s.cells[30] = Cell { rank: Rank(5), side: SIDE_RED, revealed: true };
         s.turn = SIDE_BLUE;
         let ev = try_move(&mut s, 25, 30).unwrap();
         assert_eq!(ev, Ev::Bomb, "炸弹同归 = EV_BOMB");
@@ -633,7 +633,7 @@ mod tests {
         s.mode = MODE_LAY;
         s.cfg[4] = 0; // 暗棋门槛关（明棋任意子可扛旗）
         s.cfg[3] = 1; // 吃旗开关开
-        s.cells[25] = Cell { rank: 2, side: SIDE_BLUE, revealed: true };
+        s.cells[25] = Cell { rank: Rank(2), side: SIDE_BLUE, revealed: true };
         s.cells[30] = Cell { rank: RANK_FLAG, side: SIDE_RED, revealed: true };
         s.turn = SIDE_BLUE;
         let ev = try_move(&mut s, 25, 30).unwrap();
@@ -648,7 +648,7 @@ mod tests {
         let mut s = State::new();
         s.mode = MODE_FLIP;
         s.cfg[4] = 1;
-        s.cells[25] = Cell { rank: 3, side: SIDE_UNKNOWN, revealed: false };
+        s.cells[25] = Cell { rank: Rank(3), side: SIDE_UNKNOWN, revealed: false };
         s.turn = SIDE_BLUE;
         assert!(can_flip(&s, 25), "0xFF 当前方可翻");
         assert!(flip(&mut s, 25));
@@ -676,7 +676,7 @@ mod tests {
         // 红方全空 + 已翻 + 无子 → 红困毙
         s.turn = SIDE_RED;
         // 红无任何子（全空），蓝有 1 已翻子
-        s.cells[25] = Cell { rank: 3, side: SIDE_BLUE, revealed: true };
+        s.cells[25] = Cell { rank: Rank(3), side: SIDE_BLUE, revealed: true };
         assert!(side_stalemated(&s, SIDE_RED), "红无子可动=困毙");
         assert!(!side_stalemated(&s, SIDE_BLUE), "蓝有子=未困毙");
     }
@@ -701,7 +701,7 @@ mod tests {
         let mut s = State::new();
         s.mode = MODE_LAY;
         s.cfg[2] = 1;
-        s.cells[25] = Cell { rank: 5, side: SIDE_BLUE, revealed: true };
+        s.cells[25] = Cell { rank: Rank(5), side: SIDE_BLUE, revealed: true };
         s.cells[30] = Cell { rank: RANK_MINE, side: SIDE_RED, revealed: true };
         s.turn = SIDE_BLUE;
         s.moves_since_eat = 5;
@@ -717,8 +717,8 @@ mod tests {
         let mut s = State::new();
         s.mode = MODE_LAY;
         s.cfg[4] = 0;
-        s.cells[25] = Cell { rank: 8, side: SIDE_BLUE, revealed: true };
-        s.cells[30] = Cell { rank: 1, side: SIDE_RED, revealed: true };
+        s.cells[25] = Cell { rank: Rank(8), side: SIDE_BLUE, revealed: true };
+        s.cells[30] = Cell { rank: Rank(1), side: SIDE_RED, revealed: true };
         s.turn = SIDE_BLUE;
         s.moves_since_eat = 7;
         let ev = try_move(&mut s, 25, 30).unwrap();
@@ -731,8 +731,8 @@ mod tests {
     fn init_mingqi_red_encoded() {
         let s = State::new();
         let mut s2 = State::new();
-        s2.cells[30] = Cell { rank: 15, side: SIDE_RED, revealed: true }; // 红 rank3 编码 3+0xc
-        assert_eq!(rank_of(&s2.cells[30]), 3, "明棋红方 rank+0xc 还原");
+        s2.cells[30] = Cell { rank: Rank(15), side: SIDE_RED, revealed: true }; // 红 rank3 编码 3+0xc
+        assert_eq!(rank_of(&s2.cells[30]), Rank(3), "明棋红方 rank+0xc 还原");
         assert_eq!(s.turn, SIDE_BLUE, "开局蓝先手");
         assert_eq!(s.stage, crate::state::Stage::Play);
         assert_eq!(s.winner, Winner::None);
@@ -744,8 +744,8 @@ mod tests {
         let mut s = State::new();
         s.mode = crate::state::MODE_FLIP;
         s.cfg[4] = 1;
-        s.cells[25] = Cell { rank: 3, side: SIDE_UNKNOWN, revealed: false };
-        s.cells[30] = Cell { rank: 5, side: SIDE_UNKNOWN, revealed: false };
+        s.cells[25] = Cell { rank: Rank(3), side: SIDE_UNKNOWN, revealed: false };
+        s.cells[30] = Cell { rank: Rank(5), side: SIDE_UNKNOWN, revealed: false };
         assert_eq!(s.cells[25].side, SIDE_UNKNOWN, "暗棋开局未定色 0xFF");
         assert!(flip(&mut s, 25));
         assert_eq!(s.cells[25].side, SIDE_BLUE, "蓝首翻定色蓝");
