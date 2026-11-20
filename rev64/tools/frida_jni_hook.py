@@ -8,6 +8,12 @@
   arm64 so。**但 /proc/pid/maps 能看到**（base=0x400020800000 高位 guest 段）！
   → 解法：so 基址（从 /proc/maps）+ JNI 符号偏移（readelf 设备 so）= 绝对地址，
     **直接 Interceptor.attach(ptr(addr))**，不依赖模块枚举。
+  ★ 2026-11-20 实测（root 权限下）：地址计算正确（base+off=0x4000209e75ac），
+    `ptr(addr).readByteArray(8)` **能读到 ARM64 指令字节**（7f454c46... ELF header /
+    294140f8... 代码）——**内存可读**；但 `Interceptor.attach(addr)` 报
+    `access violation accessing 0x5d233777ac`（frida 内部把 guest 地址转换到 host 失败）
+    → **houdini 转译的本质限制：guest 地址内存可读，但真实执行的是 houdini 翻译后的
+    host 代码，guest 地址不是执行 PC → frida 代码 hook 拦不到**。非权限问题（root 已验证）。
 
 链路：
   1. adb 读 /proc/pid/maps 拿 lib/arm64/libjunqi.so 的 r--p 首段基址
