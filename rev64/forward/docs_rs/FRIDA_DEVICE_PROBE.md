@@ -101,6 +101,15 @@ MuMu 就是真机，Frida 行，只是要找对 hook 点**（host 侧 JNI 桥梁
   无法稳定运行 → **native hook so 内导出这条路在本环境不通**。
   ★ 正解仍是 host 侧 JNI 桥梁 hook（PASS），无需 arm64 server。
 
+**★ so 版本口径澄清（2026-11-20 核对）**：设备上 `com.qwsaeda.junqirs` 装的 so
+（md5 `9b8544d2...`，6992448B）是**正向 Rust 重写版**（`src_rs_rust`，readelf 实锤
+`junqi_rs::jni::android_impl::with_lock` 泛型单态化 LOCAL 符号）——不是本会话的 C 版
+src_rs（md5 `05ce20b0...`）。**两条路都导出 C ABI 14 个 `Java_com_qwsaeda_App_*`**
+（nm -D 实锤），所以 Frida 探针的 14 入口判据通用。Rust 版特征：`OnPause`/`OnResume`/
+`OnGraphCreate` 三个入口共用 trampoline `0x1e7dec`（运行时按 JNI 函数标识分发），
+非抄错。readelf -Ws 的"41 个 Java_com"= 14 个 GLOBAL 导出 + 27 个 Rust 泛型单态化
+LOCAL 符号，不是 41 个 JNI 入口（口径 14 正确）。
+
 **进程名口径（用户 2026-11-20 纠正）**：
 - **"新军棋" = `com.qwsaeda.junqirs`** = 正向新版（arm64 so，当前设备唯一装载）
 - **"军棋" = `com.cnvcs.junqi`** = 原版（32 位 so，文档 §8.1 标准 Frida 场景，

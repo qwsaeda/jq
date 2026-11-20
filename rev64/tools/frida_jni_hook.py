@@ -35,11 +35,12 @@ except ImportError:
 
 PKG = 'com.qwsaeda.junqirs'
 
-# 设备 so（com.qwsaeda.junqirs 当前装载版 6992448B）JNI 符号偏移（readelf 实测）
-JNI_OFFSETS = {
-    'OnCreate': 0x1e75ac, 'OnDestroy': 0x1e7968, 'OnPause': 0x7dec,  # 修正见下
-}
-# 用完整准确表（上面 OnPause/OnResume 与 OnGraphCreate 同偏移是 readelf 对齐，需重新核对）
+# 设备 so（com.qwsaeda.junqirs 当前装载版 6992448B）JNI 符号偏移
+# ★ nm -D 实测真值（2026-11-20 核对）：设备装的是 Rust 重写版（src_rs_rust，
+#   含 junqi_rs::jni::android_impl::with_lock 泛型单态化 LOCAL 符号），但仍导出
+#   C ABI 14 个 Java_com_qwsaeda_App_* 动态符号。
+#   OnPause / OnResume / OnGraphCreate 三个入口**确实同为 0x1e7dec**——Rust 版
+#   共用同一 trampoline（运行时按 JNI 函数标识分发），非抄错/非 readelf 对齐误差。
 JNI_OFFSETS = {
     'OnCreate': 0x1e75ac, 'OnDestroy': 0x1e7968,
     'OnPause': 0x1e7dec, 'OnResume': 0x1e7dec,
