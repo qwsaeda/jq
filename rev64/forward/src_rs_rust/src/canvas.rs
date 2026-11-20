@@ -44,9 +44,17 @@ mod imp {
                 &[JValue::Object(&JObject::null())])
             .map_err(|e| e.to_string())?.l().map_err(|e| e.to_string())?;
 
-        // ④ Canvas.drawBitmap(bitmap, 0.0, 0.0, null)
+        // ④ Bitmap.createScaledBitmap(bitmap, 900, 1600, false) → 缩放小图到全屏（降 CPU 合成量）
+        let scaled = match env.call_static_method("android/graphics/Bitmap", "createScaledBitmap",
+                "(Landroid/graphics/Bitmap;IIZ)Landroid/graphics/Bitmap;",
+                &[JValue::Object(&bitmap), JValue::Int(900), JValue::Int(1600), JValue::Bool(0)])
+            .ok().and_then(|v| v.l().ok()) {
+                Some(b) => b,
+                None => return Err("createScaledBitmap failed".into()),
+            };
+        // ⑤ Canvas.drawBitmap(scaled, 0,0, null)
         env.call_method(&canvas, "drawBitmap", "(Landroid/graphics/Bitmap;FFLandroid/graphics/Paint;)V",
-            &[JValue::Object(&bitmap), JValue::Float(0.0), JValue::Float(0.0), JValue::Object(&JObject::null())])
+            &[JValue::Object(&scaled), JValue::Float(0.0), JValue::Float(0.0), JValue::Object(&JObject::null())])
             .map_err(|e| e.to_string())?;
 
         // ⑤ Surface.unlockCanvasAndPost(canvas)
