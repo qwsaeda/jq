@@ -68,7 +68,8 @@ python3 rev64/tools/fuzz_probe_check.py --games 2000 --touch 100000 --events 200
 
 | 日期 | seed | 变异器 | 证据摘录 | 定位 | 修复 | 复跑 |
 |---|---|---|---|---|---|---|
-| — | — | — | （0 FAIL） | — | — | — |
+| 2026-11-20 | — | F5（首版契约误用） | "随机局 write 失败"误报（实为契约1 返 1 成功，首版判 `==0 成功`） | save.c:113 `return 1`（write 契约）+ fuzz_probe.c 首版 F5 `CHECK(jq_save_game_write(...) == 0)` 判据反 | 契约1 改 `==1 成功` + 随机合法域 200 局零漂移 + 脏枚举（winner=3/-5）单列拒读 + 越域格归零契约3 + 毒化 back 判据 | 3 seed 全 PASS（84ac5ff 全判据回归 + fuzz_probe_check 复跑） |
+| 2026-11-20 | — | F1/F2/F3 历史 | 首跑 3 seed 全 PASS（0 真崩溃 FAIL） | — | — | — |
 
 ## 5. 经验库（渗透轮专用，防复发）
 
