@@ -103,7 +103,11 @@ mod imp {
                                     let ay = (sr * cell_h + py * cell_h / ph).min(ah as usize - 1);
                                     let ai = (ay * aw as usize + ax) * 4;
                                     if ai + 3 < atile.len() && atile[ai+3] > 10 {
-                                        out[di] = atile[ai]; out[di+1] = atile[ai+1]; out[di+2] = atile[ai+2]; out[di+3] = 255; continue;
+                                        let ar = atile[ai] as u32; let ag = atile[ai+1] as u32; let ab = atile[ai+2] as u32;
+                                        // 跳过图集 cell 间的黑色分隔（亮度<45）：用阵营底色
+                                        if ar + ag + ab > 120 {
+                                            out[di] = ar as u8; out[di+1] = ag as u8; out[di+2] = ab as u8; out[di+3] = 255; continue;
+                                        }
                                     }
                                 }
                                 out[di] = base[0]; out[di+1] = base[1]; out[di+2] = base[2]; out[di+3] = 255;
