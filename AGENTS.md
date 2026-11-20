@@ -523,9 +523,10 @@ java -cp /tmp/opencode/apksigner/apksig.jar:/tmp/opencode/apksigner SignV2 \
   `__system_property_get` 运行期不可见 / houdini PC 相对偏移失真 / 前台抢占致 GL 暂停）
   在真机不存在，仅作模拟器环境史存档，**不作真机缺陷依据、不作逆向进度依据**；
   32 位侧验收基准 = **真机**，模拟器仅作冒烟（不崩 + 不误判）。
-  **★ 渗透轮入口（2026-11-20，无蓝牙 4 变异器）**：`python3 rev64/tools/fuzz_probe_check.py`
-  （`fuzz_probe.c` F1 随机对弈/F2 触摸坐标/F3 事件注入/F4 undo 边界，ASan 防假绿 + 可复现性判据；
-  `make fuzzprobe` 构建；FAIL 台账 + 白盒定位回路见 `rev64/forward/docs_rs/FUZZ_PENETRATION.md`）。
+  **★ 渗透轮入口（2026-11-20，无蓝牙 5 变异器）**：`python3 rev64/tools/fuzz_probe_check.py`
+  （`fuzz_probe.c` F1 随机对弈/F2 触摸坐标/F3 事件注入/F4 undo 边界/F5 存档 round-trip，
+  ASan 防假绿 + 可复现性判据；`make fuzzprobe` 构建；FAIL 台账 + 白盒定位回路
+  见 `rev64/forward/docs_rs/FUZZ_PENETRATION.md`）。
   **设备 4 项判据脚本（§124y-241~246 根治）**：`arm32_hook_check.sh` 含 launch_hook 轮询
   90s（转译冷启动 §124y-188）+ classify_crash backtrace 段归属判读（ART 层=转译环境容忍 /
   libjunqi so 段=回归 §124y-243）+ 64 位干扰 app 清理前置（qwsaeda/zxj 并行 GL 竞争

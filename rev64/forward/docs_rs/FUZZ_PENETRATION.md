@@ -75,5 +75,7 @@ python3 rev64/tools/fuzz_probe_check.py --games 2000 --touch 100000 --events 200
 - **随机数生成器单测前置**：xorshift32 实现 bug 曾被 3 seed 输出一致性掩盖（§0.2）。任何 fuzz 主链改 rng 必须 `/tmp` 独立单测 5 值序列再入主链
 - **抽样漏候选 ≠ 死循环**：F1 随机抽样漏 → 误报困毙（合法终局）掩盖真死循环。判据必须双段（随机抽样 + 全量兜底）+ `guard 截断` 与 `无候选` 分开计数（§0.1）
 - **rank/side 存储域用 `junqi.h` 真值**：红方已翻 `rank+0xc`（域 `[13,24]`），side `0xFF`=UNKNOWN 合法（§0.3）
+- **存档契约1 假绿（首版踩坑）**：`jq_save_game_write/read` 返回 **1=成功 0=失败**（save.c 末 return 1），首版误用 `==0 成功` → "write 失败"误报 + round-trip 恒 0 假绿。教训：**fuzz 判据必须先用"合法用例必 PASS"正向校准契约（write 返 1），再上随机化**——随机合法域 200 局全零漂移 + 脏枚举单列拒读判据（§1 F5 + §3 诚实边界 F5 契约段）
+- **脏存档拒读 + 毒化 back 判据**：`memset(&back, 0xFF)` 毒化后再 `jq_save_game_read`，拒读契约（返 0）时 back 必保留 0xFF（st 不污染原子语义）；若 back 被半读污染则 `(uint8_t*)&back[0] != 0xFF` → FAIL（R41-Q16 短读污染 st 根治判据同源）
 - **ASan 假绿防护**：`fuzz_probe_check.py` 即便 rc=0 也扫 `ERROR: AddressSanitizer`（ASan 默认 abort 非 0，但链接错误/静默降级场景 rc=0 也须扫 report 文本）
 - **可复现判据**：同 seed 重跑 F1 行逐字比对（非"都 PASS 就行"）——随机路径可复现 = 修了才能证复跑不崩
