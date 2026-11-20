@@ -6,6 +6,19 @@
 > 数据源：`/tmp/opencode/jq_apk/dec/smali/com/cnvcs/*.smali`（原版 APK 解码产物）。
 > 与 `jni_reversal_report.md`（native JNI 入口逆向）互补：那份分析 native 侧，本文分析 Java 侧。
 
+## 执行摘要：Java 层的"业务逻辑"到底是什么？
+**一句话：Java 层没有游戏业务逻辑——棋盘、规则、走子、吃子、AI、胜负全在 native so；Java 只是"壳 + 转发器"。**
+
+| 问题 | 答案 |
+|---|---|
+| 棋盘/棋子状态在哪？ | native `libjunqi.so`（`.bss` 全局 `jq_state`），Java 侧**零**棋盘数组 |
+| 走子/吃子/胜负规则在哪？ | native（14 JNI 入口 + 规则函数），Java 只把触摸坐标转给 `OnTouch` |
+| AI 在哪？ | native（OnUpdate/OnTimer 驱动），Java Handler 只负责 100ms 周期的"闹钟" |
+| Java 自己实现的逻辑有哪些？ | ① 生命周期桥 ② GLThread 渲染驱动（标准 GLSurfaceView 模板）③ 输入转发 ④ 辅助 UI：SiteView(WebView 网页) / InputDlg·TextDlg(文本输入弹窗) / AdLis(广告回调) / BtReceiver(蓝牙广播转发) |
+| 有专门文档吗？ | 本文即 Java 层专门分析；native 侧见 `jni_reversal_report.md`；业务规则见 `rev64/forward/docs_rs/SPEC_BUSINESS.md` |
+
+**实证**：App.smali 28 方法中 12 处 `invoke-static App;->On*`（转发 native），14 个 native 声明无方法体；SiteView/AdLis 对 App.native 调用 0 次（属独立 UI/广告逻辑，不碰游戏状态）；Java 侧搜不到棋盘数组/Canvas 游戏绘制（只有 GL 模板的 renderer 调用）。
+
 ## 0. 整体架构（Java 层是薄壳）
 
 原版游戏核心逻辑全在 native `libjunqi.so`（14 个 JNI 导出，见 `jni_reversal_report.md`）。
