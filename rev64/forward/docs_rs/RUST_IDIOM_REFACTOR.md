@@ -39,3 +39,9 @@
 - so 三方对账 37bbefeb（本机=APK=设备）
 - `rust_anything_check.py` 判据适配 newtype 常量抽取（兼容旧 u8 + 新 `Rank::BOMB=Rank(10)` 两种格式）
 - 核心层现在是类型安全 Rust：`Rank` newtype + `Side` enum + `revealed: bool` + `Option` 哨兵 + `VecDeque/HashSet`，无裸 u8/i32 魔法数混用
+
+## JNI 壳统一用 jni crate（2026-11-20 续，用户指出 jni.rs 应对接 Rust jni 库）
+- 原状：jni.rs 依赖 `jni = "0.21"`，但 OnCreate 一段（7 处 `envf.FindClass/GetMethodID/NewObject/...`）仍手写 JNINativeInterface 裸函数指针表——逐行照搬 C jni_bridge.c 的 C-in-Rust 残留。
+- 改：OnCreate 整段改用 jni crate 安全封装（`JNIEnv::from_raw` + `new_object`/`call_method`/`new_global_ref`），裸函数指针残留归零。
+- **踩坑固化（真机判据抓到）**：jni crate 的 `GlobalRef` 是 RAII 局部对象，函数返回 drop 会 `DeleteGlobalRef` → G_VIEW 悬空 → 渲染线程 `call_method(getHolder)` 内部 `get_object_class` 崩 SIGSEGV（fault 0x0）。修：`std::mem::forget(global)` 保持 global ref 存活，对齐旧裸指针版"从不 DeleteGlobalRef"生命周期语义。
+- 判据守门：95 测试 / 0 警告 / 14 符号 / 154 case / align_gate 全 PASS；真机 5 判据复验（装 pid=55033 / 出屏 rendering / wgpu_step=win_ok / 走子 Move / so d12ccc38）。

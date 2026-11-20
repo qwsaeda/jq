@@ -194,77 +194,43 @@ mod android_impl {
         //   smali 拿非 null GLView → setOnTouchListener + setRenderer + GLThread 启动
         //   → 渲染线程持续调 native OnUpdate → wgpu 出屏通路激活。
         //   Rust 旧返回 null → Java 兜底 GLView → native 渲染线程不启动 → 无出屏（58.8% 根因）。
-        unsafe {
-            let envf = &**env; // env: *mut JNIEnv → 解两层到 JNINativeInterface_
-            let find_class = match envf.FindClass {
-                Some(f) => f,
-                None => return std::ptr::null_mut(),
-            };
-            let get_method = match envf.GetMethodID {
-                Some(f) => f,
-                None => return std::ptr::null_mut(),
-            };
-            let new_object = match envf.NewObject {
-                Some(f) => f,
-                None => return std::ptr::null_mut(),
-            };
-            let name = c"com/qwsaeda/GLView";
-            let cls = find_class(env, name.as_ptr() as *const _);
-            if cls.is_null() {
-                return std::ptr::null_mut();
-            }
-            let init = c"<init>";
-            let sig = c"(Landroid/content/Context;)V";
-            let ctor = get_method(env, cls, init.as_ptr() as *const _, sig.as_ptr() as *const _);
-            if ctor.is_null() {
-                return std::ptr::null_mut();
-            }
-            // NewObject(env, cls, ctor, activity)——变参函数，Context 单个 jobject 参数
-            let view = new_object(env, cls, ctor, activity);
-            if view.is_null() {
-                return view;
-            }
-            // 对齐 C jni_bridge.c:2727：setEGLContextClientVersion(2) 须在 GLThread start 前调
-            let set_ver = c"setEGLContextClientVersion";
-            let sig_ver = c"(I)V";
-            let mid_ver = get_method(env, cls, set_ver.as_ptr() as *const _, sig_ver.as_ptr() as *const _);
-            if !mid_ver.is_null() {
-                if let Some(f) = envf.CallVoidMethod {
-                    f(env, view, mid_ver, 2i32);
-                }
-            }
-            // ★ 出屏根因修复（对齐 C jni_bridge.c:2740）：native OnCreate 内调 activity.setContentView(view)
-            //   smali onCreate 拿到 GLView 后只 setOnTouchListener+setRenderer，无 setContentView
-            //   → view 不 attach → GLThread 不启动 → surfaceCreated 不触发 → OnUpdate 永不被调
-            //   → wgpu 无出屏。此处补 setContentView(view) 激活 Java GLThread 出帧链。
-            let act_cls = match envf.GetObjectClass {
-                Some(f) => f(env, activity),
-                None => return view,
-            };
-            if !act_cls.is_null() {
-                let set_cv = c"setContentView";
-                let sig_cv = c"(Landroid/view/View;)V";
-                let mid_cv = get_method(env, act_cls, set_cv.as_ptr() as *const _, sig_cv.as_ptr() as *const _);
-                if !mid_cv.is_null() {
-                    if let Some(f) = envf.CallVoidMethod {
-                        f(env, activity, mid_cv, view);
-                    }
-                }
-            }
-            // 保存 GLView global ref（OnUpdate 用它拿 Surface → ANativeWindow → wgpu Surface）
-            let new_global = match envf.NewGlobalRef {
-                Some(f) => f,
-                None => return view,
-            };
-            unsafe { G_VIEW = new_global(env, view); }
-            // ★ native EGL 渲染线程独占 window（setRenderer 已在 smali 移除，避免 0x3003）
-            //   线程内 attach JVM 轮询 Surface→ANativeWindow→eglCreateWindowSurface→画→swap
-            // 纯 Rust wgpu 渲染线程（offscreen → lockCanvas；Surface 已 null-safe patch + GLThread 已移除）
-            unsafe { crate::wgpu_thread::start(G_VM, G_VIEW as usize, 900, 1600); }
-            
-            // requestRender 不在 native 调：view attach 后 Java GLThread 自会出首帧（提前调 NPE）
-            view
-        }
+        // ★ 统一用 jni crate 安全封装（不再手写 JNINativeInterface 裸函数指针表——
+        //   那是逐行照搬 C jni_bridge.c 的 C-in-Rust 写法；jni 0.21 已在依赖中）。
+        //   行为与旧裸指针版逐点等价：find_class → new_object → setEGLContextClientVersion(2)
+        //   → setContentView(view) → NewGlobalRef → 启动渲染线程，失败点返回 null/view。
+        let mut je = match unsafe { jni::JNIEnv::from_raw(env) } {
+            Ok(e) => e,
+            Err(_) => return std::ptr::null_mut(),
+        };
+        let activity_obj = unsafe { jni::objects::JObject::from_raw(activity) };
+        const VIEW_CLASS: &str = "com/qwsaeda/GLView";
+        // new_object 内部按类名 find_class（失败返 Err，已被下方 match 捕获）——无需单独 find_class
+        let view = match je.new_object(
+            VIEW_CLASS,
+            "(Landroid/content/Context;)V",
+            &[jni::objects::JValue::Object(&activity_obj)],
+        ) {
+            Ok(v) => v,
+            Err(_) => return std::ptr::null_mut(),
+        };
+        // 对齐 C jni_bridge.c:2727：setEGLContextClientVersion(2) 须在 GLThread start 前调
+        let _ = je.call_method(&view, "setEGLContextClientVersion", "(I)V", &[jni::objects::JValue::Int(2)]);
+        // ★ 出屏根因修复：native OnCreate 内调 activity.setContentView(view)，激活 Java GLThread 出帧链
+        let _ = je.call_method(&activity_obj, "setContentView", "(Landroid/view/View;)V", &[jni::objects::JValue::Object(&view)]);
+        // 保存 GLView global ref（OnUpdate 用它拿 Surface → ANativeWindow → wgpu Surface）
+        let global = match je.new_global_ref(&view) {
+            Ok(g) => g,
+            Err(_) => return view.into_raw(),
+        };
+        unsafe { G_VIEW = global.as_obj().as_raw(); }
+        // ★ GlobalRef 必须保持存活：若局部 global 在此 drop，NewGlobalRef 会被 DeleteGlobalRef
+        //   释放 → G_VIEW 悬空 → 渲染线程 call_method(getHolder) 崩 SIGSEGV（实测 fid）。
+        //   旧裸指针版 NewGlobalRef 从不 DeleteGlobalRef，成员 forget 对齐该生命周期语义。
+        std::mem::forget(global);
+        // ★ native EGL 渲染线程独占 window（setRenderer 已在 smali 移除，避免 0x3003）
+        unsafe { crate::wgpu_thread::start(G_VM, G_VIEW as usize, 900, 1600); }
+        // requestRender 不在 native 调：view attach 后 Java GLThread 自会出首帧（提前调 NPE）
+        view.into_raw()
     }
 
     #[no_mangle]
