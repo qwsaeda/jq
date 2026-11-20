@@ -26,14 +26,21 @@ mod imp {
         }
     }
 
+    /// 写结果文件（adb cat 读，比 setprop 可靠）
+    pub fn write_result(name: &str, value: &str) {
+        let path = format!("/data/user/0/com.qwsaeda.junqirs/files/jq_res_{}", name);
+        let _ = std::fs::write(&path, value.as_bytes());
+    }
+
     /// 文件钩子（adb echo 1 > /data/local/tmp/jq_hook_<name> 触发，native 读后删除）
     /// houdini 下 __system_property_get 读不到 adb 设的属性，文件更可靠
     pub fn hook_triggered(name: &str) -> bool {
         let path = format!("/data/local/tmp/jq_hook_{}", name);
-        if std::path::Path::new(&path).exists() {
-            let _ = std::fs::remove_file(&path);
-            true
-        } else { false }
+        // 用 open 读判断（不依赖 Path::exists，houdini 下更可靠）
+        match std::fs::read(&path) {
+            Ok(_) => { let _ = std::fs::remove_file(&path); true }
+            Err(_) => false,
+        }
     }
 
     /// 读系统属性（真机钩子触发，对齐 C setprop jq.movetest 范式）
@@ -72,7 +79,7 @@ mod imp {
     pub fn error(msg: &str) { log_buf(ANDROID_LOG_ERROR, msg); }
 }
 #[cfg(target_os = "android")]
-pub use imp::{error, getprop, hook_triggered, info, setprop, surface_to_window, window_release};
+pub use imp::{error, getprop, hook_triggered, info, setprop, surface_to_window, window_release, write_result};
 #[cfg(not(target_os = "android"))]
 pub fn info(_msg: &str) {}
 #[cfg(not(target_os = "android"))]
@@ -83,3 +90,5 @@ pub fn setprop(_name: &str, _value: &str) {}
 pub fn getprop(_name: &str) -> String { String::new() }
 #[cfg(not(target_os = "android"))]
 pub fn hook_triggered(_name: &str) -> bool { false }
+#[cfg(not(target_os = "android"))]
+pub fn write_result(_n: &str, _v: &str) {}
