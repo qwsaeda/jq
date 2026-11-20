@@ -35,6 +35,19 @@ STATIC_PASS=0; STATIC_FAIL=0
 echo "$STATIC_OUT" | grep -qE "PASS=([1-9][0-9]*) FAIL=0" && STATIC_PASS=1
 echo "$STATIC_OUT" | grep -q "FAIL=[1-9]" && STATIC_FAIL=1
 
+# 渗透轮 32 位（jqt_mem 内存路由 5 探针，设备无关，静态佐证同档；2026-11-20 新增）
+# rc：0=PASS  3=PENDING（jq_img.bin/gcc/ASan 缺失，非 so 回归）  2=FAIL（jqt_mem.c 回归）
+echo "── 渗透轮 32 位（jqt_mem_fuzz 5 探针，ASan 桌面直跑）──"
+FUZZ32_RC=0
+FUZZ32_OUT=$(bash "$WS/rev64/tools/jqt_mem_fuzz_check.sh" 2>&1); FUZZ32_RC=$?
+case $FUZZ32_RC in
+  0) FUZZ32="PASS";;
+  3) FUZZ32="PENDING（jq_img.bin/gcc/ASan 缺失，非 so 回归）";;
+  *) FUZZ32="FAIL（rc=$FUZZ32_RC，jqt_mem.c 内存路由回归——白盒定位回路）"
+     echo "$FUZZ32_OUT" | grep -E "FAIL|证据" | head -3;;
+esac
+echo "  32 位渗透轮: $FUZZ32"
+
 # 设备 4 项（可达则跑，不可达自动降级 PENDING）
 if [ "$STATIC_ONLY" = "1" ]; then
   echo "── 设备 4 项（--static-only，跳过）──"
@@ -51,16 +64,22 @@ fi
 
 echo "═══ 双端总入口汇总 ═══"
 echo "  静态 73 项: $( [ "$STATIC_PASS" = 1 ] && echo PASS || echo "FAIL（$STATIC_FAIL）" )"
+echo "  32 位渗透轮: $FUZZ32"
 echo "  设备 4 项:  $DEV_STATUS"
+FUZZ32_FAIL=0
+case "$FUZZ32" in FAIL*) FUZZ32_FAIL=1;; esac
 case "$DEV_STATUS" in
   PENDING) echo "  总判读: 静态 PASS + 设备 PENDING（环境掉线非 so 回归，等设备稳定窗口复验）"
            [ "$STATIC_FAIL" = 1 ] && exit 1
+           [ "$FUZZ32_FAIL" = 1 ] && { echo "★ 32 位渗透轮 FAIL（jqt_mem.c 回归，白盒定位）"; exit 1; }
            exit 0;;
   PASS)    echo "  总判读: 双端全 PASS（32 位逆向对齐基准成立）"
            [ "$STATIC_FAIL" = 1 ] && exit 1
+           [ "$FUZZ32_FAIL" = 1 ] && { echo "★ 32 位渗透轮 FAIL（jqt_mem.c 回归，白盒定位）"; exit 1; }
            exit 0;;
-  SKIPPED) echo "  总判读: 仅静态 PASS（--static-only 模式）"
+  SKIPPED) echo "  总判读: 静态 + 32 位渗透轮 PASS，设备侧 SKIPPED（--static-only 模式）"
            [ "$STATIC_FAIL" = 1 ] && { echo "★ 静态有 FAIL, 非通过"; exit 1; }
+           [ "$FUZZ32_FAIL" = 1 ] && { echo "★ 32 位渗透轮 FAIL（jqt_mem.c 回归，白盒定位）"; exit 1; }
            # ★ R19-P1: SKIPPED = 显式跳过设备侧, 退出码 2 (区分全 PASS rc=0 / PENDING rc=0 /
            # FAIL rc=1), 防调用方把 "--static-only 产物" 当 "双端全 PASS" 误报。
            echo "★ SKIPPED rc=2: 设备侧未验, 引用本结果时须标注 '仅静态'"

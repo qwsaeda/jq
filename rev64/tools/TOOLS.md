@@ -1,5 +1,13 @@
 # rev64/tools 工具清单（机械化工具，别再手写内联脚本）
 
+## 渗透轮（2026-11-20 新增，无蓝牙）
+
+| 工具 | 用途 | 用法 |
+|---|---|---|
+| `fuzz_probe_check.py` | **正向 C 渗透轮判据**（src_rs 5 变异器 F1 随机对弈/F2 触摸/F3 事件/F4 undo/F5 存档，ASan 防假绿 + 可复现性） | `python3 rev64/tools/fuzz_probe_check.py [--seed N] [--seeds 7,42,999]`（`make fuzzprobe` 构建，PENDING 加 `--offline`） |
+| `jqt_mem_fuzz_check.sh` | **32 位翻译体渗透轮判据**（jqt_mem.c 内存路由 5 探针 M1-M5，ASan 桌面 x86_64 直跑不插桩 jqt_mem.c + wrap 桩） | `bash rev64/tools/jqt_mem_fuzz_check.sh [--seed N] [--seeds 7,42,999]`（PENDING=jq_img.bin/gcc/ASan 缺失） |
+| 台账 | 渗透回路 + FAIL 台账 + 32/64 位语义差诚实边界（mincore flaky/maps 截断） | `rev64/forward/docs_rs/FUZZ_PENETRATION.md` |
+
 ## src_rs 源码重写路线（本轮新增 5 个 + 原有工具）
 
 | 工具 | 用途 | 用法 |
