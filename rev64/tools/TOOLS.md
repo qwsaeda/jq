@@ -1,5 +1,11 @@
 # rev64/tools 工具清单（机械化工具，别再手写内联脚本）
 
+## rust-anything 行为对齐门禁（2026-11-20）
+
+| 工具 | 用途 | 用法 |
+|---|---|---|
+| `rust_anything_check.py` | 原版 32 位 so 行为 → Rust 移植逐 case 对齐（动态抽取 `jq_rs_rules.c` ai_score + `jq_rs_rules.h` RANK_* 常量，154 case 录制 + diff + gate + 负向分叉可检出；隔离 tmpdir 构建不污染工作区） | `python3 rev64/tools/rust_anything_check.py [--keep-tmp]` |
+
 ## 渗透轮（2026-11-20 新增，无蓝牙）
 
 | 工具 | 用途 | 用法 |
