@@ -536,7 +536,9 @@ java -cp /tmp/opencode/apksigner/apksig.jar:/tmp/opencode/apksigner SignV2 \
   见 `rev64/forward/docs_rs/FUZZ_PENETRATION.md`）。
   **★ 32 位翻译体渗透轮（2026-11-20，逆向专属）**：`bash rev64/tools/jqt_mem_fuzz_check.sh`
   （`jqt_mem_fuzz.c` 5 探针 M1 路由 100000/M2 契约/M3 二分/M4 GOT 18 槽/M5 rebuild 幂等，
-  ASan 桌面 x86_64 直跑 jqt_mem.c 不插桩；32/64 位语义差诚实边界 = mincore flaky 不判 FAIL；
+  ASan 桌面 x86_64 直跑 jqt_mem.c 不插桩；**`jqt_mem_fuzz32.c` 32 位真地址空间解引用版**
+  （`setarch linux32` + gcc -m32，3 seed 全 PASS：100000 次解引用 0 崩溃 + 高位未映射
+  0 误命中）→ **关闭 32/64 位截断语义差诚实边界**；mincore flaky 不判 FAIL；
   3 位逆向 app com.zxj.junqirs 内存子系统风险区降档判据）。
   **设备 4 项判据脚本（§124y-241~246 根治）**：`arm32_hook_check.sh` 含 launch_hook 轮询
   90s（转译冷启动 §124y-188）+ classify_crash backtrace 段归属判读（ART 层=转译环境容忍 /
