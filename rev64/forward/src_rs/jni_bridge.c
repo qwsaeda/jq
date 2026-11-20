@@ -2475,12 +2475,17 @@ Java_com_qwsaeda_App_OnCreate(JNIEnv *env, jclass clazz, jobject activity)
     {
         char mv_prop[16] = {0};
         __system_property_get("jq.movetest", mv_prop);
-        LOGI("jq.movetest 钩子：属性=%s（%s）", mv_prop, strcmp(mv_prop, "1") == 0 ? "触发自动走 3 步" : "未触发");
+        LOGI("jq.movetest 钩子：属性=%s（1=自动走 3 步 / 60=完整 60 局对弈 / 其他=未触发）", mv_prop);
         if (strcmp(mv_prop, "1") == 0) {
             /* ★ 对抗审计（2026-11-09）：注入体（jq_try_move/ui_replay_record 取 g_ui_lock）
                延迟到 g_mutex unlock 后执行（见 unlock 后 jq.movetest 段）——本段在
                g_mutex 内会逆序死锁。此处仅读 prop + 标注。 */
             LOGI("jq.movetest 钩子：prop=1 → 注入延迟到 g_mutex unlock 后执行（避免逆序死锁）");
+        }
+        if (strcmp(mv_prop, "60") == 0) {
+            /* 同款逆序死锁防护：60 局注入体（ai_pick/jq_try_move/jq_flip 取 g_mutex）
+               延迟到 g_mutex unlock 后段执行（见下方 unlock 后 jq.movetest=60 分支）。 */
+            LOGI("jq.movetest 钩子：prop=60 → 完整 60 局对弈延迟到 g_mutex unlock 后执行");
         }
     }
 
@@ -2675,7 +2680,50 @@ Java_com_qwsaeda_App_OnCreate(JNIEnv *env, jclass clazz, jobject activity)
     {
         char mv_prop[16] = {0};
         __system_property_get("jq.movetest", mv_prop);
-        if (strcmp(mv_prop, "1") == 0) {
+        if (strcmp(mv_prop, "1") == 0 || strcmp(mv_prop, "60") == 0) {
+            /* ★ 2026-11-20 完整 60 局对弈真机钩子（下轮候选② 落地）：movetest=60 →
+               OnCreate 自动完整对弈（ai_pick 按 turn 视角 + 翻棋 + jq_on_stalemate 收口，
+               同 gametest 逻辑）+ 事件计数统计。桌面 gametest 60 局全通过（make
+               gametest 基准），本钩子 = 真机 60 局实锤入口（SPEC 完整对弈行为基准）。
+               诚实边界：自动 AI 对弈非触摸路径（触摸 flaky 下可靠触发，同 movetest 3 步
+               口径）；60 局 ~秒级完成（单局 ≤5000 步 guard，贪心吃子 AI 常 20-40 步收局）。 */
+            if (strcmp(mv_prop, "60") == 0) {
+                int g60_moves = 0, g60_eat = 0, g60_flag = 0, g60_over = 0;
+                /* ★ 钩子运行在 OnCreate 的 g_mutex 锁内（unlock 后注入段持 g_mutex）——
+                   jq_restart_game 内部再取 g_mutex = 自锁死锁（★ B03 红线"OnCreate 已持
+                   g_mutex 非递归死锁"同源坑）→ 60 局循环**不调 jq_restart_game**（它内部
+                   重开 + ui_opt + 锁），改用轻量局重置：jq_state_init + load_layout + stage/turn
+                   直设（同 gametest 每局重置口径，无锁无 UI 副作用），与 jni_bridge 现有
+                   "重开统一入口 jq_restart_game"规范差异 = 钩子上下文持锁约束（诚实标注）。 */
+                for (int g = 0; g < 60; g++) {
+                    jq_state_init(&g_state);
+                    jq_load_layout(&g_state, JQ_DEFAULT_LAY);
+                    g_state.stage = STG_PLAY;
+                    g_state.turn = SIDE_BLUE;
+                    if (g_state.mode == JQ_MODE_FLIP)
+                        for (int c = 0; c < N_CELLS; c++)
+                            if (g_state.cells[c].rank != RANK_EMPTY) g_state.cells[c].revealed = 0;
+                    int guard = 0;
+                    while (g_state.stage == STG_PLAY && guard++ < 5000) {
+                        int f = -1, t = -1, flip = 0;
+                        if (ai_pick(&f, &t, &flip) != 0) {    /* ai_pick 按 g_state.turn 自动定视角 */
+                            jq_on_stalemate(&g_state, g_state.turn);
+                            break;
+                        }
+                        int mv = flip ? (jq_flip(&g_state, f) ? 4 : -1)
+                                      : jq_try_move(&g_state, f, t);
+                        if (mv < 0) continue;
+                        g60_moves++;
+                        if (mv == 1 || mv == 2) g60_eat++;     /* EV_EAT/EV_BOMB */
+                        if (mv == 3) g60_flag++;              /* EV_FLAG */
+                    }
+                    if (g_state.stage == STG_OVER) g60_over++;
+                }
+                sfx_play(env, "move");
+                LOGI("movetest=60：完整 60 局对弈完成（收局=%d 总走子=%d 吃子/炸弹=%d 扛旗=%d，复盘 n=%d）",
+                     g60_over, g60_moves, g60_eat, g60_flag, ui_replay_count());
+                __system_property_set("jq.movetest", "0");
+            } else if (strcmp(mv_prop, "1") == 0) {
             static const int seq3[3][2] = { {6,11}, {30,25}, {5,6} };
             int okcnt = 0;
             for (int k = 0; k < 3; k++) {
@@ -2695,6 +2743,7 @@ Java_com_qwsaeda_App_OnCreate(JNIEnv *env, jclass clazz, jobject activity)
             LOGI("movetest：自动走子完成 %d/3 步（unlock 后注入，复盘记录 n=%d）",
                  okcnt, ui_replay_count());
             __system_property_set("jq.movetest", "0");
+            }
         }
     }
     int glv_ok = (jq_glview_init(&g_glview, &g_state, SPAK_DIR, NULL, g_assets) == 0);

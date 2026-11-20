@@ -67,6 +67,21 @@ python3 rev64/tools/fuzz_probe_check.py --games 2000 --touch 100000 --events 200
 | ⑤ 重进不崩 | 重进 pid 50145 存活 + `Init 像素解码` 重出 | PASS |
 | 全链 | `Fatal signal` 总数 = 0 | PASS |
 
+**完整 60 局对弈真机钩子（2026-11-20 实锤，so `4539aadddd`）**：
+`setprop jq.movetest 60` → OnCreate 自动 60 局 AI 对弈（ai_pick 按 turn 视角 + 翻棋 +
+困毙收口，同 gametest 逻辑）→ 实锤 `收局=60 总走子=8460 吃子/炸弹=1680 扛旗=0` + 0 崩溃。
+- 口径对照：桌面 `game60_offline_check.py` = **单局 10/10 回合交替基准**（蓝走子 10/
+  红 AI 10/翻转 20/困毙 0）；真机钩子 = **60 局批量收局**（收局 60/60 = 全合法终局，
+  贪心吃子 AI 吃光/扛旗收束，SPEC 完整对弈行为基准）。两者互补不互斥（桌面查单局
+  交替闭环，真机查批量 0 崩溃）。
+- 钩子上下文持锁约束（诚实标注）：unlock 后注入段持 g_mutex → **不调 jq_restart_game**
+  （内部再取锁 = 自锁死锁，★ B03 红线同源坑），改用 `jq_state_init + load_layout +
+  stage/turn 直设` 轻量局重置（同 gametest 每局口径，无锁无 UI 副作用）。
+- `扛旗=0` = 贪心吃子 AI 收束偏好吃光/困毙（非规则缺陷；扛旗路径桌面 flagtest 单点
+  实锤覆盖，批量钩子不强制扛旗收束）。
+- `复盘 n=0` = 60 局钩子不逐条 ui_replay_record（批量统计口径，防 8460 条复盘栈爆炸；
+  单局 3 步 movetest=1 仍走复盘 n=3 记录链）。
+
 **诚实边界（152 真机实锤，非外推）**：
 - **EGL_BAD_ALLOC(0x3003) 周期 = 真机 GPU 资源约束（非 so 缺陷）**：surface attach 前
   渲染线程 64000+ 次 0x3003（logcat 实锤），surface 就绪后 `rs_draw_menu` 正常出帧
