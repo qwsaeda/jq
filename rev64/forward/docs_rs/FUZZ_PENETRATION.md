@@ -103,8 +103,32 @@ python3 rev64/tools/fuzz_probe_check.py --games 2000 --touch 100000 --events 200
   （0x3003 停止）——周期失败自愈机制（§R25 EGL 180→60 帧）在 152 生效，0 崩溃。
 - **设备漂移**：权威口径 10.0.182.146 → **10.0.182.152**（Xiaomi 23127PN0CC x86_64，
   MuMu 实例重启后 IP 漂移；历史 146 引用 = 环境史存档不作当前态）。
-- 判据 = 渗透回路"黑盒轮"达成（5 判据全 PASS + 完整 60 局批量收局 8460 走子 0 崩溃）；
-  后续新增判据（AI 介入/真实手点）未过按"未达成继续做"原则追加本段缺口。
+- 判据 = 渗透回路"黑盒轮"达成（5 判据全 PASS + 完整 60 局批量收局 8460 走子 0 崩溃
+  + 真实手点全链）；后续新增判据（AI 介入）未过按"未达成继续做"原则追加本段缺口。
+
+**真实手点全链实锤（152 真机，2026-11-20，`sendevent /dev/input/event4` 真实触摸序列）**：
+- **判据突破**：用户视角"手点能玩" = 真实触摸事件（`/dev/input/event4` → InputReader →
+  InputDispatcher → app OnTouch）全链走通，非 `input tap` 注入通道（两条路，注入通≠手点通）。
+- **实锤链**（so `4539aadddd`，pid 52271，0 崩溃）：
+  ① 菜单 btn1（448,1274）→ `OnTouch 菜单按钮1 → UI_NEWGAME 两人新局弹窗`
+  ② 弹窗"确定"（319,934 = 720 基准 255,747 ×1.25 缩放）→ `新局弹窗：确定 → 开局
+     stage=PLAY 蓝先手 mode=1 翻棋暗棋`
+  ③ 蓝方翻 cell 6（274,1383 = 720 基准 219,1106）：首次点 `to=-1 can_flip=0`（选中态）
+     → 再点 `to=6 can_flip=1` → `走子判定 翻棋 cell=6 rc=1 turn→1`（复盘 n=1）
+  ④ 红方翻 cell 30（96,721 = 720 基准 77,577）：首点选中 → 再点 `to=30 can_flip=1`
+     → `翻棋 cell=30 rc=1 turn→0`（复盘 n=2）→ **回合交替持续（蓝翻→红翻→蓝回合）**
+  ⑤ 全链 0 `Fatal signal` + 进程存活
+- **152 设备侧轴表实锤（防 §124y 历史 146 轴表坑复发）**：`getevent -lp /dev/input/event4`
+  = `Xiaomi Touchscreen`，`ABS_MT_SLOT=47(max31) / ABS_MT_POSITION_X=53(max900) /
+  ABS_MT_POSITION_Y=54(max1600) / ABS_MT_TRACKING_ID=57 / BTN_TOUCH=330`，
+  **无 ABS_X/ABS_Y(0/1)**——与 146 轴表一致（同型 MuMu Xiaomi Input），sendevent 前
+  必查实际轴表（§124y-195 踩坑固化，152 复验成立）。
+- **坐标口径**：view=900×1600，`base = view 坐标直接同值`（与 720×1280 渲染基准 ×1.25
+  缩放一致，`OnTouch 走子诊断 view→base` 日志实证）；弹窗/棋盘/菜单命中区按 720 基准
+  几何 ×1.25 换算 900 基准。
+- **诚实边界**：暗棋 `can_flip` 首点 `to=-1`（选中）再点 `to=from`（翻棋判定）= 两步态机
+  忠实行为（非缺陷）；`cell 6` 首点 `can_flip=0` 系选中态未触发翻棋判定（态机 SELECT 阶段），
+  二点 `to=6` 才进翻棋分支（`jq_can_flip` 0xFF 未定色 + 当前回合门 = 蓝先手可翻，规则忠实）。
 
 ## 3. 诚实边界
 
@@ -133,5 +157,6 @@ python3 rev64/tools/fuzz_probe_check.py --games 2000 --touch 100000 --events 200
 - **rank/side 存储域用 `junqi.h` 真值**：红方已翻 `rank+0xc`（域 `[13,24]`），side `0xFF`=UNKNOWN 合法（§0.3）
 - **存档契约1 假绿（首版踩坑）**：`jq_save_game_write/read` 返回 **1=成功 0=失败**（save.c 末 return 1），首版误用 `==0 成功` → "write 失败"误报 + round-trip 恒 0 假绿。教训：**fuzz 判据必须先用"合法用例必 PASS"正向校准契约（write 返 1），再上随机化**——随机合法域 200 局全零漂移 + 脏枚举单列拒读判据（§1 F5 + §3 诚实边界 F5 契约段）
 - **脏存档拒读 + 毒化 back 判据**：`memset(&back, 0xFF)` 毒化后再 `jq_save_game_read`，拒读契约（返 0）时 back 必保留 0xFF（st 不污染原子语义）；若 back 被半读污染则 `(uint8_t*)&back[0] != 0xFF` → FAIL（R41-Q16 短读污染 st 根治判据同源）
+- **真实手点 ≠ 注入（152 实锤，防 §124y 历史"手点没反应"坑复发）**：`sendevent /dev/input/event4` 真实触摸序列全链走通（菜单 btn1→弹窗确定→暗棋翻子蓝 cell6/红 cell30→回合交替 0 崩溃）。教训固化：① 手点前必 `getevent -lp` 查实际轴表（event4 `Xiaomi Touchscreen` 轴 = SLOT47/X53(max900)/Y54(max1600)/TRACKING57/BTN_TOUCH330，**无 ABS_X/ABS_Y**——误用 56/55 轴 → InputReader 丢事件 app 零 OnTouch）② 两步态机：暗棋翻子首点 = 选中（`to=-1 can_flip=0`），再点同格 = 翻棋判定（`to=from can_flip=1`）——首点 can_flip=0 非规则缺陷（态机 SELECT 阶段）③ 坐标 view→base 同值（900×1600 = 720×1280 ×1.25 缩放），命中区按 720 基准几何 ×1.25 换算 900 基准（弹窗确定 255,747→319,934 / 蓝翻 cell6 219,1106→274,1383 / 红翻 cell30 77,577→96,721）
 - **ASan 假绿防护**：`fuzz_probe_check.py` 即便 rc=0 也扫 `ERROR: AddressSanitizer`（ASan 默认 abort 非 0，但链接错误/静默降级场景 rc=0 也须扫 report 文本）
 - **可复现判据**：同 seed 重跑 F1 行逐字比对（非"都 PASS 就行"）——随机路径可复现 = 修了才能证复跑不崩
