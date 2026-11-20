@@ -136,8 +136,11 @@ mod android_impl {
             });
             
         }
-        // ⑥ 菜单流程钩子：jq.menutest=1 → 切 Menu 态（验证菜单→难度→开局流程）
-        if crate::log::hook_triggered("menutest") {
+        // ⑥ 菜单流程钩子：jq.menutest=1 → 切 Menu 态（内存标记防重复：文件删除在 houdini 下失败）
+        static MENU_HOOK_DONE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+        if !MENU_HOOK_DONE.load(std::sync::atomic::Ordering::SeqCst)
+            && crate::log::hook_triggered("menutest") {
+            MENU_HOOK_DONE.store(true, std::sync::atomic::Ordering::SeqCst);
             with_lock(|_st, u, _c| {
                 u.screen = ui::Screen::Menu;
                 u.vs_ai = false;
@@ -415,6 +418,7 @@ mod android_impl {
 
         // ★ 审计 A8：按 ui.screen 屏态分发（菜单空白不消费 / 对局态选中→走子·翻棋 / AI 衔接）
         let screen = with_lock(|_st, u, _c| u.screen);
+        crate::log::setprop("jq.touch_screen", &format!("{:?}", screen));
         match screen {
             ui::Screen::Menu => {
                 // ★ 业务对齐：主菜单按钮命中（几何用原版 orig_menu.png 真值 720×1280 基准）

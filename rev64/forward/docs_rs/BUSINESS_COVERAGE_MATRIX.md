@@ -54,6 +54,11 @@
 
 
 ### 菜单流程业务接线（续，2026-11-20）
+### 完整菜单流程闭环（2026-11-20 实锤）
+- 真机 152 完整玩家路径：menutest 切 Menu → tap 人机按钮(448,1131) → Difficulty 态 → tap 难度按钮(440,606) → **`difficulty=2_0`（level=2 中级, mode=0 布局）** → 开局 Game 态 → **走子 move=Move**（touch_screen=Game）。
+- 根因修复：menutest 钩子在 houdini 下文件删除失败导致每帧重复切 Menu → 加 AtomicBool 内存标记防重复。
+- 这是真实玩家路径（非测试钩子直接进 Game），菜单→难度→开局→走子全链打通。
+
 - OnTouch 屏态分发扩展：Menu 态按钮命中（几何用 orig_menu.png 真值 + MotionEvent 坐标×0.8 归一化到 720×1280）、人机→Difficulty、Difficulty 态 8 按钮→开局。
 - menutest 文件钩子可切 Menu 态验证流程；真机实锤 menu_hit=human（人机按钮命中 + 屏态迁移）。
 - 难度按钮命中细节（difficulty=NONE）待坐标/时序精调；默认 Game 态走子不受影响（干净重启后 touch=cell11 + move=Move 实锤，5 判据全通）。
