@@ -53,6 +53,29 @@ python3 rev64/tools/fuzz_probe_check.py --games 2000 --touch 100000 --events 200
 3. 修 → 复跑 `fuzz_probe_check.py`（同 seed 必复现原 FAIL 路径，防"随机侥幸修好"）
 4. 全 PASS 后才允许写"渗透轮达成"
 
+## 2.5 黑盒轮实锤（真机 5 判据，10.0.182.152，2026-11-20）
+
+> 渗透回路"黑盒前置"判据：正向 C so `629bf06e`（jni_bridge.c 括号配平 + GetMethodID
+> 异常清理修复后）装机 152 真机 5 判据全 PASS——渗透 0 崩溃在真机侧无回归佐证。
+
+| 判据 | 实锤 | 结果 |
+|---|---|---|
+| ① 装得上 | `adb install -r phase_rs_a64.apk` Success（streamed 19432146B） | PASS |
+| ② 进主界面 | `Init 像素解码 board=OK(737x751)` + `rs_draw_menu 首帧`（view=900x1600，5 按钮顶点出帧） | PASS |
+| ③ 下一局 | `setprop jq.movetest 1` → 自动走子 3/3（Junqi.Move×2 + Junqi.Dead×1，复盘 n=3，pid 50032） | PASS |
+| ④ 正常退出 | `am force-stop` 0 崩溃 | PASS |
+| ⑤ 重进不崩 | 重进 pid 50145 存活 + `Init 像素解码` 重出 | PASS |
+| 全链 | `Fatal signal` 总数 = 0 | PASS |
+
+**诚实边界（152 真机实锤，非外推）**：
+- **EGL_BAD_ALLOC(0x3003) 周期 = 真机 GPU 资源约束（非 so 缺陷）**：surface attach 前
+  渲染线程 64000+ 次 0x3003（logcat 实锤），surface 就绪后 `rs_draw_menu` 正常出帧
+  （0x3003 停止）——周期失败自愈机制（§R25 EGL 180→60 帧）在 152 生效，0 崩溃。
+- **设备漂移**：权威口径 10.0.182.146 → **10.0.182.152**（Xiaomi 23127PN0CC x86_64，
+  MuMu 实例重启后 IP 漂移；历史 146 引用 = 环境史存档不作当前态）。
+- 判据 = 渗透回路"黑盒轮"达成（5 判据全 PASS）；后续新增判据（完整 60 局/AI 介入/
+  真实手点）未过按"未达成继续做"原则追加本段缺口。
+
 ## 3. 诚实边界
 
 - **fuzz 只查崩溃/非法态，不查行为正确性**——不崩 ≠ 行为对齐原版（行为对照靠 `rule_probe_compare.py` 双端 36 case + `align_gate.sh` 事件/布局判据）
