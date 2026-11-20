@@ -140,3 +140,16 @@
 - **rs_cycle.sh 路径修正**：回归脚本 `rev64/forward/src_rs_regress.sh` → `rev64/src_rs_regress.sh`（原路径不存在致 12/12 永远 FAIL）。
 - **正向总入口全跑 rc=0**：编译 PASS + 12/12 全回归 PASS + 渗透轮 5 变异器快检 PASS（ASan 0 崩溃）+ 装机 so 哈希对账 PASS（629bf06e）+ 启动 pid 48936。
 - git HEAD 5533eeb，工作区 clean，待推=0。
+
+## 独立双端行为实证补强（2026-11-20，回答"按业务是否真对齐"）
+此前覆盖矩阵的"✅ 三方齐"里多项独立基准实为"C 基准移植成 Rust 测试"（同源派生），非真正独立验证。本轮补两条**真独立**判据：
+
+| 判据 | 方法 | 结果 |
+|---|---|---|
+| `rp_desktop_compare.sh` | gcc -m32 把 **32 位逆向翻译体**（jq_rs_rules/board + 同源探针）编成 ELF32 桌面可执行，与 64 位重写探针逐行 diff | **34/36 一致 + 2 已知分叉（R-008 F2 / R-004 G3）**，无新增分歧——规则引擎真双端对齐实证 |
+| `rust_geom_check.py` | rust-anything 录制 **32 位翻译体棋盘几何 6 纯函数**（is_camp/is_base/is_rail/cell_index/cell_row/cell_col）输出，对 Rust board.rs 忠实移植 diff | **950/950 case 逐条对齐**，gate PASS；负向（BOARD_COLS 5→6）精确检出分叉 |
+| `rust_anything_check.py` | ai_score 原版 32 位行为录制（已存在） | 154/154 对齐 + 负向分叉 |
+
+**至此独立的原版行为证据覆盖**：ai_score（154 case）+ 棋盘几何（950 case）+ 规则引擎双端（36 case，2 已知分叉）。
+**仍有边界**：带 `jq_state*` 的规则函数（can_move/try_move/flip/stalemate）工具 bridge 不了（固有限制），其对齐靠 36 case 双端探针 + C 基准移植测试；AI 决策链/UI 状态机无原版 so 现场录制。
+**诚实结论**：关键纯函数与规则行为有真独立双端证据；核心业务（规则/几何/AI评分）对齐可信，但不宣称"全部逐条对原版对齐"——带指针函数与 UI/决策链仍是移植测试+真机物理证据。

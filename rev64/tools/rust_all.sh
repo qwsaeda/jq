@@ -64,6 +64,20 @@ else
   log "=== [4/4] 跳过（--quick）==="
 fi
 
+# [4b] 行为对齐扩展：棋盘几何 950 case + 32/64 位规则双端（桌面 -m32）
+if [ "$QUICK" = 0 ]; then
+  log "=== [4b] rust_geom_check（几何6函数 950 case）+ rp_desktop_compare（32/64双端36 case）==="
+  G=$(python3 "$WS/rev64/tools/rust_geom_check.py" 2>&1); GR=$?
+  if [ $GR -eq 0 ] && echo "$G" | grep -q '判定: PASS'; then
+    log "PASS $(echo "$G" | tail -1)"
+  elif [ $GR -eq 3 ]; then log "PENDING rust-anything 未装"
+  else echo "$G" | tail -6; log "FAIL rust_geom_check rc=$GR"; fail=1; fi
+  R=$(bash "$WS/rev64/tools/rp_desktop_compare.sh" 2>&1); RR=$?
+  if [ $RR -eq 0 ]; then log "PASS $(echo "$R" | tail -1)"
+  elif [ $RR -eq 3 ]; then log "PENDING -m32 不可用"
+  else echo "$R" | tail -6; log "FAIL rp_desktop_compare rc=$RR"; fail=1; fi
+fi
+
 if [ "$DEVICE" = 1 ]; then
   log "=== [5] 设备侧：installed so 哈希 + 无 Fatal + 能玩功能判据 ==="
   DEV=${DEV:-10.0.182.152:5555}
@@ -71,6 +85,8 @@ if [ "$DEVICE" = 1 ]; then
   adb_ensure(){ local o=$(adb -s "$DEV" shell "echo ok" 2>/dev/null | tr -d '\r');
     if [ "$o" != "ok" ]; then adb connect "$DEV" >/dev/null 2>&1; sleep 1; fi; }
   adb_ensure
+  # ★ 清历史 logcat：Fatal 判据只统计本次脚本运行期间的崩溃（否则之前手动重启的 houdini 竞态会被误算）
+  adb -s "$DEV" logcat -c >/dev/null 2>&1
   P=$(adb -s "$DEV" shell "pm path com.qwsaeda.junqirs" 2>/dev/null | sed 's/package://' | tr -d '\r' | head -1)
   if [ -n "$P" ]; then
     DH=$(adb -s "$DEV" exec-out "unzip -p $P lib/arm64-v8a/libjunqi.so" 2>/dev/null | md5sum | cut -d' ' -f1)
