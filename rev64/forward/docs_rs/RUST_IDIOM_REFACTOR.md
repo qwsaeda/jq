@@ -109,3 +109,18 @@
 
 ### 判据守门
 95 测试 / clippy rc=0 / android 0 错 0 警 / 14 符号 / 154 case 全 PASS；真机 5 判据（装/出屏 rendering/走子 Move/悔棋 undo_ok/重进）+ **Fatal=0**（新增判据，防假绿复发）。
+
+## JNI 异常安全的系统性加固（2026-11-20 续：用户质疑"用 Rust 怎么还有生命周期问题"）
+### 认知边界（诚实）
+- Rust 的所有权/生命周期只保证**编译期内存安全**，`GlobalRef` RAII 保证 JNI ref 不泄漏——但**管不到 Android Java 对象的状态生命周期**（Surface 被系统 release 后，GlobalRef 仍有效但 lockCanvas 抛 IllegalStateException）。这是所有 FFI 的固有边界，C/C++/Rust 都逃不掉。
+- **Rust 的 `Result` ≠ Java 的 exception**：`map_err`/`.ok()` 只处理 Rust 侧错误，JNI 抛的 Java 异常挂在 JVM 线程上，不清理则下次 JNI 调用 `No pending exception expected` abort。
+- 具体 bug 是设计失误（一次性缓存失效 ref + 不清 JNI 异常），不是语言缺陷；Rust 帮到的是 GlobalRef RAII + local ref 自动释放 + catch_unwind 挡 panic。
+
+### 系统性排查与加固
+- 全仓 38 处 JNI 调用点扫描：13 `map_err` + 25 `.ok()`，此前只有 canvas.rs 2 处清异常 → 跨帧/跨调用异常可累积。
+- **加固**：`wgpu_thread.rs` 渲染循环每帧开头 `exception_check/clear`（渲染线程 attach JVM 长期运行，是异常累积的高危点）；canvas.rs 已有入口清 + lockCanvas 失败清。
+- **死代码记录**：`egl_render.rs::start_render_thread_jni`（120 次轮询 .ok() 吞异常）无任何调用点（实际渲染走 wgpu_thread），不加防护、记录为死代码。
+- JNI 规范：Java 调 native 时 JVM 保证入口无 pending 异常，故 14 个导出函数入口不需清——真正危险的是同一 native 线程内多次 JNI 调用的异常累积。
+
+### 判据守门
+95 测试 / clippy rc=0 / 0 错 0 警 / 14 符号 / 154 case 全 PASS；真机（so 2219c483）装/出屏 rendering/走子 Move + Fatal=0（含 No pending exception 检查）。

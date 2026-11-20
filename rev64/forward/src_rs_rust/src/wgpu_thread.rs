@@ -86,6 +86,10 @@ mod imp {
         let mut frame = 0u64;
         loop {
             if STOP.load(Ordering::SeqCst) { break; }
+            // ★ JNI 异常安全：本线程 attach JVM 后长期运行，上一帧若某次 JNI 调用抛异常
+            //   会挂到本帧 → 下次 JNI 调用 "No pending exception expected" abort。
+            //   每帧开头清一次，保证帧间异常不累积（canvas.rs 内部也清 lockCanvas 异常）。
+            if env.exception_check().unwrap_or(false) { let _ = env.exception_clear(); }
             crate::jni::run_test_hooks(); // 真机验证钩子（setRenderer 移除后 OnUpdate 不调，改由此线程驱动）
             let r = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
                 if let Some(rgba) = {
