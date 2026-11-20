@@ -157,17 +157,9 @@ mod android_impl {
 
     #[no_mangle]
     pub extern "C" fn Java_com_qwsaeda_App_OnDestroy(_env: *mut jni::sys::JNIEnv, _cls: JClass) {
+        // 只发 STOP 信号，不在此清理 wgpu 资源——线程内 dev/q 是局部变量，
+        // 线程 break 后自动 Drop，OnDestroy 直接清会造成 UAF + SIGABRT（tid Thread-2 实锤）
         crate::wgpu_thread::stop();
-        // 清理 wgpu 资源（重进不崩：旧 surface/device 必须先释放）
-        unsafe {
-            G_WGPU_SURFACE = None;
-            G_WGPU_CONFIG = None;
-            G_WGPU_QUEUE = None;
-            G_WGPU_DEVICE = None;
-            G_WGPU_INSTANCE = None;
-            G_VIEW = std::ptr::null_mut();
-            G_SURFACE = std::ptr::null_mut();
-        }
         with_lock(|st, _u, _c| { st.wgpu_init_done = false; st.wgpu_log_done = false; });
     }
 
