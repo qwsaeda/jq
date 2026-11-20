@@ -51,6 +51,11 @@
 - **原则践行**：对齐的是"原版几何真值（业务输出）"，不是照搬 C 渲染代码指令（C 用 GLES 顶点批次，Rust 用 CPU 像素合成——实现不同，业务几何一致）。
 
 
+
+### 音效映射业务对齐（续，2026-11-20）
+- **事件→WAV 映射**：evt.rs sfx_for_code/sfx_for_name 对齐原版 evt55_sfx.c（Move→move / Eat→eat / Bomb→bomb / Flag→flag / Dead→dead / Flip→flip / Win类→win / Lose类→lose / Draw类→draw / 默认→move），89 测试锚定。
+- **sfx.rs**：14 WAV include_bytes 编进 so（200K）+ MediaPlayer 播放桥；OnTouch 走子后调 sfx::play(sfx_for_code(ev))。
+- **边界**：实际 WAV 落地/MediaPlayer 播放在 MuMu houdini 下受 native 文件 I/O 限制（与 savetest 同类），映射业务真值已对齐但播放实效待真 ARM64 验证。
 ### UI 文案 + 事件名业务对齐（续，2026-11-20）
 - **UI 文案**：strings.rs 对齐原版 jq_strings.h（.rodata GBK 真值）——终局"蓝方胜利！/红方胜利！/和棋！"、玩法"翻棋 - 暗棋/布局 - 暗棋"、错误"军旗只能放在大本营"等；result_text 终局→文案映射。
 - **事件名 73 条**：evt.rs 移植原版 jq_event_names_73.c 全 73 名（逐名对齐，含索引），name_to_73_index 查名；与 7 码域 EV_NAME 分层（码值≠73表索引）。

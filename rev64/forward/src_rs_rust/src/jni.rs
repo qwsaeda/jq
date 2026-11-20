@@ -449,6 +449,9 @@ mod android_impl {
                         if let Some(e) = ev_code {
                             G_MOVES.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
                             crate::log::setprop("jq.move", &format!("{:?}", e));
+                            // ★ 业务对齐：事件→WAV 音效（原版 evt55_sfx 映射）
+                            let wav = crate::evt::sfx_for_code(e);
+                            let _ = crate::sfx::play(&mut je, wav);
                             // ★ 审计 A8：玩家落子后触发 AI 应着（人机对战，红方回合自动走）
                             if u.vs_ai && st.turn == crate::state::SIDE_RED && st.stage == crate::state::Stage::Play {
                                 if let Some(mv) = ai::ai_pick(st, u.level) {

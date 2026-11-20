@@ -226,3 +226,49 @@ mod names_73_tests {
         assert_eq!(name_to_73_index("Junqi.NotExist"), None);
     }
 }
+
+/// ★ 原版事件名→音效 WAV 映射（业务真值，对齐 C evt55_sfx.c jq_evt55_sfx_for_name）
+/// 7 码事件 → WAV 名；未知/空 → "move"（原版默认）
+pub fn sfx_for_code(code: Ev) -> &'static str {
+    match code {
+        Ev::Move => "move",
+        Ev::Eat => "eat",
+        Ev::Bomb => "bomb",
+        Ev::Flag => "flag",
+        Ev::Dead => "dead",
+        Ev::Mine => "move", // 挖雷名级 Junqi.Move → move 音效（原版同名）
+        Ev::Flip => "flip",
+    }
+}
+
+/// 原版事件名字符串→WAV 名（73 名表映射，终局类归并）
+pub fn sfx_for_name(name: &str) -> &'static str {
+    match name {
+        "Junqi.Move" => "move",
+        "Junqi.Eat" => "eat",
+        "Junqi.Bomb" => "bomb",
+        "Junqi.Flag" => "flag",
+        "Junqi.Dead" => "dead",
+        "Junqi.Flip" => "flip",
+        "Junqi.Win" | "Junqi.RedWin" | "Junqi.BlueWin" => "win",
+        "Junqi.Lose" | "Junqi.Resign" | "Junqi.ResignConfirm" => "lose",
+        "Junqi.Draw" | "Junqi.GameOver" | "Junqi.Over" => "draw",
+        _ => "move", // 原版默认
+    }
+}
+
+
+#[cfg(test)]
+mod sfx_tests {
+    use super::*;
+    #[test]
+    fn sfx_mapping_matches_original() {
+        assert_eq!(sfx_for_code(Ev::Move), "move");
+        assert_eq!(sfx_for_code(Ev::Eat), "eat");
+        assert_eq!(sfx_for_code(Ev::Bomb), "bomb");
+        assert_eq!(sfx_for_code(Ev::Mine), "move"); // 挖雷同 move
+        assert_eq!(sfx_for_name("Junqi.BlueWin"), "win");
+        assert_eq!(sfx_for_name("Junqi.Draw"), "draw");
+        assert_eq!(sfx_for_name("Junqi.Unknown"), "move"); // 默认
+    }
+}
