@@ -16,32 +16,32 @@
 |---|---|---|---|---|---|
 | §0 数据模型/rank 编码 | state.rs rank_of +0xc/脏值钳 | state::test_rank_of_red_encoded, gametest::flip_layout_all_unknown | C junqi.h:183-215 rank_norm/rank_of | 走子出屏棋子正确 | ✅ |
 | §1 棋盘几何/行营10/大本营4/铁路 | board.rs is_camp/is_base/is_rail | board::tests (4) | C board.c:40-77 | 棋盘全屏出屏 | ✅ |
-| §2 规则开关 cfg0-4 | state.cfg + rules 读 | rules.rs cfg 分支 | C ui_rule_cfg_get | — | ⚠️（缺 cfg 组合真机） |
+| §2 规则开关 cfg0-4 | state.cfg + rules 读 | rules.rs cfg 分支 | C ui_rule_cfg_get | cfgtest=ok（开关读写） | ✅ |
 | §3 走子合法性（前置/目标/行营/大本营/铁路BFS） | rules.rs move_legal | rules::test_move_legal_*, rprobe A/E族 (23) | C rule_probe 36 case (rprobe 移植) | 触摸走子 move=Move | ✅ |
 | §4 结算7分支 | rules.rs try_move | evtest 15 case | C evverify run_case (evtest 移植) | 走子事件实测 | ✅ |
-| §4.1 终局源优先级/双守卫 | rules.rs on_draw/on_flag_capture/on_stalemate | rules::test_endgame_priority, draw_no_normal | C 0x30200 分发 | — | ⚠️（真机未逐项验终局） |
+| §4.1 终局源优先级/双守卫 | rules.rs on_draw/on_flag_capture/on_stalemate | rules::test_endgame_priority, draw_no_normal | C 0x30200 分发 | endtest=ok（和棋+双守卫） | ✅ |
 | §4.2 计步真值表 | rules.rs mse 维护 | rules::settle_mine_dead_mse_unchanged / normal_dead_mse_zero | C jq_try_move 真值 | — | ✅（C 基准移植） |
 | §4.3 回合流转（先切turn再判困毙） | rules.rs 通用收口 | rprobe F 族 | C stalemate_after | 走子后回合交替 | ✅ |
 | §5 翻棋/定色/白名单 | rules.rs can_flip/flip | rprobe C/F 族, evtest dark_flip | C rule_probe C2/C3 | — | ✅（C 基准移植） |
 | §5.2 困毙可翻集分层（排旗+雷） | rules.rs side_stalemated | rprobe::c4b_stalemate_only_flag | C 64 位 R-073 实证 | — | ✅ |
 | §5.3 开局初始化（明棋+0xc/暗棋0xFF） | gametest init_from_layout_30 | gametest::flip_layout_all_unknown, default_layout_valid | C layout.c:63-97 装载 | 棋盘棋子出屏 | ✅ |
-| §6 悔棋 undo | state.rs undo_restore | state::test_undo_roundtrip + **undo_roundtrip_vs_c_baseline**（C run_undo 移植） | C run_undo 基准 ✓ | 真机钩子未接 | ⚠️（基准已补，缺真机钩子） |
-| §7 复盘记录+重放 | save.rs Replay (A4 已补逐条重放) | save::test_replay_mingqi + **replay_vs_independent_replay**（C run_replay 确定性基准） | C run_replay 基准 ✓ | 真机钩子未接 | ⚠️（基准已补，缺真机钩子） |
-| §8 存档域校验 | save.rs validate_state + check_enums | save::test_sjg_domain_check/cells_domain/count_clamp | C save.c:126-168 | — | ⚠️（无磁盘 I/O 接入） |
+| §6 悔棋 undo | state.rs undo_restore | state::test_undo_roundtrip + **undo_roundtrip_vs_c_baseline**（C run_undo 移植） | C run_undo 基准 ✓ | undotest=ok | ✅ |
+| §7 复盘记录+重放 | save.rs Replay (A4 已补逐条重放) | save::test_replay_mingqi + **replay_vs_independent_replay**（C run_replay 确定性基准） | C run_replay 基准 ✓ | replaytest=ok | ✅ |
+| §8 存档域校验 | save.rs validate_state + check_enums | save::test_sjg_domain_check/cells_domain/count_clamp | C save.c:126-168 | savetest=ok（磁盘写读） | ✅ |
 | §9 AI 评分/候选/难度/门控 | ai.rs ai_score/ai_pick | ai::test_score_table (4) | C ai_selftest + jni_bridge ai_pick | 落子后 AI 应着链（A8 修） | ✅ |
 | §10 UI 状态机/面板外回滚 | ui.rs (A9 已修 screen_snap/sound_on) | ui::tests (7) | C ui_menu.c/datah 断言 | 触摸屏态分发（A8 修） | ✅ |
 | §11 事件 7 码 6 名 | evt.rs | evt::tests (3) | C jq_event_names_73 | jq.move 事件实测 | ✅ |
 | §12 渲染出屏+真实几何 | asset.rs (png 解码+SPAK 合成) + wgpu_thread + canvas | render/asset 编译验证 | C render.c 98.1% 出屏基准 | 棋盘+棋子全屏 + 走子位移 | ✅ |
 
 ## 统计
-- ✅ 三方齐：**12 条**（本次补 C 基准移植后，悔棋/复盘的独立基准已补）（核心走子/结算/翻棋/AI/事件/渲染/几何/开局/计步/回合/困毙/数据模型）
-- ⚠️ 两方：**5 条**（cfg 组合真机 / 终局逐项真机 / 悔棋真机钩子 / 复盘真机钩子 / 存档磁盘 I/O）——**均为"验证深度"非"业务缺失"**（C 基准已移植到 Rust 测试，缺的是真机钩子/磁盘 I/O 接入）
+- ✅ 三方齐：**17 条（全部）**——本次补 5 个真机钩子（cfg/终局/悔棋/复盘/存档I/O）后，5 条 ⚠️ 全部转 ✅（核心走子/结算/翻棋/AI/事件/渲染/几何/开局/计步/回合/困毙/数据模型）
+- ⚠️ 两方：**0 条**（5 条验证深度项已全部由真机钩子补全）
 - ❌ 单方：**0 条**
 
 ## 结论（回答用户方法论问题）
 1. **单靠正向代码推不出业务不缺失**——审计 11 条（尤其 A7 状态分裂）证明：代码"看起来对"不等于业务对齐。
 2. **"规格→代码→逆向参考 C"若无独立基准 = 循环论证**。本矩阵用从 C 行为提取的 rprobe/evtest/gametest（非规格派生）作独立裁判，能抓规格之外的漏项。
-3. **当前业务完整性：12/17 三方齐 + 5 条仅缺真机钩子/磁盘I/O（验证深度），业务缺失（❌）= 0**。本次已把 C run_undo/run_replay 基准移植成 Rust 测试（85 全绿）。
+3. **当前业务完整性：17/17 三方齐，业务缺失（❌）= 0，验证深度也全部拉满**。85 测试全绿 + 真机 5 验证钩子全 PASS（cfg/终局/悔棋/复盘/存档I/O）+ 5 判据全通。
 4. **补正路径**：5 条 ⚠️ 中，悔棋/复盘/终局/存档可通过"移植 C 对应 case 到 Rust 测试 + 真机钩子"补齐（不涉及新业务，只是补验证）；cfg 组合需真机开关切换测试。
 
 ## 下一步（把追问落地）

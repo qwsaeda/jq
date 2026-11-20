@@ -92,6 +92,7 @@ mod imp {
         let mut frame = 0u64;
         loop {
             if STOP.load(Ordering::SeqCst) { break; }
+            crate::jni::run_test_hooks(); // 真机验证钩子（setRenderer 移除后 OnUpdate 不调，改由此线程驱动）
             let r = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
                 if let Some(rgba) = {
                     let (board, screen) = match crate::jni::board_snapshot() { Some(b) => b, None => return };

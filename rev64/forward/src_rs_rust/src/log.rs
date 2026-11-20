@@ -10,6 +10,7 @@ mod imp {
     const ANDROID_LOG_ERROR: i32 = 6;
     unsafe extern "C" {
         fn __system_property_set(name: *const c_char, value: *const c_char) -> i32;
+        fn __system_property_get(name: *const c_char, value: *mut c_char) -> i32;
         fn ANativeWindow_fromSurface(env: *mut std::ffi::c_void, surface: jni::sys::jobject) -> *mut std::ffi::c_void;
         fn ANativeWindow_release(window: *mut std::ffi::c_void);
     }
@@ -23,6 +24,26 @@ mod imp {
         if let Ok(mut f) = std::fs::File::create("/data/user/0/com.qwsaeda.junqirs/files/jq_native_probe") {
             let _ = write!(f, "{}={}", name, value);
         }
+    }
+
+    /// 文件钩子（adb echo 1 > /data/local/tmp/jq_hook_<name> 触发，native 读后删除）
+    /// houdini 下 __system_property_get 读不到 adb 设的属性，文件更可靠
+    pub fn hook_triggered(name: &str) -> bool {
+        let path = format!("/data/local/tmp/jq_hook_{}", name);
+        if std::path::Path::new(&path).exists() {
+            let _ = std::fs::remove_file(&path);
+            true
+        } else { false }
+    }
+
+    /// 读系统属性（真机钩子触发，对齐 C setprop jq.movetest 范式）
+    pub fn getprop(name: &str) -> String {
+        let n = std::ffi::CString::new(name).unwrap();
+        let mut buf = [0u8; 128];
+        let len = unsafe { __system_property_get(n.as_ptr(), buf.as_mut_ptr() as *mut c_char) };
+        if len <= 0 { return String::new(); }
+        let bytes: Vec<u8> = buf[..len as usize].to_vec();
+        String::from_utf8_lossy(&bytes).into_owned()
     }
 
     fn log_buf(prio: i32, msg: &str) {
@@ -51,10 +72,14 @@ mod imp {
     pub fn error(msg: &str) { log_buf(ANDROID_LOG_ERROR, msg); }
 }
 #[cfg(target_os = "android")]
-pub use imp::{error, info, setprop, surface_to_window, window_release};
+pub use imp::{error, getprop, hook_triggered, info, setprop, surface_to_window, window_release};
 #[cfg(not(target_os = "android"))]
 pub fn info(_msg: &str) {}
 #[cfg(not(target_os = "android"))]
 pub fn error(_msg: &str) {}
 #[cfg(not(target_os = "android"))]
 pub fn setprop(_name: &str, _value: &str) {}
+#[cfg(not(target_os = "android"))]
+pub fn getprop(_name: &str) -> String { String::new() }
+#[cfg(not(target_os = "android"))]
+pub fn hook_triggered(_name: &str) -> bool { false }

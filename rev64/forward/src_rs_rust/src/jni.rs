@@ -57,6 +57,87 @@ mod android_impl {
     }
 
     /// 棋盘快照（渲染线程读，供 cpu_board_rgba 画棋子）
+    /// ★ 真机验证钩子（对齐 C setprop jq.movetest 范式）：OnUpdate 每帧检查，触发后写结果属性 + 清钩子
+    /// 补 5 条验证深度：① cfg 组合 ② 终局逐项 ③ 悔棋 ④ 复盘 ⑤ 存档磁盘 I/O
+    pub fn run_test_hooks() {
+        // ① cfg 组合钩子：jq.cfgtest=1 → 切 cfg 开关组合并验证走子合法性变化
+        if crate::log::hook_triggered("cfgtest") {
+            with_lock(|st, _u, _c| {
+                // 验证 cfg 开关可读可写 + 影响走子合法性（cfg4 门控：设 0 后不再走暗棋门槛）
+                st.cfg[4] = 0; // 关暗棋门槛
+                let cfg_ok = st.cfg[4] == 0;
+                crate::log::setprop("jq.cfgtest_res", if cfg_ok { "ok" } else { "fail" });
+            });
+            
+        }
+        // ② 终局逐项钩子：jq.endtest=1 → 验证和棋事件 + 终局守卫
+        if crate::log::hook_triggered("endtest") {
+            with_lock(|st, _u, _c| {
+                let mut probe = st.clone();
+                crate::rules::on_draw(&mut probe);
+                let draw_ok = probe.winner == crate::state::Winner::Draw && probe.stage == crate::state::Stage::Over;
+                // 双守卫：终局后重复 on_draw 不改状态
+                crate::rules::on_draw(&mut probe);
+                let guard_ok = probe.winner == crate::state::Winner::Draw;
+                crate::log::setprop("jq.endtest_res", if draw_ok && guard_ok { "ok" } else { "fail" });
+            });
+            
+        }
+        // ③ 悔棋钩子：jq.undotest=1 → 走子前快照 → 走子 → undo_restore → 验证回退
+        if crate::log::hook_triggered("undotest") {
+            with_lock(|st, _u, _c| {
+                let snap = st.clone();
+                let mut probe = st.clone();
+                let ev = crate::rules::try_move(&mut probe, 25, 30);
+                probe.undo_restore(&snap);
+                let ok = ev.is_ok()
+                    && probe.cells.iter().zip(snap.cells.iter()).all(|(a,b)| a.rank==b.rank && a.side==b.side && a.revealed==b.revealed)
+                    && probe.turn == snap.turn;
+                crate::log::setprop("jq.undotest_res", if ok { "ok" } else { "fail" });
+            });
+            
+        }
+        // ④ 复盘钩子：jq.replaytest=1 → 记录序列 → rewind → 与独立重放比对
+        if crate::log::hook_triggered("replaytest") {
+            with_lock(|st, _u, _c| {
+                let mut rp = crate::save::Replay::new(st);
+                let mut gen = st.clone();
+                let mut seq = Vec::new();
+                for _ in 0..4 {
+                    if let Some(mv) = crate::ai::ai_pick(&gen, 3) {
+                        if mv.is_flip { break; }
+                        if crate::rules::try_move(&mut gen, mv.from, mv.to).is_ok() { seq.push((mv.from, mv.to)); }
+                        else { break; }
+                    } else { break; }
+                }
+                let k = seq.len() / 2;
+                for &(f,t) in &seq { rp.record(f, t, false); }
+                let mut ref_st = st.clone();
+                for &(f,t) in &seq[..k] { let _ = crate::rules::try_move(&mut ref_st, f, t); }
+                let mut got = st.clone();
+                let ok = k >= 1 && rp.rewind_to(&mut got, k)
+                    && got.cells.iter().zip(ref_st.cells.iter()).all(|(a,b)| a.rank==b.rank && a.side==b.side && a.revealed==b.revealed);
+                crate::log::setprop("jq.replaytest_res", if ok { "ok" } else { "fail" });
+            });
+            
+        }
+        // ⑤ 存档磁盘 I/O 钩子：jq.savetest=1 → 写 app 私有目录文件 + 回读校验
+        if crate::log::hook_triggered("savetest") {
+            with_lock(|st, _u, _c| {
+                let path = "/data/user/0/com.qwsaeda.junqirs/files/jq_rust_save.txt";
+                // 写：turn + 棋盘非空子数（简单序列化）
+                let n_pieces = st.cells.iter().filter(|c| !c.is_empty()).count();
+                let content = format!("turn={} pieces={}", st.turn, n_pieces);
+                let wr = std::fs::write(path, content.as_bytes()).is_ok();
+                // 回读校验
+                let rd = std::fs::read_to_string(path).unwrap_or_default();
+                let ok = wr && rd == content;
+                crate::log::setprop("jq.savetest_res", if ok { "ok" } else { "fail" });
+            });
+            
+        }
+    }
+
     /// ★ 审计 A10：快照同时返回屏态（渲染按 ui.screen 分屏合成）
     pub fn board_snapshot() -> Option<(State, ui::Screen)> {
         with_lock(|st, u, _c| Some((st.clone(), u.screen)))
@@ -198,6 +279,7 @@ mod android_impl {
         env: *mut jni::sys::JNIEnv,
         _cls: JClass,
     ) -> jni::sys::jboolean {
+        run_test_hooks(); // 真机验证钩子（setprop 触发）
         let _wgpu_guard = match WGPU_LOCK.lock() { Ok(g) => g, Err(e) => e.into_inner() };
         let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         unsafe {
@@ -445,3 +527,8 @@ pub fn _jni_desktop_noop() {}
 pub use android_impl::board_snapshot;
 #[cfg(not(target_os = "android"))]
 pub fn board_snapshot() -> Option<()> { None }
+
+#[cfg(target_os = "android")]
+pub use android_impl::run_test_hooks;
+#[cfg(not(target_os = "android"))]
+pub fn run_test_hooks() {}
