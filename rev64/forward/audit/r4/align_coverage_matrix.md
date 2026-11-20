@@ -1,6 +1,6 @@
 # 对齐覆盖矩阵（自动生成：rev64/tools/gen_align_coverage.py）
 
-> 生成时间: 2026-11-16 07:22（每次 `python3 rev64/tools/gen_align_coverage.py` 重生；引用前确认与当前源码一致——evverify 真值以 `jq_evverify --all` SUMMARY 动态为准）
+> 生成时间: 2026-11-20 04:22（每次 `python3 rev64/tools/gen_align_coverage.py` 重生；引用前确认与当前源码一致——evverify 真值以 `jq_evverify --all` SUMMARY 动态为准）
 
 > 用途：规则条款 ↔ 桌面断言 ↔ 双端探针 三向覆盖关系可见化；并集中登记**硬编码期望值基准点**（改行为必须同步的清单）。
 
@@ -155,7 +155,7 @@
 |---|---|---|
 | src_rs/test_expected.txt | 9 | make benchcheck |
 | src_rs/consistency_desktop.c BENCH_EXPECT | 9 | make benchcheck（双源需同步） |
-| src_rs/evverify.c | 172 | make evverify |
+| src_rs/evverify.c | 174 | make evverify |
 | src_rs/dark_align/*.c（chk 断言） | 981 | dark_align_regress.sh |
 | src_rs/rule_probe_shared.inc（探针期望值在 diff 中） | 36 | rule_probe_compare.py |
 | forward/docs_rs/UI_COMPARE.md（Δ 表） | 12 项 | layout_align_check.py --baseline |

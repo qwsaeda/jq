@@ -107,3 +107,19 @@
 用户提议的链路修正版（可行）：
 - 现正向代码 → 本矩阵查出 5 条 ⚠️ → 补独立基准（C case 移植 + 真机钩子）→ 三方齐 → 此时可说"业务不缺失（在规格+C 基准覆盖范围内）"
 - 再以规格反推的参考实现（正向重写）去对照原版 32 位 so（逆向 dump/行为）——这是**正向→逆向的交叉验证**，不是循环论证（因端点是独立的原版 so）
+
+## 全判据回归（2026-11-20，本机可执行全跑）
+| 判据入口 | 结果 |
+|---|---|
+| fuzz_probe_check.py（3 seed × 4 变异器，ASan） | PASS（无蓝牙渗透，0 崩溃） |
+| event_names_alignment_check.py（73 名逐名） | PASS |
+| align_gate.sh（7 项对齐门禁） | PASS 8/8 |
+| gen_align_coverage.py（覆盖矩阵生成） | OK（33 条款/86 用例/981 断言/36 探针） |
+| rule_probe_compare.py --offline（36 条） | PASS |
+| arm32_static_evidence.sh（静态佐证） | PASS 74/74 |
+| so_link_check.py（Rust so GL/EGL） | PASS（GL/EGL UND=0） |
+| so_link_check.py（C so GL/EGL） | PASS（61 符号可解析） |
+| Rust fuzztest（4 变异器） | 94 测试全绿的一部分 |
+| 真机 5 判据（10.0.152） | 装/出屏/走子+悔棋/退出/重进 全 PASS |
+
+说明：C 渗透轮（fuzz_probe）属正向 src_rs 判据，本正向会话执行；设备相关判据（mumu_regress 等）需设备可达，已由真机 5 判据覆盖。

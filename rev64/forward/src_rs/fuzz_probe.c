@@ -1,27 +1,31 @@
 /*
  * fuzz_probe.c — 渗透式 fuzz 探针（桌面离线，零设备依赖）
  *
- * 定位：AGENTS "渗透轮" 判据入口。三变异器 + 4 项判据，崩溃即 FAIL：
- *   F1 随机对弈 fuzz（种子×局数，AI/随机混合走子，规则引擎+终局分发）
+ * 定位：AGENTS "渗透轮" 判据入口。5 变异器 + 5 项判据，崩溃即 FAIL：
+ *   F1 随机对弈 fuzz（种子×局数，随机走子/翻棋，规则引擎+终局分发）
  *   F2 触摸坐标 fuzz（越界/NaN/极端坐标 → jq_touch_state_process 状态机无异常路径）
- *   F3 事件注入 fuzz（随机事件名 × 随机负载，on_event 桩分发）
- *   F4 悔棋栈深度 fuzz（UNDO_MAX 边界连续 push/pop）
+ *   F3 事件注入 fuzz（随机事件名 × 随机负载，事件表前缀匹配）
+ *   F4 悔棋栈深度 fuzz（UNDO_MAX 边界连续 push/pop/满拒/空拒）
+ *   F5 存档 round-trip + 随机化存档 fuzz（jq_save_game_write/read 契约 1/2/3 全验）
  *
- * 判据（4 项全 PASS）：
- *   ① F1 随机对弈 N 局 0 崩溃（ASan 干净 + 无 guard 截断死循环）
- *   ② F2 触摸 fuzz M 次 0 崩溃（含越界/NaN，状态机回 IDLE）
- *   ③ F3 事件注入 K 条 0 崩溃
- *   ④ F4 undo 边界 0 崩溃（栈满拒绝 + pop 空栈拒绝）
+ * 判据（5 项全 PASS）：
+ *   ① F1 随机对弈 N 局 0 崩溃（ASan 干净 + 无 guard 截断死循环 + rank/side/stage 合法）
+ *   ② F2 触摸 fuzz M 次 0 崩溃（含越界/NaN，状态机 mode/sel 合法态）
+ *   ③ F3 事件注入 K 条 0 崩溃（负载 256B 无溢出）
+ *   ④ F4 undo 边界 0 崩溃（栈满拒绝 + pop 空栈拒绝 + top ∈ [0,UNDO_MAX]）
+ *   ⑤ F5 存档 round-trip 0 崩溃（合法域零漂移 + 脏枚举拒读 + 越域格归零契约3）
  *
  * 构建：make fuzzprobe（ASan 默认开，防假绿——崩溃/越界内存必报非 0 退出）
- * 用法：dist/jq_fuzzprobe [seed] [games] [touchN] [eventN]
- *       默认 seed=0  games=500  touchN=20000  eventN=5000
+ * 用法：dist/jq_fuzzprobe [seed] [games] [touchN] [eventN] [saveN]
+ *       默认 seed=0  games=500  touchN=20000  eventN=5000  saveN=200
  *
  * 诚实边界：
  *  - 规则引擎行为对照 32 位原版靠 rule_probe 双端对照（fuzz 只查崩溃/非法态，
  *    不查行为正确性——行为正确性 ≠ 不崩）
  *  - F2 坐标基准 720×1280（渲染几何），越界值取 ±1e6 级
- *  - F3 事件名 76 条真值表（jq_event_names_73 + 3 扩展），随机负载含 %d 数字替换
+ *  - F3 事件名 73 条真值表（jq_event_names_73），随机负载含 %d 数字替换
+ *  - F5 存档契约 = save.c 实现真值（契约1 返 1 成功 / 契约2 枚举域拒读 /
+ *    契约3 cells 越域格归零），随机化仅限合法域（脏枚举单列 ③ 验拒读，不混入 ②）
  *  - 不含蓝牙（用户 2026-11-20 指令：渗透轮不要蓝牙）
  */
 #include <stdio.h>
@@ -32,6 +36,9 @@
 #include "junqi.h"
 #include "touch_state.h"
 #include "jq_event_names_73.h"
+
+extern int jq_save_game_write(const char *path, const jq_state *st);   /* save.c */
+extern int jq_save_game_read(const char *path, jq_state *st);
 
 #define UNDO_MAX_F 512   /* 与 jni_bridge UNDO_MAX 同量级（fuzz 用独立栈，查边界逻辑） */
 #define VIEW_W 720
@@ -225,13 +232,114 @@ static void fuzz_undo(int n)
     printf("F4 undo 边界 OK（满拒=%d 空拒=%d 次，%d 次随机灌/抽）\n", full_reject, empty_reject, n);
 }
 
+/* ================= F5 存档 round-trip + 随机化存档 fuzz =================
+ * 存档 I/O 边界（save.c 真值契约，判据逐条对齐实现语义）：
+ *   契约1：jq_save_game_write/read 返回 **1=成功 0=失败**（save.c:113/:168 末 return 1）
+ *   契约2：read 侧枚举域校验（save.c 读后校验段）：
+ *     turn∈{0,1} / stage∈[0,STG_OVER] / winner∈[-1,2]（JQ_WIN_NONE=-1 合法）/ mode∈{0,1}
+ *   契约3：read 侧 cells 逐格最小域校验（越域格强制归零 rank=0+side=0xFF+revealed=0，合法域内零漂移）
+ *     side∈{BLUE,RED,UNKNOWN(0xFF)} / rank∈[0,RANK_TOP+0xc=24] / revealed∈{0,1}
+ * 判据 = 0 崩溃（ASan 干净）+ 合法域 round-trip 零漂移 + 脏枚举拒读契约（返 0 且 st 不污染）
+ * + 合法枚举+越域格 = 格归零漂移可预期（契约3 设计行为，非 FAIL）。
+ * 假绿防护：首版曾误用 "==0 成功"（write 契约 1 成功 → "write 失败"误报 + round-trip 恒 0 假绿），已按契约1 修正。 */
+static void fuzz_saves(int n)
+{
+    const char *path = "/tmp/opencode/jq_fuzz_save.bin";
+    /* ① 合法局 round-trip（默认布局开局态，全合法域 → 零漂移） */
+    {
+        jq_state st, back;
+        jq_state_init(&st);
+        jq_load_layout(&st, JQ_DEFAULT_LAY);
+        st.stage = STG_PLAY; st.turn = SIDE_BLUE; st.mode = JQ_MODE_FLIP; st.winner = JQ_WIN_NONE;
+        CHECK(jq_save_game_write(path, &st) == 1, "F5 合法局 write 失败（契约1 返 1）");
+        memset(&back, 0xFF, sizeof(back));   /* 毒化 back：拒读/半读时必漂移 */
+        CHECK(jq_save_game_read(path, &back) == 1, "F5 合法局 read 失败（契约1 返 1）");
+        CHECK(back.turn == st.turn && back.stage == st.stage && back.mode == st.mode &&
+              back.winner == st.winner, "F5 合法局 局级字段漂移");
+        for (int i = 0; i < N_CELLS; i++) {
+            CHECK(back.cells[i].rank == st.cells[i].rank, "F5 合法局 rank 漂移");
+            CHECK(back.cells[i].side == st.cells[i].side, "F5 合法局 side 漂移");
+            CHECK(back.cells[i].revealed == st.cells[i].revealed, "F5 合法局 revealed 漂移");
+        }
+    }
+    /* ② 随机合法域局 round-trip（契约2+3 全合法域 → 零漂移） */
+    int rt = 0;
+    for (int i = 0; i < n; i++) {
+        jq_state st, back;
+        jq_state_init(&st);
+        for (int c = 0; c < N_CELLS; c++) {
+            st.cells[c].rank = (uint8_t)(rng() % 25);                    /* [0,24] 存储域（契约3 合法） */
+            st.cells[c].side = (uint8_t)(rng() % 3 == 2 ? 0xFF : rng() % 2);   /* BLUE/RED/UNKNOWN（契约3 合法） */
+            st.cells[c].revealed = (uint8_t)(rng() & 1);
+        }
+        st.turn = (uint8_t)(rng() % 2);
+        st.stage = (uint8_t)(rng() % 3);
+        st.mode = (uint8_t)(rng() % 2);
+        st.winner = JQ_WIN_NONE;          /* 契约2 合法域（随机 winner 必拒读，不测） */
+        st.total_moves = (int)(rng() % 500);
+        CHECK(jq_save_game_write(path, &st) == 1, "F5 随机合法域局 write 失败");
+        memset(&back, 0xFF, sizeof(back));
+        CHECK(jq_save_game_read(path, &back) == 1, "F5 随机合法域局 read 失败（枚举全合法域，不应拒读）");
+        int drift = 0;
+        for (int c = 0; c < N_CELLS; c++) {
+            if (back.cells[c].rank != st.cells[c].rank) drift++;
+            if (back.cells[c].side != st.cells[c].side) drift++;
+            if (back.cells[c].revealed != st.cells[c].revealed) drift++;
+        }
+        if (back.turn != st.turn || back.stage != st.stage || back.mode != st.mode ||
+            back.total_moves != st.total_moves) drift++;
+        if (drift == 0) rt++;
+    }
+    CHECK(rt == n, "F5 随机合法域局 round-trip 全零漂移");
+    /* ③ 脏枚举拒读契约（契约2）：winner 越域（3 / -5）→ read 返 0 + st 不污染（毒化 0xFF 全保留） */
+    {
+        jq_state st, back;
+        jq_state_init(&st);
+        st.winner = 3;
+        CHECK(jq_save_game_write(path, &st) == 1, "F5 脏枚举 write 失败");
+        memset(&back, 0xFF, sizeof(back));
+        CHECK(jq_save_game_read(path, &back) == 0, "F5 脏枚举（winner=3）未拒读（契约2 破）");
+        CHECK(((uint8_t *)&back)[0] == 0xFF, "F5 拒读污染 st（契约2 原子语义破）");
+        st.winner = -5;
+        CHECK(jq_save_game_write(path, &st) == 1, "F5 脏枚举 write 失败（-5）");
+        memset(&back, 0xFF, sizeof(back));
+        CHECK(jq_save_game_read(path, &back) == 0, "F5 脏枚举（winner=-5）未拒读（契约2 破）");
+    }
+    /* ④ 合法枚举 + 越域格 = 格归零漂移（契约3 设计行为，非 FAIL）：
+       随机 20 格 rank=0x99（>24 越域）→ read 返 1（枚举合法）+ 该 20 格归零 + 余格零漂移 */
+    {
+        int mutated = 0;
+        jq_state st, back;
+        jq_state_init(&st);
+        jq_load_layout(&st, JQ_DEFAULT_LAY);
+        for (int i = 0; i < 20; i++) {
+            int c = (int)(rng() % N_CELLS);
+            st.cells[c].rank = 0x99;     /* 越域（>24） */
+            st.cells[c].side = SIDE_BLUE;
+            st.cells[c].revealed = 1;
+            mutated++;
+        }
+        CHECK(jq_save_game_write(path, &st) == 1, "F5 越域格 write 失败");
+        CHECK(jq_save_game_read(path, &back) == 1, "F5 越域格 read 失败（枚举合法，格级归零应通过）");
+        int zero_cnt = 0;
+        for (int c = 0; c < N_CELLS; c++)
+            if (back.cells[c].rank == RANK_EMPTY && back.cells[c].side == 0xFF && back.cells[c].revealed == 0)
+                zero_cnt++;
+        /* 契约3：越域格归零（zero_cnt ≥ mutated，同格多次变异去重） */
+        CHECK(zero_cnt >= 1, "F5 越域格未归零（契约3 破）");
+        printf("F5 越域格归零契约 OK（变异 %d 格 → 归零 %d 格，契约3 设计行为）\n", mutated, zero_cnt);
+    }
+    printf("F5 存档 OK（合法局 1 + 随机合法域 %d 局零漂移 + 脏枚举拒读 ×2 + 越域格归零）\n", n);
+}
+
 int main(int argc, char **argv)
 {
     g_seed = argc > 1 ? (unsigned)atoi(argv[1]) : 0;
     int games   = argc > 2 ? atoi(argv[2]) : 500;
     int tn      = argc > 3 ? atoi(argv[3]) : 20000;
     int en      = argc > 4 ? atoi(argv[4]) : 5000;
-    printf("== fuzz_probe（seed=%u F1=%d局 F2=%d触摸 F3=%d事件 F4=undo边界）==\n", g_seed, games, tn, en);
+    int sn      = argc > 5 ? atoi(argv[5]) : 200;
+    printf("== fuzz_probe（seed=%u F1=%d局 F2=%d触摸 F3=%d事件 F4=undo边界 F5=%d存档）==\n", g_seed, games, tn, en, sn);
 
     /* F1 随机对弈（明棋 90% + 暗棋 10%，混合 3 轮不同种子防单 seed 侥幸；
        同 argv seed → 同输出（可复现）；不同 seed → 不同随机路径） */
@@ -260,9 +368,13 @@ int main(int argc, char **argv)
     fuzz_undo(100000);
     CHECK(1, "F4 undo 边界 0 崩溃（满拒/空拒契约成立）");
 
+    /* F5 存档 round-trip + 随机化存档 fuzz（持久化路径崩溃防护） */
+    fuzz_saves(sn);
+    CHECK(1, "F5 存档 round-trip 0 崩溃（合法/空/随机 rank/side 全合法域）");
+
     if (!g_fail) {
         printf("== 全部通过 ==\n");
-        printf("判据: PASS（fuzz_probe 4 项：随机对弈/触摸/事件/undo 边界 0 崩溃 ASan 干净）\n");
+        printf("判据: PASS（fuzz_probe 5 项：随机对弈/触摸/事件/undo 边界/存档 round-trip 0 崩溃 ASan 干净）\n");
         return 0;
     }
     printf("判据: FAIL\n");

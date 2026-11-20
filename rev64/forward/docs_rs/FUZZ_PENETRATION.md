@@ -19,16 +19,17 @@
 2. **可复现性**：xorshift32 首版实现 bug（`g_seed=x` 在变换前保存 → 恒返回同值）→ 3 seed 输出完全一致被误当"一致性 PASS"。修：`g_seed` 在变换后保存 + 同 seed 重跑 F1 行逐字比对（② 判据）。**教训：随机数生成器自身必须先单测（/tmp/rngtest 模式），再入 fuzz 主链。**
 3. **rank 存储域真值**：红方已翻开 rank 编码 `+0xc`（`RANK_TOP+0xc=24` 为存储域上限），首版断言 `r<=15` 误报。修：`junqi.h` 真值域 `[0,24]`，`>24` 才是引擎写坏。
 
-## 1. 4 变异器判据（无蓝牙）
+## 1. 5 变异器判据（无蓝牙）
 
 | 变异器 | 覆盖 | 判据 | 规模（默认） |
 |---|---|---|---|
 | **F1 随机对弈** | 规则引擎 + 终局分发（`jq_can_move`/`jq_try_move`/`jq_flip`/`jq_on_stalemate`） | 0 崩溃（ASan 干净）+ `rank/side/stage` 全合法 + guard 截断率 ≤10% + 明棋 90%/暗棋 10% 混合 | 500 局 ×3 轮（3 seed） |
 | **F2 触摸坐标** | 触摸状态机 `jq_touch_state_process`（越界/NaN/边界 7 类坐标） | 0 崩溃 + `ts.mode ∈ [0,2]` + `sel ∈ [-1,60)` 状态机合法态 | 20000 次 |
-| **F3 事件注入** | 事件名表 76 条 × 随机 `%d` 负载（`jq_event_names_73` 真值表） | 0 崩溃 + 负载 256B 无溢出 + 前缀匹配命中统计 | 5000 条 |
+| **F3 事件注入** | 事件名表 73 条 × 随机 `%d` 负载（`jq_event_names_73` 真值表） | 0 崩溃 + 负载 256B 无溢出 + 前缀匹配命中统计 | 5000 条 |
 | **F4 悔棋栈** | `UNDO_MAX` 边界连续灌/抽/满拒/空拒（契约：栈满拒 `push=0`/空栈拒 `pop=0`） | 0 崩溃 + 满拒/空拒契约成立 + `top ∈ [0,UNDO_MAX]` | 100000 次 |
+| **F5 存档 round-trip** | 持久化路径 `jq_save_game_write/read`（契约1 返 1 成功 / 契约2 枚举域拒读 / 契约3 越域格归零） | 0 崩溃 + 合法域 round-trip 零漂移 + 脏枚举（winner=3/-5）拒读 + 越域格归零可预期 | 200 局 + 越域 20 格 |
 
-**判据 = `fuzz_probe_check.py` 4 项全 PASS + ② 可复现性（同 seed 重跑 F1 行逐字一致）+ ASan 无 `ERROR: AddressSanitizer`（rc=0 也判 FAIL，假绿防护）**
+**判据 = `fuzz_probe_check.py` 5 项全 PASS + ② 可复现性（同 seed 重跑 F1 行逐字一致）+ ASan 无 `ERROR: AddressSanitizer`（rc=0 也判 FAIL，假绿防护）**
 
 ## 2. 用法（渗透轮 SOP）
 
@@ -56,8 +57,9 @@ python3 rev64/tools/fuzz_probe_check.py --games 2000 --touch 100000 --events 200
 
 - **fuzz 只查崩溃/非法态，不查行为正确性**——不崩 ≠ 行为对齐原版（行为对照靠 `rule_probe_compare.py` 双端 36 case + `align_gate.sh` 事件/布局判据）
 - F2 坐标基准 720×1280（渲染几何），越界值 ±1e6 级；真实设备 view 尺寸（900×1600）由 `mumu_regress.sh` 黑盒轮覆盖，fuzz 不重复
-- F3 事件名 76 条 = `jq_event_names_73` 真值表 + 随机 `%d` 替换，未覆盖非法字符/超长负载（负载 256B 上限内）
-- **不含蓝牙**（用户 2026-11-20 指令）；蓝牙帧变异若后续要加，单列 `bt_fuzz` 不入本 4 变异器
+- F3 事件名 73 条 = `jq_event_names_73` 真值表 + 随机 `%d` 替换，未覆盖非法字符/超长负载（负载 256B 上限内）
+- **F5 存档契约 = save.c 实现真值**：契约1 `write/read 返 1 成功 0 失败`；契约2 枚举域（turn∈{0,1}/stage∈[0,2]/winner∈[-1,2]/mode∈{0,1}，越域拒读返 0 + st 不污染）；契约3 cells 越域格归零（rank>24/side 非法/revealed>1 → 强制 rank=0+side=0xFF+revealed=0+flags=0，**设计行为非缺陷**）。随机化仅限合法域（② 零漂移）；脏枚举单列 ③ 验拒读，不混入合法域零漂移判据（避免契约3 归零漂移误判 FAIL）。
+- **不含蓝牙**（用户 2026-11-20 指令）；蓝牙帧变异若后续要加，单列 `bt_fuzz` 不入本 5 变异器
 
 ## 4. FAIL 台账（命中→定位→修→复跑闭环记录，最新在上）
 

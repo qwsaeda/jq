@@ -21,8 +21,8 @@ import argparse, os, subprocess, sys
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 GT = os.path.join(ROOT, 'rev64/forward/src_rs/dist/jq_fuzzprobe')
 
-def run_once(seed, games, tn, en, timeout=300):
-    cmd = [GT, str(seed), str(games), str(tn), str(en)]
+def run_once(seed, games, tn, en, sn, timeout=300):
+    cmd = [GT, str(seed), str(games), str(tn), str(en), str(sn)]
     p = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
     out = p.stdout + p.stderr
     ok = p.returncode == 0 and '== 全部通过 ==' in out
@@ -37,6 +37,7 @@ def main():
     ap.add_argument('--games', type=int, default=500)
     ap.add_argument('--touch', type=int, default=20000)
     ap.add_argument('--events', type=int, default=5000)
+    ap.add_argument('--saves', type=int, default=200, help='F5 存档随机合法域局数（默认 200）')
     ap.add_argument('--offline', action='store_true', help='binary 缺失时 PENDING 非 FAIL')
     a = ap.parse_args()
 
@@ -51,14 +52,15 @@ def main():
 
     seeds = [a.seed] if a.seed is not None else [int(x) for x in a.seeds.split(',')]
     for s in seeds:
-        ok, out, rc = run_once(s, a.games, a.touch, a.events)
+        ok, out, rc = run_once(s, a.games, a.touch, a.events, a.saves)
         f1 = [l for l in out.splitlines() if l.startswith('F1 ')]
         f2 = [l for l in out.splitlines() if l.startswith('F2 ')]
         f3 = [l for l in out.splitlines() if l.startswith('F3 ')]
         f4 = [l for l in out.splitlines() if l.startswith('F4 ')]
+        f5 = [l for l in out.splitlines() if l.startswith('F5 ')]
         verdict = 'PASS' if ok else 'FAIL'
         print('seed=%d %s（rc=%d）' % (s, verdict, rc))
-        for l in f1 + f2 + f3 + f4:
+        for l in f1 + f2 + f3 + f4 + f5:
             print('   ' + l)
         if not ok:
             fails.append('seed=%d fuzz_probe 非全 PASS（rc=%d）' % (s, rc))
@@ -67,8 +69,8 @@ def main():
                     print('   证据: ' + l)
     # ② 多 seed 一致性（可复现）：同 seed 重跑必同输出（F1 行数值一致）
     if len(seeds) > 1:
-        ok1, out1, _ = run_once(seeds[0], a.games, a.touch, a.events)
-        ok2, out2, _ = run_once(seeds[0], a.games, a.touch, a.events)
+        ok1, out1, _ = run_once(seeds[0], a.games, a.touch, a.events, a.saves)
+        ok2, out2, _ = run_once(seeds[0], a.games, a.touch, a.events, a.saves)
         f1a = [l for l in out1.splitlines() if l.startswith('F1 ')][0]
         f1b = [l for l in out2.splitlines() if l.startswith('F1 ')][0]
         if f1a == f1b:
@@ -76,10 +78,10 @@ def main():
         else:
             fails.append('② 可复现性破（同 seed 两次 F1 输出不一致）')
             print('   两次: %s | %s' % (f1a, f1b))
-    # ③ 判据汇总（4 变异器全绿）
+    # ③ 判据汇总（5 变异器全绿）
     if not fails:
-        print('③ 渗透轮判据 4 项全 PASS（F1 随机对弈/F2 触摸/F3 事件/F4 undo 边界 0 崩溃 ASan 干净）')
-        print('判据: PASS（fuzz_probe_check %d seed × 4 变异器 + 可复现性，无蓝牙渗透判据）' % len(seeds))
+        print('③ 渗透轮判据 5 项全 PASS（F1 随机对弈/F2 触摸/F3 事件/F4 undo 边界/F5 存档 0 崩溃 ASan 干净）')
+        print('判据: PASS（fuzz_probe_check %d seed × 5 变异器 + 可复现性，无蓝牙渗透判据）' % len(seeds))
         return 0
     for f in fails:
         print('FAIL:', f)
