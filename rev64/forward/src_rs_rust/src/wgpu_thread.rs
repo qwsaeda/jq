@@ -1,18 +1,18 @@
-#![allow(static_mut_refs)]
 //! wgpu_thread — 纯 Rust native 渲染线程：attach JVM 轮询 Surface → ANativeWindow → wgpu surface → 循环渲染
 #[cfg(target_os = "android")]
 mod imp {
     use std::sync::atomic::{AtomicBool, Ordering};
     static RUNNING: AtomicBool = AtomicBool::new(false);
     static STOP: AtomicBool = AtomicBool::new(false);
-    static mut JOIN: Option<std::thread::JoinHandle<()>> = None;
+    /// 渲染线程 handle（Mutex 安全，替代 static mut；start 写 / stop take+join 串行）
+    static JOIN: std::sync::Mutex<Option<std::thread::JoinHandle<()>>> = std::sync::Mutex::new(None);
 
     /// 停止渲染线程（OnDestroy 调用，防退出 SIGABRT）
     pub fn stop() {
         STOP.store(true, Ordering::SeqCst);
         // 等渲染线程结束（最多 500ms），确保退出前所有 JNI lockCanvas 调用完成
-        unsafe {
-            if let Some(h) = JOIN.take() {
+        if let Ok(mut guard) = JOIN.lock() {
+            if let Some(h) = guard.take() {
                 let _ = h.join();
             }
         }
@@ -34,7 +34,7 @@ mod imp {
             }
             RUNNING.store(false, Ordering::SeqCst);
         });
-        unsafe { JOIN = Some(h); }
+        if let Ok(mut guard) = JOIN.lock() { *guard = Some(h); }
     }
 
     unsafe fn run(vm_addr: usize, view_addr: usize, _w: u32, _h: u32) {

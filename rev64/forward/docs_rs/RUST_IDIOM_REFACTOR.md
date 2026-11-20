@@ -52,3 +52,16 @@
 - 顺手修历史遗留 bug：`replay_vs_independent_replay` 前"§7 复盘越界 cur 拒绝"测试的孤立 `#[test]`（函数体早丢失，属性贴到邻函数）→ 补回真实 `replay_rewind_oob` 测试（cur=999 clamp + 重建后状态合法性断言），测试数稳定 95。
 - 判据守门：95 测试 / clippy -D warnings rc=0 / android 0 错误 0 警告 / 14 符号 / 154 case / align_gate / fuzz_probe / event_names 全 PASS；真机 5 判据（so d6c534e8）+ 连续 3 次干净重启 0 崩溃。
 - 方法论固化：行为对齐 = "做什么"（业务真值），Rust 化 = "怎么写"（类型系统/Result/Error enum/迭代器/clippy 门禁）——两者不冲突，正向开发应两者兼顾。
+
+## 全仓 static mut 清零（2026-11-20 续：正向开发 Rust 规范深化）
+| 原 static mut | 改造为 | 语义等价依据 |
+|---|---|---|
+| `G_STATE`/`G_UI`/`G_CNT` + `G_LOCK` | `static GAME: Mutex<Option<Game>>`（锁数据合一） | 37 处 with_lock 调用唯一入口，同锁串行 + 懒初始化 |
+| `G_VM` / `G_VIEW` (raw jobject) | `AtomicUsize`（Acquire/Release） | 跨线程 raw 值，jni::JObject::from_raw 还原；GlobalRef mem::forget 保持存活不变 |
+| `G_SURFACE` | 删除（死代码，仅定义无使用） | — |
+| `G_WGPU_INSTANCE/DEVICE/QUEUE/SURFACE/CONFIG` + `WGPU_LOCK` | `static WGPU: Mutex<Option<WgpuState>>` | 全在 OnUpdate 内、原已持 WGPU_LOCK；setprop 日志/offscreen 验证全保留 |
+| `wgpu_thread::JOIN` | `Mutex<Option<JoinHandle>>` | start 写 / stop take+join 串行 |
+
+- **serde 未引入（诚实边界）**：save.rs 是纯逻辑层（域校验/复盘），无序列化代码；文件 I/O 在 JNI/磁盘边界。强行加 serde 会造出"无消费者的序列化 API"= 假实现，故不做。
+- 判据守门：95 测试 / clippy -D warnings rc=0 / android 0 错 0 警 / 14 符号 / 154 case / rust_anything 全 PASS；真机 5 判据（so de03d4c2：装/出屏 rendering/走子 Move/悔棋 undo_ok/重进）+ 连续 3 次干净重启 0 崩溃。
+- 全仓 `static mut` 声明归零（仅注释文字残留），消除 `#[allow(static_mut_refs)]`。
