@@ -44,8 +44,15 @@
 ## 回归命令（一条全跑）
 
 ```bash
-cd /disk/workspaces/jq/rev64/forward/src_rs && make bttest && make desk && python3 regress.py --games 20
-python3 /disk/workspaces/jq/rev64/tools/src_rs_check.py
+# 正向 C 12/12 全回归（含 [8.6] 渗透轮 5 变异器快版，2026-11-20 起 13 项全 PASS 口径）
+bash rev64/src_rs_regress.sh
+# 正向 C 全周期（编译 + 回归 + 装机 + 启动 + 装机前渗透快检 [2.5/3]）
+bash rev64/tools/rs_cycle.sh --dev 10.0.182.152:5555
+# 32 位双端总入口（静态 74 项 + 32 位渗透轮 5 探针 + 设备 4 项）
+bash rev64/tools/arm32_verify_all.sh --static-only
+# 渗透轮深版（手动 3 seed × 500 局）
+python3 rev64/tools/fuzz_probe_check.py
+bash rev64/tools/jqt_mem_fuzz_check.sh
 ```
 
 ## 工具链依赖

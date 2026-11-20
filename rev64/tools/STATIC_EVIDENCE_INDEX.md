@@ -1,4 +1,4 @@
-# 32 位静态佐证判据脚本索引（§124y-190~236 批次化，38 项全 PASS）
+# 32 位静态佐证判据脚本索引（§124y-190~236 批次化，38 项全 PASS）+ 渗透轮双端入口（2026-11-20）
 
 批次化入口：`bash rev64/tools/arm32_static_evidence.sh`（设备无关，离线可跑）
 
@@ -40,6 +40,13 @@
 | event_name_static | event_name_static_check.py | §124y-233 | 原版 32 位 so .rodata 73 Junqi.* 事件名静态提取（strings 直提 73 + frida-dump 二手机 73/73 对照 + event_code_map.json 12 码子集 + 模板串 %d 归一化口径） |
 | walkregress_8path | walkregress_8path_check.py | §124y-234 | 走子回归 8 路径锚点对照（蓝/红 × 明/暗 × 走/翻：move(6,11)/move(33,38)/flip(6)/flip(33) + walk_bridge/native_layout/native_event/game_test 8 锚点齐备，静态判 32 位翻译体锚点防漂移） |
 | dark_flip_probe | dark_flip_probe_check.py | §124y-236 | 暗棋翻子规则 32 位实证判据（桌面级 8 场景：先手定色 / 已翻不可再翻 / 敌方可翻门 / 军旗不可翻 / 空格不可翻 / 终局不可翻 / 和棋累加，gcc 编译 jq_rs_rules.c+board+layout 跑 0 依赖设备） |
+
+**渗透轮判据入口（2026-11-20 新增，双端无蓝牙）**：
+- 正向 C 5 变异器：`python3 rev64/tools/fuzz_probe_check.py`（src_rs F1 随机对弈/F2 触摸/F3
+  事件/F4 undo/F5 存档，3 seed × ASan，`make fuzzprobe` 构建；已挂 12/12 [8.6] + rs_cycle [2.5/3]）
+- 32 位 5 探针：`bash rev64/tools/jqt_mem_fuzz_check.sh`（jqt_mem.c M1 路由/M2 契约/M3 二分/
+  M4 GOT/M5 rebuild，桌面 x86_64 直跑不插桩；已挂 arm32_verify_all 32 位渗透轮档）
+- 台账 + 32/64 位语义差诚实边界（mincore flaky/maps 截断）：`rev64/forward/docs_rs/FUZZ_PENETRATION.md`
 
 **设备侧判据入口**（区分静态/设备）：
 - 全钩子 4 项：`bash rev64/tools/arm32_hook_check.sh --dev 10.0.182.146:5555 --rounds 3`
