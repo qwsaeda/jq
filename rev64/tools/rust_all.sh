@@ -67,24 +67,48 @@ fi
 if [ "$DEVICE" = 1 ]; then
   log "=== [5] 设备侧：installed so 哈希 + 无 Fatal + 能玩功能判据 ==="
   DEV=${DEV:-10.0.182.152:5555}
+  # adb 瞬断自愈：MuMu/houdini 下 adb 偶发 offline（脚本跑一半掉线→属性假绿根源）
+  adb_ensure(){ local o=$(adb -s "$DEV" shell "echo ok" 2>/dev/null | tr -d '\r');
+    if [ "$o" != "ok" ]; then adb connect "$DEV" >/dev/null 2>&1; sleep 1; fi; }
+  adb_ensure
   P=$(adb -s "$DEV" shell "pm path com.qwsaeda.junqirs" 2>/dev/null | sed 's/package://' | tr -d '\r' | head -1)
   if [ -n "$P" ]; then
     DH=$(adb -s "$DEV" exec-out "unzip -p $P lib/arm64-v8a/libjunqi.so" 2>/dev/null | md5sum | cut -d' ' -f1)
     LH=$(md5sum "$SO" | cut -d' ' -f1)
     [ "$DH" = "$LH" ] && log "PASS 设备 so 对账 ($DH)" || { log "FAIL 设备 so 不一致 设备=$DH 本地=$LH"; fail=1; }
     # 轮询等属性（CODE_STYLE §11：固定 sleep→wait_log，抗 houdini 时序抖动）
+    # ★ 关键：offline 时 getprop 返回 "adb: device offline"，绝不能当属性值匹配（假绿根源）
     wait_prop(){ local key=$1 want=$2 n=0; while [ $n -lt 15 ]; do
+      adb_ensure
       local v=$(adb -s "$DEV" shell "getprop $key" 2>/dev/null | tr -d '\r')
-      [ "$v" = "$want" ] && return 0; sleep 1; n=$((n+1)); done; return 1; }
+      case "$v" in *offline*|*error*|"") ;; *) [ "$v" = "$want" ] && return 0;; esac
+      sleep 1; n=$((n+1)); done; return 1; }
+    # 每个 adb 操作前自愈
+    adb_ensure
     # 干净重启（清残留钩子 + 文件探针）
-    adb -s "$DEV" shell "rm -f /data/local/tmp/jq_hook_*; am force-stop com.qwsaeda.junqirs; am start -n com.qwsaeda.junqirs/com.qwsaeda.App" >/dev/null 2>&1
+    adb_ensure
+    adb -s "$DEV" shell "rm -f /data/local/tmp/jq_hook_*; am force-stop com.qwsaeda.junqirs" >/dev/null 2>&1
+    sleep 2  # houdini JIT 竞态：force-stop 后立即 start 会 non-executable memory SIGSEGV（实测）
+    adb -s "$DEV" shell "am start -n com.qwsaeda.junqirs/com.qwsaeda.App" >/dev/null 2>&1
     wait_prop jq.wgpu_thread rendering && log "PASS 出屏 rendering" || { log "FAIL 出屏未达 rendering"; fail=1; }
     # 走子：蓝 6→11（tap 两下）
+    adb_ensure
     adb -s "$DEV" shell "setprop jq.move NONE; input tap 274 1383; sleep 1; input tap 274 1312" >/dev/null 2>&1
     wait_prop jq.move Move && log "PASS 走子 Move" || { log "FAIL 走子未触发 Move"; fail=1; }
     # 悔棋：☰ 菜单 undo（tap 620 750）
+    adb_ensure
     adb -s "$DEV" shell "setprop jq.game_icon NONE; input tap 620 750" >/dev/null 2>&1
     wait_prop jq.game_icon undo_ok && log "PASS 悔棋 undo_ok" || { log "FAIL 悔棋未触发 undo_ok"; fail=1; }
+    # ⑤ 重进不崩：force-stop 后重新 am start，等 pid 存活 + 出屏恢复
+    #   （放在 Fatal 检查之前，重进过程的崩溃也能被下面的 Fatal 计数捕获）
+    adb_ensure
+    adb -s "$DEV" shell "am force-stop com.qwsaeda.junqirs" >/dev/null 2>&1
+    sleep 2  # 同上：避免 houdini 快速重启竞态
+    adb -s "$DEV" shell "am start -n com.qwsaeda.junqirs/com.qwsaeda.App" >/dev/null 2>&1
+    wait_prop jq.wgpu_thread rendering && log "PASS 重进出屏恢复" || { log "FAIL 重进未恢复出屏"; fail=1; }
+    adb_ensure
+    RP=""; for pn in 1 2 3 4 5; do adb_ensure; RP=$(adb -s "$DEV" shell "pidof com.qwsaeda.junqirs" 2>/dev/null | tr -d '\r' | head -1); [ -n "$RP" ] && break; sleep 1; done
+    [ -n "$RP" ] && log "PASS 重进 pid 存活 ($RP)" || { log "FAIL 重进 pid 不存在"; fail=1; }
     F=$(adb -s "$DEV" logcat -d 2>&1 | grep -c 'Fatal signal\|Surface has already been released\|No pending exception')
     [ "$F" = 0 ] && log "PASS 无 Fatal" || { log "FAIL Fatal=$F"; fail=1; }
   else
