@@ -48,6 +48,8 @@ pub struct Ui {
     screen_snap: Screen,
     /// ★ 审计 A9：独立音效开关状态（不再用 cfg[0] 伪装）
     pub sound_on: bool,
+    /// 悔棋栈（规格 §6：整盘快照，走子/翻棋前 push）
+    pub undo_stack: Vec<State>,
 }
 
 impl Ui {
@@ -61,6 +63,7 @@ impl Ui {
             sound_snap: true,
             screen_snap: Screen::Menu,
             sound_on: true,
+            undo_stack: Vec::new(),
         }
     }
 
@@ -129,8 +132,23 @@ impl Ui {
         self.screen = self.screen_snap; // 确定后回原屏
     }
 
+    /// 走子/翻棋前 push 整盘快照（规格 §6）
+    pub fn push_undo(&mut self, st: &State) {
+        self.undo_stack.push(st.clone());
+        if self.undo_stack.len() > 64 { self.undo_stack.remove(0); } // 容量上限
+    }
+
+    /// 悔棋：pop 快照 + 全字段恢复（规格 §6）
+    pub fn undo(&mut self, st: &mut State) -> bool {
+        if let Some(snap) = self.undo_stack.pop() {
+            st.undo_restore(&snap);
+            true
+        } else { false }
+    }
+
     /// 终局"再来一局"→ 重开（规格 §10：stage==OVER 区）
     pub fn restart(&mut self, st: &mut State) {
+        self.undo_stack.clear();
         let snap_mode = st.mode;
         st.cells = [crate::state::Cell::empty(); crate::board::N_CELLS];
         st.turn = crate::state::SIDE_BLUE;

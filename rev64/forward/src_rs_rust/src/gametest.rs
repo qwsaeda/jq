@@ -6,7 +6,6 @@
 
 use crate::state::{Cell, State, SIDE_BLUE, SIDE_RED};
 use crate::{ai, rules};
-use crate::board::N_CELLS;
 
 /// 单方走一步（暗棋先翻，明棋走子/吃子，贪心同 ai_score）。对齐 C ai_step。
 fn ai_step(st: &mut State, me: u8, level: u8) -> Option<(usize, usize, bool)> {

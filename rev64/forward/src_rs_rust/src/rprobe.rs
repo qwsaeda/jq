@@ -1,3 +1,4 @@
+#![allow(unused_imports)]
 //! rprobe — 规则行为探针（移植 C rule_probe_shared.inc 36 case，32/64 位对照基准）
 //!
 //! C 正向的"规则分叉矩阵"证据（rule_probe 36 case 双端编译对照）搬进 Rust：

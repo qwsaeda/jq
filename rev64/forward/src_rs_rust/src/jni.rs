@@ -486,12 +486,25 @@ mod android_impl {
                         with_lock(|st, u, _c| { u.restart(st); });
                         crate::log::setprop("jq.ingame_act", "restart");
                     }
-                    Some(1) => { // 悔棋
-                        crate::log::setprop("jq.ingame_act", "undo");
+                    Some(1) => { // 悔棋（真执行）
+                        let ok = with_lock(|st, u, _c| u.undo(st));
+                        crate::log::setprop("jq.ingame_act", if ok { "undo_ok" } else { "undo_empty" });
                     }
                     Some(7) => { // 退出程序
                         with_lock(|_s, u, _c| { u.screen = ui::Screen::ExitConfirm; });
                         crate::log::setprop("jq.ingame_act", "exit");
+                    }
+                    Some(2) => { // 电脑变着→难度弹窗
+                        with_lock(|_s, u, _c| { u.screen = ui::Screen::Difficulty; });
+                        crate::log::setprop("jq.ingame_act", "difficulty");
+                    }
+                    Some(3) => { // 游戏规则→GameSet
+                        with_lock(|st, u, _c| { u.begin_popup(st); u.screen = ui::Screen::GameSet; });
+                        crate::log::setprop("jq.ingame_act", "gameset");
+                    }
+                    Some(4) => { // 功能设置→Settings
+                        with_lock(|st, u, _c| { u.begin_popup(st); u.screen = ui::Screen::Settings; });
+                        crate::log::setprop("jq.ingame_act", "settings");
                     }
                     Some(i) => { crate::log::setprop("jq.ingame_act", &format!("btn{}", i)); }
                     None => { // 面板外→关菜单
@@ -528,8 +541,9 @@ mod android_impl {
                         with_lock(|_s, u, _c| { u.screen = ui::Screen::IngameMenu; });
                         crate::log::setprop("jq.game_icon", "menu");
                         return 1;
-                    } else if x > 520.0 { // ↩ 悔棋
-                        crate::log::setprop("jq.game_icon", "undo");
+                    } else if x > 520.0 { // ↩ 悔棋（真执行）
+                        let ok = with_lock(|st, u, _c| u.undo(st));
+                        crate::log::setprop("jq.game_icon", if ok { "undo_ok" } else { "undo_empty" });
                         return 1;
                     }
                 }
@@ -546,6 +560,7 @@ mod android_impl {
                 if let Some(from) = sel {
                     // 二次点击：走子 / 翻棋（同格=翻棋，异格=走子）
                     let acted = with_lock(|st, u, cnt| {
+                        u.push_undo(st); // 规格 §6：走子/翻棋前 push 整盘快照
                         let ev_code = if from == cell {
                             // 同格翻棋（暗棋）
                             if rules::can_flip(st, cell) {

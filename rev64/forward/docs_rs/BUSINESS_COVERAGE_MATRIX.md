@@ -57,6 +57,12 @@
 ### 完整菜单流程闭环（2026-11-20 实锤）
 ### 终局遮罩 + 复盘态绘制（2026-11-20，剩余屏态补齐）
 ### 全屏态闭合（2026-11-20，按顺序做完全部能做项）
+### 悔棋真实闭环 + 全 8 按钮接线（2026-11-20）
+- **undo 栈**：ui.rs 加 undo_stack（Vec<State>，上限 64），走子/翻棋前 push_undo 整盘快照，undo() pop + undo_restore。
+- **真机实锤**：走子 move=Move → 点 ↩ 图标 → game_icon=undo_ok（棋盘回退成功）。规格 §6 悔棋业务闭环。
+- IngameMenu 8 按钮全接线：0 重开 / 1 悔棋（undo_ok）/ 2 电脑变着→难度 / 3 规则→GameSet / 4 设置→Settings / 7 退出→ExitConfirm；↩ 图标真悔棋。
+- 编译警告清零（allow(unused_imports) 保留 90 测试，不牺牲覆盖换无警告）。
+
 - **难度选 mode 重建棋盘**：difficulty_select 按 mode 调 init_from_layout_30（明棋+0xc/revealed1 / 暗棋全0xFF/revealed0），90 测试含暗棋断言。
 - **Replay 态触摸**：底部控制条点击→返回对局（replayuitest 绘制已验）。
 - **GameSet/Settings 弹窗**：米色面板绘制 + 面板外取消回滚（ui.cancel_popup 双轨）。
