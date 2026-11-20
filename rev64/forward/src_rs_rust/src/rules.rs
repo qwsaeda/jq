@@ -47,10 +47,9 @@ fn rail_path_engineer(st: &State, fr: i32, fc: i32, tr: i32, tc: i32) -> bool {
     let mut visited = [[false; 5]; 12];
     let mut qr: [i32; 64] = [0; 64];
     let mut qc: [i32; 64] = [0; 64];
-    let mut head = 0usize;
-    let mut tail = 0usize;
     // ★ C 基准：起点直接入队（不查 walkable——起点是工兵自身有子，合法起点）
     //   旧误用 walkable(st,fr,fc) 把起点有子判不可走 → E1 工兵拐弯全误判 false
+    let (mut head, mut tail): (usize, usize);
     if is_rail(fr, fc) {
         visited[fr as usize][fc as usize] = true;
         qr[0] = fr;

@@ -2,9 +2,8 @@
 //! WAV 用 include_bytes! 编进 so（200K），落地到 app 私有目录后用 MediaPlayer 播放。
 #[cfg(target_os = "android")]
 mod imp {
-    use jni::objects::{JObject, JValue};
+    use jni::objects::JValue;
     use jni::JNIEnv;
-    use std::io::Write;
 
     /// 事件名→WAV 字节（原版 14 WAV）
     fn wav_bytes(name: &str) -> Option<&'static [u8]> {

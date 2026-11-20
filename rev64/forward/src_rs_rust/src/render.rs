@@ -10,8 +10,7 @@
 
 #[cfg(target_os = "android")]
 mod gles_render {
-    use crate::board::{cell_col, cell_row, N_CELLS};
-    use crate::state::{rank_of, Cell, State};
+        use crate::state::State;
     use crate::ui::{Screen, Rect};
     use wgpu::Device as WgpuDevice;
 
@@ -58,7 +57,6 @@ mod gles_render {
         /// wgpu instance/adapter/device 获取（真机 pollster 轮询，设计 §3）
         /// 返回 (device, queue)；失败 None（后端不支持/GPU 缺失）
         pub fn create_wgpu_device() -> Option<(wgpu::Device, wgpu::Queue)> {
-            use pollster::FutureExt;
             // wgpu 30 真实 API：Instance::new(desc) 非 &desc + RequestAdapterOptions（非 AdapterOptions）
             let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
                 backends: wgpu::Backends::GL, // gles 后端
@@ -98,7 +96,6 @@ mod gles_render {
             w: u32,
             h: u32,
         ) -> Option<(wgpu::Instance, wgpu::Surface<'static>, wgpu::Device, wgpu::Queue)> {
-            use pollster::FutureExt;
             use raw_window_handle::{AndroidNdkWindowHandle, HasWindowHandle, RawWindowHandle, WindowHandle};
             if anative_window.is_null() { return None; }
             let nwin = std::ptr::NonNull::new(anative_window as *mut ())?;
@@ -165,7 +162,7 @@ mod gles_render {
             height: u32,
         ) -> Option<(wgpu::Surface<'static>, wgpu::SurfaceConfiguration)> {
             crate::log::setprop("jq.surface_step", "enter_create_surface");
-            use raw_window_handle::{AndroidDisplayHandle, AndroidNdkWindowHandle, HasWindowHandle, RawDisplayHandle, RawWindowHandle, WindowHandle};
+            use raw_window_handle::{AndroidNdkWindowHandle, HasWindowHandle, RawWindowHandle, WindowHandle};
             use pollster::FutureExt;
             if anative_window.is_null() {
                 crate::log::setprop("jq.surface_step", "null_window");
@@ -259,7 +256,6 @@ mod gles_render {
         /// 返回读回的首像素 RGBA（验证 wgpu 渲染管线在 houdini 下可用）
         /// offscreen 渲染返回完整 RGBA（供 Java Canvas 显示）
         pub fn offscreen_render_rgba(device: &wgpu::Device, queue: &wgpu::Queue, w: u32, h: u32) -> Option<Vec<u8>> {
-            use pollster::FutureExt;
             let tex = device.create_texture(&wgpu::TextureDescriptor {
                 label: Some("offscreen-rgba"),
                 size: wgpu::Extent3d { width: w, height: h, depth_or_array_layers: 1 },
@@ -313,7 +309,6 @@ mod gles_render {
         }
 
         pub fn offscreen_render_test(device: &wgpu::Device, queue: &wgpu::Queue) -> Option<(u8, u8, u8, u8)> {
-            use pollster::FutureExt;
             let w = 64u32;
             let h = 64u32;
             // ① 创建 offscreen texture（RENDER_ATTACHMENT | COPY_SRC）
@@ -471,7 +466,7 @@ mod gles_render {
     pub fn handle_touch(
         st: &mut State,
         u: &mut crate::ui::Ui,
-        cnt: &mut crate::evt::EventCounter,
+        _cnt: &mut crate::evt::EventCounter,
         vx: i32,
         vy: i32,
         view_w: i32,
@@ -552,7 +547,6 @@ pub mod gles_render_test {
 // ---- 纯 Rust wgpu 几何绘制（棋盘/菜单，无 C 代码无纹理）----
 #[cfg(target_os = "android")]
 mod geom {
-    use super::*;
 
     /// 顶点（位置 + 颜色），wgpu 直接画彩色三角形
     #[repr(C)]
@@ -570,7 +564,6 @@ mod geom {
         w: u32,
         h: u32,
     ) -> Option<Vec<u8>> {
-        use pollster::FutureExt;
         // ① shader：位置直通 + 颜色插值
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("geom-shader"),

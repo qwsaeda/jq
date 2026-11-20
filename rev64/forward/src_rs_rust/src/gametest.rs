@@ -8,7 +8,7 @@ use crate::state::{Cell, State, SIDE_BLUE, SIDE_RED};
 use crate::{ai, rules};
 
 /// 单方走一步（暗棋先翻，明棋走子/吃子，贪心同 ai_score）。对齐 C ai_step。
-fn ai_step(st: &mut State, me: u8, level: u8) -> Option<(usize, usize, bool)> {
+fn ai_step(st: &mut State, _me: u8, level: u8) -> Option<(usize, usize, bool)> {
     // 走子候选（吃子族优先，复用 ai::ai_pick 的贪心 + 难度分流）
     if let Some(mv) = ai::ai_pick(st, level) {
         if !mv.is_flip {

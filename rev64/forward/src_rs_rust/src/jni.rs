@@ -194,7 +194,6 @@ mod android_impl {
         //   → 渲染线程持续调 native OnUpdate → wgpu 出屏通路激活。
         //   Rust 旧返回 null → Java 兜底 GLView → native 渲染线程不启动 → 无出屏（58.8% 根因）。
         unsafe {
-            let envf = &**env; // env: *mut JNIEnv(*const JNINativeInterface_) → 解两层到 JNINativeInterface_
             let find_class = match envf.FindClass {
                 Some(f) => f,
                 None => return std::ptr::null_mut(),
@@ -311,7 +310,6 @@ mod android_impl {
         let _wgpu_guard = match WGPU_LOCK.lock() { Ok(g) => g, Err(e) => e.into_inner() };
         let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         unsafe {
-            let envf = &**env;
             // ① 首次：创建 wgpu device + instance
             if G_WGPU_DEVICE.is_none() {
                 if let Some((dev, q)) = crate::render::RenderCtx::create_wgpu_device() {

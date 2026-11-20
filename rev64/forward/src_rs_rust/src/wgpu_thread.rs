@@ -18,7 +18,7 @@ mod imp {
     }
 
     /// 启动 wgpu 渲染线程（native 独占 window，无 Java GLThread 竞争）
-    pub fn start(vm_addr: usize, view_addr: usize, w: u32, h: u32) {
+    pub fn start(vm_addr: usize, view_addr: usize, _w: u32, _h: u32) {
         STOP.store(false, Ordering::SeqCst);
         if RUNNING.swap(true, Ordering::SeqCst) {
             return;
@@ -36,7 +36,7 @@ mod imp {
         unsafe { JOIN = Some(h); }
     }
 
-    unsafe fn run(vm_addr: usize, view_addr: usize, w: u32, h: u32) {
+    unsafe fn run(vm_addr: usize, view_addr: usize, _w: u32, _h: u32) {
         let vm = match jni::JavaVM::from_raw(vm_addr as *mut jni::sys::JavaVM) {
             Ok(v) => v,
             Err(_) => { crate::log::setprop("jq.wgpu_thread", "vm_fail"); return; }
@@ -70,7 +70,7 @@ mod imp {
         crate::log::setprop("jq.wgpu_thread", "window_ok");
 
         // ② wgpu device（offscreen 渲染已实锤可用，不依赖 create_surface）
-        let (dev, q) = match crate::render::RenderCtx::create_wgpu_device() {
+        let (_dev, _q) = match crate::render::RenderCtx::create_wgpu_device() {
             Some(v) => v,
             None => { crate::log::setprop("jq.wgpu_thread", "device_fail"); return; }
         };
