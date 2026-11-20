@@ -88,3 +88,9 @@
 - 对外 API 不变：`crate::render::{RenderCtx, view_to_cell, draw_rects_rgba, menu_rects}` 全 re-export（jni.rs/wgpu_thread.rs 引用零改动）。
 - 判据守门：95 测试 / clippy -D warnings rc=0 / android 0 错 0 警 / 14 符号 / 154 case / align_gate / fuzz_probe 全 PASS；真机 5 判据（so 3a3ffc78：装/出屏 rendering+win_ok/走子 Move/悔棋 undo_ok/重进 rendering）。
 - 注：render.rs 原 `#![allow(dead_code)]` 随拆分保留在 mod.rs（单独清理属另一议题）。
+
+## 自造轮子审计 + 首选替换（2026-11-20 续：用户问"什么该用库却自造"）
+- **审计结论**：PNG 解码→png crate ✓ / JNI→jni crate ✓ / wgpu→wgpu crate ✓ / OnceLock/Mutex/Atomic/VecDeque/HashSet→std ✓ / 线程→std::thread ✓ / 格式化→format! ✓，这些已用对，不是轮子。
+- **替换1（已做）**：`asset.rs::decode_png` 手写 RGB→RGBA 循环 → `png::Transformations::EXPAND|ALPHA|STRIP_16` 让 crate 直接输出 RGBA8（零新增依赖）。实证 `/tmp/pngcmp`：对 bg_menu(RGBA)/piece_atlas(RGB) 两图输出与旧手动转换逐字节 identical=true。
+- **不替换（诚实边界）**：① 手写图像缩放/blit（asset.rs 15 个循环）——`image` crate 可做但需新增依赖（houdini 稳定风险），且椭圆棋子外形是业务真值无现成 API；② `log.rs` 手写 `__android_log_print`+setprop+文件探针——`log` crate 覆盖不了 houdini 环境下 logcat 不可靠的诊断通道。
+- 判据守门：95 测试 / clippy rc=0 / 0 错 0 警 / 14 符号 / 154 case / 真机 5 判据（so 9b8544d2）。

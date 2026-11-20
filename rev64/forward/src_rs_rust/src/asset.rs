@@ -15,26 +15,20 @@ mod imp {
     }
 
     /// 解码 PNG 为 RGBA (w,h)
+    /// ★ 用 png crate 的 Transformations 直接输出 RGBA8（替代手写 RGB→RGBA 循环）：
+    ///   EXPAND|ALPHA|STRIP_16 让 RGB 源自动补 alpha=255、RGBA 源原样、16bit 降 8bit。
+    ///   实证（/tmp/pngcmp）：对 bg_menu(RGBA)/piece_atlas(RGB) 两图，输出与旧手动转换逐字节一致。
     fn decode_png(bytes: &[u8]) -> Option<(Vec<u8>, u32, u32)> {
-        let decoder = png::Decoder::new(Cursor::new(bytes));
+        let mut decoder = png::Decoder::new(Cursor::new(bytes));
+        decoder.set_transformations(
+            png::Transformations::EXPAND
+                | png::Transformations::ALPHA
+                | png::Transformations::STRIP_16,
+        );
         let mut reader = decoder.read_info().ok()?;
         let mut buf = vec![0u8; reader.output_buffer_size()];
         let info = reader.next_frame(&mut buf).ok()?;
-        let w = info.width;
-        let h = info.height;
-        // 统一转 RGBA8
-        let rgba = match info.color_type {
-            png::ColorType::Rgba => buf[..info.buffer_size()].to_vec(),
-            png::ColorType::Rgb => {
-                let mut out = Vec::with_capacity(w as usize * h as usize * 4);
-                for px in buf[..info.buffer_size()].chunks_exact(3) {
-                    out.extend_from_slice(&[px[0], px[1], px[2], 255]);
-                }
-                out
-            }
-            _ => return None,
-        };
-        Some((rgba, w, h))
+        Some((buf[..info.buffer_size()].to_vec(), info.width, info.height))
     }
 
     /// 合成画面：背景缩放铺满 + 棋盘格 + 棋子图集贴图（纯 Rust CPU）
