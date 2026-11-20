@@ -1,10 +1,10 @@
 #!/bin/bash
-# §124y-215 32 位逆向验收双端总入口（设备 4 项 + 静态 73 项，一键跑）
+# §124y-215 32 位逆向验收双端总入口（设备 4 项 + 静态 74 项，一键跑；2026-11-20 口径 73→74）
 #
 # 用法：
 #   bash rev64/tools/arm32_verify_all.sh                       # 默认 10.0.182.146:5555
 #   bash rev64/tools/arm32_verify_all.sh --dev 10.0.182.146:5555
-#   bash rev64/tools/arm32_verify_all.sh --static-only         # 设备离线期只跑静态 73 项
+#   bash rev64/tools/arm32_verify_all.sh --static-only         # 设备离线期只跑静态 74 项
 #
 # 双端口径：
 #   静态 = arm32_static_evidence.sh（41 项全 PASS，设备无关，离线可跑）
@@ -27,7 +27,7 @@ done
 
 echo "═══ 32 位逆向验收双端总入口（§124y-215）═══"
 
-# 静态 73 项（设备无关，永远先跑）
+# 静态 74 项（设备无关，永远先跑）
 echo "── 静态佐证（41 项，设备无关）──"
 STATIC_OUT=$(bash "$WS/rev64/tools/arm32_static_evidence.sh" 2>&1)
 echo "$STATIC_OUT" | grep -E "PASS=|FAIL=" | tail -1

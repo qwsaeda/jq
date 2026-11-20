@@ -81,8 +81,11 @@ run "[11/12] 真实长路径走子 (make walkverify --longrun 5)" bash -c "cd $R
 run "[12/12] 桌面事件验证 (make evverify)" bash -c "cd $RS && make evverify MODE=--all 2>&1 | grep '全对'"
 
 echo
+# ★ 2026-11-20 口径修正：原硬编码 "12/12" 是历史编号（实际已含 2.x + 8.x 渗透项共 22 项）
+#   → 改为动态统计实际 run 项数，防"声称 12/12 但实际跑 22 项"的口径假绿。
+TOTAL=$(grep -c '^run "' "$0")
 if [ ${#FAILED[@]} -eq 0 ]; then
-    echo "★ 全回归 PASS（12/12）"
+    echo "★ 全回归 PASS（$TOTAL/$TOTAL，含 2.x 语义自测 + 8.x 渗透面）"
     exit 0
 else
     echo "★ 回归有 ${#FAILED[@]} 项 FAIL: ${FAILED[*]}"
