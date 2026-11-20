@@ -136,6 +136,14 @@ mod android_impl {
             });
             
         }
+        // ⑥ 菜单流程钩子：jq.menutest=1 → 切 Menu 态（验证菜单→难度→开局流程）
+        if crate::log::hook_triggered("menutest") {
+            with_lock(|_st, u, _c| {
+                u.screen = ui::Screen::Menu;
+                u.vs_ai = false;
+                crate::log::setprop("jq.menutest_res", "menu_ready");
+            });
+        }
     }
 
     /// ★ 审计 A10：快照同时返回屏态（渲染按 ui.screen 分屏合成）
@@ -409,7 +417,38 @@ mod android_impl {
         let screen = with_lock(|_st, u, _c| u.screen);
         match screen {
             ui::Screen::Menu => {
-                // 菜单空白不消费（规格 §10.2 防穿透）
+                // ★ 业务对齐：主菜单按钮命中（几何用原版 orig_menu.png 真值 720×1280 基准）
+                //   MotionEvent 坐标是 view 实际尺寸（900×1600）→ 归一化到 720×1280
+                let (bx, by) = (x * 0.8, y * 0.8);
+                let hit = with_lock(|_st, u, _c| {
+                    if ui::MENU_BTN_HUMAN.contains(bx as i32, by as i32) {
+                        u.menu_human(); // → 难度弹窗
+                        Some("human")
+                    } else if ui::MENU_BTN_TWOPLAYER.contains(bx as i32, by as i32) {
+                        u.menu_two_player(); // → 新局弹窗
+                        Some("two")
+                    } else { None } // 菜单空白不消费（规格 §10.2 防穿透）
+                });
+                if let Some(which) = hit {
+                    crate::log::setprop("jq.menu_hit", which);
+                    return 1;
+                }
+                return 0;
+            }
+            ui::Screen::Difficulty => {
+                // 难度弹窗：8 按钮（level 1-4 × mode 布局/翻棋）→ 开局
+                crate::log::setprop("jq.diff_enter", &format!("{}_{}", x as i32, y as i32));
+                let (bx, by) = (x * 0.8, y * 0.8);
+                let hit = with_lock(|st, u, _c| {
+                    if let Some((lv, md)) = ui::difficulty_hit(bx as i32, by as i32, &ui::DIFFICULTY_PANEL) {
+                        u.difficulty_select(lv, md, st);
+                        Some((lv, md))
+                    } else { None }
+                });
+                if let Some((lv, md)) = hit {
+                    crate::log::setprop("jq.difficulty", &format!("{}_{}", lv, md));
+                    return 1;
+                }
                 return 0;
             }
             ui::Screen::ExitConfirm => {

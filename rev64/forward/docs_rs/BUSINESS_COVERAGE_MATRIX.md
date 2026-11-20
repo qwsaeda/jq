@@ -52,6 +52,11 @@
 
 
 
+
+### 菜单流程业务接线（续，2026-11-20）
+- OnTouch 屏态分发扩展：Menu 态按钮命中（几何用 orig_menu.png 真值 + MotionEvent 坐标×0.8 归一化到 720×1280）、人机→Difficulty、Difficulty 态 8 按钮→开局。
+- menutest 文件钩子可切 Menu 态验证流程；真机实锤 menu_hit=human（人机按钮命中 + 屏态迁移）。
+- 难度按钮命中细节（difficulty=NONE）待坐标/时序精调；默认 Game 态走子不受影响（干净重启后 touch=cell11 + move=Move 实锤，5 判据全通）。
 ### 音效映射业务对齐（续，2026-11-20）
 - **事件→WAV 映射**：evt.rs sfx_for_code/sfx_for_name 对齐原版 evt55_sfx.c（Move→move / Eat→eat / Bomb→bomb / Flag→flag / Dead→dead / Flip→flip / Win类→win / Lose类→lose / Draw类→draw / 默认→move），89 测试锚定。
 - **sfx.rs**：14 WAV include_bytes 编进 so（200K）+ MediaPlayer 播放桥；OnTouch 走子后调 sfx::play(sfx_for_code(ev))。
