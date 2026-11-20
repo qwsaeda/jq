@@ -134,3 +134,9 @@
 | 真机 5 判据（重打包后复验，10.0.152） | 装 pid=48082 / 出屏 rendering / 走子 Move / 悔棋 undo_ok / 重进 pid=48214 全 PASS |
 
 边界：C 正向 `jni_bridge.c`/`src_rs_regress.sh`/`rs_cycle.sh` 正被另一并行会话编辑（git M + HEAD 持续推进），`rs_cycle.sh` 编译失败属其范围，本会话按物理隔离红线不触碰。
+
+## 正向总入口全通（2026-11-20 终轮）
+- **C so 死编译根治**：`jni_bridge.c` L2585 datax 探测裸块缺闭合 `}` → OnCreate 未闭合 → OnDestroy 起函数嵌套死编译（HEAD 基线既有，make so rc=2）。补 `}` 后 make so rc=0（690528B / 14 符号）。
+- **rs_cycle.sh 路径修正**：回归脚本 `rev64/forward/src_rs_regress.sh` → `rev64/src_rs_regress.sh`（原路径不存在致 12/12 永远 FAIL）。
+- **正向总入口全跑 rc=0**：编译 PASS + 12/12 全回归 PASS + 渗透轮 5 变异器快检 PASS（ASan 0 崩溃）+ 装机 so 哈希对账 PASS（629bf06e）+ 启动 pid 48936。
+- git HEAD 5533eeb，工作区 clean，待推=0。
