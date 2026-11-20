@@ -62,9 +62,22 @@ else
   DEV_STATUS="PENDING"
 fi
 
+# P9 渗透面：32 位 dispatch 表 5463 槽 fuzz（静态解析 + 二分模型，零设备依赖）
+echo "── P9 渗透面（32 位 dispatch 表 fuzz，5463 槽）──"
+P9_OUT=$(python3 "$WS/rev64/tools/vtable_dispatch_fuzz.py" 2>&1); P9_RC=$?
+echo "$P9_OUT" | grep -E "表解析|① |② |★ 诚实边界" | head -4
+if [ $P9_RC -ne 0 ]; then
+  echo "★ P9 渗透面 FAIL（rc=$P9_RC，dispatch 表结构/排序缺陷）"
+  P9_FAIL=1
+else
+  echo "   P9 渗透轮: PASS（5463 槽 0 漏检；6 奇数 off 诚实边界已记录）"
+  P9_FAIL=0
+fi
+
 echo "═══ 双端总入口汇总 ═══"
 echo "  静态 73 项: $( [ "$STATIC_PASS" = 1 ] && echo PASS || echo "FAIL（$STATIC_FAIL）" )"
 echo "  32 位渗透轮: $FUZZ32"
+echo "  P9 dispatch: $( [ "$P9_FAIL" = 1 ] && echo FAIL || echo PASS )"
 echo "  设备 4 项:  $DEV_STATUS"
 FUZZ32_FAIL=0
 case "$FUZZ32" in FAIL*) FUZZ32_FAIL=1;; esac
@@ -72,10 +85,12 @@ case "$DEV_STATUS" in
   PENDING) echo "  总判读: 静态 PASS + 设备 PENDING（环境掉线非 so 回归，等设备稳定窗口复验）"
            [ "$STATIC_FAIL" = 1 ] && exit 1
            [ "$FUZZ32_FAIL" = 1 ] && { echo "★ 32 位渗透轮 FAIL（jqt_mem.c 回归，白盒定位）"; exit 1; }
+           [ "$P9_FAIL" = 1 ] && exit 1
            exit 0;;
   PASS)    echo "  总判读: 双端全 PASS（32 位逆向对齐基准成立）"
            [ "$STATIC_FAIL" = 1 ] && exit 1
            [ "$FUZZ32_FAIL" = 1 ] && { echo "★ 32 位渗透轮 FAIL（jqt_mem.c 回归，白盒定位）"; exit 1; }
+           [ "$P9_FAIL" = 1 ] && exit 1
            exit 0;;
   SKIPPED) echo "  总判读: 静态 + 32 位渗透轮 PASS，设备侧 SKIPPED（--static-only 模式）"
            [ "$STATIC_FAIL" = 1 ] && { echo "★ 静态有 FAIL, 非通过"; exit 1; }
