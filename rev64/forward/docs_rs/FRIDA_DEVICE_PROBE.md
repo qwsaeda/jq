@@ -118,9 +118,22 @@ FindClass 持续）→ 判据以"≥2 节点 + ≥1 事件"为准，诚实标注
 完整 mangled（含 `RKNS_7DexFileE...` 后缀），截断写法 hook MISS → 用 enumerateExports
 取完整符号名。
 
+**★ 原版"军棋"装机路彻底封死（用户 2026-11-20 确认 + 设备属性实锤）**：
+用户明确"原版装不上这个 MuMu 的安卓 15 了"——设备属性实锤：
+```
+Android 15 / API 35 / abilist = x86_64,arm64-v8a,x86 / abilist32 = x86（无 armeabi）
+```
+原版 `com.cnvcs.junqi` = 32 位 armeabi so + minSdk 4 → **物理上装不上**
+（64 位 only + Android 15 无 32 位 ARM ABI，AGENTS.md 早已记录"minSdk 4 太旧 +
+armeabi 在 64 位设备装不上"）。→ **文档 §8.1 的"32 位 server + so 模块可见 +
+hook so 内导出"标准 native hook 路在此设备不可用**，不是"待装机"，是环境封死。
+**修正前文"原版装机后可用 32 位 server"口径为无效**（当时未查设备 ABI）。
+
 **剩余**：spawn 模式（抓 OnCreate 早期 JNI 链）在 arm64 转译 + frida spawn 时序下
-进程会销毁 → PENDING，改用 attach 模式（已 PASS）。原版"军棋"装机后可用
-32 位 frida-server 走文档 §8.1 标准路（模块可见，hook so 内导出）。
+进程会销毁 → PENDING，改用 attach 模式（已 PASS）。**Frida 设备侧渗透在当前
+设备的唯一可行路 = host 侧 JNI 桥梁 hook（已实现，Jnitrace 效果）**——原版
+native hook 无望（环境封死），正向新版 guest so 不可见（架构限制），
+两条 native 路都堵死，只剩桥梁 hook 这条。
 
 **产物**：`frida_jni_probe.py`（native hook，guest 不可见 FAIL 保留）+ `frida_jni_hook.py`
 （直接地址 hook，guest 地址够不到 FAIL 保留）+ `frida_jni_bridge_hook.py`（**host 侧
