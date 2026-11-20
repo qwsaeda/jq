@@ -25,6 +25,7 @@ pub mod gles;
 pub mod egl_render;
 pub mod wgpu_thread;
 pub mod asset;
+pub mod strings;
 pub mod gametest;
 pub mod evtest;
 pub mod rprobe;

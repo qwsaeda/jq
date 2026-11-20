@@ -131,3 +131,98 @@ mod tests {
         assert_eq!(c.total, 4, "总数 4");
     }
 }
+
+/// ★ 原版 73 事件名表（业务真值，逐名对齐 C jq_event_names_73.c / 原版 .rodata）
+/// 索引 = 73 名表索引（注意：与 7 码域 EV_* 的码值不同层）
+pub const JQ_EVENT_NAMES_73: [&str; 73] = [
+    "Junqi.Move", // [0]
+    "Junqi.Eat", // [1]
+    "Junqi.Bomb", // [2]
+    "Junqi.Flag", // [3]
+    "Junqi.Dead", // [4]
+    "Junqi.Flip", // [5]
+    "Junqi.Win", // [6]
+    "Junqi.Lose", // [7]
+    "Junqi.RedWin", // [8]
+    "Junqi.BlueWin", // [9]
+    "Junqi.Draw", // [10]
+    "Junqi.GameOver", // [11]
+    "Junqi.Over", // [12]
+    "Junqi.DrawReq", // [13]
+    "Junqi.DrawAgree", // [14]
+    "Junqi.DrawDisagree", // [15]
+    "Junqi.DrawConfirm", // [16]
+    "Junqi.DrawSend", // [17]
+    "Junqi.Resign", // [18]
+    "Junqi.ResignConfirm", // [19]
+    "Junqi.RegretReq", // [20]
+    "Junqi.RegretAgree", // [21]
+    "Junqi.RegretDisagree", // [22]
+    "Junqi.RegretConfirm", // [23]
+    "Junqi.RegretSend", // [24]
+    "Junqi.RegretFail", // [25]
+    "Junqi.InputUser", // [26]
+    "Junqi.InputEmail", // [27]
+    "Junqi.InputPassword", // [28]
+    "Junqi.InputConfirmPwd", // [29]
+    "Junqi.LoginFail", // [30]
+    "Junqi.LoginAuthFail", // [31]
+    "Junqi.LoginMaxUser", // [32]
+    "Junqi.LoginVerOld", // [33]
+    "Junqi.EmailError", // [34]
+    "Junqi.EmailLenError", // [35]
+    "Junqi.InputName", // [36]
+    "Junqi.RegExist", // [37]
+    "Junqi.RegFail", // [38]
+    "Junqi.RegOk", // [39]
+    "Junqi.UserCharError", // [40]
+    "Junqi.UserLenError", // [41]
+    "Junqi.NameCharError", // [42]
+    "Junqi.NameLenError", // [43]
+    "Junqi.PwdLenError", // [44]
+    "Junqi.PwdNotMatch", // [45]
+    "Junqi.NewFail", // [46]
+    "Junqi.NewPwdLenError", // [47]
+    "Junqi.NewPwdNotMatch", // [48]
+    "Junqi.OriPwdLenError", // [49]
+    "Junqi.JoinGame", // [50]
+    "Junqi.Ready", // [51]
+    "Junqi.Start", // [52]
+    "Junqi.PeerStart", // [53]
+    "Junqi.PeerFirst", // [54]
+    "Junqi.PeerLast", // [55]
+    "Junqi.PeerLayFinish", // [56]
+    "Junqi.PeerWait", // [57]
+    "Junqi.LeaveGame", // [58]
+    "Junqi.PlayerLeave", // [59]
+    "Junqi.Reconnecting", // [60]
+    "Junqi.ReconnFail", // [61]
+    "Junqi.ConnectFail", // [62]
+    "Junqi.ExitFail", // [63]
+    "Junqi.ExitConfirm", // [64]
+    "Junqi.LayError", // [65]
+    "Junqi.HighAreaFail", // [66]
+    "Junqi.MidAreaFail", // [67]
+    "Junqi.ZhaError", // [68]
+    "Junqi.LeiError", // [69]
+    "Junqi.QiError", // [70]
+    "Junqi.Select", // [71]
+    "Junqi.GameType", // [72]
+];
+
+/// 按名查 73 表索引（未命中返 None）
+pub fn name_to_73_index(name: &str) -> Option<usize> {
+    JQ_EVENT_NAMES_73.iter().position(|&n| n == name)
+}
+#[cfg(test)]
+mod names_73_tests {
+    use super::*;
+    #[test]
+    fn names_73_count_and_key() {
+        assert_eq!(JQ_EVENT_NAMES_73.len(), 73, "原版 73 名表完整");
+        assert_eq!(JQ_EVENT_NAMES_73[0], "Junqi.Move");
+        assert_eq!(JQ_EVENT_NAMES_73[5], "Junqi.Flip");
+        assert_eq!(name_to_73_index("Junqi.BlueWin"), Some(9));
+        assert_eq!(name_to_73_index("Junqi.NotExist"), None);
+    }
+}
