@@ -2741,6 +2741,9 @@ Java_com_qwsaeda_App_OnCreate(JNIEnv *env, jclass clazz, jobject activity)
            native 直接 activity.setContentView(view) 让 view attach，GLThread 起来驱动出帧。 */
         jclass act_cls = (*env)->GetObjectClass(env, activity);
         jmethodID scv = (*env)->GetMethodID(env, act_cls, "setContentView", "(Landroid/view/View;)V");
+        /* ★ jni_method_audit [10] 异常清理补齐（src_rs_check 红线门禁）：GetMethodID 失败
+           必 ExceptionCheck/ExceptionClear（pending exception 累积 → 后续 JNI 调用 abort）。 */
+        if ((*env)->ExceptionCheck(env)) (*env)->ExceptionClear(env);
         /* ★ 2026-11-20 括号配平修复（so 编译门禁实锤）：`if (scv) {` 块闭合 `}` 历史缺失
            （surface 段 `{ ... }` 自身配平 + 尾部悬挂 else 被消化）→ OnDestroy 处编译错 +
            act_cls 作用域断裂。修：if(scv) 块尾闭合 }（下方 surface 段前）+ 尾部 else 分支

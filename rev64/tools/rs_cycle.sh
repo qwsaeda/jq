@@ -37,7 +37,7 @@ log "编译完成: $(stat -c%s dist/libjunqi_rs.so)B md5=$(md5sum dist/libjunqi_
 
 if [[ $REGRESS -eq 1 ]]; then
   log "=== [2/3] 12/12 全回归 ==="
-  bash /disk/workspaces/jq/rev64/forward/src_rs_regress.sh >/tmp/opencode/rs_cycle_regress.log 2>&1
+  bash /disk/workspaces/jq/rev64/src_rs_regress.sh >/tmp/opencode/rs_cycle_regress.log 2>&1
   if [ $? -ne 0 ]; then
     log "★ 回归有 FAIL"; grep -E "FAIL" /tmp/opencode/rs_cycle_regress.log | head -5; exit 1
   fi
