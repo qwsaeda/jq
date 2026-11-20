@@ -7285,3 +7285,16 @@ jq_rs_rules.c 注释定论。
 2. 符号数/项数/版本号对不上时，**不要解释成"统计口径不同"就放过**——查到
    nm/readelf/包的层级真值再下结论（41 vs 14 背后藏着"设备装的是另一会话产物"）
 3. "声称覆盖 ≠ 实际执行"（§119-3）+ "数字对不上必查到底"（§120-3）= 假绿识别双支柱
+
+### 121. 包名/交付物漂移（§121 2026-11-20，查设备包时顺带发现）
+
+- **现象**：AGENTS 与 `arm32_hook_check.sh` 用 `com.zxj.junqirs`（逆向 app 规范包名），
+  但磁盘交付物 APK（ni_junqi_signed.apk / phase0-3 / phase_chain_arm32.apk）
+  aapt 实锤全是**旧包名 `com.cnvcs.junqirs` / `com.cnvcs.junqi32`**（未随"全链改名 4 处"
+  同步重编）；设备当前只剩 `com.qwsaeda.junqirs`（正向），逆向/原版包均已被卸载
+  （AGENTS"三包并存"是历史状态）。
+- **纪律**：引用"逆向 app 包名"时区分**规范名（com.zxj，判据/文档用）vs 交付物实际名
+  （com.cnvcs，APK 用）**——装机前必须 aapt `dump badging` 查实际包名，不能按规范名
+  adb install（会找不到包）。
+- **归属**：APK 交付物包名漂移属源码/交付物重编范畴（跨逆向/正向会话），本会话只记录
+  不强行修（避免抢活）；真机验收若要验逆向 C 版，需先解决"com.zxj APK 不存在"的前提。
