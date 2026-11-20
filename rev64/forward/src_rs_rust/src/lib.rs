@@ -22,7 +22,6 @@ pub mod render;
 pub mod log;
 pub mod canvas;
 pub mod gles;
-pub mod egl_render;
 pub mod wgpu_thread;
 pub mod asset;
 pub mod strings;
