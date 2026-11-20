@@ -86,9 +86,14 @@ MuMu 就是真机，Frida 行，只是要找对 hook 点**（host 侧 JNI 桥梁
 
 **三条失败路（保留记录，均为"找对 hook 点前"的探索）**：
 - `frida_jni_probe.py`（native 导出 hook，x86_64 server）：guest so 模块 frida 不可见 → 0/14
-- `frida_jni_hook.py`（直接地址 hook，x86_64 server）：guest 地址 0x4000... frida 的
-  Memory 报 ERR（`/proc/pid/mem` 用 adb root 可读 ELF magic `7f454c46`，但 x86_64
-  frida-server 进程够不到 houdini guest 空间）
+- `frida_jni_hook.py`（直接地址 hook，x86_64 server）：**root 权限下实测根因**（此前"权限
+  不够/Memory 报 ERR"是误判——非 root 以 oem_5411 起导致）：地址计算正确
+  （base+off=0x4000209e75ac），`ptr(addr).readByteArray(8)` **能读到 ARM64 指令字节**
+  （`7f454c46` ELF header / `294140f8...` 代码）→ **guest 地址内存可读**；但
+  `Interceptor.attach(addr)` 报 `access violation accessing 0x5d233777ac`（frida 内部
+  把 guest 地址映射到 host 执行 PC 失败）→ **houdini 转译本质限制：guest 地址不是真实
+  执行 PC（真实执行的是 houdini 翻译后的 host 代码），frida 代码 hook 拦不到**。
+  非权限问题（root 已验证）；与 host JNI 桥梁 hook（能抓 JNI 调用）形成互补边界。
 - **arm64 frida-server（原生 native hook 终极尝试）**：下载 84MB aarch64 ELF（17.24.3）
   推设备。**能执行**（报"Error binding 127.0.0.1:27042 Address already in use"——
   houdini 确实转译了 aarch64 ELF），但停掉 x86_64 server 后换端口 27043 启动**静默退出**
