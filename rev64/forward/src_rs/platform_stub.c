@@ -19,6 +19,10 @@
 #include "render_obj.h"
 #include "junqi.h"
 
+/* android log（src_rs 多处依赖；桌面静默桩） */
+int __android_log_print(int prio, const char *tag, const char *fmt, ...)
+{ (void)prio; (void)tag; (void)fmt; return 0; }
+
 /* ---- android native window ---- */
 struct ANativeWindow { int dummy; };
 struct ANativeWindow *ANativeWindow_fromSurface(void *env, jobject surface)

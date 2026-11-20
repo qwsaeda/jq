@@ -54,9 +54,6 @@
 
 #include <jni.h>
 
-/* android/log stub */
-int __android_log_print(int prio, const char *tag, const char *fmt, ...)
-{ (void)prio; (void)tag; (void)fmt; return 0; }
 
 /* ---------- 14 个 JNI 导出声明 ---------- */
 extern jobject JNICALL Java_com_qwsaeda_App_OnCreate(JNIEnv *, jclass, jobject);

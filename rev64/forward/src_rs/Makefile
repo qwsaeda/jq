@@ -224,6 +224,17 @@ fuzzui:
 # ★ 依赖 android_stub/（桌面 jni.h / EGL / android/*.h 最小桩）+ platform_stub.c（GL/平台符号）
 # 用法：make fuzzjni SEED=7 ROUNDS=1
 #
+# ★ P6/P7 渗透面：存档文件损坏 + 复盘链 fuzz（ASan）
+#   P6 截断/字节翻转/定向畸形存档 → 拒读原子语义；P7 record/rewind 边界 n/cur 不变量
+# 用法：make fuzzsave SEED=7 ROUNDS=3000
+fuzzsave:
+	@mkdir -p dist
+	$(CC) $(CFLAGS) -O0 -g -fsanitize=address -DRS_NO_GL -Iandroid_stub \
+	    -o dist/jq_fuzzsave fuzz_save.c platform_stub.c save.c replay.c rules.c \
+	    board.c layout.c ui_state.c ui_menu.c touch.c touch_state.c -lm
+	@echo "构建完成: dist/jq_fuzzsave（ASan）"
+	@dist/jq_fuzzsave $(SEED) $(ROUNDS)
+
 # ★ P3 渗透面：事件分发 + 音效映射 fuzz（ASan；探针 #include evt55_dispatch.c 取 static
 #   e55_code_to_evname + 链接其余 evt55_*；全 67 code 扫描 + 往返身份 + 73 名音效 + 计数守恒）
 # 用法：make fuzzevt SEED=7
@@ -243,7 +254,7 @@ fuzzevt:
 fuzzmt:
 	@mkdir -p dist
 	$(CC) -fsanitize=thread -no-pie -O1 -g -DRS_NO_GL -Iandroid_stub \
-	    -o dist/jq_fuzzmt fuzz_mt.c touch_state.c touch.c ui_state.c ui_menu.c \
+	    -o dist/jq_fuzzmt fuzz_mt.c platform_stub.c touch_state.c touch.c ui_state.c ui_menu.c \
 	    replay.c rules.c board.c layout.c save.c -lm
 	@echo "构建完成: dist/jq_fuzzmt（TSAN，运行需 setarch -R 固定 ASLR）"
 	@setarch -R dist/jq_fuzzmt $(SEED) $(ITERS)

@@ -57,9 +57,6 @@ jq_state g_state;
 extern pthread_mutex_t g_mutex;
 pthread_mutex_t g_mutex = PTHREAD_MUTEX_INITIALIZER;   /* 探针自建（jni_bridge.c 定义，桌面不可链接） */
 
-/* android/log stub（ui_state.c 依赖） */
-int __android_log_print(int prio, const char *tag, const char *fmt, ...)
-{ (void)prio; (void)tag; (void)fmt; return 0; }
 
 static unsigned g_seed;
 /* ★ 每线程独立 RNG 状态（__thread）：共享 g_seed 会被 TSAN 报成竞态（探针自身缺陷，

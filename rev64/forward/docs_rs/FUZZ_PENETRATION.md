@@ -245,8 +245,8 @@ M5' rebuild：×50 幂等 + 10000 次路由解引用 0 崩溃
 | ~~P3~~ | ~~事件分发 code→handler + 音效映射（evt55_dispatch/sfx）~~ | 中高 | ✅ **已做（§2.8.6）** |
 | P4 | 渲染 GL 状态序列（render.c 11229 行） | 高 | 需 GL 上下文（设备） |
 | P5 | JNI 入口参数 fuzz（14 入口） | 中高 | 需设备 |
-| P6 | 存档文件损坏 fuzz（截断/字节翻转 on .sjg） | 中 | 可离线 ✅ |
-| P7 | 复盘链 fuzz（replay.c） | 中 | 可离线 ✅ |
+| ~~P6~~ | ~~存档文件损坏 fuzz（截断/字节翻转 on .sjg）~~ | 中 | ✅ **已做（§2.8.7）** |
+| ~~P7~~ | ~~复盘链 fuzz（replay.c）~~ | 中 | ✅ **已做（§2.8.7）** |
 | P8 | 多线程竞态（g_mutex/g_ui_lock/GL 线程，TSAN 重编） | 最高 | 可离线 ✅（需 TSAN 工具链） |
 | P9 | 32 位 dispatch 表 2218 槽 fuzz | 中高 | 可离线 ✅ |
 
@@ -358,6 +358,28 @@ TSAN 报 `data race at ui_state.c:46 in ui_screen_set`——`ui_screen_set` 持 
    内联实现（不再单独链接该文件，否则重复定义）
 2. 判据阈值按**真值**设（有效映射 19 个）——初版设 >20 导致假 FAIL。**教训：机检阈值
    必须先跑一次取真值再设，不能拍脑袋**（与 F1 guard截断率 ≤10% 同型纪律）
+
+### 2.8.7 P6/P7：存档损坏 + 复盘链 fuzz（`fuzz_save.c`）
+
+**覆盖**：`.sjg` 存档格式（magic + sizeof + state blob + 域校验）+ 复盘记录链
+（record/rewind/cur）。真机可达性：OnResume 读 `one.sjg` 续局（jni_bridge :10640
+实锤"续局读成功"）→ 畸形存档必须安全拒读而非崩溃。
+
+**变异 + 判据（实锤全 PASS）**：
+- P6 M1 合法存档 round-trip：292 字节（基线，必须成功）
+- P6 M2 截断（8 种截断点：0/1/4/8/9/12/半长/sizeof-1）0 崩溃
+- P6 M3 字节翻转（3000 轮 × 1-16 字节随机翻转）0 崩溃
+- P6 M4 定向畸形（magic 错 / sizeof 0xFFFFFFFF / 尾部追加 64B 垃圾）0 崩溃
+- 拒读语义：返 0 且**不改调用方 st**（毒化 0x5A 后 memcmp 全等 = R41-Q17 原子语义）；
+  接受时全字段合法域（rank≤24 / side∈{0,1,0xFF} / revealed≤1 / 局级枚举域）
+- P7 复盘：3000 次 record（n≤N_REPLAY=1100 / cur∈[0,n]）+ 4 越界 rewind
+  （-1/n+1/INT32_MAX/INT32_MIN）+ 空复盘 rewind → 0 崩溃
+
+**踩坑固化**：platform_stub.c 的 `__android_log_print` 与 fuzz_jni.c/fuzz_mt.c 重复
+定义 → 桩函数只在 platform_stub.c 保留一份（所有链接它的探针共用），fuzz_mt 的
+Makefile 同步补 platform_stub.c。**教训：共享 stub 函数单一来源，禁止探针各自定义**。
+
+**剩余**：P9（32 位 dispatch 表 2218 槽 fuzz，可离线）；P4 渲染 GL / P5 真机 JNI 需设备。
 
 ## 3. 诚实边界
 
