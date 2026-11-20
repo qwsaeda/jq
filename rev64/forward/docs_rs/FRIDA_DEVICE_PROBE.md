@@ -101,6 +101,10 @@ MuMu 就是真机，Frida 行，只是要找对 hook 点**（host 侧 JNI 桥梁
   无法稳定运行 → **native hook so 内导出这条路在本环境不通**。
   ★ 正解仍是 host 侧 JNI 桥梁 hook（PASS），无需 arm64 server。
 
+**★ 归属声明（§119 纪律）**：本文所有 152 真机 Frida 证据打的是**正向会话 Rust 版 app**
+（com.qwsaeda.junqirs，so 2408 Rust mangle 符号），不是逆向会话 C 版（com.zxj 未装）。
+C ABI 14 导出两版一致 → Frida 判据通用，但"能玩/全链"归属属正向会话，不抢活。
+
 **★ so 版本口径澄清（2026-11-20 核对）**：设备上 `com.qwsaeda.junqirs` 装的 so
 （md5 `9b8544d2...`，6992448B）是**正向 Rust 重写版**（`src_rs_rust`，readelf 实锤
 `junqi_rs::jni::android_impl::with_lock` 泛型单态化 LOCAL 符号）——不是本会话的 C 版

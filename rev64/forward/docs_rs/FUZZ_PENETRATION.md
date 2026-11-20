@@ -402,6 +402,27 @@ Thumb 位清除命中 ⑤ fns/offs 名值 5463/5463 对应。
 **口径修正记录**：dispatch 表槽数历史口径 2218 → 源码实测 **5463**（`jqt_vtbl_n=5463u`
 + offs/fns 双表均 5463）。AGENTS 历史"2218"系早期翻译体阶段快照，当前真值 5463。
 
+## 2.9 ★ 真机黑盒证据归属澄清（2026-11-20，§119 纪律查到的口径）
+
+**关键事实（nm 实锤）**：152 设备上 `com.qwsaeda.junqirs` 装载的 so（md5 `9b8544d2...`，
+6992448B）是**正向会话 Rust 重写版**（`src_rs_rust`，2408 个 `_RINv` Rust mangle 符号 +
+`rustc/58...` 哈希），不是本会话的 C 版 src_rs（md5 `05ce20b0...`，0 mangle）。
+本地 Rust 产物（2405 mangle / 6992160B）与设备 so 几乎一致（差 3 = 小版本演进）。
+
+**归属结论**：
+- 本文件 §2.5/§2.6/§2.8 的**真机黑盒证据**（152 5 判据 / sendevent 手点全链 / 60 局
+  8460 走子 / AI 应着 / Frida 各 hook）**全部打在正向 Rust 版 app 上**（com.qwsaeda.junqirs），
+  **不是本会话 C 版**（com.zxj 逆向 app 当前设备未装——设备只有 com.qwsaeda 一个包）。
+- 按 AGENTS 红线"不抢活"：C 版（逆向 com.zxj）/ Rust 版（正向 com.qwsaeda）分属不同会话。
+  本会话的 C 版渗透判据是**桌面离线**（fuzz_all A/B/C + arm32 静态），真机证据是**借用正向
+  会话 app 的黑盒佐证**——归属须写清，不能把正向 app 的"能玩"算到逆向 C 版头上。
+- 两条路都导出 **C ABI 14 个 `Java_com_qwsaeda_App_*`**（nm -D 实锤），所以 Frida 14 入口
+  判据 + 黑盒钩子（setprop jq.movetest 等）对两版通用（JNI 契约一致）。
+
+**诚实边界**：本会话 C 版（rev64/forward/src_rs）的真机 5 判据**未独立验证**（设备无 com.zxj
+包）；其能力证据 = 桌面 fuzz_all 全通 + 静态 74/74 + 与 Rust 版 C ABI 同源（14 导出一致）。
+Rust 版真机全链 PASS 由正向会话负责（其交付物 phase_rs_rust.apk）。
+
 ## 3. 诚实边界
 
 - **fuzz 只查崩溃/非法态，不查行为正确性**——不崩 ≠ 行为对齐原版（行为对照靠 `rule_probe_compare.py` 双端 36 case + `align_gate.sh` 事件/布局判据）
