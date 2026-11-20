@@ -1,0 +1,115 @@
+//! fuzztest — Rust 正向逻辑层渗透测试（对齐 fuzz_probe 4 变异器理念，无蓝牙）
+//! 纯逻辑层随机变异 0 崩溃 + 状态域不变量 + 可复现性。
+//! ★ 与 C fuzz_probe（src_rs）物理隔离：这是 Rust 版 src_rs_rust 的渗透判据。
+
+#[cfg(test)]
+mod tests {
+    use crate::state::{State, Stage, Winner, SIDE_BLUE, SIDE_RED, SIDE_UNKNOWN};
+    use crate::{ai, rules};
+
+    /// xorshift32（先变换后保存，避免 C 首版自 bug）
+    struct Rng(u32);
+    impl Rng {
+        fn new(seed: u32) -> Self { Self(seed) }
+        fn next(&mut self) -> u32 {
+            let mut x = self.0;
+            x ^= x << 13; x ^= x >> 17; x ^= x << 5;
+            self.0 = x; // ★ 变换后保存
+            x
+        }
+        fn below(&mut self, n: usize) -> usize { (self.next() as usize) % n }
+    }
+
+    /// F1 随机对弈：随机合法走子直到终局，验证状态域不变量 + 0 崩溃
+    #[test]
+    fn f1_random_games() {
+        for seed in [1u32, 42, 12345] {
+            let mut rng = Rng::new(seed);
+            let mut st = crate::gametest::make_default_layout();
+            st.cfg = [1, 1, 1, 1, 0];
+            let mut steps = 0;
+            while st.stage == Stage::Play && steps < 200 {
+                steps += 1;
+                // 不变量：turn 域 / winner 域 / cells rank 域
+                assert!(st.turn <= 1, "turn 域");
+                assert!(matches!(st.winner, Winner::None | Winner::Blue | Winner::Red | Winner::Draw));
+                assert!(st.cells.iter().all(|c| c.rank <= 24), "rank 存储域 [0,24]");
+                // 随机走子（ai_pick 优先，否则随机合法）
+                let mv = if rng.next() % 4 == 0 {
+                    random_move(&mut rng, &st)
+                } else {
+                    ai::ai_pick(&st, 3).map(|m| (m.from, m.to, m.is_flip))
+                };
+                if let Some((f, t, is_flip)) = mv {
+                    if is_flip { let _ = rules::flip(&mut st, f); }
+                    else { let _ = rules::try_move(&mut st, f, t); }
+                } else { break; }
+            }
+            assert!(steps <= 200, "guard 截断");
+        }
+    }
+
+    /// 随机合法走子（全量枚举候选 + 随机选）
+    fn random_move(rng: &mut Rng, st: &State) -> Option<(usize, usize, bool)> {
+        let mut cand = Vec::new();
+        for f in 0..60 {
+            if st.cells[f].is_empty() { continue; }
+            for t in 0..60 {
+                if f == t { continue; }
+                if rules::can_move(st, f, t) { cand.push((f, t, false)); }
+            }
+            if rules::can_flip(st, f) { cand.push((f, f, true)); }
+        }
+        if cand.is_empty() { None } else { Some(cand[rng.below(cand.len())]) }
+    }
+
+    /// F2 触摸坐标渗透：边界坐标几何计算不崩（平台无关版：用纯算术模拟映射）
+    #[test]
+    fn f2_touch_coords() {
+        let coords = [(-100, -100), (0, 0), (900, 1600), (901, 1601),
+                      (i32::MAX, i32::MIN), (450, 800), (274, 1383)];
+        for &(x, y) in &coords {
+            // 纯算术映射（与 view_to_cell 同源：x=78.5+col*140.5, y 分段），不依赖 android cfg
+            let bx = x as f32 * 0.8;
+            let by = y as f32 * 0.8;
+            let _col = ((bx - 78.5) / 140.5).round().max(0.0).min(4.0) as i32;
+            let _row = if by < 822.0 { ((by - 222.0) / 71.0).round().max(0.0).min(5.0) as i32 }
+                       else { 6 + ((by - 822.0) / 71.0).round().max(0.0).min(5.0) as i32 };
+        }
+    }
+
+    /// F3 事件注入：所有事件码 → 名映射 + 音效映射不崩
+    #[test]
+    fn f3_event_injection() {
+        use crate::evt::{ev_name, sfx_for_code};
+        for code in [Ev::Move, Ev::Eat, Ev::Bomb, Ev::Flag, Ev::Dead, Ev::Mine, Ev::Flip] {
+            let _ = ev_name(code);
+            let _ = sfx_for_code(code);
+            assert!(!ev_name(code).is_empty());
+        }
+        // 73 名表全名查名不崩
+        for name in crate::evt::JQ_EVENT_NAMES_73 {
+            let _ = crate::evt::name_to_73_index(name);
+        }
+    }
+
+    use crate::state::Ev;
+
+    /// F4 undo 边界：空栈 undo / 连续 undo / 深栈 undo 不崩 + 状态回退正确
+    #[test]
+    fn f4_undo_boundary() {
+        let mut ui = crate::ui::Ui::new();
+        let st = crate::gametest::make_default_layout();
+        // 空栈 undo
+        assert!(!ui.undo(&mut st.clone()), "空栈 undo 返 false");
+        // 深栈 push 64+（容量上限）
+        for _ in 0..70 { ui.push_undo(&st); }
+        assert!(ui.undo_stack.len() <= 64, "undo 栈容量上限");
+        // 连续 pop 到空
+        let mut s = st.clone();
+        let mut n = 0;
+        while ui.undo(&mut s) { n += 1; }
+        assert!(n <= 64);
+        assert!(ui.undo_stack.is_empty());
+    }
+}

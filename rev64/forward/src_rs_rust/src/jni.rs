@@ -7,6 +7,7 @@
 //! JNI 入口纪律：每个导出持全局锁（对齐 C g_mutex）；OnTouch/OnTimer 走规则层。
 
 #[cfg(target_os = "android")]
+#[allow(dead_code, unused_unsafe, static_mut_refs)]
 mod android_impl {
     use std::sync::Mutex;
     use crate::state::State;
@@ -194,6 +195,7 @@ mod android_impl {
         //   → 渲染线程持续调 native OnUpdate → wgpu 出屏通路激活。
         //   Rust 旧返回 null → Java 兜底 GLView → native 渲染线程不启动 → 无出屏（58.8% 根因）。
         unsafe {
+            let envf = &**env; // env: *mut JNIEnv → 解两层到 JNINativeInterface_
             let find_class = match envf.FindClass {
                 Some(f) => f,
                 None => return std::ptr::null_mut(),

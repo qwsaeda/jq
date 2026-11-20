@@ -1,4 +1,4 @@
-#![allow(unused_imports)]
+#![allow(unused_imports, dead_code)]
 //! evtest — 事件副作用真值回归（移植 C evverify.c run_case 核心 case）
 //!
 //! 把 C 正向的"事件契约对齐"证据（evverify 174 断言核心）搬进 Rust：

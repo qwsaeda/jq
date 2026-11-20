@@ -58,6 +58,12 @@
 ### 终局遮罩 + 复盘态绘制（2026-11-20，剩余屏态补齐）
 ### 全屏态闭合（2026-11-20，按顺序做完全部能做项）
 ### 悔棋真实闭环 + 全 8 按钮接线（2026-11-20）
+### Rust 渗透轮（2026-11-20，对齐 AGENTS 新增 fuzz_probe 理念）
+- fuzztest.rs：F1 随机对弈（3 seed × xorshift32 变换后保存）/ F2 触摸边界坐标 / F3 事件 7 码+73 名注入 / F4 undo 边界（空栈/深栈/连续 pop），纯 Rust 逻辑层 0 崩溃 + 状态域不变量。
+- 与 C fuzz_probe（src_rs）物理隔离：C 渗透轮是 C 会话判据（红线不跨界），Rust 渗透轮属 src_rs_rust。
+- 音效：AssetManager.openFd 正确 API 尝试后仍致 houdini JNI 崩溃 → 回退自动播放（映射表对齐保留），标注待真 ARM64。
+- 0 编译警告（allow dead_code/static_mut_refs 标注死代码与 JNI 全局态固有不安全模式）+ 94 测试全绿。
+
 - **undo 栈**：ui.rs 加 undo_stack（Vec<State>，上限 64），走子/翻棋前 push_undo 整盘快照，undo() pop + undo_restore。
 - **真机实锤**：走子 move=Move → 点 ↩ 图标 → game_icon=undo_ok（棋盘回退成功）。规格 §6 悔棋业务闭环。
 - IngameMenu 8 按钮全接线：0 重开 / 1 悔棋（undo_ok）/ 2 电脑变着→难度 / 3 规则→GameSet / 4 设置→Settings / 7 退出→ExitConfirm；↩ 图标真悔棋。

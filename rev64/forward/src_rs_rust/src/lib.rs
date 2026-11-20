@@ -27,6 +27,7 @@ pub mod wgpu_thread;
 pub mod asset;
 pub mod strings;
 pub mod sfx;
+pub mod fuzztest;
 pub mod gametest;
 pub mod evtest;
 pub mod rprobe;

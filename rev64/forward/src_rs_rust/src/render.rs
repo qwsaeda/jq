@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 //! render — wgpu 渲染层（规格 §12 出屏，对齐 WGPU_RENDER_DESIGN.md）
 //!
 //! 仅 android target 编译（wgpu 依赖仅 android）。桌面不编译（纯逻辑层 41 测试不受影响）。
@@ -57,6 +58,7 @@ mod gles_render {
         /// wgpu instance/adapter/device 获取（真机 pollster 轮询，设计 §3）
         /// 返回 (device, queue)；失败 None（后端不支持/GPU 缺失）
         pub fn create_wgpu_device() -> Option<(wgpu::Device, wgpu::Queue)> {
+            use pollster::FutureExt;
             // wgpu 30 真实 API：Instance::new(desc) 非 &desc + RequestAdapterOptions（非 AdapterOptions）
             let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
                 backends: wgpu::Backends::GL, // gles 后端
@@ -97,6 +99,7 @@ mod gles_render {
             h: u32,
         ) -> Option<(wgpu::Instance, wgpu::Surface<'static>, wgpu::Device, wgpu::Queue)> {
             use raw_window_handle::{AndroidNdkWindowHandle, HasWindowHandle, RawWindowHandle, WindowHandle};
+            use pollster::FutureExt;
             if anative_window.is_null() { return None; }
             let nwin = std::ptr::NonNull::new(anative_window as *mut ())?;
             struct WinHandle(std::ptr::NonNull<()>);

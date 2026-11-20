@@ -1,3 +1,4 @@
+#![allow(static_mut_refs)]
 //! wgpu_thread — 纯 Rust native 渲染线程：attach JVM 轮询 Surface → ANativeWindow → wgpu surface → 循环渲染
 #[cfg(target_os = "android")]
 mod imp {
@@ -18,7 +19,7 @@ mod imp {
     }
 
     /// 启动 wgpu 渲染线程（native 独占 window，无 Java GLThread 竞争）
-    pub fn start(vm_addr: usize, view_addr: usize, _w: u32, _h: u32) {
+    pub fn start(vm_addr: usize, view_addr: usize, w: u32, h: u32) {
         STOP.store(false, Ordering::SeqCst);
         if RUNNING.swap(true, Ordering::SeqCst) {
             return;
