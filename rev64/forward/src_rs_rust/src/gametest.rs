@@ -67,6 +67,43 @@ pub fn run_game_selftest(games: usize) -> (u32, u32, u32, u32) {
     (win_red, win_blue, draws, stalemates)
 }
 
+/// ★ 审计 A6：通用 30 字节布局装载（规格 §0/§5.3）
+/// 明棋 LAY：蓝 rank 原值/红 +0xc，revealed=1，side 已定
+/// 暗棋 FLIP：双方 side=SIDE_UNKNOWN(0xFF)，revealed=0，rank 统一 raw（不 +0xc）
+pub fn init_from_layout_30(layout: &[u8; 30], mode: u8) -> crate::state::State {
+    use crate::state::{Cell, State, SIDE_BLUE, SIDE_RED, SIDE_UNKNOWN, MODE_FLIP};
+    let mut st = State::new();
+    st.mode = mode;
+    st.turn = SIDE_BLUE;
+    st.stage = crate::state::Stage::Play;
+    st.winner = crate::state::Winner::None;
+    st.cfg = [1, 1, 1, 1, 1];
+    st.moves_since_eat = 0;
+    st.total_moves = 0;
+    st.mines_cleared = [0, 0];
+    st.pieces_left = [0, 0];
+    let flip = mode == MODE_FLIP;
+    for i in 0..30usize {
+        let v = layout[i];
+        if v == 0 || v > 12 { continue; }
+        let lrow = i / 5;
+        let lcol = i % 5;
+        let (side, rank, rev) = if flip {
+            (SIDE_UNKNOWN, v, 0) // 暗棋：未定色 + raw rank + 未翻
+        } else {
+            (SIDE_RED, v + 0x0c, 1) // 明棋红方：+0xc + 已翻
+        };
+        // 红方半区（i>=15 布局红方 15 字节 → device row6-10）
+        let (dev_row, dev_col) = (6 + lrow, 4 - lcol);
+        st.cells[dev_row * 5 + dev_col] = Cell { rank, side, revealed: rev };
+        // 蓝方半区（布局同一字节镜像到蓝方）
+        let blue_side = if flip { SIDE_UNKNOWN } else { SIDE_BLUE };
+        let blue_rank = if flip { v } else { v };
+        st.cells[(5 - lrow) * 5 + lcol] = Cell { rank: blue_rank, side: blue_side, revealed: rev };
+    }
+    st
+}
+
 /// 默认布局（C jq_default_lay.h JQ_DEFAULT_LAY[30] + layout.c:63-90 装载语义）
 /// 每个布局字节 i（0-29）→ 蓝方 (5-lrow, lcol) + 红方 (6+lrow, 4-lcol)，红 rank+0xc。
 /// lrow=i/5, lcol=i%5；v=0 跳过（行营空位）；v>12 脏字节拒（装载即拒）。
@@ -158,6 +195,20 @@ mod tests {
     }
 
     // 布局合法性：每方 25 子，rank 域合法
+    // ★ 审计 A6：暗棋开局初始化（全 0xFF + 未翻 + raw rank）
+    #[test]
+    fn flip_layout_all_unknown() {
+        use crate::state::{MODE_FLIP, SIDE_UNKNOWN};
+        let lay = [3u8,7,6,5,8, 10,0,9,0,1, 2,10,0,9,5, 4,0,6,0,7, 8,3,4,9,11, 11,12,11,8,7];
+        let st = init_from_layout_30(&lay, MODE_FLIP);
+        assert_eq!(st.mode, MODE_FLIP);
+        let occupied: Vec<_> = st.cells.iter().filter(|c| !c.is_empty()).collect();
+        assert!(!occupied.is_empty(), "暗棋布局有子");
+        assert!(occupied.iter().all(|c| c.side == SIDE_UNKNOWN), "暗棋全未定色 0xFF");
+        assert!(occupied.iter().all(|c| c.revealed == 0), "暗棋全未翻");
+        assert!(occupied.iter().all(|c| c.rank <= 12), "暗棋 rank 用 raw（不 +0xc）");
+    }
+
     #[test]
     fn default_layout_valid() {
         let st = make_default_layout();

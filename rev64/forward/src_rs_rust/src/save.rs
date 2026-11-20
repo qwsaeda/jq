@@ -93,10 +93,10 @@ impl Replay {
     /// `flip` 重放由调用方（rules.rs 落地后）驱动，此处提供重建骨架 + 重放前态还原。
     /// 完整重放（含走子判定）待 rules.rs 落地后在调用方串接。
     pub fn rewind_to(&self, st: &mut State, cur: usize) -> bool {
-        let _ = cur; // 游标语义保留（逐条重放驱动由调用方按 cur 推进，此处只做重建前态还原）
-        if cur > self.n {
-            return false;
-        }
+        // ★ 审计 A11：越界 cur clamp 到有效范围（与 cur_set 一致，不再直接拒绝）
+        let cur = if cur > self.n { self.n } else { cur };
+        // 防御：快照调用方原状态（重放失败时恢复）
+        let snap = st.clone();
         // ① 开局 60 格快照还原
         st.cells = self.init_cells;
         // ② turn/mode 还原开局快照
@@ -115,7 +115,20 @@ impl Replay {
                 c.revealed = 1;
             }
         }
-        // ⑤ 游标定位（留 Replay 侧，st 不持游标）
+        // ★ 审计 A4：逐条重放前 cur 步（规格 §7 确定性重建）
+        for k in 0..cur {
+            let (f, t) = (self.seq[k][0] as usize, self.seq[k][1] as usize);
+            let ok = if self.is_flip[k] {
+                // 暗棋翻棋步：明棋范式下已全翻开 → flip 失败属既定边界（防御中止）
+                crate::rules::flip(st, f)
+            } else {
+                crate::rules::try_move(st, f, t).is_ok()
+            };
+            if !ok {
+                *st = snap; // 重放失败：恢复调用方状态
+                return false;
+            }
+        }
         true
     }
 }
@@ -132,6 +145,17 @@ impl Replay {
 ///   - mode ∈ {LAY(0), FLIP(1)}
 ///   - cells 逐格：side∈{0,1,0xFF}、rank∈[0,24]、revealed∈{0,1}（越域格强制归零）
 ///   - 计数下界钳：pieces_left/mines_cleared 负值钳 0
+/// ★ 审计 A5：两阶段存档校验（拒读不改调用方 + 显式净化）
+/// 阶段1 `check_enums` 只读校验枚举域（失败调用方状态不变）；
+/// 阶段2 `validate_state` 就地净化（cells 归零/计数钳）。
+/// 文件反序列化层应先调 check_enums（原始判别值）再构造 State，最后调 validate_state。
+pub fn check_enums(st: &State) -> bool {
+    if st.turn > 1 || st.mode > 1 { return false; }
+    if !matches!(st.stage, crate::state::Stage::Play | crate::state::Stage::Over) { return false; }
+    // winner 为 Rust enum（类型安全，非法判别值无法表达）；反序列化层须在构造 State 前校验原始 int ∈ {-1,0,1,2}
+    true
+}
+
 pub fn validate_state(st: &mut State) -> bool {
     use crate::state::{Stage, Winner};
     // 枚举域校验（任一越域拒读）
@@ -244,25 +268,23 @@ mod tests {
     // §7 复盘重建：开局快照 + 全翻开 + 计数归零
     #[test]
     fn replay_rewind_mingqi() {
-        let mut init = State::new();
-        init.turn = SIDE_RED; // 红先手
-        init.mode = 1; // FLIP
-        init.cells[0].rank = 1;
-        init.cells[0].side = SIDE_BLUE;
-        init.cells[0].revealed = 0; // 暗棋未翻
-        init.pieces_left = [25, 25];
+        // ★ 审计 A4：用真实布局 + 合法走子（旧夹具从空盘记录 6→11，重放必失败）
+        let mut init = crate::gametest::make_default_layout();
+        init.turn = SIDE_BLUE;
+        init.mode = 0; // LAY 明棋（棋子已 revealed，可重放走子）
+        init.cfg = [1, 1, 1, 1, 0];
 
         let mut rp = Replay::new(&init);
-        rp.record(6, 11, false);
+        rp.record(6, 11, false); // cell6→cell11 合法走子（真机实证）
 
         let mut st = init.clone();
         let ok = rp.rewind_to(&mut st, 1);
         assert!(ok);
-        assert_eq!(st.turn, SIDE_RED, "turn 还原开局快照");
-        assert_eq!(st.mode, 1, "mode 还原开局快照");
-        assert_eq!(st.cells[0].rank, 1);
-        assert_eq!(st.cells[0].revealed, 1, "复盘态明棋全翻开");
-        assert_eq!(st.pieces_left, [0, 0], "pieces_left 归零（重放链自计数）");
+        assert_eq!(st.turn, SIDE_RED, "重放1步后 turn 切红");
+        assert_eq!(st.mode, 0, "mode 还原开局快照");
+        assert!(st.cells[6].is_empty(), "重放后源格 cell6 清空");
+        assert!(!st.cells[11].is_empty(), "重放后目标格 cell11 有子");
+        assert_eq!(st.mines_cleared, [0, 0]);
         assert_eq!(st.mines_cleared, [0, 0]);
         assert_eq!(st.stage, Stage::Play);
     }
@@ -273,6 +295,6 @@ mod tests {
         let st = State::new();
         let mut rp = Replay::new(&st);
         let mut out = State::new();
-        assert!(!rp.rewind_to(&mut out, 5), "cur>n 拒绝");
+        assert!(rp.rewind_to(&mut out, 5), "cur>n clamp 到 n（审计 A11），重建成功");
     }
 }

@@ -26,8 +26,6 @@ mod android_impl {
     // wgpu 出屏攻坚：GLView global ref + wgpu 资源
     static mut G_VIEW: jni::sys::jobject = std::ptr::null_mut();
     static mut G_SURFACE: jni::sys::jobject = std::ptr::null_mut();
-    /// 全局棋盘渲染快照（60 格 rank/side/revealed，OnTouch 走子后更新，渲染线程读）
-    static G_BOARD: std::sync::Mutex<Option<crate::state::State>> = std::sync::Mutex::new(None);
     /// 走子计数（刷新画面用）
     static G_MOVES: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
     static CANVAS_LOGGED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
@@ -40,6 +38,8 @@ mod android_impl {
     static mut G_WGPU_SURFACE: Option<wgpu::Surface<'static>> = None;
     static mut G_WGPU_CONFIG: Option<wgpu::SurfaceConfiguration> = None;
     static G_LOCK: Mutex<()> = Mutex::new(());
+    /// 选中格（审计 A8：替代 static mut SEL，避免竞态）
+    static G_SEL: Mutex<Option<usize>> = Mutex::new(None);
     static mut G_UI: Option<ui::Ui> = None;
     static mut G_CNT: Option<evt::EventCounter> = None;
 
@@ -57,8 +57,9 @@ mod android_impl {
     }
 
     /// 棋盘快照（渲染线程读，供 cpu_board_rgba 画棋子）
-    pub fn board_snapshot() -> Option<std::sync::MutexGuard<'static, Option<State>>> {
-        G_BOARD.lock().ok()
+    /// ★ 审计 A10：快照同时返回屏态（渲染按 ui.screen 分屏合成）
+    pub fn board_snapshot() -> Option<(State, ui::Screen)> {
+        with_lock(|st, u, _c| Some((st.clone(), u.screen)))
     }
 
     #[no_mangle]
@@ -67,16 +68,17 @@ mod android_impl {
         _cls: JClass,
         activity: jni::sys::jobject,
     ) -> jni::sys::jobject {
-        with_lock(|st, _u, _c| {
-            *st = State::new();
-            st.mode = crate::state::MODE_FLIP; // 默认暗棋翻棋（g_opt_mode 默认 1）
+        with_lock(|st, u, _c| {
+            // ★ 统一权威态（审计 A7）：G_STATE 直接用默认布局初始化，不再分裂 G_BOARD
+            *st = crate::gametest::make_default_layout();
+            st.mode = crate::state::MODE_LAY; // 明棋布局（棋子已 revealed，可直接走子）
             st.cfg = [1, 1, 1, 1, 1];
             st.turn = crate::state::SIDE_BLUE;
             st.stage = crate::state::Stage::Play;
-            // 初始化全局棋盘渲染快照（含默认布局），供 OnTouch 走子 + 渲染线程用
-            let mut board = crate::gametest::make_default_layout();
-            board.turn = crate::state::SIDE_BLUE;
-            if let Ok(mut g) = G_BOARD.lock() { *g = Some(board); }
+            st.winner = crate::state::Winner::None;
+            st.pieces_left = [25, 25]; // 审计 A1：开局各 25 子
+            u.screen = crate::ui::Screen::Game;
+            u.vs_ai = true; // 人机对战
         });
         // ★ 出屏攻坚关键（对齐 C jni_bridge.c:2707-2811）：
         //   smali 拿非 null GLView → setOnTouchListener + setRenderer + GLThread 启动
@@ -316,34 +318,88 @@ mod android_impl {
     ) -> jni::sys::jboolean {
         let mut je = match unsafe { jni::JNIEnv::from_raw(env) } { Ok(e) => e, Err(_) => return 0 };
         let ev = unsafe { jni::objects::JObject::from_raw(me) };
-        // MotionEvent.getAction()（只处理 ACTION_DOWN=0）
         let action = je.call_method(&ev, "getAction", "()I", &[]).ok().and_then(|v| v.i().ok()).unwrap_or(-1);
-        if action != 0 { return 0; }
+        if action != 0 { return 0; } // 只处理 ACTION_DOWN
         let x = je.call_method(&ev, "getX", "()F", &[]).ok().and_then(|v| v.f().ok()).unwrap_or(0.0);
         let y = je.call_method(&ev, "getY", "()F", &[]).ok().and_then(|v| v.f().ok()).unwrap_or(0.0);
-        // 触摸 → 棋盘 cell（对齐 render::view_to_cell，view=900×1600）
-        if let Some(cell) = crate::render::view_to_cell(x as i32, y as i32, 900, 1600) {
-            crate::log::setprop("jq.touch", &format!("cell{}", cell));
-            // 走子态机：首次点选中，二次点走子（简化：直接尝试从选中格走）
-            static mut SEL: i32 = -1;
-            unsafe {
-                if SEL < 0 {
-                    SEL = cell as i32;
-                } else {
-                    let from = SEL as usize;
-                    SEL = -1;
-                    let mut guard = match G_BOARD.lock() { Ok(g) => g, Err(e) => e.into_inner() };
-                    if let Some(st) = guard.as_mut() {
-                        if let Ok(ev_code) = crate::rules::try_move(st, from, cell) {
+
+        // ★ 审计 A8：按 ui.screen 屏态分发（菜单空白不消费 / 对局态选中→走子·翻棋 / AI 衔接）
+        let screen = with_lock(|_st, u, _c| u.screen);
+        match screen {
+            ui::Screen::Menu => {
+                // 菜单空白不消费（规格 §10.2 防穿透）
+                return 0;
+            }
+            ui::Screen::ExitConfirm => {
+                // 退出确认：点按钮区（简化：任意点击→继续游戏）
+                with_lock(|_s, u, _c| { u.screen = ui::Screen::Game; });
+                return 1;
+            }
+            ui::Screen::Game => {
+                let cell = match crate::render::view_to_cell(x as i32, y as i32, 900, 1600) {
+                    Some(c) => c,
+                    None => return 0,
+                };
+                crate::log::setprop("jq.touch", &format!("cell{}", cell));
+                // 选中态纳入锁管理（A8：替代 static mut SEL）
+                let sel = {
+                    let mut g = match G_SEL.lock() { Ok(g) => g, Err(e) => e.into_inner() };
+                    g.take()
+                };
+                if let Some(from) = sel {
+                    // 二次点击：走子 / 翻棋（同格=翻棋，异格=走子）
+                    let acted = with_lock(|st, u, cnt| {
+                        let ev_code = if from == cell {
+                            // 同格翻棋（暗棋）
+                            if rules::can_flip(st, cell) {
+                                if rules::flip(st, cell) {
+                                    cnt.record(crate::state::Ev::Flip);
+                                    Some(crate::state::Ev::Flip)
+                                } else { None }
+                            } else { None }
+                        } else {
+                            // 异格走子（经 rules::try_move 统一规则引擎）
+                            match rules::try_move(st, from, cell) {
+                                Ok(e) => { cnt.record(e); Some(e) }
+                                Err(_) => None,
+                            }
+                        };
+                        if let Some(e) = ev_code {
                             G_MOVES.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
-                            crate::log::setprop("jq.move", &format!("{:?}", ev_code));
+                            crate::log::setprop("jq.move", &format!("{:?}", e));
+                            // ★ 审计 A8：玩家落子后触发 AI 应着（人机对战，红方回合自动走）
+                            if u.vs_ai && st.turn == crate::state::SIDE_RED && st.stage == crate::state::Stage::Play {
+                                if let Some(mv) = ai::ai_pick(st, u.level) {
+                                    if mv.is_flip {
+                                        if rules::flip(st, mv.from) { cnt.record(crate::state::Ev::Flip); }
+                                    } else if let Ok(aev) = rules::try_move(st, mv.from, mv.to) {
+                                        cnt.record(aev);
+                                    }
+                                }
+                            }
                         }
+                        ev_code.is_some()
+                    });
+                    return if acted { 1 } else { 0 };
+                } else {
+                    // 首次点击：选中（仅己方已翻子可选）
+                    let can_sel = with_lock(|st, _u, _c| {
+                        if cell < 60 && !st.cells[cell].is_empty()
+                            && st.cells[cell].side == st.turn && st.cells[cell].revealed == 1 {
+                            true
+                        } else { false }
+                    });
+                    if can_sel {
+                        if let Ok(mut g) = G_SEL.lock() { *g = Some(cell); }
+                        return 1;
                     }
+                    return 0;
                 }
             }
+            _ => return 0, // 其他屏态（难度/设置/新局/复盘）暂不消费，留后续接线
         }
-        1
     }
+
 
     #[no_mangle]
     pub extern "C" fn Java_com_qwsaeda_App_OnGraphCreate(_env: *mut jni::sys::JNIEnv, _cls: JClass) {

@@ -94,8 +94,8 @@ mod imp {
             if STOP.load(Ordering::SeqCst) { break; }
             let r = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
                 if let Some(rgba) = {
-                    let guard = match crate::jni::board_snapshot() { Some(g) => g, None => return };
-                    Some(crate::asset::compose_board_rgba(450, 800, guard.as_ref()))
+                    let (board, screen) = match crate::jni::board_snapshot() { Some(b) => b, None => return };
+                    Some(crate::asset::compose_board_rgba(450, 800, Some(&board), screen))
                 } {
                     let surface = jni::objects::JObject::from_raw(surf_global);
                     if crate::canvas::draw_rgba_to_surface(&mut env, surface, &rgba, 450, 800).is_err() {

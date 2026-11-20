@@ -42,6 +42,7 @@ mod imp {
         w: usize,
         h: usize,
         board: Option<&crate::state::State>,
+        screen: crate::ui::Screen,
     ) -> Vec<u8> {
         let mut out = vec![0u8; w * h * 4];
         // ① 背景（bg_menu 720×1280 → 拉伸铺满 w×h）
@@ -63,6 +64,9 @@ mod imp {
         let board_h = (h as f32 * 0.62) as usize;
         let cw = w as f32 / 5.0;
         let ch = board_h as f32 / 12.0;
+        // ★ 审计 A10：仅对局/终局态画棋子；菜单/弹窗态只画背景（屏态分屏）
+        let show_pieces = matches!(screen, crate::ui::Screen::Game | crate::ui::Screen::IngameMenu);
+        if show_pieces {
         if let Some(st) = board {
             for device_row in 0..12usize {
                 for col in 0..5usize {
@@ -117,10 +121,11 @@ mod imp {
                 }
             }
         }
+        } // end show_pieces（含内部 if let Some(st)）
         out
     }
 }
 #[cfg(target_os = "android")]
 pub use imp::compose_board_rgba;
 #[cfg(not(target_os = "android"))]
-pub fn compose_board_rgba(_w: usize, _h: usize, _b: Option<&crate::state::State>) -> Vec<u8> { vec![] }
+pub fn compose_board_rgba(_w: usize, _h: usize, _b: Option<&crate::state::State>, _s: crate::ui::Screen) -> Vec<u8> { vec![] }

@@ -230,9 +230,10 @@ fn move_legal(st: &State, from: usize, to: usize, turn: i32) -> bool {
         if dst.is_empty() {
             return false;
         }
-        // 暗棋：大本营内普通子不可被吃（仅雷/旗）
+        // 暗棋：大本营内普通子不可被吃（仅雷/旗）——审计 A2：须受 cfg4 门控，cfg4=0 退明棋语义
         let d_rank = rank_of(dst) as i32;
         if st.mode == crate::state::MODE_FLIP
+            && st.cfg[4] == 1
             && d_rank != RANK_MINE as i32
             && d_rank != RANK_FLAG as i32
         {

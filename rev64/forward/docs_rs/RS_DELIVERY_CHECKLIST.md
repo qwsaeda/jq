@@ -132,3 +132,19 @@
 - Rust 正向 = **纯 64 位（aarch64）单源码**，不做 32 位变体（用户明确不要求覆盖 32 位设备）
 - 32 位设备走原版 com.cnvcs.junqi（ELF32）/ 逆向 com.zxj，与 Rust 正向互不干涉
 - 对照基准 = 64 位 C `src_rs`（82 测试全对照 64 位 C 行为，非 32/64 双端逆向对照）
+
+
+## ★ 正向审计对齐（2026-11-20，审计 ses_e098cca5dffe6GZSYDGA4eVSKb）
+
+对照 SPEC_HUMAN_PLAY.md 审计 Rust 代码流程，发现 11 条（P0×2/P1×7/P2×1/P3×1），全部处理：
+- **P0 A7**（状态分裂）：统一 G_STATE 权威态（删 G_BOARD），OnTouch/OnTimer/渲染快照均从同一 State 操作 → 人机对战 AI 应着链接通
+- **P0 A8**（触摸态机）：OnTouch 按 ui.screen 分发 + 选中态纳入锁管理（替代 static mut SEL）+ 同格翻棋/异格走子 + 玩家落子后 AI 应着 + 事件计数
+- **P1 A2**：暗棋大本营安全岛加 cfg4 门控（cfg4=0 退明棋语义）
+- **P1 A3/A1**（规格笔误）：§5.2"困毙不排军旗"→更正"排旗+雷"（对齐 C R-073）；§0 pieces_left"吃子递减"→更正"全量重算"（对齐 C R7-A）——代码本就对齐 C，修文档
+- **P1 A4**：Replay::rewind_to 实现逐条重放前 cur 步 + 失败恢复快照（原仅还原骨架）
+- **P1 A6**：新增 init_from_layout_30 通用装载（明棋 +0xc/revealed1 / 暗棋 0xFF/raw/revealed0）+ 测试
+- **P1 A9**：Ui 加 screen_snap/sound_on 独立字段，cancel_popup 返回原屏 + 音效双轨回滚
+- **P1 A10**：board_snapshot 返回 (State, Screen)，asset 按屏态分屏（菜单态不画棋子）
+- **P2 A5**：新增 check_enums 两阶段校验接口（拒读不改调用方 + 显式净化）
+- **P3 A11**：rewind_to 越界 cur clamp（与 cur_set 一致）
+- 83 测试全绿 + 真机 5 判据回归全通（①装 ②出屏 ③触摸走子 move=Move ④退出 ⑤重进 0 崩溃）

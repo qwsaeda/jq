@@ -43,6 +43,10 @@ pub struct Ui {
     cfg_snap: [u8; 5],
     /// 音效开关快照（SETTINGS 进弹窗前保存，取消/面板外恢复，双轨回滚）
     sound_snap: bool,
+    /// ★ 审计 A9：进入弹窗前的原屏（取消/面板外返回原屏，非固定 Menu）
+    screen_snap: Screen,
+    /// ★ 审计 A9：独立音效开关状态（不再用 cfg[0] 伪装）
+    pub sound_on: bool,
 }
 
 impl Ui {
@@ -54,6 +58,8 @@ impl Ui {
             mode_snap: 0,
             cfg_snap: [1, 1, 1, 1, 1],
             sound_snap: true,
+            screen_snap: Screen::Menu,
+            sound_on: true,
         }
     }
 
@@ -61,7 +67,8 @@ impl Ui {
     pub fn begin_popup(&mut self, st: &State) {
         self.mode_snap = st.mode;
         self.cfg_snap = st.cfg;
-        self.sound_snap = st.cfg[0] != 0; // 简化：音效态用 cfg[0] 占位（真实现走独立 g_sound_on）
+        self.screen_snap = self.screen; // 记录进入弹窗前的原屏
+        self.sound_snap = self.sound_on; // 独立音效态快照（不再用 cfg[0] 伪装）
     }
 
     /// 取消弹窗（恢复快照 + 回主菜单，规格 §10 面板外=取消语义）
@@ -69,7 +76,8 @@ impl Ui {
         // 恢复会话快照（NEWGAME/GAMESET/SETTINGS 面板外=取消）
         st.mode = self.mode_snap;
         st.cfg = self.cfg_snap;
-        self.screen = Screen::Menu;
+        self.sound_on = self.sound_snap; // 音效双轨回滚
+        self.screen = self.screen_snap;  // 返回原屏（非固定 Menu）
     }
 
     /// 菜单"人机对战"→难度弹窗（规格 §10）
@@ -110,7 +118,7 @@ impl Ui {
 
     /// 声音设置"确定"→ 保存 + 回主菜单
     pub fn settings_confirm(&mut self, _st: &mut State) {
-        self.screen = Screen::Menu;
+        self.screen = self.screen_snap; // 确定后回原屏
     }
 
     /// 终局"再来一局"→ 重开（规格 §10：stage==OVER 区）
