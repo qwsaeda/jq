@@ -12,6 +12,14 @@
  *   - NDK 的 jni.h 需配合 NDK sysroot 头链（会遮蔽宿主 libc 头）
  *   → 自带最小 C 模式头 = 自包含 + 无外部依赖 + CI 可复现
  *
+ * ★ 2026-11-20 诚实标注（看雪文章 JNI 函数表索引纪律核对）：
+ *   **本 stub 的 JNINativeInterface 槽位顺序并非 JNI 标准顺序**（GetStringUTFChars 在
+ *   索引 67，标准应为 169/ARM32 偏移 676）——仅为让 src_rs 的 `(*env)->Func()` 符号名
+ *   调用在桌面编译通过。src_rs 不硬编码槽位偏移（grep 实锤：全用 (*env)->Func 符号名），
+ *   故 stub 顺序错**不影响 fuzz 判据**。但任何"靠 JNIEnv 函数表硬编码偏移取函数"的场景
+ *   （如看雪文章样本 `v4+676` 的 GetStringUTFChars）**不能用本 stub 验证**——那需要
+ *   完整标准 JNINativeInterface（表头 4 reserved + 全部槽位按顺序）。
+ *
  * 覆盖范围：src_rs 实际用到的 JNI 函数（jni_bridge.c / glview_gl.c / audio.c 全量
  * 扫描 = 21 个函数 + 4 个常量）；未覆盖的 JNI 函数在结构体里留 NULL（so 侧若误用
  * → 空指针调用 → 崩溃 = 探针会暴露，属"探针覆盖缺口"而非静默通过）。

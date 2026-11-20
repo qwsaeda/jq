@@ -38,6 +38,7 @@
 
 | 文章纪律 | 我们的状态 |
 |---|---|
+| JNI 函数表索引 169/170 + 表头 4 reserved 计数 | ✅ 本轮核对：`android_stub/jni.h` 槽位顺序**非标准**（GetStringUTFChars 在索引 67，标准 169）——但 src_rs 全用 `(*env)->Func()` 符号名调用（grep 实锤），**不硬编码偏移 → 不影响 fuzz 判据**；已在 stub 文件头诚实标注"不可用于硬编码偏移验证" |
 | Java bridge 不可用→纯 native hook | ⚠️ **我下"guest so 不可见所以不行"太早**——已打通 host JNI 桥梁 hook（FindClass），但**没试 RegisterNatives 直接拿 fnPtr**（文章正解方向）→ 本轮补脚本 |
 | 注册时机 | ⚠️ 我 spawn 模式在 arm64 转译下进程销毁 → PENDING；文章印证"时机"是关键 |
 | 不靠函数名猜，靠注册表 | ✅ 我 jqt_mem 的 dispatch 表 fns/offs 名值对应判据（5463/5463）= 同款纪律 |
