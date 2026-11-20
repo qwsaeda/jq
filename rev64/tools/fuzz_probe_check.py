@@ -83,21 +83,35 @@ def main():
     # ③ 判据汇总（5 变异器全绿）
     if not fails:
         print('③ 渗透轮判据 5 项全 PASS（F1 随机对弈/F2 触摸/F3 事件/F4 undo 边界/F5 存档 0 崩溃 ASan 干净）')
-    # ④ P1/P2 渗透面（PNG 畸形输入 + UI 状态机点击序列）——独立 binary，缺失 = PENDING
+    # ④ 全部 7 个 P 渗透面（独立 binary，缺失 = PENDING）
+    # ★ 2026-11-20 假绿修正：原只列 P1/P2，但 fuzz_all.sh 声称 A 段含 P3/P5'/P6/P7/P8
+    #   → 声称覆盖但没跑 = CODE_STYLE §9 静默降级假绿。现补全 7 个 binary 判据。
     RS = os.path.join(ROOT, 'rev64/forward/src_rs')
+    sd = str(a.seed if a.seed is not None else 7)
     for name, binary, args in (
-        ('P1 PNG 畸形输入', 'jq_fuzzpng', ['--seed', str(a.seed if a.seed is not None else 7),
-                                          '--rounds', str(a.png_rounds)]),
-        ('P2 UI 状态机点击', 'jq_fuzzui', ['--seed', str(a.seed if a.seed is not None else 7),
-                                          '--steps', str(a.ui_steps)]),
+        ('P1 PNG 畸形输入', 'jq_fuzzpng', [sd, str(a.png_rounds)]),
+        ('P2 UI 状态机点击', 'jq_fuzzui', [sd, str(a.ui_steps)]),
+        ('P3 事件分发+音效', 'jq_fuzzevt', [sd]),
+        ("P5' JNI 入口参数", 'jq_fuzzjni', [sd, '1']),
+        ('P6/P7 存档+复盘', 'jq_fuzzsave', [sd, str(min(a.png_rounds, 1500))]),
+        ('P8 多线程竞态 TSAN', 'jq_fuzzmt', [sd, str(min(a.ui_steps, 8000))]),
     ):
         bpath = os.path.join(RS, 'dist', binary)
         if not (os.path.isfile(bpath) and os.access(bpath, os.X_OK)):
-            print('④ %s PENDING（binary 未构建：make fuzzpng/fuzzui）' % name)
+            print('④ %s PENDING（binary 未构建：make 对应 fuzz* 目标）' % name)
             continue
-        p = subprocess.run([bpath] + args, capture_output=True, text=True, timeout=300)
-        out = p.stdout + p.stderr
-        ok = p.returncode == 0 and '判据: PASS' in out
+        # P8 是 TSAN binary（非 ASan），需 setarch -R 固定 ASLR（否则 FATAL: unexpected mapping）
+        cmd = ([bpath] + args) if binary != 'jq_fuzzmt' else ['setarch', '-R', bpath] + args
+        try:
+            p = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+            out = p.stdout + p.stderr
+        except subprocess.TimeoutExpired:
+            print('④ %s FAIL（timeout 300s）' % name)
+            fails.append('%s 渗透面 FAIL（timeout）' % name)
+            continue
+        # P8 成功标志是 "== 全部通过 =="（TSAN 无报告），其它 binary 是 "判据: PASS"
+        success_mark = '== 全部通过 ==' if binary == 'jq_fuzzmt' else '判据: PASS'
+        ok = p.returncode == 0 and success_mark in out
         stat = [l for l in out.splitlines() if '统计' in l]
         print('④ %s %s（%s）' % (name, 'PASS' if ok else 'FAIL',
                                  stat[0].strip() if stat else 'rc=%d' % p.returncode))
@@ -107,7 +121,7 @@ def main():
                 if 'FAIL' in l or 'AddressSanitizer' in l:
                     print('   证据: %s' % l)
     if not fails:
-        print('判据: PASS（fuzz_probe_check %d seed × 5 变异器 + 可复现性 + P1/P2 渗透面，无蓝牙渗透判据）' % len(seeds))
+        print('判据: PASS（fuzz_probe_check %d seed × 5 变异器 + 可复现性 + 全部 P 渗透面，无蓝牙渗透判据）' % len(seeds))
         return 0
     for f in fails:
         print('FAIL:', f)
