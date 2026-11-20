@@ -48,6 +48,11 @@ run "[8/12] 完整对局自测 (make gametest，60 局全路径)" bash -c "cd $R
 #   rules.c 改动后强制 jq_consistency 实际输出 == 文件基准，防内置 BENCH_EXPECT
 #   双源漂移假绿——旧版无门禁"基准过期无人拦"）
 run "[8.5/12] 基准新鲜度 (make benchcheck)" bash -c "cd $RS && make benchcheck 2>&1 | grep '✓ benchcheck'"
+# ★ 渗透轮（2026-11-20 新增）：正向 C 5 变异器（make fuzzprobe ASan 桌面 + fuzz_probe_check.py
+#   单 seed 快版 ~10s）。PENDING（binary 未构建）不阻断（12/12 门禁不因工具缺失假红）；
+#   FAIL（渗透 0 崩溃破）阻断 = so 逻辑回归白盒定位回路入口。深版 3 seed × 500 局 =
+#   arm32_verify_all 总入口 / 手动 `fuzz_probe_check.py` 全量判据。
+run "[8.6/12] 正向渗透轮 5 变异器 (make fuzzprobe + fuzz_probe_check)" bash -c "cd $RS && make fuzzprobe >/dev/null 2>&1; python3 $TOOLS/fuzz_probe_check.py --seed 7 --games 100 --touch 1000 --events 200 --saves 50 --offline"
 run "[9/12] so_link_check.py 链接审计" python3 $TOOLS/so_link_check.py $RS/dist/libjunqi_rs.so
 # 10. 走子预验证工具（三件套之一，防新工具回归）
 run "[10/12] 走子预验证 (make walkverify)" bash -c "cd $RS && make walkverify SEQ='25,30 27,32 28,33' 2>&1 | grep '3/3 步合法'"

@@ -2616,6 +2616,7 @@ Java_com_qwsaeda_App_OnCreate(JNIEnv *env, jclass clazz, jobject activity)
             SPAK_DIR = SPAK_DIR_DEV;   /* 兜底仍用 dev（预读落地后此分支不应命中） */
             LOGI("OnCreate：spak_res 无可用目录（预读未落地 + tmp 不存在，走纯色退化）");
         }
+        } /* ★ 括号配平：闭合 L2585 datax 双前缀探测裸块（缺此 } → OnCreate 未闭合 → OnDestroy 起函数嵌套死编译） */
         /* ★ R26 资源加载域 RL-02（P1）：关键资源存在性快检（board/piece/bg/text 4 张核心）
            ——SPAK_DIR 选路后 stat 关键文件，缺失聚合告警（可观测事件，非阻断，纯色降级）。
            真机无 dev push + 预读清单 50 项未含该文件时（★ R55-Q1 口径 50 非 48），此判据暴露"桌面 0 回归但真机出屏退化"。 */
@@ -2740,6 +2741,11 @@ Java_com_qwsaeda_App_OnCreate(JNIEnv *env, jclass clazz, jobject activity)
            native 直接 activity.setContentView(view) 让 view attach，GLThread 起来驱动出帧。 */
         jclass act_cls = (*env)->GetObjectClass(env, activity);
         jmethodID scv = (*env)->GetMethodID(env, act_cls, "setContentView", "(Landroid/view/View;)V");
+        /* ★ 2026-11-20 括号配平修复（so 编译门禁实锤）：`if (scv) {` 块闭合 `}` 历史缺失
+           （surface 段 `{ ... }` 自身配平 + 尾部悬挂 else 被消化）→ OnDestroy 处编译错 +
+           act_cls 作用域断裂。修：if(scv) 块尾闭合 }（下方 surface 段前）+ 尾部 else 分支
+           对应 if(scv)；act_cls 两路径各释放一次（if(scv) 内 + else 内，互斥 DeleteLocalRef）。 */
+        /* act_cls 释放在 if(scv) 块尾（块内作用域）——下方闭合 } 处。 */
         if (scv) {
             (*env)->CallVoidMethod(env, activity, scv, jview);
             if ((*env)->ExceptionCheck(env)) {
@@ -2757,6 +2763,7 @@ Java_com_qwsaeda_App_OnCreate(JNIEnv *env, jclass clazz, jobject activity)
                 LOGI("OnCreate：GLView.requestRender()（GLThread 出首帧，EglHelper window surface 链激活）");
             }
             LOGI("OnCreate：setContentView(GLView) 完成，GLThread 出帧链启动（surface 由 Java 侧 attach 创建）");
+        }
         /* GL2/GLSL 出帧能力探测（决定 render.c 是否可改 GLES2）：
            app 进程内建独立 GL2 context 测全屏三角形，独立 64 位 so 在 MuMu 找不到 GL 实现 */
         /* GL2 出帧由 native 独立渲染线程驱动（PBuffer GL2 context + window surface 合成，
@@ -2803,13 +2810,18 @@ Java_com_qwsaeda_App_OnCreate(JNIEnv *env, jclass clazz, jobject activity)
                 (*env)->DeleteLocalRef(env, holder_cls);
             }
         }
-        } else {
-            LOGE("OnCreate：setContentView 查找失败 → GLThread 不启动");
-        }
+        /* ★ 2026-11-20 括号配平修复（so 编译门禁实锤）：if(jview) 块尾闭合 }。
+           历史 `if (scv) {` 块闭合 } 缺失（surface 段自身配平 + 尾部悬挂 else 被
+           消化）→ OnDestroy 函数定义编译错 + act_cls 作用域断裂。修：if(jview) 块
+           闭合 }（含 surface 段）+ act_cls 释放在块内（作用域正确）。 */
         (*env)->DeleteLocalRef(env, act_cls);
     }
     return jview;   /* App.smali：非 null → setOnTouchListener + setRenderer(this) + GLThread 启动 */
 }
+
+
+
+
 
 JNIEXPORT void JNICALL
 Java_com_qwsaeda_App_OnDestroy(JNIEnv *env, jclass clazz)
