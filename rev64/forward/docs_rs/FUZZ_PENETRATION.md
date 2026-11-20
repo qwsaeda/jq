@@ -70,6 +70,7 @@ python3 rev64/tools/fuzz_probe_check.py --games 2000 --touch 100000 --events 200
 |---|---|---|---|---|---|---|
 | 2026-11-20 | — | F5（首版契约误用） | "随机局 write 失败"误报（实为契约1 返 1 成功，首版判 `==0 成功`） | save.c:113 `return 1`（write 契约）+ fuzz_probe.c 首版 F5 `CHECK(jq_save_game_write(...) == 0)` 判据反 | 契约1 改 `==1 成功` + 随机合法域 200 局零漂移 + 脏枚举（winner=3/-5）单列拒读 + 越域格归零契约3 + 毒化 back 判据 | 3 seed 全 PASS（84ac5ff 全判据回归 + fuzz_probe_check 复跑） |
 | 2026-11-20 | — | F1/F2/F3 历史 | 首跑 3 seed 全 PASS（0 真崩溃 FAIL） | — | — | — |
+| 2026-11-20 | — | **32 位 M2/M3（flaky 判据误设）** | jqt_mem_fuzz M2"影子区+1MB 截断后 valid 必 1" + M3"区内命中率低"间歇 FAIL（10 连跑 1 次） | jqt_mem.c 桌面 32/64 位语义差：shadow 高位截断 <MAP_HI 撞真实表 w区 → mincore 路径（页未驻留合法 0，flaky 非缺陷） | M2 删"截断必 1"判据（改报告性）+ M3 区内判据改**纯偏移区**（a<MAP_HI 必 1，不涉 mincore） | 3 seed × 6 连跑 0 FAIL（jqt_mem_fuzz_check.sh PASS） |
 
 ## 5. 经验库（渗透轮专用，防复发）
 

@@ -527,6 +527,10 @@ java -cp /tmp/opencode/apksigner/apksig.jar:/tmp/opencode/apksigner SignV2 \
   （`fuzz_probe.c` F1 随机对弈/F2 触摸坐标/F3 事件注入/F4 undo 边界/F5 存档 round-trip，
   ASan 防假绿 + 可复现性判据；`make fuzzprobe` 构建；FAIL 台账 + 白盒定位回路
   见 `rev64/forward/docs_rs/FUZZ_PENETRATION.md`）。
+  **★ 32 位翻译体渗透轮（2026-11-20，逆向专属）**：`bash rev64/tools/jqt_mem_fuzz_check.sh`
+  （`jqt_mem_fuzz.c` 5 探针 M1 路由 100000/M2 契约/M3 二分/M4 GOT 18 槽/M5 rebuild 幂等，
+  ASan 桌面 x86_64 直跑 jqt_mem.c 不插桩；32/64 位语义差诚实边界 = mincore flaky 不判 FAIL；
+  3 位逆向 app com.zxj.junqirs 内存子系统风险区降档判据）。
   **设备 4 项判据脚本（§124y-241~246 根治）**：`arm32_hook_check.sh` 含 launch_hook 轮询
   90s（转译冷启动 §124y-188）+ classify_crash backtrace 段归属判读（ART 层=转译环境容忍 /
   libjunqi so 段=回归 §124y-243）+ 64 位干扰 app 清理前置（qwsaeda/zxj 并行 GL 竞争
