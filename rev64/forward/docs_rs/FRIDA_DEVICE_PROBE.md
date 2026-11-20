@@ -84,10 +84,17 @@
 （Jnitrace 效果，文档 §3 路线），绕过 arm64 guest 地址不可见——**用户是对的，
 MuMu 就是真机，Frida 行，只是要找对 hook 点**（host 侧 JNI 桥梁而非 guest so）。
 
-**两条失败路（保留记录）**：
-- `frida_jni_probe.py`（native 导出 hook）：guest so 模块 frida 不可见 → 0/14
-- `frida_jni_hook.py`（直接地址 hook）：guest 地址 0x4000... frida 的 Memory 报 ERR
-  （`/proc/pid/mem` 用 adb root 可读 ELF magic，但 frida server 进程够不到 guest 空间）
+**三条失败路（保留记录，均为"找对 hook 点前"的探索）**：
+- `frida_jni_probe.py`（native 导出 hook，x86_64 server）：guest so 模块 frida 不可见 → 0/14
+- `frida_jni_hook.py`（直接地址 hook，x86_64 server）：guest 地址 0x4000... frida 的
+  Memory 报 ERR（`/proc/pid/mem` 用 adb root 可读 ELF magic `7f454c46`，但 x86_64
+  frida-server 进程够不到 houdini guest 空间）
+- **arm64 frida-server（原生 native hook 终极尝试）**：下载 84MB aarch64 ELF（17.24.3）
+  推设备。**能执行**（报"Error binding 127.0.0.1:27042 Address already in use"——
+  houdini 确实转译了 aarch64 ELF），但停掉 x86_64 server 后换端口 27043 启动**静默退出**
+  （log 空、ps 无进程）——houdini 转译的 aarch64 frida-server 在 ptrace/seccomp 限制下
+  无法稳定运行 → **native hook so 内导出这条路在本环境不通**。
+  ★ 正解仍是 host 侧 JNI 桥梁 hook（PASS），无需 arm64 server。
 
 **进程名口径（用户 2026-11-20 纠正）**：
 - **"新军棋" = `com.qwsaeda.junqirs`** = 正向新版（arm64 so，当前设备唯一装载）
