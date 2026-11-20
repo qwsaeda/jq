@@ -239,7 +239,7 @@ mod tests {
         assert!(crate::rules::can_flip(&st, 49), "0xFF 当前方可翻");
         assert!(crate::rules::flip(&mut st, 49));
         assert_eq!(st.cells[49].side, SIDE_BLUE, "定色归翻子方（蓝）");
-        assert_eq!(st.cells[49].revealed, true, "翻后 revealed=1");
+        assert!(st.cells[49].revealed, "翻后 revealed=1");
         assert_eq!(st.turn, SIDE_RED, "翻棋切回合");
     }
 

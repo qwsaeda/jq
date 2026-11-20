@@ -91,7 +91,9 @@ pub const MODE_FLIP: u8 = 1; // 暗棋翻棋
 
 // ---- 阶段 ----
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
+#[derive(Default)]
 pub enum Stage {
+    #[default]
     Play,
     Over,
 }
@@ -99,21 +101,13 @@ pub enum Stage {
 
 // ---- 胜负 ----
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
+#[derive(Default)]
 pub enum Winner {
+    #[default]
     None, // -1 未定
     Blue, // 0
     Red,  // 1
     Draw, // 2
-}
-impl Default for Winner {
-    fn default() -> Self {
-        Winner::None
-    }
-}
-impl Default for Stage {
-    fn default() -> Self {
-        Stage::Play
-    }
 }
 
 // ---- 事件码（音效/统计分流，规格 §11：7 类，EV_MINE 与 EV_MOVE 同名不同码）----
@@ -176,6 +170,10 @@ pub struct State {
     pub wgpu_init_done: bool,
     /// wgpu device 诊断日志只打一次
     pub wgpu_log_done: bool,
+}
+
+impl Default for State {
+    fn default() -> Self { Self::new() }
 }
 
 impl State {

@@ -175,6 +175,12 @@ impl Ui {
     }
 }
 
+impl Default for Ui {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 // ---- 触摸命中 → 屏态迁移（几何参数化，渲染层消费）----
 
 /// 命中区域（按钮/面板 rect，归一化 0-1 或像素，由调用方定标）
@@ -226,7 +232,7 @@ pub fn difficulty_hit(px: i32, py: i32, panel: &Rect) -> Option<(u8, u8)> {
     let oy = py - panel.y;
     let col = ox / (panel.w / 4);
     let row = oy / (panel.h / 2);
-    if col < 0 || col > 3 || row < 0 || row > 1 {
+    if !(0..=3).contains(&col) || !(0..=1).contains(&row) {
         return None;
     }
     Some((col as u8 + 1, row as u8)) // level=col+1, mode=row(0布局/1翻棋)
@@ -312,8 +318,8 @@ mod tests {
     fn difficulty_hit_parse() {
         let panel = Rect { x: 135, y: 445, w: 450, h: 390 };
         // 第 2 列 第 1 行（mode=1 翻棋）→ level=2 mode=1
-        let cx = panel.x + panel.w / 4 * 1 + 10; // 第 2 列内（col index 1）
-        let cy = panel.y + panel.h / 2 * 1 + 10; // 第 2 行内（row index 1）
+        let cx = panel.x + (panel.w / 4) + 10; // 第 2 列内（col index 1）
+        let cy = panel.y + (panel.h / 2) + 10; // 第 2 行内（row index 1）
         let got = difficulty_hit(cx, cy, &panel).unwrap();
         assert_eq!(got, (2, 1), "col1+1=2 level, row1=1 mode");
     }

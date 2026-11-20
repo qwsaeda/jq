@@ -82,8 +82,7 @@ pub fn init_from_layout_30(layout: &[u8; 30], mode: u8) -> crate::state::State {
     st.mines_cleared = [0, 0];
     st.pieces_left = [0, 0];
     let flip = mode == MODE_FLIP;
-    for i in 0..30usize {
-        let v = layout[i];
+    for (i, &v) in layout.iter().enumerate() {
         if v == 0 || v > 12 { continue; }
         let lrow = i / 5;
         let lcol = i % 5;
@@ -97,7 +96,7 @@ pub fn init_from_layout_30(layout: &[u8; 30], mode: u8) -> crate::state::State {
         st.cells[dev_row * 5 + dev_col] = Cell { rank: Rank(rank), side, revealed: rev };
         // 蓝方半区（布局同一字节镜像到蓝方）
         let blue_side = if flip { SIDE_UNKNOWN } else { SIDE_BLUE };
-        let blue_rank = if flip { v } else { v };
+        let blue_rank = v;
         st.cells[(5 - lrow) * 5 + lcol] = Cell { rank: Rank(blue_rank), side: blue_side, revealed: rev };
     }
     st
@@ -115,8 +114,7 @@ pub fn make_default_layout() -> State {
     let mut st = State::new();
     st.mode = crate::state::MODE_LAY;
     st.cfg = [1, 1, 1, 1, 0]; // 明棋
-    for i in 0..30usize {
-        let v = lay[i];
+    for (i, &v) in lay.iter().enumerate() {
         if v == 0 {
             continue; // 行营空位
         }

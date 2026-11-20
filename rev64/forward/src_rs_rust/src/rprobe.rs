@@ -48,7 +48,7 @@ mod tests {
         // C 基准 A1_cm_result=0：工兵 (5,2)→(0,2) 经 col2 纵线，(3,2) 行营阻断 → 不可
         // 工兵不能穿行营纵滑（行营非铁路），需绕行横向铁路（军棋 col2 唯一纵线，无绕行）
         let cm = rules::can_move(&st, cell_index(5, 2), cell_index(0, 2));
-        assert_eq!(cm, false, "A1 工兵中线→底线被 (3,2) 行营阻断=不可（C 基准 0）");
+        assert!(!cm, "A1 工兵中线→底线被 (3,2) 行营阻断=不可（C 基准 0）");
     }
 
     // A3：工兵 (4,2) 行营下一格 → (3,2) 行营（行营不可滑行，仅一步相邻）
@@ -60,7 +60,7 @@ mod tests {
         // (4,2)→(3,2)：相邻一步，但 (3,2) 是行营 → 行营不可滑行进入，仅一步相邻（此处正是一步相邻）
         let cm = rules::can_move(&st, cell_index(4, 2), cell_index(3, 2));
         // C 基准：一步相邻可行（行营空可入）→ true
-        assert_eq!(cm, true, "A3 工兵一步入空行营");
+        assert!(cm, "A3 工兵一步入空行营");
     }
 
     // A4：工兵 (1,1) → (0,1) 大本营（空大本营不可入）
@@ -70,7 +70,7 @@ mod tests {
         probe_clear(&mut st);
         probe_put(&mut st, 1, 1, 9, SIDE_BLUE, true);
         let cm = rules::can_move(&st, cell_index(1, 1), cell_index(0, 1));
-        assert_eq!(cm, false, "A4 空大本营不可入");
+        assert!(!cm, "A4 空大本营不可入");
     }
 
     // A5：越界 from（N_CELLS+5）→ false（入口拒）
@@ -79,7 +79,7 @@ mod tests {
         let mut st = State::new();
         probe_clear(&mut st);
         let cm = rules::can_move(&st, 65, cell_index(0, 0));
-        assert_eq!(cm, false, "A5 越界 from 拒");
+        assert!(!cm, "A5 越界 from 拒");
     }
 
     // ---- B 族：吃子判定 ----
@@ -94,7 +94,7 @@ mod tests {
         st.cfg[4] = 0; // 明棋（cfg4 关，任意子可撞雷→但雷>普通子，撞雷=送死，can_move 放行）
         // 明棋：普通子可撞雷（送死），can_move 放行（规则层合法，结算 EV_DEAD）
         let cm = rules::can_move(&st, cell_index(5, 0), cell_index(5, 1));
-        assert_eq!(cm, true, "B1 明棋普通子可撞雷（送死）");
+        assert!(cm, "B1 明棋普通子可撞雷（送死）");
     }
 
     // B2：工兵撞雷（cfg4 开暗棋门槛）→ 放行（工兵可挖雷）
@@ -108,7 +108,7 @@ mod tests {
         st.mode = crate::state::MODE_FLIP;
         st.cfg[4] = 1; // 暗棋门槛开：雷仅工兵
         let cm = rules::can_move(&st, cell_index(5, 0), cell_index(5, 1));
-        assert_eq!(cm, true, "B2 暗棋工兵可吃雷");
+        assert!(cm, "B2 暗棋工兵可吃雷");
     }
 
     // B3：炸弹撞旗 → try_move 终局（EV_BOMB + winner 蓝 + stage OVER）
@@ -149,7 +149,7 @@ mod tests {
         st.mode = crate::state::MODE_FLIP;
         probe_put(&mut st, 5, 0, 1, SIDE_UNKNOWN, false);
         let cm = rules::can_move(&st, cell_index(5, 0), cell_index(5, 1));
-        assert_eq!(cm, false, "C1 未翻暗子不可走");
+        assert!(!cm, "C1 未翻暗子不可走");
     }
 
     // C2：0xFF 翻棋定色（归翻子方）
@@ -184,7 +184,7 @@ mod tests {
         probe_put(&mut st, 5, 0, 11, SIDE_UNKNOWN, false); // 唯一暗子=地雷
         // 蓝方唯一暗子是雷 → 翻雷不计可行动 → 蓝困毙（true）
         let sm = rules::side_stalemated(&st, SIDE_BLUE);
-        assert_eq!(sm, true, "C4 翻雷不计可行动=困毙");
+        assert!(sm, "C4 翻雷不计可行动=困毙");
     }
 
     // C4b：唯一暗子=军旗 → 军旗不计可翻 → 困毙
@@ -196,7 +196,7 @@ mod tests {
         probe_put(&mut st, 5, 0, 12, SIDE_UNKNOWN, false);
         let sm = rules::side_stalemated(&st, SIDE_BLUE);
         // C 64 位 R-073 基准：军旗不可翻 + 无其他子 → 蓝困毙=true（排旗+雷后唯一暗子军旗不贡献可翻）
-        assert_eq!(sm, true, "C4b 军旗不可翻+无他子=困毙（64 位 R-073）");
+        assert!(sm, "C4b 军旗不可翻+无他子=困毙（64 位 R-073）");
     }
 
     // ---- G 族：暗棋吃子 ----
@@ -211,7 +211,7 @@ mod tests {
         probe_put(&mut st, 5, 1, 5, SIDE_UNKNOWN, false);
         st.turn = SIDE_BLUE;
         let cm = rules::can_move(&st, cell_index(5, 0), cell_index(5, 1));
-        assert_eq!(cm, true, "G2 暗棋撞未翻敌暗子可走（C 基准 1）");
+        assert!(cm, "G2 暗棋撞未翻敌暗子可走（C 基准 1）");
     }
 
     // ---- C5-C6：困毙侧 + 工兵挖雷 try_move ----
@@ -223,7 +223,7 @@ mod tests {
         st.turn = SIDE_BLUE;
         probe_put(&mut st, 5, 0, 12, SIDE_RED, true); // 红方仅 1 枚军旗（不可动）
         let sm = rules::side_stalemated(&st, SIDE_RED);
-        assert_eq!(sm, true, "C5 红仅旗不可动=困毙（C 基准 1）");
+        assert!(sm, "C5 红仅旗不可动=困毙（C 基准 1）");
     }
 
     #[test]
@@ -265,7 +265,7 @@ mod tests {
         probe_clear(&mut st);
         probe_put(&mut st, 4, 2, 9, SIDE_BLUE, true);
         let cm = rules::can_move(&st, cell_index(4, 2), cell_index(6, 4));
-        assert_eq!(cm, true, "E1 工兵同段拐弯（C 基准 1）");
+        assert!(cm, "E1 工兵同段拐弯（C 基准 1）");
     }
 
     #[test]
@@ -275,7 +275,7 @@ mod tests {
         probe_clear(&mut st);
         probe_put(&mut st, 4, 2, 9, SIDE_BLUE, true);
         let cm = rules::can_move(&st, cell_index(4, 2), cell_index(0, 2));
-        assert_eq!(cm, false, "E2 工兵跨 row3 行营阻断（C 基准 0）");
+        assert!(!cm, "E2 工兵跨 row3 行营阻断（C 基准 0）");
     }
 
     // ---- F 族：暗棋定色 + 翻后困毙 ----
@@ -305,7 +305,7 @@ mod tests {
         let _ = rules::flip(&mut st, cell_index(5, 0));
         // 翻后红方仍 0xFF 未翻子（可翻）→ 红不困毙
         let sm_red = rules::side_stalemated(&st, SIDE_RED);
-        assert_eq!(sm_red, false, "F2 翻后红不困毙（C 64 位 R-008 基准 0）");
+        assert!(!sm_red, "F2 翻后红不困毙（C 64 位 R-008 基准 0）");
     }
 
     // ---- G3/G4：暗棋 0xFF 吃子 + 杀光判据 ----

@@ -142,9 +142,10 @@ impl Replay {
 ///   - turn ∈ {0,1}
 ///   - stage ∈ {PLAY, OVER}（Rust 版无 SETUP，C STG_OVER=1 即上限）
 ///   - winner ∈ {None(-1), Blue(0), Red(1), Draw(2)}
-///   - mode ∈ {LAY(0), FLIP(1)}
-///   - cells 逐格：side∈{0,1,0xFF}、rank∈[0,24]、revealed∈{0,1}（越域格强制归零）
-///   - 计数下界钳：pieces_left/mines_cleared 负值钳 0
+/// - mode ∈ {LAY(0), FLIP(1)}
+/// - cells 逐格：side∈{0,1,0xFF}、rank∈[0,24]、revealed∈{0,1}（越域格强制归零）
+/// - 计数下界钳：pieces_left/mines_cleared 负值钳 0
+///
 /// ★ 审计 A5：两阶段存档校验（拒读不改调用方 + 显式净化）
 /// 阶段1 `check_enums` 只读校验枚举域（失败调用方状态不变）；
 /// 阶段2 `validate_state` 就地净化（cells 归零/计数钳）。
@@ -291,12 +292,9 @@ mod tests {
         assert_eq!(st.stage, Stage::Play);
     }
 
-    // §7 复盘越界 cur 拒绝
-    #[test]
-    // ★ C 基准移植（run_replay）：记录 N 步 → rewind K → 与独立重放前 K 步 cells 逐格一致
+    // §7 复盘越界 cur 拒绝 + C 基准移植（run_replay）：记录 N 步 → rewind K → 与独立重放前 K 步 cells 逐格一致
     #[test]
     fn replay_vs_independent_replay() {
-        use crate::state::{Cell, SIDE_BLUE, Stage, Winner};
         let init = crate::gametest::make_default_layout();
         // ★ 动态生成合法走子序列（模拟 C run_replay 的 gen_moves），避免固定坐标失效
         let mut gen = init.clone();
@@ -346,10 +344,14 @@ mod tests {
         assert!(same, "undo_restore 全字段回退（C run_undo 基准）");
     }
 
+    /// §7 复盘越界 cur 拒绝/clamp：`rewind_to` 越界 cur 应 clamp 到 n 且状态重建成功（审计 A11）
+    #[test]
     fn replay_rewind_oob() {
         let st = State::new();
-        let mut rp = Replay::new(&st);
+        let rp = Replay::new(&st);
         let mut out = State::new();
-        assert!(rp.rewind_to(&mut out, 5), "cur>n clamp 到 n（审计 A11），重建成功");
+        assert!(rp.rewind_to(&mut out, 999), "cur>n clamp 到 n（审计 A11），重建成功");
+        assert_eq!(out.stage, crate::state::Stage::Play, "重建后阶段合法");
+        assert!(out.turn.is_valid(), "重建后 turn 合法");
     }
 }

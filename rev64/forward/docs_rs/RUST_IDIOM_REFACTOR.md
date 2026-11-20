@@ -45,3 +45,10 @@
 - 改：OnCreate 整段改用 jni crate 安全封装（`JNIEnv::from_raw` + `new_object`/`call_method`/`new_global_ref`），裸函数指针残留归零。
 - **踩坑固化（真机判据抓到）**：jni crate 的 `GlobalRef` 是 RAII 局部对象，函数返回 drop 会 `DeleteGlobalRef` → G_VIEW 悬空 → 渲染线程 `call_method(getHolder)` 内部 `get_object_class` 崩 SIGSEGV（fault 0x0）。修：`std::mem::forget(global)` 保持 global ref 存活，对齐旧裸指针版"从不 DeleteGlobalRef"生命周期语义。
 - 判据守门：95 测试 / 0 警告 / 14 符号 / 154 case / align_gate 全 PASS；真机 5 判据复验（装 pid=55033 / 出屏 rendering / wgpu_step=win_ok / 走子 Move / so d12ccc38）。
+
+## Rust 工程规范门禁（2026-11-20 续，用户"正向开发要多考虑 Rust 特性和规范"）
+- **clippy -D warnings：48 警告 → 0（rc=0）**。机械修：assert_eq!(bool)→assert!、match→matches!、clamp、iter().enumerate() 替代索引循环、Default impl、doc 缩进等。
+- **自定义 Error enum（0→1）**：`try_move` 的 `Result<Ev, ()>` → `Result<Ev, MoveError>`（BadIndices/IllegalTurn/IllegalMove + Display + std::error::Error），36 处调用点不依赖 Err 具体类型故零改动。
+- 顺手修历史遗留 bug：`replay_vs_independent_replay` 前"§7 复盘越界 cur 拒绝"测试的孤立 `#[test]`（函数体早丢失，属性贴到邻函数）→ 补回真实 `replay_rewind_oob` 测试（cur=999 clamp + 重建后状态合法性断言），测试数稳定 95。
+- 判据守门：95 测试 / clippy -D warnings rc=0 / android 0 错误 0 警告 / 14 符号 / 154 case / align_gate / fuzz_probe / event_names 全 PASS；真机 5 判据（so d6c534e8）+ 连续 3 次干净重启 0 崩溃。
+- 方法论固化：行为对齐 = "做什么"（业务真值），Rust 化 = "怎么写"（类型系统/Result/Error enum/迭代器/clippy 门禁）——两者不冲突，正向开发应两者兼顾。

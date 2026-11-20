@@ -4,7 +4,7 @@
 
 #[cfg(test)]
 mod tests {
-    use crate::state::{Side, State, Stage, Winner, SIDE_BLUE, SIDE_RED, SIDE_UNKNOWN, Rank};
+    use crate::state::{Side, State, Stage, Winner, SIDE_BLUE, SIDE_RED, Rank};
     use crate::{ai, rules};
 
     /// xorshift32（先变换后保存，避免 C 首版自 bug）
@@ -35,7 +35,7 @@ mod tests {
                 assert!(matches!(st.winner, Winner::None | Winner::Blue | Winner::Red | Winner::Draw));
                 assert!(st.cells.iter().all(|c| c.rank <= Rank(24)), "rank 存储域 [0,24]");
                 // 随机走子（ai_pick 优先，否则随机合法）
-                let mv = if rng.next() % 4 == 0 {
+                let mv = if rng.next().is_multiple_of(4) {
                     random_move(&mut rng, &st)
                 } else {
                     ai::ai_pick(&st, 3).map(|m| (m.from, m.to, m.is_flip))
@@ -72,9 +72,9 @@ mod tests {
             // 纯算术映射（与 view_to_cell 同源：x=78.5+col*140.5, y 分段），不依赖 android cfg
             let bx = x as f32 * 0.8;
             let by = y as f32 * 0.8;
-            let _col = ((bx - 78.5) / 140.5).round().max(0.0).min(4.0) as i32;
-            let _row = if by < 822.0 { ((by - 222.0) / 71.0).round().max(0.0).min(5.0) as i32 }
-                       else { 6 + ((by - 822.0) / 71.0).round().max(0.0).min(5.0) as i32 };
+            let _col = ((bx - 78.5) / 140.5).round().clamp(0.0, 4.0) as i32;
+            let _row = if by < 822.0 { ((by - 222.0) / 71.0).round().clamp(0.0, 5.0) as i32 }
+                       else { 6 + ((by - 822.0) / 71.0).round().clamp(0.0, 5.0) as i32 };
         }
     }
 
@@ -121,7 +121,7 @@ mod tests {
         for seed in [1u32, 42, 999] {
             let mut rng = Rng::new(seed);
             let mut st = crate::gametest::make_default_layout();
-            st.turn = if rng.next() % 2 == 0 { SIDE_BLUE } else { SIDE_RED };
+            st.turn = if rng.next().is_multiple_of(2) { SIDE_BLUE } else { SIDE_RED };
             st.mode = (rng.next() % 2) as u8;
             st.winner = match rng.next() % 4 {
                 0 => Winner::None, 1 => Winner::Blue, 2 => Winner::Red, _ => Winner::Draw,

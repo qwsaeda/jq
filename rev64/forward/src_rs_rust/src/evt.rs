@@ -56,6 +56,7 @@ impl Ev {
 }
 
 /// 事件统计器（规格 §11：码分流计数 + 总计数）
+#[derive(Default)]
 pub struct EventCounter {
     /// 7 码计数 [EV_MOVE..EV_FLIP]
     pub by_code: [u64; 7],
@@ -63,11 +64,6 @@ pub struct EventCounter {
     pub total: u64,
 }
 
-impl Default for EventCounter {
-    fn default() -> Self {
-        Self { by_code: [0; 7], total: 0 }
-    }
-}
 
 impl EventCounter {
     pub fn new() -> Self {

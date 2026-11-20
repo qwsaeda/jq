@@ -3,7 +3,7 @@
 //! 公开 API（Rust 版，&State 参数化规则开关 st.cfg）：
 //!   can_move(st, from, to) -> bool     当前回合走子合法性（规格 §3）
 //!   can_move_any(st, from, to) -> bool  忽略回合（困毙判定用）
-//!   try_move(st, from, to) -> Result<Ev, ()>  走子执行 + 结算（规格 §4）
+//!   try_move(st, from, to) -> Result<Ev, MoveError>  走子执行 + 结算（规格 §4）
 //!   can_flip(st, idx) -> bool          翻棋合法性（规格 §5）
 //!   flip(st, idx) -> bool              翻棋执行（规格 §5）
 //!   side_stalemated(st, side) -> bool  某方困毙（规格 §4.1）
@@ -15,10 +15,28 @@ use crate::state::{
     Side, SIDE_BLUE, SIDE_RED, SIDE_UNKNOWN, Stage, State, Winner,
 };
 
+/// 走子失败原因（Rust 规范化：用有语义的 Error enum 替代 `Result<Ev, ()>`）。
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum MoveError {
+    /// from/to 越界或 from==to
+    BadIndices,
+    /// 回合/阶段非法
+    IllegalTurn,
+    /// 规则层拒绝（走子不合法）
+    IllegalMove,
+}
+impl std::fmt::Display for MoveError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+impl std::error::Error for MoveError {}
+
+
 // ---- 铁路通行性（中间格/目标格可走判定）----
 /// 铁路滑行中间格是否可通行（空格 + 非行营 + 非大本营；目标格允许占用=吃子）
 fn walkable(st: &State, row: i32, col: i32) -> bool {
-    if row < 0 || row >= 12 || col < 0 || col >= 5 {
+    if !(0..12).contains(&row) || !(0..5).contains(&col) {
         return false;
     }
     if is_camp(row, col) || is_base(row, col) {
@@ -265,12 +283,12 @@ pub fn can_move_any(st: &State, from: usize, to: usize) -> bool {
 }
 
 /// 走子执行 + 结算（规格 §4）。返回事件码；失败（非法）返回 Err。
-pub fn try_move(st: &mut State, from: usize, to: usize) -> Result<Ev, ()> {
+pub fn try_move(st: &mut State, from: usize, to: usize) -> Result<Ev, MoveError> {
     if from == to || from >= N_CELLS || to >= N_CELLS {
-        return Err(());
+        return Err(MoveError::BadIndices);
     }
     if !move_legal(st, from, to, Some(st.turn)) {
-        return Err(());
+        return Err(MoveError::IllegalMove);
     }
     let src = &st.cells[from];
     let sr = rank_of(src);
@@ -278,7 +296,7 @@ pub fn try_move(st: &mut State, from: usize, to: usize) -> Result<Ev, ()> {
     let dr = rank_of(dst);
     let me = src.side;
     if !side_valid(me) {
-        return Err(()); // 外部脏 turn 降级为明确失败
+        return Err(MoveError::IllegalTurn); // 外部脏 turn 降级为明确失败
     }
     // 快照两侧 cell（避免后续改 st 字段时持 &st.cells 冲突）
     let src_cell = *src;
@@ -653,7 +671,7 @@ mod tests {
         assert!(can_flip(&s, 25), "0xFF 当前方可翻");
         assert!(flip(&mut s, 25));
         assert_eq!(s.cells[25].side, SIDE_BLUE, "定色归翻子方（蓝）");
-        assert_eq!(s.cells[25].revealed, true);
+        assert!(s.cells[25].revealed);
         assert_eq!(s.turn, SIDE_RED, "翻棋切回合");
     }
 
