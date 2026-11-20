@@ -103,8 +103,17 @@ mod imp {
                     if let Some(surface) = cur {
                         let valid = env.call_method(&surface, "isValid", "()Z", &[])
                             .ok().and_then(|v| v.z().ok()).unwrap_or(false);
-                        if valid && crate::canvas::draw_rgba_to_surface(&mut env, surface, &rgba, 450, 800).is_err() {
-                            crate::log::setprop("jq.wgpu_thread", "canvas_err");
+                        if valid {
+                            // ★ 状态属性反映"当前帧"结果：成功写 rendering、失败写 canvas_err。
+                            //   旧实现只在 frame==3 写一次 rendering、失败才写 err →
+                            //   一次偶发失败就把属性永久卡在 canvas_err（画面其实正常），判据假 FAIL。
+                            if crate::canvas::draw_rgba_to_surface(&mut env, surface, &rgba, 450, 800).is_ok() {
+                                crate::log::setprop("jq.wgpu_thread", "rendering");
+                            } else {
+                                crate::log::setprop("jq.wgpu_thread", "canvas_err");
+                            }
+                        } else {
+                            crate::log::setprop("jq.wgpu_thread", "surface_invalid");
                         }
                     }
                 }

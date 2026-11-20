@@ -136,3 +136,9 @@
 - **houdini 快速重启竞态（真 FAIL 但非 app bug）**：`force-stop; am start` 背靠背 → SIGSEGV `trying to execute non-executable memory`（fault 0x7c31... houdini 转译区, uptime 1-2s, 无 libjunqi 栈帧）。正常节奏（force-stop 后 sleep 2）重进 3 次 0 Fatal → 确认是转译层 JIT cache 竞态（AGENTS.md 已载"模拟器故障不外推真机"），修脚本加 2s 间隔。
 - **重进 pid 轮询**：单次 `pidof` 取不到（进程启动延迟）→ 改 5 次轮询 + adb_ensure。
 - 判据守门：`rust_all.sh --device` 全 PASS（编译+154case+so对账+出屏+走子+悔棋+重进pid+无Fatal）。
+
+## 出屏判据摆脱属性依赖（2026-11-20 续：jq.wgpu_thread 属性污染）
+- **发现**：设备侧 `jq.wgpu_thread` 属性被 selinux 永久标记 denied（`Rewrite len too long for denied property`，logcat 反复出现）；`adb setprop jq.wgpu_thread=rendering` 写不进（仍 canvas_err），而写新属性名 `jq.wgpu_thread2` 成功 → 属性名污染，不是 app bug。
+- **假象链**：旧判据 `getprop jq.wgpu_thread=rendering` 实际读残留值；画面明明正常（截图 98% 非黑）属性却停在 canvas_err → 判据假 FAIL/假绿。我曾误判为代码 bug 改了"每帧写状态"（逻辑更正确，保留），但无效——根因是属性写不进。
+- **根治**：`rust_all.sh` 出屏/重进判据改用**截图像素**（screencap → PIL 非黑比 > 0.85，轮询 20s 抗启动延迟），不可伪造、不依赖属性。实测 boot/restart 均 0.980 非黑比，全 PASS。
+- 教训固化：真机判据优先用"不可伪造的物理证据"（截图像素），属性/日志只是辅助诊断（可被系统污染/权限拒绝）。这是继"Fatal 盲区"之后的第二个判据可信度教训。

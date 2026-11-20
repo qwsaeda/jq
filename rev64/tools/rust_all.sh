@@ -90,7 +90,27 @@ if [ "$DEVICE" = 1 ]; then
     adb -s "$DEV" shell "rm -f /data/local/tmp/jq_hook_*; am force-stop com.qwsaeda.junqirs" >/dev/null 2>&1
     sleep 2  # houdini JIT 竞态：force-stop 后立即 start 会 non-executable memory SIGSEGV（实测）
     adb -s "$DEV" shell "am start -n com.qwsaeda.junqirs/com.qwsaeda.App" >/dev/null 2>&1
-    wait_prop jq.wgpu_thread rendering && log "PASS 出屏 rendering" || { log "FAIL 出屏未达 rendering"; fail=1; }
+    # ★ 出屏判据用截图像素（不依赖属性）：jq.wgpu_thread 会被设备 selinux 标记 denied
+    #   永久锁死旧值（实测 adb setprop 也写不进），属性判据会假 FAIL/假绿。
+    #   截图非黑比 > 85% = 画面真实渲染（棋盘+棋子出屏），不可伪造。
+    check_screen(){
+      local tag=$1
+      adb -s "$DEV" shell "screencap -p /sdcard/jq_ra_${tag}.png" >/dev/null 2>&1 || return 1
+      adb -s "$DEV" pull "/sdcard/jq_ra_${tag}.png" "/tmp/jq_ra_${tag}.png" >/dev/null 2>&1 || return 1
+      python3 -c "
+from PIL import Image
+im=Image.open('/tmp/jq_ra_${tag}.png').convert('RGB'); w,h=im.size; px=im.load()
+nb=sum(1 for y in range(0,h,16) for x in range(0,w,16) if sum(px[x,y])>45)
+t=len(range(0,h,16))*len(range(0,w,16))
+print(f'{nb/t:.3f}')
+" 2>/dev/null
+    }
+    # 轮询截图直到非黑比达标（启动/渲染有延迟，单次截图会拿到黑屏启动帧）
+    wait_screen(){ local tag=$1 n=0 r="0.000"; while [ $n -lt 20 ]; do
+      r=$(check_screen "${tag}_$n"); awk -v v="$r" 'BEGIN{exit !(v+0 > 0.85)}' && { echo "$r"; return 0; }
+      sleep 1; n=$((n+1)); done; echo "$r"; return 1; }
+    SR=$(wait_screen boot)
+    awk -v r="$SR" 'BEGIN{exit !(r+0 > 0.85)}' && log "PASS 出屏截图非黑比 ($SR)" || { log "FAIL 出屏截图非黑比 ($SR)"; fail=1; }
     # 走子：蓝 6→11（tap 两下）
     adb_ensure
     adb -s "$DEV" shell "setprop jq.move NONE; input tap 274 1383; sleep 1; input tap 274 1312" >/dev/null 2>&1
@@ -105,7 +125,8 @@ if [ "$DEVICE" = 1 ]; then
     adb -s "$DEV" shell "am force-stop com.qwsaeda.junqirs" >/dev/null 2>&1
     sleep 2  # 同上：避免 houdini 快速重启竞态
     adb -s "$DEV" shell "am start -n com.qwsaeda.junqirs/com.qwsaeda.App" >/dev/null 2>&1
-    wait_prop jq.wgpu_thread rendering && log "PASS 重进出屏恢复" || { log "FAIL 重进未恢复出屏"; fail=1; }
+    SR2=$(wait_screen restart)
+    awk -v r="$SR2" 'BEGIN{exit !(r+0 > 0.85)}' && log "PASS 重进出屏恢复 ($SR2)" || { log "FAIL 重进未恢复出屏 ($SR2)"; fail=1; }
     adb_ensure
     RP=""; for pn in 1 2 3 4 5; do adb_ensure; RP=$(adb -s "$DEV" shell "pidof com.qwsaeda.junqirs" 2>/dev/null | tr -d '\r' | head -1); [ -n "$RP" ] && break; sleep 1; done
     [ -n "$RP" ] && log "PASS 重进 pid 存活 ($RP)" || { log "FAIL 重进 pid 不存在"; fail=1; }
