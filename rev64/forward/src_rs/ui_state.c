@@ -39,19 +39,36 @@ static int g_opt_mode = 1;    /* ★ 原版开局对齐：人机/两人均全背
    （aarch64 int 读写天然原子；写点 ui_screen_set 仍锁内，读侧锁消除渲染
    热路径 g_ui_lock 取锁——g_ui_lock 被某异常路径永久置 locked 时全调用方
    卡死，真机实锤 60s+ 未释放）。快读语义：读到 1 字对齐中间态不可能（
-   写为单 int 赋值），撕裂仅跨多字段聚合读（ui_imgset_cfg_get 保留锁）。 */
-int ui_screen_get(void) { int v = g_ui; return v; }
+   写为单 int 赋值），撕裂仅跨多字段聚合读（ui_imgset_cfg_get 保留锁）。
+   ★★ 2026-11-20 P8 渗透面（TSAN）实锤竞态：裸读 g_ui 与 ui_screen_set 的
+   持锁写构成 **data race**（TSAN: ui_state.c:46 in ui_screen_set）——"aarch64
+   int 读写天然原子"只是**架构事实**，不是**语言级同步契约**：C 内存模型下这是
+   UB（编译器/优化器可重排/缓存），且 TSAN 机检必报。
+   修（保"无锁快读"可用性 + 消除竞态）：**显式原子**——读侧
+   __atomic_load_n(ACQUIRE)、写侧 __atomic_store_n(RELEASE)：
+     ① 不取 g_ui_lock → **不会重现"锁永久持有 → 60s 全局卡死"事故**（原事故根因）
+     ② 原子语义 → TSAN 0 报告 + C 内存模型合法（消除 UB）
+     ③ aarch64 上 acquire/release 编译为 ldar/stlr（等价于原有 ldr/str 语义，
+        性能零回退） */
+int ui_screen_get(void) { return __atomic_load_n(&g_ui, __ATOMIC_ACQUIRE); }
 /* ★ AUD-1000 B02-001/002（P0 已修）：getter 与 setter 同锁（旧实现无锁读 g_ui，
-   与 ui_screen_set 持锁写构成数据竞争，GLThread/主线程并发可见中间态）。 */
-void ui_screen_set(int s) { pthread_mutex_lock(&g_ui_lock); g_ui = s; pthread_mutex_unlock(&g_ui_lock); }
-int ui_game_active(void) { int v = g_ui; return (v == UI_GAME); }   /* ★ 2026-11-10 快读（同 ui_screen_get 范式） */
+   与 ui_screen_set 持锁写构成数据竞争，GLThread/主线程并发可见中间态）。
+   ★ 2026-11-20 P8：写侧改为原子 store（与读侧 acquire 配对）+ 保留 mutex
+   （写侧互斥，多写者不丢更新）→ 双保险。 */
+void ui_screen_set(int s)
+{
+    pthread_mutex_lock(&g_ui_lock);
+    __atomic_store_n(&g_ui, s, __ATOMIC_RELEASE);
+    pthread_mutex_unlock(&g_ui_lock);
+}
+int ui_game_active(void) { return (__atomic_load_n(&g_ui, __ATOMIC_ACQUIRE) == UI_GAME); }
 
 /* ★ 选项 UI：选难度/模式（弹窗按钮命中后调，开局前） */
 void ui_opt_select(int level, int mode)
 {
     pthread_mutex_lock(&g_ui_lock);
-    if (level >= 1 && level <= 4) g_opt_level = level;
-    g_opt_mode = (mode == 1) ? 1 : 0;
+    if (level >= 1 && level <= 4) __atomic_store_n(&g_opt_level, level, __ATOMIC_RELEASE);
+    __atomic_store_n(&g_opt_mode, (mode == 1) ? 1 : 0, __ATOMIC_RELEASE);
     pthread_mutex_unlock(&g_ui_lock);
 }
 /* ★ 2026-11-10 flag/mine 回归真机根因（AUD-1000 批次）：难度/模式 getter 快读。
@@ -59,15 +76,17 @@ void ui_opt_select(int level, int mode)
    用户操作级）写、jq_restart_game/ai_pick/OnEvent start 只读；int 读写 aarch64
    天然原子，锁外快读消除 stalemate O(N²)/AI 走子热路径的 g_ui_lock 取锁
    （某异常路径永久置 locked 时全调用方卡死，60s+ 未释放——真机实锤）。 */
-int ui_opt_get_level(void) { int v = g_opt_level; return v; }
-int ui_opt_get_mode(void) { int v = g_opt_mode; return v; }
+int ui_opt_get_level(void) { return __atomic_load_n(&g_opt_level, __ATOMIC_ACQUIRE); }
+int ui_opt_get_mode(void) { return __atomic_load_n(&g_opt_mode, __ATOMIC_ACQUIRE); }
 /* ★ AUD-1000 B03-023（P1 已修）：明暗棋切换单入口（锁内 read-modify-write，
    旧调用点 "ui_opt_get_mode→取反→ui_opt_select" 三步锁外裸改并发丢更新）。 */
 int ui_opt_toggle_mode(void)
 {
     pthread_mutex_lock(&g_ui_lock);
-    g_opt_mode = !g_opt_mode;
-    int v = g_opt_mode;
+    /* P8 2026-11-20：锁内 read-modify-write 也用原子（与 getter 的 ACQUIRE 配对，
+       写侧全原子化，TSAN 0 报告；mutex 仍保多写者互斥）。 */
+    int v = !__atomic_load_n(&g_opt_mode, __ATOMIC_RELAXED);
+    __atomic_store_n(&g_opt_mode, v, __ATOMIC_RELEASE);
     pthread_mutex_unlock(&g_ui_lock);
     return v;
 }
@@ -345,10 +364,10 @@ void ui_on_menu_action(int action)
     int logged = 0;
     pthread_mutex_lock(&g_ui_lock);
     if (action == 0) {
-        g_ui = UI_DIFFICULTY;
+        __atomic_store_n(&g_ui, UI_DIFFICULTY, __ATOMIC_RELEASE);
         logged = 1;
     } else if (action == 1) {
-        g_ui = UI_GAME;
+        __atomic_store_n(&g_ui, UI_GAME, __ATOMIC_RELEASE);
         logged = 2;
     }
     pthread_mutex_unlock(&g_ui_lock);

@@ -223,6 +223,19 @@ fuzzui:
 #   判据：0 整体崩溃（fork 隔离捕崩溃/hang）+ 防御缺口清单定位
 # ★ 依赖 android_stub/（桌面 jni.h / EGL / android/*.h 最小桩）+ platform_stub.c（GL/平台符号）
 # 用法：make fuzzjni SEED=7 ROUNDS=1
+#
+# ★ P8 渗透面：多线程竞态 fuzz（TSAN + -no-pie + setarch -R 固定地址布局）
+#   3 场景 × 8 线程：M1 g_state 读写（模拟真机 g_mutex 双侧持锁契约）/ M2 UI 屏态
+#   （ui_state 原子化后 0 报告）/ M3 触摸态（共享实例 + g_ts_lock）
+#   判据：TSAN 0 报告 + 0 崩溃（竞态若报出须按 CODE_STYLE 锁纪律修）
+# 用法：make fuzzmt SEED=7 ITERS=20000
+fuzzmt:
+	@mkdir -p dist
+	$(CC) -fsanitize=thread -no-pie -O1 -g -DRS_NO_GL -Iandroid_stub \
+	    -o dist/jq_fuzzmt fuzz_mt.c touch_state.c touch.c ui_state.c ui_menu.c \
+	    replay.c rules.c board.c layout.c save.c -lm
+	@echo "构建完成: dist/jq_fuzzmt（TSAN，运行需 setarch -R 固定 ASLR）"
+	@setarch -R dist/jq_fuzzmt $(SEED) $(ITERS)
 FUZZJNI_SRCS = fuzz_jni.c jni_bridge.c platform_stub.c board.c layout.c rules.c save.c \
 	touch.c touch_state.c replay.c ui_state.c ui_menu.c containers.c \
 	jq_event_names_73.c evt55_dispatch.c evt55_business.c evt55_sfx.c \

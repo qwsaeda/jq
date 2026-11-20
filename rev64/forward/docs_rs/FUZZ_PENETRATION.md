@@ -291,6 +291,50 @@ M5' rebuild：×50 幂等 + 10000 次路由解引用 0 崩溃
    → mock 结构体是 `JNINativeInterface`（非 C++ 的 `JNINativeInterface_`），
    `JNIEnv g_env = &g_mocks;`
 
+### 2.8.5 P8：多线程竞态 fuzz（`fuzz_mt.c`，TSAN）——**抓到并修复 so 真实竞态**
+
+**空白原因**：现有全部判据都是**单线程**（12/12 + F1-F5 + P1/P2/P5'），而 src_rs
+真实运行模型 = 主线程（JNI OnTouch/OnEvent/OnCreate/OnUpdate/OnTimer）+ GL 渲染线程
+（rs_render_frame 读 g_state/g_view_*）+ OnUpdate 定时器（写 g_state）。锁纪律目前是
+**人工约定**（CODE_STYLE §锁纪律 + 注释标注），**无机器可复现检查** = "看起来测了
+其实没测"的域。TSAN 是唯一能机检数据竞态的手段。
+
+**3 场景 × 8 线程**：
+- M1 g_state 读写（模拟真机 `g_mutex` **双侧持锁契约**：OnTouch 写持锁 + 渲染线程
+  window 出屏读持锁，AUD-1000 A2-007 修复；见 `glview_gl.c:22` 注释）
+- M2 UI 屏态（ui_screen_set/get 并发）
+- M3 触摸态（共享 jq_touch_state 实例 + g_ts_lock）
+
+**★ 实锤抓到 so 真实竞态（P8 核心价值）**：
+TSAN 报 `data race at ui_state.c:46 in ui_screen_set`——`ui_screen_set` 持 `g_ui_lock`
+写 `g_ui`，但 `ui_screen_get`/`ui_game_active`/`ui_opt_get_*` **裸读**（注释理由：
+"aarch64 int 读写天然原子 + 避免 g_ui_lock 永久持有时 60s 全局卡死事故"）。
+**根因**：架构原子性（aarch64 int 单字读写）只是**硬件事实**，不是**语言级同步契约**
+——C 内存模型下裸读裸写 = UB（编译器可重排/缓存），TSAN 机检必报。
+
+**修复（保可用性 + 消除竞态，2026-11-20）**：
+- 读侧：`__atomic_load_n(&g_ui, __ATOMIC_ACQUIRE)`（无锁快读**不变** → 不会重现
+  "锁永久持有 → 60s 卡死"事故）
+- 写侧：`__atomic_store_n(&g_ui, s, __ATOMIC_RELEASE)` + 保留 mutex（写侧多写者互斥）
+- 同型处理 `g_opt_level`/`g_opt_mode`（4 个 getter + 3 个写点全原子化）
+- aarch64 上 acquire/release 编译为 `ldar/stlr`，语义与原有 ldr/str 等价，性能零回退
+
+**验证**：修复后 TSAN 对 M2 **0 报告**（原 ui_state.c:46 报告消失），3 场景
+× 8 线程 × 20000 次全 PASS。
+
+**踩坑固化（3 条）**：
+1. **TSAN 与 PIE 地址布局冲突**：默认 PIE 编译报 `FATAL: ThreadSanitizer: unexpected
+   memory mapping`（ASLR 大地址段）→ 修：`-no-pie` + `setarch -R`（禁 ASLR 固定布局）
+2. **探针自身 RNG 的竞态淹没真实报告**：共享 `g_seed` 被 TSAN 报成 data race →
+   修：`__thread unsigned t_rng_state`（每线程独立 RNG），真实竞态才显形
+3. **探针必须模拟真机锁契约**：M1 初版故意不加锁写 g_state → TSAN 报"探针自造的
+   无锁写"= **假阳性**；真机 OnTouch 写与渲染线程读双侧持 g_mutex（A2-007）→
+   探针改为双侧持锁 → 0 报告。**教训：fuzz 并发前先读被测代码的锁契约注释**，
+   否则探针自身的错误同步会制造假报告
+
+**诚实边界**：桌面 TSAN 能报**真实存在**的竞态（比真机强），但**不报真机特有**的
+竞态（NDK 优化/信号时序差异）；不含蓝牙收帧线程（用户指令）+ 真实 GL 线程（桌面 stub）。
+
 ## 3. 诚实边界
 
 - **fuzz 只查崩溃/非法态，不查行为正确性**——不崩 ≠ 行为对齐原版（行为对照靠 `rule_probe_compare.py` 双端 36 case + `align_gate.sh` 事件/布局判据）
