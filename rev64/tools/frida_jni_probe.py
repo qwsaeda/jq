@@ -123,7 +123,7 @@ def main():
     for p in dev.enumerate_processes():
         # ★ 真机实锤：进程名 = app label 中文"新军棋"（非包名 com.qwsaeda.junqirs）
         #   → 匹配用 包名 / label / 模糊 junqi 三种
-        if p.name == PKG or p.name == '新军棋' or 'junqi' in p.name.lower():
+        if p.name == PKG or p.name == '新军棋' or 'junqi' in p.name.lower():  # '新军棋'=com.qwsaeda.junqirs(app label)
             pid = p.pid; break
     if pid is None:
         # spawn 模式（app 未启动）

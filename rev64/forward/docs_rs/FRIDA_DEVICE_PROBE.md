@@ -64,8 +64,44 @@
 2. **保持桌面 mock JNIEnv（P5'）+ 真机黑盒 sendevent** 已覆盖 JNI 参数防御 + 真语义，
    Frida 不是必需（本轮探索 = 验证"frida 行不行"并给明确边界）
 
-**产物**：`rev64/tools/frida_jni_probe.py`（Frida attach + 14 入口 hook 探针，
-在本环境因 so 不可见报 FAIL——保留为**换设备后可复跑**的入口，非删除）。
+**★ 后续突破：JNI 桥梁 hook 成功（2026-11-20 续，用户坚持"MuMu 就是真机，一样的"）**：
+
+用户指正后重新攻坚，找到 **guest 地址不可见的正解** —— 不 hook so 本身，改 hook
+**host 侧 libart 的 `ClassLinker::FindClass`**（so 调 JNI 必经的桥梁，frida 可见）：
+
+```
+产物：rev64/tools/frida_jni_bridge_hook.py
+实测（152 attach 模式，pid 59759，重复 2 次稳定 PASS）：
+  hook 安装：libart.so::_ZN3art11ClassLinker9FindClass...@0x779a65dda1f0 ✓
+  观测 10s：FindClass 调用 80 次 / 去重 6 类：
+    android/view/View$OnTouchListener  ← 触摸链 JNI（so→Java 真实调用）
+    android/graphics/Bitmap + Bitmap$Config  ← 渲染链 JNI
+    android/view/View$ListenerInfo / android/view/flags/Flags / [I
+  判据：PASS（libart FindClass hook + 6 类查找观测 + 关键类 2 个）
+```
+
+**链路打通意义**：证明确实能 Frida hook 这台 MuMu 真机上的 so→Java JNI 调用流
+（Jnitrace 效果，文档 §3 路线），绕过 arm64 guest 地址不可见——**用户是对的，
+MuMu 就是真机，Frida 行，只是要找对 hook 点**（host 侧 JNI 桥梁而非 guest so）。
+
+**两条失败路（保留记录）**：
+- `frida_jni_probe.py`（native 导出 hook）：guest so 模块 frida 不可见 → 0/14
+- `frida_jni_hook.py`（直接地址 hook）：guest 地址 0x4000... frida 的 Memory 报 ERR
+  （`/proc/pid/mem` 用 adb root 可读 ELF magic，但 frida server 进程够不到 guest 空间）
+
+**进程名口径（用户 2026-11-20 纠正）**：
+- **"新军棋" = `com.qwsaeda.junqirs`** = 正向新版（arm64 so，当前设备唯一装载）
+- **"军棋" = `com.cnvcs.junqi`** = 原版（32 位 so，文档 §8.1 标准 Frida 场景，
+  当前设备**未装**）
+- 探针匹配同时支持 `包名 / '新军棋' / 'junqi' 模糊`，两版通用
+
+**剩余**：spawn 模式（抓 OnCreate 早期 JNI 链）在 arm64 转译 + frida spawn 时序下
+进程会销毁 → PENDING，改用 attach 模式（已 PASS）。原版"军棋"装机后可用
+32 位 frida-server 走文档 §8.1 标准路（模块可见，hook so 内导出）。
+
+**产物**：`frida_jni_probe.py`（native hook，guest 不可见 FAIL 保留）+ `frida_jni_hook.py`
+（直接地址 hook，guest 地址够不到 FAIL 保留）+ `frida_jni_bridge_hook.py`（**host 侧
+JNI 桥梁 hook，PASS**）。三者构成完整探索链。
 
 ## 六、踩坑固化
 
