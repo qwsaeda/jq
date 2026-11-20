@@ -61,10 +61,12 @@ mod imp {
                     if c.is_empty() { continue; }
                     // 屏幕 row：device_row0=蓝底线在棋盘最下 → screen_row = 11-device_row
                     let screen_row = 11 - device_row;
-                    let x0 = (col as f32 * cw) as usize;
-                    let y0 = (screen_row as f32 * ch) as usize;
-                    let pw = cw as usize;
-                    let ph = ch as usize;
+                    // 棋子用正方形（取格子高 ch 的 0.95），在格内居中，避免扁格拉伸变形
+                    let piece_size = (ch * 0.95) as usize;
+                    let x0 = (col as f32 * cw + (cw - piece_size as f32) * 0.5) as usize;
+                    let y0 = (screen_row as f32 * ch + (ch - piece_size as f32) * 0.5) as usize;
+                    let pw = piece_size;
+                    let ph = piece_size;
                     // 棋子颜色（蓝/红），有图集则用图集对应 rank 切片近似
                     let base: [u8; 3] = if c.side == crate::state::SIDE_RED { [205, 55, 45] } else { [80, 150, 225] };
                     let (atile, aw, ah): (&[u8], u32, u32) = atlas.as_ref().map(|(d,w,h)| (d.as_slice(),*w,*h)).unwrap_or((&[][..],0,0));
