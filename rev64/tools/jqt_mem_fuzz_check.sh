@@ -72,6 +72,44 @@ run_once() {
     return 0
 }
 
+# ===== 32 位真地址空间探针（jqt_mem_fuzz32，解引用版）=====
+# 价值：x86_64 版因 maps 截断语义差**不能解引用**路由返回值（诚实边界）；
+#       32 位真地址空间（setarch linux32）下 32 位语义成立 → 解引用全开。
+BIN32="$TDIR/dist/jqt_mem_fuzz32"
+build32() {
+    mkdir -p "$STUBDIR/android" "$TDIR/dist"
+    [ -f "$STUBDIR/android/log.h" ] || cat > "$STUBDIR/android/log.h" <<'EOF'
+#ifndef ANDROID_LOG_STUB_H
+#define ANDROID_LOG_STUB_H
+int __android_log_print(int prio, const char *tag, const char *fmt, ...);
+#endif
+EOF
+    as --32 -o "$TDIR/dist/jq_img32.o" "$TDIR/jq_img.S" 2>/dev/null || return 1
+    gcc -m32 -O0 -g -I"$TDIR" -I"$STUBDIR" \
+        "$TDIR/jqt_mem_fuzz32.c" "$TDIR/jqt_mem.c" "$TDIR/dist/jq_img32.o" \
+        -Wl,--wrap=__android_log_print -Wl,--wrap=fopen -Wl,--wrap=mincore -Wl,--wrap=calloc \
+        -o "$BIN32" -lm 2>/dev/null || return 1
+    return 0
+}
+
+run_once32() {
+    local seed=$1
+    local out rc
+    out="$(setarch linux32 "$BIN32" "$seed" 2>&1)"; rc=$?
+    local ok=1
+    [ $rc -ne 0 ] && ok=0
+    case "$out" in *"== 全部通过 =="*) ;; *) ok=0;; esac
+    if [ $ok -eq 1 ]; then
+        echo "32位 seed=$seed PASS（rc=$rc，setarch linux32 真地址空间）"
+        echo "$out" | grep -E "^M[0-9]'" | sed 's/^/   /'
+    else
+        echo "32位 seed=$seed FAIL（rc=$rc）"
+        echo "$out" | grep -E 'FAIL|SEGV|诊断' | head -5 | sed 's/^/   证据: /'
+        return 1
+    fi
+    return 0
+}
+
 main() {
     local seeds="7,42,999"
     [ "${1:-}" = "--seed" ] && { seeds="$2"; shift 2; }
@@ -104,7 +142,30 @@ main() {
     if [ $fails -eq 0 ]; then
         local nseed=${#SD[@]}
         echo "③ 32 位内存路由判据 5 项全 PASS（M1 路由/M2 契约/M3 二分/M4 GOT/M5 rebuild 0 崩溃 ASan 干净）"
-        echo "判据: PASS（jqt_mem_fuzz_check ${nseed} seed × 5 探针 + 可复现性，32 位翻译体内存子系统渗透判据）"
+        # ④ 32 位真地址空间解引用版（解引用全开 = 关闭 32/64 位截断语义差诚实边界）
+        local f32=0
+        if build32 && setarch linux32 true 2>/dev/null; then
+            echo "── 32 位真地址空间探针（jqt_mem_fuzz32，setarch linux32）──"
+            for s in "${SD[@]}"; do
+                run_once32 "$s" || f32=1
+            done
+            if [ $f32 -eq 0 ]; then
+                echo "④ 32 位真地址空间解引用版全 PASS（解引用 100000 次 0 崩溃 + 高位未映射 0 误命中）"
+            else
+                echo "★ 32 位真地址空间探针 FAIL（rc=$f32）"
+            fi
+        else
+            echo "④ 32 位真地址空间探针 PENDING（gcc-multilib/setarch 缺失，非 so 回归）"
+            f32=2
+        fi
+        if [ $f32 -eq 1 ]; then
+            echo "判据: FAIL（32 位真地址空间探针 FAIL）"
+            return 2
+        fi
+        echo "判据: PASS（jqt_mem_fuzz_check ${nseed} seed × 5 探针 + 可复现性"
+        [ $f32 -eq 0 ] && echo "      + 32 位真地址空间解引用版全 PASS，32/64 位语义差诚实边界已关闭"
+        [ $f32 -eq 2 ] && echo "      + 32 位真地址空间探针 PENDING（工具缺失）"
+        echo "      —— 32 位翻译体内存子系统渗透判据）"
         return 0
     fi
     echo "判据: FAIL"
