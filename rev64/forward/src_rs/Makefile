@@ -193,3 +193,26 @@ fuzzprobe:
 	    jq_event_names_73.c evt55_stub.c -lm
 	@echo "构建完成: dist/jq_fuzzprobe（ASan）"
 	@dist/jq_fuzzprobe $(SEED) $(GAMES)
+
+# ★ P1 渗透面：PNG 解码器畸形输入 fuzz（ASan；链接 png_decode.c + zlib）
+#   变异：位翻转 / 截断 / 定向畸形（clen 巨值、IHDR 超长、w/h 巨值、bitdepth/colortype 非法、
+#   interlace=1、重复 IHDR、无 IEND、签名错、空文件、NULL、IDAT 巨量）/ 结构错乱（拼接/前置垃圾）
+#   判据：0 崩溃 + 拒收语义 + 输出不变量（w*h*4）+ 无泄漏（ASan LSAN）
+# 用法：make fuzzpng SEED=7 ROUNDS=3000
+fuzzpng:
+	@mkdir -p dist
+	$(CC) $(CFLAGS) -O0 -g -fsanitize=address -DRS_NO_GL -Iandroid_stub \
+	    -o dist/jq_fuzzpng png_decode.c fuzz_png.c -lz -lm
+	@echo "构建完成: dist/jq_fuzzpng（ASan）"
+	@dist/jq_fuzzpng $(SEED) $(ROUNDS)
+
+# ★ P2 渗透面：UI 状态机随机点击序列 fuzz（ASan；ui_state + ui_menu + 依赖）
+#   变异：随机点击序列 / 边界点击（面板四角、0,0、719,1279）/ 全 169 屏态自锁扫描
+#   判据：0 崩溃 + 屏态合法域 [0,UI_SCREEN_MAX] + 弹窗逃逸 + 棋盘☰回菜单无死锁
+# 用法：make fuzzui SEED=7 STEPS=2000
+fuzzui:
+	@mkdir -p dist
+	$(CC) $(CFLAGS) -O0 -g -fsanitize=address -DRS_NO_GL -Iandroid_stub \
+	    -o dist/jq_fuzzui fuzz_ui.c ui_state.c ui_menu.c replay.c rules.c board.c layout.c save.c -lm
+	@echo "构建完成: dist/jq_fuzzui（ASan）"
+	@dist/jq_fuzzui $(SEED) $(STEPS)

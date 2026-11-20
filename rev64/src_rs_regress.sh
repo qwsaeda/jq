@@ -53,6 +53,10 @@ run "[8.5/12] 基准新鲜度 (make benchcheck)" bash -c "cd $RS && make benchch
 #   FAIL（渗透 0 崩溃破）阻断 = so 逻辑回归白盒定位回路入口。深版 3 seed × 500 局 =
 #   arm32_verify_all 总入口 / 手动 `fuzz_probe_check.py` 全量判据。
 run "[8.6/12] 正向渗透轮 5 变异器 (make fuzzprobe + fuzz_probe_check)" bash -c "cd $RS && make fuzzprobe >/dev/null 2>&1; python3 $TOOLS/fuzz_probe_check.py --seed 7 --games 100 --touch 1000 --events 200 --saves 50 --offline"
+# ★ P1/P2 渗透面（2026-11-20）：PNG 畸形输入 fuzz + UI 状态机随机点击 fuzz
+#   两者都是桌面零设备依赖（ASan），失败 = so 逻辑/资源链回归 → 阻断装机
+run "[8.7/12] P1 渗透面 PNG 畸形输入 fuzz (make fuzzpng)" bash -c "cd $RS && make fuzzpng SEED=7 ROUNDS=1500 2>&1 | grep '判据: PASS'"
+run "[8.8/12] P2 渗透面 UI 状态机点击 fuzz (make fuzzui)" bash -c "cd $RS && make fuzzui SEED=7 STEPS=800 2>&1 | grep '判据: PASS'"
 run "[9/12] so_link_check.py 链接审计" python3 $TOOLS/so_link_check.py $RS/dist/libjunqi_rs.so
 # 10. 走子预验证工具（三件套之一，防新工具回归）
 run "[10/12] 走子预验证 (make walkverify)" bash -c "cd $RS && make walkverify SEQ='25,30 27,32 28,33' 2>&1 | grep '3/3 步合法'"

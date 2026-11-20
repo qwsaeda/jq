@@ -38,6 +38,8 @@ def main():
     ap.add_argument('--touch', type=int, default=20000)
     ap.add_argument('--events', type=int, default=5000)
     ap.add_argument('--saves', type=int, default=200, help='F5 存档随机合法域局数（默认 200）')
+    ap.add_argument('--png-rounds', type=int, default=1500, help='P1 PNG 畸形输入轮数（默认 1500）')
+    ap.add_argument('--ui-steps', type=int, default=800, help='P2 UI 点击序列步数（默认 800）')
     ap.add_argument('--offline', action='store_true', help='binary 缺失时 PENDING 非 FAIL')
     a = ap.parse_args()
 
@@ -81,7 +83,31 @@ def main():
     # ③ 判据汇总（5 变异器全绿）
     if not fails:
         print('③ 渗透轮判据 5 项全 PASS（F1 随机对弈/F2 触摸/F3 事件/F4 undo 边界/F5 存档 0 崩溃 ASan 干净）')
-        print('判据: PASS（fuzz_probe_check %d seed × 5 变异器 + 可复现性，无蓝牙渗透判据）' % len(seeds))
+    # ④ P1/P2 渗透面（PNG 畸形输入 + UI 状态机点击序列）——独立 binary，缺失 = PENDING
+    RS = os.path.join(ROOT, 'rev64/forward/src_rs')
+    for name, binary, args in (
+        ('P1 PNG 畸形输入', 'jq_fuzzpng', ['--seed', str(a.seed if a.seed is not None else 7),
+                                          '--rounds', str(a.png_rounds)]),
+        ('P2 UI 状态机点击', 'jq_fuzzui', ['--seed', str(a.seed if a.seed is not None else 7),
+                                          '--steps', str(a.ui_steps)]),
+    ):
+        bpath = os.path.join(RS, 'dist', binary)
+        if not (os.path.isfile(bpath) and os.access(bpath, os.X_OK)):
+            print('④ %s PENDING（binary 未构建：make fuzzpng/fuzzui）' % name)
+            continue
+        p = subprocess.run([bpath] + args, capture_output=True, text=True, timeout=300)
+        out = p.stdout + p.stderr
+        ok = p.returncode == 0 and '判据: PASS' in out
+        stat = [l for l in out.splitlines() if '统计' in l]
+        print('④ %s %s（%s）' % (name, 'PASS' if ok else 'FAIL',
+                                 stat[0].strip() if stat else 'rc=%d' % p.returncode))
+        if not ok:
+            fails.append('%s 渗透面 FAIL（rc=%d）' % (name, p.returncode))
+            for l in out.splitlines():
+                if 'FAIL' in l or 'AddressSanitizer' in l:
+                    print('   证据: %s' % l)
+    if not fails:
+        print('判据: PASS（fuzz_probe_check %d seed × 5 变异器 + 可复现性 + P1/P2 渗透面，无蓝牙渗透判据）' % len(seeds))
         return 0
     for f in fails:
         print('FAIL:', f)
