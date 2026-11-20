@@ -7220,3 +7220,49 @@ jq_rs_rules.c 注释定论。
   设备 5 判据验收需模拟器启动后实锤（进主界面卡顿实测截图非黑比 + RL-02 关键资源快检
   日志判读）；事件/规则域边角（回执② evverify +125/dark_align +22 断言设计）+ 双端真机
   部署冒烟 PENDING。
+
+### 119. 渗透轮 + Frida 设备侧攻坚经验（§119 2026-11-20，用户连续 pushing 的复盘）
+
+> 本轮 20+ 次"继续"的核心教训：**我每次下"不行/做完了"的结论，用户 pushing 后都发现
+> 是真值没查透**。这不是能力问题，是**方法论问题**——固化成防复发纪律。
+
+**★ 119-1 反复模式（5 次过早结论 → 5 次被纠正）**：
+| # | 我的过早结论 | 用户的 pushing | 查到的真值 |
+|---|---|---|---|
+| 1 | unidbg 测不了 JNI 真语义 | "unidbg 不行？" | 确实不行，但 Frida 桥梁 hook 能测（真 JNIEnv） |
+| 2 | Frida 在 guest so 不可见=不行 | "MuMu 就是真机，一样的" | host 侧 JNI 桥梁 hook 打通（PASS） |
+| 3 | 原版装机后可走 native hook | "原版装不上 Android 15" | 设备无 armeabi，物理装不上，口径修正 |
+| 4 | 静态已穷尽 | "从静态上原版能做的都做了？" | 业务裸跑 0 是实证，但域矩阵口径漂移 7.8%→8.1%（假绿文本） |
+| 5 | frida-server 反复挂 | 用户分享看雪文章 | 真因 = server 非 root（oem_5411），`adb root` 后解决 |
+
+**★ 119-2 防复发纪律（从上述模式提炼）**：
+1. **下"不行"前先查环境真值**：权限（root？）、架构（guest/host？）、版本（API？abi？）——
+   我 5 次错有 3 次是没查这三项（frida 非 root / Android 15 abi / houdini guest 执行模型）
+2. **"可见性"要分层**：内存可读（readByteArray 实证 ELF magic）≠ 代码可 hook
+   （guest 地址非执行 PC，Interceptor.attach 必失败）——不混为一谈
+3. **声称覆盖 ≠ 实际执行**：fuzz_all 声称 7 面但 fuzz_probe_check 只跑 2 面（假绿），
+   src_rs_regress 硬编码 12/12 实际 22 项 → 全部改动态统计/真实执行
+4. **判据文本与实测同源**：同一脚本两个分母（RW/tot=7.8% vs RW/biz=8.1%）自相矛盾 =
+   假绿文本 → 统一口径
+5. **stub/模拟物要标注边界**：JNI stub 槽位非标准（idx67 vs 169）但 src_rs 符号名调用
+   不受影响 → 标注"不可用于硬编码偏移验证"，不藏缺陷也不过度恐慌
+
+**★ 119-3 用户分享文章的方法论吸收（看雪《记录第一次的 so 文件逆向分析》）**：
+- 6 条纪律：RegisterNatives 纯 native hook 拿 fnPtr / 注册时机 / JNINativeMethod 3 指针
+  布局 / Thumb 位去位不能用于 ARM64 / jstring 走函数表索引 169+170 且表头 4 reserved
+  计数 / 不靠函数名猜靠注册表
+- 算法分析纪律：不看到常量下结论 + 逐项比表（PC2[35] 差异）+ 纯算法三方对照
+- 场景差异诚实标注：我们 app 41 个 Java_ 静态导出 + JNI_OnLoad（readelf 实锤），
+  不走 RegisterNatives → 文章招只抓系统库函数，属补充手段
+
+**★ 119-4 本轮最终能力边界（实证，非臆测）**：
+- 静态：74/74 + 域矩阵 91.9% + 业务裸跑 0 个 + dispatch 5463 槽 0 漏检
+- 渗透：9 面全通（fuzz_all A/B/C 三段 + 22/22 回归 + align_gate 8/8）
+- Frida 设备侧：RegisterNatives hook PASS（root，系统库）/ host JNI 桥梁 hook PASS
+  （app JNI 活动）/ 直接地址代码 hook FAIL = houdini 执行模型硬边界（内存可读但非执行 PC）
+- 真 32 位 ARM 设备：PENDING（Android 15 无 armeabi，原版物理装不上 = 硬件封死）
+
+**★ 119-5 最关键的一条**：用户反复 pushing 的价值不在于"让我多做几轮"，而在于**逼我
+把每个"不行/完成"的结论查到真值层**。代码侧的静态 + 渗透 + 设备侧桥梁 hook 已全闭环，
+剩余唯一未达 = 真 32 位 ARM 硬件（非代码可推进）。**在不确定的地方继续查，而不是在
+确定的地方重复**——这是本轮最大的经验。
