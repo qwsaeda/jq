@@ -68,3 +68,9 @@
   （.got 合并含 PLT 槽），翻译体 so 有独立 .got.plt（NDK 惯例）——对照须分段核（§124y-221）
 - 翻译体 RELATIVE 2270 槽 < 原版 5312（代码量差异属预期），判核 ABI 一致 + 类型全在
   非逐值对齐（§124y-222）
+
+**rust-anything 行为对齐判据（2026-11-20 新增）**：
+- 入口：`python3 rev64/tools/rust_anything_check.py`（需 `npm install -g rust-anything` + cargo 在 PATH）
+- 验证"原版 32 位 so 行为（逆向翻译体 ai_score）→ Rust 移植"逐 case 对齐：动态抽取 → record 154 case → diff → gate → 负向测试
+- 防假绿三重：① 双源独立常量（原版 jq_rs_rules.h vs Rust state.rs）② case 数 ≥50 ③ 负向注入 -2 哨兵必须检出分叉
+- rc：0=PASS / 2=FAIL / 3=PENDING（工具未装）。文档：`rev64/forward/docs_rs/RUST_ANYTHING_POC.md`
