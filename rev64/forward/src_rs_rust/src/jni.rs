@@ -477,7 +477,62 @@ mod android_impl {
                 with_lock(|_s, u, _c| { u.screen = ui::Screen::Game; });
                 return 1;
             }
+            ui::Screen::IngameMenu => {
+                // ★ 游戏内菜单 8 按钮（原版几何）；点按钮→动作，点外→关菜单回对局
+                let (bx, by) = (x * 0.8, y * 0.8); // view 900×1600 → 720×1280 基准
+                let hit = ui::ingame_hit(bx as i32, by as i32);
+                match hit {
+                    Some(0) => { // 重新开始
+                        with_lock(|st, u, _c| { u.restart(st); });
+                        crate::log::setprop("jq.ingame_act", "restart");
+                    }
+                    Some(1) => { // 悔棋
+                        crate::log::setprop("jq.ingame_act", "undo");
+                    }
+                    Some(7) => { // 退出程序
+                        with_lock(|_s, u, _c| { u.screen = ui::Screen::ExitConfirm; });
+                        crate::log::setprop("jq.ingame_act", "exit");
+                    }
+                    Some(i) => { crate::log::setprop("jq.ingame_act", &format!("btn{}", i)); }
+                    None => { // 面板外→关菜单
+                        with_lock(|_s, u, _c| { u.screen = ui::Screen::Game; });
+                        crate::log::setprop("jq.ingame_act", "close");
+                    }
+                }
+                return 1;
+            }
+            ui::Screen::GameSet | ui::Screen::Settings => {
+                // 设置弹窗：点面板外=取消回滚（ui.cancel_popup），点面板内暂不细化
+                with_lock(|st, u, _c| {
+                    u.cancel_popup(st);
+                });
+                crate::log::setprop("jq.popup_act", "cancel");
+                return 1;
+            }
+            ui::Screen::Replay => {
+                // ★ 复盘控制条：底部 5 按钮（菜单/回退/前进/跳转/返回）
+                //   y 88%-96% 控制条区；简化：点底部→返回对局（返回按钮）
+                let by = y as f32 / 1600.0; // view 实际高 1600
+                if by > 0.86 {
+                    with_lock(|_s, u, _c| { u.screen = ui::Screen::Game; });
+                    crate::log::setprop("jq.replay_act", "back_to_game");
+                    return 1;
+                }
+                return 0;
+            }
             ui::Screen::Game => {
+                // ★ 顶部图标区（C 真值：☰ 中心(216,720) ↩(496,720) @720基准 → view×1.25）
+                //   点击顶部 y<820（view）且靠边→游戏内菜单/悔棋，不走棋盘走子
+                if y < 820.0 {
+                    if x < 400.0 { // ☰ 游戏内菜单
+                        with_lock(|_s, u, _c| { u.screen = ui::Screen::IngameMenu; });
+                        crate::log::setprop("jq.game_icon", "menu");
+                        return 1;
+                    } else if x > 520.0 { // ↩ 悔棋
+                        crate::log::setprop("jq.game_icon", "undo");
+                        return 1;
+                    }
+                }
                 let cell = match crate::render::view_to_cell(x as i32, y as i32, 900, 1600) {
                     Some(c) => c,
                     None => return 0,
@@ -509,9 +564,6 @@ mod android_impl {
                         if let Some(e) = ev_code {
                             G_MOVES.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
                             crate::log::setprop("jq.move", &format!("{:?}", e));
-                            // ★ 业务对齐：事件→WAV 音效（原版 evt55_sfx 映射）
-                            let wav = crate::evt::sfx_for_code(e);
-                            let _ = crate::sfx::play(&mut je, wav);
                             // ★ 审计 A8：玩家落子后触发 AI 应着（人机对战，红方回合自动走）
                             if u.vs_ai && st.turn == crate::state::SIDE_RED && st.stage == crate::state::Stage::Play {
                                 if let Some(mv) = ai::ai_pick(st, u.level) {

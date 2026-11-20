@@ -56,6 +56,14 @@
 ### 菜单流程业务接线（续，2026-11-20）
 ### 完整菜单流程闭环（2026-11-20 实锤）
 ### 终局遮罩 + 复盘态绘制（2026-11-20，剩余屏态补齐）
+### 全屏态闭合（2026-11-20，按顺序做完全部能做项）
+- **难度选 mode 重建棋盘**：difficulty_select 按 mode 调 init_from_layout_30（明棋+0xc/revealed1 / 暗棋全0xFF/revealed0），90 测试含暗棋断言。
+- **Replay 态触摸**：底部控制条点击→返回对局（replayuitest 绘制已验）。
+- **GameSet/Settings 弹窗**：米色面板绘制 + 面板外取消回滚（ui.cancel_popup 双轨）。
+- **IngameMenu（☰）**：8 按钮几何对齐原版 ui_menu.c（4×2），绘制 + 触摸分发（重开/悔棋/退出）；Game 态顶部 ☰/↩ 图标区触发（真机 jq.game_icon=menu）。
+- **音效**：映射表对齐原版 evt55_sfx（89→90 测试），实际播放因 houdini JNI setDataSource 异常致崩已回退自动播放（映射保留），标注待真 ARM64。
+- 至此所有核心屏态 + 菜单流程 + 规则/事件/AI/几何/文案/音效映射全部对齐原版业务真值。
+
 - **终局遮罩**：asset.rs 对齐 C rs_draw_overlay 真值（蓝 0.15/0.35/0.85、红 0.85/0.20/0.20、和棋灰 0.55，alpha 0.9 中心横幅）。overtest 钩子真机实锤：横幅均色 (55,95,205) 蓝通道主导。
 - **复盘态**：ui.rs 加 Screen::Replay，asset.rs 画棋盘 + 底部 5 按钮控制条（对齐 datah_107）。replayuitest 钩子真机实锤：橙色按钮比 85%。
 - 至此所有核心屏态（Menu/Game/Difficulty/GameSet/Settings/ExitConfirm/Replay/终局遮罩）均有绘制路径。

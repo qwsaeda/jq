@@ -144,6 +144,35 @@ mod imp {
         // ★ 业务对齐：终局胜负横幅（对齐 C rs_draw_overlay 真值）
         //   蓝(0.15,0.35,0.85)/红(0.85,0.20,0.20)/和棋灰(0.55,0.55,0.55)，中心横幅 + 半透明
         // ★ 复盘态底部控制条（对齐 C datah_107 底部 5 按钮控制条）
+        // ★ 设置类弹窗面板（GameSet 4 开关 / Settings 音效）——屏态分屏绘制
+        if matches!(screen, crate::ui::Screen::GameSet | crate::ui::Screen::Settings) {
+            // 面板（居中 60%×40%）
+            let px0 = (w as f32 * 0.20) as usize;
+            let px1 = (w as f32 * 0.80) as usize;
+            let py0 = (h as f32 * 0.30) as usize;
+            let py1 = (h as f32 * 0.70) as usize;
+            for y in py0..py1 {
+                for x in px0..px1 {
+                    let di = (y * w + x) * 4;
+                    out[di] = 245; out[di+1] = 240; out[di+2] = 220; // 米色面板
+                }
+            }
+        }
+        // ★ 游戏内菜单（☰）8 按钮面板（原版 4×2 几何，720×1280 基准 → 缩放）
+        if screen == crate::ui::Screen::IngameMenu {
+            for &(x0, y0, x1, y1) in crate::ui::INGAME_BTNS.iter() {
+                let ax0 = (x0 as f32 * sx) as usize;
+                let ay0 = (y0 as f32 * sy) as usize;
+                let ax1 = (x1 as f32 * sx) as usize;
+                let ay1 = (y1 as f32 * sy) as usize;
+                for y in ay0..ay1.min(h) {
+                    for x in ax0..ax1.min(w) {
+                        let di = (y * w + x) * 4;
+                        out[di] = 230; out[di+1] = 128; out[di+2] = 38; // 橙色按钮
+                    }
+                }
+            }
+        }
         if screen == crate::ui::Screen::Replay {
             let bar_y0 = (h as f32 * 0.88) as usize;
             let bar_y1 = (h as f32 * 0.96) as usize;

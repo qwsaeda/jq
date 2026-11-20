@@ -96,8 +96,15 @@ impl Ui {
     /// 难度弹窗选（level, mode）→ 开局进对局（规格 §10：选完即开局）
     pub fn difficulty_select(&mut self, level: u8, mode: u8, st: &mut State) {
         self.level = level;
-        st.mode = mode; // 应用 mode（布局/翻棋）
-        st.turn = crate::state::SIDE_BLUE; // 蓝先手
+        // ★ 业务对齐（规格 §5.3）：按 mode 真正重建开局棋盘
+        //   mode=0 明棋（红+0xc/revealed=1）；mode=1 暗棋（全 0xFF/未翻/raw rank）
+        let layout = [
+            3u8,7,6,5,8, 10,0,9,0,1, 2,10,0,9,5,
+            4,0,6,0,7, 8,3,4,9,11, 11,12,11,8,7,
+        ];
+        *st = crate::gametest::init_from_layout_30(&layout, mode);
+        st.cfg = [1, 1, 1, 1, 1];
+        st.turn = crate::state::SIDE_BLUE;
         st.stage = crate::state::Stage::Play;
         st.winner = crate::state::Winner::None;
         self.screen = Screen::Game;
@@ -293,3 +300,45 @@ mod tests {
         assert_eq!(got, (2, 1), "col1+1=2 level, row1=1 mode");
     }
 }
+#[cfg(test)]
+mod difficulty_init_tests {
+    use super::*;
+    #[test]
+    fn difficulty_flip_inits_dark_board() {
+        let mut ui = Ui::new();
+        let mut st = crate::state::State::new();
+        ui.difficulty_select(2, 1, &mut st); // mode=1 暗棋
+        assert_eq!(st.mode, 1);
+        let pieces: Vec<_> = st.cells.iter().filter(|c| !c.is_empty()).collect();
+        assert!(!pieces.is_empty());
+        assert!(pieces.iter().all(|c| c.side == crate::state::SIDE_UNKNOWN), "暗棋全 0xFF");
+        assert!(pieces.iter().all(|c| c.revealed == 0), "暗棋全未翻");
+        // 明棋
+        let mut st2 = crate::state::State::new();
+        ui.difficulty_select(2, 0, &mut st2);
+        let pieces2: Vec<_> = st2.cells.iter().filter(|c| !c.is_empty()).collect();
+        assert!(pieces2.iter().all(|c| c.revealed == 1), "明棋全已翻");
+    }
+}
+/// ★ 游戏内菜单 8 按钮几何（原版 ui_menu.c g_ingame_btns，720×1280 基准，4 列×2 行）
+pub const INGAME_BTNS: [(i32, i32, i32, i32); 8] = [
+    (49, 466, 201, 624),   // 0 重新开始
+    (213, 466, 365, 624),  // 1 悔棋
+    (371, 466, 523, 624),  // 2 电脑变着
+    (530, 466, 682, 624),  // 3 游戏规则
+    (49, 653, 201, 809),   // 4 功能设置
+    (213, 653, 365, 809),  // 5 战况统计
+    (371, 653, 523, 809),  // 6 软件信息
+    (530, 653, 682, 809),  // 7 退出程序
+];
+
+/// 命中游戏内菜单按钮（归一化 720×1280 坐标）
+pub fn ingame_hit(x: i32, y: i32) -> Option<u8> {
+    for (i, &(x0, y0, x1, y1)) in INGAME_BTNS.iter().enumerate() {
+        if x >= x0 && x <= x1 && y >= y0 && y <= y1 {
+            return Some(i as u8);
+        }
+    }
+    None
+}
+
