@@ -123,3 +123,14 @@
 | 真机 5 判据（10.0.152） | 装/出屏/走子+悔棋/退出/重进 全 PASS |
 
 说明：C 渗透轮（fuzz_probe）属正向 src_rs 判据，本正向会话执行；设备相关判据（mumu_regress 等）需设备可达，已由真机 5 判据覆盖。
+
+## 补跑判据 + 交付物同步（2026-11-20 末轮）
+| 项 | 结果 |
+|---|---|
+| dark_flip_probe_check.py（暗棋 8 场景） | 8 PASS / 0 FAIL |
+| event_code_map_check.py（76 名→12 码，Junqi 主链） | 0 缺口 PASS |
+| layout_align_check.py --baseline（datah_042 7 按钮） | 几何 Δ=0 PASS |
+| 交付物同步 | Rust so `3e8bc15f` 本机=APK内=真机对账 PASS（原 APK 落后源码 798eec8a→重打包同步） |
+| 真机 5 判据（重打包后复验，10.0.152） | 装 pid=48082 / 出屏 rendering / 走子 Move / 悔棋 undo_ok / 重进 pid=48214 全 PASS |
+
+边界：C 正向 `jni_bridge.c`/`src_rs_regress.sh`/`rs_cycle.sh` 正被另一并行会话编辑（git M + HEAD 持续推进），`rs_cycle.sh` 编译失败属其范围，本会话按物理隔离红线不触碰。
