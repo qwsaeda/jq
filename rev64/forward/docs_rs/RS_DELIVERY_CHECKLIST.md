@@ -125,7 +125,7 @@
 **当前出屏内容 = 纯色蓝（渲染通路验证）**，下一步 = 移植棋盘/棋子/菜单几何到 wgpu offscreen（C render.c rs_draw_menu 基准，纯 Rust 重写）。**不出"能玩"结论直到判据③达成。**
 - **几何绘制攻坚（2026-11-20）**：新增 `render.rs::draw_rects_rgba`（纯 Rust wgsl shader + 顶点 buffer + render pass 画棋盘/菜单矩形）+ `menu_rects`（12×5 棋盘格 + 5 按钮）。**当前 wgpu Validation Error**（wgsl vec4<f32> 语法已修，仍报 validation——疑 fragment target format / vertex layout 细节），几何代码保留禁用，回退纯色稳定态（100% 出屏）。剩余 = 修 wgpu pipeline validation（error scope 在 wgpu 30 API 名待查）
 - **稳定交付态**：纯 Rust wgpu offscreen 纯色渲染 100% 出屏 + 5 判据 ①④⑤ PASS + 82 测试 + 14 符号；判据③（真实棋盘/菜单）待几何 pipeline validation 修复
-- **★★★ 真实几何出屏达成（2026-11-20，pid 32805）**：`render.rs::cpu_board_rgba` 纯 Rust CPU 生成棋盘+菜单 RGBA（12×5 深绿棋盘格 + 5 橙色菜单按钮）→ Canvas 显示，**截图实锤真几何全屏出屏**（非纯色）。路径：wgpu_thread native 线程 → cpu_board_rgba(900×1600) → jni lockCanvas+drawBitmap。**纯 Rust 渲染层出屏 + 真实几何达成**。wgpu shader/pipeline 几何绘制（draw_rects_rgba）Validation Error 未修，但 CPU 像素路线 100% 可用，不需要 GPU shader。判据③待接真实触摸走子
+- **★★★ 真实几何出屏达成（2026-11-20，pid 32805）**：`render.rs::cpu_board_rgba` 纯 Rust CPU 生成棋盘+菜单 RGBA（12×5 深绿棋盘格 + 5 橙色菜单按钮）→ Canvas 显示，**截图实锤真几何全屏出屏**（非纯色）。路径：wgpu_thread native 线程 → cpu_board_rgba(900×1600) → jni lockCanvas+drawBitmap。**纯 Rust 渲染层出屏 + 真实几何达成**。wgpu shader/pipeline 几何绘制（draw_rects_rgba）Validation Error 未修，但 CPU 像素路线 100% 可用，不需要 GPU shader。判据③达成（2026-11-20 07:57，pid 33058）：`input tap` 两次（cell6 选中→cell11）→ jq.touch=cell11 + **jq.move=Move**（纯 Rust rules::try_move 返回 Ev::Move），真实触摸→规则引擎走子全链。剩余：走子结果反映到画面（cpu_board_rgba 读 G_BOARD 状态）
 
 ## 6. 位宽锁定（用户 2026-11-19 指令）
 

@@ -26,6 +26,10 @@ mod android_impl {
     // wgpu 出屏攻坚：GLView global ref + wgpu 资源
     static mut G_VIEW: jni::sys::jobject = std::ptr::null_mut();
     static mut G_SURFACE: jni::sys::jobject = std::ptr::null_mut();
+    /// 全局棋盘渲染快照（60 格 rank/side/revealed，OnTouch 走子后更新，渲染线程读）
+    static G_BOARD: std::sync::Mutex<Option<crate::state::State>> = std::sync::Mutex::new(None);
+    /// 走子计数（刷新画面用）
+    static G_MOVES: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
     static CANVAS_LOGGED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
     fn st_canvas_done() -> bool { CANVAS_LOGGED.load(std::sync::atomic::Ordering::Relaxed) }
     fn setprop_canvas_ok() { crate::log::setprop("jq.canvas", "draw_ok"); CANVAS_LOGGED.store(true, std::sync::atomic::Ordering::Relaxed); }
@@ -64,6 +68,10 @@ mod android_impl {
             st.cfg = [1, 1, 1, 1, 1];
             st.turn = crate::state::SIDE_BLUE;
             st.stage = crate::state::Stage::Play;
+            // 初始化全局棋盘渲染快照（含默认布局），供 OnTouch 走子 + 渲染线程用
+            let mut board = crate::gametest::make_default_layout();
+            board.turn = crate::state::SIDE_BLUE;
+            if let Ok(mut g) = G_BOARD.lock() { *g = Some(board); }
         });
         // ★ 出屏攻坚关键（对齐 C jni_bridge.c:2707-2811）：
         //   smali 拿非 null GLView → setOnTouchListener + setRenderer + GLThread 启动
@@ -309,23 +317,35 @@ mod android_impl {
         _cls: JClass,
         me: jni::sys::jobject,
     ) -> jni::sys::jboolean {
-        // 原生 JNI 反射提取 MotionEvent.getAction/getX/getY（对齐 C jni_bridge.c:3993）：
-        //   let envref = unsafe { &*env };
-        //   let mcls = (envref.GetClass)(env, me);
-        //   let mid_act = (envref.GetMethodID)(env, mcls, c_str"getAction").as_ptr() as *const _, c"()I".as_ptr() as *const _);
-        //   let action = (envref.CallIntMethod)(env, me, mid_act) as i32;
-        //   if action != 0 { return 0; }  // 只处理 ACTION_DOWN
-        //   let mx = (envref.CallFloatMethod)(env, me, mid_x) as f32;
-        //   let my = (envref.CallFloatMethod)(env, me, mid_y) as f32;
-        //   with_lock(|st,u,cnt| render::handle_touch(st,u,cnt,mx as i32,my as i32,view_w,view_h));
-        // ★ 诚实边界（设计 §3 ③④）：完整坐标提取 + handle_touch 接线真机 NDK 可达时补全
-        //   （c-str 字面量 + JNIEnv 函数指针布局桌面 cross-compile 不执行，真机验证）。
-        // 骨架期：安全降级返 false（不消费，对齐 C ACTION_DOWN 语义，不误触发走子）
-        let consumed = with_lock(|st, u, cnt| {
-            let _ = (env, me, st, u, cnt);
-            false
-        });
-        consumed as jni::sys::jboolean
+        let mut je = match unsafe { jni::JNIEnv::from_raw(env) } { Ok(e) => e, Err(_) => return 0 };
+        let ev = unsafe { jni::objects::JObject::from_raw(me) };
+        // MotionEvent.getAction()（只处理 ACTION_DOWN=0）
+        let action = je.call_method(&ev, "getAction", "()I", &[]).ok().and_then(|v| v.i().ok()).unwrap_or(-1);
+        if action != 0 { return 0; }
+        let x = je.call_method(&ev, "getX", "()F", &[]).ok().and_then(|v| v.f().ok()).unwrap_or(0.0);
+        let y = je.call_method(&ev, "getY", "()F", &[]).ok().and_then(|v| v.f().ok()).unwrap_or(0.0);
+        // 触摸 → 棋盘 cell（对齐 render::view_to_cell，view=900×1600）
+        if let Some(cell) = crate::render::view_to_cell(x as i32, y as i32, 900, 1600) {
+            crate::log::setprop("jq.touch", &format!("cell{}", cell));
+            // 走子态机：首次点选中，二次点走子（简化：直接尝试从选中格走）
+            static mut SEL: i32 = -1;
+            unsafe {
+                if SEL < 0 {
+                    SEL = cell as i32;
+                } else {
+                    let from = SEL as usize;
+                    SEL = -1;
+                    let mut guard = match G_BOARD.lock() { Ok(g) => g, Err(e) => e.into_inner() };
+                    if let Some(st) = guard.as_mut() {
+                        if let Ok(ev_code) = crate::rules::try_move(st, from, cell) {
+                            G_MOVES.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                            crate::log::setprop("jq.move", &format!("{:?}", ev_code));
+                        }
+                    }
+                }
+            }
+        }
+        1
     }
 
     #[no_mangle]
