@@ -40,57 +40,44 @@ fn rail_path_engineer(st: &State, fr: i32, fc: i32, tr: i32, tc: i32) -> bool {
     if !dst.is_empty() {
         return false; // 工兵滑行终点须为空（吃子走相邻专属分支）
     }
-    // BFS 铁路网（起点→终点，可拐弯）
+    // BFS 铁路网（起点→终点，可拐弯）——用标准库 VecDeque + HashSet（惯用 Rust，
+    // 替代原 C 风格手写 [i32;64] 双数组队列 + head/tail 游标 + [[bool;5];12]）。
+    // 行为逐点等价：起点直接入队（不查 walkable）、4 邻接顺序、目标格免 walkable、
+    // 入队即标记 visited、容量上限 64（原 tail<64 截断）均保留。
+    use std::collections::{HashSet, VecDeque};
     if fr == tr && fc == tc {
         return false; // from==to 入口已拒
     }
-    let mut visited = [[false; 5]; 12];
-    let mut qr: [i32; 64] = [0; 64];
-    let mut qc: [i32; 64] = [0; 64];
-    // ★ C 基准：起点直接入队（不查 walkable——起点是工兵自身有子，合法起点）
-    //   旧误用 walkable(st,fr,fc) 把起点有子判不可走 → E1 工兵拐弯全误判 false
-    let (mut head, mut tail): (usize, usize);
-    if is_rail(fr, fc) {
-        visited[fr as usize][fc as usize] = true;
-        qr[0] = fr;
-        qc[0] = fc;
-        head = 0;
-        tail = 1;
-    } else {
+    // ★ 起点不查 walkable（工兵自身有子为合法起点）——保留原语义
+    if !is_rail(fr, fc) {
         return false;
     }
-    while head < tail {
-        let r = qr[head];
-        let c = qc[head];
-        head += 1;
+    let mut visited: HashSet<(i32, i32)> = HashSet::new();
+    let mut queue: VecDeque<(i32, i32)> = VecDeque::with_capacity(64);
+    visited.insert((fr, fc));
+    queue.push_back((fr, fc));
+    const ADJ: [(i32, i32); 4] = [(1, 0), (-1, 0), (0, 1), (0, -1)];
+    while let Some((r, c)) = queue.pop_front() {
         if r == tr && c == tc {
             return true;
         }
-        // 4 邻接扩展（铁路网）
-        for &(dr, dc) in &[(1i32, 0), (-1, 0), (0, 1), (0, -1)] {
-            let nr = r + dr;
-            let nc = c + dc;
-            if nr < 0 || nr >= 12 || nc < 0 || nc >= 5 {
+        for &(dr, dc) in &ADJ {
+            let (nr, nc) = (r + dr, c + dc);
+            if !(0..12).contains(&nr) || !(0..5).contains(&nc) {
                 continue;
             }
-            if visited[nr as usize][nc as usize] {
+            if visited.contains(&(nr, nc)) || !is_rail(nr, nc) {
                 continue;
             }
-            if !is_rail(nr, nc) {
-                continue;
-            }
-            // 目标格（tr,tc）允许占用=吃子（此处工兵滑行已排，但中间格须可走）
             if nr == tr && nc == tc {
-                return true;
+                return true; // 目标格免 walkable（可吃子）
             }
             if !walkable(st, nr, nc) {
                 continue;
             }
-            visited[nr as usize][nc as usize] = true;
-            if tail < 64 {
-                qr[tail] = nr;
-                qc[tail] = nc;
-                tail += 1;
+            visited.insert((nr, nc));
+            if queue.len() < 64 {
+                queue.push_back((nr, nc)); // 容量上限 64，对齐原 tail<64 截断
             }
         }
     }
@@ -141,7 +128,7 @@ fn rail_path_straight(st: &State, fr: i32, fc: i32, tr: i32, tc: i32) -> bool {
 }
 
 /// 走子合法性核心（参数 turn：当前方 0/1，-1=忽略回合（困毙用））
-fn move_legal(st: &State, from: usize, to: usize, turn: i32) -> bool {
+fn move_legal(st: &State, from: usize, to: usize, turn: Option<u8>) -> bool {
     use crate::state::Stage;
     if st.stage != Stage::Play {
         return false;
@@ -152,8 +139,12 @@ fn move_legal(st: &State, from: usize, to: usize, turn: i32) -> bool {
     if from >= N_CELLS || to >= N_CELLS {
         return false;
     }
-    // turn 脏值拒收：<0 视为 -1（忽略回合），>1 直接拒
-    let turn = if turn < 0 { -1 } else if turn > 1 { return false } else { turn };
+    // None = 忽略回合（原 -1）；Some(t) 校验阵营域（原 >1 拒收）。
+    if let Some(t) = turn {
+        if t > 1 {
+            return false;
+        }
+    }
 
     let src = &st.cells[from];
     let dst = &st.cells[to];
@@ -162,9 +153,11 @@ fn move_legal(st: &State, from: usize, to: usize, turn: i32) -> bool {
     }
     let sr = rank_of(src) as i32;
 
-    // 回合校验（忽略回合 turn=-1 时跳过）
-    if turn >= 0 && src.side != (turn as u8) {
-        return false;
+    // 回合校验（None=忽略回合时跳过）
+    if let Some(t) = turn {
+        if src.side != t {
+            return false;
+        }
     }
     // 军旗/地雷不可动
     if sr == RANK_FLAG as i32 || sr == RANK_MINE as i32 {
@@ -263,12 +256,12 @@ fn move_legal(st: &State, from: usize, to: usize, turn: i32) -> bool {
 
 /// 当前回合走子合法性（规格 §3）
 pub fn can_move(st: &State, from: usize, to: usize) -> bool {
-    move_legal(st, from, to, st.turn as i32)
+    move_legal(st, from, to, Some(st.turn))
 }
 
 /// 忽略回合的走子合法性（困毙判定用，turn=-1）
 pub fn can_move_any(st: &State, from: usize, to: usize) -> bool {
-    move_legal(st, from, to, -1)
+    move_legal(st, from, to, None)
 }
 
 /// 走子执行 + 结算（规格 §4）。返回事件码；失败（非法）返回 Err。
@@ -276,7 +269,7 @@ pub fn try_move(st: &mut State, from: usize, to: usize) -> Result<Ev, ()> {
     if from == to || from >= N_CELLS || to >= N_CELLS {
         return Err(());
     }
-    if !move_legal(st, from, to, st.turn as i32) {
+    if !move_legal(st, from, to, Some(st.turn)) {
         return Err(());
     }
     let src = &st.cells[from];
@@ -467,7 +460,7 @@ pub fn side_stalemated(st: &State, side: u8) -> bool {
 fn move_legal_ignore_flip_gate(st: &State, from: usize, to: usize) -> bool {
     // 复用 move_legal 的回合忽略 + 暗棋源揭示门：move_legal 已含 `!src.revealed||side==0xFF→false`，
     // 困毙扫描需"已揭示己方子能否走"——直接调 move_legal(-1) 即可（前置门自动拦 0xFF/未翻）
-    move_legal(st, from, to, -1)
+    move_legal(st, from, to, None)
 }
 
 /// 某方仍有普通子（规格 §4.1：双方无普通子→Draw；存在性非可动性）
