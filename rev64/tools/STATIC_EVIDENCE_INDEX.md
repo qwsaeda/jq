@@ -74,3 +74,6 @@
 - 验证"原版 32 位 so 行为（逆向翻译体 ai_score）→ Rust 移植"逐 case 对齐：动态抽取 → record 154 case → diff → gate → 负向测试
 - 防假绿三重：① 双源独立常量（原版 jq_rs_rules.h vs Rust state.rs）② case 数 ≥50 ③ 负向注入 -2 哨兵必须检出分叉
 - rc：0=PASS / 2=FAIL / 3=PENDING（工具未装）。文档：`rev64/forward/docs_rs/RUST_ANYTHING_POC.md`
+
+**Rust 全量判据入口（2026-11-20 新增）**：`bash rev64/tools/rust_all.sh [--quick] [--device]`
+  —— Rust 正向（src_rs_rust）一键回归：cargo test(95) + clippy -D warnings + android(0错0警/14符号) + rust_anything 154case(逐字节对齐+负向分叉) + --device 设备 so 哈希对账/无 Fatal。与 fuzz_all.sh（渗透轮）并列，解决"Rust 判据散落漏挂=静默降级假绿"。实测抓到"编了新 so 但没装机"的漏挂并修复。
