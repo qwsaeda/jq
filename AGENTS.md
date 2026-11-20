@@ -540,6 +540,10 @@ java -cp /tmp/opencode/apksigner/apksig.jar:/tmp/opencode/apksigner SignV2 \
   （`setarch linux32` + gcc -m32，3 seed 全 PASS：100000 次解引用 0 崩溃 + 高位未映射
   0 误命中）→ **关闭 32/64 位截断语义差诚实边界**；mincore flaky 不判 FAIL；
   3 位逆向 app com.zxj.junqirs 内存子系统风险区降档判据）。
+  **★ 渗透轮总入口（2026-11-20，一键跑全部分散判据防漏挂假绿）**：`bash rev64/tools/fuzz_all.sh [--quick] [--device]`
+  （A 正向 C F1-F5+P1/P2/P3/P5'/P6/P7/P8 + B 32 位翻译体 M1-M5+真地址空间解引用版 +
+  C dispatch 5463 槽；`--quick` CI 短轮次 / `--device` 加跑 Frida 设备侧；三段全 PASS
+  = 渗透轮达成；解决"判据散落多处漏挂 = CODE_STYLE §9 静默降级假绿"）
   **设备 4 项判据脚本（§124y-241~246 根治）**：`arm32_hook_check.sh` 含 launch_hook 轮询
   90s（转译冷启动 §124y-188）+ classify_crash backtrace 段归属判读（ART 层=转译环境容忍 /
   libjunqi so 段=回归 §124y-243）+ 64 位干扰 app 清理前置（qwsaeda/zxj 并行 GL 竞争
