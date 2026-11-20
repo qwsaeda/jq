@@ -52,6 +52,25 @@
   （纯 native + JNINativeMethod 3 指针布局 + JNI 函数表偏移按位宽计算 + Thumb 去位）。
   **本环境 frida-server 反复挂 → 未实测 PASS，标注为换稳定环境可跑的入口**（不伪装成已验证）。
 
+## 四·补 实测验证（2026-11-20，root 权限下打通）
+
+文章方法在 MuMu 真机**实测可用**（此前 frida-server attach 失败的真正根因 = **非 root 运行**：
+之前 server 以 `oem_5411`（shell）起，能枚举但 attach 不了 app；`adb root` 后 root 起 server
+→ attach OK。SELinux "Unable to save SELinux policy" 只是警告非致命）：
+
+```
+RegisterNatives hook（spawn 模式，注册前挂）实测：
+  RegisterNatives @ 0x7c315f7ddeb0（libart host 侧可见）
+  捕获 2 个 native 注册：native_tagSocketFd / native_untagSocketFd
+  判据: PASS（2 native 注册捕获 + 纯 native JNI 字符串读取）
+```
+
+**场景差异（诚实标注）**：我们的 app（`com.qwsaeda.junqirs`）用 **41 个 `Java_com_qwsaeda_*`
+静态导出 + JNI_OnLoad**（readelf 实锤），**不走 RegisterNatives 动态注册** → 文章的 RegisterNatives
+招只抓到系统库函数，**抓不到我们 app 自己的 native 函数**（文章样本是动态注册，我们是静态导出，
+方法论可迁移但具体注册机制不同）。app native 函数的观测仍靠 host JNI 桥梁 hook（FindClass）
+或直接地址（guest 够不到）——文章方法作为**补充手段**收进工具箱，非替代。
+
 ## 五、诚实边界
 
 - 文章样本是 **ARM32 + 有 Java bridge 检测**；我们是 **arm64 so 经 x86_64 houdini 转译 +

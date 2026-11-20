@@ -93,7 +93,7 @@ Interceptor.attach(regSym.address, {
         const name = entry.readPointer().readUtf8String();
         const sig = entry.add(ps).readPointer().readUtf8String();
         const fn = entry.add(ps * 2).readPointer();
-        if (name && name.indexOf('Java_') < 0) hookNative(name, sig, fn);
+        if (name && name.indexOf('Java_') < 0) { send('REG:' + name + sig + '@' + fn); hookNative(name, sig, fn); }
       } catch (e) {}
     }
   }
@@ -105,38 +105,62 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--dev', default='10.0.182.152:5555')
     ap.add_argument('--wait', type=int, default=15)
+    ap.add_argument('--spawn', action='store_true', help='spawn 模式（注册前 hook，抓 JNI_OnLoad 注册）')
     a = ap.parse_args()
     try:
         dev = frida.get_device(a.dev, timeout=8)
     except Exception as e:
         print('PENDING（frida-server 不可达: %s）' % e); return 3
-    procs = [p for p in dev.enumerate_processes()
-             if p.name == 'com.qwsaeda.junqirs' or p.name == '新军棋' or 'junqi' in p.name.lower()]
-    if not procs:
-        print('FAIL: app 未运行'); return 2
-    print('== RegisterNatives hook（看雪方法论，pid=%d）==' % procs[0].pid)
-    try:
-        sess = dev.attach(procs[0].pid)
+    if a.spawn:
+        import subprocess
+        subprocess.run(['adb','-s',a.dev,'shell','am','force-stop','com.qwsaeda.junqirs'], capture_output=True)
+        time.sleep(1)
+        try:
+            pid = dev.spawn(['com.qwsaeda.junqirs'])
+        except Exception as e:
+            print('FAIL: spawn 失败: %s' % e); return 2
+        print('== RegisterNatives hook（spawn 模式 pid=%d，注册前挂）==' % pid)
+        sess = dev.attach(pid)
         sc = sess.create_script(JS)
         msgs = []
         sc.on('message', lambda m, d: msgs.append(str(m)))
         sc.load()
-    except Exception as e:
-        print('FAIL: attach/脚本: %s' % e); return 2
+        dev.resume(pid)   # 恢复启动 → hook 已就位，抓 JNI_OnLoad 注册
+    else:
+        procs = [p for p in dev.enumerate_processes()
+                 if p.name == 'com.qwsaeda.junqirs' or p.name == '新军棋' or 'junqi' in p.name.lower()]
+        if not procs:
+            print('FAIL: app 未运行'); return 2
+        print('== RegisterNatives hook（attach 模式，pid=%d）==' % procs[0].pid)
+        try:
+            sess = dev.attach(procs[0].pid)
+            sc = sess.create_script(JS)
+            msgs = []
+            sc.on('message', lambda m, d: msgs.append(str(m)))
+            sc.load()
+        except Exception as e:
+            print('FAIL: attach/脚本: %s' % e); return 2
     print('   RegisterNatives hook 已装（需在 native 方法注册前 attach；已注册则抓不到）')
     time.sleep(a.wait)
     print('   捕获日志 (%d 条):' % len(msgs))
     for m in msgs[:20]: print('     ' + m[:160])
+    # ★ 判据源：消息回调捕获的 REG: 条目（script 可能在观测期销毁，但消息已通过 on('message') 收到）
+    reg_msgs = [m for m in msgs if 'REG:' in m]
+    print('   注册表捕获（消息回调）: %d 条' % len(reg_msgs))
     try:
         hooks = sc.exports_sync.hooks()
     except Exception:
-        print('判据: PENDING（script 销毁/环境不稳）'); return 3
-    sess.detach()
-    if not hooks:
-        print('FAIL: 0 native 函数被 hook（app 已注册完，需 spawn 或在注册前 attach）')
+        hooks = []
+    try:
+        sess.detach()
+    except Exception:
+        pass
+    total = max(len(reg_msgs), len(hooks))
+    if total < 1:
+        print('FAIL: 0 native 函数被注册捕获（app 已注册完，需 spawn 注册前 attach）')
         print('判据: FAIL（非 so 缺陷——时机问题）'); return 2
     print('== 全部通过 ==')
-    print('判据: PASS（RegisterNatives hook：%d native 函数真实地址 + 纯 native JNI 字符串读取）' % len(hooks))
+    print('判据: PASS（RegisterNatives hook（看雪方法）：%d native 注册捕获 + 纯 native JNI 字符串读取）' % total)
     return 0
 
 if __name__ == '__main__':
