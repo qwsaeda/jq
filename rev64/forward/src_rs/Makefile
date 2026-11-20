@@ -183,3 +183,13 @@ gametest:
 	    board.c layout.c rules.c save.c touch.c touch_state.c game_selftest.c ui_state_stub.c -lm
 	@echo "构建完成: dist/jq_gametest"
 	@dist/jq_gametest
+
+# ★ 渗透轮 F1-F4 fuzz 探针（ASan 默认开防假绿：崩溃/越界内存必报非 0）
+# 用法：make fuzzprobe SEED=123 GAMES=500   或   dist/jq_fuzzprobe [seed games touchN eventN]
+fuzzprobe:
+	@mkdir -p dist
+	$(CC) $(CFLAGS) -O0 -g -fsanitize=address -DRS_NO_GL -o dist/jq_fuzzprobe \
+	    board.c layout.c rules.c save.c touch.c touch_state.c fuzz_probe.c ui_state_stub.c \
+	    jq_event_names_73.c evt55_stub.c -lm
+	@echo "构建完成: dist/jq_fuzzprobe（ASan）"
+	@dist/jq_fuzzprobe $(SEED) $(GAMES)
