@@ -57,21 +57,44 @@ echo "$C_OUT" | grep -E "判据:|①|②|诚实边界" | tail -5
 
 # ── D Frida 设备侧（可选）──
 if [ $DEVICE -eq 1 ]; then
-  echo "── D Frida 设备侧（JNI 桥梁 hook，需 frida-server）──"
+  echo "── D Frida 设备侧（JNI 桥梁 + 全量类活动 + RegisterNatives，需 root frida-server）──"
   DEV_ADDR="10.0.182.152:5555"
+  # ★ 前置：frida-server 必须以 root 运行（非 root oem_5411 能枚举不能 attach，§119 实测）
+  ROOT_OK=$(adb -s "$DEV_ADDR" shell "id -u" 2>/dev/null | tr -d '\r\n')
   python3 -c "import frida; frida.get_device('$DEV_ADDR', timeout=5)" >/dev/null 2>&1
-  if [ $? -eq 0 ]; then
-    D_OUT=$(python3 "$WS/rev64/tools/frida_jni_bridge_hook.py" --dev "$DEV_ADDR" --wait 8 2>&1)
-    echo "$D_OUT" | grep -E "判据:|hook 安装|FindClass" | tail -4
-    echo "$D_OUT" | grep -q "判据: PASS" && echo "  ✓ D 段 PASS" || { echo "  ✗ D 段 FAIL（设备侧非 so 回归）"; }
+  SRV_OK=$?
+  if [ $SRV_OK -ne 0 ] || [ "$ROOT_OK" != "0" ]; then
+    echo "  ⚠ D 段 PENDING（frida-server 不可达或非 root：uid=$ROOT_OK，环境依赖）"
   else
-    echo "  ⚠ D 段 PENDING（frida-server 不可达，环境依赖）"
+    # ★ 确保 app 运行（attach 模式探针需要；RegisterNatives spawn 会 force-stop，故每次先拉起）
+    adb -s "$DEV_ADDR" shell "am start -n com.qwsaeda.junqirs/com.qwsaeda.App" >/dev/null 2>&1
+    sleep 8
+    D_FAIL=0
+    for probe in frida_jni_bridge_hook frida_jni_full_hook; do
+      D_OUT=$(python3 "$WS/rev64/tools/${probe}.py" --dev "$DEV_ADDR" --wait 8 2>&1)
+      echo "  [$probe] $(echo "$D_OUT" | grep '判据:' | tail -1)"
+      echo "$D_OUT" | grep -q "判据: PASS" || { echo "    ✗ $probe FAIL（设备侧非 so 回归，查真值）"; D_FAIL=1; }
+    done
+    # RegisterNatives 需 spawn（注册前 hook），单独跑
+    RN_OUT=$(python3 "$WS/rev64/tools/frida_registernatives_hook.py" --dev "$DEV_ADDR" --spawn --wait 10 2>&1)
+    echo "  [RegisterNatives] $(echo "$RN_OUT" | grep '判据:' | tail -1)"
+    echo "$RN_OUT" | grep -q "判据: PASS" || { echo "    ✗ RegisterNatives FAIL（时机/环境，非 so 回归）"; D_FAIL=1; }
+    if [ $D_FAIL -eq 0 ]; then
+      echo "  ✓ D 段 PASS（3 个 Frida 设备探针全通）"
+    else
+      echo "  ✗ D 段 FAIL（$D_FAIL 个设备探针失败——按 §119 纪律先查环境真值）"
+      FAILS=$((FAILS+1))
+    fi
   fi
 fi
 
 echo "════════ 汇总 ════════"
 if [ $FAILS -eq 0 ]; then
-  echo "渗透轮判据: PASS（A 正向 + B 32位 + C dispatch 全通）"
+  if [ $DEVICE -eq 1 ]; then
+  echo "渗透轮判据: PASS（A 正向 + B 32位 + C dispatch + D Frida 设备侧全通）"
+else
+  echo "渗透轮判据: PASS（A 正向 + B 32位 + C dispatch 全通；D 设备侧未跑，加 --device）"
+fi
   exit 0
 else
   echo "渗透轮判据: FAIL（$FAILS 段失败）"
