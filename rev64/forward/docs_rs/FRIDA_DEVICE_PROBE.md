@@ -102,6 +102,22 @@ MuMu 就是真机，Frida 行，只是要找对 hook 点**（host 侧 JNI 桥梁
   当前设备**未装**）
 - 探针匹配同时支持 `包名 / '新军棋' / 'junqi' 模糊`，两版通用
 
+**全量桥梁 hook 扩展（用户"继续"→ Jnitrace 全量，commit 后续）**：
+`frida_jni_full_hook.py` —— 从单 FindClass 扩到 **3 节点**（FindClass + ClassPreDefine
++ ClassLoad，libart 导出的类活动回调），实锤 PASS：
+```
+hook 节点: FindClass@0x779a65dda1f0 / ClassPreDefine@0x779a661eac80 / ClassLoad@0x779a661ea3f0
+观测 12s: FindClass 事件 92 次 / 类名 Bitmap + Bitmap$Config
+判据: PASS（3 节点 hook + 92 类活动事件 + Jnitrace 效果）
+```
+注：ClassPreDefine/ClassLoad 节点安装成功但观测期 0 事件（app 稳定期无新类定义，
+FindClass 持续）→ 判据以"≥2 节点 + ≥1 事件"为准，诚实标注未触发节点。
+
+**踩坑补充**：① arm64 转译 + frida attach 下 `input tap` 注入触摸会触发 app 崩溃
+→ 全量 hook 改纯观测稳定渲染 JNI 活动（不注入）② libart `ClassPreDefine` 符号名是
+完整 mangled（含 `RKNS_7DexFileE...` 后缀），截断写法 hook MISS → 用 enumerateExports
+取完整符号名。
+
 **剩余**：spawn 模式（抓 OnCreate 早期 JNI 链）在 arm64 转译 + frida spawn 时序下
 进程会销毁 → PENDING，改用 attach 模式（已 PASS）。原版"军棋"装机后可用
 32 位 frida-server 走文档 §8.1 标准路（模块可见，hook so 内导出）。
