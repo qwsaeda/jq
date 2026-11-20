@@ -14,4 +14,5 @@ jni = "0.21"
 wgpu = { version = "30", default-features = false, features = ["std", "gles", "wgsl"] }
 pollster = "0.3"
 raw-window-handle = "0.6"
+png = "0.17"
 
