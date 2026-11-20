@@ -4,9 +4,18 @@ mod imp {
     use std::sync::atomic::{AtomicBool, Ordering};
     static RUNNING: AtomicBool = AtomicBool::new(false);
     static STOP: AtomicBool = AtomicBool::new(false);
+    static mut JOIN: Option<std::thread::JoinHandle<()>> = None;
 
     /// 停止渲染线程（OnDestroy 调用，防退出 SIGABRT）
-    pub fn stop() { STOP.store(true, Ordering::SeqCst); }
+    pub fn stop() {
+        STOP.store(true, Ordering::SeqCst);
+        // 等渲染线程结束（最多 500ms），确保退出前所有 JNI lockCanvas 调用完成
+        unsafe {
+            if let Some(h) = JOIN.take() {
+                let _ = h.join();
+            }
+        }
+    }
 
     /// 启动 wgpu 渲染线程（native 独占 window，无 Java GLThread 竞争）
     pub fn start(vm_addr: usize, view_addr: usize, w: u32, h: u32) {
@@ -14,7 +23,7 @@ mod imp {
         if RUNNING.swap(true, Ordering::SeqCst) {
             return;
         }
-        std::thread::spawn(move || {
+        let h = std::thread::spawn(move || {
             std::panic::set_hook(Box::new(|_| {})); // 线程内 panic 静默，不 abort 进程
             let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
                 unsafe { run(vm_addr, view_addr, w, h) }
@@ -24,6 +33,7 @@ mod imp {
             }
             RUNNING.store(false, Ordering::SeqCst);
         });
+        unsafe { JOIN = Some(h); }
     }
 
     unsafe fn run(vm_addr: usize, view_addr: usize, w: u32, h: u32) {
