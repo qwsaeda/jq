@@ -82,14 +82,29 @@ python3 rev64/tools/fuzz_probe_check.py --games 2000 --touch 100000 --events 200
 - `复盘 n=0` = 60 局钩子不逐条 ui_replay_record（批量统计口径，防 8460 条复盘栈爆炸；
   单局 3 步 movetest=1 仍走复盘 n=3 记录链）。
 
+**32 位翻译体装机 152 PENDING 根因实锤（2026-11-20，非 so 缺陷）**：
+- 32 位翻译体 apk（`phase_chain_arm32.apk`，包名 `com.cnvcs.junqi32`，so 段
+  `lib/armeabi/libjunqi.so` = 32 位 ARM）装机 152 **`INSTALL_FAILED_NO_MATCHING_ABIS`**。
+- 根因（设备属性实锤）：152 `ro.product.cpu.abilist` = **x86_64,arm64-v8a,x86（无
+  32 位 ARM abi，无 armeabi/armeabi-v7a 兼容层）** → 纯 32 位 ARM so 无转译通道
+  （`/data/secondary_arch/lib/arm` 空 = 无 32 位 houdini 转译器）。
+- **诚实边界（禁自欺）**：32 位真机验收基准 = **真 32 位 ARM 原生设备**（REAL_DEVICE_
+  ACCEPTANCE.md SOP）；MuMu x86_64 实例（146/152）对 32 位 ARM 翻译体 =
+  **装机不可行**（abi 不匹配，非 so 缺陷/非翻译体回归）。32 位翻译体"能跑"判据
+  在 MuMu 维持 PENDING（与 §124y-248~278 模拟器转译层故障史同档：环境约束非 so 缺陷），
+  32 位侧验收 = 静态 74 项 + 渗透轮 jqt_mem_fuzz 5 探针（桌面 ASan 0 崩溃）+ 真 32 位
+  设备冒烟（待）。
+- 旧口径"MuMu 10.0.182.146 32 位 so 全链实锤"系**历史环境史存档**（当时 146 实例
+  houdini 32 转译器在位）；当前 152 实例 abi 变更 → 32 位装机 PENDING（不外推历史 PASS）。
+
 **诚实边界（152 真机实锤，非外推）**：
 - **EGL_BAD_ALLOC(0x3003) 周期 = 真机 GPU 资源约束（非 so 缺陷）**：surface attach 前
   渲染线程 64000+ 次 0x3003（logcat 实锤），surface 就绪后 `rs_draw_menu` 正常出帧
   （0x3003 停止）——周期失败自愈机制（§R25 EGL 180→60 帧）在 152 生效，0 崩溃。
 - **设备漂移**：权威口径 10.0.182.146 → **10.0.182.152**（Xiaomi 23127PN0CC x86_64，
   MuMu 实例重启后 IP 漂移；历史 146 引用 = 环境史存档不作当前态）。
-- 判据 = 渗透回路"黑盒轮"达成（5 判据全 PASS）；后续新增判据（完整 60 局/AI 介入/
-  真实手点）未过按"未达成继续做"原则追加本段缺口。
+- 判据 = 渗透回路"黑盒轮"达成（5 判据全 PASS + 完整 60 局批量收局 8460 走子 0 崩溃）；
+  后续新增判据（AI 介入/真实手点）未过按"未达成继续做"原则追加本段缺口。
 
 ## 3. 诚实边界
 
@@ -105,6 +120,7 @@ python3 rev64/tools/fuzz_probe_check.py --games 2000 --touch 100000 --events 200
 > （当前 0 FAIL——首跑 3 seed 全 PASS，本表待命中填充）
 
 | 日期 | seed | 变异器 | 证据摘录 | 定位 | 修复 | 复跑 |
+| 2026-11-20 | — | 32 位装机 PENDING | `phase_chain_arm32.apk`（com.cnvcs.junqi32，lib/armeabi）装 152 → `INSTALL_FAILED_NO_MATCHING_ABIS res=-113` | 152 `ro.product.cpu.abilist`=x86_64,arm64-v8a,x86（无 32 位 ARM abi + `/data/secondary_arch/lib/arm` 空 = 无 32 位转译器） | 非 so 缺陷——32 位验收基准 = 真 32 位 ARM 设备（MuMu x86_64 实例对 32 位 ARM 翻译体装机不可行，环境约束）；32 位侧维持静态 74 + jqt_mem_fuzz 5 探针桌面 ASan 判据 + 真 32 位设备冒烟 PENDING | 152 设备属性实锤（abilist + secondary_arch 空） |
 |---|---|---|---|---|---|---|
 | 2026-11-20 | — | F5（首版契约误用） | "随机局 write 失败"误报（实为契约1 返 1 成功，首版判 `==0 成功`） | save.c:113 `return 1`（write 契约）+ fuzz_probe.c 首版 F5 `CHECK(jq_save_game_write(...) == 0)` 判据反 | 契约1 改 `==1 成功` + 随机合法域 200 局零漂移 + 脏枚举（winner=3/-5）单列拒读 + 越域格归零契约3 + 毒化 back 判据 | 3 seed 全 PASS（84ac5ff 全判据回归 + fuzz_probe_check 复跑） |
 | 2026-11-20 | — | F1/F2/F3 历史 | 首跑 3 seed 全 PASS（0 真崩溃 FAIL） | — | — | — |

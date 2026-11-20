@@ -518,6 +518,13 @@ java -cp /tmp/opencode/apksigner/apksig.jar:/tmp/opencode/apksigner SignV2 \
   判据脚本索引（39 项明细 + 设备侧入口 + 坑清单）：`rev64/tools/STATIC_EVIDENCE_INDEX.md`。
   **★ 32 位真机验收 SOP（§124y-279）**：`rev64/reverse/docs/REAL_DEVICE_ACCEPTANCE.md`
   ——真机（32 位 ARM 原生）5 判据逐步命令 + so 三方哈希核对 + 模拟器↔真机差异清单。
+  **★ 设备 IP 漂移 + 32 位装机 PENDING（2026-11-20 实锤）**：权威红果 10.0.182.146 →
+  **10.0.182.152**（MuMu 实例重启 IP 漂移；历史 146 引用 = 环境史存档）。152
+  `ro.product.cpu.abilist`=x86_64,arm64-v8a,x86（**无 32 位 ARM abi**）+
+  `/data/secondary_arch/lib/arm` 空（无 32 位 houdini 转译器）→ 32 位翻译体
+  `phase_chain_arm32.apk`（lib/armeabi）装机 **NO_MATCHING_ABIS PENDING**（环境约束非
+  so 缺陷）；32 位侧验收 = 静态 74 项 + jqt_mem_fuzz 5 探针桌面 ASan + 真 32 位 ARM
+  设备冒烟（待）。旧"146 32 位全链实锤"系历史环境史（当时 146 转译器在位），不外推当前态。
   **★ 模拟器口径（§124y-279 用户指令）**：**模拟器（MuMu 10.0.182.146）结论不可外推
   真机**——§124y-248~278 全部「转译层故障」（ART 反射崩溃周期 fault 0x9916a728 /
   `__system_property_get` 运行期不可见 / houdini PC 相对偏移失真 / 前台抢占致 GL 暂停）
