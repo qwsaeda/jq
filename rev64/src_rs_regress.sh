@@ -57,6 +57,9 @@ run "[8.6/12] 正向渗透轮 5 变异器 (make fuzzprobe + fuzz_probe_check)" b
 #   两者都是桌面零设备依赖（ASan），失败 = so 逻辑/资源链回归 → 阻断装机
 run "[8.7/12] P1 渗透面 PNG 畸形输入 fuzz (make fuzzpng)" bash -c "cd $RS && make fuzzpng SEED=7 ROUNDS=1500 2>&1 | grep '判据: PASS'"
 run "[8.8/12] P2 渗透面 UI 状态机点击 fuzz (make fuzzui)" bash -c "cd $RS && make fuzzui SEED=7 STEPS=800 2>&1 | grep '判据: PASS'"
+# ★ P5' 渗透面：JNI 入口参数 fuzz（mock JNIEnv + fork 隔离，桌面零设备）
+#   14 入口 × 4 毒化档 × 6 变体 = 336 调用组合；缺口清单 = 入口防御缺口（信息产出）
+run "[8.9/12] P5' 渗透面 JNI 入口参数 fuzz (make fuzzjni)" bash -c "cd $RS && make fuzzjni SEED=7 ROUNDS=1 2>&1 | grep '判据: PASS'"
 run "[9/12] so_link_check.py 链接审计" python3 $TOOLS/so_link_check.py $RS/dist/libjunqi_rs.so
 # 10. 走子预验证工具（三件套之一，防新工具回归）
 run "[10/12] 走子预验证 (make walkverify)" bash -c "cd $RS && make walkverify SEQ='25,30 27,32 28,33' 2>&1 | grep '3/3 步合法'"

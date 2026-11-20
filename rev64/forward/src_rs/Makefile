@@ -216,3 +216,20 @@ fuzzui:
 	    -o dist/jq_fuzzui fuzz_ui.c ui_state.c ui_menu.c replay.c rules.c board.c layout.c save.c -lm
 	@echo "构建完成: dist/jq_fuzzui（ASan）"
 	@dist/jq_fuzzui $(SEED) $(STEPS)
+
+# ★ P5' 渗透面：JNI 入口参数 fuzz（ASan 桌面 + mock JNIEnv + fork 隔离）
+#   14 入口 × 4 毒化档（正常/全NULL/垃圾/异常）× 6 变体（env NULL/clazz NULL/参数NULL/
+#   env 垃圾/超长串+极值int）= 336 调用组合
+#   判据：0 整体崩溃（fork 隔离捕崩溃/hang）+ 防御缺口清单定位
+# ★ 依赖 android_stub/（桌面 jni.h / EGL / android/*.h 最小桩）+ platform_stub.c（GL/平台符号）
+# 用法：make fuzzjni SEED=7 ROUNDS=1
+FUZZJNI_SRCS = fuzz_jni.c jni_bridge.c platform_stub.c board.c layout.c rules.c save.c \
+	touch.c touch_state.c replay.c ui_state.c ui_menu.c containers.c \
+	jq_event_names_73.c evt55_dispatch.c evt55_business.c evt55_sfx.c \
+	bt_protocol.c bt_session.c audio.c
+fuzzjni:
+	@mkdir -p dist
+	$(CC) $(CFLAGS) -O0 -g -fsanitize=address -DRS_NO_GL -Iandroid_stub \
+	    -o dist/jq_fuzzjni $(FUZZJNI_SRCS) -lm
+	@echo "构建完成: dist/jq_fuzzjni（ASan + mock JNIEnv + fork 隔离）"
+	@dist/jq_fuzzjni $(SEED) $(ROUNDS)

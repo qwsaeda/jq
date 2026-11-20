@@ -250,6 +250,47 @@ M5' rebuild：×50 幂等 + 10000 次路由解引用 0 崩溃
 | P8 | 多线程竞态（g_mutex/g_ui_lock/GL 线程，TSAN 重编） | 最高 | 可离线 ✅（需 TSAN 工具链） |
 | P9 | 32 位 dispatch 表 2218 槽 fuzz | 中高 | 可离线 ✅ |
 
+### 2.8.4 P5'：JNI 入口参数 fuzz（`fuzz_jni.c`）——**为什么不用 unidbg**
+
+**用户提问"unidbg 行不行"的实测回答（仓库三条硬证据）**：
+
+| # | 证据 | 数据 | 结论 |
+|---|---|---|---|
+| 1 | unidbg 的 .bss 非零率 | **0.2%**（50/28680）vs MuMu 真机 **79.1%**（22618/28680） | C++ 对象图未构造（渲染器单例 0x162400=0 / 事件表 0x160584=0 / scudo 槽 0）→ JNI 入口的**反射链前置全缺**（`FindClass("android/view/SurfaceHolder")` 拿不到类） |
+| 2 | init_array 执行 | 12 条跑通 11 条，`0x11c10d` 报 `UC_ERR_INSN_INVALID`（模拟器精度 bug）+ `0xb67dc` 报 `UC_ERR_READ_UNMAPPED` | 连构造链都跑不完，更进不了业务 |
+| 3 | 模拟器 JNIEnv | `FindClass`/`GetMethodID` 只能返 NULL/假值 | 14 入口的**反射链分支根本进不去** → 只能测"环境失败路径" |
+
+（证据来源：`rev64/reverse/docs/REVERSE_LOG.md` §124y-152 + `REL_RELOCATION_AUDIT.md`）
+
+**结论**：unidbg 能测 JNI 入口的"壳参数处理"，**测不到真 JNI 语义**；而真语义已被
+真机黑盒实证覆盖（152：`am start` + setprop 钩子 + `sendevent` 真实触摸全链：
+菜单→弹窗→暗棋翻子→AI 应着）。
+
+**正解 = 桌面 mock JNIEnv**（测 so 内部**参数防御代码**，纯 C 逻辑，可离线/可复现）：
+- **14 入口 × 4 毒化档 × 6 变体 = 336 调用组合**
+  - 毒化档：正常 / 全 NULL 桩 / 垃圾桩（`GetStringUTFChars` 返非指针垃圾）/ 异常桩（`ExceptionCheck` 恒 1）
+  - 变体：env=NULL / clazz=NULL / 参数=NULL / env=垃圾指针 / 超长串(1MB)+极值 int
+- **fork 隔离执行**（AFL 思路）：子进程崩/卡都不影响父进程，父进程按 waitpid 分类
+  （正常退出=安全返回 / 被信号杀=崩溃缺口 / 2s 超时 kill=hang 缺口）
+- **实锤**：336 组合 → **44 条防御缺口定位**（OnCreate/OnEvent/OnKey/OnTouch/
+  OnBluetooth 在 env=NULL 或毒化档下 SEGV sig=11），0 整体崩溃，ASan 干净
+
+**关键踩坑（3 条，全是"探针自身缺陷"级别的坑）**：
+1. **signal handler 捕获 + mutex 死锁 = 不可行组合**：so 持 `g_mutex` 时崩溃 →
+   handler 里 `siglongjmp` 出去**留下锁住的 mutex** → 后续入口同锁 → 死锁 hang
+   （实测 120s 超时）→ 改 **fork 隔离**（子进程崩溃/卡死都不污染父进程）
+2. **桌面 JNI 头不能直接用系统 JDK/NDK 的**：
+   - JDK `jni.h` C++ 模式是**成员函数包装类**（`JNINativeInterface_` 字段是成员函数
+     指针）→ 与 src_rs 的 C 写法 `(*env)->FindClass(env,...)` 不兼容；C 模式又要 jni_md.h
+   - NDK `jni.h` 需配 NDK sysroot 头链（遮蔽宿主 libc 头 → `size_t` 未定义等）
+   → **自建 C 模式最小 `jni.h`**（`src_rs/android_stub/jni.h`，覆盖 src_rs 实用的
+     21 个 JNI 函数 + 类型），配 `android/log.h` / `android/native_window_jni.h` /
+     `android/asset_manager.h` / `sys/system_properties.h` / `EGL/egl.h` 五个 stub 头
+     + `platform_stub.c`（GL/平台符号空实现，**不模拟业务**防假绿）
+3. **JNIEnv 在 C 模式是指针**：`typedef const JNINativeInterface *JNIEnv;`
+   → mock 结构体是 `JNINativeInterface`（非 C++ 的 `JNINativeInterface_`），
+   `JNIEnv g_env = &g_mocks;`
+
 ## 3. 诚实边界
 
 - **fuzz 只查崩溃/非法态，不查行为正确性**——不崩 ≠ 行为对齐原版（行为对照靠 `rule_probe_compare.py` 双端 36 case + `align_gate.sh` 事件/布局判据）
