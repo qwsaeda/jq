@@ -8,7 +8,7 @@ mod imp {
     static BG_CACHE: std::sync::OnceLock<Option<(Vec<u8>, u32, u32)>> = std::sync::OnceLock::new();
     static ATLAS_CACHE: std::sync::OnceLock<Option<(Vec<u8>, u32, u32)>> = std::sync::OnceLock::new();
     fn bg_cached() -> Option<&'static (Vec<u8>, u32, u32)> {
-        BG_CACHE.get_or_init(|| decode_png(include_bytes!("../assets/bg_menu.png"))).as_ref()
+        BG_CACHE.get_or_init(|| decode_png(include_bytes!("../assets/board_bg.png"))).as_ref()
     }
     fn atlas_cached() -> Option<&'static (Vec<u8>, u32, u32)> {
         ATLAS_CACHE.get_or_init(|| decode_png(include_bytes!("../assets/piece_atlas.png"))).as_ref()
@@ -17,7 +17,7 @@ mod imp {
     /// 解码 PNG 为 RGBA (w,h)
     /// ★ 用 png crate 的 Transformations 直接输出 RGBA8（替代手写 RGB→RGBA 循环）：
     ///   EXPAND|ALPHA|STRIP_16 让 RGB 源自动补 alpha=255、RGBA 源原样、16bit 降 8bit。
-    ///   实证（/tmp/pngcmp）：对 bg_menu(RGBA)/piece_atlas(RGB) 两图，输出与旧手动转换逐字节一致。
+    ///   实证（/tmp/pngcmp）：对 board_bg(RGBA)/piece_atlas(RGB) 两图，输出与旧手动转换逐字节一致。
     fn decode_png(bytes: &[u8]) -> Option<(Vec<u8>, u32, u32)> {
         let mut decoder = png::Decoder::new(Cursor::new(bytes));
         decoder.set_transformations(
@@ -39,7 +39,7 @@ mod imp {
         screen: crate::ui::Screen,
     ) -> Vec<u8> {
         let mut out = vec![0u8; w * h * 4];
-        // ① 背景（bg_menu 720×1280 → 拉伸铺满 w×h）
+        // ① 背景（board_bg 720×1280 = 原版 datax_177 棋盘底图 → 拉伸铺满 w×h）
         if let Some(&(ref bg, bw, bh)) = bg_cached() {
             for y in 0..h {
                 let sy = (y as f32 / h as f32 * bh as f32) as usize;
