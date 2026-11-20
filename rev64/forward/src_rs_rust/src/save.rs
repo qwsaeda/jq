@@ -291,6 +291,59 @@ mod tests {
 
     // §7 复盘越界 cur 拒绝
     #[test]
+    // ★ C 基准移植（run_replay）：记录 N 步 → rewind K → 与独立重放前 K 步 cells 逐格一致
+    #[test]
+    fn replay_vs_independent_replay() {
+        use crate::state::{Cell, SIDE_BLUE, Stage, Winner};
+        let init = crate::gametest::make_default_layout();
+        // ★ 动态生成合法走子序列（模拟 C run_replay 的 gen_moves），避免固定坐标失效
+        let mut gen = init.clone();
+        let mut seq: Vec<(usize, usize)> = Vec::new();
+        for _ in 0..4 {
+            if let Some(mv) = crate::ai::ai_pick(&gen, 3) {
+                if mv.is_flip { break; }
+                if crate::rules::try_move(&mut gen, mv.from, mv.to).is_ok() {
+                    seq.push((mv.from, mv.to));
+                } else { break; }
+            } else { break; }
+        }
+        let k = seq.len() / 2;
+        assert!(k >= 1, "至少生成 1 步合法序列");
+        let mut rp = Replay::new(&init);
+        for &(f, t) in &seq { rp.record(f, t, false); }
+        // 独立重放前 K 步（不走 replay API）
+        let mut ref_st = init.clone();
+        for &(f, t) in &seq[..k] {
+            let _ = crate::rules::try_move(&mut ref_st, f, t);
+        }
+        // replay API 重放到 cur=2
+        let mut got = init.clone();
+        let ok = rp.rewind_to(&mut got, k);
+        assert!(ok, "rewind cur=k 成功");
+        // cells 逐格一致（确定性契约）
+        let same = got.cells.iter().zip(ref_st.cells.iter()).all(|(a, b)| {
+            a.rank == b.rank && a.side == b.side && a.revealed == b.revealed
+        });
+        assert!(same, "rewind 重建 cells == 独立重放前 K 步（C run_replay 基准）");
+    }
+
+    // ★ C 基准移植（run_undo）：走子前快照 → 走子 → undo_restore → 状态回退
+    #[test]
+    fn undo_roundtrip_vs_c_baseline() {
+        let mut st = crate::gametest::make_default_layout();
+        st.cfg = [1, 1, 1, 1, 0];
+        let snap = st.clone();
+        // 玩家 EAT（蓝 25 吃红 30）
+        let ev = crate::rules::try_move(&mut st, 25, 30);
+        assert_eq!(ev, Ok(crate::state::Ev::Eat), "走子 EV_EAT（C run_undo 步骤1）");
+        assert!(st.cells[25].is_empty() && !st.cells[30].is_empty(), "走子改变棋盘");
+        // undo 恢复全字段
+        st.undo_restore(&snap);
+        let same = st.cells.iter().zip(snap.cells.iter()).all(|(a,b)| a.rank==b.rank && a.side==b.side && a.revealed==b.revealed)
+            && st.turn == snap.turn && st.stage == snap.stage;
+        assert!(same, "undo_restore 全字段回退（C run_undo 基准）");
+    }
+
     fn replay_rewind_oob() {
         let st = State::new();
         let mut rp = Replay::new(&st);
