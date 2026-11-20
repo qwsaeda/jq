@@ -59,11 +59,25 @@ mod imp {
                 }
             }
         }
-        // ② 棋盘 12×5 格（上半 62%）+ 棋子图集贴图
+        // ② 棋盘 12×5 格 + 棋子图集贴图
+        // ★ 业务对齐（2026-11-20）：棋子位置改用原版 BG_* 几何真值（与 touch view_to_cell 同一套），
+        //   不再用自创的均分公式（cw=w/5, ch=board_h/12）——触摸/渲染几何一致。
         let atlas = atlas_cached().map(|(d,w,h)| (&d[..], *w, *h));
-        let board_h = (h as f32 * 0.62) as usize;
-        let cw = w as f32 / 5.0;
-        let ch = board_h as f32 / 12.0;
+        // 原版基准 720×1280（board_geom.h BG_IMG_W/H + BG_GRID_* 真值）
+        const BG_IMG_W: f32 = 720.0;
+        const BG_IMG_H: f32 = 1280.0;
+        const BG_COL0_CX: f32 = 78.5;
+        const BG_COL_W: f32 = 140.5;
+        const BG_ROW0_CY: f32 = 222.0;
+        const BG_ROW_H: f32 = 71.0;
+        const BG_ROW6_CY: f32 = 822.0;
+        // 基准→当前渲染尺寸缩放
+        let sx = w as f32 / BG_IMG_W;
+        let sy = h as f32 / BG_IMG_H;
+        let bg_row_cy = |image_row: usize| -> f32 {
+            if image_row <= 5 { BG_ROW0_CY + image_row as f32 * BG_ROW_H }
+            else { BG_ROW6_CY + (image_row - 6) as f32 * BG_ROW_H }
+        };
         // ★ 审计 A10：仅对局/终局态画棋子；菜单/弹窗态只画背景（屏态分屏）
         let show_pieces = matches!(screen, crate::ui::Screen::Game | crate::ui::Screen::IngameMenu);
         if show_pieces {
@@ -73,17 +87,22 @@ mod imp {
                     let idx = device_row * 5 + col;
                     let c = &st.cells[idx];
                     if c.is_empty() { continue; }
-                    // 屏幕 row：device_row0=蓝底线在棋盘最下 → screen_row = 11-device_row
-                    let screen_row = 11 - device_row;
-                    // 棋子按图集 cell 宽高比（35×46）渲染：窄高形，在扁格内居中
+                    // ★ 原版映射：device_row → image_row = 11-row（与 bg_cell_img_center 一致）
+                    let image_row = 11 - device_row;
+                    let cx = BG_COL0_CX + col as f32 * BG_COL_W; // 列中心（原版真值）
+                    let cy = bg_row_cy(image_row);                // 行中心（原版真值）
+                    // 缩放到当前渲染尺寸
+                    let cx = cx * sx;
+                    let cy = cy * sy;
+                    // 棋子按图集 cell 宽高比（35×46）渲染
                     let (atile, aw, ah): (&[u8], u32, u32) = atlas.unwrap_or((&[][..],0,0));
                     let cell_w = (aw / 6) as usize; // ≈35
                     let cell_h = (ah / 6) as usize; // ≈46
-                    // 目标棋子尺寸：高度=格子高，宽度按图集比例
-                    let ph = (ch * 0.92) as usize;
+                    // 棋子尺寸：按行距（BG_ROW_H×sy）缩放，宽度按图集比例
+                    let ph = (BG_ROW_H * sy * 0.92) as usize;
                     let pw = (ph as f32 * cell_w as f32 / cell_h as f32) as usize;
-                    let x0 = (col as f32 * cw + (cw - pw as f32) * 0.5) as usize;
-                    let y0 = (screen_row as f32 * ch + (ch - ph as f32) * 0.5) as usize;
+                    let x0 = (cx - pw as f32 * 0.5) as usize; // 中心对齐（原版 cell 中心）
+                    let y0 = (cy - ph as f32 * 0.5) as usize;
                     let base: [u8; 3] = if c.side == crate::state::SIDE_RED { [205, 55, 45] } else { [80, 150, 225] };
                     // 图集 idx：rank1-12 → 0-11
                     let rank = crate::state::rank_of(c) as usize;
