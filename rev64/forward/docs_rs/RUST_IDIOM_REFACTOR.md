@@ -128,4 +128,5 @@
 ## 死代码清理 + 发现的待决策缺口（2026-11-20 续）
 - **删除 egl_render.rs（152 行）**：`start_render_thread_jni` 0 调用点（实际渲染走 wgpu_thread），纯删除零行为风险；95 测试 / clippy 0 / 0 错 0 警不变。
 - **保留（有理由）**：`sfx.rs::play` 0 调用点但音效映射表对齐有值（houdini JNI 崩溃回退，待真 ARM64 接线）；`render/mod.rs` 的 RenderCtx 完整管线方法（create_surface/init_device/render 等）是设计预留，当前仅用 create_wgpu_device/offscreen/clear_frame/create_surface。
-- **⚠️ 待决策缺口**：`strings.rs::result_text`（蓝方胜利/红方胜利/和棋 文案，有测试锚定原版真值）**未被 asset.rs 终局横幅调用**——终局只画蓝/红/灰色块 + 棋子图集，不画文字。玩家看不到"谁赢了"文字反馈。补这个需要中文字模/Canvas 文字绘制（原版用位图字体），属功能实现而非重构，需用户确认是否做。
+- **~~⚠️ 待决策缺口~~ → 查证后撤销（2026-11-20）**：`strings.rs::result_text` 未被调用**不是缺口**——查 C 版 `rs_draw_overlay`(render.c:1264-1313)：C 正向版终局也只画纯色 quad（蓝/红/灰）+ 绿色"再来一局"按钮，**同样不画文字**。两家行为一致，文案表对齐但渲染采用色块方案是设计选择。我上一轮凭 strings.rs 有文案表就报缺口是误判（没先查 C 版），已纠正。
+- **真实对齐差异（待决策，非 bug）**：C 版终局横幅 `x20%-80%,y42%-58%` + 绿色"再来一局"按钮(`x35%-65%,y62%-72%`)；Rust 版横幅 `x10%-90%,y40%-60%` 且无该按钮——Rust 重开走 ☰ 菜单(jni.rs:453)，功能可达但 UI 路径与原版不同。按 SPEC_HUMAN_PLAY 这是规格内实现；若要求"对齐原版业务真值"则需补画绿色按钮 + 触摸入口，需用户决策。
