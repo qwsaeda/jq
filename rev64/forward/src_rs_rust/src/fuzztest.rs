@@ -112,4 +112,49 @@ mod tests {
         assert!(n <= 64);
         assert!(ui.undo_stack.is_empty());
     }
+
+    /// F5 存档域校验 fuzz（对齐 C fuzz_probe F5 契约1/2/3）
+    /// 契约1 合法域零漂移 / 契约2 脏枚举拒读 / 契约3 越域格归零
+    #[test]
+    fn f5_save_domain_fuzz() {
+        // 契约1：合法域随机局 validate_state 不改数据（零漂移）
+        for seed in [1u32, 42, 999] {
+            let mut rng = Rng::new(seed);
+            let mut st = crate::gametest::make_default_layout();
+            st.turn = (rng.next() % 2) as u8;
+            st.mode = (rng.next() % 2) as u8;
+            st.winner = match rng.next() % 4 {
+                0 => Winner::None, 1 => Winner::Blue, 2 => Winner::Red, _ => Winner::Draw,
+            };
+            st.cfg = [1, 1, 1, 1, 1];
+            let before = st.clone();
+            assert!(crate::save::validate_state(&mut st), "合法域校验通过");
+            let same = st.cells.iter().zip(before.cells.iter()).all(|(a,b)| a.rank==b.rank && a.side==b.side && a.revealed==b.revealed)
+                && st.turn == before.turn && st.mode == before.mode;
+            assert!(same, "契约1：合法域零漂移");
+        }
+        // 契约2：脏枚举（turn>1/mode>1）拒读
+        let mut bad = crate::gametest::make_default_layout();
+        bad.turn = 2;
+        assert!(!crate::save::validate_state(&mut bad), "契约2：turn=2 拒读");
+        let mut bad2 = crate::gametest::make_default_layout();
+        bad2.mode = 9;
+        assert!(!crate::save::validate_state(&mut bad2), "契约2：mode=9 拒读");
+        // 契约3：越域格（rank>24 / side 非法 / revealed>1）归零
+        let mut dirty = crate::gametest::make_default_layout();
+        dirty.cells[0].rank = 99; // 越域
+        dirty.cells[1].side = 7;  // 非法 side
+        dirty.cells[2].revealed = 2; // 非法 revealed
+        assert!(crate::save::validate_state(&mut dirty));
+        assert_eq!(dirty.cells[0].rank, 0, "契约3：越域 rank 归零");
+        assert_eq!(dirty.cells[1].side, SIDE_UNKNOWN, "契约3：非法 side 归 UNKNOWN");
+        assert_eq!(dirty.cells[2].revealed, 0, "契约3：非法 revealed 归零");
+        // 计数负值钳 0
+        let mut neg = crate::gametest::make_default_layout();
+        neg.pieces_left = [-5, -3];
+        neg.mines_cleared = [-1, -1];
+        crate::save::validate_state(&mut neg);
+        assert_eq!(neg.pieces_left, [0, 0]);
+        assert_eq!(neg.mines_cleared, [0, 0]);
+    }
 }

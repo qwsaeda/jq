@@ -59,7 +59,7 @@
 ### 全屏态闭合（2026-11-20，按顺序做完全部能做项）
 ### 悔棋真实闭环 + 全 8 按钮接线（2026-11-20）
 ### Rust 渗透轮（2026-11-20，对齐 AGENTS 新增 fuzz_probe 理念）
-- fuzztest.rs：F1 随机对弈（3 seed × xorshift32 变换后保存）/ F2 触摸边界坐标 / F3 事件 7 码+73 名注入 / F4 undo 边界（空栈/深栈/连续 pop），纯 Rust 逻辑层 0 崩溃 + 状态域不变量。
+- fuzztest.rs：F1 随机对弈（3 seed × xorshift32 变换后保存）/ F2 触摸边界坐标 / F3 事件 7 码+73 名注入 / F4 undo 边界（空栈/深栈/连续 pop）/ F5 存档域校验（契约1 合法域零漂移 + 契约2 脏枚举拒读 + 契约3 越域格归零 + 计数钳），对齐 C fuzz_probe 5 变异器。
 - 与 C fuzz_probe（src_rs）物理隔离：C 渗透轮是 C 会话判据（红线不跨界），Rust 渗透轮属 src_rs_rust。
 - 音效：AssetManager.openFd 正确 API 尝试后仍致 houdini JNI 崩溃 → 回退自动播放（映射表对齐保留），标注待真 ARM64。
 - 0 编译警告（allow dead_code/static_mut_refs 标注死代码与 JNI 全局态固有不安全模式）+ 94 测试全绿。
@@ -119,7 +119,7 @@
 | arm32_static_evidence.sh（静态佐证） | PASS 74/74 |
 | so_link_check.py（Rust so GL/EGL） | PASS（GL/EGL UND=0） |
 | so_link_check.py（C so GL/EGL） | PASS（61 符号可解析） |
-| Rust fuzztest（4 变异器） | 94 测试全绿的一部分 |
+| Rust fuzztest（5 变异器，含 F5 存档域校验） | 95 测试全绿的一部分 |
 | 真机 5 判据（10.0.152） | 装/出屏/走子+悔棋/退出/重进 全 PASS |
 
 说明：C 渗透轮（fuzz_probe）属正向 src_rs 判据，本正向会话执行；设备相关判据（mumu_regress 等）需设备可达，已由真机 5 判据覆盖。
