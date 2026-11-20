@@ -597,7 +597,7 @@ mod android_impl {
                     // 首次点击：选中（仅己方已翻子可选）
                     let can_sel = with_lock(|st, _u, _c| {
                         if cell < 60 && !st.cells[cell].is_empty()
-                            && st.cells[cell].side == st.turn && st.cells[cell].revealed == 1 {
+                            && st.cells[cell].side == st.turn && st.cells[cell].revealed {
                             true
                         } else { false }
                     });

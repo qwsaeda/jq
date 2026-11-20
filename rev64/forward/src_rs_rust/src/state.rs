@@ -13,15 +13,60 @@ pub const RANK_FLAG: u8 = 12;
 pub const RANK_TOP: u8 = 12;
 pub const RANK_WORKER: u8 = 9;
 
-// ---- 阵营 ----
-pub const SIDE_BLUE: u8 = 0;
-pub const SIDE_RED: u8 = 1;
-pub const SIDE_UNKNOWN: u8 = 0xFF;
-pub const SIDE_VALID: [u8; 2] = [SIDE_BLUE, SIDE_RED];
+// ---- 阵营（类型安全 enum，替代 u8 0/1/0xFF 哨兵）----
+/// 阵营：蓝 / 红 / 未定色（暗棋翻棋前）。非法判别值在反序列化边界用 `from_raw` 拒绝。
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
+pub enum Side {
+    #[default]
+    Blue,
+    Red,
+    Unknown,
+}
+impl Side {
+    /// 存档原始判别值（对齐原版：蓝 0 / 红 1 / 未定色 0xFF）
+    pub fn to_raw(self) -> u8 {
+        match self {
+            Side::Blue => 0,
+            Side::Red => 1,
+            Side::Unknown => 0xFF,
+        }
+    }
+    /// 从存档原始值构造；非法值（非 0/1/0xFF）返回 None（域校验前移到此边界）
+    pub fn from_raw(v: u8) -> Option<Self> {
+        match v {
+            0 => Some(Side::Blue),
+            1 => Some(Side::Red),
+            0xFF => Some(Side::Unknown),
+            _ => None,
+        }
+    }
+    /// 已定色（蓝/红；未定色不在此列）
+    pub fn is_valid(self) -> bool {
+        !matches!(self, Side::Unknown)
+    }
+    /// 对方阵营（原 `1 - side` 运算，类型安全）
+    pub fn opposite(self) -> Self {
+        match self {
+            Side::Blue => Side::Red,
+            Side::Red => Side::Blue,
+            Side::Unknown => Side::Unknown,
+        }
+    }
+}
+impl std::fmt::Display for Side {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.to_raw())
+    }
+}
+// 兼容常量别名：减少 217 处调用点改动，值语义与 enum 完全一致
+pub const SIDE_BLUE: Side = Side::Blue;
+pub const SIDE_RED: Side = Side::Red;
+pub const SIDE_UNKNOWN: Side = Side::Unknown;
+pub const SIDE_VALID: [Side; 2] = [Side::Blue, Side::Red];
 
-/// 阵营是否有效（0/1；0xFF 未定色不在此列）
-pub fn side_valid(s: u8) -> bool {
-    s == SIDE_BLUE || s == SIDE_RED
+/// 阵营是否有效（Blue/Red；Unknown 不在此列）——保留 API，改收 Side
+pub fn side_valid(s: Side) -> bool {
+    s.is_valid()
 }
 
 // ---- 对局模式 ----
@@ -70,14 +115,14 @@ pub enum Ev {
 // ---- 单个格子 ----
 #[derive(Clone, Copy, Debug, Default)]
 pub struct Cell {
-    pub rank: u8,      // 0-12（红方已翻开存 +0xc，用 rank_of 还原）
-    pub side: u8,      // SIDE_BLUE/SIDE_RED/SIDE_UNKNOWN
-    pub revealed: u8,  // 0=背面（暗棋未翻）1=正面
+    pub rank: u8,       // 0-24（红方已翻开存 +0xc，用 rank_of 还原）
+    pub side: Side,     // 类型安全 enum（原 u8 0/1/0xFF 哨兵）
+    pub revealed: bool, // false=背面（暗棋未翻）true=正面（类型安全，非法值无法表达）
 }
 
 impl Cell {
     pub fn empty() -> Self {
-        Self { rank: 0, side: 0, revealed: 0 }
+        Self { rank: 0, side: SIDE_BLUE, revealed: false }
     }
     pub fn is_empty(&self) -> bool {
         self.rank == RANK_EMPTY
@@ -100,7 +145,7 @@ pub fn rank_of(c: &Cell) -> u8 {
 #[derive(Clone, Debug)]
 pub struct State {
     pub cells: [Cell; N_CELLS],
-    pub turn: u8,        // 当前方 0/1
+    pub turn: Side,      // 当前方（类型安全 enum，原 u8 0/1）
     pub stage: Stage,
     pub winner: Winner,
     pub moves_since_eat: i32, // 连续无吃子步数（和棋 70 步）
@@ -153,10 +198,10 @@ mod tests {
     #[test]
     fn rank_of_red_encoded() {
         // 红方 rank 8 已翻开存 8+0xc=20，rank_of 还原 8
-        let c = Cell { rank: 20, side: SIDE_RED, revealed: 1 };
+        let c = Cell { rank: 20, side: SIDE_RED, revealed: true };
         assert_eq!(rank_of(&c), 8);
         // 蓝方 rank 8 存 8，rank_of 还原 8
-        let b = Cell { rank: 8, side: SIDE_BLUE, revealed: 1 };
+        let b = Cell { rank: 8, side: SIDE_BLUE, revealed: true };
         assert_eq!(rank_of(&b), 8);
     }
 

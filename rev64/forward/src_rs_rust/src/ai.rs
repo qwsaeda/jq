@@ -50,7 +50,7 @@ pub fn ai_pick(st: &State, level: u8) -> Option<Move> {
 
     for i in 0..N_CELLS {
         let c = &st.cells[i];
-        if c.rank == RANK_EMPTY || c.side != me || c.revealed == 0 {
+        if c.rank == RANK_EMPTY || c.side != me || !c.revealed {
             continue;
         }
         let r = rank_of(c) as i32;
@@ -66,10 +66,10 @@ pub fn ai_pick(st: &State, level: u8) -> Option<Move> {
             }
             let d = &st.cells[t];
             // 暗棋：未翻暗子目标不入候选（与 move_legal 拦截语义一致，双重保险）
-            if st.mode == crate::state::MODE_FLIP && d.rank != RANK_EMPTY && d.revealed == 0 {
+            if st.mode == crate::state::MODE_FLIP && d.rank != RANK_EMPTY && !d.revealed {
                 continue;
             }
-            let sc = match ai_score(c.rank as i32, d.rank as i32, d.revealed != 0) {
+            let sc = match ai_score(c.rank as i32, d.rank as i32, d.revealed) {
                 Some(v) => v,
                 None => continue, // 脏输入/不可走源（原 -2/-1 哨兵）跳过，不污染
             };
@@ -103,7 +103,7 @@ pub fn ai_pick(st: &State, level: u8) -> Option<Move> {
     // 无走子 → 翻棋候选（接受 0xFF 定色归 me + 己方暗子，只排军旗）
     for i in 0..N_CELLS {
         let c = &st.cells[i];
-        if c.rank == RANK_EMPTY || c.revealed != 0 {
+        if c.rank == RANK_EMPTY || c.revealed {
             continue;
         }
         let r = rank_of(c);
@@ -238,8 +238,8 @@ mod tests {
         s.cfg[4] = 0; // 明棋
         // AI=RED，蓝 rank1(强) 在 30，红 rank5(弱) 在 35，红可走 35→? 吃蓝 30
         // 设蓝 30=rank1 revealed，红 35=rank5 revealed，30/35 同列相邻（(6,0)/(7,0)）
-        s.cells[30] = Cell { rank: 1, side: SIDE_BLUE, revealed: 1 };
-        s.cells[35] = Cell { rank: 5, side: SIDE_RED, revealed: 1 };
+        s.cells[30] = Cell { rank: 1, side: SIDE_BLUE, revealed: true };
+        s.cells[35] = Cell { rank: 5, side: SIDE_RED, revealed: true };
         s.turn = SIDE_RED;
         let mv = ai_pick(&s, 3).unwrap();
         // 红 35(rank5) 吃蓝 30(rank1)：5>1 送死档 1；但若有更优（吃更强子）应优先

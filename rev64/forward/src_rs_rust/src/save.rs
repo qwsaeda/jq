@@ -9,7 +9,7 @@
 
 use crate::board::N_CELLS;
 use crate::state::{
-    Cell, RANK_EMPTY, RANK_TOP, SIDE_BLUE, SIDE_RED, SIDE_UNKNOWN, State,
+    Cell, RANK_EMPTY, RANK_TOP, Side, SIDE_BLUE, SIDE_RED, SIDE_UNKNOWN, State,
 };
 
 /// 复盘容量（对齐 C N_REPLAY=512：和棋前 1000 步，512 条够复盘）
@@ -22,7 +22,7 @@ pub struct Replay {
     /// 开局 60 格快照（rank/side/revealed）
     pub init_cells: [Cell; N_CELLS],
     /// 开局 turn（ui_first 红先手语义）
-    pub turn_init: u8,
+    pub turn_init: Side,
     /// 开局 mode（LAY/FLIP 复盘语义）
     pub mode_init: u8,
     /// 走子序列（from, to），长度 n
@@ -112,7 +112,7 @@ impl Replay {
         // ④ 复盘态明棋全翻开（引擎要求 revealed=1 才可走子）
         for c in st.cells.iter_mut() {
             if c.rank != RANK_EMPTY {
-                c.revealed = 1;
+                c.revealed = true;
             }
         }
         // ★ 审计 A4：逐条重放前 cur 步（规格 §7 确定性重建）
@@ -150,7 +150,7 @@ impl Replay {
 /// 阶段2 `validate_state` 就地净化（cells 归零/计数钳）。
 /// 文件反序列化层应先调 check_enums（原始判别值）再构造 State，最后调 validate_state。
 pub fn check_enums(st: &State) -> bool {
-    if st.turn > 1 || st.mode > 1 { return false; }
+    if !st.turn.is_valid() || st.mode > 1 { return false; }
     if !matches!(st.stage, crate::state::Stage::Play | crate::state::Stage::Over) { return false; }
     // winner 为 Rust enum（类型安全，非法判别值无法表达）；反序列化层须在构造 State 前校验原始 int ∈ {-1,0,1,2}
     true
@@ -159,7 +159,7 @@ pub fn check_enums(st: &State) -> bool {
 pub fn validate_state(st: &mut State) -> bool {
     use crate::state::{Stage, Winner};
     // 枚举域校验（任一越域拒读）
-    if st.turn > 1 {
+    if !st.turn.is_valid() {
         return false;
     }
     if matches!(st.stage, Stage::Over) {
@@ -177,11 +177,11 @@ pub fn validate_state(st: &mut State) -> bool {
     for c in st.cells.iter_mut() {
         let side_ok = matches!(c.side, SIDE_BLUE | SIDE_RED | SIDE_UNKNOWN);
         let rank_ok = c.rank <= RANK_TOP + 0x0c; // 红方编码 raw+0xc 上界 24
-        let rev_ok = c.revealed <= 1;
-        if !side_ok || !rank_ok || !rev_ok {
+        // revealed 已是 bool（类型安全，非法值无法表达）——原 rev_ok 域校验前移到反序列化边界
+        if !side_ok || !rank_ok {
             c.rank = RANK_EMPTY;
             c.side = SIDE_UNKNOWN;
-            c.revealed = 0;
+            c.revealed = false;
         }
     }
     // 计数下界钳 0（负值脏档钳 0，防进规则引擎/AI）
@@ -205,10 +205,10 @@ mod tests {
     #[test]
     fn sjg_domain_check() {
         let mut st = State::new();
-        st.turn = 2; // 越域
+        st.mode = 2; // 越域（turn 已 Side enum 类型安全，无法表达非法判别值）
         assert!(!validate_state(&mut st), "turn=2 拒读");
         let mut st2 = State::new();
-        st2.turn = 1;
+        st2.turn = SIDE_RED;
         st2.stage = Stage::Over; // 合法
         st2.winner = Winner::Red; // 合法
         st2.mode = 1; // FLIP 合法
@@ -221,15 +221,17 @@ mod tests {
         let mut st = State::new();
         st.cells[0].rank = 30; // >24 越域
         st.cells[0].side = SIDE_BLUE;
-        st.cells[0].revealed = 1;
+        st.cells[0].revealed = true;
         assert!(validate_state(&mut st), "cells 越域格归零不拒读");
         assert_eq!(st.cells[0].rank, RANK_EMPTY, "越域格 rank 归零");
         assert_eq!(st.cells[0].side, SIDE_UNKNOWN, "越域格 side 归 UNKNOWN");
 
         let mut st2 = State::new();
-        st2.cells[5].rank = 5;
-        st2.cells[5].side = 7; // 越域 side（非 0/1/0xFF）
-        st2.cells[5].revealed = 1;
+        // side 非法值在反序列化边界 from_raw 拒（Side enum 内部无法表达）
+        assert!(Side::from_raw(7).is_none(), "越域 side=7 被 from_raw 拒（类型安全边界）");
+        // 内部"越域格归零"改由 rank 越域触发验证
+        st2.cells[5].rank = 30; // >24 越域
+        st2.cells[5].revealed = true;
         assert!(validate_state(&mut st2));
         assert_eq!(st2.cells[5].rank, RANK_EMPTY, "越域格全格归零");
     }

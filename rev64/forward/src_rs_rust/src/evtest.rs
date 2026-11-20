@@ -13,8 +13,8 @@ fn mk_flag() -> State {
     st.turn = SIDE_BLUE;
     st.stage = Stage::Play;
     st.winner = Winner::None;
-    st.cells[53] = Cell { rank: 2, side: SIDE_BLUE, revealed: 1 };
-    st.cells[58] = Cell { rank: 24, side: SIDE_RED, revealed: 1 }; // 红旗编码
+    st.cells[53] = Cell { rank: 2, side: SIDE_BLUE, revealed: true };
+    st.cells[58] = Cell { rank: 24, side: SIDE_RED, revealed: true }; // 红旗编码
     st
 }
 
@@ -24,9 +24,9 @@ fn mk_mine() -> State {
     st.turn = SIDE_BLUE;
     st.stage = Stage::Play;
     st.winner = Winner::None;
-    st.cells[49] = Cell { rank: 9, side: SIDE_BLUE, revealed: 1 };
-    st.cells[54] = Cell { rank: 23, side: SIDE_RED, revealed: 1 }; // 雷编码
-    st.cells[59] = Cell { rank: 15, side: SIDE_RED, revealed: 1 };
+    st.cells[49] = Cell { rank: 9, side: SIDE_BLUE, revealed: true };
+    st.cells[54] = Cell { rank: 23, side: SIDE_RED, revealed: true }; // 雷编码
+    st.cells[59] = Cell { rank: 15, side: SIDE_RED, revealed: true };
     st
 }
 
@@ -76,22 +76,22 @@ mod tests {
         let mut st = State::new();
         st.turn = SIDE_BLUE;
         st.cfg[4] = 0;
-        st.cells[25] = Cell { rank: 3, side: SIDE_BLUE, revealed: 1 };
-        st.cells[30] = Cell { rank: 8 + 0x0c, side: SIDE_RED, revealed: 1 };
+        st.cells[25] = Cell { rank: 3, side: SIDE_BLUE, revealed: true };
+        st.cells[30] = Cell { rank: 8 + 0x0c, side: SIDE_RED, revealed: true };
         assert_eq!(rules::try_move(&mut st, 25, 30).unwrap(), Ev::Eat, "强吃弱=EV_EAT");
         // 弱被吃（rank8 蓝 撞 rank1 红）= EV_DEAD
         let mut st2 = State::new();
         st2.turn = SIDE_BLUE;
         st2.cfg[4] = 0;
-        st2.cells[25] = Cell { rank: 8, side: SIDE_BLUE, revealed: 1 };
-        st2.cells[30] = Cell { rank: 1 + 0x0c, side: SIDE_RED, revealed: 1 };
+        st2.cells[25] = Cell { rank: 8, side: SIDE_BLUE, revealed: true };
+        st2.cells[30] = Cell { rank: 1 + 0x0c, side: SIDE_RED, revealed: true };
         assert_eq!(rules::try_move(&mut st2, 25, 30).unwrap(), Ev::Dead, "弱被吃=EV_DEAD");
         // 同级互杀（rank5 撞 rank5）= EV_EAT（非 BOMB，C 0x31de0 实证）
         let mut st3 = State::new();
         st3.turn = SIDE_BLUE;
         st3.cfg[4] = 0;
-        st3.cells[25] = Cell { rank: 5, side: SIDE_BLUE, revealed: 1 };
-        st3.cells[30] = Cell { rank: 5 + 0x0c, side: SIDE_RED, revealed: 1 };
+        st3.cells[25] = Cell { rank: 5, side: SIDE_BLUE, revealed: true };
+        st3.cells[30] = Cell { rank: 5 + 0x0c, side: SIDE_RED, revealed: true };
         assert_eq!(rules::try_move(&mut st3, 25, 30).unwrap(), Ev::Eat, "同级=EV_EAT");
     }
 
@@ -101,8 +101,8 @@ mod tests {
         let mut st = State::new();
         st.turn = SIDE_BLUE;
         st.cfg[4] = 0;
-        st.cells[25] = Cell { rank: 10, side: SIDE_BLUE, revealed: 1 }; // 炸弹
-        st.cells[30] = Cell { rank: 5 + 0x0c, side: SIDE_RED, revealed: 1 };
+        st.cells[25] = Cell { rank: 10, side: SIDE_BLUE, revealed: true }; // 炸弹
+        st.cells[30] = Cell { rank: 5 + 0x0c, side: SIDE_RED, revealed: true };
         assert_eq!(rules::try_move(&mut st, 25, 30).unwrap(), Ev::Bomb, "炸弹=EV_BOMB");
         assert!(st.cells[25].is_empty() && st.cells[30].is_empty(), "双格清空");
     }
@@ -235,11 +235,11 @@ mod tests {
         st.cfg[4] = 1;
         st.turn = SIDE_BLUE;
         // 0xFF 未定暗子（暗棋开局全 0xFF）
-        st.cells[49] = Cell { rank: 2, side: SIDE_UNKNOWN, revealed: 0 };
+        st.cells[49] = Cell { rank: 2, side: SIDE_UNKNOWN, revealed: false };
         assert!(crate::rules::can_flip(&st, 49), "0xFF 当前方可翻");
         assert!(crate::rules::flip(&mut st, 49));
         assert_eq!(st.cells[49].side, SIDE_BLUE, "定色归翻子方（蓝）");
-        assert_eq!(st.cells[49].revealed, 1, "翻后 revealed=1");
+        assert_eq!(st.cells[49].revealed, true, "翻后 revealed=1");
         assert_eq!(st.turn, SIDE_RED, "翻棋切回合");
     }
 

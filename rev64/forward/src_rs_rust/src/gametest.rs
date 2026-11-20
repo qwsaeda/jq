@@ -4,11 +4,11 @@
 //! 合法终局（胜/负/和/困毙之一，无非法状态）。移植到 Rust 把"行为对齐深度"拉高
 //! （单测 42 → 完整对局回归），对齐 C 正向"对齐上限"证据。
 
-use crate::state::{Cell, State, SIDE_BLUE, SIDE_RED};
+use crate::state::{Cell, State, SIDE_BLUE, SIDE_RED, Side};
 use crate::{ai, rules};
 
 /// 单方走一步（暗棋先翻，明棋走子/吃子，贪心同 ai_score）。对齐 C ai_step。
-fn ai_step(st: &mut State, _me: u8, level: u8) -> Option<(usize, usize, bool)> {
+fn ai_step(st: &mut State, _me: Side, level: u8) -> Option<(usize, usize, bool)> {
     // 走子候选（吃子族优先，复用 ai::ai_pick 的贪心 + 难度分流）
     if let Some(mv) = ai::ai_pick(st, level) {
         if !mv.is_flip {
@@ -88,9 +88,9 @@ pub fn init_from_layout_30(layout: &[u8; 30], mode: u8) -> crate::state::State {
         let lrow = i / 5;
         let lcol = i % 5;
         let (side, rank, rev) = if flip {
-            (SIDE_UNKNOWN, v, 0) // 暗棋：未定色 + raw rank + 未翻
+            (SIDE_UNKNOWN, v, false) // 暗棋：未定色 + raw rank + 未翻
         } else {
-            (SIDE_RED, v + 0x0c, 1) // 明棋红方：+0xc + 已翻
+            (SIDE_RED, v + 0x0c, true) // 明棋红方：+0xc + 已翻
         };
         // 红方半区（i>=15 布局红方 15 字节 → device row6-10）
         let (dev_row, dev_col) = (6 + lrow, 4 - lcol);
@@ -128,12 +128,12 @@ pub fn make_default_layout() -> State {
         // 蓝方：(5-lrow, lcol)
         let b_row = 5 - lrow;
         let b_idx = b_row * 5 + lcol;
-        st.cells[b_idx] = Cell { rank: v, side: SIDE_BLUE, revealed: 1 };
+        st.cells[b_idx] = Cell { rank: v, side: SIDE_BLUE, revealed: true };
         // 红方：(6+lrow, 4-lcol)，rank+0xc
         let r_row = 6 + lrow;
         let r_col = 4 - lcol;
         let r_idx = r_row * 5 + r_col;
-        st.cells[r_idx] = Cell { rank: v + 0x0c, side: SIDE_RED, revealed: 1 };
+        st.cells[r_idx] = Cell { rank: v + 0x0c, side: SIDE_RED, revealed: true };
     }
     st
 }
@@ -204,7 +204,7 @@ mod tests {
         let occupied: Vec<_> = st.cells.iter().filter(|c| !c.is_empty()).collect();
         assert!(!occupied.is_empty(), "暗棋布局有子");
         assert!(occupied.iter().all(|c| c.side == SIDE_UNKNOWN), "暗棋全未定色 0xFF");
-        assert!(occupied.iter().all(|c| c.revealed == 0), "暗棋全未翻");
+        assert!(occupied.iter().all(|c| !c.revealed), "暗棋全未翻");
         assert!(occupied.iter().all(|c| c.rank <= 12), "暗棋 rank 用 raw（不 +0xc）");
     }
 

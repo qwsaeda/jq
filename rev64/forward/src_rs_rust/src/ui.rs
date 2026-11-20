@@ -289,7 +289,7 @@ mod tests {
     fn restart_after_over() {
         let mut ui = Ui::new();
         let mut st = State::new();
-        st.cells[0] = Cell { rank: 1, side: SIDE_BLUE, revealed: 1 };
+        st.cells[0] = Cell { rank: 1, side: SIDE_BLUE, revealed: true };
         st.total_moves = 50;
         st.stage = crate::state::Stage::Over;
         ui.restart(&mut st);
@@ -330,12 +330,12 @@ mod difficulty_init_tests {
         let pieces: Vec<_> = st.cells.iter().filter(|c| !c.is_empty()).collect();
         assert!(!pieces.is_empty());
         assert!(pieces.iter().all(|c| c.side == crate::state::SIDE_UNKNOWN), "暗棋全 0xFF");
-        assert!(pieces.iter().all(|c| c.revealed == 0), "暗棋全未翻");
+        assert!(pieces.iter().all(|c| !c.revealed), "暗棋全未翻");
         // 明棋
         let mut st2 = crate::state::State::new();
         ui.difficulty_select(2, 0, &mut st2);
         let pieces2: Vec<_> = st2.cells.iter().filter(|c| !c.is_empty()).collect();
-        assert!(pieces2.iter().all(|c| c.revealed == 1), "明棋全已翻");
+        assert!(pieces2.iter().all(|c| c.revealed), "明棋全已翻");
     }
 }
 /// ★ 游戏内菜单 8 按钮几何（原版 ui_menu.c g_ingame_btns，720×1280 基准，4 列×2 行）

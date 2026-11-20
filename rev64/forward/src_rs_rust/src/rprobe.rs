@@ -8,13 +8,14 @@
 use crate::board::cell_index;
 use crate::state::{Cell, Ev, State, Stage, Winner, SIDE_BLUE, SIDE_RED, SIDE_UNKNOWN};
 use crate::rules;
+use crate::state::Side;
 
 // C 行号常量（rule_probe_shared.inc:75-77）
 const R_BLUE_BOT: usize = 0; // 蓝底线 row0
 const R_MID: usize = 5;      // 中线 row5
 const R_RED_TOP: usize = 11; // 红底线 row11
 
-fn probe_put(st: &mut State, row: usize, col: usize, rank: u8, side: u8, rev: u8) {
+fn probe_put(st: &mut State, row: usize, col: usize, rank: u8, side: Side, rev: bool) {
     st.cells[cell_index(row, col)] = Cell { rank, side, revealed: rev };
 }
 
@@ -41,9 +42,9 @@ mod tests {
     fn a1_worker_mid_to_bottom() {
         let mut st = State::new();
         probe_clear(&mut st);
-        probe_put(&mut st, R_MID, 2, 9, SIDE_BLUE, 1);
-        probe_put(&mut st, R_BLUE_BOT, 2, 1, SIDE_RED, 1);
-        st.cells[cell_index(R_BLUE_BOT, 2)] = Cell { rank: probe_red_rank(1), side: SIDE_RED, revealed: 1 };
+        probe_put(&mut st, R_MID, 2, 9, SIDE_BLUE, true);
+        probe_put(&mut st, R_BLUE_BOT, 2, 1, SIDE_RED, true);
+        st.cells[cell_index(R_BLUE_BOT, 2)] = Cell { rank: probe_red_rank(1), side: SIDE_RED, revealed: true };
         // C 基准 A1_cm_result=0：工兵 (5,2)→(0,2) 经 col2 纵线，(3,2) 行营阻断 → 不可
         // 工兵不能穿行营纵滑（行营非铁路），需绕行横向铁路（军棋 col2 唯一纵线，无绕行）
         let cm = rules::can_move(&st, cell_index(5, 2), cell_index(0, 2));
@@ -55,7 +56,7 @@ mod tests {
     fn a3_worker_into_camp() {
         let mut st = State::new();
         probe_clear(&mut st);
-        probe_put(&mut st, 4, 2, 9, SIDE_BLUE, 1);
+        probe_put(&mut st, 4, 2, 9, SIDE_BLUE, true);
         // (4,2)→(3,2)：相邻一步，但 (3,2) 是行营 → 行营不可滑行进入，仅一步相邻（此处正是一步相邻）
         let cm = rules::can_move(&st, cell_index(4, 2), cell_index(3, 2));
         // C 基准：一步相邻可行（行营空可入）→ true
@@ -67,7 +68,7 @@ mod tests {
     fn a4_into_base_empty() {
         let mut st = State::new();
         probe_clear(&mut st);
-        probe_put(&mut st, 1, 1, 9, SIDE_BLUE, 1);
+        probe_put(&mut st, 1, 1, 9, SIDE_BLUE, true);
         let cm = rules::can_move(&st, cell_index(1, 1), cell_index(0, 1));
         assert_eq!(cm, false, "A4 空大本营不可入");
     }
@@ -87,9 +88,9 @@ mod tests {
     fn b1_normal_vs_mine() {
         let mut st = State::new();
         probe_clear(&mut st);
-        probe_put(&mut st, 5, 0, 1, SIDE_BLUE, 1);
-        probe_put(&mut st, 5, 1, 11, SIDE_RED, 1);
-        st.cells[cell_index(5, 1)] = Cell { rank: probe_red_rank(11), side: SIDE_RED, revealed: 1 };
+        probe_put(&mut st, 5, 0, 1, SIDE_BLUE, true);
+        probe_put(&mut st, 5, 1, 11, SIDE_RED, true);
+        st.cells[cell_index(5, 1)] = Cell { rank: probe_red_rank(11), side: SIDE_RED, revealed: true };
         st.cfg[4] = 0; // 明棋（cfg4 关，任意子可撞雷→但雷>普通子，撞雷=送死，can_move 放行）
         // 明棋：普通子可撞雷（送死），can_move 放行（规则层合法，结算 EV_DEAD）
         let cm = rules::can_move(&st, cell_index(5, 0), cell_index(5, 1));
@@ -101,9 +102,9 @@ mod tests {
     fn b2_worker_vs_mine() {
         let mut st = State::new();
         probe_clear(&mut st);
-        probe_put(&mut st, 5, 0, 9, SIDE_BLUE, 1);
-        probe_put(&mut st, 5, 1, 11, SIDE_RED, 1);
-        st.cells[cell_index(5, 1)] = Cell { rank: probe_red_rank(11), side: SIDE_RED, revealed: 1 };
+        probe_put(&mut st, 5, 0, 9, SIDE_BLUE, true);
+        probe_put(&mut st, 5, 1, 11, SIDE_RED, true);
+        st.cells[cell_index(5, 1)] = Cell { rank: probe_red_rank(11), side: SIDE_RED, revealed: true };
         st.mode = crate::state::MODE_FLIP;
         st.cfg[4] = 1; // 暗棋门槛开：雷仅工兵
         let cm = rules::can_move(&st, cell_index(5, 0), cell_index(5, 1));
@@ -115,9 +116,9 @@ mod tests {
     fn b3_bomb_vs_flag() {
         let mut st = State::new();
         probe_clear(&mut st);
-        probe_put(&mut st, 5, 0, 10, SIDE_BLUE, 1);
-        probe_put(&mut st, 5, 1, 12, SIDE_RED, 1);
-        st.cells[cell_index(5, 1)] = Cell { rank: probe_red_rank(12), side: SIDE_RED, revealed: 1 };
+        probe_put(&mut st, 5, 0, 10, SIDE_BLUE, true);
+        probe_put(&mut st, 5, 1, 12, SIDE_RED, true);
+        st.cells[cell_index(5, 1)] = Cell { rank: probe_red_rank(12), side: SIDE_RED, revealed: true };
         let ev = rules::try_move(&mut st, cell_index(5, 0), cell_index(5, 1)).unwrap();
         assert_eq!(ev, Ev::Bomb, "B3 炸弹撞旗=EV_BOMB");
         assert_eq!(st.winner, Winner::Blue, "蓝方扛旗胜");
@@ -129,9 +130,9 @@ mod tests {
     fn b4_normal_vs_flag() {
         let mut st = State::new();
         probe_clear(&mut st);
-        probe_put(&mut st, 5, 0, 1, SIDE_BLUE, 1);
-        probe_put(&mut st, 5, 1, 12, SIDE_RED, 1);
-        st.cells[cell_index(5, 1)] = Cell { rank: probe_red_rank(12), side: SIDE_RED, revealed: 1 };
+        probe_put(&mut st, 5, 0, 1, SIDE_BLUE, true);
+        probe_put(&mut st, 5, 1, 12, SIDE_RED, true);
+        st.cells[cell_index(5, 1)] = Cell { rank: probe_red_rank(12), side: SIDE_RED, revealed: true };
         st.cfg[3] = 1;
         let ev = rules::try_move(&mut st, cell_index(5, 0), cell_index(5, 1)).unwrap();
         assert_eq!(ev, Ev::Flag, "B4 普通子扛旗=EV_FLAG");
@@ -146,7 +147,7 @@ mod tests {
         let mut st = State::new();
         probe_clear(&mut st);
         st.mode = crate::state::MODE_FLIP;
-        probe_put(&mut st, 5, 0, 1, SIDE_UNKNOWN, 0);
+        probe_put(&mut st, 5, 0, 1, SIDE_UNKNOWN, false);
         let cm = rules::can_move(&st, cell_index(5, 0), cell_index(5, 1));
         assert_eq!(cm, false, "C1 未翻暗子不可走");
     }
@@ -158,7 +159,7 @@ mod tests {
         probe_clear(&mut st);
         st.mode = crate::state::MODE_FLIP;
         st.turn = SIDE_BLUE;
-        probe_put(&mut st, 5, 0, 1, SIDE_UNKNOWN, 0);
+        probe_put(&mut st, 5, 0, 1, SIDE_UNKNOWN, false);
         assert!(rules::flip(&mut st, cell_index(5, 0)));
         assert_eq!(st.cells[cell_index(5, 0)].side, SIDE_BLUE, "定色归翻子方");
     }
@@ -170,7 +171,7 @@ mod tests {
         probe_clear(&mut st);
         st.mode = crate::state::MODE_FLIP;
         st.turn = SIDE_BLUE;
-        probe_put(&mut st, 5, 0, 11, SIDE_UNKNOWN, 0);
+        probe_put(&mut st, 5, 0, 11, SIDE_UNKNOWN, false);
         assert!(rules::can_flip(&st, cell_index(5, 0)), "C3 雷可翻（白名单只排军旗）");
     }
 
@@ -180,7 +181,7 @@ mod tests {
         let mut st = State::new();
         probe_clear(&mut st);
         st.mode = crate::state::MODE_FLIP;
-        probe_put(&mut st, 5, 0, 11, SIDE_UNKNOWN, 0); // 唯一暗子=地雷
+        probe_put(&mut st, 5, 0, 11, SIDE_UNKNOWN, false); // 唯一暗子=地雷
         // 蓝方唯一暗子是雷 → 翻雷不计可行动 → 蓝困毙（true）
         let sm = rules::side_stalemated(&st, SIDE_BLUE);
         assert_eq!(sm, true, "C4 翻雷不计可行动=困毙");
@@ -192,7 +193,7 @@ mod tests {
         let mut st = State::new();
         probe_clear(&mut st);
         st.mode = crate::state::MODE_FLIP;
-        probe_put(&mut st, 5, 0, 12, SIDE_UNKNOWN, 0);
+        probe_put(&mut st, 5, 0, 12, SIDE_UNKNOWN, false);
         let sm = rules::side_stalemated(&st, SIDE_BLUE);
         // C 64 位 R-073 基准：军旗不可翻 + 无其他子 → 蓝困毙=true（排旗+雷后唯一暗子军旗不贡献可翻）
         assert_eq!(sm, true, "C4b 军旗不可翻+无他子=困毙（64 位 R-073）");
@@ -206,8 +207,8 @@ mod tests {
         probe_clear(&mut st);
         st.mode = crate::state::MODE_FLIP;
         st.cfg[4] = 1;
-        probe_put(&mut st, 5, 0, 2, SIDE_BLUE, 1);
-        probe_put(&mut st, 5, 1, 5, SIDE_UNKNOWN, 0);
+        probe_put(&mut st, 5, 0, 2, SIDE_BLUE, true);
+        probe_put(&mut st, 5, 1, 5, SIDE_UNKNOWN, false);
         st.turn = SIDE_BLUE;
         let cm = rules::can_move(&st, cell_index(5, 0), cell_index(5, 1));
         assert_eq!(cm, true, "G2 暗棋撞未翻敌暗子可走（C 基准 1）");
@@ -220,7 +221,7 @@ mod tests {
         let mut st = State::new();
         probe_clear(&mut st);
         st.turn = SIDE_BLUE;
-        probe_put(&mut st, 5, 0, 12, SIDE_RED, 1); // 红方仅 1 枚军旗（不可动）
+        probe_put(&mut st, 5, 0, 12, SIDE_RED, true); // 红方仅 1 枚军旗（不可动）
         let sm = rules::side_stalemated(&st, SIDE_RED);
         assert_eq!(sm, true, "C5 红仅旗不可动=困毙（C 基准 1）");
     }
@@ -231,9 +232,9 @@ mod tests {
         let mut st = State::new();
         probe_clear(&mut st);
         st.cfg[2] = 1;
-        probe_put(&mut st, 5, 0, 9, SIDE_BLUE, 1);
-        probe_put(&mut st, 5, 1, 11, SIDE_RED, 1);
-        st.cells[cell_index(5, 1)] = Cell { rank: probe_red_rank(11), side: SIDE_RED, revealed: 1 };
+        probe_put(&mut st, 5, 0, 9, SIDE_BLUE, true);
+        probe_put(&mut st, 5, 1, 11, SIDE_RED, true);
+        st.cells[cell_index(5, 1)] = Cell { rank: probe_red_rank(11), side: SIDE_RED, revealed: true };
         let ev = rules::try_move(&mut st, cell_index(5, 0), cell_index(5, 1)).unwrap();
         assert_eq!(ev, Ev::Mine, "C6 工兵挖雷=EV_MINE");
         assert_eq!(st.mines_cleared[0], 1, "C6 挖雷计数+1");
@@ -249,7 +250,7 @@ mod tests {
         st.cfg[4] = 1;
         st.total_moves = 5;
         st.moves_since_eat = 7;
-        probe_put(&mut st, 5, 0, 2, SIDE_UNKNOWN, 0);
+        probe_put(&mut st, 5, 0, 2, SIDE_UNKNOWN, false);
         st.turn = SIDE_BLUE;
         let _ = rules::flip(&mut st, cell_index(5, 0));
         assert_eq!(st.total_moves, 5, "D1 翻棋不计 total_moves");
@@ -262,7 +263,7 @@ mod tests {
         // C 基准 E1=1：工兵 (4,2)idx22 → (6,4)idx34 同段拐弯
         let mut st = State::new();
         probe_clear(&mut st);
-        probe_put(&mut st, 4, 2, 9, SIDE_BLUE, 1);
+        probe_put(&mut st, 4, 2, 9, SIDE_BLUE, true);
         let cm = rules::can_move(&st, cell_index(4, 2), cell_index(6, 4));
         assert_eq!(cm, true, "E1 工兵同段拐弯（C 基准 1）");
     }
@@ -272,7 +273,7 @@ mod tests {
         // C 基准 E2=0：工兵 (4,2)idx22 → (0,2)idx2 跨 row3 行营阻断
         let mut st = State::new();
         probe_clear(&mut st);
-        probe_put(&mut st, 4, 2, 9, SIDE_BLUE, 1);
+        probe_put(&mut st, 4, 2, 9, SIDE_BLUE, true);
         let cm = rules::can_move(&st, cell_index(4, 2), cell_index(0, 2));
         assert_eq!(cm, false, "E2 工兵跨 row3 行营阻断（C 基准 0）");
     }
@@ -286,7 +287,7 @@ mod tests {
         st.mode = crate::state::MODE_FLIP;
         st.cfg[4] = 1;
         st.turn = SIDE_BLUE;
-        probe_put(&mut st, 5, 0, 2, SIDE_UNKNOWN, 0);
+        probe_put(&mut st, 5, 0, 2, SIDE_UNKNOWN, false);
         let _ = rules::flip(&mut st, cell_index(5, 0));
         assert_eq!(st.cells[cell_index(5, 0)].side, SIDE_BLUE, "F1 首翻定色蓝");
         assert_eq!(st.turn, SIDE_RED, "F1 翻后切红");
@@ -300,7 +301,7 @@ mod tests {
         st.mode = crate::state::MODE_FLIP;
         st.cfg[4] = 1;
         st.turn = SIDE_BLUE;
-        probe_put(&mut st, 5, 0, 2, SIDE_UNKNOWN, 0);
+        probe_put(&mut st, 5, 0, 2, SIDE_UNKNOWN, false);
         let _ = rules::flip(&mut st, cell_index(5, 0));
         // 翻后红方仍 0xFF 未翻子（可翻）→ 红不困毙
         let sm_red = rules::side_stalemated(&st, SIDE_RED);
@@ -316,8 +317,8 @@ mod tests {
         st.mode = crate::state::MODE_FLIP;
         st.cfg[4] = 1;
         st.turn = SIDE_BLUE;
-        probe_put(&mut st, 5, 0, 2, SIDE_BLUE, 1); // 蓝已翻 rank2
-        probe_put(&mut st, 5, 1, 8, SIDE_UNKNOWN, 0); // 红未翻暗子（真 rank8）
+        probe_put(&mut st, 5, 0, 2, SIDE_BLUE, true); // 蓝已翻 rank2
+        probe_put(&mut st, 5, 1, 8, SIDE_UNKNOWN, false); // 红未翻暗子（真 rank8）
         let ev = rules::try_move(&mut st, cell_index(5, 0), cell_index(5, 1)).unwrap();
         assert_eq!(ev, Ev::Eat, "G3 撞未翻暗子=EV_EAT（C 64 位 R-004 基准 1）");
     }
@@ -330,7 +331,7 @@ mod tests {
         probe_clear(&mut st);
         st.cfg = [1, 1, 1, 1, 0];
         // 红方全空（杀光），蓝方 1 子
-        probe_put(&mut st, 5, 0, 1, SIDE_BLUE, 1);
+        probe_put(&mut st, 5, 0, 1, SIDE_BLUE, true);
         let sm = rules::side_stalemated(&st, SIDE_RED);
         // C 64 位 R-018：杀光判据未独立实现，靠困毙近似 → 红无子=困毙=true
         assert!(sm, "G4 红杀光=困毙（C 64 位近似，R-018 分叉基线内）");

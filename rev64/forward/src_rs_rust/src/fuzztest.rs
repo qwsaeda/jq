@@ -4,7 +4,7 @@
 
 #[cfg(test)]
 mod tests {
-    use crate::state::{State, Stage, Winner, SIDE_BLUE, SIDE_RED, SIDE_UNKNOWN};
+    use crate::state::{Side, State, Stage, Winner, SIDE_BLUE, SIDE_RED, SIDE_UNKNOWN};
     use crate::{ai, rules};
 
     /// xorshift32（先变换后保存，避免 C 首版自 bug）
@@ -31,7 +31,7 @@ mod tests {
             while st.stage == Stage::Play && steps < 200 {
                 steps += 1;
                 // 不变量：turn 域 / winner 域 / cells rank 域
-                assert!(st.turn <= 1, "turn 域");
+                assert!(st.turn.is_valid(), "turn 域（Side enum 类型安全）");
                 assert!(matches!(st.winner, Winner::None | Winner::Blue | Winner::Red | Winner::Draw));
                 assert!(st.cells.iter().all(|c| c.rank <= 24), "rank 存储域 [0,24]");
                 // 随机走子（ai_pick 优先，否则随机合法）
@@ -121,7 +121,7 @@ mod tests {
         for seed in [1u32, 42, 999] {
             let mut rng = Rng::new(seed);
             let mut st = crate::gametest::make_default_layout();
-            st.turn = (rng.next() % 2) as u8;
+            st.turn = if rng.next() % 2 == 0 { SIDE_BLUE } else { SIDE_RED };
             st.mode = (rng.next() % 2) as u8;
             st.winner = match rng.next() % 4 {
                 0 => Winner::None, 1 => Winner::Blue, 2 => Winner::Red, _ => Winner::Draw,
@@ -135,20 +135,20 @@ mod tests {
         }
         // 契约2：脏枚举（turn>1/mode>1）拒读
         let mut bad = crate::gametest::make_default_layout();
-        bad.turn = 2;
-        assert!(!crate::save::validate_state(&mut bad), "契约2：turn=2 拒读");
+        bad.mode = 2; // turn 已 Side enum（非法判别值无法表达），改测 mode 越域
+        assert!(!crate::save::validate_state(&mut bad), "契约2：mode=2 拒读");
         let mut bad2 = crate::gametest::make_default_layout();
         bad2.mode = 9;
         assert!(!crate::save::validate_state(&mut bad2), "契约2：mode=9 拒读");
-        // 契约3：越域格（rank>24 / side 非法 / revealed>1）归零
+        // 契约3：越域格（rank>24 / side 非法）归零
+        // ★ revealed 已 bool 类型安全（非法值无法表达），原"revealed=2 归零"契约
+        //   前移到反序列化边界（u8→bool try_from），内部字段不再需要该校验。
         let mut dirty = crate::gametest::make_default_layout();
         dirty.cells[0].rank = 99; // 越域
-        dirty.cells[1].side = 7;  // 非法 side
-        dirty.cells[2].revealed = 2; // 非法 revealed
+        assert!(Side::from_raw(7).is_none(), "契约3：非法 side=7 被边界拒");
         assert!(crate::save::validate_state(&mut dirty));
         assert_eq!(dirty.cells[0].rank, 0, "契约3：越域 rank 归零");
-        assert_eq!(dirty.cells[1].side, SIDE_UNKNOWN, "契约3：非法 side 归 UNKNOWN");
-        assert_eq!(dirty.cells[2].revealed, 0, "契约3：非法 revealed 归零");
+        
         // 计数负值钳 0
         let mut neg = crate::gametest::make_default_layout();
         neg.pieces_left = [-5, -3];
