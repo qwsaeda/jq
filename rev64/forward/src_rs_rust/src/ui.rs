@@ -28,6 +28,7 @@ pub enum Screen {
     GameSet,   // 游戏设置弹窗（4 规则开关 + 确定/取消）
     Settings,  // 声音设置弹窗（音效开关 + 确定/取消）
     ExitConfirm, // 退出确认（退出/继续）
+    Replay,    // 复盘回放（棋盘 + 底部控制条，规格 §7）
 }
 
 /// UI 状态机（人机对战）

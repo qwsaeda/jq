@@ -147,6 +147,23 @@ mod android_impl {
                 crate::log::setprop("jq.menutest_res", "menu_ready");
             });
         }
+        // ⑦ 终局画面钩子：jq.overtest=1 → 设 stage=Over + winner=Blue（验证终局横幅渲染）
+        if crate::log::hook_triggered("overtest") {
+            with_lock(|st, u, _c| {
+                st.stage = crate::state::Stage::Over;
+                st.winner = crate::state::Winner::Blue;
+                u.screen = ui::Screen::Game;
+                crate::log::setprop("jq.overtest_res", "over_set");
+            });
+            crate::log::setprop("jq.overtest", "0");
+        }
+        // ⑧ 复盘画面钩子：jq.replayuitest=1 → Replay 态（验证复盘控制条渲染）
+        if crate::log::hook_triggered("replayuitest") {
+            with_lock(|_st, u, _c| {
+                u.screen = ui::Screen::Replay;
+                crate::log::setprop("jq.replayuitest_res", "replay_ready");
+            });
+        }
     }
 
     /// ★ 审计 A10：快照同时返回屏态（渲染按 ui.screen 分屏合成）

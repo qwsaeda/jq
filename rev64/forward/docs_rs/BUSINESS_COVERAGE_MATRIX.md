@@ -55,6 +55,11 @@
 
 ### 菜单流程业务接线（续，2026-11-20）
 ### 完整菜单流程闭环（2026-11-20 实锤）
+### 终局遮罩 + 复盘态绘制（2026-11-20，剩余屏态补齐）
+- **终局遮罩**：asset.rs 对齐 C rs_draw_overlay 真值（蓝 0.15/0.35/0.85、红 0.85/0.20/0.20、和棋灰 0.55，alpha 0.9 中心横幅）。overtest 钩子真机实锤：横幅均色 (55,95,205) 蓝通道主导。
+- **复盘态**：ui.rs 加 Screen::Replay，asset.rs 画棋盘 + 底部 5 按钮控制条（对齐 datah_107）。replayuitest 钩子真机实锤：橙色按钮比 85%。
+- 至此所有核心屏态（Menu/Game/Difficulty/GameSet/Settings/ExitConfirm/Replay/终局遮罩）均有绘制路径。
+
 - 真机 152 完整玩家路径：menutest 切 Menu → tap 人机按钮(448,1131) → Difficulty 态 → tap 难度按钮(440,606) → **`difficulty=2_0`（level=2 中级, mode=0 布局）** → 开局 Game 态 → **走子 move=Move**（touch_screen=Game）。
 - 根因修复：menutest 钩子在 houdini 下文件删除失败导致每帧重复切 Menu → 加 AtomicBool 内存标记防重复。
 - 这是真实玩家路径（非测试钩子直接进 Game），菜单→难度→开局→走子全链打通。

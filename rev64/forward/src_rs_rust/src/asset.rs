@@ -79,7 +79,7 @@ mod imp {
             else { BG_ROW6_CY + (image_row - 6) as f32 * BG_ROW_H }
         };
         // ★ 审计 A10：仅对局/终局态画棋子；菜单/弹窗态只画背景（屏态分屏）
-        let show_pieces = matches!(screen, crate::ui::Screen::Game | crate::ui::Screen::IngameMenu);
+        let show_pieces = matches!(screen, crate::ui::Screen::Game | crate::ui::Screen::IngameMenu | crate::ui::Screen::Replay);
         if show_pieces {
         if let Some(st) = board {
             for device_row in 0..12usize {
@@ -141,6 +141,53 @@ mod imp {
             }
         }
         } // end show_pieces（含内部 if let Some(st)）
+        // ★ 业务对齐：终局胜负横幅（对齐 C rs_draw_overlay 真值）
+        //   蓝(0.15,0.35,0.85)/红(0.85,0.20,0.20)/和棋灰(0.55,0.55,0.55)，中心横幅 + 半透明
+        // ★ 复盘态底部控制条（对齐 C datah_107 底部 5 按钮控制条）
+        if screen == crate::ui::Screen::Replay {
+            let bar_y0 = (h as f32 * 0.88) as usize;
+            let bar_y1 = (h as f32 * 0.96) as usize;
+            for y in bar_y0..bar_y1 {
+                for x in (w as f32 * 0.05) as usize..(w as f32 * 0.95) as usize {
+                    let di = (y * w + x) * 4;
+                    out[di] = 40; out[di+1] = 45; out[di+2] = 55; // 深灰控制条
+                }
+            }
+            // 5 按钮（菜单/回退/前进/跳转/返回）
+            for i in 0..5 {
+                let bx0 = (w as f32 * (0.08 + i as f32 * 0.17)) as usize;
+                let bx1 = bx0 + (w as f32 * 0.14) as usize;
+                for y in (bar_y0 + 4)..(bar_y1 - 4) {
+                    for x in bx0..bx1.min(w) {
+                        let di = (y * w + x) * 4;
+                        out[di] = 230; out[di+1] = 128; out[di+2] = 38; // 橙色按钮
+                    }
+                }
+            }
+        }
+        if let Some(st) = board {
+            if st.stage == crate::state::Stage::Over {
+                let (br, bg, bb): (u8, u8, u8) = match st.winner {
+                    crate::state::Winner::Blue => (38, 89, 217),   // 0.15,0.35,0.85 ×255
+                    crate::state::Winner::Red => (217, 51, 51),    // 0.85,0.20,0.20 ×255
+                    _ => (140, 140, 140),                           // 和棋灰 0.55 ×255
+                };
+                // 中心横幅（屏幕中部 20% 高度）
+                let by0 = (h as f32 * 0.40) as usize;
+                let by1 = (h as f32 * 0.60) as usize;
+                let bx0 = (w as f32 * 0.10) as usize;
+                let bx1 = (w as f32 * 0.90) as usize;
+                for y in by0..by1 {
+                    for x in bx0..bx1 {
+                        let di = (y * w + x) * 4;
+                        // alpha 0.9 混合
+                        out[di] = ((out[di] as u16 * 1 + br as u16 * 9) / 10) as u8;
+                        out[di+1] = ((out[di+1] as u16 * 1 + bg as u16 * 9) / 10) as u8;
+                        out[di+2] = ((out[di+2] as u16 * 1 + bb as u16 * 9) / 10) as u8;
+                    }
+                }
+            }
+        }
         out
     }
 }
