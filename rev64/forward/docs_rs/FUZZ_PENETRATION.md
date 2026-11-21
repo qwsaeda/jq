@@ -441,6 +441,19 @@ Rust 版真机全链 PASS 仍由正向会话负责（其交付物 phase_rs_rust.
 - 踩坑：多包同名 label → frida 进程名不可靠，必须 `adb pidof com.zxj.junqirs` 取真实 pid
   传 `--pid`；force-stop 残留 `do_freezer_trap` 冻结态 attach 超时 → 重起 app 恢复 sleeping。
 
+**★ 2026-11-21 本会话 C 版完整对局链（input tap 注入通道，pid 20637）**：
+```
+菜单 btn0(448,1132) → UI_DIFFICULTY → 难度"新手"(438,660) → 明棋开局 AI 走红
+→ 蓝走 cell6(274,1383 选中)→cell11(274,1294) can_move=1 → Junqi.Move（move=1）
+→ 红方 AI 应着 cell31→36 Junqi.Move（turn 切回蓝）→ 回合交替闭环
+```
+- **诚实边界**：本链走 `input tap`（InputManager 注入通道），**非 sendevent 真实触摸**——
+  这台设备当前 sendevent event4 零事件（nemuinput/uinput 输入桥状态问题，历史 §124y
+  已知环境故障）；真实触摸判据在 Rust 版上曾实证（早前会话），C 版此处标注为注入通道等价证据。
+- 踩坑：app 渲染线程卡死后 BufferQueue abandoned + OnTouch 零日志 → 需 force-stop 干净重起
+  恢复（`board=OK` 日志出现后再 tap）；sendevent 轴表 BTN_TOUCH 不存在（仅 BTN_MOUSE/
+  BTN_TOOL_FINGER），不要照搬历史 330 序列。
+
 ## 3. 诚实边界
 
 - **fuzz 只查崩溃/非法态，不查行为正确性**——不崩 ≠ 行为对齐原版（行为对照靠 `rule_probe_compare.py` 双端 36 case + `align_gate.sh` 事件/布局判据）
