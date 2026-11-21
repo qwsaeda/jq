@@ -55,6 +55,12 @@ C_OUT=$(python3 "$WS/rev64/tools/vtable_dispatch_fuzz.py" 2>&1); C_RC=$?
 echo "$C_OUT" | grep -E "判据:|①|②|诚实边界" | tail -5
 [ $C_RC -ne 0 ] && { echo "  ✗ C 段 FAIL（rc=$C_RC）"; FAILS=$((FAILS+1)); } || echo "  ✓ C 段 PASS"
 
+# ── C4 GOT/PLT 映射表逐项结构（零设备依赖）──
+echo "── C4 GOT/PLT 映射表逐项结构 fuzz ──"
+C4_OUT=$(python3 "$WS/rev64/tools/got_plt_matrix_fuzz.py" 2>&1); C4_RC=$?
+echo "$C4_OUT" | grep -E "①|⑥|判据:" | tail -3
+[ $C4_RC -ne 0 ] && { echo "  ✗ C4 段 FAIL（rc=$C4_RC）"; FAILS=$((FAILS+1)); } || echo "  ✓ C4 段 PASS"
+
 # ── C3 原版 .rel.dyn 5325 槽逐项结构（零设备依赖）──
 echo "── C3 重定位表 5325 槽逐项结构 fuzz ──"
 C3_OUT=$(python3 "$WS/rev64/tools/reloc_matrix_fuzz.py" 2>&1); C3_RC=$?
@@ -103,9 +109,9 @@ fi
 echo "════════ 汇总 ════════"
 if [ $FAILS -eq 0 ]; then
   if [ $DEVICE -eq 1 ]; then
-  echo "渗透轮判据: PASS（A 正向 + B 32位 + C dispatch + C2 事件表 + C3 重定位表 + D Frida 设备侧全通）"
+  echo "渗透轮判据: PASS（A 正向 + B 32位 + C dispatch + C2 事件表 + C3 重定位 + C4 GOT/PLT + D Frida 设备侧全通）"
 else
-  echo "渗透轮判据: PASS（A 正向 + B 32位 + C dispatch + C2 事件表 + C3 重定位表 全通；D 设备侧未跑，加 --device）"
+  echo "渗透轮判据: PASS（A 正向 + B 32位 + C dispatch + C2 事件表 + C3 重定位 + C4 GOT/PLT 全通；D 设备侧未跑，加 --device）"
 fi
   exit 0
 else
