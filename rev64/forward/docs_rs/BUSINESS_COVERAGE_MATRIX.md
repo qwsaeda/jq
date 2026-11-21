@@ -153,3 +153,12 @@
 **至此独立的原版行为证据覆盖**：ai_score（154 case）+ 棋盘几何（950 case）+ 规则引擎双端（36 case，2 已知分叉）。
 **仍有边界**：带 `jq_state*` 的规则函数（can_move/try_move/flip/stalemate）工具 bridge 不了（固有限制），其对齐靠 36 case 双端探针 + C 基准移植测试；AI 决策链/UI 状态机无原版 so 现场录制。
 **诚实结论**：关键纯函数与规则行为有真独立双端证据；核心业务（规则/几何/AI评分）对齐可信，但不宣称"全部逐条对原版对齐"——带指针函数与 UI/决策链仍是移植测试+真机物理证据。
+
+### 三条独立判据的负向非恒真验证（2026-11-21）
+| 判据 | 负向注入 | 结果 |
+|---|---|---|
+| rust_anything_check（ai_score 154 case） | 注入 Rust 独有 -2 哨兵 | diff 检出 12 处 → PASS（非恒真） |
+| rust_geom_check（几何 950 case） | 原版 BOARD_COLS 5→6 | diff 检出 cell_index 多处分叉 → FAIL（非恒真） |
+| rp_desktop_compare（规则双端 36 case） | 原版 is_rail row5→4 | diff 检出 G3 等分叉 → FAIL（非恒真） |
+
+三条独立判据全部验证"改了能检出"，不是判据恒真假绿。
