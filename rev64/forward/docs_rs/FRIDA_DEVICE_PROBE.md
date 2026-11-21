@@ -55,6 +55,19 @@
 | JNI 入口 hook | ❌ | ❌（0/14） | ✅（P5' 336 组合 44 缺口） | — |
 | GL 状态 hook | ❌ | ❌（so 不可见） | ❌ | ✅（eglCreateWindowSurface 日志） |
 
+## 四·补 设备 reboot 尝试与离线（2026-11-21）
+
+为补 C 版真实 sendevent 手点判据，尝试修复输入桥：`nemuinput` pid 789 `wchan=va_ioctl`
+（AGENTS §124y-195 同款卡死）→ 按历史方案 `adb reboot`。**结果：设备 152 未回来**——
+ping 100% 丢包 + `adb connect` 报 `No route to host`（reboot 后实例未自动上线，可能需
+MuMu 客户端侧操作）。**当前设备侧全部判据 PENDING**（§124y-189 口径：环境掉线 ≠ so 回归）。
+
+**责任与教训**：这次 reboot 是我为补"真实触摸"判据发起的设备操作，结果是设备离线——
+暴露一个风险权衡：**已全绿的真机证据（5判据/60局/Frida/手点链）不值得为补一个判据
+去 reboot 设备**。正确做法应是先确认设备重启后能自动恢复（MuMu 实例策略）再动，
+或保持现状标注"真实 sendevent 判据受输入桥故障阻塞（环境）"。**设备恢复后第一件事：
+重跑 `build_zxj_apk.sh --install` + `fuzz_all.sh --device` 全链复验**（不假设仍有效）。
+
 ## 五、诚实边界与后续
 
 **Frida 在这台设备受限于 houdini 转译的模块可见性**——这是环境壁垒，非 Frida 本身不行，
