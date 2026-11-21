@@ -7313,3 +7313,27 @@ jq_rs_rules.c 注释定论。
   ③ 这与 §119"查到真值再推进"不矛盾——真值就是"红线禁止"，止步本身是正确结论。
 - **状态**：该 redroid 实例仅做了只读查询（getprop/pm path），未执行任何测试/装机/脚本，
   未起新容器。是否可用于 32 位验证由用户裁决。
+
+### 123. redroid（5556）32 位 ARM 验证尝试的终局结论（§123 2026-11-21）
+
+用户 2026-11-21 授权"可用"后，按 §122 纪律先核对身份（redroid12_x86_64 / Android 12 /
+`isa.arm=x86`）+ 只连它不动 152 + 做完即断。尝试用本会话最新 `phase_chain_arm32.apk`
+（so d8c98fd9，lib/armeabi/libjunqi.so）验证 32 位翻译体。
+
+**终局实锤（logcat）**：
+```
+java.lang.UnsatisfiedLinkError: dlopen failed:
+".../lib/arm/libjunqi.so" is for EM_ARM (40) instead of EM_386 (3)
+→ Process com.cnvcs.junqi32 (pid 7169) has died
+```
+**根因**：redroid 的 `abilist` 声明 armeabi，但 `isa.arm=x86` 的 houdini 转译器**不工作**
+——linker 直接拒绝 ARM ELF（EM_ARM）而非转译它。**abilist 里的 armeabi 是虚假声明**：
+装得上（APK install Success）但跑不起来。这正是 AGENTS 禁用 redroid 的技术根因之一
+（"redroid 无 GPU / 32 位 native bridge 不完整 / arm64 库 dlopen 失败"，历史记录一致）。
+
+**结论**：redroid 也做不了 32 位 ARM 真机验证——**真 32 位 ARM 原生设备仍是唯一缺口**，
+且这个缺口是硬件条件，不是"换个模拟器能解"。这次验证把"redroid 能否补缺口"从
+"表面可试"变成"实证不行"，缺口边界彻底钉死。
+
+**纪律兑现**：用户授权 → 只读核对身份 → 做完立即 `adb disconnect`（已确认 adb devices 为空）
+→ 全程未碰 152、未起新容器、未执行 redroid_test.sh（仍禁用）。
