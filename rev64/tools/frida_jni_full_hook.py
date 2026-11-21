@@ -76,12 +76,16 @@ rpc.exports = {
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--dev', default='10.0.182.152:5555')
+    ap.add_argument('--pid', type=int, default=None, help='精确 pid（多包同名 label 时用 adb pidof 取）')
     ap.add_argument('--wait', type=int, default=15)
     a = ap.parse_args()
 
     dev = frida.get_device(a.dev, timeout=10)
-    procs = [p for p in dev.enumerate_processes()
-             if p.name == 'com.qwsaeda.junqirs' or p.name == '新军棋' or 'junqi' in p.name.lower()]
+    if a.pid:
+        procs = [p for p in dev.enumerate_processes() if p.pid == a.pid]
+    else:
+        procs = [p for p in dev.enumerate_processes()
+                 if p.name == 'com.qwsaeda.junqirs' or p.name == '新军棋' or 'junqi' in p.name.lower()]
     if not procs:
         print('FAIL: app 未运行'); return 2
     print('== Frida JNI 桥梁全量 hook（libart 类活动流，pid=%d）==' % procs[0].pid)

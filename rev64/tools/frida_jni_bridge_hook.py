@@ -70,6 +70,7 @@ rpc.exports = {
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--dev', default='10.0.182.152:5555')
+    ap.add_argument('--pid', type=int, default=None, help='精确 pid（多包同名 label 时用 adb pidof 取）')
     ap.add_argument('--wait', type=int, default=20)
     ap.add_argument('--spawn', action='store_true', help='spawn 模式（从启动开始 hook，抓 OnCreate 早期 JNI 链）')
     a = ap.parse_args()
@@ -88,8 +89,11 @@ def main():
         dev.resume(pid)   # 恢复启动 → hook 已就位，抓早期 JNI
         print('   hook 安装: %s' % sc.exports_sync.hooked())
     else:
-        procs = [p for p in dev.enumerate_processes()
-                 if p.name == 'com.qwsaeda.junqirs' or p.name == '新军棋' or 'junqi' in p.name.lower()]
+        if a.pid:
+            procs = [p for p in dev.enumerate_processes() if p.pid == a.pid]
+        else:
+            procs = [p for p in dev.enumerate_processes()
+                     if p.name == 'com.qwsaeda.junqirs' or p.name == '新军棋' or 'junqi' in p.name.lower()]
         if not procs:
             print('FAIL: app 未运行（请先 am start 或用 --spawn）'); return 2
         print('== Frida JNI 桥梁 hook（libart::FindClass，%s pid=%d）==' % (a.dev, procs[0].pid))

@@ -432,6 +432,15 @@ Thumb 位清除命中 ⑤ fns/offs 名值 5463/5463 对应。
 
 Rust 版真机全链 PASS 仍由正向会话负责（其交付物 phase_rs_rust.apk）——两版互不覆盖。
 
+**★ 2026-11-21 本会话 C 版设备侧证据补齐（com.zxj pid 19750）**：
+- Frida JNI 桥梁 hook：`--pid 19750` 精确 attach（两包同名 label"新军棋"→ 按 pid 区分，
+  探针加 `--pid` 参数）→ **31 类查找**（C 版 JNI 活动比 Rust 版 6 类更丰富）
+- Frida 全量桥梁 hook：3 节点 + 2 事件 PASS
+- **sendevent 真实手点**：`/dev/input/event4` 轴表 47/53/54/57/330 → `UI命中 按钮0
+  → UI_DIFFICULTY`（本会话 C 版真实触摸链实证，不再借正向 Rust 版）
+- 踩坑：多包同名 label → frida 进程名不可靠，必须 `adb pidof com.zxj.junqirs` 取真实 pid
+  传 `--pid`；force-stop 残留 `do_freezer_trap` 冻结态 attach 超时 → 重起 app 恢复 sleeping。
+
 ## 3. 诚实边界
 
 - **fuzz 只查崩溃/非法态，不查行为正确性**——不崩 ≠ 行为对齐原版（行为对照靠 `rule_probe_compare.py` 双端 36 case + `align_gate.sh` 事件/布局判据）
