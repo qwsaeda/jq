@@ -501,6 +501,14 @@ mod android_impl {
                 return 0;
             }
             ui::Screen::Game => {
+                // ★ 对齐原版：终局"再来一局"按钮（C render.c x35%-65% y62%-72% @900×1600）
+                //   stage==OVER 时 tap 落该区 → restart（原版点这里直接重开一局）
+                let over = with_lock(|st, _u, _c| st.stage == crate::state::Stage::Over);
+                if over && x >= 315.0 && x <= 585.0 && y >= 992.0 && y <= 1152.0 {
+                    with_lock(|st, u, _c| u.restart(st));
+                    crate::log::setprop("jq.ingame_act", "restart");
+                    return 1;
+                }
                 // ★ 顶部图标区（C 真值：☰ 中心(216,720) ↩(496,720) @720基准 → view×1.25）
                 //   点击顶部 y<820（view）且靠边→游戏内菜单/悔棋，不走棋盘走子
                 if y < 820.0 {

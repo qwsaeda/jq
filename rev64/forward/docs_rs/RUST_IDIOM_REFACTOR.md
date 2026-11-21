@@ -142,3 +142,10 @@
 - **假象链**：旧判据 `getprop jq.wgpu_thread=rendering` 实际读残留值；画面明明正常（截图 98% 非黑）属性却停在 canvas_err → 判据假 FAIL/假绿。我曾误判为代码 bug 改了"每帧写状态"（逻辑更正确，保留），但无效——根因是属性写不进。
 - **根治**：`rust_all.sh` 出屏/重进判据改用**截图像素**（screencap → PIL 非黑比 > 0.85，轮询 20s 抗启动延迟），不可伪造、不依赖属性。实测 boot/restart 均 0.980 非黑比，全 PASS。
 - 教训固化：真机判据优先用"不可伪造的物理证据"（截图像素），属性/日志只是辅助诊断（可被系统污染/权限拒绝）。这是继"Fatal 盲区"之后的第二个判据可信度教训。
+
+## 终局"再来一局"按钮对齐原版（2026-11-21，业务真值差异修复）
+- **差异**：C `rs_draw_overlay` 终局画横幅(x20-80/y42-58)+绿色"再来一局"按钮(x35-65/y62-72)，Rust 旧版只画横幅(x10-90/y40-60)无按钮，重开只能走 ☰ 菜单——功能可达但 UI 路径与原版不同。
+- **修**（asset.rs + jni.rs + ui.rs）：① 横幅对齐 C 几何 ② 画绿色按钮(0.20,0.75,0.30 alpha0.9) ③ Screen::Game 分支最前加终局按钮命中(x315-585/y992-1152 @900×1600)→restart ④ **顺带修真 bug**：Ui::restart 旧实现只清空 cells→重开是空棋盘无子可走；改为随 mode 重载 30 字节布局(init_from_layout_30，对齐 C jq_restart_game)。
+- **真机实证**：jq.overtest 钩子设终局→按钮中心像素(57,182,74)绿→tap(450,1072)→jq.ingame_act=restart→截图满盘50子红蓝棋子+按钮消失→二次点击不触发(stage已Play)。so 123b03fb。
+- **踩坑**：jq_hook_overtest 文件在 houdini 下删不掉(已知坑)→每帧重设 stage=Over→点按钮后立刻回终局；测试时须先 rm -f /data/local/tmp/jq_hook_*。
+- 判据：95测试(含 restart_after_over 改为验50子重载)/clippy0/0错0警。

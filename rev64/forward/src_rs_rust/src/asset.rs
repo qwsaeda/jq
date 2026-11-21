@@ -195,11 +195,11 @@ mod imp {
                     crate::state::Winner::Red => (217, 51, 51),    // 0.85,0.20,0.20 ×255
                     _ => (140, 140, 140),                           // 和棋灰 0.55 ×255
                 };
-                // 中心横幅（屏幕中部 20% 高度）
-                let by0 = (h as f32 * 0.40) as usize;
-                let by1 = (h as f32 * 0.60) as usize;
-                let bx0 = (w as f32 * 0.10) as usize;
-                let bx1 = (w as f32 * 0.90) as usize;
+                // 中心横幅（C rs_draw_overlay 真值：x20%-80% y42%-58%）
+                let by0 = (h as f32 * 0.42) as usize;
+                let by1 = (h as f32 * 0.58) as usize;
+                let bx0 = (w as f32 * 0.20) as usize;
+                let bx1 = (w as f32 * 0.80) as usize;
                 for y in by0..by1 {
                     for x in bx0..bx1 {
                         let di = (y * w + x) * 4;
@@ -207,6 +207,20 @@ mod imp {
                         out[di] = ((out[di] as u16 * 1 + br as u16 * 9) / 10) as u8;
                         out[di+1] = ((out[di+1] as u16 * 1 + bg as u16 * 9) / 10) as u8;
                         out[di+2] = ((out[di+2] as u16 * 1 + bb as u16 * 9) / 10) as u8;
+                    }
+                }
+                // ★ 对齐原版：终局"再来一局"绿色按钮（C rs_draw_overlay x35%-65% y62%-72%）
+                let gy0 = (h as f32 * 0.62) as usize;
+                let gy1 = (h as f32 * 0.72) as usize;
+                let gx0 = (w as f32 * 0.35) as usize;
+                let gx1 = (w as f32 * 0.65) as usize;
+                for y in gy0..gy1 {
+                    for x in gx0..gx1 {
+                        let di = (y * w + x) * 4;
+                        // 绿色 0.20,0.75,0.30 ×255 alpha 0.9（对齐 C glUniform4f）
+                        out[di] = ((out[di] as u16 + 51 * 9) / 10) as u8;
+                        out[di+1] = ((out[di+1] as u16 + 191 * 9) / 10) as u8;
+                        out[di+2] = ((out[di+2] as u16 + 77 * 9) / 10) as u8;
                     }
                 }
             }

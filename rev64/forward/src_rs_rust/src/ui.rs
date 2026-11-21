@@ -147,18 +147,20 @@ impl Ui {
     }
 
     /// 终局"再来一局"→ 重开（规格 §10：stage==OVER 区）
+    /// ★ 对齐 C jq_restart_game：随当前 mode 重载布局（明棋 +0xc / 暗棋 0xFF），
+    ///   旧实现只清空 cells → 重开是空棋盘，玩家无子可走（真 bug）。
     pub fn restart(&mut self, st: &mut State) {
         self.undo_stack.clear();
-        let snap_mode = st.mode;
-        st.cells = [crate::state::Cell::empty(); crate::board::N_CELLS];
+        let mode = st.mode;
+        let layout = [
+            3u8,7,6,5,8, 10,0,9,0,1, 2,10,0,9,5,
+            4,0,6,0,7, 8,3,4,9,11, 11,12,11,8,7,
+        ];
+        *st = crate::gametest::init_from_layout_30(&layout, mode);
+        st.cfg = [1, 1, 1, 1, 1];
         st.turn = crate::state::SIDE_BLUE;
         st.stage = crate::state::Stage::Play;
         st.winner = crate::state::Winner::None;
-        st.moves_since_eat = 0;
-        st.total_moves = 0;
-        st.mines_cleared = [0, 0];
-        st.pieces_left = [0, 0];
-        st.mode = snap_mode;
         self.screen = Screen::Game;
     }
 
@@ -290,16 +292,16 @@ mod tests {
         assert_eq!(st.cfg, [1, 1, 1, 1, 1], "取消恢复原开关");
     }
 
-    // §10 终局"再来一局"→ 重开（棋盘清空 + 计数归零 + 回对局）
+    // §10 终局"再来一局"→ 重开（对齐 C jq_restart_game：随 mode 重载布局 + 计数归零 + 回对局）
     #[test]
     fn restart_after_over() {
         let mut ui = Ui::new();
         let mut st = State::new();
-        st.cells[0] = Cell { rank: Rank(1), side: SIDE_BLUE, revealed: true };
-        st.total_moves = 50;
         st.stage = crate::state::Stage::Over;
+        st.total_moves = 50;
         ui.restart(&mut st);
-        assert!(st.cells[0].is_empty(), "重开棋盘清空");
+        let pieces = st.cells.iter().filter(|c| !c.is_empty()).count();
+        assert!(pieces == 50, "重开重载布局=50子（原版每方25）；旧实现清空成空棋盘是 bug");
         assert_eq!(st.total_moves, 0, "计数归零");
         assert_eq!(st.stage, crate::state::Stage::Play);
         assert_eq!(ui.screen, Screen::Game);
