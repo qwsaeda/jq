@@ -403,24 +403,11 @@ pub(crate) mod gles_render {
     }
 
     // ---- 触摸坐标 → cell 映射（对齐 C OnTouch 归一化 [0,1]² + 等比缩放 + yoff 居中，da36d6bc）----
-    /// view 坐标 → 720×1280 基准坐标（归一化 + 等比 + yoff，对齐 C g_touch_s/g_touch_yoff）
-    /// 返回 (bx, by)：触摸在 720×1280 棋盘基准下的坐标（按钮/cell 命中统一用此基准）
-    pub fn touch_base_coord(vx: i32, vy: i32, view_w: i32, view_h: i32) -> (f32, f32) {
-        // 等比缩放（防 20:9 屏独立缩放拉伸错位，对齐 C g_touch_s = min(view_w/720, view_h/1280)）
-        let sx = view_w.max(1) as f32 / 720.0;
-        let sy = view_h.max(1) as f32 / 1280.0;
-        let s = sx.min(sy).max(1e-6);
-        // yoff 居中（对齐 C g_touch_yoff = (view_h - 1280*s)*0.5）
-        let yoff = (view_h as f32 - 1280.0 * s) * 0.5;
-        let xoff = (view_w as f32 - 720.0 * s) * 0.5;
-        let bx = vx as f32 / s + 0.0 - xoff.max(0.0);
-        let by = vy as f32 / s - yoff.max(0.0);
-        (bx, by)
-    }
+    // ★ touch_base_coord 唯一真值在 super::coord（消除双份漂移），view_to_cell 直接复用
 
     /// view 坐标 → 棋盘 cell 索引（base 坐标下 cell 中心公式，row0=底蓝底线）
     pub fn view_to_cell(vx: i32, vy: i32, view_w: i32, view_h: i32) -> Option<usize> {
-        let (bx, by) = touch_base_coord(vx, vy, view_w, view_h);
+        let (bx, by) = super::super::coord::touch_base_coord(vx, vy, view_w, view_h);
         // 720×1280 基准 cell 中心公式（对齐 C 实锤：x=78.5+col*140.5 / y 分段）
         let col = ((bx - 78.5) / 140.5).round().max(0.0).min(4.0) as i32;
         // y：image_row≤5: 222+row*71 / row6-11: 822+(row-6)*71（image_row=11-device_row，row0=底）

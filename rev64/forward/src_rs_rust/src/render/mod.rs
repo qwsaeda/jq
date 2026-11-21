@@ -28,7 +28,7 @@ mod tests {
     #[test]
     fn base_coord_identity_720() {
         // view=720×1280 时，缩放 s=1.0，yoff=0 → base 坐标 = view 坐标
-        use crate::render::coord::gles_render_test::touch_base_coord;
+        use crate::render::coord::touch_base_coord;
         let (bx, by) = touch_base_coord(360, 640, 720, 1280);
         assert!((bx - 360.0).abs() < 1.0, "720×1280 基准 x 不变");
         assert!((by - 640.0).abs() < 1.0, "720×1280 基准 y 不变");

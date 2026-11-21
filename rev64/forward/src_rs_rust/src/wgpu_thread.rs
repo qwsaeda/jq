@@ -30,7 +30,7 @@ mod imp {
                 unsafe { run(vm_addr, view_addr, w, h) }
             }));
             if result.is_err() {
-                crate::log::setprop("jq.wgpu_thread", "panicked");
+                crate::log::setprop("jq.wgpu_state3", "panicked");
             }
             RUNNING.store(false, Ordering::SeqCst);
         });
@@ -40,13 +40,13 @@ mod imp {
     unsafe fn run(vm_addr: usize, view_addr: usize, _w: u32, _h: u32) {
         let vm = match jni::JavaVM::from_raw(vm_addr as *mut jni::sys::JavaVM) {
             Ok(v) => v,
-            Err(_) => { crate::log::setprop("jq.wgpu_thread", "vm_fail"); return; }
+            Err(_) => { crate::log::setprop("jq.wgpu_state3", "vm_fail"); return; }
         };
         let mut env = match vm.attach_current_thread() {
             Ok(e) => e,
-            Err(_) => { crate::log::setprop("jq.wgpu_thread", "attach_fail"); return; }
+            Err(_) => { crate::log::setprop("jq.wgpu_state3", "attach_fail"); return; }
         };
-        crate::log::setprop("jq.wgpu_thread", "attached");
+        crate::log::setprop("jq.wgpu_state3", "attached");
 
         // ① 轮询等 Surface 有效（setContentView 后异步创建）
         let mut window: *mut std::ffi::c_void = std::ptr::null_mut();
@@ -65,17 +65,17 @@ mod imp {
             std::thread::sleep(std::time::Duration::from_millis(33));
         }
         if window.is_null() {
-            crate::log::setprop("jq.wgpu_thread", "window_timeout");
+            crate::log::setprop("jq.wgpu_state3", "window_timeout");
             return;
         }
-        crate::log::setprop("jq.wgpu_thread", "window_ok");
+        crate::log::setprop("jq.wgpu_state3", "window_ok");
 
         // ② wgpu device（offscreen 渲染已实锤可用，不依赖 create_surface）
         let (_dev, _q) = match crate::render::RenderCtx::create_wgpu_device() {
             Some(v) => v,
-            None => { crate::log::setprop("jq.wgpu_thread", "device_fail"); return; }
+            None => { crate::log::setprop("jq.wgpu_state3", "device_fail"); return; }
         };
-        crate::log::setprop("jq.wgpu_thread", "device_ok");
+        crate::log::setprop("jq.wgpu_state3", "device_ok");
         // ★ 不再缓存 Surface global ref：系统回收/重建后旧 ref 失效会让 lockCanvas abort。
         //   改为每帧从 view 重取当前 Surface（见下方渲染循环）。
         crate::log::window_release(window); // 释放轮询时的临时 ANativeWindow 引用
@@ -108,12 +108,12 @@ mod imp {
                             //   旧实现只在 frame==3 写一次 rendering、失败才写 err →
                             //   一次偶发失败就把属性永久卡在 canvas_err（画面其实正常），判据假 FAIL。
                             if crate::canvas::draw_rgba_to_surface(&mut env, surface, &rgba, 450, 800).is_ok() {
-                                crate::log::setprop("jq.wgpu_thread", "rendering");
+                                crate::log::setprop("jq.wgpu_state3", "rendering");
                             } else {
-                                crate::log::setprop("jq.wgpu_thread", "canvas_err");
+                                crate::log::setprop("jq.wgpu_state3", "canvas_err");
                             }
                         } else {
-                            crate::log::setprop("jq.wgpu_thread", "surface_invalid");
+                            crate::log::setprop("jq.wgpu_state3", "surface_invalid");
                         }
                     }
                 }
@@ -123,10 +123,10 @@ mod imp {
                     .or_else(|| payload.downcast_ref::<String>().map(|s| s.as_str()))
                     .unwrap_or("?");
                 crate::log::setprop("jq.err", &msg.chars().take(40).collect::<String>());
-                crate::log::setprop("jq.wgpu_thread", "frame_panic"); break;
+                crate::log::setprop("jq.wgpu_state3", "frame_panic"); break;
             }
             frame += 1;
-            if frame == 3 { crate::log::setprop("jq.wgpu_thread", "rendering"); }
+            if frame == 3 { crate::log::setprop("jq.wgpu_state3", "rendering"); }
             std::thread::sleep(std::time::Duration::from_millis(400));
         }
     }

@@ -156,3 +156,8 @@
 - **clippy 修复**：改 restart 测试后遗留未用 import Cell/Rank（我的疏漏，rust_all 当场抓到）→ 删。
 - **设备离线健壮性**：adb connect 在 No route to host 时阻塞到 600s 超时 → adb_ensure 加 timeout 5 + 设备段开头快速探测，离线时 9s 快速 PENDING（非 FAIL）。
 - **UI 命中/事件映射录制不可行（诚实边界）**：ui_menu_hit 带 `ui_btn*`、事件映射带 `char*`，rust-anything 只支持标量(c_int/c_float/c_char/c_void)，bridge 不了；这俩的对齐已由既有 event_names_alignment_check.py(73名) + layout_align_check.py(Δ=0) 覆盖，不重复造轮子。
+
+## 诊断属性换名 + touch_base_coord 去重（2026-11-21）
+- **wgpu 状态属性污染根治**：`jq.wgpu_thread` 被设备 selinux 永久拒写（adb setprop 都写不进），13 处诊断写入全失效 → 换名 `jq.wgpu_state3`（新名可写，之前实证 jq.wgpu_thread2 同理）；判据早已改截图不依赖属性，此改动只恢复诊断能力。
+- **touch_base_coord 去重**：gles.rs 与 coord.rs 两份实现（`+0.0-xoff` vs `-xoff`）数学等价但有漂移风险 → coord.rs 提升为模块级唯一真值，gles.rs `view_to_cell` 改用 `super::super::coord::touch_base_coord`，测试路径同步；删别名模块。0 错/clippy 0/95 测试。
+- **存档判据已确认**：savetest 钩子写 app 私有目录+回读（jq.savetest_res），磁盘 I/O 在 JNI 边界已验证，无需补。
