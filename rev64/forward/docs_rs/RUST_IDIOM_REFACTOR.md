@@ -167,3 +167,8 @@
 - `canvas.rs` 像素构造：手写 `for i in 0..n` + 索引 → `rgba.chunks_exact(4).take(n).map(|p|...)` 迭代器 + `resize` 尾部补齐（行为等价：rgba 实际总是 w*h*4，compose_board_rgba 保证）。
 - 保留的 C 风格（有理由）：asset.rs 48 处 as（图像合成 f32↔usize↔u8 是像素运算本质）、asset.rs 双层 for y/x（性能敏感热路径，迭代器反而难读）、fuzztest 自实现 xorshift32（rand crate 会改可复现 seed 输出，风险>收益）。
 - 0 错 / clippy 0 / 95 测试。
+
+## 主菜单文字图集接入第一步（2026-11-21，设备离线只做可本机验证部分）
+- **发现**：Rust 正向只有 board_bg/piece_atlas 两张图，原版有 32 张文字图集；C 版 `rs_draw_menu` 用 `menu_text_atlas.png` + T_W/T_X/T_Y/T_H 切片画按钮白字，Rust 主菜单只画色块无文字（真实对齐缺口）。
+- **已完成（本机可验证）**：把原版 `menu_text_atlas.png`（136×214，md5 与原版一致）加入 assets；移植 C render.c:1496-1499 的 5 槽切片常量到 asset.rs 顶层（平台无关）；加测试锚定常量 + 切片不越界 + PNG 头（96 测试）。
+- **未完成（诚实边界）**：还没把图集真正绘制到主菜单按钮——设备离线（No route to host）无法验证画面，不做无法验证的大画面改动。设备恢复后接 `compose_board_rgba` 的 Menu 态绘制（照 C 版 T_W/X/Y/H 切片）并真机截图验证。

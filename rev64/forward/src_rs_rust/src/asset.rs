@@ -1,5 +1,14 @@
 //! asset — 纯 Rust SPAK 原版资源解码（png crate）+ CPU 合成棋盘/棋子画面
 //! 资源用 include_bytes! 编进 so（免运行时 assets I/O），解码后合成 RGBA → Canvas 显示。
+/// 主菜单文字图集切片元数据（移植 C render.c:1496-1499 T_W/T_X/T_Y/T_H，业务真值）
+/// 5 槽 = 人机/两人/联网/联机/四国；图集 136×214 竖排，每槽高 38
+pub const MENU_TEXT_W: [u32; 5] = [136, 136, 66, 68, 134];
+pub const MENU_TEXT_X: [u32; 5] = [0, 0, 35, 34, 1];
+pub const MENU_TEXT_Y: [u32; 5] = [0, 44, 88, 132, 176];
+pub const MENU_TEXT_H: u32 = 38;
+pub const MENU_TEXT_IMG_W: u32 = 136;
+pub const MENU_TEXT_IMG_H: u32 = 214;
+
 #[cfg(target_os = "android")]
 mod imp {
     use std::io::Cursor;
@@ -7,11 +16,16 @@ mod imp {
     /// 缓存解码结果（避免每帧重复解码 712KB 背景 + 棋子图集）
     static BG_CACHE: std::sync::OnceLock<Option<(Vec<u8>, u32, u32)>> = std::sync::OnceLock::new();
     static ATLAS_CACHE: std::sync::OnceLock<Option<(Vec<u8>, u32, u32)>> = std::sync::OnceLock::new();
+    /// 主菜单按钮文字图集（原版 menu_text_atlas.png 136×214，5 行白字）
+    static MENU_TEXT_CACHE: std::sync::OnceLock<Option<(Vec<u8>, u32, u32)>> = std::sync::OnceLock::new();
     fn bg_cached() -> Option<&'static (Vec<u8>, u32, u32)> {
         BG_CACHE.get_or_init(|| decode_png(include_bytes!("../assets/board_bg.png"))).as_ref()
     }
     fn atlas_cached() -> Option<&'static (Vec<u8>, u32, u32)> {
         ATLAS_CACHE.get_or_init(|| decode_png(include_bytes!("../assets/piece_atlas.png"))).as_ref()
+    }
+    fn menu_text_cached() -> Option<&'static (Vec<u8>, u32, u32)> {
+        MENU_TEXT_CACHE.get_or_init(|| decode_png(include_bytes!("../assets/menu_text_atlas.png"))).as_ref()
     }
 
     /// 解码 PNG 为 RGBA (w,h)
@@ -232,3 +246,25 @@ mod imp {
 pub use imp::compose_board_rgba;
 #[cfg(not(target_os = "android"))]
 pub fn compose_board_rgba(_w: usize, _h: usize, _b: Option<&crate::state::State>, _s: crate::ui::Screen) -> Vec<u8> { vec![] }
+
+#[cfg(test)]
+mod menu_text_tests {
+    use super::*;
+    #[test]
+    fn menu_text_atlas_metadata_matches_c() {
+        // C render.c:1496-1499 真值锚定（防改错切片位置）
+        assert_eq!(MENU_TEXT_W, [136, 136, 66, 68, 134]);
+        assert_eq!(MENU_TEXT_X, [0, 0, 35, 34, 1]);
+        assert_eq!(MENU_TEXT_Y, [0, 44, 88, 132, 176]);
+        assert_eq!(MENU_TEXT_H, 38);
+        // 每槽切片必须在图集 136×214 内（防越界）
+        let img = include_bytes!("../assets/menu_text_atlas.png");
+        assert!(img.len() > 1000, "图集字节存在");
+        for i in 0..5 {
+            assert!(MENU_TEXT_X[i] + MENU_TEXT_W[i] <= MENU_TEXT_IMG_W, "槽{} X 越界", i);
+            assert!(MENU_TEXT_Y[i] + MENU_TEXT_H <= MENU_TEXT_IMG_H, "槽{} Y 越界", i);
+        }
+        // 图集 PNG 头（验证是有效 PNG）
+        assert_eq!(&img[..4], &[0x89, b'P', b'N', b'G']);
+    }
+}
