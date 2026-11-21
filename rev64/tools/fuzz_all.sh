@@ -55,6 +55,12 @@ C_OUT=$(python3 "$WS/rev64/tools/vtable_dispatch_fuzz.py" 2>&1); C_RC=$?
 echo "$C_OUT" | grep -E "判据:|①|②|诚实边界" | tail -5
 [ $C_RC -ne 0 ] && { echo "  ✗ C 段 FAIL（rc=$C_RC）"; FAILS=$((FAILS+1)); } || echo "  ✓ C 段 PASS"
 
+# ── C2 事件表 289B 矩阵结构（零设备依赖，§124y 事件表回填）──
+echo "── C2 事件表 289B 矩阵结构 fuzz ──"
+C2_OUT=$(python3 "$WS/rev64/tools/event_tbl_matrix_fuzz.py" 2>&1); C2_RC=$?
+echo "$C2_OUT" | grep -E "①|③|判据:" | tail -3
+[ $C2_RC -ne 0 ] && { echo "  ✗ C2 段 FAIL（rc=$C2_RC）"; FAILS=$((FAILS+1)); } || echo "  ✓ C2 段 PASS"
+
 # ── D Frida 设备侧（可选）──
 if [ $DEVICE -eq 1 ]; then
   echo "── D Frida 设备侧（JNI 桥梁 + 全量类活动 + RegisterNatives，需 root frida-server）──"
@@ -91,9 +97,9 @@ fi
 echo "════════ 汇总 ════════"
 if [ $FAILS -eq 0 ]; then
   if [ $DEVICE -eq 1 ]; then
-  echo "渗透轮判据: PASS（A 正向 + B 32位 + C dispatch + D Frida 设备侧全通）"
+  echo "渗透轮判据: PASS（A 正向 + B 32位 + C dispatch + C2 事件表矩阵 + D Frida 设备侧全通）"
 else
-  echo "渗透轮判据: PASS（A 正向 + B 32位 + C dispatch 全通；D 设备侧未跑，加 --device）"
+  echo "渗透轮判据: PASS（A 正向 + B 32位 + C dispatch + C2 事件表矩阵 全通；D 设备侧未跑，加 --device）"
 fi
   exit 0
 else
