@@ -243,7 +243,7 @@ pub fn difficulty_hit(px: i32, py: i32, panel: &Rect) -> Option<(u8, u8)> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::state::{Cell, MODE_FLIP, MODE_LAY, SIDE_BLUE, State, Rank};
+    use crate::state::{MODE_FLIP, MODE_LAY, SIDE_BLUE, State};
 
     // §10 菜单"人机对战"→难度弹窗
     #[test]

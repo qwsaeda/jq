@@ -149,3 +149,10 @@
 - **真机实证**：jq.overtest 钩子设终局→按钮中心像素(57,182,74)绿→tap(450,1072)→jq.ingame_act=restart→截图满盘50子红蓝棋子+按钮消失→二次点击不触发(stage已Play)。so 123b03fb。
 - **踩坑**：jq_hook_overtest 文件在 houdini 下删不掉(已知坑)→每帧重设 stage=Over→点按钮后立刻回终局；测试时须先 rm -f /data/local/tmp/jq_hook_*。
 - 判据：95测试(含 restart_after_over 改为验50子重载)/clippy0/0错0警。
+
+## 终局按钮接入 rust_all + 设备离线快速 PENDING（2026-11-21）
+- `rust_all.sh --device` 新增终局"再来一局"判据：钩子设 Over → 清钩子 → tap(450,1072) → 等 jq.ingame_act=restart → tap 后 jq.touch=cell* 证棋盘可交互（重开非空盘）。实测 PASS。
+- **坐标坑**：tap(219,1106)→cell21 不是 cell6；正确 cell6 坐标=(274,1383)。判据改为"命中任一 cell 即可"。
+- **clippy 修复**：改 restart 测试后遗留未用 import Cell/Rank（我的疏漏，rust_all 当场抓到）→ 删。
+- **设备离线健壮性**：adb connect 在 No route to host 时阻塞到 600s 超时 → adb_ensure 加 timeout 5 + 设备段开头快速探测，离线时 9s 快速 PENDING（非 FAIL）。
+- **UI 命中/事件映射录制不可行（诚实边界）**：ui_menu_hit 带 `ui_btn*`、事件映射带 `char*`，rust-anything 只支持标量(c_int/c_float/c_char/c_void)，bridge 不了；这俩的对齐已由既有 event_names_alignment_check.py(73名) + layout_align_check.py(Δ=0) 覆盖，不重复造轮子。

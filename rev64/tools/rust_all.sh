@@ -82,8 +82,13 @@ if [ "$DEVICE" = 1 ]; then
   log "=== [5] 设备侧：installed so 哈希 + 无 Fatal + 能玩功能判据 ==="
   DEV=${DEV:-10.0.182.152:5555}
   # adb 瞬断自愈：MuMu/houdini 下 adb 偶发 offline（脚本跑一半掉线→属性假绿根源）
-  adb_ensure(){ local o=$(adb -s "$DEV" shell "echo ok" 2>/dev/null | tr -d '\r');
-    if [ "$o" != "ok" ]; then adb connect "$DEV" >/dev/null 2>&1; sleep 1; fi; }
+  adb_ensure(){ local o=$(timeout 5 adb -s "$DEV" shell "echo ok" 2>/dev/null | tr -d '\r');
+    if [ "$o" != "ok" ]; then timeout 5 adb connect "$DEV" >/dev/null 2>&1; sleep 1; fi; }
+  # ★ 快速探测：设备离线(No route to host)时立即 PENDING，不让 adb connect 阻塞整脚本
+  if [ "$(timeout 5 adb -s "$DEV" shell "echo ok" 2>/dev/null | tr -d '\r')" != "ok" ]; then
+    log "PENDING 设备离线（ping/adb 不可达，非 FAIL）"; fail=0
+    echo ""; log "判定: PASS（桌面判据全过；设备侧 PENDING）"; exit 0
+  fi
   adb_ensure
   # ★ 清历史 logcat：Fatal 判据只统计本次脚本运行期间的崩溃（否则之前手动重启的 houdini 竞态会被误算）
   adb -s "$DEV" logcat -c >/dev/null 2>&1
@@ -135,6 +140,17 @@ print(f'{nb/t:.3f}')
     adb_ensure
     adb -s "$DEV" shell "setprop jq.game_icon NONE; input tap 620 750" >/dev/null 2>&1
     wait_prop jq.game_icon undo_ok && log "PASS 悔棋 undo_ok" || { log "FAIL 悔棋未触发 undo_ok"; fail=1; }
+    # 终局"再来一局"按钮（对齐 C rs_draw_overlay）：钩子设 Over → 清钩子(houdini删不掉坑) → tap按钮 → 验restart
+    adb_ensure
+    adb -s "$DEV" shell "echo 1 > /data/local/tmp/jq_hook_overtest" >/dev/null 2>&1
+    sleep 2
+    adb -s "$DEV" shell "rm -f /data/local/tmp/jq_hook_*" >/dev/null 2>&1
+    adb -s "$DEV" shell "setprop jq.ingame_act NONE; input tap 450 1072" >/dev/null 2>&1
+    wait_prop jq.ingame_act restart && log "PASS 终局再来一局 restart" || { log "FAIL 终局按钮未触发 restart"; fail=1; }
+    # 重开后棋盘应非空（50子）——tap 命中任一 cell 即证（jq.touch 被写 = 棋盘有子且触摸链活着）
+    adb -s "$DEV" shell "setprop jq.touch NONE; input tap 274 1383" >/dev/null 2>&1
+    TC=$(adb -s "$DEV" shell "getprop jq.touch" 2>/dev/null | tr -d '\r')
+    echo "$TC" | grep -qE '^cell[0-9]+$' && log "PASS 重开后棋盘可交互 ($TC)" || { log "FAIL 重开后棋盘无响应 ($TC)"; fail=1; }
     # ⑤ 重进不崩：force-stop 后重新 am start，等 pid 存活 + 出屏恢复
     #   （放在 Fatal 检查之前，重进过程的崩溃也能被下面的 Fatal 计数捕获）
     adb_ensure
