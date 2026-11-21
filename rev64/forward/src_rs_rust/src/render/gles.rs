@@ -409,12 +409,12 @@ pub(crate) mod gles_render {
     pub fn view_to_cell(vx: i32, vy: i32, view_w: i32, view_h: i32) -> Option<usize> {
         let (bx, by) = super::super::coord::touch_base_coord(vx, vy, view_w, view_h);
         // 720×1280 基准 cell 中心公式（对齐 C 实锤：x=78.5+col*140.5 / y 分段）
-        let col = ((bx - 78.5) / 140.5).round().max(0.0).min(4.0) as i32;
+        let col = ((bx - 78.5) / 140.5).round().clamp(0.0, 4.0) as i32;
         // y：image_row≤5: 222+row*71 / row6-11: 822+(row-6)*71（image_row=11-device_row，row0=底）
         let image_row = if by < 822.0 {
-            ((by - 222.0) / 71.0).round().max(0.0).min(5.0) as i32
+            ((by - 222.0) / 71.0).round().clamp(0.0, 5.0) as i32
         } else {
-            6 + ((by - 822.0) / 71.0).round().max(0.0).min(5.0) as i32
+            6 + ((by - 822.0) / 71.0).round().clamp(0.0, 5.0) as i32
         };
         let device_row = 11 - image_row;
         if device_row < 0 || device_row >= 12 || col < 0 || col >= 5 {

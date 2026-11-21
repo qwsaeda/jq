@@ -21,15 +21,17 @@ mod imp {
             let _ = env.exception_clear();
         }
         // ① int[] 像素（Java int ARGB_8888 = 0xAARRGGBB）
+        //   用 chunks_exact 按像素分组 + u32/I50 移位，替代手写索引循环（等价且更 Rust）
         let n = (w * h) as usize;
-        let mut pixels = vec![0i32; n];
-        for i in 0..n {
-            let r = rgba.get(i * 4).copied().unwrap_or(0) as i32;
-            let g = rgba.get(i * 4 + 1).copied().unwrap_or(0) as i32;
-            let b = rgba.get(i * 4 + 2).copied().unwrap_or(0) as i32;
-            let a = rgba.get(i * 4 + 3).copied().unwrap_or(255) as i32;
-            pixels[i] = (a << 24) | (r << 16) | (g << 8) | b;
-        }
+        let mut pixels: Vec<i32> = rgba
+            .chunks_exact(4)
+            .take(n)
+            .map(|p| {
+                let (r, g, b, a) = (p[0], p[1], p[2], p[3]);
+                (((a as u32) << 24) | ((r as u32) << 16) | ((g as u32) << 8) | b as u32) as i32
+            })
+            .collect();
+        pixels.resize(n, 0); // rgba 短于 w*h 时补 0（等价旧版 unwrap_or(0/255) 的尾部行为）
         let arr = env.new_int_array(n as jni::sys::jsize).map_err(|e| e.to_string())?;
         env.set_int_array_region(&arr, 0, &pixels).map_err(|e| e.to_string())?;
 

@@ -161,3 +161,9 @@
 - **wgpu 状态属性污染根治**：`jq.wgpu_thread` 被设备 selinux 永久拒写（adb setprop 都写不进），13 处诊断写入全失效 → 换名 `jq.wgpu_state3`（新名可写，之前实证 jq.wgpu_thread2 同理）；判据早已改截图不依赖属性，此改动只恢复诊断能力。
 - **touch_base_coord 去重**：gles.rs 与 coord.rs 两份实现（`+0.0-xoff` vs `-xoff`）数学等价但有漂移风险 → coord.rs 提升为模块级唯一真值，gles.rs `view_to_cell` 改用 `super::super::coord::touch_base_coord`，测试路径同步；删别名模块。0 错/clippy 0/95 测试。
 - **存档判据已确认**：savetest 钩子写 app 私有目录+回读（jq.savetest_res），磁盘 I/O 在 JNI 边界已验证，无需补。
+
+## 本机 C 风格残留清理（2026-11-21）
+- `render/gles.rs` 3 处 `.max().min()` → `.clamp()`（与 fuzztest 同类改进）。
+- `canvas.rs` 像素构造：手写 `for i in 0..n` + 索引 → `rgba.chunks_exact(4).take(n).map(|p|...)` 迭代器 + `resize` 尾部补齐（行为等价：rgba 实际总是 w*h*4，compose_board_rgba 保证）。
+- 保留的 C 风格（有理由）：asset.rs 48 处 as（图像合成 f32↔usize↔u8 是像素运算本质）、asset.rs 双层 for y/x（性能敏感热路径，迭代器反而难读）、fuzztest 自实现 xorshift32（rand crate 会改可复现 seed 输出，风险>收益）。
+- 0 错 / clippy 0 / 95 测试。
