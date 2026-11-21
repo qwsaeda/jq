@@ -419,9 +419,18 @@ Thumb 位清除命中 ⑤ fns/offs 名值 5463/5463 对应。
 - 两条路都导出 **C ABI 14 个 `Java_com_qwsaeda_App_*`**（nm -D 实锤），所以 Frida 14 入口
   判据 + 黑盒钩子（setprop jq.movetest 等）对两版通用（JNI 契约一致）。
 
-**诚实边界**：本会话 C 版（rev64/forward/src_rs）的真机 5 判据**未独立验证**（设备无 com.zxj
-包）；其能力证据 = 桌面 fuzz_all 全通 + 静态 74/74 + 与 Rust 版 C ABI 同源（14 导出一致）。
-Rust 版真机全链 PASS 由正向会话负责（其交付物 phase_rs_rust.apk）。
+**★ 2026-11-21 更新：本会话 C 版真机已独立实证**（此前 §2.9 写"未独立验证"已过时）：
+`rev64/tools/build_zxj_apk.sh` 把逆向 APK（ni_junqi_signed，com.cnvcs.junqirs）用**伪改名**
+方案改造成 com.zxj.junqirs 装机交付物（rev64/dist/zxj_junqirs.apk）：
+- **伪改名 = manifest package 改 com.zxj（对外包名/桌面可见）+ smali 类名/so 保持 com.cnvcs
+  （native 符号 Java_com_cnvcs_App_* 匹配）** —— 真改 so 符号会破坏 DT_HASH/GNU_HASH →
+  dlsym 找不到 → UnsatisfiedLinkError（已实测失败，JNI_OnLoad 加载 OK 但方法绑定失败）。
+  launcher 组件 android:name="com.cnvcs.App" 绝对类名不随 package 变 → 照常启动。
+- **5 判据全 PASS（2026-11-21，pid 19211→19368）**：装 Success + board=OK + movetest 3/3
+  + 退出 + 重进 + 0 崩溃。脚本幂等复跑 PASS。
+- 代价诚实标注：对外包名 com.zxj，内部类名仍 com.cnvcs（非"全链改名"，是装机折中）。
+
+Rust 版真机全链 PASS 仍由正向会话负责（其交付物 phase_rs_rust.apk）——两版互不覆盖。
 
 ## 3. 诚实边界
 

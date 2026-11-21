@@ -540,6 +540,12 @@ java -cp /tmp/opencode/apksigner/apksig.jar:/tmp/opencode/apksigner SignV2 \
   （`setarch linux32` + gcc -m32，3 seed 全 PASS：100000 次解引用 0 崩溃 + 高位未映射
   0 误命中）→ **关闭 32/64 位截断语义差诚实边界**；mincore flaky 不判 FAIL；
   3 位逆向 app com.zxj.junqirs 内存子系统风险区降档判据）。
+  **★ 本会话逆向 app 真机交付物（2026-11-21）**：`bash rev64/tools/build_zxj_apk.sh --install`
+  ——把 ni_junqi_signed.apk（旧包名 com.cnvcs.junqirs）用**伪改名**改造成 com.zxj.junqirs
+  （dist/zxj_junqirs.apk）：manifest package 改 com.zxj（对外包名）+ smali/so 保持 com.cnvcs
+  （native 符号匹配，真改 so 符号会破坏 ELF hash → UnsatisfiedLinkError，已实测失败）。
+  **5 判据真机实证 PASS**（装/board=OK/movetest 3/3/退出/重进 0 崩溃，pid 19211→19368）——
+  本会话 C 版真机不再"借正向 Rust 版"。代价：对外 com.zxj、内部类名 com.cnvcs（装机折中）。
   **★ 渗透轮总入口（2026-11-20，一键跑全部分散判据防漏挂假绿）**：`bash rev64/tools/fuzz_all.sh [--quick] [--device]`
   （A 正向 C F1-F5+P1/P2/P3/P5'/P6/P7/P8 + B 32 位翻译体 M1-M5+真地址空间解引用版 +
   C dispatch 5463 槽；`--quick` CI 短轮次 / `--device` 加跑 Frida 设备侧；三段全 PASS
