@@ -9,6 +9,16 @@ pub const MENU_TEXT_H: u32 = 38;
 pub const MENU_TEXT_IMG_W: u32 = 136;
 pub const MENU_TEXT_IMG_H: u32 = 214;
 
+/// 主菜单按钮矩形（720×1280 基准，移植 C ui_menu.c g_btns 原版真值）
+/// 人机对战范围砍联网/联机/四国（SPEC_HUMAN_PLAY），只画 2 个有效按钮（与触摸命中 ui.rs 一致），
+/// 避免画了点不动的"假按钮"。
+pub const MENU_BTNS: [(f32, f32, f32, f32); 2] = [
+    (201.6, 867.2, 516.0, 943.2),  // 人机（对齐 ui.rs MENU_BTN_HUMAN）
+    (201.6, 981.6, 516.0, 1057.6), // 两人（对齐 MENU_BTN_TWOPLAYER）
+];
+pub const MENU_BASE_W: f32 = 720.0;
+pub const MENU_BASE_H: f32 = 1280.0;
+
 #[cfg(target_os = "android")]
 mod imp {
     use std::io::Cursor;
@@ -26,6 +36,11 @@ mod imp {
     }
     fn menu_text_cached() -> Option<&'static (Vec<u8>, u32, u32)> {
         MENU_TEXT_CACHE.get_or_init(|| decode_png(include_bytes!("../assets/menu_text_atlas.png"))).as_ref()
+    }
+    /// 主菜单背景（士兵图 datax_294/menu_bg_294，800×1205）
+    static MENU_BG_CACHE: std::sync::OnceLock<Option<(Vec<u8>, u32, u32)>> = std::sync::OnceLock::new();
+    fn menu_bg_cached() -> Option<&'static (Vec<u8>, u32, u32)> {
+        MENU_BG_CACHE.get_or_init(|| decode_png(include_bytes!("../assets/menu_bg.png"))).as_ref()
     }
 
     /// 解码 PNG 为 RGBA (w,h)
@@ -46,12 +61,80 @@ mod imp {
     }
 
     /// 合成画面：背景缩放铺满 + 棋盘格 + 棋子图集贴图（纯 Rust CPU）
+    /// 主菜单画面：士兵背景铺满 + 5 蓝色按钮 + 白字图集（对齐 C rs_draw_menu）
+    /// 画布为任意尺寸（实际 450×800），按钮/文字坐标按 720×1280 基准等比缩放。
+    pub fn compose_menu_rgba(w: usize, h: usize) -> Vec<u8> {
+        let mut out = vec![0u8; w * h * 4];
+        let sx = w as f32 / super::MENU_BASE_W;
+        let sy = h as f32 / super::MENU_BASE_H;
+        // ① 士兵背景（menu_bg 800×1205 → 拉伸铺满）
+        if let Some(&(ref bg, bw, bh)) = menu_bg_cached() {
+            for y in 0..h {
+                let fy = (y as f32 / h as f32 * bh as f32) as usize;
+                for x in 0..w {
+                    let fx = (x as f32 / w as f32 * bw as f32) as usize;
+                    let si = (fy * bw as usize + fx) * 4;
+                    let di = (y * w + x) * 4;
+                    if si + 3 < bg.len() {
+                        out[di] = bg[si]; out[di+1] = bg[si+1]; out[di+2] = bg[si+2]; out[di+3] = 255;
+                    }
+                }
+            }
+        }
+        // ② 5 蓝色按钮（C 版渐变蓝，简化为纯色 #2a6fc8）+ ③ 白字图集切片
+        let text = menu_text_cached();
+        for (i, &(bx0, by0, bx1, by1)) in super::MENU_BTNS.iter().enumerate() {
+            let ax0 = (bx0 * sx) as usize;
+            let ax1 = (bx1 * sx) as usize;
+            let ay0 = (by0 * sy) as usize;
+            let ay1 = (by1 * sy) as usize;
+            for y in ay0..ay1.min(h) {
+                for x in ax0..ax1.min(w) {
+                    let di = (y * w + x) * 4;
+                    out[di] = 42; out[di+1] = 111; out[di+2] = 200; out[di+3] = 255; // 蓝按钮
+                }
+            }
+            // 白字图集：从 super::MENU_TEXT_X/Y/W/H 切片，居中贴到按钮内
+            if let Some(&(ref tpx, tw, th)) = text {
+                let tx = super::MENU_TEXT_X[i] as usize;
+                let ty = super::MENU_TEXT_Y[i] as usize;
+                let twid = super::MENU_TEXT_W[i] as usize;
+                let thgt = super::MENU_TEXT_H as usize;
+                let dw = ((twid as f32 * sx).round() as usize).min(ax1.saturating_sub(ax0));
+                let dh = ((thgt as f32 * sy).round() as usize).min(ay1.saturating_sub(ay0));
+                let dx0 = ax0 + (ax1 - ax0).saturating_sub(dw) / 2;
+                let dy0 = ay0 + (ay1 - ay0).saturating_sub(dh) / 2;
+                for dy in 0..dh {
+                    for dx in 0..dw {
+                        let sy_px = ty + (dy * thgt / dh.max(1)).min(thgt - 1);
+                        let sx_px = tx + (dx * twid / dw.max(1)).min(twid - 1);
+                        let si = (sy_px * tw as usize + sx_px) * 4;
+                        if si + 3 >= tpx.len() { continue; }
+                        let a = tpx[si + 3] as u16;
+                        if a == 0 { continue; } // 透明区跳过
+                        let di = ((dy0 + dy) * w + dx0 + dx) * 4;
+                        // alpha 混合白字到蓝底
+                        let wa = a;
+                        out[di] = ((out[di] as u16 * (255 - wa) + 255 * wa) / 255) as u8;
+                        out[di+1] = ((out[di+1] as u16 * (255 - wa) + 255 * wa) / 255) as u8;
+                        out[di+2] = ((out[di+2] as u16 * (255 - wa) + 255 * wa) / 255) as u8;
+                    }
+                }
+            }
+        }
+        out
+    }
+
     pub fn compose_board_rgba(
         w: usize,
         h: usize,
         board: Option<&crate::state::State>,
         screen: crate::ui::Screen,
     ) -> Vec<u8> {
+        // ★ 主菜单态走独立合成（士兵背景 + 蓝按钮 + 白字），其余屏态走棋盘合成
+        if screen == crate::ui::Screen::Menu {
+            return compose_menu_rgba(w, h);
+        }
         let mut out = vec![0u8; w * h * 4];
         // ① 背景（board_bg 720×1280 = 原版 datax_177 棋盘底图 → 拉伸铺满 w×h）
         if let Some(&(ref bg, bw, bh)) = bg_cached() {
@@ -266,5 +349,30 @@ mod menu_text_tests {
         }
         // 图集 PNG 头（验证是有效 PNG）
         assert_eq!(&img[..4], &[0x89, b'P', b'N', b'G']);
+    }
+}
+
+#[cfg(test)]
+mod menu_compose_tests {
+    use super::*;
+    #[test]
+    fn menu_btns_match_touch_hit() {
+        // 绘制按钮几何必须等于触摸命中几何（否则画了点不动 = 假按钮）
+        let h = crate::ui::MENU_BTN_HUMAN;
+        let t = crate::ui::MENU_BTN_TWOPLAYER;
+        assert!((MENU_BTNS[0].0 - h.x as f32).abs() <= 1.0);
+        assert!((MENU_BTNS[0].1 - h.y as f32).abs() <= 1.0);
+        assert!((MENU_BTNS[0].2 - (h.x + h.w) as f32).abs() <= 1.0);
+        assert!((MENU_BTNS[1].0 - t.x as f32).abs() <= 1.0);
+        assert!((MENU_BTNS[1].1 - t.y as f32).abs() <= 1.0);
+    }
+    #[test]
+    fn menu_text_slots_within_btn_count() {
+        // 文字图集 5 槽，但只画 2 按钮——前 2 槽必须覆盖人机/两人
+        assert!(MENU_TEXT_W.len() >= MENU_BTNS.len());
+        for i in 0..MENU_BTNS.len() {
+            assert!(MENU_TEXT_X[i] + MENU_TEXT_W[i] <= MENU_TEXT_IMG_W);
+            assert!(MENU_TEXT_Y[i] + MENU_TEXT_H <= MENU_TEXT_IMG_H);
+        }
     }
 }
