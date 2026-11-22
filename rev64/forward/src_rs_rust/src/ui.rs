@@ -245,6 +245,12 @@ impl Rect {
 //   （720×1280 基准，与 C ui_menu.c g_btns 共用真值；旧自创值 y=400/520 差 467px 已废弃）
 pub const MENU_BTN_HUMAN: Rect = Rect { x: 202, y: 867, w: 314, h: 76 };     // 人机 (202,867)-(516,943)
 pub const MENU_BTN_TWOPLAYER: Rect = Rect { x: 202, y: 982, w: 314, h: 76 }; // 两人 (202,982)-(516,1058)
+/// ★ 原版主菜单 3 小按钮（UI_COMPARE §1 实测 900 系 ÷1.25 → 720 基准）
+pub const MENU_BTN_NET: Rect = Rect { x: 172, y: 1097, w: 171, h: 86 };   // 联网 (215,1371)-(429,1479)
+pub const MENU_BTN_LOCAL: Rect = Rect { x: 375, y: 1097, w: 171, h: 86 }; // 联机 (469,1371)-(683,1479)
+pub const MENU_BTN_FOUR: Rect = Rect { x: 582, y: 1097, w: 104, h: 86 };  // 四国军棋 (727,1371)-(858,1479)
+/// 原版左下红顶白墙房子 (60,1330)-(165,1485) 900 系 → 720 基准；按用户指令 tap 不跳转
+pub const MENU_BTN_HOUSE: Rect = Rect { x: 48, y: 1064, w: 84, h: 124 };
 
 /// ★ 原版 datah_041 面板 450×335 居中 → 720 基准偏移 (135,472.5)，取整 (135,472,450,335)
 ///   8 按钮真值见 DIFF_BTNS_ORIG；UI_COMPARE §11 真机实测 Δ≤0.5px 佐证

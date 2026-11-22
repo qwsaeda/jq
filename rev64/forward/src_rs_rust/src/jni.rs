@@ -444,6 +444,14 @@ mod android_impl {
                     } else if ui::MENU_BTN_TWOPLAYER.contains(bx as i32, by as i32) {
                         u.begin_popup(st); u.menu_two_player();
                         Some("two")
+                    } else if ui::MENU_BTN_NET.contains(bx as i32, by as i32) {
+                        Some("net")    // 原版按钮已绘；联网不在人机对战范围 → 仅记录诚实边界
+                    } else if ui::MENU_BTN_LOCAL.contains(bx as i32, by as i32) {
+                        Some("local")  // 联机同上
+                    } else if ui::MENU_BTN_FOUR.contains(bx as i32, by as i32) {
+                        Some("four")   // 四国军棋同上
+                    } else if ui::MENU_BTN_HOUSE.contains(bx as i32, by as i32) {
+                        Some("house")  // 原版房子→官网；按用户指令不跳转，仅记录
                     } else { None } // 菜单空白不消费（规格 §10.2 防穿透）
                 });
                 if let Some(which) = hit {

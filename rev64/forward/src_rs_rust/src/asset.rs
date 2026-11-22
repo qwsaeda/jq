@@ -19,7 +19,7 @@ pub const MENU_BTNS: [(f32, f32, f32, f32); 2] = [
 pub const MENU_BASE_W: f32 = 720.0;
 pub const MENU_BASE_H: f32 = 1280.0;
 
-#[cfg(target_os = "android")]
+// ★ 离线 UI 渲染门禁：纯 Rust（无 Android 依赖），桌面/Android 同编译 → 可离线出图对齐原版
 mod imp {
     use std::io::Cursor;
 
@@ -34,6 +34,7 @@ mod imp {
     fn atlas_cached() -> Option<&'static (Vec<u8>, u32, u32)> {
         ATLAS_CACHE.get_or_init(|| decode_png(include_bytes!("../assets/piece_atlas.png"))).as_ref()
     }
+    #[allow(dead_code)] // 原版按钮贴图已含文字，保留图集缓存供后续弹窗文字复用
     fn menu_text_cached() -> Option<&'static (Vec<u8>, u32, u32)> {
         MENU_TEXT_CACHE.get_or_init(|| decode_png(include_bytes!("../assets/menu_text_atlas.png"))).as_ref()
     }
@@ -41,6 +42,97 @@ mod imp {
     static MENU_BG_CACHE: std::sync::OnceLock<Option<(Vec<u8>, u32, u32)>> = std::sync::OnceLock::new();
     fn menu_bg_cached() -> Option<&'static (Vec<u8>, u32, u32)> {
         MENU_BG_CACHE.get_or_init(|| decode_png(include_bytes!("../assets/menu_bg.png"))).as_ref()
+    }
+    /// ★ 原版主菜单按钮贴图（menu_btn_big 802×118=2 大按钮 / menu_btn_small 666×116=3 小按钮）
+    ///   与 icon_house 120×175（左下红顶白墙房子）——直接复用原版 APK 资源，视觉 100% 对齐
+    static MENU_BIG_CACHE: std::sync::OnceLock<Option<(Vec<u8>, u32, u32)>> = std::sync::OnceLock::new();
+    static MENU_SMALL_CACHE: std::sync::OnceLock<Option<(Vec<u8>, u32, u32)>> = std::sync::OnceLock::new();
+    static HOUSE_CACHE: std::sync::OnceLock<Option<(Vec<u8>, u32, u32)>> = std::sync::OnceLock::new();
+    fn menu_big_cached() -> Option<&'static (Vec<u8>, u32, u32)> {
+        MENU_BIG_CACHE.get_or_init(|| decode_png(include_bytes!("../assets/menu_btn_big.png"))).as_ref()
+    }
+    fn menu_small_cached() -> Option<&'static (Vec<u8>, u32, u32)> {
+        MENU_SMALL_CACHE.get_or_init(|| decode_png(include_bytes!("../assets/menu_btn_small.png"))).as_ref()
+    }
+    fn house_cached() -> Option<&'static (Vec<u8>, u32, u32)> {
+        HOUSE_CACHE.get_or_init(|| decode_png(include_bytes!("../assets/icon_house.png"))).as_ref()
+    }
+    /// ★ 原版 ☰ 菜单资源：8 彩色图标(4×2 atlas) + 8 白字(1×8 纵排 atlas)
+    static IMEN_ICONS_CACHE: std::sync::OnceLock<Option<(Vec<u8>, u32, u32)>> = std::sync::OnceLock::new();
+    static IMEN_TEXT_CACHE: std::sync::OnceLock<Option<(Vec<u8>, u32, u32)>> = std::sync::OnceLock::new();
+    fn imen_icons_cached() -> Option<&'static (Vec<u8>, u32, u32)> {
+        IMEN_ICONS_CACHE.get_or_init(|| decode_png(include_bytes!("../assets/imen_icons_atlas.png"))).as_ref()
+    }
+    fn imen_text_cached() -> Option<&'static (Vec<u8>, u32, u32)> {
+        IMEN_TEXT_CACHE.get_or_init(|| decode_png(include_bytes!("../assets/imen_text_atlas.png"))).as_ref()
+    }
+    /// ★ 原版弹窗文字图集（datah XML 对应，C 会话用 data_font_all.ttf 烘焙，1列×N行）
+    static DIFF_TEXT_CACHE: std::sync::OnceLock<Option<(Vec<u8>, u32, u32)>> = std::sync::OnceLock::new();
+    static GAMESET_TEXT_CACHE: std::sync::OnceLock<Option<(Vec<u8>, u32, u32)>> = std::sync::OnceLock::new();
+    static NEWGAME_TEXT_CACHE: std::sync::OnceLock<Option<(Vec<u8>, u32, u32)>> = std::sync::OnceLock::new();
+    static EXIT_TEXT_CACHE: std::sync::OnceLock<Option<(Vec<u8>, u32, u32)>> = std::sync::OnceLock::new();
+    static SOUND_TEXT_CACHE: std::sync::OnceLock<Option<(Vec<u8>, u32, u32)>> = std::sync::OnceLock::new();
+    fn diff_text_cached() -> Option<&'static (Vec<u8>, u32, u32)> {
+        DIFF_TEXT_CACHE.get_or_init(|| decode_png(include_bytes!("../assets/difficulty_text_atlas.png"))).as_ref()
+    }
+    fn gameset_text_cached() -> Option<&'static (Vec<u8>, u32, u32)> {
+        GAMESET_TEXT_CACHE.get_or_init(|| decode_png(include_bytes!("../assets/gameset_text_atlas.png"))).as_ref()
+    }
+    fn newgame_text_cached() -> Option<&'static (Vec<u8>, u32, u32)> {
+        NEWGAME_TEXT_CACHE.get_or_init(|| decode_png(include_bytes!("../assets/newgame_text_atlas.png"))).as_ref()
+    }
+    fn exit_text_cached() -> Option<&'static (Vec<u8>, u32, u32)> {
+        EXIT_TEXT_CACHE.get_or_init(|| decode_png(include_bytes!("../assets/exit_text_atlas.png"))).as_ref()
+    }
+    fn sound_text_cached() -> Option<&'static (Vec<u8>, u32, u32)> {
+        SOUND_TEXT_CACHE.get_or_init(|| decode_png(include_bytes!("../assets/sound_text_atlas.png"))).as_ref()
+    }
+
+    /// 弹窗文字：从 1列×N行 atlas 取指定行，按 720 基准矩形贴图（sx/sy = 画布/720,画布/1280）
+    #[allow(clippy::too_many_arguments)]
+    fn blit_text_rows(out: &mut [u8], ow: usize, oh: usize, tex: &[u8], tw: usize, th: usize,
+                      rows: &[(usize, f32, f32, f32, f32)], sx: f32, sy: f32) {
+        let rh = th / rows.iter().map(|r| r.0).max().unwrap_or(0).saturating_add(1).max(1);
+        let rh = if rh == 0 { th.max(1) } else { rh };
+        for &(idx, x, y, dw, dh) in rows {
+            let sy0 = idx * rh;
+            if sy0 >= th { continue; }
+            blit_rgba(out, ow, oh, tex, tw, th, 0, sy0, tw, rh.min(th - sy0),
+                      (x * sx) as usize, (y * sy) as usize, (dw * sx) as usize, (dh * sy) as usize);
+        }
+    }
+
+    /// RGBA alpha-blit：把纹理 [sx0..sx0+sw, sy0..sy0+sh] 缩放贴到 [dx0..+dw, dy0..+dh]（带透明混合）
+    #[allow(clippy::too_many_arguments)]
+    fn blit_rgba(out: &mut [u8], ow: usize, oh: usize, tex: &[u8], tw: usize, th: usize,
+                 sx0: usize, sy0: usize, sw: usize, sh: usize,
+                 dx0: usize, dy0: usize, dw: usize, dh: usize) {
+        if dw == 0 || dh == 0 || sw == 0 || sh == 0 { return; }
+        for dy in 0..dh {
+            let y = dy0 + dy;
+            if y >= oh { break; }
+            for dx in 0..dw {
+                let x = dx0 + dx;
+                if x >= ow { break; }
+                let sxp = sx0 + dx * sw / dw;
+                let syp = sy0 + dy * sh / dh;
+                if sxp >= tw || syp >= th { continue; }
+                let si = (syp * tw + sxp) * 4;
+                if si + 3 >= tex.len() { continue; }
+                let a = tex[si + 3] as u16;
+                if a == 0 { continue; }
+                let di = (y * ow + x) * 4;
+                if a == 255 {
+                    out[di] = tex[si]; out[di+1] = tex[si+1]; out[di+2] = tex[si+2]; out[di+3] = 255;
+                } else {
+                    let ia = 255 - a;
+                    out[di]   = ((out[di] as u16 * ia + tex[si] as u16 * a) / 255) as u8;
+                    out[di+1] = ((out[di+1] as u16 * ia + tex[si+1] as u16 * a) / 255) as u8;
+                    out[di+2] = ((out[di+2] as u16 * ia + tex[si+2] as u16 * a) / 255) as u8;
+                    out[di+3] = 255;
+                }
+            }
+        }
     }
 
     /// 解码 PNG 为 RGBA (w,h)
@@ -65,8 +157,6 @@ mod imp {
     /// 画布为任意尺寸（实际 450×800），按钮/文字坐标按 720×1280 基准等比缩放。
     pub fn compose_menu_rgba(w: usize, h: usize) -> Vec<u8> {
         let mut out = vec![0u8; w * h * 4];
-        let sx = w as f32 / super::MENU_BASE_W;
-        let sy = h as f32 / super::MENU_BASE_H;
         // ① 士兵背景（menu_bg 800×1205 → 拉伸铺满）
         if let Some(&(ref bg, bw, bh)) = menu_bg_cached() {
             for y in 0..h {
@@ -81,46 +171,30 @@ mod imp {
                 }
             }
         }
-        // ② 5 蓝色按钮（C 版渐变蓝，简化为纯色 #2a6fc8）+ ③ 白字图集切片
-        let text = menu_text_cached();
-        for (i, &(bx0, by0, bx1, by1)) in super::MENU_BTNS.iter().enumerate() {
-            let ax0 = (bx0 * sx) as usize;
-            let ax1 = (bx1 * sx) as usize;
-            let ay0 = (by0 * sy) as usize;
-            let ay1 = (by1 * sy) as usize;
-            for y in ay0..ay1.min(h) {
-                for x in ax0..ax1.min(w) {
-                    let di = (y * w + x) * 4;
-                    out[di] = 42; out[di+1] = 111; out[di+2] = 200; out[di+3] = 255; // 蓝按钮
-                }
+        // ② ★ 原版主菜单按钮贴图（900 系坐标 × k = w/900，与原版 APK 资源 1:1 视觉对齐）
+        //   2 大按钮 menu_btn_big(802×118=左401人机/右401两人) + 3 小按钮 menu_btn_small(666×116=三等分)
+        //   + 左下红顶白墙房子 icon_house(120×175)。此前自绘纯蓝矩形+文字 atlas 与原版不符，已替换。
+        let k = w as f32 / 900.0;
+        if let Some(&(ref big, bw, bh)) = menu_big_cached() {
+            let half = (bw / 2) as usize;
+            // 原版实测（UI_COMPARE §1）：两大按钮【上下排列】——人机 y1084 / 两人 y1227（x 同为 252）
+            blit_rgba(&mut out, w, h, big, bw as usize, bh as usize, 0, 0, half, bh as usize,
+                      (252.0 * k) as usize, (1084.0 * k) as usize, (393.0 * k) as usize, (95.0 * k) as usize);
+            blit_rgba(&mut out, w, h, big, bw as usize, bh as usize, half, 0, half, bh as usize,
+                      (252.0 * k) as usize, (1227.0 * k) as usize, (393.0 * k) as usize, (95.0 * k) as usize);
+        }
+        if let Some(&(ref small, sw, sh)) = menu_small_cached() {
+            let seg = (sw / 3) as usize;
+            // 原版实测：联网 (215,1371)-(429,1479)、联机 (469,1371)-(683,1479)、四国 (727,1371)-(858,1479)
+            for (i, &(dx, dw)) in [(215.0f32, 214.0f32), (469.0, 214.0), (727.0, 131.0)].iter().enumerate() {
+                blit_rgba(&mut out, w, h, small, sw as usize, sh as usize, i * seg, 0, seg, sh as usize,
+                          (dx * k) as usize, (1371.0 * k) as usize, (dw * k) as usize, (108.0 * k) as usize);
             }
-            // 白字图集：从 super::MENU_TEXT_X/Y/W/H 切片，居中贴到按钮内
-            if let Some(&(ref tpx, tw, _th)) = text {
-                let tx = super::MENU_TEXT_X[i] as usize;
-                let ty = super::MENU_TEXT_Y[i] as usize;
-                let twid = super::MENU_TEXT_W[i] as usize;
-                let thgt = super::MENU_TEXT_H as usize;
-                let dw = ((twid as f32 * sx).round() as usize).min(ax1.saturating_sub(ax0));
-                let dh = ((thgt as f32 * sy).round() as usize).min(ay1.saturating_sub(ay0));
-                let dx0 = ax0 + (ax1 - ax0).saturating_sub(dw) / 2;
-                let dy0 = ay0 + (ay1 - ay0).saturating_sub(dh) / 2;
-                for dy in 0..dh {
-                    for dx in 0..dw {
-                        let sy_px = ty + (dy * thgt / dh.max(1)).min(thgt - 1);
-                        let sx_px = tx + (dx * twid / dw.max(1)).min(twid - 1);
-                        let si = (sy_px * tw as usize + sx_px) * 4;
-                        if si + 3 >= tpx.len() { continue; }
-                        let a = tpx[si + 3] as u16;
-                        if a == 0 { continue; } // 透明区跳过
-                        let di = ((dy0 + dy) * w + dx0 + dx) * 4;
-                        // alpha 混合白字到蓝底
-                        let wa = a;
-                        out[di] = ((out[di] as u16 * (255 - wa) + 255 * wa) / 255) as u8;
-                        out[di+1] = ((out[di+1] as u16 * (255 - wa) + 255 * wa) / 255) as u8;
-                        out[di+2] = ((out[di+2] as u16 * (255 - wa) + 255 * wa) / 255) as u8;
-                    }
-                }
-            }
+        }
+        if let Some(&(ref house, hw, hh)) = house_cached() {
+            // 原版房子 (60,1330)-(165,1485)；按用户指令 tap 不跳转（仅视觉对齐）
+            blit_rgba(&mut out, w, h, house, hw as usize, hh as usize, 0, 0, hw as usize, hh as usize,
+                      (60.0 * k) as usize, (1330.0 * k) as usize, (105.0 * k) as usize, (155.0 * k) as usize);
         }
         out
     }
@@ -258,7 +332,7 @@ mod imp {
             for y in py0.min(h)..py1.min(h) {
                 for x in px0.min(w)..px1.min(w) {
                     let di = (y * w + x) * 4;
-                    out[di] = 245; out[di+1] = 240; out[di+2] = 220; // 米色面板
+                    out[di] = 42; out[di+1] = 40; out[di+2] = 38; // 米色面板
                 }
             }
             for (i, &(x0, y0, x1, y1)) in crate::ui::GAMESET_BTNS_ORIG.iter().enumerate() {
@@ -269,11 +343,23 @@ mod imp {
                 for y in by0.min(h)..by1.min(h) {
                     for x in bx0.min(w)..bx1.min(w) {
                         let di = (y * w + x) * 4;
-                        if i == 4 { out[di] = 60; out[di+1] = 180; out[di+2] = 75; }       // 确定=绿
-                        else if i == 5 { out[di] = 200; out[di+1] = 80; out[di+2] = 80; }  // 取消=红
-                        else { out[di] = 42; out[di+1] = 111; out[di+2] = 200; }            // 开关=蓝
+                        if i == 4 { out[di] = 60; out[di+1] = 110; out[di+2] = 200; }    // 确定=蓝
+                        else if i == 5 { out[di] = 145; out[di+1] = 145; out[di+2] = 150; }  // 取消=灰
+                        else { out[di] = 65; out[di+1] = 175; out[di+2] = 125; }            // 开关=绿
                     }
                 }
+            }
+            // ★ 原版 datah_012 文字：标题 + 4 冒号标签 + 开/关 + 确定/取消
+            if let Some(&(ref t, tw, th)) = gameset_text_cached() {
+                let mut rows = vec![(0usize, 260.0f32, 410.0f32, 200.0f32, 46.0f32)]; // 标题'游戏设置'
+                for r in 0..4usize {
+                    let y = 490.0 + r as f32 * 75.0;
+                    rows.push((r + 1, 165.0, y, 140.0, 46.0)); // 和棋:/大本营:/吃地雷:/吃军旗:
+                    rows.push((5 + (r % 2), 400.0, y, 100.0, 46.0)); // 开/关
+                }
+                rows.push((7, 205.0, 793.0, 100.0, 46.0)); // 确定
+                rows.push((8, 415.0, 793.0, 100.0, 46.0)); // 取消
+                blit_text_rows(&mut out, w, h, t, tw as usize, th as usize, &rows, sx, sy);
             }
         }
         // ★ 原版 datah_001 声音设置：面板 450×390@(135,445) + 5 控件（与 GameSet 几何不同）
@@ -286,7 +372,7 @@ mod imp {
             for y in py0.min(h)..py1.min(h) {
                 for x in px0.min(w)..px1.min(w) {
                     let di = (y * w + x) * 4;
-                    out[di] = 245; out[di+1] = 240; out[di+2] = 220; // 米色面板
+                    out[di] = 42; out[di+1] = 40; out[di+2] = 38; // 米色面板
                 }
             }
             for (i, &(x0, y0, x1, y1)) in crate::ui::SETTINGS_BTNS_ORIG.iter().enumerate() {
@@ -297,24 +383,66 @@ mod imp {
                 for y in by0.min(h)..by1.min(h) {
                     for x in bx0.min(w)..bx1.min(w) {
                         let di = (y * w + x) * 4;
-                        if i == 3 { out[di] = 60; out[di+1] = 180; out[di+2] = 75; }       // 确定=绿
-                        else if i == 4 { out[di] = 200; out[di+1] = 80; out[di+2] = 80; }  // 取消=红
-                        else { out[di] = 42; out[di+1] = 111; out[di+2] = 200; }            // 开关=蓝
+                        if i == 3 { out[di] = 60; out[di+1] = 110; out[di+2] = 200; }    // 确定=蓝
+                        else if i == 4 { out[di] = 145; out[di+1] = 145; out[di+2] = 150; }  // 取消=灰
+                        else { out[di] = 65; out[di+1] = 175; out[di+2] = 125; }            // 开关=绿
                     }
                 }
             }
+            // ★ 原版 datah_001 文字：声音设置 / 静音模式: / 按键声音: / 音量:
+            if let Some(&(ref t, tw, th)) = sound_text_cached() {
+                let rows = [
+                    (0usize, 260.0f32, 450.0f32, 200.0f32, 40.0f32),
+                    (1, 165.0, 510.0, 150.0, 40.0),
+                    (2, 165.0, 585.0, 150.0, 40.0),
+                    (3, 165.0, 668.0, 150.0, 40.0),
+                ];
+                blit_text_rows(&mut out, w, h, t, tw as usize, th as usize, &rows, sx, sy);
+            }
         }
-        // ★ 游戏内菜单（☰）8 按钮面板（原版 4×2 几何，720×1280 基准 → 缩放）
+        // ★ 原版 ☰ 菜单（orig_menu_real.png 实测）：半透明黑面板 + 8 彩色图标(4×2) + 8 白字(1×8)
+        //   列心 900 系 156/361/559/758（UI_COMPARE §3 实测 125/289/447/606 ×1.25），行 y=580/800 图标、720/940 文字
         if screen == crate::ui::Screen::IngameMenu {
-            for &(x0, y0, x1, y1) in crate::ui::INGAME_BTNS.iter() {
-                let ax0 = (x0 as f32 * sx) as usize;
-                let ay0 = (y0 as f32 * sy) as usize;
-                let ax1 = (x1 as f32 * sx) as usize;
-                let ay1 = (y1 as f32 * sy) as usize;
-                for y in ay0..ay1.min(h) {
-                    for x in ax0..ax1.min(w) {
-                        let di = (y * w + x) * 4;
-                        out[di] = 230; out[di+1] = 128; out[di+2] = 38; // 橙色按钮
+            let k = w as f32 / 900.0;
+            // 半透明黑面板 (30,530)-(870,1060)
+            let px0 = (30.0 * k) as usize; let px1 = ((870.0 * k) as usize).min(w);
+            let py0 = (530.0 * k) as usize; let py1 = ((1060.0 * k) as usize).min(h);
+            for y in py0..py1 {
+                for x in px0..px1 {
+                    let di = (y * w + x) * 4;
+                    out[di] = (out[di] as u16 * 55 / 255) as u8;
+                    out[di+1] = (out[di+1] as u16 * 55 / 255) as u8;
+                    out[di+2] = (out[di+2] as u16 * 55 / 255) as u8;
+                }
+            }
+            // 8 图标：imen_icons_atlas 440×200 = 4列×2行 每格 110×100
+            if let Some(&(ref icons, iw, ih)) = imen_icons_cached() {
+                let cw = (iw / 4) as usize; let ch = (ih / 2) as usize;
+                for row in 0..2usize {
+                    for col in 0..4usize {
+                        let i = row * 4 + col;
+                        let cx = [156.0f32, 361.0, 559.0, 758.0][col];
+                        let ty = if row == 0 { 580.0 } else { 800.0 };
+                        blit_rgba(&mut out, w, h, icons, iw as usize, ih as usize,
+                                  col * cw, row * ch, cw, ch,
+                                  ((cx - 55.0) * k) as usize, (ty * k) as usize,
+                                  (110.0 * k) as usize, (100.0 * k) as usize);
+                        let _ = i;
+                    }
+                }
+            }
+            // 8 白字：imen_text_atlas 160×320 = 1列×8行 每格 160×40（取 38 高）
+            if let Some(&(ref text, tw, th)) = imen_text_cached() {
+                let rh = (th / 8) as usize;
+                for row in 0..2usize {
+                    for col in 0..4usize {
+                        let i = row * 4 + col;
+                        let cx = [156.0f32, 361.0, 559.0, 758.0][col];
+                        let ty = if row == 0 { 720.0 } else { 940.0 };
+                        blit_rgba(&mut out, w, h, text, tw as usize, th as usize,
+                                  0, i * rh, tw as usize, rh.min(38),
+                                  ((cx - 80.0) * k) as usize, (ty * k) as usize,
+                                  (160.0 * k) as usize, (38.0 * k) as usize);
                     }
                 }
             }
@@ -332,7 +460,7 @@ mod imp {
             for y in py0.min(h)..py1.min(h) {
                 for x in px0.min(w)..px1.min(w) {
                     let di = (y * w + x) * 4;
-                    out[di] = 245; out[di+1] = 240; out[di+2] = 220; // 米色面板
+                    out[di] = 42; out[di+1] = 40; out[di+2] = 38; // 米色面板
                 }
             }
             for (i, &(x0, y0, x1, y1)) in crate::ui::NEWGAME_BTNS_ORIG.iter().enumerate() {
@@ -343,11 +471,24 @@ mod imp {
                 for y in by0.min(h)..by1.min(h) {
                     for x in bx0.min(w)..bx1.min(w) {
                         let di = (y * w + x) * 4;
-                        if i == 0 { out[di] = 60; out[di+1] = 180; out[di+2] = 75; }       // 确定=绿
-                        else if i == 1 { out[di] = 200; out[di+1] = 80; out[di+2] = 80; }  // 取消=红
-                        else { out[di] = 42; out[di+1] = 111; out[di+2] = 200; }            // 明暗棋=蓝
+                        if i == 0 { out[di] = 60; out[di+1] = 110; out[di+2] = 200; }    // 确定=蓝
+                        else if i == 1 { out[di] = 145; out[di+1] = 145; out[di+2] = 150; }  // 取消=灰
+                        else { out[di] = 95; out[di+1] = 95; out[di+2] = 215; }             // 玩法=蓝紫
                     }
                 }
+            }
+            // ★ 原版 datah_062 文字：新局 / 玩法: / 明暗棋: / 布局明棋 / 翻棋暗棋 / 确定 / 取消
+            if let Some(&(ref t, tw, th)) = newgame_text_cached() {
+                let rows = [
+                    (0usize, 260.0f32, 485.0f32, 200.0f32, 46.0f32),
+                    (1, 165.0, 540.0, 130.0, 46.0),
+                    (2, 165.0, 615.0, 130.0, 46.0),
+                    (3, 355.0, 557.0, 200.0, 46.0),
+                    (4, 355.0, 632.0, 200.0, 46.0),
+                    (5, 205.0, 718.0, 100.0, 46.0),
+                    (6, 415.0, 718.0, 100.0, 46.0),
+                ];
+                blit_text_rows(&mut out, w, h, t, tw as usize, th as usize, &rows, sx, sy);
             }
         }
         if screen == crate::ui::Screen::Difficulty {
@@ -356,11 +497,11 @@ mod imp {
             let py0 = (p.y as f32 * sy) as usize;
             let px1 = ((p.x + p.w) as f32 * sx) as usize;
             let py1 = ((p.y + p.h) as f32 * sy) as usize;
-            // 面板（米色半透明）
+            // ★ 原版 datah_041 BackDlg 深灰面板（uicmp/difficulty.png 实锤：深灰底+白字+蓝紫按钮）
             for y in py0..py1.min(h) {
                 for x in px0..px1.min(w) {
                     let di = (y * w + x) * 4;
-                    out[di] = 245; out[di+1] = 240; out[di+2] = 220;
+                    out[di] = 32; out[di+1] = 30; out[di+2] = 28;
                 }
             }
             // ★ 原版 datah_041 真值按钮（720 基准 ×sx/sy，与 difficulty_hit 同源）
@@ -372,9 +513,20 @@ mod imp {
                 for y in by0.min(h)..by1.min(h) {
                     for x in bx0.min(w)..bx1.min(w) {
                         let di = (y * w + x) * 4;
-                        out[di] = 42; out[di+1] = 111; out[di+2] = 200; // 蓝按钮
+                        out[di] = 95; out[di+1] = 95; out[di+2] = 215; // 原版蓝紫按钮（uicmp/difficulty.png）
                     }
                 }
+            }
+            // ★ 原版 datah_041 文字：4 区标签（新手区:/中级区:/高级区:/好友区:）+ 布局/翻棋按钮文字
+            if let Some(&(ref t, tw, th)) = diff_text_cached() {
+                let mut rows = Vec::new();
+                for r in 0..4usize {
+                    let cy = 527.0 + r as f32 * 75.0;
+                    rows.push((r, 165.0, cy - 23.0, 120.0, 46.0));  // 区标签左缘（XML 30+135=165）
+                    rows.push((4, 300.0, cy - 23.0, 100.0, 46.0));  // 布局（Lay 列中心 350）
+                    rows.push((5, 445.0, cy - 23.0, 100.0, 46.0));  // 翻棋（Flip 列中心 495）
+                }
+                blit_text_rows(&mut out, w, h, t, tw as usize, th as usize, &rows, sx, sy);
             }
         }
         if screen == crate::ui::Screen::Replay {
@@ -414,9 +566,9 @@ mod imp {
                     for x in bx0..bx1 {
                         let di = (y * w + x) * 4;
                         // alpha 0.9 混合
-                        out[di] = ((out[di] as u16 * 1 + br as u16 * 9) / 10) as u8;
-                        out[di+1] = ((out[di+1] as u16 * 1 + bg as u16 * 9) / 10) as u8;
-                        out[di+2] = ((out[di+2] as u16 * 1 + bb as u16 * 9) / 10) as u8;
+                        out[di] = ((out[di] as u16 + br as u16 * 9) / 10) as u8;
+                        out[di+1] = ((out[di+1] as u16 + bg as u16 * 9) / 10) as u8;
+                        out[di+2] = ((out[di+2] as u16 + bb as u16 * 9) / 10) as u8;
                     }
                 }
                 // ★ 对齐原版：终局"再来一局"绿色按钮（C rs_draw_overlay x35%-65% y62%-72%）
@@ -445,12 +597,12 @@ mod imp {
             for y in fy0.min(h)..fy1.min(h) {
                 for x in fx0.min(w)..fx1.min(w) {
                     let di = (y * w + x) * 4;
-                    out[di] = 245; out[di+1] = 240; out[di+2] = 220; // 米色面板
+                    out[di] = 42; out[di+1] = 40; out[di+2] = 38; // 米色面板
                 }
             }
             for &(rect, r, g, b) in &[
-                (crate::ui::EXIT_BTN_QUIT, 200u8, 80u8, 80u8),   // 确定=退出=红
-                (crate::ui::EXIT_BTN_STAY, 60u8, 180u8, 75u8),   // 取消=继续=绿
+                (crate::ui::EXIT_BTN_QUIT, 60u8, 110u8, 200u8), // 确定=退出=蓝
+                (crate::ui::EXIT_BTN_STAY, 145u8, 145u8, 150u8),// 取消=继续=灰
             ] {
                 let x0 = (rect.x as f32 * sx) as usize;
                 let x1 = ((rect.x + rect.w) as f32 * sx) as usize;
@@ -462,6 +614,15 @@ mod imp {
                         out[di] = r; out[di+1] = g; out[di+2] = b;
                     }
                 }
+            }
+            // ★ 原版 datah_025 文字：真的要退出吗？/ 确定 / 取消
+            if let Some(&(ref t, tw, th)) = exit_text_cached() {
+                let rows = [
+                    (0usize, 200.0f32, 570.0f32, 320.0f32, 46.0f32),
+                    (3, 205.0, 665.0, 100.0, 46.0),
+                    (4, 415.0, 665.0, 100.0, 46.0),
+                ];
+                blit_text_rows(&mut out, w, h, t, tw as usize, th as usize, &rows, sx, sy);
             }
         }
         // ★ UI-05：对局态顶部 ☰/↩ 图标（画布 450×800，命中区 view(270,750)/(620,750) ÷2）
@@ -486,10 +647,7 @@ mod imp {
         out
     }
 }
-#[cfg(target_os = "android")]
 pub use imp::compose_board_rgba;
-#[cfg(not(target_os = "android"))]
-pub fn compose_board_rgba(_w: usize, _h: usize, _b: Option<&crate::state::State>, _s: crate::ui::Screen) -> Vec<u8> { vec![] }
 
 #[cfg(test)]
 mod menu_text_tests {

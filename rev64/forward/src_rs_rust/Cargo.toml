@@ -9,10 +9,13 @@ crate-type = ["cdylib", "rlib"]
 [profile.release]
 opt-level = 3
 
+# ★ 离线 UI 渲染门禁（render_ui example）：png 为纯 Rust，桌面/Android 共用
+[dependencies]
+png = "0.17"
+
 [target.'cfg(target_os = "android")'.dependencies]
 jni = "0.21"
 wgpu = { version = "30", default-features = false, features = ["std", "gles", "wgsl"] }
 pollster = "0.3"
 raw-window-handle = "0.6"
-png = "0.17"
 
