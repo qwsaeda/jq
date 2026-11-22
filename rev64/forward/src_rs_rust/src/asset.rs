@@ -239,37 +239,58 @@ mod imp {
         //   蓝(0.15,0.35,0.85)/红(0.85,0.20,0.20)/和棋灰(0.55,0.55,0.55)，中心横幅 + 半透明
         // ★ 复盘态底部控制条（对齐 C datah_107 底部 5 按钮控制条）
         // ★ 设置类弹窗面板（GameSet 4 开关 / Settings 音效）——屏态分屏绘制
-        if matches!(screen, crate::ui::Screen::GameSet | crate::ui::Screen::Settings) {
-            // ★ UI-02: 面板 + 3×2 按钮网格（与 ui.rs settings_btn_hit 同源，view 坐标 ×0.5）
+        // ★ 原版 datah_012 游戏设置：面板 450×465 + 6 按钮（720 基准 ×sx/sy）
+        if screen == crate::ui::Screen::GameSet {
             let p = &crate::ui::SETTINGS_PANEL;
-            let px0 = (p.x as f32 * 0.5) as usize;
-            let px1 = ((p.x + p.w) as f32 * 0.5) as usize;
-            let py0 = (p.y as f32 * 0.5) as usize;
-            let py1 = ((p.y + p.h) as f32 * 0.5) as usize;
+            let px0 = (p.x as f32 * sx) as usize;
+            let px1 = ((p.x + p.w) as f32 * sx) as usize;
+            let py0 = (p.y as f32 * sy) as usize;
+            let py1 = ((p.y + p.h) as f32 * sy) as usize;
             for y in py0.min(h)..py1.min(h) {
                 for x in px0.min(w)..px1.min(w) {
                     let di = (y * w + x) * 4;
                     out[di] = 245; out[di+1] = 240; out[di+2] = 220; // 米色面板
                 }
             }
-            // 6 按钮（3列×2行），view→画布 ×0.5
-            let cw = p.w as f32 / 3.0 * 0.5;
-            let rh = p.h as f32 / 2.0 * 0.5;
-            for row in 0..2usize {
-                for col in 0..3usize {
-                    let bx0 = (px0 as f32 + col as f32 * cw) as usize;
-                    let bx1 = (px0 as f32 + (col as f32 + 1.0) * cw) as usize;
-                    let by0 = (py0 as f32 + row as f32 * rh) as usize;
-                    let by1 = (py0 as f32 + (row as f32 + 1.0) * rh) as usize;
-                    for y in by0.min(h)..by1.min(h) {
-                        for x in bx0.min(w)..bx1.min(w) {
-                            let di = (y * w + x) * 4;
-                            // 确定(索引4)/取消(索引5) 用不同色区分，其余开关用蓝色
-                            let idx = row * 3 + col;
-                            if idx == 4 { out[di] = 60; out[di+1] = 180; out[di+2] = 75; }      // 确定=绿
-                            else if idx == 5 { out[di] = 200; out[di+1] = 80; out[di+2] = 80; } // 取消=红
-                            else { out[di] = 42; out[di+1] = 111; out[di+2] = 200; }            // 开关=蓝
-                        }
+            for (i, &(x0, y0, x1, y1)) in crate::ui::GAMESET_BTNS_ORIG.iter().enumerate() {
+                let bx0 = (x0 as f32 * sx) as usize;
+                let bx1 = (x1 as f32 * sx) as usize;
+                let by0 = (y0 as f32 * sy) as usize;
+                let by1 = (y1 as f32 * sy) as usize;
+                for y in by0.min(h)..by1.min(h) {
+                    for x in bx0.min(w)..bx1.min(w) {
+                        let di = (y * w + x) * 4;
+                        if i == 4 { out[di] = 60; out[di+1] = 180; out[di+2] = 75; }       // 确定=绿
+                        else if i == 5 { out[di] = 200; out[di+1] = 80; out[di+2] = 80; }  // 取消=红
+                        else { out[di] = 42; out[di+1] = 111; out[di+2] = 200; }            // 开关=蓝
+                    }
+                }
+            }
+        }
+        // ★ 原版 datah_001 声音设置：面板 450×390@(135,445) + 5 控件（与 GameSet 几何不同）
+        if screen == crate::ui::Screen::Settings {
+            let p = &crate::ui::SETTINGS_PANEL_ORIG;
+            let px0 = (p.x as f32 * sx) as usize;
+            let px1 = ((p.x + p.w) as f32 * sx) as usize;
+            let py0 = (p.y as f32 * sy) as usize;
+            let py1 = ((p.y + p.h) as f32 * sy) as usize;
+            for y in py0.min(h)..py1.min(h) {
+                for x in px0.min(w)..px1.min(w) {
+                    let di = (y * w + x) * 4;
+                    out[di] = 245; out[di+1] = 240; out[di+2] = 220; // 米色面板
+                }
+            }
+            for (i, &(x0, y0, x1, y1)) in crate::ui::SETTINGS_BTNS_ORIG.iter().enumerate() {
+                let bx0 = (x0 as f32 * sx) as usize;
+                let bx1 = (x1 as f32 * sx) as usize;
+                let by0 = (y0 as f32 * sy) as usize;
+                let by1 = (y1 as f32 * sy) as usize;
+                for y in by0.min(h)..by1.min(h) {
+                    for x in bx0.min(w)..bx1.min(w) {
+                        let di = (y * w + x) * 4;
+                        if i == 3 { out[di] = 60; out[di+1] = 180; out[di+2] = 75; }       // 确定=绿
+                        else if i == 4 { out[di] = 200; out[di+1] = 80; out[di+2] = 80; }  // 取消=红
+                        else { out[di] = 42; out[di+1] = 111; out[di+2] = 200; }            // 开关=蓝
                     }
                 }
             }
@@ -294,30 +315,28 @@ mod imp {
         // ★ 两人新局弹窗（NewGame）：面板 + 明棋/暗棋(上行) + 确定/取消(下行)
         //   几何与 jni.rs NewGame 触摸分支完全同源（DIFFICULTY_PANEL 4列×2行，col0/1 有效）
         if screen == crate::ui::Screen::NewGame {
-            let p = crate::ui::DIFFICULTY_PANEL;
-            let px0 = (p.x as f32 * sx) as usize;
-            let py0 = (p.y as f32 * sy) as usize;
-            let px1 = ((p.x + p.w) as f32 * sx) as usize;
-            let py1 = ((p.y + p.h) as f32 * sy) as usize;
-            for y in py0..py1.min(h) {
-                for x in px0..px1.min(w) {
+            // ★ 原版 datah_062 真值：面板 450×315@(135,482) + 4 按钮（720 基准 ×sx/sy，与 newgame_btn_hit 同源）
+            let px0 = (135.0f32 * sx) as usize;
+            let px1 = ((135 + 450) as f32 * sx) as usize;
+            let py0 = (482.0f32 * sy) as usize;
+            let py1 = ((482 + 315) as f32 * sy) as usize;
+            for y in py0.min(h)..py1.min(h) {
+                for x in px0.min(w)..px1.min(w) {
                     let di = (y * w + x) * 4;
                     out[di] = 245; out[di+1] = 240; out[di+2] = 220; // 米色面板
                 }
             }
-            let cw = (p.w / 4) as usize;
-            let rh = (p.h / 2) as usize;
-            for row in 0..2usize {
-                for col in 0..2usize { // 只画 col0/1（有效按钮）
-                    let bx0 = ((p.x + col as i32 * cw as i32) as f32 * sx) as usize;
-                    let bx1 = ((p.x + (col as i32 + 1) * cw as i32) as f32 * sx) as usize;
-                    let by0 = ((p.y + row as i32 * rh as i32) as f32 * sy) as usize;
-                    let by1 = ((p.y + (row as i32 + 1) * rh as i32) as f32 * sy) as usize;
-                    for y in by0..by1.min(h) {
-                        for x in bx0..bx1.min(w) {
-                            let di = (y * w + x) * 4;
-                            out[di] = 42; out[di+1] = 111; out[di+2] = 200; // 蓝按钮
-                        }
+            for (i, &(x0, y0, x1, y1)) in crate::ui::NEWGAME_BTNS_ORIG.iter().enumerate() {
+                let bx0 = (x0 as f32 * sx) as usize;
+                let bx1 = (x1 as f32 * sx) as usize;
+                let by0 = (y0 as f32 * sy) as usize;
+                let by1 = (y1 as f32 * sy) as usize;
+                for y in by0.min(h)..by1.min(h) {
+                    for x in bx0.min(w)..bx1.min(w) {
+                        let di = (y * w + x) * 4;
+                        if i == 0 { out[di] = 60; out[di+1] = 180; out[di+2] = 75; }       // 确定=绿
+                        else if i == 1 { out[di] = 200; out[di+1] = 80; out[di+2] = 80; }  // 取消=红
+                        else { out[di] = 42; out[di+1] = 111; out[di+2] = 200; }            // 明暗棋=蓝
                     }
                 }
             }
@@ -335,20 +354,16 @@ mod imp {
                     out[di] = 245; out[di+1] = 240; out[di+2] = 220;
                 }
             }
-            // 8 按钮（4列×2行，与 difficulty_hit 的 col=ox/(w/4) row=oy/(h/2) 同源）
-            let cw = (p.w / 4) as usize;
-            let rh = (p.h / 2) as usize;
-            for row in 0..2usize {
-                for col in 0..4usize {
-                    let bx0 = ((p.x + col as i32 * cw as i32) as f32 * sx) as usize;
-                    let bx1 = ((p.x + (col as i32 + 1) * cw as i32) as f32 * sx) as usize;
-                    let by0 = ((p.y + row as i32 * rh as i32) as f32 * sy) as usize;
-                    let by1 = ((p.y + (row as i32 + 1) * rh as i32) as f32 * sy) as usize;
-                    for y in by0..by1.min(h) {
-                        for x in bx0..bx1.min(w) {
-                            let di = (y * w + x) * 4;
-                            out[di] = 42; out[di+1] = 111; out[di+2] = 200; // 蓝按钮
-                        }
+            // ★ 原版 datah_041 真值按钮（720 基准 ×sx/sy，与 difficulty_hit 同源）
+            for &(x0, y0, x1, y1) in crate::ui::DIFF_BTNS_ORIG.iter() {
+                let bx0 = (x0 as f32 * sx) as usize;
+                let bx1 = (x1 as f32 * sx) as usize;
+                let by0 = (y0 as f32 * sy) as usize;
+                let by1 = (y1 as f32 * sy) as usize;
+                for y in by0.min(h)..by1.min(h) {
+                    for x in bx0.min(w)..bx1.min(w) {
+                        let di = (y * w + x) * 4;
+                        out[di] = 42; out[di+1] = 111; out[di+2] = 200; // 蓝按钮
                     }
                 }
             }
@@ -413,14 +428,25 @@ mod imp {
         }
         // ★ UI-04：退出确认对话框（view 按钮 ×0.5 到画布 450×800）
         if screen == crate::ui::Screen::ExitConfirm {
+            // ★ 原版 datah_025 真值：面板 450×220@(135,530) + 确定/取消（720 基准 ×sx/sy）
+            let fx0 = (135.0f32 * sx) as usize;
+            let fx1 = ((135 + 450) as f32 * sx) as usize;
+            let fy0 = (530.0f32 * sy) as usize;
+            let fy1 = ((530 + 220) as f32 * sy) as usize;
+            for y in fy0.min(h)..fy1.min(h) {
+                for x in fx0.min(w)..fx1.min(w) {
+                    let di = (y * w + x) * 4;
+                    out[di] = 245; out[di+1] = 240; out[di+2] = 220; // 米色面板
+                }
+            }
             for &(rect, r, g, b) in &[
-                (crate::ui::EXIT_BTN_QUIT, 200u8, 80u8, 80u8),   // 退出=红
-                (crate::ui::EXIT_BTN_STAY, 60u8, 180u8, 75u8),   // 继续=绿
+                (crate::ui::EXIT_BTN_QUIT, 200u8, 80u8, 80u8),   // 确定=退出=红
+                (crate::ui::EXIT_BTN_STAY, 60u8, 180u8, 75u8),   // 取消=继续=绿
             ] {
-                let x0 = (rect.x as f32 * 0.5) as usize;
-                let x1 = ((rect.x + rect.w) as f32 * 0.5) as usize;
-                let y0 = (rect.y as f32 * 0.5) as usize;
-                let y1 = ((rect.y + rect.h) as f32 * 0.5) as usize;
+                let x0 = (rect.x as f32 * sx) as usize;
+                let x1 = ((rect.x + rect.w) as f32 * sx) as usize;
+                let y0 = (rect.y as f32 * sy) as usize;
+                let y1 = ((rect.y + rect.h) as f32 * sy) as usize;
                 for y in y0.min(h)..y1.min(h) {
                     for x in x0.min(w)..x1.min(w) {
                         let di = (y * w + x) * 4;
@@ -505,22 +531,15 @@ mod menu_compose_tests {
 mod difficulty_draw_tests {
     #[test]
     fn difficulty_draw_grid_matches_hit() {
-        // 绘制的 4×2 网格必须与 difficulty_hit 解析同源：
-        // col=ox/(w/4) row=oy/(h/2)，面板 4 列宽 90 / 2 行高 200（720基准）
+        // ★ 原版 datah_041 真值：每个按钮中心必须被 difficulty_hit 命中，
+        //   且解析结果 = 真值表索引（level=i/2+1, mode=i%2）——画(asset.rs用DIFF_BTNS_ORIG)与点同源
         let p = crate::ui::DIFFICULTY_PANEL;
-        assert_eq!(p.w / 4, 90, "列宽与绘制 cw 一致");
-        assert_eq!(p.h / 2, 200, "行高与绘制 rh 一致");
-        // 每格中心必须能被 difficulty_hit 解析到对应 (level,mode)
-        for row in 0..2u8 {
-            for col in 0..4u8 {
-                let cx = p.x + col as i32 * 90 + 45;
-                let cy = p.y + row as i32 * 200 + 100;
-                let got = crate::ui::difficulty_hit(cx, cy, &p);
-                assert!(got.is_some(), "格({},{}) 中心应命中", col, row);
-                let (level, mode) = got.unwrap();
-                assert_eq!(level, col + 1, "列+1=level(level从1起)");
-                assert_eq!(mode, row, "行=mode");
-            }
+        for (i, &(x0, y0, x1, y1)) in crate::ui::DIFF_BTNS_ORIG.iter().enumerate() {
+            let cx = (x0 + x1) / 2;
+            let cy = (y0 + y1) / 2;
+            let got = crate::ui::difficulty_hit(cx, cy, &p);
+            assert_eq!(got, Some(((i / 2) as u8 + 1, (i % 2) as u8)),
+                       "原版按钮{} 中心命中解析", i);
         }
     }
 }

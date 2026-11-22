@@ -472,41 +472,39 @@ mod android_impl {
                 return 1;
             }
             ui::Screen::NewGame => {
-                // ★ 补卡死缺口：NewGame 弹窗原来无任何触摸分支，玩家点"两人对战"后完全卡死。
-                //   两人新局：面板 4×2 网格 → 上行选明棋(col0)/暗棋(col1)，下行确定(row1 col0)/取消(row1 col1)
+                // ★ 原版 datah_062 真值按钮：0=确定 1=取消 2=明棋 3=暗棋（画=点同源）
+                //   MotionEvent view 900×1600 → 720×1280 基准（与绘制 sx/sy 同源）
                 let (bx, by) = (x * 0.8, y * 0.8);
-                let p = &ui::DIFFICULTY_PANEL;
-                if !p.contains(bx as i32, by as i32) {
-                    with_lock(|st, u, _c| u.cancel_popup(st)); // ★ UI-03: 面板外=取消，恢复 mode 快照（防残留）
-                    crate::log::setprop("jq.ingame_act", "newgame_cancel");
-                    return 1;
-                }
-                let col = (bx as i32 - p.x) / (p.w / 4);
-                let row = (by as i32 - p.y) / (p.h / 2);
-                if row == 0 {
-                    // 选模式：col0=明棋(0) col1=暗棋(1)
-                    let mode = if col <= 1 { col as u8 } else { 0 };
-                    with_lock(|st, _u, _c| { st.mode = mode; });
-                    crate::log::setprop("jq.ingame_act", &format!("newgame_mode{}", mode));
-                    return 1;
-                }
-                // 下行：col0=确定（开局）col1=取消（回菜单）
-                if col <= 1 {
-                    with_lock(|st, u, _c| {
-                        let mode = st.mode;
-                        u.difficulty_select(u.level, mode, st); // 复用开局重建（按 mode 载布局）
-                        u.vs_ai = false; // 两人热座
-                    });
-                    crate::log::setprop("jq.ingame_act", "newgame_confirm");
-                } else {
-                    with_lock(|st, u, _c| u.cancel_popup(st)); // ★ UI-03: 取消恢复 mode 快照
-                    crate::log::setprop("jq.ingame_act", "newgame_cancel");
+                match ui::newgame_btn_hit(bx, by) {
+                    Some(2) => { // 明棋
+                        with_lock(|st, _u, _c| { st.mode = 0; });
+                        crate::log::setprop("jq.ingame_act", "newgame_mode0");
+                    }
+                    Some(3) => { // 暗棋
+                        with_lock(|st, _u, _c| { st.mode = 1; });
+                        crate::log::setprop("jq.ingame_act", "newgame_mode1");
+                    }
+                    Some(0) => { // 确定 → 开局
+                        with_lock(|st, u, _c| {
+                            let mode = st.mode;
+                            u.difficulty_select(u.level, mode, st);
+                            u.vs_ai = false;
+                        });
+                        crate::log::setprop("jq.ingame_act", "newgame_confirm");
+                    }
+                    Some(1) | None => { // 取消 / 面板外 → 恢复 mode 快照
+                        with_lock(|st, u, _c| u.cancel_popup(st));
+                        crate::log::setprop("jq.ingame_act", "newgame_cancel");
+                    }
+                    _ => unreachable!(),
                 }
                 return 1;
             }
             ui::Screen::ExitConfirm => {
-                // ★ UI-04: 退出确认按按钮分派（退出→Menu / 继续→Game），面板外=继续（保守不退出）
-                match ui::exit_btn_hit(x, y) {
+                // ★ 原版 datah_025 真值（720 基准）；MotionEvent view 900×1600 → ×0.8
+                //   退出确认按按钮分派（确定=退出→Menu / 取消=继续→Game），面板外=继续（保守不退出）
+                let (bx, by) = (x * 0.8, y * 0.8);
+                match ui::exit_btn_hit(bx, by) {
                     Some(true) => { // 退出 → 回主菜单
                         with_lock(|_st, u, _c| u.exit_confirm(true));
                         crate::log::setprop("jq.exit_act", "quit");
@@ -556,9 +554,10 @@ mod android_impl {
                 return 1;
             }
             ui::Screen::GameSet | ui::Screen::Settings => {
-                // ★ UI-02: 面板外=取消回滚；面板内 3×2 按钮：开关/确定/取消（画=点同源）
+                // ★ 原版真值：GameSet=datah_012 / Settings=datah_001；MotionEvent 900×1600 → ×0.8 转 720 基准
                 let is_gameset = screen == ui::Screen::GameSet;
-                match ui::settings_btn_hit(x, y) {
+                let (bx, by) = (x * 0.8, y * 0.8);
+                match ui::settings_btn_hit(bx, by, is_gameset) {
                     None => {
                         with_lock(|st, u, _c| u.cancel_popup(st));
                         crate::log::setprop("jq.popup_act", "cancel");

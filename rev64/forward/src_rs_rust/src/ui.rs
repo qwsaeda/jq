@@ -96,7 +96,7 @@ impl Ui {
         self.screen = Screen::NewGame;
     }
 
-    /// 难度弹窗选（level, mode）→ 开局进对局（规格 §10：选完即开局）
+/// 难度弹窗选（level, mode）→ 开局进对局（规格 §10：选完即开局）
     pub fn difficulty_select(&mut self, level: u8, mode: u8, st: &mut State) {
         self.level = level;
         // ★ 业务对齐（规格 §5.3）：按 mode 真正重建开局棋盘
@@ -177,6 +177,46 @@ impl Ui {
     }
 }
 
+/// ★ 原版 datah_041 难度弹窗真值（XML 450×335 居中 → 720 基准偏移 +135,+472.5）
+/// 8 按钮：4 行(新手/中级/高级/好友区) × 2 列(布局/翻棋)，坐标已含偏移
+pub const DIFF_BTNS_ORIG: [(i32, i32, i32, i32); 8] = [
+(290, 497, 410, 557), (435, 497, 555, 557),  // 新手区 Lay/Flip
+(290, 572, 410, 632), (435, 572, 555, 632),  // 中级区
+(290, 647, 410, 707), (435, 647, 555, 707),  // 高级区
+(290, 722, 410, 782), (435, 722, 555, 782),  // 好友区
+];
+/// 原版 datah_012 游戏设置真值（450×465 → 偏移 +135,+407.5）
+/// 4 开关 / 确定 / 取消（720 基准）
+pub const GAMESET_BTNS_ORIG: [(i32, i32, i32, i32); 6] = [
+(345, 483, 555, 543),  // 和棋开关
+(345, 558, 555, 618),  // 大本营
+(345, 633, 555, 693),  // 吃地雷
+(345, 708, 555, 768),  // 吃军旗
+(165, 793, 345, 853),  // 确定
+(375, 793, 555, 853),  // 取消
+];
+/// ★ 原版 datah_001 声音设置真值（面板 450×390 → 720 偏移 +135,+445）
+/// 控件：Sound 220,75-420,135 / BtnSound 220,150-420,210 / Volume 120,232-427,280 /
+///        Ok 30,305-210,365 / Cancel 240,305-420,365 —— 与 GameSet 几何不同（确定 y 750 vs 793）
+pub const SETTINGS_BTNS_ORIG: [(i32, i32, i32, i32); 5] = [
+(355, 520, 555, 580),  // 0=静音 Sound
+(355, 595, 555, 655),  // 1=按键声音 BtnSound
+(255, 677, 562, 725),  // 2=音量 Volume
+(165, 750, 345, 810),  // 3=确定 Ok
+(375, 750, 555, 810),  // 4=取消 Cancel
+];
+pub const SETTINGS_PANEL_ORIG: Rect = Rect { x: 135, y: 445, w: 450, h: 390 };
+/// 原版 datah_062 两人新局真值（面板 450×315 → 720 偏移 +135,+482.5，取整 482）
+/// 控件完整 rect（原版 XML）：Lay 220,75-420,135（玩法:/布局）、Show 220,150-420,210（明暗棋:）
+///   Ok 30,235-210,295、Cancel 240,235-420,295 —— 两个玩法按钮是【同一列上下两行】非同一行
+pub const NEWGAME_BTNS_ORIG: [(i32, i32, i32, i32); 4] = [
+(165, 717, 345, 777),  // 0=确定 Ok
+(375, 717, 555, 777),  // 1=取消 Cancel
+(355, 557, 555, 617),  // 2=Lay 玩法（布局/明棋切换）
+(355, 632, 555, 692),  // 3=Show 明暗棋
+];
+
+
 impl Default for Ui {
     fn default() -> Self {
         Self::new()
@@ -209,11 +249,12 @@ pub const MENU_BTN_TWOPLAYER: Rect = Rect { x: 202, y: 982, w: 314, h: 76 }; // 
 /// ★ 业务对齐（2026-11-20）：难度弹窗面板 = 原版 datah_041 真机截图实测
 ///   720×1280 基准 (180,420)-(540,820)，与 C ui_menu.c g_diff_btns 共用真值
 ///   8 按钮 2 列×4 行：布局/翻棋列 x=304-400/420-516，行 y=450-521/539-610/628-700/718-789
+/// ★ 原版 datah_041 面板 450×335 居中 → 720 基准偏移 (135,472.5)，取整 (135,472,450,335)
 pub const DIFFICULTY_PANEL: Rect = Rect {
-    x: 180,
-    y: 420,
-    w: 360,
-    h: 400,
+    x: 135,
+    y: 472,
+    w: 450,
+    h: 335,
 };
 
 /// 面板外 = 取消语义（规格 §10 通病根治：所有设置弹窗点面板外须回滚，与取消按钮对称）
@@ -223,47 +264,62 @@ pub fn is_outside_panel(px: i32, py: i32, panel: &Rect) -> bool {
     !panel.contains(px, py)
 }
 
-/// 设置弹窗按钮几何（view 900×1600 基准，与 asset.rs 绘制 + jni.rs 触摸同源）
-/// GameSet: 前 4 个 = cfg[0..3] 开关，后 2 = 确定/取消；Settings: 第 0 = 音效开关，后 2 = 确定/取消
-/// 面板居中 x20%-80%(180-720) y30%-70%(480-1120)，按钮在面板内 3×2 网格
-pub const SETTINGS_PANEL: Rect = Rect { x: 180, y: 480, w: 540, h: 640 };
-/// 退出确认对话框按钮（view 900×1600）：左=退出、右=继续，各占中下部一小块
-pub const EXIT_BTN_QUIT: Rect = Rect { x: 270, y: 700, w: 160, h: 80 };
-pub const EXIT_BTN_STAY: Rect = Rect { x: 470, y: 700, w: 160, h: 80 };
+/// ★ 原版 datah_012 游戏设置面板真值（450×465 → 720 偏移 +135,+407.5）
+pub const SETTINGS_PANEL: Rect = Rect { x: 135, y: 407, w: 450, h: 465 };
+/// ★ 原版 datah_025 退出确认真值（450×220 居中 → 720 偏移 +135,+530，整数化 530）
+/// 确定=退出（Junqi.ExitConfirm「真的要退出吗？」），取消=继续对局
+///   确定 Ok    局部 30,135-210,195 → 720 基准 165,665-345,725
+///   取消 Cancel 局部 240,135-420,195 → 720 基准 375,665-555,725
+pub const EXIT_BTN_QUIT: Rect = Rect { x: 165, y: 665, w: 180, h: 60 };
+pub const EXIT_BTN_STAY: Rect = Rect { x: 375, y: 665, w: 180, h: 60 };
 pub fn exit_btn_hit(x: f32, y: f32) -> Option<bool> {
     if EXIT_BTN_QUIT.contains(x as i32, y as i32) { Some(true) }  // 退出
     else if EXIT_BTN_STAY.contains(x as i32, y as i32) { Some(false) } // 继续
     else { None }
 }
 
-pub fn settings_btn_hit(x: f32, y: f32) -> Option<u8> {
-    let p = &SETTINGS_PANEL;
-    if !(p.x as f32..=(p.x + p.w) as f32).contains(&x) || !(p.y as f32..=(p.y + p.h) as f32).contains(&y) {
-        return None;
+/// ★ 设置弹窗命中：GameSet 用 datah_012 真值，Settings（声音）用 datah_001 真值。
+/// 统一语义索引：0-3=开关（Settings 仅 0/1/2 有效）、4=确定、5=取消
+pub fn settings_btn_hit(x: f32, y: f32, is_gameset: bool) -> Option<u8> {
+    if is_gameset {
+        for (i, &(x0, y0, x1, y1)) in GAMESET_BTNS_ORIG.iter().enumerate() {
+            if x >= x0 as f32 && x <= x1 as f32 && y >= y0 as f32 && y <= y1 as f32 {
+                return Some(i as u8); // 0-3=cfg开关, 4=确定, 5=取消
+            }
+        }
+    } else {
+        for (i, &(x0, y0, x1, y1)) in SETTINGS_BTNS_ORIG.iter().enumerate() {
+            if x >= x0 as f32 && x <= x1 as f32 && y >= y0 as f32 && y <= y1 as f32 {
+                // datah_001 索引 3/4 = 确定/取消 → 映射到统一 4/5
+                return Some(if i < 3 { i as u8 } else { (i + 1) as u8 });
+            }
+        }
     }
-    // 3 列 × 2 行网格：上排 6 槽位简化为 3 按钮（开关1/开关2/开关3）
-    // 下排：开关4/确定/取消（GameSet）或 音效开关/确定/取消（Settings）
-    let col = ((x - p.x as f32) / (p.w as f32 / 3.0)) as usize;
-    let row = ((y - p.y as f32) / (p.h as f32 / 2.0)) as usize;
-    let idx = row * 3 + col.min(2);
-    if idx < 6 { Some(idx as u8) } else { None }
+    None
+}
+
+/// 原版 datah_062 新局弹窗按钮命中：0=确定 1=取消 2=明棋 3=暗棋
+pub fn newgame_btn_hit(x: f32, y: f32) -> Option<u8> {
+    for (i, &(x0, y0, x1, y1)) in NEWGAME_BTNS_ORIG.iter().enumerate() {
+        if x >= x0 as f32 && x <= x1 as f32 && y >= y0 as f32 && y <= y1 as f32 {
+            return Some(i as u8);
+        }
+    }
+    None
 }
 
 /// 难度弹窗 8 按钮（level 1-4 × mode 布局/翻棋）。按钮索引 0-7。
 /// 命中判定 + 解析 (level, mode)。
-pub fn difficulty_hit(px: i32, py: i32, panel: &Rect) -> Option<(u8, u8)> {
-    if !panel.contains(px, py) {
-        return None; // 面板外（调用方 is_outside_panel 判取消）
+pub fn difficulty_hit(px: i32, py: i32, _panel: &Rect) -> Option<(u8, u8)> {
+    // ★ 原版 datah_041 真值命中：8 按钮坐标（已含中心偏移），逐按钮矩形判定
+    for (i, &(x0, y0, x1, y1)) in DIFF_BTNS_ORIG.iter().enumerate() {
+        if px >= x0 && px <= x1 && py >= y0 && py <= y1 {
+            let level = (i / 2) as u8 + 1; // 行 0-3 → level 1-4
+            let mode = (i % 2) as u8;      // 列 0=Lay / 1=Flip
+            return Some((level, mode));
+        }
     }
-    // 简化：8 按钮 4×2 网格（4 level 列 × 2 mode 行）
-    let ox = px - panel.x;
-    let oy = py - panel.y;
-    let col = ox / (panel.w / 4);
-    let row = oy / (panel.h / 2);
-    if !(0..=3).contains(&col) || !(0..=1).contains(&row) {
-        return None;
-    }
-    Some((col as u8 + 1, row as u8)) // level=col+1, mode=row(0布局/1翻棋)
+    None // 面板外/按钮间隙（调用方判取消）
 }
 
 #[cfg(test)]
@@ -344,12 +400,13 @@ mod tests {
     // §10 难度 8 按钮命中解析（col+1=level, row=mode）
     #[test]
     fn difficulty_hit_parse() {
-        let panel = Rect { x: 135, y: 445, w: 450, h: 390 };
-        // 第 2 列 第 1 行（mode=1 翻棋）→ level=2 mode=1
-        let cx = panel.x + (panel.w / 4) + 10; // 第 2 列内（col index 1）
-        let cy = panel.y + (panel.h / 2) + 10; // 第 2 行内（row index 1）
+        // ★ 原版 datah_041 真值按钮中心：i=3 = 中级区 Flip → level=2 mode=1
+        let (x0, y0, x1, y1) = DIFF_BTNS_ORIG[3];
+        let cx = (x0 + x1) / 2;
+        let cy = (y0 + y1) / 2;
+        let panel = DIFFICULTY_PANEL;
         let got = difficulty_hit(cx, cy, &panel).unwrap();
-        assert_eq!(got, (2, 1), "col1+1=2 level, row1=1 mode");
+        assert_eq!(got, (2, 1), "中级区翻棋 → level=2 mode=1");
     }
 }
 #[cfg(test)]
@@ -400,17 +457,24 @@ mod settings_btn_tests {
     use super::*;
     #[test]
     fn settings_btn_hit_grid() {
-        let p = &SETTINGS_PANEL;
-        // 6 按钮中心都应命中正确索引
-        for row in 0..2usize {
-            for col in 0..3usize {
-                let x = p.x as f32 + col as f32 * (p.w as f32 / 3.0) + 30.0;
-                let y = p.y as f32 + row as f32 * (p.h as f32 / 2.0) + 60.0;
-                assert_eq!(settings_btn_hit(x, y), Some((row * 3 + col) as u8));
-            }
+        // ★ 原版 datah_012 真值：每个按钮中心命中正确索引（0-3开关/4确定/5取消）
+        for (i, &(x0, y0, x1, y1)) in GAMESET_BTNS_ORIG.iter().enumerate() {
+            let cx = ((x0 + x1) / 2) as f32;
+            let cy = ((y0 + y1) / 2) as f32;
+            assert_eq!(settings_btn_hit(cx, cy, true), Some(i as u8), "原版按钮{} 中心命中", i);
         }
-        // 面板外不命中
-        assert_eq!(settings_btn_hit(10.0, 10.0), None);
+        assert_eq!(settings_btn_hit(10.0, 10.0, true), None);
+        // ★ 原版 datah_001 声音设置真值：3 开关(0-2) + 确定(4) + 取消(5)，几何与 GameSet 不同
+        for (i, &(x0, y0, x1, y1)) in SETTINGS_BTNS_ORIG.iter().enumerate() {
+            let cx = ((x0 + x1) / 2) as f32;
+            let cy = ((y0 + y1) / 2) as f32;
+            let want = if i < 3 { i as u8 } else { (i + 1) as u8 };
+            assert_eq!(settings_btn_hit(cx, cy, false), Some(want), "声音设置原版按钮{} 中心命中", i);
+        }
+        // 防复发：GameSet 确定 y=793 与 Settings 确定 y=780 是不同真值，不能混用
+        assert_eq!(settings_btn_hit(255.0, 823.0, true), Some(4), "GameSet 确定 y=823");
+        assert_eq!(settings_btn_hit(255.0, 780.0, false), Some(4), "Settings 确定 y=780");
+        assert_eq!(settings_btn_hit(255.0, 823.0, false), None, "Settings 确定不在 GameSet y");
     }
 }
 
@@ -419,8 +483,31 @@ mod exit_btn_tests {
     use super::*;
     #[test]
     fn exit_btn_hit_quadrants() {
-        assert_eq!(exit_btn_hit(350.0, 740.0), Some(true), "左=退出");
-        assert_eq!(exit_btn_hit(550.0, 740.0), Some(false), "右=继续");
+        // ★ 原版 datah_025 真值中心：确定(255,695)=退出 / 取消(465,695)=继续
+        assert_eq!(exit_btn_hit(255.0, 695.0), Some(true), "确定=退出");
+        assert_eq!(exit_btn_hit(465.0, 695.0), Some(false), "取消=继续");
+        // 按钮外沿内仍命中（覆盖整块 rect）
+        assert_eq!(exit_btn_hit(170.0, 670.0), Some(true), "确定左上角");
+        assert_eq!(exit_btn_hit(550.0, 720.0), Some(false), "取消右下角");
         assert_eq!(exit_btn_hit(450.0, 200.0), None, "面板外");
+        // 与 Menu/GameSet 命中同源：均为 720 基准（jni.rs 统一 ×0.8 转入）
+    }
+}
+
+#[cfg(test)]
+mod newgame_btn_tests {
+    use super::*;
+    #[test]
+    fn newgame_btn_hit_orig_truth() {
+        // ★ 原版 datah_062 真值（720 基准）：0=Ok 1=Cancel 2=Lay 3=Show
+        for (i, &(x0, y0, x1, y1)) in NEWGAME_BTNS_ORIG.iter().enumerate() {
+            let cx = ((x0 + x1) / 2) as f32;
+            let cy = ((y0 + y1) / 2) as f32;
+            assert_eq!(newgame_btn_hit(cx, cy), Some(i as u8), "原版新局按钮{} 中心命中", i);
+        }
+        // 原版 XML 防复发：Lay/Show 同列(x 355-555)上下两行(557-617 / 632-692)，非同一行
+        assert_eq!(NEWGAME_BTNS_ORIG[2].0, NEWGAME_BTNS_ORIG[3].0, "Lay/Show 同列");
+        assert!(NEWGAME_BTNS_ORIG[2].1 < NEWGAME_BTNS_ORIG[3].1, "Lay 在 Show 上方");
+        assert_eq!(newgame_btn_hit(10.0, 10.0), None, "面板外");
     }
 }
