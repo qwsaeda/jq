@@ -2,20 +2,23 @@
 # §124y-215 32 位逆向验收双端总入口（设备 4 项 + 静态 74 项，一键跑；2026-11-20 口径 73→74）
 #
 # 用法：
-#   bash rev64/tools/arm32_verify_all.sh                       # 默认 10.0.182.146:5555
-#   bash rev64/tools/arm32_verify_all.sh --dev 10.0.182.146:5555
+#   bash rev64/tools/arm32_verify_all.sh                       # 默认 10.0.182.152:5555
+#   bash rev64/tools/arm32_verify_all.sh --dev 10.0.182.152:5555
 #   bash rev64/tools/arm32_verify_all.sh --static-only         # 设备离线期只跑静态 74 项
 #
 # 双端口径：
-#   静态 = arm32_static_evidence.sh（41 项全 PASS，设备无关，离线可跑）
+#   静态 = arm32_static_evidence.sh（2026-11-22 实测 74 项全 PASS，设备无关，离线可跑）
 #   设备 = arm32_hook_check.sh --rounds 3（game_test/walk_bridge/native_event/
 #          framebuffer 4 项，flaky 已根治 §124y-188/189 + 掉线容错）
 # 设备不可达时自动降级 = 静态 PASS + 设备 PENDING（§124y-189 口径：
 #   环境掉线 ≠ so 回归，判据结果不作 so 退化依据，等设备稳定窗口复验）。
+# ★ 2026-11-22 扩展降级：设备"可达但无 32 位 ARM ABI"（如 152 abilist=x86_64,arm64-v8a,x86）
+#   时 32 位 so 装不上（NO_MATCHING_ABIS）→ hook_check 白等 45s×N 且误报 FAIL。
+#   此类环境约束与"掉线"同档 = 设备 PENDING，非 so 回归。提前 ABI 预检拦截。
 
 set -u
 WS=/disk/workspaces/jq
-DEV="10.0.182.146:5555"
+DEV="10.0.182.152:5555"
 STATIC_ONLY=0
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -28,7 +31,7 @@ done
 echo "═══ 32 位逆向验收双端总入口（§124y-215）═══"
 
 # 静态 74 项（设备无关，永远先跑）
-echo "── 静态佐证（41 项，设备无关）──"
+echo "── 静态佐证（74 项，设备无关）──"
 STATIC_OUT=$(bash "$WS/rev64/tools/arm32_static_evidence.sh" 2>&1)
 echo "$STATIC_OUT" | grep -E "PASS=|FAIL=" | tail -1
 STATIC_PASS=0; STATIC_FAIL=0
@@ -53,10 +56,19 @@ if [ "$STATIC_ONLY" = "1" ]; then
   echo "── 设备 4 项（--static-only，跳过）──"
   DEV_STATUS="SKIPPED"
 elif adb -s "$DEV" get-state >/dev/null 2>&1; then
-  echo "── 设备 4 项（$DEV，--rounds 3）──"
-  DEV_OUT=$(bash "$WS/rev64/tools/arm32_hook_check.sh" --dev "$DEV" --no-install --rounds 3 2>&1)
-  echo "$DEV_OUT" | grep -E "PASS=|FAIL=|失败" | tail -3
-  DEV_STATUS=$(echo "$DEV_OUT" | grep -qE "PASS=4 FAIL=0" && echo "PASS" || echo "FAIL")
+  # ★ 2026-11-22 ABI 预检：可达但无 32 位 ARM abi → 32 位 so 装不上（NO_MATCHING_ABIS），
+  #   hook_check 会白等 45s×N 且误报 FAIL。与"掉线"同档降级 PENDING（环境约束非 so 回归）。
+  ABILIST=$(adb -s "$DEV" shell getprop ro.product.cpu.abilist 2>/dev/null | tr -d '\r\n')
+  if ! printf '%s' "$ABILIST" | grep -qE 'armeabi'; then
+    echo "── 设备 4 项（$DEV 可达但无 32 位 ARM ABI: $ABILIST → PENDING §124y-189 扩展口径）──"
+    echo "  32 位 so 在此设备装不上（NO_MATCHING_ABIS），非 so 回归；需真 32 位 ARM 设备复验"
+    DEV_STATUS="PENDING"
+  else
+    echo "── 设备 4 项（$DEV，--rounds 3，abilist=$ABILIST）──"
+    DEV_OUT=$(bash "$WS/rev64/tools/arm32_hook_check.sh" --dev "$DEV" --no-install --rounds 3 2>&1)
+    echo "$DEV_OUT" | grep -E "PASS=|FAIL=|失败" | tail -3
+    DEV_STATUS=$(echo "$DEV_OUT" | grep -qE "PASS=4 FAIL=0" && echo "PASS" || echo "FAIL")
+  fi
 else
   echo "── 设备 4 项（$DEV 不可达，自动降级 PENDING §124y-189 口径）──"
   DEV_STATUS="PENDING"
@@ -75,14 +87,14 @@ else
 fi
 
 echo "═══ 双端总入口汇总 ═══"
-echo "  静态 73 项: $( [ "$STATIC_PASS" = 1 ] && echo PASS || echo "FAIL（$STATIC_FAIL）" )"
+echo "  静态 74 项: $( [ "$STATIC_PASS" = 1 ] && echo PASS || echo "FAIL（$STATIC_FAIL）" )"
 echo "  32 位渗透轮: $FUZZ32"
 echo "  P9 dispatch: $( [ "$P9_FAIL" = 1 ] && echo FAIL || echo PASS )"
 echo "  设备 4 项:  $DEV_STATUS"
 FUZZ32_FAIL=0
 case "$FUZZ32" in FAIL*) FUZZ32_FAIL=1;; esac
 case "$DEV_STATUS" in
-  PENDING) echo "  总判读: 静态 PASS + 设备 PENDING（环境掉线非 so 回归，等设备稳定窗口复验）"
+  PENDING) echo "  总判读: 静态 PASS + 设备 PENDING（环境掉线/无32位ABI 非 so 回归，等设备/真32位ARM复验）"
            [ "$STATIC_FAIL" = 1 ] && exit 1
            [ "$FUZZ32_FAIL" = 1 ] && { echo "★ 32 位渗透轮 FAIL（jqt_mem.c 回归，白盒定位）"; exit 1; }
            [ "$P9_FAIL" = 1 ] && exit 1
