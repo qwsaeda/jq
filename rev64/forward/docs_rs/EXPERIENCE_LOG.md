@@ -1130,7 +1130,7 @@ fulltest 9/9（isolated 复跑全过；MINE/FLAG 偶发 FAIL 为 MuMu 重启+set
 
 - **"没做完"盘点方法**：用户质疑时先列 4 阶段交付物清单 vs dist/ 实际 → 找真实缺口（phase0/1 从未构建、phase_chain_arm32 非交付物），而非空谈。
 - **阶段 2 双 ABI 整合关键**：32 位原版 so 的 FindClass("com/baidu/mobads/AdView") → 双 ABI 包必须保留 baidu 334 类（arm64 路径 baidu 惰性）；src_rs AdLis 与原版逐方法一致自证。
-- **32 位 so 广告 jar 硬依赖**（实证）：删 jar → OnCreate 返回 null GLView → Java NPE。故 phase0/1 保留 jar + 删广告权限/UI（SDK 惰性），修正原规格"删 jar"假设。
+- **32 位 so 广告依赖**（★ 2026-11-22 口径纠正，旧结论部分失效）：旧记"删 jar → OnCreate NPE，jar 硬依赖"**归因不准**——真值：`FindClass("com/baidu/mobads/AdView")` 的 AdView 类在**主 classes.dex**（描述串=1），**ad jar 内 dex 的 AdView=0**（jar 不是 AdView 来源）；phase2 已删 jar 但仍保留 dex 内 AdView → 32 位 so 可跑。旧"删 jar → NPE"实为当时连 `smali/com/baidu/*` 一起删导致 AdView 类丢失（真红线 = dex 保留 AdView 类，非 jar）。当前口径：phase0/1 保留 jar = 历史保守决策，phase2 删 jar 已验证安全，phase3 arm64 so 无 baidu 引用 → dex 全删。替 jar 硬依赖的旧归因已按 dex 字节码实测纠正。
 - **暗棋默认对齐**：原版人机/两人全背面（orig_human/two3 自证）→ g_opt_mode 默认 1；jq.mode setprop 钩子供测试走明棋。
 - **音效持久化**：getFilesDir/jq_sound_on.txt（纯 C stdio），sfx_sound_load/save。
 - **MuMu 环境陷阱**：包周期消失（pm path 空）+ 残留测试 setprop 使 app 启动即在 UI_GAME（非菜单）→ walktest 误判"触摸 flaky"。先清残留/重装/force-stop 再测。

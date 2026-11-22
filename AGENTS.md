@@ -115,7 +115,7 @@ java -cp /tmp/opencode/apksigner/apksig.jar:/tmp/opencode/apksigner SignV2 \
 ### 阶段 0：去广告 + 旧 ABI 快速包
 
 - 产物：`dist/phase0.apk`（v1+v2，`armeabi` 原样）
-- 改动：`minSdk 19`、`targetSdk 34`、去广告（删 `__xadsdk__remote__final__.jar`、删 manifest 中 `com.baidu.mobads.AppActivity` 和 `UMENG_APPKEY`、去广告相关权限 `INTERNET`/`ACCESS_NETWORK_STATE`/`ACCESS_WIFI_STATE`/`READ_PHONE_STATE`/`ACCESS_COARSE_LOCATION`；保留 `BLUETOOTH(_ADMIN)`）
+- 改动：`minSdk 19`、`targetSdk 34`、去广告（★ 口径修正 2026-11-22：32 位 so 硬引用 `FindClass("com/baidu/mobads/AdView")`，**AdView 类在主 `classes.dex`（描述串=1），不在 ad jar 内**（jar 内 dex 的 AdView=0）→ 真红线 = dex 保留 AdView 类，jar 删不删无所谓（phase2 已删 jar 仍可跑）。历史"删 jar → NPE"实为连 `smali/com/baidu/*` 一起删导致 AdView 类丢失。阶段 0/1 保留 jar 是历史保守决策，phase2 删 jar 已验证安全；删 manifest 中 `com.baidu.mobads.AppActivity` 和 `UMENG_APPKEY` + 去广告相关权限 `INTERNET`/`ACCESS_NETWORK_STATE`/`ACCESS_WIFI_STATE`/`READ_PHONE_STATE`/`ACCESS_COARSE_LOCATION`；无权限下广告 SDK 惰性，断网无浮层；保留 `BLUETOOTH(_ADMIN)`。完整去广告在阶段 3——arm64 so 无 baidu 引用才能删全量 dex 内类）
 - 验收：32 位设备（Android 5.0–13）能装能玩；断网启动无广告浮层
 - 已知限制：64 位 only 设备装得上但加载库失败（预期内）
 

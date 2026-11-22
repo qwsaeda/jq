@@ -22,11 +22,31 @@ ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)
 DIST = os.path.join(ROOT, 'dist')
 
 EXPECT = {
-    'phase0': {'dex': b'com/cnvcs/', 'abis': {'armeabi': 'cnvcs'}, 'minSdk': '19', 'targetSdk': '34'},
-    'phase1': {'dex': b'com/cnvcs/', 'abis': {'armeabi': 'cnvcs', 'arm64-v8a': 'stub'}, 'minSdk': '19', 'targetSdk': '34'},
-    'phase2': {'dex': b'com/cnvcs/', 'abis': {'armeabi-v7a': 'orig', 'arm64-v8a': 'cnvcs'}, 'minSdk': '21', 'targetSdk': '34'},
-    'phase3': {'dex': b'com/cnvcs/', 'abis': {'arm64-v8a': 'cnvcs'}, 'minSdk': '21', 'targetSdk': '34'},
+    'phase0': {'dex': b'com/cnvcs/', 'abis': {'armeabi': 'cnvcs'}, 'minSdk': '19', 'targetSdk': '34', 'ads': 'kept'},
+    'phase1': {'dex': b'com/cnvcs/', 'abis': {'armeabi': 'cnvcs', 'arm64-v8a': 'stub'}, 'minSdk': '19', 'targetSdk': '34', 'ads': 'kept'},
+    'phase2': {'dex': b'com/cnvcs/', 'abis': {'armeabi-v7a': 'orig', 'arm64-v8a': 'cnvcs'}, 'minSdk': '21', 'targetSdk': '34', 'ads': 'kept'},
+    'phase3': {'dex': b'com/cnvcs/', 'abis': {'arm64-v8a': 'cnvcs'}, 'minSdk': '21', 'targetSdk': '34', 'ads': 'removed'},
 }
+
+def check_ads(z, dex, exp):
+    """返回 (ok, 原因)：阶段 3 去广告终态 / phase0-2 保留 dex 内 AdView 类
+
+    ★ 真值纠正（2026-11-22）：32 位 so FindClass("com/baidu/mobads/AdView") 的 AdView
+      类在**主 classes.dex**（描述串=1），不在 ad jar 内（jar 内 dex 的 AdView=0）。
+      历史"删 jar → NPE"实为连 smali/com/baidu/* 一起删（AdView 类没了），非单纯删 jar。
+      故真红线 = dex 内保留 AdView 类，jar 删不删无所谓（phase2 已删 jar 仍可跑）。
+    """
+    jar = [n for n in z.namelist() if '__xadsdk__' in n or 'xadsdk' in n]
+    baidu = dex.count(b'Lcom/baidu/')
+    adview = dex.count(b'Lcom/baidu/mobads/AdView;')
+    if exp['ads'] == 'removed':
+        # 阶段 3：dex 无 baidu 类 + 无 AdView + 无 ad jar（arm64 so 无引用才能删全量）
+        ok = (baidu == 0 and adview == 0 and len(jar) == 0)
+        return ok, 'dex baidu=%d AdView=%d jar=%d（期望全0）' % (baidu, adview, len(jar))
+    else:
+        # phase0-2：32 位 so 硬引用 FindClass(AdView) → dex 必须保留 AdView 类
+        ok = (adview >= 1 and baidu > 0)
+        return ok, 'dex AdView=%d baidu=%d jar=%d（期望 AdView≥1，jar 无关）' % (adview, baidu, len(jar))
 
 def check_sdk(apk, exp):
     """返回 (ok, 原因)：minSdk/targetSdk 与阶段规格一致（AGENTS 四阶段定义）"""
@@ -108,6 +128,10 @@ def main():
         mok, minfo = check_sdk(apk, exp)
         print('   sdk: %s %s' % ('✓' if mok else '✗', minfo))
         if not mok: fails.append('%s SDK 规格漂移（%s）' % (phase, minfo))
+        # 去广告终态（phase3 全删 / phase0-2 保留 jar）
+        aok2, ainfo2 = check_ads(z, dex, exp)
+        print('   ads: %s %s' % ('✓' if aok2 else '✗', ainfo2))
+        if not aok2: fails.append('%s 去广告规格异常（%s）' % (phase, ainfo2))
         # STORE + 4B 对齐
         aok, ainfo = check_store_align(apk, z)
         print('   store/align: %s %s' % ('✓' if aok else '✗', ainfo))
@@ -132,7 +156,7 @@ def main():
     if fails:
         for f in fails: print('FAIL:', f)
         print('判据: FAIL'); return 2
-    print('判据: PASS（四阶段 JNI前缀 + minSdk/targetSdk + STORE/4B对齐 + 签名v1/v2/v3 + 证书指纹）')
+    print('判据: PASS（四阶段 JNI前缀 + minSdk/targetSdk + STORE/4B对齐 + 签名v1/v2/v3 + 证书指纹 + 去广告终态）')
     return 0
 
 if __name__ == '__main__':
