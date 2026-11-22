@@ -20,7 +20,7 @@ fn main() {
     let out = "/tmp/opencode/ui_offline";
     fs::create_dir_all(out).expect("mkdir");
     let st = State::new(); // 默认暗棋（原版 g_opt_mode=1）
-    let screens: [(&str, Screen); 9] = [
+    let screens: [(&str, Screen); 10] = [
         ("menu", Screen::Menu),
         ("game", Screen::Game),
         ("ingame", Screen::IngameMenu),
@@ -30,9 +30,10 @@ fn main() {
         ("settings", Screen::Settings),
         ("exitconfirm", Screen::ExitConfirm),
         ("replay", Screen::Replay),
+        ("stats", Screen::Stats),
     ];
     for (name, screen) in screens {
-        let rgba = compose_board_rgba(900, 1600, Some(&st), screen);
+        let rgba = compose_board_rgba(900, 1600, Some(&st), screen, None);
         assert_eq!(rgba.len(), 900 * 1600 * 4, "{} RGBA 尺寸", name);
         let p = format!("{}/{}.png", out, name);
         save_png(&p, &rgba, 900, 1600);

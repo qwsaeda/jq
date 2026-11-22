@@ -79,6 +79,8 @@ mod android_impl {
         state: State,
         ui: ui::Ui,
         cnt: evt::EventCounter,
+        /// ★ F2 复盘记录器：真实对局每步（含 AI）记录，Replay 屏用它回退/前进/跳转
+        rp: crate::save::Replay,
     }
     static GAME: Mutex<Option<Game>> = Mutex::new(None);
 
@@ -93,11 +95,32 @@ mod android_impl {
     {
         let mut guard = GAME.lock().unwrap_or_else(|e| e.into_inner()); // poison 时恢复数据，JNI 边界不二次 panic
         let game = guard.get_or_insert_with(|| Game {
+            rp: crate::save::Replay::new(&State::new()),
             state: State::new(),
             ui: ui::Ui::new(),
             cnt: evt::EventCounter::new(),
         });
         f(&mut game.state, &mut game.ui, &mut game.cnt)
+    }
+
+    /// ★ F2 复盘：新局开始时重建记录器（用当前开局态做基底）
+    fn reset_replay() {
+        with_game(|g| { g.rp = crate::save::Replay::new(&g.state); });
+    }
+
+    /// ★ F2 复盘：访问完整 Game（含 rp），与 with_lock 共用同一把锁
+    fn with_game<F, R>(f: F) -> R
+    where
+        F: FnOnce(&mut Game) -> R,
+    {
+        let mut guard = GAME.lock().unwrap_or_else(|e| e.into_inner());
+        let game = guard.get_or_insert_with(|| Game {
+            rp: crate::save::Replay::new(&State::new()),
+            state: State::new(),
+            ui: ui::Ui::new(),
+            cnt: evt::EventCounter::new(),
+        });
+        f(game)
     }
 
     /// 棋盘快照（渲染线程读，供 cpu_board_rgba 画棋子）
@@ -165,17 +188,34 @@ mod android_impl {
             });
             
         }
-        // ⑤ 存档磁盘 I/O 钩子：jq.savetest=1 → 写 app 私有目录文件 + 回读校验
+        // ④b ★ F4 读档钩子：jq.loadsave=1 → 从磁盘读全量 State 并校验后恢复棋盘
+        if crate::log::hook_triggered("loadsave") {
+            let path = "/data/user/0/com.qwsaeda.junqirs/files/jq_rust_save.txt";
+            let loaded = std::fs::read_to_string(path).ok().and_then(|t| crate::save::deserialize_state(&t));
+            let ok = if let Some(ls) = loaded {
+                with_game(|g| {
+                    g.state = ls;
+                    g.ui.screen = crate::ui::Screen::Game;
+                    g.rp = crate::save::Replay::new(&g.state);
+                });
+                true
+            } else { false };
+            crate::log::setprop("jq.loadsave_res", if ok { "ok" } else { "fail" });
+        }
+        // ⑤ ★ F4 存档磁盘 I/O 钩子：jq.savetest=1 → 全量 State 序列化写盘 + 读回比对（真 round-trip）
         if crate::log::hook_triggered("savetest") {
             with_lock(|st, _u, _c| {
                 let path = "/data/user/0/com.qwsaeda.junqirs/files/jq_rust_save.txt";
-                // 写：turn + 棋盘非空子数（简单序列化）
-                let n_pieces = st.cells.iter().filter(|c| !c.is_empty()).count();
-                let content = format!("turn={} pieces={}", st.turn, n_pieces);
+                let content = crate::save::serialize_state(st);
                 let wr = std::fs::write(path, content.as_bytes()).is_ok();
-                // 回读校验
                 let rd = std::fs::read_to_string(path).unwrap_or_default();
-                let ok = wr && rd == content;
+                // 真 round-trip：反序列化后逐字段比对（非简单字符串回读）
+                let got = crate::save::deserialize_state(&rd);
+                let ok = wr && got.as_ref().map(|g| {
+                    g.turn == st.turn && g.winner == st.winner && g.mode == st.mode
+                        && g.cells.iter().zip(st.cells.iter()).all(|(a,b)|
+                            a.rank == b.rank && a.side == b.side && a.revealed == b.revealed)
+                }).unwrap_or(false);
                 crate::log::setprop("jq.savetest_res", if ok { "ok" } else { "fail" });
             });
             
@@ -211,8 +251,8 @@ mod android_impl {
     }
 
     /// ★ 审计 A10：快照同时返回屏态（渲染按 ui.screen 分屏合成）
-    pub fn board_snapshot() -> Option<(State, ui::Screen)> {
-        with_lock(|st, u, _c| Some((st.clone(), u.screen)))
+    pub fn board_snapshot() -> Option<(State, ui::Screen, evt::EventCounter)> {
+        with_lock(|st, u, c| Some((st.clone(), u.screen, evt::EventCounter { by_code: c.by_code, total: c.total })))
     }
 
     #[no_mangle]
@@ -317,7 +357,13 @@ mod android_impl {
 
     #[no_mangle]
     pub extern "C" fn Java_com_qwsaeda_App_OnPause(_env: *mut jni::sys::JNIEnv, _cls: JClass) {
-        with_lock(|_s, _u, _c| {});
+        // ★ F4 自动存档：退到后台时全量保存当前棋盘态（SPEC §8）。
+        //   读档由 jq.loadsave 钩子显式触发（不自动恢复，避免破坏"重进=新开局"判据与 UX 预期）。
+        let saved = with_lock(|st, _u, _c| crate::save::serialize_state(st));
+        let _ = std::fs::write(
+            "/data/user/0/com.qwsaeda.junqirs/files/jq_rust_save.txt",
+            saved.as_bytes(),
+        );
     }
 
     #[no_mangle]
@@ -327,7 +373,8 @@ mod android_impl {
 
     #[no_mangle]
     pub extern "C" fn Java_com_qwsaeda_App_OnTimer(env: *mut jni::sys::JNIEnv, _cls: JClass) {
-        let (ai_ev, sound_on) = with_lock(|st, u, cnt| {
+        let (ai_ev, sound_on) = with_game(|g| {
+            let st = &mut g.state; let u = &mut g.ui; let cnt = &mut g.cnt;
             if !ai::ai_enabled(st, u.vs_ai) {
                 return (None, false);
             }
@@ -336,10 +383,12 @@ mod android_impl {
                 if mv.is_flip {
                     if rules::flip(st, mv.from) {
                         cnt.record(crate::state::Ev::Flip);
+                        g.rp.record(mv.from, mv.from, true); // ★ F2 AI 翻棋步
                         ev_out = Some(crate::state::Ev::Flip);
                     }
                 } else if let Ok(ev) = rules::try_move(st, mv.from, mv.to) {
                     cnt.record(ev);
+                    g.rp.record(mv.from, mv.to, false); // ★ F2 AI 走子步
                     ev_out = Some(ev);
                 }
             }
@@ -470,7 +519,8 @@ mod android_impl {
             match u.screen {
                 ui::Screen::Game => u.screen = ui::Screen::ExitConfirm,
                 ui::Screen::IngameMenu | ui::Screen::Difficulty | ui::Screen::NewGame
-                | ui::Screen::GameSet | ui::Screen::Settings | ui::Screen::Replay => {
+                | ui::Screen::GameSet | ui::Screen::Settings | ui::Screen::Replay
+                | ui::Screen::Stats => {
                     u.cancel_popup(_st); // 回 screen_snap（上层屏），而非退出 app
                 }
                 ui::Screen::ExitConfirm => { u.exit_confirm(false); } // 再按一次 BACK=取消退出
@@ -538,6 +588,7 @@ mod android_impl {
                 });
                 if let Some((lv, md)) = hit {
                     clear_sel(); // ★ P1: 换局清残留选中，防首点被当旧局二次点击
+                    reset_replay(); // ★ F2 新局重建复盘记录器
                     crate::log::setprop("jq.difficulty", &format!("{}_{}", lv, md));
                     return 1;
                 }
@@ -566,6 +617,7 @@ mod android_impl {
                             u.vs_ai = false;
                         });
                         clear_sel(); // ★ P1: 新局清残留选中
+                        reset_replay(); // ★ F2 新局重建复盘记录器
                         crate::log::setprop("jq.ingame_act", "newgame_confirm");
                     }
                     Some(1) | None => { // 取消 / 面板外 → 恢复 mode 快照
@@ -598,7 +650,7 @@ mod android_impl {
                 let hit = ui::ingame_hit(bx as i32, by as i32);
                 match hit {
                     Some(0) => { // 重新开始
-                        with_lock(|st, u, _c| { u.restart(st); }); clear_sel();
+                        with_lock(|st, u, _c| { u.restart(st); }); clear_sel(); reset_replay();
                         crate::log::setprop("jq.ingame_act", "restart");
                     }
                     Some(1) => { // 悔棋（真执行）
@@ -624,6 +676,14 @@ mod android_impl {
                     Some(4) => { // 功能设置→Settings
                         with_lock(|st, u, _c| { u.begin_popup(st); u.screen = ui::Screen::Settings; });
                         crate::log::setprop("jq.ingame_act", "settings");
+                    }
+                    Some(5) => { // 战况统计 → Stats 屏（F3：事件计数可视化）
+                        with_lock(|_s, u, _c| { u.screen = ui::Screen::Stats; });
+                        // 精确数值同时写属性（判据可读）
+                        with_game(|g| crate::log::setprop("jq.stats", &format!("{}:{}:{}:{}:{}:{}:{} t{}",
+                            g.cnt.by_code[0], g.cnt.by_code[1], g.cnt.by_code[2], g.cnt.by_code[3],
+                            g.cnt.by_code[4], g.cnt.by_code[5], g.cnt.by_code[6], g.cnt.total)));
+                        crate::log::setprop("jq.ingame_act", "stats");
                     }
                     Some(i) => { crate::log::setprop("jq.ingame_act", &format!("btn{}", i)); }
                     None => { // 面板外→关菜单
@@ -665,24 +725,78 @@ mod android_impl {
                 return 1;
             }
             ui::Screen::Replay => {
-                // ★ 复盘控制条：底部 5 按钮（菜单/回退/前进/跳转/返回）
-                //   y 88%-96% 控制条区；简化：点底部→返回对局（返回按钮）
-                let by = y as f32 / 1600.0; // view 实际高 1600
+                // ★ F2 复盘控制条：底部 5 按钮（菜单/回退/前进/跳转/返回）
+                //   控制条 y 88%-96%（view 1408-1536），5 按钮 x = 0.08+0.17i（画布比例→view 900）
+                //   回退/前进/跳转重建棋盘（rewind_to），返回对局恢复实时局面
+                let by = y as f32 / 1600.0;
                 if by > 0.86 {
-                    with_lock(|_s, u, _c| { u.screen = ui::Screen::Game; });
-                    crate::log::setprop("jq.replay_act", "back_to_game");
+                    let btn = ((x as f32 / 900.0 - 0.08) / 0.17).floor() as i32;
+                    match btn {
+                        0 => { // 菜单：返回游戏内菜单
+                            with_lock(|_s, u, _c| { u.screen = ui::Screen::IngameMenu; });
+                            crate::log::setprop("jq.replay_act", "menu");
+                        }
+                        1 => { // 回退一步
+                            let ok = with_game(|g| {
+                                let cur = g.rp.cur().saturating_sub(1);
+                                g.rp.cur_set(cur);
+                                g.rp.rewind_to(&mut g.state, cur)
+                            });
+                            crate::log::setprop("jq.replay_act", if ok { "prev" } else { "prev_fail" });
+                        }
+                        2 => { // 前进一步
+                            let ok = with_game(|g| {
+                                let cur = (g.rp.cur() + 1).min(g.rp.count());
+                                g.rp.cur_set(cur);
+                                g.rp.rewind_to(&mut g.state, cur)
+                            });
+                            crate::log::setprop("jq.replay_act", if ok { "next" } else { "next_fail" });
+                        }
+                        3 => { // 跳转：到当前记录末尾（最新步）
+                            let ok = with_game(|g| {
+                                let cur = g.rp.count();
+                                g.rp.cur_set(cur);
+                                g.rp.rewind_to(&mut g.state, cur)
+                            });
+                            crate::log::setprop("jq.replay_act", if ok { "jump_end" } else { "jump_fail" });
+                        }
+                        _ => { // 返回对局：恢复实时终局局面
+                            let ok = with_game(|g| {
+                                let cur = g.rp.count();
+                                g.rp.rewind_to(&mut g.state, cur)
+                            });
+                            with_lock(|_s, u, _c| { u.screen = ui::Screen::Game; });
+                            crate::log::setprop("jq.replay_act", if ok { "back" } else { "back_restored" });
+                        }
+                    }
                     return 1;
                 }
                 return 0;
+            }
+            ui::Screen::Stats => {
+                // ★ F3 战况统计屏：点任意处返回 ☰ 菜单（统计只展示，无交互控件）
+                with_lock(|_s, u, _c| { u.screen = ui::Screen::IngameMenu; });
+                crate::log::setprop("jq.stats_act", "back");
+                return 1;
             }
             ui::Screen::Game => {
                 // ★ 对齐原版：终局"再来一局"按钮（C render.c x35%-65% y62%-72% @900×1600）
                 //   stage==OVER 时 tap 落该区 → restart（原版点这里直接重开一局）
                 let over = with_lock(|st, _u, _c| st.stage == crate::state::Stage::Over);
                 if over && x >= 315.0 && x <= 585.0 && y >= 992.0 && y <= 1152.0 {
-                    with_lock(|st, u, _c| u.restart(st)); clear_sel();
+                    with_lock(|st, u, _c| u.restart(st)); clear_sel(); reset_replay();
                     crate::log::setprop("jq.ingame_act", "restart");
                     return 1;
+                }
+                // ★ F2 复盘入口：终局 overlay 上方区域（y 820-990）点→复盘（仅当有走子记录）
+                if over && y >= 820.0 && y <= 990.0 {
+                    let has = with_game(|g| g.rp.count() > 0);
+                    if has {
+                        with_game(|g| { let cur = g.rp.count(); g.rp.rewind_to(&mut g.state, cur); });
+                        with_lock(|_s, u, _c| { u.screen = ui::Screen::Replay; });
+                        crate::log::setprop("jq.replay_act", "enter");
+                        return 1;
+                    }
                 }
                 // ★ UI-05 修复：顶部图标命中区缩小到图标实际位置附近的小方框。
                 //   原 y<820 + x<400/x>520 是巨大矩形，吞掉红方整个上半盘（两人热座点不到红子）。
@@ -711,8 +825,9 @@ mod android_impl {
                     // 二次点击：走子 / 翻棋（同格=翻棋，异格=走子）
                     // ★ JNI-12: push_undo 只在动作确实合法/成功时做——原实现无条件 push，
                     //   二次点错（无效走子）也压栈，64 上限后污染悔棋栈。
-                    // ★ F1 音效链：闭包返回 (是否成功, 玩家事件, AI事件, sound_on)，锁外播放 JNI
-                    let (acted, player_ev, ai_ev, sound_on) = with_lock(|st, u, cnt| {
+                    // ★ F1 音效链 + F2 复盘：闭包返回 (成功, 玩家事件, AI事件, sound_on)，锁外播放 JNI
+                    let (acted, player_ev, ai_ev, sound_on) = with_game(|g| {
+                        let st = &mut g.state; let u = &mut g.ui; let cnt = &mut g.cnt;
                         // 先只读判定合法性（不修改棋盘）
                         let legal = if from == cell {
                             rules::can_flip(st, cell)
@@ -725,12 +840,13 @@ mod android_impl {
                             // 同格翻棋（暗棋）
                             if rules::flip(st, cell) {
                                 cnt.record(crate::state::Ev::Flip);
+                                g.rp.record(from, cell, true); // ★ F2 复盘记录翻棋步
                                 Some(crate::state::Ev::Flip)
                             } else { None }
                         } else {
                             // 异格走子（经 rules::try_move 统一规则引擎）
                             match rules::try_move(st, from, cell) {
-                                Ok(e) => { cnt.record(e); Some(e) }
+                                Ok(e) => { cnt.record(e); g.rp.record(from, cell, false); Some(e) }
                                 Err(_) => None,
                             }
                         };
@@ -742,9 +858,15 @@ mod android_impl {
                             if u.vs_ai && st.turn == crate::state::SIDE_RED && st.stage == crate::state::Stage::Play {
                                 if let Some(mv) = ai::ai_pick(st, u.level) {
                                     if mv.is_flip {
-                                        if rules::flip(st, mv.from) { cnt.record(crate::state::Ev::Flip); ai_ev = Some(crate::state::Ev::Flip); }
+                                        if rules::flip(st, mv.from) {
+                                            cnt.record(crate::state::Ev::Flip);
+                                            g.rp.record(mv.from, mv.from, true); // ★ F2 AI 翻棋步
+                                            ai_ev = Some(crate::state::Ev::Flip);
+                                        }
                                     } else if let Ok(aev) = rules::try_move(st, mv.from, mv.to) {
-                                        cnt.record(aev); ai_ev = Some(aev);
+                                        cnt.record(aev);
+                                        g.rp.record(mv.from, mv.to, false); // ★ F2 AI 走子步
+                                        ai_ev = Some(aev);
                                     }
                                 }
                             }

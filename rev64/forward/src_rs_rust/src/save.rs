@@ -391,6 +391,44 @@ mod dark_replay_tests {
         assert!(rp.rewind_to(&mut out0, 0), "回退到开局应成功");
         assert!(!out0.cells[6].revealed, "开局 cell6 未翻");
     }
+
+    #[test]
+    fn real_move_sequence_record_rewind() {
+        // ★ F2 接线回归：真实走子（非测试合成）记录→逐步重放→回退/前进，验证生产链契约
+        use crate::gametest::make_default_layout;
+        use crate::state::SIDE_BLUE;
+        let st0 = make_default_layout();
+        let mut st = st0.clone();
+        let mut rp = Replay::new(&st0);
+        st.turn = SIDE_BLUE;
+        // 找一个合法走子并记录（蓝方子）
+        let mut rec = None;
+        'outer: for from in 0..60 {
+            if st.cells[from].is_empty() || st.cells[from].side != SIDE_BLUE || !st.cells[from].revealed { continue; }
+            for to in 0..60 {
+                if crate::rules::can_move(&st, from, to) {
+                    assert!(crate::rules::try_move(&mut st, from, to).is_ok());
+                    rp.record(from, to, false);
+                    rec = Some((from, to));
+                    break 'outer;
+                }
+            }
+        }
+        let (from, to) = rec.expect("开局应有合法走子");
+        assert_eq!(rp.count(), 1);
+        // 回放 1 步 = 当前真实局面（位置 moved）
+        let mut out1 = st0.clone();
+        assert!(rp.rewind_to(&mut out1, 1), "真实走子回放应成功");
+        assert!(out1.cells[to].side == SIDE_BLUE, "回放后目标格有蓝子");
+        assert!(out1.cells[from].is_empty(), "回放后源格空");
+        // 回退 0 步 = 开局
+        let mut out0 = st0.clone();
+        assert!(rp.rewind_to(&mut out0, 0));
+        assert!(
+            out0.cells.iter().zip(st0.cells.iter()).all(|(a, b)| a.rank == b.rank && a.side == b.side && a.revealed == b.revealed),
+            "回退到开局应还原 60 格"
+        );
+    }
 }
 
 #[cfg(test)]
@@ -409,5 +447,108 @@ mod domain_side_tests {
         assert!(st.cells[0].is_empty(), "蓝方 rank20 归零");
         assert_eq!(st.cells[1].rank, Rank(20), "红方 rank20 保留");
         assert!(st.cells[2].is_empty(), "未定色 rank20 归零");
+    }
+}
+
+// ============================================================================
+// ★ F4 存档全量序列化 / 反序列化（SPEC §8：全字段快照 + 分层校验 + 原子语义）
+// ============================================================================
+
+const SAVE_MAGIC: &str = "JQRS1";
+
+/// 全量序列化 State → 文本（60 格 + turn/stage/winner/计数/mode/cfg）。
+/// 格式：magic|turn|stage|winner|mse|tm|mc0|mc1|pl0|pl1|mode|cfg0..4|60×(rank,side,revealed)
+pub fn serialize_state(st: &State) -> String {
+    use crate::state::{Stage, Winner};
+    let stage = match st.stage { Stage::Play => 0, Stage::Over => 1 };
+    let winner = match st.winner { Winner::None => -1, Winner::Blue => 0, Winner::Red => 1, Winner::Draw => 2 };
+    let mut s = format!(
+        "{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}",
+        SAVE_MAGIC, st.turn.to_raw(), stage, winner, st.moves_since_eat, st.total_moves,
+        st.mines_cleared[0], st.mines_cleared[1], st.pieces_left[0], st.pieces_left[1],
+        st.mode, st.cfg[0], st.cfg[1], st.cfg[2], st.cfg[3], st.cfg[4]
+    );
+    for c in st.cells.iter() {
+        s.push_str(&format!("|{},{},{}", c.rank.0, c.side.to_raw(), if c.revealed { 1 } else { 0 }));
+    }
+    s
+}
+
+/// 反序列化 + 分层校验（SPEC §8）：
+/// ① magic / 字段数 / 枚举原始域不符 → 拒读（返回 None，调用方状态不变）
+/// ② cells 越域格 → 就地净化（rank=0/side=0xFF/revealed=false）
+/// ③ 计数负值 → 钳 0
+pub fn deserialize_state(text: &str) -> Option<State> {
+    use crate::state::{Stage, Winner};
+    let parts: Vec<&str> = text.split('|').collect();
+    if parts.len() != 16 + N_CELLS || parts[0] != SAVE_MAGIC { return None; }
+    let p = |i: usize| parts[i].parse::<i32>().ok();
+    // 枚举原始域（硬拒，拒读不改调用方）
+    let turn_raw = p(1)? as u8;
+    let turn = crate::state::Side::from_raw(turn_raw)?;
+    if !turn.is_valid() { return None; }
+    let stage = match p(2)? { 0 => Stage::Play, 1 => Stage::Over, _ => return None };
+    let winner = match p(3)? { -1 => Winner::None, 0 => Winner::Blue, 1 => Winner::Red, 2 => Winner::Draw, _ => return None };
+    let mode = p(10)? as u8; // 头部 16 字段：magic(0) turn(1) stage(2) winner(3) mse(4) tm(5) mc0(6) mc1(7) pl0(8) pl1(9) mode(10) cfg(11..16)
+    if mode > 1 { return None; }
+    let cfg: [u8; 5] = [p(11)? as u8, p(12)? as u8, p(13)? as u8, p(14)? as u8, p(15)? as u8];
+    let mut st = State {
+        cells: [Cell::empty(); N_CELLS],
+        turn, stage, winner,
+        moves_since_eat: p(4)?, total_moves: p(5)?,
+        mines_cleared: [p(6)?, p(7)?], pieces_left: [p(8)?, p(9)?],
+        mode, cfg, wgpu_init_done: false, wgpu_log_done: false,
+    };
+    // cells 逐格：原始 side 域硬拒（非法 side 值拒读）；rank/revealed 越域就地净化
+    for i in 0..N_CELLS {
+        let cell_fields: Vec<&str> = parts[16 + i].split(',').collect();
+        if cell_fields.len() != 3 { return None; }
+        let rank = cell_fields[0].parse::<u8>().ok()? as i32;
+        let side_raw = cell_fields[1].parse::<u8>().ok()?;
+        let side = crate::state::Side::from_raw(side_raw)?; // 非法阵营域拒读
+        let revealed = cell_fields[2] == "1";
+        // rank 域 side 感知净化（红≤24 / 蓝·未定≤12，越域归零）
+        let rank_limit = RANK_TOP.0 as i32 + if side == SIDE_RED { 0x0c } else { 0 };
+        let rank_ok = rank >= 0 && rank <= rank_limit;
+        st.cells[i] = if rank_ok {
+            Cell { rank: Rank(rank as u8), side, revealed }
+        } else {
+            Cell::empty()
+        };
+    }
+    // 阶段2：计数负值钳 0（就地净化，不改枚举已校验领域）
+    validate_state(&mut st);
+    Some(st)
+}
+
+#[cfg(test)]
+mod save_roundtrip_tests {
+    use super::*;
+    use crate::gametest::make_flip_layout;
+    use crate::state::{Stage, Winner};
+
+    #[test]
+    fn full_state_roundtrip() {
+        let mut st = make_flip_layout();
+        st.turn = SIDE_RED; st.stage = Stage::Over; st.winner = Winner::Blue;
+        st.cfg = [1, 0, 1, 0, 1]; st.total_moves = 42;
+        let text = serialize_state(&st);
+        let got = deserialize_state(&text).expect("合法存档应可读");
+        assert_eq!(got.cells.iter().map(|c|(c.rank.0,c.side.to_raw(),c.revealed)).collect::<Vec<_>>(),
+                   st.cells.iter().map(|c|(c.rank.0,c.side.to_raw(),c.revealed)).collect::<Vec<_>>());
+        assert_eq!(got.turn, st.turn); assert_eq!(got.winner, st.winner);
+        assert_eq!(got.cfg, st.cfg); assert_eq!(got.total_moves, st.total_moves);
+    }
+
+    #[test]
+    fn corrupt_save_rejected_or_purified() {
+        let st = make_flip_layout();
+        let text = serialize_state(&st);
+        // magic 损坏 → 拒读
+        assert!(deserialize_state(&text.replace("JQRS1", "BAD!!")).is_none());
+        // turn 越域 → 拒读（不改调用方，函数返回 None）
+        let mut parts: Vec<&str> = text.split('|').collect();
+        parts[1] = "2"; // turn=2 非法
+        assert!(deserialize_state(&parts.join("|")).is_none());
     }
 }

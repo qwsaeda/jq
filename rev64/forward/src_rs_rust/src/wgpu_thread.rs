@@ -109,8 +109,8 @@ mod imp {
             crate::jni::run_test_hooks(); // 真机验证钩子（setRenderer 移除后 OnUpdate 不调，改由此线程驱动）
             let r = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
                 let rgba = {
-                    let (board, screen) = match crate::jni::board_snapshot() { Some(b) => b, None => return };
-                    crate::asset::compose_board_rgba(450, 800, Some(&board), screen)
+                    let (board, screen, stats) = match crate::jni::board_snapshot() { Some(b) => b, None => return };
+                    crate::asset::compose_board_rgba(450, 800, Some(&board), screen, Some(&stats))
                 };
                 // ★ P0 根治（local reference table overflow）：本线程 attach 一次后永久循环，
                 //   旧实现每帧 getHolder/getSurface/isValid + canvas 内 ~7 个 JObject 局部引用

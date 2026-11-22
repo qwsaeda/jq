@@ -204,6 +204,7 @@ mod imp {
         h: usize,
         board: Option<&crate::state::State>,
         screen: crate::ui::Screen,
+        stats: Option<&crate::evt::EventCounter>,
     ) -> Vec<u8> {
         // ★ 主菜单态走独立合成（士兵背景 + 蓝按钮 + 白字），其余屏态走棋盘合成
         if screen == crate::ui::Screen::Menu {
@@ -355,7 +356,9 @@ mod imp {
                 for r in 0..4usize {
                     let y = 490.0 + r as f32 * 75.0;
                     rows.push((r + 1, 165.0, y, 140.0, 46.0)); // 和棋:/大本营:/吃地雷:/吃军旗:
-                    rows.push((5 + (r % 2), 400.0, y, 100.0, 46.0)); // 开/关
+                    // ★ 原版默认 4 开关全「开」（gameset_orig_vs_fw.png 实锤）；合成器不接 cfg 动态态，
+                    //   固定显示默认开态（行5），避免旧代码 (5+r%2) 画成"开关开关"与原版不符
+                    rows.push((5, 400.0, y, 100.0, 46.0)); // 全「开」默认态
                 }
                 rows.push((7, 205.0, 793.0, 100.0, 46.0)); // 确定
                 rows.push((8, 415.0, 793.0, 100.0, 46.0)); // 取消
@@ -623,6 +626,41 @@ mod imp {
                     (4, 415.0, 665.0, 100.0, 46.0),
                 ];
                 blit_text_rows(&mut out, w, h, t, tw as usize, th as usize, &rows, sx, sy);
+            }
+        }
+        // ★ F3 战况统计屏：深灰面板 + 7 类事件计数柱状条（长度∝计数）+ 底部返回提示
+        if screen == crate::ui::Screen::Stats {
+            let px0 = (135.0f32 * sx) as usize; let px1 = ((585.0f32) * sx) as usize;
+            let py0 = (300.0f32 * sy) as usize; let py1 = ((980.0f32) * sy) as usize;
+            for y in py0.min(h)..py1.min(h) {
+                for x in px0.min(w)..px1.min(w) {
+                    let di = (y * w + x) * 4;
+                    out[di] = 32; out[di+1] = 30; out[di+2] = 28;
+                }
+            }
+            if let Some(st) = stats {
+                let colors: [(u8,u8,u8);7] = [
+                    (60,180,75),(200,80,80),(230,150,40),(80,150,225),
+                    (200,90,180),(90,200,200),(160,160,160),
+                ];
+                let maxv = st.by_code.iter().copied().max().unwrap_or(1).max(1);
+                for (i, col) in colors.iter().enumerate() {
+                    let rowy = ((360 + i * 70) as f32 * sy) as usize;
+                    let barh = (28.0f32 * sy) as usize;
+                    // 标签底色块（固定宽度小方块区分事件类）
+                    for y in rowy..(rowy + barh).min(h) {
+                        for x in px0..(px0 + (40.0f32*sx) as usize).min(w) {
+                            let di=(y*w+x)*4; out[di]=col.0; out[di+1]=col.1; out[di+2]=col.2;
+                        }
+                        // 计数柱（长度 ∝ 该类计数 / 最大值）
+                        let barmax = ((330.0f32) * sx) as usize;
+                        let bw = (st.by_code[i] as f32 / maxv as f32 * barmax as f32) as usize;
+                        for x in (px0 + (50.0f32*sx) as usize)..(px0 + (50.0f32*sx) as usize + bw).min(w) {
+                            if x >= w { break; }
+                            let di=(y*w+x)*4; out[di]=col.0; out[di+1]=col.1; out[di+2]=col.2;
+                        }
+                    }
+                }
             }
         }
         // ★ UI-05：对局态顶部 ☰/↩ 图标（画布 450×800，命中区 view(270,750)/(620,750) ÷2）
