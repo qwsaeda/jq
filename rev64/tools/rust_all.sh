@@ -66,6 +66,11 @@ fi
 
 # [4b] 行为对齐扩展：棋盘几何 950 case + 32/64 位规则双端（桌面 -m32）
 if [ "$QUICK" = 0 ]; then
+  # ★ P0-1 根因修复：原版真值表直接测生产 ai::ai_score（篡改生产函数必检出）
+  log "=== [4a] ai_score_orig_bridge（原版154case→生产ai::ai_score，P0-1根因）==="
+  python3 "$WS/rev64/tools/gen_ai_score_bridge_test.py" >/dev/null 2>&1
+  BT=$(cd "$RUST" && cargo test --release --test ai_score_orig_bridge 2>&1)
+  echo "$BT" | grep -q 'test result: ok' && log "PASS 生产ai_score对齐原版真值" || { echo "$BT" | tail -8; log "FAIL 生产ai_score桥接测试"; fail=1; }
   log "=== [4b] rust_geom_check（几何6函数 950 case）+ rp_desktop_compare（32/64双端36 case）==="
   G=$(python3 "$WS/rev64/tools/rust_geom_check.py" 2>&1); GR=$?
   if [ $GR -eq 0 ] && echo "$G" | grep -q '判定: PASS'; then

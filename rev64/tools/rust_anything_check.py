@@ -107,6 +107,7 @@ pub fn ai_score(src: std::ffi::c_int, dst: std::ffi::c_int) -> std::ffi::c_int {
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--keep-tmp", action="store_true", help="保留临时目录（调试用）")
+    ap.add_argument("--export-cases", metavar="PATH", help="导出录制的原版 cases.jsonl 到指定路径（供生产代码桥接测试复现）")
     a = ap.parse_args()
 
     # 0. 前置判据
@@ -171,6 +172,10 @@ def main():
         print("record: %d cases" % ncase)
         if ncase < 50:
             return fail("录制的 case 数过少（%d < 50，防空集假绿）" % ncase)
+        # ★ P0-1 修复入口：导出原版真值表供生产代码桥接测试复现（让判据测生产代码）
+        if a.export_cases:
+            shutil.copyfile(cases, a.export_cases)
+            print(f"导出原版 cases: {a.export_cases} ({ncase} 条)")
 
         # 4. port（忠实移植）→ cargo fmt → build → diff
         open(port, "w", encoding="utf-8").write(PORT_TMPL.format(**rs_consts))
