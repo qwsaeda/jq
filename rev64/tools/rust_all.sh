@@ -71,6 +71,11 @@ if [ "$QUICK" = 0 ]; then
   python3 "$WS/rev64/tools/gen_ai_score_bridge_test.py" >/dev/null 2>&1
   BT=$(cd "$RUST" && cargo test --release --test ai_score_orig_bridge 2>&1)
   echo "$BT" | grep -q 'test result: ok' && log "PASS 生产ai_score对齐原版真值" || { echo "$BT" | tail -8; log "FAIL 生产ai_score桥接测试"; fail=1; }
+  # ★ 轮6：rule_probe_bridge —— 补 rprobe 缺失的 11 个 case（A2/D2/E3-E9/F3/G1），
+  #   64 位真值直接测生产规则函数，消除"生产规则在这 11 场景无判据"的盲区
+  log "=== [4c] rule_probe_bridge（原版11 case→生产规则函数）==="
+  RP=$(cd "$RUST" && cargo test --release --test rule_probe_bridge 2>&1)
+  echo "$RP" | grep -q 'test result: ok' && log "PASS 生产规则对齐原版11 case（rprobe 补盲）" || { echo "$RP" | tail -8; log "FAIL rule_probe_bridge"; fail=1; }
   log "=== [4b] rust_geom_check（几何6函数 950 case）+ rp_desktop_compare（32/64双端36 case）==="
   G=$(python3 "$WS/rev64/tools/rust_geom_check.py" 2>&1); GR=$?
   if [ $GR -eq 0 ] && echo "$G" | grep -q '判定: PASS'; then

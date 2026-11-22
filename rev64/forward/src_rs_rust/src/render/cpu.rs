@@ -1,5 +1,6 @@
 //! 纯 CPU 棋盘 RGBA 合成（从 render.rs 拆分，逐字搬运）
 #[cfg(target_os = "android")]
+#[deprecated(note="UI-09: 未引用的历史 CPU 渲染实现，生产出屏在 asset.rs::compose_board_rgba")]
 pub fn cpu_board_rgba(w: usize, h: usize, board: Option<&crate::state::State>) -> Vec<u8> {
     let mut out = vec![0u8; w * h * 4];
     for y in 0..h {
@@ -44,4 +45,5 @@ pub fn cpu_board_rgba(w: usize, h: usize, board: Option<&crate::state::State>) -
     out
 }
 #[cfg(not(target_os = "android"))]
+#[deprecated(note="UI-09: 未引用的历史 CPU 渲染实现，生产出屏在 asset.rs::compose_board_rgba")]
 pub fn cpu_board_rgba(_w: usize, _h: usize, _b: Option<&crate::state::State>) -> Vec<u8> { vec![] }

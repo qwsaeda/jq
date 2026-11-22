@@ -440,9 +440,12 @@ pub(crate) mod gles_render {
         nx >= bx && nx <= bx + bw && ny >= by && ny <= by + bh
     }
 
-    // ---- 完整触摸处理（OnTouch 接规则层，设计 §3 ③④）----
+    // ---- 完整触摸处理（历史参考实现，生产路径在 jni.rs::OnTouch）----
     /// 触摸事件 → 屏态迁移 + 走子/翻棋（接 ui + rules）
-    /// 对齐 C OnTouch：ACTION_DOWN 消费 + 屏态分发
+    /// ★ UI-09：此函数 0 引用（生产走 jni.rs::OnTouch），标注 deprecated 防未来误接。
+    ///   坐标口径已修：view 900×1600 → ×0.8 转 720 基准（旧版直接拿 view 坐标喂 720 基准按钮
+    ///   → 按钮整体错位，若将来接线会复现点不到的 bug）。
+    #[deprecated(note = "未引用的历史参考实现，生产触摸链在 jni.rs::OnTouch；勿直接接线")]
     pub fn handle_touch(
         st: &mut State,
         u: &mut crate::ui::Ui,
@@ -452,13 +455,16 @@ pub(crate) mod gles_render {
         view_w: i32,
         view_h: i32,
     ) -> crate::state::Ev {
+        #[allow(deprecated)] // 本函数自身已 deprecated，内部调用生产 helper 不受影响
         use crate::state::Ev;
+        // ★ 坐标口径统一：view(900×1600) → 720 基准（与 jni.rs OnTouch 的 x*0.8 一致）
+        let (bx, by) = (vx as f32 * 0.8, vy as f32 * 0.8);
         match u.screen {
             crate::ui::Screen::Menu => {
                 // 主菜单 2 按钮（人机/两人，对齐 ui.rs MENU_BTN_HUMAN/TWOPLAYER）
-                if crate::ui::MENU_BTN_HUMAN.contains(vx, vy) {
+                if crate::ui::MENU_BTN_HUMAN.contains(bx as i32, by as i32) {
                     u.menu_human();
-                } else if crate::ui::MENU_BTN_TWOPLAYER.contains(vx, vy) {
+                } else if crate::ui::MENU_BTN_TWOPLAYER.contains(bx as i32, by as i32) {
                     u.menu_two_player();
                 }
                 // 菜单空白 → 不消费（防穿透，规格 §10.2）
@@ -466,7 +472,7 @@ pub(crate) mod gles_render {
             }
             crate::ui::Screen::Difficulty => {
                 // 难度 8 按钮（level×mode）→ 开局
-                if let Some((lv, md)) = crate::ui::difficulty_hit(vx, vy, &crate::ui::DIFFICULTY_PANEL) {
+                if let Some((lv, md)) = crate::ui::difficulty_hit(bx as i32, by as i32, &crate::ui::DIFFICULTY_PANEL) {
                     u.difficulty_select(lv, md, st);
                 }
                 Ev::Move

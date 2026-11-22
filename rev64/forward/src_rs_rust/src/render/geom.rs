@@ -11,6 +11,7 @@ pub(crate) mod geom {
     }
 
     /// 用 wgpu 画一组彩色矩形（NDC 坐标 -1..1），返回 RGBA 像素
+    #[deprecated(note="UI-09: 未引用的历史几何绘制，生产在 asset.rs")]
     pub fn draw_rects_rgba(
         device: &wgpu::Device,
         queue: &wgpu::Queue,
@@ -146,6 +147,7 @@ pub(crate) mod geom {
     }
 
     /// 构造主菜单矩形列表（12×5 棋盘格 + 5 按钮，纯 Rust 几何）
+    #[deprecated(note="UI-09: 未引用的历史菜单矩形表，生产按钮几何在 ui.rs")]
     pub fn menu_rects() -> Vec<(f32, f32, f32, f32, [f32; 4])> {
         let mut rects = Vec::new();
         // 棋盘 12 行 × 5 列（上半屏），深绿/浅绿交替

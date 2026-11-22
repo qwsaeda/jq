@@ -28,7 +28,7 @@
 | UI-03 | UI | jni.rs:442-474 | NewGame 取消不恢复 mode 快照（jq.mode 残留坑） | ✅ 已修（进弹窗 begin_popup 快照；取消/面板外 cancel_popup 恢复） |
 | UI-04 | UI | asset.rs/jni.rs:507 | ExitConfirm 有触摸无绘制（Menu 可达性系子代理误判——Ui::new 默认 Menu） | ✅ 已修（画红退出/绿继续按钮+exit_btn_hit 分派，面板外=继续保守；104测试）。子代理'Menu不可达'经核实为误判 |
 | UI-05 | UI | jni.rs:545-557 | Game 顶部图标区超大隐形命中，吞掉红方上半盘 6行×5列 | ✅ 已修（命中区缩为 view±60px 小方框，中心(270/620,750)与真机悔棋判据一致；asset.rs 画橙图标；单测锚定不误命中棋子区） |
-| UI-06 | UI | jni.rs:339 | OnUpdate 每帧 clear_frame 纯蓝 + smali 仍有 setRenderer（注释矛盾） | 待真机确认（设备离线） |
+| UI-06 | UI | jni.rs | OnUpdate 每帧 clear_frame 纯蓝 + 双渲染路径 | ✅ 修（轮3 N3：OnUpdate 禁 clear_frame，native Canvas 独占 Surface；台账状态此前过时） |
 | UI-07 | UI | evt.rs/sfx.rs | 音效映射正确但全链无消费者（14 WAV 编进 so 永不播放） | 已知边界（houdini JNI 崩回退，待真 ARM64） |
 | JNI-03 | JNI | jni.rs:286/288 | Surface 与 Device 来自不同 wgpu Instance | 待修 |
 | JNI-04 | JNI | wgpu_thread.rs:11-19 | stop() join 无超时 + 启动期不查 STOP → 主线程 ANR | ✅ 已修（轮询 RUNNING≤2s + 启动期 STOP 检查） |
@@ -46,7 +46,7 @@
 | F3 | 规则 | save.rs:180 | validate_state 不校验 side↔rank 域，脏 rank 变军旗 | ✅ 已修（rank_ok side 感知：红≤24/蓝未知≤12；测试蓝rank20归零/红保留） |
 | F4 | 规则 | state.rs:164/rules.rs | pieces_left 全程不更新，字段契约虚假 | ✅ 已修（注释改诚实描述：仅开局置25/归零/域校验，无增量递减，对齐 C 已删 refresh） |
 | UI-08 | UI | strings.rs | 全表死代码，终局无文字 | 已知边界（C 版终局也色块） |
-| UI-09 | UI | render/geom.rs,cpu.rs,gles.rs | 多套互斥死渲染实现 + handle_touch 坐标 bug，易误接 | 待修（标注 deprecated） |
+| UI-09 | UI | render/*.rs | 多套互斥死渲染实现 + handle_touch 坐标 bug | ✅ 修（轮6：cpu_board_rgba/draw_rects_rgba/menu_rects/handle_touch 加 #[deprecated] 防误接；handle_touch 坐标 view×0.8 修正） |
 | UI-10 | UI | jni.rs:426-441 | Difficulty 面板外无返回菜单处理 | ✅ 已修（面板外 cancel_popup 回菜单 + jq.diff_cancel 属性） |
 | JNI-09 | JNI | canvas.rs/sfx.rs | 错误路径残留 Java 异常；sfx 无 release | 待修 |
 | JNI-10 | JNI | log.rs:18/47 | CString unwrap 可 panic；setprop 返回值丢弃 | 待修 |
@@ -157,3 +157,15 @@
 
 验证：109 tests + clippy 0 + android 0警 + rust_all 全 PASS + so_link 真核验 + ui_offline 6/6
 + geom 950/950 + 真机切后台 0 NPE + 0 Fatal。**拒绝凑1000**：硬凑=造假假绿，12 项全部可复现定位。
+
+## 2026-11-22 审计轮 6（正向流程）
+
+| 项 | 级别 | 问题 | 状态 |
+|---|---|---|---|
+| rprobe 判据盲区 | P1 | 64 位真值 36 case 只测了 23 个，缺 A2/D2/E3-E9/F3/G1 共 11 个生产规则验证 | ✅ 修：tests/rule_probe_bridge.rs 用 C 真值直测生产规则 11 case（8 测试覆盖 11 case），接入 rust_all [4c]，全 PASS——确认生产规则在这 11 场景与 64 位真值无分叉 |
+| handle_touch 坐标 bug | P2 | 死实现把 view 坐标直接喂 720 基准按钮（差 1.25×），误接会点不到 | ✅ 修：view×0.8 统一口径 + #[deprecated] 标注 |
+| 多套死渲染实现 | P2 | cpu_board_rgba/draw_rects_rgba/menu_rects 0 引用，易误接 | ✅ 修：全部 #[deprecated] + 注释指向生产路径 |
+| UI-06 台账过时 | — | 轮3 已修（N3 禁 clear_frame）但台账仍标"待确认" | ✅ 更新台账状态 |
+
+验证：113 tests（+8）+ clippy 0 + rust_all 含 [4c] 全 PASS + so_link 真核验 + ui_offline 6/6。
+**依旧拒绝凑 99/轮**：本轮真实产出 3 个修复 + 1 个台账更正，可复现定位。
