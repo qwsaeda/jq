@@ -303,6 +303,12 @@ mod android_impl {
         env: *mut jni::sys::JNIEnv,
         _cls: JClass,
     ) -> jni::sys::jboolean {
+        // ★ JNI-13: OnUpdate 由 Java GLThread 每帧 onDrawFrame 调入，入口先清挂起异常，
+        //   避免上一帧残留异常在后续 JNI 调用触发 "No pending exception expected" abort
+        if !env.is_null() {
+            let je = match unsafe { jni::JNIEnv::from_raw(env) } { Ok(e) => e, Err(_) => return 0 };
+            if je.exception_check().unwrap_or(false) { let _ = je.exception_clear(); }
+        }
         run_test_hooks(); // 真机验证钩子（setprop 触发）
         let mut wgpu_guard = match WGPU.lock() { Ok(g) => g, Err(e) => e.into_inner() };
         let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
@@ -471,6 +477,7 @@ mod android_impl {
                     } else { None }
                 });
                 if let Some((lv, md)) = hit {
+                    clear_sel(); // ★ P1: 换局清残留选中，防首点被当旧局二次点击
                     crate::log::setprop("jq.difficulty", &format!("{}_{}", lv, md));
                     return 1;
                 }
@@ -498,6 +505,7 @@ mod android_impl {
                             u.difficulty_select(u.level, mode, st);
                             u.vs_ai = false;
                         });
+                        clear_sel(); // ★ P1: 新局清残留选中
                         crate::log::setprop("jq.ingame_act", "newgame_confirm");
                     }
                     Some(1) | None => { // 取消 / 面板外 → 恢复 mode 快照
@@ -679,13 +687,8 @@ mod android_impl {
                     });
                     return if acted { 1 } else { 0 };
                 } else {
-                    // 首次点击：选中（仅己方已翻子可选）
-                    let can_sel = with_lock(|st, _u, _c| {
-                        if cell < 60 && !st.cells[cell].is_empty()
-                            && st.cells[cell].side == st.turn && st.cells[cell].revealed {
-                            true
-                        } else { false }
-                    });
+                    // 首次点击：选中（纯函数判定，桌面可测）——★ P0 修复：暗棋未翻子可选→二次点翻棋
+                    let can_sel = with_lock(|st, _u, _c| rules::can_select_for_touch(st, cell));
                     if can_sel {
                         if let Ok(mut g) = G_SEL.lock() { *g = Some(cell); }
                         return 1;

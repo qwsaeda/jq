@@ -16,8 +16,10 @@ mod imp {
     }
     /// 写系统属性（adb getprop 可读，houdini 转译下比 logcat 可靠）
     pub fn setprop(name: &str, value: &str) {
-        let n = std::ffi::CString::new(name).unwrap();
-        let v = std::ffi::CString::new(value).unwrap();
+        // ★ JNI-10: 内嵌 NUL 时 CString::new 返 Err，旧 unwrap 会 panic；
+        //   setprop 在渲染线程的 run_test_hooks 中调用，panic 会杀掉整个渲染线程 → 永久黑屏。
+        let n = std::ffi::CString::new(name).unwrap_or_else(|_| std::ffi::CString::new("invalid").unwrap());
+        let v = std::ffi::CString::new(value).unwrap_or_else(|_| std::ffi::CString::new("(invalid)").unwrap());
         unsafe { __system_property_set(n.as_ptr(), v.as_ptr()); }
         // 文件探针（最可靠，adb cat 可读）：写 /data/local/tmp/jq_native_probe
         use std::io::Write;
@@ -45,7 +47,7 @@ mod imp {
 
     /// 读系统属性（真机钩子触发，对齐 C setprop jq.movetest 范式）
     pub fn getprop(name: &str) -> String {
-        let n = std::ffi::CString::new(name).unwrap();
+        let n = std::ffi::CString::new(name).unwrap_or_else(|_| std::ffi::CString::new("invalid").unwrap());
         let mut buf = [0u8; 128];
         let len = unsafe { __system_property_get(n.as_ptr(), buf.as_mut_ptr() as *mut c_char) };
         if len <= 0 { return String::new(); }

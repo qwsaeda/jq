@@ -78,12 +78,13 @@ mod imp {
         }
         crate::log::setprop("jq.wgpu_state3", "window_ok");
 
-        // ② wgpu device（offscreen 渲染已实锤可用，不依赖 create_surface）
-        let (_dev, _q) = match crate::render::RenderCtx::create_wgpu_device() {
-            Some(v) => v,
-            None => { crate::log::setprop("jq.wgpu_state3", "device_fail"); return; }
-        };
-        crate::log::setprop("jq.wgpu_state3", "device_ok");
+        // ② ★ P1 修复：删除无用的 wgpu device 创建门槛。
+        //   旧代码在此 request_adapter/request_device，但 _dev/_q 后续完全未使用——
+        //   实际出屏走 asset::compose_board_rgba(CPU) + canvas::draw_rgba_to_surface(Java Canvas)，
+        //   不需要 wgpu device。当 wgpu GL 后端不可用（houdini/无 GPU 环境）时 request_device
+        //   返回 None → 渲染线程在出第一帧前就 return，整屏全黑，且 jq.wgpu_state3=device_fail
+        //   把自伤伪装成"GPU 不可用"。CPU 渲染路径本可用，不应被无关依赖一票否决。
+        crate::log::setprop("jq.wgpu_state3", "device_unneeded");
         // ★ 不再缓存 Surface global ref：系统回收/重建后旧 ref 失效会让 lockCanvas abort。
         //   改为每帧从 view 重取当前 Surface（见下方渲染循环）。
         crate::log::window_release(window); // 释放轮询时的临时 ANativeWindow 引用
@@ -100,11 +101,16 @@ mod imp {
             if env.exception_check().unwrap_or(false) { let _ = env.exception_clear(); }
             crate::jni::run_test_hooks(); // 真机验证钩子（setRenderer 移除后 OnUpdate 不调，改由此线程驱动）
             let r = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                if let Some(rgba) = {
+                let rgba = {
                     let (board, screen) = match crate::jni::board_snapshot() { Some(b) => b, None => return };
-                    Some(crate::asset::compose_board_rgba(450, 800, Some(&board), screen))
-                } {
-                    // 每帧重取当前 Surface（local ref，用完自动释放）
+                    crate::asset::compose_board_rgba(450, 800, Some(&board), screen)
+                };
+                // ★ P0 根治（local reference table overflow）：本线程 attach 一次后永久循环，
+                //   旧实现每帧 getHolder/getSurface/isValid + canvas 内 ~7 个 JObject 局部引用
+                //   从不删除（注释"用完自动释放"是错误认知——jni-rs 的 JObject Drop 不删局部 ref），
+                //   ~9 ref/帧 × 400ms → 约 20-60s 触发 ART "local reference table overflow (max=512)" 崩溃。
+                //   with_local_frame 在帧末 PopLocalFrame 一次性回收本帧全部局部引用。
+                let _ = env.with_local_frame(16, |env| -> jni::errors::Result<()> {
                     let cur = env.call_method(&view, "getHolder", "()Landroid/view/SurfaceHolder;", &[])
                         .ok().and_then(|v| v.l().ok())
                         .and_then(|holder| env.call_method(holder, "getSurface", "()Landroid/view/Surface;", &[]).ok().and_then(|s| s.l().ok()));
@@ -115,7 +121,7 @@ mod imp {
                             // ★ 状态属性反映"当前帧"结果：成功写 rendering、失败写 canvas_err。
                             //   旧实现只在 frame==3 写一次 rendering、失败才写 err →
                             //   一次偶发失败就把属性永久卡在 canvas_err（画面其实正常），判据假 FAIL。
-                            if crate::canvas::draw_rgba_to_surface(&mut env, surface, &rgba, 450, 800).is_ok() {
+                            if crate::canvas::draw_rgba_to_surface(env, surface, &rgba, 450, 800).is_ok() {
                                 crate::log::setprop("jq.wgpu_state3", "rendering");
                             } else {
                                 crate::log::setprop("jq.wgpu_state3", "canvas_err");
@@ -124,7 +130,8 @@ mod imp {
                             crate::log::setprop("jq.wgpu_state3", "surface_invalid");
                         }
                     }
-                }
+                    Ok(())
+                });
             }));
             if let Err(payload) = &r {
                 let msg = payload.downcast_ref::<&str>().copied()

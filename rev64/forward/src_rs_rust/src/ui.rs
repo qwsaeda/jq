@@ -98,6 +98,10 @@ impl Ui {
 
 /// 难度弹窗选（level, mode）→ 开局进对局（规格 §10：选完即开局）
     pub fn difficulty_select(&mut self, level: u8, mode: u8, st: &mut State) {
+        // ★ P1 修复：换难度=开新局，必须清空上一局悔棋快照 + mode 快照，
+        //   否则新局按 ↩ 会 undo 到上一局棋盘（整盘闪回错局）
+        self.undo_stack.clear();
+        self.mode_snap = mode;
         self.level = level;
         // ★ 业务对齐（规格 §5.3）：按 mode 真正重建开局棋盘
         //   mode=0 明棋（红+0xc/revealed=1）；mode=1 暗棋（全 0xFF/未翻/raw rank）
@@ -115,6 +119,8 @@ impl Ui {
 
     /// 新局弹窗"确定"→ 开局进对局（两人热座，vs_ai=false）
     pub fn newgame_confirm(&mut self, st: &mut State) {
+        // ★ P1 修复：两人新局同样清悔棋栈（防跨局 undo 污染）
+        self.undo_stack.clear();
         st.turn = crate::state::SIDE_BLUE;
         st.stage = crate::state::Stage::Play;
         st.winner = crate::state::Winner::None;

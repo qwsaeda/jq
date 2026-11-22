@@ -12,7 +12,7 @@
 use crate::board::{cell_col, cell_index, cell_row, is_base, is_camp, is_rail, N_CELLS};
 use crate::state::{
     rank_of, side_valid, Cell, Ev, Rank, RANK_BOMB, RANK_FLAG, RANK_MINE, RANK_TOP, RANK_WORKER,
-    Side, SIDE_BLUE, SIDE_RED, SIDE_UNKNOWN, Stage, State, Winner,
+    Side, SIDE_BLUE, SIDE_RED, SIDE_UNKNOWN, Stage, State, Winner, MODE_FLIP,
 };
 
 /// 走子失败原因（Rust 规范化：用有语义的 Error enum 替代 `Result<Ev, ()>`）。
@@ -388,6 +388,24 @@ pub fn try_move(st: &mut State, from: usize, to: usize) -> Result<Ev, MoveError>
     Ok(ev)
 }
 
+/// ★ 触摸首点选中判定（抽成桌面可测纯函数，根治 jni.rs android-only 测试盲区）
+/// 已翻己方子可选走；暗棋模式下未翻暗子只要可翻即选中（二次点同格 → flip）。
+/// 旧 jni.rs 内联判定只认 `side==turn && revealed`，导致默认暗棋开局全 0xFF 未翻
+/// → 首点永远选不中 → 翻棋链不可达 → 人类与 AI 双双死锁，对局根本无法开始（P0）。
+pub fn can_select_for_touch(st: &State, cell: usize) -> bool {
+    if cell >= N_CELLS || st.cells[cell].is_empty() {
+        return false;
+    }
+    let c = &st.cells[cell];
+    if c.side == st.turn && c.revealed {
+        return true; // 己方已翻子：可选走子
+    }
+    if st.mode == MODE_FLIP && !c.revealed {
+        return can_flip(st, cell); // 暗棋未翻子：可翻即可选（定色归翻子方）
+    }
+    false
+}
+
 /// 翻棋合法性（规格 §5：白名单只排军旗，0xFF 当前方定色）
 pub fn can_flip(st: &State, idx: usize) -> bool {
     use crate::state::Stage;
@@ -576,6 +594,34 @@ fn winner_from_side(s: Side) -> Winner {
 mod tests {
     use super::*;
     use crate::state::{MODE_FLIP, MODE_LAY};
+
+    /// ★ P0 回归：默认暗棋开局全 0xFF 未翻，首点必须可选→二次点翻棋。
+    ///   旧 jni.rs 内联选中门（side==turn && revealed）使暗子永远选不中 → 对局死锁；
+    ///   该逻辑在 android-only 文件里，桌面测试此前完全覆盖不到（结构性盲区）。
+    #[test]
+    fn touch_select_dark_chess_first_flip() {
+        let st = crate::gametest::make_flip_layout();
+        assert_eq!(st.mode, MODE_FLIP, "默认应暗棋开局");
+        let mut can_flip_n = 0;
+        for i in 0..N_CELLS {
+            if st.cells[i].is_empty() { continue; }
+            if can_flip(&st, i) {
+                assert!(can_select_for_touch(&st, i), "可翻暗子 cell{} 首点应可选", i);
+                can_flip_n += 1;
+            }
+        }
+        assert!(can_flip_n >= 40, "暗棋开局可翻子数 {}", can_flip_n);
+        // 选中→翻棋链真执行（绕开 android-only 的 G_SEL，验证规则层可达）
+        let first = (0..N_CELLS).find(|&i| can_flip(&st, i)).unwrap();
+        let mut s = st.clone();
+        assert!(can_select_for_touch(&s, first));
+        assert!(flip(&mut s, first), "首点选中后翻棋应成功");
+        assert_eq!(s.turn, SIDE_RED, "翻后切红方（AI/对手应着）");
+        // 明棋未翻子（非暗棋模式）不应被当暗子选中
+        let mut ming = setup_ming();
+        ming.mode = MODE_LAY;
+        assert!(!can_select_for_touch(&ming, 25 + 1), "明棋空/敌格不应可选");
+    }
 
     /// 构造明棋简单盘（蓝 1 子 (5,0)=idx25 rank3，红 1 子 (6,0)=idx30 rank8）
     fn setup_ming() -> State {
