@@ -89,3 +89,27 @@
 - **39 个 ≠ 100 个**：不硬凑。39 个全部有文件:行 + 触发依据，可复现定位是硬标准。
 - 部分问题需裁定（F1 SPEC vs C）或真机验证（UI-06 纯屏、弹窗画面）——设备离线，不假绿宣称完成。
 - P0-1（判据不测生产代码）是根因级问题：修好它，P1-5/6/P2-8 的同类假绿一并解决。
+
+## 2026-11-22 主动审计轮（用户"按正向开发，你找不出问题？"指正）
+
+两个并行审计子代理深挖 JNI/线程/资源 + 规则/状态机/存档，**新发现 8 个有依据的真问题**（未凑数）：
+
+| 编号 | 定级 | 文件:行 | 问题 | 状态 |
+|---|---|---|---|---|
+| P0-3 | **P0** | jni.rs:首点选中门 | 默认暗棋开局全 0xFF 未翻，选中门只认 `side==turn && revealed` → 暗子永不选中、翻棋链不可达、AI 不介入 → **对局开局即死锁**（正是我改默认暗棋后引入）。桌面测试盲区：jni.rs android-only，106 测试全绿也漏掉 | ✅ 修：抽 `rules::can_select_for_touch` 纯函数（暗棋可翻即可选）+ 桌面回归测试。**真机实锤**：首点 cell25 → 二次点 `move=Flip`（设备 152 so `abae2450`） |
+| N1 | **P0** | wgpu_thread.rs:52/95-110 + canvas.rs:35-62 | 渲染线程 attach 一次后永久循环，每帧 ~9 个 JObject 局部引用从不删（注释"自动释放"是错误认知）→ ~20-60s 触发 ART `local reference table overflow (max=512)` 确定性崩溃 | ✅ 修：`env.with_local_frame(16)` 帧末 PopLocalFrame 自动回收 |
+| P1-2 | P1 | ui.rs:difficulty_select/newgame_confirm | 换难度/新局未清 `undo_stack`+`mode_snap`、jni.rs 调用点未 `clear_sel` → 新局按 ↩ undo 到上一局（整盘闪回）、残留选中使首点变误走子 | ✅ 修：两方法清栈，两调用点 clear_sel |
+| N2 | P1 | wgpu_thread.rs:82-86 | 无用的 `create_wgpu_device()`（_dev/_q 从未使用）作 CPU 渲染致命门槛，wgpu 后端不可用即首帧前 return 永久黑屏 | ✅ 修：删除该门槛 |
+| JNI-10 | P2 | log.rs:19/20/48 | `CString::new().unwrap()` 内嵌 NUL 可 panic；setprop 在渲染线程钩子中 panic 会杀渲染线程 → 永久黑屏 | ✅ 修：`unwrap_or_else` |
+| JNI-13 | P2 | jni.rs:OnUpdate 入口 | 每帧 onDrawFrame 入口未清挂起异常 | ✅ 修：入口 exception_check/clear |
+| P1-3 | P1 | rprobe.rs | "移植 C 36 case"实 23 例且 E1/G2/G3/G4/F2 场景漂移（真值被偷换） | ✅ 修：5 case 按原版 inc:252/343/388/397/408 真值重录；G2 按 64 位探针实测 CM=1（inc 注释 R-011 只是担忧非实测）；G4 探针 SM=0 系 probe_clear 不清 stale_v/c 缓存伪影，Rust 实时扫描 true 合理，诚实标注不强改 |
+| P2-4 | P2 | rust_geom_check.py:47-94 | 双源断言测脚本内嵌副本非生产 `board.rs`，无负向注入 → 恒真 | ✅ 修：PORT 改为从生产 `board.rs` 抽函数体 + C头/生产 BOARD_COLS 真断言 + 负向注入（篡改生产函数体→diff 943/950 非全匹配，证明非恒真） |
+| P2-5 | P2 | save.rs:150 | `check_enums` 零调用死代码，两阶段校验未接线 | ✅ 修：接线为 `validate_state` 阶段1前置（先只读拒读、再就地净化），所有 validate_state 调用点自动获两阶段语义 |
+| JNI-03 | P1 | jni.rs:312/314/326/351 + gles.rs:53/207 | Surface(Instance B) 与 device(Instance A) 跨 wgpu Instance → OnUpdate wgpu 出屏 validation error（正确实现 `gles.rs:86 create_surface_and_device` 闲置）。当前主渲染走 CPU canvas，故未阻断出屏 | ❌ 待修 |
+| JNI-14 | P2 | jni.rs:250-258 | GlobalRef forget 无对应 DeleteGlobalRef，每次 activity 重建漏一个 → 确定性内存泄漏。**未修原因**：需先解 N3 start/stop 竞态，否则在渲染线程仍用 G_VIEW 时删会 UAF | ❌ 待修 |
+| N3 | P2 | wgpu_thread.rs:11-45 + smali | start/stop 竞态（2s 超时 detach 后新 start 被 RUNNING 挡掉→永久黑屏）+ setRenderer 未移除致 CPU canvas 与 OnUpdate wgpu 双路径写同一 Surface | ❌ 待修 |
+| P2-6 | — | rules.rs:216-237 | 暗棋 cfg4 下 can_move 读未翻暗子真实 rank 拒走 = AI 透视？**待裁定**：需反汇编 32 位 `jq_can_move` 确认原版是否同行为（若忠实则非缺陷） | ⏸ 待裁定 |
+
+验证：106 tests + clippy 0 + android 0错0警 + rust_all 全 PASS（含设备 10 项）+ ui_offline_check 6/6。
+**测试盲区诚实标注**：P0-3 的桌面单测覆盖了纯函数 `can_select_for_touch`，但 jni.rs 的接线点（android-only）未被自动判据覆盖，
+仅真机一次性实锤（move=Flip）；后续应把"暗棋首手翻棋"固化为设备判据（需先解决存档恢复导致 cell 状态不确定的 flakiness）。

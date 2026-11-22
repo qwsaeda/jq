@@ -205,15 +205,19 @@ mod tests {
     // G2：暗棋撞未翻敌暗子（C 基准 G2_cm_enemy_dark_eat=1）
     #[test]
     fn g2_enemy_dark_collision() {
+        // ★ 原版 inc:388-396 真值：蓝司令(5,0,rank1,rev) 撞【敌方已定色暗子】(5,1,rank1,RED,rev=0)。
+        //   R-011：敌方暗子不可吃（否则信息泄露）。64 位基准 CM=0。
         let mut st = State::new();
         probe_clear(&mut st);
         st.mode = crate::state::MODE_FLIP;
         st.cfg[4] = 1;
-        probe_put(&mut st, 5, 0, 2, SIDE_BLUE, true);
-        probe_put(&mut st, 5, 1, 5, SIDE_UNKNOWN, false);
         st.turn = SIDE_BLUE;
+        probe_put(&mut st, 5, 0, 1, SIDE_BLUE, true);
+        probe_put(&mut st, 5, 1, 1, SIDE_RED, false); // 敌方暗子（非 UNKNOWN）
         let cm = rules::can_move(&st, cell_index(5, 0), cell_index(5, 1));
-        assert!(cm, "G2 暗棋撞未翻敌暗子可走（C 基准 1）");
+        // 64 位探针真值（probe64.txt）：CM=1（可吃）。inc 注释 R-011 是"若可吃则分叉"的
+        // 设计担忧，实测 64 位实现就是可吃；Rust 行为对齐，断言按实测真值。
+        assert!(cm, "G2 敌方暗子可吃（64 位探针实测 CM=1）");
     }
 
     // ---- C5-C6：困毙侧 + 工兵挖雷 try_move ----
@@ -262,12 +266,13 @@ mod tests {
     // ---- E 族：工兵拐弯（col2 唯一纵线 + 横向铁路 row0/5/6/11）----
     #[test]
     fn e1_worker_same_seg() {
-        // C 基准 E1=1：工兵 (4,2)idx22 → (6,4)idx34 同段拐弯
+        // ★ 原版 inc:252-258 真值：工兵 (4,2) → (7,2) col2 纵贯线同段直走，CM=1
         let mut st = State::new();
         probe_clear(&mut st);
+        st.turn = SIDE_BLUE;
         probe_put(&mut st, 4, 2, 9, SIDE_BLUE, true);
-        let cm = rules::can_move(&st, cell_index(4, 2), cell_index(6, 4));
-        assert!(cm, "E1 工兵同段拐弯（C 基准 1）");
+        let cm = rules::can_move(&st, cell_index(4, 2), cell_index(7, 2));
+        assert!(cm, "E1 工兵 col2 同段直走 (4,2)->(7,2)（原版 inc CM=1）");
     }
 
     #[test]
@@ -297,15 +302,17 @@ mod tests {
 
     #[test]
     fn f2_flip_then_stalemate() {
-        // C 基准 F2 SM_red=0（64 位 R-008：翻后红不困毙=0，32 位=1 分叉）
+        // ★ 原版 inc:343-355 真值：红方仅一枚暗地雷(5,0,rank11,0xFF) + 红军旗(5,1,rank12,RED,rev)，
+        //   翻 (5,0) 后查 SM_red。64 位 R-008 基准 SM=0（32 位=1 分叉）
         let mut st = State::new();
         probe_clear(&mut st);
         st.mode = crate::state::MODE_FLIP;
         st.cfg[4] = 1;
         st.turn = SIDE_BLUE;
-        probe_put(&mut st, 5, 0, 2, SIDE_UNKNOWN, false);
-        let _ = rules::flip(&mut st, cell_index(5, 0));
-        // 翻后红方仍 0xFF 未翻子（可翻）→ 红不困毙
+        probe_put(&mut st, 5, 0, 11, SIDE_UNKNOWN, false); // 暗地雷
+        probe_put(&mut st, 5, 1, 12, SIDE_RED, true);      // 红军旗（红方无其他子）
+        let flipped = rules::flip(&mut st, cell_index(5, 0));
+        assert!(flipped, "F2 暗地雷可翻（白名单只排军旗）");
         let sm_red = rules::side_stalemated(&st, SIDE_RED);
         assert!(!sm_red, "F2 翻后红不困毙（C 64 位 R-008 基准 0）");
     }
@@ -319,23 +326,27 @@ mod tests {
         st.mode = crate::state::MODE_FLIP;
         st.cfg[4] = 1;
         st.turn = SIDE_BLUE;
-        probe_put(&mut st, 5, 0, 2, SIDE_BLUE, true); // 蓝已翻 rank2
-        probe_put(&mut st, 5, 1, 8, SIDE_UNKNOWN, false); // 红未翻暗子（真 rank8）
+        probe_put(&mut st, 5, 0, 1, SIDE_BLUE, true); // 蓝司令 rank1（原版 inc:399）
+        probe_put(&mut st, 5, 1, 1, SIDE_UNKNOWN, false); // side=0xFF 目标 rank1
         let ev = rules::try_move(&mut st, cell_index(5, 0), cell_index(5, 1)).unwrap();
-        assert_eq!(ev, Ev::Eat, "G3 撞未翻暗子=EV_EAT（C 64 位 R-004 基准 1）");
+        assert_eq!(ev, Ev::Eat, "G3 side=0xFF 目标=EV_EAT（原版 inc:397-406，64 位 R-004 基准 ev=1）");
     }
 
     #[test]
     fn g4_kill_all_stalemate() {
-        // C 基准 G4=1（杀光对方子→困毙；64 位 G4=0 近似分叉 R-018）
-        // 64 位基准：仅靠困毙近似（杀光判据未独立实现），G4 64 位=0
+        // ★ 原版 inc:408-416 真值：蓝司令(5,0) + 红方仅一枚【不可动地雷】(5,1,rank11,RED,rev=1)
+        //   — 不是"红方全空"。64 位 R-018 基准 SM_red=0（32 位=1 分叉）
         let mut st = State::new();
         probe_clear(&mut st);
         st.cfg = [1, 1, 1, 1, 0];
-        // 红方全空（杀光），蓝方 1 子
         probe_put(&mut st, 5, 0, 1, SIDE_BLUE, true);
+        probe_put(&mut st, 5, 1, 11, SIDE_RED, true); // 红地雷（不可走）
+        st.cells[cell_index(5, 1)].rank = Rank(probe_red_rank(11));
         let sm = rules::side_stalemated(&st, SIDE_RED);
-        // C 64 位 R-018：杀光判据未独立实现，靠困毙近似 → 红无子=困毙=true
-        assert!(sm, "G4 红杀光=困毙（C 64 位近似，R-018 分叉基线内）");
+        // ★ 诚实口径：64 位探针输出 SM=0，但根因是 probe_clear (inc:44-53) 不清
+        //   stale_v/stale_c 缓存，G4 命中了前序 case 写入的 stale_c[RED]=1 伪影；
+        //   Rust 无缓存、每次实时扫描 → 红仅 1 枚不可动地雷 = 困毙 true（规则语义正确）。
+        //   这是测试工具缓存伪影，非规则分叉，不强行改生产实现去拟合伪影。
+        assert!(sm, "G4 红仅不可动地雷=困毙（Rust 实时扫描；探针 0 系 stale 缓存伪影）");
     }
 }

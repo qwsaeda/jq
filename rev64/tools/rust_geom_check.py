@@ -16,6 +16,7 @@ import os, re, shutil, subprocess, sys, tempfile
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 BOARD_C = os.path.join(ROOT, "rev64/reverse/src_jni_translated/jq_rs_board.c")
 RULES_H = os.path.join(ROOT, "rev64/reverse/src_jni_translated/jq_rs_rules.h")
+BOARD_RS = os.path.join(ROOT, "rev64/forward/src_rs_rust/src/board.rs")  # ★ P2-4: 生产 Rust 几何
 
 FNS = ["is_camp", "is_base", "is_rail", "cell_index", "cell_row", "cell_col"]
 
@@ -43,32 +44,44 @@ def extract_fn(src, name):
     return None
 
 
-# Rust 忠实移植（与 jq_rs_board.c 逐行等价；BOARD_COLS=5）
-PORT = """#![forbid(unsafe_code)]
-const BOARD_COLS: i32 = 5;
-pub fn is_camp(row: i32, col: i32) -> bool {
-    if row == 2 && (col == 1 || col == 3) { return true; }
-    if row == 3 && col == 2 { return true; }
-    if row == 4 && (col == 1 || col == 3) { return true; }
-    if row == 7 && (col == 1 || col == 3) { return true; }
-    if row == 8 && col == 2 { return true; }
-    if row == 9 && (col == 1 || col == 3) { return true; }
-    false
+# ★ P2-4 修复：PORT 从【生产 board.rs】抽取函数体，不再用脚本内嵌副本——
+#   篡改生产 is_camp/is_base/is_rail/cell_* 必被 diff 检出（判据真测生产代码）。
+SIGS = {
+    "is_camp": "pub fn is_camp(row: i32, col: i32) -> bool",
+    "is_base": "pub fn is_base(row: i32, col: i32) -> bool",
+    "is_rail": "pub fn is_rail(row: i32, col: i32) -> bool",
+    "cell_index": "pub fn cell_index(row: i32, col: i32) -> i32",
+    "cell_row": "pub fn cell_row(idx: i32) -> i32",
+    "cell_col": "pub fn cell_col(idx: i32) -> i32",
 }
-pub fn is_base(row: i32, col: i32) -> bool {
-    (row == 0 || row == 11) && (col == 1 || col == 3)
-}
-pub fn is_rail(row: i32, col: i32) -> bool {
-    if is_camp(row, col) || is_base(row, col) { return false; }
-    if col == 2 { return true; }
-    if row == 5 || row == 6 { return true; }
-    if row == 0 || row == 11 { return true; }
-    false
-}
-pub fn cell_index(row: i32, col: i32) -> i32 { row * BOARD_COLS + col }
-pub fn cell_row(idx: i32) -> i32 { idx / BOARD_COLS }
-pub fn cell_col(idx: i32) -> i32 { idx % BOARD_COLS }
-"""
+
+
+def extract_rust_body(src, name):
+    """抽 Rust 生产函数体（大括号配平），签名用 SIGS 的 i32 版适配 C case。"""
+    m = re.search(r"pub fn " + name + r"\s*\([^)]*\)(?:\s*->\s*[^{]+)?\s*\{", src)
+    if not m:
+        return None
+    i = src.index("{", m.start())
+    d = 0
+    for j in range(i, len(src)):
+        if src[j] == "{": d += 1
+        elif src[j] == "}":
+            d -= 1
+            if d == 0: return src[i:j + 1]
+    return None
+
+
+def build_port_from_production():
+    rsrc = open(BOARD_RS, encoding="utf-8").read()
+    # 生产 BOARD_COLS 必须与 C 头一致（双源真断言，不是只 print）
+    mcol = re.search(r"pub const BOARD_COLS:\s*usize\s*=\s*(\d+)", rsrc)
+    if not mcol: return None, None, "生产 BOARD_COLS 未定义"
+    parts = ["#![forbid(unsafe_code)]", "const BOARD_COLS: i32 = 5;"]
+    for fn in FNS:
+        body = extract_rust_body(rsrc, fn)
+        if not body: return None, mcol.group(1), f"抽取生产 {fn} 函数体失败"
+        parts.append(SIGS[fn] + " " + body)
+    return "\n".join(parts) + "\n", mcol.group(1), None
 
 
 def main():
@@ -91,7 +104,12 @@ def main():
     # BOARD_COLS 常量（jq_rs_rules.h）
     bc = re.search(r"#define\s+BOARD_COLS\s+(\d+)", hsrc)
     if not bc: return fail("BOARD_COLS 未定义")
-    print(f"BOARD_COLS={bc.group(1)}（双源一致断言）")
+    PORT, prod_cols, perr = build_port_from_production()
+    if perr: return fail(perr)
+    if prod_cols != bc.group(1):
+        return fail(f"BOARD_COLS 双源不一致: C={bc.group(1)} 生产Rust={prod_cols}")
+    print(f"BOARD_COLS={bc.group(1)}（C头 vs 生产board.rs 真断言 PASS）")
+    print(f"PORT 来源: 生产 board.rs 实际函数体（非脚本内嵌副本）")
 
     tmp = tempfile.mkdtemp(prefix="rust-geom-")
     try:
@@ -140,6 +158,23 @@ def main():
         if d.returncode != 0 or not m or m.group(1) != m.group(2):
             return fail("diff 未全匹配: " + (d.stdout + d.stderr).strip()[-300:])
         print(f"diff: {m.group(1)}/{m.group(2)} cases match")
+        # ★ 负向自检：篡改从生产抽取的一个函数体 → diff 必须不再全匹配（证明判据非恒真）
+        neg = PORT.replace("row == 0 || row == 11", "row == 1 || row == 11", 1)
+        if neg == PORT: return fail("负向注入锚点不存在，无法自检")
+        port_rs = os.path.join(crate, "src/port.rs")
+        open(port_rs, "w").write(neg)
+        run(["cargo", "fmt", "--manifest-path", os.path.join(crate, "Cargo.toml")])
+        if run(["rust-anything", "build", crate]).returncode != 0:
+            return fail("负向 build 失败")
+        nd = run(["rust-anything", "diff", crate])
+        nm = re.search(r"(\d+)/(\d+) cases match", nd.stdout + nd.stderr)
+        if nm and nm.group(1) == nm.group(2):
+            return fail("负向注入后 diff 仍全匹配 → 判据恒真（P2-4 未修）")
+        print(f"负向自检 PASS: 篡改生产函数体 → diff {nm.group(1) if nm else '?'}/{nm.group(2) if nm else '?'} 非全匹配")
+        open(port_rs, "w").write(PORT)  # 恢复生产版本
+        run(["cargo", "fmt", "--manifest-path", os.path.join(crate, "Cargo.toml")])
+        if run(["rust-anything", "build", crate]).returncode != 0:
+            return fail("恢复生产 PORT build 失败")
         g = run(["rust-anything", "gate", crate])
         if g.returncode != 0 or "Gate passed" not in (g.stdout + g.stderr):
             return fail("gate 未通过: " + (g.stdout + g.stderr).strip()[-300:])

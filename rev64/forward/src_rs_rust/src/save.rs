@@ -156,6 +156,12 @@ pub fn check_enums(st: &State) -> bool {
 
 pub fn validate_state(st: &mut State) -> bool {
     use crate::state::{Stage, Winner};
+    // ★ P2-5 接线：阶段1 = 只读枚举域校验（check_enums，失败时不改调用方任何字段）；
+    //   阶段2 = 下方就地净化（cells 归零/计数钳）。此前 check_enums 零调用死代码，
+    //   SPEC §8 两阶段契约未落地。现在所有 validate_state 调用点自动获得两阶段语义。
+    if !check_enums(st) {
+        return false;
+    }
     // 枚举域校验（任一越域拒读）
     if !st.turn.is_valid() {
         return false;
