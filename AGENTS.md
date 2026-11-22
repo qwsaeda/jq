@@ -32,7 +32,7 @@ course_unidbg/              unidbg 课程（逆向）
 dist/                       四阶段交付物（phase0-3.apk）
 ```
 
-**归属判据**：逆向 = 32 位原版 so 的翻译/重写/分析（`com.zxj` 逆向 app）；正向 = 64 位行为级重写（`com.qwsaeda` 正向 app）。`reverse/` 归逆向会话，`forward/` 归正向会话，**互不跨界**（不抢活）。
+**归属判据（2026-11-22 更新）**：逆向 = 32 位原版 so 的翻译/重写/分析（`com.zxj` 逆向 app）；正向 = 64 位行为级重写（`com.qwsaeda` 正向 app）。**只做正向开发**：`forward/` 是主战场，**所有逆向工作（`reverse/`、32 位 so 反汇编、datah XML、原版真机截图）都是为正向服务**——作为正向的事实源与验收手段，不作为独立目标。旧的"reverse/ 与 forward/ 互不跨界、不抢活"口径已作废。
 
 - 解码产物放 `/tmp/opencode/jq_apk/`（apktool 输出 `/tmp/opencode/jq_apk/dec/`；src_rs 构建树 `/tmp/opencode/jq_apk/rs_a64/dec_rs`，包名随 src_rs 演进同步改）
 - 各阶段产物放 `/disk/workspaces/jq/dist/`
@@ -490,14 +490,16 @@ java -cp /tmp/opencode/apksigner/apksig.jar:/tmp/opencode/apksigner SignV2 \
 - **`rev64/forward/src_rs` = 先逆向后正向的源码演进树**：逆向阶段 = `com.zxj`（逆军棋，已完成）；正向阶段 = `com.qwsaeda`（新军棋，当前）
   - 演进链：`com.cnvcs.junqirs` → `com.zxj.junqirs`（逆向）→ `com.qwsaeda.junqirs`（正向）
   - 全链改名 4 处（缺一即 UnsatisfiedLinkError / ClassNotFoundException）：① smali 类包 ② manifest `package` + 组件名 ③ native `FindClass` ④ **JNI 导出符号 `Java_com_<pkg>_App_*`**（漏改此处 = native 绑定不到 → UnsatisfiedLinkError）
-  - **不抢会话活**：逆向开发会话用 `com.zxj` 树时，正向会话**不得**改 `src_rs`/`dec_rs` 的包名；正向演进必须在逆向开发完成（验收全链 PASS）后按上述链推进
+  - **正向优先**：正向开发是当前唯一目标；逆向阶段（`com.zxj`）的产出与经验作为正向的输入。包名演进链 `com.cnvcs` → `com.zxj` → `com.qwsaeda` 已走完，当前统一在 `com.qwsaeda` 上迭代，不再维护 `com.zxj` 的独立推进
 - 构建树：`/tmp/opencode/jq_apk/rs_a64/dec_rs`（src_rs 的 apktool 解包树，包名随 src_rs 演进同步改）
 - 设备三包并存（互不覆盖）：`com.cnvcs.junqi`（原版对照）+ `com.zxj.junqirs`（逆向）+ `com.qwsaeda.junqirs`（正向）
 - 打包注意（targetSdk≥31）：`.so/.arsc/.png` 必须 STORE（不压缩）+ `resources.arsc` 4 字节对齐（`zipalign -f -p 4`）+ 重签（zipalign 破坏签名块）
-- **本会话归属（★ 2026-11-11 用户指令：逆向会话按逆向继续对齐）**：本会话 = **逆向驱动**，
-  只做 `com.zxj.junqirs`（逆向 app）+ `rev64/reverse/*` + 32 位翻译体回归（`arm32_walkregress.sh`）；
-  `com.qwsaeda`（正向）/ `rev64/forward/*` 由正向会话推进，**本会话不动**（不抢活）。
-  逆向对齐验收入口：`bash rev64/tools/arm32_hook_check.sh --dev 10.0.182.146:5555 --rounds 3`
+- **★ 工作方向（2026-11-22 用户明确指令，取代 2026-11-11 的"逆向会话互斥"口径）**：
+  **只做正向开发**——主战场 = `rev64/forward/src_rs_rust/`（64 位行为级重写）+ `com.qwsaeda.junqirs`（新军棋）。
+  **所有逆向工作都是为正向服务**：逆向（`rev64/reverse/*` / 32 位 so 反汇编 / datah XML / 原版真机截图）
+  只作为正向开发的**事实源与验收手段**（确认行为/几何/规则与原版一致），不作为独立目标、不与正向抢活。
+  旧条目"本会话=逆向驱动、不碰 forward/*、不抢活"已删除——该口径系 11-11 陈旧信息，与当前实际工作方向冲突，作废。
+  逆向验收入口（服务于正向对齐）：`bash rev64/tools/arm32_hook_check.sh --dev 10.0.182.146:5555 --rounds 3`
   （§124y-180 全钩子一键验收：game_test/walk_bridge/native_event/framebuffer 四项机判
   PASS/FAIL + 数值 + 0 崩溃；出屏 logcat 权威非黑比判读，`--rounds N` 连跑防抖动；
   旧入口 `arm32_walkregress.sh` 仍可用（4 路径走子回归），全钩子优先用 hook_check）。
