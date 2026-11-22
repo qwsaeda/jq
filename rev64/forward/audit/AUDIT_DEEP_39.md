@@ -113,3 +113,25 @@
 验证：106 tests + clippy 0 + android 0错0警 + rust_all 全 PASS（含设备 10 项）+ ui_offline_check 6/6。
 **测试盲区诚实标注**：P0-3 的桌面单测覆盖了纯函数 `can_select_for_touch`，但 jni.rs 的接线点（android-only）未被自动判据覆盖，
 仅真机一次性实锤（move=Flip）；后续应把"暗棋首手翻棋"固化为设备判据（需先解决存档恢复导致 cell 状态不确定的 flakiness）。
+
+## 2026-11-22 审计轮 4（两代理：AI/事件音效/复盘存档 + JNI符号/UI状态机）
+
+新发现 11 项真问题，本轮全部处理：
+
+| 项 | 级别 | 问题 | 状态 |
+|---|---|---|---|
+| 音效链断 | P1 | sfx::play 零生产调用、sound_on 只写不读 | ✅ 修：Activity global ref + 走子/翻棋/AI 锁外播放（JNI 不能持锁），sound_on 生效 |
+| 音效崩溃 | P0 | openFd 读被压缩 WAV → FileNotFoundException 异常未清 → 后续 JNI abort | ✅ 修：改"WAV 字节写私有目录 + setDataSource(path)"，每步清异常 + local_frame + 调用点双保险。真机 0 Fatal |
+| 按键退出 | P1 | OnKey 不读 action/keyCode，smali down+up 双调用第二次 false → super→finish() | ✅ 修：只读 BACK ACTION_DOWN，其余消费；弹窗 BACK 回上层、主菜单不退出 |
+| 状态机丢局 | P1 | IngameMenu→Difficulty 缺 begin_popup，取消回旧 Menu 丢局；未清选中；vs_ai 不设 | ✅ 修：补快照+clear_sel+vs_ai=1 |
+| 复盘未接 | P1 | Replay 只测试钩子可达、真实对局不记录、5按钮无控制 | ✅ 修：Game 加 rp、真实走子/翻棋(含AI)记录、终局入口、5按钮真调 rewind_to/cur_set；真走子回放测试 |
+| 统计空接 | P2 | ☰ btn5 战况统计无界面，EventCounter 只采不现 | ✅ 修：新增 Screen::Stats + 7类计数柱状图 + jq.stats 属性（真机实测 2:0:0... t2） |
+| 存档假绿 | P1 | savetest 只回读 turn+pieces 字符串，无全量落盘/读档 | ✅ 修：serialize_state/deserialize_state 全字段+分层校验，savetest 真 round-trip，OnPause 自动存 + jq.loadsave 钩子。真机 savetest/loadsave=ok |
+| ExitConfirm 出口 | P2 | 取消退出固定回 Game 而非上层 | ✅ 修：exit_confirm(false) 回 screen_snap |
+| 分辨率硬编码 | P2 | OnGraphChange 空实现 + 全程 900×1600 硬编码，非该分辨率触摸错位 | ⚠️ 已知边界：当前权威设备 900×1600 正常；改动面遍布渲染/触摸/打包，风险大于收益，不动 |
+| JNI 7 空壳 | — | OnEvent/OnInput/Bluetooth 无 Java 调用 / OnPause/Resume/Result/GraphCreate/GraphChange 空不破坏契约 | ✅ 核实非缺陷（无调用点或语义无需求） |
+| 难度仅2档 | — | level 1 游走 / 2-4 贪心，3/4 无差异 | ✅ 核实：SPEC §9.3 与 C 共同设计，忠实对齐非缺陷 |
+
+**新增判据盲区固化**：本轮 P0 音效崩溃是"接功能时引入"——接 JNI 音效必须清异常 + 不持锁，
+已写进 sfx.rs 注释 + play_sfx_with_env 双保险。验证：109 tests + clippy 0 + android 0警
++ rust_all 全 PASS（含设备 so 40e360fa）+ 真机音效/统计/存档/BACK 专项 + 0 Fatal。

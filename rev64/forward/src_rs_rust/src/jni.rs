@@ -29,6 +29,8 @@ mod android_impl {
         if let Ok(mut je) = unsafe { jni::JNIEnv::from_raw(env) } {
             let ctx = unsafe { jni::objects::JObject::from_raw(act as jni::sys::jobject) };
             let _ = crate::sfx::play(&mut je, &ctx, name);
+            // ★ 双保险：音效链路任何残留异常必须在此清掉，绝不带给后续 JNI 调用（否则 abort）
+            if je.exception_check().unwrap_or(false) { let _ = je.exception_clear(); }
         }
     }
     #[cfg(not(target_os = "android"))]
