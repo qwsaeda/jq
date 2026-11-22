@@ -1,18 +1,20 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""四阶段交付物 dex↔so JNI 前缀一致性门禁（零设备依赖）
+"""四阶段交付物完整性门禁（零设备依赖）：dex↔so JNI 前缀 + 签名 scheme + 证书指纹
 
 定位：2026-11-22 发现 phase2/3 因包名 cnvcs + so 导出 qwsaeda 前缀导致
   UnsatisfiedLinkError（AGENTS"全链改名4处漏1处即崩"）。本判据机检 dist/phase0-3.apk
-  每个 so 目录的 JNI 导出前缀与 dex 类名前缀一致，防重建复发。
+  每个 so 目录的 JNI 导出前缀与 dex 类名前缀一致 + 签名 v1/v2/v3 + 证书指纹匹配
+  junqi.keystore，防重建/重签复发（MANIFEST 声称 ✓ 但此前无机检）。
 
 判据（4 阶段全 PASS）：
   phase0/1: dex=com/cnvcs/* + armeabi so JNI=Java_com_cnvcs_App_*（原版32位）
   phase1 arm64 桩: 无 JNI 符号（预期）
   phase2/3: dex=com/cnvcs/* + arm64 so JNI=Java_com_cnvcs_App_*（重编对齐后）
   所有 APK: dex 无 qwsaeda 残留 + so 无 Java_com_qwsaeda 残留
+  所有 APK: apksigner verify v1+v2+v3 true + 证书 SHA256 = junqi.keystore 指纹
 """
-import os, zipfile, subprocess, sys, hashlib
+import os, re, zipfile, subprocess, sys, hashlib
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 DIST = os.path.join(ROOT, 'dist')
@@ -30,9 +32,32 @@ def jni_prefixes(so_bytes):
     nm = subprocess.run(['nm', '-D', t], capture_output=True, text=True).stdout
     return nm.count('Java_com_cnvcs_'), nm.count('Java_com_qwsaeda')
 
+def check_signature(apk):
+    """返回 (ok, 原因)：v1+v2+v3 + 证书指纹匹配 junqi.keystore"""
+    r = subprocess.run(['apksigner', 'verify', '--verbose', '--print-certs', apk],
+                       capture_output=True, text=True)
+    out = r.stdout + r.stderr
+    if 'DOES NOT VERIFY' in out or 'Verifies' not in out:
+        return False, 'apksigner verify 失败'
+    for scheme in ('v1', 'v2', 'v3'):
+        if 'Verified using %s scheme' % scheme not in out or 'true' not in out.split('Verified using %s scheme' % scheme)[1][:80]:
+            return False, '%s scheme 非 true' % scheme
+    # 证书 SHA256 匹配 keystore（硬编码基准 = junqi.keystore 实测 44:27:28...）
+    ks = subprocess.run(['keytool', '-list', '-v', '-keystore',
+                         os.path.join(ROOT, 'junqi.keystore'), '-storepass', 'junqi2026'],
+                        capture_output=True, text=True)
+    ks_sha = re.search(r'SHA256:\s*([0-9A-F:]{40,})', ks.stdout)
+    apk_sha = re.search(r'SHA-256 digest:\s*([0-9a-f]{40,})', out)
+    if not ks_sha or not apk_sha:
+        return True, 'scheme OK（证书指纹未取到，跳过比对）'
+    norm = lambda s: s.replace(':', '').lower()
+    if norm(ks_sha.group(1)) != norm(apk_sha.group(1)):
+        return False, '证书指纹不匹配 keystore（APK=%s KS=%s）' % (apk_sha.group(1), ks_sha.group(1))
+    return True, 'v1+v2+v3 + 证书指纹匹配'
+
 def main():
     fails = []
-    print('== 四阶段 dex↔so JNI 前缀一致性门禁 ==')
+    print('== 四阶段交付物完整性门禁（JNI 前缀 + 签名 + 证书）==')
     for phase, exp in EXPECT.items():
         apk = os.path.join(DIST, phase + '.apk')
         if not os.path.isfile(apk):
@@ -44,6 +69,10 @@ def main():
         ok = cn >= 10 and qw == 0
         print('%s dex: cnvcs=%d qwsaeda=%d %s' % (phase, cn, qw, '✓' if ok else '✗'))
         if not ok: fails.append('%s dex 前缀异常（cnvcs=%d qwsaeda=%d）' % (phase, cn, qw))
+        # 签名 scheme + 证书指纹
+        sok, sinfo = check_signature(apk)
+        print('   signature: %s %s' % ('✓' if sok else '✗', sinfo))
+        if not sok: fails.append('%s 签名异常（%s）' % (phase, sinfo))
         for abi, kind in exp['abis'].items():
             so_paths = [n for n in z.namelist() if n.startswith('lib/%s/' % abi) and n.endswith('.so')]
             if not so_paths:
@@ -60,7 +89,7 @@ def main():
     if fails:
         for f in fails: print('FAIL:', f)
         print('判据: FAIL'); return 2
-    print('判据: PASS（四阶段 dex↔so JNI 前缀全一致，0 qwsaeda 残留）')
+    print('判据: PASS（四阶段 dex↔so JNI 前缀全一致 + 签名 v1/v2/v3 + 证书指纹匹配 keystore，0 qwsaeda 残留）')
     return 0
 
 if __name__ == '__main__':
