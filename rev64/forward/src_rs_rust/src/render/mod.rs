@@ -40,5 +40,7 @@ mod tests {
     }
 }
 
-#[cfg(target_os = "android")]
-pub use geom::geom::{draw_rects_rgba, menu_rects};
+// ★ 2026-11-22 审计：删除 deprecated 历史几何函数的死 re-export（UI-09 已标注
+//   "未引用，生产在 asset.rs/ui.rs"）——此前它触发 android target 编译 2 个 warning，
+//   使 rust_all.sh [3/4] 零警告门禁 FAIL。全仓 grep 确认除本行外无任何引用。
+//   （原 `#[cfg(target_os="android")] pub use geom::geom::{draw_rects_rgba,menu_rects};` 已删）
