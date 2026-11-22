@@ -468,10 +468,12 @@ mod imp {
         //   画小方块提示可点位置，与 jni.rs 命中区同源（±60 view = ±30 画布）
         if screen == crate::ui::Screen::Game {
             for icx in [135usize, 310usize] { // view 270/620 ÷2
-                let ix0 = icx.saturating_sub(30);
-                let ix1 = (icx + 30).min(w);
-                let iy0 = 345usize.min(h); // view 750÷2=375，上移30
-                let iy1 = 405usize.min(h);
+                // 绘制方块 30×30 画布 = 60×60 view（对齐 orig_human.png 图标尺寸）；
+                //   命中区仍为 jni.rs ±60 view（便于点击），绘制≠命中大小是有意设计
+                let ix0 = icx.saturating_sub(15);
+                let ix1 = (icx + 15).min(w);
+                let iy0 = 360usize.min(h); // view 750÷2=375，±15
+                let iy1 = 390usize.min(h);
                 for y in iy0..iy1 {
                     for x in ix0..ix1 {
                         if x >= w || y >= h { continue; }
