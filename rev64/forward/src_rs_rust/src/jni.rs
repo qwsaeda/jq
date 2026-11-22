@@ -15,6 +15,9 @@ mod android_impl {
 
     static G_VM: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
     /// wgpu 出屏资源合一（Mutex 锁数据合一，替代 WGPU_LOCK + 5 个 static mut）
+    /// ★ N3 修后 OnUpdate 不再 clear_frame（native Canvas 独占 Surface）；这些字段保留用于
+    ///   offscreen 验证与资源生命周期保活（surface/window 同 WgpuState 存活），非死字段。
+    #[allow(dead_code)]
     struct WgpuState {
         instance: wgpu::Instance,
         device: wgpu::Device,
@@ -263,10 +266,24 @@ mod android_impl {
     }
 
     #[no_mangle]
-    pub extern "C" fn Java_com_qwsaeda_App_OnDestroy(_env: *mut jni::sys::JNIEnv, _cls: JClass) {
+    pub extern "C" fn Java_com_qwsaeda_App_OnDestroy(env: *mut jni::sys::JNIEnv, _cls: JClass) {
         // 只发 STOP 信号，不在此清理 wgpu 资源——线程内 dev/q 是局部变量，
         // 线程 break 后自动 Drop，OnDestroy 直接清会造成 UAF + SIGABRT（tid Thread-2 实锤）
-        crate::wgpu_thread::stop();
+        crate::wgpu_thread::stop(); // N3 修后 start 会等旧线程退出，此处可安全删 G_VIEW
+        // ★ JNI-14: 删除 GLView GlobalRef——旧实现 std::mem::forget 后从不 DeleteGlobalRef，
+        //   每次 activity 重建（旋屏/重进）漏一个 GLView + 一个 JNI global ref（确定性泄漏）。
+        //   G_VIEW.swap(0) 先清零，OnUpdate 的 `load != 0` 守卫随后跳过，不会 UAF。
+        let old = G_VIEW.swap(0, std::sync::atomic::Ordering::SeqCst);
+        if old != 0 && !env.is_null() {
+            // jni 0.21 的 GlobalRef::from_raw 是 pub(crate)，外部只能通过 JNI 函数表删。
+            // DeleteGlobalRef(env, old) 对 new_global_ref 创建的引用配对释放。
+            unsafe {
+                let fns = &**(env as *const *const jni::sys::JNINativeInterface_);
+                if let Some(del) = fns.DeleteGlobalRef {
+                    del(env, old as jni::sys::jobject);
+                }
+            }
+        }
         with_lock(|st, _u, _c| { st.wgpu_init_done = false; st.wgpu_log_done = false; });
     }
 
@@ -313,66 +330,53 @@ mod android_impl {
         let mut wgpu_guard = match WGPU.lock() { Ok(g) => g, Err(e) => e.into_inner() };
         let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         unsafe {
-            // ① 首次：创建 wgpu device + instance
+            // ★ JNI-03 根治：surface 与 device 必须同 wgpu Instance。旧实现 create_wgpu_device()
+            //   内部建的 Instance A 已 drop，这里又新建 Instance B 装进 WgpuState，随后
+            //   create_surface(B.instance, A.device) → wgpu-core hub 用 B 查 A 的 device id
+            //   必失败（validation error / invalid-id panic）。改为 create_surface_and_device()
+            //   在【同一个 Instance】里同时创建 surface + 带 compatible_surface 的 adapter + device。
+            let view_raw = G_VIEW.load(std::sync::atomic::Ordering::Acquire);
+            if view_raw == 0 { return 1i32; }
+            let mut je = match jni::JNIEnv::from_raw(env) { Ok(e) => e, Err(_) => return 1 };
+            let view = jni::objects::JObject::from_raw(view_raw as jni::sys::jobject);
+            let holder = je.call_method(view, "getHolder", "()Landroid/view/SurfaceHolder;", &[])
+                .ok().and_then(|v| v.l().ok());
+            let surface_obj = match holder {
+                Some(h) => je.call_method(h, "getSurface", "()Landroid/view/Surface;", &[])
+                    .ok().and_then(|v| v.l().ok()),
+                None => None,
+            };
+            let so = match surface_obj { Some(o) => o, None => {
+                crate::log::setprop("jq.wgpu_state", "surface_unavailable"); return 1;
+            }};
+            let win = crate::log::surface_to_window(env as *mut _, so.into_raw());
+            if win.is_null() { crate::log::setprop("jq.wgpu_state", "win_null"); return 1; }
+
             if wgpu_guard.is_none() {
-                if let Some((dev, q)) = crate::render::RenderCtx::create_wgpu_device() {
-                    // Instance 需重建（create_wgpu_device 内部建的实例未返回，这里重建一个用于 surface）
-                    let inst = wgpu::Instance::new(wgpu::InstanceDescriptor {
-                        backends: wgpu::Backends::GL,
-                        flags: wgpu::InstanceFlags::default(),
-                        memory_budget_thresholds: wgpu::MemoryBudgetThresholds::default(),
-                        backend_options: wgpu::BackendOptions::default(),
-                        display: None,
-                    });
-                    // ①-b offscreen 渲染验证（不依赖 surface，验证 wgpu 管线在 houdini 可用）
-                    match crate::render::RenderCtx::offscreen_render_test(&dev, &q) {
-                        Some((r, g, b, a)) => crate::log::setprop("jq.offscreen", &format!("ok:{r},{g},{b},{a}")),
-                        None => crate::log::setprop("jq.offscreen", "fail"),
-                    }
-                    *wgpu_guard = Some(WgpuState { instance: inst, device: dev, queue: q, surface: None, config: None, window: None });
-                    crate::log::setprop("jq.wgpu_state", "device_ok");
-                } else {
-                    crate::log::setprop("jq.wgpu_state", "device_fail");
-                    return 1;
-                }
-            }
-            let wgpu = wgpu_guard.as_mut().expect("wgpu device 已在上方创建（is_none 分支 return/填充）");
-            // ② 拿 GLView.getHolder().getSurface() → ANativeWindow（jni crate safe API，避免 raw varargs 崩溃）
-            if wgpu.surface.is_none() && G_VIEW.load(std::sync::atomic::Ordering::Acquire) != 0 {
-                crate::log::setprop("jq.wgpu_step", "safe_surface_begin");
-                let mut je = match jni::JNIEnv::from_raw(env) { Ok(e) => e, Err(_) => return 1 };
-                let view = jni::objects::JObject::from_raw(G_VIEW.load(std::sync::atomic::Ordering::Acquire) as jni::sys::jobject);
-                let holder = je.call_method(view, "getHolder", "()Landroid/view/SurfaceHolder;", &[])
-                    .ok().and_then(|v| v.l().ok());
-                crate::log::setprop("jq.wgpu_step", if holder.is_some() { "holder_ok" } else { "holder_fail" });
-                if let Some(h) = holder {
-                    let surface_obj = je.call_method(h, "getSurface", "()Landroid/view/Surface;", &[])
-                        .ok().and_then(|v| v.l().ok());
-                    crate::log::setprop("jq.wgpu_step", if surface_obj.is_some() { "surface_ok" } else { "surface_fail" });
-                    if let Some(so) = surface_obj {
-                        // 纯 Rust wgpu：Surface → ANativeWindow → wgpu create_surface
-                        let win = crate::log::surface_to_window(env as *mut _, so.into_raw());
-                        crate::log::setprop("jq.wgpu_step", if win.is_null() { "win_null" } else { "win_ok" });
-                        if !win.is_null() {
-                            match crate::render::RenderCtx::create_surface(&wgpu.instance, &wgpu.device, win, 900, 1600) {
-                                Some((surf, cfg)) => {
-                                    wgpu.surface = Some(surf); wgpu.config = Some(cfg);
-                                    wgpu.window = Some(WindowPtr(win)); // ★ JNI-01: wgpu Surface 持有裸 ANativeWindow 指针，必须保活引用；surface 销毁时才 release
-                                    crate::log::setprop("jq.wgpu_state", "surface_ok");
-                                }
-                                None => {
-                                    crate::log::setprop("jq.wgpu_state", "surface_fail");
-                                    crate::log::window_release(win); // 创建失败才立即释放
-                                }
-                            }
+                match crate::render::RenderCtx::create_surface_and_device(win, 900, 1600) {
+                    Some((inst, surf, dev, q)) => {
+                        match crate::render::RenderCtx::offscreen_render_test(&dev, &q) {
+                            Some((r, g, b, a)) => crate::log::setprop("jq.offscreen", &format!("ok:{r},{g},{b},{a}")),
+                            None => crate::log::setprop("jq.offscreen", "fail"),
                         }
+                        *wgpu_guard = Some(WgpuState {
+                            instance: inst, device: dev, queue: q,
+                            surface: Some(surf), config: None, window: Some(WindowPtr(win)),
+                        });
+                        crate::log::setprop("jq.wgpu_state", "surface_device_ok");
+                    }
+                    None => {
+                        crate::log::setprop("jq.wgpu_state", "surf_dev_fail");
+                        crate::log::window_release(win);
                     }
                 }
+                return 1;
             }
-            // ③ 每帧 wgpu 清屏（出屏验证）
-            if let Some(surf) = wgpu.surface.as_ref() {
-                crate::render::RenderCtx::clear_frame(&wgpu.device, &wgpu.queue, surf, 0.1, 0.45, 0.85);
-            }
+            // ★ N3 根治：native Canvas 渲染线程独占 Surface（compose_board_rgba → lockCanvas）。
+            //   Java GLThread 的 OnUpdate 若也 clear_frame 写同一 ANativeWindow，属未定义行为
+            //   （EGL 与 lockCanvas 并发 → EGL_BAD_SURFACE/花屏）。OnUpdate 不再写出屏，
+            //   只维护 wgpu 资源（供 offscreen 验证）；实际出屏由 wgpu_thread 一条链独占。
+            crate::log::setprop("jq.wgpu_state", "canvas_owns_surface");
             1i32
         }
         }));

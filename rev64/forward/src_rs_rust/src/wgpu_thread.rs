@@ -27,8 +27,15 @@ mod imp {
     /// 启动 wgpu 渲染线程（native 独占 window，无 Java GLThread 竞争）
     pub fn start(vm_addr: usize, view_addr: usize, w: u32, h: u32) {
         // ★ JNI-05: 先抢占 RUNNING，成功翻转后才清 STOP（旧顺序会让旧线程逃逸生命周期）
+        // ★ N3 根治：旧 stop() 超时会 detach 线程而 RUNNING 仍 true，若此时重建 activity
+        //   新 start() 直接 return → 没有任何渲染线程 → 永久黑屏。先轮询等旧线程退出（≤2s）。
+        for _ in 0..200 {
+            if !RUNNING.load(Ordering::SeqCst) { break; }
+            std::thread::sleep(std::time::Duration::from_millis(10));
+        }
         if RUNNING.swap(true, Ordering::SeqCst) {
-            return; // 已有线程在跑，不动 STOP
+            crate::log::setprop("jq.wgpu_state3", "start_blocked_old_thread");
+            return; // 旧线程仍未退出（极端），不动 STOP，放弃本次启动
         }
         STOP.store(false, Ordering::SeqCst);
         let h = std::thread::spawn(move || {

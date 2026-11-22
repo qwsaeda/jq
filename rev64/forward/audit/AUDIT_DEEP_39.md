@@ -105,10 +105,10 @@
 | P1-3 | P1 | rprobe.rs | "移植 C 36 case"实 23 例且 E1/G2/G3/G4/F2 场景漂移（真值被偷换） | ✅ 修：5 case 按原版 inc:252/343/388/397/408 真值重录；G2 按 64 位探针实测 CM=1（inc 注释 R-011 只是担忧非实测）；G4 探针 SM=0 系 probe_clear 不清 stale_v/c 缓存伪影，Rust 实时扫描 true 合理，诚实标注不强改 |
 | P2-4 | P2 | rust_geom_check.py:47-94 | 双源断言测脚本内嵌副本非生产 `board.rs`，无负向注入 → 恒真 | ✅ 修：PORT 改为从生产 `board.rs` 抽函数体 + C头/生产 BOARD_COLS 真断言 + 负向注入（篡改生产函数体→diff 943/950 非全匹配，证明非恒真） |
 | P2-5 | P2 | save.rs:150 | `check_enums` 零调用死代码，两阶段校验未接线 | ✅ 修：接线为 `validate_state` 阶段1前置（先只读拒读、再就地净化），所有 validate_state 调用点自动获两阶段语义 |
-| JNI-03 | P1 | jni.rs:312/314/326/351 + gles.rs:53/207 | Surface(Instance B) 与 device(Instance A) 跨 wgpu Instance → OnUpdate wgpu 出屏 validation error（正确实现 `gles.rs:86 create_surface_and_device` 闲置）。当前主渲染走 CPU canvas，故未阻断出屏 | ❌ 待修 |
-| JNI-14 | P2 | jni.rs:250-258 | GlobalRef forget 无对应 DeleteGlobalRef，每次 activity 重建漏一个 → 确定性内存泄漏。**未修原因**：需先解 N3 start/stop 竞态，否则在渲染线程仍用 G_VIEW 时删会 UAF | ❌ 待修 |
-| N3 | P2 | wgpu_thread.rs:11-45 + smali | start/stop 竞态（2s 超时 detach 后新 start 被 RUNNING 挡掉→永久黑屏）+ setRenderer 未移除致 CPU canvas 与 OnUpdate wgpu 双路径写同一 Surface | ❌ 待修 |
-| P2-6 | — | rules.rs:216-237 | 暗棋 cfg4 下 can_move 读未翻暗子真实 rank 拒走 = AI 透视？**待裁定**：需反汇编 32 位 `jq_can_move` 确认原版是否同行为（若忠实则非缺陷） | ⏸ 待裁定 |
+| JNI-03 | P1 | jni.rs OnUpdate | Surface/device 跨 wgpu Instance | ✅ 修：OnUpdate 改用 `create_surface_and_device()` 在同 Instance 创建 surface+adapter(compatible_surface)+device，删掉旧 B.instance+A.device 错配 |
+| JNI-14 | P2 | jni.rs:250-258 | GlobalRef forget 无对应 DeleteGlobalRef | ✅ 修：先解 N3（start 等旧线程退出），OnDestroy 中 G_VIEW.swap(0) 后经 JNI 函数表 DeleteGlobalRef（jni 0.21 无 safe API，raw 调用）；清零后 OnUpdate 守卫跳过，无 UAF |
+| N3 | P2 | wgpu_thread.rs:11-45 + jni.rs OnUpdate | start/stop 竞态 + 双渲染路径 | ✅ 修：start() 先轮询 ≤2s 等旧线程退出再抢 RUNNING；OnUpdate 不再 clear_frame（native Canvas 独占 Surface），只维护 wgpu 资源供 offscreen 验证，消除 EGL/lockCanvas 并发 |
+| P2-6 | — | rules.rs:216-237 | 暗棋 cfg4 can_move 读 rank 是否透视 | ✅ 裁定非缺陷：32 位走子验证 `0xb6808` 反汇编实证 `ldr r0,[r5,#0xc4]; cmp r0,#0; beq skip_rank_check` —— 字段 0xc4（cfg 开关）为 0 跳过 rank 判定，即原版确有 cfg 控制的暗棋门槛 rank 检查，Rust 忠实。so_probe.py func 0xb6808 实锤 |
 
 验证：106 tests + clippy 0 + android 0错0警 + rust_all 全 PASS（含设备 10 项）+ ui_offline_check 6/6。
 **测试盲区诚实标注**：P0-3 的桌面单测覆盖了纯函数 `can_select_for_touch`，但 jni.rs 的接线点（android-only）未被自动判据覆盖，
