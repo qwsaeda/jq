@@ -41,3 +41,8 @@
 - **phase0** 预期内装不上：纯 armeabi 32 位 so，152 abilist=x86_64,arm64-v8a,x86 无 32 位 ARM → INSTALL_FAILED_NO_MATCHING_ABIS（AGENTS 已记"64 位 only 设备装不上"）
 - **phase1** 预期内装得上但跑不起来：arm64 4.8KB 桩 → 装机 Success 但启动即退（pid 空 + board=OK×0），AGENTS"装得上但桩跑不起来（阶段 2 入口）"实锤
 - 结论：四阶段在 152（无 32 位 ARM 的 64 位 only 设备）上的表现与 AGENTS 阶段定义**逐条吻合**，无偏差；phase2/3 真 so 均可玩，phase0 装不上/phase1 桩跑不起来均为预期内诚实边界
+
+### 全链防抖复验（2026-11-22，设备 152 在线）
+- 真机五判据各连跑 3 轮：**com.zxj.junqirs 3/3 轮 PASS**（pid 30157→30273→30384→30496→30606→30720，board=OK + movetest 3/3 + 0 崩溃）+ **phase3/com.cnvcs.junqirs 3/3 轮 PASS**（pid 30841→31408），共 6 轮 0 flaky
+- 零设备段全 PASS：渗透轮 `fuzz_all --quick` A/B/C/C2/C3/C4/C5 全通 + 四阶段完整性门禁 7 维度（JNI/minSdk-targetSdk/STORE-4B/sign/cert/ad）+ 32 位双端总入口（静态 74 + 渗透轮 + P9 dispatch，设备正确 PENDING）
+- 判据：全链防抖无抖动，6 轮真机 + 三套零设备判据全绿；设备侧无 32 位 ABI 属环境约束（两入口已加 ABI 预检正确降级，非 so 回归）
