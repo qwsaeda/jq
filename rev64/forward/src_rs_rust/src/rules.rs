@@ -548,6 +548,10 @@ fn on_flag_capture(st: &mut State, me: Side) {
 
 /// 困毙（规格 §4.1：无棋可走方负，对方胜）
 pub fn on_stalemate(st: &mut State, loser_side: Side) {
+    // ★ F6: 对齐 C jq_on_stalemate 的 SIDE_VALID 守卫——Unknown 传入应拒绝而非误判红胜
+    if !loser_side.is_valid() {
+        return;
+    }
     if st.stage != Stage::Play {
         return;
     }

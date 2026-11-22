@@ -161,7 +161,7 @@ pub struct State {
     pub moves_since_eat: i32, // 连续无吃子步数（和棋 70 步）
     pub total_moves: i32,     // 总步数（和棋 1000 步）
     pub mines_cleared: [i32; 2], // 暗棋工兵挖雷计数 [蓝,红]
-    pub pieces_left: [i32; 2],   // 各方存活子数（吃子/炸弹 EV 递减，和棋/困毙路径计数）
+    pub pieces_left: [i32; 2],   // 存活子数快照（仅开局置25/存档归零/域校验；无增量递减——对齐 C 已删 refresh 口径）
     pub mode: u8,          // MODE_LAY / MODE_FLIP
     /// 规则开关快照（规格 §2：cfg[0]和棋 cfg[1]大本营 cfg[2]吃雷 cfg[3]吃旗 cfg[4]暗棋门槛）
     /// 开局快照语义（UI 层改开关写此字段，规则引擎读快照，避免 C 版运行时全局竞态）

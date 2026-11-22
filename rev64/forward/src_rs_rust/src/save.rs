@@ -109,12 +109,9 @@ impl Replay {
         st.pieces_left = [0, 0];
         st.mines_cleared = [0, 0];
         st.stage = crate::state::Stage::Play;
-        // ④ 复盘态明棋全翻开（引擎要求 revealed=1 才可走子）
-        for c in st.cells.iter_mut() {
-            if c.rank != RANK_EMPTY {
-                c.revealed = true;
-            }
-        }
+        // ★ F2 修复：删掉"强制全翻开"——init_cells 已是开局真实状态
+        //   （明棋 revealed=true / 暗棋 revealed=false），强制翻开会让暗棋 flip 步回放失败
+        //   （can_flip 见 revealed=true 直接拒）。按开局快照原样重放才是确定性重建。
         // ★ 审计 A4：逐条重放前 cur 步（规格 §7 确定性重建）
         for k in 0..cur {
             let (f, t) = (self.seq[k][0] as usize, self.seq[k][1] as usize);
@@ -177,7 +174,13 @@ pub fn validate_state(st: &mut State) -> bool {
     // cells 逐格域校验（越域格强制归零，防脏值入引擎）
     for c in st.cells.iter_mut() {
         let side_ok = matches!(c.side, SIDE_BLUE | SIDE_RED | SIDE_UNKNOWN);
-        let rank_ok = c.rank <= Rank(RANK_TOP.0 + 0x0c); // 红方编码 raw+0xc 上界 24
+        // ★ F3: rank 域 side 感知——红方已翻开存 +0xc(≤24)，蓝方/未定色 raw(≤12)。
+        //   旧版统一 ≤24 会让蓝方脏 rank∈[13,24] 通过校验，rank_of 钳到 12=军旗 → 错误胜负。
+        let rank_ok = if c.side == SIDE_RED {
+            c.rank <= Rank(RANK_TOP.0 + 0x0c) // 红方 ≤24
+        } else {
+            c.rank <= RANK_TOP // 蓝/未定色 ≤12
+        };
         // revealed 已是 bool（类型安全，非法值无法表达）——原 rev_ok 域校验前移到反序列化边界
         if !side_ok || !rank_ok {
             c.rank = RANK_EMPTY;
@@ -353,5 +356,52 @@ mod tests {
         assert!(rp.rewind_to(&mut out, 999), "cur>n clamp 到 n（审计 A11），重建成功");
         assert_eq!(out.stage, crate::state::Stage::Play, "重建后阶段合法");
         assert!(out.turn.is_valid(), "重建后 turn 合法");
+    }
+}
+
+#[cfg(test)]
+mod dark_replay_tests {
+    use super::*;
+    use crate::state::{Cell, Rank, SIDE_UNKNOWN, MODE_FLIP};
+
+    #[test]
+    fn dark_game_replay_with_flip_step() {
+        // ★ F2: 暗棋对局含 flip 步，复盘必须能重建（旧版强制全翻开导致 flip 回放失败）
+        let mut st = State::new();
+        st.mode = MODE_FLIP;
+        // 两个未翻暗子
+        st.cells[6] = Cell { rank: Rank(1), side: SIDE_UNKNOWN, revealed: false };
+        st.cells[11] = Cell { rank: Rank(5), side: SIDE_UNKNOWN, revealed: false };
+        let st_init = st.clone();
+        let mut rp = Replay::new(&st_init);
+        // 记录一个翻棋步（cell6）
+        rp.record(6, 6, true);
+        // 重放到第1步：应成功（flip 回放），且 cell6 已翻开定色
+        let mut out = st_init.clone();
+        assert!(rp.rewind_to(&mut out, 1), "暗棋 flip 步复盘应成功");
+        assert!(out.cells[6].revealed, "翻棋步回放后 cell6 已翻开");
+        // 重放到第0步：回到开局未翻
+        let mut out0 = st_init.clone();
+        assert!(rp.rewind_to(&mut out0, 0), "回退到开局应成功");
+        assert!(!out0.cells[6].revealed, "开局 cell6 未翻");
+    }
+}
+
+#[cfg(test)]
+mod domain_side_tests {
+    use super::*;
+    use crate::state::{Cell, Rank, SIDE_BLUE, SIDE_RED, SIDE_UNKNOWN};
+
+    #[test]
+    fn rank_domain_is_side_aware() {
+        // ★ F3: 蓝方 rank=20（红方编码域）必须被拒归零，红方 rank=20 合法保留
+        let mut st = State::new();
+        st.cells[0] = Cell { rank: Rank(20), side: SIDE_BLUE, revealed: true };
+        st.cells[1] = Cell { rank: Rank(20), side: SIDE_RED, revealed: true };
+        st.cells[2] = Cell { rank: Rank(20), side: SIDE_UNKNOWN, revealed: false };
+        assert!(validate_state(&mut st));
+        assert!(st.cells[0].is_empty(), "蓝方 rank20 归零");
+        assert_eq!(st.cells[1].rank, Rank(20), "红方 rank20 保留");
+        assert!(st.cells[2].is_empty(), "未定色 rank20 归零");
     }
 }

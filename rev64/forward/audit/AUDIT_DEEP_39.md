@@ -42,9 +42,9 @@
 | P2-7 | 判据 | fuzztest.rs:35 | Winner 全变体 matches! 恒真 | 待修 |
 | P2-8 | 判据 | rust_geom_check.py | 无负向注入，"双源一致断言"未真比对生产常量 | 待修 |
 | P2-9 | 判据 | rust_all.sh | 纳入不测 Rust 的 C 判据，"全量无遗漏"措辞不符 | 待修 |
-| F2 | 规则 | save.rs:122 | 暗棋复盘必然失败（全翻开后 flip 重放失败） | 待修 |
-| F3 | 规则 | save.rs:180 | validate_state 不校验 side↔rank 域，脏 rank 变军旗 | 待修（latent） |
-| F4 | 规则 | state.rs:164/rules.rs | pieces_left 全程不更新，字段契约虚假 | 待修 |
+| F2 | 规则 | save.rs:122 | 暗棋复盘必然失败（全翻开后 flip 重放失败） | ✅ 已修（删强制全翻开，按 init_cells 开局真实状态重放；加暗棋 flip 复盘测试） |
+| F3 | 规则 | save.rs:180 | validate_state 不校验 side↔rank 域，脏 rank 变军旗 | ✅ 已修（rank_ok side 感知：红≤24/蓝未知≤12；测试蓝rank20归零/红保留） |
+| F4 | 规则 | state.rs:164/rules.rs | pieces_left 全程不更新，字段契约虚假 | ✅ 已修（注释改诚实描述：仅开局置25/归零/域校验，无增量递减，对齐 C 已删 refresh） |
 | UI-08 | UI | strings.rs | 全表死代码，终局无文字 | 已知边界（C 版终局也色块） |
 | UI-09 | UI | render/geom.rs,cpu.rs,gles.rs | 多套互斥死渲染实现 + handle_touch 坐标 bug，易误接 | 待修（标注 deprecated） |
 | UI-10 | UI | jni.rs:426-441 | Difficulty 面板外无返回菜单处理 | ✅ 已修（面板外 cancel_popup 回菜单 + jq.diff_cancel 属性） |
@@ -61,7 +61,7 @@
 | 编号 | 来源 | 文件:行 | 问题 | 状态 |
 |---|---|---|---|---|
 | F5 | 规则 | save.rs:149 | check_enums 死代码，两阶段校验未接线 | 待修 |
-| F6 | 规则 | rules.rs:550 | on_stalemate 缺 loser_side 合法性守卫 | 待修 |
+| F6 | 规则 | rules.rs:550 | on_stalemate 缺 loser_side 合法性守卫 | ✅ 已修（入口 is_valid 守卫，对齐 C SIDE_VALID） |
 
 ## 测试盲区（9 项，规则子代理）
 1. 炸弹炸军旗即时终局分支无测试
