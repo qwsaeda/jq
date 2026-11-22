@@ -143,13 +143,20 @@ EVENT_NAMES_EXPECT = [
     "Junqi.BlueWin", "Junqi.RedWin",
 ]
 URL_KEYS_EXPECT = ["cfgHost", "statHost", "updateUrl"]
-# ★ §124y-181 扩：原版 so 的 7 个 com/cnvcs/* JNI FindClass 类名（逆向侧 JNI 引用点）
-#   → 映射到翻译体/jni_aligned 实际 FindClass 调用点（全量命中 = JNI 引用链 0 缺口）
+# ★ §124y-181 扩：原版 so 的 com/cnvcs/* JNI FindClass 类名（逆向侧 JNI 引用点）
+# ★★ 2026-11-22 真值修正（基于原版 so 静态审计）：原版 .rodata 实际只有 **6 个**
+#   com/cnvcs/* FindClass 字符串——**没有 com/cnvcs/App**（实测 count=0）。
+#   原因：App 类是 Java 侧通过 JNI 传入的 jclass/Activity 对象（14 个 On* 入口的
+#   clazz/activity 参数），native 侧无需 FindClass("com/cnvcs/App")。"App" 的 22 次
+#   出现全是 JNI 导出符号名（a_com_cnvcs_App_OnEvent 等，在 .dynsym 表）或系统字符串。
+#   旧期望表把 App 列为 FindClass 类名 → 判据长期报 6/7 却 PASS（假绿边界），
+#   现改为真值 6 个 + App 单列为"Java 传入对象，非 FindClass 目标"。
 JAVACLASS_EXPECT = [
-    "com/cnvcs/App", "com/cnvcs/GLView", "com/cnvcs/SiteView",
+    "com/cnvcs/GLView", "com/cnvcs/SiteView",
     "com/cnvcs/BtReceiver", "com/cnvcs/TextDlg", "com/cnvcs/InputDlg",
     "com/cnvcs/AdLis",   # 广告拆除目标（阶段 3 去广告边界引用点）
 ]
+JAVACLASS_JAVA_PASSED = ["com/cnvcs/App"]  # Java 侧传入 jclass/activity，native 不 FindClass
 
 def rodata_event_check(so_path, spak_dir):
     """原版 .rodata 事件名/URL 键 → 翻译体侧佐证（静态 0 缺口判据）"""
