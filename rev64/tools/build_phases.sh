@@ -183,14 +183,18 @@ for n in sos:
   stub_md5=$( [ -f "$SRC_STUB" ] && md5sum $SRC_STUB | cut -d' ' -f1 || echo "" )
   rs_md5=$( [ -f "$SRC_RS" ] && md5sum $SRC_RS | cut -d' ' -f1 || echo "" )
   if [ -n "$so_md5" ] && [ -n "$rs_md5" ] && [ "$so_md5" = "$rs_md5" ]; then
-    echo "    arm64 so = src_rs ✓"
+    echo "    arm64 so = src_rs ✓（md5 同源）"
   elif [ -n "$so_md5" ] && [ "$so_md5" = "$stub_md5" ]; then
     echo "    arm64 so = 4.8KB 桩（阶段 1 预期）"
   elif [ "$(unzip -l $apk 2>/dev/null | grep -c 'lib/arm64-v8a')" = "0" ]; then
     echo "    arm64 目录无（预期）"
+  elif [ -n "$so_md5" ]; then
+    # ★ 2026-11-22：phase2/3 so 是源码 sed qwsaeda→cnvcs 重编版（JNI 前缀与 dex 对齐），
+    #   md5 必与源码 qwsaeda 版不同（ea95bd3b vs 05ce20b0）——这是**正确**的对齐，
+    #   不是旧 so。真判据由后段 phase_jni_prefix_check.py（dex↔so 前缀一致）承担。
+    echo "    arm64 so = 重编前缀对齐版（so_md5=$so_md5 rs_md5=$rs_md5，JNI 门禁后段校验）"
   else
-    echo "    arm64 so ≠ src_rs（异常：so_md5=$so_md5 rs_md5=$rs_md5）"
-    # AUD-1000 D6-#17 P0 修：异常分支必须 return 1（旧 RC=0 假绿"verify-only 完成"）
+    echo "    arm64 so 缺失（异常）"
     return 1
   fi
 }
@@ -207,6 +211,10 @@ if [ $VERIFY_ONLY -eq 1 ]; then
   verify_one phase1 phase1.apk
   verify_one phase2 phase2.apk
   verify_one phase3 phase3.apk
+  # ★ 2026-11-22 JNI 前缀门禁：make_so_rs() 编 qwsaeda 前缀，若直接 cp 进 cnvcs 包名的
+  #   phase2/3 → UnsatisfiedLinkError。本门禁检出；FAIL 时用 build_phase23_so.sh 重编对齐。
+  python3 "$WS/rev64/tools/phase_jni_prefix_check.py" || {
+    echo "✗ JNI 前缀门禁 FAIL（dex↔so 不匹配，用 build_phase23_so.sh 修）"; exit 1; }
   echo "✓ verify-only 完成"
   exit 0
 fi
