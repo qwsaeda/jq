@@ -5,7 +5,7 @@
 # 判据来源：REVERSE_LOG §124y-178（全钩子基准）+ §124y-179（出屏非黑比判读）。
 #
 # 用法:
-#   bash rev64/tools/arm32_hook_check.sh --dev 10.0.182.146:5555
+#   bash rev64/tools/arm32_hook_check.sh --dev 10.0.182.152:5555
 #   bash rev64/tools/arm32_hook_check.sh --dev ... --only game_test,framebuffer
 #   bash rev64/tools/arm32_hook_check.sh --dev ... --no-install
 #   bash rev64/tools/arm32_hook_check.sh --dev ... --rounds 3   # 出屏连跑 N 轮（防抖动）
@@ -17,7 +17,7 @@
 #   framebuffer   出屏非黑比判读（§124y-179 防 0% 假象，连跑 ROUNDS 轮）
 #   整体          每项 0 崩溃 + 进程存活
 set -u
-DEV=emulator-5554
+DEV=10.0.182.152:5555
 ONLY=""
 NO_INSTALL=0
 ROUNDS=1
@@ -241,6 +241,19 @@ wait_log() {
 }
 
 PASS=0; FAIL=0; FAILED=""
+
+# ★ 2026-11-22 ABI 预检（§124y-189 扩展口径）：设备可达但无 32 位 ARM abi
+#   （如 152 abilist=x86_64,arm64-v8a,x86）→ 32 位 so 装不上（NO_MATCHING_ABIS），
+#   后续 45s×N 冷启动等待全白等 + 4 项误报 FAIL。与"掉线"同档 rc=3 PENDING
+#   （环境约束非 so 回归），在循环前一次性拦截。
+if ensure_dev >/dev/null 2>&1; then
+  _abilist=$(adb -s "$DEV" shell getprop ro.product.cpu.abilist 2>/dev/null | tr -d '\r\n')
+  if ! printf '%s' "$_abilist" | grep -qE 'armeabi'; then
+    echo "✗ 设备 $DEV 可达但无 32 位 ARM ABI（abilist=$_abilist）→ rc=3 PENDING"
+    echo "  32 位 so 在此设备装不上（NO_MATCHING_ABIS），非 so 回归；须真 32 位 ARM 设备复验"
+    exit 3
+  fi
+fi
 
 for k in $KINDS; do
   # ★ §124y-189 设备掉线容错（32 位 so 拖 adbd + MuMu 重启循环已知项）：
