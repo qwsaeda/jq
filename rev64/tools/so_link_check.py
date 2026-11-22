@@ -14,6 +14,10 @@ MUMU_LIBS = {
     'libGLESv2':    '/system/lib64/arm64/libGLESv2.so',
     'libandroid':   '/system/lib64/libandroid.so',
     'libc':         '/system/lib64/libc.so',
+    # ★ 补齐 Rust so 实际 NEEDED 的库（libdl/libm/libandroid），否则 dlopen/dlsym/exp 等
+    #   UND 符号无导出表可核验 → 门禁误 FAIL（旧版只列 GL 库 + libc）
+    'libdl':        '/system/lib64/libdl.so',
+    'libm':         '/system/lib64/libm.so',
 }
 # 本地已有缓存的 MuMu 64 位库（之前 pull 过，直接用，避免重复 pull）
 # 本地已有缓存的 MuMu 库（优先用本地，避免重复 pull；路径不存在则 fallback 到 adb pull）
@@ -27,7 +31,8 @@ LOCAL_MUMU = {
     'libc':         '',   # 空串 = 走 MUMU_LIBS adb pull 路径
 }
 # MuMu 设备库路径（adb pull 用；libEGL 等没有本地缓存的走这里）
-DEV = '127.0.0.1:5555'
+# ★ DEV 可配：默认 10.0.182.152:5555（当前权威设备），可用 JQ_DEV 覆盖
+DEV = os.environ.get('JQ_DEV', '10.0.182.152:5555')
 CACHE = '/tmp/opencode/mumu_und_syms'
 
 def get_exports(so_file):
@@ -120,17 +125,33 @@ def main():
         for s in gl_missing:
             print(f"    缺: {s}")
         return 2
-    else:
-        # ★ A12-D7-F12-001（P1 已修）：libc 空表时显式标注（非静默 PASS）
-        libc_syms = all_syms.get('libc', [])
-        if not libc_syms:
-            n_libc_und = sum(1 for x in und if not x.startswith(('gl','egl')))
-            print(f"★ PASS（GL/EGL）：所有 GL/EGL UND 符号可解析；"
-                  f"libc 类 UND {n_libc_und} 个未核验（libc 符号表缺失，pull 失败/缓存无）——"
-                  f"libc 侧失守，重跑 --update-syms 补全")
-        else:
-            print("★ PASS: 所有 UND 符号（GL/EGL + libc）MuMu 可解析（dlopen 链接安全）")
-        return 0
+    # ★ 门禁假绿根治：非 GL 的 UND 符号（libc/libstdc++/系统）也必须核验。
+    #   旧逻辑只筛 GL/EGL，libc 缓存为空时对 100 个非 GL UND「未核验」仍 return 0 = PASS，
+    #   任何拼错的系统调用都过门禁。现在：缺失的非 GL 符号一律 FAIL。
+    # 已知良性符号白名单：真机已跑通（dlopen+JNI 全链 PASS）但 bionic 符号表未导出的遗留符号。
+    # __sF = Rust std 在部分目标链接进来的 libc 兼容符号（versioned __sF@LIBC），bionic 无此导出，
+    # 但走惰性绑定且真机从未调用 → 不影响 dlopen。仅此类可豁免，其它非 GL UND 仍一律 FAIL。
+    BENIGN = {'__sF'}
+    non_gl_missing = [s for s in missing if not s.startswith(('gl', 'egl')) and s not in BENIGN]
+    if non_gl_missing or (missing and set(missing) - BENIGN):
+        benign_hit = set(missing) & BENIGN
+        if benign_hit and not non_gl_missing:
+            print(f"  良性符号豁免（真机已跑通、bionic 惰性绑定不解析）: {sorted(benign_hit)}")
+    if non_gl_missing:
+        print(f"\n★ FAIL: {len(non_gl_missing)} 个非 GL UND 符号在 MuMu 无导出（含系统/libc 调用）:")
+        for s in non_gl_missing[:30]:
+            print(f"    缺: {s}")
+        if len(non_gl_missing) > 30:
+            print(f"    ... 另 {len(non_gl_missing) - 30} 个")
+        return 2
+    libc_syms = all_syms.get('libc', [])
+    if not libc_syms and any(not s.startswith(('gl','egl')) for s in und):
+        # 有非 GL UND 但 libc 缓存为空 → 无法证明可解析 → FAIL（不允许"未核验却 PASS"）
+        n_libc_und = sum(1 for x in und if not x.startswith(('gl','egl')))
+        print(f"★ FAIL: libc 符号表为空但存在 {n_libc_und} 个非 GL UND 符号，门禁无法核验 → 判 FAIL（重跑 --update-syms）")
+        return 2
+    print("★ PASS: 所有 UND 符号（GL/EGL + 非 GL 系统符号）MuMu 可解析（dlopen 链接安全）")
+    return 0
 
 if __name__ == '__main__':
     sys.exit(main())

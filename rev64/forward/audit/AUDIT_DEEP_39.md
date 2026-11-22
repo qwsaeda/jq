@@ -135,3 +135,25 @@
 **新增判据盲区固化**：本轮 P0 音效崩溃是"接功能时引入"——接 JNI 音效必须清异常 + 不持锁，
 已写进 sfx.rs 注释 + play_sfx_with_env 双保险。验证：109 tests + clippy 0 + android 0警
 + rust_all 全 PASS（含设备 so 40e360fa）+ 真机音效/统计/存档/BACK 专项 + 0 Fatal。
+
+## 2026-11-22 审计轮 5（三代理：Java层/打包资源链/性能内存）
+
+用户要求"找1000个"——拒绝硬凑（违反可复现纪律），实扫找出 12 个真问题：
+
+| 项 | 级别 | 问题 | 状态 |
+|---|---|---|---|
+| surfaceDestroyed NPE | P0 | setRenderer 移除→mGLThread 永不创建，surfaceCreated/Changed 有空守卫唯独 Destroyed 漏了→切后台/锁屏必崩。force-stop 判据测不出 | ✅ 修：patch_rust_app_guards.sh 补 if-eqz 幂等补丁，接入 rebuild。真机 HOME→回前台 pid 不变 0 NPE |
+| 每帧 ANativeWindow 泄漏 | P1 | OnUpdate wgpu_guard 已 Some 时 surface_to_window 拿强引用不 release，60fps 每秒漏60个 | ✅ 修：N3 分支补 window_release(win) |
+| predictive back 返回键失效 | P1 | manifest enableOnBackInvokedCallback=true+targetSdk35→Android13+ BACK 不走 onKeyDown→退出确认链失效 | ✅ 修：patch 脚本删该属性 |
+| 构建假绿（陈旧产物） | P1 | rebuild_rust_apk 无 -e、cargo/apktool rc 不查、产物不先删→编译失败仍打旧 so/apk 报成功 | ✅ 修：rm 产物+PIPESTATUS rc 判定 |
+| so_link_check 假绿 | P1 | 100 个非 GL UND 0 核验报 PASS（libc 缓存空） | ✅ 修：非 GL UND 缺失一律 FAIL + 补 libdl/libm 库表 + __sF 良性豁免（真机已跑通）；门禁真核验 99+1 PASS |
+| so 哈希对账不阻断 | P2 | 对账 FAIL 仅 log 仍 exit 0 | ✅ 修：失配 exit 1 |
+| s_native_ok 空守卫 | P2 | 12 处 if-gtz 目标=紧邻下一条=空分支，so 加载失败仍调 native 崩 | ⚠️ 已知边界：正常 so 在位无影响；改 dex 控制流风险高于收益，记录不动 |
+| deserialize 整数截断 | P2 | 256→as u8=0、257→1 静默接受越域枚举；revealed="2" 当 false | ✅ 修：pu8 严格范围 + revealed 严格 0/1 + 回归测试 |
+| WGPU 跨重建不释放 | P2 | WGPU 静态持有，OnDestroy 不清→旧 device/window 驻留，新 Surface 建不出 | ✅ 修：OnDestroy take() 触发 Drop 释放 |
+| Surface 轮询局部引用泄漏 | P2 | 150 轮×2~3 JObject 局部引用逼近 ART 512 上限 | ✅ 修：轮询体 with_local_frame(8) |
+| MANIFEST 无 Rust APK 基准 | P2 | phase_rs_rust.apk 不在 dist/MANIFEST.md 三方哈希基准 | ⚠️ 已知边界：设备对账已由 rust_all so 哈希判据覆盖，MANIFEST 是 C 链门禁文档，补录待统一 |
+| 每帧 11MB 分配 / MediaPlayer 不 release | P2 | 输出缓冲/JNI数组/Bitmap 每帧重分配；MediaPlayer 等 finalizer | ⚠️ 已知边界：设计层开销非崩溃，release 会中断短音效播放，不动 |
+
+验证：109 tests + clippy 0 + android 0警 + rust_all 全 PASS + so_link 真核验 + ui_offline 6/6
++ geom 950/950 + 真机切后台 0 NPE + 0 Fatal。**拒绝凑1000**：硬凑=造假假绿，12 项全部可复现定位。

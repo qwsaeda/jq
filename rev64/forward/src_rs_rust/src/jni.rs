@@ -334,9 +334,12 @@ mod android_impl {
 
     #[no_mangle]
     pub extern "C" fn Java_com_qwsaeda_App_OnDestroy(env: *mut jni::sys::JNIEnv, _cls: JClass) {
-        // 只发 STOP 信号，不在此清理 wgpu 资源——线程内 dev/q 是局部变量，
-        // 线程 break 后自动 Drop，OnDestroy 直接清会造成 UAF + SIGABRT（tid Thread-2 实锤）
-        crate::wgpu_thread::stop(); // N3 修后 start 会等旧线程退出，此处可安全删 G_VIEW
+        // ★ P2 修：旧注释"dev/q 是局部变量线程退出自动 Drop"已过时——WGPU 现为全局静态持有
+        //   （OnUpdate 创建的 device/surface/window 都在里面）。先停线程（N3 修后 start 会等旧线程退出），
+        //   再 take() 清 WGPU 触发 WgpuState::drop → window_release，避免跨 Activity 重建泄漏
+        //   ANativeWindow 强引用 + 旧 Surface 永久驻留导致新 Surface 再也建不出。
+        crate::wgpu_thread::stop();
+        if let Ok(mut wg) = WGPU.lock() { drop(wg.take()); }
         // ★ JNI-14: 删除 GLView GlobalRef——旧实现 std::mem::forget 后从不 DeleteGlobalRef，
         //   每次 activity 重建（旋屏/重进）漏一个 GLView + 一个 JNI global ref（确定性泄漏）。
         //   G_VIEW.swap(0) 先清零，OnUpdate 的 `load != 0` 守卫随后跳过，不会 UAF。
@@ -460,6 +463,10 @@ mod android_impl {
             //   Java GLThread 的 OnUpdate 若也 clear_frame 写同一 ANativeWindow，属未定义行为
             //   （EGL 与 lockCanvas 并发 → EGL_BAD_SURFACE/花屏）。OnUpdate 不再写出屏，
             //   只维护 wgpu 资源（供 offscreen 验证）；实际出屏由 wgpu_thread 一条链独占。
+            // ★ P1 泄漏根治：surface_to_window 是 ANativeWindow_fromSurface（拿强引用），
+            //   上面的 win 在 wgpu_guard 已 Some 时未转移所有权 → 每帧漏一个强引用。
+            //   wgpu_guard 为 None 两条路径（成功存 WindowPtr / 失败 release）已配对，此处补第三条。
+            crate::log::window_release(win);
             crate::log::setprop("jq.wgpu_state", "canvas_owns_surface");
             1i32
         }

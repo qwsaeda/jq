@@ -483,15 +483,17 @@ pub fn deserialize_state(text: &str) -> Option<State> {
     let parts: Vec<&str> = text.split('|').collect();
     if parts.len() != 16 + N_CELLS || parts[0] != SAVE_MAGIC { return None; }
     let p = |i: usize| parts[i].parse::<i32>().ok();
+    // ★ P2 根治：严格 u8 范围解析——旧 `p(i)? as u8` 会把 256 截断成 0、257 截断成 1
+    //   静默接受越域枚举（SPEC §8 要求拒读）。现在解析 i32 后显式判 0..=255 再转。
+    let pu8 = |i: usize| -> Option<u8> { let v = p(i)?; if (0..=255).contains(&v) { Some(v as u8) } else { None } };
     // 枚举原始域（硬拒，拒读不改调用方）
-    let turn_raw = p(1)? as u8;
-    let turn = crate::state::Side::from_raw(turn_raw)?;
+    let turn = crate::state::Side::from_raw(pu8(1)?)?;
     if !turn.is_valid() { return None; }
     let stage = match p(2)? { 0 => Stage::Play, 1 => Stage::Over, _ => return None };
     let winner = match p(3)? { -1 => Winner::None, 0 => Winner::Blue, 1 => Winner::Red, 2 => Winner::Draw, _ => return None };
-    let mode = p(10)? as u8; // 头部 16 字段：magic(0) turn(1) stage(2) winner(3) mse(4) tm(5) mc0(6) mc1(7) pl0(8) pl1(9) mode(10) cfg(11..16)
+    let mode = pu8(10)?; // 头部 16 字段：magic(0) turn(1) stage(2) winner(3) mse(4) tm(5) mc0(6) mc1(7) pl0(8) pl1(9) mode(10) cfg(11..16)
     if mode > 1 { return None; }
-    let cfg: [u8; 5] = [p(11)? as u8, p(12)? as u8, p(13)? as u8, p(14)? as u8, p(15)? as u8];
+    let cfg: [u8; 5] = [pu8(11)?, pu8(12)?, pu8(13)?, pu8(14)?, pu8(15)?];
     let mut st = State {
         cells: [Cell::empty(); N_CELLS],
         turn, stage, winner,
@@ -503,10 +505,10 @@ pub fn deserialize_state(text: &str) -> Option<State> {
     for i in 0..N_CELLS {
         let cell_fields: Vec<&str> = parts[16 + i].split(',').collect();
         if cell_fields.len() != 3 { return None; }
-        let rank = cell_fields[0].parse::<u8>().ok()? as i32;
+        let rank = cell_fields[0].parse::<u8>().ok()? as i32; // parse::<u8> 自身拒 >255（不截断）
         let side_raw = cell_fields[1].parse::<u8>().ok()?;
         let side = crate::state::Side::from_raw(side_raw)?; // 非法阵营域拒读
-        let revealed = cell_fields[2] == "1";
+        let revealed = match cell_fields[2] { "0" => false, "1" => true, _ => return None }; // 严格 0/1，拒 "2"/"yes"
         // rank 域 side 感知净化（红≤24 / 蓝·未定≤12，越域归零）
         let rank_limit = RANK_TOP.0 as i32 + if side == SIDE_RED { 0x0c } else { 0 };
         let rank_ok = rank >= 0 && rank <= rank_limit;
@@ -550,5 +552,18 @@ mod save_roundtrip_tests {
         let mut parts: Vec<&str> = text.split('|').collect();
         parts[1] = "2"; // turn=2 非法
         assert!(deserialize_state(&parts.join("|")).is_none());
+        // ★ P2 回归：越域整数 256 不得被 as u8 截断成 0 静默接受（turn/mode/cfg 同理）
+        let mut parts: Vec<&str> = text.split('|').collect();
+        parts[10] = "257"; // mode=257（截断成 1 会被旧逻辑接受）
+        assert!(deserialize_state(&parts.join("|")).is_none(), "mode 越域整数应拒读");
+        let mut parts: Vec<&str> = text.split('|').collect();
+        parts[11] = "256"; // cfg[0]=256（截断成 0 会被旧逻辑接受）
+        assert!(deserialize_state(&parts.join("|")).is_none(), "cfg 越域整数应拒读");
+        // revealed 严格 0/1（cell 字段 revealed=2 应拒读）
+        let mut parts: Vec<String> = text.split('|').map(str::to_string).collect();
+        let cell_parts: Vec<&str> = parts[16].split(',').collect();
+        assert_eq!(cell_parts.len(), 3);
+        parts[16] = format!("{},{},2", cell_parts[0], cell_parts[1]);
+        assert!(deserialize_state(&parts.join("|")).is_none(), "revealed 越域应拒读");
     }
 }

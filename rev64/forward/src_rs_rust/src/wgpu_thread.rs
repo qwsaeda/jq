@@ -67,16 +67,25 @@ mod imp {
         let view = jni::objects::JObject::from_raw(view_addr as jni::sys::jobject);
         for _ in 0..150 {
             if STOP.load(Ordering::SeqCst) { return; } // ★ JNI-04: 启动期也响应停止，防 stop() join 长时间阻塞→ANR
-            let surf = env.call_method(&view, "getHolder", "()Landroid/view/SurfaceHolder;", &[])
-                .ok().and_then(|v| v.l().ok())
-                .and_then(|holder| env.call_method(holder, "getSurface", "()Landroid/view/Surface;", &[]).ok().and_then(|s| s.l().ok()));
-            if let Some(so) = surf {
-                let valid = env.call_method(&so, "isValid", "()Z", &[]).ok().and_then(|v| v.z().ok()).unwrap_or(false);
-                if valid {
-                    window = crate::log::surface_to_window(&mut env as *mut _ as *mut _, so.into_raw());
-                    if !window.is_null() { break; }
+            // ★ P2 根治：每轮轮询的 getHolder/getSurface/isValid 局部引用必须在独立 local frame 内，
+            //   帧末 PopLocalFrame 回收（jni 0.21 JObject 无 Drop，旧实现 150 轮 ×2~3 引用逼近
+            //   ART 512 上限，慢启动时会 local reference table overflow 崩溃）。
+            let mut got_window: *mut std::ffi::c_void = std::ptr::null_mut();
+            let _ = env.with_local_frame(8, |env| -> jni::errors::Result<()> {
+                let surf = env.call_method(&view, "getHolder", "()Landroid/view/SurfaceHolder;", &[])
+                    .ok().and_then(|v| v.l().ok())
+                    .and_then(|holder| env.call_method(holder, "getSurface", "()Landroid/view/Surface;", &[]).ok().and_then(|s| s.l().ok()));
+                if let Some(so) = surf {
+                    let valid = env.call_method(&so, "isValid", "()Z", &[]).ok().and_then(|v| v.z().ok()).unwrap_or(false);
+                    if valid {
+                        // ANativeWindow_fromSurface 拿强引用，存为裸指针独立于 local frame 存活
+                        got_window = crate::log::surface_to_window(env as *mut _ as *mut _, so.into_raw());
+                    }
+                    if env.exception_check().unwrap_or(false) { let _ = env.exception_clear(); }
                 }
-            }
+                Ok(())
+            });
+            if !got_window.is_null() { window = got_window; break; }
             std::thread::sleep(std::time::Duration::from_millis(33));
         }
         if window.is_null() {

@@ -22,9 +22,14 @@ log(){ echo "[rebuild_rust_apk] $*"; }
 # [0/6] 交叉编译 Rust so（arm64 cdylib，14 JNI 符号）
 log "=== [0/6] 交叉编译 Rust so（aarch64-linux-android）==="
 cd "$RUST"
-cargo build --target aarch64-linux-android --release 2>&1 | grep -E "^error|Finished" | head -5
 RSO=$RUST/target/aarch64-linux-android/release/libjunqi_rs.so
-[ -f "$RSO" ] || { log "★ Rust so 编译失败"; exit 1; }
+# ★ 门禁假绿根治：先删旧产物，使后续 -f 守卫真正有意义（否则 cargo 失败仍注入旧 so）
+rm -f "$RSO"
+set -o pipefail
+cargo build --target aarch64-linux-android --release 2>&1 | grep -E "^error|Finished" | head -5
+BUILD_RC=${PIPESTATUS[0]}
+[ "$BUILD_RC" -eq 0 ] || { log "★ Rust so 编译失败（cargo rc=$BUILD_RC）"; exit 1; }
+[ -f "$RSO" ] || { log "★ Rust so 编译失败（产物缺失）"; exit 1; }
 # 14 符号门禁（对齐 C so_link_check）
 NSYM=$(nm -D "$RSO" 2>/dev/null | grep -cE "Java_com_qwsaeda_App_")
 [ "$NSYM" -ge 14 ] || { log "★ 14 JNI 符号缺失（实 $NSYM）"; exit 1; }
@@ -38,12 +43,20 @@ cp "$RSO" "$LIBDIR/libjunqi.so"
 rm -f "$LIBDIR/libjunqi_rs.so"
 log "so 注入：$LIBDIR/libjunqi.so（$(md5sum "$LIBDIR/libjunqi.so" | cut -d' ' -f1)，替换 C so）"
 
+# [1.5/6] Java 层防御补丁（surfaceDestroyed 空守卫 + predictive back），幂等
+log "=== [1.5/6] patch_rust_app_guards（P0 切后台崩溃 + P1 返回键失效）==="
+bash "$ROOT/rev64/tools/patch_rust_app_guards.sh" "$DECRS"
+
 # [2/6] apktool 重编
 log "=== [2/6] apktool b dec_rs → 源 APK ==="
 cd "$DECRS"
 SRCAPK=$WORK/rs_rust_src.apk
+rm -f "$SRCAPK"
+set -o pipefail
 apktool b . -o "$SRCAPK" 2>&1 | tail -2
-[ -f "$SRCAPK" ] || { log "★ apktool b 失败"; exit 1; }
+APKB_RC=${PIPESTATUS[0]}
+[ "$APKB_RC" -eq 0 ] || { log "★ apktool b 失败（rc=$APKB_RC）"; exit 1; }
+[ -f "$SRCAPK" ] || { log "★ apktool b 失败（产物缺失）"; exit 1; }
 
 # [3/6] STORE + zipalign（.so/.arsc 未压缩 + 4 字节对齐，targetSdk≥31 必须）
 log "=== [3/6] STORE + zipalign ==="
@@ -88,7 +101,12 @@ if [ "${1:-}" != "--no-install" ]; then
     DEV_SO=$(adb -s 10.0.182.152:5555 shell "pm path com.qwsaeda.junqirs" 2>/dev/null | head -1 | sed 's/package://')
     if [ -n "$DEV_SO" ]; then
         DEV_MD5=$(adb -s 10.0.182.152:5555 shell "unzip -p $DEV_SO lib/arm64-v8a/libjunqi.so 2>/dev/null | md5sum" | cut -d' ' -f1)
-        [ "$LOCAL_MD5" = "$DEV_MD5" ] && log "对账 PASS（$LOCAL_MD5）" || log "★ 对账 FAIL（本地 $LOCAL_MD5 / 设备 $DEV_MD5）"
+        if [ "$LOCAL_MD5" = "$DEV_MD5" ]; then
+            log "对账 PASS（$LOCAL_MD5）"
+        else
+            log "★ 对账 FAIL（本地 $LOCAL_MD5 / 设备 $DEV_MD5）——设备非本次交付 so，阻断"
+            exit 1
+        fi
     else
         log "（设备不可达，对账 PENDING）"
     fi
