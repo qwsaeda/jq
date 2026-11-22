@@ -81,7 +81,10 @@ def check_title_anchor():
     if abs(dy0) <= 3 and abs(dy1) <= 3:
         print("  ✓ 标题几何对齐")
     else:
-        print(f"  ⚠ 标题垂直偏移/压缩 —— 背景资源或缩放源与原版不一致（已知边界，需确认原版确切资源）")
+        print(f"  ⚠ 标题 y 偏差 —— 【已定位：orig 截图被纵向二次缩放】")
+        print("     证据：同一按钮贴图资源，截图实测人机按钮高113px / datah 真值95px / 渲染125px")
+        print("     截图失真，不可作真值；按钮几何以 datah 真值为准（ui_offline_check.py 判据）。")
+        print("     不要按此截图配准去改背景——会让真实设备显示错位（轮7 +68px 配准实验已回滚）。")
 
 
 def main():
