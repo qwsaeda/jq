@@ -26,13 +26,17 @@ done
 fail=0
 log(){ echo "[rust_all] $*"; }
 
-log "=== [1/4] cargo test --release（95 测试）==="
-T=$(cd "$RUST" && cargo test --release 2>&1)
-if echo "$T" | grep -qE 'test result: ok\. [0-9]+ passed'; then
+log "=== [1/4] cargo test --release（全测试）==="
+T=$(cd "$RUST" && cargo test --release 2>&1); TEST_RC=$?
+# ★ 2026-11-22 渗透审计 RTEST-001（P0 闸门假绿）：旧逻辑只 grep "test result: ok"
+#   子串——多 test binary 一败一过（或 ok. 0 passed）即假 PASS。改：先看 cargo 真退出码，
+#   再排 FAILED 行 + 统计 ok 行，三者一致才 PASS（CODE_STYLE §9 第2型判据恒真根治）。
+if [ "$TEST_RC" -eq 0 ] && ! echo "$T" | grep -qE 'test result: FAILED|error\[' && \
+   [ "$(echo "$T" | grep -cE 'test result: ok\. [0-9]+ passed')" -ge 1 ]; then
   NP=$(echo "$T" | grep -oE '[0-9]+ passed' | head -1)
-  log "PASS cargo test ($NP)"
+  log "PASS cargo test ($NP, rc=$TEST_RC)"
 else
-  echo "$T" | tail -10; log "FAIL cargo test"; fail=1
+  echo "$T" | tail -10; log "FAIL cargo test（rc=$TEST_RC）"; fail=1
 fi
 
 log "=== [2/4] cargo clippy -D warnings（零警告门禁）==="

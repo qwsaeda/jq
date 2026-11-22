@@ -23,7 +23,8 @@ KEY_STORE=$WS/junqi.keystore
 ZIPALIGN=/disk/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/741/fs/opt/android/build-tools/36.0.0/zipalign
 [ -x "$ZIPALIGN" ] || ZIPALIGN=zipalign
 SRC_ORIG=/tmp/opencode/orig_libjunqi.so
-SRC_RS=$WS/rev64/forward/src_rs/dist/libjunqi_rs.so
+SRC_RS_RAW=$WS/rev64/forward/src_rs/dist/libjunqi_rs.so   # 正向会话 so（qwsaeda 前缀，只读基准）
+SRC_RS=/tmp/opencode/phase23_cnvcs_final.so               # 四阶段专用 cnvcs 前缀 so（独立路径，不污染正向 so）
 SRC_STUB=/tmp/opencode/junqi_stub_arm64.so
 DO_VERIFY=1
 
@@ -35,6 +36,28 @@ make_so_rs() {
   echo "══════ 重编 src_rs arm64 so（防旧 so 打进交付物）══════"
   ( cd $WS/rev64/forward/src_rs && NDK=/tmp/opencode/android-ndk-r25b make so ) || {
     echo "✗ src_rs so 编译失败（源码有改动，先修再构建）"; return 1; }
+  # ★ 2026-11-22 JNI 前缀断裂根治：src_rs 源码是 com.qwsaeda（正向演进），编译出的
+  #   so 导出 Java_com_qwsaeda_App_*，但四阶段 APK 的 dex/包名 = com.cnvcs → 装机必
+  #   UnsatisfiedLinkError。此前靠外部 build_phase23_so.sh 临时 sed 补，但每次 build_phases
+  #   重编都会覆盖回 qwsaeda 前缀（实测重打 phase2/3 后 JNI 断裂回归）。
+  #   根治：在源码临时副本 sed qwsaeda→cnvcs 重编，SRC_RS 指向 cnvcs 产物（单一真源在
+  #   本脚本内闭环，不依赖易失的 /tmp 临时 so）。不动正向会话源码树。
+  local TMP=/tmp/opencode/phase23_rs_cnvcs_build
+  rm -rf "$TMP" && mkdir -p "$TMP"
+  cp -a "$WS/rev64/forward/src_rs/." "$TMP/" || return 1
+  local f
+  for f in "$TMP"/*.c "$TMP"/*.h; do
+    [ -f "$f" ] || continue
+    grep -q "com/qwsaeda\|com_qwsaeda\|com\.qwsaeda" "$f" 2>/dev/null && \
+      sed -i 's|com/qwsaeda|com/cnvcs|g; s|com_qwsaeda|com_cnvcs|g; s|com\.qwsaeda|com.cnvcs|g' "$f"
+  done
+  ( cd "$TMP" && NDK=/tmp/opencode/android-ndk-r25b make so >/dev/null 2>&1 ) || {
+    echo "✗ cnvcs 前缀 so 重编失败"; return 1; }
+  local CNV="$TMP/dist/libjunqi_rs.so"
+  local NC=$(nm -D "$CNV" 2>/dev/null | grep -c "Java_com_cnvcs_App_" || true)
+  [ "$NC" = "14" ] || { echo "✗ cnvcs JNI 符号数异常（$NC≠14）"; return 1; }
+  cp "$CNV" "$SRC_RS"   # 写四阶段专用路径，不动正向会话 so（SRC_RS_RAW）
+  echo "  arm64 so JNI 前缀 = cnvcs（14 符号，$SRC_RS；正向 so 未被改动）"
 }
 
 # 构建树 lib 布局（每阶段：树名 + lib/子目录→源 so）

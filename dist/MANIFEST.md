@@ -8,8 +8,8 @@
 |------|--------------|-----|---------|------|
 | phase0 | com.cnvcs.junqi32 (v1.78) | f47d204dbb424aeaf7b7eb31e5590fe0 | armeabi 原版 32 位 so 1435156B STORE, 无 arm64 | v1+v2+v3 ✓ |
 | phase1 | com.cnvcs.junqi32 (v1.78) | 726264f13dde6b1f964869b89c0030fb | + arm64 4.8KB 桩 | v1+v2+v3 ✓ |
-| phase2 | com.cnvcs.junqirs (v1.6.8) | c74718161d04b98f9383915d10684171 | armeabi-v7a 32 位 + arm64 so（2026-11-22 三次重建：so com.cnvcs 前缀 14 JNI 与 dex 对齐 + **targetSdk 31→34 落地 AGENTS L129 规格**，minSdk 21；BT 权限 BLUETOOTH/ADMIN 保留不回归） | v1+v2+v3 ✓ |
-| phase3 | com.cnvcs.junqirs (v1.6.8) | ba5322b38b927585cc2244136cf362c1 | 同 phase2 + 去广告终态（JNI 前缀 + targetSdk 34 同步对齐） | v1+v2+v3 ✓ |
+| phase2 | com.cnvcs.junqirs (v1.6.8) | e399b49502f14ab912ed244905261409 | armeabi-v7a 32 位 + arm64 so（2026-11-22 四次重建：+ **28 WAV 改 STORE**（RJNI-001 openFd 崩溃根治）；JNI cnvcs 前缀由 build_phases 内建产出（根治反复覆盖回归）；targetSdk 34） | v1+v2+v3 ✓ |
+| phase3 | com.cnvcs.junqirs (v1.6.8) | 98f56e7fcc4434289da2f063fa57ee24 | 同 phase2 + 去广告终态（WAV STORE + JNI 前缀 + targetSdk 34 同步对齐） | v1+v2+v3 ✓ |
 
 ## so 基准
 - 32 位翻译体 so: `rev64/dist/libjunqi_arm32_aligned.so` md5 = **d8c98fd9baf61f5a6efff530d17b77ee**（★ R24: ExceptionClear 修复重编同步）

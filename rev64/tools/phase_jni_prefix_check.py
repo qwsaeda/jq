@@ -68,12 +68,17 @@ def jni_prefixes(so_bytes):
     return nm.count('Java_com_cnvcs_'), nm.count('Java_com_qwsaeda')
 
 def check_store_align(apk, z):
-    """返回 (ok, 原因)：resources.arsc/dex/so 全 STORE + 数据起始 4 字节对齐"""
+    """返回 (ok, 原因)：resources.arsc/dex/so/wav 全 STORE + 数据起始 4 字节对齐
+
+    ★ 2026-11-22 审计 RJNI-001：WAV 必须 STORE（AssetManager.openFd 对 DEFLATE
+      资源抛 IOException，正向 Rust sfx.rs 走子带音效会崩）。此前门禁漏检 WAV。
+    """
     import struct
     bad = []
     with open(apk, 'rb') as f:
         for name in z.namelist():
-            if not (name == 'resources.arsc' or name.endswith('.dex') or name.endswith('.so')):
+            if not (name == 'resources.arsc' or name.endswith('.dex') or
+                    name.endswith('.so') or name.endswith('.wav')):
                 continue
             i = z.getinfo(name)
             if i.compress_type != zipfile.ZIP_STORED:

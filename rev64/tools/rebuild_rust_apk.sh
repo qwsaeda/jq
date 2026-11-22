@@ -61,7 +61,9 @@ APKB_RC=${PIPESTATUS[0]}
 # [3/6] STORE + zipalign（.so/.arsc 未压缩 + 4 字节对齐，targetSdk≥31 必须）
 log "=== [3/6] STORE + zipalign ==="
 STORED=$WORK/rs_rust_stored.apk
-python3 "$WORK/store_compressed.py" "$SRCAPK" "$STORED" 2>&1 | tail -2
+# ★ 2026-11-22 审计 RJNI-001：改用仓库单一真源，消除 /tmp WORK 副本漂移
+#   （旧用 $WORK/store_compressed.py 副本，改仓库版不生效 → WAV 仍 DEFLATE）
+python3 "$ROOT/rev64/tools/store_compressed.py" "$SRCAPK" "$STORED" 2>&1 | tail -2
 ALIGNED=$WORK/rs_rust_aligned.apk
 # zipalign（.so 4 字节，-p 4 png 16k 对齐）
 zipalign -f -p 4 4194304 "$STORED" "$ALIGNED" 2>&1 | tail -1 || zipalign -f -p 4 "$STORED" "$ALIGNED"
