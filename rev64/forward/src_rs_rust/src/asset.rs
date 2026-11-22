@@ -411,6 +411,24 @@ mod imp {
                 }
             }
         }
+        // ★ UI-04：退出确认对话框（view 按钮 ×0.5 到画布 450×800）
+        if screen == crate::ui::Screen::ExitConfirm {
+            for &(rect, r, g, b) in &[
+                (crate::ui::EXIT_BTN_QUIT, 200u8, 80u8, 80u8),   // 退出=红
+                (crate::ui::EXIT_BTN_STAY, 60u8, 180u8, 75u8),   // 继续=绿
+            ] {
+                let x0 = (rect.x as f32 * 0.5) as usize;
+                let x1 = ((rect.x + rect.w) as f32 * 0.5) as usize;
+                let y0 = (rect.y as f32 * 0.5) as usize;
+                let y1 = ((rect.y + rect.h) as f32 * 0.5) as usize;
+                for y in y0.min(h)..y1.min(h) {
+                    for x in x0.min(w)..x1.min(w) {
+                        let di = (y * w + x) * 4;
+                        out[di] = r; out[di+1] = g; out[di+2] = b;
+                    }
+                }
+            }
+        }
         // ★ UI-05：对局态顶部 ☰/↩ 图标（画布 450×800，命中区 view(270,750)/(620,750) ÷2）
         //   画小方块提示可点位置，与 jni.rs 命中区同源（±60 view = ±30 画布）
         if screen == crate::ui::Screen::Game {

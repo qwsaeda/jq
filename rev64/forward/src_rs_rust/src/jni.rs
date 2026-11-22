@@ -505,8 +505,17 @@ mod android_impl {
                 return 1;
             }
             ui::Screen::ExitConfirm => {
-                // 退出确认：点按钮区（简化：任意点击→继续游戏）
-                with_lock(|_s, u, _c| { u.screen = ui::Screen::Game; });
+                // ★ UI-04: 退出确认按按钮分派（退出→Menu / 继续→Game），面板外=继续（保守不退出）
+                match ui::exit_btn_hit(x, y) {
+                    Some(true) => { // 退出 → 回主菜单
+                        with_lock(|_st, u, _c| u.exit_confirm(true));
+                        crate::log::setprop("jq.exit_act", "quit");
+                    }
+                    Some(false) | None => { // 继续 / 面板外 → 回对局
+                        with_lock(|_st, u, _c| u.exit_confirm(false));
+                        crate::log::setprop("jq.exit_act", "stay");
+                    }
+                }
                 return 1;
             }
             ui::Screen::IngameMenu => {

@@ -227,6 +227,15 @@ pub fn is_outside_panel(px: i32, py: i32, panel: &Rect) -> bool {
 /// GameSet: 前 4 个 = cfg[0..3] 开关，后 2 = 确定/取消；Settings: 第 0 = 音效开关，后 2 = 确定/取消
 /// 面板居中 x20%-80%(180-720) y30%-70%(480-1120)，按钮在面板内 3×2 网格
 pub const SETTINGS_PANEL: Rect = Rect { x: 180, y: 480, w: 540, h: 640 };
+/// 退出确认对话框按钮（view 900×1600）：左=退出、右=继续，各占中下部一小块
+pub const EXIT_BTN_QUIT: Rect = Rect { x: 270, y: 700, w: 160, h: 80 };
+pub const EXIT_BTN_STAY: Rect = Rect { x: 470, y: 700, w: 160, h: 80 };
+pub fn exit_btn_hit(x: f32, y: f32) -> Option<bool> {
+    if EXIT_BTN_QUIT.contains(x as i32, y as i32) { Some(true) }  // 退出
+    else if EXIT_BTN_STAY.contains(x as i32, y as i32) { Some(false) } // 继续
+    else { None }
+}
+
 pub fn settings_btn_hit(x: f32, y: f32) -> Option<u8> {
     let p = &SETTINGS_PANEL;
     if !(p.x as f32..=(p.x + p.w) as f32).contains(&x) || !(p.y as f32..=(p.y + p.h) as f32).contains(&y) {
@@ -402,5 +411,16 @@ mod settings_btn_tests {
         }
         // 面板外不命中
         assert_eq!(settings_btn_hit(10.0, 10.0), None);
+    }
+}
+
+#[cfg(test)]
+mod exit_btn_tests {
+    use super::*;
+    #[test]
+    fn exit_btn_hit_quadrants() {
+        assert_eq!(exit_btn_hit(350.0, 740.0), Some(true), "左=退出");
+        assert_eq!(exit_btn_hit(550.0, 740.0), Some(false), "右=继续");
+        assert_eq!(exit_btn_hit(450.0, 200.0), None, "面板外");
     }
 }
