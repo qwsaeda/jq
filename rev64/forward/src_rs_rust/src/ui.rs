@@ -223,6 +223,23 @@ pub fn is_outside_panel(px: i32, py: i32, panel: &Rect) -> bool {
     !panel.contains(px, py)
 }
 
+/// 设置弹窗按钮几何（view 900×1600 基准，与 asset.rs 绘制 + jni.rs 触摸同源）
+/// GameSet: 前 4 个 = cfg[0..3] 开关，后 2 = 确定/取消；Settings: 第 0 = 音效开关，后 2 = 确定/取消
+/// 面板居中 x20%-80%(180-720) y30%-70%(480-1120)，按钮在面板内 3×2 网格
+pub const SETTINGS_PANEL: Rect = Rect { x: 180, y: 480, w: 540, h: 640 };
+pub fn settings_btn_hit(x: f32, y: f32) -> Option<u8> {
+    let p = &SETTINGS_PANEL;
+    if !(p.x as f32..=(p.x + p.w) as f32).contains(&x) || !(p.y as f32..=(p.y + p.h) as f32).contains(&y) {
+        return None;
+    }
+    // 3 列 × 2 行网格：上排 6 槽位简化为 3 按钮（开关1/开关2/开关3）
+    // 下排：开关4/确定/取消（GameSet）或 音效开关/确定/取消（Settings）
+    let col = ((x - p.x as f32) / (p.w as f32 / 3.0)) as usize;
+    let row = ((y - p.y as f32) / (p.h as f32 / 2.0)) as usize;
+    let idx = row * 3 + col.min(2);
+    if idx < 6 { Some(idx as u8) } else { None }
+}
+
 /// 难度弹窗 8 按钮（level 1-4 × mode 布局/翻棋）。按钮索引 0-7。
 /// 命中判定 + 解析 (level, mode)。
 pub fn difficulty_hit(px: i32, py: i32, panel: &Rect) -> Option<(u8, u8)> {
@@ -368,3 +385,22 @@ pub fn ingame_hit(x: i32, y: i32) -> Option<u8> {
     None
 }
 
+
+#[cfg(test)]
+mod settings_btn_tests {
+    use super::*;
+    #[test]
+    fn settings_btn_hit_grid() {
+        let p = &SETTINGS_PANEL;
+        // 6 按钮中心都应命中正确索引
+        for row in 0..2usize {
+            for col in 0..3usize {
+                let x = p.x as f32 + col as f32 * (p.w as f32 / 3.0) + 30.0;
+                let y = p.y as f32 + row as f32 * (p.h as f32 / 2.0) + 60.0;
+                assert_eq!(settings_btn_hit(x, y), Some((row * 3 + col) as u8));
+            }
+        }
+        // 面板外不命中
+        assert_eq!(settings_btn_hit(10.0, 10.0), None);
+    }
+}

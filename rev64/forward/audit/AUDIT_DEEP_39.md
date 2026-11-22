@@ -24,7 +24,7 @@
 | P1-6 | 判据 | rprobe.rs | "移植 C 36 case"仅 23 例且 E1/G2/F2/G4/G3 场景漂移 | 待修 |
 | F1 | 规则 | rules.rs:445 | 困毙可翻扫描排军旗，C rules.c:1050 仅排地雷（原版 0x30320） | ✅ 已裁定+修（以原版 0x30320 反汇编为唯一事实源=仅排地雷；Rust 删 `cn != RANK_FLAG` + rprobe C4b 断言反转 + SPEC §5.2 同步；102 测试/rust_all 全过）。行为改变待真机验证 |
 | UI-01 | UI | asset.rs:189-218 | 棋子图集 6×6 切片错，原版 4×7(53×40) → 贴图全面错位 | ✅ 已修（4×7 + col=(rank-1)%4 + 红行0-2/蓝行3-5） |
-| UI-02 | UI | jni.rs:517/asset.rs:239 | GameSet/Settings 画面板无按钮，任何触摸只回滚 = 假弹窗 | 待修 |
+| UI-02 | UI | jni.rs:517/asset.rs:239 | GameSet/Settings 画面板无按钮，任何触摸只回滚 = 假弹窗 | ✅ 已修（面板内 3×2 按钮网格：cfg开关/sound开关/确定/取消，画=点同源；单测锚定命中；103测试） |
 | UI-03 | UI | jni.rs:442-474 | NewGame 取消不恢复 mode 快照（jq.mode 残留坑） | ✅ 已修（进弹窗 begin_popup 快照；取消/面板外 cancel_popup 恢复） |
 | UI-04 | UI | asset.rs/jni.rs:193 | ExitConfirm 有触摸无绘制；Menu/NewGame 正常流程不可达（OnCreate 直接 Game） | 待修 |
 | UI-05 | UI | jni.rs:545-557 | Game 顶部图标区超大隐形命中，吞掉红方上半盘 6行×5列 | ✅ 已修（命中区缩为 view±60px 小方框，中心(270/620,750)与真机悔棋判据一致；asset.rs 画橙图标；单测锚定不误命中棋子区） |

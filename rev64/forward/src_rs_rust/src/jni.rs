@@ -547,11 +547,33 @@ mod android_impl {
                 return 1;
             }
             ui::Screen::GameSet | ui::Screen::Settings => {
-                // 设置弹窗：点面板外=取消回滚（ui.cancel_popup），点面板内暂不细化
-                with_lock(|st, u, _c| {
-                    u.cancel_popup(st);
-                });
-                crate::log::setprop("jq.popup_act", "cancel");
+                // ★ UI-02: 面板外=取消回滚；面板内 3×2 按钮：开关/确定/取消（画=点同源）
+                let is_gameset = screen == ui::Screen::GameSet;
+                match ui::settings_btn_hit(x, y) {
+                    None => {
+                        with_lock(|st, u, _c| u.cancel_popup(st));
+                        crate::log::setprop("jq.popup_act", "cancel");
+                    }
+                    Some(4) => { // 确定（GameSet 回对局 / Settings 回原屏）
+                        with_lock(|st, u, _c| {
+                            if is_gameset { u.gameset_confirm(st); } else { u.settings_confirm(st); }
+                        });
+                        crate::log::setprop("jq.popup_act", "confirm");
+                    }
+                    Some(5) => { // 取消
+                        with_lock(|st, u, _c| u.cancel_popup(st));
+                        crate::log::setprop("jq.popup_act", "cancel");
+                    }
+                    Some(idx) => { // 开关（0-3 GameSet cfg / 0 Settings sound）
+                        if is_gameset && idx < 4 {
+                            with_lock(|st, _u, _c| { st.cfg[idx as usize] = if st.cfg[idx as usize] == 1 { 0 } else { 1 }; });
+                            crate::log::setprop("jq.popup_act", &format!("cfg{}_toggle", idx));
+                        } else if !is_gameset && idx == 0 {
+                            with_lock(|_st, u, _c| { u.sound_on = !u.sound_on; });
+                            crate::log::setprop("jq.popup_act", "sound_toggle");
+                        }
+                    }
+                }
                 return 1;
             }
             ui::Screen::Replay => {

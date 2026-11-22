@@ -240,15 +240,37 @@ mod imp {
         // ★ 复盘态底部控制条（对齐 C datah_107 底部 5 按钮控制条）
         // ★ 设置类弹窗面板（GameSet 4 开关 / Settings 音效）——屏态分屏绘制
         if matches!(screen, crate::ui::Screen::GameSet | crate::ui::Screen::Settings) {
-            // 面板（居中 60%×40%）
-            let px0 = (w as f32 * 0.20) as usize;
-            let px1 = (w as f32 * 0.80) as usize;
-            let py0 = (h as f32 * 0.30) as usize;
-            let py1 = (h as f32 * 0.70) as usize;
-            for y in py0..py1 {
-                for x in px0..px1 {
+            // ★ UI-02: 面板 + 3×2 按钮网格（与 ui.rs settings_btn_hit 同源，view 坐标 ×0.5）
+            let p = &crate::ui::SETTINGS_PANEL;
+            let px0 = (p.x as f32 * 0.5) as usize;
+            let px1 = ((p.x + p.w) as f32 * 0.5) as usize;
+            let py0 = (p.y as f32 * 0.5) as usize;
+            let py1 = ((p.y + p.h) as f32 * 0.5) as usize;
+            for y in py0.min(h)..py1.min(h) {
+                for x in px0.min(w)..px1.min(w) {
                     let di = (y * w + x) * 4;
                     out[di] = 245; out[di+1] = 240; out[di+2] = 220; // 米色面板
+                }
+            }
+            // 6 按钮（3列×2行），view→画布 ×0.5
+            let cw = p.w as f32 / 3.0 * 0.5;
+            let rh = p.h as f32 / 2.0 * 0.5;
+            for row in 0..2usize {
+                for col in 0..3usize {
+                    let bx0 = (px0 as f32 + col as f32 * cw) as usize;
+                    let bx1 = (px0 as f32 + (col as f32 + 1.0) * cw) as usize;
+                    let by0 = (py0 as f32 + row as f32 * rh) as usize;
+                    let by1 = (py0 as f32 + (row as f32 + 1.0) * rh) as usize;
+                    for y in by0.min(h)..by1.min(h) {
+                        for x in bx0.min(w)..bx1.min(w) {
+                            let di = (y * w + x) * 4;
+                            // 确定(索引4)/取消(索引5) 用不同色区分，其余开关用蓝色
+                            let idx = row * 3 + col;
+                            if idx == 4 { out[di] = 60; out[di+1] = 180; out[di+2] = 75; }      // 确定=绿
+                            else if idx == 5 { out[di] = 200; out[di+1] = 80; out[di+2] = 80; } // 取消=红
+                            else { out[di] = 42; out[di+1] = 111; out[di+2] = 200; }            // 开关=蓝
+                        }
+                    }
                 }
             }
         }
