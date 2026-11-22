@@ -437,12 +437,12 @@ mod android_impl {
                 // ★ 业务对齐：主菜单按钮命中（几何用原版 orig_menu.png 真值 720×1280 基准）
                 //   MotionEvent 坐标是 view 实际尺寸（900×1600）→ 归一化到 720×1280
                 let (bx, by) = (x * 0.8, y * 0.8);
-                let hit = with_lock(|_st, u, _c| {
+                let hit = with_lock(|st, u, _c| {
                     if ui::MENU_BTN_HUMAN.contains(bx as i32, by as i32) {
-                        u.menu_human(); // → 难度弹窗
+                        u.begin_popup(st); u.menu_human(); // ★ UI-03: 进弹窗前快照 mode/cfg
                         Some("human")
                     } else if ui::MENU_BTN_TWOPLAYER.contains(bx as i32, by as i32) {
-                        u.menu_two_player(); // → 新局弹窗
+                        u.begin_popup(st); u.menu_two_player();
                         Some("two")
                     } else { None } // 菜单空白不消费（规格 §10.2 防穿透）
                 });
@@ -466,7 +466,10 @@ mod android_impl {
                     crate::log::setprop("jq.difficulty", &format!("{}_{}", lv, md));
                     return 1;
                 }
-                return 0;
+                // ★ UI-10: 面板外=取消回主菜单（原 return 0 无动作，用户只能选难度才能离开）
+                with_lock(|st, u, _c| u.cancel_popup(st));
+                crate::log::setprop("jq.diff_cancel", "1");
+                return 1;
             }
             ui::Screen::NewGame => {
                 // ★ 补卡死缺口：NewGame 弹窗原来无任何触摸分支，玩家点"两人对战"后完全卡死。
@@ -474,7 +477,7 @@ mod android_impl {
                 let (bx, by) = (x * 0.8, y * 0.8);
                 let p = &ui::DIFFICULTY_PANEL;
                 if !p.contains(bx as i32, by as i32) {
-                    with_lock(|_s, u, _c| { u.screen = ui::Screen::Menu; }); // 面板外=取消
+                    with_lock(|st, u, _c| u.cancel_popup(st)); // ★ UI-03: 面板外=取消，恢复 mode 快照（防残留）
                     crate::log::setprop("jq.ingame_act", "newgame_cancel");
                     return 1;
                 }
@@ -496,7 +499,7 @@ mod android_impl {
                     });
                     crate::log::setprop("jq.ingame_act", "newgame_confirm");
                 } else {
-                    with_lock(|_s, u, _c| { u.screen = ui::Screen::Menu; });
+                    with_lock(|st, u, _c| u.cancel_popup(st)); // ★ UI-03: 取消恢复 mode 快照
                     crate::log::setprop("jq.ingame_act", "newgame_cancel");
                 }
                 return 1;
@@ -571,18 +574,18 @@ mod android_impl {
                     crate::log::setprop("jq.ingame_act", "restart");
                     return 1;
                 }
-                // ★ 顶部图标区（C 真值：☰ 中心(216,720) ↩(496,720) @720基准 → view×1.25）
-                //   点击顶部 y<820（view）且靠边→游戏内菜单/悔棋，不走棋盘走子
-                if y < 820.0 {
-                    if x < 400.0 { // ☰ 游戏内菜单
-                        with_lock(|_s, u, _c| { u.screen = ui::Screen::IngameMenu; });
-                        crate::log::setprop("jq.game_icon", "menu");
-                        return 1;
-                    } else if x > 520.0 { // ↩ 悔棋（真执行）
-                        let ok = with_lock(|st, u, _c| u.undo(st)); clear_sel();
-                        crate::log::setprop("jq.game_icon", if ok { "undo_ok" } else { "undo_empty" });
-                        return 1;
-                    }
+                // ★ UI-05 修复：顶部图标命中区缩小到图标实际位置附近的小方框。
+                //   原 y<820 + x<400/x>520 是巨大矩形，吞掉红方整个上半盘（两人热座点不到红子）。
+                //   图标中心 view(270,750)/(620,750)（真机悔棋判据 tap620,750 实证），±60px 小方框。
+                let in_icon = |cx: f32| (x - cx).abs() <= 60.0 && (y - 750.0).abs() <= 60.0;
+                if in_icon(270.0) { // ☰ 游戏内菜单
+                    with_lock(|_s, u, _c| { u.screen = ui::Screen::IngameMenu; });
+                    crate::log::setprop("jq.game_icon", "menu");
+                    return 1;
+                } else if in_icon(620.0) { // ↩ 悔棋（真执行）
+                    let ok = with_lock(|st, u, _c| u.undo(st)); clear_sel();
+                    crate::log::setprop("jq.game_icon", if ok { "undo_ok" } else { "undo_empty" });
+                    return 1;
                 }
                 let cell = match crate::render::view_to_cell(x as i32, y as i32, 900, 1600) {
                     Some(c) => c,

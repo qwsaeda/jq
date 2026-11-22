@@ -389,6 +389,23 @@ mod imp {
                 }
             }
         }
+        // ★ UI-05：对局态顶部 ☰/↩ 图标（画布 450×800，命中区 view(270,750)/(620,750) ÷2）
+        //   画小方块提示可点位置，与 jni.rs 命中区同源（±60 view = ±30 画布）
+        if screen == crate::ui::Screen::Game {
+            for icx in [135usize, 310usize] { // view 270/620 ÷2
+                let ix0 = icx.saturating_sub(30);
+                let ix1 = (icx + 30).min(w);
+                let iy0 = 345usize.min(h); // view 750÷2=375，上移30
+                let iy1 = 405usize.min(h);
+                for y in iy0..iy1 {
+                    for x in ix0..ix1 {
+                        if x >= w || y >= h { continue; }
+                        let di = (y * w + x) * 4;
+                        out[di] = 230; out[di+1] = 128; out[di+2] = 38; // 橙图标
+                    }
+                }
+            }
+        }
         out
     }
 }
@@ -465,5 +482,19 @@ mod difficulty_draw_tests {
                 assert_eq!(mode, row, "行=mode");
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod icon_hit_tests {
+    #[test]
+    fn undo_icon_hit_matches_device_probe() {
+        // ★ UI-05 锚定：悔棋图标命中区必须包含真机判据坐标 tap(620,750)，
+        //   且不得覆盖红方上半盘大片区域（原 y<820+x>520 矩形会吞棋子）。
+        let in_undo = |x: f32, y: f32| (x - 620.0).abs() <= 60.0 && (y - 750.0).abs() <= 60.0;
+        assert!(in_undo(620.0, 750.0), "真机悔棋坐标必须命中");
+        assert!(!in_undo(274.0, 1383.0), "蓝方棋子区不得命中");
+        assert!(!in_undo(77.0, 577.0), "红方棋子区不得命中");
+        // 命中区为 ±60px 小方框（原 y<820+x>520 是大矩形，吞半盘）
     }
 }
