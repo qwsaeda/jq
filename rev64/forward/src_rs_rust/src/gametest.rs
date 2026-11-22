@@ -102,6 +102,18 @@ pub fn init_from_layout_30(layout: &[u8; 30], mode: u8) -> crate::state::State {
     st
 }
 
+/// ★ 原版默认【暗棋】布局（g_opt_mode=1，先手翻子定色）——与 make_default_layout 同一
+///   JQ_DEFAULT_LAY[30]，但 side=SIDE_UNKNOWN(0xFF) / revealed=0 / raw rank（不 +0xc）。
+///   orig_human.png 真机实锤：原版开局是绿色方块背面，不是明棋圆形带字。
+pub fn make_flip_layout() -> State {
+    let lay: [u8; 30] = [
+        3, 7, 6, 5, 8, 10, 0, 9, 0, 1,
+        2, 10, 0, 9, 5, 4, 0, 6, 0, 7,
+        8, 3, 4, 9, 11, 11, 12, 11, 8, 7,
+    ];
+    init_from_layout_30(&lay, crate::state::MODE_FLIP)
+}
+
 /// 默认布局（C jq_default_lay.h JQ_DEFAULT_LAY[30] + layout.c:63-90 装载语义）
 /// 每个布局字节 i（0-29）→ 蓝方 (5-lrow, lcol) + 红方 (6+lrow, 4-lcol)，红 rank+0xc。
 /// lrow=i/5, lcol=i%5；v=0 跳过（行营空位）；v>12 脏字节拒（装载即拒）。

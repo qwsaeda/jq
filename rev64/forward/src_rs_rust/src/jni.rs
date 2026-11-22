@@ -200,9 +200,9 @@ mod android_impl {
         activity: jni::sys::jobject,
     ) -> jni::sys::jobject {
         with_lock(|st, u, _c| {
-            // ★ 统一权威态（审计 A7）：对局态直接用默认布局初始化，不再分裂 G_BOARD
-            *st = crate::gametest::make_default_layout();
-            st.mode = crate::state::MODE_LAY; // 明棋布局（棋子已 revealed，可直接走子）
+            // ★ 统一权威态（审计 A7）：原版默认【暗棋】开局（g_opt_mode=1，先手翻子定色）
+            //   旧 make_default_layout()+MODE_LAY 是自创明棋，orig_human.png 实锤不符。
+            *st = crate::gametest::make_flip_layout();
             st.cfg = [1, 1, 1, 1, 1];
             st.turn = crate::state::SIDE_BLUE;
             st.stage = crate::state::Stage::Play;

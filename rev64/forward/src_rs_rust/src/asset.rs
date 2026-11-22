@@ -224,7 +224,9 @@ mod imp {
                                 if aw > 0 && ah > 0 {
                                     // UV 直接线性映射整个 cell（含透明边），1:1 比例不拉伸
                                     let ax = (sc * cell_w + px * cell_w / pw).min(aw as usize - 1);
-                                    let ay = (sr * cell_h + py * cell_h / ph).min(ah as usize - 1);
+                                    // ★ 暗棋背面 cell 底部 3px 是图集行间蓝色分隔（orig_human.png 无此边）→ UV 内缩去掉
+                                    let uv_h = if is_hidden { cell_h.saturating_sub(3) } else { cell_h };
+                                    let ay = (sr * cell_h + py * uv_h / ph).min(ah as usize - 1);
                                     let ai = (ay * aw as usize + ax) * 4;
                                     if ai + 3 < atile.len() && atile[ai+3] > 10 {
                                         let ar = atile[ai] as u32; let ag = atile[ai+1] as u32; let ab = atile[ai+2] as u32;
@@ -474,7 +476,7 @@ mod imp {
                     for x in ix0..ix1 {
                         if x >= w || y >= h { continue; }
                         let di = (y * w + x) * 4;
-                        out[di] = 230; out[di+1] = 128; out[di+2] = 38; // 橙图标
+                        out[di] = 72; out[di+1] = 184; out[di+2] = 240; // 原版青蓝色 ☰/↩ 图标（orig_human.png 实测）
                     }
                 }
             }

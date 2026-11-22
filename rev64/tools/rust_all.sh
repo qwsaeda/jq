@@ -141,6 +141,12 @@ print(f'{nb/t:.3f}')
       sleep 1; n=$((n+1)); done; echo "$r"; return 1; }
     SR=$(wait_screen boot)
     awk -v r="$SR" 'BEGIN{exit !(r+0 > 0.85)}' && log "PASS 出屏截图非黑比 ($SR)" || { log "FAIL 出屏截图非黑比 ($SR)"; fail=1; }
+    # ★ 默认暗棋开局（原版 g_opt_mode=1）首手是翻子，走子/悔棋判据需显式切明棋：
+    #   ☰(view270,750) → 电脑变着(INGAME_BTNS[2] 720基准中心447,545 ×1.25) → 新手布局(DIFF_BTNS_ORIG[0] 350,527 ×1.25)
+    #   规则判据用明棋语义，与默认 mode 解耦（避免"暗棋首手非走子"假 FAIL）
+    adb_ensure
+    adb -s "$DEV" shell "setprop jq.difficulty NONE; input tap 270 750; sleep 1; input tap 559 681; sleep 1; input tap 438 659" >/dev/null 2>&1
+    wait_prop jq.difficulty 1_0 && log "PASS 切明棋（难度=1_0）" || { log "FAIL 切明棋失败"; fail=1; }
     # 走子：蓝 6→11（tap 两下）
     adb_ensure
     adb -s "$DEV" shell "setprop jq.move NONE; input tap 274 1383; sleep 1; input tap 274 1312" >/dev/null 2>&1
