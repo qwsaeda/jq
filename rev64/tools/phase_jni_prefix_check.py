@@ -22,11 +22,24 @@ ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)
 DIST = os.path.join(ROOT, 'dist')
 
 EXPECT = {
-    'phase0': {'dex': b'com/cnvcs/', 'abis': {'armeabi': 'cnvcs'}},
-    'phase1': {'dex': b'com/cnvcs/', 'abis': {'armeabi': 'cnvcs', 'arm64-v8a': 'stub'}},
-    'phase2': {'dex': b'com/cnvcs/', 'abis': {'armeabi-v7a': 'orig', 'arm64-v8a': 'cnvcs'}},
-    'phase3': {'dex': b'com/cnvcs/', 'abis': {'arm64-v8a': 'cnvcs'}},
+    'phase0': {'dex': b'com/cnvcs/', 'abis': {'armeabi': 'cnvcs'}, 'minSdk': '19', 'targetSdk': '34'},
+    'phase1': {'dex': b'com/cnvcs/', 'abis': {'armeabi': 'cnvcs', 'arm64-v8a': 'stub'}, 'minSdk': '19', 'targetSdk': '34'},
+    'phase2': {'dex': b'com/cnvcs/', 'abis': {'armeabi-v7a': 'orig', 'arm64-v8a': 'cnvcs'}, 'minSdk': '21', 'targetSdk': '34'},
+    'phase3': {'dex': b'com/cnvcs/', 'abis': {'arm64-v8a': 'cnvcs'}, 'minSdk': '21', 'targetSdk': '34'},
 }
+
+def check_sdk(apk, exp):
+    """返回 (ok, 原因)：minSdk/targetSdk 与阶段规格一致（AGENTS 四阶段定义）"""
+    r = subprocess.run(['aapt', 'dump', 'badging', apk], capture_output=True, text=True)
+    out = r.stdout
+    mn = re.search(r"sdkVersion:'(\d+)'", out)
+    tg = re.search(r"targetSdkVersion:'(\d+)'", out)
+    if not mn or not tg:
+        return False, 'aapt 未取到 sdkVersion'
+    gm, gt = mn.group(1), tg.group(1)
+    if gm != exp['minSdk'] or gt != exp['targetSdk']:
+        return False, 'minSdk=%s(期%s) targetSdk=%s(期%s)' % (gm, exp['minSdk'], gt, exp['targetSdk'])
+    return True, 'minSdk=%s targetSdk=%s' % (gm, gt)
 
 def jni_prefixes(so_bytes):
     t = '/tmp/opencode/_jni_prefix.so'
@@ -91,6 +104,10 @@ def main():
         ok = cn >= 10 and qw == 0
         print('%s dex: cnvcs=%d qwsaeda=%d %s' % (phase, cn, qw, '✓' if ok else '✗'))
         if not ok: fails.append('%s dex 前缀异常（cnvcs=%d qwsaeda=%d）' % (phase, cn, qw))
+        # minSdk/targetSdk 规格
+        mok, minfo = check_sdk(apk, exp)
+        print('   sdk: %s %s' % ('✓' if mok else '✗', minfo))
+        if not mok: fails.append('%s SDK 规格漂移（%s）' % (phase, minfo))
         # STORE + 4B 对齐
         aok, ainfo = check_store_align(apk, z)
         print('   store/align: %s %s' % ('✓' if aok else '✗', ainfo))
@@ -115,7 +132,7 @@ def main():
     if fails:
         for f in fails: print('FAIL:', f)
         print('判据: FAIL'); return 2
-    print('判据: PASS（四阶段 dex↔so JNI 前缀一致 + STORE/4B对齐 + 签名 v1/v2/v3 + 证书指纹匹配 keystore）')
+    print('判据: PASS（四阶段 JNI前缀 + minSdk/targetSdk + STORE/4B对齐 + 签名v1/v2/v3 + 证书指纹）')
     return 0
 
 if __name__ == '__main__':

@@ -8,8 +8,8 @@
 |------|--------------|-----|---------|------|
 | phase0 | com.cnvcs.junqi32 (v1.78) | f47d204dbb424aeaf7b7eb31e5590fe0 | armeabi 原版 32 位 so 1435156B STORE, 无 arm64 | v1+v2+v3 ✓ |
 | phase1 | com.cnvcs.junqi32 (v1.78) | 726264f13dde6b1f964869b89c0030fb | + arm64 4.8KB 桩 | v1+v2+v3 ✓ |
-| phase2 | com.cnvcs.junqirs (v1.6.8) | 2e9be895c798fce8afa9a6a752b26926 | armeabi-v7a 32 位 + arm64 so（2026-11-22 二次重建：so 改 com.cnvcs 前缀 14 JNI 导出与 dex 对齐，旧 qwsaeda 符号 = UnsatisfiedLinkError 已修） | v1+v2+v3 ✓ |
-| phase3 | com.cnvcs.junqirs (v1.6.8) | f0f180af2e40fddf7aca12c1f6d12f9c | 同 phase2 + 去广告终态（JNI 前缀同步对齐） | v1+v2+v3 ✓ |
+| phase2 | com.cnvcs.junqirs (v1.6.8) | c74718161d04b98f9383915d10684171 | armeabi-v7a 32 位 + arm64 so（2026-11-22 三次重建：so com.cnvcs 前缀 14 JNI 与 dex 对齐 + **targetSdk 31→34 落地 AGENTS L129 规格**，minSdk 21；BT 权限 BLUETOOTH/ADMIN 保留不回归） | v1+v2+v3 ✓ |
+| phase3 | com.cnvcs.junqirs (v1.6.8) | ba5322b38b927585cc2244136cf362c1 | 同 phase2 + 去广告终态（JNI 前缀 + targetSdk 34 同步对齐） | v1+v2+v3 ✓ |
 
 ## so 基准
 - 32 位翻译体 so: `rev64/dist/libjunqi_arm32_aligned.so` md5 = **d8c98fd9baf61f5a6efff530d17b77ee**（★ R24: ExceptionClear 修复重编同步）

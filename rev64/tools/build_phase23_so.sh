@@ -37,12 +37,15 @@ QW=$(nm -D "$ZO" 2>/dev/null | grep -c "Java_com_qwsaeda" || true)
 echo "  so: $(stat -c%s "$ZO")B md5=$(md5sum "$ZO"|cut -d' ' -f1) | JNI cnvcs=$CN qwsaeda=$QW"
 [ "$CN" = "14" ] && [ "$QW" = "0" ] || { echo "✗ JNI 前缀不符"; exit 1; }
 
-# 构建树注入 cnvcs so（两棵树）
+# 构建树注入 cnvcs so（两棵树）+ targetSdk 31→34（AGENTS 阶段 2/3 规格）
 for tree in dec_dual dec_full; do
   T=$RA/$tree
   [ -d "$T" ] || { echo "✗ 构建树缺失 $T"; exit 1; }
   cp "$ZO" "$T/lib/arm64-v8a/libjunqi.so"
-  echo "  注入 $tree/lib/arm64-v8a/libjunqi.so"
+  # ★ 2026-11-22 规格对齐：AGENTS L129 定 phase2/3 targetSdk 34，但 apktool.yml 历史留 31
+  #   （EXPERIENCE_LOG L1042 记录当初选 31）。改 34 达成规格；arsc 4B 对齐已做（门禁验）。
+  sed -i "s/targetSdkVersion: '31'/targetSdkVersion: '34'/" "$T/apktool.yml"
+  echo "  注入 $tree/lib/arm64-v8a/libjunqi.so + targetSdk→34"
 done
 
 # 打包 phase2/phase3（apktool b → STORE → zipalign → sign，复用 build_phases 的独立步骤）
