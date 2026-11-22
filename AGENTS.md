@@ -502,18 +502,22 @@ java -cp /tmp/opencode/apksigner/apksig.jar:/tmp/opencode/apksigner SignV2 \
   PASS/FAIL + 数值 + 0 崩溃；出屏 logcat 权威非黑比判读，`--rounds N` 连跑防抖动；
   旧入口 `arm32_walkregress.sh` 仍可用（4 路径走子回归），全钩子优先用 hook_check）。
   静态佐证批次化入口：`bash rev64/tools/arm32_static_evidence.sh`（§124y-190~283 扩批，
-  **40 项全 PASS** 设备无关判据（含 §124y-280~282 translation_coverage 覆盖度量化基线：
-  原版 .text 0.99MB / 镜像覆盖 124.3% / 翻译体 F_ 语义函数 2219 / 事件链 57 case 0 悬空
-  + §124y-283 domain_matrix 域级覆盖矩阵：原版被调函数 5595 中语义实现 30.7% /
-  镜像裸跑 69.3%（真机风险区量化，段3+段8 为高频裸跑核心区）= 离线量化"离真机可跑还差多少"）。
+  **★ 2026-11-22 实测 74 项全 PASS**（旧记 40 项为过时基线）设备无关判据（含
+  §124y-280~282 translation_coverage 覆盖度量化基线：原版 .text 0.99MB / 镜像覆盖 124.3% /
+  翻译体 F_ 语义函数 5464 / 事件链 67 case 0 悬空
+  + §124y-283 domain_matrix 域级覆盖矩阵（★ 2026-11-22 实测真值）：原版被调函数 5595 中
+  **语义实现 91.9% / 裸跑 8.1%（434 RAW 全归 libstdc++/glibc 系统域；真业务裸跑 = 0 个）** /
+  系统调用 3.8%。旧口径"30.7% / 69.3% / 3877 RAW / 段3+段8 高频核心区"系早期基线已不适用——
+  当前核心域已全部语义翻译，裸跑仅剩系统库镜像兜底（离线真值以工具实跑为准，禁照抄旧数）。
   **★ 桌面级实证三件套（§124y-283，零设备依赖，全 PASS）**：
   ① 暗棋规则族 `dark_flip_probe_check.py`（8 场景机判：先手定色/己方可翻/敌方不可翻/
      军旗不可翻/已翻不可再翻/终局不可翻）② 事件契约 `event_code_map_check.py`
      （76 事件名 → 12 事件码，Junqi 主链 0 缺口）③ 布局几何 `layout_align_check.py
      --baseline`（datah_042 7 按钮几何 Δ=0）——改代码后跑三件套回归，0 退化才允许推进。
-  **降裸跑率 = 真机可跑主攻方向**：3877 个 RAW 优先翻高频核心域（段3/段8 = 规则引擎/
-  事件构造），把语义实现率从 30.7% 往上推；每翻一个 F_ 函数 = 真机风险降一格。
-  **双端总入口（§124y-215）**：`bash rev64/tools/arm32_verify_all.sh`（静态 38 项 + 设备 4 项
+   **裸跑率现状（★ 2026-11-22）：核心域已清零，非主攻方向**：实测 434 RAW 全为 libstdc++/glibc
+   系统域（镜像+linker 兜底，真机风险可忽略），真业务裸跑 = 0；旧口径"3877 RAW 优先翻段3/段8",
+   语义实现率 30.7%"系早期基线已失效——核心域已全部语义翻译，无需继续降裸跑。
+  **双端总入口（§124y-215）**：`bash rev64/tools/arm32_verify_all.sh`（静态 74 项 + 设备 4 项
   一键跑；设备不可达自动降级 PENDING 非 FAIL §124y-189 口径；`--dev <addr>` / `--static-only`）。
   判据脚本索引（39 项明细 + 设备侧入口 + 坑清单）：`rev64/tools/STATIC_EVIDENCE_INDEX.md`。
   **★ 32 位真机验收 SOP（§124y-279）**：`rev64/reverse/docs/REAL_DEVICE_ACCEPTANCE.md`
