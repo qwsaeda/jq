@@ -13,6 +13,8 @@
   phase2/3: dex=com/cnvcs/* + arm64 so JNI=Java_com_cnvcs_App_*（重编对齐后）
   所有 APK: dex 无 qwsaeda 残留 + so 无 Java_com_qwsaeda 残留
   所有 APK: apksigner verify v1+v2+v3 true + 证书 SHA256 = junqi.keystore 指纹
+  所有 APK: resources.arsc / classes.dex / .so 均 STORE 不压缩 + 4 字节对齐
+    （AGENTS 安装失败排查 ①②：.so 被压缩 / arsc 未 4 字节对齐 → 装失败）
 """
 import os, re, zipfile, subprocess, sys, hashlib
 
@@ -31,6 +33,26 @@ def jni_prefixes(so_bytes):
     open(t, 'wb').write(so_bytes)
     nm = subprocess.run(['nm', '-D', t], capture_output=True, text=True).stdout
     return nm.count('Java_com_cnvcs_'), nm.count('Java_com_qwsaeda')
+
+def check_store_align(apk, z):
+    """返回 (ok, 原因)：resources.arsc/dex/so 全 STORE + 数据起始 4 字节对齐"""
+    import struct
+    bad = []
+    with open(apk, 'rb') as f:
+        for name in z.namelist():
+            if not (name == 'resources.arsc' or name.endswith('.dex') or name.endswith('.so')):
+                continue
+            i = z.getinfo(name)
+            if i.compress_type != zipfile.ZIP_STORED:
+                bad.append('%s 被压缩(%d)' % (name, i.compress_type)); continue
+            off = i.header_offset
+            f.seek(off); hdr = f.read(30)
+            if len(hdr) < 30: bad.append('%s header 截断' % name); continue
+            nlen = struct.unpack_from('<H', hdr, 26)[0]
+            elen = struct.unpack_from('<H', hdr, 28)[0]
+            data_off = off + 30 + nlen + elen
+            if data_off % 4: bad.append('%s 未4字节对齐(@0x%x)' % (name, data_off))
+    return (len(bad) == 0), (bad[0] if bad else 'STORE + 4B 对齐')
 
 def check_signature(apk):
     """返回 (ok, 原因)：v1+v2+v3 + 证书指纹匹配 junqi.keystore"""
@@ -69,6 +91,10 @@ def main():
         ok = cn >= 10 and qw == 0
         print('%s dex: cnvcs=%d qwsaeda=%d %s' % (phase, cn, qw, '✓' if ok else '✗'))
         if not ok: fails.append('%s dex 前缀异常（cnvcs=%d qwsaeda=%d）' % (phase, cn, qw))
+        # STORE + 4B 对齐
+        aok, ainfo = check_store_align(apk, z)
+        print('   store/align: %s %s' % ('✓' if aok else '✗', ainfo))
+        if not aok: fails.append('%s STORE/对齐异常（%s）' % (phase, ainfo))
         # 签名 scheme + 证书指纹
         sok, sinfo = check_signature(apk)
         print('   signature: %s %s' % ('✓' if sok else '✗', sinfo))
@@ -89,7 +115,7 @@ def main():
     if fails:
         for f in fails: print('FAIL:', f)
         print('判据: FAIL'); return 2
-    print('判据: PASS（四阶段 dex↔so JNI 前缀全一致 + 签名 v1/v2/v3 + 证书指纹匹配 keystore，0 qwsaeda 残留）')
+    print('判据: PASS（四阶段 dex↔so JNI 前缀一致 + STORE/4B对齐 + 签名 v1/v2/v3 + 证书指纹匹配 keystore）')
     return 0
 
 if __name__ == '__main__':
