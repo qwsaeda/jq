@@ -180,3 +180,11 @@
 - **资源**：menu_bg.png(972872B) + menu_text_atlas.png(6116B) 均为原版权威拷贝（md5 一致）。
 - **本机判据**：98 测试（+2 菜单合成测试：按钮几何=触摸命中、文字槽覆盖/不越界）/ clippy 0 / build 0。
 - **诚实边界**：设备离线（No route to host），画面无法真机截图验证——不宣称"UI 已对齐完成"。设备恢复后须真机截图确认主菜单（士兵背景+2蓝按钮+白字）再关闭。
+
+## 屏态审计：Difficulty/NewGame 缺失补齐 + 编译期防漏接门禁（2026-11-22）
+- **审计方法**（经验3）：逐个对照 Rust 9 Screen 枚举 vs asset.rs 实际绘制，发现 Difficulty/NewGame/ExitConfirm 三个屏态只画棋盘背景无弹窗。
+- **NewGame 硬阻塞**：jni.rs 的 OnTouch match **完全没有 NewGame 分支**——玩家点"两人对战"进弹窗后完全卡死（无法继续/返回）。补：面板外=取消回菜单；上行选明棋/暗棋（写 st.mode）；下行确定→difficulty_select 开局(vs_ai=false 两人热座)/取消回菜单。
+- **绘制**：Difficulty 面板+4×2 按钮（与 difficulty_hit 同源，单测锚定画=点）；NewGame 面板+明棋/暗棋/确定/取消（与触摸分支同源）。ExitConfirm 简化任意点击=继续（C 版也简化，行为对齐）。
+- **★ 编译期防漏接门禁**：删掉 OnTouch match 的 `_ => return 0` 兜底——9 屏态全覆盖后兜底不可达(警告)，删除后将来新增任何 Screen 变体编译器强制接线，从根上防 NewGame 卡死类漏接复发。
+- **连带修**：rust_all 抓到 android warnings=3(unreachable pattern + 未用 th) → 全清零。
+- 判据：99 测试(+1 难度画=点)/clippy0/0错0警/rust_all全PASS。设备离线，弹窗画面待真机截图验证。

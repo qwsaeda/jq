@@ -95,7 +95,7 @@ mod imp {
                 }
             }
             // 白字图集：从 super::MENU_TEXT_X/Y/W/H 切片，居中贴到按钮内
-            if let Some(&(ref tpx, tw, th)) = text {
+            if let Some(&(ref tpx, tw, _th)) = text {
                 let tx = super::MENU_TEXT_X[i] as usize;
                 let ty = super::MENU_TEXT_Y[i] as usize;
                 let twid = super::MENU_TEXT_W[i] as usize;
@@ -264,6 +264,70 @@ mod imp {
                 }
             }
         }
+        // ★ 人机难度弹窗（规格 §10 必经第一屏）：面板 + 4×2 按钮网格
+        //   几何与 ui.rs difficulty_hit 完全同源（DIFFICULTY_PANEL 4列×2行），确保画=点一致
+        // ★ 两人新局弹窗（NewGame）：面板 + 明棋/暗棋(上行) + 确定/取消(下行)
+        //   几何与 jni.rs NewGame 触摸分支完全同源（DIFFICULTY_PANEL 4列×2行，col0/1 有效）
+        if screen == crate::ui::Screen::NewGame {
+            let p = crate::ui::DIFFICULTY_PANEL;
+            let px0 = (p.x as f32 * sx) as usize;
+            let py0 = (p.y as f32 * sy) as usize;
+            let px1 = ((p.x + p.w) as f32 * sx) as usize;
+            let py1 = ((p.y + p.h) as f32 * sy) as usize;
+            for y in py0..py1.min(h) {
+                for x in px0..px1.min(w) {
+                    let di = (y * w + x) * 4;
+                    out[di] = 245; out[di+1] = 240; out[di+2] = 220; // 米色面板
+                }
+            }
+            let cw = (p.w / 4) as usize;
+            let rh = (p.h / 2) as usize;
+            for row in 0..2usize {
+                for col in 0..2usize { // 只画 col0/1（有效按钮）
+                    let bx0 = ((p.x + col as i32 * cw as i32) as f32 * sx) as usize;
+                    let bx1 = ((p.x + (col as i32 + 1) * cw as i32) as f32 * sx) as usize;
+                    let by0 = ((p.y + row as i32 * rh as i32) as f32 * sy) as usize;
+                    let by1 = ((p.y + (row as i32 + 1) * rh as i32) as f32 * sy) as usize;
+                    for y in by0..by1.min(h) {
+                        for x in bx0..bx1.min(w) {
+                            let di = (y * w + x) * 4;
+                            out[di] = 42; out[di+1] = 111; out[di+2] = 200; // 蓝按钮
+                        }
+                    }
+                }
+            }
+        }
+        if screen == crate::ui::Screen::Difficulty {
+            let p = crate::ui::DIFFICULTY_PANEL;
+            let px0 = (p.x as f32 * sx) as usize;
+            let py0 = (p.y as f32 * sy) as usize;
+            let px1 = ((p.x + p.w) as f32 * sx) as usize;
+            let py1 = ((p.y + p.h) as f32 * sy) as usize;
+            // 面板（米色半透明）
+            for y in py0..py1.min(h) {
+                for x in px0..px1.min(w) {
+                    let di = (y * w + x) * 4;
+                    out[di] = 245; out[di+1] = 240; out[di+2] = 220;
+                }
+            }
+            // 8 按钮（4列×2行，与 difficulty_hit 的 col=ox/(w/4) row=oy/(h/2) 同源）
+            let cw = (p.w / 4) as usize;
+            let rh = (p.h / 2) as usize;
+            for row in 0..2usize {
+                for col in 0..4usize {
+                    let bx0 = ((p.x + col as i32 * cw as i32) as f32 * sx) as usize;
+                    let bx1 = ((p.x + (col as i32 + 1) * cw as i32) as f32 * sx) as usize;
+                    let by0 = ((p.y + row as i32 * rh as i32) as f32 * sy) as usize;
+                    let by1 = ((p.y + (row as i32 + 1) * rh as i32) as f32 * sy) as usize;
+                    for y in by0..by1.min(h) {
+                        for x in bx0..bx1.min(w) {
+                            let di = (y * w + x) * 4;
+                            out[di] = 42; out[di+1] = 111; out[di+2] = 200; // 蓝按钮
+                        }
+                    }
+                }
+            }
+        }
         if screen == crate::ui::Screen::Replay {
             let bar_y0 = (h as f32 * 0.88) as usize;
             let bar_y1 = (h as f32 * 0.96) as usize;
@@ -373,6 +437,30 @@ mod menu_compose_tests {
         for i in 0..MENU_BTNS.len() {
             assert!(MENU_TEXT_X[i] + MENU_TEXT_W[i] <= MENU_TEXT_IMG_W);
             assert!(MENU_TEXT_Y[i] + MENU_TEXT_H <= MENU_TEXT_IMG_H);
+        }
+    }
+}
+
+#[cfg(test)]
+mod difficulty_draw_tests {
+    #[test]
+    fn difficulty_draw_grid_matches_hit() {
+        // 绘制的 4×2 网格必须与 difficulty_hit 解析同源：
+        // col=ox/(w/4) row=oy/(h/2)，面板 4 列宽 90 / 2 行高 200（720基准）
+        let p = crate::ui::DIFFICULTY_PANEL;
+        assert_eq!(p.w / 4, 90, "列宽与绘制 cw 一致");
+        assert_eq!(p.h / 2, 200, "行高与绘制 rh 一致");
+        // 每格中心必须能被 difficulty_hit 解析到对应 (level,mode)
+        for row in 0..2u8 {
+            for col in 0..4u8 {
+                let cx = p.x + col as i32 * 90 + 45;
+                let cy = p.y + row as i32 * 200 + 100;
+                let got = crate::ui::difficulty_hit(cx, cy, &p);
+                assert!(got.is_some(), "格({},{}) 中心应命中", col, row);
+                let (level, mode) = got.unwrap();
+                assert_eq!(level, col + 1, "列+1=level(level从1起)");
+                assert_eq!(mode, row, "行=mode");
+            }
         }
     }
 }

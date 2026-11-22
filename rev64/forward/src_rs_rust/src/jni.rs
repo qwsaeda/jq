@@ -439,6 +439,39 @@ mod android_impl {
                 }
                 return 0;
             }
+            ui::Screen::NewGame => {
+                // ★ 补卡死缺口：NewGame 弹窗原来无任何触摸分支，玩家点"两人对战"后完全卡死。
+                //   两人新局：面板 4×2 网格 → 上行选明棋(col0)/暗棋(col1)，下行确定(row1 col0)/取消(row1 col1)
+                let (bx, by) = (x * 0.8, y * 0.8);
+                let p = &ui::DIFFICULTY_PANEL;
+                if !p.contains(bx as i32, by as i32) {
+                    with_lock(|_s, u, _c| { u.screen = ui::Screen::Menu; }); // 面板外=取消
+                    crate::log::setprop("jq.ingame_act", "newgame_cancel");
+                    return 1;
+                }
+                let col = (bx as i32 - p.x) / (p.w / 4);
+                let row = (by as i32 - p.y) / (p.h / 2);
+                if row == 0 {
+                    // 选模式：col0=明棋(0) col1=暗棋(1)
+                    let mode = if col <= 1 { col as u8 } else { 0 };
+                    with_lock(|st, _u, _c| { st.mode = mode; });
+                    crate::log::setprop("jq.ingame_act", &format!("newgame_mode{}", mode));
+                    return 1;
+                }
+                // 下行：col0=确定（开局）col1=取消（回菜单）
+                if col <= 1 {
+                    with_lock(|st, u, _c| {
+                        let mode = st.mode;
+                        u.difficulty_select(u.level, mode, st); // 复用开局重建（按 mode 载布局）
+                        u.vs_ai = false; // 两人热座
+                    });
+                    crate::log::setprop("jq.ingame_act", "newgame_confirm");
+                } else {
+                    with_lock(|_s, u, _c| { u.screen = ui::Screen::Menu; });
+                    crate::log::setprop("jq.ingame_act", "newgame_cancel");
+                }
+                return 1;
+            }
             ui::Screen::ExitConfirm => {
                 // 退出确认：点按钮区（简化：任意点击→继续游戏）
                 with_lock(|_s, u, _c| { u.screen = ui::Screen::Game; });
@@ -583,8 +616,7 @@ mod android_impl {
                     return 0;
                 }
             }
-            _ => return 0, // 其他屏态（难度/设置/新局/复盘）暂不消费，留后续接线
-        }
+        } // 9 屏态全覆盖（无兜底：新增屏态时编译期强制接线，防 NewGame 卡死漏接复发）
     }
 
 
