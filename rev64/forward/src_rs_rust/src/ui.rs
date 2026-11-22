@@ -179,7 +179,14 @@ impl Ui {
 
     /// 退出确认"退出"→ 回主菜单；"继续"→ 回对局
     pub fn exit_confirm(&mut self, quit: bool) {
-        self.screen = if quit { Screen::Menu } else { Screen::Game };
+        // ★ F6 修：取消退出回上层屏（若从 ☰ 菜单进入则回 IngameMenu），而非固定 Game
+        self.screen = if quit {
+            Screen::Menu
+        } else if self.screen_snap == Screen::IngameMenu {
+            Screen::IngameMenu
+        } else {
+            Screen::Game
+        };
     }
 }
 

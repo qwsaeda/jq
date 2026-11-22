@@ -14,6 +14,25 @@ mod android_impl {
     use jni::objects::JClass;
 
     static G_VM: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+    /// ★ F1 音效链：Activity global ref（sfx::play 需要 Context.getAssets()）。
+    ///   OnTouch 的 me 是 MotionEvent 非 Activity，故 OnCreate 单独保存 activity 引用。
+    static G_ACTIVITY: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+
+    /// 锁外播放事件音效（严禁在 GAME 锁内调 JNI——会阻塞渲染线程拿锁）。
+    /// 仅当 sound_on 且 Activity global ref 有效时播放；JNI 失败静默跳过（音效非核心链路）。
+    #[cfg(target_os = "android")]
+    fn play_sfx_with_env(env: *mut jni::sys::JNIEnv, sound_on: bool, ev: Option<crate::state::Ev>) {
+        if !sound_on { return; }
+        let name = match ev.map(crate::evt::sfx_for_code) { Some(n) => n, None => return };
+        let act = G_ACTIVITY.load(std::sync::atomic::Ordering::Acquire);
+        if act == 0 { return; }
+        if let Ok(mut je) = unsafe { jni::JNIEnv::from_raw(env) } {
+            let ctx = unsafe { jni::objects::JObject::from_raw(act as jni::sys::jobject) };
+            let _ = crate::sfx::play(&mut je, &ctx, name);
+        }
+    }
+    #[cfg(not(target_os = "android"))]
+    fn play_sfx_with_env(_env: *mut (), _sound_on: bool, _ev: Option<crate::state::Ev>) {}
     /// wgpu 出屏资源合一（Mutex 锁数据合一，替代 WGPU_LOCK + 5 个 static mut）
     /// ★ N3 修后 OnUpdate 不再 clear_frame（native Canvas 独占 Surface）；这些字段保留用于
     ///   offscreen 验证与资源生命周期保活（surface/window 同 WgpuState 存活），非死字段。
@@ -227,6 +246,12 @@ mod android_impl {
             Err(_) => return std::ptr::null_mut(),
         };
         let activity_obj = unsafe { jni::objects::JObject::from_raw(activity) };
+        // ★ F1 音效链：保存 Activity global ref（sfx::play 需要 Context.getAssets()）。
+        //   forget 保活，OnDestroy 经 JNI 函数表 DeleteGlobalRef（与 G_VIEW 同策略）。
+        if let Ok(g) = je.new_global_ref(&activity_obj) {
+            G_ACTIVITY.store(g.as_obj().as_raw() as usize, std::sync::atomic::Ordering::Release);
+            std::mem::forget(g);
+        }
         const VIEW_CLASS: &str = "com/qwsaeda/GLView";
         // new_object 内部按类名 find_class（失败返 Err，已被下方 match 捕获）——无需单独 find_class
         let view = match je.new_object(
@@ -273,14 +298,17 @@ mod android_impl {
         // ★ JNI-14: 删除 GLView GlobalRef——旧实现 std::mem::forget 后从不 DeleteGlobalRef，
         //   每次 activity 重建（旋屏/重进）漏一个 GLView + 一个 JNI global ref（确定性泄漏）。
         //   G_VIEW.swap(0) 先清零，OnUpdate 的 `load != 0` 守卫随后跳过，不会 UAF。
+        // G_VIEW / G_ACTIVITY 两个 global ref 一并释放（jni 0.21 无 safe raw 构造，走函数表）
         let old = G_VIEW.swap(0, std::sync::atomic::Ordering::SeqCst);
-        if old != 0 && !env.is_null() {
+        let old_act = G_ACTIVITY.swap(0, std::sync::atomic::Ordering::SeqCst);
+        if !env.is_null() {
             // jni 0.21 的 GlobalRef::from_raw 是 pub(crate)，外部只能通过 JNI 函数表删。
             // DeleteGlobalRef(env, old) 对 new_global_ref 创建的引用配对释放。
             unsafe {
                 let fns = &**(env as *const *const jni::sys::JNINativeInterface_);
                 if let Some(del) = fns.DeleteGlobalRef {
-                    del(env, old as jni::sys::jobject);
+                    if old != 0 { del(env, old as jni::sys::jobject); }
+                    if old_act != 0 { del(env, old_act as jni::sys::jobject); }
                 }
             }
         }
@@ -298,21 +326,26 @@ mod android_impl {
     }
 
     #[no_mangle]
-    pub extern "C" fn Java_com_qwsaeda_App_OnTimer(_env: *mut jni::sys::JNIEnv, _cls: JClass) {
-        with_lock(|st, u, cnt| {
+    pub extern "C" fn Java_com_qwsaeda_App_OnTimer(env: *mut jni::sys::JNIEnv, _cls: JClass) {
+        let (ai_ev, sound_on) = with_lock(|st, u, cnt| {
             if !ai::ai_enabled(st, u.vs_ai) {
-                return;
+                return (None, false);
             }
+            let mut ev_out = None;
             if let Some(mv) = ai::ai_pick(st, u.level) {
                 if mv.is_flip {
                     if rules::flip(st, mv.from) {
                         cnt.record(crate::state::Ev::Flip);
+                        ev_out = Some(crate::state::Ev::Flip);
                     }
                 } else if let Ok(ev) = rules::try_move(st, mv.from, mv.to) {
                     cnt.record(ev);
+                    ev_out = Some(ev);
                 }
             }
+            (ev_out, u.sound_on)
         });
+        if sound_on { play_sfx_with_env(env, sound_on, ai_ev); }
     }
 
     #[no_mangle]
@@ -411,19 +444,40 @@ mod android_impl {
 
     #[no_mangle]
     pub extern "C" fn Java_com_qwsaeda_App_OnKey(
-        _env: *mut jni::sys::JNIEnv,
+        env: *mut jni::sys::JNIEnv,
         _cls: JClass,
-        _key: jni::sys::jobject,
+        key: jni::sys::jobject,
     ) -> jni::sys::jboolean {
-        let consumed = with_lock(|_s, u, _c| {
-            if u.screen == ui::Screen::Game {
-                u.screen = ui::Screen::ExitConfirm;
-                true
-            } else {
-                false
+        // ★ F1 根治：smali 的 onKeyDown/onKeyUp 【都】调 OnKey，且返回 false 会走
+        //   super.onKeyDown → finish()。旧实现不读 action/keyCode：Game 态返回 true、
+        //   其余全 false → 一次 BACK 的 KEY_UP 立刻 finish()，退出确认框形同虚设；
+        //   且音量键等任意键在 Game 态都会弹确认框。
+        //   正确语义：只读 KEYCODE_BACK(4) 的 ACTION_DOWN(0)；其余键与 UP 一律返回 true
+        //   消费（不交给 super，避免 finish）。key==null 时也消费（防御）。
+        const KEYCODE_BACK: i32 = 4;
+        const ACTION_DOWN: i32 = 0;
+        let mut je = match unsafe { jni::JNIEnv::from_raw(env) } { Ok(e) => e, Err(_) => return 1 };
+        let kev = unsafe { jni::objects::JObject::from_raw(key) };
+        let action = je.call_method(&kev, "getAction", "()I", &[]).ok().and_then(|v| v.i().ok()).unwrap_or(-1);
+        let keycode = je.call_method(&kev, "getKeyCode", "()I", &[]).ok().and_then(|v| v.i().ok()).unwrap_or(-1);
+        if je.exception_check().unwrap_or(false) { let _ = je.exception_clear(); }
+        // 非 BACK 或 非 ACTION_DOWN：消费掉，绝不 return false（否则 super→finish）
+        if keycode != KEYCODE_BACK || action != ACTION_DOWN {
+            return 1;
+        }
+        // BACK DOWN：按屏态决定行为——弹窗关闭（回上层）/ 对局弹退出确认 / 主菜单不处理
+        with_lock(|_st, u, _c| {
+            match u.screen {
+                ui::Screen::Game => u.screen = ui::Screen::ExitConfirm,
+                ui::Screen::IngameMenu | ui::Screen::Difficulty | ui::Screen::NewGame
+                | ui::Screen::GameSet | ui::Screen::Settings | ui::Screen::Replay => {
+                    u.cancel_popup(_st); // 回 screen_snap（上层屏），而非退出 app
+                }
+                ui::Screen::ExitConfirm => { u.exit_confirm(false); } // 再按一次 BACK=取消退出
+                ui::Screen::Menu => {} // 主菜单 BACK 不退出（保持 app 存活）
             }
         });
-        consumed as jni::sys::jboolean
+        1 // 始终消费
     }
 
     #[no_mangle]
@@ -477,6 +531,8 @@ mod android_impl {
                 let hit = with_lock(|st, u, _c| {
                     if let Some((lv, md)) = ui::difficulty_hit(bx as i32, by as i32, &ui::DIFFICULTY_PANEL) {
                         u.difficulty_select(lv, md, st);
+                        // ★ F5 修：难度弹窗（人机入口）选定后确保 vs_ai=1，AI 必介入
+                        u.vs_ai = true;
                         Some((lv, md))
                     } else { None }
                 });
@@ -550,11 +606,15 @@ mod android_impl {
                         crate::log::setprop("jq.ingame_act", if ok { "undo_ok" } else { "undo_empty" });
                     }
                     Some(7) => { // 退出程序
-                        with_lock(|_s, u, _c| { u.screen = ui::Screen::ExitConfirm; });
+                        // ★ F6 修：begin_popup 快照 → 取消退出回 IngameMenu（非直接 Game）
+                        with_lock(|st, u, _c| { u.begin_popup(st); u.screen = ui::Screen::ExitConfirm; });
+                        clear_sel();
                         crate::log::setprop("jq.ingame_act", "exit");
                     }
                     Some(2) => { // 电脑变着→难度弹窗
-                        with_lock(|_s, u, _c| { u.screen = ui::Screen::Difficulty; });
+                        // ★ F2/F5 修：begin_popup 快照（取消回 IngameMenu 而非旧 Menu 丢局）+ 清残留选中
+                        with_lock(|st, u, _c| { u.begin_popup(st); u.screen = ui::Screen::Difficulty; });
+                        clear_sel();
                         crate::log::setprop("jq.ingame_act", "difficulty");
                     }
                     Some(3) => { // 游戏规则→GameSet
@@ -651,14 +711,15 @@ mod android_impl {
                     // 二次点击：走子 / 翻棋（同格=翻棋，异格=走子）
                     // ★ JNI-12: push_undo 只在动作确实合法/成功时做——原实现无条件 push，
                     //   二次点错（无效走子）也压栈，64 上限后污染悔棋栈。
-                    let acted = with_lock(|st, u, cnt| {
+                    // ★ F1 音效链：闭包返回 (是否成功, 玩家事件, AI事件, sound_on)，锁外播放 JNI
+                    let (acted, player_ev, ai_ev, sound_on) = with_lock(|st, u, cnt| {
                         // 先只读判定合法性（不修改棋盘）
                         let legal = if from == cell {
                             rules::can_flip(st, cell)
                         } else {
                             rules::can_move(st, from, cell)
                         };
-                        if !legal { return false; }
+                        if !legal { return (false, None, None, false); }
                         u.push_undo(st); // 规格 §6：合法动作前 push 整盘快照
                         let ev_code = if from == cell {
                             // 同格翻棋（暗棋）
@@ -673,6 +734,7 @@ mod android_impl {
                                 Err(_) => None,
                             }
                         };
+                        let mut ai_ev = None;
                         if let Some(e) = ev_code {
                             G_MOVES.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
                             crate::log::setprop("jq.move", &format!("{:?}", e));
@@ -680,15 +742,20 @@ mod android_impl {
                             if u.vs_ai && st.turn == crate::state::SIDE_RED && st.stage == crate::state::Stage::Play {
                                 if let Some(mv) = ai::ai_pick(st, u.level) {
                                     if mv.is_flip {
-                                        if rules::flip(st, mv.from) { cnt.record(crate::state::Ev::Flip); }
+                                        if rules::flip(st, mv.from) { cnt.record(crate::state::Ev::Flip); ai_ev = Some(crate::state::Ev::Flip); }
                                     } else if let Ok(aev) = rules::try_move(st, mv.from, mv.to) {
-                                        cnt.record(aev);
+                                        cnt.record(aev); ai_ev = Some(aev);
                                     }
                                 }
                             }
                         }
-                        ev_code.is_some()
+                        (ev_code.is_some(), ev_code, ai_ev, u.sound_on)
                     });
+                    // ★ 锁外播放（严禁在 GAME 锁内做 JNI 调用，否则阻塞渲染线程）
+                    if acted && sound_on {
+                        play_sfx_with_env(env, sound_on, player_ev);
+                        if let Some(ae) = ai_ev { play_sfx_with_env(env, sound_on, Some(ae)); }
+                    }
                     return if acted { 1 } else { 0 };
                 } else {
                     // 首次点击：选中（纯函数判定，桌面可测）——★ P0 修复：暗棋未翻子可选→二次点翻棋
