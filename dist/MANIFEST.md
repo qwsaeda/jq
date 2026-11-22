@@ -34,3 +34,10 @@
   ③ 下一局 ✓ (jq.movetest 3/3: Junqi.Move×2 + Junqi.Dead×1, 复盘 n=3) ④ 正常退出 ✓ (force-stop 0 崩溃) ⑤ 重进不崩 ✓ (pid 19457 + board=OK + 全链 0 Fatal/0 UnsatisfiedLink)
 - 意义: 本轮四阶段交付物整条修复链 (arm64 so 陈旧 → JNI 前缀断裂 → targetSdk 漂移) 真机闭合；cnvcs so 前缀 + dex 一致 = JNI_OnLoad 真机实锤，targetSdk34 在 Android 15 装机/运行无回归
 - 旧设备 10.0.182.146 → 152 IP 漂移 (MuMu 实例重启), 历史 146 引用 = 环境史存档
+
+### 四阶段真机装机口径全验（2026-11-22, 152）
+- **phase3** ✓ arm64 真 so，五判据全 PASS（见上，当前设备已恢复装回 phase3）
+- **phase2** ✓ arm64 路径五判据全 PASS（pid 20118→20250，board=OK + movetest 3/3 + 退出/重进 0 崩溃；armeabi-v7a 32 位在 152 不被选用，走 arm64）
+- **phase0** 预期内装不上：纯 armeabi 32 位 so，152 abilist=x86_64,arm64-v8a,x86 无 32 位 ARM → INSTALL_FAILED_NO_MATCHING_ABIS（AGENTS 已记"64 位 only 设备装不上"）
+- **phase1** 预期内装得上但跑不起来：arm64 4.8KB 桩 → 装机 Success 但启动即退（pid 空 + board=OK×0），AGENTS"装得上但桩跑不起来（阶段 2 入口）"实锤
+- 结论：四阶段在 152（无 32 位 ARM 的 64 位 only 设备）上的表现与 AGENTS 阶段定义**逐条吻合**，无偏差；phase2/3 真 so 均可玩，phase0 装不上/phase1 桩跑不起来均为预期内诚实边界
