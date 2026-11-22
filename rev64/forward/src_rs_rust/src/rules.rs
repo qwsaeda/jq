@@ -434,15 +434,16 @@ pub fn side_stalemated(st: &State, side: Side) -> bool {
         return false; // 已终局
     }
     // 还有未翻暗子可翻 → 未困毙
-    // ★ C 64 位 R-073 基准：困毙"可翻"扫描**军旗+地雷都排**（翻完须能走，旗/雷不可走）
-    //   32 位分叉 = 仅排地雷（军旗计可翻），Rust 对齐 64 位（排旗+雷）
+    // ★ F1 裁定（2026-11-22）：以原版 32 位 0x30320 反汇编为唯一事实源——
+    //   `cmp r1,#11 beq` = **仅排地雷**，军旗不排（0x30350 未翻军旗计入可翻）。
+    //   旧实现"排旗+雷"是过时的 C 64 位口径（C 正向 rules.c:1050 已于 2026-11-14
+    //   对齐原版改为仅排地雷，REVERSE_LOG §124y-1950）。Rust/SPEC 曾落后于此，本批对齐原版。
     for i in 0..N_CELLS {
         let c = &st.cells[i];
         let cn = rank_of(c);
         if !c.is_empty()
             && !c.revealed
-            && cn != RANK_MINE
-            && cn != RANK_FLAG // R-073 64 位：军旗也排（翻完不能走）
+            && cn != RANK_MINE // 原版 0x30320：仅排地雷；军旗保持可翻（算未困毙）
             && (c.side == SIDE_UNKNOWN || c.side == side)
         {
             return false;

@@ -195,8 +195,8 @@ mod tests {
         st.mode = crate::state::MODE_FLIP;
         probe_put(&mut st, 5, 0, 12, SIDE_UNKNOWN, false);
         let sm = rules::side_stalemated(&st, SIDE_BLUE);
-        // C 64 位 R-073 基准：军旗不可翻 + 无其他子 → 蓝困毙=true（排旗+雷后唯一暗子军旗不贡献可翻）
-        assert!(sm, "C4b 军旗不可翻+无他子=困毙（64 位 R-073）");
+        // ★ F1 对齐原版 0x30320：仅排地雷，未翻军旗算可翻 → 蓝方未困毙=false
+        assert!(!sm, "C4b 未翻军旗算可翻 → 未困毙（原版 0x30320）");
     }
 
     // ---- G 族：暗棋吃子 ----
