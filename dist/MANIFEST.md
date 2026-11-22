@@ -26,3 +26,11 @@
 - 重签工具: `rev64/sign_apk.sh` (v1+v2 双签, junqi.keystore) / apksigner (NDK build-tools)
 - 验证: `apksigner verify --verbose dist/phaseX.apk` 须 v1+v2 = true
 - STORE 三件套: .so/.arsc/.png 不压缩 + resources.arsc 4 字节对齐 (zipalign -p 4)
+
+## 真机五判据实证 (2026-11-22, 设备 10.0.182.152:5555 恢复后)
+- 设备身份: Xiaomi 23127PN0CC / Android 15 / abilist=x86_64,arm64-v8a,x86 (无 32 位 ARM)
+- phase3.apk (md5 ba5322b3, targetSdk34, cnvcs so) 装机 Success + 五判据全 PASS:
+  ① 装得上 ✓ (streamed install Success) ② 进主界面 ✓ (JNI_OnLoad 成功 + board=OK 全纹理 OK + 出屏主路 eglSwapBuffers 激活 + 截图 900×1600 非黑 99.0% 铺满无黑边)
+  ③ 下一局 ✓ (jq.movetest 3/3: Junqi.Move×2 + Junqi.Dead×1, 复盘 n=3) ④ 正常退出 ✓ (force-stop 0 崩溃) ⑤ 重进不崩 ✓ (pid 19457 + board=OK + 全链 0 Fatal/0 UnsatisfiedLink)
+- 意义: 本轮四阶段交付物整条修复链 (arm64 so 陈旧 → JNI 前缀断裂 → targetSdk 漂移) 真机闭合；cnvcs so 前缀 + dex 一致 = JNI_OnLoad 真机实锤，targetSdk34 在 Android 15 装机/运行无回归
+- 旧设备 10.0.182.146 → 152 IP 漂移 (MuMu 实例重启), 历史 146 引用 = 环境史存档
