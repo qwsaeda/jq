@@ -197,12 +197,15 @@ mod imp {
                     let x0 = (cx - pw as f32 * 0.5) as usize;
                     let y0 = (cy - ph as f32 * 0.5) as usize;
                     let base: [u8; 3] = if c.side == crate::state::SIDE_RED { [205, 55, 45] } else { [80, 150, 225] };
+                    // ★ 原版暗棋对齐（orig_human.png 实锤）：暗棋模式未翻开的棋子画【绿色方块背面】
+                    //   （piece_atlas.png 行6列0），不是圆形带字正面。翻开后按 rank 画正面。
+                    let is_hidden = st.mode == crate::state::MODE_FLIP && !c.revealed;
                     // rank→列=(rank-1)%4、子行=(rank-1)/4；红方行0-2、蓝方行3-5、行6背面
                     let rank = u8::from(crate::state::rank_of(c)) as usize;
                     let idx = rank.saturating_sub(1).min(11);
-                    let sc = idx % 4;
+                    let sc = if is_hidden { 0 } else { idx % 4 };
                     let subrow = idx / 4;
-                    let sr = if c.side == crate::state::SIDE_RED { subrow } else { 3 + subrow };
+                    let sr = if is_hidden { 6 } else if c.side == crate::state::SIDE_RED { subrow } else { 3 + subrow };
                     for py in 0..ph {
                         for px in 0..pw {
                             let dx = x0 + px;
@@ -210,8 +213,12 @@ mod imp {
                             if dx >= w || dy >= h { continue; }
                             let nx = px as f32 / pw as f32;
                             let ny = py as f32 / ph as f32;
-                            // 椭圆棋子外形
-                            let in_piece = ((nx - 0.5).powi(2) / 0.22 + (ny - 0.5).powi(2) / 0.24) < 1.0;
+                            // ★ 暗棋背面=方块（图集自带圆角边框），明棋=椭圆棋子外形
+                            let in_piece = if is_hidden {
+                                true
+                            } else {
+                                ((nx - 0.5).powi(2) / 0.22 + (ny - 0.5).powi(2) / 0.24) < 1.0
+                            };
                             if in_piece {
                                 let di = (dy * w + dx) * 4;
                                 if aw > 0 && ah > 0 {

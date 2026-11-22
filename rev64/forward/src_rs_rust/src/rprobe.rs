@@ -115,6 +115,7 @@ mod tests {
     #[test]
     fn b3_bomb_vs_flag() {
         let mut st = State::new();
+        st.mode = crate::state::MODE_LAY; // 明棋规则语义，显式声明（不依赖默认 mode）
         probe_clear(&mut st);
         probe_put(&mut st, 5, 0, 10, SIDE_BLUE, true);
         probe_put(&mut st, 5, 1, 12, SIDE_RED, true);
@@ -129,6 +130,7 @@ mod tests {
     #[test]
     fn b4_normal_vs_flag() {
         let mut st = State::new();
+        st.mode = crate::state::MODE_LAY; // 明棋规则语义，显式声明（不依赖默认 mode）
         probe_clear(&mut st);
         probe_put(&mut st, 5, 0, 1, SIDE_BLUE, true);
         probe_put(&mut st, 5, 1, 12, SIDE_RED, true);

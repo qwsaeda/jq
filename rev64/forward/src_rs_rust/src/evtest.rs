@@ -4,12 +4,13 @@
 //! 把 C 正向的"事件契约对齐"证据（evverify 174 断言核心）搬进 Rust：
 //! 走子/吃子/扛旗/挖雷 → 事件码 + stage + winner 真值断言，对齐 C 行为基准。
 
-use crate::state::{Cell, Ev, State, Stage, Winner, SIDE_BLUE, SIDE_RED, SIDE_UNKNOWN, Rank};
+use crate::state::{Cell, Ev, State, Stage, Winner, SIDE_BLUE, SIDE_RED, SIDE_UNKNOWN, Rank, MODE_LAY};
 use crate::rules;
 
 /// C mk_flag 夹具：cell53 蓝 rank2 + cell58 红旗（rank12+0xc=24）
 fn mk_flag() -> State {
     let mut st = State::new();
+    st.mode = MODE_LAY; // 扛旗规则夹具是明棋语义，显式声明（不依赖 State 默认 mode）
     st.turn = SIDE_BLUE;
     st.stage = Stage::Play;
     st.winner = Winner::None;

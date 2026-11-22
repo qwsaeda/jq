@@ -177,7 +177,9 @@ impl Default for State {
 }
 
 impl State {
-    /// 初始化空盘（全 60 格 RANK_EMPTY，蓝先手，PLAY，明棋）
+    /// 初始化空盘（全 60 格 RANK_EMPTY，蓝先手，PLAY，暗棋翻棋）
+    /// ★ 原版对齐：g_opt_mode 默认 1（暗棋翻棋，先手翻子定色）——seed 开局即绿色方块背面。
+    ///   旧 MODE_LAY(明棋) 是自创默认，真机 orig_human.png 实锤原版为暗棋。
     pub fn new() -> Self {
         Self {
             cells: [Cell::empty(); N_CELLS],
@@ -188,7 +190,7 @@ impl State {
             total_moves: 0,
             mines_cleared: [0, 0],
             pieces_left: [0, 0],
-            mode: MODE_LAY,
+            mode: MODE_FLIP,
             // 规则开关默认全开（对齐原版：和棋/大本营/吃雷/吃旗/暗棋门槛）
             cfg: [1, 1, 1, 1, 1],
             wgpu_init_done: false,
