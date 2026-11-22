@@ -148,3 +148,35 @@
 - **P2 A5**：新增 check_enums 两阶段校验接口（拒读不改调用方 + 显式净化）
 - **P3 A11**：rewind_to 越界 cur clamp（与 cur_set 一致）
 - 83 测试全绿 + 真机 5 判据回归全通（①装 ②出屏 ③触摸走子 move=Move ④退出 ⑤重进 0 崩溃）
+
+## ★★★ wgpu GPU 渲染管线打通（2026-11-22，用户指令"打通 Rust 版 wgpu GPU 渲染管线"）
+
+**口径纠正**：本文此前"纯 Rust wgpu 出屏达成"（第 109-128 行）实为 **CPU 逐像素合成 + Java Canvas 出屏**，
+wgpu device/surface/pipeline 是 `None` 骨架（render/gles.rs），线程名 `wgpu_thread` 是历史误称。
+本节为**真正的 GPU 渲染管线**闭环：场景几何与纹理采样全部在 WGSL shader 中完成。
+
+### 实现（正向开发，按业务文档/代码规范，不靠原版逆向对照）
+- **布局单一真值**（CODE_STYLE §13）：`asset.rs` 抽出 `DrawTarget` 抽象（blit/fill/dim/piece），
+  `build_scene` 唯一一份场景布局；`CpuTarget`（桌面离线 UI 门禁，逐像素语义不变）与
+  `QuadTarget`（显示列表）共用它——杜绝"CPU 画一套、GPU 另一套"漂移。
+- **GPU 管线**（WGPU_RENDER_DESIGN §3）：`render/gpu.rs` = wgsl 顶点直通 + 纹理采样 + `BlendState::ALPHA_BLENDING`
+  + `create_render_pipeline` + 纹理预热（15 张：棋盘/菜单背景/按钮/棋子图集/弹窗文字/白纹理）
+  + 顶点批次（连续同纹理合并 draw）+ offscreen texture（450×800）+ readback RGBA → Canvas。
+  棋子正面椭圆遮罩、背面去底部 3px 分隔在**纹理上传时**预处理（对齐 CPU piece 语义）。
+- **假绿防线**（CODE_STYLE §9/§10）：`jq.gpu_state` 只在 `render_frame` 成功返回时写 `render_ok`；
+  失败写 `device_fail/pipeline_err/texture_fail/render_err/cpu_fallback` + `jq.gpu_err` 捕获 Validation Error。
+  `rust_all.sh --device` 新增 GPU 判据：属性必须是 `render_ok` + 截图量化色数 ≥ 6（排除纯色验证帧假绿），
+  启动与重进各查一次（重进前 setprop 重置防旧值假绿）。
+
+### 真机实证（10.0.182.152:5555，so `28d28de5`）
+| 判据 | 结果 |
+|---|---|
+| GPU 消费点属性 | `jq.gpu_state=render_ok`、`jq.gpu_err=` 空（启动 + 重进两次） |
+| 场景真实几何 | 启动 76 色 / 重进 170 色（量化色数 ≥ 6 判据）；截图实锤棋盘铁路线+绿背面棋子、菜单士兵背景+蓝按钮+房子 |
+| 全量回归 | `bash rev64/tools/rust_all.sh --device` **PASS**：113 测试 + clippy 0 警 + 14 符号 + 154/154 行为对齐 + 950/950 几何 + so 对账 + 非黑 98.8% + 切明棋 + 走子 Move + 悔棋 + 终局重开 + 棋盘可交互 + 重进 + 0 Fatal |
+| so/APK | `dist/phase_rs_rust.apk` 27MB，arm64 so md5 `28d28de5b7cc4967436933d1cc8056e0` |
+
+**诚实边界**：① 出屏链路仍是 offscreen GPU render → readback RGBA → Java `lockCanvas` 显示
+（wgpu EGL window surface 在 houdini 下 `create_surface_unsafe_err` 稳定失败，非环境限制而是 wgpu-hal surface API
+在该环境的兼容性问题；场景本身已是 GPU 渲染，不是 CPU 合成或 GPU blit）；② gles 后端真 ARM64 GPU A/B 未测
+（设备为 x86_64 + houdini）；③ 32 位真机缺口（无 armeabi）不变，Rust 正向锁定纯 64 位。

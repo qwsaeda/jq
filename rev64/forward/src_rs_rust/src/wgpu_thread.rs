@@ -62,6 +62,16 @@ mod imp {
         };
         crate::log::setprop("jq.wgpu_state3", "attached");
 
+        // ★ wgpu GPU 渲染管线（WGPU_RENDER_DESIGN §3）：device + pipeline + 纹理一次性初始化。
+        //   失败显式写 jq.gpu_state 并降级 CPU 合成，禁止"没画还报成功"（CODE_STYLE §9/§10）。
+        let mut gpu = match crate::render::gpu::GpuRenderer::init() {
+            Some(g) => Some(g),
+            None => {
+                crate::log::setprop("jq.gpu_state", "cpu_fallback");
+                None
+            }
+        };
+
         // ① 轮询等 Surface 有效（setContentView 后异步创建）
         let mut window: *mut std::ffi::c_void = std::ptr::null_mut();
         let view = jni::objects::JObject::from_raw(view_addr as jni::sys::jobject);
@@ -119,7 +129,17 @@ mod imp {
             let r = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
                 let rgba = {
                     let (board, screen, stats) = match crate::jni::board_snapshot() { Some(b) => b, None => return };
-                    crate::asset::compose_board_rgba(450, 800, Some(&board), screen, Some(&stats))
+                    // ★ GPU 优先：wgpu render pass 直接按 quad 列表画棋盘/棋子/UI；
+                    //   任一帧失败则降级 CPU 合成并落 jq.gpu_state，判据据此区分真 GPU 出屏与兜底。
+                    match gpu.as_mut().and_then(|g| {
+                        crate::render::gpu::render_scene(g, 450, 800, Some(&board), screen, Some(&stats))
+                    }) {
+                        Some(px) => px,
+                        None => {
+                            crate::log::setprop("jq.gpu_state", "cpu_fallback");
+                            crate::asset::compose_board_rgba(450, 800, Some(&board), screen, Some(&stats))
+                        }
+                    }
                 };
                 // ★ P0 根治（local reference table overflow）：本线程 attach 一次后永久循环，
                 //   旧实现每帧 getHolder/getSurface/isValid + canvas 内 ~7 个 JObject 局部引用

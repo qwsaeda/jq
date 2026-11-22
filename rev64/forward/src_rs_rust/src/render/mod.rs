@@ -13,6 +13,9 @@ mod gles;
 mod geom;
 mod cpu;
 mod coord;
+pub(crate) mod quad;
+#[cfg(target_os = "android")]
+pub(crate) mod gpu;
 
 // 对外 API 重组（与原 render.rs 完全一致）
 #[cfg(not(target_os = "android"))]

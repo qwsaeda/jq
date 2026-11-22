@@ -109,3 +109,14 @@ Rust so `libjunqi_rs.so`（469968B，14 JNI 符号）+ STORE + v1+v2+v3 三签�
 - gles 后端真机 GPU 驱动兼容性未实测（部分设备 vulkan 更稳，需真机 A/B）
 - 棋子纹理动态跟随走子（顶点按批切换）= C §124w-ALIGN 未完全闭环项，wgpu 版需重做
 - 本设计 = 渲染层实现基准，真机 5 判据全 PASS 才允许写"达成"
+
+## 9. 结案补录（2026-11-22，§8 三项待办已闭环，so `28d28de5`）
+- ① **wgpu render pass 已实现**：`src/render/gpu.rs` 真 GPU 管线（WGSL + `create_render_pipeline` + blend +
+  15 张纹理预热 + 顶点批次 + offscreen readback）。布局单一真值 = `asset::DrawTarget::build_scene`
+  （CPU/GPU 共用），不靠原版逆向对照。EGL window surface 在 houdini 下仍失败 → 采用 offscreen 出屏
+  （场景由 GPU 绘制，非 CPU 合成 / 非 GPU blit）。
+- ② **OnTouch 坐标提取已接通**：`jni.rs` 反射 MotionEvent + view→base 坐标归一化 + cell 命中，
+  真机 `jq.move=Move` 实锤。
+- ③ **5 判据已真机执行**：`rust_all.sh --device` PASS（10.0.182.152）；新增 GPU 消费点判据
+  （`jq.gpu_state=render_ok` + 量化色数 ≥ 6，启动/重进各一次，防 CPU 兜底与纯色帧假绿）。
+- 残留边界：真 ARM64 GPU 驱动 A/B 未测（设备 x86_64+houdini）；32 位硬件缺口不变（Rust 锁定纯 64 位）。

@@ -7337,3 +7337,25 @@ java.lang.UnsatisfiedLinkError: dlopen failed:
 
 **纪律兑现**：用户授权 → 只读核对身份 → 做完立即 `adb disconnect`（已确认 adb devices 为空）
 → 全程未碰 152、未起新容器、未执行 redroid_test.sh（仍禁用）。
+
+## 2026-11-22 正向 Rust：wgpu GPU 渲染管线打通（用户指令）
+**背景**：用户质疑"正向开发就是完全基于业务文档、代码规范"，并要求打通 wgpu GPU 渲染管线。
+旧交付的"wgpu 出屏"实为 CPU 合成 + Canvas，wgpu 资源全是 None 骨架——口径已纠正。
+
+**做法（正向开发范式）**：
+1. **布局单一真值**：`asset.rs` 抽 `DrawTarget`（blit/fill/dim/piece）+ `build_scene`，
+   CPU 目标保持逐像素语义（桌面 113 测试不退化），GPU 目标只收集 quad——
+   根治"CPU/GPU 两套布局漂移"（CODE_STYLE §13）。
+2. **GPU 管线**：`render/gpu.rs` WGSL shader + pipeline + `BlendState::ALPHA_BLENDING`
+   + 15 张纹理上传（棋子正/背面按椭圆/方块预乘 alpha）+ 连续同纹理批次 draw + offscreen readback。
+3. **假绿防线**（CODE_STYLE §9/§10）：`jq.gpu_state` 仅在 `render_frame` 成功时写 `render_ok`；
+   Validation ErrorScope 写 `jq.gpu_err`；`rust_all.sh --device` 加属性 + 量化色数 ≥ 6 双判据，
+   启动/重进各查一次（重进前 setprop 重置防旧值）。
+
+**实证**：10.0.182.152 so `28d28de5`，`jq.gpu_state=render_ok`、非黑 98.8%、启动 76 色/重进 170 色，
+截图棋盘铁路线+棋子、菜单士兵背景+蓝按钮+房子；`rust_all.sh --device` 全 PASS（113 测试 + 0 崩溃）。
+
+**教训固化**：① "有 device + 能 clear 出纯色" ≠ "GPU 渲染管线打通"，必须看消费点属性与场景色彩多样性；
+② 纹理遮罩在上传时预处理比在 shader 里分支更省且语义可控；③ houdini 下 wgpu window surface 不可用，
+offscreen GPU render + readback + Canvas 是可行路线（场景仍由 GPU 生成）；④ 判据属性必须在重进前重置，
+否则跨进程残留值造成假绿。

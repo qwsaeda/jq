@@ -117,7 +117,7 @@ if [ "$DEVICE" = 1 ]; then
     adb_ensure
     # 干净重启（清残留钩子 + 文件探针）
     adb_ensure
-    adb -s "$DEV" shell "rm -f /data/local/tmp/jq_hook_*; am force-stop com.qwsaeda.junqirs" >/dev/null 2>&1
+    adb -s "$DEV" shell "setprop jq.gpu_state NONE; rm -f /data/local/tmp/jq_hook_*; am force-stop com.qwsaeda.junqirs" >/dev/null 2>&1
     sleep 2  # houdini JIT 竞态：force-stop 后立即 start 会 non-executable memory SIGSEGV（实测）
     adb -s "$DEV" shell "am start -n com.qwsaeda.junqirs/com.qwsaeda.App" >/dev/null 2>&1
     # ★ 出屏判据用截图像素（不依赖属性）：jq.wgpu_thread 会被设备 selinux 标记 denied
@@ -135,12 +135,35 @@ t=len(range(0,h,16))*len(range(0,w,16))
 print(f'{nb/t:.3f}')
 " 2>/dev/null
     }
+    # ★ GPU 渲染管线专属判据（CODE_STYLE §9/§10 防假绿）：
+    #   ① jq.gpu_state=render_ok 只由 GpuRenderer::render_frame 成功返回时写入（CPU 兜底写 cpu_fallback）
+    #   ② 截图量化色数 ≥ 6 → 真实棋盘/棋子/按钮几何，排除"纯色验证帧 + 非黑比高"旧假绿
+    check_scene_colors(){
+      local tag=$1
+      python3 -c "
+from PIL import Image
+im=Image.open('/tmp/jq_ra_${tag}.png').convert('RGB')
+sm=im.resize((im.width//8, im.height//8))
+cols={(r>>4,g>>4,b>>4) for (r,g,b) in sm.getdata()}
+print(len(cols))
+" 2>/dev/null
+    }
+    check_gpu(){ local tag=$1
+      wait_prop jq.gpu_state render_ok && log "PASS GPU 渲染管线出图 ($tag: render_ok)" || {
+        log "FAIL GPU 未出图 ($tag: $(adb -s "$DEV" shell getprop jq.gpu_state 2>/dev/null | tr -d '\r') / err=$(adb -s "$DEV" shell getprop jq.gpu_err 2>/dev/null | tr -d '\r'))"; fail=1; }
+      local n=0 c=0; while [ $n -lt 8 ]; do
+        c=$(check_scene_colors "$tag" 2>/dev/null); [ -n "$c" ] && [ "$c" -ge 6 ] && break
+        sleep 1; n=$((n+1)); done
+      awk -v v="$c" 'BEGIN{exit !(v+0 >= 6)}' && log "PASS 场景真实几何 ($tag: $c 色)" || {
+        log "FAIL 场景非真实几何 ($tag: $c 色 < 6)"; fail=1; }
+    }
     # 轮询截图直到非黑比达标（启动/渲染有延迟，单次截图会拿到黑屏启动帧）
     wait_screen(){ local tag=$1 n=0 r="0.000"; while [ $n -lt 20 ]; do
       r=$(check_screen "${tag}_$n"); awk -v v="$r" 'BEGIN{exit !(v+0 > 0.85)}' && { echo "$r"; return 0; }
       sleep 1; n=$((n+1)); done; echo "$r"; return 1; }
     SR=$(wait_screen boot)
     awk -v r="$SR" 'BEGIN{exit !(r+0 > 0.85)}' && log "PASS 出屏截图非黑比 ($SR)" || { log "FAIL 出屏截图非黑比 ($SR)"; fail=1; }
+    check_gpu boot_0   # ★ GPU render pass 消费点判据（非 CPU 兜底 + 非纯色帧）
     # ★ 默认暗棋开局（原版 g_opt_mode=1）首手是翻子，走子/悔棋判据需显式切明棋：
     #   ☰(view270,750) → 电脑变着(INGAME_BTNS[2] 720基准中心447,545 ×1.25) → 新手布局(DIFF_BTNS_ORIG[0] 350,527 ×1.25)
     #   规则判据用明棋语义，与默认 mode 解耦（避免"暗棋首手非走子"假 FAIL）
@@ -169,11 +192,12 @@ print(f'{nb/t:.3f}')
     # ⑤ 重进不崩：force-stop 后重新 am start，等 pid 存活 + 出屏恢复
     #   （放在 Fatal 检查之前，重进过程的崩溃也能被下面的 Fatal 计数捕获）
     adb_ensure
-    adb -s "$DEV" shell "am force-stop com.qwsaeda.junqirs" >/dev/null 2>&1
+    adb -s "$DEV" shell "setprop jq.gpu_state NONE; am force-stop com.qwsaeda.junqirs" >/dev/null 2>&1
     sleep 2  # 同上：避免 houdini 快速重启竞态
     adb -s "$DEV" shell "am start -n com.qwsaeda.junqirs/com.qwsaeda.App" >/dev/null 2>&1
     SR2=$(wait_screen restart)
     awk -v r="$SR2" 'BEGIN{exit !(r+0 > 0.85)}' && log "PASS 重进出屏恢复 ($SR2)" || { log "FAIL 重进未恢复出屏 ($SR2)"; fail=1; }
+    check_gpu restart_0   # ★ 重进后 GPU 管线仍必须真正出图（属性重置防旧值假绿）
     adb_ensure
     RP=""; for pn in 1 2 3 4 5; do adb_ensure; RP=$(adb -s "$DEV" shell "pidof com.qwsaeda.junqirs" 2>/dev/null | tr -d '\r' | head -1); [ -n "$RP" ] && break; sleep 1; done
     [ -n "$RP" ] && log "PASS 重进 pid 存活 ($RP)" || { log "FAIL 重进 pid 不存在"; fail=1; }
