@@ -60,6 +60,11 @@ mod android_impl {
     }
     static GAME: Mutex<Option<Game>> = Mutex::new(None);
 
+    /// 清选中态（切屏/重开/悔棋后必须清，否则旧 cell 当 from 触发错误走子 —— JNI-12）
+    fn clear_sel() {
+        if let Ok(mut g) = G_SEL.lock() { *g = None; }
+    }
+
     fn with_lock<F, R>(f: F) -> R
     where
         F: FnOnce(&mut State, &mut ui::Ui, &mut evt::EventCounter) -> R,
@@ -229,10 +234,18 @@ mod android_impl {
             Ok(v) => v,
             Err(_) => return std::ptr::null_mut(),
         };
+        // ★ JNI-02: call_method 失败会留下 pending Java 异常，不清则下次 JNI 调用 abort（No pending exception expected）。
+        //   统一 helper：调用 + 失败时 exception_check/clear，不把异常带出本函数。
+        fn call_clear(je: &mut jni::JNIEnv, obj: &jni::objects::JObject<'_>, name: &str, sig: &str,
+                      args: &[jni::objects::JValue<'_, '_>]) -> bool {
+            let ok = je.call_method(obj, name, sig, args).is_ok();
+            if !ok && je.exception_check().unwrap_or(false) { let _ = je.exception_clear(); }
+            ok
+        }
         // 对齐 C jni_bridge.c:2727：setEGLContextClientVersion(2) 须在 GLThread start 前调
-        let _ = je.call_method(&view, "setEGLContextClientVersion", "(I)V", &[jni::objects::JValue::Int(2)]);
+        call_clear(&mut je, &view, "setEGLContextClientVersion", "(I)V", &[jni::objects::JValue::Int(2)]);
         // ★ 出屏根因修复：native OnCreate 内调 activity.setContentView(view)，激活 Java GLThread 出帧链
-        let _ = je.call_method(&activity_obj, "setContentView", "(Landroid/view/View;)V", &[jni::objects::JValue::Object(&view)]);
+        call_clear(&mut je, &activity_obj, "setContentView", "(Landroid/view/View;)V", &[jni::objects::JValue::Object(&view)]);
         // 保存 GLView global ref（OnUpdate 用它拿 Surface → ANativeWindow → wgpu Surface）
         let global = match je.new_global_ref(&view) {
             Ok(g) => g,
@@ -499,11 +512,11 @@ mod android_impl {
                 let hit = ui::ingame_hit(bx as i32, by as i32);
                 match hit {
                     Some(0) => { // 重新开始
-                        with_lock(|st, u, _c| { u.restart(st); });
+                        with_lock(|st, u, _c| { u.restart(st); }); clear_sel();
                         crate::log::setprop("jq.ingame_act", "restart");
                     }
                     Some(1) => { // 悔棋（真执行）
-                        let ok = with_lock(|st, u, _c| u.undo(st));
+                        let ok = with_lock(|st, u, _c| u.undo(st)); clear_sel();
                         crate::log::setprop("jq.ingame_act", if ok { "undo_ok" } else { "undo_empty" });
                     }
                     Some(7) => { // 退出程序
@@ -554,7 +567,7 @@ mod android_impl {
                 //   stage==OVER 时 tap 落该区 → restart（原版点这里直接重开一局）
                 let over = with_lock(|st, _u, _c| st.stage == crate::state::Stage::Over);
                 if over && x >= 315.0 && x <= 585.0 && y >= 992.0 && y <= 1152.0 {
-                    with_lock(|st, u, _c| u.restart(st));
+                    with_lock(|st, u, _c| u.restart(st)); clear_sel();
                     crate::log::setprop("jq.ingame_act", "restart");
                     return 1;
                 }
@@ -566,7 +579,7 @@ mod android_impl {
                         crate::log::setprop("jq.game_icon", "menu");
                         return 1;
                     } else if x > 520.0 { // ↩ 悔棋（真执行）
-                        let ok = with_lock(|st, u, _c| u.undo(st));
+                        let ok = with_lock(|st, u, _c| u.undo(st)); clear_sel();
                         crate::log::setprop("jq.game_icon", if ok { "undo_ok" } else { "undo_empty" });
                         return 1;
                     }
@@ -583,15 +596,22 @@ mod android_impl {
                 };
                 if let Some(from) = sel {
                     // 二次点击：走子 / 翻棋（同格=翻棋，异格=走子）
+                    // ★ JNI-12: push_undo 只在动作确实合法/成功时做——原实现无条件 push，
+                    //   二次点错（无效走子）也压栈，64 上限后污染悔棋栈。
                     let acted = with_lock(|st, u, cnt| {
-                        u.push_undo(st); // 规格 §6：走子/翻棋前 push 整盘快照
+                        // 先只读判定合法性（不修改棋盘）
+                        let legal = if from == cell {
+                            rules::can_flip(st, cell)
+                        } else {
+                            rules::can_move(st, from, cell)
+                        };
+                        if !legal { return false; }
+                        u.push_undo(st); // 规格 §6：合法动作前 push 整盘快照
                         let ev_code = if from == cell {
                             // 同格翻棋（暗棋）
-                            if rules::can_flip(st, cell) {
-                                if rules::flip(st, cell) {
-                                    cnt.record(crate::state::Ev::Flip);
-                                    Some(crate::state::Ev::Flip)
-                                } else { None }
+                            if rules::flip(st, cell) {
+                                cnt.record(crate::state::Ev::Flip);
+                                Some(crate::state::Ev::Flip)
                             } else { None }
                         } else {
                             // 异格走子（经 rules::try_move 统一规则引擎）

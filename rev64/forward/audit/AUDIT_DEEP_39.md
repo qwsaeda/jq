@@ -12,7 +12,7 @@
 | P0-1 | 判据 | rust_anything_check.py / rp_desktop_compare.sh | 三套"行为对齐"判据不测生产 Rust 代码（测脚本内嵌模板或 C-vs-C），篡改生产函数仍 PASS = 结构化判据恒真 | ✅ 已修（ai_score 桥接测试：原版154case→直接测生产 ai::ai_score，接入 rust_all [4a]；负向篡改生产函数→FAILED=2 非恒真） |
 | P0-2 | 判据 | rust_all.sh:89 | 设备离线 `fail=0` 抹掉桌面 FAIL 强制 PASS | ✅ 已修（离线按已有 fail 判定，rc=3 PENDING） |
 | JNI-01 | JNI | jni.rs:332 | wgpu Surface 持裸 ANativeWindow 指针却立即 release → 悬空 | ✅ 已修（WgpuState 保活 WindowPtr + Drop 释放） |
-| JNI-02 | JNI | jni.rs:220/222/224 | OnCreate call_method 丢弃 Err，pending JNI 异常未清 → 后续 JNI abort | 待修 |
+| JNI-02 | JNI | jni.rs:220/222/224 | OnCreate call_method 丢弃 Err，pending JNI 异常未清 → 后续 JNI abort | ✅ 已修（call_clear helper：失败时 exception_check/clear） |
 
 ## P1（行为错误/可复现故障）
 
@@ -31,9 +31,9 @@
 | UI-06 | UI | jni.rs:339 | OnUpdate 每帧 clear_frame 纯蓝 + smali 仍有 setRenderer（注释矛盾） | 待真机确认（设备离线） |
 | UI-07 | UI | evt.rs/sfx.rs | 音效映射正确但全链无消费者（14 WAV 编进 so 永不播放） | 已知边界（houdini JNI 崩回退，待真 ARM64） |
 | JNI-03 | JNI | jni.rs:286/288 | Surface 与 Device 来自不同 wgpu Instance | 待修 |
-| JNI-04 | JNI | wgpu_thread.rs:11-19 | stop() join 无超时 + 启动期不查 STOP → 主线程 ANR | 待修 |
-| JNI-05 | JNI | wgpu_thread.rs:22-38 | START/STOP/JOIN 三态竞态 | 待修 |
-| JNI-06 | JNI | canvas.rs:51-76 | lockCanvas 成功但错误路径未 unlock → Surface 永久锁死 | 待修 |
+| JNI-04 | JNI | wgpu_thread.rs:11-19 | stop() join 无超时 + 启动期不查 STOP → 主线程 ANR | ✅ 已修（轮询 RUNNING≤2s + 启动期 STOP 检查） |
+| JNI-05 | JNI | wgpu_thread.rs:22-38 | START/STOP/JOIN 三态竞态 | ✅ 已修（先 swap RUNNING 成功后才清 STOP） |
+| JNI-06 | JNI | canvas.rs:51-76 | lockCanvas 成功但错误路径未 unlock → Surface 永久锁死 | ✅ 已修（createScaledBitmap/drawBitmap 失败先 unlock+清异常） |
 
 ## P2（健壮性/数据一致性）
 
@@ -50,8 +50,8 @@
 | UI-10 | UI | jni.rs:426-441 | Difficulty 面板外无返回菜单处理 | ✅ 已修（我在 NewGame 之前补过 Difficulty 面板外？需复核） |
 | JNI-09 | JNI | canvas.rs/sfx.rs | 错误路径残留 Java 异常；sfx 无 release | 待修 |
 | JNI-10 | JNI | log.rs:18/47 | CString unwrap 可 panic；setprop 返回值丢弃 | 待修 |
-| JNI-11 | JNI | wgpu_thread.rs:28 | 全局 panic hook 静默所有线程 panic 日志 | 待修 |
-| JNI-12 | JNI | jni.rs:564-617 | G_SEL 跨屏残留；push_undo 早于合法性校验 | 待修 |
+| JNI-11 | JNI | wgpu_thread.rs:28 | 全局 panic hook 静默所有线程 panic 日志 | ✅ 已修（删除 set_hook，catch_unwind 已防 abort） |
+| JNI-12 | JNI | jni.rs:564-617 | G_SEL 跨屏残留；push_undo 早于合法性校验 | ✅ 已修（clear_sel 在 restart/undo 后 + 先判定合法性再 push_undo） |
 | JNI-13 | JNI | jni.rs:275 | OnUpdate 缺入口异常清理 | 待修 |
 | JNI-14 | JNI | jni.rs:224-236 | OnCreate 每次重建泄漏 GlobalRef | 待修 |
 | （JNI 类还有 JNI-08 OnUpdate 取 Surface 未 isValid） | JNI | jni.rs:317 | 同 JNI-01 死路径段 | 随死路径处理 |
@@ -81,7 +81,9 @@
 - 批次3（本次）：P0-1 根因修复——rust_anything_check 加 --export-cases 导出原版真值表；
   gen_ai_score_bridge_test.py 生成集成测试直接调生产 ai::ai_score（生产域12条真值逐条断言+域外142条跳过）；
   接入 rust_all [4a]；负向篡改生产 ai_score 900→901 → FAILED=2（判据非恒真实证）。
-- 后续批次：JNI-02/03/04/05/06、UI-02~05、规则 F1~F4、几何判据同款桥接（P2-8）。
+- 批次4（本次）：JNI-02 call_clear + JNI-04 STOP轮询防ANR + JNI-05 start顺序 + JNI-06 unlock兜底
+  + JNI-11 删全局panic hook + JNI-12 clear_sel/push_undo合法性前置。rust_all全PASS。
+- 后续批次：JNI-03(跨Instance,死路径)、JNI-07~10/13/14、UI-02~05、规则 F1~F4、几何判据桥接(P2-8)。
 
 ## 诚实口径
 - **39 个 ≠ 100 个**：不硬凑。39 个全部有文件:行 + 触发依据，可复现定位是硬标准。

@@ -10,22 +10,29 @@ mod imp {
     /// 停止渲染线程（OnDestroy 调用，防退出 SIGABRT）
     pub fn stop() {
         STOP.store(true, Ordering::SeqCst);
-        // 等渲染线程结束（最多 500ms），确保退出前所有 JNI lockCanvas 调用完成
+        // ★ JNI-04: 不无界 join（启动期 150×33ms≈5s + block_on 会让 UI 线程 ANR）。
+        //   轮询 RUNNING 最多 2s；超时则放弃 join（线程自行退出，不阻塞 UI）。
+        for _ in 0..200 {
+            if !RUNNING.load(Ordering::SeqCst) { break; }
+            std::thread::sleep(std::time::Duration::from_millis(10));
+        }
         if let Ok(mut guard) = JOIN.lock() {
             if let Some(h) = guard.take() {
-                let _ = h.join();
+                if !RUNNING.load(Ordering::SeqCst) { let _ = h.join(); }
+                // 超时未退出则不 join，drop handle 分离线程（避免 ANR）
             }
         }
     }
 
     /// 启动 wgpu 渲染线程（native 独占 window，无 Java GLThread 竞争）
     pub fn start(vm_addr: usize, view_addr: usize, w: u32, h: u32) {
-        STOP.store(false, Ordering::SeqCst);
+        // ★ JNI-05: 先抢占 RUNNING，成功翻转后才清 STOP（旧顺序会让旧线程逃逸生命周期）
         if RUNNING.swap(true, Ordering::SeqCst) {
-            return;
+            return; // 已有线程在跑，不动 STOP
         }
+        STOP.store(false, Ordering::SeqCst);
         let h = std::thread::spawn(move || {
-            std::panic::set_hook(Box::new(|_| {})); // 线程内 panic 静默，不 abort 进程
+            // ★ JNI-11: 删除全局 panic hook——它静默所有线程日志；catch_unwind 已阻止 panic 跨线程 abort
             let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
                 unsafe { run(vm_addr, view_addr, w, h) }
             }));
@@ -52,6 +59,7 @@ mod imp {
         let mut window: *mut std::ffi::c_void = std::ptr::null_mut();
         let view = jni::objects::JObject::from_raw(view_addr as jni::sys::jobject);
         for _ in 0..150 {
+            if STOP.load(Ordering::SeqCst) { return; } // ★ JNI-04: 启动期也响应停止，防 stop() join 长时间阻塞→ANR
             let surf = env.call_method(&view, "getHolder", "()Landroid/view/SurfaceHolder;", &[])
                 .ok().and_then(|v| v.l().ok())
                 .and_then(|holder| env.call_method(holder, "getSurface", "()Landroid/view/Surface;", &[]).ok().and_then(|s| s.l().ok()));

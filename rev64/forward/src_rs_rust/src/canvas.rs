@@ -64,12 +64,21 @@ mod imp {
                 &[JValue::Object(&bitmap), JValue::Int(900), JValue::Int(1600), JValue::Bool(0)])
             .ok().and_then(|v| v.l().ok()) {
                 Some(b) => b,
-                None => return Err("createScaledBitmap failed".into()),
+                None => {
+                    // ★ JNI-06: lockCanvas 后任何错误路径必须先 unlock，否则 Surface 永久锁死
+                    let _ = env.call_method(&surface, "unlockCanvasAndPost", "(Landroid/graphics/Canvas;)V", &[JValue::Object(&canvas)]);
+                    if env.exception_check().unwrap_or(false) { let _ = env.exception_clear(); }
+                    return Err("createScaledBitmap failed".into());
+                }
             };
         // ⑤ Canvas.drawBitmap(scaled, 0,0, null)
-        env.call_method(&canvas, "drawBitmap", "(Landroid/graphics/Bitmap;FFLandroid/graphics/Paint;)V",
-            &[JValue::Object(&scaled), JValue::Float(0.0), JValue::Float(0.0), JValue::Object(&JObject::null())])
-            .map_err(|e| e.to_string())?;
+        if let Err(e) = env.call_method(&canvas, "drawBitmap", "(Landroid/graphics/Bitmap;FFLandroid/graphics/Paint;)V",
+            &[JValue::Object(&scaled), JValue::Float(0.0), JValue::Float(0.0), JValue::Object(&JObject::null())]) {
+            // ★ JNI-06: drawBitmap 失败也先 unlock
+            let _ = env.call_method(&surface, "unlockCanvasAndPost", "(Landroid/graphics/Canvas;)V", &[JValue::Object(&canvas)]);
+            if env.exception_check().unwrap_or(false) { let _ = env.exception_clear(); }
+            return Err(format!("drawBitmap failed: {}", e));
+        }
 
         // ⑤ Surface.unlockCanvasAndPost(canvas)
         env.call_method(&surface, "unlockCanvasAndPost", "(Landroid/graphics/Canvas;)V",
