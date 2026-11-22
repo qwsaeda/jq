@@ -33,6 +33,10 @@ for f in $JTI/jqt_*.c; do
   [ "$b" = "jqt_mem" ] && continue
   [ "$b" = "jqt_jnibr" ] && continue
   [ "$b" = "jqt_jni_calls_tbl" ] && continue
+  # ★ 2026-11-22 渗透审计：jqt_mem_fuzz*.c 是桌面 ASan 判据程序（含 main），
+  #   属 jqt_*.c 通配命中但绝不能链进 so——否则 L53 全链 jqt_*.o 时 main 重复符号
+  #   ld 失败（实测构建被这两个文件阻断）。排除。
+  case "$b" in jqt_mem_fuzz|jqt_mem_fuzz32) continue;; esac
   cp $f $TMP/$b.c
   $CLANG -c -O0 -fPIC -fvisibility=hidden -w -I$JTI $TMP/$b.c -o $TMP/$b.o
 done
