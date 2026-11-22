@@ -203,7 +203,7 @@ pub const JQ_EVENT_NAMES_73: [&str; 73] = [
     "Junqi.LeiError", // [69]
     "Junqi.QiError", // [70]
     "Junqi.Select", // [71]
-    "Junqi.GameType", // [72]
+    "Junqi.GameType%d", // [72] 原版 .rodata 真值（AUD-1000-ALL A4-04：截断版 strcmp 永不命中）
 ];
 
 /// 按名查 73 表索引（未命中返 None）

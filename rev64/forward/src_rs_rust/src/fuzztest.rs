@@ -32,7 +32,7 @@ mod tests {
                 steps += 1;
                 // 不变量：turn 域 / winner 域 / cells rank 域
                 assert!(st.turn.is_valid(), "turn 域（Side enum 类型安全）");
-                assert!(matches!(st.winner, Winner::None | Winner::Blue | Winner::Red | Winner::Draw));
+                // Winner enum 类型安全已保证域合法（原 matches! 列全变体=恒真断言，已删）
                 assert!(st.cells.iter().all(|c| c.rank <= Rank(24)), "rank 存储域 [0,24]");
                 // 随机走子（ai_pick 优先，否则随机合法）
                 let mv = if rng.next().is_multiple_of(4) {
@@ -63,18 +63,16 @@ mod tests {
         if cand.is_empty() { None } else { Some(cand[rng.below(cand.len())]) }
     }
 
-    /// F2 触摸坐标渗透：边界坐标几何计算不崩（平台无关版：用纯算术模拟映射）
+    /// F2 触摸坐标渗透：边界坐标 → 生产 touch_base_coord 不崩 + 输出域有界（真调用生产代码）
     #[test]
     fn f2_touch_coords() {
         let coords = [(-100, -100), (0, 0), (900, 1600), (901, 1601),
                       (i32::MAX, i32::MIN), (450, 800), (274, 1383)];
         for &(x, y) in &coords {
-            // 纯算术映射（与 view_to_cell 同源：x=78.5+col*140.5, y 分段），不依赖 android cfg
-            let bx = x as f32 * 0.8;
-            let by = y as f32 * 0.8;
-            let _col = ((bx - 78.5) / 140.5).round().clamp(0.0, 4.0) as i32;
-            let _row = if by < 822.0 { ((by - 222.0) / 71.0).round().clamp(0.0, 5.0) as i32 }
-                       else { 6 + ((by - 822.0) / 71.0).round().clamp(0.0, 5.0) as i32 };
+            // ★ 真调用生产映射（原 F2 是纯算术模拟+零断言=不可能失败的假绿）
+            let (bx, by) = crate::render::touch_base_coord(x, y, 900, 1600);
+            // 渗透判据 = 极端输入不产生 NaN/Inf/溢出 panic（f32 除法对 i32 极值仍有限）
+            assert!(bx.is_finite() && by.is_finite(), "触摸映射输出必须有限（输入{},{})=({},{})", x, y, bx, by);
         }
     }
 

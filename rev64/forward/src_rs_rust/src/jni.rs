@@ -21,6 +21,19 @@ mod android_impl {
         queue: wgpu::Queue,
         surface: Option<wgpu::Surface<'static>>,
         config: Option<wgpu::SurfaceConfiguration>,
+        window: Option<WindowPtr>, // ★ ANativeWindow 保活（wgpu surface 持裸指针）
+    }
+    /// ANativeWindow 裸指针包装：显式 Send（wgpu surface 跨线程使用，窗口在 Drop 时释放）
+    struct WindowPtr(*mut std::ffi::c_void);
+    unsafe impl Send for WindowPtr {}
+    unsafe impl Sync for WindowPtr {}
+    // ★ JNI-01: WgpuState 销毁时释放保活的 ANativeWindow（防止 surface 悬空指针）
+    impl Drop for WgpuState {
+        fn drop(&mut self) {
+            if let Some(w) = self.window.take() {
+                if !w.0.is_null() { unsafe { crate::log::window_release(w.0); } }
+            }
+        }
     }
     static WGPU: Mutex<Option<WgpuState>> = Mutex::new(None);
     /// JNI_OnLoad：保存 JavaVM（native EGL 线程 attach JVM 用）
@@ -297,7 +310,7 @@ mod android_impl {
                         Some((r, g, b, a)) => crate::log::setprop("jq.offscreen", &format!("ok:{r},{g},{b},{a}")),
                         None => crate::log::setprop("jq.offscreen", "fail"),
                     }
-                    *wgpu_guard = Some(WgpuState { instance: inst, device: dev, queue: q, surface: None, config: None });
+                    *wgpu_guard = Some(WgpuState { instance: inst, device: dev, queue: q, surface: None, config: None, window: None });
                     crate::log::setprop("jq.wgpu_state", "device_ok");
                 } else {
                     crate::log::setprop("jq.wgpu_state", "device_fail");
@@ -325,11 +338,14 @@ mod android_impl {
                             match crate::render::RenderCtx::create_surface(&wgpu.instance, &wgpu.device, win, 900, 1600) {
                                 Some((surf, cfg)) => {
                                     wgpu.surface = Some(surf); wgpu.config = Some(cfg);
+                                    wgpu.window = Some(WindowPtr(win)); // ★ JNI-01: wgpu Surface 持有裸 ANativeWindow 指针，必须保活引用；surface 销毁时才 release
                                     crate::log::setprop("jq.wgpu_state", "surface_ok");
                                 }
-                                None => crate::log::setprop("jq.wgpu_state", "surface_fail"),
+                                None => {
+                                    crate::log::setprop("jq.wgpu_state", "surface_fail");
+                                    crate::log::window_release(win); // 创建失败才立即释放
+                                }
                             }
-                            crate::log::window_release(win);
                         }
                     }
                 }

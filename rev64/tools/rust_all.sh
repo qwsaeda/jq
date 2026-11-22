@@ -86,8 +86,12 @@ if [ "$DEVICE" = 1 ]; then
     if [ "$o" != "ok" ]; then timeout 5 adb connect "$DEV" >/dev/null 2>&1; sleep 1; fi; }
   # ★ 快速探测：设备离线(No route to host)时立即 PENDING，不让 adb connect 阻塞整脚本
   if [ "$(timeout 5 adb -s "$DEV" shell "echo ok" 2>/dev/null | tr -d '\r')" != "ok" ]; then
-    log "PENDING 设备离线（ping/adb 不可达，非 FAIL）"; fail=0
-    echo ""; log "判定: PASS（桌面判据全过；设备侧 PENDING）"; exit 0
+    log "PENDING 设备离线（ping/adb 不可达，非 FAIL）—— 不抹掉已产生的桌面 FAIL"
+    echo ""
+    if [ "$fail" != 0 ]; then
+      log "判定: FAIL（桌面判据有失败，设备离线不掩盖）"; exit 1
+    fi
+    log "判定: PENDING（桌面判据全过；设备侧未验，按 AGENTS §124y-189 PENDING 非 PASS）"; exit 3
   fi
   adb_ensure
   # ★ 清历史 logcat：Fatal 判据只统计本次脚本运行期间的崩溃（否则之前手动重启的 houdini 竞态会被误算）

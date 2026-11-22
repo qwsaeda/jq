@@ -122,8 +122,9 @@ mod tests {
         let ev = if can { rules::try_move(st, from, to).ok() } else { None };
         let ev_ok = ev == Some(want_ev);
         let stage_ok = st.stage == want_stage;
+        // ★ C 基准 -1 = Winner::None（未定），None 也必须真校验（原 None=>true 恒真假绿）
         let winner_ok = match want_winner {
-            None => true,
+            None => st.winner == Winner::None,
             Some(w) => st.winner == w,
         };
         let ok = ev_ok && stage_ok && winner_ok;
@@ -191,7 +192,9 @@ mod tests {
         assert_eq!(ev, Some(Ev::Flag), "cfg3 关扛旗仍 EV_FLAG");
         // 收口后 stage/winner（困毙判蓝胜 或 和棋——按实际布局）
         // C 基准：flag-off → STG_OVER winner=BLUE（红 58 困毙）
-        assert!(st.stage == Stage::Over || st.stage == Stage::Play, "cfg3 关终局收口");
+        // ★ 原 OR 断言恒真（Stage 仅2变体）；按 C 基准精确断言终局收口=Over+蓝胜
+        assert_eq!(st.stage, Stage::Over, "cfg3 关困毙收口应终局");
+        assert_eq!(st.winner, Winner::Blue, "cfg3 关红方困毙→蓝胜");
     }
 
     // ---- C run_draw_resign / run_dark 移植（和棋/认输 + 暗棋翻棋 + 终局守卫）----

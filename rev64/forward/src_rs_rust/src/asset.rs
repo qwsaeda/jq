@@ -187,19 +187,22 @@ mod imp {
                     let cy = cy * sy;
                     // 棋子按图集 cell 宽高比（35×46）渲染
                     let (atile, aw, ah): (&[u8], u32, u32) = atlas.unwrap_or((&[][..],0,0));
-                    let cell_w = (aw / 6) as usize; // ≈35
-                    let cell_h = (ah / 6) as usize; // ≈46
-                    // 棋子尺寸：按行距（BG_ROW_H×sy）缩放，宽度按图集比例
+                    // ★ 原版棋子图集 datah#183 = 4列×7行、每格53×40（jq_piece_atlas.h 权威）
+                    //   旧实现 6×6 切片全错：rank≥5 落到错误图块、宽高比竖长反转。
+                    let cell_w = (aw / 4) as usize; // 212/4=53
+                    let cell_h = (ah / 7) as usize; // 280/7=40
+                    // 棋子尺寸：按行距缩放，宽度按图集 53:40 横宽比
                     let ph = (BG_ROW_H * sy * 0.92) as usize;
                     let pw = (ph as f32 * cell_w as f32 / cell_h as f32) as usize;
-                    let x0 = (cx - pw as f32 * 0.5) as usize; // 中心对齐（原版 cell 中心）
+                    let x0 = (cx - pw as f32 * 0.5) as usize;
                     let y0 = (cy - ph as f32 * 0.5) as usize;
                     let base: [u8; 3] = if c.side == crate::state::SIDE_RED { [205, 55, 45] } else { [80, 150, 225] };
-                    // 图集 idx：rank1-12 → 0-11
+                    // rank→列=(rank-1)%4、子行=(rank-1)/4；红方行0-2、蓝方行3-5、行6背面
                     let rank = u8::from(crate::state::rank_of(c)) as usize;
                     let idx = rank.saturating_sub(1).min(11);
-                    let sc = idx % 6;
-                    let sr = if c.side == crate::state::SIDE_RED { idx / 6 } else { 3 + idx / 6 };
+                    let sc = idx % 4;
+                    let subrow = idx / 4;
+                    let sr = if c.side == crate::state::SIDE_RED { subrow } else { 3 + subrow };
                     for py in 0..ph {
                         for px in 0..pw {
                             let dx = x0 + px;
