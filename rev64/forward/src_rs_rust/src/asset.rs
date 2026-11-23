@@ -298,27 +298,33 @@ mod imp {
             //   故：背景/按钮维持 datah 真值基准，不按失真截图调整。
             t.blit(Tex::MenuBg, 0, 0, bw, bh, 0, 0, w, h, [255, 255, 255, 255]);
         }
-        let k = w as f32 / 900.0;
+        let k = w as f32 / 900.0; // view 900系 → 画布
+        // ★ 轮12 画点同源：大按钮绘制直接用 ui.rs 命中常量（720基准 ×1.25 = view 900系）
         if let Some(&(_, bw, _bh)) = texture_rgba(Tex::MenuBig) {
             let half = bw / 2;
-            t.blit(Tex::MenuBig, 0, 0, half, _bh,
-                   (252.0 * k) as usize, (1084.0 * k) as usize,
-                   (393.0 * k) as usize, (95.0 * k) as usize, [255,255,255,255]);
-            t.blit(Tex::MenuBig, half, 0, half, _bh,
-                   (252.0 * k) as usize, (1227.0 * k) as usize,
-                   (393.0 * k) as usize, (95.0 * k) as usize, [255,255,255,255]);
+            for (i, r) in [crate::ui::MENU_BTN_HUMAN, crate::ui::MENU_BTN_TWOPLAYER].iter().enumerate() {
+                t.blit(Tex::MenuBig, (i * half as usize) as u32, 0, half, _bh,
+                       ((r.x as f32 * 1.25) * k) as usize, ((r.y as f32 * 1.25) * k) as usize,
+                       ((r.w as f32 * 1.25) * k) as usize, ((r.h as f32 * 1.25) * k) as usize, [255,255,255,255]);
+            }
         }
         if let Some(&(_, sw, sh)) = texture_rgba(Tex::MenuSmall) {
             let seg = sw / 3;
-            for (i, &(dx, dw)) in [(215.0f32, 214.0f32), (469.0, 214.0), (727.0, 131.0)].iter().enumerate() {
+            // ★ 轮12 画点同源：小按钮绘制直接用 ui.rs 命中常量（720基准 ×0.8 转 view 900系），
+            //   消除旧的 view 系硬编码 (215,469,727)/(214,131)——两套各自维护易漂移。
+            let small = [crate::ui::MENU_BTN_NET, crate::ui::MENU_BTN_LOCAL, crate::ui::MENU_BTN_FOUR];
+            for (i, r) in small.iter().enumerate() {
                 t.blit(Tex::MenuSmall, i as u32 * seg, 0, seg, sh,
-                       (dx * k) as usize, (1371.0 * k) as usize,
-                       (dw * k) as usize, (108.0 * k) as usize, [255,255,255,255]);
+                       ((r.x as f32 * 1.25) * k) as usize, ((r.y as f32 * 1.25) * k) as usize,
+                       ((r.w as f32 * 1.25) * k) as usize, ((r.h as f32 * 1.25) * k) as usize, [255,255,255,255]);
             }
         }
         if let Some(&(_, hw, hh)) = texture_rgba(Tex::House) {
-            t.blit(Tex::House, 0, 0, hw, hh, (60.0*k) as usize, (1330.0*k) as usize,
-                   (105.0*k) as usize, (155.0*k) as usize, [255,255,255,255]);
+            // ★ 画点同源：房子绘制用 ui.rs MENU_BTN_HOUSE（720基准 ×1.25）
+            let r = crate::ui::MENU_BTN_HOUSE;
+            t.blit(Tex::House, 0, 0, hw, hh,
+                   ((r.x as f32 * 1.25) * k) as usize, ((r.y as f32 * 1.25) * k) as usize,
+                   ((r.w as f32 * 1.25) * k) as usize, ((r.h as f32 * 1.25) * k) as usize, [255,255,255,255]);
         }
     }
 

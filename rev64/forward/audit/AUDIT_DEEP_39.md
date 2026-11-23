@@ -239,3 +239,14 @@
 验证：114 tests + clippy0 + android0警 + geometry_const_check PASS（25项/负向自检）+ ui_color7/7 +
 ui_offline6/6 + rust_all全PASS（设备so 8dea25de + 0Fatal）。
 **结论**：几何常量这条线是干净的——常量对、且现在有自动判据守住。
+
+## 2026-11-23 审计轮 12（画点同源核对）
+
+| 项 | 级别 | 问题 | 状态 |
+|---|---|---|---|
+| 主菜单按钮画点两套硬编码 | P2 | 绘制用 view 系硬编码(大按钮 252,1084 / 小按钮 215,469,727 / 房子 60,1330)，命中用 ui.rs 720基准常量(MENU_BTN_*)，当前值一致但两套各自维护、改一处就错位 | ✅ 修：asset.rs 绘制全部改用 ui.rs MENU_BTN_* 常量（720基准×1.25=view系），画点天然同源 |
+| ☰ 菜单画点 | — | 核对图标绘制位置(view cx156/361/559/758 ty580/800)与命中区(INGAME_BTNS 720基准)，命中区覆盖"图标+文字"整组，截图确认对齐；无问题 | ✅ 验证通过，无需改 |
+
+验证：114 tests + clippy0 + android0警 + ui_offline6/6 + geometry25项 + rust_all全PASS(设备so 0003f6a5 + 0Fatal)。
+诚实边界：真机联网按钮点 NONE 是 app 恢复存档进对局态所致（非主菜单），与绘制改动无关；
+rust_all 切明棋判据 PASS 证明菜单流程正常。
