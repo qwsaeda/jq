@@ -228,3 +228,14 @@
 | 场景色数判据 flaky | P2 | check_gpu 重试循环读固定截图(不重新sc棆)，抓到黑屏帧时重试8次读同一张黑图→假FAIL | ✅ 修：重试里重新 screencap；连跑2次均 PASS(325色) |
 
 验证：114 tests + clippy0 + android0警 + ui_color7/7 + ui_offline6/6 + rust_all全PASS(设备so 22b9eec9 + 连跑2次稳定)。
+
+## 2026-11-23 审计轮 11（几何常量逐屏核对 → 固化自动判据）
+
+| 项 | 级别 | 问题 | 状态 |
+|---|---|---|---|
+| 几何常量无自动核对 | P2 | 之前 ui.rs 的按钮/面板几何常量只人工核对过，无机器判据——常量漂移（改错一个数字）不会被检出 | ✅ 修：geometry_const_check.py 从 datah XML 真值反算 720 基准 rect，与 ui.rs 25 项常量逐项比对（容差≤1px）；接入 rust_all [4d]；负向自检通过（篡改 DIFF[0].x 290→999 → FAIL） |
+| 几何常量本身 | — | 逐屏核对 DIFF(8)/GAMESET(6)/EXIT(2)/SETTINGS(5)/NEWGAME(4) 共 25 项 | ✅ 全部与 datah 真值一致（GAMESET 有 1px 取整差，UI_COMPARE 已认可 Δ≤0.5px） |
+
+验证：114 tests + clippy0 + android0警 + geometry_const_check PASS（25项/负向自检）+ ui_color7/7 +
+ui_offline6/6 + rust_all全PASS（设备so 8dea25de + 0Fatal）。
+**结论**：几何常量这条线是干净的——常量对、且现在有自动判据守住。

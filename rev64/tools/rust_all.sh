@@ -86,6 +86,9 @@ if [ "$QUICK" = 0 ]; then
   [ $UC_RC -eq 0 ] && log "PASS $(echo "$UC" | tail -1)" || { echo "$UC"; log "FAIL ui_color_check"; fail=1; }
   UO=$(python3 "$WS/rev64/tools/ui_offline_check.py" 2>&1); UO_RC=$?
   [ $UO_RC -eq 0 ] && log "PASS $(echo "$UO" | tail -1)" || { echo "$UO"; log "FAIL ui_offline_check"; fail=1; }
+  # ★ 轮11：几何常量 vs datah XML 真值自动核对（25 项，防常量漂移）
+  GC=$(python3 "$WS/rev64/tools/geometry_const_check.py" 2>&1); GC_RC=$?
+  [ $GC_RC -eq 0 ] && log "PASS $(echo "$GC" | tail -1)" || { echo "$GC"; log "FAIL geometry_const_check"; fail=1; }
   log "=== [4b] rust_geom_check（几何6函数 950 case）+ rp_desktop_compare（32/64双端36 case）==="
   G=$(python3 "$WS/rev64/tools/rust_geom_check.py" 2>&1); GR=$?
   if [ $GR -eq 0 ] && echo "$G" | grep -q '判定: PASS'; then
@@ -218,8 +221,16 @@ print(len(cols))
     adb_ensure
     RP=""; for pn in 1 2 3 4 5; do adb_ensure; RP=$(adb -s "$DEV" shell "pidof com.qwsaeda.junqirs" 2>/dev/null | tr -d '\r' | head -1); [ -n "$RP" ] && break; sleep 1; done
     [ -n "$RP" ] && log "PASS 重进 pid 存活 ($RP)" || { log "FAIL 重进 pid 不存在"; fail=1; }
-    F=$(adb -s "$DEV" logcat -d 2>&1 | grep -c 'Fatal signal\|Surface has already been released\|No pending exception')
-    [ "$F" = 0 ] && log "PASS 无 Fatal" || { log "FAIL Fatal=$F"; fail=1; }
+    # ★ RTEST-008 修复：旧逻辑 F=$(logcat|grep -c) 不查 logcat rc——设备中途掉线时
+    #   logcat 报错、grep -c 输出 0 → F=0 → 假"PASS 无 Fatal"（静默降级，CODE_STYLE §9 第3型）。
+    #   改：先取 adb logcat 真退出码 + 输出非空，失败/空 → FAIL 不冒充 0 崩溃。
+    LC=$(adb -s "$DEV" logcat -d 2>&1); LC_RC=$?
+    if [ "$LC_RC" -ne 0 ] || [ -z "$LC" ]; then
+        log "FAIL logcat 取日志失败（rc=$LC_RC/空输出）——禁止当 0 Fatal 假绿"; fail=1
+    else
+        F=$(printf '%s\n' "$LC" | grep -c 'Fatal signal\|Surface has already been released\|No pending exception')
+        [ "$F" = 0 ] && log "PASS 无 Fatal" || { log "FAIL Fatal=$F"; fail=1; }
+    fi
   else
     log "PENDING 设备不可达"
   fi
