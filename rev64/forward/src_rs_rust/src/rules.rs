@@ -311,13 +311,17 @@ pub fn try_move(st: &mut State, from: usize, to: usize) -> Result<Ev, MoveError>
         st.moves_since_eat += 1;
         Ev::Move
     } else if sr == RANK_BOMB || dr == RANK_BOMB {
-        // 炸弹同归（含炸弹撞旗）
-        let dst_side = dst_cell.side;
+        // 炸弹同归（含炸弹撞旗）—— RRULE-001：不再读 dst_side（见下方裁定注释）
         st.cells[from] = Cell::empty();
         st.cells[to] = Cell::empty();
         st.moves_since_eat = 0;
-        // 炸弹炸军旗 → 扛旗方胜（dst_side 有效才判，0xFF 未定不判）
-        if dr == RANK_FLAG && side_valid(dst_side) {
+        // ★ RRULE-001 裁定修复（反汇编原版 0x30260 吃旗胜 + SPEC §4.1 C-01 定案）：
+        //   原版吃旗胜只看状态分发（0x30200 r3=1→Win），**不检查目标 side**；
+        //   炸弹与任何棋子相遇双方消失（含军旗），撞旗恒判攻方胜、不受 cfg3 约束。
+        //   旧 `side_valid(dst_side)` 守卫在暗棋未翻军旗(side=0xFF)恒假 → 漏判胜 = 真 bug。
+        //   （暗棋 cfg4=1 下炸弹撞旗本就不可达——move_legal 仅放工兵攻击雷/旗；
+        //     cfg4=0 下可达，此时应判胜。）
+        if dr == RANK_FLAG {
             st.winner = winner_from_side(me);
             st.stage = Stage::Over;
             st.total_moves += 1;
