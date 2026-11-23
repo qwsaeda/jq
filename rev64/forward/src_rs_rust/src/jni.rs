@@ -83,6 +83,9 @@ mod android_impl {
         cnt: evt::EventCounter,
         /// ★ F2 复盘记录器：真实对局每步（含 AI）记录，Replay 屏用它回退/前进/跳转
         rp: crate::save::Replay,
+        /// ★ RSAVE-002：进入复盘前保存的实时局面（含非走子终局 stage/winner）。
+        ///   "返回对局"时恢复它而非 rewind_to 重放——后者会丢认输/超时等非走子终局。
+        live_state: Option<State>,
     }
     static GAME: Mutex<Option<Game>> = Mutex::new(None);
 
@@ -101,6 +104,7 @@ mod android_impl {
             state: State::new(),
             ui: ui::Ui::new(),
             cnt: evt::EventCounter::new(),
+            live_state: None,
         });
         f(&mut game.state, &mut game.ui, &mut game.cnt)
     }
@@ -121,6 +125,7 @@ mod android_impl {
             state: State::new(),
             ui: ui::Ui::new(),
             cnt: evt::EventCounter::new(),
+            live_state: None,
         });
         f(game)
     }
@@ -302,7 +307,12 @@ mod android_impl {
             &[jni::objects::JValue::Object(&activity_obj)],
         ) {
             Ok(v) => v,
-            Err(_) => return std::ptr::null_mut(),
+            Err(_) => {
+                // ★ RJNI-006：jni-rs new_object 失败留 pending exception，早退不清会把
+                //   ClassNotFoundException/NoSuchMethodError 抛回 App.smali:337 裸调用点（无 try/catch）→ Java 崩。
+                if je.exception_check().unwrap_or(false) { let _ = je.exception_clear(); }
+                return std::ptr::null_mut();
+            }
         };
         // ★ JNI-02: call_method 失败会留下 pending Java 异常，不清则下次 JNI 调用 abort（No pending exception expected）。
         //   统一 helper：调用 + 失败时 exception_check/clear，不把异常带出本函数。
@@ -319,7 +329,11 @@ mod android_impl {
         // 保存 GLView global ref（OnUpdate 用它拿 Surface → ANativeWindow → wgpu Surface）
         let global = match je.new_global_ref(&view) {
             Ok(g) => g,
-            Err(_) => return view.into_raw(),
+            Err(_) => {
+                // ★ RJNI-006：new_global_ref 失败同样留 pending exception，早退前清（同上）
+                if je.exception_check().unwrap_or(false) { let _ = je.exception_clear(); }
+                return view.into_raw();
+            }
         };
         G_VIEW.store(global.as_obj().as_raw() as usize, std::sync::atomic::Ordering::Release);
         // ★ GlobalRef 必须保持存活：若局部 global 在此 drop，NewGlobalRef 会被 DeleteGlobalRef
@@ -776,12 +790,17 @@ mod android_impl {
                             crate::log::setprop("jq.replay_act", if ok { "jump_end" } else { "jump_fail" });
                         }
                         _ => { // 返回对局：恢复实时终局局面
-                            let ok = with_game(|g| {
-                                let cur = g.rp.count();
-                                g.rp.rewind_to(&mut g.state, cur)
+                            // ★ RSAVE-002：优先恢复进复盘前保存的实时局面（保留非走子终局
+                            //   stage=Over/winner=Red 等，rewind_to 重放会丢）；无快照才回退重放。
+                            let restored = with_game(|g| {
+                                if let Some(live) = g.live_state.take() {
+                                    g.state = live; true
+                                } else {
+                                    let cur = g.rp.count(); g.rp.rewind_to(&mut g.state, cur)
+                                }
                             });
                             with_lock(|_s, u, _c| { u.screen = ui::Screen::Game; });
-                            crate::log::setprop("jq.replay_act", if ok { "back" } else { "back_restored" });
+                            crate::log::setprop("jq.replay_act", if restored { "back" } else { "back_restored" });
                         }
                     }
                     return 1;
@@ -795,6 +814,7 @@ mod android_impl {
                 let in_btn = |x0: f32, x1: f32| bx >= x0 && bx <= x1 && by >= 745.0 && by <= 805.0;
                 if in_btn(175.0, 285.0) { // 复盘 → Replay 屏
                     with_game(|g| {
+                        g.live_state = Some(g.state.clone()); // ★ RSAVE-002：保存实时局面
                         let cur = g.rp.count();
                         g.rp.rewind_to(&mut g.state, cur);
                         g.ui.screen = crate::ui::Screen::Replay;
@@ -822,7 +842,10 @@ mod android_impl {
                 if over && y >= 820.0 && y <= 990.0 {
                     let has = with_game(|g| g.rp.count() > 0);
                     if has {
-                        with_game(|g| { let cur = g.rp.count(); g.rp.rewind_to(&mut g.state, cur); });
+                        with_game(|g| {
+                            g.live_state = Some(g.state.clone()); // ★ RSAVE-002：保存实时终局局面
+                            let cur = g.rp.count(); g.rp.rewind_to(&mut g.state, cur);
+                        });
                         with_lock(|_s, u, _c| { u.screen = ui::Screen::Replay; });
                         crate::log::setprop("jq.replay_act", "enter");
                         return 1;

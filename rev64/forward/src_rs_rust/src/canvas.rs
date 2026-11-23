@@ -65,18 +65,20 @@ mod imp {
             .ok().and_then(|v| v.l().ok()) {
                 Some(b) => b,
                 None => {
-                    // ★ JNI-06: lockCanvas 后任何错误路径必须先 unlock，否则 Surface 永久锁死
-                    let _ = env.call_method(&surface, "unlockCanvasAndPost", "(Landroid/graphics/Canvas;)V", &[JValue::Object(&canvas)]);
+                    // ★ RJNI-007 修复：JNI 规范——有 pending exception 时不得调其他 JNI 函数。
+                    //   旧实现先 unlockCanvasAndPost 后 clear → 持异常 unlock 常失败 → Surface 永久锁死
+                    //   / "No pending exception expected" abort。改为先清异常再 unlock。
                     if env.exception_check().unwrap_or(false) { let _ = env.exception_clear(); }
+                    let _ = env.call_method(&surface, "unlockCanvasAndPost", "(Landroid/graphics/Canvas;)V", &[JValue::Object(&canvas)]);
                     return Err("createScaledBitmap failed".into());
                 }
             };
         // ⑤ Canvas.drawBitmap(scaled, 0,0, null)
         if let Err(e) = env.call_method(&canvas, "drawBitmap", "(Landroid/graphics/Bitmap;FFLandroid/graphics/Paint;)V",
             &[JValue::Object(&scaled), JValue::Float(0.0), JValue::Float(0.0), JValue::Object(&JObject::null())]) {
-            // ★ JNI-06: drawBitmap 失败也先 unlock
-            let _ = env.call_method(&surface, "unlockCanvasAndPost", "(Landroid/graphics/Canvas;)V", &[JValue::Object(&canvas)]);
+            // ★ RJNI-007：先清挂起异常再 unlock（顺序不可颠倒，持异常调 JNI 非法）
             if env.exception_check().unwrap_or(false) { let _ = env.exception_clear(); }
+            let _ = env.call_method(&surface, "unlockCanvasAndPost", "(Landroid/graphics/Canvas;)V", &[JValue::Object(&canvas)]);
             return Err(format!("drawBitmap failed: {}", e));
         }
 
