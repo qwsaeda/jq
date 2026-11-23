@@ -180,7 +180,11 @@ mod tests {
             }
         }
         assert!(st2.stage == crate::state::Stage::Over, "终局态 stage=Over");
-        assert!(matches!(st2.winner, crate::state::Winner::Blue | crate::state::Winner::Red | crate::state::Winner::Draw | crate::state::Winner::None), "winner 域合法");
+        // ★ RTEST-004 修复：旧断言列尽 Winner 全部 4 变体 = 恒真（fuzztest.rs:35 同型已删）。
+        //   改为有鉴别力的不变量：stage=Over 时胜者必须已决（Blue/Red/Draw），
+        //   winner=None 表示对局未决却进了终局态 = 状态机不一致，须检出。
+        assert!(st2.winner != crate::state::Winner::None,
+            "终局 stage=Over 但 winner=None（状态机不一致，winner={:?}）", st2.winner);
         // 终局后 stage=Over（无非法 state 残留）
         let mut st = make_default_layout();
         st.turn = SIDE_BLUE;

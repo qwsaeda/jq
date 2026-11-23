@@ -46,7 +46,10 @@ def main():
             lines.append(f"    // case{i}: 域外 src={src32} dst={dst32} 跳过（生产/原版输入域不同）")
             lines.append(f"    fork += 1;")
     lines += [
-        f"    assert!(checked >= 10, \"真值 case 数 {{checked}} > 50，防篡改真值表\");",
+        # ★ RTEST-005 修复：旧文案 ">50" 与实际 12 条真值断言严重不符（142 case 被标域外
+        #   fork 跳过），阈值 >=10 删 2 条仍 PASS = 假绿。改：阈值 12（=当前真值数，删 1 条即 FAIL）
+        #   + 文案与实际一致。注：域外白名单本身是 RTEST-010 残留面，本修复只修阈值/文案漂移。
+        f"    assert!(checked >= 12, \"真值 case 数 {{checked}} >= 12（12 条生产断言，删任 1 条即检出）\");",
         "    eprintln!(\"生产 ai_score 对齐原版: {} 条一致 + {} 条已知分叉\", checked, fork);",
         "}",
     ]

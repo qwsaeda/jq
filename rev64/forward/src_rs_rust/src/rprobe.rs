@@ -1,7 +1,11 @@
 #![allow(unused_imports, dead_code)]
-//! rprobe — 规则行为探针（移植 C rule_probe_shared.inc 36 case，32/64 位对照基准）
+//! rprobe — 规则行为探针（C rule_probe_shared.inc 对照基准）
 //!
-//! C 正向的"规则分叉矩阵"证据（rule_probe 36 case 双端编译对照）搬进 Rust：
+//! ★ RTEST-007 口径纠正：旧 docstring 称"移植 36 case"虚报——实际仅 23 个 `#[test]`
+//!   （C 探针 36 case 的子集，13 case 无 Rust 对应判据）。当前 23 case 逐条有真值断言，
+//!   缺口清单见下/台账 AUD_RUST_2026_11_22.md，引用时不按 36 case 计数。
+//!
+//! C 正向的"规则分叉矩阵"证据（rule_probe 双端编译对照）搬进 Rust：
 //! 每 case = 构造布局（probe_put）+ 判定（can_move/try_move/flip/stalemate）+ C 基准真值断言。
 //! 对齐 C rule_probe_compare.py 32/64 位对照范式（Rust 版 = 正向行为基准）。
 

@@ -302,6 +302,6 @@ fn ai_score_matches_original_recorded_cases() {
     fork += 1;
     // case153: 域外 src=2147483647 dst=-2147483648 跳过（生产/原版输入域不同）
     fork += 1;
-    assert!(checked >= 10, "真值 case 数 {checked} > 50，防篡改真值表");
+    assert!(checked >= 12, "真值 case 数 {checked} >= 12（12 条生产断言，删任 1 条即检出）");
     eprintln!("生产 ai_score 对齐原版: {} 条一致 + {} 条已知分叉", checked, fork);
 }
