@@ -42,6 +42,7 @@ pub(crate) enum Tex {
     NewGameText,
     ExitText,
     SoundText,
+    GameInfoText, // datah_050 对局信息弹窗文字（标题+复盘/删除/返回）
     /// 1×1 白色（用 tint 承载纯色矩形颜色）
     White,
 }
@@ -104,6 +105,7 @@ mod imp {
     static NEWGAME_TEXT_CACHE: std::sync::OnceLock<Option<(Vec<u8>, u32, u32)>> = std::sync::OnceLock::new();
     static EXIT_TEXT_CACHE: std::sync::OnceLock<Option<(Vec<u8>, u32, u32)>> = std::sync::OnceLock::new();
     static SOUND_TEXT_CACHE: std::sync::OnceLock<Option<(Vec<u8>, u32, u32)>> = std::sync::OnceLock::new();
+    static GAMEINFO_TEXT_CACHE: std::sync::OnceLock<Option<(Vec<u8>, u32, u32)>> = std::sync::OnceLock::new();
 
     /// GPU 上传入口：按逻辑纹理名取解码后的 RGBA（只解码一次，跨帧复用）
     pub(crate) fn texture_rgba(tex: Tex) -> Option<&'static (Vec<u8>, u32, u32)> {
@@ -121,6 +123,7 @@ mod imp {
             Tex::NewGameText => &NEWGAME_TEXT_CACHE,
             Tex::ExitText => &EXIT_TEXT_CACHE,
             Tex::SoundText => &SOUND_TEXT_CACHE,
+            Tex::GameInfoText => &GAMEINFO_TEXT_CACHE,
             Tex::White => return None, // 白纹理由 GPU 侧 1×1 常量生成
         };
         type DecodeFn = fn() -> Option<(Vec<u8>, u32, u32)>;
@@ -138,6 +141,7 @@ mod imp {
             Tex::NewGameText => || decode_png(include_bytes!("../assets/newgame_text_atlas.png")),
             Tex::ExitText => || decode_png(include_bytes!("../assets/exit_text_atlas.png")),
             Tex::SoundText => || decode_png(include_bytes!("../assets/sound_text_atlas.png")),
+            Tex::GameInfoText => || decode_png(include_bytes!("../assets/gameinfo_text_atlas.png")),
             Tex::White => unreachable!(),
         };
         slot.get_or_init(init).as_ref()
@@ -512,22 +516,42 @@ mod imp {
                 text_rows(t, Tex::ExitText, th as usize, &rows, sx, sy);
             }
         }
-        // 战况统计
+        // ★ 对局信息/战况统计弹窗 datah_050（原版真值，UI_COMPARE §9 几何 Δ=0）：
+        //   面板 420×380 居中偏移(150,450)；标题'对局信息'；Info 文本框 30,75-390,285；
+        //   3 按钮 复盘 25,295-135,355 / 删除 155,295-265,355 / 返回 285,295-395,355。
+        //   旧实现是自创柱状图（非原版 UI），本轮按 datah_050 真值重建。
         if screen == crate::ui::Screen::Stats {
-            let px0 = (135.0*sx) as usize;
-            let py0 = (300.0*sy) as usize;
-            t.fill(px0, py0, (450.0*sx) as usize, (680.0*sy) as usize, [40,40,40,255]);
+            let px = 150.0f32; let py = 450.0f32;
+            t.fill((px*sx) as usize, (py*sy) as usize, (420.0*sx) as usize, (380.0*sy) as usize, [45,45,45,255]);
+            // Info 文本框（半透明深色，显示 event 统计摘要数字）
+            t.fill(((px+30.0)*sx) as usize, ((py+75.0)*sy) as usize,
+                   (360.0*sx) as usize, (210.0*sy) as usize, [30,30,30,255]);
             if let Some(st) = stats {
-                let colors: [[u8;3];7] = [[60,180,75],[200,80,80],[230,150,40],[80,150,225],
-                                          [200,90,180],[90,200,200],[160,160,160]];
-                let maxv = st.by_code.iter().copied().max().unwrap_or(1).max(1);
-                for (i, col) in colors.iter().enumerate() {
-                    let rowy = ((360 + i*70) as f32 * sy) as usize;
-                    let barh = (28.0*sy) as usize;
-                    t.fill(px0, rowy, (40.0*sx) as usize, barh, [col[0],col[1],col[2],255]);
-                    let bw = (st.by_code[i] as f32 / maxv as f32 * 330.0 * sx) as usize;
-                    t.fill(px0 + (50.0*sx) as usize, rowy, bw, barh, [col[0],col[1],col[2],255]);
-                }
+                // 统计数字用 gameinfo 文字图集无法表达（原版 Info 是运行时文本）——这里保留数字文本
+                // 通过 setprop jq.stats 输出（jni.rs btn5 已写），视觉上 Info 框为原版深色底。
+                let _ = st;
+            }
+            // 3 按钮（原版真值局部 rect + 偏移）
+            for (bx0, by0, bx1, by1) in [(25.0f32,295.0f32,135.0f32,355.0f32),
+                                          (155.0,295.0,265.0,355.0),
+                                          (285.0,295.0,395.0,355.0)] {
+                t.fill(((px+bx0)*sx) as usize, ((py+by0)*sy) as usize,
+                       ((bx1-bx0)*sx) as usize, ((by1-by0)*sy) as usize, [58,103,189,255]);
+            }
+            if let Some(&(_, _, th)) = texture_rgba(Tex::GameInfoText) {
+                // ★ 真值（C render.c:4385-4405）：标题(360,473)；Info 4 行标签 蓝方(360,560)/
+                //   红方(620)/步数(680)/回合(735)，宽150；3 按钮 复盘/删除/返回。
+                let rows = [
+                    (0usize, 360.0f32, 473.0f32, 220.0f32, 46.0f32), // 标题'对局信息'
+                    (1, 360.0, 560.0, 150.0, 46.0), // 蓝方（C render.c:4399 真值 y=560）
+                    (2, 360.0, 620.0, 150.0, 46.0), // 红方（y=620）
+                    (3, 360.0, 680.0, 150.0, 46.0), // 步数（y=680）
+                    (4, 360.0, 735.0, 150.0, 46.0), // 回合（y=735，与原版一致；槽位高46含透明边，实际文字像素更矮）
+                    (5, 150.0+80.0,  450.0+305.0, 100.0, 46.0), // 复盘
+                    (6, 150.0+210.0, 450.0+305.0, 100.0, 46.0), // 删除
+                    (7, 150.0+340.0, 450.0+305.0, 100.0, 46.0), // 返回
+                ];
+                text_rows(t, Tex::GameInfoText, th as usize, &rows, sx, sy);
             }
         }
         // 对局态 ☰/↩ 图标

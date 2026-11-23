@@ -783,9 +783,24 @@ mod android_impl {
                 return 0;
             }
             ui::Screen::Stats => {
-                // ★ F3 战况统计屏：点任意处返回 ☰ 菜单（统计只展示，无交互控件）
-                with_lock(|_s, u, _c| { u.screen = ui::Screen::IngameMenu; });
-                crate::log::setprop("jq.stats_act", "back");
+                // ★ 轮9 datah_050 真值：3 按钮 复盘/删除/返回（720基准 x175-285/305-415/435-545 y745-805
+                //   → view 900系 ×1.25）。点按钮→对应动作，面板外→返回。
+                let bx = x * 0.8; let by = y * 0.8;
+                let in_btn = |x0: f32, x1: f32| bx >= x0 && bx <= x1 && by >= 745.0 && by <= 805.0;
+                if in_btn(175.0, 285.0) { // 复盘 → Replay 屏
+                    with_game(|g| {
+                        let cur = g.rp.count();
+                        g.rp.rewind_to(&mut g.state, cur);
+                        g.ui.screen = crate::ui::Screen::Replay;
+                    });
+                    crate::log::setprop("jq.stats_act", "replay");
+                } else if in_btn(305.0, 415.0) { // 删除 → 清复盘记录（诚实：无删除存档，仅清本局复盘）
+                    with_game(|g| { g.rp = crate::save::Replay::new(&g.state); });
+                    crate::log::setprop("jq.stats_act", "delete");
+                } else { // 返回 / 面板外 → 回 ☰
+                    with_lock(|_s, u, _c| { u.screen = ui::Screen::IngameMenu; });
+                    crate::log::setprop("jq.stats_act", "back");
+                }
                 return 1;
             }
             ui::Screen::Game => {
