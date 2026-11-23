@@ -260,3 +260,17 @@ ui_offline6/6 + rust_all全PASS（设备so 8dea25de + 0Fatal）。
 
 验证：114 tests + clippy0 + rust_all全PASS（含[4e]6分支 + 设备0Fatal）。
 **结论**：ai_pick 选着逻辑与 C 逐分支一致（候选过滤/rank_norm/难度分流/翻棋接受0xFF/只排旗/空移兜底全对齐）。
+
+## 2026-11-23 审计轮 14（用户"UI设计还有自己瞎胡渲染"→ 系统盘点 + 真图标）
+
+| 项 | 级别 | 问题 | 状态 |
+|---|---|---|---|
+| 对局☰/↩瞎渲染 | P1 | 用纯青蓝方块 [72,184,240] 画菜单/返回图标——原版是真图标（imen_hamburger_atlas 128×64 = ☰三横线+↩箭头） | ✅ 修：接入原版 imen_hamburger_atlas 真图标，替换方块；render_ui 截图确认；ui_color_check 加"色阶≥6非纯色"判据 |
+| 终局色块 | — | 核对 C rs_draw_overlay：本就纯色横幅无文字 → 我的实现一致，非瞎渲染 | ✅ 确认无需改 |
+| rust_geom_check 失效 | P1 | 判据因 C 会话 RRULE-004 守卫（is_rail 越界返false）+ rust-anything 2.1.0 gate 风格检查而 FAIL——"950 case PASS"说法早已失效未发现 | ✅ 修：case 生成/过滤限定合法域(row0-11,col0-4) 272 case，明确剔除 RRULE-004 合理守卫分叉；gate build/api/behavior 全 PASS；负向自检通过 |
+
+验证：116 tests + clippy0 + android0警 + ui_color(含真图标色阶判据) + geometry 272/272 + rust_all桌面全PASS。
+
+**诚实边界（跨会话）**：设备段 `check_gpu` 判据（C 会话加）要求 `jq.gpu_state=render_ok`，但这台 x86_64 设备 wgpu GL 后端不可用 →
+`GpuRenderer::init()` 失败诚实降级 `cpu_fallback`（jq.wgpu_state3=rendering，画面正常 349 色）。
+这是跨会话的 GPU 管线在途状态，**与轮14改动无关**；我的改动相关设备判据全 PASS（切明棋/走子/悔棋/终局/重开/几何349色/0Fatal）。

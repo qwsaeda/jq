@@ -22,8 +22,24 @@ CHECKS = [
 TOL = 6
 
 
+def check_menu_icons():
+    """★ 轮14：对局态 ☰/↩ 用真图标（imen_hamburger_atlas）而非青蓝方块。
+    真图标有描边/渐变 → 区域青蓝色阶数 ≥6；旧纯色方块只有 1 种色。"""
+    im = Image.open(f"{OUT}/game.png").convert("RGB")
+    px = im.load()
+    shades = set()
+    for y in range(730, 790):
+        for x in range(245, 295):  # ☰ 图标区 (view 270,750 附近)
+            r, g, b = px[x, y]
+            if b > 150 and g > 120 and b >= r:  # 青蓝色系像素
+                shades.add((r // 16, g // 16, b // 16))
+    ok = len(shades) >= 6
+    print(f"{'PASS' if ok else 'FAIL'} 对局☰/↩用真图标(非青蓝方块): {len(shades)} 色阶 >= 6")
+    return 0 if ok else 1
+
+
 def main():
-    failed = 0
+    failed = check_menu_icons()
     for screen, (x, y), want, label in CHECKS:
         im = Image.open(f"{OUT}/{screen}.png").convert("RGB")
         got = im.load()[x, y]

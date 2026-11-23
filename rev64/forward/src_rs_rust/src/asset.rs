@@ -37,6 +37,7 @@ pub(crate) enum Tex {
     PieceBack,
     ImenIcons,
     ImenText,
+    ImenHamburger, // 对局态 ☰ 三横线 + ↩ 返回箭头真图标（imen_hamburger_atlas 128×64）
     DiffText,
     GameSetText,
     NewGameText,
@@ -100,6 +101,7 @@ mod imp {
     static HOUSE_CACHE: std::sync::OnceLock<Option<(Vec<u8>, u32, u32)>> = std::sync::OnceLock::new();
     static IMEN_ICONS_CACHE: std::sync::OnceLock<Option<(Vec<u8>, u32, u32)>> = std::sync::OnceLock::new();
     static IMEN_TEXT_CACHE: std::sync::OnceLock<Option<(Vec<u8>, u32, u32)>> = std::sync::OnceLock::new();
+    static IMEN_HAMBURGER_CACHE: std::sync::OnceLock<Option<(Vec<u8>, u32, u32)>> = std::sync::OnceLock::new();
     static DIFF_TEXT_CACHE: std::sync::OnceLock<Option<(Vec<u8>, u32, u32)>> = std::sync::OnceLock::new();
     static GAMESET_TEXT_CACHE: std::sync::OnceLock<Option<(Vec<u8>, u32, u32)>> = std::sync::OnceLock::new();
     static NEWGAME_TEXT_CACHE: std::sync::OnceLock<Option<(Vec<u8>, u32, u32)>> = std::sync::OnceLock::new();
@@ -118,6 +120,7 @@ mod imp {
             Tex::PieceFront | Tex::PieceBack => &ATLAS_CACHE,
             Tex::ImenIcons => &IMEN_ICONS_CACHE,
             Tex::ImenText => &IMEN_TEXT_CACHE,
+            Tex::ImenHamburger => &IMEN_HAMBURGER_CACHE,
             Tex::DiffText => &DIFF_TEXT_CACHE,
             Tex::GameSetText => &GAMESET_TEXT_CACHE,
             Tex::NewGameText => &NEWGAME_TEXT_CACHE,
@@ -136,6 +139,7 @@ mod imp {
             Tex::PieceFront | Tex::PieceBack => || decode_png(include_bytes!("../assets/piece_atlas.png")),
             Tex::ImenIcons => || decode_png(include_bytes!("../assets/imen_icons_atlas.png")),
             Tex::ImenText => || decode_png(include_bytes!("../assets/imen_text_atlas.png")),
+            Tex::ImenHamburger => || decode_png(include_bytes!("../assets/imen_hamburger_atlas.png")),
             Tex::DiffText => || decode_png(include_bytes!("../assets/difficulty_text_atlas.png")),
             Tex::GameSetText => || decode_png(include_bytes!("../assets/gameset_text_atlas.png")),
             Tex::NewGameText => || decode_png(include_bytes!("../assets/newgame_text_atlas.png")),
@@ -565,10 +569,18 @@ mod imp {
                 text_rows(t, Tex::GameInfoText, th as usize, &rows, sx, sy);
             }
         }
-        // 对局态 ☰/↩ 图标
+        // ★ 对局态 ☰/↩ 真图标（imen_hamburger_atlas 128×64 = 左☰右↩，原版资源）：
+        //   旧实现画青蓝方块 [72,184,240] 是瞎渲染，本轮换真图标。
+        //   中心 view(270,750)/(620,750)，各 64×64 view（k = view→画布缩放）
         if screen == crate::ui::Screen::Game {
-            for icx in [135usize, 310usize] {
-                t.fill(icx.saturating_sub(15), 360usize.min(h), 30, 30, [72,184,240,255]);
+            let k = w as f32 / 900.0;
+            if let Some(&(_, iw, ih)) = texture_rgba(Tex::ImenHamburger) {
+                let half = iw / 2; // 64
+                for (i, cx) in [270.0f32, 620.0].iter().enumerate() {
+                    t.blit(Tex::ImenHamburger, (i * half as usize) as u32, 0, half, ih,
+                           ((cx - 32.0) * k) as usize, ((750.0 - 32.0) * k) as usize,
+                           (64.0 * k) as usize, (64.0 * k) as usize, [255,255,255,255]);
+                }
             }
         }
     }
