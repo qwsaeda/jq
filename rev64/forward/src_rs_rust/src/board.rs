@@ -23,7 +23,13 @@ pub fn is_base(row: i32, col: i32) -> bool {
 }
 
 /// 铁路：纵 col2 贯穿；横 row0/5/6/11 整行。行营/大本营在铁路外。
+/// ★ RRULE-004 修复：坐标域守卫——旧实现 is_rail(-1,2)/is_rail(99,2)/is_rail(5,-1)
+///   均返 true（负数/越界命中 col2/row5），是 cell_index 越界索引的潜在放大器。
+///   当前调用方有守卫属潜伏缺陷，补上界防未来漏检调用方（合法 0≤row<12 / 0≤col<5）。
 pub fn is_rail(row: i32, col: i32) -> bool {
+    if row < 0 || row >= BOARD_ROWS as i32 || col < 0 || col >= BOARD_COLS as i32 {
+        return false;
+    }
     if is_camp(row, col) || is_base(row, col) {
         return false;
     }

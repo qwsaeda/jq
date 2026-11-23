@@ -153,6 +153,12 @@ pub fn ai_score(src_rank: i32, dst_rank: i32, dst_revealed: bool) -> Option<i32>
     if src_rank > 24 {
         return None;
     }
+    // ★ RRULE-009 修复：dst_rank 上界守卫（与 src 对称）。save.rs:153 契约 rank∈[0,24]，
+    //   脏目标 rank（存档/BT 注入 >24，如 255）此前经 rank_norm 钳到 12 被当军旗评 1000 分，
+    //   AI 基于损坏数据决策。正常对局 rank≤24 不受影响。
+    if dst_rank > 24 {
+        return None;
+    }
     if src_rank == 0 {
         return None; // 空源哨兵
     }
