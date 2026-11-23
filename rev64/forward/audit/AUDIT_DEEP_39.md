@@ -128,7 +128,7 @@
 | 统计空接 | P2 | ☰ btn5 战况统计无界面，EventCounter 只采不现 | ✅ 修：新增 Screen::Stats + 7类计数柱状图 + jq.stats 属性（真机实测 2:0:0... t2） |
 | 存档假绿 | P1 | savetest 只回读 turn+pieces 字符串，无全量落盘/读档 | ✅ 修：serialize_state/deserialize_state 全字段+分层校验，savetest 真 round-trip，OnPause 自动存 + jq.loadsave 钩子。真机 savetest/loadsave=ok |
 | ExitConfirm 出口 | P2 | 取消退出固定回 Game 而非上层 | ✅ 修：exit_confirm(false) 回 screen_snap |
-| 分辨率硬编码 | P2 | OnGraphChange 空实现 + 全程 900×1600 硬编码，非该分辨率触摸错位 | ⚠️ 已知边界：当前权威设备 900×1600 正常；改动面遍布渲染/触摸/打包，风险大于收益，不动 |
+| 分辨率硬编码 | P2 | OnGraphChange 空实现 + 全程 900×1600 硬编码，非该分辨率触摸错位 | ✅ 修（2026-11-23，so `262e899`）：渲染尺寸改真值链——`OnGraphChange` 写 `G_RENDER_W/H`（jq.graph_size），渲染线程每帧从 `SurfaceHolder.getSurfaceFrame()` 读真实尺寸（真机实证 `jq.graph_size=NONE` 回调断裂，兜底必需），GPU offscreen/CPU 兜底/Canvas 绘制统一用该尺寸；`canvas.rs` 删除 createScaledBitmap(900,1600) 硬编码改 1:1 直绘。判据：`rust_all.sh` 校验 `jq.render_size == wm size`（启动+重进）。真机 900×1600 全 PASS |
 | JNI 7 空壳 | — | OnEvent/OnInput/Bluetooth 无 Java 调用 / OnPause/Resume/Result/GraphCreate/GraphChange 空不破坏契约 | ✅ 核实非缺陷（无调用点或语义无需求） |
 | 难度仅2档 | — | level 1 游走 / 2-4 贪心，3/4 无差异 | ✅ 核实：SPEC §9.3 与 C 共同设计，忠实对齐非缺陷 |
 

@@ -188,6 +188,13 @@ print(len(cols))
     SR=$(wait_screen boot)
     awk -v r="$SR" 'BEGIN{exit !(r+0 > 0.85)}' && log "PASS 出屏截图非黑比 ($SR)" || { log "FAIL 出屏截图非黑比 ($SR)"; fail=1; }
     check_gpu boot_0   # ★ GPU render pass 消费点判据（非 CPU 兜底 + 非纯色帧）
+    # ★ 尺寸真值判据（AUDIT_DEEP_39 分辨率硬编码边界）：render_size 必须等于设备 wm size，
+    #   而非旧的 450×800 / 900×1600 硬编码。jq.graph_size=NONE 是已知 smali 回调断裂，
+    #   渲染线程走 SurfaceHolder.getSurfaceFrame() 兜底，故不拿 graph_size 做判据。
+    WSIZE=$(adb -s "$DEV" shell wm size 2>/dev/null | tr -d '\r' | grep -oE '[0-9]+x[0-9]+' | head -1)
+    RSIZE=$(adb -s "$DEV" shell getprop jq.render_size 2>/dev/null | tr -d '\r')
+    [ -n "$WSIZE" ] && [ "$RSIZE" = "$WSIZE" ] && log "PASS 渲染尺寸真值 ($RSIZE = wm $WSIZE)" || {
+      log "FAIL 渲染尺寸非真值 (render=$RSIZE wm=$WSIZE)"; fail=1; }
     # ★ 默认暗棋开局（原版 g_opt_mode=1）首手是翻子，走子/悔棋判据需显式切明棋：
     #   ☰(view270,750) → 电脑变着(INGAME_BTNS[2] 720基准中心447,545 ×1.25) → 新手布局(DIFF_BTNS_ORIG[0] 350,527 ×1.25)
     #   规则判据用明棋语义，与默认 mode 解耦（避免"暗棋首手非走子"假 FAIL）
@@ -222,6 +229,9 @@ print(len(cols))
     SR2=$(wait_screen restart)
     awk -v r="$SR2" 'BEGIN{exit !(r+0 > 0.85)}' && log "PASS 重进出屏恢复 ($SR2)" || { log "FAIL 重进未恢复出屏 ($SR2)"; fail=1; }
     check_gpu restart_0   # ★ 重进后 GPU 管线仍必须真正出图（属性重置防旧值假绿）
+    RSIZE2=$(adb -s "$DEV" shell getprop jq.render_size 2>/dev/null | tr -d '\r')
+    [ -n "$WSIZE" ] && [ "$RSIZE2" = "$WSIZE" ] && log "PASS 重进渲染尺寸真值 ($RSIZE2)" || {
+      log "FAIL 重进渲染尺寸非真值 ($RSIZE2 vs $WSIZE)"; fail=1; }
     adb_ensure
     RP=""; for pn in 1 2 3 4 5; do adb_ensure; RP=$(adb -s "$DEV" shell "pidof com.qwsaeda.junqirs" 2>/dev/null | tr -d '\r' | head -1); [ -n "$RP" ] && break; sleep 1; done
     [ -n "$RP" ] && log "PASS 重进 pid 存活 ($RP)" || { log "FAIL 重进 pid 不存在"; fail=1; }

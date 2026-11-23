@@ -58,24 +58,12 @@ mod imp {
             }
         };
 
-        // ④ Bitmap.createScaledBitmap(bitmap, 900, 1600, false) → 缩放小图到全屏（降 CPU 合成量）
-        let scaled = match env.call_static_method("android/graphics/Bitmap", "createScaledBitmap",
-                "(Landroid/graphics/Bitmap;IIZ)Landroid/graphics/Bitmap;",
-                &[JValue::Object(&bitmap), JValue::Int(900), JValue::Int(1600), JValue::Bool(0)])
-            .ok().and_then(|v| v.l().ok()) {
-                Some(b) => b,
-                None => {
-                    // ★ RJNI-007 修复：JNI 规范——有 pending exception 时不得调其他 JNI 函数。
-                    //   旧实现先 unlockCanvasAndPost 后 clear → 持异常 unlock 常失败 → Surface 永久锁死
-                    //   / "No pending exception expected" abort。改为先清异常再 unlock。
-                    if env.exception_check().unwrap_or(false) { let _ = env.exception_clear(); }
-                    let _ = env.call_method(&surface, "unlockCanvasAndPost", "(Landroid/graphics/Canvas;)V", &[JValue::Object(&canvas)]);
-                    return Err("createScaledBitmap failed".into());
-                }
-            };
-        // ⑤ Canvas.drawBitmap(scaled, 0,0, null)
+        // ④ Canvas.drawBitmap(bitmap, 0,0, null)
+        // ★ 尺寸真值：bitmap 已按 surface 真实尺寸 (w,h) 创建（来自 OnGraphChange → render_size）。
+        //   旧实现 createScaledBitmap(bitmap, 900, 1600) 硬编码 → 非 900×1600 屏二次缩放失真，
+        //   且每帧多分配一张大 Bitmap（审计"每帧 11MB 分配"根因之一）。此处直接 1:1 绘制。
         if let Err(e) = env.call_method(&canvas, "drawBitmap", "(Landroid/graphics/Bitmap;FFLandroid/graphics/Paint;)V",
-            &[JValue::Object(&scaled), JValue::Float(0.0), JValue::Float(0.0), JValue::Object(&JObject::null())]) {
+            &[JValue::Object(&bitmap), JValue::Float(0.0), JValue::Float(0.0), JValue::Object(&JObject::null())]) {
             // ★ RJNI-007：先清挂起异常再 unlock（顺序不可颠倒，持异常调 JNI 非法）
             if env.exception_check().unwrap_or(false) { let _ = env.exception_clear(); }
             let _ = env.call_method(&surface, "unlockCanvasAndPost", "(Landroid/graphics/Canvas;)V", &[JValue::Object(&canvas)]);

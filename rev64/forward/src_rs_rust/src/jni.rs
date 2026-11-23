@@ -72,6 +72,18 @@ mod android_impl {
     // wgpu 出屏攻坚：GLView global ref + wgpu 资源
     /// GLView global ref 的 raw jobject（跨线程，AtomicUsize 存储；经 jni::JObject::from_raw 还原）
     static G_VIEW: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+
+    /// ★ 真实 surface 尺寸（OnGraphChange 写入，渲染线程读取）——替代旧的 450×800 / 900×1600 硬编码。
+    ///   默认 900×1600 仅作 OnGraphChange 未回调时兜底（真机应回调；见 jq.graph_size 判据）。
+    ///   与 C 版 da36d6bc 同类问题：view 基准必须等于渲染几何，否则小竖条/黑边。
+    static G_RENDER_W: std::sync::atomic::AtomicI32 = std::sync::atomic::AtomicI32::new(900);
+    static G_RENDER_H: std::sync::atomic::AtomicI32 = std::sync::atomic::AtomicI32::new(1600);
+    pub(crate) fn render_size() -> (u32, u32) {
+        use std::sync::atomic::Ordering::Acquire;
+        let w = G_RENDER_W.load(Acquire);
+        let h = G_RENDER_H.load(Acquire);
+        ((w.max(1)) as u32, (h.max(1)) as u32)
+    }
     /// 走子计数（刷新画面用）
     static G_MOVES: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
     /// 选中格（审计 A8：替代 static mut SEL，避免竞态）
@@ -343,7 +355,7 @@ mod android_impl {
         //   旧裸指针版 NewGlobalRef 从不 DeleteGlobalRef，成员 forget 对齐该生命周期语义。
         std::mem::forget(global);
         // ★ native EGL 渲染线程独占 window（setRenderer 已在 smali 移除，避免 0x3003）
-        crate::wgpu_thread::start(G_VM.load(std::sync::atomic::Ordering::Relaxed), G_VIEW.load(std::sync::atomic::Ordering::Relaxed), 900, 1600);
+        crate::wgpu_thread::start(G_VM.load(std::sync::atomic::Ordering::Relaxed), G_VIEW.load(std::sync::atomic::Ordering::Relaxed));
         // requestRender 不在 native 调：view attach 后 Java GLThread 自会出首帧（提前调 NPE）
         view.into_raw()
     }
@@ -991,9 +1003,17 @@ mod android_impl {
     pub extern "C" fn Java_com_qwsaeda_App_OnGraphChange(
         _env: *mut jni::sys::JNIEnv,
         _cls: JClass,
-        _w: jni::sys::jint,
-        _h: jni::sys::jint,
+        w: jni::sys::jint,
+        h: jni::sys::jint,
     ) {
+        // ★ 尺寸真值入口：GLView.onSurfaceChanged → App.OnGraphChange(w,h)。
+        //   写入原子量供 GPU 渲染线程用真实 surface 尺寸出图（不再硬编码 450×800）。
+        if w > 0 && h > 0 {
+            use std::sync::atomic::Ordering::Release;
+            G_RENDER_W.store(w, Release);
+            G_RENDER_H.store(h, Release);
+            crate::log::setprop("jq.graph_size", &format!("{}x{}", w, h));
+        }
         with_lock(|_s, _u, _c| {});
     }
 
@@ -1031,3 +1051,9 @@ pub fn board_snapshot() -> Option<()> { None }
 pub use android_impl::run_test_hooks;
 #[cfg(not(target_os = "android"))]
 pub fn run_test_hooks() {}
+
+#[cfg(target_os = "android")]
+pub(crate) use android_impl::render_size;
+#[cfg(not(target_os = "android"))]
+#[allow(dead_code)] // 仅 android 渲染线程消费；桌面保留签名供静态门禁
+pub(crate) fn render_size() -> (u32, u32) { (900, 1600) }

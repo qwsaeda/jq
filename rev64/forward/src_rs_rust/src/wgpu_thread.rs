@@ -25,7 +25,7 @@ mod imp {
     }
 
     /// 启动 wgpu 渲染线程（native 独占 window，无 Java GLThread 竞争）
-    pub fn start(vm_addr: usize, view_addr: usize, w: u32, h: u32) {
+    pub fn start(vm_addr: usize, view_addr: usize) {
         // ★ JNI-05: 先抢占 RUNNING，成功翻转后才清 STOP（旧顺序会让旧线程逃逸生命周期）
         // ★ N3 根治：旧 stop() 超时会 detach 线程而 RUNNING 仍 true，若此时重建 activity
         //   新 start() 直接 return → 没有任何渲染线程 → 永久黑屏。先轮询等旧线程退出（≤2s）。
@@ -41,7 +41,7 @@ mod imp {
         let h = std::thread::spawn(move || {
             // ★ JNI-11: 删除全局 panic hook——它静默所有线程日志；catch_unwind 已阻止 panic 跨线程 abort
             let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                unsafe { run(vm_addr, view_addr, w, h) }
+                unsafe { run(vm_addr, view_addr) }
             }));
             if result.is_err() {
                 crate::log::setprop("jq.wgpu_state3", "panicked");
@@ -51,7 +51,7 @@ mod imp {
         if let Ok(mut guard) = JOIN.lock() { *guard = Some(h); }
     }
 
-    unsafe fn run(vm_addr: usize, view_addr: usize, _w: u32, _h: u32) {
+    unsafe fn run(vm_addr: usize, view_addr: usize) {
         let vm = match jni::JavaVM::from_raw(vm_addr as *mut jni::sys::JavaVM) {
             Ok(v) => v,
             Err(_) => { crate::log::setprop("jq.wgpu_state3", "vm_fail"); return; }
@@ -127,17 +127,25 @@ mod imp {
             if env.exception_check().unwrap_or(false) { let _ = env.exception_clear(); }
             crate::jni::run_test_hooks(); // 真机验证钩子（setRenderer 移除后 OnUpdate 不调，改由此线程驱动）
             let r = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                // ★ 真实 surface 尺寸：OnGraphChange → jni::render_size 为主；
+                //   但真机实证 App.OnGraphChange 未被回调（jq.graph_size=NONE，smali 链断裂），
+                //   故每帧直接从 SurfaceHolder.getSurfaceFrame() 读真值——不依赖回调，
+                //   非 900×1600 屏幕也不会被拉伸/留黑边（C da36d6bc 同类根因）。
+                let (rw, rh) = super::surface_frame_size(&mut env, &view).unwrap_or_else(crate::jni::render_size);
+                if frame == 0 {
+                    crate::log::setprop("jq.render_size", &format!("{}x{}", rw, rh));
+                }
                 let rgba = {
                     let (board, screen, stats) = match crate::jni::board_snapshot() { Some(b) => b, None => return };
                     // ★ GPU 优先：wgpu render pass 直接按 quad 列表画棋盘/棋子/UI；
                     //   任一帧失败则降级 CPU 合成并落 jq.gpu_state，判据据此区分真 GPU 出屏与兜底。
                     match gpu.as_mut().and_then(|g| {
-                        crate::render::gpu::render_scene(g, 450, 800, Some(&board), screen, Some(&stats))
+                        crate::render::gpu::render_scene(g, rw, rh, Some(&board), screen, Some(&stats))
                     }) {
                         Some(px) => px,
                         None => {
                             crate::log::setprop("jq.gpu_state", "cpu_fallback");
-                            crate::asset::compose_board_rgba(450, 800, Some(&board), screen, Some(&stats))
+                            crate::asset::compose_board_rgba(rw as usize, rh as usize, Some(&board), screen, Some(&stats))
                         }
                     }
                 };
@@ -157,7 +165,7 @@ mod imp {
                             // ★ 状态属性反映"当前帧"结果：成功写 rendering、失败写 canvas_err。
                             //   旧实现只在 frame==3 写一次 rendering、失败才写 err →
                             //   一次偶发失败就把属性永久卡在 canvas_err（画面其实正常），判据假 FAIL。
-                            if crate::canvas::draw_rgba_to_surface(env, surface, &rgba, 450, 800).is_ok() {
+                            if crate::canvas::draw_rgba_to_surface(env, surface, &rgba, rw as i32, rh as i32).is_ok() {
                                 crate::log::setprop("jq.wgpu_state3", "rendering");
                             } else {
                                 crate::log::setprop("jq.wgpu_state3", "canvas_err");
@@ -182,9 +190,31 @@ mod imp {
         }
     }
 }
+/// 从 SurfaceHolder.getSurfaceFrame() 直接读当前 surface 真实尺寸（不依赖 OnGraphChange 回调）
+#[cfg(target_os = "android")]
+fn surface_frame_size(env: &mut jni::JNIEnv, view: &jni::objects::JObject<'_>) -> Option<(u32, u32)> {
+    let mut size = (0u32, 0u32);
+    let _ = env.with_local_frame(8, |env| -> jni::errors::Result<()> {
+        let holder = env.call_method(view, "getHolder", "()Landroid/view/SurfaceHolder;", &[])
+            .ok().and_then(|v| v.l().ok());
+        if let Some(h) = holder {
+            let rect = env.call_method(h, "getSurfaceFrame", "()Landroid/graphics/Rect;", &[])
+                .ok().and_then(|v| v.l().ok());
+            if let Some(r) = rect {
+                let w = env.call_method(&r, "width", "()I", &[]).ok().and_then(|v| v.i().ok()).unwrap_or(0);
+                let h = env.call_method(&r, "height", "()I", &[]).ok().and_then(|v| v.i().ok()).unwrap_or(0);
+                if w > 0 && h > 0 { size = (w as u32, h as u32); }
+            }
+        }
+        if env.exception_check().unwrap_or(false) { let _ = env.exception_clear(); }
+        Ok(())
+    });
+    if size.0 > 0 && size.1 > 0 { Some(size) } else { None }
+}
+
 #[cfg(target_os = "android")]
 pub use imp::{start, stop};
 #[cfg(not(target_os = "android"))]
-pub fn start(_vm: usize, _view: usize, _w: u32, _h: u32) {}
+pub fn start(_vm: usize, _view: usize) {}
 #[cfg(not(target_os = "android"))]
 pub fn stop() {}

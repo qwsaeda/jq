@@ -7359,3 +7359,20 @@ java.lang.UnsatisfiedLinkError: dlopen failed:
 ② 纹理遮罩在上传时预处理比在 shader 里分支更省且语义可控；③ houdini 下 wgpu window surface 不可用，
 offscreen GPU render + readback + Canvas 是可行路线（场景仍由 GPU 生成）；④ 判据属性必须在重进前重置，
 否则跨进程残留值造成假绿。
+
+## 2026-11-23 渲染尺寸真值链（关闭"分辨率硬编码"边界，so `262e899`）
+**发现**：真机 `jq.graph_size=NONE` —— `App.onSurfaceChanged → OnGraphChange` 的 smali 回调链**实际未触发**
+（AGENTS.md 早有记载，但代码一直假设它工作）。此前 450×800 GPU offscreen + `createScaledBitmap(900,1600)`
+两处硬编码，设备恰好 900×1600 才没暴露——属于 C 版"小竖条"同类根因。
+
+**修法**：① `OnGraphChange` 写原子量 `G_RENDER_W/H` + `jq.graph_size`（为回调修好时准备）；
+② 渲染线程每帧用 `SurfaceHolder.getSurfaceFrame()` 读真实尺寸，**不依赖回调**（主路径）；
+③ GPU offscreen / CPU 兜底 / `canvas.rs` 绘制统一用该尺寸，删掉 `createScaledBitmap(900,1600)` 改 1:1 直绘
+（顺带去掉每帧一张大 Bitmap 分配）；④ `rust_all.sh` 加 `jq.render_size == wm size` 判据（启动+重进各一次）。
+
+**实证**：10.0.182.152 so `262e899`，`jq.graph_size=NONE` / `jq.render_size=900x1600`（兜底生效）、
+GPU `render_ok`、非黑 98.9% / 340 色，`rust_all.sh --device` 全 PASS。
+
+**教训**：① 文档里写"已接线"不等于运行时真回调——必须加 `jq.graph_size` 这类消费点属性实证；
+② 尺寸真值要有不依赖 UI 回调的兜底（SurfaceHolder 直读），否则回调断裂时硬编码被"默认值正确"掩盖；
+③ 渲染缓冲尺寸与展示尺寸必须同一真值，二次缩放既失真又浪费内存。
