@@ -126,8 +126,11 @@ if [ "$DEVICE" = 1 ]; then
   P=$(adb -s "$DEV" shell "pm path com.qwsaeda.junqirs" 2>/dev/null | sed 's/package://' | tr -d '\r' | head -1)
   if [ -n "$P" ]; then
     DH=$(adb -s "$DEV" exec-out "unzip -p $P lib/arm64-v8a/libjunqi.so" 2>/dev/null | md5sum | cut -d' ' -f1)
-    LH=$(md5sum "$SO" | cut -d' ' -f1)
-    [ "$DH" = "$LH" ] && log "PASS 设备 so 对账 ($DH)" || { log "FAIL 设备 so 不一致 设备=$DH 本地=$LH"; fail=1; }
+    # ★ 并发会话修正：对账基准取【交付 APK 内的 so】而非本地 target so。
+    #   多会话并行时本地 target/so 可能已被下一次编译刷新（哈希漂移），但设备装的是 APK 里的那份；
+    #   拿本地比会假 FAIL（实测 10be21ef vs f1ea4357），掩盖真实判据结果。
+    LH=$(unzip -p "$WS/dist/phase_rs_rust.apk" lib/arm64-v8a/libjunqi.so 2>/dev/null | md5sum | cut -d' ' -f1)
+    [ "$DH" = "$LH" ] && log "PASS 设备 so 对账 ($DH)" || { log "FAIL 设备 so 不一致 设备=$DH APK=$LH"; fail=1; }
     # 轮询等属性（CODE_STYLE §11：固定 sleep→wait_log，抗 houdini 时序抖动）
     # ★ 关键：offline 时 getprop 返回 "adb: device offline"，绝不能当属性值匹配（假绿根源）
     wait_prop(){ local key=$1 want=$2 n=0; while [ $n -lt 15 ]; do
