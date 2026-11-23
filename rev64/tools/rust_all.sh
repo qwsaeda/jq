@@ -89,6 +89,10 @@ if [ "$QUICK" = 0 ]; then
   # ★ 轮11：几何常量 vs datah XML 真值自动核对（25 项，防常量漂移）
   GC=$(python3 "$WS/rev64/tools/geometry_const_check.py" 2>&1); GC_RC=$?
   [ $GC_RC -eq 0 ] && log "PASS $(echo "$GC" | tail -1)" || { echo "$GC"; log "FAIL geometry_const_check"; fail=1; }
+  # ★ 轮13：ai_pick 选着决策真值（C jni_bridge.c:309 逐分支）— 补"ai_score 对但选着错"盲区
+  log "=== [4e] ai_pick_decision_check（C 选着语义→生产 ai_pick）==="
+  AP=$(cd "$RUST" && cargo test --release --test ai_pick_decision_check 2>&1)
+  echo "$AP" | grep -q 'test result: ok' && log "PASS 生产ai_pick选着对齐C语义（6分支）" || { echo "$AP" | tail -8; log "FAIL ai_pick_decision_check"; fail=1; }
   log "=== [4b] rust_geom_check（几何6函数 950 case）+ rp_desktop_compare（32/64双端36 case）==="
   G=$(python3 "$WS/rev64/tools/rust_geom_check.py" 2>&1); GR=$?
   if [ $GR -eq 0 ] && echo "$G" | grep -q '判定: PASS'; then

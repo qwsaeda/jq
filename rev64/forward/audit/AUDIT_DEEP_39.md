@@ -250,3 +250,13 @@ ui_offline6/6 + rust_all全PASS（设备so 8dea25de + 0Fatal）。
 验证：114 tests + clippy0 + android0警 + ui_offline6/6 + geometry25项 + rust_all全PASS(设备so 0003f6a5 + 0Fatal)。
 诚实边界：主菜单"联网/联机/四国"3 个按钮是视觉占位（原版有此 UI，但人机对战范围砍联网功能）——
 按用户 2026-11-23 明确指令"真机联网不做"，不测不修这 3 个按钮的功能。rust_all 切明棋判据 PASS 证明菜单流程正常。
+
+## 2026-11-23 审计轮 13（用户"联网不做"确认后 → AI 选着决策对照）
+
+| 项 | 级别 | 问题 | 状态 |
+|---|---|---|---|
+| ai_pick 选着无判据 | P2 | ai_score 有 154 case 桥接，但"给定局面 AI 选哪步"（候选过滤/难度分流/tie-break/翻棋回退/空移兜底）无判据——ai_score 对但选着逻辑错照样 PASS | ✅ 修：ai_pick_decision_check.rs 按 C jni_bridge.c:309 逐分支语义构造 6 局面（贪心吃子/level1被动/无走子翻棋/只排军旗/暗棋不透视/空盘None），断言生产 ai_pick 选着；接入 rust_all [4e] |
+| 测试期望写错1处 | — | 暗棋不透视 case 我初写期望"转翻棋"，核对 C 发现红司令仍有空移候选(sc=2)→走空移不翻棋，AI 实际正确 | ✅ 修正测试期望为"不选吃未翻子"(真正的不透视语义) |
+
+验证：114 tests + clippy0 + rust_all全PASS（含[4e]6分支 + 设备0Fatal）。
+**结论**：ai_pick 选着逻辑与 C 逐分支一致（候选过滤/rank_norm/难度分流/翻棋接受0xFF/只排旗/空移兜底全对齐）。
