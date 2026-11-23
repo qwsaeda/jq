@@ -118,7 +118,9 @@ pub fn ai_pick(st: &State, level: u8) -> Option<Move> {
         }
     }
 
-    // 空移兜底
+    // 空移兜底 ★ RRULE-007 标注：bf=Some 需 sc>bs（bs 初值 -1），而 ai_score 对合法着法
+    //   恒返回 ≥1 ⇒ bf=Some 时 bs≥1 ⇒ 上方 L92/L97 必先 return，故此分支正常路径不可达。
+    //   保留作脏数据/未来评分改动的防御兜底，勿误以为它是活跃选着路径。
     if let Some((f, t)) = bf {
         return Some(Move { from: f, to: t, is_flip: false });
     }

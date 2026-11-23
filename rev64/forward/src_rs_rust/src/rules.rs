@@ -124,7 +124,9 @@ fn rail_path_straight(st: &State, fr: i32, fc: i32, tr: i32, tc: i32) -> bool {
         let step = if tr > fr { 1 } else { -1 };
         let mut rr = fr + step;
         while rr != tr {
-            if is_camp(rr, 2) || is_base(rr, 2) {
+            // ★ RRULE-008：删恒假死条件 is_base(rr,2)——is_base 要求 col∈{1,3}，此处 col 固定 2
+            //   恒 false（C 版 B01-097 已核实 (0,2)/(11,2) 非大本营）。is_camp 仍生效。
+            if is_camp(rr, 2) {
                 return false;
             }
             rr += step;
@@ -412,6 +414,12 @@ pub fn can_flip(st: &State, idx: usize) -> bool {
     if idx >= N_CELLS || st.stage != Stage::Play {
         return false;
     }
+    // ★ RRULE-003 修复：翻棋门只应在暗棋模式生效——与 can_select_for_touch:403
+    //   （要求 MODE_FLIP）对齐，消除同模块两套翻棋门判定相左。明棋模式正常无未翻子
+    //   （全 revealed=true），此门不影响正常对局/困毙扫描。
+    if st.mode != crate::state::MODE_FLIP {
+        return false;
+    }
     let c = &st.cells[idx];
     if c.is_empty() || c.revealed {
         return false;
@@ -514,8 +522,11 @@ pub fn side_has_normal(st: &State, side: Side) -> bool {
             continue;
         }
         let mut r = rank_of(c);
+        // ★ RRULE-005 标注：rank_of（state.rs）已保证返回 rank ≤ RANK_TOP(12)，
+        //   故下面 r > RANK_TOP 分支在正常路径恒假（红方 +0xc 编码在 rank_of 里已还原）。
+        //   保留此分支作脏数据兜底 + C-faithful 对齐，勿误以为它处理常规红方 rank。
         if side == SIDE_RED && r > RANK_TOP {
-            r = Rank(r.0 - 0x0c); // 红方 +0xc 归一
+            r = Rank(r.0 - 0x0c); // 红方 +0xc 归一（正常路径不可达，脏值兜底）
         }
         if r == RANK_MINE || r == RANK_FLAG {
             continue;
