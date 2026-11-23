@@ -119227,3 +119227,52 @@ device_regress_check.sh 三态判定 + 离线 dry-run 判据同步）。
    判据 / 走子桥 8 步，正向 rules.c / jni_bridge.c / spak_load.c 对
    照基准，非逆向改产物（方法缺陷 §1958 已实锤，不重蹈"逐指令翻译 +
    镜像兜底下策"）
+
+### §124y-1960 第一千九百六十  批 黑白盒渗透方法论逆向侧增量（2026-11-22/23，反汇编裁定 + 判据脚本自身缺陷 + 逆向反喂正向）
+
+承接 §124y-1959（逆向→正向数据交接清单）+ 本轮 AGENTS 方向更新（"只做正向开发，逆向为正向服务"），
+本批固化**逆向侧**在 2026-11-22/23 黑白盒渗透实战中沉淀的方法论增量（正向侧方法论见
+`rev64/forward/docs_rs/FUZZ_PENETRATION.md` §5.5）。全程以原版 so / SPAK / 静态真值为事实源，不臆测。
+
+**一、反汇编裁定链（正向分叉的裁决必须以原版实锤为准，禁照抄 SPEC/旧台账）**
+- **胜负分发 0x30200**：func_boundaries 定位（0x30200 区段）+ Thumb 反汇编 + literal PC 相对
+  计算（0x30236→0x120e32=Junqi.Win / 0x3023c→0x120e6a=Junqi.Lose）坐实原版 r3=1→Win /
+  2→Lose / 其他→Draw/Over；0x30260 吃旗胜**不检查目标棋子 side**。据此裁定正向 Rust
+  `side_valid(dst_side)` 守卫是真 bug（暗棋军旗 side=0xFF 恒假漏判胜，已修 commit 510413bd）。
+- **军旗残局死锁**：原版 0x30320 "仅排地雷、军旗算可翻"（F1 决策，AUDIT_DEEP_39 已定案）→
+  忠实复刻行为不改（RRULE-002）。**教训：区分"真 bug"与"忠实原版的已知后果"——后者不改**。
+- **声音语义链**：SPAK 解包 `data_config_sound.xml` 真值（SoundConfig + Junqi 12 项 + Ui 3 项）
+  + .rodata SoundMgr/AudioManager.getMinVolume/getMaxVolume/setStereoVolume → 正向 BtnSound/Volume
+  三控件从"假按钮"落地为状态 + 菜单 pop 音效 + MediaPlayer.setVolume 路由（commit 15efbe9c/7754982d）。
+- **方法固化**：反汇编 literal 计算 = Thumb LDR literal（PC=instr+4 对齐4）+ add rX,pc 的
+  两级偏移，不能只看 objdump 的 `@ 0x...` 注释（那是 literal 地址非最终字符串 VA）。
+
+**二、设备侧新型状态的判据降级（AGENTS §124y-189 "掉线→PENDING"扩展到"可达但 ABI 不匹配"）**
+- 152（10.0.182.152，Xiaomi 23127PN0CC / Android 15，abilist=x86_64,arm64-v8a,x86）**无 32 位
+  ARM ABI** → 32 位翻译体 so 装不上（INSTALL_FAILED_NO_MATCHING_ABIS）。arm32_verify_all /
+  arm32_hook_check 旧逻辑只看 "设备可达" → 白等 45s×N + 误报 FAIL（把环境约束当 so 回归）。
+  修：两入口都加 ABI 预检（可达无 armeabi → rc=3 PENDING，几秒返回），实测坐实。
+- 同步纠正过时口径：静态证据 40→74 项；域矩阵语义实现 30.7%→91.9% / 裸跑 69.3%→8.1%
+  （434 RAW 全 libstdc++/glibc，真业务裸跑 0——"降裸跑率"非主攻方向已失效）；
+  默认 IP 146→152（IP 漂移环境史）；F_ 2219→5464 / 事件链 57→67 case。
+
+**三、判据脚本自身的缺陷（渗透轮发现，逆向侧同样中招）**
+- **构建脚本阻断**：build_arm32_aligned.sh L20 `for f in $JTI/jqt_*.c` 把 jqt_mem_fuzz*.c
+  （桌面 ASan 程序含 main）编进 so → L53 全链 ld 重复符号 main 失败，**任何 so 重编被阻断**。
+  修：排除 fuzz 文件（commit d494aaf9）——这类"构建链被测试文件污染"是静默假绿的反面（直接卡死）。
+- **子代理审计纪律**：4 域并行子代理审计 32 位翻译体（JNI/内存、规则/走子、事件/渲染、
+  工具链判据）本轮新挖 25 条真问题，但父会话逐条核验撤回 28 条误报——**子代理行号/快照
+  会漂移**（活跃会话并发改），JNI-001 初判经调用点复核反而坐实（args[0]=this 被当实参）。
+  教训：审计产出以"源码:行 + 可复现判据 + 父核验状态"为硬标准，禁盲信子代理输出。
+- **JNI-001/002 修复决策**：实例 JNI 实参加载错位（parse_args 从 args[0] 但 args[0]=this）+
+  n_args==0 守卫顺序反了——曾实测桌面回归 PASS，但 152 无 32 位 ABI 无法真机验证 → 按
+  "真机基准不可外推"铁律**回滚**（so 恢复 d8c98fd9），修复方案+前置条件留台账待真机会话。
+  **教训：无真机条件时，核心逻辑改动不进交付物**。
+
+**四、逆向反喂正向的边界（承接 §124y-1959，本轮 AGENTS 方向更新后强化）**
+- 逆向只作为正向的**事实源与验收手段**：本轮反汇编常量（0x30200 胜负分发 / 0x30320 地雷
+  语义 / 0x39e14 走子合法性）+ SPAK 配置真值（sound.xml / datah XML）+ 真机 5 判据均单向喂
+  正向 src_rs_rust 的行为级对齐与修复；不反向改正向源码、不与正向会话抢活（工作树 6 个
+  正向并行改动全程未碰）。
+- 台账归属：`rev64/forward/audit/AUD_PENETRATION_2026_11_22.md`（逆向侧 25 条）/
+  `AUD_RUST_2026_11_22.md`（正向侧 33 条）分开落盘，每轮标注核验状态与并发修复快照口径。
