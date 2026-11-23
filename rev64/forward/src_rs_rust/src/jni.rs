@@ -740,13 +740,32 @@ mod android_impl {
                         with_lock(|st, u, _c| u.cancel_popup(st));
                         crate::log::setprop("jq.popup_act", "cancel");
                     }
-                    Some(idx) => { // 开关（0-3 GameSet cfg / 0 Settings sound）
+                    Some(idx) => { // 开关（0-3 GameSet cfg / 0-2 Settings 声音三控件）
                         if is_gameset && idx < 4 {
                             with_lock(|st, _u, _c| { st.cfg[idx as usize] = if st.cfg[idx as usize] == 1 { 0 } else { 1 }; });
                             crate::log::setprop("jq.popup_act", &format!("cfg{}_toggle", idx));
-                        } else if !is_gameset && idx == 0 {
-                            with_lock(|_st, u, _c| { u.sound_on = !u.sound_on; });
-                            crate::log::setprop("jq.popup_act", "sound_toggle");
+                        } else if !is_gameset {
+                            // ★ RJNI-004：原版 datah_001 声音设置三控件（Sound/BtnSound/Volume）
+                            //   此前只有 idx0 生效，idx1/2 是"画了点不动的假按钮"。
+                            //   原版 .rodata 实证 SoundMgr/SoundConfig/BtnSound/AudioManager 三配置独立。
+                            match idx {
+                                0 => {
+                                    with_lock(|_st, u, _c| { u.sound_on = !u.sound_on; });
+                                    crate::log::setprop("jq.popup_act", "sound_toggle");
+                                }
+                                1 => {
+                                    with_lock(|_st, u, _c| { u.btn_sound_on = !u.btn_sound_on; });
+                                    crate::log::setprop("jq.popup_act", "btnsound_toggle");
+                                }
+                                2 => {
+                                    let v = with_lock(|_st, u, _c| {
+                                        u.volume = if u.volume >= 100 { 0 } else { (u.volume + 10).min(100) };
+                                        u.volume
+                                    });
+                                    crate::log::setprop("jq.popup_act", &format!("volume_{}", v));
+                                }
+                                _ => {}
+                            }
                         }
                     }
                 }

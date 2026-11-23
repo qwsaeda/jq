@@ -49,6 +49,13 @@ pub struct Ui {
     screen_snap: Screen,
     /// ★ 审计 A9：独立音效开关状态（不再用 cfg[0] 伪装）
     pub sound_on: bool,
+    /// ★ RJNI-004：原版 datah_001 声音设置三控件 = Sound(总静音)/BtnSound(按键声音)/Volume(音量)，
+    ///   原版 .rodata 实证 SoundMgr/SoundConfig/BtnSound/AudioManager.getMaxVolume/getMinVolume。
+    ///   后两项此前是"画了点不动的假按钮"——补独立状态（快照/取消回滚对称）。
+    pub btn_sound_on: bool,
+    pub volume: u8, // 0-100，步进 10；实际音量路由需 Java AudioManager（未逆向，暂状态层）
+    btn_sound_snap: bool,
+    volume_snap: u8,
     /// 悔棋栈（规格 §6：整盘快照，走子/翻棋前 push）
     pub undo_stack: Vec<State>,
     /// ★ RSAVE-001：与 undo_stack 一一对应的复盘游标快照——悔棋时把 Replay
@@ -66,8 +73,12 @@ impl Ui {
             mode_snap: 0,
             cfg_snap: [1, 1, 1, 1, 1],
             sound_snap: true,
+            btn_sound_snap: true,
+            volume_snap: 70,
             screen_snap: Screen::Menu,
             sound_on: true,
+            btn_sound_on: true,
+            volume: 70,
             undo_stack: Vec::new(),
             undo_rp_cursors: Vec::new(),
         }
@@ -79,6 +90,8 @@ impl Ui {
         self.cfg_snap = st.cfg;
         self.screen_snap = self.screen; // 记录进入弹窗前的原屏
         self.sound_snap = self.sound_on; // 独立音效态快照（不再用 cfg[0] 伪装）
+        self.btn_sound_snap = self.btn_sound_on; // RJNI-004 三控件快照对称
+        self.volume_snap = self.volume;
     }
 
     /// 取消弹窗（恢复快照 + 回主菜单，规格 §10 面板外=取消语义）
@@ -87,6 +100,8 @@ impl Ui {
         st.mode = self.mode_snap;
         st.cfg = self.cfg_snap;
         self.sound_on = self.sound_snap; // 音效双轨回滚
+        self.btn_sound_on = self.btn_sound_snap; // RJNI-004 三控件回滚对称
+        self.volume = self.volume_snap;
         self.screen = self.screen_snap;  // 返回原屏（非固定 Menu）
     }
 
