@@ -663,7 +663,12 @@ mod android_impl {
                         crate::log::setprop("jq.ingame_act", "restart");
                     }
                     Some(1) => { // 悔棋（真执行）
-                        let ok = with_lock(|st, u, _c| u.undo(st)); clear_sel();
+                        // ★ RSAVE-001：悔棋同步回滚复盘记录（棋盘退/replay 没退 → seq 重复）
+                        let ok = with_game(|g| {
+                            let (ok, rp_cur) = g.ui.undo_with_rp(&mut g.state);
+                            if ok { if let Some(cur) = rp_cur { g.rp.cur_set(cur); g.rp.truncate_to(cur); } }
+                            ok
+                        }); clear_sel();
                         crate::log::setprop("jq.ingame_act", if ok { "undo_ok" } else { "undo_empty" });
                     }
                     Some(7) => { // 退出程序
@@ -734,12 +739,13 @@ mod android_impl {
                 return 1;
             }
             ui::Screen::Replay => {
-                // ★ F2 复盘控制条：底部 5 按钮（菜单/回退/前进/跳转/返回）
-                //   控制条 y 88%-96%（view 1408-1536），5 按钮 x = 0.08+0.17i（画布比例→view 900）
-                //   回退/前进/跳转重建棋盘（rewind_to），返回对局恢复实时局面
-                let by = y as f32 / 1600.0;
-                if by > 0.86 {
-                    let btn = ((x as f32 / 900.0 - 0.08) / 0.17).floor() as i32;
+                // ★ 轮10 datah_107 真值：控制条 460×60@(10,705) 720基准，5按钮各84×60
+                //   x=10/104/198/292/386 y=705-765 → view(900系)×1.25。命中→对应动作。
+                let (bx, by) = (x * 0.8, y * 0.8);
+                let btn = if by >= 705.0 && by <= 765.0 {
+                    [10.0f32, 104.0, 198.0, 292.0, 386.0].iter().position(|&x0| bx >= x0 && bx <= x0 + 84.0)
+                } else { None };
+                if let Some(btn) = btn {
                     match btn {
                         0 => { // 菜单：返回游戏内菜单
                             with_lock(|_s, u, _c| { u.screen = ui::Screen::IngameMenu; });
@@ -831,7 +837,12 @@ mod android_impl {
                     crate::log::setprop("jq.game_icon", "menu");
                     return 1;
                 } else if in_icon(620.0) { // ↩ 悔棋（真执行）
-                    let ok = with_lock(|st, u, _c| u.undo(st)); clear_sel();
+                    // ★ RSAVE-001：悔棋同步回滚复盘（与菜单悔棋同路径）
+                    let ok = with_game(|g| {
+                        let (ok, rp_cur) = g.ui.undo_with_rp(&mut g.state);
+                        if ok { if let Some(cur) = rp_cur { g.rp.cur_set(cur); g.rp.truncate_to(cur); } }
+                        ok
+                    }); clear_sel();
                     crate::log::setprop("jq.game_icon", if ok { "undo_ok" } else { "undo_empty" });
                     return 1;
                 }
@@ -859,7 +870,7 @@ mod android_impl {
                             rules::can_move(st, from, cell)
                         };
                         if !legal { return (false, None, None, false); }
-                        u.push_undo(st); // 规格 §6：合法动作前 push 整盘快照
+                        u.push_undo_at(st, g.rp.cur()); // 规格 §6 + RSAVE-001：push 快照 + 复盘游标
                         let ev_code = if from == cell {
                             // 同格翻棋（暗棋）
                             if rules::flip(st, cell) {

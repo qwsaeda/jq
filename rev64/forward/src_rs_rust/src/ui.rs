@@ -51,6 +51,10 @@ pub struct Ui {
     pub sound_on: bool,
     /// 悔棋栈（规格 §6：整盘快照，走子/翻棋前 push）
     pub undo_stack: Vec<State>,
+    /// ★ RSAVE-001：与 undo_stack 一一对应的复盘游标快照——悔棋时把 Replay
+    ///   同步回滚到此游标（否则棋盘回退但 replay 记录还在 → 再走 seq 重复、rewind 失配）。
+    ///   usize::MAX = 哨兵（fuzztest 等不关心 replay 的调用方，undo 时不回滚 replay）。
+    pub undo_rp_cursors: Vec<usize>,
 }
 
 impl Ui {
@@ -65,6 +69,7 @@ impl Ui {
             screen_snap: Screen::Menu,
             sound_on: true,
             undo_stack: Vec::new(),
+            undo_rp_cursors: Vec::new(),
         }
     }
 
@@ -101,7 +106,7 @@ impl Ui {
     pub fn difficulty_select(&mut self, level: u8, mode: u8, st: &mut State) {
         // ★ P1 修复：换难度=开新局，必须清空上一局悔棋快照 + mode 快照，
         //   否则新局按 ↩ 会 undo 到上一局棋盘（整盘闪回错局）
-        self.undo_stack.clear();
+        self.clear_undo();
         self.mode_snap = mode;
         self.level = level;
         // ★ 业务对齐（规格 §5.3）：按 mode 真正重建开局棋盘
@@ -121,7 +126,7 @@ impl Ui {
     /// 新局弹窗"确定"→ 开局进对局（两人热座，vs_ai=false）
     pub fn newgame_confirm(&mut self, st: &mut State) {
         // ★ P1 修复：两人新局同样清悔棋栈（防跨局 undo 污染）
-        self.undo_stack.clear();
+        self.clear_undo();
         st.turn = crate::state::SIDE_BLUE;
         st.stage = crate::state::Stage::Play;
         st.winner = crate::state::Winner::None;
@@ -139,25 +144,47 @@ impl Ui {
         self.screen = self.screen_snap; // 确定后回原屏
     }
 
-    /// 走子/翻棋前 push 整盘快照（规格 §6）
+    /// 走子/翻棋前 push 整盘快照（规格 §6）；不传 replay 游标 → 哨兵（不回滚 replay）
     pub fn push_undo(&mut self, st: &State) {
+        self.push_undo_at(st, usize::MAX);
+    }
+
+    /// ★ RSAVE-001：push 整盘快照 + 同步记录当前复盘游标。悔棋时用 undo_with_rp
+    ///   把 Replay 同步回滚到动作前，消除"棋盘退了/replay 没退"的记录漂移。
+    pub fn push_undo_at(&mut self, st: &State, rp_cur: usize) {
         self.undo_stack.push(st.clone());
-        if self.undo_stack.len() > 64 { self.undo_stack.remove(0); } // 容量上限
+        self.undo_rp_cursors.push(rp_cur);
+        if self.undo_stack.len() > 64 {
+            self.undo_stack.remove(0);
+            if !self.undo_rp_cursors.is_empty() { self.undo_rp_cursors.remove(0); }
+        }
     }
 
     /// 悔棋：pop 快照 + 全字段恢复（规格 §6）
     pub fn undo(&mut self, st: &mut State) -> bool {
+        self.undo_with_rp(st).0
+    }
+
+    /// ★ RSAVE-001：悔棋 + 返回应恢复的复盘游标（Some=需回滚，哨兵 MAX=None）
+    pub fn undo_with_rp(&mut self, st: &mut State) -> (bool, Option<usize>) {
         if let Some(snap) = self.undo_stack.pop() {
             st.undo_restore(&snap);
-            true
-        } else { false }
+            let rp = self.undo_rp_cursors.pop().unwrap_or(usize::MAX);
+            (true, if rp == usize::MAX { None } else { Some(rp) })
+        } else { (false, None) }
+    }
+
+    /// ★ 所有清 undo_stack 的地方必须同步清游标栈，防两栈失配
+    pub fn clear_undo(&mut self) {
+        self.undo_stack.clear();
+        self.undo_rp_cursors.clear();
     }
 
     /// 终局"再来一局"→ 重开（规格 §10：stage==OVER 区）
     /// ★ 对齐 C jq_restart_game：随当前 mode 重载布局（明棋 +0xc / 暗棋 0xFF），
     ///   旧实现只清空 cells → 重开是空棋盘，玩家无子可走（真 bug）。
     pub fn restart(&mut self, st: &mut State) {
-        self.undo_stack.clear();
+        self.clear_undo();
         let mode = st.mode;
         let layout = [
             3u8,7,6,5,8, 10,0,9,0,1, 2,10,0,9,5,

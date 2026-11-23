@@ -71,6 +71,16 @@ impl Replay {
         self.cur = if cur > self.n { self.n } else { cur };
     }
 
+    /// ★ RSAVE-001：悔棋时把复盘序列截断到 cur（丢弃撤销步的记录）。
+    ///   与 cur_set 配套——只移游标不截断会让下次 record 追加到旧尾，seq 重复。
+    pub fn truncate_to(&mut self, cur: usize) {
+        let c = if cur > self.n { self.n } else { cur };
+        self.seq.truncate(c);
+        self.is_flip.truncate(c);
+        self.n = c;
+        self.cur = c;
+    }
+
     pub fn cur(&self) -> usize {
         self.cur
     }
@@ -565,5 +575,26 @@ mod save_roundtrip_tests {
         assert_eq!(cell_parts.len(), 3);
         parts[16] = format!("{},{},2", cell_parts[0], cell_parts[1]);
         assert!(deserialize_state(&parts.join("|")).is_none(), "revealed 越域应拒读");
+    }
+}
+
+#[cfg(test)]
+mod rsave001_tests {
+    use super::*;
+    #[test]
+    fn undo_replay_cursor_sync() {
+        let st = crate::state::State::new();
+        let mut rp = Replay::new(&st);
+        rp.record(6, 11, false); // 玩家步
+        rp.record(3, 8, false);  // AI 步
+        assert_eq!(rp.count(), 2);
+        // 模拟悔棋回到玩家动作前（cur=0）
+        let cur = 0;
+        rp.cur_set(cur);
+        rp.truncate_to(cur);
+        assert_eq!(rp.count(), 0, "悔棋后 replay 应回滚到 0 步");
+        rp.record(6, 11, false); // 再走
+        assert_eq!(rp.count(), 1, "再走后只应有 1 步，无重复");
+        assert_eq!(rp.seq[0], [6, 11]);
     }
 }

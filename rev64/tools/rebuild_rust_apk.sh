@@ -92,7 +92,10 @@ else
     if adb -s 10.0.182.152:5555 install -r "$OUTAPK" 2>&1 | grep -q "Success"; then
         log "装机 Success"
     else
+        # ★ 2026-11-22 审计 RTEST-006（P1）：装机失败旧版只 log 不置码 → 脚本仍 exit 0
+        #   "完成"，把装失败当成功。现置标志，末尾 exit 1（--no-install 模式不适用）。
         log "★ 装机失败（设备不可达/安装错误）——APK 已出，设备可达后手动 adb install"
+        INSTALL_FAILED=1
     fi
 fi
 
@@ -115,3 +118,6 @@ if [ "${1:-}" != "--no-install" ]; then
 fi
 
 log "完成：$OUTAPK（Rust so $(md5sum "$RSO" | cut -d' ' -f1)）"
+# ★ RTEST-006：装机失败必须让脚本非零退出（与 --no-install 软失败区分）
+[ "${INSTALL_FAILED:-0}" = "1" ] && { log "★ 脚本失败：装机未成功（APK 已出，未装机验证）"; exit 1; }
+exit 0
