@@ -361,7 +361,8 @@ mod imp {
                         let cell_h = (ah / 7) as usize;
                         let ph = (BG_ROW_H * (h as f32 / 1280.0) * 0.92) as usize;
                         let pw = if cell_h > 0 { (ph as f32 * cell_w as f32 / cell_h as f32) as usize } else { 0 };
-                        let base: [u8; 3] = if c.side == crate::state::SIDE_RED { [205,55,45] } else { [80,150,225] };
+                        // 兜底色取棋子图集实际色（红(222,132,51)/蓝(82,137,179)），贴图透明边露出时与原版一致
+                        let base: [u8; 3] = if c.side == crate::state::SIDE_RED { [222,132,51] } else { [82,137,179] };
                         let hidden = st.mode == crate::state::MODE_FLIP && !c.revealed;
                         let rank = u8::from(crate::state::rank_of(c)) as usize;
                         let idx = rank.saturating_sub(1).min(11);
@@ -476,14 +477,18 @@ mod imp {
                 text_rows(t, Tex::DiffText, th as usize, &rows, sx, sy);
             }
         }
-        // 复盘控制条
+        // ★ 复盘控制条 datah_107 真值（C ui_menu.c:427-441 + render.c:9744-9758）：
+        //   面板 460×60@(10,705)；5 按钮各 84×60 x=10/104/198/292/386 y=705-765；
+        //   5 色 菜单灰(115,115,140)/回退橙(217,102,51)/前进绿(51,166,89)/跳转紫(115,77,191)/返回蓝(51,115,230)。
+        //   旧实现条底[40,45,55]+5按钮全橙[230,128,38]是自创，本轮改真值。
         if screen == crate::ui::Screen::Replay {
-            let by0 = (h as f32 * 0.88) as usize;
-            let by1 = (h as f32 * 0.96) as usize;
-            t.fill((w as f32*0.05) as usize, by0, (w as f32*0.90) as usize, by1-by0, [40,45,55,255]);
-            for i in 0..5 {
-                t.fill((w as f32*(0.08 + i as f32*0.17)) as usize, by0+4,
-                       (w as f32*0.14) as usize, by1-by0-8, [230,128,38,255]);
+            t.fill((10.0f32*sx) as usize, (705.0f32*sy) as usize,
+                   (460.0f32*sx) as usize, (60.0f32*sy) as usize, [26,26,36,235]); // 条底深色
+            let colors: [[u8;3];5] = [[115,115,140],[217,102,51],[51,166,89],[115,77,191],[51,115,230]];
+            for (i, col) in colors.iter().enumerate() {
+                let bx = [10.0f32, 104.0, 198.0, 292.0, 386.0][i];
+                t.fill((bx*sx) as usize, (705.0f32*sy) as usize,
+                       (84.0f32*sx) as usize, (60.0f32*sy) as usize, [col[0],col[1],col[2],230]);
             }
         }
         // 终局覆盖（rs_draw_overlay 真值）

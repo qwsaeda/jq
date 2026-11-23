@@ -166,7 +166,9 @@ print(len(cols))
     check_gpu(){ local tag=$1
       wait_prop jq.gpu_state render_ok && log "PASS GPU 渲染管线出图 ($tag: render_ok)" || {
         log "FAIL GPU 未出图 ($tag: $(adb -s "$DEV" shell getprop jq.gpu_state 2>/dev/null | tr -d '\r') / err=$(adb -s "$DEV" shell getprop jq.gpu_err 2>/dev/null | tr -d '\r'))"; fail=1; }
+      # ★ 重试必须【重新截图】——旧实现读固定文件，重试 8 次读同一张黑图永远不过（flaky 假 FAIL）
       local n=0 c=0; while [ $n -lt 8 ]; do
+        adb -s "$DEV" exec-out screencap -p > "/tmp/jq_ra_${tag}.png" 2>/dev/null
         c=$(check_scene_colors "$tag" 2>/dev/null); [ -n "$c" ] && [ "$c" -ge 6 ] && break
         sleep 1; n=$((n+1)); done
       awk -v v="$c" 'BEGIN{exit !(v+0 >= 6)}' && log "PASS 场景真实几何 ($tag: $c 色)" || {
