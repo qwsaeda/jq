@@ -24,8 +24,8 @@ CHECKS = [
      lambda r, g, b: r > 200 and g > 150 and b < 80, 400),
     ("ingame", "☰菜单半透明深面板", (400, 700, 650, 780),
      lambda r, g, b: r < 60 and g < 60 and b < 60, 6000),
-    ("difficulty", "难度弹窗蓝紫按钮", (362, 621, 512, 696),
-     lambda r, g, b: b > 180 and 70 < r < 130 and 70 < g < 130, 3000),
+    ("difficulty", "难度布局按钮=原版蓝(58,103,189)", (362, 621, 512, 696),
+     lambda r, g, b: 50 <= r <= 66 and 95 <= g <= 111 and 181 <= b <= 197, 3000),
     ("gameset", "游戏设置确定=原版蓝按钮", (206, 991, 431, 1066),
      lambda r, g, b: b > 180 and r < 100 and g < 160, 3000),
 ]

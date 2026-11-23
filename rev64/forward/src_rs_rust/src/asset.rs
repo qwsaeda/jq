@@ -375,9 +375,9 @@ mod imp {
         if screen == crate::ui::Screen::GameSet {
             let p = &crate::ui::SETTINGS_PANEL;
             t.fill((p.x as f32*sx) as usize, (p.y as f32*sy) as usize,
-                   (p.w as f32*sx) as usize, (p.h as f32*sy) as usize, [42,40,38,255]);
+                   (p.w as f32*sx) as usize, (p.h as f32*sy) as usize, [45,45,45,255]);
             for (i, &(x0,y0,x1,y1)) in crate::ui::GAMESET_BTNS_ORIG.iter().enumerate() {
-                let c = if i == 4 { [60,110,200,255] } else if i == 5 { [145,145,150,255] } else { [65,175,125,255] };
+                let c = if i == 4 { [58,103,189,255] } else if i == 5 { [160,160,160,255] } else { [80,190,140,255] };
                 t.fill((x0 as f32*sx) as usize, (y0 as f32*sy) as usize, ((x1-x0) as f32*sx) as usize, ((y1-y0) as f32*sy) as usize, c);
             }
             if let Some(&(_, _, th)) = texture_rgba(Tex::GameSetText) {
@@ -396,9 +396,9 @@ mod imp {
         if screen == crate::ui::Screen::Settings {
             let p = &crate::ui::SETTINGS_PANEL_ORIG;
             t.fill((p.x as f32*sx) as usize, (p.y as f32*sy) as usize,
-                   (p.w as f32*sx) as usize, (p.h as f32*sy) as usize, [42,40,38,255]);
+                   (p.w as f32*sx) as usize, (p.h as f32*sy) as usize, [45,45,45,255]);
             for (i, &(x0,y0,x1,y1)) in crate::ui::SETTINGS_BTNS_ORIG.iter().enumerate() {
-                let c = if i == 3 { [60,110,200,255] } else if i == 4 { [145,145,150,255] } else { [65,175,125,255] };
+                let c = if i == 3 { [58,103,189,255] } else if i == 4 { [160,160,160,255] } else { [80,190,140,255] };
                 t.fill((x0 as f32*sx) as usize, (y0 as f32*sy) as usize, ((x1-x0) as f32*sx) as usize, ((y1-y0) as f32*sy) as usize, c);
             }
             if let Some(&(_, _, th)) = texture_rgba(Tex::SoundText) {
@@ -439,9 +439,9 @@ mod imp {
         }
         // 两人新局弹窗 datah_062
         if screen == crate::ui::Screen::NewGame {
-            t.fill((135.0*sx) as usize, (482.0*sy) as usize, (450.0*sx) as usize, (315.0*sy) as usize, [42,40,38,255]);
+            t.fill((135.0*sx) as usize, (482.0*sy) as usize, (450.0*sx) as usize, (315.0*sy) as usize, [45,45,45,255]);
             for (i, &(x0,y0,x1,y1)) in crate::ui::NEWGAME_BTNS_ORIG.iter().enumerate() {
-                let c = if i == 0 { [60,110,200,255] } else if i == 1 { [145,145,150,255] } else { [95,95,215,255] };
+                let c = if i == 0 { [58,103,189,255] } else if i == 1 { [160,160,160,255] } else { [95,95,215,255] };
                 t.fill((x0 as f32*sx) as usize, (y0 as f32*sy) as usize, ((x1-x0) as f32*sx) as usize, ((y1-y0) as f32*sy) as usize, c);
             }
             if let Some(&(_, _, th)) = texture_rgba(Tex::NewGameText) {
@@ -455,9 +455,11 @@ mod imp {
         if screen == crate::ui::Screen::Difficulty {
             let p = crate::ui::DIFFICULTY_PANEL;
             t.fill((p.x as f32*sx) as usize, (p.y as f32*sy) as usize,
-                   (p.w as f32*sx) as usize, (p.h as f32*sy) as usize, [32,30,28,255]);
-            for &(x0,y0,x1,y1) in crate::ui::DIFF_BTNS_ORIG.iter() {
-                t.fill((x0 as f32*sx) as usize, (y0 as f32*sy) as usize, ((x1-x0) as f32*sx) as usize, ((y1-y0) as f32*sy) as usize, [95,95,215,255]);
+                   (p.w as f32*sx) as usize, (p.h as f32*sy) as usize, [40,40,40,255]);
+            // ★ 原版配色（difficulty_orig_vs_fw.png 左半实锤）：布局列蓝(58,103,189) / 翻棋列紫(128,80,190)
+            for (i, &(x0,y0,x1,y1)) in crate::ui::DIFF_BTNS_ORIG.iter().enumerate() {
+                let c = if i % 2 == 0 { [58,103,189,255] } else { [128,80,190,255] };
+                t.fill((x0 as f32*sx) as usize, (y0 as f32*sy) as usize, ((x1-x0) as f32*sx) as usize, ((y1-y0) as f32*sy) as usize, c);
             }
             if let Some(&(_, _, th)) = texture_rgba(Tex::DiffText) {
                 let mut rows = Vec::new();
@@ -496,7 +498,7 @@ mod imp {
         }
         // 退出确认 datah_025
         if screen == crate::ui::Screen::ExitConfirm {
-            t.fill((135.0*sx) as usize, (530.0*sy) as usize, (450.0*sx) as usize, (220.0*sy) as usize, [42,40,38,255]);
+            t.fill((135.0*sx) as usize, (530.0*sy) as usize, (450.0*sx) as usize, (220.0*sy) as usize, [45,45,45,255]);
             for &(rect, r, g, b) in &[
                 (crate::ui::EXIT_BTN_QUIT, 60u8, 110u8, 200u8),
                 (crate::ui::EXIT_BTN_STAY, 145u8, 145u8, 150u8),
@@ -514,7 +516,7 @@ mod imp {
         if screen == crate::ui::Screen::Stats {
             let px0 = (135.0*sx) as usize;
             let py0 = (300.0*sy) as usize;
-            t.fill(px0, py0, (450.0*sx) as usize, (680.0*sy) as usize, [32,30,28,255]);
+            t.fill(px0, py0, (450.0*sx) as usize, (680.0*sy) as usize, [40,40,40,255]);
             if let Some(st) = stats {
                 let colors: [[u8;3];7] = [[60,180,75],[200,80,80],[230,150,40],[80,150,225],
                                           [200,90,180],[90,200,200],[160,160,160]];

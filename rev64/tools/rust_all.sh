@@ -80,6 +80,12 @@ if [ "$QUICK" = 0 ]; then
   log "=== [4c] rule_probe_bridge（原版11 case→生产规则函数）==="
   RP=$(cd "$RUST" && cargo test --release --test rule_probe_bridge 2>&1)
   echo "$RP" | grep -q 'test result: ok' && log "PASS 生产规则对齐原版11 case（rprobe 补盲）" || { echo "$RP" | tail -8; log "FAIL rule_probe_bridge"; fail=1; }
+  # ★ 轮8：弹窗配色原版真值校验（UI 元素非自创色值，取自原版 datah 渲染截图实采样）
+  log "=== [4d] ui_color_check（弹窗配色对齐原版真值）+ ui_offline_check（锚点）==="
+  UC=$(python3 "$WS/rev64/tools/ui_color_check.py" 2>&1); UC_RC=$?
+  [ $UC_RC -eq 0 ] && log "PASS $(echo "$UC" | tail -1)" || { echo "$UC"; log "FAIL ui_color_check"; fail=1; }
+  UO=$(python3 "$WS/rev64/tools/ui_offline_check.py" 2>&1); UO_RC=$?
+  [ $UO_RC -eq 0 ] && log "PASS $(echo "$UO" | tail -1)" || { echo "$UO"; log "FAIL ui_offline_check"; fail=1; }
   log "=== [4b] rust_geom_check（几何6函数 950 case）+ rp_desktop_compare（32/64双端36 case）==="
   G=$(python3 "$WS/rev64/tools/rust_geom_check.py" 2>&1); GR=$?
   if [ $GR -eq 0 ] && echo "$G" | grep -q '判定: PASS'; then
