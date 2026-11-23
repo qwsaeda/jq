@@ -19,44 +19,24 @@ pub(crate) struct Quad {
 }
 
 /// 收集 asset::build_scene 发出的所有绘制指令，供 GPU 一次性上传/绘制
+#[derive(Default)]
 pub(crate) struct QuadTarget {
     pub(crate) quads: Vec<Quad>,
-    #[allow(dead_code)]
-    w: usize,
-    #[allow(dead_code)]
-    h: usize,
 }
 
-impl QuadTarget {
-    pub(crate) fn new(w: usize, h: usize) -> Self {
-        Self { quads: Vec::new(), w, h }
+/// 同一纹理且连续的 quad 合并为一次 draw（减少 draw call，保持图层顺序）
+/// 返回 (纹理, quad 起始索引, quad 数量)——GPU 侧据此算顶点 buffer slice 偏移
+pub(crate) fn quad_batches(quads: &[Quad]) -> Vec<(Tex, usize, usize)> {
+    let mut out: Vec<(Tex, usize, usize)> = Vec::new();
+    let mut i = 0;
+    while i < quads.len() {
+        let tex = quads[i].tex;
+        let mut j = i + 1;
+        while j < quads.len() && quads[j].tex == tex { j += 1; }
+        out.push((tex, i, j - i));
+        i = j;
     }
-
-    /// 同一纹理且连续的 quad 合并为一次 draw（减少 draw call，保持图层顺序）
-    pub(crate) fn batches(&self) -> Vec<(Tex, &[Quad])> {
-        let mut out: Vec<(Tex, &[Quad])> = Vec::new();
-        for q in &self.quads {
-            if let Some(last) = out.last_mut() {
-                if last.0 == q.tex {
-                    // 同一纹理连续段：用 slice 扩展（借由索引区间重建）
-                    continue;
-                }
-            }
-            out.push((q.tex, std::slice::from_ref(q)));
-        }
-        // 上面只取首个元素，改成索引区间分组（保持顺序 + 零拷贝）
-        let mut res: Vec<(Tex, &[Quad])> = Vec::new();
-        let mut i = 0;
-        while i < self.quads.len() {
-            let tex = self.quads[i].tex;
-            let mut j = i + 1;
-            while j < self.quads.len() && self.quads[j].tex == tex { j += 1; }
-            res.push((tex, &self.quads[i..j]));
-            i = j;
-        }
-        let _ = out;
-        res
-    }
+    out
 }
 
 impl asset::DrawTarget for QuadTarget {
@@ -109,7 +89,7 @@ pub(crate) fn scene_quads(w: usize, h: usize,
                    board: Option<&crate::state::State>,
                    screen: crate::ui::Screen,
                    stats: Option<&crate::evt::EventCounter>) -> Vec<Quad> {
-    let mut t = QuadTarget::new(w, h);
+    let mut t = QuadTarget::default();
     asset::build_scene(&mut t, w, h, board, screen, stats);
     t.quads
 }
@@ -146,6 +126,31 @@ mod tests {
         let pieces = q.iter().filter(|x| x.tex == Tex::PieceFront || x.tex == Tex::PieceBack).count();
         assert_eq!(pieces, n, "棋子 quad 数必须等于棋盘非空子数");
     }
+    #[test]
+    fn gpu_prewarm_covers_all_tex_variants() {
+        // ★ 防静默降级（CODE_STYLE §9）：asset::Tex 每加一个变体，gpu.rs 的 ALL_TEX 必须同步预热，
+        //   否则该纹理的 quad 在 build_vertices 取不到尺寸 → GPU 帧失败 → 静默回落 CPU。
+        let asset = include_str!("../asset.rs");
+        let gpu = include_str!("gpu.rs");
+        let enum_body = asset
+            .split("pub(crate) enum Tex {")
+            .nth(1)
+            .and_then(|s| s.split('}').next())
+            .expect("Tex 枚举存在");
+        let variants: Vec<&str> = enum_body
+            .lines()
+            .map(|l| l.split("//").next().unwrap_or("").trim().trim_end_matches(',').trim())
+            .filter(|n| !n.is_empty() && n.chars().next().map(|c| c.is_ascii_uppercase()).unwrap_or(false))
+            .collect();
+        assert!(variants.len() >= 15, "Tex 变体数异常: {}", variants.len());
+        let all_tex = gpu.split("const ALL_TEX: &[Tex] = &[").nth(1)
+            .and_then(|s| s.split("];").next()).expect("ALL_TEX 存在");
+        for v in variants {
+            assert!(all_tex.contains(&format!("Tex::{}", v)),
+                    "纹理 {} 未加入 gpu.rs ALL_TEX（会导致该屏态静默降级 CPU）", v);
+        }
+    }
+
     #[test]
     fn dim_is_black_alpha_overlay() {
         let layout = [3u8,7,6,5,8, 10,0,9,0,1, 2,10,0,9,5,

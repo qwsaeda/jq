@@ -309,20 +309,14 @@ impl GpuRenderer {
             });
             pass.set_pipeline(&self.pipeline);
             // 按纹理连续段分组提交（保持图层顺序 + 减少 bind/draw 次数）
-            let mut groups: Vec<(Tex, usize, usize)> = Vec::new(); // (tex, vert_start, vert_count)
-            let mut i = 0;
-            while i < quads.len() {
-                let tex = quads[i].tex;
-                let start = i;
-                while i < quads.len() && quads[i].tex == tex { i += 1; }
-                groups.push((tex, start * 6, (i - start) * 6));
-            }
-            for (tex, vs, vc) in groups {
+            for (tex, start, count) in super::quad::quad_batches(quads) {
                 let Some(bg) = self.bind_groups.get(&tex) else {
                     setprop("jq.gpu_err", "missing_bindgroup");
                     return None;
                 };
                 pass.set_bind_group(0, bg, &[]);
+                let vs = start * 6;
+                let vc = count * 6;
                 let off = (vs * std::mem::size_of::<Vertex>()) as u64;
                 let len = (vc * std::mem::size_of::<Vertex>()) as u64;
                 pass.set_vertex_buffer(0, self.vbuf.slice(off..off + len));
@@ -410,11 +404,17 @@ impl GpuRenderer {
     }
 }
 
+/// ★ 必须与 asset::Tex 全量同步：新增纹理未预热 → build_vertices 取不到尺寸 →
+///   该帧 GPU 渲染失败并静默降级 CPU（CODE_STYLE §9 静默降级假绿）。
+///   asset.rs 增加 Tex 变体时，此处必须同补（编译期靠 exhaustiveness 无法保证，靠注释纪律 + 测试）。
 const ALL_TEX: &[Tex] = &[
     Tex::White, Tex::BoardBg, Tex::MenuBg, Tex::MenuBig, Tex::MenuSmall, Tex::House,
-    Tex::PieceFront, Tex::PieceBack, Tex::ImenIcons, Tex::ImenText,
+    Tex::PieceFront, Tex::PieceBack, Tex::ImenIcons, Tex::ImenText, Tex::ImenHamburger,
     Tex::DiffText, Tex::GameSetText, Tex::NewGameText, Tex::ExitText, Tex::SoundText,
+    Tex::GameInfoText,
 ];
+
+
 
 /// 渲染一帧的便捷入口：GPU 失败时返回 None（调用方按 jq.gpu_state 决定是否降级）
 pub(crate) fn render_scene(r: &mut GpuRenderer, w: u32, h: u32,
