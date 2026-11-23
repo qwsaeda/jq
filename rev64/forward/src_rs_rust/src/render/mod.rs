@@ -22,7 +22,7 @@ pub(crate) mod gpu;
 pub fn _render_desktop_noop() {}
 
 #[cfg(target_os = "android")]
-pub use gles::gles_render::{view_to_cell, RenderCtx};
+pub use gles::gles_render::view_to_cell;
 // 平台无关触摸基准坐标（供桌面测试/逻辑复用；生产 view_to_cell 内部也用同一真值）
 pub use coord::touch_base_coord;
 #[cfg(test)]

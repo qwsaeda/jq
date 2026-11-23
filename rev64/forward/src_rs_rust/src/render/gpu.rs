@@ -63,10 +63,38 @@ pub(crate) struct GpuRenderer {
     readback_bytes: u64,
 }
 
+/// 获取 wgpu gles device/queue（原 RenderCtx::create_wgpu_device，随死路径清理迁入本模块）
+fn create_wgpu_device() -> Option<(wgpu::Device, wgpu::Queue)> {
+    use pollster::FutureExt;
+    let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
+        backends: wgpu::Backends::GL, // gles 后端，对齐 WGPU_RENDER_DESIGN §1
+        flags: wgpu::InstanceFlags::default(),
+        memory_budget_thresholds: wgpu::MemoryBudgetThresholds::default(),
+        backend_options: wgpu::BackendOptions::default(),
+        display: None,
+    });
+    let adapter = instance
+        .request_adapter(&wgpu::RequestAdapterOptions {
+            power_preference: wgpu::PowerPreference::LowPower,
+            force_fallback_adapter: false,
+            compatible_surface: None,
+            apply_limit_buckets: false,
+        })
+        .block_on().ok()?;
+    adapter.request_device(&wgpu::DeviceDescriptor {
+        label: Some("junqi-rs"),
+        required_features: wgpu::Features::empty(),
+        required_limits: wgpu::Limits::default(),
+        experimental_features: wgpu::ExperimentalFeatures::default(),
+        memory_hints: wgpu::MemoryHints::default(),
+        trace: wgpu::Trace::default(),
+    }).block_on().ok()
+}
+
 impl GpuRenderer {
     /// 创建 device + pipeline + 纹理（app 生命周期内一次），失败返回 None（调用方降级 CPU）
     pub(crate) fn init() -> Option<Self> {
-        let (device, queue) = match crate::render::RenderCtx::create_wgpu_device() {
+        let (device, queue) = match create_wgpu_device() {
             Some(v) => v,
             None => { setprop("jq.gpu_state", "device_fail"); return None; }
         };
