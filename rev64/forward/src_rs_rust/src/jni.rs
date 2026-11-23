@@ -28,7 +28,9 @@ mod android_impl {
         if act == 0 { return; }
         if let Ok(mut je) = unsafe { jni::JNIEnv::from_raw(env) } {
             let ctx = unsafe { jni::objects::JObject::from_raw(act as jni::sys::jobject) };
-            let _ = crate::sfx::play(&mut je, &ctx, name);
+            // ★ 音量路由（RJNI-004 续）：从 Ui 读 volume（锁外播放，不持 GAME 锁）
+            let volume = with_lock(|_st, u, _c| u.volume);
+            let _ = crate::sfx::play(&mut je, &ctx, name, volume);
             // ★ 双保险：音效链路任何残留异常必须在此清掉，绝不带给后续 JNI 调用（否则 abort）
             if je.exception_check().unwrap_or(false) { let _ = je.exception_clear(); }
         }
@@ -593,6 +595,16 @@ mod android_impl {
                 });
                 if let Some(which) = hit {
                     crate::log::setprop("jq.menu_hit", which);
+                    // ★ 音频路由落地（原版 sound.xml Ui SoundSet + BtnSound 开关）：
+                    //   菜单按钮点击播 Ui 音效，受 btn_sound_on 控制 + sound_on 总静音。
+                    //   原版 sound.xml 列 Click/Close/Pop，但 SPAK 解包无 click.wav（仅 close/pop），
+                    //   用已内嵌的 pop（弹窗/按钮音，语义最近）替代，不臆造缺失资源。
+                    //   锁内快读状态 → 锁外播 JNI（严禁持 GAME 锁调 JNI 阻塞渲染线程）。
+                    let ui_sfx = with_lock(|_st, u, _c| (u.btn_sound_on, u.sound_on, u.volume));
+                    if ui_sfx.0 && ui_sfx.1 {
+                        let _ = crate::sfx::play(&mut je, &ev, "pop", ui_sfx.2);
+                        if je.exception_check().unwrap_or(false) { let _ = je.exception_clear(); }
+                    }
                     return 1;
                 }
                 return 0;
