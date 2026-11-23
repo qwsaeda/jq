@@ -332,6 +332,35 @@ mod imp {
         }
     }
 
+    /// ★ 原版弹窗皮肤（C rs_popup_shell:4024-4110 真值）：全屏黑遮罩 alpha0.35
+    ///   + 米色渐变面板（datax_188 采样：顶228,212,183 / 中207,180,132 / 底176,151,113）
+    ///   + 深色细边框。原版弹窗是浅底黑字（datah_012 Title color=black 佐证），
+    ///
+    /// 旧的纯深灰面板 [45,45,45] 是瞎渲染，本 helper 统一替换。
+    #[allow(clippy::too_many_arguments)]
+    fn popup_shell<T: DrawTarget>(t: &mut T, w: usize, h: usize,
+                                  px: f32, py: f32, pw: f32, ph: f32, sx: f32, sy: f32) {
+        // ① 全屏模态遮罩（黑 alpha 0.35）
+        t.dim(0, 0, w, h, 255 * 65 / 100, 255); // dim(num,den) → RGB×num/den，65%=压暗到35%
+        // ② 米色渐变面板三段（0-15% 顶 / 15-85% 中 / 85-100% 底）
+        let x0 = (px * sx) as usize; let y0 = (py * sy) as usize;
+        let pw2 = (pw * sx) as usize; let ph2 = (ph * sy) as usize;
+        let bands: [(f32, f32, [u8;3]); 3] = [
+            (0.0, 0.15, [228,212,183]), (0.15, 0.85, [207,180,132]), (0.85, 1.0, [176,151,113]),
+        ];
+        for &(f0, f1, c) in &bands {
+            let by0 = y0 + (ph2 as f32 * f0) as usize;
+            let by1 = y0 + (ph2 as f32 * f1) as usize;
+            t.fill(x0, by0, pw2, by1 - by0, [c[0], c[1], c[2], 255]);
+        }
+        // ③ 深色细边框（2px，原版面板轮廓）
+        let bd = (2.0 * sx) as usize;
+        t.fill(x0, y0, pw2, bd, [89,71,46,255]);
+        t.fill(x0, y0 + ph2 - bd, pw2, bd, [89,71,46,255]);
+        t.fill(x0, y0, bd, ph2, [89,71,46,255]);
+        t.fill(x0 + pw2 - bd, y0, bd, ph2, [89,71,46,255]);
+    }
+
     /// 场景布局唯一真值（CPU/GPU 共用）。坐标口径：画布 w×h（当前 450×800），基准 720×1280。
     pub(crate) fn build_scene<T: DrawTarget>(t: &mut T, w: usize, h: usize,
                                              board: Option<&crate::state::State>,
@@ -389,8 +418,7 @@ mod imp {
         // 游戏设置 datah_012
         if screen == crate::ui::Screen::GameSet {
             let p = &crate::ui::SETTINGS_PANEL;
-            t.fill((p.x as f32*sx) as usize, (p.y as f32*sy) as usize,
-                   (p.w as f32*sx) as usize, (p.h as f32*sy) as usize, [45,45,45,255]);
+            popup_shell(t, w, h, p.x as f32, p.y as f32, p.w as f32, p.h as f32, sx, sy);
             for (i, &(x0,y0,x1,y1)) in crate::ui::GAMESET_BTNS_ORIG.iter().enumerate() {
                 let c = if i == 4 { [58,103,189,255] } else if i == 5 { [160,160,160,255] } else { [80,190,140,255] };
                 t.fill((x0 as f32*sx) as usize, (y0 as f32*sy) as usize, ((x1-x0) as f32*sx) as usize, ((y1-y0) as f32*sy) as usize, c);
@@ -410,8 +438,7 @@ mod imp {
         // 声音设置 datah_001
         if screen == crate::ui::Screen::Settings {
             let p = &crate::ui::SETTINGS_PANEL_ORIG;
-            t.fill((p.x as f32*sx) as usize, (p.y as f32*sy) as usize,
-                   (p.w as f32*sx) as usize, (p.h as f32*sy) as usize, [45,45,45,255]);
+            popup_shell(t, w, h, p.x as f32, p.y as f32, p.w as f32, p.h as f32, sx, sy);
             for (i, &(x0,y0,x1,y1)) in crate::ui::SETTINGS_BTNS_ORIG.iter().enumerate() {
                 let c = if i == 3 { [58,103,189,255] } else if i == 4 { [160,160,160,255] } else { [80,190,140,255] };
                 t.fill((x0 as f32*sx) as usize, (y0 as f32*sy) as usize, ((x1-x0) as f32*sx) as usize, ((y1-y0) as f32*sy) as usize, c);
@@ -454,7 +481,7 @@ mod imp {
         }
         // 两人新局弹窗 datah_062
         if screen == crate::ui::Screen::NewGame {
-            t.fill((135.0*sx) as usize, (482.0*sy) as usize, (450.0*sx) as usize, (315.0*sy) as usize, [45,45,45,255]);
+            popup_shell(t, w, h, 135.0, 482.0, 450.0, 315.0, sx, sy);
             for (i, &(x0,y0,x1,y1)) in crate::ui::NEWGAME_BTNS_ORIG.iter().enumerate() {
                 let c = if i == 0 { [58,103,189,255] } else if i == 1 { [160,160,160,255] } else { [95,95,215,255] };
                 t.fill((x0 as f32*sx) as usize, (y0 as f32*sy) as usize, ((x1-x0) as f32*sx) as usize, ((y1-y0) as f32*sy) as usize, c);
@@ -469,8 +496,7 @@ mod imp {
         // 人机难度弹窗 datah_041
         if screen == crate::ui::Screen::Difficulty {
             let p = crate::ui::DIFFICULTY_PANEL;
-            t.fill((p.x as f32*sx) as usize, (p.y as f32*sy) as usize,
-                   (p.w as f32*sx) as usize, (p.h as f32*sy) as usize, [40,40,40,255]);
+            popup_shell(t, w, h, p.x as f32, p.y as f32, p.w as f32, p.h as f32, sx, sy);
             // ★ 原版配色（difficulty_orig_vs_fw.png 左半实锤）：布局列蓝(58,103,189) / 翻棋列紫(128,80,190)
             for (i, &(x0,y0,x1,y1)) in crate::ui::DIFF_BTNS_ORIG.iter().enumerate() {
                 let c = if i % 2 == 0 { [58,103,189,255] } else { [128,80,190,255] };
@@ -517,7 +543,7 @@ mod imp {
         }
         // 退出确认 datah_025
         if screen == crate::ui::Screen::ExitConfirm {
-            t.fill((135.0*sx) as usize, (530.0*sy) as usize, (450.0*sx) as usize, (220.0*sy) as usize, [45,45,45,255]);
+            popup_shell(t, w, h, 135.0, 530.0, 450.0, 220.0, sx, sy);
             for &(rect, r, g, b) in &[
                 (crate::ui::EXIT_BTN_QUIT, 60u8, 110u8, 200u8),
                 (crate::ui::EXIT_BTN_STAY, 145u8, 145u8, 150u8),
@@ -537,7 +563,7 @@ mod imp {
         //   旧实现是自创柱状图（非原版 UI），本轮按 datah_050 真值重建。
         if screen == crate::ui::Screen::Stats {
             let px = 150.0f32; let py = 450.0f32;
-            t.fill((px*sx) as usize, (py*sy) as usize, (420.0*sx) as usize, (380.0*sy) as usize, [45,45,45,255]);
+            popup_shell(t, w, h, px, py, 420.0, 380.0, sx, sy);
             // Info 文本框（半透明深色，显示 event 统计摘要数字）
             t.fill(((px+30.0)*sx) as usize, ((py+75.0)*sy) as usize,
                    (360.0*sx) as usize, (210.0*sy) as usize, [30,30,30,255]);
